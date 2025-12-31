@@ -1,0 +1,77 @@
+---
+alwaysApply: true
+---
+
+# PROJECT VISION: LIMIQUANTIX
+**Goal:** Build a "VMware Killer" — a distributed virtualization platform that is modern, fast, and easy to use.
+
+## The Market Opportunity
+The Broadcom acquisition of VMware has created a **vacuum in the virtualization market**. The incumbents are:
+- **Expensive**: Nutanix
+- **Complex**: OpenStack
+- **Limited**: Proxmox (lacks enterprise features)
+
+**Our Sweet Spot:** The simplicity of Proxmox + the enterprise capabilities of vSphere.
+
+## Core Philosophy
+1. **Simplicity:** A user must be able to spin up a HA cluster in **under 10 minutes** (ideally 5).
+2. **Performance:** The platform overhead must be **<1% of host resources**.
+3. **Robustness:** The system assumes hardware *will* fail. It must **self-heal** (auto-restart VMs, re-balance storage).
+4. **API-First:** Every feature must be an API call first. Terraform-native mindset.
+
+## What We're Building
+This is not just a "program" — this is a **Distributed Operating System** for virtualization.
+
+### The Three Pillars:
+1. **Compute Engine (Hypervisor)**: KVM + Cloud Hypervisor (Rust) for modern, secure VM execution
+2. **Control Plane**: Distributed system (Go + Etcd) for cluster management, scheduling, and state
+3. **Guest Agent**: Rust-based agent for deep VM integration, telemetry, and self-healing
+
+## Competitive Differentiation
+We win by being:
+
+### 1. UX/UI First
+- VMware is **clunky**
+- Proxmox is **ugly**
+- **We build beautiful**: Consumer-grade UI (think Vercel/Linear aesthetics)
+- React + Tailwind + Framer Motion
+
+### 2. API First
+- VMware's automation is **painful**
+- Every feature is an **API call first**
+- Terraform Provider from Day 1
+
+### 3. One-Click Clustering
+- The hardest part of VMware/Proxmox is HA setup
+- **Our Goal**: Plug in 3 servers → Run one command → Fully HA cluster in **5 minutes**
+
+### 4. The "Magic" Agent
+Our agent does things VMware's can't:
+- **Self-healing**: Detect crashed services inside VMs and auto-restart
+- **Real-time telemetry**: Actual RAM/disk usage (not just allocated)
+- **Filesystem quiescing**: Database-safe snapshots
+- **Works offline**: Uses virtio-serial, not network-dependent
+
+## The Adversary
+We are replacing **VMware vSphere**. We must be:
+- ✅ **Cheaper** (open-source core, enterprise support model)
+- ✅ **Faster** (Rust/Go, modern architecture, <1% overhead)
+- ✅ **Better UI** (consumer-grade experience)
+- ✅ **Easier** (5-minute HA cluster setup vs. days)
+
+## Success Metrics
+- **Time to HA Cluster**: < 10 minutes (target: 5 minutes)
+- **Platform Overhead**: < 1% of host resources
+- **MTTR (Mean Time to Recovery)**: < 60 seconds for VM failover
+- **UI Performance**: < 100ms API response times, 60fps dashboard
+
+## The Smart Play
+We are **NOT** writing a hypervisor from scratch. That requires 100+ kernel engineers and 5+ years.
+
+Instead, we follow **Google, AWS, and Nutanix**: Wrap standard Linux subsystems (KVM, Ceph, OVN) into a cohesive, beautiful, API-first platform.
+
+**Innovation happens in**:
+- The control plane (scheduling, orchestration)
+- The agent (deep guest integration)
+- The UX (making complexity invisible)
+- The automation (one-click everything)

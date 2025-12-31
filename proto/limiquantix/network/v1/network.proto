@@ -1,0 +1,732 @@
+syntax = "proto3";
+
+package limiquantix.network.v1;
+
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/network/v1;networkv1";
+
+import "google/protobuf/timestamp.proto";
+
+// =============================================================================
+// VIRTUAL NETWORK - Logical Network
+// =============================================================================
+
+// VirtualNetwork represents a software-defined network (SDN) for VMs.
+// Built on OVN (Open Virtual Network) for distributed, scalable networking.
+message VirtualNetwork {
+  // Immutable unique identifier (UUIDv4)
+  string id = 1;
+  
+  // User-friendly name (e.g., "production-backend")
+  string name = 2;
+  
+  // Project isolation
+  string project_id = 3;
+  
+  // Description
+  string description = 4;
+  
+  // Labels for organization
+  map<string, string> labels = 5;
+  
+  // Network specification
+  VirtualNetworkSpec spec = 6;
+  
+  // Current status
+  VirtualNetworkStatus status = 7;
+  
+  // Audit trail
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// =============================================================================
+// VIRTUAL NETWORK SPECIFICATION
+// =============================================================================
+
+message VirtualNetworkSpec {
+  // Network type
+  enum NetworkType {
+    OVERLAY = 0;     // OVN overlay (Geneve encapsulation)
+    VLAN = 1;        // VLAN-based network
+    EXTERNAL = 2;    // Direct external connectivity
+    ISOLATED = 3;    // No external access
+  }
+  NetworkType type = 1;
+  
+  // IP addressing
+  IpAddressManagement ip_config = 2;
+  
+  // VLAN configuration (for VLAN type)
+  VlanConfig vlan = 3;
+  
+  // Router configuration (for inter-network routing)
+  RouterConfig router = 4;
+  
+  // MTU (default 1500)
+  uint32 mtu = 5;
+  
+  // DNS configuration
+  DnsConfig dns = 6;
+  
+  // Default security group for new ports
+  string default_security_group_id = 7;
+  
+  // Enable port security (anti-spoofing)
+  bool port_security_enabled = 8;
+}
+
+message IpAddressManagement {
+  // IPv4 subnet (e.g., "10.0.1.0/24")
+  string ipv4_subnet = 1;
+  
+  // IPv4 gateway
+  string ipv4_gateway = 2;
+  
+  // IPv6 subnet (optional)
+  string ipv6_subnet = 3;
+  string ipv6_gateway = 4;
+  
+  // DHCP configuration
+  DhcpConfig dhcp = 5;
+  
+  // IP ranges for allocation
+  repeated IpRange allocation_pools = 6;
+  
+  // Reserved IPs (excluded from DHCP)
+  repeated string reserved_ips = 7;
+}
+
+message DhcpConfig {
+  bool enabled = 1;
+  
+  // DHCP options
+  uint32 lease_time_sec = 2;
+  repeated string dns_servers = 3;
+  repeated string ntp_servers = 4;
+  string domain_name = 5;
+  
+  // Static DHCP bindings
+  repeated DhcpBinding static_bindings = 6;
+}
+
+message DhcpBinding {
+  string mac_address = 1;
+  string ip_address = 2;
+  string hostname = 3;
+}
+
+message IpRange {
+  string start = 1;
+  string end = 2;
+}
+
+message VlanConfig {
+  // VLAN ID (1-4094)
+  uint32 vlan_id = 1;
+  
+  // Parent physical network
+  string physical_network = 2;
+}
+
+message RouterConfig {
+  // Enable routing for this network
+  bool enabled = 1;
+  
+  // Connect to external network via router
+  string external_gateway_network_id = 2;
+  
+  // SNAT for outbound traffic
+  bool enable_snat = 3;
+  
+  // Static routes
+  repeated StaticRoute routes = 4;
+}
+
+message StaticRoute {
+  string destination = 1;  // e.g., "192.168.0.0/16"
+  string next_hop = 2;
+}
+
+message DnsConfig {
+  // DNS servers for VMs on this network
+  repeated string nameservers = 1;
+  
+  // DNS search domains
+  repeated string search_domains = 2;
+}
+
+// =============================================================================
+// VIRTUAL NETWORK STATUS
+// =============================================================================
+
+message VirtualNetworkStatus {
+  enum Phase {
+    UNKNOWN = 0;
+    PENDING = 1;
+    READY = 2;
+    ERROR = 3;
+    DELETING = 4;
+  }
+  Phase phase = 1;
+  
+  // OVN internal identifiers
+  string ovn_logical_switch = 2;
+  string ovn_logical_router = 3;
+  
+  // Number of ports in this network
+  uint32 port_count = 4;
+  
+  // IP allocation status
+  IpAllocationStatus ip_status = 5;
+  
+  // Error message
+  string error_message = 6;
+}
+
+message IpAllocationStatus {
+  // IPv4
+  uint32 ipv4_total = 1;
+  uint32 ipv4_allocated = 2;
+  uint32 ipv4_available = 3;
+  
+  // IPv6
+  uint64 ipv6_allocated = 4;
+}
+
+// =============================================================================
+// NETWORK PORT - Virtual NIC Connection Point
+// =============================================================================
+
+// Port represents a connection point on a virtual network.
+// Each VM NIC attaches to a port.
+message Port {
+  // Immutable unique identifier
+  string id = 1;
+  
+  // Optional name
+  string name = 2;
+  
+  // Network this port belongs to
+  string network_id = 3;
+  
+  // Project
+  string project_id = 4;
+  
+  // Labels
+  map<string, string> labels = 5;
+  
+  // Port specification
+  PortSpec spec = 6;
+  
+  // Current status
+  PortStatus status = 7;
+  
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message PortSpec {
+  // MAC address (auto-generated if empty)
+  string mac_address = 1;
+  
+  // Fixed IP addresses
+  repeated FixedIp fixed_ips = 2;
+  
+  // Security groups
+  repeated string security_group_ids = 3;
+  
+  // Allowed address pairs (for HA/failover)
+  repeated AddressPair allowed_address_pairs = 4;
+  
+  // Port security (anti-spoofing)
+  bool port_security_enabled = 5;
+  
+  // Admin state
+  bool admin_state_up = 6;
+  
+  // Quality of Service
+  PortQos qos = 7;
+  
+  // SR-IOV / Hardware offload
+  BindingProfile binding = 8;
+}
+
+message FixedIp {
+  string subnet_id = 1;  // Optional, for multi-subnet networks
+  string ip_address = 2;
+}
+
+message AddressPair {
+  string ip_address = 1;
+  string mac_address = 2;
+}
+
+message PortQos {
+  // Rate limiting
+  uint64 ingress_rate_kbps = 1;
+  uint64 egress_rate_kbps = 2;
+  
+  // Burst
+  uint64 ingress_burst_kb = 3;
+  uint64 egress_burst_kb = 4;
+}
+
+message BindingProfile {
+  // Port binding type
+  enum BindingType {
+    NORMAL = 0;      // Standard OVS port
+    DIRECT = 1;      // SR-IOV VF
+    MACVTAP = 2;     // MACVTAP device
+    VHOST_USER = 3;  // DPDK vhost-user
+  }
+  BindingType type = 1;
+  
+  // For SR-IOV: specific VF to use
+  string pci_slot = 2;
+  
+  // For vhost-user: socket path
+  string vhost_socket = 3;
+  
+  // NUMA affinity
+  uint32 numa_affinity = 4;
+}
+
+message PortStatus {
+  enum Phase {
+    UNKNOWN = 0;
+    PENDING = 1;
+    BUILD = 2;
+    ACTIVE = 3;
+    DOWN = 4;
+    ERROR = 5;
+  }
+  Phase phase = 1;
+  
+  // Actual MAC address
+  string mac_address = 2;
+  
+  // Allocated IPs
+  repeated string ip_addresses = 3;
+  
+  // OVN port binding info
+  string ovn_port = 4;
+  
+  // Attached to VM
+  string vm_id = 5;
+  
+  // Host where port is bound
+  string host_id = 6;
+  
+  // Error message
+  string error_message = 7;
+}
+
+// =============================================================================
+// SECURITY GROUP - Firewall Rules
+// =============================================================================
+
+// SecurityGroup defines firewall rules for network ports.
+message SecurityGroup {
+  // Immutable unique identifier
+  string id = 1;
+  
+  // Name
+  string name = 2;
+  
+  // Description
+  string description = 3;
+  
+  // Project
+  string project_id = 4;
+  
+  // Labels
+  map<string, string> labels = 5;
+  
+  // Firewall rules
+  repeated SecurityGroupRule rules = 6;
+  
+  // Stateful (track connections) vs Stateless
+  bool stateful = 7;
+  
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message SecurityGroupRule {
+  // Rule ID
+  string id = 1;
+  
+  // Direction
+  enum Direction {
+    INGRESS = 0;
+    EGRESS = 1;
+  }
+  Direction direction = 2;
+  
+  // Protocol ("tcp", "udp", "icmp", "any", or protocol number)
+  string protocol = 3;
+  
+  // Port range (for TCP/UDP)
+  uint32 port_min = 4;
+  uint32 port_max = 5;
+  
+  // ICMP type/code (for ICMP)
+  int32 icmp_type = 6;
+  int32 icmp_code = 7;
+  
+  // Remote IP prefix (CIDR)
+  string remote_ip_prefix = 8;
+  
+  // Or reference another security group
+  string remote_security_group_id = 9;
+  
+  // Action
+  enum Action {
+    ALLOW = 0;
+    DROP = 1;
+    REJECT = 2;  // Send ICMP error
+  }
+  Action action = 10;
+  
+  // Rule priority (lower = higher priority)
+  uint32 priority = 11;
+  
+  // Description
+  string description = 12;
+}
+
+// =============================================================================
+// FLOATING IP - Public IP Assignment
+// =============================================================================
+
+// FloatingIp represents a public IP that can be assigned to a VM.
+message FloatingIp {
+  string id = 1;
+  
+  // The floating IP address
+  string ip_address = 2;
+  
+  // External network providing this IP
+  string external_network_id = 3;
+  
+  // Project
+  string project_id = 4;
+  
+  // Description
+  string description = 5;
+  
+  // Labels
+  map<string, string> labels = 6;
+  
+  // Assignment
+  FloatingIpAssignment assignment = 7;
+  
+  // Status
+  FloatingIpStatus status = 8;
+  
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message FloatingIpAssignment {
+  // Port to associate with
+  string port_id = 1;
+  
+  // Fixed IP to NAT to (if port has multiple IPs)
+  string fixed_ip = 2;
+}
+
+message FloatingIpStatus {
+  enum Phase {
+    UNKNOWN = 0;
+    PENDING = 1;
+    ACTIVE = 2;
+    DOWN = 3;
+    ERROR = 4;
+  }
+  Phase phase = 1;
+  
+  // Associated VM
+  string vm_id = 2;
+  
+  // Router handling this floating IP
+  string router_id = 3;
+  
+  // Error message
+  string error_message = 4;
+}
+
+// =============================================================================
+// LOAD BALANCER
+// =============================================================================
+
+// LoadBalancer distributes traffic across multiple VMs.
+message LoadBalancer {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string project_id = 4;
+  
+  map<string, string> labels = 5;
+  
+  LoadBalancerSpec spec = 6;
+  LoadBalancerStatus status = 7;
+  
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message LoadBalancerSpec {
+  // Network for VIP
+  string network_id = 1;
+  
+  // Subnet for VIP
+  string subnet_id = 2;
+  
+  // VIP address (auto-allocated if empty)
+  string vip_address = 3;
+  
+  // Listeners (frontend)
+  repeated Listener listeners = 4;
+  
+  // Pools (backend)
+  repeated Pool pools = 5;
+}
+
+message Listener {
+  string id = 1;
+  string name = 2;
+  
+  // Protocol
+  enum Protocol {
+    TCP = 0;
+    HTTP = 1;
+    HTTPS = 2;
+    UDP = 3;
+  }
+  Protocol protocol = 3;
+  
+  // Port to listen on
+  uint32 port = 4;
+  
+  // Default pool
+  string default_pool_id = 5;
+  
+  // TLS configuration (for HTTPS)
+  TlsConfig tls = 6;
+  
+  // Connection limits
+  uint32 connection_limit = 7;
+}
+
+message TlsConfig {
+  // Certificate (PEM)
+  string certificate = 1;
+  
+  // Private key (encrypted)
+  string private_key = 2;
+  
+  // CA certificate chain
+  string ca_certificates = 3;
+  
+  // TLS version
+  string min_version = 4;  // "1.2", "1.3"
+  
+  // Cipher suites
+  repeated string ciphers = 5;
+}
+
+message Pool {
+  string id = 1;
+  string name = 2;
+  
+  // Load balancing algorithm
+  enum Algorithm {
+    ROUND_ROBIN = 0;
+    LEAST_CONNECTIONS = 1;
+    SOURCE_IP = 2;
+    WEIGHTED_ROUND_ROBIN = 3;
+  }
+  Algorithm algorithm = 3;
+  
+  // Backend protocol
+  Listener.Protocol protocol = 4;
+  
+  // Members (backend servers)
+  repeated PoolMember members = 5;
+  
+  // Health monitor
+  HealthMonitor health_monitor = 6;
+  
+  // Session persistence
+  SessionPersistence persistence = 7;
+}
+
+message PoolMember {
+  string id = 1;
+  
+  // Backend address
+  string address = 2;
+  uint32 port = 3;
+  
+  // Weight for weighted algorithms
+  uint32 weight = 4;
+  
+  // Is member enabled?
+  bool admin_state_up = 5;
+  
+  // Subnet ID (optional)
+  string subnet_id = 6;
+}
+
+message HealthMonitor {
+  // Monitor type
+  enum Type {
+    PING = 0;
+    TCP = 1;
+    HTTP = 2;
+    HTTPS = 3;
+  }
+  Type type = 1;
+  
+  // Check interval in seconds
+  uint32 delay = 2;
+  
+  // Timeout per check
+  uint32 timeout = 3;
+  
+  // Failures before marking unhealthy
+  uint32 max_retries = 4;
+  
+  // HTTP-specific
+  string http_method = 5;  // "GET", "HEAD"
+  string url_path = 6;
+  string expected_codes = 7;  // "200", "200-299"
+}
+
+message SessionPersistence {
+  enum Type {
+    NONE = 0;
+    SOURCE_IP = 1;
+    HTTP_COOKIE = 2;
+    APP_COOKIE = 3;
+  }
+  Type type = 1;
+  
+  // Cookie name for cookie-based persistence
+  string cookie_name = 2;
+}
+
+message LoadBalancerStatus {
+  enum Phase {
+    UNKNOWN = 0;
+    PENDING = 1;
+    ACTIVE = 2;
+    ERROR = 3;
+    DELETING = 4;
+  }
+  Phase phase = 1;
+  
+  // Provisioning status
+  string provisioning_status = 2;
+  
+  // Operating status
+  string operating_status = 3;
+  
+  // VIP information
+  string vip_address = 4;
+  string vip_port_id = 5;
+  
+  // Error message
+  string error_message = 6;
+}
+
+// =============================================================================
+// VPN - Site-to-Site VPN
+// =============================================================================
+
+message VpnService {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string project_id = 4;
+  
+  // Router to attach VPN to
+  string router_id = 5;
+  
+  // External IP for VPN endpoint
+  string external_ip = 6;
+  
+  // VPN connections
+  repeated VpnConnection connections = 7;
+  
+  VpnStatus status = 8;
+  
+  google.protobuf.Timestamp created_at = 9;
+}
+
+message VpnConnection {
+  string id = 1;
+  string name = 2;
+  
+  // Peer gateway IP
+  string peer_address = 3;
+  
+  // Peer ID (usually IP or FQDN)
+  string peer_id = 4;
+  
+  // Pre-shared key
+  string psk = 5;
+  
+  // Local CIDR
+  repeated string local_cidrs = 6;
+  
+  // Peer CIDRs
+  repeated string peer_cidrs = 7;
+  
+  // IKE policy
+  IkePolicy ike_policy = 8;
+  
+  // IPsec policy
+  IpsecPolicy ipsec_policy = 9;
+  
+  // DPD (Dead Peer Detection)
+  DpdConfig dpd = 10;
+}
+
+message IkePolicy {
+  string auth_algorithm = 1;     // "sha256", "sha384"
+  string encryption_algorithm = 2; // "aes-256-cbc"
+  string ike_version = 3;        // "v2"
+  uint32 lifetime_seconds = 4;
+  string pfs = 5;                // "group14"
+}
+
+message IpsecPolicy {
+  string auth_algorithm = 1;
+  string encryption_algorithm = 2;
+  string encapsulation_mode = 3;  // "tunnel"
+  uint32 lifetime_seconds = 4;
+  string pfs = 5;
+  string transform_protocol = 6;  // "esp"
+}
+
+message DpdConfig {
+  string action = 1;      // "hold", "clear", "restart"
+  uint32 interval = 2;
+  uint32 timeout = 3;
+}
+
+message VpnStatus {
+  enum Phase {
+    UNKNOWN = 0;
+    PENDING = 1;
+    ACTIVE = 2;
+    DOWN = 3;
+    ERROR = 4;
+  }
+  Phase phase = 1;
+  
+  string error_message = 2;
+}
+

@@ -1,0 +1,78 @@
+# buf.gen.yaml - Code generation configuration for LimiQuantix
+# Documentation: https://buf.build/docs/configuration/v2/buf-gen-yaml
+
+version: v2
+
+# Clean output directories before generating
+clean: true
+
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/limiquantix/limiquantix/pkg/api
+
+plugins:
+  # ==========================================================================
+  # Go Backend Generation
+  # ==========================================================================
+  
+  # Go protobuf messages
+  - remote: buf.build/protocolbuffers/go
+    out: ../backend/pkg/api
+    opt:
+      - paths=source_relative
+  
+  # Go gRPC services
+  - remote: buf.build/grpc/go
+    out: ../backend/pkg/api
+    opt:
+      - paths=source_relative
+      - require_unimplemented_servers=false
+  
+  # Go validation (optional but recommended)
+  # - remote: buf.build/bufbuild/protovalidate-go
+  #   out: ../backend/pkg/api
+  #   opt:
+  #     - paths=source_relative
+
+  # ==========================================================================
+  # TypeScript Frontend Generation (Connect-ES / gRPC-Web)
+  # ==========================================================================
+  
+  # TypeScript message types
+  - remote: buf.build/bufbuild/es
+    out: ../frontend/src/api
+    opt:
+      - target=ts
+      - import_extension=none
+  
+  # Connect-ES services (modern, recommended)
+  - remote: buf.build/connectrpc/es
+    out: ../frontend/src/api
+    opt:
+      - target=ts
+      - import_extension=none
+
+  # ==========================================================================
+  # Rust Agent Generation (Optional - requires local plugin)
+  # ==========================================================================
+  
+  # Uncomment when Rust agent is being developed
+  # - local: protoc-gen-prost
+  #   out: ../agent/src/proto
+  #   opt:
+  #     - compile_well_known_types
+  # - local: protoc-gen-tonic
+  #   out: ../agent/src/proto
+
+  # ==========================================================================
+  # Documentation Generation (disabled - plugin not available on remote)
+  # ==========================================================================
+  
+  # Generate markdown documentation
+  # - remote: buf.build/community/pseudomuto-protoc-gen-doc
+  #   out: ../docs/api
+  #   opt:
+  #     - markdown,api-reference.md
+

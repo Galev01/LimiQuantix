@@ -1,0 +1,357 @@
+---
+alwaysApply: true
+---
+
+# PROTOCOL BUFFER INFRASTRUCTURE
+
+*Scope:* Apply when working with API definitions, data models, gRPC services, or any code that interacts with the proto-generated types.
+
+*Purpose:* Ensure all agents understand the LimiQuantix API infrastructure and maintain consistency.
+
+---
+
+## Project Structure
+
+```
+proto/
+├── buf.yaml              # Linting configuration
+├── buf.gen.yaml          # Code generation targets
+└── limiquantix/
+    ├── compute/v1/       # Compute domain
+    │   ├── vm.proto            # Virtual Machine model
+    │   ├── vm_service.proto    # VM gRPC service
+    │   ├── node.proto          # Physical Node model
+    │   └── node_service.proto  # Node gRPC service
+    ├── storage/v1/       # Storage domain
+    │   ├── storage.proto       # Pool, Volume, Snapshot, Image
+    │   └── storage_service.proto
+    └── network/v1/       # Network domain
+        ├── network.proto       # VNet, Port, SecurityGroup, LB, VPN
+        └── network_service.proto
+```
+
+Generated code locations:
+- **Go:** `backend/pkg/api/limiquantix/{domain}/v1/*.pb.go`
+- **TypeScript:** `frontend/src/api/limiquantix/{domain}/v1/*.ts`
+- **Rust:** `agent/src/proto/` (when configured)
+
+---
+
+## Core Data Models
+
+### VirtualMachine (`compute/v1/vm.proto`)
+
+The root VM object follows **Spec/Status pattern**:
+
+```protobuf
+message VirtualMachine {
+  string id = 1;              // UUIDv4
+  string name = 2;            // User-friendly name
+  string project_id = 3;      // Multi-tenancy
+  map<string, string> labels = 4;
+  string description = 5;
+  string hardware_version = 6;
+  
+  VmSpec spec = 7;            // Desired state (user-defined)
+  VmStatus status = 8;        // Runtime state (system-observed)
+  
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  string created_by = 11;
+}
+```
+
+**VmSpec includes:**
+- `CpuConfig` - cores, sockets, threads, NUMA, CPU features
+- `MemoryConfig` - size, ballooning, huge pages
+- `DiskDevice[]` - storage with bus type, QoS, caching
+- `CdromDevice[]` - ISO mounting
+- `NetworkInterface[]` - NICs with security groups, QoS
+- `PciDevice[]`, `UsbDevice[]`, `VgpuDevice[]` - passthrough
+- `TpmConfig`, `WatchdogConfig`, `RngConfig`, `SerialPortConfig`
+- `DisplayConfig` - VNC/SPICE console
+- `GuestAgentConfig` - virtio-serial/VSOCK
+- `ProvisioningConfig` - cloud-init/ignition/sysprep
+- `ResourceConfig` - CPU shares, reservations
+- `HaPolicy` - auto-restart, priority
+- `PlacementPolicy` - affinity/anti-affinity
+- `MigrationConfig` - live migration settings
+- `TemplateConfig` - cloning support
+
+**VmStatus includes:**
+- `PowerState` - RUNNING, STOPPED, PAUSED, MIGRATING, etc.
+- `node_id` - Current host
+- `ip_addresses[]` - From guest agent
+- `ResourceUsage` - CPU, memory, disk, network metrics
+- `GuestInfo` - OS, hostname, agent version
+- `SnapshotStatus` - Snapshot tree
+- `ConsoleInfo` - VNC/SPICE connection
+- `HealthStatus` - Health checks
+
+### Node (`compute/v1/node.proto`)
+
+Physical hypervisor host:
+
+```protobuf
+message Node {
+  string id = 1;
+  string hostname = 2;
+  string management_ip = 3;
+  map<string, string> labels = 4;
+  
+  NodeSpec spec = 6;          // Hardware capabilities
+  NodeStatus status = 7;      // Runtime state
+}
+```
+
+**NodeSpec includes:**
+- `CpuInfo` - model, sockets, cores, NUMA topology, features
+- `MemoryInfo` - total, allocatable, huge pages
+- `StorageDevice[]` - disks with type (HDD/SSD/NVMe)
+- `NetworkDevice[]` - NICs with SR-IOV capability
+- `GpuInfo[]` - GPUs with vGPU profiles
+- `NodeRole` - compute, storage, control_plane flags
+- `SchedulingConfig` - schedulable, taints, overcommit
+
+**NodeStatus includes:**
+- `Phase` - READY, NOT_READY, MAINTENANCE, DRAINING
+- `NodeCondition[]` - health conditions
+- `ResourceAllocation` - CPU, memory, GPU allocation
+- `vm_ids[]` - Running VMs
+- `SystemInfo` - OS, kernel, hypervisor version
+
+### Storage (`storage/v1/storage.proto`)
+
+**StoragePool** - Logical storage cluster (Ceph, LVM, NFS):
+```protobuf
+message StoragePool {
+  string id = 1;
+  string name = 2;
+  StoragePoolSpec spec = 6;   // Backend config, defaults, QoS
+  StoragePoolStatus status = 7;
+}
+```
+
+**Volume** - Virtual disk:
+```protobuf
+message Volume {
+  string id = 1;
+  string pool_id = 4;
+  VolumeSpec spec = 6;        // Size, provisioning, QoS, source
+  VolumeStatus status = 7;    // Phase, attached VM, usage
+}
+```
+
+**VolumeSnapshot**, **Image** - Snapshots and OS templates
+
+### Network (`network/v1/network.proto`)
+
+**VirtualNetwork** - SDN network (OVN-based):
+```protobuf
+message VirtualNetwork {
+  string id = 1;
+  string name = 2;
+  VirtualNetworkSpec spec = 6;  // Type, IP config, DHCP, router
+  VirtualNetworkStatus status = 7;
+}
+```
+
+**Port** - VM network connection point
+**SecurityGroup** - Firewall rules
+**FloatingIp** - Public IP assignment
+**LoadBalancer** - Traffic distribution
+**VpnService** - Site-to-site VPN
+
+---
+
+## gRPC Services
+
+### VMService (`compute/v1/vm_service.proto`)
+
+```protobuf
+service VMService {
+  // CRUD
+  rpc CreateVM(CreateVMRequest) returns (VirtualMachine);
+  rpc GetVM(GetVMRequest) returns (VirtualMachine);
+  rpc ListVMs(ListVMsRequest) returns (ListVMsResponse);
+  rpc UpdateVM(UpdateVMRequest) returns (VirtualMachine);
+  rpc DeleteVM(DeleteVMRequest) returns (google.protobuf.Empty);
+  
+  // Power operations
+  rpc StartVM(StartVMRequest) returns (VirtualMachine);
+  rpc StopVM(StopVMRequest) returns (VirtualMachine);
+  rpc RebootVM(RebootVMRequest) returns (VirtualMachine);
+  rpc PauseVM / ResumeVM / SuspendVM
+  
+  // Snapshots
+  rpc CreateSnapshot / ListSnapshots / RevertToSnapshot / DeleteSnapshot
+  
+  // Migration
+  rpc MigrateVM(MigrateVMRequest) returns (MigrateVMResponse);
+  
+  // Console
+  rpc GetConsole(GetConsoleRequest) returns (ConsoleInfo);
+  
+  // Cloning
+  rpc CloneVM / ConvertToTemplate
+  
+  // Streaming
+  rpc WatchVM(WatchVMRequest) returns (stream VirtualMachine);
+  rpc StreamMetrics(StreamMetricsRequest) returns (stream ResourceUsage);
+}
+```
+
+### NodeService (`compute/v1/node_service.proto`)
+
+```protobuf
+service NodeService {
+  rpc RegisterNode / GetNode / ListNodes / UpdateNode / DecommissionNode
+  rpc EnableNode / DisableNode / DrainNode
+  rpc AddTaint / RemoveTaint / UpdateLabels
+  rpc GetNodeMetrics / ListNodeEvents
+  rpc WatchNode / WatchNodes (streaming)
+}
+```
+
+### Storage Services (`storage/v1/storage_service.proto`)
+
+- `StoragePoolService` - Pool CRUD, GetPoolMetrics
+- `VolumeService` - Volume CRUD, Resize, Attach/Detach, Clone
+- `SnapshotService` - Snapshot CRUD, Restore
+- `ImageService` - Image CRUD, Import (async)
+
+### Network Services (`network/v1/network_service.proto`)
+
+- `VirtualNetworkService` - Network CRUD, GetTopology
+- `PortService` - Port CRUD, Bind/Unbind
+- `SecurityGroupService` - SecurityGroup CRUD, AddRule/RemoveRule
+- `FloatingIpService` - Allocate/Release, Associate/Disassociate
+- `LoadBalancerService` - LB CRUD, AddListener/Member, GetStats
+- `VpnServiceManager` - VPN CRUD, AddConnection, GetStatus
+
+---
+
+## Code Generation
+
+### Regenerate Code
+
+```bash
+# From project root
+make proto
+
+# Or manually
+cd proto && buf generate
+```
+
+### Adding a New Field
+
+1. Edit the `.proto` file
+2. Run `make proto`
+3. Use the new field in Go/TypeScript/Rust
+
+### Adding a New Message
+
+1. Add message to appropriate `.proto` file
+2. Run `make proto`
+3. Import and use generated types
+
+### Adding a New Service Method
+
+1. Add RPC to the service in `*_service.proto`
+2. Add request/response messages
+3. Run `make proto`
+4. Implement the method in Go backend
+
+---
+
+## Usage Patterns
+
+### Go Backend
+
+```go
+import (
+    computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+    storagev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1"
+    networkv1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1"
+)
+
+// Create a VM
+vm := &computev1.VirtualMachine{
+    Name:      "my-vm",
+    ProjectId: "default",
+    Spec: &computev1.VmSpec{
+        Cpu:    &computev1.CpuConfig{Cores: 4},
+        Memory: &computev1.MemoryConfig{SizeMib: 8192},
+    },
+}
+
+// Implement a service
+type vmServer struct {
+    computev1.UnimplementedVMServiceServer
+}
+
+func (s *vmServer) GetVM(ctx context.Context, req *computev1.GetVMRequest) (*computev1.VirtualMachine, error) {
+    // Implementation
+}
+```
+
+### TypeScript Frontend
+
+```typescript
+import { createClient } from "@connectrpc/connect";
+import { createConnectTransport } from "@connectrpc/connect-web";
+import { VMService } from "./api/limiquantix/compute/v1/vm_service_connect";
+import { VirtualMachine } from "./api/limiquantix/compute/v1/vm_pb";
+
+const transport = createConnectTransport({
+  baseUrl: "http://localhost:8080",
+});
+
+const client = createClient(VMService, transport);
+
+// Call an RPC
+const vm = await client.getVM({ id: "vm-123" });
+
+// Stream updates
+for await (const update of client.watchVM({ vmId: "vm-123" })) {
+  console.log("VM state:", update.status?.state);
+}
+```
+
+---
+
+## Naming Conventions
+
+### Proto Files
+- **Package:** `limiquantix.{domain}.v1` (e.g., `limiquantix.compute.v1`)
+- **Messages:** PascalCase (e.g., `VirtualMachine`, `CpuConfig`)
+- **Fields:** snake_case (e.g., `project_id`, `cpu_cores`)
+- **Enums:** SCREAMING_SNAKE_CASE (e.g., `POWER_STATE_RUNNING`)
+- **Services:** PascalCase + "Service" suffix (e.g., `VMService`)
+- **RPCs:** PascalCase verb+noun (e.g., `CreateVM`, `ListNodes`)
+
+### Generated Code
+- **Go:** PascalCase for exported, camelCase for fields
+- **TypeScript:** camelCase for fields, PascalCase for types
+- **Rust:** snake_case for fields, PascalCase for types
+
+---
+
+## Important Rules
+
+1. **Never change field numbers** - They are permanent identifiers for wire compatibility
+2. **Never remove fields** - Mark as `reserved` instead
+3. **Add new fields at the end** - Use the next available field number
+4. **Run `make proto` after any proto change** - Keep generated code in sync
+5. **Spec vs Status** - User intent goes in Spec, system observations go in Status
+6. **Labels for organization** - Use labels instead of rigid hierarchies
+7. **Streaming for real-time** - Use `stream` RPCs for live updates
+
+---
+
+## References
+
+- Proto files: `proto/limiquantix/`
+- ADRs: `docs/adr/000001-000005`
+- Build guide: `docs/000006-proto-and-build-system-guide.md`
+- Makefile: `Makefile` (run `make help`)

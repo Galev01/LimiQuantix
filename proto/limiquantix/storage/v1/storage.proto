@@ -1,0 +1,717 @@
+syntax = "proto3";
+
+package limiquantix.storage.v1;
+
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/storage/v1;storagev1";
+
+import "google/protobuf/timestamp.proto";
+
+// =============================================================================
+// STORAGE POOL - Logical Storage Cluster
+// =============================================================================
+
+// StoragePool represents a logical pool of storage resources.
+// This abstracts Ceph pools, local LVM volume groups, or NFS shares.
+message StoragePool {
+  // Immutable unique identifier (UUIDv4)
+  string id = 1;
+  
+  // User-friendly name (e.g., "fast-nvme", "archive-hdd")
+  string name = 2;
+  
+  // Project isolation (empty = cluster-wide)
+  string project_id = 3;
+  
+  // Description
+  string description = 4;
+  
+  // Labels for organization
+  map<string, string> labels = 5;
+  
+  // Pool specification
+  StoragePoolSpec spec = 6;
+  
+  // Current status
+  StoragePoolStatus status = 7;
+  
+  // Audit trail
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// =============================================================================
+// STORAGE POOL SPECIFICATION
+// =============================================================================
+
+message StoragePoolSpec {
+  // Type of storage backend
+  StorageBackend backend = 1;
+  
+  // Default settings for volumes in this pool
+  VolumeDefaults defaults = 2;
+  
+  // Quality of Service settings
+  StorageQos qos = 3;
+  
+  // Encryption settings
+  EncryptionConfig encryption = 4;
+  
+  // Replication settings (for distributed storage)
+  ReplicationConfig replication = 5;
+  
+  // Tiering configuration
+  TieringConfig tiering = 6;
+}
+
+message StorageBackend {
+  // Backend type
+  enum BackendType {
+    CEPH_RBD = 0;      // Ceph RADOS Block Device
+    CEPH_CEPHFS = 1;   // Ceph Filesystem
+    LOCAL_LVM = 2;     // Local LVM volume group
+    LOCAL_DIR = 3;     // Local directory (for dev/test)
+    NFS = 4;           // NFS share
+    ISCSI = 5;         // iSCSI target
+  }
+  BackendType type = 1;
+  
+  // Backend-specific configuration
+  oneof config {
+    CephConfig ceph = 2;
+    LocalLvmConfig local_lvm = 3;
+    LocalDirConfig local_dir = 4;
+    NfsConfig nfs = 5;
+    IscsiConfig iscsi = 6;
+  }
+}
+
+message CephConfig {
+  // Ceph cluster ID
+  string cluster_id = 1;
+  
+  // Ceph pool name
+  string pool_name = 2;
+  
+  // Monitor addresses
+  repeated string monitors = 3;
+  
+  // Authentication
+  string user = 4;
+  string keyring_path = 5;
+  
+  // Namespace within the pool (for multi-tenancy)
+  string namespace = 6;
+}
+
+message LocalLvmConfig {
+  // Volume group name
+  string volume_group = 1;
+  
+  // Thin pool name (optional, for thin provisioning)
+  string thin_pool = 2;
+  
+  // Node ID where this storage exists
+  string node_id = 3;
+}
+
+message LocalDirConfig {
+  // Directory path
+  string path = 1;
+  
+  // Node ID where this storage exists
+  string node_id = 2;
+}
+
+message NfsConfig {
+  // NFS server address
+  string server = 1;
+  
+  // Export path
+  string export_path = 2;
+  
+  // NFS version
+  string version = 3;  // "3", "4", "4.1", "4.2"
+  
+  // Mount options
+  string options = 4;
+}
+
+message IscsiConfig {
+  // iSCSI target portal
+  string portal = 1;
+  
+  // Target IQN
+  string target = 2;
+  
+  // CHAP authentication
+  string chap_user = 3;
+  string chap_password = 4;
+}
+
+message VolumeDefaults {
+  // Default provisioning type
+  enum ProvisioningType {
+    THIN = 0;       // Allocate on demand
+    THICK = 1;      // Pre-allocate space
+  }
+  ProvisioningType provisioning = 1;
+  
+  // Default filesystem (for formatted volumes)
+  string filesystem = 2;  // "ext4", "xfs", "raw"
+  
+  // Default block size
+  uint32 block_size = 3;
+}
+
+message StorageQos {
+  // Maximum IOPS for the entire pool
+  uint64 max_iops = 1;
+  
+  // Maximum throughput in bytes/sec
+  uint64 max_throughput_bytes = 2;
+  
+  // Burst settings
+  uint64 burst_iops = 3;
+  uint64 burst_throughput_bytes = 4;
+  uint32 burst_duration_sec = 5;
+}
+
+message EncryptionConfig {
+  // Enable at-rest encryption
+  bool enabled = 1;
+  
+  // Encryption cipher
+  string cipher = 2;  // e.g., "aes-xts-plain64"
+  
+  // Key management
+  enum KeyManagement {
+    INTERNAL = 0;    // LimiQuantix managed keys
+    EXTERNAL_KMS = 1; // External Key Management Service
+  }
+  KeyManagement key_management = 3;
+  
+  // KMS configuration (if external)
+  string kms_endpoint = 4;
+  string kms_key_id = 5;
+}
+
+message ReplicationConfig {
+  // Number of replicas (for Ceph)
+  uint32 replica_count = 1;
+  
+  // Minimum replicas before write is acknowledged
+  uint32 min_replicas = 2;
+  
+  // Erasure coding (alternative to replication)
+  ErasureCodingConfig erasure_coding = 3;
+  
+  // Failure domain (rack, host, osd)
+  string failure_domain = 4;
+}
+
+message ErasureCodingConfig {
+  bool enabled = 1;
+  uint32 data_chunks = 2;    // k value
+  uint32 coding_chunks = 3;  // m value
+}
+
+message TieringConfig {
+  // Enable automatic tiering
+  bool enabled = 1;
+  
+  // Hot tier pool (for frequently accessed data)
+  string hot_pool_id = 2;
+  
+  // Cold tier pool (for infrequently accessed data)
+  string cold_pool_id = 3;
+  
+  // Policy for moving data between tiers
+  enum TieringPolicy {
+    LRU = 0;        // Least Recently Used
+    WRITEBACK = 1;  // Write to hot, migrate to cold
+  }
+  TieringPolicy policy = 4;
+  
+  // Age threshold in hours for migration to cold tier
+  uint32 cold_after_hours = 5;
+}
+
+// =============================================================================
+// STORAGE POOL STATUS
+// =============================================================================
+
+message StoragePoolStatus {
+  // Current phase
+  enum Phase {
+    UNKNOWN = 0;
+    PENDING = 1;     // Pool is being created
+    READY = 2;       // Pool is healthy
+    DEGRADED = 3;    // Pool is working but not optimal
+    ERROR = 4;       // Pool has errors
+    DELETING = 5;    // Pool is being deleted
+  }
+  Phase phase = 1;
+  
+  // Capacity information
+  StorageCapacity capacity = 2;
+  
+  // Performance metrics
+  StorageMetrics metrics = 3;
+  
+  // Health information
+  StorageHealth health = 4;
+  
+  // Number of volumes in this pool
+  uint32 volume_count = 5;
+  
+  // Error message if not ready
+  string error_message = 6;
+}
+
+message StorageCapacity {
+  // Total raw capacity in bytes
+  uint64 total_bytes = 1;
+  
+  // Used capacity
+  uint64 used_bytes = 2;
+  
+  // Available capacity
+  uint64 available_bytes = 3;
+  
+  // Provisioned capacity (may exceed physical for thin provisioning)
+  uint64 provisioned_bytes = 4;
+}
+
+message StorageMetrics {
+  // Current IOPS
+  uint64 read_iops = 1;
+  uint64 write_iops = 2;
+  
+  // Current throughput
+  uint64 read_bytes_sec = 3;
+  uint64 write_bytes_sec = 4;
+  
+  // Latency in microseconds
+  uint64 read_latency_us = 5;
+  uint64 write_latency_us = 6;
+}
+
+message StorageHealth {
+  enum Status {
+    UNKNOWN = 0;
+    HEALTHY = 1;
+    WARNING = 2;
+    ERROR = 3;
+  }
+  Status status = 1;
+  
+  // Health checks
+  repeated HealthCheck checks = 2;
+}
+
+message HealthCheck {
+  string name = 1;
+  bool passed = 2;
+  string message = 3;
+}
+
+// =============================================================================
+// VOLUME - Virtual Disk
+// =============================================================================
+
+// Volume represents a virtual disk that can be attached to VMs.
+message Volume {
+  // Immutable unique identifier (UUIDv4)
+  string id = 1;
+  
+  // User-friendly name
+  string name = 2;
+  
+  // Project isolation
+  string project_id = 3;
+  
+  // Parent storage pool
+  string pool_id = 4;
+  
+  // Labels for organization
+  map<string, string> labels = 5;
+  
+  // Volume specification
+  VolumeSpec spec = 6;
+  
+  // Current status
+  VolumeStatus status = 7;
+  
+  // Audit trail
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// =============================================================================
+// VOLUME SPECIFICATION
+// =============================================================================
+
+message VolumeSpec {
+  // Size in bytes
+  uint64 size_bytes = 1;
+  
+  // Provisioning type
+  enum ProvisioningType {
+    THIN = 0;
+    THICK_LAZY = 1;
+    THICK_EAGER = 2;
+  }
+  ProvisioningType provisioning = 2;
+  
+  // Source for the volume (clone, snapshot, image)
+  VolumeSource source = 3;
+  
+  // Quality of Service
+  VolumeQos qos = 4;
+  
+  // Encryption settings (overrides pool defaults)
+  EncryptionConfig encryption = 5;
+  
+  // Access mode
+  enum AccessMode {
+    READ_WRITE_ONCE = 0;   // Single VM read-write
+    READ_ONLY_MANY = 1;    // Multiple VMs read-only
+    READ_WRITE_MANY = 2;   // Multiple VMs read-write (requires cluster FS)
+  }
+  AccessMode access_mode = 6;
+}
+
+message VolumeSource {
+  oneof source {
+    // Empty volume (blank disk)
+    EmptySource empty = 1;
+    
+    // Clone from existing volume
+    CloneSource clone = 2;
+    
+    // Restore from snapshot
+    SnapshotSource snapshot = 3;
+    
+    // Import from image
+    ImageSource image = 4;
+    
+    // Upload from URL
+    UrlSource url = 5;
+  }
+}
+
+message EmptySource {
+  // Filesystem to format (empty = raw block device)
+  string filesystem = 1;
+}
+
+message CloneSource {
+  // Source volume ID
+  string volume_id = 1;
+}
+
+message SnapshotSource {
+  // Source snapshot ID
+  string snapshot_id = 1;
+}
+
+message ImageSource {
+  // Image ID from image registry
+  string image_id = 1;
+}
+
+message UrlSource {
+  // URL to download image from
+  string url = 1;
+  
+  // Checksum for verification
+  string checksum = 2;
+  string checksum_type = 3;  // "sha256", "md5"
+}
+
+message VolumeQos {
+  // IOPS limits
+  uint64 max_iops = 1;
+  uint64 min_iops = 2;  // Guaranteed IOPS (reservation)
+  
+  // Throughput limits in bytes/sec
+  uint64 max_throughput = 3;
+  uint64 min_throughput = 4;
+  
+  // Burst configuration
+  uint64 burst_iops = 5;
+  uint64 burst_throughput = 6;
+  uint32 burst_duration_sec = 7;
+}
+
+// =============================================================================
+// VOLUME STATUS
+// =============================================================================
+
+message VolumeStatus {
+  // Current phase
+  enum Phase {
+    UNKNOWN = 0;
+    PENDING = 1;      // Volume is being created
+    CREATING = 2;     // Volume creation in progress
+    READY = 3;        // Volume is available
+    IN_USE = 4;       // Volume is attached to a VM
+    DELETING = 5;     // Volume is being deleted
+    ERROR = 6;        // Volume has errors
+    RESIZING = 7;     // Volume is being resized
+  }
+  Phase phase = 1;
+  
+  // If attached, which VM?
+  string attached_vm_id = 2;
+  
+  // Device path on the VM
+  string device_path = 3;
+  
+  // Actual size (may differ from spec during resize)
+  uint64 actual_size_bytes = 4;
+  
+  // Usage statistics
+  VolumeUsage usage = 5;
+  
+  // Snapshot count
+  uint32 snapshot_count = 6;
+  
+  // Error message if in error state
+  string error_message = 7;
+  
+  // Backend-specific ID (e.g., Ceph RBD image name)
+  string backend_id = 8;
+}
+
+message VolumeUsage {
+  // Actual bytes used (for thin volumes)
+  uint64 used_bytes = 1;
+  
+  // Current IO metrics
+  uint64 read_iops = 2;
+  uint64 write_iops = 3;
+  uint64 read_bytes_sec = 4;
+  uint64 write_bytes_sec = 5;
+  uint64 read_latency_us = 6;
+  uint64 write_latency_us = 7;
+}
+
+// =============================================================================
+// VOLUME SNAPSHOT
+// =============================================================================
+
+message VolumeSnapshot {
+  // Immutable unique identifier
+  string id = 1;
+  
+  // Snapshot name
+  string name = 2;
+  
+  // Description
+  string description = 3;
+  
+  // Source volume
+  string volume_id = 4;
+  
+  // Labels
+  map<string, string> labels = 5;
+  
+  // Snapshot specification
+  VolumeSnapshotSpec spec = 6;
+  
+  // Current status
+  VolumeSnapshotStatus status = 7;
+  
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message VolumeSnapshotSpec {
+  // Retention policy
+  RetentionPolicy retention = 1;
+}
+
+message RetentionPolicy {
+  // Keep snapshot for this many hours (0 = forever)
+  uint32 retain_hours = 1;
+  
+  // Delete after this timestamp
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message VolumeSnapshotStatus {
+  enum Phase {
+    UNKNOWN = 0;
+    PENDING = 1;
+    CREATING = 2;
+    READY = 3;
+    DELETING = 4;
+    ERROR = 5;
+  }
+  Phase phase = 1;
+  
+  // Snapshot size
+  uint64 size_bytes = 2;
+  
+  // Ready to use for restore/clone
+  bool ready_to_use = 3;
+  
+  // Error message
+  string error_message = 4;
+}
+
+// =============================================================================
+// IMAGE - OS Templates
+// =============================================================================
+
+// Image represents a bootable OS image/template.
+message Image {
+  // Immutable unique identifier
+  string id = 1;
+  
+  // Image name (e.g., "ubuntu-22.04-cloudimg")
+  string name = 2;
+  
+  // Description
+  string description = 3;
+  
+  // Project (empty = public image)
+  string project_id = 4;
+  
+  // Labels
+  map<string, string> labels = 5;
+  
+  // Image specification
+  ImageSpec spec = 6;
+  
+  // Current status
+  ImageStatus status = 7;
+  
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message ImageSpec {
+  // Source of the image
+  ImageSource source = 1;
+  
+  // OS information
+  OsInfo os = 2;
+  
+  // Minimum requirements
+  ImageRequirements requirements = 3;
+  
+  // Image format
+  enum Format {
+    RAW = 0;
+    QCOW2 = 1;
+    VMDK = 2;
+    VHD = 3;
+    ISO = 4;
+  }
+  Format format = 4;
+  
+  // Visibility
+  enum Visibility {
+    PRIVATE = 0;   // Only owner can use
+    PROJECT = 1;   // Project members can use
+    PUBLIC = 2;    // Anyone can use
+  }
+  Visibility visibility = 5;
+}
+
+message ImageSourceSpec {
+  oneof source {
+    // Upload from local file
+    string file_path = 1;
+    
+    // Download from URL
+    string url = 2;
+    
+    // Convert from existing volume
+    string volume_id = 3;
+    
+    // Import from container registry
+    string container_image = 4;
+  }
+  
+  // Checksum verification
+  string checksum = 5;
+  string checksum_type = 6;
+}
+
+message OsInfo {
+  // OS family
+  enum OsFamily {
+    UNKNOWN = 0;
+    LINUX = 1;
+    WINDOWS = 2;
+    BSD = 3;
+    OTHER = 4;
+  }
+  OsFamily family = 1;
+  
+  // Distribution (e.g., "ubuntu", "centos", "windows-server")
+  string distribution = 2;
+  
+  // Version
+  string version = 3;
+  
+  // Architecture
+  string architecture = 4;  // "x86_64", "aarch64"
+  
+  // Default username for cloud-init
+  string default_user = 5;
+}
+
+message ImageRequirements {
+  // Minimum vCPUs
+  uint32 min_cpu = 1;
+  
+  // Minimum memory in MiB
+  uint64 min_memory_mib = 2;
+  
+  // Minimum disk size in GiB
+  uint64 min_disk_gib = 3;
+  
+  // Required firmware
+  repeated string supported_firmware = 4;  // "bios", "uefi"
+  
+  // Requires UEFI Secure Boot
+  bool requires_secure_boot = 5;
+  
+  // Requires TPM
+  bool requires_tpm = 6;
+}
+
+message ImageStatus {
+  enum Phase {
+    UNKNOWN = 0;
+    PENDING = 1;
+    DOWNLOADING = 2;
+    CONVERTING = 3;
+    READY = 4;
+    ERROR = 5;
+    DELETING = 6;
+  }
+  Phase phase = 1;
+  
+  // Size in bytes
+  uint64 size_bytes = 2;
+  
+  // Virtual size (uncompressed)
+  uint64 virtual_size_bytes = 3;
+  
+  // Download progress (0-100)
+  uint32 progress_percent = 4;
+  
+  // Checksum of stored image
+  string checksum = 5;
+  
+  // Error message
+  string error_message = 6;
+  
+  // Which storage pool holds this image
+  string storage_pool_id = 7;
+}
+

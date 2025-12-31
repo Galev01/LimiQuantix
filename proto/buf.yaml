@@ -1,0 +1,40 @@
+# buf.yaml - Buf configuration for LimiQuantix protobuf definitions
+# Documentation: https://buf.build/docs/configuration/v2/buf-yaml
+
+version: v2
+
+modules:
+  - path: .
+    name: buf.build/limiquantix/api
+
+# Linting configuration
+# NOTE: Using relaxed rules for initial development. Tighten these as the project matures.
+lint:
+  use:
+    - BASIC  # Basic rules only (not STANDARD or COMMENTS)
+  except:
+    # Allow during development - remove these exceptions as project matures
+    - PACKAGE_VERSION_SUFFIX
+    - ENUM_VALUE_PREFIX
+    - ENUM_ZERO_VALUE_SUFFIX
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - FIELD_NOT_REQUIRED
+    - IMPORT_USED
+  
+  rpc_allow_same_request_response: true
+  rpc_allow_google_protobuf_empty_requests: true
+  rpc_allow_google_protobuf_empty_responses: true
+
+# Breaking change detection
+breaking:
+  use:
+    - FILE
+  except:
+    # Allow during early development
+    - FIELD_SAME_JSON_NAME
+
+# Dependencies (add if needed)
+# deps:
+#   - buf.build/googleapis/googleapis

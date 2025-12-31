@@ -1,0 +1,462 @@
+---
+alwaysApply: true
+---
+# UI Depth & Visual Hierarchy
+
+*Scope:* Apply when designing or improving UI components in app/templates/ and app/static/css/
+
+*Purpose:* Create visual depth and hierarchy using layered colors and strategic shadows
+
+---
+
+## Color Layering System
+
+Always use 3-4 shades of the base color to create visual layers. Avoid flat, single-color designs.
+
+### Hierarchy Rules
+
+1. *Base Layer (Darkest)* - Main page background
+2. *Mid-ground* - Content containers, cards  
+3. *Top-level (Lightest)* - Interactive elements (buttons, selected tabs, active states)
+
+### CSS Variable Pattern
+
+Define semantic variables, not fixed colors:
+
+css
+:root {
+  --bg-base: #1a1d2e;      /* Lowest layer */
+  --bg-surface: #242938;    /* Mid layer - cards/containers */
+  --bg-elevated: #2d3347;   /* Top layer - interactive elements */
+  --bg-hover: #363c56;      /* Hover states */
+}
+
+
+### Contrast Rule
+
+When lightening a background, lighten its content (text, icons) to maintain readability.
+
+*Example:*
+css
+.card {
+  background: var(--bg-surface);
+  color: #e2e8f0;  /* Light text on mid-tone bg */
+}
+
+.card-active {
+  background: var(--bg-elevated);
+  color: #f1f5f9;  /* Lighter text on lighter bg */
+}
+
+
+---
+
+## Shadow Techniques
+
+Use specific shadow combinations based on desired effect:
+
+### 1. Floating Shadow (Standard Cards, Buttons)
+
+*When:* Default state for cards, buttons, dialogs
+
+css
+.card {
+  box-shadow: 
+    0 -1px 2px rgba(255, 255, 255, 0.05),  /* Light top glow */
+    0 4px 12px rgba(0, 0, 0, 0.15);         /* Dark bottom shadow */
+}
+
+.card:hover {
+  box-shadow: 
+    0 -1px 3px rgba(255, 255, 255, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.25);         /* Increase shadow on hover */
+}
+
+
+### 2. Elevated Shadow (Selected Items, Active Tabs)
+
+*When:* Selected options, active navigation items
+
+css
+.nav-tab.active {
+  background: var(--bg-elevated);
+  box-shadow: 
+    inset 0 1px 2px rgba(255, 255, 255, 0.1),  /* Light inset top */
+    0 4px 8px rgba(0, 0, 0, 0.2);              /* Dark outset bottom */
+}
+
+
+### 3. Recessed Shadow (Tables, Input Fields)
+
+*When:* Tables, progress bar tracks, disabled states
+
+css
+.table-container {
+  background: var(--bg-base);  /* Darker than surrounding */
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.3),      /* Dark inset top */
+    inset 0 -1px 2px rgba(255, 255, 255, 0.05); /* Light inset bottom */
+}
+
+
+---
+
+## Component-Specific Patterns
+
+### Navigation Bars
+
+css
+.nav-container {
+  background: var(--bg-surface);
+}
+
+.nav-item {
+  background: transparent;
+}
+
+.nav-item.active {
+  background: var(--bg-elevated);
+  box-shadow: 
+    inset 0 1px 2px rgba(255, 255, 255, 0.1),
+    0 3px 6px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+}
+
+
+### Dashboard Cards
+
+css
+/* Page background - darkest */
+.dashboard-page {
+  background: var(--bg-base);
+}
+
+/* Main cards - stand out */
+.metric-card {
+  background: var(--bg-surface);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 -1px 2px rgba(255, 255, 255, 0.05),
+              0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Less important elements - darker, recessed */
+.data-table {
+  background: var(--bg-base);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3),
+              inset 0 -1px 2px rgba(255, 255, 255, 0.05);
+}
+
+
+### Radio Buttons / Option Groups
+
+css
+.option-group {
+  background: var(--bg-surface);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.option-item {
+  background: transparent;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.option-item.selected {
+  background: var(--bg-elevated);
+  box-shadow: 
+    inset 0 1px 2px rgba(255, 255, 255, 0.1),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+
+### Buttons
+
+css
+.btn-primary {
+  background: var(--bg-elevated);
+  padding: 10px 20px;
+  border-radius: 8px;
+  box-shadow: 
+    0 -1px 2px rgba(255, 255, 255, 0.05),
+    0 4px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background: var(--bg-hover);
+  box-shadow: 
+    0 -1px 3px rgba(255, 255, 255, 0.08),
+    0 6px 16px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+
+---
+
+## Required Styling Elements
+
+Every elevated component must include:
+
+1. *Rounded corners:* border-radius: 8px minimum (12px for larger cards)
+2. *Adequate padding:* 16-24px for cards, 8-12px for buttons
+3. *Appropriate shadow:* Choose from the 3 shadow techniques above
+4. *Hover states:* For interactive elements, increase shadow and/or brightness
+
+---
+
+## XMous-Specific Implementation
+
+When modifying XMous UI:
+
+1. *Check existing CSS variables* in app/static/css/ before creating new ones
+2. *Update both light and dark mode* values if theme switching exists
+3. *Test with actual VM data* to ensure readability with real content
+4. *Maintain consistent spacing* - use existing padding/margin patterns
+
+### Common XMous Components
+
+css
+/* VM List Cards */
+.vm-card {
+  background: var(--bg-surface);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 -1px 2px rgba(255, 255, 255, 0.05),
+              0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Active VM */
+.vm-card.active {
+  background: var(--bg-elevated);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.1),
+              0 4px 12px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+}
+
+/* Tab Navigation */
+.vm-tab {
+  background: transparent;
+  padding: 12px 24px;
+  border-radius: 8px;
+}
+
+.vm-tab.active {
+  background: var(--bg-elevated);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.1),
+              0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+
+---
+
+## Quick Reference
+
+| Element Type | Background Layer | Shadow Type | Border Radius |
+|--------------|------------------|-------------|---------------|
+| Page | --bg-base | None | N/A |
+| Card (default) | --bg-surface | Floating | 12px |
+| Card (active) | --bg-elevated | Elevated | 12px |
+| Button | --bg-elevated | Floating | 8px |
+| Table | --bg-base | Recessed | 8px |
+| Tab (inactive) | Transparent | None | 8px |
+| Tab (active) | --bg-elevated | Elevated | 8px |
+| Input (disabled) | --bg-base | Recessed | 6px |
+
+---
+
+## Light Mode Theme (Motion-Inspired)
+
+NeuroFlow supports both dark and light modes. Light mode follows the Motion brand aesthetic with clean, professional styling.
+
+### Light Mode CSS Variables
+
+```css
+:root.light-theme,
+[data-theme="light"] {
+  color-scheme: light;
+  
+  /* Background Layers - Soft lavender tint */
+  --bg-base: #f0f0f8;      /* Page background */
+  --bg-surface: #f8f8fc;   /* Cards, containers */
+  --bg-elevated: #ffffff;  /* Active states, buttons */
+  --bg-hover: #e8e8f0;     /* Hover states */
+  
+  /* Text Colors - Black for readability */
+  --text-primary: #000000;
+  --text-secondary: #1a1a1a;
+  --text-tertiary: #666666;
+  --text-muted: rgba(0, 0, 0, 0.5);
+  
+  /* Border Colors */
+  --border-default: rgba(0, 0, 0, 0.06);
+  --border-hover: rgba(0, 0, 0, 0.1);
+  --border-active: rgba(0, 0, 0, 0.12);
+  
+  /* Shadows - Subtle, soft */
+  --shadow-floating: 
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.03);
+  --shadow-floating-hover: 
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    0 8px 20px rgba(0, 0, 0, 0.05);
+  --shadow-elevated: 
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 2px 8px rgba(0, 0, 0, 0.03);
+  --shadow-recessed: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+```
+
+### Light Mode Text Color Mapping
+
+All gray text classes must become black/dark in light mode:
+
+| Tailwind Class | Light Mode Color |
+|----------------|------------------|
+| `.text-white` | `#000000` (black) |
+| `.text-gray-100` | `#000000` (black) |
+| `.text-gray-200` | `#000000` (black) |
+| `.text-gray-300` | `#1a1a1a` (near black) |
+| `.text-gray-400` | `#333333` (dark gray) |
+| `.text-gray-500` | `#666666` (medium gray) |
+
+### Light Mode Brand Colors
+
+Brand colors stay vibrant in light mode:
+
+```css
+/* Motion Blue - Primary actions */
+:root.light-theme .text-neonBlue {
+  color: #4064DD !important;
+}
+
+/* Motion Purple - Accents, AI features */
+:root.light-theme .text-neonPurple {
+  color: #D974FE !important;
+}
+
+/* Remove neon glow effects */
+:root.light-theme .neon-text-blue,
+:root.light-theme .neon-text-purple {
+  text-shadow: none;
+}
+```
+
+### Light Mode Primary Button (Motion-Style)
+
+```css
+:root.light-theme .btn-primary {
+  background: #4064DD;           /* Solid Motion Blue */
+  border: 1px solid #4064DD;
+  box-shadow: 0 2px 8px rgba(64, 100, 221, 0.25);
+  color: #ffffff;                /* White text on blue */
+}
+
+:root.light-theme .btn-primary:hover {
+  background: #3555c7;           /* Darker blue on hover */
+  border-color: #3555c7;
+  box-shadow: 0 4px 12px rgba(64, 100, 221, 0.35);
+}
+```
+
+### Light Mode Component Patterns
+
+```css
+/* Glass Panel */
+:root.light-theme .glass-panel {
+  background: var(--bg-surface);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-floating);
+}
+
+/* Metric/Depth Cards */
+:root.light-theme .metric-card,
+:root.light-theme .depth-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-floating);
+}
+
+/* Nav Tabs */
+:root.light-theme .nav-tab {
+  color: #666666;
+}
+
+:root.light-theme .nav-tab:hover {
+  background: var(--bg-hover);
+  color: #000000;
+}
+
+:root.light-theme .nav-tab.active {
+  background: var(--bg-elevated);
+  color: #4064DD;              /* Motion Blue for active */
+  box-shadow: var(--shadow-elevated);
+}
+
+/* Glass Input */
+:root.light-theme .glass-input {
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-recessed);
+  color: #000000;
+}
+
+/* Scrollbar */
+:root.light-theme ::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+}
+
+:root.light-theme ::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+```
+
+### Light Mode Hover State Overrides
+
+Ensure hover states also use dark text:
+
+```css
+:root.light-theme .group:hover .group-hover\:text-white {
+  color: #000000 !important;
+}
+
+:root.light-theme .hover\:text-white:hover {
+  color: #000000 !important;
+}
+```
+
+---
+
+## Anti-Patterns to Avoid
+
+❌ *Don't:* Use pure white or black backgrounds  
+✅ *Do:* Use shades of gray with CSS variables
+
+❌ *Don't:* Apply same shadow to all elements  
+✅ *Do:* Match shadow type to element purpose (floating/elevated/recessed)
+
+❌ *Don't:* Skip border-radius on elevated elements  
+✅ *Do:* Always add rounded corners (8px minimum)
+
+❌ *Don't:* Use fixed colors like #FFFFFF  
+✅ *Do:* Use semantic variables like var(--bg-surface)
+
+❌ *Don't:* Forget hover states on interactive elements  
+✅ *Do:* Add hover shadow increase and/or slight transform
+
+❌ *Don't:* Use light gray text in light mode  
+✅ *Do:* Use black/dark text (#000000, #1a1a1a) for readability
+
+❌ *Don't:* Keep neon glow effects in light mode  
+✅ *Do:* Remove text-shadow and use solid brand colors

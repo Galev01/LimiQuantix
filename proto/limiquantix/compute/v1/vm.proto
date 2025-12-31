@@ -1,0 +1,817 @@
+syntax = "proto3";
+
+package limiquantix.compute.v1;
+
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;computev1";
+
+import "google/protobuf/timestamp.proto";
+
+// =============================================================================
+// VIRTUAL MACHINE - Root Object
+// =============================================================================
+
+// The root object representing a Virtual Machine.
+// Designed for VMware vSphere feature parity with modern cloud-native patterns.
+message VirtualMachine {
+  // Immutable unique identifier (UUIDv4)
+  string id = 1;
+  
+  // User-friendly name (e.g., "Prod-DB-01")
+  string name = 2;
+  
+  // The namespace/project this VM belongs to (Multi-tenancy support)
+  string project_id = 3;
+
+  // Labels for grouping (e.g., "env:prod", "tier:database")
+  // Replaces VMware's rigid folder structure with modern tagging.
+  map<string, string> labels = 4;
+
+  // Human-readable description/notes
+  string description = 5;
+
+  // Hardware version for compatibility tracking (e.g., "v1", "v2")
+  // Allows gradual feature rollout without breaking existing VMs
+  string hardware_version = 6;
+
+  // Desired configuration (The "Spec")
+  VmSpec spec = 7;
+
+  // Current runtime state (The "Status")
+  VmStatus status = 8;
+
+  // Audit trail
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  string created_by = 11;  // User/service that created this VM
+}
+
+// =============================================================================
+// SPECIFICATION (Desired State)
+// =============================================================================
+
+message VmSpec {
+  // Core compute resources
+  CpuConfig cpu = 1;
+  MemoryConfig memory = 2;
+  
+  // Storage devices
+  repeated DiskDevice disks = 3;
+  repeated CdromDevice cdroms = 4;
+  
+  // Network interfaces
+  repeated NetworkInterface nics = 5;
+  
+  // Device passthrough
+  repeated PciDevice pci_devices = 6;
+  repeated UsbDevice usb_devices = 7;
+  repeated VgpuDevice vgpu_devices = 8;
+  
+  // Platform devices
+  TpmConfig tpm = 9;
+  WatchdogConfig watchdog = 10;
+  RngConfig rng = 11;
+  SerialPortConfig serial = 12;
+  
+  // Firmware and boot
+  FirmwareType firmware = 13;
+  BootConfig boot = 14;
+  
+  // Display/Console access
+  DisplayConfig display = 15;
+  
+  // Guest Agent configuration
+  GuestAgentConfig agent = 16;
+
+  // Automated provisioning (cloud-init, ignition, sysprep)
+  ProvisioningConfig provisioning = 17;
+
+  // Resource management
+  ResourceConfig resources = 18;
+  
+  // High Availability and placement
+  HaPolicy ha_policy = 19;
+  PlacementPolicy placement = 20;
+  MigrationConfig migration = 21;
+
+  // Template configuration (if this VM is a template)
+  TemplateConfig template = 22;
+}
+
+// =============================================================================
+// CPU CONFIGURATION
+// =============================================================================
+
+message CpuConfig {
+  // Total vCPUs
+  uint32 cores = 1;
+  
+  // Topology details for OS optimization
+  uint32 sockets = 2;
+  uint32 threads_per_core = 3;
+
+  // CPU Model: "host-passthrough" (max performance) or "qemu64" (max migration compatibility)
+  string model = 4;
+
+  // NUMA configuration
+  NumaConfig numa = 5;
+
+  // Specific CPU features to enable/disable
+  CpuFeatures features = 6;
+}
+
+message NumaConfig {
+  // Enable NUMA-aware scheduling
+  bool enabled = 1;
+  
+  // Pin vCPUs to specific physical NUMA nodes
+  repeated NumaNode nodes = 2;
+}
+
+message NumaNode {
+  uint32 node_id = 1;
+  repeated uint32 vcpus = 2;      // Which vCPUs belong to this node
+  uint64 memory_mib = 3;          // Memory allocated to this node
+  repeated uint32 host_nodes = 4; // Host NUMA nodes to bind to
+}
+
+message CpuFeatures {
+  // Common performance features
+  bool aes_ni = 1;       // AES-NI encryption acceleration
+  bool avx = 2;          // Advanced Vector Extensions
+  bool avx2 = 3;
+  bool avx512 = 4;
+  
+  // Virtualization features
+  bool nested_virt = 5;  // Allow running VMs inside this VM
+  
+  // Custom feature flags (e.g., "+pcid,-spec-ctrl")
+  repeated string custom_flags = 6;
+}
+
+// =============================================================================
+// MEMORY CONFIGURATION
+// =============================================================================
+
+message MemoryConfig {
+  // Allocated RAM in MiB
+  uint64 size_mib = 1;
+
+  // Memory Ballooning: Allows host to reclaim unused RAM from guest
+  bool ballooning_enabled = 2;
+  
+  // Maximum memory for hot-plug support
+  uint64 max_memory_mib = 3;
+
+  // Use HugePages (2MB/1GB pages) for database performance
+  HugePagesConfig huge_pages = 4;
+
+  // Memory overcommit ratio (1.0 = no overcommit, 1.5 = 50% overcommit)
+  double overcommit_ratio = 5;
+}
+
+message HugePagesConfig {
+  bool enabled = 1;
+  
+  enum PageSize {
+    SIZE_2MB = 0;
+    SIZE_1GB = 1;
+  }
+  PageSize size = 2;
+}
+
+// =============================================================================
+// STORAGE DEVICES
+// =============================================================================
+
+message DiskDevice {
+  string id = 1;
+  
+  // The backing storage (Ceph RBD, Local File, or LVM)
+  string storage_pool_id = 2;
+  string volume_id = 3;
+
+  // Size in GiB (for provisioning new disks)
+  uint64 size_gib = 4;
+
+  // Device type
+  enum BusType {
+    VIRTIO_BLK = 0; // Modern, high performance (Linux)
+    VIRTIO_SCSI = 1; // SCSI semantics with VirtIO performance
+    NVME = 2;       // Next-gen virtualization
+    SATA = 3;       // Legacy compatibility (Windows)
+    IDE = 4;        // Ancient compatibility
+  }
+  BusType bus = 5;
+
+  // Provisioning type
+  enum ProvisioningType {
+    THIN = 0;       // Allocate on demand
+    THICK_LAZY = 1; // Reserve space, zero on write
+    THICK_EAGER = 2;// Reserve and zero immediately
+  }
+  ProvisioningType provisioning = 6;
+
+  // Boot order (0 = do not boot, 1 = primary)
+  uint32 boot_index = 7;
+
+  // IO throttling (Quality of Service)
+  IoLimits io_limits = 8;
+
+  // Caching mode
+  enum CacheMode {
+    WRITEBACK = 0;    // Performance (data loss risk on crash)
+    WRITETHROUGH = 1; // Safety (slower)
+    NONE = 2;         // Direct IO (for clustered filesystems)
+  }
+  CacheMode cache = 9;
+
+  // Disk is read-only
+  bool readonly = 10;
+
+  // Discard/TRIM support for SSDs
+  bool discard_enabled = 11;
+}
+
+message CdromDevice {
+  string id = 1;
+  
+  // Path or URL to ISO image (empty = no media)
+  string iso_path = 2;
+  
+  // Boot order (0 = do not boot)
+  uint32 boot_index = 3;
+  
+  // Is media currently connected
+  bool connected = 4;
+}
+
+message IoLimits {
+  uint64 read_iops = 1;
+  uint64 write_iops = 2;
+  uint64 read_bytes_sec = 3;
+  uint64 write_bytes_sec = 4;
+  
+  // Burst allowance
+  uint64 burst_iops = 5;
+  uint64 burst_bytes = 6;
+  uint32 burst_duration_sec = 7;
+}
+
+// =============================================================================
+// NETWORK INTERFACES
+// =============================================================================
+
+message NetworkInterface {
+  string id = 1;
+  
+  // Connection point (OVS Bridge or OVN Logical Switch)
+  string network_id = 2;
+
+  // Static MAC or auto-generated
+  string mac_address = 3;
+
+  // Device Model
+  enum Model {
+    VIRTIO_NET = 0; // Standard high performance
+    E1000 = 1;      // Intel emulation (Legacy OS support)
+    E1000E = 2;     // Intel e1000e (Better Windows support)
+    VMXNET3 = 3;    // VMware compatibility (if importing from vSphere)
+  }
+  Model model = 4;
+
+  // Firewall Security Group IDs
+  repeated string security_groups = 5;
+
+  // Static IP configuration (alternative to DHCP)
+  repeated IpConfig ip_configs = 6;
+
+  // Network QoS
+  NetworkQos qos = 7;
+
+  // Boot order for PXE boot
+  uint32 boot_index = 8;
+
+  // SR-IOV configuration
+  SriovConfig sriov = 9;
+}
+
+message IpConfig {
+  string address = 1;     // e.g., "192.168.1.10/24"
+  string gateway = 2;
+  repeated string dns_servers = 3;
+}
+
+message NetworkQos {
+  // Rate limiting in Mbps
+  uint64 ingress_rate_mbps = 1;
+  uint64 egress_rate_mbps = 2;
+  
+  // Burst allowance in KB
+  uint64 burst_kb = 3;
+}
+
+message SriovConfig {
+  bool enabled = 1;
+  uint32 vf_count = 2;  // Number of Virtual Functions
+}
+
+// =============================================================================
+// DEVICE PASSTHROUGH
+// =============================================================================
+
+message PciDevice {
+  // Host PCI address (e.g., "0000:81:00.0" for a GPU)
+  string host_address = 1;
+  string description = 2;
+  
+  // Device ROM bar
+  bool rom_bar = 3;
+}
+
+message UsbDevice {
+  // USB device identification
+  string vendor_id = 1;   // e.g., "0x1234"
+  string product_id = 2;  // e.g., "0x5678"
+  
+  // Or passthrough specific host device
+  string host_bus = 3;
+  string host_device = 4;
+  
+  string description = 5;
+}
+
+message VgpuDevice {
+  // vGPU profile (e.g., "nvidia-grid-v100d-8q")
+  string profile = 1;
+  
+  // GPU UUID on host
+  string gpu_uuid = 2;
+  
+  string description = 3;
+}
+
+// =============================================================================
+// PLATFORM DEVICES
+// =============================================================================
+
+message TpmConfig {
+  bool enabled = 1;
+  
+  enum TpmVersion {
+    TPM_1_2 = 0;
+    TPM_2_0 = 1;
+  }
+  TpmVersion version = 2;
+  
+  // Persist TPM state across reboots
+  bool persistent = 3;
+}
+
+message WatchdogConfig {
+  bool enabled = 1;
+  
+  enum WatchdogModel {
+    I6300ESB = 0;  // Intel 6300ESB
+    IB700 = 1;     // iBase IB700
+  }
+  WatchdogModel model = 2;
+  
+  // Action when watchdog triggers
+  enum WatchdogAction {
+    RESET = 0;     // Reset the VM
+    SHUTDOWN = 1;  // Graceful shutdown
+    POWEROFF = 2;  // Hard power off
+    PAUSE = 3;     // Pause the VM
+    NONE = 4;      // Do nothing (for debugging)
+  }
+  WatchdogAction action = 3;
+}
+
+message RngConfig {
+  // Enable VirtIO-RNG for entropy
+  bool enabled = 1;
+  
+  // Rate limit in bytes/period
+  uint64 rate_bytes = 2;
+  uint32 period_ms = 3;
+  
+  // Backend source on host
+  string backend = 4;  // e.g., "/dev/urandom", "/dev/hwrng"
+}
+
+message SerialPortConfig {
+  // Number of serial ports (0-4)
+  uint32 count = 1;
+  
+  // Ports configuration
+  repeated SerialPort ports = 2;
+}
+
+message SerialPort {
+  uint32 index = 1;
+  
+  enum SerialType {
+    PTY = 0;       // Pseudo-terminal
+    FILE = 1;      // Log to file
+    SOCKET = 2;    // Unix socket
+    TCP = 3;       // TCP connection
+  }
+  SerialType type = 2;
+  
+  // Target path/address based on type
+  string target = 3;
+}
+
+// =============================================================================
+// FIRMWARE AND BOOT
+// =============================================================================
+
+enum FirmwareType {
+  BIOS = 0;
+  UEFI = 1;
+  UEFI_SECURE_BOOT = 2;
+}
+
+message BootConfig {
+  // Boot order by device type
+  repeated BootDevice boot_order = 1;
+  
+  // Boot menu timeout (0 = disabled)
+  uint32 menu_timeout_sec = 2;
+  
+  // Kernel direct boot (for containers/debugging)
+  DirectKernelBoot direct_boot = 3;
+}
+
+message BootDevice {
+  enum DeviceType {
+    DISK = 0;
+    CDROM = 1;
+    NETWORK = 2;
+    USB = 3;
+  }
+  DeviceType type = 1;
+  string device_id = 2;  // Reference to specific device
+}
+
+message DirectKernelBoot {
+  string kernel_path = 1;
+  string initrd_path = 2;
+  string cmdline = 3;
+}
+
+// =============================================================================
+// DISPLAY AND CONSOLE
+// =============================================================================
+
+message DisplayConfig {
+  enum DisplayType {
+    VNC = 0;
+    SPICE = 1;
+    NONE = 2;  // Headless
+  }
+  DisplayType type = 1;
+  
+  // Listen address (empty = auto-assign)
+  string listen_address = 2;
+  uint32 port = 3;
+  
+  // Authentication
+  string password = 4;  // Should be hashed in storage
+  
+  // TLS encryption
+  bool tls_enabled = 5;
+  
+  // Virtual GPU for display (not passthrough)
+  enum GpuType {
+    VGA = 0;        // Standard VGA
+    CIRRUS = 1;     // Legacy Cirrus
+    QXL = 2;        // SPICE-optimized
+    VIRTIO_GPU = 3; // Modern VirtIO
+  }
+  GpuType gpu = 6;
+  
+  // Video memory in MiB
+  uint32 video_memory_mib = 7;
+  
+  // Number of displays
+  uint32 displays = 8;
+}
+
+// =============================================================================
+// GUEST AGENT
+// =============================================================================
+
+message GuestAgentConfig {
+  bool enabled = 1;
+  
+  // Communication channel
+  enum ChannelType {
+    VIRTIO_SERIAL = 0;
+    VSOCK = 1;
+  }
+  ChannelType channel = 2;
+  
+  // Socket path (for VIRTIO_SERIAL)
+  string socket_path = 3;
+  
+  // VSOCK CID (for VSOCK)
+  uint32 vsock_cid = 4;
+}
+
+// =============================================================================
+// AUTOMATED PROVISIONING
+// =============================================================================
+
+message ProvisioningConfig {
+  oneof method {
+    CloudInitConfig cloud_init = 1;
+    IgnitionConfig ignition = 2;
+    SysprepConfig sysprep = 3;
+  }
+}
+
+message CloudInitConfig {
+  // User-data (YAML, base64 encoded)
+  string user_data = 1;
+  
+  // Meta-data (JSON, base64 encoded)
+  string meta_data = 2;
+  
+  // Network configuration (v2 format, base64 encoded)
+  string network_config = 3;
+  
+  // Vendor-data (optional)
+  string vendor_data = 4;
+}
+
+message IgnitionConfig {
+  // Ignition JSON config (base64 encoded)
+  // Used by Fedora CoreOS, Flatcar, etc.
+  string config = 1;
+}
+
+message SysprepConfig {
+  // Windows Sysprep answer file (XML, base64 encoded)
+  string unattend_xml = 1;
+  
+  // Product key
+  string product_key = 2;
+  
+  // Join domain settings
+  string domain = 3;
+  string domain_user = 4;
+  string domain_password = 5;  // Should be encrypted
+}
+
+// =============================================================================
+// RESOURCE MANAGEMENT
+// =============================================================================
+
+message ResourceConfig {
+  // CPU shares (relative weight for scheduling)
+  uint32 cpu_shares = 1;
+  
+  // CPU reservation in MHz (guaranteed)
+  uint64 cpu_reservation_mhz = 2;
+  
+  // CPU limit in MHz (maximum)
+  uint64 cpu_limit_mhz = 3;
+  
+  // Memory reservation in MiB (guaranteed)
+  uint64 memory_reservation_mib = 4;
+  
+  // IO priority (0-7, default 4)
+  uint32 io_priority = 5;
+}
+
+// =============================================================================
+// HIGH AVAILABILITY AND PLACEMENT
+// =============================================================================
+
+message HaPolicy {
+  // If host fails, restart VM on another node?
+  bool auto_restart = 1;
+  
+  // Priority: High priority VMs get scheduled first after failure (0-100)
+  int32 priority = 2;
+  
+  // Restart conditions
+  enum RestartCondition {
+    ALWAYS = 0;       // Always restart on failure
+    ON_FAILURE = 1;   // Only on crash/failure
+    NEVER = 2;        // Never auto-restart
+  }
+  RestartCondition condition = 3;
+  
+  // Maximum restart attempts
+  uint32 max_restarts = 4;
+  
+  // Restart delay between attempts
+  uint32 restart_delay_sec = 5;
+}
+
+message PlacementPolicy {
+  // Preferred nodes (soft affinity - try these first)
+  repeated string preferred_nodes = 1;
+  
+  // Required nodes (hard affinity - MUST run on one of these)
+  repeated string required_nodes = 2;
+  
+  // Excluded nodes (never run on these)
+  repeated string excluded_nodes = 3;
+  
+  // Anti-affinity with other VMs (don't place on same host)
+  repeated string anti_affinity_vms = 4;
+  
+  // Affinity with other VMs (place on same host)
+  repeated string affinity_vms = 5;
+  
+  // Host labels that must match (e.g., "gpu:nvidia", "zone:us-east-1a")
+  map<string, string> required_labels = 6;
+}
+
+message MigrationConfig {
+  // Allow live migration
+  bool allow_migration = 1;
+  
+  // Maximum downtime during migration (milliseconds)
+  uint64 max_downtime_ms = 2;
+  
+  // Migration bandwidth limit (Mbps, 0 = unlimited)
+  uint64 bandwidth_mbps = 3;
+  
+  // Auto-converge (slow down guest to help migration complete)
+  bool auto_converge = 4;
+  
+  // Enable post-copy migration for memory-intensive VMs
+  bool post_copy = 5;
+  
+  // Compression during migration
+  bool compression = 6;
+}
+
+// =============================================================================
+// TEMPLATES
+// =============================================================================
+
+message TemplateConfig {
+  // Is this VM a template?
+  bool is_template = 1;
+  
+  // If cloned from a template, the source template ID
+  string source_template_id = 2;
+  
+  // Clone type
+  enum CloneType {
+    FULL = 0;    // Independent copy
+    LINKED = 1;  // Share base disk (copy-on-write)
+  }
+  CloneType clone_type = 3;
+}
+
+// =============================================================================
+// STATUS (Runtime State)
+// =============================================================================
+
+message VmStatus {
+  enum PowerState {
+    UNKNOWN = 0;
+    RUNNING = 1;
+    STOPPED = 2;
+    PAUSED = 3;
+    SUSPENDED = 4;   // Saved to disk (hibernate)
+    CRASHED = 5;
+    MIGRATING = 6;   // Live Migration in progress
+    PROVISIONING = 7; // Being created
+  }
+  PowerState state = 1;
+
+  // Which physical node is running this VM right now?
+  string node_id = 2;
+
+  // Real-time IP addresses reported by the Guest Agent
+  repeated string ip_addresses = 3;
+
+  // Host-side usage metrics
+  ResourceUsage resource_usage = 4;
+
+  // Guest Agent reported information
+  GuestInfo guest_info = 5;
+
+  // Snapshot information
+  SnapshotStatus snapshots = 6;
+
+  // Console connection info
+  ConsoleInfo console = 7;
+
+  // Error message if state is CRASHED or failed
+  string error_message = 8;
+  
+  // Health status
+  HealthStatus health = 9;
+
+  // Last state change timestamp
+  google.protobuf.Timestamp state_changed_at = 10;
+}
+
+message ResourceUsage {
+  // CPU usage (0-100 per vCPU, so 4 cores at 50% = 200)
+  double cpu_usage_percent = 1;
+  
+  // Actual memory used (not allocated)
+  uint64 memory_used_bytes = 2;
+  
+  // Memory allocated to guest
+  uint64 memory_allocated_bytes = 3;
+  
+  // Disk IO
+  uint64 disk_read_bytes = 4;
+  uint64 disk_write_bytes = 5;
+  uint64 disk_read_iops = 6;
+  uint64 disk_write_iops = 7;
+  
+  // Network IO
+  uint64 network_rx_bytes = 8;
+  uint64 network_tx_bytes = 9;
+  uint64 network_rx_packets = 10;
+  uint64 network_tx_packets = 11;
+}
+
+message GuestInfo {
+  // Guest OS information
+  string os_name = 1;      // e.g., "Ubuntu 22.04 LTS"
+  string os_version = 2;
+  string kernel_version = 3;
+  string hostname = 4;
+  
+  // Agent version
+  string agent_version = 5;
+  
+  // Uptime in seconds
+  uint64 uptime_seconds = 6;
+  
+  // Installed applications (optional)
+  repeated string applications = 7;
+  
+  // Last heartbeat from agent
+  google.protobuf.Timestamp last_heartbeat = 8;
+}
+
+message SnapshotStatus {
+  // Current snapshot (if VM is running from a snapshot)
+  string current_snapshot_id = 1;
+  
+  // List of all snapshots
+  repeated Snapshot snapshots = 2;
+}
+
+message Snapshot {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  
+  // Parent snapshot ID (for snapshot tree)
+  string parent_id = 4;
+  
+  // Snapshot includes memory state (hot snapshot)
+  bool memory_included = 5;
+  
+  // Quiesced snapshot (filesystem consistent)
+  bool quiesced = 6;
+  
+  google.protobuf.Timestamp created_at = 7;
+  
+  // Size of snapshot delta
+  uint64 size_bytes = 8;
+}
+
+message ConsoleInfo {
+  // Connection URL for VNC/Spice
+  string url = 1;
+  
+  // One-time ticket for authentication
+  string ticket = 2;
+  google.protobuf.Timestamp ticket_expires = 3;
+}
+
+message HealthStatus {
+  enum Status {
+    UNKNOWN = 0;
+    HEALTHY = 1;
+    DEGRADED = 2;
+    UNHEALTHY = 3;
+  }
+  Status status = 1;
+  
+  // Individual health checks
+  repeated HealthCheck checks = 2;
+}
+
+message HealthCheck {
+  string name = 1;
+  bool passed = 2;
+  string message = 3;
+  google.protobuf.Timestamp last_check = 4;
+}
+

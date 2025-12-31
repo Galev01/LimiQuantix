@@ -1,0 +1,24 @@
+---
+alwaysApply: true
+---
+
+# TECH STACK GUIDELINES
+
+## Rust (Agent & Hypervisor)
+- **Edition:** 2021
+- **Crates:** Use `tokio` for async, `serde` for serialization, `tonic` for gRPC.
+- **Style:** Run `cargo fmt` and `cargo clippy` on every snippet.
+- **Error Handling:** Use `thiserror` for libraries and `anyhow` for binaries.
+
+## Go (Control Plane)
+- **Version:** 1.22+
+- **Frameworks:** `Gin` or `Chi` for HTTP, `gRPC-Go` for internal comms, `etcd/clientv3`.
+- **Style:** Follow `uber-go/guide`.
+- **Concurrency:** Never start a goroutine without a way to stop it (Context or Done channel).
+
+## Frontend (Dashboard) - using the UI-Expert rule
+- **Framework:** React 19 + Vite + TypeScript.
+- **State:** Zustand (global store), TanStack Query (server state).
+- **Styling:** Tailwind CSS v4.
+- **Icons:** Lucide-React.
+- **Comms:** gRPC-Web or Connect-ES for talking to the backend.

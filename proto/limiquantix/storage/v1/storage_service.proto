@@ -1,0 +1,420 @@
+syntax = "proto3";
+
+package limiquantix.storage.v1;
+
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/storage/v1;storagev1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "limiquantix/storage/v1/storage.proto";
+
+// =============================================================================
+// STORAGE POOL SERVICE
+// =============================================================================
+
+// StoragePoolService manages storage pools (Ceph pools, LVM VGs, etc.)
+service StoragePoolService {
+  // CreatePool creates a new storage pool.
+  rpc CreatePool(CreatePoolRequest) returns (StoragePool);
+  
+  // GetPool retrieves a storage pool by ID.
+  rpc GetPool(GetPoolRequest) returns (StoragePool);
+  
+  // ListPools returns all storage pools.
+  rpc ListPools(ListPoolsRequest) returns (ListPoolsResponse);
+  
+  // UpdatePool updates pool configuration.
+  rpc UpdatePool(UpdatePoolRequest) returns (StoragePool);
+  
+  // DeletePool removes a storage pool.
+  // Pool must be empty unless force=true.
+  rpc DeletePool(DeletePoolRequest) returns (google.protobuf.Empty);
+  
+  // GetPoolMetrics returns current pool metrics.
+  rpc GetPoolMetrics(GetPoolMetricsRequest) returns (PoolMetrics);
+}
+
+// =============================================================================
+// VOLUME SERVICE
+// =============================================================================
+
+// VolumeService manages virtual disk volumes.
+service VolumeService {
+  // CreateVolume creates a new volume.
+  rpc CreateVolume(CreateVolumeRequest) returns (Volume);
+  
+  // GetVolume retrieves a volume by ID.
+  rpc GetVolume(GetVolumeRequest) returns (Volume);
+  
+  // ListVolumes returns volumes with optional filtering.
+  rpc ListVolumes(ListVolumesRequest) returns (ListVolumesResponse);
+  
+  // UpdateVolume updates volume configuration (resize, QoS, etc.)
+  rpc UpdateVolume(UpdateVolumeRequest) returns (Volume);
+  
+  // DeleteVolume removes a volume.
+  // Volume must be detached unless force=true.
+  rpc DeleteVolume(DeleteVolumeRequest) returns (google.protobuf.Empty);
+  
+  // ResizeVolume expands a volume (shrinking not supported).
+  rpc ResizeVolume(ResizeVolumeRequest) returns (Volume);
+  
+  // AttachVolume attaches a volume to a VM.
+  rpc AttachVolume(AttachVolumeRequest) returns (Volume);
+  
+  // DetachVolume detaches a volume from a VM.
+  rpc DetachVolume(DetachVolumeRequest) returns (Volume);
+  
+  // CloneVolume creates a copy of a volume.
+  rpc CloneVolume(CloneVolumeRequest) returns (Volume);
+  
+  // GetVolumeMetrics returns current volume metrics.
+  rpc GetVolumeMetrics(GetVolumeMetricsRequest) returns (VolumeMetrics);
+}
+
+// =============================================================================
+// SNAPSHOT SERVICE
+// =============================================================================
+
+// SnapshotService manages volume snapshots.
+service SnapshotService {
+  // CreateSnapshot creates a volume snapshot.
+  rpc CreateSnapshot(CreateSnapshotRequest) returns (VolumeSnapshot);
+  
+  // GetSnapshot retrieves a snapshot by ID.
+  rpc GetSnapshot(GetSnapshotRequest) returns (VolumeSnapshot);
+  
+  // ListSnapshots returns snapshots for a volume.
+  rpc ListSnapshots(ListSnapshotsRequest) returns (ListSnapshotsResponse);
+  
+  // DeleteSnapshot removes a snapshot.
+  rpc DeleteSnapshot(DeleteSnapshotRequest) returns (google.protobuf.Empty);
+  
+  // RestoreSnapshot restores a volume from snapshot.
+  rpc RestoreSnapshot(RestoreSnapshotRequest) returns (Volume);
+}
+
+// =============================================================================
+// IMAGE SERVICE
+// =============================================================================
+
+// ImageService manages OS images and templates.
+service ImageService {
+  // CreateImage creates/imports a new image.
+  rpc CreateImage(CreateImageRequest) returns (Image);
+  
+  // GetImage retrieves an image by ID.
+  rpc GetImage(GetImageRequest) returns (Image);
+  
+  // ListImages returns available images.
+  rpc ListImages(ListImagesRequest) returns (ListImagesResponse);
+  
+  // UpdateImage updates image metadata.
+  rpc UpdateImage(UpdateImageRequest) returns (Image);
+  
+  // DeleteImage removes an image.
+  rpc DeleteImage(DeleteImageRequest) returns (google.protobuf.Empty);
+  
+  // ImportImage imports from URL (async).
+  rpc ImportImage(ImportImageRequest) returns (ImportImageResponse);
+  
+  // GetImportStatus checks import progress.
+  rpc GetImportStatus(GetImportStatusRequest) returns (ImportStatus);
+}
+
+// =============================================================================
+// STORAGE POOL REQUEST/RESPONSE
+// =============================================================================
+
+message CreatePoolRequest {
+  string name = 1;
+  string project_id = 2;
+  string description = 3;
+  map<string, string> labels = 4;
+  StoragePoolSpec spec = 5;
+}
+
+message GetPoolRequest {
+  string id = 1;
+}
+
+message ListPoolsRequest {
+  string project_id = 1;
+  map<string, string> labels = 2;
+  StorageBackend.BackendType backend_type = 3;
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListPoolsResponse {
+  repeated StoragePool pools = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdatePoolRequest {
+  string id = 1;
+  StoragePoolSpec spec = 2;
+  google.protobuf.FieldMask update_mask = 3;
+  map<string, string> labels = 4;
+  string description = 5;
+}
+
+message DeletePoolRequest {
+  string id = 1;
+  bool force = 2;
+}
+
+message GetPoolMetricsRequest {
+  string id = 1;
+}
+
+message PoolMetrics {
+  string pool_id = 1;
+  
+  // Capacity
+  uint64 total_bytes = 2;
+  uint64 used_bytes = 3;
+  uint64 available_bytes = 4;
+  uint64 provisioned_bytes = 5;
+  
+  // Performance
+  uint64 read_iops = 6;
+  uint64 write_iops = 7;
+  uint64 read_throughput_bytes = 8;
+  uint64 write_throughput_bytes = 9;
+  uint64 read_latency_us = 10;
+  uint64 write_latency_us = 11;
+  
+  // Objects
+  uint32 volume_count = 12;
+  uint32 snapshot_count = 13;
+}
+
+// =============================================================================
+// VOLUME REQUEST/RESPONSE
+// =============================================================================
+
+message CreateVolumeRequest {
+  string name = 1;
+  string project_id = 2;
+  string pool_id = 3;
+  map<string, string> labels = 4;
+  VolumeSpec spec = 5;
+}
+
+message GetVolumeRequest {
+  string id = 1;
+}
+
+message ListVolumesRequest {
+  string project_id = 1;
+  string pool_id = 2;
+  map<string, string> labels = 3;
+  VolumeStatus.Phase phase = 4;
+  string attached_vm_id = 5;
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListVolumesResponse {
+  repeated Volume volumes = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdateVolumeRequest {
+  string id = 1;
+  VolumeSpec spec = 2;
+  google.protobuf.FieldMask update_mask = 3;
+  map<string, string> labels = 4;
+}
+
+message DeleteVolumeRequest {
+  string id = 1;
+  bool force = 2;  // Detach from VM if attached
+}
+
+message ResizeVolumeRequest {
+  string id = 1;
+  uint64 new_size_bytes = 2;
+  bool online = 3;  // Resize while attached
+}
+
+message AttachVolumeRequest {
+  string volume_id = 1;
+  string vm_id = 2;
+  string device_path = 3;  // Optional: specify device path in VM
+}
+
+message DetachVolumeRequest {
+  string volume_id = 1;
+  bool force = 2;  // Force detach even if VM is running
+}
+
+message CloneVolumeRequest {
+  string source_volume_id = 1;
+  string name = 2;
+  string project_id = 3;  // Optional: different project
+}
+
+message GetVolumeMetricsRequest {
+  string id = 1;
+}
+
+message VolumeMetrics {
+  string volume_id = 1;
+  
+  // Usage
+  uint64 provisioned_bytes = 2;
+  uint64 used_bytes = 3;
+  
+  // Performance
+  uint64 read_iops = 4;
+  uint64 write_iops = 5;
+  uint64 read_throughput_bytes = 6;
+  uint64 write_throughput_bytes = 7;
+  uint64 read_latency_us = 8;
+  uint64 write_latency_us = 9;
+}
+
+// =============================================================================
+// SNAPSHOT REQUEST/RESPONSE
+// =============================================================================
+
+message CreateSnapshotRequest {
+  string volume_id = 1;
+  string name = 2;
+  string description = 3;
+  map<string, string> labels = 4;
+  RetentionPolicy retention = 5;
+}
+
+message GetSnapshotRequest {
+  string id = 1;
+}
+
+message ListSnapshotsRequest {
+  string volume_id = 1;
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListSnapshotsResponse {
+  repeated VolumeSnapshot snapshots = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message DeleteSnapshotRequest {
+  string id = 1;
+}
+
+message RestoreSnapshotRequest {
+  string snapshot_id = 1;
+  
+  // Create new volume from snapshot
+  string new_volume_name = 2;
+  
+  // Or restore in-place (destructive)
+  bool restore_in_place = 3;
+}
+
+// =============================================================================
+// IMAGE REQUEST/RESPONSE
+// =============================================================================
+
+message CreateImageRequest {
+  string name = 1;
+  string description = 2;
+  string project_id = 3;
+  map<string, string> labels = 4;
+  ImageSpec spec = 5;
+}
+
+message GetImageRequest {
+  string id = 1;
+}
+
+message ListImagesRequest {
+  string project_id = 1;
+  map<string, string> labels = 2;
+  OsInfo.OsFamily os_family = 3;
+  ImageSpec.Visibility visibility = 4;
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListImagesResponse {
+  repeated Image images = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdateImageRequest {
+  string id = 1;
+  string description = 2;
+  map<string, string> labels = 3;
+  ImageSpec.Visibility visibility = 4;
+}
+
+message DeleteImageRequest {
+  string id = 1;
+}
+
+message ImportImageRequest {
+  string name = 1;
+  string description = 2;
+  string project_id = 3;
+  
+  // Source URL
+  string url = 4;
+  
+  // Checksum for verification
+  string checksum = 5;
+  string checksum_type = 6;
+  
+  // OS information
+  OsInfo os_info = 7;
+  
+  // Target storage pool
+  string storage_pool_id = 8;
+}
+
+message ImportImageResponse {
+  // Import job ID
+  string job_id = 1;
+  
+  // Image (in DOWNLOADING state)
+  Image image = 2;
+}
+
+message GetImportStatusRequest {
+  string job_id = 1;
+}
+
+message ImportStatus {
+  string job_id = 1;
+  string image_id = 2;
+  
+  enum Status {
+    UNKNOWN = 0;
+    PENDING = 1;
+    DOWNLOADING = 2;
+    CONVERTING = 3;
+    COMPLETED = 4;
+    FAILED = 5;
+  }
+  Status status = 3;
+  
+  // Progress (0-100)
+  uint32 progress_percent = 4;
+  
+  // Bytes downloaded
+  uint64 bytes_downloaded = 5;
+  uint64 bytes_total = 6;
+  
+  // Error message if failed
+  string error_message = 7;
+}
+

@@ -1,0 +1,583 @@
+---
+alwaysApply: true
+---
+
+# LOGGING & ERROR HANDLING STANDARDS
+
+*Scope:* Apply to ALL code generation across Rust, Go, and TypeScript/React.
+
+*Purpose:* Ensure production-grade observability, debugging, and error recovery for a distributed virtualization platform.
+
+---
+
+## Core Principles
+
+1. **Log Everything Important**: State changes, API calls, failures, performance metrics
+2. **Structured Logging**: Always use structured/JSON logging (never plain `println!` or `fmt.Println`)
+3. **Context Propagation**: Pass request IDs, VM IDs, node IDs through the entire call chain
+4. **Error Wrapping**: Always add context when propagating errors up the stack
+5. **No Silent Failures**: Every error must be logged or explicitly handled
+
+---
+
+## Rust (Agent & Hypervisor)
+
+### Logging Library
+Use `tracing` (not `log` or `env_logger`):
+
+```rust
+use tracing::{info, warn, error, debug, instrument};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+// Initialize in main()
+fn main() {
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().json())
+        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
+}
+```
+
+### Error Handling Pattern
+
+**For Libraries** (use `thiserror`):
+
+```rust
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum AgentError {
+    #[error("Failed to connect to virtio-serial: {0}")]
+    VirtioConnectionFailed(#[source] std::io::Error),
+    
+    #[error("VM telemetry collection failed for VM {vm_id}: {reason}")]
+    TelemetryFailed { vm_id: String, reason: String },
+    
+    #[error("gRPC communication error: {0}")]
+    GrpcError(#[from] tonic::Status),
+}
+```
+
+**For Binaries** (use `anyhow`):
+
+```rust
+use anyhow::{Context, Result};
+
+async fn collect_metrics(vm_id: &str) -> Result<Metrics> {
+    let data = fetch_vm_data(vm_id)
+        .await
+        .context(format!("Failed to fetch data for VM {}", vm_id))?;
+    
+    info!(vm_id = %vm_id, metrics = ?data, "Metrics collected successfully");
+    Ok(data)
+}
+```
+
+### Instrumentation Pattern
+
+Use `#[instrument]` for automatic span tracking:
+
+```rust
+#[instrument(skip(client), fields(vm_id = %vm_id))]
+async fn restart_vm(client: &HypervisorClient, vm_id: &str) -> Result<()> {
+    info!("Attempting VM restart");
+    
+    client.stop(vm_id).await
+        .context("Failed to stop VM")?;
+    
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    
+    client.start(vm_id).await
+        .context("Failed to start VM")?;
+    
+    info!("VM restarted successfully");
+    Ok(())
+}
+```
+
+### Error Logging
+
+```rust
+match dangerous_operation().await {
+    Ok(result) => {
+        info!(result = ?result, "Operation succeeded");
+    }
+    Err(e) => {
+        error!(error = %e, backtrace = ?e.backtrace(), "Operation failed");
+        return Err(e);
+    }
+}
+```
+
+---
+
+## Go (Control Plane)
+
+### Logging Library
+Use `go.uber.org/zap` (structured, high-performance):
+
+```go
+import (
+    "go.uber.org/zap"
+    "go.uber.org/zap"
+)
+
+// Initialize in main()
+func main() {
+    logger, _ := zap.NewProduction() // Use NewDevelopment() for dev
+    defer logger.Sync()
+    zap.ReplaceGlobals(logger)
+    
+    // Use throughout the app
+    zap.L().Info("Server starting", zap.String("port", "8080"))
+}
+```
+
+### Error Handling Pattern
+
+**Always wrap errors with context**:
+
+```go
+import (
+    "fmt"
+    "go.uber.org/zap"
+)
+
+func CreateVM(ctx context.Context, req *CreateVMRequest) error {
+    logger := zap.L().With(
+        zap.String("vm_id", req.ID),
+        zap.String("request_id", getRequestID(ctx)),
+    )
+    
+    logger.Info("Creating VM", zap.Any("spec", req.Spec))
+    
+    // Allocate resources
+    if err := allocateResources(ctx, req); err != nil {
+        logger.Error("Resource allocation failed", zap.Error(err))
+        return fmt.Errorf("failed to allocate resources for VM %s: %w", req.ID, err)
+    }
+    
+    // Start VM
+    if err := startVM(ctx, req.ID); err != nil {
+        logger.Error("VM start failed", zap.Error(err))
+        return fmt.Errorf("failed to start VM %s: %w", req.ID, err)
+    }
+    
+    logger.Info("VM created successfully")
+    return nil
+}
+```
+
+### HTTP/gRPC Middleware Logging
+
+**For Gin (HTTP)**:
+
+```go
+func LoggingMiddleware() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        start := time.Now()
+        requestID := uuid.New().String()
+        c.Set("request_id", requestID)
+        
+        logger := zap.L().With(
+            zap.String("request_id", requestID),
+            zap.String("method", c.Request.Method),
+            zap.String("path", c.Request.URL.Path),
+        )
+        
+        c.Next()
+        
+        logger.Info("Request completed",
+            zap.Int("status", c.Writer.Status()),
+            zap.Duration("duration", time.Since(start)),
+        )
+    }
+}
+```
+
+**For gRPC**:
+
+```go
+import "google.golang.org/grpc"
+
+func UnaryLoggingInterceptor() grpc.UnaryServerInterceptor {
+    return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+        start := time.Now()
+        requestID := uuid.New().String()
+        
+        logger := zap.L().With(
+            zap.String("request_id", requestID),
+            zap.String("method", info.FullMethod),
+        )
+        
+        logger.Info("gRPC request started")
+        
+        resp, err := handler(ctx, req)
+        
+        if err != nil {
+            logger.Error("gRPC request failed",
+                zap.Error(err),
+                zap.Duration("duration", time.Since(start)),
+            )
+        } else {
+            logger.Info("gRPC request completed",
+                zap.Duration("duration", time.Since(start)),
+            )
+        }
+        
+        return resp, err
+    }
+}
+```
+
+### Goroutine Error Handling
+
+**NEVER** start a goroutine without error handling:
+
+```go
+// ❌ BAD
+go doWork()
+
+// ✅ GOOD
+go func() {
+    defer func() {
+        if r := recover(); r != nil {
+            zap.L().Error("Goroutine panic",
+                zap.Any("panic", r),
+                zap.Stack("stack"),
+            )
+        }
+    }()
+    
+    if err := doWork(ctx); err != nil {
+        zap.L().Error("Work failed", zap.Error(err))
+    }
+}()
+```
+
+---
+
+## TypeScript/React (Frontend)
+
+### Logging Library
+Use `pino` for Node.js backend, `console` with structured format for browser:
+
+```typescript
+// For API calls/server-side
+import pino from 'pino';
+
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  transport: {
+    target: 'pino-pretty',
+    options: { colorize: true }
+  }
+});
+
+export default logger;
+```
+
+### Error Handling Pattern
+
+**API Client Error Handling**:
+
+```typescript
+import { toast } from 'sonner';
+
+export async function createVM(spec: VMSpec): Promise<VM> {
+  const requestId = crypto.randomUUID();
+  
+  logger.info({ requestId, spec }, 'Creating VM');
+  
+  try {
+    const response = await fetch('/api/vms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Request-ID': requestId,
+      },
+      body: JSON.stringify(spec),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new APIError(error.message, response.status, requestId);
+    }
+    
+    const vm = await response.json();
+    logger.info({ requestId, vmId: vm.id }, 'VM created successfully');
+    
+    return vm;
+  } catch (error) {
+    logger.error({ requestId, error }, 'Failed to create VM');
+    
+    if (error instanceof APIError) {
+      toast.error(`Failed to create VM: ${error.message}`);
+    } else {
+      toast.error('Network error. Please check your connection.');
+    }
+    
+    throw error;
+  }
+}
+```
+
+**Custom Error Classes**:
+
+```typescript
+export class APIError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+    public requestId: string,
+  ) {
+    super(message);
+    this.name = 'APIError';
+  }
+}
+
+export class ValidationError extends Error {
+  constructor(
+    message: string,
+    public field: string,
+  ) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+```
+
+**React Error Boundary**:
+
+```typescript
+import { Component, ErrorInfo, ReactNode } from 'react';
+
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error?: Error;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('React Error Boundary caught:', {
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+    });
+    
+    // Send to error tracking service (Sentry, etc.)
+    // reportError(error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div className="error-fallback">
+          <h2>Something went wrong</h2>
+          <p>{this.state.error?.message}</p>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+```
+
+**TanStack Query Error Handling**:
+
+```typescript
+import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
+
+export function useVM(vmId: string) {
+  return useQuery({
+    queryKey: ['vm', vmId],
+    queryFn: () => fetchVM(vmId),
+    onError: (error) => {
+      console.error({ vmId, error }, 'Failed to fetch VM');
+      toast.error(`Failed to load VM: ${error.message}`);
+    },
+    retry: (failureCount, error) => {
+      // Don't retry on 404s
+      if (error instanceof APIError && error.statusCode === 404) {
+        return false;
+      }
+      return failureCount < 3;
+    },
+  });
+}
+```
+
+---
+
+## Log Levels Guide
+
+Use appropriate log levels:
+
+| Level | When to Use | Examples |
+|-------|-------------|----------|
+| **ERROR** | Unrecoverable failures, bugs | VM failed to start, disk full, network unreachable |
+| **WARN** | Recoverable issues, degraded state | Retry attempt, deprecated API usage, high memory |
+| **INFO** | Important state changes | VM created, cluster joined, backup completed |
+| **DEBUG** | Detailed diagnostic info | Function entry/exit, variable values, loop iterations |
+
+---
+
+## Required Fields in Logs
+
+Always include these fields when relevant:
+
+### Rust
+```rust
+info!(
+    vm_id = %vm_id,
+    node_id = %node_id,
+    request_id = %request_id,
+    duration_ms = duration.as_millis(),
+    "Operation completed"
+);
+```
+
+### Go
+```go
+logger.Info("Operation completed",
+    zap.String("vm_id", vmID),
+    zap.String("node_id", nodeID),
+    zap.String("request_id", requestID),
+    zap.Duration("duration", duration),
+)
+```
+
+### TypeScript
+```typescript
+logger.info({
+  vmId,
+  nodeId,
+  requestId,
+  durationMs: Date.now() - startTime,
+}, 'Operation completed');
+```
+
+---
+
+## Performance Logging
+
+Log performance metrics for critical operations:
+
+```rust
+use std::time::Instant;
+
+let start = Instant::now();
+let result = expensive_operation().await?;
+let duration = start.elapsed();
+
+info!(
+    operation = "vm_migration",
+    duration_ms = duration.as_millis(),
+    vm_id = %vm_id,
+    "Migration completed"
+);
+
+// Alert if too slow
+if duration.as_secs() > 30 {
+    warn!(
+        duration_ms = duration.as_millis(),
+        "Migration took longer than expected"
+    );
+}
+```
+
+---
+
+## Anti-Patterns to Avoid
+
+❌ **Don't**: Use plain print statements
+```rust
+println!("VM started"); // BAD
+```
+
+❌ **Don't**: Swallow errors silently
+```go
+_ = doSomething() // BAD
+```
+
+❌ **Don't**: Log sensitive data
+```rust
+info!(password = %password, "User login"); // BAD - logs password!
+```
+
+❌ **Don't**: Use string concatenation for errors
+```go
+return errors.New("failed to start VM " + vmID) // BAD - can't unwrap
+```
+
+✅ **Do**: Use structured logging
+```rust
+info!(vm_id = %vm_id, "VM started");
+```
+
+✅ **Do**: Handle or propagate errors
+```go
+if err := doSomething(); err != nil {
+    return fmt.Errorf("operation failed: %w", err)
+}
+```
+
+✅ **Do**: Redact sensitive fields
+```rust
+info!(username = %username, "User login"); // Password not logged
+```
+
+✅ **Do**: Wrap errors with context
+```go
+return fmt.Errorf("failed to start VM %s: %w", vmID, err)
+```
+
+---
+
+## Testing Error Paths
+
+Always test error handling:
+
+```rust
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn test_vm_start_handles_missing_disk() {
+        let result = start_vm("vm-123").await;
+        
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), VMError::DiskNotFound { .. }));
+    }
+}
+```
+
+---
+
+## Summary Checklist
+
+For every function/handler you write:
+
+- [ ] Uses structured logging (`tracing`, `zap`, `pino`)
+- [ ] Includes context fields (IDs, durations)
+- [ ] Wraps errors with context (`context()`, `fmt.Errorf(...%w)`)
+- [ ] Logs at appropriate level (ERROR/WARN/INFO/DEBUG)
+- [ ] No silent failures (all errors logged or handled)
+- [ ] Performance metrics for slow operations
+- [ ] No sensitive data in logs
+- [ ] Error types are defined and documented

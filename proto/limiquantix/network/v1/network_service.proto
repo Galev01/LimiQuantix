@@ -1,0 +1,569 @@
+syntax = "proto3";
+
+package limiquantix.network.v1;
+
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/network/v1;networkv1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "limiquantix/network/v1/network.proto";
+
+// =============================================================================
+// VIRTUAL NETWORK SERVICE
+// =============================================================================
+
+// VirtualNetworkService manages software-defined networks.
+service VirtualNetworkService {
+  // CreateNetwork creates a new virtual network.
+  rpc CreateNetwork(CreateNetworkRequest) returns (VirtualNetwork);
+  
+  // GetNetwork retrieves a network by ID.
+  rpc GetNetwork(GetNetworkRequest) returns (VirtualNetwork);
+  
+  // ListNetworks returns all networks.
+  rpc ListNetworks(ListNetworksRequest) returns (ListNetworksResponse);
+  
+  // UpdateNetwork updates network configuration.
+  rpc UpdateNetwork(UpdateNetworkRequest) returns (VirtualNetwork);
+  
+  // DeleteNetwork removes a network.
+  // Network must have no ports unless force=true.
+  rpc DeleteNetwork(DeleteNetworkRequest) returns (google.protobuf.Empty);
+  
+  // GetNetworkTopology returns network connectivity graph.
+  rpc GetNetworkTopology(GetNetworkTopologyRequest) returns (NetworkTopology);
+}
+
+// =============================================================================
+// PORT SERVICE
+// =============================================================================
+
+// PortService manages network port connections.
+service PortService {
+  // CreatePort creates a new network port.
+  rpc CreatePort(CreatePortRequest) returns (Port);
+  
+  // GetPort retrieves a port by ID.
+  rpc GetPort(GetPortRequest) returns (Port);
+  
+  // ListPorts returns ports with filtering.
+  rpc ListPorts(ListPortsRequest) returns (ListPortsResponse);
+  
+  // UpdatePort updates port configuration.
+  rpc UpdatePort(UpdatePortRequest) returns (Port);
+  
+  // DeletePort removes a port.
+  rpc DeletePort(DeletePortRequest) returns (google.protobuf.Empty);
+  
+  // BindPort assigns a port to a VM.
+  rpc BindPort(BindPortRequest) returns (Port);
+  
+  // UnbindPort removes port assignment.
+  rpc UnbindPort(UnbindPortRequest) returns (Port);
+}
+
+// =============================================================================
+// SECURITY GROUP SERVICE
+// =============================================================================
+
+// SecurityGroupService manages firewall rules.
+service SecurityGroupService {
+  // CreateSecurityGroup creates a new security group.
+  rpc CreateSecurityGroup(CreateSecurityGroupRequest) returns (SecurityGroup);
+  
+  // GetSecurityGroup retrieves a security group by ID.
+  rpc GetSecurityGroup(GetSecurityGroupRequest) returns (SecurityGroup);
+  
+  // ListSecurityGroups returns all security groups.
+  rpc ListSecurityGroups(ListSecurityGroupsRequest) returns (ListSecurityGroupsResponse);
+  
+  // UpdateSecurityGroup updates rules.
+  rpc UpdateSecurityGroup(UpdateSecurityGroupRequest) returns (SecurityGroup);
+  
+  // DeleteSecurityGroup removes a security group.
+  // Group must not be in use unless force=true.
+  rpc DeleteSecurityGroup(DeleteSecurityGroupRequest) returns (google.protobuf.Empty);
+  
+  // AddRule adds a firewall rule.
+  rpc AddRule(AddRuleRequest) returns (SecurityGroup);
+  
+  // RemoveRule removes a firewall rule.
+  rpc RemoveRule(RemoveRuleRequest) returns (SecurityGroup);
+}
+
+// =============================================================================
+// FLOATING IP SERVICE
+// =============================================================================
+
+// FloatingIpService manages public IP assignments.
+service FloatingIpService {
+  // AllocateFloatingIp reserves a public IP.
+  rpc AllocateFloatingIp(AllocateFloatingIpRequest) returns (FloatingIp);
+  
+  // GetFloatingIp retrieves a floating IP by ID.
+  rpc GetFloatingIp(GetFloatingIpRequest) returns (FloatingIp);
+  
+  // ListFloatingIps returns all floating IPs.
+  rpc ListFloatingIps(ListFloatingIpsRequest) returns (ListFloatingIpsResponse);
+  
+  // ReleaseFloatingIp releases a public IP.
+  rpc ReleaseFloatingIp(ReleaseFloatingIpRequest) returns (google.protobuf.Empty);
+  
+  // AssociateFloatingIp assigns a floating IP to a port.
+  rpc AssociateFloatingIp(AssociateFloatingIpRequest) returns (FloatingIp);
+  
+  // DisassociateFloatingIp removes a floating IP assignment.
+  rpc DisassociateFloatingIp(DisassociateFloatingIpRequest) returns (FloatingIp);
+}
+
+// =============================================================================
+// LOAD BALANCER SERVICE
+// =============================================================================
+
+// LoadBalancerService manages load balancers.
+service LoadBalancerService {
+  // CreateLoadBalancer creates a new load balancer.
+  rpc CreateLoadBalancer(CreateLoadBalancerRequest) returns (LoadBalancer);
+  
+  // GetLoadBalancer retrieves a load balancer by ID.
+  rpc GetLoadBalancer(GetLoadBalancerRequest) returns (LoadBalancer);
+  
+  // ListLoadBalancers returns all load balancers.
+  rpc ListLoadBalancers(ListLoadBalancersRequest) returns (ListLoadBalancersResponse);
+  
+  // UpdateLoadBalancer updates configuration.
+  rpc UpdateLoadBalancer(UpdateLoadBalancerRequest) returns (LoadBalancer);
+  
+  // DeleteLoadBalancer removes a load balancer.
+  rpc DeleteLoadBalancer(DeleteLoadBalancerRequest) returns (google.protobuf.Empty);
+  
+  // AddListener adds a frontend listener.
+  rpc AddListener(AddListenerRequest) returns (LoadBalancer);
+  
+  // RemoveListener removes a listener.
+  rpc RemoveListener(RemoveListenerRequest) returns (LoadBalancer);
+  
+  // AddPoolMember adds a backend member.
+  rpc AddPoolMember(AddPoolMemberRequest) returns (LoadBalancer);
+  
+  // RemovePoolMember removes a backend member.
+  rpc RemovePoolMember(RemovePoolMemberRequest) returns (LoadBalancer);
+  
+  // GetLoadBalancerStats returns traffic statistics.
+  rpc GetLoadBalancerStats(GetLoadBalancerStatsRequest) returns (LoadBalancerStats);
+}
+
+// =============================================================================
+// VPN SERVICE
+// =============================================================================
+
+// VpnServiceManager manages site-to-site VPNs.
+service VpnServiceManager {
+  // CreateVpn creates a new VPN service.
+  rpc CreateVpn(CreateVpnRequest) returns (VpnService);
+  
+  // GetVpn retrieves a VPN service by ID.
+  rpc GetVpn(GetVpnRequest) returns (VpnService);
+  
+  // ListVpns returns all VPN services.
+  rpc ListVpns(ListVpnsRequest) returns (ListVpnsResponse);
+  
+  // DeleteVpn removes a VPN service.
+  rpc DeleteVpn(DeleteVpnRequest) returns (google.protobuf.Empty);
+  
+  // AddConnection adds a VPN connection.
+  rpc AddConnection(AddConnectionRequest) returns (VpnService);
+  
+  // RemoveConnection removes a VPN connection.
+  rpc RemoveConnection(RemoveConnectionRequest) returns (VpnService);
+  
+  // GetVpnStatus returns VPN tunnel status.
+  rpc GetVpnStatus(GetVpnStatusRequest) returns (VpnTunnelStatus);
+}
+
+// =============================================================================
+// NETWORK REQUEST/RESPONSE
+// =============================================================================
+
+message CreateNetworkRequest {
+  string name = 1;
+  string project_id = 2;
+  string description = 3;
+  map<string, string> labels = 4;
+  VirtualNetworkSpec spec = 5;
+}
+
+message GetNetworkRequest {
+  string id = 1;
+}
+
+message ListNetworksRequest {
+  string project_id = 1;
+  map<string, string> labels = 2;
+  VirtualNetworkSpec.NetworkType type = 3;
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListNetworksResponse {
+  repeated VirtualNetwork networks = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdateNetworkRequest {
+  string id = 1;
+  VirtualNetworkSpec spec = 2;
+  google.protobuf.FieldMask update_mask = 3;
+  map<string, string> labels = 4;
+  string description = 5;
+}
+
+message DeleteNetworkRequest {
+  string id = 1;
+  bool force = 2;
+}
+
+message GetNetworkTopologyRequest {
+  string project_id = 1;
+}
+
+message NetworkTopology {
+  repeated NetworkNode nodes = 1;
+  repeated NetworkEdge edges = 2;
+}
+
+message NetworkNode {
+  string id = 1;
+  string type = 2;  // "network", "router", "vm", "loadbalancer"
+  string name = 3;
+  map<string, string> properties = 4;
+}
+
+message NetworkEdge {
+  string source_id = 1;
+  string target_id = 2;
+  string type = 3;  // "port", "route", "nat"
+}
+
+// =============================================================================
+// PORT REQUEST/RESPONSE
+// =============================================================================
+
+message CreatePortRequest {
+  string name = 1;
+  string network_id = 2;
+  string project_id = 3;
+  map<string, string> labels = 4;
+  PortSpec spec = 5;
+}
+
+message GetPortRequest {
+  string id = 1;
+}
+
+message ListPortsRequest {
+  string network_id = 1;
+  string project_id = 2;
+  string vm_id = 3;
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListPortsResponse {
+  repeated Port ports = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdatePortRequest {
+  string id = 1;
+  PortSpec spec = 2;
+  google.protobuf.FieldMask update_mask = 3;
+}
+
+message DeletePortRequest {
+  string id = 1;
+}
+
+message BindPortRequest {
+  string port_id = 1;
+  string vm_id = 2;
+  string device_id = 3;  // NIC ID in VM
+}
+
+message UnbindPortRequest {
+  string port_id = 1;
+}
+
+// =============================================================================
+// SECURITY GROUP REQUEST/RESPONSE
+// =============================================================================
+
+message CreateSecurityGroupRequest {
+  string name = 1;
+  string description = 2;
+  string project_id = 3;
+  map<string, string> labels = 4;
+  repeated SecurityGroupRule rules = 5;
+  bool stateful = 6;
+}
+
+message GetSecurityGroupRequest {
+  string id = 1;
+}
+
+message ListSecurityGroupsRequest {
+  string project_id = 1;
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListSecurityGroupsResponse {
+  repeated SecurityGroup security_groups = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdateSecurityGroupRequest {
+  string id = 1;
+  string description = 2;
+  map<string, string> labels = 3;
+}
+
+message DeleteSecurityGroupRequest {
+  string id = 1;
+  bool force = 2;
+}
+
+message AddRuleRequest {
+  string security_group_id = 1;
+  SecurityGroupRule rule = 2;
+}
+
+message RemoveRuleRequest {
+  string security_group_id = 1;
+  string rule_id = 2;
+}
+
+// =============================================================================
+// FLOATING IP REQUEST/RESPONSE
+// =============================================================================
+
+message AllocateFloatingIpRequest {
+  string external_network_id = 1;
+  string project_id = 2;
+  string description = 3;
+  map<string, string> labels = 4;
+  
+  // Optional: request specific IP
+  string ip_address = 5;
+}
+
+message GetFloatingIpRequest {
+  string id = 1;
+}
+
+message ListFloatingIpsRequest {
+  string project_id = 1;
+  string external_network_id = 2;
+  bool unassigned_only = 3;
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListFloatingIpsResponse {
+  repeated FloatingIp floating_ips = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message ReleaseFloatingIpRequest {
+  string id = 1;
+}
+
+message AssociateFloatingIpRequest {
+  string floating_ip_id = 1;
+  string port_id = 2;
+  string fixed_ip = 3;  // Optional: specific IP if port has multiple
+}
+
+message DisassociateFloatingIpRequest {
+  string floating_ip_id = 1;
+}
+
+// =============================================================================
+// LOAD BALANCER REQUEST/RESPONSE
+// =============================================================================
+
+message CreateLoadBalancerRequest {
+  string name = 1;
+  string description = 2;
+  string project_id = 3;
+  map<string, string> labels = 4;
+  LoadBalancerSpec spec = 5;
+}
+
+message GetLoadBalancerRequest {
+  string id = 1;
+}
+
+message ListLoadBalancersRequest {
+  string project_id = 1;
+  string network_id = 2;
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListLoadBalancersResponse {
+  repeated LoadBalancer load_balancers = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdateLoadBalancerRequest {
+  string id = 1;
+  string description = 2;
+  map<string, string> labels = 3;
+}
+
+message DeleteLoadBalancerRequest {
+  string id = 1;
+}
+
+message AddListenerRequest {
+  string load_balancer_id = 1;
+  Listener listener = 2;
+}
+
+message RemoveListenerRequest {
+  string load_balancer_id = 1;
+  string listener_id = 2;
+}
+
+message AddPoolMemberRequest {
+  string load_balancer_id = 1;
+  string pool_id = 2;
+  PoolMember member = 3;
+}
+
+message RemovePoolMemberRequest {
+  string load_balancer_id = 1;
+  string pool_id = 2;
+  string member_id = 3;
+}
+
+message GetLoadBalancerStatsRequest {
+  string id = 1;
+}
+
+message LoadBalancerStats {
+  string load_balancer_id = 1;
+  
+  // Aggregate stats
+  uint64 active_connections = 2;
+  uint64 total_connections = 3;
+  uint64 bytes_in = 4;
+  uint64 bytes_out = 5;
+  uint64 requests = 6;
+  
+  // Per-listener stats
+  repeated ListenerStats listener_stats = 7;
+  
+  // Per-member stats
+  repeated MemberStats member_stats = 8;
+}
+
+message ListenerStats {
+  string listener_id = 1;
+  uint64 active_connections = 2;
+  uint64 total_connections = 3;
+  uint64 bytes_in = 4;
+  uint64 bytes_out = 5;
+}
+
+message MemberStats {
+  string pool_id = 1;
+  string member_id = 2;
+  string address = 3;
+  bool healthy = 4;
+  uint64 active_connections = 5;
+  uint64 total_connections = 6;
+  uint64 bytes_in = 7;
+  uint64 bytes_out = 8;
+}
+
+// =============================================================================
+// VPN REQUEST/RESPONSE
+// =============================================================================
+
+message CreateVpnRequest {
+  string name = 1;
+  string description = 2;
+  string project_id = 3;
+  string router_id = 4;
+  repeated VpnConnection connections = 5;
+}
+
+message GetVpnRequest {
+  string id = 1;
+}
+
+message ListVpnsRequest {
+  string project_id = 1;
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListVpnsResponse {
+  repeated VpnService vpn_services = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message DeleteVpnRequest {
+  string id = 1;
+}
+
+message AddConnectionRequest {
+  string vpn_id = 1;
+  VpnConnection connection = 2;
+}
+
+message RemoveConnectionRequest {
+  string vpn_id = 1;
+  string connection_id = 2;
+}
+
+message GetVpnStatusRequest {
+  string vpn_id = 1;
+}
+
+message VpnTunnelStatus {
+  string vpn_id = 1;
+  repeated TunnelStatus tunnels = 2;
+}
+
+message TunnelStatus {
+  string connection_id = 1;
+  string peer_address = 2;
+  
+  enum Status {
+    UNKNOWN = 0;
+    DOWN = 1;
+    NEGOTIATING = 2;
+    UP = 3;
+  }
+  Status status = 3;
+  
+  // Traffic stats
+  uint64 bytes_in = 4;
+  uint64 bytes_out = 5;
+  uint64 packets_in = 6;
+  uint64 packets_out = 7;
+  
+  // IKE/IPsec details
+  string ike_state = 8;
+  string ipsec_state = 9;
+}
+

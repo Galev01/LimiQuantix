@@ -1,0 +1,486 @@
+syntax = "proto3";
+
+package limiquantix.compute.v1;
+
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;computev1";
+
+import "google/protobuf/timestamp.proto";
+
+// =============================================================================
+// NODE - Physical Host Representation
+// =============================================================================
+
+// A Node represents a physical server in the LimiQuantix cluster.
+// This is the hypervisor host where VMs run.
+message Node {
+  // Immutable unique identifier (UUIDv4)
+  string id = 1;
+  
+  // Hostname of the node
+  string hostname = 2;
+  
+  // Management IP address
+  string management_ip = 3;
+  
+  // Labels for grouping (e.g., "rack:A1", "zone:us-east-1a", "gpu:nvidia")
+  map<string, string> labels = 4;
+  
+  // Annotations for non-identifying metadata
+  map<string, string> annotations = 5;
+
+  // Node specification (capabilities)
+  NodeSpec spec = 6;
+
+  // Current runtime state
+  NodeStatus status = 7;
+
+  // Audit trail
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// =============================================================================
+// NODE SPECIFICATION
+// =============================================================================
+
+message NodeSpec {
+  // Hardware capabilities
+  CpuInfo cpu = 1;
+  MemoryInfo memory = 2;
+  repeated StorageDevice storage = 3;
+  repeated NetworkDevice network = 4;
+  repeated GpuInfo gpus = 5;
+  
+  // Node role configuration
+  NodeRole role = 6;
+  
+  // Scheduling configuration
+  SchedulingConfig scheduling = 7;
+  
+  // Agent configuration
+  AgentConfig agent = 8;
+}
+
+// =============================================================================
+// HARDWARE INFORMATION
+// =============================================================================
+
+message CpuInfo {
+  // CPU model name (e.g., "Intel Xeon Gold 6248")
+  string model = 1;
+  
+  // Physical CPU sockets
+  uint32 sockets = 2;
+  
+  // Cores per socket
+  uint32 cores_per_socket = 3;
+  
+  // Threads per core (hyperthreading)
+  uint32 threads_per_core = 4;
+  
+  // Total logical CPUs (sockets * cores * threads)
+  uint32 total_threads = 5;
+  
+  // Base frequency in MHz
+  uint64 frequency_mhz = 6;
+  
+  // CPU features available
+  repeated string features = 7;
+  
+  // NUMA topology
+  repeated NumaNodeInfo numa_nodes = 8;
+}
+
+message NumaNodeInfo {
+  uint32 node_id = 1;
+  repeated uint32 cpus = 2;      // CPU IDs belonging to this NUMA node
+  uint64 memory_bytes = 3;       // Memory on this NUMA node
+}
+
+message MemoryInfo {
+  // Total physical RAM in bytes
+  uint64 total_bytes = 1;
+  
+  // Memory that can be allocated to VMs (excluding system reserved)
+  uint64 allocatable_bytes = 2;
+  
+  // Huge pages configuration
+  HugePagesInfo huge_pages = 3;
+}
+
+message HugePagesInfo {
+  // 2MB huge pages
+  uint64 pages_2mb_total = 1;
+  uint64 pages_2mb_free = 2;
+  
+  // 1GB huge pages
+  uint64 pages_1gb_total = 3;
+  uint64 pages_1gb_free = 4;
+}
+
+message StorageDevice {
+  // Device path (e.g., "/dev/sda", "/dev/nvme0n1")
+  string path = 1;
+  
+  // Device name/model
+  string model = 2;
+  
+  // Serial number
+  string serial = 3;
+  
+  // Size in bytes
+  uint64 size_bytes = 4;
+  
+  // Device type
+  enum DeviceType {
+    HDD = 0;
+    SSD = 1;
+    NVME = 2;
+  }
+  DeviceType type = 5;
+  
+  // Is this device available for storage pool use?
+  bool available = 6;
+  
+  // Current usage
+  string usage = 7;  // e.g., "ceph-osd", "local-lvm", "unused"
+}
+
+message NetworkDevice {
+  // Device name (e.g., "eth0", "eno1")
+  string name = 1;
+  
+  // MAC address
+  string mac_address = 2;
+  
+  // Driver (e.g., "i40e", "mlx5_core")
+  string driver = 3;
+  
+  // Link speed in Mbps
+  uint64 speed_mbps = 4;
+  
+  // MTU
+  uint32 mtu = 5;
+  
+  // NUMA node this NIC is attached to
+  uint32 numa_node = 6;
+  
+  // SR-IOV capable
+  bool sriov_capable = 7;
+  uint32 sriov_vfs_total = 8;
+  uint32 sriov_vfs_used = 9;
+  
+  // Current configuration
+  NetworkDeviceConfig config = 10;
+}
+
+message NetworkDeviceConfig {
+  // Role of this interface
+  enum Role {
+    UNUSED = 0;
+    MANAGEMENT = 1;    // Cluster management traffic
+    VM_TRAFFIC = 2;    // Guest VM traffic
+    STORAGE = 3;       // Ceph/storage replication
+    MIGRATION = 4;     // vMotion/Live migration
+    COMBINED = 5;      // Multi-purpose
+  }
+  Role role = 1;
+  
+  // IP addresses assigned
+  repeated string ip_addresses = 2;
+  
+  // Bridge or bond membership
+  string bridge = 3;
+  string bond = 4;
+  
+  // VLAN configuration
+  uint32 vlan_id = 5;
+}
+
+message GpuInfo {
+  // PCI address (e.g., "0000:81:00.0")
+  string pci_address = 1;
+  
+  // Vendor and model
+  string vendor = 2;  // "nvidia", "amd", "intel"
+  string model = 3;   // "Tesla V100", "A100", etc.
+  
+  // GPU UUID
+  string uuid = 4;
+  
+  // Memory in bytes
+  uint64 memory_bytes = 5;
+  
+  // vGPU capable (NVIDIA GRID, AMD MxGPU)
+  bool vgpu_capable = 6;
+  repeated string vgpu_profiles = 7;  // Available vGPU profiles
+  
+  // Current usage
+  enum GpuUsage {
+    AVAILABLE = 0;
+    PASSTHROUGH = 1;  // Assigned to single VM
+    VGPU = 2;         // Shared via vGPU
+  }
+  GpuUsage usage = 8;
+  
+  // If used, which VM(s)
+  repeated string assigned_vm_ids = 9;
+}
+
+// =============================================================================
+// NODE ROLE
+// =============================================================================
+
+message NodeRole {
+  // Can this node run VMs?
+  bool compute = 1;
+  
+  // Is this node part of the Ceph cluster?
+  bool storage = 2;
+  
+  // Is this node a control plane member?
+  bool control_plane = 3;
+  
+  // Control plane specifics
+  ControlPlaneConfig control_plane_config = 4;
+}
+
+message ControlPlaneConfig {
+  // Etcd member
+  bool etcd_member = 1;
+  
+  // API server
+  bool api_server = 2;
+  
+  // Scheduler
+  bool scheduler = 3;
+}
+
+// =============================================================================
+// SCHEDULING CONFIGURATION
+// =============================================================================
+
+message SchedulingConfig {
+  // Is this node schedulable? (false = maintenance mode)
+  bool schedulable = 1;
+  
+  // Taints (prevent scheduling unless VM tolerates)
+  repeated Taint taints = 2;
+  
+  // Resource overcommit ratios
+  OvercommitConfig overcommit = 3;
+  
+  // Reserved resources (for system use)
+  ReservedResources reserved = 4;
+}
+
+message Taint {
+  string key = 1;
+  string value = 2;
+  
+  enum Effect {
+    NO_SCHEDULE = 0;       // Don't schedule new VMs
+    PREFER_NO_SCHEDULE = 1; // Try to avoid scheduling
+    NO_EXECUTE = 2;        // Evict existing VMs
+  }
+  Effect effect = 3;
+}
+
+message OvercommitConfig {
+  // CPU overcommit ratio (e.g., 4.0 = 4:1 vCPU to pCPU)
+  double cpu_ratio = 1;
+  
+  // Memory overcommit ratio (e.g., 1.5 = 150% allocation allowed)
+  double memory_ratio = 2;
+}
+
+message ReservedResources {
+  // CPU cores reserved for host OS
+  uint32 cpu_cores = 1;
+  
+  // Memory reserved for host OS (in bytes)
+  uint64 memory_bytes = 2;
+}
+
+// =============================================================================
+// AGENT CONFIGURATION
+// =============================================================================
+
+message AgentConfig {
+  // Agent version installed
+  string version = 1;
+  
+  // Communication endpoint
+  string endpoint = 2;
+  
+  // TLS configuration
+  bool tls_enabled = 3;
+  string tls_cert_path = 4;
+}
+
+// =============================================================================
+// NODE STATUS (Runtime State)
+// =============================================================================
+
+message NodeStatus {
+  // Current phase
+  enum Phase {
+    UNKNOWN = 0;
+    PENDING = 1;      // Node is joining
+    READY = 2;        // Node is healthy and schedulable
+    NOT_READY = 3;    // Node is unhealthy
+    MAINTENANCE = 4;  // Node is in maintenance mode
+    DRAINING = 5;     // VMs being migrated off
+    OFFLINE = 6;      // Node is unreachable
+  }
+  Phase phase = 1;
+  
+  // Detailed conditions
+  repeated NodeCondition conditions = 2;
+  
+  // Resource allocation status
+  ResourceAllocation resources = 3;
+  
+  // Running VMs on this node
+  repeated string vm_ids = 4;
+  
+  // System information
+  SystemInfo system = 5;
+  
+  // Last heartbeat from agent
+  google.protobuf.Timestamp last_heartbeat = 6;
+  
+  // Error message if not ready
+  string error_message = 7;
+}
+
+message NodeCondition {
+  // Condition type
+  string type = 1;  // "Ready", "DiskPressure", "MemoryPressure", "NetworkUnavailable"
+  
+  // Status
+  enum Status {
+    UNKNOWN = 0;
+    TRUE = 1;
+    FALSE = 2;
+  }
+  Status status = 2;
+  
+  // Last transition time
+  google.protobuf.Timestamp last_transition = 3;
+  
+  // Reason code
+  string reason = 4;
+  
+  // Human-readable message
+  string message = 5;
+}
+
+message ResourceAllocation {
+  // CPU allocation
+  CpuAllocation cpu = 1;
+  
+  // Memory allocation
+  MemoryAllocation memory = 2;
+  
+  // Storage allocation
+  StorageAllocation storage = 3;
+  
+  // GPU allocation
+  GpuAllocation gpu = 4;
+}
+
+message CpuAllocation {
+  // Total vCPUs allocated to VMs
+  uint32 allocated_vcpus = 1;
+  
+  // Maximum vCPUs allocatable (considering overcommit)
+  uint32 allocatable_vcpus = 2;
+  
+  // Current CPU usage percentage
+  double usage_percent = 3;
+}
+
+message MemoryAllocation {
+  // Total memory allocated to VMs
+  uint64 allocated_bytes = 1;
+  
+  // Maximum memory allocatable
+  uint64 allocatable_bytes = 2;
+  
+  // Current memory usage
+  uint64 used_bytes = 3;
+  
+  // Memory available for new VMs
+  uint64 available_bytes = 4;
+}
+
+message StorageAllocation {
+  // Local storage usage
+  uint64 local_used_bytes = 1;
+  uint64 local_total_bytes = 2;
+  
+  // Per-pool allocations
+  map<string, uint64> pool_allocations = 3;
+}
+
+message GpuAllocation {
+  uint32 total_gpus = 1;
+  uint32 used_gpus = 2;
+  
+  // Per-GPU details
+  repeated GpuUsageDetail gpu_details = 3;
+}
+
+message GpuUsageDetail {
+  string pci_address = 1;
+  string model = 2;
+  string assigned_vm_id = 3;  // Empty if available
+  
+  // For vGPU, multiple VMs can share
+  repeated string vgpu_vm_ids = 4;
+  uint32 vgpu_instances_used = 5;
+  uint32 vgpu_instances_total = 6;
+}
+
+message SystemInfo {
+  // OS information
+  string os_name = 1;      // e.g., "Ubuntu"
+  string os_version = 2;   // e.g., "22.04 LTS"
+  string kernel_version = 3;
+  
+  // Hypervisor information
+  string hypervisor = 4;   // e.g., "kvm", "cloud-hypervisor"
+  string hypervisor_version = 5;
+  
+  // LimiQuantix agent version
+  string agent_version = 6;
+  
+  // Boot time
+  google.protobuf.Timestamp boot_time = 7;
+  
+  // Uptime in seconds
+  uint64 uptime_seconds = 8;
+}
+
+// =============================================================================
+// NODE EVENTS
+// =============================================================================
+
+message NodeEvent {
+  string id = 1;
+  string node_id = 2;
+  
+  enum EventType {
+    NORMAL = 0;
+    WARNING = 1;
+    ERROR = 2;
+  }
+  EventType type = 3;
+  
+  string reason = 4;
+  string message = 5;
+  
+  google.protobuf.Timestamp timestamp = 6;
+}
+

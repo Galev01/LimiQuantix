@@ -1,0 +1,307 @@
+syntax = "proto3";
+
+package limiquantix.compute.v1;
+
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;computev1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "limiquantix/compute/v1/node.proto";
+
+// =============================================================================
+// NODE SERVICE - Physical Host Management API
+// =============================================================================
+
+// NodeService provides management operations for physical compute nodes.
+service NodeService {
+  // ==========================================================================
+  // CRUD Operations
+  // ==========================================================================
+  
+  // RegisterNode adds a new node to the cluster.
+  rpc RegisterNode(RegisterNodeRequest) returns (Node);
+  
+  // GetNode retrieves a node by ID.
+  rpc GetNode(GetNodeRequest) returns (Node);
+  
+  // ListNodes returns all nodes in the cluster.
+  rpc ListNodes(ListNodesRequest) returns (ListNodesResponse);
+  
+  // UpdateNode updates node configuration.
+  rpc UpdateNode(UpdateNodeRequest) returns (Node);
+  
+  // DecommissionNode removes a node from the cluster.
+  // All VMs must be migrated first unless force=true.
+  rpc DecommissionNode(DecommissionNodeRequest) returns (google.protobuf.Empty);
+  
+  // ==========================================================================
+  // State Management
+  // ==========================================================================
+  
+  // EnableNode marks a node as schedulable.
+  rpc EnableNode(EnableNodeRequest) returns (Node);
+  
+  // DisableNode marks a node as unschedulable (maintenance mode).
+  rpc DisableNode(DisableNodeRequest) returns (Node);
+  
+  // DrainNode migrates all VMs off the node.
+  rpc DrainNode(DrainNodeRequest) returns (DrainNodeResponse);
+  
+  // ==========================================================================
+  // Taints and Labels
+  // ==========================================================================
+  
+  // AddTaint adds a taint to a node.
+  rpc AddTaint(AddTaintRequest) returns (Node);
+  
+  // RemoveTaint removes a taint from a node.
+  rpc RemoveTaint(RemoveTaintRequest) returns (Node);
+  
+  // UpdateLabels updates node labels.
+  rpc UpdateLabels(UpdateLabelsRequest) returns (Node);
+  
+  // ==========================================================================
+  // Monitoring
+  // ==========================================================================
+  
+  // GetNodeMetrics returns current resource usage.
+  rpc GetNodeMetrics(GetNodeMetricsRequest) returns (NodeMetrics);
+  
+  // ListNodeEvents returns recent events for a node.
+  rpc ListNodeEvents(ListNodeEventsRequest) returns (ListNodeEventsResponse);
+  
+  // WatchNode streams real-time node status updates.
+  rpc WatchNode(WatchNodeRequest) returns (stream Node);
+  
+  // WatchNodes streams updates for all nodes.
+  rpc WatchNodes(WatchNodesRequest) returns (stream NodeUpdate);
+}
+
+// =============================================================================
+// REQUEST/RESPONSE MESSAGES
+// =============================================================================
+
+// RegisterNode
+
+message RegisterNodeRequest {
+  // Hostname
+  string hostname = 1;
+  
+  // Management IP
+  string management_ip = 2;
+  
+  // Initial labels
+  map<string, string> labels = 3;
+  
+  // Node roles
+  NodeRole role = 4;
+  
+  // Initial taints
+  repeated Taint taints = 5;
+  
+  // Agent endpoint for verification
+  string agent_endpoint = 6;
+}
+
+// GetNode
+
+message GetNodeRequest {
+  string id = 1;
+}
+
+// ListNodes
+
+message ListNodesRequest {
+  // Filter by labels
+  map<string, string> labels = 1;
+  
+  // Filter by phase
+  repeated NodeStatus.Phase phases = 2;
+  
+  // Filter by role
+  bool compute_only = 3;
+  bool storage_only = 4;
+  bool control_plane_only = 5;
+  
+  // Pagination
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListNodesResponse {
+  repeated Node nodes = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// UpdateNode
+
+message UpdateNodeRequest {
+  string id = 1;
+  
+  // Updated scheduling config
+  SchedulingConfig scheduling = 2;
+  
+  // Updated role
+  NodeRole role = 3;
+  
+  // Field mask
+  google.protobuf.FieldMask update_mask = 4;
+}
+
+// DecommissionNode
+
+message DecommissionNodeRequest {
+  string id = 1;
+  
+  // Force removal even if VMs are running
+  bool force = 2;
+}
+
+// EnableNode / DisableNode
+
+message EnableNodeRequest {
+  string id = 1;
+}
+
+message DisableNodeRequest {
+  string id = 1;
+  
+  // Reason for disabling
+  string reason = 2;
+}
+
+// DrainNode
+
+message DrainNodeRequest {
+  string id = 1;
+  
+  // Grace period for graceful shutdown (seconds)
+  int32 grace_period_sec = 2;
+  
+  // Force drain (stop VMs that can't migrate)
+  bool force = 3;
+  
+  // Target node for VMs (empty = auto-select)
+  string target_node_id = 4;
+}
+
+message DrainNodeResponse {
+  Node node = 1;
+  
+  // VMs that were migrated
+  repeated string migrated_vm_ids = 2;
+  
+  // VMs that were stopped (couldn't migrate)
+  repeated string stopped_vm_ids = 3;
+  
+  // VMs that failed
+  repeated DrainFailure failures = 4;
+}
+
+message DrainFailure {
+  string vm_id = 1;
+  string error = 2;
+}
+
+// Taints
+
+message AddTaintRequest {
+  string node_id = 1;
+  Taint taint = 2;
+}
+
+message RemoveTaintRequest {
+  string node_id = 1;
+  string taint_key = 2;
+}
+
+// Labels
+
+message UpdateLabelsRequest {
+  string node_id = 1;
+  
+  // Labels to add/update
+  map<string, string> add_labels = 2;
+  
+  // Labels to remove
+  repeated string remove_labels = 3;
+}
+
+// Metrics
+
+message GetNodeMetricsRequest {
+  string id = 1;
+}
+
+message NodeMetrics {
+  string node_id = 1;
+  
+  // CPU metrics
+  double cpu_usage_percent = 2;
+  uint32 cpu_cores_total = 3;
+  uint32 cpu_cores_allocated = 4;
+  
+  // Memory metrics
+  uint64 memory_total_bytes = 5;
+  uint64 memory_used_bytes = 6;
+  uint64 memory_allocated_bytes = 7;
+  uint64 memory_available_bytes = 8;
+  
+  // Storage metrics
+  uint64 storage_total_bytes = 9;
+  uint64 storage_used_bytes = 10;
+  
+  // Network metrics
+  uint64 network_rx_bytes = 11;
+  uint64 network_tx_bytes = 12;
+  uint64 network_rx_errors = 13;
+  uint64 network_tx_errors = 14;
+  
+  // VM count
+  uint32 vm_count = 15;
+  uint32 vm_running_count = 16;
+  
+  // Load average
+  double load_1m = 17;
+  double load_5m = 18;
+  double load_15m = 19;
+}
+
+// Events
+
+message ListNodeEventsRequest {
+  string node_id = 1;
+  
+  // Filter by type
+  repeated NodeEvent.EventType types = 2;
+  
+  // Limit
+  int32 limit = 3;
+}
+
+message ListNodeEventsResponse {
+  repeated NodeEvent events = 1;
+}
+
+// Watch
+
+message WatchNodeRequest {
+  string node_id = 1;
+}
+
+message WatchNodesRequest {
+  // Filter by labels
+  map<string, string> labels = 1;
+}
+
+message NodeUpdate {
+  enum UpdateType {
+    ADDED = 0;
+    MODIFIED = 1;
+    DELETED = 2;
+  }
+  UpdateType type = 1;
+  Node node = 2;
+}
+

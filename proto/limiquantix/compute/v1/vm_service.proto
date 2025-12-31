@@ -1,0 +1,371 @@
+syntax = "proto3";
+
+package limiquantix.compute.v1;
+
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;computev1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "limiquantix/compute/v1/vm.proto";
+
+// =============================================================================
+// VM SERVICE - Virtual Machine Management API
+// =============================================================================
+
+// VMService provides CRUD operations and lifecycle management for Virtual Machines.
+service VMService {
+  // ==========================================================================
+  // CRUD Operations
+  // ==========================================================================
+  
+  // CreateVM creates a new virtual machine.
+  // The VM will be in STOPPED state after creation unless start_on_create is true.
+  rpc CreateVM(CreateVMRequest) returns (VirtualMachine);
+  
+  // GetVM retrieves a virtual machine by ID.
+  rpc GetVM(GetVMRequest) returns (VirtualMachine);
+  
+  // ListVMs returns a paginated list of virtual machines.
+  rpc ListVMs(ListVMsRequest) returns (ListVMsResponse);
+  
+  // UpdateVM updates a virtual machine's specification.
+  // Some changes require the VM to be stopped (e.g., CPU/memory changes).
+  rpc UpdateVM(UpdateVMRequest) returns (VirtualMachine);
+  
+  // DeleteVM permanently deletes a virtual machine.
+  // The VM must be stopped first. Use force=true to stop and delete.
+  rpc DeleteVM(DeleteVMRequest) returns (google.protobuf.Empty);
+  
+  // ==========================================================================
+  // Power Operations
+  // ==========================================================================
+  
+  // StartVM powers on a virtual machine.
+  rpc StartVM(StartVMRequest) returns (VirtualMachine);
+  
+  // StopVM powers off a virtual machine.
+  // Use force=true for hard power off (like pulling the power cord).
+  rpc StopVM(StopVMRequest) returns (VirtualMachine);
+  
+  // RebootVM restarts a virtual machine.
+  rpc RebootVM(RebootVMRequest) returns (VirtualMachine);
+  
+  // PauseVM suspends VM execution (freezes in place).
+  rpc PauseVM(PauseVMRequest) returns (VirtualMachine);
+  
+  // ResumeVM resumes a paused virtual machine.
+  rpc ResumeVM(ResumeVMRequest) returns (VirtualMachine);
+  
+  // SuspendVM saves VM state to disk and stops (hibernate).
+  rpc SuspendVM(SuspendVMRequest) returns (VirtualMachine);
+  
+  // ==========================================================================
+  // Snapshot Operations
+  // ==========================================================================
+  
+  // CreateSnapshot creates a point-in-time snapshot.
+  rpc CreateSnapshot(CreateSnapshotRequest) returns (Snapshot);
+  
+  // ListSnapshots returns all snapshots for a VM.
+  rpc ListSnapshots(ListSnapshotsRequest) returns (ListSnapshotsResponse);
+  
+  // RevertToSnapshot reverts the VM to a previous snapshot.
+  rpc RevertToSnapshot(RevertToSnapshotRequest) returns (VirtualMachine);
+  
+  // DeleteSnapshot removes a snapshot.
+  rpc DeleteSnapshot(DeleteSnapshotRequest) returns (google.protobuf.Empty);
+  
+  // ==========================================================================
+  // Migration Operations
+  // ==========================================================================
+  
+  // MigrateVM live-migrates a VM to another node.
+  rpc MigrateVM(MigrateVMRequest) returns (MigrateVMResponse);
+  
+  // ==========================================================================
+  // Console Operations
+  // ==========================================================================
+  
+  // GetConsole returns connection info for VNC/SPICE console.
+  rpc GetConsole(GetConsoleRequest) returns (ConsoleInfo);
+  
+  // ==========================================================================
+  // Clone Operations
+  // ==========================================================================
+  
+  // CloneVM creates a copy of a virtual machine.
+  rpc CloneVM(CloneVMRequest) returns (VirtualMachine);
+  
+  // ConvertToTemplate marks a VM as a template.
+  rpc ConvertToTemplate(ConvertToTemplateRequest) returns (VirtualMachine);
+  
+  // ==========================================================================
+  // Streaming Operations
+  // ==========================================================================
+  
+  // WatchVM streams real-time updates for a VM.
+  rpc WatchVM(WatchVMRequest) returns (stream VirtualMachine);
+  
+  // StreamMetrics streams real-time performance metrics.
+  rpc StreamMetrics(StreamMetricsRequest) returns (stream ResourceUsage);
+}
+
+// =============================================================================
+// REQUEST/RESPONSE MESSAGES
+// =============================================================================
+
+// CreateVM
+
+message CreateVMRequest {
+  // Required: VM name
+  string name = 1;
+  
+  // Required: Project ID
+  string project_id = 2;
+  
+  // Optional: Description
+  string description = 3;
+  
+  // Optional: Labels
+  map<string, string> labels = 4;
+  
+  // Required: VM specification
+  VmSpec spec = 5;
+  
+  // Start VM immediately after creation
+  bool start_on_create = 6;
+  
+  // Clone from template
+  string template_id = 7;
+}
+
+// GetVM
+
+message GetVMRequest {
+  string id = 1;
+}
+
+// ListVMs
+
+message ListVMsRequest {
+  // Filter by project
+  string project_id = 1;
+  
+  // Filter by labels (all must match)
+  map<string, string> labels = 2;
+  
+  // Filter by power state
+  repeated VmStatus.PowerState states = 3;
+  
+  // Filter by node
+  string node_id = 4;
+  
+  // Pagination
+  int32 page_size = 10;
+  string page_token = 11;
+  
+  // Sorting
+  string order_by = 12;  // e.g., "name", "created_at desc"
+}
+
+message ListVMsResponse {
+  repeated VirtualMachine vms = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// UpdateVM
+
+message UpdateVMRequest {
+  // VM ID to update
+  string id = 1;
+  
+  // Updated specification
+  VmSpec spec = 2;
+  
+  // Which fields to update (if empty, updates all provided fields)
+  google.protobuf.FieldMask update_mask = 3;
+  
+  // Update labels
+  map<string, string> labels = 4;
+  
+  // Update description
+  string description = 5;
+}
+
+// DeleteVM
+
+message DeleteVMRequest {
+  string id = 1;
+  
+  // Force stop if running
+  bool force = 2;
+  
+  // Also delete attached volumes
+  bool delete_volumes = 3;
+}
+
+// Power Operations
+
+message StartVMRequest {
+  string id = 1;
+}
+
+message StopVMRequest {
+  string id = 1;
+  
+  // Hard power off (vs graceful shutdown via agent)
+  bool force = 2;
+  
+  // Timeout for graceful shutdown (seconds)
+  int32 timeout_sec = 3;
+}
+
+message RebootVMRequest {
+  string id = 1;
+  
+  // Hard reset (vs graceful reboot via agent)
+  bool force = 2;
+}
+
+message PauseVMRequest {
+  string id = 1;
+}
+
+message ResumeVMRequest {
+  string id = 1;
+}
+
+message SuspendVMRequest {
+  string id = 1;
+}
+
+// Snapshot Operations
+
+message CreateSnapshotRequest {
+  string vm_id = 1;
+  
+  // Snapshot name
+  string name = 2;
+  
+  // Description
+  string description = 3;
+  
+  // Include memory state (hot snapshot)
+  bool include_memory = 4;
+  
+  // Quiesce filesystem via guest agent
+  bool quiesce = 5;
+}
+
+message ListSnapshotsRequest {
+  string vm_id = 1;
+}
+
+message ListSnapshotsResponse {
+  repeated Snapshot snapshots = 1;
+}
+
+message RevertToSnapshotRequest {
+  string vm_id = 1;
+  string snapshot_id = 2;
+  
+  // Start VM after revert
+  bool start_after_revert = 3;
+}
+
+message DeleteSnapshotRequest {
+  string vm_id = 1;
+  string snapshot_id = 2;
+}
+
+// Migration Operations
+
+message MigrateVMRequest {
+  string vm_id = 1;
+  
+  // Target node (empty = auto-select)
+  string target_node_id = 2;
+  
+  // Live migration (vs offline)
+  bool live = 3;
+  
+  // Max downtime for live migration (milliseconds)
+  uint64 max_downtime_ms = 4;
+  
+  // Bandwidth limit (Mbps)
+  uint64 bandwidth_mbps = 5;
+}
+
+message MigrateVMResponse {
+  VirtualMachine vm = 1;
+  
+  // Migration statistics
+  MigrationStats stats = 2;
+}
+
+message MigrationStats {
+  // Total bytes transferred
+  uint64 bytes_transferred = 1;
+  
+  // Actual downtime (milliseconds)
+  uint64 downtime_ms = 2;
+  
+  // Duration (milliseconds)
+  uint64 duration_ms = 3;
+  
+  // Memory pages transferred
+  uint64 memory_pages = 4;
+  
+  // Disk bytes transferred
+  uint64 disk_bytes = 5;
+}
+
+// Console Operations
+
+message GetConsoleRequest {
+  string vm_id = 1;
+  
+  // Desired console type (empty = use VM default)
+  DisplayConfig.DisplayType type = 2;
+}
+
+// Clone Operations
+
+message CloneVMRequest {
+  // Source VM ID
+  string source_vm_id = 1;
+  
+  // New VM name
+  string name = 2;
+  
+  // Target project (empty = same as source)
+  string project_id = 3;
+  
+  // Clone type
+  TemplateConfig.CloneType clone_type = 4;
+  
+  // Start after clone
+  bool start_on_create = 5;
+  
+  // Provisioning configuration (cloud-init, etc.)
+  ProvisioningConfig provisioning = 6;
+}
+
+message ConvertToTemplateRequest {
+  string vm_id = 1;
+}
+
+// Watch/Stream Operations
+
+message WatchVMRequest {
+  string vm_id = 1;
+}
+
+message StreamMetricsRequest {
+  string vm_id = 1;
+  
+  // Update interval in seconds (default: 5)
+  uint32 interval_sec = 2;
+}
+
