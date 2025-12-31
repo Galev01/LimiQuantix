@@ -1,122 +1,122 @@
-# Workflow State
+# LimiQuantix Workflow State
 
-## Current Status: ✅ Completed
-
-## Completed Tasks
-
-### Proto API Layer Complete (2025-01-01)
-
-**Objective:** Build complete protobuf API layer for LimiQuantix virtualization platform.
-
-#### Deliverables
-
-**Proto Models Created:**
-- [x] `proto/limiquantix/compute/v1/vm.proto` - Virtual Machine model (~800 lines)
-- [x] `proto/limiquantix/compute/v1/node.proto` - Physical Node model (~450 lines)
-- [x] `proto/limiquantix/storage/v1/storage.proto` - Storage Pool, Volume, Snapshot, Image (~550 lines)
-- [x] `proto/limiquantix/network/v1/network.proto` - Virtual Network, Port, Security Group, LB, VPN (~650 lines)
-
-**gRPC Services Created:**
-- [x] `proto/limiquantix/compute/v1/vm_service.proto` - VM lifecycle, snapshots, migration, cloning
-- [x] `proto/limiquantix/compute/v1/node_service.proto` - Node management, draining, taints
-- [x] `proto/limiquantix/storage/v1/storage_service.proto` - Pool, Volume, Snapshot, Image services
-- [x] `proto/limiquantix/network/v1/network_service.proto` - Network, Port, SecurityGroup, FloatingIP, LB, VPN services
-
-**Build Configuration:**
-- [x] `proto/buf.yaml` - Buf linting and breaking change detection
-- [x] `proto/buf.gen.yaml` - Code generation for Go, TypeScript, Rust
-- [x] `Makefile` - Build automation with `make proto`, `make setup`, etc.
-- [x] `scripts/proto-gen.sh` - Alternative shell script for generation
-
-**Documentation (ADRs):**
-- [x] `docs/adr/000001-vm-model-design.md` - VM model architecture decisions
-- [x] `docs/adr/000002-node-model-design.md` - Node model architecture decisions
-- [x] `docs/adr/000003-storage-model-design.md` - Storage model architecture decisions
-- [x] `docs/adr/000004-network-model-design.md` - Network model architecture decisions
-- [x] `docs/adr/000005-grpc-services-design.md` - gRPC API design decisions
-
-**Developer Guides:**
-- [x] `docs/000006-proto-and-build-system-guide.md` - Proto, Makefile, and build orchestration explained
-
-#### Coverage Summary
-
-| Domain | VMware Feature Parity |
-|--------|----------------------|
-| VM Model | ~95% (snapshots, vGPU, TPM, cloud-init, migration, templates) |
-| Node Model | ~90% (NUMA, taints, maintenance mode, resource tracking) |
-| Storage | ~90% (Ceph, LVM, NFS, QoS, encryption, tiering, images) |
-| Network | ~85% (OVN SDN, security groups, LB, VPN, floating IPs, SR-IOV) |
+## Current Status: Phase 1 Implementation 🚧
 
 ---
 
-## How to Use
+## Implementation Phases
 
-### Generate Code
+### Phase 1: MVP Core Pages ⏳ In Progress
+| Task | Status | Documentation |
+|------|--------|---------------|
+| React Router setup | ⏳ | - |
+| VM List page | ⏳ | `docs/000009-vm-list-page.md` |
+| VM Detail page | ⏳ | `docs/000010-vm-detail-page.md` |
+| Hosts List page | ⏳ | `docs/000011-hosts-list-page.md` |
 
-```bash
-# Using Buf (recommended)
-make proto
+### Phase 2: Storage & Host Details
+| Task | Status | Documentation |
+|------|--------|---------------|
+| Host Detail page | 📋 | - |
+| Storage Pools page | 📋 | - |
+| Volumes page | 📋 | - |
+| VM Creation Wizard | 📋 | - |
 
-# Or direct script
-./scripts/proto-gen.sh
+### Phase 3: Networking & Clusters
+| Task | Status | Documentation |
+|------|--------|---------------|
+| Clusters pages | 📋 | - |
+| Networks pages | 📋 | - |
+| Security Groups pages | 📋 | - |
+| Settings page | 📋 | - |
 
-# Or manual protoc
-make proto-direct
+### Phase 4: Advanced Features
+| Task | Status | Documentation |
+|------|--------|---------------|
+| Monitoring integration | 📋 | - |
+| Real-time updates (gRPC) | 📋 | - |
+| DRS/HA features | 📋 | - |
+| Connect-ES backend | 📋 | - |
+
+---
+
+## Completed Work
+
+### ✅ Foundation (Complete)
+- React 19 + Vite + TypeScript
+- Tailwind CSS v4 with custom dark theme
+- Zustand for global state
+- TanStack Query for server state
+- Framer Motion for animations
+- Lucide React for icons
+
+### ✅ Dashboard (Complete)
+- Sidebar navigation with tree structure
+- Header with search and actions
+- Metric cards (VMs, Hosts, CPU, Memory)
+- VM table with status badges
+- Mock data for development
+
+### ✅ Documentation (Complete)
+- `docs/000007-dashboard-ui-guide.md` - Dashboard architecture
+- `docs/000008-ui-pages-specification.md` - All pages specification
+
+---
+
+## File Structure
+
 ```
-
-### Install Dependencies
-
-```bash
-# All dependencies
-make setup
-
-# Individual
-make setup-buf    # Buf CLI
-make setup-go     # Go protoc plugins
-make setup-node   # TypeScript plugins
-```
-
-### Lint Protos
-
-```bash
-make proto-lint
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── Header.tsx
+│   │   │   └── Layout.tsx
+│   │   ├── dashboard/
+│   │   │   ├── MetricCard.tsx
+│   │   │   ├── ProgressRing.tsx
+│   │   │   ├── ResourceCard.tsx
+│   │   │   └── NodeCard.tsx
+│   │   ├── vm/
+│   │   │   ├── VMStatusBadge.tsx
+│   │   │   └── VMTable.tsx
+│   │   └── ui/                    # Phase 1: Shared UI components
+│   │       ├── Button.tsx
+│   │       ├── Tabs.tsx
+│   │       └── DataTable.tsx
+│   ├── pages/
+│   │   ├── Dashboard.tsx
+│   │   ├── VMList.tsx             # Phase 1
+│   │   ├── VMDetail.tsx           # Phase 1
+│   │   └── HostList.tsx           # Phase 1
+│   ├── stores/
+│   │   └── app-store.ts
+│   ├── data/
+│   │   └── mock-data.ts
+│   ├── lib/
+│   │   └── utils.ts
+│   ├── index.css
+│   ├── App.tsx                    # Router setup
+│   └── main.tsx
+├── vite.config.ts
+└── tsconfig.app.json
 ```
 
 ---
 
-## Next Steps (Suggested)
+## Running the Dashboard
 
-1. **Create Project Structure**
-   - `backend/` - Go control plane
-   - `frontend/` - React dashboard
-   - `agent/` - Rust guest agent
-
-2. **Implement Control Plane**
-   - Implement gRPC services in Go
-   - Add etcd state management
-   - Add scheduler logic
-
-3. **Build Dashboard**
-   - Set up React + Vite + TypeScript
-   - Generate Connect-ES clients
-   - Build VM management UI
-
-4. **Create Terraform Provider**
-   - Use generated Go types
-   - Implement CRUD resources
+```bash
+cd frontend
+npm run dev
+# Open http://localhost:5173
+```
 
 ---
 
-## Log
-
-| Timestamp | Action |
-|-----------|--------|
-| 2025-01-01 | Analyzed vm_model.proto for VMware feature gaps |
-| 2025-01-01 | Enhanced vm_model.proto with enterprise features |
-| 2025-01-01 | Created node.proto for physical host representation |
-| 2025-01-01 | Created storage.proto for Ceph/LVM/NFS integration |
-| 2025-01-01 | Created network.proto for OVN-based SDN |
-| 2025-01-01 | Created all gRPC service definitions |
-| 2025-01-01 | Set up Buf for proto management |
-| 2025-01-01 | Created Makefile and proto-gen.sh |
-| 2025-01-01 | Documented all models in ADRs |
+## Legend
+- ✅ Complete
+- ⏳ In Progress
+- 📋 Planned
+- ❌ Blocked

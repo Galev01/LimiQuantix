@@ -1,0 +1,517 @@
+import { useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+  ArrowLeft,
+  Play,
+  Square,
+  RefreshCw,
+  MonitorPlay,
+  Camera,
+  MoreHorizontal,
+  Cpu,
+  MemoryStick,
+  HardDrive,
+  Network,
+  Clock,
+  Server,
+  Terminal,
+  Activity,
+} from 'lucide-react';
+import { cn, formatBytes, formatUptime } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { VMStatusBadge } from '@/components/vm/VMStatusBadge';
+import { ProgressRing } from '@/components/dashboard/ProgressRing';
+import { mockVMs } from '@/data/mock-data';
+
+export function VMDetail() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  const vm = mockVMs.find((v) => v.id === id);
+
+  if (!vm) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96">
+        <h2 className="text-xl font-semibold text-text-primary mb-2">VM Not Found</h2>
+        <p className="text-text-muted mb-4">The virtual machine you're looking for doesn't exist.</p>
+        <Button onClick={() => navigate('/vms')}>
+          <ArrowLeft className="w-4 h-4" />
+          Back to VMs
+        </Button>
+      </div>
+    );
+  }
+
+  const cpuPercent = vm.status.resourceUsage.cpuUsagePercent;
+  const memoryPercent = Math.round(
+    (vm.status.resourceUsage.memoryUsedBytes / vm.status.resourceUsage.memoryAllocatedBytes) * 100
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Breadcrumb & Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-4"
+      >
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-sm">
+          <button
+            onClick={() => navigate('/vms')}
+            className="text-text-muted hover:text-text-primary transition-colors"
+          >
+            Virtual Machines
+          </button>
+          <span className="text-text-muted">/</span>
+          <span className="text-text-primary font-medium">{vm.name}</span>
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/vms')}
+              className="p-2 rounded-lg hover:bg-bg-hover transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-text-muted" />
+            </button>
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-text-primary">{vm.name}</h1>
+                <VMStatusBadge status={vm.status.state} />
+              </div>
+              <p className="text-text-muted mt-1">{vm.description}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {vm.status.state === 'RUNNING' ? (
+              <>
+                <Button variant="secondary" size="sm">
+                  <Square className="w-4 h-4" />
+                  Stop
+                </Button>
+                <Button variant="secondary" size="sm">
+                  <RefreshCw className="w-4 h-4" />
+                  Restart
+                </Button>
+              </>
+            ) : (
+              <Button variant="primary" size="sm">
+                <Play className="w-4 h-4" />
+                Start
+              </Button>
+            )}
+            <Button variant="secondary" size="sm">
+              <MonitorPlay className="w-4 h-4" />
+              Console
+            </Button>
+            <Button variant="secondary" size="sm">
+              <Camera className="w-4 h-4" />
+              Snapshot
+            </Button>
+            <Button variant="ghost" size="sm">
+              <MoreHorizontal className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="summary">
+        <TabsList>
+          <TabsTrigger value="summary">Summary</TabsTrigger>
+          <TabsTrigger value="console">Console</TabsTrigger>
+          <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
+          <TabsTrigger value="disks">Disks</TabsTrigger>
+          <TabsTrigger value="network">Network</TabsTrigger>
+          <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+          <TabsTrigger value="events">Events</TabsTrigger>
+        </TabsList>
+
+        {/* Summary Tab */}
+        <TabsContent value="summary">
+          <div className="grid grid-cols-3 gap-6">
+            {/* Left Column - General Info */}
+            <div className="col-span-2 space-y-6">
+              {/* General Information Card */}
+              <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+                <h3 className="text-lg font-semibold text-text-primary mb-4">General Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <InfoRow label="Name" value={vm.name} />
+                  <InfoRow label="Description" value={vm.description || '—'} />
+                  <InfoRow label="Project" value={vm.projectId} />
+                  <InfoRow label="Created" value={new Date(vm.createdAt).toLocaleDateString()} />
+                  <InfoRow label="Host" value={vm.status.nodeId || '—'} />
+                  <InfoRow label="Guest OS" value={vm.status.guestInfo.osName} />
+                  <InfoRow label="Hostname" value={vm.status.guestInfo.hostname} />
+                  <InfoRow label="Agent Version" value={vm.status.guestInfo.agentVersion} />
+                  <InfoRow
+                    label="Uptime"
+                    value={
+                      vm.status.guestInfo.uptimeSeconds > 0
+                        ? formatUptime(vm.status.guestInfo.uptimeSeconds)
+                        : '—'
+                    }
+                  />
+                  <InfoRow
+                    label="IP Addresses"
+                    value={vm.status.ipAddresses.join(', ') || '—'}
+                    mono
+                  />
+                </div>
+              </div>
+
+              {/* Hardware Summary */}
+              <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+                <h3 className="text-lg font-semibold text-text-primary mb-4">Hardware Summary</h3>
+                <div className="grid grid-cols-4 gap-4">
+                  <HardwareCard
+                    icon={<Cpu className="w-5 h-5" />}
+                    label="CPU"
+                    value={`${vm.spec.cpu.cores} vCPUs`}
+                    subvalue={`${vm.spec.cpu.sockets} socket(s)`}
+                  />
+                  <HardwareCard
+                    icon={<MemoryStick className="w-5 h-5" />}
+                    label="Memory"
+                    value={formatBytes(vm.spec.memory.sizeMib * 1024 * 1024)}
+                    subvalue={`${memoryPercent}% used`}
+                  />
+                  <HardwareCard
+                    icon={<HardDrive className="w-5 h-5" />}
+                    label="Storage"
+                    value={`${vm.spec.disks.reduce((a, d) => a + d.sizeGib, 0)} GB`}
+                    subvalue={`${vm.spec.disks.length} disk(s)`}
+                  />
+                  <HardwareCard
+                    icon={<Network className="w-5 h-5" />}
+                    label="Network"
+                    value={`${vm.spec.nics.length} NIC(s)`}
+                    subvalue={vm.status.ipAddresses[0] || '—'}
+                  />
+                </div>
+              </div>
+
+              {/* Labels */}
+              <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+                <h3 className="text-lg font-semibold text-text-primary mb-4">Labels</h3>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(vm.labels).map(([key, value]) => (
+                    <Badge key={key} variant="default">
+                      {key}: {value}
+                    </Badge>
+                  ))}
+                  <button className="text-sm text-accent hover:text-accent-hover">
+                    + Add Label
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column - Resource Usage */}
+            <div className="space-y-6">
+              {/* CPU Usage */}
+              <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+                <h3 className="text-sm font-medium text-text-muted mb-4">CPU Usage</h3>
+                <div className="flex items-center justify-center">
+                  <ProgressRing
+                    value={cpuPercent}
+                    size={120}
+                    color={cpuPercent >= 80 ? 'red' : cpuPercent >= 60 ? 'yellow' : 'blue'}
+                    label="usage"
+                  />
+                </div>
+                <div className="mt-4 text-center">
+                  <p className="text-sm text-text-muted">
+                    {vm.spec.cpu.cores} vCPUs allocated
+                  </p>
+                </div>
+              </div>
+
+              {/* Memory Usage */}
+              <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+                <h3 className="text-sm font-medium text-text-muted mb-4">Memory Usage</h3>
+                <div className="flex items-center justify-center">
+                  <ProgressRing
+                    value={memoryPercent}
+                    size={120}
+                    color={memoryPercent >= 80 ? 'red' : memoryPercent >= 60 ? 'yellow' : 'green'}
+                    label="usage"
+                  />
+                </div>
+                <div className="mt-4 text-center text-sm text-text-muted">
+                  <p>
+                    {formatBytes(vm.status.resourceUsage.memoryUsedBytes)} /{' '}
+                    {formatBytes(vm.status.resourceUsage.memoryAllocatedBytes)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+                <h3 className="text-sm font-medium text-text-muted mb-4">Quick Stats</h3>
+                <div className="space-y-3">
+                  <StatRow
+                    icon={<Activity className="w-4 h-4" />}
+                    label="Disk IOPS"
+                    value={`${vm.status.resourceUsage.diskReadIops + vm.status.resourceUsage.diskWriteIops}`}
+                  />
+                  <StatRow
+                    icon={<Network className="w-4 h-4" />}
+                    label="Network RX"
+                    value={formatBytes(vm.status.resourceUsage.networkRxBytes)}
+                  />
+                  <StatRow
+                    icon={<Network className="w-4 h-4" />}
+                    label="Network TX"
+                    value={formatBytes(vm.status.resourceUsage.networkTxBytes)}
+                  />
+                  <StatRow
+                    icon={<Clock className="w-4 h-4" />}
+                    label="Uptime"
+                    value={
+                      vm.status.guestInfo.uptimeSeconds > 0
+                        ? formatUptime(vm.status.guestInfo.uptimeSeconds)
+                        : '—'
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Console Tab */}
+        <TabsContent value="console">
+          <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-elevated/50">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-text-muted" />
+                <span className="text-sm font-medium text-text-primary">Console</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm">Send Ctrl+Alt+Del</Button>
+                <Button variant="ghost" size="sm">Fullscreen</Button>
+                <div className="flex items-center gap-2 text-sm text-success">
+                  <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
+                  Connected
+                </div>
+              </div>
+            </div>
+            <div className="aspect-video bg-black flex items-center justify-center">
+              <div className="text-center">
+                <MonitorPlay className="w-16 h-16 mx-auto text-text-muted mb-4" />
+                <p className="text-text-muted">Console viewer would be embedded here</p>
+                <p className="text-text-muted text-sm mt-2">(VNC/SPICE integration)</p>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Snapshots Tab */}
+        <TabsContent value="snapshots">
+          <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-text-primary">Snapshots</h3>
+              <Button size="sm">
+                <Camera className="w-4 h-4" />
+                Create Snapshot
+              </Button>
+            </div>
+            <div className="text-center py-12">
+              <Camera className="w-12 h-12 mx-auto text-text-muted mb-4" />
+              <h4 className="text-lg font-medium text-text-primary mb-2">No Snapshots</h4>
+              <p className="text-text-muted">Create a snapshot to save the current state of this VM</p>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Disks Tab */}
+        <TabsContent value="disks">
+          <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h3 className="text-lg font-semibold text-text-primary">Disks</h3>
+              <Button size="sm">
+                <HardDrive className="w-4 h-4" />
+                Add Disk
+              </Button>
+            </div>
+            <table className="w-full">
+              <thead className="bg-bg-elevated/50">
+                <tr className="text-xs font-medium text-text-muted uppercase">
+                  <th className="px-6 py-3 text-left">Device</th>
+                  <th className="px-6 py-3 text-left">Size</th>
+                  <th className="px-6 py-3 text-left">Bus Type</th>
+                  <th className="px-6 py-3 text-left">Pool</th>
+                  <th className="px-6 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {vm.spec.disks.map((disk, index) => (
+                  <tr key={disk.id} className="hover:bg-bg-hover">
+                    <td className="px-6 py-4 text-sm text-text-primary font-mono">
+                      vd{String.fromCharCode(97 + index)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-text-secondary">{disk.sizeGib} GB</td>
+                    <td className="px-6 py-4 text-sm text-text-secondary">{disk.bus}</td>
+                    <td className="px-6 py-4 text-sm text-text-secondary">ceph-ssd</td>
+                    <td className="px-6 py-4 text-right">
+                      <Button variant="ghost" size="sm">Resize</Button>
+                      <Button variant="ghost" size="sm">Detach</Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        {/* Network Tab */}
+        <TabsContent value="network">
+          <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h3 className="text-lg font-semibold text-text-primary">Network Interfaces</h3>
+              <Button size="sm">
+                <Network className="w-4 h-4" />
+                Add NIC
+              </Button>
+            </div>
+            <table className="w-full">
+              <thead className="bg-bg-elevated/50">
+                <tr className="text-xs font-medium text-text-muted uppercase">
+                  <th className="px-6 py-3 text-left">Device</th>
+                  <th className="px-6 py-3 text-left">Network</th>
+                  <th className="px-6 py-3 text-left">MAC Address</th>
+                  <th className="px-6 py-3 text-left">IP Address</th>
+                  <th className="px-6 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {vm.spec.nics.map((nic, index) => (
+                  <tr key={nic.id} className="hover:bg-bg-hover">
+                    <td className="px-6 py-4 text-sm text-text-primary font-mono">eth{index}</td>
+                    <td className="px-6 py-4 text-sm text-text-secondary">{nic.networkId}</td>
+                    <td className="px-6 py-4 text-sm text-text-secondary font-mono">
+                      {nic.macAddress}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-text-secondary font-mono">
+                      {vm.status.ipAddresses[index] || '—'}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <Button variant="ghost" size="sm">Edit</Button>
+                      <Button variant="ghost" size="sm">Remove</Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        {/* Monitoring Tab */}
+        <TabsContent value="monitoring">
+          <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-text-primary">Performance Monitoring</h3>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm">1h</Button>
+                <Button variant="secondary" size="sm">6h</Button>
+                <Button variant="ghost" size="sm">24h</Button>
+                <Button variant="ghost" size="sm">7d</Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-6">
+              <div className="h-48 bg-bg-base rounded-lg flex items-center justify-center border border-border">
+                <p className="text-text-muted">CPU Usage Chart</p>
+              </div>
+              <div className="h-48 bg-bg-base rounded-lg flex items-center justify-center border border-border">
+                <p className="text-text-muted">Memory Usage Chart</p>
+              </div>
+              <div className="h-48 bg-bg-base rounded-lg flex items-center justify-center border border-border">
+                <p className="text-text-muted">Disk I/O Chart</p>
+              </div>
+              <div className="h-48 bg-bg-base rounded-lg flex items-center justify-center border border-border">
+                <p className="text-text-muted">Network I/O Chart</p>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Events Tab */}
+        <TabsContent value="events">
+          <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
+            <div className="px-6 py-4 border-b border-border">
+              <h3 className="text-lg font-semibold text-text-primary">Event Log</h3>
+            </div>
+            <div className="divide-y divide-border">
+              {[
+                { time: '10:30 AM', type: 'Power', message: 'VM started', user: 'admin' },
+                { time: '10:25 AM', type: 'Config', message: 'Memory increased to 8GB', user: 'admin' },
+                { time: '10:00 AM', type: 'Snapshot', message: 'Snapshot created', user: 'system' },
+              ].map((event, index) => (
+                <div key={index} className="px-6 py-4 hover:bg-bg-hover">
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-text-muted w-20">{event.time}</span>
+                    <Badge variant="default" size="sm">{event.type}</Badge>
+                    <span className="text-sm text-text-primary flex-1">{event.message}</span>
+                    <span className="text-sm text-text-muted">{event.user}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// Helper Components
+function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex justify-between py-2 border-b border-border last:border-0">
+      <span className="text-sm text-text-muted">{label}</span>
+      <span className={cn('text-sm text-text-primary', mono && 'font-mono')}>{value}</span>
+    </div>
+  );
+}
+
+function HardwareCard({
+  icon,
+  label,
+  value,
+  subvalue,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  subvalue: string;
+}) {
+  return (
+    <div className="bg-bg-base rounded-lg p-4 border border-border">
+      <div className="flex items-center gap-2 text-text-muted mb-2">
+        {icon}
+        <span className="text-xs font-medium">{label}</span>
+      </div>
+      <p className="text-lg font-semibold text-text-primary">{value}</p>
+      <p className="text-xs text-text-muted mt-1">{subvalue}</p>
+    </div>
+  );
+}
+
+function StatRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-2">
+      <div className="flex items-center gap-2 text-text-muted">
+        {icon}
+        <span className="text-sm">{label}</span>
+      </div>
+      <span className="text-sm font-medium text-text-primary">{value}</span>
+    </div>
+  );
+}
+
