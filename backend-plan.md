@@ -1607,8 +1607,10 @@ The implementation follows the 5-phase plan over 10 weeks, delivering incrementa
    - Generated TypeScript code (`frontend/src/api/limiquantix/`)
    - Connect-Go support for browser-friendly APIs
 6. ⏳ Implement Phase 2 (Core Services)
-   - VM Service (CRUD)
-   - Node Service (CRUD)
-   - Storage Service
-   - Network Service
+   - See `docs/000024-backend-implementation-guide.md` for detailed implementation steps
+   - VM Service (CRUD, power ops, snapshots)
+   - Node Service (CRUD, heartbeat, health monitoring)
+   - Storage Service (pools, volumes)
+   - Network Service (VNets, security groups)
+   - Scheduler (VM placement)
 

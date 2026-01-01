@@ -22,32 +22,44 @@
 | Backend Makefile | ✅ | Build, run, docker commands |
 
 ### Backend Phase 2: Core Services (Planned)
-| Task | Status |
-|------|--------|
-| VM Service (CRUD) | 📋 |
-| Node Service (CRUD + monitoring) | 📋 |
-| Cluster Service (CRUD) | 📋 |
-| Storage Service (pools, volumes) | 📋 |
-| Network Service (VNets, security groups) | 📋 |
-| Proto code generation for Go | 📋 |
+**Guide:** `docs/000024-backend-implementation-guide.md` (Section 2)
+
+| Task | Status | Priority |
+|------|--------|----------|
+| VM Service (CRUD, power ops) | 📋 | P0 |
+| Node Service (CRUD, heartbeat, health) | 📋 | P0 |
+| Cluster Service (CRUD) | 📋 | P1 |
+| Storage Service (pools, volumes) | 📋 | P0 |
+| Network Service (VNets, security groups) | 📋 | P0 |
+| Scheduler (VM placement) | 📋 | P0 |
 
 ### Backend Phase 3: Data Persistence (Planned)
-| Task | Status |
-|------|--------|
-| PostgreSQL repository layer | 📋 |
-| Redis caching layer | 📋 |
-| etcd integration for leader election | 📋 |
+**Guide:** `docs/000024-backend-implementation-guide.md` (Section 3)
+
+| Task | Status | Priority |
+|------|--------|----------|
+| PostgreSQL repository layer | 📋 | P0 |
+| Database migrations (golang-migrate) | 📋 | P0 |
+| Redis caching layer | 📋 | P1 |
+| etcd state management | 📋 | P0 |
+| etcd leader election | 📋 | P1 |
+| Distributed locking | 📋 | P2 |
 
 ### Backend Phase 4: Advanced Features (Planned)
-| Task | Status |
-|------|--------|
-| JWT Authentication | 📋 |
-| RBAC Authorization | 📋 |
-| Metrics collection | 📋 |
-| Alerting engine | 📋 |
-| DRS logic | 📋 |
-| HA logic | 📋 |
-| Real-time streaming | 📋 |
+**Guide:** `docs/000024-backend-implementation-guide.md` (Section 4)
+
+| Task | Status | Priority |
+|------|--------|----------|
+| JWT Authentication | 📋 | P0 |
+| Auth middleware | 📋 | P0 |
+| RBAC Authorization | 📋 | P0 |
+| User management service | 📋 | P1 |
+| Alert service | 📋 | P0 |
+| Alert rules engine | 📋 | P1 |
+| DRS Engine | 📋 | P1 |
+| HA Manager | 📋 | P1 |
+| Real-time streaming (WatchVM, etc.) | 📋 | P1 |
+| Event bus (Redis pub/sub) | 📋 | P1 |
 
 ---
 
@@ -148,6 +160,8 @@
 - `Input`, `Select`, `Checkbox`, `RadioGroup`: Form components
 
 ### ✅ Documentation (Complete)
+- `backend-plan.md` - Backend architecture overview
+- `docs/000024-backend-implementation-guide.md` - Detailed Phase 2-4 guide
 - `docs/000007-dashboard-ui-guide.md` - Dashboard architecture
 - `docs/000008-ui-pages-specification.md` - All pages specification
 - `docs/000009-vm-list-page.md` - VM List page docs
