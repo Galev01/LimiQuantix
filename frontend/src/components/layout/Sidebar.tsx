@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -16,6 +16,12 @@ import {
   Cpu,
   FolderTree,
   Layers,
+  Plus,
+  FolderOpen,
+  RefreshCw,
+  Activity,
+  Bell,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/app-store';
@@ -27,6 +33,7 @@ interface NavItem {
   href?: string;
   badge?: number;
   children?: NavItem[];
+  contextMenu?: boolean;
 }
 
 const navigation: NavItem[] = [
@@ -36,7 +43,7 @@ const navigation: NavItem[] = [
     label: 'Inventory',
     icon: FolderTree,
     children: [
-      { id: 'vms', label: 'Virtual Machines', icon: MonitorCog, href: '/vms', badge: 6 },
+      { id: 'vms', label: 'Virtual Machines', icon: MonitorCog, href: '/vms', badge: 6, contextMenu: true },
       { id: 'hosts', label: 'Hosts', icon: Server, href: '/hosts', badge: 4 },
       { id: 'clusters', label: 'Clusters', icon: Boxes, href: '/clusters' },
     ],
@@ -59,16 +66,34 @@ const navigation: NavItem[] = [
       { id: 'security', label: 'Security Groups', icon: Shield, href: '/security' },
     ],
   },
+  {
+    id: 'operations',
+    label: 'Operations',
+    icon: Activity,
+    children: [
+      { id: 'monitoring', label: 'Monitoring', icon: Activity, href: '/monitoring' },
+      { id: 'alerts', label: 'Alerts', icon: Bell, href: '/alerts', badge: 3 },
+      { id: 'drs', label: 'DRS Recommendations', icon: Zap, href: '/drs' },
+    ],
+  },
   { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
 ];
+
+interface ContextMenuState {
+  visible: boolean;
+  x: number;
+  y: number;
+  itemId: string | null;
+}
 
 interface NavItemProps {
   item: NavItem;
   collapsed: boolean;
   level?: number;
+  onContextMenu?: (e: React.MouseEvent, itemId: string) => void;
 }
 
-function NavItemComponent({ item, collapsed, level = 0 }: NavItemProps) {
+function NavItemComponent({ item, collapsed, level = 0, onContextMenu }: NavItemProps) {
   const location = useLocation();
   const [expanded, setExpanded] = useState(true);
   const hasChildren = item.children && item.children.length > 0;
@@ -82,6 +107,13 @@ function NavItemComponent({ item, collapsed, level = 0 }: NavItemProps) {
   const handleClick = () => {
     if (hasChildren) {
       setExpanded(!expanded);
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    if (item.contextMenu && onContextMenu) {
+      e.preventDefault();
+      onContextMenu(e, item.id);
     }
   };
 
@@ -134,11 +166,19 @@ function NavItemComponent({ item, collapsed, level = 0 }: NavItemProps) {
   return (
     <div>
       {item.href && !hasChildren ? (
-        <Link to={item.href} className={buttonClasses}>
+        <Link 
+          to={item.href} 
+          className={buttonClasses}
+          onContextMenu={handleContextMenu}
+        >
           {content}
         </Link>
       ) : (
-        <button onClick={handleClick} className={buttonClasses}>
+        <button 
+          onClick={handleClick} 
+          className={buttonClasses}
+          onContextMenu={handleContextMenu}
+        >
           {content}
         </button>
       )}
@@ -154,7 +194,13 @@ function NavItemComponent({ item, collapsed, level = 0 }: NavItemProps) {
           >
             <div className="mt-1 space-y-0.5 border-l border-border ml-5 pl-2">
               {item.children!.map((child) => (
-                <NavItemComponent key={child.id} item={child} collapsed={collapsed} level={level + 1} />
+                <NavItemComponent 
+                  key={child.id} 
+                  item={child} 
+                  collapsed={collapsed} 
+                  level={level + 1}
+                  onContextMenu={onContextMenu}
+                />
               ))}
             </div>
           </motion.div>
@@ -165,81 +211,177 @@ function NavItemComponent({ item, collapsed, level = 0 }: NavItemProps) {
 }
 
 export function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar } = useAppStore();
+  const { sidebarCollapsed, toggleSidebar, openVmWizard } = useAppStore();
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    visible: false,
+    x: 0,
+    y: 0,
+    itemId: null,
+  });
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu((prev) => ({ ...prev, visible: false }));
+      }
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setContextMenu((prev) => ({ ...prev, visible: false }));
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
+
+  const handleContextMenu = (e: React.MouseEvent, itemId: string) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      itemId,
+    });
+  };
+
+  const handleCreateVM = () => {
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+    openVmWizard();
+  };
 
   return (
-    <motion.aside
-      initial={false}
-      animate={{ width: sidebarCollapsed ? 64 : 260 }}
-      transition={{ duration: 0.2, ease: 'easeInOut' }}
-      className={cn(
-        'h-screen bg-sidebar border-r border-border',
-        'flex flex-col shrink-0',
-        'overflow-hidden',
-      )}
-    >
-      {/* Logo */}
-      <div className="h-16 flex items-center px-4 border-b border-border">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-blue-400 flex items-center justify-center shadow-glow">
-            <Cpu className="w-5 h-5 text-white" />
-          </div>
-          <AnimatePresence>
-            {!sidebarCollapsed && (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                className="flex flex-col"
-              >
-                <span className="font-bold text-text-primary tracking-tight">LimiQuantix</span>
-                <span className="text-[10px] text-text-muted uppercase tracking-widest">
-                  Virtualization
-                </span>
-              </motion.div>
+    <>
+      <motion.aside
+        initial={false}
+        animate={{ width: sidebarCollapsed ? 64 : 260 }}
+        transition={{ duration: 0.2, ease: 'easeInOut' }}
+        className={cn(
+          'h-screen bg-sidebar border-r border-border',
+          'flex flex-col shrink-0',
+          'overflow-hidden',
+        )}
+      >
+        {/* Logo */}
+        <div className="h-16 flex items-center px-4 border-b border-border">
+          <Link to="/" className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-blue-400 flex items-center justify-center shadow-glow">
+              <Cpu className="w-5 h-5 text-white" />
+            </div>
+            <AnimatePresence>
+              {!sidebarCollapsed && (
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  className="flex flex-col"
+                >
+                  <span className="font-bold text-text-primary tracking-tight">LimiQuantix</span>
+                  <span className="text-[10px] text-text-muted uppercase tracking-widest">
+                    Virtualization
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Link>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {navigation.map((item) => (
+            <NavItemComponent 
+              key={item.id} 
+              item={item} 
+              collapsed={sidebarCollapsed}
+              onContextMenu={handleContextMenu}
+            />
+          ))}
+        </nav>
+
+        {/* Collapse Button */}
+        <div className="p-3 border-t border-border">
+          <button
+            onClick={toggleSidebar}
+            className={cn(
+              'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg',
+              'text-text-muted hover:text-text-primary',
+              'hover:bg-sidebar-hover',
+              'transition-all duration-150',
             )}
-          </AnimatePresence>
-        </Link>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {navigation.map((item) => (
-          <NavItemComponent key={item.id} item={item} collapsed={sidebarCollapsed} />
-        ))}
-      </nav>
-
-      {/* Collapse Button */}
-      <div className="p-3 border-t border-border">
-        <button
-          onClick={toggleSidebar}
-          className={cn(
-            'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg',
-            'text-text-muted hover:text-text-primary',
-            'hover:bg-sidebar-hover',
-            'transition-all duration-150',
-          )}
-        >
-          <motion.div
-            animate={{ rotate: sidebarCollapsed ? 0 : 180 }}
-            transition={{ duration: 0.2 }}
           >
-            <ChevronRight className="w-4 h-4" />
-          </motion.div>
-          <AnimatePresence>
-            {!sidebarCollapsed && (
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-sm"
-              >
-                Collapse
-              </motion.span>
+            <motion.div
+              animate={{ rotate: sidebarCollapsed ? 0 : 180 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </motion.div>
+            <AnimatePresence>
+              {!sidebarCollapsed && (
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-sm"
+                >
+                  Collapse
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </button>
+        </div>
+      </motion.aside>
+
+      {/* Context Menu */}
+      <AnimatePresence>
+        {contextMenu.visible && contextMenu.itemId === 'vms' && (
+          <motion.div
+            ref={contextMenuRef}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.1 }}
+            className={cn(
+              'fixed z-[100] min-w-[180px]',
+              'bg-bg-surface border border-border rounded-lg shadow-xl',
+              'py-1 overflow-hidden',
             )}
-          </AnimatePresence>
-        </button>
-      </div>
-    </motion.aside>
+            style={{
+              left: contextMenu.x,
+              top: contextMenu.y,
+            }}
+          >
+            <button
+              onClick={handleCreateVM}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Create Virtual Machine
+            </button>
+            <button
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+              onClick={() => setContextMenu((prev) => ({ ...prev, visible: false }))}
+            >
+              <FolderOpen className="w-4 h-4" />
+              Browse VMs
+            </button>
+            <div className="my-1 border-t border-border" />
+            <button
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+              onClick={() => setContextMenu((prev) => ({ ...prev, visible: false }))}
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

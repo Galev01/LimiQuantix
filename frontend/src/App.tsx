@@ -5,6 +5,17 @@ import { Dashboard } from '@/pages/Dashboard';
 import { VMList } from '@/pages/VMList';
 import { VMDetail } from '@/pages/VMDetail';
 import { HostList } from '@/pages/HostList';
+import { HostDetail } from '@/pages/HostDetail';
+import { StoragePools } from '@/pages/StoragePools';
+import { Volumes } from '@/pages/Volumes';
+import { ClusterList } from '@/pages/ClusterList';
+import { ClusterDetail } from '@/pages/ClusterDetail';
+import { VirtualNetworks } from '@/pages/VirtualNetworks';
+import { SecurityGroups } from '@/pages/SecurityGroups';
+import { Settings } from '@/pages/Settings';
+import { Monitoring } from '@/pages/Monitoring';
+import { Alerts } from '@/pages/Alerts';
+import { DRSRecommendations } from '@/pages/DRSRecommendations';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,33 +32,39 @@ function App() {
       <BrowserRouter>
         <Layout>
           <Routes>
+            {/* Dashboard */}
             <Route path="/" element={<Dashboard />} />
+            
+            {/* Inventory */}
             <Route path="/vms" element={<VMList />} />
             <Route path="/vms/:id" element={<VMDetail />} />
             <Route path="/hosts" element={<HostList />} />
-            {/* Placeholder routes for future pages */}
-            <Route path="/clusters" element={<PlaceholderPage title="Clusters" />} />
-            <Route path="/storage/pools" element={<PlaceholderPage title="Storage Pools" />} />
-            <Route path="/storage/volumes" element={<PlaceholderPage title="Volumes" />} />
-            <Route path="/networks" element={<PlaceholderPage title="Virtual Networks" />} />
-            <Route path="/security" element={<PlaceholderPage title="Security Groups" />} />
-            <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
+            <Route path="/hosts/:id" element={<HostDetail />} />
+            <Route path="/clusters" element={<ClusterList />} />
+            <Route path="/clusters/:id" element={<ClusterDetail />} />
+            
+            {/* Storage */}
+            <Route path="/storage/pools" element={<StoragePools />} />
+            <Route path="/storage/volumes" element={<Volumes />} />
+            
+            {/* Networking */}
+            <Route path="/networks" element={<VirtualNetworks />} />
+            <Route path="/security" element={<SecurityGroups />} />
+            
+            {/* Operations */}
+            <Route path="/monitoring" element={<Monitoring />} />
+            <Route path="/alerts" element={<Alerts />} />
+            <Route path="/drs" element={<DRSRecommendations />} />
+            
+            {/* Settings */}
+            <Route path="/settings" element={<Settings />} />
+            
             {/* Catch-all redirect */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>
       </BrowserRouter>
     </QueryClientProvider>
-  );
-}
-
-// Placeholder component for unimplemented pages
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-96">
-      <h2 className="text-2xl font-bold text-text-primary mb-2">{title}</h2>
-      <p className="text-text-muted">This page is coming in a future phase.</p>
-    </div>
   );
 }
 

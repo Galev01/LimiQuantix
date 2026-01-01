@@ -43,16 +43,17 @@ export interface Node {
   managementIp: string;
   labels: Record<string, string>;
   spec: {
-    cpu: { model: string; cores: number; threads: number };
+    cpu: { model: string; totalCores: number; threads: number };
     memory: { totalBytes: number; allocatableBytes: number };
   };
   status: {
     phase: 'READY' | 'NOT_READY' | 'MAINTENANCE' | 'DRAINING';
     vmIds: string[];
     resources: {
+      cpuAllocatedCores: number;
       cpuUsagePercent: number;
+      memoryAllocatedBytes: number;
       memoryUsedBytes: number;
-      memoryAllocatableBytes: number;
     };
   };
 }
@@ -296,16 +297,17 @@ export const mockNodes: Node[] = [
     managementIp: '192.168.1.11',
     labels: { rack: 'rack-1', zone: 'us-east-1a' },
     spec: {
-      cpu: { model: 'AMD EPYC 7742', cores: 64, threads: 128 },
+      cpu: { model: 'AMD EPYC 7742', totalCores: 64, threads: 128 },
       memory: { totalBytes: 549_755_813_888, allocatableBytes: 515_396_075_520 },
     },
     status: {
       phase: 'READY',
       vmIds: ['vm-001', 'vm-004'],
       resources: {
+        cpuAllocatedCores: 20,
         cpuUsagePercent: 32,
-        memoryUsedBytes: 180_388_626_432,
-        memoryAllocatableBytes: 515_396_075_520,
+        memoryAllocatedBytes: 180_388_626_432,
+        memoryUsedBytes: 145_000_000_000,
       },
     },
   },
@@ -315,16 +317,17 @@ export const mockNodes: Node[] = [
     managementIp: '192.168.1.12',
     labels: { rack: 'rack-1', zone: 'us-east-1a' },
     spec: {
-      cpu: { model: 'AMD EPYC 7742', cores: 64, threads: 128 },
+      cpu: { model: 'AMD EPYC 7742', totalCores: 64, threads: 128 },
       memory: { totalBytes: 549_755_813_888, allocatableBytes: 515_396_075_520 },
     },
     status: {
       phase: 'READY',
       vmIds: ['vm-002'],
       resources: {
+        cpuAllocatedCores: 28,
         cpuUsagePercent: 45,
-        memoryUsedBytes: 240_518_168_576,
-        memoryAllocatableBytes: 515_396_075_520,
+        memoryAllocatedBytes: 240_518_168_576,
+        memoryUsedBytes: 200_000_000_000,
       },
     },
   },
@@ -334,16 +337,17 @@ export const mockNodes: Node[] = [
     managementIp: '192.168.1.21',
     labels: { rack: 'rack-2', zone: 'us-east-1b' },
     spec: {
-      cpu: { model: 'Intel Xeon Gold 6348', cores: 56, threads: 112 },
+      cpu: { model: 'Intel Xeon Gold 6348', totalCores: 56, threads: 112 },
       memory: { totalBytes: 274_877_906_944, allocatableBytes: 257_698_037_760 },
     },
     status: {
       phase: 'READY',
       vmIds: ['vm-005'],
       resources: {
+        cpuAllocatedCores: 12,
         cpuUsagePercent: 18,
-        memoryUsedBytes: 85_899_345_920,
-        memoryAllocatableBytes: 257_698_037_760,
+        memoryAllocatedBytes: 85_899_345_920,
+        memoryUsedBytes: 42_000_000_000,
       },
     },
   },
@@ -353,16 +357,17 @@ export const mockNodes: Node[] = [
     managementIp: '192.168.1.100',
     labels: { rack: 'rack-gpu', zone: 'us-east-1a', gpu: 'nvidia-a100' },
     spec: {
-      cpu: { model: 'AMD EPYC 7763', cores: 64, threads: 128 },
+      cpu: { model: 'AMD EPYC 7763', totalCores: 64, threads: 128 },
       memory: { totalBytes: 1_099_511_627_776, allocatableBytes: 1_030_792_151_040 },
     },
     status: {
       phase: 'READY',
       vmIds: ['vm-006'],
       resources: {
+        cpuAllocatedCores: 8,
         cpuUsagePercent: 5,
-        memoryUsedBytes: 68_719_476_736,
-        memoryAllocatableBytes: 1_030_792_151_040,
+        memoryAllocatedBytes: 68_719_476_736,
+        memoryUsedBytes: 32_000_000_000,
       },
     },
   },

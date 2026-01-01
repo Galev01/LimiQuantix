@@ -1,7 +1,10 @@
 import { Bell, Search, User, Plus, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/stores/app-store';
 
 export function Header() {
+  const { openVmWizard } = useAppStore();
+
   return (
     <header className="h-16 bg-bg-surface border-b border-border flex items-center justify-between px-6 shrink-0">
       {/* Left: Breadcrumb / Title */}
@@ -45,8 +48,9 @@ export function Header() {
           <RefreshCw className="w-4 h-4" />
         </button>
 
-        {/* Create New */}
+        {/* Create New VM */}
         <button
+          onClick={openVmWizard}
           className={cn(
             'flex items-center gap-2 px-4 py-2 rounded-lg',
             'bg-accent hover:bg-accent-hover',
@@ -88,4 +92,3 @@ export function Header() {
     </header>
   );
 }
-

@@ -1,45 +1,92 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
   Search,
   RefreshCw,
   Server,
-  LayoutGrid,
-  List,
-  Settings,
   AlertCircle,
   CheckCircle,
   Wrench,
+  Settings,
+  Power,
+  PowerOff,
+  ArrowRightLeft,
+  Trash2,
+  Edit,
+  Terminal,
+  Activity,
   MoreHorizontal,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { mockNodes, type Node, type NodePhase } from '@/data/mock-data';
 
-type ViewMode = 'grid' | 'table';
 type FilterTab = 'all' | 'ready' | 'not_ready' | 'maintenance';
 
-const phaseConfig: Record<NodePhase, { label: string; color: string; icon: typeof CheckCircle }> = {
-  READY: { label: 'Ready', color: 'text-success', icon: CheckCircle },
-  NOT_READY: { label: 'Not Ready', color: 'text-error', icon: AlertCircle },
-  MAINTENANCE: { label: 'Maintenance', color: 'text-warning', icon: Wrench },
-  DRAINING: { label: 'Draining', color: 'text-info', icon: Settings },
+interface ContextMenuState {
+  visible: boolean;
+  x: number;
+  y: number;
+  node: Node | null;
+}
+
+const phaseConfig: Record<NodePhase, { label: string; variant: 'success' | 'error' | 'warning' | 'info'; icon: typeof CheckCircle }> = {
+  READY: { label: 'Ready', variant: 'success', icon: CheckCircle },
+  NOT_READY: { label: 'Not Ready', variant: 'error', icon: AlertCircle },
+  MAINTENANCE: { label: 'Maintenance', variant: 'warning', icon: Wrench },
+  DRAINING: { label: 'Draining', variant: 'info', icon: Settings },
+};
+
+const variantColors = {
+  success: 'text-success bg-success/10',
+  error: 'text-error bg-error/10',
+  warning: 'text-warning bg-warning/10',
+  info: 'text-info bg-info/10',
 };
 
 export function HostList() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    visible: false,
+    x: 0,
+    y: 0,
+    node: null,
+  });
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu((prev) => ({ ...prev, visible: false }));
+      }
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setContextMenu((prev) => ({ ...prev, visible: false }));
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
 
   // Filter hosts based on search and tab
   const filteredHosts = mockNodes.filter((node) => {
     const matchesSearch =
       node.hostname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      node.managementIp.includes(searchQuery);
+      node.managementIp.includes(searchQuery) ||
+      (node.labels['rack'] || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (node.labels['zone'] || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesTab =
       activeTab === 'all' ||
@@ -57,6 +104,25 @@ export function HostList() {
     maintenance: mockNodes.filter((n) => n.status.phase === 'MAINTENANCE').length,
   };
 
+  const handleContextMenu = (e: React.MouseEvent, node: Node) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      node,
+    });
+  };
+
+  const handleContextAction = (action: string) => {
+    if (!contextMenu.node) return;
+    
+    console.log(`Action: ${action} on host: ${contextMenu.node.hostname}`);
+    // TODO: Implement actual actions
+    
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -70,6 +136,10 @@ export function HostList() {
           <p className="text-text-muted mt-1">Physical hypervisor nodes in your cluster</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button variant="secondary" size="sm">
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
           <Button size="sm">
             <Plus className="w-4 h-4" />
             Add Host
@@ -77,7 +147,7 @@ export function HostList() {
         </div>
       </motion.div>
 
-      {/* Filters and View Toggle */}
+      {/* Filters */}
       <div className="flex items-center justify-between gap-4">
         {/* Status Tabs */}
         <div className="flex gap-1 p-1 bg-bg-surface rounded-lg border border-border">
@@ -102,314 +172,352 @@ export function HostList() {
           ))}
         </div>
 
-        {/* Search and View Toggle */}
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-            <input
-              type="text"
-              placeholder="Search hosts..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={cn(
-                'w-64 pl-9 pr-4 py-2 rounded-lg',
-                'bg-bg-base border border-border',
-                'text-sm text-text-primary placeholder:text-text-muted',
-                'focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30',
-              )}
-            />
-          </div>
-          <div className="flex p-1 bg-bg-surface rounded-lg border border-border">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={cn(
-                'p-2 rounded-md transition-all',
-                viewMode === 'grid'
-                  ? 'bg-bg-elevated text-text-primary shadow-elevated'
-                  : 'text-text-muted hover:text-text-secondary',
-              )}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={cn(
-                'p-2 rounded-md transition-all',
-                viewMode === 'table'
-                  ? 'bg-bg-elevated text-text-primary shadow-elevated'
-                  : 'text-text-muted hover:text-text-secondary',
-              )}
-            >
-              <List className="w-4 h-4" />
-            </button>
-          </div>
-          <Button variant="ghost" size="sm">
-            <RefreshCw className="w-4 h-4" />
-          </Button>
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+          <input
+            type="text"
+            placeholder="Search by hostname, IP, rack, zone..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={cn(
+              'w-80 pl-9 pr-4 py-2 rounded-lg',
+              'bg-bg-base border border-border',
+              'text-sm text-text-primary placeholder:text-text-muted',
+              'focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30',
+            )}
+          />
         </div>
       </div>
 
-      {/* Grid View */}
-      {viewMode === 'grid' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredHosts.map((node, index) => (
-            <HostCard key={node.id} node={node} index={index} onClick={() => navigate(`/hosts/${node.id}`)} />
-          ))}
+      {/* Hosts Table */}
+      <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
+        {/* Table Header */}
+        <div className="px-5 py-3 border-b border-border bg-bg-elevated/50">
+          <div className="grid grid-cols-12 gap-4 text-xs font-medium text-text-muted uppercase tracking-wider">
+            <div className="col-span-3">Hostname</div>
+            <div className="col-span-1">Status</div>
+            <div className="col-span-2">IP Address</div>
+            <div className="col-span-2">CPU Usage</div>
+            <div className="col-span-2">Memory Usage</div>
+            <div className="col-span-1 text-center">VMs</div>
+            <div className="col-span-1 text-right">Location</div>
+          </div>
         </div>
-      )}
 
-      {/* Table View */}
-      {viewMode === 'table' && (
-        <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
-          {/* Table Header */}
-          <div className="px-5 py-3 border-b border-border bg-bg-elevated/50">
-            <div className="grid grid-cols-12 gap-4 text-xs font-medium text-text-muted uppercase tracking-wider">
-              <div className="col-span-3">Hostname</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-2">IP Address</div>
-              <div className="col-span-2">CPU</div>
-              <div className="col-span-2">Memory</div>
-              <div className="col-span-1 text-right">VMs</div>
+        {/* Table Body */}
+        <div className="divide-y divide-border">
+          {filteredHosts.map((node, index) => {
+            const cpuPercent = Math.round(
+              (node.status.resources.cpuAllocatedCores / node.spec.cpu.totalCores) * 100
+            );
+            const memPercent = Math.round(
+              (node.status.resources.memoryAllocatedBytes / node.spec.memory.totalBytes) * 100
+            );
+            const phaseInfo = phaseConfig[node.status.phase];
+            const PhaseIcon = phaseInfo.icon;
+
+            return (
+              <motion.div
+                key={node.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.2, delay: index * 0.03 }}
+                onClick={() => navigate(`/hosts/${node.id}`)}
+                onContextMenu={(e) => handleContextMenu(e, node)}
+                className={cn(
+                  'grid grid-cols-12 gap-4 px-5 py-4 items-center',
+                  'hover:bg-bg-hover cursor-pointer',
+                  'transition-colors duration-150',
+                  'group select-none',
+                )}
+              >
+                {/* Hostname */}
+                <div className="col-span-3 flex items-center gap-3">
+                  <div
+                    className={cn(
+                      'w-10 h-10 rounded-lg flex items-center justify-center',
+                      'bg-bg-elevated group-hover:bg-accent/10',
+                      'transition-colors duration-150',
+                    )}
+                  >
+                    <Server className="w-5 h-5 text-text-muted group-hover:text-accent" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-text-primary group-hover:text-accent transition-colors">
+                      {node.hostname}
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      {node.spec.cpu.model}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className="col-span-1">
+                  <div
+                    className={cn(
+                      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
+                      variantColors[phaseInfo.variant],
+                    )}
+                  >
+                    <PhaseIcon className="w-3.5 h-3.5" />
+                    {phaseInfo.label}
+                  </div>
+                </div>
+
+                {/* IP Address */}
+                <div className="col-span-2">
+                  <p className="text-sm text-text-primary font-mono">{node.managementIp}</p>
+                </div>
+
+                {/* CPU Usage */}
+                <div className="col-span-2">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-text-secondary">
+                        {node.status.resources.cpuAllocatedCores} / {node.spec.cpu.totalCores} cores
+                      </span>
+                      <span
+                        className={cn(
+                          'font-medium',
+                          cpuPercent >= 80
+                            ? 'text-error'
+                            : cpuPercent >= 60
+                              ? 'text-warning'
+                              : 'text-success',
+                        )}
+                      >
+                        {cpuPercent}%
+                      </span>
+                    </div>
+                    <div className="h-2 bg-bg-base rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${cpuPercent}%` }}
+                        transition={{ duration: 0.5, delay: index * 0.03 }}
+                        className={cn(
+                          'h-full rounded-full',
+                          cpuPercent >= 80
+                            ? 'bg-error'
+                            : cpuPercent >= 60
+                              ? 'bg-warning'
+                              : 'bg-success',
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Memory Usage */}
+                <div className="col-span-2">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-text-secondary">
+                        {formatBytes(node.status.resources.memoryAllocatedBytes)} /{' '}
+                        {formatBytes(node.spec.memory.totalBytes)}
+                      </span>
+                      <span
+                        className={cn(
+                          'font-medium',
+                          memPercent >= 80
+                            ? 'text-error'
+                            : memPercent >= 60
+                              ? 'text-warning'
+                              : 'text-success',
+                        )}
+                      >
+                        {memPercent}%
+                      </span>
+                    </div>
+                    <div className="h-2 bg-bg-base rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${memPercent}%` }}
+                        transition={{ duration: 0.5, delay: index * 0.03 + 0.1 }}
+                        className={cn(
+                          'h-full rounded-full',
+                          memPercent >= 80
+                            ? 'bg-error'
+                            : memPercent >= 60
+                              ? 'bg-warning'
+                              : 'bg-success',
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* VMs */}
+                <div className="col-span-1 text-center">
+                  <span
+                    className={cn(
+                      'inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-semibold',
+                      node.status.vmIds.length > 0
+                        ? 'bg-accent/10 text-accent'
+                        : 'bg-bg-elevated text-text-muted',
+                    )}
+                  >
+                    {node.status.vmIds.length}
+                  </span>
+                </div>
+
+                {/* Location (Rack + Zone) */}
+                <div className="col-span-1 text-right">
+                  <div className="flex flex-col items-end gap-0.5">
+                    {node.labels['rack'] && (
+                      <span className="text-xs text-text-secondary">
+                        Rack: <span className="text-text-primary font-medium">{node.labels['rack']}</span>
+                      </span>
+                    )}
+                    {node.labels['zone'] && (
+                      <span className="text-xs text-text-secondary">
+                        Zone: <span className="text-text-primary font-medium">{node.labels['zone']}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Empty State */}
+        {filteredHosts.length === 0 && (
+          <div className="py-16 text-center">
+            <Server className="w-12 h-12 mx-auto text-text-muted mb-4" />
+            <h3 className="text-lg font-medium text-text-primary mb-2">No Hosts Found</h3>
+            <p className="text-text-muted mb-4">
+              {searchQuery
+                ? 'No hosts match your search criteria'
+                : 'Add your first host to get started'}
+            </p>
+            {!searchQuery && (
+              <Button size="sm">
+                <Plus className="w-4 h-4" />
+                Add Host
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Context Menu */}
+      <AnimatePresence>
+        {contextMenu.visible && contextMenu.node && (
+          <motion.div
+            ref={contextMenuRef}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.1 }}
+            className={cn(
+              'fixed z-50 min-w-[200px]',
+              'bg-bg-surface border border-border rounded-lg shadow-xl',
+              'py-1 overflow-hidden',
+            )}
+            style={{
+              left: contextMenu.x,
+              top: contextMenu.y,
+            }}
+          >
+            {/* Header */}
+            <div className="px-3 py-2 border-b border-border">
+              <p className="text-sm font-medium text-text-primary">{contextMenu.node.hostname}</p>
+              <p className="text-xs text-text-muted">{contextMenu.node.managementIp}</p>
             </div>
-          </div>
 
-          {/* Table Body */}
-          <div className="divide-y divide-border">
-            {filteredHosts.map((node, index) => {
-              const cpuPercent = Math.round(
-                (node.status.resources.cpuAllocatedCores / node.spec.cpu.totalCores) * 100
-              );
-              const memPercent = Math.round(
-                (node.status.resources.memoryAllocatedBytes / node.spec.memory.totalBytes) * 100
-              );
-              const PhaseIcon = phaseConfig[node.status.phase].icon;
-
-              return (
-                <motion.div
-                  key={node.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.2, delay: index * 0.02 }}
-                  onClick={() => navigate(`/hosts/${node.id}`)}
-                  className={cn(
-                    'grid grid-cols-12 gap-4 px-5 py-4 items-center',
-                    'hover:bg-bg-hover cursor-pointer',
-                    'transition-colors duration-150',
-                    'group',
-                  )}
-                >
-                  {/* Hostname */}
-                  <div className="col-span-3 flex items-center gap-3">
-                    <div
-                      className={cn(
-                        'w-9 h-9 rounded-lg flex items-center justify-center',
-                        'bg-bg-elevated group-hover:bg-accent/10',
-                        'transition-colors duration-150',
-                      )}
-                    >
-                      <Server className="w-4 h-4 text-text-muted group-hover:text-accent" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-text-primary group-hover:text-accent transition-colors">
-                        {node.hostname}
-                      </p>
-                      <p className="text-xs text-text-muted">
-                        {node.labels['rack'] && `Rack: ${node.labels['rack']}`}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Status */}
-                  <div className="col-span-2">
-                    <div className={cn('flex items-center gap-2', phaseConfig[node.status.phase].color)}>
-                      <PhaseIcon className="w-4 h-4" />
-                      <span className="text-sm font-medium">{phaseConfig[node.status.phase].label}</span>
-                    </div>
-                  </div>
-
-                  {/* IP Address */}
-                  <div className="col-span-2">
-                    <p className="text-sm text-text-secondary font-mono">{node.managementIp}</p>
-                  </div>
-
-                  {/* CPU */}
-                  <div className="col-span-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-bg-hover rounded-full overflow-hidden">
-                        <div
-                          className={cn(
-                            'h-full rounded-full transition-all duration-500',
-                            cpuPercent >= 80 ? 'bg-error' : cpuPercent >= 60 ? 'bg-warning' : 'bg-success',
-                          )}
-                          style={{ width: `${cpuPercent}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-text-muted w-12">
-                        {node.status.resources.cpuAllocatedCores}/{node.spec.cpu.totalCores}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Memory */}
-                  <div className="col-span-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-bg-hover rounded-full overflow-hidden">
-                        <div
-                          className={cn(
-                            'h-full rounded-full transition-all duration-500',
-                            memPercent >= 80 ? 'bg-error' : memPercent >= 60 ? 'bg-warning' : 'bg-success',
-                          )}
-                          style={{ width: `${memPercent}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-text-muted w-16">
-                        {formatBytes(node.status.resources.memoryAllocatedBytes)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* VMs */}
-                  <div className="col-span-1 text-right">
-                    <span className="text-sm font-medium text-text-primary">{node.status.vmIds.length}</span>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {filteredHosts.length === 0 && (
-        <div className="text-center py-12 bg-bg-surface rounded-xl border border-border">
-          <Server className="w-12 h-12 mx-auto text-text-muted mb-4" />
-          <h3 className="text-lg font-medium text-text-primary mb-2">No Hosts Found</h3>
-          <p className="text-text-muted mb-4">
-            {searchQuery ? 'No hosts match your search criteria' : 'Add your first host to get started'}
-          </p>
-          {!searchQuery && (
-            <Button size="sm">
-              <Plus className="w-4 h-4" />
-              Add Host
-            </Button>
-          )}
-        </div>
-      )}
+            {/* Actions */}
+            <div className="py-1">
+              <ContextMenuItem
+                icon={<Terminal className="w-4 h-4" />}
+                label="Open Console"
+                onClick={() => handleContextAction('console')}
+              />
+              <ContextMenuItem
+                icon={<Activity className="w-4 h-4" />}
+                label="View Metrics"
+                onClick={() => handleContextAction('metrics')}
+              />
+              
+              <div className="my-1 border-t border-border" />
+              
+              <ContextMenuItem
+                icon={<ArrowRightLeft className="w-4 h-4" />}
+                label="Migrate VMs"
+                onClick={() => handleContextAction('migrate')}
+              />
+              <ContextMenuItem
+                icon={<Wrench className="w-4 h-4" />}
+                label="Enter Maintenance"
+                onClick={() => handleContextAction('maintenance')}
+              />
+              <ContextMenuItem
+                icon={<PowerOff className="w-4 h-4" />}
+                label="Drain Host"
+                onClick={() => handleContextAction('drain')}
+              />
+              
+              <div className="my-1 border-t border-border" />
+              
+              <ContextMenuItem
+                icon={<Edit className="w-4 h-4" />}
+                label="Edit Labels"
+                onClick={() => handleContextAction('edit-labels')}
+              />
+              <ContextMenuItem
+                icon={<Settings className="w-4 h-4" />}
+                label="Configure"
+                onClick={() => handleContextAction('configure')}
+              />
+              
+              <div className="my-1 border-t border-border" />
+              
+              <ContextMenuItem
+                icon={<Power className="w-4 h-4" />}
+                label="Reboot"
+                onClick={() => handleContextAction('reboot')}
+                variant="warning"
+              />
+              <ContextMenuItem
+                icon={<Trash2 className="w-4 h-4" />}
+                label="Remove from Cluster"
+                onClick={() => handleContextAction('remove')}
+                variant="danger"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-// Host Card Component
-function HostCard({
-  node,
-  index,
+// Context Menu Item Component
+function ContextMenuItem({
+  icon,
+  label,
   onClick,
+  variant = 'default',
 }: {
-  node: Node;
-  index: number;
+  icon: React.ReactNode;
+  label: string;
   onClick: () => void;
+  variant?: 'default' | 'warning' | 'danger';
 }) {
-  const cpuPercent = Math.round(
-    (node.status.resources.cpuAllocatedCores / node.spec.cpu.totalCores) * 100
-  );
-  const memPercent = Math.round(
-    (node.status.resources.memoryAllocatedBytes / node.spec.memory.totalBytes) * 100
-  );
-  const PhaseIcon = phaseConfig[node.status.phase].icon;
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
+    <button
       onClick={onClick}
       className={cn(
-        'bg-bg-surface rounded-xl border border-border p-5',
-        'shadow-floating hover:shadow-elevated',
-        'cursor-pointer transition-all duration-200',
-        'group',
+        'w-full flex items-center gap-3 px-3 py-2 text-sm',
+        'transition-colors duration-100',
+        variant === 'default' && 'text-text-secondary hover:text-text-primary hover:bg-bg-hover',
+        variant === 'warning' && 'text-warning hover:bg-warning/10',
+        variant === 'danger' && 'text-error hover:bg-error/10',
       )}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div
-            className={cn(
-              'w-10 h-10 rounded-lg flex items-center justify-center',
-              'bg-bg-elevated group-hover:bg-accent/10',
-              'transition-colors duration-150',
-            )}
-          >
-            <Server className="w-5 h-5 text-text-muted group-hover:text-accent" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-text-primary group-hover:text-accent transition-colors">
-              {node.hostname}
-            </h3>
-            <p className="text-sm text-text-muted font-mono">{node.managementIp}</p>
-          </div>
-        </div>
-        <div className={cn('flex items-center gap-1.5', phaseConfig[node.status.phase].color)}>
-          <PhaseIcon className="w-4 h-4" />
-          <span className="text-sm font-medium">{phaseConfig[node.status.phase].label}</span>
-        </div>
-      </div>
-
-      {/* Resource Bars */}
-      <div className="space-y-3">
-        <div>
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="text-text-muted">CPU</span>
-            <span className="text-text-secondary">
-              {cpuPercent}% ({node.status.resources.cpuAllocatedCores} / {node.spec.cpu.totalCores} cores)
-            </span>
-          </div>
-          <div className="h-2 bg-bg-hover rounded-full overflow-hidden">
-            <div
-              className={cn(
-                'h-full rounded-full transition-all duration-500',
-                cpuPercent >= 80 ? 'bg-error' : cpuPercent >= 60 ? 'bg-warning' : 'bg-success',
-              )}
-              style={{ width: `${cpuPercent}%` }}
-            />
-          </div>
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="text-text-muted">Memory</span>
-            <span className="text-text-secondary">
-              {memPercent}% ({formatBytes(node.status.resources.memoryAllocatedBytes)} /{' '}
-              {formatBytes(node.spec.memory.totalBytes)})
-            </span>
-          </div>
-          <div className="h-2 bg-bg-hover rounded-full overflow-hidden">
-            <div
-              className={cn(
-                'h-full rounded-full transition-all duration-500',
-                memPercent >= 80 ? 'bg-error' : memPercent >= 60 ? 'bg-warning' : 'bg-success',
-              )}
-              style={{ width: `${memPercent}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-        <div className="flex items-center gap-4 text-xs text-text-muted">
-          <span>VMs: {node.status.vmIds.length}</span>
-          {node.labels['rack'] && <span>Rack: {node.labels['rack']}</span>}
-          {node.labels['zone'] && <span>Zone: {node.labels['zone']}</span>}
-        </div>
-        <button
-          onClick={(e) => e.stopPropagation()}
-          className="p-1.5 rounded-md hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
-        >
-          <MoreHorizontal className="w-4 h-4" />
-        </button>
-      </div>
-    </motion.div>
+      {icon}
+      {label}
+    </button>
   );
 }
-
