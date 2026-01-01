@@ -30,6 +30,12 @@ plugins:
       - paths=source_relative
       - require_unimplemented_servers=false
   
+  # Connect-Go services (for Connect-RPC support)
+  - remote: buf.build/connectrpc/go
+    out: ../backend/pkg/api
+    opt:
+      - paths=source_relative
+  
   # Go validation (optional but recommended)
   # - remote: buf.build/bufbuild/protovalidate-go
   #   out: ../backend/pkg/api

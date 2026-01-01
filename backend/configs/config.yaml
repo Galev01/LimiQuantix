@@ -1,0 +1,75 @@
+# LimiQuantix Control Plane Configuration
+# Default configuration - override with environment variables or config.dev.yaml
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+  shutdown_timeout: 10s
+
+database:
+  host: "localhost"
+  port: 5432
+  name: "limiquantix"
+  user: "limiquantix"
+  password: "limiquantix"
+  sslmode: "disable"
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+
+etcd:
+  endpoints:
+    - "localhost:2379"
+  dial_timeout: 5s
+  username: ""
+  password: ""
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+
+auth:
+  jwt_secret: "dev-secret-change-in-production"
+  token_expiry: 24h
+  refresh_expiry: 168h
+
+scheduler:
+  placement_strategy: "spread"
+  overcommit_cpu: 2.0
+  overcommit_memory: 1.5
+
+drs:
+  enabled: true
+  automation_level: "partial"
+  interval: 5m
+  threshold_cpu: 80
+  threshold_memory: 85
+
+ha:
+  enabled: true
+  check_interval: 30s
+  failure_threshold: 3
+
+logging:
+  level: "debug"
+  format: "console"
+  output: "stdout"
+
+cors:
+  allowed_origins:
+    - "http://localhost:5173"
+    - "http://localhost:3000"
+  allowed_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+  allowed_headers:
+    - "*"
+  allow_credentials: true
+
