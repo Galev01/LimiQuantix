@@ -11,6 +11,10 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/limiquantix/limiquantix/internal/config"
+	"github.com/limiquantix/limiquantix/internal/repository/memory"
+	nodeservice "github.com/limiquantix/limiquantix/internal/services/node"
+	vmservice "github.com/limiquantix/limiquantix/internal/services/vm"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
 )
 
 // Server represents the main HTTP server.
@@ -19,6 +23,14 @@ type Server struct {
 	logger     *zap.Logger
 	httpServer *http.Server
 	mux        *http.ServeMux
+
+	// Repositories
+	vmRepo   *memory.VMRepository
+	nodeRepo *memory.NodeRepository
+
+	// Services
+	vmService   *vmservice.Service
+	nodeService *nodeservice.Service
 }
 
 // New creates a new server instance.
@@ -30,6 +42,12 @@ func New(cfg *config.Config, logger *zap.Logger) *Server {
 		logger: logger,
 		mux:    mux,
 	}
+
+	// Initialize repositories (in-memory for now, can be swapped for PostgreSQL)
+	s.initRepositories()
+
+	// Initialize services
+	s.initServices()
 
 	// Register routes
 	s.registerRoutes()
@@ -46,6 +64,34 @@ func New(cfg *config.Config, logger *zap.Logger) *Server {
 	return s
 }
 
+// initRepositories initializes data repositories.
+// Currently using in-memory implementations for development.
+// These can be swapped for PostgreSQL repositories in production.
+func (s *Server) initRepositories() {
+	s.logger.Info("Initializing in-memory repositories")
+
+	// Create in-memory repositories
+	s.vmRepo = memory.NewVMRepository()
+	s.nodeRepo = memory.NewNodeRepository()
+
+	// Seed with demo data for development
+	s.vmRepo.SeedDemoData()
+	s.nodeRepo.SeedDemoData()
+
+	s.logger.Info("Repositories initialized with demo data")
+}
+
+// initServices initializes business logic services.
+func (s *Server) initServices() {
+	s.logger.Info("Initializing services")
+
+	// Create services with their repositories
+	s.vmService = vmservice.NewService(s.vmRepo, s.logger)
+	s.nodeService = nodeservice.NewService(s.nodeRepo, s.logger)
+
+	s.logger.Info("Services initialized")
+}
+
 // registerRoutes registers all HTTP routes and Connect-RPC services.
 func (s *Server) registerRoutes() {
 	// Health endpoints
@@ -56,9 +102,21 @@ func (s *Server) registerRoutes() {
 	// API info
 	s.mux.HandleFunc("/api/v1/info", s.infoHandler)
 
-	// TODO: Register Connect-RPC services here
-	// path, handler := computev1connect.NewVMServiceHandler(vmService)
-	// s.mux.Handle(path, handler)
+	// =========================================================================
+	// Connect-RPC Services
+	// =========================================================================
+
+	// VM Service
+	vmPath, vmHandler := computev1connect.NewVMServiceHandler(s.vmService)
+	s.mux.Handle(vmPath, vmHandler)
+	s.logger.Info("Registered VM service", zap.String("path", vmPath))
+
+	// Node Service
+	nodePath, nodeHandler := computev1connect.NewNodeServiceHandler(s.nodeService)
+	s.mux.Handle(nodePath, nodeHandler)
+	s.logger.Info("Registered Node service", zap.String("path", nodePath))
+
+	s.logger.Info("All routes registered")
 }
 
 // setupMiddleware configures middleware chain.
@@ -142,7 +200,7 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 
 // readyHandler returns readiness status.
 func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Check database, etcd, redis connections
+	// In the future, check database, etcd, redis connections
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `{"ready":true}`)
@@ -163,7 +221,8 @@ func (s *Server) infoHandler(w http.ResponseWriter, r *http.Request) {
 		"name": "LimiQuantix Control Plane",
 		"version": "0.1.0",
 		"api_version": "v1",
-		"description": "Distributed Virtualization Platform"
+		"description": "Distributed Virtualization Platform",
+		"services": ["VMService", "NodeService"]
 	}`)
 }
 
@@ -206,4 +265,3 @@ func (s *Server) Run(ctx context.Context) error {
 func (s *Server) Address() string {
 	return s.config.Server.Address()
 }
-

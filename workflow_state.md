@@ -1,6 +1,6 @@
 # LimiQuantix Workflow State
 
-## Current Status: Backend Phase 1 Foundation ✅ Complete - Phase 2 Ready
+## Current Status: Backend Phase 2 Core Services ✅ In Progress
 
 ---
 
@@ -21,17 +21,25 @@
 | Docker Compose | ✅ | `docker-compose.yaml` |
 | Backend Makefile | ✅ | Build, run, docker commands |
 
-### Backend Phase 2: Core Services (Planned)
+### Backend Phase 2: Core Services ✅ In Progress
 **Guide:** `docs/000024-backend-implementation-guide.md` (Section 2)
 
-| Task | Status | Priority |
-|------|--------|----------|
-| VM Service (CRUD, power ops) | 📋 | P0 |
-| Node Service (CRUD, heartbeat, health) | 📋 | P0 |
-| Cluster Service (CRUD) | 📋 | P1 |
-| Storage Service (pools, volumes) | 📋 | P0 |
-| Network Service (VNets, security groups) | 📋 | P0 |
-| Scheduler (VM placement) | 📋 | P0 |
+| Task | Status | Priority | Files |
+|------|--------|----------|-------|
+| VM Service (CRUD, power ops) | ✅ | P0 | `internal/services/vm/service.go` |
+| VM Repository Interface | ✅ | P0 | `internal/services/vm/repository.go` |
+| VM Validation | ✅ | P0 | `internal/services/vm/validation.go` |
+| VM Proto Converters | ✅ | P0 | `internal/services/vm/converter.go` |
+| Node Service (CRUD, heartbeat) | ✅ | P0 | `internal/services/node/service.go` |
+| Node Repository Interface | ✅ | P0 | `internal/services/node/repository.go` |
+| Node Proto Converters | ✅ | P0 | `internal/services/node/converter.go` |
+| In-Memory VM Repository | ✅ | P0 | `internal/repository/memory/vm_repository.go` |
+| In-Memory Node Repository | ✅ | P0 | `internal/repository/memory/node_repository.go` |
+| Server Service Registration | ✅ | P0 | `internal/server/server.go` |
+| Cluster Service (CRUD) | 📋 | P1 | - |
+| Storage Service (pools, volumes) | 📋 | P0 | - |
+| Network Service (VNets, security groups) | 📋 | P0 | - |
+| Scheduler (VM placement) | 📋 | P0 | - |
 
 ### Backend Phase 3: Data Persistence (Planned)
 **Guide:** `docs/000024-backend-implementation-guide.md` (Section 3)
@@ -108,80 +116,6 @@
 
 ---
 
-## Completed Work
-
-### ✅ Foundation (Complete)
-- React 19 + Vite + TypeScript
-- Tailwind CSS v4 with custom dark theme
-- Zustand for global state
-- TanStack Query for server state
-- Framer Motion for animations
-- Lucide React for icons
-- React Router DOM for navigation
-- Recharts for data visualization
-
-### ✅ Dashboard (Complete)
-- Sidebar navigation with tree structure
-- Header with search and actions
-- Metric cards (VMs, Hosts, CPU, Memory)
-- VM table with status badges
-- Mock data for development
-
-### ✅ Phase 1 Pages (Complete)
-- **VM List** (`/vms`): Filterable table with bulk actions
-- **VM Detail** (`/vms/:id`): Tabbed interface with Summary, Console, Snapshots, Disks, Network, Monitoring, Events
-- **Hosts List** (`/hosts`): Table view with status tabs, right-click context menu, CPU/Memory usage bars
-
-### ✅ Phase 2 Pages (Complete)
-- **Host Detail** (`/hosts/:id`): 7 tabs - Summary, VMs, Hardware, Storage, Network, Monitoring, Events
-- **Storage Pools** (`/storage/pools`): Card grid with usage bars, status badges, capacity metrics
-- **Volumes** (`/storage/volumes`): Table with status, pool, attached VM, actions
-- **VM Creation Wizard**: 9-step modal wizard for VM provisioning
-
-### ✅ Phase 3 Pages (Complete)
-- **Clusters List** (`/clusters`): Summary cards, cluster cards with HA/DRS badges, resource usage bars
-- **Cluster Detail** (`/clusters/:id`): 6 tabs - Summary, Hosts, VMs, Resource Pools, Settings, Events
-- **Virtual Networks** (`/networks`): Table with type filters, DHCP status, connected VMs
-- **Security Groups** (`/security`): Expandable cards with inbound/outbound rule tables
-- **Settings** (`/settings`): 7 category tabs - General, Appearance, Notifications, Security, Storage, Network, Advanced
-
-### ✅ Phase 4 Pages (Complete)
-- **Monitoring** (`/monitoring`): Real-time charts (Recharts), host performance table, quick stats
-- **Alerts** (`/alerts`): Severity-based cards, acknowledge/resolve actions, search/filter
-- **DRS Recommendations** (`/drs`): Priority-based cards, approve/reject/apply actions, migration visualization
-- **API Client**: Connect-ES setup, interceptors, streaming support, connection management
-
-### ✅ Shared Components (Complete)
-- `Button`: Primary, secondary, ghost, danger variants
-- `Tabs`: Animated tab navigation with content panels
-- `Badge`: Status badges with color variants
-- `ProgressRing`: Circular progress indicator
-- `Modal`: Reusable modal component
-- `Input`, `Select`, `Checkbox`, `RadioGroup`: Form components
-
-### ✅ Documentation (Complete)
-- `backend-plan.md` - Backend architecture overview
-- `docs/000024-backend-implementation-guide.md` - Detailed Phase 2-4 guide
-- `docs/000007-dashboard-ui-guide.md` - Dashboard architecture
-- `docs/000008-ui-pages-specification.md` - All pages specification
-- `docs/000009-vm-list-page.md` - VM List page docs
-- `docs/000010-vm-detail-page.md` - VM Detail page docs
-- `docs/000011-hosts-list-page.md` - Hosts List page docs
-- `docs/000012-host-detail-page.md` - Host Detail page docs
-- `docs/000013-storage-pools-page.md` - Storage Pools page docs
-- `docs/000014-volumes-page.md` - Volumes page docs
-- `docs/000015-vm-creation-wizard.md` - VM Creation Wizard docs
-- `docs/000016-phase3-clusters-page.md` - Clusters pages docs
-- `docs/000017-phase3-networks-page.md` - Virtual Networks page docs
-- `docs/000018-phase3-security-groups-page.md` - Security Groups page docs
-- `docs/000019-phase3-settings-page.md` - Settings page docs
-- `docs/000020-phase4-monitoring-page.md` - Monitoring page docs
-- `docs/000021-phase4-alerts-page.md` - Alerts page docs
-- `docs/000022-phase4-drs-page.md` - DRS Recommendations page docs
-- `docs/000023-phase4-api-client.md` - API Client infrastructure docs
-
----
-
 ## File Structure
 
 ### Backend
@@ -199,11 +133,31 @@ backend/
 │   │   ├── errors.go            # Domain errors
 │   │   ├── vm.go                # VM model
 │   │   └── node.go              # Node model
+│   ├── repository/
+│   │   └── memory/              # NEW: In-memory repositories
+│   │       ├── vm_repository.go
+│   │       └── node_repository.go
+│   ├── services/                 # NEW: Business logic layer
+│   │   ├── vm/
+│   │   │   ├── service.go       # VM service implementation
+│   │   │   ├── repository.go    # Repository interface
+│   │   │   ├── converter.go     # Proto <-> Domain converters
+│   │   │   └── validation.go    # Request validation
+│   │   └── node/
+│   │       ├── service.go       # Node service implementation
+│   │       ├── repository.go    # Repository interface
+│   │       └── converter.go     # Proto <-> Domain converters
 │   └── server/
-│       └── server.go            # HTTP/Connect server
+│       └── server.go            # HTTP/Connect server (updated)
 ├── migrations/
 │   ├── 000001_init.up.sql       # Initial schema
 │   └── 000001_init.down.sql     # Rollback schema
+├── pkg/
+│   └── api/
+│       └── limiquantix/         # Generated proto code
+│           ├── compute/v1/
+│           ├── network/v1/
+│           └── storage/v1/
 ├── Dockerfile                    # Multi-stage Docker build
 ├── docker-compose.yaml          # Local dev environment
 ├── Makefile                     # Build automation
@@ -251,14 +205,14 @@ frontend/
 │   │   ├── VirtualNetworks.tsx
 │   │   ├── SecurityGroups.tsx
 │   │   ├── Settings.tsx
-│   │   ├── Monitoring.tsx           # NEW: Real-time charts
-│   │   ├── Alerts.tsx               # NEW: Alert management
-│   │   └── DRSRecommendations.tsx   # NEW: DRS UI
+│   │   ├── Monitoring.tsx
+│   │   ├── Alerts.tsx
+│   │   └── DRSRecommendations.tsx
 │   ├── hooks/
-│   │   └── useApiConnection.ts      # NEW: API connection hooks
+│   │   └── useApiConnection.ts
 │   ├── lib/
 │   │   ├── utils.ts
-│   │   └── api-client.ts            # NEW: Connect-ES client
+│   │   └── api-client.ts
 │   ├── stores/
 │   │   └── app-store.ts
 │   ├── data/
@@ -272,33 +226,75 @@ frontend/
 
 ---
 
-## Routes
+## API Endpoints (Backend)
 
-| Route | Page | Status |
-|-------|------|--------|
-| `/` | Dashboard | ✅ |
-| `/vms` | VM List | ✅ |
-| `/vms/:id` | VM Detail | ✅ |
-| `/hosts` | Hosts List | ✅ |
-| `/hosts/:id` | Host Detail | ✅ |
-| `/storage/pools` | Storage Pools | ✅ |
-| `/storage/volumes` | Volumes | ✅ |
-| `/clusters` | Clusters List | ✅ |
-| `/clusters/:id` | Cluster Detail | ✅ |
-| `/networks` | Virtual Networks | ✅ |
-| `/security` | Security Groups | ✅ |
-| `/monitoring` | Monitoring Dashboard | ✅ |
-| `/alerts` | Alerts Management | ✅ |
-| `/drs` | DRS Recommendations | ✅ |
-| `/settings` | Settings | ✅ |
+### Connect-RPC Services
+
+| Service | Path | Methods Implemented |
+|---------|------|---------------------|
+| VMService | `/limiquantix.compute.v1.VMService/` | CreateVM, GetVM, ListVMs, UpdateVM, DeleteVM, StartVM, StopVM, RebootVM, PauseVM, ResumeVM, SuspendVM |
+| NodeService | `/limiquantix.compute.v1.NodeService/` | RegisterNode, GetNode, ListNodes, UpdateNode, DecommissionNode, EnableNode, DisableNode, DrainNode, GetNodeMetrics |
+
+### REST Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/ready` | GET | Readiness check |
+| `/live` | GET | Liveness check |
+| `/api/v1/info` | GET | API information |
 
 ---
 
-## Libraries Added in Phase 4
+## Running the Backend
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| recharts | latest | Charts and data visualization |
+```bash
+# From backend directory
+cd backend
+
+# Build
+go build -o bin/controlplane ./cmd/controlplane
+
+# Run
+./bin/controlplane
+
+# Or with go run
+go run ./cmd/controlplane
+
+# Server starts on http://localhost:8080
+```
+
+### Testing the API
+
+```bash
+# Health check
+curl http://localhost:8080/health
+
+# API info
+curl http://localhost:8080/api/v1/info
+
+# List VMs (using Connect protocol with JSON)
+curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/ListVMs \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Create a VM
+curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/CreateVM \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "test-vm",
+    "projectId": "00000000-0000-0000-0000-000000000001",
+    "spec": {
+      "cpu": {"cores": 2},
+      "memory": {"sizeMib": 2048}
+    }
+  }'
+
+# List Nodes
+curl -X POST http://localhost:8080/limiquantix.compute.v1.NodeService/ListNodes \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
 
 ---
 
@@ -309,6 +305,16 @@ cd frontend
 npm run dev
 # Open http://localhost:5173
 ```
+
+---
+
+## Next Steps
+
+1. **Storage Service** - Implement StoragePoolService and VolumeService
+2. **Network Service** - Implement VirtualNetworkService and SecurityGroupService
+3. **Scheduler** - Implement VM placement logic
+4. **PostgreSQL Integration** - Add real database persistence
+5. **Frontend Integration** - Connect frontend to backend API
 
 ---
 
