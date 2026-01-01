@@ -22,9 +22,9 @@ func convertSpecFromProto(spec *computev1.VmSpec) domain.VMSpec {
 	// CPU config
 	if spec.Cpu != nil {
 		result.CPU = domain.CPUConfig{
-			Cores:   spec.Cpu.Cores,
-			Sockets: spec.Cpu.Sockets,
-			Threads: spec.Cpu.Threads,
+			Cores:   int32(spec.Cpu.Cores),
+			Sockets: int32(spec.Cpu.Sockets),
+			Threads: int32(spec.Cpu.ThreadsPerCore),
 			Model:   spec.Cpu.Model,
 		}
 	}
@@ -33,8 +33,8 @@ func convertSpecFromProto(spec *computev1.VmSpec) domain.VMSpec {
 	if spec.Memory != nil {
 		result.Memory = domain.MemoryConfig{
 			SizeMiB:          int64(spec.Memory.SizeMib),
-			BallooningLimit:  int64(spec.Memory.BallooningLimitMib),
-			HugePagesEnabled: spec.Memory.HugePages,
+			BallooningLimit:  int64(spec.Memory.MaxMemoryMib),
+			HugePagesEnabled: spec.Memory.HugePages != nil,
 		}
 	}
 
@@ -44,13 +44,12 @@ func convertSpecFromProto(spec *computev1.VmSpec) domain.VMSpec {
 			continue
 		}
 		result.Disks = append(result.Disks, domain.DiskDevice{
-			Name:      disk.Name,
+			Name:      disk.Id,
 			VolumeID:  disk.VolumeId,
 			SizeGiB:   int64(disk.SizeGib),
 			Bus:       disk.Bus.String(),
-			Cache:     disk.CacheMode.String(),
-			IOPSLimit: int64(disk.IopsLimit),
-			BootOrder: disk.BootOrder,
+			Cache:     disk.Cache.String(),
+			BootOrder: int32(disk.BootIndex),
 		})
 	}
 
@@ -60,11 +59,10 @@ func convertSpecFromProto(spec *computev1.VmSpec) domain.VMSpec {
 			continue
 		}
 		result.NICs = append(result.NICs, domain.NetworkDevice{
-			Name:               nic.Name,
-			NetworkID:          nic.NetworkId,
-			MACAddress:         nic.MacAddress,
-			SecurityGroups:     nic.SecurityGroupIds,
-			BandwidthLimitMbps: int64(nic.BandwidthLimitMbps),
+			Name:           nic.Id,
+			NetworkID:      nic.NetworkId,
+			MACAddress:     nic.MacAddress,
+			SecurityGroups: nic.SecurityGroups,
 		})
 	}
 
@@ -74,8 +72,8 @@ func convertSpecFromProto(spec *computev1.VmSpec) domain.VMSpec {
 			continue
 		}
 		result.Cdroms = append(result.Cdroms, domain.CDROMDevice{
-			Name:      cdrom.Name,
-			ImageID:   cdrom.ImageId,
+			Name:      cdrom.Id,
+			ImageID:   cdrom.IsoPath,
 			Connected: cdrom.Connected,
 		})
 	}
@@ -134,47 +132,44 @@ func convertSpecToProto(spec domain.VMSpec) *computev1.VmSpec {
 
 	// CPU config
 	result.Cpu = &computev1.CpuConfig{
-		Cores:   spec.CPU.Cores,
-		Sockets: spec.CPU.Sockets,
-		Threads: spec.CPU.Threads,
-		Model:   spec.CPU.Model,
+		Cores:          uint32(spec.CPU.Cores),
+		Sockets:        uint32(spec.CPU.Sockets),
+		ThreadsPerCore: uint32(spec.CPU.Threads),
+		Model:          spec.CPU.Model,
 	}
 
 	// Memory config
 	result.Memory = &computev1.MemoryConfig{
-		SizeMib:            uint32(spec.Memory.SizeMiB),
-		BallooningLimitMib: uint32(spec.Memory.BallooningLimit),
-		HugePages:          spec.Memory.HugePagesEnabled,
+		SizeMib:      uint64(spec.Memory.SizeMiB),
+		MaxMemoryMib: uint64(spec.Memory.BallooningLimit),
 	}
 
 	// Disks
 	for _, disk := range spec.Disks {
 		result.Disks = append(result.Disks, &computev1.DiskDevice{
-			Name:      disk.Name,
+			Id:        disk.Name,
 			VolumeId:  disk.VolumeID,
-			SizeGib:   uint32(disk.SizeGiB),
+			SizeGib:   uint64(disk.SizeGiB),
 			Bus:       parseBusType(disk.Bus),
-			BootOrder: disk.BootOrder,
-			IopsLimit: uint32(disk.IOPSLimit),
+			BootIndex: uint32(disk.BootOrder),
 		})
 	}
 
 	// NICs
 	for _, nic := range spec.NICs {
 		result.Nics = append(result.Nics, &computev1.NetworkInterface{
-			Name:               nic.Name,
-			NetworkId:          nic.NetworkID,
-			MacAddress:         nic.MACAddress,
-			SecurityGroupIds:   nic.SecurityGroups,
-			BandwidthLimitMbps: uint32(nic.BandwidthLimitMbps),
+			Id:             nic.Name,
+			NetworkId:      nic.NetworkID,
+			MacAddress:     nic.MACAddress,
+			SecurityGroups: nic.SecurityGroups,
 		})
 	}
 
 	// CDROMs
 	for _, cdrom := range spec.Cdroms {
 		result.Cdroms = append(result.Cdroms, &computev1.CdromDevice{
-			Name:      cdrom.Name,
-			ImageId:   cdrom.ImageID,
+			Id:        cdrom.Name,
+			IsoPath:   cdrom.ImageID,
 			Connected: cdrom.Connected,
 		})
 	}
@@ -185,36 +180,33 @@ func convertSpecToProto(spec domain.VMSpec) *computev1.VmSpec {
 // convertStatusToProto converts a domain VMStatus to a proto VmStatus.
 func convertStatusToProto(status domain.VMStatus) *computev1.VmStatus {
 	result := &computev1.VmStatus{
-		State:       convertPowerStateToProto(status.State),
-		NodeId:      status.NodeID,
-		IpAddresses: status.IPAddresses,
-		Message:     status.Message,
+		State:        convertPowerStateToProto(status.State),
+		NodeId:       status.NodeID,
+		IpAddresses:  status.IPAddresses,
+		ErrorMessage: status.Message,
 	}
 
 	// Resource usage
-	result.Resources = &computev1.ResourceUsage{
-		CpuPercent:    float32(status.Resources.CPUPercent),
-		MemoryUsedMib: uint64(status.Resources.MemoryUsedMiB),
-		DiskReadBps:   uint64(status.Resources.DiskReadBps),
-		DiskWriteBps:  uint64(status.Resources.DiskWriteBps),
-		NetworkRxBps:  uint64(status.Resources.NetworkRxBps),
-		NetworkTxBps:  uint64(status.Resources.NetworkTxBps),
+	result.ResourceUsage = &computev1.ResourceUsage{
+		CpuUsagePercent: status.Resources.CPUPercent,
+		MemoryUsedBytes: uint64(status.Resources.MemoryUsedMiB) * 1024 * 1024,
+		DiskReadBytes:   uint64(status.Resources.DiskReadBps),
+		DiskWriteBytes:  uint64(status.Resources.DiskWriteBps),
+		NetworkRxBytes:  uint64(status.Resources.NetworkRxBps),
+		NetworkTxBytes:  uint64(status.Resources.NetworkTxBps),
 	}
 
-	// Guest agent info
+	// Guest info
 	if status.GuestAgent != nil {
-		result.GuestAgent = &computev1.GuestAgentInfo{
-			Installed: status.GuestAgent.Installed,
-			Version:   status.GuestAgent.Version,
-			Hostname:  status.GuestAgent.Hostname,
+		result.GuestInfo = &computev1.GuestInfo{
+			Hostname: status.GuestAgent.Hostname,
 		}
 	}
 
 	// Console info
 	if status.Console != nil {
 		result.Console = &computev1.ConsoleInfo{
-			Type: parseConsoleType(status.Console.Type),
-			Url:  status.Console.URL,
+			Url: status.Console.URL,
 		}
 	}
 
@@ -222,67 +214,57 @@ func convertStatusToProto(status domain.VMStatus) *computev1.VmStatus {
 }
 
 // convertPowerStateToProto converts a domain VMState to a proto PowerState.
-func convertPowerStateToProto(state domain.VMState) computev1.PowerState {
+func convertPowerStateToProto(state domain.VMState) computev1.VmStatus_PowerState {
 	switch state {
-	case domain.VMStatePending:
-		return computev1.PowerState_POWER_STATE_PENDING
-	case domain.VMStateCreating:
-		return computev1.PowerState_POWER_STATE_CREATING
+	case domain.VMStatePending, domain.VMStateCreating:
+		return computev1.VmStatus_PROVISIONING
 	case domain.VMStateStarting:
-		return computev1.PowerState_POWER_STATE_STARTING
+		return computev1.VmStatus_PROVISIONING
 	case domain.VMStateRunning:
-		return computev1.PowerState_POWER_STATE_RUNNING
+		return computev1.VmStatus_RUNNING
 	case domain.VMStateStopping:
-		return computev1.PowerState_POWER_STATE_STOPPING
+		return computev1.VmStatus_STOPPED
 	case domain.VMStateStopped:
-		return computev1.PowerState_POWER_STATE_STOPPED
+		return computev1.VmStatus_STOPPED
 	case domain.VMStatePaused:
-		return computev1.PowerState_POWER_STATE_PAUSED
+		return computev1.VmStatus_PAUSED
 	case domain.VMStateSuspended:
-		return computev1.PowerState_POWER_STATE_SUSPENDED
+		return computev1.VmStatus_SUSPENDED
 	case domain.VMStateMigrating:
-		return computev1.PowerState_POWER_STATE_MIGRATING
+		return computev1.VmStatus_MIGRATING
 	case domain.VMStateError, domain.VMStateFailed:
-		return computev1.PowerState_POWER_STATE_ERROR
+		return computev1.VmStatus_CRASHED
 	case domain.VMStateDeleting:
-		return computev1.PowerState_POWER_STATE_DELETING
+		return computev1.VmStatus_STOPPED
 	default:
-		return computev1.PowerState_POWER_STATE_UNSPECIFIED
+		return computev1.VmStatus_UNKNOWN
 	}
 }
 
 // convertPowerStateFromProto converts a proto PowerState to a domain VMState.
-func convertPowerStateFromProto(state computev1.PowerState) domain.VMState {
+func convertPowerStateFromProto(state computev1.VmStatus_PowerState) domain.VMState {
 	switch state {
-	case computev1.PowerState_POWER_STATE_PENDING:
-		return domain.VMStatePending
-	case computev1.PowerState_POWER_STATE_CREATING:
+	case computev1.VmStatus_PROVISIONING:
 		return domain.VMStateCreating
-	case computev1.PowerState_POWER_STATE_STARTING:
-		return domain.VMStateStarting
-	case computev1.PowerState_POWER_STATE_RUNNING:
+	case computev1.VmStatus_RUNNING:
 		return domain.VMStateRunning
-	case computev1.PowerState_POWER_STATE_STOPPING:
-		return domain.VMStateStopping
-	case computev1.PowerState_POWER_STATE_STOPPED:
+	case computev1.VmStatus_STOPPED:
 		return domain.VMStateStopped
-	case computev1.PowerState_POWER_STATE_PAUSED:
+	case computev1.VmStatus_PAUSED:
 		return domain.VMStatePaused
-	case computev1.PowerState_POWER_STATE_SUSPENDED:
+	case computev1.VmStatus_SUSPENDED:
 		return domain.VMStateSuspended
-	case computev1.PowerState_POWER_STATE_MIGRATING:
+	case computev1.VmStatus_MIGRATING:
 		return domain.VMStateMigrating
-	case computev1.PowerState_POWER_STATE_ERROR:
+	case computev1.VmStatus_CRASHED:
 		return domain.VMStateError
-	case computev1.PowerState_POWER_STATE_DELETING:
-		return domain.VMStateDeleting
 	default:
 		return domain.VMStateStopped
 	}
 }
 
 // convertPowerStatesToDomain converts a slice of proto PowerStates to domain VMStates.
-func convertPowerStatesToDomain(states []computev1.PowerState) []domain.VMState {
+func convertPowerStatesToDomain(states []computev1.VmStatus_PowerState) []domain.VMState {
 	if len(states) == 0 {
 		return nil
 	}
@@ -295,28 +277,32 @@ func convertPowerStatesToDomain(states []computev1.PowerState) []domain.VMState 
 
 // Helper functions for parsing enums
 
-func parseBusType(bus string) computev1.BusType {
+func parseBusType(bus string) computev1.DiskDevice_BusType {
 	switch bus {
-	case "VIRTIO", "virtio":
-		return computev1.BusType_BUS_TYPE_VIRTIO
-	case "SCSI", "scsi":
-		return computev1.BusType_BUS_TYPE_SCSI
+	case "VIRTIO", "virtio", "virtio_blk":
+		return computev1.DiskDevice_VIRTIO_BLK
+	case "SCSI", "scsi", "virtio_scsi":
+		return computev1.DiskDevice_VIRTIO_SCSI
+	case "NVME", "nvme":
+		return computev1.DiskDevice_NVME
 	case "SATA", "sata":
-		return computev1.BusType_BUS_TYPE_SATA
+		return computev1.DiskDevice_SATA
 	case "IDE", "ide":
-		return computev1.BusType_BUS_TYPE_IDE
+		return computev1.DiskDevice_IDE
 	default:
-		return computev1.BusType_BUS_TYPE_VIRTIO
+		return computev1.DiskDevice_VIRTIO_BLK
 	}
 }
 
-func parseConsoleType(t string) computev1.ConsoleType {
+func parseDisplayType(t string) computev1.DisplayConfig_DisplayType {
 	switch t {
 	case "VNC", "vnc":
-		return computev1.ConsoleType_CONSOLE_TYPE_VNC
+		return computev1.DisplayConfig_VNC
 	case "SPICE", "spice":
-		return computev1.ConsoleType_CONSOLE_TYPE_SPICE
+		return computev1.DisplayConfig_SPICE
+	case "NONE", "none":
+		return computev1.DisplayConfig_NONE
 	default:
-		return computev1.ConsoleType_CONSOLE_TYPE_VNC
+		return computev1.DisplayConfig_VNC
 	}
 }

@@ -35,21 +35,27 @@ type Node struct {
 
 // NodeSpec represents the hardware capabilities of a node.
 type NodeSpec struct {
-	CPU      NodeCPUInfo      `json:"cpu"`
-	Memory   NodeMemoryInfo   `json:"memory"`
-	Storage  []StorageDevice  `json:"storage"`
-	Networks []NetworkAdapter `json:"networks"`
-	Role     NodeRole         `json:"role"`
+	CPU        NodeCPUInfo      `json:"cpu"`
+	Memory     NodeMemoryInfo   `json:"memory"`
+	Storage    []StorageDevice  `json:"storage"`
+	Networks   []NetworkAdapter `json:"networks"`
+	Role       NodeRole         `json:"role"`
+	Scheduling SchedulingConfig `json:"scheduling,omitempty"`
+}
+
+// SchedulingConfig holds scheduling-related settings for a node.
+type SchedulingConfig struct {
+	Schedulable bool `json:"schedulable"`
 }
 
 // NodeCPUInfo represents CPU information for a node.
 type NodeCPUInfo struct {
-	Model       string   `json:"model"`
-	Sockets     int32    `json:"sockets"`
-	CoresPerSocket int32 `json:"cores_per_socket"`
-	ThreadsPerCore int32 `json:"threads_per_core"`
-	FrequencyMHz int32   `json:"frequency_mhz"`
-	Features    []string `json:"features,omitempty"`
+	Model          string   `json:"model"`
+	Sockets        int32    `json:"sockets"`
+	CoresPerSocket int32    `json:"cores_per_socket"`
+	ThreadsPerCore int32    `json:"threads_per_core"`
+	FrequencyMHz   int32    `json:"frequency_mhz"`
+	Features       []string `json:"features,omitempty"`
 }
 
 // TotalCores returns the total number of CPU cores.
@@ -70,22 +76,22 @@ type NodeMemoryInfo struct {
 
 // StorageDevice represents a storage device on a node.
 type StorageDevice struct {
-	Name     string `json:"name"`
-	Type     string `json:"type"` // HDD, SSD, NVMe
-	SizeGiB  int64  `json:"size_gib"`
-	Path     string `json:"path"`
-	Model    string `json:"model,omitempty"`
-	Serial   string `json:"serial,omitempty"`
+	Name    string `json:"name"`
+	Type    string `json:"type"` // HDD, SSD, NVMe
+	SizeGiB int64  `json:"size_gib"`
+	Path    string `json:"path"`
+	Model   string `json:"model,omitempty"`
+	Serial  string `json:"serial,omitempty"`
 }
 
 // NetworkAdapter represents a network adapter on a node.
 type NetworkAdapter struct {
-	Name       string `json:"name"`
-	MACAddress string `json:"mac_address"`
-	SpeedMbps  int64  `json:"speed_mbps"`
-	MTU        int32  `json:"mtu"`
-	Driver     string `json:"driver,omitempty"`
-	SRIOVCapable bool `json:"sriov_capable"`
+	Name         string `json:"name"`
+	MACAddress   string `json:"mac_address"`
+	SpeedMbps    int64  `json:"speed_mbps"`
+	MTU          int32  `json:"mtu"`
+	Driver       string `json:"driver,omitempty"`
+	SRIOVCapable bool   `json:"sriov_capable"`
 }
 
 // NodeRole represents the role of a node in the cluster.
@@ -107,28 +113,28 @@ type NodeStatus struct {
 
 // NodeCondition represents a condition of a node.
 type NodeCondition struct {
-	Type    string    `json:"type"`
-	Status  string    `json:"status"` // True, False, Unknown
-	Reason  string    `json:"reason,omitempty"`
-	Message string    `json:"message,omitempty"`
+	Type       string    `json:"type"`
+	Status     string    `json:"status"` // True, False, Unknown
+	Reason     string    `json:"reason,omitempty"`
+	Message    string    `json:"message,omitempty"`
 	LastUpdate time.Time `json:"last_update"`
 }
 
 // Resources represents allocatable/allocated resources.
 type Resources struct {
-	CPUCores     int32 `json:"cpu_cores"`
-	MemoryMiB    int64 `json:"memory_mib"`
-	StorageGiB   int64 `json:"storage_gib"`
-	GPUCount     int32 `json:"gpu_count,omitempty"`
+	CPUCores   int32 `json:"cpu_cores"`
+	MemoryMiB  int64 `json:"memory_mib"`
+	StorageGiB int64 `json:"storage_gib"`
+	GPUCount   int32 `json:"gpu_count,omitempty"`
 }
 
 // SystemInfo represents system information about the node.
 type SystemInfo struct {
-	OS              string `json:"os"`
-	Kernel          string `json:"kernel"`
-	Architecture    string `json:"architecture"`
+	OS                string `json:"os"`
+	Kernel            string `json:"kernel"`
+	Architecture      string `json:"architecture"`
 	HypervisorVersion string `json:"hypervisor_version"`
-	AgentVersion    string `json:"agent_version"`
+	AgentVersion      string `json:"agent_version"`
 }
 
 // IsReady returns true if the node is ready to accept VMs.
@@ -155,4 +161,3 @@ func (n *Node) AvailableMemory() int64 {
 func (n *Node) VMCount() int {
 	return len(n.Status.VMIDs)
 }
-

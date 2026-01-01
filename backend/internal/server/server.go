@@ -11,10 +11,18 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/limiquantix/limiquantix/internal/config"
+	"github.com/limiquantix/limiquantix/internal/repository/etcd"
 	"github.com/limiquantix/limiquantix/internal/repository/memory"
+	"github.com/limiquantix/limiquantix/internal/repository/postgres"
+	"github.com/limiquantix/limiquantix/internal/repository/redis"
+	"github.com/limiquantix/limiquantix/internal/scheduler"
+	networkservice "github.com/limiquantix/limiquantix/internal/services/network"
+	"github.com/limiquantix/limiquantix/internal/services/node"
 	nodeservice "github.com/limiquantix/limiquantix/internal/services/node"
+	"github.com/limiquantix/limiquantix/internal/services/vm"
 	vmservice "github.com/limiquantix/limiquantix/internal/services/vm"
 	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1/networkv1connect"
 )
 
 // Server represents the main HTTP server.
@@ -24,17 +32,60 @@ type Server struct {
 	httpServer *http.Server
 	mux        *http.ServeMux
 
-	// Repositories
-	vmRepo   *memory.VMRepository
-	nodeRepo *memory.NodeRepository
+	// Infrastructure
+	db    *postgres.DB
+	cache *redis.Cache
+	etcd  *etcd.Client
+
+	// Repository interfaces (abstracted for swappable backends)
+	vmRepo   vm.Repository
+	nodeRepo node.Repository
+
+	// Memory-only repositories (no PostgreSQL equivalent yet)
+	storagePoolRepo   *memory.StoragePoolRepository
+	volumeRepo        *memory.VolumeRepository
+	networkRepo       *memory.NetworkRepository
+	securityGroupRepo *memory.SecurityGroupRepository
+
+	// Scheduler
+	scheduler *scheduler.Scheduler
 
 	// Services
-	vmService   *vmservice.Service
-	nodeService *nodeservice.Service
+	vmService            *vmservice.Service
+	nodeService          *nodeservice.Service
+	networkService       *networkservice.NetworkService
+	securityGroupService *networkservice.SecurityGroupService
+
+	// Leader election (for HA)
+	leader *etcd.Leader
+}
+
+// ServerOption configures the server.
+type ServerOption func(*Server)
+
+// WithPostgreSQL enables PostgreSQL as the data store.
+func WithPostgreSQL(db *postgres.DB) ServerOption {
+	return func(s *Server) {
+		s.db = db
+	}
+}
+
+// WithRedis enables Redis caching.
+func WithRedis(cache *redis.Cache) ServerOption {
+	return func(s *Server) {
+		s.cache = cache
+	}
+}
+
+// WithEtcd enables etcd for distributed coordination.
+func WithEtcd(client *etcd.Client) ServerOption {
+	return func(s *Server) {
+		s.etcd = client
+	}
 }
 
 // New creates a new server instance.
-func New(cfg *config.Config, logger *zap.Logger) *Server {
+func New(cfg *config.Config, logger *zap.Logger, opts ...ServerOption) *Server {
 	mux := http.NewServeMux()
 
 	s := &Server{
@@ -43,7 +94,12 @@ func New(cfg *config.Config, logger *zap.Logger) *Server {
 		mux:    mux,
 	}
 
-	// Initialize repositories (in-memory for now, can be swapped for PostgreSQL)
+	// Apply options
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	// Initialize repositories
 	s.initRepositories()
 
 	// Initialize services
@@ -65,31 +121,76 @@ func New(cfg *config.Config, logger *zap.Logger) *Server {
 }
 
 // initRepositories initializes data repositories.
-// Currently using in-memory implementations for development.
-// These can be swapped for PostgreSQL repositories in production.
 func (s *Server) initRepositories() {
-	s.logger.Info("Initializing in-memory repositories")
+	if s.db != nil {
+		// Use PostgreSQL repositories
+		s.logger.Info("Initializing PostgreSQL repositories")
+		s.vmRepo = postgres.NewVMRepository(s.db, s.logger)
+		s.nodeRepo = postgres.NewNodeRepository(s.db, s.logger)
+	} else {
+		// Use in-memory repositories (development mode)
+		s.logger.Info("Initializing in-memory repositories")
+		memVMRepo := memory.NewVMRepository()
+		memNodeRepo := memory.NewNodeRepository()
 
-	// Create in-memory repositories
-	s.vmRepo = memory.NewVMRepository()
-	s.nodeRepo = memory.NewNodeRepository()
+		// Seed with demo data
+		memVMRepo.SeedDemoData()
+		memNodeRepo.SeedDemoData()
 
-	// Seed with demo data for development
-	s.vmRepo.SeedDemoData()
-	s.nodeRepo.SeedDemoData()
+		s.vmRepo = memVMRepo
+		s.nodeRepo = memNodeRepo
+	}
 
-	s.logger.Info("Repositories initialized with demo data")
+	// These remain in-memory for now (PostgreSQL implementations can be added later)
+	s.storagePoolRepo = memory.NewStoragePoolRepository()
+	s.volumeRepo = memory.NewVolumeRepository()
+	s.networkRepo = memory.NewNetworkRepository()
+	s.securityGroupRepo = memory.NewSecurityGroupRepository()
+
+	s.logger.Info("Repositories initialized",
+		zap.Bool("postgres", s.db != nil),
+		zap.Bool("redis", s.cache != nil),
+		zap.Bool("etcd", s.etcd != nil),
+	)
 }
 
 // initServices initializes business logic services.
 func (s *Server) initServices() {
 	s.logger.Info("Initializing services")
 
-	// Create services with their repositories
+	// Initialize scheduler
+	schedulerConfig := scheduler.DefaultConfig()
+	if s.config.Scheduler.PlacementStrategy != "" {
+		schedulerConfig.PlacementStrategy = s.config.Scheduler.PlacementStrategy
+	}
+	if s.config.Scheduler.OvercommitCPU > 0 {
+		schedulerConfig.OvercommitCPU = s.config.Scheduler.OvercommitCPU
+	}
+	if s.config.Scheduler.OvercommitMemory > 0 {
+		schedulerConfig.OvercommitMemory = s.config.Scheduler.OvercommitMemory
+	}
+
+	// Create scheduler with repository adapters
+	s.scheduler = scheduler.New(
+		s.nodeRepo.(scheduler.NodeRepository),
+		s.vmRepo.(scheduler.VMRepository),
+		schedulerConfig,
+		s.logger,
+	)
+
+	// Compute services
 	s.vmService = vmservice.NewService(s.vmRepo, s.logger)
 	s.nodeService = nodeservice.NewService(s.nodeRepo, s.logger)
 
-	s.logger.Info("Services initialized")
+	// Network services
+	s.networkService = networkservice.NewNetworkService(s.networkRepo, s.logger)
+	s.securityGroupService = networkservice.NewSecurityGroupService(s.securityGroupRepo, s.logger)
+
+	s.logger.Info("Services initialized",
+		zap.String("scheduler_strategy", schedulerConfig.PlacementStrategy),
+		zap.Float64("cpu_overcommit", schedulerConfig.OvercommitCPU),
+		zap.Float64("memory_overcommit", schedulerConfig.OvercommitMemory),
+	)
 }
 
 // registerRoutes registers all HTTP routes and Connect-RPC services.
@@ -103,7 +204,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/v1/info", s.infoHandler)
 
 	// =========================================================================
-	// Connect-RPC Services
+	// Connect-RPC Services - Compute
 	// =========================================================================
 
 	// VM Service
@@ -115,6 +216,20 @@ func (s *Server) registerRoutes() {
 	nodePath, nodeHandler := computev1connect.NewNodeServiceHandler(s.nodeService)
 	s.mux.Handle(nodePath, nodeHandler)
 	s.logger.Info("Registered Node service", zap.String("path", nodePath))
+
+	// =========================================================================
+	// Connect-RPC Services - Network
+	// =========================================================================
+
+	// VirtualNetwork Service
+	networkPath, networkHandler := networkv1connect.NewVirtualNetworkServiceHandler(s.networkService)
+	s.mux.Handle(networkPath, networkHandler)
+	s.logger.Info("Registered VirtualNetwork service", zap.String("path", networkPath))
+
+	// SecurityGroup Service
+	sgPath, sgHandler := networkv1connect.NewSecurityGroupServiceHandler(s.securityGroupService)
+	s.mux.Handle(sgPath, sgHandler)
+	s.logger.Info("Registered SecurityGroup service", zap.String("path", sgPath))
 
 	s.logger.Info("All routes registered")
 }
@@ -200,10 +315,48 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 
 // readyHandler returns readiness status.
 func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {
-	// In the future, check database, etcd, redis connections
+	ctx := r.Context()
+	ready := true
+	details := map[string]string{}
+
+	// Check PostgreSQL
+	if s.db != nil {
+		if err := s.db.Health(ctx); err != nil {
+			ready = false
+			details["postgres"] = "unhealthy"
+		} else {
+			details["postgres"] = "healthy"
+		}
+	}
+
+	// Check Redis
+	if s.cache != nil {
+		if err := s.cache.Health(ctx); err != nil {
+			ready = false
+			details["redis"] = "unhealthy"
+		} else {
+			details["redis"] = "healthy"
+		}
+	}
+
+	// Check etcd
+	if s.etcd != nil {
+		if err := s.etcd.Health(ctx); err != nil {
+			ready = false
+			details["etcd"] = "unhealthy"
+		} else {
+			details["etcd"] = "healthy"
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"ready":true}`)
+	if ready {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `{"ready":true,"components":%s}`, toJSON(details))
+	} else {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintf(w, `{"ready":false,"components":%s}`, toJSON(details))
+	}
 }
 
 // liveHandler returns liveness status.
@@ -222,8 +375,28 @@ func (s *Server) infoHandler(w http.ResponseWriter, r *http.Request) {
 		"version": "0.1.0",
 		"api_version": "v1",
 		"description": "Distributed Virtualization Platform",
-		"services": ["VMService", "NodeService"]
-	}`)
+		"services": ["VMService", "NodeService", "VirtualNetworkService", "SecurityGroupService"],
+		"infrastructure": {
+			"postgres": %t,
+			"redis": %t,
+			"etcd": %t
+		}
+	}`, s.db != nil, s.cache != nil, s.etcd != nil)
+}
+
+// GetScheduler returns the scheduler instance for use by other services.
+func (s *Server) GetScheduler() *scheduler.Scheduler {
+	return s.scheduler
+}
+
+// GetCache returns the Redis cache for use by other services.
+func (s *Server) GetCache() *redis.Cache {
+	return s.cache
+}
+
+// GetEtcd returns the etcd client for use by other services.
+func (s *Server) GetEtcd() *etcd.Client {
+	return s.etcd
 }
 
 // Run starts the HTTP server and blocks until shutdown.
@@ -231,6 +404,24 @@ func (s *Server) Run(ctx context.Context) error {
 	s.logger.Info("Starting server",
 		zap.String("address", s.config.Server.Address()),
 	)
+
+	// Start leader election if etcd is available
+	if s.etcd != nil {
+		leader, err := s.etcd.CampaignForLeader(ctx, "controlplane", func(isLeader bool) {
+			if isLeader {
+				s.logger.Info("This instance is now the leader")
+				// Start leader-only tasks (DRS, HA, etc.)
+			} else {
+				s.logger.Info("This instance is now a follower")
+				// Stop leader-only tasks
+			}
+		})
+		if err != nil {
+			s.logger.Warn("Failed to start leader election", zap.Error(err))
+		} else {
+			s.leader = leader
+		}
+	}
 
 	// Start server in goroutine
 	errCh := make(chan error, 1)
@@ -249,12 +440,41 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	// Graceful shutdown
+	return s.Shutdown()
+}
+
+// Shutdown gracefully shuts down the server.
+func (s *Server) Shutdown() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), s.config.Server.ShutdownTimeout)
 	defer cancel()
 
 	s.logger.Info("Shutting down server...")
+
+	// Resign from leadership
+	if s.leader != nil {
+		if err := s.leader.Resign(shutdownCtx); err != nil {
+			s.logger.Warn("Failed to resign leadership", zap.Error(err))
+		}
+	}
+
+	// Close HTTP server
 	if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("shutdown error: %w", err)
+		return fmt.Errorf("HTTP shutdown error: %w", err)
+	}
+
+	// Close infrastructure connections
+	if s.etcd != nil {
+		if err := s.etcd.Close(); err != nil {
+			s.logger.Warn("Failed to close etcd", zap.Error(err))
+		}
+	}
+	if s.cache != nil {
+		if err := s.cache.Close(); err != nil {
+			s.logger.Warn("Failed to close Redis", zap.Error(err))
+		}
+	}
+	if s.db != nil {
+		s.db.Close()
 	}
 
 	s.logger.Info("Server stopped gracefully")
@@ -264,4 +484,22 @@ func (s *Server) Run(ctx context.Context) error {
 // Address returns the server address.
 func (s *Server) Address() string {
 	return s.config.Server.Address()
+}
+
+// toJSON converts a map to JSON string.
+func toJSON(m map[string]string) string {
+	if len(m) == 0 {
+		return "{}"
+	}
+	result := "{"
+	first := true
+	for k, v := range m {
+		if !first {
+			result += ","
+		}
+		result += fmt.Sprintf(`"%s":"%s"`, k, v)
+		first = false
+	}
+	result += "}"
+	return result
 }

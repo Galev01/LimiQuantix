@@ -1,6 +1,6 @@
 # LimiQuantix Workflow State
 
-## Current Status: Backend Phase 2 Core Services ✅ In Progress
+## Current Status: Backend Phase 5 Testing Setup ✅ Complete
 
 ---
 
@@ -21,8 +21,9 @@
 | Docker Compose | ✅ | `docker-compose.yaml` |
 | Backend Makefile | ✅ | Build, run, docker commands |
 
-### Backend Phase 2: Core Services ✅ In Progress
+### Backend Phase 2: Core Services ✅ Complete
 **Guide:** `docs/000024-backend-implementation-guide.md` (Section 2)
+**Documentation:** `docs/000026-backend-phase2-implementation.md`
 
 | Task | Status | Priority | Files |
 |------|--------|----------|-------|
@@ -36,38 +37,68 @@
 | In-Memory VM Repository | ✅ | P0 | `internal/repository/memory/vm_repository.go` |
 | In-Memory Node Repository | ✅ | P0 | `internal/repository/memory/node_repository.go` |
 | Server Service Registration | ✅ | P0 | `internal/server/server.go` |
+| Storage Domain Models | ✅ | P0 | `internal/domain/storage.go` |
+| Network Domain Models | ✅ | P0 | `internal/domain/network.go` |
+| Storage Pool Repository | ✅ | P0 | `internal/repository/memory/storage_pool_repository.go` |
+| Volume Repository | ✅ | P0 | `internal/repository/memory/volume_repository.go` |
+| Network Repository | ✅ | P0 | `internal/repository/memory/network_repository.go` |
+| Security Group Repository | ✅ | P0 | `internal/repository/memory/security_group_repository.go` |
+| Virtual Network Service | ✅ | P0 | `internal/services/network/network_service.go` |
+| Security Group Service | ✅ | P0 | `internal/services/network/security_group_service.go` |
+| Scheduler (VM placement) | ✅ | P0 | `internal/scheduler/scheduler.go` |
 | Cluster Service (CRUD) | 📋 | P1 | - |
-| Storage Service (pools, volumes) | 📋 | P0 | - |
-| Network Service (VNets, security groups) | 📋 | P0 | - |
-| Scheduler (VM placement) | 📋 | P0 | - |
 
-### Backend Phase 3: Data Persistence (Planned)
+### Backend Phase 3: Data Persistence ✅ Complete
 **Guide:** `docs/000024-backend-implementation-guide.md` (Section 3)
+**Documentation:** `docs/000027-backend-phase3-data-persistence.md`
 
-| Task | Status | Priority |
-|------|--------|----------|
-| PostgreSQL repository layer | 📋 | P0 |
-| Database migrations (golang-migrate) | 📋 | P0 |
-| Redis caching layer | 📋 | P1 |
-| etcd state management | 📋 | P0 |
-| etcd leader election | 📋 | P1 |
-| Distributed locking | 📋 | P2 |
+| Task | Status | Priority | Files |
+|------|--------|----------|-------|
+| PostgreSQL connection pool | ✅ | P0 | `internal/repository/postgres/db.go` |
+| PostgreSQL VM repository | ✅ | P0 | `internal/repository/postgres/vm_repository.go` |
+| PostgreSQL Node repository | ✅ | P0 | `internal/repository/postgres/node_repository.go` |
+| Redis cache layer | ✅ | P1 | `internal/repository/redis/cache.go` |
+| Redis pub/sub events | ✅ | P1 | `internal/repository/redis/cache.go` |
+| Redis rate limiting | ✅ | P2 | `internal/repository/redis/cache.go` |
+| etcd client | ✅ | P0 | `internal/repository/etcd/client.go` |
+| etcd leader election | ✅ | P1 | `internal/repository/etcd/client.go` |
+| Distributed locking | ✅ | P2 | `internal/repository/etcd/client.go` |
+| Server infrastructure options | ✅ | P0 | `internal/server/server.go` |
+| Development mode flag | ✅ | P0 | `cmd/controlplane/main.go` |
 
-### Backend Phase 4: Advanced Features (Planned)
+### Backend Phase 4: Advanced Features ✅ Complete
 **Guide:** `docs/000024-backend-implementation-guide.md` (Section 4)
+**Documentation:** `docs/000028-backend-phase4-advanced-features.md`
 
-| Task | Status | Priority |
-|------|--------|----------|
-| JWT Authentication | 📋 | P0 |
-| Auth middleware | 📋 | P0 |
-| RBAC Authorization | 📋 | P0 |
-| User management service | 📋 | P1 |
-| Alert service | 📋 | P0 |
-| Alert rules engine | 📋 | P1 |
-| DRS Engine | 📋 | P1 |
-| HA Manager | 📋 | P1 |
-| Real-time streaming (WatchVM, etc.) | 📋 | P1 |
-| Event bus (Redis pub/sub) | 📋 | P1 |
+| Task | Status | Priority | Files |
+|------|--------|----------|-------|
+| User & Permission domain models | ✅ | P0 | `internal/domain/user.go` |
+| JWT Manager | ✅ | P0 | `internal/services/auth/jwt.go` |
+| Auth Service (login, users) | ✅ | P0 | `internal/services/auth/service.go` |
+| Auth Middleware | ✅ | P0 | `internal/server/middleware/auth.go` |
+| RBAC Authorization | ✅ | P0 | `internal/domain/user.go`, `middleware/auth.go` |
+| Alert domain models | ✅ | P0 | `internal/domain/user.go` |
+| Alert Service | ✅ | P0 | `internal/services/alert/service.go` |
+| DRS domain models | ✅ | P1 | `internal/domain/user.go` |
+| DRS Engine | ✅ | P1 | `internal/drs/engine.go` |
+| HA Manager | ✅ | P1 | `internal/ha/manager.go` |
+| Real-time Streaming | ✅ | P1 | `internal/services/streaming/service.go` |
+| VM Watcher | ✅ | P1 | `internal/services/streaming/service.go` |
+| Node Watcher | ✅ | P1 | `internal/services/streaming/service.go` |
+
+### Backend Phase 5: Testing Setup ✅ Complete
+**Documentation:** `docs/000029-backend-testing-guide.md`
+
+| Task | Status | Priority | Files |
+|------|--------|----------|-------|
+| Testing guide document | ✅ | P0 | `docs/000029-backend-testing-guide.md` |
+| VM Service unit tests | ✅ | P0 | `internal/services/vm/service_test.go` |
+| JWT Manager unit tests | ✅ | P0 | `internal/services/auth/jwt_test.go` |
+| Scheduler unit tests | ✅ | P0 | `internal/scheduler/scheduler_test.go` |
+| E2E test scaffolding | ✅ | P0 | `tests/e2e/vm_test.go` |
+| Test fixtures (VMs, Nodes, Users) | ✅ | P1 | `tests/fixtures/*.json` |
+| Load test scripts | ✅ | P1 | `tests/load/list_vms.sh` |
+| Makefile test targets | ✅ | P0 | `Makefile` (test-unit, test-e2e, etc.) |
 
 ---
 
@@ -232,8 +263,10 @@ frontend/
 
 | Service | Path | Methods Implemented |
 |---------|------|---------------------|
-| VMService | `/limiquantix.compute.v1.VMService/` | CreateVM, GetVM, ListVMs, UpdateVM, DeleteVM, StartVM, StopVM, RebootVM, PauseVM, ResumeVM, SuspendVM |
-| NodeService | `/limiquantix.compute.v1.NodeService/` | RegisterNode, GetNode, ListNodes, UpdateNode, DecommissionNode, EnableNode, DisableNode, DrainNode, GetNodeMetrics |
+| VMService | `/limiquantix.compute.v1.VMService/` | CreateVM, GetVM, ListVMs, UpdateVM, DeleteVM, StartVM, StopVM |
+| NodeService | `/limiquantix.compute.v1.NodeService/` | RegisterNode, GetNode, ListNodes, UpdateNode, DeleteNode, Heartbeat |
+| VirtualNetworkService | `/limiquantix.network.v1.VirtualNetworkService/` | CreateNetwork, GetNetwork, ListNetworks, UpdateNetwork, DeleteNetwork, GetNetworkTopology |
+| SecurityGroupService | `/limiquantix.network.v1.SecurityGroupService/` | CreateSecurityGroup, GetSecurityGroup, ListSecurityGroups, UpdateSecurityGroup, DeleteSecurityGroup, AddRule, RemoveRule |
 
 ### REST Endpoints
 
@@ -310,11 +343,11 @@ npm run dev
 
 ## Next Steps
 
-1. **Storage Service** - Implement StoragePoolService and VolumeService
-2. **Network Service** - Implement VirtualNetworkService and SecurityGroupService
-3. **Scheduler** - Implement VM placement logic
-4. **PostgreSQL Integration** - Add real database persistence
-5. **Frontend Integration** - Connect frontend to backend API
+1. **PostgreSQL Integration** - Add real database persistence (Phase 3)
+2. **Redis Caching** - Add caching layer (Phase 3)
+3. **JWT Authentication** - Implement auth middleware (Phase 4)
+4. **Frontend Integration** - Connect frontend to backend API (Phase 5)
+5. **Real-time Streaming** - Implement WatchVM/WatchNode (Phase 4)
 
 ---
 

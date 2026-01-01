@@ -1,0 +1,27 @@
+[
+  {
+    "username": "admin",
+    "email": "admin@limiquantix.local",
+    "password": "admin",
+    "role": "admin"
+  },
+  {
+    "username": "operator1",
+    "email": "operator1@limiquantix.local",
+    "password": "operator123",
+    "role": "operator"
+  },
+  {
+    "username": "viewer1",
+    "email": "viewer1@limiquantix.local",
+    "password": "viewer123",
+    "role": "viewer"
+  },
+  {
+    "username": "disabled_user",
+    "email": "disabled@limiquantix.local",
+    "password": "disabled123",
+    "role": "viewer",
+    "enabled": false
+  }
+]

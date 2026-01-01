@@ -1,0 +1,153 @@
+[
+  {
+    "hostname": "test-node-small",
+    "management_ip": "192.168.1.101",
+    "labels": {
+      "tier": "standard",
+      "location": "rack-1"
+    },
+    "spec": {
+      "cpu": {
+        "model": "Intel Xeon E-2288G",
+        "sockets": 1,
+        "cores_per_socket": 8,
+        "threads_per_core": 2,
+        "frequency_mhz": 3700
+      },
+      "memory": {
+        "total_mib": 65536,
+        "allocatable_mib": 60000
+      },
+      "storage_devices": [
+        {
+          "name": "sda",
+          "type": "SSD",
+          "size_gib": 480
+        },
+        {
+          "name": "sdb",
+          "type": "SSD",
+          "size_gib": 480
+        }
+      ],
+      "network_devices": [
+        {
+          "name": "eth0",
+          "speed_mbps": 10000
+        }
+      ],
+      "role": {
+        "compute": true,
+        "storage": false,
+        "control_plane": false
+      }
+    }
+  },
+  {
+    "hostname": "test-node-large",
+    "management_ip": "192.168.1.102",
+    "labels": {
+      "tier": "performance",
+      "location": "rack-2"
+    },
+    "spec": {
+      "cpu": {
+        "model": "AMD EPYC 7763",
+        "sockets": 2,
+        "cores_per_socket": 64,
+        "threads_per_core": 2,
+        "frequency_mhz": 2450
+      },
+      "memory": {
+        "total_mib": 524288,
+        "allocatable_mib": 500000
+      },
+      "storage_devices": [
+        {
+          "name": "nvme0n1",
+          "type": "NVMe",
+          "size_gib": 3840
+        },
+        {
+          "name": "nvme1n1",
+          "type": "NVMe",
+          "size_gib": 3840
+        }
+      ],
+      "network_devices": [
+        {
+          "name": "eth0",
+          "speed_mbps": 25000
+        },
+        {
+          "name": "eth1",
+          "speed_mbps": 25000
+        }
+      ],
+      "gpus": [
+        {
+          "name": "NVIDIA A100",
+          "vram_mib": 81920
+        }
+      ],
+      "role": {
+        "compute": true,
+        "storage": true,
+        "control_plane": false
+      }
+    }
+  },
+  {
+    "hostname": "test-node-storage",
+    "management_ip": "192.168.1.103",
+    "labels": {
+      "tier": "storage",
+      "location": "rack-3"
+    },
+    "spec": {
+      "cpu": {
+        "model": "Intel Xeon Silver 4314",
+        "sockets": 2,
+        "cores_per_socket": 16,
+        "threads_per_core": 2,
+        "frequency_mhz": 2400
+      },
+      "memory": {
+        "total_mib": 131072,
+        "allocatable_mib": 120000
+      },
+      "storage_devices": [
+        {
+          "name": "sda",
+          "type": "SSD",
+          "size_gib": 480
+        },
+        {
+          "name": "sdb",
+          "type": "HDD",
+          "size_gib": 14000
+        },
+        {
+          "name": "sdc",
+          "type": "HDD",
+          "size_gib": 14000
+        },
+        {
+          "name": "sdd",
+          "type": "HDD",
+          "size_gib": 14000
+        },
+        {
+          "name": "sde",
+          "type": "HDD",
+          "size_gib": 14000
+        }
+      ],
+      "role": {
+        "compute": false,
+        "storage": true,
+        "control_plane": false
+      }
+    }
+  }
+]

@@ -1,0 +1,101 @@
+[
+  {
+    "name": "test-vm-web-1",
+    "project_id": "00000000-0000-0000-0000-000000000001",
+    "description": "Web server test VM",
+    "labels": {
+      "environment": "test",
+      "role": "web"
+    },
+    "spec": {
+      "cpu": {
+        "cores": 2,
+        "sockets": 1,
+        "threads": 1
+      },
+      "memory": {
+        "size_mib": 4096
+      },
+      "disks": [
+        {
+          "name": "boot",
+          "size_gib": 50,
+          "type": "SSD"
+        }
+      ],
+      "network_interfaces": [
+        {
+          "network_id": "default",
+          "security_group_ids": ["default"]
+        }
+      ]
+    }
+  },
+  {
+    "name": "test-vm-db-1",
+    "project_id": "00000000-0000-0000-0000-000000000001",
+    "description": "Database test VM",
+    "labels": {
+      "environment": "test",
+      "role": "database"
+    },
+    "spec": {
+      "cpu": {
+        "cores": 4,
+        "sockets": 1,
+        "threads": 2
+      },
+      "memory": {
+        "size_mib": 16384
+      },
+      "disks": [
+        {
+          "name": "boot",
+          "size_gib": 50,
+          "type": "SSD"
+        },
+        {
+          "name": "data",
+          "size_gib": 500,
+          "type": "SSD"
+        }
+      ],
+      "network_interfaces": [
+        {
+          "network_id": "default",
+          "security_group_ids": ["database-sg"]
+        }
+      ]
+    }
+  },
+  {
+    "name": "test-vm-small",
+    "project_id": "00000000-0000-0000-0000-000000000001",
+    "description": "Small test VM",
+    "spec": {
+      "cpu": {
+        "cores": 1,
+        "sockets": 1,
+        "threads": 1
+      },
+      "memory": {
+        "size_mib": 1024
+      }
+    }
+  },
+  {
+    "name": "test-vm-large",
+    "project_id": "00000000-0000-0000-0000-000000000001",
+    "description": "Large test VM",
+    "spec": {
+      "cpu": {
+        "cores": 16,
+        "sockets": 2,
+        "threads": 2
+      },
+      "memory": {
+        "size_mib": 65536
+      }
+    }
+  }
+]

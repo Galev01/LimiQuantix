@@ -180,6 +180,26 @@ func (r *VMRepository) ListByNode(ctx context.Context, nodeID string) ([]*domain
 	return result, nil
 }
 
+// ListByNodeID is an alias for ListByNode (for scheduler interface compatibility).
+func (r *VMRepository) ListByNodeID(ctx context.Context, nodeID string) ([]*domain.VirtualMachine, error) {
+	return r.ListByNode(ctx, nodeID)
+}
+
+// CountByNodeID returns the number of VMs on a specific node.
+func (r *VMRepository) CountByNodeID(ctx context.Context, nodeID string) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	count := 0
+	for _, vm := range r.data {
+		if vm.Status.NodeID == nodeID {
+			count++
+		}
+	}
+
+	return count, nil
+}
+
 // CountByProject returns the number of VMs in a project.
 func (r *VMRepository) CountByProject(ctx context.Context, projectID string) (int64, error) {
 	r.mu.RLock()

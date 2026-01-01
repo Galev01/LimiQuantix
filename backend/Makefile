@@ -38,17 +38,43 @@ test:
 	@echo "Running tests..."
 	go test -v -race -cover ./...
 
+## test-unit: Run unit tests only
+test-unit:
+	@echo "Running unit tests..."
+	go test -v -short ./internal/...
+
 ## test-short: Run tests without integration tests
 test-short:
 	@echo "Running short tests..."
 	go test -v -short ./...
 
+## test-integration: Run integration tests (requires running infrastructure)
+test-integration:
+	@echo "Running integration tests..."
+	go test -v -tags=integration ./internal/repository/...
+
+## test-e2e: Run E2E tests (requires running server)
+test-e2e:
+	@echo "Running E2E tests..."
+	go test -v -tags=e2e ./tests/e2e/...
+
 ## test-coverage: Run tests with coverage report
 test-coverage:
 	@echo "Running tests with coverage..."
-	go test -v -race -coverprofile=coverage.out ./...
+	go test -v -race -coverprofile=coverage.out ./internal/...
 	go tool cover -html=coverage.out -o coverage.html
+	go tool cover -func=coverage.out
+	@echo ""
 	@echo "Coverage report: coverage.html"
+
+## benchmark: Run benchmark tests
+benchmark:
+	@echo "Running benchmarks..."
+	go test -bench=. -benchmem ./internal/...
+
+## test-all: Run all test types
+test-all: test-unit test-integration test-e2e
+	@echo "All tests completed!"
 
 ## lint: Run linters
 lint:

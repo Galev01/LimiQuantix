@@ -49,6 +49,14 @@ type VMSpec struct {
 	Display   *DisplayConfig   `json:"display,omitempty"`
 	Boot      *BootConfig      `json:"boot,omitempty"`
 	Placement *PlacementPolicy `json:"placement,omitempty"`
+	HAPolicy  *HAPolicy        `json:"ha_policy,omitempty"`
+}
+
+// HAPolicy defines high availability settings for a VM.
+type HAPolicy struct {
+	AutoRestart  bool   `json:"auto_restart"`
+	Priority     int32  `json:"priority"`
+	RestartDelay int32  `json:"restart_delay_seconds,omitempty"`
 }
 
 // CPUConfig represents CPU configuration for a VM.

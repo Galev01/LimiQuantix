@@ -164,7 +164,7 @@ func (s *Service) ListVMs(
 
 	// Build response
 	resp := &computev1.ListVMsResponse{
-		TotalSize: int32(total),
+		TotalCount: int32(total),
 	}
 
 	for _, vm := range vms {
@@ -226,9 +226,6 @@ func (s *Service) UpdateVM(
 	}
 
 	// 4. Apply updates
-	if req.Msg.Name != "" {
-		vm.Name = req.Msg.Name
-	}
 	if req.Msg.Description != "" {
 		vm.Description = req.Msg.Description
 	}

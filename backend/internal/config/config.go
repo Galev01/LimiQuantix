@@ -106,6 +106,7 @@ type DRSConfig struct {
 type HAConfig struct {
 	Enabled          bool          `mapstructure:"enabled"`
 	CheckInterval    time.Duration `mapstructure:"check_interval"`
+	HeartbeatTimeout time.Duration `mapstructure:"heartbeat_timeout"`
 	FailureThreshold int           `mapstructure:"failure_threshold"`
 }
 

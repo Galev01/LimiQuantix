@@ -70,8 +70,14 @@ func (s *Service) RegisterNode(
 	if err == nil && existing != nil {
 		// Update existing node
 		existing.ManagementIP = req.Msg.ManagementIp
-		existing.Spec = convertSpecFromProto(req.Msg.Spec)
 		existing.Labels = req.Msg.Labels
+		if req.Msg.Role != nil {
+			existing.Spec.Role = domain.NodeRole{
+				Compute:      req.Msg.Role.Compute,
+				Storage:      req.Msg.Role.Storage,
+				ControlPlane: req.Msg.Role.ControlPlane,
+			}
+		}
 		existing.Status.Phase = domain.NodePhaseReady
 		existing.LastHeartbeat = &now
 
@@ -88,19 +94,24 @@ func (s *Service) RegisterNode(
 		return connect.NewResponse(ToProto(updated)), nil
 	}
 
+	// Build node spec from request
+	spec := domain.NodeSpec{}
+	if req.Msg.Role != nil {
+		spec.Role = domain.NodeRole{
+			Compute:      req.Msg.Role.Compute,
+			Storage:      req.Msg.Role.Storage,
+			ControlPlane: req.Msg.Role.ControlPlane,
+		}
+	}
+
 	// Create new node
 	node := &domain.Node{
-		Hostname:      req.Msg.Hostname,
-		ManagementIP:  req.Msg.ManagementIp,
-		Labels:        req.Msg.Labels,
-		ClusterID:     req.Msg.ClusterId,
-		Spec:          convertSpecFromProto(req.Msg.Spec),
+		Hostname:     req.Msg.Hostname,
+		ManagementIP: req.Msg.ManagementIp,
+		Labels:       req.Msg.Labels,
+		Spec:         spec,
 		Status: domain.NodeStatus{
 			Phase: domain.NodePhaseReady,
-			Allocatable: domain.Resources{
-				CPUCores:  req.Msg.Spec.GetCpu().GetCoresPerSocket() * req.Msg.Spec.GetCpu().GetSockets(),
-				MemoryMiB: int64(req.Msg.Spec.GetMemory().GetAllocatableMib()),
-			},
 		},
 		CreatedAt:     now,
 		UpdatedAt:     now,
@@ -160,8 +171,7 @@ func (s *Service) ListNodes(
 	)
 
 	filter := NodeFilter{
-		ClusterID: req.Msg.ClusterId,
-		Labels:    req.Msg.Labels,
+		Labels: req.Msg.Labels,
 	}
 
 	// Convert phases
@@ -176,7 +186,7 @@ func (s *Service) ListNodes(
 	}
 
 	resp := &computev1.ListNodesResponse{
-		TotalSize: int32(len(nodes)),
+		TotalCount: int32(len(nodes)),
 	}
 
 	for _, node := range nodes {
@@ -211,11 +221,17 @@ func (s *Service) UpdateNode(
 	}
 
 	// Apply updates
-	if len(req.Msg.Labels) > 0 {
-		node.Labels = req.Msg.Labels
+	if req.Msg.Role != nil {
+		node.Spec.Role = domain.NodeRole{
+			Compute:      req.Msg.Role.Compute,
+			Storage:      req.Msg.Role.Storage,
+			ControlPlane: req.Msg.Role.ControlPlane,
+		}
 	}
-	if req.Msg.Spec != nil {
-		node.Spec = convertSpecFromProto(req.Msg.Spec)
+	if req.Msg.Scheduling != nil {
+		node.Spec.Scheduling = domain.SchedulingConfig{
+			Schedulable: req.Msg.Scheduling.Schedulable,
+		}
 	}
 	node.UpdatedAt = time.Now()
 
@@ -387,8 +403,8 @@ func (s *Service) DrainNode(
 	)
 
 	return connect.NewResponse(&computev1.DrainNodeResponse{
-		MigratingVmIds: node.Status.VMIDs,
-		Message:        fmt.Sprintf("Draining %d VMs from node", len(node.Status.VMIDs)),
+		Node:          ToProto(node),
+		MigratedVmIds: node.Status.VMIDs,
 	}), nil
 }
 
@@ -414,20 +430,17 @@ func (s *Service) GetNodeMetrics(
 	}
 
 	// Calculate usage percentages
-	cpuUsage := float32(0)
+	cpuUsage := float64(0)
 	if node.Status.Allocatable.CPUCores > 0 {
-		cpuUsage = float32(node.Status.Allocated.CPUCores) / float32(node.Status.Allocatable.CPUCores) * 100
-	}
-
-	memUsage := float32(0)
-	if node.Status.Allocatable.MemoryMiB > 0 {
-		memUsage = float32(node.Status.Allocated.MemoryMiB) / float32(node.Status.Allocatable.MemoryMiB) * 100
+		cpuUsage = float64(node.Status.Allocated.CPUCores) / float64(node.Status.Allocatable.CPUCores) * 100
 	}
 
 	return connect.NewResponse(&computev1.NodeMetrics{
-		NodeId:        node.ID,
-		CpuPercent:    cpuUsage,
-		MemoryPercent: memUsage,
-		VmCount:       int32(len(node.Status.VMIDs)),
+		NodeId:               node.ID,
+		CpuUsagePercent:      cpuUsage,
+		CpuCoresTotal:        uint32(node.Status.Allocatable.CPUCores),
+		CpuCoresAllocated:    uint32(node.Status.Allocated.CPUCores),
+		MemoryTotalBytes:     uint64(node.Status.Allocatable.MemoryMiB) * 1024 * 1024,
+		MemoryAllocatedBytes: uint64(node.Status.Allocated.MemoryMiB) * 1024 * 1024,
 	}), nil
 }
