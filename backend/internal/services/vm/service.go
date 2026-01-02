@@ -93,7 +93,7 @@ func (s *Service) CreateVM(
 	// 3. Determine target node (explicit placement or scheduler)
 	var targetNodeID string
 	var targetNode *domain.Node
-	
+
 	// Check if explicit node placement was requested
 	if req.Msg.NodeId != "" {
 		targetNodeID = req.Msg.NodeId
@@ -116,7 +116,7 @@ func (s *Service) CreateVM(
 			}
 		}
 	}
-	
+
 	// If no explicit placement or node not found, use scheduler
 	if targetNodeID == "" && s.scheduler != nil {
 		result, err := s.scheduler.Schedule(ctx, req.Msg.Spec)
