@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LimiQuantix Console</title>
+    <link rel="icon" type="image/svg+xml" href="/vite.svg">
+    
+    <style>
+        :root {
+            --bg-base: #0a0a0f;
+            --bg-surface: #12121a;
+            --bg-elevated: #1a1a24;
+            --text-primary: #f1f5f9;
+            --text-muted: #64748b;
+            --accent: #9333ea;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --border: rgba(255, 255, 255, 0.08);
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: var(--bg-base);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            z-index: 100;
+        }
+        
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .logo svg {
+            width: 24px;
+            height: 24px;
+        }
+        
+        .vm-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-badge.connecting {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+        }
+        
+        .status-badge.connected {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+        }
+        
+        .status-badge.disconnected {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--error);
+        }
+        
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        
+        .status-badge.connected .status-dot {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        .btn svg {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .btn-icon {
+            padding: 8px;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #7c22ce;
+        }
+        
+        /* Console Area */
+        .console-container {
+            flex: 1;
+            position: relative;
+            background: #000;
+            overflow: hidden;
+        }
+        
+        #screen {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Loading Overlay */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 50;
+            gap: 16px;
+            transition: opacity 0.3s ease;
+        }
+        
+        .overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--bg-elevated);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .overlay-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .overlay-subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        
+        .error-icon {
+            width: 64px;
+            height: 64px;
+            color: var(--error);
+        }
+        
+        /* Footer */
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 16px;
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border);
+            font-size: 11px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+        
+        .footer-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .footer-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .kbd {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            background: var(--bg-elevated);
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 10px;
+        }
+        
+        /* Fullscreen */
+        body.fullscreen .toolbar,
+        body.fullscreen .footer {
+            display: none;
+        }
+        
+        body.fullscreen .console-container {
+            height: 100vh;
+        }
+        
+        /* Responsive */
+        @media (max-width: 640px) {
+            .toolbar {
+                padding: 8px 12px;
+            }
+            
+            .vm-name {
+                display: none;
+            }
+            
+            .btn span {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <div class="logo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                    <span>Console</span>
+                </div>
+                <span class="vm-name" id="vmName">Loading...</span>
+                <div class="status-badge connecting" id="statusBadge">
+                    <span class="status-dot"></span>
+                    <span id="statusText">Connecting</span>
+                </div>
+            </div>
+            <div class="toolbar-right">
+                <button class="btn btn-icon" id="btnCtrlAltDel" title="Send Ctrl+Alt+Del">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                        <path d="M6 8h4M14 8h4M6 12h12M10 16h4"/>
+                    </svg>
+                </button>
+                <button class="btn btn-icon" id="btnClipboard" title="Paste from clipboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                    </svg>
+                </button>
+                <button class="btn btn-icon" id="btnFullscreen" title="Toggle fullscreen">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="iconFullscreen">
+                        <polyline points="15 3 21 3 21 9"/>
+                        <polyline points="9 21 3 21 3 15"/>
+                        <line x1="21" y1="3" x2="14" y2="10"/>
+                        <line x1="3" y1="21" x2="10" y2="14"/>
+                    </svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="iconExitFullscreen" style="display:none">
+                        <polyline points="4 14 10 14 10 20"/>
+                        <polyline points="20 10 14 10 14 4"/>
+                        <line x1="14" y1="10" x2="21" y2="3"/>
+                        <line x1="3" y1="21" x2="10" y2="14"/>
+                    </svg>
+                </button>
+                <button class="btn btn-icon" id="btnSettings" title="Settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Console -->
+        <div class="console-container">
+            <div id="screen"></div>
+            
+            <!-- Loading Overlay -->
+            <div class="overlay" id="overlayLoading">
+                <div class="spinner"></div>
+                <div class="overlay-title">Connecting to VM Console</div>
+                <div class="overlay-subtitle">Establishing secure connection...</div>
+            </div>
+            
+            <!-- Error Overlay -->
+            <div class="overlay hidden" id="overlayError">
+                <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <div class="overlay-title" id="errorTitle">Connection Failed</div>
+                <div class="overlay-subtitle" id="errorMessage">Unable to connect to the VM console.</div>
+                <button class="btn btn-primary" id="btnRetry">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"/>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                    </svg>
+                    <span>Retry Connection</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-left">
+                <span><kbd class="kbd">Ctrl+Alt+Del</kbd> Send to VM</span>
+                <span><kbd class="kbd">Esc</kbd> Exit fullscreen</span>
+            </div>
+            <div class="footer-right">
+                <span id="resolution">-</span>
+                <span>•</span>
+                <span id="vmId">-</span>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import RFB from './core/rfb.js';
+
+        // Parse URL parameters
+        const params = new URLSearchParams(window.location.search);
+        const vmId = params.get('vmId');
+        const vmName = params.get('vmName') || 'Virtual Machine';
+        const token = params.get('token');
+
+        // DOM elements
+        const elVmName = document.getElementById('vmName');
+        const elVmId = document.getElementById('vmId');
+        const elStatusBadge = document.getElementById('statusBadge');
+        const elStatusText = document.getElementById('statusText');
+        const elResolution = document.getElementById('resolution');
+        const elOverlayLoading = document.getElementById('overlayLoading');
+        const elOverlayError = document.getElementById('overlayError');
+        const elErrorTitle = document.getElementById('errorTitle');
+        const elErrorMessage = document.getElementById('errorMessage');
+        const elScreen = document.getElementById('screen');
+        
+        // Buttons
+        const btnCtrlAltDel = document.getElementById('btnCtrlAltDel');
+        const btnClipboard = document.getElementById('btnClipboard');
+        const btnFullscreen = document.getElementById('btnFullscreen');
+        const btnSettings = document.getElementById('btnSettings');
+        const btnRetry = document.getElementById('btnRetry');
+        const iconFullscreen = document.getElementById('iconFullscreen');
+        const iconExitFullscreen = document.getElementById('iconExitFullscreen');
+
+        // Set VM info
+        elVmName.textContent = vmName;
+        elVmId.textContent = vmId ? vmId.slice(0, 8) + '...' : '-';
+
+        // Validate VM ID
+        if (!vmId) {
+            showError('Invalid Request', 'No VM ID was provided in the URL.');
+            throw new Error('No VM ID');
+        }
+
+        // RFB instance
+        let rfb = null;
+
+        // Build WebSocket URL
+        function getWebSocketUrl() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.hostname;
+            const port = 8080; // Control plane port
+            return `${protocol}//${host}:${port}/api/console/${vmId}/ws`;
+        }
+
+        // Update status
+        function setStatus(status, text) {
+            elStatusBadge.className = 'status-badge ' + status;
+            elStatusText.textContent = text;
+        }
+
+        // Show error
+        function showError(title, message) {
+            elOverlayLoading.classList.add('hidden');
+            elOverlayError.classList.remove('hidden');
+            elErrorTitle.textContent = title;
+            elErrorMessage.textContent = message;
+            setStatus('disconnected', 'Disconnected');
+        }
+
+        // Connect to VNC
+        function connect() {
+            // Reset UI
+            elOverlayLoading.classList.remove('hidden');
+            elOverlayError.classList.add('hidden');
+            setStatus('connecting', 'Connecting');
+
+            // Clean up previous connection
+            if (rfb) {
+                rfb.disconnect();
+                rfb = null;
+            }
+
+            // Clear screen
+            elScreen.innerHTML = '';
+
+            try {
+                const wsUrl = getWebSocketUrl();
+                console.log('Connecting to:', wsUrl);
+
+                rfb = new RFB(elScreen, wsUrl, {
+                    credentials: token ? { password: token } : undefined,
+                });
+
+                // Configure RFB
+                rfb.scaleViewport = true;
+                rfb.resizeSession = true;
+                rfb.showDotCursor = true;
+                rfb.clipViewport = false;
+
+                // Event: Connected
+                rfb.addEventListener('connect', () => {
+                    console.log('VNC Connected');
+                    elOverlayLoading.classList.add('hidden');
+                    setStatus('connected', 'Connected');
+                    
+                    // Update resolution
+                    updateResolution();
+                });
+
+                // Event: Disconnected
+                rfb.addEventListener('disconnect', (e) => {
+                    console.log('VNC Disconnected', e.detail);
+                    if (!e.detail.clean) {
+                        showError('Connection Lost', 'The connection to the VM was interrupted.');
+                    } else {
+                        showError('Disconnected', 'The console session has ended.');
+                    }
+                });
+
+                // Event: Credentials required
+                rfb.addEventListener('credentialsrequired', () => {
+                    console.log('Credentials required');
+                    const password = prompt('VNC Password:');
+                    if (password) {
+                        rfb.sendCredentials({ password });
+                    } else {
+                        rfb.disconnect();
+                    }
+                });
+
+                // Event: Security failure
+                rfb.addEventListener('securityfailure', (e) => {
+                    console.error('Security failure', e.detail);
+                    showError('Authentication Failed', e.detail.reason || 'Invalid credentials.');
+                });
+
+                // Event: Desktop name
+                rfb.addEventListener('desktopname', (e) => {
+                    console.log('Desktop name:', e.detail.name);
+                });
+
+            } catch (err) {
+                console.error('Connection error:', err);
+                showError('Connection Error', err.message || 'Failed to establish connection.');
+            }
+        }
+
+        // Update resolution display
+        function updateResolution() {
+            if (rfb && rfb._fbWidth && rfb._fbHeight) {
+                elResolution.textContent = `${rfb._fbWidth}×${rfb._fbHeight}`;
+            }
+        }
+
+        // Ctrl+Alt+Del
+        btnCtrlAltDel.addEventListener('click', () => {
+            if (rfb) {
+                rfb.sendCtrlAltDel();
+            }
+        });
+
+        // Clipboard paste
+        btnClipboard.addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (rfb && text) {
+                    rfb.clipboardPasteFrom(text);
+                }
+            } catch (err) {
+                console.warn('Clipboard access denied:', err);
+                alert('Clipboard access was denied. Please use Ctrl+V directly.');
+            }
+        });
+
+        // Fullscreen toggle
+        btnFullscreen.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            const isFullscreen = !!document.fullscreenElement;
+            document.body.classList.toggle('fullscreen', isFullscreen);
+            iconFullscreen.style.display = isFullscreen ? 'none' : 'block';
+            iconExitFullscreen.style.display = isFullscreen ? 'block' : 'none';
+        });
+
+        // Retry button
+        btnRetry.addEventListener('click', connect);
+
+        // Settings (placeholder)
+        btnSettings.addEventListener('click', () => {
+            alert('Settings coming soon!\n\n• Quality adjustment\n• Compression level\n• Local cursor toggle');
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+Alt+Del shortcut
+            if (e.ctrlKey && e.altKey && e.key === 'Delete') {
+                e.preventDefault();
+                if (rfb) {
+                    rfb.sendCtrlAltDel();
+                }
+            }
+        });
+
+        // Post message API for parent window communication
+        window.addEventListener('message', (e) => {
+            if (e.data.type === 'ctrlAltDel' && rfb) {
+                rfb.sendCtrlAltDel();
+            } else if (e.data.type === 'disconnect' && rfb) {
+                rfb.disconnect();
+            } else if (e.data.type === 'reconnect') {
+                connect();
+            }
+        });
+
+        // Start connection
+        connect();
+    </script>
+</body>
+</html>

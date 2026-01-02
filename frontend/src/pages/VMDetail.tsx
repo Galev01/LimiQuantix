@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { VMStatusBadge } from '@/components/vm/VMStatusBadge';
 import { ProgressRing } from '@/components/dashboard/ProgressRing';
-import { WebConsole } from '@/components/vm/WebConsole';
+import { NoVNCConsole } from '@/components/vm/NoVNCConsole';
 import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
 import { useVM, useStartVM, useStopVM, useDeleteVM, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
@@ -615,8 +615,8 @@ export function VMDetail() {
         </TabsContent>
       </Tabs>
 
-      {/* Web Console Modal */}
-      <WebConsole
+      {/* noVNC Console Modal */}
+      <NoVNCConsole
         vmId={id || ''}
         vmName={vm.name}
         isOpen={isConsoleOpen}
