@@ -6,11 +6,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "Quantixkvm-node",
-    "Quantixkvm-hypervisor",
-    "Quantixkvm-telemetry",
-    "Quantixkvm-proto",
-    "Quantixkvm-common",
+    "limiquantix-node",
+    "limiquantix-hypervisor",
+    "limiquantix-telemetry",
+    "limiquantix-proto",
+    "limiquantix-common",
 ]
 
 [workspace.package]
@@ -61,7 +61,7 @@ async-trait = "0.1"
 futures = "0.3"
 
 # Internal crates
-Quantixkvm-hypervisor = { path = "Quantixkvm-hypervisor" }
-Quantixkvm-telemetry = { path = "Quantixkvm-telemetry" }
-Quantixkvm-proto = { path = "Quantixkvm-proto" }
-Quantixkvm-common = { path = "Quantixkvm-common" }
+limiquantix-hypervisor = { path = "limiquantix-hypervisor" }
+limiquantix-telemetry = { path = "limiquantix-telemetry" }
+limiquantix-proto = { path = "limiquantix-proto" }
+limiquantix-common = { path = "limiquantix-common" }
