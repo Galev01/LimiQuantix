@@ -2,8 +2,10 @@
 package server
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -315,6 +317,7 @@ func (s *Server) recoveryMiddleware(next http.Handler) http.Handler {
 }
 
 // responseWriter wraps http.ResponseWriter to capture status code.
+// It also implements http.Hijacker to support WebSocket upgrades.
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
@@ -323,6 +326,21 @@ type responseWriter struct {
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+// Hijack implements http.Hijacker interface for WebSocket support.
+func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hijacker, ok := rw.ResponseWriter.(http.Hijacker); ok {
+		return hijacker.Hijack()
+	}
+	return nil, nil, fmt.Errorf("ResponseWriter does not implement http.Hijacker")
+}
+
+// Flush implements http.Flusher interface.
+func (rw *responseWriter) Flush() {
+	if flusher, ok := rw.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }
 
 // healthHandler returns health status.
