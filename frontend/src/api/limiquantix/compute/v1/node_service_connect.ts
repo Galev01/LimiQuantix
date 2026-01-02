@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { AddTaintRequest, DecommissionNodeRequest, DisableNodeRequest, DrainNodeRequest, DrainNodeResponse, EnableNodeRequest, GetNodeMetricsRequest, GetNodeRequest, ListNodeEventsRequest, ListNodeEventsResponse, ListNodesRequest, ListNodesResponse, NodeMetrics, NodeUpdate, RegisterNodeRequest, RemoveTaintRequest, UpdateLabelsRequest, UpdateNodeRequest, WatchNodeRequest, WatchNodesRequest } from "./node_service_pb";
+import { AddTaintRequest, DecommissionNodeRequest, DisableNodeRequest, DrainNodeRequest, DrainNodeResponse, EnableNodeRequest, GetNodeMetricsRequest, GetNodeRequest, ListNodeEventsRequest, ListNodeEventsResponse, ListNodesRequest, ListNodesResponse, NodeMetrics, NodeUpdate, RegisterNodeRequest, RemoveTaintRequest, UpdateHeartbeatRequest, UpdateHeartbeatResponse, UpdateLabelsRequest, UpdateNodeRequest, WatchNodeRequest, WatchNodesRequest } from "./node_service_pb";
 import { Node } from "./node_pb";
 import { Empty, MethodKind } from "@bufbuild/protobuf";
 
@@ -139,6 +139,18 @@ export const NodeService = {
       name: "UpdateLabels",
       I: UpdateLabelsRequest,
       O: Node,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * UpdateHeartbeat updates the node's last seen time and resource usage.
+     * Called periodically by the Node Daemon.
+     *
+     * @generated from rpc limiquantix.compute.v1.NodeService.UpdateHeartbeat
+     */
+    updateHeartbeat: {
+      name: "UpdateHeartbeat",
+      I: UpdateHeartbeatRequest,
+      O: UpdateHeartbeatResponse,
       kind: MethodKind.Unary,
     },
     /**

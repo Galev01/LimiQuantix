@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file limiquantix/compute/v1/node_service.proto.
  */
 export const file_limiquantix_compute_v1_node_service: GenFile = /*@__PURE__*/
-  fileDesc("CilsaW1pcXVhbnRpeC9jb21wdXRlL3YxL25vZGVfc2VydmljZS5wcm90bxIWbGltaXF1YW50aXguY29tcHV0ZS52MSKtAgoTUmVnaXN0ZXJOb2RlUmVxdWVzdBIQCghob3N0bmFtZRgBIAEoCRIVCg1tYW5hZ2VtZW50X2lwGAIgASgJEkcKBmxhYmVscxgDIAMoCzI3LmxpbWlxdWFudGl4LmNvbXB1dGUudjEuUmVnaXN0ZXJOb2RlUmVxdWVzdC5MYWJlbHNFbnRyeRIuCgRyb2xlGAQgASgLMiAubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlUm9sZRItCgZ0YWludHMYBSADKAsyHS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlRhaW50EhYKDmFnZW50X2VuZHBvaW50GAYgASgJGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiHAoOR2V0Tm9kZVJlcXVlc3QSCgoCaWQYASABKAkisAIKEExpc3ROb2Rlc1JlcXVlc3QSRAoGbGFiZWxzGAEgAygLMjQubGltaXF1YW50aXguY29tcHV0ZS52MS5MaXN0Tm9kZXNSZXF1ZXN0LkxhYmVsc0VudHJ5EjgKBnBoYXNlcxgCIAMoDjIoLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZVN0YXR1cy5QaGFzZRIUCgxjb21wdXRlX29ubHkYAyABKAgSFAoMc3RvcmFnZV9vbmx5GAQgASgIEhoKEmNvbnRyb2xfcGxhbmVfb25seRgFIAEoCBIRCglwYWdlX3NpemUYCiABKAUSEgoKcGFnZV90b2tlbhgLIAEoCRotCgtMYWJlbHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIm4KEUxpc3ROb2Rlc1Jlc3BvbnNlEisKBW5vZGVzGAEgAygLMhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlEhcKD25leHRfcGFnZV90b2tlbhgCIAEoCRITCgt0b3RhbF9jb3VudBgDIAEoBSK+AQoRVXBkYXRlTm9kZVJlcXVlc3QSCgoCaWQYASABKAkSPAoKc2NoZWR1bGluZxgCIAEoCzIoLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU2NoZWR1bGluZ0NvbmZpZxIuCgRyb2xlGAMgASgLMiAubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlUm9sZRIvCgt1cGRhdGVfbWFzaxgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5GaWVsZE1hc2siNAoXRGVjb21taXNzaW9uTm9kZVJlcXVlc3QSCgoCaWQYASABKAkSDQoFZm9yY2UYAiABKAgiHwoRRW5hYmxlTm9kZVJlcXVlc3QSCgoCaWQYASABKAkiMAoSRGlzYWJsZU5vZGVSZXF1ZXN0EgoKAmlkGAEgASgJEg4KBnJlYXNvbhgCIAEoCSJfChBEcmFpbk5vZGVSZXF1ZXN0EgoKAmlkGAEgASgJEhgKEGdyYWNlX3BlcmlvZF9zZWMYAiABKAUSDQoFZm9yY2UYAyABKAgSFgoOdGFyZ2V0X25vZGVfaWQYBCABKAkiqAEKEURyYWluTm9kZVJlc3BvbnNlEioKBG5vZGUYASABKAsyHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSFwoPbWlncmF0ZWRfdm1faWRzGAIgAygJEhYKDnN0b3BwZWRfdm1faWRzGAMgAygJEjYKCGZhaWx1cmVzGAQgAygLMiQubGltaXF1YW50aXguY29tcHV0ZS52MS5EcmFpbkZhaWx1cmUiLAoMRHJhaW5GYWlsdXJlEg0KBXZtX2lkGAEgASgJEg0KBWVycm9yGAIgASgJIlAKD0FkZFRhaW50UmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEiwKBXRhaW50GAIgASgLMh0ubGltaXF1YW50aXguY29tcHV0ZS52MS5UYWludCI4ChJSZW1vdmVUYWludFJlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCRIRCgl0YWludF9rZXkYAiABKAkivwEKE1VwZGF0ZUxhYmVsc1JlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCRJOCgphZGRfbGFiZWxzGAIgAygLMjoubGltaXF1YW50aXguY29tcHV0ZS52MS5VcGRhdGVMYWJlbHNSZXF1ZXN0LkFkZExhYmVsc0VudHJ5EhUKDXJlbW92ZV9sYWJlbHMYAyADKAkaMAoOQWRkTGFiZWxzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASIjChVHZXROb2RlTWV0cmljc1JlcXVlc3QSCgoCaWQYASABKAki6QMKC05vZGVNZXRyaWNzEg8KB25vZGVfaWQYASABKAkSGQoRY3B1X3VzYWdlX3BlcmNlbnQYAiABKAESFwoPY3B1X2NvcmVzX3RvdGFsGAMgASgNEhsKE2NwdV9jb3Jlc19hbGxvY2F0ZWQYBCABKA0SGgoSbWVtb3J5X3RvdGFsX2J5dGVzGAUgASgEEhkKEW1lbW9yeV91c2VkX2J5dGVzGAYgASgEEh4KFm1lbW9yeV9hbGxvY2F0ZWRfYnl0ZXMYByABKAQSHgoWbWVtb3J5X2F2YWlsYWJsZV9ieXRlcxgIIAEoBBIbChNzdG9yYWdlX3RvdGFsX2J5dGVzGAkgASgEEhoKEnN0b3JhZ2VfdXNlZF9ieXRlcxgKIAEoBBIYChBuZXR3b3JrX3J4X2J5dGVzGAsgASgEEhgKEG5ldHdvcmtfdHhfYnl0ZXMYDCABKAQSGQoRbmV0d29ya19yeF9lcnJvcnMYDSABKAQSGQoRbmV0d29ya190eF9lcnJvcnMYDiABKAQSEAoIdm1fY291bnQYDyABKA0SGAoQdm1fcnVubmluZ19jb3VudBgQIAEoDRIPCgdsb2FkXzFtGBEgASgBEg8KB2xvYWRfNW0YEiABKAESEAoIbG9hZF8xNW0YEyABKAEicwoVTGlzdE5vZGVFdmVudHNSZXF1ZXN0Eg8KB25vZGVfaWQYASABKAkSOgoFdHlwZXMYAiADKA4yKy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVFdmVudC5FdmVudFR5cGUSDQoFbGltaXQYAyABKAUiSwoWTGlzdE5vZGVFdmVudHNSZXNwb25zZRIxCgZldmVudHMYASADKAsyIS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVFdmVudCIjChBXYXRjaE5vZGVSZXF1ZXN0Eg8KB25vZGVfaWQYASABKAkiiQEKEVdhdGNoTm9kZXNSZXF1ZXN0EkUKBmxhYmVscxgBIAMoCzI1LmxpbWlxdWFudGl4LmNvbXB1dGUudjEuV2F0Y2hOb2Rlc1JlcXVlc3QuTGFiZWxzRW50cnkaLQoLTGFiZWxzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASKpAQoKTm9kZVVwZGF0ZRI7CgR0eXBlGAEgASgOMi0ubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlVXBkYXRlLlVwZGF0ZVR5cGUSKgoEbm9kZRgCIAEoCzIcLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZSIyCgpVcGRhdGVUeXBlEgkKBUFEREVEEAASDAoITU9ESUZJRUQQARILCgdERUxFVEVEEAIy9QoKC05vZGVTZXJ2aWNlElkKDFJlZ2lzdGVyTm9kZRIrLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuUmVnaXN0ZXJOb2RlUmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJPCgdHZXROb2RlEiYubGltaXF1YW50aXguY29tcHV0ZS52MS5HZXROb2RlUmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJgCglMaXN0Tm9kZXMSKC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkxpc3ROb2Rlc1JlcXVlc3QaKS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkxpc3ROb2Rlc1Jlc3BvbnNlElUKClVwZGF0ZU5vZGUSKS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlVwZGF0ZU5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlElsKEERlY29tbWlzc2lvbk5vZGUSLy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRlY29tbWlzc2lvbk5vZGVSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5ElUKCkVuYWJsZU5vZGUSKS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkVuYWJsZU5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlElcKC0Rpc2FibGVOb2RlEioubGltaXF1YW50aXguY29tcHV0ZS52MS5EaXNhYmxlTm9kZVJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSYAoJRHJhaW5Ob2RlEigubGltaXF1YW50aXguY29tcHV0ZS52MS5EcmFpbk5vZGVSZXF1ZXN0GikubGltaXF1YW50aXguY29tcHV0ZS52MS5EcmFpbk5vZGVSZXNwb25zZRJRCghBZGRUYWludBInLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuQWRkVGFpbnRSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlElcKC1JlbW92ZVRhaW50EioubGltaXF1YW50aXguY29tcHV0ZS52MS5SZW1vdmVUYWludFJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSWQoMVXBkYXRlTGFiZWxzEisubGltaXF1YW50aXguY29tcHV0ZS52MS5VcGRhdGVMYWJlbHNSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlEmQKDkdldE5vZGVNZXRyaWNzEi0ubGltaXF1YW50aXguY29tcHV0ZS52MS5HZXROb2RlTWV0cmljc1JlcXVlc3QaIy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVNZXRyaWNzEm8KDkxpc3ROb2RlRXZlbnRzEi0ubGltaXF1YW50aXguY29tcHV0ZS52MS5MaXN0Tm9kZUV2ZW50c1JlcXVlc3QaLi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkxpc3ROb2RlRXZlbnRzUmVzcG9uc2USVQoJV2F0Y2hOb2RlEigubGltaXF1YW50aXguY29tcHV0ZS52MS5XYXRjaE5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlMAESXQoKV2F0Y2hOb2RlcxIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuV2F0Y2hOb2Rlc1JlcXVlc3QaIi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVVcGRhdGUwAUL1AQoaY29tLmxpbWlxdWFudGl4LmNvbXB1dGUudjFCEE5vZGVTZXJ2aWNlUHJvdG9QAVpLZ2l0aHViLmNvbS9saW1pcXVhbnRpeC9saW1pcXVhbnRpeC9wa2cvYXBpL2xpbWlxdWFudGl4L2NvbXB1dGUvdjE7Y29tcHV0ZXYxogIDTENYqgIWTGltaXF1YW50aXguQ29tcHV0ZS5WMcoCFkxpbWlxdWFudGl4XENvbXB1dGVcVjHiAiJMaW1pcXVhbnRpeFxDb21wdXRlXFYxXEdQQk1ldGFkYXRh6gIYTGltaXF1YW50aXg6OkNvbXB1dGU6OlYxYgZwcm90bzM", [file_google_protobuf_empty, file_google_protobuf_field_mask, file_limiquantix_compute_v1_node]);
+  fileDesc("CilsaW1pcXVhbnRpeC9jb21wdXRlL3YxL25vZGVfc2VydmljZS5wcm90bxIWbGltaXF1YW50aXguY29tcHV0ZS52MSKtAgoTUmVnaXN0ZXJOb2RlUmVxdWVzdBIQCghob3N0bmFtZRgBIAEoCRIVCg1tYW5hZ2VtZW50X2lwGAIgASgJEkcKBmxhYmVscxgDIAMoCzI3LmxpbWlxdWFudGl4LmNvbXB1dGUudjEuUmVnaXN0ZXJOb2RlUmVxdWVzdC5MYWJlbHNFbnRyeRIuCgRyb2xlGAQgASgLMiAubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlUm9sZRItCgZ0YWludHMYBSADKAsyHS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlRhaW50EhYKDmFnZW50X2VuZHBvaW50GAYgASgJGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiHAoOR2V0Tm9kZVJlcXVlc3QSCgoCaWQYASABKAkisAIKEExpc3ROb2Rlc1JlcXVlc3QSRAoGbGFiZWxzGAEgAygLMjQubGltaXF1YW50aXguY29tcHV0ZS52MS5MaXN0Tm9kZXNSZXF1ZXN0LkxhYmVsc0VudHJ5EjgKBnBoYXNlcxgCIAMoDjIoLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZVN0YXR1cy5QaGFzZRIUCgxjb21wdXRlX29ubHkYAyABKAgSFAoMc3RvcmFnZV9vbmx5GAQgASgIEhoKEmNvbnRyb2xfcGxhbmVfb25seRgFIAEoCBIRCglwYWdlX3NpemUYCiABKAUSEgoKcGFnZV90b2tlbhgLIAEoCRotCgtMYWJlbHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIm4KEUxpc3ROb2Rlc1Jlc3BvbnNlEisKBW5vZGVzGAEgAygLMhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlEhcKD25leHRfcGFnZV90b2tlbhgCIAEoCRITCgt0b3RhbF9jb3VudBgDIAEoBSK+AQoRVXBkYXRlTm9kZVJlcXVlc3QSCgoCaWQYASABKAkSPAoKc2NoZWR1bGluZxgCIAEoCzIoLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU2NoZWR1bGluZ0NvbmZpZxIuCgRyb2xlGAMgASgLMiAubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlUm9sZRIvCgt1cGRhdGVfbWFzaxgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5GaWVsZE1hc2siNAoXRGVjb21taXNzaW9uTm9kZVJlcXVlc3QSCgoCaWQYASABKAkSDQoFZm9yY2UYAiABKAgiHwoRRW5hYmxlTm9kZVJlcXVlc3QSCgoCaWQYASABKAkiMAoSRGlzYWJsZU5vZGVSZXF1ZXN0EgoKAmlkGAEgASgJEg4KBnJlYXNvbhgCIAEoCSJfChBEcmFpbk5vZGVSZXF1ZXN0EgoKAmlkGAEgASgJEhgKEGdyYWNlX3BlcmlvZF9zZWMYAiABKAUSDQoFZm9yY2UYAyABKAgSFgoOdGFyZ2V0X25vZGVfaWQYBCABKAkiqAEKEURyYWluTm9kZVJlc3BvbnNlEioKBG5vZGUYASABKAsyHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSFwoPbWlncmF0ZWRfdm1faWRzGAIgAygJEhYKDnN0b3BwZWRfdm1faWRzGAMgAygJEjYKCGZhaWx1cmVzGAQgAygLMiQubGltaXF1YW50aXguY29tcHV0ZS52MS5EcmFpbkZhaWx1cmUiLAoMRHJhaW5GYWlsdXJlEg0KBXZtX2lkGAEgASgJEg0KBWVycm9yGAIgASgJIlAKD0FkZFRhaW50UmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEiwKBXRhaW50GAIgASgLMh0ubGltaXF1YW50aXguY29tcHV0ZS52MS5UYWludCI4ChJSZW1vdmVUYWludFJlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCRIRCgl0YWludF9rZXkYAiABKAkivwEKE1VwZGF0ZUxhYmVsc1JlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCRJOCgphZGRfbGFiZWxzGAIgAygLMjoubGltaXF1YW50aXguY29tcHV0ZS52MS5VcGRhdGVMYWJlbHNSZXF1ZXN0LkFkZExhYmVsc0VudHJ5EhUKDXJlbW92ZV9sYWJlbHMYAyADKAkaMAoOQWRkTGFiZWxzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASL4AQoWVXBkYXRlSGVhcnRiZWF0UmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEhkKEWNwdV91c2FnZV9wZXJjZW50GAIgASgBEhcKD21lbW9yeV91c2VkX21pYhgDIAEoBBIYChBtZW1vcnlfdG90YWxfbWliGAQgASgEEhgKEHJ1bm5pbmdfdm1fY291bnQYBSABKA0SFwoPZGlza191c2VkX2J5dGVzGAYgASgEEhgKEGRpc2tfdG90YWxfYnl0ZXMYByABKAQSDwoHbG9hZF8xbRgIIAEoARIPCgdsb2FkXzVtGAkgASgBEhAKCGxvYWRfMTVtGAogASgBImoKF1VwZGF0ZUhlYXJ0YmVhdFJlc3BvbnNlEhQKDGFja25vd2xlZGdlZBgBIAEoCBIYChBzZXJ2ZXJfdGltZV91bml4GAIgASgDEh8KF2hlYXJ0YmVhdF9pbnRlcnZhbF9zZWNzGAMgASgNIiMKFUdldE5vZGVNZXRyaWNzUmVxdWVzdBIKCgJpZBgBIAEoCSLpAwoLTm9kZU1ldHJpY3MSDwoHbm9kZV9pZBgBIAEoCRIZChFjcHVfdXNhZ2VfcGVyY2VudBgCIAEoARIXCg9jcHVfY29yZXNfdG90YWwYAyABKA0SGwoTY3B1X2NvcmVzX2FsbG9jYXRlZBgEIAEoDRIaChJtZW1vcnlfdG90YWxfYnl0ZXMYBSABKAQSGQoRbWVtb3J5X3VzZWRfYnl0ZXMYBiABKAQSHgoWbWVtb3J5X2FsbG9jYXRlZF9ieXRlcxgHIAEoBBIeChZtZW1vcnlfYXZhaWxhYmxlX2J5dGVzGAggASgEEhsKE3N0b3JhZ2VfdG90YWxfYnl0ZXMYCSABKAQSGgoSc3RvcmFnZV91c2VkX2J5dGVzGAogASgEEhgKEG5ldHdvcmtfcnhfYnl0ZXMYCyABKAQSGAoQbmV0d29ya190eF9ieXRlcxgMIAEoBBIZChFuZXR3b3JrX3J4X2Vycm9ycxgNIAEoBBIZChFuZXR3b3JrX3R4X2Vycm9ycxgOIAEoBBIQCgh2bV9jb3VudBgPIAEoDRIYChB2bV9ydW5uaW5nX2NvdW50GBAgASgNEg8KB2xvYWRfMW0YESABKAESDwoHbG9hZF81bRgSIAEoARIQCghsb2FkXzE1bRgTIAEoASJzChVMaXN0Tm9kZUV2ZW50c1JlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCRI6CgV0eXBlcxgCIAMoDjIrLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZUV2ZW50LkV2ZW50VHlwZRINCgVsaW1pdBgDIAEoBSJLChZMaXN0Tm9kZUV2ZW50c1Jlc3BvbnNlEjEKBmV2ZW50cxgBIAMoCzIhLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZUV2ZW50IiMKEFdhdGNoTm9kZVJlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCSKJAQoRV2F0Y2hOb2Rlc1JlcXVlc3QSRQoGbGFiZWxzGAEgAygLMjUubGltaXF1YW50aXguY29tcHV0ZS52MS5XYXRjaE5vZGVzUmVxdWVzdC5MYWJlbHNFbnRyeRotCgtMYWJlbHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIqkBCgpOb2RlVXBkYXRlEjsKBHR5cGUYASABKA4yLS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVVcGRhdGUuVXBkYXRlVHlwZRIqCgRub2RlGAIgASgLMhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlIjIKClVwZGF0ZVR5cGUSCQoFQURERUQQABIMCghNT0RJRklFRBABEgsKB0RFTEVURUQQAjLpCwoLTm9kZVNlcnZpY2USWQoMUmVnaXN0ZXJOb2RlEisubGltaXF1YW50aXguY29tcHV0ZS52MS5SZWdpc3Rlck5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlEk8KB0dldE5vZGUSJi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkdldE5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlEmAKCUxpc3ROb2RlcxIoLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTGlzdE5vZGVzUmVxdWVzdBopLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTGlzdE5vZGVzUmVzcG9uc2USVQoKVXBkYXRlTm9kZRIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuVXBkYXRlTm9kZVJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSWwoQRGVjb21taXNzaW9uTm9kZRIvLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuRGVjb21taXNzaW9uTm9kZVJlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkSVQoKRW5hYmxlTm9kZRIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuRW5hYmxlTm9kZVJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSVwoLRGlzYWJsZU5vZGUSKi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRpc2FibGVOb2RlUmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJgCglEcmFpbk5vZGUSKC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRyYWluTm9kZVJlcXVlc3QaKS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRyYWluTm9kZVJlc3BvbnNlElEKCEFkZFRhaW50EicubGltaXF1YW50aXguY29tcHV0ZS52MS5BZGRUYWludFJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSVwoLUmVtb3ZlVGFpbnQSKi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlJlbW92ZVRhaW50UmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJZCgxVcGRhdGVMYWJlbHMSKy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlVwZGF0ZUxhYmVsc1JlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUScgoPVXBkYXRlSGVhcnRiZWF0Ei4ubGltaXF1YW50aXguY29tcHV0ZS52MS5VcGRhdGVIZWFydGJlYXRSZXF1ZXN0Gi8ubGltaXF1YW50aXguY29tcHV0ZS52MS5VcGRhdGVIZWFydGJlYXRSZXNwb25zZRJkCg5HZXROb2RlTWV0cmljcxItLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuR2V0Tm9kZU1ldHJpY3NSZXF1ZXN0GiMubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlTWV0cmljcxJvCg5MaXN0Tm9kZUV2ZW50cxItLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTGlzdE5vZGVFdmVudHNSZXF1ZXN0Gi4ubGltaXF1YW50aXguY29tcHV0ZS52MS5MaXN0Tm9kZUV2ZW50c1Jlc3BvbnNlElUKCVdhdGNoTm9kZRIoLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuV2F0Y2hOb2RlUmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZTABEl0KCldhdGNoTm9kZXMSKS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLldhdGNoTm9kZXNSZXF1ZXN0GiIubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlVXBkYXRlMAFC9QEKGmNvbS5saW1pcXVhbnRpeC5jb21wdXRlLnYxQhBOb2RlU2VydmljZVByb3RvUAFaS2dpdGh1Yi5jb20vbGltaXF1YW50aXgvbGltaXF1YW50aXgvcGtnL2FwaS9saW1pcXVhbnRpeC9jb21wdXRlL3YxO2NvbXB1dGV2MaICA0xDWKoCFkxpbWlxdWFudGl4LkNvbXB1dGUuVjHKAhZMaW1pcXVhbnRpeFxDb21wdXRlXFYx4gIiTGltaXF1YW50aXhcQ29tcHV0ZVxWMVxHUEJNZXRhZGF0YeoCGExpbWlxdWFudGl4OjpDb21wdXRlOjpWMWIGcHJvdG8z", [file_google_protobuf_empty, file_google_protobuf_field_mask, file_limiquantix_compute_v1_node]);
 
 /**
  * @generated from message limiquantix.compute.v1.RegisterNodeRequest
@@ -446,6 +446,115 @@ export const UpdateLabelsRequestSchema: GenMessage<UpdateLabelsRequest> = /*@__P
   messageDesc(file_limiquantix_compute_v1_node_service, 13);
 
 /**
+ * @generated from message limiquantix.compute.v1.UpdateHeartbeatRequest
+ */
+export type UpdateHeartbeatRequest = Message<"limiquantix.compute.v1.UpdateHeartbeatRequest"> & {
+  /**
+   * Node ID (required)
+   *
+   * @generated from field: string node_id = 1;
+   */
+  nodeId: string;
+
+  /**
+   * Current CPU usage percentage (0-100)
+   *
+   * @generated from field: double cpu_usage_percent = 2;
+   */
+  cpuUsagePercent: number;
+
+  /**
+   * Current memory usage in MiB
+   *
+   * @generated from field: uint64 memory_used_mib = 3;
+   */
+  memoryUsedMib: bigint;
+
+  /**
+   * Total memory in MiB
+   *
+   * @generated from field: uint64 memory_total_mib = 4;
+   */
+  memoryTotalMib: bigint;
+
+  /**
+   * Number of running VMs
+   *
+   * @generated from field: uint32 running_vm_count = 5;
+   */
+  runningVmCount: number;
+
+  /**
+   * Optional: disk usage
+   *
+   * @generated from field: uint64 disk_used_bytes = 6;
+   */
+  diskUsedBytes: bigint;
+
+  /**
+   * @generated from field: uint64 disk_total_bytes = 7;
+   */
+  diskTotalBytes: bigint;
+
+  /**
+   * Optional: load averages
+   *
+   * @generated from field: double load_1m = 8;
+   */
+  load1m: number;
+
+  /**
+   * @generated from field: double load_5m = 9;
+   */
+  load5m: number;
+
+  /**
+   * @generated from field: double load_15m = 10;
+   */
+  load15m: number;
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.UpdateHeartbeatRequest.
+ * Use `create(UpdateHeartbeatRequestSchema)` to create a new message.
+ */
+export const UpdateHeartbeatRequestSchema: GenMessage<UpdateHeartbeatRequest> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 14);
+
+/**
+ * @generated from message limiquantix.compute.v1.UpdateHeartbeatResponse
+ */
+export type UpdateHeartbeatResponse = Message<"limiquantix.compute.v1.UpdateHeartbeatResponse"> & {
+  /**
+   * Acknowledged
+   *
+   * @generated from field: bool acknowledged = 1;
+   */
+  acknowledged: boolean;
+
+  /**
+   * Server time (for clock sync)
+   *
+   * @generated from field: int64 server_time_unix = 2;
+   */
+  serverTimeUnix: bigint;
+
+  /**
+   * Heartbeat interval in seconds (server can adjust)
+   *
+   * @generated from field: uint32 heartbeat_interval_secs = 3;
+   */
+  heartbeatIntervalSecs: number;
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.UpdateHeartbeatResponse.
+ * Use `create(UpdateHeartbeatResponseSchema)` to create a new message.
+ */
+export const UpdateHeartbeatResponseSchema: GenMessage<UpdateHeartbeatResponse> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 15);
+
+/**
  * @generated from message limiquantix.compute.v1.GetNodeMetricsRequest
  */
 export type GetNodeMetricsRequest = Message<"limiquantix.compute.v1.GetNodeMetricsRequest"> & {
@@ -460,7 +569,7 @@ export type GetNodeMetricsRequest = Message<"limiquantix.compute.v1.GetNodeMetri
  * Use `create(GetNodeMetricsRequestSchema)` to create a new message.
  */
 export const GetNodeMetricsRequestSchema: GenMessage<GetNodeMetricsRequest> = /*@__PURE__*/
-  messageDesc(file_limiquantix_compute_v1_node_service, 14);
+  messageDesc(file_limiquantix_compute_v1_node_service, 16);
 
 /**
  * @generated from message limiquantix.compute.v1.NodeMetrics
@@ -579,7 +688,7 @@ export type NodeMetrics = Message<"limiquantix.compute.v1.NodeMetrics"> & {
  * Use `create(NodeMetricsSchema)` to create a new message.
  */
 export const NodeMetricsSchema: GenMessage<NodeMetrics> = /*@__PURE__*/
-  messageDesc(file_limiquantix_compute_v1_node_service, 15);
+  messageDesc(file_limiquantix_compute_v1_node_service, 17);
 
 /**
  * @generated from message limiquantix.compute.v1.ListNodeEventsRequest
@@ -610,7 +719,7 @@ export type ListNodeEventsRequest = Message<"limiquantix.compute.v1.ListNodeEven
  * Use `create(ListNodeEventsRequestSchema)` to create a new message.
  */
 export const ListNodeEventsRequestSchema: GenMessage<ListNodeEventsRequest> = /*@__PURE__*/
-  messageDesc(file_limiquantix_compute_v1_node_service, 16);
+  messageDesc(file_limiquantix_compute_v1_node_service, 18);
 
 /**
  * @generated from message limiquantix.compute.v1.ListNodeEventsResponse
@@ -627,7 +736,7 @@ export type ListNodeEventsResponse = Message<"limiquantix.compute.v1.ListNodeEve
  * Use `create(ListNodeEventsResponseSchema)` to create a new message.
  */
 export const ListNodeEventsResponseSchema: GenMessage<ListNodeEventsResponse> = /*@__PURE__*/
-  messageDesc(file_limiquantix_compute_v1_node_service, 17);
+  messageDesc(file_limiquantix_compute_v1_node_service, 19);
 
 /**
  * @generated from message limiquantix.compute.v1.WatchNodeRequest
@@ -644,7 +753,7 @@ export type WatchNodeRequest = Message<"limiquantix.compute.v1.WatchNodeRequest"
  * Use `create(WatchNodeRequestSchema)` to create a new message.
  */
 export const WatchNodeRequestSchema: GenMessage<WatchNodeRequest> = /*@__PURE__*/
-  messageDesc(file_limiquantix_compute_v1_node_service, 18);
+  messageDesc(file_limiquantix_compute_v1_node_service, 20);
 
 /**
  * @generated from message limiquantix.compute.v1.WatchNodesRequest
@@ -663,7 +772,7 @@ export type WatchNodesRequest = Message<"limiquantix.compute.v1.WatchNodesReques
  * Use `create(WatchNodesRequestSchema)` to create a new message.
  */
 export const WatchNodesRequestSchema: GenMessage<WatchNodesRequest> = /*@__PURE__*/
-  messageDesc(file_limiquantix_compute_v1_node_service, 19);
+  messageDesc(file_limiquantix_compute_v1_node_service, 21);
 
 /**
  * @generated from message limiquantix.compute.v1.NodeUpdate
@@ -685,7 +794,7 @@ export type NodeUpdate = Message<"limiquantix.compute.v1.NodeUpdate"> & {
  * Use `create(NodeUpdateSchema)` to create a new message.
  */
 export const NodeUpdateSchema: GenMessage<NodeUpdate> = /*@__PURE__*/
-  messageDesc(file_limiquantix_compute_v1_node_service, 20);
+  messageDesc(file_limiquantix_compute_v1_node_service, 22);
 
 /**
  * @generated from enum limiquantix.compute.v1.NodeUpdate.UpdateType
@@ -711,7 +820,7 @@ export enum NodeUpdate_UpdateType {
  * Describes the enum limiquantix.compute.v1.NodeUpdate.UpdateType.
  */
 export const NodeUpdate_UpdateTypeSchema: GenEnum<NodeUpdate_UpdateType> = /*@__PURE__*/
-  enumDesc(file_limiquantix_compute_v1_node_service, 20, 0);
+  enumDesc(file_limiquantix_compute_v1_node_service, 22, 0);
 
 /**
  * NodeService provides management operations for physical compute nodes.
@@ -833,6 +942,17 @@ export const NodeService: GenService<{
     methodKind: "unary";
     input: typeof UpdateLabelsRequestSchema;
     output: typeof NodeSchema;
+  },
+  /**
+   * UpdateHeartbeat updates the node's last seen time and resource usage.
+   * Called periodically by the Node Daemon.
+   *
+   * @generated from rpc limiquantix.compute.v1.NodeService.UpdateHeartbeat
+   */
+  updateHeartbeat: {
+    methodKind: "unary";
+    input: typeof UpdateHeartbeatRequestSchema;
+    output: typeof UpdateHeartbeatResponseSchema;
   },
   /**
    * GetNodeMetrics returns current resource usage.

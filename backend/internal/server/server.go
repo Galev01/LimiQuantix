@@ -50,6 +50,9 @@ type Server struct {
 	// Scheduler
 	scheduler *scheduler.Scheduler
 
+	// Node Daemon connection pool
+	daemonPool *node.DaemonPool
+
 	// Services
 	vmService            *vmservice.Service
 	nodeService          *nodeservice.Service
@@ -178,8 +181,18 @@ func (s *Server) initServices() {
 		s.logger,
 	)
 
-	// Compute services
-	s.vmService = vmservice.NewService(s.vmRepo, s.logger)
+	// Initialize Node Daemon connection pool
+	s.daemonPool = node.NewDaemonPool(s.logger)
+	s.logger.Info("Node Daemon connection pool initialized")
+
+	// Compute services with Node Daemon integration
+	s.vmService = vmservice.NewServiceWithDaemon(
+		s.vmRepo,
+		s.nodeRepo,
+		s.daemonPool,
+		s.scheduler,
+		s.logger,
+	)
 	s.nodeService = nodeservice.NewService(s.nodeRepo, s.logger)
 
 	// Network services
@@ -464,6 +477,11 @@ func (s *Server) Shutdown() error {
 	}
 
 	// Close infrastructure connections
+	if s.daemonPool != nil {
+		if err := s.daemonPool.Close(); err != nil {
+			s.logger.Warn("Failed to close daemon pool", zap.Error(err))
+		}
+	}
 	if s.etcd != nil {
 		if err := s.etcd.Close(); err != nil {
 			s.logger.Warn("Failed to close etcd", zap.Error(err))

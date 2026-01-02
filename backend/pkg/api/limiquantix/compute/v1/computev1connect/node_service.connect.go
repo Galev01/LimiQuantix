@@ -59,6 +59,9 @@ const (
 	// NodeServiceUpdateLabelsProcedure is the fully-qualified name of the NodeService's UpdateLabels
 	// RPC.
 	NodeServiceUpdateLabelsProcedure = "/limiquantix.compute.v1.NodeService/UpdateLabels"
+	// NodeServiceUpdateHeartbeatProcedure is the fully-qualified name of the NodeService's
+	// UpdateHeartbeat RPC.
+	NodeServiceUpdateHeartbeatProcedure = "/limiquantix.compute.v1.NodeService/UpdateHeartbeat"
 	// NodeServiceGetNodeMetricsProcedure is the fully-qualified name of the NodeService's
 	// GetNodeMetrics RPC.
 	NodeServiceGetNodeMetricsProcedure = "/limiquantix.compute.v1.NodeService/GetNodeMetrics"
@@ -96,6 +99,9 @@ type NodeServiceClient interface {
 	RemoveTaint(context.Context, *connect.Request[v1.RemoveTaintRequest]) (*connect.Response[v1.Node], error)
 	// UpdateLabels updates node labels.
 	UpdateLabels(context.Context, *connect.Request[v1.UpdateLabelsRequest]) (*connect.Response[v1.Node], error)
+	// UpdateHeartbeat updates the node's last seen time and resource usage.
+	// Called periodically by the Node Daemon.
+	UpdateHeartbeat(context.Context, *connect.Request[v1.UpdateHeartbeatRequest]) (*connect.Response[v1.UpdateHeartbeatResponse], error)
 	// GetNodeMetrics returns current resource usage.
 	GetNodeMetrics(context.Context, *connect.Request[v1.GetNodeMetricsRequest]) (*connect.Response[v1.NodeMetrics], error)
 	// ListNodeEvents returns recent events for a node.
@@ -183,6 +189,12 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("UpdateLabels")),
 			connect.WithClientOptions(opts...),
 		),
+		updateHeartbeat: connect.NewClient[v1.UpdateHeartbeatRequest, v1.UpdateHeartbeatResponse](
+			httpClient,
+			baseURL+NodeServiceUpdateHeartbeatProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("UpdateHeartbeat")),
+			connect.WithClientOptions(opts...),
+		),
 		getNodeMetrics: connect.NewClient[v1.GetNodeMetricsRequest, v1.NodeMetrics](
 			httpClient,
 			baseURL+NodeServiceGetNodeMetricsProcedure,
@@ -223,6 +235,7 @@ type nodeServiceClient struct {
 	addTaint         *connect.Client[v1.AddTaintRequest, v1.Node]
 	removeTaint      *connect.Client[v1.RemoveTaintRequest, v1.Node]
 	updateLabels     *connect.Client[v1.UpdateLabelsRequest, v1.Node]
+	updateHeartbeat  *connect.Client[v1.UpdateHeartbeatRequest, v1.UpdateHeartbeatResponse]
 	getNodeMetrics   *connect.Client[v1.GetNodeMetricsRequest, v1.NodeMetrics]
 	listNodeEvents   *connect.Client[v1.ListNodeEventsRequest, v1.ListNodeEventsResponse]
 	watchNode        *connect.Client[v1.WatchNodeRequest, v1.Node]
@@ -284,6 +297,11 @@ func (c *nodeServiceClient) UpdateLabels(ctx context.Context, req *connect.Reque
 	return c.updateLabels.CallUnary(ctx, req)
 }
 
+// UpdateHeartbeat calls limiquantix.compute.v1.NodeService.UpdateHeartbeat.
+func (c *nodeServiceClient) UpdateHeartbeat(ctx context.Context, req *connect.Request[v1.UpdateHeartbeatRequest]) (*connect.Response[v1.UpdateHeartbeatResponse], error) {
+	return c.updateHeartbeat.CallUnary(ctx, req)
+}
+
 // GetNodeMetrics calls limiquantix.compute.v1.NodeService.GetNodeMetrics.
 func (c *nodeServiceClient) GetNodeMetrics(ctx context.Context, req *connect.Request[v1.GetNodeMetricsRequest]) (*connect.Response[v1.NodeMetrics], error) {
 	return c.getNodeMetrics.CallUnary(ctx, req)
@@ -329,6 +347,9 @@ type NodeServiceHandler interface {
 	RemoveTaint(context.Context, *connect.Request[v1.RemoveTaintRequest]) (*connect.Response[v1.Node], error)
 	// UpdateLabels updates node labels.
 	UpdateLabels(context.Context, *connect.Request[v1.UpdateLabelsRequest]) (*connect.Response[v1.Node], error)
+	// UpdateHeartbeat updates the node's last seen time and resource usage.
+	// Called periodically by the Node Daemon.
+	UpdateHeartbeat(context.Context, *connect.Request[v1.UpdateHeartbeatRequest]) (*connect.Response[v1.UpdateHeartbeatResponse], error)
 	// GetNodeMetrics returns current resource usage.
 	GetNodeMetrics(context.Context, *connect.Request[v1.GetNodeMetricsRequest]) (*connect.Response[v1.NodeMetrics], error)
 	// ListNodeEvents returns recent events for a node.
@@ -412,6 +433,12 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("UpdateLabels")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceUpdateHeartbeatHandler := connect.NewUnaryHandler(
+		NodeServiceUpdateHeartbeatProcedure,
+		svc.UpdateHeartbeat,
+		connect.WithSchema(nodeServiceMethods.ByName("UpdateHeartbeat")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServiceGetNodeMetricsHandler := connect.NewUnaryHandler(
 		NodeServiceGetNodeMetricsProcedure,
 		svc.GetNodeMetrics,
@@ -460,6 +487,8 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceRemoveTaintHandler.ServeHTTP(w, r)
 		case NodeServiceUpdateLabelsProcedure:
 			nodeServiceUpdateLabelsHandler.ServeHTTP(w, r)
+		case NodeServiceUpdateHeartbeatProcedure:
+			nodeServiceUpdateHeartbeatHandler.ServeHTTP(w, r)
 		case NodeServiceGetNodeMetricsProcedure:
 			nodeServiceGetNodeMetricsHandler.ServeHTTP(w, r)
 		case NodeServiceListNodeEventsProcedure:
@@ -519,6 +548,10 @@ func (UnimplementedNodeServiceHandler) RemoveTaint(context.Context, *connect.Req
 
 func (UnimplementedNodeServiceHandler) UpdateLabels(context.Context, *connect.Request[v1.UpdateLabelsRequest]) (*connect.Response[v1.Node], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.NodeService.UpdateLabels is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) UpdateHeartbeat(context.Context, *connect.Request[v1.UpdateHeartbeatRequest]) (*connect.Response[v1.UpdateHeartbeatResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.NodeService.UpdateHeartbeat is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) GetNodeMetrics(context.Context, *connect.Request[v1.GetNodeMetricsRequest]) (*connect.Response[v1.NodeMetrics], error) {

@@ -2,447 +2,324 @@
 
 **Document ID:** 000025  
 **Date:** January 2026  
-**Last Updated:** January 2, 2026  
-**Purpose:** Compare project_plan.md vision with current implementation status
+**Last Updated:** January 2, 2026 (Evening)  
+**Purpose:** Track progress toward a complete VMware vSphere replacement
 
 ---
 
 ## Executive Summary
 
-| Category | Status |
-|----------|--------|
-| **Frontend (React UI)** | ✅ **95% Complete** - Production-ready dashboard |
-| **Backend (Go Control Plane)** | ✅ **75% Complete** - Core services implemented & tested |
-| **Proto/API Definitions** | ✅ **100% Complete** - Full API surface defined |
-| **Frontend ↔ Backend Integration** | ✅ **Done** - API hooks connected, falls back to mock data |
-| **Rust Agent** | ❌ **0% Complete** - Skeleton only |
-| **Hypervisor Integration** | ❌ **0% Complete** - Not started |
-| **Storage (Ceph/LINSTOR)** | ❌ **0% Complete** - Not started |
-| **Networking (OVN/OVS)** | ❌ **0% Complete** - Not started |
+| Category | Status | Description |
+|----------|--------|-------------|
+| **Frontend (React UI)** | ✅ **95%** | Production-ready dashboard with 15 pages |
+| **Backend (Go Control Plane)** | ✅ **85%** | All services + Node Daemon integration |
+| **Proto/API Definitions** | ✅ **100%** | Full API surface for all domains |
+| **Node Daemon (Rust)** | ✅ **80%** | gRPC server + Registration + Heartbeat |
+| **Control Plane ↔ Node Daemon** | ✅ **90%** | VMService wired, registration working |
+| **Hypervisor Integration** | ⏳ **50%** | Mock complete, libvirt structure ready |
+| **Guest Agent** | ❌ **0%** | Not started |
+| **Storage Backend** | ❌ **0%** | Not started (API ready) |
+| **Network Backend** | ❌ **0%** | Not started (API ready) |
+| **Host OS (LimiQuantix OS)** | ❌ **0%** | Not started |
 
 ---
 
-## Recent Progress (January 2026 Session)
+## What We're Building: The Complete VMware Replacement
 
-### ✅ Backend Services - Now Functional
-
-The following was completed in the January 2, 2026 development session:
-
-#### 1. Fixed Proto/Domain Converters
-- **VM Converter** (`backend/internal/services/vm/converter.go`)
-  - Fixed field mappings for `DiskDevice`, `NetworkInterface`, `CdromDevice`
-  - Updated integer types to match proto definitions (uint32/uint64)
-  - Fixed `VmStatus` fields: `ResourceUsage`, `GuestInfo`, `Console`
-
-- **Node Converter** (`backend/internal/services/node/converter.go`)
-  - Fixed `NodeSpec.Network` field mapping
-  - Updated `NodeStatus` to use nested `Resources` structure
-  - Fixed `NodeCondition` timestamp field
-
-#### 2. Fixed Service Implementations
-- **VM Service** (`backend/internal/services/vm/service.go`)
-  - Fixed `ListVMsResponse.TotalCount` field
-  - Fixed `UpdateVMRequest` field handling
-  - Corrected power state checks
-
-- **Node Service** (`backend/internal/services/node/service.go`)
-  - Fixed `RegisterNodeRequest` handling
-  - Fixed `DrainNodeResponse` fields
-  - Fixed `NodeMetrics` field types
-
-#### 3. Fixed Domain Models
-- Added `SchedulingConfig` to `NodeSpec` (`backend/internal/domain/node.go`)
-
-#### 4. Fixed Unit Tests
-- **VM Service Tests** (`backend/internal/services/vm/service_test.go`)
-  - Fixed nil logger dereference with `zap.NewNop()`
-  - Added UUID generation in mock repository
-  - Fixed power state enum references
-  - Added missing `CountByProject` and `ListByNode` methods
-
-#### 5. All Tests Passing ✅
 ```
-=== RUN   TestScheduler_Schedule_SingleNode
---- PASS: TestScheduler_Schedule_SingleNode (0.00s)
-=== RUN   TestScheduler_Schedule_BestNode
---- PASS: TestScheduler_Schedule_BestNode (0.00s)
-...
-=== RUN   TestVMService_CreateVM_Success
---- PASS: TestVMService_CreateVM_Success (0.00s)
-...
-PASS
-ok      github.com/limiquantix/limiquantix/internal/services/vm 0.219s
-```
-
-**18 unit tests passing** across scheduler, auth, and vm packages.
-
-#### 6. Server Running Successfully
-```
-INFO  Starting LimiQuantix Control Plane {"mode": "dev", "version": "0.1.0"}
-INFO  Initializing in-memory repositories
-INFO  Registering services {"service": "VM", "path": "/limiquantix.compute.v1.VMService/"}
-INFO  Registering services {"service": "Node", "path": "/limiquantix.compute.v1.NodeService/"}
-INFO  Starting server {"address": "0.0.0.0:8080"}
-```
-
-#### 7. Frontend-Backend Integration (Latest)
-- **API Client** (`frontend/src/lib/api-client.ts`)
-  - Simplified HTTP-based client (avoids protobuf-es v2 compatibility issues)
-  - Support for VM and Node service calls
-  - Connection health checking
-  - Graceful fallback to mock data
-
-- **React Query Hooks** 
-  - `frontend/src/hooks/useVMs.ts` - VM CRUD operations
-  - `frontend/src/hooks/useNodes.ts` - Node operations
-  - `frontend/src/hooks/useDashboard.ts` - Aggregated dashboard metrics
-
-- **Dashboard Integration** (`frontend/src/pages/Dashboard.tsx`)
-  - Connection status indicator (shows "Connected to Backend" or "Using Mock Data")
-  - Real-time refresh button
-  - Automatic fallback to mock data when backend unavailable
-  - Proper type conversions between API and mock formats
-
-#### 8. Current Status: Frontend-Backend Fully Connected ✅
-
-**CORS Enabled (January 2, 2026):**
-- Updated `backend/configs/config.yaml` to include `http://localhost:5174` in allowed origins
-- Added `/healthz` endpoint for Kubernetes-style health checks
-- Updated default CORS config in `backend/internal/config/config.go`
-
-**Verified Working:**
-```
-2026-01-02T01:39:22  INFO  HTTP request  {"method": "POST", "path": "/limiquantix.compute.v1.VMService/ListVMs", "status": 200}
-2026-01-02T01:39:22  DEBUG Listed VMs    {"method": "ListVMs", "count": 4, "total": 4}
-2026-01-02T01:39:22  INFO  HTTP request  {"method": "POST", "path": "/limiquantix.compute.v1.NodeService/ListNodes", "status": 200}
-2026-01-02T01:39:22  DEBUG Listed nodes  {"method": "ListNodes", "count": 3}
-```
-
-**The frontend successfully:**
-1. ✅ Connects to backend at `http://localhost:8080`
-2. ✅ Fetches real VM data (4 VMs from in-memory demo data)
-3. ✅ Fetches real Node data (3 nodes from in-memory demo data)
-4. ✅ Falls back gracefully to mock data when backend unavailable
-5. ✅ No CORS errors
-
----
-
-### How to Run the Full Stack
-
-1. **Start Backend Server**
-   ```bash
-   cd backend && go build -o server.exe ./cmd/controlplane && ./server.exe --dev
-   ```
-
-2. **Start Frontend**
-   ```bash
-   cd frontend && npm run dev
-   ```
-
-3. **Access Dashboard**
-   - Open `http://localhost:5174`
-   - The dashboard shows real data from the backend API
-
----
-
-#### 6. Server Running Successfully (Original)
-```
-INFO  Starting LimiQuantix Control Plane {"mode": "dev", "version": "0.1.0"}
-INFO  Initializing in-memory repositories
-INFO  Registering services {"service": "VM", "path": "/limiquantix.compute.v1.VMService/"}
-INFO  Registering services {"service": "Node", "path": "/limiquantix.compute.v1.NodeService/"}
-INFO  Registering services {"service": "VirtualNetwork", "path": "/limiquantix.network.v1.VirtualNetworkService/"}
-INFO  Registering services {"service": "SecurityGroup", "path": "/limiquantix.network.v1.SecurityGroupService/"}
-INFO  Starting server {"address": "0.0.0.0:8080"}
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         LimiQuantix Platform                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
+│  │   vSphere   │   │   vCenter   │   │  ESXi Host  │   │ VMware Tools│     │
+│  │     Web     │   │   Server    │   │    Agent    │   │ Guest Agent │     │
+│  │   Client    │   │             │   │             │   │             │     │
+│  └──────┬──────┘   └──────┬──────┘   └──────┬──────┘   └──────┬──────┘     │
+│         │                 │                 │                 │             │
+│         ▼                 ▼                 ▼                 ▼             │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
+│  │  LimiQuantix│   │  Control    │   │    Node     │   │   Guest     │     │
+│  │  Dashboard  │   │   Plane     │   │   Daemon    │   │   Agent     │     │
+│  │   (React)   │   │   (Go)      │   │   (Rust)    │   │   (Rust)    │     │
+│  │    ✅ 95%   │   │   ✅ 85%    │   │   ✅ 80%    │   │   ❌ 0%     │     │
+│  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘     │
+│                                                                              │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
+│  │   vSAN /    │   │    vDS /    │   │   ESXi OS   │   │  Hypervisor │     │
+│  │   VMFS      │   │   NSX-T     │   │  (Custom)   │   │  (KVM/QEMU) │     │
+│  └──────┬──────┘   └──────┬──────┘   └──────┬──────┘   └──────┬──────┘     │
+│         │                 │                 │                 │             │
+│         ▼                 ▼                 ▼                 ▼             │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
+│  │ Ceph/LINSTOR│   │  OVN/OVS    │   │ LimiQuantix │   │   libvirt   │     │
+│  │   Storage   │   │  Networking │   │     OS      │   │  + KVM      │     │
+│  │   ❌ 0%     │   │   ❌ 0%     │   │   ❌ 0%     │   │   ⏳ 50%    │     │
+│  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Detailed Analysis by Section
+## Detailed Component Status
 
-### 2.1 The Compute Stack (Hypervisor)
+### 1. Frontend Dashboard (React) ✅ 95%
 
-| Component | Plan | Status | Notes |
-|-----------|------|--------|-------|
-| KVM Kernel | Required | ❌ Not Started | Will use host KVM |
-| Cloud Hypervisor (Rust VMM) | Primary VMM | ❌ Not Started | No integration code |
-| QEMU Fallback | Backup VMM | ❌ Not Started | — |
-| Minimal Linux Host OS | Custom distro | ❌ Not Started | No host OS work |
+| Page | Status | Features |
+|------|--------|----------|
+| Dashboard | ✅ | Overview metrics, resource charts |
+| VMs List | ✅ | CRUD, power actions, filters |
+| VM Detail | ✅ | Specs, metrics, console, snapshots |
+| Hosts List | ✅ | Node status, resources |
+| Host Detail | ✅ | Metrics, VMs, hardware |
+| Storage Pools | ✅ | Pool management |
+| Volumes | ✅ | Volume CRUD |
+| Clusters | ✅ | Cluster management |
+| Networks | ✅ | Virtual network CRUD |
+| Security Groups | ✅ | Firewall rules |
+| Settings | ✅ | Configuration |
+| Monitoring | ✅ | Real-time metrics |
+| Alerts | ✅ | Alert management |
+| DRS | ✅ | Recommendations |
+| VM Create Wizard | ✅ | Multi-step creation |
 
-**Gap Analysis:**
-- The entire hypervisor layer is missing
-- No Rust code to interface with Cloud Hypervisor or libvirt/KVM
-- No VM lifecycle management at the host level
-
----
-
-### 2.2 The Control Plane
-
-| Component | Plan | Status | Notes |
-|-----------|------|--------|-------|
-| Language: Go | ✓ | ✅ Done | Go 1.22+ project setup |
-| State Store: etcd | ✓ | ✅ Done | Client code implemented |
-| gRPC/Protobuf | ✓ | ✅ Done | Full proto definitions + code gen |
-| Controller (API) | ✓ | ✅ Done | All core services implemented |
-| Node Daemon | ✓ | ❌ Not Started | Part of Rust agent |
-
-**What's Complete:**
-- ✅ Project structure (`backend/`)
-- ✅ Configuration management (Viper)
-- ✅ Structured logging (Zap)
-- ✅ HTTP/Connect-RPC server setup
-- ✅ Health endpoints (`/health`, `/ready`, `/live`)
-- ✅ Proto definitions for all services
-- ✅ Generated Go + TypeScript code
-- ✅ Docker Compose (PostgreSQL, Redis, etcd)
-- ✅ Database migrations schema
-- ✅ **VM Service** - CRUD + power operations
-- ✅ **Node Service** - Registration, heartbeat, drain
-- ✅ **VirtualNetwork Service** - CRUD operations
-- ✅ **SecurityGroup Service** - CRUD + rule management
-- ✅ **Scheduler** - VM placement with spread/pack strategies
-- ✅ **In-memory Repositories** - For dev mode
-- ✅ **PostgreSQL Repositories** - For production
-- ✅ **Redis Cache** - Caching layer
-- ✅ **etcd Client** - Distributed coordination
-- ✅ **JWT Authentication** - Token management
-- ✅ **Auth Middleware** - RBAC enforcement
-- ✅ **Alert Service** - Alert management
-- ✅ **DRS Engine** - Resource balancing recommendations
-- ✅ **HA Manager** - Failover handling
-- ✅ **Streaming Service** - Real-time events
+**Technologies**: React 19, Vite, TypeScript, Tailwind CSS, TanStack Query, Connect-RPC
 
 ---
 
-### 2.3 Storage & Networking
+### 2. Control Plane (Go Backend) ✅ 85%
 
-#### Storage
+| Service | Status | Integration |
+|---------|--------|-------------|
+| VMService | ✅ | Calls Node Daemon for create/start/stop |
+| NodeService | ✅ | Registration + Heartbeat |
+| VirtualNetworkService | ✅ | API ready, no OVN backend |
+| SecurityGroupService | ✅ | API ready, no OVN backend |
+| StoragePoolService | ✅ | API ready, no Ceph backend |
+| VolumeService | ✅ | API ready, no Ceph backend |
+| AlertService | ✅ | In-memory alerts |
+| AuthService | ✅ | JWT authentication |
+| Scheduler | ✅ | Spread/Pack strategies |
+| HA Manager | ✅ | Failover logic |
+| DRS Engine | ✅ | Recommendations |
 
-| Component | Plan | Status | Notes |
-|-----------|------|--------|-------|
-| Ceph Integration | Primary | ❌ Not Started | No ceph client code |
-| LINSTOR | Alternative | ❌ Not Started | — |
-| Block Replication | Feature | ❌ Not Started | Depends on Ceph |
-| Snapshots | Feature | ⏳ Proto defined | No implementation |
-| Thin Provisioning | Feature | ⏳ Proto defined | No implementation |
-
-#### Networking
-
-| Component | Plan | Status | Notes |
-|-----------|------|--------|-------|
-| OVN | Primary SDN | ❌ Not Started | No OVN client |
-| OVS | Datapath | ❌ Not Started | — |
-| Logical Switching | Feature | ⏳ Proto defined | No implementation |
-| Routing | Feature | ⏳ Proto defined | No implementation |
-| Micro-segmentation | Feature | ⏳ Proto defined | Security groups proto |
-
----
-
-### 2.4 The Guest Agent
-
-| Component | Plan | Status | Notes |
-|-----------|------|--------|-------|
-| Language: Rust | ✓ | ⏳ Skeleton | Only `main.rs` with hello world |
-| Virtio-Serial Transport | ✓ | ❌ Not Started | No serial code |
-| OS Telemetry | Feature | ❌ Not Started | — |
-| FS Quiescing | Feature | ❌ Not Started | — |
-| Script Execution | Feature | ❌ Not Started | — |
-| Password Reset | Feature | ❌ Not Started | — |
+**Infrastructure**:
+- ✅ PostgreSQL repository (implemented)
+- ✅ In-memory repository (for dev)
+- ✅ Etcd client (implemented)
+- ✅ Redis client (implemented)
+- ✅ Node Daemon connection pool
 
 ---
 
-## What's DONE ✅
+### 3. Node Daemon (Rust) ✅ 80%
 
-### 1. Frontend (React Dashboard) - 95% Complete
+| Component | Status | Description |
+|-----------|--------|-------------|
+| gRPC Server | ✅ | tonic-based, all endpoints |
+| Registration | ✅ | Auto-registers with control plane |
+| Heartbeat | ✅ | 30s interval, CPU/memory stats |
+| Mock Hypervisor | ✅ | Full in-memory simulation |
+| Libvirt Backend | ⏳ | Structure ready, needs testing |
+| Telemetry | ✅ | CPU, memory, disk, network |
+| VM Lifecycle | ✅ | Create, start, stop, delete |
+| Snapshots | ✅ | Create, revert, delete, list |
+| Hot-plug | ⏳ | Disk/NIC attach (structure) |
+| Live Migration | ⏳ | Structure ready |
+| Console Access | ✅ | VNC/SPICE info |
 
+**Crate Structure**:
 ```
-15 Pages Implemented:
-├── Dashboard (metrics overview)
-├── VM List (filterable table)
-├── VM Detail (7 tabs)
-├── Host List (table with context menu)
-├── Host Detail (7 tabs)
-├── Cluster List
-├── Cluster Detail (6 tabs)
-├── Storage Pools (card grid)
-├── Volumes (table)
-├── Virtual Networks (table)
-├── Security Groups (expandable cards)
-├── Monitoring (charts)
-├── Alerts (management)
-├── DRS Recommendations
-└── Settings (7 categories)
-
-Components:
-├── Layout (Sidebar, Header)
-├── UI (Button, Tabs, Badge, Modal)
-├── Dashboard (MetricCard, ProgressRing)
-└── VM (VMCreationWizard, VMTable, VMStatusBadge)
-
-Generated API Clients:
-├── frontend/src/api/limiquantix/compute/v1/vm_service_connect.ts
-├── frontend/src/api/limiquantix/compute/v1/node_service_connect.ts
-├── frontend/src/api/limiquantix/network/v1/network_service_connect.ts
-└── frontend/src/api/limiquantix/storage/v1/storage_service_connect.ts
-```
-
-### 2. Proto/API Definitions - 100% Complete
-
-```
-Domains Covered:
-├── Compute (VM, Node, Cluster)
-├── Storage (Pool, Volume, Snapshot, Image)
-└── Network (VNet, Port, SecurityGroup, LB, VPN)
-
-Services Defined:
-├── VMService (20+ RPCs)
-├── NodeService (15+ RPCs)
-├── StoragePoolService
-├── VolumeService
-├── SnapshotService
-├── ImageService
-├── VirtualNetworkService
-├── PortService
-├── SecurityGroupService
-├── LoadBalancerService
-└── VpnService
-```
-
-### 3. Backend Services - 75% Complete
-
-```
-Phase 2 - Core Services: ✅ COMPLETE
-├── VM Service (CRUD + power ops)
-├── Node Service (registration, heartbeat, drain)
-├── VirtualNetwork Service
-├── SecurityGroup Service
-├── Scheduler (spread/pack strategies)
-└── In-memory Repositories
-
-Phase 3 - Data Persistence: ✅ COMPLETE
-├── PostgreSQL connection pool
-├── VM Repository (CRUD)
-├── Node Repository (CRUD)
-├── Redis Cache (get/set/pubsub)
-└── etcd Client (K/V, locks, leader election)
-
-Phase 4 - Advanced Features: ✅ COMPLETE
-├── JWT Authentication
-├── Auth Middleware (RBAC)
-├── Alert Service
-├── DRS Engine
-├── HA Manager
-└── Streaming Service
-```
-
-### 4. Documentation - Extensive
-
-```
-docs/
-├── 000024-backend-implementation-guide.md (2118 lines)
-├── 000025-backend-phase2-services.md
-├── 000026-backend-phase2-implementation.md
-├── 000027-backend-phase3-data-persistence.md
-├── 000028-backend-phase4-advanced-features.md
-├── 000029-backend-testing-guide.md
-└── ADRs (6 architecture decisions)
+agent/
+├── limiquantix-node/        ✅ Main binary
+├── limiquantix-hypervisor/  ✅ Abstraction layer
+├── limiquantix-telemetry/   ✅ System metrics
+├── limiquantix-proto/       ✅ gRPC generated code
+└── limiquantix-common/      ✅ Shared utilities
 ```
 
 ---
 
-## What's IN PROGRESS 🔄
+### 4. Control Plane ↔ Node Daemon Integration ✅ 90%
 
-### Frontend ↔ Backend Integration ✅ COMPLETE
-
-**All UI pages now connected to backend API!**
-
-| Task | Status |
-|------|--------|
-| TypeScript API clients generated | ✅ Done |
-| Connect-ES transport configured | ✅ Done (simplified to fetch-based) |
-| React Query hooks for VMs | ✅ Done (`frontend/src/hooks/useVMs.ts`) |
-| React Query hooks for Nodes | ✅ Done (`frontend/src/hooks/useNodes.ts`) |
-| React Query hooks for Networks | ✅ Done (`frontend/src/hooks/useNetworks.ts`) |
-| React Query hooks for SecurityGroups | ✅ Done (`frontend/src/hooks/useSecurityGroups.ts`) |
-| Dashboard hooks | ✅ Done (`frontend/src/hooks/useDashboard.ts`) |
-| Replace mock data in Dashboard | ✅ Done (auto-fallback to mock) |
-| CORS enabled on backend | ✅ Done (`backend/configs/config.yaml`) |
-| Full stack verified working | ✅ Done (4 VMs, 3 Nodes from API) |
-| VMList page wired to API | ✅ Done (Start/Stop/Delete actions) |
-| HostList page wired to API | ✅ Done |
-| VMDetail page wired to API | ✅ Done (with actions) |
-| HostDetail page wired to API | ✅ Done |
-| VirtualNetworks page wired to API | ✅ Done |
-| SecurityGroups page wired to API | ✅ Done |
-| VMCreationWizard creates VMs via API | ✅ Done |
-| Connection status badges on all pages | ✅ Done |
+| Flow | Status | Notes |
+|------|--------|-------|
+| Node Registration | ✅ | Node Daemon → Control Plane |
+| Heartbeat | ✅ | Every 30 seconds |
+| CreateVM | ✅ | Scheduler → Node Daemon |
+| StartVM | ✅ | VMService → Node Daemon |
+| StopVM | ✅ | VMService → Node Daemon |
+| RebootVM | ✅ | VMService → Node Daemon |
+| DeleteVM | ✅ | VMService → Node Daemon |
+| PauseVM | ✅ | VMService → Node Daemon |
+| ResumeVM | ✅ | VMService → Node Daemon |
 
 ---
 
-## What's MISSING ❌ (Not Planned Yet)
+### 5. Hypervisor Integration ⏳ 50%
 
-### 1. Hypervisor Layer (Critical)
+| Backend | Status | Notes |
+|---------|--------|-------|
+| Mock | ✅ Complete | Full in-memory simulation |
+| Libvirt | ⏳ Structure | Needs Linux host testing |
+| Cloud Hypervisor | ❌ Not started | Future |
 
-| Component | Effort | Priority |
-|-----------|--------|----------|
-| Cloud Hypervisor client | 3-4 weeks | P0 |
-| QEMU/libvirt fallback | 2 weeks | P1 |
-| VM lifecycle (create/start/stop) | 2 weeks | P0 |
-| Console (VNC/SPICE) | 1 week | P1 |
-| Device passthrough | 2 weeks | P2 |
+**Libvirt Backend Features (Structure Ready)**:
+- Domain XML generation
+- VM lifecycle (create, start, stop, suspend)
+- Snapshot management
+- Hot-plug (disk, NIC)
+- Live migration
 
-### 2. Guest Agent (Critical)
+---
 
-| Component | Effort | Priority |
-|-----------|--------|----------|
-| Virtio-serial transport | 1 week | P0 |
-| OS telemetry | 1 week | P0 |
-| Command execution | 1 week | P1 |
-| File quiescing | 1 week | P1 |
-| Windows support | 2 weeks | P2 |
+### 6. Components NOT Started ❌
 
-### 3. Storage Backend (Critical)
+| Component | VMware Equivalent | Effort | Priority |
+|-----------|-------------------|--------|----------|
+| **Guest Agent** | VMware Tools | 4-6 weeks | P0 |
+| **Storage Backend** | vSAN/VMFS | 4-6 weeks | P0 |
+| **Network Backend** | NSX-T/vDS | 4-6 weeks | P0 |
+| **Host OS** | ESXi | 8-12 weeks | P1 |
+| **Backup Engine** | VADP | 4 weeks | P2 |
 
-| Component | Effort | Priority |
-|-----------|--------|----------|
-| Ceph RBD client | 2-3 weeks | P0 |
-| LVM local storage | 1 week | P1 |
-| NFS support | 1 week | P2 |
-| Snapshot implementation | 1 week | P1 |
+---
 
-### 4. Network Backend (Critical)
+## Recent Session Accomplishments (January 2, 2026)
 
-| Component | Effort | Priority |
-|-----------|--------|----------|
-| OVN client | 2-3 weeks | P0 |
-| OVS bridge management | 1 week | P0 |
-| Security group enforcement | 1 week | P1 |
-| DHCP integration | 1 week | P1 |
+### ✅ Completed Today
+
+1. **ADR for Hypervisor Integration** (`docs/adr/000007-hypervisor-integration.md`)
+   - Evaluated Cloud Hypervisor, QEMU/libvirt, Firecracker
+   - Decision: QEMU/libvirt as primary backend
+
+2. **Node Daemon Implementation Plan** (`docs/000031-node-daemon-implementation-plan.md`)
+   - 6-week detailed roadmap
+   - Crate structure and dependencies
+
+3. **Node Daemon Foundation**
+   - Complete Rust workspace with 5 crates
+   - gRPC server with tonic
+   - Mock hypervisor (full VM lifecycle simulation)
+   - Libvirt backend structure
+
+4. **Control Plane Integration**
+   - Go DaemonClient for Node Daemon gRPC
+   - DaemonPool for connection management
+   - VMService wired to call Node Daemon
+
+5. **Node Registration & Heartbeat**
+   - Node Daemon auto-registers on startup
+   - Heartbeat with CPU/memory telemetry
+   - Server-assigned node ID tracking
+
+6. **Documentation**
+   - `docs/000032-vmservice-node-daemon-integration.md`
+   - `docs/000033-node-registration-flow.md`
+
+---
+
+## Project Structure Overview
+
+```
+LimiQuantix/
+├── frontend/                 ✅ React Dashboard
+│   ├── src/pages/           15 pages
+│   ├── src/hooks/           API hooks
+│   └── src/lib/api-client   Backend integration
+│
+├── backend/                  ✅ Go Control Plane
+│   ├── cmd/controlplane/    Main binary
+│   ├── internal/services/   All services
+│   ├── internal/domain/     Domain models
+│   ├── internal/repository/ PostgreSQL/memory/etcd
+│   └── pkg/api/             Generated proto code
+│
+├── agent/                    ✅ Rust Node Daemon
+│   ├── limiquantix-node/    gRPC server binary
+│   ├── limiquantix-hypervisor/  VM management
+│   ├── limiquantix-telemetry/   System metrics
+│   └── limiquantix-proto/   Generated gRPC
+│
+├── proto/                    ✅ API Definitions
+│   └── limiquantix/
+│       ├── compute/v1/      VM, Node
+│       ├── storage/v1/      Pool, Volume
+│       ├── network/v1/      VNet, SecurityGroup
+│       └── node/v1/         Node Daemon API
+│
+└── docs/                     ✅ Documentation
+    ├── adr/                 7 ADRs
+    ├── Backend/             6 guides
+    └── ui/                  17 specs
+```
+
+---
+
+## How to Run the Full Stack
+
+```bash
+# Terminal 1: Control Plane (Go)
+cd backend && go run ./cmd/controlplane --dev
+
+# Terminal 2: Node Daemon (Rust)
+cd agent && cargo run --bin limiquantix-node -- \
+  --dev \
+  --listen 127.0.0.1:9090 \
+  --control-plane http://127.0.0.1:8080 \
+  --register
+
+# Terminal 3: Frontend (React)
+cd frontend && npm run dev
+
+# Access: http://localhost:5174
+```
+
+---
+
+## Test Results (January 2, 2026)
+
+```
+✅ Go Backend Tests:     All passing (scheduler, auth, vm)
+✅ Rust Tests:           All passing
+✅ Node Registration:    Working (auto-registers)
+✅ Heartbeat:            Working (CPU/memory every 30s)
+✅ VM Creation:          Working (schedules to node)
+✅ Health Check:         Working (both services)
+```
+
+---
+
+## Risk Assessment
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Libvirt testing requires Linux | High | Set up Linux VM or bare metal |
+| Guest agent complexity | High | Start with minimal feature set |
+| Storage integration (Ceph) | High | Consider LVM as simpler alternative first |
+| Network integration (OVN) | High | Consider Linux bridge as simpler alternative first |
+| Host OS development | Very High | Phase after core features work |
 
 ---
 
 ## Summary
 
-| Layer | Plan Status | Implementation |
-|-------|-------------|----------------|
-| **Frontend** | ✅ Exceeded | 95% complete |
-| **API Definitions** | ✅ Complete | 100% done |
-| **Backend Services** | ✅ Complete | 75% done (all phases implemented) |
-| **Frontend-Backend Integration** | ✅ Complete | Full stack working |
-| **Hypervisor** | ❌ Not started | 0% done |
-| **Guest Agent** | ❌ Not started | 0% done |
-| **Storage Backend** | ❌ Not started | 0% done |
-| **Network Backend** | ❌ Not started | 0% done |
+**What's WORKING:**
+- Full-stack integration (Frontend → Backend → Node Daemon)
+- VM lifecycle management (with mock hypervisor)
+- Node registration and heartbeat
+- Scheduler with spread/pack strategies
+- All API definitions
 
-**🎉 MILESTONE ACHIEVED: The frontend and backend are now fully integrated!**
+**What's NEXT:**
+- Test on real Linux hypervisor with libvirt
+- Guest Agent (VMware Tools equivalent)
+- Storage backend (Ceph or LVM)
+- Network backend (OVN or Linux bridge)
 
-The project has a working full-stack application:
-- Frontend at `http://localhost:5174` connects to backend at `http://localhost:8080`
-- Real API calls fetch VMs and Nodes from the in-memory demo data
-- Graceful fallback to mock data when backend is unavailable
-
-**Next Steps: Infrastructure Layer**
-1. Hypervisor Integration (Cloud Hypervisor/QEMU)
-2. Guest Agent Development (Rust)
-3. Storage Backend (Ceph/LVM)
-4. Network Backend (OVN/OVS)
+**Long-term:**
+- LimiQuantix OS (custom hypervisor host)
+- Live migration testing
+- Backup/restore engine
+- Enterprise features (HA, DRS, vMotion)

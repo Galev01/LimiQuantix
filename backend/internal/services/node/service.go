@@ -409,6 +409,71 @@ func (s *Service) DrainNode(
 }
 
 // ============================================================================
+// Heartbeat
+// ============================================================================
+
+// UpdateHeartbeat updates the node's last seen time and resource usage.
+// Called periodically by the Node Daemon.
+func (s *Service) UpdateHeartbeat(
+	ctx context.Context,
+	req *connect.Request[computev1.UpdateHeartbeatRequest],
+) (*connect.Response[computev1.UpdateHeartbeatResponse], error) {
+	logger := s.logger.With(
+		zap.String("method", "UpdateHeartbeat"),
+		zap.String("node_id", req.Msg.NodeId),
+	)
+
+	if req.Msg.NodeId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node_id is required"))
+	}
+
+	node, err := s.repo.Get(ctx, req.Msg.NodeId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			// Try to find by hostname as fallback
+			logger.Debug("Node not found by ID, heartbeat rejected")
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node '%s' not found", req.Msg.NodeId))
+		}
+		logger.Error("Failed to get node", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Update node status with heartbeat data
+	now := time.Now()
+	node.LastHeartbeat = &now
+	node.Status.Phase = domain.NodePhaseReady
+
+	// Update resource allocation info from heartbeat
+	node.Status.Allocated.MemoryMiB = int64(req.Msg.MemoryUsedMib)
+	if req.Msg.RunningVmCount > 0 {
+		// Update VM count (this is informational)
+		logger.Debug("Heartbeat contains VM count",
+			zap.Uint32("running_vms", req.Msg.RunningVmCount),
+		)
+	}
+
+	// Persist heartbeat update
+	if err := s.repo.UpdateHeartbeat(ctx, node.ID, domain.Resources{
+		CPUCores:  node.Status.Allocated.CPUCores,
+		MemoryMiB: int64(req.Msg.MemoryUsedMib),
+	}); err != nil {
+		logger.Warn("Failed to persist heartbeat", zap.Error(err))
+		// Don't fail the request, just log it
+	}
+
+	logger.Debug("Heartbeat received",
+		zap.Float64("cpu_usage", req.Msg.CpuUsagePercent),
+		zap.Uint64("memory_used_mib", req.Msg.MemoryUsedMib),
+	)
+
+	return connect.NewResponse(&computev1.UpdateHeartbeatResponse{
+		Acknowledged:          true,
+		ServerTimeUnix:        now.Unix(),
+		HeartbeatIntervalSecs: 30, // Standard interval
+	}), nil
+}
+
+// ============================================================================
 // Metrics and Monitoring
 // ============================================================================
 

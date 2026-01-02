@@ -61,6 +61,14 @@ service NodeService {
   rpc UpdateLabels(UpdateLabelsRequest) returns (Node);
   
   // ==========================================================================
+  // Heartbeat
+  // ==========================================================================
+  
+  // UpdateHeartbeat updates the node's last seen time and resource usage.
+  // Called periodically by the Node Daemon.
+  rpc UpdateHeartbeat(UpdateHeartbeatRequest) returns (UpdateHeartbeatResponse);
+  
+  // ==========================================================================
   // Monitoring
   // ==========================================================================
   
@@ -226,6 +234,45 @@ message UpdateLabelsRequest {
   
   // Labels to remove
   repeated string remove_labels = 3;
+}
+
+// Heartbeat
+
+message UpdateHeartbeatRequest {
+  // Node ID (required)
+  string node_id = 1;
+  
+  // Current CPU usage percentage (0-100)
+  double cpu_usage_percent = 2;
+  
+  // Current memory usage in MiB
+  uint64 memory_used_mib = 3;
+  
+  // Total memory in MiB
+  uint64 memory_total_mib = 4;
+  
+  // Number of running VMs
+  uint32 running_vm_count = 5;
+  
+  // Optional: disk usage
+  uint64 disk_used_bytes = 6;
+  uint64 disk_total_bytes = 7;
+  
+  // Optional: load averages
+  double load_1m = 8;
+  double load_5m = 9;
+  double load_15m = 10;
+}
+
+message UpdateHeartbeatResponse {
+  // Acknowledged
+  bool acknowledged = 1;
+  
+  // Server time (for clock sync)
+  int64 server_time_unix = 2;
+  
+  // Heartbeat interval in seconds (server can adjust)
+  uint32 heartbeat_interval_secs = 3;
 }
 
 // Metrics

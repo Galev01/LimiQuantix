@@ -13,7 +13,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/scheduler"
+	"github.com/limiquantix/limiquantix/internal/services/node"
 	computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+	nodev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1"
 	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
 )
 
@@ -25,8 +28,11 @@ var _ computev1connect.VMServiceHandler = (*Service)(nil)
 type Service struct {
 	computev1connect.UnimplementedVMServiceHandler
 
-	repo   Repository
-	logger *zap.Logger
+	repo       Repository
+	nodeRepo   node.Repository
+	daemonPool *node.DaemonPool
+	scheduler  *scheduler.Scheduler
+	logger     *zap.Logger
 }
 
 // NewService creates a new VM service.
@@ -34,6 +40,23 @@ func NewService(repo Repository, logger *zap.Logger) *Service {
 	return &Service{
 		repo:   repo,
 		logger: logger.Named("vm-service"),
+	}
+}
+
+// NewServiceWithDaemon creates a new VM service with Node Daemon integration.
+func NewServiceWithDaemon(
+	repo Repository,
+	nodeRepo node.Repository,
+	daemonPool *node.DaemonPool,
+	sched *scheduler.Scheduler,
+	logger *zap.Logger,
+) *Service {
+	return &Service{
+		repo:       repo,
+		nodeRepo:   nodeRepo,
+		daemonPool: daemonPool,
+		scheduler:  sched,
+		logger:     logger.Named("vm-service"),
 	}
 }
 
@@ -67,7 +90,29 @@ func (s *Service) CreateVM(
 		projectID = "00000000-0000-0000-0000-000000000001" // Default project
 	}
 
-	// 3. Build domain model
+	// 3. Schedule VM to a node (if scheduler is available)
+	var targetNodeID string
+	var targetNode *domain.Node
+	if s.scheduler != nil {
+		result, err := s.scheduler.Schedule(ctx, req.Msg.Spec)
+		if err != nil {
+			logger.Warn("Failed to schedule VM", zap.Error(err))
+			// Continue without scheduling - VM will be created without a node
+		} else {
+			targetNodeID = result.NodeID
+			logger.Info("VM scheduled to node",
+				zap.String("node_id", targetNodeID),
+				zap.String("hostname", result.Hostname),
+				zap.Float64("score", result.Score),
+			)
+			// Get node details
+			if s.nodeRepo != nil {
+				targetNode, _ = s.nodeRepo.Get(ctx, targetNodeID)
+			}
+		}
+	}
+
+	// 4. Build domain model
 	now := time.Now()
 	vm := &domain.VirtualMachine{
 		Name:            req.Msg.Name,
@@ -79,12 +124,13 @@ func (s *Service) CreateVM(
 		Status: domain.VMStatus{
 			State:   domain.VMStateStopped,
 			Message: "VM created successfully",
+			NodeID:  targetNodeID,
 		},
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
 
-	// 4. Persist to repository
+	// 5. Persist to repository
 	created, err := s.repo.Create(ctx, vm)
 	if err != nil {
 		if errors.Is(err, domain.ErrAlreadyExists) {
@@ -95,8 +141,41 @@ func (s *Service) CreateVM(
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create VM: %w", err))
 	}
 
+	// 6. Create VM on the Node Daemon (if available)
+	if s.daemonPool != nil && targetNode != nil {
+		daemonAddr := fmt.Sprintf("%s:9090", targetNode.ManagementIP)
+		client, err := s.daemonPool.Connect(targetNodeID, daemonAddr)
+		if err != nil {
+			logger.Warn("Failed to connect to node daemon, VM created in control plane only",
+				zap.String("node_id", targetNodeID),
+				zap.Error(err),
+			)
+		} else {
+			// Build Node Daemon request
+			daemonReq := convertToNodeDaemonCreateRequest(created, req.Msg.Spec)
+			
+			_, err := client.CreateVM(ctx, daemonReq)
+			if err != nil {
+				logger.Warn("Failed to create VM on node daemon, VM exists in control plane",
+					zap.String("vm_id", created.ID),
+					zap.String("node_id", targetNodeID),
+					zap.Error(err),
+				)
+				// Update status to reflect the issue
+				created.Status.Message = "VM created but failed to provision on node"
+				_ = s.repo.UpdateStatus(ctx, created.ID, created.Status)
+			} else {
+				logger.Info("VM created on node daemon",
+					zap.String("vm_id", created.ID),
+					zap.String("node_id", targetNodeID),
+				)
+			}
+		}
+	}
+
 	logger.Info("VM created successfully",
 		zap.String("vm_id", created.ID),
+		zap.String("node_id", targetNodeID),
 	)
 
 	return connect.NewResponse(ToProto(created)), nil
@@ -279,6 +358,27 @@ func (s *Service) DeleteVM(
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("VM is running; stop it first or use force=true"))
 	}
 
+	// Delete from Node Daemon if assigned to a node
+	if s.daemonPool != nil && vm.Status.NodeID != "" {
+		client := s.daemonPool.Get(vm.Status.NodeID)
+		if client != nil {
+			err := client.DeleteVM(ctx, vm.ID)
+			if err != nil {
+				logger.Warn("Failed to delete VM from node daemon",
+					zap.String("vm_id", vm.ID),
+					zap.String("node_id", vm.Status.NodeID),
+					zap.Error(err),
+				)
+				// Continue with control plane deletion
+			} else {
+				logger.Info("VM deleted from node daemon",
+					zap.String("vm_id", vm.ID),
+					zap.String("node_id", vm.Status.NodeID),
+				)
+			}
+		}
+	}
+
 	// Delete from repository
 	if err := s.repo.Delete(ctx, req.Msg.Id); err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
@@ -338,8 +438,28 @@ func (s *Service) StartVM(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// In a real implementation, we would send a command to the hypervisor agent here.
-	// For now, we'll simulate the VM starting.
+	// Start VM on Node Daemon
+	if s.daemonPool != nil && vm.Status.NodeID != "" {
+		client := s.daemonPool.Get(vm.Status.NodeID)
+		if client != nil {
+			err := client.StartVM(ctx, vm.ID)
+			if err != nil {
+				logger.Error("Failed to start VM on node daemon",
+					zap.String("vm_id", vm.ID),
+					zap.String("node_id", vm.Status.NodeID),
+					zap.Error(err),
+				)
+				// Revert status
+				vm.Status.State = domain.VMStateStopped
+				vm.Status.Message = fmt.Sprintf("Failed to start: %s", err)
+				_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to start VM on node: %w", err))
+			}
+			logger.Info("VM started on node daemon")
+		}
+	}
+
+	// Update to running state
 	vm.Status.State = domain.VMStateRunning
 	vm.Status.Message = "VM is running"
 
@@ -405,7 +525,33 @@ func (s *Service) StopVM(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Simulate the VM stopping
+	// Stop VM on Node Daemon
+	if s.daemonPool != nil && vm.Status.NodeID != "" {
+		client := s.daemonPool.Get(vm.Status.NodeID)
+		if client != nil {
+			var stopErr error
+			if req.Msg.Force {
+				stopErr = client.ForceStopVM(ctx, vm.ID)
+			} else {
+				stopErr = client.StopVM(ctx, vm.ID, 30) // 30 second timeout
+			}
+			if stopErr != nil {
+				logger.Error("Failed to stop VM on node daemon",
+					zap.String("vm_id", vm.ID),
+					zap.String("node_id", vm.Status.NodeID),
+					zap.Error(stopErr),
+				)
+				// Revert status
+				vm.Status.State = domain.VMStateRunning
+				vm.Status.Message = fmt.Sprintf("Failed to stop: %s", stopErr)
+				_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to stop VM on node: %w", stopErr))
+			}
+			logger.Info("VM stopped on node daemon")
+		}
+	}
+
+	// Update to stopped state
 	vm.Status.State = domain.VMStateStopped
 	vm.Status.Message = "VM is stopped"
 
@@ -456,7 +602,23 @@ func (s *Service) RebootVM(
 			fmt.Errorf("VM must be running to reboot, current state: '%s'", vm.Status.State))
 	}
 
-	// Simulate reboot (in real impl, send command to agent)
+	// Reboot on Node Daemon
+	if s.daemonPool != nil && vm.Status.NodeID != "" {
+		client := s.daemonPool.Get(vm.Status.NodeID)
+		if client != nil {
+			err := client.RebootVM(ctx, vm.ID)
+			if err != nil {
+				logger.Error("Failed to reboot VM on node daemon",
+					zap.String("vm_id", vm.ID),
+					zap.String("node_id", vm.Status.NodeID),
+					zap.Error(err),
+				)
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to reboot VM on node: %w", err))
+			}
+			logger.Info("VM reboot initiated on node daemon")
+		}
+	}
+
 	vm.Status.Message = "VM is rebooting"
 	vm.UpdatedAt = time.Now()
 
@@ -502,6 +664,18 @@ func (s *Service) PauseVM(
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("VM must be running to pause"))
 	}
 
+	// Pause on Node Daemon
+	if s.daemonPool != nil && vm.Status.NodeID != "" {
+		client := s.daemonPool.Get(vm.Status.NodeID)
+		if client != nil {
+			err := client.PauseVM(ctx, vm.ID)
+			if err != nil {
+				logger.Error("Failed to pause VM on node daemon", zap.Error(err))
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to pause VM on node: %w", err))
+			}
+		}
+	}
+
 	vm.Status.State = domain.VMStatePaused
 	vm.Status.Message = "VM is paused"
 	vm.UpdatedAt = time.Now()
@@ -545,6 +719,18 @@ func (s *Service) ResumeVM(
 
 	if vm.Status.State != domain.VMStatePaused {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("VM must be paused to resume"))
+	}
+
+	// Resume on Node Daemon
+	if s.daemonPool != nil && vm.Status.NodeID != "" {
+		client := s.daemonPool.Get(vm.Status.NodeID)
+		if client != nil {
+			err := client.ResumeVM(ctx, vm.ID)
+			if err != nil {
+				logger.Error("Failed to resume VM on node daemon", zap.Error(err))
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resume VM on node: %w", err))
+			}
+		}
 	}
 
 	vm.Status.State = domain.VMStateRunning
@@ -609,4 +795,63 @@ func (s *Service) SuspendVM(
 	logger.Info("VM suspended successfully")
 
 	return connect.NewResponse(ToProto(updated)), nil
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+// convertToNodeDaemonCreateRequest converts a VM to a Node Daemon create request.
+func convertToNodeDaemonCreateRequest(vm *domain.VirtualMachine, spec *computev1.VmSpec) *nodev1.CreateVMOnNodeRequest {
+	// Determine if hugepages is enabled
+	hugepagesEnabled := false
+	if spec.GetMemory().GetHugePages() != nil {
+		hugepagesEnabled = spec.GetMemory().GetHugePages().GetEnabled()
+	}
+
+	req := &nodev1.CreateVMOnNodeRequest{
+		VmId:   vm.ID,
+		Name:   vm.Name,
+		Labels: vm.Labels,
+		Spec: &nodev1.VMSpec{
+			CpuCores:          spec.GetCpu().GetCores(),
+			CpuSockets:        spec.GetCpu().GetSockets(),
+			CpuThreadsPerCore: spec.GetCpu().GetThreadsPerCore(),
+			MemoryMib:         spec.GetMemory().GetSizeMib(),
+			MemoryHugepages:   hugepagesEnabled,
+		},
+	}
+
+	// Convert disks
+	for _, disk := range spec.GetDisks() {
+		req.Spec.Disks = append(req.Spec.Disks, &nodev1.DiskSpec{
+			Id:       disk.GetId(),
+			Path:     disk.GetVolumeId(), // Use volume_id as path
+			SizeGib:  disk.GetSizeGib(),
+			Bus:      nodev1.DiskBus(disk.GetBus()),
+			Format:   nodev1.DiskFormat_DISK_FORMAT_QCOW2, // Default to qcow2
+			Readonly: disk.GetReadonly(),
+			Bootable: disk.GetBootIndex() > 0, // bootable if boot_index > 0
+		})
+	}
+
+	// Convert NICs
+	for _, nic := range spec.GetNics() {
+		req.Spec.Nics = append(req.Spec.Nics, &nodev1.NicSpec{
+			Id:         nic.GetId(),
+			MacAddress: nic.GetMacAddress(),
+			Network:    nic.GetNetworkId(), // Use network_id
+			Model:      nodev1.NicModel(nic.GetModel()),
+		})
+	}
+
+	// Convert console
+	if spec.GetDisplay() != nil {
+		isVnc := spec.GetDisplay().GetType() == computev1.DisplayConfig_VNC
+		req.Spec.Console = &nodev1.ConsoleSpec{
+			VncEnabled: isVnc,
+		}
+	}
+
+	return req
 }
