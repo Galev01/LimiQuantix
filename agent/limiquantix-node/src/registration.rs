@@ -62,7 +62,15 @@ impl RegistrationClient {
         
         let telemetry = self.telemetry.collect();
         
+        // Calculate CPU topology
+        let threads_per_core = if telemetry.cpu.physical_cores > 0 {
+            telemetry.cpu.logical_cores / telemetry.cpu.physical_cores
+        } else {
+            1
+        };
+        
         // Build registration request matching the proto format
+        // Note: Field names use camelCase for JSON, matching Connect-RPC conventions
         let request = serde_json::json!({
             "hostname": self.hostname,
             "managementIp": format!("{}:9090", self.management_ip),
@@ -74,18 +82,16 @@ impl RegistrationClient {
             },
             "cpuInfo": {
                 "model": telemetry.cpu.model,
-                "sockets": 1,
-                "coresPerSocket": telemetry.cpu.physical_cores,
-                "threadsPerCore": if telemetry.cpu.physical_cores > 0 { 
-                    telemetry.cpu.logical_cores / telemetry.cpu.physical_cores 
-                } else { 
-                    1 
-                },
-                "features": []
+                "sockets": 1u32,
+                "coresPerSocket": telemetry.cpu.physical_cores as u32,
+                "threadsPerCore": threads_per_core as u32,
+                "totalThreads": telemetry.cpu.logical_cores as u32,
+                "frequencyMhz": telemetry.cpu.frequency_mhz,
+                "features": telemetry.cpu.features
             },
             "memoryInfo": {
-                "totalMib": telemetry.memory.total_bytes / 1024 / 1024,
-                "allocatableMib": telemetry.memory.available_bytes / 1024 / 1024
+                "totalBytes": telemetry.memory.total_bytes,
+                "allocatableBytes": telemetry.memory.available_bytes
             }
         });
         

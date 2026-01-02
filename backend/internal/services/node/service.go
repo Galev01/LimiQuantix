@@ -65,20 +65,66 @@ func (s *Service) RegisterNode(
 
 	now := time.Now()
 
+	// Build node spec from request
+	spec := domain.NodeSpec{
+		Scheduling: domain.SchedulingConfig{
+			Schedulable: true,
+		},
+	}
+	if req.Msg.Role != nil {
+		spec.Role = domain.NodeRole{
+			Compute:      req.Msg.Role.Compute,
+			Storage:      req.Msg.Role.Storage,
+			ControlPlane: req.Msg.Role.ControlPlane,
+		}
+	}
+
+	// Populate CPU info from request
+	if req.Msg.CpuInfo != nil {
+		spec.CPU = domain.NodeCPUInfo{
+			Model:          req.Msg.CpuInfo.Model,
+			Sockets:        int32(req.Msg.CpuInfo.Sockets),
+			CoresPerSocket: int32(req.Msg.CpuInfo.CoresPerSocket),
+			ThreadsPerCore: int32(req.Msg.CpuInfo.ThreadsPerCore),
+			FrequencyMHz:   int32(req.Msg.CpuInfo.FrequencyMhz),
+			Features:       req.Msg.CpuInfo.Features,
+		}
+		logger.Info("CPU info received",
+			zap.String("model", spec.CPU.Model),
+			zap.Int32("cores", spec.CPU.TotalCores()),
+		)
+	}
+
+	// Populate memory info from request
+	if req.Msg.MemoryInfo != nil {
+		spec.Memory = domain.NodeMemoryInfo{
+			TotalMiB:       int64(req.Msg.MemoryInfo.TotalBytes / 1024 / 1024),
+			AllocatableMiB: int64(req.Msg.MemoryInfo.AllocatableBytes / 1024 / 1024),
+		}
+		logger.Info("Memory info received",
+			zap.Int64("total_mib", spec.Memory.TotalMiB),
+			zap.Int64("allocatable_mib", spec.Memory.AllocatableMiB),
+		)
+	}
+
+	// Calculate allocatable resources for scheduling
+	allocatable := domain.Resources{
+		CPUCores:  spec.CPU.TotalCores(),
+		MemoryMiB: spec.Memory.AllocatableMiB,
+	}
+	if allocatable.MemoryMiB == 0 {
+		allocatable.MemoryMiB = spec.Memory.TotalMiB
+	}
+
 	// Check if node already exists (re-registration)
 	existing, err := s.repo.GetByHostname(ctx, req.Msg.Hostname)
 	if err == nil && existing != nil {
-		// Update existing node
+		// Update existing node with new info
 		existing.ManagementIP = req.Msg.ManagementIp
 		existing.Labels = req.Msg.Labels
-		if req.Msg.Role != nil {
-			existing.Spec.Role = domain.NodeRole{
-				Compute:      req.Msg.Role.Compute,
-				Storage:      req.Msg.Role.Storage,
-				ControlPlane: req.Msg.Role.ControlPlane,
-			}
-		}
+		existing.Spec = spec
 		existing.Status.Phase = domain.NodePhaseReady
+		existing.Status.Allocatable = allocatable
 		existing.LastHeartbeat = &now
 
 		updated, err := s.repo.Update(ctx, existing)
@@ -89,19 +135,11 @@ func (s *Service) RegisterNode(
 
 		logger.Info("Node re-registered",
 			zap.String("node_id", updated.ID),
+			zap.Int32("cpu_cores", spec.CPU.TotalCores()),
+			zap.Int64("memory_mib", spec.Memory.TotalMiB),
 		)
 
 		return connect.NewResponse(ToProto(updated)), nil
-	}
-
-	// Build node spec from request
-	spec := domain.NodeSpec{}
-	if req.Msg.Role != nil {
-		spec.Role = domain.NodeRole{
-			Compute:      req.Msg.Role.Compute,
-			Storage:      req.Msg.Role.Storage,
-			ControlPlane: req.Msg.Role.ControlPlane,
-		}
 	}
 
 	// Create new node
@@ -111,7 +149,9 @@ func (s *Service) RegisterNode(
 		Labels:       req.Msg.Labels,
 		Spec:         spec,
 		Status: domain.NodeStatus{
-			Phase: domain.NodePhaseReady,
+			Phase:       domain.NodePhaseReady,
+			Allocatable: allocatable,
+			Allocated:   domain.Resources{}, // Initially nothing allocated
 		},
 		CreatedAt:     now,
 		UpdatedAt:     now,
@@ -129,6 +169,8 @@ func (s *Service) RegisterNode(
 
 	logger.Info("Node registered successfully",
 		zap.String("node_id", created.ID),
+		zap.Int32("cpu_cores", spec.CPU.TotalCores()),
+		zap.Int64("memory_mib", spec.Memory.TotalMiB),
 	)
 
 	return connect.NewResponse(ToProto(created)), nil

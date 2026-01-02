@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -15,23 +15,23 @@ import {
   HardDrive,
   User,
   FileText,
-  Calendar,
-  Clock,
-  Info,
   Plus,
   Trash2,
   Edit,
   CheckCircle,
   AlertCircle,
   MemoryStick,
-  Zap,
   Loader2,
+  RefreshCw,
+  WifiOff,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { mockNodes, mockStoragePools } from '@/data/mock-data';
+import { mockStoragePools } from '@/data/mock-data';
 import { useCreateVM } from '@/hooks/useVMs';
+import { useNodes, type ApiNode } from '@/hooks/useNodes';
+import { useNetworks, type ApiVirtualNetwork } from '@/hooks/useNetworks';
 
 interface VMCreationWizardProps {
   onClose: () => void;
@@ -107,14 +107,8 @@ const STEPS = [
   { id: 'review', label: 'Review', icon: FileText },
 ];
 
-// Mock data for dropdowns
-const mockClusters = [
-  { id: 'cluster-prod', name: 'Production Cluster', hosts: ['node-001', 'node-002'] },
-  { id: 'cluster-dev', name: 'Development Cluster', hosts: ['node-003'] },
-  { id: 'cluster-gpu', name: 'GPU Cluster', hosts: ['node-004'] },
-];
-
-const mockFolders = [
+// Static data (folders, ISOs, custom specs don't have backend APIs yet)
+const staticFolders = [
   { id: 'folder-root', name: '/', path: '/' },
   { id: 'folder-prod', name: 'Production', path: '/Production' },
   { id: 'folder-dev', name: 'Development', path: '/Development' },
@@ -123,14 +117,7 @@ const mockFolders = [
   { id: 'folder-db', name: 'Databases', path: '/Production/Databases' },
 ];
 
-const mockNetworks = [
-  { id: 'net-mgmt', name: 'Management Network', type: 'QuantrixSwitch' },
-  { id: 'net-prod', name: 'Production VLAN 100', type: 'QuantrixSwitch' },
-  { id: 'net-dev', name: 'Development VLAN 200', type: 'QuantrixSwitch' },
-  { id: 'net-storage', name: 'Storage Network', type: 'QuantrixSwitch' },
-];
-
-const mockISOs = [
+const staticISOs = [
   { id: 'iso-ubuntu22', name: 'Ubuntu 22.04 LTS', size: '1.2 GB' },
   { id: 'iso-ubuntu24', name: 'Ubuntu 24.04 LTS', size: '1.4 GB' },
   { id: 'iso-rocky9', name: 'Rocky Linux 9.3', size: '1.8 GB' },
@@ -139,12 +126,19 @@ const mockISOs = [
   { id: 'iso-debian12', name: 'Debian 12 Bookworm', size: '650 MB' },
 ];
 
-const mockCustomSpecs = [
+const staticCustomSpecs = [
   { id: 'spec-linux-default', name: 'Linux Default', os: 'Linux' },
   { id: 'spec-windows-default', name: 'Windows Default', os: 'Windows' },
   { id: 'spec-ubuntu-server', name: 'Ubuntu Server Hardened', os: 'Linux' },
   { id: 'spec-custom', name: 'Create New...', os: 'any' },
 ];
+
+// Fallback network when API returns empty
+const fallbackNetwork = {
+  id: 'default',
+  name: 'Default Network',
+  type: 'bridge',
+};
 
 const initialFormData: VMCreationData = {
   name: '',
@@ -182,6 +176,51 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
 
   // API mutation for creating VMs
   const createVM = useCreateVM();
+
+  // Fetch real data from APIs
+  const { data: nodesData, isLoading: nodesLoading, error: nodesError, refetch: refetchNodes } = useNodes();
+  const { data: networksData, isLoading: networksLoading } = useNetworks();
+
+  // Process nodes into a format usable by the wizard
+  const nodes = useMemo(() => {
+    if (!nodesData?.nodes?.length) return [];
+    return nodesData.nodes.map((node: ApiNode) => ({
+      id: node.id,
+      hostname: node.hostname,
+      managementIp: node.managementIp,
+      phase: node.status?.phase || 'UNKNOWN',
+      cpuAllocated: node.status?.allocation?.cpuAllocated || 0,
+      cpuCapacity: node.status?.allocation?.cpuCapacity || (node.spec?.cpu?.coresPerSocket || 1) * (node.spec?.cpu?.sockets || 1),
+      memoryAllocatedMib: node.status?.allocation?.memoryAllocatedMib || 0,
+      memoryCapacityMib: node.status?.allocation?.memoryCapacityMib || node.spec?.memory?.totalMib || 0,
+    }));
+  }, [nodesData]);
+
+  // Process networks into a format usable by the wizard
+  const networks = useMemo(() => {
+    if (!networksData?.networks?.length) {
+      return [fallbackNetwork]; // Fallback if no networks
+    }
+    return networksData.networks.map((net: ApiVirtualNetwork) => ({
+      id: net.id,
+      name: net.name,
+      type: net.spec?.type || 'overlay',
+    }));
+  }, [networksData]);
+
+  // Generate "clusters" from nodes (group by label or create a default cluster)
+  const clusters = useMemo(() => {
+    if (!nodes.length) {
+      return [{ id: 'default', name: 'Default Cluster', hostIds: [] as string[] }];
+    }
+    // For now, put all nodes in a single cluster
+    // In the future, this could group by node labels
+    return [{
+      id: 'default',
+      name: 'Default Cluster',
+      hostIds: nodes.map(n => n.id),
+    }];
+  }, [nodes]);
 
   // Reset form when mounted
   useEffect(() => {
@@ -232,6 +271,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
       case 0: // Basic Info
         return formData.name.trim().length > 0;
       case 1: // Placement
+        // If no nodes available, allow skipping (will use auto-placement)
+        if (nodes.length === 0) return true;
         return formData.clusterId !== '' && (formData.autoPlacement || formData.hostId !== '');
       case 2: // Folder
         return formData.folderId !== '';
@@ -383,7 +424,15 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                 <StepBasicInfo formData={formData} updateFormData={updateFormData} />
               )}
               {currentStep === 1 && (
-                <StepPlacement formData={formData} updateFormData={updateFormData} />
+                <StepPlacement 
+                  formData={formData} 
+                  updateFormData={updateFormData}
+                  clusters={clusters}
+                  nodes={nodes}
+                  isLoading={nodesLoading}
+                  error={nodesError}
+                  onRefresh={refetchNodes}
+                />
               )}
               {currentStep === 2 && (
                 <StepFolder formData={formData} updateFormData={updateFormData} />
@@ -392,7 +441,12 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                 <StepCustomization formData={formData} updateFormData={updateFormData} />
               )}
               {currentStep === 4 && (
-                <StepHardware formData={formData} updateFormData={updateFormData} />
+                <StepHardware 
+                  formData={formData} 
+                  updateFormData={updateFormData}
+                  networks={networks}
+                  isLoading={networksLoading}
+                />
               )}
               {currentStep === 5 && (
                 <StepISO formData={formData} updateFormData={updateFormData} />
@@ -403,7 +457,13 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
               {currentStep === 7 && (
                 <StepUserInfo formData={formData} updateFormData={updateFormData} />
               )}
-              {currentStep === 8 && <StepReview formData={formData} />}
+              {currentStep === 8 && (
+                <StepReview 
+                  formData={formData} 
+                  clusters={clusters}
+                  nodes={nodes}
+                />
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -552,17 +612,57 @@ function StepBasicInfo({
   );
 }
 
+interface ProcessedNode {
+  id: string;
+  hostname: string;
+  managementIp: string;
+  phase: string;
+  cpuAllocated: number;
+  cpuCapacity: number;
+  memoryAllocatedMib: number;
+  memoryCapacityMib: number;
+}
+
+interface ProcessedCluster {
+  id: string;
+  name: string;
+  hostIds: string[];
+}
+
+interface ProcessedNetwork {
+  id: string;
+  name: string;
+  type: string;
+}
+
 function StepPlacement({
   formData,
   updateFormData,
+  clusters,
+  nodes,
+  isLoading,
+  error,
+  onRefresh,
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
+  clusters: ProcessedCluster[];
+  nodes: ProcessedNode[];
+  isLoading: boolean;
+  error: Error | null;
+  onRefresh: () => void;
 }) {
-  const selectedCluster = mockClusters.find((c) => c.id === formData.clusterId);
+  const selectedCluster = clusters.find((c) => c.id === formData.clusterId);
   const availableHosts = selectedCluster
-    ? mockNodes.filter((n) => selectedCluster.hosts.includes(n.id))
-    : [];
+    ? nodes.filter((n) => selectedCluster.hostIds.includes(n.id))
+    : nodes; // If no cluster selected, show all nodes
+
+  // Auto-select first cluster if only one exists
+  useEffect(() => {
+    if (clusters.length === 1 && !formData.clusterId) {
+      updateFormData({ clusterId: clusters[0].id });
+    }
+  }, [clusters, formData.clusterId, updateFormData]);
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -571,104 +671,166 @@ function StepPlacement({
         <p className="text-text-muted mt-1">Select where this VM will run</p>
       </div>
 
-      <FormField label="Cluster" required>
-        <select
-          value={formData.clusterId}
-          onChange={(e) => updateFormData({ clusterId: e.target.value, hostId: '' })}
-          className="form-select"
-        >
-          <option value="">Select a cluster...</option>
-          {mockClusters.map((cluster) => (
-            <option key={cluster.id} value={cluster.id}>
-              {cluster.name} ({cluster.hosts.length} hosts)
-            </option>
-          ))}
-        </select>
-      </FormField>
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-accent mr-2" />
+          <span className="text-text-muted">Loading hosts...</span>
+        </div>
+      )}
 
-      {formData.clusterId && (
-        <>
-          <FormField label="Host Placement">
-            <div className="space-y-3">
-              <label className="flex items-center gap-3 p-3 rounded-lg bg-bg-base border border-border cursor-pointer hover:border-accent transition-colors">
-                <input
-                  type="radio"
-                  name="autoPlacement"
-                  checked={formData.autoPlacement}
-                  onChange={() => updateFormData({ autoPlacement: true, hostId: '' })}
-                  className="form-radio"
-                />
-                <div className="flex-1">
-                  <span className="text-sm font-medium text-text-primary">Automatic Placement</span>
-                  <p className="text-xs text-text-muted mt-0.5">
-                    Let the scheduler choose the best host based on resource availability
-                  </p>
-                </div>
-                <Badge variant="info">Recommended</Badge>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 rounded-lg bg-bg-base border border-border cursor-pointer hover:border-accent transition-colors">
-                <input
-                  type="radio"
-                  name="autoPlacement"
-                  checked={!formData.autoPlacement}
-                  onChange={() => updateFormData({ autoPlacement: false })}
-                  className="form-radio"
-                />
-                <div className="flex-1">
-                  <span className="text-sm font-medium text-text-primary">Manual Selection</span>
-                  <p className="text-xs text-text-muted mt-0.5">Choose a specific host for this VM</p>
-                </div>
-              </label>
+      {/* Error state */}
+      {error && !isLoading && (
+        <div className="p-4 rounded-lg bg-error/10 border border-error/30">
+          <div className="flex items-center gap-3">
+            <WifiOff className="w-5 h-5 text-error" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-error">Failed to load hosts</p>
+              <p className="text-xs text-text-muted mt-0.5">{error.message}</p>
             </div>
+            <Button variant="ghost" size="sm" onClick={() => onRefresh()}>
+              <RefreshCw className="w-4 h-4" />
+              Retry
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* No hosts available */}
+      {!isLoading && !error && nodes.length === 0 && (
+        <div className="p-4 rounded-lg bg-warning/10 border border-warning/30">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-warning" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-warning">No hosts available</p>
+              <p className="text-xs text-text-muted mt-0.5">
+                Register a node daemon to create VMs. Run limiquantix-node on a Linux host with KVM.
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => onRefresh()}>
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Cluster selection */}
+      {!isLoading && nodes.length > 0 && (
+        <>
+          <FormField label="Cluster" required>
+            <select
+              value={formData.clusterId}
+              onChange={(e) => updateFormData({ clusterId: e.target.value, hostId: '' })}
+              className="form-select"
+            >
+              <option value="">Select a cluster...</option>
+              {clusters.map((cluster) => (
+                <option key={cluster.id} value={cluster.id}>
+                  {cluster.name} ({cluster.hostIds.length} hosts)
+                </option>
+              ))}
+            </select>
           </FormField>
 
-          {!formData.autoPlacement && (
-            <FormField label="Select Host" required>
-              <div className="grid gap-2">
-                {availableHosts.map((host) => {
-                  const cpuPercent = Math.round(
-                    (host.status.resources.cpuAllocatedCores / host.spec.cpu.totalCores) * 100
-                  );
-                  const memPercent = Math.round(
-                    (host.status.resources.memoryAllocatedBytes / host.spec.memory.totalBytes) * 100
-                  );
+          {formData.clusterId && (
+            <>
+              <FormField label="Host Placement">
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 p-3 rounded-lg bg-bg-base border border-border cursor-pointer hover:border-accent transition-colors">
+                    <input
+                      type="radio"
+                      name="autoPlacement"
+                      checked={formData.autoPlacement}
+                      onChange={() => updateFormData({ autoPlacement: true, hostId: '' })}
+                      className="form-radio"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-text-primary">Automatic Placement</span>
+                      <p className="text-xs text-text-muted mt-0.5">
+                        Let the scheduler choose the best host based on resource availability
+                      </p>
+                    </div>
+                    <Badge variant="info">Recommended</Badge>
+                  </label>
 
-                  return (
-                    <label
-                      key={host.id}
-                      className={cn(
-                        'flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-all',
-                        formData.hostId === host.id
-                          ? 'bg-accent/10 border-accent'
-                          : 'bg-bg-base border-border hover:border-accent/50',
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        name="hostId"
-                        checked={formData.hostId === host.id}
-                        onChange={() => updateFormData({ hostId: host.id })}
-                        className="form-radio"
-                      />
-                      <Server className="w-5 h-5 text-text-muted" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-text-primary">{host.hostname}</p>
-                        <p className="text-xs text-text-muted">{host.managementIp}</p>
-                      </div>
-                      <div className="text-right text-xs">
-                        <p className="text-text-muted">
-                          CPU: <span className={cpuPercent > 80 ? 'text-error' : 'text-text-secondary'}>{cpuPercent}%</span>
-                        </p>
-                        <p className="text-text-muted">
-                          RAM: <span className={memPercent > 80 ? 'text-error' : 'text-text-secondary'}>{memPercent}%</span>
-                        </p>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </FormField>
+                  <label className="flex items-center gap-3 p-3 rounded-lg bg-bg-base border border-border cursor-pointer hover:border-accent transition-colors">
+                    <input
+                      type="radio"
+                      name="autoPlacement"
+                      checked={!formData.autoPlacement}
+                      onChange={() => updateFormData({ autoPlacement: false })}
+                      className="form-radio"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-text-primary">Manual Selection</span>
+                      <p className="text-xs text-text-muted mt-0.5">Choose a specific host for this VM</p>
+                    </div>
+                  </label>
+                </div>
+              </FormField>
+
+              {!formData.autoPlacement && (
+                <FormField label="Select Host" required>
+                  <div className="grid gap-2">
+                    {availableHosts.length === 0 && (
+                      <p className="text-sm text-text-muted py-4 text-center">No hosts available in this cluster</p>
+                    )}
+                    {availableHosts.map((host) => {
+                      const cpuPercent = host.cpuCapacity > 0 
+                        ? Math.round((host.cpuAllocated / host.cpuCapacity) * 100)
+                        : 0;
+                      const memPercent = host.memoryCapacityMib > 0
+                        ? Math.round((host.memoryAllocatedMib / host.memoryCapacityMib) * 100)
+                        : 0;
+                      const isReady = host.phase === 'READY' || host.phase === 'NODE_PHASE_READY';
+
+                      return (
+                        <label
+                          key={host.id}
+                          className={cn(
+                            'flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-all',
+                            formData.hostId === host.id
+                              ? 'bg-accent/10 border-accent'
+                              : 'bg-bg-base border-border hover:border-accent/50',
+                            !isReady && 'opacity-50',
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name="hostId"
+                            checked={formData.hostId === host.id}
+                            onChange={() => updateFormData({ hostId: host.id })}
+                            className="form-radio"
+                            disabled={!isReady}
+                          />
+                          <Server className="w-5 h-5 text-text-muted" />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-text-primary">{host.hostname}</p>
+                              {isReady ? (
+                                <Badge variant="success" className="text-xs">Ready</Badge>
+                              ) : (
+                                <Badge variant="warning" className="text-xs">{host.phase}</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-text-muted">{host.managementIp}</p>
+                          </div>
+                          <div className="text-right text-xs">
+                            <p className="text-text-muted">
+                              CPU: <span className={cpuPercent > 80 ? 'text-error' : 'text-text-secondary'}>{cpuPercent}%</span>
+                            </p>
+                            <p className="text-text-muted">
+                              RAM: <span className={memPercent > 80 ? 'text-error' : 'text-text-secondary'}>{memPercent}%</span>
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </FormField>
+              )}
+            </>
           )}
         </>
       )}
@@ -692,7 +854,7 @@ function StepFolder({
 
       <FormField label="Folder" required>
         <div className="grid gap-2">
-          {mockFolders.map((folder) => (
+          {staticFolders.map((folder) => (
             <label
               key={folder.id}
               className={cn(
@@ -766,7 +928,7 @@ function StepCustomization({
           className="form-select"
         >
           <option value="">None - Configure manually after creation</option>
-          {mockCustomSpecs.map((spec) => (
+          {staticCustomSpecs.map((spec) => (
             <option key={spec.id} value={spec.id}>
               {spec.name} ({spec.os})
             </option>
@@ -811,15 +973,20 @@ function StepCustomization({
 function StepHardware({
   formData,
   updateFormData,
+  networks,
+  isLoading,
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
+  networks: ProcessedNetwork[];
+  isLoading: boolean;
 }) {
   const addNIC = () => {
+    const defaultNetwork = networks[0] || { id: 'default', name: 'Default Network' };
     const newNic: NetworkInterface = {
       id: `nic-${Date.now()}`,
-      networkId: 'net-prod',
-      networkName: 'Production VLAN 100',
+      networkId: defaultNetwork.id,
+      networkName: defaultNetwork.name,
       connected: true,
     };
     updateFormData({ nics: [...formData.nics, newNic] });
@@ -954,19 +1121,24 @@ function StepHardware({
               <select
                 value={nic.networkId}
                 onChange={(e) => {
-                  const network = mockNetworks.find((n) => n.id === e.target.value);
+                  const network = networks.find((n) => n.id === e.target.value);
                   updateNIC(nic.id, {
                     networkId: e.target.value,
                     networkName: network?.name || '',
                   });
                 }}
                 className="form-select flex-1"
+                disabled={isLoading}
               >
-                {mockNetworks.map((net) => (
-                  <option key={net.id} value={net.id}>
-                    {net.name} ({net.type})
-                  </option>
-                ))}
+                {isLoading ? (
+                  <option>Loading networks...</option>
+                ) : (
+                  networks.map((net) => (
+                    <option key={net.id} value={net.id}>
+                      {net.name} ({net.type})
+                    </option>
+                  ))
+                )}
               </select>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -1031,7 +1203,7 @@ function StepISO({
             </div>
           </label>
 
-          {mockISOs.map((iso) => (
+          {staticISOs.map((iso) => (
             <label
               key={iso.id}
               className={cn(
@@ -1161,7 +1333,7 @@ function StepStorage({
         </div>
 
         <div className="space-y-3">
-          {formData.disks.map((disk, index) => (
+          {formData.disks.map((disk) => (
             <div
               key={disk.id}
               className="flex items-center gap-4 p-3 rounded-lg bg-bg-surface border border-border"
@@ -1304,12 +1476,20 @@ function StepUserInfo({
   );
 }
 
-function StepReview({ formData }: { formData: VMCreationData }) {
-  const selectedCluster = mockClusters.find((c) => c.id === formData.clusterId);
-  const selectedHost = mockNodes.find((n) => n.id === formData.hostId);
-  const selectedFolder = mockFolders.find((f) => f.id === formData.folderId);
+function StepReview({ 
+  formData,
+  clusters,
+  nodes,
+}: { 
+  formData: VMCreationData;
+  clusters: ProcessedCluster[];
+  nodes: ProcessedNode[];
+}) {
+  const selectedCluster = clusters.find((c) => c.id === formData.clusterId);
+  const selectedHost = nodes.find((n) => n.id === formData.hostId);
+  const selectedFolder = staticFolders.find((f) => f.id === formData.folderId);
   const selectedPool = mockStoragePools.find((p) => p.id === formData.storagePoolId);
-  const selectedISO = mockISOs.find((i) => i.id === formData.isoId);
+  const selectedISO = staticISOs.find((i) => i.id === formData.isoId);
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">

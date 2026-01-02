@@ -1,14 +1,20 @@
 # 000015 - VM Creation Wizard Documentation
 
 **Created**: 2026-01-01  
+**Updated**: 2026-01-02  
 **Component**: `/frontend/src/components/vm/VMCreationWizard.tsx`  
-**Status**: Implemented
+**Status**: Implemented with Real API Integration
 
 ---
 
 ## Overview
 
 The VM Creation Wizard is a comprehensive multi-step modal for creating new virtual machines. It guides users through 9 steps to configure all aspects of a VM before creation.
+
+**Key Feature:** The wizard fetches real data from the backend API for:
+- **Nodes/Hosts:** Fetched via `useNodes()` hook from NodeService API
+- **Networks:** Fetched via `useNetworks()` hook from VirtualNetworkService API
+- **VM Creation:** Submitted via `useCreateVM()` mutation to VMService API
 
 ---
 
@@ -228,15 +234,48 @@ Right-click on "Virtual Machines" opens context menu with "Create Virtual Machin
 
 ---
 
-## Mock Data
+## Data Sources
 
-The wizard uses mock data for:
-- **Clusters**: Production, Development, GPU
-- **Folders**: Root, Production, Development, Testing, etc.
-- **Networks**: Management, Production VLAN 100, Development VLAN 200, Storage
-- **ISOs**: Ubuntu, Rocky Linux, Windows Server, Debian
-- **Custom Specs**: Linux/Windows defaults
-- **Storage Pools**: From `mockStoragePools`
+### Real API Data (Live from Backend)
+
+| Data Type | API Hook | Backend Service | Fallback |
+|-----------|----------|-----------------|----------|
+| **Nodes/Hosts** | `useNodes()` | `NodeService.ListNodes` | Shows "No hosts available" message |
+| **Networks** | `useNetworks()` | `VirtualNetworkService.ListVirtualNetworks` | Default network placeholder |
+| **VM Creation** | `useCreateVM()` | `VMService.CreateVM` | Error displayed in wizard |
+
+### Static Data (No Backend API Yet)
+
+| Data Type | Source | Notes |
+|-----------|--------|-------|
+| **Folders** | `staticFolders` | Hardcoded until folder service implemented |
+| **ISOs** | `staticISOs` | Hardcoded until ISO library service implemented |
+| **Custom Specs** | `staticCustomSpecs` | Hardcoded guest customization templates |
+| **Storage Pools** | `mockStoragePools` | Uses mock data until StoragePoolService implemented |
+
+### Clusters
+
+Clusters are dynamically generated from available nodes. Currently all nodes are grouped into a "Default Cluster". Future enhancement: group nodes by labels.
+
+---
+
+## API Integration
+
+### Loading States
+
+The wizard shows loading indicators when fetching:
+- A spinner with "Loading hosts..." on the Placement step
+- Disabled network dropdown with "Loading networks..." on the Hardware step
+
+### Error Handling
+
+- **No hosts available:** Warning message with instructions to register a node daemon
+- **API errors:** Error banner with retry button
+- **VM creation failure:** Error message shown in footer
+
+### Refresh Capability
+
+Users can refresh the hosts list if the API call failed or if a new node was just registered.
 
 ---
 
@@ -254,14 +293,17 @@ The wizard uses mock data for:
 
 ## Future Enhancements
 
-1. Form validation with error messages
-2. Integration with gRPC backend
-3. Template-based quick creation
-4. Clone from existing VM option
-5. Import from OVF/OVA
-6. Advanced CPU features (NUMA, CPU model)
-7. GPU passthrough configuration
-8. TPM and secure boot options
-9. Custom provisioning scripts
-10. Real-time cluster resource availability
+1. ~~Integration with gRPC backend~~ ✅ **Implemented**
+2. ~~Real-time cluster resource availability~~ ✅ **Implemented** (nodes show CPU/RAM usage)
+3. Form validation with inline error messages
+4. Template-based quick creation
+5. Clone from existing VM option
+6. Import from OVF/OVA
+7. Advanced CPU features (NUMA, CPU model)
+8. GPU passthrough configuration
+9. TPM and secure boot options
+10. Custom provisioning scripts
+11. ISO library service integration
+12. Storage pool service integration
+13. Folder/organization service integration
 

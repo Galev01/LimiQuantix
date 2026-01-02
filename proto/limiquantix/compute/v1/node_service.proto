@@ -109,6 +109,12 @@ message RegisterNodeRequest {
   
   // Agent endpoint for verification
   string agent_endpoint = 6;
+  
+  // CPU information from telemetry
+  CpuInfo cpu_info = 7;
+  
+  // Memory information from telemetry
+  MemoryInfo memory_info = 8;
 }
 
 // GetNode
