@@ -353,19 +353,51 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         // Process NICs
         for nic_spec in spec.nics {
+            // Determine bridge vs network mode
+            // If the network name looks like a mock ID (starts with "net-" or is a UUID),
+            // fall back to the default libvirt "default" network or virbr0 bridge
+            let (bridge, network) = if !nic_spec.bridge.is_empty() {
+                // Explicit bridge specified
+                (Some(nic_spec.bridge.clone()), None)
+            } else if !nic_spec.network.is_empty() {
+                // Check if it's a mock/unknown network
+                let net_name = &nic_spec.network;
+                if net_name.starts_with("net-") || net_name.contains('-') && net_name.len() > 30 {
+                    // Looks like a mock network ID or UUID - use default libvirt network
+                    info!(
+                        nic_id = %nic_spec.id,
+                        requested_network = %net_name,
+                        "Using 'default' libvirt network (requested network not available locally)"
+                    );
+                    (None, Some("default".to_string()))
+                } else {
+                    // Use the provided network name (could be "default", "isolated", etc.)
+                    (None, Some(net_name.clone()))
+                }
+            } else {
+                // No bridge or network specified - use default virbr0 bridge
+                (Some("virbr0".to_string()), None)
+            };
+            
             let nic_config = NicConfig {
                 id: nic_spec.id,
                 mac_address: if nic_spec.mac_address.is_empty() { None } else { Some(nic_spec.mac_address) },
-                bridge: if nic_spec.bridge.is_empty() { None } else { Some(nic_spec.bridge) },
-                network: if nic_spec.network.is_empty() { None } else { Some(nic_spec.network) },
+                bridge,
+                network,
                 model: Self::convert_nic_model(nic_spec.model),
             };
             config.nics.push(nic_config);
         }
         
-        // If no NICs specified, add a default one connected to virbr0
+        // If no NICs specified, add a default one connected to the default libvirt network
         if config.nics.is_empty() {
-            config.nics.push(NicConfig::default());
+            config.nics.push(NicConfig {
+                id: "nic0".to_string(),
+                mac_address: None,
+                bridge: None,
+                network: Some("default".to_string()),
+                model: NicModel::Virtio,
+            });
         }
         
         // Process CD-ROMs
