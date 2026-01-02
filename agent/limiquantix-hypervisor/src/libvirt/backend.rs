@@ -106,9 +106,7 @@ impl Hypervisor for LibvirtBackend {
         
         // Define the domain (persistent)
         let domain = Domain::define_xml(&self.connection, &xml)
-            .map_err(|e| HypervisorError::CreateFailed(
-                e.to_string())
-)?;
+            .map_err(|e| HypervisorError::CreateFailed(e.to_string()))?;
         
         let uuid = domain.get_uuid_string()
             .map_err(|e| HypervisorError::Internal(e.to_string()))?;
@@ -125,10 +123,7 @@ impl Hypervisor for LibvirtBackend {
         let domain = self.get_domain(vm_id)?;
         
         domain.create()
-            .map_err(|e| HypervisorError::StartFailed(
-                
-                e.to_string())
-)?;
+            .map_err(|e| HypervisorError::StartFailed(e.to_string()))?;
         
         info!("VM started");
         Ok(())
@@ -142,10 +137,7 @@ impl Hypervisor for LibvirtBackend {
         
         // Send ACPI shutdown
         domain.shutdown()
-            .map_err(|e| HypervisorError::StopFailed(
-                
-                e.to_string())
-)?;
+            .map_err(|e| HypervisorError::StopFailed(e.to_string()))?;
         
         // Wait for shutdown with timeout
         let start = std::time::Instant::now();
@@ -163,9 +155,8 @@ impl Hypervisor for LibvirtBackend {
         
         warn!("Graceful shutdown timed out");
         Err(HypervisorError::StopFailed(
-            
-            "Timeout waiting for graceful shutdown".to_string())
-        })
+            "Timeout waiting for graceful shutdown".to_string()
+        ))
     }
     
     #[instrument(skip(self), fields(vm_id = %vm_id))]
@@ -175,10 +166,7 @@ impl Hypervisor for LibvirtBackend {
         let domain = self.get_domain(vm_id)?;
         
         domain.destroy()
-            .map_err(|e| HypervisorError::StopFailed(
-                
-                e.to_string())
-)?;
+            .map_err(|e| HypervisorError::StopFailed(e.to_string()))?;
         
         info!("VM force stopped");
         Ok(())
@@ -235,17 +223,15 @@ impl Hypervisor for LibvirtBackend {
         
         if state == sys::VIR_DOMAIN_RUNNING || state == sys::VIR_DOMAIN_PAUSED {
             return Err(HypervisorError::DeleteFailed(
-                
-                "VM must be stopped before deletion".to_string())
-    );
+                "VM must be stopped before deletion".to_string()
+            ));
         }
         
         // Undefine the domain
         domain.undefine()
             .map_err(|e| HypervisorError::DeleteFailed(
-                
-                e.to_string())
-)?;
+                e.to_string()
+            ))?;
         
         info!("VM deleted");
         Ok(())
@@ -298,7 +284,7 @@ impl Hypervisor for LibvirtBackend {
                 id,
                 name,
                 state: Self::state_from_libvirt(state),
-    );
+            });
         }
         
         debug!(count = vms.len(), "Listed VMs");
@@ -361,10 +347,7 @@ impl Hypervisor for LibvirtBackend {
         );
         
         let snapshot = domain.snapshot_create_xml(&snap_xml, 0)
-            .map_err(|e| HypervisorError::SnapshotFailed(
-                
-                e.to_string())
-)?;
+            .map_err(|e| HypervisorError::SnapshotFailed(e.to_string()))?;
         
         let snap_name = snapshot.get_name()
             .map_err(|e| HypervisorError::Internal(e.to_string()))?;
@@ -388,16 +371,10 @@ impl Hypervisor for LibvirtBackend {
         let domain = self.get_domain(vm_id)?;
         
         let snapshot = domain.snapshot_lookup_by_name(snapshot_id, 0)
-            .map_err(|e| HypervisorError::SnapshotNotFound(
-                
-                e.to_string())
-)?;
+            .map_err(|e| HypervisorError::SnapshotNotFound(e.to_string()))?;
         
         snapshot.revert(0)
-            .map_err(|e| HypervisorError::SnapshotFailed(
-                
-                e.to_string())
-)?;
+            .map_err(|e| HypervisorError::SnapshotFailed(e.to_string()))?;
         
         info!("Reverted to snapshot");
         Ok(())
@@ -410,16 +387,10 @@ impl Hypervisor for LibvirtBackend {
         let domain = self.get_domain(vm_id)?;
         
         let snapshot = domain.snapshot_lookup_by_name(snapshot_id, 0)
-            .map_err(|e| HypervisorError::SnapshotNotFound(
-                
-                e.to_string())
-)?;
+            .map_err(|e| HypervisorError::SnapshotNotFound(e.to_string()))?;
         
         snapshot.delete(0)
-            .map_err(|e| HypervisorError::SnapshotFailed(
-                
-                e.to_string())
-)?;
+            .map_err(|e| HypervisorError::SnapshotFailed(e.to_string()))?;
         
         info!("Snapshot deleted");
         Ok(())
@@ -448,7 +419,7 @@ impl Hypervisor for LibvirtBackend {
                 created_at: chrono::Utc::now(), // Would need XML parsing
                 vm_state: Self::state_from_libvirt(state),
                 parent_id: None,
-    );
+            });
         }
         
         Ok(result)
@@ -513,8 +484,8 @@ impl Hypervisor for LibvirtBackend {
             format!("<source network='{}'/>", network)
         } else {
             return Err(HypervisorError::InvalidConfig(
-                "NIC must have either bridge or network".to_string())
-    );
+                "NIC must have either bridge or network".to_string()
+            ));
         };
         
         let nic_xml = format!(
@@ -568,15 +539,11 @@ impl Hypervisor for LibvirtBackend {
         // Connect to target
         let target_conn = Connect::open(Some(target_uri))
             .map_err(|e| HypervisorError::MigrationFailed(
-                
-                format!("Failed to connect to target: {}", e),
-)?;
+                format!("Failed to connect to target: {}", e)
+            ))?;
         
         domain.migrate(&target_conn, flags, None, None, 0)
-            .map_err(|e| HypervisorError::MigrationFailed(
-                
-                e.to_string())
-)?;
+            .map_err(|e| HypervisorError::MigrationFailed(e.to_string()))?;
         
         info!("VM migrated successfully");
         Ok(())

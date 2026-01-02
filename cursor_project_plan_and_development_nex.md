@@ -34984,7 +34984,7 @@ Set-VMProcessor -VMName "LimiQuantix-Dev" -ExposeVirtualizationExtensions $true
 │  │   • Test VM lifecycle, snapshots, console                 │ │
 │  │                                                            │ │
 │  │   cargo run --bin limiquantix-node --features libvirt     │ │
-│  │   --control-plane http://YOUR_MAC_IP:8080 --register      │ │
+│  │   --control-plane http://YOUR_WIN_IP:8080 --register      │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
