@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             (unknown)
-// source: Quantixkvm/storage/v1/storage_service.proto
+// source: limiquantix/storage/v1/storage_service.proto
 
 package storagev1
 
@@ -21,12 +21,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	StoragePoolService_CreatePool_FullMethodName     = "/Quantixkvm.storage.v1.StoragePoolService/CreatePool"
-	StoragePoolService_GetPool_FullMethodName        = "/Quantixkvm.storage.v1.StoragePoolService/GetPool"
-	StoragePoolService_ListPools_FullMethodName      = "/Quantixkvm.storage.v1.StoragePoolService/ListPools"
-	StoragePoolService_UpdatePool_FullMethodName     = "/Quantixkvm.storage.v1.StoragePoolService/UpdatePool"
-	StoragePoolService_DeletePool_FullMethodName     = "/Quantixkvm.storage.v1.StoragePoolService/DeletePool"
-	StoragePoolService_GetPoolMetrics_FullMethodName = "/Quantixkvm.storage.v1.StoragePoolService/GetPoolMetrics"
+	StoragePoolService_CreatePool_FullMethodName     = "/limiquantix.storage.v1.StoragePoolService/CreatePool"
+	StoragePoolService_GetPool_FullMethodName        = "/limiquantix.storage.v1.StoragePoolService/GetPool"
+	StoragePoolService_ListPools_FullMethodName      = "/limiquantix.storage.v1.StoragePoolService/ListPools"
+	StoragePoolService_UpdatePool_FullMethodName     = "/limiquantix.storage.v1.StoragePoolService/UpdatePool"
+	StoragePoolService_DeletePool_FullMethodName     = "/limiquantix.storage.v1.StoragePoolService/DeletePool"
+	StoragePoolService_GetPoolMetrics_FullMethodName = "/limiquantix.storage.v1.StoragePoolService/GetPoolMetrics"
 )
 
 // StoragePoolServiceClient is the client API for StoragePoolService service.
@@ -296,7 +296,7 @@ func _StoragePoolService_GetPoolMetrics_Handler(srv interface{}, ctx context.Con
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var StoragePoolService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.storage.v1.StoragePoolService",
+	ServiceName: "limiquantix.storage.v1.StoragePoolService",
 	HandlerType: (*StoragePoolServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -325,20 +325,20 @@ var StoragePoolService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "Quantixkvm/storage/v1/storage_service.proto",
+	Metadata: "limiquantix/storage/v1/storage_service.proto",
 }
 
 const (
-	VolumeService_CreateVolume_FullMethodName     = "/Quantixkvm.storage.v1.VolumeService/CreateVolume"
-	VolumeService_GetVolume_FullMethodName        = "/Quantixkvm.storage.v1.VolumeService/GetVolume"
-	VolumeService_ListVolumes_FullMethodName      = "/Quantixkvm.storage.v1.VolumeService/ListVolumes"
-	VolumeService_UpdateVolume_FullMethodName     = "/Quantixkvm.storage.v1.VolumeService/UpdateVolume"
-	VolumeService_DeleteVolume_FullMethodName     = "/Quantixkvm.storage.v1.VolumeService/DeleteVolume"
-	VolumeService_ResizeVolume_FullMethodName     = "/Quantixkvm.storage.v1.VolumeService/ResizeVolume"
-	VolumeService_AttachVolume_FullMethodName     = "/Quantixkvm.storage.v1.VolumeService/AttachVolume"
-	VolumeService_DetachVolume_FullMethodName     = "/Quantixkvm.storage.v1.VolumeService/DetachVolume"
-	VolumeService_CloneVolume_FullMethodName      = "/Quantixkvm.storage.v1.VolumeService/CloneVolume"
-	VolumeService_GetVolumeMetrics_FullMethodName = "/Quantixkvm.storage.v1.VolumeService/GetVolumeMetrics"
+	VolumeService_CreateVolume_FullMethodName     = "/limiquantix.storage.v1.VolumeService/CreateVolume"
+	VolumeService_GetVolume_FullMethodName        = "/limiquantix.storage.v1.VolumeService/GetVolume"
+	VolumeService_ListVolumes_FullMethodName      = "/limiquantix.storage.v1.VolumeService/ListVolumes"
+	VolumeService_UpdateVolume_FullMethodName     = "/limiquantix.storage.v1.VolumeService/UpdateVolume"
+	VolumeService_DeleteVolume_FullMethodName     = "/limiquantix.storage.v1.VolumeService/DeleteVolume"
+	VolumeService_ResizeVolume_FullMethodName     = "/limiquantix.storage.v1.VolumeService/ResizeVolume"
+	VolumeService_AttachVolume_FullMethodName     = "/limiquantix.storage.v1.VolumeService/AttachVolume"
+	VolumeService_DetachVolume_FullMethodName     = "/limiquantix.storage.v1.VolumeService/DetachVolume"
+	VolumeService_CloneVolume_FullMethodName      = "/limiquantix.storage.v1.VolumeService/CloneVolume"
+	VolumeService_GetVolumeMetrics_FullMethodName = "/limiquantix.storage.v1.VolumeService/GetVolumeMetrics"
 )
 
 // VolumeServiceClient is the client API for VolumeService service.
@@ -748,7 +748,7 @@ func _VolumeService_GetVolumeMetrics_Handler(srv interface{}, ctx context.Contex
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var VolumeService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.storage.v1.VolumeService",
+	ServiceName: "limiquantix.storage.v1.VolumeService",
 	HandlerType: (*VolumeServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -793,15 +793,15 @@ var VolumeService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "Quantixkvm/storage/v1/storage_service.proto",
+	Metadata: "limiquantix/storage/v1/storage_service.proto",
 }
 
 const (
-	SnapshotService_CreateSnapshot_FullMethodName  = "/Quantixkvm.storage.v1.SnapshotService/CreateSnapshot"
-	SnapshotService_GetSnapshot_FullMethodName     = "/Quantixkvm.storage.v1.SnapshotService/GetSnapshot"
-	SnapshotService_ListSnapshots_FullMethodName   = "/Quantixkvm.storage.v1.SnapshotService/ListSnapshots"
-	SnapshotService_DeleteSnapshot_FullMethodName  = "/Quantixkvm.storage.v1.SnapshotService/DeleteSnapshot"
-	SnapshotService_RestoreSnapshot_FullMethodName = "/Quantixkvm.storage.v1.SnapshotService/RestoreSnapshot"
+	SnapshotService_CreateSnapshot_FullMethodName  = "/limiquantix.storage.v1.SnapshotService/CreateSnapshot"
+	SnapshotService_GetSnapshot_FullMethodName     = "/limiquantix.storage.v1.SnapshotService/GetSnapshot"
+	SnapshotService_ListSnapshots_FullMethodName   = "/limiquantix.storage.v1.SnapshotService/ListSnapshots"
+	SnapshotService_DeleteSnapshot_FullMethodName  = "/limiquantix.storage.v1.SnapshotService/DeleteSnapshot"
+	SnapshotService_RestoreSnapshot_FullMethodName = "/limiquantix.storage.v1.SnapshotService/RestoreSnapshot"
 )
 
 // SnapshotServiceClient is the client API for SnapshotService service.
@@ -1034,7 +1034,7 @@ func _SnapshotService_RestoreSnapshot_Handler(srv interface{}, ctx context.Conte
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var SnapshotService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.storage.v1.SnapshotService",
+	ServiceName: "limiquantix.storage.v1.SnapshotService",
 	HandlerType: (*SnapshotServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -1059,17 +1059,17 @@ var SnapshotService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "Quantixkvm/storage/v1/storage_service.proto",
+	Metadata: "limiquantix/storage/v1/storage_service.proto",
 }
 
 const (
-	ImageService_CreateImage_FullMethodName     = "/Quantixkvm.storage.v1.ImageService/CreateImage"
-	ImageService_GetImage_FullMethodName        = "/Quantixkvm.storage.v1.ImageService/GetImage"
-	ImageService_ListImages_FullMethodName      = "/Quantixkvm.storage.v1.ImageService/ListImages"
-	ImageService_UpdateImage_FullMethodName     = "/Quantixkvm.storage.v1.ImageService/UpdateImage"
-	ImageService_DeleteImage_FullMethodName     = "/Quantixkvm.storage.v1.ImageService/DeleteImage"
-	ImageService_ImportImage_FullMethodName     = "/Quantixkvm.storage.v1.ImageService/ImportImage"
-	ImageService_GetImportStatus_FullMethodName = "/Quantixkvm.storage.v1.ImageService/GetImportStatus"
+	ImageService_CreateImage_FullMethodName     = "/limiquantix.storage.v1.ImageService/CreateImage"
+	ImageService_GetImage_FullMethodName        = "/limiquantix.storage.v1.ImageService/GetImage"
+	ImageService_ListImages_FullMethodName      = "/limiquantix.storage.v1.ImageService/ListImages"
+	ImageService_UpdateImage_FullMethodName     = "/limiquantix.storage.v1.ImageService/UpdateImage"
+	ImageService_DeleteImage_FullMethodName     = "/limiquantix.storage.v1.ImageService/DeleteImage"
+	ImageService_ImportImage_FullMethodName     = "/limiquantix.storage.v1.ImageService/ImportImage"
+	ImageService_GetImportStatus_FullMethodName = "/limiquantix.storage.v1.ImageService/GetImportStatus"
 )
 
 // ImageServiceClient is the client API for ImageService service.
@@ -1372,7 +1372,7 @@ func _ImageService_GetImportStatus_Handler(srv interface{}, ctx context.Context,
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ImageService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.storage.v1.ImageService",
+	ServiceName: "limiquantix.storage.v1.ImageService",
 	HandlerType: (*ImageServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -1405,5 +1405,5 @@ var ImageService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "Quantixkvm/storage/v1/storage_service.proto",
+	Metadata: "limiquantix/storage/v1/storage_service.proto",
 }

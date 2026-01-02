@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             (unknown)
-// source: Quantixkvm/compute/v1/vm_service.proto
+// source: limiquantix/compute/v1/vm_service.proto
 
 package computev1
 
@@ -21,27 +21,27 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	VMService_CreateVM_FullMethodName          = "/Quantixkvm.compute.v1.VMService/CreateVM"
-	VMService_GetVM_FullMethodName             = "/Quantixkvm.compute.v1.VMService/GetVM"
-	VMService_ListVMs_FullMethodName           = "/Quantixkvm.compute.v1.VMService/ListVMs"
-	VMService_UpdateVM_FullMethodName          = "/Quantixkvm.compute.v1.VMService/UpdateVM"
-	VMService_DeleteVM_FullMethodName          = "/Quantixkvm.compute.v1.VMService/DeleteVM"
-	VMService_StartVM_FullMethodName           = "/Quantixkvm.compute.v1.VMService/StartVM"
-	VMService_StopVM_FullMethodName            = "/Quantixkvm.compute.v1.VMService/StopVM"
-	VMService_RebootVM_FullMethodName          = "/Quantixkvm.compute.v1.VMService/RebootVM"
-	VMService_PauseVM_FullMethodName           = "/Quantixkvm.compute.v1.VMService/PauseVM"
-	VMService_ResumeVM_FullMethodName          = "/Quantixkvm.compute.v1.VMService/ResumeVM"
-	VMService_SuspendVM_FullMethodName         = "/Quantixkvm.compute.v1.VMService/SuspendVM"
-	VMService_CreateSnapshot_FullMethodName    = "/Quantixkvm.compute.v1.VMService/CreateSnapshot"
-	VMService_ListSnapshots_FullMethodName     = "/Quantixkvm.compute.v1.VMService/ListSnapshots"
-	VMService_RevertToSnapshot_FullMethodName  = "/Quantixkvm.compute.v1.VMService/RevertToSnapshot"
-	VMService_DeleteSnapshot_FullMethodName    = "/Quantixkvm.compute.v1.VMService/DeleteSnapshot"
-	VMService_MigrateVM_FullMethodName         = "/Quantixkvm.compute.v1.VMService/MigrateVM"
-	VMService_GetConsole_FullMethodName        = "/Quantixkvm.compute.v1.VMService/GetConsole"
-	VMService_CloneVM_FullMethodName           = "/Quantixkvm.compute.v1.VMService/CloneVM"
-	VMService_ConvertToTemplate_FullMethodName = "/Quantixkvm.compute.v1.VMService/ConvertToTemplate"
-	VMService_WatchVM_FullMethodName           = "/Quantixkvm.compute.v1.VMService/WatchVM"
-	VMService_StreamMetrics_FullMethodName     = "/Quantixkvm.compute.v1.VMService/StreamMetrics"
+	VMService_CreateVM_FullMethodName          = "/limiquantix.compute.v1.VMService/CreateVM"
+	VMService_GetVM_FullMethodName             = "/limiquantix.compute.v1.VMService/GetVM"
+	VMService_ListVMs_FullMethodName           = "/limiquantix.compute.v1.VMService/ListVMs"
+	VMService_UpdateVM_FullMethodName          = "/limiquantix.compute.v1.VMService/UpdateVM"
+	VMService_DeleteVM_FullMethodName          = "/limiquantix.compute.v1.VMService/DeleteVM"
+	VMService_StartVM_FullMethodName           = "/limiquantix.compute.v1.VMService/StartVM"
+	VMService_StopVM_FullMethodName            = "/limiquantix.compute.v1.VMService/StopVM"
+	VMService_RebootVM_FullMethodName          = "/limiquantix.compute.v1.VMService/RebootVM"
+	VMService_PauseVM_FullMethodName           = "/limiquantix.compute.v1.VMService/PauseVM"
+	VMService_ResumeVM_FullMethodName          = "/limiquantix.compute.v1.VMService/ResumeVM"
+	VMService_SuspendVM_FullMethodName         = "/limiquantix.compute.v1.VMService/SuspendVM"
+	VMService_CreateSnapshot_FullMethodName    = "/limiquantix.compute.v1.VMService/CreateSnapshot"
+	VMService_ListSnapshots_FullMethodName     = "/limiquantix.compute.v1.VMService/ListSnapshots"
+	VMService_RevertToSnapshot_FullMethodName  = "/limiquantix.compute.v1.VMService/RevertToSnapshot"
+	VMService_DeleteSnapshot_FullMethodName    = "/limiquantix.compute.v1.VMService/DeleteSnapshot"
+	VMService_MigrateVM_FullMethodName         = "/limiquantix.compute.v1.VMService/MigrateVM"
+	VMService_GetConsole_FullMethodName        = "/limiquantix.compute.v1.VMService/GetConsole"
+	VMService_CloneVM_FullMethodName           = "/limiquantix.compute.v1.VMService/CloneVM"
+	VMService_ConvertToTemplate_FullMethodName = "/limiquantix.compute.v1.VMService/ConvertToTemplate"
+	VMService_WatchVM_FullMethodName           = "/limiquantix.compute.v1.VMService/WatchVM"
+	VMService_StreamMetrics_FullMethodName     = "/limiquantix.compute.v1.VMService/StreamMetrics"
 )
 
 // VMServiceClient is the client API for VMService service.
@@ -846,7 +846,7 @@ type VMService_StreamMetricsServer = grpc.ServerStreamingServer[ResourceUsage]
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var VMService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.compute.v1.VMService",
+	ServiceName: "limiquantix.compute.v1.VMService",
 	HandlerType: (*VMServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -938,5 +938,5 @@ var VMService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "Quantixkvm/compute/v1/vm_service.proto",
+	Metadata: "limiquantix/compute/v1/vm_service.proto",
 }

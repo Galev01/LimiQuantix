@@ -1,4 +1,4 @@
-# Quantixkvm Virtualization Platform
+# limiquantix Virtualization Platform
 ## "The VMware Killer"
 
 **Vision:** Build a complete, modern replacement for VMware vSphere that includes the hypervisor host OS, control plane, guest agent, storage, and networking.
@@ -7,7 +7,7 @@
 
 ## 1. Executive Summary
 
-Quantixkvm is a **distributed, cloud-native virtualization platform** designed to replace VMware vSphere. The system prioritizes:
+limiquantix is a **distributed, cloud-native virtualization platform** designed to replace VMware vSphere. The system prioritizes:
 
 - **Simplicity**: 5-minute cluster setup (vs. days for VMware)
 - **Performance**: <1% platform overhead
@@ -25,7 +25,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 
 ### Complete VMware Replacement Map
 
-| VMware Component | Quantixkvm Equivalent | Status |
+| VMware Component | limiquantix Equivalent | Status |
 |------------------|------------------------|--------|
 | **vSphere Web Client** | React Dashboard | ✅ 95% |
 | **vCenter Server** | Go Control Plane | ✅ 85% |
@@ -33,7 +33,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 | **VMware Tools** | Rust Guest Agent | ❌ 0% |
 | **vSAN / VMFS** | Ceph / LINSTOR | ❌ 0% |
 | **NSX-T / vDS** | OVN / OVS | ❌ 0% |
-| **ESXi OS** | Quantixkvm OS | ❌ 0% |
+| **ESXi OS** | limiquantix OS | ❌ 0% |
 | **vMotion** | Live Migration | ⏳ 50% |
 | **HA / DRS** | HA Manager / DRS Engine | ✅ Done |
 
@@ -69,7 +69,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 | Guest Agent | 4-6 weeks | P0 |
 | Storage Backend | 4-6 weeks | P0 |
 | Network Backend | 4-6 weeks | P0 |
-| Quantixkvm OS | 8-12 weeks | P1 |
+| limiquantix OS | 8-12 weeks | P1 |
 
 ---
 
@@ -81,7 +81,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              User Access Layer                               │
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │                    Quantixkvm Dashboard (React)                        │ │
+│  │                    limiquantix Dashboard (React)                        │ │
 │  │                       http://localhost:5174                             │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -314,7 +314,7 @@ go run ./cmd/controlplane --dev
 
 # Terminal 2: Node Daemon (Rust)
 cd agent
-cargo run --bin Quantixkvm-node -- \
+cargo run --bin limiquantix-node -- \
   --dev \
   --listen 127.0.0.1:9090 \
   --control-plane http://127.0.0.1:8080 \
@@ -331,7 +331,7 @@ npm run dev
 
 ```bash
 # Check registered nodes
-curl -s -X POST http://127.0.0.1:8080/Quantixkvm.compute.v1.NodeService/ListNodes \
+curl -s -X POST http://127.0.0.1:8080/limiquantix.compute.v1.NodeService/ListNodes \
   -H "Content-Type: application/json" \
   -d '{}' | jq '.nodes[] | {hostname, id, phase: .status.phase}'
 

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/config"
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/config"
+	"github.com/limiquantix/limiquantix/internal/domain"
 )
 
 func TestJWTManager_Generate(t *testing.T) {

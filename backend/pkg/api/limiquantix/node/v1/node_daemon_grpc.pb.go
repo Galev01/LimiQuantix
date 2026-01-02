@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             (unknown)
-// source: Quantixkvm/node/v1/node_daemon.proto
+// source: limiquantix/node/v1/node_daemon.proto
 
 package nodev1
 
@@ -21,32 +21,32 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NodeDaemonService_HealthCheck_FullMethodName      = "/Quantixkvm.node.v1.NodeDaemonService/HealthCheck"
-	NodeDaemonService_GetNodeInfo_FullMethodName      = "/Quantixkvm.node.v1.NodeDaemonService/GetNodeInfo"
-	NodeDaemonService_CreateVM_FullMethodName         = "/Quantixkvm.node.v1.NodeDaemonService/CreateVM"
-	NodeDaemonService_StartVM_FullMethodName          = "/Quantixkvm.node.v1.NodeDaemonService/StartVM"
-	NodeDaemonService_StopVM_FullMethodName           = "/Quantixkvm.node.v1.NodeDaemonService/StopVM"
-	NodeDaemonService_ForceStopVM_FullMethodName      = "/Quantixkvm.node.v1.NodeDaemonService/ForceStopVM"
-	NodeDaemonService_RebootVM_FullMethodName         = "/Quantixkvm.node.v1.NodeDaemonService/RebootVM"
-	NodeDaemonService_PauseVM_FullMethodName          = "/Quantixkvm.node.v1.NodeDaemonService/PauseVM"
-	NodeDaemonService_ResumeVM_FullMethodName         = "/Quantixkvm.node.v1.NodeDaemonService/ResumeVM"
-	NodeDaemonService_DeleteVM_FullMethodName         = "/Quantixkvm.node.v1.NodeDaemonService/DeleteVM"
-	NodeDaemonService_GetVMStatus_FullMethodName      = "/Quantixkvm.node.v1.NodeDaemonService/GetVMStatus"
-	NodeDaemonService_ListVMs_FullMethodName          = "/Quantixkvm.node.v1.NodeDaemonService/ListVMs"
-	NodeDaemonService_GetConsole_FullMethodName       = "/Quantixkvm.node.v1.NodeDaemonService/GetConsole"
-	NodeDaemonService_CreateSnapshot_FullMethodName   = "/Quantixkvm.node.v1.NodeDaemonService/CreateSnapshot"
-	NodeDaemonService_RevertSnapshot_FullMethodName   = "/Quantixkvm.node.v1.NodeDaemonService/RevertSnapshot"
-	NodeDaemonService_DeleteSnapshot_FullMethodName   = "/Quantixkvm.node.v1.NodeDaemonService/DeleteSnapshot"
-	NodeDaemonService_ListSnapshots_FullMethodName    = "/Quantixkvm.node.v1.NodeDaemonService/ListSnapshots"
-	NodeDaemonService_AttachDisk_FullMethodName       = "/Quantixkvm.node.v1.NodeDaemonService/AttachDisk"
-	NodeDaemonService_DetachDisk_FullMethodName       = "/Quantixkvm.node.v1.NodeDaemonService/DetachDisk"
-	NodeDaemonService_AttachNIC_FullMethodName        = "/Quantixkvm.node.v1.NodeDaemonService/AttachNIC"
-	NodeDaemonService_DetachNIC_FullMethodName        = "/Quantixkvm.node.v1.NodeDaemonService/DetachNIC"
-	NodeDaemonService_PrepareMigration_FullMethodName = "/Quantixkvm.node.v1.NodeDaemonService/PrepareMigration"
-	NodeDaemonService_ReceiveMigration_FullMethodName = "/Quantixkvm.node.v1.NodeDaemonService/ReceiveMigration"
-	NodeDaemonService_MigrateVM_FullMethodName        = "/Quantixkvm.node.v1.NodeDaemonService/MigrateVM"
-	NodeDaemonService_StreamMetrics_FullMethodName    = "/Quantixkvm.node.v1.NodeDaemonService/StreamMetrics"
-	NodeDaemonService_StreamEvents_FullMethodName     = "/Quantixkvm.node.v1.NodeDaemonService/StreamEvents"
+	NodeDaemonService_HealthCheck_FullMethodName      = "/limiquantix.node.v1.NodeDaemonService/HealthCheck"
+	NodeDaemonService_GetNodeInfo_FullMethodName      = "/limiquantix.node.v1.NodeDaemonService/GetNodeInfo"
+	NodeDaemonService_CreateVM_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/CreateVM"
+	NodeDaemonService_StartVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/StartVM"
+	NodeDaemonService_StopVM_FullMethodName           = "/limiquantix.node.v1.NodeDaemonService/StopVM"
+	NodeDaemonService_ForceStopVM_FullMethodName      = "/limiquantix.node.v1.NodeDaemonService/ForceStopVM"
+	NodeDaemonService_RebootVM_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/RebootVM"
+	NodeDaemonService_PauseVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/PauseVM"
+	NodeDaemonService_ResumeVM_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/ResumeVM"
+	NodeDaemonService_DeleteVM_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/DeleteVM"
+	NodeDaemonService_GetVMStatus_FullMethodName      = "/limiquantix.node.v1.NodeDaemonService/GetVMStatus"
+	NodeDaemonService_ListVMs_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/ListVMs"
+	NodeDaemonService_GetConsole_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/GetConsole"
+	NodeDaemonService_CreateSnapshot_FullMethodName   = "/limiquantix.node.v1.NodeDaemonService/CreateSnapshot"
+	NodeDaemonService_RevertSnapshot_FullMethodName   = "/limiquantix.node.v1.NodeDaemonService/RevertSnapshot"
+	NodeDaemonService_DeleteSnapshot_FullMethodName   = "/limiquantix.node.v1.NodeDaemonService/DeleteSnapshot"
+	NodeDaemonService_ListSnapshots_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/ListSnapshots"
+	NodeDaemonService_AttachDisk_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/AttachDisk"
+	NodeDaemonService_DetachDisk_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/DetachDisk"
+	NodeDaemonService_AttachNIC_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/AttachNIC"
+	NodeDaemonService_DetachNIC_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/DetachNIC"
+	NodeDaemonService_PrepareMigration_FullMethodName = "/limiquantix.node.v1.NodeDaemonService/PrepareMigration"
+	NodeDaemonService_ReceiveMigration_FullMethodName = "/limiquantix.node.v1.NodeDaemonService/ReceiveMigration"
+	NodeDaemonService_MigrateVM_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/MigrateVM"
+	NodeDaemonService_StreamMetrics_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/StreamMetrics"
+	NodeDaemonService_StreamEvents_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/StreamEvents"
 )
 
 // NodeDaemonServiceClient is the client API for NodeDaemonService service.
@@ -1016,7 +1016,7 @@ type NodeDaemonService_StreamEventsServer = grpc.ServerStreamingServer[NodeEvent
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var NodeDaemonService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.node.v1.NodeDaemonService",
+	ServiceName: "limiquantix.node.v1.NodeDaemonService",
 	HandlerType: (*NodeDaemonServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -1129,5 +1129,5 @@ var NodeDaemonService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "Quantixkvm/node/v1/node_daemon.proto",
+	Metadata: "limiquantix/node/v1/node_daemon.proto",
 }

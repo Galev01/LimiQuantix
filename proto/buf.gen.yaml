@@ -1,4 +1,4 @@
-# buf.gen.yaml - Code generation configuration for Quantixkvm
+# buf.gen.yaml - Code generation configuration for limiquantix
 # Documentation: https://buf.build/docs/configuration/v2/buf-gen-yaml
 
 version: v2
@@ -10,7 +10,7 @@ managed:
   enabled: true
   override:
     - file_option: go_package_prefix
-      value: github.com/Quantixkvm/Quantixkvm/pkg/api
+      value: github.com/limiquantix/limiquantix/pkg/api
 
 plugins:
   # ==========================================================================

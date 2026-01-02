@@ -1,7 +1,7 @@
 # Backend Testing Guide
 
 **Document ID:** 000029  
-**Purpose:** Comprehensive testing guide for the Quantixkvm backend  
+**Purpose:** Comprehensive testing guide for the limiquantix backend  
 **Status:** Reference Document  
 **Date:** January 2026
 
@@ -9,7 +9,7 @@
 
 ## Overview
 
-This guide covers all testing levels for the Quantixkvm backend:
+This guide covers all testing levels for the limiquantix backend:
 
 1. **Unit Tests** - Test individual functions/methods
 2. **Integration Tests** - Test service + repository combinations
@@ -216,25 +216,25 @@ make test-e2e
 
 ```bash
 # 1. Login
-curl -X POST http://localhost:8080/Quantixkvm.auth.v1.AuthService/Login \
+curl -X POST http://localhost:8080/limiquantix.auth.v1.AuthService/Login \
   -H "Content-Type: application/json" \
   -d '{"username": "admin", "password": "admin"}'
 
 # Expected: { "access_token": "...", "refresh_token": "...", "expires_at": "..." }
 
 # 2. Use token for authenticated request
-curl http://localhost:8080/Quantixkvm.compute.v1.VMService/ListVMs \
+curl http://localhost:8080/limiquantix.compute.v1.VMService/ListVMs \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{}'
 
 # 3. Refresh token
-curl -X POST http://localhost:8080/Quantixkvm.auth.v1.AuthService/RefreshToken \
+curl -X POST http://localhost:8080/limiquantix.auth.v1.AuthService/RefreshToken \
   -H "Content-Type: application/json" \
   -d '{"refresh_token": "<refresh_token>"}'
 
 # 4. Access without token (should fail)
-curl http://localhost:8080/Quantixkvm.compute.v1.VMService/ListVMs \
+curl http://localhost:8080/limiquantix.compute.v1.VMService/ListVMs \
   -H "Content-Type: application/json" \
   -d '{}'
 
@@ -245,13 +245,13 @@ curl http://localhost:8080/Quantixkvm.compute.v1.VMService/ListVMs \
 
 ```bash
 # 1. List VMs (initially empty or seeded)
-curl http://localhost:8080/Quantixkvm.compute.v1.VMService/ListVMs \
+curl http://localhost:8080/limiquantix.compute.v1.VMService/ListVMs \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"page_size": 10}'
 
 # 2. Create VM
-curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/CreateVM \
+curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/CreateVM \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -264,25 +264,25 @@ curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/CreateVM \
   }'
 
 # 3. Get VM
-curl http://localhost:8080/Quantixkvm.compute.v1.VMService/GetVM \
+curl http://localhost:8080/limiquantix.compute.v1.VMService/GetVM \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"id": "<vm_id>"}'
 
 # 4. Start VM
-curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/StartVM \
+curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/StartVM \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"id": "<vm_id>"}'
 
 # 5. Stop VM
-curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/StopVM \
+curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/StopVM \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"id": "<vm_id>"}'
 
 # 6. Delete VM
-curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/DeleteVM \
+curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/DeleteVM \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"id": "<vm_id>"}'
@@ -292,13 +292,13 @@ curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/DeleteVM \
 
 ```bash
 # 1. List Nodes
-curl http://localhost:8080/Quantixkvm.compute.v1.NodeService/ListNodes \
+curl http://localhost:8080/limiquantix.compute.v1.NodeService/ListNodes \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{}'
 
 # 2. Register Node
-curl -X POST http://localhost:8080/Quantixkvm.compute.v1.NodeService/RegisterNode \
+curl -X POST http://localhost:8080/limiquantix.compute.v1.NodeService/RegisterNode \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -312,13 +312,13 @@ curl -X POST http://localhost:8080/Quantixkvm.compute.v1.NodeService/RegisterNod
   }'
 
 # 3. Get Node
-curl http://localhost:8080/Quantixkvm.compute.v1.NodeService/GetNode \
+curl http://localhost:8080/limiquantix.compute.v1.NodeService/GetNode \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"id": "<node_id>"}'
 
 # 4. Drain Node
-curl -X POST http://localhost:8080/Quantixkvm.compute.v1.NodeService/DrainNode \
+curl -X POST http://localhost:8080/limiquantix.compute.v1.NodeService/DrainNode \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"id": "<node_id>"}'
@@ -328,13 +328,13 @@ curl -X POST http://localhost:8080/Quantixkvm.compute.v1.NodeService/DrainNode \
 
 ```bash
 # 1. List Networks
-curl http://localhost:8080/Quantixkvm.network.v1.VirtualNetworkService/ListVirtualNetworks \
+curl http://localhost:8080/limiquantix.network.v1.VirtualNetworkService/ListVirtualNetworks \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{}'
 
 # 2. Create Network
-curl -X POST http://localhost:8080/Quantixkvm.network.v1.VirtualNetworkService/CreateVirtualNetwork \
+curl -X POST http://localhost:8080/limiquantix.network.v1.VirtualNetworkService/CreateVirtualNetwork \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -349,7 +349,7 @@ curl -X POST http://localhost:8080/Quantixkvm.network.v1.VirtualNetworkService/C
   }'
 
 # 3. List Security Groups
-curl http://localhost:8080/Quantixkvm.network.v1.SecurityGroupService/ListSecurityGroups \
+curl http://localhost:8080/limiquantix.network.v1.SecurityGroupService/ListSecurityGroups \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{}'
@@ -399,7 +399,7 @@ hey -n 1000 -c 50 \
   -H "Content-Type: application/json" \
   -m POST \
   -d '{"page_size": 10}' \
-  http://localhost:8080/Quantixkvm.compute.v1.VMService/ListVMs
+  http://localhost:8080/limiquantix.compute.v1.VMService/ListVMs
 
 # Load test - CreateVM (careful: creates many VMs)
 hey -n 100 -c 10 \
@@ -407,7 +407,7 @@ hey -n 100 -c 10 \
   -H "Content-Type: application/json" \
   -m POST \
   -d '{"name": "load-test-{{.RequestIndex}}", "project_id": "00000000-0000-0000-0000-000000000001", "spec": {"cpu": {"cores": 1}, "memory": {"size_mib": 1024}}}' \
-  http://localhost:8080/Quantixkvm.compute.v1.VMService/CreateVM
+  http://localhost:8080/limiquantix.compute.v1.VMService/CreateVM
 ```
 
 ### 5.2 Load Test Targets
@@ -567,9 +567,9 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: Quantixkvm
-          POSTGRES_PASSWORD: Quantixkvm
-          POSTGRES_DB: Quantixkvm_test
+          POSTGRES_USER: limiquantix
+          POSTGRES_PASSWORD: limiquantix
+          POSTGRES_DB: limiquantix_test
         ports:
           - 5432:5432
       redis:
@@ -728,13 +728,13 @@ docker compose down
 tail -f backend.log
 
 # Check PostgreSQL
-docker exec -it Quantixkvm-postgres-1 psql -U Quantixkvm -c "SELECT COUNT(*) FROM virtual_machines;"
+docker exec -it limiquantix-postgres-1 psql -U limiquantix -c "SELECT COUNT(*) FROM virtual_machines;"
 
 # Check Redis
-docker exec -it Quantixkvm-redis-1 redis-cli KEYS "*"
+docker exec -it limiquantix-redis-1 redis-cli KEYS "*"
 
 # Check etcd
-docker exec -it Quantixkvm-etcd-1 etcdctl get --prefix /
+docker exec -it limiquantix-etcd-1 etcdctl get --prefix /
 
 # Test database connection
 curl http://localhost:8080/ready

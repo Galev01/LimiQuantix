@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/domain"
 )
 
 // UserRepository defines the interface for user data access.

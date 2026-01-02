@@ -1,4 +1,4 @@
-// Package domain contains core business entities for the Quantixkvm platform.
+// Package domain contains core business entities for the limiquantix platform.
 // This file defines network-related domain models: VirtualNetwork, Port, SecurityGroup, etc.
 package domain
 

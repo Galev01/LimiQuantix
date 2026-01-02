@@ -1,4 +1,4 @@
-# Quantixkvm Control Plane Dockerfile
+# limiquantix Control Plane Dockerfile
 # Multi-stage build for minimal final image
 
 # ============================================================================
@@ -32,8 +32,8 @@ FROM alpine:3.19
 RUN apk --no-cache add ca-certificates tzdata
 
 # Create non-root user
-RUN addgroup -g 1000 Quantixkvm && \
-    adduser -u 1000 -G Quantixkvm -s /bin/sh -D Quantixkvm
+RUN addgroup -g 1000 limiquantix && \
+    adduser -u 1000 -G limiquantix -s /bin/sh -D limiquantix
 
 WORKDIR /app
 
@@ -44,10 +44,10 @@ COPY --from=builder /controlplane /app/controlplane
 COPY configs/config.yaml /app/configs/
 
 # Set ownership
-RUN chown -R Quantixkvm:Quantixkvm /app
+RUN chown -R limiquantix:limiquantix /app
 
 # Switch to non-root user
-USER Quantixkvm
+USER limiquantix
 
 # Expose ports
 EXPOSE 8080

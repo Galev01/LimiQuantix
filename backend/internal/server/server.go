@@ -10,19 +10,19 @@ import (
 	"github.com/rs/cors"
 	"go.uber.org/zap"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/config"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/etcd"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/memory"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/postgres"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/redis"
-	"github.com/Quantixkvm/Quantixkvm/internal/scheduler"
-	networkservice "github.com/Quantixkvm/Quantixkvm/internal/services/network"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/node"
-	nodeservice "github.com/Quantixkvm/Quantixkvm/internal/services/node"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/vm"
-	vmservice "github.com/Quantixkvm/Quantixkvm/internal/services/vm"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1/computev1connect"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/network/v1/networkv1connect"
+	"github.com/limiquantix/limiquantix/internal/config"
+	"github.com/limiquantix/limiquantix/internal/repository/etcd"
+	"github.com/limiquantix/limiquantix/internal/repository/memory"
+	"github.com/limiquantix/limiquantix/internal/repository/postgres"
+	"github.com/limiquantix/limiquantix/internal/repository/redis"
+	"github.com/limiquantix/limiquantix/internal/scheduler"
+	networkservice "github.com/limiquantix/limiquantix/internal/services/network"
+	"github.com/limiquantix/limiquantix/internal/services/node"
+	nodeservice "github.com/limiquantix/limiquantix/internal/services/node"
+	"github.com/limiquantix/limiquantix/internal/services/vm"
+	vmservice "github.com/limiquantix/limiquantix/internal/services/vm"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1/networkv1connect"
 )
 
 // Server represents the main HTTP server.
@@ -324,7 +324,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"status":"healthy","service":"Quantixkvm-controlplane"}`)
+	fmt.Fprintf(w, `{"status":"healthy","service":"limiquantix-controlplane"}`)
 }
 
 // readyHandler returns readiness status.
@@ -385,7 +385,7 @@ func (s *Server) infoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `{
-		"name": "Quantixkvm Control Plane",
+		"name": "limiquantix Control Plane",
 		"version": "0.1.0",
 		"api_version": "v1",
 		"description": "Distributed Virtualization Platform",

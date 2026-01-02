@@ -12,12 +12,12 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
-	"github.com/Quantixkvm/Quantixkvm/internal/scheduler"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/node"
-	computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1/computev1connect"
-	nodev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/node/v1"
+	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/scheduler"
+	"github.com/limiquantix/limiquantix/internal/services/node"
+	computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
+	nodev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1"
 )
 
 // Ensure Service implements VMServiceHandler

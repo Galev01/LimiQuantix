@@ -249,7 +249,7 @@ For a **VMware Killer**, you need:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Quantixkvm Control Plane                │
+│                    limiquantix Control Plane                │
 │                         (Go + gRPC)                         │
 └─────────────────────────────┬───────────────────────────────┘
                               │
@@ -307,7 +307,7 @@ VMware Tools is the gold standard. Let's break down its capabilities:
 ┌──────────────────────────────────────────────────────────────┐
 │                         Guest VM                             │
 │  ┌────────────────────────────────────────────────────────┐  │
-│  │                  Quantixkvm Agent                     │  │
+│  │                  limiquantix Agent                     │  │
 │  │                      (Rust)                            │  │
 │  ├────────────────────────────────────────────────────────┤  │
 │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐  │  │
@@ -392,7 +392,7 @@ pub async fn handle_power_command(cmd: PowerCommand) -> Result<()> {
             send_status(AgentStatus::ShuttingDown).await?;
             
             // Run pre-shutdown scripts
-            run_scripts("/etc/Quantixkvm/shutdown.d/").await?;
+            run_scripts("/etc/limiquantix/shutdown.d/").await?;
             
             // Sync filesystems
             unsafe { libc::sync(); }
@@ -478,7 +478,7 @@ pub struct PostgresQuiescer { /* ... */ }
 impl ApplicationQuiescer for PostgresQuiescer {
     async fn freeze(&self) -> Result<()> {
         // pg_start_backup() equivalent
-        sqlx::query("SELECT pg_start_backup('Quantixkvm_snapshot', true)")
+        sqlx::query("SELECT pg_start_backup('limiquantix_snapshot', true)")
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -631,7 +631,7 @@ domain.Create() // Start VM
 
 ```plaintext
 ┌─────────────────────────────────────────────────────────────┐
-│                    Quantixkvm Control Plane                │
+│                    limiquantix Control Plane                │
 │                         (Go + gRPC)                         │
 └─────────────────────────────┬───────────────────────────────┘
                               │
@@ -655,7 +655,7 @@ domain.Create() // Start VM
 ┌──────────────────────────────────────────────────────────────┐
 │                         Guest VM                             │
 │  ┌────────────────────────────────────────────────────────┐  │
-│  │                  Quantixkvm Agent                     │  │
+│  │                  limiquantix Agent                     │  │
 │  │                      (Rust)                            │  │
 │  ├────────────────────────────────────────────────────────┤  │
 │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐  │  │
@@ -734,7 +734,7 @@ pub async fn handle_power_command(cmd: PowerCommand) -> Result<()> {
             send_status(AgentStatus::ShuttingDown).await?;
             
             // Run pre-shutdown scripts
-            run_scripts("/etc/Quantixkvm/shutdown.d/").await?;
+            run_scripts("/etc/limiquantix/shutdown.d/").await?;
             
             // Sync filesystems
             unsafe { libc::sync(); }
@@ -816,7 +816,7 @@ pub struct PostgresQuiescer { /* ... */ }
 impl ApplicationQuiescer for PostgresQuiescer {
     async fn freeze(&self) -> Result<()> {
         // pg_start_backup() equivalent
-        sqlx::query("SELECT pg_start_backup('Quantixkvm_snapshot', true)")
+        sqlx::query("SELECT pg_start_backup('limiquantix_snapshot', true)")
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -855,14 +855,14 @@ Now I have all the context I need. Let me create a comprehensive plan and start 
 
 **Status:** Accepted  
 **Date:** 2026-01-02  
-**Authors:** Quantixkvm Team  
+**Authors:** limiquantix Team  
 **Reviewers:** Architecture Team  
 
 ---
 
 ## Context
 
-Quantixkvm requires a hypervisor layer to execute virtual machines. This is the critical foundation that transforms the platform from a management UI into an actual virtualization solution.
+limiquantix requires a hypervisor layer to execute virtual machines. This is the critical foundation that transforms the platform from a management UI into an actual virtualization solution.
 
 The project vision ("VMware Killer") demands:
 - **Windows VM support** - Enterprise table stakes
@@ -991,7 +991,7 @@ We will implement a **hypervisor abstraction layer** that:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                 Quantixkvm Control Plane                   │
+│                 limiquantix Control Plane                   │
 │                      (Go + gRPC)                            │
 └─────────────────────────────┬───────────────────────────────┘
                               │ gRPC
@@ -1152,7 +1152,7 @@ pub trait Hypervisor: Send + Sync {
 ### Phase 1: Foundation (Weeks 1-2)
 
 1. **Setup Rust project structure**
-   - Create `Quantixkvm-node` crate
+   - Create `limiquantix-node` crate
    - Add dependencies (tonic, libvirt-rs, tokio)
    - Define Hypervisor trait
 
@@ -1266,7 +1266,7 @@ Now let me create the detailed implementation plan document:
 
 ## Executive Summary
 
-This document provides a detailed implementation plan for the **Quantixkvm Node Daemon** - a Rust-based service that runs on each hypervisor node, manages VM lifecycle via libvirt/QEMU, and communicates with the Go control plane.
+This document provides a detailed implementation plan for the **limiquantix Node Daemon** - a Rust-based service that runs on each hypervisor node, manages VM lifecycle via libvirt/QEMU, and communicates with the Go control plane.
 
 ---
 
@@ -1334,7 +1334,7 @@ agent/
 ├── Cargo.lock
 ├── README.md
 │
-├── Quantixkvm-node/             # Node Daemon binary
+├── limiquantix-node/             # Node Daemon binary
 │   ├── Cargo.toml
 │   └── src/
 │       ├── main.rs               # Entry point
@@ -1342,7 +1342,7 @@ agent/
 │       ├── server.rs             # gRPC server setup
 │       └── cli.rs                # CLI argument parsing
 │
-├── Quantixkvm-hypervisor/       # Hypervisor abstraction library
+├── limiquantix-hypervisor/       # Hypervisor abstraction library
 │   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs
@@ -1358,7 +1358,7 @@ agent/
 │           ├── mod.rs
 │           └── backend.rs
 │
-├── Quantixkvm-telemetry/        # Node telemetry collection
+├── limiquantix-telemetry/        # Node telemetry collection
 │   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs
@@ -1368,13 +1368,13 @@ agent/
 │       ├── network.rs            # Network metrics
 │       └── system.rs             # System info (OS, kernel, etc.)
 │
-├── Quantixkvm-proto/            # Generated protobuf code
+├── limiquantix-proto/            # Generated protobuf code
 │   ├── Cargo.toml
 │   ├── build.rs                  # Tonic code generation
 │   └── src/
 │       └── lib.rs
 │
-└── Quantixkvm-common/           # Shared utilities
+└── limiquantix-common/           # Shared utilities
     ├── Cargo.toml
     └── src/
         ├── lib.rs
@@ -1396,11 +1396,11 @@ agent/
 [workspace]
 resolver = "2"
 members = [
-    "Quantixkvm-node",
-    "Quantixkvm-hypervisor",
-    "Quantixkvm-telemetry",
-    "Quantixkvm-proto",
-    "Quantixkvm-common",
+    "limiquantix-node",
+    "limiquantix-hypervisor",
+    "limiquantix-telemetry",
+    "limiquantix-proto",
+    "limiquantix-common",
 ]
 
 [workspace.dependencies]
@@ -1424,16 +1424,16 @@ clap = { version = "4.4", features = ["derive"] }
 Create new proto file for node daemon communication:
 
 ```protobuf
-// proto/Quantixkvm/node/v1/node_daemon.proto
+// proto/limiquantix/node/v1/node_daemon.proto
 
 syntax = "proto3";
 
-package Quantixkvm.node.v1;
+package limiquantix.node.v1;
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "Quantixkvm/compute/v1/vm.proto";
-import "Quantixkvm/compute/v1/node.proto";
+import "limiquantix/compute/v1/vm.proto";
+import "limiquantix/compute/v1/node.proto";
 
 // NodeDaemonService - RPC interface for node daemon
 // This is called by the control plane to manage VMs on this node.
@@ -1676,7 +1676,7 @@ message NodeEvent {
 ##### Main Entry Point
 
 ```rust
-// agent/Quantixkvm-node/src/main.rs
+// agent/limiquantix-node/src/main.rs
 
 use anyhow::Result;
 use clap::Parser;
@@ -1695,11 +1695,11 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     
     // Initialize logging
-    Quantixkvm_common::logging::init(&args.log_level)?;
+    limiquantix_common::logging::init(&args.log_level)?;
     
     info!(
         version = env!("CARGO_PKG_VERSION"),
-        "Starting Quantixkvm Node Daemon"
+        "Starting limiquantix Node Daemon"
     );
     
     // Load configuration
@@ -1719,17 +1719,17 @@ async fn main() -> Result<()> {
 ##### CLI Arguments
 
 ```rust
-// agent/Quantixkvm-node/src/cli.rs
+// agent/limiquantix-node/src/cli.rs
 
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-#[command(name = "Quantixkvm-node")]
-#[command(about = "Quantixkvm Node Daemon - Hypervisor management agent")]
+#[command(name = "limiquantix-node")]
+#[command(about = "limiquantix Node Daemon - Hypervisor management agent")]
 #[command(version)]
 pub struct Args {
     /// Path to configuration file
-    #[arg(short, long, default_value = "/etc/Quantixkvm/node.yaml")]
+    #[arg(short, long, default_value = "/etc/limiquantix/node.yaml")]
     pub config: String,
     
     /// Log level (trace, debug, info, warn, error)
@@ -1753,7 +1753,7 @@ pub struct Args {
 ##### Configuration
 
 ```rust
-// agent/Quantixkvm-node/src/config.rs
+// agent/limiquantix-node/src/config.rs
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -1826,15 +1826,15 @@ impl Config {
 ##### gRPC Server
 
 ```rust
-// agent/Quantixkvm-node/src/server.rs
+// agent/limiquantix-node/src/server.rs
 
 use anyhow::Result;
 use std::sync::Arc;
 use tonic::transport::Server;
 use tracing::info;
 
-use Quantixkvm_hypervisor::{Hypervisor, LibvirtBackend};
-use Quantixkvm_proto::node::v1::node_daemon_service_server::NodeDaemonServiceServer;
+use limiquantix_hypervisor::{Hypervisor, LibvirtBackend};
+use limiquantix_proto::node::v1::node_daemon_service_server::NodeDaemonServiceServer;
 
 use crate::config::Config;
 
@@ -1880,7 +1880,7 @@ pub async fn run(config: Config) -> Result<()> {
 #### 2.1 Hypervisor Trait
 
 ```rust
-// agent/Quantixkvm-hypervisor/src/traits.rs
+// agent/limiquantix-hypervisor/src/traits.rs
 
 use async_trait::async_trait;
 use std::time::Duration;
@@ -2016,7 +2016,7 @@ pub trait Hypervisor: Send + Sync {
 #### 2.2 Types
 
 ```rust
-// agent/Quantixkvm-hypervisor/src/types.rs
+// agent/limiquantix-hypervisor/src/types.rs
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -2246,7 +2246,7 @@ pub struct VmMetrics {
 #### 2.3 Libvirt Backend
 
 ```rust
-// agent/Quantixkvm-hypervisor/src/libvirt/backend.rs
+// agent/limiquantix-hypervisor/src/libvirt/backend.rs
 
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -2781,15 +2781,15 @@ The Go control plane's `VMService` will be updated to delegate actual VM operati
 #### 3.2 Registration & Heartbeat
 
 ```rust
-// agent/Quantixkvm-node/src/registration.rs
+// agent/limiquantix-node/src/registration.rs
 
 use std::time::Duration;
 use tokio::time;
 use tonic::transport::Channel;
 use tracing::{info, warn, error};
 
-use Quantixkvm_proto::compute::v1::node_service_client::NodeServiceClient;
-use Quantixkvm_proto::compute::v1::{RegisterNodeRequest, NodeHeartbeatRequest};
+use limiquantix_proto::compute::v1::node_service_client::NodeServiceClient;
+use limiquantix_proto::compute::v1::{RegisterNodeRequest, NodeHeartbeatRequest};
 
 pub struct RegistrationManager {
     control_plane_address: String,
@@ -2992,17 +2992,17 @@ mod integration_tests {
 ### Systemd Service
 
 ```ini
-# /etc/systemd/system/Quantixkvm-node.service
+# /etc/systemd/system/limiquantix-node.service
 
 [Unit]
-Description=Quantixkvm Node Daemon
+Description=limiquantix Node Daemon
 After=libvirtd.service
 Requires=libvirtd.service
 
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/local/bin/Quantixkvm-node --config /etc/Quantixkvm/node.yaml
+ExecStart=/usr/local/bin/limiquantix-node --config /etc/limiquantix/node.yaml
 Restart=always
 RestartSec=5
 Environment=RUST_LOG=info
@@ -3014,7 +3014,7 @@ WantedBy=multi-user.target
 ### Configuration File
 
 ```yaml
-# /etc/Quantixkvm/node.yaml
+# /etc/limiquantix/node.yaml
 
 node:
   id: null  # Auto-generated
@@ -3030,18 +3030,18 @@ server:
 hypervisor:
   backend: libvirt
   libvirt_uri: "qemu:///system"
-  storage_path: "/var/lib/Quantixkvm/vms"
+  storage_path: "/var/lib/limiquantix/vms"
 
 control_plane:
-  address: "https://controlplane.Quantixkvm.local:8080"
+  address: "https://controlplane.limiquantix.local:8080"
   registration_enabled: true
   heartbeat_interval_secs: 30
 
 tls:
   enabled: true
-  cert_path: "/etc/Quantixkvm/certs/node.crt"
-  key_path: "/etc/Quantixkvm/certs/node.key"
-  ca_path: "/etc/Quantixkvm/certs/ca.crt"
+  cert_path: "/etc/limiquantix/certs/node.crt"
+  key_path: "/etc/limiquantix/certs/node.key"
+  ca_path: "/etc/limiquantix/certs/ca.crt"
 ```
 
 ---
@@ -3086,9 +3086,9 @@ Now let me create the proto definitions and start building the Rust project:
 ```plaintext
 syntax = "proto3";
 
-package Quantixkvm.node.v1;
+package limiquantix.node.v1;
 
-option go_package = "github.com/Quantixkvm/Quantixkvm/pkg/api/node/v1;nodev1";
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/node/v1;nodev1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
@@ -3623,26 +3623,26 @@ Now let me create the full Rust project structure. First, let me update the Carg
 
 ```plaintext
 # =============================================================================
-# Quantixkvm Agent - Workspace Manifest
+# limiquantix Agent - Workspace Manifest
 # =============================================================================
 # This is the Rust workspace containing the Node Daemon and supporting libraries.
 
 [workspace]
 resolver = "2"
 members = [
-    "Quantixkvm-node",
-    "Quantixkvm-hypervisor",
-    "Quantixkvm-telemetry",
-    "Quantixkvm-proto",
-    "Quantixkvm-common",
+    "limiquantix-node",
+    "limiquantix-hypervisor",
+    "limiquantix-telemetry",
+    "limiquantix-proto",
+    "limiquantix-common",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["Quantixkvm Team"]
+authors = ["limiquantix Team"]
 license = "Apache-2.0"
-repository = "https://github.com/Quantixkvm/Quantixkvm"
+repository = "https://github.com/limiquantix/limiquantix"
 
 [workspace.dependencies]
 # Async runtime
@@ -3684,10 +3684,10 @@ async-trait = "0.1"
 futures = "0.3"
 
 # Internal crates
-Quantixkvm-hypervisor = { path = "Quantixkvm-hypervisor" }
-Quantixkvm-telemetry = { path = "Quantixkvm-telemetry" }
-Quantixkvm-proto = { path = "Quantixkvm-proto" }
-Quantixkvm-common = { path = "Quantixkvm-common" }
+limiquantix-hypervisor = { path = "limiquantix-hypervisor" }
+limiquantix-telemetry = { path = "limiquantix-telemetry" }
+limiquantix-proto = { path = "limiquantix-proto" }
+limiquantix-common = { path = "limiquantix-common" }
 
 ```
 
@@ -3695,7 +3695,7 @@ Now let me create all the Rust crate structures:
 
 ```plaintext
 [package]
-name = "Quantixkvm-common"
+name = "limiquantix-common"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -3709,9 +3709,9 @@ anyhow.workspace = true
 ```
 
 ```rust
-//! # Quantixkvm Common
+//! # limiquantix Common
 //!
-//! Shared utilities for the Quantixkvm agent components.
+//! Shared utilities for the limiquantix agent components.
 
 pub mod logging;
 
@@ -3737,7 +3737,7 @@ use tracing_subscriber::{
 ///
 /// # Example
 /// ```
-/// Quantixkvm_common::init_logging("info").unwrap();
+/// limiquantix_common::init_logging("info").unwrap();
 /// ```
 pub fn init_logging(level: &str) -> Result<()> {
     let filter = EnvFilter::try_from_default_env()
@@ -3782,7 +3782,7 @@ pub fn init_logging_json(level: &str) -> Result<()> {
 
 ```plaintext
 [package]
-name = "Quantixkvm-proto"
+name = "limiquantix-proto"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -3809,11 +3809,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Define the proto files to compile
     let proto_files = [
-        proto_dir.join("Quantixkvm/node/v1/node_daemon.proto"),
-        proto_dir.join("Quantixkvm/compute/v1/vm.proto"),
-        proto_dir.join("Quantixkvm/compute/v1/vm_service.proto"),
-        proto_dir.join("Quantixkvm/compute/v1/node.proto"),
-        proto_dir.join("Quantixkvm/compute/v1/node_service.proto"),
+        proto_dir.join("limiquantix/node/v1/node_daemon.proto"),
+        proto_dir.join("limiquantix/compute/v1/vm.proto"),
+        proto_dir.join("limiquantix/compute/v1/vm_service.proto"),
+        proto_dir.join("limiquantix/compute/v1/node.proto"),
+        proto_dir.join("limiquantix/compute/v1/node_service.proto"),
     ];
     
     // Check if proto files exist
@@ -3844,7 +3844,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 ```rust
-//! # Quantixkvm Proto
+//! # limiquantix Proto
 //!
 //! Generated Rust code from protobuf definitions.
 //!
@@ -3861,7 +3861,7 @@ pub mod node {
         //! Node daemon service definitions.
         
         // Re-export generated code when available
-        // include!(concat!(env!("OUT_DIR"), "/Quantixkvm.node.v1.rs"));
+        // include!(concat!(env!("OUT_DIR"), "/limiquantix.node.v1.rs"));
         
         // Manual definitions for development
         use serde::{Deserialize, Serialize};
@@ -4051,7 +4051,7 @@ Now let me create the telemetry crate:
 
 ```plaintext
 [package]
-name = "Quantixkvm-telemetry"
+name = "limiquantix-telemetry"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -4071,7 +4071,7 @@ sysinfo = "0.30"
 ```
 
 ```rust
-//! # Quantixkvm Telemetry
+//! # limiquantix Telemetry
 //!
 //! System telemetry collection for the Node Daemon.
 //! Collects CPU, memory, disk, and network metrics from the host.
@@ -4397,7 +4397,7 @@ Now let me create the hypervisor abstraction crate:
 
 ```plaintext
 [package]
-name = "Quantixkvm-hypervisor"
+name = "limiquantix-hypervisor"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -4424,7 +4424,7 @@ quick-xml = { version = "0.31", features = ["serialize"] }
 ```
 
 ```rust
-//! # Quantixkvm Hypervisor
+//! # limiquantix Hypervisor
 //!
 //! Hypervisor abstraction layer for managing virtual machines.
 //!
@@ -4451,7 +4451,7 @@ quick-xml = { version = "0.31", features = ["serialize"] }
 //! ## Usage
 //!
 //! ```rust,ignore
-//! use Quantixkvm_hypervisor::{Hypervisor, MockBackend, VmConfig};
+//! use limiquantix_hypervisor::{Hypervisor, MockBackend, VmConfig};
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -6178,14 +6178,14 @@ Now let me create the main Node Daemon binary:
 
 ```plaintext
 [package]
-name = "Quantixkvm-node"
+name = "limiquantix-node"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "Quantixkvm-node"
+name = "limiquantix-node"
 path = "src/main.rs"
 
 [dependencies]
@@ -6227,15 +6227,15 @@ async-trait.workspace = true
 futures.workspace = true
 
 # Internal crates
-Quantixkvm-hypervisor.workspace = true
-Quantixkvm-telemetry.workspace = true
-Quantixkvm-proto.workspace = true
-Quantixkvm-common.workspace = true
+limiquantix-hypervisor.workspace = true
+limiquantix-telemetry.workspace = true
+limiquantix-proto.workspace = true
+limiquantix-common.workspace = true
 
 ```
 
 ```rust
-//! # Quantixkvm Node Daemon
+//! # limiquantix Node Daemon
 //!
 //! The Node Daemon runs on each hypervisor host and manages virtual machines
 //! through the hypervisor abstraction layer. It communicates with the control
@@ -6249,7 +6249,7 @@ Quantixkvm-common.workspace = true
 //!
 //! ## Usage
 //! ```bash
-//! Quantixkvm-node --config /etc/Quantixkvm/node.yaml
+//! limiquantix-node --config /etc/limiquantix/node.yaml
 //! ```
 
 use anyhow::Result;
@@ -6270,11 +6270,11 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     
     // Initialize logging
-    Quantixkvm_common::init_logging(&args.log_level)?;
+    limiquantix_common::init_logging(&args.log_level)?;
     
     info!(
         version = env!("CARGO_PKG_VERSION"),
-        "Starting Quantixkvm Node Daemon"
+        "Starting limiquantix Node Daemon"
     );
     
     // Load configuration
@@ -6283,7 +6283,7 @@ async fn main() -> Result<()> {
             info!(config_path = %args.config, "Configuration loaded");
             cfg
         }
-        Err(e) if args.config == "/etc/Quantixkvm/node.yaml" => {
+        Err(e) if args.config == "/etc/limiquantix/node.yaml" => {
             info!("No config file found, using defaults");
             Config::default()
         }
@@ -6318,14 +6318,14 @@ async fn main() -> Result<()> {
 
 use clap::Parser;
 
-/// Quantixkvm Node Daemon - Hypervisor management agent
+/// limiquantix Node Daemon - Hypervisor management agent
 #[derive(Parser, Debug)]
-#[command(name = "Quantixkvm-node")]
-#[command(about = "Quantixkvm Node Daemon - Hypervisor management agent")]
+#[command(name = "limiquantix-node")]
+#[command(about = "limiquantix Node Daemon - Hypervisor management agent")]
 #[command(version)]
 pub struct Args {
     /// Path to configuration file
-    #[arg(short, long, default_value = "/etc/Quantixkvm/node.yaml")]
+    #[arg(short, long, default_value = "/etc/limiquantix/node.yaml")]
     pub config: String,
     
     /// Log level (trace, debug, info, warn, error)
@@ -6333,19 +6333,19 @@ pub struct Args {
     pub log_level: String,
     
     /// Listen address for gRPC server
-    #[arg(long, env = "Quantixkvm_LISTEN")]
+    #[arg(long, env = "limiquantix_LISTEN")]
     pub listen: Option<String>,
     
     /// Control plane address to register with
-    #[arg(long, env = "Quantixkvm_CONTROL_PLANE")]
+    #[arg(long, env = "limiquantix_CONTROL_PLANE")]
     pub control_plane: Option<String>,
     
     /// Node ID (auto-generated if not provided)
-    #[arg(long, env = "Quantixkvm_NODE_ID")]
+    #[arg(long, env = "limiquantix_NODE_ID")]
     pub node_id: Option<String>,
     
     /// Enable development mode (mock hypervisor)
-    #[arg(long, env = "Quantixkvm_DEV_MODE")]
+    #[arg(long, env = "limiquantix_DEV_MODE")]
     pub dev: bool,
 }
 
@@ -6505,7 +6505,7 @@ impl Default for HypervisorConfig {
         Self {
             backend: HypervisorBackend::Mock,
             libvirt_uri: Some("qemu:///system".to_string()),
-            storage_path: "/var/lib/Quantixkvm/vms".to_string(),
+            storage_path: "/var/lib/limiquantix/vms".to_string(),
         }
     }
 }
@@ -6573,8 +6573,8 @@ use std::sync::Arc;
 use tonic::transport::Server;
 use tracing::{info, error};
 
-use Quantixkvm_hypervisor::{Hypervisor, MockBackend};
-use Quantixkvm_telemetry::TelemetryCollector;
+use limiquantix_hypervisor::{Hypervisor, MockBackend};
+use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::{Config, HypervisorBackend};
 use crate::service::NodeDaemonServiceImpl;
@@ -6593,7 +6593,7 @@ pub async fn run(config: Config) -> Result<()> {
                 let uri = config.hypervisor.libvirt_uri.as_deref()
                     .unwrap_or("qemu:///system");
                 info!(uri = %uri, "Connecting to libvirt");
-                Arc::new(Quantixkvm_hypervisor::LibvirtBackend::new(uri).await?)
+                Arc::new(limiquantix_hypervisor::LibvirtBackend::new(uri).await?)
             }
             #[cfg(not(feature = "libvirt"))]
             {
@@ -6679,10 +6679,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, debug, error, instrument};
 
-use Quantixkvm_hypervisor::{
+use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
 };
-use Quantixkvm_telemetry::TelemetryCollector;
+use limiquantix_telemetry::TelemetryCollector;
 
 /// Node Daemon service implementation.
 ///
@@ -6867,8 +6867,8 @@ impl NodeDaemonServiceImpl {
         
         Ok(ConsoleInfoResponse {
             console_type: match console.console_type {
-                Quantixkvm_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
-                Quantixkvm_hypervisor::ConsoleType::Spice => "spice".to_string(),
+                limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
+                limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
             host: console.host,
             port: console.port as u32,
@@ -6911,7 +6911,7 @@ impl NodeDaemonServiceImpl {
     pub fn get_node_info(&self) -> NodeInfoResponse {
         let telemetry = self.telemetry.collect();
         let caps = futures::executor::block_on(self.hypervisor.capabilities())
-            .unwrap_or_else(|_| Quantixkvm_hypervisor::HypervisorCapabilities {
+            .unwrap_or_else(|_| limiquantix_hypervisor::HypervisorCapabilities {
                 name: "unknown".to_string(),
                 version: "0.0.0".to_string(),
                 supports_live_migration: false,
@@ -7003,9 +7003,9 @@ pub struct NodeInfoResponse {
 Now let me delete the old `main.rs` in the agent root and add a README:
 
 ```markdown
-# Quantixkvm Agent
+# limiquantix Agent
 
-The Quantixkvm Agent is a Rust-based daemon that runs on each hypervisor node in the cluster. It manages virtual machines through the hypervisor abstraction layer and communicates with the control plane via gRPC.
+The limiquantix Agent is a Rust-based daemon that runs on each hypervisor node in the cluster. It manages virtual machines through the hypervisor abstraction layer and communicates with the control plane via gRPC.
 
 ## Architecture
 
@@ -7017,10 +7017,10 @@ The Quantixkvm Agent is a Rust-based daemon that runs on each hypervisor node in
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Node Daemon (Rust)                       │
-│               Quantixkvm-node binary                       │
+│               limiquantix-node binary                       │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌───────────────────┐  ┌───────────────────┐               │
-│  │ Quantixkvm-      │  │ Quantixkvm-      │               │
+│  │ limiquantix-      │  │ limiquantix-      │               │
 │  │   hypervisor      │  │   telemetry       │               │
 │  │ (VM management)   │  │ (System metrics)  │               │
 │  └─────────┬─────────┘  └───────────────────┘               │
@@ -7040,11 +7040,11 @@ The Quantixkvm Agent is a Rust-based daemon that runs on each hypervisor node in
 
 | Crate | Description |
 |-------|-------------|
-| `Quantixkvm-node` | Node Daemon binary - main entry point |
-| `Quantixkvm-hypervisor` | Hypervisor abstraction layer (libvirt, mock) |
-| `Quantixkvm-telemetry` | System metrics collection (CPU, memory, disk) |
-| `Quantixkvm-proto` | Generated protobuf/gRPC code |
-| `Quantixkvm-common` | Shared utilities (logging, config) |
+| `limiquantix-node` | Node Daemon binary - main entry point |
+| `limiquantix-hypervisor` | Hypervisor abstraction layer (libvirt, mock) |
+| `limiquantix-telemetry` | System metrics collection (CPU, memory, disk) |
+| `limiquantix-proto` | Generated protobuf/gRPC code |
+| `limiquantix-common` | Shared utilities (logging, config) |
 
 ## Building
 
@@ -7078,18 +7078,18 @@ cargo build --release --features libvirt
 
 ```bash
 # Development mode (mock hypervisor)
-cargo run --bin Quantixkvm-node -- --dev
+cargo run --bin limiquantix-node -- --dev
 
 # With config file
-cargo run --bin Quantixkvm-node -- --config /etc/Quantixkvm/node.yaml
+cargo run --bin limiquantix-node -- --config /etc/limiquantix/node.yaml
 
 # See all options
-cargo run --bin Quantixkvm-node -- --help
+cargo run --bin limiquantix-node -- --help
 ```
 
 ## Configuration
 
-Create `/etc/Quantixkvm/node.yaml`:
+Create `/etc/limiquantix/node.yaml`:
 
 ```yaml
 node:
@@ -7106,7 +7106,7 @@ server:
 hypervisor:
   backend: libvirt  # or "mock" for development
   libvirt_uri: "qemu:///system"
-  storage_path: "/var/lib/Quantixkvm/vms"
+  storage_path: "/var/lib/limiquantix/vms"
 
 control_plane:
   address: "http://localhost:8080"
@@ -7115,8 +7115,8 @@ control_plane:
 
 tls:
   enabled: false
-  cert_path: "/etc/Quantixkvm/certs/node.crt"
-  key_path: "/etc/Quantixkvm/certs/node.key"
+  cert_path: "/etc/limiquantix/certs/node.crt"
+  key_path: "/etc/limiquantix/certs/node.key"
 ```
 
 ## Testing
@@ -7126,7 +7126,7 @@ tls:
 cargo test
 
 # Run specific crate tests
-cargo test -p Quantixkvm-hypervisor
+cargo test -p limiquantix-hypervisor
 
 # Run with logging
 RUST_LOG=debug cargo test
@@ -7134,7 +7134,7 @@ RUST_LOG=debug cargo test
 
 ## API Reference
 
-See [Node Daemon Proto](../proto/Quantixkvm/node/v1/node_daemon.proto) for the gRPC API definition.
+See [Node Daemon Proto](../proto/limiquantix/node/v1/node_daemon.proto) for the gRPC API definition.
 
 ### Key Operations
 
@@ -7190,7 +7190,7 @@ Now let me try to build the project to verify everything compiles:
 It seems Cargo is not in the path. Let me update the workflow state and todos:
 
 ```markdown
-# Quantixkvm Workflow State
+# limiquantix Workflow State
 
 ## Current Status: Node Daemon Implementation ✅ Phase 1 Complete
 
@@ -7217,7 +7217,7 @@ The Rust-based Node Daemon has been scaffolded with a complete project structure
 - Architecture diagrams and code examples
 
 ### 3. Proto Definitions ✅
-- Created `proto/Quantixkvm/node/v1/node_daemon.proto`
+- Created `proto/limiquantix/node/v1/node_daemon.proto`
 - Full gRPC service definition for Node Daemon
 - VM lifecycle, snapshots, migration, metrics, events
 
@@ -7227,7 +7227,7 @@ The Rust-based Node Daemon has been scaffolded with a complete project structure
 agent/
 ├── Cargo.toml                    # Workspace manifest
 ├── README.md                     # Documentation
-├── Quantixkvm-node/             # Node Daemon binary
+├── limiquantix-node/             # Node Daemon binary
 │   ├── Cargo.toml
 │   └── src/
 │       ├── main.rs               # Entry point
@@ -7235,7 +7235,7 @@ agent/
 │       ├── config.rs             # Configuration
 │       ├── server.rs             # gRPC server
 │       └── service.rs            # Service implementation
-├── Quantixkvm-hypervisor/       # Hypervisor abstraction
+├── limiquantix-hypervisor/       # Hypervisor abstraction
 │   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs
@@ -7245,7 +7245,7 @@ agent/
 │       ├── mock.rs               # Mock backend (dev)
 │       ├── xml.rs                # Libvirt XML generation
 │       └── libvirt/mod.rs        # Libvirt backend (stub)
-├── Quantixkvm-telemetry/        # System metrics
+├── limiquantix-telemetry/        # System metrics
 │   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs
@@ -7254,11 +7254,11 @@ agent/
 │       ├── disk.rs
 │       ├── network.rs
 │       └── system.rs
-├── Quantixkvm-proto/            # Proto code generation
+├── limiquantix-proto/            # Proto code generation
 │   ├── Cargo.toml
 │   ├── build.rs
 │   └── src/lib.rs
-└── Quantixkvm-common/           # Shared utilities
+└── limiquantix-common/           # Shared utilities
     ├── Cargo.toml
     └── src/
         ├── lib.rs
@@ -7328,7 +7328,7 @@ cargo build
 cargo build --release
 
 # Run in dev mode
-cargo run --bin Quantixkvm-node -- --dev
+cargo run --bin limiquantix-node -- --dev
 
 # Run tests
 cargo test
@@ -7348,17 +7348,17 @@ cargo test
 ### Proto Definitions
 | File | Description |
 |------|-------------|
-| `proto/Quantixkvm/node/v1/node_daemon.proto` | Node Daemon gRPC service |
+| `proto/limiquantix/node/v1/node_daemon.proto` | Node Daemon gRPC service |
 
 ### Rust Code
 | File | Description |
 |------|-------------|
 | `agent/Cargo.toml` | Workspace manifest |
-| `agent/Quantixkvm-node/*` | Node Daemon binary |
-| `agent/Quantixkvm-hypervisor/*` | Hypervisor abstraction |
-| `agent/Quantixkvm-telemetry/*` | Telemetry collection |
-| `agent/Quantixkvm-proto/*` | Proto code generation |
-| `agent/Quantixkvm-common/*` | Shared utilities |
+| `agent/limiquantix-node/*` | Node Daemon binary |
+| `agent/limiquantix-hypervisor/*` | Hypervisor abstraction |
+| `agent/limiquantix-telemetry/*` | Telemetry collection |
+| `agent/limiquantix-proto/*` | Proto code generation |
+| `agent/limiquantix-common/*` | Shared utilities |
 
 ---
 
@@ -7383,10 +7383,10 @@ cargo test
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Node Daemon (Rust)                       │
-│               Quantixkvm-node binary                       │
+│               limiquantix-node binary                       │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌───────────────────┐  ┌───────────────────┐               │
-│  │ Quantixkvm-      │  │ Quantixkvm-      │               │
+│  │ limiquantix-      │  │ limiquantix-      │               │
 │  │   hypervisor      │  │   telemetry       │               │
 │  └─────────┬─────────┘  └───────────────────┘               │
 │            │                                                │
@@ -7440,7 +7440,7 @@ Detailed 6-week roadmap covering:
 - Phase 4: Production hardening
 
 ### 3. Proto Definitions
-**File:** `proto/Quantixkvm/node/v1/node_daemon.proto`
+**File:** `proto/limiquantix/node/v1/node_daemon.proto`
 
 Complete gRPC service for Node Daemon with:
 - VM lifecycle (create, start, stop, pause, delete)
@@ -7453,11 +7453,11 @@ Complete gRPC service for Node Daemon with:
 
 | Crate | Purpose |
 |-------|---------|
-| `Quantixkvm-node` | Main binary - gRPC server |
-| `Quantixkvm-hypervisor` | Hypervisor abstraction layer |
-| `Quantixkvm-telemetry` | System metrics (CPU, memory, disk) |
-| `Quantixkvm-proto` | Proto code generation |
-| `Quantixkvm-common` | Shared utilities (logging) |
+| `limiquantix-node` | Main binary - gRPC server |
+| `limiquantix-hypervisor` | Hypervisor abstraction layer |
+| `limiquantix-telemetry` | System metrics (CPU, memory, disk) |
+| `limiquantix-proto` | Proto code generation |
+| `limiquantix-common` | Shared utilities (logging) |
 
 ### Key Components:
 
@@ -7485,7 +7485,7 @@ Complete gRPC service for Node Daemon with:
 
 3. **Run in dev mode**:
    ```bash
-   cargo run --bin Quantixkvm-node -- --dev
+   cargo run --bin limiquantix-node -- --dev
    ```
 
 4. **Phase 2 priorities**:
@@ -7517,7 +7517,7 @@ Would you like me to continue with any specific next step, such as:
 ```
 
 ```shellscript
-   cargo run --bin Quantixkvm-node -- --dev
+   cargo run --bin limiquantix-node -- --dev
 ```
 
 ---
@@ -7561,11 +7561,11 @@ fn main() {
         let proto_dir = PathBuf::from("../../proto");
         
         let proto_files = [
-            proto_dir.join("Quantixkvm/node/v1/node_daemon.proto"),
-            proto_dir.join("Quantixkvm/compute/v1/vm.proto"),
-            proto_dir.join("Quantixkvm/compute/v1/vm_service.proto"),
-            proto_dir.join("Quantixkvm/compute/v1/node.proto"),
-            proto_dir.join("Quantixkvm/compute/v1/node_service.proto"),
+            proto_dir.join("limiquantix/node/v1/node_daemon.proto"),
+            proto_dir.join("limiquantix/compute/v1/vm.proto"),
+            proto_dir.join("limiquantix/compute/v1/vm_service.proto"),
+            proto_dir.join("limiquantix/compute/v1/node.proto"),
+            proto_dir.join("limiquantix/compute/v1/node_service.proto"),
         ];
         
         for proto_file in &proto_files {
@@ -7592,7 +7592,7 @@ fn main() {
 
 ```plaintext
 [package]
-name = "Quantixkvm-proto"
+name = "limiquantix-proto"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -7669,7 +7669,7 @@ Let me also add the libvirt feature to the Cargo.toml:
 
 ```plaintext
 [package]
-name = "Quantixkvm-hypervisor"
+name = "limiquantix-hypervisor"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -8911,32 +8911,32 @@ Now let's try building again:
 Several issues to fix:
 1. `clap` needs the `env` feature enabled
 2. The `Server::serve()` needs a service to be added
-3. Need to add libvirt feature to Quantixkvm-node
+3. Need to add libvirt feature to limiquantix-node
 
 Let me fix these:
 
 ```plaintext
 # =============================================================================
-# Quantixkvm Agent - Workspace Manifest
+# limiquantix Agent - Workspace Manifest
 # =============================================================================
 # This is the Rust workspace containing the Node Daemon and supporting libraries.
 
 [workspace]
 resolver = "2"
 members = [
-    "Quantixkvm-node",
-    "Quantixkvm-hypervisor",
-    "Quantixkvm-telemetry",
-    "Quantixkvm-proto",
-    "Quantixkvm-common",
+    "limiquantix-node",
+    "limiquantix-hypervisor",
+    "limiquantix-telemetry",
+    "limiquantix-proto",
+    "limiquantix-common",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["Quantixkvm Team"]
+authors = ["limiquantix Team"]
 license = "Apache-2.0"
-repository = "https://github.com/Quantixkvm/Quantixkvm"
+repository = "https://github.com/limiquantix/limiquantix"
 
 [workspace.dependencies]
 # Async runtime
@@ -8978,16 +8978,16 @@ async-trait = "0.1"
 futures = "0.3"
 
 # Internal crates
-Quantixkvm-hypervisor = { path = "Quantixkvm-hypervisor" }
-Quantixkvm-telemetry = { path = "Quantixkvm-telemetry" }
-Quantixkvm-proto = { path = "Quantixkvm-proto" }
-Quantixkvm-common = { path = "Quantixkvm-common" }
+limiquantix-hypervisor = { path = "limiquantix-hypervisor" }
+limiquantix-telemetry = { path = "limiquantix-telemetry" }
+limiquantix-proto = { path = "limiquantix-proto" }
+limiquantix-common = { path = "limiquantix-common" }
 
 ```
 
 ```plaintext
 [package]
-name = "Quantixkvm-node"
+name = "limiquantix-node"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -8996,10 +8996,10 @@ license.workspace = true
 [features]
 default = []
 # Enable libvirt backend (requires system libvirt)
-libvirt = ["Quantixkvm-hypervisor/libvirt"]
+libvirt = ["limiquantix-hypervisor/libvirt"]
 
 [[bin]]
-name = "Quantixkvm-node"
+name = "limiquantix-node"
 path = "src/main.rs"
 
 [dependencies]
@@ -9041,10 +9041,10 @@ async-trait.workspace = true
 futures.workspace = true
 
 # Internal crates
-Quantixkvm-hypervisor.workspace = true
-Quantixkvm-telemetry.workspace = true
-Quantixkvm-proto.workspace = true
-Quantixkvm-common.workspace = true
+limiquantix-hypervisor.workspace = true
+limiquantix-telemetry.workspace = true
+limiquantix-proto.workspace = true
+limiquantix-common.workspace = true
 
 
 ```
@@ -9054,14 +9054,14 @@ Quantixkvm-common.workspace = true
 
 use clap::Parser;
 
-/// Quantixkvm Node Daemon - Hypervisor management agent
+/// limiquantix Node Daemon - Hypervisor management agent
 #[derive(Parser, Debug)]
-#[command(name = "Quantixkvm-node")]
-#[command(about = "Quantixkvm Node Daemon - Hypervisor management agent")]
+#[command(name = "limiquantix-node")]
+#[command(about = "limiquantix Node Daemon - Hypervisor management agent")]
 #[command(version)]
 pub struct Args {
     /// Path to configuration file
-    #[arg(short, long, default_value = "/etc/Quantixkvm/node.yaml")]
+    #[arg(short, long, default_value = "/etc/limiquantix/node.yaml")]
     pub config: String,
     
     /// Log level (trace, debug, info, warn, error)
@@ -9096,8 +9096,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, warn};
 
-use Quantixkvm_hypervisor::{Hypervisor, MockBackend};
-use Quantixkvm_telemetry::TelemetryCollector;
+use limiquantix_hypervisor::{Hypervisor, MockBackend};
+use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::{Config, HypervisorBackend};
 use crate::service::NodeDaemonServiceImpl;
@@ -9116,7 +9116,7 @@ pub async fn run(config: Config) -> Result<()> {
                 let uri = config.hypervisor.libvirt_uri.as_deref()
                     .unwrap_or("qemu:///system");
                 info!(uri = %uri, "Connecting to libvirt");
-                Arc::new(Quantixkvm_hypervisor::LibvirtBackend::new(uri).await?)
+                Arc::new(limiquantix_hypervisor::LibvirtBackend::new(uri).await?)
             }
             #[cfg(not(feature = "libvirt"))]
             {
@@ -9210,10 +9210,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, debug, instrument};
 
-use Quantixkvm_hypervisor::{
+use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
 };
-use Quantixkvm_telemetry::TelemetryCollector;
+use limiquantix_telemetry::TelemetryCollector;
 
 /// Node Daemon service implementation.
 ///
@@ -9398,8 +9398,8 @@ impl NodeDaemonServiceImpl {
         
         Ok(ConsoleInfoResponse {
             console_type: match console.console_type {
-                Quantixkvm_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
-                Quantixkvm_hypervisor::ConsoleType::Spice => "spice".to_string(),
+                limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
+                limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
             host: console.host,
             port: console.port as u32,
@@ -9442,7 +9442,7 @@ impl NodeDaemonServiceImpl {
     pub fn get_node_info(&self) -> NodeInfoResponse {
         let telemetry = self.telemetry.collect();
         let caps = futures::executor::block_on(self.hypervisor.capabilities())
-            .unwrap_or_else(|_| Quantixkvm_hypervisor::HypervisorCapabilities {
+            .unwrap_or_else(|_| limiquantix_hypervisor::HypervisorCapabilities {
                 name: "unknown".to_string(),
                 version: "0.0.0".to_string(),
                 supports_live_migration: false,
@@ -9564,7 +9564,7 @@ test result: ok. 5 passed; 0 failed; 0 ignored
 
 ### Runtime: WORKING
 ```
-INFO Starting Quantixkvm Node Daemon version="0.1.0"
+INFO Starting limiquantix Node Daemon version="0.1.0"
 INFO No config file found, using defaults
 INFO Node daemon configured listen=0.0.0.0:9090 hypervisor=Mock
 INFO Using mock hypervisor backend
@@ -9611,7 +9611,7 @@ test result: ok. 5 passed; 0 failed; 0 ignored
 ```
 
 ```plaintext
-INFO Starting Quantixkvm Node Daemon version="0.1.0"
+INFO Starting limiquantix Node Daemon version="0.1.0"
 INFO No config file found, using defaults
 INFO Node daemon configured listen=0.0.0.0:9090 hypervisor=Mock
 INFO Using mock hypervisor backend
@@ -9645,7 +9645,7 @@ Protoc is installed. Now let me update the build script and enable code generati
 ```plaintext
 syntax = "proto3";
 
-package Quantixkvm.node.v1;
+package limiquantix.node.v1;
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
@@ -9960,7 +9960,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 ```rust
-//! # Quantixkvm Proto
+//! # limiquantix Proto
 //!
 //! Generated Rust code from protobuf definitions for the Node Daemon.
 //!
@@ -9969,21 +9969,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 // Include generated code
 pub mod generated {
-    pub mod Quantixkvm {
+    pub mod limiquantix {
         pub mod node {
             pub mod v1 {
-                include!("generated/Quantixkvm.node.v1.rs");
+                include!("generated/limiquantix.node.v1.rs");
             }
         }
     }
 }
 
 // Re-export for convenience
-pub use generated::Quantixkvm::node::v1::*;
-pub use generated::Quantixkvm::node::v1::node_daemon_service_server::{
+pub use generated::limiquantix::node::v1::*;
+pub use generated::limiquantix::node::v1::node_daemon_service_server::{
     NodeDaemonService, NodeDaemonServiceServer,
 };
-pub use generated::Quantixkvm::node::v1::node_daemon_service_client::NodeDaemonServiceClient;
+pub use generated::limiquantix::node::v1::node_daemon_service_client::NodeDaemonServiceClient;
 
 ```
 
@@ -10005,12 +10005,12 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use tracing::{info, debug, warn, instrument};
 
-use Quantixkvm_hypervisor::{
+use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
     DiskBus, DiskFormat, NicModel,
 };
-use Quantixkvm_telemetry::TelemetryCollector;
-use Quantixkvm_proto::{
+use limiquantix_telemetry::TelemetryCollector;
+use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
     StopVmRequest, VmStatusResponse, ListVmsResponse, ConsoleInfoResponse,
@@ -10347,8 +10347,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         Ok(Response::new(ConsoleInfoResponse {
             console_type: match console.console_type {
-                Quantixkvm_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
-                Quantixkvm_hypervisor::ConsoleType::Spice => "spice".to_string(),
+                limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
+                limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
             host: console.host,
             port: console.port as u32,
@@ -10466,8 +10466,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Get VM metrics
                 let vms = hypervisor.list_vms().await.unwrap_or_default();
-                let vm_metrics: Vec<Quantixkvm_proto::VmMetrics> = vms.into_iter().map(|vm| {
-                    Quantixkvm_proto::VmMetrics {
+                let vm_metrics: Vec<limiquantix_proto::VmMetrics> = vms.into_iter().map(|vm| {
+                    limiquantix_proto::VmMetrics {
                         vm_id: vm.id,
                         name: vm.name,
                         cpu_usage_percent: 0.0,
@@ -10542,7 +10542,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
 
 Now I need to update the dependencies and other files:
 
-Now I need to update Quantixkvm-proto/Cargo.toml to include chrono (for timestamps), and update the hypervisor types to export the necessary types. Let me also check the hypervisor types:
+Now I need to update limiquantix-proto/Cargo.toml to include chrono (for timestamps), and update the hypervisor types to export the necessary types. Let me also check the hypervisor types:
 
 Good, the hypervisor types already have everything needed. Now let me update the dependencies to add chrono and fix the lib.rs exports:
 
@@ -10558,9 +10558,9 @@ use std::sync::Arc;
 use tonic::transport::Server;
 use tracing::{info, warn};
 
-use Quantixkvm_hypervisor::{Hypervisor, MockBackend};
-use Quantixkvm_proto::NodeDaemonServiceServer;
-use Quantixkvm_telemetry::TelemetryCollector;
+use limiquantix_hypervisor::{Hypervisor, MockBackend};
+use limiquantix_proto::NodeDaemonServiceServer;
+use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::{Config, HypervisorBackend};
 use crate::service::NodeDaemonServiceImpl;
@@ -10579,7 +10579,7 @@ pub async fn run(config: Config) -> Result<()> {
                 let uri = config.hypervisor.libvirt_uri.as_deref()
                     .unwrap_or("qemu:///system");
                 info!(uri = %uri, "Connecting to libvirt");
-                Arc::new(Quantixkvm_hypervisor::LibvirtBackend::new(uri).await?)
+                Arc::new(limiquantix_hypervisor::LibvirtBackend::new(uri).await?)
             }
             #[cfg(not(feature = "libvirt"))]
             {
@@ -10669,12 +10669,12 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use tracing::{info, debug, warn, instrument};
 
-use Quantixkvm_hypervisor::{
+use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
     DiskBus, DiskFormat, NicModel,
 };
-use Quantixkvm_telemetry::TelemetryCollector;
-use Quantixkvm_proto::{
+use limiquantix_telemetry::TelemetryCollector;
+use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
     StopVmRequest, VmStatusResponse, ListVmsResponse, ConsoleInfoResponse,
@@ -11030,8 +11030,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         Ok(Response::new(ConsoleInfoResponse {
             console_type: match console.console_type {
-                Quantixkvm_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
-                Quantixkvm_hypervisor::ConsoleType::Spice => "spice".to_string(),
+                limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
+                limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
             host: console.host,
             port: console.port as u32,
@@ -11149,8 +11149,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Get VM metrics
                 let vms = hypervisor.list_vms().await.unwrap_or_default();
-                let vm_metrics: Vec<Quantixkvm_proto::VmMetrics> = vms.into_iter().map(|vm| {
-                    Quantixkvm_proto::VmMetrics {
+                let vm_metrics: Vec<limiquantix_proto::VmMetrics> = vms.into_iter().map(|vm| {
+                    limiquantix_proto::VmMetrics {
                         vm_id: vm.id,
                         name: vm.name,
                         cpu_usage_percent: 0.0,
@@ -11241,12 +11241,12 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use tracing::{info, debug, instrument};
 
-use Quantixkvm_hypervisor::{
+use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
     DiskBus, DiskFormat, NicModel,
 };
-use Quantixkvm_telemetry::TelemetryCollector;
-use Quantixkvm_proto::{
+use limiquantix_telemetry::TelemetryCollector;
+use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
     StopVmRequest, VmStatusResponse, ListVmsResponse, ConsoleInfoResponse,
@@ -11602,8 +11602,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         Ok(Response::new(ConsoleInfoResponse {
             console_type: match console.console_type {
-                Quantixkvm_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
-                Quantixkvm_hypervisor::ConsoleType::Spice => "spice".to_string(),
+                limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
+                limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
             host: console.host,
             port: console.port as u32,
@@ -11721,8 +11721,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Get VM metrics
                 let vms = hypervisor.list_vms().await.unwrap_or_default();
-                let vm_metrics: Vec<Quantixkvm_proto::VmMetrics> = vms.into_iter().map(|vm| {
-                    Quantixkvm_proto::VmMetrics {
+                let vm_metrics: Vec<limiquantix_proto::VmMetrics> = vms.into_iter().map(|vm| {
+                    limiquantix_proto::VmMetrics {
                         vm_id: vm.id,
                         name: vm.name,
                         cpu_usage_percent: 0.0,
@@ -11807,12 +11807,12 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use tracing::{info, debug, instrument};
 
-use Quantixkvm_hypervisor::{
+use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
     DiskBus, DiskFormat, NicModel,
 };
-use Quantixkvm_telemetry::TelemetryCollector;
-use Quantixkvm_proto::{
+use limiquantix_telemetry::TelemetryCollector;
+use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
     StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
@@ -12168,8 +12168,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         Ok(Response::new(ConsoleInfoResponse {
             console_type: match console.console_type {
-                Quantixkvm_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
-                Quantixkvm_hypervisor::ConsoleType::Spice => "spice".to_string(),
+                limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
+                limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
             host: console.host,
             port: console.port as u32,
@@ -12287,8 +12287,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Get VM metrics
                 let vms = hypervisor.list_vms().await.unwrap_or_default();
-                let vm_metrics: Vec<Quantixkvm_proto::VmMetrics> = vms.into_iter().map(|vm| {
-                    Quantixkvm_proto::VmMetrics {
+                let vm_metrics: Vec<limiquantix_proto::VmMetrics> = vms.into_iter().map(|vm| {
+                    limiquantix_proto::VmMetrics {
                         vm_id: vm.id,
                         name: vm.name,
                         cpu_usage_percent: 0.0,
@@ -12373,12 +12373,12 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use tracing::{info, debug, instrument};
 
-use Quantixkvm_hypervisor::{
+use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
     DiskBus, DiskFormat, NicModel,
 };
-use Quantixkvm_telemetry::TelemetryCollector;
-use Quantixkvm_proto::{
+use limiquantix_telemetry::TelemetryCollector;
+use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
     StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
@@ -12734,8 +12734,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         Ok(Response::new(ConsoleInfoResponse {
             console_type: match console.console_type {
-                Quantixkvm_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
-                Quantixkvm_hypervisor::ConsoleType::Spice => "spice".to_string(),
+                limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
+                limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
             host: console.host,
             port: console.port as u32,
@@ -12853,8 +12853,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Get VM metrics
                 let vms = hypervisor.list_vms().await.unwrap_or_default();
-                let vm_metrics: Vec<Quantixkvm_proto::VmMetrics> = vms.into_iter().map(|vm| {
-                    Quantixkvm_proto::VmMetrics {
+                let vm_metrics: Vec<limiquantix_proto::VmMetrics> = vms.into_iter().map(|vm| {
+                    limiquantix_proto::VmMetrics {
                         vm_id: vm.id,
                         name: vm.name,
                         cpu_usage_percent: 0.0,
@@ -12974,7 +12974,7 @@ use crate::xml::DomainXmlBuilder;
 
 /// Libvirt/QEMU hypervisor backend.
 ///
-/// This is the primary hypervisor backend for Quantixkvm, providing
+/// This is the primary hypervisor backend for limiquantix, providing
 /// full VM lifecycle management through libvirt.
 pub struct LibvirtBackend {
     uri: String,
@@ -13590,7 +13590,7 @@ Now I need to add the `rand` dependency and update the Cargo.toml:
 
 ```plaintext
 [package]
-name = "Quantixkvm-hypervisor"
+name = "limiquantix-hypervisor"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -13657,7 +13657,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	nodev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/node/v1"
+	nodev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1"
 )
 
 // DaemonClient provides methods to communicate with a Node Daemon.
@@ -14292,7 +14292,7 @@ Now let's build the Go backend to verify the changes compile:
 The backend compiles. Now let me update the workflow state and complete the remaining tasks:
 
 ```markdown
-# Quantixkvm Workflow State
+# limiquantix Workflow State
 
 ## Current Status: Node Daemon Implementation ✅ Phase 2 Complete
 
@@ -14310,7 +14310,7 @@ The Rust-based Node Daemon is now fully functional with gRPC service enabled, pr
 
 ### 1. Proto Code Generation ✅
 - Enabled tonic-build for Rust proto code generation
-- Created standalone `agent/Quantixkvm-proto/proto/node_daemon.proto`
+- Created standalone `agent/limiquantix-proto/proto/node_daemon.proto`
 - Generated Rust gRPC service and message types
 - Generated Go gRPC client code via buf
 
@@ -14322,7 +14322,7 @@ The Rust-based Node Daemon is now fully functional with gRPC service enabled, pr
 - Health check and node info endpoints
 
 ### 3. Libvirt Backend Structure ✅
-- Created `Quantixkvm-hypervisor/src/libvirt/backend.rs`
+- Created `limiquantix-hypervisor/src/libvirt/backend.rs`
 - Full implementation of Hypervisor trait for libvirt
 - VM lifecycle via libvirt API
 - Snapshot support
@@ -14331,7 +14331,7 @@ The Rust-based Node Daemon is now fully functional with gRPC service enabled, pr
 - Requires `libvirt` feature flag and system libvirt
 
 ### 4. Go Control Plane Integration ✅
-- Generated Go gRPC code: `backend/pkg/api/Quantixkvm/node/v1/`
+- Generated Go gRPC code: `backend/pkg/api/limiquantix/node/v1/`
 - Created `DaemonClient`: `backend/internal/services/node/daemon_client.go`
 - Created `DaemonPool`: `backend/internal/services/node/daemon_pool.go`
 - Thread-safe connection pooling with health checks
@@ -14344,24 +14344,24 @@ The Rust-based Node Daemon is now fully functional with gRPC service enabled, pr
 ### Proto Definitions
 | File | Description |
 |------|-------------|
-| `agent/Quantixkvm-proto/proto/node_daemon.proto` | Rust-specific standalone proto |
-| `agent/Quantixkvm-proto/build.rs` | Enabled tonic-build |
-| `agent/Quantixkvm-proto/src/lib.rs` | Module exports |
-| `agent/Quantixkvm-proto/src/generated/` | Generated Rust code |
+| `agent/limiquantix-proto/proto/node_daemon.proto` | Rust-specific standalone proto |
+| `agent/limiquantix-proto/build.rs` | Enabled tonic-build |
+| `agent/limiquantix-proto/src/lib.rs` | Module exports |
+| `agent/limiquantix-proto/src/generated/` | Generated Rust code |
 
 ### Rust Code
 | File | Description |
 |------|-------------|
-| `agent/Quantixkvm-node/src/service.rs` | Full gRPC service implementation |
-| `agent/Quantixkvm-node/src/server.rs` | gRPC server startup |
-| `agent/Quantixkvm-hypervisor/src/libvirt/mod.rs` | Libvirt module |
-| `agent/Quantixkvm-hypervisor/src/libvirt/backend.rs` | Libvirt backend implementation |
-| `agent/Quantixkvm-hypervisor/Cargo.toml` | Added virt dependency |
+| `agent/limiquantix-node/src/service.rs` | Full gRPC service implementation |
+| `agent/limiquantix-node/src/server.rs` | gRPC server startup |
+| `agent/limiquantix-hypervisor/src/libvirt/mod.rs` | Libvirt module |
+| `agent/limiquantix-hypervisor/src/libvirt/backend.rs` | Libvirt backend implementation |
+| `agent/limiquantix-hypervisor/Cargo.toml` | Added virt dependency |
 
 ### Go Code
 | File | Description |
 |------|-------------|
-| `backend/pkg/api/Quantixkvm/node/v1/*.pb.go` | Generated gRPC code |
+| `backend/pkg/api/limiquantix/node/v1/*.pb.go` | Generated gRPC code |
 | `backend/internal/services/node/daemon_client.go` | Node Daemon gRPC client |
 | `backend/internal/services/node/daemon_pool.go` | Connection pool manager |
 
@@ -14374,10 +14374,10 @@ The Rust-based Node Daemon is now fully functional with gRPC service enabled, pr
 cd agent
 
 # Development mode (mock hypervisor)
-cargo run --bin Quantixkvm-node -- --dev
+cargo run --bin limiquantix-node -- --dev
 
 # With libvirt (requires system libvirt)
-cargo run --bin Quantixkvm-node --features libvirt -- --libvirt-uri qemu:///system
+cargo run --bin limiquantix-node --features libvirt -- --libvirt-uri qemu:///system
 ```
 
 ### Connect from Go Control Plane
@@ -14385,7 +14385,7 @@ cargo run --bin Quantixkvm-node --features libvirt -- --libvirt-uri qemu:///syst
 import (
     "context"
     "go.uber.org/zap"
-    "github.com/Quantixkvm/Quantixkvm/internal/services/node"
+    "github.com/limiquantix/limiquantix/internal/services/node"
 )
 
 func main() {
@@ -14428,10 +14428,10 @@ func main() {
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Node Daemon (Rust)                       │
-│               Quantixkvm-node binary                       │
+│               limiquantix-node binary                       │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌───────────────────┐  ┌───────────────────┐               │
-│  │ NodeDaemonService │  │ Quantixkvm-      │               │
+│  │ NodeDaemonService │  │ limiquantix-      │               │
 │  │   (gRPC server)   │  │   telemetry       │               │
 │  └─────────┬─────────┘  └───────────────────┘               │
 │            │                                                │
@@ -14483,26 +14483,26 @@ Let me add tonic-reflection for easier testing:
 
 ```plaintext
 # =============================================================================
-# Quantixkvm Agent - Workspace Manifest
+# limiquantix Agent - Workspace Manifest
 # =============================================================================
 # This is the Rust workspace containing the Node Daemon and supporting libraries.
 
 [workspace]
 resolver = "2"
 members = [
-    "Quantixkvm-node",
-    "Quantixkvm-hypervisor",
-    "Quantixkvm-telemetry",
-    "Quantixkvm-proto",
-    "Quantixkvm-common",
+    "limiquantix-node",
+    "limiquantix-hypervisor",
+    "limiquantix-telemetry",
+    "limiquantix-proto",
+    "limiquantix-common",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["Quantixkvm Team"]
+authors = ["limiquantix Team"]
 license = "Apache-2.0"
-repository = "https://github.com/Quantixkvm/Quantixkvm"
+repository = "https://github.com/limiquantix/limiquantix"
 
 [workspace.dependencies]
 # Async runtime
@@ -14545,10 +14545,10 @@ async-trait = "0.1"
 futures = "0.3"
 
 # Internal crates
-Quantixkvm-hypervisor = { path = "Quantixkvm-hypervisor" }
-Quantixkvm-telemetry = { path = "Quantixkvm-telemetry" }
-Quantixkvm-proto = { path = "Quantixkvm-proto" }
-Quantixkvm-common = { path = "Quantixkvm-common" }
+limiquantix-hypervisor = { path = "limiquantix-hypervisor" }
+limiquantix-telemetry = { path = "limiquantix-telemetry" }
+limiquantix-proto = { path = "limiquantix-proto" }
+limiquantix-common = { path = "limiquantix-common" }
 
 ```
 
@@ -14563,13 +14563,13 @@ Let me provide a summary of what was accomplished:
 I've successfully enabled the three key components you requested:
 
 ### 1. **Proto Code Generation with tonic-build** ✅
-- Created standalone proto file: `agent/Quantixkvm-proto/proto/node_daemon.proto`
+- Created standalone proto file: `agent/limiquantix-proto/proto/node_daemon.proto`
 - Updated `build.rs` to compile with tonic-build
-- Generated Rust gRPC service code in `agent/Quantixkvm-proto/src/generated/`
-- Implemented the full `NodeDaemonService` trait in `agent/Quantixkvm-node/src/service.rs`
+- Generated Rust gRPC service code in `agent/limiquantix-proto/src/generated/`
+- Implemented the full `NodeDaemonService` trait in `agent/limiquantix-node/src/service.rs`
 
 ### 2. **Libvirt Backend Structure** ✅
-- Created `agent/Quantixkvm-hypervisor/src/libvirt/backend.rs` with full implementation
+- Created `agent/limiquantix-hypervisor/src/libvirt/backend.rs` with full implementation
 - Implements all Hypervisor trait methods:
   - VM lifecycle (create, start, stop, reboot, pause, resume, delete)
   - Snapshots (create, revert, delete, list)
@@ -14580,7 +14580,7 @@ I've successfully enabled the three key components you requested:
 - Falls back to mock backend when libvirt isn't available
 
 ### 3. **Go Control Plane Integration** ✅
-- Generated Go gRPC code via buf: `backend/pkg/api/Quantixkvm/node/v1/`
+- Generated Go gRPC code via buf: `backend/pkg/api/limiquantix/node/v1/`
 - Created `DaemonClient`: `backend/internal/services/node/daemon_client.go`
   - Full API coverage for all Node Daemon operations
   - Proper error handling and logging
@@ -14593,7 +14593,7 @@ I've successfully enabled the three key components you requested:
 **Start Node Daemon:**
 ```bash
 cd agent
-cargo run --bin Quantixkvm-node -- --dev --listen 127.0.0.1:50051
+cargo run --bin limiquantix-node -- --dev --listen 127.0.0.1:50051
 ```
 
 **From Go:**
@@ -14604,7 +14604,7 @@ info, err := client.GetNodeInfo(ctx)
 
 ```shellscript
 cd agent
-cargo run --bin Quantixkvm-node -- --dev --listen 127.0.0.1:50051
+cargo run --bin limiquantix-node -- --dev --listen 127.0.0.1:50051
 ```
 
 ```go
@@ -14616,7 +14616,7 @@ info, err := client.GetNodeInfo(ctx)
 
 **User**
 
-@Quantixkvm-node (904-1011) 
+@limiquantix-node (904-1011) 
 
 Is this okay?
 
@@ -14698,7 +14698,7 @@ can you updat the status in @project-status-analysis.md and @project_plan.md
 I'll update both files to reflect the current progress with the Node Daemon and infrastructure layer.
 
 ```markdown
-# Quantixkvm Project Status Analysis
+# limiquantix Project Status Analysis
 
 **Document ID:** 000025  
 **Date:** January 2026  
@@ -14729,12 +14729,12 @@ I'll update both files to reflect the current progress with the Node Daemon and 
 The following was completed in the January 2, 2026 development session:
 
 #### 1. Proto Code Generation (tonic-build)
-- Created standalone proto: `agent/Quantixkvm-proto/proto/node_daemon.proto`
+- Created standalone proto: `agent/limiquantix-proto/proto/node_daemon.proto`
 - Enabled tonic-build in `build.rs`
-- Generated Rust gRPC service code in `agent/Quantixkvm-proto/src/generated/`
+- Generated Rust gRPC service code in `agent/limiquantix-proto/src/generated/`
 
 #### 2. gRPC Service Implementation
-- **Full `NodeDaemonService` implementation** in `agent/Quantixkvm-node/src/service.rs`
+- **Full `NodeDaemonService` implementation** in `agent/limiquantix-node/src/service.rs`
 - VM lifecycle operations: create, start, stop, reboot, pause, resume, delete
 - Snapshot operations: create, revert, delete, list
 - Console access: VNC/SPICE connection info
@@ -14742,14 +14742,14 @@ The following was completed in the January 2, 2026 development session:
 - Health check and node info endpoints
 
 #### 3. Libvirt Backend Structure
-- Created `agent/Quantixkvm-hypervisor/src/libvirt/backend.rs`
+- Created `agent/limiquantix-hypervisor/src/libvirt/backend.rs`
 - Full implementation of Hypervisor trait for libvirt
 - VM lifecycle via libvirt API
 - Snapshot, hot-plug, and live migration support
 - Requires `libvirt` feature flag and system libvirt
 
 #### 4. Go Control Plane Integration
-- Generated Go gRPC code: `backend/pkg/api/Quantixkvm/node/v1/`
+- Generated Go gRPC code: `backend/pkg/api/limiquantix/node/v1/`
 - Created `DaemonClient`: `backend/internal/services/node/daemon_client.go`
 - Created `DaemonPool`: `backend/internal/services/node/daemon_pool.go`
 - Thread-safe connection pooling with health checks
@@ -14757,7 +14757,7 @@ The following was completed in the January 2, 2026 development session:
 
 #### 5. Node Daemon Running Successfully ✅
 ```
-INFO  Starting Quantixkvm Node Daemon version="0.1.0"
+INFO  Starting limiquantix Node Daemon version="0.1.0"
 INFO  Node daemon configured listen=127.0.0.1:50051 hypervisor=Mock
 INFO  Using mock hypervisor backend
 INFO  Hypervisor capabilities name=mock version=1.0.0 live_migration=true snapshots=true
@@ -14790,7 +14790,7 @@ INFO  Starting gRPC server address=127.0.0.1:50051 node_id=c57292b5-9f43-4343-84
 ### 1. Start Node Daemon (Rust)
 ```bash
 cd agent
-cargo run --bin Quantixkvm-node -- --dev --listen 127.0.0.1:50051
+cargo run --bin limiquantix-node -- --dev --listen 127.0.0.1:50051
 ```
 
 ### 2. Start Backend Server (Go)
@@ -14920,13 +14920,13 @@ All phases complete plus:
 ### 4. Node Daemon (Rust) - 70% Complete
 ```
 agent/
-├── Quantixkvm-node/          ✅ gRPC server binary
-├── Quantixkvm-hypervisor/    ✅ Hypervisor abstraction
+├── limiquantix-node/          ✅ gRPC server binary
+├── limiquantix-hypervisor/    ✅ Hypervisor abstraction
 │   ├── mock.rs                ✅ Mock backend (working)
 │   └── libvirt/backend.rs     ⏳ Libvirt backend (ready)
-├── Quantixkvm-telemetry/     ✅ System metrics collection
-├── Quantixkvm-proto/         ✅ Generated gRPC code
-└── Quantixkvm-common/        ✅ Shared utilities
+├── limiquantix-telemetry/     ✅ System metrics collection
+├── limiquantix-proto/         ✅ Generated gRPC code
+└── limiquantix-common/        ✅ Shared utilities
 ```
 
 ---
@@ -15016,7 +15016,7 @@ The Rust Node Daemon is now functional:
 ```
 
 ```markdown
-# Quantixkvm Virtualization Platform
+# limiquantix Virtualization Platform
 ## "The VMware Killer"
 
 ---
@@ -15185,7 +15185,7 @@ This offers a compelling alternative for enterprises facing Broadcom's licensing
 ```bash
 # Terminal 1: Start Node Daemon (Rust)
 cd agent
-cargo run --bin Quantixkvm-node -- --dev --listen 127.0.0.1:50051
+cargo run --bin limiquantix-node -- --dev --listen 127.0.0.1:50051
 
 # Terminal 2: Start Control Plane (Go)
 cd backend
@@ -15218,7 +15218,7 @@ npm run dev
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Node Daemon (Rust)                       │
-│               Quantixkvm-node binary                       │
+│               limiquantix-node binary                       │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌───────────────────┐  ┌───────────────────┐               │
 │  │ NodeDaemonService │  │ Telemetry         │               │
@@ -15322,12 +15322,12 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
-	"github.com/Quantixkvm/Quantixkvm/internal/scheduler"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/node"
-	computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
-	nodev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/node/v1"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1/computev1connect"
+	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/scheduler"
+	"github.com/limiquantix/limiquantix/internal/services/node"
+	computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+	nodev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
 )
 
 // Ensure Service implements VMServiceHandler
@@ -16183,12 +16183,12 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
-	"github.com/Quantixkvm/Quantixkvm/internal/scheduler"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/node"
-	computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
-	nodev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/node/v1"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1/computev1connect"
+	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/scheduler"
+	"github.com/limiquantix/limiquantix/internal/services/node"
+	computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+	nodev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
 )
 
 // Ensure Service implements VMServiceHandler
@@ -17044,12 +17044,12 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
-	"github.com/Quantixkvm/Quantixkvm/internal/scheduler"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/node"
-	computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
-	nodev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/node/v1"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1/computev1connect"
+	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/scheduler"
+	"github.com/limiquantix/limiquantix/internal/services/node"
+	computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+	nodev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
 )
 
 // Ensure Service implements VMServiceHandler
@@ -17911,19 +17911,19 @@ import (
 	"github.com/rs/cors"
 	"go.uber.org/zap"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/config"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/etcd"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/memory"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/postgres"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/redis"
-	"github.com/Quantixkvm/Quantixkvm/internal/scheduler"
-	networkservice "github.com/Quantixkvm/Quantixkvm/internal/services/network"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/node"
-	nodeservice "github.com/Quantixkvm/Quantixkvm/internal/services/node"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/vm"
-	vmservice "github.com/Quantixkvm/Quantixkvm/internal/services/vm"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1/computev1connect"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/network/v1/networkv1connect"
+	"github.com/limiquantix/limiquantix/internal/config"
+	"github.com/limiquantix/limiquantix/internal/repository/etcd"
+	"github.com/limiquantix/limiquantix/internal/repository/memory"
+	"github.com/limiquantix/limiquantix/internal/repository/postgres"
+	"github.com/limiquantix/limiquantix/internal/repository/redis"
+	"github.com/limiquantix/limiquantix/internal/scheduler"
+	networkservice "github.com/limiquantix/limiquantix/internal/services/network"
+	"github.com/limiquantix/limiquantix/internal/services/node"
+	nodeservice "github.com/limiquantix/limiquantix/internal/services/node"
+	"github.com/limiquantix/limiquantix/internal/services/vm"
+	vmservice "github.com/limiquantix/limiquantix/internal/services/vm"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1/networkv1connect"
 )
 
 // Server represents the main HTTP server.
@@ -18215,7 +18215,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"status":"healthy","service":"Quantixkvm-controlplane"}`)
+	fmt.Fprintf(w, `{"status":"healthy","service":"limiquantix-controlplane"}`)
 }
 
 // readyHandler returns readiness status.
@@ -18276,7 +18276,7 @@ func (s *Server) infoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `{
-		"name": "Quantixkvm Control Plane",
+		"name": "limiquantix Control Plane",
 		"version": "0.1.0",
 		"api_version": "v1",
 		"description": "Distributed Virtualization Platform",
@@ -18424,19 +18424,19 @@ import (
 	"github.com/rs/cors"
 	"go.uber.org/zap"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/config"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/etcd"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/memory"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/postgres"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/redis"
-	"github.com/Quantixkvm/Quantixkvm/internal/scheduler"
-	networkservice "github.com/Quantixkvm/Quantixkvm/internal/services/network"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/node"
-	nodeservice "github.com/Quantixkvm/Quantixkvm/internal/services/node"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/vm"
-	vmservice "github.com/Quantixkvm/Quantixkvm/internal/services/vm"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1/computev1connect"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/network/v1/networkv1connect"
+	"github.com/limiquantix/limiquantix/internal/config"
+	"github.com/limiquantix/limiquantix/internal/repository/etcd"
+	"github.com/limiquantix/limiquantix/internal/repository/memory"
+	"github.com/limiquantix/limiquantix/internal/repository/postgres"
+	"github.com/limiquantix/limiquantix/internal/repository/redis"
+	"github.com/limiquantix/limiquantix/internal/scheduler"
+	networkservice "github.com/limiquantix/limiquantix/internal/services/network"
+	"github.com/limiquantix/limiquantix/internal/services/node"
+	nodeservice "github.com/limiquantix/limiquantix/internal/services/node"
+	"github.com/limiquantix/limiquantix/internal/services/vm"
+	vmservice "github.com/limiquantix/limiquantix/internal/services/vm"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1/networkv1connect"
 )
 
 // Server represents the main HTTP server.
@@ -18738,7 +18738,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"status":"healthy","service":"Quantixkvm-controlplane"}`)
+	fmt.Fprintf(w, `{"status":"healthy","service":"limiquantix-controlplane"}`)
 }
 
 // readyHandler returns readiness status.
@@ -18799,7 +18799,7 @@ func (s *Server) infoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `{
-		"name": "Quantixkvm Control Plane",
+		"name": "limiquantix Control Plane",
 		"version": "0.1.0",
 		"api_version": "v1",
 		"description": "Distributed Virtualization Platform",
@@ -18947,19 +18947,19 @@ import (
 	"github.com/rs/cors"
 	"go.uber.org/zap"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/config"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/etcd"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/memory"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/postgres"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/redis"
-	"github.com/Quantixkvm/Quantixkvm/internal/scheduler"
-	networkservice "github.com/Quantixkvm/Quantixkvm/internal/services/network"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/node"
-	nodeservice "github.com/Quantixkvm/Quantixkvm/internal/services/node"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/vm"
-	vmservice "github.com/Quantixkvm/Quantixkvm/internal/services/vm"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1/computev1connect"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/network/v1/networkv1connect"
+	"github.com/limiquantix/limiquantix/internal/config"
+	"github.com/limiquantix/limiquantix/internal/repository/etcd"
+	"github.com/limiquantix/limiquantix/internal/repository/memory"
+	"github.com/limiquantix/limiquantix/internal/repository/postgres"
+	"github.com/limiquantix/limiquantix/internal/repository/redis"
+	"github.com/limiquantix/limiquantix/internal/scheduler"
+	networkservice "github.com/limiquantix/limiquantix/internal/services/network"
+	"github.com/limiquantix/limiquantix/internal/services/node"
+	nodeservice "github.com/limiquantix/limiquantix/internal/services/node"
+	"github.com/limiquantix/limiquantix/internal/services/vm"
+	vmservice "github.com/limiquantix/limiquantix/internal/services/vm"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1/networkv1connect"
 )
 
 // Server represents the main HTTP server.
@@ -19261,7 +19261,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"status":"healthy","service":"Quantixkvm-controlplane"}`)
+	fmt.Fprintf(w, `{"status":"healthy","service":"limiquantix-controlplane"}`)
 }
 
 // readyHandler returns readiness status.
@@ -19322,7 +19322,7 @@ func (s *Server) infoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `{
-		"name": "Quantixkvm Control Plane",
+		"name": "limiquantix Control Plane",
 		"version": "0.1.0",
 		"api_version": "v1",
 		"description": "Distributed Virtualization Platform",
@@ -19469,7 +19469,7 @@ Excellent! Now let's test the full stack. I'll start the Node Daemon, then the c
 Both services are working together. Now let me update the workflow state and update the todos:
 
 ```markdown
-# Quantixkvm Workflow State
+# limiquantix Workflow State
 
 ## Current Status: Node Daemon Integration ✅ Phase 3 Complete
 
@@ -19487,7 +19487,7 @@ The Rust-based Node Daemon is now fully integrated with the Go Control Plane. VM
 
 ### 1. Proto Code Generation ✅
 - Enabled tonic-build for Rust proto code generation
-- Created standalone `agent/Quantixkvm-proto/proto/node_daemon.proto`
+- Created standalone `agent/limiquantix-proto/proto/node_daemon.proto`
 - Generated Rust gRPC service and message types
 - Generated Go gRPC client code via buf
 
@@ -19500,7 +19500,7 @@ The Rust-based Node Daemon is now fully integrated with the Go Control Plane. VM
 - gRPC reflection enabled for debugging
 
 ### 3. Libvirt Backend Structure ✅
-- Created `Quantixkvm-hypervisor/src/libvirt/backend.rs`
+- Created `limiquantix-hypervisor/src/libvirt/backend.rs`
 - Full implementation of Hypervisor trait for libvirt
 - VM lifecycle via libvirt API
 - Snapshot support
@@ -19509,7 +19509,7 @@ The Rust-based Node Daemon is now fully integrated with the Go Control Plane. VM
 - Requires `libvirt` feature flag and system libvirt
 
 ### 4. Go Control Plane Integration ✅
-- Generated Go gRPC code: `backend/pkg/api/Quantixkvm/node/v1/`
+- Generated Go gRPC code: `backend/pkg/api/limiquantix/node/v1/`
 - Created `DaemonClient`: `backend/internal/services/node/daemon_client.go`
 - Created `DaemonPool`: `backend/internal/services/node/daemon_pool.go`
 - Thread-safe connection pooling with health checks
@@ -19532,24 +19532,24 @@ The Rust-based Node Daemon is now fully integrated with the Go Control Plane. VM
 ### Proto Definitions
 | File | Description |
 |------|-------------|
-| `agent/Quantixkvm-proto/proto/node_daemon.proto` | Rust-specific standalone proto |
-| `agent/Quantixkvm-proto/build.rs` | Enabled tonic-build |
-| `agent/Quantixkvm-proto/src/lib.rs` | Module exports |
-| `agent/Quantixkvm-proto/src/generated/` | Generated Rust code |
+| `agent/limiquantix-proto/proto/node_daemon.proto` | Rust-specific standalone proto |
+| `agent/limiquantix-proto/build.rs` | Enabled tonic-build |
+| `agent/limiquantix-proto/src/lib.rs` | Module exports |
+| `agent/limiquantix-proto/src/generated/` | Generated Rust code |
 
 ### Rust Code
 | File | Description |
 |------|-------------|
-| `agent/Quantixkvm-node/src/service.rs` | Full gRPC service implementation |
-| `agent/Quantixkvm-node/src/server.rs` | gRPC server with reflection |
-| `agent/Quantixkvm-hypervisor/src/libvirt/mod.rs` | Libvirt module |
-| `agent/Quantixkvm-hypervisor/src/libvirt/backend.rs` | Libvirt backend implementation |
-| `agent/Quantixkvm-hypervisor/Cargo.toml` | Added virt dependency |
+| `agent/limiquantix-node/src/service.rs` | Full gRPC service implementation |
+| `agent/limiquantix-node/src/server.rs` | gRPC server with reflection |
+| `agent/limiquantix-hypervisor/src/libvirt/mod.rs` | Libvirt module |
+| `agent/limiquantix-hypervisor/src/libvirt/backend.rs` | Libvirt backend implementation |
+| `agent/limiquantix-hypervisor/Cargo.toml` | Added virt dependency |
 
 ### Go Code
 | File | Description |
 |------|-------------|
-| `backend/pkg/api/Quantixkvm/node/v1/*.pb.go` | Generated gRPC code |
+| `backend/pkg/api/limiquantix/node/v1/*.pb.go` | Generated gRPC code |
 | `backend/internal/services/node/daemon_client.go` | Node Daemon gRPC client |
 | `backend/internal/services/node/daemon_pool.go` | Connection pool manager |
 | `backend/internal/services/vm/service.go` | **Updated** - Integrated with Node Daemon |
@@ -19564,10 +19564,10 @@ The Rust-based Node Daemon is now fully integrated with the Go Control Plane. VM
 cd agent
 
 # Development mode (mock hypervisor)
-cargo run --bin Quantixkvm-node -- --dev --listen 127.0.0.1:9090
+cargo run --bin limiquantix-node -- --dev --listen 127.0.0.1:9090
 
 # With libvirt (requires system libvirt on Linux)
-cargo run --bin Quantixkvm-node --features libvirt -- --libvirt-uri qemu:///system
+cargo run --bin limiquantix-node --features libvirt -- --libvirt-uri qemu:///system
 ```
 
 ### 2. Start Control Plane (Go)
@@ -19610,10 +19610,10 @@ curl http://127.0.0.1:8080/api/v1/vms
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Node Daemon (Rust)                       │
-│               Quantixkvm-node binary                       │
+│               limiquantix-node binary                       │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌───────────────────┐  ┌───────────────────┐               │
-│  │ NodeDaemonService │  │ Quantixkvm-      │               │
+│  │ NodeDaemonService │  │ limiquantix-      │               │
 │  │   (gRPC server)   │  │   telemetry       │               │
 │  └─────────┬─────────┘  └───────────────────┘               │
 │            │                                                │
@@ -20148,13 +20148,13 @@ Full integration testing requires:
 
 ```bash
 # Terminal 1: Node Daemon
-cd agent && cargo run --bin Quantixkvm-node -- --dev --listen 127.0.0.1:9090
+cd agent && cargo run --bin limiquantix-node -- --dev --listen 127.0.0.1:9090
 
 # Terminal 2: Control Plane
 cd backend && go run ./cmd/controlplane --dev
 
 # Terminal 3: Test
-curl -X POST http://127.0.0.1:8080/Quantixkvm.compute.v1.VMService/CreateVM \
+curl -X POST http://127.0.0.1:8080/limiquantix.compute.v1.VMService/CreateVM \
   -H "Content-Type: application/json" \
   -d '{"name": "test-vm", "spec": {"cpu": {"cores": 2}, "memory": {"size_mib": 2048}}}'
 ```
@@ -20219,7 +20219,7 @@ use std::time::Duration;
 use tokio::time::interval;
 use tracing::{debug, error, info, warn};
 
-use Quantixkvm_telemetry::TelemetryCollector;
+use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::Config;
 
@@ -20299,7 +20299,7 @@ impl RegistrationClient {
         });
         
         let url = format!(
-            "{}/Quantixkvm.compute.v1.NodeService/RegisterNode",
+            "{}/limiquantix.compute.v1.NodeService/RegisterNode",
             self.control_plane_address
         );
         
@@ -20356,7 +20356,7 @@ impl RegistrationClient {
         });
         
         let url = format!(
-            "{}/Quantixkvm.compute.v1.NodeService/UpdateHeartbeat",
+            "{}/limiquantix.compute.v1.NodeService/UpdateHeartbeat",
             self.control_plane_address
         );
         
@@ -20493,7 +20493,7 @@ Now let me add the necessary dependencies and update the main.rs and server.rs t
 
 ```plaintext
 [package]
-name = "Quantixkvm-node"
+name = "limiquantix-node"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -20502,10 +20502,10 @@ license.workspace = true
 [features]
 default = []
 # Enable libvirt backend (requires system libvirt)
-libvirt = ["Quantixkvm-hypervisor/libvirt"]
+libvirt = ["limiquantix-hypervisor/libvirt"]
 
 [[bin]]
-name = "Quantixkvm-node"
+name = "limiquantix-node"
 path = "src/main.rs"
 
 [dependencies]
@@ -20551,16 +20551,16 @@ reqwest = { version = "0.12", features = ["json"] }
 local-ip-address = "0.6"
 
 # Internal crates
-Quantixkvm-hypervisor.workspace = true
-Quantixkvm-telemetry.workspace = true
-Quantixkvm-proto.workspace = true
-Quantixkvm-common.workspace = true
+limiquantix-hypervisor.workspace = true
+limiquantix-telemetry.workspace = true
+limiquantix-proto.workspace = true
+limiquantix-common.workspace = true
 
 
 ```
 
 ```rust
-//! # Quantixkvm Node Daemon
+//! # limiquantix Node Daemon
 //!
 //! The Node Daemon runs on each hypervisor host and manages virtual machines
 //! through the hypervisor abstraction layer. It communicates with the control
@@ -20574,7 +20574,7 @@ Quantixkvm-common.workspace = true
 //!
 //! ## Usage
 //! ```bash
-//! Quantixkvm-node --config /etc/Quantixkvm/node.yaml
+//! limiquantix-node --config /etc/limiquantix/node.yaml
 //! ```
 
 use anyhow::Result;
@@ -20596,11 +20596,11 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     
     // Initialize logging
-    Quantixkvm_common::init_logging(&args.log_level)?;
+    limiquantix_common::init_logging(&args.log_level)?;
     
     info!(
         version = env!("CARGO_PKG_VERSION"),
-        "Starting Quantixkvm Node Daemon"
+        "Starting limiquantix Node Daemon"
     );
     
     // Load configuration
@@ -20609,7 +20609,7 @@ async fn main() -> Result<()> {
             info!(config_path = %args.config, "Configuration loaded");
             cfg
         }
-        Err(e) if args.config == "/etc/Quantixkvm/node.yaml" => {
+        Err(e) if args.config == "/etc/limiquantix/node.yaml" => {
             info!("No config file found, using defaults");
             Config::default()
         }
@@ -20650,9 +20650,9 @@ use std::sync::Arc;
 use tonic::transport::Server;
 use tracing::{info, warn};
 
-use Quantixkvm_hypervisor::{Hypervisor, MockBackend};
-use Quantixkvm_proto::NodeDaemonServiceServer;
-use Quantixkvm_telemetry::TelemetryCollector;
+use limiquantix_hypervisor::{Hypervisor, MockBackend};
+use limiquantix_proto::NodeDaemonServiceServer;
+use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::{Config, HypervisorBackend};
 use crate::registration::RegistrationClient;
@@ -20672,7 +20672,7 @@ pub async fn run(config: Config) -> Result<()> {
                 let uri = config.hypervisor.libvirt_uri.as_deref()
                     .unwrap_or("qemu:///system");
                 info!(uri = %uri, "Connecting to libvirt");
-                Arc::new(Quantixkvm_hypervisor::LibvirtBackend::new(uri).await?)
+                Arc::new(limiquantix_hypervisor::LibvirtBackend::new(uri).await?)
             }
             #[cfg(not(feature = "libvirt"))]
             {
@@ -20756,9 +20756,9 @@ use std::sync::Arc;
 use tonic::transport::Server;
 use tracing::{info, warn};
 
-use Quantixkvm_hypervisor::{Hypervisor, MockBackend};
-use Quantixkvm_proto::NodeDaemonServiceServer;
-use Quantixkvm_telemetry::TelemetryCollector;
+use limiquantix_hypervisor::{Hypervisor, MockBackend};
+use limiquantix_proto::NodeDaemonServiceServer;
+use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::{Config, HypervisorBackend};
 use crate::registration::RegistrationClient;
@@ -20778,7 +20778,7 @@ pub async fn run(config: Config) -> Result<()> {
                 let uri = config.hypervisor.libvirt_uri.as_deref()
                     .unwrap_or("qemu:///system");
                 info!(uri = %uri, "Connecting to libvirt");
-                Arc::new(Quantixkvm_hypervisor::LibvirtBackend::new(uri).await?)
+                Arc::new(limiquantix_hypervisor::LibvirtBackend::new(uri).await?)
             }
             #[cfg(not(feature = "libvirt"))]
             {
@@ -20879,14 +20879,14 @@ Now let me add a CLI flag to enable registration and build to test:
 
 use clap::Parser;
 
-/// Quantixkvm Node Daemon - Hypervisor management agent
+/// limiquantix Node Daemon - Hypervisor management agent
 #[derive(Parser, Debug)]
-#[command(name = "Quantixkvm-node")]
-#[command(about = "Quantixkvm Node Daemon - Hypervisor management agent")]
+#[command(name = "limiquantix-node")]
+#[command(about = "limiquantix Node Daemon - Hypervisor management agent")]
 #[command(version)]
 pub struct Args {
     /// Path to configuration file
-    #[arg(short, long, default_value = "/etc/Quantixkvm/node.yaml")]
+    #[arg(short, long, default_value = "/etc/limiquantix/node.yaml")]
     pub config: String,
     
     /// Log level (trace, debug, info, warn, error)
@@ -21075,7 +21075,7 @@ impl Default for HypervisorConfig {
         Self {
             backend: HypervisorBackend::Mock,
             libvirt_uri: Some("qemu:///system".to_string()),
-            storage_path: "/var/lib/Quantixkvm/vms".to_string(),
+            storage_path: "/var/lib/limiquantix/vms".to_string(),
         }
     }
 }
@@ -21156,7 +21156,7 @@ use std::time::Duration;
 use tokio::time::interval;
 use tracing::{debug, info, warn};
 
-use Quantixkvm_telemetry::TelemetryCollector;
+use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::Config;
 
@@ -21236,7 +21236,7 @@ impl RegistrationClient {
         });
         
         let url = format!(
-            "{}/Quantixkvm.compute.v1.NodeService/RegisterNode",
+            "{}/limiquantix.compute.v1.NodeService/RegisterNode",
             self.control_plane_address
         );
         
@@ -21293,7 +21293,7 @@ impl RegistrationClient {
         });
         
         let url = format!(
-            "{}/Quantixkvm.compute.v1.NodeService/UpdateHeartbeat",
+            "{}/limiquantix.compute.v1.NodeService/UpdateHeartbeat",
             self.control_plane_address
         );
         
@@ -21440,7 +21440,7 @@ use std::time::Duration;
 use tokio::time::interval;
 use tracing::{debug, info, warn};
 
-use Quantixkvm_telemetry::TelemetryCollector;
+use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::Config;
 
@@ -21520,7 +21520,7 @@ impl RegistrationClient {
         });
         
         let url = format!(
-            "{}/Quantixkvm.compute.v1.NodeService/RegisterNode",
+            "{}/limiquantix.compute.v1.NodeService/RegisterNode",
             self.control_plane_address
         );
         
@@ -21577,7 +21577,7 @@ impl RegistrationClient {
         });
         
         let url = format!(
-            "{}/Quantixkvm.compute.v1.NodeService/UpdateHeartbeat",
+            "{}/limiquantix.compute.v1.NodeService/UpdateHeartbeat",
             self.control_plane_address
         );
         
@@ -21719,9 +21719,9 @@ use std::sync::Arc;
 use tonic::transport::Server;
 use tracing::{info, warn};
 
-use Quantixkvm_hypervisor::{Hypervisor, MockBackend};
-use Quantixkvm_proto::NodeDaemonServiceServer;
-use Quantixkvm_telemetry::TelemetryCollector;
+use limiquantix_hypervisor::{Hypervisor, MockBackend};
+use limiquantix_proto::NodeDaemonServiceServer;
+use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::{Config, HypervisorBackend};
 use crate::registration::RegistrationClient;
@@ -21741,7 +21741,7 @@ pub async fn run(config: Config) -> Result<()> {
                 let uri = config.hypervisor.libvirt_uri.as_deref()
                     .unwrap_or("qemu:///system");
                 info!(uri = %uri, "Connecting to libvirt");
-                Arc::new(Quantixkvm_hypervisor::LibvirtBackend::new(uri).await?)
+                Arc::new(limiquantix_hypervisor::LibvirtBackend::new(uri).await?)
             }
             #[cfg(not(feature = "libvirt"))]
             {
@@ -21984,7 +21984,7 @@ After successful registration, the Node Daemon sends periodic heartbeats:
 
 ### Rust - RegistrationClient
 
-**Location**: `agent/Quantixkvm-node/src/registration.rs`
+**Location**: `agent/limiquantix-node/src/registration.rs`
 
 ```rust
 pub struct RegistrationClient {
@@ -22034,10 +22034,10 @@ func (s *Service) RegisterNode(
 
 ```bash
 # Enable registration
-Quantixkvm-node --register --control-plane http://control-plane:8080
+limiquantix-node --register --control-plane http://control-plane:8080
 
 # Full example
-Quantixkvm-node \
+limiquantix-node \
   --dev \
   --listen 0.0.0.0:9090 \
   --control-plane http://control-plane:8080 \
@@ -22048,7 +22048,7 @@ Quantixkvm-node \
 ### Node Daemon Config File
 
 ```yaml
-# /etc/Quantixkvm/node.yaml
+# /etc/limiquantix/node.yaml
 node:
   id: my-node-01  # Optional, auto-generated if not set
   hostname: hypervisor-01.local  # Optional, auto-detected
@@ -22162,14 +22162,14 @@ INFO  HTTP request path=/NodeService/RegisterNode status=200
 cd backend && go run ./cmd/controlplane --dev
 
 # Terminal 2: Start Node Daemon with registration
-cd agent && cargo run --bin Quantixkvm-node -- \
+cd agent && cargo run --bin limiquantix-node -- \
   --dev \
   --listen 127.0.0.1:9090 \
   --control-plane http://127.0.0.1:8080 \
   --register
 
 # Terminal 3: Check registered nodes
-curl -X POST http://127.0.0.1:8080/Quantixkvm.compute.v1.NodeService/ListNodes \
+curl -X POST http://127.0.0.1:8080/limiquantix.compute.v1.NodeService/ListNodes \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
@@ -22218,7 +22218,7 @@ The ListNodes response should include the newly registered node:
 Now let me update the workflow state:
 
 ```markdown
-# Quantixkvm Workflow State
+# limiquantix Workflow State
 
 ## Current Status: Node Registration Complete ✅ Phase 4 Complete
 
@@ -22243,7 +22243,7 @@ The Node Daemon now automatically registers with the Control Plane on startup an
 - `NewServiceWithDaemon()` constructor for full integration
 
 ### 2. Node Registration Flow ✅
-- Created `agent/Quantixkvm-node/src/registration.rs`
+- Created `agent/limiquantix-node/src/registration.rs`
 - Automatic registration on startup (`--register` flag)
 - Management IP auto-detection
 - Exponential backoff retry on failures
@@ -22260,7 +22260,7 @@ The Node Daemon now automatically registers with the Control Plane on startup an
 ### New Files
 | File | Description |
 |------|-------------|
-| `agent/Quantixkvm-node/src/registration.rs` | Registration and heartbeat client |
+| `agent/limiquantix-node/src/registration.rs` | Registration and heartbeat client |
 | `docs/000032-vmservice-node-daemon-integration.md` | VMService integration documentation |
 | `docs/000033-node-registration-flow.md` | Registration flow documentation |
 
@@ -22269,11 +22269,11 @@ The Node Daemon now automatically registers with the Control Plane on startup an
 |------|-------------|
 | `backend/internal/services/vm/service.go` | Added Node Daemon calls |
 | `backend/internal/server/server.go` | Added DaemonPool initialization |
-| `agent/Quantixkvm-node/src/main.rs` | Added registration module |
-| `agent/Quantixkvm-node/src/server.rs` | Start registration on startup |
-| `agent/Quantixkvm-node/src/cli.rs` | Added `--register` flag |
-| `agent/Quantixkvm-node/src/config.rs` | Added registration config handling |
-| `agent/Quantixkvm-node/Cargo.toml` | Added reqwest, local-ip-address |
+| `agent/limiquantix-node/src/main.rs` | Added registration module |
+| `agent/limiquantix-node/src/server.rs` | Start registration on startup |
+| `agent/limiquantix-node/src/cli.rs` | Added `--register` flag |
+| `agent/limiquantix-node/src/config.rs` | Added registration config handling |
+| `agent/limiquantix-node/Cargo.toml` | Added reqwest, local-ip-address |
 
 ---
 
@@ -22305,7 +22305,7 @@ cd backend && go run ./cmd/controlplane --dev
 
 ### Start Node Daemon with Registration
 ```bash
-cd agent && cargo run --bin Quantixkvm-node -- \
+cd agent && cargo run --bin limiquantix-node -- \
   --dev \
   --listen 127.0.0.1:9090 \
   --control-plane http://127.0.0.1:8080 \
@@ -22314,7 +22314,7 @@ cd agent && cargo run --bin Quantixkvm-node -- \
 
 ### Verify Registration
 ```bash
-curl -X POST http://127.0.0.1:8080/Quantixkvm.compute.v1.NodeService/ListNodes \
+curl -X POST http://127.0.0.1:8080/limiquantix.compute.v1.NodeService/ListNodes \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
@@ -22437,7 +22437,7 @@ I've completed the integration work. Here's a summary:
 
 ### 2. Node Registration Implemented
 
-**New File: `agent/Quantixkvm-node/src/registration.rs`**
+**New File: `agent/limiquantix-node/src/registration.rs`**
 - `RegistrationClient` struct with:
   - `register()` - Calls `NodeService.RegisterNode`
   - `heartbeat()` - Sends periodic status updates
@@ -22518,13 +22518,13 @@ I need to add the `UpdateHeartbeat` RPC to the proto and regenerate:
 ```plaintext
 syntax = "proto3";
 
-package Quantixkvm.compute.v1;
+package limiquantix.compute.v1;
 
-option go_package = "github.com/Quantixkvm/Quantixkvm/pkg/api/compute/v1;computev1";
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;computev1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
-import "Quantixkvm/compute/v1/node.proto";
+import "limiquantix/compute/v1/node.proto";
 
 // =============================================================================
 // NODE SERVICE - Physical Host Management API
@@ -22839,13 +22839,13 @@ Now let me add the request/response messages:
 ```plaintext
 syntax = "proto3";
 
-package Quantixkvm.compute.v1;
+package limiquantix.compute.v1;
 
-option go_package = "github.com/Quantixkvm/Quantixkvm/pkg/api/compute/v1;computev1";
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;computev1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
-import "Quantixkvm/compute/v1/node.proto";
+import "limiquantix/compute/v1/node.proto";
 
 // =============================================================================
 // NODE SERVICE - Physical Host Management API
@@ -23213,9 +23213,9 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
-	computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1/computev1connect"
+	"github.com/limiquantix/limiquantix/internal/domain"
+	computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
 )
 
 // Ensure Service implements NodeServiceHandler
@@ -23736,9 +23736,9 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
-	computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1/computev1connect"
+	"github.com/limiquantix/limiquantix/internal/domain"
+	computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
 )
 
 // Ensure Service implements NodeServiceHandler
@@ -24256,7 +24256,7 @@ use tokio::sync::RwLock;
 use tokio::time::interval;
 use tracing::{debug, info, warn};
 
-use Quantixkvm_telemetry::TelemetryCollector;
+use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::Config;
 
@@ -24335,7 +24335,7 @@ impl RegistrationClient {
         });
         
         let url = format!(
-            "{}/Quantixkvm.compute.v1.NodeService/RegisterNode",
+            "{}/limiquantix.compute.v1.NodeService/RegisterNode",
             self.control_plane_address
         );
         
@@ -24425,7 +24425,7 @@ impl RegistrationClient {
         });
         
         let url = format!(
-            "{}/Quantixkvm.compute.v1.NodeService/UpdateHeartbeat",
+            "{}/limiquantix.compute.v1.NodeService/UpdateHeartbeat",
             self.control_plane_address
         );
         
@@ -24725,7 +24725,7 @@ After successful registration, the Node Daemon sends periodic heartbeats:
 
 ### Rust - RegistrationClient
 
-**Location**: `agent/Quantixkvm-node/src/registration.rs`
+**Location**: `agent/limiquantix-node/src/registration.rs`
 
 ```rust
 pub struct RegistrationClient {
@@ -24775,10 +24775,10 @@ func (s *Service) RegisterNode(
 
 ```bash
 # Enable registration
-Quantixkvm-node --register --control-plane http://control-plane:8080
+limiquantix-node --register --control-plane http://control-plane:8080
 
 # Full example
-Quantixkvm-node \
+limiquantix-node \
   --dev \
   --listen 0.0.0.0:9090 \
   --control-plane http://control-plane:8080 \
@@ -24789,7 +24789,7 @@ Quantixkvm-node \
 ### Node Daemon Config File
 
 ```yaml
-# /etc/Quantixkvm/node.yaml
+# /etc/limiquantix/node.yaml
 node:
   id: my-node-01  # Optional, auto-generated if not set
   hostname: hypervisor-01.local  # Optional, auto-detected
@@ -24903,14 +24903,14 @@ INFO  HTTP request path=/NodeService/RegisterNode status=200
 cd backend && go run ./cmd/controlplane --dev
 
 # Terminal 2: Start Node Daemon with registration
-cd agent && cargo run --bin Quantixkvm-node -- \
+cd agent && cargo run --bin limiquantix-node -- \
   --dev \
   --listen 127.0.0.1:9090 \
   --control-plane http://127.0.0.1:8080 \
   --register
 
 # Terminal 3: Check registered nodes
-curl -X POST http://127.0.0.1:8080/Quantixkvm.compute.v1.NodeService/ListNodes \
+curl -X POST http://127.0.0.1:8080/limiquantix.compute.v1.NodeService/ListNodes \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
@@ -24958,7 +24958,7 @@ The ListNodes response should include the newly registered node:
 ```
 
 ```markdown
-# Quantixkvm Workflow State
+# limiquantix Workflow State
 
 ## Current Status: Heartbeat Complete ✅ Phase 5 Complete
 
@@ -25021,18 +25021,18 @@ Integration Test (January 2, 2026):
 ### Proto Changes
 | File | Description |
 |------|-------------|
-| `proto/Quantixkvm/compute/v1/node_service.proto` | Added `UpdateHeartbeat` RPC and messages |
+| `proto/limiquantix/compute/v1/node_service.proto` | Added `UpdateHeartbeat` RPC and messages |
 
 ### Go Backend
 | File | Description |
 |------|-------------|
 | `backend/internal/services/node/service.go` | Added `UpdateHeartbeat` method |
-| `backend/pkg/api/Quantixkvm/compute/v1/*.pb.go` | Regenerated proto code |
+| `backend/pkg/api/limiquantix/compute/v1/*.pb.go` | Regenerated proto code |
 
 ### Rust Node Daemon
 | File | Description |
 |------|-------------|
-| `agent/Quantixkvm-node/src/registration.rs` | Parse server-assigned node ID, use for heartbeats |
+| `agent/limiquantix-node/src/registration.rs` | Parse server-assigned node ID, use for heartbeats |
 
 ---
 
@@ -25044,7 +25044,7 @@ Integration Test (January 2, 2026):
 cd backend && go run ./cmd/controlplane --dev
 
 # Terminal 2: Node Daemon with registration
-cd agent && cargo run --bin Quantixkvm-node -- \
+cd agent && cargo run --bin limiquantix-node -- \
   --dev \
   --listen 127.0.0.1:9090 \
   --control-plane http://127.0.0.1:8080 \
@@ -25054,7 +25054,7 @@ cd agent && cargo run --bin Quantixkvm-node -- \
 ### Verify Registration & Heartbeat
 ```bash
 # Check registered nodes
-curl -s -X POST http://127.0.0.1:8080/Quantixkvm.compute.v1.NodeService/ListNodes \
+curl -s -X POST http://127.0.0.1:8080/limiquantix.compute.v1.NodeService/ListNodes \
   -H "Content-Type: application/json" \
   -d '{}' | jq '.nodes[] | {hostname, id, phase: .status.phase}'
 ```
@@ -25149,7 +25149,7 @@ All done! Here's a summary of what was accomplished:
 
 ### Heartbeat Implementation
 
-**Proto Changes** (`proto/Quantixkvm/compute/v1/node_service.proto`):
+**Proto Changes** (`proto/limiquantix/compute/v1/node_service.proto`):
 - Added `UpdateHeartbeat` RPC
 - Added `UpdateHeartbeatRequest` message (node_id, cpu_usage, memory_used, etc.)
 - Added `UpdateHeartbeatResponse` message (acknowledged, server_time, heartbeat_interval)
@@ -25160,7 +25160,7 @@ All done! Here's a summary of what was accomplished:
 - Updates resource allocation info
 - Returns acknowledgement with server time
 
-**Rust Node Daemon** (`agent/Quantixkvm-node/src/registration.rs`):
+**Rust Node Daemon** (`agent/limiquantix-node/src/registration.rs`):
 - Refactored to store server-assigned node ID after registration
 - Uses `RwLock<Option<String>>` to store the registered node ID
 - Heartbeat now uses the correct server-assigned ID
@@ -25210,7 +25210,7 @@ Now let me check the docs folder for a complete picture:
 Now I have a complete picture. Let me update the status documents:
 
 ```markdown
-# Quantixkvm Project Status Analysis
+# limiquantix Project Status Analysis
 
 **Document ID:** 000025  
 **Date:** January 2026  
@@ -25232,7 +25232,7 @@ Now I have a complete picture. Let me update the status documents:
 | **Guest Agent** | ❌ **0%** | Not started |
 | **Storage Backend** | ❌ **0%** | Not started (API ready) |
 | **Network Backend** | ❌ **0%** | Not started (API ready) |
-| **Host OS (Quantixkvm OS)** | ❌ **0%** | Not started |
+| **Host OS (limiquantix OS)** | ❌ **0%** | Not started |
 
 ---
 
@@ -25240,7 +25240,7 @@ Now I have a complete picture. Let me update the status documents:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         Quantixkvm Platform                                 │
+│                         limiquantix Platform                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
@@ -25251,7 +25251,7 @@ Now I have a complete picture. Let me update the status documents:
 │         │                 │                 │                 │             │
 │         ▼                 ▼                 ▼                 ▼             │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
-│  │  Quantixkvm│   │  Control    │   │    Node     │   │   Guest     │     │
+│  │  limiquantix│   │  Control    │   │    Node     │   │   Guest     │     │
 │  │  Dashboard  │   │   Plane     │   │   Daemon    │   │   Agent     │     │
 │  │   (React)   │   │   (Go)      │   │   (Rust)    │   │   (Rust)    │     │
 │  │    ✅ 95%   │   │   ✅ 85%    │   │   ✅ 80%    │   │   ❌ 0%     │     │
@@ -25264,7 +25264,7 @@ Now I have a complete picture. Let me update the status documents:
 │         │                 │                 │                 │             │
 │         ▼                 ▼                 ▼                 ▼             │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
-│  │ Ceph/LINSTOR│   │  OVN/OVS    │   │ Quantixkvm │   │   libvirt   │     │
+│  │ Ceph/LINSTOR│   │  OVN/OVS    │   │ limiquantix │   │   libvirt   │     │
 │  │   Storage   │   │  Networking │   │     OS      │   │  + KVM      │     │
 │  │   ❌ 0%     │   │   ❌ 0%     │   │   ❌ 0%     │   │   ⏳ 50%    │     │
 │  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘     │
@@ -25344,11 +25344,11 @@ Now I have a complete picture. Let me update the status documents:
 **Crate Structure**:
 ```
 agent/
-├── Quantixkvm-node/        ✅ Main binary
-├── Quantixkvm-hypervisor/  ✅ Abstraction layer
-├── Quantixkvm-telemetry/   ✅ System metrics
-├── Quantixkvm-proto/       ✅ gRPC generated code
-└── Quantixkvm-common/      ✅ Shared utilities
+├── limiquantix-node/        ✅ Main binary
+├── limiquantix-hypervisor/  ✅ Abstraction layer
+├── limiquantix-telemetry/   ✅ System metrics
+├── limiquantix-proto/       ✅ gRPC generated code
+└── limiquantix-common/      ✅ Shared utilities
 ```
 
 ---
@@ -25435,7 +25435,7 @@ agent/
 ## Project Structure Overview
 
 ```
-Quantixkvm/
+limiquantix/
 ├── frontend/                 ✅ React Dashboard
 │   ├── src/pages/           15 pages
 │   ├── src/hooks/           API hooks
@@ -25449,13 +25449,13 @@ Quantixkvm/
 │   └── pkg/api/             Generated proto code
 │
 ├── agent/                    ✅ Rust Node Daemon
-│   ├── Quantixkvm-node/    gRPC server binary
-│   ├── Quantixkvm-hypervisor/  VM management
-│   ├── Quantixkvm-telemetry/   System metrics
-│   └── Quantixkvm-proto/   Generated gRPC
+│   ├── limiquantix-node/    gRPC server binary
+│   ├── limiquantix-hypervisor/  VM management
+│   ├── limiquantix-telemetry/   System metrics
+│   └── limiquantix-proto/   Generated gRPC
 │
 ├── proto/                    ✅ API Definitions
-│   └── Quantixkvm/
+│   └── limiquantix/
 │       ├── compute/v1/      VM, Node
 │       ├── storage/v1/      Pool, Volume
 │       ├── network/v1/      VNet, SecurityGroup
@@ -25476,7 +25476,7 @@ Quantixkvm/
 cd backend && go run ./cmd/controlplane --dev
 
 # Terminal 2: Node Daemon (Rust)
-cd agent && cargo run --bin Quantixkvm-node -- \
+cd agent && cargo run --bin limiquantix-node -- \
   --dev \
   --listen 127.0.0.1:9090 \
   --control-plane http://127.0.0.1:8080 \
@@ -25531,7 +25531,7 @@ cd frontend && npm run dev
 - Network backend (OVN or Linux bridge)
 
 **Long-term:**
-- Quantixkvm OS (custom hypervisor host)
+- limiquantix OS (custom hypervisor host)
 - Live migration testing
 - Backup/restore engine
 - Enterprise features (HA, DRS, vMotion)
@@ -25541,7 +25541,7 @@ cd frontend && npm run dev
 Now let me update the project plan with a comprehensive roadmap:
 
 ```markdown
-# Quantixkvm Virtualization Platform
+# limiquantix Virtualization Platform
 ## "The VMware Killer"
 
 **Vision:** Build a complete, modern replacement for VMware vSphere that includes the hypervisor host OS, control plane, guest agent, storage, and networking.
@@ -25550,7 +25550,7 @@ Now let me update the project plan with a comprehensive roadmap:
 
 ## 1. Executive Summary
 
-Quantixkvm is a **distributed, cloud-native virtualization platform** designed to replace VMware vSphere. The system prioritizes:
+limiquantix is a **distributed, cloud-native virtualization platform** designed to replace VMware vSphere. The system prioritizes:
 
 - **Simplicity**: 5-minute cluster setup (vs. days for VMware)
 - **Performance**: <1% platform overhead
@@ -25568,7 +25568,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 
 ### Complete VMware Replacement Map
 
-| VMware Component | Quantixkvm Equivalent | Status |
+| VMware Component | limiquantix Equivalent | Status |
 |------------------|------------------------|--------|
 | **vSphere Web Client** | React Dashboard | ✅ 95% |
 | **vCenter Server** | Go Control Plane | ✅ 85% |
@@ -25576,7 +25576,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 | **VMware Tools** | Rust Guest Agent | ❌ 0% |
 | **vSAN / VMFS** | Ceph / LINSTOR | ❌ 0% |
 | **NSX-T / vDS** | OVN / OVS | ❌ 0% |
-| **ESXi OS** | Quantixkvm OS | ❌ 0% |
+| **ESXi OS** | limiquantix OS | ❌ 0% |
 | **vMotion** | Live Migration | ⏳ 50% |
 | **HA / DRS** | HA Manager / DRS Engine | ✅ Done |
 
@@ -25612,7 +25612,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 | Guest Agent | 4-6 weeks | P0 |
 | Storage Backend | 4-6 weeks | P0 |
 | Network Backend | 4-6 weeks | P0 |
-| Quantixkvm OS | 8-12 weeks | P1 |
+| limiquantix OS | 8-12 weeks | P1 |
 
 ---
 
@@ -25624,7 +25624,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              User Access Layer                               │
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │                    Quantixkvm Dashboard (React)                        │ │
+│  │                    limiquantix Dashboard (React)                        │ │
 │  │                       http://localhost:5174                             │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -25857,7 +25857,7 @@ go run ./cmd/controlplane --dev
 
 # Terminal 2: Node Daemon (Rust)
 cd agent
-cargo run --bin Quantixkvm-node -- \
+cargo run --bin limiquantix-node -- \
   --dev \
   --listen 127.0.0.1:9090 \
   --control-plane http://127.0.0.1:8080 \
@@ -25874,7 +25874,7 @@ npm run dev
 
 ```bash
 # Check registered nodes
-curl -s -X POST http://127.0.0.1:8080/Quantixkvm.compute.v1.NodeService/ListNodes \
+curl -s -X POST http://127.0.0.1:8080/limiquantix.compute.v1.NodeService/ListNodes \
   -H "Content-Type: application/json" \
   -d '{}' | jq '.nodes[] | {hostname, id, phase: .status.phase}'
 
@@ -26043,7 +26043,7 @@ Boot a REAL VM through the entire stack using libvirt/KVM.
    ```bash
    # Build with libvirt
    cd agent
-   cargo build --bin Quantixkvm-node --features libvirt
+   cargo build --bin limiquantix-node --features libvirt
    ```
 
 ### Tasks
@@ -26087,7 +26087,7 @@ Enable VMs to have persistent storage that survives host failures and supports l
 ```rust
 // storage/local.rs
 pub struct LocalStorageBackend {
-    base_path: PathBuf,  // /var/lib/Quantixkvm/images
+    base_path: PathBuf,  // /var/lib/limiquantix/images
 }
 
 impl StorageBackend for LocalStorageBackend {
@@ -26099,7 +26099,7 @@ impl StorageBackend for LocalStorageBackend {
 ```
 
 Tasks:
-- [ ] Create `Quantixkvm-storage` crate
+- [ ] Create `limiquantix-storage` crate
 - [ ] Implement local QCOW2 storage
 - [ ] Integrate qemu-img for operations
 - [ ] Wire to Node Daemon
@@ -26166,7 +26166,7 @@ impl NetworkBackend for BridgeNetworkBackend {
 ```
 
 Tasks:
-- [ ] Create `Quantixkvm-network` crate
+- [ ] Create `limiquantix-network` crate
 - [ ] Implement Linux bridge backend
 - [ ] DHCP integration (dnsmasq)
 - [ ] NAT for external access
@@ -26249,11 +26249,11 @@ Provide deep integration between the host and guest VM (like VMware Tools).
 #### Phase 5A: Agent Framework (2 weeks)
 
 ```rust
-// agent/Quantixkvm-guest/src/main.rs
+// agent/limiquantix-guest/src/main.rs
 #[tokio::main]
 async fn main() {
     // Open virtio-serial port
-    let port = VirtioSerial::open("/dev/virtio-ports/org.Quantixkvm.agent")?;
+    let port = VirtioSerial::open("/dev/virtio-ports/org.limiquantix.agent")?;
     
     // Start protocol handler
     let protocol = AgentProtocol::new(port);
@@ -26269,7 +26269,7 @@ async fn main() {
 ```
 
 Tasks:
-- [ ] Create `Quantixkvm-guest` crate
+- [ ] Create `limiquantix-guest` crate
 - [ ] Implement virtio-serial transport
 - [ ] Define agent protocol (protobuf)
 - [ ] Basic ping/pong communication
@@ -26325,7 +26325,7 @@ Create a minimal, purpose-built OS for hypervisor hosts (like ESXi).
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Quantixkvm OS                            │
+│                    limiquantix OS                            │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐ │
@@ -26459,7 +26459,7 @@ Tasks:
 
 2. **Deploy Node Daemon with libvirt**
    ```bash
-   cargo run --bin Quantixkvm-node --features libvirt -- \
+   cargo run --bin limiquantix-node --features libvirt -- \
      --libvirt-uri qemu:///system \
      --listen 0.0.0.0:9090 \
      --control-plane http://control-plane:8080 \
@@ -26486,7 +26486,7 @@ Tasks:
 | Phase 3 Complete | VM has persistent disk storage |
 | Phase 4 Complete | VM has network connectivity |
 | Phase 5 Complete | Guest agent reports real metrics |
-| Phase 6 Complete | Bare-metal hosts boot Quantixkvm OS |
+| Phase 6 Complete | Bare-metal hosts boot limiquantix OS |
 | Phase 7 Complete | Live migration works between hosts |
 
 ---
@@ -26515,7 +26515,7 @@ Tasks:
 Now let me update the workflow state with the new plan:
 
 ```markdown
-# Quantixkvm Workflow State
+# limiquantix Workflow State
 
 ## Current Status: Phase 1 Complete ✅
 
@@ -26579,7 +26579,7 @@ A functional foundation for a complete VMware vSphere replacement:
 ### Long-term (Months 4-6)
 | Task | Priority | Effort |
 |------|----------|--------|
-| Quantixkvm Host OS | P1 | 8-12 weeks |
+| limiquantix Host OS | P1 | 8-12 weeks |
 | Live migration testing | P1 | 2 weeks |
 | Backup engine | P2 | 4 weeks |
 
@@ -26624,7 +26624,7 @@ A functional foundation for a complete VMware vSphere replacement:
 cd backend && go run ./cmd/controlplane --dev
 
 # Terminal 2: Node Daemon
-cd agent && cargo run --bin Quantixkvm-node -- \
+cd agent && cargo run --bin limiquantix-node -- \
   --dev --listen 127.0.0.1:9090 \
   --control-plane http://127.0.0.1:8080 --register
 
@@ -26654,7 +26654,7 @@ cd frontend && npm run dev
 
 **Building a complete VMware replacement:**
 
-| VMware | Quantixkvm | Status |
+| VMware | limiquantix | Status |
 |--------|-------------|--------|
 | vSphere Client | React Dashboard | ✅ |
 | vCenter | Control Plane | ✅ |
@@ -26662,7 +26662,7 @@ cd frontend && npm run dev
 | VMware Tools | Guest Agent | ❌ |
 | vSAN | Ceph/LINSTOR | ❌ |
 | NSX-T | OVN/OVS | ❌ |
-| ESXi OS | Quantixkvm OS | ❌ |
+| ESXi OS | limiquantix OS | ❌ |
 
 ---
 
@@ -26684,7 +26684,7 @@ I've updated all the status documents comprehensively. Here's a summary:
 
 ### 1. `project-status-analysis.md` - Updated
 - Executive summary with accurate percentages
-- Visual diagram comparing VMware components to Quantixkvm equivalents
+- Visual diagram comparing VMware components to limiquantix equivalents
 - Detailed status for all 10 major components
 - Complete list of what was accomplished today
 - Full project structure overview
@@ -26693,7 +26693,7 @@ I've updated all the status documents comprehensively. Here's a summary:
 
 ### 2. `project_plan.md` - Updated
 - Clear vision statement and market positioning
-- VMware → Quantixkvm component mapping table
+- VMware → limiquantix component mapping table
 - Complete 7-phase implementation roadmap
 - Detailed architecture diagrams
 - Priority matrix (P0/P1/P2)
@@ -26776,7 +26776,7 @@ use crate::error::{HypervisorError, Result};
 use crate::types::{DiskConfig, DiskFormat};
 
 /// Default storage base path for disk images.
-pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/Quantixkvm/images";
+pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/limiquantix/images";
 
 /// Storage manager for disk images.
 pub struct StorageManager {
@@ -27153,11 +27153,11 @@ mod tests {
     
     #[test]
     fn test_disk_path() {
-        let manager = StorageManager::with_path("/var/lib/Quantixkvm/images");
+        let manager = StorageManager::with_path("/var/lib/limiquantix/images");
         let path = manager.disk_path("vm-123", "disk-456");
         assert_eq!(
             path,
-            PathBuf::from("/var/lib/Quantixkvm/images/vm-123/disk-456.qcow2")
+            PathBuf::from("/var/lib/limiquantix/images/vm-123/disk-456.qcow2")
         );
     }
     
@@ -27179,7 +27179,7 @@ mod tests {
 Now let me update the lib.rs to export the new storage module:
 
 ```rust
-//! # Quantixkvm Hypervisor
+//! # limiquantix Hypervisor
 //!
 //! Hypervisor abstraction layer for managing virtual machines.
 //!
@@ -27206,7 +27206,7 @@ Now let me update the lib.rs to export the new storage module:
 //! ## Usage
 //!
 //! ```rust,ignore
-//! use Quantixkvm_hypervisor::{Hypervisor, MockBackend, VmConfig};
+//! use limiquantix_hypervisor::{Hypervisor, MockBackend, VmConfig};
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -27264,7 +27264,7 @@ use crate::error::{HypervisorError, Result};
 use crate::types::{DiskConfig, DiskFormat};
 
 /// Default storage base path for disk images.
-pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/Quantixkvm/images";
+pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/limiquantix/images";
 
 /// Storage manager for disk images.
 pub struct StorageManager {
@@ -27641,11 +27641,11 @@ mod tests {
     
     #[test]
     fn test_disk_path() {
-        let manager = StorageManager::with_path("/var/lib/Quantixkvm/images");
+        let manager = StorageManager::with_path("/var/lib/limiquantix/images");
         let path = manager.disk_path("vm-123", "disk-456");
         assert_eq!(
             path,
-            PathBuf::from("/var/lib/Quantixkvm/images/vm-123/disk-456.qcow2")
+            PathBuf::from("/var/lib/limiquantix/images/vm-123/disk-456.qcow2")
         );
     }
     
@@ -27679,7 +27679,7 @@ use crate::error::{HypervisorError, Result};
 use crate::types::{DiskConfig, DiskFormat};
 
 /// Default storage base path for disk images.
-pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/Quantixkvm/images";
+pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/limiquantix/images";
 
 /// Storage manager for disk images.
 pub struct StorageManager {
@@ -28050,11 +28050,11 @@ mod tests {
     
     #[test]
     fn test_disk_path() {
-        let manager = StorageManager::with_path("/var/lib/Quantixkvm/images");
+        let manager = StorageManager::with_path("/var/lib/limiquantix/images");
         let path = manager.disk_path("vm-123", "disk-456");
         assert_eq!(
             path,
-            PathBuf::from("/var/lib/Quantixkvm/images/vm-123/disk-456.qcow2")
+            PathBuf::from("/var/lib/limiquantix/images/vm-123/disk-456.qcow2")
         );
     }
     
@@ -28104,7 +28104,7 @@ use crate::error::{HypervisorError, Result};
 use crate::types::{DiskConfig, DiskFormat};
 
 /// Default storage base path for disk images.
-pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/Quantixkvm/images";
+pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/limiquantix/images";
 
 /// Storage manager for disk images.
 pub struct StorageManager {
@@ -28478,11 +28478,11 @@ mod tests {
     
     #[test]
     fn test_disk_path() {
-        let manager = StorageManager::with_path("/var/lib/Quantixkvm/images");
+        let manager = StorageManager::with_path("/var/lib/limiquantix/images");
         let path = manager.disk_path("vm-123", "disk-456");
         assert_eq!(
             path,
-            PathBuf::from("/var/lib/Quantixkvm/images/vm-123/disk-456.qcow2")
+            PathBuf::from("/var/lib/limiquantix/images/vm-123/disk-456.qcow2")
         );
     }
     
@@ -28518,7 +28518,7 @@ use crate::error::{HypervisorError, Result};
 use crate::types::{DiskConfig, DiskFormat};
 
 /// Default storage base path for disk images.
-pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/Quantixkvm/images";
+pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/limiquantix/images";
 
 /// Storage manager for disk images.
 pub struct StorageManager {
@@ -28893,11 +28893,11 @@ mod tests {
     
     #[test]
     fn test_disk_path() {
-        let manager = StorageManager::with_path("/var/lib/Quantixkvm/images");
+        let manager = StorageManager::with_path("/var/lib/limiquantix/images");
         let path = manager.disk_path("vm-123", "disk-456");
         assert_eq!(
             path,
-            PathBuf::from("/var/lib/Quantixkvm/images/vm-123/disk-456.qcow2")
+            PathBuf::from("/var/lib/limiquantix/images/vm-123/disk-456.qcow2")
         );
     }
     
@@ -28931,7 +28931,7 @@ use crate::error::{HypervisorError, Result};
 use crate::types::{DiskConfig, DiskFormat};
 
 /// Default storage base path for disk images.
-pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/Quantixkvm/images";
+pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/limiquantix/images";
 
 /// Storage manager for disk images.
 pub struct StorageManager {
@@ -29307,11 +29307,11 @@ mod tests {
     
     #[test]
     fn test_disk_path() {
-        let manager = StorageManager::with_path("/var/lib/Quantixkvm/images");
+        let manager = StorageManager::with_path("/var/lib/limiquantix/images");
         let path = manager.disk_path("vm-123", "disk-456");
         assert_eq!(
             path,
-            PathBuf::from("/var/lib/Quantixkvm/images/vm-123/disk-456.qcow2")
+            PathBuf::from("/var/lib/limiquantix/images/vm-123/disk-456.qcow2")
         );
     }
     
@@ -29345,7 +29345,7 @@ use crate::error::{HypervisorError, Result};
 use crate::types::{DiskConfig, DiskFormat};
 
 /// Default storage base path for disk images.
-pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/Quantixkvm/images";
+pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/limiquantix/images";
 
 /// Storage manager for disk images.
 pub struct StorageManager {
@@ -29722,11 +29722,11 @@ mod tests {
     
     #[test]
     fn test_disk_path() {
-        let manager = StorageManager::with_path("/var/lib/Quantixkvm/images");
+        let manager = StorageManager::with_path("/var/lib/limiquantix/images");
         let path = manager.disk_path("vm-123", "disk-456");
         assert_eq!(
             path,
-            PathBuf::from("/var/lib/Quantixkvm/images/vm-123/disk-456.qcow2")
+            PathBuf::from("/var/lib/limiquantix/images/vm-123/disk-456.qcow2")
         );
     }
     
@@ -29845,7 +29845,7 @@ use crate::xml::DomainXmlBuilder;
 
 /// Libvirt/QEMU hypervisor backend.
 ///
-/// This is the primary hypervisor backend for Quantixkvm, providing
+/// This is the primary hypervisor backend for limiquantix, providing
 /// full VM lifecycle management through libvirt.
 pub struct LibvirtBackend {
     uri: String,
@@ -30474,7 +30474,7 @@ use crate::xml::DomainXmlBuilder;
 
 /// Libvirt/QEMU hypervisor backend.
 ///
-/// This is the primary hypervisor backend for Quantixkvm, providing
+/// This is the primary hypervisor backend for limiquantix, providing
 /// full VM lifecycle management through libvirt.
 pub struct LibvirtBackend {
     uri: String,
@@ -31114,12 +31114,12 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use tracing::{info, debug, instrument};
 
-use Quantixkvm_hypervisor::{
+use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
     DiskBus, DiskFormat, NicModel, StorageManager,
 };
-use Quantixkvm_telemetry::TelemetryCollector;
-use Quantixkvm_proto::{
+use limiquantix_telemetry::TelemetryCollector;
+use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
     StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
@@ -31475,8 +31475,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         Ok(Response::new(ConsoleInfoResponse {
             console_type: match console.console_type {
-                Quantixkvm_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
-                Quantixkvm_hypervisor::ConsoleType::Spice => "spice".to_string(),
+                limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
+                limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
             host: console.host,
             port: console.port as u32,
@@ -31594,8 +31594,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Get VM metrics
                 let vms = hypervisor.list_vms().await.unwrap_or_default();
-                let vm_metrics: Vec<Quantixkvm_proto::VmMetrics> = vms.into_iter().map(|vm| {
-                    Quantixkvm_proto::VmMetrics {
+                let vm_metrics: Vec<limiquantix_proto::VmMetrics> = vms.into_iter().map(|vm| {
+                    limiquantix_proto::VmMetrics {
                         vm_id: vm.id,
                         name: vm.name,
                         cpu_usage_percent: 0.0,
@@ -31680,12 +31680,12 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use tracing::{info, debug, instrument};
 
-use Quantixkvm_hypervisor::{
+use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
     DiskBus, DiskFormat, NicModel, StorageManager,
 };
-use Quantixkvm_telemetry::TelemetryCollector;
-use Quantixkvm_proto::{
+use limiquantix_telemetry::TelemetryCollector;
+use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
     StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
@@ -32042,8 +32042,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         Ok(Response::new(ConsoleInfoResponse {
             console_type: match console.console_type {
-                Quantixkvm_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
-                Quantixkvm_hypervisor::ConsoleType::Spice => "spice".to_string(),
+                limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
+                limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
             host: console.host,
             port: console.port as u32,
@@ -32161,8 +32161,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Get VM metrics
                 let vms = hypervisor.list_vms().await.unwrap_or_default();
-                let vm_metrics: Vec<Quantixkvm_proto::VmMetrics> = vms.into_iter().map(|vm| {
-                    Quantixkvm_proto::VmMetrics {
+                let vm_metrics: Vec<limiquantix_proto::VmMetrics> = vms.into_iter().map(|vm| {
+                    limiquantix_proto::VmMetrics {
                         vm_id: vm.id,
                         name: vm.name,
                         cpu_usage_percent: 0.0,
@@ -32247,12 +32247,12 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use tracing::{info, debug, instrument};
 
-use Quantixkvm_hypervisor::{
+use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
     DiskBus, DiskFormat, NicModel, StorageManager,
 };
-use Quantixkvm_telemetry::TelemetryCollector;
-use Quantixkvm_proto::{
+use limiquantix_telemetry::TelemetryCollector;
+use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
     StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
@@ -32627,8 +32627,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         Ok(Response::new(ConsoleInfoResponse {
             console_type: match console.console_type {
-                Quantixkvm_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
-                Quantixkvm_hypervisor::ConsoleType::Spice => "spice".to_string(),
+                limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
+                limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
             host: console.host,
             port: console.port as u32,
@@ -32746,8 +32746,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Get VM metrics
                 let vms = hypervisor.list_vms().await.unwrap_or_default();
-                let vm_metrics: Vec<Quantixkvm_proto::VmMetrics> = vms.into_iter().map(|vm| {
-                    Quantixkvm_proto::VmMetrics {
+                let vm_metrics: Vec<limiquantix_proto::VmMetrics> = vms.into_iter().map(|vm| {
+                    limiquantix_proto::VmMetrics {
                         vm_id: vm.id,
                         name: vm.name,
                         cpu_usage_percent: 0.0,
@@ -32834,12 +32834,12 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use tracing::{info, debug, instrument};
 
-use Quantixkvm_hypervisor::{
+use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
     DiskBus, DiskFormat, NicModel, StorageManager,
 };
-use Quantixkvm_telemetry::TelemetryCollector;
-use Quantixkvm_proto::{
+use limiquantix_telemetry::TelemetryCollector;
+use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
     StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
@@ -33230,8 +33230,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         Ok(Response::new(ConsoleInfoResponse {
             console_type: match console.console_type {
-                Quantixkvm_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
-                Quantixkvm_hypervisor::ConsoleType::Spice => "spice".to_string(),
+                limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
+                limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
             host: console.host,
             port: console.port as u32,
@@ -33349,8 +33349,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Get VM metrics
                 let vms = hypervisor.list_vms().await.unwrap_or_default();
-                let vm_metrics: Vec<Quantixkvm_proto::VmMetrics> = vms.into_iter().map(|vm| {
-                    Quantixkvm_proto::VmMetrics {
+                let vm_metrics: Vec<limiquantix_proto::VmMetrics> = vms.into_iter().map(|vm| {
+                    limiquantix_proto::VmMetrics {
                         vm_id: vm.id,
                         name: vm.name,
                         cpu_usage_percent: 0.0,
@@ -33451,7 +33451,7 @@ Phase 2 focuses on moving from mock hypervisor to real KVM/libvirt-based VM mana
 
 ### 1. Storage Manager Module
 
-**File:** `agent/Quantixkvm-hypervisor/src/storage.rs`
+**File:** `agent/limiquantix-hypervisor/src/storage.rs`
 
 Created a complete disk image management module using `qemu-img`:
 
@@ -33498,7 +33498,7 @@ impl StorageManager {
 
 ### 2. Node Daemon Service Integration
 
-**File:** `agent/Quantixkvm-node/src/service.rs`
+**File:** `agent/limiquantix-node/src/service.rs`
 
 Updated the gRPC service to automatically create disk images when VMs are created:
 
@@ -33520,13 +33520,13 @@ if disk.path.is_empty() && disk.size_gib > 0 {
 **Flow:**
 1. Client calls `CreateVM` with disk configuration (size, format, bus)
 2. If `disk.path` is empty, StorageManager creates the image
-3. Image is created at `/var/lib/Quantixkvm/images/{vm_id}/{disk_id}.qcow2`
+3. Image is created at `/var/lib/limiquantix/images/{vm_id}/{disk_id}.qcow2`
 4. `disk_config.path` is updated with the actual path
 5. VM is created with the disk attached
 
 ### 3. Libvirt Backend Error Handling
 
-**File:** `agent/Quantixkvm-hypervisor/src/libvirt/backend.rs`
+**File:** `agent/limiquantix-hypervisor/src/libvirt/backend.rs`
 
 Fixed error handling to use simple error variants instead of structured ones:
 
@@ -33540,7 +33540,7 @@ HypervisorError::VmNotFound(format!("{}: {}", vm_id, reason))
 
 ### 4. Error Types Simplified
 
-**File:** `agent/Quantixkvm-hypervisor/src/error.rs`
+**File:** `agent/limiquantix-hypervisor/src/error.rs`
 
 Simplified error types for consistency:
 
@@ -33565,7 +33565,7 @@ pub enum HypervisorError {
 ## Directory Structure
 
 ```
-/var/lib/Quantixkvm/images/
+/var/lib/limiquantix/images/
 ├── {vm_id_1}/
 │   ├── {disk_id_1}.qcow2
 │   └── {disk_id_2}.qcow2
@@ -33583,7 +33583,7 @@ pub enum HypervisorError {
 ### On macOS (Mock Mode)
 ```bash
 cd agent
-cargo run --bin Quantixkvm-node -- --dev --listen 127.0.0.1:9090
+cargo run --bin limiquantix-node -- --dev --listen 127.0.0.1:9090
 ```
 
 ### On Linux with Libvirt
@@ -33592,10 +33592,10 @@ cargo run --bin Quantixkvm-node -- --dev --listen 127.0.0.1:9090
 sudo apt install qemu-kvm libvirt-daemon-system libvirt-dev
 
 # Build with libvirt feature
-cargo build --bin Quantixkvm-node --features libvirt
+cargo build --bin limiquantix-node --features libvirt
 
 # Run
-./target/debug/Quantixkvm-node \
+./target/debug/limiquantix-node \
   --libvirt-uri qemu:///system \
   --listen 0.0.0.0:9090 \
   --control-plane http://control-plane:8080 \
@@ -33605,7 +33605,7 @@ cargo build --bin Quantixkvm-node --features libvirt
 ### Test Disk Creation
 ```bash
 # Create a VM with a disk
-curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/CreateVM \
+curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/CreateVM \
   -H "Content-Type: application/json" \
   -d '{
     "name": "test-vm",
@@ -33619,7 +33619,7 @@ curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/CreateVM \
   }'
 
 # Verify disk created
-ls -la /var/lib/Quantixkvm/images/{vm_id}/
+ls -la /var/lib/limiquantix/images/{vm_id}/
 ```
 
 ---
@@ -33647,11 +33647,11 @@ ls -la /var/lib/Quantixkvm/images/{vm_id}/
 
 | File | Changes |
 |------|---------|
-| `agent/Quantixkvm-hypervisor/src/storage.rs` | NEW - Disk image management |
-| `agent/Quantixkvm-hypervisor/src/lib.rs` | Export storage module |
-| `agent/Quantixkvm-hypervisor/src/error.rs` | Simplified error types |
-| `agent/Quantixkvm-hypervisor/src/libvirt/backend.rs` | Fixed error handling |
-| `agent/Quantixkvm-node/src/service.rs` | Integrate StorageManager |
+| `agent/limiquantix-hypervisor/src/storage.rs` | NEW - Disk image management |
+| `agent/limiquantix-hypervisor/src/lib.rs` | Export storage module |
+| `agent/limiquantix-hypervisor/src/error.rs` | Simplified error types |
+| `agent/limiquantix-hypervisor/src/libvirt/backend.rs` | Fixed error handling |
+| `agent/limiquantix-node/src/service.rs` | Integrate StorageManager |
 
 ---
 
@@ -33689,19 +33689,19 @@ Here's what was accomplished for Phase 2:
 
 ### Completed ✅
 
-1. **Storage Manager Module** (`agent/Quantixkvm-hypervisor/src/storage.rs`)
+1. **Storage Manager Module** (`agent/limiquantix-hypervisor/src/storage.rs`)
    - Disk image creation using `qemu-img`
    - Support for QCOW2, RAW, VMDK formats
    - Copy-on-write images from backing files
    - Disk resize, convert, delete operations
-   - VM directory management (`/var/lib/Quantixkvm/images/{vm_id}/`)
+   - VM directory management (`/var/lib/limiquantix/images/{vm_id}/`)
 
-2. **Service Integration** (`agent/Quantixkvm-node/src/service.rs`)
+2. **Service Integration** (`agent/limiquantix-node/src/service.rs`)
    - Auto-creates disk images when VM is created without disk path
    - Uses StorageManager for disk operations
    - Updated constructor with storage support
 
-3. **Error Handling** (`agent/Quantixkvm-hypervisor/src/error.rs`, `libvirt/backend.rs`)
+3. **Error Handling** (`agent/limiquantix-hypervisor/src/error.rs`, `libvirt/backend.rs`)
    - Simplified error types for consistency
    - Fixed libvirt backend to use new error format
 
@@ -33746,7 +33746,7 @@ I'll start with the Linux testing instructions, then analyze the console options
 
 ## Overview
 
-This guide explains how to set up a Linux environment for testing Quantixkvm with real KVM/libvirt VMs.
+This guide explains how to set up a Linux environment for testing limiquantix with real KVM/libvirt VMs.
 
 ---
 
@@ -33868,14 +33868,14 @@ cargo --version
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/Quantixkvm.git
-cd Quantixkvm/agent
+git clone https://github.com/your-org/limiquantix.git
+cd limiquantix/agent
 
 # Build with libvirt feature
-cargo build --release --bin Quantixkvm-node --features libvirt
+cargo build --release --bin limiquantix-node --features libvirt
 
 # The binary is at:
-# ./target/release/Quantixkvm-node
+# ./target/release/limiquantix-node
 ```
 
 ### Common Build Errors
@@ -33913,9 +33913,9 @@ sudo apt install pkg-config  # or dnf
 ### Create Config File
 
 ```bash
-sudo mkdir -p /etc/Quantixkvm
-sudo tee /etc/Quantixkvm/node-daemon.yaml << 'EOF'
-# Quantixkvm Node Daemon Configuration
+sudo mkdir -p /etc/limiquantix
+sudo tee /etc/limiquantix/node-daemon.yaml << 'EOF'
+# limiquantix Node Daemon Configuration
 
 node:
   # Node identity (auto-generated if not set)
@@ -33939,7 +33939,7 @@ hypervisor:
 
 storage:
   # Base path for disk images
-  base_path: "/var/lib/Quantixkvm/images"
+  base_path: "/var/lib/limiquantix/images"
 
 control_plane:
   # Control plane address
@@ -33956,8 +33956,8 @@ EOF
 ### Create Storage Directory
 
 ```bash
-sudo mkdir -p /var/lib/Quantixkvm/images
-sudo chown -R $USER:$USER /var/lib/Quantixkvm
+sudo mkdir -p /var/lib/limiquantix/images
+sudo chown -R $USER:$USER /var/lib/limiquantix
 ```
 
 ---
@@ -33967,13 +33967,13 @@ sudo chown -R $USER:$USER /var/lib/Quantixkvm
 ### Start with Config File
 
 ```bash
-./target/release/Quantixkvm-node --config /etc/Quantixkvm/node-daemon.yaml
+./target/release/limiquantix-node --config /etc/limiquantix/node-daemon.yaml
 ```
 
 ### Start with CLI Arguments
 
 ```bash
-./target/release/Quantixkvm-node \
+./target/release/limiquantix-node \
   --libvirt-uri qemu:///system \
   --listen 0.0.0.0:9090 \
   --control-plane http://control-plane:8080 \
@@ -33983,9 +33983,9 @@ sudo chown -R $USER:$USER /var/lib/Quantixkvm
 ### Run as Systemd Service
 
 ```bash
-sudo tee /etc/systemd/system/Quantixkvm-node.service << 'EOF'
+sudo tee /etc/systemd/system/limiquantix-node.service << 'EOF'
 [Unit]
-Description=Quantixkvm Node Daemon
+Description=limiquantix Node Daemon
 After=network.target libvirtd.service
 Wants=libvirtd.service
 
@@ -33993,14 +33993,14 @@ Wants=libvirtd.service
 Type=simple
 User=root
 Group=root
-ExecStart=/usr/local/bin/Quantixkvm-node --config /etc/Quantixkvm/node-daemon.yaml
+ExecStart=/usr/local/bin/limiquantix-node --config /etc/limiquantix/node-daemon.yaml
 Restart=always
 RestartSec=5
 
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=Quantixkvm-node
+SyslogIdentifier=limiquantix-node
 
 # Security
 NoNewPrivileges=false
@@ -34012,16 +34012,16 @@ WantedBy=multi-user.target
 EOF
 
 # Copy binary
-sudo cp target/release/Quantixkvm-node /usr/local/bin/
+sudo cp target/release/limiquantix-node /usr/local/bin/
 
 # Enable and start service
 sudo systemctl daemon-reload
-sudo systemctl enable Quantixkvm-node
-sudo systemctl start Quantixkvm-node
+sudo systemctl enable limiquantix-node
+sudo systemctl start limiquantix-node
 
 # Check status
-sudo systemctl status Quantixkvm-node
-journalctl -u Quantixkvm-node -f
+sudo systemctl status limiquantix-node
+journalctl -u limiquantix-node -f
 ```
 
 ---
@@ -34032,7 +34032,7 @@ journalctl -u Quantixkvm-node -f
 
 ```bash
 # Using grpcurl
-grpcurl -plaintext localhost:9090 Quantixkvm.node.v1.NodeDaemonService/HealthCheck
+grpcurl -plaintext localhost:9090 limiquantix.node.v1.NodeDaemonService/HealthCheck
 
 # Expected output:
 # {
@@ -34046,7 +34046,7 @@ grpcurl -plaintext localhost:9090 Quantixkvm.node.v1.NodeDaemonService/HealthChe
 ### 2. Get Node Info
 
 ```bash
-grpcurl -plaintext localhost:9090 Quantixkvm.node.v1.NodeDaemonService/GetNodeInfo
+grpcurl -plaintext localhost:9090 limiquantix.node.v1.NodeDaemonService/GetNodeInfo
 ```
 
 ### 3. Create a Test VM
@@ -34056,17 +34056,17 @@ First, download a test image:
 ```bash
 # Download Cirros (minimal test image)
 wget https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img \
-  -O /var/lib/Quantixkvm/templates/cirros.qcow2
+  -O /var/lib/limiquantix/templates/cirros.qcow2
 
 # Or download Ubuntu cloud image
 wget https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img \
-  -O /var/lib/Quantixkvm/templates/ubuntu-22.04.qcow2
+  -O /var/lib/limiquantix/templates/ubuntu-22.04.qcow2
 ```
 
 Create VM via API (through Control Plane):
 
 ```bash
-curl -X POST http://control-plane:8080/Quantixkvm.compute.v1.VMService/CreateVM \
+curl -X POST http://control-plane:8080/limiquantix.compute.v1.VMService/CreateVM \
   -H "Content-Type: application/json" \
   -d '{
     "name": "test-vm-linux",
@@ -34242,7 +34242,7 @@ For a multi-node cluster:
 2. **Shared Storage**: For live migration, all nodes need access to the same storage:
    ```bash
    # Example NFS mount
-   sudo mount -t nfs storage-server:/vms /var/lib/Quantixkvm/images
+   sudo mount -t nfs storage-server:/vms /var/lib/limiquantix/images
    ```
 
 3. **SSH Keys**: For live migration, nodes need passwordless SSH:
@@ -34297,7 +34297,7 @@ Now let me analyze the console options comprehensively:
 
 ## Context
 
-Quantixkvm needs to provide web-based console access to VMs, similar to VMware's vSphere Web Console. Users should be able to interact with VMs directly from the browser without installing additional software.
+limiquantix needs to provide web-based console access to VMs, similar to VMware's vSphere Web Console. Users should be able to interact with VMs directly from the browser without installing additional software.
 
 ### Requirements
 
@@ -34507,7 +34507,7 @@ For Windows VMs and advanced features:
 
 If RDP or SSH console is needed:
 1. Deploy Guacamole for Windows RDP access
-2. Integrate with Quantixkvm authentication
+2. Integrate with limiquantix authentication
 3. Provide unified console experience
 
 ---
@@ -34893,7 +34893,7 @@ Windows 10 (64 RAM 4080 super GPU and intel I9)
 
 **Cursor**
 
-Excellent! Here's how I'd rank your devices for Quantixkvm testing:
+Excellent! Here's how I'd rank your devices for limiquantix testing:
 
 ## Device Ranking for KVM/libvirt Testing
 
@@ -34949,8 +34949,8 @@ Use this for:
 Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
 
 # Create Ubuntu VM with nested virtualization
-New-VM -Name "Quantixkvm-Dev" -MemoryStartupBytes 16GB -Generation 2
-Set-VMProcessor -VMName "Quantixkvm-Dev" -ExposeVirtualizationExtensions $true
+New-VM -Name "limiquantix-Dev" -MemoryStartupBytes 16GB -Generation 2
+Set-VMProcessor -VMName "limiquantix-Dev" -ExposeVirtualizationExtensions $true
 ```
 
 ---
@@ -34983,7 +34983,7 @@ Set-VMProcessor -VMName "Quantixkvm-Dev" -ExposeVirtualizationExtensions $true
 │  │   • Create REAL VMs using KVM                             │ │
 │  │   • Test VM lifecycle, snapshots, console                 │ │
 │  │                                                            │ │
-│  │   cargo run --bin Quantixkvm-node --features libvirt     │ │
+│  │   cargo run --bin limiquantix-node --features libvirt     │ │
 │  │   --control-plane http://YOUR_WIN_IP:8080 --register      │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                  │
@@ -35008,19 +35008,19 @@ sudo apt install -y \
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source ~/.cargo/env
 
-# Clone Quantixkvm
-git clone <your-repo-url> ~/Quantixkvm
-cd ~/Quantixkvm/agent
+# Clone limiquantix
+git clone <your-repo-url> ~/limiquantix
+cd ~/limiquantix/agent
 
 # Build with libvirt
-cargo build --release --bin Quantixkvm-node --features libvirt
+cargo build --release --bin limiquantix-node --features libvirt
 ```
 
 ### Step 2: Run Control Plane on Mac/Windows
 
 ```bash
 # On Mac M3 or Windows (where you develop)
-cd ~/Quantixkvm/backend
+cd ~/limiquantix/backend
 go run ./cmd/controlplane --dev
 
 # Note your IP address (e.g., 192.168.1.100)
@@ -35032,8 +35032,8 @@ go run ./cmd/controlplane --dev
 
 ```bash
 # On Asus Ubuntu laptop
-cd ~/Quantixkvm/agent
-./target/release/Quantixkvm-node \
+cd ~/limiquantix/agent
+./target/release/limiquantix-node \
   --libvirt-uri qemu:///system \
   --listen 0.0.0.0:9090 \
   --control-plane http://192.168.1.100:8080 \  # Your Mac/Windows IP
@@ -35086,8 +35086,8 @@ virsh list --all
 Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
 
 # Create Ubuntu VM with nested virtualization
-New-VM -Name "Quantixkvm-Dev" -MemoryStartupBytes 16GB -Generation 2
-Set-VMProcessor -VMName "Quantixkvm-Dev" -ExposeVirtualizationExtensions $true
+New-VM -Name "limiquantix-Dev" -MemoryStartupBytes 16GB -Generation 2
+Set-VMProcessor -VMName "limiquantix-Dev" -ExposeVirtualizationExtensions $true
 ```
 
 ```plaintext
@@ -35116,7 +35116,7 @@ Set-VMProcessor -VMName "Quantixkvm-Dev" -ExposeVirtualizationExtensions $true
 │  │   • Create REAL VMs using KVM                             │ │
 │  │   • Test VM lifecycle, snapshots, console                 │ │
 │  │                                                            │ │
-│  │   cargo run --bin Quantixkvm-node --features libvirt     │ │
+│  │   cargo run --bin limiquantix-node --features libvirt     │ │
 │  │   --control-plane http://YOUR_MAC_IP:8080 --register      │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                  │
@@ -35135,17 +35135,17 @@ sudo apt install -y \
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source ~/.cargo/env
 
-# Clone Quantixkvm
-git clone <your-repo-url> ~/Quantixkvm
-cd ~/Quantixkvm/agent
+# Clone limiquantix
+git clone <your-repo-url> ~/limiquantix
+cd ~/limiquantix/agent
 
 # Build with libvirt
-cargo build --release --bin Quantixkvm-node --features libvirt
+cargo build --release --bin limiquantix-node --features libvirt
 ```
 
 ```shellscript
 # On Mac M3 or Windows (where you develop)
-cd ~/Quantixkvm/backend
+cd ~/limiquantix/backend
 go run ./cmd/controlplane --dev
 
 # Note your IP address (e.g., 192.168.1.100)
@@ -35155,8 +35155,8 @@ go run ./cmd/controlplane --dev
 
 ```shellscript
 # On Asus Ubuntu laptop
-cd ~/Quantixkvm/agent
-./target/release/Quantixkvm-node \
+cd ~/limiquantix/agent
+./target/release/limiquantix-node \
   --libvirt-uri qemu:///system \
   --listen 0.0.0.0:9090 \
   --control-plane http://192.168.1.100:8080 \  # Your Mac/Windows IP

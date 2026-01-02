@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
-	storagev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/storage/v1"
+	"github.com/limiquantix/limiquantix/internal/domain"
+	storagev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1"
 )
 
 // VolumeService implements the storagev1connect.VolumeServiceHandler interface.

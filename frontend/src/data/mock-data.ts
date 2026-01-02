@@ -2,6 +2,8 @@
 
 export type PowerState = 'RUNNING' | 'STOPPED' | 'PAUSED' | 'SUSPENDED' | 'MIGRATING' | 'CRASHED';
 
+export type NodePhase = 'READY' | 'NOT_READY' | 'MAINTENANCE' | 'DRAINING';
+
 export interface VirtualMachine {
   id: string;
   name: string;
@@ -50,7 +52,7 @@ export interface Node {
     role: { compute: boolean; storage: boolean; controlPlane: boolean };
   };
   status: {
-    phase: 'READY' | 'NOT_READY' | 'MAINTENANCE' | 'DRAINING';
+    phase: NodePhase;
     vmIds: string[];
     resources: {
       cpuAllocatedCores: number;
@@ -300,7 +302,7 @@ export const mockVMs: VirtualMachine[] = [
 export const mockNodes: Node[] = [
   {
     id: 'node-001',
-    hostname: 'hv-rack1-01.Quantixkvm.local',
+    hostname: 'hv-rack1-01.limiquantix.local',
     managementIp: '192.168.1.11',
     labels: { rack: 'rack-1', zone: 'us-east-1a' },
     spec: {
@@ -329,7 +331,7 @@ export const mockNodes: Node[] = [
   },
   {
     id: 'node-002',
-    hostname: 'hv-rack1-02.Quantixkvm.local',
+    hostname: 'hv-rack1-02.limiquantix.local',
     managementIp: '192.168.1.12',
     labels: { rack: 'rack-1', zone: 'us-east-1a' },
     spec: {
@@ -358,7 +360,7 @@ export const mockNodes: Node[] = [
   },
   {
     id: 'node-003',
-    hostname: 'hv-rack2-01.Quantixkvm.local',
+    hostname: 'hv-rack2-01.limiquantix.local',
     managementIp: '192.168.1.21',
     labels: { rack: 'rack-2', zone: 'us-east-1b' },
     spec: {
@@ -385,7 +387,7 @@ export const mockNodes: Node[] = [
   },
   {
     id: 'node-004',
-    hostname: 'hv-gpu-01.Quantixkvm.local',
+    hostname: 'hv-gpu-01.limiquantix.local',
     managementIp: '192.168.1.100',
     labels: { rack: 'rack-gpu', zone: 'us-east-1a', gpu: 'nvidia-a100' },
     spec: {

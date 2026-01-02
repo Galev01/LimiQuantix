@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
-	"github.com/Quantixkvm/Quantixkvm/internal/services/vm"
+	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/services/vm"
 )
 
 // Ensure VMRepository implements vm.Repository

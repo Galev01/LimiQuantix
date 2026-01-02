@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: Quantixkvm/compute/v1/node.proto
+// source: limiquantix/compute/v1/node.proto
 
 package computev1
 
@@ -57,11 +57,11 @@ func (x StorageDevice_DeviceType) String() string {
 }
 
 func (StorageDevice_DeviceType) Descriptor() protoreflect.EnumDescriptor {
-	return file_Quantixkvm_compute_v1_node_proto_enumTypes[0].Descriptor()
+	return file_limiquantix_compute_v1_node_proto_enumTypes[0].Descriptor()
 }
 
 func (StorageDevice_DeviceType) Type() protoreflect.EnumType {
-	return &file_Quantixkvm_compute_v1_node_proto_enumTypes[0]
+	return &file_limiquantix_compute_v1_node_proto_enumTypes[0]
 }
 
 func (x StorageDevice_DeviceType) Number() protoreflect.EnumNumber {
@@ -70,7 +70,7 @@ func (x StorageDevice_DeviceType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use StorageDevice_DeviceType.Descriptor instead.
 func (StorageDevice_DeviceType) EnumDescriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{6, 0}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{6, 0}
 }
 
 // Role of this interface
@@ -116,11 +116,11 @@ func (x NetworkDeviceConfig_Role) String() string {
 }
 
 func (NetworkDeviceConfig_Role) Descriptor() protoreflect.EnumDescriptor {
-	return file_Quantixkvm_compute_v1_node_proto_enumTypes[1].Descriptor()
+	return file_limiquantix_compute_v1_node_proto_enumTypes[1].Descriptor()
 }
 
 func (NetworkDeviceConfig_Role) Type() protoreflect.EnumType {
-	return &file_Quantixkvm_compute_v1_node_proto_enumTypes[1]
+	return &file_limiquantix_compute_v1_node_proto_enumTypes[1]
 }
 
 func (x NetworkDeviceConfig_Role) Number() protoreflect.EnumNumber {
@@ -129,7 +129,7 @@ func (x NetworkDeviceConfig_Role) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use NetworkDeviceConfig_Role.Descriptor instead.
 func (NetworkDeviceConfig_Role) EnumDescriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{8, 0}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{8, 0}
 }
 
 // Current usage
@@ -166,11 +166,11 @@ func (x GpuInfo_GpuUsage) String() string {
 }
 
 func (GpuInfo_GpuUsage) Descriptor() protoreflect.EnumDescriptor {
-	return file_Quantixkvm_compute_v1_node_proto_enumTypes[2].Descriptor()
+	return file_limiquantix_compute_v1_node_proto_enumTypes[2].Descriptor()
 }
 
 func (GpuInfo_GpuUsage) Type() protoreflect.EnumType {
-	return &file_Quantixkvm_compute_v1_node_proto_enumTypes[2]
+	return &file_limiquantix_compute_v1_node_proto_enumTypes[2]
 }
 
 func (x GpuInfo_GpuUsage) Number() protoreflect.EnumNumber {
@@ -179,7 +179,7 @@ func (x GpuInfo_GpuUsage) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use GpuInfo_GpuUsage.Descriptor instead.
 func (GpuInfo_GpuUsage) EnumDescriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{9, 0}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{9, 0}
 }
 
 type Taint_Effect int32
@@ -215,11 +215,11 @@ func (x Taint_Effect) String() string {
 }
 
 func (Taint_Effect) Descriptor() protoreflect.EnumDescriptor {
-	return file_Quantixkvm_compute_v1_node_proto_enumTypes[3].Descriptor()
+	return file_limiquantix_compute_v1_node_proto_enumTypes[3].Descriptor()
 }
 
 func (Taint_Effect) Type() protoreflect.EnumType {
-	return &file_Quantixkvm_compute_v1_node_proto_enumTypes[3]
+	return &file_limiquantix_compute_v1_node_proto_enumTypes[3]
 }
 
 func (x Taint_Effect) Number() protoreflect.EnumNumber {
@@ -228,7 +228,7 @@ func (x Taint_Effect) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Taint_Effect.Descriptor instead.
 func (Taint_Effect) EnumDescriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{13, 0}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{13, 0}
 }
 
 // Current phase
@@ -277,11 +277,11 @@ func (x NodeStatus_Phase) String() string {
 }
 
 func (NodeStatus_Phase) Descriptor() protoreflect.EnumDescriptor {
-	return file_Quantixkvm_compute_v1_node_proto_enumTypes[4].Descriptor()
+	return file_limiquantix_compute_v1_node_proto_enumTypes[4].Descriptor()
 }
 
 func (NodeStatus_Phase) Type() protoreflect.EnumType {
-	return &file_Quantixkvm_compute_v1_node_proto_enumTypes[4]
+	return &file_limiquantix_compute_v1_node_proto_enumTypes[4]
 }
 
 func (x NodeStatus_Phase) Number() protoreflect.EnumNumber {
@@ -290,7 +290,7 @@ func (x NodeStatus_Phase) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use NodeStatus_Phase.Descriptor instead.
 func (NodeStatus_Phase) EnumDescriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{17, 0}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{17, 0}
 }
 
 // Status
@@ -327,11 +327,11 @@ func (x NodeCondition_Status) String() string {
 }
 
 func (NodeCondition_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_Quantixkvm_compute_v1_node_proto_enumTypes[5].Descriptor()
+	return file_limiquantix_compute_v1_node_proto_enumTypes[5].Descriptor()
 }
 
 func (NodeCondition_Status) Type() protoreflect.EnumType {
-	return &file_Quantixkvm_compute_v1_node_proto_enumTypes[5]
+	return &file_limiquantix_compute_v1_node_proto_enumTypes[5]
 }
 
 func (x NodeCondition_Status) Number() protoreflect.EnumNumber {
@@ -340,7 +340,7 @@ func (x NodeCondition_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use NodeCondition_Status.Descriptor instead.
 func (NodeCondition_Status) EnumDescriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{18, 0}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{18, 0}
 }
 
 type NodeEvent_EventType int32
@@ -376,11 +376,11 @@ func (x NodeEvent_EventType) String() string {
 }
 
 func (NodeEvent_EventType) Descriptor() protoreflect.EnumDescriptor {
-	return file_Quantixkvm_compute_v1_node_proto_enumTypes[6].Descriptor()
+	return file_limiquantix_compute_v1_node_proto_enumTypes[6].Descriptor()
 }
 
 func (NodeEvent_EventType) Type() protoreflect.EnumType {
-	return &file_Quantixkvm_compute_v1_node_proto_enumTypes[6]
+	return &file_limiquantix_compute_v1_node_proto_enumTypes[6]
 }
 
 func (x NodeEvent_EventType) Number() protoreflect.EnumNumber {
@@ -389,10 +389,10 @@ func (x NodeEvent_EventType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use NodeEvent_EventType.Descriptor instead.
 func (NodeEvent_EventType) EnumDescriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{26, 0}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{26, 0}
 }
 
-// A Node represents a physical server in the Quantixkvm cluster.
+// A Node represents a physical server in the limiquantix cluster.
 // This is the hypervisor host where VMs run.
 type Node struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -419,7 +419,7 @@ type Node struct {
 
 func (x *Node) Reset() {
 	*x = Node{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[0]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -431,7 +431,7 @@ func (x *Node) String() string {
 func (*Node) ProtoMessage() {}
 
 func (x *Node) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[0]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -444,7 +444,7 @@ func (x *Node) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Node.ProtoReflect.Descriptor instead.
 func (*Node) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{0}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Node) GetId() string {
@@ -530,7 +530,7 @@ type NodeSpec struct {
 
 func (x *NodeSpec) Reset() {
 	*x = NodeSpec{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[1]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -542,7 +542,7 @@ func (x *NodeSpec) String() string {
 func (*NodeSpec) ProtoMessage() {}
 
 func (x *NodeSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[1]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -555,7 +555,7 @@ func (x *NodeSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeSpec.ProtoReflect.Descriptor instead.
 func (*NodeSpec) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{1}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *NodeSpec) GetCpu() *CpuInfo {
@@ -638,7 +638,7 @@ type CpuInfo struct {
 
 func (x *CpuInfo) Reset() {
 	*x = CpuInfo{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[2]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -650,7 +650,7 @@ func (x *CpuInfo) String() string {
 func (*CpuInfo) ProtoMessage() {}
 
 func (x *CpuInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[2]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -663,7 +663,7 @@ func (x *CpuInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CpuInfo.ProtoReflect.Descriptor instead.
 func (*CpuInfo) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{2}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CpuInfo) GetModel() string {
@@ -733,7 +733,7 @@ type NumaNodeInfo struct {
 
 func (x *NumaNodeInfo) Reset() {
 	*x = NumaNodeInfo{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[3]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -745,7 +745,7 @@ func (x *NumaNodeInfo) String() string {
 func (*NumaNodeInfo) ProtoMessage() {}
 
 func (x *NumaNodeInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[3]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -758,7 +758,7 @@ func (x *NumaNodeInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NumaNodeInfo.ProtoReflect.Descriptor instead.
 func (*NumaNodeInfo) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{3}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *NumaNodeInfo) GetNodeId() uint32 {
@@ -796,7 +796,7 @@ type MemoryInfo struct {
 
 func (x *MemoryInfo) Reset() {
 	*x = MemoryInfo{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[4]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -808,7 +808,7 @@ func (x *MemoryInfo) String() string {
 func (*MemoryInfo) ProtoMessage() {}
 
 func (x *MemoryInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[4]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -821,7 +821,7 @@ func (x *MemoryInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryInfo.ProtoReflect.Descriptor instead.
 func (*MemoryInfo) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{4}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *MemoryInfo) GetTotalBytes() uint64 {
@@ -859,7 +859,7 @@ type HugePagesInfo struct {
 
 func (x *HugePagesInfo) Reset() {
 	*x = HugePagesInfo{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[5]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -871,7 +871,7 @@ func (x *HugePagesInfo) String() string {
 func (*HugePagesInfo) ProtoMessage() {}
 
 func (x *HugePagesInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[5]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -884,7 +884,7 @@ func (x *HugePagesInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HugePagesInfo.ProtoReflect.Descriptor instead.
 func (*HugePagesInfo) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{5}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *HugePagesInfo) GetPages_2MbTotal() uint64 {
@@ -925,7 +925,7 @@ type StorageDevice struct {
 	Serial string `protobuf:"bytes,3,opt,name=serial,proto3" json:"serial,omitempty"`
 	// Size in bytes
 	SizeBytes uint64                   `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	Type      StorageDevice_DeviceType `protobuf:"varint,5,opt,name=type,proto3,enum=Quantixkvm.compute.v1.StorageDevice_DeviceType" json:"type,omitempty"`
+	Type      StorageDevice_DeviceType `protobuf:"varint,5,opt,name=type,proto3,enum=limiquantix.compute.v1.StorageDevice_DeviceType" json:"type,omitempty"`
 	// Is this device available for storage pool use?
 	Available bool `protobuf:"varint,6,opt,name=available,proto3" json:"available,omitempty"`
 	// Current usage
@@ -936,7 +936,7 @@ type StorageDevice struct {
 
 func (x *StorageDevice) Reset() {
 	*x = StorageDevice{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[6]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -948,7 +948,7 @@ func (x *StorageDevice) String() string {
 func (*StorageDevice) ProtoMessage() {}
 
 func (x *StorageDevice) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[6]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -961,7 +961,7 @@ func (x *StorageDevice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StorageDevice.ProtoReflect.Descriptor instead.
 func (*StorageDevice) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{6}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *StorageDevice) GetPath() string {
@@ -1039,7 +1039,7 @@ type NetworkDevice struct {
 
 func (x *NetworkDevice) Reset() {
 	*x = NetworkDevice{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[7]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1051,7 +1051,7 @@ func (x *NetworkDevice) String() string {
 func (*NetworkDevice) ProtoMessage() {}
 
 func (x *NetworkDevice) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[7]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1064,7 +1064,7 @@ func (x *NetworkDevice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkDevice.ProtoReflect.Descriptor instead.
 func (*NetworkDevice) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{7}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *NetworkDevice) GetName() string {
@@ -1139,7 +1139,7 @@ func (x *NetworkDevice) GetConfig() *NetworkDeviceConfig {
 
 type NetworkDeviceConfig struct {
 	state protoimpl.MessageState   `protogen:"open.v1"`
-	Role  NetworkDeviceConfig_Role `protobuf:"varint,1,opt,name=role,proto3,enum=Quantixkvm.compute.v1.NetworkDeviceConfig_Role" json:"role,omitempty"`
+	Role  NetworkDeviceConfig_Role `protobuf:"varint,1,opt,name=role,proto3,enum=limiquantix.compute.v1.NetworkDeviceConfig_Role" json:"role,omitempty"`
 	// IP addresses assigned
 	IpAddresses []string `protobuf:"bytes,2,rep,name=ip_addresses,json=ipAddresses,proto3" json:"ip_addresses,omitempty"`
 	// Bridge or bond membership
@@ -1153,7 +1153,7 @@ type NetworkDeviceConfig struct {
 
 func (x *NetworkDeviceConfig) Reset() {
 	*x = NetworkDeviceConfig{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[8]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1165,7 +1165,7 @@ func (x *NetworkDeviceConfig) String() string {
 func (*NetworkDeviceConfig) ProtoMessage() {}
 
 func (x *NetworkDeviceConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[8]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1178,7 +1178,7 @@ func (x *NetworkDeviceConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkDeviceConfig.ProtoReflect.Descriptor instead.
 func (*NetworkDeviceConfig) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{8}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *NetworkDeviceConfig) GetRole() NetworkDeviceConfig_Role {
@@ -1230,7 +1230,7 @@ type GpuInfo struct {
 	// vGPU capable (NVIDIA GRID, AMD MxGPU)
 	VgpuCapable  bool             `protobuf:"varint,6,opt,name=vgpu_capable,json=vgpuCapable,proto3" json:"vgpu_capable,omitempty"`
 	VgpuProfiles []string         `protobuf:"bytes,7,rep,name=vgpu_profiles,json=vgpuProfiles,proto3" json:"vgpu_profiles,omitempty"` // Available vGPU profiles
-	Usage        GpuInfo_GpuUsage `protobuf:"varint,8,opt,name=usage,proto3,enum=Quantixkvm.compute.v1.GpuInfo_GpuUsage" json:"usage,omitempty"`
+	Usage        GpuInfo_GpuUsage `protobuf:"varint,8,opt,name=usage,proto3,enum=limiquantix.compute.v1.GpuInfo_GpuUsage" json:"usage,omitempty"`
 	// If used, which VM(s)
 	AssignedVmIds []string `protobuf:"bytes,9,rep,name=assigned_vm_ids,json=assignedVmIds,proto3" json:"assigned_vm_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1239,7 +1239,7 @@ type GpuInfo struct {
 
 func (x *GpuInfo) Reset() {
 	*x = GpuInfo{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[9]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1251,7 +1251,7 @@ func (x *GpuInfo) String() string {
 func (*GpuInfo) ProtoMessage() {}
 
 func (x *GpuInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[9]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1264,7 +1264,7 @@ func (x *GpuInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GpuInfo.ProtoReflect.Descriptor instead.
 func (*GpuInfo) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{9}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GpuInfo) GetPciAddress() string {
@@ -1346,7 +1346,7 @@ type NodeRole struct {
 
 func (x *NodeRole) Reset() {
 	*x = NodeRole{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[10]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1358,7 +1358,7 @@ func (x *NodeRole) String() string {
 func (*NodeRole) ProtoMessage() {}
 
 func (x *NodeRole) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[10]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1371,7 +1371,7 @@ func (x *NodeRole) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeRole.ProtoReflect.Descriptor instead.
 func (*NodeRole) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{10}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *NodeRole) GetCompute() bool {
@@ -1416,7 +1416,7 @@ type ControlPlaneConfig struct {
 
 func (x *ControlPlaneConfig) Reset() {
 	*x = ControlPlaneConfig{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[11]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1428,7 +1428,7 @@ func (x *ControlPlaneConfig) String() string {
 func (*ControlPlaneConfig) ProtoMessage() {}
 
 func (x *ControlPlaneConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[11]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1441,7 +1441,7 @@ func (x *ControlPlaneConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ControlPlaneConfig.ProtoReflect.Descriptor instead.
 func (*ControlPlaneConfig) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{11}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ControlPlaneConfig) GetEtcdMember() bool {
@@ -1481,7 +1481,7 @@ type SchedulingConfig struct {
 
 func (x *SchedulingConfig) Reset() {
 	*x = SchedulingConfig{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[12]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1493,7 +1493,7 @@ func (x *SchedulingConfig) String() string {
 func (*SchedulingConfig) ProtoMessage() {}
 
 func (x *SchedulingConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[12]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1506,7 +1506,7 @@ func (x *SchedulingConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SchedulingConfig.ProtoReflect.Descriptor instead.
 func (*SchedulingConfig) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{12}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SchedulingConfig) GetSchedulable() bool {
@@ -1541,14 +1541,14 @@ type Taint struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
-	Effect        Taint_Effect           `protobuf:"varint,3,opt,name=effect,proto3,enum=Quantixkvm.compute.v1.Taint_Effect" json:"effect,omitempty"`
+	Effect        Taint_Effect           `protobuf:"varint,3,opt,name=effect,proto3,enum=limiquantix.compute.v1.Taint_Effect" json:"effect,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Taint) Reset() {
 	*x = Taint{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[13]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1560,7 +1560,7 @@ func (x *Taint) String() string {
 func (*Taint) ProtoMessage() {}
 
 func (x *Taint) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[13]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1573,7 +1573,7 @@ func (x *Taint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Taint.ProtoReflect.Descriptor instead.
 func (*Taint) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{13}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Taint) GetKey() string {
@@ -1609,7 +1609,7 @@ type OvercommitConfig struct {
 
 func (x *OvercommitConfig) Reset() {
 	*x = OvercommitConfig{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[14]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1621,7 +1621,7 @@ func (x *OvercommitConfig) String() string {
 func (*OvercommitConfig) ProtoMessage() {}
 
 func (x *OvercommitConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[14]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1634,7 +1634,7 @@ func (x *OvercommitConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OvercommitConfig.ProtoReflect.Descriptor instead.
 func (*OvercommitConfig) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{14}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *OvercommitConfig) GetCpuRatio() float64 {
@@ -1663,7 +1663,7 @@ type ReservedResources struct {
 
 func (x *ReservedResources) Reset() {
 	*x = ReservedResources{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[15]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1675,7 +1675,7 @@ func (x *ReservedResources) String() string {
 func (*ReservedResources) ProtoMessage() {}
 
 func (x *ReservedResources) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[15]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1688,7 +1688,7 @@ func (x *ReservedResources) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReservedResources.ProtoReflect.Descriptor instead.
 func (*ReservedResources) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{15}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ReservedResources) GetCpuCores() uint32 {
@@ -1720,7 +1720,7 @@ type AgentConfig struct {
 
 func (x *AgentConfig) Reset() {
 	*x = AgentConfig{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[16]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1732,7 +1732,7 @@ func (x *AgentConfig) String() string {
 func (*AgentConfig) ProtoMessage() {}
 
 func (x *AgentConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[16]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1745,7 +1745,7 @@ func (x *AgentConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentConfig.ProtoReflect.Descriptor instead.
 func (*AgentConfig) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{16}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *AgentConfig) GetVersion() string {
@@ -1778,7 +1778,7 @@ func (x *AgentConfig) GetTlsCertPath() string {
 
 type NodeStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Phase NodeStatus_Phase       `protobuf:"varint,1,opt,name=phase,proto3,enum=Quantixkvm.compute.v1.NodeStatus_Phase" json:"phase,omitempty"`
+	Phase NodeStatus_Phase       `protobuf:"varint,1,opt,name=phase,proto3,enum=limiquantix.compute.v1.NodeStatus_Phase" json:"phase,omitempty"`
 	// Detailed conditions
 	Conditions []*NodeCondition `protobuf:"bytes,2,rep,name=conditions,proto3" json:"conditions,omitempty"`
 	// Resource allocation status
@@ -1797,7 +1797,7 @@ type NodeStatus struct {
 
 func (x *NodeStatus) Reset() {
 	*x = NodeStatus{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[17]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1809,7 +1809,7 @@ func (x *NodeStatus) String() string {
 func (*NodeStatus) ProtoMessage() {}
 
 func (x *NodeStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[17]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1822,7 +1822,7 @@ func (x *NodeStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeStatus.ProtoReflect.Descriptor instead.
 func (*NodeStatus) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{17}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *NodeStatus) GetPhase() NodeStatus_Phase {
@@ -1878,7 +1878,7 @@ type NodeCondition struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Condition type
 	Type   string               `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"` // "Ready", "DiskPressure", "MemoryPressure", "NetworkUnavailable"
-	Status NodeCondition_Status `protobuf:"varint,2,opt,name=status,proto3,enum=Quantixkvm.compute.v1.NodeCondition_Status" json:"status,omitempty"`
+	Status NodeCondition_Status `protobuf:"varint,2,opt,name=status,proto3,enum=limiquantix.compute.v1.NodeCondition_Status" json:"status,omitempty"`
 	// Last transition time
 	LastTransition *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=last_transition,json=lastTransition,proto3" json:"last_transition,omitempty"`
 	// Reason code
@@ -1891,7 +1891,7 @@ type NodeCondition struct {
 
 func (x *NodeCondition) Reset() {
 	*x = NodeCondition{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[18]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1903,7 +1903,7 @@ func (x *NodeCondition) String() string {
 func (*NodeCondition) ProtoMessage() {}
 
 func (x *NodeCondition) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[18]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1916,7 +1916,7 @@ func (x *NodeCondition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeCondition.ProtoReflect.Descriptor instead.
 func (*NodeCondition) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{18}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *NodeCondition) GetType() string {
@@ -1970,7 +1970,7 @@ type ResourceAllocation struct {
 
 func (x *ResourceAllocation) Reset() {
 	*x = ResourceAllocation{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[19]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1982,7 +1982,7 @@ func (x *ResourceAllocation) String() string {
 func (*ResourceAllocation) ProtoMessage() {}
 
 func (x *ResourceAllocation) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[19]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1995,7 +1995,7 @@ func (x *ResourceAllocation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceAllocation.ProtoReflect.Descriptor instead.
 func (*ResourceAllocation) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{19}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ResourceAllocation) GetCpu() *CpuAllocation {
@@ -2040,7 +2040,7 @@ type CpuAllocation struct {
 
 func (x *CpuAllocation) Reset() {
 	*x = CpuAllocation{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[20]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2052,7 +2052,7 @@ func (x *CpuAllocation) String() string {
 func (*CpuAllocation) ProtoMessage() {}
 
 func (x *CpuAllocation) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[20]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2065,7 +2065,7 @@ func (x *CpuAllocation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CpuAllocation.ProtoReflect.Descriptor instead.
 func (*CpuAllocation) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{20}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CpuAllocation) GetAllocatedVcpus() uint32 {
@@ -2105,7 +2105,7 @@ type MemoryAllocation struct {
 
 func (x *MemoryAllocation) Reset() {
 	*x = MemoryAllocation{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[21]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2117,7 +2117,7 @@ func (x *MemoryAllocation) String() string {
 func (*MemoryAllocation) ProtoMessage() {}
 
 func (x *MemoryAllocation) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[21]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2130,7 +2130,7 @@ func (x *MemoryAllocation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryAllocation.ProtoReflect.Descriptor instead.
 func (*MemoryAllocation) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{21}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *MemoryAllocation) GetAllocatedBytes() uint64 {
@@ -2174,7 +2174,7 @@ type StorageAllocation struct {
 
 func (x *StorageAllocation) Reset() {
 	*x = StorageAllocation{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[22]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2186,7 +2186,7 @@ func (x *StorageAllocation) String() string {
 func (*StorageAllocation) ProtoMessage() {}
 
 func (x *StorageAllocation) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[22]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2199,7 +2199,7 @@ func (x *StorageAllocation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StorageAllocation.ProtoReflect.Descriptor instead.
 func (*StorageAllocation) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{22}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *StorageAllocation) GetLocalUsedBytes() uint64 {
@@ -2235,7 +2235,7 @@ type GpuAllocation struct {
 
 func (x *GpuAllocation) Reset() {
 	*x = GpuAllocation{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[23]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2247,7 +2247,7 @@ func (x *GpuAllocation) String() string {
 func (*GpuAllocation) ProtoMessage() {}
 
 func (x *GpuAllocation) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[23]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2260,7 +2260,7 @@ func (x *GpuAllocation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GpuAllocation.ProtoReflect.Descriptor instead.
 func (*GpuAllocation) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{23}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GpuAllocation) GetTotalGpus() uint32 {
@@ -2299,7 +2299,7 @@ type GpuUsageDetail struct {
 
 func (x *GpuUsageDetail) Reset() {
 	*x = GpuUsageDetail{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[24]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2311,7 +2311,7 @@ func (x *GpuUsageDetail) String() string {
 func (*GpuUsageDetail) ProtoMessage() {}
 
 func (x *GpuUsageDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[24]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2324,7 +2324,7 @@ func (x *GpuUsageDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GpuUsageDetail.ProtoReflect.Descriptor instead.
 func (*GpuUsageDetail) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{24}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GpuUsageDetail) GetPciAddress() string {
@@ -2378,7 +2378,7 @@ type SystemInfo struct {
 	// Hypervisor information
 	Hypervisor        string `protobuf:"bytes,4,opt,name=hypervisor,proto3" json:"hypervisor,omitempty"` // e.g., "kvm", "cloud-hypervisor"
 	HypervisorVersion string `protobuf:"bytes,5,opt,name=hypervisor_version,json=hypervisorVersion,proto3" json:"hypervisor_version,omitempty"`
-	// Quantixkvm agent version
+	// limiquantix agent version
 	AgentVersion string `protobuf:"bytes,6,opt,name=agent_version,json=agentVersion,proto3" json:"agent_version,omitempty"`
 	// Boot time
 	BootTime *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=boot_time,json=bootTime,proto3" json:"boot_time,omitempty"`
@@ -2390,7 +2390,7 @@ type SystemInfo struct {
 
 func (x *SystemInfo) Reset() {
 	*x = SystemInfo{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[25]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2402,7 +2402,7 @@ func (x *SystemInfo) String() string {
 func (*SystemInfo) ProtoMessage() {}
 
 func (x *SystemInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[25]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2415,7 +2415,7 @@ func (x *SystemInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemInfo.ProtoReflect.Descriptor instead.
 func (*SystemInfo) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{25}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *SystemInfo) GetOsName() string {
@@ -2478,7 +2478,7 @@ type NodeEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	NodeId        string                 `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
-	Type          NodeEvent_EventType    `protobuf:"varint,3,opt,name=type,proto3,enum=Quantixkvm.compute.v1.NodeEvent_EventType" json:"type,omitempty"`
+	Type          NodeEvent_EventType    `protobuf:"varint,3,opt,name=type,proto3,enum=limiquantix.compute.v1.NodeEvent_EventType" json:"type,omitempty"`
 	Reason        string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
 	Message       string                 `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
 	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
@@ -2488,7 +2488,7 @@ type NodeEvent struct {
 
 func (x *NodeEvent) Reset() {
 	*x = NodeEvent{}
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[26]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2500,7 +2500,7 @@ func (x *NodeEvent) String() string {
 func (*NodeEvent) ProtoMessage() {}
 
 func (x *NodeEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_proto_msgTypes[26]
+	mi := &file_limiquantix_compute_v1_node_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2513,7 +2513,7 @@ func (x *NodeEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeEvent.ProtoReflect.Descriptor instead.
 func (*NodeEvent) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_proto_rawDescGZIP(), []int{26}
+	return file_limiquantix_compute_v1_node_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *NodeEvent) GetId() string {
@@ -2558,19 +2558,19 @@ func (x *NodeEvent) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
-var File_Quantixkvm_compute_v1_node_proto protoreflect.FileDescriptor
+var File_limiquantix_compute_v1_node_proto protoreflect.FileDescriptor
 
-const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
+const file_limiquantix_compute_v1_node_proto_rawDesc = "" +
 	"\n" +
-	"!Quantixkvm/compute/v1/node.proto\x12\x16Quantixkvm.compute.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xcd\x04\n" +
+	"!limiquantix/compute/v1/node.proto\x12\x16limiquantix.compute.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xcd\x04\n" +
 	"\x04Node\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\bhostname\x18\x02 \x01(\tR\bhostname\x12#\n" +
 	"\rmanagement_ip\x18\x03 \x01(\tR\fmanagementIp\x12@\n" +
-	"\x06labels\x18\x04 \x03(\v2(.Quantixkvm.compute.v1.Node.LabelsEntryR\x06labels\x12O\n" +
-	"\vannotations\x18\x05 \x03(\v2-.Quantixkvm.compute.v1.Node.AnnotationsEntryR\vannotations\x124\n" +
-	"\x04spec\x18\x06 \x01(\v2 .Quantixkvm.compute.v1.NodeSpecR\x04spec\x12:\n" +
-	"\x06status\x18\a \x01(\v2\".Quantixkvm.compute.v1.NodeStatusR\x06status\x129\n" +
+	"\x06labels\x18\x04 \x03(\v2(.limiquantix.compute.v1.Node.LabelsEntryR\x06labels\x12O\n" +
+	"\vannotations\x18\x05 \x03(\v2-.limiquantix.compute.v1.Node.AnnotationsEntryR\vannotations\x124\n" +
+	"\x04spec\x18\x06 \x01(\v2 .limiquantix.compute.v1.NodeSpecR\x04spec\x12:\n" +
+	"\x06status\x18\a \x01(\v2\".limiquantix.compute.v1.NodeStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
@@ -2582,16 +2582,16 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xeb\x03\n" +
 	"\bNodeSpec\x121\n" +
-	"\x03cpu\x18\x01 \x01(\v2\x1f.Quantixkvm.compute.v1.CpuInfoR\x03cpu\x12:\n" +
-	"\x06memory\x18\x02 \x01(\v2\".Quantixkvm.compute.v1.MemoryInfoR\x06memory\x12?\n" +
-	"\astorage\x18\x03 \x03(\v2%.Quantixkvm.compute.v1.StorageDeviceR\astorage\x12?\n" +
-	"\anetwork\x18\x04 \x03(\v2%.Quantixkvm.compute.v1.NetworkDeviceR\anetwork\x123\n" +
-	"\x04gpus\x18\x05 \x03(\v2\x1f.Quantixkvm.compute.v1.GpuInfoR\x04gpus\x124\n" +
-	"\x04role\x18\x06 \x01(\v2 .Quantixkvm.compute.v1.NodeRoleR\x04role\x12H\n" +
+	"\x03cpu\x18\x01 \x01(\v2\x1f.limiquantix.compute.v1.CpuInfoR\x03cpu\x12:\n" +
+	"\x06memory\x18\x02 \x01(\v2\".limiquantix.compute.v1.MemoryInfoR\x06memory\x12?\n" +
+	"\astorage\x18\x03 \x03(\v2%.limiquantix.compute.v1.StorageDeviceR\astorage\x12?\n" +
+	"\anetwork\x18\x04 \x03(\v2%.limiquantix.compute.v1.NetworkDeviceR\anetwork\x123\n" +
+	"\x04gpus\x18\x05 \x03(\v2\x1f.limiquantix.compute.v1.GpuInfoR\x04gpus\x124\n" +
+	"\x04role\x18\x06 \x01(\v2 .limiquantix.compute.v1.NodeRoleR\x04role\x12H\n" +
 	"\n" +
-	"scheduling\x18\a \x01(\v2(.Quantixkvm.compute.v1.SchedulingConfigR\n" +
+	"scheduling\x18\a \x01(\v2(.limiquantix.compute.v1.SchedulingConfigR\n" +
 	"scheduling\x129\n" +
-	"\x05agent\x18\b \x01(\v2#.Quantixkvm.compute.v1.AgentConfigR\x05agent\"\xb8\x02\n" +
+	"\x05agent\x18\b \x01(\v2#.limiquantix.compute.v1.AgentConfigR\x05agent\"\xb8\x02\n" +
 	"\aCpuInfo\x12\x14\n" +
 	"\x05model\x18\x01 \x01(\tR\x05model\x12\x18\n" +
 	"\asockets\x18\x02 \x01(\rR\asockets\x12(\n" +
@@ -2601,7 +2601,7 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\rfrequency_mhz\x18\x06 \x01(\x04R\ffrequencyMhz\x12\x1a\n" +
 	"\bfeatures\x18\a \x03(\tR\bfeatures\x12C\n" +
 	"\n" +
-	"numa_nodes\x18\b \x03(\v2$.Quantixkvm.compute.v1.NumaNodeInfoR\tnumaNodes\"^\n" +
+	"numa_nodes\x18\b \x03(\v2$.limiquantix.compute.v1.NumaNodeInfoR\tnumaNodes\"^\n" +
 	"\fNumaNodeInfo\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\rR\x06nodeId\x12\x12\n" +
 	"\x04cpus\x18\x02 \x03(\rR\x04cpus\x12!\n" +
@@ -2612,7 +2612,7 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"totalBytes\x12+\n" +
 	"\x11allocatable_bytes\x18\x02 \x01(\x04R\x10allocatableBytes\x12D\n" +
 	"\n" +
-	"huge_pages\x18\x03 \x01(\v2%.Quantixkvm.compute.v1.HugePagesInfoR\thugePages\"\xab\x01\n" +
+	"huge_pages\x18\x03 \x01(\v2%.limiquantix.compute.v1.HugePagesInfoR\thugePages\"\xab\x01\n" +
 	"\rHugePagesInfo\x12&\n" +
 	"\x0fpages_2mb_total\x18\x01 \x01(\x04R\rpages2mbTotal\x12$\n" +
 	"\x0epages_2mb_free\x18\x02 \x01(\x04R\fpages2mbFree\x12&\n" +
@@ -2624,7 +2624,7 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\x06serial\x18\x03 \x01(\tR\x06serial\x12\x1d\n" +
 	"\n" +
 	"size_bytes\x18\x04 \x01(\x04R\tsizeBytes\x12D\n" +
-	"\x04type\x18\x05 \x01(\x0e20.Quantixkvm.compute.v1.StorageDevice.DeviceTypeR\x04type\x12\x1c\n" +
+	"\x04type\x18\x05 \x01(\x0e20.limiquantix.compute.v1.StorageDevice.DeviceTypeR\x04type\x12\x1c\n" +
 	"\tavailable\x18\x06 \x01(\bR\tavailable\x12\x14\n" +
 	"\x05usage\x18\a \x01(\tR\x05usage\"(\n" +
 	"\n" +
@@ -2645,9 +2645,9 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\x0fsriov_vfs_total\x18\b \x01(\rR\rsriovVfsTotal\x12$\n" +
 	"\x0esriov_vfs_used\x18\t \x01(\rR\fsriovVfsUsed\x12C\n" +
 	"\x06config\x18\n" +
-	" \x01(\v2+.Quantixkvm.compute.v1.NetworkDeviceConfigR\x06config\"\xa1\x02\n" +
+	" \x01(\v2+.limiquantix.compute.v1.NetworkDeviceConfigR\x06config\"\xa1\x02\n" +
 	"\x13NetworkDeviceConfig\x12D\n" +
-	"\x04role\x18\x01 \x01(\x0e20.Quantixkvm.compute.v1.NetworkDeviceConfig.RoleR\x04role\x12!\n" +
+	"\x04role\x18\x01 \x01(\x0e20.limiquantix.compute.v1.NetworkDeviceConfig.RoleR\x04role\x12!\n" +
 	"\fip_addresses\x18\x02 \x03(\tR\vipAddresses\x12\x16\n" +
 	"\x06bridge\x18\x03 \x01(\tR\x06bridge\x12\x12\n" +
 	"\x04bond\x18\x04 \x01(\tR\x04bond\x12\x17\n" +
@@ -2671,7 +2671,7 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\fmemory_bytes\x18\x05 \x01(\x04R\vmemoryBytes\x12!\n" +
 	"\fvgpu_capable\x18\x06 \x01(\bR\vvgpuCapable\x12#\n" +
 	"\rvgpu_profiles\x18\a \x03(\tR\fvgpuProfiles\x12>\n" +
-	"\x05usage\x18\b \x01(\x0e2(.Quantixkvm.compute.v1.GpuInfo.GpuUsageR\x05usage\x12&\n" +
+	"\x05usage\x18\b \x01(\x0e2(.limiquantix.compute.v1.GpuInfo.GpuUsageR\x05usage\x12&\n" +
 	"\x0fassigned_vm_ids\x18\t \x03(\tR\rassignedVmIds\"4\n" +
 	"\bGpuUsage\x12\r\n" +
 	"\tAVAILABLE\x10\x00\x12\x0f\n" +
@@ -2681,7 +2681,7 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\acompute\x18\x01 \x01(\bR\acompute\x12\x18\n" +
 	"\astorage\x18\x02 \x01(\bR\astorage\x12#\n" +
 	"\rcontrol_plane\x18\x03 \x01(\bR\fcontrolPlane\x12\\\n" +
-	"\x14control_plane_config\x18\x04 \x01(\v2*.Quantixkvm.compute.v1.ControlPlaneConfigR\x12controlPlaneConfig\"r\n" +
+	"\x14control_plane_config\x18\x04 \x01(\v2*.limiquantix.compute.v1.ControlPlaneConfigR\x12controlPlaneConfig\"r\n" +
 	"\x12ControlPlaneConfig\x12\x1f\n" +
 	"\vetcd_member\x18\x01 \x01(\bR\n" +
 	"etcdMember\x12\x1d\n" +
@@ -2690,15 +2690,15 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\tscheduler\x18\x03 \x01(\bR\tscheduler\"\xfc\x01\n" +
 	"\x10SchedulingConfig\x12 \n" +
 	"\vschedulable\x18\x01 \x01(\bR\vschedulable\x125\n" +
-	"\x06taints\x18\x02 \x03(\v2\x1d.Quantixkvm.compute.v1.TaintR\x06taints\x12H\n" +
+	"\x06taints\x18\x02 \x03(\v2\x1d.limiquantix.compute.v1.TaintR\x06taints\x12H\n" +
 	"\n" +
-	"overcommit\x18\x03 \x01(\v2(.Quantixkvm.compute.v1.OvercommitConfigR\n" +
+	"overcommit\x18\x03 \x01(\v2(.limiquantix.compute.v1.OvercommitConfigR\n" +
 	"overcommit\x12E\n" +
-	"\breserved\x18\x04 \x01(\v2).Quantixkvm.compute.v1.ReservedResourcesR\breserved\"\xb0\x01\n" +
+	"\breserved\x18\x04 \x01(\v2).limiquantix.compute.v1.ReservedResourcesR\breserved\"\xb0\x01\n" +
 	"\x05Taint\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12<\n" +
-	"\x06effect\x18\x03 \x01(\x0e2$.Quantixkvm.compute.v1.Taint.EffectR\x06effect\"A\n" +
+	"\x06effect\x18\x03 \x01(\x0e2$.limiquantix.compute.v1.Taint.EffectR\x06effect\"A\n" +
 	"\x06Effect\x12\x0f\n" +
 	"\vNO_SCHEDULE\x10\x00\x12\x16\n" +
 	"\x12PREFER_NO_SCHEDULE\x10\x01\x12\x0e\n" +
@@ -2718,13 +2718,13 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\rtls_cert_path\x18\x04 \x01(\tR\vtlsCertPath\"\x81\x04\n" +
 	"\n" +
 	"NodeStatus\x12>\n" +
-	"\x05phase\x18\x01 \x01(\x0e2(.Quantixkvm.compute.v1.NodeStatus.PhaseR\x05phase\x12E\n" +
+	"\x05phase\x18\x01 \x01(\x0e2(.limiquantix.compute.v1.NodeStatus.PhaseR\x05phase\x12E\n" +
 	"\n" +
-	"conditions\x18\x02 \x03(\v2%.Quantixkvm.compute.v1.NodeConditionR\n" +
+	"conditions\x18\x02 \x03(\v2%.limiquantix.compute.v1.NodeConditionR\n" +
 	"conditions\x12H\n" +
-	"\tresources\x18\x03 \x01(\v2*.Quantixkvm.compute.v1.ResourceAllocationR\tresources\x12\x15\n" +
+	"\tresources\x18\x03 \x01(\v2*.limiquantix.compute.v1.ResourceAllocationR\tresources\x12\x15\n" +
 	"\x06vm_ids\x18\x04 \x03(\tR\x05vmIds\x12:\n" +
-	"\x06system\x18\x05 \x01(\v2\".Quantixkvm.compute.v1.SystemInfoR\x06system\x12A\n" +
+	"\x06system\x18\x05 \x01(\v2\".limiquantix.compute.v1.SystemInfoR\x06system\x12A\n" +
 	"\x0elast_heartbeat\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\rlastHeartbeat\x12#\n" +
 	"\rerror_message\x18\a \x01(\tR\ferrorMessage\"g\n" +
 	"\x05Phase\x12\v\n" +
@@ -2737,7 +2737,7 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\aOFFLINE\x10\x06\"\x8c\x02\n" +
 	"\rNodeCondition\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12D\n" +
-	"\x06status\x18\x02 \x01(\x0e2,.Quantixkvm.compute.v1.NodeCondition.StatusR\x06status\x12C\n" +
+	"\x06status\x18\x02 \x01(\x0e2,.limiquantix.compute.v1.NodeCondition.StatusR\x06status\x12C\n" +
 	"\x0flast_transition\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x0elastTransition\x12\x16\n" +
 	"\x06reason\x18\x04 \x01(\tR\x06reason\x12\x18\n" +
 	"\amessage\x18\x05 \x01(\tR\amessage\"*\n" +
@@ -2746,10 +2746,10 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\x04TRUE\x10\x01\x12\t\n" +
 	"\x05FALSE\x10\x02\"\x8d\x02\n" +
 	"\x12ResourceAllocation\x127\n" +
-	"\x03cpu\x18\x01 \x01(\v2%.Quantixkvm.compute.v1.CpuAllocationR\x03cpu\x12@\n" +
-	"\x06memory\x18\x02 \x01(\v2(.Quantixkvm.compute.v1.MemoryAllocationR\x06memory\x12C\n" +
-	"\astorage\x18\x03 \x01(\v2).Quantixkvm.compute.v1.StorageAllocationR\astorage\x127\n" +
-	"\x03gpu\x18\x04 \x01(\v2%.Quantixkvm.compute.v1.GpuAllocationR\x03gpu\"\x8a\x01\n" +
+	"\x03cpu\x18\x01 \x01(\v2%.limiquantix.compute.v1.CpuAllocationR\x03cpu\x12@\n" +
+	"\x06memory\x18\x02 \x01(\v2(.limiquantix.compute.v1.MemoryAllocationR\x06memory\x12C\n" +
+	"\astorage\x18\x03 \x01(\v2).limiquantix.compute.v1.StorageAllocationR\astorage\x127\n" +
+	"\x03gpu\x18\x04 \x01(\v2%.limiquantix.compute.v1.GpuAllocationR\x03gpu\"\x8a\x01\n" +
 	"\rCpuAllocation\x12'\n" +
 	"\x0fallocated_vcpus\x18\x01 \x01(\rR\x0eallocatedVcpus\x12+\n" +
 	"\x11allocatable_vcpus\x18\x02 \x01(\rR\x10allocatableVcpus\x12#\n" +
@@ -2763,7 +2763,7 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\x11StorageAllocation\x12(\n" +
 	"\x10local_used_bytes\x18\x01 \x01(\x04R\x0elocalUsedBytes\x12*\n" +
 	"\x11local_total_bytes\x18\x02 \x01(\x04R\x0flocalTotalBytes\x12i\n" +
-	"\x10pool_allocations\x18\x03 \x03(\v2>.Quantixkvm.compute.v1.StorageAllocation.PoolAllocationsEntryR\x0fpoolAllocations\x1aB\n" +
+	"\x10pool_allocations\x18\x03 \x03(\v2>.limiquantix.compute.v1.StorageAllocation.PoolAllocationsEntryR\x0fpoolAllocations\x1aB\n" +
 	"\x14PoolAllocationsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01\"\x94\x01\n" +
@@ -2771,7 +2771,7 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\n" +
 	"total_gpus\x18\x01 \x01(\rR\ttotalGpus\x12\x1b\n" +
 	"\tused_gpus\x18\x02 \x01(\rR\busedGpus\x12G\n" +
-	"\vgpu_details\x18\x03 \x03(\v2&.Quantixkvm.compute.v1.GpuUsageDetailR\n" +
+	"\vgpu_details\x18\x03 \x03(\v2&.limiquantix.compute.v1.GpuUsageDetailR\n" +
 	"gpuDetails\"\xef\x01\n" +
 	"\x0eGpuUsageDetail\x12\x1f\n" +
 	"\vpci_address\x18\x01 \x01(\tR\n" +
@@ -2797,7 +2797,7 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\tNodeEvent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12?\n" +
-	"\x04type\x18\x03 \x01(\x0e2+.Quantixkvm.compute.v1.NodeEvent.EventTypeR\x04type\x12\x16\n" +
+	"\x04type\x18\x03 \x01(\x0e2+.limiquantix.compute.v1.NodeEvent.EventTypeR\x04type\x12\x16\n" +
 	"\x06reason\x18\x04 \x01(\tR\x06reason\x12\x18\n" +
 	"\amessage\x18\x05 \x01(\tR\amessage\x128\n" +
 	"\ttimestamp\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"/\n" +
@@ -2806,104 +2806,104 @@ const file_Quantixkvm_compute_v1_node_proto_rawDesc = "" +
 	"\x06NORMAL\x10\x00\x12\v\n" +
 	"\aWARNING\x10\x01\x12\t\n" +
 	"\x05ERROR\x10\x02B\xee\x01\n" +
-	"\x1acom.Quantixkvm.compute.v1B\tNodeProtoP\x01ZKgithub.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1;computev1\xa2\x02\x03LCX\xaa\x02\x16Quantixkvm.Compute.V1\xca\x02\x16Quantixkvm\\Compute\\V1\xe2\x02\"Quantixkvm\\Compute\\V1\\GPBMetadata\xea\x02\x18Quantixkvm::Compute::V1b\x06proto3"
+	"\x1acom.limiquantix.compute.v1B\tNodeProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1;computev1\xa2\x02\x03LCX\xaa\x02\x16limiquantix.Compute.V1\xca\x02\x16limiquantix\\Compute\\V1\xe2\x02\"limiquantix\\Compute\\V1\\GPBMetadata\xea\x02\x18limiquantix::Compute::V1b\x06proto3"
 
 var (
-	file_Quantixkvm_compute_v1_node_proto_rawDescOnce sync.Once
-	file_Quantixkvm_compute_v1_node_proto_rawDescData []byte
+	file_limiquantix_compute_v1_node_proto_rawDescOnce sync.Once
+	file_limiquantix_compute_v1_node_proto_rawDescData []byte
 )
 
-func file_Quantixkvm_compute_v1_node_proto_rawDescGZIP() []byte {
-	file_Quantixkvm_compute_v1_node_proto_rawDescOnce.Do(func() {
-		file_Quantixkvm_compute_v1_node_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_Quantixkvm_compute_v1_node_proto_rawDesc), len(file_Quantixkvm_compute_v1_node_proto_rawDesc)))
+func file_limiquantix_compute_v1_node_proto_rawDescGZIP() []byte {
+	file_limiquantix_compute_v1_node_proto_rawDescOnce.Do(func() {
+		file_limiquantix_compute_v1_node_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_limiquantix_compute_v1_node_proto_rawDesc), len(file_limiquantix_compute_v1_node_proto_rawDesc)))
 	})
-	return file_Quantixkvm_compute_v1_node_proto_rawDescData
+	return file_limiquantix_compute_v1_node_proto_rawDescData
 }
 
-var file_Quantixkvm_compute_v1_node_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_Quantixkvm_compute_v1_node_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
-var file_Quantixkvm_compute_v1_node_proto_goTypes = []any{
-	(StorageDevice_DeviceType)(0), // 0: Quantixkvm.compute.v1.StorageDevice.DeviceType
-	(NetworkDeviceConfig_Role)(0), // 1: Quantixkvm.compute.v1.NetworkDeviceConfig.Role
-	(GpuInfo_GpuUsage)(0),         // 2: Quantixkvm.compute.v1.GpuInfo.GpuUsage
-	(Taint_Effect)(0),             // 3: Quantixkvm.compute.v1.Taint.Effect
-	(NodeStatus_Phase)(0),         // 4: Quantixkvm.compute.v1.NodeStatus.Phase
-	(NodeCondition_Status)(0),     // 5: Quantixkvm.compute.v1.NodeCondition.Status
-	(NodeEvent_EventType)(0),      // 6: Quantixkvm.compute.v1.NodeEvent.EventType
-	(*Node)(nil),                  // 7: Quantixkvm.compute.v1.Node
-	(*NodeSpec)(nil),              // 8: Quantixkvm.compute.v1.NodeSpec
-	(*CpuInfo)(nil),               // 9: Quantixkvm.compute.v1.CpuInfo
-	(*NumaNodeInfo)(nil),          // 10: Quantixkvm.compute.v1.NumaNodeInfo
-	(*MemoryInfo)(nil),            // 11: Quantixkvm.compute.v1.MemoryInfo
-	(*HugePagesInfo)(nil),         // 12: Quantixkvm.compute.v1.HugePagesInfo
-	(*StorageDevice)(nil),         // 13: Quantixkvm.compute.v1.StorageDevice
-	(*NetworkDevice)(nil),         // 14: Quantixkvm.compute.v1.NetworkDevice
-	(*NetworkDeviceConfig)(nil),   // 15: Quantixkvm.compute.v1.NetworkDeviceConfig
-	(*GpuInfo)(nil),               // 16: Quantixkvm.compute.v1.GpuInfo
-	(*NodeRole)(nil),              // 17: Quantixkvm.compute.v1.NodeRole
-	(*ControlPlaneConfig)(nil),    // 18: Quantixkvm.compute.v1.ControlPlaneConfig
-	(*SchedulingConfig)(nil),      // 19: Quantixkvm.compute.v1.SchedulingConfig
-	(*Taint)(nil),                 // 20: Quantixkvm.compute.v1.Taint
-	(*OvercommitConfig)(nil),      // 21: Quantixkvm.compute.v1.OvercommitConfig
-	(*ReservedResources)(nil),     // 22: Quantixkvm.compute.v1.ReservedResources
-	(*AgentConfig)(nil),           // 23: Quantixkvm.compute.v1.AgentConfig
-	(*NodeStatus)(nil),            // 24: Quantixkvm.compute.v1.NodeStatus
-	(*NodeCondition)(nil),         // 25: Quantixkvm.compute.v1.NodeCondition
-	(*ResourceAllocation)(nil),    // 26: Quantixkvm.compute.v1.ResourceAllocation
-	(*CpuAllocation)(nil),         // 27: Quantixkvm.compute.v1.CpuAllocation
-	(*MemoryAllocation)(nil),      // 28: Quantixkvm.compute.v1.MemoryAllocation
-	(*StorageAllocation)(nil),     // 29: Quantixkvm.compute.v1.StorageAllocation
-	(*GpuAllocation)(nil),         // 30: Quantixkvm.compute.v1.GpuAllocation
-	(*GpuUsageDetail)(nil),        // 31: Quantixkvm.compute.v1.GpuUsageDetail
-	(*SystemInfo)(nil),            // 32: Quantixkvm.compute.v1.SystemInfo
-	(*NodeEvent)(nil),             // 33: Quantixkvm.compute.v1.NodeEvent
-	nil,                           // 34: Quantixkvm.compute.v1.Node.LabelsEntry
-	nil,                           // 35: Quantixkvm.compute.v1.Node.AnnotationsEntry
-	nil,                           // 36: Quantixkvm.compute.v1.StorageAllocation.PoolAllocationsEntry
+var file_limiquantix_compute_v1_node_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_limiquantix_compute_v1_node_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_limiquantix_compute_v1_node_proto_goTypes = []any{
+	(StorageDevice_DeviceType)(0), // 0: limiquantix.compute.v1.StorageDevice.DeviceType
+	(NetworkDeviceConfig_Role)(0), // 1: limiquantix.compute.v1.NetworkDeviceConfig.Role
+	(GpuInfo_GpuUsage)(0),         // 2: limiquantix.compute.v1.GpuInfo.GpuUsage
+	(Taint_Effect)(0),             // 3: limiquantix.compute.v1.Taint.Effect
+	(NodeStatus_Phase)(0),         // 4: limiquantix.compute.v1.NodeStatus.Phase
+	(NodeCondition_Status)(0),     // 5: limiquantix.compute.v1.NodeCondition.Status
+	(NodeEvent_EventType)(0),      // 6: limiquantix.compute.v1.NodeEvent.EventType
+	(*Node)(nil),                  // 7: limiquantix.compute.v1.Node
+	(*NodeSpec)(nil),              // 8: limiquantix.compute.v1.NodeSpec
+	(*CpuInfo)(nil),               // 9: limiquantix.compute.v1.CpuInfo
+	(*NumaNodeInfo)(nil),          // 10: limiquantix.compute.v1.NumaNodeInfo
+	(*MemoryInfo)(nil),            // 11: limiquantix.compute.v1.MemoryInfo
+	(*HugePagesInfo)(nil),         // 12: limiquantix.compute.v1.HugePagesInfo
+	(*StorageDevice)(nil),         // 13: limiquantix.compute.v1.StorageDevice
+	(*NetworkDevice)(nil),         // 14: limiquantix.compute.v1.NetworkDevice
+	(*NetworkDeviceConfig)(nil),   // 15: limiquantix.compute.v1.NetworkDeviceConfig
+	(*GpuInfo)(nil),               // 16: limiquantix.compute.v1.GpuInfo
+	(*NodeRole)(nil),              // 17: limiquantix.compute.v1.NodeRole
+	(*ControlPlaneConfig)(nil),    // 18: limiquantix.compute.v1.ControlPlaneConfig
+	(*SchedulingConfig)(nil),      // 19: limiquantix.compute.v1.SchedulingConfig
+	(*Taint)(nil),                 // 20: limiquantix.compute.v1.Taint
+	(*OvercommitConfig)(nil),      // 21: limiquantix.compute.v1.OvercommitConfig
+	(*ReservedResources)(nil),     // 22: limiquantix.compute.v1.ReservedResources
+	(*AgentConfig)(nil),           // 23: limiquantix.compute.v1.AgentConfig
+	(*NodeStatus)(nil),            // 24: limiquantix.compute.v1.NodeStatus
+	(*NodeCondition)(nil),         // 25: limiquantix.compute.v1.NodeCondition
+	(*ResourceAllocation)(nil),    // 26: limiquantix.compute.v1.ResourceAllocation
+	(*CpuAllocation)(nil),         // 27: limiquantix.compute.v1.CpuAllocation
+	(*MemoryAllocation)(nil),      // 28: limiquantix.compute.v1.MemoryAllocation
+	(*StorageAllocation)(nil),     // 29: limiquantix.compute.v1.StorageAllocation
+	(*GpuAllocation)(nil),         // 30: limiquantix.compute.v1.GpuAllocation
+	(*GpuUsageDetail)(nil),        // 31: limiquantix.compute.v1.GpuUsageDetail
+	(*SystemInfo)(nil),            // 32: limiquantix.compute.v1.SystemInfo
+	(*NodeEvent)(nil),             // 33: limiquantix.compute.v1.NodeEvent
+	nil,                           // 34: limiquantix.compute.v1.Node.LabelsEntry
+	nil,                           // 35: limiquantix.compute.v1.Node.AnnotationsEntry
+	nil,                           // 36: limiquantix.compute.v1.StorageAllocation.PoolAllocationsEntry
 	(*timestamppb.Timestamp)(nil), // 37: google.protobuf.Timestamp
 }
-var file_Quantixkvm_compute_v1_node_proto_depIdxs = []int32{
-	34, // 0: Quantixkvm.compute.v1.Node.labels:type_name -> Quantixkvm.compute.v1.Node.LabelsEntry
-	35, // 1: Quantixkvm.compute.v1.Node.annotations:type_name -> Quantixkvm.compute.v1.Node.AnnotationsEntry
-	8,  // 2: Quantixkvm.compute.v1.Node.spec:type_name -> Quantixkvm.compute.v1.NodeSpec
-	24, // 3: Quantixkvm.compute.v1.Node.status:type_name -> Quantixkvm.compute.v1.NodeStatus
-	37, // 4: Quantixkvm.compute.v1.Node.created_at:type_name -> google.protobuf.Timestamp
-	37, // 5: Quantixkvm.compute.v1.Node.updated_at:type_name -> google.protobuf.Timestamp
-	9,  // 6: Quantixkvm.compute.v1.NodeSpec.cpu:type_name -> Quantixkvm.compute.v1.CpuInfo
-	11, // 7: Quantixkvm.compute.v1.NodeSpec.memory:type_name -> Quantixkvm.compute.v1.MemoryInfo
-	13, // 8: Quantixkvm.compute.v1.NodeSpec.storage:type_name -> Quantixkvm.compute.v1.StorageDevice
-	14, // 9: Quantixkvm.compute.v1.NodeSpec.network:type_name -> Quantixkvm.compute.v1.NetworkDevice
-	16, // 10: Quantixkvm.compute.v1.NodeSpec.gpus:type_name -> Quantixkvm.compute.v1.GpuInfo
-	17, // 11: Quantixkvm.compute.v1.NodeSpec.role:type_name -> Quantixkvm.compute.v1.NodeRole
-	19, // 12: Quantixkvm.compute.v1.NodeSpec.scheduling:type_name -> Quantixkvm.compute.v1.SchedulingConfig
-	23, // 13: Quantixkvm.compute.v1.NodeSpec.agent:type_name -> Quantixkvm.compute.v1.AgentConfig
-	10, // 14: Quantixkvm.compute.v1.CpuInfo.numa_nodes:type_name -> Quantixkvm.compute.v1.NumaNodeInfo
-	12, // 15: Quantixkvm.compute.v1.MemoryInfo.huge_pages:type_name -> Quantixkvm.compute.v1.HugePagesInfo
-	0,  // 16: Quantixkvm.compute.v1.StorageDevice.type:type_name -> Quantixkvm.compute.v1.StorageDevice.DeviceType
-	15, // 17: Quantixkvm.compute.v1.NetworkDevice.config:type_name -> Quantixkvm.compute.v1.NetworkDeviceConfig
-	1,  // 18: Quantixkvm.compute.v1.NetworkDeviceConfig.role:type_name -> Quantixkvm.compute.v1.NetworkDeviceConfig.Role
-	2,  // 19: Quantixkvm.compute.v1.GpuInfo.usage:type_name -> Quantixkvm.compute.v1.GpuInfo.GpuUsage
-	18, // 20: Quantixkvm.compute.v1.NodeRole.control_plane_config:type_name -> Quantixkvm.compute.v1.ControlPlaneConfig
-	20, // 21: Quantixkvm.compute.v1.SchedulingConfig.taints:type_name -> Quantixkvm.compute.v1.Taint
-	21, // 22: Quantixkvm.compute.v1.SchedulingConfig.overcommit:type_name -> Quantixkvm.compute.v1.OvercommitConfig
-	22, // 23: Quantixkvm.compute.v1.SchedulingConfig.reserved:type_name -> Quantixkvm.compute.v1.ReservedResources
-	3,  // 24: Quantixkvm.compute.v1.Taint.effect:type_name -> Quantixkvm.compute.v1.Taint.Effect
-	4,  // 25: Quantixkvm.compute.v1.NodeStatus.phase:type_name -> Quantixkvm.compute.v1.NodeStatus.Phase
-	25, // 26: Quantixkvm.compute.v1.NodeStatus.conditions:type_name -> Quantixkvm.compute.v1.NodeCondition
-	26, // 27: Quantixkvm.compute.v1.NodeStatus.resources:type_name -> Quantixkvm.compute.v1.ResourceAllocation
-	32, // 28: Quantixkvm.compute.v1.NodeStatus.system:type_name -> Quantixkvm.compute.v1.SystemInfo
-	37, // 29: Quantixkvm.compute.v1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
-	5,  // 30: Quantixkvm.compute.v1.NodeCondition.status:type_name -> Quantixkvm.compute.v1.NodeCondition.Status
-	37, // 31: Quantixkvm.compute.v1.NodeCondition.last_transition:type_name -> google.protobuf.Timestamp
-	27, // 32: Quantixkvm.compute.v1.ResourceAllocation.cpu:type_name -> Quantixkvm.compute.v1.CpuAllocation
-	28, // 33: Quantixkvm.compute.v1.ResourceAllocation.memory:type_name -> Quantixkvm.compute.v1.MemoryAllocation
-	29, // 34: Quantixkvm.compute.v1.ResourceAllocation.storage:type_name -> Quantixkvm.compute.v1.StorageAllocation
-	30, // 35: Quantixkvm.compute.v1.ResourceAllocation.gpu:type_name -> Quantixkvm.compute.v1.GpuAllocation
-	36, // 36: Quantixkvm.compute.v1.StorageAllocation.pool_allocations:type_name -> Quantixkvm.compute.v1.StorageAllocation.PoolAllocationsEntry
-	31, // 37: Quantixkvm.compute.v1.GpuAllocation.gpu_details:type_name -> Quantixkvm.compute.v1.GpuUsageDetail
-	37, // 38: Quantixkvm.compute.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
-	6,  // 39: Quantixkvm.compute.v1.NodeEvent.type:type_name -> Quantixkvm.compute.v1.NodeEvent.EventType
-	37, // 40: Quantixkvm.compute.v1.NodeEvent.timestamp:type_name -> google.protobuf.Timestamp
+var file_limiquantix_compute_v1_node_proto_depIdxs = []int32{
+	34, // 0: limiquantix.compute.v1.Node.labels:type_name -> limiquantix.compute.v1.Node.LabelsEntry
+	35, // 1: limiquantix.compute.v1.Node.annotations:type_name -> limiquantix.compute.v1.Node.AnnotationsEntry
+	8,  // 2: limiquantix.compute.v1.Node.spec:type_name -> limiquantix.compute.v1.NodeSpec
+	24, // 3: limiquantix.compute.v1.Node.status:type_name -> limiquantix.compute.v1.NodeStatus
+	37, // 4: limiquantix.compute.v1.Node.created_at:type_name -> google.protobuf.Timestamp
+	37, // 5: limiquantix.compute.v1.Node.updated_at:type_name -> google.protobuf.Timestamp
+	9,  // 6: limiquantix.compute.v1.NodeSpec.cpu:type_name -> limiquantix.compute.v1.CpuInfo
+	11, // 7: limiquantix.compute.v1.NodeSpec.memory:type_name -> limiquantix.compute.v1.MemoryInfo
+	13, // 8: limiquantix.compute.v1.NodeSpec.storage:type_name -> limiquantix.compute.v1.StorageDevice
+	14, // 9: limiquantix.compute.v1.NodeSpec.network:type_name -> limiquantix.compute.v1.NetworkDevice
+	16, // 10: limiquantix.compute.v1.NodeSpec.gpus:type_name -> limiquantix.compute.v1.GpuInfo
+	17, // 11: limiquantix.compute.v1.NodeSpec.role:type_name -> limiquantix.compute.v1.NodeRole
+	19, // 12: limiquantix.compute.v1.NodeSpec.scheduling:type_name -> limiquantix.compute.v1.SchedulingConfig
+	23, // 13: limiquantix.compute.v1.NodeSpec.agent:type_name -> limiquantix.compute.v1.AgentConfig
+	10, // 14: limiquantix.compute.v1.CpuInfo.numa_nodes:type_name -> limiquantix.compute.v1.NumaNodeInfo
+	12, // 15: limiquantix.compute.v1.MemoryInfo.huge_pages:type_name -> limiquantix.compute.v1.HugePagesInfo
+	0,  // 16: limiquantix.compute.v1.StorageDevice.type:type_name -> limiquantix.compute.v1.StorageDevice.DeviceType
+	15, // 17: limiquantix.compute.v1.NetworkDevice.config:type_name -> limiquantix.compute.v1.NetworkDeviceConfig
+	1,  // 18: limiquantix.compute.v1.NetworkDeviceConfig.role:type_name -> limiquantix.compute.v1.NetworkDeviceConfig.Role
+	2,  // 19: limiquantix.compute.v1.GpuInfo.usage:type_name -> limiquantix.compute.v1.GpuInfo.GpuUsage
+	18, // 20: limiquantix.compute.v1.NodeRole.control_plane_config:type_name -> limiquantix.compute.v1.ControlPlaneConfig
+	20, // 21: limiquantix.compute.v1.SchedulingConfig.taints:type_name -> limiquantix.compute.v1.Taint
+	21, // 22: limiquantix.compute.v1.SchedulingConfig.overcommit:type_name -> limiquantix.compute.v1.OvercommitConfig
+	22, // 23: limiquantix.compute.v1.SchedulingConfig.reserved:type_name -> limiquantix.compute.v1.ReservedResources
+	3,  // 24: limiquantix.compute.v1.Taint.effect:type_name -> limiquantix.compute.v1.Taint.Effect
+	4,  // 25: limiquantix.compute.v1.NodeStatus.phase:type_name -> limiquantix.compute.v1.NodeStatus.Phase
+	25, // 26: limiquantix.compute.v1.NodeStatus.conditions:type_name -> limiquantix.compute.v1.NodeCondition
+	26, // 27: limiquantix.compute.v1.NodeStatus.resources:type_name -> limiquantix.compute.v1.ResourceAllocation
+	32, // 28: limiquantix.compute.v1.NodeStatus.system:type_name -> limiquantix.compute.v1.SystemInfo
+	37, // 29: limiquantix.compute.v1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
+	5,  // 30: limiquantix.compute.v1.NodeCondition.status:type_name -> limiquantix.compute.v1.NodeCondition.Status
+	37, // 31: limiquantix.compute.v1.NodeCondition.last_transition:type_name -> google.protobuf.Timestamp
+	27, // 32: limiquantix.compute.v1.ResourceAllocation.cpu:type_name -> limiquantix.compute.v1.CpuAllocation
+	28, // 33: limiquantix.compute.v1.ResourceAllocation.memory:type_name -> limiquantix.compute.v1.MemoryAllocation
+	29, // 34: limiquantix.compute.v1.ResourceAllocation.storage:type_name -> limiquantix.compute.v1.StorageAllocation
+	30, // 35: limiquantix.compute.v1.ResourceAllocation.gpu:type_name -> limiquantix.compute.v1.GpuAllocation
+	36, // 36: limiquantix.compute.v1.StorageAllocation.pool_allocations:type_name -> limiquantix.compute.v1.StorageAllocation.PoolAllocationsEntry
+	31, // 37: limiquantix.compute.v1.GpuAllocation.gpu_details:type_name -> limiquantix.compute.v1.GpuUsageDetail
+	37, // 38: limiquantix.compute.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
+	6,  // 39: limiquantix.compute.v1.NodeEvent.type:type_name -> limiquantix.compute.v1.NodeEvent.EventType
+	37, // 40: limiquantix.compute.v1.NodeEvent.timestamp:type_name -> google.protobuf.Timestamp
 	41, // [41:41] is the sub-list for method output_type
 	41, // [41:41] is the sub-list for method input_type
 	41, // [41:41] is the sub-list for extension type_name
@@ -2911,27 +2911,27 @@ var file_Quantixkvm_compute_v1_node_proto_depIdxs = []int32{
 	0,  // [0:41] is the sub-list for field type_name
 }
 
-func init() { file_Quantixkvm_compute_v1_node_proto_init() }
-func file_Quantixkvm_compute_v1_node_proto_init() {
-	if File_Quantixkvm_compute_v1_node_proto != nil {
+func init() { file_limiquantix_compute_v1_node_proto_init() }
+func file_limiquantix_compute_v1_node_proto_init() {
+	if File_limiquantix_compute_v1_node_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_Quantixkvm_compute_v1_node_proto_rawDesc), len(file_Quantixkvm_compute_v1_node_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_compute_v1_node_proto_rawDesc), len(file_limiquantix_compute_v1_node_proto_rawDesc)),
 			NumEnums:      7,
 			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_Quantixkvm_compute_v1_node_proto_goTypes,
-		DependencyIndexes: file_Quantixkvm_compute_v1_node_proto_depIdxs,
-		EnumInfos:         file_Quantixkvm_compute_v1_node_proto_enumTypes,
-		MessageInfos:      file_Quantixkvm_compute_v1_node_proto_msgTypes,
+		GoTypes:           file_limiquantix_compute_v1_node_proto_goTypes,
+		DependencyIndexes: file_limiquantix_compute_v1_node_proto_depIdxs,
+		EnumInfos:         file_limiquantix_compute_v1_node_proto_enumTypes,
+		MessageInfos:      file_limiquantix_compute_v1_node_proto_msgTypes,
 	}.Build()
-	File_Quantixkvm_compute_v1_node_proto = out.File
-	file_Quantixkvm_compute_v1_node_proto_goTypes = nil
-	file_Quantixkvm_compute_v1_node_proto_depIdxs = nil
+	File_limiquantix_compute_v1_node_proto = out.File
+	file_limiquantix_compute_v1_node_proto_goTypes = nil
+	file_limiquantix_compute_v1_node_proto_depIdxs = nil
 }

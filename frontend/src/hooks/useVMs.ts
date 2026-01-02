@@ -1,7 +1,7 @@
 /**
  * React Query hooks for VM operations
  * 
- * These hooks connect the frontend to the Quantixkvm backend API.
+ * These hooks connect the frontend to the limiquantix backend API.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

@@ -11,8 +11,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/config"
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/config"
+	"github.com/limiquantix/limiquantix/internal/domain"
 )
 
 // ErrCacheMiss indicates the key was not found in cache.

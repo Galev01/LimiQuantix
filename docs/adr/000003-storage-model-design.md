@@ -2,11 +2,11 @@
 
 **Status:** Accepted  
 **Date:** 2025-01-01  
-**Authors:** Quantixkvm Team
+**Authors:** limiquantix Team
 
 ## Context
 
-Quantixkvm requires a flexible storage abstraction that can:
+limiquantix requires a flexible storage abstraction that can:
 - Support multiple backends (Ceph, local LVM, NFS, iSCSI)
 - Provide enterprise features (QoS, encryption, tiering)
 - Enable thin provisioning and snapshots
@@ -92,7 +92,7 @@ message VolumeQos {
 
 ### Feature Coverage
 
-| Feature | VMware Equivalent | Quantixkvm Implementation |
+| Feature | VMware Equivalent | limiquantix Implementation |
 |---------|------------------|---------------------------|
 | vSAN | VSAN Datastore | Ceph RBD pool |
 | vVol | vVol | Volume abstraction |

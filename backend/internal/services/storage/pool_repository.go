@@ -4,7 +4,7 @@ package storage
 import (
 	"context"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/domain"
 )
 
 // PoolRepository defines the interface for storage pool data operations.

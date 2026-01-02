@@ -1,4 +1,4 @@
-// Package domain contains core business entities for the Quantixkvm platform.
+// Package domain contains core business entities for the limiquantix platform.
 // This file defines storage-related domain models: StoragePool, Volume, Snapshot, Image.
 package domain
 

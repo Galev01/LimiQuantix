@@ -1,7 +1,7 @@
 /**
  * React Query hooks for Node operations
  * 
- * These hooks connect the frontend to the Quantixkvm backend API.
+ * These hooks connect the frontend to the limiquantix backend API.
  */
 
 import { useQuery } from '@tanstack/react-query';

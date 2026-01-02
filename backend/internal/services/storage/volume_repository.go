@@ -4,7 +4,7 @@ package storage
 import (
 	"context"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/domain"
 )
 
 // VolumeRepository defines the interface for volume data operations.

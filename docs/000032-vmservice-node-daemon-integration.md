@@ -401,13 +401,13 @@ Full integration testing requires:
 
 ```bash
 # Terminal 1: Node Daemon
-cd agent && cargo run --bin Quantixkvm-node -- --dev --listen 127.0.0.1:9090
+cd agent && cargo run --bin limiquantix-node -- --dev --listen 127.0.0.1:9090
 
 # Terminal 2: Control Plane
 cd backend && go run ./cmd/controlplane --dev
 
 # Terminal 3: Test
-curl -X POST http://127.0.0.1:8080/Quantixkvm.compute.v1.VMService/CreateVM \
+curl -X POST http://127.0.0.1:8080/limiquantix.compute.v1.VMService/CreateVM \
   -H "Content-Type: application/json" \
   -d '{"name": "test-vm", "spec": {"cpu": {"cores": 2}, "memory": {"size_mib": 2048}}}'
 ```

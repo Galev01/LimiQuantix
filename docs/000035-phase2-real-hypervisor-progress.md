@@ -17,7 +17,7 @@ Phase 2 focuses on moving from mock hypervisor to real KVM/libvirt-based VM mana
 
 ### 1. Storage Manager Module
 
-**File:** `agent/Quantixkvm-hypervisor/src/storage.rs`
+**File:** `agent/limiquantix-hypervisor/src/storage.rs`
 
 Created a complete disk image management module using `qemu-img`:
 
@@ -64,7 +64,7 @@ impl StorageManager {
 
 ### 2. Node Daemon Service Integration
 
-**File:** `agent/Quantixkvm-node/src/service.rs`
+**File:** `agent/limiquantix-node/src/service.rs`
 
 Updated the gRPC service to automatically create disk images when VMs are created:
 
@@ -86,13 +86,13 @@ if disk.path.is_empty() && disk.size_gib > 0 {
 **Flow:**
 1. Client calls `CreateVM` with disk configuration (size, format, bus)
 2. If `disk.path` is empty, StorageManager creates the image
-3. Image is created at `/var/lib/Quantixkvm/images/{vm_id}/{disk_id}.qcow2`
+3. Image is created at `/var/lib/limiquantix/images/{vm_id}/{disk_id}.qcow2`
 4. `disk_config.path` is updated with the actual path
 5. VM is created with the disk attached
 
 ### 3. Libvirt Backend Error Handling
 
-**File:** `agent/Quantixkvm-hypervisor/src/libvirt/backend.rs`
+**File:** `agent/limiquantix-hypervisor/src/libvirt/backend.rs`
 
 Fixed error handling to use simple error variants instead of structured ones:
 
@@ -106,7 +106,7 @@ HypervisorError::VmNotFound(format!("{}: {}", vm_id, reason))
 
 ### 4. Error Types Simplified
 
-**File:** `agent/Quantixkvm-hypervisor/src/error.rs`
+**File:** `agent/limiquantix-hypervisor/src/error.rs`
 
 Simplified error types for consistency:
 
@@ -131,7 +131,7 @@ pub enum HypervisorError {
 ## Directory Structure
 
 ```
-/var/lib/Quantixkvm/images/
+/var/lib/limiquantix/images/
 ├── {vm_id_1}/
 │   ├── {disk_id_1}.qcow2
 │   └── {disk_id_2}.qcow2
@@ -149,7 +149,7 @@ pub enum HypervisorError {
 ### On macOS (Mock Mode)
 ```bash
 cd agent
-cargo run --bin Quantixkvm-node -- --dev --listen 127.0.0.1:9090
+cargo run --bin limiquantix-node -- --dev --listen 127.0.0.1:9090
 ```
 
 ### On Linux with Libvirt
@@ -158,10 +158,10 @@ cargo run --bin Quantixkvm-node -- --dev --listen 127.0.0.1:9090
 sudo apt install qemu-kvm libvirt-daemon-system libvirt-dev
 
 # Build with libvirt feature
-cargo build --bin Quantixkvm-node --features libvirt
+cargo build --bin limiquantix-node --features libvirt
 
 # Run
-./target/debug/Quantixkvm-node \
+./target/debug/limiquantix-node \
   --libvirt-uri qemu:///system \
   --listen 0.0.0.0:9090 \
   --control-plane http://control-plane:8080 \
@@ -171,7 +171,7 @@ cargo build --bin Quantixkvm-node --features libvirt
 ### Test Disk Creation
 ```bash
 # Create a VM with a disk
-curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/CreateVM \
+curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/CreateVM \
   -H "Content-Type: application/json" \
   -d '{
     "name": "test-vm",
@@ -185,7 +185,7 @@ curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/CreateVM \
   }'
 
 # Verify disk created
-ls -la /var/lib/Quantixkvm/images/{vm_id}/
+ls -la /var/lib/limiquantix/images/{vm_id}/
 ```
 
 ---
@@ -213,11 +213,11 @@ ls -la /var/lib/Quantixkvm/images/{vm_id}/
 
 | File | Changes |
 |------|---------|
-| `agent/Quantixkvm-hypervisor/src/storage.rs` | NEW - Disk image management |
-| `agent/Quantixkvm-hypervisor/src/lib.rs` | Export storage module |
-| `agent/Quantixkvm-hypervisor/src/error.rs` | Simplified error types |
-| `agent/Quantixkvm-hypervisor/src/libvirt/backend.rs` | Fixed error handling |
-| `agent/Quantixkvm-node/src/service.rs` | Integrate StorageManager |
+| `agent/limiquantix-hypervisor/src/storage.rs` | NEW - Disk image management |
+| `agent/limiquantix-hypervisor/src/lib.rs` | Export storage module |
+| `agent/limiquantix-hypervisor/src/error.rs` | Simplified error types |
+| `agent/limiquantix-hypervisor/src/libvirt/backend.rs` | Fixed error handling |
+| `agent/limiquantix-node/src/service.rs` | Integrate StorageManager |
 
 ---
 

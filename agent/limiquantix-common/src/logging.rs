@@ -15,7 +15,7 @@ use tracing_subscriber::{
 ///
 /// # Example
 /// ```
-/// Quantixkvm_common::init_logging("info").unwrap();
+/// limiquantix_common::init_logging("info").unwrap();
 /// ```
 pub fn init_logging(level: &str) -> Result<()> {
     let filter = EnvFilter::try_from_default_env()

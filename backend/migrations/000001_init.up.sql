@@ -1,4 +1,4 @@
--- Quantixkvm Initial Schema
+-- limiquantix Initial Schema
 -- Migration: 000001_init
 
 -- Enable extensions
@@ -445,5 +445,5 @@ INSERT INTO security_rules (security_group_id, direction, protocol, remote_cidr,
 
 -- Admin user (password: admin)
 INSERT INTO users (id, username, email, password_hash, role) VALUES
-    ('00000000-0000-0000-0000-000000000001', 'admin', 'admin@Quantixkvm.local', '$2a$10$N9qo8uLOickgx2ZMRZoMye8.4Zu7QxQZqJzLz6.2eVCTQQjvMidjW', 'admin');
+    ('00000000-0000-0000-0000-000000000001', 'admin', 'admin@limiquantix.local', '$2a$10$N9qo8uLOickgx2ZMRZoMye8.4Zu7QxQZqJzLz6.2eVCTQQjvMidjW', 'admin');
 

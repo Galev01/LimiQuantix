@@ -2,11 +2,11 @@
 
 **Status:** Accepted  
 **Date:** 2025-01-01  
-**Authors:** Quantixkvm Team
+**Authors:** limiquantix Team
 
 ## Context
 
-Quantixkvm requires a robust API layer for:
+limiquantix requires a robust API layer for:
 - UI dashboard communication
 - CLI tool integration
 - Terraform provider support
@@ -214,7 +214,7 @@ func (s *vmServer) CreateVM(ctx context.Context, req *computev1.CreateVMRequest)
 
 ```typescript
 import { createClient } from "@connectrpc/connect";
-import { VMService } from "./api/Quantixkvm/compute/v1/vm_service_connect";
+import { VMService } from "./api/limiquantix/compute/v1/vm_service_connect";
 
 const client = createClient(VMService, transport);
 

@@ -1,4 +1,4 @@
-//! # Quantixkvm Hypervisor
+//! # limiquantix Hypervisor
 //!
 //! Hypervisor abstraction layer for managing virtual machines.
 //!
@@ -25,7 +25,7 @@
 //! ## Usage
 //!
 //! ```rust,ignore
-//! use Quantixkvm_hypervisor::{Hypervisor, MockBackend, VmConfig};
+//! use limiquantix_hypervisor::{Hypervisor, MockBackend, VmConfig};
 //!
 //! #[tokio::main]
 //! async fn main() {

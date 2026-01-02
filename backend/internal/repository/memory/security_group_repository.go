@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
 	"github.com/google/uuid"
+	"github.com/limiquantix/limiquantix/internal/domain"
 )
 
 // SecurityGroupRepository is an in-memory implementation of network.SecurityGroupRepository.

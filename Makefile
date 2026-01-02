@@ -1,5 +1,5 @@
 # =============================================================================
-# Quantixkvm Makefile
+# limiquantix Makefile
 # =============================================================================
 # 
 # Usage:
@@ -38,23 +38,23 @@ proto-direct:
 		--go_out=./backend/pkg/api --go_opt=paths=source_relative \
 		--go-grpc_out=./backend/pkg/api --go-grpc_opt=paths=source_relative \
 		-I./proto \
-		./proto/Quantixkvm/compute/v1/*.proto \
-		./proto/Quantixkvm/storage/v1/*.proto \
-		./proto/Quantixkvm/network/v1/*.proto
+		./proto/limiquantix/compute/v1/*.proto \
+		./proto/limiquantix/storage/v1/*.proto \
+		./proto/limiquantix/network/v1/*.proto
 	@echo "✅ Go code generation complete!"
 	@echo ""
 	@echo "🔨 Generating TypeScript code..."
-	@mkdir -p frontend/src/api/Quantixkvm/compute/v1
-	@mkdir -p frontend/src/api/Quantixkvm/storage/v1
-	@mkdir -p frontend/src/api/Quantixkvm/network/v1
+	@mkdir -p frontend/src/api/limiquantix/compute/v1
+	@mkdir -p frontend/src/api/limiquantix/storage/v1
+	@mkdir -p frontend/src/api/limiquantix/network/v1
 	@cd frontend && npx protoc \
 		--plugin=./node_modules/.bin/protoc-gen-ts_proto \
 		--ts_proto_out=./src/api \
 		--ts_proto_opt=esModuleInterop=true,forceLong=string,useOptionals=messages,outputServices=nice-grpc,outputServices=generic-definitions \
 		-I../proto \
-		../proto/Quantixkvm/compute/v1/*.proto \
-		../proto/Quantixkvm/storage/v1/*.proto \
-		../proto/Quantixkvm/network/v1/*.proto
+		../proto/limiquantix/compute/v1/*.proto \
+		../proto/limiquantix/storage/v1/*.proto \
+		../proto/limiquantix/network/v1/*.proto
 	@echo "✅ TypeScript code generation complete!"
 
 # Lint protobuf definitions
@@ -78,8 +78,8 @@ proto-format:
 # Clean generated files
 proto-clean:
 	@echo "🧹 Cleaning generated files..."
-	@rm -rf backend/pkg/api/Quantixkvm
-	@rm -rf frontend/src/api/Quantixkvm
+	@rm -rf backend/pkg/api/limiquantix
+	@rm -rf frontend/src/api/limiquantix
 	@rm -rf docs/api/api-reference.md
 	@echo "✅ Clean complete!"
 
@@ -148,7 +148,7 @@ build:
 help:
 	@echo ""
 	@echo "╔══════════════════════════════════════════════════════════════════╗"
-	@echo "║                     Quantixkvm Makefile                        ║"
+	@echo "║                     limiquantix Makefile                        ║"
 	@echo "╠══════════════════════════════════════════════════════════════════╣"
 	@echo "║                                                                  ║"
 	@echo "║  Proto Commands:                                                ║"

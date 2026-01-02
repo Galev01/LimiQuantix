@@ -9,12 +9,12 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use tracing::{info, debug, instrument};
 
-use Quantixkvm_hypervisor::{
+use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
     DiskBus, DiskFormat, NicModel, StorageManager,
 };
-use Quantixkvm_telemetry::TelemetryCollector;
-use Quantixkvm_proto::{
+use limiquantix_telemetry::TelemetryCollector;
+use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
     StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
@@ -405,8 +405,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         Ok(Response::new(ConsoleInfoResponse {
             console_type: match console.console_type {
-                Quantixkvm_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
-                Quantixkvm_hypervisor::ConsoleType::Spice => "spice".to_string(),
+                limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
+                limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
             host: console.host,
             port: console.port as u32,
@@ -524,8 +524,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Get VM metrics
                 let vms = hypervisor.list_vms().await.unwrap_or_default();
-                let vm_metrics: Vec<Quantixkvm_proto::VmMetrics> = vms.into_iter().map(|vm| {
-                    Quantixkvm_proto::VmMetrics {
+                let vm_metrics: Vec<limiquantix_proto::VmMetrics> = vms.into_iter().map(|vm| {
+                    limiquantix_proto::VmMetrics {
                         vm_id: vm.id,
                         name: vm.name,
                         cpu_usage_percent: 0.0,

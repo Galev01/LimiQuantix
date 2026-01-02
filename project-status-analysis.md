@@ -1,4 +1,4 @@
-# Quantixkvm Project Status Analysis
+# limiquantix Project Status Analysis
 
 **Document ID:** 000025  
 **Date:** January 2026  
@@ -20,7 +20,7 @@
 | **Guest Agent** | ❌ **0%** | Not started |
 | **Storage Backend** | ❌ **0%** | Not started (API ready) |
 | **Network Backend** | ❌ **0%** | Not started (API ready) |
-| **Host OS (Quantixkvm OS)** | ❌ **0%** | Not started |
+| **Host OS (limiquantix OS)** | ❌ **0%** | Not started |
 
 ---
 
@@ -28,7 +28,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         Quantixkvm Platform                                 │
+│                         limiquantix Platform                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
@@ -39,7 +39,7 @@
 │         │                 │                 │                 │             │
 │         ▼                 ▼                 ▼                 ▼             │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
-│  │  Quantixkvm│   │  Control    │   │    Node     │   │   Guest     │     │
+│  │  limiquantix│   │  Control    │   │    Node     │   │   Guest     │     │
 │  │  Dashboard  │   │   Plane     │   │   Daemon    │   │   Agent     │     │
 │  │   (React)   │   │   (Go)      │   │   (Rust)    │   │   (Rust)    │     │
 │  │    ✅ 95%   │   │   ✅ 85%    │   │   ✅ 80%    │   │   ❌ 0%     │     │
@@ -52,7 +52,7 @@
 │         │                 │                 │                 │             │
 │         ▼                 ▼                 ▼                 ▼             │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
-│  │ Ceph/LINSTOR│   │  OVN/OVS    │   │ Quantixkvm │   │   libvirt   │     │
+│  │ Ceph/LINSTOR│   │  OVN/OVS    │   │ limiquantix │   │   libvirt   │     │
 │  │   Storage   │   │  Networking │   │     OS      │   │  + KVM      │     │
 │  │   ❌ 0%     │   │   ❌ 0%     │   │   ❌ 0%     │   │   ⏳ 50%    │     │
 │  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘     │
@@ -132,11 +132,11 @@
 **Crate Structure**:
 ```
 agent/
-├── Quantixkvm-node/        ✅ Main binary
-├── Quantixkvm-hypervisor/  ✅ Abstraction layer
-├── Quantixkvm-telemetry/   ✅ System metrics
-├── Quantixkvm-proto/       ✅ gRPC generated code
-└── Quantixkvm-common/      ✅ Shared utilities
+├── limiquantix-node/        ✅ Main binary
+├── limiquantix-hypervisor/  ✅ Abstraction layer
+├── limiquantix-telemetry/   ✅ System metrics
+├── limiquantix-proto/       ✅ gRPC generated code
+└── limiquantix-common/      ✅ Shared utilities
 ```
 
 ---
@@ -223,7 +223,7 @@ agent/
 ## Project Structure Overview
 
 ```
-Quantixkvm/
+limiquantix/
 ├── frontend/                 ✅ React Dashboard
 │   ├── src/pages/           15 pages
 │   ├── src/hooks/           API hooks
@@ -237,13 +237,13 @@ Quantixkvm/
 │   └── pkg/api/             Generated proto code
 │
 ├── agent/                    ✅ Rust Node Daemon
-│   ├── Quantixkvm-node/    gRPC server binary
-│   ├── Quantixkvm-hypervisor/  VM management
-│   ├── Quantixkvm-telemetry/   System metrics
-│   └── Quantixkvm-proto/   Generated gRPC
+│   ├── limiquantix-node/    gRPC server binary
+│   ├── limiquantix-hypervisor/  VM management
+│   ├── limiquantix-telemetry/   System metrics
+│   └── limiquantix-proto/   Generated gRPC
 │
 ├── proto/                    ✅ API Definitions
-│   └── Quantixkvm/
+│   └── limiquantix/
 │       ├── compute/v1/      VM, Node
 │       ├── storage/v1/      Pool, Volume
 │       ├── network/v1/      VNet, SecurityGroup
@@ -264,7 +264,7 @@ Quantixkvm/
 cd backend && go run ./cmd/controlplane --dev
 
 # Terminal 2: Node Daemon (Rust)
-cd agent && cargo run --bin Quantixkvm-node -- \
+cd agent && cargo run --bin limiquantix-node -- \
   --dev \
   --listen 127.0.0.1:9090 \
   --control-plane http://127.0.0.1:8080 \
@@ -319,7 +319,7 @@ cd frontend && npm run dev
 - Network backend (OVN or Linux bridge)
 
 **Long-term:**
-- Quantixkvm OS (custom hypervisor host)
+- limiquantix OS (custom hypervisor host)
 - Live migration testing
 - Backup/restore engine
 - Enterprise features (HA, DRS, vMotion)

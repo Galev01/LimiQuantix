@@ -753,7 +753,7 @@ function StepPlacement({
             <div className="flex-1">
               <p className="text-sm font-medium text-warning">No hosts available</p>
               <p className="text-xs text-text-muted mt-0.5">
-                Register a node daemon to create VMs. Run Quantixkvm-node on a Linux host with KVM.
+                Register a node daemon to create VMs. Run limiquantix-node on a Linux host with KVM.
               </p>
             </div>
             <Button variant="ghost" size="sm" onClick={() => onRefresh()}>
@@ -970,7 +970,7 @@ function StepCustomization({
             className="form-checkbox mt-1"
           />
           <div>
-            <span className="text-sm font-medium text-text-primary">Install Quantixkvm Agent</span>
+            <span className="text-sm font-medium text-text-primary">Install limiquantix Agent</span>
             <p className="text-xs text-text-muted mt-0.5">
               The agent enables advanced features like live metrics, filesystem quiescing, and remote commands
             </p>

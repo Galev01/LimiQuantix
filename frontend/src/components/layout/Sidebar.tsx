@@ -283,7 +283,7 @@ export function Sidebar() {
                   exit={{ opacity: 0, x: -10 }}
                   className="flex flex-col"
                 >
-                  <span className="font-bold text-text-primary tracking-tight">Quantixkvm</span>
+                  <span className="font-bold text-text-primary tracking-tight">limiquantix</span>
                   <span className="text-[10px] text-text-muted uppercase tracking-widest">
                     Virtualization
                   </span>

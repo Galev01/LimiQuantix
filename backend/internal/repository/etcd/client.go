@@ -12,7 +12,7 @@ import (
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/zap"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/config"
+	"github.com/limiquantix/limiquantix/internal/config"
 )
 
 // ErrKeyNotFound indicates the key was not found in etcd.

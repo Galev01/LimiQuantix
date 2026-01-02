@@ -1,5 +1,5 @@
 [package]
-name = "Quantixkvm-node"
+name = "limiquantix-node"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -8,10 +8,10 @@ license.workspace = true
 [features]
 default = []
 # Enable libvirt backend (requires system libvirt)
-libvirt = ["Quantixkvm-hypervisor/libvirt"]
+libvirt = ["limiquantix-hypervisor/libvirt"]
 
 [[bin]]
-name = "Quantixkvm-node"
+name = "limiquantix-node"
 path = "src/main.rs"
 
 [dependencies]
@@ -57,8 +57,8 @@ reqwest = { version = "0.12", features = ["json"] }
 local-ip-address = "0.6"
 
 # Internal crates
-Quantixkvm-hypervisor.workspace = true
-Quantixkvm-telemetry.workspace = true
-Quantixkvm-proto.workspace = true
-Quantixkvm-common.workspace = true
+limiquantix-hypervisor.workspace = true
+limiquantix-telemetry.workspace = true
+limiquantix-proto.workspace = true
+limiquantix-common.workspace = true
 

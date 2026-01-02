@@ -72,7 +72,7 @@ Boot a REAL VM through the entire stack using libvirt/KVM.
    ```bash
    # Build with libvirt
    cd agent
-   cargo build --bin Quantixkvm-node --features libvirt
+   cargo build --bin limiquantix-node --features libvirt
    ```
 
 ### Tasks
@@ -116,7 +116,7 @@ Enable VMs to have persistent storage that survives host failures and supports l
 ```rust
 // storage/local.rs
 pub struct LocalStorageBackend {
-    base_path: PathBuf,  // /var/lib/Quantixkvm/images
+    base_path: PathBuf,  // /var/lib/limiquantix/images
 }
 
 impl StorageBackend for LocalStorageBackend {
@@ -128,7 +128,7 @@ impl StorageBackend for LocalStorageBackend {
 ```
 
 Tasks:
-- [ ] Create `Quantixkvm-storage` crate
+- [ ] Create `limiquantix-storage` crate
 - [ ] Implement local QCOW2 storage
 - [ ] Integrate qemu-img for operations
 - [ ] Wire to Node Daemon
@@ -195,7 +195,7 @@ impl NetworkBackend for BridgeNetworkBackend {
 ```
 
 Tasks:
-- [ ] Create `Quantixkvm-network` crate
+- [ ] Create `limiquantix-network` crate
 - [ ] Implement Linux bridge backend
 - [ ] DHCP integration (dnsmasq)
 - [ ] NAT for external access
@@ -278,11 +278,11 @@ Provide deep integration between the host and guest VM (like VMware Tools).
 #### Phase 5A: Agent Framework (2 weeks)
 
 ```rust
-// agent/Quantixkvm-guest/src/main.rs
+// agent/limiquantix-guest/src/main.rs
 #[tokio::main]
 async fn main() {
     // Open virtio-serial port
-    let port = VirtioSerial::open("/dev/virtio-ports/org.Quantixkvm.agent")?;
+    let port = VirtioSerial::open("/dev/virtio-ports/org.limiquantix.agent")?;
     
     // Start protocol handler
     let protocol = AgentProtocol::new(port);
@@ -298,7 +298,7 @@ async fn main() {
 ```
 
 Tasks:
-- [ ] Create `Quantixkvm-guest` crate
+- [ ] Create `limiquantix-guest` crate
 - [ ] Implement virtio-serial transport
 - [ ] Define agent protocol (protobuf)
 - [ ] Basic ping/pong communication
@@ -354,7 +354,7 @@ Create a minimal, purpose-built OS for hypervisor hosts (like ESXi).
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Quantixkvm OS                            │
+│                    limiquantix OS                            │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐ │
@@ -488,7 +488,7 @@ Tasks:
 
 2. **Deploy Node Daemon with libvirt**
    ```bash
-   cargo run --bin Quantixkvm-node --features libvirt -- \
+   cargo run --bin limiquantix-node --features libvirt -- \
      --libvirt-uri qemu:///system \
      --listen 0.0.0.0:9090 \
      --control-plane http://control-plane:8080 \
@@ -515,7 +515,7 @@ Tasks:
 | Phase 3 Complete | VM has persistent disk storage |
 | Phase 4 Complete | VM has network connectivity |
 | Phase 5 Complete | Guest agent reports real metrics |
-| Phase 6 Complete | Bare-metal hosts boot Quantixkvm OS |
+| Phase 6 Complete | Bare-metal hosts boot limiquantix OS |
 | Phase 7 Complete | Live migration works between hosts |
 
 ---

@@ -1,4 +1,4 @@
-// Package main is the entry point for the Quantixkvm control plane.
+// Package main is the entry point for the limiquantix control plane.
 package main
 
 import (
@@ -11,11 +11,11 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/config"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/etcd"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/postgres"
-	"github.com/Quantixkvm/Quantixkvm/internal/repository/redis"
-	"github.com/Quantixkvm/Quantixkvm/internal/server"
+	"github.com/limiquantix/limiquantix/internal/config"
+	"github.com/limiquantix/limiquantix/internal/repository/etcd"
+	"github.com/limiquantix/limiquantix/internal/repository/postgres"
+	"github.com/limiquantix/limiquantix/internal/repository/redis"
+	"github.com/limiquantix/limiquantix/internal/server"
 )
 
 var (
@@ -32,7 +32,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		println("Quantixkvm Control Plane")
+		println("limiquantix Control Plane")
 		println("Version:", version)
 		println("Commit:", commit)
 		println("Build Date:", buildDate)
@@ -50,7 +50,7 @@ func main() {
 	logger := setupLogger(cfg.Logging)
 	defer logger.Sync()
 
-	logger.Info("Starting Quantixkvm Control Plane",
+	logger.Info("Starting limiquantix Control Plane",
 		zap.String("version", version),
 		zap.String("commit", commit),
 		zap.Bool("dev_mode", *devMode),

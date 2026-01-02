@@ -7,11 +7,11 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/config"
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/config"
+	"github.com/limiquantix/limiquantix/internal/domain"
 )
 
-// Claims represents the JWT claims for Quantixkvm.
+// Claims represents the JWT claims for limiquantix.
 type Claims struct {
 	UserID   string      `json:"user_id"`
 	Username string      `json:"username"`
@@ -56,9 +56,9 @@ func (m *JWTManager) Generate(user *domain.User) (*TokenPair, error) {
 		Email:    user.Email,
 		Role:     user.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "Quantixkvm",
+			Issuer:    "limiquantix",
 			Subject:   user.ID,
-			Audience:  jwt.ClaimStrings{"Quantixkvm-api"},
+			Audience:  jwt.ClaimStrings{"limiquantix-api"},
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
@@ -77,9 +77,9 @@ func (m *JWTManager) Generate(user *domain.User) (*TokenPair, error) {
 	refreshClaims := &Claims{
 		UserID: user.ID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "Quantixkvm",
+			Issuer:    "limiquantix",
 			Subject:   user.ID,
-			Audience:  jwt.ClaimStrings{"Quantixkvm-refresh"},
+			Audience:  jwt.ClaimStrings{"limiquantix-refresh"},
 			ExpiresAt: jwt.NewNumericDate(now.Add(m.refreshExpiry)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
@@ -132,7 +132,7 @@ func (m *JWTManager) VerifyRefreshToken(tokenString string) (string, error) {
 	}
 
 	// Check if it's a refresh token
-	if len(claims.Audience) == 0 || claims.Audience[0] != "Quantixkvm-refresh" {
+	if len(claims.Audience) == 0 || claims.Audience[0] != "limiquantix-refresh" {
 		return "", fmt.Errorf("not a refresh token")
 	}
 

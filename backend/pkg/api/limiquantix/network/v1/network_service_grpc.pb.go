@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             (unknown)
-// source: Quantixkvm/network/v1/network_service.proto
+// source: limiquantix/network/v1/network_service.proto
 
 package networkv1
 
@@ -21,12 +21,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	VirtualNetworkService_CreateNetwork_FullMethodName      = "/Quantixkvm.network.v1.VirtualNetworkService/CreateNetwork"
-	VirtualNetworkService_GetNetwork_FullMethodName         = "/Quantixkvm.network.v1.VirtualNetworkService/GetNetwork"
-	VirtualNetworkService_ListNetworks_FullMethodName       = "/Quantixkvm.network.v1.VirtualNetworkService/ListNetworks"
-	VirtualNetworkService_UpdateNetwork_FullMethodName      = "/Quantixkvm.network.v1.VirtualNetworkService/UpdateNetwork"
-	VirtualNetworkService_DeleteNetwork_FullMethodName      = "/Quantixkvm.network.v1.VirtualNetworkService/DeleteNetwork"
-	VirtualNetworkService_GetNetworkTopology_FullMethodName = "/Quantixkvm.network.v1.VirtualNetworkService/GetNetworkTopology"
+	VirtualNetworkService_CreateNetwork_FullMethodName      = "/limiquantix.network.v1.VirtualNetworkService/CreateNetwork"
+	VirtualNetworkService_GetNetwork_FullMethodName         = "/limiquantix.network.v1.VirtualNetworkService/GetNetwork"
+	VirtualNetworkService_ListNetworks_FullMethodName       = "/limiquantix.network.v1.VirtualNetworkService/ListNetworks"
+	VirtualNetworkService_UpdateNetwork_FullMethodName      = "/limiquantix.network.v1.VirtualNetworkService/UpdateNetwork"
+	VirtualNetworkService_DeleteNetwork_FullMethodName      = "/limiquantix.network.v1.VirtualNetworkService/DeleteNetwork"
+	VirtualNetworkService_GetNetworkTopology_FullMethodName = "/limiquantix.network.v1.VirtualNetworkService/GetNetworkTopology"
 )
 
 // VirtualNetworkServiceClient is the client API for VirtualNetworkService service.
@@ -296,7 +296,7 @@ func _VirtualNetworkService_GetNetworkTopology_Handler(srv interface{}, ctx cont
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var VirtualNetworkService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.network.v1.VirtualNetworkService",
+	ServiceName: "limiquantix.network.v1.VirtualNetworkService",
 	HandlerType: (*VirtualNetworkServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -325,17 +325,17 @@ var VirtualNetworkService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "Quantixkvm/network/v1/network_service.proto",
+	Metadata: "limiquantix/network/v1/network_service.proto",
 }
 
 const (
-	PortService_CreatePort_FullMethodName = "/Quantixkvm.network.v1.PortService/CreatePort"
-	PortService_GetPort_FullMethodName    = "/Quantixkvm.network.v1.PortService/GetPort"
-	PortService_ListPorts_FullMethodName  = "/Quantixkvm.network.v1.PortService/ListPorts"
-	PortService_UpdatePort_FullMethodName = "/Quantixkvm.network.v1.PortService/UpdatePort"
-	PortService_DeletePort_FullMethodName = "/Quantixkvm.network.v1.PortService/DeletePort"
-	PortService_BindPort_FullMethodName   = "/Quantixkvm.network.v1.PortService/BindPort"
-	PortService_UnbindPort_FullMethodName = "/Quantixkvm.network.v1.PortService/UnbindPort"
+	PortService_CreatePort_FullMethodName = "/limiquantix.network.v1.PortService/CreatePort"
+	PortService_GetPort_FullMethodName    = "/limiquantix.network.v1.PortService/GetPort"
+	PortService_ListPorts_FullMethodName  = "/limiquantix.network.v1.PortService/ListPorts"
+	PortService_UpdatePort_FullMethodName = "/limiquantix.network.v1.PortService/UpdatePort"
+	PortService_DeletePort_FullMethodName = "/limiquantix.network.v1.PortService/DeletePort"
+	PortService_BindPort_FullMethodName   = "/limiquantix.network.v1.PortService/BindPort"
+	PortService_UnbindPort_FullMethodName = "/limiquantix.network.v1.PortService/UnbindPort"
 )
 
 // PortServiceClient is the client API for PortService service.
@@ -638,7 +638,7 @@ func _PortService_UnbindPort_Handler(srv interface{}, ctx context.Context, dec f
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var PortService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.network.v1.PortService",
+	ServiceName: "limiquantix.network.v1.PortService",
 	HandlerType: (*PortServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -671,17 +671,17 @@ var PortService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "Quantixkvm/network/v1/network_service.proto",
+	Metadata: "limiquantix/network/v1/network_service.proto",
 }
 
 const (
-	SecurityGroupService_CreateSecurityGroup_FullMethodName = "/Quantixkvm.network.v1.SecurityGroupService/CreateSecurityGroup"
-	SecurityGroupService_GetSecurityGroup_FullMethodName    = "/Quantixkvm.network.v1.SecurityGroupService/GetSecurityGroup"
-	SecurityGroupService_ListSecurityGroups_FullMethodName  = "/Quantixkvm.network.v1.SecurityGroupService/ListSecurityGroups"
-	SecurityGroupService_UpdateSecurityGroup_FullMethodName = "/Quantixkvm.network.v1.SecurityGroupService/UpdateSecurityGroup"
-	SecurityGroupService_DeleteSecurityGroup_FullMethodName = "/Quantixkvm.network.v1.SecurityGroupService/DeleteSecurityGroup"
-	SecurityGroupService_AddRule_FullMethodName             = "/Quantixkvm.network.v1.SecurityGroupService/AddRule"
-	SecurityGroupService_RemoveRule_FullMethodName          = "/Quantixkvm.network.v1.SecurityGroupService/RemoveRule"
+	SecurityGroupService_CreateSecurityGroup_FullMethodName = "/limiquantix.network.v1.SecurityGroupService/CreateSecurityGroup"
+	SecurityGroupService_GetSecurityGroup_FullMethodName    = "/limiquantix.network.v1.SecurityGroupService/GetSecurityGroup"
+	SecurityGroupService_ListSecurityGroups_FullMethodName  = "/limiquantix.network.v1.SecurityGroupService/ListSecurityGroups"
+	SecurityGroupService_UpdateSecurityGroup_FullMethodName = "/limiquantix.network.v1.SecurityGroupService/UpdateSecurityGroup"
+	SecurityGroupService_DeleteSecurityGroup_FullMethodName = "/limiquantix.network.v1.SecurityGroupService/DeleteSecurityGroup"
+	SecurityGroupService_AddRule_FullMethodName             = "/limiquantix.network.v1.SecurityGroupService/AddRule"
+	SecurityGroupService_RemoveRule_FullMethodName          = "/limiquantix.network.v1.SecurityGroupService/RemoveRule"
 )
 
 // SecurityGroupServiceClient is the client API for SecurityGroupService service.
@@ -986,7 +986,7 @@ func _SecurityGroupService_RemoveRule_Handler(srv interface{}, ctx context.Conte
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var SecurityGroupService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.network.v1.SecurityGroupService",
+	ServiceName: "limiquantix.network.v1.SecurityGroupService",
 	HandlerType: (*SecurityGroupServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -1019,16 +1019,16 @@ var SecurityGroupService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "Quantixkvm/network/v1/network_service.proto",
+	Metadata: "limiquantix/network/v1/network_service.proto",
 }
 
 const (
-	FloatingIpService_AllocateFloatingIp_FullMethodName     = "/Quantixkvm.network.v1.FloatingIpService/AllocateFloatingIp"
-	FloatingIpService_GetFloatingIp_FullMethodName          = "/Quantixkvm.network.v1.FloatingIpService/GetFloatingIp"
-	FloatingIpService_ListFloatingIps_FullMethodName        = "/Quantixkvm.network.v1.FloatingIpService/ListFloatingIps"
-	FloatingIpService_ReleaseFloatingIp_FullMethodName      = "/Quantixkvm.network.v1.FloatingIpService/ReleaseFloatingIp"
-	FloatingIpService_AssociateFloatingIp_FullMethodName    = "/Quantixkvm.network.v1.FloatingIpService/AssociateFloatingIp"
-	FloatingIpService_DisassociateFloatingIp_FullMethodName = "/Quantixkvm.network.v1.FloatingIpService/DisassociateFloatingIp"
+	FloatingIpService_AllocateFloatingIp_FullMethodName     = "/limiquantix.network.v1.FloatingIpService/AllocateFloatingIp"
+	FloatingIpService_GetFloatingIp_FullMethodName          = "/limiquantix.network.v1.FloatingIpService/GetFloatingIp"
+	FloatingIpService_ListFloatingIps_FullMethodName        = "/limiquantix.network.v1.FloatingIpService/ListFloatingIps"
+	FloatingIpService_ReleaseFloatingIp_FullMethodName      = "/limiquantix.network.v1.FloatingIpService/ReleaseFloatingIp"
+	FloatingIpService_AssociateFloatingIp_FullMethodName    = "/limiquantix.network.v1.FloatingIpService/AssociateFloatingIp"
+	FloatingIpService_DisassociateFloatingIp_FullMethodName = "/limiquantix.network.v1.FloatingIpService/DisassociateFloatingIp"
 )
 
 // FloatingIpServiceClient is the client API for FloatingIpService service.
@@ -1296,7 +1296,7 @@ func _FloatingIpService_DisassociateFloatingIp_Handler(srv interface{}, ctx cont
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var FloatingIpService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.network.v1.FloatingIpService",
+	ServiceName: "limiquantix.network.v1.FloatingIpService",
 	HandlerType: (*FloatingIpServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -1325,20 +1325,20 @@ var FloatingIpService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "Quantixkvm/network/v1/network_service.proto",
+	Metadata: "limiquantix/network/v1/network_service.proto",
 }
 
 const (
-	LoadBalancerService_CreateLoadBalancer_FullMethodName   = "/Quantixkvm.network.v1.LoadBalancerService/CreateLoadBalancer"
-	LoadBalancerService_GetLoadBalancer_FullMethodName      = "/Quantixkvm.network.v1.LoadBalancerService/GetLoadBalancer"
-	LoadBalancerService_ListLoadBalancers_FullMethodName    = "/Quantixkvm.network.v1.LoadBalancerService/ListLoadBalancers"
-	LoadBalancerService_UpdateLoadBalancer_FullMethodName   = "/Quantixkvm.network.v1.LoadBalancerService/UpdateLoadBalancer"
-	LoadBalancerService_DeleteLoadBalancer_FullMethodName   = "/Quantixkvm.network.v1.LoadBalancerService/DeleteLoadBalancer"
-	LoadBalancerService_AddListener_FullMethodName          = "/Quantixkvm.network.v1.LoadBalancerService/AddListener"
-	LoadBalancerService_RemoveListener_FullMethodName       = "/Quantixkvm.network.v1.LoadBalancerService/RemoveListener"
-	LoadBalancerService_AddPoolMember_FullMethodName        = "/Quantixkvm.network.v1.LoadBalancerService/AddPoolMember"
-	LoadBalancerService_RemovePoolMember_FullMethodName     = "/Quantixkvm.network.v1.LoadBalancerService/RemovePoolMember"
-	LoadBalancerService_GetLoadBalancerStats_FullMethodName = "/Quantixkvm.network.v1.LoadBalancerService/GetLoadBalancerStats"
+	LoadBalancerService_CreateLoadBalancer_FullMethodName   = "/limiquantix.network.v1.LoadBalancerService/CreateLoadBalancer"
+	LoadBalancerService_GetLoadBalancer_FullMethodName      = "/limiquantix.network.v1.LoadBalancerService/GetLoadBalancer"
+	LoadBalancerService_ListLoadBalancers_FullMethodName    = "/limiquantix.network.v1.LoadBalancerService/ListLoadBalancers"
+	LoadBalancerService_UpdateLoadBalancer_FullMethodName   = "/limiquantix.network.v1.LoadBalancerService/UpdateLoadBalancer"
+	LoadBalancerService_DeleteLoadBalancer_FullMethodName   = "/limiquantix.network.v1.LoadBalancerService/DeleteLoadBalancer"
+	LoadBalancerService_AddListener_FullMethodName          = "/limiquantix.network.v1.LoadBalancerService/AddListener"
+	LoadBalancerService_RemoveListener_FullMethodName       = "/limiquantix.network.v1.LoadBalancerService/RemoveListener"
+	LoadBalancerService_AddPoolMember_FullMethodName        = "/limiquantix.network.v1.LoadBalancerService/AddPoolMember"
+	LoadBalancerService_RemovePoolMember_FullMethodName     = "/limiquantix.network.v1.LoadBalancerService/RemovePoolMember"
+	LoadBalancerService_GetLoadBalancerStats_FullMethodName = "/limiquantix.network.v1.LoadBalancerService/GetLoadBalancerStats"
 )
 
 // LoadBalancerServiceClient is the client API for LoadBalancerService service.
@@ -1746,7 +1746,7 @@ func _LoadBalancerService_GetLoadBalancerStats_Handler(srv interface{}, ctx cont
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var LoadBalancerService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.network.v1.LoadBalancerService",
+	ServiceName: "limiquantix.network.v1.LoadBalancerService",
 	HandlerType: (*LoadBalancerServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -1791,17 +1791,17 @@ var LoadBalancerService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "Quantixkvm/network/v1/network_service.proto",
+	Metadata: "limiquantix/network/v1/network_service.proto",
 }
 
 const (
-	VpnServiceManager_CreateVpn_FullMethodName        = "/Quantixkvm.network.v1.VpnServiceManager/CreateVpn"
-	VpnServiceManager_GetVpn_FullMethodName           = "/Quantixkvm.network.v1.VpnServiceManager/GetVpn"
-	VpnServiceManager_ListVpns_FullMethodName         = "/Quantixkvm.network.v1.VpnServiceManager/ListVpns"
-	VpnServiceManager_DeleteVpn_FullMethodName        = "/Quantixkvm.network.v1.VpnServiceManager/DeleteVpn"
-	VpnServiceManager_AddConnection_FullMethodName    = "/Quantixkvm.network.v1.VpnServiceManager/AddConnection"
-	VpnServiceManager_RemoveConnection_FullMethodName = "/Quantixkvm.network.v1.VpnServiceManager/RemoveConnection"
-	VpnServiceManager_GetVpnStatus_FullMethodName     = "/Quantixkvm.network.v1.VpnServiceManager/GetVpnStatus"
+	VpnServiceManager_CreateVpn_FullMethodName        = "/limiquantix.network.v1.VpnServiceManager/CreateVpn"
+	VpnServiceManager_GetVpn_FullMethodName           = "/limiquantix.network.v1.VpnServiceManager/GetVpn"
+	VpnServiceManager_ListVpns_FullMethodName         = "/limiquantix.network.v1.VpnServiceManager/ListVpns"
+	VpnServiceManager_DeleteVpn_FullMethodName        = "/limiquantix.network.v1.VpnServiceManager/DeleteVpn"
+	VpnServiceManager_AddConnection_FullMethodName    = "/limiquantix.network.v1.VpnServiceManager/AddConnection"
+	VpnServiceManager_RemoveConnection_FullMethodName = "/limiquantix.network.v1.VpnServiceManager/RemoveConnection"
+	VpnServiceManager_GetVpnStatus_FullMethodName     = "/limiquantix.network.v1.VpnServiceManager/GetVpnStatus"
 )
 
 // VpnServiceManagerClient is the client API for VpnServiceManager service.
@@ -2104,7 +2104,7 @@ func _VpnServiceManager_GetVpnStatus_Handler(srv interface{}, ctx context.Contex
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var VpnServiceManager_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.network.v1.VpnServiceManager",
+	ServiceName: "limiquantix.network.v1.VpnServiceManager",
 	HandlerType: (*VpnServiceManagerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -2137,5 +2137,5 @@ var VpnServiceManager_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "Quantixkvm/network/v1/network_service.proto",
+	Metadata: "limiquantix/network/v1/network_service.proto",
 }

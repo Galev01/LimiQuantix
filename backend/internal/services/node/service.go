@@ -12,9 +12,9 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
-	computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
-	"github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1/computev1connect"
+	"github.com/limiquantix/limiquantix/internal/domain"
+	computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
 )
 
 // Ensure Service implements NodeServiceHandler

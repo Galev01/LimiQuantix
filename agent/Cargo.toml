@@ -1,5 +1,5 @@
 # =============================================================================
-# Quantixkvm Agent - Workspace Manifest
+# limiquantix Agent - Workspace Manifest
 # =============================================================================
 # This is the Rust workspace containing the Node Daemon and supporting libraries.
 
@@ -16,9 +16,9 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["Quantixkvm Team"]
+authors = ["limiquantix Team"]
 license = "Apache-2.0"
-repository = "https://github.com/Quantixkvm/Quantixkvm"
+repository = "https://github.com/limiquantix/limiquantix"
 
 [workspace.dependencies]
 # Async runtime

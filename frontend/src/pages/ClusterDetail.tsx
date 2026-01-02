@@ -50,7 +50,7 @@ const mockClusterDetail = {
     storageUsedBytes: 64424509440000,
   },
   createdAt: '2024-01-15',
-  createdBy: 'admin@Quantixkvm.local',
+  createdBy: 'admin@limiquantix.local',
   labels: {
     environment: 'production',
     tier: 'critical',

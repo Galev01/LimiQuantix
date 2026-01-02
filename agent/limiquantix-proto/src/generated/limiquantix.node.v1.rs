@@ -610,13 +610,13 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/HealthCheck",
+                "/limiquantix.node.v1.NodeDaemonService/HealthCheck",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
-                        "Quantixkvm.node.v1.NodeDaemonService",
+                        "limiquantix.node.v1.NodeDaemonService",
                         "HealthCheck",
                     ),
                 );
@@ -641,13 +641,13 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/GetNodeInfo",
+                "/limiquantix.node.v1.NodeDaemonService/GetNodeInfo",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
-                        "Quantixkvm.node.v1.NodeDaemonService",
+                        "limiquantix.node.v1.NodeDaemonService",
                         "GetNodeInfo",
                     ),
                 );
@@ -672,12 +672,12 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/CreateVM",
+                "/limiquantix.node.v1.NodeDaemonService/CreateVM",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
-                    GrpcMethod::new("Quantixkvm.node.v1.NodeDaemonService", "CreateVM"),
+                    GrpcMethod::new("limiquantix.node.v1.NodeDaemonService", "CreateVM"),
                 );
             self.inner.unary(req, path, codec).await
         }
@@ -696,12 +696,12 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/StartVM",
+                "/limiquantix.node.v1.NodeDaemonService/StartVM",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
-                    GrpcMethod::new("Quantixkvm.node.v1.NodeDaemonService", "StartVM"),
+                    GrpcMethod::new("limiquantix.node.v1.NodeDaemonService", "StartVM"),
                 );
             self.inner.unary(req, path, codec).await
         }
@@ -720,12 +720,12 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/StopVM",
+                "/limiquantix.node.v1.NodeDaemonService/StopVM",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
-                    GrpcMethod::new("Quantixkvm.node.v1.NodeDaemonService", "StopVM"),
+                    GrpcMethod::new("limiquantix.node.v1.NodeDaemonService", "StopVM"),
                 );
             self.inner.unary(req, path, codec).await
         }
@@ -744,13 +744,13 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/ForceStopVM",
+                "/limiquantix.node.v1.NodeDaemonService/ForceStopVM",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
-                        "Quantixkvm.node.v1.NodeDaemonService",
+                        "limiquantix.node.v1.NodeDaemonService",
                         "ForceStopVM",
                     ),
                 );
@@ -771,12 +771,12 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/RebootVM",
+                "/limiquantix.node.v1.NodeDaemonService/RebootVM",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
-                    GrpcMethod::new("Quantixkvm.node.v1.NodeDaemonService", "RebootVM"),
+                    GrpcMethod::new("limiquantix.node.v1.NodeDaemonService", "RebootVM"),
                 );
             self.inner.unary(req, path, codec).await
         }
@@ -795,12 +795,12 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/PauseVM",
+                "/limiquantix.node.v1.NodeDaemonService/PauseVM",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
-                    GrpcMethod::new("Quantixkvm.node.v1.NodeDaemonService", "PauseVM"),
+                    GrpcMethod::new("limiquantix.node.v1.NodeDaemonService", "PauseVM"),
                 );
             self.inner.unary(req, path, codec).await
         }
@@ -819,12 +819,12 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/ResumeVM",
+                "/limiquantix.node.v1.NodeDaemonService/ResumeVM",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
-                    GrpcMethod::new("Quantixkvm.node.v1.NodeDaemonService", "ResumeVM"),
+                    GrpcMethod::new("limiquantix.node.v1.NodeDaemonService", "ResumeVM"),
                 );
             self.inner.unary(req, path, codec).await
         }
@@ -843,12 +843,12 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/DeleteVM",
+                "/limiquantix.node.v1.NodeDaemonService/DeleteVM",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
-                    GrpcMethod::new("Quantixkvm.node.v1.NodeDaemonService", "DeleteVM"),
+                    GrpcMethod::new("limiquantix.node.v1.NodeDaemonService", "DeleteVM"),
                 );
             self.inner.unary(req, path, codec).await
         }
@@ -871,13 +871,13 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/GetVMStatus",
+                "/limiquantix.node.v1.NodeDaemonService/GetVMStatus",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
-                        "Quantixkvm.node.v1.NodeDaemonService",
+                        "limiquantix.node.v1.NodeDaemonService",
                         "GetVMStatus",
                     ),
                 );
@@ -901,12 +901,12 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/ListVMs",
+                "/limiquantix.node.v1.NodeDaemonService/ListVMs",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
-                    GrpcMethod::new("Quantixkvm.node.v1.NodeDaemonService", "ListVMs"),
+                    GrpcMethod::new("limiquantix.node.v1.NodeDaemonService", "ListVMs"),
                 );
             self.inner.unary(req, path, codec).await
         }
@@ -929,13 +929,13 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/GetConsole",
+                "/limiquantix.node.v1.NodeDaemonService/GetConsole",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
-                        "Quantixkvm.node.v1.NodeDaemonService",
+                        "limiquantix.node.v1.NodeDaemonService",
                         "GetConsole",
                     ),
                 );
@@ -960,13 +960,13 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/CreateSnapshot",
+                "/limiquantix.node.v1.NodeDaemonService/CreateSnapshot",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
-                        "Quantixkvm.node.v1.NodeDaemonService",
+                        "limiquantix.node.v1.NodeDaemonService",
                         "CreateSnapshot",
                     ),
                 );
@@ -987,13 +987,13 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/RevertSnapshot",
+                "/limiquantix.node.v1.NodeDaemonService/RevertSnapshot",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
-                        "Quantixkvm.node.v1.NodeDaemonService",
+                        "limiquantix.node.v1.NodeDaemonService",
                         "RevertSnapshot",
                     ),
                 );
@@ -1014,13 +1014,13 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/DeleteSnapshot",
+                "/limiquantix.node.v1.NodeDaemonService/DeleteSnapshot",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
-                        "Quantixkvm.node.v1.NodeDaemonService",
+                        "limiquantix.node.v1.NodeDaemonService",
                         "DeleteSnapshot",
                     ),
                 );
@@ -1044,13 +1044,13 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/ListSnapshots",
+                "/limiquantix.node.v1.NodeDaemonService/ListSnapshots",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
-                        "Quantixkvm.node.v1.NodeDaemonService",
+                        "limiquantix.node.v1.NodeDaemonService",
                         "ListSnapshots",
                     ),
                 );
@@ -1075,13 +1075,13 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/StreamMetrics",
+                "/limiquantix.node.v1.NodeDaemonService/StreamMetrics",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
-                        "Quantixkvm.node.v1.NodeDaemonService",
+                        "limiquantix.node.v1.NodeDaemonService",
                         "StreamMetrics",
                     ),
                 );
@@ -1105,13 +1105,13 @@ pub mod node_daemon_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/Quantixkvm.node.v1.NodeDaemonService/StreamEvents",
+                "/limiquantix.node.v1.NodeDaemonService/StreamEvents",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
-                        "Quantixkvm.node.v1.NodeDaemonService",
+                        "limiquantix.node.v1.NodeDaemonService",
                         "StreamEvents",
                     ),
                 );
@@ -1328,7 +1328,7 @@ pub mod node_daemon_service_server {
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
-                "/Quantixkvm.node.v1.NodeDaemonService/HealthCheck" => {
+                "/limiquantix.node.v1.NodeDaemonService/HealthCheck" => {
                     #[allow(non_camel_case_types)]
                     struct HealthCheckSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -1375,7 +1375,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/GetNodeInfo" => {
+                "/limiquantix.node.v1.NodeDaemonService/GetNodeInfo" => {
                     #[allow(non_camel_case_types)]
                     struct GetNodeInfoSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<T: NodeDaemonService> tonic::server::UnaryService<()>
@@ -1417,7 +1417,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/CreateVM" => {
+                "/limiquantix.node.v1.NodeDaemonService/CreateVM" => {
                     #[allow(non_camel_case_types)]
                     struct CreateVMSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -1463,7 +1463,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/StartVM" => {
+                "/limiquantix.node.v1.NodeDaemonService/StartVM" => {
                     #[allow(non_camel_case_types)]
                     struct StartVMSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -1508,7 +1508,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/StopVM" => {
+                "/limiquantix.node.v1.NodeDaemonService/StopVM" => {
                     #[allow(non_camel_case_types)]
                     struct StopVMSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -1554,7 +1554,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/ForceStopVM" => {
+                "/limiquantix.node.v1.NodeDaemonService/ForceStopVM" => {
                     #[allow(non_camel_case_types)]
                     struct ForceStopVMSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -1601,7 +1601,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/RebootVM" => {
+                "/limiquantix.node.v1.NodeDaemonService/RebootVM" => {
                     #[allow(non_camel_case_types)]
                     struct RebootVMSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -1647,7 +1647,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/PauseVM" => {
+                "/limiquantix.node.v1.NodeDaemonService/PauseVM" => {
                     #[allow(non_camel_case_types)]
                     struct PauseVMSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -1692,7 +1692,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/ResumeVM" => {
+                "/limiquantix.node.v1.NodeDaemonService/ResumeVM" => {
                     #[allow(non_camel_case_types)]
                     struct ResumeVMSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -1738,7 +1738,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/DeleteVM" => {
+                "/limiquantix.node.v1.NodeDaemonService/DeleteVM" => {
                     #[allow(non_camel_case_types)]
                     struct DeleteVMSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -1784,7 +1784,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/GetVMStatus" => {
+                "/limiquantix.node.v1.NodeDaemonService/GetVMStatus" => {
                     #[allow(non_camel_case_types)]
                     struct GetVMStatusSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -1831,7 +1831,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/ListVMs" => {
+                "/limiquantix.node.v1.NodeDaemonService/ListVMs" => {
                     #[allow(non_camel_case_types)]
                     struct ListVMsSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<T: NodeDaemonService> tonic::server::UnaryService<()>
@@ -1872,7 +1872,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/GetConsole" => {
+                "/limiquantix.node.v1.NodeDaemonService/GetConsole" => {
                     #[allow(non_camel_case_types)]
                     struct GetConsoleSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -1918,7 +1918,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/CreateSnapshot" => {
+                "/limiquantix.node.v1.NodeDaemonService/CreateSnapshot" => {
                     #[allow(non_camel_case_types)]
                     struct CreateSnapshotSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -1965,7 +1965,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/RevertSnapshot" => {
+                "/limiquantix.node.v1.NodeDaemonService/RevertSnapshot" => {
                     #[allow(non_camel_case_types)]
                     struct RevertSnapshotSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -2012,7 +2012,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/DeleteSnapshot" => {
+                "/limiquantix.node.v1.NodeDaemonService/DeleteSnapshot" => {
                     #[allow(non_camel_case_types)]
                     struct DeleteSnapshotSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -2059,7 +2059,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/ListSnapshots" => {
+                "/limiquantix.node.v1.NodeDaemonService/ListSnapshots" => {
                     #[allow(non_camel_case_types)]
                     struct ListSnapshotsSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -2106,7 +2106,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/StreamMetrics" => {
+                "/limiquantix.node.v1.NodeDaemonService/StreamMetrics" => {
                     #[allow(non_camel_case_types)]
                     struct StreamMetricsSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<
@@ -2154,7 +2154,7 @@ pub mod node_daemon_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/Quantixkvm.node.v1.NodeDaemonService/StreamEvents" => {
+                "/limiquantix.node.v1.NodeDaemonService/StreamEvents" => {
                     #[allow(non_camel_case_types)]
                     struct StreamEventsSvc<T: NodeDaemonService>(pub Arc<T>);
                     impl<T: NodeDaemonService> tonic::server::ServerStreamingService<()>
@@ -2236,6 +2236,6 @@ pub mod node_daemon_service_server {
     }
     impl<T: NodeDaemonService> tonic::server::NamedService
     for NodeDaemonServiceServer<T> {
-        const NAME: &'static str = "Quantixkvm.node.v1.NodeDaemonService";
+        const NAME: &'static str = "limiquantix.node.v1.NodeDaemonService";
     }
 }

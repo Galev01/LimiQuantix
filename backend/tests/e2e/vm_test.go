@@ -1,7 +1,7 @@
 //go:build e2e
 // +build e2e
 
-// Package e2e provides end-to-end tests for the Quantixkvm API.
+// Package e2e provides end-to-end tests for the limiquantix API.
 package e2e
 
 import (
@@ -84,7 +84,7 @@ func login(username, password string) (*LoginResponse, error) {
 	bodyBytes, _ := json.Marshal(body)
 
 	resp, err := http.Post(
-		baseURL+"/Quantixkvm.auth.v1.AuthService/Login",
+		baseURL+"/limiquantix.auth.v1.AuthService/Login",
 		"application/json",
 		bytes.NewReader(bodyBytes),
 	)
@@ -131,7 +131,7 @@ func makeRequest(method, path string, body interface{}) (*http.Response, error) 
 // =============================================================================
 
 func TestVM_ListVMs(t *testing.T) {
-	resp, err := makeRequest("POST", "/Quantixkvm.compute.v1.VMService/ListVMs", map[string]interface{}{
+	resp, err := makeRequest("POST", "/limiquantix.compute.v1.VMService/ListVMs", map[string]interface{}{
 		"page_size": 10,
 	})
 	if err != nil {
@@ -169,7 +169,7 @@ func TestVM_CreateGetDelete(t *testing.T) {
 		},
 	}
 
-	resp, err := makeRequest("POST", "/Quantixkvm.compute.v1.VMService/CreateVM", createReq)
+	resp, err := makeRequest("POST", "/limiquantix.compute.v1.VMService/CreateVM", createReq)
 	if err != nil {
 		t.Fatalf("CreateVM request failed: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestVM_CreateGetDelete(t *testing.T) {
 	t.Logf("Created VM: %s (ID: %s)", createdVM.Name, createdVM.ID)
 
 	// 2. Get VM
-	resp, err = makeRequest("POST", "/Quantixkvm.compute.v1.VMService/GetVM", map[string]string{
+	resp, err = makeRequest("POST", "/limiquantix.compute.v1.VMService/GetVM", map[string]string{
 		"id": createdVM.ID,
 	})
 	if err != nil {
@@ -214,7 +214,7 @@ func TestVM_CreateGetDelete(t *testing.T) {
 	}
 
 	// 3. Delete VM
-	resp, err = makeRequest("POST", "/Quantixkvm.compute.v1.VMService/DeleteVM", map[string]string{
+	resp, err = makeRequest("POST", "/limiquantix.compute.v1.VMService/DeleteVM", map[string]string{
 		"id": createdVM.ID,
 	})
 	if err != nil {
@@ -230,7 +230,7 @@ func TestVM_CreateGetDelete(t *testing.T) {
 	t.Logf("Deleted VM: %s", createdVM.ID)
 
 	// 4. Verify VM is deleted
-	resp, err = makeRequest("POST", "/Quantixkvm.compute.v1.VMService/GetVM", map[string]string{
+	resp, err = makeRequest("POST", "/limiquantix.compute.v1.VMService/GetVM", map[string]string{
 		"id": createdVM.ID,
 	})
 	if err != nil {
@@ -254,7 +254,7 @@ func TestVM_StartStop(t *testing.T) {
 		},
 	}
 
-	resp, err := makeRequest("POST", "/Quantixkvm.compute.v1.VMService/CreateVM", createReq)
+	resp, err := makeRequest("POST", "/limiquantix.compute.v1.VMService/CreateVM", createReq)
 	if err != nil {
 		t.Fatalf("CreateVM failed: %v", err)
 	}
@@ -266,13 +266,13 @@ func TestVM_StartStop(t *testing.T) {
 
 	// Cleanup
 	defer func() {
-		makeRequest("POST", "/Quantixkvm.compute.v1.VMService/DeleteVM", map[string]string{
+		makeRequest("POST", "/limiquantix.compute.v1.VMService/DeleteVM", map[string]string{
 			"id": createdVM.ID,
 		})
 	}()
 
 	// 2. Start VM
-	resp, err = makeRequest("POST", "/Quantixkvm.compute.v1.VMService/StartVM", map[string]string{
+	resp, err = makeRequest("POST", "/limiquantix.compute.v1.VMService/StartVM", map[string]string{
 		"id": createdVM.ID,
 	})
 	if err != nil {
@@ -290,7 +290,7 @@ func TestVM_StartStop(t *testing.T) {
 	t.Logf("VM state after start: %s", startedVM.Status.State)
 
 	// 3. Stop VM
-	resp, err = makeRequest("POST", "/Quantixkvm.compute.v1.VMService/StopVM", map[string]string{
+	resp, err = makeRequest("POST", "/limiquantix.compute.v1.VMService/StopVM", map[string]string{
 		"id": createdVM.ID,
 	})
 	if err != nil {
@@ -315,7 +315,7 @@ func TestVM_CreateWithInvalidSpec(t *testing.T) {
 		// Missing project_id and spec
 	}
 
-	resp, err := makeRequest("POST", "/Quantixkvm.compute.v1.VMService/CreateVM", createReq)
+	resp, err := makeRequest("POST", "/limiquantix.compute.v1.VMService/CreateVM", createReq)
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
@@ -361,7 +361,7 @@ func TestAuth_LoginInvalidCredentials(t *testing.T) {
 
 func TestAuth_UnauthenticatedAccess(t *testing.T) {
 	// Make request without token
-	req, _ := http.NewRequest("POST", baseURL+"/Quantixkvm.compute.v1.VMService/ListVMs", bytes.NewReader([]byte("{}")))
+	req, _ := http.NewRequest("POST", baseURL+"/limiquantix.compute.v1.VMService/ListVMs", bytes.NewReader([]byte("{}")))
 	req.Header.Set("Content-Type", "application/json")
 	// No Authorization header
 

@@ -6,7 +6,7 @@ alwaysApply: true
 
 *Scope:* Apply when working with API definitions, data models, gRPC services, or any code that interacts with the proto-generated types.
 
-*Purpose:* Ensure all agents understand the Quantixkvm API infrastructure and maintain consistency.
+*Purpose:* Ensure all agents understand the limiquantix API infrastructure and maintain consistency.
 
 ---
 
@@ -16,7 +16,7 @@ alwaysApply: true
 proto/
 ├── buf.yaml              # Linting configuration
 ├── buf.gen.yaml          # Code generation targets
-└── Quantixkvm/
+└── limiquantix/
     ├── compute/v1/       # Compute domain
     │   ├── vm.proto            # Virtual Machine model
     │   ├── vm_service.proto    # VM gRPC service
@@ -31,8 +31,8 @@ proto/
 ```
 
 Generated code locations:
-- **Go:** `backend/pkg/api/Quantixkvm/{domain}/v1/*.pb.go`
-- **TypeScript:** `frontend/src/api/Quantixkvm/{domain}/v1/*.ts`
+- **Go:** `backend/pkg/api/limiquantix/{domain}/v1/*.pb.go`
+- **TypeScript:** `frontend/src/api/limiquantix/{domain}/v1/*.ts`
 - **Rust:** `agent/src/proto/` (when configured)
 
 ---
@@ -270,9 +270,9 @@ cd proto && buf generate
 
 ```go
 import (
-    computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
-    storagev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/storage/v1"
-    networkv1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/network/v1"
+    computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+    storagev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1"
+    networkv1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1"
 )
 
 // Create a VM
@@ -300,8 +300,8 @@ func (s *vmServer) GetVM(ctx context.Context, req *computev1.GetVMRequest) (*com
 ```typescript
 import { createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { VMService } from "./api/Quantixkvm/compute/v1/vm_service_connect";
-import { VirtualMachine } from "./api/Quantixkvm/compute/v1/vm_pb";
+import { VMService } from "./api/limiquantix/compute/v1/vm_service_connect";
+import { VirtualMachine } from "./api/limiquantix/compute/v1/vm_pb";
 
 const transport = createConnectTransport({
   baseUrl: "http://localhost:8080",
@@ -323,7 +323,7 @@ for await (const update of client.watchVM({ vmId: "vm-123" })) {
 ## Naming Conventions
 
 ### Proto Files
-- **Package:** `Quantixkvm.{domain}.v1` (e.g., `Quantixkvm.compute.v1`)
+- **Package:** `limiquantix.{domain}.v1` (e.g., `limiquantix.compute.v1`)
 - **Messages:** PascalCase (e.g., `VirtualMachine`, `CpuConfig`)
 - **Fields:** snake_case (e.g., `project_id`, `cpu_cores`)
 - **Enums:** SCREAMING_SNAKE_CASE (e.g., `POWER_STATE_RUNNING`)
@@ -351,7 +351,7 @@ for await (const update of client.watchVM({ vmId: "vm-123" })) {
 
 ## References
 
-- Proto files: `proto/Quantixkvm/`
+- Proto files: `proto/limiquantix/`
 - ADRs: `docs/adr/000001-000005`
 - Build guide: `docs/000006-proto-and-build-system-guide.md`
 - Makefile: `Makefile` (run `make help`)

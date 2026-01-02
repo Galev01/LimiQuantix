@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Quantixkvm Proto Generation Script
+# limiquantix Proto Generation Script
 # =============================================================================
 #
 # This script generates code from protobuf definitions using either Buf (preferred)
@@ -140,8 +140,8 @@ check_prerequisites() {
 # Clean output directories
 clean_output() {
     log_info "Cleaning output directories..."
-    rm -rf "$ROOT_DIR/backend/pkg/api/Quantixkvm"
-    rm -rf "$ROOT_DIR/frontend/src/api/Quantixkvm"
+    rm -rf "$ROOT_DIR/backend/pkg/api/limiquantix"
+    rm -rf "$ROOT_DIR/frontend/src/api/limiquantix"
     rm -rf "$ROOT_DIR/agent/src/proto"
     rm -rf "$ROOT_DIR/docs/api/api-reference.md"
     log_success "Cleaned output directories"
@@ -229,7 +229,7 @@ generate_with_protoc() {
 main() {
     echo ""
     echo "╔══════════════════════════════════════════════════════════════════╗"
-    echo "║              Quantixkvm Proto Generation                       ║"
+    echo "║              limiquantix Proto Generation                       ║"
     echo "╚══════════════════════════════════════════════════════════════════╝"
     echo ""
     
@@ -249,14 +249,14 @@ main() {
     log_success "All done! Generated files:"
     echo ""
     
-    if $GEN_GO && [ -d "$ROOT_DIR/backend/pkg/api/Quantixkvm" ]; then
-        echo "  📁 backend/pkg/api/Quantixkvm/"
-        find "$ROOT_DIR/backend/pkg/api/Quantixkvm" -name "*.go" | head -5 | sed 's|'"$ROOT_DIR"'/|     |'
+    if $GEN_GO && [ -d "$ROOT_DIR/backend/pkg/api/limiquantix" ]; then
+        echo "  📁 backend/pkg/api/limiquantix/"
+        find "$ROOT_DIR/backend/pkg/api/limiquantix" -name "*.go" | head -5 | sed 's|'"$ROOT_DIR"'/|     |'
     fi
     
-    if $GEN_TS && [ -d "$ROOT_DIR/frontend/src/api/Quantixkvm" ]; then
-        echo "  📁 frontend/src/api/Quantixkvm/"
-        find "$ROOT_DIR/frontend/src/api/Quantixkvm" -name "*.ts" | head -5 | sed 's|'"$ROOT_DIR"'/|     |'
+    if $GEN_TS && [ -d "$ROOT_DIR/frontend/src/api/limiquantix" ]; then
+        echo "  📁 frontend/src/api/limiquantix/"
+        find "$ROOT_DIR/frontend/src/api/limiquantix" -name "*.ts" | head -5 | sed 's|'"$ROOT_DIR"'/|     |'
     fi
     
     echo ""

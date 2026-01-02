@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
-	networkv1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/network/v1"
+	"github.com/limiquantix/limiquantix/internal/domain"
+	networkv1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1"
 )
 
 // SecurityGroupService implements the networkv1connect.SecurityGroupServiceHandler interface.

@@ -47,7 +47,7 @@ The wizard can be opened from:
 - Option to create new folder
 
 ### Step 4: Customization
-- **Install Quantixkvm Agent**: Toggle (recommended: on)
+- **Install limiquantix Agent**: Toggle (recommended: on)
 - **Customization Specification**: Select preset or create new
   - Linux Default
   - Windows Default

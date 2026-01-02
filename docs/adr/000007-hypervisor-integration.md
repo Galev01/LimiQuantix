@@ -2,14 +2,14 @@
 
 **Status:** Accepted  
 **Date:** 2026-01-02  
-**Authors:** Quantixkvm Team  
+**Authors:** limiquantix Team  
 **Reviewers:** Architecture Team  
 
 ---
 
 ## Context
 
-Quantixkvm requires a hypervisor layer to execute virtual machines. This is the critical foundation that transforms the platform from a management UI into an actual virtualization solution.
+limiquantix requires a hypervisor layer to execute virtual machines. This is the critical foundation that transforms the platform from a management UI into an actual virtualization solution.
 
 The project vision ("VMware Killer") demands:
 - **Windows VM support** - Enterprise table stakes
@@ -138,7 +138,7 @@ We will implement a **hypervisor abstraction layer** that:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                 Quantixkvm Control Plane                   │
+│                 limiquantix Control Plane                   │
 │                      (Go + gRPC)                            │
 └─────────────────────────────┬───────────────────────────────┘
                               │ gRPC
@@ -299,7 +299,7 @@ pub trait Hypervisor: Send + Sync {
 ### Phase 1: Foundation (Weeks 1-2)
 
 1. **Setup Rust project structure**
-   - Create `Quantixkvm-node` crate
+   - Create `limiquantix-node` crate
    - Add dependencies (tonic, libvirt-rs, tokio)
    - Define Hypervisor trait
 

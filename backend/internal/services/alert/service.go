@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/domain"
 )
 
 // Repository defines the interface for alert data access.
@@ -220,5 +220,5 @@ func (s *Service) ClusterAlert(ctx context.Context, severity domain.AlertSeverit
 
 // SystemAlert creates a system-wide alert.
 func (s *Service) SystemAlert(ctx context.Context, severity domain.AlertSeverity, title, message string) (*domain.Alert, error) {
-	return s.CreateAlert(ctx, severity, domain.AlertSourceSystem, "system", "Quantixkvm", title, message)
+	return s.CreateAlert(ctx, severity, domain.AlertSourceSystem, "system", "limiquantix", title, message)
 }

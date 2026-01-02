@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package Quantixkvm.compute.v1;
+package limiquantix.compute.v1;
 
-option go_package = "github.com/Quantixkvm/Quantixkvm/pkg/api/compute/v1;computev1";
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;computev1";
 
 import "google/protobuf/timestamp.proto";
 

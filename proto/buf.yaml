@@ -1,11 +1,11 @@
-# buf.yaml - Buf configuration for Quantixkvm protobuf definitions
+# buf.yaml - Buf configuration for limiquantix protobuf definitions
 # Documentation: https://buf.build/docs/configuration/v2/buf-yaml
 
 version: v2
 
 modules:
   - path: .
-    name: buf.build/Quantixkvm/api
+    name: buf.build/limiquantix/api
 
 # Linting configuration
 # NOTE: Using relaxed rules for initial development. Tighten these as the project matures.

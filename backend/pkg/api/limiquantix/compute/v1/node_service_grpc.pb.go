@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             (unknown)
-// source: Quantixkvm/compute/v1/node_service.proto
+// source: limiquantix/compute/v1/node_service.proto
 
 package computev1
 
@@ -21,22 +21,22 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NodeService_RegisterNode_FullMethodName     = "/Quantixkvm.compute.v1.NodeService/RegisterNode"
-	NodeService_GetNode_FullMethodName          = "/Quantixkvm.compute.v1.NodeService/GetNode"
-	NodeService_ListNodes_FullMethodName        = "/Quantixkvm.compute.v1.NodeService/ListNodes"
-	NodeService_UpdateNode_FullMethodName       = "/Quantixkvm.compute.v1.NodeService/UpdateNode"
-	NodeService_DecommissionNode_FullMethodName = "/Quantixkvm.compute.v1.NodeService/DecommissionNode"
-	NodeService_EnableNode_FullMethodName       = "/Quantixkvm.compute.v1.NodeService/EnableNode"
-	NodeService_DisableNode_FullMethodName      = "/Quantixkvm.compute.v1.NodeService/DisableNode"
-	NodeService_DrainNode_FullMethodName        = "/Quantixkvm.compute.v1.NodeService/DrainNode"
-	NodeService_AddTaint_FullMethodName         = "/Quantixkvm.compute.v1.NodeService/AddTaint"
-	NodeService_RemoveTaint_FullMethodName      = "/Quantixkvm.compute.v1.NodeService/RemoveTaint"
-	NodeService_UpdateLabels_FullMethodName     = "/Quantixkvm.compute.v1.NodeService/UpdateLabels"
-	NodeService_UpdateHeartbeat_FullMethodName  = "/Quantixkvm.compute.v1.NodeService/UpdateHeartbeat"
-	NodeService_GetNodeMetrics_FullMethodName   = "/Quantixkvm.compute.v1.NodeService/GetNodeMetrics"
-	NodeService_ListNodeEvents_FullMethodName   = "/Quantixkvm.compute.v1.NodeService/ListNodeEvents"
-	NodeService_WatchNode_FullMethodName        = "/Quantixkvm.compute.v1.NodeService/WatchNode"
-	NodeService_WatchNodes_FullMethodName       = "/Quantixkvm.compute.v1.NodeService/WatchNodes"
+	NodeService_RegisterNode_FullMethodName     = "/limiquantix.compute.v1.NodeService/RegisterNode"
+	NodeService_GetNode_FullMethodName          = "/limiquantix.compute.v1.NodeService/GetNode"
+	NodeService_ListNodes_FullMethodName        = "/limiquantix.compute.v1.NodeService/ListNodes"
+	NodeService_UpdateNode_FullMethodName       = "/limiquantix.compute.v1.NodeService/UpdateNode"
+	NodeService_DecommissionNode_FullMethodName = "/limiquantix.compute.v1.NodeService/DecommissionNode"
+	NodeService_EnableNode_FullMethodName       = "/limiquantix.compute.v1.NodeService/EnableNode"
+	NodeService_DisableNode_FullMethodName      = "/limiquantix.compute.v1.NodeService/DisableNode"
+	NodeService_DrainNode_FullMethodName        = "/limiquantix.compute.v1.NodeService/DrainNode"
+	NodeService_AddTaint_FullMethodName         = "/limiquantix.compute.v1.NodeService/AddTaint"
+	NodeService_RemoveTaint_FullMethodName      = "/limiquantix.compute.v1.NodeService/RemoveTaint"
+	NodeService_UpdateLabels_FullMethodName     = "/limiquantix.compute.v1.NodeService/UpdateLabels"
+	NodeService_UpdateHeartbeat_FullMethodName  = "/limiquantix.compute.v1.NodeService/UpdateHeartbeat"
+	NodeService_GetNodeMetrics_FullMethodName   = "/limiquantix.compute.v1.NodeService/GetNodeMetrics"
+	NodeService_ListNodeEvents_FullMethodName   = "/limiquantix.compute.v1.NodeService/ListNodeEvents"
+	NodeService_WatchNode_FullMethodName        = "/limiquantix.compute.v1.NodeService/WatchNode"
+	NodeService_WatchNodes_FullMethodName       = "/limiquantix.compute.v1.NodeService/WatchNodes"
 )
 
 // NodeServiceClient is the client API for NodeService service.
@@ -662,7 +662,7 @@ type NodeService_WatchNodesServer = grpc.ServerStreamingServer[NodeUpdate]
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var NodeService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Quantixkvm.compute.v1.NodeService",
+	ServiceName: "limiquantix.compute.v1.NodeService",
 	HandlerType: (*NodeServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -734,5 +734,5 @@ var NodeService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "Quantixkvm/compute/v1/node_service.proto",
+	Metadata: "limiquantix/compute/v1/node_service.proto",
 }

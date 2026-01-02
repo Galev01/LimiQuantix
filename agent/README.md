@@ -1,6 +1,6 @@
-# Quantixkvm Agent
+# limiquantix Agent
 
-The Quantixkvm Agent is a Rust-based daemon that runs on each hypervisor node in the cluster. It manages virtual machines through the hypervisor abstraction layer and communicates with the control plane via gRPC.
+The limiquantix Agent is a Rust-based daemon that runs on each hypervisor node in the cluster. It manages virtual machines through the hypervisor abstraction layer and communicates with the control plane via gRPC.
 
 ## Architecture
 
@@ -12,10 +12,10 @@ The Quantixkvm Agent is a Rust-based daemon that runs on each hypervisor node in
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Node Daemon (Rust)                       │
-│               Quantixkvm-node binary                       │
+│               limiquantix-node binary                       │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌───────────────────┐  ┌───────────────────┐               │
-│  │ Quantixkvm-      │  │ Quantixkvm-      │               │
+│  │ limiquantix-      │  │ limiquantix-      │               │
 │  │   hypervisor      │  │   telemetry       │               │
 │  │ (VM management)   │  │ (System metrics)  │               │
 │  └─────────┬─────────┘  └───────────────────┘               │
@@ -35,11 +35,11 @@ The Quantixkvm Agent is a Rust-based daemon that runs on each hypervisor node in
 
 | Crate | Description |
 |-------|-------------|
-| `Quantixkvm-node` | Node Daemon binary - main entry point |
-| `Quantixkvm-hypervisor` | Hypervisor abstraction layer (libvirt, mock) |
-| `Quantixkvm-telemetry` | System metrics collection (CPU, memory, disk) |
-| `Quantixkvm-proto` | Generated protobuf/gRPC code |
-| `Quantixkvm-common` | Shared utilities (logging, config) |
+| `limiquantix-node` | Node Daemon binary - main entry point |
+| `limiquantix-hypervisor` | Hypervisor abstraction layer (libvirt, mock) |
+| `limiquantix-telemetry` | System metrics collection (CPU, memory, disk) |
+| `limiquantix-proto` | Generated protobuf/gRPC code |
+| `limiquantix-common` | Shared utilities (logging, config) |
 
 ## Building
 
@@ -73,18 +73,18 @@ cargo build --release --features libvirt
 
 ```bash
 # Development mode (mock hypervisor)
-cargo run --bin Quantixkvm-node -- --dev
+cargo run --bin limiquantix-node -- --dev
 
 # With config file
-cargo run --bin Quantixkvm-node -- --config /etc/Quantixkvm/node.yaml
+cargo run --bin limiquantix-node -- --config /etc/limiquantix/node.yaml
 
 # See all options
-cargo run --bin Quantixkvm-node -- --help
+cargo run --bin limiquantix-node -- --help
 ```
 
 ## Configuration
 
-Create `/etc/Quantixkvm/node.yaml`:
+Create `/etc/limiquantix/node.yaml`:
 
 ```yaml
 node:
@@ -101,7 +101,7 @@ server:
 hypervisor:
   backend: libvirt  # or "mock" for development
   libvirt_uri: "qemu:///system"
-  storage_path: "/var/lib/Quantixkvm/vms"
+  storage_path: "/var/lib/limiquantix/vms"
 
 control_plane:
   address: "http://localhost:8080"
@@ -110,8 +110,8 @@ control_plane:
 
 tls:
   enabled: false
-  cert_path: "/etc/Quantixkvm/certs/node.crt"
-  key_path: "/etc/Quantixkvm/certs/node.key"
+  cert_path: "/etc/limiquantix/certs/node.crt"
+  key_path: "/etc/limiquantix/certs/node.key"
 ```
 
 ## Testing
@@ -121,7 +121,7 @@ tls:
 cargo test
 
 # Run specific crate tests
-cargo test -p Quantixkvm-hypervisor
+cargo test -p limiquantix-hypervisor
 
 # Run with logging
 RUST_LOG=debug cargo test
@@ -129,7 +129,7 @@ RUST_LOG=debug cargo test
 
 ## API Reference
 
-See [Node Daemon Proto](../proto/Quantixkvm/node/v1/node_daemon.proto) for the gRPC API definition.
+See [Node Daemon Proto](../proto/limiquantix/node/v1/node_daemon.proto) for the gRPC API definition.
 
 ### Key Operations
 

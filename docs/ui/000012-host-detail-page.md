@@ -16,14 +16,14 @@ The Host Detail page provides comprehensive information about a physical hypervi
 
 ### 1. Breadcrumb Navigation
 ```
-Hosts / hv-rack1-01.Quantixkvm.local
+Hosts / hv-rack1-01.limiquantix.local
 ```
 - Clickable to return to hosts list
 - Back arrow button for quick navigation
 
 ### 2. Host Header
 - **Host Icon**: Server icon in rounded container
-- **Hostname**: Large title (e.g., `hv-rack1-01.Quantixkvm.local`)
+- **Hostname**: Large title (e.g., `hv-rack1-01.limiquantix.local`)
 - **Status Badge**: Ready (green), Not Ready (red), Maintenance (yellow), Draining (blue)
 - **Management IP**: Monospace font
 

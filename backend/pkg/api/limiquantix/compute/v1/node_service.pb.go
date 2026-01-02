@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: Quantixkvm/compute/v1/node_service.proto
+// source: limiquantix/compute/v1/node_service.proto
 
 package computev1
 
@@ -57,11 +57,11 @@ func (x NodeUpdate_UpdateType) String() string {
 }
 
 func (NodeUpdate_UpdateType) Descriptor() protoreflect.EnumDescriptor {
-	return file_Quantixkvm_compute_v1_node_service_proto_enumTypes[0].Descriptor()
+	return file_limiquantix_compute_v1_node_service_proto_enumTypes[0].Descriptor()
 }
 
 func (NodeUpdate_UpdateType) Type() protoreflect.EnumType {
-	return &file_Quantixkvm_compute_v1_node_service_proto_enumTypes[0]
+	return &file_limiquantix_compute_v1_node_service_proto_enumTypes[0]
 }
 
 func (x NodeUpdate_UpdateType) Number() protoreflect.EnumNumber {
@@ -70,7 +70,7 @@ func (x NodeUpdate_UpdateType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use NodeUpdate_UpdateType.Descriptor instead.
 func (NodeUpdate_UpdateType) EnumDescriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{22, 0}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{22, 0}
 }
 
 type RegisterNodeRequest struct {
@@ -101,7 +101,7 @@ type RegisterNodeRequest struct {
 
 func (x *RegisterNodeRequest) Reset() {
 	*x = RegisterNodeRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[0]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -113,7 +113,7 @@ func (x *RegisterNodeRequest) String() string {
 func (*RegisterNodeRequest) ProtoMessage() {}
 
 func (x *RegisterNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[0]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -126,7 +126,7 @@ func (x *RegisterNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterNodeRequest.ProtoReflect.Descriptor instead.
 func (*RegisterNodeRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{0}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *RegisterNodeRequest) GetHostname() string {
@@ -208,7 +208,7 @@ type GetNodeRequest struct {
 
 func (x *GetNodeRequest) Reset() {
 	*x = GetNodeRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[1]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -220,7 +220,7 @@ func (x *GetNodeRequest) String() string {
 func (*GetNodeRequest) ProtoMessage() {}
 
 func (x *GetNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[1]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -233,7 +233,7 @@ func (x *GetNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeRequest.ProtoReflect.Descriptor instead.
 func (*GetNodeRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{1}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetNodeRequest) GetId() string {
@@ -248,7 +248,7 @@ type ListNodesRequest struct {
 	// Filter by labels
 	Labels map[string]string `protobuf:"bytes,1,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Filter by phase
-	Phases []NodeStatus_Phase `protobuf:"varint,2,rep,packed,name=phases,proto3,enum=Quantixkvm.compute.v1.NodeStatus_Phase" json:"phases,omitempty"`
+	Phases []NodeStatus_Phase `protobuf:"varint,2,rep,packed,name=phases,proto3,enum=limiquantix.compute.v1.NodeStatus_Phase" json:"phases,omitempty"`
 	// Filter by role
 	ComputeOnly      bool `protobuf:"varint,3,opt,name=compute_only,json=computeOnly,proto3" json:"compute_only,omitempty"`
 	StorageOnly      bool `protobuf:"varint,4,opt,name=storage_only,json=storageOnly,proto3" json:"storage_only,omitempty"`
@@ -262,7 +262,7 @@ type ListNodesRequest struct {
 
 func (x *ListNodesRequest) Reset() {
 	*x = ListNodesRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[2]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -274,7 +274,7 @@ func (x *ListNodesRequest) String() string {
 func (*ListNodesRequest) ProtoMessage() {}
 
 func (x *ListNodesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[2]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -287,7 +287,7 @@ func (x *ListNodesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNodesRequest.ProtoReflect.Descriptor instead.
 func (*ListNodesRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{2}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ListNodesRequest) GetLabels() map[string]string {
@@ -350,7 +350,7 @@ type ListNodesResponse struct {
 
 func (x *ListNodesResponse) Reset() {
 	*x = ListNodesResponse{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[3]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -362,7 +362,7 @@ func (x *ListNodesResponse) String() string {
 func (*ListNodesResponse) ProtoMessage() {}
 
 func (x *ListNodesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[3]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -375,7 +375,7 @@ func (x *ListNodesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNodesResponse.ProtoReflect.Descriptor instead.
 func (*ListNodesResponse) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{3}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ListNodesResponse) GetNodes() []*Node {
@@ -414,7 +414,7 @@ type UpdateNodeRequest struct {
 
 func (x *UpdateNodeRequest) Reset() {
 	*x = UpdateNodeRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[4]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -426,7 +426,7 @@ func (x *UpdateNodeRequest) String() string {
 func (*UpdateNodeRequest) ProtoMessage() {}
 
 func (x *UpdateNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[4]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -439,7 +439,7 @@ func (x *UpdateNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateNodeRequest.ProtoReflect.Descriptor instead.
 func (*UpdateNodeRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{4}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *UpdateNodeRequest) GetId() string {
@@ -481,7 +481,7 @@ type DecommissionNodeRequest struct {
 
 func (x *DecommissionNodeRequest) Reset() {
 	*x = DecommissionNodeRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[5]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -493,7 +493,7 @@ func (x *DecommissionNodeRequest) String() string {
 func (*DecommissionNodeRequest) ProtoMessage() {}
 
 func (x *DecommissionNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[5]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -506,7 +506,7 @@ func (x *DecommissionNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecommissionNodeRequest.ProtoReflect.Descriptor instead.
 func (*DecommissionNodeRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{5}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DecommissionNodeRequest) GetId() string {
@@ -532,7 +532,7 @@ type EnableNodeRequest struct {
 
 func (x *EnableNodeRequest) Reset() {
 	*x = EnableNodeRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[6]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -544,7 +544,7 @@ func (x *EnableNodeRequest) String() string {
 func (*EnableNodeRequest) ProtoMessage() {}
 
 func (x *EnableNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[6]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -557,7 +557,7 @@ func (x *EnableNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnableNodeRequest.ProtoReflect.Descriptor instead.
 func (*EnableNodeRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{6}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *EnableNodeRequest) GetId() string {
@@ -578,7 +578,7 @@ type DisableNodeRequest struct {
 
 func (x *DisableNodeRequest) Reset() {
 	*x = DisableNodeRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[7]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -590,7 +590,7 @@ func (x *DisableNodeRequest) String() string {
 func (*DisableNodeRequest) ProtoMessage() {}
 
 func (x *DisableNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[7]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -603,7 +603,7 @@ func (x *DisableNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisableNodeRequest.ProtoReflect.Descriptor instead.
 func (*DisableNodeRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{7}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *DisableNodeRequest) GetId() string {
@@ -635,7 +635,7 @@ type DrainNodeRequest struct {
 
 func (x *DrainNodeRequest) Reset() {
 	*x = DrainNodeRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[8]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -647,7 +647,7 @@ func (x *DrainNodeRequest) String() string {
 func (*DrainNodeRequest) ProtoMessage() {}
 
 func (x *DrainNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[8]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -660,7 +660,7 @@ func (x *DrainNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrainNodeRequest.ProtoReflect.Descriptor instead.
 func (*DrainNodeRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{8}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DrainNodeRequest) GetId() string {
@@ -706,7 +706,7 @@ type DrainNodeResponse struct {
 
 func (x *DrainNodeResponse) Reset() {
 	*x = DrainNodeResponse{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[9]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -718,7 +718,7 @@ func (x *DrainNodeResponse) String() string {
 func (*DrainNodeResponse) ProtoMessage() {}
 
 func (x *DrainNodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[9]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -731,7 +731,7 @@ func (x *DrainNodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrainNodeResponse.ProtoReflect.Descriptor instead.
 func (*DrainNodeResponse) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{9}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DrainNodeResponse) GetNode() *Node {
@@ -772,7 +772,7 @@ type DrainFailure struct {
 
 func (x *DrainFailure) Reset() {
 	*x = DrainFailure{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[10]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -784,7 +784,7 @@ func (x *DrainFailure) String() string {
 func (*DrainFailure) ProtoMessage() {}
 
 func (x *DrainFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[10]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -797,7 +797,7 @@ func (x *DrainFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrainFailure.ProtoReflect.Descriptor instead.
 func (*DrainFailure) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{10}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DrainFailure) GetVmId() string {
@@ -824,7 +824,7 @@ type AddTaintRequest struct {
 
 func (x *AddTaintRequest) Reset() {
 	*x = AddTaintRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[11]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -836,7 +836,7 @@ func (x *AddTaintRequest) String() string {
 func (*AddTaintRequest) ProtoMessage() {}
 
 func (x *AddTaintRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[11]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -849,7 +849,7 @@ func (x *AddTaintRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddTaintRequest.ProtoReflect.Descriptor instead.
 func (*AddTaintRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{11}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *AddTaintRequest) GetNodeId() string {
@@ -876,7 +876,7 @@ type RemoveTaintRequest struct {
 
 func (x *RemoveTaintRequest) Reset() {
 	*x = RemoveTaintRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[12]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -888,7 +888,7 @@ func (x *RemoveTaintRequest) String() string {
 func (*RemoveTaintRequest) ProtoMessage() {}
 
 func (x *RemoveTaintRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[12]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -901,7 +901,7 @@ func (x *RemoveTaintRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveTaintRequest.ProtoReflect.Descriptor instead.
 func (*RemoveTaintRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{12}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RemoveTaintRequest) GetNodeId() string {
@@ -931,7 +931,7 @@ type UpdateLabelsRequest struct {
 
 func (x *UpdateLabelsRequest) Reset() {
 	*x = UpdateLabelsRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[13]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -943,7 +943,7 @@ func (x *UpdateLabelsRequest) String() string {
 func (*UpdateLabelsRequest) ProtoMessage() {}
 
 func (x *UpdateLabelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[13]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -956,7 +956,7 @@ func (x *UpdateLabelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLabelsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateLabelsRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{13}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UpdateLabelsRequest) GetNodeId() string {
@@ -1005,7 +1005,7 @@ type UpdateHeartbeatRequest struct {
 
 func (x *UpdateHeartbeatRequest) Reset() {
 	*x = UpdateHeartbeatRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[14]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1017,7 +1017,7 @@ func (x *UpdateHeartbeatRequest) String() string {
 func (*UpdateHeartbeatRequest) ProtoMessage() {}
 
 func (x *UpdateHeartbeatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[14]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1030,7 +1030,7 @@ func (x *UpdateHeartbeatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateHeartbeatRequest.ProtoReflect.Descriptor instead.
 func (*UpdateHeartbeatRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{14}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *UpdateHeartbeatRequest) GetNodeId() string {
@@ -1117,7 +1117,7 @@ type UpdateHeartbeatResponse struct {
 
 func (x *UpdateHeartbeatResponse) Reset() {
 	*x = UpdateHeartbeatResponse{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[15]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1129,7 +1129,7 @@ func (x *UpdateHeartbeatResponse) String() string {
 func (*UpdateHeartbeatResponse) ProtoMessage() {}
 
 func (x *UpdateHeartbeatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[15]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1142,7 +1142,7 @@ func (x *UpdateHeartbeatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateHeartbeatResponse.ProtoReflect.Descriptor instead.
 func (*UpdateHeartbeatResponse) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{15}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UpdateHeartbeatResponse) GetAcknowledged() bool {
@@ -1175,7 +1175,7 @@ type GetNodeMetricsRequest struct {
 
 func (x *GetNodeMetricsRequest) Reset() {
 	*x = GetNodeMetricsRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[16]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1187,7 +1187,7 @@ func (x *GetNodeMetricsRequest) String() string {
 func (*GetNodeMetricsRequest) ProtoMessage() {}
 
 func (x *GetNodeMetricsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[16]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1200,7 +1200,7 @@ func (x *GetNodeMetricsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeMetricsRequest.ProtoReflect.Descriptor instead.
 func (*GetNodeMetricsRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{16}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetNodeMetricsRequest) GetId() string {
@@ -1243,7 +1243,7 @@ type NodeMetrics struct {
 
 func (x *NodeMetrics) Reset() {
 	*x = NodeMetrics{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[17]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1255,7 +1255,7 @@ func (x *NodeMetrics) String() string {
 func (*NodeMetrics) ProtoMessage() {}
 
 func (x *NodeMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[17]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1268,7 +1268,7 @@ func (x *NodeMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeMetrics.ProtoReflect.Descriptor instead.
 func (*NodeMetrics) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{17}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *NodeMetrics) GetNodeId() string {
@@ -1408,7 +1408,7 @@ type ListNodeEventsRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	NodeId string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
 	// Filter by type
-	Types []NodeEvent_EventType `protobuf:"varint,2,rep,packed,name=types,proto3,enum=Quantixkvm.compute.v1.NodeEvent_EventType" json:"types,omitempty"`
+	Types []NodeEvent_EventType `protobuf:"varint,2,rep,packed,name=types,proto3,enum=limiquantix.compute.v1.NodeEvent_EventType" json:"types,omitempty"`
 	// Limit
 	Limit         int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1417,7 +1417,7 @@ type ListNodeEventsRequest struct {
 
 func (x *ListNodeEventsRequest) Reset() {
 	*x = ListNodeEventsRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[18]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1429,7 +1429,7 @@ func (x *ListNodeEventsRequest) String() string {
 func (*ListNodeEventsRequest) ProtoMessage() {}
 
 func (x *ListNodeEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[18]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1442,7 +1442,7 @@ func (x *ListNodeEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNodeEventsRequest.ProtoReflect.Descriptor instead.
 func (*ListNodeEventsRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{18}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListNodeEventsRequest) GetNodeId() string {
@@ -1475,7 +1475,7 @@ type ListNodeEventsResponse struct {
 
 func (x *ListNodeEventsResponse) Reset() {
 	*x = ListNodeEventsResponse{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[19]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1487,7 +1487,7 @@ func (x *ListNodeEventsResponse) String() string {
 func (*ListNodeEventsResponse) ProtoMessage() {}
 
 func (x *ListNodeEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[19]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1500,7 +1500,7 @@ func (x *ListNodeEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNodeEventsResponse.ProtoReflect.Descriptor instead.
 func (*ListNodeEventsResponse) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{19}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListNodeEventsResponse) GetEvents() []*NodeEvent {
@@ -1519,7 +1519,7 @@ type WatchNodeRequest struct {
 
 func (x *WatchNodeRequest) Reset() {
 	*x = WatchNodeRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[20]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1531,7 +1531,7 @@ func (x *WatchNodeRequest) String() string {
 func (*WatchNodeRequest) ProtoMessage() {}
 
 func (x *WatchNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[20]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1544,7 +1544,7 @@ func (x *WatchNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchNodeRequest.ProtoReflect.Descriptor instead.
 func (*WatchNodeRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{20}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *WatchNodeRequest) GetNodeId() string {
@@ -1564,7 +1564,7 @@ type WatchNodesRequest struct {
 
 func (x *WatchNodesRequest) Reset() {
 	*x = WatchNodesRequest{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[21]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1576,7 +1576,7 @@ func (x *WatchNodesRequest) String() string {
 func (*WatchNodesRequest) ProtoMessage() {}
 
 func (x *WatchNodesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[21]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1589,7 +1589,7 @@ func (x *WatchNodesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchNodesRequest.ProtoReflect.Descriptor instead.
 func (*WatchNodesRequest) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{21}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *WatchNodesRequest) GetLabels() map[string]string {
@@ -1601,7 +1601,7 @@ func (x *WatchNodesRequest) GetLabels() map[string]string {
 
 type NodeUpdate struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Type          NodeUpdate_UpdateType  `protobuf:"varint,1,opt,name=type,proto3,enum=Quantixkvm.compute.v1.NodeUpdate_UpdateType" json:"type,omitempty"`
+	Type          NodeUpdate_UpdateType  `protobuf:"varint,1,opt,name=type,proto3,enum=limiquantix.compute.v1.NodeUpdate_UpdateType" json:"type,omitempty"`
 	Node          *Node                  `protobuf:"bytes,2,opt,name=node,proto3" json:"node,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1609,7 +1609,7 @@ type NodeUpdate struct {
 
 func (x *NodeUpdate) Reset() {
 	*x = NodeUpdate{}
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[22]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1621,7 +1621,7 @@ func (x *NodeUpdate) String() string {
 func (*NodeUpdate) ProtoMessage() {}
 
 func (x *NodeUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_Quantixkvm_compute_v1_node_service_proto_msgTypes[22]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1634,7 +1634,7 @@ func (x *NodeUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeUpdate.ProtoReflect.Descriptor instead.
 func (*NodeUpdate) Descriptor() ([]byte, []int) {
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP(), []int{22}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *NodeUpdate) GetType() NodeUpdate_UpdateType {
@@ -1651,32 +1651,32 @@ func (x *NodeUpdate) GetNode() *Node {
 	return nil
 }
 
-var File_Quantixkvm_compute_v1_node_service_proto protoreflect.FileDescriptor
+var File_limiquantix_compute_v1_node_service_proto protoreflect.FileDescriptor
 
-const file_Quantixkvm_compute_v1_node_service_proto_rawDesc = "" +
+const file_limiquantix_compute_v1_node_service_proto_rawDesc = "" +
 	"\n" +
-	")Quantixkvm/compute/v1/node_service.proto\x12\x16Quantixkvm.compute.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a!Quantixkvm/compute/v1/node.proto\"\x97\x05\n" +
+	")limiquantix/compute/v1/node_service.proto\x12\x16limiquantix.compute.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a!limiquantix/compute/v1/node.proto\"\x97\x05\n" +
 	"\x13RegisterNodeRequest\x12\x1a\n" +
 	"\bhostname\x18\x01 \x01(\tR\bhostname\x12#\n" +
 	"\rmanagement_ip\x18\x02 \x01(\tR\fmanagementIp\x12O\n" +
-	"\x06labels\x18\x03 \x03(\v27.Quantixkvm.compute.v1.RegisterNodeRequest.LabelsEntryR\x06labels\x124\n" +
-	"\x04role\x18\x04 \x01(\v2 .Quantixkvm.compute.v1.NodeRoleR\x04role\x125\n" +
-	"\x06taints\x18\x05 \x03(\v2\x1d.Quantixkvm.compute.v1.TaintR\x06taints\x12%\n" +
+	"\x06labels\x18\x03 \x03(\v27.limiquantix.compute.v1.RegisterNodeRequest.LabelsEntryR\x06labels\x124\n" +
+	"\x04role\x18\x04 \x01(\v2 .limiquantix.compute.v1.NodeRoleR\x04role\x125\n" +
+	"\x06taints\x18\x05 \x03(\v2\x1d.limiquantix.compute.v1.TaintR\x06taints\x12%\n" +
 	"\x0eagent_endpoint\x18\x06 \x01(\tR\ragentEndpoint\x12:\n" +
-	"\bcpu_info\x18\a \x01(\v2\x1f.Quantixkvm.compute.v1.CpuInfoR\acpuInfo\x12C\n" +
-	"\vmemory_info\x18\b \x01(\v2\".Quantixkvm.compute.v1.MemoryInfoR\n" +
+	"\bcpu_info\x18\a \x01(\v2\x1f.limiquantix.compute.v1.CpuInfoR\acpuInfo\x12C\n" +
+	"\vmemory_info\x18\b \x01(\v2\".limiquantix.compute.v1.MemoryInfoR\n" +
 	"memoryInfo\x12N\n" +
-	"\x0fstorage_devices\x18\t \x03(\v2%.Quantixkvm.compute.v1.StorageDeviceR\x0estorageDevices\x12N\n" +
+	"\x0fstorage_devices\x18\t \x03(\v2%.limiquantix.compute.v1.StorageDeviceR\x0estorageDevices\x12N\n" +
 	"\x0fnetwork_devices\x18\n" +
-	" \x03(\v2%.Quantixkvm.compute.v1.NetworkDeviceR\x0enetworkDevices\x1a9\n" +
+	" \x03(\v2%.limiquantix.compute.v1.NetworkDeviceR\x0enetworkDevices\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\" \n" +
 	"\x0eGetNodeRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x8d\x03\n" +
 	"\x10ListNodesRequest\x12L\n" +
-	"\x06labels\x18\x01 \x03(\v24.Quantixkvm.compute.v1.ListNodesRequest.LabelsEntryR\x06labels\x12@\n" +
-	"\x06phases\x18\x02 \x03(\x0e2(.Quantixkvm.compute.v1.NodeStatus.PhaseR\x06phases\x12!\n" +
+	"\x06labels\x18\x01 \x03(\v24.limiquantix.compute.v1.ListNodesRequest.LabelsEntryR\x06labels\x12@\n" +
+	"\x06phases\x18\x02 \x03(\x0e2(.limiquantix.compute.v1.NodeStatus.PhaseR\x06phases\x12!\n" +
 	"\fcompute_only\x18\x03 \x01(\bR\vcomputeOnly\x12!\n" +
 	"\fstorage_only\x18\x04 \x01(\bR\vstorageOnly\x12,\n" +
 	"\x12control_plane_only\x18\x05 \x01(\bR\x10controlPlaneOnly\x12\x1b\n" +
@@ -1688,16 +1688,16 @@ const file_Quantixkvm_compute_v1_node_service_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x90\x01\n" +
 	"\x11ListNodesResponse\x122\n" +
-	"\x05nodes\x18\x01 \x03(\v2\x1c.Quantixkvm.compute.v1.NodeR\x05nodes\x12&\n" +
+	"\x05nodes\x18\x01 \x03(\v2\x1c.limiquantix.compute.v1.NodeR\x05nodes\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
 	"totalCount\"\xe0\x01\n" +
 	"\x11UpdateNodeRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12H\n" +
 	"\n" +
-	"scheduling\x18\x02 \x01(\v2(.Quantixkvm.compute.v1.SchedulingConfigR\n" +
+	"scheduling\x18\x02 \x01(\v2(.limiquantix.compute.v1.SchedulingConfigR\n" +
 	"scheduling\x124\n" +
-	"\x04role\x18\x03 \x01(\v2 .Quantixkvm.compute.v1.NodeRoleR\x04role\x12;\n" +
+	"\x04role\x18\x03 \x01(\v2 .limiquantix.compute.v1.NodeRoleR\x04role\x12;\n" +
 	"\vupdate_mask\x18\x04 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
 	"updateMask\"?\n" +
 	"\x17DecommissionNodeRequest\x12\x0e\n" +
@@ -1714,23 +1714,23 @@ const file_Quantixkvm_compute_v1_node_service_proto_rawDesc = "" +
 	"\x05force\x18\x03 \x01(\bR\x05force\x12$\n" +
 	"\x0etarget_node_id\x18\x04 \x01(\tR\ftargetNodeId\"\xd5\x01\n" +
 	"\x11DrainNodeResponse\x120\n" +
-	"\x04node\x18\x01 \x01(\v2\x1c.Quantixkvm.compute.v1.NodeR\x04node\x12&\n" +
+	"\x04node\x18\x01 \x01(\v2\x1c.limiquantix.compute.v1.NodeR\x04node\x12&\n" +
 	"\x0fmigrated_vm_ids\x18\x02 \x03(\tR\rmigratedVmIds\x12$\n" +
 	"\x0estopped_vm_ids\x18\x03 \x03(\tR\fstoppedVmIds\x12@\n" +
-	"\bfailures\x18\x04 \x03(\v2$.Quantixkvm.compute.v1.DrainFailureR\bfailures\"9\n" +
+	"\bfailures\x18\x04 \x03(\v2$.limiquantix.compute.v1.DrainFailureR\bfailures\"9\n" +
 	"\fDrainFailure\x12\x13\n" +
 	"\x05vm_id\x18\x01 \x01(\tR\x04vmId\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\"_\n" +
 	"\x0fAddTaintRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x123\n" +
-	"\x05taint\x18\x02 \x01(\v2\x1d.Quantixkvm.compute.v1.TaintR\x05taint\"J\n" +
+	"\x05taint\x18\x02 \x01(\v2\x1d.limiquantix.compute.v1.TaintR\x05taint\"J\n" +
 	"\x12RemoveTaintRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1b\n" +
 	"\ttaint_key\x18\x02 \x01(\tR\btaintKey\"\xec\x01\n" +
 	"\x13UpdateLabelsRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12Y\n" +
 	"\n" +
-	"add_labels\x18\x02 \x03(\v2:.Quantixkvm.compute.v1.UpdateLabelsRequest.AddLabelsEntryR\taddLabels\x12#\n" +
+	"add_labels\x18\x02 \x03(\v2:.limiquantix.compute.v1.UpdateLabelsRequest.AddLabelsEntryR\taddLabels\x12#\n" +
 	"\rremove_labels\x18\x03 \x03(\tR\fremoveLabels\x1a<\n" +
 	"\x0eAddLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -1776,160 +1776,160 @@ const file_Quantixkvm_compute_v1_node_service_proto_rawDesc = "" +
 	"\bload_15m\x18\x13 \x01(\x01R\aload15m\"\x89\x01\n" +
 	"\x15ListNodeEventsRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12A\n" +
-	"\x05types\x18\x02 \x03(\x0e2+.Quantixkvm.compute.v1.NodeEvent.EventTypeR\x05types\x12\x14\n" +
+	"\x05types\x18\x02 \x03(\x0e2+.limiquantix.compute.v1.NodeEvent.EventTypeR\x05types\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\"S\n" +
 	"\x16ListNodeEventsResponse\x129\n" +
-	"\x06events\x18\x01 \x03(\v2!.Quantixkvm.compute.v1.NodeEventR\x06events\"+\n" +
+	"\x06events\x18\x01 \x03(\v2!.limiquantix.compute.v1.NodeEventR\x06events\"+\n" +
 	"\x10WatchNodeRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\"\x9d\x01\n" +
 	"\x11WatchNodesRequest\x12M\n" +
-	"\x06labels\x18\x01 \x03(\v25.Quantixkvm.compute.v1.WatchNodesRequest.LabelsEntryR\x06labels\x1a9\n" +
+	"\x06labels\x18\x01 \x03(\v25.limiquantix.compute.v1.WatchNodesRequest.LabelsEntryR\x06labels\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb5\x01\n" +
 	"\n" +
 	"NodeUpdate\x12A\n" +
-	"\x04type\x18\x01 \x01(\x0e2-.Quantixkvm.compute.v1.NodeUpdate.UpdateTypeR\x04type\x120\n" +
-	"\x04node\x18\x02 \x01(\v2\x1c.Quantixkvm.compute.v1.NodeR\x04node\"2\n" +
+	"\x04type\x18\x01 \x01(\x0e2-.limiquantix.compute.v1.NodeUpdate.UpdateTypeR\x04type\x120\n" +
+	"\x04node\x18\x02 \x01(\v2\x1c.limiquantix.compute.v1.NodeR\x04node\"2\n" +
 	"\n" +
 	"UpdateType\x12\t\n" +
 	"\x05ADDED\x10\x00\x12\f\n" +
 	"\bMODIFIED\x10\x01\x12\v\n" +
 	"\aDELETED\x10\x022\xe9\v\n" +
 	"\vNodeService\x12Y\n" +
-	"\fRegisterNode\x12+.Quantixkvm.compute.v1.RegisterNodeRequest\x1a\x1c.Quantixkvm.compute.v1.Node\x12O\n" +
-	"\aGetNode\x12&.Quantixkvm.compute.v1.GetNodeRequest\x1a\x1c.Quantixkvm.compute.v1.Node\x12`\n" +
-	"\tListNodes\x12(.Quantixkvm.compute.v1.ListNodesRequest\x1a).Quantixkvm.compute.v1.ListNodesResponse\x12U\n" +
+	"\fRegisterNode\x12+.limiquantix.compute.v1.RegisterNodeRequest\x1a\x1c.limiquantix.compute.v1.Node\x12O\n" +
+	"\aGetNode\x12&.limiquantix.compute.v1.GetNodeRequest\x1a\x1c.limiquantix.compute.v1.Node\x12`\n" +
+	"\tListNodes\x12(.limiquantix.compute.v1.ListNodesRequest\x1a).limiquantix.compute.v1.ListNodesResponse\x12U\n" +
 	"\n" +
-	"UpdateNode\x12).Quantixkvm.compute.v1.UpdateNodeRequest\x1a\x1c.Quantixkvm.compute.v1.Node\x12[\n" +
-	"\x10DecommissionNode\x12/.Quantixkvm.compute.v1.DecommissionNodeRequest\x1a\x16.google.protobuf.Empty\x12U\n" +
+	"UpdateNode\x12).limiquantix.compute.v1.UpdateNodeRequest\x1a\x1c.limiquantix.compute.v1.Node\x12[\n" +
+	"\x10DecommissionNode\x12/.limiquantix.compute.v1.DecommissionNodeRequest\x1a\x16.google.protobuf.Empty\x12U\n" +
 	"\n" +
-	"EnableNode\x12).Quantixkvm.compute.v1.EnableNodeRequest\x1a\x1c.Quantixkvm.compute.v1.Node\x12W\n" +
-	"\vDisableNode\x12*.Quantixkvm.compute.v1.DisableNodeRequest\x1a\x1c.Quantixkvm.compute.v1.Node\x12`\n" +
-	"\tDrainNode\x12(.Quantixkvm.compute.v1.DrainNodeRequest\x1a).Quantixkvm.compute.v1.DrainNodeResponse\x12Q\n" +
-	"\bAddTaint\x12'.Quantixkvm.compute.v1.AddTaintRequest\x1a\x1c.Quantixkvm.compute.v1.Node\x12W\n" +
-	"\vRemoveTaint\x12*.Quantixkvm.compute.v1.RemoveTaintRequest\x1a\x1c.Quantixkvm.compute.v1.Node\x12Y\n" +
-	"\fUpdateLabels\x12+.Quantixkvm.compute.v1.UpdateLabelsRequest\x1a\x1c.Quantixkvm.compute.v1.Node\x12r\n" +
-	"\x0fUpdateHeartbeat\x12..Quantixkvm.compute.v1.UpdateHeartbeatRequest\x1a/.Quantixkvm.compute.v1.UpdateHeartbeatResponse\x12d\n" +
-	"\x0eGetNodeMetrics\x12-.Quantixkvm.compute.v1.GetNodeMetricsRequest\x1a#.Quantixkvm.compute.v1.NodeMetrics\x12o\n" +
-	"\x0eListNodeEvents\x12-.Quantixkvm.compute.v1.ListNodeEventsRequest\x1a..Quantixkvm.compute.v1.ListNodeEventsResponse\x12U\n" +
-	"\tWatchNode\x12(.Quantixkvm.compute.v1.WatchNodeRequest\x1a\x1c.Quantixkvm.compute.v1.Node0\x01\x12]\n" +
+	"EnableNode\x12).limiquantix.compute.v1.EnableNodeRequest\x1a\x1c.limiquantix.compute.v1.Node\x12W\n" +
+	"\vDisableNode\x12*.limiquantix.compute.v1.DisableNodeRequest\x1a\x1c.limiquantix.compute.v1.Node\x12`\n" +
+	"\tDrainNode\x12(.limiquantix.compute.v1.DrainNodeRequest\x1a).limiquantix.compute.v1.DrainNodeResponse\x12Q\n" +
+	"\bAddTaint\x12'.limiquantix.compute.v1.AddTaintRequest\x1a\x1c.limiquantix.compute.v1.Node\x12W\n" +
+	"\vRemoveTaint\x12*.limiquantix.compute.v1.RemoveTaintRequest\x1a\x1c.limiquantix.compute.v1.Node\x12Y\n" +
+	"\fUpdateLabels\x12+.limiquantix.compute.v1.UpdateLabelsRequest\x1a\x1c.limiquantix.compute.v1.Node\x12r\n" +
+	"\x0fUpdateHeartbeat\x12..limiquantix.compute.v1.UpdateHeartbeatRequest\x1a/.limiquantix.compute.v1.UpdateHeartbeatResponse\x12d\n" +
+	"\x0eGetNodeMetrics\x12-.limiquantix.compute.v1.GetNodeMetricsRequest\x1a#.limiquantix.compute.v1.NodeMetrics\x12o\n" +
+	"\x0eListNodeEvents\x12-.limiquantix.compute.v1.ListNodeEventsRequest\x1a..limiquantix.compute.v1.ListNodeEventsResponse\x12U\n" +
+	"\tWatchNode\x12(.limiquantix.compute.v1.WatchNodeRequest\x1a\x1c.limiquantix.compute.v1.Node0\x01\x12]\n" +
 	"\n" +
-	"WatchNodes\x12).Quantixkvm.compute.v1.WatchNodesRequest\x1a\".Quantixkvm.compute.v1.NodeUpdate0\x01B\xf5\x01\n" +
-	"\x1acom.Quantixkvm.compute.v1B\x10NodeServiceProtoP\x01ZKgithub.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1;computev1\xa2\x02\x03LCX\xaa\x02\x16Quantixkvm.Compute.V1\xca\x02\x16Quantixkvm\\Compute\\V1\xe2\x02\"Quantixkvm\\Compute\\V1\\GPBMetadata\xea\x02\x18Quantixkvm::Compute::V1b\x06proto3"
+	"WatchNodes\x12).limiquantix.compute.v1.WatchNodesRequest\x1a\".limiquantix.compute.v1.NodeUpdate0\x01B\xf5\x01\n" +
+	"\x1acom.limiquantix.compute.v1B\x10NodeServiceProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1;computev1\xa2\x02\x03LCX\xaa\x02\x16limiquantix.Compute.V1\xca\x02\x16limiquantix\\Compute\\V1\xe2\x02\"limiquantix\\Compute\\V1\\GPBMetadata\xea\x02\x18limiquantix::Compute::V1b\x06proto3"
 
 var (
-	file_Quantixkvm_compute_v1_node_service_proto_rawDescOnce sync.Once
-	file_Quantixkvm_compute_v1_node_service_proto_rawDescData []byte
+	file_limiquantix_compute_v1_node_service_proto_rawDescOnce sync.Once
+	file_limiquantix_compute_v1_node_service_proto_rawDescData []byte
 )
 
-func file_Quantixkvm_compute_v1_node_service_proto_rawDescGZIP() []byte {
-	file_Quantixkvm_compute_v1_node_service_proto_rawDescOnce.Do(func() {
-		file_Quantixkvm_compute_v1_node_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_Quantixkvm_compute_v1_node_service_proto_rawDesc), len(file_Quantixkvm_compute_v1_node_service_proto_rawDesc)))
+func file_limiquantix_compute_v1_node_service_proto_rawDescGZIP() []byte {
+	file_limiquantix_compute_v1_node_service_proto_rawDescOnce.Do(func() {
+		file_limiquantix_compute_v1_node_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_limiquantix_compute_v1_node_service_proto_rawDesc), len(file_limiquantix_compute_v1_node_service_proto_rawDesc)))
 	})
-	return file_Quantixkvm_compute_v1_node_service_proto_rawDescData
+	return file_limiquantix_compute_v1_node_service_proto_rawDescData
 }
 
-var file_Quantixkvm_compute_v1_node_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_Quantixkvm_compute_v1_node_service_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
-var file_Quantixkvm_compute_v1_node_service_proto_goTypes = []any{
-	(NodeUpdate_UpdateType)(0),      // 0: Quantixkvm.compute.v1.NodeUpdate.UpdateType
-	(*RegisterNodeRequest)(nil),     // 1: Quantixkvm.compute.v1.RegisterNodeRequest
-	(*GetNodeRequest)(nil),          // 2: Quantixkvm.compute.v1.GetNodeRequest
-	(*ListNodesRequest)(nil),        // 3: Quantixkvm.compute.v1.ListNodesRequest
-	(*ListNodesResponse)(nil),       // 4: Quantixkvm.compute.v1.ListNodesResponse
-	(*UpdateNodeRequest)(nil),       // 5: Quantixkvm.compute.v1.UpdateNodeRequest
-	(*DecommissionNodeRequest)(nil), // 6: Quantixkvm.compute.v1.DecommissionNodeRequest
-	(*EnableNodeRequest)(nil),       // 7: Quantixkvm.compute.v1.EnableNodeRequest
-	(*DisableNodeRequest)(nil),      // 8: Quantixkvm.compute.v1.DisableNodeRequest
-	(*DrainNodeRequest)(nil),        // 9: Quantixkvm.compute.v1.DrainNodeRequest
-	(*DrainNodeResponse)(nil),       // 10: Quantixkvm.compute.v1.DrainNodeResponse
-	(*DrainFailure)(nil),            // 11: Quantixkvm.compute.v1.DrainFailure
-	(*AddTaintRequest)(nil),         // 12: Quantixkvm.compute.v1.AddTaintRequest
-	(*RemoveTaintRequest)(nil),      // 13: Quantixkvm.compute.v1.RemoveTaintRequest
-	(*UpdateLabelsRequest)(nil),     // 14: Quantixkvm.compute.v1.UpdateLabelsRequest
-	(*UpdateHeartbeatRequest)(nil),  // 15: Quantixkvm.compute.v1.UpdateHeartbeatRequest
-	(*UpdateHeartbeatResponse)(nil), // 16: Quantixkvm.compute.v1.UpdateHeartbeatResponse
-	(*GetNodeMetricsRequest)(nil),   // 17: Quantixkvm.compute.v1.GetNodeMetricsRequest
-	(*NodeMetrics)(nil),             // 18: Quantixkvm.compute.v1.NodeMetrics
-	(*ListNodeEventsRequest)(nil),   // 19: Quantixkvm.compute.v1.ListNodeEventsRequest
-	(*ListNodeEventsResponse)(nil),  // 20: Quantixkvm.compute.v1.ListNodeEventsResponse
-	(*WatchNodeRequest)(nil),        // 21: Quantixkvm.compute.v1.WatchNodeRequest
-	(*WatchNodesRequest)(nil),       // 22: Quantixkvm.compute.v1.WatchNodesRequest
-	(*NodeUpdate)(nil),              // 23: Quantixkvm.compute.v1.NodeUpdate
-	nil,                             // 24: Quantixkvm.compute.v1.RegisterNodeRequest.LabelsEntry
-	nil,                             // 25: Quantixkvm.compute.v1.ListNodesRequest.LabelsEntry
-	nil,                             // 26: Quantixkvm.compute.v1.UpdateLabelsRequest.AddLabelsEntry
-	nil,                             // 27: Quantixkvm.compute.v1.WatchNodesRequest.LabelsEntry
-	(*NodeRole)(nil),                // 28: Quantixkvm.compute.v1.NodeRole
-	(*Taint)(nil),                   // 29: Quantixkvm.compute.v1.Taint
-	(*CpuInfo)(nil),                 // 30: Quantixkvm.compute.v1.CpuInfo
-	(*MemoryInfo)(nil),              // 31: Quantixkvm.compute.v1.MemoryInfo
-	(*StorageDevice)(nil),           // 32: Quantixkvm.compute.v1.StorageDevice
-	(*NetworkDevice)(nil),           // 33: Quantixkvm.compute.v1.NetworkDevice
-	(NodeStatus_Phase)(0),           // 34: Quantixkvm.compute.v1.NodeStatus.Phase
-	(*Node)(nil),                    // 35: Quantixkvm.compute.v1.Node
-	(*SchedulingConfig)(nil),        // 36: Quantixkvm.compute.v1.SchedulingConfig
+var file_limiquantix_compute_v1_node_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_limiquantix_compute_v1_node_service_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_limiquantix_compute_v1_node_service_proto_goTypes = []any{
+	(NodeUpdate_UpdateType)(0),      // 0: limiquantix.compute.v1.NodeUpdate.UpdateType
+	(*RegisterNodeRequest)(nil),     // 1: limiquantix.compute.v1.RegisterNodeRequest
+	(*GetNodeRequest)(nil),          // 2: limiquantix.compute.v1.GetNodeRequest
+	(*ListNodesRequest)(nil),        // 3: limiquantix.compute.v1.ListNodesRequest
+	(*ListNodesResponse)(nil),       // 4: limiquantix.compute.v1.ListNodesResponse
+	(*UpdateNodeRequest)(nil),       // 5: limiquantix.compute.v1.UpdateNodeRequest
+	(*DecommissionNodeRequest)(nil), // 6: limiquantix.compute.v1.DecommissionNodeRequest
+	(*EnableNodeRequest)(nil),       // 7: limiquantix.compute.v1.EnableNodeRequest
+	(*DisableNodeRequest)(nil),      // 8: limiquantix.compute.v1.DisableNodeRequest
+	(*DrainNodeRequest)(nil),        // 9: limiquantix.compute.v1.DrainNodeRequest
+	(*DrainNodeResponse)(nil),       // 10: limiquantix.compute.v1.DrainNodeResponse
+	(*DrainFailure)(nil),            // 11: limiquantix.compute.v1.DrainFailure
+	(*AddTaintRequest)(nil),         // 12: limiquantix.compute.v1.AddTaintRequest
+	(*RemoveTaintRequest)(nil),      // 13: limiquantix.compute.v1.RemoveTaintRequest
+	(*UpdateLabelsRequest)(nil),     // 14: limiquantix.compute.v1.UpdateLabelsRequest
+	(*UpdateHeartbeatRequest)(nil),  // 15: limiquantix.compute.v1.UpdateHeartbeatRequest
+	(*UpdateHeartbeatResponse)(nil), // 16: limiquantix.compute.v1.UpdateHeartbeatResponse
+	(*GetNodeMetricsRequest)(nil),   // 17: limiquantix.compute.v1.GetNodeMetricsRequest
+	(*NodeMetrics)(nil),             // 18: limiquantix.compute.v1.NodeMetrics
+	(*ListNodeEventsRequest)(nil),   // 19: limiquantix.compute.v1.ListNodeEventsRequest
+	(*ListNodeEventsResponse)(nil),  // 20: limiquantix.compute.v1.ListNodeEventsResponse
+	(*WatchNodeRequest)(nil),        // 21: limiquantix.compute.v1.WatchNodeRequest
+	(*WatchNodesRequest)(nil),       // 22: limiquantix.compute.v1.WatchNodesRequest
+	(*NodeUpdate)(nil),              // 23: limiquantix.compute.v1.NodeUpdate
+	nil,                             // 24: limiquantix.compute.v1.RegisterNodeRequest.LabelsEntry
+	nil,                             // 25: limiquantix.compute.v1.ListNodesRequest.LabelsEntry
+	nil,                             // 26: limiquantix.compute.v1.UpdateLabelsRequest.AddLabelsEntry
+	nil,                             // 27: limiquantix.compute.v1.WatchNodesRequest.LabelsEntry
+	(*NodeRole)(nil),                // 28: limiquantix.compute.v1.NodeRole
+	(*Taint)(nil),                   // 29: limiquantix.compute.v1.Taint
+	(*CpuInfo)(nil),                 // 30: limiquantix.compute.v1.CpuInfo
+	(*MemoryInfo)(nil),              // 31: limiquantix.compute.v1.MemoryInfo
+	(*StorageDevice)(nil),           // 32: limiquantix.compute.v1.StorageDevice
+	(*NetworkDevice)(nil),           // 33: limiquantix.compute.v1.NetworkDevice
+	(NodeStatus_Phase)(0),           // 34: limiquantix.compute.v1.NodeStatus.Phase
+	(*Node)(nil),                    // 35: limiquantix.compute.v1.Node
+	(*SchedulingConfig)(nil),        // 36: limiquantix.compute.v1.SchedulingConfig
 	(*fieldmaskpb.FieldMask)(nil),   // 37: google.protobuf.FieldMask
-	(NodeEvent_EventType)(0),        // 38: Quantixkvm.compute.v1.NodeEvent.EventType
-	(*NodeEvent)(nil),               // 39: Quantixkvm.compute.v1.NodeEvent
+	(NodeEvent_EventType)(0),        // 38: limiquantix.compute.v1.NodeEvent.EventType
+	(*NodeEvent)(nil),               // 39: limiquantix.compute.v1.NodeEvent
 	(*emptypb.Empty)(nil),           // 40: google.protobuf.Empty
 }
-var file_Quantixkvm_compute_v1_node_service_proto_depIdxs = []int32{
-	24, // 0: Quantixkvm.compute.v1.RegisterNodeRequest.labels:type_name -> Quantixkvm.compute.v1.RegisterNodeRequest.LabelsEntry
-	28, // 1: Quantixkvm.compute.v1.RegisterNodeRequest.role:type_name -> Quantixkvm.compute.v1.NodeRole
-	29, // 2: Quantixkvm.compute.v1.RegisterNodeRequest.taints:type_name -> Quantixkvm.compute.v1.Taint
-	30, // 3: Quantixkvm.compute.v1.RegisterNodeRequest.cpu_info:type_name -> Quantixkvm.compute.v1.CpuInfo
-	31, // 4: Quantixkvm.compute.v1.RegisterNodeRequest.memory_info:type_name -> Quantixkvm.compute.v1.MemoryInfo
-	32, // 5: Quantixkvm.compute.v1.RegisterNodeRequest.storage_devices:type_name -> Quantixkvm.compute.v1.StorageDevice
-	33, // 6: Quantixkvm.compute.v1.RegisterNodeRequest.network_devices:type_name -> Quantixkvm.compute.v1.NetworkDevice
-	25, // 7: Quantixkvm.compute.v1.ListNodesRequest.labels:type_name -> Quantixkvm.compute.v1.ListNodesRequest.LabelsEntry
-	34, // 8: Quantixkvm.compute.v1.ListNodesRequest.phases:type_name -> Quantixkvm.compute.v1.NodeStatus.Phase
-	35, // 9: Quantixkvm.compute.v1.ListNodesResponse.nodes:type_name -> Quantixkvm.compute.v1.Node
-	36, // 10: Quantixkvm.compute.v1.UpdateNodeRequest.scheduling:type_name -> Quantixkvm.compute.v1.SchedulingConfig
-	28, // 11: Quantixkvm.compute.v1.UpdateNodeRequest.role:type_name -> Quantixkvm.compute.v1.NodeRole
-	37, // 12: Quantixkvm.compute.v1.UpdateNodeRequest.update_mask:type_name -> google.protobuf.FieldMask
-	35, // 13: Quantixkvm.compute.v1.DrainNodeResponse.node:type_name -> Quantixkvm.compute.v1.Node
-	11, // 14: Quantixkvm.compute.v1.DrainNodeResponse.failures:type_name -> Quantixkvm.compute.v1.DrainFailure
-	29, // 15: Quantixkvm.compute.v1.AddTaintRequest.taint:type_name -> Quantixkvm.compute.v1.Taint
-	26, // 16: Quantixkvm.compute.v1.UpdateLabelsRequest.add_labels:type_name -> Quantixkvm.compute.v1.UpdateLabelsRequest.AddLabelsEntry
-	38, // 17: Quantixkvm.compute.v1.ListNodeEventsRequest.types:type_name -> Quantixkvm.compute.v1.NodeEvent.EventType
-	39, // 18: Quantixkvm.compute.v1.ListNodeEventsResponse.events:type_name -> Quantixkvm.compute.v1.NodeEvent
-	27, // 19: Quantixkvm.compute.v1.WatchNodesRequest.labels:type_name -> Quantixkvm.compute.v1.WatchNodesRequest.LabelsEntry
-	0,  // 20: Quantixkvm.compute.v1.NodeUpdate.type:type_name -> Quantixkvm.compute.v1.NodeUpdate.UpdateType
-	35, // 21: Quantixkvm.compute.v1.NodeUpdate.node:type_name -> Quantixkvm.compute.v1.Node
-	1,  // 22: Quantixkvm.compute.v1.NodeService.RegisterNode:input_type -> Quantixkvm.compute.v1.RegisterNodeRequest
-	2,  // 23: Quantixkvm.compute.v1.NodeService.GetNode:input_type -> Quantixkvm.compute.v1.GetNodeRequest
-	3,  // 24: Quantixkvm.compute.v1.NodeService.ListNodes:input_type -> Quantixkvm.compute.v1.ListNodesRequest
-	5,  // 25: Quantixkvm.compute.v1.NodeService.UpdateNode:input_type -> Quantixkvm.compute.v1.UpdateNodeRequest
-	6,  // 26: Quantixkvm.compute.v1.NodeService.DecommissionNode:input_type -> Quantixkvm.compute.v1.DecommissionNodeRequest
-	7,  // 27: Quantixkvm.compute.v1.NodeService.EnableNode:input_type -> Quantixkvm.compute.v1.EnableNodeRequest
-	8,  // 28: Quantixkvm.compute.v1.NodeService.DisableNode:input_type -> Quantixkvm.compute.v1.DisableNodeRequest
-	9,  // 29: Quantixkvm.compute.v1.NodeService.DrainNode:input_type -> Quantixkvm.compute.v1.DrainNodeRequest
-	12, // 30: Quantixkvm.compute.v1.NodeService.AddTaint:input_type -> Quantixkvm.compute.v1.AddTaintRequest
-	13, // 31: Quantixkvm.compute.v1.NodeService.RemoveTaint:input_type -> Quantixkvm.compute.v1.RemoveTaintRequest
-	14, // 32: Quantixkvm.compute.v1.NodeService.UpdateLabels:input_type -> Quantixkvm.compute.v1.UpdateLabelsRequest
-	15, // 33: Quantixkvm.compute.v1.NodeService.UpdateHeartbeat:input_type -> Quantixkvm.compute.v1.UpdateHeartbeatRequest
-	17, // 34: Quantixkvm.compute.v1.NodeService.GetNodeMetrics:input_type -> Quantixkvm.compute.v1.GetNodeMetricsRequest
-	19, // 35: Quantixkvm.compute.v1.NodeService.ListNodeEvents:input_type -> Quantixkvm.compute.v1.ListNodeEventsRequest
-	21, // 36: Quantixkvm.compute.v1.NodeService.WatchNode:input_type -> Quantixkvm.compute.v1.WatchNodeRequest
-	22, // 37: Quantixkvm.compute.v1.NodeService.WatchNodes:input_type -> Quantixkvm.compute.v1.WatchNodesRequest
-	35, // 38: Quantixkvm.compute.v1.NodeService.RegisterNode:output_type -> Quantixkvm.compute.v1.Node
-	35, // 39: Quantixkvm.compute.v1.NodeService.GetNode:output_type -> Quantixkvm.compute.v1.Node
-	4,  // 40: Quantixkvm.compute.v1.NodeService.ListNodes:output_type -> Quantixkvm.compute.v1.ListNodesResponse
-	35, // 41: Quantixkvm.compute.v1.NodeService.UpdateNode:output_type -> Quantixkvm.compute.v1.Node
-	40, // 42: Quantixkvm.compute.v1.NodeService.DecommissionNode:output_type -> google.protobuf.Empty
-	35, // 43: Quantixkvm.compute.v1.NodeService.EnableNode:output_type -> Quantixkvm.compute.v1.Node
-	35, // 44: Quantixkvm.compute.v1.NodeService.DisableNode:output_type -> Quantixkvm.compute.v1.Node
-	10, // 45: Quantixkvm.compute.v1.NodeService.DrainNode:output_type -> Quantixkvm.compute.v1.DrainNodeResponse
-	35, // 46: Quantixkvm.compute.v1.NodeService.AddTaint:output_type -> Quantixkvm.compute.v1.Node
-	35, // 47: Quantixkvm.compute.v1.NodeService.RemoveTaint:output_type -> Quantixkvm.compute.v1.Node
-	35, // 48: Quantixkvm.compute.v1.NodeService.UpdateLabels:output_type -> Quantixkvm.compute.v1.Node
-	16, // 49: Quantixkvm.compute.v1.NodeService.UpdateHeartbeat:output_type -> Quantixkvm.compute.v1.UpdateHeartbeatResponse
-	18, // 50: Quantixkvm.compute.v1.NodeService.GetNodeMetrics:output_type -> Quantixkvm.compute.v1.NodeMetrics
-	20, // 51: Quantixkvm.compute.v1.NodeService.ListNodeEvents:output_type -> Quantixkvm.compute.v1.ListNodeEventsResponse
-	35, // 52: Quantixkvm.compute.v1.NodeService.WatchNode:output_type -> Quantixkvm.compute.v1.Node
-	23, // 53: Quantixkvm.compute.v1.NodeService.WatchNodes:output_type -> Quantixkvm.compute.v1.NodeUpdate
+var file_limiquantix_compute_v1_node_service_proto_depIdxs = []int32{
+	24, // 0: limiquantix.compute.v1.RegisterNodeRequest.labels:type_name -> limiquantix.compute.v1.RegisterNodeRequest.LabelsEntry
+	28, // 1: limiquantix.compute.v1.RegisterNodeRequest.role:type_name -> limiquantix.compute.v1.NodeRole
+	29, // 2: limiquantix.compute.v1.RegisterNodeRequest.taints:type_name -> limiquantix.compute.v1.Taint
+	30, // 3: limiquantix.compute.v1.RegisterNodeRequest.cpu_info:type_name -> limiquantix.compute.v1.CpuInfo
+	31, // 4: limiquantix.compute.v1.RegisterNodeRequest.memory_info:type_name -> limiquantix.compute.v1.MemoryInfo
+	32, // 5: limiquantix.compute.v1.RegisterNodeRequest.storage_devices:type_name -> limiquantix.compute.v1.StorageDevice
+	33, // 6: limiquantix.compute.v1.RegisterNodeRequest.network_devices:type_name -> limiquantix.compute.v1.NetworkDevice
+	25, // 7: limiquantix.compute.v1.ListNodesRequest.labels:type_name -> limiquantix.compute.v1.ListNodesRequest.LabelsEntry
+	34, // 8: limiquantix.compute.v1.ListNodesRequest.phases:type_name -> limiquantix.compute.v1.NodeStatus.Phase
+	35, // 9: limiquantix.compute.v1.ListNodesResponse.nodes:type_name -> limiquantix.compute.v1.Node
+	36, // 10: limiquantix.compute.v1.UpdateNodeRequest.scheduling:type_name -> limiquantix.compute.v1.SchedulingConfig
+	28, // 11: limiquantix.compute.v1.UpdateNodeRequest.role:type_name -> limiquantix.compute.v1.NodeRole
+	37, // 12: limiquantix.compute.v1.UpdateNodeRequest.update_mask:type_name -> google.protobuf.FieldMask
+	35, // 13: limiquantix.compute.v1.DrainNodeResponse.node:type_name -> limiquantix.compute.v1.Node
+	11, // 14: limiquantix.compute.v1.DrainNodeResponse.failures:type_name -> limiquantix.compute.v1.DrainFailure
+	29, // 15: limiquantix.compute.v1.AddTaintRequest.taint:type_name -> limiquantix.compute.v1.Taint
+	26, // 16: limiquantix.compute.v1.UpdateLabelsRequest.add_labels:type_name -> limiquantix.compute.v1.UpdateLabelsRequest.AddLabelsEntry
+	38, // 17: limiquantix.compute.v1.ListNodeEventsRequest.types:type_name -> limiquantix.compute.v1.NodeEvent.EventType
+	39, // 18: limiquantix.compute.v1.ListNodeEventsResponse.events:type_name -> limiquantix.compute.v1.NodeEvent
+	27, // 19: limiquantix.compute.v1.WatchNodesRequest.labels:type_name -> limiquantix.compute.v1.WatchNodesRequest.LabelsEntry
+	0,  // 20: limiquantix.compute.v1.NodeUpdate.type:type_name -> limiquantix.compute.v1.NodeUpdate.UpdateType
+	35, // 21: limiquantix.compute.v1.NodeUpdate.node:type_name -> limiquantix.compute.v1.Node
+	1,  // 22: limiquantix.compute.v1.NodeService.RegisterNode:input_type -> limiquantix.compute.v1.RegisterNodeRequest
+	2,  // 23: limiquantix.compute.v1.NodeService.GetNode:input_type -> limiquantix.compute.v1.GetNodeRequest
+	3,  // 24: limiquantix.compute.v1.NodeService.ListNodes:input_type -> limiquantix.compute.v1.ListNodesRequest
+	5,  // 25: limiquantix.compute.v1.NodeService.UpdateNode:input_type -> limiquantix.compute.v1.UpdateNodeRequest
+	6,  // 26: limiquantix.compute.v1.NodeService.DecommissionNode:input_type -> limiquantix.compute.v1.DecommissionNodeRequest
+	7,  // 27: limiquantix.compute.v1.NodeService.EnableNode:input_type -> limiquantix.compute.v1.EnableNodeRequest
+	8,  // 28: limiquantix.compute.v1.NodeService.DisableNode:input_type -> limiquantix.compute.v1.DisableNodeRequest
+	9,  // 29: limiquantix.compute.v1.NodeService.DrainNode:input_type -> limiquantix.compute.v1.DrainNodeRequest
+	12, // 30: limiquantix.compute.v1.NodeService.AddTaint:input_type -> limiquantix.compute.v1.AddTaintRequest
+	13, // 31: limiquantix.compute.v1.NodeService.RemoveTaint:input_type -> limiquantix.compute.v1.RemoveTaintRequest
+	14, // 32: limiquantix.compute.v1.NodeService.UpdateLabels:input_type -> limiquantix.compute.v1.UpdateLabelsRequest
+	15, // 33: limiquantix.compute.v1.NodeService.UpdateHeartbeat:input_type -> limiquantix.compute.v1.UpdateHeartbeatRequest
+	17, // 34: limiquantix.compute.v1.NodeService.GetNodeMetrics:input_type -> limiquantix.compute.v1.GetNodeMetricsRequest
+	19, // 35: limiquantix.compute.v1.NodeService.ListNodeEvents:input_type -> limiquantix.compute.v1.ListNodeEventsRequest
+	21, // 36: limiquantix.compute.v1.NodeService.WatchNode:input_type -> limiquantix.compute.v1.WatchNodeRequest
+	22, // 37: limiquantix.compute.v1.NodeService.WatchNodes:input_type -> limiquantix.compute.v1.WatchNodesRequest
+	35, // 38: limiquantix.compute.v1.NodeService.RegisterNode:output_type -> limiquantix.compute.v1.Node
+	35, // 39: limiquantix.compute.v1.NodeService.GetNode:output_type -> limiquantix.compute.v1.Node
+	4,  // 40: limiquantix.compute.v1.NodeService.ListNodes:output_type -> limiquantix.compute.v1.ListNodesResponse
+	35, // 41: limiquantix.compute.v1.NodeService.UpdateNode:output_type -> limiquantix.compute.v1.Node
+	40, // 42: limiquantix.compute.v1.NodeService.DecommissionNode:output_type -> google.protobuf.Empty
+	35, // 43: limiquantix.compute.v1.NodeService.EnableNode:output_type -> limiquantix.compute.v1.Node
+	35, // 44: limiquantix.compute.v1.NodeService.DisableNode:output_type -> limiquantix.compute.v1.Node
+	10, // 45: limiquantix.compute.v1.NodeService.DrainNode:output_type -> limiquantix.compute.v1.DrainNodeResponse
+	35, // 46: limiquantix.compute.v1.NodeService.AddTaint:output_type -> limiquantix.compute.v1.Node
+	35, // 47: limiquantix.compute.v1.NodeService.RemoveTaint:output_type -> limiquantix.compute.v1.Node
+	35, // 48: limiquantix.compute.v1.NodeService.UpdateLabels:output_type -> limiquantix.compute.v1.Node
+	16, // 49: limiquantix.compute.v1.NodeService.UpdateHeartbeat:output_type -> limiquantix.compute.v1.UpdateHeartbeatResponse
+	18, // 50: limiquantix.compute.v1.NodeService.GetNodeMetrics:output_type -> limiquantix.compute.v1.NodeMetrics
+	20, // 51: limiquantix.compute.v1.NodeService.ListNodeEvents:output_type -> limiquantix.compute.v1.ListNodeEventsResponse
+	35, // 52: limiquantix.compute.v1.NodeService.WatchNode:output_type -> limiquantix.compute.v1.Node
+	23, // 53: limiquantix.compute.v1.NodeService.WatchNodes:output_type -> limiquantix.compute.v1.NodeUpdate
 	38, // [38:54] is the sub-list for method output_type
 	22, // [22:38] is the sub-list for method input_type
 	22, // [22:22] is the sub-list for extension type_name
@@ -1937,28 +1937,28 @@ var file_Quantixkvm_compute_v1_node_service_proto_depIdxs = []int32{
 	0,  // [0:22] is the sub-list for field type_name
 }
 
-func init() { file_Quantixkvm_compute_v1_node_service_proto_init() }
-func file_Quantixkvm_compute_v1_node_service_proto_init() {
-	if File_Quantixkvm_compute_v1_node_service_proto != nil {
+func init() { file_limiquantix_compute_v1_node_service_proto_init() }
+func file_limiquantix_compute_v1_node_service_proto_init() {
+	if File_limiquantix_compute_v1_node_service_proto != nil {
 		return
 	}
-	file_Quantixkvm_compute_v1_node_proto_init()
+	file_limiquantix_compute_v1_node_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_Quantixkvm_compute_v1_node_service_proto_rawDesc), len(file_Quantixkvm_compute_v1_node_service_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_compute_v1_node_service_proto_rawDesc), len(file_limiquantix_compute_v1_node_service_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_Quantixkvm_compute_v1_node_service_proto_goTypes,
-		DependencyIndexes: file_Quantixkvm_compute_v1_node_service_proto_depIdxs,
-		EnumInfos:         file_Quantixkvm_compute_v1_node_service_proto_enumTypes,
-		MessageInfos:      file_Quantixkvm_compute_v1_node_service_proto_msgTypes,
+		GoTypes:           file_limiquantix_compute_v1_node_service_proto_goTypes,
+		DependencyIndexes: file_limiquantix_compute_v1_node_service_proto_depIdxs,
+		EnumInfos:         file_limiquantix_compute_v1_node_service_proto_enumTypes,
+		MessageInfos:      file_limiquantix_compute_v1_node_service_proto_msgTypes,
 	}.Build()
-	File_Quantixkvm_compute_v1_node_service_proto = out.File
-	file_Quantixkvm_compute_v1_node_service_proto_goTypes = nil
-	file_Quantixkvm_compute_v1_node_service_proto_depIdxs = nil
+	File_limiquantix_compute_v1_node_service_proto = out.File
+	file_limiquantix_compute_v1_node_service_proto_goTypes = nil
+	file_limiquantix_compute_v1_node_service_proto_depIdxs = nil
 }

@@ -14,7 +14,7 @@ use crate::xml::DomainXmlBuilder;
 
 /// Libvirt/QEMU hypervisor backend.
 ///
-/// This is the primary hypervisor backend for Quantixkvm, providing
+/// This is the primary hypervisor backend for limiquantix, providing
 /// full VM lifecycle management through libvirt.
 pub struct LibvirtBackend {
     uri: String,

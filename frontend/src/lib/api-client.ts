@@ -1,7 +1,7 @@
 /**
- * Quantixkvm API Client
+ * limiquantix API Client
  * 
- * This module provides HTTP client for communicating with the Quantixkvm backend.
+ * This module provides HTTP client for communicating with the limiquantix backend.
  * Uses simple fetch-based approach for compatibility.
  * 
  * The client supports:
@@ -200,7 +200,7 @@ export interface ApiVM {
 export const vmApi = {
   async list(params?: VMListRequest): Promise<VMListResponse> {
     return apiCall<VMListResponse>(
-      'Quantixkvm.compute.v1.VMService',
+      'limiquantix.compute.v1.VMService',
       'ListVMs',
       params || {}
     );
@@ -208,7 +208,7 @@ export const vmApi = {
   
   async get(id: string): Promise<ApiVM> {
     return apiCall<ApiVM>(
-      'Quantixkvm.compute.v1.VMService',
+      'limiquantix.compute.v1.VMService',
       'GetVM',
       { id }
     );
@@ -231,7 +231,7 @@ export const vmApi = {
   
   async start(id: string): Promise<ApiVM> {
     return apiCall<ApiVM>(
-      'Quantixkvm.compute.v1.VMService',
+      'limiquantix.compute.v1.VMService',
       'StartVM',
       { id }
     );
@@ -239,7 +239,7 @@ export const vmApi = {
   
   async stop(id: string, force?: boolean): Promise<ApiVM> {
     return apiCall<ApiVM>(
-      'Quantixkvm.compute.v1.VMService',
+      'limiquantix.compute.v1.VMService',
       'StopVM',
       { id, force }
     );
@@ -247,7 +247,7 @@ export const vmApi = {
   
   async delete(id: string, force?: boolean): Promise<void> {
     await apiCall<void>(
-      'Quantixkvm.compute.v1.VMService',
+      'limiquantix.compute.v1.VMService',
       'DeleteVM',
       { id, force }
     );
@@ -325,7 +325,7 @@ export interface ApiNode {
 export const nodeApi = {
   async list(params?: NodeListRequest): Promise<NodeListResponse> {
     return apiCall<NodeListResponse>(
-      'Quantixkvm.compute.v1.NodeService',
+      'limiquantix.compute.v1.NodeService',
       'ListNodes',
       params || {}
     );
@@ -333,7 +333,7 @@ export const nodeApi = {
   
   async get(id: string): Promise<ApiNode> {
     return apiCall<ApiNode>(
-      'Quantixkvm.compute.v1.NodeService',
+      'limiquantix.compute.v1.NodeService',
       'GetNode',
       { id }
     );
@@ -345,7 +345,7 @@ export const nodeApi = {
     memoryTotalMib: number;
   }> {
     return apiCall(
-      'Quantixkvm.compute.v1.NodeService',
+      'limiquantix.compute.v1.NodeService',
       'GetNodeMetrics',
       { nodeId }
     );
@@ -388,7 +388,7 @@ export interface NetworkListResponse {
 export const networkApi = {
   async list(params?: { projectId?: string; pageSize?: number }): Promise<NetworkListResponse> {
     return apiCall<NetworkListResponse>(
-      'Quantixkvm.network.v1.VirtualNetworkService',
+      'limiquantix.network.v1.VirtualNetworkService',
       'ListVirtualNetworks',
       params || {}
     );
@@ -396,7 +396,7 @@ export const networkApi = {
   
   async get(id: string): Promise<ApiVirtualNetwork> {
     return apiCall<ApiVirtualNetwork>(
-      'Quantixkvm.network.v1.VirtualNetworkService',
+      'limiquantix.network.v1.VirtualNetworkService',
       'GetVirtualNetwork',
       { id }
     );
@@ -409,7 +409,7 @@ export const networkApi = {
     spec?: ApiVirtualNetwork['spec'];
   }): Promise<ApiVirtualNetwork> {
     return apiCall<ApiVirtualNetwork>(
-      'Quantixkvm.network.v1.VirtualNetworkService',
+      'limiquantix.network.v1.VirtualNetworkService',
       'CreateVirtualNetwork',
       data
     );
@@ -417,7 +417,7 @@ export const networkApi = {
   
   async delete(id: string): Promise<void> {
     await apiCall<void>(
-      'Quantixkvm.network.v1.VirtualNetworkService',
+      'limiquantix.network.v1.VirtualNetworkService',
       'DeleteVirtualNetwork',
       { id }
     );
@@ -455,7 +455,7 @@ export interface SecurityGroupListResponse {
 export const securityGroupApi = {
   async list(params?: { projectId?: string; pageSize?: number }): Promise<SecurityGroupListResponse> {
     return apiCall<SecurityGroupListResponse>(
-      'Quantixkvm.network.v1.SecurityGroupService',
+      'limiquantix.network.v1.SecurityGroupService',
       'ListSecurityGroups',
       params || {}
     );
@@ -463,7 +463,7 @@ export const securityGroupApi = {
   
   async get(id: string): Promise<ApiSecurityGroup> {
     return apiCall<ApiSecurityGroup>(
-      'Quantixkvm.network.v1.SecurityGroupService',
+      'limiquantix.network.v1.SecurityGroupService',
       'GetSecurityGroup',
       { id }
     );
@@ -475,7 +475,7 @@ export const securityGroupApi = {
     description?: string;
   }): Promise<ApiSecurityGroup> {
     return apiCall<ApiSecurityGroup>(
-      'Quantixkvm.network.v1.SecurityGroupService',
+      'limiquantix.network.v1.SecurityGroupService',
       'CreateSecurityGroup',
       data
     );
@@ -489,7 +489,7 @@ export const securityGroupApi = {
     remoteIpPrefix?: string;
   }): Promise<ApiSecurityGroup> {
     return apiCall<ApiSecurityGroup>(
-      'Quantixkvm.network.v1.SecurityGroupService',
+      'limiquantix.network.v1.SecurityGroupService',
       'AddRule',
       { securityGroupId, rule }
     );
@@ -497,7 +497,7 @@ export const securityGroupApi = {
   
   async removeRule(securityGroupId: string, ruleId: string): Promise<ApiSecurityGroup> {
     return apiCall<ApiSecurityGroup>(
-      'Quantixkvm.network.v1.SecurityGroupService',
+      'limiquantix.network.v1.SecurityGroupService',
       'RemoveRule',
       { securityGroupId, ruleId }
     );
@@ -505,7 +505,7 @@ export const securityGroupApi = {
   
   async delete(id: string): Promise<void> {
     await apiCall<void>(
-      'Quantixkvm.network.v1.SecurityGroupService',
+      'limiquantix.network.v1.SecurityGroupService',
       'DeleteSecurityGroup',
       { id }
     );

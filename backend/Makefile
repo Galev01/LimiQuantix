@@ -1,4 +1,4 @@
-# Quantixkvm Backend Makefile
+# limiquantix Backend Makefile
 
 .PHONY: all build run test lint clean proto migrate docker-up docker-down help
 
@@ -141,8 +141,8 @@ docker-logs:
 ## docker-build: Build Docker image
 docker-build:
 	@echo "Building Docker image..."
-	docker build -t Quantixkvm/controlplane:$(VERSION) .
-	docker tag Quantixkvm/controlplane:$(VERSION) Quantixkvm/controlplane:latest
+	docker build -t limiquantix/controlplane:$(VERSION) .
+	docker tag limiquantix/controlplane:$(VERSION) limiquantix/controlplane:latest
 
 ## clean: Clean build artifacts
 clean:
@@ -160,7 +160,7 @@ check: test lint vet
 
 ## help: Show this help message
 help:
-	@echo "Quantixkvm Backend Makefile"
+	@echo "limiquantix Backend Makefile"
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""

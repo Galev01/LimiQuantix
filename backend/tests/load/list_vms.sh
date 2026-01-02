@@ -9,7 +9,7 @@ API_URL=${API_URL:-http://localhost:8080}
 TOKEN=${TOKEN:-""}
 
 echo "============================================"
-echo "Quantixkvm Load Test: ListVMs"
+echo "limiquantix Load Test: ListVMs"
 echo "============================================"
 echo "URL: $API_URL"
 echo "Requests: $REQUESTS"
@@ -26,7 +26,7 @@ fi
 # Get token if not provided
 if [ -z "$TOKEN" ]; then
     echo "Getting auth token..."
-    RESPONSE=$(curl -s -X POST "$API_URL/Quantixkvm.auth.v1.AuthService/Login" \
+    RESPONSE=$(curl -s -X POST "$API_URL/limiquantix.auth.v1.AuthService/Login" \
         -H "Content-Type: application/json" \
         -d '{"username": "admin", "password": "admin"}')
     
@@ -48,7 +48,7 @@ hey -n $REQUESTS -c $CONCURRENCY \
     -H "Content-Type: application/json" \
     -m POST \
     -d '{"page_size": 10}' \
-    "$API_URL/Quantixkvm.compute.v1.VMService/ListVMs"
+    "$API_URL/limiquantix.compute.v1.VMService/ListVMs"
 
 echo ""
 echo "Load test complete."

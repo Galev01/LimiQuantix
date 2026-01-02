@@ -15,7 +15,7 @@ Backend Phase 4 implements enterprise-grade features including JWT authenticatio
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Quantixkvm Backend                               │
+│                           limiquantix Backend                               │
 │                                                                             │
 │  ┌──────────────────────────────────────────────────────────────────────┐  │
 │  │                      Security Layer                                   │  │
@@ -398,7 +398,7 @@ func main() {
 ### Login
 
 ```bash
-curl -X POST http://localhost:8080/Quantixkvm.auth.v1.AuthService/Login \
+curl -X POST http://localhost:8080/limiquantix.auth.v1.AuthService/Login \
   -H "Content-Type: application/json" \
   -d '{"username": "admin", "password": "admin"}'
 ```
@@ -406,7 +406,7 @@ curl -X POST http://localhost:8080/Quantixkvm.auth.v1.AuthService/Login \
 ### Authenticated Request
 
 ```bash
-curl http://localhost:8080/Quantixkvm.compute.v1.VMService/ListVMs \
+curl http://localhost:8080/limiquantix.compute.v1.VMService/ListVMs \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{}'
@@ -415,7 +415,7 @@ curl http://localhost:8080/Quantixkvm.compute.v1.VMService/ListVMs \
 ### Refresh Token
 
 ```bash
-curl -X POST http://localhost:8080/Quantixkvm.auth.v1.AuthService/RefreshToken \
+curl -X POST http://localhost:8080/limiquantix.auth.v1.AuthService/RefreshToken \
   -H "Content-Type: application/json" \
   -d '{"refresh_token": "<refresh_token>"}'
 ```

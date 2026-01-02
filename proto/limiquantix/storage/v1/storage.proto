@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package Quantixkvm.storage.v1;
+package limiquantix.storage.v1;
 
-option go_package = "github.com/Quantixkvm/Quantixkvm/pkg/api/storage/v1;storagev1";
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/storage/v1;storagev1";
 
 import "google/protobuf/timestamp.proto";
 
@@ -185,7 +185,7 @@ message EncryptionConfig {
   
   // Key management
   enum KeyManagement {
-    INTERNAL = 0;    // Quantixkvm managed keys
+    INTERNAL = 0;    // limiquantix managed keys
     EXTERNAL_KMS = 1; // External Key Management Service
   }
   KeyManagement key_management = 3;

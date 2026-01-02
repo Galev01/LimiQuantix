@@ -8,7 +8,7 @@
 
 ## Overview
 
-The Settings page provides platform-wide configuration options for the Quantixkvm virtualization platform. It features a tabbed interface organized by settings category, allowing administrators to customize system behavior, appearance, security, and more.
+The Settings page provides platform-wide configuration options for the limiquantix virtualization platform. It features a tabbed interface organized by settings category, allowing administrators to customize system behavior, appearance, security, and more.
 
 ---
 
@@ -16,7 +16,7 @@ The Settings page provides platform-wide configuration options for the Quantixkv
 
 ### Header Section
 
-- Page title "Settings" with description "Configure your Quantixkvm platform"
+- Page title "Settings" with description "Configure your limiquantix platform"
 - "Save All Changes" primary action button
 
 ### Tab Navigation
@@ -43,7 +43,7 @@ Horizontal tab bar with the following categories:
 
 | Setting | Type | Description |
 |---------|------|-------------|
-| Cluster Name | Text input | Display name for this Quantixkvm deployment |
+| Cluster Name | Text input | Display name for this limiquantix deployment |
 | Timezone | Dropdown | Default timezone for the platform |
 | Language | Dropdown | Interface language |
 | Session Timeout | Dropdown | Automatic logout after inactivity |
@@ -205,7 +205,7 @@ Horizontal tab bar with the following categories:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ Settings                                    [💾 Save All Changes]│
-│ Configure your Quantixkvm platform                             │
+│ Configure your limiquantix platform                             │
 ├─────────────────────────────────────────────────────────────────┤
 │ [General] [Appearance] [Notifications] [Security] [Storage]... │
 ├─────────────────────────────────────────────────────────────────┤
@@ -215,9 +215,9 @@ Horizontal tab bar with the following categories:
 │                                                                 │
 │ ┌─────────────────────────────────────────────────────────────┐ │
 │ │ Cluster Name                                                │ │
-│ │ Display name for this Quantixkvm deployment                │ │
+│ │ Display name for this limiquantix deployment                │ │
 │ │ ┌─────────────────────────────────────────────────────────┐ │ │
-│ │ │ Quantixkvm Production                                  │ │ │
+│ │ │ limiquantix Production                                  │ │ │
 │ │ └─────────────────────────────────────────────────────────┘ │ │
 │ └─────────────────────────────────────────────────────────────┘ │
 │                                                                 │

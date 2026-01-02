@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-package Quantixkvm.network.v1;
+package limiquantix.network.v1;
 
-option go_package = "github.com/Quantixkvm/Quantixkvm/pkg/api/network/v1;networkv1";
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/network/v1;networkv1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
-import "Quantixkvm/network/v1/network.proto";
+import "limiquantix/network/v1/network.proto";
 
 // =============================================================================
 // VIRTUAL NETWORK SERVICE

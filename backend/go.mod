@@ -1,4 +1,4 @@
-module github.com/Quantixkvm/Quantixkvm
+module github.com/limiquantix/limiquantix
 
 go 1.25.5
 

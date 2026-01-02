@@ -1,5 +1,5 @@
 [package]
-name = "Quantixkvm-proto"
+name = "limiquantix-proto"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
