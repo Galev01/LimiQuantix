@@ -1,131 +1,128 @@
 # LimiQuantix Workflow State
 
-## Current Status: Console Access Complete ✅
+## Current Status: Image Library Implementation Complete ✅
 
 **Last Updated:** January 3, 2026
 
 ---
 
-## Summary
+## What's New (This Session)
 
-Both the Web Console (noVNC) and QVMRC Native Client are **fully implemented**.
+### ✅ Image Library API - Complete
 
-### Console Access Options
+Implemented a comprehensive Image Library with cloud image catalog:
 
-| Option | Status | Use Case |
-|--------|--------|----------|
-| **Web Console (noVNC)** | ✅ Complete | Browser-based, no install needed |
-| **QVMRC Native Client** | ✅ Complete | Lower latency, USB passthrough (future) |
+#### Backend (Go)
+1. **Enhanced Proto Definitions**
+   - Added `cloud_init_enabled` and `provisioning_method` to `OsInfo`
+   - Added `ScanLocalImages` RPC for Node Daemon integration
+   - Added `DownloadImage` RPC for downloading from catalog
+   - Added `LocalImageInfo`, `ImageCatalogEntry` messages
 
----
+2. **ImageService Implementation** (`backend/internal/services/storage/image_service.go`)
+   - Built-in catalog with 8 Linux distributions
+   - Default usernames per distro (ubuntu, debian, rocky, etc.)
+   - Create, Get, List, Update, Delete operations
+   - Import from URL (async)
+   - Scan local images from Node Daemon
+   - Download from catalog
 
-## Architecture Overview
+3. **MemoryImageRepository** (`backend/internal/services/storage/image_repository.go`)
+   - In-memory storage for development
+   - Filter by project, OS family, visibility, node, phase
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          Console Access Options                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Option A: Web Console (noVNC)                                              │
-│  ───────────────────────────────                                            │
-│  Browser → WebSocket → Control Plane → TCP → VNC Server                     │
-│                                                                              │
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐                    │
-│  │  Browser     │   │  Control     │   │  QEMU VNC    │                    │
-│  │  (noVNC)     │──▶│   Plane      │──▶│   Server     │                    │
-│  │              │   │  (WebSocket  │   │              │                    │
-│  │              │   │   Proxy)     │   │              │                    │
-│  └──────────────┘   └──────────────┘   └──────────────┘                    │
-│                                                                              │
-│  Option B: QVMRC Native Client (Tauri)                                      │
-│  ─────────────────────────────────────                                       │
-│  Desktop App → HTTP API → Control Plane → Get VNC Info                      │
-│  Desktop App → TCP (direct) → VNC Server                                     │
-│                                                                              │
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐                    │
-│  │  QVMRC       │──▶│  Control     │──▶│  Node Info   │                    │
-│  │  (Rust/React)│   │   Plane      │   │              │                    │
-│  │              │   └──────────────┘   └──────────────┘                    │
-│  │              │──────────────────────▶│  QEMU VNC    │                    │
-│  │              │   Direct TCP          │   Server     │                    │
-│  └──────────────┘                       └──────────────┘                    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+#### Frontend (React/TypeScript)
+1. **useImages Hook** (`frontend/src/hooks/useImages.ts`)
+   - `useImages()` - List images from API
+   - `useAvailableImages()` - API + catalog fallback
+   - `useImportImage()` - Import from URL
+   - `useDownloadImage()` - Download from catalog
+   - Built-in `CLOUD_IMAGE_CATALOG` for offline mode
 
----
+2. **VMCreationWizard Updates**
+   - Dynamic cloud image selection from API
+   - Auto-set default user based on distribution
+   - Display image size and default username
+   - Warning when using built-in catalog
 
-## Implementation Files
+### Cloud Image Catalog
 
-### Web Console (noVNC)
-
-| File | Purpose |
-|------|---------|
-| `frontend/src/pages/VMDetail.tsx` | Console button & modal trigger |
-| `frontend/src/components/vm/NoVNCConsole.tsx` | Modal wrapper with toolbar |
-| `frontend/public/novnc/limiquantix.html` | Custom noVNC page |
-| `frontend/public/novnc/**/*` | noVNC v1.4.0 library |
-| `backend/internal/server/console.go` | WebSocket proxy |
-
-### QVMRC Native Client
-
-| File | Purpose |
-|------|---------|
-| `qvmrc/src/App.tsx` | Main app component |
-| `qvmrc/src/components/ConnectionList.tsx` | Saved connections |
-| `qvmrc/src/components/ConsoleView.tsx` | VNC canvas & toolbar |
-| `qvmrc/src/components/Settings.tsx` | App settings |
-| `qvmrc/src-tauri/src/main.rs` | Tauri entry point |
-| `qvmrc/src-tauri/src/vnc/mod.rs` | VNC connection management |
-| `qvmrc/src-tauri/src/vnc/rfb.rs` | RFB protocol implementation |
-| `qvmrc/src-tauri/src/vnc/keysym.rs` | X11 keysym mappings |
-| `qvmrc/src-tauri/src/api.rs` | Control Plane API client |
-| `qvmrc/src-tauri/src/config.rs` | Config file management |
+| Distribution | ID | Default User |
+|-------------|-----|--------------|
+| Ubuntu 22.04 | `ubuntu-22.04` | `ubuntu` |
+| Ubuntu 24.04 | `ubuntu-24.04` | `ubuntu` |
+| Debian 12 | `debian-12` | `debian` |
+| Rocky Linux 9 | `rocky-9` | `rocky` |
+| AlmaLinux 9 | `almalinux-9` | `almalinux` |
+| Fedora 40 | `fedora-40` | `fedora` |
+| CentOS Stream 9 | `centos-stream-9` | `cloud-user` |
+| openSUSE Leap 15.5 | `opensuse-leap-15.5` | `root` |
 
 ---
 
-## Testing Instructions
+## Previous Session: Console Access
 
-### Web Console
+### ✅ Web Console (noVNC) - Complete
+- noVNC static files in `frontend/public/novnc/`
+- Custom `limiquantix.html` with dark theme
+- `NoVNCConsole` React component
+- Backend WebSocket proxy at `/api/console/{vmId}/ws`
 
-```bash
-# Terminal 1: Control Plane
-cd backend && go run ./cmd/controlplane --dev
+### ✅ QVMRC Native Client - Scaffolded
+- Tauri project structure in `qvmrc/`
+- Rust VNC client with RFB protocol
+- React frontend with ConnectionList, ConsoleView, Settings
 
-# Terminal 2: Frontend
-cd frontend && npm run dev
+---
 
-# Open http://localhost:5173
-# Click on a running VM → Console button
-```
+## Remaining Tasks
 
-### QVMRC Native Client
+### Priority 1: Node Daemon Image Scanning
+- [ ] Add image scanning in Node Daemon registration
+- [ ] Call `ScanLocalImages` RPC after node joins
+- [ ] Detect OS from filename patterns
 
-```bash
-# Build and run
-cd qvmrc
-npm install
-npm run tauri dev
+### Priority 2: Image Download Implementation
+- [ ] Implement actual download in Node Daemon
+- [ ] Progress reporting via streaming
+- [ ] Checksum verification
 
-# Add a connection with your Control Plane URL and VM ID
-```
+### Priority 3: Guest Agent (0%)
+- [ ] Design agent protocol
+- [ ] Implement Rust agent
+- [ ] Add telemetry collection
+
+### Priority 4: Storage Backend (0%)
+- [ ] Ceph RBD integration
+- [ ] Volume lifecycle management
+
+### Priority 5: Network Backend (0%)
+- [ ] OVN/OVS integration
+- [ ] VXLAN overlay networking
 
 ---
 
 ## Documentation
 
-| Document | Path |
-|----------|------|
-| Console Implementation | `docs/000042-console-access-implementation.md` |
-| QVMRC Native Client | `docs/000043-qvmrc-native-client.md` |
-| Project Status | `project-status-analysis.md` |
-| Project Plan | `project_plan.md` |
+| Doc | Purpose |
+|-----|---------|
+| `000042-console-access-implementation.md` | Web Console + QVMRC |
+| `000045-image-library-implementation.md` | Image Library API |
 
 ---
 
-## What's Next
+## Commands Reference
 
-1. **Guest Agent** - VMware Tools equivalent for in-VM telemetry
-2. **Image Library API** - List available cloud images
-3. **Storage Backend** - LVM/Ceph integration
-4. **Network Backend** - OVN/OVS integration
+```bash
+# Backend
+cd backend && go run ./cmd/controlplane --dev
+
+# Frontend
+cd frontend && npm run dev
+
+# Node Daemon (on Ubuntu)
+cd agent && cargo run --release --bin limiquantix-node --features libvirt
+
+# Proto regeneration
+cd proto && buf generate
+```

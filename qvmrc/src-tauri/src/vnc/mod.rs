@@ -16,12 +16,10 @@ use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{State, Window};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
-use tokio::sync::{mpsc, Mutex, RwLock};
-use tracing::{error, info, warn};
+use tokio::sync::{mpsc, Mutex};
+use tracing::{error, info};
 
-pub use rfb::{PixelFormat, RFBClient, RFBError};
+pub use rfb::RFBClient;
 
 /// Connection status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -190,19 +188,28 @@ pub async fn disconnect_vnc(
 ) -> Result<(), String> {
     info!("Disconnecting VNC connection {}", connection_id);
 
-    let mut connections = state.connections.write().map_err(|e| e.to_string())?;
-
-    if let Some(conn) = connections.iter_mut().find(|c| c.id == connection_id) {
-        // Send shutdown signal
-        if let Some(tx) = conn.shutdown_tx.take() {
-            tx.send(()).await.ok();
+    // Extract the shutdown_tx before awaiting (to avoid holding lock across await)
+    let shutdown_tx = {
+        let mut connections = state.connections.write().map_err(|e| e.to_string())?;
+        if let Some(conn) = connections.iter_mut().find(|c| c.id == connection_id) {
+            conn.status = ConnectionStatus::Disconnected;
+            conn.client = None;
+            conn.shutdown_tx.take()
+        } else {
+            None
         }
-        conn.status = ConnectionStatus::Disconnected;
-        conn.client = None;
+    };
+
+    // Send shutdown signal (outside the lock)
+    if let Some(tx) = shutdown_tx {
+        tx.send(()).await.ok();
     }
 
     // Remove the connection
-    connections.retain(|c| c.id != connection_id);
+    {
+        let mut connections = state.connections.write().map_err(|e| e.to_string())?;
+        connections.retain(|c| c.id != connection_id);
+    }
 
     Ok(())
 }

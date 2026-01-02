@@ -117,6 +117,17 @@ pub struct RFBClient {
     pub name: String,
 }
 
+impl fmt::Debug for RFBClient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RFBClient")
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("pixel_format", &self.pixel_format)
+            .field("name", &self.name)
+            .finish_non_exhaustive()
+    }
+}
+
 impl RFBClient {
     /// Connect to a VNC server
     pub async fn connect(host: &str, port: u16) -> Result<Self, RFBError> {
