@@ -73,6 +73,9 @@ pub async fn run(config: Config) -> Result<()> {
     let node_id = config.node.get_id();
     let hostname = config.node.get_hostname();
     
+    // Clone hypervisor before moving into service (needed for registration)
+    let hypervisor_for_registration = hypervisor.clone();
+    
     let service = NodeDaemonServiceImpl::new(
         node_id.clone(),
         hostname.clone(),
@@ -96,7 +99,7 @@ pub async fn run(config: Config) -> Result<()> {
         let registration_client = RegistrationClient::new(
             &config, 
             telemetry.clone(),
-            hypervisor.clone(),
+            hypervisor_for_registration,
         );
         
         info!(
