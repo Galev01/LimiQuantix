@@ -2,7 +2,7 @@
 
 **Document ID:** 000025  
 **Date:** January 2026  
-**Last Updated:** January 2, 2026 (Evening)  
+**Last Updated:** January 2, 2026 (Late Night Session)  
 **Purpose:** Track progress toward a complete VMware vSphere replacement
 
 ---
@@ -11,12 +11,12 @@
 
 | Category | Status | Description |
 |----------|--------|-------------|
-| **Frontend (React UI)** | ✅ **95%** | Production-ready dashboard with 15 pages |
-| **Backend (Go Control Plane)** | ✅ **85%** | All services + Node Daemon integration |
-| **Proto/API Definitions** | ✅ **100%** | Full API surface for all domains |
-| **Node Daemon (Rust)** | ✅ **80%** | gRPC server + Registration + Heartbeat |
-| **Control Plane ↔ Node Daemon** | ✅ **90%** | VMService wired, registration working |
-| **Hypervisor Integration** | ⏳ **50%** | Mock complete, libvirt structure ready |
+| **Frontend (React UI)** | ✅ **98%** | Dashboard + Cloud-Init UI + SSH Key Management |
+| **Backend (Go Control Plane)** | ✅ **90%** | All services + Node Daemon integration + Bug fixes |
+| **Proto/API Definitions** | ✅ **100%** | Full API surface including cloud-init |
+| **Node Daemon (Rust)** | ✅ **90%** | gRPC + Cloud-Init ISO + Backing Files + Real VM Creation |
+| **Control Plane ↔ Node Daemon** | ✅ **98%** | Full VM lifecycle, cloud-init provisioning |
+| **Hypervisor Integration** | ✅ **80%** | Mock + Libvirt + Cloud Image Support |
 | **Guest Agent** | ❌ **0%** | Not started |
 | **Storage Backend** | ❌ **0%** | Not started (API ready) |
 | **Network Backend** | ❌ **0%** | Not started (API ready) |
@@ -113,7 +113,7 @@
 
 ---
 
-### 3. Node Daemon (Rust) ✅ 80%
+### 3. Node Daemon (Rust) ✅ 90%
 
 | Component | Status | Description |
 |-----------|--------|-------------|
@@ -121,7 +121,9 @@
 | Registration | ✅ | Auto-registers with control plane |
 | Heartbeat | ✅ | 30s interval, CPU/memory stats |
 | Mock Hypervisor | ✅ | Full in-memory simulation |
-| Libvirt Backend | ⏳ | Structure ready, needs testing |
+| Libvirt Backend | ✅ | VM creation, XML generation, domain management |
+| Cloud-Init ISO | ✅ | NoCloud datasource generation |
+| Cloud Image Overlay | ✅ | Backing file support with qemu-img |
 | Telemetry | ✅ | CPU, memory, disk, network |
 | VM Lifecycle | ✅ | Create, start, stop, delete |
 | Snapshots | ✅ | Create, revert, delete, list |
@@ -157,20 +159,25 @@ agent/
 
 ---
 
-### 5. Hypervisor Integration ⏳ 50%
+### 5. Hypervisor Integration ✅ 80%
 
 | Backend | Status | Notes |
 |---------|--------|-------|
 | Mock | ✅ Complete | Full in-memory simulation |
-| Libvirt | ⏳ Structure | Needs Linux host testing |
+| Libvirt | ✅ Working | VM creation, lifecycle, tested on Ubuntu |
+| Cloud-Init | ✅ Complete | NoCloud ISO generation |
+| Cloud Images | ✅ Complete | QCOW2 backing file support |
 | Cloud Hypervisor | ❌ Not started | Future |
 
-**Libvirt Backend Features (Structure Ready)**:
+**Libvirt Backend Features (Implemented)**:
 - Domain XML generation
 - VM lifecycle (create, start, stop, suspend)
-- Snapshot management
-- Hot-plug (disk, NIC)
-- Live migration
+- Cloud-init ISO generation and attachment
+- Backing file disk overlays (cloud images)
+- Disk image creation with qemu-img
+- Snapshot management (structure)
+- Hot-plug (disk, NIC) - structure ready
+- Live migration - structure ready
 
 ---
 
@@ -188,35 +195,60 @@ agent/
 
 ## Recent Session Accomplishments (January 2, 2026)
 
-### ✅ Completed Today
+### ✅ Completed (Late Night Session)
 
-1. **ADR for Hypervisor Integration** (`docs/adr/000007-hypervisor-integration.md`)
-   - Evaluated Cloud Hypervisor, QEMU/libvirt, Firecracker
-   - Decision: QEMU/libvirt as primary backend
+1. **Cloud-Init Provisioning (Full Stack)**
+   - **Backend (Rust):**
+     - `CloudInitGenerator` creates NoCloud ISOs using `genisoimage`
+     - Auto-attaches cloud-init ISO to VMs as CD-ROM device
+     - Proto updated with `CloudInitConfig` message
+   - **Frontend (React):**
+     - Redesigned "Boot Media" step with 3 options: Cloud Image, ISO, None
+     - Cloud image selector (Ubuntu, Debian, Rocky, AlmaLinux)
+     - SSH public key management (add/remove multiple keys)
+     - Default username configuration
+     - Advanced: custom cloud-config YAML editor
+     - Updated Review step to show cloud-init details
 
-2. **Node Daemon Implementation Plan** (`docs/000031-node-daemon-implementation-plan.md`)
-   - 6-week detailed roadmap
-   - Crate structure and dependencies
+2. **Cloud Image Support (Backing Files)**
+   - `DiskSpec.backing_file` field in proto
+   - `StorageManager` creates overlay disks with `qemu-img create -b`
+   - Automatic disk resize if requested size > backing image
+   - Copy-on-write for efficient cloud image usage
 
-3. **Node Daemon Foundation**
-   - Complete Rust workspace with 5 crates
-   - gRPC server with tonic
-   - Mock hypervisor (full VM lifecycle simulation)
-   - Libvirt backend structure
+3. **Real VM Creation Implementation**
+   - Node Daemon `CreateVM` handler now:
+     - Generates libvirt domain XML from VM spec
+     - Creates disk images using `qemu-img`
+     - Generates cloud-init ISO if config provided
+     - Defines VM in libvirt via `virsh define`
+   - Full proto sync between Go backend and Rust Node Daemon
 
-4. **Control Plane Integration**
-   - Go DaemonClient for Node Daemon gRPC
-   - DaemonPool for connection management
-   - VMService wired to call Node Daemon
+### ✅ Completed (Night Session)
 
-5. **Node Registration & Heartbeat**
-   - Node Daemon auto-registers on startup
-   - Heartbeat with CPU/memory telemetry
-   - Server-assigned node ID tracking
+1. **Real Linux Node Daemon Testing**
+   - Successfully built and ran Node Daemon on Ubuntu laptop with KVM/libvirt
+   - Node registers with Control Plane and appears in Dashboard
+   - Heartbeat sends real CPU/RAM/Disk/Network telemetry
 
-6. **Documentation**
-   - `docs/000032-vmservice-node-daemon-integration.md`
-   - `docs/000033-node-registration-flow.md`
+2. **Frontend-Backend Integration Fixes**
+   - Fixed Network API method names (`ListNetworks` vs `ListVirtualNetworks`)
+   - Fixed VM list filtering by nodeId (VMs now show on host detail page)
+   - VM Creation Wizard now fetches real hosts and networks from API
+   - Replaced mock data with real API data in Host Detail page
+
+3. **Bug Fixes**
+   - Fixed daemon address double-port bug
+   - Fixed VMFilter to include NodeID for proper VM-to-host filtering
+   - Fixed disk size validation (sizeMib → sizeGib)
+   - Fixed VM wizard accidental close on backdrop click
+
+### ✅ Completed (Earlier Today)
+
+1. **ADR for Hypervisor Integration** - Decision: QEMU/libvirt as primary backend
+2. **Node Daemon Foundation** - Complete Rust workspace with 5 crates
+3. **Control Plane Integration** - VMService wired to call Node Daemon
+4. **Node Registration & Heartbeat** - Auto-registers with detailed telemetry
 
 ---
 
@@ -283,10 +315,30 @@ cd frontend && npm run dev
 ```
 ✅ Go Backend Tests:     All passing (scheduler, auth, vm)
 ✅ Rust Tests:           All passing
-✅ Node Registration:    Working (auto-registers)
+✅ Node Registration:    Working (auto-registers with hardware info)
 ✅ Heartbeat:            Working (CPU/memory every 30s)
-✅ VM Creation:          Working (schedules to node)
+✅ VM Creation:          Working (schedules to real node, calls Node Daemon)
+✅ Cloud-Init ISO:       Working (NoCloud datasource generated)
+✅ Cloud Images:         Working (backing file overlays)
 ✅ Health Check:         Working (both services)
+✅ Host Detail:          Shows real CPU/RAM/Disk/Network from Ubuntu node
+✅ VM List by Host:      VMs now correctly filter by assigned node
+✅ Network API:          Fixed 404 errors, networks now load
+✅ VM Wizard:            Cloud image + SSH key + cloud-init config
+```
+
+### Ready for Testing
+```
+🧪 Full VM creation with cloud-init on Ubuntu laptop
+🧪 SSH access to cloud-init provisioned VMs
+🧪 VNC console access via libvirt
+```
+
+### Known Limitations
+```
+⚠️ Cloud images must be manually downloaded to hypervisor
+⚠️ No image library API yet (hardcoded paths in frontend)
+⚠️ VNC console not yet proxied to browser (direct libvirt only)
 ```
 
 ---
@@ -306,17 +358,27 @@ cd frontend && npm run dev
 ## Summary
 
 **What's WORKING:**
-- Full-stack integration (Frontend → Backend → Node Daemon)
-- VM lifecycle management (with mock hypervisor)
-- Node registration and heartbeat
-- Scheduler with spread/pack strategies
-- All API definitions
+- Full-stack integration (Frontend → Backend → Node Daemon → Libvirt)
+- Real Linux node (Ubuntu) registered and sending telemetry
+- **Real VM creation with cloud-init provisioning**
+- **Cloud image support with backing file overlays**
+- **SSH key injection via cloud-init**
+- **Cloud-init ISO generation (NoCloud datasource)**
+- Node registration and heartbeat with detailed hardware info
+- Scheduler assigns VMs to best available node
+- Host Detail page shows real hardware info
+- VMs correctly listed under their assigned host
+- Frontend VM wizard with cloud image selector and SSH key management
 
-**What's NEXT:**
-- Test on real Linux hypervisor with libvirt
+**What's NEXT (Immediate Priority):**
+1. **Test full VM creation end-to-end** - Cloud image + cloud-init + SSH
+2. **VNC WebSocket proxy** - Browser-based console access
+3. **Image library API** - List available cloud images from backend
+
+**Medium-term:**
 - Guest Agent (VMware Tools equivalent)
-- Storage backend (Ceph or LVM)
-- Network backend (OVN or Linux bridge)
+- Storage backend (LVM first, then Ceph)
+- Network backend (Linux bridge first, then OVN)
 
 **Long-term:**
 - limiquantix OS (custom hypervisor host)

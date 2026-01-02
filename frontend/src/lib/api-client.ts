@@ -177,11 +177,18 @@ export interface ApiVM {
     disks?: Array<{ 
       sizeGib?: number;
       name?: string;
+      backingFile?: string;  // Cloud image path for copy-on-write
     }>;
     nics?: Array<{
       networkId?: string;
       connected?: boolean;
     }>;
+    // Cloud-init provisioning configuration
+    cloudInit?: {
+      userData?: string;    // #cloud-config YAML
+      metaData?: string;    // instance-id, hostname
+      networkConfig?: string;  // Netplan v2 (optional)
+    };
   };
   status?: {
     state?: string;

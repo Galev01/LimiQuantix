@@ -19,7 +19,6 @@ import {
   Fan,
   Zap,
   Clock,
-  Globe,
   Wifi,
   WifiOff,
   Loader2,
@@ -29,9 +28,10 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { ProgressRing } from '@/components/dashboard/ProgressRing';
-import { mockNodes, mockVMs, type NodePhase, type Node as MockNode } from '@/data/mock-data';
+import { mockNodes, type NodePhase, type Node as MockNode } from '@/data/mock-data';
 import { useNode, type ApiNode } from '@/hooks/useNodes';
 import { useApiConnection } from '@/hooks/useDashboard';
+import { useVMs } from '@/hooks/useVMs';
 
 const phaseConfig: Record<NodePhase, { label: string; variant: 'success' | 'error' | 'warning' | 'info'; icon: typeof CheckCircle }> = {
   READY: { label: 'Ready', variant: 'success', icon: CheckCircle },
@@ -108,6 +108,12 @@ export function HostDetail() {
   // API connection and data
   const { data: isConnected = false } = useApiConnection();
   const { data: apiNode, isLoading } = useNode(id || '', !!isConnected && !!id);
+  
+  // Fetch VMs for this host
+  const { data: vmsData } = useVMs({ 
+    nodeId: id, 
+    enabled: !!isConnected && !!id 
+  });
 
   // Determine data source
   const mockNode = mockNodes.find((n) => n.id === id);
@@ -146,8 +152,8 @@ export function HostDetail() {
   const phaseInfo = phaseConfig[node.status.phase];
   const PhaseIcon = phaseInfo.icon;
 
-  // Get VMs running on this host
-  const hostedVMs = mockVMs.filter((vm) => node.status.vmIds.includes(vm.id));
+  // Get VMs running on this host from API
+  const hostedVMs = vmsData?.vms || [];
 
   return (
     <div className="space-y-6">
@@ -239,7 +245,7 @@ export function HostDetail() {
       <Tabs defaultValue="summary">
         <TabsList>
           <TabsTrigger value="summary">Summary</TabsTrigger>
-          <TabsTrigger value="vms">Virtual Machines ({node.status.vmIds.length})</TabsTrigger>
+          <TabsTrigger value="vms">Virtual Machines ({hostedVMs.length})</TabsTrigger>
           <TabsTrigger value="hardware">Hardware</TabsTrigger>
           <TabsTrigger value="storage">Storage</TabsTrigger>
           <TabsTrigger value="network">Network</TabsTrigger>
@@ -396,40 +402,44 @@ export function HostDetail() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {hostedVMs.map((vm) => (
-                    <tr
-                      key={vm.id}
-                      onClick={() => navigate(`/vms/${vm.id}`)}
-                      className="hover:bg-bg-hover cursor-pointer"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <MonitorCog className="w-4 h-4 text-text-muted" />
-                          <div>
-                            <p className="text-sm font-medium text-text-primary">{vm.name}</p>
-                            <p className="text-xs text-text-muted">{vm.status.guestInfo.osName}</p>
+                  {hostedVMs.map((vm) => {
+                    const state = vm.status?.state || vm.status?.powerState || 'STOPPED';
+                    const isRunning = state === 'RUNNING' || state === 'POWER_STATE_RUNNING';
+                    return (
+                      <tr
+                        key={vm.id}
+                        onClick={() => navigate(`/vms/${vm.id}`)}
+                        className="hover:bg-bg-hover cursor-pointer"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <MonitorCog className="w-4 h-4 text-text-muted" />
+                            <div>
+                              <p className="text-sm font-medium text-text-primary">{vm.name}</p>
+                              <p className="text-xs text-text-muted">{vm.description || 'Linux'}</p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge variant={vm.status.state === 'RUNNING' ? 'success' : 'default'}>
-                          {vm.status.state}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-text-secondary">
-                        {vm.spec.cpu.cores} vCPUs ({vm.status.resourceUsage.cpuUsagePercent}%)
-                      </td>
-                      <td className="px-6 py-4 text-sm text-text-secondary">
-                        {formatBytes(vm.status.resourceUsage.memoryUsedBytes)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-text-secondary font-mono">
-                        {vm.status.ipAddresses[0] || '—'}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Button variant="ghost" size="sm">Migrate</Button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge variant={isRunning ? 'success' : 'default'}>
+                            {state}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-secondary">
+                          {vm.spec?.cpu?.cores || 0} vCPUs ({vm.status?.resourceUsage?.cpuUsagePercent || 0}%)
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-secondary">
+                          {formatBytes((vm.status?.resourceUsage?.memoryUsedMib || 0) * 1024 * 1024)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-secondary font-mono">
+                          {vm.status?.ipAddresses?.[0] || '—'}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Button variant="ghost" size="sm">Migrate</Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (

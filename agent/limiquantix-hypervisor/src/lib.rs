@@ -46,6 +46,7 @@ pub mod types;
 pub mod mock;
 pub mod libvirt;
 pub mod storage;
+pub mod cloudinit;
 mod xml;
 
 pub use error::HypervisorError;
@@ -53,6 +54,7 @@ pub use traits::{Hypervisor, HypervisorCapabilities};
 pub use types::*;
 pub use mock::MockBackend;
 pub use storage::{StorageManager, DiskInfo, DEFAULT_STORAGE_PATH};
+pub use cloudinit::{CloudInitConfig, CloudInitGenerator};
 
 // Re-export libvirt backend when available
 #[cfg(feature = "libvirt")]

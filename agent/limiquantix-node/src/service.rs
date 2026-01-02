@@ -7,17 +7,18 @@ use futures::Stream;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
-use tracing::{info, debug, instrument};
+use tracing::{info, debug, warn, error, instrument};
 
 use limiquantix_hypervisor::{
-    Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
-    DiskBus, DiskFormat, NicModel, StorageManager,
+    Hypervisor, VmConfig, VmState, DiskConfig, NicConfig, CdromConfig,
+    DiskBus, DiskFormat, NicModel, StorageManager, BootConfig, Firmware, BootDevice,
+    CloudInitConfig, CloudInitGenerator,
 };
 use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
-    NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
-    StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
+    NodeInfoResponse, VmIdRequest, CreateVmOnNodeRequest, CreateVmOnNodeResponse,
+    StopVmRequest, VmStatusResponse, ListVMsOnNodeResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -95,6 +96,50 @@ impl NodeDaemonServiceImpl {
             VmState::Unknown => PowerState::Unknown as i32,
         }
     }
+    
+    fn convert_disk_bus(bus: i32) -> DiskBus {
+        match bus {
+            0 => DiskBus::Virtio,
+            1 => DiskBus::Scsi,
+            2 => DiskBus::Sata,
+            3 => DiskBus::Ide,
+            _ => DiskBus::Virtio,
+        }
+    }
+    
+    fn convert_disk_format(format: i32) -> DiskFormat {
+        match format {
+            0 => DiskFormat::Qcow2,
+            1 => DiskFormat::Raw,
+            _ => DiskFormat::Qcow2,
+        }
+    }
+    
+    fn convert_nic_model(model: i32) -> NicModel {
+        match model {
+            0 => NicModel::Virtio,
+            1 => NicModel::E1000,
+            2 => NicModel::Rtl8139,
+            _ => NicModel::Virtio,
+        }
+    }
+    
+    fn convert_firmware(firmware: i32) -> Firmware {
+        match firmware {
+            0 => Firmware::Bios,
+            1 => Firmware::Uefi,
+            _ => Firmware::Bios,
+        }
+    }
+    
+    fn convert_boot_device(device: i32) -> BootDevice {
+        match device {
+            0 => BootDevice::Disk,
+            1 => BootDevice::Cdrom,
+            2 => BootDevice::Network,
+            _ => BootDevice::Disk,
+        }
+    }
 }
 
 #[tonic::async_trait]
@@ -159,85 +204,215 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, name = %request.get_ref().name))]
     async fn create_vm(
         &self,
-        request: Request<CreateVmRequest>,
-    ) -> Result<Response<CreateVmResponse>, Status> {
-        info!("Creating VM");
+        request: Request<CreateVmOnNodeRequest>,
+    ) -> Result<Response<CreateVmOnNodeResponse>, Status> {
+        info!("Creating VM via libvirt");
         
         let req = request.into_inner();
+        let spec = req.spec.ok_or_else(|| {
+            Status::invalid_argument("VM spec is required")
+        })?;
         
+        // Build VM configuration from the nested spec
         let mut config = VmConfig::new(&req.name)
-            .with_id(&req.vm_id)
-            .with_cpu(req.cpu_cores)
-            .with_memory(req.memory_mib);
+            .with_id(&req.vm_id);
         
-        // Add disks - create disk images if path not provided
-        for disk in req.disks {
-            let format = match disk.format {
-                0 => DiskFormat::Qcow2,
-                1 => DiskFormat::Raw,
-                _ => DiskFormat::Qcow2,
-            };
+        // Set CPU configuration
+        config.cpu.cores = spec.cpu_cores;
+        config.cpu.sockets = if spec.cpu_sockets > 0 { spec.cpu_sockets } else { 1 };
+        config.cpu.threads_per_core = if spec.cpu_threads_per_core > 0 { spec.cpu_threads_per_core } else { 1 };
+        
+        // Set memory configuration
+        config.memory.size_mib = spec.memory_mib;
+        config.memory.hugepages = spec.memory_hugepages;
+        
+        // Set boot configuration
+        config.boot.firmware = Self::convert_firmware(spec.firmware);
+        config.boot.order = spec.boot_order.iter()
+            .map(|&d| Self::convert_boot_device(d))
+            .collect();
+        if config.boot.order.is_empty() {
+            config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
+        }
+        
+        // Process disks - create disk images if path not provided
+        for disk_spec in spec.disks {
+            let format = Self::convert_disk_format(disk_spec.format);
             
             let mut disk_config = DiskConfig {
-                id: disk.id.clone(),
-                path: disk.path.clone(),
-                size_gib: disk.size_gib,
-                bus: match disk.bus {
-                    0 => DiskBus::Virtio,
-                    1 => DiskBus::Scsi,
-                    2 => DiskBus::Sata,
-                    3 => DiskBus::Ide,
-                    _ => DiskBus::Virtio,
-                },
+                id: disk_spec.id.clone(),
+                path: disk_spec.path.clone(),
+                size_gib: disk_spec.size_gib,
+                bus: Self::convert_disk_bus(disk_spec.bus),
                 format,
-                readonly: disk.readonly,
-                bootable: disk.bootable,
+                readonly: disk_spec.readonly,
+                bootable: disk_spec.bootable,
+                // Set backing file if provided (for cloud images)
+                backing_file: if disk_spec.backing_file.is_empty() { 
+                    None 
+                } else { 
+                    Some(disk_spec.backing_file.clone()) 
+                },
                 ..Default::default()
             };
             
             // If no disk path provided, create a new disk image
-            if disk.path.is_empty() && disk.size_gib > 0 {
+            if disk_spec.path.is_empty() && (disk_spec.size_gib > 0 || !disk_spec.backing_file.is_empty()) {
+                let has_backing = !disk_spec.backing_file.is_empty();
+                
                 info!(
                     vm_id = %req.vm_id,
-                    disk_id = %disk.id,
-                    size_gib = disk.size_gib,
+                    disk_id = %disk_spec.id,
+                    size_gib = disk_spec.size_gib,
+                    has_backing = has_backing,
                     "Creating disk image for VM"
                 );
                 
-                self.storage.create_disk(&req.vm_id, &mut disk_config)
-                    .map_err(|e| Status::internal(format!("Failed to create disk image: {}", e)))?;
+                match self.storage.create_disk(&req.vm_id, &mut disk_config) {
+                    Ok(path) => {
+                        info!(
+                            vm_id = %req.vm_id,
+                            disk_id = %disk_spec.id,
+                            path = %path.display(),
+                            from_backing = has_backing,
+                            "Disk image created successfully"
+                        );
+                    }
+                    Err(e) => {
+                        error!(
+                            vm_id = %req.vm_id,
+                            disk_id = %disk_spec.id,
+                            error = %e,
+                            "Failed to create disk image"
+                        );
+                        return Err(Status::internal(format!("Failed to create disk image: {}", e)));
+                    }
+                }
             }
             
-            config = config.with_disk(disk_config);
+            config.disks.push(disk_config);
         }
         
-        // Add NICs
-        for nic in req.nics {
+        // Process cloud-init configuration if provided
+        if let Some(cloud_init) = spec.cloud_init {
+            if !cloud_init.user_data.is_empty() || !cloud_init.meta_data.is_empty() {
+                info!(vm_id = %req.vm_id, "Processing cloud-init configuration");
+                
+                // Build cloud-init config
+                let ci_config = CloudInitConfig {
+                    instance_id: req.vm_id.clone(),
+                    hostname: req.name.clone(),
+                    user_data: cloud_init.user_data,
+                    meta_data: if cloud_init.meta_data.is_empty() { 
+                        None 
+                    } else { 
+                        Some(cloud_init.meta_data) 
+                    },
+                    network_config: if cloud_init.network_config.is_empty() { 
+                        None 
+                    } else { 
+                        Some(cloud_init.network_config) 
+                    },
+                    vendor_data: if cloud_init.vendor_data.is_empty() { 
+                        None 
+                    } else { 
+                        Some(cloud_init.vendor_data) 
+                    },
+                    ..Default::default()
+                };
+                
+                // Generate cloud-init ISO
+                let generator = CloudInitGenerator::new();
+                let vm_dir = self.storage.base_path().join(&req.vm_id);
+                
+                match generator.generate_iso(&ci_config, &vm_dir) {
+                    Ok(iso_path) => {
+                        info!(
+                            vm_id = %req.vm_id,
+                            iso_path = %iso_path.display(),
+                            "Cloud-init ISO generated"
+                        );
+                        
+                        // Add cloud-init ISO as a CD-ROM device
+                        config.cdroms.push(CdromConfig {
+                            id: "cloud-init".to_string(),
+                            iso_path: Some(iso_path.to_string_lossy().to_string()),
+                            bootable: false,
+                        });
+                    }
+                    Err(e) => {
+                        warn!(
+                            vm_id = %req.vm_id,
+                            error = %e,
+                            "Failed to generate cloud-init ISO, continuing without it"
+                        );
+                    }
+                }
+            }
+        }
+        
+        // Process NICs
+        for nic_spec in spec.nics {
             let nic_config = NicConfig {
-                id: nic.id,
-                mac_address: if nic.mac_address.is_empty() { None } else { Some(nic.mac_address) },
-                bridge: if nic.bridge.is_empty() { None } else { Some(nic.bridge) },
-                network: if nic.network.is_empty() { None } else { Some(nic.network) },
-                model: match nic.model {
-                    0 => NicModel::Virtio,
-                    1 => NicModel::E1000,
-                    2 => NicModel::Rtl8139,
-                    _ => NicModel::Virtio,
-                },
+                id: nic_spec.id,
+                mac_address: if nic_spec.mac_address.is_empty() { None } else { Some(nic_spec.mac_address) },
+                bridge: if nic_spec.bridge.is_empty() { None } else { Some(nic_spec.bridge) },
+                network: if nic_spec.network.is_empty() { None } else { Some(nic_spec.network) },
+                model: Self::convert_nic_model(nic_spec.model),
             };
-            config = config.with_nic(nic_config);
+            config.nics.push(nic_config);
         }
         
-        let created_id = self.hypervisor.create_vm(config).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+        // If no NICs specified, add a default one connected to virbr0
+        if config.nics.is_empty() {
+            config.nics.push(NicConfig::default());
+        }
         
-        info!(vm_id = %created_id, "VM created");
+        // Process CD-ROMs
+        for cdrom_spec in spec.cdroms {
+            let cdrom_config = CdromConfig {
+                id: cdrom_spec.id,
+                iso_path: if cdrom_spec.iso_path.is_empty() { None } else { Some(cdrom_spec.iso_path) },
+                bootable: cdrom_spec.bootable,
+            };
+            config.cdroms.push(cdrom_config);
+        }
         
-        Ok(Response::new(CreateVmResponse {
-            vm_id: created_id,
-            created: true,
-            message: "VM created successfully".to_string(),
-        }))
+        // Set console configuration
+        if let Some(console) = spec.console {
+            config.console.vnc_enabled = console.vnc_enabled;
+            config.console.vnc_port = if console.vnc_port > 0 { Some(console.vnc_port as u16) } else { None };
+            config.console.vnc_password = if console.vnc_password.is_empty() { None } else { Some(console.vnc_password) };
+            config.console.spice_enabled = console.spice_enabled;
+            config.console.spice_port = if console.spice_port > 0 { Some(console.spice_port as u16) } else { None };
+        }
+        
+        // Create the VM via the hypervisor backend
+        info!(
+            vm_id = %req.vm_id,
+            vm_name = %req.name,
+            cpu_cores = config.cpu.total_vcpus(),
+            memory_mib = config.memory.size_mib,
+            disk_count = config.disks.len(),
+            nic_count = config.nics.len(),
+            "Creating VM in hypervisor"
+        );
+        
+        match self.hypervisor.create_vm(config).await {
+            Ok(created_id) => {
+                info!(vm_id = %created_id, "VM created successfully in libvirt");
+                
+                Ok(Response::new(CreateVmOnNodeResponse {
+                    vm_id: created_id,
+                    created: true,
+                    message: "VM created successfully".to_string(),
+                }))
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, error = %e, "Failed to create VM in hypervisor");
+                Err(Status::internal(format!("Failed to create VM: {}", e)))
+            }
+        }
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
@@ -340,8 +515,15 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         info!("Deleting VM");
         
         let vm_id = &request.into_inner().vm_id;
+        
+        // Delete from hypervisor
         self.hypervisor.delete_vm(vm_id).await
             .map_err(|e| Status::internal(e.to_string()))?;
+        
+        // Delete disk images
+        if let Err(e) = self.storage.delete_vm_disks(vm_id) {
+            warn!(vm_id = %vm_id, error = %e, "Failed to delete VM disk images");
+        }
         
         info!("VM deleted");
         Ok(Response::new(()))
@@ -372,7 +554,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     async fn list_v_ms(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<ListVMsResponse>, Status> {
+    ) -> Result<Response<ListVMsOnNodeResponse>, Status> {
         let vms = self.hypervisor.list_vms().await
             .map_err(|e| Status::internal(e.to_string()))?;
         
@@ -390,7 +572,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         debug!(count = responses.len(), "Listed VMs");
         
-        Ok(Response::new(ListVMsResponse { vms: responses }))
+        Ok(Response::new(ListVMsOnNodeResponse { vms: responses }))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]

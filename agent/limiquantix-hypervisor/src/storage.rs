@@ -44,6 +44,11 @@ impl StorageManager {
         self
     }
     
+    /// Get the base storage path.
+    pub fn base_path(&self) -> &Path {
+        &self.base_path
+    }
+    
     /// Ensure the storage directory exists.
     pub fn ensure_storage_dir(&self) -> Result<()> {
         if !self.base_path.exists() {
@@ -62,6 +67,9 @@ impl StorageManager {
     }
     
     /// Create a new disk image.
+    /// 
+    /// If `disk.backing_file` is set, creates a copy-on-write overlay on top of the backing file.
+    /// This is used for cloud images where the base image is shared across VMs.
     #[instrument(skip(self), fields(vm_id = %vm_id, disk_id = %disk.id, size_gib = %disk.size_gib))]
     pub fn create_disk(&self, vm_id: &str, disk: &mut DiskConfig) -> Result<PathBuf> {
         self.ensure_storage_dir()?;
@@ -82,8 +90,31 @@ impl StorageManager {
             PathBuf::from(&disk.path)
         };
         
-        // Create the disk image
-        self.create_image(&disk_path, disk.size_gib, disk.format)?;
+        // Create the disk image - with or without backing file
+        if let Some(ref backing_file) = disk.backing_file {
+            // Create copy-on-write overlay on top of cloud image
+            info!(backing = %backing_file, "Creating disk from cloud image");
+            self.create_from_backing(&disk_path, Path::new(backing_file), disk.format)?;
+            
+            // Optionally resize the overlay if size is larger than backing
+            if disk.size_gib > 0 {
+                // Check backing file size
+                if let Ok(backing_info) = self.get_disk_info(Path::new(backing_file)) {
+                    let backing_size_gib = backing_info.virtual_size_gib();
+                    if disk.size_gib > backing_size_gib {
+                        info!(
+                            current_gib = backing_size_gib,
+                            target_gib = disk.size_gib,
+                            "Resizing overlay disk"
+                        );
+                        self.resize_disk(&disk_path, disk.size_gib)?;
+                    }
+                }
+            }
+        } else {
+            // Create a new empty disk image
+            self.create_image(&disk_path, disk.size_gib, disk.format)?;
+        }
         
         // Update disk config with the actual path
         disk.path = disk_path.to_string_lossy().to_string();

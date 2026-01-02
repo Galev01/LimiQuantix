@@ -24,6 +24,9 @@ import {
   Loader2,
   RefreshCw,
   WifiOff,
+  Cloud,
+  Key,
+  Terminal,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -67,8 +70,18 @@ interface VMCreationData {
   memoryMib: number;
   nics: NetworkInterface[];
 
-  // Step 6: ISO
+  // Step 6: Boot Media (ISO or Cloud Image)
+  bootMediaType: 'none' | 'iso' | 'cloud-image';
   isoId: string;
+  cloudImageId: string;
+  
+  // Cloud-Init Configuration
+  cloudInit: {
+    enabled: boolean;
+    sshKeys: string[];
+    defaultUser: string;
+    customUserData: string;
+  };
 
   // Step 7: Storage
   storagePoolId: string;
@@ -126,6 +139,50 @@ const staticISOs = [
   { id: 'iso-debian12', name: 'Debian 12 Bookworm', size: '650 MB' },
 ];
 
+// Cloud images for automated provisioning (cloud-init)
+const staticCloudImages = [
+  { 
+    id: 'cloud-ubuntu22', 
+    name: 'Ubuntu 22.04 LTS Cloud', 
+    size: '670 MB',
+    path: '/var/lib/limiquantix/cloud-images/ubuntu-22.04.qcow2',
+    os: 'ubuntu',
+    description: 'Official Ubuntu cloud image with cloud-init pre-installed'
+  },
+  { 
+    id: 'cloud-ubuntu24', 
+    name: 'Ubuntu 24.04 LTS Cloud', 
+    size: '720 MB',
+    path: '/var/lib/limiquantix/cloud-images/ubuntu-24.04.qcow2',
+    os: 'ubuntu',
+    description: 'Latest Ubuntu LTS with cloud-init'
+  },
+  { 
+    id: 'cloud-debian12', 
+    name: 'Debian 12 Cloud', 
+    size: '350 MB',
+    path: '/var/lib/limiquantix/cloud-images/debian-12.qcow2',
+    os: 'debian',
+    description: 'Official Debian cloud image'
+  },
+  { 
+    id: 'cloud-rocky9', 
+    name: 'Rocky Linux 9 Cloud', 
+    size: '1.1 GB',
+    path: '/var/lib/limiquantix/cloud-images/rocky-9.qcow2',
+    os: 'rocky',
+    description: 'Enterprise Linux compatible cloud image'
+  },
+  { 
+    id: 'cloud-almalinux9', 
+    name: 'AlmaLinux 9 Cloud', 
+    size: '1.0 GB',
+    path: '/var/lib/limiquantix/cloud-images/almalinux-9.qcow2',
+    os: 'almalinux',
+    description: 'RHEL-compatible cloud image'
+  },
+];
+
 const staticCustomSpecs = [
   { id: 'spec-linux-default', name: 'Linux Default', os: 'Linux' },
   { id: 'spec-windows-default', name: 'Windows Default', os: 'Windows' },
@@ -159,7 +216,15 @@ const initialFormData: VMCreationData = {
   cpuSockets: 1,
   memoryMib: 4096,
   nics: [{ id: 'nic-1', networkId: 'net-prod', networkName: 'Production VLAN 100', connected: true }],
+  bootMediaType: 'cloud-image',  // Default to cloud image for quick provisioning
   isoId: '',
+  cloudImageId: 'cloud-ubuntu22', // Default to Ubuntu 22.04 cloud image
+  cloudInit: {
+    enabled: true,
+    sshKeys: [],
+    defaultUser: 'admin',
+    customUserData: '',
+  },
   storagePoolId: '',
   disks: [{ id: 'disk-1', name: 'Hard disk 1', sizeGib: 50, provisioning: 'thin' }],
   department: '',
@@ -190,13 +255,13 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
       // Get CPU allocation from status.resources
       const cpuAllocated = node.status?.resources?.cpu?.allocatedVcpus || 0;
       // Get memory in MiB (API returns bytes, convert to MiB)
-      const memoryCapacityMib = node.spec?.memory?.totalBytes 
-        ? Math.floor(node.spec.memory.totalBytes / (1024 * 1024)) 
+      const memoryCapacityMib = node.spec?.memory?.totalBytes
+        ? Math.floor(node.spec.memory.totalBytes / (1024 * 1024))
         : 0;
       const memoryAllocatedMib = node.status?.resources?.memory?.allocatedBytes
         ? Math.floor(node.status.resources.memory.allocatedBytes / (1024 * 1024))
         : 0;
-      
+
       return {
         id: node.id,
         hostname: node.hostname,
@@ -269,6 +334,46 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
       // Find selected host for the request
       const selectedHost = nodes.find(n => n.id === formData.hostId);
       
+      // Get cloud image path if using cloud image boot
+      const selectedCloudImage = formData.bootMediaType === 'cloud-image' 
+        ? staticCloudImages.find(img => img.id === formData.cloudImageId)
+        : undefined;
+      
+      // Build cloud-init user-data
+      let cloudInitUserData = '';
+      if (formData.bootMediaType === 'cloud-image' && formData.cloudInit.enabled) {
+        if (formData.cloudInit.customUserData) {
+          // Use custom user-data if provided
+          cloudInitUserData = formData.cloudInit.customUserData;
+        } else {
+          // Generate default cloud-config
+          const lines = [
+            '#cloud-config',
+            `hostname: ${formData.name}`,
+            `fqdn: ${formData.name}.local`,
+            'manage_etc_hosts: true',
+            '',
+            'users:',
+            `  - name: ${formData.cloudInit.defaultUser || 'admin'}`,
+            '    groups: sudo',
+            '    sudo: ALL=(ALL) NOPASSWD:ALL',
+            '    shell: /bin/bash',
+          ];
+          
+          if (formData.cloudInit.sshKeys.length > 0) {
+            lines.push('    ssh_authorized_keys:');
+            formData.cloudInit.sshKeys.forEach(key => {
+              lines.push(`      - ${key}`);
+            });
+          }
+          
+          lines.push('', 'package_update: true', 'packages:', '  - qemu-guest-agent');
+          lines.push('', 'runcmd:', '  - systemctl enable qemu-guest-agent', '  - systemctl start qemu-guest-agent');
+          
+          cloudInitUserData = lines.join('\n');
+        }
+      }
+
       await createVM.mutateAsync({
         name: formData.name,
         projectId: 'default',
@@ -279,21 +384,29 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
           ...(formData.department && { department: formData.department }),
           ...(formData.costCenter && { 'cost-center': formData.costCenter }),
           ...(selectedHost && !formData.autoPlacement && { 'assigned-host': selectedHost.hostname }),
+          ...(selectedCloudImage && { 'os-image': selectedCloudImage.os }),
         },
         spec: {
-          cpu: { 
+          cpu: {
             cores: formData.cpuCores * formData.cpuSockets,
             sockets: formData.cpuSockets,
           },
           memory: { sizeMib: formData.memoryMib },
-          disks: formData.disks.map((d) => ({ 
+          disks: formData.disks.map((d, index) => ({
             sizeGib: d.sizeGib,
             name: d.name,
+            // Use cloud image as backing file for the first disk
+            backingFile: index === 0 && selectedCloudImage ? selectedCloudImage.path : undefined,
           })),
           nics: formData.nics.map((nic) => ({
             networkId: nic.networkId,
             connected: nic.connected,
           })),
+          // Include cloud-init configuration
+          cloudInit: cloudInitUserData ? {
+            userData: cloudInitUserData,
+            metaData: `instance-id: ${formData.name}\nlocal-hostname: ${formData.name}`,
+          } : undefined,
         },
       });
       onSuccess?.();
@@ -341,12 +454,11 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+       {/* Backdrop - no onClick to prevent accidental closure */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={onClose}
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
       />
 
@@ -461,8 +573,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                 <StepBasicInfo formData={formData} updateFormData={updateFormData} />
               )}
               {currentStep === 1 && (
-                <StepPlacement 
-                  formData={formData} 
+                <StepPlacement
+                  formData={formData}
                   updateFormData={updateFormData}
                   clusters={clusters}
                   nodes={nodes}
@@ -478,8 +590,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                 <StepCustomization formData={formData} updateFormData={updateFormData} />
               )}
               {currentStep === 4 && (
-                <StepHardware 
-                  formData={formData} 
+                <StepHardware
+                  formData={formData}
                   updateFormData={updateFormData}
                   networks={networks}
                   isLoading={networksLoading}
@@ -496,8 +608,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                 <StepUserInfo formData={formData} updateFormData={updateFormData} />
               )}
               {currentStep === 8 && (
-                <StepReview 
-                  formData={formData} 
+                <StepReview
+                  formData={formData}
                   clusters={clusters}
                   nodes={nodes}
                 />
@@ -826,7 +938,7 @@ function StepPlacement({
                       <p className="text-sm text-text-muted py-4 text-center">No hosts available in this cluster</p>
                     )}
                     {availableHosts.map((host) => {
-                      const cpuPercent = host.cpuCapacity > 0 
+                      const cpuPercent = host.cpuCapacity > 0
                         ? Math.round((host.cpuAllocated / host.cpuCapacity) * 100)
                         : 0;
                       const memPercent = host.memoryCapacityMib > 0
@@ -1042,13 +1154,13 @@ function StepHardware({
   selectedHost?: ProcessedNode;
 }) {
   // Calculate available resources on selected host
-  const availableCpu = selectedHost 
-    ? selectedHost.cpuCapacity - selectedHost.cpuAllocated 
+  const availableCpu = selectedHost
+    ? selectedHost.cpuCapacity - selectedHost.cpuAllocated
     : 32; // Default max if no host selected
-  const availableMemoryMib = selectedHost 
-    ? selectedHost.memoryCapacityMib - selectedHost.memoryAllocatedMib 
+  const availableMemoryMib = selectedHost
+    ? selectedHost.memoryCapacityMib - selectedHost.memoryAllocatedMib
     : 65536; // Default 64GB max if no host selected
-  
+
   // Calculate if current selection exceeds available resources
   const totalVCPUs = formData.cpuCores * formData.cpuSockets;
   const cpuExceedsLimit = selectedHost && totalVCPUs > availableCpu;
@@ -1179,7 +1291,7 @@ function StepHardware({
                 className={cn("form-input", memoryExceedsLimit && "border-error")}
               />
             </FormField>
-            
+
             <div className="pt-3 border-t border-border space-y-1">
               <p className="text-sm text-text-muted">
                 Selected: <span className={cn("font-medium", memoryExceedsLimit ? "text-error" : "text-text-primary")}>
@@ -1276,68 +1388,289 @@ function StepISO({
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
 }) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [newSshKey, setNewSshKey] = useState('');
+
+  const addSshKey = () => {
+    if (newSshKey.trim()) {
+      updateFormData({
+        cloudInit: {
+          ...formData.cloudInit,
+          sshKeys: [...formData.cloudInit.sshKeys, newSshKey.trim()],
+        },
+      });
+      setNewSshKey('');
+    }
+  };
+
+  const removeSshKey = (index: number) => {
+    updateFormData({
+      cloudInit: {
+        ...formData.cloudInit,
+        sshKeys: formData.cloudInit.sshKeys.filter((_, i) => i !== index),
+      },
+    });
+  };
+
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-3xl mx-auto">
       <div className="text-center mb-8">
         <h3 className="text-xl font-semibold text-text-primary">Boot Media</h3>
-        <p className="text-text-muted mt-1">Select an ISO image to install the operating system</p>
+        <p className="text-text-muted mt-1">Choose how to provision your VM</p>
       </div>
 
-      <FormField label="ISO Image">
-        <div className="grid gap-2">
+      {/* Boot Media Type Selection */}
+      <FormField label="Provisioning Method">
+        <div className="grid grid-cols-3 gap-4">
+          {/* Cloud Image (Recommended) */}
           <label
             className={cn(
-              'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-              formData.isoId === ''
-                ? 'bg-accent/10 border-accent'
+              'flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-all text-center',
+              formData.bootMediaType === 'cloud-image'
+                ? 'bg-accent/10 border-accent ring-2 ring-accent/20'
                 : 'bg-bg-base border-border hover:border-accent/50',
             )}
           >
             <input
               type="radio"
-              name="isoId"
-              checked={formData.isoId === ''}
-              onChange={() => updateFormData({ isoId: '' })}
-              className="form-radio"
+              name="bootMediaType"
+              checked={formData.bootMediaType === 'cloud-image'}
+              onChange={() => updateFormData({ bootMediaType: 'cloud-image' })}
+              className="sr-only"
             />
-            <Disc className="w-4 h-4 text-text-muted" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-text-primary">No Boot Media</p>
-              <p className="text-xs text-text-muted">Configure boot media after creation</p>
+            <Cloud className="w-8 h-8 text-accent" />
+            <div>
+              <p className="text-sm font-medium text-text-primary">Cloud Image</p>
+              <p className="text-xs text-text-muted">Automated setup</p>
+            </div>
+            <Badge variant="success" size="sm">Recommended</Badge>
+          </label>
+
+          {/* ISO Installation */}
+          <label
+            className={cn(
+              'flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-all text-center',
+              formData.bootMediaType === 'iso'
+                ? 'bg-accent/10 border-accent ring-2 ring-accent/20'
+                : 'bg-bg-base border-border hover:border-accent/50',
+            )}
+          >
+            <input
+              type="radio"
+              name="bootMediaType"
+              checked={formData.bootMediaType === 'iso'}
+              onChange={() => updateFormData({ bootMediaType: 'iso' })}
+              className="sr-only"
+            />
+            <Disc className="w-8 h-8 text-text-muted" />
+            <div>
+              <p className="text-sm font-medium text-text-primary">ISO Image</p>
+              <p className="text-xs text-text-muted">Manual install</p>
             </div>
           </label>
 
-          {staticISOs.map((iso) => (
-            <label
-              key={iso.id}
-              className={cn(
-                'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                formData.isoId === iso.id
-                  ? 'bg-accent/10 border-accent'
-                  : 'bg-bg-base border-border hover:border-accent/50',
-              )}
-            >
-              <input
-                type="radio"
-                name="isoId"
-                checked={formData.isoId === iso.id}
-                onChange={() => updateFormData({ isoId: iso.id })}
-                className="form-radio"
-              />
-              <Disc className="w-4 h-4 text-accent" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-text-primary">{iso.name}</p>
-                <p className="text-xs text-text-muted">{iso.size}</p>
-              </div>
-            </label>
-          ))}
+          {/* No Boot Media */}
+          <label
+            className={cn(
+              'flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-all text-center',
+              formData.bootMediaType === 'none'
+                ? 'bg-accent/10 border-accent ring-2 ring-accent/20'
+                : 'bg-bg-base border-border hover:border-accent/50',
+            )}
+          >
+            <input
+              type="radio"
+              name="bootMediaType"
+              checked={formData.bootMediaType === 'none'}
+              onChange={() => updateFormData({ bootMediaType: 'none' })}
+              className="sr-only"
+            />
+            <HardDrive className="w-8 h-8 text-text-muted" />
+            <div>
+              <p className="text-sm font-medium text-text-primary">None</p>
+              <p className="text-xs text-text-muted">Configure later</p>
+            </div>
+          </label>
         </div>
       </FormField>
 
-      <button className="flex items-center gap-2 text-sm text-accent hover:text-accent-hover">
-        <Plus className="w-4 h-4" />
-        Upload New ISO
-      </button>
+      {/* Cloud Image Selection */}
+      {formData.bootMediaType === 'cloud-image' && (
+        <>
+          <FormField label="Cloud Image" description="Pre-installed OS with cloud-init for fast provisioning">
+            <div className="grid gap-2 max-h-48 overflow-y-auto">
+              {staticCloudImages.map((image) => (
+                <label
+                  key={image.id}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
+                    formData.cloudImageId === image.id
+                      ? 'bg-accent/10 border-accent'
+                      : 'bg-bg-base border-border hover:border-accent/50',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="cloudImageId"
+                    checked={formData.cloudImageId === image.id}
+                    onChange={() => updateFormData({ cloudImageId: image.id })}
+                    className="form-radio"
+                  />
+                  <Cloud className="w-5 h-5 text-accent" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-text-primary">{image.name}</p>
+                    <p className="text-xs text-text-muted">{image.description}</p>
+                  </div>
+                  <span className="text-xs text-text-muted">{image.size}</span>
+                </label>
+              ))}
+            </div>
+          </FormField>
+
+          {/* Cloud-Init Configuration */}
+          <div className="border border-border rounded-lg p-4 bg-bg-base space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-5 h-5 text-accent" />
+                <h4 className="font-medium text-text-primary">Cloud-Init Configuration</h4>
+              </div>
+              <Badge variant="info" size="sm">Auto-provisioning</Badge>
+            </div>
+
+            {/* Default User */}
+            <FormField label="Default User" description="Username for SSH access">
+              <input
+                type="text"
+                value={formData.cloudInit.defaultUser}
+                onChange={(e) => updateFormData({
+                  cloudInit: { ...formData.cloudInit, defaultUser: e.target.value }
+                })}
+                placeholder="admin"
+                className="w-full px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary focus:border-accent focus:outline-none"
+              />
+            </FormField>
+
+            {/* SSH Keys */}
+            <FormField label="SSH Public Keys" description="Keys for passwordless SSH access">
+              <div className="space-y-2">
+                {formData.cloudInit.sshKeys.map((key, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 bg-bg-surface border border-border rounded-lg">
+                    <Key className="w-4 h-4 text-accent flex-shrink-0" />
+                    <code className="flex-1 text-xs text-text-secondary truncate">{key.slice(0, 50)}...</code>
+                    <button
+                      type="button"
+                      onClick={() => removeSshKey(index)}
+                      className="p-1 text-text-muted hover:text-status-error transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <textarea
+                    value={newSshKey}
+                    onChange={(e) => setNewSshKey(e.target.value)}
+                    placeholder="ssh-rsa AAAAB3NzaC1yc2E... user@host"
+                    rows={2}
+                    className="flex-1 px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary text-sm font-mono focus:border-accent focus:outline-none resize-none"
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={addSshKey}
+                    disabled={!newSshKey.trim()}
+                    className="self-end"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                {formData.cloudInit.sshKeys.length === 0 && (
+                  <p className="text-xs text-status-warning flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Add at least one SSH key for secure access
+                  </p>
+                )}
+              </div>
+            </FormField>
+
+            {/* Advanced: Custom User-Data */}
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center gap-2 text-sm text-accent hover:text-accent-hover"
+            >
+              <ChevronRight className={cn('w-4 h-4 transition-transform', showAdvanced && 'rotate-90')} />
+              Advanced: Custom cloud-config
+            </button>
+
+            {showAdvanced && (
+              <FormField label="Custom User-Data (cloud-config)" description="Override default cloud-init configuration">
+                <textarea
+                  value={formData.cloudInit.customUserData}
+                  onChange={(e) => updateFormData({
+                    cloudInit: { ...formData.cloudInit, customUserData: e.target.value }
+                  })}
+                  placeholder={`#cloud-config
+packages:
+  - nginx
+  - docker.io
+
+runcmd:
+  - systemctl enable nginx
+  - systemctl start nginx`}
+                  rows={8}
+                  className="w-full px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary text-sm font-mono focus:border-accent focus:outline-none resize-none"
+                />
+              </FormField>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ISO Selection */}
+      {formData.bootMediaType === 'iso' && (
+        <FormField label="ISO Image" description="Select an ISO image for manual OS installation">
+          <div className="grid gap-2 max-h-64 overflow-y-auto">
+            {staticISOs.map((iso) => (
+              <label
+                key={iso.id}
+                className={cn(
+                  'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
+                  formData.isoId === iso.id
+                    ? 'bg-accent/10 border-accent'
+                    : 'bg-bg-base border-border hover:border-accent/50',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="isoId"
+                  checked={formData.isoId === iso.id}
+                  onChange={() => updateFormData({ isoId: iso.id })}
+                  className="form-radio"
+                />
+                <Disc className="w-5 h-5 text-accent" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-text-primary">{iso.name}</p>
+                </div>
+                <span className="text-xs text-text-muted">{iso.size}</span>
+              </label>
+            ))}
+          </div>
+          <button className="mt-3 flex items-center gap-2 text-sm text-accent hover:text-accent-hover">
+            <Plus className="w-4 h-4" />
+            Upload New ISO
+          </button>
+        </FormField>
+      )}
+
+      {/* No Boot Media Info */}
+      {formData.bootMediaType === 'none' && (
+        <div className="p-4 bg-bg-base border border-border rounded-lg">
+          <p className="text-text-secondary">
+            The VM will be created without any boot media. You can attach an ISO or configure 
+            network boot (PXE) after creation.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -1580,11 +1913,11 @@ function StepUserInfo({
   );
 }
 
-function StepReview({ 
+function StepReview({
   formData,
   clusters,
   nodes,
-}: { 
+}: {
   formData: VMCreationData;
   clusters: ProcessedCluster[];
   nodes: ProcessedNode[];
@@ -1594,6 +1927,7 @@ function StepReview({
   const selectedFolder = staticFolders.find((f) => f.id === formData.folderId);
   const selectedPool = mockStoragePools.find((p) => p.id === formData.storagePoolId);
   const selectedISO = staticISOs.find((i) => i.id === formData.isoId);
+  const selectedCloudImage = staticCloudImages.find((i) => i.id === formData.cloudImageId);
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -1630,13 +1964,13 @@ function StepReview({
           />
           {!formData.autoPlacement && selectedHost && (
             <>
-              <ReviewRow 
-                label="Host IP" 
-                value={selectedHost.managementIp} 
+              <ReviewRow
+                label="Host IP"
+                value={selectedHost.managementIp}
               />
-              <ReviewRow 
-                label="Host Resources" 
-                value={`${selectedHost.cpuCapacity} cores, ${formatBytes(selectedHost.memoryCapacityMib * 1024 * 1024)} RAM`} 
+              <ReviewRow
+                label="Host Resources"
+                value={`${selectedHost.cpuCapacity} cores, ${formatBytes(selectedHost.memoryCapacityMib * 1024 * 1024)} RAM`}
               />
             </>
           )}
@@ -1670,8 +2004,37 @@ function StepReview({
         </ReviewSection>
 
         {/* Boot & Customization */}
-        <ReviewSection title="Boot & Customization">
-          <ReviewRow label="ISO" value={selectedISO?.name || 'None'} />
+        <ReviewSection title="Boot & Provisioning">
+          <ReviewRow 
+            label="Method" 
+            value={
+              formData.bootMediaType === 'cloud-image' 
+                ? 'Cloud Image (Automated)' 
+                : formData.bootMediaType === 'iso' 
+                  ? 'ISO (Manual Install)' 
+                  : 'None'
+            } 
+          />
+          {formData.bootMediaType === 'cloud-image' && selectedCloudImage && (
+            <>
+              <ReviewRow label="Cloud Image" value={selectedCloudImage.name} />
+              <ReviewRow label="Default User" value={formData.cloudInit.defaultUser || 'admin'} />
+              <ReviewRow 
+                label="SSH Keys" 
+                value={
+                  formData.cloudInit.sshKeys.length > 0 
+                    ? `${formData.cloudInit.sshKeys.length} key(s) configured` 
+                    : 'None (password only)'
+                } 
+              />
+              {formData.cloudInit.customUserData && (
+                <ReviewRow label="Custom Config" value="Custom cloud-config provided" />
+              )}
+            </>
+          )}
+          {formData.bootMediaType === 'iso' && (
+            <ReviewRow label="ISO" value={selectedISO?.name || 'None selected'} />
+          )}
           <ReviewRow label="Agent" value={formData.installAgent ? 'Will be installed' : 'Not installed'} />
           {formData.hostname && <ReviewRow label="Hostname" value={formData.hostname} />}
         </ReviewSection>
@@ -1694,10 +2057,12 @@ function StepReview({
 function FormField({
   label,
   required,
+  description,
   children,
 }: {
   label: string;
   required?: boolean;
+  description?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -1706,6 +2071,9 @@ function FormField({
         {label}
         {required && <span className="text-error ml-1">*</span>}
       </label>
+      {description && (
+        <p className="text-xs text-text-muted">{description}</p>
+      )}
       {children}
     </div>
   );

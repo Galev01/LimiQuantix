@@ -156,6 +156,8 @@ pub struct DiskConfig {
     pub cache: DiskCache,
     /// IO mode
     pub io_mode: DiskIoMode,
+    /// Backing file path (for copy-on-write cloud images)
+    pub backing_file: Option<String>,
 }
 
 impl Default for DiskConfig {
@@ -170,6 +172,7 @@ impl Default for DiskConfig {
             bootable: true,
             cache: DiskCache::None,
             io_mode: DiskIoMode::Native,
+            backing_file: None,
         }
     }
 }

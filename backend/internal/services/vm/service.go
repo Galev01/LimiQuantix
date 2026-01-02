@@ -222,6 +222,7 @@ func (s *Service) ListVMs(
 	// Build filter from request
 	filter := VMFilter{
 		ProjectID: req.Msg.ProjectId,
+		NodeID:    req.Msg.NodeId,
 		States:    convertPowerStatesToDomain(req.Msg.States),
 		Labels:    req.Msg.Labels,
 	}

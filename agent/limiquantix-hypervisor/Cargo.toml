@@ -29,3 +29,6 @@ virt = { version = "0.4", optional = true }
 
 # XML generation for libvirt
 quick-xml = { version = "0.31", features = ["serialize"] }
+
+# Temporary files for cloud-init ISO generation
+tempfile = "3.10"

@@ -12,37 +12,85 @@ import "google/protobuf/timestamp.proto";
 // to manage VMs directly on the physical host.
 
 service NodeDaemonService {
+  // =========================================================================
+  // Health & Status
+  // =========================================================================
+  
   // Health check endpoint
   rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
   
   // Get node information and capabilities
   rpc GetNodeInfo(google.protobuf.Empty) returns (NodeInfoResponse);
   
+  // =========================================================================
   // VM Lifecycle Operations
-  rpc CreateVM(CreateVMRequest) returns (CreateVMResponse);
+  // =========================================================================
+  
+  // Create a new VM (does not start it)
+  rpc CreateVM(CreateVMOnNodeRequest) returns (CreateVMOnNodeResponse);
+  
+  // Start a VM
   rpc StartVM(VMIdRequest) returns (google.protobuf.Empty);
+  
+  // Stop a VM gracefully (with timeout)
   rpc StopVM(StopVMRequest) returns (google.protobuf.Empty);
+  
+  // Force stop a VM (power off)
   rpc ForceStopVM(VMIdRequest) returns (google.protobuf.Empty);
+  
+  // Reboot a VM
   rpc RebootVM(VMIdRequest) returns (google.protobuf.Empty);
+  
+  // Pause a VM (freeze execution)
   rpc PauseVM(VMIdRequest) returns (google.protobuf.Empty);
+  
+  // Resume a paused VM
   rpc ResumeVM(VMIdRequest) returns (google.protobuf.Empty);
+  
+  // Delete a VM (must be stopped first)
   rpc DeleteVM(VMIdRequest) returns (google.protobuf.Empty);
   
+  // =========================================================================
   // VM Status
-  rpc GetVMStatus(VMIdRequest) returns (VMStatusResponse);
-  rpc ListVMs(google.protobuf.Empty) returns (ListVMsResponse);
+  // =========================================================================
   
-  // Console
+  // Get status of a specific VM
+  rpc GetVMStatus(VMIdRequest) returns (VMStatusResponse);
+  
+  // List all VMs on this node
+  rpc ListVMs(google.protobuf.Empty) returns (ListVMsOnNodeResponse);
+  
+  // =========================================================================
+  // Console Access
+  // =========================================================================
+  
+  // Get console connection information (VNC/SPICE)
   rpc GetConsole(VMIdRequest) returns (ConsoleInfoResponse);
   
+  // =========================================================================
   // Snapshots
+  // =========================================================================
+  
+  // Create a snapshot
   rpc CreateSnapshot(CreateSnapshotRequest) returns (SnapshotResponse);
+  
+  // Revert to a snapshot
   rpc RevertSnapshot(RevertSnapshotRequest) returns (google.protobuf.Empty);
+  
+  // Delete a snapshot
   rpc DeleteSnapshot(DeleteSnapshotRequest) returns (google.protobuf.Empty);
+  
+  // List all snapshots for a VM
   rpc ListSnapshots(VMIdRequest) returns (ListSnapshotsResponse);
   
+  // =========================================================================
   // Metrics & Events (Streaming)
+  // =========================================================================
+  
+  // Stream node and VM metrics
   rpc StreamMetrics(StreamMetricsRequest) returns (stream NodeMetrics);
+  
+  // Stream node events (VM started, stopped, crashed, etc.)
   rpc StreamEvents(google.protobuf.Empty) returns (stream NodeEvent);
 }
 
@@ -50,16 +98,18 @@ service NodeDaemonService {
 // REQUEST/RESPONSE MESSAGES
 // =============================================================================
 
+// Health Check
 message HealthCheckRequest {}
 
 message HealthCheckResponse {
   bool healthy = 1;
   string version = 2;
-  string hypervisor = 3;
+  string hypervisor = 3;       // "libvirt", "cloud-hypervisor"
   string hypervisor_version = 4;
   uint64 uptime_seconds = 5;
 }
 
+// Node Info
 message NodeInfoResponse {
   string node_id = 1;
   string hostname = 2;
@@ -87,46 +137,89 @@ message NodeInfoResponse {
   uint64 max_memory_bytes = 18;
 }
 
+// VM Identification
 message VMIdRequest {
   string vm_id = 1;
 }
 
-message CreateVMRequest {
+// Create VM - matches backend proto exactly
+message CreateVMOnNodeRequest {
   string vm_id = 1;
   string name = 2;
-  
+  VMSpec spec = 3;
+  map<string, string> labels = 4;
+}
+
+message VMSpec {
   // CPU configuration
-  uint32 cpu_cores = 3;
-  uint32 cpu_sockets = 4;
-  uint32 cpu_threads = 5;
+  uint32 cpu_cores = 1;
+  uint32 cpu_sockets = 2;
+  uint32 cpu_threads_per_core = 3;
   
   // Memory configuration (in MiB)
-  uint64 memory_mib = 6;
-  
-  // Disks
-  repeated DiskSpec disks = 7;
-  
-  // Network interfaces
-  repeated NicSpec nics = 8;
+  uint64 memory_mib = 4;
+  bool memory_hugepages = 5;
   
   // Boot configuration
-  Firmware firmware = 9;
+  Firmware firmware = 6;
+  repeated BootDevice boot_order = 7;
+  
+  // Devices
+  repeated DiskSpec disks = 8;
+  repeated NicSpec nics = 9;
+  repeated CdromSpec cdroms = 10;
   
   // Console
-  bool vnc_enabled = 10;
+  ConsoleSpec console = 11;
   
-  // Labels
-  map<string, string> labels = 11;
+  // Cloud-init / provisioning configuration
+  CloudInitConfig cloud_init = 12;
+}
+
+// Cloud-init configuration for automated VM provisioning
+message CloudInitConfig {
+  // User-data (YAML format, typically #cloud-config)
+  // Contains: users, packages, runcmd, write_files, etc.
+  string user_data = 1;
+  
+  // Meta-data (JSON format)
+  // Contains: instance-id, local-hostname, etc.
+  string meta_data = 2;
+  
+  // Network configuration (Netplan v2 format, optional)
+  string network_config = 3;
+  
+  // Vendor-data (optional, for provider-specific config)
+  string vendor_data = 4;
+}
+
+enum Firmware {
+  FIRMWARE_BIOS = 0;
+  FIRMWARE_UEFI = 1;
+}
+
+enum BootDevice {
+  BOOT_DEVICE_DISK = 0;
+  BOOT_DEVICE_CDROM = 1;
+  BOOT_DEVICE_NETWORK = 2;
 }
 
 message DiskSpec {
   string id = 1;
-  string path = 2;
+  string path = 2;              // Path to disk image (empty = auto-create)
   uint64 size_gib = 3;
   DiskBus bus = 4;
   DiskFormat format = 5;
   bool readonly = 6;
   bool bootable = 7;
+  
+  // QoS settings
+  uint64 iops_limit = 8;
+  uint64 throughput_mbps = 9;
+  
+  // Cloud image support
+  string backing_file = 10;     // Path to backing image (e.g., cloud image)
+                                // If set, creates a copy-on-write overlay
 }
 
 enum DiskBus {
@@ -143,10 +236,13 @@ enum DiskFormat {
 
 message NicSpec {
   string id = 1;
-  string mac_address = 2;
-  string bridge = 3;
-  string network = 4;
+  string mac_address = 2;       // Optional, auto-generated if empty
+  string bridge = 3;            // Bridge to connect to
+  string network = 4;           // Virtual network name
   NicModel model = 5;
+  
+  // QoS settings
+  uint64 bandwidth_mbps = 6;
 }
 
 enum NicModel {
@@ -155,22 +251,33 @@ enum NicModel {
   NIC_MODEL_RTL8139 = 2;
 }
 
-enum Firmware {
-  FIRMWARE_BIOS = 0;
-  FIRMWARE_UEFI = 1;
+message CdromSpec {
+  string id = 1;
+  string iso_path = 2;          // Path to ISO file
+  bool bootable = 3;
 }
 
-message CreateVMResponse {
+message ConsoleSpec {
+  bool vnc_enabled = 1;
+  uint32 vnc_port = 2;          // 0 = auto-assign
+  string vnc_password = 3;      // Optional
+  bool spice_enabled = 4;
+  uint32 spice_port = 5;
+}
+
+message CreateVMOnNodeResponse {
   string vm_id = 1;
   bool created = 2;
   string message = 3;
 }
 
+// Stop VM
 message StopVMRequest {
   string vm_id = 1;
-  uint32 timeout_seconds = 2;
+  uint32 timeout_seconds = 2;   // Graceful shutdown timeout
 }
 
+// VM Status
 message VMStatusResponse {
   string vm_id = 1;
   string name = 2;
@@ -190,23 +297,25 @@ enum PowerState {
   POWER_STATE_CRASHED = 5;
 }
 
-message ListVMsResponse {
+message ListVMsOnNodeResponse {
   repeated VMStatusResponse vms = 1;
 }
 
+// Console
 message ConsoleInfoResponse {
-  string console_type = 1;  // "vnc" or "spice"
+  string console_type = 1;      // "vnc" or "spice"
   string host = 2;
   uint32 port = 3;
-  string password = 4;
-  string websocket_path = 5;
+  string password = 4;          // VNC password if set
+  string websocket_path = 5;    // For noVNC
 }
 
+// Snapshots
 message CreateSnapshotRequest {
   string vm_id = 1;
   string name = 2;
   string description = 3;
-  bool quiesce = 4;
+  bool quiesce = 4;             // Request guest agent to freeze filesystems
 }
 
 message SnapshotResponse {
@@ -214,8 +323,8 @@ message SnapshotResponse {
   string name = 2;
   string description = 3;
   google.protobuf.Timestamp created_at = 4;
-  PowerState vm_state = 5;
-  string parent_id = 6;
+  PowerState vm_state = 5;      // State of VM when snapshot was taken
+  string parent_id = 6;         // Parent snapshot ID (for tree)
 }
 
 message RevertSnapshotRequest {
@@ -232,15 +341,20 @@ message ListSnapshotsResponse {
   repeated SnapshotResponse snapshots = 1;
 }
 
+// Metrics
 message StreamMetricsRequest {
-  uint32 interval_seconds = 1;
+  uint32 interval_seconds = 1;  // Reporting interval
 }
 
 message NodeMetrics {
   google.protobuf.Timestamp timestamp = 1;
+  
+  // Node-level metrics
   double cpu_usage_percent = 2;
   uint64 memory_used_bytes = 3;
   uint64 memory_total_bytes = 4;
+  
+  // Per-VM metrics
   repeated VMMetrics vms = 5;
 }
 
@@ -255,11 +369,12 @@ message VMMetrics {
   uint64 network_tx_bytes = 8;
 }
 
+// Events
 message NodeEvent {
   string id = 1;
   google.protobuf.Timestamp timestamp = 2;
   EventType type = 3;
-  string vm_id = 4;
+  string vm_id = 4;             // If event is VM-related
   string message = 5;
   map<string, string> metadata = 6;
 }
@@ -278,4 +393,3 @@ enum EventType {
   EVENT_TYPE_NODE_OVERLOADED = 10;
   EVENT_TYPE_NODE_RECOVERED = 11;
 }
-

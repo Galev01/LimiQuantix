@@ -1,160 +1,236 @@
 # limiquantix Workflow State
 
-## Current Status: Phase 1 Complete ✅
+## Current Status: Cloud-Init Frontend Integration Complete ✅
 
-**Last Updated:** January 2, 2026 (Evening)
-
----
-
-## What We've Built
-
-A functional foundation for a complete VMware vSphere replacement:
-
-| Component | Status | Description |
-|-----------|--------|-------------|
-| **Frontend** | ✅ 95% | React dashboard with 15 pages |
-| **Control Plane** | ✅ 85% | Go backend with all services |
-| **Node Daemon** | ✅ 80% | Rust gRPC server with registration/heartbeat |
-| **Hypervisor Abstraction** | ✅ 100% | Mock (working) + Libvirt (ready) |
-| **Full Stack Integration** | ✅ 90% | VMService → Scheduler → Node Daemon |
+**Last Updated:** January 2, 2026 (Late Night Session)
 
 ---
 
-## What Works Today
+## What's New (This Session)
 
-```
-✅ Create a VM → Schedules to node → Creates on mock hypervisor
-✅ Start/Stop/Reboot VM → Calls Node Daemon
-✅ Node Registration → Auto-registers on startup
-✅ Heartbeat → CPU/memory every 30 seconds
-✅ Scheduler → Spread/pack strategies
-✅ HA Manager → Failover logic
-✅ DRS Engine → Recommendations
-```
+### ✅ Backend: Cloud-Init Provisioning
 
----
+Implemented full cloud-init support for automated VM provisioning:
 
-## Comprehensive Next Steps
+1. **CloudInitConfig** struct with user-data, meta-data, network-config
+2. **CloudInitGenerator** creates NoCloud ISO using `genisoimage`
+3. **Auto-attaches** cloud-init ISO to VM as CD-ROM device
+4. Proto updated with `CloudInitConfig` message
 
-### Immediate (This Week)
-| Task | Priority | Effort |
-|------|----------|--------|
-| Set up Linux host with KVM/libvirt | P0 | 1 day |
-| Test Node Daemon with `--features libvirt` | P0 | 2-3 days |
-| Boot a real VM through the full stack | P0 | 2-3 days |
+### ✅ Backend: Cloud Image Support
 
-### Short-term (Weeks 2-4)
-| Task | Priority | Effort |
-|------|----------|--------|
-| Integrate qemu-img for disk creation | P0 | 2 days |
-| VNC console proxy | P1 | 2 days |
-| Snapshot testing with libvirt | P1 | 1 day |
-| Local LVM storage backend | P0 | 1-2 weeks |
+Added backing file support for copy-on-write cloud images:
 
-### Medium-term (Months 2-3)
-| Task | Priority | Effort |
-|------|----------|--------|
-| Linux bridge networking | P0 | 1-2 weeks |
-| Guest Agent (basic) | P0 | 3-4 weeks |
-| Ceph storage integration | P1 | 3-4 weeks |
-| OVN networking | P1 | 3-4 weeks |
+1. **DiskSpec.backing_file** field in proto
+2. **DiskConfig.backing_file** field in Rust types
+3. **StorageManager** creates overlay disks with `qemu-img create -b`
+4. Automatic resizing of overlay if larger than backing
 
-### Long-term (Months 4-6)
-| Task | Priority | Effort |
-|------|----------|--------|
-| limiquantix Host OS | P1 | 8-12 weeks |
-| Live migration testing | P1 | 2 weeks |
-| Backup engine | P2 | 4 weeks |
+### ✅ Frontend: VM Creation Wizard Cloud-Init UI
 
----
+Added full cloud-init configuration to the VM wizard:
 
-## Architecture Overview
+1. **Three provisioning methods:**
+   - Cloud Image (Recommended) - Automated setup with cloud-init
+   - ISO Image - Manual OS installation
+   - None - Configure later
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                 Frontend (React) - ✅ 95%                   │
-└─────────────────────────────────────────────────────────────┘
-                              │ Connect-RPC
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│               Control Plane (Go) - ✅ 85%                   │
-│   VMService │ NodeService │ Scheduler │ HA │ DRS            │
-│   DaemonPool │ DaemonClient                                 │
-└─────────────────────────────────────────────────────────────┘
-                              │ gRPC
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│               Node Daemon (Rust) - ✅ 80%                   │
-│   gRPC Server │ Registration │ Heartbeat │ Telemetry        │
-│   Mock Hypervisor (✅) │ Libvirt Backend (⏳)               │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      TO BE BUILT                            │
-│                                                             │
-│   Guest Agent (❌)  │  Storage (❌)  │  Networking (❌)      │
-│   Host OS (❌)      │  Live Migration (⏳)                  │
-└─────────────────────────────────────────────────────────────┘
-```
+2. **Cloud Image Selection:**
+   - Ubuntu 22.04/24.04 Cloud
+   - Debian 12 Cloud
+   - Rocky Linux 9 Cloud
+   - AlmaLinux 9 Cloud
+
+3. **Cloud-Init Configuration:**
+   - Default username field
+   - SSH public key management (add/remove)
+   - Advanced: Custom user-data editor
+
+4. **Updated Review Step:**
+   - Shows provisioning method
+   - Displays cloud image name
+   - Shows SSH key count
+   - Indicates custom config if provided
 
 ---
 
-## Quick Start Commands
+## Files Changed (This Session)
+
+### Backend (Rust)
+
+| File | Change |
+|------|--------|
+| `agent/limiquantix-proto/proto/node_daemon.proto` | Added CloudInitConfig, backing_file |
+| `agent/limiquantix-hypervisor/src/cloudinit.rs` | **NEW** - Cloud-init ISO generation |
+| `agent/limiquantix-hypervisor/src/storage.rs` | Backing file support |
+| `agent/limiquantix-hypervisor/src/types.rs` | Added backing_file field |
+| `agent/limiquantix-hypervisor/src/lib.rs` | Export cloudinit module |
+| `agent/limiquantix-hypervisor/Cargo.toml` | Added tempfile dependency |
+| `agent/limiquantix-node/src/service.rs` | Cloud-init integration |
+
+### Frontend (React)
+
+| File | Change |
+|------|--------|
+| `frontend/src/components/vm/VMCreationWizard.tsx` | Cloud image selector, SSH key input, cloud-init config |
+| `frontend/src/lib/api-client.ts` | Added cloudInit and backingFile to ApiVM |
+
+### Documentation
+
+| File | Change |
+|------|--------|
+| `docs/000039-cloud-init-provisioning.md` | **NEW** - Full documentation |
+
+---
+
+## Testing Instructions
+
+### 1. Start Frontend
 
 ```bash
-# Terminal 1: Control Plane
-cd backend && go run ./cmd/controlplane --dev
+cd frontend
+npm run dev
+```
 
-# Terminal 2: Node Daemon
-cd agent && cargo run --bin limiquantix-node -- \
-  --dev --listen 127.0.0.1:9090 \
-  --control-plane http://127.0.0.1:8080 --register
+### 2. Create VM with Cloud-Init
 
-# Terminal 3: Frontend
-cd frontend && npm run dev
+1. Open VM Creation Wizard
+2. Fill in basic info (name, etc.)
+3. Select placement (host)
+4. On **Boot Media** step:
+   - Select "Cloud Image"
+   - Choose "Ubuntu 22.04 LTS Cloud"
+   - Enter username (e.g., "admin")
+   - Paste your SSH public key
+5. Complete remaining steps
+6. Review and create
 
-# Access: http://localhost:5174
+### 3. On Ubuntu Laptop
+
+```bash
+# Ensure cloud image is downloaded
+wget -O /var/lib/limiquantix/cloud-images/ubuntu-22.04.qcow2 \
+  https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+
+# Run Node Daemon
+cd ~/LimiQuantix/agent
+cargo build --release --bin limiquantix-node --features libvirt
+./target/release/limiquantix-node \
+  --libvirt-uri qemu:///system \
+  --listen 0.0.0.0:9090 \
+  --control-plane http://<WINDOWS_IP>:8080 \
+  --register
+```
+
+### 4. Verify VM Creation
+
+```bash
+# Check VM is defined in libvirt
+virsh list --all
+
+# Check disk overlay was created
+ls -la /var/lib/limiquantix/images/<vm-id>/
+
+# Check cloud-init ISO was created
+ls -la /var/lib/limiquantix/images/<vm-id>/cloud-init.iso
+
+# Start VM and SSH
+virsh start <vm-id>
+ssh admin@<VM_IP>
 ```
 
 ---
 
-## Key Documents
+## UI Preview
 
-| Document | Path |
-|----------|------|
-| Project Plan | `project_plan.md` |
-| Status Analysis | `project-status-analysis.md` |
-| **Comprehensive Next Steps** | `docs/000034-next-steps-comprehensive-plan.md` |
-| Hypervisor ADR | `docs/adr/000007-hypervisor-integration.md` |
-| Node Daemon Plan | `docs/000031-node-daemon-implementation-plan.md` |
-| VMService Integration | `docs/000032-vmservice-node-daemon-integration.md` |
-| Registration Flow | `docs/000033-node-registration-flow.md` |
+### Boot Media Step (New)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                       Boot Media                             │
+│         Choose how to provision your VM                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│   │    ☁️        │  │    💿        │  │    💾        │         │
+│   │ Cloud Image │  │ ISO Image   │  │   None      │         │
+│   │ Automated   │  │ Manual      │  │ Later       │         │
+│   │ ✅ Recommended │  │            │  │             │         │
+│   └─────────────┘  └─────────────┘  └─────────────┘         │
+│                                                              │
+│   Cloud Image:                                               │
+│   ○ Ubuntu 22.04 LTS Cloud                670 MB            │
+│   ● Ubuntu 24.04 LTS Cloud                720 MB            │
+│   ○ Debian 12 Cloud                       350 MB            │
+│   ○ Rocky Linux 9 Cloud                   1.1 GB            │
+│                                                              │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │ 🖥️  Cloud-Init Configuration          [Auto-setup]  │   │
+│   │                                                      │   │
+│   │ Default User: [admin________________]                │   │
+│   │                                                      │   │
+│   │ SSH Public Keys:                                     │   │
+│   │ ┌──────────────────────────────────────────────┐    │   │
+│   │ │ 🔑 ssh-rsa AAAAB3NzaC1yc2E...       [🗑️]     │    │   │
+│   │ └──────────────────────────────────────────────┘    │   │
+│   │ [textarea for new key...                   ] [+]    │   │
+│   │ ⚠️ Add at least one SSH key for secure access       │   │
+│   │                                                      │   │
+│   │ ▶ Advanced: Custom cloud-config                     │   │
+│   └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Goal Reminder
+## Known Limitations
 
-**Building a complete VMware replacement:**
-
-| VMware | limiquantix | Status |
-|--------|-------------|--------|
-| vSphere Client | React Dashboard | ✅ |
-| vCenter | Control Plane | ✅ |
-| ESXi Agent | Node Daemon | ✅ |
-| VMware Tools | Guest Agent | ❌ |
-| vSAN | Ceph/LINSTOR | ❌ |
-| NSX-T | OVN/OVS | ❌ |
-| ESXi OS | limiquantix OS | ❌ |
+1. **Cloud images are static** - Currently hardcoded in frontend. Need API to list available cloud images.
+2. **No image upload UI** - Must manually place cloud images on hypervisor.
+3. **ISO paths are placeholders** - Need real ISO storage API.
 
 ---
 
-## Legend
+## Next Steps
 
-- ✅ Complete
-- ⏳ In Progress
-- 📋 Planned
-- ❌ Not Started
-- P0: Critical
-- P1: Important
-- P2: Nice to have
+| Task | Priority | Effort |
+|------|----------|--------|
+| VNC WebSocket proxy | P0 | 2-3 days |
+| Cloud image library API | P1 | 1 week |
+| Guest Agent (basic) | P0 | 3-4 weeks |
+| Windows Sysprep support | P2 | 1 week |
+
+---
+
+## Quick Reference
+
+### Cloud Image Paths (Expected on Hypervisor)
+
+```
+/var/lib/limiquantix/cloud-images/
+├── ubuntu-22.04.qcow2
+├── ubuntu-24.04.qcow2
+├── debian-12.qcow2
+├── rocky-9.qcow2
+└── almalinux-9.qcow2
+```
+
+### Download Commands
+
+```bash
+# Ubuntu 22.04
+wget -O /var/lib/limiquantix/cloud-images/ubuntu-22.04.qcow2 \
+  https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+
+# Ubuntu 24.04
+wget -O /var/lib/limiquantix/cloud-images/ubuntu-24.04.qcow2 \
+  https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+
+# Debian 12
+wget -O /var/lib/limiquantix/cloud-images/debian-12.qcow2 \
+  https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-amd64.qcow2
+
+# Rocky Linux 9
+wget -O /var/lib/limiquantix/cloud-images/rocky-9.qcow2 \
+  https://dl.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud.latest.x86_64.qcow2
+```
