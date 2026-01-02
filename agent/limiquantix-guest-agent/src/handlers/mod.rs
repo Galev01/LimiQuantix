@@ -1,42 +1,31 @@
 //! Message handlers for the guest agent.
 //!
-//! This module contains handlers for all incoming messages from the host.
+//! This module contains handlers for different message types received from the host.
+
+use anyhow::{anyhow, Result};
+use limiquantix_proto::agent::{agent_message, AgentMessage};
+use prost_types::Timestamp;
+use std::time::{SystemTime, UNIX_EPOCH};
+use tracing::{debug, error, info, warn};
 
 mod execute;
 mod file;
 mod lifecycle;
 
 use crate::AgentConfig;
-use anyhow::{anyhow, Result};
-use limiquantix_proto::agent::{agent_message, AgentMessage, PongResponse};
-use prost_types::Timestamp;
-use std::time::{SystemTime, UNIX_EPOCH};
-use tracing::{debug, info, warn};
 
-pub use execute::ExecuteHandler;
-pub use file::FileHandler;
-pub use lifecycle::LifecycleHandler;
-
-/// Central message handler that dispatches to specific handlers
+/// Message handler that routes messages to the appropriate handler.
 pub struct MessageHandler {
     config: AgentConfig,
-    execute_handler: ExecuteHandler,
-    file_handler: FileHandler,
-    lifecycle_handler: LifecycleHandler,
 }
 
 impl MessageHandler {
-    /// Create a new message handler with the given configuration
+    /// Create a new message handler with the given configuration.
     pub fn new(config: AgentConfig) -> Self {
-        Self {
-            execute_handler: ExecuteHandler::new(config.max_exec_timeout_secs),
-            file_handler: FileHandler::new(config.max_chunk_size),
-            lifecycle_handler: LifecycleHandler::new(),
-            config,
-        }
+        Self { config }
     }
 
-    /// Handle an incoming message and return an optional response
+    /// Handle an incoming message and return an optional response.
     pub async fn handle(&self, message: AgentMessage) -> Result<Option<AgentMessage>> {
         let message_id = message.message_id.clone();
 
@@ -45,76 +34,57 @@ impl MessageHandler {
             .ok_or_else(|| anyhow!("Message has no payload"))?;
 
         let response_payload = match payload {
-            // Health check - respond with pong
-            agent_message::Payload::Ping(ping) => {
-                info!(sequence = ping.sequence, "Received ping");
-                let uptime = get_uptime();
-                Some(agent_message::Payload::Pong(PongResponse {
-                    sequence: ping.sequence,
-                    version: env!("CARGO_PKG_VERSION").to_string(),
-                    uptime_seconds: uptime,
-                }))
+            // Health check
+            agent_message::Payload::Ping(req) => {
+                debug!(sequence = req.sequence, "Handling ping request");
+                Some(self.handle_ping(req))
             }
 
             // Command execution
             agent_message::Payload::Execute(req) => {
-                debug!(command = %req.command, "Executing command");
-                let response = self.execute_handler.handle(req).await;
-                Some(agent_message::Payload::ExecuteResponse(response))
+                info!(command = %req.command, "Handling execute request");
+                Some(execute::handle_execute(req, &self.config).await)
             }
 
-            // File write
+            // File operations
             agent_message::Payload::FileWrite(req) => {
-                debug!(path = %req.path, "Writing file");
-                let response = self.file_handler.handle_write(req).await;
-                Some(agent_message::Payload::FileWriteResponse(response))
+                info!(path = %req.path, "Handling file write request");
+                Some(file::handle_file_write(req).await)
             }
 
-            // File read
             agent_message::Payload::FileRead(req) => {
-                debug!(path = %req.path, "Reading file");
-                let response = self.file_handler.handle_read(req).await;
-                Some(agent_message::Payload::FileReadResponse(response))
+                info!(path = %req.path, "Handling file read request");
+                Some(file::handle_file_read(req, &self.config).await)
             }
 
-            // Shutdown
+            // Lifecycle operations
             agent_message::Payload::Shutdown(req) => {
-                info!(shutdown_type = ?req.r#type, "Shutdown requested");
-                let response = self.lifecycle_handler.handle_shutdown(req).await;
-                Some(agent_message::Payload::ShutdownResponse(response))
+                info!(r#type = ?req.r#type, "Handling shutdown request");
+                Some(lifecycle::handle_shutdown(req).await)
             }
 
-            // Password reset
             agent_message::Payload::ResetPassword(req) => {
-                info!(username = %req.username, "Password reset requested");
-                let response = self.lifecycle_handler.handle_reset_password(req).await;
-                Some(agent_message::Payload::ResetPasswordResponse(response))
+                info!(username = %req.username, "Handling password reset request");
+                Some(lifecycle::handle_reset_password(req).await)
             }
 
-            // Network configuration
             agent_message::Payload::ConfigureNetwork(req) => {
-                info!("Network configuration requested");
-                let response = self.lifecycle_handler.handle_configure_network(req).await;
-                Some(agent_message::Payload::ConfigureNetworkResponse(response))
+                info!("Handling network configuration request");
+                Some(lifecycle::handle_configure_network(req).await)
             }
 
-            // Response messages - should not be received by the agent
+            // Responses and events (should not be received by agent)
             agent_message::Payload::Pong(_)
             | agent_message::Payload::ExecuteResponse(_)
             | agent_message::Payload::FileWriteResponse(_)
             | agent_message::Payload::FileReadResponse(_)
             | agent_message::Payload::ShutdownResponse(_)
             | agent_message::Payload::ResetPasswordResponse(_)
-            | agent_message::Payload::ConfigureNetworkResponse(_) => {
-                warn!(message_id = %message_id, "Received response message - ignoring");
-                None
-            }
-
-            // Events - should not be received by the agent
-            agent_message::Payload::Telemetry(_)
+            | agent_message::Payload::ConfigureNetworkResponse(_)
+            | agent_message::Payload::Telemetry(_)
             | agent_message::Payload::AgentReady(_)
             | agent_message::Payload::Error(_) => {
-                warn!(message_id = %message_id, "Received event message - ignoring");
+                warn!("Received unexpected message type (response/event)");
                 None
             }
         };
@@ -126,7 +96,7 @@ impl MessageHandler {
                 .unwrap_or_default();
 
             AgentMessage {
-                message_id: format!("{}-response", message_id),
+                message_id,
                 timestamp: Some(Timestamp {
                     seconds: now.as_secs() as i64,
                     nanos: now.subsec_nanos() as i32,
@@ -135,9 +105,21 @@ impl MessageHandler {
             }
         }))
     }
-}
 
-/// Get system uptime in seconds
-fn get_uptime() -> u64 {
-    sysinfo::System::uptime()
+    /// Handle a ping request.
+    fn handle_ping(
+        &self,
+        req: limiquantix_proto::agent::PingRequest,
+    ) -> agent_message::Payload {
+        use limiquantix_proto::agent::PongResponse;
+        use sysinfo::System;
+
+        let uptime = System::uptime();
+
+        agent_message::Payload::Pong(PongResponse {
+            sequence: req.sequence,
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            uptime_seconds: uptime,
+        })
+    }
 }

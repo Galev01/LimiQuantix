@@ -61,10 +61,11 @@ directories = "5"
 toml = "0.8"
 
 [features]
-default = ["vnc"]
+default = ["vnc", "custom-protocol"]
 vnc = []
 spice = []  # Future: SPICE protocol support
 usb = []    # Future: USB passthrough
+custom-protocol = ["tauri/custom-protocol"]
 
 # Optimizations for release builds
 [profile.release]

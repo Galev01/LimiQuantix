@@ -8,9 +8,6 @@ import {
   Keyboard,
   Clipboard,
   Usb,
-  Settings,
-  Power,
-  RefreshCw,
 } from 'lucide-react';
 
 interface ConsoleViewProps {
