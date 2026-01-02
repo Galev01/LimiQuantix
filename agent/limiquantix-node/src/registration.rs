@@ -87,7 +87,7 @@ impl RegistrationClient {
                 "threadsPerCore": threads_per_core as u32,
                 "totalThreads": telemetry.cpu.logical_cores as u32,
                 "frequencyMhz": telemetry.cpu.frequency_mhz,
-                "features": telemetry.cpu.features
+                "features": [] as [String; 0]  // CPU features not yet collected by telemetry
             },
             "memoryInfo": {
                 "totalBytes": telemetry.memory.total_bytes,
