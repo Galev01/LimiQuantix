@@ -10,7 +10,7 @@ use limiquantix_proto::NodeDaemonServiceServer;
 use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::{Config, HypervisorBackend};
-use crate::registration::RegistrationClient;
+use crate::registration::{RegistrationClient, detect_management_ip};
 use crate::service::NodeDaemonServiceImpl;
 
 /// Run the gRPC server.
@@ -72,6 +72,9 @@ pub async fn run(config: Config) -> Result<()> {
     // Create service implementation
     let node_id = config.node.get_id();
     let hostname = config.node.get_hostname();
+    let management_ip = detect_management_ip().unwrap_or_else(|| "127.0.0.1".to_string());
+    
+    info!(management_ip = %management_ip, "Detected management IP");
     
     // Clone hypervisor before moving into service (needed for registration)
     let hypervisor_for_registration = hypervisor.clone();
@@ -79,6 +82,7 @@ pub async fn run(config: Config) -> Result<()> {
     let service = NodeDaemonServiceImpl::new(
         node_id.clone(),
         hostname.clone(),
+        management_ip,
         hypervisor,
         telemetry.clone(),
     );

@@ -28,6 +28,7 @@ use limiquantix_proto::{
 pub struct NodeDaemonServiceImpl {
     node_id: String,
     hostname: String,
+    management_ip: String,
     hypervisor: Arc<dyn Hypervisor>,
     telemetry: Arc<TelemetryCollector>,
     storage: StorageManager,
@@ -38,12 +39,14 @@ impl NodeDaemonServiceImpl {
     pub fn new(
         node_id: String,
         hostname: String,
+        management_ip: String,
         hypervisor: Arc<dyn Hypervisor>,
         telemetry: Arc<TelemetryCollector>,
     ) -> Self {
         Self {
             node_id,
             hostname,
+            management_ip,
             hypervisor,
             telemetry,
             storage: StorageManager::new(),
@@ -51,9 +54,11 @@ impl NodeDaemonServiceImpl {
     }
     
     /// Create a new service instance with a custom storage path.
+    #[allow(dead_code)]
     pub fn with_storage_path(
         node_id: String,
         hostname: String,
+        management_ip: String,
         hypervisor: Arc<dyn Hypervisor>,
         telemetry: Arc<TelemetryCollector>,
         storage_path: impl Into<std::path::PathBuf>,
@@ -61,6 +66,7 @@ impl NodeDaemonServiceImpl {
         Self {
             node_id,
             hostname,
+            management_ip,
             hypervisor,
             telemetry,
             storage: StorageManager::with_path(storage_path),
@@ -617,12 +623,22 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         let console = self.hypervisor.get_console(vm_id).await
             .map_err(|e| Status::not_found(e.to_string()))?;
         
+        // Use the node's management IP instead of localhost
+        // This allows remote clients to connect to the VNC console
+        let host = if console.host == "127.0.0.1" || console.host == "localhost" {
+            self.management_ip.clone()
+        } else {
+            console.host
+        };
+        
+        info!(host = %host, port = console.port, "Returning console info");
+        
         Ok(Response::new(ConsoleInfoResponse {
             console_type: match console.console_type {
                 limiquantix_hypervisor::ConsoleType::Vnc => "vnc".to_string(),
                 limiquantix_hypervisor::ConsoleType::Spice => "spice".to_string(),
             },
-            host: console.host,
+            host,
             port: console.port as u32,
             password: console.password.unwrap_or_default(),
             websocket_path: console.websocket_path.unwrap_or_default(),

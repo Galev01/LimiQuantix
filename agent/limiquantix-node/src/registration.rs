@@ -410,7 +410,7 @@ impl RegistrationClient {
 }
 
 /// Detect the management IP address.
-fn detect_management_ip() -> Option<String> {
+pub fn detect_management_ip() -> Option<String> {
     // Try to get the default network interface IP
     // This is a simple implementation - a production version would be smarter
     if let Ok(interfaces) = local_ip_address::list_afinet_netifas() {
