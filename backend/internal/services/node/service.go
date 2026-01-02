@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -672,15 +673,20 @@ func (s *Service) SyncNodeVMs(
 			zap.String("state", vmInfo.State),
 		)
 
-		// Convert state string to domain state
+		// Convert state string to domain state (handle various case formats)
 		vmState := domain.VMStateStopped
-		switch vmInfo.State {
-		case "running", "RUNNING":
+		stateLower := strings.ToLower(vmInfo.State)
+		switch stateLower {
+		case "running":
 			vmState = domain.VMStateRunning
-		case "paused", "PAUSED":
+		case "paused":
 			vmState = domain.VMStatePaused
-		case "stopped", "STOPPED", "shutoff", "SHUTOFF":
+		case "stopped", "shutoff":
 			vmState = domain.VMStateStopped
+		case "suspended":
+			vmState = domain.VMStateSuspended
+		case "crashed":
+			vmState = domain.VMStateFailed
 		}
 
 		newVM := &domain.VirtualMachine{

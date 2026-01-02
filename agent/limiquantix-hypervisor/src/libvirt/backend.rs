@@ -122,6 +122,15 @@ impl Hypervisor for LibvirtBackend {
         
         let domain = self.get_domain(vm_id)?;
         
+        // Check if already running
+        let (state, _) = domain.get_state()
+            .map_err(|e| HypervisorError::Internal(e.to_string()))?;
+        
+        if state == sys::VIR_DOMAIN_RUNNING {
+            info!("VM is already running");
+            return Ok(());
+        }
+        
         domain.create()
             .map_err(|e| HypervisorError::StartFailed(e.to_string()))?;
         
