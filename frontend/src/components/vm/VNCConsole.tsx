@@ -99,12 +99,12 @@ export function VNCConsole({ vmId, vmName, isOpen, onClose }: VNCConsoleProps) {
     }
   }, []);
 
-  // Copy VNC URL to clipboard
-  const copyVncUrl = useCallback(() => {
+  // Copy connection address to clipboard (host:port format for VNC clients)
+  const copyConnectionAddress = useCallback(() => {
     if (!consoleInfo) return;
 
-    const vncUrl = `vnc://${consoleInfo.host}:${consoleInfo.port}`;
-    navigator.clipboard.writeText(vncUrl);
+    const address = `${consoleInfo.host}:${consoleInfo.port}`;
+    navigator.clipboard.writeText(address);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [consoleInfo]);
@@ -166,8 +166,9 @@ export function VNCConsole({ vmId, vmName, isOpen, onClose }: VNCConsoleProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={copyVncUrl}
+                    onClick={copyConnectionAddress}
                     className="relative"
+                    title="Copy connection address"
                   >
                     {copied ? (
                       <CheckCircle className="w-4 h-4 text-success" />
@@ -244,12 +245,12 @@ export function VNCConsole({ vmId, vmName, isOpen, onClose }: VNCConsoleProps) {
                     </div>
                   )}
                   <div className="flex justify-between items-center">
-                    <span className="text-text-muted text-sm">VNC URL</span>
+                    <span className="text-text-muted text-sm">Connection</span>
                     <div className="flex items-center gap-2">
-                      <code className="font-mono text-text-primary bg-bg-base px-2 py-1 rounded text-sm">
-                        vnc://{consoleInfo.host}:{consoleInfo.port}
+                      <code className="font-mono text-lg text-accent bg-bg-base px-3 py-1.5 rounded font-bold">
+                        {consoleInfo.host}:{consoleInfo.port}
                       </code>
-                      <Button variant="ghost" size="sm" onClick={copyVncUrl}>
+                      <Button variant="ghost" size="sm" onClick={copyConnectionAddress} title="Copy address">
                         {copied ? (
                           <CheckCircle className="w-4 h-4 text-success" />
                         ) : (
@@ -278,23 +279,18 @@ export function VNCConsole({ vmId, vmName, isOpen, onClose }: VNCConsoleProps) {
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3 pt-2">
                   <Button
-                    variant="secondary"
-                    onClick={copyVncUrl}
-                  >
-                    <Copy className="w-4 h-4" />
-                    Copy VNC URL
-                  </Button>
-                  <Button
                     variant="primary"
-                    onClick={() => {
-                      // Open external VNC client (if supported by browser)
-                      window.open(`vnc://${consoleInfo.host}:${consoleInfo.port}`, '_blank');
-                    }}
+                    onClick={copyConnectionAddress}
+                    className="text-base px-6 py-3"
                   >
-                    <ExternalLink className="w-4 h-4" />
-                    Open in VNC Client
+                    <Copy className="w-5 h-5" />
+                    Copy Address to Clipboard
                   </Button>
                 </div>
+                
+                <p className="text-sm text-text-muted">
+                  Paste <code className="bg-bg-base px-1 rounded">{consoleInfo.host}:{consoleInfo.port}</code> into TightVNC, RealVNC, or any VNC client
+                </p>
 
                 {/* Future noVNC */}
                 <div className="text-xs text-text-muted mt-4 p-3 bg-warning/10 border border-warning/20 rounded-lg">

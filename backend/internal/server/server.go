@@ -217,6 +217,11 @@ func (s *Server) registerRoutes() {
 	// API info
 	s.mux.HandleFunc("/api/v1/info", s.infoHandler)
 
+	// Console WebSocket endpoint
+	consoleHandler := NewConsoleHandler(s)
+	s.mux.Handle("/api/console/", consoleHandler)
+	s.logger.Info("Registered console WebSocket handler", zap.String("path", "/api/console/{vmId}/ws"))
+
 	// =========================================================================
 	// Connect-RPC Services - Compute
 	// =========================================================================

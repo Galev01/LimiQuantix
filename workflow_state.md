@@ -1,193 +1,161 @@
 # limiquantix Workflow State
 
-## Current Status: Cloud-Init Frontend Integration Complete ✅
+## Current Status: Web Console (noVNC) Implementation Complete ✅
 
-**Last Updated:** January 2, 2026 (Late Night Session)
+**Last Updated:** January 2, 2026 (Evening Session)
 
 ---
 
 ## What's New (This Session)
 
-### ✅ Backend: Cloud-Init Provisioning
+### ✅ Web Console (noVNC) Implementation
 
-Implemented full cloud-init support for automated VM provisioning:
+Implemented browser-based VNC console using noVNC:
 
-1. **CloudInitConfig** struct with user-data, meta-data, network-config
-2. **CloudInitGenerator** creates NoCloud ISO using `genisoimage`
-3. **Auto-attaches** cloud-init ISO to VM as CD-ROM device
-4. Proto updated with `CloudInitConfig` message
+1. **Frontend WebConsole Component** (`frontend/src/components/vm/WebConsole.tsx`)
+   - Uses `@novnc/novnc` npm package
+   - Full-screen mode support
+   - Connection status indicators
+   - Ctrl+Alt+Del button
+   - Copy address to clipboard
+   - Fallback to manual VNC client instructions
 
-### ✅ Backend: Cloud Image Support
+2. **Backend WebSocket Proxy** (`backend/internal/server/console.go`)
+   - WebSocket endpoint at `/api/console/{vmId}/ws`
+   - Proxies WebSocket ↔ VNC TCP connection
+   - Authenticates via VM lookup
+   - Connects to node daemon for console info
 
-Added backing file support for copy-on-write cloud images:
+3. **Node Daemon Console Fix**
+   - `get_console` now returns the node's actual management IP
+   - Instead of hardcoded `127.0.0.1`
 
-1. **DiskSpec.backing_file** field in proto
-2. **DiskConfig.backing_file** field in Rust types
-3. **StorageManager** creates overlay disks with `qemu-img create -b`
-4. Automatic resizing of overlay if larger than backing
+### ✅ Documentation
 
-### ✅ Frontend: VM Creation Wizard Cloud-Init UI
-
-Added full cloud-init configuration to the VM wizard:
-
-1. **Three provisioning methods:**
-   - Cloud Image (Recommended) - Automated setup with cloud-init
-   - ISO Image - Manual OS installation
-   - None - Configure later
-
-2. **Cloud Image Selection:**
-   - Ubuntu 22.04/24.04 Cloud
-   - Debian 12 Cloud
-   - Rocky Linux 9 Cloud
-   - AlmaLinux 9 Cloud
-
-3. **Cloud-Init Configuration:**
-   - Default username field
-   - SSH public key management (add/remove)
-   - Advanced: Custom user-data editor
-
-4. **Updated Review Step:**
-   - Shows provisioning method
-   - Displays cloud image name
-   - Shows SSH key count
-   - Indicates custom config if provided
+Created comprehensive console documentation:
+- `docs/000040-console-implementation-guide.md`
+- Covers noVNC architecture
+- Documents QVMRC (native client) roadmap
+- Effort estimates for both approaches
 
 ---
 
 ## Files Changed (This Session)
 
-### Backend (Rust)
+### Backend (Go)
 
 | File | Change |
 |------|--------|
-| `agent/limiquantix-proto/proto/node_daemon.proto` | Added CloudInitConfig, backing_file |
-| `agent/limiquantix-hypervisor/src/cloudinit.rs` | **NEW** - Cloud-init ISO generation |
-| `agent/limiquantix-hypervisor/src/storage.rs` | Backing file support |
-| `agent/limiquantix-hypervisor/src/types.rs` | Added backing_file field |
-| `agent/limiquantix-hypervisor/src/lib.rs` | Export cloudinit module |
-| `agent/limiquantix-hypervisor/Cargo.toml` | Added tempfile dependency |
-| `agent/limiquantix-node/src/service.rs` | Cloud-init integration |
+| `backend/internal/server/console.go` | **NEW** - WebSocket console proxy |
+| `backend/internal/server/server.go` | Register console WebSocket handler |
+| `backend/go.mod` | Added gorilla/websocket dependency |
 
 ### Frontend (React)
 
 | File | Change |
 |------|--------|
-| `frontend/src/components/vm/VMCreationWizard.tsx` | Cloud image selector, SSH key input, cloud-init config |
-| `frontend/src/lib/api-client.ts` | Added cloudInit and backingFile to ApiVM |
+| `frontend/src/components/vm/WebConsole.tsx` | **NEW** - noVNC web console component |
+| `frontend/src/pages/VMDetail.tsx` | Use WebConsole instead of VNCConsole |
+| `frontend/package.json` | Added @novnc/novnc dependency |
+
+### Node Daemon (Rust)
+
+| File | Change |
+|------|--------|
+| `agent/limiquantix-node/src/service.rs` | Store and return management_ip in console info |
+| `agent/limiquantix-node/src/registration.rs` | Make detect_management_ip() public |
+| `agent/limiquantix-node/src/server.rs` | Pass management_ip to service constructor |
 
 ### Documentation
 
 | File | Change |
 |------|--------|
-| `docs/000039-cloud-init-provisioning.md` | **NEW** - Full documentation |
+| `docs/000040-console-implementation-guide.md` | **NEW** - Console implementation guide |
+
+---
+
+## Architecture: Web Console
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                      Browser (noVNC)                          │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │              WebConsole.tsx (React)                     │  │
+│  │              Uses @novnc/novnc RFB                      │  │
+│  └───────────────────────┬────────────────────────────────┘  │
+└──────────────────────────┼───────────────────────────────────┘
+                           │ WebSocket (ws://localhost:8080/api/console/{vmId}/ws)
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│                   Control Plane (Go)                          │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │              ConsoleHandler (console.go)                │  │
+│  │  - Looks up VM → Node mapping                          │  │
+│  │  - Gets console info from Node Daemon                  │  │
+│  │  - Proxies WebSocket ↔ VNC TCP                         │  │
+│  └───────────────────────┬────────────────────────────────┘  │
+└──────────────────────────┼───────────────────────────────────┘
+                           │ TCP Connection
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│                   QEMU/KVM VNC Server                         │
+│                   (on Node: 192.168.0.53:5900)               │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Testing Instructions
 
-### 1. Start Frontend
+### 1. Rebuild & Restart Node Daemon (Ubuntu)
 
 ```bash
-cd frontend
-npm run dev
-```
-
-### 2. Create VM with Cloud-Init
-
-1. Open VM Creation Wizard
-2. Fill in basic info (name, etc.)
-3. Select placement (host)
-4. On **Boot Media** step:
-   - Select "Cloud Image"
-   - Choose "Ubuntu 22.04 LTS Cloud"
-   - Enter username (e.g., "admin")
-   - Paste your SSH public key
-5. Complete remaining steps
-6. Review and create
-
-### 3. On Ubuntu Laptop
-
-```bash
-# Ensure cloud image is downloaded
-wget -O /var/lib/limiquantix/cloud-images/ubuntu-22.04.qcow2 \
-  https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
-
-# Run Node Daemon
-cd ~/LimiQuantix/agent
+cd ~/LimiQuantix
+git pull
+cd agent
 cargo build --release --bin limiquantix-node --features libvirt
-./target/release/limiquantix-node \
-  --libvirt-uri qemu:///system \
-  --listen 0.0.0.0:9090 \
-  --control-plane http://<WINDOWS_IP>:8080 \
-  --register
+./target/release/limiquantix-node --listen 0.0.0.0:9090 --control-plane http://192.168.0.148:8080 --register
 ```
 
-### 4. Verify VM Creation
+### 2. Restart Backend (Windows)
 
 ```bash
-# Check VM is defined in libvirt
-virsh list --all
-
-# Check disk overlay was created
-ls -la /var/lib/limiquantix/images/<vm-id>/
-
-# Check cloud-init ISO was created
-ls -la /var/lib/limiquantix/images/<vm-id>/cloud-init.iso
-
-# Start VM and SSH
-virsh start <vm-id>
-ssh admin@<VM_IP>
+cd backend
+go build ./cmd/controlplane
+./controlplane --dev
 ```
+
+### 3. Test Web Console
+
+1. Open the LimiQuantix dashboard
+2. Click on a running VM
+3. Click the "Console" button
+4. The WebConsole modal should:
+   - Show "Connecting..." status
+   - Connect via WebSocket to the backend
+   - Display the VM's screen via noVNC
+
+**If WebSocket fails:**
+- The console will show the VNC address (e.g., `192.168.0.53:5900`)
+- You can copy this and use TightVNC/RealVNC manually
 
 ---
 
-## UI Preview
+## Console Options Summary
 
-### Boot Media Step (New)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                       Boot Media                             │
-│         Choose how to provision your VM                      │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│   │    ☁️        │  │    💿        │  │    💾        │         │
-│   │ Cloud Image │  │ ISO Image   │  │   None      │         │
-│   │ Automated   │  │ Manual      │  │ Later       │         │
-│   │ ✅ Recommended │  │            │  │             │         │
-│   └─────────────┘  └─────────────┘  └─────────────┘         │
-│                                                              │
-│   Cloud Image:                                               │
-│   ○ Ubuntu 22.04 LTS Cloud                670 MB            │
-│   ● Ubuntu 24.04 LTS Cloud                720 MB            │
-│   ○ Debian 12 Cloud                       350 MB            │
-│   ○ Rocky Linux 9 Cloud                   1.1 GB            │
-│                                                              │
-│   ┌─────────────────────────────────────────────────────┐   │
-│   │ 🖥️  Cloud-Init Configuration          [Auto-setup]  │   │
-│   │                                                      │   │
-│   │ Default User: [admin________________]                │   │
-│   │                                                      │   │
-│   │ SSH Public Keys:                                     │   │
-│   │ ┌──────────────────────────────────────────────┐    │   │
-│   │ │ 🔑 ssh-rsa AAAAB3NzaC1yc2E...       [🗑️]     │    │   │
-│   │ └──────────────────────────────────────────────┘    │   │
-│   │ [textarea for new key...                   ] [+]    │   │
-│   │ ⚠️ Add at least one SSH key for secure access       │   │
-│   │                                                      │   │
-│   │ ▶ Advanced: Custom cloud-config                     │   │
-│   └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
+| Method | Status | When to Use |
+|--------|--------|-------------|
+| **Web Console (noVNC)** | ✅ Implemented | Quick access from browser |
+| **VNC Client** | ✅ Fallback | TightVNC/RealVNC with copied address |
+| **QVMRC (Native)** | 📋 Planned | Power users, USB passthrough |
 
 ---
 
 ## Known Limitations
 
-1. **Cloud images are static** - Currently hardcoded in frontend. Need API to list available cloud images.
-2. **No image upload UI** - Must manually place cloud images on hypervisor.
-3. **ISO paths are placeholders** - Need real ISO storage API.
+1. **WebSocket proxy is in backend** - Adds latency vs direct connection
+2. **No SPICE support yet** - VNC only
+3. **No authentication on WebSocket** - TODO: Add session validation
 
 ---
 
@@ -195,42 +163,36 @@ ssh admin@<VM_IP>
 
 | Task | Priority | Effort |
 |------|----------|--------|
-| VNC WebSocket proxy | P0 | 2-3 days |
-| Cloud image library API | P1 | 1 week |
-| Guest Agent (basic) | P0 | 3-4 weeks |
-| Windows Sysprep support | P2 | 1 week |
+| Add WebSocket authentication | P0 | 1 day |
+| Test noVNC with running VM | P0 | 1 hour |
+| QVMRC native client (Tauri) | P2 | 3-4 weeks |
+| SPICE protocol support | P3 | 2 weeks |
 
 ---
 
-## Quick Reference
+## Quick Commands
 
-### Cloud Image Paths (Expected on Hypervisor)
+### Start All Services
 
+**Windows (Backend + Frontend):**
+```bash
+# Terminal 1: Backend
+cd backend && go run ./cmd/controlplane --dev
+
+# Terminal 2: Frontend  
+cd frontend && npm run dev
 ```
-/var/lib/limiquantix/cloud-images/
-├── ubuntu-22.04.qcow2
-├── ubuntu-24.04.qcow2
-├── debian-12.qcow2
-├── rocky-9.qcow2
-└── almalinux-9.qcow2
+
+**Ubuntu (Node Daemon):**
+```bash
+cd agent
+./target/release/limiquantix-node --listen 0.0.0.0:9090 --control-plane http://192.168.0.148:8080 --register
 ```
 
-### Download Commands
+### VNC Access (Manual Fallback)
 
 ```bash
-# Ubuntu 22.04
-wget -O /var/lib/limiquantix/cloud-images/ubuntu-22.04.qcow2 \
-  https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
-
-# Ubuntu 24.04
-wget -O /var/lib/limiquantix/cloud-images/ubuntu-24.04.qcow2 \
-  https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-
-# Debian 12
-wget -O /var/lib/limiquantix/cloud-images/debian-12.qcow2 \
-  https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-amd64.qcow2
-
-# Rocky Linux 9
-wget -O /var/lib/limiquantix/cloud-images/rocky-9.qcow2 \
-  https://dl.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud.latest.x86_64.qcow2
+# Copy the address shown in console modal (e.g., 192.168.0.53:5900)
+# Paste into TightVNC Viewer, RealVNC Viewer, or:
+vncviewer 192.168.0.53:5900
 ```
