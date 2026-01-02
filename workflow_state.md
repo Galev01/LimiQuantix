@@ -1,161 +1,165 @@
 # limiquantix Workflow State
 
-## Current Status: Web Console (noVNC) Implementation Complete ✅
+## Current Status: Web Console + QVMRC Implementation Complete ✅
 
-**Last Updated:** January 2, 2026 (Evening Session)
+**Last Updated:** January 3, 2026 (Night Session)
 
 ---
 
 ## What's New (This Session)
 
-### ✅ Web Console (noVNC) Implementation
+### ✅ Web Console (noVNC) - Browser-Based
 
-Implemented browser-based VNC console using noVNC:
+Implemented a full browser-based VNC console using noVNC:
 
-1. **Frontend WebConsole Component** (`frontend/src/components/vm/WebConsole.tsx`)
-   - Uses `@novnc/novnc` npm package
-   - Full-screen mode support
-   - Connection status indicators
-   - Ctrl+Alt+Del button
-   - Copy address to clipboard
-   - Fallback to manual VNC client instructions
+1. **noVNC Static Files** (`frontend/public/novnc/`)
+   - Downloaded noVNC v1.4.0
+   - Custom `limiquantix.html` with LimiQuantix styling
+   - Toolbar with Ctrl+Alt+Del, clipboard, fullscreen
 
-2. **Backend WebSocket Proxy** (`backend/internal/server/console.go`)
+2. **NoVNCConsole Component** (`frontend/src/components/vm/NoVNCConsole.tsx`)
+   - Iframe-based embedding
+   - Parent-child message passing
+   - Copy console URL, open in new tab
+
+3. **Backend WebSocket Proxy** (`backend/internal/server/console.go`)
    - WebSocket endpoint at `/api/console/{vmId}/ws`
-   - Proxies WebSocket ↔ VNC TCP connection
-   - Authenticates via VM lookup
-   - Connects to node daemon for console info
+   - Proxies WebSocket ↔ VNC TCP
 
-3. **Node Daemon Console Fix**
-   - `get_console` now returns the node's actual management IP
-   - Instead of hardcoded `127.0.0.1`
+### ✅ QVMRC Native Client - Tauri Desktop App
 
-### ✅ Documentation
+Scaffolded a complete native desktop VNC client:
 
-Created comprehensive console documentation:
-- `docs/000040-console-implementation-guide.md`
-- Covers noVNC architecture
-- Documents QVMRC (native client) roadmap
-- Effort estimates for both approaches
+**Architecture:**
+```
+QVMRC
+├── Management Channel (Blue) → Control Plane (HTTPS/Connect-RPC)
+│   └── VM operations: restart, shutdown, snapshots
+└── Console Channel (Red) → Hypervisor (VNC/RFB)
+    └── Screen, keyboard, mouse, USB
+```
 
----
+**Rust Backend (`qvmrc/src-tauri/src/`):**
+- `main.rs` - Tauri app entry, command registration
+- `config.rs` - Configuration persistence (TOML)
+- `api.rs` - Control Plane API client
+- `vnc/mod.rs` - VNC connection management
+- `vnc/rfb.rs` - RFB protocol implementation
+- `vnc/encodings.rs` - Encoding decoders (Raw, Hextile, RRE, Zlib)
 
-## Files Changed (This Session)
-
-### Backend (Go)
-
-| File | Change |
-|------|--------|
-| `backend/internal/server/console.go` | **NEW** - WebSocket console proxy |
-| `backend/internal/server/server.go` | Register console WebSocket handler |
-| `backend/go.mod` | Added gorilla/websocket dependency |
-
-### Frontend (React)
-
-| File | Change |
-|------|--------|
-| `frontend/src/components/vm/WebConsole.tsx` | **NEW** - noVNC web console component |
-| `frontend/src/pages/VMDetail.tsx` | Use WebConsole instead of VNCConsole |
-| `frontend/package.json` | Added @novnc/novnc dependency |
-
-### Node Daemon (Rust)
-
-| File | Change |
-|------|--------|
-| `agent/limiquantix-node/src/service.rs` | Store and return management_ip in console info |
-| `agent/limiquantix-node/src/registration.rs` | Make detect_management_ip() public |
-| `agent/limiquantix-node/src/server.rs` | Pass management_ip to service constructor |
-
-### Documentation
-
-| File | Change |
-|------|--------|
-| `docs/000040-console-implementation-guide.md` | **NEW** - Console implementation guide |
+**React Frontend (`qvmrc/src/`):**
+- `ConnectionList.tsx` - Saved connections, add/delete
+- `ConsoleView.tsx` - Canvas display, input events
+- `Settings.tsx` - Display quality, compression settings
+- `lib/tauri-api.ts` - Typed API wrapper
 
 ---
 
-## Architecture: Web Console
+## Project Structure Update
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                      Browser (noVNC)                          │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │              WebConsole.tsx (React)                     │  │
-│  │              Uses @novnc/novnc RFB                      │  │
-│  └───────────────────────┬────────────────────────────────┘  │
-└──────────────────────────┼───────────────────────────────────┘
-                           │ WebSocket (ws://localhost:8080/api/console/{vmId}/ws)
-                           ▼
-┌──────────────────────────────────────────────────────────────┐
-│                   Control Plane (Go)                          │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │              ConsoleHandler (console.go)                │  │
-│  │  - Looks up VM → Node mapping                          │  │
-│  │  - Gets console info from Node Daemon                  │  │
-│  │  - Proxies WebSocket ↔ VNC TCP                         │  │
-│  └───────────────────────┬────────────────────────────────┘  │
-└──────────────────────────┼───────────────────────────────────┘
-                           │ TCP Connection
-                           ▼
-┌──────────────────────────────────────────────────────────────┐
-│                   QEMU/KVM VNC Server                         │
-│                   (on Node: 192.168.0.53:5900)               │
-└──────────────────────────────────────────────────────────────┘
+LimiQuantix/
+├── frontend/
+│   ├── public/
+│   │   └── novnc/           # NEW: noVNC static files
+│   │       ├── limiquantix.html  # Custom console page
+│   │       ├── core/        # noVNC core modules
+│   │       └── app/         # noVNC app modules
+│   └── src/
+│       └── components/vm/
+│           ├── NoVNCConsole.tsx  # NEW: noVNC iframe wrapper
+│           └── WebConsole.tsx    # Fallback console info page
+│
+├── backend/
+│   └── internal/server/
+│       └── console.go       # WebSocket VNC proxy
+│
+└── qvmrc/                   # NEW: Native desktop client
+    ├── src-tauri/           # Rust backend
+    │   ├── src/
+    │   │   ├── main.rs
+    │   │   ├── config.rs
+    │   │   ├── api.rs
+    │   │   └── vnc/
+    │   │       ├── mod.rs
+    │   │       ├── rfb.rs
+    │   │       └── encodings.rs
+    │   ├── Cargo.toml
+    │   └── tauri.conf.json
+    ├── src/                 # React frontend
+    │   ├── components/
+    │   │   ├── ConnectionList.tsx
+    │   │   ├── ConsoleView.tsx
+    │   │   └── Settings.tsx
+    │   ├── lib/
+    │   │   └── tauri-api.ts
+    │   ├── App.tsx
+    │   └── main.tsx
+    ├── package.json
+    └── README.md
 ```
 
 ---
 
 ## Testing Instructions
 
-### 1. Rebuild & Restart Node Daemon (Ubuntu)
+### Web Console
 
+1. **Start Backend + Frontend**
 ```bash
-cd ~/LimiQuantix
-git pull
-cd agent
-cargo build --release --bin limiquantix-node --features libvirt
-./target/release/limiquantix-node --listen 0.0.0.0:9090 --control-plane http://192.168.0.148:8080 --register
+# Terminal 1: Backend
+cd backend && go run ./cmd/controlplane --dev
+
+# Terminal 2: Frontend
+cd frontend && npm run dev
 ```
 
-### 2. Restart Backend (Windows)
+2. **Test Console**
+   - Open http://localhost:5173
+   - Click on a running VM
+   - Click "Console" button
+   - The noVNC console should open in a modal
 
+### QVMRC Native Client
+
+1. **Prerequisites**
 ```bash
-cd backend
-go build ./cmd/controlplane
-./controlplane --dev
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install Tauri CLI
+cargo install tauri-cli
 ```
 
-### 3. Test Web Console
+2. **Run in Development**
+```bash
+cd qvmrc
+npm install
+npm run tauri dev
+```
 
-1. Open the LimiQuantix dashboard
-2. Click on a running VM
-3. Click the "Console" button
-4. The WebConsole modal should:
-   - Show "Connecting..." status
-   - Connect via WebSocket to the backend
-   - Display the VM's screen via noVNC
-
-**If WebSocket fails:**
-- The console will show the VNC address (e.g., `192.168.0.53:5900`)
-- You can copy this and use TightVNC/RealVNC manually
+3. **Build for Distribution**
+```bash
+npm run tauri build
+# Outputs:
+#   Windows: src-tauri/target/release/bundle/msi/QVMRC_0.1.0_x64.msi
+#   macOS:   src-tauri/target/release/bundle/macos/QVMRC.app
+#   Linux:   src-tauri/target/release/bundle/deb/qvmrc_0.1.0_amd64.deb
+```
 
 ---
 
-## Console Options Summary
+## Console Solutions Comparison
 
-| Method | Status | When to Use |
-|--------|--------|-------------|
-| **Web Console (noVNC)** | ✅ Implemented | Quick access from browser |
-| **VNC Client** | ✅ Fallback | TightVNC/RealVNC with copied address |
-| **QVMRC (Native)** | 📋 Planned | Power users, USB passthrough |
-
----
-
-## Known Limitations
-
-1. **WebSocket proxy is in backend** - Adds latency vs direct connection
-2. **No SPICE support yet** - VNC only
-3. **No authentication on WebSocket** - TODO: Add session validation
+| Feature | Web Console | QVMRC Native |
+|---------|-------------|--------------|
+| Installation | None (browser) | Desktop app |
+| Protocol | VNC via WebSocket | VNC direct |
+| Latency | Higher | Lower |
+| USB Passthrough | ❌ | ✅ (planned) |
+| Clipboard | Limited | ✅ Full |
+| Audio | ❌ | ✅ (SPICE) |
+| Offline | ❌ | ✅ |
 
 ---
 
@@ -163,36 +167,30 @@ go build ./cmd/controlplane
 
 | Task | Priority | Effort |
 |------|----------|--------|
-| Add WebSocket authentication | P0 | 1 day |
-| Test noVNC with running VM | P0 | 1 hour |
-| QVMRC native client (Tauri) | P2 | 3-4 weeks |
-| SPICE protocol support | P3 | 2 weeks |
+| Test web console with real VM | P0 | 1 hour |
+| Add QVMRC uuid dependency | P0 | 5 min |
+| Add DES encryption for VNC auth | P1 | 2 hours |
+| USB passthrough | P2 | 1 week |
+| SPICE protocol | P3 | 2 weeks |
 
 ---
 
-## Quick Commands
+## Quick Reference
 
-### Start All Services
-
-**Windows (Backend + Frontend):**
-```bash
-# Terminal 1: Backend
-cd backend && go run ./cmd/controlplane --dev
-
-# Terminal 2: Frontend  
-cd frontend && npm run dev
+### Web Console URL (Direct Access)
+```
+http://localhost:5173/novnc/limiquantix.html?vmId={VM_ID}&vmName={VM_NAME}
 ```
 
-**Ubuntu (Node Daemon):**
-```bash
-cd agent
-./target/release/limiquantix-node --listen 0.0.0.0:9090 --control-plane http://192.168.0.148:8080 --register
+### VNC Connection (Manual)
+```
+Host: 192.168.0.53
+Port: 5900
 ```
 
-### VNC Access (Manual Fallback)
-
+### QVMRC Development
 ```bash
-# Copy the address shown in console modal (e.g., 192.168.0.53:5900)
-# Paste into TightVNC Viewer, RealVNC Viewer, or:
-vncviewer 192.168.0.53:5900
+cd qvmrc
+npm run tauri dev    # Development mode
+npm run tauri build  # Production build
 ```
