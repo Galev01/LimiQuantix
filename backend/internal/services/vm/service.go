@@ -825,6 +825,87 @@ func (s *Service) SuspendVM(
 }
 
 // ============================================================================
+// Console Operations
+// ============================================================================
+
+// GetConsole returns connection info for VNC/SPICE console.
+func (s *Service) GetConsole(
+	ctx context.Context,
+	req *connect.Request[computev1.GetConsoleRequest],
+) (*connect.Response[computev1.ConsoleInfo], error) {
+	logger := s.logger.With(
+		zap.String("method", "GetConsole"),
+		zap.String("vm_id", req.Msg.VmId),
+	)
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// VM must be running to access console
+	if !vm.IsRunning() {
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("VM must be running to access console, current state: '%s'", vm.Status.State))
+	}
+
+	// Get console info from node daemon
+	if s.daemonPool == nil || vm.Status.NodeID == "" {
+		// Return default console info if no daemon available
+		logger.Warn("No daemon pool available, returning default console info")
+		return connect.NewResponse(&computev1.ConsoleInfo{
+			ConsoleType: computev1.ConsoleInfo_CONSOLE_TYPE_VNC,
+			Host:        "127.0.0.1",
+			Port:        5900,
+		}), nil
+	}
+
+	client := s.daemonPool.Get(vm.Status.NodeID)
+	if client == nil {
+		logger.Warn("Node daemon client not available", zap.String("node_id", vm.Status.NodeID))
+		return nil, connect.NewError(connect.CodeUnavailable,
+			fmt.Errorf("node daemon for node '%s' is not available", vm.Status.NodeID))
+	}
+
+	// Call node daemon to get console info
+	consoleInfo, err := client.GetConsole(ctx, vm.ID)
+	if err != nil {
+		logger.Error("Failed to get console info from node daemon",
+			zap.String("vm_id", vm.ID),
+			zap.String("node_id", vm.Status.NodeID),
+			zap.Error(err),
+		)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get console info: %w", err))
+	}
+
+	// Convert console type
+	consoleType := computev1.ConsoleInfo_CONSOLE_TYPE_VNC
+	if consoleInfo.Type == "spice" {
+		consoleType = computev1.ConsoleInfo_CONSOLE_TYPE_SPICE
+	}
+
+	logger.Info("Console info retrieved",
+		zap.String("host", consoleInfo.Host),
+		zap.Uint32("port", consoleInfo.Port),
+	)
+
+	return connect.NewResponse(&computev1.ConsoleInfo{
+		ConsoleType: consoleType,
+		Host:        consoleInfo.Host,
+		Port:        consoleInfo.Port,
+		Password:    consoleInfo.Password,
+	}), nil
+}
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 

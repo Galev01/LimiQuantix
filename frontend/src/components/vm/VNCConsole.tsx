@@ -54,7 +54,7 @@ export function VNCConsole({ vmId, vmName, isOpen, onClose }: VNCConsoleProps) {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ id: vmId }),
+          body: JSON.stringify({ vmId: vmId }),
         });
 
         if (!response.ok) {
@@ -63,12 +63,18 @@ export function VNCConsole({ vmId, vmName, isOpen, onClose }: VNCConsoleProps) {
         }
 
         const data = await response.json();
+        // Map console type enum to string
+        let consoleType: 'vnc' | 'spice' = 'vnc';
+        if (data.consoleType === 'CONSOLE_TYPE_SPICE' || data.consoleType === 2) {
+          consoleType = 'spice';
+        }
+        
         setConsoleInfo({
-          type: data.consoleType || 'vnc',
+          type: consoleType,
           host: data.host || '127.0.0.1',
           port: data.port || 5900,
           password: data.password || undefined,
-          websocketUrl: data.websocketPath || undefined,
+          websocketUrl: data.websocketUrl || undefined,
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to connect to console');

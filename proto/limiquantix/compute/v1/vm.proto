@@ -791,12 +791,28 @@ message Snapshot {
 }
 
 message ConsoleInfo {
-  // Connection URL for VNC/Spice
-  string url = 1;
+  // Console type
+  enum ConsoleType {
+    CONSOLE_TYPE_UNSPECIFIED = 0;
+    CONSOLE_TYPE_VNC = 1;
+    CONSOLE_TYPE_SPICE = 2;
+  }
+  ConsoleType console_type = 1;
   
-  // One-time ticket for authentication
-  string ticket = 2;
-  google.protobuf.Timestamp ticket_expires = 3;
+  // Host address to connect to
+  string host = 2;
+  
+  // Port number
+  uint32 port = 3;
+  
+  // Password (if required)
+  string password = 4;
+  
+  // WebSocket URL for noVNC (if available)
+  string websocket_url = 5;
+  
+  // TLS enabled
+  bool tls = 6;
 }
 
 message HealthStatus {

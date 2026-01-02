@@ -888,6 +888,56 @@ func (VmStatus_PowerState) EnumDescriptor() ([]byte, []int) {
 	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{37, 0}
 }
 
+// Console type
+type ConsoleInfo_ConsoleType int32
+
+const (
+	ConsoleInfo_CONSOLE_TYPE_UNSPECIFIED ConsoleInfo_ConsoleType = 0
+	ConsoleInfo_CONSOLE_TYPE_VNC         ConsoleInfo_ConsoleType = 1
+	ConsoleInfo_CONSOLE_TYPE_SPICE       ConsoleInfo_ConsoleType = 2
+)
+
+// Enum value maps for ConsoleInfo_ConsoleType.
+var (
+	ConsoleInfo_ConsoleType_name = map[int32]string{
+		0: "CONSOLE_TYPE_UNSPECIFIED",
+		1: "CONSOLE_TYPE_VNC",
+		2: "CONSOLE_TYPE_SPICE",
+	}
+	ConsoleInfo_ConsoleType_value = map[string]int32{
+		"CONSOLE_TYPE_UNSPECIFIED": 0,
+		"CONSOLE_TYPE_VNC":         1,
+		"CONSOLE_TYPE_SPICE":       2,
+	}
+)
+
+func (x ConsoleInfo_ConsoleType) Enum() *ConsoleInfo_ConsoleType {
+	p := new(ConsoleInfo_ConsoleType)
+	*p = x
+	return p
+}
+
+func (x ConsoleInfo_ConsoleType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ConsoleInfo_ConsoleType) Descriptor() protoreflect.EnumDescriptor {
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[17].Descriptor()
+}
+
+func (ConsoleInfo_ConsoleType) Type() protoreflect.EnumType {
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[17]
+}
+
+func (x ConsoleInfo_ConsoleType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ConsoleInfo_ConsoleType.Descriptor instead.
+func (ConsoleInfo_ConsoleType) EnumDescriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{42, 0}
+}
+
 type HealthStatus_Status int32
 
 const (
@@ -924,11 +974,11 @@ func (x HealthStatus_Status) String() string {
 }
 
 func (HealthStatus_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[17].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[18].Descriptor()
 }
 
 func (HealthStatus_Status) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[17]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[18]
 }
 
 func (x HealthStatus_Status) Number() protoreflect.EnumNumber {
@@ -4400,12 +4450,18 @@ func (x *Snapshot) GetSizeBytes() uint64 {
 }
 
 type ConsoleInfo struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Connection URL for VNC/Spice
-	Url string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
-	// One-time ticket for authentication
-	Ticket        string                 `protobuf:"bytes,2,opt,name=ticket,proto3" json:"ticket,omitempty"`
-	TicketExpires *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=ticket_expires,json=ticketExpires,proto3" json:"ticket_expires,omitempty"`
+	state       protoimpl.MessageState  `protogen:"open.v1"`
+	ConsoleType ConsoleInfo_ConsoleType `protobuf:"varint,1,opt,name=console_type,json=consoleType,proto3,enum=limiquantix.compute.v1.ConsoleInfo_ConsoleType" json:"console_type,omitempty"`
+	// Host address to connect to
+	Host string `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
+	// Port number
+	Port uint32 `protobuf:"varint,3,opt,name=port,proto3" json:"port,omitempty"`
+	// Password (if required)
+	Password string `protobuf:"bytes,4,opt,name=password,proto3" json:"password,omitempty"`
+	// WebSocket URL for noVNC (if available)
+	WebsocketUrl string `protobuf:"bytes,5,opt,name=websocket_url,json=websocketUrl,proto3" json:"websocket_url,omitempty"`
+	// TLS enabled
+	Tls           bool `protobuf:"varint,6,opt,name=tls,proto3" json:"tls,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4440,25 +4496,46 @@ func (*ConsoleInfo) Descriptor() ([]byte, []int) {
 	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{42}
 }
 
-func (x *ConsoleInfo) GetUrl() string {
+func (x *ConsoleInfo) GetConsoleType() ConsoleInfo_ConsoleType {
 	if x != nil {
-		return x.Url
+		return x.ConsoleType
+	}
+	return ConsoleInfo_CONSOLE_TYPE_UNSPECIFIED
+}
+
+func (x *ConsoleInfo) GetHost() string {
+	if x != nil {
+		return x.Host
 	}
 	return ""
 }
 
-func (x *ConsoleInfo) GetTicket() string {
+func (x *ConsoleInfo) GetPort() uint32 {
 	if x != nil {
-		return x.Ticket
+		return x.Port
+	}
+	return 0
+}
+
+func (x *ConsoleInfo) GetPassword() string {
+	if x != nil {
+		return x.Password
 	}
 	return ""
 }
 
-func (x *ConsoleInfo) GetTicketExpires() *timestamppb.Timestamp {
+func (x *ConsoleInfo) GetWebsocketUrl() string {
 	if x != nil {
-		return x.TicketExpires
+		return x.WebsocketUrl
 	}
-	return nil
+	return ""
+}
+
+func (x *ConsoleInfo) GetTls() bool {
+	if x != nil {
+		return x.Tls
+	}
+	return false
 }
 
 type HealthStatus struct {
@@ -4998,11 +5075,18 @@ const file_limiquantix_compute_v1_vm_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"size_bytes\x18\b \x01(\x04R\tsizeBytes\"z\n" +
-	"\vConsoleInfo\x12\x10\n" +
-	"\x03url\x18\x01 \x01(\tR\x03url\x12\x16\n" +
-	"\x06ticket\x18\x02 \x01(\tR\x06ticket\x12A\n" +
-	"\x0eticket_expires\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\rticketExpires\"\xd1\x01\n" +
+	"size_bytes\x18\b \x01(\x04R\tsizeBytes\"\xb7\x02\n" +
+	"\vConsoleInfo\x12R\n" +
+	"\fconsole_type\x18\x01 \x01(\x0e2/.limiquantix.compute.v1.ConsoleInfo.ConsoleTypeR\vconsoleType\x12\x12\n" +
+	"\x04host\x18\x02 \x01(\tR\x04host\x12\x12\n" +
+	"\x04port\x18\x03 \x01(\rR\x04port\x12\x1a\n" +
+	"\bpassword\x18\x04 \x01(\tR\bpassword\x12#\n" +
+	"\rwebsocket_url\x18\x05 \x01(\tR\fwebsocketUrl\x12\x10\n" +
+	"\x03tls\x18\x06 \x01(\bR\x03tls\"Y\n" +
+	"\vConsoleType\x12\x1c\n" +
+	"\x18CONSOLE_TYPE_UNSPECIFIED\x10\x00\x12\x14\n" +
+	"\x10CONSOLE_TYPE_VNC\x10\x01\x12\x16\n" +
+	"\x12CONSOLE_TYPE_SPICE\x10\x02\"\xd1\x01\n" +
 	"\fHealthStatus\x12C\n" +
 	"\x06status\x18\x01 \x01(\x0e2+.limiquantix.compute.v1.HealthStatus.StatusR\x06status\x12;\n" +
 	"\x06checks\x18\x02 \x03(\v2#.limiquantix.compute.v1.HealthCheckR\x06checks\"?\n" +
@@ -5035,7 +5119,7 @@ func file_limiquantix_compute_v1_vm_proto_rawDescGZIP() []byte {
 	return file_limiquantix_compute_v1_vm_proto_rawDescData
 }
 
-var file_limiquantix_compute_v1_vm_proto_enumTypes = make([]protoimpl.EnumInfo, 18)
+var file_limiquantix_compute_v1_vm_proto_enumTypes = make([]protoimpl.EnumInfo, 19)
 var file_limiquantix_compute_v1_vm_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
 var file_limiquantix_compute_v1_vm_proto_goTypes = []any{
 	(FirmwareType)(0),                  // 0: limiquantix.compute.v1.FirmwareType
@@ -5055,128 +5139,129 @@ var file_limiquantix_compute_v1_vm_proto_goTypes = []any{
 	(HaPolicy_RestartCondition)(0),     // 14: limiquantix.compute.v1.HaPolicy.RestartCondition
 	(TemplateConfig_CloneType)(0),      // 15: limiquantix.compute.v1.TemplateConfig.CloneType
 	(VmStatus_PowerState)(0),           // 16: limiquantix.compute.v1.VmStatus.PowerState
-	(HealthStatus_Status)(0),           // 17: limiquantix.compute.v1.HealthStatus.Status
-	(*VirtualMachine)(nil),             // 18: limiquantix.compute.v1.VirtualMachine
-	(*VmSpec)(nil),                     // 19: limiquantix.compute.v1.VmSpec
-	(*CpuConfig)(nil),                  // 20: limiquantix.compute.v1.CpuConfig
-	(*NumaConfig)(nil),                 // 21: limiquantix.compute.v1.NumaConfig
-	(*NumaNode)(nil),                   // 22: limiquantix.compute.v1.NumaNode
-	(*CpuFeatures)(nil),                // 23: limiquantix.compute.v1.CpuFeatures
-	(*MemoryConfig)(nil),               // 24: limiquantix.compute.v1.MemoryConfig
-	(*HugePagesConfig)(nil),            // 25: limiquantix.compute.v1.HugePagesConfig
-	(*DiskDevice)(nil),                 // 26: limiquantix.compute.v1.DiskDevice
-	(*CdromDevice)(nil),                // 27: limiquantix.compute.v1.CdromDevice
-	(*IoLimits)(nil),                   // 28: limiquantix.compute.v1.IoLimits
-	(*NetworkInterface)(nil),           // 29: limiquantix.compute.v1.NetworkInterface
-	(*IpConfig)(nil),                   // 30: limiquantix.compute.v1.IpConfig
-	(*NetworkQos)(nil),                 // 31: limiquantix.compute.v1.NetworkQos
-	(*SriovConfig)(nil),                // 32: limiquantix.compute.v1.SriovConfig
-	(*PciDevice)(nil),                  // 33: limiquantix.compute.v1.PciDevice
-	(*UsbDevice)(nil),                  // 34: limiquantix.compute.v1.UsbDevice
-	(*VgpuDevice)(nil),                 // 35: limiquantix.compute.v1.VgpuDevice
-	(*TpmConfig)(nil),                  // 36: limiquantix.compute.v1.TpmConfig
-	(*WatchdogConfig)(nil),             // 37: limiquantix.compute.v1.WatchdogConfig
-	(*RngConfig)(nil),                  // 38: limiquantix.compute.v1.RngConfig
-	(*SerialPortConfig)(nil),           // 39: limiquantix.compute.v1.SerialPortConfig
-	(*SerialPort)(nil),                 // 40: limiquantix.compute.v1.SerialPort
-	(*BootConfig)(nil),                 // 41: limiquantix.compute.v1.BootConfig
-	(*BootDevice)(nil),                 // 42: limiquantix.compute.v1.BootDevice
-	(*DirectKernelBoot)(nil),           // 43: limiquantix.compute.v1.DirectKernelBoot
-	(*DisplayConfig)(nil),              // 44: limiquantix.compute.v1.DisplayConfig
-	(*GuestAgentConfig)(nil),           // 45: limiquantix.compute.v1.GuestAgentConfig
-	(*ProvisioningConfig)(nil),         // 46: limiquantix.compute.v1.ProvisioningConfig
-	(*CloudInitConfig)(nil),            // 47: limiquantix.compute.v1.CloudInitConfig
-	(*IgnitionConfig)(nil),             // 48: limiquantix.compute.v1.IgnitionConfig
-	(*SysprepConfig)(nil),              // 49: limiquantix.compute.v1.SysprepConfig
-	(*ResourceConfig)(nil),             // 50: limiquantix.compute.v1.ResourceConfig
-	(*HaPolicy)(nil),                   // 51: limiquantix.compute.v1.HaPolicy
-	(*PlacementPolicy)(nil),            // 52: limiquantix.compute.v1.PlacementPolicy
-	(*MigrationConfig)(nil),            // 53: limiquantix.compute.v1.MigrationConfig
-	(*TemplateConfig)(nil),             // 54: limiquantix.compute.v1.TemplateConfig
-	(*VmStatus)(nil),                   // 55: limiquantix.compute.v1.VmStatus
-	(*ResourceUsage)(nil),              // 56: limiquantix.compute.v1.ResourceUsage
-	(*GuestInfo)(nil),                  // 57: limiquantix.compute.v1.GuestInfo
-	(*SnapshotStatus)(nil),             // 58: limiquantix.compute.v1.SnapshotStatus
-	(*Snapshot)(nil),                   // 59: limiquantix.compute.v1.Snapshot
-	(*ConsoleInfo)(nil),                // 60: limiquantix.compute.v1.ConsoleInfo
-	(*HealthStatus)(nil),               // 61: limiquantix.compute.v1.HealthStatus
-	(*HealthCheck)(nil),                // 62: limiquantix.compute.v1.HealthCheck
-	nil,                                // 63: limiquantix.compute.v1.VirtualMachine.LabelsEntry
-	nil,                                // 64: limiquantix.compute.v1.PlacementPolicy.RequiredLabelsEntry
-	(*timestamppb.Timestamp)(nil),      // 65: google.protobuf.Timestamp
+	(ConsoleInfo_ConsoleType)(0),       // 17: limiquantix.compute.v1.ConsoleInfo.ConsoleType
+	(HealthStatus_Status)(0),           // 18: limiquantix.compute.v1.HealthStatus.Status
+	(*VirtualMachine)(nil),             // 19: limiquantix.compute.v1.VirtualMachine
+	(*VmSpec)(nil),                     // 20: limiquantix.compute.v1.VmSpec
+	(*CpuConfig)(nil),                  // 21: limiquantix.compute.v1.CpuConfig
+	(*NumaConfig)(nil),                 // 22: limiquantix.compute.v1.NumaConfig
+	(*NumaNode)(nil),                   // 23: limiquantix.compute.v1.NumaNode
+	(*CpuFeatures)(nil),                // 24: limiquantix.compute.v1.CpuFeatures
+	(*MemoryConfig)(nil),               // 25: limiquantix.compute.v1.MemoryConfig
+	(*HugePagesConfig)(nil),            // 26: limiquantix.compute.v1.HugePagesConfig
+	(*DiskDevice)(nil),                 // 27: limiquantix.compute.v1.DiskDevice
+	(*CdromDevice)(nil),                // 28: limiquantix.compute.v1.CdromDevice
+	(*IoLimits)(nil),                   // 29: limiquantix.compute.v1.IoLimits
+	(*NetworkInterface)(nil),           // 30: limiquantix.compute.v1.NetworkInterface
+	(*IpConfig)(nil),                   // 31: limiquantix.compute.v1.IpConfig
+	(*NetworkQos)(nil),                 // 32: limiquantix.compute.v1.NetworkQos
+	(*SriovConfig)(nil),                // 33: limiquantix.compute.v1.SriovConfig
+	(*PciDevice)(nil),                  // 34: limiquantix.compute.v1.PciDevice
+	(*UsbDevice)(nil),                  // 35: limiquantix.compute.v1.UsbDevice
+	(*VgpuDevice)(nil),                 // 36: limiquantix.compute.v1.VgpuDevice
+	(*TpmConfig)(nil),                  // 37: limiquantix.compute.v1.TpmConfig
+	(*WatchdogConfig)(nil),             // 38: limiquantix.compute.v1.WatchdogConfig
+	(*RngConfig)(nil),                  // 39: limiquantix.compute.v1.RngConfig
+	(*SerialPortConfig)(nil),           // 40: limiquantix.compute.v1.SerialPortConfig
+	(*SerialPort)(nil),                 // 41: limiquantix.compute.v1.SerialPort
+	(*BootConfig)(nil),                 // 42: limiquantix.compute.v1.BootConfig
+	(*BootDevice)(nil),                 // 43: limiquantix.compute.v1.BootDevice
+	(*DirectKernelBoot)(nil),           // 44: limiquantix.compute.v1.DirectKernelBoot
+	(*DisplayConfig)(nil),              // 45: limiquantix.compute.v1.DisplayConfig
+	(*GuestAgentConfig)(nil),           // 46: limiquantix.compute.v1.GuestAgentConfig
+	(*ProvisioningConfig)(nil),         // 47: limiquantix.compute.v1.ProvisioningConfig
+	(*CloudInitConfig)(nil),            // 48: limiquantix.compute.v1.CloudInitConfig
+	(*IgnitionConfig)(nil),             // 49: limiquantix.compute.v1.IgnitionConfig
+	(*SysprepConfig)(nil),              // 50: limiquantix.compute.v1.SysprepConfig
+	(*ResourceConfig)(nil),             // 51: limiquantix.compute.v1.ResourceConfig
+	(*HaPolicy)(nil),                   // 52: limiquantix.compute.v1.HaPolicy
+	(*PlacementPolicy)(nil),            // 53: limiquantix.compute.v1.PlacementPolicy
+	(*MigrationConfig)(nil),            // 54: limiquantix.compute.v1.MigrationConfig
+	(*TemplateConfig)(nil),             // 55: limiquantix.compute.v1.TemplateConfig
+	(*VmStatus)(nil),                   // 56: limiquantix.compute.v1.VmStatus
+	(*ResourceUsage)(nil),              // 57: limiquantix.compute.v1.ResourceUsage
+	(*GuestInfo)(nil),                  // 58: limiquantix.compute.v1.GuestInfo
+	(*SnapshotStatus)(nil),             // 59: limiquantix.compute.v1.SnapshotStatus
+	(*Snapshot)(nil),                   // 60: limiquantix.compute.v1.Snapshot
+	(*ConsoleInfo)(nil),                // 61: limiquantix.compute.v1.ConsoleInfo
+	(*HealthStatus)(nil),               // 62: limiquantix.compute.v1.HealthStatus
+	(*HealthCheck)(nil),                // 63: limiquantix.compute.v1.HealthCheck
+	nil,                                // 64: limiquantix.compute.v1.VirtualMachine.LabelsEntry
+	nil,                                // 65: limiquantix.compute.v1.PlacementPolicy.RequiredLabelsEntry
+	(*timestamppb.Timestamp)(nil),      // 66: google.protobuf.Timestamp
 }
 var file_limiquantix_compute_v1_vm_proto_depIdxs = []int32{
-	63, // 0: limiquantix.compute.v1.VirtualMachine.labels:type_name -> limiquantix.compute.v1.VirtualMachine.LabelsEntry
-	19, // 1: limiquantix.compute.v1.VirtualMachine.spec:type_name -> limiquantix.compute.v1.VmSpec
-	55, // 2: limiquantix.compute.v1.VirtualMachine.status:type_name -> limiquantix.compute.v1.VmStatus
-	65, // 3: limiquantix.compute.v1.VirtualMachine.created_at:type_name -> google.protobuf.Timestamp
-	65, // 4: limiquantix.compute.v1.VirtualMachine.updated_at:type_name -> google.protobuf.Timestamp
-	20, // 5: limiquantix.compute.v1.VmSpec.cpu:type_name -> limiquantix.compute.v1.CpuConfig
-	24, // 6: limiquantix.compute.v1.VmSpec.memory:type_name -> limiquantix.compute.v1.MemoryConfig
-	26, // 7: limiquantix.compute.v1.VmSpec.disks:type_name -> limiquantix.compute.v1.DiskDevice
-	27, // 8: limiquantix.compute.v1.VmSpec.cdroms:type_name -> limiquantix.compute.v1.CdromDevice
-	29, // 9: limiquantix.compute.v1.VmSpec.nics:type_name -> limiquantix.compute.v1.NetworkInterface
-	33, // 10: limiquantix.compute.v1.VmSpec.pci_devices:type_name -> limiquantix.compute.v1.PciDevice
-	34, // 11: limiquantix.compute.v1.VmSpec.usb_devices:type_name -> limiquantix.compute.v1.UsbDevice
-	35, // 12: limiquantix.compute.v1.VmSpec.vgpu_devices:type_name -> limiquantix.compute.v1.VgpuDevice
-	36, // 13: limiquantix.compute.v1.VmSpec.tpm:type_name -> limiquantix.compute.v1.TpmConfig
-	37, // 14: limiquantix.compute.v1.VmSpec.watchdog:type_name -> limiquantix.compute.v1.WatchdogConfig
-	38, // 15: limiquantix.compute.v1.VmSpec.rng:type_name -> limiquantix.compute.v1.RngConfig
-	39, // 16: limiquantix.compute.v1.VmSpec.serial:type_name -> limiquantix.compute.v1.SerialPortConfig
+	64, // 0: limiquantix.compute.v1.VirtualMachine.labels:type_name -> limiquantix.compute.v1.VirtualMachine.LabelsEntry
+	20, // 1: limiquantix.compute.v1.VirtualMachine.spec:type_name -> limiquantix.compute.v1.VmSpec
+	56, // 2: limiquantix.compute.v1.VirtualMachine.status:type_name -> limiquantix.compute.v1.VmStatus
+	66, // 3: limiquantix.compute.v1.VirtualMachine.created_at:type_name -> google.protobuf.Timestamp
+	66, // 4: limiquantix.compute.v1.VirtualMachine.updated_at:type_name -> google.protobuf.Timestamp
+	21, // 5: limiquantix.compute.v1.VmSpec.cpu:type_name -> limiquantix.compute.v1.CpuConfig
+	25, // 6: limiquantix.compute.v1.VmSpec.memory:type_name -> limiquantix.compute.v1.MemoryConfig
+	27, // 7: limiquantix.compute.v1.VmSpec.disks:type_name -> limiquantix.compute.v1.DiskDevice
+	28, // 8: limiquantix.compute.v1.VmSpec.cdroms:type_name -> limiquantix.compute.v1.CdromDevice
+	30, // 9: limiquantix.compute.v1.VmSpec.nics:type_name -> limiquantix.compute.v1.NetworkInterface
+	34, // 10: limiquantix.compute.v1.VmSpec.pci_devices:type_name -> limiquantix.compute.v1.PciDevice
+	35, // 11: limiquantix.compute.v1.VmSpec.usb_devices:type_name -> limiquantix.compute.v1.UsbDevice
+	36, // 12: limiquantix.compute.v1.VmSpec.vgpu_devices:type_name -> limiquantix.compute.v1.VgpuDevice
+	37, // 13: limiquantix.compute.v1.VmSpec.tpm:type_name -> limiquantix.compute.v1.TpmConfig
+	38, // 14: limiquantix.compute.v1.VmSpec.watchdog:type_name -> limiquantix.compute.v1.WatchdogConfig
+	39, // 15: limiquantix.compute.v1.VmSpec.rng:type_name -> limiquantix.compute.v1.RngConfig
+	40, // 16: limiquantix.compute.v1.VmSpec.serial:type_name -> limiquantix.compute.v1.SerialPortConfig
 	0,  // 17: limiquantix.compute.v1.VmSpec.firmware:type_name -> limiquantix.compute.v1.FirmwareType
-	41, // 18: limiquantix.compute.v1.VmSpec.boot:type_name -> limiquantix.compute.v1.BootConfig
-	44, // 19: limiquantix.compute.v1.VmSpec.display:type_name -> limiquantix.compute.v1.DisplayConfig
-	45, // 20: limiquantix.compute.v1.VmSpec.agent:type_name -> limiquantix.compute.v1.GuestAgentConfig
-	46, // 21: limiquantix.compute.v1.VmSpec.provisioning:type_name -> limiquantix.compute.v1.ProvisioningConfig
-	50, // 22: limiquantix.compute.v1.VmSpec.resources:type_name -> limiquantix.compute.v1.ResourceConfig
-	51, // 23: limiquantix.compute.v1.VmSpec.ha_policy:type_name -> limiquantix.compute.v1.HaPolicy
-	52, // 24: limiquantix.compute.v1.VmSpec.placement:type_name -> limiquantix.compute.v1.PlacementPolicy
-	53, // 25: limiquantix.compute.v1.VmSpec.migration:type_name -> limiquantix.compute.v1.MigrationConfig
-	54, // 26: limiquantix.compute.v1.VmSpec.template:type_name -> limiquantix.compute.v1.TemplateConfig
-	21, // 27: limiquantix.compute.v1.CpuConfig.numa:type_name -> limiquantix.compute.v1.NumaConfig
-	23, // 28: limiquantix.compute.v1.CpuConfig.features:type_name -> limiquantix.compute.v1.CpuFeatures
-	22, // 29: limiquantix.compute.v1.NumaConfig.nodes:type_name -> limiquantix.compute.v1.NumaNode
-	25, // 30: limiquantix.compute.v1.MemoryConfig.huge_pages:type_name -> limiquantix.compute.v1.HugePagesConfig
+	42, // 18: limiquantix.compute.v1.VmSpec.boot:type_name -> limiquantix.compute.v1.BootConfig
+	45, // 19: limiquantix.compute.v1.VmSpec.display:type_name -> limiquantix.compute.v1.DisplayConfig
+	46, // 20: limiquantix.compute.v1.VmSpec.agent:type_name -> limiquantix.compute.v1.GuestAgentConfig
+	47, // 21: limiquantix.compute.v1.VmSpec.provisioning:type_name -> limiquantix.compute.v1.ProvisioningConfig
+	51, // 22: limiquantix.compute.v1.VmSpec.resources:type_name -> limiquantix.compute.v1.ResourceConfig
+	52, // 23: limiquantix.compute.v1.VmSpec.ha_policy:type_name -> limiquantix.compute.v1.HaPolicy
+	53, // 24: limiquantix.compute.v1.VmSpec.placement:type_name -> limiquantix.compute.v1.PlacementPolicy
+	54, // 25: limiquantix.compute.v1.VmSpec.migration:type_name -> limiquantix.compute.v1.MigrationConfig
+	55, // 26: limiquantix.compute.v1.VmSpec.template:type_name -> limiquantix.compute.v1.TemplateConfig
+	22, // 27: limiquantix.compute.v1.CpuConfig.numa:type_name -> limiquantix.compute.v1.NumaConfig
+	24, // 28: limiquantix.compute.v1.CpuConfig.features:type_name -> limiquantix.compute.v1.CpuFeatures
+	23, // 29: limiquantix.compute.v1.NumaConfig.nodes:type_name -> limiquantix.compute.v1.NumaNode
+	26, // 30: limiquantix.compute.v1.MemoryConfig.huge_pages:type_name -> limiquantix.compute.v1.HugePagesConfig
 	1,  // 31: limiquantix.compute.v1.HugePagesConfig.size:type_name -> limiquantix.compute.v1.HugePagesConfig.PageSize
 	2,  // 32: limiquantix.compute.v1.DiskDevice.bus:type_name -> limiquantix.compute.v1.DiskDevice.BusType
 	3,  // 33: limiquantix.compute.v1.DiskDevice.provisioning:type_name -> limiquantix.compute.v1.DiskDevice.ProvisioningType
-	28, // 34: limiquantix.compute.v1.DiskDevice.io_limits:type_name -> limiquantix.compute.v1.IoLimits
+	29, // 34: limiquantix.compute.v1.DiskDevice.io_limits:type_name -> limiquantix.compute.v1.IoLimits
 	4,  // 35: limiquantix.compute.v1.DiskDevice.cache:type_name -> limiquantix.compute.v1.DiskDevice.CacheMode
 	5,  // 36: limiquantix.compute.v1.NetworkInterface.model:type_name -> limiquantix.compute.v1.NetworkInterface.Model
-	30, // 37: limiquantix.compute.v1.NetworkInterface.ip_configs:type_name -> limiquantix.compute.v1.IpConfig
-	31, // 38: limiquantix.compute.v1.NetworkInterface.qos:type_name -> limiquantix.compute.v1.NetworkQos
-	32, // 39: limiquantix.compute.v1.NetworkInterface.sriov:type_name -> limiquantix.compute.v1.SriovConfig
+	31, // 37: limiquantix.compute.v1.NetworkInterface.ip_configs:type_name -> limiquantix.compute.v1.IpConfig
+	32, // 38: limiquantix.compute.v1.NetworkInterface.qos:type_name -> limiquantix.compute.v1.NetworkQos
+	33, // 39: limiquantix.compute.v1.NetworkInterface.sriov:type_name -> limiquantix.compute.v1.SriovConfig
 	6,  // 40: limiquantix.compute.v1.TpmConfig.version:type_name -> limiquantix.compute.v1.TpmConfig.TpmVersion
 	7,  // 41: limiquantix.compute.v1.WatchdogConfig.model:type_name -> limiquantix.compute.v1.WatchdogConfig.WatchdogModel
 	8,  // 42: limiquantix.compute.v1.WatchdogConfig.action:type_name -> limiquantix.compute.v1.WatchdogConfig.WatchdogAction
-	40, // 43: limiquantix.compute.v1.SerialPortConfig.ports:type_name -> limiquantix.compute.v1.SerialPort
+	41, // 43: limiquantix.compute.v1.SerialPortConfig.ports:type_name -> limiquantix.compute.v1.SerialPort
 	9,  // 44: limiquantix.compute.v1.SerialPort.type:type_name -> limiquantix.compute.v1.SerialPort.SerialType
-	42, // 45: limiquantix.compute.v1.BootConfig.boot_order:type_name -> limiquantix.compute.v1.BootDevice
-	43, // 46: limiquantix.compute.v1.BootConfig.direct_boot:type_name -> limiquantix.compute.v1.DirectKernelBoot
+	43, // 45: limiquantix.compute.v1.BootConfig.boot_order:type_name -> limiquantix.compute.v1.BootDevice
+	44, // 46: limiquantix.compute.v1.BootConfig.direct_boot:type_name -> limiquantix.compute.v1.DirectKernelBoot
 	10, // 47: limiquantix.compute.v1.BootDevice.type:type_name -> limiquantix.compute.v1.BootDevice.DeviceType
 	11, // 48: limiquantix.compute.v1.DisplayConfig.type:type_name -> limiquantix.compute.v1.DisplayConfig.DisplayType
 	12, // 49: limiquantix.compute.v1.DisplayConfig.gpu:type_name -> limiquantix.compute.v1.DisplayConfig.GpuType
 	13, // 50: limiquantix.compute.v1.GuestAgentConfig.channel:type_name -> limiquantix.compute.v1.GuestAgentConfig.ChannelType
-	47, // 51: limiquantix.compute.v1.ProvisioningConfig.cloud_init:type_name -> limiquantix.compute.v1.CloudInitConfig
-	48, // 52: limiquantix.compute.v1.ProvisioningConfig.ignition:type_name -> limiquantix.compute.v1.IgnitionConfig
-	49, // 53: limiquantix.compute.v1.ProvisioningConfig.sysprep:type_name -> limiquantix.compute.v1.SysprepConfig
+	48, // 51: limiquantix.compute.v1.ProvisioningConfig.cloud_init:type_name -> limiquantix.compute.v1.CloudInitConfig
+	49, // 52: limiquantix.compute.v1.ProvisioningConfig.ignition:type_name -> limiquantix.compute.v1.IgnitionConfig
+	50, // 53: limiquantix.compute.v1.ProvisioningConfig.sysprep:type_name -> limiquantix.compute.v1.SysprepConfig
 	14, // 54: limiquantix.compute.v1.HaPolicy.condition:type_name -> limiquantix.compute.v1.HaPolicy.RestartCondition
-	64, // 55: limiquantix.compute.v1.PlacementPolicy.required_labels:type_name -> limiquantix.compute.v1.PlacementPolicy.RequiredLabelsEntry
+	65, // 55: limiquantix.compute.v1.PlacementPolicy.required_labels:type_name -> limiquantix.compute.v1.PlacementPolicy.RequiredLabelsEntry
 	15, // 56: limiquantix.compute.v1.TemplateConfig.clone_type:type_name -> limiquantix.compute.v1.TemplateConfig.CloneType
 	16, // 57: limiquantix.compute.v1.VmStatus.state:type_name -> limiquantix.compute.v1.VmStatus.PowerState
-	56, // 58: limiquantix.compute.v1.VmStatus.resource_usage:type_name -> limiquantix.compute.v1.ResourceUsage
-	57, // 59: limiquantix.compute.v1.VmStatus.guest_info:type_name -> limiquantix.compute.v1.GuestInfo
-	58, // 60: limiquantix.compute.v1.VmStatus.snapshots:type_name -> limiquantix.compute.v1.SnapshotStatus
-	60, // 61: limiquantix.compute.v1.VmStatus.console:type_name -> limiquantix.compute.v1.ConsoleInfo
-	61, // 62: limiquantix.compute.v1.VmStatus.health:type_name -> limiquantix.compute.v1.HealthStatus
-	65, // 63: limiquantix.compute.v1.VmStatus.state_changed_at:type_name -> google.protobuf.Timestamp
-	65, // 64: limiquantix.compute.v1.GuestInfo.last_heartbeat:type_name -> google.protobuf.Timestamp
-	59, // 65: limiquantix.compute.v1.SnapshotStatus.snapshots:type_name -> limiquantix.compute.v1.Snapshot
-	65, // 66: limiquantix.compute.v1.Snapshot.created_at:type_name -> google.protobuf.Timestamp
-	65, // 67: limiquantix.compute.v1.ConsoleInfo.ticket_expires:type_name -> google.protobuf.Timestamp
-	17, // 68: limiquantix.compute.v1.HealthStatus.status:type_name -> limiquantix.compute.v1.HealthStatus.Status
-	62, // 69: limiquantix.compute.v1.HealthStatus.checks:type_name -> limiquantix.compute.v1.HealthCheck
-	65, // 70: limiquantix.compute.v1.HealthCheck.last_check:type_name -> google.protobuf.Timestamp
+	57, // 58: limiquantix.compute.v1.VmStatus.resource_usage:type_name -> limiquantix.compute.v1.ResourceUsage
+	58, // 59: limiquantix.compute.v1.VmStatus.guest_info:type_name -> limiquantix.compute.v1.GuestInfo
+	59, // 60: limiquantix.compute.v1.VmStatus.snapshots:type_name -> limiquantix.compute.v1.SnapshotStatus
+	61, // 61: limiquantix.compute.v1.VmStatus.console:type_name -> limiquantix.compute.v1.ConsoleInfo
+	62, // 62: limiquantix.compute.v1.VmStatus.health:type_name -> limiquantix.compute.v1.HealthStatus
+	66, // 63: limiquantix.compute.v1.VmStatus.state_changed_at:type_name -> google.protobuf.Timestamp
+	66, // 64: limiquantix.compute.v1.GuestInfo.last_heartbeat:type_name -> google.protobuf.Timestamp
+	60, // 65: limiquantix.compute.v1.SnapshotStatus.snapshots:type_name -> limiquantix.compute.v1.Snapshot
+	66, // 66: limiquantix.compute.v1.Snapshot.created_at:type_name -> google.protobuf.Timestamp
+	17, // 67: limiquantix.compute.v1.ConsoleInfo.console_type:type_name -> limiquantix.compute.v1.ConsoleInfo.ConsoleType
+	18, // 68: limiquantix.compute.v1.HealthStatus.status:type_name -> limiquantix.compute.v1.HealthStatus.Status
+	63, // 69: limiquantix.compute.v1.HealthStatus.checks:type_name -> limiquantix.compute.v1.HealthCheck
+	66, // 70: limiquantix.compute.v1.HealthCheck.last_check:type_name -> google.protobuf.Timestamp
 	71, // [71:71] is the sub-list for method output_type
 	71, // [71:71] is the sub-list for method input_type
 	71, // [71:71] is the sub-list for extension type_name
@@ -5199,7 +5284,7 @@ func file_limiquantix_compute_v1_vm_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_compute_v1_vm_proto_rawDesc), len(file_limiquantix_compute_v1_vm_proto_rawDesc)),
-			NumEnums:      18,
+			NumEnums:      19,
 			NumMessages:   47,
 			NumExtensions: 0,
 			NumServices:   0,

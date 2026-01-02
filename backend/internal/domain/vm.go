@@ -171,8 +171,10 @@ type GuestAgent struct {
 // ConsoleInfo represents console connection information.
 type ConsoleInfo struct {
 	Type     string `json:"type"`
-	URL      string `json:"url"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
 	Password string `json:"password,omitempty"`
+	URL      string `json:"url,omitempty"` // Legacy field
 }
 
 // IsRunning returns true if the VM is in a running state.

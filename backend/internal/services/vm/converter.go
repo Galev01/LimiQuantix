@@ -206,7 +206,9 @@ func convertStatusToProto(status domain.VMStatus) *computev1.VmStatus {
 	// Console info
 	if status.Console != nil {
 		result.Console = &computev1.ConsoleInfo{
-			Url: status.Console.URL,
+			Host:     status.Console.Host,
+			Port:     uint32(status.Console.Port),
+			Password: status.Console.Password,
 		}
 	}
 
