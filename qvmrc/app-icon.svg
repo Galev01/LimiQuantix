@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#9333ea"/>
+      <stop offset="100%" style="stop-color:#6b21a8"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1b4b"/>
+      <stop offset="100%" style="stop-color:#0f0a1e"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="512" cy="512" r="480" fill="url(#bg)"/>
+  
+  <!-- Monitor body -->
+  <rect x="192" y="200" width="640" height="440" rx="24" fill="#1a1a24" stroke="#fff" stroke-width="8"/>
+  
+  <!-- Screen -->
+  <rect x="224" y="232" width="576" height="360" rx="8" fill="url(#screen)"/>
+  
+  <!-- Terminal cursor lines -->
+  <rect x="272" y="296" width="200" height="24" rx="4" fill="#22c55e" opacity="0.9"/>
+  <rect x="272" y="344" width="320" height="24" rx="4" fill="#9333ea" opacity="0.9"/>
+  <rect x="272" y="392" width="160" height="24" rx="4" fill="#3b82f6" opacity="0.9"/>
+  <rect x="272" y="440" width="280" height="24" rx="4" fill="#f59e0b" opacity="0.9"/>
+  
+  <!-- Blinking cursor -->
+  <rect x="272" y="488" width="16" height="24" rx="2" fill="#fff">
+    <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>
+  </rect>
+  
+  <!-- Monitor stand -->
+  <path d="M432 640 L592 640 L560 720 L464 720 Z" fill="#1a1a24"/>
+  <rect x="384" y="720" width="256" height="32" rx="8" fill="#1a1a24"/>
+  
+  <!-- Q letter watermark -->
+  <text x="680" y="540" font-family="Arial, sans-serif" font-size="120" font-weight="bold" fill="#fff" opacity="0.15">Q</text>
+</svg>

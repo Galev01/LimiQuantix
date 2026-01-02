@@ -121,6 +121,12 @@ const (
 	// ImageServiceGetImportStatusProcedure is the fully-qualified name of the ImageService's
 	// GetImportStatus RPC.
 	ImageServiceGetImportStatusProcedure = "/limiquantix.storage.v1.ImageService/GetImportStatus"
+	// ImageServiceScanLocalImagesProcedure is the fully-qualified name of the ImageService's
+	// ScanLocalImages RPC.
+	ImageServiceScanLocalImagesProcedure = "/limiquantix.storage.v1.ImageService/ScanLocalImages"
+	// ImageServiceDownloadImageProcedure is the fully-qualified name of the ImageService's
+	// DownloadImage RPC.
+	ImageServiceDownloadImageProcedure = "/limiquantix.storage.v1.ImageService/DownloadImage"
 )
 
 // StoragePoolServiceClient is a client for the limiquantix.storage.v1.StoragePoolService service.
@@ -865,6 +871,11 @@ type ImageServiceClient interface {
 	ImportImage(context.Context, *connect.Request[v1.ImportImageRequest]) (*connect.Response[v1.ImportImageResponse], error)
 	// GetImportStatus checks import progress.
 	GetImportStatus(context.Context, *connect.Request[v1.GetImportStatusRequest]) (*connect.Response[v1.ImportStatus], error)
+	// ScanLocalImages scans a node's local storage for available images.
+	// This is called by the Node Daemon during registration.
+	ScanLocalImages(context.Context, *connect.Request[v1.ScanLocalImagesRequest]) (*connect.Response[v1.ScanLocalImagesResponse], error)
+	// DownloadImage downloads a cloud image from an official source.
+	DownloadImage(context.Context, *connect.Request[v1.DownloadImageRequest]) (*connect.Response[v1.DownloadImageResponse], error)
 }
 
 // NewImageServiceClient constructs a client for the limiquantix.storage.v1.ImageService service. By
@@ -920,6 +931,18 @@ func NewImageServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(imageServiceMethods.ByName("GetImportStatus")),
 			connect.WithClientOptions(opts...),
 		),
+		scanLocalImages: connect.NewClient[v1.ScanLocalImagesRequest, v1.ScanLocalImagesResponse](
+			httpClient,
+			baseURL+ImageServiceScanLocalImagesProcedure,
+			connect.WithSchema(imageServiceMethods.ByName("ScanLocalImages")),
+			connect.WithClientOptions(opts...),
+		),
+		downloadImage: connect.NewClient[v1.DownloadImageRequest, v1.DownloadImageResponse](
+			httpClient,
+			baseURL+ImageServiceDownloadImageProcedure,
+			connect.WithSchema(imageServiceMethods.ByName("DownloadImage")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -932,6 +955,8 @@ type imageServiceClient struct {
 	deleteImage     *connect.Client[v1.DeleteImageRequest, emptypb.Empty]
 	importImage     *connect.Client[v1.ImportImageRequest, v1.ImportImageResponse]
 	getImportStatus *connect.Client[v1.GetImportStatusRequest, v1.ImportStatus]
+	scanLocalImages *connect.Client[v1.ScanLocalImagesRequest, v1.ScanLocalImagesResponse]
+	downloadImage   *connect.Client[v1.DownloadImageRequest, v1.DownloadImageResponse]
 }
 
 // CreateImage calls limiquantix.storage.v1.ImageService.CreateImage.
@@ -969,6 +994,16 @@ func (c *imageServiceClient) GetImportStatus(ctx context.Context, req *connect.R
 	return c.getImportStatus.CallUnary(ctx, req)
 }
 
+// ScanLocalImages calls limiquantix.storage.v1.ImageService.ScanLocalImages.
+func (c *imageServiceClient) ScanLocalImages(ctx context.Context, req *connect.Request[v1.ScanLocalImagesRequest]) (*connect.Response[v1.ScanLocalImagesResponse], error) {
+	return c.scanLocalImages.CallUnary(ctx, req)
+}
+
+// DownloadImage calls limiquantix.storage.v1.ImageService.DownloadImage.
+func (c *imageServiceClient) DownloadImage(ctx context.Context, req *connect.Request[v1.DownloadImageRequest]) (*connect.Response[v1.DownloadImageResponse], error) {
+	return c.downloadImage.CallUnary(ctx, req)
+}
+
 // ImageServiceHandler is an implementation of the limiquantix.storage.v1.ImageService service.
 type ImageServiceHandler interface {
 	// CreateImage creates/imports a new image.
@@ -985,6 +1020,11 @@ type ImageServiceHandler interface {
 	ImportImage(context.Context, *connect.Request[v1.ImportImageRequest]) (*connect.Response[v1.ImportImageResponse], error)
 	// GetImportStatus checks import progress.
 	GetImportStatus(context.Context, *connect.Request[v1.GetImportStatusRequest]) (*connect.Response[v1.ImportStatus], error)
+	// ScanLocalImages scans a node's local storage for available images.
+	// This is called by the Node Daemon during registration.
+	ScanLocalImages(context.Context, *connect.Request[v1.ScanLocalImagesRequest]) (*connect.Response[v1.ScanLocalImagesResponse], error)
+	// DownloadImage downloads a cloud image from an official source.
+	DownloadImage(context.Context, *connect.Request[v1.DownloadImageRequest]) (*connect.Response[v1.DownloadImageResponse], error)
 }
 
 // NewImageServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -1036,6 +1076,18 @@ func NewImageServiceHandler(svc ImageServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(imageServiceMethods.ByName("GetImportStatus")),
 		connect.WithHandlerOptions(opts...),
 	)
+	imageServiceScanLocalImagesHandler := connect.NewUnaryHandler(
+		ImageServiceScanLocalImagesProcedure,
+		svc.ScanLocalImages,
+		connect.WithSchema(imageServiceMethods.ByName("ScanLocalImages")),
+		connect.WithHandlerOptions(opts...),
+	)
+	imageServiceDownloadImageHandler := connect.NewUnaryHandler(
+		ImageServiceDownloadImageProcedure,
+		svc.DownloadImage,
+		connect.WithSchema(imageServiceMethods.ByName("DownloadImage")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/limiquantix.storage.v1.ImageService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ImageServiceCreateImageProcedure:
@@ -1052,6 +1104,10 @@ func NewImageServiceHandler(svc ImageServiceHandler, opts ...connect.HandlerOpti
 			imageServiceImportImageHandler.ServeHTTP(w, r)
 		case ImageServiceGetImportStatusProcedure:
 			imageServiceGetImportStatusHandler.ServeHTTP(w, r)
+		case ImageServiceScanLocalImagesProcedure:
+			imageServiceScanLocalImagesHandler.ServeHTTP(w, r)
+		case ImageServiceDownloadImageProcedure:
+			imageServiceDownloadImageHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1087,4 +1143,12 @@ func (UnimplementedImageServiceHandler) ImportImage(context.Context, *connect.Re
 
 func (UnimplementedImageServiceHandler) GetImportStatus(context.Context, *connect.Request[v1.GetImportStatusRequest]) (*connect.Response[v1.ImportStatus], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.ImageService.GetImportStatus is not implemented"))
+}
+
+func (UnimplementedImageServiceHandler) ScanLocalImages(context.Context, *connect.Request[v1.ScanLocalImagesRequest]) (*connect.Response[v1.ScanLocalImagesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.ImageService.ScanLocalImages is not implemented"))
+}
+
+func (UnimplementedImageServiceHandler) DownloadImage(context.Context, *connect.Request[v1.DownloadImageRequest]) (*connect.Response[v1.DownloadImageResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.ImageService.DownloadImage is not implemented"))
 }

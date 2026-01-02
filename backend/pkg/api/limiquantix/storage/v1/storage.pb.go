@@ -718,6 +718,68 @@ func (OsInfo_OsFamily) EnumDescriptor() ([]byte, []int) {
 	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{37, 0}
 }
 
+// Provisioning method supported
+type OsInfo_ProvisioningMethod int32
+
+const (
+	OsInfo_PROVISIONING_UNKNOWN OsInfo_ProvisioningMethod = 0
+	OsInfo_CLOUD_INIT           OsInfo_ProvisioningMethod = 1 // cloud-init (Linux)
+	OsInfo_IGNITION             OsInfo_ProvisioningMethod = 2 // Ignition (Fedora CoreOS)
+	OsInfo_SYSPREP              OsInfo_ProvisioningMethod = 3 // Windows Sysprep
+	OsInfo_KICKSTART            OsInfo_ProvisioningMethod = 4 // Anaconda Kickstart
+	OsInfo_PRESEED              OsInfo_ProvisioningMethod = 5 // Debian Preseed
+	OsInfo_NONE                 OsInfo_ProvisioningMethod = 6 // No auto-provisioning
+)
+
+// Enum value maps for OsInfo_ProvisioningMethod.
+var (
+	OsInfo_ProvisioningMethod_name = map[int32]string{
+		0: "PROVISIONING_UNKNOWN",
+		1: "CLOUD_INIT",
+		2: "IGNITION",
+		3: "SYSPREP",
+		4: "KICKSTART",
+		5: "PRESEED",
+		6: "NONE",
+	}
+	OsInfo_ProvisioningMethod_value = map[string]int32{
+		"PROVISIONING_UNKNOWN": 0,
+		"CLOUD_INIT":           1,
+		"IGNITION":             2,
+		"SYSPREP":              3,
+		"KICKSTART":            4,
+		"PRESEED":              5,
+		"NONE":                 6,
+	}
+)
+
+func (x OsInfo_ProvisioningMethod) Enum() *OsInfo_ProvisioningMethod {
+	p := new(OsInfo_ProvisioningMethod)
+	*p = x
+	return p
+}
+
+func (x OsInfo_ProvisioningMethod) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OsInfo_ProvisioningMethod) Descriptor() protoreflect.EnumDescriptor {
+	return file_limiquantix_storage_v1_storage_proto_enumTypes[13].Descriptor()
+}
+
+func (OsInfo_ProvisioningMethod) Type() protoreflect.EnumType {
+	return &file_limiquantix_storage_v1_storage_proto_enumTypes[13]
+}
+
+func (x OsInfo_ProvisioningMethod) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use OsInfo_ProvisioningMethod.Descriptor instead.
+func (OsInfo_ProvisioningMethod) EnumDescriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{37, 1}
+}
+
 type ImageStatus_Phase int32
 
 const (
@@ -763,11 +825,11 @@ func (x ImageStatus_Phase) String() string {
 }
 
 func (ImageStatus_Phase) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[13].Descriptor()
+	return file_limiquantix_storage_v1_storage_proto_enumTypes[14].Descriptor()
 }
 
 func (ImageStatus_Phase) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[13]
+	return &file_limiquantix_storage_v1_storage_proto_enumTypes[14]
 }
 
 func (x ImageStatus_Phase) Number() protoreflect.EnumNumber {
@@ -3763,10 +3825,13 @@ type OsInfo struct {
 	Version string `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
 	// Architecture
 	Architecture string `protobuf:"bytes,4,opt,name=architecture,proto3" json:"architecture,omitempty"` // "x86_64", "aarch64"
-	// Default username for cloud-init
-	DefaultUser   string `protobuf:"bytes,5,opt,name=default_user,json=defaultUser,proto3" json:"default_user,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Default username for cloud-init (e.g., "ubuntu", "debian", "rocky")
+	DefaultUser string `protobuf:"bytes,5,opt,name=default_user,json=defaultUser,proto3" json:"default_user,omitempty"`
+	// Cloud-init support
+	CloudInitEnabled   bool                      `protobuf:"varint,6,opt,name=cloud_init_enabled,json=cloudInitEnabled,proto3" json:"cloud_init_enabled,omitempty"`
+	ProvisioningMethod OsInfo_ProvisioningMethod `protobuf:"varint,7,opt,name=provisioning_method,json=provisioningMethod,proto3,enum=limiquantix.storage.v1.OsInfo_ProvisioningMethod" json:"provisioning_method,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *OsInfo) Reset() {
@@ -3832,6 +3897,20 @@ func (x *OsInfo) GetDefaultUser() string {
 		return x.DefaultUser
 	}
 	return ""
+}
+
+func (x *OsInfo) GetCloudInitEnabled() bool {
+	if x != nil {
+		return x.CloudInitEnabled
+	}
+	return false
+}
+
+func (x *OsInfo) GetProvisioningMethod() OsInfo_ProvisioningMethod {
+	if x != nil {
+		return x.ProvisioningMethod
+	}
+	return OsInfo_PROVISIONING_UNKNOWN
 }
 
 type ImageRequirements struct {
@@ -4359,19 +4438,30 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x0fcontainer_image\x18\x04 \x01(\tH\x00R\x0econtainerImage\x12\x1a\n" +
 	"\bchecksum\x18\x05 \x01(\tR\bchecksum\x12#\n" +
 	"\rchecksum_type\x18\x06 \x01(\tR\fchecksumTypeB\b\n" +
-	"\x06source\"\x93\x02\n" +
+	"\x06source\"\xa6\x04\n" +
 	"\x06OsInfo\x12?\n" +
 	"\x06family\x18\x01 \x01(\x0e2'.limiquantix.storage.v1.OsInfo.OsFamilyR\x06family\x12\"\n" +
 	"\fdistribution\x18\x02 \x01(\tR\fdistribution\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x12\"\n" +
 	"\farchitecture\x18\x04 \x01(\tR\farchitecture\x12!\n" +
-	"\fdefault_user\x18\x05 \x01(\tR\vdefaultUser\"C\n" +
+	"\fdefault_user\x18\x05 \x01(\tR\vdefaultUser\x12,\n" +
+	"\x12cloud_init_enabled\x18\x06 \x01(\bR\x10cloudInitEnabled\x12b\n" +
+	"\x13provisioning_method\x18\a \x01(\x0e21.limiquantix.storage.v1.OsInfo.ProvisioningMethodR\x12provisioningMethod\"C\n" +
 	"\bOsFamily\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\t\n" +
 	"\x05LINUX\x10\x01\x12\v\n" +
 	"\aWINDOWS\x10\x02\x12\a\n" +
 	"\x03BSD\x10\x03\x12\t\n" +
-	"\x05OTHER\x10\x04\"\xf8\x01\n" +
+	"\x05OTHER\x10\x04\"\x7f\n" +
+	"\x12ProvisioningMethod\x12\x18\n" +
+	"\x14PROVISIONING_UNKNOWN\x10\x00\x12\x0e\n" +
+	"\n" +
+	"CLOUD_INIT\x10\x01\x12\f\n" +
+	"\bIGNITION\x10\x02\x12\v\n" +
+	"\aSYSPREP\x10\x03\x12\r\n" +
+	"\tKICKSTART\x10\x04\x12\v\n" +
+	"\aPRESEED\x10\x05\x12\b\n" +
+	"\x04NONE\x10\x06\"\xf8\x01\n" +
 	"\x11ImageRequirements\x12\x17\n" +
 	"\amin_cpu\x18\x01 \x01(\rR\x06minCpu\x12$\n" +
 	"\x0emin_memory_mib\x18\x02 \x01(\x04R\fminMemoryMib\x12 \n" +
@@ -4412,7 +4502,7 @@ func file_limiquantix_storage_v1_storage_proto_rawDescGZIP() []byte {
 	return file_limiquantix_storage_v1_storage_proto_rawDescData
 }
 
-var file_limiquantix_storage_v1_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 14)
+var file_limiquantix_storage_v1_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 15)
 var file_limiquantix_storage_v1_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_limiquantix_storage_v1_storage_proto_goTypes = []any{
 	(StorageBackend_BackendType)(0),      // 0: limiquantix.storage.v1.StorageBackend.BackendType
@@ -4428,122 +4518,124 @@ var file_limiquantix_storage_v1_storage_proto_goTypes = []any{
 	(ImageSpec_Format)(0),                // 10: limiquantix.storage.v1.ImageSpec.Format
 	(ImageSpec_Visibility)(0),            // 11: limiquantix.storage.v1.ImageSpec.Visibility
 	(OsInfo_OsFamily)(0),                 // 12: limiquantix.storage.v1.OsInfo.OsFamily
-	(ImageStatus_Phase)(0),               // 13: limiquantix.storage.v1.ImageStatus.Phase
-	(*StoragePool)(nil),                  // 14: limiquantix.storage.v1.StoragePool
-	(*StoragePoolSpec)(nil),              // 15: limiquantix.storage.v1.StoragePoolSpec
-	(*StorageBackend)(nil),               // 16: limiquantix.storage.v1.StorageBackend
-	(*CephConfig)(nil),                   // 17: limiquantix.storage.v1.CephConfig
-	(*LocalLvmConfig)(nil),               // 18: limiquantix.storage.v1.LocalLvmConfig
-	(*LocalDirConfig)(nil),               // 19: limiquantix.storage.v1.LocalDirConfig
-	(*NfsConfig)(nil),                    // 20: limiquantix.storage.v1.NfsConfig
-	(*IscsiConfig)(nil),                  // 21: limiquantix.storage.v1.IscsiConfig
-	(*VolumeDefaults)(nil),               // 22: limiquantix.storage.v1.VolumeDefaults
-	(*StorageQos)(nil),                   // 23: limiquantix.storage.v1.StorageQos
-	(*EncryptionConfig)(nil),             // 24: limiquantix.storage.v1.EncryptionConfig
-	(*ReplicationConfig)(nil),            // 25: limiquantix.storage.v1.ReplicationConfig
-	(*ErasureCodingConfig)(nil),          // 26: limiquantix.storage.v1.ErasureCodingConfig
-	(*TieringConfig)(nil),                // 27: limiquantix.storage.v1.TieringConfig
-	(*StoragePoolStatus)(nil),            // 28: limiquantix.storage.v1.StoragePoolStatus
-	(*StorageCapacity)(nil),              // 29: limiquantix.storage.v1.StorageCapacity
-	(*StorageMetrics)(nil),               // 30: limiquantix.storage.v1.StorageMetrics
-	(*StorageHealth)(nil),                // 31: limiquantix.storage.v1.StorageHealth
-	(*HealthCheck)(nil),                  // 32: limiquantix.storage.v1.HealthCheck
-	(*Volume)(nil),                       // 33: limiquantix.storage.v1.Volume
-	(*VolumeSpec)(nil),                   // 34: limiquantix.storage.v1.VolumeSpec
-	(*VolumeSource)(nil),                 // 35: limiquantix.storage.v1.VolumeSource
-	(*EmptySource)(nil),                  // 36: limiquantix.storage.v1.EmptySource
-	(*CloneSource)(nil),                  // 37: limiquantix.storage.v1.CloneSource
-	(*SnapshotSource)(nil),               // 38: limiquantix.storage.v1.SnapshotSource
-	(*ImageSource)(nil),                  // 39: limiquantix.storage.v1.ImageSource
-	(*UrlSource)(nil),                    // 40: limiquantix.storage.v1.UrlSource
-	(*VolumeQos)(nil),                    // 41: limiquantix.storage.v1.VolumeQos
-	(*VolumeStatus)(nil),                 // 42: limiquantix.storage.v1.VolumeStatus
-	(*VolumeUsage)(nil),                  // 43: limiquantix.storage.v1.VolumeUsage
-	(*VolumeSnapshot)(nil),               // 44: limiquantix.storage.v1.VolumeSnapshot
-	(*VolumeSnapshotSpec)(nil),           // 45: limiquantix.storage.v1.VolumeSnapshotSpec
-	(*RetentionPolicy)(nil),              // 46: limiquantix.storage.v1.RetentionPolicy
-	(*VolumeSnapshotStatus)(nil),         // 47: limiquantix.storage.v1.VolumeSnapshotStatus
-	(*Image)(nil),                        // 48: limiquantix.storage.v1.Image
-	(*ImageSpec)(nil),                    // 49: limiquantix.storage.v1.ImageSpec
-	(*ImageSourceSpec)(nil),              // 50: limiquantix.storage.v1.ImageSourceSpec
-	(*OsInfo)(nil),                       // 51: limiquantix.storage.v1.OsInfo
-	(*ImageRequirements)(nil),            // 52: limiquantix.storage.v1.ImageRequirements
-	(*ImageStatus)(nil),                  // 53: limiquantix.storage.v1.ImageStatus
-	nil,                                  // 54: limiquantix.storage.v1.StoragePool.LabelsEntry
-	nil,                                  // 55: limiquantix.storage.v1.Volume.LabelsEntry
-	nil,                                  // 56: limiquantix.storage.v1.VolumeSnapshot.LabelsEntry
-	nil,                                  // 57: limiquantix.storage.v1.Image.LabelsEntry
-	(*timestamppb.Timestamp)(nil),        // 58: google.protobuf.Timestamp
+	(OsInfo_ProvisioningMethod)(0),       // 13: limiquantix.storage.v1.OsInfo.ProvisioningMethod
+	(ImageStatus_Phase)(0),               // 14: limiquantix.storage.v1.ImageStatus.Phase
+	(*StoragePool)(nil),                  // 15: limiquantix.storage.v1.StoragePool
+	(*StoragePoolSpec)(nil),              // 16: limiquantix.storage.v1.StoragePoolSpec
+	(*StorageBackend)(nil),               // 17: limiquantix.storage.v1.StorageBackend
+	(*CephConfig)(nil),                   // 18: limiquantix.storage.v1.CephConfig
+	(*LocalLvmConfig)(nil),               // 19: limiquantix.storage.v1.LocalLvmConfig
+	(*LocalDirConfig)(nil),               // 20: limiquantix.storage.v1.LocalDirConfig
+	(*NfsConfig)(nil),                    // 21: limiquantix.storage.v1.NfsConfig
+	(*IscsiConfig)(nil),                  // 22: limiquantix.storage.v1.IscsiConfig
+	(*VolumeDefaults)(nil),               // 23: limiquantix.storage.v1.VolumeDefaults
+	(*StorageQos)(nil),                   // 24: limiquantix.storage.v1.StorageQos
+	(*EncryptionConfig)(nil),             // 25: limiquantix.storage.v1.EncryptionConfig
+	(*ReplicationConfig)(nil),            // 26: limiquantix.storage.v1.ReplicationConfig
+	(*ErasureCodingConfig)(nil),          // 27: limiquantix.storage.v1.ErasureCodingConfig
+	(*TieringConfig)(nil),                // 28: limiquantix.storage.v1.TieringConfig
+	(*StoragePoolStatus)(nil),            // 29: limiquantix.storage.v1.StoragePoolStatus
+	(*StorageCapacity)(nil),              // 30: limiquantix.storage.v1.StorageCapacity
+	(*StorageMetrics)(nil),               // 31: limiquantix.storage.v1.StorageMetrics
+	(*StorageHealth)(nil),                // 32: limiquantix.storage.v1.StorageHealth
+	(*HealthCheck)(nil),                  // 33: limiquantix.storage.v1.HealthCheck
+	(*Volume)(nil),                       // 34: limiquantix.storage.v1.Volume
+	(*VolumeSpec)(nil),                   // 35: limiquantix.storage.v1.VolumeSpec
+	(*VolumeSource)(nil),                 // 36: limiquantix.storage.v1.VolumeSource
+	(*EmptySource)(nil),                  // 37: limiquantix.storage.v1.EmptySource
+	(*CloneSource)(nil),                  // 38: limiquantix.storage.v1.CloneSource
+	(*SnapshotSource)(nil),               // 39: limiquantix.storage.v1.SnapshotSource
+	(*ImageSource)(nil),                  // 40: limiquantix.storage.v1.ImageSource
+	(*UrlSource)(nil),                    // 41: limiquantix.storage.v1.UrlSource
+	(*VolumeQos)(nil),                    // 42: limiquantix.storage.v1.VolumeQos
+	(*VolumeStatus)(nil),                 // 43: limiquantix.storage.v1.VolumeStatus
+	(*VolumeUsage)(nil),                  // 44: limiquantix.storage.v1.VolumeUsage
+	(*VolumeSnapshot)(nil),               // 45: limiquantix.storage.v1.VolumeSnapshot
+	(*VolumeSnapshotSpec)(nil),           // 46: limiquantix.storage.v1.VolumeSnapshotSpec
+	(*RetentionPolicy)(nil),              // 47: limiquantix.storage.v1.RetentionPolicy
+	(*VolumeSnapshotStatus)(nil),         // 48: limiquantix.storage.v1.VolumeSnapshotStatus
+	(*Image)(nil),                        // 49: limiquantix.storage.v1.Image
+	(*ImageSpec)(nil),                    // 50: limiquantix.storage.v1.ImageSpec
+	(*ImageSourceSpec)(nil),              // 51: limiquantix.storage.v1.ImageSourceSpec
+	(*OsInfo)(nil),                       // 52: limiquantix.storage.v1.OsInfo
+	(*ImageRequirements)(nil),            // 53: limiquantix.storage.v1.ImageRequirements
+	(*ImageStatus)(nil),                  // 54: limiquantix.storage.v1.ImageStatus
+	nil,                                  // 55: limiquantix.storage.v1.StoragePool.LabelsEntry
+	nil,                                  // 56: limiquantix.storage.v1.Volume.LabelsEntry
+	nil,                                  // 57: limiquantix.storage.v1.VolumeSnapshot.LabelsEntry
+	nil,                                  // 58: limiquantix.storage.v1.Image.LabelsEntry
+	(*timestamppb.Timestamp)(nil),        // 59: google.protobuf.Timestamp
 }
 var file_limiquantix_storage_v1_storage_proto_depIdxs = []int32{
-	54, // 0: limiquantix.storage.v1.StoragePool.labels:type_name -> limiquantix.storage.v1.StoragePool.LabelsEntry
-	15, // 1: limiquantix.storage.v1.StoragePool.spec:type_name -> limiquantix.storage.v1.StoragePoolSpec
-	28, // 2: limiquantix.storage.v1.StoragePool.status:type_name -> limiquantix.storage.v1.StoragePoolStatus
-	58, // 3: limiquantix.storage.v1.StoragePool.created_at:type_name -> google.protobuf.Timestamp
-	58, // 4: limiquantix.storage.v1.StoragePool.updated_at:type_name -> google.protobuf.Timestamp
-	16, // 5: limiquantix.storage.v1.StoragePoolSpec.backend:type_name -> limiquantix.storage.v1.StorageBackend
-	22, // 6: limiquantix.storage.v1.StoragePoolSpec.defaults:type_name -> limiquantix.storage.v1.VolumeDefaults
-	23, // 7: limiquantix.storage.v1.StoragePoolSpec.qos:type_name -> limiquantix.storage.v1.StorageQos
-	24, // 8: limiquantix.storage.v1.StoragePoolSpec.encryption:type_name -> limiquantix.storage.v1.EncryptionConfig
-	25, // 9: limiquantix.storage.v1.StoragePoolSpec.replication:type_name -> limiquantix.storage.v1.ReplicationConfig
-	27, // 10: limiquantix.storage.v1.StoragePoolSpec.tiering:type_name -> limiquantix.storage.v1.TieringConfig
+	55, // 0: limiquantix.storage.v1.StoragePool.labels:type_name -> limiquantix.storage.v1.StoragePool.LabelsEntry
+	16, // 1: limiquantix.storage.v1.StoragePool.spec:type_name -> limiquantix.storage.v1.StoragePoolSpec
+	29, // 2: limiquantix.storage.v1.StoragePool.status:type_name -> limiquantix.storage.v1.StoragePoolStatus
+	59, // 3: limiquantix.storage.v1.StoragePool.created_at:type_name -> google.protobuf.Timestamp
+	59, // 4: limiquantix.storage.v1.StoragePool.updated_at:type_name -> google.protobuf.Timestamp
+	17, // 5: limiquantix.storage.v1.StoragePoolSpec.backend:type_name -> limiquantix.storage.v1.StorageBackend
+	23, // 6: limiquantix.storage.v1.StoragePoolSpec.defaults:type_name -> limiquantix.storage.v1.VolumeDefaults
+	24, // 7: limiquantix.storage.v1.StoragePoolSpec.qos:type_name -> limiquantix.storage.v1.StorageQos
+	25, // 8: limiquantix.storage.v1.StoragePoolSpec.encryption:type_name -> limiquantix.storage.v1.EncryptionConfig
+	26, // 9: limiquantix.storage.v1.StoragePoolSpec.replication:type_name -> limiquantix.storage.v1.ReplicationConfig
+	28, // 10: limiquantix.storage.v1.StoragePoolSpec.tiering:type_name -> limiquantix.storage.v1.TieringConfig
 	0,  // 11: limiquantix.storage.v1.StorageBackend.type:type_name -> limiquantix.storage.v1.StorageBackend.BackendType
-	17, // 12: limiquantix.storage.v1.StorageBackend.ceph:type_name -> limiquantix.storage.v1.CephConfig
-	18, // 13: limiquantix.storage.v1.StorageBackend.local_lvm:type_name -> limiquantix.storage.v1.LocalLvmConfig
-	19, // 14: limiquantix.storage.v1.StorageBackend.local_dir:type_name -> limiquantix.storage.v1.LocalDirConfig
-	20, // 15: limiquantix.storage.v1.StorageBackend.nfs:type_name -> limiquantix.storage.v1.NfsConfig
-	21, // 16: limiquantix.storage.v1.StorageBackend.iscsi:type_name -> limiquantix.storage.v1.IscsiConfig
+	18, // 12: limiquantix.storage.v1.StorageBackend.ceph:type_name -> limiquantix.storage.v1.CephConfig
+	19, // 13: limiquantix.storage.v1.StorageBackend.local_lvm:type_name -> limiquantix.storage.v1.LocalLvmConfig
+	20, // 14: limiquantix.storage.v1.StorageBackend.local_dir:type_name -> limiquantix.storage.v1.LocalDirConfig
+	21, // 15: limiquantix.storage.v1.StorageBackend.nfs:type_name -> limiquantix.storage.v1.NfsConfig
+	22, // 16: limiquantix.storage.v1.StorageBackend.iscsi:type_name -> limiquantix.storage.v1.IscsiConfig
 	1,  // 17: limiquantix.storage.v1.VolumeDefaults.provisioning:type_name -> limiquantix.storage.v1.VolumeDefaults.ProvisioningType
 	2,  // 18: limiquantix.storage.v1.EncryptionConfig.key_management:type_name -> limiquantix.storage.v1.EncryptionConfig.KeyManagement
-	26, // 19: limiquantix.storage.v1.ReplicationConfig.erasure_coding:type_name -> limiquantix.storage.v1.ErasureCodingConfig
+	27, // 19: limiquantix.storage.v1.ReplicationConfig.erasure_coding:type_name -> limiquantix.storage.v1.ErasureCodingConfig
 	3,  // 20: limiquantix.storage.v1.TieringConfig.policy:type_name -> limiquantix.storage.v1.TieringConfig.TieringPolicy
 	4,  // 21: limiquantix.storage.v1.StoragePoolStatus.phase:type_name -> limiquantix.storage.v1.StoragePoolStatus.Phase
-	29, // 22: limiquantix.storage.v1.StoragePoolStatus.capacity:type_name -> limiquantix.storage.v1.StorageCapacity
-	30, // 23: limiquantix.storage.v1.StoragePoolStatus.metrics:type_name -> limiquantix.storage.v1.StorageMetrics
-	31, // 24: limiquantix.storage.v1.StoragePoolStatus.health:type_name -> limiquantix.storage.v1.StorageHealth
+	30, // 22: limiquantix.storage.v1.StoragePoolStatus.capacity:type_name -> limiquantix.storage.v1.StorageCapacity
+	31, // 23: limiquantix.storage.v1.StoragePoolStatus.metrics:type_name -> limiquantix.storage.v1.StorageMetrics
+	32, // 24: limiquantix.storage.v1.StoragePoolStatus.health:type_name -> limiquantix.storage.v1.StorageHealth
 	5,  // 25: limiquantix.storage.v1.StorageHealth.status:type_name -> limiquantix.storage.v1.StorageHealth.Status
-	32, // 26: limiquantix.storage.v1.StorageHealth.checks:type_name -> limiquantix.storage.v1.HealthCheck
-	55, // 27: limiquantix.storage.v1.Volume.labels:type_name -> limiquantix.storage.v1.Volume.LabelsEntry
-	34, // 28: limiquantix.storage.v1.Volume.spec:type_name -> limiquantix.storage.v1.VolumeSpec
-	42, // 29: limiquantix.storage.v1.Volume.status:type_name -> limiquantix.storage.v1.VolumeStatus
-	58, // 30: limiquantix.storage.v1.Volume.created_at:type_name -> google.protobuf.Timestamp
-	58, // 31: limiquantix.storage.v1.Volume.updated_at:type_name -> google.protobuf.Timestamp
+	33, // 26: limiquantix.storage.v1.StorageHealth.checks:type_name -> limiquantix.storage.v1.HealthCheck
+	56, // 27: limiquantix.storage.v1.Volume.labels:type_name -> limiquantix.storage.v1.Volume.LabelsEntry
+	35, // 28: limiquantix.storage.v1.Volume.spec:type_name -> limiquantix.storage.v1.VolumeSpec
+	43, // 29: limiquantix.storage.v1.Volume.status:type_name -> limiquantix.storage.v1.VolumeStatus
+	59, // 30: limiquantix.storage.v1.Volume.created_at:type_name -> google.protobuf.Timestamp
+	59, // 31: limiquantix.storage.v1.Volume.updated_at:type_name -> google.protobuf.Timestamp
 	6,  // 32: limiquantix.storage.v1.VolumeSpec.provisioning:type_name -> limiquantix.storage.v1.VolumeSpec.ProvisioningType
-	35, // 33: limiquantix.storage.v1.VolumeSpec.source:type_name -> limiquantix.storage.v1.VolumeSource
-	41, // 34: limiquantix.storage.v1.VolumeSpec.qos:type_name -> limiquantix.storage.v1.VolumeQos
-	24, // 35: limiquantix.storage.v1.VolumeSpec.encryption:type_name -> limiquantix.storage.v1.EncryptionConfig
+	36, // 33: limiquantix.storage.v1.VolumeSpec.source:type_name -> limiquantix.storage.v1.VolumeSource
+	42, // 34: limiquantix.storage.v1.VolumeSpec.qos:type_name -> limiquantix.storage.v1.VolumeQos
+	25, // 35: limiquantix.storage.v1.VolumeSpec.encryption:type_name -> limiquantix.storage.v1.EncryptionConfig
 	7,  // 36: limiquantix.storage.v1.VolumeSpec.access_mode:type_name -> limiquantix.storage.v1.VolumeSpec.AccessMode
-	36, // 37: limiquantix.storage.v1.VolumeSource.empty:type_name -> limiquantix.storage.v1.EmptySource
-	37, // 38: limiquantix.storage.v1.VolumeSource.clone:type_name -> limiquantix.storage.v1.CloneSource
-	38, // 39: limiquantix.storage.v1.VolumeSource.snapshot:type_name -> limiquantix.storage.v1.SnapshotSource
-	39, // 40: limiquantix.storage.v1.VolumeSource.image:type_name -> limiquantix.storage.v1.ImageSource
-	40, // 41: limiquantix.storage.v1.VolumeSource.url:type_name -> limiquantix.storage.v1.UrlSource
+	37, // 37: limiquantix.storage.v1.VolumeSource.empty:type_name -> limiquantix.storage.v1.EmptySource
+	38, // 38: limiquantix.storage.v1.VolumeSource.clone:type_name -> limiquantix.storage.v1.CloneSource
+	39, // 39: limiquantix.storage.v1.VolumeSource.snapshot:type_name -> limiquantix.storage.v1.SnapshotSource
+	40, // 40: limiquantix.storage.v1.VolumeSource.image:type_name -> limiquantix.storage.v1.ImageSource
+	41, // 41: limiquantix.storage.v1.VolumeSource.url:type_name -> limiquantix.storage.v1.UrlSource
 	8,  // 42: limiquantix.storage.v1.VolumeStatus.phase:type_name -> limiquantix.storage.v1.VolumeStatus.Phase
-	43, // 43: limiquantix.storage.v1.VolumeStatus.usage:type_name -> limiquantix.storage.v1.VolumeUsage
-	56, // 44: limiquantix.storage.v1.VolumeSnapshot.labels:type_name -> limiquantix.storage.v1.VolumeSnapshot.LabelsEntry
-	45, // 45: limiquantix.storage.v1.VolumeSnapshot.spec:type_name -> limiquantix.storage.v1.VolumeSnapshotSpec
-	47, // 46: limiquantix.storage.v1.VolumeSnapshot.status:type_name -> limiquantix.storage.v1.VolumeSnapshotStatus
-	58, // 47: limiquantix.storage.v1.VolumeSnapshot.created_at:type_name -> google.protobuf.Timestamp
-	46, // 48: limiquantix.storage.v1.VolumeSnapshotSpec.retention:type_name -> limiquantix.storage.v1.RetentionPolicy
-	58, // 49: limiquantix.storage.v1.RetentionPolicy.expires_at:type_name -> google.protobuf.Timestamp
+	44, // 43: limiquantix.storage.v1.VolumeStatus.usage:type_name -> limiquantix.storage.v1.VolumeUsage
+	57, // 44: limiquantix.storage.v1.VolumeSnapshot.labels:type_name -> limiquantix.storage.v1.VolumeSnapshot.LabelsEntry
+	46, // 45: limiquantix.storage.v1.VolumeSnapshot.spec:type_name -> limiquantix.storage.v1.VolumeSnapshotSpec
+	48, // 46: limiquantix.storage.v1.VolumeSnapshot.status:type_name -> limiquantix.storage.v1.VolumeSnapshotStatus
+	59, // 47: limiquantix.storage.v1.VolumeSnapshot.created_at:type_name -> google.protobuf.Timestamp
+	47, // 48: limiquantix.storage.v1.VolumeSnapshotSpec.retention:type_name -> limiquantix.storage.v1.RetentionPolicy
+	59, // 49: limiquantix.storage.v1.RetentionPolicy.expires_at:type_name -> google.protobuf.Timestamp
 	9,  // 50: limiquantix.storage.v1.VolumeSnapshotStatus.phase:type_name -> limiquantix.storage.v1.VolumeSnapshotStatus.Phase
-	57, // 51: limiquantix.storage.v1.Image.labels:type_name -> limiquantix.storage.v1.Image.LabelsEntry
-	49, // 52: limiquantix.storage.v1.Image.spec:type_name -> limiquantix.storage.v1.ImageSpec
-	53, // 53: limiquantix.storage.v1.Image.status:type_name -> limiquantix.storage.v1.ImageStatus
-	58, // 54: limiquantix.storage.v1.Image.created_at:type_name -> google.protobuf.Timestamp
-	58, // 55: limiquantix.storage.v1.Image.updated_at:type_name -> google.protobuf.Timestamp
-	39, // 56: limiquantix.storage.v1.ImageSpec.source:type_name -> limiquantix.storage.v1.ImageSource
-	51, // 57: limiquantix.storage.v1.ImageSpec.os:type_name -> limiquantix.storage.v1.OsInfo
-	52, // 58: limiquantix.storage.v1.ImageSpec.requirements:type_name -> limiquantix.storage.v1.ImageRequirements
+	58, // 51: limiquantix.storage.v1.Image.labels:type_name -> limiquantix.storage.v1.Image.LabelsEntry
+	50, // 52: limiquantix.storage.v1.Image.spec:type_name -> limiquantix.storage.v1.ImageSpec
+	54, // 53: limiquantix.storage.v1.Image.status:type_name -> limiquantix.storage.v1.ImageStatus
+	59, // 54: limiquantix.storage.v1.Image.created_at:type_name -> google.protobuf.Timestamp
+	59, // 55: limiquantix.storage.v1.Image.updated_at:type_name -> google.protobuf.Timestamp
+	40, // 56: limiquantix.storage.v1.ImageSpec.source:type_name -> limiquantix.storage.v1.ImageSource
+	52, // 57: limiquantix.storage.v1.ImageSpec.os:type_name -> limiquantix.storage.v1.OsInfo
+	53, // 58: limiquantix.storage.v1.ImageSpec.requirements:type_name -> limiquantix.storage.v1.ImageRequirements
 	10, // 59: limiquantix.storage.v1.ImageSpec.format:type_name -> limiquantix.storage.v1.ImageSpec.Format
 	11, // 60: limiquantix.storage.v1.ImageSpec.visibility:type_name -> limiquantix.storage.v1.ImageSpec.Visibility
 	12, // 61: limiquantix.storage.v1.OsInfo.family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
-	13, // 62: limiquantix.storage.v1.ImageStatus.phase:type_name -> limiquantix.storage.v1.ImageStatus.Phase
-	63, // [63:63] is the sub-list for method output_type
-	63, // [63:63] is the sub-list for method input_type
-	63, // [63:63] is the sub-list for extension type_name
-	63, // [63:63] is the sub-list for extension extendee
-	0,  // [0:63] is the sub-list for field type_name
+	13, // 62: limiquantix.storage.v1.OsInfo.provisioning_method:type_name -> limiquantix.storage.v1.OsInfo.ProvisioningMethod
+	14, // 63: limiquantix.storage.v1.ImageStatus.phase:type_name -> limiquantix.storage.v1.ImageStatus.Phase
+	64, // [64:64] is the sub-list for method output_type
+	64, // [64:64] is the sub-list for method input_type
+	64, // [64:64] is the sub-list for extension type_name
+	64, // [64:64] is the sub-list for extension extendee
+	0,  // [0:64] is the sub-list for field type_name
 }
 
 func init() { file_limiquantix_storage_v1_storage_proto_init() }
@@ -4576,7 +4668,7 @@ func file_limiquantix_storage_v1_storage_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_storage_v1_storage_proto_rawDesc), len(file_limiquantix_storage_v1_storage_proto_rawDesc)),
-			NumEnums:      14,
+			NumEnums:      15,
 			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   0,

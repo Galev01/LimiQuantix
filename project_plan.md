@@ -65,7 +65,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 | Cloud Image Support | ✅ Done | QCOW2 backing file overlays |
 | VM Creation (real) | ✅ Done | Full stack: UI → Backend → Node Daemon → Libvirt |
 | SSH Key Injection | ✅ Done | Via cloud-init user-data |
-| Console Access | ⏳ 50% | VNC info available, need WebSocket proxy |
+| Console Access | ✅ 100% | Web Console (noVNC) + QVMRC Native Client |
 | Snapshots | ⏳ API ready | Test with libvirt |
 
 ### ❌ Phase 3-5: Remaining Work
@@ -405,20 +405,20 @@ curl http://127.0.0.1:8080/health
 - ✅ SSH key injection via cloud-init
 - ✅ Frontend cloud-init UI (image selector, SSH keys, custom config)
 
-**Next Goal:** VNC Console Access in Browser
+**Next Goal:** Complete QVMRC Native Client ✅ VNC Console Done!
+
+**Completed (January 3, 2026):**
+1. ✅ Web Console (noVNC) - Browser-based VNC access
+2. ✅ WebSocket VNC Proxy - Control Plane proxies browser → VNC
+3. ✅ Console button in VM Detail page with fullscreen modal
+4. ✅ QVMRC Tauri app scaffolded with VNC protocol implementation
 
 **Immediate Next Steps:**
-1. Implement VNC WebSocket proxy (Go or Rust)
-2. Integrate noVNC or similar for browser-based console
-3. Add console button to VM detail page
-4. Test VM lifecycle (start/stop/reboot) end-to-end
+1. Complete QVMRC native client for all platforms (Windows/macOS/Linux)
+2. Cloud image library API (list available images)
+3. Guest Agent (basic telemetry from inside VMs)
 
-**After That:**
-1. Cloud image library API (list available images)
-2. Guest Agent (basic telemetry from inside VMs)
-3. Storage backend integration (LVM first)
-
-**Estimated Time:** 2-3 days for VNC proxy
+**Estimated Time:** QVMRC completion ~3-5 days
 
 ---
 

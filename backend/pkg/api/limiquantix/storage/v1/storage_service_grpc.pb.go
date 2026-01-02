@@ -1069,6 +1069,8 @@ const (
 	ImageService_DeleteImage_FullMethodName     = "/limiquantix.storage.v1.ImageService/DeleteImage"
 	ImageService_ImportImage_FullMethodName     = "/limiquantix.storage.v1.ImageService/ImportImage"
 	ImageService_GetImportStatus_FullMethodName = "/limiquantix.storage.v1.ImageService/GetImportStatus"
+	ImageService_ScanLocalImages_FullMethodName = "/limiquantix.storage.v1.ImageService/ScanLocalImages"
+	ImageService_DownloadImage_FullMethodName   = "/limiquantix.storage.v1.ImageService/DownloadImage"
 )
 
 // ImageServiceClient is the client API for ImageService service.
@@ -1091,6 +1093,11 @@ type ImageServiceClient interface {
 	ImportImage(ctx context.Context, in *ImportImageRequest, opts ...grpc.CallOption) (*ImportImageResponse, error)
 	// GetImportStatus checks import progress.
 	GetImportStatus(ctx context.Context, in *GetImportStatusRequest, opts ...grpc.CallOption) (*ImportStatus, error)
+	// ScanLocalImages scans a node's local storage for available images.
+	// This is called by the Node Daemon during registration.
+	ScanLocalImages(ctx context.Context, in *ScanLocalImagesRequest, opts ...grpc.CallOption) (*ScanLocalImagesResponse, error)
+	// DownloadImage downloads a cloud image from an official source.
+	DownloadImage(ctx context.Context, in *DownloadImageRequest, opts ...grpc.CallOption) (*DownloadImageResponse, error)
 }
 
 type imageServiceClient struct {
@@ -1171,6 +1178,26 @@ func (c *imageServiceClient) GetImportStatus(ctx context.Context, in *GetImportS
 	return out, nil
 }
 
+func (c *imageServiceClient) ScanLocalImages(ctx context.Context, in *ScanLocalImagesRequest, opts ...grpc.CallOption) (*ScanLocalImagesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ScanLocalImagesResponse)
+	err := c.cc.Invoke(ctx, ImageService_ScanLocalImages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *imageServiceClient) DownloadImage(ctx context.Context, in *DownloadImageRequest, opts ...grpc.CallOption) (*DownloadImageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DownloadImageResponse)
+	err := c.cc.Invoke(ctx, ImageService_DownloadImage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ImageServiceServer is the server API for ImageService service.
 // All implementations should embed UnimplementedImageServiceServer
 // for forward compatibility.
@@ -1191,6 +1218,11 @@ type ImageServiceServer interface {
 	ImportImage(context.Context, *ImportImageRequest) (*ImportImageResponse, error)
 	// GetImportStatus checks import progress.
 	GetImportStatus(context.Context, *GetImportStatusRequest) (*ImportStatus, error)
+	// ScanLocalImages scans a node's local storage for available images.
+	// This is called by the Node Daemon during registration.
+	ScanLocalImages(context.Context, *ScanLocalImagesRequest) (*ScanLocalImagesResponse, error)
+	// DownloadImage downloads a cloud image from an official source.
+	DownloadImage(context.Context, *DownloadImageRequest) (*DownloadImageResponse, error)
 }
 
 // UnimplementedImageServiceServer should be embedded to have
@@ -1220,6 +1252,12 @@ func (UnimplementedImageServiceServer) ImportImage(context.Context, *ImportImage
 }
 func (UnimplementedImageServiceServer) GetImportStatus(context.Context, *GetImportStatusRequest) (*ImportStatus, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetImportStatus not implemented")
+}
+func (UnimplementedImageServiceServer) ScanLocalImages(context.Context, *ScanLocalImagesRequest) (*ScanLocalImagesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ScanLocalImages not implemented")
+}
+func (UnimplementedImageServiceServer) DownloadImage(context.Context, *DownloadImageRequest) (*DownloadImageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DownloadImage not implemented")
 }
 func (UnimplementedImageServiceServer) testEmbeddedByValue() {}
 
@@ -1367,6 +1405,42 @@ func _ImageService_GetImportStatus_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ImageService_ScanLocalImages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ScanLocalImagesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImageServiceServer).ScanLocalImages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ImageService_ScanLocalImages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImageServiceServer).ScanLocalImages(ctx, req.(*ScanLocalImagesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ImageService_DownloadImage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DownloadImageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImageServiceServer).DownloadImage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ImageService_DownloadImage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImageServiceServer).DownloadImage(ctx, req.(*DownloadImageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ImageService_ServiceDesc is the grpc.ServiceDesc for ImageService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1401,6 +1475,14 @@ var ImageService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetImportStatus",
 			Handler:    _ImageService_GetImportStatus_Handler,
+		},
+		{
+			MethodName: "ScanLocalImages",
+			Handler:    _ImageService_ScanLocalImages_Handler,
+		},
+		{
+			MethodName: "DownloadImage",
+			Handler:    _ImageService_DownloadImage_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

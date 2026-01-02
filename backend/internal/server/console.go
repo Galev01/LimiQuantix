@@ -145,7 +145,19 @@ func (h *ConsoleHandler) getConsoleInfoFromNode(ctx context.Context, nodeID, vmI
 			return nil, fmt.Errorf("node has no management IP")
 		}
 
-		daemonAddr := fmt.Sprintf("http://%s:9090", node.ManagementIP)
+		// ManagementIP may already include port (e.g., "192.168.0.53:9090")
+		// Check if it has a port, if not add default port 9090
+		// Note: gRPC expects just host:port, not http:// prefix
+		daemonAddr := node.ManagementIP
+		if !strings.Contains(daemonAddr, ":") {
+			daemonAddr = daemonAddr + ":9090"
+		}
+
+		h.logger.Debug("Connecting to node daemon",
+			zap.String("node_id", nodeID),
+			zap.String("daemon_addr", daemonAddr),
+		)
+
 		var connectErr error
 		client, connectErr = h.server.daemonPool.Connect(nodeID, daemonAddr)
 		if connectErr != nil {

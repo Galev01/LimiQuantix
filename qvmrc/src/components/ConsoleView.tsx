@@ -208,13 +208,56 @@ export function ConsoleView({
     [connectionId, mouseDown]
   );
 
+  // Convert JavaScript key event to X11 keysym
+  const keyEventToKeysym = useCallback((e: React.KeyboardEvent): number => {
+    // Handle special keys by code
+    const codeMap: Record<string, number> = {
+      // Function keys
+      'F1': 0xffbe, 'F2': 0xffbf, 'F3': 0xffc0, 'F4': 0xffc1,
+      'F5': 0xffc2, 'F6': 0xffc3, 'F7': 0xffc4, 'F8': 0xffc5,
+      'F9': 0xffc6, 'F10': 0xffc7, 'F11': 0xffc8, 'F12': 0xffc9,
+      // Navigation
+      'ArrowUp': 0xff52, 'ArrowDown': 0xff54, 'ArrowLeft': 0xff51, 'ArrowRight': 0xff53,
+      'Home': 0xff50, 'End': 0xff57, 'PageUp': 0xff55, 'PageDown': 0xff56,
+      // Editing
+      'Backspace': 0xff08, 'Tab': 0xff09, 'Enter': 0xff0d, 'Escape': 0xff1b,
+      'Insert': 0xff63, 'Delete': 0xffff,
+      // Modifiers
+      'ShiftLeft': 0xffe1, 'ShiftRight': 0xffe2,
+      'ControlLeft': 0xffe3, 'ControlRight': 0xffe4,
+      'AltLeft': 0xffe9, 'AltRight': 0xffea,
+      'MetaLeft': 0xffeb, 'MetaRight': 0xffec,
+      'CapsLock': 0xffe5, 'NumLock': 0xff7f, 'ScrollLock': 0xff14,
+      // Numpad
+      'Numpad0': 0xffb0, 'Numpad1': 0xffb1, 'Numpad2': 0xffb2,
+      'Numpad3': 0xffb3, 'Numpad4': 0xffb4, 'Numpad5': 0xffb5,
+      'Numpad6': 0xffb6, 'Numpad7': 0xffb7, 'Numpad8': 0xffb8, 'Numpad9': 0xffb9,
+      'NumpadMultiply': 0xffaa, 'NumpadAdd': 0xffab, 'NumpadSubtract': 0xffad,
+      'NumpadDecimal': 0xffae, 'NumpadDivide': 0xffaf, 'NumpadEnter': 0xff8d,
+      // Misc
+      'Space': 0x0020, 'PrintScreen': 0xff61, 'Pause': 0xff13, 'ContextMenu': 0xff67,
+    };
+
+    if (codeMap[e.code]) {
+      return codeMap[e.code];
+    }
+
+    // For printable characters, use the character code
+    if (e.key.length === 1) {
+      return e.key.charCodeAt(0);
+    }
+
+    // Fallback to keyCode for legacy support
+    return e.keyCode;
+  }, []);
+
   // Keyboard events
   const handleKeyDown = useCallback(
     async (e: React.KeyboardEvent<HTMLCanvasElement>) => {
       e.preventDefault();
+      e.stopPropagation();
 
-      // Convert to X11 keysym (simplified)
-      const keysym = e.keyCode; // This is simplified - real impl needs proper keysym mapping
+      const keysym = keyEventToKeysym(e);
 
       try {
         await invoke('send_key_event', {
@@ -226,14 +269,15 @@ export function ConsoleView({
         console.error('Key event error:', err);
       }
     },
-    [connectionId]
+    [connectionId, keyEventToKeysym]
   );
 
   const handleKeyUp = useCallback(
     async (e: React.KeyboardEvent<HTMLCanvasElement>) => {
       e.preventDefault();
+      e.stopPropagation();
 
-      const keysym = e.keyCode;
+      const keysym = keyEventToKeysym(e);
 
       try {
         await invoke('send_key_event', {
@@ -245,7 +289,7 @@ export function ConsoleView({
         console.error('Key event error:', err);
       }
     },
-    [connectionId]
+    [connectionId, keyEventToKeysym]
   );
 
   // Listen for fullscreen changes

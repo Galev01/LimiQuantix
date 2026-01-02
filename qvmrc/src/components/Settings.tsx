@@ -216,7 +216,7 @@ export function Settings({ onClose }: SettingsProps) {
             <p className="text-[var(--text-primary)] font-medium">QVMRC</p>
             <p className="text-sm text-[var(--text-muted)]">Quantix Virtual Machine Remote Console</p>
             <p className="text-xs text-[var(--text-muted)] mt-2">Version 0.1.0</p>
-            <p className="text-xs text-[var(--text-muted)]">© 2024 LimiQuantix</p>
+            <p className="text-xs text-[var(--text-muted)]">© 2026 LimiQuantix</p>
           </div>
         </section>
       </main>

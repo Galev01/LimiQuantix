@@ -7,8 +7,9 @@
 //! - Framebuffer handling
 //! - Input events (keyboard, mouse)
 
-mod rfb;
 mod encodings;
+pub mod keysym;
+mod rfb;
 
 use crate::api;
 use crate::AppState;

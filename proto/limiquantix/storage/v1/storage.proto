@@ -660,8 +660,23 @@ message OsInfo {
   // Architecture
   string architecture = 4;  // "x86_64", "aarch64"
   
-  // Default username for cloud-init
+  // Default username for cloud-init (e.g., "ubuntu", "debian", "rocky")
   string default_user = 5;
+  
+  // Cloud-init support
+  bool cloud_init_enabled = 6;
+  
+  // Provisioning method supported
+  enum ProvisioningMethod {
+    PROVISIONING_UNKNOWN = 0;
+    CLOUD_INIT = 1;      // cloud-init (Linux)
+    IGNITION = 2;        // Ignition (Fedora CoreOS)
+    SYSPREP = 3;         // Windows Sysprep
+    KICKSTART = 4;       // Anaconda Kickstart
+    PRESEED = 5;         // Debian Preseed
+    NONE = 6;            // No auto-provisioning
+  }
+  ProvisioningMethod provisioning_method = 7;
 }
 
 message ImageRequirements {

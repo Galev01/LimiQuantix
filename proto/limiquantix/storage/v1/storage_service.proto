@@ -120,6 +120,13 @@ service ImageService {
   
   // GetImportStatus checks import progress.
   rpc GetImportStatus(GetImportStatusRequest) returns (ImportStatus);
+  
+  // ScanLocalImages scans a node's local storage for available images.
+  // This is called by the Node Daemon during registration.
+  rpc ScanLocalImages(ScanLocalImagesRequest) returns (ScanLocalImagesResponse);
+  
+  // DownloadImage downloads a cloud image from an official source.
+  rpc DownloadImage(DownloadImageRequest) returns (DownloadImageResponse);
 }
 
 // =============================================================================
@@ -418,3 +425,114 @@ message ImportStatus {
   string error_message = 7;
 }
 
+// =============================================================================
+// SCAN LOCAL IMAGES (Node Daemon → Control Plane)
+// =============================================================================
+
+message ScanLocalImagesRequest {
+  // Node ID reporting the images
+  string node_id = 1;
+  
+  // Discovered images on the node
+  repeated LocalImageInfo images = 2;
+}
+
+message LocalImageInfo {
+  // File path on the node
+  string path = 1;
+  
+  // File name
+  string filename = 2;
+  
+  // File size in bytes
+  uint64 size_bytes = 3;
+  
+  // Virtual size (for QCOW2)
+  uint64 virtual_size_bytes = 4;
+  
+  // Format detected (qcow2, raw, vmdk, iso)
+  string format = 5;
+  
+  // Checksum (SHA256)
+  string checksum = 6;
+  
+  // Detected OS info (if recognizable from filename)
+  OsInfo detected_os = 7;
+  
+  // Last modified timestamp
+  string modified_at = 8;
+}
+
+message ScanLocalImagesResponse {
+  // Number of images registered
+  uint32 registered_count = 1;
+  
+  // Number of images already known
+  uint32 existing_count = 2;
+  
+  // Errors for specific images
+  repeated string errors = 3;
+}
+
+// =============================================================================
+// DOWNLOAD IMAGE (from official sources)
+// =============================================================================
+
+message DownloadImageRequest {
+  // Predefined image to download (from catalog)
+  string catalog_id = 1;
+  
+  // Target node (optional, empty = all nodes with shared storage)
+  string node_id = 2;
+  
+  // Target storage pool
+  string storage_pool_id = 3;
+  
+  // Custom name (optional)
+  string name = 4;
+}
+
+message DownloadImageResponse {
+  // Download job ID
+  string job_id = 1;
+  
+  // Image being created
+  Image image = 2;
+}
+
+// =============================================================================
+// IMAGE CATALOG (known cloud images)
+// =============================================================================
+
+message ImageCatalogEntry {
+  // Unique catalog ID
+  string id = 1;
+  
+  // Display name
+  string name = 2;
+  
+  // Description
+  string description = 3;
+  
+  // Download URL
+  string url = 4;
+  
+  // Expected checksum
+  string checksum = 5;
+  string checksum_type = 6;
+  
+  // OS information
+  OsInfo os = 7;
+  
+  // Approximate size
+  uint64 size_bytes = 8;
+  
+  // Minimum requirements
+  ImageRequirements requirements = 9;
+  
+  // Is this image verified/official?
+  bool verified = 10;
+  
+  // Last updated
+  string updated_at = 11;
+}

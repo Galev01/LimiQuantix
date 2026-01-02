@@ -35,6 +35,7 @@ import { mockStoragePools } from '@/data/mock-data';
 import { useCreateVM } from '@/hooks/useVMs';
 import { useNodes, type ApiNode } from '@/hooks/useNodes';
 import { useNetworks, type ApiVirtualNetwork } from '@/hooks/useNetworks';
+import { useAvailableImages, formatImageSize, getDefaultUser, type CloudImage } from '@/hooks/useImages';
 
 interface VMCreationWizardProps {
   onClose: () => void;
@@ -139,49 +140,8 @@ const staticISOs = [
   { id: 'iso-debian12', name: 'Debian 12 Bookworm', size: '650 MB' },
 ];
 
-// Cloud images for automated provisioning (cloud-init)
-const staticCloudImages = [
-  { 
-    id: 'cloud-ubuntu22', 
-    name: 'Ubuntu 22.04 LTS Cloud', 
-    size: '670 MB',
-    path: '/var/lib/limiquantix/cloud-images/ubuntu-22.04.qcow2',
-    os: 'ubuntu',
-    description: 'Official Ubuntu cloud image with cloud-init pre-installed'
-  },
-  { 
-    id: 'cloud-ubuntu24', 
-    name: 'Ubuntu 24.04 LTS Cloud', 
-    size: '720 MB',
-    path: '/var/lib/limiquantix/cloud-images/ubuntu-24.04.qcow2',
-    os: 'ubuntu',
-    description: 'Latest Ubuntu LTS with cloud-init'
-  },
-  { 
-    id: 'cloud-debian12', 
-    name: 'Debian 12 Cloud', 
-    size: '350 MB',
-    path: '/var/lib/limiquantix/cloud-images/debian-12.qcow2',
-    os: 'debian',
-    description: 'Official Debian cloud image'
-  },
-  { 
-    id: 'cloud-rocky9', 
-    name: 'Rocky Linux 9 Cloud', 
-    size: '1.1 GB',
-    path: '/var/lib/limiquantix/cloud-images/rocky-9.qcow2',
-    os: 'rocky',
-    description: 'Enterprise Linux compatible cloud image'
-  },
-  { 
-    id: 'cloud-almalinux9', 
-    name: 'AlmaLinux 9 Cloud', 
-    size: '1.0 GB',
-    path: '/var/lib/limiquantix/cloud-images/almalinux-9.qcow2',
-    os: 'almalinux',
-    description: 'RHEL-compatible cloud image'
-  },
-];
+// Cloud images are now fetched via useAvailableImages hook
+// The staticCloudImages have been moved to hooks/useImages.ts as CLOUD_IMAGE_CATALOG
 
 const staticCustomSpecs = [
   { id: 'spec-linux-default', name: 'Linux Default', os: 'Linux' },
@@ -245,6 +205,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
   // Fetch real data from APIs
   const { data: nodesData, isLoading: nodesLoading, error: nodesError, refetch: refetchNodes } = useNodes();
   const { data: networksData, isLoading: networksLoading } = useNetworks();
+  const { images: cloudImages, isLoading: imagesLoading, isUsingCatalog } = useAvailableImages();
 
   // Process nodes into a format usable by the wizard
   const nodes = useMemo(() => {
@@ -334,9 +295,9 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
       // Find selected host for the request
       const selectedHost = nodes.find(n => n.id === formData.hostId);
       
-      // Get cloud image path if using cloud image boot
+      // Get cloud image if using cloud image boot
       const selectedCloudImage = formData.bootMediaType === 'cloud-image' 
-        ? staticCloudImages.find(img => img.id === formData.cloudImageId)
+        ? cloudImages.find(img => img.id === formData.cloudImageId)
         : undefined;
       
       // Build cloud-init user-data
@@ -384,7 +345,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
           ...(formData.department && { department: formData.department }),
           ...(formData.costCenter && { 'cost-center': formData.costCenter }),
           ...(selectedHost && !formData.autoPlacement && { 'assigned-host': selectedHost.hostname }),
-          ...(selectedCloudImage && { 'os-image': selectedCloudImage.os }),
+          ...(selectedCloudImage && { 'os-image': selectedCloudImage.os.distribution }),
         },
         spec: {
           cpu: {
@@ -612,6 +573,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                   formData={formData}
                   clusters={clusters}
                   nodes={nodes}
+                  cloudImages={cloudImages}
                 />
               )}
             </motion.div>
@@ -1498,33 +1460,55 @@ function StepISO({
       {formData.bootMediaType === 'cloud-image' && (
         <>
           <FormField label="Cloud Image" description="Pre-installed OS with cloud-init for fast provisioning">
-            <div className="grid gap-2 max-h-48 overflow-y-auto">
-              {staticCloudImages.map((image) => (
-                <label
-                  key={image.id}
-                  className={cn(
-                    'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                    formData.cloudImageId === image.id
-                      ? 'bg-accent/10 border-accent'
-                      : 'bg-bg-base border-border hover:border-accent/50',
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="cloudImageId"
-                    checked={formData.cloudImageId === image.id}
-                    onChange={() => updateFormData({ cloudImageId: image.id })}
-                    className="form-radio"
-                  />
-                  <Cloud className="w-5 h-5 text-accent" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-text-primary">{image.name}</p>
-                    <p className="text-xs text-text-muted">{image.description}</p>
-                  </div>
-                  <span className="text-xs text-text-muted">{image.size}</span>
-                </label>
-              ))}
-            </div>
+            {imagesLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-accent" />
+                <span className="ml-2 text-text-muted">Loading images...</span>
+              </div>
+            ) : (
+              <div className="grid gap-2 max-h-48 overflow-y-auto">
+                {cloudImages.map((image) => (
+                  <label
+                    key={image.id}
+                    className={cn(
+                      'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
+                      formData.cloudImageId === image.id
+                        ? 'bg-accent/10 border-accent'
+                        : 'bg-bg-base border-border hover:border-accent/50',
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="cloudImageId"
+                      checked={formData.cloudImageId === image.id}
+                      onChange={() => {
+                        // Update cloud image and set default user based on OS
+                        updateFormData({ 
+                          cloudImageId: image.id,
+                          cloudInit: {
+                            ...formData.cloudInit,
+                            defaultUser: image.os.defaultUser || getDefaultUser(image.os.distribution),
+                          }
+                        });
+                      }}
+                      className="form-radio"
+                    />
+                    <Cloud className="w-5 h-5 text-accent" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-text-primary">{image.name}</p>
+                      <p className="text-xs text-text-muted">{image.description}</p>
+                      <p className="text-xs text-accent mt-0.5">Default user: {image.os.defaultUser}</p>
+                    </div>
+                    <span className="text-xs text-text-muted">{formatImageSize(image.sizeBytes)}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {isUsingCatalog && (
+              <p className="text-xs text-warning mt-2">
+                ⚠️ Using built-in catalog. Download images to nodes for best performance.
+              </p>
+            )}
           </FormField>
 
           {/* Cloud-Init Configuration */}
@@ -1917,17 +1901,19 @@ function StepReview({
   formData,
   clusters,
   nodes,
+  cloudImages,
 }: {
   formData: VMCreationData;
   clusters: ProcessedCluster[];
   nodes: ProcessedNode[];
+  cloudImages: CloudImage[];
 }) {
   const selectedCluster = clusters.find((c) => c.id === formData.clusterId);
   const selectedHost = nodes.find((n) => n.id === formData.hostId);
   const selectedFolder = staticFolders.find((f) => f.id === formData.folderId);
   const selectedPool = mockStoragePools.find((p) => p.id === formData.storagePoolId);
   const selectedISO = staticISOs.find((i) => i.id === formData.isoId);
-  const selectedCloudImage = staticCloudImages.find((i) => i.id === formData.cloudImageId);
+  const selectedCloudImage = cloudImages.find((i) => i.id === formData.cloudImageId);
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">

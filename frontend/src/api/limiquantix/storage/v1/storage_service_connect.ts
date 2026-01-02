@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { AttachVolumeRequest, CloneVolumeRequest, CreateImageRequest, CreatePoolRequest, CreateSnapshotRequest, CreateVolumeRequest, DeleteImageRequest, DeletePoolRequest, DeleteSnapshotRequest, DeleteVolumeRequest, DetachVolumeRequest, GetImageRequest, GetImportStatusRequest, GetPoolMetricsRequest, GetPoolRequest, GetSnapshotRequest, GetVolumeMetricsRequest, GetVolumeRequest, ImportImageRequest, ImportImageResponse, ImportStatus, ListImagesRequest, ListImagesResponse, ListPoolsRequest, ListPoolsResponse, ListSnapshotsRequest, ListSnapshotsResponse, ListVolumesRequest, ListVolumesResponse, PoolMetrics, ResizeVolumeRequest, RestoreSnapshotRequest, UpdateImageRequest, UpdatePoolRequest, UpdateVolumeRequest, VolumeMetrics } from "./storage_service_pb";
+import { AttachVolumeRequest, CloneVolumeRequest, CreateImageRequest, CreatePoolRequest, CreateSnapshotRequest, CreateVolumeRequest, DeleteImageRequest, DeletePoolRequest, DeleteSnapshotRequest, DeleteVolumeRequest, DetachVolumeRequest, DownloadImageRequest, DownloadImageResponse, GetImageRequest, GetImportStatusRequest, GetPoolMetricsRequest, GetPoolRequest, GetSnapshotRequest, GetVolumeMetricsRequest, GetVolumeRequest, ImportImageRequest, ImportImageResponse, ImportStatus, ListImagesRequest, ListImagesResponse, ListPoolsRequest, ListPoolsResponse, ListSnapshotsRequest, ListSnapshotsResponse, ListVolumesRequest, ListVolumesResponse, PoolMetrics, ResizeVolumeRequest, RestoreSnapshotRequest, ScanLocalImagesRequest, ScanLocalImagesResponse, UpdateImageRequest, UpdatePoolRequest, UpdateVolumeRequest, VolumeMetrics } from "./storage_service_pb";
 import { Image, StoragePool, Volume, VolumeSnapshot } from "./storage_pb";
 import { Empty, MethodKind } from "@bufbuild/protobuf";
 
@@ -356,6 +356,29 @@ export const ImageService = {
       name: "GetImportStatus",
       I: GetImportStatusRequest,
       O: ImportStatus,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * ScanLocalImages scans a node's local storage for available images.
+     * This is called by the Node Daemon during registration.
+     *
+     * @generated from rpc limiquantix.storage.v1.ImageService.ScanLocalImages
+     */
+    scanLocalImages: {
+      name: "ScanLocalImages",
+      I: ScanLocalImagesRequest,
+      O: ScanLocalImagesResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * DownloadImage downloads a cloud image from an official source.
+     *
+     * @generated from rpc limiquantix.storage.v1.ImageService.DownloadImage
+     */
+    downloadImage: {
+      name: "DownloadImage",
+      I: DownloadImageRequest,
+      O: DownloadImageResponse,
       kind: MethodKind.Unary,
     },
   }

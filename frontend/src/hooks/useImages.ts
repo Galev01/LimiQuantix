@@ -1,0 +1,438 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { createClient } from '@connectrpc/connect';
+import { createConnectTransport } from '@connectrpc/connect-web';
+import { ImageService } from '@/api/limiquantix/storage/v1/storage_service_connect';
+import type { Image, ListImagesRequest, OsInfo_OsFamily, ImageSpec_Visibility } from '@/api/limiquantix/storage/v1/storage_pb';
+
+// Create transport for Connect-RPC
+const transport = createConnectTransport({
+  baseUrl: 'http://localhost:8080',
+});
+
+// Create the ImageService client
+const imageClient = createClient(ImageService, transport);
+
+// Query keys
+export const imageKeys = {
+  all: ['images'] as const,
+  lists: () => [...imageKeys.all, 'list'] as const,
+  list: (filters: ListImagesFilters) => [...imageKeys.lists(), filters] as const,
+  details: () => [...imageKeys.all, 'detail'] as const,
+  detail: (id: string) => [...imageKeys.details(), id] as const,
+  catalog: () => [...imageKeys.all, 'catalog'] as const,
+};
+
+// Filter types
+export interface ListImagesFilters {
+  projectId?: string;
+  osFamily?: OsInfo_OsFamily;
+  visibility?: ImageSpec_Visibility;
+  nodeId?: string;
+}
+
+// Simplified image type for UI
+export interface CloudImage {
+  id: string;
+  name: string;
+  description: string;
+  path?: string;
+  sizeBytes: number;
+  os: {
+    family: string;
+    distribution: string;
+    version: string;
+    architecture: string;
+    defaultUser: string;
+    cloudInitEnabled: boolean;
+    provisioningMethod: string;
+  };
+  requirements: {
+    minCpu: number;
+    minMemoryMib: number;
+    minDiskGib: number;
+    supportedFirmware: string[];
+  };
+  status: 'pending' | 'downloading' | 'ready' | 'error';
+  nodeId?: string;
+}
+
+// Convert proto Image to CloudImage
+function toCloudImage(img: Image): CloudImage {
+  return {
+    id: img.id,
+    name: img.name,
+    description: img.description,
+    path: img.status?.storagePoolId ? undefined : undefined, // Path is internal
+    sizeBytes: Number(img.status?.sizeBytes || 0),
+    os: {
+      family: img.spec?.os?.family?.toString() || 'LINUX',
+      distribution: img.spec?.os?.distribution || 'unknown',
+      version: img.spec?.os?.version || '',
+      architecture: img.spec?.os?.architecture || 'x86_64',
+      defaultUser: img.spec?.os?.defaultUser || 'root',
+      cloudInitEnabled: img.spec?.os?.cloudInitEnabled || false,
+      provisioningMethod: img.spec?.os?.provisioningMethod?.toString() || 'NONE',
+    },
+    requirements: {
+      minCpu: img.spec?.requirements?.minCpu || 1,
+      minMemoryMib: Number(img.spec?.requirements?.minMemoryMib || 512),
+      minDiskGib: Number(img.spec?.requirements?.minDiskGib || 10),
+      supportedFirmware: img.spec?.requirements?.supportedFirmware || ['bios', 'uefi'],
+    },
+    status: mapPhase(img.status?.phase),
+    nodeId: undefined, // Would need to be added to proto
+  };
+}
+
+function mapPhase(phase?: number): 'pending' | 'downloading' | 'ready' | 'error' {
+  switch (phase) {
+    case 1: return 'pending';
+    case 2: return 'downloading';
+    case 3: return 'downloading'; // converting
+    case 4: return 'ready';
+    case 5: return 'error';
+    default: return 'pending';
+  }
+}
+
+// Hook to list images
+export function useImages(filters: ListImagesFilters = {}) {
+  return useQuery({
+    queryKey: imageKeys.list(filters),
+    queryFn: async () => {
+      const response = await imageClient.listImages({
+        projectId: filters.projectId,
+        osFamily: filters.osFamily,
+        visibility: filters.visibility,
+      });
+      return response.images.map(toCloudImage);
+    },
+    staleTime: 30_000, // 30 seconds
+  });
+}
+
+// Hook to get a single image
+export function useImage(id: string, enabled = true) {
+  return useQuery({
+    queryKey: imageKeys.detail(id),
+    queryFn: async () => {
+      const response = await imageClient.getImage({ id });
+      return toCloudImage(response);
+    },
+    enabled: enabled && !!id,
+  });
+}
+
+// Hook to delete an image
+export function useDeleteImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await imageClient.deleteImage({ id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: imageKeys.lists() });
+    },
+  });
+}
+
+// Hook to import an image from URL
+export function useImportImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      name: string;
+      description?: string;
+      url: string;
+      osInfo?: {
+        family: number;
+        distribution: string;
+        version: string;
+        architecture: string;
+        defaultUser: string;
+      };
+      storagePoolId?: string;
+    }) => {
+      const response = await imageClient.importImage({
+        name: params.name,
+        description: params.description,
+        url: params.url,
+        osInfo: params.osInfo ? {
+          family: params.osInfo.family,
+          distribution: params.osInfo.distribution,
+          version: params.osInfo.version,
+          architecture: params.osInfo.architecture,
+          defaultUser: params.osInfo.defaultUser,
+        } : undefined,
+        storagePoolId: params.storagePoolId,
+      });
+      return {
+        jobId: response.jobId,
+        image: response.image ? toCloudImage(response.image) : null,
+      };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: imageKeys.lists() });
+    },
+  });
+}
+
+// Hook to download an image from catalog
+export function useDownloadImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      catalogId: string;
+      nodeId?: string;
+      storagePoolId?: string;
+      name?: string;
+    }) => {
+      const response = await imageClient.downloadImage({
+        catalogId: params.catalogId,
+        nodeId: params.nodeId,
+        storagePoolId: params.storagePoolId,
+        name: params.name,
+      });
+      return {
+        jobId: response.jobId,
+        image: response.image ? toCloudImage(response.image) : null,
+      };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: imageKeys.lists() });
+    },
+  });
+}
+
+// Built-in catalog of cloud images (matches backend catalog)
+// This is a fallback when the backend doesn't have images yet
+// Path follows convention: /var/lib/limiquantix/cloud-images/<distro>-<version>.qcow2
+export const CLOUD_IMAGE_CATALOG: CloudImage[] = [
+  {
+    id: 'ubuntu-22.04',
+    name: 'Ubuntu 22.04 LTS (Jammy)',
+    description: 'Official Ubuntu cloud image with cloud-init. Default user: ubuntu',
+    path: '/var/lib/limiquantix/cloud-images/ubuntu-22.04.qcow2',
+    sizeBytes: 700 * 1024 * 1024,
+    os: {
+      family: 'LINUX',
+      distribution: 'ubuntu',
+      version: '22.04',
+      architecture: 'x86_64',
+      defaultUser: 'ubuntu',
+      cloudInitEnabled: true,
+      provisioningMethod: 'CLOUD_INIT',
+    },
+    requirements: {
+      minCpu: 1,
+      minMemoryMib: 512,
+      minDiskGib: 10,
+      supportedFirmware: ['bios', 'uefi'],
+    },
+    status: 'ready',
+  },
+  {
+    id: 'ubuntu-24.04',
+    name: 'Ubuntu 24.04 LTS (Noble)',
+    description: 'Latest Ubuntu LTS with cloud-init. Default user: ubuntu',
+    path: '/var/lib/limiquantix/cloud-images/ubuntu-24.04.qcow2',
+    sizeBytes: 750 * 1024 * 1024,
+    os: {
+      family: 'LINUX',
+      distribution: 'ubuntu',
+      version: '24.04',
+      architecture: 'x86_64',
+      defaultUser: 'ubuntu',
+      cloudInitEnabled: true,
+      provisioningMethod: 'CLOUD_INIT',
+    },
+    requirements: {
+      minCpu: 1,
+      minMemoryMib: 512,
+      minDiskGib: 10,
+      supportedFirmware: ['bios', 'uefi'],
+    },
+    status: 'ready',
+  },
+  {
+    id: 'debian-12',
+    name: 'Debian 12 (Bookworm)',
+    description: 'Official Debian cloud image. Default user: debian',
+    path: '/var/lib/limiquantix/cloud-images/debian-12.qcow2',
+    sizeBytes: 350 * 1024 * 1024,
+    os: {
+      family: 'LINUX',
+      distribution: 'debian',
+      version: '12',
+      architecture: 'x86_64',
+      defaultUser: 'debian',
+      cloudInitEnabled: true,
+      provisioningMethod: 'CLOUD_INIT',
+    },
+    requirements: {
+      minCpu: 1,
+      minMemoryMib: 256,
+      minDiskGib: 5,
+      supportedFirmware: ['bios', 'uefi'],
+    },
+    status: 'ready',
+  },
+  {
+    id: 'rocky-9',
+    name: 'Rocky Linux 9',
+    description: 'Enterprise Linux compatible. Default user: rocky',
+    path: '/var/lib/limiquantix/cloud-images/rocky-9.qcow2',
+    sizeBytes: 1100 * 1024 * 1024,
+    os: {
+      family: 'LINUX',
+      distribution: 'rocky',
+      version: '9',
+      architecture: 'x86_64',
+      defaultUser: 'rocky',
+      cloudInitEnabled: true,
+      provisioningMethod: 'CLOUD_INIT',
+    },
+    requirements: {
+      minCpu: 1,
+      minMemoryMib: 1024,
+      minDiskGib: 10,
+      supportedFirmware: ['bios', 'uefi'],
+    },
+    status: 'ready',
+  },
+  {
+    id: 'almalinux-9',
+    name: 'AlmaLinux 9',
+    description: 'RHEL-compatible. Default user: almalinux',
+    path: '/var/lib/limiquantix/cloud-images/almalinux-9.qcow2',
+    sizeBytes: 1000 * 1024 * 1024,
+    os: {
+      family: 'LINUX',
+      distribution: 'almalinux',
+      version: '9',
+      architecture: 'x86_64',
+      defaultUser: 'almalinux',
+      cloudInitEnabled: true,
+      provisioningMethod: 'CLOUD_INIT',
+    },
+    requirements: {
+      minCpu: 1,
+      minMemoryMib: 1024,
+      minDiskGib: 10,
+      supportedFirmware: ['bios', 'uefi'],
+    },
+    status: 'ready',
+  },
+  {
+    id: 'fedora-40',
+    name: 'Fedora 40 Cloud',
+    description: 'Latest Fedora cloud image. Default user: fedora',
+    path: '/var/lib/limiquantix/cloud-images/fedora-40.qcow2',
+    sizeBytes: 400 * 1024 * 1024,
+    os: {
+      family: 'LINUX',
+      distribution: 'fedora',
+      version: '40',
+      architecture: 'x86_64',
+      defaultUser: 'fedora',
+      cloudInitEnabled: true,
+      provisioningMethod: 'CLOUD_INIT',
+    },
+    requirements: {
+      minCpu: 1,
+      minMemoryMib: 512,
+      minDiskGib: 10,
+      supportedFirmware: ['bios', 'uefi'],
+    },
+    status: 'ready',
+  },
+  {
+    id: 'centos-stream-9',
+    name: 'CentOS Stream 9',
+    description: 'CentOS Stream 9 cloud image. Default user: cloud-user',
+    path: '/var/lib/limiquantix/cloud-images/centos-stream-9.qcow2',
+    sizeBytes: 1100 * 1024 * 1024,
+    os: {
+      family: 'LINUX',
+      distribution: 'centos',
+      version: '9-stream',
+      architecture: 'x86_64',
+      defaultUser: 'cloud-user',
+      cloudInitEnabled: true,
+      provisioningMethod: 'CLOUD_INIT',
+    },
+    requirements: {
+      minCpu: 1,
+      minMemoryMib: 1024,
+      minDiskGib: 10,
+      supportedFirmware: ['bios', 'uefi'],
+    },
+    status: 'ready',
+  },
+  {
+    id: 'opensuse-leap-15.5',
+    name: 'openSUSE Leap 15.5',
+    description: 'openSUSE Leap cloud image. Default user: root (set password via cloud-init)',
+    path: '/var/lib/limiquantix/cloud-images/opensuse-leap-15.5.qcow2',
+    sizeBytes: 300 * 1024 * 1024,
+    os: {
+      family: 'LINUX',
+      distribution: 'opensuse',
+      version: '15.5',
+      architecture: 'x86_64',
+      defaultUser: 'root',
+      cloudInitEnabled: true,
+      provisioningMethod: 'CLOUD_INIT',
+    },
+    requirements: {
+      minCpu: 1,
+      minMemoryMib: 512,
+      minDiskGib: 10,
+      supportedFirmware: ['bios', 'uefi'],
+    },
+    status: 'ready',
+  },
+];
+
+// Hook to get available images (API + catalog fallback)
+export function useAvailableImages() {
+  const { data: apiImages, isLoading, error } = useImages();
+
+  // Combine API images with catalog (catalog as fallback)
+  const images = apiImages && apiImages.length > 0 ? apiImages : CLOUD_IMAGE_CATALOG;
+
+  return {
+    images,
+    isLoading,
+    error,
+    isUsingCatalog: !apiImages || apiImages.length === 0,
+  };
+}
+
+// Get the default user for an OS distribution
+export function getDefaultUser(distribution: string): string {
+  const map: Record<string, string> = {
+    ubuntu: 'ubuntu',
+    debian: 'debian',
+    rocky: 'rocky',
+    almalinux: 'almalinux',
+    centos: 'cloud-user',
+    fedora: 'fedora',
+    opensuse: 'root',
+    suse: 'root',
+    rhel: 'cloud-user',
+    windows: 'Administrator',
+  };
+  return map[distribution.toLowerCase()] || 'root';
+}
+
+// Format size for display
+export function formatImageSize(bytes: number): string {
+  if (bytes === 0) return 'Unknown';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+}

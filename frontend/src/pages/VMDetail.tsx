@@ -21,6 +21,7 @@ import {
   WifiOff,
   Loader2,
   Trash2,
+  Download,
 } from 'lucide-react';
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -436,12 +437,26 @@ export function VMDetail() {
                   <MonitorPlay className="w-16 h-16 mx-auto text-accent mb-4" />
                   <h3 className="text-lg font-medium text-text-primary mb-2">Console Available</h3>
                   <p className="text-text-muted mb-6 max-w-md">
-                    Access the VM console using VNC. Click the button below to see connection details.
+                    Access the VM console using VNC. Click the button below to open the web console.
                   </p>
-                  <Button onClick={() => setIsConsoleOpen(true)}>
-                    <MonitorPlay className="w-4 h-4" />
-                    Open Console
-                  </Button>
+                  <div className="flex flex-col items-center gap-3">
+                    <Button onClick={() => setIsConsoleOpen(true)}>
+                      <MonitorPlay className="w-4 h-4" />
+                      Open Web Console
+                    </Button>
+                    <p className="text-xs text-text-muted">
+                      For better performance, try the{' '}
+                      <a 
+                        href="https://github.com/Galev01/LimiQuantix/releases" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-accent hover:underline inline-flex items-center gap-1"
+                      >
+                        QVMRC Native Client
+                        <Download className="w-3 h-3" />
+                      </a>
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center">

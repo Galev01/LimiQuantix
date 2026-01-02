@@ -2,6 +2,8 @@
 //!
 //! This module implements the Remote Framebuffer protocol used by VNC.
 
+use des::cipher::{BlockEncrypt, KeyInit};
+use des::Des;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use thiserror::Error;
@@ -249,24 +251,32 @@ impl RFBClient {
     }
 
     /// Encrypt challenge with password (VNC Auth)
+    /// VNC uses DES encryption with bit-reversed key bytes
     fn encrypt_challenge(challenge: &[u8; 16], password: &str) -> [u8; 16] {
         // VNC uses a modified DES where each byte of the key is bit-reversed
-        // For simplicity, we'll use a basic implementation
-        // In production, use a proper DES library
-        
         let mut key = [0u8; 8];
         let password_bytes = password.as_bytes();
+        
+        // Copy password (up to 8 bytes) and reverse bits in each byte
         for (i, &b) in password_bytes.iter().take(8).enumerate() {
-            // Reverse bits in each byte
             key[i] = b.reverse_bits();
         }
+        // Remaining bytes stay as 0 (already initialized)
 
-        // For now, return a simple XOR (placeholder - real impl needs DES)
-        // TODO: Implement proper DES encryption
+        // Create DES cipher with the bit-reversed key
+        let cipher = Des::new_from_slice(&key).expect("Invalid key length");
+
+        // Encrypt the 16-byte challenge in two 8-byte blocks
         let mut response = *challenge;
-        for (i, byte) in response.iter_mut().enumerate() {
-            *byte ^= key[i % 8];
-        }
+        
+        // Encrypt first block
+        let block1: &mut [u8; 8] = (&mut response[0..8]).try_into().unwrap();
+        cipher.encrypt_block(block1.into());
+        
+        // Encrypt second block
+        let block2: &mut [u8; 8] = (&mut response[8..16]).try_into().unwrap();
+        cipher.encrypt_block(block2.into());
+
         response
     }
 

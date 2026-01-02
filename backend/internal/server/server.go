@@ -21,10 +21,12 @@ import (
 	networkservice "github.com/limiquantix/limiquantix/internal/services/network"
 	"github.com/limiquantix/limiquantix/internal/services/node"
 	nodeservice "github.com/limiquantix/limiquantix/internal/services/node"
+	storageservice "github.com/limiquantix/limiquantix/internal/services/storage"
 	"github.com/limiquantix/limiquantix/internal/services/vm"
 	vmservice "github.com/limiquantix/limiquantix/internal/services/vm"
 	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
 	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1/networkv1connect"
+	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1/storagev1connect"
 )
 
 // Server represents the main HTTP server.
@@ -46,6 +48,7 @@ type Server struct {
 	// Memory-only repositories (no PostgreSQL equivalent yet)
 	storagePoolRepo   *memory.StoragePoolRepository
 	volumeRepo        *memory.VolumeRepository
+	imageRepo         *storageservice.MemoryImageRepository
 	networkRepo       *memory.NetworkRepository
 	securityGroupRepo *memory.SecurityGroupRepository
 
@@ -60,6 +63,7 @@ type Server struct {
 	nodeService          *nodeservice.Service
 	networkService       *networkservice.NetworkService
 	securityGroupService *networkservice.SecurityGroupService
+	imageService         *storageservice.ImageService
 
 	// Leader election (for HA)
 	leader *etcd.Leader
@@ -149,6 +153,7 @@ func (s *Server) initRepositories() {
 	// These remain in-memory for now (PostgreSQL implementations can be added later)
 	s.storagePoolRepo = memory.NewStoragePoolRepository()
 	s.volumeRepo = memory.NewVolumeRepository()
+	s.imageRepo = storageservice.NewMemoryImageRepository()
 	s.networkRepo = memory.NewNetworkRepository()
 	s.securityGroupRepo = memory.NewSecurityGroupRepository()
 
@@ -201,6 +206,9 @@ func (s *Server) initServices() {
 	s.networkService = networkservice.NewNetworkService(s.networkRepo, s.logger)
 	s.securityGroupService = networkservice.NewSecurityGroupService(s.securityGroupRepo, s.logger)
 
+	// Storage services
+	s.imageService = storageservice.NewImageService(s.imageRepo, s.logger)
+
 	s.logger.Info("Services initialized",
 		zap.String("scheduler_strategy", schedulerConfig.PlacementStrategy),
 		zap.Float64("cpu_overcommit", schedulerConfig.OvercommitCPU),
@@ -251,6 +259,15 @@ func (s *Server) registerRoutes() {
 	sgPath, sgHandler := networkv1connect.NewSecurityGroupServiceHandler(s.securityGroupService)
 	s.mux.Handle(sgPath, sgHandler)
 	s.logger.Info("Registered SecurityGroup service", zap.String("path", sgPath))
+
+	// =========================================================================
+	// Connect-RPC Services - Storage
+	// =========================================================================
+
+	// Image Service
+	imagePath, imageHandler := storagev1connect.NewImageServiceHandler(s.imageService)
+	s.mux.Handle(imagePath, imageHandler)
+	s.logger.Info("Registered Image service", zap.String("path", imagePath))
 
 	s.logger.Info("All routes registered")
 }

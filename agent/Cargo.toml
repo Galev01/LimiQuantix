@@ -11,6 +11,7 @@ members = [
     "limiquantix-telemetry",
     "limiquantix-proto",
     "limiquantix-common",
+    "limiquantix-guest-agent",
 ]
 
 [workspace.package]
@@ -59,6 +60,12 @@ clap = { version = "4.4", features = ["derive", "env"] }
 # Async utilities
 async-trait = "0.1"
 futures = "0.3"
+
+# Byte handling
+bytes = "1.5"
+
+# System information
+sysinfo = "0.32"
 
 # Internal crates
 limiquantix-hypervisor = { path = "limiquantix-hypervisor" }

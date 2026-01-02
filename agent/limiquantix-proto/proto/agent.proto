@@ -1,0 +1,448 @@
+// =============================================================================
+// GUEST AGENT PROTOCOL
+// =============================================================================
+// This protocol defines the communication between the Node Daemon (host) and
+// the Guest Agent (inside VM) over a virtio-serial channel.
+//
+// Transport: Length-prefixed protobuf over virtio-serial
+// Framing: 4 bytes (big-endian length) + N bytes (protobuf payload)
+
+syntax = "proto3";
+
+package limiquantix.agent.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// =============================================================================
+// ENVELOPE MESSAGE
+// =============================================================================
+// All messages are wrapped in AgentMessage for correlation and routing.
+
+message AgentMessage {
+  // Unique message ID for request/response correlation
+  string message_id = 1;
+  
+  // Timestamp of when the message was created
+  google.protobuf.Timestamp timestamp = 2;
+  
+  oneof payload {
+    // =========================================================================
+    // Host -> Guest (Requests)
+    // =========================================================================
+    
+    // Health check
+    PingRequest ping = 10;
+    
+    // Command execution
+    ExecuteRequest execute = 11;
+    
+    // File operations
+    FileWriteRequest file_write = 12;
+    FileReadRequest file_read = 13;
+    
+    // Lifecycle operations
+    ShutdownRequest shutdown = 14;
+    ResetPasswordRequest reset_password = 15;
+    
+    // Network configuration
+    ConfigureNetworkRequest configure_network = 16;
+    
+    // =========================================================================
+    // Guest -> Host (Responses)
+    // =========================================================================
+    
+    // Health check response
+    PongResponse pong = 50;
+    
+    // Command execution result
+    ExecuteResponse execute_response = 51;
+    
+    // File operation results
+    FileWriteResponse file_write_response = 52;
+    FileReadResponse file_read_response = 53;
+    
+    // Lifecycle responses
+    ShutdownResponse shutdown_response = 54;
+    ResetPasswordResponse reset_password_response = 55;
+    
+    // Network configuration result
+    ConfigureNetworkResponse configure_network_response = 56;
+    
+    // =========================================================================
+    // Guest -> Host (Unsolicited Events)
+    // =========================================================================
+    
+    // Periodic telemetry report
+    TelemetryReport telemetry = 100;
+    
+    // Agent startup notification
+    AgentReadyEvent agent_ready = 101;
+    
+    // Error notification
+    ErrorEvent error = 102;
+  }
+}
+
+// =============================================================================
+// HEALTH CHECK
+// =============================================================================
+
+message PingRequest {
+  // Optional sequence number for RTT measurement
+  uint64 sequence = 1;
+}
+
+message PongResponse {
+  // Echo back the sequence number
+  uint64 sequence = 1;
+  
+  // Agent version
+  string version = 2;
+  
+  // Agent uptime in seconds
+  uint64 uptime_seconds = 3;
+}
+
+// =============================================================================
+// TELEMETRY
+// =============================================================================
+
+message TelemetryReport {
+  // CPU usage percentage (0.0 - 100.0)
+  double cpu_usage_percent = 1;
+  
+  // Memory statistics
+  uint64 memory_total_bytes = 2;
+  uint64 memory_used_bytes = 3;
+  uint64 memory_available_bytes = 4;
+  
+  // Swap statistics
+  uint64 swap_total_bytes = 5;
+  uint64 swap_used_bytes = 6;
+  
+  // Disk usage per mount point
+  repeated DiskUsage disks = 7;
+  
+  // Network interfaces with IPs
+  repeated InterfaceInfo interfaces = 8;
+  
+  // System load averages (1, 5, 15 minutes)
+  double load_avg_1 = 9;
+  double load_avg_5 = 10;
+  double load_avg_15 = 11;
+  
+  // Number of running processes
+  uint32 process_count = 12;
+  
+  // System uptime in seconds
+  uint64 uptime_seconds = 13;
+  
+  // Hostname (may change after cloud-init)
+  string hostname = 14;
+}
+
+message DiskUsage {
+  // Mount point (e.g., "/", "/home")
+  string mount_point = 1;
+  
+  // Filesystem type (e.g., "ext4", "xfs")
+  string filesystem = 2;
+  
+  // Device path (e.g., "/dev/vda1")
+  string device = 3;
+  
+  // Size in bytes
+  uint64 total_bytes = 4;
+  uint64 used_bytes = 5;
+  uint64 available_bytes = 6;
+  
+  // Usage percentage
+  double usage_percent = 7;
+}
+
+message InterfaceInfo {
+  // Interface name (e.g., "eth0", "ens3")
+  string name = 1;
+  
+  // MAC address
+  string mac_address = 2;
+  
+  // IPv4 addresses (CIDR notation)
+  repeated string ipv4_addresses = 3;
+  
+  // IPv6 addresses (CIDR notation)
+  repeated string ipv6_addresses = 4;
+  
+  // Interface state
+  InterfaceState state = 5;
+  
+  // MTU
+  uint32 mtu = 6;
+  
+  // Traffic statistics
+  uint64 rx_bytes = 7;
+  uint64 tx_bytes = 8;
+  uint64 rx_packets = 9;
+  uint64 tx_packets = 10;
+}
+
+enum InterfaceState {
+  INTERFACE_STATE_UNKNOWN = 0;
+  INTERFACE_STATE_UP = 1;
+  INTERFACE_STATE_DOWN = 2;
+}
+
+// =============================================================================
+// COMMAND EXECUTION
+// =============================================================================
+
+message ExecuteRequest {
+  // Command to execute (passed to shell)
+  string command = 1;
+  
+  // Arguments (optional, for direct execution without shell)
+  repeated string args = 2;
+  
+  // Working directory (optional)
+  string working_directory = 3;
+  
+  // Environment variables to set
+  map<string, string> environment = 4;
+  
+  // Timeout in seconds (0 = no timeout)
+  uint32 timeout_seconds = 5;
+  
+  // Whether to wait for the command to complete
+  bool wait_for_exit = 6;
+  
+  // Run as a specific user (optional, requires root)
+  string run_as_user = 7;
+  
+  // Maximum stdout/stderr size to capture (0 = unlimited, default 1MB)
+  uint32 max_output_bytes = 8;
+}
+
+message ExecuteResponse {
+  // Exit code (-1 if execution failed)
+  int32 exit_code = 1;
+  
+  // Standard output
+  string stdout = 2;
+  
+  // Standard error
+  string stderr = 3;
+  
+  // Whether the output was truncated
+  bool truncated = 4;
+  
+  // Whether the command timed out
+  bool timed_out = 5;
+  
+  // Execution duration in milliseconds
+  uint64 duration_ms = 6;
+  
+  // Error message if execution failed to start
+  string error = 7;
+}
+
+// =============================================================================
+// FILE OPERATIONS
+// =============================================================================
+
+message FileWriteRequest {
+  // Absolute path to the file
+  string path = 1;
+  
+  // File data (chunked for large files)
+  bytes data = 2;
+  
+  // Offset to write at (for random access)
+  uint64 offset = 3;
+  
+  // Whether to append (ignores offset)
+  bool append = 4;
+  
+  // End-of-file marker (true for last chunk)
+  bool eof = 5;
+  
+  // File permissions (octal, e.g., 0644)
+  uint32 mode = 6;
+  
+  // Create parent directories if they don't exist
+  bool create_parents = 7;
+  
+  // Chunk sequence number (for reassembly verification)
+  uint32 chunk_number = 8;
+  
+  // Total number of chunks (set in first chunk)
+  uint32 total_chunks = 9;
+}
+
+message FileWriteResponse {
+  // Whether the write succeeded
+  bool success = 1;
+  
+  // Number of bytes written
+  uint64 bytes_written = 2;
+  
+  // Error message if failed
+  string error = 3;
+  
+  // Acknowledged chunk number
+  uint32 chunk_number = 4;
+}
+
+message FileReadRequest {
+  // Absolute path to the file
+  string path = 1;
+  
+  // Offset to read from
+  uint64 offset = 2;
+  
+  // Maximum bytes to read (0 = entire file)
+  uint64 length = 3;
+  
+  // Chunk size for streaming (default 64KB)
+  uint32 chunk_size = 4;
+}
+
+message FileReadResponse {
+  // Whether the read succeeded
+  bool success = 1;
+  
+  // File data
+  bytes data = 2;
+  
+  // End-of-file marker
+  bool eof = 3;
+  
+  // Total file size
+  uint64 total_size = 4;
+  
+  // Current offset
+  uint64 offset = 5;
+  
+  // Chunk number
+  uint32 chunk_number = 6;
+  
+  // Error message if failed
+  string error = 7;
+  
+  // File permissions
+  uint32 mode = 8;
+  
+  // Last modified timestamp
+  google.protobuf.Timestamp modified_at = 9;
+}
+
+// =============================================================================
+// LIFECYCLE OPERATIONS
+// =============================================================================
+
+message ShutdownRequest {
+  // Shutdown type
+  ShutdownType type = 1;
+  
+  // Delay in seconds before shutdown
+  uint32 delay_seconds = 2;
+  
+  // Message to broadcast to users
+  string message = 3;
+}
+
+enum ShutdownType {
+  SHUTDOWN_TYPE_POWEROFF = 0;
+  SHUTDOWN_TYPE_REBOOT = 1;
+  SHUTDOWN_TYPE_HALT = 2;
+}
+
+message ShutdownResponse {
+  // Whether the shutdown was initiated
+  bool accepted = 1;
+  
+  // Error message if rejected
+  string error = 2;
+}
+
+message ResetPasswordRequest {
+  // Username to reset password for
+  string username = 1;
+  
+  // New password (will be hashed by agent)
+  string new_password = 2;
+  
+  // Whether to expire the password (force change on next login)
+  bool expire = 3;
+}
+
+message ResetPasswordResponse {
+  // Whether the password was reset
+  bool success = 1;
+  
+  // Error message if failed
+  string error = 2;
+}
+
+// =============================================================================
+// NETWORK CONFIGURATION
+// =============================================================================
+
+message ConfigureNetworkRequest {
+  // Network configuration in Netplan YAML format
+  string netplan_config = 1;
+  
+  // Whether to apply immediately
+  bool apply_now = 2;
+}
+
+message ConfigureNetworkResponse {
+  // Whether the configuration was applied
+  bool success = 1;
+  
+  // Error message if failed
+  string error = 2;
+}
+
+// =============================================================================
+// EVENTS
+// =============================================================================
+
+message AgentReadyEvent {
+  // Agent version
+  string version = 1;
+  
+  // Operating system info
+  string os_name = 2;
+  string os_version = 3;
+  string kernel_version = 4;
+  string architecture = 5;
+  
+  // Hostname
+  string hostname = 6;
+  
+  // Initial IP addresses
+  repeated string ip_addresses = 7;
+  
+  // Capabilities supported by this agent
+  repeated string capabilities = 8;
+}
+
+message ErrorEvent {
+  // Error severity
+  ErrorSeverity severity = 1;
+  
+  // Error code
+  string code = 2;
+  
+  // Human-readable message
+  string message = 3;
+  
+  // Additional context
+  map<string, string> details = 4;
+}
+
+enum ErrorSeverity {
+  ERROR_SEVERITY_WARNING = 0;
+  ERROR_SEVERITY_ERROR = 1;
+  ERROR_SEVERITY_CRITICAL = 2;
+}

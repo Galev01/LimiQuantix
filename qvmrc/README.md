@@ -41,19 +41,24 @@ QVMRC is a hybrid Management UI and Direct Hypervisor Client, similar to VMware 
 
 ### Current (v0.1.0)
 - [x] VNC connection via Control Plane
-- [x] Keyboard and mouse input
+- [x] VNC Authentication (DES encryption)
+- [x] Full RFB protocol implementation
+- [x] Keyboard input (X11 keysym mapping)
+- [x] Mouse input (pointer events)
 - [x] Ctrl+Alt+Del hotkey
 - [x] Fullscreen mode
-- [x] Saved connections
+- [x] Saved connections with persistence
 - [x] Display settings (quality, compression)
+- [x] Cross-platform builds (Windows, macOS, Linux)
 
 ### Planned
 - [ ] USB device passthrough
-- [ ] Clipboard sync
+- [ ] Clipboard sync (two-way)
 - [ ] SPICE protocol support
 - [ ] Audio passthrough
 - [ ] Multi-monitor support
 - [ ] File transfer (drag & drop)
+- [ ] SSH tunnel integration
 
 ## Development
 
@@ -61,7 +66,35 @@ QVMRC is a hybrid Management UI and Direct Hypervisor Client, similar to VMware 
 
 - [Rust](https://rustup.rs/) 1.70+
 - [Node.js](https://nodejs.org/) 18+
-- [Tauri CLI](https://tauri.app/v1/guides/getting-started/prerequisites)
+
+#### Platform-Specific Dependencies
+
+**Windows:**
+```bash
+# Install Visual Studio Build Tools 2022
+winget install Microsoft.VisualStudio.2022.BuildTools
+```
+
+**macOS:**
+```bash
+# Install Xcode Command Line Tools
+xcode-select --install
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt install -y libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+```
+
+**Linux (Fedora):**
+```bash
+sudo dnf install webkit2gtk4.0-devel libappindicator-gtk3-devel librsvg2-devel
+```
+
+**Linux (Arch):**
+```bash
+sudo pacman -S webkit2gtk libappindicator-gtk3 librsvg
+```
 
 ### Setup
 
@@ -106,23 +139,48 @@ qvmrc/
 
 ## Building Installers
 
-### Windows
+### Step 1: Generate Icons (if not already done)
 ```bash
-npm run tauri build
-# Output: src-tauri/target/release/bundle/msi/QVMRC_0.1.0_x64_en-US.msi
+npm run generate-icons
 ```
 
-### macOS
+### Step 2: Build for Your Platform
+
+#### Windows (.exe Installer)
 ```bash
-npm run tauri build
-# Output: src-tauri/target/release/bundle/macos/QVMRC.app
+npm run tauri:build
+# Output:
+#   src-tauri/target/release/QVMRC.exe                           (standalone)
+#   src-tauri/target/release/bundle/nsis/QVMRC_0.1.0_x64-setup.exe  (NSIS installer)
+#   src-tauri/target/release/bundle/msi/QVMRC_0.1.0_x64_en-US.msi   (MSI installer)
 ```
 
-### Linux
+#### macOS (.dmg Installer)
 ```bash
-npm run tauri build
-# Output: src-tauri/target/release/bundle/deb/qvmrc_0.1.0_amd64.deb
-#         src-tauri/target/release/bundle/appimage/qvmrc_0.1.0_amd64.AppImage
+npm run tauri:build
+# Output:
+#   src-tauri/target/release/bundle/macos/QVMRC.app              (app bundle)
+#   src-tauri/target/release/bundle/dmg/QVMRC_0.1.0_x64.dmg      (DMG installer)
+```
+
+#### Linux (.AppImage / .deb)
+```bash
+npm run tauri:build
+# Output:
+#   src-tauri/target/release/bundle/deb/qvmrc_0.1.0_amd64.deb
+#   src-tauri/target/release/bundle/appimage/qvmrc_0.1.0_amd64.AppImage
+```
+
+### Quick Build Commands
+```bash
+# Windows (on Windows machine)
+npm run tauri:build
+
+# macOS Universal Binary (on macOS)
+npm run tauri:build:macos
+
+# Linux (on Linux)
+npm run tauri:build:linux
 ```
 
 ## Configuration

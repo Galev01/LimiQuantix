@@ -370,6 +370,7 @@ const (
 type OSFamily string
 
 const (
+	OSFamilyUnknown OSFamily = "UNKNOWN"
 	OSFamilyLinux   OSFamily = "LINUX"
 	OSFamilyWindows OSFamily = "WINDOWS"
 	OSFamilyBSD     OSFamily = "BSD"
@@ -401,12 +402,27 @@ type ImageSpec struct {
 
 // OSInfo holds operating system information.
 type OSInfo struct {
-	Family       OSFamily `json:"family"`
-	Distribution string   `json:"distribution"`
-	Version      string   `json:"version"`
-	Architecture string   `json:"architecture"`
-	DefaultUser  string   `json:"default_user"`
+	Family             OSFamily           `json:"family"`
+	Distribution       string             `json:"distribution"`
+	Version            string             `json:"version"`
+	Architecture       string             `json:"architecture"`
+	DefaultUser        string             `json:"default_user"`
+	CloudInitEnabled   bool               `json:"cloud_init_enabled"`
+	ProvisioningMethod ProvisioningMethod `json:"provisioning_method"`
 }
+
+// ProvisioningMethod defines how the image supports automated provisioning.
+type ProvisioningMethod string
+
+const (
+	ProvisioningMethodUnknown   ProvisioningMethod = "UNKNOWN"
+	ProvisioningMethodCloudInit ProvisioningMethod = "CLOUD_INIT"
+	ProvisioningMethodIgnition  ProvisioningMethod = "IGNITION"
+	ProvisioningMethodSysprep   ProvisioningMethod = "SYSPREP"
+	ProvisioningMethodKickstart ProvisioningMethod = "KICKSTART"
+	ProvisioningMethodPreseed   ProvisioningMethod = "PRESEED"
+	ProvisioningMethodNone      ProvisioningMethod = "NONE"
+)
 
 // ImageRequirements defines minimum requirements for running the image.
 type ImageRequirements struct {
@@ -427,6 +443,10 @@ type ImageStatus struct {
 	Checksum         string     `json:"checksum"`
 	ErrorMessage     string     `json:"error_message"`
 	StoragePoolID    string     `json:"storage_pool_id"`
+	// Path is the local file path on the node (for local images)
+	Path string `json:"path,omitempty"`
+	// NodeID is the node that hosts this image (for local images)
+	NodeID string `json:"node_id,omitempty"`
 }
 
 // IsReady returns true if the image is ready to use.

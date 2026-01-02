@@ -33,7 +33,7 @@
     "bundle": {
       "active": true,
       "category": "Utility",
-      "copyright": "© 2024 LimiQuantix",
+      "copyright": "© 2026 LimiQuantix",
       "deb": {
         "depends": []
       },
@@ -46,13 +46,20 @@
         "icons/icon.ico"
       ],
       "identifier": "com.limiquantix.qvmrc",
-      "longDescription": "Quantix Virtual Machine Remote Console - A native desktop application for remote VM access with VNC/SPICE support.",
+      "longDescription": "Quantix Virtual Machine Remote Console - A native desktop application for remote VM access with VNC/SPICE support. Works on Windows, macOS, and Linux.",
       "macOS": {
         "entitlements": null,
         "exceptionDomain": "",
         "frameworks": [],
         "providerShortName": null,
-        "signingIdentity": null
+        "signingIdentity": null,
+        "minimumSystemVersion": "10.13"
+      },
+      "dmg": {
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 },
+        "background": null,
+        "windowSize": { "width": 660, "height": 400 }
       },
       "resources": [],
       "shortDescription": "VM Remote Console",
@@ -60,7 +67,17 @@
       "windows": {
         "certificateThumbprint": null,
         "digestAlgorithm": "sha256",
-        "timestampUrl": ""
+        "timestampUrl": "",
+        "wix": null,
+        "nsis": {
+          "license": null,
+          "installerIcon": "icons/icon.ico",
+          "headerImage": null,
+          "sidebarImage": null,
+          "installMode": "currentUser",
+          "languages": ["English"],
+          "displayLanguageSelector": false
+        }
       }
     },
     "security": {
