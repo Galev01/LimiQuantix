@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -8,18 +8,14 @@ import {
   RefreshCw,
   Loader2,
   AlertTriangle,
-  Keyboard,
   Copy,
   CheckCircle,
-  Settings,
-  Power,
+  ExternalLink,
+  Terminal,
+  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-
-// Dynamic import for noVNC RFB
-// @ts-expect-error - noVNC doesn't have proper TypeScript types
-import RFB from '@novnc/novnc/lib/rfb';
 
 interface WebConsoleProps {
   vmId: string;
@@ -36,22 +32,20 @@ interface ConsoleInfo {
   websocketUrl?: string;
 }
 
-type ConsoleState = 'connecting' | 'connected' | 'disconnected' | 'error';
+type ConsoleState = 'loading' | 'ready' | 'error';
 
 export function WebConsole({ vmId, vmName, isOpen, onClose }: WebConsoleProps) {
-  const [state, setState] = useState<ConsoleState>('connecting');
+  const [state, setState] = useState<ConsoleState>('loading');
   const [error, setError] = useState<string | null>(null);
   const [consoleInfo, setConsoleInfo] = useState<ConsoleInfo | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [scaleViewport, setScaleViewport] = useState(true);
-  
-  const containerRef = useRef<HTMLDivElement>(null);
-  const canvasContainerRef = useRef<HTMLDivElement>(null);
-  const rfbRef = useRef<typeof RFB | null>(null);
+  const [copied, setCopied] = useState<'address' | 'password' | null>(null);
 
   // Fetch console info
   const fetchConsoleInfo = useCallback(async () => {
+    setState('loading');
+    setError(null);
+
     try {
       const response = await fetch('http://localhost:8080/limiquantix.compute.v1.VMService/GetConsole', {
         method: 'POST',
@@ -70,141 +64,59 @@ export function WebConsole({ vmId, vmName, isOpen, onClose }: WebConsoleProps) {
         consoleType = 'spice';
       }
 
-      return {
+      setConsoleInfo({
         type: consoleType,
         host: data.host || '127.0.0.1',
         port: data.port || 5900,
         password: data.password || undefined,
         websocketUrl: data.websocketUrl || undefined,
-      } as ConsoleInfo;
+      });
+      setState('ready');
     } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to connect to console');
+      setError(err instanceof Error ? err.message : 'Failed to connect to console');
+      setState('error');
     }
   }, [vmId]);
 
-  // Connect to VNC
-  const connect = useCallback(async () => {
-    if (!canvasContainerRef.current) return;
-
-    setState('connecting');
-    setError(null);
-
-    try {
-      const info = await fetchConsoleInfo();
-      setConsoleInfo(info);
-
-      // Determine WebSocket URL
-      // If the backend provides a websocketUrl, use it
-      // Otherwise, construct the URL for our WebSocket proxy
-      let wsUrl = info.websocketUrl;
-      if (!wsUrl) {
-        // Use the control plane's WebSocket proxy endpoint
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        wsUrl = `${protocol}//localhost:8080/api/console/${vmId}/ws`;
-      }
-
-      // Clean the container
-      if (canvasContainerRef.current) {
-        canvasContainerRef.current.innerHTML = '';
-      }
-
-      // Create RFB connection
-      const rfb = new RFB(canvasContainerRef.current, wsUrl, {
-        credentials: info.password ? { password: info.password } : undefined,
-      });
-
-      rfb.scaleViewport = scaleViewport;
-      rfb.resizeSession = true;
-      rfb.clipViewport = false;
-      rfb.showDotCursor = true;
-
-      // Event handlers
-      rfb.addEventListener('connect', () => {
-        console.log('VNC Connected');
-        setState('connected');
-      });
-
-      rfb.addEventListener('disconnect', (e: { detail: { clean: boolean } }) => {
-        console.log('VNC Disconnected', e.detail);
-        if (!e.detail.clean) {
-          setError('Connection closed unexpectedly');
-          setState('error');
-        } else {
-          setState('disconnected');
-        }
-      });
-
-      rfb.addEventListener('credentialsrequired', () => {
-        console.log('VNC Credentials required');
-        // If we have a password, send it
-        if (info.password) {
-          rfb.sendCredentials({ password: info.password });
-        } else {
-          setError('Password required but not provided');
-          setState('error');
-        }
-      });
-
-      rfb.addEventListener('securityfailure', (e: { detail: { status: number; reason: string } }) => {
-        console.error('VNC Security failure', e.detail);
-        setError(`Security failure: ${e.detail.reason || 'Unknown error'}`);
-        setState('error');
-      });
-
-      rfbRef.current = rfb;
-    } catch (err) {
-      console.error('VNC Connection error', err);
-      setError(err instanceof Error ? err.message : 'Connection failed');
-      setState('error');
-    }
-  }, [vmId, fetchConsoleInfo, scaleViewport]);
-
-  // Disconnect
-  const disconnect = useCallback(() => {
-    if (rfbRef.current) {
-      rfbRef.current.disconnect();
-      rfbRef.current = null;
-    }
-  }, []);
-
-  // Connect when opened
+  // Fetch on open
   useEffect(() => {
     if (isOpen) {
-      connect();
+      fetchConsoleInfo();
     }
+  }, [isOpen, fetchConsoleInfo]);
 
-    return () => {
-      disconnect();
-    };
-  }, [isOpen, connect, disconnect]);
-
-  // Toggle fullscreen
-  const toggleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    }
+  // Copy to clipboard
+  const copyToClipboard = useCallback((text: string, type: 'address' | 'password') => {
+    navigator.clipboard.writeText(text);
+    setCopied(type);
+    setTimeout(() => setCopied(null), 2000);
   }, []);
 
-  // Copy connection address
-  const copyConnectionAddress = useCallback(() => {
+  // Generate .vnc connection file content
+  const generateVncFile = useCallback(() => {
     if (!consoleInfo) return;
-    navigator.clipboard.writeText(`${consoleInfo.host}:${consoleInfo.port}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [consoleInfo]);
+    
+    const vncFileContent = `[Connection]
+Host=${consoleInfo.host}
+Port=${consoleInfo.port}
+${consoleInfo.password ? `Password=${consoleInfo.password}` : ''}
 
-  // Send Ctrl+Alt+Del
-  const sendCtrlAltDel = useCallback(() => {
-    if (rfbRef.current) {
-      rfbRef.current.sendCtrlAltDel();
-    }
-  }, []);
+[Options]
+UseLocalCursor=1
+FullScreen=0
+Preferred_Encoding=6
+`;
+    
+    const blob = new Blob([vncFileContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${vmName.replace(/[^a-z0-9]/gi, '-')}.vnc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [consoleInfo, vmName]);
 
   // Handle escape key
   useEffect(() => {
@@ -221,17 +133,9 @@ export function WebConsole({ vmId, vmName, isOpen, onClose }: WebConsoleProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Listen for fullscreen changes
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
-
   if (!isOpen) return null;
+
+  const connectionAddress = consoleInfo ? `${consoleInfo.host}:${consoleInfo.port}` : '';
 
   return (
     <AnimatePresence>
@@ -242,186 +146,178 @@ export function WebConsole({ vmId, vmName, isOpen, onClose }: WebConsoleProps) {
         className="fixed inset-0 z-50 flex items-center justify-center"
       >
         {/* Backdrop */}
-        <div className="absolute inset-0 bg-black/90" onClick={onClose} />
+        <div className="absolute inset-0 bg-black/80" onClick={onClose} />
 
         {/* Console Window */}
         <motion.div
-          ref={containerRef}
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           className={cn(
             'relative flex flex-col bg-bg-base border border-border shadow-2xl overflow-hidden',
-            isFullscreen
-              ? 'w-screen h-screen rounded-none'
-              : 'w-[1024px] h-[768px] max-w-[95vw] max-h-[90vh] rounded-xl'
+            'w-[600px] max-w-[95vw] rounded-xl'
           )}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-2 bg-bg-surface border-b border-border shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 bg-bg-surface border-b border-border">
             <div className="flex items-center gap-3">
               <Monitor className="w-5 h-5 text-accent" />
               <span className="font-medium text-text-primary">Console: {vmName}</span>
-              {state === 'connected' && (
-                <span className="flex items-center gap-1.5 text-xs text-success px-2 py-0.5 bg-success/10 rounded-full">
-                  <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
-                  Connected
-                </span>
-              )}
-              {state === 'connecting' && (
-                <span className="flex items-center gap-1.5 text-xs text-warning px-2 py-0.5 bg-warning/10 rounded-full">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Connecting...
-                </span>
-              )}
-              {consoleInfo && (
-                <span className="text-xs text-text-muted px-2 py-0.5 bg-bg-base rounded">
-                  {consoleInfo.host}:{consoleInfo.port}
-                </span>
-              )}
             </div>
-
-            <div className="flex items-center gap-1">
-              {state === 'connected' && (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={sendCtrlAltDel}
-                    title="Send Ctrl+Alt+Del"
-                  >
-                    <Keyboard className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={copyConnectionAddress}
-                    title="Copy address"
-                  >
-                    {copied ? (
-                      <CheckCircle className="w-4 h-4 text-success" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </Button>
-                </>
-              )}
-              <Button variant="ghost" size="sm" onClick={toggleFullscreen} title="Toggle fullscreen">
-                {isFullscreen ? (
-                  <Minimize2 className="w-4 h-4" />
-                ) : (
-                  <Maximize2 className="w-4 h-4" />
-                )}
-              </Button>
-              {(state === 'error' || state === 'disconnected') && (
-                <Button variant="ghost" size="sm" onClick={connect} title="Reconnect">
-                  <RefreshCw className="w-4 h-4" />
-                </Button>
-              )}
-              <Button variant="ghost" size="sm" onClick={onClose} title="Close">
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="w-4 h-4" />
+            </Button>
           </div>
 
-          {/* Console Content */}
-          <div className="flex-1 relative bg-black overflow-hidden">
-            {/* noVNC Canvas Container */}
-            <div
-              ref={canvasContainerRef}
-              className="absolute inset-0"
-              style={{ touchAction: 'none' }}
-            />
+          {/* Content */}
+          <div className="p-6">
+            {state === 'loading' && (
+              <div className="flex flex-col items-center gap-4 py-8 text-text-muted">
+                <Loader2 className="w-10 h-10 animate-spin text-accent" />
+                <span>Getting console information...</span>
+              </div>
+            )}
 
-            {/* Overlay for non-connected states */}
-            {state !== 'connected' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
-                {state === 'connecting' && (
-                  <div className="flex flex-col items-center gap-4 text-text-muted">
-                    <Loader2 className="w-12 h-12 animate-spin text-accent" />
-                    <span className="text-lg">Connecting to VM console...</span>
-                    <span className="text-sm text-text-muted">
-                      Establishing WebSocket connection
-                    </span>
+            {state === 'error' && (
+              <div className="flex flex-col items-center gap-4 py-8 text-center">
+                <AlertTriangle className="w-12 h-12 text-error" />
+                <div>
+                  <h3 className="text-lg font-semibold text-text-primary mb-2">
+                    Connection Failed
+                  </h3>
+                  <p className="text-text-muted text-sm">{error}</p>
+                </div>
+                <Button variant="secondary" onClick={fetchConsoleInfo}>
+                  <RefreshCw className="w-4 h-4" />
+                  Try Again
+                </Button>
+              </div>
+            )}
+
+            {state === 'ready' && consoleInfo && (
+              <div className="space-y-6">
+                {/* Connection Address - Main Focus */}
+                <div className="text-center">
+                  <p className="text-sm text-text-muted mb-3">
+                    Connect to this address with your VNC client:
+                  </p>
+                  <div className="flex items-center justify-center gap-2">
+                    <code className="text-2xl font-mono font-bold text-accent bg-bg-surface px-6 py-3 rounded-lg border border-border">
+                      {connectionAddress}
+                    </code>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => copyToClipboard(connectionAddress, 'address')}
+                      className="shrink-0"
+                    >
+                      {copied === 'address' ? (
+                        <CheckCircle className="w-5 h-5 text-success" />
+                      ) : (
+                        <Copy className="w-5 h-5" />
+                      )}
+                    </Button>
                   </div>
-                )}
+                </div>
 
-                {state === 'error' && (
-                  <div className="flex flex-col items-center gap-4 text-center max-w-md px-8">
-                    <AlertTriangle className="w-16 h-16 text-error" />
+                {/* Password if present */}
+                {consoleInfo.password && (
+                  <div className="flex items-center justify-between bg-bg-surface rounded-lg p-4 border border-border">
                     <div>
-                      <h3 className="text-xl font-semibold text-text-primary mb-2">
-                        Connection Failed
-                      </h3>
-                      <p className="text-text-muted">{error}</p>
+                      <span className="text-sm text-text-muted">Password:</span>
+                      <code className="ml-2 font-mono text-text-primary">
+                        {consoleInfo.password}
+                      </code>
                     </div>
-
-                    {/* Fallback options */}
-                    {consoleInfo && (
-                      <div className="w-full mt-4 p-4 bg-bg-surface rounded-lg border border-border">
-                        <p className="text-sm text-text-muted mb-3">
-                          Web console requires a WebSocket proxy. For now, use a VNC client:
-                        </p>
-                        <code className="block text-lg text-accent font-mono font-bold bg-bg-base px-4 py-2 rounded text-center">
-                          {consoleInfo.host}:{consoleInfo.port}
-                        </code>
-                        <Button
-                          variant="secondary"
-                          className="w-full mt-3"
-                          onClick={copyConnectionAddress}
-                        >
-                          {copied ? (
-                            <>
-                              <CheckCircle className="w-4 h-4 text-success" />
-                              Copied!
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-4 h-4" />
-                              Copy Address
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    )}
-
-                    <Button variant="primary" onClick={connect} className="mt-2">
-                      <RefreshCw className="w-4 h-4" />
-                      Try Again
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(consoleInfo.password!, 'password')}
+                    >
+                      {copied === 'password' ? (
+                        <CheckCircle className="w-4 h-4 text-success" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
                     </Button>
                   </div>
                 )}
 
-                {state === 'disconnected' && (
-                  <div className="flex flex-col items-center gap-4 text-center">
-                    <Power className="w-16 h-16 text-text-muted" />
-                    <div>
-                      <h3 className="text-xl font-semibold text-text-primary mb-2">
-                        Disconnected
-                      </h3>
-                      <p className="text-text-muted">The console session has ended</p>
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    onClick={() => copyToClipboard(connectionAddress, 'address')}
+                  >
+                    <Copy className="w-4 h-4" />
+                    {copied === 'address' ? 'Copied!' : 'Copy Address'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={generateVncFile}
+                    title="Download .vnc file for TightVNC/RealVNC"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download .vnc
+                  </Button>
+                </div>
+
+                {/* Quick Connect Instructions */}
+                <div className="bg-bg-surface rounded-lg p-4 border border-border">
+                  <h4 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-2">
+                    <Terminal className="w-4 h-4" />
+                    Quick Connect Commands
+                  </h4>
+                  <div className="space-y-2 text-xs font-mono">
+                    <div className="flex items-center gap-3">
+                      <span className="text-text-muted w-16">Windows:</span>
+                      <code className="text-text-secondary bg-bg-base px-2 py-1 rounded flex-1">
+                        Open TightVNC Viewer → paste {connectionAddress}
+                      </code>
                     </div>
-                    <Button variant="primary" onClick={connect}>
-                      <RefreshCw className="w-4 h-4" />
-                      Reconnect
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <span className="text-text-muted w-16">Linux:</span>
+                      <code className="text-text-secondary bg-bg-base px-2 py-1 rounded flex-1">
+                        vncviewer {connectionAddress}
+                      </code>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-text-muted w-16">macOS:</span>
+                      <code className="text-text-secondary bg-bg-base px-2 py-1 rounded flex-1">
+                        open vnc://{connectionAddress}
+                      </code>
+                    </div>
                   </div>
-                )}
+                </div>
+
+                {/* Info Box */}
+                <div className="text-xs text-text-muted p-3 bg-accent/5 border border-accent/20 rounded-lg">
+                  <strong>💡 Tip:</strong> You can download TightVNC Viewer for free from{' '}
+                  <a 
+                    href="https://www.tightvnc.com/download.php" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-accent hover:underline"
+                  >
+                    tightvnc.com
+                  </a>
+                  . On macOS, the built-in Screen Sharing app supports VNC.
+                </div>
+
+                {/* Future Enhancement Notice */}
+                <div className="text-xs text-text-muted text-center pt-2 border-t border-border">
+                  <span className="opacity-60">
+                    🚀 Browser-based console (noVNC) coming in a future update
+                  </span>
+                </div>
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-4 py-1.5 bg-bg-surface border-t border-border text-xs text-text-muted shrink-0">
-            <div className="flex items-center gap-4">
-              <span>Press Escape to close</span>
-              {state === 'connected' && (
-                <span className="flex items-center gap-1">
-                  <Keyboard className="w-3 h-3" />
-                  Ctrl+Alt+Del available
-                </span>
-              )}
-            </div>
+          <div className="flex items-center justify-between px-4 py-2 bg-bg-surface border-t border-border text-xs text-text-muted">
+            <span>Press Escape to close</span>
             <span>VM: {vmId.slice(0, 8)}...</span>
           </div>
         </motion.div>
