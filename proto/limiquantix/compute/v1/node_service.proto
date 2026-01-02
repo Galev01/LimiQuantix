@@ -115,6 +115,12 @@ message RegisterNodeRequest {
   
   // Memory information from telemetry
   MemoryInfo memory_info = 8;
+  
+  // Storage devices detected on the node
+  repeated StorageDevice storage_devices = 9;
+  
+  // Network interfaces detected on the node
+  repeated NetworkDevice network_devices = 10;
 }
 
 // GetNode

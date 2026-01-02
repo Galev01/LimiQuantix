@@ -43,8 +43,11 @@ export interface Node {
   managementIp: string;
   labels: Record<string, string>;
   spec: {
-    cpu: { model: string; totalCores: number; threads: number };
+    cpu: { model: string; sockets?: number; coresPerSocket?: number; threadsPerCore?: number; totalCores: number; threads?: number; features?: string[] };
     memory: { totalBytes: number; allocatableBytes: number };
+    storage: Array<{ name: string; type: string; sizeBytes: number; path?: string }>;
+    networks: Array<{ name: string; macAddress?: string; speedMbps?: number }>;
+    role: { compute: boolean; storage: boolean; controlPlane: boolean };
   };
   status: {
     phase: 'READY' | 'NOT_READY' | 'MAINTENANCE' | 'DRAINING';
@@ -54,8 +57,12 @@ export interface Node {
       cpuUsagePercent: number;
       memoryAllocatedBytes: number;
       memoryUsedBytes: number;
+      storageUsedBytes?: number;
     };
+    conditions?: Array<{ type: string; status: boolean; message: string; lastTransitionTime?: string }>;
+    systemInfo?: { osName: string; kernelVersion: string; hypervisorVersion: string; agentVersion: string };
   };
+  createdAt?: string;
 }
 
 export interface StoragePool {
@@ -299,6 +306,15 @@ export const mockNodes: Node[] = [
     spec: {
       cpu: { model: 'AMD EPYC 7742', totalCores: 64, threads: 128 },
       memory: { totalBytes: 549_755_813_888, allocatableBytes: 515_396_075_520 },
+      storage: [
+        { name: 'nvme0n1', type: 'NVMe SSD', sizeBytes: 1_000_000_000_000, path: '/dev/nvme0n1' },
+        { name: 'nvme1n1', type: 'NVMe SSD', sizeBytes: 1_000_000_000_000, path: '/dev/nvme1n1' },
+      ],
+      networks: [
+        { name: 'eno1', macAddress: '00:11:22:33:44:55', speedMbps: 25000 },
+        { name: 'enp65s0f0', macAddress: '00:11:22:33:44:56', speedMbps: 100000 },
+      ],
+      role: { compute: true, storage: false, controlPlane: false },
     },
     status: {
       phase: 'READY',
@@ -319,6 +335,15 @@ export const mockNodes: Node[] = [
     spec: {
       cpu: { model: 'AMD EPYC 7742', totalCores: 64, threads: 128 },
       memory: { totalBytes: 549_755_813_888, allocatableBytes: 515_396_075_520 },
+      storage: [
+        { name: 'nvme0n1', type: 'NVMe SSD', sizeBytes: 1_000_000_000_000, path: '/dev/nvme0n1' },
+        { name: 'nvme1n1', type: 'NVMe SSD', sizeBytes: 1_000_000_000_000, path: '/dev/nvme1n1' },
+      ],
+      networks: [
+        { name: 'eno1', macAddress: '00:11:22:33:44:57', speedMbps: 25000 },
+        { name: 'enp65s0f0', macAddress: '00:11:22:33:44:58', speedMbps: 100000 },
+      ],
+      role: { compute: true, storage: false, controlPlane: false },
     },
     status: {
       phase: 'READY',
@@ -339,6 +364,13 @@ export const mockNodes: Node[] = [
     spec: {
       cpu: { model: 'Intel Xeon Gold 6348', totalCores: 56, threads: 112 },
       memory: { totalBytes: 274_877_906_944, allocatableBytes: 257_698_037_760 },
+      storage: [
+        { name: 'nvme0n1', type: 'NVMe SSD', sizeBytes: 2_000_000_000_000, path: '/dev/nvme0n1' },
+      ],
+      networks: [
+        { name: 'eno1', macAddress: '00:11:22:33:44:59', speedMbps: 25000 },
+      ],
+      role: { compute: true, storage: false, controlPlane: false },
     },
     status: {
       phase: 'READY',
@@ -359,6 +391,14 @@ export const mockNodes: Node[] = [
     spec: {
       cpu: { model: 'AMD EPYC 7763', totalCores: 64, threads: 128 },
       memory: { totalBytes: 1_099_511_627_776, allocatableBytes: 1_030_792_151_040 },
+      storage: [
+        { name: 'nvme0n1', type: 'NVMe SSD', sizeBytes: 4_000_000_000_000, path: '/dev/nvme0n1' },
+        { name: 'nvme1n1', type: 'NVMe SSD', sizeBytes: 4_000_000_000_000, path: '/dev/nvme1n1' },
+      ],
+      networks: [
+        { name: 'eno1', macAddress: '00:11:22:33:44:60', speedMbps: 100000 },
+      ],
+      role: { compute: true, storage: false, controlPlane: false },
     },
     status: {
       phase: 'READY',

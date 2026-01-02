@@ -270,8 +270,22 @@ export interface ApiNode {
       threadsPerCore?: number;
     };
     memory?: {
-      totalMib?: number;
+      totalBytes?: number;
+      allocatableBytes?: number;
     };
+    storage?: Array<{
+      path?: string;
+      model?: string;
+      sizeBytes?: number;
+      type?: string; // HDD, SSD, NVME
+    }>;
+    network?: Array<{
+      name?: string;
+      macAddress?: string;
+      speedMbps?: number;
+      mtu?: number;
+      sriovCapable?: boolean;
+    }>;
   };
   status?: {
     phase?: string;
@@ -280,11 +294,15 @@ export interface ApiNode {
       status?: boolean;
       message?: string;
     }>;
-    allocation?: {
-      cpuAllocated?: number;
-      cpuCapacity?: number;
-      memoryAllocatedMib?: number;
-      memoryCapacityMib?: number;
+    resources?: {
+      cpu?: {
+        allocatableVcpus?: number;
+        allocatedVcpus?: number;
+      };
+      memory?: {
+        allocatableBytes?: number;
+        allocatedBytes?: number;
+      };
     };
     vmIds?: string[];
   };

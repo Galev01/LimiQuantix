@@ -73,18 +73,18 @@ export function isNodeReady(node: ApiNode): boolean {
  * Helper to get node CPU usage percentage
  */
 export function getNodeCPUUsage(node: ApiNode): number {
-  const allocation = node.status?.allocation;
-  if (!allocation?.cpuCapacity || allocation.cpuCapacity === 0) return 0;
-  return Math.round((allocation.cpuAllocated || 0) / allocation.cpuCapacity * 100);
+  const resources = node.status?.resources;
+  if (!resources?.cpu?.allocatableVcpus || resources.cpu.allocatableVcpus === 0) return 0;
+  return Math.round((resources.cpu.allocatedVcpus || 0) / resources.cpu.allocatableVcpus * 100);
 }
 
 /**
  * Helper to get node memory usage percentage
  */
 export function getNodeMemoryUsage(node: ApiNode): number {
-  const allocation = node.status?.allocation;
-  if (!allocation?.memoryCapacityMib || allocation.memoryCapacityMib === 0) return 0;
-  return Math.round((allocation.memoryAllocatedMib || 0) / allocation.memoryCapacityMib * 100);
+  const resources = node.status?.resources;
+  if (!resources?.memory?.allocatableBytes || resources.memory.allocatableBytes === 0) return 0;
+  return Math.round((resources.memory.allocatedBytes || 0) / resources.memory.allocatableBytes * 100);
 }
 
 // Re-export types

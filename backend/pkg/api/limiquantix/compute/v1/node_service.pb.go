@@ -89,9 +89,13 @@ type RegisterNodeRequest struct {
 	// CPU information from telemetry
 	CpuInfo *CpuInfo `protobuf:"bytes,7,opt,name=cpu_info,json=cpuInfo,proto3" json:"cpu_info,omitempty"`
 	// Memory information from telemetry
-	MemoryInfo    *MemoryInfo `protobuf:"bytes,8,opt,name=memory_info,json=memoryInfo,proto3" json:"memory_info,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	MemoryInfo *MemoryInfo `protobuf:"bytes,8,opt,name=memory_info,json=memoryInfo,proto3" json:"memory_info,omitempty"`
+	// Storage devices detected on the node
+	StorageDevices []*StorageDevice `protobuf:"bytes,9,rep,name=storage_devices,json=storageDevices,proto3" json:"storage_devices,omitempty"`
+	// Network interfaces detected on the node
+	NetworkDevices []*NetworkDevice `protobuf:"bytes,10,rep,name=network_devices,json=networkDevices,proto3" json:"network_devices,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *RegisterNodeRequest) Reset() {
@@ -176,6 +180,20 @@ func (x *RegisterNodeRequest) GetCpuInfo() *CpuInfo {
 func (x *RegisterNodeRequest) GetMemoryInfo() *MemoryInfo {
 	if x != nil {
 		return x.MemoryInfo
+	}
+	return nil
+}
+
+func (x *RegisterNodeRequest) GetStorageDevices() []*StorageDevice {
+	if x != nil {
+		return x.StorageDevices
+	}
+	return nil
+}
+
+func (x *RegisterNodeRequest) GetNetworkDevices() []*NetworkDevice {
+	if x != nil {
+		return x.NetworkDevices
 	}
 	return nil
 }
@@ -1636,7 +1654,7 @@ var File_limiquantix_compute_v1_node_service_proto protoreflect.FileDescriptor
 
 const file_limiquantix_compute_v1_node_service_proto_rawDesc = "" +
 	"\n" +
-	")limiquantix/compute/v1/node_service.proto\x12\x16limiquantix.compute.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a!limiquantix/compute/v1/node.proto\"\xf7\x03\n" +
+	")limiquantix/compute/v1/node_service.proto\x12\x16limiquantix.compute.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a!limiquantix/compute/v1/node.proto\"\x97\x05\n" +
 	"\x13RegisterNodeRequest\x12\x1a\n" +
 	"\bhostname\x18\x01 \x01(\tR\bhostname\x12#\n" +
 	"\rmanagement_ip\x18\x02 \x01(\tR\fmanagementIp\x12O\n" +
@@ -1646,7 +1664,10 @@ const file_limiquantix_compute_v1_node_service_proto_rawDesc = "" +
 	"\x0eagent_endpoint\x18\x06 \x01(\tR\ragentEndpoint\x12:\n" +
 	"\bcpu_info\x18\a \x01(\v2\x1f.limiquantix.compute.v1.CpuInfoR\acpuInfo\x12C\n" +
 	"\vmemory_info\x18\b \x01(\v2\".limiquantix.compute.v1.MemoryInfoR\n" +
-	"memoryInfo\x1a9\n" +
+	"memoryInfo\x12N\n" +
+	"\x0fstorage_devices\x18\t \x03(\v2%.limiquantix.compute.v1.StorageDeviceR\x0estorageDevices\x12N\n" +
+	"\x0fnetwork_devices\x18\n" +
+	" \x03(\v2%.limiquantix.compute.v1.NetworkDeviceR\x0enetworkDevices\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\" \n" +
@@ -1843,13 +1864,15 @@ var file_limiquantix_compute_v1_node_service_proto_goTypes = []any{
 	(*Taint)(nil),                   // 29: limiquantix.compute.v1.Taint
 	(*CpuInfo)(nil),                 // 30: limiquantix.compute.v1.CpuInfo
 	(*MemoryInfo)(nil),              // 31: limiquantix.compute.v1.MemoryInfo
-	(NodeStatus_Phase)(0),           // 32: limiquantix.compute.v1.NodeStatus.Phase
-	(*Node)(nil),                    // 33: limiquantix.compute.v1.Node
-	(*SchedulingConfig)(nil),        // 34: limiquantix.compute.v1.SchedulingConfig
-	(*fieldmaskpb.FieldMask)(nil),   // 35: google.protobuf.FieldMask
-	(NodeEvent_EventType)(0),        // 36: limiquantix.compute.v1.NodeEvent.EventType
-	(*NodeEvent)(nil),               // 37: limiquantix.compute.v1.NodeEvent
-	(*emptypb.Empty)(nil),           // 38: google.protobuf.Empty
+	(*StorageDevice)(nil),           // 32: limiquantix.compute.v1.StorageDevice
+	(*NetworkDevice)(nil),           // 33: limiquantix.compute.v1.NetworkDevice
+	(NodeStatus_Phase)(0),           // 34: limiquantix.compute.v1.NodeStatus.Phase
+	(*Node)(nil),                    // 35: limiquantix.compute.v1.Node
+	(*SchedulingConfig)(nil),        // 36: limiquantix.compute.v1.SchedulingConfig
+	(*fieldmaskpb.FieldMask)(nil),   // 37: google.protobuf.FieldMask
+	(NodeEvent_EventType)(0),        // 38: limiquantix.compute.v1.NodeEvent.EventType
+	(*NodeEvent)(nil),               // 39: limiquantix.compute.v1.NodeEvent
+	(*emptypb.Empty)(nil),           // 40: google.protobuf.Empty
 }
 var file_limiquantix_compute_v1_node_service_proto_depIdxs = []int32{
 	24, // 0: limiquantix.compute.v1.RegisterNodeRequest.labels:type_name -> limiquantix.compute.v1.RegisterNodeRequest.LabelsEntry
@@ -1857,58 +1880,60 @@ var file_limiquantix_compute_v1_node_service_proto_depIdxs = []int32{
 	29, // 2: limiquantix.compute.v1.RegisterNodeRequest.taints:type_name -> limiquantix.compute.v1.Taint
 	30, // 3: limiquantix.compute.v1.RegisterNodeRequest.cpu_info:type_name -> limiquantix.compute.v1.CpuInfo
 	31, // 4: limiquantix.compute.v1.RegisterNodeRequest.memory_info:type_name -> limiquantix.compute.v1.MemoryInfo
-	25, // 5: limiquantix.compute.v1.ListNodesRequest.labels:type_name -> limiquantix.compute.v1.ListNodesRequest.LabelsEntry
-	32, // 6: limiquantix.compute.v1.ListNodesRequest.phases:type_name -> limiquantix.compute.v1.NodeStatus.Phase
-	33, // 7: limiquantix.compute.v1.ListNodesResponse.nodes:type_name -> limiquantix.compute.v1.Node
-	34, // 8: limiquantix.compute.v1.UpdateNodeRequest.scheduling:type_name -> limiquantix.compute.v1.SchedulingConfig
-	28, // 9: limiquantix.compute.v1.UpdateNodeRequest.role:type_name -> limiquantix.compute.v1.NodeRole
-	35, // 10: limiquantix.compute.v1.UpdateNodeRequest.update_mask:type_name -> google.protobuf.FieldMask
-	33, // 11: limiquantix.compute.v1.DrainNodeResponse.node:type_name -> limiquantix.compute.v1.Node
-	11, // 12: limiquantix.compute.v1.DrainNodeResponse.failures:type_name -> limiquantix.compute.v1.DrainFailure
-	29, // 13: limiquantix.compute.v1.AddTaintRequest.taint:type_name -> limiquantix.compute.v1.Taint
-	26, // 14: limiquantix.compute.v1.UpdateLabelsRequest.add_labels:type_name -> limiquantix.compute.v1.UpdateLabelsRequest.AddLabelsEntry
-	36, // 15: limiquantix.compute.v1.ListNodeEventsRequest.types:type_name -> limiquantix.compute.v1.NodeEvent.EventType
-	37, // 16: limiquantix.compute.v1.ListNodeEventsResponse.events:type_name -> limiquantix.compute.v1.NodeEvent
-	27, // 17: limiquantix.compute.v1.WatchNodesRequest.labels:type_name -> limiquantix.compute.v1.WatchNodesRequest.LabelsEntry
-	0,  // 18: limiquantix.compute.v1.NodeUpdate.type:type_name -> limiquantix.compute.v1.NodeUpdate.UpdateType
-	33, // 19: limiquantix.compute.v1.NodeUpdate.node:type_name -> limiquantix.compute.v1.Node
-	1,  // 20: limiquantix.compute.v1.NodeService.RegisterNode:input_type -> limiquantix.compute.v1.RegisterNodeRequest
-	2,  // 21: limiquantix.compute.v1.NodeService.GetNode:input_type -> limiquantix.compute.v1.GetNodeRequest
-	3,  // 22: limiquantix.compute.v1.NodeService.ListNodes:input_type -> limiquantix.compute.v1.ListNodesRequest
-	5,  // 23: limiquantix.compute.v1.NodeService.UpdateNode:input_type -> limiquantix.compute.v1.UpdateNodeRequest
-	6,  // 24: limiquantix.compute.v1.NodeService.DecommissionNode:input_type -> limiquantix.compute.v1.DecommissionNodeRequest
-	7,  // 25: limiquantix.compute.v1.NodeService.EnableNode:input_type -> limiquantix.compute.v1.EnableNodeRequest
-	8,  // 26: limiquantix.compute.v1.NodeService.DisableNode:input_type -> limiquantix.compute.v1.DisableNodeRequest
-	9,  // 27: limiquantix.compute.v1.NodeService.DrainNode:input_type -> limiquantix.compute.v1.DrainNodeRequest
-	12, // 28: limiquantix.compute.v1.NodeService.AddTaint:input_type -> limiquantix.compute.v1.AddTaintRequest
-	13, // 29: limiquantix.compute.v1.NodeService.RemoveTaint:input_type -> limiquantix.compute.v1.RemoveTaintRequest
-	14, // 30: limiquantix.compute.v1.NodeService.UpdateLabels:input_type -> limiquantix.compute.v1.UpdateLabelsRequest
-	15, // 31: limiquantix.compute.v1.NodeService.UpdateHeartbeat:input_type -> limiquantix.compute.v1.UpdateHeartbeatRequest
-	17, // 32: limiquantix.compute.v1.NodeService.GetNodeMetrics:input_type -> limiquantix.compute.v1.GetNodeMetricsRequest
-	19, // 33: limiquantix.compute.v1.NodeService.ListNodeEvents:input_type -> limiquantix.compute.v1.ListNodeEventsRequest
-	21, // 34: limiquantix.compute.v1.NodeService.WatchNode:input_type -> limiquantix.compute.v1.WatchNodeRequest
-	22, // 35: limiquantix.compute.v1.NodeService.WatchNodes:input_type -> limiquantix.compute.v1.WatchNodesRequest
-	33, // 36: limiquantix.compute.v1.NodeService.RegisterNode:output_type -> limiquantix.compute.v1.Node
-	33, // 37: limiquantix.compute.v1.NodeService.GetNode:output_type -> limiquantix.compute.v1.Node
-	4,  // 38: limiquantix.compute.v1.NodeService.ListNodes:output_type -> limiquantix.compute.v1.ListNodesResponse
-	33, // 39: limiquantix.compute.v1.NodeService.UpdateNode:output_type -> limiquantix.compute.v1.Node
-	38, // 40: limiquantix.compute.v1.NodeService.DecommissionNode:output_type -> google.protobuf.Empty
-	33, // 41: limiquantix.compute.v1.NodeService.EnableNode:output_type -> limiquantix.compute.v1.Node
-	33, // 42: limiquantix.compute.v1.NodeService.DisableNode:output_type -> limiquantix.compute.v1.Node
-	10, // 43: limiquantix.compute.v1.NodeService.DrainNode:output_type -> limiquantix.compute.v1.DrainNodeResponse
-	33, // 44: limiquantix.compute.v1.NodeService.AddTaint:output_type -> limiquantix.compute.v1.Node
-	33, // 45: limiquantix.compute.v1.NodeService.RemoveTaint:output_type -> limiquantix.compute.v1.Node
-	33, // 46: limiquantix.compute.v1.NodeService.UpdateLabels:output_type -> limiquantix.compute.v1.Node
-	16, // 47: limiquantix.compute.v1.NodeService.UpdateHeartbeat:output_type -> limiquantix.compute.v1.UpdateHeartbeatResponse
-	18, // 48: limiquantix.compute.v1.NodeService.GetNodeMetrics:output_type -> limiquantix.compute.v1.NodeMetrics
-	20, // 49: limiquantix.compute.v1.NodeService.ListNodeEvents:output_type -> limiquantix.compute.v1.ListNodeEventsResponse
-	33, // 50: limiquantix.compute.v1.NodeService.WatchNode:output_type -> limiquantix.compute.v1.Node
-	23, // 51: limiquantix.compute.v1.NodeService.WatchNodes:output_type -> limiquantix.compute.v1.NodeUpdate
-	36, // [36:52] is the sub-list for method output_type
-	20, // [20:36] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	32, // 5: limiquantix.compute.v1.RegisterNodeRequest.storage_devices:type_name -> limiquantix.compute.v1.StorageDevice
+	33, // 6: limiquantix.compute.v1.RegisterNodeRequest.network_devices:type_name -> limiquantix.compute.v1.NetworkDevice
+	25, // 7: limiquantix.compute.v1.ListNodesRequest.labels:type_name -> limiquantix.compute.v1.ListNodesRequest.LabelsEntry
+	34, // 8: limiquantix.compute.v1.ListNodesRequest.phases:type_name -> limiquantix.compute.v1.NodeStatus.Phase
+	35, // 9: limiquantix.compute.v1.ListNodesResponse.nodes:type_name -> limiquantix.compute.v1.Node
+	36, // 10: limiquantix.compute.v1.UpdateNodeRequest.scheduling:type_name -> limiquantix.compute.v1.SchedulingConfig
+	28, // 11: limiquantix.compute.v1.UpdateNodeRequest.role:type_name -> limiquantix.compute.v1.NodeRole
+	37, // 12: limiquantix.compute.v1.UpdateNodeRequest.update_mask:type_name -> google.protobuf.FieldMask
+	35, // 13: limiquantix.compute.v1.DrainNodeResponse.node:type_name -> limiquantix.compute.v1.Node
+	11, // 14: limiquantix.compute.v1.DrainNodeResponse.failures:type_name -> limiquantix.compute.v1.DrainFailure
+	29, // 15: limiquantix.compute.v1.AddTaintRequest.taint:type_name -> limiquantix.compute.v1.Taint
+	26, // 16: limiquantix.compute.v1.UpdateLabelsRequest.add_labels:type_name -> limiquantix.compute.v1.UpdateLabelsRequest.AddLabelsEntry
+	38, // 17: limiquantix.compute.v1.ListNodeEventsRequest.types:type_name -> limiquantix.compute.v1.NodeEvent.EventType
+	39, // 18: limiquantix.compute.v1.ListNodeEventsResponse.events:type_name -> limiquantix.compute.v1.NodeEvent
+	27, // 19: limiquantix.compute.v1.WatchNodesRequest.labels:type_name -> limiquantix.compute.v1.WatchNodesRequest.LabelsEntry
+	0,  // 20: limiquantix.compute.v1.NodeUpdate.type:type_name -> limiquantix.compute.v1.NodeUpdate.UpdateType
+	35, // 21: limiquantix.compute.v1.NodeUpdate.node:type_name -> limiquantix.compute.v1.Node
+	1,  // 22: limiquantix.compute.v1.NodeService.RegisterNode:input_type -> limiquantix.compute.v1.RegisterNodeRequest
+	2,  // 23: limiquantix.compute.v1.NodeService.GetNode:input_type -> limiquantix.compute.v1.GetNodeRequest
+	3,  // 24: limiquantix.compute.v1.NodeService.ListNodes:input_type -> limiquantix.compute.v1.ListNodesRequest
+	5,  // 25: limiquantix.compute.v1.NodeService.UpdateNode:input_type -> limiquantix.compute.v1.UpdateNodeRequest
+	6,  // 26: limiquantix.compute.v1.NodeService.DecommissionNode:input_type -> limiquantix.compute.v1.DecommissionNodeRequest
+	7,  // 27: limiquantix.compute.v1.NodeService.EnableNode:input_type -> limiquantix.compute.v1.EnableNodeRequest
+	8,  // 28: limiquantix.compute.v1.NodeService.DisableNode:input_type -> limiquantix.compute.v1.DisableNodeRequest
+	9,  // 29: limiquantix.compute.v1.NodeService.DrainNode:input_type -> limiquantix.compute.v1.DrainNodeRequest
+	12, // 30: limiquantix.compute.v1.NodeService.AddTaint:input_type -> limiquantix.compute.v1.AddTaintRequest
+	13, // 31: limiquantix.compute.v1.NodeService.RemoveTaint:input_type -> limiquantix.compute.v1.RemoveTaintRequest
+	14, // 32: limiquantix.compute.v1.NodeService.UpdateLabels:input_type -> limiquantix.compute.v1.UpdateLabelsRequest
+	15, // 33: limiquantix.compute.v1.NodeService.UpdateHeartbeat:input_type -> limiquantix.compute.v1.UpdateHeartbeatRequest
+	17, // 34: limiquantix.compute.v1.NodeService.GetNodeMetrics:input_type -> limiquantix.compute.v1.GetNodeMetricsRequest
+	19, // 35: limiquantix.compute.v1.NodeService.ListNodeEvents:input_type -> limiquantix.compute.v1.ListNodeEventsRequest
+	21, // 36: limiquantix.compute.v1.NodeService.WatchNode:input_type -> limiquantix.compute.v1.WatchNodeRequest
+	22, // 37: limiquantix.compute.v1.NodeService.WatchNodes:input_type -> limiquantix.compute.v1.WatchNodesRequest
+	35, // 38: limiquantix.compute.v1.NodeService.RegisterNode:output_type -> limiquantix.compute.v1.Node
+	35, // 39: limiquantix.compute.v1.NodeService.GetNode:output_type -> limiquantix.compute.v1.Node
+	4,  // 40: limiquantix.compute.v1.NodeService.ListNodes:output_type -> limiquantix.compute.v1.ListNodesResponse
+	35, // 41: limiquantix.compute.v1.NodeService.UpdateNode:output_type -> limiquantix.compute.v1.Node
+	40, // 42: limiquantix.compute.v1.NodeService.DecommissionNode:output_type -> google.protobuf.Empty
+	35, // 43: limiquantix.compute.v1.NodeService.EnableNode:output_type -> limiquantix.compute.v1.Node
+	35, // 44: limiquantix.compute.v1.NodeService.DisableNode:output_type -> limiquantix.compute.v1.Node
+	10, // 45: limiquantix.compute.v1.NodeService.DrainNode:output_type -> limiquantix.compute.v1.DrainNodeResponse
+	35, // 46: limiquantix.compute.v1.NodeService.AddTaint:output_type -> limiquantix.compute.v1.Node
+	35, // 47: limiquantix.compute.v1.NodeService.RemoveTaint:output_type -> limiquantix.compute.v1.Node
+	35, // 48: limiquantix.compute.v1.NodeService.UpdateLabels:output_type -> limiquantix.compute.v1.Node
+	16, // 49: limiquantix.compute.v1.NodeService.UpdateHeartbeat:output_type -> limiquantix.compute.v1.UpdateHeartbeatResponse
+	18, // 50: limiquantix.compute.v1.NodeService.GetNodeMetrics:output_type -> limiquantix.compute.v1.NodeMetrics
+	20, // 51: limiquantix.compute.v1.NodeService.ListNodeEvents:output_type -> limiquantix.compute.v1.ListNodeEventsResponse
+	35, // 52: limiquantix.compute.v1.NodeService.WatchNode:output_type -> limiquantix.compute.v1.Node
+	23, // 53: limiquantix.compute.v1.NodeService.WatchNodes:output_type -> limiquantix.compute.v1.NodeUpdate
+	38, // [38:54] is the sub-list for method output_type
+	22, // [22:38] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_limiquantix_compute_v1_node_service_proto_init() }

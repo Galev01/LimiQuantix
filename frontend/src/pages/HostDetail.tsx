@@ -58,11 +58,20 @@ function apiToDisplayNode(apiNode: ApiNode): MockNode {
         features: [],
       },
       memory: {
-        totalBytes: (apiNode.spec?.memory?.totalMib || 0) * 1024 * 1024,
-        allocatableBytes: (apiNode.spec?.memory?.totalMib || 0) * 1024 * 1024 * 0.9,
+        totalBytes: apiNode.spec?.memory?.totalBytes || 0,
+        allocatableBytes: apiNode.spec?.memory?.allocatableBytes || 0,
       },
-      storage: [],
-      networks: [],
+      storage: (apiNode.spec?.storage || []).map((s) => ({
+        name: s.model || s.path || 'Unknown',
+        type: s.type || 'HDD',
+        sizeBytes: s.sizeBytes || 0,
+        path: s.path,
+      })),
+      networks: (apiNode.spec?.network || []).map((n) => ({
+        name: n.name || 'Unknown',
+        macAddress: n.macAddress,
+        speedMbps: n.speedMbps,
+      })),
       role: { compute: true, storage: false, controlPlane: false },
     },
     status: {
@@ -74,9 +83,9 @@ function apiToDisplayNode(apiNode: ApiNode): MockNode {
         lastTransitionTime: '',
       })),
       resources: {
-        cpuAllocatedCores: apiNode.status?.allocation?.cpuAllocated || 0,
-        cpuUsedPercent: 0,
-        memoryAllocatedBytes: (apiNode.status?.allocation?.memoryAllocatedMib || 0) * 1024 * 1024,
+        cpuAllocatedCores: apiNode.status?.resources?.cpu?.allocatedVcpus || 0,
+        cpuUsagePercent: 0,
+        memoryAllocatedBytes: apiNode.status?.resources?.memory?.allocatedBytes || 0,
         memoryUsedBytes: 0,
         storageUsedBytes: 0,
       },
@@ -275,14 +284,22 @@ export function HostDetail() {
                   <HardwareCard
                     icon={<HardDrive className="w-5 h-5" />}
                     label="Storage"
-                    value="2.4 TB"
-                    subvalue="4x NVMe SSDs"
+                    value={node.spec.storage.length > 0 
+                      ? formatBytes(node.spec.storage.reduce((sum, s) => sum + (s.sizeBytes || 0), 0))
+                      : 'Not reported'}
+                    subvalue={node.spec.storage.length > 0 
+                      ? `${node.spec.storage.length}x ${node.spec.storage[0]?.type || 'Disk'}` 
+                      : 'No storage devices'}
                   />
                   <HardwareCard
                     icon={<Network className="w-5 h-5" />}
                     label="Network"
-                    value="100 Gbps"
-                    subvalue="2x Mellanox CX-6"
+                    value={node.spec.networks.length > 0
+                      ? `${node.spec.networks.length} interface(s)`
+                      : 'Not reported'}
+                    subvalue={node.spec.networks.length > 0
+                      ? node.spec.networks.map(n => n.name).join(', ')
+                      : 'No network devices'}
                   />
                 </div>
               </div>
@@ -467,23 +484,22 @@ export function HostDetail() {
                 Local Storage
               </h3>
               <div className="space-y-4">
-                {[
-                  { device: 'nvme0n1', size: '960 GB', type: 'NVMe SSD', model: 'Samsung PM9A3' },
-                  { device: 'nvme1n1', size: '960 GB', type: 'NVMe SSD', model: 'Samsung PM9A3' },
-                  { device: 'nvme2n1', size: '960 GB', type: 'NVMe SSD', model: 'Samsung PM9A3' },
-                  { device: 'nvme3n1', size: '960 GB', type: 'NVMe SSD', model: 'Samsung PM9A3' },
-                ].map((disk) => (
-                  <div key={disk.device} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-text-primary font-mono">/dev/{disk.device}</p>
-                      <p className="text-xs text-text-muted">{disk.model}</p>
+                {node.spec.storage.length > 0 ? (
+                  node.spec.storage.map((disk, idx) => (
+                    <div key={disk.path || idx} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div>
+                        <p className="text-sm font-medium text-text-primary font-mono">{disk.path || disk.name}</p>
+                        <p className="text-xs text-text-muted">{disk.name}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-text-primary">{formatBytes(disk.sizeBytes)}</p>
+                        <p className="text-xs text-text-muted">{disk.type}</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-text-primary">{disk.size}</p>
-                      <p className="text-xs text-text-muted">{disk.type}</p>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-text-muted">No storage devices reported</p>
+                )}
               </div>
             </div>
 
@@ -494,23 +510,21 @@ export function HostDetail() {
                 Network Interfaces
               </h3>
               <div className="space-y-4">
-                {[
-                  { name: 'eno1', ip: node.managementIp, speed: '25 Gbps', type: 'Management' },
-                  { name: 'eno2', ip: '10.0.0.11', speed: '25 Gbps', type: 'Storage' },
-                  { name: 'enp65s0f0', ip: '192.168.100.11', speed: '100 Gbps', type: 'VM Traffic' },
-                  { name: 'enp65s0f1', ip: '192.168.100.12', speed: '100 Gbps', type: 'VM Traffic' },
-                ].map((nic) => (
-                  <div key={nic.name} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-text-primary font-mono">{nic.name}</p>
-                      <p className="text-xs text-text-muted">{nic.type}</p>
+                {node.spec.networks.length > 0 ? (
+                  node.spec.networks.map((nic, idx) => (
+                    <div key={nic.name || idx} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div>
+                        <p className="text-sm font-medium text-text-primary font-mono">{nic.name}</p>
+                        <p className="text-xs text-text-muted">{nic.macAddress || 'Unknown MAC'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-text-primary">{nic.speedMbps ? `${nic.speedMbps >= 1000 ? (nic.speedMbps / 1000) + ' Gbps' : nic.speedMbps + ' Mbps'}` : 'Unknown speed'}</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-text-primary font-mono">{nic.ip}</p>
-                      <p className="text-xs text-text-muted">{nic.speed}</p>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-text-muted">No network interfaces reported</p>
+                )}
               </div>
             </div>
           </div>

@@ -69,6 +69,43 @@ impl RegistrationClient {
             1
         };
         
+        // Build storage devices array from telemetry
+        let storage_devices: Vec<serde_json::Value> = telemetry.disks.iter()
+            .filter(|d| !d.removable && d.total_bytes > 0) // Filter out removable/empty devices
+            .map(|disk| {
+                // Determine device type based on path
+                let device_type = if disk.device.contains("nvme") {
+                    "NVME"
+                } else if disk.device.contains("sd") {
+                    "SSD" // Assume SSD for now, could check rotational
+                } else {
+                    "HDD"
+                };
+                
+                serde_json::json!({
+                    "path": disk.device.clone(),
+                    "model": disk.filesystem.clone(), // Using filesystem as model for now
+                    "sizeBytes": disk.total_bytes,
+                    "type": device_type,
+                    "available": true
+                })
+            })
+            .collect();
+        
+        // Build network devices array from telemetry
+        let network_devices: Vec<serde_json::Value> = telemetry.networks.iter()
+            .filter(|n| !n.name.starts_with("lo") && !n.name.starts_with("docker") && !n.name.starts_with("veth") && !n.name.starts_with("br-"))
+            .map(|nic| {
+                serde_json::json!({
+                    "name": nic.name.clone(),
+                    "macAddress": nic.mac_address.clone(),
+                    "speedMbps": 1000u64, // Default 1Gbps, sysinfo doesn't provide speed
+                    "mtu": 1500u32,       // Default MTU
+                    "sriovCapable": false
+                })
+            })
+            .collect();
+        
         // Build registration request matching the proto format
         // Note: Field names use camelCase for JSON, matching Connect-RPC conventions
         let request = serde_json::json!({
@@ -87,12 +124,14 @@ impl RegistrationClient {
                 "threadsPerCore": threads_per_core as u32,
                 "totalThreads": telemetry.cpu.logical_cores as u32,
                 "frequencyMhz": telemetry.cpu.frequency_mhz,
-                "features": serde_json::Value::Array(vec![])  // CPU features not yet collected
+                "features": serde_json::Value::Array(vec![])
             },
             "memoryInfo": {
                 "totalBytes": telemetry.memory.total_bytes,
                 "allocatableBytes": telemetry.memory.available_bytes
-            }
+            },
+            "storageDevices": storage_devices,
+            "networkDevices": network_devices
         });
         
         let url = format!(

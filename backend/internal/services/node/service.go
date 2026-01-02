@@ -107,6 +107,46 @@ func (s *Service) RegisterNode(
 		)
 	}
 
+	// Populate storage devices from request
+	if len(req.Msg.StorageDevices) > 0 {
+		spec.Storage = make([]domain.StorageDevice, 0, len(req.Msg.StorageDevices))
+		for _, sd := range req.Msg.StorageDevices {
+			deviceType := "HDD"
+			switch sd.Type {
+			case computev1.StorageDevice_SSD:
+				deviceType = "SSD"
+			case computev1.StorageDevice_NVME:
+				deviceType = "NVMe"
+			}
+			spec.Storage = append(spec.Storage, domain.StorageDevice{
+				Name:    sd.Model,
+				Path:    sd.Path,
+				Type:    deviceType,
+				SizeGiB: int64(sd.SizeBytes / 1024 / 1024 / 1024),
+			})
+		}
+		logger.Info("Storage devices received",
+			zap.Int("count", len(spec.Storage)),
+		)
+	}
+
+	// Populate network devices from request
+	if len(req.Msg.NetworkDevices) > 0 {
+		spec.Networks = make([]domain.NetworkAdapter, 0, len(req.Msg.NetworkDevices))
+		for _, nd := range req.Msg.NetworkDevices {
+			spec.Networks = append(spec.Networks, domain.NetworkAdapter{
+				Name:         nd.Name,
+				MACAddress:   nd.MacAddress,
+				SpeedMbps:    int64(nd.SpeedMbps),
+				MTU:          int32(nd.Mtu),
+				SRIOVCapable: nd.SriovCapable,
+			})
+		}
+		logger.Info("Network devices received",
+			zap.Int("count", len(spec.Networks)),
+		)
+	}
+
 	// Calculate allocatable resources for scheduling
 	allocatable := domain.Resources{
 		CPUCores:  spec.CPU.TotalCores(),
