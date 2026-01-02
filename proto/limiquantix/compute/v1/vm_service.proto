@@ -137,6 +137,10 @@ message CreateVMRequest {
   
   // Clone from template
   string template_id = 7;
+  
+  // Optional: Target node ID for explicit placement
+  // If not set, scheduler will choose a node automatically
+  string node_id = 8;
 }
 
 // GetVM

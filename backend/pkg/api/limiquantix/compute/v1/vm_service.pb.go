@@ -38,7 +38,10 @@ type CreateVMRequest struct {
 	// Start VM immediately after creation
 	StartOnCreate bool `protobuf:"varint,6,opt,name=start_on_create,json=startOnCreate,proto3" json:"start_on_create,omitempty"`
 	// Clone from template
-	TemplateId    string `protobuf:"bytes,7,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
+	TemplateId string `protobuf:"bytes,7,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
+	// Optional: Target node ID for explicit placement
+	// If not set, scheduler will choose a node automatically
+	NodeId        string `protobuf:"bytes,8,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -118,6 +121,13 @@ func (x *CreateVMRequest) GetStartOnCreate() bool {
 func (x *CreateVMRequest) GetTemplateId() string {
 	if x != nil {
 		return x.TemplateId
+	}
+	return ""
+}
+
+func (x *CreateVMRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
 	}
 	return ""
 }
@@ -1541,7 +1551,7 @@ var File_limiquantix_compute_v1_vm_service_proto protoreflect.FileDescriptor
 
 const file_limiquantix_compute_v1_vm_service_proto_rawDesc = "" +
 	"\n" +
-	"'limiquantix/compute/v1/vm_service.proto\x12\x16limiquantix.compute.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1flimiquantix/compute/v1/vm.proto\"\xeb\x02\n" +
+	"'limiquantix/compute/v1/vm_service.proto\x12\x16limiquantix.compute.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1flimiquantix/compute/v1/vm.proto\"\x84\x03\n" +
 	"\x0fCreateVMRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
@@ -1551,7 +1561,8 @@ const file_limiquantix_compute_v1_vm_service_proto_rawDesc = "" +
 	"\x04spec\x18\x05 \x01(\v2\x1e.limiquantix.compute.v1.VmSpecR\x04spec\x12&\n" +
 	"\x0fstart_on_create\x18\x06 \x01(\bR\rstartOnCreate\x12\x1f\n" +
 	"\vtemplate_id\x18\a \x01(\tR\n" +
-	"templateId\x1a9\n" +
+	"templateId\x12\x17\n" +
+	"\anode_id\x18\b \x01(\tR\x06nodeId\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x1e\n" +

@@ -90,10 +90,35 @@ func (s *Service) CreateVM(
 		projectID = "00000000-0000-0000-0000-000000000001" // Default project
 	}
 
-	// 3. Schedule VM to a node (if scheduler is available)
+	// 3. Determine target node (explicit placement or scheduler)
 	var targetNodeID string
 	var targetNode *domain.Node
-	if s.scheduler != nil {
+	
+	// Check if explicit node placement was requested
+	if req.Msg.NodeId != "" {
+		targetNodeID = req.Msg.NodeId
+		logger.Info("Using explicit node placement", zap.String("node_id", targetNodeID))
+		// Verify the node exists
+		if s.nodeRepo != nil {
+			node, err := s.nodeRepo.Get(ctx, targetNodeID)
+			if err != nil {
+				logger.Warn("Specified node not found, will try scheduler",
+					zap.String("node_id", targetNodeID),
+					zap.Error(err),
+				)
+				targetNodeID = "" // Reset to allow scheduler fallback
+			} else {
+				targetNode = node
+				logger.Info("VM will be placed on specified node",
+					zap.String("node_id", targetNodeID),
+					zap.String("hostname", node.Hostname),
+				)
+			}
+		}
+	}
+	
+	// If no explicit placement or node not found, use scheduler
+	if targetNodeID == "" && s.scheduler != nil {
 		result, err := s.scheduler.Schedule(ctx, req.Msg.Spec)
 		if err != nil {
 			logger.Warn("Failed to schedule VM", zap.Error(err))
