@@ -824,17 +824,20 @@ func convertToNodeDaemonCreateRequest(vm *domain.VirtualMachine, spec *computev1
 		},
 	}
 
-	// Convert disks
+	// Convert disks - include backing file for cloud images
 	for _, disk := range spec.GetDisks() {
-		req.Spec.Disks = append(req.Spec.Disks, &nodev1.DiskSpec{
-			Id:       disk.GetId(),
-			Path:     disk.GetVolumeId(), // Use volume_id as path
-			SizeGib:  disk.GetSizeGib(),
-			Bus:      nodev1.DiskBus(disk.GetBus()),
-			Format:   nodev1.DiskFormat_DISK_FORMAT_QCOW2, // Default to qcow2
-			Readonly: disk.GetReadonly(),
-			Bootable: disk.GetBootIndex() > 0, // bootable if boot_index > 0
-		})
+		diskSpec := &nodev1.DiskSpec{
+			Id:          disk.GetId(),
+			Path:        disk.GetVolumeId(), // Use volume_id as path
+			SizeGib:     disk.GetSizeGib(),
+			Bus:         nodev1.DiskBus(disk.GetBus()),
+			Format:      nodev1.DiskFormat_DISK_FORMAT_QCOW2, // Default to qcow2
+			Readonly:    disk.GetReadonly(),
+			Bootable:    disk.GetBootIndex() > 0, // bootable if boot_index > 0
+			BackingFile: disk.GetBackingFile(),   // Cloud image path for copy-on-write
+		}
+
+		req.Spec.Disks = append(req.Spec.Disks, diskSpec)
 	}
 
 	// Convert NICs
@@ -852,6 +855,19 @@ func convertToNodeDaemonCreateRequest(vm *domain.VirtualMachine, spec *computev1
 		isVnc := spec.GetDisplay().GetType() == computev1.DisplayConfig_VNC
 		req.Spec.Console = &nodev1.ConsoleSpec{
 			VncEnabled: isVnc,
+		}
+	}
+
+	// Convert cloud-init configuration
+	if spec.GetProvisioning() != nil {
+		cloudInit := spec.GetProvisioning().GetCloudInit()
+		if cloudInit != nil && (cloudInit.GetUserData() != "" || cloudInit.GetMetaData() != "") {
+			req.Spec.CloudInit = &nodev1.CloudInitConfig{
+				UserData:      cloudInit.GetUserData(),
+				MetaData:      cloudInit.GetMetaData(),
+				NetworkConfig: cloudInit.GetNetworkConfig(),
+				VendorData:    cloudInit.GetVendorData(),
+			}
 		}
 	}
 

@@ -235,6 +235,24 @@ message VMSpec {
   
   // Console
   ConsoleSpec console = 11;
+  
+  // Cloud-init / provisioning configuration
+  CloudInitConfig cloud_init = 12;
+}
+
+// Cloud-init configuration for automated VM provisioning
+message CloudInitConfig {
+  // User-data (YAML format, typically #cloud-config)
+  string user_data = 1;
+  
+  // Meta-data (JSON format)
+  string meta_data = 2;
+  
+  // Network configuration (Netplan v2 format, optional)
+  string network_config = 3;
+  
+  // Vendor-data (optional)
+  string vendor_data = 4;
 }
 
 enum Firmware {
@@ -250,7 +268,7 @@ enum BootDevice {
 
 message DiskSpec {
   string id = 1;
-  string path = 2;              // Path to disk image
+  string path = 2;              // Path to disk image (empty = auto-create)
   uint64 size_gib = 3;
   DiskBus bus = 4;
   DiskFormat format = 5;
@@ -260,6 +278,10 @@ message DiskSpec {
   // QoS settings
   uint64 iops_limit = 8;
   uint64 throughput_mbps = 9;
+  
+  // Cloud image support
+  string backing_file = 10;     // Path to backing image (e.g., cloud image)
+                                // If set, creates a copy-on-write overlay
 }
 
 enum DiskBus {

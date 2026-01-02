@@ -230,6 +230,10 @@ message DiskDevice {
 
   // Discard/TRIM support for SSDs
   bool discard_enabled = 11;
+
+  // Cloud image backing file (for copy-on-write overlays)
+  // If set, creates an overlay disk on top of this base image
+  string backing_file = 12;
 }
 
 message CdromDevice {
