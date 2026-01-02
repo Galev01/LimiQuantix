@@ -62,6 +62,8 @@ const (
 	// NodeServiceUpdateHeartbeatProcedure is the fully-qualified name of the NodeService's
 	// UpdateHeartbeat RPC.
 	NodeServiceUpdateHeartbeatProcedure = "/limiquantix.compute.v1.NodeService/UpdateHeartbeat"
+	// NodeServiceSyncNodeVMsProcedure is the fully-qualified name of the NodeService's SyncNodeVMs RPC.
+	NodeServiceSyncNodeVMsProcedure = "/limiquantix.compute.v1.NodeService/SyncNodeVMs"
 	// NodeServiceGetNodeMetricsProcedure is the fully-qualified name of the NodeService's
 	// GetNodeMetrics RPC.
 	NodeServiceGetNodeMetricsProcedure = "/limiquantix.compute.v1.NodeService/GetNodeMetrics"
@@ -102,6 +104,9 @@ type NodeServiceClient interface {
 	// UpdateHeartbeat updates the node's last seen time and resource usage.
 	// Called periodically by the Node Daemon.
 	UpdateHeartbeat(context.Context, *connect.Request[v1.UpdateHeartbeatRequest]) (*connect.Response[v1.UpdateHeartbeatResponse], error)
+	// SyncNodeVMs reports VMs running on a node to the control plane.
+	// Called by the Node Daemon after registration to reconcile state.
+	SyncNodeVMs(context.Context, *connect.Request[v1.SyncNodeVMsRequest]) (*connect.Response[v1.SyncNodeVMsResponse], error)
 	// GetNodeMetrics returns current resource usage.
 	GetNodeMetrics(context.Context, *connect.Request[v1.GetNodeMetricsRequest]) (*connect.Response[v1.NodeMetrics], error)
 	// ListNodeEvents returns recent events for a node.
@@ -195,6 +200,12 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("UpdateHeartbeat")),
 			connect.WithClientOptions(opts...),
 		),
+		syncNodeVMs: connect.NewClient[v1.SyncNodeVMsRequest, v1.SyncNodeVMsResponse](
+			httpClient,
+			baseURL+NodeServiceSyncNodeVMsProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("SyncNodeVMs")),
+			connect.WithClientOptions(opts...),
+		),
 		getNodeMetrics: connect.NewClient[v1.GetNodeMetricsRequest, v1.NodeMetrics](
 			httpClient,
 			baseURL+NodeServiceGetNodeMetricsProcedure,
@@ -236,6 +247,7 @@ type nodeServiceClient struct {
 	removeTaint      *connect.Client[v1.RemoveTaintRequest, v1.Node]
 	updateLabels     *connect.Client[v1.UpdateLabelsRequest, v1.Node]
 	updateHeartbeat  *connect.Client[v1.UpdateHeartbeatRequest, v1.UpdateHeartbeatResponse]
+	syncNodeVMs      *connect.Client[v1.SyncNodeVMsRequest, v1.SyncNodeVMsResponse]
 	getNodeMetrics   *connect.Client[v1.GetNodeMetricsRequest, v1.NodeMetrics]
 	listNodeEvents   *connect.Client[v1.ListNodeEventsRequest, v1.ListNodeEventsResponse]
 	watchNode        *connect.Client[v1.WatchNodeRequest, v1.Node]
@@ -302,6 +314,11 @@ func (c *nodeServiceClient) UpdateHeartbeat(ctx context.Context, req *connect.Re
 	return c.updateHeartbeat.CallUnary(ctx, req)
 }
 
+// SyncNodeVMs calls limiquantix.compute.v1.NodeService.SyncNodeVMs.
+func (c *nodeServiceClient) SyncNodeVMs(ctx context.Context, req *connect.Request[v1.SyncNodeVMsRequest]) (*connect.Response[v1.SyncNodeVMsResponse], error) {
+	return c.syncNodeVMs.CallUnary(ctx, req)
+}
+
 // GetNodeMetrics calls limiquantix.compute.v1.NodeService.GetNodeMetrics.
 func (c *nodeServiceClient) GetNodeMetrics(ctx context.Context, req *connect.Request[v1.GetNodeMetricsRequest]) (*connect.Response[v1.NodeMetrics], error) {
 	return c.getNodeMetrics.CallUnary(ctx, req)
@@ -350,6 +367,9 @@ type NodeServiceHandler interface {
 	// UpdateHeartbeat updates the node's last seen time and resource usage.
 	// Called periodically by the Node Daemon.
 	UpdateHeartbeat(context.Context, *connect.Request[v1.UpdateHeartbeatRequest]) (*connect.Response[v1.UpdateHeartbeatResponse], error)
+	// SyncNodeVMs reports VMs running on a node to the control plane.
+	// Called by the Node Daemon after registration to reconcile state.
+	SyncNodeVMs(context.Context, *connect.Request[v1.SyncNodeVMsRequest]) (*connect.Response[v1.SyncNodeVMsResponse], error)
 	// GetNodeMetrics returns current resource usage.
 	GetNodeMetrics(context.Context, *connect.Request[v1.GetNodeMetricsRequest]) (*connect.Response[v1.NodeMetrics], error)
 	// ListNodeEvents returns recent events for a node.
@@ -439,6 +459,12 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("UpdateHeartbeat")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceSyncNodeVMsHandler := connect.NewUnaryHandler(
+		NodeServiceSyncNodeVMsProcedure,
+		svc.SyncNodeVMs,
+		connect.WithSchema(nodeServiceMethods.ByName("SyncNodeVMs")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServiceGetNodeMetricsHandler := connect.NewUnaryHandler(
 		NodeServiceGetNodeMetricsProcedure,
 		svc.GetNodeMetrics,
@@ -489,6 +515,8 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceUpdateLabelsHandler.ServeHTTP(w, r)
 		case NodeServiceUpdateHeartbeatProcedure:
 			nodeServiceUpdateHeartbeatHandler.ServeHTTP(w, r)
+		case NodeServiceSyncNodeVMsProcedure:
+			nodeServiceSyncNodeVMsHandler.ServeHTTP(w, r)
 		case NodeServiceGetNodeMetricsProcedure:
 			nodeServiceGetNodeMetricsHandler.ServeHTTP(w, r)
 		case NodeServiceListNodeEventsProcedure:
@@ -552,6 +580,10 @@ func (UnimplementedNodeServiceHandler) UpdateLabels(context.Context, *connect.Re
 
 func (UnimplementedNodeServiceHandler) UpdateHeartbeat(context.Context, *connect.Request[v1.UpdateHeartbeatRequest]) (*connect.Response[v1.UpdateHeartbeatResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.NodeService.UpdateHeartbeat is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) SyncNodeVMs(context.Context, *connect.Request[v1.SyncNodeVMsRequest]) (*connect.Response[v1.SyncNodeVMsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.NodeService.SyncNodeVMs is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) GetNodeMetrics(context.Context, *connect.Request[v1.GetNodeMetricsRequest]) (*connect.Response[v1.NodeMetrics], error) {

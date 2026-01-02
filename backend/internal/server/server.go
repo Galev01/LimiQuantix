@@ -193,7 +193,7 @@ func (s *Server) initServices() {
 		s.scheduler,
 		s.logger,
 	)
-	s.nodeService = nodeservice.NewService(s.nodeRepo, s.logger)
+	s.nodeService = nodeservice.NewServiceWithVMRepo(s.nodeRepo, s.vmRepo, s.logger)
 
 	// Network services
 	s.networkService = networkservice.NewNetworkService(s.networkRepo, s.logger)

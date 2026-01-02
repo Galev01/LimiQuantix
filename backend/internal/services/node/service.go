@@ -20,12 +20,19 @@ import (
 // Ensure Service implements NodeServiceHandler
 var _ computev1connect.NodeServiceHandler = (*Service)(nil)
 
+// VMRepository is the interface for VM persistence (used for sync).
+type VMRepository interface {
+	Get(ctx context.Context, id string) (*domain.VirtualMachine, error)
+	Create(ctx context.Context, vm *domain.VirtualMachine) (*domain.VirtualMachine, error)
+}
+
 // Service implements the NodeService Connect-RPC handler.
 // It manages hypervisor node registration, health monitoring, and lifecycle.
 type Service struct {
 	computev1connect.UnimplementedNodeServiceHandler
 
 	repo   Repository
+	vmRepo VMRepository
 	logger *zap.Logger
 }
 
@@ -33,6 +40,15 @@ type Service struct {
 func NewService(repo Repository, logger *zap.Logger) *Service {
 	return &Service{
 		repo:   repo,
+		logger: logger.Named("node-service"),
+	}
+}
+
+// NewServiceWithVMRepo creates a new Node service with VM repository for sync.
+func NewServiceWithVMRepo(repo Repository, vmRepo VMRepository, logger *zap.Logger) *Service {
+	return &Service{
+		repo:   repo,
+		vmRepo: vmRepo,
 		logger: logger.Named("node-service"),
 	}
 }
@@ -589,5 +605,135 @@ func (s *Service) GetNodeMetrics(
 		CpuCoresAllocated:    uint32(node.Status.Allocated.CPUCores),
 		MemoryTotalBytes:     uint64(node.Status.Allocatable.MemoryMiB) * 1024 * 1024,
 		MemoryAllocatedBytes: uint64(node.Status.Allocated.MemoryMiB) * 1024 * 1024,
+	}), nil
+}
+
+// ============================================================================
+// VM Sync Operations
+// ============================================================================
+
+// SyncNodeVMs reconciles VMs reported by a node with the control plane.
+// This is called by the node daemon after registration to import existing VMs.
+func (s *Service) SyncNodeVMs(
+	ctx context.Context,
+	req *connect.Request[computev1.SyncNodeVMsRequest],
+) (*connect.Response[computev1.SyncNodeVMsResponse], error) {
+	logger := s.logger.With(
+		zap.String("method", "SyncNodeVMs"),
+		zap.String("node_id", req.Msg.NodeId),
+		zap.Int("vm_count", len(req.Msg.Vms)),
+	)
+
+	logger.Info("Syncing VMs from node")
+
+	if req.Msg.NodeId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node_id is required"))
+	}
+
+	// Verify node exists
+	node, err := s.repo.Get(ctx, req.Msg.NodeId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node '%s' not found", req.Msg.NodeId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if s.vmRepo == nil {
+		logger.Warn("VM repository not configured, cannot sync VMs")
+		return connect.NewResponse(&computev1.SyncNodeVMsResponse{
+			ImportedCount: 0,
+			ExistingCount: 0,
+			Errors:        []string{"VM repository not configured"},
+		}), nil
+	}
+
+	var importedCount int32
+	var existingCount int32
+	var syncErrors []string
+
+	for _, vmInfo := range req.Msg.Vms {
+		// Check if VM already exists in the control plane
+		existingVM, err := s.vmRepo.Get(ctx, vmInfo.Id)
+		if err == nil && existingVM != nil {
+			// VM already exists - update its node assignment if needed
+			logger.Debug("VM already exists in control plane",
+				zap.String("vm_id", vmInfo.Id),
+				zap.String("vm_name", vmInfo.Name),
+			)
+			existingCount++
+			continue
+		}
+
+		// Import the VM
+		logger.Info("Importing VM from node",
+			zap.String("vm_id", vmInfo.Id),
+			zap.String("vm_name", vmInfo.Name),
+			zap.String("state", vmInfo.State),
+		)
+
+		// Convert state string to domain state
+		vmState := domain.VMStateStopped
+		switch vmInfo.State {
+		case "running", "RUNNING":
+			vmState = domain.VMStateRunning
+		case "paused", "PAUSED":
+			vmState = domain.VMStatePaused
+		case "stopped", "STOPPED", "shutoff", "SHUTOFF":
+			vmState = domain.VMStateStopped
+		}
+
+		newVM := &domain.VirtualMachine{
+			ID:        vmInfo.Id,
+			Name:      vmInfo.Name,
+			ProjectID: "default",
+			Labels: map[string]string{
+				"imported": "true",
+				"source":   "node-sync",
+			},
+			Spec: domain.VMSpec{
+				CPU: domain.CPUConfig{
+					Cores: int32(vmInfo.CpuCores),
+				},
+				Memory: domain.MemoryConfig{
+					SizeMiB: int64(vmInfo.MemoryMib),
+				},
+			},
+			Status: domain.VMStatus{
+				State:  vmState,
+				NodeID: node.ID,
+			},
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+			CreatedBy: "node-sync",
+		}
+
+		_, err = s.vmRepo.Create(ctx, newVM)
+		if err != nil {
+			logger.Error("Failed to import VM",
+				zap.String("vm_id", vmInfo.Id),
+				zap.Error(err),
+			)
+			syncErrors = append(syncErrors, fmt.Sprintf("failed to import VM %s: %v", vmInfo.Id, err))
+			continue
+		}
+
+		logger.Info("VM imported successfully",
+			zap.String("vm_id", vmInfo.Id),
+			zap.String("vm_name", vmInfo.Name),
+		)
+		importedCount++
+	}
+
+	logger.Info("VM sync completed",
+		zap.Int32("imported", importedCount),
+		zap.Int32("existing", existingCount),
+		zap.Int("errors", len(syncErrors)),
+	)
+
+	return connect.NewResponse(&computev1.SyncNodeVMsResponse{
+		ImportedCount: importedCount,
+		ExistingCount: existingCount,
+		Errors:        syncErrors,
 	}), nil
 }

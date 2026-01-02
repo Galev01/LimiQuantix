@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { AddTaintRequest, DecommissionNodeRequest, DisableNodeRequest, DrainNodeRequest, DrainNodeResponse, EnableNodeRequest, GetNodeMetricsRequest, GetNodeRequest, ListNodeEventsRequest, ListNodeEventsResponse, ListNodesRequest, ListNodesResponse, NodeMetrics, NodeUpdate, RegisterNodeRequest, RemoveTaintRequest, UpdateHeartbeatRequest, UpdateHeartbeatResponse, UpdateLabelsRequest, UpdateNodeRequest, WatchNodeRequest, WatchNodesRequest } from "./node_service_pb";
+import { AddTaintRequest, DecommissionNodeRequest, DisableNodeRequest, DrainNodeRequest, DrainNodeResponse, EnableNodeRequest, GetNodeMetricsRequest, GetNodeRequest, ListNodeEventsRequest, ListNodeEventsResponse, ListNodesRequest, ListNodesResponse, NodeMetrics, NodeUpdate, RegisterNodeRequest, RemoveTaintRequest, SyncNodeVMsRequest, SyncNodeVMsResponse, UpdateHeartbeatRequest, UpdateHeartbeatResponse, UpdateLabelsRequest, UpdateNodeRequest, WatchNodeRequest, WatchNodesRequest } from "./node_service_pb";
 import { Node } from "./node_pb";
 import { Empty, MethodKind } from "@bufbuild/protobuf";
 
@@ -151,6 +151,18 @@ export const NodeService = {
       name: "UpdateHeartbeat",
       I: UpdateHeartbeatRequest,
       O: UpdateHeartbeatResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * SyncNodeVMs reports VMs running on a node to the control plane.
+     * Called by the Node Daemon after registration to reconcile state.
+     *
+     * @generated from rpc limiquantix.compute.v1.NodeService.SyncNodeVMs
+     */
+    syncNodeVMs: {
+      name: "SyncNodeVMs",
+      I: SyncNodeVMsRequest,
+      O: SyncNodeVMsResponse,
       kind: MethodKind.Unary,
     },
     /**

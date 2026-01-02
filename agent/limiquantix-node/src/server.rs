@@ -93,7 +93,11 @@ pub async fn run(config: Config) -> Result<()> {
     
     // Start control plane registration in the background (if enabled)
     if config.control_plane.registration_enabled {
-        let registration_client = RegistrationClient::new(&config, telemetry.clone());
+        let registration_client = RegistrationClient::new(
+            &config, 
+            telemetry.clone(),
+            hypervisor.clone(),
+        );
         
         info!(
             control_plane = %config.control_plane.address,

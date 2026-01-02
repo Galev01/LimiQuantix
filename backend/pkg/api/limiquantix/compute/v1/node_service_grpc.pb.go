@@ -32,6 +32,7 @@ const (
 	NodeService_RemoveTaint_FullMethodName      = "/limiquantix.compute.v1.NodeService/RemoveTaint"
 	NodeService_UpdateLabels_FullMethodName     = "/limiquantix.compute.v1.NodeService/UpdateLabels"
 	NodeService_UpdateHeartbeat_FullMethodName  = "/limiquantix.compute.v1.NodeService/UpdateHeartbeat"
+	NodeService_SyncNodeVMs_FullMethodName      = "/limiquantix.compute.v1.NodeService/SyncNodeVMs"
 	NodeService_GetNodeMetrics_FullMethodName   = "/limiquantix.compute.v1.NodeService/GetNodeMetrics"
 	NodeService_ListNodeEvents_FullMethodName   = "/limiquantix.compute.v1.NodeService/ListNodeEvents"
 	NodeService_WatchNode_FullMethodName        = "/limiquantix.compute.v1.NodeService/WatchNode"
@@ -70,6 +71,9 @@ type NodeServiceClient interface {
 	// UpdateHeartbeat updates the node's last seen time and resource usage.
 	// Called periodically by the Node Daemon.
 	UpdateHeartbeat(ctx context.Context, in *UpdateHeartbeatRequest, opts ...grpc.CallOption) (*UpdateHeartbeatResponse, error)
+	// SyncNodeVMs reports VMs running on a node to the control plane.
+	// Called by the Node Daemon after registration to reconcile state.
+	SyncNodeVMs(ctx context.Context, in *SyncNodeVMsRequest, opts ...grpc.CallOption) (*SyncNodeVMsResponse, error)
 	// GetNodeMetrics returns current resource usage.
 	GetNodeMetrics(ctx context.Context, in *GetNodeMetricsRequest, opts ...grpc.CallOption) (*NodeMetrics, error)
 	// ListNodeEvents returns recent events for a node.
@@ -208,6 +212,16 @@ func (c *nodeServiceClient) UpdateHeartbeat(ctx context.Context, in *UpdateHeart
 	return out, nil
 }
 
+func (c *nodeServiceClient) SyncNodeVMs(ctx context.Context, in *SyncNodeVMsRequest, opts ...grpc.CallOption) (*SyncNodeVMsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SyncNodeVMsResponse)
+	err := c.cc.Invoke(ctx, NodeService_SyncNodeVMs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *nodeServiceClient) GetNodeMetrics(ctx context.Context, in *GetNodeMetricsRequest, opts ...grpc.CallOption) (*NodeMetrics, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(NodeMetrics)
@@ -298,6 +312,9 @@ type NodeServiceServer interface {
 	// UpdateHeartbeat updates the node's last seen time and resource usage.
 	// Called periodically by the Node Daemon.
 	UpdateHeartbeat(context.Context, *UpdateHeartbeatRequest) (*UpdateHeartbeatResponse, error)
+	// SyncNodeVMs reports VMs running on a node to the control plane.
+	// Called by the Node Daemon after registration to reconcile state.
+	SyncNodeVMs(context.Context, *SyncNodeVMsRequest) (*SyncNodeVMsResponse, error)
 	// GetNodeMetrics returns current resource usage.
 	GetNodeMetrics(context.Context, *GetNodeMetricsRequest) (*NodeMetrics, error)
 	// ListNodeEvents returns recent events for a node.
@@ -350,6 +367,9 @@ func (UnimplementedNodeServiceServer) UpdateLabels(context.Context, *UpdateLabel
 }
 func (UnimplementedNodeServiceServer) UpdateHeartbeat(context.Context, *UpdateHeartbeatRequest) (*UpdateHeartbeatResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateHeartbeat not implemented")
+}
+func (UnimplementedNodeServiceServer) SyncNodeVMs(context.Context, *SyncNodeVMsRequest) (*SyncNodeVMsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SyncNodeVMs not implemented")
 }
 func (UnimplementedNodeServiceServer) GetNodeMetrics(context.Context, *GetNodeMetricsRequest) (*NodeMetrics, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetNodeMetrics not implemented")
@@ -599,6 +619,24 @@ func _NodeService_UpdateHeartbeat_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeService_SyncNodeVMs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SyncNodeVMsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServiceServer).SyncNodeVMs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeService_SyncNodeVMs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServiceServer).SyncNodeVMs(ctx, req.(*SyncNodeVMsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _NodeService_GetNodeMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetNodeMetricsRequest)
 	if err := dec(in); err != nil {
@@ -711,6 +749,10 @@ var NodeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateHeartbeat",
 			Handler:    _NodeService_UpdateHeartbeat_Handler,
+		},
+		{
+			MethodName: "SyncNodeVMs",
+			Handler:    _NodeService_SyncNodeVMs_Handler,
 		},
 		{
 			MethodName: "GetNodeMetrics",

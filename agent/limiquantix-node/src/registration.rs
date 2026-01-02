@@ -4,13 +4,15 @@
 //! - Initial node registration with the control plane
 //! - Periodic heartbeat to report node status
 //! - Re-registration on connection loss
+//! - VM sync to report existing VMs to the control plane
 
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::interval;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
+use limiquantix_hypervisor::Hypervisor;
 use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::Config;
@@ -23,6 +25,7 @@ pub struct RegistrationClient {
     labels: std::collections::HashMap<String, String>,
     heartbeat_interval: Duration,
     telemetry: Arc<TelemetryCollector>,
+    hypervisor: Arc<dyn Hypervisor>,
     http_client: reqwest::Client,
     /// The server-assigned node ID (set after registration)
     registered_node_id: RwLock<Option<String>>,
@@ -33,6 +36,7 @@ impl RegistrationClient {
     pub fn new(
         config: &Config,
         telemetry: Arc<TelemetryCollector>,
+        hypervisor: Arc<dyn Hypervisor>,
     ) -> Self {
         let hostname = config.node.get_hostname();
         
@@ -47,6 +51,7 @@ impl RegistrationClient {
             labels: config.node.labels.clone(),
             heartbeat_interval: Duration::from_secs(config.control_plane.heartbeat_interval_secs),
             telemetry,
+            hypervisor,
             http_client: reqwest::Client::new(),
             registered_node_id: RwLock::new(None),
         }
@@ -171,6 +176,11 @@ impl RegistrationClient {
                             "Successfully registered with control plane"
                         );
                         
+                        // Sync existing VMs from the hypervisor to the control plane
+                        if let Err(e) = self.sync_vms(id).await {
+                            warn!(error = %e, "Failed to sync VMs to control plane");
+                        }
+                        
                         Ok(id.clone())
                     } else {
                         warn!(
@@ -196,6 +206,84 @@ impl RegistrationClient {
                     "Failed to connect to control plane"
                 );
                 Err(anyhow::anyhow!("Connection failed: {}", e))
+            }
+        }
+    }
+    
+    /// Sync existing VMs from the hypervisor to the control plane.
+    async fn sync_vms(&self, node_id: &str) -> anyhow::Result<()> {
+        info!(node_id = %node_id, "Syncing existing VMs to control plane");
+        
+        // Get list of VMs from hypervisor
+        let vms = match self.hypervisor.list_vms().await {
+            Ok(vms) => vms,
+            Err(e) => {
+                error!(error = %e, "Failed to list VMs from hypervisor");
+                return Err(anyhow::anyhow!("Failed to list VMs: {}", e));
+            }
+        };
+        
+        if vms.is_empty() {
+            info!("No VMs to sync");
+            return Ok(());
+        }
+        
+        info!(count = vms.len(), "Found VMs to sync");
+        
+        // Build VM info list for the control plane
+        let vm_info: Vec<serde_json::Value> = vms.iter().map(|vm| {
+            serde_json::json!({
+                "id": vm.id,
+                "name": vm.name,
+                "state": format!("{:?}", vm.state),
+                "cpuCores": 0u32,  // Not available from basic VmInfo
+                "memoryMib": 0u64, // Not available from basic VmInfo
+                "diskPaths": serde_json::Value::Array(vec![])
+            })
+        }).collect();
+        
+        // Send sync request
+        let request = serde_json::json!({
+            "nodeId": node_id,
+            "vms": vm_info
+        });
+        
+        let url = format!(
+            "{}/limiquantix.compute.v1.NodeService/SyncNodeVMs",
+            self.control_plane_address
+        );
+        
+        let response = self.http_client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .await;
+        
+        match response {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    let body = resp.text().await.unwrap_or_default();
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                        let imported = json.get("importedCount").and_then(|v| v.as_i64()).unwrap_or(0);
+                        let existing = json.get("existingCount").and_then(|v| v.as_i64()).unwrap_or(0);
+                        info!(
+                            imported = imported,
+                            existing = existing,
+                            "VM sync completed"
+                        );
+                    }
+                    Ok(())
+                } else {
+                    let status = resp.status();
+                    let body = resp.text().await.unwrap_or_default();
+                    warn!(status = %status, body = %body, "VM sync request failed");
+                    Err(anyhow::anyhow!("VM sync failed: {} - {}", status, body))
+                }
+            }
+            Err(e) => {
+                warn!(error = %e, "Failed to send VM sync request");
+                Err(anyhow::anyhow!("VM sync request failed: {}", e))
             }
         }
     }

@@ -69,6 +69,14 @@ service NodeService {
   rpc UpdateHeartbeat(UpdateHeartbeatRequest) returns (UpdateHeartbeatResponse);
   
   // ==========================================================================
+  // VM Sync
+  // ==========================================================================
+  
+  // SyncNodeVMs reports VMs running on a node to the control plane.
+  // Called by the Node Daemon after registration to reconcile state.
+  rpc SyncNodeVMs(SyncNodeVMsRequest) returns (SyncNodeVMsResponse);
+  
+  // ==========================================================================
   // Monitoring
   // ==========================================================================
   
@@ -364,3 +372,48 @@ message NodeUpdate {
   Node node = 2;
 }
 
+// =============================================================================
+// VM SYNC MESSAGES
+// =============================================================================
+
+// SyncNodeVMs - Report VMs from a node to the control plane
+
+message SyncNodeVMsRequest {
+  // Node ID (assigned by control plane during registration)
+  string node_id = 1;
+  
+  // List of VMs currently on this node
+  repeated NodeVMInfo vms = 2;
+}
+
+// NodeVMInfo contains basic VM info as reported by the hypervisor
+message NodeVMInfo {
+  // VM UUID (from libvirt)
+  string id = 1;
+  
+  // VM name
+  string name = 2;
+  
+  // Current state
+  string state = 3;
+  
+  // CPU cores
+  uint32 cpu_cores = 4;
+  
+  // Memory in MiB
+  uint64 memory_mib = 5;
+  
+  // Disk paths
+  repeated string disk_paths = 6;
+}
+
+message SyncNodeVMsResponse {
+  // Number of VMs imported
+  int32 imported_count = 1;
+  
+  // Number of VMs already known
+  int32 existing_count = 2;
+  
+  // Any errors encountered
+  repeated string errors = 3;
+}
