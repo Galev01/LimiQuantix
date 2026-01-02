@@ -593,12 +593,17 @@ impl Hypervisor for LibvirtBackend {
             .map_err(|e| HypervisorError::Internal(e.to_string()))?;
         
         // Get block stats (if available) - use get_block_stats in virt crate
+        // The virt crate returns i64 values directly, not Option<i64>
         let (disk_read, disk_write) = domain.get_block_stats("vda")
-            .map(|stats| (stats.rd_bytes.unwrap_or(0) as u64, stats.wr_bytes.unwrap_or(0) as u64))
+            .map(|stats| {
+                let rd = if stats.rd_bytes >= 0 { stats.rd_bytes as u64 } else { 0 };
+                let wr = if stats.wr_bytes >= 0 { stats.wr_bytes as u64 } else { 0 };
+                (rd, wr)
+            })
             .unwrap_or((0, 0));
         
         // Get interface stats (if available)
-        let (net_rx, net_tx) = domain.get_interface_stats("eth0")
+        let (net_rx, net_tx) = domain.interface_stats("eth0")
             .map(|stats| (stats.rx_bytes as u64, stats.tx_bytes as u64))
             .unwrap_or((0, 0));
         
