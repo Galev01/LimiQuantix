@@ -5,14 +5,13 @@
 package nodev1connect
 
 import (
+	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	http "net/http"
-	strings "strings"
-
-	connect "connectrpc.com/connect"
 	v1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	http "net/http"
+	strings "strings"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are
@@ -180,7 +179,7 @@ type NodeDaemonServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewNodeDaemonServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) NodeDaemonServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	nodeDaemonServiceMethods := v1.File_Quantix - kvm_node_v1_node_daemon_proto.Services().ByName("NodeDaemonService").Methods()
+	nodeDaemonServiceMethods := v1.File_limiquantix_node_v1_node_daemon_proto.Services().ByName("NodeDaemonService").Methods()
 	return &nodeDaemonServiceClient{
 		healthCheck: connect.NewClient[v1.HealthCheckRequest, v1.HealthCheckResponse](
 			httpClient,
@@ -564,7 +563,7 @@ type NodeDaemonServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewNodeDaemonServiceHandler(svc NodeDaemonServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	nodeDaemonServiceMethods := v1.File_Quantix - kvm_node_v1_node_daemon_proto.Services().ByName("NodeDaemonService").Methods()
+	nodeDaemonServiceMethods := v1.File_limiquantix_node_v1_node_daemon_proto.Services().ByName("NodeDaemonService").Methods()
 	nodeDaemonServiceHealthCheckHandler := connect.NewUnaryHandler(
 		NodeDaemonServiceHealthCheckProcedure,
 		svc.HealthCheck,

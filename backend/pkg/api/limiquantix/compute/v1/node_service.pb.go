@@ -7,14 +7,13 @@
 package computev1
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -1816,7 +1815,7 @@ const file_limiquantix_compute_v1_node_service_proto_rawDesc = "" +
 	"\tWatchNode\x12(.limiquantix.compute.v1.WatchNodeRequest\x1a\x1c.limiquantix.compute.v1.Node0\x01\x12]\n" +
 	"\n" +
 	"WatchNodes\x12).limiquantix.compute.v1.WatchNodesRequest\x1a\".limiquantix.compute.v1.NodeUpdate0\x01B\xf5\x01\n" +
-	"\x1acom.limiquantix.compute.v1B\x10NodeServiceProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1;computev1\xa2\x02\x03LCX\xaa\x02\x16limiquantix.Compute.V1\xca\x02\x16limiquantix\\Compute\\V1\xe2\x02\"limiquantix\\Compute\\V1\\GPBMetadata\xea\x02\x18limiquantix::Compute::V1b\x06proto3"
+	"\x1acom.limiquantix.compute.v1B\x10NodeServiceProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1;computev1\xa2\x02\x03LCX\xaa\x02\x16Limiquantix.Compute.V1\xca\x02\x16Limiquantix\\Compute\\V1\xe2\x02\"Limiquantix\\Compute\\V1\\GPBMetadata\xea\x02\x18Limiquantix::Compute::V1b\x06proto3"
 
 var (
 	file_limiquantix_compute_v1_node_service_proto_rawDescOnce sync.Once

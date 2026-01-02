@@ -7,14 +7,13 @@
 package nodev1
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -3715,7 +3714,7 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\tMigrateVM\x12%.limiquantix.node.v1.MigrateVMRequest\x1a&.limiquantix.node.v1.MigrationProgress0\x01\x12^\n" +
 	"\rStreamMetrics\x12).limiquantix.node.v1.StreamMetricsRequest\x1a .limiquantix.node.v1.NodeMetrics0\x01\x12H\n" +
 	"\fStreamEvents\x12\x16.google.protobuf.Empty\x1a\x1e.limiquantix.node.v1.NodeEvent0\x01B\xdf\x01\n" +
-	"\x17com.limiquantix.node.v1B\x0fNodeDaemonProtoP\x01ZEgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1;nodev1\xa2\x02\x03LNX\xaa\x02\x13limiquantix.Node.V1\xca\x02\x13limiquantix\\Node\\V1\xe2\x02\x1flimiquantix\\Node\\V1\\GPBMetadata\xea\x02\x15limiquantix::Node::V1b\x06proto3"
+	"\x17com.limiquantix.node.v1B\x0fNodeDaemonProtoP\x01ZEgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1;nodev1\xa2\x02\x03LNX\xaa\x02\x13Limiquantix.Node.V1\xca\x02\x13Limiquantix\\Node\\V1\xe2\x02\x1fLimiquantix\\Node\\V1\\GPBMetadata\xea\x02\x15Limiquantix::Node::V1b\x06proto3"
 
 var (
 	file_limiquantix_node_v1_node_daemon_proto_rawDescOnce sync.Once

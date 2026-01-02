@@ -7,13 +7,12 @@
 package storagev1
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -4399,7 +4398,7 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x05READY\x10\x04\x12\t\n" +
 	"\x05ERROR\x10\x05\x12\f\n" +
 	"\bDELETING\x10\x06B\xf1\x01\n" +
-	"\x1acom.limiquantix.storage.v1B\fStorageProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1;storagev1\xa2\x02\x03LSX\xaa\x02\x16limiquantix.Storage.V1\xca\x02\x16limiquantix\\Storage\\V1\xe2\x02\"limiquantix\\Storage\\V1\\GPBMetadata\xea\x02\x18limiquantix::Storage::V1b\x06proto3"
+	"\x1acom.limiquantix.storage.v1B\fStorageProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1;storagev1\xa2\x02\x03LSX\xaa\x02\x16Limiquantix.Storage.V1\xca\x02\x16Limiquantix\\Storage\\V1\xe2\x02\"Limiquantix\\Storage\\V1\\GPBMetadata\xea\x02\x18Limiquantix::Storage::V1b\x06proto3"
 
 var (
 	file_limiquantix_storage_v1_storage_proto_rawDescOnce sync.Once

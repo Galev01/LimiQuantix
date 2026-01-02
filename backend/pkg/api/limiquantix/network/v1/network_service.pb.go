@@ -7,14 +7,13 @@
 package networkv1
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -3880,7 +3879,7 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\rAddConnection\x12,.limiquantix.network.v1.AddConnectionRequest\x1a\".limiquantix.network.v1.VpnService\x12g\n" +
 	"\x10RemoveConnection\x12/.limiquantix.network.v1.RemoveConnectionRequest\x1a\".limiquantix.network.v1.VpnService\x12d\n" +
 	"\fGetVpnStatus\x12+.limiquantix.network.v1.GetVpnStatusRequest\x1a'.limiquantix.network.v1.VpnTunnelStatusB\xf8\x01\n" +
-	"\x1acom.limiquantix.network.v1B\x13NetworkServiceProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1;networkv1\xa2\x02\x03LNX\xaa\x02\x16limiquantix.Network.V1\xca\x02\x16limiquantix\\Network\\V1\xe2\x02\"limiquantix\\Network\\V1\\GPBMetadata\xea\x02\x18limiquantix::Network::V1b\x06proto3"
+	"\x1acom.limiquantix.network.v1B\x13NetworkServiceProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1;networkv1\xa2\x02\x03LNX\xaa\x02\x16Limiquantix.Network.V1\xca\x02\x16Limiquantix\\Network\\V1\xe2\x02\"Limiquantix\\Network\\V1\\GPBMetadata\xea\x02\x18Limiquantix::Network::V1b\x06proto3"
 
 var (
 	file_limiquantix_network_v1_network_service_proto_rawDescOnce sync.Once

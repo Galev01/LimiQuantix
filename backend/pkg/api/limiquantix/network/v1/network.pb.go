@@ -7,13 +7,12 @@
 package networkv1
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -4406,7 +4405,7 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\x06ACTIVE\x10\x02\x12\b\n" +
 	"\x04DOWN\x10\x03\x12\t\n" +
 	"\x05ERROR\x10\x04B\xf1\x01\n" +
-	"\x1acom.limiquantix.network.v1B\fNetworkProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1;networkv1\xa2\x02\x03LNX\xaa\x02\x16limiquantix.Network.V1\xca\x02\x16limiquantix\\Network\\V1\xe2\x02\"limiquantix\\Network\\V1\\GPBMetadata\xea\x02\x18limiquantix::Network::V1b\x06proto3"
+	"\x1acom.limiquantix.network.v1B\fNetworkProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1;networkv1\xa2\x02\x03LNX\xaa\x02\x16Limiquantix.Network.V1\xca\x02\x16Limiquantix\\Network\\V1\xe2\x02\"Limiquantix\\Network\\V1\\GPBMetadata\xea\x02\x18Limiquantix::Network::V1b\x06proto3"
 
 var (
 	file_limiquantix_network_v1_network_proto_rawDescOnce sync.Once

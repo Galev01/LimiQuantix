@@ -5,14 +5,13 @@
 package computev1connect
 
 import (
+	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	http "net/http"
-	strings "strings"
-
-	connect "connectrpc.com/connect"
 	v1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	http "net/http"
+	strings "strings"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are
@@ -122,7 +121,7 @@ type NodeServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) NodeServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	nodeServiceMethods := v1.File_Quantix - kvm_compute_v1_node_service_proto.Services().ByName("NodeService").Methods()
+	nodeServiceMethods := v1.File_limiquantix_compute_v1_node_service_proto.Services().ByName("NodeService").Methods()
 	return &nodeServiceClient{
 		registerNode: connect.NewClient[v1.RegisterNodeRequest, v1.Node](
 			httpClient,
@@ -367,7 +366,7 @@ type NodeServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	nodeServiceMethods := v1.File_Quantix - kvm_compute_v1_node_service_proto.Services().ByName("NodeService").Methods()
+	nodeServiceMethods := v1.File_limiquantix_compute_v1_node_service_proto.Services().ByName("NodeService").Methods()
 	nodeServiceRegisterNodeHandler := connect.NewUnaryHandler(
 		NodeServiceRegisterNodeProcedure,
 		svc.RegisterNode,

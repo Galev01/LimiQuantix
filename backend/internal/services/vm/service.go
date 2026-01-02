@@ -143,7 +143,8 @@ func (s *Service) CreateVM(
 
 	// 6. Create VM on the Node Daemon (if available)
 	if s.daemonPool != nil && targetNode != nil {
-		daemonAddr := fmt.Sprintf("%s:9090", targetNode.ManagementIP)
+		// ManagementIP already includes port (e.g., "192.168.0.53:9090")
+		daemonAddr := targetNode.ManagementIP
 		client, err := s.daemonPool.Connect(targetNodeID, daemonAddr)
 		if err != nil {
 			logger.Warn("Failed to connect to node daemon, VM created in control plane only",

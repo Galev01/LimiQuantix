@@ -5,14 +5,13 @@
 package networkv1connect
 
 import (
+	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	http "net/http"
-	strings "strings"
-
-	connect "connectrpc.com/connect"
 	v1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	http "net/http"
+	strings "strings"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are
@@ -197,7 +196,7 @@ type VirtualNetworkServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewVirtualNetworkServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) VirtualNetworkServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	virtualNetworkServiceMethods := v1.File_Quantix - kvm_network_v1_network_service_proto.Services().ByName("VirtualNetworkService").Methods()
+	virtualNetworkServiceMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("VirtualNetworkService").Methods()
 	return &virtualNetworkServiceClient{
 		createNetwork: connect.NewClient[v1.CreateNetworkRequest, v1.VirtualNetwork](
 			httpClient,
@@ -302,7 +301,7 @@ type VirtualNetworkServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewVirtualNetworkServiceHandler(svc VirtualNetworkServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	virtualNetworkServiceMethods := v1.File_Quantix - kvm_network_v1_network_service_proto.Services().ByName("VirtualNetworkService").Methods()
+	virtualNetworkServiceMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("VirtualNetworkService").Methods()
 	virtualNetworkServiceCreateNetworkHandler := connect.NewUnaryHandler(
 		VirtualNetworkServiceCreateNetworkProcedure,
 		svc.CreateNetwork,
@@ -413,7 +412,7 @@ type PortServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewPortServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) PortServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	portServiceMethods := v1.File_Quantix - kvm_network_v1_network_service_proto.Services().ByName("PortService").Methods()
+	portServiceMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("PortService").Methods()
 	return &portServiceClient{
 		createPort: connect.NewClient[v1.CreatePortRequest, v1.Port](
 			httpClient,
@@ -530,7 +529,7 @@ type PortServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewPortServiceHandler(svc PortServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	portServiceMethods := v1.File_Quantix - kvm_network_v1_network_service_proto.Services().ByName("PortService").Methods()
+	portServiceMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("PortService").Methods()
 	portServiceCreatePortHandler := connect.NewUnaryHandler(
 		PortServiceCreatePortProcedure,
 		svc.CreatePort,
@@ -656,7 +655,7 @@ type SecurityGroupServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewSecurityGroupServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) SecurityGroupServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	securityGroupServiceMethods := v1.File_Quantix - kvm_network_v1_network_service_proto.Services().ByName("SecurityGroupService").Methods()
+	securityGroupServiceMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("SecurityGroupService").Methods()
 	return &securityGroupServiceClient{
 		createSecurityGroup: connect.NewClient[v1.CreateSecurityGroupRequest, v1.SecurityGroup](
 			httpClient,
@@ -775,7 +774,7 @@ type SecurityGroupServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewSecurityGroupServiceHandler(svc SecurityGroupServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	securityGroupServiceMethods := v1.File_Quantix - kvm_network_v1_network_service_proto.Services().ByName("SecurityGroupService").Methods()
+	securityGroupServiceMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("SecurityGroupService").Methods()
 	securityGroupServiceCreateSecurityGroupHandler := connect.NewUnaryHandler(
 		SecurityGroupServiceCreateSecurityGroupProcedure,
 		svc.CreateSecurityGroup,
@@ -896,7 +895,7 @@ type FloatingIpServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewFloatingIpServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) FloatingIpServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	floatingIpServiceMethods := v1.File_Quantix - kvm_network_v1_network_service_proto.Services().ByName("FloatingIpService").Methods()
+	floatingIpServiceMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("FloatingIpService").Methods()
 	return &floatingIpServiceClient{
 		allocateFloatingIp: connect.NewClient[v1.AllocateFloatingIpRequest, v1.FloatingIp](
 			httpClient,
@@ -1000,7 +999,7 @@ type FloatingIpServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewFloatingIpServiceHandler(svc FloatingIpServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	floatingIpServiceMethods := v1.File_Quantix - kvm_network_v1_network_service_proto.Services().ByName("FloatingIpService").Methods()
+	floatingIpServiceMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("FloatingIpService").Methods()
 	floatingIpServiceAllocateFloatingIpHandler := connect.NewUnaryHandler(
 		FloatingIpServiceAllocateFloatingIpProcedure,
 		svc.AllocateFloatingIp,
@@ -1117,7 +1116,7 @@ type LoadBalancerServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewLoadBalancerServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) LoadBalancerServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	loadBalancerServiceMethods := v1.File_Quantix - kvm_network_v1_network_service_proto.Services().ByName("LoadBalancerService").Methods()
+	loadBalancerServiceMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("LoadBalancerService").Methods()
 	return &loadBalancerServiceClient{
 		createLoadBalancer: connect.NewClient[v1.CreateLoadBalancerRequest, v1.LoadBalancer](
 			httpClient,
@@ -1277,7 +1276,7 @@ type LoadBalancerServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewLoadBalancerServiceHandler(svc LoadBalancerServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	loadBalancerServiceMethods := v1.File_Quantix - kvm_network_v1_network_service_proto.Services().ByName("LoadBalancerService").Methods()
+	loadBalancerServiceMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("LoadBalancerService").Methods()
 	loadBalancerServiceCreateLoadBalancerHandler := connect.NewUnaryHandler(
 		LoadBalancerServiceCreateLoadBalancerProcedure,
 		svc.CreateLoadBalancer,
@@ -1436,7 +1435,7 @@ type VpnServiceManagerClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewVpnServiceManagerClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) VpnServiceManagerClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	vpnServiceManagerMethods := v1.File_Quantix - kvm_network_v1_network_service_proto.Services().ByName("VpnServiceManager").Methods()
+	vpnServiceManagerMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("VpnServiceManager").Methods()
 	return &vpnServiceManagerClient{
 		createVpn: connect.NewClient[v1.CreateVpnRequest, v1.VpnService](
 			httpClient,
@@ -1554,7 +1553,7 @@ type VpnServiceManagerHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewVpnServiceManagerHandler(svc VpnServiceManagerHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	vpnServiceManagerMethods := v1.File_Quantix - kvm_network_v1_network_service_proto.Services().ByName("VpnServiceManager").Methods()
+	vpnServiceManagerMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("VpnServiceManager").Methods()
 	vpnServiceManagerCreateVpnHandler := connect.NewUnaryHandler(
 		VpnServiceManagerCreateVpnProcedure,
 		svc.CreateVpn,

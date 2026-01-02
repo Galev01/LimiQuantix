@@ -5,14 +5,13 @@
 package computev1connect
 
 import (
+	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	http "net/http"
-	strings "strings"
-
-	connect "connectrpc.com/connect"
 	v1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	http "net/http"
+	strings "strings"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are
@@ -142,7 +141,7 @@ type VMServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewVMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) VMServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	vMServiceMethods := v1.File_Quantix - kvm_compute_v1_vm_service_proto.Services().ByName("VMService").Methods()
+	vMServiceMethods := v1.File_limiquantix_compute_v1_vm_service_proto.Services().ByName("VMService").Methods()
 	return &vMServiceClient{
 		createVM: connect.NewClient[v1.CreateVMRequest, v1.VirtualMachine](
 			httpClient,
@@ -459,7 +458,7 @@ type VMServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewVMServiceHandler(svc VMServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	vMServiceMethods := v1.File_Quantix - kvm_compute_v1_vm_service_proto.Services().ByName("VMService").Methods()
+	vMServiceMethods := v1.File_limiquantix_compute_v1_vm_service_proto.Services().ByName("VMService").Methods()
 	vMServiceCreateVMHandler := connect.NewUnaryHandler(
 		VMServiceCreateVMProcedure,
 		svc.CreateVM,

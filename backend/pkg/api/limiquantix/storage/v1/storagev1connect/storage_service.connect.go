@@ -5,14 +5,13 @@
 package storagev1connect
 
 import (
+	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	http "net/http"
-	strings "strings"
-
-	connect "connectrpc.com/connect"
 	v1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	http "net/http"
+	strings "strings"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are
@@ -150,7 +149,7 @@ type StoragePoolServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewStoragePoolServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) StoragePoolServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	storagePoolServiceMethods := v1.File_Quantix - kvm_storage_v1_storage_service_proto.Services().ByName("StoragePoolService").Methods()
+	storagePoolServiceMethods := v1.File_limiquantix_storage_v1_storage_service_proto.Services().ByName("StoragePoolService").Methods()
 	return &storagePoolServiceClient{
 		createPool: connect.NewClient[v1.CreatePoolRequest, v1.StoragePool](
 			httpClient,
@@ -255,7 +254,7 @@ type StoragePoolServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewStoragePoolServiceHandler(svc StoragePoolServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	storagePoolServiceMethods := v1.File_Quantix - kvm_storage_v1_storage_service_proto.Services().ByName("StoragePoolService").Methods()
+	storagePoolServiceMethods := v1.File_limiquantix_storage_v1_storage_service_proto.Services().ByName("StoragePoolService").Methods()
 	storagePoolServiceCreatePoolHandler := connect.NewUnaryHandler(
 		StoragePoolServiceCreatePoolProcedure,
 		svc.CreatePool,
@@ -373,7 +372,7 @@ type VolumeServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewVolumeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) VolumeServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	volumeServiceMethods := v1.File_Quantix - kvm_storage_v1_storage_service_proto.Services().ByName("VolumeService").Methods()
+	volumeServiceMethods := v1.File_limiquantix_storage_v1_storage_service_proto.Services().ByName("VolumeService").Methods()
 	return &volumeServiceClient{
 		createVolume: connect.NewClient[v1.CreateVolumeRequest, v1.Volume](
 			httpClient,
@@ -533,7 +532,7 @@ type VolumeServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewVolumeServiceHandler(svc VolumeServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	volumeServiceMethods := v1.File_Quantix - kvm_storage_v1_storage_service_proto.Services().ByName("VolumeService").Methods()
+	volumeServiceMethods := v1.File_limiquantix_storage_v1_storage_service_proto.Services().ByName("VolumeService").Methods()
 	volumeServiceCreateVolumeHandler := connect.NewUnaryHandler(
 		VolumeServiceCreateVolumeProcedure,
 		svc.CreateVolume,
@@ -688,7 +687,7 @@ type SnapshotServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewSnapshotServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) SnapshotServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	snapshotServiceMethods := v1.File_Quantix - kvm_storage_v1_storage_service_proto.Services().ByName("SnapshotService").Methods()
+	snapshotServiceMethods := v1.File_limiquantix_storage_v1_storage_service_proto.Services().ByName("SnapshotService").Methods()
 	return &snapshotServiceClient{
 		createSnapshot: connect.NewClient[v1.CreateSnapshotRequest, v1.VolumeSnapshot](
 			httpClient,
@@ -778,7 +777,7 @@ type SnapshotServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewSnapshotServiceHandler(svc SnapshotServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	snapshotServiceMethods := v1.File_Quantix - kvm_storage_v1_storage_service_proto.Services().ByName("SnapshotService").Methods()
+	snapshotServiceMethods := v1.File_limiquantix_storage_v1_storage_service_proto.Services().ByName("SnapshotService").Methods()
 	snapshotServiceCreateSnapshotHandler := connect.NewUnaryHandler(
 		SnapshotServiceCreateSnapshotProcedure,
 		svc.CreateSnapshot,
@@ -877,7 +876,7 @@ type ImageServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewImageServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) ImageServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	imageServiceMethods := v1.File_Quantix - kvm_storage_v1_storage_service_proto.Services().ByName("ImageService").Methods()
+	imageServiceMethods := v1.File_limiquantix_storage_v1_storage_service_proto.Services().ByName("ImageService").Methods()
 	return &imageServiceClient{
 		createImage: connect.NewClient[v1.CreateImageRequest, v1.Image](
 			httpClient,
@@ -994,7 +993,7 @@ type ImageServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewImageServiceHandler(svc ImageServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	imageServiceMethods := v1.File_Quantix - kvm_storage_v1_storage_service_proto.Services().ByName("ImageService").Methods()
+	imageServiceMethods := v1.File_limiquantix_storage_v1_storage_service_proto.Services().ByName("ImageService").Methods()
 	imageServiceCreateImageHandler := connect.NewUnaryHandler(
 		ImageServiceCreateImageProcedure,
 		svc.CreateImage,

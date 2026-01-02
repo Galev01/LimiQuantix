@@ -7,14 +7,13 @@
 package storagev1
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -2733,7 +2732,7 @@ const file_limiquantix_storage_v1_storage_service_proto_rawDesc = "" +
 	"\vDeleteImage\x12*.limiquantix.storage.v1.DeleteImageRequest\x1a\x16.google.protobuf.Empty\x12f\n" +
 	"\vImportImage\x12*.limiquantix.storage.v1.ImportImageRequest\x1a+.limiquantix.storage.v1.ImportImageResponse\x12g\n" +
 	"\x0fGetImportStatus\x12..limiquantix.storage.v1.GetImportStatusRequest\x1a$.limiquantix.storage.v1.ImportStatusB\xf8\x01\n" +
-	"\x1acom.limiquantix.storage.v1B\x13StorageServiceProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1;storagev1\xa2\x02\x03LSX\xaa\x02\x16limiquantix.Storage.V1\xca\x02\x16limiquantix\\Storage\\V1\xe2\x02\"limiquantix\\Storage\\V1\\GPBMetadata\xea\x02\x18limiquantix::Storage::V1b\x06proto3"
+	"\x1acom.limiquantix.storage.v1B\x13StorageServiceProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1;storagev1\xa2\x02\x03LSX\xaa\x02\x16Limiquantix.Storage.V1\xca\x02\x16Limiquantix\\Storage\\V1\xe2\x02\"Limiquantix\\Storage\\V1\\GPBMetadata\xea\x02\x18Limiquantix::Storage::V1b\x06proto3"
 
 var (
 	file_limiquantix_storage_v1_storage_service_proto_rawDescOnce sync.Once

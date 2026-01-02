@@ -389,7 +389,7 @@ export const networkApi = {
   async list(params?: { projectId?: string; pageSize?: number }): Promise<NetworkListResponse> {
     return apiCall<NetworkListResponse>(
       'limiquantix.network.v1.VirtualNetworkService',
-      'ListVirtualNetworks',
+      'ListNetworks',
       params || {}
     );
   },
@@ -397,7 +397,7 @@ export const networkApi = {
   async get(id: string): Promise<ApiVirtualNetwork> {
     return apiCall<ApiVirtualNetwork>(
       'limiquantix.network.v1.VirtualNetworkService',
-      'GetVirtualNetwork',
+      'GetNetwork',
       { id }
     );
   },
@@ -410,7 +410,7 @@ export const networkApi = {
   }): Promise<ApiVirtualNetwork> {
     return apiCall<ApiVirtualNetwork>(
       'limiquantix.network.v1.VirtualNetworkService',
-      'CreateVirtualNetwork',
+      'CreateNetwork',
       data
     );
   },
@@ -418,7 +418,7 @@ export const networkApi = {
   async delete(id: string): Promise<void> {
     await apiCall<void>(
       'limiquantix.network.v1.VirtualNetworkService',
-      'DeleteVirtualNetwork',
+      'DeleteNetwork',
       { id }
     );
   },
