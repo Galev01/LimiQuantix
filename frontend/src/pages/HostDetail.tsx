@@ -20,13 +20,18 @@ import {
   Zap,
   Clock,
   Globe,
+  Wifi,
+  WifiOff,
+  Loader2,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { ProgressRing } from '@/components/dashboard/ProgressRing';
-import { mockNodes, mockVMs, type NodePhase } from '@/data/mock-data';
+import { mockNodes, mockVMs, type NodePhase, type Node as MockNode } from '@/data/mock-data';
+import { useNode, type ApiNode } from '@/hooks/useNodes';
+import { useApiConnection } from '@/hooks/useDashboard';
 
 const phaseConfig: Record<NodePhase, { label: string; variant: 'success' | 'error' | 'warning' | 'info'; icon: typeof CheckCircle }> = {
   READY: { label: 'Ready', variant: 'success', icon: CheckCircle },
@@ -35,11 +40,78 @@ const phaseConfig: Record<NodePhase, { label: string; variant: 'success' | 'erro
   DRAINING: { label: 'Draining', variant: 'info', icon: Settings },
 };
 
+// Convert API Node to display format
+function apiToDisplayNode(apiNode: ApiNode): MockNode {
+  const phase = (apiNode.status?.phase as NodePhase) || 'READY';
+  return {
+    id: apiNode.id,
+    hostname: apiNode.hostname,
+    managementIp: apiNode.managementIp || '',
+    labels: apiNode.labels || {},
+    spec: {
+      cpu: {
+        model: apiNode.spec?.cpu?.model || 'Unknown',
+        sockets: apiNode.spec?.cpu?.sockets || 1,
+        coresPerSocket: apiNode.spec?.cpu?.coresPerSocket || 1,
+        threadsPerCore: apiNode.spec?.cpu?.threadsPerCore || 1,
+        totalCores: (apiNode.spec?.cpu?.sockets || 1) * (apiNode.spec?.cpu?.coresPerSocket || 1),
+        features: [],
+      },
+      memory: {
+        totalBytes: (apiNode.spec?.memory?.totalMib || 0) * 1024 * 1024,
+        allocatableBytes: (apiNode.spec?.memory?.totalMib || 0) * 1024 * 1024 * 0.9,
+      },
+      storage: [],
+      networks: [],
+      role: { compute: true, storage: false, controlPlane: false },
+    },
+    status: {
+      phase,
+      conditions: (apiNode.status?.conditions || []).map((c) => ({
+        type: c.type || 'Unknown',
+        status: c.status || false,
+        message: c.message || '',
+        lastTransitionTime: '',
+      })),
+      resources: {
+        cpuAllocatedCores: apiNode.status?.allocation?.cpuAllocated || 0,
+        cpuUsedPercent: 0,
+        memoryAllocatedBytes: (apiNode.status?.allocation?.memoryAllocatedMib || 0) * 1024 * 1024,
+        memoryUsedBytes: 0,
+        storageUsedBytes: 0,
+      },
+      vmIds: apiNode.status?.vmIds || [],
+      systemInfo: {
+        osName: 'Linux',
+        kernelVersion: '',
+        hypervisorVersion: '',
+        agentVersion: '',
+      },
+    },
+    createdAt: apiNode.createdAt || new Date().toISOString(),
+  };
+}
+
 export function HostDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const node = mockNodes.find((n) => n.id === id);
+  // API connection and data
+  const { data: isConnected = false } = useApiConnection();
+  const { data: apiNode, isLoading } = useNode(id || '', !!isConnected && !!id);
+
+  // Determine data source
+  const mockNode = mockNodes.find((n) => n.id === id);
+  const useMockData = !isConnected || !apiNode;
+  const node: MockNode | undefined = useMockData ? mockNode : apiToDisplayNode(apiNode);
+
+  if (isLoading && !useMockData) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   if (!node) {
     return (
@@ -55,12 +127,12 @@ export function HostDetail() {
     );
   }
 
-  const cpuPercent = Math.round(
-    (node.status.resources.cpuAllocatedCores / node.spec.cpu.totalCores) * 100
-  );
-  const memPercent = Math.round(
-    (node.status.resources.memoryAllocatedBytes / node.spec.memory.totalBytes) * 100
-  );
+  const cpuPercent = node.spec.cpu.totalCores > 0
+    ? Math.round((node.status.resources.cpuAllocatedCores / node.spec.cpu.totalCores) * 100)
+    : 0;
+  const memPercent = node.spec.memory.totalBytes > 0
+    ? Math.round((node.status.resources.memoryAllocatedBytes / node.spec.memory.totalBytes) * 100)
+    : 0;
 
   const phaseInfo = phaseConfig[node.status.phase];
   const PhaseIcon = phaseInfo.icon;
@@ -123,6 +195,18 @@ export function HostDetail() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Connection Status */}
+            <div
+              className={cn(
+                'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium',
+                isConnected
+                  ? 'bg-success/20 text-success border border-success/30'
+                  : 'bg-warning/20 text-warning border border-warning/30',
+              )}
+            >
+              {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+              {isConnected ? 'Connected' : 'Mock Data'}
+            </div>
             <Button variant="secondary" size="sm">
               <ArrowRightLeft className="w-4 h-4" />
               Migrate VMs

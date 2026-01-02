@@ -17,10 +17,12 @@ import {
   Copy,
   Trash2,
   Filter,
+  WifiOff,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+// Note: Volume service not yet implemented in backend - using mock data only
 
 type VolumeStatus = 'AVAILABLE' | 'IN_USE' | 'CREATING' | 'ERROR';
 
@@ -156,11 +158,18 @@ export function Volumes() {
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between"
       >
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Volumes</h1>
-          <p className="text-text-muted mt-1">
-            {mockVolumes.length} volumes · {formatBytes(totalSize)} total
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">Volumes</h1>
+            <p className="text-text-muted mt-1">
+              {mockVolumes.length} volumes · {formatBytes(totalSize)} total
+            </p>
+          </div>
+          {/* Volume service not yet implemented - always mock */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-warning/20 text-warning border border-warning/30">
+            <WifiOff className="w-3 h-3" />
+            Mock Data
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="secondary" size="sm">

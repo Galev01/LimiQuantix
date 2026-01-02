@@ -197,6 +197,7 @@ func (s *Server) initServices() {
 func (s *Server) registerRoutes() {
 	// Health endpoints
 	s.mux.HandleFunc("/health", s.healthHandler)
+	s.mux.HandleFunc("/healthz", s.healthHandler) // Kubernetes-style endpoint
 	s.mux.HandleFunc("/ready", s.readyHandler)
 	s.mux.HandleFunc("/live", s.liveHandler)
 

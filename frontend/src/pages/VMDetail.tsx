@@ -16,6 +16,10 @@ import {
   Server,
   Terminal,
   Activity,
+  Wifi,
+  WifiOff,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -23,13 +27,108 @@ import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { VMStatusBadge } from '@/components/vm/VMStatusBadge';
 import { ProgressRing } from '@/components/dashboard/ProgressRing';
-import { mockVMs } from '@/data/mock-data';
+import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
+import { useVM, useStartVM, useStopVM, useDeleteVM, type ApiVM } from '@/hooks/useVMs';
+import { useApiConnection } from '@/hooks/useDashboard';
+
+// Convert API VM to display format
+function apiToDisplayVM(apiVm: ApiVM): MockVM {
+  const state = (apiVm.status?.state || 'STOPPED') as PowerState;
+  return {
+    id: apiVm.id,
+    name: apiVm.name,
+    projectId: apiVm.projectId,
+    description: apiVm.description || '',
+    labels: apiVm.labels || {},
+    spec: {
+      cpu: { cores: apiVm.spec?.cpu?.cores || 1, sockets: 1, model: 'host' },
+      memory: { sizeMib: apiVm.spec?.memory?.sizeMib || 1024 },
+      disks: (apiVm.spec?.disks || []).map((d, i) => ({
+        id: `disk-${i}`,
+        sizeGib: (d.sizeMib || 0) / 1024,
+        bus: 'virtio',
+      })),
+      nics: [{ id: 'nic-0', networkId: 'default', macAddress: '00:00:00:00:00:00' }],
+    },
+    status: {
+      state,
+      nodeId: apiVm.status?.nodeId || '',
+      ipAddresses: apiVm.status?.ipAddresses || [],
+      resourceUsage: {
+        cpuUsagePercent: apiVm.status?.resourceUsage?.cpuUsagePercent || 0,
+        memoryUsedBytes: (apiVm.status?.resourceUsage?.memoryUsedMib || 0) * 1024 * 1024,
+        memoryAllocatedBytes: (apiVm.spec?.memory?.sizeMib || 1024) * 1024 * 1024,
+        diskReadIops: 0,
+        diskWriteIops: 0,
+        networkRxBytes: 0,
+        networkTxBytes: 0,
+      },
+      guestInfo: {
+        osName: 'Linux',
+        hostname: apiVm.name,
+        agentVersion: '1.0.0',
+        uptimeSeconds: 0,
+      },
+    },
+    createdAt: apiVm.createdAt || new Date().toISOString(),
+  };
+}
 
 export function VMDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const vm = mockVMs.find((v) => v.id === id);
+  // API connection and data
+  const { data: isConnected = false } = useApiConnection();
+  const { data: apiVm, isLoading } = useVM(id || '', !!isConnected && !!id);
+
+  // Mutations
+  const startVM = useStartVM();
+  const stopVM = useStopVM();
+  const deleteVM = useDeleteVM();
+
+  // Determine data source
+  const mockVm = mockVMs.find((v) => v.id === id);
+  const useMockData = !isConnected || !apiVm;
+  const vm: MockVM | undefined = useMockData ? mockVm : apiToDisplayVM(apiVm);
+
+  const isActionPending = startVM.isPending || stopVM.isPending || deleteVM.isPending;
+
+  // Action handlers
+  const handleStart = async () => {
+    if (useMockData || !id) {
+      console.log('Mock: Start VM', id);
+      return;
+    }
+    await startVM.mutateAsync(id);
+  };
+
+  const handleStop = async () => {
+    if (useMockData || !id) {
+      console.log('Mock: Stop VM', id);
+      return;
+    }
+    await stopVM.mutateAsync({ id });
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this VM?')) return;
+    if (useMockData || !id) {
+      console.log('Mock: Delete VM', id);
+      navigate('/vms');
+      return;
+    }
+    await deleteVM.mutateAsync({ id });
+    navigate('/vms');
+  };
+
+  if (isLoading && !useMockData) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   if (!vm) {
     return (
@@ -45,9 +144,9 @@ export function VMDetail() {
   }
 
   const cpuPercent = vm.status.resourceUsage.cpuUsagePercent;
-  const memoryPercent = Math.round(
-    (vm.status.resourceUsage.memoryUsedBytes / vm.status.resourceUsage.memoryAllocatedBytes) * 100
-  );
+  const memoryPercent = vm.status.resourceUsage.memoryAllocatedBytes > 0
+    ? Math.round((vm.status.resourceUsage.memoryUsedBytes / vm.status.resourceUsage.memoryAllocatedBytes) * 100)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -88,10 +187,23 @@ export function VMDetail() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Connection Status */}
+            <div
+              className={cn(
+                'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium',
+                isConnected
+                  ? 'bg-success/20 text-success border border-success/30'
+                  : 'bg-warning/20 text-warning border border-warning/30',
+              )}
+            >
+              {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+              {isConnected ? 'Connected' : 'Mock Data'}
+            </div>
+
             {vm.status.state === 'RUNNING' ? (
               <>
-                <Button variant="secondary" size="sm">
-                  <Square className="w-4 h-4" />
+                <Button variant="secondary" size="sm" onClick={handleStop} disabled={isActionPending}>
+                  {stopVM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4" />}
                   Stop
                 </Button>
                 <Button variant="secondary" size="sm">
@@ -100,8 +212,8 @@ export function VMDetail() {
                 </Button>
               </>
             ) : (
-              <Button variant="primary" size="sm">
-                <Play className="w-4 h-4" />
+              <Button variant="primary" size="sm" onClick={handleStart} disabled={isActionPending}>
+                {startVM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                 Start
               </Button>
             )}

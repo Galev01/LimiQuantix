@@ -1,18 +1,14 @@
 /**
  * LimiQuantix API Client
  * 
- * This module provides the Connect-ES client setup for communicating with
- * the LimiQuantix backend gRPC services.
+ * This module provides HTTP client for communicating with the LimiQuantix backend.
+ * Uses simple fetch-based approach for compatibility.
  * 
  * The client supports:
- * - Unary RPC calls (request/response)
- * - Server streaming for real-time updates
- * - Automatic reconnection on failure
- * - Request/response interceptors for auth and logging
+ * - REST-style HTTP calls (Connect-RPC is HTTP-compatible)
+ * - Automatic retry with exponential backoff
+ * - Request/response logging
  */
-
-import { createClient, Transport, Interceptor, type Client } from '@connectrpc/connect';
-import { createConnectTransport } from '@connectrpc/connect-web';
 
 // Configuration
 const API_CONFIG = {
@@ -22,7 +18,7 @@ const API_CONFIG = {
   retryDelay: 1000, // 1 second
 };
 
-// Auth token storage (in production, use a more secure method)
+// Auth token storage
 let authToken: string | null = null;
 
 export function setAuthToken(token: string | null) {
@@ -33,239 +29,535 @@ export function getAuthToken(): string | null {
   return authToken;
 }
 
-// Logging interceptor
-const loggingInterceptor: Interceptor = (next) => async (req) => {
-  const startTime = Date.now();
-  const requestId = crypto.randomUUID();
-  
-  console.debug(`[API] Request ${requestId}:`, {
-    method: req.method.name,
-    service: req.service.typeName,
-    timestamp: new Date().toISOString(),
-  });
+// Connection status
+interface ConnectionState {
+  isConnected: boolean;
+  lastCheck: number;
+  error?: string;
+}
 
-  try {
-    const response = await next(req);
-    const duration = Date.now() - startTime;
-    
-    console.debug(`[API] Response ${requestId}:`, {
-      duration: `${duration}ms`,
-      success: true,
-    });
-    
-    return response;
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    
-    console.error(`[API] Error ${requestId}:`, {
-      duration: `${duration}ms`,
-      error,
-    });
-    
-    throw error;
-  }
+let connectionState: ConnectionState = {
+  isConnected: false,
+  lastCheck: 0,
 };
 
-// Auth interceptor
-const authInterceptor: Interceptor = (next) => async (req) => {
-  if (authToken) {
-    req.header.set('Authorization', `Bearer ${authToken}`);
-  }
-  
-  // Add request ID for tracing
-  req.header.set('X-Request-ID', crypto.randomUUID());
-  
-  return next(req);
-};
-
-// Create the transport with interceptors
-function createApiTransport(): Transport {
-  return createConnectTransport({
-    baseUrl: API_CONFIG.baseUrl,
-    interceptors: [loggingInterceptor, authInterceptor],
-  });
-}
-
-// Singleton transport instance
-let transport: Transport | null = null;
-
-export function getTransport(): Transport {
-  if (!transport) {
-    transport = createApiTransport();
-  }
-  return transport;
-}
-
-// Generic client factory
-export function createApiClient<T extends object>(service: { new(): T }): Client<T> {
-  return createClient(service, getTransport());
-}
-
-// Connection state management
-type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'error';
-
-interface ConnectionStatus {
-  state: ConnectionState;
-  lastConnected: Date | null;
-  lastError: Error | null;
-  retryCount: number;
-}
-
-let connectionStatus: ConnectionStatus = {
-  state: 'disconnected',
-  lastConnected: null,
-  lastError: null,
-  retryCount: 0,
-};
-
-const connectionListeners: Set<(status: ConnectionStatus) => void> = new Set();
-
-export function getConnectionStatus(): ConnectionStatus {
-  return { ...connectionStatus };
-}
-
-export function subscribeToConnectionStatus(
-  listener: (status: ConnectionStatus) => void,
-): () => void {
-  connectionListeners.add(listener);
-  return () => connectionListeners.delete(listener);
-}
-
-function updateConnectionStatus(update: Partial<ConnectionStatus>) {
-  connectionStatus = { ...connectionStatus, ...update };
-  connectionListeners.forEach((listener) => listener(connectionStatus));
-}
-
-// Health check function
+/**
+ * Check if the backend is reachable
+ */
 export async function checkConnection(): Promise<boolean> {
   try {
-    updateConnectionStatus({ state: 'connecting' });
-    
-    // In a real implementation, this would call a health check endpoint
-    // For now, we simulate a connection check
-    const response = await fetch(`${API_CONFIG.baseUrl}/health`, {
+    const response = await fetch(`${API_CONFIG.baseUrl}/healthz`, {
       method: 'GET',
       signal: AbortSignal.timeout(5000),
     });
     
-    if (response.ok) {
-      updateConnectionStatus({
-        state: 'connected',
-        lastConnected: new Date(),
-        lastError: null,
-        retryCount: 0,
-      });
-      return true;
-    }
+    connectionState = {
+      isConnected: response.ok,
+      lastCheck: Date.now(),
+      error: response.ok ? undefined : `Status: ${response.status}`,
+    };
     
-    throw new Error(`Health check failed: ${response.status}`);
+    return response.ok;
   } catch (error) {
-    updateConnectionStatus({
-      state: 'error',
-      lastError: error as Error,
-      retryCount: connectionStatus.retryCount + 1,
-    });
+    connectionState = {
+      isConnected: false,
+      lastCheck: Date.now(),
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
     return false;
   }
 }
 
-// Retry logic for failed requests
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  options: {
-    maxAttempts?: number;
-    delay?: number;
-    onRetry?: (attempt: number, error: Error) => void;
-  } = {},
+export function getConnectionStatus(): ConnectionState {
+  return connectionState;
+}
+
+/**
+ * Generic API call helper
+ */
+async function apiCall<T>(
+  service: string,
+  method: string,
+  body?: unknown,
+  options?: { timeout?: number; retries?: number }
 ): Promise<T> {
-  const { maxAttempts = API_CONFIG.retryAttempts, delay = API_CONFIG.retryDelay, onRetry } = options;
+  const url = `${API_CONFIG.baseUrl}/${service}/${method}`;
+  const timeout = options?.timeout ?? API_CONFIG.timeout;
+  const maxRetries = options?.retries ?? API_CONFIG.retryAttempts;
   
   let lastError: Error | null = null;
   
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await fn();
-    } catch (error) {
-      lastError = error as Error;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
       
-      if (attempt < maxAttempts) {
-        onRetry?.(attempt, lastError);
-        await new Promise((resolve) => setTimeout(resolve, delay * attempt));
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: body ? JSON.stringify(body) : '{}',
+        signal: AbortSignal.timeout(timeout),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      
+      // Update connection state on success
+      connectionState = {
+        isConnected: true,
+        lastCheck: Date.now(),
+      };
+      
+      return data as T;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Don't retry on 4xx errors
+      if (lastError.message.includes('API Error 4')) {
+        throw lastError;
+      }
+      
+      // Wait before retry with exponential backoff
+      if (attempt < maxRetries) {
+        await new Promise(resolve => 
+          setTimeout(resolve, API_CONFIG.retryDelay * Math.pow(2, attempt))
+        );
       }
     }
   }
+  
+  // Update connection state on failure
+  connectionState = {
+    isConnected: false,
+    lastCheck: Date.now(),
+    error: lastError?.message,
+  };
   
   throw lastError;
 }
 
-// Real-time subscription helper
-export interface StreamSubscription<T> {
-  subscribe: (callback: (data: T) => void) => void;
-  unsubscribe: () => void;
+// =============================================================================
+// VM Service API
+// =============================================================================
+
+export interface VMListRequest {
+  projectId?: string;
+  nodeId?: string;
+  pageSize?: number;
+  pageToken?: string;
 }
 
-export function createStreamSubscription<T>(
-  streamFn: () => AsyncIterable<T>,
-): StreamSubscription<T> {
-  let abortController: AbortController | null = null;
-  let isActive = false;
-  let callback: ((data: T) => void) | null = null;
+export interface VMListResponse {
+  vms: ApiVM[];
+  nextPageToken?: string;
+  totalCount: number;
+}
 
-  async function startStream() {
-    if (!callback || isActive) return;
-    
-    isActive = true;
-    abortController = new AbortController();
-
-    try {
-      for await (const data of streamFn()) {
-        if (!isActive) break;
-        callback(data);
-      }
-    } catch (error) {
-      if (isActive) {
-        console.error('[API] Stream error:', error);
-        // Attempt to reconnect after a delay
-        setTimeout(() => {
-          if (isActive) startStream();
-        }, 5000);
-      }
-    }
-  }
-
-  return {
-    subscribe: (cb) => {
-      callback = cb;
-      startStream();
-    },
-    unsubscribe: () => {
-      isActive = false;
-      abortController?.abort();
-      callback = null;
-    },
+export interface ApiVM {
+  id: string;
+  name: string;
+  projectId: string;
+  description?: string;
+  labels?: Record<string, string>;
+  spec?: {
+    cpu?: { cores?: number };
+    memory?: { sizeMib?: number };
+    disks?: Array<{ sizeMib?: number }>;
   };
+  status?: {
+    state?: string;
+    powerState?: string;
+    nodeId?: string;
+    ipAddresses?: string[];
+    resourceUsage?: {
+      cpuUsagePercent?: number;
+      memoryUsedMib?: number;
+    };
+  };
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-// Export types for use in components
-export type { Transport, Interceptor, Client };
+export const vmApi = {
+  async list(params?: VMListRequest): Promise<VMListResponse> {
+    return apiCall<VMListResponse>(
+      'limiquantix.compute.v1.VMService',
+      'ListVMs',
+      params || {}
+    );
+  },
+  
+  async get(id: string): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'GetVM',
+      { id }
+    );
+  },
+  
+  async create(data: {
+    name: string;
+    projectId: string;
+    description?: string;
+    spec?: ApiVM['spec'];
+  }): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'CreateVM',
+      data
+    );
+  },
+  
+  async start(id: string): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'StartVM',
+      { id }
+    );
+  },
+  
+  async stop(id: string, force?: boolean): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'StopVM',
+      { id, force }
+    );
+  },
+  
+  async delete(id: string, force?: boolean): Promise<void> {
+    await apiCall<void>(
+      'limiquantix.compute.v1.VMService',
+      'DeleteVM',
+      { id, force }
+    );
+  },
+};
 
-// Example usage (commented out as services are not yet generated):
-/*
-import { VMService } from '@/api/limiquantix/compute/v1/vm_service_connect';
+// =============================================================================
+// Node Service API
+// =============================================================================
 
-// Create a client
-const vmClient = createApiClient(VMService);
+export interface NodeListRequest {
+  pageSize?: number;
+  pageToken?: string;
+}
 
-// Make a unary call
-const vm = await vmClient.getVM({ id: 'vm-123' });
+export interface NodeListResponse {
+  nodes: ApiNode[];
+  nextPageToken?: string;
+  totalCount: number;
+}
 
-// Stream updates
-const subscription = createStreamSubscription(() => vmClient.watchVM({ vmId: 'vm-123' }));
-subscription.subscribe((update) => {
-  console.log('VM updated:', update);
-});
+export interface ApiNode {
+  id: string;
+  hostname: string;
+  managementIp: string;
+  labels?: Record<string, string>;
+  spec?: {
+    cpu?: {
+      model?: string;
+      sockets?: number;
+      coresPerSocket?: number;
+      threadsPerCore?: number;
+    };
+    memory?: {
+      totalMib?: number;
+    };
+  };
+  status?: {
+    phase?: string;
+    conditions?: Array<{
+      type?: string;
+      status?: boolean;
+      message?: string;
+    }>;
+    allocation?: {
+      cpuAllocated?: number;
+      cpuCapacity?: number;
+      memoryAllocatedMib?: number;
+      memoryCapacityMib?: number;
+    };
+    vmIds?: string[];
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
 
-// Later, unsubscribe
-subscription.unsubscribe();
-*/
+export const nodeApi = {
+  async list(params?: NodeListRequest): Promise<NodeListResponse> {
+    return apiCall<NodeListResponse>(
+      'limiquantix.compute.v1.NodeService',
+      'ListNodes',
+      params || {}
+    );
+  },
+  
+  async get(id: string): Promise<ApiNode> {
+    return apiCall<ApiNode>(
+      'limiquantix.compute.v1.NodeService',
+      'GetNode',
+      { id }
+    );
+  },
+  
+  async getMetrics(nodeId: string): Promise<{
+    cpuUsagePercent: number;
+    memoryUsedMib: number;
+    memoryTotalMib: number;
+  }> {
+    return apiCall(
+      'limiquantix.compute.v1.NodeService',
+      'GetNodeMetrics',
+      { nodeId }
+    );
+  },
+};
 
+// =============================================================================
+// Virtual Network Service API
+// =============================================================================
+
+export interface ApiVirtualNetwork {
+  id: string;
+  name: string;
+  projectId: string;
+  description?: string;
+  spec?: {
+    type?: string;
+    cidr?: string;
+    gateway?: string;
+    dhcpEnabled?: boolean;
+    dnsServers?: string[];
+    vlanId?: number;
+  };
+  status?: {
+    phase?: string;
+    availableIps?: number;
+    usedIps?: number;
+    portCount?: number;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface NetworkListResponse {
+  networks: ApiVirtualNetwork[];
+  nextPageToken?: string;
+  totalCount: number;
+}
+
+export const networkApi = {
+  async list(params?: { projectId?: string; pageSize?: number }): Promise<NetworkListResponse> {
+    return apiCall<NetworkListResponse>(
+      'limiquantix.network.v1.VirtualNetworkService',
+      'ListVirtualNetworks',
+      params || {}
+    );
+  },
+  
+  async get(id: string): Promise<ApiVirtualNetwork> {
+    return apiCall<ApiVirtualNetwork>(
+      'limiquantix.network.v1.VirtualNetworkService',
+      'GetVirtualNetwork',
+      { id }
+    );
+  },
+  
+  async create(data: {
+    name: string;
+    projectId: string;
+    description?: string;
+    spec?: ApiVirtualNetwork['spec'];
+  }): Promise<ApiVirtualNetwork> {
+    return apiCall<ApiVirtualNetwork>(
+      'limiquantix.network.v1.VirtualNetworkService',
+      'CreateVirtualNetwork',
+      data
+    );
+  },
+  
+  async delete(id: string): Promise<void> {
+    await apiCall<void>(
+      'limiquantix.network.v1.VirtualNetworkService',
+      'DeleteVirtualNetwork',
+      { id }
+    );
+  },
+};
+
+// =============================================================================
+// Security Group Service API
+// =============================================================================
+
+export interface ApiSecurityGroup {
+  id: string;
+  name: string;
+  projectId: string;
+  description?: string;
+  rules?: Array<{
+    id?: string;
+    direction?: 'INGRESS' | 'EGRESS';
+    protocol?: string;
+    portRangeMin?: number;
+    portRangeMax?: number;
+    remoteIpPrefix?: string;
+    remoteGroupId?: string;
+  }>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SecurityGroupListResponse {
+  securityGroups: ApiSecurityGroup[];
+  nextPageToken?: string;
+  totalCount: number;
+}
+
+export const securityGroupApi = {
+  async list(params?: { projectId?: string; pageSize?: number }): Promise<SecurityGroupListResponse> {
+    return apiCall<SecurityGroupListResponse>(
+      'limiquantix.network.v1.SecurityGroupService',
+      'ListSecurityGroups',
+      params || {}
+    );
+  },
+  
+  async get(id: string): Promise<ApiSecurityGroup> {
+    return apiCall<ApiSecurityGroup>(
+      'limiquantix.network.v1.SecurityGroupService',
+      'GetSecurityGroup',
+      { id }
+    );
+  },
+  
+  async create(data: {
+    name: string;
+    projectId: string;
+    description?: string;
+  }): Promise<ApiSecurityGroup> {
+    return apiCall<ApiSecurityGroup>(
+      'limiquantix.network.v1.SecurityGroupService',
+      'CreateSecurityGroup',
+      data
+    );
+  },
+  
+  async addRule(securityGroupId: string, rule: {
+    direction: 'INGRESS' | 'EGRESS';
+    protocol: string;
+    portRangeMin?: number;
+    portRangeMax?: number;
+    remoteIpPrefix?: string;
+  }): Promise<ApiSecurityGroup> {
+    return apiCall<ApiSecurityGroup>(
+      'limiquantix.network.v1.SecurityGroupService',
+      'AddRule',
+      { securityGroupId, rule }
+    );
+  },
+  
+  async removeRule(securityGroupId: string, ruleId: string): Promise<ApiSecurityGroup> {
+    return apiCall<ApiSecurityGroup>(
+      'limiquantix.network.v1.SecurityGroupService',
+      'RemoveRule',
+      { securityGroupId, ruleId }
+    );
+  },
+  
+  async delete(id: string): Promise<void> {
+    await apiCall<void>(
+      'limiquantix.network.v1.SecurityGroupService',
+      'DeleteSecurityGroup',
+      { id }
+    );
+  },
+};
+
+// =============================================================================
+// Storage Service API (placeholder - not yet in backend)
+// =============================================================================
+
+export interface ApiStoragePool {
+  id: string;
+  name: string;
+  type: string;
+  status?: {
+    phase?: string;
+    capacity?: {
+      totalBytes?: number;
+      usedBytes?: number;
+      availableBytes?: number;
+    };
+  };
+  createdAt?: string;
+}
+
+export interface StoragePoolListResponse {
+  pools: ApiStoragePool[];
+  totalCount: number;
+}
+
+export const storageApi = {
+  async listPools(): Promise<StoragePoolListResponse> {
+    // Placeholder - storage service not yet implemented in backend
+    // Return empty for now, will use mock data fallback
+    throw new Error('Storage service not implemented');
+  },
+  
+  async getPool(id: string): Promise<ApiStoragePool> {
+    throw new Error('Storage service not implemented');
+  },
+};
+
+// =============================================================================
+// Alert Service API (placeholder - not yet exposed via HTTP)
+// =============================================================================
+
+export interface ApiAlert {
+  id: string;
+  severity: 'CRITICAL' | 'WARNING' | 'INFO';
+  title: string;
+  description?: string;
+  resource?: string;
+  status?: 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED';
+  createdAt?: string;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
+}
+
+export interface AlertListResponse {
+  alerts: ApiAlert[];
+  totalCount: number;
+}
+
+export const alertApi = {
+  async list(): Promise<AlertListResponse> {
+    // Placeholder - alert service not yet exposed via HTTP
+    throw new Error('Alert service not implemented');
+  },
+  
+  async acknowledge(id: string): Promise<ApiAlert> {
+    throw new Error('Alert service not implemented');
+  },
+  
+  async resolve(id: string): Promise<ApiAlert> {
+    throw new Error('Alert service not implemented');
+  },
+};
+
+// Export for backwards compatibility
+export function getTransport() {
+  // This is a stub for code that imports getTransport
+  // Real API calls use the vmApi/nodeApi objects above
+  console.warn('getTransport() is deprecated. Use vmApi/nodeApi instead.');
+  return null;
+}

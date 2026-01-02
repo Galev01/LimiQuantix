@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Zap,
+  WifiOff,
   ArrowRight,
   Server,
   Cpu,
@@ -409,11 +410,18 @@ export function DRSRecommendations() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">DRS Recommendations</h1>
-          <p className="text-text-muted mt-1">
-            Distributed Resource Scheduler optimization suggestions
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">DRS Recommendations</h1>
+            <p className="text-text-muted mt-1">
+              Distributed Resource Scheduler optimization suggestions
+            </p>
+          </div>
+          {/* DRS service not yet exposed via HTTP - using mock data */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-warning/20 text-warning border border-warning/30">
+            <WifiOff className="w-3 h-3" />
+            Mock Data
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="secondary">

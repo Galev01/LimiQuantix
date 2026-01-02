@@ -14,7 +14,7 @@
 | **Frontend (React UI)** | ✅ **95% Complete** - Production-ready dashboard |
 | **Backend (Go Control Plane)** | ✅ **75% Complete** - Core services implemented & tested |
 | **Proto/API Definitions** | ✅ **100% Complete** - Full API surface defined |
-| **Frontend ↔ Backend Integration** | 🔄 **In Progress** - API hooks being connected |
+| **Frontend ↔ Backend Integration** | ✅ **Done** - API hooks connected, falls back to mock data |
 | **Rust Agent** | ❌ **0% Complete** - Skeleton only |
 | **Hypervisor Integration** | ❌ **0% Complete** - Not started |
 | **Storage (Ceph/LINSTOR)** | ❌ **0% Complete** - Not started |
@@ -77,6 +77,75 @@ ok      github.com/limiquantix/limiquantix/internal/services/vm 0.219s
 **18 unit tests passing** across scheduler, auth, and vm packages.
 
 #### 6. Server Running Successfully
+```
+INFO  Starting LimiQuantix Control Plane {"mode": "dev", "version": "0.1.0"}
+INFO  Initializing in-memory repositories
+INFO  Registering services {"service": "VM", "path": "/limiquantix.compute.v1.VMService/"}
+INFO  Registering services {"service": "Node", "path": "/limiquantix.compute.v1.NodeService/"}
+INFO  Starting server {"address": "0.0.0.0:8080"}
+```
+
+#### 7. Frontend-Backend Integration (Latest)
+- **API Client** (`frontend/src/lib/api-client.ts`)
+  - Simplified HTTP-based client (avoids protobuf-es v2 compatibility issues)
+  - Support for VM and Node service calls
+  - Connection health checking
+  - Graceful fallback to mock data
+
+- **React Query Hooks** 
+  - `frontend/src/hooks/useVMs.ts` - VM CRUD operations
+  - `frontend/src/hooks/useNodes.ts` - Node operations
+  - `frontend/src/hooks/useDashboard.ts` - Aggregated dashboard metrics
+
+- **Dashboard Integration** (`frontend/src/pages/Dashboard.tsx`)
+  - Connection status indicator (shows "Connected to Backend" or "Using Mock Data")
+  - Real-time refresh button
+  - Automatic fallback to mock data when backend unavailable
+  - Proper type conversions between API and mock formats
+
+#### 8. Current Status: Frontend-Backend Fully Connected ✅
+
+**CORS Enabled (January 2, 2026):**
+- Updated `backend/configs/config.yaml` to include `http://localhost:5174` in allowed origins
+- Added `/healthz` endpoint for Kubernetes-style health checks
+- Updated default CORS config in `backend/internal/config/config.go`
+
+**Verified Working:**
+```
+2026-01-02T01:39:22  INFO  HTTP request  {"method": "POST", "path": "/limiquantix.compute.v1.VMService/ListVMs", "status": 200}
+2026-01-02T01:39:22  DEBUG Listed VMs    {"method": "ListVMs", "count": 4, "total": 4}
+2026-01-02T01:39:22  INFO  HTTP request  {"method": "POST", "path": "/limiquantix.compute.v1.NodeService/ListNodes", "status": 200}
+2026-01-02T01:39:22  DEBUG Listed nodes  {"method": "ListNodes", "count": 3}
+```
+
+**The frontend successfully:**
+1. ✅ Connects to backend at `http://localhost:8080`
+2. ✅ Fetches real VM data (4 VMs from in-memory demo data)
+3. ✅ Fetches real Node data (3 nodes from in-memory demo data)
+4. ✅ Falls back gracefully to mock data when backend unavailable
+5. ✅ No CORS errors
+
+---
+
+### How to Run the Full Stack
+
+1. **Start Backend Server**
+   ```bash
+   cd backend && go build -o server.exe ./cmd/controlplane && ./server.exe --dev
+   ```
+
+2. **Start Frontend**
+   ```bash
+   cd frontend && npm run dev
+   ```
+
+3. **Access Dashboard**
+   - Open `http://localhost:5174`
+   - The dashboard shows real data from the backend API
+
+---
+
+#### 6. Server Running Successfully (Original)
 ```
 INFO  Starting LimiQuantix Control Plane {"mode": "dev", "version": "0.1.0"}
 INFO  Initializing in-memory repositories
@@ -283,16 +352,30 @@ docs/
 
 ## What's IN PROGRESS 🔄
 
-### Frontend ↔ Backend Integration
+### Frontend ↔ Backend Integration ✅ COMPLETE
+
+**All UI pages now connected to backend API!**
 
 | Task | Status |
 |------|--------|
 | TypeScript API clients generated | ✅ Done |
-| Connect-ES transport configured | ✅ Done |
-| React Query hooks for VMs | 🔄 In Progress |
-| React Query hooks for Nodes | ⏳ Pending |
-| Replace mock data in Dashboard | 🔄 In Progress |
-| Replace mock data in VM List | ⏳ Pending |
+| Connect-ES transport configured | ✅ Done (simplified to fetch-based) |
+| React Query hooks for VMs | ✅ Done (`frontend/src/hooks/useVMs.ts`) |
+| React Query hooks for Nodes | ✅ Done (`frontend/src/hooks/useNodes.ts`) |
+| React Query hooks for Networks | ✅ Done (`frontend/src/hooks/useNetworks.ts`) |
+| React Query hooks for SecurityGroups | ✅ Done (`frontend/src/hooks/useSecurityGroups.ts`) |
+| Dashboard hooks | ✅ Done (`frontend/src/hooks/useDashboard.ts`) |
+| Replace mock data in Dashboard | ✅ Done (auto-fallback to mock) |
+| CORS enabled on backend | ✅ Done (`backend/configs/config.yaml`) |
+| Full stack verified working | ✅ Done (4 VMs, 3 Nodes from API) |
+| VMList page wired to API | ✅ Done (Start/Stop/Delete actions) |
+| HostList page wired to API | ✅ Done |
+| VMDetail page wired to API | ✅ Done (with actions) |
+| HostDetail page wired to API | ✅ Done |
+| VirtualNetworks page wired to API | ✅ Done |
+| SecurityGroups page wired to API | ✅ Done |
+| VMCreationWizard creates VMs via API | ✅ Done |
+| Connection status badges on all pages | ✅ Done |
 
 ---
 
@@ -345,10 +428,21 @@ docs/
 | **Frontend** | ✅ Exceeded | 95% complete |
 | **API Definitions** | ✅ Complete | 100% done |
 | **Backend Services** | ✅ Complete | 75% done (all phases implemented) |
-| **Frontend-Backend Integration** | 🔄 In Progress | Hooks being connected |
+| **Frontend-Backend Integration** | ✅ Complete | Full stack working |
 | **Hypervisor** | ❌ Not started | 0% done |
 | **Guest Agent** | ❌ Not started | 0% done |
 | **Storage Backend** | ❌ Not started | 0% done |
 | **Network Backend** | ❌ Not started | 0% done |
 
-**The project now has a fully functional API layer with tested services. The next step is connecting the beautiful frontend UI to the real backend, then moving on to the infrastructure layer (hypervisor, agent, storage, networking).**
+**🎉 MILESTONE ACHIEVED: The frontend and backend are now fully integrated!**
+
+The project has a working full-stack application:
+- Frontend at `http://localhost:5174` connects to backend at `http://localhost:8080`
+- Real API calls fetch VMs and Nodes from the in-memory demo data
+- Graceful fallback to mock data when backend is unavailable
+
+**Next Steps: Infrastructure Layer**
+1. Hypervisor Integration (Cloud Hypervisor/QEMU)
+2. Guest Agent Development (Rust)
+3. Storage Backend (Ceph/LVM)
+4. Network Backend (OVN/OVS)

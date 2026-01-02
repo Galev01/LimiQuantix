@@ -13,15 +13,19 @@ import {
   Globe,
   Shield,
   Router,
-  Wifi,
+  Wifi as WifiIcon,
+  WifiOff,
   Cable,
   Settings,
   Trash2,
   Edit,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { useNetworks, useDeleteNetwork, type ApiVirtualNetwork } from '@/hooks/useNetworks';
+import { useApiConnection } from '@/hooks/useDashboard';
 
 interface VirtualNetwork {
   id: string;
@@ -138,10 +142,30 @@ const mockNetworks: VirtualNetwork[] = [
 ];
 
 const typeConfig = {
-  OVERLAY: { color: 'purple', icon: Wifi, label: 'Overlay' },
+  OVERLAY: { color: 'purple', icon: WifiIcon, label: 'Overlay' },
   VLAN: { color: 'blue', icon: Cable, label: 'VLAN' },
   EXTERNAL: { color: 'green', icon: Globe, label: 'External' },
 } as const;
+
+// Convert API network to display format
+function apiToDisplayNetwork(net: ApiVirtualNetwork): VirtualNetwork {
+  return {
+    id: net.id,
+    name: net.name,
+    description: net.description || '',
+    type: (net.spec?.type as 'OVERLAY' | 'VLAN' | 'EXTERNAL') || 'VLAN',
+    status: (net.status?.phase as 'ACTIVE' | 'PENDING' | 'ERROR') || 'ACTIVE',
+    vlanId: net.spec?.vlanId,
+    cidr: net.spec?.cidr || '',
+    gateway: net.spec?.gateway || '',
+    dhcpEnabled: net.spec?.dhcpEnabled || false,
+    connectedVMs: net.status?.usedIps || 0,
+    connectedPorts: net.status?.portCount || 0,
+    quantrixSwitch: 'qs-auto',
+    mtu: 1500,
+    createdAt: net.createdAt || new Date().toISOString(),
+  };
+}
 
 const statusConfig = {
   ACTIVE: { color: 'success', icon: CheckCircle },
@@ -154,7 +178,17 @@ export function VirtualNetworks() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'OVERLAY' | 'VLAN' | 'EXTERNAL'>('all');
   const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
 
-  const filteredNetworks = mockNetworks.filter((net) => {
+  // API connection and data
+  const { data: isConnected = false } = useApiConnection();
+  const { data: apiResponse, isLoading, refetch, isRefetching } = useNetworks({ enabled: !!isConnected });
+  const deleteNetwork = useDeleteNetwork();
+
+  // Determine data source
+  const apiNetworks = apiResponse?.networks || [];
+  const useMockData = !isConnected || apiNetworks.length === 0;
+  const allNetworks: VirtualNetwork[] = useMockData ? mockNetworks : apiNetworks.map(apiToDisplayNetwork);
+
+  const filteredNetworks = allNetworks.filter((net) => {
     const matchesSearch =
       net.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       net.cidr.includes(searchQuery);
@@ -164,22 +198,54 @@ export function VirtualNetworks() {
 
   // Calculate totals
   const totals = {
-    networks: mockNetworks.length,
-    vms: mockNetworks.reduce((sum, n) => sum + n.connectedVMs, 0),
-    ports: mockNetworks.reduce((sum, n) => sum + n.connectedPorts, 0),
+    networks: allNetworks.length,
+    vms: allNetworks.reduce((sum, n) => sum + n.connectedVMs, 0),
+    ports: allNetworks.reduce((sum, n) => sum + n.connectedPorts, 0),
+  };
+
+  // Handle delete
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this network?')) return;
+    if (useMockData) {
+      console.log('Mock: Delete network', id);
+      return;
+    }
+    try {
+      await deleteNetwork.mutateAsync(id);
+    } catch (err) {
+      console.error('Failed to delete network:', err);
+    }
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Virtual Networks</h1>
-          <p className="text-text-muted mt-1">Manage QuantrixSwitch networks and connectivity</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">Virtual Networks</h1>
+            <p className="text-text-muted mt-1">Manage QuantrixSwitch networks and connectivity</p>
+          </div>
+          {/* Connection Status */}
+          <div
+            className={cn(
+              'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium',
+              isConnected
+                ? 'bg-success/20 text-success border border-success/30'
+                : 'bg-warning/20 text-warning border border-warning/30',
+            )}
+          >
+            {isConnected ? <WifiIcon className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+            {isConnected ? 'Connected' : 'Mock Data'}
+          </div>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary">
-            <RefreshCw className="w-4 h-4" />
+          <Button
+            variant="secondary"
+            onClick={() => refetch()}
+            disabled={isRefetching || isLoading}
+          >
+            <RefreshCw className={cn('w-4 h-4', (isRefetching || isLoading) && 'animate-spin')} />
             Refresh
           </Button>
           <Button>

@@ -4,8 +4,8 @@
  * Combines VM and Node data to provide dashboard metrics
  */
 
-import { useVMs, isVMRunning } from './useVMs';
-import { useNodes, isNodeReady, getNodeCPUUsage, getNodeMemoryUsage } from './useNodes';
+import { useVMs, isVMRunning, type ApiVM } from './useVMs';
+import { useNodes, isNodeReady, getNodeCPUUsage, getNodeMemoryUsage, type ApiNode } from './useNodes';
 import { checkConnection, getConnectionStatus } from '../lib/api-client';
 import { useQuery } from '@tanstack/react-query';
 
@@ -36,53 +36,57 @@ export interface DashboardMetrics {
 }
 
 /**
+ * Hook to check API connection status
+ */
+export function useApiConnection(options?: { enabled?: boolean; refetchInterval?: number }) {
+  return useQuery({
+    queryKey: ['api', 'connection'],
+    queryFn: async () => {
+      const isConnected = await checkConnection();
+      return {
+        isConnected,
+        ...getConnectionStatus(),
+      };
+    },
+    enabled: options?.enabled ?? true,
+    staleTime: 5000,
+    refetchInterval: options?.refetchInterval ?? 30000,
+    retry: false,
+  });
+}
+
+/**
  * Hook to fetch all dashboard data
  */
 export function useDashboard() {
-  const vmsQuery = useVMs();
-  const nodesQuery = useNodes();
-  
+  const vmsQuery = useVMs({ pageSize: 1000 });
+  const nodesQuery = useNodes({ pageSize: 100 });
+  const connectionQuery = useApiConnection();
+
   // Calculate metrics from the data
-  const metrics: DashboardMetrics = {
-    // VM metrics
-    totalVMs: vmsQuery.data?.vms?.length || 0,
-    runningVMs: vmsQuery.data?.vms?.filter(vm => isVMRunning(vm)).length || 0,
-    stoppedVMs: vmsQuery.data?.vms?.filter(vm => vm.status?.state === 2).length || 0,
-    pausedVMs: vmsQuery.data?.vms?.filter(vm => vm.status?.state === 3).length || 0,
-    totalVCPUs: vmsQuery.data?.vms?.reduce((sum, vm) => sum + (vm.spec?.cpu?.cores || 0), 0) || 0,
-    totalMemoryGB: vmsQuery.data?.vms?.reduce((sum, vm) => {
-      const memMib = Number(vm.spec?.memory?.sizeMib || 0n);
-      return sum + (memMib / 1024);
-    }, 0) || 0,
-    
-    // Node metrics
-    totalHosts: nodesQuery.data?.nodes?.length || 0,
-    healthyHosts: nodesQuery.data?.nodes?.filter(node => isNodeReady(node)).length || 0,
-    unhealthyHosts: nodesQuery.data?.nodes?.filter(node => node.status?.phase === 3).length || 0,
-    maintenanceHosts: nodesQuery.data?.nodes?.filter(node => node.status?.phase === 5).length || 0,
-    avgCpuUsage: nodesQuery.data?.nodes?.length 
-      ? nodesQuery.data.nodes.reduce((sum, node) => sum + getNodeCPUUsage(node), 0) / nodesQuery.data.nodes.length
-      : 0,
-    avgMemoryUsage: nodesQuery.data?.nodes?.length
-      ? nodesQuery.data.nodes.reduce((sum, node) => sum + getNodeMemoryUsage(node), 0) / nodesQuery.data.nodes.length
-      : 0,
-    
-    // Storage (placeholder - will be connected later)
-    totalStorageGB: 10000,
-    usedStorageGB: 6500,
-    
-    // Alerts (placeholder - will be connected later)
-    criticalAlerts: 0,
-    warningAlerts: 0,
-  };
-  
+  const metrics = calculateMetrics(
+    vmsQuery.data?.vms || [],
+    nodesQuery.data?.nodes || []
+  );
+
   return {
-    metrics,
+    // Raw data
     vms: vmsQuery.data?.vms || [],
     nodes: nodesQuery.data?.nodes || [],
+    
+    // Aggregated metrics
+    metrics,
+    
+    // Loading states
     isLoading: vmsQuery.isLoading || nodesQuery.isLoading,
     isError: vmsQuery.isError || nodesQuery.isError,
     error: vmsQuery.error || nodesQuery.error,
+    
+    // Connection status
+    isConnected: connectionQuery.data?.isConnected ?? false,
+    connectionError: connectionQuery.data?.error,
+    
+    // Refetch functions
     refetch: () => {
       vmsQuery.refetch();
       nodesQuery.refetch();
@@ -91,43 +95,81 @@ export function useDashboard() {
 }
 
 /**
- * Hook to check API connection status
+ * Calculate dashboard metrics from raw data
  */
-export function useApiConnection() {
-  return useQuery({
-    queryKey: ['api', 'connection'],
-    queryFn: async () => {
-      const connected = await checkConnection();
-      return {
-        connected,
-        status: getConnectionStatus(),
-      };
-    },
-    staleTime: 10000,
-    refetchInterval: 30000,
-    retry: false,
-  });
-}
-
-/**
- * Hook to get recent VMs for the dashboard
- */
-export function useRecentVMs(limit: number = 5) {
-  const vmsQuery = useVMs();
+function calculateMetrics(vms: ApiVM[], nodes: ApiNode[]): DashboardMetrics {
+  // VM metrics
+  const runningVMs = vms.filter(isVMRunning).length;
+  const stoppedVMs = vms.filter(vm => {
+    const state = vm.status?.state || vm.status?.powerState || '';
+    return state === 'STOPPED' || state === 'POWER_STATE_STOPPED';
+  }).length;
+  const pausedVMs = vms.filter(vm => {
+    const state = vm.status?.state || vm.status?.powerState || '';
+    return state === 'PAUSED' || state === 'POWER_STATE_PAUSED';
+  }).length;
   
-  // Sort by updated_at descending and take the first N
-  const recentVMs = (vmsQuery.data?.vms || [])
-    .slice()
-    .sort((a, b) => {
-      const aTime = a.updatedAt?.seconds || 0n;
-      const bTime = b.updatedAt?.seconds || 0n;
-      return Number(bTime - aTime);
-    })
-    .slice(0, limit);
+  // Calculate total resources
+  let totalVCPUs = 0;
+  let totalMemoryMB = 0;
+  let totalDiskGB = 0;
+  let usedDiskGB = 0;
+  
+  for (const vm of vms) {
+    totalVCPUs += vm.spec?.cpu?.cores || 0;
+    totalMemoryMB += vm.spec?.memory?.sizeMib || 0;
+    for (const disk of vm.spec?.disks || []) {
+      totalDiskGB += (disk.sizeMib || 0) / 1024;
+    }
+  }
+  
+  // Node metrics
+  const healthyHosts = nodes.filter(isNodeReady).length;
+  const unhealthyHosts = nodes.filter(node => {
+    const phase = node.status?.phase || '';
+    return phase === 'NOT_READY' || phase === 'NODE_PHASE_NOT_READY';
+  }).length;
+  const maintenanceHosts = nodes.filter(node => {
+    const phase = node.status?.phase || '';
+    return phase === 'MAINTENANCE' || phase === 'NODE_PHASE_MAINTENANCE';
+  }).length;
+  
+  // Calculate average resource usage
+  let totalCpuUsage = 0;
+  let totalMemoryUsage = 0;
+  
+  for (const node of nodes) {
+    totalCpuUsage += getNodeCPUUsage(node);
+    totalMemoryUsage += getNodeMemoryUsage(node);
+  }
+  
+  const nodeCount = nodes.length || 1;
   
   return {
-    vms: recentVMs,
-    isLoading: vmsQuery.isLoading,
-    isError: vmsQuery.isError,
+    totalVMs: vms.length,
+    runningVMs,
+    stoppedVMs,
+    pausedVMs,
+    totalVCPUs,
+    totalMemoryGB: Math.round(totalMemoryMB / 1024),
+    
+    totalHosts: nodes.length,
+    healthyHosts,
+    unhealthyHosts,
+    maintenanceHosts,
+    avgCpuUsage: Math.round(totalCpuUsage / nodeCount),
+    avgMemoryUsage: Math.round(totalMemoryUsage / nodeCount),
+    
+    // Placeholder storage metrics
+    totalStorageGB: Math.round(totalDiskGB) || 1000,
+    usedStorageGB: Math.round(usedDiskGB) || 420,
+    
+    // Placeholder alerts
+    criticalAlerts: 0,
+    warningAlerts: 0,
   };
 }
+
+// Re-export for convenience
+export { isVMRunning } from './useVMs';
+export { isNodeReady, getNodeCPUUsage, getNodeMemoryUsage } from './useNodes';

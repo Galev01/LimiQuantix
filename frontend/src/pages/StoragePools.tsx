@@ -15,11 +15,13 @@ import {
   Settings,
   Trash2,
   BarChart3,
+  WifiOff,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { mockStoragePools, type StoragePool } from '@/data/mock-data';
+// Note: Storage service not yet implemented in backend - using mock data only
 
 type FilterTab = 'all' | 'ready' | 'degraded' | 'error';
 
@@ -70,9 +72,16 @@ export function StoragePools() {
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between"
       >
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Storage Pools</h1>
-          <p className="text-text-muted mt-1">Manage your storage infrastructure</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">Storage Pools</h1>
+            <p className="text-text-muted mt-1">Manage your storage infrastructure</p>
+          </div>
+          {/* Storage service not yet implemented - always mock */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-warning/20 text-warning border border-warning/30">
+            <WifiOff className="w-3 h-3" />
+            Mock Data
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="secondary" size="sm">

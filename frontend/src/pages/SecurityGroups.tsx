@@ -19,10 +19,15 @@ import {
   Globe,
   Lock,
   Unlock,
+  Wifi,
+  WifiOff,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { useSecurityGroups, useDeleteSecurityGroup, type ApiSecurityGroup } from '@/hooks/useSecurityGroups';
+import { useApiConnection } from '@/hooks/useDashboard';
 
 interface SecurityRule {
   id: string;
@@ -195,9 +200,44 @@ const mockSecurityGroups: SecurityGroup[] = [
   },
 ];
 
+// Convert API security group to display format
+function apiToDisplaySecurityGroup(sg: ApiSecurityGroup): SecurityGroup {
+  return {
+    id: sg.id,
+    name: sg.name,
+    description: sg.description || '',
+    isDefault: sg.name === 'default',
+    attachedVMs: 0, // API doesn't provide this yet
+    rules: (sg.rules || []).map((rule) => ({
+      id: rule.id || '',
+      direction: rule.direction || 'INGRESS',
+      protocol: (rule.protocol?.toUpperCase() as 'TCP' | 'UDP' | 'ICMP' | 'ANY') || 'ANY',
+      portRange: rule.portRangeMin && rule.portRangeMax
+        ? rule.portRangeMin === rule.portRangeMax
+          ? String(rule.portRangeMin)
+          : `${rule.portRangeMin}-${rule.portRangeMax}`
+        : 'All',
+      source: rule.remoteIpPrefix || rule.remoteGroupId || '0.0.0.0/0',
+      action: 'ALLOW' as const,
+      description: '',
+    })),
+    createdAt: sg.createdAt || new Date().toISOString(),
+  };
+}
+
 export function SecurityGroups() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['sg-web']));
+
+  // API connection and data
+  const { data: isConnected = false } = useApiConnection();
+  const { data: apiResponse, isLoading, refetch, isRefetching } = useSecurityGroups({ enabled: !!isConnected });
+  const deleteSG = useDeleteSecurityGroup();
+
+  // Determine data source
+  const apiGroups = apiResponse?.securityGroups || [];
+  const useMockData = !isConnected || apiGroups.length === 0;
+  const allGroups: SecurityGroup[] = useMockData ? mockSecurityGroups : apiGroups.map(apiToDisplaySecurityGroup);
 
   const toggleGroup = (id: string) => {
     setExpandedGroups((prev) => {
@@ -211,16 +251,30 @@ export function SecurityGroups() {
     });
   };
 
-  const filteredGroups = mockSecurityGroups.filter((sg) =>
+  const filteredGroups = allGroups.filter((sg) =>
     sg.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     sg.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Calculate totals
   const totals = {
-    groups: mockSecurityGroups.length,
-    rules: mockSecurityGroups.reduce((sum, sg) => sum + sg.rules.length, 0),
-    vms: mockSecurityGroups.reduce((sum, sg) => sum + sg.attachedVMs, 0),
+    groups: allGroups.length,
+    rules: allGroups.reduce((sum, sg) => sum + sg.rules.length, 0),
+    vms: allGroups.reduce((sum, sg) => sum + sg.attachedVMs, 0),
+  };
+
+  // Handle delete
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this security group?')) return;
+    if (useMockData) {
+      console.log('Mock: Delete security group', id);
+      return;
+    }
+    try {
+      await deleteSG.mutateAsync(id);
+    } catch (err) {
+      console.error('Failed to delete security group:', err);
+    }
   };
 
   return (
@@ -231,9 +285,24 @@ export function SecurityGroups() {
           <h1 className="text-2xl font-bold text-text-primary">Security Groups</h1>
           <p className="text-text-muted mt-1">Manage firewall rules and network access control</p>
         </div>
+        <div
+          className={cn(
+            'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium',
+            isConnected
+              ? 'bg-success/20 text-success border border-success/30'
+              : 'bg-warning/20 text-warning border border-warning/30',
+          )}
+        >
+          {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+          {isConnected ? 'Connected' : 'Mock Data'}
+        </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary">
-            <RefreshCw className="w-4 h-4" />
+          <Button
+            variant="secondary"
+            onClick={() => refetch()}
+            disabled={isRefetching || isLoading}
+          >
+            <RefreshCw className={cn('w-4 h-4', (isRefetching || isLoading) && 'animate-spin')} />
             Refresh
           </Button>
           <Button>

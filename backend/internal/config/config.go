@@ -220,7 +220,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("logging.output", "stdout")
 
 	// CORS
-	v.SetDefault("cors.allowed_origins", []string{"http://localhost:5173"})
+	v.SetDefault("cors.allowed_origins", []string{"http://localhost:5173", "http://localhost:5174", "http://localhost:3000"})
 	v.SetDefault("cors.allowed_methods", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
 	v.SetDefault("cors.allowed_headers", []string{"*"})
 	v.SetDefault("cors.allow_credentials", true)

@@ -25,16 +25,17 @@ import {
   AlertCircle,
   MemoryStick,
   Zap,
+  Loader2,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { mockNodes, mockStoragePools } from '@/data/mock-data';
+import { useCreateVM } from '@/hooks/useVMs';
 
 interface VMCreationWizardProps {
-  isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: VMCreationData) => void;
+  onSuccess?: () => void;
 }
 
 interface VMCreationData {
@@ -173,18 +174,20 @@ const initialFormData: VMCreationData = {
   tags: [],
 };
 
-export function VMCreationWizard({ isOpen, onClose, onSubmit }: VMCreationWizardProps) {
+export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<VMCreationData>(initialFormData);
   const [direction, setDirection] = useState(1);
+  const [error, setError] = useState<string | null>(null);
 
-  // Reset form when opened
+  // API mutation for creating VMs
+  const createVM = useCreateVM();
+
+  // Reset form when mounted
   useEffect(() => {
-    if (isOpen) {
-      setCurrentStep(0);
-      setFormData(initialFormData);
-    }
-  }, [isOpen]);
+    setCurrentStep(0);
+    setFormData(initialFormData);
+  }, []);
 
   const updateFormData = (updates: Partial<VMCreationData>) => {
     setFormData((prev) => ({ ...prev, ...updates }));
@@ -204,9 +207,24 @@ export function VMCreationWizard({ isOpen, onClose, onSubmit }: VMCreationWizard
     }
   };
 
-  const handleSubmit = () => {
-    onSubmit(formData);
-    onClose();
+  const handleSubmit = async () => {
+    setError(null);
+    try {
+      await createVM.mutateAsync({
+        name: formData.name,
+        projectId: 'default',
+        description: formData.description,
+        spec: {
+          cpu: { cores: formData.cpuCores * formData.cpuSockets },
+          memory: { sizeMib: formData.memoryMib },
+          disks: formData.disks.map((d) => ({ sizeMib: d.sizeGib * 1024 })),
+        },
+      });
+      onSuccess?.();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create VM');
+    }
   };
 
   const isStepValid = (step: number): boolean => {
@@ -239,13 +257,9 @@ export function VMCreationWizard({ isOpen, onClose, onSubmit }: VMCreationWizard
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
-    }
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -399,20 +413,34 @@ export function VMCreationWizard({ isOpen, onClose, onSubmit }: VMCreationWizard
           <Button
             variant="ghost"
             onClick={handleBack}
-            disabled={currentStep === 0}
+            disabled={currentStep === 0 || createVM.isPending}
           >
             <ChevronLeft className="w-4 h-4" />
             Back
           </Button>
 
-          <div className="flex items-center gap-2 text-sm text-text-muted">
-            Step {currentStep + 1} of {STEPS.length}
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-sm text-text-muted">
+              Step {currentStep + 1} of {STEPS.length}
+            </span>
+            {error && (
+              <span className="text-xs text-error">{error}</span>
+            )}
           </div>
 
           {currentStep === STEPS.length - 1 ? (
-            <Button onClick={handleSubmit}>
-              <Check className="w-4 h-4" />
-              Create VM
+            <Button onClick={handleSubmit} disabled={createVM.isPending}>
+              {createVM.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  Create VM
+                </>
+              )}
             </Button>
           ) : (
             <Button onClick={handleNext} disabled={!canProceed}>
