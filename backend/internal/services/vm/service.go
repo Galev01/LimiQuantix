@@ -486,7 +486,7 @@ func (s *Service) StartVM(
 			_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
 			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node daemon: %w", err))
 		}
-		
+
 		err = client.StartVM(ctx, vm.ID)
 		if err != nil {
 			logger.Error("Failed to start VM on node daemon",
@@ -583,7 +583,7 @@ func (s *Service) StopVM(
 			_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
 			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node daemon: %w", err))
 		}
-		
+
 		var stopErr error
 		if req.Msg.Force {
 			stopErr = client.ForceStopVM(ctx, vm.ID)
@@ -666,7 +666,7 @@ func (s *Service) RebootVM(
 			)
 			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node daemon: %w", err))
 		}
-		
+
 		err = client.RebootVM(ctx, vm.ID)
 		if err != nil {
 			logger.Error("Failed to reboot VM on node daemon",
@@ -734,7 +734,7 @@ func (s *Service) PauseVM(
 			)
 			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node daemon: %w", err))
 		}
-		
+
 		err = client.PauseVM(ctx, vm.ID)
 		if err != nil {
 			logger.Error("Failed to pause VM on node daemon", zap.Error(err))
@@ -797,7 +797,7 @@ func (s *Service) ResumeVM(
 			)
 			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node daemon: %w", err))
 		}
-		
+
 		err = client.ResumeVM(ctx, vm.ID)
 		if err != nil {
 			logger.Error("Failed to resume VM on node daemon", zap.Error(err))
@@ -915,7 +915,7 @@ func (s *Service) GetConsole(
 
 	client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
 	if err != nil {
-		logger.Warn("Failed to get node daemon client", 
+		logger.Warn("Failed to get node daemon client",
 			zap.String("node_id", vm.Status.NodeID),
 			zap.Error(err))
 		return nil, connect.NewError(connect.CodeUnavailable,
@@ -962,25 +962,25 @@ func (s *Service) getNodeDaemonClient(ctx context.Context, nodeID string) (*node
 	if s.daemonPool == nil {
 		return nil, fmt.Errorf("daemon pool not available")
 	}
-	
+
 	// Try to get existing client first
 	client := s.daemonPool.Get(nodeID)
 	if client != nil {
 		return client, nil
 	}
-	
+
 	// Need to connect - get node info for the address
 	nodeInfo, err := s.nodeRepo.Get(ctx, nodeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node info: %w", err)
 	}
-	
+
 	// Connect to the node daemon (ManagementIP includes port)
 	client, err = s.daemonPool.Connect(nodeID, nodeInfo.ManagementIP)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to node daemon at %s: %w", nodeInfo.ManagementIP, err)
 	}
-	
+
 	return client, nil
 }
 
