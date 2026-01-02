@@ -1,0 +1,31 @@
+[package]
+name = "limiquantix-hypervisor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Enable libvirt backend (requires system libvirt installed)
+libvirt = ["dep:virt"]
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+
+# Random number generation (for MAC addresses)
+rand = "0.8"
+
+# Libvirt bindings (optional, requires system libvirt)
+virt = { version = "0.4", optional = true }
+
+# XML generation for libvirt
+quick-xml = { version = "0.31", features = ["serialize"] }

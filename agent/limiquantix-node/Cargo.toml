@@ -1,0 +1,64 @@
+[package]
+name = "limiquantix-node"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Enable libvirt backend (requires system libvirt)
+libvirt = ["limiquantix-hypervisor/libvirt"]
+
+[[bin]]
+name = "limiquantix-node"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime
+tokio.workspace = true
+tokio-stream.workspace = true
+
+# gRPC
+tonic.workspace = true
+prost.workspace = true
+prost-types.workspace = true
+
+# Logging
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Utilities
+uuid.workspace = true
+chrono.workspace = true
+hostname.workspace = true
+
+# Configuration
+config.workspace = true
+
+# CLI
+clap.workspace = true
+
+# Async utilities
+async-trait.workspace = true
+futures.workspace = true
+
+# HTTP client for control plane communication
+reqwest = { version = "0.12", features = ["json"] }
+local-ip-address = "0.6"
+
+# Internal crates
+limiquantix-hypervisor.workspace = true
+limiquantix-telemetry.workspace = true
+limiquantix-proto.workspace = true
+limiquantix-common.workspace = true
+

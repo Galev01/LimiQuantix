@@ -1,0 +1,21 @@
+[package]
+name = "limiquantix-proto"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Enable proto code generation (requires protoc installed)
+codegen = []
+
+[dependencies]
+tonic.workspace = true
+prost.workspace = true
+prost-types.workspace = true
+serde.workspace = true
+
+[build-dependencies]
+tonic-build.workspace = true
+

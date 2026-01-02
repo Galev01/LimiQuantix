@@ -1,0 +1,12 @@
+[package]
+name = "limiquantix-common"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+

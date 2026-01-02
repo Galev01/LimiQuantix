@@ -1,6 +1,67 @@
-[package]
-name = "limiquantix-agent"
-version = "0.1.0"
-edition = "2024"
+# =============================================================================
+# LimiQuantix Agent - Workspace Manifest
+# =============================================================================
+# This is the Rust workspace containing the Node Daemon and supporting libraries.
 
-[dependencies]
+[workspace]
+resolver = "2"
+members = [
+    "limiquantix-node",
+    "limiquantix-hypervisor",
+    "limiquantix-telemetry",
+    "limiquantix-proto",
+    "limiquantix-common",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["LimiQuantix Team"]
+license = "Apache-2.0"
+repository = "https://github.com/limiquantix/limiquantix"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+tokio-stream = "0.1"
+
+# gRPC and protobuf
+tonic = "0.11"
+tonic-build = "0.11"
+tonic-reflection = "0.11"
+prost = "0.12"
+prost-types = "0.12"
+
+# Logging and tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Utilities
+uuid = { version = "1.6", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+hostname = "0.3"
+
+# Configuration
+config = "0.14"
+
+# CLI
+clap = { version = "4.4", features = ["derive", "env"] }
+
+# Async utilities
+async-trait = "0.1"
+futures = "0.3"
+
+# Internal crates
+limiquantix-hypervisor = { path = "limiquantix-hypervisor" }
+limiquantix-telemetry = { path = "limiquantix-telemetry" }
+limiquantix-proto = { path = "limiquantix-proto" }
+limiquantix-common = { path = "limiquantix-common" }
