@@ -1,8 +1,8 @@
-# LimiQuantix Backend Implementation Plan
+# Quantixkvm Backend Implementation Plan
 
 ## Executive Summary
 
-This document outlines the comprehensive plan for building the LimiQuantix backend - a Go-based control plane that orchestrates virtualization infrastructure. The backend will provide gRPC/Connect-RPC APIs consumed by the React frontend, manage cluster state via etcd, and communicate with hypervisor agents.
+This document outlines the comprehensive plan for building the Quantixkvm backend - a Go-based control plane that orchestrates virtualization infrastructure. The backend will provide gRPC/Connect-RPC APIs consumed by the React frontend, manage cluster state via etcd, and communicate with hypervisor agents.
 
 ---
 
@@ -41,7 +41,7 @@ This document outlines the comprehensive plan for building the LimiQuantix backe
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                      LimiQuantix Control Plane (Go)                      │
+│                      Quantixkvm Control Plane (Go)                      │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
 │  │ VM Service  │  │Node Service │  │Storage Svc  │  │Network Svc  │    │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │
@@ -210,7 +210,7 @@ backend/
 │       └── types.go
 ├── pkg/
 │   ├── api/                   # Generated proto code
-│   │   └── limiquantix/
+│   │   └── Quantixkvm/
 │   │       ├── compute/v1/
 │   │       ├── storage/v1/
 │   │       └── network/v1/
@@ -309,8 +309,8 @@ server:
 database:
   host: "localhost"
   port: 5432
-  name: "limiquantix"
-  user: "limiquantix"
+  name: "Quantixkvm"
+  user: "Quantixkvm"
   password: "${DB_PASSWORD}"
   max_open_conns: 25
   max_idle_conns: 5
@@ -420,7 +420,7 @@ import (
     "context"
     
     "connectrpc.com/connect"
-    computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+    computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
     "go.uber.org/zap"
 )
 
@@ -918,21 +918,21 @@ WHERE node_id = $1 AND power_state = 'RUNNING';
 
 ```
 # VM runtime state (fast access, watch support)
-/limiquantix/vms/{vm_id}/state          # Running state
-/limiquantix/vms/{vm_id}/metrics        # Real-time metrics
+/Quantixkvm/vms/{vm_id}/state          # Running state
+/Quantixkvm/vms/{vm_id}/metrics        # Real-time metrics
 
 # Node state
-/limiquantix/nodes/{node_id}/state      # Node health
-/limiquantix/nodes/{node_id}/resources  # Available resources
-/limiquantix/nodes/{node_id}/heartbeat  # Last heartbeat
+/Quantixkvm/nodes/{node_id}/state      # Node health
+/Quantixkvm/nodes/{node_id}/resources  # Available resources
+/Quantixkvm/nodes/{node_id}/heartbeat  # Last heartbeat
 
 # Cluster state
-/limiquantix/clusters/{cluster_id}/leader  # DRS leader election
-/limiquantix/clusters/{cluster_id}/config  # Runtime config
+/Quantixkvm/clusters/{cluster_id}/leader  # DRS leader election
+/Quantixkvm/clusters/{cluster_id}/config  # Runtime config
 
 # Locks
-/limiquantix/locks/vm/{vm_id}           # VM operation lock
-/limiquantix/locks/node/{node_id}       # Node operation lock
+/Quantixkvm/locks/vm/{vm_id}           # VM operation lock
+/Quantixkvm/locks/node/{node_id}       # Node operation lock
 ```
 
 ---
@@ -1224,7 +1224,7 @@ func (eb *EventBus) Subscribe(topic string) <-chan Event {
 // internal/repository/etcd/watch.go
 func (r *Repository) WatchVMState(ctx context.Context, vmID string) <-chan *VMState {
     ch := make(chan *VMState, 10)
-    key := fmt.Sprintf("/limiquantix/vms/%s/state", vmID)
+    key := fmt.Sprintf("/Quantixkvm/vms/%s/state", vmID)
     
     go func() {
         defer close(ch)
@@ -1456,7 +1456,7 @@ services:
       - "9090:9090"
     environment:
       - DB_HOST=postgres
-      - DB_PASSWORD=limiquantix
+      - DB_PASSWORD=Quantixkvm
       - ETCD_ENDPOINTS=etcd:2379
       - REDIS_HOST=redis
     depends_on:
@@ -1467,9 +1467,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: limiquantix
-      POSTGRES_PASSWORD: limiquantix
-      POSTGRES_DB: limiquantix
+      POSTGRES_USER: Quantixkvm
+      POSTGRES_PASSWORD: Quantixkvm
+      POSTGRES_DB: Quantixkvm
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -1558,7 +1558,7 @@ migrate-down:
 	go run ./cmd/migrate down
 
 docker-build:
-	docker build -t limiquantix/controlplane:latest .
+	docker build -t Quantixkvm/controlplane:latest .
 
 docker-up:
 	docker-compose up -d
@@ -1574,7 +1574,7 @@ seed:
 
 ## Summary
 
-This backend plan provides a comprehensive roadmap for building the LimiQuantix control plane:
+This backend plan provides a comprehensive roadmap for building the Quantixkvm control plane:
 
 1. **Solid Foundation**: Go 1.22+, Connect-RPC, PostgreSQL, etcd, Redis
 2. **Clean Architecture**: Clear separation of concerns (services, repositories, domain)
@@ -1603,8 +1603,8 @@ The implementation follows the 5-phase plan over 10 weeks, delivering incrementa
    - ✅ Dockerfile
    - ✅ Makefile
 5. ✅ Generate proto code for Go
-   - Generated Go protobuf code (`backend/pkg/api/limiquantix/`)
-   - Generated TypeScript code (`frontend/src/api/limiquantix/`)
+   - Generated Go protobuf code (`backend/pkg/api/Quantixkvm/`)
+   - Generated TypeScript code (`frontend/src/api/Quantixkvm/`)
    - Connect-Go support for browser-friendly APIs
 6. ⏳ Implement Phase 2 (Core Services)
    - See `docs/000024-backend-implementation-guide.md` for detailed implementation steps

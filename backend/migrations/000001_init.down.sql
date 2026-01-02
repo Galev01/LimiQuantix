@@ -1,4 +1,4 @@
--- LimiQuantix Initial Schema - Rollback
+-- Quantixkvm Initial Schema - Rollback
 -- Migration: 000001_init
 
 -- Drop triggers

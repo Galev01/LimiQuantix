@@ -2,17 +2,18 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: limiquantix/network/v1/network.proto
+// source: Quantixkvm/network/v1/network.proto
 
 package networkv1
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -59,11 +60,11 @@ func (x VirtualNetworkSpec_NetworkType) String() string {
 }
 
 func (VirtualNetworkSpec_NetworkType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[0].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[0].Descriptor()
 }
 
 func (VirtualNetworkSpec_NetworkType) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[0]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[0]
 }
 
 func (x VirtualNetworkSpec_NetworkType) Number() protoreflect.EnumNumber {
@@ -72,7 +73,7 @@ func (x VirtualNetworkSpec_NetworkType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VirtualNetworkSpec_NetworkType.Descriptor instead.
 func (VirtualNetworkSpec_NetworkType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{1, 0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{1, 0}
 }
 
 type VirtualNetworkStatus_Phase int32
@@ -114,11 +115,11 @@ func (x VirtualNetworkStatus_Phase) String() string {
 }
 
 func (VirtualNetworkStatus_Phase) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[1].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[1].Descriptor()
 }
 
 func (VirtualNetworkStatus_Phase) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[1]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[1]
 }
 
 func (x VirtualNetworkStatus_Phase) Number() protoreflect.EnumNumber {
@@ -127,7 +128,7 @@ func (x VirtualNetworkStatus_Phase) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VirtualNetworkStatus_Phase.Descriptor instead.
 func (VirtualNetworkStatus_Phase) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{10, 0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{10, 0}
 }
 
 // Port binding type
@@ -167,11 +168,11 @@ func (x BindingProfile_BindingType) String() string {
 }
 
 func (BindingProfile_BindingType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[2].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[2].Descriptor()
 }
 
 func (BindingProfile_BindingType) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[2]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[2]
 }
 
 func (x BindingProfile_BindingType) Number() protoreflect.EnumNumber {
@@ -180,7 +181,7 @@ func (x BindingProfile_BindingType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use BindingProfile_BindingType.Descriptor instead.
 func (BindingProfile_BindingType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{17, 0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{17, 0}
 }
 
 type PortStatus_Phase int32
@@ -225,11 +226,11 @@ func (x PortStatus_Phase) String() string {
 }
 
 func (PortStatus_Phase) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[3].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[3].Descriptor()
 }
 
 func (PortStatus_Phase) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[3]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[3]
 }
 
 func (x PortStatus_Phase) Number() protoreflect.EnumNumber {
@@ -238,7 +239,7 @@ func (x PortStatus_Phase) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PortStatus_Phase.Descriptor instead.
 func (PortStatus_Phase) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{18, 0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{18, 0}
 }
 
 // Direction
@@ -272,11 +273,11 @@ func (x SecurityGroupRule_Direction) String() string {
 }
 
 func (SecurityGroupRule_Direction) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[4].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[4].Descriptor()
 }
 
 func (SecurityGroupRule_Direction) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[4]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[4]
 }
 
 func (x SecurityGroupRule_Direction) Number() protoreflect.EnumNumber {
@@ -285,7 +286,7 @@ func (x SecurityGroupRule_Direction) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SecurityGroupRule_Direction.Descriptor instead.
 func (SecurityGroupRule_Direction) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{20, 0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{20, 0}
 }
 
 // Action
@@ -322,11 +323,11 @@ func (x SecurityGroupRule_Action) String() string {
 }
 
 func (SecurityGroupRule_Action) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[5].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[5].Descriptor()
 }
 
 func (SecurityGroupRule_Action) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[5]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[5]
 }
 
 func (x SecurityGroupRule_Action) Number() protoreflect.EnumNumber {
@@ -335,7 +336,7 @@ func (x SecurityGroupRule_Action) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SecurityGroupRule_Action.Descriptor instead.
 func (SecurityGroupRule_Action) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{20, 1}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{20, 1}
 }
 
 type FloatingIpStatus_Phase int32
@@ -377,11 +378,11 @@ func (x FloatingIpStatus_Phase) String() string {
 }
 
 func (FloatingIpStatus_Phase) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[6].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[6].Descriptor()
 }
 
 func (FloatingIpStatus_Phase) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[6]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[6]
 }
 
 func (x FloatingIpStatus_Phase) Number() protoreflect.EnumNumber {
@@ -390,7 +391,7 @@ func (x FloatingIpStatus_Phase) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FloatingIpStatus_Phase.Descriptor instead.
 func (FloatingIpStatus_Phase) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{23, 0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{23, 0}
 }
 
 // Protocol
@@ -430,11 +431,11 @@ func (x Listener_Protocol) String() string {
 }
 
 func (Listener_Protocol) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[7].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[7].Descriptor()
 }
 
 func (Listener_Protocol) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[7]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[7]
 }
 
 func (x Listener_Protocol) Number() protoreflect.EnumNumber {
@@ -443,7 +444,7 @@ func (x Listener_Protocol) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Listener_Protocol.Descriptor instead.
 func (Listener_Protocol) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{26, 0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{26, 0}
 }
 
 // Load balancing algorithm
@@ -483,11 +484,11 @@ func (x Pool_Algorithm) String() string {
 }
 
 func (Pool_Algorithm) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[8].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[8].Descriptor()
 }
 
 func (Pool_Algorithm) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[8]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[8]
 }
 
 func (x Pool_Algorithm) Number() protoreflect.EnumNumber {
@@ -496,7 +497,7 @@ func (x Pool_Algorithm) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Pool_Algorithm.Descriptor instead.
 func (Pool_Algorithm) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{28, 0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{28, 0}
 }
 
 // Monitor type
@@ -536,11 +537,11 @@ func (x HealthMonitor_Type) String() string {
 }
 
 func (HealthMonitor_Type) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[9].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[9].Descriptor()
 }
 
 func (HealthMonitor_Type) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[9]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[9]
 }
 
 func (x HealthMonitor_Type) Number() protoreflect.EnumNumber {
@@ -549,7 +550,7 @@ func (x HealthMonitor_Type) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HealthMonitor_Type.Descriptor instead.
 func (HealthMonitor_Type) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{30, 0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{30, 0}
 }
 
 type SessionPersistence_Type int32
@@ -588,11 +589,11 @@ func (x SessionPersistence_Type) String() string {
 }
 
 func (SessionPersistence_Type) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[10].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[10].Descriptor()
 }
 
 func (SessionPersistence_Type) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[10]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[10]
 }
 
 func (x SessionPersistence_Type) Number() protoreflect.EnumNumber {
@@ -601,7 +602,7 @@ func (x SessionPersistence_Type) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SessionPersistence_Type.Descriptor instead.
 func (SessionPersistence_Type) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{31, 0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{31, 0}
 }
 
 type LoadBalancerStatus_Phase int32
@@ -643,11 +644,11 @@ func (x LoadBalancerStatus_Phase) String() string {
 }
 
 func (LoadBalancerStatus_Phase) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[11].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[11].Descriptor()
 }
 
 func (LoadBalancerStatus_Phase) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[11]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[11]
 }
 
 func (x LoadBalancerStatus_Phase) Number() protoreflect.EnumNumber {
@@ -656,7 +657,7 @@ func (x LoadBalancerStatus_Phase) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use LoadBalancerStatus_Phase.Descriptor instead.
 func (LoadBalancerStatus_Phase) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{32, 0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{32, 0}
 }
 
 type VpnStatus_Phase int32
@@ -698,11 +699,11 @@ func (x VpnStatus_Phase) String() string {
 }
 
 func (VpnStatus_Phase) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_proto_enumTypes[12].Descriptor()
+	return file_Quantixkvm_network_v1_network_proto_enumTypes[12].Descriptor()
 }
 
 func (VpnStatus_Phase) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_proto_enumTypes[12]
+	return &file_Quantixkvm_network_v1_network_proto_enumTypes[12]
 }
 
 func (x VpnStatus_Phase) Number() protoreflect.EnumNumber {
@@ -711,7 +712,7 @@ func (x VpnStatus_Phase) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VpnStatus_Phase.Descriptor instead.
 func (VpnStatus_Phase) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{38, 0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{38, 0}
 }
 
 // VirtualNetwork represents a software-defined network (SDN) for VMs.
@@ -741,7 +742,7 @@ type VirtualNetwork struct {
 
 func (x *VirtualNetwork) Reset() {
 	*x = VirtualNetwork{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[0]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -753,7 +754,7 @@ func (x *VirtualNetwork) String() string {
 func (*VirtualNetwork) ProtoMessage() {}
 
 func (x *VirtualNetwork) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[0]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -766,7 +767,7 @@ func (x *VirtualNetwork) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VirtualNetwork.ProtoReflect.Descriptor instead.
 func (*VirtualNetwork) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{0}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *VirtualNetwork) GetId() string {
@@ -834,7 +835,7 @@ func (x *VirtualNetwork) GetUpdatedAt() *timestamppb.Timestamp {
 
 type VirtualNetworkSpec struct {
 	state protoimpl.MessageState         `protogen:"open.v1"`
-	Type  VirtualNetworkSpec_NetworkType `protobuf:"varint,1,opt,name=type,proto3,enum=limiquantix.network.v1.VirtualNetworkSpec_NetworkType" json:"type,omitempty"`
+	Type  VirtualNetworkSpec_NetworkType `protobuf:"varint,1,opt,name=type,proto3,enum=Quantixkvm.network.v1.VirtualNetworkSpec_NetworkType" json:"type,omitempty"`
 	// IP addressing
 	IpConfig *IpAddressManagement `protobuf:"bytes,2,opt,name=ip_config,json=ipConfig,proto3" json:"ip_config,omitempty"`
 	// VLAN configuration (for VLAN type)
@@ -855,7 +856,7 @@ type VirtualNetworkSpec struct {
 
 func (x *VirtualNetworkSpec) Reset() {
 	*x = VirtualNetworkSpec{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[1]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -867,7 +868,7 @@ func (x *VirtualNetworkSpec) String() string {
 func (*VirtualNetworkSpec) ProtoMessage() {}
 
 func (x *VirtualNetworkSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[1]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -880,7 +881,7 @@ func (x *VirtualNetworkSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VirtualNetworkSpec.ProtoReflect.Descriptor instead.
 func (*VirtualNetworkSpec) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{1}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *VirtualNetworkSpec) GetType() VirtualNetworkSpec_NetworkType {
@@ -960,7 +961,7 @@ type IpAddressManagement struct {
 
 func (x *IpAddressManagement) Reset() {
 	*x = IpAddressManagement{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[2]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -972,7 +973,7 @@ func (x *IpAddressManagement) String() string {
 func (*IpAddressManagement) ProtoMessage() {}
 
 func (x *IpAddressManagement) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[2]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -985,7 +986,7 @@ func (x *IpAddressManagement) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IpAddressManagement.ProtoReflect.Descriptor instead.
 func (*IpAddressManagement) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{2}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *IpAddressManagement) GetIpv4Subnet() string {
@@ -1053,7 +1054,7 @@ type DhcpConfig struct {
 
 func (x *DhcpConfig) Reset() {
 	*x = DhcpConfig{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[3]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1065,7 +1066,7 @@ func (x *DhcpConfig) String() string {
 func (*DhcpConfig) ProtoMessage() {}
 
 func (x *DhcpConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[3]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1078,7 +1079,7 @@ func (x *DhcpConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DhcpConfig.ProtoReflect.Descriptor instead.
 func (*DhcpConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{3}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DhcpConfig) GetEnabled() bool {
@@ -1134,7 +1135,7 @@ type DhcpBinding struct {
 
 func (x *DhcpBinding) Reset() {
 	*x = DhcpBinding{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[4]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1146,7 +1147,7 @@ func (x *DhcpBinding) String() string {
 func (*DhcpBinding) ProtoMessage() {}
 
 func (x *DhcpBinding) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[4]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1159,7 +1160,7 @@ func (x *DhcpBinding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DhcpBinding.ProtoReflect.Descriptor instead.
 func (*DhcpBinding) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{4}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DhcpBinding) GetMacAddress() string {
@@ -1193,7 +1194,7 @@ type IpRange struct {
 
 func (x *IpRange) Reset() {
 	*x = IpRange{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[5]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1205,7 +1206,7 @@ func (x *IpRange) String() string {
 func (*IpRange) ProtoMessage() {}
 
 func (x *IpRange) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[5]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1218,7 +1219,7 @@ func (x *IpRange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IpRange.ProtoReflect.Descriptor instead.
 func (*IpRange) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{5}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *IpRange) GetStart() string {
@@ -1247,7 +1248,7 @@ type VlanConfig struct {
 
 func (x *VlanConfig) Reset() {
 	*x = VlanConfig{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[6]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1259,7 +1260,7 @@ func (x *VlanConfig) String() string {
 func (*VlanConfig) ProtoMessage() {}
 
 func (x *VlanConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[6]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1272,7 +1273,7 @@ func (x *VlanConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VlanConfig.ProtoReflect.Descriptor instead.
 func (*VlanConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{6}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *VlanConfig) GetVlanId() uint32 {
@@ -1305,7 +1306,7 @@ type RouterConfig struct {
 
 func (x *RouterConfig) Reset() {
 	*x = RouterConfig{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[7]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1317,7 +1318,7 @@ func (x *RouterConfig) String() string {
 func (*RouterConfig) ProtoMessage() {}
 
 func (x *RouterConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[7]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1330,7 +1331,7 @@ func (x *RouterConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouterConfig.ProtoReflect.Descriptor instead.
 func (*RouterConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{7}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RouterConfig) GetEnabled() bool {
@@ -1371,7 +1372,7 @@ type StaticRoute struct {
 
 func (x *StaticRoute) Reset() {
 	*x = StaticRoute{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[8]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1383,7 +1384,7 @@ func (x *StaticRoute) String() string {
 func (*StaticRoute) ProtoMessage() {}
 
 func (x *StaticRoute) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[8]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1396,7 +1397,7 @@ func (x *StaticRoute) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StaticRoute.ProtoReflect.Descriptor instead.
 func (*StaticRoute) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{8}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *StaticRoute) GetDestination() string {
@@ -1425,7 +1426,7 @@ type DnsConfig struct {
 
 func (x *DnsConfig) Reset() {
 	*x = DnsConfig{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[9]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1437,7 +1438,7 @@ func (x *DnsConfig) String() string {
 func (*DnsConfig) ProtoMessage() {}
 
 func (x *DnsConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[9]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1450,7 +1451,7 @@ func (x *DnsConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DnsConfig.ProtoReflect.Descriptor instead.
 func (*DnsConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{9}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DnsConfig) GetNameservers() []string {
@@ -1469,7 +1470,7 @@ func (x *DnsConfig) GetSearchDomains() []string {
 
 type VirtualNetworkStatus struct {
 	state protoimpl.MessageState     `protogen:"open.v1"`
-	Phase VirtualNetworkStatus_Phase `protobuf:"varint,1,opt,name=phase,proto3,enum=limiquantix.network.v1.VirtualNetworkStatus_Phase" json:"phase,omitempty"`
+	Phase VirtualNetworkStatus_Phase `protobuf:"varint,1,opt,name=phase,proto3,enum=Quantixkvm.network.v1.VirtualNetworkStatus_Phase" json:"phase,omitempty"`
 	// OVN internal identifiers
 	OvnLogicalSwitch string `protobuf:"bytes,2,opt,name=ovn_logical_switch,json=ovnLogicalSwitch,proto3" json:"ovn_logical_switch,omitempty"`
 	OvnLogicalRouter string `protobuf:"bytes,3,opt,name=ovn_logical_router,json=ovnLogicalRouter,proto3" json:"ovn_logical_router,omitempty"`
@@ -1485,7 +1486,7 @@ type VirtualNetworkStatus struct {
 
 func (x *VirtualNetworkStatus) Reset() {
 	*x = VirtualNetworkStatus{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[10]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1497,7 +1498,7 @@ func (x *VirtualNetworkStatus) String() string {
 func (*VirtualNetworkStatus) ProtoMessage() {}
 
 func (x *VirtualNetworkStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[10]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1510,7 +1511,7 @@ func (x *VirtualNetworkStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VirtualNetworkStatus.ProtoReflect.Descriptor instead.
 func (*VirtualNetworkStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{10}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *VirtualNetworkStatus) GetPhase() VirtualNetworkStatus_Phase {
@@ -1569,7 +1570,7 @@ type IpAllocationStatus struct {
 
 func (x *IpAllocationStatus) Reset() {
 	*x = IpAllocationStatus{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[11]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1581,7 +1582,7 @@ func (x *IpAllocationStatus) String() string {
 func (*IpAllocationStatus) ProtoMessage() {}
 
 func (x *IpAllocationStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[11]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1594,7 +1595,7 @@ func (x *IpAllocationStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IpAllocationStatus.ProtoReflect.Descriptor instead.
 func (*IpAllocationStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{11}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *IpAllocationStatus) GetIpv4Total() uint32 {
@@ -1651,7 +1652,7 @@ type Port struct {
 
 func (x *Port) Reset() {
 	*x = Port{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[12]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1663,7 +1664,7 @@ func (x *Port) String() string {
 func (*Port) ProtoMessage() {}
 
 func (x *Port) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[12]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1676,7 +1677,7 @@ func (x *Port) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Port.ProtoReflect.Descriptor instead.
 func (*Port) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{12}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Port) GetId() string {
@@ -1766,7 +1767,7 @@ type PortSpec struct {
 
 func (x *PortSpec) Reset() {
 	*x = PortSpec{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[13]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1778,7 +1779,7 @@ func (x *PortSpec) String() string {
 func (*PortSpec) ProtoMessage() {}
 
 func (x *PortSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[13]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1791,7 +1792,7 @@ func (x *PortSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PortSpec.ProtoReflect.Descriptor instead.
 func (*PortSpec) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{13}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *PortSpec) GetMacAddress() string {
@@ -1860,7 +1861,7 @@ type FixedIp struct {
 
 func (x *FixedIp) Reset() {
 	*x = FixedIp{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[14]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1872,7 +1873,7 @@ func (x *FixedIp) String() string {
 func (*FixedIp) ProtoMessage() {}
 
 func (x *FixedIp) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[14]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1885,7 +1886,7 @@ func (x *FixedIp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixedIp.ProtoReflect.Descriptor instead.
 func (*FixedIp) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{14}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *FixedIp) GetSubnetId() string {
@@ -1912,7 +1913,7 @@ type AddressPair struct {
 
 func (x *AddressPair) Reset() {
 	*x = AddressPair{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[15]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1924,7 +1925,7 @@ func (x *AddressPair) String() string {
 func (*AddressPair) ProtoMessage() {}
 
 func (x *AddressPair) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[15]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1937,7 +1938,7 @@ func (x *AddressPair) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddressPair.ProtoReflect.Descriptor instead.
 func (*AddressPair) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{15}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *AddressPair) GetIpAddress() string {
@@ -1968,7 +1969,7 @@ type PortQos struct {
 
 func (x *PortQos) Reset() {
 	*x = PortQos{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[16]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1980,7 +1981,7 @@ func (x *PortQos) String() string {
 func (*PortQos) ProtoMessage() {}
 
 func (x *PortQos) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[16]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1993,7 +1994,7 @@ func (x *PortQos) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PortQos.ProtoReflect.Descriptor instead.
 func (*PortQos) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{16}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *PortQos) GetIngressRateKbps() uint64 {
@@ -2026,7 +2027,7 @@ func (x *PortQos) GetEgressBurstKb() uint64 {
 
 type BindingProfile struct {
 	state protoimpl.MessageState     `protogen:"open.v1"`
-	Type  BindingProfile_BindingType `protobuf:"varint,1,opt,name=type,proto3,enum=limiquantix.network.v1.BindingProfile_BindingType" json:"type,omitempty"`
+	Type  BindingProfile_BindingType `protobuf:"varint,1,opt,name=type,proto3,enum=Quantixkvm.network.v1.BindingProfile_BindingType" json:"type,omitempty"`
 	// For SR-IOV: specific VF to use
 	PciSlot string `protobuf:"bytes,2,opt,name=pci_slot,json=pciSlot,proto3" json:"pci_slot,omitempty"`
 	// For vhost-user: socket path
@@ -2039,7 +2040,7 @@ type BindingProfile struct {
 
 func (x *BindingProfile) Reset() {
 	*x = BindingProfile{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[17]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2051,7 +2052,7 @@ func (x *BindingProfile) String() string {
 func (*BindingProfile) ProtoMessage() {}
 
 func (x *BindingProfile) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[17]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2064,7 +2065,7 @@ func (x *BindingProfile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BindingProfile.ProtoReflect.Descriptor instead.
 func (*BindingProfile) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{17}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *BindingProfile) GetType() BindingProfile_BindingType {
@@ -2097,7 +2098,7 @@ func (x *BindingProfile) GetNumaAffinity() uint32 {
 
 type PortStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Phase PortStatus_Phase       `protobuf:"varint,1,opt,name=phase,proto3,enum=limiquantix.network.v1.PortStatus_Phase" json:"phase,omitempty"`
+	Phase PortStatus_Phase       `protobuf:"varint,1,opt,name=phase,proto3,enum=Quantixkvm.network.v1.PortStatus_Phase" json:"phase,omitempty"`
 	// Actual MAC address
 	MacAddress string `protobuf:"bytes,2,opt,name=mac_address,json=macAddress,proto3" json:"mac_address,omitempty"`
 	// Allocated IPs
@@ -2116,7 +2117,7 @@ type PortStatus struct {
 
 func (x *PortStatus) Reset() {
 	*x = PortStatus{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[18]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2128,7 +2129,7 @@ func (x *PortStatus) String() string {
 func (*PortStatus) ProtoMessage() {}
 
 func (x *PortStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[18]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2141,7 +2142,7 @@ func (x *PortStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PortStatus.ProtoReflect.Descriptor instead.
 func (*PortStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{18}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *PortStatus) GetPhase() PortStatus_Phase {
@@ -2218,7 +2219,7 @@ type SecurityGroup struct {
 
 func (x *SecurityGroup) Reset() {
 	*x = SecurityGroup{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[19]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2230,7 +2231,7 @@ func (x *SecurityGroup) String() string {
 func (*SecurityGroup) ProtoMessage() {}
 
 func (x *SecurityGroup) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[19]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2243,7 +2244,7 @@ func (x *SecurityGroup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SecurityGroup.ProtoReflect.Descriptor instead.
 func (*SecurityGroup) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{19}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *SecurityGroup) GetId() string {
@@ -2313,7 +2314,7 @@ type SecurityGroupRule struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Rule ID
 	Id        string                      `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Direction SecurityGroupRule_Direction `protobuf:"varint,2,opt,name=direction,proto3,enum=limiquantix.network.v1.SecurityGroupRule_Direction" json:"direction,omitempty"`
+	Direction SecurityGroupRule_Direction `protobuf:"varint,2,opt,name=direction,proto3,enum=Quantixkvm.network.v1.SecurityGroupRule_Direction" json:"direction,omitempty"`
 	// Protocol ("tcp", "udp", "icmp", "any", or protocol number)
 	Protocol string `protobuf:"bytes,3,opt,name=protocol,proto3" json:"protocol,omitempty"`
 	// Port range (for TCP/UDP)
@@ -2326,7 +2327,7 @@ type SecurityGroupRule struct {
 	RemoteIpPrefix string `protobuf:"bytes,8,opt,name=remote_ip_prefix,json=remoteIpPrefix,proto3" json:"remote_ip_prefix,omitempty"`
 	// Or reference another security group
 	RemoteSecurityGroupId string                   `protobuf:"bytes,9,opt,name=remote_security_group_id,json=remoteSecurityGroupId,proto3" json:"remote_security_group_id,omitempty"`
-	Action                SecurityGroupRule_Action `protobuf:"varint,10,opt,name=action,proto3,enum=limiquantix.network.v1.SecurityGroupRule_Action" json:"action,omitempty"`
+	Action                SecurityGroupRule_Action `protobuf:"varint,10,opt,name=action,proto3,enum=Quantixkvm.network.v1.SecurityGroupRule_Action" json:"action,omitempty"`
 	// Rule priority (lower = higher priority)
 	Priority uint32 `protobuf:"varint,11,opt,name=priority,proto3" json:"priority,omitempty"`
 	// Description
@@ -2337,7 +2338,7 @@ type SecurityGroupRule struct {
 
 func (x *SecurityGroupRule) Reset() {
 	*x = SecurityGroupRule{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[20]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2349,7 +2350,7 @@ func (x *SecurityGroupRule) String() string {
 func (*SecurityGroupRule) ProtoMessage() {}
 
 func (x *SecurityGroupRule) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[20]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2362,7 +2363,7 @@ func (x *SecurityGroupRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SecurityGroupRule.ProtoReflect.Descriptor instead.
 func (*SecurityGroupRule) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{20}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *SecurityGroupRule) GetId() string {
@@ -2475,7 +2476,7 @@ type FloatingIp struct {
 
 func (x *FloatingIp) Reset() {
 	*x = FloatingIp{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[21]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2487,7 +2488,7 @@ func (x *FloatingIp) String() string {
 func (*FloatingIp) ProtoMessage() {}
 
 func (x *FloatingIp) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[21]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2500,7 +2501,7 @@ func (x *FloatingIp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FloatingIp.ProtoReflect.Descriptor instead.
 func (*FloatingIp) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{21}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *FloatingIp) GetId() string {
@@ -2585,7 +2586,7 @@ type FloatingIpAssignment struct {
 
 func (x *FloatingIpAssignment) Reset() {
 	*x = FloatingIpAssignment{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[22]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2597,7 +2598,7 @@ func (x *FloatingIpAssignment) String() string {
 func (*FloatingIpAssignment) ProtoMessage() {}
 
 func (x *FloatingIpAssignment) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[22]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2610,7 +2611,7 @@ func (x *FloatingIpAssignment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FloatingIpAssignment.ProtoReflect.Descriptor instead.
 func (*FloatingIpAssignment) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{22}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *FloatingIpAssignment) GetPortId() string {
@@ -2629,7 +2630,7 @@ func (x *FloatingIpAssignment) GetFixedIp() string {
 
 type FloatingIpStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Phase FloatingIpStatus_Phase `protobuf:"varint,1,opt,name=phase,proto3,enum=limiquantix.network.v1.FloatingIpStatus_Phase" json:"phase,omitempty"`
+	Phase FloatingIpStatus_Phase `protobuf:"varint,1,opt,name=phase,proto3,enum=Quantixkvm.network.v1.FloatingIpStatus_Phase" json:"phase,omitempty"`
 	// Associated VM
 	VmId string `protobuf:"bytes,2,opt,name=vm_id,json=vmId,proto3" json:"vm_id,omitempty"`
 	// Router handling this floating IP
@@ -2642,7 +2643,7 @@ type FloatingIpStatus struct {
 
 func (x *FloatingIpStatus) Reset() {
 	*x = FloatingIpStatus{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[23]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2654,7 +2655,7 @@ func (x *FloatingIpStatus) String() string {
 func (*FloatingIpStatus) ProtoMessage() {}
 
 func (x *FloatingIpStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[23]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2667,7 +2668,7 @@ func (x *FloatingIpStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FloatingIpStatus.ProtoReflect.Descriptor instead.
 func (*FloatingIpStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{23}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *FloatingIpStatus) GetPhase() FloatingIpStatus_Phase {
@@ -2716,7 +2717,7 @@ type LoadBalancer struct {
 
 func (x *LoadBalancer) Reset() {
 	*x = LoadBalancer{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[24]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2728,7 +2729,7 @@ func (x *LoadBalancer) String() string {
 func (*LoadBalancer) ProtoMessage() {}
 
 func (x *LoadBalancer) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[24]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2741,7 +2742,7 @@ func (x *LoadBalancer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoadBalancer.ProtoReflect.Descriptor instead.
 func (*LoadBalancer) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{24}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *LoadBalancer) GetId() string {
@@ -2825,7 +2826,7 @@ type LoadBalancerSpec struct {
 
 func (x *LoadBalancerSpec) Reset() {
 	*x = LoadBalancerSpec{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[25]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2837,7 +2838,7 @@ func (x *LoadBalancerSpec) String() string {
 func (*LoadBalancerSpec) ProtoMessage() {}
 
 func (x *LoadBalancerSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[25]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2850,7 +2851,7 @@ func (x *LoadBalancerSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoadBalancerSpec.ProtoReflect.Descriptor instead.
 func (*LoadBalancerSpec) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{25}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *LoadBalancerSpec) GetNetworkId() string {
@@ -2892,7 +2893,7 @@ type Listener struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Protocol Listener_Protocol      `protobuf:"varint,3,opt,name=protocol,proto3,enum=limiquantix.network.v1.Listener_Protocol" json:"protocol,omitempty"`
+	Protocol Listener_Protocol      `protobuf:"varint,3,opt,name=protocol,proto3,enum=Quantixkvm.network.v1.Listener_Protocol" json:"protocol,omitempty"`
 	// Port to listen on
 	Port uint32 `protobuf:"varint,4,opt,name=port,proto3" json:"port,omitempty"`
 	// Default pool
@@ -2907,7 +2908,7 @@ type Listener struct {
 
 func (x *Listener) Reset() {
 	*x = Listener{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[26]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2919,7 +2920,7 @@ func (x *Listener) String() string {
 func (*Listener) ProtoMessage() {}
 
 func (x *Listener) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[26]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2932,7 +2933,7 @@ func (x *Listener) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Listener.ProtoReflect.Descriptor instead.
 func (*Listener) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{26}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *Listener) GetId() string {
@@ -3002,7 +3003,7 @@ type TlsConfig struct {
 
 func (x *TlsConfig) Reset() {
 	*x = TlsConfig{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[27]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3014,7 +3015,7 @@ func (x *TlsConfig) String() string {
 func (*TlsConfig) ProtoMessage() {}
 
 func (x *TlsConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[27]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3027,7 +3028,7 @@ func (x *TlsConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TlsConfig.ProtoReflect.Descriptor instead.
 func (*TlsConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{27}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *TlsConfig) GetCertificate() string {
@@ -3069,9 +3070,9 @@ type Pool struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	Id        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name      string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Algorithm Pool_Algorithm         `protobuf:"varint,3,opt,name=algorithm,proto3,enum=limiquantix.network.v1.Pool_Algorithm" json:"algorithm,omitempty"`
+	Algorithm Pool_Algorithm         `protobuf:"varint,3,opt,name=algorithm,proto3,enum=Quantixkvm.network.v1.Pool_Algorithm" json:"algorithm,omitempty"`
 	// Backend protocol
-	Protocol Listener_Protocol `protobuf:"varint,4,opt,name=protocol,proto3,enum=limiquantix.network.v1.Listener_Protocol" json:"protocol,omitempty"`
+	Protocol Listener_Protocol `protobuf:"varint,4,opt,name=protocol,proto3,enum=Quantixkvm.network.v1.Listener_Protocol" json:"protocol,omitempty"`
 	// Members (backend servers)
 	Members []*PoolMember `protobuf:"bytes,5,rep,name=members,proto3" json:"members,omitempty"`
 	// Health monitor
@@ -3084,7 +3085,7 @@ type Pool struct {
 
 func (x *Pool) Reset() {
 	*x = Pool{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[28]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3096,7 +3097,7 @@ func (x *Pool) String() string {
 func (*Pool) ProtoMessage() {}
 
 func (x *Pool) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[28]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3109,7 +3110,7 @@ func (x *Pool) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pool.ProtoReflect.Descriptor instead.
 func (*Pool) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{28}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *Pool) GetId() string {
@@ -3179,7 +3180,7 @@ type PoolMember struct {
 
 func (x *PoolMember) Reset() {
 	*x = PoolMember{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[29]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3191,7 +3192,7 @@ func (x *PoolMember) String() string {
 func (*PoolMember) ProtoMessage() {}
 
 func (x *PoolMember) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[29]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3204,7 +3205,7 @@ func (x *PoolMember) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PoolMember.ProtoReflect.Descriptor instead.
 func (*PoolMember) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{29}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *PoolMember) GetId() string {
@@ -3251,7 +3252,7 @@ func (x *PoolMember) GetSubnetId() string {
 
 type HealthMonitor struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Type  HealthMonitor_Type     `protobuf:"varint,1,opt,name=type,proto3,enum=limiquantix.network.v1.HealthMonitor_Type" json:"type,omitempty"`
+	Type  HealthMonitor_Type     `protobuf:"varint,1,opt,name=type,proto3,enum=Quantixkvm.network.v1.HealthMonitor_Type" json:"type,omitempty"`
 	// Check interval in seconds
 	Delay uint32 `protobuf:"varint,2,opt,name=delay,proto3" json:"delay,omitempty"`
 	// Timeout per check
@@ -3268,7 +3269,7 @@ type HealthMonitor struct {
 
 func (x *HealthMonitor) Reset() {
 	*x = HealthMonitor{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[30]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3280,7 +3281,7 @@ func (x *HealthMonitor) String() string {
 func (*HealthMonitor) ProtoMessage() {}
 
 func (x *HealthMonitor) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[30]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3293,7 +3294,7 @@ func (x *HealthMonitor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthMonitor.ProtoReflect.Descriptor instead.
 func (*HealthMonitor) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{30}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *HealthMonitor) GetType() HealthMonitor_Type {
@@ -3347,7 +3348,7 @@ func (x *HealthMonitor) GetExpectedCodes() string {
 
 type SessionPersistence struct {
 	state protoimpl.MessageState  `protogen:"open.v1"`
-	Type  SessionPersistence_Type `protobuf:"varint,1,opt,name=type,proto3,enum=limiquantix.network.v1.SessionPersistence_Type" json:"type,omitempty"`
+	Type  SessionPersistence_Type `protobuf:"varint,1,opt,name=type,proto3,enum=Quantixkvm.network.v1.SessionPersistence_Type" json:"type,omitempty"`
 	// Cookie name for cookie-based persistence
 	CookieName    string `protobuf:"bytes,2,opt,name=cookie_name,json=cookieName,proto3" json:"cookie_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -3356,7 +3357,7 @@ type SessionPersistence struct {
 
 func (x *SessionPersistence) Reset() {
 	*x = SessionPersistence{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[31]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3368,7 +3369,7 @@ func (x *SessionPersistence) String() string {
 func (*SessionPersistence) ProtoMessage() {}
 
 func (x *SessionPersistence) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[31]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3381,7 +3382,7 @@ func (x *SessionPersistence) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionPersistence.ProtoReflect.Descriptor instead.
 func (*SessionPersistence) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{31}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *SessionPersistence) GetType() SessionPersistence_Type {
@@ -3400,7 +3401,7 @@ func (x *SessionPersistence) GetCookieName() string {
 
 type LoadBalancerStatus struct {
 	state protoimpl.MessageState   `protogen:"open.v1"`
-	Phase LoadBalancerStatus_Phase `protobuf:"varint,1,opt,name=phase,proto3,enum=limiquantix.network.v1.LoadBalancerStatus_Phase" json:"phase,omitempty"`
+	Phase LoadBalancerStatus_Phase `protobuf:"varint,1,opt,name=phase,proto3,enum=Quantixkvm.network.v1.LoadBalancerStatus_Phase" json:"phase,omitempty"`
 	// Provisioning status
 	ProvisioningStatus string `protobuf:"bytes,2,opt,name=provisioning_status,json=provisioningStatus,proto3" json:"provisioning_status,omitempty"`
 	// Operating status
@@ -3416,7 +3417,7 @@ type LoadBalancerStatus struct {
 
 func (x *LoadBalancerStatus) Reset() {
 	*x = LoadBalancerStatus{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[32]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3428,7 +3429,7 @@ func (x *LoadBalancerStatus) String() string {
 func (*LoadBalancerStatus) ProtoMessage() {}
 
 func (x *LoadBalancerStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[32]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3441,7 +3442,7 @@ func (x *LoadBalancerStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoadBalancerStatus.ProtoReflect.Descriptor instead.
 func (*LoadBalancerStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{32}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *LoadBalancerStatus) GetPhase() LoadBalancerStatus_Phase {
@@ -3506,7 +3507,7 @@ type VpnService struct {
 
 func (x *VpnService) Reset() {
 	*x = VpnService{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[33]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3518,7 +3519,7 @@ func (x *VpnService) String() string {
 func (*VpnService) ProtoMessage() {}
 
 func (x *VpnService) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[33]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3531,7 +3532,7 @@ func (x *VpnService) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VpnService.ProtoReflect.Descriptor instead.
 func (*VpnService) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{33}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *VpnService) GetId() string {
@@ -3623,7 +3624,7 @@ type VpnConnection struct {
 
 func (x *VpnConnection) Reset() {
 	*x = VpnConnection{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[34]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3635,7 +3636,7 @@ func (x *VpnConnection) String() string {
 func (*VpnConnection) ProtoMessage() {}
 
 func (x *VpnConnection) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[34]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3648,7 +3649,7 @@ func (x *VpnConnection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VpnConnection.ProtoReflect.Descriptor instead.
 func (*VpnConnection) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{34}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *VpnConnection) GetId() string {
@@ -3734,7 +3735,7 @@ type IkePolicy struct {
 
 func (x *IkePolicy) Reset() {
 	*x = IkePolicy{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[35]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3746,7 +3747,7 @@ func (x *IkePolicy) String() string {
 func (*IkePolicy) ProtoMessage() {}
 
 func (x *IkePolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[35]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3759,7 +3760,7 @@ func (x *IkePolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IkePolicy.ProtoReflect.Descriptor instead.
 func (*IkePolicy) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{35}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *IkePolicy) GetAuthAlgorithm() string {
@@ -3811,7 +3812,7 @@ type IpsecPolicy struct {
 
 func (x *IpsecPolicy) Reset() {
 	*x = IpsecPolicy{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[36]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3823,7 +3824,7 @@ func (x *IpsecPolicy) String() string {
 func (*IpsecPolicy) ProtoMessage() {}
 
 func (x *IpsecPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[36]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3836,7 +3837,7 @@ func (x *IpsecPolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IpsecPolicy.ProtoReflect.Descriptor instead.
 func (*IpsecPolicy) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{36}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *IpsecPolicy) GetAuthAlgorithm() string {
@@ -3892,7 +3893,7 @@ type DpdConfig struct {
 
 func (x *DpdConfig) Reset() {
 	*x = DpdConfig{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[37]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3904,7 +3905,7 @@ func (x *DpdConfig) String() string {
 func (*DpdConfig) ProtoMessage() {}
 
 func (x *DpdConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[37]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3917,7 +3918,7 @@ func (x *DpdConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DpdConfig.ProtoReflect.Descriptor instead.
 func (*DpdConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{37}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *DpdConfig) GetAction() string {
@@ -3943,7 +3944,7 @@ func (x *DpdConfig) GetTimeout() uint32 {
 
 type VpnStatus struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Phase         VpnStatus_Phase        `protobuf:"varint,1,opt,name=phase,proto3,enum=limiquantix.network.v1.VpnStatus_Phase" json:"phase,omitempty"`
+	Phase         VpnStatus_Phase        `protobuf:"varint,1,opt,name=phase,proto3,enum=Quantixkvm.network.v1.VpnStatus_Phase" json:"phase,omitempty"`
 	ErrorMessage  string                 `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3951,7 +3952,7 @@ type VpnStatus struct {
 
 func (x *VpnStatus) Reset() {
 	*x = VpnStatus{}
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[38]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3963,7 +3964,7 @@ func (x *VpnStatus) String() string {
 func (*VpnStatus) ProtoMessage() {}
 
 func (x *VpnStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_proto_msgTypes[38]
+	mi := &file_Quantixkvm_network_v1_network_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3976,7 +3977,7 @@ func (x *VpnStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VpnStatus.ProtoReflect.Descriptor instead.
 func (*VpnStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_proto_rawDescGZIP(), []int{38}
+	return file_Quantixkvm_network_v1_network_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *VpnStatus) GetPhase() VpnStatus_Phase {
@@ -3993,20 +3994,20 @@ func (x *VpnStatus) GetErrorMessage() string {
 	return ""
 }
 
-var File_limiquantix_network_v1_network_proto protoreflect.FileDescriptor
+var File_Quantixkvm_network_v1_network_proto protoreflect.FileDescriptor
 
-const file_limiquantix_network_v1_network_proto_rawDesc = "" +
+const file_Quantixkvm_network_v1_network_proto_rawDesc = "" +
 	"\n" +
-	"$limiquantix/network/v1/network.proto\x12\x16limiquantix.network.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf8\x03\n" +
+	"$Quantixkvm/network/v1/network.proto\x12\x16Quantixkvm.network.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf8\x03\n" +
 	"\x0eVirtualNetwork\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x03 \x01(\tR\tprojectId\x12 \n" +
 	"\vdescription\x18\x04 \x01(\tR\vdescription\x12J\n" +
-	"\x06labels\x18\x05 \x03(\v22.limiquantix.network.v1.VirtualNetwork.LabelsEntryR\x06labels\x12>\n" +
-	"\x04spec\x18\x06 \x01(\v2*.limiquantix.network.v1.VirtualNetworkSpecR\x04spec\x12D\n" +
-	"\x06status\x18\a \x01(\v2,.limiquantix.network.v1.VirtualNetworkStatusR\x06status\x129\n" +
+	"\x06labels\x18\x05 \x03(\v22.Quantixkvm.network.v1.VirtualNetwork.LabelsEntryR\x06labels\x12>\n" +
+	"\x04spec\x18\x06 \x01(\v2*.Quantixkvm.network.v1.VirtualNetworkSpecR\x04spec\x12D\n" +
+	"\x06status\x18\a \x01(\v2,.Quantixkvm.network.v1.VirtualNetworkStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
@@ -4015,12 +4016,12 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x98\x04\n" +
 	"\x12VirtualNetworkSpec\x12J\n" +
-	"\x04type\x18\x01 \x01(\x0e26.limiquantix.network.v1.VirtualNetworkSpec.NetworkTypeR\x04type\x12H\n" +
-	"\tip_config\x18\x02 \x01(\v2+.limiquantix.network.v1.IpAddressManagementR\bipConfig\x126\n" +
-	"\x04vlan\x18\x03 \x01(\v2\".limiquantix.network.v1.VlanConfigR\x04vlan\x12<\n" +
-	"\x06router\x18\x04 \x01(\v2$.limiquantix.network.v1.RouterConfigR\x06router\x12\x10\n" +
+	"\x04type\x18\x01 \x01(\x0e26.Quantixkvm.network.v1.VirtualNetworkSpec.NetworkTypeR\x04type\x12H\n" +
+	"\tip_config\x18\x02 \x01(\v2+.Quantixkvm.network.v1.IpAddressManagementR\bipConfig\x126\n" +
+	"\x04vlan\x18\x03 \x01(\v2\".Quantixkvm.network.v1.VlanConfigR\x04vlan\x12<\n" +
+	"\x06router\x18\x04 \x01(\v2$.Quantixkvm.network.v1.RouterConfigR\x06router\x12\x10\n" +
 	"\x03mtu\x18\x05 \x01(\rR\x03mtu\x123\n" +
-	"\x03dns\x18\x06 \x01(\v2!.limiquantix.network.v1.DnsConfigR\x03dns\x129\n" +
+	"\x03dns\x18\x06 \x01(\v2!.Quantixkvm.network.v1.DnsConfigR\x03dns\x129\n" +
 	"\x19default_security_group_id\x18\a \x01(\tR\x16defaultSecurityGroupId\x122\n" +
 	"\x15port_security_enabled\x18\b \x01(\bR\x13portSecurityEnabled\"@\n" +
 	"\vNetworkType\x12\v\n" +
@@ -4035,8 +4036,8 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\vipv6_subnet\x18\x03 \x01(\tR\n" +
 	"ipv6Subnet\x12!\n" +
 	"\fipv6_gateway\x18\x04 \x01(\tR\vipv6Gateway\x126\n" +
-	"\x04dhcp\x18\x05 \x01(\v2\".limiquantix.network.v1.DhcpConfigR\x04dhcp\x12J\n" +
-	"\x10allocation_pools\x18\x06 \x03(\v2\x1f.limiquantix.network.v1.IpRangeR\x0fallocationPools\x12!\n" +
+	"\x04dhcp\x18\x05 \x01(\v2\".Quantixkvm.network.v1.DhcpConfigR\x04dhcp\x12J\n" +
+	"\x10allocation_pools\x18\x06 \x03(\v2\x1f.Quantixkvm.network.v1.IpRangeR\x0fallocationPools\x12!\n" +
 	"\freserved_ips\x18\a \x03(\tR\vreservedIps\"\xfd\x01\n" +
 	"\n" +
 	"DhcpConfig\x12\x18\n" +
@@ -4048,7 +4049,7 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"ntpServers\x12\x1f\n" +
 	"\vdomain_name\x18\x05 \x01(\tR\n" +
 	"domainName\x12L\n" +
-	"\x0fstatic_bindings\x18\x06 \x03(\v2#.limiquantix.network.v1.DhcpBindingR\x0estaticBindings\"i\n" +
+	"\x0fstatic_bindings\x18\x06 \x03(\v2#.Quantixkvm.network.v1.DhcpBindingR\x0estaticBindings\"i\n" +
 	"\vDhcpBinding\x12\x1f\n" +
 	"\vmac_address\x18\x01 \x01(\tR\n" +
 	"macAddress\x12\x1d\n" +
@@ -4067,7 +4068,7 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\x1bexternal_gateway_network_id\x18\x02 \x01(\tR\x18externalGatewayNetworkId\x12\x1f\n" +
 	"\venable_snat\x18\x03 \x01(\bR\n" +
 	"enableSnat\x12;\n" +
-	"\x06routes\x18\x04 \x03(\v2#.limiquantix.network.v1.StaticRouteR\x06routes\"J\n" +
+	"\x06routes\x18\x04 \x03(\v2#.Quantixkvm.network.v1.StaticRouteR\x06routes\"J\n" +
 	"\vStaticRoute\x12 \n" +
 	"\vdestination\x18\x01 \x01(\tR\vdestination\x12\x19\n" +
 	"\bnext_hop\x18\x02 \x01(\tR\anextHop\"T\n" +
@@ -4075,12 +4076,12 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\vnameservers\x18\x01 \x03(\tR\vnameservers\x12%\n" +
 	"\x0esearch_domains\x18\x02 \x03(\tR\rsearchDomains\"\x90\x03\n" +
 	"\x14VirtualNetworkStatus\x12H\n" +
-	"\x05phase\x18\x01 \x01(\x0e22.limiquantix.network.v1.VirtualNetworkStatus.PhaseR\x05phase\x12,\n" +
+	"\x05phase\x18\x01 \x01(\x0e22.Quantixkvm.network.v1.VirtualNetworkStatus.PhaseR\x05phase\x12,\n" +
 	"\x12ovn_logical_switch\x18\x02 \x01(\tR\x10ovnLogicalSwitch\x12,\n" +
 	"\x12ovn_logical_router\x18\x03 \x01(\tR\x10ovnLogicalRouter\x12\x1d\n" +
 	"\n" +
 	"port_count\x18\x04 \x01(\rR\tportCount\x12G\n" +
-	"\tip_status\x18\x05 \x01(\v2*.limiquantix.network.v1.IpAllocationStatusR\bipStatus\x12#\n" +
+	"\tip_status\x18\x05 \x01(\v2*.Quantixkvm.network.v1.IpAllocationStatusR\bipStatus\x12#\n" +
 	"\rerror_message\x18\x06 \x01(\tR\ferrorMessage\"E\n" +
 	"\x05Phase\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\v\n" +
@@ -4101,9 +4102,9 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"network_id\x18\x03 \x01(\tR\tnetworkId\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x04 \x01(\tR\tprojectId\x12@\n" +
-	"\x06labels\x18\x05 \x03(\v2(.limiquantix.network.v1.Port.LabelsEntryR\x06labels\x124\n" +
-	"\x04spec\x18\x06 \x01(\v2 .limiquantix.network.v1.PortSpecR\x04spec\x12:\n" +
-	"\x06status\x18\a \x01(\v2\".limiquantix.network.v1.PortStatusR\x06status\x129\n" +
+	"\x06labels\x18\x05 \x03(\v2(.Quantixkvm.network.v1.Port.LabelsEntryR\x06labels\x124\n" +
+	"\x04spec\x18\x06 \x01(\v2 .Quantixkvm.network.v1.PortSpecR\x04spec\x12:\n" +
+	"\x06status\x18\a \x01(\v2\".Quantixkvm.network.v1.PortStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
@@ -4114,13 +4115,13 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\bPortSpec\x12\x1f\n" +
 	"\vmac_address\x18\x01 \x01(\tR\n" +
 	"macAddress\x12<\n" +
-	"\tfixed_ips\x18\x02 \x03(\v2\x1f.limiquantix.network.v1.FixedIpR\bfixedIps\x12,\n" +
+	"\tfixed_ips\x18\x02 \x03(\v2\x1f.Quantixkvm.network.v1.FixedIpR\bfixedIps\x12,\n" +
 	"\x12security_group_ids\x18\x03 \x03(\tR\x10securityGroupIds\x12W\n" +
-	"\x15allowed_address_pairs\x18\x04 \x03(\v2#.limiquantix.network.v1.AddressPairR\x13allowedAddressPairs\x122\n" +
+	"\x15allowed_address_pairs\x18\x04 \x03(\v2#.Quantixkvm.network.v1.AddressPairR\x13allowedAddressPairs\x122\n" +
 	"\x15port_security_enabled\x18\x05 \x01(\bR\x13portSecurityEnabled\x12$\n" +
 	"\x0eadmin_state_up\x18\x06 \x01(\bR\fadminStateUp\x121\n" +
-	"\x03qos\x18\a \x01(\v2\x1f.limiquantix.network.v1.PortQosR\x03qos\x12@\n" +
-	"\abinding\x18\b \x01(\v2&.limiquantix.network.v1.BindingProfileR\abinding\"E\n" +
+	"\x03qos\x18\a \x01(\v2\x1f.Quantixkvm.network.v1.PortQosR\x03qos\x12@\n" +
+	"\abinding\x18\b \x01(\v2&.Quantixkvm.network.v1.BindingProfileR\abinding\"E\n" +
 	"\aFixedIp\x12\x1b\n" +
 	"\tsubnet_id\x18\x01 \x01(\tR\bsubnetId\x12\x1d\n" +
 	"\n" +
@@ -4136,7 +4137,7 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\x10ingress_burst_kb\x18\x03 \x01(\x04R\x0eingressBurstKb\x12&\n" +
 	"\x0fegress_burst_kb\x18\x04 \x01(\x04R\regressBurstKb\"\xff\x01\n" +
 	"\x0eBindingProfile\x12F\n" +
-	"\x04type\x18\x01 \x01(\x0e22.limiquantix.network.v1.BindingProfile.BindingTypeR\x04type\x12\x19\n" +
+	"\x04type\x18\x01 \x01(\x0e22.Quantixkvm.network.v1.BindingProfile.BindingTypeR\x04type\x12\x19\n" +
 	"\bpci_slot\x18\x02 \x01(\tR\apciSlot\x12!\n" +
 	"\fvhost_socket\x18\x03 \x01(\tR\vvhostSocket\x12#\n" +
 	"\rnuma_affinity\x18\x04 \x01(\rR\fnumaAffinity\"B\n" +
@@ -4150,7 +4151,7 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"VHOST_USER\x10\x03\"\xcd\x02\n" +
 	"\n" +
 	"PortStatus\x12>\n" +
-	"\x05phase\x18\x01 \x01(\x0e2(.limiquantix.network.v1.PortStatus.PhaseR\x05phase\x12\x1f\n" +
+	"\x05phase\x18\x01 \x01(\x0e2(.Quantixkvm.network.v1.PortStatus.PhaseR\x05phase\x12\x1f\n" +
 	"\vmac_address\x18\x02 \x01(\tR\n" +
 	"macAddress\x12!\n" +
 	"\fip_addresses\x18\x03 \x03(\tR\vipAddresses\x12\x19\n" +
@@ -4172,8 +4173,8 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x04 \x01(\tR\tprojectId\x12I\n" +
-	"\x06labels\x18\x05 \x03(\v21.limiquantix.network.v1.SecurityGroup.LabelsEntryR\x06labels\x12?\n" +
-	"\x05rules\x18\x06 \x03(\v2).limiquantix.network.v1.SecurityGroupRuleR\x05rules\x12\x1a\n" +
+	"\x06labels\x18\x05 \x03(\v21.Quantixkvm.network.v1.SecurityGroup.LabelsEntryR\x06labels\x12?\n" +
+	"\x05rules\x18\x06 \x03(\v2).Quantixkvm.network.v1.SecurityGroupRuleR\x05rules\x12\x1a\n" +
 	"\bstateful\x18\a \x01(\bR\bstateful\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
@@ -4184,7 +4185,7 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xbe\x04\n" +
 	"\x11SecurityGroupRule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12Q\n" +
-	"\tdirection\x18\x02 \x01(\x0e23.limiquantix.network.v1.SecurityGroupRule.DirectionR\tdirection\x12\x1a\n" +
+	"\tdirection\x18\x02 \x01(\x0e23.Quantixkvm.network.v1.SecurityGroupRule.DirectionR\tdirection\x12\x1a\n" +
 	"\bprotocol\x18\x03 \x01(\tR\bprotocol\x12\x19\n" +
 	"\bport_min\x18\x04 \x01(\rR\aportMin\x12\x19\n" +
 	"\bport_max\x18\x05 \x01(\rR\aportMax\x12\x1b\n" +
@@ -4193,7 +4194,7 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\x10remote_ip_prefix\x18\b \x01(\tR\x0eremoteIpPrefix\x127\n" +
 	"\x18remote_security_group_id\x18\t \x01(\tR\x15remoteSecurityGroupId\x12H\n" +
 	"\x06action\x18\n" +
-	" \x01(\x0e20.limiquantix.network.v1.SecurityGroupRule.ActionR\x06action\x12\x1a\n" +
+	" \x01(\x0e20.Quantixkvm.network.v1.SecurityGroupRule.ActionR\x06action\x12\x1a\n" +
 	"\bpriority\x18\v \x01(\rR\bpriority\x12 \n" +
 	"\vdescription\x18\f \x01(\tR\vdescription\"$\n" +
 	"\tDirection\x12\v\n" +
@@ -4214,11 +4215,11 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\n" +
 	"project_id\x18\x04 \x01(\tR\tprojectId\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12F\n" +
-	"\x06labels\x18\x06 \x03(\v2..limiquantix.network.v1.FloatingIp.LabelsEntryR\x06labels\x12L\n" +
+	"\x06labels\x18\x06 \x03(\v2..Quantixkvm.network.v1.FloatingIp.LabelsEntryR\x06labels\x12L\n" +
 	"\n" +
-	"assignment\x18\a \x01(\v2,.limiquantix.network.v1.FloatingIpAssignmentR\n" +
+	"assignment\x18\a \x01(\v2,.Quantixkvm.network.v1.FloatingIpAssignmentR\n" +
 	"assignment\x12@\n" +
-	"\x06status\x18\b \x01(\v2(.limiquantix.network.v1.FloatingIpStatusR\x06status\x129\n" +
+	"\x06status\x18\b \x01(\v2(.Quantixkvm.network.v1.FloatingIpStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
@@ -4231,7 +4232,7 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\aport_id\x18\x01 \x01(\tR\x06portId\x12\x19\n" +
 	"\bfixed_ip\x18\x02 \x01(\tR\afixedIp\"\xf3\x01\n" +
 	"\x10FloatingIpStatus\x12D\n" +
-	"\x05phase\x18\x01 \x01(\x0e2..limiquantix.network.v1.FloatingIpStatus.PhaseR\x05phase\x12\x13\n" +
+	"\x05phase\x18\x01 \x01(\x0e2..Quantixkvm.network.v1.FloatingIpStatus.PhaseR\x05phase\x12\x13\n" +
 	"\x05vm_id\x18\x02 \x01(\tR\x04vmId\x12\x1b\n" +
 	"\trouter_id\x18\x03 \x01(\tR\brouterId\x12#\n" +
 	"\rerror_message\x18\x04 \x01(\tR\ferrorMessage\"B\n" +
@@ -4248,9 +4249,9 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x04 \x01(\tR\tprojectId\x12H\n" +
-	"\x06labels\x18\x05 \x03(\v20.limiquantix.network.v1.LoadBalancer.LabelsEntryR\x06labels\x12<\n" +
-	"\x04spec\x18\x06 \x01(\v2(.limiquantix.network.v1.LoadBalancerSpecR\x04spec\x12B\n" +
-	"\x06status\x18\a \x01(\v2*.limiquantix.network.v1.LoadBalancerStatusR\x06status\x129\n" +
+	"\x06labels\x18\x05 \x03(\v20.Quantixkvm.network.v1.LoadBalancer.LabelsEntryR\x06labels\x12<\n" +
+	"\x04spec\x18\x06 \x01(\v2(.Quantixkvm.network.v1.LoadBalancerSpecR\x04spec\x12B\n" +
+	"\x06status\x18\a \x01(\v2*.Quantixkvm.network.v1.LoadBalancerStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
@@ -4264,15 +4265,15 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\tsubnet_id\x18\x02 \x01(\tR\bsubnetId\x12\x1f\n" +
 	"\vvip_address\x18\x03 \x01(\tR\n" +
 	"vipAddress\x12>\n" +
-	"\tlisteners\x18\x04 \x03(\v2 .limiquantix.network.v1.ListenerR\tlisteners\x122\n" +
-	"\x05pools\x18\x05 \x03(\v2\x1c.limiquantix.network.v1.PoolR\x05pools\"\xc4\x02\n" +
+	"\tlisteners\x18\x04 \x03(\v2 .Quantixkvm.network.v1.ListenerR\tlisteners\x122\n" +
+	"\x05pools\x18\x05 \x03(\v2\x1c.Quantixkvm.network.v1.PoolR\x05pools\"\xc4\x02\n" +
 	"\bListener\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12E\n" +
-	"\bprotocol\x18\x03 \x01(\x0e2).limiquantix.network.v1.Listener.ProtocolR\bprotocol\x12\x12\n" +
+	"\bprotocol\x18\x03 \x01(\x0e2).Quantixkvm.network.v1.Listener.ProtocolR\bprotocol\x12\x12\n" +
 	"\x04port\x18\x04 \x01(\rR\x04port\x12&\n" +
 	"\x0fdefault_pool_id\x18\x05 \x01(\tR\rdefaultPoolId\x123\n" +
-	"\x03tls\x18\x06 \x01(\v2!.limiquantix.network.v1.TlsConfigR\x03tls\x12)\n" +
+	"\x03tls\x18\x06 \x01(\v2!.Quantixkvm.network.v1.TlsConfigR\x03tls\x12)\n" +
 	"\x10connection_limit\x18\a \x01(\rR\x0fconnectionLimit\"1\n" +
 	"\bProtocol\x12\a\n" +
 	"\x03TCP\x10\x00\x12\b\n" +
@@ -4290,11 +4291,11 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\x04Pool\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12D\n" +
-	"\talgorithm\x18\x03 \x01(\x0e2&.limiquantix.network.v1.Pool.AlgorithmR\talgorithm\x12E\n" +
-	"\bprotocol\x18\x04 \x01(\x0e2).limiquantix.network.v1.Listener.ProtocolR\bprotocol\x12<\n" +
-	"\amembers\x18\x05 \x03(\v2\".limiquantix.network.v1.PoolMemberR\amembers\x12L\n" +
-	"\x0ehealth_monitor\x18\x06 \x01(\v2%.limiquantix.network.v1.HealthMonitorR\rhealthMonitor\x12L\n" +
-	"\vpersistence\x18\a \x01(\v2*.limiquantix.network.v1.SessionPersistenceR\vpersistence\"\\\n" +
+	"\talgorithm\x18\x03 \x01(\x0e2&.Quantixkvm.network.v1.Pool.AlgorithmR\talgorithm\x12E\n" +
+	"\bprotocol\x18\x04 \x01(\x0e2).Quantixkvm.network.v1.Listener.ProtocolR\bprotocol\x12<\n" +
+	"\amembers\x18\x05 \x03(\v2\".Quantixkvm.network.v1.PoolMemberR\amembers\x12L\n" +
+	"\x0ehealth_monitor\x18\x06 \x01(\v2%.Quantixkvm.network.v1.HealthMonitorR\rhealthMonitor\x12L\n" +
+	"\vpersistence\x18\a \x01(\v2*.Quantixkvm.network.v1.SessionPersistenceR\vpersistence\"\\\n" +
 	"\tAlgorithm\x12\x0f\n" +
 	"\vROUND_ROBIN\x10\x00\x12\x15\n" +
 	"\x11LEAST_CONNECTIONS\x10\x01\x12\r\n" +
@@ -4309,7 +4310,7 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\x0eadmin_state_up\x18\x05 \x01(\bR\fadminStateUp\x12\x1b\n" +
 	"\tsubnet_id\x18\x06 \x01(\tR\bsubnetId\"\xb3\x02\n" +
 	"\rHealthMonitor\x12>\n" +
-	"\x04type\x18\x01 \x01(\x0e2*.limiquantix.network.v1.HealthMonitor.TypeR\x04type\x12\x14\n" +
+	"\x04type\x18\x01 \x01(\x0e2*.Quantixkvm.network.v1.HealthMonitor.TypeR\x04type\x12\x14\n" +
 	"\x05delay\x18\x02 \x01(\rR\x05delay\x12\x18\n" +
 	"\atimeout\x18\x03 \x01(\rR\atimeout\x12\x1f\n" +
 	"\vmax_retries\x18\x04 \x01(\rR\n" +
@@ -4324,7 +4325,7 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\x04HTTP\x10\x02\x12\t\n" +
 	"\x05HTTPS\x10\x03\"\xbc\x01\n" +
 	"\x12SessionPersistence\x12C\n" +
-	"\x04type\x18\x01 \x01(\x0e2/.limiquantix.network.v1.SessionPersistence.TypeR\x04type\x12\x1f\n" +
+	"\x04type\x18\x01 \x01(\x0e2/.Quantixkvm.network.v1.SessionPersistence.TypeR\x04type\x12\x1f\n" +
 	"\vcookie_name\x18\x02 \x01(\tR\n" +
 	"cookieName\"@\n" +
 	"\x04Type\x12\b\n" +
@@ -4334,7 +4335,7 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\n" +
 	"APP_COOKIE\x10\x03\"\xe6\x02\n" +
 	"\x12LoadBalancerStatus\x12F\n" +
-	"\x05phase\x18\x01 \x01(\x0e20.limiquantix.network.v1.LoadBalancerStatus.PhaseR\x05phase\x12/\n" +
+	"\x05phase\x18\x01 \x01(\x0e20.Quantixkvm.network.v1.LoadBalancerStatus.PhaseR\x05phase\x12/\n" +
 	"\x13provisioning_status\x18\x02 \x01(\tR\x12provisioningStatus\x12)\n" +
 	"\x10operating_status\x18\x03 \x01(\tR\x0foperatingStatus\x12\x1f\n" +
 	"\vvip_address\x18\x04 \x01(\tR\n" +
@@ -4358,8 +4359,8 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\trouter_id\x18\x05 \x01(\tR\brouterId\x12\x1f\n" +
 	"\vexternal_ip\x18\x06 \x01(\tR\n" +
 	"externalIp\x12G\n" +
-	"\vconnections\x18\a \x03(\v2%.limiquantix.network.v1.VpnConnectionR\vconnections\x129\n" +
-	"\x06status\x18\b \x01(\v2!.limiquantix.network.v1.VpnStatusR\x06status\x129\n" +
+	"\vconnections\x18\a \x03(\v2%.Quantixkvm.network.v1.VpnConnectionR\vconnections\x129\n" +
+	"\x06status\x18\b \x01(\v2!.Quantixkvm.network.v1.VpnStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x80\x03\n" +
 	"\rVpnConnection\x12\x0e\n" +
@@ -4373,10 +4374,10 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\n" +
 	"peer_cidrs\x18\a \x03(\tR\tpeerCidrs\x12@\n" +
 	"\n" +
-	"ike_policy\x18\b \x01(\v2!.limiquantix.network.v1.IkePolicyR\tikePolicy\x12F\n" +
-	"\fipsec_policy\x18\t \x01(\v2#.limiquantix.network.v1.IpsecPolicyR\vipsecPolicy\x123\n" +
+	"ike_policy\x18\b \x01(\v2!.Quantixkvm.network.v1.IkePolicyR\tikePolicy\x12F\n" +
+	"\fipsec_policy\x18\t \x01(\v2#.Quantixkvm.network.v1.IpsecPolicyR\vipsecPolicy\x123\n" +
 	"\x03dpd\x18\n" +
-	" \x01(\v2!.limiquantix.network.v1.DpdConfigR\x03dpd\"\xc3\x01\n" +
+	" \x01(\v2!.Quantixkvm.network.v1.DpdConfigR\x03dpd\"\xc3\x01\n" +
 	"\tIkePolicy\x12%\n" +
 	"\x0eauth_algorithm\x18\x01 \x01(\tR\rauthAlgorithm\x121\n" +
 	"\x14encryption_algorithm\x18\x02 \x01(\tR\x13encryptionAlgorithm\x12\x1f\n" +
@@ -4396,7 +4397,7 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\binterval\x18\x02 \x01(\rR\binterval\x12\x18\n" +
 	"\atimeout\x18\x03 \x01(\rR\atimeout\"\xb3\x01\n" +
 	"\tVpnStatus\x12=\n" +
-	"\x05phase\x18\x01 \x01(\x0e2'.limiquantix.network.v1.VpnStatus.PhaseR\x05phase\x12#\n" +
+	"\x05phase\x18\x01 \x01(\x0e2'.Quantixkvm.network.v1.VpnStatus.PhaseR\x05phase\x12#\n" +
 	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\"B\n" +
 	"\x05Phase\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\v\n" +
@@ -4405,146 +4406,146 @@ const file_limiquantix_network_v1_network_proto_rawDesc = "" +
 	"\x06ACTIVE\x10\x02\x12\b\n" +
 	"\x04DOWN\x10\x03\x12\t\n" +
 	"\x05ERROR\x10\x04B\xf1\x01\n" +
-	"\x1acom.limiquantix.network.v1B\fNetworkProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1;networkv1\xa2\x02\x03LNX\xaa\x02\x16Limiquantix.Network.V1\xca\x02\x16Limiquantix\\Network\\V1\xe2\x02\"Limiquantix\\Network\\V1\\GPBMetadata\xea\x02\x18Limiquantix::Network::V1b\x06proto3"
+	"\x1acom.Quantixkvm.network.v1B\fNetworkProtoP\x01ZKgithub.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/network/v1;networkv1\xa2\x02\x03LNX\xaa\x02\x16Quantixkvm.Network.V1\xca\x02\x16Quantixkvm\\Network\\V1\xe2\x02\"Quantixkvm\\Network\\V1\\GPBMetadata\xea\x02\x18Quantixkvm::Network::V1b\x06proto3"
 
 var (
-	file_limiquantix_network_v1_network_proto_rawDescOnce sync.Once
-	file_limiquantix_network_v1_network_proto_rawDescData []byte
+	file_Quantixkvm_network_v1_network_proto_rawDescOnce sync.Once
+	file_Quantixkvm_network_v1_network_proto_rawDescData []byte
 )
 
-func file_limiquantix_network_v1_network_proto_rawDescGZIP() []byte {
-	file_limiquantix_network_v1_network_proto_rawDescOnce.Do(func() {
-		file_limiquantix_network_v1_network_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_limiquantix_network_v1_network_proto_rawDesc), len(file_limiquantix_network_v1_network_proto_rawDesc)))
+func file_Quantixkvm_network_v1_network_proto_rawDescGZIP() []byte {
+	file_Quantixkvm_network_v1_network_proto_rawDescOnce.Do(func() {
+		file_Quantixkvm_network_v1_network_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_Quantixkvm_network_v1_network_proto_rawDesc), len(file_Quantixkvm_network_v1_network_proto_rawDesc)))
 	})
-	return file_limiquantix_network_v1_network_proto_rawDescData
+	return file_Quantixkvm_network_v1_network_proto_rawDescData
 }
 
-var file_limiquantix_network_v1_network_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
-var file_limiquantix_network_v1_network_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
-var file_limiquantix_network_v1_network_proto_goTypes = []any{
-	(VirtualNetworkSpec_NetworkType)(0), // 0: limiquantix.network.v1.VirtualNetworkSpec.NetworkType
-	(VirtualNetworkStatus_Phase)(0),     // 1: limiquantix.network.v1.VirtualNetworkStatus.Phase
-	(BindingProfile_BindingType)(0),     // 2: limiquantix.network.v1.BindingProfile.BindingType
-	(PortStatus_Phase)(0),               // 3: limiquantix.network.v1.PortStatus.Phase
-	(SecurityGroupRule_Direction)(0),    // 4: limiquantix.network.v1.SecurityGroupRule.Direction
-	(SecurityGroupRule_Action)(0),       // 5: limiquantix.network.v1.SecurityGroupRule.Action
-	(FloatingIpStatus_Phase)(0),         // 6: limiquantix.network.v1.FloatingIpStatus.Phase
-	(Listener_Protocol)(0),              // 7: limiquantix.network.v1.Listener.Protocol
-	(Pool_Algorithm)(0),                 // 8: limiquantix.network.v1.Pool.Algorithm
-	(HealthMonitor_Type)(0),             // 9: limiquantix.network.v1.HealthMonitor.Type
-	(SessionPersistence_Type)(0),        // 10: limiquantix.network.v1.SessionPersistence.Type
-	(LoadBalancerStatus_Phase)(0),       // 11: limiquantix.network.v1.LoadBalancerStatus.Phase
-	(VpnStatus_Phase)(0),                // 12: limiquantix.network.v1.VpnStatus.Phase
-	(*VirtualNetwork)(nil),              // 13: limiquantix.network.v1.VirtualNetwork
-	(*VirtualNetworkSpec)(nil),          // 14: limiquantix.network.v1.VirtualNetworkSpec
-	(*IpAddressManagement)(nil),         // 15: limiquantix.network.v1.IpAddressManagement
-	(*DhcpConfig)(nil),                  // 16: limiquantix.network.v1.DhcpConfig
-	(*DhcpBinding)(nil),                 // 17: limiquantix.network.v1.DhcpBinding
-	(*IpRange)(nil),                     // 18: limiquantix.network.v1.IpRange
-	(*VlanConfig)(nil),                  // 19: limiquantix.network.v1.VlanConfig
-	(*RouterConfig)(nil),                // 20: limiquantix.network.v1.RouterConfig
-	(*StaticRoute)(nil),                 // 21: limiquantix.network.v1.StaticRoute
-	(*DnsConfig)(nil),                   // 22: limiquantix.network.v1.DnsConfig
-	(*VirtualNetworkStatus)(nil),        // 23: limiquantix.network.v1.VirtualNetworkStatus
-	(*IpAllocationStatus)(nil),          // 24: limiquantix.network.v1.IpAllocationStatus
-	(*Port)(nil),                        // 25: limiquantix.network.v1.Port
-	(*PortSpec)(nil),                    // 26: limiquantix.network.v1.PortSpec
-	(*FixedIp)(nil),                     // 27: limiquantix.network.v1.FixedIp
-	(*AddressPair)(nil),                 // 28: limiquantix.network.v1.AddressPair
-	(*PortQos)(nil),                     // 29: limiquantix.network.v1.PortQos
-	(*BindingProfile)(nil),              // 30: limiquantix.network.v1.BindingProfile
-	(*PortStatus)(nil),                  // 31: limiquantix.network.v1.PortStatus
-	(*SecurityGroup)(nil),               // 32: limiquantix.network.v1.SecurityGroup
-	(*SecurityGroupRule)(nil),           // 33: limiquantix.network.v1.SecurityGroupRule
-	(*FloatingIp)(nil),                  // 34: limiquantix.network.v1.FloatingIp
-	(*FloatingIpAssignment)(nil),        // 35: limiquantix.network.v1.FloatingIpAssignment
-	(*FloatingIpStatus)(nil),            // 36: limiquantix.network.v1.FloatingIpStatus
-	(*LoadBalancer)(nil),                // 37: limiquantix.network.v1.LoadBalancer
-	(*LoadBalancerSpec)(nil),            // 38: limiquantix.network.v1.LoadBalancerSpec
-	(*Listener)(nil),                    // 39: limiquantix.network.v1.Listener
-	(*TlsConfig)(nil),                   // 40: limiquantix.network.v1.TlsConfig
-	(*Pool)(nil),                        // 41: limiquantix.network.v1.Pool
-	(*PoolMember)(nil),                  // 42: limiquantix.network.v1.PoolMember
-	(*HealthMonitor)(nil),               // 43: limiquantix.network.v1.HealthMonitor
-	(*SessionPersistence)(nil),          // 44: limiquantix.network.v1.SessionPersistence
-	(*LoadBalancerStatus)(nil),          // 45: limiquantix.network.v1.LoadBalancerStatus
-	(*VpnService)(nil),                  // 46: limiquantix.network.v1.VpnService
-	(*VpnConnection)(nil),               // 47: limiquantix.network.v1.VpnConnection
-	(*IkePolicy)(nil),                   // 48: limiquantix.network.v1.IkePolicy
-	(*IpsecPolicy)(nil),                 // 49: limiquantix.network.v1.IpsecPolicy
-	(*DpdConfig)(nil),                   // 50: limiquantix.network.v1.DpdConfig
-	(*VpnStatus)(nil),                   // 51: limiquantix.network.v1.VpnStatus
-	nil,                                 // 52: limiquantix.network.v1.VirtualNetwork.LabelsEntry
-	nil,                                 // 53: limiquantix.network.v1.Port.LabelsEntry
-	nil,                                 // 54: limiquantix.network.v1.SecurityGroup.LabelsEntry
-	nil,                                 // 55: limiquantix.network.v1.FloatingIp.LabelsEntry
-	nil,                                 // 56: limiquantix.network.v1.LoadBalancer.LabelsEntry
+var file_Quantixkvm_network_v1_network_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
+var file_Quantixkvm_network_v1_network_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
+var file_Quantixkvm_network_v1_network_proto_goTypes = []any{
+	(VirtualNetworkSpec_NetworkType)(0), // 0: Quantixkvm.network.v1.VirtualNetworkSpec.NetworkType
+	(VirtualNetworkStatus_Phase)(0),     // 1: Quantixkvm.network.v1.VirtualNetworkStatus.Phase
+	(BindingProfile_BindingType)(0),     // 2: Quantixkvm.network.v1.BindingProfile.BindingType
+	(PortStatus_Phase)(0),               // 3: Quantixkvm.network.v1.PortStatus.Phase
+	(SecurityGroupRule_Direction)(0),    // 4: Quantixkvm.network.v1.SecurityGroupRule.Direction
+	(SecurityGroupRule_Action)(0),       // 5: Quantixkvm.network.v1.SecurityGroupRule.Action
+	(FloatingIpStatus_Phase)(0),         // 6: Quantixkvm.network.v1.FloatingIpStatus.Phase
+	(Listener_Protocol)(0),              // 7: Quantixkvm.network.v1.Listener.Protocol
+	(Pool_Algorithm)(0),                 // 8: Quantixkvm.network.v1.Pool.Algorithm
+	(HealthMonitor_Type)(0),             // 9: Quantixkvm.network.v1.HealthMonitor.Type
+	(SessionPersistence_Type)(0),        // 10: Quantixkvm.network.v1.SessionPersistence.Type
+	(LoadBalancerStatus_Phase)(0),       // 11: Quantixkvm.network.v1.LoadBalancerStatus.Phase
+	(VpnStatus_Phase)(0),                // 12: Quantixkvm.network.v1.VpnStatus.Phase
+	(*VirtualNetwork)(nil),              // 13: Quantixkvm.network.v1.VirtualNetwork
+	(*VirtualNetworkSpec)(nil),          // 14: Quantixkvm.network.v1.VirtualNetworkSpec
+	(*IpAddressManagement)(nil),         // 15: Quantixkvm.network.v1.IpAddressManagement
+	(*DhcpConfig)(nil),                  // 16: Quantixkvm.network.v1.DhcpConfig
+	(*DhcpBinding)(nil),                 // 17: Quantixkvm.network.v1.DhcpBinding
+	(*IpRange)(nil),                     // 18: Quantixkvm.network.v1.IpRange
+	(*VlanConfig)(nil),                  // 19: Quantixkvm.network.v1.VlanConfig
+	(*RouterConfig)(nil),                // 20: Quantixkvm.network.v1.RouterConfig
+	(*StaticRoute)(nil),                 // 21: Quantixkvm.network.v1.StaticRoute
+	(*DnsConfig)(nil),                   // 22: Quantixkvm.network.v1.DnsConfig
+	(*VirtualNetworkStatus)(nil),        // 23: Quantixkvm.network.v1.VirtualNetworkStatus
+	(*IpAllocationStatus)(nil),          // 24: Quantixkvm.network.v1.IpAllocationStatus
+	(*Port)(nil),                        // 25: Quantixkvm.network.v1.Port
+	(*PortSpec)(nil),                    // 26: Quantixkvm.network.v1.PortSpec
+	(*FixedIp)(nil),                     // 27: Quantixkvm.network.v1.FixedIp
+	(*AddressPair)(nil),                 // 28: Quantixkvm.network.v1.AddressPair
+	(*PortQos)(nil),                     // 29: Quantixkvm.network.v1.PortQos
+	(*BindingProfile)(nil),              // 30: Quantixkvm.network.v1.BindingProfile
+	(*PortStatus)(nil),                  // 31: Quantixkvm.network.v1.PortStatus
+	(*SecurityGroup)(nil),               // 32: Quantixkvm.network.v1.SecurityGroup
+	(*SecurityGroupRule)(nil),           // 33: Quantixkvm.network.v1.SecurityGroupRule
+	(*FloatingIp)(nil),                  // 34: Quantixkvm.network.v1.FloatingIp
+	(*FloatingIpAssignment)(nil),        // 35: Quantixkvm.network.v1.FloatingIpAssignment
+	(*FloatingIpStatus)(nil),            // 36: Quantixkvm.network.v1.FloatingIpStatus
+	(*LoadBalancer)(nil),                // 37: Quantixkvm.network.v1.LoadBalancer
+	(*LoadBalancerSpec)(nil),            // 38: Quantixkvm.network.v1.LoadBalancerSpec
+	(*Listener)(nil),                    // 39: Quantixkvm.network.v1.Listener
+	(*TlsConfig)(nil),                   // 40: Quantixkvm.network.v1.TlsConfig
+	(*Pool)(nil),                        // 41: Quantixkvm.network.v1.Pool
+	(*PoolMember)(nil),                  // 42: Quantixkvm.network.v1.PoolMember
+	(*HealthMonitor)(nil),               // 43: Quantixkvm.network.v1.HealthMonitor
+	(*SessionPersistence)(nil),          // 44: Quantixkvm.network.v1.SessionPersistence
+	(*LoadBalancerStatus)(nil),          // 45: Quantixkvm.network.v1.LoadBalancerStatus
+	(*VpnService)(nil),                  // 46: Quantixkvm.network.v1.VpnService
+	(*VpnConnection)(nil),               // 47: Quantixkvm.network.v1.VpnConnection
+	(*IkePolicy)(nil),                   // 48: Quantixkvm.network.v1.IkePolicy
+	(*IpsecPolicy)(nil),                 // 49: Quantixkvm.network.v1.IpsecPolicy
+	(*DpdConfig)(nil),                   // 50: Quantixkvm.network.v1.DpdConfig
+	(*VpnStatus)(nil),                   // 51: Quantixkvm.network.v1.VpnStatus
+	nil,                                 // 52: Quantixkvm.network.v1.VirtualNetwork.LabelsEntry
+	nil,                                 // 53: Quantixkvm.network.v1.Port.LabelsEntry
+	nil,                                 // 54: Quantixkvm.network.v1.SecurityGroup.LabelsEntry
+	nil,                                 // 55: Quantixkvm.network.v1.FloatingIp.LabelsEntry
+	nil,                                 // 56: Quantixkvm.network.v1.LoadBalancer.LabelsEntry
 	(*timestamppb.Timestamp)(nil),       // 57: google.protobuf.Timestamp
 }
-var file_limiquantix_network_v1_network_proto_depIdxs = []int32{
-	52, // 0: limiquantix.network.v1.VirtualNetwork.labels:type_name -> limiquantix.network.v1.VirtualNetwork.LabelsEntry
-	14, // 1: limiquantix.network.v1.VirtualNetwork.spec:type_name -> limiquantix.network.v1.VirtualNetworkSpec
-	23, // 2: limiquantix.network.v1.VirtualNetwork.status:type_name -> limiquantix.network.v1.VirtualNetworkStatus
-	57, // 3: limiquantix.network.v1.VirtualNetwork.created_at:type_name -> google.protobuf.Timestamp
-	57, // 4: limiquantix.network.v1.VirtualNetwork.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 5: limiquantix.network.v1.VirtualNetworkSpec.type:type_name -> limiquantix.network.v1.VirtualNetworkSpec.NetworkType
-	15, // 6: limiquantix.network.v1.VirtualNetworkSpec.ip_config:type_name -> limiquantix.network.v1.IpAddressManagement
-	19, // 7: limiquantix.network.v1.VirtualNetworkSpec.vlan:type_name -> limiquantix.network.v1.VlanConfig
-	20, // 8: limiquantix.network.v1.VirtualNetworkSpec.router:type_name -> limiquantix.network.v1.RouterConfig
-	22, // 9: limiquantix.network.v1.VirtualNetworkSpec.dns:type_name -> limiquantix.network.v1.DnsConfig
-	16, // 10: limiquantix.network.v1.IpAddressManagement.dhcp:type_name -> limiquantix.network.v1.DhcpConfig
-	18, // 11: limiquantix.network.v1.IpAddressManagement.allocation_pools:type_name -> limiquantix.network.v1.IpRange
-	17, // 12: limiquantix.network.v1.DhcpConfig.static_bindings:type_name -> limiquantix.network.v1.DhcpBinding
-	21, // 13: limiquantix.network.v1.RouterConfig.routes:type_name -> limiquantix.network.v1.StaticRoute
-	1,  // 14: limiquantix.network.v1.VirtualNetworkStatus.phase:type_name -> limiquantix.network.v1.VirtualNetworkStatus.Phase
-	24, // 15: limiquantix.network.v1.VirtualNetworkStatus.ip_status:type_name -> limiquantix.network.v1.IpAllocationStatus
-	53, // 16: limiquantix.network.v1.Port.labels:type_name -> limiquantix.network.v1.Port.LabelsEntry
-	26, // 17: limiquantix.network.v1.Port.spec:type_name -> limiquantix.network.v1.PortSpec
-	31, // 18: limiquantix.network.v1.Port.status:type_name -> limiquantix.network.v1.PortStatus
-	57, // 19: limiquantix.network.v1.Port.created_at:type_name -> google.protobuf.Timestamp
-	57, // 20: limiquantix.network.v1.Port.updated_at:type_name -> google.protobuf.Timestamp
-	27, // 21: limiquantix.network.v1.PortSpec.fixed_ips:type_name -> limiquantix.network.v1.FixedIp
-	28, // 22: limiquantix.network.v1.PortSpec.allowed_address_pairs:type_name -> limiquantix.network.v1.AddressPair
-	29, // 23: limiquantix.network.v1.PortSpec.qos:type_name -> limiquantix.network.v1.PortQos
-	30, // 24: limiquantix.network.v1.PortSpec.binding:type_name -> limiquantix.network.v1.BindingProfile
-	2,  // 25: limiquantix.network.v1.BindingProfile.type:type_name -> limiquantix.network.v1.BindingProfile.BindingType
-	3,  // 26: limiquantix.network.v1.PortStatus.phase:type_name -> limiquantix.network.v1.PortStatus.Phase
-	54, // 27: limiquantix.network.v1.SecurityGroup.labels:type_name -> limiquantix.network.v1.SecurityGroup.LabelsEntry
-	33, // 28: limiquantix.network.v1.SecurityGroup.rules:type_name -> limiquantix.network.v1.SecurityGroupRule
-	57, // 29: limiquantix.network.v1.SecurityGroup.created_at:type_name -> google.protobuf.Timestamp
-	57, // 30: limiquantix.network.v1.SecurityGroup.updated_at:type_name -> google.protobuf.Timestamp
-	4,  // 31: limiquantix.network.v1.SecurityGroupRule.direction:type_name -> limiquantix.network.v1.SecurityGroupRule.Direction
-	5,  // 32: limiquantix.network.v1.SecurityGroupRule.action:type_name -> limiquantix.network.v1.SecurityGroupRule.Action
-	55, // 33: limiquantix.network.v1.FloatingIp.labels:type_name -> limiquantix.network.v1.FloatingIp.LabelsEntry
-	35, // 34: limiquantix.network.v1.FloatingIp.assignment:type_name -> limiquantix.network.v1.FloatingIpAssignment
-	36, // 35: limiquantix.network.v1.FloatingIp.status:type_name -> limiquantix.network.v1.FloatingIpStatus
-	57, // 36: limiquantix.network.v1.FloatingIp.created_at:type_name -> google.protobuf.Timestamp
-	57, // 37: limiquantix.network.v1.FloatingIp.updated_at:type_name -> google.protobuf.Timestamp
-	6,  // 38: limiquantix.network.v1.FloatingIpStatus.phase:type_name -> limiquantix.network.v1.FloatingIpStatus.Phase
-	56, // 39: limiquantix.network.v1.LoadBalancer.labels:type_name -> limiquantix.network.v1.LoadBalancer.LabelsEntry
-	38, // 40: limiquantix.network.v1.LoadBalancer.spec:type_name -> limiquantix.network.v1.LoadBalancerSpec
-	45, // 41: limiquantix.network.v1.LoadBalancer.status:type_name -> limiquantix.network.v1.LoadBalancerStatus
-	57, // 42: limiquantix.network.v1.LoadBalancer.created_at:type_name -> google.protobuf.Timestamp
-	57, // 43: limiquantix.network.v1.LoadBalancer.updated_at:type_name -> google.protobuf.Timestamp
-	39, // 44: limiquantix.network.v1.LoadBalancerSpec.listeners:type_name -> limiquantix.network.v1.Listener
-	41, // 45: limiquantix.network.v1.LoadBalancerSpec.pools:type_name -> limiquantix.network.v1.Pool
-	7,  // 46: limiquantix.network.v1.Listener.protocol:type_name -> limiquantix.network.v1.Listener.Protocol
-	40, // 47: limiquantix.network.v1.Listener.tls:type_name -> limiquantix.network.v1.TlsConfig
-	8,  // 48: limiquantix.network.v1.Pool.algorithm:type_name -> limiquantix.network.v1.Pool.Algorithm
-	7,  // 49: limiquantix.network.v1.Pool.protocol:type_name -> limiquantix.network.v1.Listener.Protocol
-	42, // 50: limiquantix.network.v1.Pool.members:type_name -> limiquantix.network.v1.PoolMember
-	43, // 51: limiquantix.network.v1.Pool.health_monitor:type_name -> limiquantix.network.v1.HealthMonitor
-	44, // 52: limiquantix.network.v1.Pool.persistence:type_name -> limiquantix.network.v1.SessionPersistence
-	9,  // 53: limiquantix.network.v1.HealthMonitor.type:type_name -> limiquantix.network.v1.HealthMonitor.Type
-	10, // 54: limiquantix.network.v1.SessionPersistence.type:type_name -> limiquantix.network.v1.SessionPersistence.Type
-	11, // 55: limiquantix.network.v1.LoadBalancerStatus.phase:type_name -> limiquantix.network.v1.LoadBalancerStatus.Phase
-	47, // 56: limiquantix.network.v1.VpnService.connections:type_name -> limiquantix.network.v1.VpnConnection
-	51, // 57: limiquantix.network.v1.VpnService.status:type_name -> limiquantix.network.v1.VpnStatus
-	57, // 58: limiquantix.network.v1.VpnService.created_at:type_name -> google.protobuf.Timestamp
-	48, // 59: limiquantix.network.v1.VpnConnection.ike_policy:type_name -> limiquantix.network.v1.IkePolicy
-	49, // 60: limiquantix.network.v1.VpnConnection.ipsec_policy:type_name -> limiquantix.network.v1.IpsecPolicy
-	50, // 61: limiquantix.network.v1.VpnConnection.dpd:type_name -> limiquantix.network.v1.DpdConfig
-	12, // 62: limiquantix.network.v1.VpnStatus.phase:type_name -> limiquantix.network.v1.VpnStatus.Phase
+var file_Quantixkvm_network_v1_network_proto_depIdxs = []int32{
+	52, // 0: Quantixkvm.network.v1.VirtualNetwork.labels:type_name -> Quantixkvm.network.v1.VirtualNetwork.LabelsEntry
+	14, // 1: Quantixkvm.network.v1.VirtualNetwork.spec:type_name -> Quantixkvm.network.v1.VirtualNetworkSpec
+	23, // 2: Quantixkvm.network.v1.VirtualNetwork.status:type_name -> Quantixkvm.network.v1.VirtualNetworkStatus
+	57, // 3: Quantixkvm.network.v1.VirtualNetwork.created_at:type_name -> google.protobuf.Timestamp
+	57, // 4: Quantixkvm.network.v1.VirtualNetwork.updated_at:type_name -> google.protobuf.Timestamp
+	0,  // 5: Quantixkvm.network.v1.VirtualNetworkSpec.type:type_name -> Quantixkvm.network.v1.VirtualNetworkSpec.NetworkType
+	15, // 6: Quantixkvm.network.v1.VirtualNetworkSpec.ip_config:type_name -> Quantixkvm.network.v1.IpAddressManagement
+	19, // 7: Quantixkvm.network.v1.VirtualNetworkSpec.vlan:type_name -> Quantixkvm.network.v1.VlanConfig
+	20, // 8: Quantixkvm.network.v1.VirtualNetworkSpec.router:type_name -> Quantixkvm.network.v1.RouterConfig
+	22, // 9: Quantixkvm.network.v1.VirtualNetworkSpec.dns:type_name -> Quantixkvm.network.v1.DnsConfig
+	16, // 10: Quantixkvm.network.v1.IpAddressManagement.dhcp:type_name -> Quantixkvm.network.v1.DhcpConfig
+	18, // 11: Quantixkvm.network.v1.IpAddressManagement.allocation_pools:type_name -> Quantixkvm.network.v1.IpRange
+	17, // 12: Quantixkvm.network.v1.DhcpConfig.static_bindings:type_name -> Quantixkvm.network.v1.DhcpBinding
+	21, // 13: Quantixkvm.network.v1.RouterConfig.routes:type_name -> Quantixkvm.network.v1.StaticRoute
+	1,  // 14: Quantixkvm.network.v1.VirtualNetworkStatus.phase:type_name -> Quantixkvm.network.v1.VirtualNetworkStatus.Phase
+	24, // 15: Quantixkvm.network.v1.VirtualNetworkStatus.ip_status:type_name -> Quantixkvm.network.v1.IpAllocationStatus
+	53, // 16: Quantixkvm.network.v1.Port.labels:type_name -> Quantixkvm.network.v1.Port.LabelsEntry
+	26, // 17: Quantixkvm.network.v1.Port.spec:type_name -> Quantixkvm.network.v1.PortSpec
+	31, // 18: Quantixkvm.network.v1.Port.status:type_name -> Quantixkvm.network.v1.PortStatus
+	57, // 19: Quantixkvm.network.v1.Port.created_at:type_name -> google.protobuf.Timestamp
+	57, // 20: Quantixkvm.network.v1.Port.updated_at:type_name -> google.protobuf.Timestamp
+	27, // 21: Quantixkvm.network.v1.PortSpec.fixed_ips:type_name -> Quantixkvm.network.v1.FixedIp
+	28, // 22: Quantixkvm.network.v1.PortSpec.allowed_address_pairs:type_name -> Quantixkvm.network.v1.AddressPair
+	29, // 23: Quantixkvm.network.v1.PortSpec.qos:type_name -> Quantixkvm.network.v1.PortQos
+	30, // 24: Quantixkvm.network.v1.PortSpec.binding:type_name -> Quantixkvm.network.v1.BindingProfile
+	2,  // 25: Quantixkvm.network.v1.BindingProfile.type:type_name -> Quantixkvm.network.v1.BindingProfile.BindingType
+	3,  // 26: Quantixkvm.network.v1.PortStatus.phase:type_name -> Quantixkvm.network.v1.PortStatus.Phase
+	54, // 27: Quantixkvm.network.v1.SecurityGroup.labels:type_name -> Quantixkvm.network.v1.SecurityGroup.LabelsEntry
+	33, // 28: Quantixkvm.network.v1.SecurityGroup.rules:type_name -> Quantixkvm.network.v1.SecurityGroupRule
+	57, // 29: Quantixkvm.network.v1.SecurityGroup.created_at:type_name -> google.protobuf.Timestamp
+	57, // 30: Quantixkvm.network.v1.SecurityGroup.updated_at:type_name -> google.protobuf.Timestamp
+	4,  // 31: Quantixkvm.network.v1.SecurityGroupRule.direction:type_name -> Quantixkvm.network.v1.SecurityGroupRule.Direction
+	5,  // 32: Quantixkvm.network.v1.SecurityGroupRule.action:type_name -> Quantixkvm.network.v1.SecurityGroupRule.Action
+	55, // 33: Quantixkvm.network.v1.FloatingIp.labels:type_name -> Quantixkvm.network.v1.FloatingIp.LabelsEntry
+	35, // 34: Quantixkvm.network.v1.FloatingIp.assignment:type_name -> Quantixkvm.network.v1.FloatingIpAssignment
+	36, // 35: Quantixkvm.network.v1.FloatingIp.status:type_name -> Quantixkvm.network.v1.FloatingIpStatus
+	57, // 36: Quantixkvm.network.v1.FloatingIp.created_at:type_name -> google.protobuf.Timestamp
+	57, // 37: Quantixkvm.network.v1.FloatingIp.updated_at:type_name -> google.protobuf.Timestamp
+	6,  // 38: Quantixkvm.network.v1.FloatingIpStatus.phase:type_name -> Quantixkvm.network.v1.FloatingIpStatus.Phase
+	56, // 39: Quantixkvm.network.v1.LoadBalancer.labels:type_name -> Quantixkvm.network.v1.LoadBalancer.LabelsEntry
+	38, // 40: Quantixkvm.network.v1.LoadBalancer.spec:type_name -> Quantixkvm.network.v1.LoadBalancerSpec
+	45, // 41: Quantixkvm.network.v1.LoadBalancer.status:type_name -> Quantixkvm.network.v1.LoadBalancerStatus
+	57, // 42: Quantixkvm.network.v1.LoadBalancer.created_at:type_name -> google.protobuf.Timestamp
+	57, // 43: Quantixkvm.network.v1.LoadBalancer.updated_at:type_name -> google.protobuf.Timestamp
+	39, // 44: Quantixkvm.network.v1.LoadBalancerSpec.listeners:type_name -> Quantixkvm.network.v1.Listener
+	41, // 45: Quantixkvm.network.v1.LoadBalancerSpec.pools:type_name -> Quantixkvm.network.v1.Pool
+	7,  // 46: Quantixkvm.network.v1.Listener.protocol:type_name -> Quantixkvm.network.v1.Listener.Protocol
+	40, // 47: Quantixkvm.network.v1.Listener.tls:type_name -> Quantixkvm.network.v1.TlsConfig
+	8,  // 48: Quantixkvm.network.v1.Pool.algorithm:type_name -> Quantixkvm.network.v1.Pool.Algorithm
+	7,  // 49: Quantixkvm.network.v1.Pool.protocol:type_name -> Quantixkvm.network.v1.Listener.Protocol
+	42, // 50: Quantixkvm.network.v1.Pool.members:type_name -> Quantixkvm.network.v1.PoolMember
+	43, // 51: Quantixkvm.network.v1.Pool.health_monitor:type_name -> Quantixkvm.network.v1.HealthMonitor
+	44, // 52: Quantixkvm.network.v1.Pool.persistence:type_name -> Quantixkvm.network.v1.SessionPersistence
+	9,  // 53: Quantixkvm.network.v1.HealthMonitor.type:type_name -> Quantixkvm.network.v1.HealthMonitor.Type
+	10, // 54: Quantixkvm.network.v1.SessionPersistence.type:type_name -> Quantixkvm.network.v1.SessionPersistence.Type
+	11, // 55: Quantixkvm.network.v1.LoadBalancerStatus.phase:type_name -> Quantixkvm.network.v1.LoadBalancerStatus.Phase
+	47, // 56: Quantixkvm.network.v1.VpnService.connections:type_name -> Quantixkvm.network.v1.VpnConnection
+	51, // 57: Quantixkvm.network.v1.VpnService.status:type_name -> Quantixkvm.network.v1.VpnStatus
+	57, // 58: Quantixkvm.network.v1.VpnService.created_at:type_name -> google.protobuf.Timestamp
+	48, // 59: Quantixkvm.network.v1.VpnConnection.ike_policy:type_name -> Quantixkvm.network.v1.IkePolicy
+	49, // 60: Quantixkvm.network.v1.VpnConnection.ipsec_policy:type_name -> Quantixkvm.network.v1.IpsecPolicy
+	50, // 61: Quantixkvm.network.v1.VpnConnection.dpd:type_name -> Quantixkvm.network.v1.DpdConfig
+	12, // 62: Quantixkvm.network.v1.VpnStatus.phase:type_name -> Quantixkvm.network.v1.VpnStatus.Phase
 	63, // [63:63] is the sub-list for method output_type
 	63, // [63:63] is the sub-list for method input_type
 	63, // [63:63] is the sub-list for extension type_name
@@ -4552,27 +4553,27 @@ var file_limiquantix_network_v1_network_proto_depIdxs = []int32{
 	0,  // [0:63] is the sub-list for field type_name
 }
 
-func init() { file_limiquantix_network_v1_network_proto_init() }
-func file_limiquantix_network_v1_network_proto_init() {
-	if File_limiquantix_network_v1_network_proto != nil {
+func init() { file_Quantixkvm_network_v1_network_proto_init() }
+func file_Quantixkvm_network_v1_network_proto_init() {
+	if File_Quantixkvm_network_v1_network_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_network_v1_network_proto_rawDesc), len(file_limiquantix_network_v1_network_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_Quantixkvm_network_v1_network_proto_rawDesc), len(file_Quantixkvm_network_v1_network_proto_rawDesc)),
 			NumEnums:      13,
 			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_limiquantix_network_v1_network_proto_goTypes,
-		DependencyIndexes: file_limiquantix_network_v1_network_proto_depIdxs,
-		EnumInfos:         file_limiquantix_network_v1_network_proto_enumTypes,
-		MessageInfos:      file_limiquantix_network_v1_network_proto_msgTypes,
+		GoTypes:           file_Quantixkvm_network_v1_network_proto_goTypes,
+		DependencyIndexes: file_Quantixkvm_network_v1_network_proto_depIdxs,
+		EnumInfos:         file_Quantixkvm_network_v1_network_proto_enumTypes,
+		MessageInfos:      file_Quantixkvm_network_v1_network_proto_msgTypes,
 	}.Build()
-	File_limiquantix_network_v1_network_proto = out.File
-	file_limiquantix_network_v1_network_proto_goTypes = nil
-	file_limiquantix_network_v1_network_proto_depIdxs = nil
+	File_Quantixkvm_network_v1_network_proto = out.File
+	file_Quantixkvm_network_v1_network_proto_goTypes = nil
+	file_Quantixkvm_network_v1_network_proto_depIdxs = nil
 }

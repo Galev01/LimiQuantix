@@ -1,4 +1,4 @@
-# LimiQuantix Backend Implementation Guide
+# Quantixkvm Backend Implementation Guide
 
 **Document ID:** 000024  
 **Purpose:** Detailed implementation guide for Backend Phases 2-4  
@@ -56,7 +56,7 @@ import (
     "context"
     
     "connectrpc.com/connect"
-    computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+    computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
 )
 
 type Service interface {
@@ -79,7 +79,7 @@ package vm
 import (
     "context"
     
-    "github.com/limiquantix/limiquantix/internal/domain"
+    "github.com/Quantixkvm/Quantixkvm/internal/domain"
 )
 
 type Repository interface {
@@ -105,8 +105,8 @@ import (
     "connectrpc.com/connect"
     "go.uber.org/zap"
     
-    "github.com/limiquantix/limiquantix/internal/domain"
-    computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+    "github.com/Quantixkvm/Quantixkvm/internal/domain"
+    computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
 )
 
 type VMService struct {
@@ -634,7 +634,7 @@ import (
     "github.com/jackc/pgx/v5/pgxpool"
     "go.uber.org/zap"
     
-    "github.com/limiquantix/limiquantix/internal/config"
+    "github.com/Quantixkvm/Quantixkvm/internal/config"
 )
 
 type DB struct {
@@ -695,7 +695,7 @@ import (
     "github.com/google/uuid"
     "github.com/jackc/pgx/v5"
     
-    "github.com/limiquantix/limiquantix/internal/domain"
+    "github.com/Quantixkvm/Quantixkvm/internal/domain"
 )
 
 type VMRepository struct {
@@ -920,7 +920,7 @@ import (
     "github.com/redis/go-redis/v9"
     "go.uber.org/zap"
     
-    "github.com/limiquantix/limiquantix/internal/config"
+    "github.com/Quantixkvm/Quantixkvm/internal/config"
 )
 
 type Cache struct {
@@ -1030,7 +1030,7 @@ import (
     "go.etcd.io/etcd/client/v3/concurrency"
     "go.uber.org/zap"
     
-    "github.com/limiquantix/limiquantix/internal/config"
+    "github.com/Quantixkvm/Quantixkvm/internal/config"
 )
 
 type Client struct {
@@ -1181,7 +1181,7 @@ import (
     _ "github.com/golang-migrate/migrate/v4/database/postgres"
     _ "github.com/golang-migrate/migrate/v4/source/file"
     
-    "github.com/limiquantix/limiquantix/internal/config"
+    "github.com/Quantixkvm/Quantixkvm/internal/config"
 )
 
 func main() {
@@ -1254,8 +1254,8 @@ import (
     
     "github.com/golang-jwt/jwt/v5"
     
-    "github.com/limiquantix/limiquantix/internal/config"
-    "github.com/limiquantix/limiquantix/internal/domain"
+    "github.com/Quantixkvm/Quantixkvm/internal/config"
+    "github.com/Quantixkvm/Quantixkvm/internal/domain"
 )
 
 type JWTManager struct {
@@ -1353,7 +1353,7 @@ import (
     
     "connectrpc.com/connect"
     
-    "github.com/limiquantix/limiquantix/internal/services/auth"
+    "github.com/Quantixkvm/Quantixkvm/internal/services/auth"
 )
 
 type contextKey string
@@ -1395,8 +1395,8 @@ func NewAuthInterceptor(jwtManager *auth.JWTManager) connect.UnaryInterceptorFun
 
 func isPublicEndpoint(procedure string) bool {
     publicEndpoints := []string{
-        "/limiquantix.auth.v1.AuthService/Login",
-        "/limiquantix.auth.v1.AuthService/RefreshToken",
+        "/Quantixkvm.auth.v1.AuthService/Login",
+        "/Quantixkvm.auth.v1.AuthService/RefreshToken",
         "/health",
         "/ready",
     }
@@ -1431,8 +1431,8 @@ import (
     
     "go.uber.org/zap"
     
-    "github.com/limiquantix/limiquantix/internal/config"
-    "github.com/limiquantix/limiquantix/internal/domain"
+    "github.com/Quantixkvm/Quantixkvm/internal/config"
+    "github.com/Quantixkvm/Quantixkvm/internal/domain"
 )
 
 type Engine struct {
@@ -1602,8 +1602,8 @@ import (
     
     "go.uber.org/zap"
     
-    "github.com/limiquantix/limiquantix/internal/config"
-    "github.com/limiquantix/limiquantix/internal/domain"
+    "github.com/Quantixkvm/Quantixkvm/internal/config"
+    "github.com/Quantixkvm/Quantixkvm/internal/domain"
 )
 
 type Manager struct {
@@ -1728,7 +1728,7 @@ import (
     
     "go.uber.org/zap"
     
-    "github.com/limiquantix/limiquantix/internal/domain"
+    "github.com/Quantixkvm/Quantixkvm/internal/domain"
 )
 
 type Service struct {
@@ -2079,13 +2079,13 @@ func TestVMLifecycle(t *testing.T) {
    ```bash
    kubectl apply -f k8s/
    # or
-   docker stack deploy -c docker-stack.yml limiquantix
+   docker stack deploy -c docker-stack.yml Quantixkvm
    ```
 
 4. **Verify health**
    ```bash
-   curl http://api.limiquantix.local/health
-   curl http://api.limiquantix.local/ready
+   curl http://api.Quantixkvm.local/health
+   curl http://api.Quantixkvm.local/ready
    ```
 
 5. **Run smoke tests**

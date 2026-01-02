@@ -4,7 +4,7 @@ package network
 import (
 	"context"
 
-	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
 )
 
 // NetworkRepository defines the interface for virtual network data operations.

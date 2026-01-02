@@ -1,13 +1,13 @@
 # Node Installation Requirements
 
 > **Document ID:** 000037  
-> **Purpose:** List all required packages and dependencies for running the LimiQuantix Node Daemon on a Linux host with KVM/libvirt support.
+> **Purpose:** List all required packages and dependencies for running the Quantixkvm Node Daemon on a Linux host with KVM/libvirt support.
 
 ---
 
 ## Overview
 
-This document details all the software packages, libraries, and system requirements needed to run the LimiQuantix Node Daemon on a Linux host. This is the foundation for the automated installer that will be created.
+This document details all the software packages, libraries, and system requirements needed to run the Quantixkvm Node Daemon on a Linux host. This is the foundation for the automated installer that will be created.
 
 ---
 
@@ -124,7 +124,7 @@ Run this one-liner to install everything:
 #!/bin/bash
 set -e
 
-echo "=== LimiQuantix Node Daemon Installation ==="
+echo "=== Quantixkvm Node Daemon Installation ==="
 
 # Update package list
 sudo apt update
@@ -216,8 +216,8 @@ rustc --version
 cargo --version
 
 # Build the Node Daemon
-cd ~/LimiQuantix/agent
-cargo build --release --bin limiquantix-node --features libvirt
+cd ~/Quantixkvm/agent
+cargo build --release --bin Quantixkvm-node --features libvirt
 ```
 
 ---
@@ -291,6 +291,6 @@ sudo apt install protobuf-compiler
 
 ## References
 
-- [LimiQuantix Linux Testing Guide](./000036-linux-testing-guide.md)
+- [Quantixkvm Linux Testing Guide](./000036-linux-testing-guide.md)
 - [Node Daemon Implementation Plan](./000031-node-daemon-implementation-plan.md)
 - [Hypervisor Integration ADR](./adr/000007-hypervisor-integration.md)

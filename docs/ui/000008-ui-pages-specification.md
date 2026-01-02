@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document specifies all pages in the LimiQuantix dashboard, their features, components, and interactions. Each page follows the vCenter-inspired design patterns established in the Dashboard.
+This document specifies all pages in the Quantixkvm dashboard, their features, components, and interactions. Each page follows the vCenter-inspired design patterns established in the Dashboard.
 
 ---
 
@@ -94,7 +94,7 @@ This document specifies all pages in the LimiQuantix dashboard, their features, 
 │    No Virtual Machines              │
 │                                     │
 │  Create your first VM to get        │
-│  started with LimiQuantix           │
+│  started with Quantixkvm           │
 │                                     │
 │        [+ Create VM]                │
 └─────────────────────────────────────┘
@@ -132,7 +132,7 @@ This document specifies all pages in the LimiQuantix dashboard, their features, 
 │ Description:   Production web server                        │
 │ Project:       default                                      │
 │ Created:       Jan 15, 2024 10:30 AM                       │
-│ Host:          hv-rack1-01.limiquantix.local               │
+│ Host:          hv-rack1-01.Quantixkvm.local               │
 │ Guest OS:      Ubuntu 22.04 LTS                            │
 │ VMware Tools:  Running (v1.0.0)                            │
 └─────────────────────────────────────────────────────────────┘

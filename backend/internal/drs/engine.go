@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/limiquantix/limiquantix/internal/config"
-	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/Quantixkvm/Quantixkvm/internal/config"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
 )
 
 // NodeRepository defines the interface for node data access.
@@ -48,15 +48,15 @@ type LeaderChecker interface {
 
 // NodeMetrics contains resource usage metrics for a node.
 type NodeMetrics struct {
-	NodeID       string
-	Hostname     string
-	TotalCPU     int32
-	UsedCPU      float64
-	CPUPercent   float64
-	TotalMemory  int64
-	UsedMemory   float64
+	NodeID        string
+	Hostname      string
+	TotalCPU      int32
+	UsedCPU       float64
+	CPUPercent    float64
+	TotalMemory   int64
+	UsedMemory    float64
 	MemoryPercent float64
-	VMCount      int
+	VMCount       int
 }
 
 // Engine is the DRS engine that analyzes cluster balance and generates recommendations.
@@ -69,8 +69,8 @@ type Engine struct {
 	leaderChecker LeaderChecker
 	logger        *zap.Logger
 
-	mu          sync.RWMutex
-	isRunning   bool
+	mu           sync.RWMutex
+	isRunning    bool
 	lastAnalysis time.Time
 }
 

@@ -11,8 +11,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
-	"github.com/limiquantix/limiquantix/internal/config"
-	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/Quantixkvm/Quantixkvm/internal/config"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
 )
 
 // ErrCacheMiss indicates the key was not found in cache.
@@ -164,7 +164,7 @@ func (c *Cache) InvalidateNode(ctx context.Context, id string) error {
 
 // Event represents a real-time event.
 type Event struct {
-	Type       string      `json:"type"`       // "vm.created", "vm.started", "node.updated", etc.
+	Type       string      `json:"type"` // "vm.created", "vm.started", "node.updated", etc.
 	ResourceID string      `json:"resource_id"`
 	Data       interface{} `json:"data,omitempty"`
 	Timestamp  time.Time   `json:"timestamp"`

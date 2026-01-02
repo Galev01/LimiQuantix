@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
-	"github.com/limiquantix/limiquantix/internal/domain"
-	"github.com/limiquantix/limiquantix/internal/services/node"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	"github.com/Quantixkvm/Quantixkvm/internal/services/node"
 )
 
 // Ensure NodeRepository implements node.Repository

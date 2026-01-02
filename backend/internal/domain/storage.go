@@ -1,4 +1,4 @@
-// Package domain contains core business entities for the LimiQuantix platform.
+// Package domain contains core business entities for the Quantixkvm platform.
 // This file defines storage-related domain models: StoragePool, Volume, Snapshot, Image.
 package domain
 
@@ -23,12 +23,12 @@ const (
 type BackendType string
 
 const (
-	BackendTypeCephRBD   BackendType = "CEPH_RBD"
-	BackendTypeCephFS    BackendType = "CEPH_CEPHFS"
-	BackendTypeLocalLVM  BackendType = "LOCAL_LVM"
-	BackendTypeLocalDir  BackendType = "LOCAL_DIR"
-	BackendTypeNFS       BackendType = "NFS"
-	BackendTypeISCSI     BackendType = "ISCSI"
+	BackendTypeCephRBD  BackendType = "CEPH_RBD"
+	BackendTypeCephFS   BackendType = "CEPH_CEPHFS"
+	BackendTypeLocalLVM BackendType = "LOCAL_LVM"
+	BackendTypeLocalDir BackendType = "LOCAL_DIR"
+	BackendTypeNFS      BackendType = "NFS"
+	BackendTypeISCSI    BackendType = "ISCSI"
 )
 
 // StoragePool represents a logical pool of storage resources.
@@ -58,11 +58,11 @@ type StoragePoolSpec struct {
 
 // StorageBackend defines the storage backend configuration.
 type StorageBackend struct {
-	Type      BackendType `json:"type"`
-	CephRBD   *CephConfig `json:"ceph_rbd,omitempty"`
-	LocalLVM  *LVMConfig  `json:"local_lvm,omitempty"`
-	LocalDir  *DirConfig  `json:"local_dir,omitempty"`
-	NFS       *NFSConfig  `json:"nfs,omitempty"`
+	Type     BackendType `json:"type"`
+	CephRBD  *CephConfig `json:"ceph_rbd,omitempty"`
+	LocalLVM *LVMConfig  `json:"local_lvm,omitempty"`
+	LocalDir *DirConfig  `json:"local_dir,omitempty"`
+	NFS      *NFSConfig  `json:"nfs,omitempty"`
 }
 
 // CephConfig holds Ceph-specific configuration.
@@ -105,11 +105,11 @@ type VolumeDefaults struct {
 
 // StorageQoS defines quality of service settings for a storage pool.
 type StorageQoS struct {
-	MaxIOPS               uint64 `json:"max_iops"`
-	MaxThroughputBytes    uint64 `json:"max_throughput_bytes"`
-	BurstIOPS             uint64 `json:"burst_iops"`
-	BurstThroughputBytes  uint64 `json:"burst_throughput_bytes"`
-	BurstDurationSec      uint32 `json:"burst_duration_sec"`
+	MaxIOPS              uint64 `json:"max_iops"`
+	MaxThroughputBytes   uint64 `json:"max_throughput_bytes"`
+	BurstIOPS            uint64 `json:"burst_iops"`
+	BurstThroughputBytes uint64 `json:"burst_throughput_bytes"`
+	BurstDurationSec     uint32 `json:"burst_duration_sec"`
 }
 
 // EncryptionConfig defines encryption settings.
@@ -245,13 +245,13 @@ type VolumeSource struct {
 
 // VolumeQoS defines quality of service settings for a volume.
 type VolumeQoS struct {
-	MaxIOPS              uint64 `json:"max_iops"`
-	MinIOPS              uint64 `json:"min_iops"`
-	MaxThroughput        uint64 `json:"max_throughput"`
-	MinThroughput        uint64 `json:"min_throughput"`
-	BurstIOPS            uint64 `json:"burst_iops"`
-	BurstThroughput      uint64 `json:"burst_throughput"`
-	BurstDurationSec     uint32 `json:"burst_duration_sec"`
+	MaxIOPS          uint64 `json:"max_iops"`
+	MinIOPS          uint64 `json:"min_iops"`
+	MaxThroughput    uint64 `json:"max_throughput"`
+	MinThroughput    uint64 `json:"min_throughput"`
+	BurstIOPS        uint64 `json:"burst_iops"`
+	BurstThroughput  uint64 `json:"burst_throughput"`
+	BurstDurationSec uint32 `json:"burst_duration_sec"`
 }
 
 // VolumeStatus represents the current runtime status of a volume.
@@ -393,9 +393,9 @@ type Image struct {
 
 // ImageSpec defines the image specification.
 type ImageSpec struct {
-	Format       ImageFormat      `json:"format"`
-	Visibility   ImageVisibility  `json:"visibility"`
-	OS           OSInfo           `json:"os"`
+	Format       ImageFormat       `json:"format"`
+	Visibility   ImageVisibility   `json:"visibility"`
+	OS           OSInfo            `json:"os"`
 	Requirements ImageRequirements `json:"requirements"`
 }
 
@@ -410,12 +410,12 @@ type OSInfo struct {
 
 // ImageRequirements defines minimum requirements for running the image.
 type ImageRequirements struct {
-	MinCPU              uint32   `json:"min_cpu"`
-	MinMemoryMiB        uint64   `json:"min_memory_mib"`
-	MinDiskGiB          uint64   `json:"min_disk_gib"`
-	SupportedFirmware   []string `json:"supported_firmware"`
-	RequiresSecureBoot  bool     `json:"requires_secure_boot"`
-	RequiresTPM         bool     `json:"requires_tpm"`
+	MinCPU             uint32   `json:"min_cpu"`
+	MinMemoryMiB       uint64   `json:"min_memory_mib"`
+	MinDiskGiB         uint64   `json:"min_disk_gib"`
+	SupportedFirmware  []string `json:"supported_firmware"`
+	RequiresSecureBoot bool     `json:"requires_secure_boot"`
+	RequiresTPM        bool     `json:"requires_tpm"`
 }
 
 // ImageStatus represents the image status.

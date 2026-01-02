@@ -1,4 +1,4 @@
-// Package scheduler implements VM placement logic for the LimiQuantix control plane.
+// Package scheduler implements VM placement logic for the Quantixkvm control plane.
 // It determines which host should run a new VM based on resource availability,
 // placement policies, and scoring strategies.
 package scheduler

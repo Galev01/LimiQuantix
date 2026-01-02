@@ -4,8 +4,8 @@ package storage
 import (
 	"time"
 
-	"github.com/limiquantix/limiquantix/internal/domain"
-	storagev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	storagev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/storage/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

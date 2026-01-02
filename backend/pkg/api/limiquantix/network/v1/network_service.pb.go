@@ -2,18 +2,19 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: limiquantix/network/v1/network_service.proto
+// source: Quantixkvm/network/v1/network_service.proto
 
 package networkv1
 
 import (
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
+
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
 )
 
 const (
@@ -59,11 +60,11 @@ func (x TunnelStatus_Status) String() string {
 }
 
 func (TunnelStatus_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_network_v1_network_service_proto_enumTypes[0].Descriptor()
+	return file_Quantixkvm_network_v1_network_service_proto_enumTypes[0].Descriptor()
 }
 
 func (TunnelStatus_Status) Type() protoreflect.EnumType {
-	return &file_limiquantix_network_v1_network_service_proto_enumTypes[0]
+	return &file_Quantixkvm_network_v1_network_service_proto_enumTypes[0]
 }
 
 func (x TunnelStatus_Status) Number() protoreflect.EnumNumber {
@@ -72,7 +73,7 @@ func (x TunnelStatus_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TunnelStatus_Status.Descriptor instead.
 func (TunnelStatus_Status) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{56, 0}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{56, 0}
 }
 
 type CreateNetworkRequest struct {
@@ -88,7 +89,7 @@ type CreateNetworkRequest struct {
 
 func (x *CreateNetworkRequest) Reset() {
 	*x = CreateNetworkRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[0]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -100,7 +101,7 @@ func (x *CreateNetworkRequest) String() string {
 func (*CreateNetworkRequest) ProtoMessage() {}
 
 func (x *CreateNetworkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[0]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -113,7 +114,7 @@ func (x *CreateNetworkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateNetworkRequest.ProtoReflect.Descriptor instead.
 func (*CreateNetworkRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{0}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CreateNetworkRequest) GetName() string {
@@ -160,7 +161,7 @@ type GetNetworkRequest struct {
 
 func (x *GetNetworkRequest) Reset() {
 	*x = GetNetworkRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[1]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -172,7 +173,7 @@ func (x *GetNetworkRequest) String() string {
 func (*GetNetworkRequest) ProtoMessage() {}
 
 func (x *GetNetworkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[1]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -185,7 +186,7 @@ func (x *GetNetworkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNetworkRequest.ProtoReflect.Descriptor instead.
 func (*GetNetworkRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{1}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetNetworkRequest) GetId() string {
@@ -199,7 +200,7 @@ type ListNetworksRequest struct {
 	state         protoimpl.MessageState         `protogen:"open.v1"`
 	ProjectId     string                         `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
 	Labels        map[string]string              `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Type          VirtualNetworkSpec_NetworkType `protobuf:"varint,3,opt,name=type,proto3,enum=limiquantix.network.v1.VirtualNetworkSpec_NetworkType" json:"type,omitempty"`
+	Type          VirtualNetworkSpec_NetworkType `protobuf:"varint,3,opt,name=type,proto3,enum=Quantixkvm.network.v1.VirtualNetworkSpec_NetworkType" json:"type,omitempty"`
 	PageSize      int32                          `protobuf:"varint,10,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	PageToken     string                         `protobuf:"bytes,11,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -208,7 +209,7 @@ type ListNetworksRequest struct {
 
 func (x *ListNetworksRequest) Reset() {
 	*x = ListNetworksRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[2]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -220,7 +221,7 @@ func (x *ListNetworksRequest) String() string {
 func (*ListNetworksRequest) ProtoMessage() {}
 
 func (x *ListNetworksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[2]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -233,7 +234,7 @@ func (x *ListNetworksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNetworksRequest.ProtoReflect.Descriptor instead.
 func (*ListNetworksRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{2}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ListNetworksRequest) GetProjectId() string {
@@ -282,7 +283,7 @@ type ListNetworksResponse struct {
 
 func (x *ListNetworksResponse) Reset() {
 	*x = ListNetworksResponse{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[3]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -294,7 +295,7 @@ func (x *ListNetworksResponse) String() string {
 func (*ListNetworksResponse) ProtoMessage() {}
 
 func (x *ListNetworksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[3]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -307,7 +308,7 @@ func (x *ListNetworksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNetworksResponse.ProtoReflect.Descriptor instead.
 func (*ListNetworksResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{3}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ListNetworksResponse) GetNetworks() []*VirtualNetwork {
@@ -344,7 +345,7 @@ type UpdateNetworkRequest struct {
 
 func (x *UpdateNetworkRequest) Reset() {
 	*x = UpdateNetworkRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[4]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -356,7 +357,7 @@ func (x *UpdateNetworkRequest) String() string {
 func (*UpdateNetworkRequest) ProtoMessage() {}
 
 func (x *UpdateNetworkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[4]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -369,7 +370,7 @@ func (x *UpdateNetworkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateNetworkRequest.ProtoReflect.Descriptor instead.
 func (*UpdateNetworkRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{4}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *UpdateNetworkRequest) GetId() string {
@@ -417,7 +418,7 @@ type DeleteNetworkRequest struct {
 
 func (x *DeleteNetworkRequest) Reset() {
 	*x = DeleteNetworkRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[5]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -429,7 +430,7 @@ func (x *DeleteNetworkRequest) String() string {
 func (*DeleteNetworkRequest) ProtoMessage() {}
 
 func (x *DeleteNetworkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[5]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -442,7 +443,7 @@ func (x *DeleteNetworkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteNetworkRequest.ProtoReflect.Descriptor instead.
 func (*DeleteNetworkRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{5}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DeleteNetworkRequest) GetId() string {
@@ -468,7 +469,7 @@ type GetNetworkTopologyRequest struct {
 
 func (x *GetNetworkTopologyRequest) Reset() {
 	*x = GetNetworkTopologyRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[6]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -480,7 +481,7 @@ func (x *GetNetworkTopologyRequest) String() string {
 func (*GetNetworkTopologyRequest) ProtoMessage() {}
 
 func (x *GetNetworkTopologyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[6]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -493,7 +494,7 @@ func (x *GetNetworkTopologyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNetworkTopologyRequest.ProtoReflect.Descriptor instead.
 func (*GetNetworkTopologyRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{6}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetNetworkTopologyRequest) GetProjectId() string {
@@ -513,7 +514,7 @@ type NetworkTopology struct {
 
 func (x *NetworkTopology) Reset() {
 	*x = NetworkTopology{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[7]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -525,7 +526,7 @@ func (x *NetworkTopology) String() string {
 func (*NetworkTopology) ProtoMessage() {}
 
 func (x *NetworkTopology) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[7]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -538,7 +539,7 @@ func (x *NetworkTopology) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkTopology.ProtoReflect.Descriptor instead.
 func (*NetworkTopology) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{7}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *NetworkTopology) GetNodes() []*NetworkNode {
@@ -567,7 +568,7 @@ type NetworkNode struct {
 
 func (x *NetworkNode) Reset() {
 	*x = NetworkNode{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[8]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -579,7 +580,7 @@ func (x *NetworkNode) String() string {
 func (*NetworkNode) ProtoMessage() {}
 
 func (x *NetworkNode) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[8]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -592,7 +593,7 @@ func (x *NetworkNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkNode.ProtoReflect.Descriptor instead.
 func (*NetworkNode) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{8}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *NetworkNode) GetId() string {
@@ -634,7 +635,7 @@ type NetworkEdge struct {
 
 func (x *NetworkEdge) Reset() {
 	*x = NetworkEdge{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[9]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -646,7 +647,7 @@ func (x *NetworkEdge) String() string {
 func (*NetworkEdge) ProtoMessage() {}
 
 func (x *NetworkEdge) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[9]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -659,7 +660,7 @@ func (x *NetworkEdge) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkEdge.ProtoReflect.Descriptor instead.
 func (*NetworkEdge) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{9}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *NetworkEdge) GetSourceId() string {
@@ -696,7 +697,7 @@ type CreatePortRequest struct {
 
 func (x *CreatePortRequest) Reset() {
 	*x = CreatePortRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[10]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -708,7 +709,7 @@ func (x *CreatePortRequest) String() string {
 func (*CreatePortRequest) ProtoMessage() {}
 
 func (x *CreatePortRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[10]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -721,7 +722,7 @@ func (x *CreatePortRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePortRequest.ProtoReflect.Descriptor instead.
 func (*CreatePortRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{10}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CreatePortRequest) GetName() string {
@@ -768,7 +769,7 @@ type GetPortRequest struct {
 
 func (x *GetPortRequest) Reset() {
 	*x = GetPortRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[11]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -780,7 +781,7 @@ func (x *GetPortRequest) String() string {
 func (*GetPortRequest) ProtoMessage() {}
 
 func (x *GetPortRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[11]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -793,7 +794,7 @@ func (x *GetPortRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPortRequest.ProtoReflect.Descriptor instead.
 func (*GetPortRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{11}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetPortRequest) GetId() string {
@@ -816,7 +817,7 @@ type ListPortsRequest struct {
 
 func (x *ListPortsRequest) Reset() {
 	*x = ListPortsRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[12]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -828,7 +829,7 @@ func (x *ListPortsRequest) String() string {
 func (*ListPortsRequest) ProtoMessage() {}
 
 func (x *ListPortsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[12]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -841,7 +842,7 @@ func (x *ListPortsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPortsRequest.ProtoReflect.Descriptor instead.
 func (*ListPortsRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{12}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListPortsRequest) GetNetworkId() string {
@@ -890,7 +891,7 @@ type ListPortsResponse struct {
 
 func (x *ListPortsResponse) Reset() {
 	*x = ListPortsResponse{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[13]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -902,7 +903,7 @@ func (x *ListPortsResponse) String() string {
 func (*ListPortsResponse) ProtoMessage() {}
 
 func (x *ListPortsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[13]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -915,7 +916,7 @@ func (x *ListPortsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPortsResponse.ProtoReflect.Descriptor instead.
 func (*ListPortsResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{13}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListPortsResponse) GetPorts() []*Port {
@@ -950,7 +951,7 @@ type UpdatePortRequest struct {
 
 func (x *UpdatePortRequest) Reset() {
 	*x = UpdatePortRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[14]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -962,7 +963,7 @@ func (x *UpdatePortRequest) String() string {
 func (*UpdatePortRequest) ProtoMessage() {}
 
 func (x *UpdatePortRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[14]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -975,7 +976,7 @@ func (x *UpdatePortRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePortRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePortRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{14}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *UpdatePortRequest) GetId() string {
@@ -1008,7 +1009,7 @@ type DeletePortRequest struct {
 
 func (x *DeletePortRequest) Reset() {
 	*x = DeletePortRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[15]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1020,7 +1021,7 @@ func (x *DeletePortRequest) String() string {
 func (*DeletePortRequest) ProtoMessage() {}
 
 func (x *DeletePortRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[15]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1033,7 +1034,7 @@ func (x *DeletePortRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePortRequest.ProtoReflect.Descriptor instead.
 func (*DeletePortRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{15}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DeletePortRequest) GetId() string {
@@ -1054,7 +1055,7 @@ type BindPortRequest struct {
 
 func (x *BindPortRequest) Reset() {
 	*x = BindPortRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[16]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1066,7 +1067,7 @@ func (x *BindPortRequest) String() string {
 func (*BindPortRequest) ProtoMessage() {}
 
 func (x *BindPortRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[16]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1079,7 +1080,7 @@ func (x *BindPortRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BindPortRequest.ProtoReflect.Descriptor instead.
 func (*BindPortRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{16}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *BindPortRequest) GetPortId() string {
@@ -1112,7 +1113,7 @@ type UnbindPortRequest struct {
 
 func (x *UnbindPortRequest) Reset() {
 	*x = UnbindPortRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[17]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1124,7 +1125,7 @@ func (x *UnbindPortRequest) String() string {
 func (*UnbindPortRequest) ProtoMessage() {}
 
 func (x *UnbindPortRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[17]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1137,7 +1138,7 @@ func (x *UnbindPortRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnbindPortRequest.ProtoReflect.Descriptor instead.
 func (*UnbindPortRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{17}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *UnbindPortRequest) GetPortId() string {
@@ -1161,7 +1162,7 @@ type CreateSecurityGroupRequest struct {
 
 func (x *CreateSecurityGroupRequest) Reset() {
 	*x = CreateSecurityGroupRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[18]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1173,7 +1174,7 @@ func (x *CreateSecurityGroupRequest) String() string {
 func (*CreateSecurityGroupRequest) ProtoMessage() {}
 
 func (x *CreateSecurityGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[18]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1186,7 +1187,7 @@ func (x *CreateSecurityGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSecurityGroupRequest.ProtoReflect.Descriptor instead.
 func (*CreateSecurityGroupRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{18}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CreateSecurityGroupRequest) GetName() string {
@@ -1240,7 +1241,7 @@ type GetSecurityGroupRequest struct {
 
 func (x *GetSecurityGroupRequest) Reset() {
 	*x = GetSecurityGroupRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[19]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1252,7 +1253,7 @@ func (x *GetSecurityGroupRequest) String() string {
 func (*GetSecurityGroupRequest) ProtoMessage() {}
 
 func (x *GetSecurityGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[19]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1265,7 +1266,7 @@ func (x *GetSecurityGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSecurityGroupRequest.ProtoReflect.Descriptor instead.
 func (*GetSecurityGroupRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{19}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetSecurityGroupRequest) GetId() string {
@@ -1286,7 +1287,7 @@ type ListSecurityGroupsRequest struct {
 
 func (x *ListSecurityGroupsRequest) Reset() {
 	*x = ListSecurityGroupsRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[20]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1298,7 +1299,7 @@ func (x *ListSecurityGroupsRequest) String() string {
 func (*ListSecurityGroupsRequest) ProtoMessage() {}
 
 func (x *ListSecurityGroupsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[20]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1311,7 +1312,7 @@ func (x *ListSecurityGroupsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSecurityGroupsRequest.ProtoReflect.Descriptor instead.
 func (*ListSecurityGroupsRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{20}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListSecurityGroupsRequest) GetProjectId() string {
@@ -1346,7 +1347,7 @@ type ListSecurityGroupsResponse struct {
 
 func (x *ListSecurityGroupsResponse) Reset() {
 	*x = ListSecurityGroupsResponse{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[21]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1358,7 +1359,7 @@ func (x *ListSecurityGroupsResponse) String() string {
 func (*ListSecurityGroupsResponse) ProtoMessage() {}
 
 func (x *ListSecurityGroupsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[21]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1371,7 +1372,7 @@ func (x *ListSecurityGroupsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSecurityGroupsResponse.ProtoReflect.Descriptor instead.
 func (*ListSecurityGroupsResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{21}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ListSecurityGroupsResponse) GetSecurityGroups() []*SecurityGroup {
@@ -1406,7 +1407,7 @@ type UpdateSecurityGroupRequest struct {
 
 func (x *UpdateSecurityGroupRequest) Reset() {
 	*x = UpdateSecurityGroupRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[22]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1418,7 +1419,7 @@ func (x *UpdateSecurityGroupRequest) String() string {
 func (*UpdateSecurityGroupRequest) ProtoMessage() {}
 
 func (x *UpdateSecurityGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[22]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1431,7 +1432,7 @@ func (x *UpdateSecurityGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSecurityGroupRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSecurityGroupRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{22}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *UpdateSecurityGroupRequest) GetId() string {
@@ -1465,7 +1466,7 @@ type DeleteSecurityGroupRequest struct {
 
 func (x *DeleteSecurityGroupRequest) Reset() {
 	*x = DeleteSecurityGroupRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[23]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1477,7 +1478,7 @@ func (x *DeleteSecurityGroupRequest) String() string {
 func (*DeleteSecurityGroupRequest) ProtoMessage() {}
 
 func (x *DeleteSecurityGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[23]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1490,7 +1491,7 @@ func (x *DeleteSecurityGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSecurityGroupRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSecurityGroupRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{23}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DeleteSecurityGroupRequest) GetId() string {
@@ -1517,7 +1518,7 @@ type AddRuleRequest struct {
 
 func (x *AddRuleRequest) Reset() {
 	*x = AddRuleRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[24]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1529,7 +1530,7 @@ func (x *AddRuleRequest) String() string {
 func (*AddRuleRequest) ProtoMessage() {}
 
 func (x *AddRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[24]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1542,7 +1543,7 @@ func (x *AddRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddRuleRequest.ProtoReflect.Descriptor instead.
 func (*AddRuleRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{24}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *AddRuleRequest) GetSecurityGroupId() string {
@@ -1569,7 +1570,7 @@ type RemoveRuleRequest struct {
 
 func (x *RemoveRuleRequest) Reset() {
 	*x = RemoveRuleRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[25]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1581,7 +1582,7 @@ func (x *RemoveRuleRequest) String() string {
 func (*RemoveRuleRequest) ProtoMessage() {}
 
 func (x *RemoveRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[25]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1594,7 +1595,7 @@ func (x *RemoveRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveRuleRequest.ProtoReflect.Descriptor instead.
 func (*RemoveRuleRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{25}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *RemoveRuleRequest) GetSecurityGroupId() string {
@@ -1625,7 +1626,7 @@ type AllocateFloatingIpRequest struct {
 
 func (x *AllocateFloatingIpRequest) Reset() {
 	*x = AllocateFloatingIpRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[26]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1637,7 +1638,7 @@ func (x *AllocateFloatingIpRequest) String() string {
 func (*AllocateFloatingIpRequest) ProtoMessage() {}
 
 func (x *AllocateFloatingIpRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[26]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1650,7 +1651,7 @@ func (x *AllocateFloatingIpRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AllocateFloatingIpRequest.ProtoReflect.Descriptor instead.
 func (*AllocateFloatingIpRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{26}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *AllocateFloatingIpRequest) GetExternalNetworkId() string {
@@ -1697,7 +1698,7 @@ type GetFloatingIpRequest struct {
 
 func (x *GetFloatingIpRequest) Reset() {
 	*x = GetFloatingIpRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[27]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1709,7 +1710,7 @@ func (x *GetFloatingIpRequest) String() string {
 func (*GetFloatingIpRequest) ProtoMessage() {}
 
 func (x *GetFloatingIpRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[27]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1722,7 +1723,7 @@ func (x *GetFloatingIpRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFloatingIpRequest.ProtoReflect.Descriptor instead.
 func (*GetFloatingIpRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{27}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GetFloatingIpRequest) GetId() string {
@@ -1745,7 +1746,7 @@ type ListFloatingIpsRequest struct {
 
 func (x *ListFloatingIpsRequest) Reset() {
 	*x = ListFloatingIpsRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[28]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1757,7 +1758,7 @@ func (x *ListFloatingIpsRequest) String() string {
 func (*ListFloatingIpsRequest) ProtoMessage() {}
 
 func (x *ListFloatingIpsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[28]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1770,7 +1771,7 @@ func (x *ListFloatingIpsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFloatingIpsRequest.ProtoReflect.Descriptor instead.
 func (*ListFloatingIpsRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{28}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ListFloatingIpsRequest) GetProjectId() string {
@@ -1819,7 +1820,7 @@ type ListFloatingIpsResponse struct {
 
 func (x *ListFloatingIpsResponse) Reset() {
 	*x = ListFloatingIpsResponse{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[29]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1831,7 +1832,7 @@ func (x *ListFloatingIpsResponse) String() string {
 func (*ListFloatingIpsResponse) ProtoMessage() {}
 
 func (x *ListFloatingIpsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[29]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1844,7 +1845,7 @@ func (x *ListFloatingIpsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFloatingIpsResponse.ProtoReflect.Descriptor instead.
 func (*ListFloatingIpsResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{29}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListFloatingIpsResponse) GetFloatingIps() []*FloatingIp {
@@ -1877,7 +1878,7 @@ type ReleaseFloatingIpRequest struct {
 
 func (x *ReleaseFloatingIpRequest) Reset() {
 	*x = ReleaseFloatingIpRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[30]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1889,7 +1890,7 @@ func (x *ReleaseFloatingIpRequest) String() string {
 func (*ReleaseFloatingIpRequest) ProtoMessage() {}
 
 func (x *ReleaseFloatingIpRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[30]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1902,7 +1903,7 @@ func (x *ReleaseFloatingIpRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReleaseFloatingIpRequest.ProtoReflect.Descriptor instead.
 func (*ReleaseFloatingIpRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{30}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ReleaseFloatingIpRequest) GetId() string {
@@ -1923,7 +1924,7 @@ type AssociateFloatingIpRequest struct {
 
 func (x *AssociateFloatingIpRequest) Reset() {
 	*x = AssociateFloatingIpRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[31]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1935,7 +1936,7 @@ func (x *AssociateFloatingIpRequest) String() string {
 func (*AssociateFloatingIpRequest) ProtoMessage() {}
 
 func (x *AssociateFloatingIpRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[31]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1948,7 +1949,7 @@ func (x *AssociateFloatingIpRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssociateFloatingIpRequest.ProtoReflect.Descriptor instead.
 func (*AssociateFloatingIpRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{31}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *AssociateFloatingIpRequest) GetFloatingIpId() string {
@@ -1981,7 +1982,7 @@ type DisassociateFloatingIpRequest struct {
 
 func (x *DisassociateFloatingIpRequest) Reset() {
 	*x = DisassociateFloatingIpRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[32]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1993,7 +1994,7 @@ func (x *DisassociateFloatingIpRequest) String() string {
 func (*DisassociateFloatingIpRequest) ProtoMessage() {}
 
 func (x *DisassociateFloatingIpRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[32]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2006,7 +2007,7 @@ func (x *DisassociateFloatingIpRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisassociateFloatingIpRequest.ProtoReflect.Descriptor instead.
 func (*DisassociateFloatingIpRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{32}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *DisassociateFloatingIpRequest) GetFloatingIpId() string {
@@ -2029,7 +2030,7 @@ type CreateLoadBalancerRequest struct {
 
 func (x *CreateLoadBalancerRequest) Reset() {
 	*x = CreateLoadBalancerRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[33]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2041,7 +2042,7 @@ func (x *CreateLoadBalancerRequest) String() string {
 func (*CreateLoadBalancerRequest) ProtoMessage() {}
 
 func (x *CreateLoadBalancerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[33]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2054,7 +2055,7 @@ func (x *CreateLoadBalancerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLoadBalancerRequest.ProtoReflect.Descriptor instead.
 func (*CreateLoadBalancerRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{33}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *CreateLoadBalancerRequest) GetName() string {
@@ -2101,7 +2102,7 @@ type GetLoadBalancerRequest struct {
 
 func (x *GetLoadBalancerRequest) Reset() {
 	*x = GetLoadBalancerRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[34]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2113,7 +2114,7 @@ func (x *GetLoadBalancerRequest) String() string {
 func (*GetLoadBalancerRequest) ProtoMessage() {}
 
 func (x *GetLoadBalancerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[34]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2126,7 +2127,7 @@ func (x *GetLoadBalancerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLoadBalancerRequest.ProtoReflect.Descriptor instead.
 func (*GetLoadBalancerRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{34}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GetLoadBalancerRequest) GetId() string {
@@ -2148,7 +2149,7 @@ type ListLoadBalancersRequest struct {
 
 func (x *ListLoadBalancersRequest) Reset() {
 	*x = ListLoadBalancersRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[35]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2160,7 +2161,7 @@ func (x *ListLoadBalancersRequest) String() string {
 func (*ListLoadBalancersRequest) ProtoMessage() {}
 
 func (x *ListLoadBalancersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[35]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2173,7 +2174,7 @@ func (x *ListLoadBalancersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLoadBalancersRequest.ProtoReflect.Descriptor instead.
 func (*ListLoadBalancersRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{35}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListLoadBalancersRequest) GetProjectId() string {
@@ -2215,7 +2216,7 @@ type ListLoadBalancersResponse struct {
 
 func (x *ListLoadBalancersResponse) Reset() {
 	*x = ListLoadBalancersResponse{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[36]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2227,7 +2228,7 @@ func (x *ListLoadBalancersResponse) String() string {
 func (*ListLoadBalancersResponse) ProtoMessage() {}
 
 func (x *ListLoadBalancersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[36]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2240,7 +2241,7 @@ func (x *ListLoadBalancersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLoadBalancersResponse.ProtoReflect.Descriptor instead.
 func (*ListLoadBalancersResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{36}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ListLoadBalancersResponse) GetLoadBalancers() []*LoadBalancer {
@@ -2275,7 +2276,7 @@ type UpdateLoadBalancerRequest struct {
 
 func (x *UpdateLoadBalancerRequest) Reset() {
 	*x = UpdateLoadBalancerRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[37]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2287,7 +2288,7 @@ func (x *UpdateLoadBalancerRequest) String() string {
 func (*UpdateLoadBalancerRequest) ProtoMessage() {}
 
 func (x *UpdateLoadBalancerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[37]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2300,7 +2301,7 @@ func (x *UpdateLoadBalancerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLoadBalancerRequest.ProtoReflect.Descriptor instead.
 func (*UpdateLoadBalancerRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{37}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *UpdateLoadBalancerRequest) GetId() string {
@@ -2333,7 +2334,7 @@ type DeleteLoadBalancerRequest struct {
 
 func (x *DeleteLoadBalancerRequest) Reset() {
 	*x = DeleteLoadBalancerRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[38]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2345,7 +2346,7 @@ func (x *DeleteLoadBalancerRequest) String() string {
 func (*DeleteLoadBalancerRequest) ProtoMessage() {}
 
 func (x *DeleteLoadBalancerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[38]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2358,7 +2359,7 @@ func (x *DeleteLoadBalancerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLoadBalancerRequest.ProtoReflect.Descriptor instead.
 func (*DeleteLoadBalancerRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{38}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *DeleteLoadBalancerRequest) GetId() string {
@@ -2378,7 +2379,7 @@ type AddListenerRequest struct {
 
 func (x *AddListenerRequest) Reset() {
 	*x = AddListenerRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[39]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2390,7 +2391,7 @@ func (x *AddListenerRequest) String() string {
 func (*AddListenerRequest) ProtoMessage() {}
 
 func (x *AddListenerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[39]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2403,7 +2404,7 @@ func (x *AddListenerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddListenerRequest.ProtoReflect.Descriptor instead.
 func (*AddListenerRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{39}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *AddListenerRequest) GetLoadBalancerId() string {
@@ -2430,7 +2431,7 @@ type RemoveListenerRequest struct {
 
 func (x *RemoveListenerRequest) Reset() {
 	*x = RemoveListenerRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[40]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2442,7 +2443,7 @@ func (x *RemoveListenerRequest) String() string {
 func (*RemoveListenerRequest) ProtoMessage() {}
 
 func (x *RemoveListenerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[40]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2455,7 +2456,7 @@ func (x *RemoveListenerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveListenerRequest.ProtoReflect.Descriptor instead.
 func (*RemoveListenerRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{40}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *RemoveListenerRequest) GetLoadBalancerId() string {
@@ -2483,7 +2484,7 @@ type AddPoolMemberRequest struct {
 
 func (x *AddPoolMemberRequest) Reset() {
 	*x = AddPoolMemberRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[41]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2495,7 +2496,7 @@ func (x *AddPoolMemberRequest) String() string {
 func (*AddPoolMemberRequest) ProtoMessage() {}
 
 func (x *AddPoolMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[41]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2508,7 +2509,7 @@ func (x *AddPoolMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddPoolMemberRequest.ProtoReflect.Descriptor instead.
 func (*AddPoolMemberRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{41}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *AddPoolMemberRequest) GetLoadBalancerId() string {
@@ -2543,7 +2544,7 @@ type RemovePoolMemberRequest struct {
 
 func (x *RemovePoolMemberRequest) Reset() {
 	*x = RemovePoolMemberRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[42]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2555,7 +2556,7 @@ func (x *RemovePoolMemberRequest) String() string {
 func (*RemovePoolMemberRequest) ProtoMessage() {}
 
 func (x *RemovePoolMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[42]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2568,7 +2569,7 @@ func (x *RemovePoolMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemovePoolMemberRequest.ProtoReflect.Descriptor instead.
 func (*RemovePoolMemberRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{42}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *RemovePoolMemberRequest) GetLoadBalancerId() string {
@@ -2601,7 +2602,7 @@ type GetLoadBalancerStatsRequest struct {
 
 func (x *GetLoadBalancerStatsRequest) Reset() {
 	*x = GetLoadBalancerStatsRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[43]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2613,7 +2614,7 @@ func (x *GetLoadBalancerStatsRequest) String() string {
 func (*GetLoadBalancerStatsRequest) ProtoMessage() {}
 
 func (x *GetLoadBalancerStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[43]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2626,7 +2627,7 @@ func (x *GetLoadBalancerStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLoadBalancerStatsRequest.ProtoReflect.Descriptor instead.
 func (*GetLoadBalancerStatsRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{43}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *GetLoadBalancerStatsRequest) GetId() string {
@@ -2655,7 +2656,7 @@ type LoadBalancerStats struct {
 
 func (x *LoadBalancerStats) Reset() {
 	*x = LoadBalancerStats{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[44]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2667,7 +2668,7 @@ func (x *LoadBalancerStats) String() string {
 func (*LoadBalancerStats) ProtoMessage() {}
 
 func (x *LoadBalancerStats) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[44]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2680,7 +2681,7 @@ func (x *LoadBalancerStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoadBalancerStats.ProtoReflect.Descriptor instead.
 func (*LoadBalancerStats) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{44}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *LoadBalancerStats) GetLoadBalancerId() string {
@@ -2752,7 +2753,7 @@ type ListenerStats struct {
 
 func (x *ListenerStats) Reset() {
 	*x = ListenerStats{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[45]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2764,7 +2765,7 @@ func (x *ListenerStats) String() string {
 func (*ListenerStats) ProtoMessage() {}
 
 func (x *ListenerStats) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[45]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2777,7 +2778,7 @@ func (x *ListenerStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListenerStats.ProtoReflect.Descriptor instead.
 func (*ListenerStats) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{45}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ListenerStats) GetListenerId() string {
@@ -2831,7 +2832,7 @@ type MemberStats struct {
 
 func (x *MemberStats) Reset() {
 	*x = MemberStats{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[46]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2843,7 +2844,7 @@ func (x *MemberStats) String() string {
 func (*MemberStats) ProtoMessage() {}
 
 func (x *MemberStats) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[46]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2856,7 +2857,7 @@ func (x *MemberStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemberStats.ProtoReflect.Descriptor instead.
 func (*MemberStats) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{46}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *MemberStats) GetPoolId() string {
@@ -2928,7 +2929,7 @@ type CreateVpnRequest struct {
 
 func (x *CreateVpnRequest) Reset() {
 	*x = CreateVpnRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[47]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2940,7 +2941,7 @@ func (x *CreateVpnRequest) String() string {
 func (*CreateVpnRequest) ProtoMessage() {}
 
 func (x *CreateVpnRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[47]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2953,7 +2954,7 @@ func (x *CreateVpnRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateVpnRequest.ProtoReflect.Descriptor instead.
 func (*CreateVpnRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{47}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *CreateVpnRequest) GetName() string {
@@ -3000,7 +3001,7 @@ type GetVpnRequest struct {
 
 func (x *GetVpnRequest) Reset() {
 	*x = GetVpnRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[48]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3012,7 +3013,7 @@ func (x *GetVpnRequest) String() string {
 func (*GetVpnRequest) ProtoMessage() {}
 
 func (x *GetVpnRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[48]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3025,7 +3026,7 @@ func (x *GetVpnRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVpnRequest.ProtoReflect.Descriptor instead.
 func (*GetVpnRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{48}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *GetVpnRequest) GetId() string {
@@ -3046,7 +3047,7 @@ type ListVpnsRequest struct {
 
 func (x *ListVpnsRequest) Reset() {
 	*x = ListVpnsRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[49]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3058,7 +3059,7 @@ func (x *ListVpnsRequest) String() string {
 func (*ListVpnsRequest) ProtoMessage() {}
 
 func (x *ListVpnsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[49]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3071,7 +3072,7 @@ func (x *ListVpnsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVpnsRequest.ProtoReflect.Descriptor instead.
 func (*ListVpnsRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{49}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ListVpnsRequest) GetProjectId() string {
@@ -3106,7 +3107,7 @@ type ListVpnsResponse struct {
 
 func (x *ListVpnsResponse) Reset() {
 	*x = ListVpnsResponse{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[50]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3118,7 +3119,7 @@ func (x *ListVpnsResponse) String() string {
 func (*ListVpnsResponse) ProtoMessage() {}
 
 func (x *ListVpnsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[50]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3131,7 +3132,7 @@ func (x *ListVpnsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVpnsResponse.ProtoReflect.Descriptor instead.
 func (*ListVpnsResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{50}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ListVpnsResponse) GetVpnServices() []*VpnService {
@@ -3164,7 +3165,7 @@ type DeleteVpnRequest struct {
 
 func (x *DeleteVpnRequest) Reset() {
 	*x = DeleteVpnRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[51]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3176,7 +3177,7 @@ func (x *DeleteVpnRequest) String() string {
 func (*DeleteVpnRequest) ProtoMessage() {}
 
 func (x *DeleteVpnRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[51]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3189,7 +3190,7 @@ func (x *DeleteVpnRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteVpnRequest.ProtoReflect.Descriptor instead.
 func (*DeleteVpnRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{51}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *DeleteVpnRequest) GetId() string {
@@ -3209,7 +3210,7 @@ type AddConnectionRequest struct {
 
 func (x *AddConnectionRequest) Reset() {
 	*x = AddConnectionRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[52]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3221,7 +3222,7 @@ func (x *AddConnectionRequest) String() string {
 func (*AddConnectionRequest) ProtoMessage() {}
 
 func (x *AddConnectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[52]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3234,7 +3235,7 @@ func (x *AddConnectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddConnectionRequest.ProtoReflect.Descriptor instead.
 func (*AddConnectionRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{52}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *AddConnectionRequest) GetVpnId() string {
@@ -3261,7 +3262,7 @@ type RemoveConnectionRequest struct {
 
 func (x *RemoveConnectionRequest) Reset() {
 	*x = RemoveConnectionRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[53]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3273,7 +3274,7 @@ func (x *RemoveConnectionRequest) String() string {
 func (*RemoveConnectionRequest) ProtoMessage() {}
 
 func (x *RemoveConnectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[53]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3286,7 +3287,7 @@ func (x *RemoveConnectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveConnectionRequest.ProtoReflect.Descriptor instead.
 func (*RemoveConnectionRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{53}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *RemoveConnectionRequest) GetVpnId() string {
@@ -3312,7 +3313,7 @@ type GetVpnStatusRequest struct {
 
 func (x *GetVpnStatusRequest) Reset() {
 	*x = GetVpnStatusRequest{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[54]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3324,7 +3325,7 @@ func (x *GetVpnStatusRequest) String() string {
 func (*GetVpnStatusRequest) ProtoMessage() {}
 
 func (x *GetVpnStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[54]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3337,7 +3338,7 @@ func (x *GetVpnStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVpnStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetVpnStatusRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{54}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *GetVpnStatusRequest) GetVpnId() string {
@@ -3357,7 +3358,7 @@ type VpnTunnelStatus struct {
 
 func (x *VpnTunnelStatus) Reset() {
 	*x = VpnTunnelStatus{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[55]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3369,7 +3370,7 @@ func (x *VpnTunnelStatus) String() string {
 func (*VpnTunnelStatus) ProtoMessage() {}
 
 func (x *VpnTunnelStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[55]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3382,7 +3383,7 @@ func (x *VpnTunnelStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VpnTunnelStatus.ProtoReflect.Descriptor instead.
 func (*VpnTunnelStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{55}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *VpnTunnelStatus) GetVpnId() string {
@@ -3403,7 +3404,7 @@ type TunnelStatus struct {
 	state        protoimpl.MessageState `protogen:"open.v1"`
 	ConnectionId string                 `protobuf:"bytes,1,opt,name=connection_id,json=connectionId,proto3" json:"connection_id,omitempty"`
 	PeerAddress  string                 `protobuf:"bytes,2,opt,name=peer_address,json=peerAddress,proto3" json:"peer_address,omitempty"`
-	Status       TunnelStatus_Status    `protobuf:"varint,3,opt,name=status,proto3,enum=limiquantix.network.v1.TunnelStatus_Status" json:"status,omitempty"`
+	Status       TunnelStatus_Status    `protobuf:"varint,3,opt,name=status,proto3,enum=Quantixkvm.network.v1.TunnelStatus_Status" json:"status,omitempty"`
 	// Traffic stats
 	BytesIn    uint64 `protobuf:"varint,4,opt,name=bytes_in,json=bytesIn,proto3" json:"bytes_in,omitempty"`
 	BytesOut   uint64 `protobuf:"varint,5,opt,name=bytes_out,json=bytesOut,proto3" json:"bytes_out,omitempty"`
@@ -3418,7 +3419,7 @@ type TunnelStatus struct {
 
 func (x *TunnelStatus) Reset() {
 	*x = TunnelStatus{}
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[56]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3430,7 +3431,7 @@ func (x *TunnelStatus) String() string {
 func (*TunnelStatus) ProtoMessage() {}
 
 func (x *TunnelStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[56]
+	mi := &file_Quantixkvm_network_v1_network_service_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3443,7 +3444,7 @@ func (x *TunnelStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TunnelStatus.ProtoReflect.Descriptor instead.
 func (*TunnelStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{56}
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *TunnelStatus) GetConnectionId() string {
@@ -3509,18 +3510,18 @@ func (x *TunnelStatus) GetIpsecState() string {
 	return ""
 }
 
-var File_limiquantix_network_v1_network_service_proto protoreflect.FileDescriptor
+var File_Quantixkvm_network_v1_network_service_proto protoreflect.FileDescriptor
 
-const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
+const file_Quantixkvm_network_v1_network_service_proto_rawDesc = "" +
 	"\n" +
-	",limiquantix/network/v1/network_service.proto\x12\x16limiquantix.network.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a$limiquantix/network/v1/network.proto\"\xb8\x02\n" +
+	",Quantixkvm/network/v1/network_service.proto\x12\x16Quantixkvm.network.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a$Quantixkvm/network/v1/network.proto\"\xb8\x02\n" +
 	"\x14CreateNetworkRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x02 \x01(\tR\tprojectId\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12P\n" +
-	"\x06labels\x18\x04 \x03(\v28.limiquantix.network.v1.CreateNetworkRequest.LabelsEntryR\x06labels\x12>\n" +
-	"\x04spec\x18\x05 \x01(\v2*.limiquantix.network.v1.VirtualNetworkSpecR\x04spec\x1a9\n" +
+	"\x06labels\x18\x04 \x03(\v28.Quantixkvm.network.v1.CreateNetworkRequest.LabelsEntryR\x06labels\x12>\n" +
+	"\x04spec\x18\x05 \x01(\v2*.Quantixkvm.network.v1.VirtualNetworkSpecR\x04spec\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"#\n" +
@@ -3529,8 +3530,8 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\x13ListNetworksRequest\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\x12O\n" +
-	"\x06labels\x18\x02 \x03(\v27.limiquantix.network.v1.ListNetworksRequest.LabelsEntryR\x06labels\x12J\n" +
-	"\x04type\x18\x03 \x01(\x0e26.limiquantix.network.v1.VirtualNetworkSpec.NetworkTypeR\x04type\x12\x1b\n" +
+	"\x06labels\x18\x02 \x03(\v27.Quantixkvm.network.v1.ListNetworksRequest.LabelsEntryR\x06labels\x12J\n" +
+	"\x04type\x18\x03 \x01(\x0e26.Quantixkvm.network.v1.VirtualNetworkSpec.NetworkTypeR\x04type\x12\x1b\n" +
 	"\tpage_size\x18\n" +
 	" \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
@@ -3539,16 +3540,16 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa3\x01\n" +
 	"\x14ListNetworksResponse\x12B\n" +
-	"\bnetworks\x18\x01 \x03(\v2&.limiquantix.network.v1.VirtualNetworkR\bnetworks\x12&\n" +
+	"\bnetworks\x18\x01 \x03(\v2&.Quantixkvm.network.v1.VirtualNetworkR\bnetworks\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
 	"totalCount\"\xd2\x02\n" +
 	"\x14UpdateNetworkRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12>\n" +
-	"\x04spec\x18\x02 \x01(\v2*.limiquantix.network.v1.VirtualNetworkSpecR\x04spec\x12;\n" +
+	"\x04spec\x18\x02 \x01(\v2*.Quantixkvm.network.v1.VirtualNetworkSpecR\x04spec\x12;\n" +
 	"\vupdate_mask\x18\x03 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
 	"updateMask\x12P\n" +
-	"\x06labels\x18\x04 \x03(\v28.limiquantix.network.v1.UpdateNetworkRequest.LabelsEntryR\x06labels\x12 \n" +
+	"\x06labels\x18\x04 \x03(\v28.Quantixkvm.network.v1.UpdateNetworkRequest.LabelsEntryR\x06labels\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -3560,14 +3561,14 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\"\x87\x01\n" +
 	"\x0fNetworkTopology\x129\n" +
-	"\x05nodes\x18\x01 \x03(\v2#.limiquantix.network.v1.NetworkNodeR\x05nodes\x129\n" +
-	"\x05edges\x18\x02 \x03(\v2#.limiquantix.network.v1.NetworkEdgeR\x05edges\"\xd9\x01\n" +
+	"\x05nodes\x18\x01 \x03(\v2#.Quantixkvm.network.v1.NetworkNodeR\x05nodes\x129\n" +
+	"\x05edges\x18\x02 \x03(\v2#.Quantixkvm.network.v1.NetworkEdgeR\x05edges\"\xd9\x01\n" +
 	"\vNetworkNode\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12S\n" +
 	"\n" +
-	"properties\x18\x04 \x03(\v23.limiquantix.network.v1.NetworkNode.PropertiesEntryR\n" +
+	"properties\x18\x04 \x03(\v23.Quantixkvm.network.v1.NetworkNode.PropertiesEntryR\n" +
 	"properties\x1a=\n" +
 	"\x0fPropertiesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -3582,8 +3583,8 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"network_id\x18\x02 \x01(\tR\tnetworkId\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x03 \x01(\tR\tprojectId\x12M\n" +
-	"\x06labels\x18\x04 \x03(\v25.limiquantix.network.v1.CreatePortRequest.LabelsEntryR\x06labels\x124\n" +
-	"\x04spec\x18\x05 \x01(\v2 .limiquantix.network.v1.PortSpecR\x04spec\x1a9\n" +
+	"\x06labels\x18\x04 \x03(\v25.Quantixkvm.network.v1.CreatePortRequest.LabelsEntryR\x06labels\x124\n" +
+	"\x04spec\x18\x05 \x01(\v2 .Quantixkvm.network.v1.PortSpecR\x04spec\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\" \n" +
@@ -3600,13 +3601,13 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\n" +
 	"page_token\x18\v \x01(\tR\tpageToken\"\x90\x01\n" +
 	"\x11ListPortsResponse\x122\n" +
-	"\x05ports\x18\x01 \x03(\v2\x1c.limiquantix.network.v1.PortR\x05ports\x12&\n" +
+	"\x05ports\x18\x01 \x03(\v2\x1c.Quantixkvm.network.v1.PortR\x05ports\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
 	"totalCount\"\x96\x01\n" +
 	"\x11UpdatePortRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x124\n" +
-	"\x04spec\x18\x02 \x01(\v2 .limiquantix.network.v1.PortSpecR\x04spec\x12;\n" +
+	"\x04spec\x18\x02 \x01(\v2 .Quantixkvm.network.v1.PortSpecR\x04spec\x12;\n" +
 	"\vupdate_mask\x18\x03 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
 	"updateMask\"#\n" +
 	"\x11DeletePortRequest\x12\x0e\n" +
@@ -3622,8 +3623,8 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x03 \x01(\tR\tprojectId\x12V\n" +
-	"\x06labels\x18\x04 \x03(\v2>.limiquantix.network.v1.CreateSecurityGroupRequest.LabelsEntryR\x06labels\x12?\n" +
-	"\x05rules\x18\x05 \x03(\v2).limiquantix.network.v1.SecurityGroupRuleR\x05rules\x12\x1a\n" +
+	"\x06labels\x18\x04 \x03(\v2>.Quantixkvm.network.v1.CreateSecurityGroupRequest.LabelsEntryR\x06labels\x12?\n" +
+	"\x05rules\x18\x05 \x03(\v2).Quantixkvm.network.v1.SecurityGroupRuleR\x05rules\x12\x1a\n" +
 	"\bstateful\x18\x06 \x01(\bR\bstateful\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -3638,14 +3639,14 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\n" +
 	"page_token\x18\v \x01(\tR\tpageToken\"\xb5\x01\n" +
 	"\x1aListSecurityGroupsResponse\x12N\n" +
-	"\x0fsecurity_groups\x18\x01 \x03(\v2%.limiquantix.network.v1.SecurityGroupR\x0esecurityGroups\x12&\n" +
+	"\x0fsecurity_groups\x18\x01 \x03(\v2%.Quantixkvm.network.v1.SecurityGroupR\x0esecurityGroups\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
 	"totalCount\"\xe1\x01\n" +
 	"\x1aUpdateSecurityGroupRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12V\n" +
-	"\x06labels\x18\x03 \x03(\v2>.limiquantix.network.v1.UpdateSecurityGroupRequest.LabelsEntryR\x06labels\x1a9\n" +
+	"\x06labels\x18\x03 \x03(\v2>.Quantixkvm.network.v1.UpdateSecurityGroupRequest.LabelsEntryR\x06labels\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"B\n" +
@@ -3654,7 +3655,7 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\x05force\x18\x02 \x01(\bR\x05force\"{\n" +
 	"\x0eAddRuleRequest\x12*\n" +
 	"\x11security_group_id\x18\x01 \x01(\tR\x0fsecurityGroupId\x12=\n" +
-	"\x04rule\x18\x02 \x01(\v2).limiquantix.network.v1.SecurityGroupRuleR\x04rule\"X\n" +
+	"\x04rule\x18\x02 \x01(\v2).Quantixkvm.network.v1.SecurityGroupRuleR\x04rule\"X\n" +
 	"\x11RemoveRuleRequest\x12*\n" +
 	"\x11security_group_id\x18\x01 \x01(\tR\x0fsecurityGroupId\x12\x17\n" +
 	"\arule_id\x18\x02 \x01(\tR\x06ruleId\"\xbd\x02\n" +
@@ -3663,7 +3664,7 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\n" +
 	"project_id\x18\x02 \x01(\tR\tprojectId\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12U\n" +
-	"\x06labels\x18\x04 \x03(\v2=.limiquantix.network.v1.AllocateFloatingIpRequest.LabelsEntryR\x06labels\x12\x1d\n" +
+	"\x06labels\x18\x04 \x03(\v2=.Quantixkvm.network.v1.AllocateFloatingIpRequest.LabelsEntryR\x06labels\x12\x1d\n" +
 	"\n" +
 	"ip_address\x18\x05 \x01(\tR\tipAddress\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
@@ -3681,7 +3682,7 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\n" +
 	"page_token\x18\v \x01(\tR\tpageToken\"\xa9\x01\n" +
 	"\x17ListFloatingIpsResponse\x12E\n" +
-	"\ffloating_ips\x18\x01 \x03(\v2\".limiquantix.network.v1.FloatingIpR\vfloatingIps\x12&\n" +
+	"\ffloating_ips\x18\x01 \x03(\v2\".Quantixkvm.network.v1.FloatingIpR\vfloatingIps\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
 	"totalCount\"*\n" +
@@ -3698,8 +3699,8 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x03 \x01(\tR\tprojectId\x12U\n" +
-	"\x06labels\x18\x04 \x03(\v2=.limiquantix.network.v1.CreateLoadBalancerRequest.LabelsEntryR\x06labels\x12<\n" +
-	"\x04spec\x18\x05 \x01(\v2(.limiquantix.network.v1.LoadBalancerSpecR\x04spec\x1a9\n" +
+	"\x06labels\x18\x04 \x03(\v2=.Quantixkvm.network.v1.CreateLoadBalancerRequest.LabelsEntryR\x06labels\x12<\n" +
+	"\x04spec\x18\x05 \x01(\v2(.Quantixkvm.network.v1.LoadBalancerSpecR\x04spec\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"(\n" +
@@ -3715,14 +3716,14 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\n" +
 	"page_token\x18\v \x01(\tR\tpageToken\"\xb1\x01\n" +
 	"\x19ListLoadBalancersResponse\x12K\n" +
-	"\x0eload_balancers\x18\x01 \x03(\v2$.limiquantix.network.v1.LoadBalancerR\rloadBalancers\x12&\n" +
+	"\x0eload_balancers\x18\x01 \x03(\v2$.Quantixkvm.network.v1.LoadBalancerR\rloadBalancers\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
 	"totalCount\"\xdf\x01\n" +
 	"\x19UpdateLoadBalancerRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12U\n" +
-	"\x06labels\x18\x03 \x03(\v2=.limiquantix.network.v1.UpdateLoadBalancerRequest.LabelsEntryR\x06labels\x1a9\n" +
+	"\x06labels\x18\x03 \x03(\v2=.Quantixkvm.network.v1.UpdateLoadBalancerRequest.LabelsEntryR\x06labels\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"+\n" +
@@ -3730,7 +3731,7 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"|\n" +
 	"\x12AddListenerRequest\x12(\n" +
 	"\x10load_balancer_id\x18\x01 \x01(\tR\x0eloadBalancerId\x12<\n" +
-	"\blistener\x18\x02 \x01(\v2 .limiquantix.network.v1.ListenerR\blistener\"b\n" +
+	"\blistener\x18\x02 \x01(\v2 .Quantixkvm.network.v1.ListenerR\blistener\"b\n" +
 	"\x15RemoveListenerRequest\x12(\n" +
 	"\x10load_balancer_id\x18\x01 \x01(\tR\x0eloadBalancerId\x12\x1f\n" +
 	"\vlistener_id\x18\x02 \x01(\tR\n" +
@@ -3738,7 +3739,7 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\x14AddPoolMemberRequest\x12(\n" +
 	"\x10load_balancer_id\x18\x01 \x01(\tR\x0eloadBalancerId\x12\x17\n" +
 	"\apool_id\x18\x02 \x01(\tR\x06poolId\x12:\n" +
-	"\x06member\x18\x03 \x01(\v2\".limiquantix.network.v1.PoolMemberR\x06member\"y\n" +
+	"\x06member\x18\x03 \x01(\v2\".Quantixkvm.network.v1.PoolMemberR\x06member\"y\n" +
 	"\x17RemovePoolMemberRequest\x12(\n" +
 	"\x10load_balancer_id\x18\x01 \x01(\tR\x0eloadBalancerId\x12\x17\n" +
 	"\apool_id\x18\x02 \x01(\tR\x06poolId\x12\x1b\n" +
@@ -3752,8 +3753,8 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\bbytes_in\x18\x04 \x01(\x04R\abytesIn\x12\x1b\n" +
 	"\tbytes_out\x18\x05 \x01(\x04R\bbytesOut\x12\x1a\n" +
 	"\brequests\x18\x06 \x01(\x04R\brequests\x12L\n" +
-	"\x0elistener_stats\x18\a \x03(\v2%.limiquantix.network.v1.ListenerStatsR\rlistenerStats\x12F\n" +
-	"\fmember_stats\x18\b \x03(\v2#.limiquantix.network.v1.MemberStatsR\vmemberStats\"\xc4\x01\n" +
+	"\x0elistener_stats\x18\a \x03(\v2%.Quantixkvm.network.v1.ListenerStatsR\rlistenerStats\x12F\n" +
+	"\fmember_stats\x18\b \x03(\v2#.Quantixkvm.network.v1.MemberStatsR\vmemberStats\"\xc4\x01\n" +
 	"\rListenerStats\x12\x1f\n" +
 	"\vlistener_id\x18\x01 \x01(\tR\n" +
 	"listenerId\x12-\n" +
@@ -3776,7 +3777,7 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\n" +
 	"project_id\x18\x03 \x01(\tR\tprojectId\x12\x1b\n" +
 	"\trouter_id\x18\x04 \x01(\tR\brouterId\x12G\n" +
-	"\vconnections\x18\x05 \x03(\v2%.limiquantix.network.v1.VpnConnectionR\vconnections\"\x1f\n" +
+	"\vconnections\x18\x05 \x03(\v2%.Quantixkvm.network.v1.VpnConnectionR\vconnections\"\x1f\n" +
 	"\rGetVpnRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"l\n" +
 	"\x0fListVpnsRequest\x12\x1d\n" +
@@ -3787,7 +3788,7 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\n" +
 	"page_token\x18\v \x01(\tR\tpageToken\"\xa2\x01\n" +
 	"\x10ListVpnsResponse\x12E\n" +
-	"\fvpn_services\x18\x01 \x03(\v2\".limiquantix.network.v1.VpnServiceR\vvpnServices\x12&\n" +
+	"\fvpn_services\x18\x01 \x03(\v2\".Quantixkvm.network.v1.VpnServiceR\vvpnServices\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
 	"totalCount\"\"\n" +
@@ -3796,7 +3797,7 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\x14AddConnectionRequest\x12\x15\n" +
 	"\x06vpn_id\x18\x01 \x01(\tR\x05vpnId\x12E\n" +
 	"\n" +
-	"connection\x18\x02 \x01(\v2%.limiquantix.network.v1.VpnConnectionR\n" +
+	"connection\x18\x02 \x01(\v2%.Quantixkvm.network.v1.VpnConnectionR\n" +
 	"connection\"U\n" +
 	"\x17RemoveConnectionRequest\x12\x15\n" +
 	"\x06vpn_id\x18\x01 \x01(\tR\x05vpnId\x12#\n" +
@@ -3805,11 +3806,11 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\x06vpn_id\x18\x01 \x01(\tR\x05vpnId\"h\n" +
 	"\x0fVpnTunnelStatus\x12\x15\n" +
 	"\x06vpn_id\x18\x01 \x01(\tR\x05vpnId\x12>\n" +
-	"\atunnels\x18\x02 \x03(\v2$.limiquantix.network.v1.TunnelStatusR\atunnels\"\x8b\x03\n" +
+	"\atunnels\x18\x02 \x03(\v2$.Quantixkvm.network.v1.TunnelStatusR\atunnels\"\x8b\x03\n" +
 	"\fTunnelStatus\x12#\n" +
 	"\rconnection_id\x18\x01 \x01(\tR\fconnectionId\x12!\n" +
 	"\fpeer_address\x18\x02 \x01(\tR\vpeerAddress\x12C\n" +
-	"\x06status\x18\x03 \x01(\x0e2+.limiquantix.network.v1.TunnelStatus.StatusR\x06status\x12\x19\n" +
+	"\x06status\x18\x03 \x01(\x0e2+.Quantixkvm.network.v1.TunnelStatus.StatusR\x06status\x12\x19\n" +
 	"\bbytes_in\x18\x04 \x01(\x04R\abytesIn\x12\x1b\n" +
 	"\tbytes_out\x18\x05 \x01(\x04R\bbytesOut\x12\x1d\n" +
 	"\n" +
@@ -3825,285 +3826,285 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\vNEGOTIATING\x10\x02\x12\x06\n" +
 	"\x02UP\x10\x032\xfa\x04\n" +
 	"\x15VirtualNetworkService\x12e\n" +
-	"\rCreateNetwork\x12,.limiquantix.network.v1.CreateNetworkRequest\x1a&.limiquantix.network.v1.VirtualNetwork\x12_\n" +
+	"\rCreateNetwork\x12,.Quantixkvm.network.v1.CreateNetworkRequest\x1a&.Quantixkvm.network.v1.VirtualNetwork\x12_\n" +
 	"\n" +
-	"GetNetwork\x12).limiquantix.network.v1.GetNetworkRequest\x1a&.limiquantix.network.v1.VirtualNetwork\x12i\n" +
-	"\fListNetworks\x12+.limiquantix.network.v1.ListNetworksRequest\x1a,.limiquantix.network.v1.ListNetworksResponse\x12e\n" +
-	"\rUpdateNetwork\x12,.limiquantix.network.v1.UpdateNetworkRequest\x1a&.limiquantix.network.v1.VirtualNetwork\x12U\n" +
-	"\rDeleteNetwork\x12,.limiquantix.network.v1.DeleteNetworkRequest\x1a\x16.google.protobuf.Empty\x12p\n" +
-	"\x12GetNetworkTopology\x121.limiquantix.network.v1.GetNetworkTopologyRequest\x1a'.limiquantix.network.v1.NetworkTopology2\xe9\x04\n" +
+	"GetNetwork\x12).Quantixkvm.network.v1.GetNetworkRequest\x1a&.Quantixkvm.network.v1.VirtualNetwork\x12i\n" +
+	"\fListNetworks\x12+.Quantixkvm.network.v1.ListNetworksRequest\x1a,.Quantixkvm.network.v1.ListNetworksResponse\x12e\n" +
+	"\rUpdateNetwork\x12,.Quantixkvm.network.v1.UpdateNetworkRequest\x1a&.Quantixkvm.network.v1.VirtualNetwork\x12U\n" +
+	"\rDeleteNetwork\x12,.Quantixkvm.network.v1.DeleteNetworkRequest\x1a\x16.google.protobuf.Empty\x12p\n" +
+	"\x12GetNetworkTopology\x121.Quantixkvm.network.v1.GetNetworkTopologyRequest\x1a'.Quantixkvm.network.v1.NetworkTopology2\xe9\x04\n" +
 	"\vPortService\x12U\n" +
 	"\n" +
-	"CreatePort\x12).limiquantix.network.v1.CreatePortRequest\x1a\x1c.limiquantix.network.v1.Port\x12O\n" +
-	"\aGetPort\x12&.limiquantix.network.v1.GetPortRequest\x1a\x1c.limiquantix.network.v1.Port\x12`\n" +
-	"\tListPorts\x12(.limiquantix.network.v1.ListPortsRequest\x1a).limiquantix.network.v1.ListPortsResponse\x12U\n" +
+	"CreatePort\x12).Quantixkvm.network.v1.CreatePortRequest\x1a\x1c.Quantixkvm.network.v1.Port\x12O\n" +
+	"\aGetPort\x12&.Quantixkvm.network.v1.GetPortRequest\x1a\x1c.Quantixkvm.network.v1.Port\x12`\n" +
+	"\tListPorts\x12(.Quantixkvm.network.v1.ListPortsRequest\x1a).Quantixkvm.network.v1.ListPortsResponse\x12U\n" +
 	"\n" +
-	"UpdatePort\x12).limiquantix.network.v1.UpdatePortRequest\x1a\x1c.limiquantix.network.v1.Port\x12O\n" +
+	"UpdatePort\x12).Quantixkvm.network.v1.UpdatePortRequest\x1a\x1c.Quantixkvm.network.v1.Port\x12O\n" +
 	"\n" +
-	"DeletePort\x12).limiquantix.network.v1.DeletePortRequest\x1a\x16.google.protobuf.Empty\x12Q\n" +
-	"\bBindPort\x12'.limiquantix.network.v1.BindPortRequest\x1a\x1c.limiquantix.network.v1.Port\x12U\n" +
+	"DeletePort\x12).Quantixkvm.network.v1.DeletePortRequest\x1a\x16.google.protobuf.Empty\x12Q\n" +
+	"\bBindPort\x12'.Quantixkvm.network.v1.BindPortRequest\x1a\x1c.Quantixkvm.network.v1.Port\x12U\n" +
 	"\n" +
-	"UnbindPort\x12).limiquantix.network.v1.UnbindPortRequest\x1a\x1c.limiquantix.network.v1.Port2\x80\x06\n" +
+	"UnbindPort\x12).Quantixkvm.network.v1.UnbindPortRequest\x1a\x1c.Quantixkvm.network.v1.Port2\x80\x06\n" +
 	"\x14SecurityGroupService\x12p\n" +
-	"\x13CreateSecurityGroup\x122.limiquantix.network.v1.CreateSecurityGroupRequest\x1a%.limiquantix.network.v1.SecurityGroup\x12j\n" +
-	"\x10GetSecurityGroup\x12/.limiquantix.network.v1.GetSecurityGroupRequest\x1a%.limiquantix.network.v1.SecurityGroup\x12{\n" +
-	"\x12ListSecurityGroups\x121.limiquantix.network.v1.ListSecurityGroupsRequest\x1a2.limiquantix.network.v1.ListSecurityGroupsResponse\x12p\n" +
-	"\x13UpdateSecurityGroup\x122.limiquantix.network.v1.UpdateSecurityGroupRequest\x1a%.limiquantix.network.v1.SecurityGroup\x12a\n" +
-	"\x13DeleteSecurityGroup\x122.limiquantix.network.v1.DeleteSecurityGroupRequest\x1a\x16.google.protobuf.Empty\x12X\n" +
-	"\aAddRule\x12&.limiquantix.network.v1.AddRuleRequest\x1a%.limiquantix.network.v1.SecurityGroup\x12^\n" +
+	"\x13CreateSecurityGroup\x122.Quantixkvm.network.v1.CreateSecurityGroupRequest\x1a%.Quantixkvm.network.v1.SecurityGroup\x12j\n" +
+	"\x10GetSecurityGroup\x12/.Quantixkvm.network.v1.GetSecurityGroupRequest\x1a%.Quantixkvm.network.v1.SecurityGroup\x12{\n" +
+	"\x12ListSecurityGroups\x121.Quantixkvm.network.v1.ListSecurityGroupsRequest\x1a2.Quantixkvm.network.v1.ListSecurityGroupsResponse\x12p\n" +
+	"\x13UpdateSecurityGroup\x122.Quantixkvm.network.v1.UpdateSecurityGroupRequest\x1a%.Quantixkvm.network.v1.SecurityGroup\x12a\n" +
+	"\x13DeleteSecurityGroup\x122.Quantixkvm.network.v1.DeleteSecurityGroupRequest\x1a\x16.google.protobuf.Empty\x12X\n" +
+	"\aAddRule\x12&.Quantixkvm.network.v1.AddRuleRequest\x1a%.Quantixkvm.network.v1.SecurityGroup\x12^\n" +
 	"\n" +
-	"RemoveRule\x12).limiquantix.network.v1.RemoveRuleRequest\x1a%.limiquantix.network.v1.SecurityGroup2\x9a\x05\n" +
+	"RemoveRule\x12).Quantixkvm.network.v1.RemoveRuleRequest\x1a%.Quantixkvm.network.v1.SecurityGroup2\x9a\x05\n" +
 	"\x11FloatingIpService\x12k\n" +
-	"\x12AllocateFloatingIp\x121.limiquantix.network.v1.AllocateFloatingIpRequest\x1a\".limiquantix.network.v1.FloatingIp\x12a\n" +
-	"\rGetFloatingIp\x12,.limiquantix.network.v1.GetFloatingIpRequest\x1a\".limiquantix.network.v1.FloatingIp\x12r\n" +
-	"\x0fListFloatingIps\x12..limiquantix.network.v1.ListFloatingIpsRequest\x1a/.limiquantix.network.v1.ListFloatingIpsResponse\x12]\n" +
-	"\x11ReleaseFloatingIp\x120.limiquantix.network.v1.ReleaseFloatingIpRequest\x1a\x16.google.protobuf.Empty\x12m\n" +
-	"\x13AssociateFloatingIp\x122.limiquantix.network.v1.AssociateFloatingIpRequest\x1a\".limiquantix.network.v1.FloatingIp\x12s\n" +
-	"\x16DisassociateFloatingIp\x125.limiquantix.network.v1.DisassociateFloatingIpRequest\x1a\".limiquantix.network.v1.FloatingIp2\xc7\b\n" +
+	"\x12AllocateFloatingIp\x121.Quantixkvm.network.v1.AllocateFloatingIpRequest\x1a\".Quantixkvm.network.v1.FloatingIp\x12a\n" +
+	"\rGetFloatingIp\x12,.Quantixkvm.network.v1.GetFloatingIpRequest\x1a\".Quantixkvm.network.v1.FloatingIp\x12r\n" +
+	"\x0fListFloatingIps\x12..Quantixkvm.network.v1.ListFloatingIpsRequest\x1a/.Quantixkvm.network.v1.ListFloatingIpsResponse\x12]\n" +
+	"\x11ReleaseFloatingIp\x120.Quantixkvm.network.v1.ReleaseFloatingIpRequest\x1a\x16.google.protobuf.Empty\x12m\n" +
+	"\x13AssociateFloatingIp\x122.Quantixkvm.network.v1.AssociateFloatingIpRequest\x1a\".Quantixkvm.network.v1.FloatingIp\x12s\n" +
+	"\x16DisassociateFloatingIp\x125.Quantixkvm.network.v1.DisassociateFloatingIpRequest\x1a\".Quantixkvm.network.v1.FloatingIp2\xc7\b\n" +
 	"\x13LoadBalancerService\x12m\n" +
-	"\x12CreateLoadBalancer\x121.limiquantix.network.v1.CreateLoadBalancerRequest\x1a$.limiquantix.network.v1.LoadBalancer\x12g\n" +
-	"\x0fGetLoadBalancer\x12..limiquantix.network.v1.GetLoadBalancerRequest\x1a$.limiquantix.network.v1.LoadBalancer\x12x\n" +
-	"\x11ListLoadBalancers\x120.limiquantix.network.v1.ListLoadBalancersRequest\x1a1.limiquantix.network.v1.ListLoadBalancersResponse\x12m\n" +
-	"\x12UpdateLoadBalancer\x121.limiquantix.network.v1.UpdateLoadBalancerRequest\x1a$.limiquantix.network.v1.LoadBalancer\x12_\n" +
-	"\x12DeleteLoadBalancer\x121.limiquantix.network.v1.DeleteLoadBalancerRequest\x1a\x16.google.protobuf.Empty\x12_\n" +
-	"\vAddListener\x12*.limiquantix.network.v1.AddListenerRequest\x1a$.limiquantix.network.v1.LoadBalancer\x12e\n" +
-	"\x0eRemoveListener\x12-.limiquantix.network.v1.RemoveListenerRequest\x1a$.limiquantix.network.v1.LoadBalancer\x12c\n" +
-	"\rAddPoolMember\x12,.limiquantix.network.v1.AddPoolMemberRequest\x1a$.limiquantix.network.v1.LoadBalancer\x12i\n" +
-	"\x10RemovePoolMember\x12/.limiquantix.network.v1.RemovePoolMemberRequest\x1a$.limiquantix.network.v1.LoadBalancer\x12v\n" +
-	"\x14GetLoadBalancerStats\x123.limiquantix.network.v1.GetLoadBalancerStatsRequest\x1a).limiquantix.network.v1.LoadBalancerStats2\xa3\x05\n" +
+	"\x12CreateLoadBalancer\x121.Quantixkvm.network.v1.CreateLoadBalancerRequest\x1a$.Quantixkvm.network.v1.LoadBalancer\x12g\n" +
+	"\x0fGetLoadBalancer\x12..Quantixkvm.network.v1.GetLoadBalancerRequest\x1a$.Quantixkvm.network.v1.LoadBalancer\x12x\n" +
+	"\x11ListLoadBalancers\x120.Quantixkvm.network.v1.ListLoadBalancersRequest\x1a1.Quantixkvm.network.v1.ListLoadBalancersResponse\x12m\n" +
+	"\x12UpdateLoadBalancer\x121.Quantixkvm.network.v1.UpdateLoadBalancerRequest\x1a$.Quantixkvm.network.v1.LoadBalancer\x12_\n" +
+	"\x12DeleteLoadBalancer\x121.Quantixkvm.network.v1.DeleteLoadBalancerRequest\x1a\x16.google.protobuf.Empty\x12_\n" +
+	"\vAddListener\x12*.Quantixkvm.network.v1.AddListenerRequest\x1a$.Quantixkvm.network.v1.LoadBalancer\x12e\n" +
+	"\x0eRemoveListener\x12-.Quantixkvm.network.v1.RemoveListenerRequest\x1a$.Quantixkvm.network.v1.LoadBalancer\x12c\n" +
+	"\rAddPoolMember\x12,.Quantixkvm.network.v1.AddPoolMemberRequest\x1a$.Quantixkvm.network.v1.LoadBalancer\x12i\n" +
+	"\x10RemovePoolMember\x12/.Quantixkvm.network.v1.RemovePoolMemberRequest\x1a$.Quantixkvm.network.v1.LoadBalancer\x12v\n" +
+	"\x14GetLoadBalancerStats\x123.Quantixkvm.network.v1.GetLoadBalancerStatsRequest\x1a).Quantixkvm.network.v1.LoadBalancerStats2\xa3\x05\n" +
 	"\x11VpnServiceManager\x12Y\n" +
-	"\tCreateVpn\x12(.limiquantix.network.v1.CreateVpnRequest\x1a\".limiquantix.network.v1.VpnService\x12S\n" +
-	"\x06GetVpn\x12%.limiquantix.network.v1.GetVpnRequest\x1a\".limiquantix.network.v1.VpnService\x12]\n" +
-	"\bListVpns\x12'.limiquantix.network.v1.ListVpnsRequest\x1a(.limiquantix.network.v1.ListVpnsResponse\x12M\n" +
-	"\tDeleteVpn\x12(.limiquantix.network.v1.DeleteVpnRequest\x1a\x16.google.protobuf.Empty\x12a\n" +
-	"\rAddConnection\x12,.limiquantix.network.v1.AddConnectionRequest\x1a\".limiquantix.network.v1.VpnService\x12g\n" +
-	"\x10RemoveConnection\x12/.limiquantix.network.v1.RemoveConnectionRequest\x1a\".limiquantix.network.v1.VpnService\x12d\n" +
-	"\fGetVpnStatus\x12+.limiquantix.network.v1.GetVpnStatusRequest\x1a'.limiquantix.network.v1.VpnTunnelStatusB\xf8\x01\n" +
-	"\x1acom.limiquantix.network.v1B\x13NetworkServiceProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1;networkv1\xa2\x02\x03LNX\xaa\x02\x16Limiquantix.Network.V1\xca\x02\x16Limiquantix\\Network\\V1\xe2\x02\"Limiquantix\\Network\\V1\\GPBMetadata\xea\x02\x18Limiquantix::Network::V1b\x06proto3"
+	"\tCreateVpn\x12(.Quantixkvm.network.v1.CreateVpnRequest\x1a\".Quantixkvm.network.v1.VpnService\x12S\n" +
+	"\x06GetVpn\x12%.Quantixkvm.network.v1.GetVpnRequest\x1a\".Quantixkvm.network.v1.VpnService\x12]\n" +
+	"\bListVpns\x12'.Quantixkvm.network.v1.ListVpnsRequest\x1a(.Quantixkvm.network.v1.ListVpnsResponse\x12M\n" +
+	"\tDeleteVpn\x12(.Quantixkvm.network.v1.DeleteVpnRequest\x1a\x16.google.protobuf.Empty\x12a\n" +
+	"\rAddConnection\x12,.Quantixkvm.network.v1.AddConnectionRequest\x1a\".Quantixkvm.network.v1.VpnService\x12g\n" +
+	"\x10RemoveConnection\x12/.Quantixkvm.network.v1.RemoveConnectionRequest\x1a\".Quantixkvm.network.v1.VpnService\x12d\n" +
+	"\fGetVpnStatus\x12+.Quantixkvm.network.v1.GetVpnStatusRequest\x1a'.Quantixkvm.network.v1.VpnTunnelStatusB\xf8\x01\n" +
+	"\x1acom.Quantixkvm.network.v1B\x13NetworkServiceProtoP\x01ZKgithub.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/network/v1;networkv1\xa2\x02\x03LNX\xaa\x02\x16Quantixkvm.Network.V1\xca\x02\x16Quantixkvm\\Network\\V1\xe2\x02\"Quantixkvm\\Network\\V1\\GPBMetadata\xea\x02\x18Quantixkvm::Network::V1b\x06proto3"
 
 var (
-	file_limiquantix_network_v1_network_service_proto_rawDescOnce sync.Once
-	file_limiquantix_network_v1_network_service_proto_rawDescData []byte
+	file_Quantixkvm_network_v1_network_service_proto_rawDescOnce sync.Once
+	file_Quantixkvm_network_v1_network_service_proto_rawDescData []byte
 )
 
-func file_limiquantix_network_v1_network_service_proto_rawDescGZIP() []byte {
-	file_limiquantix_network_v1_network_service_proto_rawDescOnce.Do(func() {
-		file_limiquantix_network_v1_network_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_limiquantix_network_v1_network_service_proto_rawDesc), len(file_limiquantix_network_v1_network_service_proto_rawDesc)))
+func file_Quantixkvm_network_v1_network_service_proto_rawDescGZIP() []byte {
+	file_Quantixkvm_network_v1_network_service_proto_rawDescOnce.Do(func() {
+		file_Quantixkvm_network_v1_network_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_Quantixkvm_network_v1_network_service_proto_rawDesc), len(file_Quantixkvm_network_v1_network_service_proto_rawDesc)))
 	})
-	return file_limiquantix_network_v1_network_service_proto_rawDescData
+	return file_Quantixkvm_network_v1_network_service_proto_rawDescData
 }
 
-var file_limiquantix_network_v1_network_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_limiquantix_network_v1_network_service_proto_msgTypes = make([]protoimpl.MessageInfo, 67)
-var file_limiquantix_network_v1_network_service_proto_goTypes = []any{
-	(TunnelStatus_Status)(0),              // 0: limiquantix.network.v1.TunnelStatus.Status
-	(*CreateNetworkRequest)(nil),          // 1: limiquantix.network.v1.CreateNetworkRequest
-	(*GetNetworkRequest)(nil),             // 2: limiquantix.network.v1.GetNetworkRequest
-	(*ListNetworksRequest)(nil),           // 3: limiquantix.network.v1.ListNetworksRequest
-	(*ListNetworksResponse)(nil),          // 4: limiquantix.network.v1.ListNetworksResponse
-	(*UpdateNetworkRequest)(nil),          // 5: limiquantix.network.v1.UpdateNetworkRequest
-	(*DeleteNetworkRequest)(nil),          // 6: limiquantix.network.v1.DeleteNetworkRequest
-	(*GetNetworkTopologyRequest)(nil),     // 7: limiquantix.network.v1.GetNetworkTopologyRequest
-	(*NetworkTopology)(nil),               // 8: limiquantix.network.v1.NetworkTopology
-	(*NetworkNode)(nil),                   // 9: limiquantix.network.v1.NetworkNode
-	(*NetworkEdge)(nil),                   // 10: limiquantix.network.v1.NetworkEdge
-	(*CreatePortRequest)(nil),             // 11: limiquantix.network.v1.CreatePortRequest
-	(*GetPortRequest)(nil),                // 12: limiquantix.network.v1.GetPortRequest
-	(*ListPortsRequest)(nil),              // 13: limiquantix.network.v1.ListPortsRequest
-	(*ListPortsResponse)(nil),             // 14: limiquantix.network.v1.ListPortsResponse
-	(*UpdatePortRequest)(nil),             // 15: limiquantix.network.v1.UpdatePortRequest
-	(*DeletePortRequest)(nil),             // 16: limiquantix.network.v1.DeletePortRequest
-	(*BindPortRequest)(nil),               // 17: limiquantix.network.v1.BindPortRequest
-	(*UnbindPortRequest)(nil),             // 18: limiquantix.network.v1.UnbindPortRequest
-	(*CreateSecurityGroupRequest)(nil),    // 19: limiquantix.network.v1.CreateSecurityGroupRequest
-	(*GetSecurityGroupRequest)(nil),       // 20: limiquantix.network.v1.GetSecurityGroupRequest
-	(*ListSecurityGroupsRequest)(nil),     // 21: limiquantix.network.v1.ListSecurityGroupsRequest
-	(*ListSecurityGroupsResponse)(nil),    // 22: limiquantix.network.v1.ListSecurityGroupsResponse
-	(*UpdateSecurityGroupRequest)(nil),    // 23: limiquantix.network.v1.UpdateSecurityGroupRequest
-	(*DeleteSecurityGroupRequest)(nil),    // 24: limiquantix.network.v1.DeleteSecurityGroupRequest
-	(*AddRuleRequest)(nil),                // 25: limiquantix.network.v1.AddRuleRequest
-	(*RemoveRuleRequest)(nil),             // 26: limiquantix.network.v1.RemoveRuleRequest
-	(*AllocateFloatingIpRequest)(nil),     // 27: limiquantix.network.v1.AllocateFloatingIpRequest
-	(*GetFloatingIpRequest)(nil),          // 28: limiquantix.network.v1.GetFloatingIpRequest
-	(*ListFloatingIpsRequest)(nil),        // 29: limiquantix.network.v1.ListFloatingIpsRequest
-	(*ListFloatingIpsResponse)(nil),       // 30: limiquantix.network.v1.ListFloatingIpsResponse
-	(*ReleaseFloatingIpRequest)(nil),      // 31: limiquantix.network.v1.ReleaseFloatingIpRequest
-	(*AssociateFloatingIpRequest)(nil),    // 32: limiquantix.network.v1.AssociateFloatingIpRequest
-	(*DisassociateFloatingIpRequest)(nil), // 33: limiquantix.network.v1.DisassociateFloatingIpRequest
-	(*CreateLoadBalancerRequest)(nil),     // 34: limiquantix.network.v1.CreateLoadBalancerRequest
-	(*GetLoadBalancerRequest)(nil),        // 35: limiquantix.network.v1.GetLoadBalancerRequest
-	(*ListLoadBalancersRequest)(nil),      // 36: limiquantix.network.v1.ListLoadBalancersRequest
-	(*ListLoadBalancersResponse)(nil),     // 37: limiquantix.network.v1.ListLoadBalancersResponse
-	(*UpdateLoadBalancerRequest)(nil),     // 38: limiquantix.network.v1.UpdateLoadBalancerRequest
-	(*DeleteLoadBalancerRequest)(nil),     // 39: limiquantix.network.v1.DeleteLoadBalancerRequest
-	(*AddListenerRequest)(nil),            // 40: limiquantix.network.v1.AddListenerRequest
-	(*RemoveListenerRequest)(nil),         // 41: limiquantix.network.v1.RemoveListenerRequest
-	(*AddPoolMemberRequest)(nil),          // 42: limiquantix.network.v1.AddPoolMemberRequest
-	(*RemovePoolMemberRequest)(nil),       // 43: limiquantix.network.v1.RemovePoolMemberRequest
-	(*GetLoadBalancerStatsRequest)(nil),   // 44: limiquantix.network.v1.GetLoadBalancerStatsRequest
-	(*LoadBalancerStats)(nil),             // 45: limiquantix.network.v1.LoadBalancerStats
-	(*ListenerStats)(nil),                 // 46: limiquantix.network.v1.ListenerStats
-	(*MemberStats)(nil),                   // 47: limiquantix.network.v1.MemberStats
-	(*CreateVpnRequest)(nil),              // 48: limiquantix.network.v1.CreateVpnRequest
-	(*GetVpnRequest)(nil),                 // 49: limiquantix.network.v1.GetVpnRequest
-	(*ListVpnsRequest)(nil),               // 50: limiquantix.network.v1.ListVpnsRequest
-	(*ListVpnsResponse)(nil),              // 51: limiquantix.network.v1.ListVpnsResponse
-	(*DeleteVpnRequest)(nil),              // 52: limiquantix.network.v1.DeleteVpnRequest
-	(*AddConnectionRequest)(nil),          // 53: limiquantix.network.v1.AddConnectionRequest
-	(*RemoveConnectionRequest)(nil),       // 54: limiquantix.network.v1.RemoveConnectionRequest
-	(*GetVpnStatusRequest)(nil),           // 55: limiquantix.network.v1.GetVpnStatusRequest
-	(*VpnTunnelStatus)(nil),               // 56: limiquantix.network.v1.VpnTunnelStatus
-	(*TunnelStatus)(nil),                  // 57: limiquantix.network.v1.TunnelStatus
-	nil,                                   // 58: limiquantix.network.v1.CreateNetworkRequest.LabelsEntry
-	nil,                                   // 59: limiquantix.network.v1.ListNetworksRequest.LabelsEntry
-	nil,                                   // 60: limiquantix.network.v1.UpdateNetworkRequest.LabelsEntry
-	nil,                                   // 61: limiquantix.network.v1.NetworkNode.PropertiesEntry
-	nil,                                   // 62: limiquantix.network.v1.CreatePortRequest.LabelsEntry
-	nil,                                   // 63: limiquantix.network.v1.CreateSecurityGroupRequest.LabelsEntry
-	nil,                                   // 64: limiquantix.network.v1.UpdateSecurityGroupRequest.LabelsEntry
-	nil,                                   // 65: limiquantix.network.v1.AllocateFloatingIpRequest.LabelsEntry
-	nil,                                   // 66: limiquantix.network.v1.CreateLoadBalancerRequest.LabelsEntry
-	nil,                                   // 67: limiquantix.network.v1.UpdateLoadBalancerRequest.LabelsEntry
-	(*VirtualNetworkSpec)(nil),            // 68: limiquantix.network.v1.VirtualNetworkSpec
-	(VirtualNetworkSpec_NetworkType)(0),   // 69: limiquantix.network.v1.VirtualNetworkSpec.NetworkType
-	(*VirtualNetwork)(nil),                // 70: limiquantix.network.v1.VirtualNetwork
+var file_Quantixkvm_network_v1_network_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_Quantixkvm_network_v1_network_service_proto_msgTypes = make([]protoimpl.MessageInfo, 67)
+var file_Quantixkvm_network_v1_network_service_proto_goTypes = []any{
+	(TunnelStatus_Status)(0),              // 0: Quantixkvm.network.v1.TunnelStatus.Status
+	(*CreateNetworkRequest)(nil),          // 1: Quantixkvm.network.v1.CreateNetworkRequest
+	(*GetNetworkRequest)(nil),             // 2: Quantixkvm.network.v1.GetNetworkRequest
+	(*ListNetworksRequest)(nil),           // 3: Quantixkvm.network.v1.ListNetworksRequest
+	(*ListNetworksResponse)(nil),          // 4: Quantixkvm.network.v1.ListNetworksResponse
+	(*UpdateNetworkRequest)(nil),          // 5: Quantixkvm.network.v1.UpdateNetworkRequest
+	(*DeleteNetworkRequest)(nil),          // 6: Quantixkvm.network.v1.DeleteNetworkRequest
+	(*GetNetworkTopologyRequest)(nil),     // 7: Quantixkvm.network.v1.GetNetworkTopologyRequest
+	(*NetworkTopology)(nil),               // 8: Quantixkvm.network.v1.NetworkTopology
+	(*NetworkNode)(nil),                   // 9: Quantixkvm.network.v1.NetworkNode
+	(*NetworkEdge)(nil),                   // 10: Quantixkvm.network.v1.NetworkEdge
+	(*CreatePortRequest)(nil),             // 11: Quantixkvm.network.v1.CreatePortRequest
+	(*GetPortRequest)(nil),                // 12: Quantixkvm.network.v1.GetPortRequest
+	(*ListPortsRequest)(nil),              // 13: Quantixkvm.network.v1.ListPortsRequest
+	(*ListPortsResponse)(nil),             // 14: Quantixkvm.network.v1.ListPortsResponse
+	(*UpdatePortRequest)(nil),             // 15: Quantixkvm.network.v1.UpdatePortRequest
+	(*DeletePortRequest)(nil),             // 16: Quantixkvm.network.v1.DeletePortRequest
+	(*BindPortRequest)(nil),               // 17: Quantixkvm.network.v1.BindPortRequest
+	(*UnbindPortRequest)(nil),             // 18: Quantixkvm.network.v1.UnbindPortRequest
+	(*CreateSecurityGroupRequest)(nil),    // 19: Quantixkvm.network.v1.CreateSecurityGroupRequest
+	(*GetSecurityGroupRequest)(nil),       // 20: Quantixkvm.network.v1.GetSecurityGroupRequest
+	(*ListSecurityGroupsRequest)(nil),     // 21: Quantixkvm.network.v1.ListSecurityGroupsRequest
+	(*ListSecurityGroupsResponse)(nil),    // 22: Quantixkvm.network.v1.ListSecurityGroupsResponse
+	(*UpdateSecurityGroupRequest)(nil),    // 23: Quantixkvm.network.v1.UpdateSecurityGroupRequest
+	(*DeleteSecurityGroupRequest)(nil),    // 24: Quantixkvm.network.v1.DeleteSecurityGroupRequest
+	(*AddRuleRequest)(nil),                // 25: Quantixkvm.network.v1.AddRuleRequest
+	(*RemoveRuleRequest)(nil),             // 26: Quantixkvm.network.v1.RemoveRuleRequest
+	(*AllocateFloatingIpRequest)(nil),     // 27: Quantixkvm.network.v1.AllocateFloatingIpRequest
+	(*GetFloatingIpRequest)(nil),          // 28: Quantixkvm.network.v1.GetFloatingIpRequest
+	(*ListFloatingIpsRequest)(nil),        // 29: Quantixkvm.network.v1.ListFloatingIpsRequest
+	(*ListFloatingIpsResponse)(nil),       // 30: Quantixkvm.network.v1.ListFloatingIpsResponse
+	(*ReleaseFloatingIpRequest)(nil),      // 31: Quantixkvm.network.v1.ReleaseFloatingIpRequest
+	(*AssociateFloatingIpRequest)(nil),    // 32: Quantixkvm.network.v1.AssociateFloatingIpRequest
+	(*DisassociateFloatingIpRequest)(nil), // 33: Quantixkvm.network.v1.DisassociateFloatingIpRequest
+	(*CreateLoadBalancerRequest)(nil),     // 34: Quantixkvm.network.v1.CreateLoadBalancerRequest
+	(*GetLoadBalancerRequest)(nil),        // 35: Quantixkvm.network.v1.GetLoadBalancerRequest
+	(*ListLoadBalancersRequest)(nil),      // 36: Quantixkvm.network.v1.ListLoadBalancersRequest
+	(*ListLoadBalancersResponse)(nil),     // 37: Quantixkvm.network.v1.ListLoadBalancersResponse
+	(*UpdateLoadBalancerRequest)(nil),     // 38: Quantixkvm.network.v1.UpdateLoadBalancerRequest
+	(*DeleteLoadBalancerRequest)(nil),     // 39: Quantixkvm.network.v1.DeleteLoadBalancerRequest
+	(*AddListenerRequest)(nil),            // 40: Quantixkvm.network.v1.AddListenerRequest
+	(*RemoveListenerRequest)(nil),         // 41: Quantixkvm.network.v1.RemoveListenerRequest
+	(*AddPoolMemberRequest)(nil),          // 42: Quantixkvm.network.v1.AddPoolMemberRequest
+	(*RemovePoolMemberRequest)(nil),       // 43: Quantixkvm.network.v1.RemovePoolMemberRequest
+	(*GetLoadBalancerStatsRequest)(nil),   // 44: Quantixkvm.network.v1.GetLoadBalancerStatsRequest
+	(*LoadBalancerStats)(nil),             // 45: Quantixkvm.network.v1.LoadBalancerStats
+	(*ListenerStats)(nil),                 // 46: Quantixkvm.network.v1.ListenerStats
+	(*MemberStats)(nil),                   // 47: Quantixkvm.network.v1.MemberStats
+	(*CreateVpnRequest)(nil),              // 48: Quantixkvm.network.v1.CreateVpnRequest
+	(*GetVpnRequest)(nil),                 // 49: Quantixkvm.network.v1.GetVpnRequest
+	(*ListVpnsRequest)(nil),               // 50: Quantixkvm.network.v1.ListVpnsRequest
+	(*ListVpnsResponse)(nil),              // 51: Quantixkvm.network.v1.ListVpnsResponse
+	(*DeleteVpnRequest)(nil),              // 52: Quantixkvm.network.v1.DeleteVpnRequest
+	(*AddConnectionRequest)(nil),          // 53: Quantixkvm.network.v1.AddConnectionRequest
+	(*RemoveConnectionRequest)(nil),       // 54: Quantixkvm.network.v1.RemoveConnectionRequest
+	(*GetVpnStatusRequest)(nil),           // 55: Quantixkvm.network.v1.GetVpnStatusRequest
+	(*VpnTunnelStatus)(nil),               // 56: Quantixkvm.network.v1.VpnTunnelStatus
+	(*TunnelStatus)(nil),                  // 57: Quantixkvm.network.v1.TunnelStatus
+	nil,                                   // 58: Quantixkvm.network.v1.CreateNetworkRequest.LabelsEntry
+	nil,                                   // 59: Quantixkvm.network.v1.ListNetworksRequest.LabelsEntry
+	nil,                                   // 60: Quantixkvm.network.v1.UpdateNetworkRequest.LabelsEntry
+	nil,                                   // 61: Quantixkvm.network.v1.NetworkNode.PropertiesEntry
+	nil,                                   // 62: Quantixkvm.network.v1.CreatePortRequest.LabelsEntry
+	nil,                                   // 63: Quantixkvm.network.v1.CreateSecurityGroupRequest.LabelsEntry
+	nil,                                   // 64: Quantixkvm.network.v1.UpdateSecurityGroupRequest.LabelsEntry
+	nil,                                   // 65: Quantixkvm.network.v1.AllocateFloatingIpRequest.LabelsEntry
+	nil,                                   // 66: Quantixkvm.network.v1.CreateLoadBalancerRequest.LabelsEntry
+	nil,                                   // 67: Quantixkvm.network.v1.UpdateLoadBalancerRequest.LabelsEntry
+	(*VirtualNetworkSpec)(nil),            // 68: Quantixkvm.network.v1.VirtualNetworkSpec
+	(VirtualNetworkSpec_NetworkType)(0),   // 69: Quantixkvm.network.v1.VirtualNetworkSpec.NetworkType
+	(*VirtualNetwork)(nil),                // 70: Quantixkvm.network.v1.VirtualNetwork
 	(*fieldmaskpb.FieldMask)(nil),         // 71: google.protobuf.FieldMask
-	(*PortSpec)(nil),                      // 72: limiquantix.network.v1.PortSpec
-	(*Port)(nil),                          // 73: limiquantix.network.v1.Port
-	(*SecurityGroupRule)(nil),             // 74: limiquantix.network.v1.SecurityGroupRule
-	(*SecurityGroup)(nil),                 // 75: limiquantix.network.v1.SecurityGroup
-	(*FloatingIp)(nil),                    // 76: limiquantix.network.v1.FloatingIp
-	(*LoadBalancerSpec)(nil),              // 77: limiquantix.network.v1.LoadBalancerSpec
-	(*LoadBalancer)(nil),                  // 78: limiquantix.network.v1.LoadBalancer
-	(*Listener)(nil),                      // 79: limiquantix.network.v1.Listener
-	(*PoolMember)(nil),                    // 80: limiquantix.network.v1.PoolMember
-	(*VpnConnection)(nil),                 // 81: limiquantix.network.v1.VpnConnection
-	(*VpnService)(nil),                    // 82: limiquantix.network.v1.VpnService
+	(*PortSpec)(nil),                      // 72: Quantixkvm.network.v1.PortSpec
+	(*Port)(nil),                          // 73: Quantixkvm.network.v1.Port
+	(*SecurityGroupRule)(nil),             // 74: Quantixkvm.network.v1.SecurityGroupRule
+	(*SecurityGroup)(nil),                 // 75: Quantixkvm.network.v1.SecurityGroup
+	(*FloatingIp)(nil),                    // 76: Quantixkvm.network.v1.FloatingIp
+	(*LoadBalancerSpec)(nil),              // 77: Quantixkvm.network.v1.LoadBalancerSpec
+	(*LoadBalancer)(nil),                  // 78: Quantixkvm.network.v1.LoadBalancer
+	(*Listener)(nil),                      // 79: Quantixkvm.network.v1.Listener
+	(*PoolMember)(nil),                    // 80: Quantixkvm.network.v1.PoolMember
+	(*VpnConnection)(nil),                 // 81: Quantixkvm.network.v1.VpnConnection
+	(*VpnService)(nil),                    // 82: Quantixkvm.network.v1.VpnService
 	(*emptypb.Empty)(nil),                 // 83: google.protobuf.Empty
 }
-var file_limiquantix_network_v1_network_service_proto_depIdxs = []int32{
-	58, // 0: limiquantix.network.v1.CreateNetworkRequest.labels:type_name -> limiquantix.network.v1.CreateNetworkRequest.LabelsEntry
-	68, // 1: limiquantix.network.v1.CreateNetworkRequest.spec:type_name -> limiquantix.network.v1.VirtualNetworkSpec
-	59, // 2: limiquantix.network.v1.ListNetworksRequest.labels:type_name -> limiquantix.network.v1.ListNetworksRequest.LabelsEntry
-	69, // 3: limiquantix.network.v1.ListNetworksRequest.type:type_name -> limiquantix.network.v1.VirtualNetworkSpec.NetworkType
-	70, // 4: limiquantix.network.v1.ListNetworksResponse.networks:type_name -> limiquantix.network.v1.VirtualNetwork
-	68, // 5: limiquantix.network.v1.UpdateNetworkRequest.spec:type_name -> limiquantix.network.v1.VirtualNetworkSpec
-	71, // 6: limiquantix.network.v1.UpdateNetworkRequest.update_mask:type_name -> google.protobuf.FieldMask
-	60, // 7: limiquantix.network.v1.UpdateNetworkRequest.labels:type_name -> limiquantix.network.v1.UpdateNetworkRequest.LabelsEntry
-	9,  // 8: limiquantix.network.v1.NetworkTopology.nodes:type_name -> limiquantix.network.v1.NetworkNode
-	10, // 9: limiquantix.network.v1.NetworkTopology.edges:type_name -> limiquantix.network.v1.NetworkEdge
-	61, // 10: limiquantix.network.v1.NetworkNode.properties:type_name -> limiquantix.network.v1.NetworkNode.PropertiesEntry
-	62, // 11: limiquantix.network.v1.CreatePortRequest.labels:type_name -> limiquantix.network.v1.CreatePortRequest.LabelsEntry
-	72, // 12: limiquantix.network.v1.CreatePortRequest.spec:type_name -> limiquantix.network.v1.PortSpec
-	73, // 13: limiquantix.network.v1.ListPortsResponse.ports:type_name -> limiquantix.network.v1.Port
-	72, // 14: limiquantix.network.v1.UpdatePortRequest.spec:type_name -> limiquantix.network.v1.PortSpec
-	71, // 15: limiquantix.network.v1.UpdatePortRequest.update_mask:type_name -> google.protobuf.FieldMask
-	63, // 16: limiquantix.network.v1.CreateSecurityGroupRequest.labels:type_name -> limiquantix.network.v1.CreateSecurityGroupRequest.LabelsEntry
-	74, // 17: limiquantix.network.v1.CreateSecurityGroupRequest.rules:type_name -> limiquantix.network.v1.SecurityGroupRule
-	75, // 18: limiquantix.network.v1.ListSecurityGroupsResponse.security_groups:type_name -> limiquantix.network.v1.SecurityGroup
-	64, // 19: limiquantix.network.v1.UpdateSecurityGroupRequest.labels:type_name -> limiquantix.network.v1.UpdateSecurityGroupRequest.LabelsEntry
-	74, // 20: limiquantix.network.v1.AddRuleRequest.rule:type_name -> limiquantix.network.v1.SecurityGroupRule
-	65, // 21: limiquantix.network.v1.AllocateFloatingIpRequest.labels:type_name -> limiquantix.network.v1.AllocateFloatingIpRequest.LabelsEntry
-	76, // 22: limiquantix.network.v1.ListFloatingIpsResponse.floating_ips:type_name -> limiquantix.network.v1.FloatingIp
-	66, // 23: limiquantix.network.v1.CreateLoadBalancerRequest.labels:type_name -> limiquantix.network.v1.CreateLoadBalancerRequest.LabelsEntry
-	77, // 24: limiquantix.network.v1.CreateLoadBalancerRequest.spec:type_name -> limiquantix.network.v1.LoadBalancerSpec
-	78, // 25: limiquantix.network.v1.ListLoadBalancersResponse.load_balancers:type_name -> limiquantix.network.v1.LoadBalancer
-	67, // 26: limiquantix.network.v1.UpdateLoadBalancerRequest.labels:type_name -> limiquantix.network.v1.UpdateLoadBalancerRequest.LabelsEntry
-	79, // 27: limiquantix.network.v1.AddListenerRequest.listener:type_name -> limiquantix.network.v1.Listener
-	80, // 28: limiquantix.network.v1.AddPoolMemberRequest.member:type_name -> limiquantix.network.v1.PoolMember
-	46, // 29: limiquantix.network.v1.LoadBalancerStats.listener_stats:type_name -> limiquantix.network.v1.ListenerStats
-	47, // 30: limiquantix.network.v1.LoadBalancerStats.member_stats:type_name -> limiquantix.network.v1.MemberStats
-	81, // 31: limiquantix.network.v1.CreateVpnRequest.connections:type_name -> limiquantix.network.v1.VpnConnection
-	82, // 32: limiquantix.network.v1.ListVpnsResponse.vpn_services:type_name -> limiquantix.network.v1.VpnService
-	81, // 33: limiquantix.network.v1.AddConnectionRequest.connection:type_name -> limiquantix.network.v1.VpnConnection
-	57, // 34: limiquantix.network.v1.VpnTunnelStatus.tunnels:type_name -> limiquantix.network.v1.TunnelStatus
-	0,  // 35: limiquantix.network.v1.TunnelStatus.status:type_name -> limiquantix.network.v1.TunnelStatus.Status
-	1,  // 36: limiquantix.network.v1.VirtualNetworkService.CreateNetwork:input_type -> limiquantix.network.v1.CreateNetworkRequest
-	2,  // 37: limiquantix.network.v1.VirtualNetworkService.GetNetwork:input_type -> limiquantix.network.v1.GetNetworkRequest
-	3,  // 38: limiquantix.network.v1.VirtualNetworkService.ListNetworks:input_type -> limiquantix.network.v1.ListNetworksRequest
-	5,  // 39: limiquantix.network.v1.VirtualNetworkService.UpdateNetwork:input_type -> limiquantix.network.v1.UpdateNetworkRequest
-	6,  // 40: limiquantix.network.v1.VirtualNetworkService.DeleteNetwork:input_type -> limiquantix.network.v1.DeleteNetworkRequest
-	7,  // 41: limiquantix.network.v1.VirtualNetworkService.GetNetworkTopology:input_type -> limiquantix.network.v1.GetNetworkTopologyRequest
-	11, // 42: limiquantix.network.v1.PortService.CreatePort:input_type -> limiquantix.network.v1.CreatePortRequest
-	12, // 43: limiquantix.network.v1.PortService.GetPort:input_type -> limiquantix.network.v1.GetPortRequest
-	13, // 44: limiquantix.network.v1.PortService.ListPorts:input_type -> limiquantix.network.v1.ListPortsRequest
-	15, // 45: limiquantix.network.v1.PortService.UpdatePort:input_type -> limiquantix.network.v1.UpdatePortRequest
-	16, // 46: limiquantix.network.v1.PortService.DeletePort:input_type -> limiquantix.network.v1.DeletePortRequest
-	17, // 47: limiquantix.network.v1.PortService.BindPort:input_type -> limiquantix.network.v1.BindPortRequest
-	18, // 48: limiquantix.network.v1.PortService.UnbindPort:input_type -> limiquantix.network.v1.UnbindPortRequest
-	19, // 49: limiquantix.network.v1.SecurityGroupService.CreateSecurityGroup:input_type -> limiquantix.network.v1.CreateSecurityGroupRequest
-	20, // 50: limiquantix.network.v1.SecurityGroupService.GetSecurityGroup:input_type -> limiquantix.network.v1.GetSecurityGroupRequest
-	21, // 51: limiquantix.network.v1.SecurityGroupService.ListSecurityGroups:input_type -> limiquantix.network.v1.ListSecurityGroupsRequest
-	23, // 52: limiquantix.network.v1.SecurityGroupService.UpdateSecurityGroup:input_type -> limiquantix.network.v1.UpdateSecurityGroupRequest
-	24, // 53: limiquantix.network.v1.SecurityGroupService.DeleteSecurityGroup:input_type -> limiquantix.network.v1.DeleteSecurityGroupRequest
-	25, // 54: limiquantix.network.v1.SecurityGroupService.AddRule:input_type -> limiquantix.network.v1.AddRuleRequest
-	26, // 55: limiquantix.network.v1.SecurityGroupService.RemoveRule:input_type -> limiquantix.network.v1.RemoveRuleRequest
-	27, // 56: limiquantix.network.v1.FloatingIpService.AllocateFloatingIp:input_type -> limiquantix.network.v1.AllocateFloatingIpRequest
-	28, // 57: limiquantix.network.v1.FloatingIpService.GetFloatingIp:input_type -> limiquantix.network.v1.GetFloatingIpRequest
-	29, // 58: limiquantix.network.v1.FloatingIpService.ListFloatingIps:input_type -> limiquantix.network.v1.ListFloatingIpsRequest
-	31, // 59: limiquantix.network.v1.FloatingIpService.ReleaseFloatingIp:input_type -> limiquantix.network.v1.ReleaseFloatingIpRequest
-	32, // 60: limiquantix.network.v1.FloatingIpService.AssociateFloatingIp:input_type -> limiquantix.network.v1.AssociateFloatingIpRequest
-	33, // 61: limiquantix.network.v1.FloatingIpService.DisassociateFloatingIp:input_type -> limiquantix.network.v1.DisassociateFloatingIpRequest
-	34, // 62: limiquantix.network.v1.LoadBalancerService.CreateLoadBalancer:input_type -> limiquantix.network.v1.CreateLoadBalancerRequest
-	35, // 63: limiquantix.network.v1.LoadBalancerService.GetLoadBalancer:input_type -> limiquantix.network.v1.GetLoadBalancerRequest
-	36, // 64: limiquantix.network.v1.LoadBalancerService.ListLoadBalancers:input_type -> limiquantix.network.v1.ListLoadBalancersRequest
-	38, // 65: limiquantix.network.v1.LoadBalancerService.UpdateLoadBalancer:input_type -> limiquantix.network.v1.UpdateLoadBalancerRequest
-	39, // 66: limiquantix.network.v1.LoadBalancerService.DeleteLoadBalancer:input_type -> limiquantix.network.v1.DeleteLoadBalancerRequest
-	40, // 67: limiquantix.network.v1.LoadBalancerService.AddListener:input_type -> limiquantix.network.v1.AddListenerRequest
-	41, // 68: limiquantix.network.v1.LoadBalancerService.RemoveListener:input_type -> limiquantix.network.v1.RemoveListenerRequest
-	42, // 69: limiquantix.network.v1.LoadBalancerService.AddPoolMember:input_type -> limiquantix.network.v1.AddPoolMemberRequest
-	43, // 70: limiquantix.network.v1.LoadBalancerService.RemovePoolMember:input_type -> limiquantix.network.v1.RemovePoolMemberRequest
-	44, // 71: limiquantix.network.v1.LoadBalancerService.GetLoadBalancerStats:input_type -> limiquantix.network.v1.GetLoadBalancerStatsRequest
-	48, // 72: limiquantix.network.v1.VpnServiceManager.CreateVpn:input_type -> limiquantix.network.v1.CreateVpnRequest
-	49, // 73: limiquantix.network.v1.VpnServiceManager.GetVpn:input_type -> limiquantix.network.v1.GetVpnRequest
-	50, // 74: limiquantix.network.v1.VpnServiceManager.ListVpns:input_type -> limiquantix.network.v1.ListVpnsRequest
-	52, // 75: limiquantix.network.v1.VpnServiceManager.DeleteVpn:input_type -> limiquantix.network.v1.DeleteVpnRequest
-	53, // 76: limiquantix.network.v1.VpnServiceManager.AddConnection:input_type -> limiquantix.network.v1.AddConnectionRequest
-	54, // 77: limiquantix.network.v1.VpnServiceManager.RemoveConnection:input_type -> limiquantix.network.v1.RemoveConnectionRequest
-	55, // 78: limiquantix.network.v1.VpnServiceManager.GetVpnStatus:input_type -> limiquantix.network.v1.GetVpnStatusRequest
-	70, // 79: limiquantix.network.v1.VirtualNetworkService.CreateNetwork:output_type -> limiquantix.network.v1.VirtualNetwork
-	70, // 80: limiquantix.network.v1.VirtualNetworkService.GetNetwork:output_type -> limiquantix.network.v1.VirtualNetwork
-	4,  // 81: limiquantix.network.v1.VirtualNetworkService.ListNetworks:output_type -> limiquantix.network.v1.ListNetworksResponse
-	70, // 82: limiquantix.network.v1.VirtualNetworkService.UpdateNetwork:output_type -> limiquantix.network.v1.VirtualNetwork
-	83, // 83: limiquantix.network.v1.VirtualNetworkService.DeleteNetwork:output_type -> google.protobuf.Empty
-	8,  // 84: limiquantix.network.v1.VirtualNetworkService.GetNetworkTopology:output_type -> limiquantix.network.v1.NetworkTopology
-	73, // 85: limiquantix.network.v1.PortService.CreatePort:output_type -> limiquantix.network.v1.Port
-	73, // 86: limiquantix.network.v1.PortService.GetPort:output_type -> limiquantix.network.v1.Port
-	14, // 87: limiquantix.network.v1.PortService.ListPorts:output_type -> limiquantix.network.v1.ListPortsResponse
-	73, // 88: limiquantix.network.v1.PortService.UpdatePort:output_type -> limiquantix.network.v1.Port
-	83, // 89: limiquantix.network.v1.PortService.DeletePort:output_type -> google.protobuf.Empty
-	73, // 90: limiquantix.network.v1.PortService.BindPort:output_type -> limiquantix.network.v1.Port
-	73, // 91: limiquantix.network.v1.PortService.UnbindPort:output_type -> limiquantix.network.v1.Port
-	75, // 92: limiquantix.network.v1.SecurityGroupService.CreateSecurityGroup:output_type -> limiquantix.network.v1.SecurityGroup
-	75, // 93: limiquantix.network.v1.SecurityGroupService.GetSecurityGroup:output_type -> limiquantix.network.v1.SecurityGroup
-	22, // 94: limiquantix.network.v1.SecurityGroupService.ListSecurityGroups:output_type -> limiquantix.network.v1.ListSecurityGroupsResponse
-	75, // 95: limiquantix.network.v1.SecurityGroupService.UpdateSecurityGroup:output_type -> limiquantix.network.v1.SecurityGroup
-	83, // 96: limiquantix.network.v1.SecurityGroupService.DeleteSecurityGroup:output_type -> google.protobuf.Empty
-	75, // 97: limiquantix.network.v1.SecurityGroupService.AddRule:output_type -> limiquantix.network.v1.SecurityGroup
-	75, // 98: limiquantix.network.v1.SecurityGroupService.RemoveRule:output_type -> limiquantix.network.v1.SecurityGroup
-	76, // 99: limiquantix.network.v1.FloatingIpService.AllocateFloatingIp:output_type -> limiquantix.network.v1.FloatingIp
-	76, // 100: limiquantix.network.v1.FloatingIpService.GetFloatingIp:output_type -> limiquantix.network.v1.FloatingIp
-	30, // 101: limiquantix.network.v1.FloatingIpService.ListFloatingIps:output_type -> limiquantix.network.v1.ListFloatingIpsResponse
-	83, // 102: limiquantix.network.v1.FloatingIpService.ReleaseFloatingIp:output_type -> google.protobuf.Empty
-	76, // 103: limiquantix.network.v1.FloatingIpService.AssociateFloatingIp:output_type -> limiquantix.network.v1.FloatingIp
-	76, // 104: limiquantix.network.v1.FloatingIpService.DisassociateFloatingIp:output_type -> limiquantix.network.v1.FloatingIp
-	78, // 105: limiquantix.network.v1.LoadBalancerService.CreateLoadBalancer:output_type -> limiquantix.network.v1.LoadBalancer
-	78, // 106: limiquantix.network.v1.LoadBalancerService.GetLoadBalancer:output_type -> limiquantix.network.v1.LoadBalancer
-	37, // 107: limiquantix.network.v1.LoadBalancerService.ListLoadBalancers:output_type -> limiquantix.network.v1.ListLoadBalancersResponse
-	78, // 108: limiquantix.network.v1.LoadBalancerService.UpdateLoadBalancer:output_type -> limiquantix.network.v1.LoadBalancer
-	83, // 109: limiquantix.network.v1.LoadBalancerService.DeleteLoadBalancer:output_type -> google.protobuf.Empty
-	78, // 110: limiquantix.network.v1.LoadBalancerService.AddListener:output_type -> limiquantix.network.v1.LoadBalancer
-	78, // 111: limiquantix.network.v1.LoadBalancerService.RemoveListener:output_type -> limiquantix.network.v1.LoadBalancer
-	78, // 112: limiquantix.network.v1.LoadBalancerService.AddPoolMember:output_type -> limiquantix.network.v1.LoadBalancer
-	78, // 113: limiquantix.network.v1.LoadBalancerService.RemovePoolMember:output_type -> limiquantix.network.v1.LoadBalancer
-	45, // 114: limiquantix.network.v1.LoadBalancerService.GetLoadBalancerStats:output_type -> limiquantix.network.v1.LoadBalancerStats
-	82, // 115: limiquantix.network.v1.VpnServiceManager.CreateVpn:output_type -> limiquantix.network.v1.VpnService
-	82, // 116: limiquantix.network.v1.VpnServiceManager.GetVpn:output_type -> limiquantix.network.v1.VpnService
-	51, // 117: limiquantix.network.v1.VpnServiceManager.ListVpns:output_type -> limiquantix.network.v1.ListVpnsResponse
-	83, // 118: limiquantix.network.v1.VpnServiceManager.DeleteVpn:output_type -> google.protobuf.Empty
-	82, // 119: limiquantix.network.v1.VpnServiceManager.AddConnection:output_type -> limiquantix.network.v1.VpnService
-	82, // 120: limiquantix.network.v1.VpnServiceManager.RemoveConnection:output_type -> limiquantix.network.v1.VpnService
-	56, // 121: limiquantix.network.v1.VpnServiceManager.GetVpnStatus:output_type -> limiquantix.network.v1.VpnTunnelStatus
+var file_Quantixkvm_network_v1_network_service_proto_depIdxs = []int32{
+	58, // 0: Quantixkvm.network.v1.CreateNetworkRequest.labels:type_name -> Quantixkvm.network.v1.CreateNetworkRequest.LabelsEntry
+	68, // 1: Quantixkvm.network.v1.CreateNetworkRequest.spec:type_name -> Quantixkvm.network.v1.VirtualNetworkSpec
+	59, // 2: Quantixkvm.network.v1.ListNetworksRequest.labels:type_name -> Quantixkvm.network.v1.ListNetworksRequest.LabelsEntry
+	69, // 3: Quantixkvm.network.v1.ListNetworksRequest.type:type_name -> Quantixkvm.network.v1.VirtualNetworkSpec.NetworkType
+	70, // 4: Quantixkvm.network.v1.ListNetworksResponse.networks:type_name -> Quantixkvm.network.v1.VirtualNetwork
+	68, // 5: Quantixkvm.network.v1.UpdateNetworkRequest.spec:type_name -> Quantixkvm.network.v1.VirtualNetworkSpec
+	71, // 6: Quantixkvm.network.v1.UpdateNetworkRequest.update_mask:type_name -> google.protobuf.FieldMask
+	60, // 7: Quantixkvm.network.v1.UpdateNetworkRequest.labels:type_name -> Quantixkvm.network.v1.UpdateNetworkRequest.LabelsEntry
+	9,  // 8: Quantixkvm.network.v1.NetworkTopology.nodes:type_name -> Quantixkvm.network.v1.NetworkNode
+	10, // 9: Quantixkvm.network.v1.NetworkTopology.edges:type_name -> Quantixkvm.network.v1.NetworkEdge
+	61, // 10: Quantixkvm.network.v1.NetworkNode.properties:type_name -> Quantixkvm.network.v1.NetworkNode.PropertiesEntry
+	62, // 11: Quantixkvm.network.v1.CreatePortRequest.labels:type_name -> Quantixkvm.network.v1.CreatePortRequest.LabelsEntry
+	72, // 12: Quantixkvm.network.v1.CreatePortRequest.spec:type_name -> Quantixkvm.network.v1.PortSpec
+	73, // 13: Quantixkvm.network.v1.ListPortsResponse.ports:type_name -> Quantixkvm.network.v1.Port
+	72, // 14: Quantixkvm.network.v1.UpdatePortRequest.spec:type_name -> Quantixkvm.network.v1.PortSpec
+	71, // 15: Quantixkvm.network.v1.UpdatePortRequest.update_mask:type_name -> google.protobuf.FieldMask
+	63, // 16: Quantixkvm.network.v1.CreateSecurityGroupRequest.labels:type_name -> Quantixkvm.network.v1.CreateSecurityGroupRequest.LabelsEntry
+	74, // 17: Quantixkvm.network.v1.CreateSecurityGroupRequest.rules:type_name -> Quantixkvm.network.v1.SecurityGroupRule
+	75, // 18: Quantixkvm.network.v1.ListSecurityGroupsResponse.security_groups:type_name -> Quantixkvm.network.v1.SecurityGroup
+	64, // 19: Quantixkvm.network.v1.UpdateSecurityGroupRequest.labels:type_name -> Quantixkvm.network.v1.UpdateSecurityGroupRequest.LabelsEntry
+	74, // 20: Quantixkvm.network.v1.AddRuleRequest.rule:type_name -> Quantixkvm.network.v1.SecurityGroupRule
+	65, // 21: Quantixkvm.network.v1.AllocateFloatingIpRequest.labels:type_name -> Quantixkvm.network.v1.AllocateFloatingIpRequest.LabelsEntry
+	76, // 22: Quantixkvm.network.v1.ListFloatingIpsResponse.floating_ips:type_name -> Quantixkvm.network.v1.FloatingIp
+	66, // 23: Quantixkvm.network.v1.CreateLoadBalancerRequest.labels:type_name -> Quantixkvm.network.v1.CreateLoadBalancerRequest.LabelsEntry
+	77, // 24: Quantixkvm.network.v1.CreateLoadBalancerRequest.spec:type_name -> Quantixkvm.network.v1.LoadBalancerSpec
+	78, // 25: Quantixkvm.network.v1.ListLoadBalancersResponse.load_balancers:type_name -> Quantixkvm.network.v1.LoadBalancer
+	67, // 26: Quantixkvm.network.v1.UpdateLoadBalancerRequest.labels:type_name -> Quantixkvm.network.v1.UpdateLoadBalancerRequest.LabelsEntry
+	79, // 27: Quantixkvm.network.v1.AddListenerRequest.listener:type_name -> Quantixkvm.network.v1.Listener
+	80, // 28: Quantixkvm.network.v1.AddPoolMemberRequest.member:type_name -> Quantixkvm.network.v1.PoolMember
+	46, // 29: Quantixkvm.network.v1.LoadBalancerStats.listener_stats:type_name -> Quantixkvm.network.v1.ListenerStats
+	47, // 30: Quantixkvm.network.v1.LoadBalancerStats.member_stats:type_name -> Quantixkvm.network.v1.MemberStats
+	81, // 31: Quantixkvm.network.v1.CreateVpnRequest.connections:type_name -> Quantixkvm.network.v1.VpnConnection
+	82, // 32: Quantixkvm.network.v1.ListVpnsResponse.vpn_services:type_name -> Quantixkvm.network.v1.VpnService
+	81, // 33: Quantixkvm.network.v1.AddConnectionRequest.connection:type_name -> Quantixkvm.network.v1.VpnConnection
+	57, // 34: Quantixkvm.network.v1.VpnTunnelStatus.tunnels:type_name -> Quantixkvm.network.v1.TunnelStatus
+	0,  // 35: Quantixkvm.network.v1.TunnelStatus.status:type_name -> Quantixkvm.network.v1.TunnelStatus.Status
+	1,  // 36: Quantixkvm.network.v1.VirtualNetworkService.CreateNetwork:input_type -> Quantixkvm.network.v1.CreateNetworkRequest
+	2,  // 37: Quantixkvm.network.v1.VirtualNetworkService.GetNetwork:input_type -> Quantixkvm.network.v1.GetNetworkRequest
+	3,  // 38: Quantixkvm.network.v1.VirtualNetworkService.ListNetworks:input_type -> Quantixkvm.network.v1.ListNetworksRequest
+	5,  // 39: Quantixkvm.network.v1.VirtualNetworkService.UpdateNetwork:input_type -> Quantixkvm.network.v1.UpdateNetworkRequest
+	6,  // 40: Quantixkvm.network.v1.VirtualNetworkService.DeleteNetwork:input_type -> Quantixkvm.network.v1.DeleteNetworkRequest
+	7,  // 41: Quantixkvm.network.v1.VirtualNetworkService.GetNetworkTopology:input_type -> Quantixkvm.network.v1.GetNetworkTopologyRequest
+	11, // 42: Quantixkvm.network.v1.PortService.CreatePort:input_type -> Quantixkvm.network.v1.CreatePortRequest
+	12, // 43: Quantixkvm.network.v1.PortService.GetPort:input_type -> Quantixkvm.network.v1.GetPortRequest
+	13, // 44: Quantixkvm.network.v1.PortService.ListPorts:input_type -> Quantixkvm.network.v1.ListPortsRequest
+	15, // 45: Quantixkvm.network.v1.PortService.UpdatePort:input_type -> Quantixkvm.network.v1.UpdatePortRequest
+	16, // 46: Quantixkvm.network.v1.PortService.DeletePort:input_type -> Quantixkvm.network.v1.DeletePortRequest
+	17, // 47: Quantixkvm.network.v1.PortService.BindPort:input_type -> Quantixkvm.network.v1.BindPortRequest
+	18, // 48: Quantixkvm.network.v1.PortService.UnbindPort:input_type -> Quantixkvm.network.v1.UnbindPortRequest
+	19, // 49: Quantixkvm.network.v1.SecurityGroupService.CreateSecurityGroup:input_type -> Quantixkvm.network.v1.CreateSecurityGroupRequest
+	20, // 50: Quantixkvm.network.v1.SecurityGroupService.GetSecurityGroup:input_type -> Quantixkvm.network.v1.GetSecurityGroupRequest
+	21, // 51: Quantixkvm.network.v1.SecurityGroupService.ListSecurityGroups:input_type -> Quantixkvm.network.v1.ListSecurityGroupsRequest
+	23, // 52: Quantixkvm.network.v1.SecurityGroupService.UpdateSecurityGroup:input_type -> Quantixkvm.network.v1.UpdateSecurityGroupRequest
+	24, // 53: Quantixkvm.network.v1.SecurityGroupService.DeleteSecurityGroup:input_type -> Quantixkvm.network.v1.DeleteSecurityGroupRequest
+	25, // 54: Quantixkvm.network.v1.SecurityGroupService.AddRule:input_type -> Quantixkvm.network.v1.AddRuleRequest
+	26, // 55: Quantixkvm.network.v1.SecurityGroupService.RemoveRule:input_type -> Quantixkvm.network.v1.RemoveRuleRequest
+	27, // 56: Quantixkvm.network.v1.FloatingIpService.AllocateFloatingIp:input_type -> Quantixkvm.network.v1.AllocateFloatingIpRequest
+	28, // 57: Quantixkvm.network.v1.FloatingIpService.GetFloatingIp:input_type -> Quantixkvm.network.v1.GetFloatingIpRequest
+	29, // 58: Quantixkvm.network.v1.FloatingIpService.ListFloatingIps:input_type -> Quantixkvm.network.v1.ListFloatingIpsRequest
+	31, // 59: Quantixkvm.network.v1.FloatingIpService.ReleaseFloatingIp:input_type -> Quantixkvm.network.v1.ReleaseFloatingIpRequest
+	32, // 60: Quantixkvm.network.v1.FloatingIpService.AssociateFloatingIp:input_type -> Quantixkvm.network.v1.AssociateFloatingIpRequest
+	33, // 61: Quantixkvm.network.v1.FloatingIpService.DisassociateFloatingIp:input_type -> Quantixkvm.network.v1.DisassociateFloatingIpRequest
+	34, // 62: Quantixkvm.network.v1.LoadBalancerService.CreateLoadBalancer:input_type -> Quantixkvm.network.v1.CreateLoadBalancerRequest
+	35, // 63: Quantixkvm.network.v1.LoadBalancerService.GetLoadBalancer:input_type -> Quantixkvm.network.v1.GetLoadBalancerRequest
+	36, // 64: Quantixkvm.network.v1.LoadBalancerService.ListLoadBalancers:input_type -> Quantixkvm.network.v1.ListLoadBalancersRequest
+	38, // 65: Quantixkvm.network.v1.LoadBalancerService.UpdateLoadBalancer:input_type -> Quantixkvm.network.v1.UpdateLoadBalancerRequest
+	39, // 66: Quantixkvm.network.v1.LoadBalancerService.DeleteLoadBalancer:input_type -> Quantixkvm.network.v1.DeleteLoadBalancerRequest
+	40, // 67: Quantixkvm.network.v1.LoadBalancerService.AddListener:input_type -> Quantixkvm.network.v1.AddListenerRequest
+	41, // 68: Quantixkvm.network.v1.LoadBalancerService.RemoveListener:input_type -> Quantixkvm.network.v1.RemoveListenerRequest
+	42, // 69: Quantixkvm.network.v1.LoadBalancerService.AddPoolMember:input_type -> Quantixkvm.network.v1.AddPoolMemberRequest
+	43, // 70: Quantixkvm.network.v1.LoadBalancerService.RemovePoolMember:input_type -> Quantixkvm.network.v1.RemovePoolMemberRequest
+	44, // 71: Quantixkvm.network.v1.LoadBalancerService.GetLoadBalancerStats:input_type -> Quantixkvm.network.v1.GetLoadBalancerStatsRequest
+	48, // 72: Quantixkvm.network.v1.VpnServiceManager.CreateVpn:input_type -> Quantixkvm.network.v1.CreateVpnRequest
+	49, // 73: Quantixkvm.network.v1.VpnServiceManager.GetVpn:input_type -> Quantixkvm.network.v1.GetVpnRequest
+	50, // 74: Quantixkvm.network.v1.VpnServiceManager.ListVpns:input_type -> Quantixkvm.network.v1.ListVpnsRequest
+	52, // 75: Quantixkvm.network.v1.VpnServiceManager.DeleteVpn:input_type -> Quantixkvm.network.v1.DeleteVpnRequest
+	53, // 76: Quantixkvm.network.v1.VpnServiceManager.AddConnection:input_type -> Quantixkvm.network.v1.AddConnectionRequest
+	54, // 77: Quantixkvm.network.v1.VpnServiceManager.RemoveConnection:input_type -> Quantixkvm.network.v1.RemoveConnectionRequest
+	55, // 78: Quantixkvm.network.v1.VpnServiceManager.GetVpnStatus:input_type -> Quantixkvm.network.v1.GetVpnStatusRequest
+	70, // 79: Quantixkvm.network.v1.VirtualNetworkService.CreateNetwork:output_type -> Quantixkvm.network.v1.VirtualNetwork
+	70, // 80: Quantixkvm.network.v1.VirtualNetworkService.GetNetwork:output_type -> Quantixkvm.network.v1.VirtualNetwork
+	4,  // 81: Quantixkvm.network.v1.VirtualNetworkService.ListNetworks:output_type -> Quantixkvm.network.v1.ListNetworksResponse
+	70, // 82: Quantixkvm.network.v1.VirtualNetworkService.UpdateNetwork:output_type -> Quantixkvm.network.v1.VirtualNetwork
+	83, // 83: Quantixkvm.network.v1.VirtualNetworkService.DeleteNetwork:output_type -> google.protobuf.Empty
+	8,  // 84: Quantixkvm.network.v1.VirtualNetworkService.GetNetworkTopology:output_type -> Quantixkvm.network.v1.NetworkTopology
+	73, // 85: Quantixkvm.network.v1.PortService.CreatePort:output_type -> Quantixkvm.network.v1.Port
+	73, // 86: Quantixkvm.network.v1.PortService.GetPort:output_type -> Quantixkvm.network.v1.Port
+	14, // 87: Quantixkvm.network.v1.PortService.ListPorts:output_type -> Quantixkvm.network.v1.ListPortsResponse
+	73, // 88: Quantixkvm.network.v1.PortService.UpdatePort:output_type -> Quantixkvm.network.v1.Port
+	83, // 89: Quantixkvm.network.v1.PortService.DeletePort:output_type -> google.protobuf.Empty
+	73, // 90: Quantixkvm.network.v1.PortService.BindPort:output_type -> Quantixkvm.network.v1.Port
+	73, // 91: Quantixkvm.network.v1.PortService.UnbindPort:output_type -> Quantixkvm.network.v1.Port
+	75, // 92: Quantixkvm.network.v1.SecurityGroupService.CreateSecurityGroup:output_type -> Quantixkvm.network.v1.SecurityGroup
+	75, // 93: Quantixkvm.network.v1.SecurityGroupService.GetSecurityGroup:output_type -> Quantixkvm.network.v1.SecurityGroup
+	22, // 94: Quantixkvm.network.v1.SecurityGroupService.ListSecurityGroups:output_type -> Quantixkvm.network.v1.ListSecurityGroupsResponse
+	75, // 95: Quantixkvm.network.v1.SecurityGroupService.UpdateSecurityGroup:output_type -> Quantixkvm.network.v1.SecurityGroup
+	83, // 96: Quantixkvm.network.v1.SecurityGroupService.DeleteSecurityGroup:output_type -> google.protobuf.Empty
+	75, // 97: Quantixkvm.network.v1.SecurityGroupService.AddRule:output_type -> Quantixkvm.network.v1.SecurityGroup
+	75, // 98: Quantixkvm.network.v1.SecurityGroupService.RemoveRule:output_type -> Quantixkvm.network.v1.SecurityGroup
+	76, // 99: Quantixkvm.network.v1.FloatingIpService.AllocateFloatingIp:output_type -> Quantixkvm.network.v1.FloatingIp
+	76, // 100: Quantixkvm.network.v1.FloatingIpService.GetFloatingIp:output_type -> Quantixkvm.network.v1.FloatingIp
+	30, // 101: Quantixkvm.network.v1.FloatingIpService.ListFloatingIps:output_type -> Quantixkvm.network.v1.ListFloatingIpsResponse
+	83, // 102: Quantixkvm.network.v1.FloatingIpService.ReleaseFloatingIp:output_type -> google.protobuf.Empty
+	76, // 103: Quantixkvm.network.v1.FloatingIpService.AssociateFloatingIp:output_type -> Quantixkvm.network.v1.FloatingIp
+	76, // 104: Quantixkvm.network.v1.FloatingIpService.DisassociateFloatingIp:output_type -> Quantixkvm.network.v1.FloatingIp
+	78, // 105: Quantixkvm.network.v1.LoadBalancerService.CreateLoadBalancer:output_type -> Quantixkvm.network.v1.LoadBalancer
+	78, // 106: Quantixkvm.network.v1.LoadBalancerService.GetLoadBalancer:output_type -> Quantixkvm.network.v1.LoadBalancer
+	37, // 107: Quantixkvm.network.v1.LoadBalancerService.ListLoadBalancers:output_type -> Quantixkvm.network.v1.ListLoadBalancersResponse
+	78, // 108: Quantixkvm.network.v1.LoadBalancerService.UpdateLoadBalancer:output_type -> Quantixkvm.network.v1.LoadBalancer
+	83, // 109: Quantixkvm.network.v1.LoadBalancerService.DeleteLoadBalancer:output_type -> google.protobuf.Empty
+	78, // 110: Quantixkvm.network.v1.LoadBalancerService.AddListener:output_type -> Quantixkvm.network.v1.LoadBalancer
+	78, // 111: Quantixkvm.network.v1.LoadBalancerService.RemoveListener:output_type -> Quantixkvm.network.v1.LoadBalancer
+	78, // 112: Quantixkvm.network.v1.LoadBalancerService.AddPoolMember:output_type -> Quantixkvm.network.v1.LoadBalancer
+	78, // 113: Quantixkvm.network.v1.LoadBalancerService.RemovePoolMember:output_type -> Quantixkvm.network.v1.LoadBalancer
+	45, // 114: Quantixkvm.network.v1.LoadBalancerService.GetLoadBalancerStats:output_type -> Quantixkvm.network.v1.LoadBalancerStats
+	82, // 115: Quantixkvm.network.v1.VpnServiceManager.CreateVpn:output_type -> Quantixkvm.network.v1.VpnService
+	82, // 116: Quantixkvm.network.v1.VpnServiceManager.GetVpn:output_type -> Quantixkvm.network.v1.VpnService
+	51, // 117: Quantixkvm.network.v1.VpnServiceManager.ListVpns:output_type -> Quantixkvm.network.v1.ListVpnsResponse
+	83, // 118: Quantixkvm.network.v1.VpnServiceManager.DeleteVpn:output_type -> google.protobuf.Empty
+	82, // 119: Quantixkvm.network.v1.VpnServiceManager.AddConnection:output_type -> Quantixkvm.network.v1.VpnService
+	82, // 120: Quantixkvm.network.v1.VpnServiceManager.RemoveConnection:output_type -> Quantixkvm.network.v1.VpnService
+	56, // 121: Quantixkvm.network.v1.VpnServiceManager.GetVpnStatus:output_type -> Quantixkvm.network.v1.VpnTunnelStatus
 	79, // [79:122] is the sub-list for method output_type
 	36, // [36:79] is the sub-list for method input_type
 	36, // [36:36] is the sub-list for extension type_name
@@ -4111,28 +4112,28 @@ var file_limiquantix_network_v1_network_service_proto_depIdxs = []int32{
 	0,  // [0:36] is the sub-list for field type_name
 }
 
-func init() { file_limiquantix_network_v1_network_service_proto_init() }
-func file_limiquantix_network_v1_network_service_proto_init() {
-	if File_limiquantix_network_v1_network_service_proto != nil {
+func init() { file_Quantixkvm_network_v1_network_service_proto_init() }
+func file_Quantixkvm_network_v1_network_service_proto_init() {
+	if File_Quantixkvm_network_v1_network_service_proto != nil {
 		return
 	}
-	file_limiquantix_network_v1_network_proto_init()
+	file_Quantixkvm_network_v1_network_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_network_v1_network_service_proto_rawDesc), len(file_limiquantix_network_v1_network_service_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_Quantixkvm_network_v1_network_service_proto_rawDesc), len(file_Quantixkvm_network_v1_network_service_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   67,
 			NumExtensions: 0,
 			NumServices:   6,
 		},
-		GoTypes:           file_limiquantix_network_v1_network_service_proto_goTypes,
-		DependencyIndexes: file_limiquantix_network_v1_network_service_proto_depIdxs,
-		EnumInfos:         file_limiquantix_network_v1_network_service_proto_enumTypes,
-		MessageInfos:      file_limiquantix_network_v1_network_service_proto_msgTypes,
+		GoTypes:           file_Quantixkvm_network_v1_network_service_proto_goTypes,
+		DependencyIndexes: file_Quantixkvm_network_v1_network_service_proto_depIdxs,
+		EnumInfos:         file_Quantixkvm_network_v1_network_service_proto_enumTypes,
+		MessageInfos:      file_Quantixkvm_network_v1_network_service_proto_msgTypes,
 	}.Build()
-	File_limiquantix_network_v1_network_service_proto = out.File
-	file_limiquantix_network_v1_network_service_proto_goTypes = nil
-	file_limiquantix_network_v1_network_service_proto_depIdxs = nil
+	File_Quantixkvm_network_v1_network_service_proto = out.File
+	file_Quantixkvm_network_v1_network_service_proto_goTypes = nil
+	file_Quantixkvm_network_v1_network_service_proto_depIdxs = nil
 }

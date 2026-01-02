@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
 )
 
 // Event represents a real-time event.

@@ -9,7 +9,7 @@
 
 ## Overview
 
-Backend Phase 2 implements the core gRPC/Connect-RPC services for the LimiQuantix control plane. This phase establishes the foundation for managing virtual machines, nodes, storage, networks, and VM scheduling.
+Backend Phase 2 implements the core gRPC/Connect-RPC services for the Quantixkvm control plane. This phase establishes the foundation for managing virtual machines, nodes, storage, networks, and VM scheduling.
 
 ## Architecture
 
@@ -234,10 +234,10 @@ The server exposes these endpoints:
 | `/ready` | Readiness probe |
 | `/live` | Liveness probe |
 | `/api/v1/info` | API information |
-| `/limiquantix.compute.v1.VMService/*` | VM gRPC methods |
-| `/limiquantix.compute.v1.NodeService/*` | Node gRPC methods |
-| `/limiquantix.network.v1.VirtualNetworkService/*` | Network gRPC methods |
-| `/limiquantix.network.v1.SecurityGroupService/*` | Security group gRPC methods |
+| `/Quantixkvm.compute.v1.VMService/*` | VM gRPC methods |
+| `/Quantixkvm.compute.v1.NodeService/*` | Node gRPC methods |
+| `/Quantixkvm.network.v1.VirtualNetworkService/*` | Network gRPC methods |
+| `/Quantixkvm.network.v1.SecurityGroupService/*` | Security group gRPC methods |
 
 ---
 
@@ -325,4 +325,4 @@ Test endpoints:
 
 - [Backend Plan](../backend-plan.md)
 - [Backend Implementation Guide](./000024-backend-implementation-guide.md)
-- [Proto Definitions](../proto/limiquantix/)
+- [Proto Definitions](../proto/Quantixkvm/)

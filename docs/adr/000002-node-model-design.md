@@ -2,11 +2,11 @@
 
 **Status:** Accepted  
 **Date:** 2025-01-01  
-**Authors:** LimiQuantix Team
+**Authors:** Quantixkvm Team
 
 ## Context
 
-LimiQuantix requires a comprehensive representation of physical compute nodes (hypervisor hosts) to enable:
+Quantixkvm requires a comprehensive representation of physical compute nodes (hypervisor hosts) to enable:
 - Hardware inventory and capability discovery
 - Resource scheduling and placement decisions
 - Cluster management and high availability
@@ -60,7 +60,7 @@ This enables hyper-converged deployments (all roles on one node) or dedicated in
 
 ### Feature Coverage
 
-| Feature | VMware Equivalent | LimiQuantix Implementation |
+| Feature | VMware Equivalent | Quantixkvm Implementation |
 |---------|------------------|---------------------------|
 | Host Inventory | vCenter Inventory | `NodeSpec.cpu/memory/storage` |
 | Maintenance Mode | Maintenance Mode | `SchedulingConfig.schedulable` |
@@ -80,7 +80,7 @@ This enables hyper-converged deployments (all roles on one node) or dedicated in
 
 ### Negative
 
-- **Agent dependency**: Accurate data requires LimiQuantix agent
+- **Agent dependency**: Accurate data requires Quantixkvm agent
 - **Discovery overhead**: Initial hardware scan can be slow
 
 ## Implementation Notes

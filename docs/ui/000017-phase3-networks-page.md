@@ -8,7 +8,7 @@
 
 ## Overview
 
-The Virtual Networks page provides comprehensive network management capabilities for the LimiQuantix SDN infrastructure. It displays all QuantrixSwitch virtual networks with their configurations, connected VMs, and network statistics.
+The Virtual Networks page provides comprehensive network management capabilities for the Quantixkvm SDN infrastructure. It displays all QuantrixSwitch virtual networks with their configurations, connected VMs, and network statistics.
 
 ---
 

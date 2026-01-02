@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 use tokio::time::interval;
 use tracing::{debug, info, warn};
 
-use limiquantix_telemetry::TelemetryCollector;
+use Quantixkvm_telemetry::TelemetryCollector;
 
 use crate::config::Config;
 
@@ -135,7 +135,7 @@ impl RegistrationClient {
         });
         
         let url = format!(
-            "{}/limiquantix.compute.v1.NodeService/RegisterNode",
+            "{}/Quantixkvm.compute.v1.NodeService/RegisterNode",
             self.control_plane_address
         );
         
@@ -225,7 +225,7 @@ impl RegistrationClient {
         });
         
         let url = format!(
-            "{}/limiquantix.compute.v1.NodeService/UpdateHeartbeat",
+            "{}/Quantixkvm.compute.v1.NodeService/UpdateHeartbeat",
             self.control_plane_address
         );
         

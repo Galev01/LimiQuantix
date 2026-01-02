@@ -1,5 +1,5 @@
 [package]
-name = "limiquantix-hypervisor"
+name = "Quantixkvm-hypervisor"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

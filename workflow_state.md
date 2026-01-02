@@ -1,4 +1,4 @@
-# LimiQuantix Workflow State
+# Quantixkvm Workflow State
 
 ## Current Status: Phase 1 Complete ✅
 
@@ -62,7 +62,7 @@ A functional foundation for a complete VMware vSphere replacement:
 ### Long-term (Months 4-6)
 | Task | Priority | Effort |
 |------|----------|--------|
-| LimiQuantix Host OS | P1 | 8-12 weeks |
+| Quantixkvm Host OS | P1 | 8-12 weeks |
 | Live migration testing | P1 | 2 weeks |
 | Backup engine | P2 | 4 weeks |
 
@@ -107,7 +107,7 @@ A functional foundation for a complete VMware vSphere replacement:
 cd backend && go run ./cmd/controlplane --dev
 
 # Terminal 2: Node Daemon
-cd agent && cargo run --bin limiquantix-node -- \
+cd agent && cargo run --bin Quantixkvm-node -- \
   --dev --listen 127.0.0.1:9090 \
   --control-plane http://127.0.0.1:8080 --register
 
@@ -137,7 +137,7 @@ cd frontend && npm run dev
 
 **Building a complete VMware replacement:**
 
-| VMware | LimiQuantix | Status |
+| VMware | Quantixkvm | Status |
 |--------|-------------|--------|
 | vSphere Client | React Dashboard | ✅ |
 | vCenter | Control Plane | ✅ |
@@ -145,7 +145,7 @@ cd frontend && npm run dev
 | VMware Tools | Guest Agent | ❌ |
 | vSAN | Ceph/LINSTOR | ❌ |
 | NSX-T | OVN/OVS | ❌ |
-| ESXi OS | LimiQuantix OS | ❌ |
+| ESXi OS | Quantixkvm OS | ❌ |
 
 ---
 

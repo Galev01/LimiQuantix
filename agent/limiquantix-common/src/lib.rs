@@ -1,6 +1,6 @@
-//! # LimiQuantix Common
+//! # Quantixkvm Common
 //!
-//! Shared utilities for the LimiQuantix agent components.
+//! Shared utilities for the Quantixkvm agent components.
 
 pub mod logging;
 

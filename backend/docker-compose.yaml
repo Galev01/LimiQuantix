@@ -4,17 +4,17 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
-    container_name: limiquantix-postgres
+    container_name: Quantixkvm-postgres
     environment:
-      POSTGRES_USER: limiquantix
-      POSTGRES_PASSWORD: limiquantix
-      POSTGRES_DB: limiquantix
+      POSTGRES_USER: Quantixkvm
+      POSTGRES_PASSWORD: Quantixkvm
+      POSTGRES_DB: Quantixkvm
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U limiquantix"]
+      test: ["CMD-SHELL", "pg_isready -U Quantixkvm"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,7 +22,7 @@ services:
   # etcd for distributed state
   etcd:
     image: quay.io/coreos/etcd:v3.5.9
-    container_name: limiquantix-etcd
+    container_name: Quantixkvm-etcd
     command:
       - etcd
       - --name=etcd0
@@ -43,7 +43,7 @@ services:
   # Redis for caching and pub/sub
   redis:
     image: redis:7-alpine
-    container_name: limiquantix-redis
+    container_name: Quantixkvm-redis
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -60,14 +60,14 @@ services:
   #   build:
   #     context: .
   #     dockerfile: Dockerfile
-  #   container_name: limiquantix-controlplane
+  #   container_name: Quantixkvm-controlplane
   #   ports:
   #     - "8080:8080"
   #   environment:
-  #     - LIMIQUANTIX_DATABASE_HOST=postgres
-  #     - LIMIQUANTIX_DATABASE_PASSWORD=limiquantix
-  #     - LIMIQUANTIX_ETCD_ENDPOINTS=etcd:2379
-  #     - LIMIQUANTIX_REDIS_HOST=redis
+  #     - Quantixkvm_DATABASE_HOST=postgres
+  #     - Quantixkvm_DATABASE_PASSWORD=Quantixkvm
+  #     - Quantixkvm_ETCD_ENDPOINTS=etcd:2379
+  #     - Quantixkvm_REDIS_HOST=redis
   #   depends_on:
   #     postgres:
   #       condition: service_healthy
@@ -82,5 +82,5 @@ volumes:
 
 networks:
   default:
-    name: limiquantix-network
+    name: Quantixkvm-network
 

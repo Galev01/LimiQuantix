@@ -4,7 +4,7 @@ package scheduler
 import (
 	"context"
 
-	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
 )
 
 // NodeRepository defines the interface for node data access needed by the scheduler.

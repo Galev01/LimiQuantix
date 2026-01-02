@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/limiquantix/limiquantix/internal/domain"
-	"github.com/limiquantix/limiquantix/internal/services/node"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	"github.com/Quantixkvm/Quantixkvm/internal/services/node"
 )
 
 // Ensure NodeRepository implements node.Repository
@@ -285,7 +285,7 @@ func (r *NodeRepository) SeedDemoData() {
 	demoNodes := []*domain.Node{
 		{
 			ID:           "node-01",
-			Hostname:     "hypervisor-01.limiquantix.local",
+			Hostname:     "hypervisor-01.Quantixkvm.local",
 			ManagementIP: "192.168.1.101",
 			Labels:       map[string]string{"rack": "rack-1", "zone": "zone-a"},
 			Spec: domain.NodeSpec{
@@ -341,7 +341,7 @@ func (r *NodeRepository) SeedDemoData() {
 		},
 		{
 			ID:           "node-02",
-			Hostname:     "hypervisor-02.limiquantix.local",
+			Hostname:     "hypervisor-02.Quantixkvm.local",
 			ManagementIP: "192.168.1.102",
 			Labels:       map[string]string{"rack": "rack-1", "zone": "zone-a"},
 			Spec: domain.NodeSpec{
@@ -394,7 +394,7 @@ func (r *NodeRepository) SeedDemoData() {
 		},
 		{
 			ID:           "node-03",
-			Hostname:     "hypervisor-03.limiquantix.local",
+			Hostname:     "hypervisor-03.Quantixkvm.local",
 			ManagementIP: "192.168.1.103",
 			Labels:       map[string]string{"rack": "rack-2", "zone": "zone-b"},
 			Spec: domain.NodeSpec{
@@ -431,7 +431,7 @@ func (r *NodeRepository) SeedDemoData() {
 					MemoryMiB:  0,
 					StorageGiB: 0,
 				},
-				VMIDs:      []string{},
+				VMIDs: []string{},
 				SystemInfo: &domain.SystemInfo{
 					OS:                "Linux",
 					Kernel:            "6.1.0-generic",

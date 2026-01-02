@@ -1,5 +1,5 @@
 [package]
-name = "limiquantix-telemetry"
+name = "Quantixkvm-telemetry"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

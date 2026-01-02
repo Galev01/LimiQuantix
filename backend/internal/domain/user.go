@@ -1,4 +1,4 @@
-// Package domain contains core business entities for the LimiQuantix platform.
+// Package domain contains core business entities for the Quantixkvm platform.
 // This file defines user and authentication-related domain models.
 package domain
 
@@ -21,14 +21,14 @@ const (
 
 // User represents a user account in the system.
 type User struct {
-	ID           string    `json:"id"`
-	Username     string    `json:"username"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"` // Never expose password hash
-	Role         Role      `json:"role"`
-	Enabled      bool      `json:"enabled"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           string     `json:"id"`
+	Username     string     `json:"username"`
+	Email        string     `json:"email"`
+	PasswordHash string     `json:"-"` // Never expose password hash
+	Role         Role       `json:"role"`
+	Enabled      bool       `json:"enabled"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 	LastLogin    *time.Time `json:"last_login,omitempty"`
 }
 
@@ -154,32 +154,32 @@ func HasPermission(role Role, permission Permission) bool {
 type AuditAction string
 
 const (
-	AuditActionLogin      AuditAction = "LOGIN"
-	AuditActionLogout     AuditAction = "LOGOUT"
-	AuditActionCreate     AuditAction = "CREATE"
-	AuditActionUpdate     AuditAction = "UPDATE"
-	AuditActionDelete     AuditAction = "DELETE"
-	AuditActionStart      AuditAction = "START"
-	AuditActionStop       AuditAction = "STOP"
-	AuditActionMigrate    AuditAction = "MIGRATE"
-	AuditActionSnapshot   AuditAction = "SNAPSHOT"
-	AuditActionRestore    AuditAction = "RESTORE"
+	AuditActionLogin        AuditAction = "LOGIN"
+	AuditActionLogout       AuditAction = "LOGOUT"
+	AuditActionCreate       AuditAction = "CREATE"
+	AuditActionUpdate       AuditAction = "UPDATE"
+	AuditActionDelete       AuditAction = "DELETE"
+	AuditActionStart        AuditAction = "START"
+	AuditActionStop         AuditAction = "STOP"
+	AuditActionMigrate      AuditAction = "MIGRATE"
+	AuditActionSnapshot     AuditAction = "SNAPSHOT"
+	AuditActionRestore      AuditAction = "RESTORE"
 	AuditActionConfigChange AuditAction = "CONFIG_CHANGE"
 )
 
 // AuditEntry represents a single audit log entry.
 type AuditEntry struct {
-	ID           string            `json:"id"`
-	UserID       string            `json:"user_id"`
-	Username     string            `json:"username"`
-	Action       AuditAction       `json:"action"`
-	ResourceType string            `json:"resource_type"` // vm, node, network, etc.
-	ResourceID   string            `json:"resource_id"`
-	ResourceName string            `json:"resource_name"`
+	ID           string                 `json:"id"`
+	UserID       string                 `json:"user_id"`
+	Username     string                 `json:"username"`
+	Action       AuditAction            `json:"action"`
+	ResourceType string                 `json:"resource_type"` // vm, node, network, etc.
+	ResourceID   string                 `json:"resource_id"`
+	ResourceName string                 `json:"resource_name"`
 	Details      map[string]interface{} `json:"details,omitempty"`
-	IPAddress    string            `json:"ip_address"`
-	UserAgent    string            `json:"user_agent"`
-	CreatedAt    time.Time         `json:"created_at"`
+	IPAddress    string                 `json:"ip_address"`
+	UserAgent    string                 `json:"user_agent"`
+	CreatedAt    time.Time              `json:"created_at"`
 }
 
 // =============================================================================
@@ -259,22 +259,22 @@ const (
 
 // DRSRecommendation represents a DRS migration recommendation.
 type DRSRecommendation struct {
-	ID                string                `json:"id"`
-	ClusterID         string                `json:"cluster_id"`
-	Priority          DRSPriority           `json:"priority"`
+	ID                 string                `json:"id"`
+	ClusterID          string                `json:"cluster_id"`
+	Priority           DRSPriority           `json:"priority"`
 	RecommendationType DRSRecommendationType `json:"recommendation_type"`
-	Reason            string                `json:"reason"`
-	VMID              string                `json:"vm_id"`
-	VMName            string                `json:"vm_name"`
-	SourceNodeID      string                `json:"source_node_id"`
-	SourceNodeName    string                `json:"source_node_name"`
-	TargetNodeID      string                `json:"target_node_id"`
-	TargetNodeName    string                `json:"target_node_name"`
-	ImpactCPU         int32                 `json:"impact_cpu"`         // Improvement percentage
-	ImpactMemory      int32                 `json:"impact_memory"`      // Improvement percentage
-	EstimatedDuration string                `json:"estimated_duration"` // e.g., "2m30s"
-	Status            DRSStatus             `json:"status"`
-	CreatedAt         time.Time             `json:"created_at"`
-	AppliedAt         *time.Time            `json:"applied_at,omitempty"`
-	AppliedBy         string                `json:"applied_by,omitempty"`
+	Reason             string                `json:"reason"`
+	VMID               string                `json:"vm_id"`
+	VMName             string                `json:"vm_name"`
+	SourceNodeID       string                `json:"source_node_id"`
+	SourceNodeName     string                `json:"source_node_name"`
+	TargetNodeID       string                `json:"target_node_id"`
+	TargetNodeName     string                `json:"target_node_name"`
+	ImpactCPU          int32                 `json:"impact_cpu"`         // Improvement percentage
+	ImpactMemory       int32                 `json:"impact_memory"`      // Improvement percentage
+	EstimatedDuration  string                `json:"estimated_duration"` // e.g., "2m30s"
+	Status             DRSStatus             `json:"status"`
+	CreatedAt          time.Time             `json:"created_at"`
+	AppliedAt          *time.Time            `json:"applied_at,omitempty"`
+	AppliedBy          string                `json:"applied_by,omitempty"`
 }

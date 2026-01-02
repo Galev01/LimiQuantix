@@ -1,4 +1,4 @@
-// Package domain contains core business entities for the LimiQuantix platform.
+// Package domain contains core business entities for the Quantixkvm platform.
 // This file defines network-related domain models: VirtualNetwork, Port, SecurityGroup, etc.
 package domain
 
@@ -45,35 +45,35 @@ type VirtualNetwork struct {
 
 // VirtualNetworkSpec defines the desired configuration of a network.
 type VirtualNetworkSpec struct {
-	Type                   NetworkType       `json:"type"`
-	IPConfig               IPAddressConfig   `json:"ip_config"`
-	VLAN                   *VLANConfig       `json:"vlan,omitempty"`
-	Router                 *RouterConfig     `json:"router,omitempty"`
-	MTU                    uint32            `json:"mtu"`
-	DNS                    DNSConfig         `json:"dns"`
-	DefaultSecurityGroupID string            `json:"default_security_group_id"`
-	PortSecurityEnabled    bool              `json:"port_security_enabled"`
+	Type                   NetworkType     `json:"type"`
+	IPConfig               IPAddressConfig `json:"ip_config"`
+	VLAN                   *VLANConfig     `json:"vlan,omitempty"`
+	Router                 *RouterConfig   `json:"router,omitempty"`
+	MTU                    uint32          `json:"mtu"`
+	DNS                    DNSConfig       `json:"dns"`
+	DefaultSecurityGroupID string          `json:"default_security_group_id"`
+	PortSecurityEnabled    bool            `json:"port_security_enabled"`
 }
 
 // IPAddressConfig defines IP addressing for a network.
 type IPAddressConfig struct {
-	IPv4Subnet      string        `json:"ipv4_subnet"`
-	IPv4Gateway     string        `json:"ipv4_gateway"`
-	IPv6Subnet      string        `json:"ipv6_subnet"`
-	IPv6Gateway     string        `json:"ipv6_gateway"`
-	DHCP            DHCPConfig    `json:"dhcp"`
-	AllocationPools []IPRange     `json:"allocation_pools"`
-	ReservedIPs     []string      `json:"reserved_ips"`
+	IPv4Subnet      string     `json:"ipv4_subnet"`
+	IPv4Gateway     string     `json:"ipv4_gateway"`
+	IPv6Subnet      string     `json:"ipv6_subnet"`
+	IPv6Gateway     string     `json:"ipv6_gateway"`
+	DHCP            DHCPConfig `json:"dhcp"`
+	AllocationPools []IPRange  `json:"allocation_pools"`
+	ReservedIPs     []string   `json:"reserved_ips"`
 }
 
 // DHCPConfig defines DHCP settings.
 type DHCPConfig struct {
-	Enabled        bool           `json:"enabled"`
-	LeaseTimeSec   uint32         `json:"lease_time_sec"`
-	DNSServers     []string       `json:"dns_servers"`
-	NTPServers     []string       `json:"ntp_servers"`
-	DomainName     string         `json:"domain_name"`
-	StaticBindings []DHCPBinding  `json:"static_bindings"`
+	Enabled        bool          `json:"enabled"`
+	LeaseTimeSec   uint32        `json:"lease_time_sec"`
+	DNSServers     []string      `json:"dns_servers"`
+	NTPServers     []string      `json:"ntp_servers"`
+	DomainName     string        `json:"domain_name"`
+	StaticBindings []DHCPBinding `json:"static_bindings"`
 }
 
 // DHCPBinding represents a static DHCP binding.
@@ -170,14 +170,14 @@ type Port struct {
 
 // PortSpec defines the desired port configuration.
 type PortSpec struct {
-	MACAddress          string          `json:"mac_address"`
-	FixedIPs            []FixedIP       `json:"fixed_ips"`
-	SecurityGroupIDs    []string        `json:"security_group_ids"`
-	AllowedAddressPairs []AddressPair   `json:"allowed_address_pairs"`
-	PortSecurityEnabled bool            `json:"port_security_enabled"`
-	AdminStateUp        bool            `json:"admin_state_up"`
-	QoS                 PortQoS         `json:"qos"`
-	Binding             BindingProfile  `json:"binding"`
+	MACAddress          string         `json:"mac_address"`
+	FixedIPs            []FixedIP      `json:"fixed_ips"`
+	SecurityGroupIDs    []string       `json:"security_group_ids"`
+	AllowedAddressPairs []AddressPair  `json:"allowed_address_pairs"`
+	PortSecurityEnabled bool           `json:"port_security_enabled"`
+	AdminStateUp        bool           `json:"admin_state_up"`
+	QoS                 PortQoS        `json:"qos"`
+	Binding             BindingProfile `json:"binding"`
 }
 
 // FixedIP represents a fixed IP assignment.
@@ -205,7 +205,7 @@ type BindingType string
 
 const (
 	BindingTypeNormal    BindingType = "NORMAL"
-	BindingTypeDirect    BindingType = "DIRECT"    // SR-IOV
+	BindingTypeDirect    BindingType = "DIRECT" // SR-IOV
 	BindingTypeMACVTAP   BindingType = "MACVTAP"
 	BindingTypeVHostUser BindingType = "VHOST_USER" // DPDK
 )

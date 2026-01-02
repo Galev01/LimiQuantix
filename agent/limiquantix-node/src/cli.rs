@@ -2,10 +2,10 @@
 
 use clap::Parser;
 
-/// LimiQuantix Node Daemon - Hypervisor management agent
+/// Quantixkvm Node Daemon - Hypervisor management agent
 #[derive(Parser, Debug)]
-#[command(name = "limiquantix-node")]
-#[command(about = "LimiQuantix Node Daemon - Hypervisor management agent")]
+#[command(name = "Quantixkvm-node")]
+#[command(about = "Quantixkvm Node Daemon - Hypervisor management agent")]
 #[command(version)]
 pub struct Args {
     /// Path to configuration file (optional, defaults used if not found)

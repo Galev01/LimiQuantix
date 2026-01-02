@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	"github.com/Quantixkvm/Quantixkvm/internal/services/network"
 	"github.com/google/uuid"
-	"github.com/limiquantix/limiquantix/internal/domain"
-	"github.com/limiquantix/limiquantix/internal/services/network"
 )
 
 // NetworkRepository is an in-memory implementation of network.NetworkRepository.
@@ -48,7 +48,7 @@ func (r *NetworkRepository) seedData() {
 			},
 			DNS: domain.DNSConfig{
 				Nameservers:   []string{"10.0.0.1"},
-				SearchDomains: []string{"limiquantix.local"},
+				SearchDomains: []string{"Quantixkvm.local"},
 			},
 			PortSecurityEnabled: true,
 		},

@@ -36,7 +36,7 @@ Filter hosts by status:
 
 | Column | Description | Content |
 |--------|-------------|---------|
-| Hostname | Host FQDN + CPU model | `hv-rack1-01.limiquantix.local` + `AMD EPYC 7742` |
+| Hostname | Host FQDN + CPU model | `hv-rack1-01.Quantixkvm.local` + `AMD EPYC 7742` |
 | Status | Phase badge with icon | Ready / Not Ready / Maintenance / Draining |
 | IP Address | Management IP (monospace) | `192.168.1.11` |
 | CPU Usage | Allocated/Total cores + % + progress bar | `20 / 64 cores` `31%` |
@@ -50,7 +50,7 @@ Right-clicking on any host row opens a native-style context menu:
 
 ```
 ┌──────────────────────────────┐
-│ hv-rack1-01.limiquantix.local│
+│ hv-rack1-01.Quantixkvm.local│
 │ 192.168.1.11                 │
 ├──────────────────────────────┤
 │ 🖥️ Open Console              │

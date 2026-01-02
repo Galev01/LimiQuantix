@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
-	"github.com/limiquantix/limiquantix/internal/config"
+	"github.com/Quantixkvm/Quantixkvm/internal/config"
 )
 
 // DB wraps a PostgreSQL connection pool with logging.

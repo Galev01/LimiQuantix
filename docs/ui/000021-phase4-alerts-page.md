@@ -8,7 +8,7 @@
 
 ## Overview
 
-The Alerts page provides comprehensive alert management for the LimiQuantix platform. It displays system alerts with different severity levels, allows acknowledgment and resolution, and supports filtering and searching.
+The Alerts page provides comprehensive alert management for the Quantixkvm platform. It displays system alerts with different severity levels, allows acknowledgment and resolution, and supports filtering and searching.
 
 ---
 

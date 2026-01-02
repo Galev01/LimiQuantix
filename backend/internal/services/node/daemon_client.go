@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	nodev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1"
+	nodev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/node/v1"
 )
 
 // DaemonClient provides methods to communicate with a Node Daemon.
@@ -459,4 +459,3 @@ func (c *DaemonClient) StreamEvents(ctx context.Context) (<-chan *nodev1.NodeEve
 
 	return eventsChan, nil
 }
-

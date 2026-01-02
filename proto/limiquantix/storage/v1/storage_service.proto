@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-package limiquantix.storage.v1;
+package Quantixkvm.storage.v1;
 
-option go_package = "github.com/limiquantix/limiquantix/pkg/api/storage/v1;storagev1";
+option go_package = "github.com/Quantixkvm/Quantixkvm/pkg/api/storage/v1;storagev1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
-import "limiquantix/storage/v1/storage.proto";
+import "Quantixkvm/storage/v1/storage.proto";
 
 // =============================================================================
 // STORAGE POOL SERVICE

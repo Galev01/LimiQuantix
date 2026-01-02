@@ -2,11 +2,11 @@
 
 **Status:** Accepted  
 **Date:** 2025-01-01  
-**Authors:** LimiQuantix Team
+**Authors:** Quantixkvm Team
 
 ## Context
 
-LimiQuantix requires software-defined networking (SDN) that:
+Quantixkvm requires software-defined networking (SDN) that:
 - Enables multi-tenancy with network isolation
 - Provides distributed networking across nodes
 - Supports enterprise features (load balancing, VPN, floating IPs)
@@ -98,7 +98,7 @@ message BindingProfile {
 
 ### Feature Coverage
 
-| Feature | VMware Equivalent | LimiQuantix Implementation |
+| Feature | VMware Equivalent | Quantixkvm Implementation |
 |---------|------------------|---------------------------|
 | vDS | Distributed vSwitch | OVN Logical Switch |
 | NSX-T Segments | NSX Segments | `VirtualNetwork` |

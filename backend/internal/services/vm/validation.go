@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
-	computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+	computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
 )
 
 // Validation constants

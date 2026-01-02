@@ -8,7 +8,7 @@
 
 ## Overview
 
-The LimiQuantix Dashboard is a React-based virtualization management interface inspired by VMware vCenter 8, built with modern web technologies and following the UI-Expert styling guidelines for visual depth and hierarchy.
+The Quantixkvm Dashboard is a React-based virtualization management interface inspired by VMware vCenter 8, built with modern web technologies and following the UI-Expert styling guidelines for visual depth and hierarchy.
 
 ---
 
@@ -76,7 +76,7 @@ frontend/src/components/layout/
 **Purpose**: Primary navigation with hierarchical tree structure
 
 **Features**:
-- LimiQuantix branding with logo
+- Quantixkvm branding with logo
 - Collapsible/expandable sidebar (260px → 64px)
 - Hierarchical navigation tree
 - Badge counts for inventory items

@@ -1235,7 +1235,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37c93d8daa9d8a012fd8ab92f088405fb202ea0b6ab73ee2482ae66af4f42091"
 
 [[package]]
-name = "limiquantix-common"
+name = "Quantixkvm-common"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1244,7 +1244,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "limiquantix-hypervisor"
+name = "Quantixkvm-hypervisor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1262,7 +1262,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "limiquantix-node"
+name = "Quantixkvm-node"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1272,10 +1272,10 @@ dependencies = [
  "config",
  "futures",
  "hostname",
- "limiquantix-common",
- "limiquantix-hypervisor",
- "limiquantix-proto",
- "limiquantix-telemetry",
+ "Quantixkvm-common",
+ "Quantixkvm-hypervisor",
+ "Quantixkvm-proto",
+ "Quantixkvm-telemetry",
  "local-ip-address",
  "prost",
  "prost-types",
@@ -1293,7 +1293,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "limiquantix-proto"
+name = "Quantixkvm-proto"
 version = "0.1.0"
 dependencies = [
  "prost",
@@ -1304,7 +1304,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "limiquantix-telemetry"
+name = "Quantixkvm-telemetry"
 version = "0.1.0"
 dependencies = [
  "anyhow",

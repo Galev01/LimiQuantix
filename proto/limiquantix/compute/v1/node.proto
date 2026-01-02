@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package limiquantix.compute.v1;
+package Quantixkvm.compute.v1;
 
-option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;computev1";
+option go_package = "github.com/Quantixkvm/Quantixkvm/pkg/api/compute/v1;computev1";
 
 import "google/protobuf/timestamp.proto";
 
@@ -10,7 +10,7 @@ import "google/protobuf/timestamp.proto";
 // NODE - Physical Host Representation
 // =============================================================================
 
-// A Node represents a physical server in the LimiQuantix cluster.
+// A Node represents a physical server in the Quantixkvm cluster.
 // This is the hypervisor host where VMs run.
 message Node {
   // Immutable unique identifier (UUIDv4)
@@ -453,7 +453,7 @@ message SystemInfo {
   string hypervisor = 4;   // e.g., "kvm", "cloud-hypervisor"
   string hypervisor_version = 5;
   
-  // LimiQuantix agent version
+  // Quantixkvm agent version
   string agent_version = 6;
   
   // Boot time

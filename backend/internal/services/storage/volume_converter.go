@@ -4,8 +4,8 @@ package storage
 import (
 	"time"
 
-	"github.com/limiquantix/limiquantix/internal/domain"
-	storagev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	storagev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/storage/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -74,13 +74,13 @@ func convertVolumeStatusToProto(status *domain.VolumeStatus) *storagev1.VolumeSt
 		DevicePath:      status.DevicePath,
 		ActualSizeBytes: status.ActualSizeBytes,
 		Usage: &storagev1.VolumeUsage{
-			UsedBytes:        status.Usage.UsedBytes,
-			ReadIops:         status.Usage.ReadIOPS,
-			WriteIops:        status.Usage.WriteIOPS,
-			ReadBytesSec:     status.Usage.ReadBytesPerSec,
-			WriteBytesSec:    status.Usage.WriteBytesPerSec,
-			ReadLatencyUs:    status.Usage.ReadLatencyUs,
-			WriteLatencyUs:   status.Usage.WriteLatencyUs,
+			UsedBytes:      status.Usage.UsedBytes,
+			ReadIops:       status.Usage.ReadIOPS,
+			WriteIops:      status.Usage.WriteIOPS,
+			ReadBytesSec:   status.Usage.ReadBytesPerSec,
+			WriteBytesSec:  status.Usage.WriteBytesPerSec,
+			ReadLatencyUs:  status.Usage.ReadLatencyUs,
+			WriteLatencyUs: status.Usage.WriteLatencyUs,
 		},
 		SnapshotCount: status.SnapshotCount,
 		ErrorMessage:  status.ErrorMessage,

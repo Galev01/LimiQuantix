@@ -11,7 +11,7 @@ use crate::error::{HypervisorError, Result};
 use crate::types::{DiskConfig, DiskFormat};
 
 /// Default storage base path for disk images.
-pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/limiquantix/images";
+pub const DEFAULT_STORAGE_PATH: &str = "/var/lib/Quantixkvm/images";
 
 /// Storage manager for disk images.
 pub struct StorageManager {
@@ -388,11 +388,11 @@ mod tests {
     
     #[test]
     fn test_disk_path() {
-        let manager = StorageManager::with_path("/var/lib/limiquantix/images");
+        let manager = StorageManager::with_path("/var/lib/Quantixkvm/images");
         let path = manager.disk_path("vm-123", "disk-456");
         assert_eq!(
             path,
-            PathBuf::from("/var/lib/limiquantix/images/vm-123/disk-456.qcow2")
+            PathBuf::from("/var/lib/Quantixkvm/images/vm-123/disk-456.qcow2")
         );
     }
     

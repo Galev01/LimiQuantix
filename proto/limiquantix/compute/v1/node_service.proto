@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-package limiquantix.compute.v1;
+package Quantixkvm.compute.v1;
 
-option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;computev1";
+option go_package = "github.com/Quantixkvm/Quantixkvm/pkg/api/compute/v1;computev1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
-import "limiquantix/compute/v1/node.proto";
+import "Quantixkvm/compute/v1/node.proto";
 
 // =============================================================================
 // NODE SERVICE - Physical Host Management API

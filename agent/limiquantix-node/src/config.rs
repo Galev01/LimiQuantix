@@ -165,7 +165,7 @@ impl Default for HypervisorConfig {
         Self {
             backend: HypervisorBackend::Mock,
             libvirt_uri: Some("qemu:///system".to_string()),
-            storage_path: "/var/lib/limiquantix/vms".to_string(),
+            storage_path: "/var/lib/Quantixkvm/vms".to_string(),
         }
     }
 }

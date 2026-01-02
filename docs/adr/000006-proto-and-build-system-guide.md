@@ -26,7 +26,7 @@
 
 ### The Problem Proto Solves
 
-Imagine you're building LimiQuantix with three components:
+Imagine you're building Quantixkvm with three components:
 - **Backend** (Go) - Control plane that manages VMs
 - **Frontend** (TypeScript/React) - Dashboard UI
 - **Agent** (Rust) - Runs inside VMs
@@ -49,7 +49,7 @@ Without proto, you'd need to:
 // vm.proto - The single source of truth
 
 syntax = "proto3";                    // Use proto3 syntax
-package limiquantix.compute.v1;       // Namespace to avoid conflicts
+package Quantixkvm.compute.v1;       // Namespace to avoid conflicts
 
 // A message is like a struct/class
 message VirtualMachine {
@@ -126,7 +126,7 @@ proto/
 ├── buf.yaml              # Buf configuration (linting rules)
 ├── buf.gen.yaml          # Code generation targets
 ├── buf.lock              # Dependency versions
-└── limiquantix/          # Our namespace
+└── Quantixkvm/          # Our namespace
     ├── compute/v1/       # Compute domain, version 1
     │   ├── vm.proto      # VM data model
     │   ├── vm_service.proto  # VM gRPC service
@@ -151,12 +151,12 @@ syntax = "proto3";
 // ============================================================
 // 2. PACKAGE (namespace to prevent naming conflicts)
 // ============================================================
-package limiquantix.compute.v1;
+package Quantixkvm.compute.v1;
 
 // ============================================================
 // 3. OPTIONS (language-specific settings)
 // ============================================================
-option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;computev1";
+option go_package = "github.com/Quantixkvm/Quantixkvm/pkg/api/compute/v1;computev1";
 
 // ============================================================
 // 4. IMPORTS (other proto files we depend on)
@@ -341,7 +341,7 @@ version: v2
 
 modules:
   - path: .
-    name: buf.build/limiquantix/api
+    name: buf.build/Quantixkvm/api
 
 lint:
   use:

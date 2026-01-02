@@ -282,7 +282,7 @@ logger.Info("VM created successfully", zap.String("vm_id", created.ID))
 ### List VMs
 
 ```bash
-curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/ListVMs \
+curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/ListVMs \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
@@ -290,7 +290,7 @@ curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/ListVMs \
 ### Create a VM
 
 ```bash
-curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/CreateVM \
+curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/CreateVM \
   -H "Content-Type: application/json" \
   -d '{
     "name": "my-vm",
@@ -305,7 +305,7 @@ curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/CreateVM \
 ### Start a VM
 
 ```bash
-curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/StartVM \
+curl -X POST http://localhost:8080/Quantixkvm.compute.v1.VMService/StartVM \
   -H "Content-Type: application/json" \
   -d '{"id": "11111111-1111-1111-1111-111111111111"}'
 ```
@@ -313,7 +313,7 @@ curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/StartVM \
 ### List Nodes
 
 ```bash
-curl -X POST http://localhost:8080/limiquantix.compute.v1.NodeService/ListNodes \
+curl -X POST http://localhost:8080/Quantixkvm.compute.v1.NodeService/ListNodes \
   -H "Content-Type: application/json" \
   -d '{}'
 ```

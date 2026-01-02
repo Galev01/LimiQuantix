@@ -121,7 +121,7 @@ const mockAlerts: Alert[] = [
     id: 'alert-8',
     severity: 'warning',
     title: 'Certificate Expiring Soon',
-    message: 'SSL certificate for api.limiquantix.local expires in 14 days.',
+    message: 'SSL certificate for api.Quantixkvm.local expires in 14 days.',
     source: 'Control Plane',
     sourceType: 'cluster',
     timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),

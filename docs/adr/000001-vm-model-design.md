@@ -2,11 +2,11 @@
 
 **Status:** Accepted  
 **Date:** 2025-01-01  
-**Authors:** LimiQuantix Team
+**Authors:** Quantixkvm Team
 
 ## Context
 
-LimiQuantix aims to be a "VMware Killer" - a modern, API-first virtualization platform that matches VMware vSphere's feature set while being simpler to operate and more performant. The VM model is the core data structure that defines what a virtual machine is and what capabilities it has.
+Quantixkvm aims to be a "VMware Killer" - a modern, API-first virtualization platform that matches VMware vSphere's feature set while being simpler to operate and more performant. The VM model is the core data structure that defines what a virtual machine is and what capabilities it has.
 
 ## Decision
 
@@ -49,7 +49,7 @@ Every VM belongs to a `project_id`, enabling:
 
 ### Feature Coverage
 
-| Category | VMware Feature | LimiQuantix Equivalent |
+| Category | VMware Feature | Quantixkvm Equivalent |
 |----------|---------------|----------------------|
 | **CPU** | vCPU, Sockets, Cores | `CpuConfig` with full topology |
 | **CPU Advanced** | CPU Affinity, NUMA | `NumaConfig`, `CpuFeatures` |
@@ -69,7 +69,7 @@ Every VM belongs to a `project_id`, enabling:
 | **vMotion** | Live Migration | `MigrationConfig` |
 | **Guest Customization** | cloud-init/sysprep | `ProvisioningConfig` |
 
-### Unique LimiQuantix Features
+### Unique Quantixkvm Features
 
 1. **Health Checks** (`HealthStatus`): Built-in health monitoring with pluggable checks
 2. **Watchdog Integration** (`WatchdogConfig`): Hardware watchdog for self-healing VMs

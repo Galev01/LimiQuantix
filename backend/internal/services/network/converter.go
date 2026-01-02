@@ -4,8 +4,8 @@ package network
 import (
 	"time"
 
-	"github.com/limiquantix/limiquantix/internal/domain"
-	networkv1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	networkv1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/network/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -39,10 +39,10 @@ func convertNetworkSpecToProto(spec *domain.VirtualNetworkSpec) *networkv1.Virtu
 	}
 
 	protoSpec := &networkv1.VirtualNetworkSpec{
-		Type:                    networkv1.VirtualNetworkSpec_NetworkType(networkv1.VirtualNetworkSpec_NetworkType_value[string(spec.Type)]),
-		Mtu:                     spec.MTU,
-		DefaultSecurityGroupId:  spec.DefaultSecurityGroupID,
-		PortSecurityEnabled:     spec.PortSecurityEnabled,
+		Type:                   networkv1.VirtualNetworkSpec_NetworkType(networkv1.VirtualNetworkSpec_NetworkType_value[string(spec.Type)]),
+		Mtu:                    spec.MTU,
+		DefaultSecurityGroupId: spec.DefaultSecurityGroupID,
+		PortSecurityEnabled:    spec.PortSecurityEnabled,
 		IpConfig: &networkv1.IpAddressManagement{
 			Ipv4Subnet:  spec.IPConfig.IPv4Subnet,
 			Ipv4Gateway: spec.IPConfig.IPv4Gateway,

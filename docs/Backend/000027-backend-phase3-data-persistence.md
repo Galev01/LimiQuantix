@@ -247,9 +247,9 @@ The migration `migrations/000001_init.up.sql` creates:
 database:
   host: localhost
   port: 5432
-  name: limiquantix
-  user: limiquantix
-  password: limiquantix
+  name: Quantixkvm
+  user: Quantixkvm
+  password: Quantixkvm
   sslmode: disable
   max_open_conns: 25
   max_idle_conns: 5
@@ -288,9 +288,9 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: limiquantix
-      POSTGRES_PASSWORD: limiquantix
-      POSTGRES_DB: limiquantix
+      POSTGRES_USER: Quantixkvm
+      POSTGRES_PASSWORD: Quantixkvm
+      POSTGRES_DB: Quantixkvm
     ports:
       - "5432:5432"
     volumes:
@@ -319,9 +319,9 @@ services:
       - redis
       - etcd
     environment:
-      LIMIQUANTIX_DATABASE_HOST: postgres
-      LIMIQUANTIX_REDIS_HOST: redis
-      LIMIQUANTIX_ETCD_ENDPOINTS: etcd:2379
+      Quantixkvm_DATABASE_HOST: postgres
+      Quantixkvm_REDIS_HOST: redis
+      Quantixkvm_ETCD_ENDPOINTS: etcd:2379
     ports:
       - "8080:8080"
 
@@ -338,7 +338,7 @@ volumes:
 go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
 # Run migrations
-migrate -path migrations -database "postgres://limiquantix:limiquantix@localhost:5432/limiquantix?sslmode=disable" up
+migrate -path migrations -database "postgres://Quantixkvm:Quantixkvm@localhost:5432/Quantixkvm?sslmode=disable" up
 
 # Rollback
 migrate -path migrations -database "..." down 1

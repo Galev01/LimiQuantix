@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/limiquantix/limiquantix/internal/domain"
-	storagev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	storagev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/storage/v1"
 )
 
 // VolumeService implements the storagev1connect.VolumeServiceHandler interface.
@@ -203,7 +203,7 @@ func (s *VolumeService) DeleteVolume(
 	}
 
 	if vol.IsAttached() && !req.Msg.Force {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, 
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
 			fmt.Errorf("volume is attached to VM %s, use force=true to delete", vol.Status.AttachedVMID))
 	}
 
@@ -238,7 +238,7 @@ func (s *VolumeService) ResizeVolume(
 
 	// Validate resize (can only expand, not shrink)
 	if req.Msg.NewSizeBytes <= vol.Spec.SizeBytes {
-		return nil, connect.NewError(connect.CodeInvalidArgument, 
+		return nil, connect.NewError(connect.CodeInvalidArgument,
 			fmt.Errorf("new size must be larger than current size (%d bytes)", vol.Spec.SizeBytes))
 	}
 
@@ -278,7 +278,7 @@ func (s *VolumeService) AttachVolume(
 	}
 
 	if vol.IsAttached() {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, 
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
 			fmt.Errorf("volume already attached to VM %s", vol.Status.AttachedVMID))
 	}
 
@@ -296,8 +296,8 @@ func (s *VolumeService) AttachVolume(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	logger.Info("Volume attached successfully", 
-		zap.String("volume_id", vol.ID), 
+	logger.Info("Volume attached successfully",
+		zap.String("volume_id", vol.ID),
 		zap.String("vm_id", req.Msg.VmId))
 	return connect.NewResponse(convertVolumeToProto(vol)), nil
 }
@@ -390,7 +390,7 @@ func (s *VolumeService) CloneVolume(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	logger.Info("Volume cloned successfully", 
+	logger.Info("Volume cloned successfully",
 		zap.String("source_volume_id", req.Msg.SourceVolumeId),
 		zap.String("clone_volume_id", createdClone.ID))
 	return connect.NewResponse(convertVolumeToProto(createdClone)), nil

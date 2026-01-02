@@ -136,7 +136,7 @@ After successful registration, the Node Daemon sends periodic heartbeats:
 
 ### Rust - RegistrationClient
 
-**Location**: `agent/limiquantix-node/src/registration.rs`
+**Location**: `agent/Quantixkvm-node/src/registration.rs`
 
 ```rust
 pub struct RegistrationClient {
@@ -186,10 +186,10 @@ func (s *Service) RegisterNode(
 
 ```bash
 # Enable registration
-limiquantix-node --register --control-plane http://control-plane:8080
+Quantixkvm-node --register --control-plane http://control-plane:8080
 
 # Full example
-limiquantix-node \
+Quantixkvm-node \
   --dev \
   --listen 0.0.0.0:9090 \
   --control-plane http://control-plane:8080 \
@@ -200,7 +200,7 @@ limiquantix-node \
 ### Node Daemon Config File
 
 ```yaml
-# /etc/limiquantix/node.yaml
+# /etc/Quantixkvm/node.yaml
 node:
   id: my-node-01  # Optional, auto-generated if not set
   hostname: hypervisor-01.local  # Optional, auto-detected
@@ -314,14 +314,14 @@ INFO  HTTP request path=/NodeService/RegisterNode status=200
 cd backend && go run ./cmd/controlplane --dev
 
 # Terminal 2: Start Node Daemon with registration
-cd agent && cargo run --bin limiquantix-node -- \
+cd agent && cargo run --bin Quantixkvm-node -- \
   --dev \
   --listen 127.0.0.1:9090 \
   --control-plane http://127.0.0.1:8080 \
   --register
 
 # Terminal 3: Check registered nodes
-curl -X POST http://127.0.0.1:8080/limiquantix.compute.v1.NodeService/ListNodes \
+curl -X POST http://127.0.0.1:8080/Quantixkvm.compute.v1.NodeService/ListNodes \
   -H "Content-Type: application/json" \
   -d '{}'
 ```

@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/limiquantix/limiquantix/internal/domain"
-	computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	computev1 "github.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/compute/v1"
 )
 
 // MockVMRepository is a mock implementation of the Repository interface.

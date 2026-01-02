@@ -9,7 +9,7 @@
 
 ## Context
 
-LimiQuantix needs to provide web-based console access to VMs, similar to VMware's vSphere Web Console. Users should be able to interact with VMs directly from the browser without installing additional software.
+Quantixkvm needs to provide web-based console access to VMs, similar to VMware's vSphere Web Console. Users should be able to interact with VMs directly from the browser without installing additional software.
 
 ### Requirements
 
@@ -219,7 +219,7 @@ For Windows VMs and advanced features:
 
 If RDP or SSH console is needed:
 1. Deploy Guacamole for Windows RDP access
-2. Integrate with LimiQuantix authentication
+2. Integrate with Quantixkvm authentication
 3. Provide unified console experience
 
 ---

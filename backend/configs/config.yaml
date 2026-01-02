@@ -1,4 +1,4 @@
-# LimiQuantix Control Plane Configuration
+# Quantixkvm Control Plane Configuration
 # Default configuration - override with environment variables or config.dev.yaml
 
 server:
@@ -11,9 +11,9 @@ server:
 database:
   host: "localhost"
   port: 5432
-  name: "limiquantix"
-  user: "limiquantix"
-  password: "limiquantix"
+  name: "Quantixkvm"
+  user: "Quantixkvm"
+  password: "Quantixkvm"
   sslmode: "disable"
   max_open_conns: 25
   max_idle_conns: 5

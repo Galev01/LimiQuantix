@@ -184,16 +184,33 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
   // Process nodes into a format usable by the wizard
   const nodes = useMemo(() => {
     if (!nodesData?.nodes?.length) return [];
-    return nodesData.nodes.map((node: ApiNode) => ({
-      id: node.id,
-      hostname: node.hostname,
-      managementIp: node.managementIp,
-      phase: node.status?.phase || 'UNKNOWN',
-      cpuAllocated: node.status?.allocation?.cpuAllocated || 0,
-      cpuCapacity: node.status?.allocation?.cpuCapacity || (node.spec?.cpu?.coresPerSocket || 1) * (node.spec?.cpu?.sockets || 1),
-      memoryAllocatedMib: node.status?.allocation?.memoryAllocatedMib || 0,
-      memoryCapacityMib: node.status?.allocation?.memoryCapacityMib || node.spec?.memory?.totalMib || 0,
-    }));
+    return nodesData.nodes.map((node: ApiNode) => {
+      // Calculate CPU capacity from spec
+      const cpuCapacity = (node.spec?.cpu?.coresPerSocket || 1) * (node.spec?.cpu?.sockets || 1);
+      // Get CPU allocation from status.resources
+      const cpuAllocated = node.status?.resources?.cpu?.allocatedVcpus || 0;
+      // Get memory in MiB (API returns bytes, convert to MiB)
+      const memoryCapacityMib = node.spec?.memory?.totalBytes 
+        ? Math.floor(node.spec.memory.totalBytes / (1024 * 1024)) 
+        : 0;
+      const memoryAllocatedMib = node.status?.resources?.memory?.allocatedBytes
+        ? Math.floor(node.status.resources.memory.allocatedBytes / (1024 * 1024))
+        : 0;
+      
+      return {
+        id: node.id,
+        hostname: node.hostname,
+        managementIp: node.managementIp,
+        phase: node.status?.phase || 'UNKNOWN',
+        cpuAllocated,
+        cpuCapacity,
+        memoryAllocatedMib,
+        memoryCapacityMib,
+        // Include storage and network info for display
+        storageDevices: node.spec?.storage || [],
+        networkDevices: node.spec?.network || [],
+      };
+    });
   }, [nodesData]);
 
   // Process networks into a format usable by the wizard
@@ -249,14 +266,34 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
   const handleSubmit = async () => {
     setError(null);
     try {
+      // Find selected host for the request
+      const selectedHost = nodes.find(n => n.id === formData.hostId);
+      
       await createVM.mutateAsync({
         name: formData.name,
         projectId: 'default',
         description: formData.description,
+        // Include host placement info
+        nodeId: formData.autoPlacement ? undefined : formData.hostId,
+        labels: {
+          ...(formData.department && { department: formData.department }),
+          ...(formData.costCenter && { 'cost-center': formData.costCenter }),
+          ...(selectedHost && !formData.autoPlacement && { 'assigned-host': selectedHost.hostname }),
+        },
         spec: {
-          cpu: { cores: formData.cpuCores * formData.cpuSockets },
+          cpu: { 
+            cores: formData.cpuCores * formData.cpuSockets,
+            sockets: formData.cpuSockets,
+          },
           memory: { sizeMib: formData.memoryMib },
-          disks: formData.disks.map((d) => ({ sizeMib: d.sizeGib * 1024 })),
+          disks: formData.disks.map((d) => ({ 
+            sizeMib: d.sizeGib * 1024,
+            name: d.name,
+          })),
+          nics: formData.nics.map((nic) => ({
+            networkId: nic.networkId,
+            connected: nic.connected,
+          })),
         },
       });
       onSuccess?.();
@@ -446,6 +483,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                   updateFormData={updateFormData}
                   networks={networks}
                   isLoading={networksLoading}
+                  selectedHost={nodes.find(n => n.id === formData.hostId)}
                 />
               )}
               {currentStep === 5 && (
@@ -621,6 +659,17 @@ interface ProcessedNode {
   cpuCapacity: number;
   memoryAllocatedMib: number;
   memoryCapacityMib: number;
+  storageDevices: Array<{
+    path?: string;
+    model?: string;
+    sizeBytes?: number;
+    type?: string;
+  }>;
+  networkDevices: Array<{
+    name?: string;
+    macAddress?: string;
+    speedMbps?: number;
+  }>;
 }
 
 interface ProcessedCluster {
@@ -704,7 +753,7 @@ function StepPlacement({
             <div className="flex-1">
               <p className="text-sm font-medium text-warning">No hosts available</p>
               <p className="text-xs text-text-muted mt-0.5">
-                Register a node daemon to create VMs. Run limiquantix-node on a Linux host with KVM.
+                Register a node daemon to create VMs. Run Quantixkvm-node on a Linux host with KVM.
               </p>
             </div>
             <Button variant="ghost" size="sm" onClick={() => onRefresh()}>
@@ -816,13 +865,22 @@ function StepPlacement({
                             </div>
                             <p className="text-xs text-text-muted">{host.managementIp}</p>
                           </div>
-                          <div className="text-right text-xs">
+                          <div className="text-right text-xs space-y-0.5">
                             <p className="text-text-muted">
-                              CPU: <span className={cpuPercent > 80 ? 'text-error' : 'text-text-secondary'}>{cpuPercent}%</span>
+                              CPU: <span className={cpuPercent > 80 ? 'text-error' : 'text-text-secondary'}>
+                                {host.cpuCapacity - host.cpuAllocated} / {host.cpuCapacity} cores free
+                              </span>
                             </p>
                             <p className="text-text-muted">
-                              RAM: <span className={memPercent > 80 ? 'text-error' : 'text-text-secondary'}>{memPercent}%</span>
+                              RAM: <span className={memPercent > 80 ? 'text-error' : 'text-text-secondary'}>
+                                {formatBytes((host.memoryCapacityMib - host.memoryAllocatedMib) * 1024 * 1024)} free
+                              </span>
                             </p>
+                            {host.storageDevices.length > 0 && (
+                              <p className="text-text-muted">
+                                Storage: {host.storageDevices.length} device(s)
+                              </p>
+                            )}
                           </div>
                         </label>
                       );
@@ -912,7 +970,7 @@ function StepCustomization({
             className="form-checkbox mt-1"
           />
           <div>
-            <span className="text-sm font-medium text-text-primary">Install LimiQuantix Agent</span>
+            <span className="text-sm font-medium text-text-primary">Install Quantixkvm Agent</span>
             <p className="text-xs text-text-muted mt-0.5">
               The agent enables advanced features like live metrics, filesystem quiescing, and remote commands
             </p>
@@ -975,12 +1033,26 @@ function StepHardware({
   updateFormData,
   networks,
   isLoading,
+  selectedHost,
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
   networks: ProcessedNetwork[];
   isLoading: boolean;
+  selectedHost?: ProcessedNode;
 }) {
+  // Calculate available resources on selected host
+  const availableCpu = selectedHost 
+    ? selectedHost.cpuCapacity - selectedHost.cpuAllocated 
+    : 32; // Default max if no host selected
+  const availableMemoryMib = selectedHost 
+    ? selectedHost.memoryCapacityMib - selectedHost.memoryAllocatedMib 
+    : 65536; // Default 64GB max if no host selected
+  
+  // Calculate if current selection exceeds available resources
+  const totalVCPUs = formData.cpuCores * formData.cpuSockets;
+  const cpuExceedsLimit = selectedHost && totalVCPUs > availableCpu;
+  const memoryExceedsLimit = selectedHost && formData.memoryMib > availableMemoryMib;
   const addNIC = () => {
     const defaultNetwork = networks[0] || { id: 'default', name: 'Default Network' };
     const newNic: NetworkInterface = {
@@ -1048,10 +1120,23 @@ function StepHardware({
               </select>
             </FormField>
 
-            <div className="pt-3 border-t border-border">
+            <div className="pt-3 border-t border-border space-y-1">
               <p className="text-sm text-text-muted">
-                Total: <span className="text-text-primary font-medium">{formData.cpuCores * formData.cpuSockets} vCPUs</span>
+                Total: <span className={cn("font-medium", cpuExceedsLimit ? "text-error" : "text-text-primary")}>
+                  {formData.cpuCores * formData.cpuSockets} vCPUs
+                </span>
               </p>
+              {selectedHost && (
+                <p className="text-xs text-text-muted">
+                  Available on {selectedHost.hostname}: <span className="text-success">{availableCpu} cores</span>
+                </p>
+              )}
+              {cpuExceedsLimit && (
+                <p className="text-xs text-error flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Exceeds available resources
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -1091,9 +1176,28 @@ function StepHardware({
                 step="512"
                 value={formData.memoryMib}
                 onChange={(e) => updateFormData({ memoryMib: parseInt(e.target.value) || 512 })}
-                className="form-input"
+                className={cn("form-input", memoryExceedsLimit && "border-error")}
               />
             </FormField>
+            
+            <div className="pt-3 border-t border-border space-y-1">
+              <p className="text-sm text-text-muted">
+                Selected: <span className={cn("font-medium", memoryExceedsLimit ? "text-error" : "text-text-primary")}>
+                  {formatBytes(formData.memoryMib * 1024 * 1024)}
+                </span>
+              </p>
+              {selectedHost && (
+                <p className="text-xs text-text-muted">
+                  Available on {selectedHost.hostname}: <span className="text-success">{formatBytes(availableMemoryMib * 1024 * 1024)}</span>
+                </p>
+              )}
+              {memoryExceedsLimit && (
+                <p className="text-xs text-error flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Exceeds available memory
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1522,8 +1626,20 @@ function StepReview({
           <ReviewRow label="Cluster" value={selectedCluster?.name || '—'} />
           <ReviewRow
             label="Host"
-            value={formData.autoPlacement ? 'Automatic' : selectedHost?.hostname || '—'}
+            value={formData.autoPlacement ? 'Automatic (scheduler will choose)' : selectedHost?.hostname || '—'}
           />
+          {!formData.autoPlacement && selectedHost && (
+            <>
+              <ReviewRow 
+                label="Host IP" 
+                value={selectedHost.managementIp} 
+              />
+              <ReviewRow 
+                label="Host Resources" 
+                value={`${selectedHost.cpuCapacity} cores, ${formatBytes(selectedHost.memoryCapacityMib * 1024 * 1024)} RAM`} 
+              />
+            </>
+          )}
           <ReviewRow label="Folder" value={selectedFolder?.path || '—'} />
         </ReviewSection>
 

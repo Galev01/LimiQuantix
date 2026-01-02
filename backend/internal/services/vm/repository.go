@@ -4,7 +4,7 @@ package vm
 import (
 	"context"
 
-	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
 )
 
 // Repository defines the data access interface for virtual machines.

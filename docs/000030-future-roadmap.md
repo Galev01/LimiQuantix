@@ -1,14 +1,14 @@
-# LimiQuantix Future Roadmap
+# Quantixkvm Future Roadmap
 
 **Document ID:** 000030  
 **Date:** January 2, 2026  
-**Purpose:** Define the development roadmap for completing LimiQuantix as a VMware-killer virtualization platform
+**Purpose:** Define the development roadmap for completing Quantixkvm as a VMware-killer virtualization platform
 
 ---
 
 ## Executive Summary
 
-LimiQuantix has completed its **API & UI Foundation Phase**. The project now has:
+Quantixkvm has completed its **API & UI Foundation Phase**. The project now has:
 - ✅ Production-ready React dashboard (95%)
 - ✅ Full protobuf API definitions (100%)
 - ✅ Backend services with all phases implemented (75%)
@@ -47,7 +47,7 @@ LimiQuantix has completed its **API & UI Foundation Phase**. The project now has
 ```
 Listed VMs    {"method": "ListVMs", "count": 4, "total": 4}
 Listed nodes  {"method": "ListNodes", "count": 3}
-HTTP request  {"method": "POST", "path": "/limiquantix.compute.v1.VMService/ListVMs", "status": 200}
+HTTP request  {"method": "POST", "path": "/Quantixkvm.compute.v1.VMService/ListVMs", "status": 200}
 ```
 
 ---
@@ -328,7 +328,7 @@ Connect to OVN/OVS for SDN functionality.
 
 ## Conclusion
 
-LimiQuantix has a solid foundation with excellent API design and UI. The critical path forward is:
+Quantixkvm has a solid foundation with excellent API design and UI. The critical path forward is:
 
 1. **Hypervisor Integration** - Make VMs actually work
 2. **Storage Backend** - Persistent data

@@ -1,4 +1,4 @@
-//! # LimiQuantix Telemetry
+//! # Quantixkvm Telemetry
 //!
 //! System telemetry collection for the Node Daemon.
 //! Collects CPU, memory, disk, and network metrics from the host.

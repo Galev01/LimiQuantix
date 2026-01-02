@@ -1,4 +1,4 @@
-//! # LimiQuantix Node Daemon
+//! # Quantixkvm Node Daemon
 //!
 //! The Node Daemon runs on each hypervisor host and manages virtual machines
 //! through the hypervisor abstraction layer. It communicates with the control
@@ -12,7 +12,7 @@
 //!
 //! ## Usage
 //! ```bash
-//! limiquantix-node --config /etc/limiquantix/node.yaml
+//! Quantixkvm-node --config /etc/Quantixkvm/node.yaml
 //! ```
 
 use anyhow::Result;
@@ -34,11 +34,11 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     
     // Initialize logging
-    limiquantix_common::init_logging(&args.log_level)?;
+    Quantixkvm_common::init_logging(&args.log_level)?;
     
     info!(
         version = env!("CARGO_PKG_VERSION"),
-        "Starting LimiQuantix Node Daemon"
+        "Starting Quantixkvm Node Daemon"
     );
     
     // Load configuration
@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
         }
         None => {
             // Try default location, fall back to CLI-only config
-            let default_path = "/etc/limiquantix/node.yaml";
+            let default_path = "/etc/Quantixkvm/node.yaml";
             match Config::load(default_path) {
                 Ok(cfg) => {
                     info!(config_path = %default_path, "Configuration loaded from default location");

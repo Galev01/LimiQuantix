@@ -8,7 +8,7 @@
 
 ## Overview
 
-The Monitoring page provides real-time infrastructure metrics and performance monitoring for the LimiQuantix virtualization platform. It features interactive charts, host performance tables, and quick stats for at-a-glance health assessment.
+The Monitoring page provides real-time infrastructure metrics and performance monitoring for the Quantixkvm virtualization platform. It features interactive charts, host performance tables, and quick stats for at-a-glance health assessment.
 
 ---
 

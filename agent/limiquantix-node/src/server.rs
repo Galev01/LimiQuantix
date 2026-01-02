@@ -5,9 +5,9 @@ use std::sync::Arc;
 use tonic::transport::Server;
 use tracing::{info, warn};
 
-use limiquantix_hypervisor::{Hypervisor, MockBackend};
-use limiquantix_proto::NodeDaemonServiceServer;
-use limiquantix_telemetry::TelemetryCollector;
+use Quantixkvm_hypervisor::{Hypervisor, MockBackend};
+use Quantixkvm_proto::NodeDaemonServiceServer;
+use Quantixkvm_telemetry::TelemetryCollector;
 
 use crate::config::{Config, HypervisorBackend};
 use crate::registration::RegistrationClient;
@@ -27,7 +27,7 @@ pub async fn run(config: Config) -> Result<()> {
                 let uri = config.hypervisor.libvirt_uri.as_deref()
                     .unwrap_or("qemu:///system");
                 info!(uri = %uri, "Connecting to libvirt");
-                Arc::new(limiquantix_hypervisor::LibvirtBackend::new(uri).await?)
+                Arc::new(Quantixkvm_hypervisor::LibvirtBackend::new(uri).await?)
             }
             #[cfg(not(feature = "libvirt"))]
             {

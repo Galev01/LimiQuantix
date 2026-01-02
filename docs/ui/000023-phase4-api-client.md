@@ -8,7 +8,7 @@
 
 ## Overview
 
-The API client infrastructure provides a robust foundation for communicating with the LimiQuantix backend gRPC services using Connect-ES. It supports unary calls, streaming, authentication, and automatic reconnection.
+The API client infrastructure provides a robust foundation for communicating with the Quantixkvm backend gRPC services using Connect-ES. It supports unary calls, streaming, authentication, and automatic reconnection.
 
 ---
 
@@ -28,7 +28,7 @@ The API client infrastructure provides a robust foundation for communicating wit
 │          Connect-ES Transport with Interceptors              │
 ├─────────────────────────────────────────────────────────────┤
 │                    gRPC Backend                              │
-│                   LimiQuantix Services                       │
+│                   Quantixkvm Services                       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -97,7 +97,7 @@ const authInterceptor: Interceptor = (next) => async (req) => {
 Create typed clients for any service:
 
 ```typescript
-import { VMService } from '@/api/limiquantix/compute/v1/vm_service_connect';
+import { VMService } from '@/api/Quantixkvm/compute/v1/vm_service_connect';
 
 const vmClient = createApiClient(VMService);
 const vm = await vmClient.getVM({ id: 'vm-123' });
@@ -217,7 +217,7 @@ Once proto code is generated, usage looks like:
 
 ```typescript
 // Import generated service and client factory
-import { VMService } from '@/api/limiquantix/compute/v1/vm_service_connect';
+import { VMService } from '@/api/Quantixkvm/compute/v1/vm_service_connect';
 import { createApiClient } from '@/lib/api-client';
 
 // Create client

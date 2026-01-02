@@ -9,8 +9,8 @@ import (
 	"connectrpc.com/connect"
 	"go.uber.org/zap"
 
-	"github.com/limiquantix/limiquantix/internal/domain"
-	"github.com/limiquantix/limiquantix/internal/services/auth"
+	"github.com/Quantixkvm/Quantixkvm/internal/domain"
+	"github.com/Quantixkvm/Quantixkvm/internal/services/auth"
 )
 
 // ContextKey is the type for context keys.
@@ -132,8 +132,8 @@ var publicEndpoints = []string{
 	"/ready",
 	"/live",
 	// Auth endpoints
-	"/limiquantix.auth.v1.AuthService/Login",
-	"/limiquantix.auth.v1.AuthService/RefreshToken",
+	"/Quantixkvm.auth.v1.AuthService/Login",
+	"/Quantixkvm.auth.v1.AuthService/RefreshToken",
 	// gRPC reflection (for development tools)
 	"/grpc.reflection.v1alpha.ServerReflection",
 	"/grpc.reflection.v1.ServerReflection",

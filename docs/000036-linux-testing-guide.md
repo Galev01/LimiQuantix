@@ -9,7 +9,7 @@
 
 ## Overview
 
-This guide explains how to set up a Linux environment for testing LimiQuantix with real KVM/libvirt VMs.
+This guide explains how to set up a Linux environment for testing Quantixkvm with real KVM/libvirt VMs.
 
 ---
 
@@ -131,14 +131,14 @@ cargo --version
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/LimiQuantix.git
-cd LimiQuantix/agent
+git clone https://github.com/your-org/Quantixkvm.git
+cd Quantixkvm/agent
 
 # Build with libvirt feature
-cargo build --release --bin limiquantix-node --features libvirt
+cargo build --release --bin Quantixkvm-node --features libvirt
 
 # The binary is at:
-# ./target/release/limiquantix-node
+# ./target/release/Quantixkvm-node
 ```
 
 ### Common Build Errors
@@ -176,9 +176,9 @@ sudo apt install pkg-config  # or dnf
 ### Create Config File
 
 ```bash
-sudo mkdir -p /etc/limiquantix
-sudo tee /etc/limiquantix/node-daemon.yaml << 'EOF'
-# LimiQuantix Node Daemon Configuration
+sudo mkdir -p /etc/Quantixkvm
+sudo tee /etc/Quantixkvm/node-daemon.yaml << 'EOF'
+# Quantixkvm Node Daemon Configuration
 
 node:
   # Node identity (auto-generated if not set)
@@ -202,7 +202,7 @@ hypervisor:
 
 storage:
   # Base path for disk images
-  base_path: "/var/lib/limiquantix/images"
+  base_path: "/var/lib/Quantixkvm/images"
 
 control_plane:
   # Control plane address
@@ -219,8 +219,8 @@ EOF
 ### Create Storage Directory
 
 ```bash
-sudo mkdir -p /var/lib/limiquantix/images
-sudo chown -R $USER:$USER /var/lib/limiquantix
+sudo mkdir -p /var/lib/Quantixkvm/images
+sudo chown -R $USER:$USER /var/lib/Quantixkvm
 ```
 
 ---
@@ -230,13 +230,13 @@ sudo chown -R $USER:$USER /var/lib/limiquantix
 ### Start with Config File
 
 ```bash
-./target/release/limiquantix-node --config /etc/limiquantix/node-daemon.yaml
+./target/release/Quantixkvm-node --config /etc/Quantixkvm/node-daemon.yaml
 ```
 
 ### Start with CLI Arguments
 
 ```bash
-./target/release/limiquantix-node \
+./target/release/Quantixkvm-node \
   --libvirt-uri qemu:///system \
   --listen 0.0.0.0:9090 \
   --control-plane http://control-plane:8080 \
@@ -246,9 +246,9 @@ sudo chown -R $USER:$USER /var/lib/limiquantix
 ### Run as Systemd Service
 
 ```bash
-sudo tee /etc/systemd/system/limiquantix-node.service << 'EOF'
+sudo tee /etc/systemd/system/Quantixkvm-node.service << 'EOF'
 [Unit]
-Description=LimiQuantix Node Daemon
+Description=Quantixkvm Node Daemon
 After=network.target libvirtd.service
 Wants=libvirtd.service
 
@@ -256,14 +256,14 @@ Wants=libvirtd.service
 Type=simple
 User=root
 Group=root
-ExecStart=/usr/local/bin/limiquantix-node --config /etc/limiquantix/node-daemon.yaml
+ExecStart=/usr/local/bin/Quantixkvm-node --config /etc/Quantixkvm/node-daemon.yaml
 Restart=always
 RestartSec=5
 
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=limiquantix-node
+SyslogIdentifier=Quantixkvm-node
 
 # Security
 NoNewPrivileges=false
@@ -275,16 +275,16 @@ WantedBy=multi-user.target
 EOF
 
 # Copy binary
-sudo cp target/release/limiquantix-node /usr/local/bin/
+sudo cp target/release/Quantixkvm-node /usr/local/bin/
 
 # Enable and start service
 sudo systemctl daemon-reload
-sudo systemctl enable limiquantix-node
-sudo systemctl start limiquantix-node
+sudo systemctl enable Quantixkvm-node
+sudo systemctl start Quantixkvm-node
 
 # Check status
-sudo systemctl status limiquantix-node
-journalctl -u limiquantix-node -f
+sudo systemctl status Quantixkvm-node
+journalctl -u Quantixkvm-node -f
 ```
 
 ---
@@ -295,7 +295,7 @@ journalctl -u limiquantix-node -f
 
 ```bash
 # Using grpcurl
-grpcurl -plaintext localhost:9090 limiquantix.node.v1.NodeDaemonService/HealthCheck
+grpcurl -plaintext localhost:9090 Quantixkvm.node.v1.NodeDaemonService/HealthCheck
 
 # Expected output:
 # {
@@ -309,7 +309,7 @@ grpcurl -plaintext localhost:9090 limiquantix.node.v1.NodeDaemonService/HealthCh
 ### 2. Get Node Info
 
 ```bash
-grpcurl -plaintext localhost:9090 limiquantix.node.v1.NodeDaemonService/GetNodeInfo
+grpcurl -plaintext localhost:9090 Quantixkvm.node.v1.NodeDaemonService/GetNodeInfo
 ```
 
 ### 3. Create a Test VM
@@ -319,17 +319,17 @@ First, download a test image:
 ```bash
 # Download Cirros (minimal test image)
 wget https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img \
-  -O /var/lib/limiquantix/templates/cirros.qcow2
+  -O /var/lib/Quantixkvm/templates/cirros.qcow2
 
 # Or download Ubuntu cloud image
 wget https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img \
-  -O /var/lib/limiquantix/templates/ubuntu-22.04.qcow2
+  -O /var/lib/Quantixkvm/templates/ubuntu-22.04.qcow2
 ```
 
 Create VM via API (through Control Plane):
 
 ```bash
-curl -X POST http://control-plane:8080/limiquantix.compute.v1.VMService/CreateVM \
+curl -X POST http://control-plane:8080/Quantixkvm.compute.v1.VMService/CreateVM \
   -H "Content-Type: application/json" \
   -d '{
     "name": "test-vm-linux",
@@ -505,7 +505,7 @@ For a multi-node cluster:
 2. **Shared Storage**: For live migration, all nodes need access to the same storage:
    ```bash
    # Example NFS mount
-   sudo mount -t nfs storage-server:/vms /var/lib/limiquantix/images
+   sudo mount -t nfs storage-server:/vms /var/lib/Quantixkvm/images
    ```
 
 3. **SSH Keys**: For live migration, nodes need passwordless SSH:

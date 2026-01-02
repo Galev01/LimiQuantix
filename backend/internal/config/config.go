@@ -1,4 +1,4 @@
-// Package config provides configuration management for the LimiQuantix control plane.
+// Package config provides configuration management for the Quantixkvm control plane.
 package config
 
 import (
@@ -143,7 +143,7 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	// Environment variables
-	v.SetEnvPrefix("LIMIQUANTIX")
+	v.SetEnvPrefix("Quantixkvm")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
@@ -175,9 +175,9 @@ func setDefaults(v *viper.Viper) {
 	// Database
 	v.SetDefault("database.host", "localhost")
 	v.SetDefault("database.port", 5432)
-	v.SetDefault("database.name", "limiquantix")
-	v.SetDefault("database.user", "limiquantix")
-	v.SetDefault("database.password", "limiquantix")
+	v.SetDefault("database.name", "Quantixkvm")
+	v.SetDefault("database.user", "Quantixkvm")
+	v.SetDefault("database.password", "Quantixkvm")
 	v.SetDefault("database.sslmode", "disable")
 	v.SetDefault("database.max_open_conns", 25)
 	v.SetDefault("database.max_idle_conns", 5)
@@ -225,4 +225,3 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("cors.allowed_headers", []string{"*"})
 	v.SetDefault("cors.allow_credentials", true)
 }
-

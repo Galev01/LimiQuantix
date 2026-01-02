@@ -2,17 +2,18 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: limiquantix/storage/v1/storage.proto
+// source: Quantixkvm/storage/v1/storage.proto
 
 package storagev1
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -65,11 +66,11 @@ func (x StorageBackend_BackendType) String() string {
 }
 
 func (StorageBackend_BackendType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[0].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[0].Descriptor()
 }
 
 func (StorageBackend_BackendType) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[0]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[0]
 }
 
 func (x StorageBackend_BackendType) Number() protoreflect.EnumNumber {
@@ -78,7 +79,7 @@ func (x StorageBackend_BackendType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use StorageBackend_BackendType.Descriptor instead.
 func (StorageBackend_BackendType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{2, 0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{2, 0}
 }
 
 // Default provisioning type
@@ -112,11 +113,11 @@ func (x VolumeDefaults_ProvisioningType) String() string {
 }
 
 func (VolumeDefaults_ProvisioningType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[1].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[1].Descriptor()
 }
 
 func (VolumeDefaults_ProvisioningType) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[1]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[1]
 }
 
 func (x VolumeDefaults_ProvisioningType) Number() protoreflect.EnumNumber {
@@ -125,14 +126,14 @@ func (x VolumeDefaults_ProvisioningType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VolumeDefaults_ProvisioningType.Descriptor instead.
 func (VolumeDefaults_ProvisioningType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{8, 0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{8, 0}
 }
 
 // Key management
 type EncryptionConfig_KeyManagement int32
 
 const (
-	EncryptionConfig_INTERNAL     EncryptionConfig_KeyManagement = 0 // LimiQuantix managed keys
+	EncryptionConfig_INTERNAL     EncryptionConfig_KeyManagement = 0 // Quantixkvm managed keys
 	EncryptionConfig_EXTERNAL_KMS EncryptionConfig_KeyManagement = 1 // External Key Management Service
 )
 
@@ -159,11 +160,11 @@ func (x EncryptionConfig_KeyManagement) String() string {
 }
 
 func (EncryptionConfig_KeyManagement) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[2].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[2].Descriptor()
 }
 
 func (EncryptionConfig_KeyManagement) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[2]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[2]
 }
 
 func (x EncryptionConfig_KeyManagement) Number() protoreflect.EnumNumber {
@@ -172,7 +173,7 @@ func (x EncryptionConfig_KeyManagement) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use EncryptionConfig_KeyManagement.Descriptor instead.
 func (EncryptionConfig_KeyManagement) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{10, 0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{10, 0}
 }
 
 // Policy for moving data between tiers
@@ -206,11 +207,11 @@ func (x TieringConfig_TieringPolicy) String() string {
 }
 
 func (TieringConfig_TieringPolicy) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[3].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[3].Descriptor()
 }
 
 func (TieringConfig_TieringPolicy) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[3]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[3]
 }
 
 func (x TieringConfig_TieringPolicy) Number() protoreflect.EnumNumber {
@@ -219,7 +220,7 @@ func (x TieringConfig_TieringPolicy) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TieringConfig_TieringPolicy.Descriptor instead.
 func (TieringConfig_TieringPolicy) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{13, 0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{13, 0}
 }
 
 // Current phase
@@ -265,11 +266,11 @@ func (x StoragePoolStatus_Phase) String() string {
 }
 
 func (StoragePoolStatus_Phase) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[4].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[4].Descriptor()
 }
 
 func (StoragePoolStatus_Phase) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[4]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[4]
 }
 
 func (x StoragePoolStatus_Phase) Number() protoreflect.EnumNumber {
@@ -278,7 +279,7 @@ func (x StoragePoolStatus_Phase) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use StoragePoolStatus_Phase.Descriptor instead.
 func (StoragePoolStatus_Phase) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{14, 0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{14, 0}
 }
 
 type StorageHealth_Status int32
@@ -317,11 +318,11 @@ func (x StorageHealth_Status) String() string {
 }
 
 func (StorageHealth_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[5].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[5].Descriptor()
 }
 
 func (StorageHealth_Status) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[5]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[5]
 }
 
 func (x StorageHealth_Status) Number() protoreflect.EnumNumber {
@@ -330,7 +331,7 @@ func (x StorageHealth_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use StorageHealth_Status.Descriptor instead.
 func (StorageHealth_Status) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{17, 0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{17, 0}
 }
 
 // Provisioning type
@@ -367,11 +368,11 @@ func (x VolumeSpec_ProvisioningType) String() string {
 }
 
 func (VolumeSpec_ProvisioningType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[6].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[6].Descriptor()
 }
 
 func (VolumeSpec_ProvisioningType) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[6]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[6]
 }
 
 func (x VolumeSpec_ProvisioningType) Number() protoreflect.EnumNumber {
@@ -380,7 +381,7 @@ func (x VolumeSpec_ProvisioningType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VolumeSpec_ProvisioningType.Descriptor instead.
 func (VolumeSpec_ProvisioningType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{20, 0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{20, 0}
 }
 
 // Access mode
@@ -417,11 +418,11 @@ func (x VolumeSpec_AccessMode) String() string {
 }
 
 func (VolumeSpec_AccessMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[7].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[7].Descriptor()
 }
 
 func (VolumeSpec_AccessMode) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[7]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[7]
 }
 
 func (x VolumeSpec_AccessMode) Number() protoreflect.EnumNumber {
@@ -430,7 +431,7 @@ func (x VolumeSpec_AccessMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VolumeSpec_AccessMode.Descriptor instead.
 func (VolumeSpec_AccessMode) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{20, 1}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{20, 1}
 }
 
 // Current phase
@@ -482,11 +483,11 @@ func (x VolumeStatus_Phase) String() string {
 }
 
 func (VolumeStatus_Phase) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[8].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[8].Descriptor()
 }
 
 func (VolumeStatus_Phase) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[8]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[8]
 }
 
 func (x VolumeStatus_Phase) Number() protoreflect.EnumNumber {
@@ -495,7 +496,7 @@ func (x VolumeStatus_Phase) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VolumeStatus_Phase.Descriptor instead.
 func (VolumeStatus_Phase) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{28, 0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{28, 0}
 }
 
 type VolumeSnapshotStatus_Phase int32
@@ -540,11 +541,11 @@ func (x VolumeSnapshotStatus_Phase) String() string {
 }
 
 func (VolumeSnapshotStatus_Phase) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[9].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[9].Descriptor()
 }
 
 func (VolumeSnapshotStatus_Phase) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[9]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[9]
 }
 
 func (x VolumeSnapshotStatus_Phase) Number() protoreflect.EnumNumber {
@@ -553,7 +554,7 @@ func (x VolumeSnapshotStatus_Phase) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VolumeSnapshotStatus_Phase.Descriptor instead.
 func (VolumeSnapshotStatus_Phase) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{33, 0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{33, 0}
 }
 
 // Image format
@@ -596,11 +597,11 @@ func (x ImageSpec_Format) String() string {
 }
 
 func (ImageSpec_Format) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[10].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[10].Descriptor()
 }
 
 func (ImageSpec_Format) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[10]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[10]
 }
 
 func (x ImageSpec_Format) Number() protoreflect.EnumNumber {
@@ -609,7 +610,7 @@ func (x ImageSpec_Format) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ImageSpec_Format.Descriptor instead.
 func (ImageSpec_Format) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{35, 0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{35, 0}
 }
 
 // Visibility
@@ -646,11 +647,11 @@ func (x ImageSpec_Visibility) String() string {
 }
 
 func (ImageSpec_Visibility) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[11].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[11].Descriptor()
 }
 
 func (ImageSpec_Visibility) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[11]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[11]
 }
 
 func (x ImageSpec_Visibility) Number() protoreflect.EnumNumber {
@@ -659,7 +660,7 @@ func (x ImageSpec_Visibility) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ImageSpec_Visibility.Descriptor instead.
 func (ImageSpec_Visibility) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{35, 1}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{35, 1}
 }
 
 // OS family
@@ -702,11 +703,11 @@ func (x OsInfo_OsFamily) String() string {
 }
 
 func (OsInfo_OsFamily) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[12].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[12].Descriptor()
 }
 
 func (OsInfo_OsFamily) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[12]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[12]
 }
 
 func (x OsInfo_OsFamily) Number() protoreflect.EnumNumber {
@@ -715,7 +716,7 @@ func (x OsInfo_OsFamily) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use OsInfo_OsFamily.Descriptor instead.
 func (OsInfo_OsFamily) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{37, 0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{37, 0}
 }
 
 type ImageStatus_Phase int32
@@ -763,11 +764,11 @@ func (x ImageStatus_Phase) String() string {
 }
 
 func (ImageStatus_Phase) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_storage_v1_storage_proto_enumTypes[13].Descriptor()
+	return file_Quantixkvm_storage_v1_storage_proto_enumTypes[13].Descriptor()
 }
 
 func (ImageStatus_Phase) Type() protoreflect.EnumType {
-	return &file_limiquantix_storage_v1_storage_proto_enumTypes[13]
+	return &file_Quantixkvm_storage_v1_storage_proto_enumTypes[13]
 }
 
 func (x ImageStatus_Phase) Number() protoreflect.EnumNumber {
@@ -776,7 +777,7 @@ func (x ImageStatus_Phase) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ImageStatus_Phase.Descriptor instead.
 func (ImageStatus_Phase) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{39, 0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{39, 0}
 }
 
 // StoragePool represents a logical pool of storage resources.
@@ -806,7 +807,7 @@ type StoragePool struct {
 
 func (x *StoragePool) Reset() {
 	*x = StoragePool{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[0]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -818,7 +819,7 @@ func (x *StoragePool) String() string {
 func (*StoragePool) ProtoMessage() {}
 
 func (x *StoragePool) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[0]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -831,7 +832,7 @@ func (x *StoragePool) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoragePool.ProtoReflect.Descriptor instead.
 func (*StoragePool) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{0}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *StoragePool) GetId() string {
@@ -917,7 +918,7 @@ type StoragePoolSpec struct {
 
 func (x *StoragePoolSpec) Reset() {
 	*x = StoragePoolSpec{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[1]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -929,7 +930,7 @@ func (x *StoragePoolSpec) String() string {
 func (*StoragePoolSpec) ProtoMessage() {}
 
 func (x *StoragePoolSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[1]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -942,7 +943,7 @@ func (x *StoragePoolSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoragePoolSpec.ProtoReflect.Descriptor instead.
 func (*StoragePoolSpec) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{1}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *StoragePoolSpec) GetBackend() *StorageBackend {
@@ -989,7 +990,7 @@ func (x *StoragePoolSpec) GetTiering() *TieringConfig {
 
 type StorageBackend struct {
 	state protoimpl.MessageState     `protogen:"open.v1"`
-	Type  StorageBackend_BackendType `protobuf:"varint,1,opt,name=type,proto3,enum=limiquantix.storage.v1.StorageBackend_BackendType" json:"type,omitempty"`
+	Type  StorageBackend_BackendType `protobuf:"varint,1,opt,name=type,proto3,enum=Quantixkvm.storage.v1.StorageBackend_BackendType" json:"type,omitempty"`
 	// Backend-specific configuration
 	//
 	// Types that are valid to be assigned to Config:
@@ -1006,7 +1007,7 @@ type StorageBackend struct {
 
 func (x *StorageBackend) Reset() {
 	*x = StorageBackend{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[2]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1018,7 +1019,7 @@ func (x *StorageBackend) String() string {
 func (*StorageBackend) ProtoMessage() {}
 
 func (x *StorageBackend) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[2]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1031,7 +1032,7 @@ func (x *StorageBackend) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StorageBackend.ProtoReflect.Descriptor instead.
 func (*StorageBackend) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{2}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *StorageBackend) GetType() StorageBackend_BackendType {
@@ -1146,7 +1147,7 @@ type CephConfig struct {
 
 func (x *CephConfig) Reset() {
 	*x = CephConfig{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[3]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1158,7 +1159,7 @@ func (x *CephConfig) String() string {
 func (*CephConfig) ProtoMessage() {}
 
 func (x *CephConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[3]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1171,7 +1172,7 @@ func (x *CephConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CephConfig.ProtoReflect.Descriptor instead.
 func (*CephConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{3}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CephConfig) GetClusterId() string {
@@ -1230,7 +1231,7 @@ type LocalLvmConfig struct {
 
 func (x *LocalLvmConfig) Reset() {
 	*x = LocalLvmConfig{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[4]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1242,7 +1243,7 @@ func (x *LocalLvmConfig) String() string {
 func (*LocalLvmConfig) ProtoMessage() {}
 
 func (x *LocalLvmConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[4]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1255,7 +1256,7 @@ func (x *LocalLvmConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalLvmConfig.ProtoReflect.Descriptor instead.
 func (*LocalLvmConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{4}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *LocalLvmConfig) GetVolumeGroup() string {
@@ -1291,7 +1292,7 @@ type LocalDirConfig struct {
 
 func (x *LocalDirConfig) Reset() {
 	*x = LocalDirConfig{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[5]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1303,7 +1304,7 @@ func (x *LocalDirConfig) String() string {
 func (*LocalDirConfig) ProtoMessage() {}
 
 func (x *LocalDirConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[5]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1316,7 +1317,7 @@ func (x *LocalDirConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalDirConfig.ProtoReflect.Descriptor instead.
 func (*LocalDirConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{5}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *LocalDirConfig) GetPath() string {
@@ -1349,7 +1350,7 @@ type NfsConfig struct {
 
 func (x *NfsConfig) Reset() {
 	*x = NfsConfig{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[6]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1361,7 +1362,7 @@ func (x *NfsConfig) String() string {
 func (*NfsConfig) ProtoMessage() {}
 
 func (x *NfsConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[6]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1374,7 +1375,7 @@ func (x *NfsConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NfsConfig.ProtoReflect.Descriptor instead.
 func (*NfsConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{6}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *NfsConfig) GetServer() string {
@@ -1420,7 +1421,7 @@ type IscsiConfig struct {
 
 func (x *IscsiConfig) Reset() {
 	*x = IscsiConfig{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[7]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1432,7 +1433,7 @@ func (x *IscsiConfig) String() string {
 func (*IscsiConfig) ProtoMessage() {}
 
 func (x *IscsiConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[7]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1445,7 +1446,7 @@ func (x *IscsiConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IscsiConfig.ProtoReflect.Descriptor instead.
 func (*IscsiConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{7}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *IscsiConfig) GetPortal() string {
@@ -1478,7 +1479,7 @@ func (x *IscsiConfig) GetChapPassword() string {
 
 type VolumeDefaults struct {
 	state        protoimpl.MessageState          `protogen:"open.v1"`
-	Provisioning VolumeDefaults_ProvisioningType `protobuf:"varint,1,opt,name=provisioning,proto3,enum=limiquantix.storage.v1.VolumeDefaults_ProvisioningType" json:"provisioning,omitempty"`
+	Provisioning VolumeDefaults_ProvisioningType `protobuf:"varint,1,opt,name=provisioning,proto3,enum=Quantixkvm.storage.v1.VolumeDefaults_ProvisioningType" json:"provisioning,omitempty"`
 	// Default filesystem (for formatted volumes)
 	Filesystem string `protobuf:"bytes,2,opt,name=filesystem,proto3" json:"filesystem,omitempty"` // "ext4", "xfs", "raw"
 	// Default block size
@@ -1489,7 +1490,7 @@ type VolumeDefaults struct {
 
 func (x *VolumeDefaults) Reset() {
 	*x = VolumeDefaults{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[8]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1501,7 +1502,7 @@ func (x *VolumeDefaults) String() string {
 func (*VolumeDefaults) ProtoMessage() {}
 
 func (x *VolumeDefaults) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[8]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1514,7 +1515,7 @@ func (x *VolumeDefaults) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolumeDefaults.ProtoReflect.Descriptor instead.
 func (*VolumeDefaults) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{8}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *VolumeDefaults) GetProvisioning() VolumeDefaults_ProvisioningType {
@@ -1554,7 +1555,7 @@ type StorageQos struct {
 
 func (x *StorageQos) Reset() {
 	*x = StorageQos{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[9]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1566,7 +1567,7 @@ func (x *StorageQos) String() string {
 func (*StorageQos) ProtoMessage() {}
 
 func (x *StorageQos) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[9]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1579,7 +1580,7 @@ func (x *StorageQos) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StorageQos.ProtoReflect.Descriptor instead.
 func (*StorageQos) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{9}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *StorageQos) GetMaxIops() uint64 {
@@ -1623,7 +1624,7 @@ type EncryptionConfig struct {
 	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Encryption cipher
 	Cipher        string                         `protobuf:"bytes,2,opt,name=cipher,proto3" json:"cipher,omitempty"` // e.g., "aes-xts-plain64"
-	KeyManagement EncryptionConfig_KeyManagement `protobuf:"varint,3,opt,name=key_management,json=keyManagement,proto3,enum=limiquantix.storage.v1.EncryptionConfig_KeyManagement" json:"key_management,omitempty"`
+	KeyManagement EncryptionConfig_KeyManagement `protobuf:"varint,3,opt,name=key_management,json=keyManagement,proto3,enum=Quantixkvm.storage.v1.EncryptionConfig_KeyManagement" json:"key_management,omitempty"`
 	// KMS configuration (if external)
 	KmsEndpoint   string `protobuf:"bytes,4,opt,name=kms_endpoint,json=kmsEndpoint,proto3" json:"kms_endpoint,omitempty"`
 	KmsKeyId      string `protobuf:"bytes,5,opt,name=kms_key_id,json=kmsKeyId,proto3" json:"kms_key_id,omitempty"`
@@ -1633,7 +1634,7 @@ type EncryptionConfig struct {
 
 func (x *EncryptionConfig) Reset() {
 	*x = EncryptionConfig{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[10]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1645,7 +1646,7 @@ func (x *EncryptionConfig) String() string {
 func (*EncryptionConfig) ProtoMessage() {}
 
 func (x *EncryptionConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[10]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1658,7 +1659,7 @@ func (x *EncryptionConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EncryptionConfig.ProtoReflect.Descriptor instead.
 func (*EncryptionConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{10}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *EncryptionConfig) GetEnabled() bool {
@@ -1712,7 +1713,7 @@ type ReplicationConfig struct {
 
 func (x *ReplicationConfig) Reset() {
 	*x = ReplicationConfig{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[11]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1724,7 +1725,7 @@ func (x *ReplicationConfig) String() string {
 func (*ReplicationConfig) ProtoMessage() {}
 
 func (x *ReplicationConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[11]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1737,7 +1738,7 @@ func (x *ReplicationConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplicationConfig.ProtoReflect.Descriptor instead.
 func (*ReplicationConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{11}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ReplicationConfig) GetReplicaCount() uint32 {
@@ -1779,7 +1780,7 @@ type ErasureCodingConfig struct {
 
 func (x *ErasureCodingConfig) Reset() {
 	*x = ErasureCodingConfig{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[12]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1791,7 +1792,7 @@ func (x *ErasureCodingConfig) String() string {
 func (*ErasureCodingConfig) ProtoMessage() {}
 
 func (x *ErasureCodingConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[12]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1804,7 +1805,7 @@ func (x *ErasureCodingConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErasureCodingConfig.ProtoReflect.Descriptor instead.
 func (*ErasureCodingConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{12}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ErasureCodingConfig) GetEnabled() bool {
@@ -1836,7 +1837,7 @@ type TieringConfig struct {
 	HotPoolId string `protobuf:"bytes,2,opt,name=hot_pool_id,json=hotPoolId,proto3" json:"hot_pool_id,omitempty"`
 	// Cold tier pool (for infrequently accessed data)
 	ColdPoolId string                      `protobuf:"bytes,3,opt,name=cold_pool_id,json=coldPoolId,proto3" json:"cold_pool_id,omitempty"`
-	Policy     TieringConfig_TieringPolicy `protobuf:"varint,4,opt,name=policy,proto3,enum=limiquantix.storage.v1.TieringConfig_TieringPolicy" json:"policy,omitempty"`
+	Policy     TieringConfig_TieringPolicy `protobuf:"varint,4,opt,name=policy,proto3,enum=Quantixkvm.storage.v1.TieringConfig_TieringPolicy" json:"policy,omitempty"`
 	// Age threshold in hours for migration to cold tier
 	ColdAfterHours uint32 `protobuf:"varint,5,opt,name=cold_after_hours,json=coldAfterHours,proto3" json:"cold_after_hours,omitempty"`
 	unknownFields  protoimpl.UnknownFields
@@ -1845,7 +1846,7 @@ type TieringConfig struct {
 
 func (x *TieringConfig) Reset() {
 	*x = TieringConfig{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[13]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1857,7 +1858,7 @@ func (x *TieringConfig) String() string {
 func (*TieringConfig) ProtoMessage() {}
 
 func (x *TieringConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[13]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1870,7 +1871,7 @@ func (x *TieringConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TieringConfig.ProtoReflect.Descriptor instead.
 func (*TieringConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{13}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *TieringConfig) GetEnabled() bool {
@@ -1910,7 +1911,7 @@ func (x *TieringConfig) GetColdAfterHours() uint32 {
 
 type StoragePoolStatus struct {
 	state protoimpl.MessageState  `protogen:"open.v1"`
-	Phase StoragePoolStatus_Phase `protobuf:"varint,1,opt,name=phase,proto3,enum=limiquantix.storage.v1.StoragePoolStatus_Phase" json:"phase,omitempty"`
+	Phase StoragePoolStatus_Phase `protobuf:"varint,1,opt,name=phase,proto3,enum=Quantixkvm.storage.v1.StoragePoolStatus_Phase" json:"phase,omitempty"`
 	// Capacity information
 	Capacity *StorageCapacity `protobuf:"bytes,2,opt,name=capacity,proto3" json:"capacity,omitempty"`
 	// Performance metrics
@@ -1927,7 +1928,7 @@ type StoragePoolStatus struct {
 
 func (x *StoragePoolStatus) Reset() {
 	*x = StoragePoolStatus{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[14]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1939,7 +1940,7 @@ func (x *StoragePoolStatus) String() string {
 func (*StoragePoolStatus) ProtoMessage() {}
 
 func (x *StoragePoolStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[14]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1952,7 +1953,7 @@ func (x *StoragePoolStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoragePoolStatus.ProtoReflect.Descriptor instead.
 func (*StoragePoolStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{14}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *StoragePoolStatus) GetPhase() StoragePoolStatus_Phase {
@@ -2013,7 +2014,7 @@ type StorageCapacity struct {
 
 func (x *StorageCapacity) Reset() {
 	*x = StorageCapacity{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[15]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2025,7 +2026,7 @@ func (x *StorageCapacity) String() string {
 func (*StorageCapacity) ProtoMessage() {}
 
 func (x *StorageCapacity) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[15]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2038,7 +2039,7 @@ func (x *StorageCapacity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StorageCapacity.ProtoReflect.Descriptor instead.
 func (*StorageCapacity) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{15}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *StorageCapacity) GetTotalBytes() uint64 {
@@ -2086,7 +2087,7 @@ type StorageMetrics struct {
 
 func (x *StorageMetrics) Reset() {
 	*x = StorageMetrics{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[16]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2098,7 +2099,7 @@ func (x *StorageMetrics) String() string {
 func (*StorageMetrics) ProtoMessage() {}
 
 func (x *StorageMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[16]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2111,7 +2112,7 @@ func (x *StorageMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StorageMetrics.ProtoReflect.Descriptor instead.
 func (*StorageMetrics) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{16}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *StorageMetrics) GetReadIops() uint64 {
@@ -2158,7 +2159,7 @@ func (x *StorageMetrics) GetWriteLatencyUs() uint64 {
 
 type StorageHealth struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
-	Status StorageHealth_Status   `protobuf:"varint,1,opt,name=status,proto3,enum=limiquantix.storage.v1.StorageHealth_Status" json:"status,omitempty"`
+	Status StorageHealth_Status   `protobuf:"varint,1,opt,name=status,proto3,enum=Quantixkvm.storage.v1.StorageHealth_Status" json:"status,omitempty"`
 	// Health checks
 	Checks        []*HealthCheck `protobuf:"bytes,2,rep,name=checks,proto3" json:"checks,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2167,7 +2168,7 @@ type StorageHealth struct {
 
 func (x *StorageHealth) Reset() {
 	*x = StorageHealth{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[17]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2179,7 +2180,7 @@ func (x *StorageHealth) String() string {
 func (*StorageHealth) ProtoMessage() {}
 
 func (x *StorageHealth) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[17]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2192,7 +2193,7 @@ func (x *StorageHealth) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StorageHealth.ProtoReflect.Descriptor instead.
 func (*StorageHealth) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{17}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *StorageHealth) GetStatus() StorageHealth_Status {
@@ -2220,7 +2221,7 @@ type HealthCheck struct {
 
 func (x *HealthCheck) Reset() {
 	*x = HealthCheck{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[18]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2232,7 +2233,7 @@ func (x *HealthCheck) String() string {
 func (*HealthCheck) ProtoMessage() {}
 
 func (x *HealthCheck) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[18]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2245,7 +2246,7 @@ func (x *HealthCheck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheck.ProtoReflect.Descriptor instead.
 func (*HealthCheck) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{18}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *HealthCheck) GetName() string {
@@ -2295,7 +2296,7 @@ type Volume struct {
 
 func (x *Volume) Reset() {
 	*x = Volume{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[19]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2307,7 +2308,7 @@ func (x *Volume) String() string {
 func (*Volume) ProtoMessage() {}
 
 func (x *Volume) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[19]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2320,7 +2321,7 @@ func (x *Volume) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Volume.ProtoReflect.Descriptor instead.
 func (*Volume) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{19}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Volume) GetId() string {
@@ -2390,21 +2391,21 @@ type VolumeSpec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Size in bytes
 	SizeBytes    uint64                      `protobuf:"varint,1,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	Provisioning VolumeSpec_ProvisioningType `protobuf:"varint,2,opt,name=provisioning,proto3,enum=limiquantix.storage.v1.VolumeSpec_ProvisioningType" json:"provisioning,omitempty"`
+	Provisioning VolumeSpec_ProvisioningType `protobuf:"varint,2,opt,name=provisioning,proto3,enum=Quantixkvm.storage.v1.VolumeSpec_ProvisioningType" json:"provisioning,omitempty"`
 	// Source for the volume (clone, snapshot, image)
 	Source *VolumeSource `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
 	// Quality of Service
 	Qos *VolumeQos `protobuf:"bytes,4,opt,name=qos,proto3" json:"qos,omitempty"`
 	// Encryption settings (overrides pool defaults)
 	Encryption    *EncryptionConfig     `protobuf:"bytes,5,opt,name=encryption,proto3" json:"encryption,omitempty"`
-	AccessMode    VolumeSpec_AccessMode `protobuf:"varint,6,opt,name=access_mode,json=accessMode,proto3,enum=limiquantix.storage.v1.VolumeSpec_AccessMode" json:"access_mode,omitempty"`
+	AccessMode    VolumeSpec_AccessMode `protobuf:"varint,6,opt,name=access_mode,json=accessMode,proto3,enum=Quantixkvm.storage.v1.VolumeSpec_AccessMode" json:"access_mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *VolumeSpec) Reset() {
 	*x = VolumeSpec{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[20]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2416,7 +2417,7 @@ func (x *VolumeSpec) String() string {
 func (*VolumeSpec) ProtoMessage() {}
 
 func (x *VolumeSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[20]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2429,7 +2430,7 @@ func (x *VolumeSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolumeSpec.ProtoReflect.Descriptor instead.
 func (*VolumeSpec) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{20}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *VolumeSpec) GetSizeBytes() uint64 {
@@ -2490,7 +2491,7 @@ type VolumeSource struct {
 
 func (x *VolumeSource) Reset() {
 	*x = VolumeSource{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[21]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2502,7 +2503,7 @@ func (x *VolumeSource) String() string {
 func (*VolumeSource) ProtoMessage() {}
 
 func (x *VolumeSource) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[21]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2515,7 +2516,7 @@ func (x *VolumeSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolumeSource.ProtoReflect.Descriptor instead.
 func (*VolumeSource) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{21}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *VolumeSource) GetSource() isVolumeSource_Source {
@@ -2619,7 +2620,7 @@ type EmptySource struct {
 
 func (x *EmptySource) Reset() {
 	*x = EmptySource{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[22]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2631,7 +2632,7 @@ func (x *EmptySource) String() string {
 func (*EmptySource) ProtoMessage() {}
 
 func (x *EmptySource) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[22]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2644,7 +2645,7 @@ func (x *EmptySource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmptySource.ProtoReflect.Descriptor instead.
 func (*EmptySource) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{22}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *EmptySource) GetFilesystem() string {
@@ -2664,7 +2665,7 @@ type CloneSource struct {
 
 func (x *CloneSource) Reset() {
 	*x = CloneSource{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[23]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2676,7 +2677,7 @@ func (x *CloneSource) String() string {
 func (*CloneSource) ProtoMessage() {}
 
 func (x *CloneSource) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[23]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2689,7 +2690,7 @@ func (x *CloneSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloneSource.ProtoReflect.Descriptor instead.
 func (*CloneSource) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{23}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *CloneSource) GetVolumeId() string {
@@ -2709,7 +2710,7 @@ type SnapshotSource struct {
 
 func (x *SnapshotSource) Reset() {
 	*x = SnapshotSource{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[24]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2721,7 +2722,7 @@ func (x *SnapshotSource) String() string {
 func (*SnapshotSource) ProtoMessage() {}
 
 func (x *SnapshotSource) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[24]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2734,7 +2735,7 @@ func (x *SnapshotSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SnapshotSource.ProtoReflect.Descriptor instead.
 func (*SnapshotSource) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{24}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *SnapshotSource) GetSnapshotId() string {
@@ -2754,7 +2755,7 @@ type ImageSource struct {
 
 func (x *ImageSource) Reset() {
 	*x = ImageSource{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[25]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2766,7 +2767,7 @@ func (x *ImageSource) String() string {
 func (*ImageSource) ProtoMessage() {}
 
 func (x *ImageSource) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[25]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2779,7 +2780,7 @@ func (x *ImageSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImageSource.ProtoReflect.Descriptor instead.
 func (*ImageSource) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{25}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ImageSource) GetImageId() string {
@@ -2802,7 +2803,7 @@ type UrlSource struct {
 
 func (x *UrlSource) Reset() {
 	*x = UrlSource{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[26]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2814,7 +2815,7 @@ func (x *UrlSource) String() string {
 func (*UrlSource) ProtoMessage() {}
 
 func (x *UrlSource) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[26]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2827,7 +2828,7 @@ func (x *UrlSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UrlSource.ProtoReflect.Descriptor instead.
 func (*UrlSource) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{26}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *UrlSource) GetUrl() string {
@@ -2869,7 +2870,7 @@ type VolumeQos struct {
 
 func (x *VolumeQos) Reset() {
 	*x = VolumeQos{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[27]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2881,7 +2882,7 @@ func (x *VolumeQos) String() string {
 func (*VolumeQos) ProtoMessage() {}
 
 func (x *VolumeQos) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[27]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2894,7 +2895,7 @@ func (x *VolumeQos) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolumeQos.ProtoReflect.Descriptor instead.
 func (*VolumeQos) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{27}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *VolumeQos) GetMaxIops() uint64 {
@@ -2948,7 +2949,7 @@ func (x *VolumeQos) GetBurstDurationSec() uint32 {
 
 type VolumeStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Phase VolumeStatus_Phase     `protobuf:"varint,1,opt,name=phase,proto3,enum=limiquantix.storage.v1.VolumeStatus_Phase" json:"phase,omitempty"`
+	Phase VolumeStatus_Phase     `protobuf:"varint,1,opt,name=phase,proto3,enum=Quantixkvm.storage.v1.VolumeStatus_Phase" json:"phase,omitempty"`
 	// If attached, which VM?
 	AttachedVmId string `protobuf:"bytes,2,opt,name=attached_vm_id,json=attachedVmId,proto3" json:"attached_vm_id,omitempty"`
 	// Device path on the VM
@@ -2969,7 +2970,7 @@ type VolumeStatus struct {
 
 func (x *VolumeStatus) Reset() {
 	*x = VolumeStatus{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[28]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2981,7 +2982,7 @@ func (x *VolumeStatus) String() string {
 func (*VolumeStatus) ProtoMessage() {}
 
 func (x *VolumeStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[28]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2994,7 +2995,7 @@ func (x *VolumeStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolumeStatus.ProtoReflect.Descriptor instead.
 func (*VolumeStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{28}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *VolumeStatus) GetPhase() VolumeStatus_Phase {
@@ -3070,7 +3071,7 @@ type VolumeUsage struct {
 
 func (x *VolumeUsage) Reset() {
 	*x = VolumeUsage{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[29]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3082,7 +3083,7 @@ func (x *VolumeUsage) String() string {
 func (*VolumeUsage) ProtoMessage() {}
 
 func (x *VolumeUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[29]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3095,7 +3096,7 @@ func (x *VolumeUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolumeUsage.ProtoReflect.Descriptor instead.
 func (*VolumeUsage) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{29}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *VolumeUsage) GetUsedBytes() uint64 {
@@ -3170,7 +3171,7 @@ type VolumeSnapshot struct {
 
 func (x *VolumeSnapshot) Reset() {
 	*x = VolumeSnapshot{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[30]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3182,7 +3183,7 @@ func (x *VolumeSnapshot) String() string {
 func (*VolumeSnapshot) ProtoMessage() {}
 
 func (x *VolumeSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[30]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3195,7 +3196,7 @@ func (x *VolumeSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolumeSnapshot.ProtoReflect.Descriptor instead.
 func (*VolumeSnapshot) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{30}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *VolumeSnapshot) GetId() string {
@@ -3264,7 +3265,7 @@ type VolumeSnapshotSpec struct {
 
 func (x *VolumeSnapshotSpec) Reset() {
 	*x = VolumeSnapshotSpec{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[31]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3276,7 +3277,7 @@ func (x *VolumeSnapshotSpec) String() string {
 func (*VolumeSnapshotSpec) ProtoMessage() {}
 
 func (x *VolumeSnapshotSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[31]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3289,7 +3290,7 @@ func (x *VolumeSnapshotSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolumeSnapshotSpec.ProtoReflect.Descriptor instead.
 func (*VolumeSnapshotSpec) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{31}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *VolumeSnapshotSpec) GetRetention() *RetentionPolicy {
@@ -3311,7 +3312,7 @@ type RetentionPolicy struct {
 
 func (x *RetentionPolicy) Reset() {
 	*x = RetentionPolicy{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[32]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3323,7 +3324,7 @@ func (x *RetentionPolicy) String() string {
 func (*RetentionPolicy) ProtoMessage() {}
 
 func (x *RetentionPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[32]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3336,7 +3337,7 @@ func (x *RetentionPolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetentionPolicy.ProtoReflect.Descriptor instead.
 func (*RetentionPolicy) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{32}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *RetentionPolicy) GetRetainHours() uint32 {
@@ -3355,7 +3356,7 @@ func (x *RetentionPolicy) GetExpiresAt() *timestamppb.Timestamp {
 
 type VolumeSnapshotStatus struct {
 	state protoimpl.MessageState     `protogen:"open.v1"`
-	Phase VolumeSnapshotStatus_Phase `protobuf:"varint,1,opt,name=phase,proto3,enum=limiquantix.storage.v1.VolumeSnapshotStatus_Phase" json:"phase,omitempty"`
+	Phase VolumeSnapshotStatus_Phase `protobuf:"varint,1,opt,name=phase,proto3,enum=Quantixkvm.storage.v1.VolumeSnapshotStatus_Phase" json:"phase,omitempty"`
 	// Snapshot size
 	SizeBytes uint64 `protobuf:"varint,2,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	// Ready to use for restore/clone
@@ -3368,7 +3369,7 @@ type VolumeSnapshotStatus struct {
 
 func (x *VolumeSnapshotStatus) Reset() {
 	*x = VolumeSnapshotStatus{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[33]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3380,7 +3381,7 @@ func (x *VolumeSnapshotStatus) String() string {
 func (*VolumeSnapshotStatus) ProtoMessage() {}
 
 func (x *VolumeSnapshotStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[33]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3393,7 +3394,7 @@ func (x *VolumeSnapshotStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolumeSnapshotStatus.ProtoReflect.Descriptor instead.
 func (*VolumeSnapshotStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{33}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *VolumeSnapshotStatus) GetPhase() VolumeSnapshotStatus_Phase {
@@ -3449,7 +3450,7 @@ type Image struct {
 
 func (x *Image) Reset() {
 	*x = Image{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[34]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3461,7 +3462,7 @@ func (x *Image) String() string {
 func (*Image) ProtoMessage() {}
 
 func (x *Image) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[34]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3474,7 +3475,7 @@ func (x *Image) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Image.ProtoReflect.Descriptor instead.
 func (*Image) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{34}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *Image) GetId() string {
@@ -3548,15 +3549,15 @@ type ImageSpec struct {
 	Os *OsInfo `protobuf:"bytes,2,opt,name=os,proto3" json:"os,omitempty"`
 	// Minimum requirements
 	Requirements  *ImageRequirements   `protobuf:"bytes,3,opt,name=requirements,proto3" json:"requirements,omitempty"`
-	Format        ImageSpec_Format     `protobuf:"varint,4,opt,name=format,proto3,enum=limiquantix.storage.v1.ImageSpec_Format" json:"format,omitempty"`
-	Visibility    ImageSpec_Visibility `protobuf:"varint,5,opt,name=visibility,proto3,enum=limiquantix.storage.v1.ImageSpec_Visibility" json:"visibility,omitempty"`
+	Format        ImageSpec_Format     `protobuf:"varint,4,opt,name=format,proto3,enum=Quantixkvm.storage.v1.ImageSpec_Format" json:"format,omitempty"`
+	Visibility    ImageSpec_Visibility `protobuf:"varint,5,opt,name=visibility,proto3,enum=Quantixkvm.storage.v1.ImageSpec_Visibility" json:"visibility,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ImageSpec) Reset() {
 	*x = ImageSpec{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[35]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3568,7 +3569,7 @@ func (x *ImageSpec) String() string {
 func (*ImageSpec) ProtoMessage() {}
 
 func (x *ImageSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[35]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3581,7 +3582,7 @@ func (x *ImageSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImageSpec.ProtoReflect.Descriptor instead.
 func (*ImageSpec) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{35}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ImageSpec) GetSource() *ImageSource {
@@ -3637,7 +3638,7 @@ type ImageSourceSpec struct {
 
 func (x *ImageSourceSpec) Reset() {
 	*x = ImageSourceSpec{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[36]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3649,7 +3650,7 @@ func (x *ImageSourceSpec) String() string {
 func (*ImageSourceSpec) ProtoMessage() {}
 
 func (x *ImageSourceSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[36]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3662,7 +3663,7 @@ func (x *ImageSourceSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImageSourceSpec.ProtoReflect.Descriptor instead.
 func (*ImageSourceSpec) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{36}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ImageSourceSpec) GetSource() isImageSourceSpec_Source {
@@ -3756,7 +3757,7 @@ func (*ImageSourceSpec_ContainerImage) isImageSourceSpec_Source() {}
 
 type OsInfo struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
-	Family OsInfo_OsFamily        `protobuf:"varint,1,opt,name=family,proto3,enum=limiquantix.storage.v1.OsInfo_OsFamily" json:"family,omitempty"`
+	Family OsInfo_OsFamily        `protobuf:"varint,1,opt,name=family,proto3,enum=Quantixkvm.storage.v1.OsInfo_OsFamily" json:"family,omitempty"`
 	// Distribution (e.g., "ubuntu", "centos", "windows-server")
 	Distribution string `protobuf:"bytes,2,opt,name=distribution,proto3" json:"distribution,omitempty"`
 	// Version
@@ -3771,7 +3772,7 @@ type OsInfo struct {
 
 func (x *OsInfo) Reset() {
 	*x = OsInfo{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[37]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3783,7 +3784,7 @@ func (x *OsInfo) String() string {
 func (*OsInfo) ProtoMessage() {}
 
 func (x *OsInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[37]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3796,7 +3797,7 @@ func (x *OsInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OsInfo.ProtoReflect.Descriptor instead.
 func (*OsInfo) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{37}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *OsInfo) GetFamily() OsInfo_OsFamily {
@@ -3854,7 +3855,7 @@ type ImageRequirements struct {
 
 func (x *ImageRequirements) Reset() {
 	*x = ImageRequirements{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[38]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3866,7 +3867,7 @@ func (x *ImageRequirements) String() string {
 func (*ImageRequirements) ProtoMessage() {}
 
 func (x *ImageRequirements) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[38]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3879,7 +3880,7 @@ func (x *ImageRequirements) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImageRequirements.ProtoReflect.Descriptor instead.
 func (*ImageRequirements) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{38}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ImageRequirements) GetMinCpu() uint32 {
@@ -3926,7 +3927,7 @@ func (x *ImageRequirements) GetRequiresTpm() bool {
 
 type ImageStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Phase ImageStatus_Phase      `protobuf:"varint,1,opt,name=phase,proto3,enum=limiquantix.storage.v1.ImageStatus_Phase" json:"phase,omitempty"`
+	Phase ImageStatus_Phase      `protobuf:"varint,1,opt,name=phase,proto3,enum=Quantixkvm.storage.v1.ImageStatus_Phase" json:"phase,omitempty"`
 	// Size in bytes
 	SizeBytes uint64 `protobuf:"varint,2,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	// Virtual size (uncompressed)
@@ -3945,7 +3946,7 @@ type ImageStatus struct {
 
 func (x *ImageStatus) Reset() {
 	*x = ImageStatus{}
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[39]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3957,7 +3958,7 @@ func (x *ImageStatus) String() string {
 func (*ImageStatus) ProtoMessage() {}
 
 func (x *ImageStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[39]
+	mi := &file_Quantixkvm_storage_v1_storage_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3970,7 +3971,7 @@ func (x *ImageStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImageStatus.ProtoReflect.Descriptor instead.
 func (*ImageStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{39}
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ImageStatus) GetPhase() ImageStatus_Phase {
@@ -4022,20 +4023,20 @@ func (x *ImageStatus) GetStoragePoolId() string {
 	return ""
 }
 
-var File_limiquantix_storage_v1_storage_proto protoreflect.FileDescriptor
+var File_Quantixkvm_storage_v1_storage_proto protoreflect.FileDescriptor
 
-const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
+const file_Quantixkvm_storage_v1_storage_proto_rawDesc = "" +
 	"\n" +
-	"$limiquantix/storage/v1/storage.proto\x12\x16limiquantix.storage.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xec\x03\n" +
+	"$Quantixkvm/storage/v1/storage.proto\x12\x16Quantixkvm.storage.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xec\x03\n" +
 	"\vStoragePool\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x03 \x01(\tR\tprojectId\x12 \n" +
 	"\vdescription\x18\x04 \x01(\tR\vdescription\x12G\n" +
-	"\x06labels\x18\x05 \x03(\v2/.limiquantix.storage.v1.StoragePool.LabelsEntryR\x06labels\x12;\n" +
-	"\x04spec\x18\x06 \x01(\v2'.limiquantix.storage.v1.StoragePoolSpecR\x04spec\x12A\n" +
-	"\x06status\x18\a \x01(\v2).limiquantix.storage.v1.StoragePoolStatusR\x06status\x129\n" +
+	"\x06labels\x18\x05 \x03(\v2/.Quantixkvm.storage.v1.StoragePool.LabelsEntryR\x06labels\x12;\n" +
+	"\x04spec\x18\x06 \x01(\v2'.Quantixkvm.storage.v1.StoragePoolSpecR\x04spec\x12A\n" +
+	"\x06status\x18\a \x01(\v2).Quantixkvm.storage.v1.StoragePoolStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
@@ -4044,21 +4045,21 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa5\x03\n" +
 	"\x0fStoragePoolSpec\x12@\n" +
-	"\abackend\x18\x01 \x01(\v2&.limiquantix.storage.v1.StorageBackendR\abackend\x12B\n" +
-	"\bdefaults\x18\x02 \x01(\v2&.limiquantix.storage.v1.VolumeDefaultsR\bdefaults\x124\n" +
-	"\x03qos\x18\x03 \x01(\v2\".limiquantix.storage.v1.StorageQosR\x03qos\x12H\n" +
+	"\abackend\x18\x01 \x01(\v2&.Quantixkvm.storage.v1.StorageBackendR\abackend\x12B\n" +
+	"\bdefaults\x18\x02 \x01(\v2&.Quantixkvm.storage.v1.VolumeDefaultsR\bdefaults\x124\n" +
+	"\x03qos\x18\x03 \x01(\v2\".Quantixkvm.storage.v1.StorageQosR\x03qos\x12H\n" +
 	"\n" +
-	"encryption\x18\x04 \x01(\v2(.limiquantix.storage.v1.EncryptionConfigR\n" +
+	"encryption\x18\x04 \x01(\v2(.Quantixkvm.storage.v1.EncryptionConfigR\n" +
 	"encryption\x12K\n" +
-	"\vreplication\x18\x05 \x01(\v2).limiquantix.storage.v1.ReplicationConfigR\vreplication\x12?\n" +
-	"\atiering\x18\x06 \x01(\v2%.limiquantix.storage.v1.TieringConfigR\atiering\"\xfe\x03\n" +
+	"\vreplication\x18\x05 \x01(\v2).Quantixkvm.storage.v1.ReplicationConfigR\vreplication\x12?\n" +
+	"\atiering\x18\x06 \x01(\v2%.Quantixkvm.storage.v1.TieringConfigR\atiering\"\xfe\x03\n" +
 	"\x0eStorageBackend\x12F\n" +
-	"\x04type\x18\x01 \x01(\x0e22.limiquantix.storage.v1.StorageBackend.BackendTypeR\x04type\x128\n" +
-	"\x04ceph\x18\x02 \x01(\v2\".limiquantix.storage.v1.CephConfigH\x00R\x04ceph\x12E\n" +
-	"\tlocal_lvm\x18\x03 \x01(\v2&.limiquantix.storage.v1.LocalLvmConfigH\x00R\blocalLvm\x12E\n" +
-	"\tlocal_dir\x18\x04 \x01(\v2&.limiquantix.storage.v1.LocalDirConfigH\x00R\blocalDir\x125\n" +
-	"\x03nfs\x18\x05 \x01(\v2!.limiquantix.storage.v1.NfsConfigH\x00R\x03nfs\x12;\n" +
-	"\x05iscsi\x18\x06 \x01(\v2#.limiquantix.storage.v1.IscsiConfigH\x00R\x05iscsi\"^\n" +
+	"\x04type\x18\x01 \x01(\x0e22.Quantixkvm.storage.v1.StorageBackend.BackendTypeR\x04type\x128\n" +
+	"\x04ceph\x18\x02 \x01(\v2\".Quantixkvm.storage.v1.CephConfigH\x00R\x04ceph\x12E\n" +
+	"\tlocal_lvm\x18\x03 \x01(\v2&.Quantixkvm.storage.v1.LocalLvmConfigH\x00R\blocalLvm\x12E\n" +
+	"\tlocal_dir\x18\x04 \x01(\v2&.Quantixkvm.storage.v1.LocalDirConfigH\x00R\blocalDir\x125\n" +
+	"\x03nfs\x18\x05 \x01(\v2!.Quantixkvm.storage.v1.NfsConfigH\x00R\x03nfs\x12;\n" +
+	"\x05iscsi\x18\x06 \x01(\v2#.Quantixkvm.storage.v1.IscsiConfigH\x00R\x05iscsi\"^\n" +
 	"\vBackendType\x12\f\n" +
 	"\bCEPH_RBD\x10\x00\x12\x0f\n" +
 	"\vCEPH_CEPHFS\x10\x01\x12\r\n" +
@@ -4095,7 +4096,7 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\tchap_user\x18\x03 \x01(\tR\bchapUser\x12#\n" +
 	"\rchap_password\x18\x04 \x01(\tR\fchapPassword\"\xd5\x01\n" +
 	"\x0eVolumeDefaults\x12[\n" +
-	"\fprovisioning\x18\x01 \x01(\x0e27.limiquantix.storage.v1.VolumeDefaults.ProvisioningTypeR\fprovisioning\x12\x1e\n" +
+	"\fprovisioning\x18\x01 \x01(\x0e27.Quantixkvm.storage.v1.VolumeDefaults.ProvisioningTypeR\fprovisioning\x12\x1e\n" +
 	"\n" +
 	"filesystem\x18\x02 \x01(\tR\n" +
 	"filesystem\x12\x1d\n" +
@@ -4115,7 +4116,7 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x10EncryptionConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x16\n" +
 	"\x06cipher\x18\x02 \x01(\tR\x06cipher\x12]\n" +
-	"\x0ekey_management\x18\x03 \x01(\x0e26.limiquantix.storage.v1.EncryptionConfig.KeyManagementR\rkeyManagement\x12!\n" +
+	"\x0ekey_management\x18\x03 \x01(\x0e26.Quantixkvm.storage.v1.EncryptionConfig.KeyManagementR\rkeyManagement\x12!\n" +
 	"\fkms_endpoint\x18\x04 \x01(\tR\vkmsEndpoint\x12\x1c\n" +
 	"\n" +
 	"kms_key_id\x18\x05 \x01(\tR\bkmsKeyId\"/\n" +
@@ -4125,7 +4126,7 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x11ReplicationConfig\x12#\n" +
 	"\rreplica_count\x18\x01 \x01(\rR\freplicaCount\x12!\n" +
 	"\fmin_replicas\x18\x02 \x01(\rR\vminReplicas\x12R\n" +
-	"\x0eerasure_coding\x18\x03 \x01(\v2+.limiquantix.storage.v1.ErasureCodingConfigR\rerasureCoding\x12%\n" +
+	"\x0eerasure_coding\x18\x03 \x01(\v2+.Quantixkvm.storage.v1.ErasureCodingConfigR\rerasureCoding\x12%\n" +
 	"\x0efailure_domain\x18\x04 \x01(\tR\rfailureDomain\"u\n" +
 	"\x13ErasureCodingConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1f\n" +
@@ -4137,16 +4138,16 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\vhot_pool_id\x18\x02 \x01(\tR\thotPoolId\x12 \n" +
 	"\fcold_pool_id\x18\x03 \x01(\tR\n" +
 	"coldPoolId\x12K\n" +
-	"\x06policy\x18\x04 \x01(\x0e23.limiquantix.storage.v1.TieringConfig.TieringPolicyR\x06policy\x12(\n" +
+	"\x06policy\x18\x04 \x01(\x0e23.Quantixkvm.storage.v1.TieringConfig.TieringPolicyR\x06policy\x12(\n" +
 	"\x10cold_after_hours\x18\x05 \x01(\rR\x0ecoldAfterHours\"'\n" +
 	"\rTieringPolicy\x12\a\n" +
 	"\x03LRU\x10\x00\x12\r\n" +
 	"\tWRITEBACK\x10\x01\"\xbd\x03\n" +
 	"\x11StoragePoolStatus\x12E\n" +
-	"\x05phase\x18\x01 \x01(\x0e2/.limiquantix.storage.v1.StoragePoolStatus.PhaseR\x05phase\x12C\n" +
-	"\bcapacity\x18\x02 \x01(\v2'.limiquantix.storage.v1.StorageCapacityR\bcapacity\x12@\n" +
-	"\ametrics\x18\x03 \x01(\v2&.limiquantix.storage.v1.StorageMetricsR\ametrics\x12=\n" +
-	"\x06health\x18\x04 \x01(\v2%.limiquantix.storage.v1.StorageHealthR\x06health\x12!\n" +
+	"\x05phase\x18\x01 \x01(\x0e2/.Quantixkvm.storage.v1.StoragePoolStatus.PhaseR\x05phase\x12C\n" +
+	"\bcapacity\x18\x02 \x01(\v2'.Quantixkvm.storage.v1.StorageCapacityR\bcapacity\x12@\n" +
+	"\ametrics\x18\x03 \x01(\v2&.Quantixkvm.storage.v1.StorageMetricsR\ametrics\x12=\n" +
+	"\x06health\x18\x04 \x01(\v2%.Quantixkvm.storage.v1.StorageHealthR\x06health\x12!\n" +
 	"\fvolume_count\x18\x05 \x01(\rR\vvolumeCount\x12#\n" +
 	"\rerror_message\x18\x06 \x01(\tR\ferrorMessage\"S\n" +
 	"\x05Phase\x12\v\n" +
@@ -4172,8 +4173,8 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x0fread_latency_us\x18\x05 \x01(\x04R\rreadLatencyUs\x12(\n" +
 	"\x10write_latency_us\x18\x06 \x01(\x04R\x0ewriteLatencyUs\"\xce\x01\n" +
 	"\rStorageHealth\x12D\n" +
-	"\x06status\x18\x01 \x01(\x0e2,.limiquantix.storage.v1.StorageHealth.StatusR\x06status\x12;\n" +
-	"\x06checks\x18\x02 \x03(\v2#.limiquantix.storage.v1.HealthCheckR\x06checks\":\n" +
+	"\x06status\x18\x01 \x01(\x0e2,.Quantixkvm.storage.v1.StorageHealth.StatusR\x06status\x12;\n" +
+	"\x06checks\x18\x02 \x03(\v2#.Quantixkvm.storage.v1.HealthCheckR\x06checks\":\n" +
 	"\x06Status\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\v\n" +
 	"\aHEALTHY\x10\x01\x12\v\n" +
@@ -4189,9 +4190,9 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\n" +
 	"project_id\x18\x03 \x01(\tR\tprojectId\x12\x17\n" +
 	"\apool_id\x18\x04 \x01(\tR\x06poolId\x12B\n" +
-	"\x06labels\x18\x05 \x03(\v2*.limiquantix.storage.v1.Volume.LabelsEntryR\x06labels\x126\n" +
-	"\x04spec\x18\x06 \x01(\v2\".limiquantix.storage.v1.VolumeSpecR\x04spec\x12<\n" +
-	"\x06status\x18\a \x01(\v2$.limiquantix.storage.v1.VolumeStatusR\x06status\x129\n" +
+	"\x06labels\x18\x05 \x03(\v2*.Quantixkvm.storage.v1.Volume.LabelsEntryR\x06labels\x126\n" +
+	"\x04spec\x18\x06 \x01(\v2\".Quantixkvm.storage.v1.VolumeSpecR\x04spec\x12<\n" +
+	"\x06status\x18\a \x01(\v2$.Quantixkvm.storage.v1.VolumeStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
@@ -4203,13 +4204,13 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"VolumeSpec\x12\x1d\n" +
 	"\n" +
 	"size_bytes\x18\x01 \x01(\x04R\tsizeBytes\x12W\n" +
-	"\fprovisioning\x18\x02 \x01(\x0e23.limiquantix.storage.v1.VolumeSpec.ProvisioningTypeR\fprovisioning\x12<\n" +
-	"\x06source\x18\x03 \x01(\v2$.limiquantix.storage.v1.VolumeSourceR\x06source\x123\n" +
-	"\x03qos\x18\x04 \x01(\v2!.limiquantix.storage.v1.VolumeQosR\x03qos\x12H\n" +
+	"\fprovisioning\x18\x02 \x01(\x0e23.Quantixkvm.storage.v1.VolumeSpec.ProvisioningTypeR\fprovisioning\x12<\n" +
+	"\x06source\x18\x03 \x01(\v2$.Quantixkvm.storage.v1.VolumeSourceR\x06source\x123\n" +
+	"\x03qos\x18\x04 \x01(\v2!.Quantixkvm.storage.v1.VolumeQosR\x03qos\x12H\n" +
 	"\n" +
-	"encryption\x18\x05 \x01(\v2(.limiquantix.storage.v1.EncryptionConfigR\n" +
+	"encryption\x18\x05 \x01(\v2(.Quantixkvm.storage.v1.EncryptionConfigR\n" +
 	"encryption\x12N\n" +
-	"\vaccess_mode\x18\x06 \x01(\x0e2-.limiquantix.storage.v1.VolumeSpec.AccessModeR\n" +
+	"\vaccess_mode\x18\x06 \x01(\x0e2-.Quantixkvm.storage.v1.VolumeSpec.AccessModeR\n" +
 	"accessMode\"=\n" +
 	"\x10ProvisioningType\x12\b\n" +
 	"\x04THIN\x10\x00\x12\x0e\n" +
@@ -4222,11 +4223,11 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x0eREAD_ONLY_MANY\x10\x01\x12\x13\n" +
 	"\x0fREAD_WRITE_MANY\x10\x02\"\xcc\x02\n" +
 	"\fVolumeSource\x12;\n" +
-	"\x05empty\x18\x01 \x01(\v2#.limiquantix.storage.v1.EmptySourceH\x00R\x05empty\x12;\n" +
-	"\x05clone\x18\x02 \x01(\v2#.limiquantix.storage.v1.CloneSourceH\x00R\x05clone\x12D\n" +
-	"\bsnapshot\x18\x03 \x01(\v2&.limiquantix.storage.v1.SnapshotSourceH\x00R\bsnapshot\x12;\n" +
-	"\x05image\x18\x04 \x01(\v2#.limiquantix.storage.v1.ImageSourceH\x00R\x05image\x125\n" +
-	"\x03url\x18\x05 \x01(\v2!.limiquantix.storage.v1.UrlSourceH\x00R\x03urlB\b\n" +
+	"\x05empty\x18\x01 \x01(\v2#.Quantixkvm.storage.v1.EmptySourceH\x00R\x05empty\x12;\n" +
+	"\x05clone\x18\x02 \x01(\v2#.Quantixkvm.storage.v1.CloneSourceH\x00R\x05clone\x12D\n" +
+	"\bsnapshot\x18\x03 \x01(\v2&.Quantixkvm.storage.v1.SnapshotSourceH\x00R\bsnapshot\x12;\n" +
+	"\x05image\x18\x04 \x01(\v2#.Quantixkvm.storage.v1.ImageSourceH\x00R\x05image\x125\n" +
+	"\x03url\x18\x05 \x01(\v2!.Quantixkvm.storage.v1.UrlSourceH\x00R\x03urlB\b\n" +
 	"\x06source\"-\n" +
 	"\vEmptySource\x12\x1e\n" +
 	"\n" +
@@ -4253,12 +4254,12 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x10burst_throughput\x18\x06 \x01(\x04R\x0fburstThroughput\x12,\n" +
 	"\x12burst_duration_sec\x18\a \x01(\rR\x10burstDurationSec\"\xd8\x03\n" +
 	"\fVolumeStatus\x12@\n" +
-	"\x05phase\x18\x01 \x01(\x0e2*.limiquantix.storage.v1.VolumeStatus.PhaseR\x05phase\x12$\n" +
+	"\x05phase\x18\x01 \x01(\x0e2*.Quantixkvm.storage.v1.VolumeStatus.PhaseR\x05phase\x12$\n" +
 	"\x0eattached_vm_id\x18\x02 \x01(\tR\fattachedVmId\x12\x1f\n" +
 	"\vdevice_path\x18\x03 \x01(\tR\n" +
 	"devicePath\x12*\n" +
 	"\x11actual_size_bytes\x18\x04 \x01(\x04R\x0factualSizeBytes\x129\n" +
-	"\x05usage\x18\x05 \x01(\v2#.limiquantix.storage.v1.VolumeUsageR\x05usage\x12%\n" +
+	"\x05usage\x18\x05 \x01(\v2#.Quantixkvm.storage.v1.VolumeUsageR\x05usage\x12%\n" +
 	"\x0esnapshot_count\x18\x06 \x01(\rR\rsnapshotCount\x12#\n" +
 	"\rerror_message\x18\a \x01(\tR\ferrorMessage\x12\x1d\n" +
 	"\n" +
@@ -4288,22 +4289,22 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1b\n" +
 	"\tvolume_id\x18\x04 \x01(\tR\bvolumeId\x12J\n" +
-	"\x06labels\x18\x05 \x03(\v22.limiquantix.storage.v1.VolumeSnapshot.LabelsEntryR\x06labels\x12>\n" +
-	"\x04spec\x18\x06 \x01(\v2*.limiquantix.storage.v1.VolumeSnapshotSpecR\x04spec\x12D\n" +
-	"\x06status\x18\a \x01(\v2,.limiquantix.storage.v1.VolumeSnapshotStatusR\x06status\x129\n" +
+	"\x06labels\x18\x05 \x03(\v22.Quantixkvm.storage.v1.VolumeSnapshot.LabelsEntryR\x06labels\x12>\n" +
+	"\x04spec\x18\x06 \x01(\v2*.Quantixkvm.storage.v1.VolumeSnapshotSpecR\x04spec\x12D\n" +
+	"\x06status\x18\a \x01(\v2,.Quantixkvm.storage.v1.VolumeSnapshotStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"[\n" +
 	"\x12VolumeSnapshotSpec\x12E\n" +
-	"\tretention\x18\x01 \x01(\v2'.limiquantix.storage.v1.RetentionPolicyR\tretention\"o\n" +
+	"\tretention\x18\x01 \x01(\v2'.Quantixkvm.storage.v1.RetentionPolicyR\tretention\"o\n" +
 	"\x0fRetentionPolicy\x12!\n" +
 	"\fretain_hours\x18\x01 \x01(\rR\vretainHours\x129\n" +
 	"\n" +
 	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"\x9b\x02\n" +
 	"\x14VolumeSnapshotStatus\x12H\n" +
-	"\x05phase\x18\x01 \x01(\x0e22.limiquantix.storage.v1.VolumeSnapshotStatus.PhaseR\x05phase\x12\x1d\n" +
+	"\x05phase\x18\x01 \x01(\x0e22.Quantixkvm.storage.v1.VolumeSnapshotStatus.PhaseR\x05phase\x12\x1d\n" +
 	"\n" +
 	"size_bytes\x18\x02 \x01(\x04R\tsizeBytes\x12 \n" +
 	"\fready_to_use\x18\x03 \x01(\bR\n" +
@@ -4322,9 +4323,9 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x04 \x01(\tR\tprojectId\x12A\n" +
-	"\x06labels\x18\x05 \x03(\v2).limiquantix.storage.v1.Image.LabelsEntryR\x06labels\x125\n" +
-	"\x04spec\x18\x06 \x01(\v2!.limiquantix.storage.v1.ImageSpecR\x04spec\x12;\n" +
-	"\x06status\x18\a \x01(\v2#.limiquantix.storage.v1.ImageStatusR\x06status\x129\n" +
+	"\x06labels\x18\x05 \x03(\v2).Quantixkvm.storage.v1.Image.LabelsEntryR\x06labels\x125\n" +
+	"\x04spec\x18\x06 \x01(\v2!.Quantixkvm.storage.v1.ImageSpecR\x04spec\x12;\n" +
+	"\x06status\x18\a \x01(\v2#.Quantixkvm.storage.v1.ImageStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
@@ -4333,12 +4334,12 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc5\x03\n" +
 	"\tImageSpec\x12;\n" +
-	"\x06source\x18\x01 \x01(\v2#.limiquantix.storage.v1.ImageSourceR\x06source\x12.\n" +
-	"\x02os\x18\x02 \x01(\v2\x1e.limiquantix.storage.v1.OsInfoR\x02os\x12M\n" +
-	"\frequirements\x18\x03 \x01(\v2).limiquantix.storage.v1.ImageRequirementsR\frequirements\x12@\n" +
-	"\x06format\x18\x04 \x01(\x0e2(.limiquantix.storage.v1.ImageSpec.FormatR\x06format\x12L\n" +
+	"\x06source\x18\x01 \x01(\v2#.Quantixkvm.storage.v1.ImageSourceR\x06source\x12.\n" +
+	"\x02os\x18\x02 \x01(\v2\x1e.Quantixkvm.storage.v1.OsInfoR\x02os\x12M\n" +
+	"\frequirements\x18\x03 \x01(\v2).Quantixkvm.storage.v1.ImageRequirementsR\frequirements\x12@\n" +
+	"\x06format\x18\x04 \x01(\x0e2(.Quantixkvm.storage.v1.ImageSpec.FormatR\x06format\x12L\n" +
 	"\n" +
-	"visibility\x18\x05 \x01(\x0e2,.limiquantix.storage.v1.ImageSpec.VisibilityR\n" +
+	"visibility\x18\x05 \x01(\x0e2,.Quantixkvm.storage.v1.ImageSpec.VisibilityR\n" +
 	"visibility\"8\n" +
 	"\x06Format\x12\a\n" +
 	"\x03RAW\x10\x00\x12\t\n" +
@@ -4361,7 +4362,7 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\rchecksum_type\x18\x06 \x01(\tR\fchecksumTypeB\b\n" +
 	"\x06source\"\x93\x02\n" +
 	"\x06OsInfo\x12?\n" +
-	"\x06family\x18\x01 \x01(\x0e2'.limiquantix.storage.v1.OsInfo.OsFamilyR\x06family\x12\"\n" +
+	"\x06family\x18\x01 \x01(\x0e2'.Quantixkvm.storage.v1.OsInfo.OsFamilyR\x06family\x12\"\n" +
 	"\fdistribution\x18\x02 \x01(\tR\fdistribution\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x12\"\n" +
 	"\farchitecture\x18\x04 \x01(\tR\farchitecture\x12!\n" +
@@ -4381,7 +4382,7 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x14requires_secure_boot\x18\x05 \x01(\bR\x12requiresSecureBoot\x12!\n" +
 	"\frequires_tpm\x18\x06 \x01(\bR\vrequiresTpm\"\x97\x03\n" +
 	"\vImageStatus\x12?\n" +
-	"\x05phase\x18\x01 \x01(\x0e2).limiquantix.storage.v1.ImageStatus.PhaseR\x05phase\x12\x1d\n" +
+	"\x05phase\x18\x01 \x01(\x0e2).Quantixkvm.storage.v1.ImageStatus.PhaseR\x05phase\x12\x1d\n" +
 	"\n" +
 	"size_bytes\x18\x02 \x01(\x04R\tsizeBytes\x12,\n" +
 	"\x12virtual_size_bytes\x18\x03 \x01(\x04R\x10virtualSizeBytes\x12)\n" +
@@ -4398,147 +4399,147 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x05READY\x10\x04\x12\t\n" +
 	"\x05ERROR\x10\x05\x12\f\n" +
 	"\bDELETING\x10\x06B\xf1\x01\n" +
-	"\x1acom.limiquantix.storage.v1B\fStorageProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1;storagev1\xa2\x02\x03LSX\xaa\x02\x16Limiquantix.Storage.V1\xca\x02\x16Limiquantix\\Storage\\V1\xe2\x02\"Limiquantix\\Storage\\V1\\GPBMetadata\xea\x02\x18Limiquantix::Storage::V1b\x06proto3"
+	"\x1acom.Quantixkvm.storage.v1B\fStorageProtoP\x01ZKgithub.com/Quantixkvm/Quantixkvm/pkg/api/Quantixkvm/storage/v1;storagev1\xa2\x02\x03LSX\xaa\x02\x16Quantixkvm.Storage.V1\xca\x02\x16Quantixkvm\\Storage\\V1\xe2\x02\"Quantixkvm\\Storage\\V1\\GPBMetadata\xea\x02\x18Quantixkvm::Storage::V1b\x06proto3"
 
 var (
-	file_limiquantix_storage_v1_storage_proto_rawDescOnce sync.Once
-	file_limiquantix_storage_v1_storage_proto_rawDescData []byte
+	file_Quantixkvm_storage_v1_storage_proto_rawDescOnce sync.Once
+	file_Quantixkvm_storage_v1_storage_proto_rawDescData []byte
 )
 
-func file_limiquantix_storage_v1_storage_proto_rawDescGZIP() []byte {
-	file_limiquantix_storage_v1_storage_proto_rawDescOnce.Do(func() {
-		file_limiquantix_storage_v1_storage_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_limiquantix_storage_v1_storage_proto_rawDesc), len(file_limiquantix_storage_v1_storage_proto_rawDesc)))
+func file_Quantixkvm_storage_v1_storage_proto_rawDescGZIP() []byte {
+	file_Quantixkvm_storage_v1_storage_proto_rawDescOnce.Do(func() {
+		file_Quantixkvm_storage_v1_storage_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_Quantixkvm_storage_v1_storage_proto_rawDesc), len(file_Quantixkvm_storage_v1_storage_proto_rawDesc)))
 	})
-	return file_limiquantix_storage_v1_storage_proto_rawDescData
+	return file_Quantixkvm_storage_v1_storage_proto_rawDescData
 }
 
-var file_limiquantix_storage_v1_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 14)
-var file_limiquantix_storage_v1_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
-var file_limiquantix_storage_v1_storage_proto_goTypes = []any{
-	(StorageBackend_BackendType)(0),      // 0: limiquantix.storage.v1.StorageBackend.BackendType
-	(VolumeDefaults_ProvisioningType)(0), // 1: limiquantix.storage.v1.VolumeDefaults.ProvisioningType
-	(EncryptionConfig_KeyManagement)(0),  // 2: limiquantix.storage.v1.EncryptionConfig.KeyManagement
-	(TieringConfig_TieringPolicy)(0),     // 3: limiquantix.storage.v1.TieringConfig.TieringPolicy
-	(StoragePoolStatus_Phase)(0),         // 4: limiquantix.storage.v1.StoragePoolStatus.Phase
-	(StorageHealth_Status)(0),            // 5: limiquantix.storage.v1.StorageHealth.Status
-	(VolumeSpec_ProvisioningType)(0),     // 6: limiquantix.storage.v1.VolumeSpec.ProvisioningType
-	(VolumeSpec_AccessMode)(0),           // 7: limiquantix.storage.v1.VolumeSpec.AccessMode
-	(VolumeStatus_Phase)(0),              // 8: limiquantix.storage.v1.VolumeStatus.Phase
-	(VolumeSnapshotStatus_Phase)(0),      // 9: limiquantix.storage.v1.VolumeSnapshotStatus.Phase
-	(ImageSpec_Format)(0),                // 10: limiquantix.storage.v1.ImageSpec.Format
-	(ImageSpec_Visibility)(0),            // 11: limiquantix.storage.v1.ImageSpec.Visibility
-	(OsInfo_OsFamily)(0),                 // 12: limiquantix.storage.v1.OsInfo.OsFamily
-	(ImageStatus_Phase)(0),               // 13: limiquantix.storage.v1.ImageStatus.Phase
-	(*StoragePool)(nil),                  // 14: limiquantix.storage.v1.StoragePool
-	(*StoragePoolSpec)(nil),              // 15: limiquantix.storage.v1.StoragePoolSpec
-	(*StorageBackend)(nil),               // 16: limiquantix.storage.v1.StorageBackend
-	(*CephConfig)(nil),                   // 17: limiquantix.storage.v1.CephConfig
-	(*LocalLvmConfig)(nil),               // 18: limiquantix.storage.v1.LocalLvmConfig
-	(*LocalDirConfig)(nil),               // 19: limiquantix.storage.v1.LocalDirConfig
-	(*NfsConfig)(nil),                    // 20: limiquantix.storage.v1.NfsConfig
-	(*IscsiConfig)(nil),                  // 21: limiquantix.storage.v1.IscsiConfig
-	(*VolumeDefaults)(nil),               // 22: limiquantix.storage.v1.VolumeDefaults
-	(*StorageQos)(nil),                   // 23: limiquantix.storage.v1.StorageQos
-	(*EncryptionConfig)(nil),             // 24: limiquantix.storage.v1.EncryptionConfig
-	(*ReplicationConfig)(nil),            // 25: limiquantix.storage.v1.ReplicationConfig
-	(*ErasureCodingConfig)(nil),          // 26: limiquantix.storage.v1.ErasureCodingConfig
-	(*TieringConfig)(nil),                // 27: limiquantix.storage.v1.TieringConfig
-	(*StoragePoolStatus)(nil),            // 28: limiquantix.storage.v1.StoragePoolStatus
-	(*StorageCapacity)(nil),              // 29: limiquantix.storage.v1.StorageCapacity
-	(*StorageMetrics)(nil),               // 30: limiquantix.storage.v1.StorageMetrics
-	(*StorageHealth)(nil),                // 31: limiquantix.storage.v1.StorageHealth
-	(*HealthCheck)(nil),                  // 32: limiquantix.storage.v1.HealthCheck
-	(*Volume)(nil),                       // 33: limiquantix.storage.v1.Volume
-	(*VolumeSpec)(nil),                   // 34: limiquantix.storage.v1.VolumeSpec
-	(*VolumeSource)(nil),                 // 35: limiquantix.storage.v1.VolumeSource
-	(*EmptySource)(nil),                  // 36: limiquantix.storage.v1.EmptySource
-	(*CloneSource)(nil),                  // 37: limiquantix.storage.v1.CloneSource
-	(*SnapshotSource)(nil),               // 38: limiquantix.storage.v1.SnapshotSource
-	(*ImageSource)(nil),                  // 39: limiquantix.storage.v1.ImageSource
-	(*UrlSource)(nil),                    // 40: limiquantix.storage.v1.UrlSource
-	(*VolumeQos)(nil),                    // 41: limiquantix.storage.v1.VolumeQos
-	(*VolumeStatus)(nil),                 // 42: limiquantix.storage.v1.VolumeStatus
-	(*VolumeUsage)(nil),                  // 43: limiquantix.storage.v1.VolumeUsage
-	(*VolumeSnapshot)(nil),               // 44: limiquantix.storage.v1.VolumeSnapshot
-	(*VolumeSnapshotSpec)(nil),           // 45: limiquantix.storage.v1.VolumeSnapshotSpec
-	(*RetentionPolicy)(nil),              // 46: limiquantix.storage.v1.RetentionPolicy
-	(*VolumeSnapshotStatus)(nil),         // 47: limiquantix.storage.v1.VolumeSnapshotStatus
-	(*Image)(nil),                        // 48: limiquantix.storage.v1.Image
-	(*ImageSpec)(nil),                    // 49: limiquantix.storage.v1.ImageSpec
-	(*ImageSourceSpec)(nil),              // 50: limiquantix.storage.v1.ImageSourceSpec
-	(*OsInfo)(nil),                       // 51: limiquantix.storage.v1.OsInfo
-	(*ImageRequirements)(nil),            // 52: limiquantix.storage.v1.ImageRequirements
-	(*ImageStatus)(nil),                  // 53: limiquantix.storage.v1.ImageStatus
-	nil,                                  // 54: limiquantix.storage.v1.StoragePool.LabelsEntry
-	nil,                                  // 55: limiquantix.storage.v1.Volume.LabelsEntry
-	nil,                                  // 56: limiquantix.storage.v1.VolumeSnapshot.LabelsEntry
-	nil,                                  // 57: limiquantix.storage.v1.Image.LabelsEntry
+var file_Quantixkvm_storage_v1_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 14)
+var file_Quantixkvm_storage_v1_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
+var file_Quantixkvm_storage_v1_storage_proto_goTypes = []any{
+	(StorageBackend_BackendType)(0),      // 0: Quantixkvm.storage.v1.StorageBackend.BackendType
+	(VolumeDefaults_ProvisioningType)(0), // 1: Quantixkvm.storage.v1.VolumeDefaults.ProvisioningType
+	(EncryptionConfig_KeyManagement)(0),  // 2: Quantixkvm.storage.v1.EncryptionConfig.KeyManagement
+	(TieringConfig_TieringPolicy)(0),     // 3: Quantixkvm.storage.v1.TieringConfig.TieringPolicy
+	(StoragePoolStatus_Phase)(0),         // 4: Quantixkvm.storage.v1.StoragePoolStatus.Phase
+	(StorageHealth_Status)(0),            // 5: Quantixkvm.storage.v1.StorageHealth.Status
+	(VolumeSpec_ProvisioningType)(0),     // 6: Quantixkvm.storage.v1.VolumeSpec.ProvisioningType
+	(VolumeSpec_AccessMode)(0),           // 7: Quantixkvm.storage.v1.VolumeSpec.AccessMode
+	(VolumeStatus_Phase)(0),              // 8: Quantixkvm.storage.v1.VolumeStatus.Phase
+	(VolumeSnapshotStatus_Phase)(0),      // 9: Quantixkvm.storage.v1.VolumeSnapshotStatus.Phase
+	(ImageSpec_Format)(0),                // 10: Quantixkvm.storage.v1.ImageSpec.Format
+	(ImageSpec_Visibility)(0),            // 11: Quantixkvm.storage.v1.ImageSpec.Visibility
+	(OsInfo_OsFamily)(0),                 // 12: Quantixkvm.storage.v1.OsInfo.OsFamily
+	(ImageStatus_Phase)(0),               // 13: Quantixkvm.storage.v1.ImageStatus.Phase
+	(*StoragePool)(nil),                  // 14: Quantixkvm.storage.v1.StoragePool
+	(*StoragePoolSpec)(nil),              // 15: Quantixkvm.storage.v1.StoragePoolSpec
+	(*StorageBackend)(nil),               // 16: Quantixkvm.storage.v1.StorageBackend
+	(*CephConfig)(nil),                   // 17: Quantixkvm.storage.v1.CephConfig
+	(*LocalLvmConfig)(nil),               // 18: Quantixkvm.storage.v1.LocalLvmConfig
+	(*LocalDirConfig)(nil),               // 19: Quantixkvm.storage.v1.LocalDirConfig
+	(*NfsConfig)(nil),                    // 20: Quantixkvm.storage.v1.NfsConfig
+	(*IscsiConfig)(nil),                  // 21: Quantixkvm.storage.v1.IscsiConfig
+	(*VolumeDefaults)(nil),               // 22: Quantixkvm.storage.v1.VolumeDefaults
+	(*StorageQos)(nil),                   // 23: Quantixkvm.storage.v1.StorageQos
+	(*EncryptionConfig)(nil),             // 24: Quantixkvm.storage.v1.EncryptionConfig
+	(*ReplicationConfig)(nil),            // 25: Quantixkvm.storage.v1.ReplicationConfig
+	(*ErasureCodingConfig)(nil),          // 26: Quantixkvm.storage.v1.ErasureCodingConfig
+	(*TieringConfig)(nil),                // 27: Quantixkvm.storage.v1.TieringConfig
+	(*StoragePoolStatus)(nil),            // 28: Quantixkvm.storage.v1.StoragePoolStatus
+	(*StorageCapacity)(nil),              // 29: Quantixkvm.storage.v1.StorageCapacity
+	(*StorageMetrics)(nil),               // 30: Quantixkvm.storage.v1.StorageMetrics
+	(*StorageHealth)(nil),                // 31: Quantixkvm.storage.v1.StorageHealth
+	(*HealthCheck)(nil),                  // 32: Quantixkvm.storage.v1.HealthCheck
+	(*Volume)(nil),                       // 33: Quantixkvm.storage.v1.Volume
+	(*VolumeSpec)(nil),                   // 34: Quantixkvm.storage.v1.VolumeSpec
+	(*VolumeSource)(nil),                 // 35: Quantixkvm.storage.v1.VolumeSource
+	(*EmptySource)(nil),                  // 36: Quantixkvm.storage.v1.EmptySource
+	(*CloneSource)(nil),                  // 37: Quantixkvm.storage.v1.CloneSource
+	(*SnapshotSource)(nil),               // 38: Quantixkvm.storage.v1.SnapshotSource
+	(*ImageSource)(nil),                  // 39: Quantixkvm.storage.v1.ImageSource
+	(*UrlSource)(nil),                    // 40: Quantixkvm.storage.v1.UrlSource
+	(*VolumeQos)(nil),                    // 41: Quantixkvm.storage.v1.VolumeQos
+	(*VolumeStatus)(nil),                 // 42: Quantixkvm.storage.v1.VolumeStatus
+	(*VolumeUsage)(nil),                  // 43: Quantixkvm.storage.v1.VolumeUsage
+	(*VolumeSnapshot)(nil),               // 44: Quantixkvm.storage.v1.VolumeSnapshot
+	(*VolumeSnapshotSpec)(nil),           // 45: Quantixkvm.storage.v1.VolumeSnapshotSpec
+	(*RetentionPolicy)(nil),              // 46: Quantixkvm.storage.v1.RetentionPolicy
+	(*VolumeSnapshotStatus)(nil),         // 47: Quantixkvm.storage.v1.VolumeSnapshotStatus
+	(*Image)(nil),                        // 48: Quantixkvm.storage.v1.Image
+	(*ImageSpec)(nil),                    // 49: Quantixkvm.storage.v1.ImageSpec
+	(*ImageSourceSpec)(nil),              // 50: Quantixkvm.storage.v1.ImageSourceSpec
+	(*OsInfo)(nil),                       // 51: Quantixkvm.storage.v1.OsInfo
+	(*ImageRequirements)(nil),            // 52: Quantixkvm.storage.v1.ImageRequirements
+	(*ImageStatus)(nil),                  // 53: Quantixkvm.storage.v1.ImageStatus
+	nil,                                  // 54: Quantixkvm.storage.v1.StoragePool.LabelsEntry
+	nil,                                  // 55: Quantixkvm.storage.v1.Volume.LabelsEntry
+	nil,                                  // 56: Quantixkvm.storage.v1.VolumeSnapshot.LabelsEntry
+	nil,                                  // 57: Quantixkvm.storage.v1.Image.LabelsEntry
 	(*timestamppb.Timestamp)(nil),        // 58: google.protobuf.Timestamp
 }
-var file_limiquantix_storage_v1_storage_proto_depIdxs = []int32{
-	54, // 0: limiquantix.storage.v1.StoragePool.labels:type_name -> limiquantix.storage.v1.StoragePool.LabelsEntry
-	15, // 1: limiquantix.storage.v1.StoragePool.spec:type_name -> limiquantix.storage.v1.StoragePoolSpec
-	28, // 2: limiquantix.storage.v1.StoragePool.status:type_name -> limiquantix.storage.v1.StoragePoolStatus
-	58, // 3: limiquantix.storage.v1.StoragePool.created_at:type_name -> google.protobuf.Timestamp
-	58, // 4: limiquantix.storage.v1.StoragePool.updated_at:type_name -> google.protobuf.Timestamp
-	16, // 5: limiquantix.storage.v1.StoragePoolSpec.backend:type_name -> limiquantix.storage.v1.StorageBackend
-	22, // 6: limiquantix.storage.v1.StoragePoolSpec.defaults:type_name -> limiquantix.storage.v1.VolumeDefaults
-	23, // 7: limiquantix.storage.v1.StoragePoolSpec.qos:type_name -> limiquantix.storage.v1.StorageQos
-	24, // 8: limiquantix.storage.v1.StoragePoolSpec.encryption:type_name -> limiquantix.storage.v1.EncryptionConfig
-	25, // 9: limiquantix.storage.v1.StoragePoolSpec.replication:type_name -> limiquantix.storage.v1.ReplicationConfig
-	27, // 10: limiquantix.storage.v1.StoragePoolSpec.tiering:type_name -> limiquantix.storage.v1.TieringConfig
-	0,  // 11: limiquantix.storage.v1.StorageBackend.type:type_name -> limiquantix.storage.v1.StorageBackend.BackendType
-	17, // 12: limiquantix.storage.v1.StorageBackend.ceph:type_name -> limiquantix.storage.v1.CephConfig
-	18, // 13: limiquantix.storage.v1.StorageBackend.local_lvm:type_name -> limiquantix.storage.v1.LocalLvmConfig
-	19, // 14: limiquantix.storage.v1.StorageBackend.local_dir:type_name -> limiquantix.storage.v1.LocalDirConfig
-	20, // 15: limiquantix.storage.v1.StorageBackend.nfs:type_name -> limiquantix.storage.v1.NfsConfig
-	21, // 16: limiquantix.storage.v1.StorageBackend.iscsi:type_name -> limiquantix.storage.v1.IscsiConfig
-	1,  // 17: limiquantix.storage.v1.VolumeDefaults.provisioning:type_name -> limiquantix.storage.v1.VolumeDefaults.ProvisioningType
-	2,  // 18: limiquantix.storage.v1.EncryptionConfig.key_management:type_name -> limiquantix.storage.v1.EncryptionConfig.KeyManagement
-	26, // 19: limiquantix.storage.v1.ReplicationConfig.erasure_coding:type_name -> limiquantix.storage.v1.ErasureCodingConfig
-	3,  // 20: limiquantix.storage.v1.TieringConfig.policy:type_name -> limiquantix.storage.v1.TieringConfig.TieringPolicy
-	4,  // 21: limiquantix.storage.v1.StoragePoolStatus.phase:type_name -> limiquantix.storage.v1.StoragePoolStatus.Phase
-	29, // 22: limiquantix.storage.v1.StoragePoolStatus.capacity:type_name -> limiquantix.storage.v1.StorageCapacity
-	30, // 23: limiquantix.storage.v1.StoragePoolStatus.metrics:type_name -> limiquantix.storage.v1.StorageMetrics
-	31, // 24: limiquantix.storage.v1.StoragePoolStatus.health:type_name -> limiquantix.storage.v1.StorageHealth
-	5,  // 25: limiquantix.storage.v1.StorageHealth.status:type_name -> limiquantix.storage.v1.StorageHealth.Status
-	32, // 26: limiquantix.storage.v1.StorageHealth.checks:type_name -> limiquantix.storage.v1.HealthCheck
-	55, // 27: limiquantix.storage.v1.Volume.labels:type_name -> limiquantix.storage.v1.Volume.LabelsEntry
-	34, // 28: limiquantix.storage.v1.Volume.spec:type_name -> limiquantix.storage.v1.VolumeSpec
-	42, // 29: limiquantix.storage.v1.Volume.status:type_name -> limiquantix.storage.v1.VolumeStatus
-	58, // 30: limiquantix.storage.v1.Volume.created_at:type_name -> google.protobuf.Timestamp
-	58, // 31: limiquantix.storage.v1.Volume.updated_at:type_name -> google.protobuf.Timestamp
-	6,  // 32: limiquantix.storage.v1.VolumeSpec.provisioning:type_name -> limiquantix.storage.v1.VolumeSpec.ProvisioningType
-	35, // 33: limiquantix.storage.v1.VolumeSpec.source:type_name -> limiquantix.storage.v1.VolumeSource
-	41, // 34: limiquantix.storage.v1.VolumeSpec.qos:type_name -> limiquantix.storage.v1.VolumeQos
-	24, // 35: limiquantix.storage.v1.VolumeSpec.encryption:type_name -> limiquantix.storage.v1.EncryptionConfig
-	7,  // 36: limiquantix.storage.v1.VolumeSpec.access_mode:type_name -> limiquantix.storage.v1.VolumeSpec.AccessMode
-	36, // 37: limiquantix.storage.v1.VolumeSource.empty:type_name -> limiquantix.storage.v1.EmptySource
-	37, // 38: limiquantix.storage.v1.VolumeSource.clone:type_name -> limiquantix.storage.v1.CloneSource
-	38, // 39: limiquantix.storage.v1.VolumeSource.snapshot:type_name -> limiquantix.storage.v1.SnapshotSource
-	39, // 40: limiquantix.storage.v1.VolumeSource.image:type_name -> limiquantix.storage.v1.ImageSource
-	40, // 41: limiquantix.storage.v1.VolumeSource.url:type_name -> limiquantix.storage.v1.UrlSource
-	8,  // 42: limiquantix.storage.v1.VolumeStatus.phase:type_name -> limiquantix.storage.v1.VolumeStatus.Phase
-	43, // 43: limiquantix.storage.v1.VolumeStatus.usage:type_name -> limiquantix.storage.v1.VolumeUsage
-	56, // 44: limiquantix.storage.v1.VolumeSnapshot.labels:type_name -> limiquantix.storage.v1.VolumeSnapshot.LabelsEntry
-	45, // 45: limiquantix.storage.v1.VolumeSnapshot.spec:type_name -> limiquantix.storage.v1.VolumeSnapshotSpec
-	47, // 46: limiquantix.storage.v1.VolumeSnapshot.status:type_name -> limiquantix.storage.v1.VolumeSnapshotStatus
-	58, // 47: limiquantix.storage.v1.VolumeSnapshot.created_at:type_name -> google.protobuf.Timestamp
-	46, // 48: limiquantix.storage.v1.VolumeSnapshotSpec.retention:type_name -> limiquantix.storage.v1.RetentionPolicy
-	58, // 49: limiquantix.storage.v1.RetentionPolicy.expires_at:type_name -> google.protobuf.Timestamp
-	9,  // 50: limiquantix.storage.v1.VolumeSnapshotStatus.phase:type_name -> limiquantix.storage.v1.VolumeSnapshotStatus.Phase
-	57, // 51: limiquantix.storage.v1.Image.labels:type_name -> limiquantix.storage.v1.Image.LabelsEntry
-	49, // 52: limiquantix.storage.v1.Image.spec:type_name -> limiquantix.storage.v1.ImageSpec
-	53, // 53: limiquantix.storage.v1.Image.status:type_name -> limiquantix.storage.v1.ImageStatus
-	58, // 54: limiquantix.storage.v1.Image.created_at:type_name -> google.protobuf.Timestamp
-	58, // 55: limiquantix.storage.v1.Image.updated_at:type_name -> google.protobuf.Timestamp
-	39, // 56: limiquantix.storage.v1.ImageSpec.source:type_name -> limiquantix.storage.v1.ImageSource
-	51, // 57: limiquantix.storage.v1.ImageSpec.os:type_name -> limiquantix.storage.v1.OsInfo
-	52, // 58: limiquantix.storage.v1.ImageSpec.requirements:type_name -> limiquantix.storage.v1.ImageRequirements
-	10, // 59: limiquantix.storage.v1.ImageSpec.format:type_name -> limiquantix.storage.v1.ImageSpec.Format
-	11, // 60: limiquantix.storage.v1.ImageSpec.visibility:type_name -> limiquantix.storage.v1.ImageSpec.Visibility
-	12, // 61: limiquantix.storage.v1.OsInfo.family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
-	13, // 62: limiquantix.storage.v1.ImageStatus.phase:type_name -> limiquantix.storage.v1.ImageStatus.Phase
+var file_Quantixkvm_storage_v1_storage_proto_depIdxs = []int32{
+	54, // 0: Quantixkvm.storage.v1.StoragePool.labels:type_name -> Quantixkvm.storage.v1.StoragePool.LabelsEntry
+	15, // 1: Quantixkvm.storage.v1.StoragePool.spec:type_name -> Quantixkvm.storage.v1.StoragePoolSpec
+	28, // 2: Quantixkvm.storage.v1.StoragePool.status:type_name -> Quantixkvm.storage.v1.StoragePoolStatus
+	58, // 3: Quantixkvm.storage.v1.StoragePool.created_at:type_name -> google.protobuf.Timestamp
+	58, // 4: Quantixkvm.storage.v1.StoragePool.updated_at:type_name -> google.protobuf.Timestamp
+	16, // 5: Quantixkvm.storage.v1.StoragePoolSpec.backend:type_name -> Quantixkvm.storage.v1.StorageBackend
+	22, // 6: Quantixkvm.storage.v1.StoragePoolSpec.defaults:type_name -> Quantixkvm.storage.v1.VolumeDefaults
+	23, // 7: Quantixkvm.storage.v1.StoragePoolSpec.qos:type_name -> Quantixkvm.storage.v1.StorageQos
+	24, // 8: Quantixkvm.storage.v1.StoragePoolSpec.encryption:type_name -> Quantixkvm.storage.v1.EncryptionConfig
+	25, // 9: Quantixkvm.storage.v1.StoragePoolSpec.replication:type_name -> Quantixkvm.storage.v1.ReplicationConfig
+	27, // 10: Quantixkvm.storage.v1.StoragePoolSpec.tiering:type_name -> Quantixkvm.storage.v1.TieringConfig
+	0,  // 11: Quantixkvm.storage.v1.StorageBackend.type:type_name -> Quantixkvm.storage.v1.StorageBackend.BackendType
+	17, // 12: Quantixkvm.storage.v1.StorageBackend.ceph:type_name -> Quantixkvm.storage.v1.CephConfig
+	18, // 13: Quantixkvm.storage.v1.StorageBackend.local_lvm:type_name -> Quantixkvm.storage.v1.LocalLvmConfig
+	19, // 14: Quantixkvm.storage.v1.StorageBackend.local_dir:type_name -> Quantixkvm.storage.v1.LocalDirConfig
+	20, // 15: Quantixkvm.storage.v1.StorageBackend.nfs:type_name -> Quantixkvm.storage.v1.NfsConfig
+	21, // 16: Quantixkvm.storage.v1.StorageBackend.iscsi:type_name -> Quantixkvm.storage.v1.IscsiConfig
+	1,  // 17: Quantixkvm.storage.v1.VolumeDefaults.provisioning:type_name -> Quantixkvm.storage.v1.VolumeDefaults.ProvisioningType
+	2,  // 18: Quantixkvm.storage.v1.EncryptionConfig.key_management:type_name -> Quantixkvm.storage.v1.EncryptionConfig.KeyManagement
+	26, // 19: Quantixkvm.storage.v1.ReplicationConfig.erasure_coding:type_name -> Quantixkvm.storage.v1.ErasureCodingConfig
+	3,  // 20: Quantixkvm.storage.v1.TieringConfig.policy:type_name -> Quantixkvm.storage.v1.TieringConfig.TieringPolicy
+	4,  // 21: Quantixkvm.storage.v1.StoragePoolStatus.phase:type_name -> Quantixkvm.storage.v1.StoragePoolStatus.Phase
+	29, // 22: Quantixkvm.storage.v1.StoragePoolStatus.capacity:type_name -> Quantixkvm.storage.v1.StorageCapacity
+	30, // 23: Quantixkvm.storage.v1.StoragePoolStatus.metrics:type_name -> Quantixkvm.storage.v1.StorageMetrics
+	31, // 24: Quantixkvm.storage.v1.StoragePoolStatus.health:type_name -> Quantixkvm.storage.v1.StorageHealth
+	5,  // 25: Quantixkvm.storage.v1.StorageHealth.status:type_name -> Quantixkvm.storage.v1.StorageHealth.Status
+	32, // 26: Quantixkvm.storage.v1.StorageHealth.checks:type_name -> Quantixkvm.storage.v1.HealthCheck
+	55, // 27: Quantixkvm.storage.v1.Volume.labels:type_name -> Quantixkvm.storage.v1.Volume.LabelsEntry
+	34, // 28: Quantixkvm.storage.v1.Volume.spec:type_name -> Quantixkvm.storage.v1.VolumeSpec
+	42, // 29: Quantixkvm.storage.v1.Volume.status:type_name -> Quantixkvm.storage.v1.VolumeStatus
+	58, // 30: Quantixkvm.storage.v1.Volume.created_at:type_name -> google.protobuf.Timestamp
+	58, // 31: Quantixkvm.storage.v1.Volume.updated_at:type_name -> google.protobuf.Timestamp
+	6,  // 32: Quantixkvm.storage.v1.VolumeSpec.provisioning:type_name -> Quantixkvm.storage.v1.VolumeSpec.ProvisioningType
+	35, // 33: Quantixkvm.storage.v1.VolumeSpec.source:type_name -> Quantixkvm.storage.v1.VolumeSource
+	41, // 34: Quantixkvm.storage.v1.VolumeSpec.qos:type_name -> Quantixkvm.storage.v1.VolumeQos
+	24, // 35: Quantixkvm.storage.v1.VolumeSpec.encryption:type_name -> Quantixkvm.storage.v1.EncryptionConfig
+	7,  // 36: Quantixkvm.storage.v1.VolumeSpec.access_mode:type_name -> Quantixkvm.storage.v1.VolumeSpec.AccessMode
+	36, // 37: Quantixkvm.storage.v1.VolumeSource.empty:type_name -> Quantixkvm.storage.v1.EmptySource
+	37, // 38: Quantixkvm.storage.v1.VolumeSource.clone:type_name -> Quantixkvm.storage.v1.CloneSource
+	38, // 39: Quantixkvm.storage.v1.VolumeSource.snapshot:type_name -> Quantixkvm.storage.v1.SnapshotSource
+	39, // 40: Quantixkvm.storage.v1.VolumeSource.image:type_name -> Quantixkvm.storage.v1.ImageSource
+	40, // 41: Quantixkvm.storage.v1.VolumeSource.url:type_name -> Quantixkvm.storage.v1.UrlSource
+	8,  // 42: Quantixkvm.storage.v1.VolumeStatus.phase:type_name -> Quantixkvm.storage.v1.VolumeStatus.Phase
+	43, // 43: Quantixkvm.storage.v1.VolumeStatus.usage:type_name -> Quantixkvm.storage.v1.VolumeUsage
+	56, // 44: Quantixkvm.storage.v1.VolumeSnapshot.labels:type_name -> Quantixkvm.storage.v1.VolumeSnapshot.LabelsEntry
+	45, // 45: Quantixkvm.storage.v1.VolumeSnapshot.spec:type_name -> Quantixkvm.storage.v1.VolumeSnapshotSpec
+	47, // 46: Quantixkvm.storage.v1.VolumeSnapshot.status:type_name -> Quantixkvm.storage.v1.VolumeSnapshotStatus
+	58, // 47: Quantixkvm.storage.v1.VolumeSnapshot.created_at:type_name -> google.protobuf.Timestamp
+	46, // 48: Quantixkvm.storage.v1.VolumeSnapshotSpec.retention:type_name -> Quantixkvm.storage.v1.RetentionPolicy
+	58, // 49: Quantixkvm.storage.v1.RetentionPolicy.expires_at:type_name -> google.protobuf.Timestamp
+	9,  // 50: Quantixkvm.storage.v1.VolumeSnapshotStatus.phase:type_name -> Quantixkvm.storage.v1.VolumeSnapshotStatus.Phase
+	57, // 51: Quantixkvm.storage.v1.Image.labels:type_name -> Quantixkvm.storage.v1.Image.LabelsEntry
+	49, // 52: Quantixkvm.storage.v1.Image.spec:type_name -> Quantixkvm.storage.v1.ImageSpec
+	53, // 53: Quantixkvm.storage.v1.Image.status:type_name -> Quantixkvm.storage.v1.ImageStatus
+	58, // 54: Quantixkvm.storage.v1.Image.created_at:type_name -> google.protobuf.Timestamp
+	58, // 55: Quantixkvm.storage.v1.Image.updated_at:type_name -> google.protobuf.Timestamp
+	39, // 56: Quantixkvm.storage.v1.ImageSpec.source:type_name -> Quantixkvm.storage.v1.ImageSource
+	51, // 57: Quantixkvm.storage.v1.ImageSpec.os:type_name -> Quantixkvm.storage.v1.OsInfo
+	52, // 58: Quantixkvm.storage.v1.ImageSpec.requirements:type_name -> Quantixkvm.storage.v1.ImageRequirements
+	10, // 59: Quantixkvm.storage.v1.ImageSpec.format:type_name -> Quantixkvm.storage.v1.ImageSpec.Format
+	11, // 60: Quantixkvm.storage.v1.ImageSpec.visibility:type_name -> Quantixkvm.storage.v1.ImageSpec.Visibility
+	12, // 61: Quantixkvm.storage.v1.OsInfo.family:type_name -> Quantixkvm.storage.v1.OsInfo.OsFamily
+	13, // 62: Quantixkvm.storage.v1.ImageStatus.phase:type_name -> Quantixkvm.storage.v1.ImageStatus.Phase
 	63, // [63:63] is the sub-list for method output_type
 	63, // [63:63] is the sub-list for method input_type
 	63, // [63:63] is the sub-list for extension type_name
@@ -4546,26 +4547,26 @@ var file_limiquantix_storage_v1_storage_proto_depIdxs = []int32{
 	0,  // [0:63] is the sub-list for field type_name
 }
 
-func init() { file_limiquantix_storage_v1_storage_proto_init() }
-func file_limiquantix_storage_v1_storage_proto_init() {
-	if File_limiquantix_storage_v1_storage_proto != nil {
+func init() { file_Quantixkvm_storage_v1_storage_proto_init() }
+func file_Quantixkvm_storage_v1_storage_proto_init() {
+	if File_Quantixkvm_storage_v1_storage_proto != nil {
 		return
 	}
-	file_limiquantix_storage_v1_storage_proto_msgTypes[2].OneofWrappers = []any{
+	file_Quantixkvm_storage_v1_storage_proto_msgTypes[2].OneofWrappers = []any{
 		(*StorageBackend_Ceph)(nil),
 		(*StorageBackend_LocalLvm)(nil),
 		(*StorageBackend_LocalDir)(nil),
 		(*StorageBackend_Nfs)(nil),
 		(*StorageBackend_Iscsi)(nil),
 	}
-	file_limiquantix_storage_v1_storage_proto_msgTypes[21].OneofWrappers = []any{
+	file_Quantixkvm_storage_v1_storage_proto_msgTypes[21].OneofWrappers = []any{
 		(*VolumeSource_Empty)(nil),
 		(*VolumeSource_Clone)(nil),
 		(*VolumeSource_Snapshot)(nil),
 		(*VolumeSource_Image)(nil),
 		(*VolumeSource_Url)(nil),
 	}
-	file_limiquantix_storage_v1_storage_proto_msgTypes[36].OneofWrappers = []any{
+	file_Quantixkvm_storage_v1_storage_proto_msgTypes[36].OneofWrappers = []any{
 		(*ImageSourceSpec_FilePath)(nil),
 		(*ImageSourceSpec_Url)(nil),
 		(*ImageSourceSpec_VolumeId)(nil),
@@ -4575,18 +4576,18 @@ func file_limiquantix_storage_v1_storage_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_storage_v1_storage_proto_rawDesc), len(file_limiquantix_storage_v1_storage_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_Quantixkvm_storage_v1_storage_proto_rawDesc), len(file_Quantixkvm_storage_v1_storage_proto_rawDesc)),
 			NumEnums:      14,
 			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_limiquantix_storage_v1_storage_proto_goTypes,
-		DependencyIndexes: file_limiquantix_storage_v1_storage_proto_depIdxs,
-		EnumInfos:         file_limiquantix_storage_v1_storage_proto_enumTypes,
-		MessageInfos:      file_limiquantix_storage_v1_storage_proto_msgTypes,
+		GoTypes:           file_Quantixkvm_storage_v1_storage_proto_goTypes,
+		DependencyIndexes: file_Quantixkvm_storage_v1_storage_proto_depIdxs,
+		EnumInfos:         file_Quantixkvm_storage_v1_storage_proto_enumTypes,
+		MessageInfos:      file_Quantixkvm_storage_v1_storage_proto_msgTypes,
 	}.Build()
-	File_limiquantix_storage_v1_storage_proto = out.File
-	file_limiquantix_storage_v1_storage_proto_goTypes = nil
-	file_limiquantix_storage_v1_storage_proto_depIdxs = nil
+	File_Quantixkvm_storage_v1_storage_proto = out.File
+	file_Quantixkvm_storage_v1_storage_proto_goTypes = nil
+	file_Quantixkvm_storage_v1_storage_proto_depIdxs = nil
 }

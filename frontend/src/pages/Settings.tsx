@@ -35,7 +35,7 @@ export function Settings() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Settings</h1>
-          <p className="text-text-muted mt-1">Configure your LimiQuantix platform</p>
+          <p className="text-text-muted mt-1">Configure your Quantixkvm platform</p>
         </div>
         <Button>
           <Save className="w-4 h-4" />
@@ -88,14 +88,14 @@ export function Settings() {
 }
 
 function GeneralSettings() {
-  const [clusterName, setClusterName] = useState('LimiQuantix Production');
+  const [clusterName, setClusterName] = useState('Quantixkvm Production');
   const [timezone, setTimezone] = useState('America/New_York');
   const [language, setLanguage] = useState('en-US');
 
   return (
     <SettingsSection title="General Settings" description="Basic platform configuration">
       <div className="space-y-6">
-        <SettingField label="Cluster Name" description="Display name for this LimiQuantix deployment">
+        <SettingField label="Cluster Name" description="Display name for this Quantixkvm deployment">
           <input
             type="text"
             value={clusterName}
@@ -231,7 +231,7 @@ function NotificationSettings() {
             type="email"
             placeholder="admin@company.com"
             className="form-input max-w-md"
-            defaultValue="admin@limiquantix.local"
+            defaultValue="admin@Quantixkvm.local"
           />
         </SettingField>
 
@@ -382,7 +382,7 @@ function NetworkSettings() {
             type="text"
             placeholder="pool.ntp.org"
             className="form-input max-w-md"
-            defaultValue="ntp.limiquantix.local"
+            defaultValue="ntp.Quantixkvm.local"
           />
         </SettingField>
 
