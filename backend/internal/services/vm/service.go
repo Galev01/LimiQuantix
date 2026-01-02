@@ -386,9 +386,16 @@ func (s *Service) DeleteVM(
 	}
 
 	// Delete from Node Daemon if assigned to a node
-	if s.daemonPool != nil && vm.Status.NodeID != "" {
-		client := s.daemonPool.Get(vm.Status.NodeID)
-		if client != nil {
+	if vm.Status.NodeID != "" {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Warn("Failed to connect to node daemon for deletion",
+				zap.String("vm_id", vm.ID),
+				zap.String("node_id", vm.Status.NodeID),
+				zap.Error(err),
+			)
+			// Continue with control plane deletion
+		} else {
 			err := client.DeleteVM(ctx, vm.ID)
 			if err != nil {
 				logger.Warn("Failed to delete VM from node daemon",
@@ -466,24 +473,34 @@ func (s *Service) StartVM(
 	}
 
 	// Start VM on Node Daemon
-	if s.daemonPool != nil && vm.Status.NodeID != "" {
-		client := s.daemonPool.Get(vm.Status.NodeID)
-		if client != nil {
-			err := client.StartVM(ctx, vm.ID)
-			if err != nil {
-				logger.Error("Failed to start VM on node daemon",
-					zap.String("vm_id", vm.ID),
-					zap.String("node_id", vm.Status.NodeID),
-					zap.Error(err),
-				)
-				// Revert status
-				vm.Status.State = domain.VMStateStopped
-				vm.Status.Message = fmt.Sprintf("Failed to start: %s", err)
-				_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to start VM on node: %w", err))
-			}
-			logger.Info("VM started on node daemon")
+	if vm.Status.NodeID != "" {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Warn("Failed to connect to node daemon for start",
+				zap.String("node_id", vm.Status.NodeID),
+				zap.Error(err),
+			)
+			// Revert status
+			vm.Status.State = domain.VMStateStopped
+			vm.Status.Message = fmt.Sprintf("Failed to connect to node: %s", err)
+			_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node daemon: %w", err))
 		}
+		
+		err = client.StartVM(ctx, vm.ID)
+		if err != nil {
+			logger.Error("Failed to start VM on node daemon",
+				zap.String("vm_id", vm.ID),
+				zap.String("node_id", vm.Status.NodeID),
+				zap.Error(err),
+			)
+			// Revert status
+			vm.Status.State = domain.VMStateStopped
+			vm.Status.Message = fmt.Sprintf("Failed to start: %s", err)
+			_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to start VM on node: %w", err))
+		}
+		logger.Info("VM started on node daemon")
 	}
 
 	// Update to running state
@@ -553,29 +570,39 @@ func (s *Service) StopVM(
 	}
 
 	// Stop VM on Node Daemon
-	if s.daemonPool != nil && vm.Status.NodeID != "" {
-		client := s.daemonPool.Get(vm.Status.NodeID)
-		if client != nil {
-			var stopErr error
-			if req.Msg.Force {
-				stopErr = client.ForceStopVM(ctx, vm.ID)
-			} else {
-				stopErr = client.StopVM(ctx, vm.ID, 30) // 30 second timeout
-			}
-			if stopErr != nil {
-				logger.Error("Failed to stop VM on node daemon",
-					zap.String("vm_id", vm.ID),
-					zap.String("node_id", vm.Status.NodeID),
-					zap.Error(stopErr),
-				)
-				// Revert status
-				vm.Status.State = domain.VMStateRunning
-				vm.Status.Message = fmt.Sprintf("Failed to stop: %s", stopErr)
-				_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to stop VM on node: %w", stopErr))
-			}
-			logger.Info("VM stopped on node daemon")
+	if vm.Status.NodeID != "" {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Warn("Failed to connect to node daemon for stop",
+				zap.String("node_id", vm.Status.NodeID),
+				zap.Error(err),
+			)
+			// Revert status
+			vm.Status.State = domain.VMStateRunning
+			vm.Status.Message = fmt.Sprintf("Failed to connect to node: %s", err)
+			_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node daemon: %w", err))
 		}
+		
+		var stopErr error
+		if req.Msg.Force {
+			stopErr = client.ForceStopVM(ctx, vm.ID)
+		} else {
+			stopErr = client.StopVM(ctx, vm.ID, 30) // 30 second timeout
+		}
+		if stopErr != nil {
+			logger.Error("Failed to stop VM on node daemon",
+				zap.String("vm_id", vm.ID),
+				zap.String("node_id", vm.Status.NodeID),
+				zap.Error(stopErr),
+			)
+			// Revert status
+			vm.Status.State = domain.VMStateRunning
+			vm.Status.Message = fmt.Sprintf("Failed to stop: %s", stopErr)
+			_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to stop VM on node: %w", stopErr))
+		}
+		logger.Info("VM stopped on node daemon")
 	}
 
 	// Update to stopped state
@@ -630,20 +657,26 @@ func (s *Service) RebootVM(
 	}
 
 	// Reboot on Node Daemon
-	if s.daemonPool != nil && vm.Status.NodeID != "" {
-		client := s.daemonPool.Get(vm.Status.NodeID)
-		if client != nil {
-			err := client.RebootVM(ctx, vm.ID)
-			if err != nil {
-				logger.Error("Failed to reboot VM on node daemon",
-					zap.String("vm_id", vm.ID),
-					zap.String("node_id", vm.Status.NodeID),
-					zap.Error(err),
-				)
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to reboot VM on node: %w", err))
-			}
-			logger.Info("VM reboot initiated on node daemon")
+	if vm.Status.NodeID != "" {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Warn("Failed to connect to node daemon for reboot",
+				zap.String("node_id", vm.Status.NodeID),
+				zap.Error(err),
+			)
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node daemon: %w", err))
 		}
+		
+		err = client.RebootVM(ctx, vm.ID)
+		if err != nil {
+			logger.Error("Failed to reboot VM on node daemon",
+				zap.String("vm_id", vm.ID),
+				zap.String("node_id", vm.Status.NodeID),
+				zap.Error(err),
+			)
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to reboot VM on node: %w", err))
+		}
+		logger.Info("VM reboot initiated on node daemon")
 	}
 
 	vm.Status.Message = "VM is rebooting"
@@ -692,14 +725,20 @@ func (s *Service) PauseVM(
 	}
 
 	// Pause on Node Daemon
-	if s.daemonPool != nil && vm.Status.NodeID != "" {
-		client := s.daemonPool.Get(vm.Status.NodeID)
-		if client != nil {
-			err := client.PauseVM(ctx, vm.ID)
-			if err != nil {
-				logger.Error("Failed to pause VM on node daemon", zap.Error(err))
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to pause VM on node: %w", err))
-			}
+	if vm.Status.NodeID != "" {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Warn("Failed to connect to node daemon for pause",
+				zap.String("node_id", vm.Status.NodeID),
+				zap.Error(err),
+			)
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node daemon: %w", err))
+		}
+		
+		err = client.PauseVM(ctx, vm.ID)
+		if err != nil {
+			logger.Error("Failed to pause VM on node daemon", zap.Error(err))
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to pause VM on node: %w", err))
 		}
 	}
 
@@ -749,14 +788,20 @@ func (s *Service) ResumeVM(
 	}
 
 	// Resume on Node Daemon
-	if s.daemonPool != nil && vm.Status.NodeID != "" {
-		client := s.daemonPool.Get(vm.Status.NodeID)
-		if client != nil {
-			err := client.ResumeVM(ctx, vm.ID)
-			if err != nil {
-				logger.Error("Failed to resume VM on node daemon", zap.Error(err))
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resume VM on node: %w", err))
-			}
+	if vm.Status.NodeID != "" {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Warn("Failed to connect to node daemon for resume",
+				zap.String("node_id", vm.Status.NodeID),
+				zap.Error(err),
+			)
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node daemon: %w", err))
+		}
+		
+		err = client.ResumeVM(ctx, vm.ID)
+		if err != nil {
+			logger.Error("Failed to resume VM on node daemon", zap.Error(err))
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resume VM on node: %w", err))
 		}
 	}
 
@@ -858,9 +903,9 @@ func (s *Service) GetConsole(
 	}
 
 	// Get console info from node daemon
-	if s.daemonPool == nil || vm.Status.NodeID == "" {
-		// Return default console info if no daemon available
-		logger.Warn("No daemon pool available, returning default console info")
+	if vm.Status.NodeID == "" {
+		// Return default console info if no node assigned
+		logger.Warn("VM has no node assigned, returning default console info")
 		return connect.NewResponse(&computev1.ConsoleInfo{
 			ConsoleType: computev1.ConsoleInfo_CONSOLE_TYPE_VNC,
 			Host:        "127.0.0.1",
@@ -868,11 +913,13 @@ func (s *Service) GetConsole(
 		}), nil
 	}
 
-	client := s.daemonPool.Get(vm.Status.NodeID)
-	if client == nil {
-		logger.Warn("Node daemon client not available", zap.String("node_id", vm.Status.NodeID))
+	client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+	if err != nil {
+		logger.Warn("Failed to get node daemon client", 
+			zap.String("node_id", vm.Status.NodeID),
+			zap.Error(err))
 		return nil, connect.NewError(connect.CodeUnavailable,
-			fmt.Errorf("node daemon for node '%s' is not available", vm.Status.NodeID))
+			fmt.Errorf("node daemon for node '%s' is not available: %v", vm.Status.NodeID, err))
 	}
 
 	// Call node daemon to get console info
@@ -908,6 +955,34 @@ func (s *Service) GetConsole(
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+// getNodeDaemonClient gets or creates a connection to the node daemon for a given node.
+// It first tries to get an existing client, then attempts to connect if not found.
+func (s *Service) getNodeDaemonClient(ctx context.Context, nodeID string) (*node.DaemonClient, error) {
+	if s.daemonPool == nil {
+		return nil, fmt.Errorf("daemon pool not available")
+	}
+	
+	// Try to get existing client first
+	client := s.daemonPool.Get(nodeID)
+	if client != nil {
+		return client, nil
+	}
+	
+	// Need to connect - get node info for the address
+	nodeInfo, err := s.nodeRepo.Get(ctx, nodeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node info: %w", err)
+	}
+	
+	// Connect to the node daemon (ManagementIP includes port)
+	client, err = s.daemonPool.Connect(nodeID, nodeInfo.ManagementIP)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to node daemon at %s: %w", nodeInfo.ManagementIP, err)
+	}
+	
+	return client, nil
+}
 
 // convertToNodeDaemonCreateRequest converts a VM to a Node Daemon create request.
 func convertToNodeDaemonCreateRequest(vm *domain.VirtualMachine, spec *computev1.VmSpec) *nodev1.CreateVMOnNodeRequest {
