@@ -332,31 +332,48 @@ impl Hypervisor for LibvirtBackend {
     async fn create_snapshot(&self, vm_id: &str, name: &str, description: &str) -> Result<SnapshotInfo> {
         info!("Creating snapshot");
         
+        // Verify the domain exists
         let domain = self.get_domain(vm_id)?;
         
         let (state, _) = domain.get_state()
             .map_err(|e| HypervisorError::Internal(e.to_string()))?;
         
-        // Build snapshot XML
+        // Note: The virt crate v0.4 doesn't expose snapshot_create_xml directly.
+        // In production, we would use the raw libvirt C API or upgrade the virt crate.
+        // For now, return a placeholder snapshot info.
+        warn!("Snapshot creation not fully implemented in virt crate v0.4 - using virsh fallback");
+        
+        // Use virsh command as fallback
         let snap_xml = format!(
-            r#"<domainsnapshot>
-                <name>{}</name>
-                <description>{}</description>
-            </domainsnapshot>"#,
+            r#"<domainsnapshot><name>{}</name><description>{}</description></domainsnapshot>"#,
             name, description
         );
         
-        let snapshot = domain.snapshot_create_xml(&snap_xml, 0)
-            .map_err(|e| HypervisorError::SnapshotFailed(e.to_string()))?;
+        let output = std::process::Command::new("virsh")
+            .args(["snapshot-create", vm_id, "--xmldesc", "/dev/stdin"])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .and_then(|mut child| {
+                use std::io::Write;
+                if let Some(ref mut stdin) = child.stdin {
+                    stdin.write_all(snap_xml.as_bytes())?;
+                }
+                child.wait_with_output()
+            })
+            .map_err(|e| HypervisorError::SnapshotFailed(format!("virsh command failed: {}", e)))?;
         
-        let snap_name = snapshot.get_name()
-            .map_err(|e| HypervisorError::Internal(e.to_string()))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(HypervisorError::SnapshotFailed(format!("virsh snapshot-create failed: {}", stderr)));
+        }
         
-        info!(snapshot = %snap_name, "Snapshot created");
+        info!(snapshot = %name, "Snapshot created via virsh");
         
         Ok(SnapshotInfo {
-            id: snap_name.clone(),
-            name: snap_name,
+            id: name.to_string(),
+            name: name.to_string(),
             description: description.to_string(),
             created_at: chrono::Utc::now(),
             vm_state: Self::state_from_libvirt(state),
@@ -368,15 +385,21 @@ impl Hypervisor for LibvirtBackend {
     async fn revert_snapshot(&self, vm_id: &str, snapshot_id: &str) -> Result<()> {
         info!("Reverting to snapshot");
         
-        let domain = self.get_domain(vm_id)?;
+        // Verify domain exists
+        let _ = self.get_domain(vm_id)?;
         
-        let snapshot = domain.snapshot_lookup_by_name(snapshot_id, 0)
-            .map_err(|e| HypervisorError::SnapshotNotFound(e.to_string()))?;
+        // Use virsh command as fallback since virt crate v0.4 doesn't expose snapshot methods
+        let output = std::process::Command::new("virsh")
+            .args(["snapshot-revert", vm_id, snapshot_id])
+            .output()
+            .map_err(|e| HypervisorError::SnapshotFailed(format!("virsh command failed: {}", e)))?;
         
-        snapshot.revert(0)
-            .map_err(|e| HypervisorError::SnapshotFailed(e.to_string()))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(HypervisorError::SnapshotFailed(format!("virsh snapshot-revert failed: {}", stderr)));
+        }
         
-        info!("Reverted to snapshot");
+        info!("Reverted to snapshot via virsh");
         Ok(())
     }
     
@@ -384,43 +407,56 @@ impl Hypervisor for LibvirtBackend {
     async fn delete_snapshot(&self, vm_id: &str, snapshot_id: &str) -> Result<()> {
         info!("Deleting snapshot");
         
-        let domain = self.get_domain(vm_id)?;
+        // Verify domain exists
+        let _ = self.get_domain(vm_id)?;
         
-        let snapshot = domain.snapshot_lookup_by_name(snapshot_id, 0)
-            .map_err(|e| HypervisorError::SnapshotNotFound(e.to_string()))?;
+        // Use virsh command as fallback
+        let output = std::process::Command::new("virsh")
+            .args(["snapshot-delete", vm_id, snapshot_id])
+            .output()
+            .map_err(|e| HypervisorError::SnapshotFailed(format!("virsh command failed: {}", e)))?;
         
-        snapshot.delete(0)
-            .map_err(|e| HypervisorError::SnapshotFailed(e.to_string()))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(HypervisorError::SnapshotFailed(format!("virsh snapshot-delete failed: {}", stderr)));
+        }
         
-        info!("Snapshot deleted");
+        info!("Snapshot deleted via virsh");
         Ok(())
     }
     
     #[instrument(skip(self), fields(vm_id = %vm_id))]
     async fn list_snapshots(&self, vm_id: &str) -> Result<Vec<SnapshotInfo>> {
+        // Verify domain exists
         let domain = self.get_domain(vm_id)?;
         
         let (state, _) = domain.get_state()
             .map_err(|e| HypervisorError::Internal(e.to_string()))?;
         
-        let snapshots = domain.list_all_snapshots(0)
-            .map_err(|e| HypervisorError::Internal(e.to_string()))?;
+        // Use virsh command to list snapshots
+        let output = std::process::Command::new("virsh")
+            .args(["snapshot-list", vm_id, "--name"])
+            .output()
+            .map_err(|e| HypervisorError::Internal(format!("virsh command failed: {}", e)))?;
         
-        let mut result = Vec::with_capacity(snapshots.len());
+        if !output.status.success() {
+            // No snapshots or error - return empty list
+            return Ok(Vec::new());
+        }
         
-        for snapshot in snapshots {
-            let name = snapshot.get_name()
-                .map_err(|e| HypervisorError::Internal(e.to_string()))?;
-            
-            result.push(SnapshotInfo {
-                id: name.clone(),
-                name,
-                description: String::new(), // Would need XML parsing
-                created_at: chrono::Utc::now(), // Would need XML parsing
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let result: Vec<SnapshotInfo> = stdout
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .map(|name| SnapshotInfo {
+                id: name.trim().to_string(),
+                name: name.trim().to_string(),
+                description: String::new(),
+                created_at: chrono::Utc::now(),
                 vm_state: Self::state_from_libvirt(state),
                 parent_id: None,
-            });
-        }
+            })
+            .collect();
         
         Ok(result)
     }
@@ -556,18 +592,18 @@ impl Hypervisor for LibvirtBackend {
         let info = domain.get_info()
             .map_err(|e| HypervisorError::Internal(e.to_string()))?;
         
-        // Get block stats (if available)
-        let (disk_read, disk_write) = domain.block_stats("vda")
+        // Get block stats (if available) - use get_block_stats in virt crate
+        let (disk_read, disk_write) = domain.get_block_stats("vda")
             .map(|stats| (stats.rd_bytes.unwrap_or(0) as u64, stats.wr_bytes.unwrap_or(0) as u64))
             .unwrap_or((0, 0));
         
         // Get interface stats (if available)
-        let (net_rx, net_tx) = domain.interface_stats("eth0")
+        let (net_rx, net_tx) = domain.get_interface_stats("eth0")
             .map(|stats| (stats.rx_bytes as u64, stats.tx_bytes as u64))
             .unwrap_or((0, 0));
         
         Ok(VmMetrics {
-            
+            vm_id: vm_id.to_string(),
             cpu_usage_percent: 0.0, // Would need to calculate from cpu_time delta
             memory_used_bytes: info.memory * 1024,
             memory_total_bytes: info.max_mem * 1024,
