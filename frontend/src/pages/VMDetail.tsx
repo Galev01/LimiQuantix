@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -27,6 +28,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { VMStatusBadge } from '@/components/vm/VMStatusBadge';
 import { ProgressRing } from '@/components/dashboard/ProgressRing';
+import { VNCConsole } from '@/components/vm/VNCConsole';
 import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
 import { useVM, useStartVM, useStopVM, useDeleteVM, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
@@ -77,6 +79,9 @@ function apiToDisplayVM(apiVm: ApiVM): MockVM {
 export function VMDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  
+  // Console state
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
 
   // API connection and data
   const { data: isConnected = false } = useApiConnection();
@@ -217,7 +222,13 @@ export function VMDetail() {
                 Start
               </Button>
             )}
-            <Button variant="secondary" size="sm">
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={() => setIsConsoleOpen(true)}
+              disabled={vm.status.state !== 'RUNNING'}
+              title={vm.status.state !== 'RUNNING' ? 'VM must be running to access console' : 'Open VM console'}
+            >
               <MonitorPlay className="w-4 h-4" />
               Console
             </Button>
@@ -403,23 +414,48 @@ export function VMDetail() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-elevated/50">
               <div className="flex items-center gap-2">
                 <Terminal className="w-4 h-4 text-text-muted" />
-                <span className="text-sm font-medium text-text-primary">Console</span>
+                <span className="text-sm font-medium text-text-primary">Console Access</span>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm">Send Ctrl+Alt+Del</Button>
-                <Button variant="ghost" size="sm">Fullscreen</Button>
-                <div className="flex items-center gap-2 text-sm text-success">
-                  <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
-                  Connected
-                </div>
+                {vm.status.state === 'RUNNING' ? (
+                  <div className="flex items-center gap-2 text-sm text-success">
+                    <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
+                    VM Running
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-warning">
+                    <span className="w-2 h-2 bg-warning rounded-full" />
+                    VM Stopped
+                  </div>
+                )}
               </div>
             </div>
-            <div className="aspect-video bg-black flex items-center justify-center">
-              <div className="text-center">
-                <MonitorPlay className="w-16 h-16 mx-auto text-text-muted mb-4" />
-                <p className="text-text-muted">Console viewer would be embedded here</p>
-                <p className="text-text-muted text-sm mt-2">(VNC/SPICE integration)</p>
-              </div>
+            <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
+              {vm.status.state === 'RUNNING' ? (
+                <div className="text-center">
+                  <MonitorPlay className="w-16 h-16 mx-auto text-accent mb-4" />
+                  <h3 className="text-lg font-medium text-text-primary mb-2">Console Available</h3>
+                  <p className="text-text-muted mb-6 max-w-md">
+                    Access the VM console using VNC. Click the button below to see connection details.
+                  </p>
+                  <Button onClick={() => setIsConsoleOpen(true)}>
+                    <MonitorPlay className="w-4 h-4" />
+                    Open Console
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <MonitorPlay className="w-16 h-16 mx-auto text-text-muted mb-4" />
+                  <h3 className="text-lg font-medium text-text-primary mb-2">Console Unavailable</h3>
+                  <p className="text-text-muted mb-6">
+                    Start the VM to access the console.
+                  </p>
+                  <Button onClick={handleStart} disabled={isActionPending}>
+                    <Play className="w-4 h-4" />
+                    Start VM
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </TabsContent>
@@ -578,6 +614,14 @@ export function VMDetail() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* VNC Console Modal */}
+      <VNCConsole
+        vmId={id || ''}
+        vmName={vm.name}
+        isOpen={isConsoleOpen}
+        onClose={() => setIsConsoleOpen(false)}
+      />
     </div>
   );
 }
