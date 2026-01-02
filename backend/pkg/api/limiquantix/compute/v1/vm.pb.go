@@ -1751,8 +1751,11 @@ type DiskDevice struct {
 	Readonly bool `protobuf:"varint,10,opt,name=readonly,proto3" json:"readonly,omitempty"`
 	// Discard/TRIM support for SSDs
 	DiscardEnabled bool `protobuf:"varint,11,opt,name=discard_enabled,json=discardEnabled,proto3" json:"discard_enabled,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Cloud image backing file (for copy-on-write overlays)
+	// If set, creates an overlay disk on top of this base image
+	BackingFile   string `protobuf:"bytes,12,opt,name=backing_file,json=backingFile,proto3" json:"backing_file,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DiskDevice) Reset() {
@@ -1860,6 +1863,13 @@ func (x *DiskDevice) GetDiscardEnabled() bool {
 		return x.DiscardEnabled
 	}
 	return false
+}
+
+func (x *DiskDevice) GetBackingFile() string {
+	if x != nil {
+		return x.BackingFile
+	}
+	return ""
 }
 
 type CdromDevice struct {
@@ -4661,7 +4671,7 @@ const file_limiquantix_compute_v1_vm_proto_rawDesc = "" +
 	"\x04size\x18\x02 \x01(\x0e20.limiquantix.compute.v1.HugePagesConfig.PageSizeR\x04size\"&\n" +
 	"\bPageSize\x12\f\n" +
 	"\bSIZE_2MB\x10\x00\x12\f\n" +
-	"\bSIZE_1GB\x10\x01\"\xba\x05\n" +
+	"\bSIZE_1GB\x10\x01\"\xdd\x05\n" +
 	"\n" +
 	"DiskDevice\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12&\n" +
@@ -4676,7 +4686,8 @@ const file_limiquantix_compute_v1_vm_proto_rawDesc = "" +
 	"\x05cache\x18\t \x01(\x0e2,.limiquantix.compute.v1.DiskDevice.CacheModeR\x05cache\x12\x1a\n" +
 	"\breadonly\x18\n" +
 	" \x01(\bR\breadonly\x12'\n" +
-	"\x0fdiscard_enabled\x18\v \x01(\bR\x0ediscardEnabled\"G\n" +
+	"\x0fdiscard_enabled\x18\v \x01(\bR\x0ediscardEnabled\x12!\n" +
+	"\fbacking_file\x18\f \x01(\tR\vbackingFile\"G\n" +
 	"\aBusType\x12\x0e\n" +
 	"\n" +
 	"VIRTIO_BLK\x10\x00\x12\x0f\n" +
