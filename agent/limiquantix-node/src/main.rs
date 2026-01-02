@@ -42,23 +42,35 @@ async fn main() -> Result<()> {
     );
     
     // Load configuration
-    let config = match Config::load(&args.config) {
-        Ok(cfg) => {
-            info!(config_path = %args.config, "Configuration loaded");
-            cfg
+    let config = match &args.config {
+        Some(config_path) => {
+            // Explicit config file provided
+            match Config::load(config_path) {
+                Ok(cfg) => {
+                    info!(config_path = %config_path, "Configuration loaded");
+                    cfg.with_cli_overrides(&args)
+                }
+                Err(e) => {
+                    error!(error = %e, path = %config_path, "Failed to load configuration");
+                    return Err(e);
+                }
+            }
         }
-        Err(e) if args.config == "/etc/limiquantix/node.yaml" => {
-            info!("No config file found, using defaults");
-            Config::default()
-        }
-        Err(e) => {
-            error!(error = %e, path = %args.config, "Failed to load configuration");
-            return Err(e);
+        None => {
+            // Try default location, fall back to CLI-only config
+            let default_path = "/etc/limiquantix/node.yaml";
+            match Config::load(default_path) {
+                Ok(cfg) => {
+                    info!(config_path = %default_path, "Configuration loaded from default location");
+                    cfg.with_cli_overrides(&args)
+                }
+                Err(_) => {
+                    info!("No config file found, using CLI arguments and defaults");
+                    Config::default_with_cli(&args)
+                }
+            }
         }
     };
-    
-    // Override config with CLI args
-    let config = config.with_cli_overrides(&args);
     
     info!(
         listen = %config.server.listen_address,

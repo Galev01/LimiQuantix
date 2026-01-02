@@ -55,9 +55,8 @@ impl Config {
     
     /// Apply CLI argument overrides to the configuration.
     pub fn with_cli_overrides(mut self, args: &Args) -> Self {
-        if let Some(ref listen) = args.listen {
-            self.server.listen_address = listen.clone();
-        }
+        // Always apply listen address from CLI
+        self.server.listen_address = args.listen.clone();
         
         if let Some(ref control_plane) = args.control_plane {
             self.control_plane.address = control_plane.clone();
@@ -67,8 +66,14 @@ impl Config {
             self.node.id = Some(node_id.clone());
         }
         
+        // Apply libvirt URI
+        self.hypervisor.libvirt_uri = Some(args.libvirt_uri.clone());
+        
         if args.dev {
             self.hypervisor.backend = HypervisorBackend::Mock;
+        } else {
+            // If not dev mode, use libvirt backend
+            self.hypervisor.backend = HypervisorBackend::Libvirt;
         }
         
         if args.register {
@@ -76,6 +81,11 @@ impl Config {
         }
         
         self
+    }
+    
+    /// Create a default config (used when no config file is provided).
+    pub fn default_with_cli(args: &Args) -> Self {
+        Self::default().with_cli_overrides(args)
     }
 }
 
