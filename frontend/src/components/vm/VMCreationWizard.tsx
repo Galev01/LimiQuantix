@@ -287,7 +287,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
           },
           memory: { sizeMib: formData.memoryMib },
           disks: formData.disks.map((d) => ({ 
-            sizeMib: d.sizeGib * 1024,
+            sizeGib: d.sizeGib,
             name: d.name,
           })),
           nics: formData.nics.map((nic) => ({

@@ -175,7 +175,7 @@ export interface ApiVM {
     };
     memory?: { sizeMib?: number };
     disks?: Array<{ 
-      sizeMib?: number;
+      sizeGib?: number;
       name?: string;
     }>;
     nics?: Array<{
