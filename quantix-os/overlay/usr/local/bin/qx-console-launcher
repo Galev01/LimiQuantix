@@ -1,0 +1,46 @@
+#!/bin/sh
+# ============================================================================
+# Quantix Console Launcher
+# ============================================================================
+# Tries to launch the Slint GUI console first.
+# Falls back to TUI console if GUI fails (no KMS, no framebuffer, etc.)
+# ============================================================================
+
+# Setup environment
+export XDG_RUNTIME_DIR="/run/user/0"
+export HOME="/root"
+
+# Ensure runtime directory exists
+mkdir -p /run/user/0
+chmod 700 /run/user/0
+
+# Try Slint GUI console first (requires KMS/framebuffer)
+if [ -x /usr/bin/qx-console-gui ]; then
+    # Set Slint to use LinuxKMS backend (direct framebuffer)
+    export SLINT_BACKEND="linuxkms"
+    
+    # Attempt to run the GUI
+    echo "Starting Quantix-OS Console (GUI)..." > /dev/tty1
+    /usr/bin/qx-console-gui 2>/var/log/qx-console-gui.err
+    
+    # If we get here, the GUI exited (error or intentional)
+    EXIT_CODE=$?
+    
+    if [ $EXIT_CODE -ne 0 ]; then
+        echo "GUI console failed (exit $EXIT_CODE), falling back to TUI..." > /dev/tty1
+        sleep 2
+    else
+        # Normal exit (e.g., shutdown/reboot initiated)
+        exit 0
+    fi
+fi
+
+# Fallback to TUI console
+if [ -x /usr/local/bin/qx-console ]; then
+    echo "Starting Quantix-OS Console (TUI)..." > /dev/tty1
+    exec /usr/local/bin/qx-console
+fi
+
+# Ultimate fallback: simple shell
+echo "No console available, dropping to shell..." > /dev/tty1
+exec /bin/sh

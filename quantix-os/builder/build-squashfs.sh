@@ -237,6 +237,9 @@ EOF
     ln -sf /etc/init.d/ovsdb-server "${ROOTFS}/etc/runlevels/default/ovsdb-server" 2>/dev/null || true
     ln -sf /etc/init.d/ovs-vswitchd "${ROOTFS}/etc/runlevels/default/ovs-vswitchd" 2>/dev/null || true
     
+    # Enable seatd for KMS/DRM session management (required for Slint GUI)
+    ln -sf /etc/init.d/seatd "${ROOTFS}/etc/runlevels/boot/seatd" 2>/dev/null || true
+    
     # Configure modules to load
     cat > "${ROOTFS}/etc/modules" << 'EOF'
 # Virtualization
@@ -261,6 +264,19 @@ nbd
 loop
 dm_mod
 dm_thin_pool
+
+# Graphics/Console (for Slint GUI with KMS)
+drm
+drm_kms_helper
+i915
+amdgpu
+virtio_gpu
+bochs
+simpledrm
+
+# Input devices (for Slint GUI)
+uinput
+evdev
 EOF
 
     # Configure sysctl for virtualization

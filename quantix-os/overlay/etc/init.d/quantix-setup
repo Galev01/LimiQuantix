@@ -21,9 +21,13 @@ start() {
     mkdir -p /quantix /data /tmp /run
     chmod 755 /quantix /data
     
-    # Console directories
+    # Console directories (for Slint GUI)
     mkdir -p /run/user/0
     chmod 700 /run/user/0
+    
+    # Seatd directories (for KMS session management)
+    mkdir -p /run/seatd
+    chmod 755 /run/seatd
     
     # OVS directories
     mkdir -p /var/run/openvswitch

@@ -2,7 +2,7 @@
 # ============================================================================
 # This inittab is designed for an appliance-style hypervisor:
 # - No traditional login prompts
-# - TTY1 runs our TUI console
+# - TTY1 runs our Slint GUI console (primary) or TUI console (fallback)
 # - Emergency shell available via F12 or serial
 # ============================================================================
 
@@ -15,9 +15,9 @@
 # TTY Configuration
 # ---------------------------------------------------------------------------
 
-# TTY1: Quantix Console TUI (the "yellow screen")
-# This is the main interface - no login, just our dashboard
-tty1::respawn:/usr/local/bin/qx-console
+# TTY1: Quantix Console GUI (Slint) with TUI fallback
+# Tries GUI first, falls back to TUI if no framebuffer/KMS available
+tty1::respawn:/usr/local/bin/qx-console-launcher
 
 # TTY2-6: Disabled by default (security)
 # To enable for debugging, uncomment:
