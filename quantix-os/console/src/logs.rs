@@ -5,7 +5,6 @@
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
-use std::path::Path;
 
 use anyhow::Result;
 use ratatui::{

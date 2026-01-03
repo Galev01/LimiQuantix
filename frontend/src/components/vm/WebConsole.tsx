@@ -143,51 +143,79 @@ Preferred_Encoding=6
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center"
+        className="fixed inset-0 z-50 flex items-center justify-center p-6"
       >
-        {/* Backdrop */}
-        <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+        {/* Backdrop with blur */}
+        <motion.div 
+          initial={{ backdropFilter: 'blur(0px)' }}
+          animate={{ backdropFilter: 'blur(12px)' }}
+          className="absolute inset-0 bg-black/75" 
+          onClick={onClose} 
+        />
 
-        {/* Console Window */}
+        {/* Console Window - Enhanced with depth */}
         <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
+          initial={{ scale: 0.95, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           className={cn(
-            'relative flex flex-col bg-bg-base border border-border shadow-2xl overflow-hidden',
-            'w-[600px] max-w-[95vw] rounded-xl'
+            'relative flex flex-col overflow-hidden',
+            'w-[640px] max-w-[95vw] rounded-2xl',
+            // Layered background
+            'bg-gradient-to-b from-bg-elevated to-bg-surface',
+            // Enhanced shadow for depth
+            'shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_4px_16px_rgba(0,0,0,0.3),0_12px_40px_rgba(0,0,0,0.4),0_24px_80px_rgba(0,0,0,0.3)]'
           )}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-bg-surface border-b border-border">
-            <div className="flex items-center gap-3">
-              <Monitor className="w-5 h-5 text-accent" />
-              <span className="font-medium text-text-primary">Console: {vmName}</span>
+          {/* Top glow line */}
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+          {/* Header - Enhanced */}
+          <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-b from-bg-elevated to-bg-surface border-b border-border relative">
+            <div className="flex items-center gap-4">
+              {/* Icon container with gradient */}
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-accent to-purple-600 flex items-center justify-center shadow-[0_2px_8px_rgba(139,92,246,0.3),inset_0_1px_1px_rgba(255,255,255,0.2)]">
+                <Monitor className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-text-primary text-lg">Console: {vmName}</h2>
+                <p className="text-xs text-text-muted">VNC Remote Connection</p>
+              </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="w-4 h-4" />
+            <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-bg-hover">
+              <X className="w-5 h-5" />
             </Button>
+            {/* Accent underline */}
+            <div className="absolute bottom-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
           </div>
 
           {/* Content */}
-          <div className="p-6">
+          <div className="p-6 bg-bg-surface">
             {state === 'loading' && (
-              <div className="flex flex-col items-center gap-4 py-8 text-text-muted">
-                <Loader2 className="w-10 h-10 animate-spin text-accent" />
-                <span>Getting console information...</span>
+              <div className="flex flex-col items-center gap-5 py-12 text-text-muted">
+                <div className="relative">
+                  <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-accent" />
+                  </div>
+                  <div className="absolute inset-0 rounded-2xl bg-accent/20 animate-ping" />
+                </div>
+                <span className="text-sm">Getting console information...</span>
               </div>
             )}
 
             {state === 'error' && (
-              <div className="flex flex-col items-center gap-4 py-8 text-center">
-                <AlertTriangle className="w-12 h-12 text-error" />
+              <div className="flex flex-col items-center gap-5 py-10 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-error/10 flex items-center justify-center">
+                  <AlertTriangle className="w-8 h-8 text-error" />
+                </div>
                 <div>
                   <h3 className="text-lg font-semibold text-text-primary mb-2">
                     Connection Failed
                   </h3>
-                  <p className="text-text-muted text-sm">{error}</p>
+                  <p className="text-text-muted text-sm max-w-xs">{error}</p>
                 </div>
-                <Button variant="secondary" onClick={fetchConsoleInfo}>
+                <Button variant="secondary" onClick={fetchConsoleInfo} className="gap-2">
                   <RefreshCw className="w-4 h-4" />
                   Try Again
                 </Button>
@@ -195,21 +223,21 @@ Preferred_Encoding=6
             )}
 
             {state === 'ready' && consoleInfo && (
-              <div className="space-y-6">
-                {/* Connection Address - Main Focus */}
-                <div className="text-center">
-                  <p className="text-sm text-text-muted mb-3">
+              <div className="space-y-5">
+                {/* Connection Address - Main Focus with enhanced styling */}
+                <div className="text-center p-5 rounded-xl bg-bg-base border border-border shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)]">
+                  <p className="text-sm text-text-muted mb-4">
                     Connect to this address with your VNC client:
                   </p>
-                  <div className="flex items-center justify-center gap-2">
-                    <code className="text-2xl font-mono font-bold text-accent bg-bg-surface px-6 py-3 rounded-lg border border-border">
+                  <div className="flex items-center justify-center gap-3">
+                    <code className="text-2xl font-mono font-bold text-accent bg-bg-surface px-6 py-3 rounded-xl border border-accent/30 shadow-[0_0_20px_rgba(139,92,246,0.15)]">
                       {connectionAddress}
                     </code>
                     <Button
                       variant="secondary"
                       size="sm"
                       onClick={() => copyToClipboard(connectionAddress, 'address')}
-                      className="shrink-0"
+                      className="shrink-0 h-12 w-12 !p-0"
                     >
                       {copied === 'address' ? (
                         <CheckCircle className="w-5 h-5 text-success" />
@@ -220,14 +248,19 @@ Preferred_Encoding=6
                   </div>
                 </div>
 
-                {/* Password if present */}
+                {/* Password if present - Enhanced card */}
                 {consoleInfo.password && (
-                  <div className="flex items-center justify-between bg-bg-surface rounded-lg p-4 border border-border">
-                    <div>
-                      <span className="text-sm text-text-muted">Password:</span>
-                      <code className="ml-2 font-mono text-text-primary">
-                        {consoleInfo.password}
-                      </code>
+                  <div className="flex items-center justify-between bg-bg-base rounded-xl p-4 border border-border shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-warning/10 flex items-center justify-center">
+                        <span className="text-warning text-lg">🔑</span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-text-muted block">Password</span>
+                        <code className="font-mono text-text-primary font-medium">
+                          {consoleInfo.password}
+                        </code>
+                      </div>
                     </div>
                     <Button
                       variant="ghost"
@@ -243,11 +276,11 @@ Preferred_Encoding=6
                   </div>
                 )}
 
-                {/* Action Buttons */}
+                {/* Action Buttons - Enhanced */}
                 <div className="flex gap-3">
                   <Button
                     variant="primary"
-                    className="flex-1"
+                    className="flex-1 h-11 shadow-[0_2px_8px_rgba(139,92,246,0.3)]"
                     onClick={() => copyToClipboard(connectionAddress, 'address')}
                   >
                     <Copy className="w-4 h-4" />
@@ -255,6 +288,7 @@ Preferred_Encoding=6
                   </Button>
                   <Button
                     variant="secondary"
+                    className="h-11"
                     onClick={generateVncFile}
                     title="Download .vnc file for TightVNC/RealVNC"
                   >
@@ -263,62 +297,73 @@ Preferred_Encoding=6
                   </Button>
                 </div>
 
-                {/* Quick Connect Instructions */}
-                <div className="bg-bg-surface rounded-lg p-4 border border-border">
-                  <h4 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-2">
-                    <Terminal className="w-4 h-4" />
+                {/* Quick Connect Instructions - Enhanced card */}
+                <div className="bg-bg-base rounded-xl p-5 border border-border shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]">
+                  <h4 className="text-sm font-semibold text-text-primary mb-4 flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center">
+                      <Terminal className="w-4 h-4 text-accent" />
+                    </div>
                     Quick Connect Commands
                   </h4>
-                  <div className="space-y-2 text-xs font-mono">
-                    <div className="flex items-center gap-3">
-                      <span className="text-text-muted w-16">Windows:</span>
-                      <code className="text-text-secondary bg-bg-base px-2 py-1 rounded flex-1">
-                        Open TightVNC Viewer → paste {connectionAddress}
+                  <div className="space-y-3 text-xs font-mono">
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-bg-hover transition-colors">
+                      <span className="text-text-muted w-16 flex-shrink-0">Windows:</span>
+                      <code className="text-text-secondary bg-bg-surface px-3 py-1.5 rounded-lg flex-1 border border-border">
+                        TightVNC Viewer → {connectionAddress}
                       </code>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-text-muted w-16">Linux:</span>
-                      <code className="text-text-secondary bg-bg-base px-2 py-1 rounded flex-1">
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-bg-hover transition-colors">
+                      <span className="text-text-muted w-16 flex-shrink-0">Linux:</span>
+                      <code className="text-text-secondary bg-bg-surface px-3 py-1.5 rounded-lg flex-1 border border-border">
                         vncviewer {connectionAddress}
                       </code>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-text-muted w-16">macOS:</span>
-                      <code className="text-text-secondary bg-bg-base px-2 py-1 rounded flex-1">
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-bg-hover transition-colors">
+                      <span className="text-text-muted w-16 flex-shrink-0">macOS:</span>
+                      <code className="text-text-secondary bg-bg-surface px-3 py-1.5 rounded-lg flex-1 border border-border">
                         open vnc://{connectionAddress}
                       </code>
                     </div>
                   </div>
                 </div>
 
-                {/* Info Box */}
-                <div className="text-xs text-text-muted p-3 bg-accent/5 border border-accent/20 rounded-lg">
-                  <strong>💡 Tip:</strong> You can download TightVNC Viewer for free from{' '}
-                  <a 
-                    href="https://www.tightvnc.com/download.php" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-accent hover:underline"
-                  >
-                    tightvnc.com
-                  </a>
-                  . On macOS, the built-in Screen Sharing app supports VNC.
+                {/* Info Box - Enhanced */}
+                <div className="flex items-start gap-3 text-sm text-text-muted p-4 bg-accent/5 border border-accent/20 rounded-xl">
+                  <span className="text-lg">💡</span>
+                  <div>
+                    <strong className="text-text-secondary">Tip:</strong> Download TightVNC Viewer free from{' '}
+                    <a 
+                      href="https://www.tightvnc.com/download.php" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-accent hover:underline font-medium"
+                    >
+                      tightvnc.com
+                    </a>
+                    . On macOS, Screen Sharing supports VNC.
+                  </div>
                 </div>
 
-                {/* Future Enhancement Notice */}
-                <div className="text-xs text-text-muted text-center pt-2 border-t border-border">
-                  <span className="opacity-60">
-                    🚀 Browser-based console (noVNC) coming in a future update
+                {/* Future Enhancement Notice - Subtle */}
+                <div className="text-xs text-text-muted text-center pt-3 border-t border-border/50">
+                  <span className="opacity-70 flex items-center justify-center gap-2">
+                    <span>🚀</span>
+                    Browser-based console (noVNC) coming in a future update
                   </span>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Footer */}
-          <div className="flex items-center justify-between px-4 py-2 bg-bg-surface border-t border-border text-xs text-text-muted">
-            <span>Press Escape to close</span>
-            <span>VM: {vmId.slice(0, 8)}...</span>
+          {/* Footer - Enhanced with recessed effect */}
+          <div className="flex items-center justify-between px-6 py-3 bg-bg-base border-t border-border text-xs text-text-muted shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]">
+            <span className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 rounded bg-bg-surface border border-border text-[10px]">ESC</kbd>
+              <span>to close</span>
+            </span>
+            <span className="font-mono bg-bg-surface px-2 py-0.5 rounded border border-border">
+              {vmId.slice(0, 8)}...
+            </span>
           </div>
         </motion.div>
       </motion.div>

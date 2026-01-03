@@ -287,9 +287,17 @@ fn render_main_menu(frame: &mut Frame, area: Rect, app: &mut App) {
         ])
         .split(area);
 
-    // Left: Menu
-    let menu_items: Vec<ListItem> = app
-        .menu_items()
+    // Left: Menu - collect menu items first, then create widget
+    let items: Vec<(&str, &str, &str)> = vec![
+        ("F2", "🌐", "Configure Network"),
+        ("F3", "📋", "View Logs"),
+        ("F4", "🔗", "Join Cluster"),
+        ("F5", "🔄", "Restart Services"),
+        ("F10", "⏻", "Shutdown/Reboot"),
+        ("F12", "🔧", "Emergency Shell"),
+    ];
+    
+    let menu_items: Vec<ListItem> = items
         .iter()
         .map(|(key, emoji, label)| {
             ListItem::new(Line::from(vec![

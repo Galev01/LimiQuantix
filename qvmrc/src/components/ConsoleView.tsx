@@ -789,46 +789,53 @@ export function ConsoleView({
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-surface)] border-b border-[var(--border)]">
-        <div className="flex items-center gap-3">
+      {/* Toolbar - Enhanced with depth and visual hierarchy */}
+      <div className="console-toolbar">
+        {/* Left section - Navigation & VM Info */}
+        <div className="console-toolbar-section">
           <button
             onClick={handleDisconnect}
-            className="p-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
+            className="console-toolbar-btn console-toolbar-btn-back"
             title="Disconnect"
           >
-            <ArrowLeft className="w-5 h-5 text-[var(--text-muted)]" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <span className="font-medium text-[var(--text-primary)]">{vmName}</span>
-          {connected ? (
-            <span className="flex items-center gap-1 text-xs text-[var(--success)] px-2 py-0.5 bg-[var(--success)]/10 rounded-full">
-              <span className="w-1.5 h-1.5 bg-[var(--success)] rounded-full animate-pulse" />
-              Connected
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-xs text-[var(--error)] px-2 py-0.5 bg-[var(--error)]/10 rounded-full">
-              Disconnected
-            </span>
-          )}
+          
+          <div className="console-toolbar-divider" />
+          
+          <div className="console-toolbar-vm-info">
+            <span className="console-toolbar-vm-name">{vmName}</span>
+            {connected ? (
+              <span className="console-toolbar-status console-toolbar-status-connected">
+                <span className="status-dot" />
+                Connected
+              </span>
+            ) : (
+              <span className="console-toolbar-status console-toolbar-status-disconnected">
+                Disconnected
+              </span>
+            )}
+          </div>
           
           {/* Executing action indicator */}
           {executingAction && (
-            <span className="flex items-center gap-1.5 text-xs text-[var(--accent)] px-2 py-0.5 bg-[var(--accent)]/10 rounded-full">
-              <Loader2 className="w-3 h-3 animate-spin" />
+            <span className="console-toolbar-status console-toolbar-status-action">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
               {executingAction === 'mount-iso' ? 'Mounting...' : `${executingAction}...`}
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        {/* Right section - Controls */}
+        <div className="console-toolbar-section">
           {/* VM Menu Dropdown */}
           <div ref={vmMenuRef} className="relative">
             <button
               onClick={() => setShowVMMenu(!showVMMenu)}
-              className="px-3 py-1.5 rounded-lg hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-1.5 text-sm"
+              className={`console-toolbar-dropdown-btn ${showVMMenu ? 'active' : ''}`}
             >
-              <span className="text-[var(--text-primary)]">VM</span>
-              <ChevronDown className={`w-4 h-4 text-[var(--text-muted)] transition-transform ${showVMMenu ? 'rotate-180' : ''}`} />
+              <span>VM</span>
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showVMMenu ? 'rotate-180' : ''}`} />
             </button>
             
             {showVMMenu && (
@@ -882,50 +889,57 @@ export function ConsoleView({
             )}
           </div>
           
-          <div className="w-px h-5 bg-[var(--border)] mx-1" />
+          <div className="console-toolbar-divider" />
+          
           {/* Scale mode toggle */}
           <button
             onClick={cycleScaleMode}
-            className="px-2 py-1.5 rounded-lg hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-1.5 text-xs"
+            className="console-toolbar-btn console-toolbar-btn-scale"
             title={`Scale mode: ${scaleMode}`}
           >
-            {scaleMode === 'fit' && <ZoomOut className="w-4 h-4 text-[var(--text-muted)]" />}
-            {scaleMode === '100%' && <span className="text-[var(--text-muted)] font-mono">1:1</span>}
-            {scaleMode === 'fill' && <ZoomIn className="w-4 h-4 text-[var(--text-muted)]" />}
-            <span className="text-[var(--text-muted)] capitalize">{scaleMode}</span>
+            {scaleMode === 'fit' && <ZoomOut className="w-4 h-4" />}
+            {scaleMode === '100%' && <span className="font-mono text-xs font-bold">1:1</span>}
+            {scaleMode === 'fill' && <ZoomIn className="w-4 h-4" />}
+            <span className="capitalize text-xs">{scaleMode}</span>
           </button>
           
-          <div className="w-px h-5 bg-[var(--border)] mx-1" />
+          <div className="console-toolbar-divider" />
           
-          <button
-            onClick={sendCtrlAltDel}
-            className="p-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
-            title="Send Ctrl+Alt+Del"
-          >
-            <Keyboard className="w-5 h-5 text-[var(--text-muted)]" />
-          </button>
-          <button
-            className="p-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
-            title="Clipboard"
-          >
-            <Clipboard className="w-5 h-5 text-[var(--text-muted)]" />
-          </button>
-          <button
-            className="p-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors opacity-50 cursor-not-allowed"
-            title="USB Devices (coming soon)"
-            disabled
-          >
-            <Usb className="w-5 h-5 text-[var(--text-muted)]" />
-          </button>
+          {/* Action buttons group */}
+          <div className="console-toolbar-btn-group">
+            <button
+              onClick={sendCtrlAltDel}
+              className="console-toolbar-btn"
+              title="Send Ctrl+Alt+Del"
+            >
+              <Keyboard className="w-4.5 h-4.5" />
+            </button>
+            <button
+              className="console-toolbar-btn"
+              title="Clipboard"
+            >
+              <Clipboard className="w-4.5 h-4.5" />
+            </button>
+            <button
+              className="console-toolbar-btn console-toolbar-btn-disabled"
+              title="USB Devices (coming soon)"
+              disabled
+            >
+              <Usb className="w-4.5 h-4.5" />
+            </button>
+          </div>
+          
+          <div className="console-toolbar-divider" />
+          
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
+            className="console-toolbar-btn console-toolbar-btn-fullscreen"
             title="Toggle fullscreen"
           >
             {isFullscreen ? (
-              <Minimize2 className="w-5 h-5 text-[var(--text-muted)]" />
+              <Minimize2 className="w-5 h-5" />
             ) : (
-              <Maximize2 className="w-5 h-5 text-[var(--text-muted)]" />
+              <Maximize2 className="w-5 h-5" />
             )}
           </button>
         </div>
@@ -959,16 +973,18 @@ export function ConsoleView({
         />
       </div>
 
-      {/* Status bar */}
-      <div className="flex items-center justify-between px-4 py-1 bg-[var(--bg-surface)] border-t border-[var(--border)] text-xs text-[var(--text-muted)]">
-        <span>VM: {vmId.slice(0, 8)}...</span>
-        <div className="flex items-center gap-3">
-          <span>
+      {/* Status bar - Enhanced */}
+      <div className="console-status-bar">
+        <div className="console-status-bar-item">
+          <span>VM: {vmId.slice(0, 8)}...</span>
+        </div>
+        <div className="console-status-bar-item">
+          <span className="console-status-bar-resolution">
             {resolution.width}×{resolution.height}
           </span>
           {canvasScale !== 1 && (
-            <span className="text-[var(--accent)]">
-              ({Math.round(canvasScale * 100)}%)
+            <span className="console-status-bar-scale">
+              {Math.round(canvasScale * 100)}%
             </span>
           )}
         </div>
