@@ -9,14 +9,12 @@
 //! - ⏱️ Performance timing built-in
 //! - 🏷️ Component-based categorization
 
-use std::io;
 use std::path::Path;
-use std::sync::Arc;
 
 use anyhow::Result;
-use tracing::{Level, Subscriber};
+use tracing::Level;
 use tracing_subscriber::{
-    fmt::{self, format::FmtSpan, time::ChronoLocal, MakeWriter},
+    fmt::{self, format::FmtSpan, time::ChronoLocal},
     layer::SubscriberExt,
     util::SubscriberInitExt,
     EnvFilter, Layer,

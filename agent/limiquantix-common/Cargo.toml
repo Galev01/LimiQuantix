@@ -9,7 +9,7 @@ description = "Common utilities for Quantix-KVM agents including logging"
 [dependencies]
 # Logging
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["json", "env-filter", "fmt"] }
+tracing-subscriber = { workspace = true, features = ["json", "env-filter", "fmt", "chrono"] }
 
 # Error handling
 anyhow.workspace = true

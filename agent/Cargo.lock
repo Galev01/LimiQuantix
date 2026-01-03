@@ -1245,6 +1245,7 @@ name = "limiquantix-common"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "tracing",
  "tracing-subscriber",
 ]
@@ -2758,6 +2759,7 @@ version = "0.3.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f30143827ddab0d256fd843b7a66d164e9f271cfa0dde49142c5ca0ca291f1e"
 dependencies = [
+ "chrono",
  "matchers",
  "nu-ansi-term",
  "once_cell",

@@ -98,6 +98,71 @@ UEFI → GRUB → vmlinuz + initramfs
 - PXE boot support
 - Headless or console UI
 - REST API configuration
+
+## Building
+
+### Prerequisites
+
+- **Docker Desktop** (Windows, Mac, or Linux)
+  - Windows: [Download Docker Desktop](https://www.docker.com/products/docker-desktop/)
+  - Must be in **Linux containers mode** (default)
+- 4GB+ disk space
+- Internet connection (to download Alpine packages)
+
+### Quick Build (Windows)
+
+```powershell
+# Option 1: PowerShell (recommended)
+cd quantix-os
+.\build.ps1
+
+# Option 2: Command Prompt
+cd quantix-os
+build.bat
+```
+
+### Quick Build (Linux/Mac)
+
+```bash
+cd quantix-os
+make iso
+```
+
+### Build Options
+
+| Command | Description |
+|---------|-------------|
+| `.\build.ps1` | Build bootable ISO (default) |
+| `.\build.ps1 -Target squashfs` | Build update image only |
+| `.\build.ps1 -Version 1.2.0` | Build with custom version |
+| `.\build.ps1 -Clean` | Remove build artifacts |
+
+### What Gets Built
+
+```
+output/
+├── quantix-os-1.0.0.iso      # Bootable installer (~200MB)
+├── quantix-os-1.0.0.iso.sha256
+├── system-1.0.0.squashfs     # Update image (~150MB)
+└── system-1.0.0.squashfs.sha256
+```
+
+### Build Process
+
+The build runs entirely inside Docker, so it works on any OS:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Your Machine (Windows/Mac/Linux)                           │
+│  └── Docker Desktop                                         │
+│      └── quantix-os-builder container (Alpine)              │
+│          ├── Creates Alpine rootfs                          │
+│          ├── Installs KVM, libvirt, OVS                     │
+│          ├── Applies custom overlay                         │
+│          ├── Compresses to squashfs                         │
+│          └── Generates bootable ISO                         │
+└─────────────────────────────────────────────────────────────┘
+```
 - Cluster auto-join
 
 ## Directory Structure
