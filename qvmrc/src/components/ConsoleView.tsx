@@ -59,8 +59,15 @@ export function ConsoleView({
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
+  const [connectionState, setConnectionStateRaw] = useState<ConnectionState>('connecting');
+  const connectionStateRef = useRef<ConnectionState>('connecting');
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
+  
+  // Helper to update both state and ref
+  const setConnectionState = useCallback((newState: ConnectionState) => {
+    connectionStateRef.current = newState;
+    setConnectionStateRaw(newState);
+  }, []);
   const [mouseDown, setMouseDown] = useState(0);
   const [scaleMode, setScaleMode] = useState<ScaleMode>('fit');
   const [canvasScale, setCanvasScale] = useState(1);
@@ -394,8 +401,8 @@ export function ConsoleView({
         
         console.log(`[VNC] Connected event: ${newWidth}x${newHeight}, id: ${event.payload.connectionId}`);
         
-        // Show toast only on reconnection
-        if (connectionState === 'reconnecting') {
+        // Show toast only on reconnection (use ref to get current value in closure)
+        if (connectionStateRef.current === 'reconnecting') {
           showToast('Reconnected to VM console', 'success');
         }
         
@@ -429,7 +436,7 @@ export function ConsoleView({
       unlistenConnect.then((fn) => fn());
       unlistenResize.then((fn) => fn());
     };
-  }, [connectionId, calculateScale]);
+  }, [connectionId, calculateScale, setConnectionState, showToast, initializeCanvas]);
 
   // Handle disconnect
   const handleDisconnect = useCallback(async () => {

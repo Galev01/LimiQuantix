@@ -2,7 +2,55 @@
 
 ## Current Status: QuantumNet 100% Complete 🚀
 
-**Last Updated:** January 3, 2026 (Session 3 - Web Console Enhanced)
+**Last Updated:** January 3, 2026 (Session 4 - Console Reconnection UX)
+
+---
+
+## ✅ Session 4 Accomplishments (Jan 3, 2026)
+
+### Console Reconnection UX Fix
+
+**Problem:** When clicking "Retry Connection" or "Reconnect", the success toast appeared immediately while the error/disconnected overlay was still visible - causing confusing UI.
+
+**Solution:** Show loading overlay during reconnection, only show toast after successful connection.
+
+**Web Console (noVNC) - `frontend/public/novnc/limiquantix.html`:**
+1. Added `isReconnecting` flag to track connection type
+2. Updated loading overlay text dynamically ("Connecting" vs "Reconnecting")
+3. Modified `connect(reconnect)` function to accept reconnect parameter
+4. Success toast now shows "Reconnected" on reconnection, "Connected" on initial
+5. Retry and Reconnect buttons now show loading overlay before toast
+
+**QVMRC Console - `qvmrc/src/components/ConsoleView.tsx`:**
+1. Added `ConnectionState` type: `'connecting' | 'connected' | 'disconnected' | 'reconnecting'`
+2. Added `connectionStateRef` for event listener closures
+3. Added `console-connection-overlay` with loading/error states
+4. Added `handleReconnect` function that:
+   - Shows reconnecting overlay
+   - Disconnects existing connection
+   - Reconnects via `connect_vnc` command
+   - Shows success toast only after vnc:connected event
+5. Updated toolbar status badges for all connection states
+
+**QVMRC CSS - `qvmrc/src/index.css`:**
+- Added `.console-connection-overlay` styles
+- Added `.console-overlay-title` and `.console-overlay-subtitle`
+- Added `.console-overlay-error-icon` with error styling
+
+### Power Action Names Consistency
+
+**Fixed mismatch between web console and QVMRC power action names:**
+
+| Action | Web Console | QVMRC (was) | QVMRC (now) | Backend |
+|--------|-------------|-------------|-------------|---------|
+| Power On | `start` | `start` | `start` | `start` |
+| Shut Down Guest | `stop` | `shutdown` | `stop` | `stop` |
+| Restart Guest | `reboot` | `reboot` | `reboot` | `reboot` |
+| Force Power Off | `force_stop` | `stop` | `force_stop` | `force_stop` |
+
+**Files Updated:**
+- `qvmrc/src/components/ConsoleView.tsx` - Button actions
+- `qvmrc/src-tauri/src/api.rs` - `vm_power_action` endpoint mapping
 
 ---
 
