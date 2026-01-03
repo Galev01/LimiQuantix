@@ -183,22 +183,20 @@ function Build-ISO {
     # Create a temporary batch file to run Docker (avoids path issues with spaces)
     $batchFile = Join-Path $env:TEMP "quantix-build-$([guid]::NewGuid().ToString('N').Substring(0,8)).bat"
     
-    # Write batch file with proper quoting
-    $batchContent = @"
-@echo off
-docker run --rm --privileged ^
-  -v "$outputDir:/output" ^
-  -v "$profilesPath:/profiles:ro" ^
-  -v "$overlayPath:/overlay:ro" ^
-  -v "$installerPath:/installer:ro" ^
-  -v "$brandingPath:/branding:ro" ^
-  -e VERSION=$Version ^
-  -e ARCH=x86_64 ^
-  $BUILDER_IMAGE
-exit /b %ERRORLEVEL%
-"@
+    # Build batch file content using string concatenation to avoid PowerShell parsing issues
+    $batchContent = "@echo off`r`n"
+    $batchContent += "docker run --rm --privileged ^`r`n"
+    $batchContent += "  -v `"$outputDir" + ":/output`" ^`r`n"
+    $batchContent += "  -v `"$profilesPath" + ":/profiles:ro`" ^`r`n"
+    $batchContent += "  -v `"$overlayPath" + ":/overlay:ro`" ^`r`n"
+    $batchContent += "  -v `"$installerPath" + ":/installer:ro`" ^`r`n"
+    $batchContent += "  -v `"$brandingPath" + ":/branding:ro`" ^`r`n"
+    $batchContent += "  -e VERSION=$Version ^`r`n"
+    $batchContent += "  -e ARCH=x86_64 ^`r`n"
+    $batchContent += "  $BUILDER_IMAGE`r`n"
+    $batchContent += "exit /b %ERRORLEVEL%`r`n"
     
-    Set-Content -Path $batchFile -Value $batchContent -Encoding ASCII
+    Set-Content -Path $batchFile -Value $batchContent -Encoding ASCII -NoNewline
     
     Write-Info "Running Docker build..."
     

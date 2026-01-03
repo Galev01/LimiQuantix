@@ -8,6 +8,44 @@
 
 ## ✅ Session 2 Accomplishments (Jan 3, 2026)
 
+### QVMRC Modal UI Enhancement
+
+Applied ui-expert guidelines to all modals with proper depth, shadows, and visual hierarchy.
+
+**CSS Improvements (`qvmrc/src/index.css`):**
+- Enhanced modal overlay with blur and saturation effects
+- Added layered box-shadows for floating depth
+- New modal header gradient with icon support
+- Recessed footer styling with inner shadows
+- Segmented control component for mode toggles
+- Enhanced toast notifications with icons and animations
+- File browser input group component
+- Improved dropdown menu styling with hover animations
+
+**Component Updates:**
+- `ConsoleView.tsx` - Updated ISO mount dialog with new modal structure, segmented controls, and toast styles
+- `ConnectionList.tsx` - Updated Add Connection and Mount ISO dialogs with header icons and improved styling
+- Both files now use the enhanced dropdown menu styles
+
+**New CSS Classes:**
+| Class | Purpose |
+|-------|---------|
+| `.modal-header-icon` | Gradient icon container in modal headers |
+| `.modal-subtitle` | Secondary text in headers |
+| `.modal-info-box` | Recessed info/help text box |
+| `.modal-server-status` | Active server indicator with pulse |
+| `.segmented-control` | Pill-style mode toggle |
+| `.file-input-group` | Input + browse button combo |
+| `.dropdown-menu` | Enhanced floating dropdown |
+| `.toast` / `.toast-success` / `.toast-error` | Enhanced toast notifications |
+
+### Backend Console Fallback
+
+Added graceful fallback in `backend/internal/services/vm/service.go`:
+- When Node Daemon is unavailable, returns mock console info (127.0.0.1:5900)
+- Prevents errors when running in dev mode without real hypervisor
+- Uses VM's configured display port if available
+
 ### Quantix-OS Networking Integration
 
 Added advanced networking packages to `quantix-os/profiles/quantix/packages.conf`:

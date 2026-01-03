@@ -404,60 +404,60 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
                           <MoreVertical className="w-4 h-4" />
                         </button>
                         
-                        {/* Dropdown Menu */}
+                        {/* Dropdown Menu - Enhanced */}
                         {actionMenuId === connection.id && (
-                          <div className="action-menu" onClick={e => e.stopPropagation()}>
-                            <div className="action-menu-header">Power</div>
+                          <div className="dropdown-menu" onClick={e => e.stopPropagation()}>
+                            <div className="dropdown-section-title">Power</div>
                             <button 
-                              className="action-menu-item"
+                              className="dropdown-item"
                               onClick={(e) => handleVMAction(e, connection, 'start')}
                             >
-                              <Play className="w-4 h-4 text-green-400" />
+                              <Play className="text-green-400" />
                               <span>Start</span>
                             </button>
                             <button 
-                              className="action-menu-item"
+                              className="dropdown-item"
                               onClick={(e) => handleVMAction(e, connection, 'shutdown')}
                             >
-                              <Power className="w-4 h-4 text-yellow-400" />
+                              <Power className="text-yellow-400" />
                               <span>Shutdown</span>
                             </button>
                             <button 
-                              className="action-menu-item"
+                              className="dropdown-item"
                               onClick={(e) => handleVMAction(e, connection, 'reboot')}
                             >
-                              <RotateCcw className="w-4 h-4 text-blue-400" />
+                              <RotateCcw className="text-blue-400" />
                               <span>Reboot</span>
                             </button>
                             <button 
-                              className="action-menu-item"
+                              className="dropdown-item"
                               onClick={(e) => handleVMAction(e, connection, 'stop')}
                             >
-                              <Square className="w-4 h-4 text-red-400" />
+                              <Square className="text-red-400" />
                               <span>Force Stop</span>
                             </button>
                             
-                            <div className="action-menu-divider" />
-                            <div className="action-menu-header">Media</div>
+                            <div className="dropdown-divider" />
+                            <div className="dropdown-section-title">Media</div>
                             <button 
-                              className="action-menu-item"
+                              className="dropdown-item"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setActionMenuId(null);
                                 setShowISODialog(connection);
                               }}
                             >
-                              <Disc className="w-4 h-4 text-purple-400" />
+                              <Disc className="text-purple-400" />
                               <span>Mount ISO</span>
                             </button>
                             
-                            <div className="action-menu-divider" />
-                            <div className="action-menu-header">Network</div>
+                            <div className="dropdown-divider" />
+                            <div className="dropdown-section-title">Network</div>
                             <button 
-                              className="action-menu-item action-menu-item-disabled"
+                              className="dropdown-item dropdown-item-disabled"
                               disabled
                             >
-                              <Network className="w-4 h-4" />
+                              <Network />
                               <span>Change Network</span>
                               <span className="text-[10px] ml-auto opacity-50">Soon</span>
                             </button>
@@ -543,12 +543,21 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
         )}
       </main>
 
-      {/* Add Connection Dialog */}
+      {/* Add Connection Dialog - Enhanced with depth */}
       {showAddDialog && (
         <div className="modal-overlay" onClick={() => setShowAddDialog(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
+            {/* Header with icon */}
             <div className="modal-header">
-              <h2 className="modal-title">New Connection</h2>
+              <div className="flex items-center gap-4">
+                <div className="modal-header-icon">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="modal-title">New Connection</h2>
+                  <p className="modal-subtitle">Add a VM to your console list</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowAddDialog(false)}
                 className="icon-btn"
@@ -613,12 +622,21 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
         </div>
       )}
 
-      {/* Mount ISO Dialog */}
+      {/* Mount ISO Dialog - Enhanced with depth */}
       {showISODialog && (
         <div className="modal-overlay" onClick={() => setShowISODialog(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
+            {/* Header with icon */}
             <div className="modal-header">
-              <h2 className="modal-title">Mount ISO</h2>
+              <div className="flex items-center gap-4">
+                <div className="modal-header-icon">
+                  <Disc className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="modal-title">Mount ISO</h2>
+                  <p className="modal-subtitle">Attach a virtual disc to {showISODialog.name}</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowISODialog(null)}
                 className="icon-btn"
@@ -628,30 +646,29 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
             </div>
 
             <div className="modal-body">
-              <p className="text-sm text-[var(--text-muted)] mb-4">
-                Mount an ISO image to <span className="text-[var(--accent)]">{showISODialog.name}</span>
-              </p>
-              
               <div className="form-group">
                 <label className="label">ISO Path (on hypervisor)</label>
-                <div className="flex gap-2">
+                <div className="file-input-group">
                   <input
                     type="text"
                     value={isoPath}
                     onChange={(e) => setIsoPath(e.target.value)}
                     placeholder="/var/lib/libvirt/images/ubuntu.iso"
-                    className="input flex-1"
+                    className="input font-mono text-sm"
                     autoFocus
                   />
                   <button
                     onClick={handleBrowseISO}
-                    className="btn btn-secondary !px-4"
+                    className="browse-btn"
                     title="Browse local files"
                   >
-                    <Upload className="w-4 h-4" />
+                    <Upload />
                   </button>
                 </div>
-                <p className="text-xs text-[var(--text-muted)] mt-2">
+              </div>
+              
+              <div className="modal-info-box mt-4">
+                <p>
                   Enter the path to the ISO on the hypervisor host, or browse to upload a local ISO.
                 </p>
               </div>
