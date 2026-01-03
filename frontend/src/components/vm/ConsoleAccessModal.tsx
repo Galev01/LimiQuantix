@@ -123,95 +123,135 @@ export function ConsoleAccessModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-6"
           onClick={onClose}
         >
+          {/* Backdrop with enhanced blur */}
+          <motion.div 
+            initial={{ backdropFilter: 'blur(0px)' }}
+            animate={{ backdropFilter: 'blur(12px)' }}
+            className="absolute inset-0 bg-black/70" 
+          />
+
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="bg-bg-surface rounded-xl border border-border shadow-2xl w-full max-w-lg mx-4"
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className={cn(
+              'relative w-full max-w-lg mx-4 rounded-2xl overflow-hidden',
+              // Layered background
+              'bg-gradient-to-b from-bg-elevated to-bg-surface',
+              // Enhanced shadow for depth
+              'shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_4px_16px_rgba(0,0,0,0.3),0_12px_40px_rgba(0,0,0,0.4),0_24px_80px_rgba(0,0,0,0.3)]'
+            )}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-3">
-                <MonitorPlay className="w-5 h-5 text-accent" />
-                <h2 className="text-lg font-semibold text-text-primary">Console Access</h2>
+            {/* Top glow line */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+            {/* Header - Enhanced */}
+            <div className="flex items-center justify-between px-6 py-5 bg-gradient-to-b from-bg-elevated to-bg-surface border-b border-border relative">
+              <div className="flex items-center gap-4">
+                {/* Icon container with gradient */}
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent to-purple-600 flex items-center justify-center shadow-[0_2px_8px_rgba(139,92,246,0.35),inset_0_1px_1px_rgba(255,255,255,0.2)]">
+                  <MonitorPlay className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-text-primary">Console Access</h2>
+                  <p className="text-xs text-text-muted">Choose how to connect</p>
+                </div>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-bg-hover transition-colors"
+                className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-bg-hover transition-colors"
               >
                 <X className="w-5 h-5 text-text-muted" />
               </button>
+              {/* Accent underline */}
+              <div className="absolute bottom-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-6">
-              {/* VM Info */}
-              <div className="bg-bg-base rounded-lg p-4 border border-border">
-                <p className="text-sm text-text-muted">Connecting to:</p>
-                <p className="text-lg font-medium text-text-primary">{vmName}</p>
-                <p className="text-xs text-text-muted font-mono mt-1">{vmId}</p>
+            <div className="p-6 space-y-5 bg-bg-surface">
+              {/* VM Info Card - Enhanced */}
+              <div className="bg-bg-base rounded-xl p-4 border border-border shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)]">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                    <Monitor className="w-5 h-5 text-accent" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-text-muted">Connecting to:</p>
+                    <p className="text-base font-semibold text-text-primary truncate">{vmName}</p>
+                    <p className="text-xs text-text-muted font-mono mt-0.5 truncate">{vmId}</p>
+                  </div>
+                </div>
               </div>
 
               {/* Console Options */}
               <div className="space-y-4">
-                <h3 className="text-sm font-medium text-text-muted uppercase tracking-wider">
+                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-8 h-px bg-border" />
                   Choose Console Type
+                  <span className="flex-1 h-px bg-border" />
                 </h3>
 
-                {/* Web Console Option */}
+                {/* Web Console Option - Enhanced card */}
                 <button
                   onClick={() => {
                     onOpenWebConsole();
                     onClose();
                   }}
                   className={cn(
-                    'w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all',
+                    'w-full flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-200',
                     'bg-bg-base hover:bg-bg-hover border-border hover:border-accent/50',
-                    'text-left group'
+                    'text-left group',
+                    'shadow-[0_2px_8px_rgba(0,0,0,0.1)]',
+                    'hover:shadow-[0_4px_16px_rgba(0,0,0,0.15),0_0_0_1px_rgba(139,92,246,0.2)]',
+                    'hover:-translate-y-0.5'
                   )}
                 >
-                  <div className="p-3 rounded-lg bg-accent/10 text-accent group-hover:bg-accent/20 transition-colors">
-                    <MonitorPlay className="w-6 h-6" />
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center group-hover:from-accent/30 group-hover:to-accent/10 transition-colors border border-accent/20">
+                    <MonitorPlay className="w-6 h-6 text-accent" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-medium text-text-primary">Web Console</h4>
-                    <p className="text-sm text-text-muted">
+                    <h4 className="font-semibold text-text-primary group-hover:text-accent transition-colors">Web Console</h4>
+                    <p className="text-sm text-text-muted mt-0.5">
                       Opens in browser using noVNC. No installation required.
                     </p>
                   </div>
-                  <ExternalLink className="w-5 h-5 text-text-muted group-hover:text-accent transition-colors" />
+                  <div className="w-8 h-8 rounded-lg bg-bg-surface flex items-center justify-center group-hover:bg-accent group-hover:text-white transition-all">
+                    <ExternalLink className="w-4 h-4" />
+                  </div>
                 </button>
 
-                {/* QVMRC Native Option */}
+                {/* QVMRC Native Option - Enhanced card */}
                 <div
                   className={cn(
-                    'w-full p-4 rounded-xl border-2 transition-all',
+                    'w-full p-5 rounded-xl border-2 transition-all',
                     'bg-bg-base border-border',
+                    'shadow-[0_2px_8px_rgba(0,0,0,0.1)]'
                   )}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-purple-500/10 text-purple-400">
-                      <Laptop className="w-6 h-6" />
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/5 flex items-center justify-center border border-purple-500/20">
+                      <Laptop className="w-6 h-6 text-purple-400" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-medium text-text-primary">QVMRC Native Client</h4>
-                      <p className="text-sm text-text-muted">
+                      <h4 className="font-semibold text-text-primary">QVMRC Native Client</h4>
+                      <p className="text-sm text-text-muted mt-0.5">
                         Better performance, USB passthrough, lower latency.
                       </p>
                     </div>
                   </div>
 
                   {/* QVMRC Actions */}
-                  <div className="mt-4 pt-4 border-t border-border space-y-3">
-                    {/* Launch Button (if QVMRC is installed) */}
+                  <div className="mt-5 pt-5 border-t border-border space-y-4">
+                    {/* Launch Button */}
                     <Button
                       variant="primary"
                       size="sm"
-                      className="w-full"
+                      className="w-full h-11 shadow-[0_2px_8px_rgba(139,92,246,0.3)]"
                       onClick={handleLaunchQVMRC}
                       disabled={isLaunchingQVMRC}
                     >
@@ -229,9 +269,9 @@ export function ConsoleAccessModal({
                     </Button>
 
                     {/* Download Section */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <div className="flex-1 h-px bg-border" />
-                      <span className="text-xs text-text-muted">or download</span>
+                      <span className="text-xs text-text-muted px-2">or download</span>
                       <div className="flex-1 h-px bg-border" />
                     </div>
 
@@ -239,7 +279,7 @@ export function ConsoleAccessModal({
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="flex-1"
+                        className="flex-1 h-10"
                         onClick={handleDownload}
                       >
                         {platformInfo.icon}
@@ -251,6 +291,7 @@ export function ConsoleAccessModal({
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="h-10 w-10 !p-0"
                         onClick={handleCopyConnectionUrl}
                         title="Copy connection URL"
                       >
@@ -267,7 +308,7 @@ export function ConsoleAccessModal({
                       href={GITHUB_RELEASES_URL}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block text-center text-xs text-text-muted hover:text-accent transition-colors"
+                      className="block text-center text-xs text-text-muted hover:text-accent transition-colors py-1"
                     >
                       View all platforms on GitHub →
                     </a>
@@ -275,12 +316,14 @@ export function ConsoleAccessModal({
                 </div>
               </div>
 
-              {/* Help text */}
-              <p className="text-xs text-text-muted text-center">
-                QVMRC will automatically connect to this VM when launched.
-                <br />
-                First-time users: Download and install QVMRC, then click "Open in QVMRC".
-              </p>
+              {/* Help text - Enhanced info box */}
+              <div className="flex items-start gap-3 text-sm p-4 bg-accent/5 border border-accent/15 rounded-xl">
+                <span className="text-lg">💡</span>
+                <p className="text-text-muted text-xs leading-relaxed">
+                  <strong className="text-text-secondary">Tip:</strong> QVMRC will automatically connect to this VM when launched.
+                  First-time users: Download and install QVMRC, then click "Open in QVMRC".
+                </p>
+              </div>
             </div>
           </motion.div>
         </motion.div>

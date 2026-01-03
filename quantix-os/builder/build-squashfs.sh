@@ -58,15 +58,24 @@ init_rootfs() {
     rm -rf "${WORK_DIR}"
     mkdir -p "${ROOTFS}"
     
+    # Set up APK directories
+    mkdir -p "${ROOTFS}/etc/apk/keys"
+    
+    # Copy APK keys from the build container to target rootfs
+    cp -a /etc/apk/keys/* "${ROOTFS}/etc/apk/keys/"
+    
     # Set up APK repositories
-    mkdir -p "${ROOTFS}/etc/apk"
     cat > "${ROOTFS}/etc/apk/repositories" << EOF
 https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main
 https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/community
 EOF
 
-    # Initialize APK database
-    apk add --root "${ROOTFS}" --initdb --no-cache --arch "${ARCH}" alpine-base
+    # Initialize APK database with keys directory specified
+    apk add --root "${ROOTFS}" --initdb --no-cache \
+        --keys-dir "${ROOTFS}/etc/apk/keys" \
+        --repositories-file "${ROOTFS}/etc/apk/repositories" \
+        --arch "${ARCH}" \
+        alpine-base
     
     log_info "Root filesystem initialized"
 }
@@ -131,7 +140,11 @@ install_packages() {
     fi
     
     # Install packages into rootfs
-    apk add --root "${ROOTFS}" --no-cache --arch "${ARCH}" ${PACKAGES}
+    apk add --root "${ROOTFS}" --no-cache \
+        --keys-dir "${ROOTFS}/etc/apk/keys" \
+        --repositories-file "${ROOTFS}/etc/apk/repositories" \
+        --arch "${ARCH}" \
+        ${PACKAGES}
     
     log_info "Packages installed"
 }
