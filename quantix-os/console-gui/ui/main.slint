@@ -238,7 +238,6 @@ component ActionButton inherits Rectangle {
     opacity: enabled ? 1.0 : 0.5;
     
     animate background { duration: 150ms; }
-    animate transform { duration: 100ms; }
     
     touch := TouchArea {
         enabled: root.enabled;
@@ -335,7 +334,7 @@ component InputField inherits Rectangle {
         }
     }
     
-    public function focus() {
+    public function set-focus() {
         input.focus();
     }
 }
@@ -543,10 +542,10 @@ component InterfaceRow inherits Rectangle {
 
 // Modal overlay
 component ModalOverlay inherits Rectangle {
-    in property <bool> visible: false;
+    in property <bool> show: false;
     
     background: #00000099;
-    opacity: visible ? 1.0 : 0.0;
+    opacity: show ? 1.0 : 0.0;
     
     animate opacity { duration: 200ms; }
     
@@ -612,17 +611,25 @@ component AuthDialog inherits ModalOverlay {
                 username-input := InputField {
                     label: "Username";
                     placeholder: "admin";
-                    value <=> username;
+                    value: username;
                     error: auth-error;
+                    
+                    edited(text) => {
+                        username = text;
+                    }
                 }
                 
                 password-input := InputField {
                     label: "Password";
                     placeholder: "Enter password";
                     password: true;
-                    value <=> password;
+                    value: password;
                     error: auth-error;
                     error-message: auth-error ? "Invalid credentials" : "";
+                    
+                    edited(text) => {
+                        password = text;
+                    }
                     
                     accepted(text) => {
                         if username != "" && password != "" {
@@ -741,24 +748,25 @@ component ConfirmDialog inherits ModalOverlay {
 
 component InstallWizard inherits Rectangle {
     in-out property <int> current-step: 0;
-    in-out property <InstallConfig> config: {
-        hostname: "",
-        admin-username: "",
-        admin-password: "",
-        confirm-password: "",
-        network-interface: "",
-        use-dhcp: true,
-        static-ip: "",
-        gateway: "",
-        dns: "",
-        enable-ssh: false,
-    };
+    
+    // Individual properties instead of struct binding
+    in-out property <string> cfg-hostname: "";
+    in-out property <string> cfg-admin-username: "";
+    in-out property <string> cfg-admin-password: "";
+    in-out property <string> cfg-confirm-password: "";
+    in-out property <string> cfg-network-interface: "";
+    in-out property <bool> cfg-use-dhcp: true;
+    in-out property <string> cfg-static-ip: "";
+    in-out property <string> cfg-gateway: "";
+    in-out property <string> cfg-dns: "";
+    in-out property <bool> cfg-enable-ssh: false;
+    
     in property <[NetworkInterface]> interfaces: [];
     
     callback install-complete(InstallConfig);
     callback cancelled();
     
-    property <bool> password-mismatch: config.admin-password != config.confirm-password && config.confirm-password != "";
+    property <bool> password-mismatch: cfg-admin-password != cfg-confirm-password && cfg-confirm-password != "";
     
     background: Theme.bg-dark;
     
@@ -833,10 +841,14 @@ component InstallWizard inherits Rectangle {
                             color: Theme.text-secondary;
                         }
                         
-                        hostname-input := InputField {
+                        InputField {
                             label: "Hostname";
                             placeholder: "quantix-node-01";
-                            value <=> config.hostname;
+                            value: cfg-hostname;
+                            
+                            edited(text) => {
+                                cfg-hostname = text;
+                            }
                         }
                     }
                     
@@ -859,23 +871,35 @@ component InstallWizard inherits Rectangle {
                         InputField {
                             label: "Username";
                             placeholder: "admin";
-                            value <=> config.admin-username;
+                            value: cfg-admin-username;
+                            
+                            edited(text) => {
+                                cfg-admin-username = text;
+                            }
                         }
                         
                         InputField {
                             label: "Password";
                             placeholder: "Enter a strong password";
                             password: true;
-                            value <=> config.admin-password;
+                            value: cfg-admin-password;
+                            
+                            edited(text) => {
+                                cfg-admin-password = text;
+                            }
                         }
                         
                         InputField {
                             label: "Confirm Password";
                             placeholder: "Re-enter password";
                             password: true;
-                            value <=> config.confirm-password;
+                            value: cfg-confirm-password;
                             error: password-mismatch;
                             error-message: "Passwords do not match";
+                            
+                            edited(text) => {
+                                cfg-confirm-password = text;
+                            }
                         }
                     }
                     
@@ -906,9 +930,9 @@ component InstallWizard inherits Rectangle {
                                 
                                 for iface[i] in interfaces : InterfaceRow {
                                     iface: iface;
-                                    selected: iface.name == config.network-interface;
+                                    selected: iface.name == cfg-network-interface;
                                     clicked => {
-                                        config.network-interface = iface.name;
+                                        cfg-network-interface = iface.name;
                                     }
                                 }
                             }
@@ -916,28 +940,44 @@ component InstallWizard inherits Rectangle {
                         
                         Toggle {
                             label: "Use DHCP";
-                            checked <=> config.use-dhcp;
+                            checked: cfg-use-dhcp;
+                            
+                            toggled(val) => {
+                                cfg-use-dhcp = val;
+                            }
                         }
                         
-                        if !config.use-dhcp : VerticalLayout {
+                        if !cfg-use-dhcp : VerticalLayout {
                             spacing: 12px;
                             
                             InputField {
                                 label: "Static IP (CIDR)";
                                 placeholder: "192.168.1.100/24";
-                                value <=> config.static-ip;
+                                value: cfg-static-ip;
+                                
+                                edited(text) => {
+                                    cfg-static-ip = text;
+                                }
                             }
                             
                             InputField {
                                 label: "Gateway";
                                 placeholder: "192.168.1.1";
-                                value <=> config.gateway;
+                                value: cfg-gateway;
+                                
+                                edited(text) => {
+                                    cfg-gateway = text;
+                                }
                             }
                             
                             InputField {
                                 label: "DNS Server";
                                 placeholder: "8.8.8.8";
-                                value <=> config.dns;
+                                value: cfg-dns;
+                                
+                                edited(text) => {
+                                    cfg-dns = text;
+                                }
                             }
                         }
                     }
@@ -987,14 +1027,17 @@ component InstallWizard inherits Rectangle {
                                 Rectangle { }
                                 
                                 Toggle {
-                                    checked <=> config.enable-ssh;
+                                    checked: cfg-enable-ssh;
+                                    
+                                    toggled(val) => {
+                                        cfg-enable-ssh = val;
+                                    }
                                 }
                             }
                         }
                         
                         Rectangle {
-                            background: Theme.accent-yellow;
-                            opacity: 0.1;
+                            background: #d2992233;
                             border-radius: 8px;
                             height: 60px;
                             
@@ -1033,16 +1076,16 @@ component InstallWizard inherits Rectangle {
                             spacing: 8px;
                             
                             Text { text: "Hostname:"; font-size: Theme.font-sm; color: Theme.text-secondary; }
-                            Text { text: config.hostname; font-size: Theme.font-sm; color: Theme.text-primary; }
+                            Text { text: cfg-hostname; font-size: Theme.font-sm; color: Theme.text-primary; }
                             
                             Text { text: "Admin User:"; font-size: Theme.font-sm; color: Theme.text-secondary; }
-                            Text { text: config.admin-username; font-size: Theme.font-sm; color: Theme.text-primary; }
+                            Text { text: cfg-admin-username; font-size: Theme.font-sm; color: Theme.text-primary; }
                             
                             Text { text: "Network:"; font-size: Theme.font-sm; color: Theme.text-secondary; }
-                            Text { text: config.network-interface + " (" + (config.use-dhcp ? "DHCP" : config.static-ip) + ")"; font-size: Theme.font-sm; color: Theme.text-primary; }
+                            Text { text: cfg-network-interface + " (" + (cfg-use-dhcp ? "DHCP" : cfg-static-ip) + ")"; font-size: Theme.font-sm; color: Theme.text-primary; }
                             
                             Text { text: "SSH:"; font-size: Theme.font-sm; color: Theme.text-secondary; }
-                            Text { text: config.enable-ssh ? "Enabled" : "Disabled"; font-size: Theme.font-sm; color: config.enable-ssh ? Theme.accent-green : Theme.text-muted; }
+                            Text { text: cfg-enable-ssh ? "Enabled" : "Disabled"; font-size: Theme.font-sm; color: cfg-enable-ssh ? Theme.accent-green : Theme.text-muted; }
                         }
                     }
                 }
@@ -1062,9 +1105,9 @@ component InstallWizard inherits Rectangle {
                     if current-step < 3 : ActionButton {
                         text: "Next →";
                         primary: true;
-                        enabled: current-step == 0 ? config.hostname != "" :
-                                 current-step == 1 ? (config.admin-username != "" && config.admin-password != "" && !password-mismatch) :
-                                 current-step == 2 ? config.network-interface != "" :
+                        enabled: current-step == 0 ? cfg-hostname != "" :
+                                 current-step == 1 ? (cfg-admin-username != "" && cfg-admin-password != "" && !password-mismatch) :
+                                 current-step == 2 ? cfg-network-interface != "" :
                                  true;
                         clicked => { current-step += 1; }
                     }
@@ -1073,7 +1116,18 @@ component InstallWizard inherits Rectangle {
                         text: "Complete Setup";
                         primary: true;
                         clicked => {
-                            root.install-complete(config);
+                            root.install-complete({
+                                hostname: cfg-hostname,
+                                admin-username: cfg-admin-username,
+                                admin-password: cfg-admin-password,
+                                confirm-password: cfg-confirm-password,
+                                network-interface: cfg-network-interface,
+                                use-dhcp: cfg-use-dhcp,
+                                static-ip: cfg-static-ip,
+                                gateway: cfg-gateway,
+                                dns: cfg-dns,
+                                enable-ssh: cfg-enable-ssh,
+                            });
                         }
                     }
                 }
@@ -1495,8 +1549,17 @@ export component MainWindow inherits Window {
     in property <string> confirm-message: "";
     in property <bool> confirm-danger: false;
     
-    // Install wizard config
-    in-out property <InstallConfig> install-config;
+    // Install wizard properties (individual instead of struct)
+    in-out property <string> install-hostname: "";
+    in-out property <string> install-admin-username: "";
+    in-out property <string> install-admin-password: "";
+    in-out property <string> install-confirm-password: "";
+    in-out property <string> install-network-interface: "";
+    in-out property <bool> install-use-dhcp: true;
+    in-out property <string> install-static-ip: "";
+    in-out property <string> install-gateway: "";
+    in-out property <string> install-dns: "";
+    in-out property <bool> install-enable-ssh: false;
     
     // Callbacks to Rust
     callback menu-selected(int);
@@ -1583,7 +1646,16 @@ export component MainWindow inherits Window {
     
     // Main content layer
     if current-screen == "install" : InstallWizard {
-        config <=> install-config;
+        cfg-hostname <=> install-hostname;
+        cfg-admin-username <=> install-admin-username;
+        cfg-admin-password <=> install-admin-password;
+        cfg-confirm-password <=> install-confirm-password;
+        cfg-network-interface <=> install-network-interface;
+        cfg-use-dhcp <=> install-use-dhcp;
+        cfg-static-ip <=> install-static-ip;
+        cfg-gateway <=> install-gateway;
+        cfg-dns <=> install-dns;
+        cfg-enable-ssh <=> install-enable-ssh;
         interfaces: interfaces;
         
         install-complete(config) => {
@@ -1605,7 +1677,7 @@ export component MainWindow inherits Window {
     
     // Auth dialog layer
     auth-dialog := AuthDialog {
-        visible: show-auth-dialog;
+        show: show-auth-dialog;
         
         authenticate(user, pass) => {
             root.authenticate(user, pass);
@@ -1618,7 +1690,7 @@ export component MainWindow inherits Window {
     
     // Confirm dialog layer
     ConfirmDialog {
-        visible: show-confirm-dialog;
+        show: show-confirm-dialog;
         title: confirm-title;
         message: confirm-message;
         danger: confirm-danger;
