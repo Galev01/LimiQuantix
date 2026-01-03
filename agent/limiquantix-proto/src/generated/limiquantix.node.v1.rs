@@ -606,8 +606,8 @@ pub struct AgentPingResponse {
     pub version: ::prost::alloc::string::String,
     #[prost(uint64, tag = "3")]
     pub uptime_seconds: u64,
-    #[prost(string, repeated, tag = "4")]
-    pub capabilities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag = "4")]
+    pub error: ::prost::alloc::string::String,
 }
 
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -645,7 +645,9 @@ pub struct ExecuteInGuestResponse {
     pub stderr: ::prost::alloc::string::String,
     #[prost(bool, tag = "5")]
     pub timed_out: bool,
-    #[prost(string, tag = "6")]
+    #[prost(uint64, tag = "6")]
+    pub duration_ms: u64,
+    #[prost(string, tag = "7")]
     pub error: ::prost::alloc::string::String,
 }
 
