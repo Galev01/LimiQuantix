@@ -564,7 +564,6 @@ enum EventType {
   EVENT_TYPE_NODE_RECOVERED = 17;
 }
 
-
 // =============================================================================
 // IMAGE DOWNLOAD
 // =============================================================================
@@ -587,7 +586,7 @@ message DownloadImageOnNodeRequest {
   
   // Expected checksum for verification (optional)
   string checksum = 6;
-  string checksum_type = 7;
+  string checksum_type = 7;  // e.g., "sha256"
 }
 
 message DownloadProgress {
@@ -602,8 +601,8 @@ message DownloadProgress {
     STATUS_UNKNOWN = 0;
     STATUS_PENDING = 1;
     STATUS_DOWNLOADING = 2;
-    STATUS_VERIFYING = 3;
-    STATUS_CONVERTING = 4;
+    STATUS_VERIFYING = 3;    // Checking checksum
+    STATUS_CONVERTING = 4;    // Converting format if needed
     STATUS_COMPLETED = 5;
     STATUS_FAILED = 6;
     STATUS_CANCELLED = 7;
