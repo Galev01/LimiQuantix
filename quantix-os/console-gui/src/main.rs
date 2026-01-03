@@ -16,6 +16,8 @@ use std::time::Duration;
 use std::process::Command;
 
 use anyhow::Result;
+use slint::ModelRc;
+use slint::VecModel;
 use sysinfo::System;
 use tracing::{error, info, warn};
 
@@ -300,7 +302,7 @@ fn main() -> Result<()> {
             let mut s = state.lock().unwrap();
             s.refresh();
             ui.set_status(s.get_status());
-            ui.set_logs(s.logs.iter().cloned().collect());
+            ui.set_logs(ModelRc::new(VecModel::from(s.logs.clone())));
             ui.set_error_count(s.error_count);
             ui.set_warning_count(s.warning_count);
         }
@@ -373,7 +375,7 @@ fn main() -> Result<()> {
                 let mut s = state_clone.lock().unwrap();
                 s.refresh();
                 ui.set_status(s.get_status());
-                ui.set_logs(s.logs.iter().cloned().collect());
+                ui.set_logs(ModelRc::new(VecModel::from(s.logs.clone())));
                 ui.set_error_count(s.error_count);
                 ui.set_warning_count(s.warning_count);
             }
@@ -458,7 +460,7 @@ fn main() -> Result<()> {
                     info!(username = %username_str, "Authentication successful");
                     s.authenticated_user = Some(username_str.clone());
                     ui.set_show_auth_dialog(false);
-                    ui.reset_auth();
+                    ui.invoke_reset_auth();
 
                     // Execute pending action
                     if let Some(action) = s.pending_action.take() {
@@ -525,7 +527,7 @@ fn main() -> Result<()> {
                 }
                 Err(e) => {
                     warn!(username = %username_str, error = %e, "Authentication failed");
-                    ui.show_auth_error();
+                    ui.invoke_show_auth_error();
                 }
             }
         });
@@ -543,7 +545,7 @@ fn main() -> Result<()> {
 
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_show_auth_dialog(false);
-                ui.reset_auth();
+                ui.invoke_reset_auth();
             }
         });
     }
@@ -606,7 +608,7 @@ fn main() -> Result<()> {
                         let mut s = state_clone.lock().unwrap();
                         s.refresh();
                         ui.set_status(s.get_status());
-                        ui.set_logs(s.logs.iter().cloned().collect());
+                        ui.set_logs(ModelRc::new(VecModel::from(s.logs.clone())));
                         ui.set_error_count(s.error_count);
                         ui.set_warning_count(s.warning_count);
                     }

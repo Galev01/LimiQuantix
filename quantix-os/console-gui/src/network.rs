@@ -3,7 +3,6 @@
 //! Handles network interface discovery, configuration, and troubleshooting.
 
 use std::fs;
-use std::net::IpAddr;
 use std::process::Command;
 
 use anyhow::{Context, Result};
