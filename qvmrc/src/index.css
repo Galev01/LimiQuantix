@@ -501,7 +501,170 @@ button:disabled {
 }
 
 /* ============================================
-   CONNECTION CARD
+   VM CARD (Grid layout - 3 per row)
+   ============================================ */
+
+.vm-card {
+  position: relative;
+  padding: 20px;
+  background: var(--bg-surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-base);
+  overflow: hidden;
+  min-height: 160px;
+}
+
+.vm-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+}
+
+.vm-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--accent-light) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+  pointer-events: none;
+}
+
+.vm-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-4px) scale(1.02);
+}
+
+.vm-card:hover::after {
+  opacity: 1;
+}
+
+.vm-card:active {
+  transform: translateY(-2px) scale(1.01);
+}
+
+/* VM Card - Add New */
+.vm-card-add {
+  position: relative;
+  background: transparent;
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  transition: all var(--transition-base);
+  overflow: hidden;
+  min-height: 160px;
+  cursor: pointer;
+}
+
+.vm-card-add::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, var(--accent-light) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.vm-card-add:hover {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+}
+
+.vm-card-add:hover::before {
+  opacity: 1;
+}
+
+.vm-card-add:active {
+  transform: scale(0.98);
+}
+
+/* ============================================
+   ACTION MENU (Dropdown)
+   ============================================ */
+
+.action-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  min-width: 180px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  z-index: 100;
+  animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.action-menu-header {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 10px 4px;
+}
+
+.action-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.action-menu-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.action-menu-item:active {
+  background: var(--bg-active);
+  transform: scale(0.98);
+}
+
+.action-menu-item-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-menu-item-disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.action-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0;
+}
+
+/* ============================================
+   CONNECTION CARD (Legacy - list style)
    ============================================ */
 
 .connection-card {
@@ -650,6 +813,28 @@ button:disabled {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 4px var(--accent-light);
+}
+
+/* Search input with icon */
+.search-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.search-wrapper .search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.search-wrapper .input {
+  padding-left: 48px;
 }
 
 .label {

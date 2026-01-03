@@ -27,12 +27,12 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 
 | VMware Component | limiquantix Equivalent | Status |
 |------------------|------------------------|--------|
-| **vSphere Web Client** | React Dashboard | ✅ 97% |
-| **vCenter Server** | Go Control Plane | ✅ 88% |
-| **ESXi Host Agent** | Rust Node Daemon | ✅ 85% |
-| **VMware Tools** | Rust Guest Agent | ❌ 0% |
-| **vSAN / VMFS** | Ceph / LINSTOR | ❌ 0% |
-| **NSX-T / vDS** | OVN / OVS | ❌ 0% |
+| **vSphere Web Client** | React Dashboard | ✅ 98% |
+| **vCenter Server** | Go Control Plane | ✅ 92% |
+| **ESXi Host Agent** | Rust Node Daemon | ✅ 90% |
+| **VMware Tools** | Rust Guest Agent | ✅ 85% |
+| **vSAN / VMFS** | Ceph / LINSTOR | ✅ 80% |
+| **NSX-T / vDS** | OVN / OVS (QuantumNet) | ⏳ 15% |
 | **ESXi OS** | limiquantix OS | ❌ 0% |
 | **vMotion** | Live Migration | ⏳ 50% |
 | **HA / DRS** | HA Manager / DRS Engine | ✅ Done |
@@ -45,11 +45,13 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-  | Frontend (React) | ✅ 98% | 15 pages, cloud-init UI, SSH key management |
-| Backend (Go) | ✅ 90% | All services, scheduler, HA, DRS, bug fixes |
-| Proto/API | ✅ 100% | Compute, Storage, Network + Cloud-Init |
+  | Frontend (React) | ✅ 98% | 15 pages, cloud-init UI, SSH key management, VM actions dropdown |
+| Backend (Go) | ✅ 92% | All services, scheduler, HA, DRS, storage backends |
+| Proto/API | ✅ 100% | Compute, Storage, Network + Cloud-Init + Guest Agent |
 | Node Daemon (Rust) | ✅ 90% | gRPC, cloud-init ISO, backing files, real VM creation |
+| Guest Agent (Rust) | ✅ 85% | Linux/Windows, telemetry, script execution, file browser |
 | Hypervisor Abstraction | ✅ 100% | Mock + Libvirt + Cloud Image backends |
+| Storage Backends | ✅ 80% | Local, NFS, Ceph RBD, iSCSI with LVM thin provisioning |
 | Frontend ↔ Backend | ✅ 100% | API integration complete, cloud-init support |
 | Backend ↔ Node Daemon | ✅ 98% | Full VM lifecycle, cloud-init provisioning |
 
@@ -68,12 +70,37 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 | Console Access | ✅ 100% | Web Console (noVNC) + QVMRC Native Client |
 | Snapshots | ⏳ API ready | Test with libvirt |
 
-### ❌ Phase 3-5: Remaining Work
+### ✅ Phase 3: Guest Agent (COMPLETE)
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Guest Agent Binary | ✅ Done | Rust binary for Linux/Windows |
+| Virtio-serial Transport | ✅ Done | Communication channel (no network) |
+| Telemetry | ✅ Done | Real memory/disk/CPU usage from inside guest |
+| Command Execution | ✅ Done | Run scripts inside VM with user context |
+| File Operations | ✅ Done | File browser, upload/download |
+| Graceful Shutdown | ✅ Done | Coordinate with host |
+| Filesystem Quiescing | ✅ Done | fsfreeze (Linux) / VSS (Windows) |
+| Network Configuration | ✅ Done | Netplan, NetworkManager, netsh |
+| Cloud-Init Integration | ✅ Done | Auto-install agent during VM creation |
+
+### ✅ Phase 4: Storage Backend (MOSTLY COMPLETE)
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Local Backend | ✅ Done | qemu-img for local directories |
+| NFS Backend | ✅ Done | mount + qemu-img for NFS shares |
+| Ceph RBD Backend | ✅ Done | rbd CLI for Ceph distributed storage |
+| iSCSI Backend | ✅ Done | iscsiadm + LVM thin provisioning |
+| Volume Provisioning | ✅ Done | Create/delete/resize volumes |
+| Snapshot Storage | ✅ Done | Snapshot disk images |
+| Clone (CoW) | ✅ Done | Copy-on-write cloning |
+| Frontend Storage UI | ✅ Done | Storage pools + volumes pages |
+
+### ❌ Phase 5: Remaining Work
 
 | Component | Effort | Priority |
 |-----------|--------|----------|
-| Guest Agent | 4-6 weeks | P0 |
-| Storage Backend | 4-6 weeks | P0 |
 | Network Backend | 4-6 weeks | P0 |
 | limiquantix OS | 8-12 weeks | P1 |
 
@@ -223,42 +250,72 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 | Console proxy | ⏳ 50% | VNC info available, WebSocket proxy pending |
 | Snapshot testing | ⏳ API ready | Test with libvirt |
 
-### Phase 3: Guest Agent 📋 PLANNED
+### Phase 3: Guest Agent ✅ COMPLETE
+*Duration: 4-6 weeks (Done)*
+
+| Task | Status | Description |
+|------|--------|-------------|
+| Virtio-serial transport | ✅ Done | Communication channel (no network) |
+| Agent binary | ✅ Done | Rust binary for Linux/Windows guests |
+| Telemetry | ✅ Done | Real memory/disk usage from inside guest |
+| Command execution | ✅ Done | Run scripts inside VM with user context |
+| File operations | ✅ Done | File browser, upload/download files |
+| Graceful shutdown | ✅ Done | Coordinate with host |
+| Filesystem quiescing | ✅ Done | fsfreeze (Linux) / VSS (Windows) |
+| Cloud-init integration | ✅ Done | Auto-install agent during VM creation |
+| Windows support | ✅ Done | MSI installer, VSS, netsh |
+| Frontend integration | ✅ Done | Agent status, script execution, file browser |
+
+### Phase 4: Storage Backend ✅ MOSTLY COMPLETE
+*Duration: 4-6 weeks (Done)*
+
+| Task | Status | Description |
+|------|--------|-------------|
+| Local backend | ✅ Done | qemu-img for local directories |
+| NFS backend | ✅ Done | mount + qemu-img for NFS shares |
+| Ceph RBD client | ✅ Done | rbd CLI for distributed block storage |
+| iSCSI backend | ✅ Done | iscsiadm + LVM thin provisioning |
+| Volume provisioning | ✅ Done | Create/delete/resize volumes |
+| Snapshot storage | ✅ Done | Snapshot disk images |
+| Clone (CoW) | ✅ Done | Copy-on-write cloning |
+| Frontend storage UI | ✅ Done | Storage pools + volumes pages |
+
+### Phase 5: Network Backend (QuantumNet) 🚧 IN PROGRESS
 *Duration: 4-6 weeks*
 
-| Task | Description |
-|------|-------------|
-| Virtio-serial transport | Communication channel (no network) |
-| Agent binary | Rust binary for Linux/Windows guests |
-| Telemetry | Real memory/disk usage from inside guest |
-| Command execution | Run commands inside VM |
-| File operations | Upload/download files |
-| Password reset | Reset admin password |
-| Graceful shutdown | Coordinate with host |
+**Architecture:** OVN (Open Virtual Network) + OVS (Open vSwitch) - The "vDS" for the Modern Era
 
-### Phase 4: Storage Backend 📋 PLANNED
-*Duration: 4-6 weeks*
+| Task | Status | Description |
+|------|--------|-------------|
+| **OVN Northbound Client (Go)** | ⏳ | Connect to OVN NB DB via libovsdb |
+| **Network Service** | ⏳ | CreateNetwork, CreatePort, VLAN/Overlay support |
+| **OVS Port Manager (Rust)** | ⏳ | Connect VM TAP interfaces to br-int |
+| **Libvirt OVS Integration** | ⏳ | Generate OVS virtualport XML for VMs |
+| **Security Groups (ACLs)** | 📋 | Distributed firewall via OVN ACLs |
+| **DHCP/DNS** | 📋 | Built-in OVN DHCP + CoreDNS Magic DNS |
+| **Floating IPs** | 📋 | 1:1 NAT via OVN logical routers |
+| **Load Balancing** | 📋 | L4 load balancing via OVN LB |
+| **WireGuard Bastion** | 📋 | Direct overlay access from laptops |
+| **BGP ToR Integration** | 📋 | Enterprise bare-metal integration |
 
-| Task | Description |
-|------|-------------|
-| LVM integration | Local storage (simpler start) |
-| qemu-img wrapper | Disk image creation/conversion |
-| Ceph RBD client | Distributed block storage |
-| Volume provisioning | Create/delete/resize volumes |
-| Snapshot storage | Snapshot disk images |
-| Migration support | Shared storage for vMotion |
+#### Network Types
 
-### Phase 5: Network Backend 📋 PLANNED
-*Duration: 4-6 weeks*
+| Type | VMware Equivalent | Implementation |
+|------|-------------------|----------------|
+| **VLAN/Flat** | Port Groups | OVN Logical Switch + VLAN tag + localnet port |
+| **Overlay/VPC** | NSX Segments | OVN Logical Switch + Geneve encapsulation |
+| **External** | Uplink Port Group | Provider network with SNAT |
+| **Isolated** | Private Network | No router attachment |
 
-| Task | Description |
-|------|-------------|
-| Linux bridge | Simple networking (start here) |
-| OVS integration | Open vSwitch for advanced features |
-| OVN integration | Distributed networking |
-| Security groups | Firewall rule enforcement |
-| DHCP server | IP assignment for VMs |
-| VPN/NAT | External connectivity |
+#### Day 2 Features (Strategic Improvements)
+
+| Feature | VMware Way | limiquantix Way (Better) |
+|---------|------------|--------------------------|
+| **Microsegmentation** | IP-based firewall rules | Tag-based: "Allow Web-Servers → DB-Servers" |
+| **Floating IPs** | Manual NAT rules | One-click public IP assignment |
+| **VPN Access** | NSX Edge (complex) | Built-in WireGuard Bastion |
+| **ToR Integration** | Manual VLAN config | BGP auto-advertisement |
+| **Magic DNS** | External DNS | `<vm-name>.internal` auto-resolves |
 
 ### Phase 6: Host OS 📋 PLANNED
 *Duration: 8-12 weeks*
@@ -405,20 +462,29 @@ curl http://127.0.0.1:8080/health
 - ✅ SSH key injection via cloud-init
 - ✅ Frontend cloud-init UI (image selector, SSH keys, custom config)
 
-**Next Goal:** Complete QVMRC Native Client ✅ VNC Console Done!
+**Next Goal:** Network Backend (OVN/OVS integration)
 
 **Completed (January 3, 2026):**
 1. ✅ Web Console (noVNC) - Browser-based VNC access
 2. ✅ WebSocket VNC Proxy - Control Plane proxies browser → VNC
-3. ✅ Console button in VM Detail page with fullscreen modal
-4. ✅ QVMRC Tauri app scaffolded with VNC protocol implementation
+3. ✅ QVMRC Tauri app with full VNC protocol + deep linking
+4. ✅ Guest Agent - Full Linux/Windows support with telemetry, scripts, file browser
+5. ✅ Storage Backends - Local, NFS, Ceph RBD, iSCSI with LVM thin provisioning
+6. ✅ VM Actions Dropdown - Edit settings, resources, run scripts, clone, delete
+7. ✅ Cloud-init agent auto-install - Agent installed during VM creation
+
+**Frontend VM Detail Improvements:**
+- ✅ VM Actions Dropdown Menu (Edit Settings, Edit Resources, Run Script, Browse Files, Clone, Delete)
+- ✅ Edit Settings Modal (name, description, labels)
+- ✅ Edit Resources Modal (CPU cores, memory with presets)
+- ✅ Quantix Agent tab with status, script execution, file browser
 
 **Immediate Next Steps:**
-1. Complete QVMRC native client for all platforms (Windows/macOS/Linux)
-2. Cloud image library API (list available images)
-3. Guest Agent (basic telemetry from inside VMs)
+1. Network backend (Linux bridge first, then OVN/OVS)
+2. Security group enforcement
+3. DHCP/DNS integration
 
-**Estimated Time:** QVMRC completion ~3-5 days
+**Estimated Time:** Network backend ~4-6 weeks
 
 ---
 

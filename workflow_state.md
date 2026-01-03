@@ -1,12 +1,149 @@
 # LimiQuantix Workflow State
 
-## Current Status: VM Actions Dropdown Menu ✅
+## Current Status: Cloud-Init User/Password UX Improvement ✅
 
 **Last Updated:** January 3, 2026
 
 ---
 
 ## What's New (This Session)
+
+### 🔄 Cloud-Init Username & Password Configuration
+
+**Problem:** Users couldn't access their VMs after cloud-init provisioning because:
+1. Cloud images require SSH key authentication by default
+2. No password was set, making console access impossible
+3. SSH keys weren't being injected properly
+
+**Solution:** Enhanced the VM Creation Wizard with:
+
+| Feature | Description |
+|---------|-------------|
+| **Password Field** | User can set a password for console/SSH access |
+| **Password Confirmation** | Prevents typos with confirmation field |
+| **SSH Password Auth** | Enables SSH password authentication (`ssh_pwauth: true`) |
+| **Password Hash** | Uses SHA-512 hash for security |
+| **SSH Key Validation** | Validates SSH key format before adding |
+| **Visual Feedback** | Shows authentication summary in review step |
+
+#### Cloud-Init User-Data Generation
+
+**FIXED:** Changed from `plain_text_passwd` (invalid) to `chpasswd.list` module (correct).
+
+The generated cloud-config now includes:
+
+```yaml
+#cloud-config
+hostname: <vm-name>
+fqdn: <vm-name>.local
+manage_etc_hosts: true
+
+users:
+  - name: ubuntu  # or specified username
+    groups: [sudo, adm]
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ssh-rsa AAAA...
+
+# Enable SSH password authentication
+ssh_pwauth: true
+
+# Set password using chpasswd module (the correct way!)
+chpasswd:
+  expire: false
+  list:
+    - ubuntu:mypassword
+
+package_update: true
+packages:
+  - qemu-guest-agent
+```
+
+#### Files Changed
+
+| File | Changes |
+|------|---------|
+| `frontend/src/components/vm/VMCreationWizard.tsx` | Added password fields, SSH key validation, access summary |
+
+#### UI Improvements
+
+1. **Password Input Component** - Toggle visibility, proper masking
+2. **Password Confirmation** - Prevents typos, shows validation status
+3. **SSH Key Validation** - Checks format before adding, shows error messages
+4. **Access Summary Card** - Shows configured access methods with connection instructions
+5. **Step Validation** - Prevents proceeding without any access configured
+6. **Review Step** - Shows password status, access methods summary
+
+---
+
+## Previous: ISO Upload & Image Library ✅
+
+### ✅ ISO Upload & Image Library
+
+Implemented a complete ISO upload and management system:
+
+| Component | File | Description |
+|-----------|------|-------------|
+| **ISOUploadDialog** | `components/storage/ISOUploadDialog.tsx` | Multi-step dialog for uploading ISOs via URL or file |
+| **ImageLibrary** | `pages/ImageLibrary.tsx` | Page to manage cloud images and ISOs |
+| **useISOs** | `hooks/useImages.ts` | Hook to fetch ISOs from API with fallback |
+| **ISO_CATALOG** | `hooks/useImages.ts` | Built-in ISO catalog for fallback |
+
+#### Features
+
+1. **Upload from URL** - Download ISO from any public URL
+2. **Upload from File** - Drag-and-drop or browse for local ISO files
+3. **OS Detection** - Select OS family, distribution, and version
+4. **Storage Pool Selection** - Choose target storage pool
+5. **Progress Tracking** - Monitor download progress
+6. **Image Library Page** - View and manage all images
+   - Tab-based navigation (Cloud Images / ISOs)
+   - Search and filter by status
+   - Download from catalog
+   - Delete images
+
+#### VMCreationWizard Integration
+
+- ISO selection now uses API data with catalog fallback
+- Shows warning when using built-in catalog
+- Link to Image Library for uploading new ISOs
+- Review step shows selected ISO name
+
+---
+
+### ✅ Quantix Agent Integration in VM Creation Wizard
+
+Enhanced the VM Creation Wizard to properly install the Quantix Agent via cloud-init:
+
+| Change | Description |
+|--------|-------------|
+| **Renamed Agent** | "limiquantix Agent" → "Quantix Agent" across UI |
+| **Enhanced Checkbox** | Shows feature list when enabled (metrics, IP reporting, script execution, etc.) |
+| **Cloud-Init Script** | Auto-generates installation script for Debian/Ubuntu, RHEL/Fedora, and generic Linux |
+| **Review Step** | Shows "Quantix Agent: Will be installed via cloud-init" |
+
+#### Cloud-Init Agent Installation
+
+When "Install Quantix Agent" is checked, the cloud-init user-data includes:
+
+1. **Package Detection** - Detects apt-get vs dnf/yum
+2. **Debian/Ubuntu** - Downloads and installs `.deb` package
+3. **RHEL/Fedora** - Downloads and installs `.rpm` package  
+4. **Fallback** - Direct binary + systemd service for other distros
+5. **Pre-freeze/Post-thaw Directories** - Creates hook directories for snapshot quiescing
+
+#### Features Displayed When Enabled
+
+- ✅ Live metrics & telemetry
+- ✅ IP address reporting
+- ✅ Remote script execution
+- ✅ File browser access
+- ✅ Snapshot quiescing (fsfreeze)
+- ✅ Graceful shutdown/reboot
+
+---
 
 ### ✅ VM Actions Dropdown Menu
 

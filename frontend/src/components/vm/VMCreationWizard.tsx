@@ -27,15 +27,19 @@ import {
   Cloud,
   Key,
   Terminal,
+  Lock,
+  Eye,
+  EyeOff,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { mockStoragePools } from '@/data/mock-data';
 import { useCreateVM } from '@/hooks/useVMs';
 import { useNodes, type ApiNode } from '@/hooks/useNodes';
 import { useNetworks, type ApiVirtualNetwork } from '@/hooks/useNetworks';
-import { useAvailableImages, formatImageSize, getDefaultUser, type CloudImage } from '@/hooks/useImages';
+import { useAvailableImages, useISOs, formatImageSize, getDefaultUser, type CloudImage, type ISOImage, ISO_CATALOG } from '@/hooks/useImages';
+import { useStoragePools, type StoragePoolUI } from '@/hooks/useStorage';
 
 interface VMCreationWizardProps {
   onClose: () => void;
@@ -81,6 +85,8 @@ interface VMCreationData {
     enabled: boolean;
     sshKeys: string[];
     defaultUser: string;
+    password: string;
+    confirmPassword: string;
     customUserData: string;
   };
 
@@ -182,7 +188,9 @@ const initialFormData: VMCreationData = {
   cloudInit: {
     enabled: true,
     sshKeys: [],
-    defaultUser: 'admin',
+    defaultUser: 'ubuntu',
+    password: '',
+    confirmPassword: '',
     customUserData: '',
   },
   storagePoolId: '',
@@ -206,6 +214,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
   const { data: nodesData, isLoading: nodesLoading, error: nodesError, refetch: refetchNodes } = useNodes();
   const { data: networksData, isLoading: networksLoading } = useNetworks();
   const { images: cloudImages, isLoading: imagesLoading, isUsingCatalog } = useAvailableImages();
+  const { isos, isLoading: isosLoading, isUsingCatalog: isUsingIsoCatalog } = useISOs();
+  const { data: storagePools, isLoading: storageLoading } = useStoragePools();
 
   // Process nodes into a format usable by the wizard
   const nodes = useMemo(() => {
@@ -308,6 +318,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
           cloudInitUserData = formData.cloudInit.customUserData;
         } else {
           // Generate default cloud-config
+          const defaultUser = formData.cloudInit.defaultUser || 'ubuntu';
           const lines = [
             '#cloud-config',
             `hostname: ${formData.name}`,
@@ -315,21 +326,92 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             'manage_etc_hosts: true',
             '',
             'users:',
-            `  - name: ${formData.cloudInit.defaultUser || 'admin'}`,
-            '    groups: sudo',
+            `  - name: ${defaultUser}`,
+            '    groups: [sudo, adm]',
             '    sudo: ALL=(ALL) NOPASSWD:ALL',
             '    shell: /bin/bash',
+            '    lock_passwd: false',
           ];
           
+          // Add SSH keys if provided
           if (formData.cloudInit.sshKeys.length > 0) {
             lines.push('    ssh_authorized_keys:');
             formData.cloudInit.sshKeys.forEach(key => {
-              lines.push(`      - ${key}`);
+              // Ensure the key is properly formatted - no quotes needed in YAML list
+              const trimmedKey = key.trim();
+              lines.push(`      - ${trimmedKey}`);
             });
           }
           
+          // Password configuration using chpasswd module (the correct way)
+          // This sets the password for the user after creation
+          if (formData.cloudInit.password) {
+            lines.push('');
+            lines.push('# Enable SSH password authentication');
+            lines.push('ssh_pwauth: true');
+            lines.push('');
+            lines.push('# Set password using chpasswd module');
+            lines.push('chpasswd:');
+            lines.push('  expire: false');
+            lines.push('  list:');
+            lines.push(`    - ${defaultUser}:${formData.cloudInit.password}`);
+          }
+          
           lines.push('', 'package_update: true', 'packages:', '  - qemu-guest-agent');
-          lines.push('', 'runcmd:', '  - systemctl enable qemu-guest-agent', '  - systemctl start qemu-guest-agent');
+          
+          // Add Quantix Agent installation if enabled
+          if (formData.installAgent) {
+            lines.push('');
+            lines.push('# Quantix Agent Installation');
+            lines.push('write_files:');
+            lines.push('  - path: /etc/limiquantix/pre-freeze.d/.keep');
+            lines.push('    content: ""');
+            lines.push('  - path: /etc/limiquantix/post-thaw.d/.keep');
+            lines.push('    content: ""');
+            lines.push('');
+            lines.push('runcmd:');
+            lines.push('  # Start QEMU Guest Agent');
+            lines.push('  - systemctl enable qemu-guest-agent');
+            lines.push('  - systemctl start qemu-guest-agent');
+            lines.push('  # Install Quantix Agent');
+            lines.push('  - |');
+            lines.push('    # Detect OS and install Quantix Agent');
+            lines.push('    if command -v apt-get &> /dev/null; then');
+            lines.push('      # Debian/Ubuntu');
+            lines.push('      curl -fsSL https://releases.quantix.io/agent/latest/quantix-agent-linux-amd64.deb -o /tmp/quantix-agent.deb');
+            lines.push('      dpkg -i /tmp/quantix-agent.deb || apt-get install -f -y');
+            lines.push('      rm -f /tmp/quantix-agent.deb');
+            lines.push('    elif command -v dnf &> /dev/null || command -v yum &> /dev/null; then');
+            lines.push('      # RHEL/CentOS/Fedora');
+            lines.push('      curl -fsSL https://releases.quantix.io/agent/latest/quantix-agent-linux-amd64.rpm -o /tmp/quantix-agent.rpm');
+            lines.push('      rpm -ivh /tmp/quantix-agent.rpm || true');
+            lines.push('      rm -f /tmp/quantix-agent.rpm');
+            lines.push('    else');
+            lines.push('      # Fallback: direct binary install');
+            lines.push('      curl -fsSL https://releases.quantix.io/agent/latest/quantix-agent-linux-amd64 -o /usr/local/bin/quantix-agent');
+            lines.push('      chmod +x /usr/local/bin/quantix-agent');
+            lines.push('      # Create systemd service');
+            lines.push('      cat > /etc/systemd/system/quantix-agent.service << EOF');
+            lines.push('[Unit]');
+            lines.push('Description=Quantix Guest Agent');
+            lines.push('After=network.target');
+            lines.push('');
+            lines.push('[Service]');
+            lines.push('Type=simple');
+            lines.push('ExecStart=/usr/local/bin/quantix-agent');
+            lines.push('Restart=always');
+            lines.push('RestartSec=5');
+            lines.push('');
+            lines.push('[Install]');
+            lines.push('WantedBy=multi-user.target');
+            lines.push('EOF');
+            lines.push('    fi');
+            lines.push('  - systemctl daemon-reload');
+            lines.push('  - systemctl enable quantix-agent');
+            lines.push('  - systemctl start quantix-agent');
+          } else {
+            lines.push('', 'runcmd:', '  - systemctl enable qemu-guest-agent', '  - systemctl start qemu-guest-agent');
+          }
           
           cloudInitUserData = lines.join('\n');
         }
@@ -391,8 +473,16 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
         return true; // Optional
       case 4: // Hardware
         return formData.cpuCores > 0 && formData.memoryMib >= 512;
-      case 5: // ISO
-        return true; // Optional - can install later
+      case 5: // Boot Media
+        // For cloud images, require either password or SSH key for access
+        if (formData.bootMediaType === 'cloud-image') {
+          const hasPassword = formData.cloudInit.password.length > 0 && 
+                             formData.cloudInit.password === formData.cloudInit.confirmPassword;
+          const hasSSHKeys = formData.cloudInit.sshKeys.length > 0;
+          // At least one access method required
+          return hasPassword || hasSSHKeys;
+        }
+        return true; // ISO/None - can configure access manually
       case 6: // Storage
         return formData.storagePoolId !== '' && formData.disks.length > 0;
       case 7: // User Info
@@ -560,10 +650,24 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                 />
               )}
               {currentStep === 5 && (
-                <StepISO formData={formData} updateFormData={updateFormData} />
+                <StepISO
+                  formData={formData}
+                  updateFormData={updateFormData}
+                  cloudImages={cloudImages}
+                  imagesLoading={imagesLoading}
+                  isUsingCatalog={isUsingCatalog}
+                  isos={isos}
+                  isosLoading={isosLoading}
+                  isUsingIsoCatalog={isUsingIsoCatalog}
+                />
               )}
               {currentStep === 6 && (
-                <StepStorage formData={formData} updateFormData={updateFormData} />
+                <StepStorage
+                  formData={formData}
+                  updateFormData={updateFormData}
+                  storagePools={storagePools || []}
+                  isLoading={storageLoading}
+                />
               )}
               {currentStep === 7 && (
                 <StepUserInfo formData={formData} updateFormData={updateFormData} />
@@ -574,6 +678,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                   clusters={clusters}
                   nodes={nodes}
                   cloudImages={cloudImages}
+                  storagePools={storagePools || []}
+                  isos={isos}
                 />
               )}
             </motion.div>
@@ -1035,7 +1141,13 @@ function StepCustomization({
         <p className="text-text-muted mt-1">Configure guest OS settings and agent installation</p>
       </div>
 
-      <div className="p-4 rounded-lg bg-bg-base border border-border">
+      {/* Quantix Agent Installation */}
+      <div className={cn(
+        "p-4 rounded-lg border transition-all",
+        formData.installAgent 
+          ? "bg-accent/5 border-accent/30" 
+          : "bg-bg-base border-border"
+      )}>
         <label className="flex items-start gap-3 cursor-pointer">
           <input
             type="checkbox"
@@ -1043,13 +1155,43 @@ function StepCustomization({
             onChange={(e) => updateFormData({ installAgent: e.target.checked })}
             className="form-checkbox mt-1"
           />
-          <div>
-            <span className="text-sm font-medium text-text-primary">Install limiquantix Agent</span>
-            <p className="text-xs text-text-muted mt-0.5">
-              The agent enables advanced features like live metrics, filesystem quiescing, and remote commands
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-text-primary">Install Quantix Agent</span>
+              <Badge variant="success">Recommended</Badge>
+            </div>
+            <p className="text-xs text-text-muted mt-1">
+              The Quantix Agent provides deep VM integration for enhanced management
             </p>
+            {formData.installAgent && (
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5 text-success">
+                  <CheckCircle className="w-3 h-3" />
+                  <span>Live metrics & telemetry</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-success">
+                  <CheckCircle className="w-3 h-3" />
+                  <span>IP address reporting</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-success">
+                  <CheckCircle className="w-3 h-3" />
+                  <span>Remote script execution</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-success">
+                  <CheckCircle className="w-3 h-3" />
+                  <span>File browser access</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-success">
+                  <CheckCircle className="w-3 h-3" />
+                  <span>Snapshot quiescing (fsfreeze)</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-success">
+                  <CheckCircle className="w-3 h-3" />
+                  <span>Graceful shutdown/reboot</span>
+                </div>
+              </div>
+            )}
           </div>
-          <Badge variant="success">Recommended</Badge>
         </label>
       </div>
 
@@ -1346,15 +1488,73 @@ function StepHardware({
 function StepISO({
   formData,
   updateFormData,
+  cloudImages = [],
+  imagesLoading = false,
+  isUsingCatalog = false,
+  isos = [],
+  isosLoading = false,
+  isUsingIsoCatalog = false,
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
+  cloudImages?: CloudImage[];
+  imagesLoading?: boolean;
+  isUsingCatalog?: boolean;
+  isos?: (CloudImage | ISOImage)[];
+  isosLoading?: boolean;
+  isUsingIsoCatalog?: boolean;
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [newSshKey, setNewSshKey] = useState('');
+  
+  // Ensure cloudImages and isos are always arrays
+  const images = cloudImages || [];
+  const isoImages = isos || ISO_CATALOG;
+
+  const [sshKeyError, setSshKeyError] = useState<string | null>(null);
+
+  const validateSshKey = (key: string): boolean => {
+    const trimmed = key.trim();
+    // Check for common SSH key formats
+    const validPrefixes = ['ssh-rsa', 'ssh-ed25519', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521'];
+    const startsWithValidPrefix = validPrefixes.some(prefix => trimmed.startsWith(prefix));
+    
+    if (!startsWithValidPrefix) {
+      setSshKeyError('Invalid SSH key format. Key should start with ssh-rsa, ssh-ed25519, etc.');
+      return false;
+    }
+    
+    // Check for at least 2 parts (type and key data)
+    const parts = trimmed.split(' ');
+    if (parts.length < 2) {
+      setSshKeyError('Invalid SSH key format. Key appears incomplete.');
+      return false;
+    }
+    
+    // Check if the key data looks like base64
+    const keyData = parts[1];
+    if (keyData.length < 100) {
+      setSshKeyError('SSH key data appears too short. Make sure you copied the entire key.');
+      return false;
+    }
+    
+    setSshKeyError(null);
+    return true;
+  };
 
   const addSshKey = () => {
     if (newSshKey.trim()) {
+      // Validate the key before adding
+      if (!validateSshKey(newSshKey)) {
+        return;
+      }
+      
+      // Check for duplicates
+      if (formData.cloudInit.sshKeys.some(k => k.trim() === newSshKey.trim())) {
+        setSshKeyError('This SSH key has already been added.');
+        return;
+      }
+      
       updateFormData({
         cloudInit: {
           ...formData.cloudInit,
@@ -1362,6 +1562,7 @@ function StepISO({
         },
       });
       setNewSshKey('');
+      setSshKeyError(null);
     }
   };
 
@@ -1467,7 +1668,7 @@ function StepISO({
               </div>
             ) : (
               <div className="grid gap-2 max-h-48 overflow-y-auto">
-                {cloudImages.map((image) => (
+                {images.map((image) => (
                   <label
                     key={image.id}
                     className={cn(
@@ -1516,65 +1717,188 @@ function StepISO({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Terminal className="w-5 h-5 text-accent" />
-                <h4 className="font-medium text-text-primary">Cloud-Init Configuration</h4>
+                <h4 className="font-medium text-text-primary">Access Configuration</h4>
               </div>
-              <Badge variant="info" size="sm">Auto-provisioning</Badge>
+              <Badge variant="info" size="sm">Cloud-Init</Badge>
             </div>
 
             {/* Default User */}
-            <FormField label="Default User" description="Username for SSH access">
-              <input
-                type="text"
-                value={formData.cloudInit.defaultUser}
-                onChange={(e) => updateFormData({
-                  cloudInit: { ...formData.cloudInit, defaultUser: e.target.value }
-                })}
-                placeholder="admin"
-                className="w-full px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary focus:border-accent focus:outline-none"
-              />
-            </FormField>
-
-            {/* SSH Keys */}
-            <FormField label="SSH Public Keys" description="Keys for passwordless SSH access">
-              <div className="space-y-2">
-                {formData.cloudInit.sshKeys.map((key, index) => (
-                  <div key={index} className="flex items-center gap-2 p-2 bg-bg-surface border border-border rounded-lg">
-                    <Key className="w-4 h-4 text-accent flex-shrink-0" />
-                    <code className="flex-1 text-xs text-text-secondary truncate">{key.slice(0, 50)}...</code>
-                    <button
-                      type="button"
-                      onClick={() => removeSshKey(index)}
-                      className="p-1 text-text-muted hover:text-status-error transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-                <div className="flex gap-2">
-                  <textarea
-                    value={newSshKey}
-                    onChange={(e) => setNewSshKey(e.target.value)}
-                    placeholder="ssh-rsa AAAAB3NzaC1yc2E... user@host"
-                    rows={2}
-                    className="flex-1 px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary text-sm font-mono focus:border-accent focus:outline-none resize-none"
-                  />
-                  <Button
-                    variant="secondary"
-                    onClick={addSshKey}
-                    disabled={!newSshKey.trim()}
-                    className="self-end"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                {formData.cloudInit.sshKeys.length === 0 && (
-                  <p className="text-xs text-status-warning flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    Add at least one SSH key for secure access
-                  </p>
-                )}
+            <FormField label="Username" description="Login username for this VM">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-text-muted" />
+                <input
+                  type="text"
+                  value={formData.cloudInit.defaultUser}
+                  onChange={(e) => updateFormData({
+                    cloudInit: { ...formData.cloudInit, defaultUser: e.target.value }
+                  })}
+                  placeholder="ubuntu"
+                  className="flex-1 px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary focus:border-accent focus:outline-none"
+                />
               </div>
             </FormField>
+
+            {/* Password Section */}
+            <div className="p-4 rounded-lg bg-bg-surface border border-border space-y-4">
+              <div className="flex items-center gap-2">
+                <Lock className="w-4 h-4 text-accent" />
+                <h5 className="text-sm font-medium text-text-primary">Password Authentication</h5>
+                <Badge variant="success" size="sm">Recommended</Badge>
+              </div>
+              <p className="text-xs text-text-muted">
+                Set a password to access your VM via console or SSH. This is essential for initial access and recovery.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Password">
+                  <PasswordInput
+                    value={formData.cloudInit.password}
+                    onChange={(value) => updateFormData({
+                      cloudInit: { ...formData.cloudInit, password: value }
+                    })}
+                    placeholder="Enter password"
+                  />
+                </FormField>
+                <FormField label="Confirm Password">
+                  <PasswordInput
+                    value={formData.cloudInit.confirmPassword}
+                    onChange={(value) => updateFormData({
+                      cloudInit: { ...formData.cloudInit, confirmPassword: value }
+                    })}
+                    placeholder="Confirm password"
+                  />
+                </FormField>
+              </div>
+
+              {/* Password validation messages */}
+              {formData.cloudInit.password && formData.cloudInit.confirmPassword && 
+               formData.cloudInit.password !== formData.cloudInit.confirmPassword && (
+                <p className="text-xs text-error flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Passwords do not match
+                </p>
+              )}
+              {formData.cloudInit.password && formData.cloudInit.password.length < 8 && (
+                <p className="text-xs text-warning flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Password should be at least 8 characters for security
+                </p>
+              )}
+              {formData.cloudInit.password && formData.cloudInit.password === formData.cloudInit.confirmPassword && 
+               formData.cloudInit.password.length >= 8 && (
+                <p className="text-xs text-success flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" />
+                  Password set - SSH and console login enabled
+                </p>
+              )}
+              {!formData.cloudInit.password && formData.cloudInit.sshKeys.length === 0 && (
+                <p className="text-xs text-error flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Warning: No password or SSH key configured. You won't be able to access this VM!
+                </p>
+              )}
+            </div>
+
+            {/* SSH Keys */}
+            <div className="p-4 rounded-lg bg-bg-surface border border-border space-y-4">
+              <div className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-accent" />
+                <h5 className="text-sm font-medium text-text-primary">SSH Key Authentication</h5>
+                <Badge variant="default" size="sm">Optional</Badge>
+              </div>
+              <p className="text-xs text-text-muted">
+                Add SSH public keys for passwordless, secure access. Keys are added in addition to password authentication.
+              </p>
+              
+              <div className="space-y-2">
+                {formData.cloudInit.sshKeys.map((key, index) => {
+                  // Parse the key to show type and comment
+                  const keyParts = key.trim().split(' ');
+                  const keyType = keyParts[0] || 'unknown';
+                  const keyComment = keyParts[2] || 'no comment';
+                  
+                  return (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-bg-base border border-border rounded-lg">
+                      <ShieldCheck className="w-4 h-4 text-success flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-text-primary truncate">{keyComment}</p>
+                        <p className="text-xs text-text-muted">{keyType}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeSshKey(index)}
+                        className="p-1 text-text-muted hover:text-error transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <textarea
+                      value={newSshKey}
+                      onChange={(e) => {
+                        setNewSshKey(e.target.value);
+                        setSshKeyError(null); // Clear error when typing
+                      }}
+                      placeholder="ssh-rsa AAAAB3NzaC1yc2E... user@host&#10;ssh-ed25519 AAAAC3NzaC1lZDI1NTE5... user@host"
+                      rows={2}
+                      className={cn(
+                        "flex-1 px-3 py-2 bg-bg-base border rounded-lg text-text-primary text-sm font-mono focus:border-accent focus:outline-none resize-none",
+                        sshKeyError ? "border-error" : "border-border"
+                      )}
+                    />
+                    <Button
+                      variant="secondary"
+                      onClick={addSshKey}
+                      disabled={!newSshKey.trim()}
+                      className="self-end"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add
+                    </Button>
+                  </div>
+                  {sshKeyError && (
+                    <p className="text-xs text-error flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {sshKeyError}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Access Summary */}
+            {(formData.cloudInit.password || formData.cloudInit.sshKeys.length > 0) && (
+              <div className="p-3 rounded-lg bg-success/10 border border-success/30">
+                <h5 className="text-sm font-medium text-success mb-2 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  Access Methods Configured
+                </h5>
+                <div className="grid grid-cols-2 gap-2 text-xs text-text-secondary">
+                  {formData.cloudInit.password && (
+                    <div className="flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      <span>Password: <code className="text-text-primary">{formData.cloudInit.defaultUser}</code></span>
+                    </div>
+                  )}
+                  {formData.cloudInit.sshKeys.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Key className="w-3 h-3" />
+                      <span>SSH: {formData.cloudInit.sshKeys.length} key(s)</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-text-muted mt-2">
+                  <strong>To connect:</strong> {formData.cloudInit.password ? (
+                    <>Use console or <code>ssh {formData.cloudInit.defaultUser}@{'<IP>'}</code></>
+                  ) : (
+                    <><code>ssh -i ~/.ssh/id_rsa {formData.cloudInit.defaultUser}@{'<IP>'}</code></>
+                  )}
+                </p>
+              </div>
+            )}
 
             {/* Advanced: Custom User-Data */}
             <button
@@ -1587,23 +1911,37 @@ function StepISO({
             </button>
 
             {showAdvanced && (
-              <FormField label="Custom User-Data (cloud-config)" description="Override default cloud-init configuration">
+              <FormField label="Custom User-Data (cloud-config)" description="Override all above settings with custom cloud-init configuration">
                 <textarea
                   value={formData.cloudInit.customUserData}
                   onChange={(e) => updateFormData({
                     cloudInit: { ...formData.cloudInit, customUserData: e.target.value }
                   })}
                   placeholder={`#cloud-config
+users:
+  - name: myuser
+    groups: [sudo, adm]
+    shell: /bin/bash
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ssh-rsa AAAA...
+
+ssh_pwauth: true
+chpasswd:
+  expire: false
+  list:
+    - myuser:mypassword
+
 packages:
   - nginx
-  - docker.io
-
-runcmd:
-  - systemctl enable nginx
-  - systemctl start nginx`}
-                  rows={8}
+  - docker.io`}
+                  rows={10}
                   className="w-full px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary text-sm font-mono focus:border-accent focus:outline-none resize-none"
                 />
+                <p className="text-xs text-warning mt-2 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Custom config overrides username, password, and SSH key settings above
+                </p>
               </FormField>
             )}
           </div>
@@ -1613,36 +1951,59 @@ runcmd:
       {/* ISO Selection */}
       {formData.bootMediaType === 'iso' && (
         <FormField label="ISO Image" description="Select an ISO image for manual OS installation">
-          <div className="grid gap-2 max-h-64 overflow-y-auto">
-            {staticISOs.map((iso) => (
-              <label
-                key={iso.id}
-                className={cn(
-                  'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                  formData.isoId === iso.id
-                    ? 'bg-accent/10 border-accent'
-                    : 'bg-bg-base border-border hover:border-accent/50',
-                )}
-              >
-                <input
-                  type="radio"
-                  name="isoId"
-                  checked={formData.isoId === iso.id}
-                  onChange={() => updateFormData({ isoId: iso.id })}
-                  className="form-radio"
-                />
-                <Disc className="w-5 h-5 text-accent" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-text-primary">{iso.name}</p>
-                </div>
-                <span className="text-xs text-text-muted">{iso.size}</span>
-              </label>
-            ))}
-          </div>
-          <button className="mt-3 flex items-center gap-2 text-sm text-accent hover:text-accent-hover">
+          {isosLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-5 h-5 animate-spin text-accent" />
+              <span className="ml-2 text-text-muted">Loading ISOs...</span>
+            </div>
+          ) : (
+            <>
+              {isUsingIsoCatalog && (
+                <p className="text-xs text-warning mb-2 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Using built-in catalog. Upload ISOs in Storage → Image Library for better performance.
+                </p>
+              )}
+              <div className="grid gap-2 max-h-64 overflow-y-auto">
+                {isoImages.map((iso) => (
+                  <label
+                    key={iso.id}
+                    className={cn(
+                      'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
+                      formData.isoId === iso.id
+                        ? 'bg-accent/10 border-accent'
+                        : 'bg-bg-base border-border hover:border-accent/50',
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="isoId"
+                      checked={formData.isoId === iso.id}
+                      onChange={() => updateFormData({ isoId: iso.id })}
+                      className="form-radio"
+                    />
+                    <Disc className="w-5 h-5 text-accent" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-text-primary">{iso.name}</p>
+                      {'description' in iso && iso.description && (
+                        <p className="text-xs text-text-muted">{iso.description}</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-text-muted">
+                      {formatImageSize(iso.sizeBytes)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+          <a 
+            href="/storage/images" 
+            className="mt-3 flex items-center gap-2 text-sm text-accent hover:text-accent-hover"
+          >
             <Plus className="w-4 h-4" />
             Upload New ISO
-          </button>
+          </a>
         </FormField>
       )}
 
@@ -1659,13 +2020,41 @@ runcmd:
   );
 }
 
+// Fallback mock storage pools when API is unavailable
+const mockStoragePoolsFallback: StoragePoolUI[] = [
+  {
+    id: 'pool-local-1',
+    name: 'local-storage',
+    description: 'Local storage for development',
+    projectId: 'default',
+    type: 'LOCAL_DIR',
+    status: { phase: 'READY', volumeCount: 0 },
+    capacity: {
+      totalBytes: 500 * 1024 * 1024 * 1024,
+      usedBytes: 50 * 1024 * 1024 * 1024,
+      availableBytes: 450 * 1024 * 1024 * 1024,
+      provisionedBytes: 100 * 1024 * 1024 * 1024,
+    },
+    createdAt: new Date(),
+    labels: {},
+  },
+];
+
 function StepStorage({
   formData,
   updateFormData,
+  storagePools,
+  isLoading,
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
+  storagePools: StoragePoolUI[];
+  isLoading: boolean;
 }) {
+  // Use API data or fallback to mock
+  const pools = storagePools.length > 0 ? storagePools : mockStoragePoolsFallback;
+  const isUsingMock = storagePools.length === 0;
+
   const addDisk = () => {
     const newDisk: DiskConfig = {
       id: `disk-${Date.now()}`,
@@ -1686,6 +2075,16 @@ function StepStorage({
     });
   };
 
+  // Auto-select first pool if only one exists and none selected
+  useEffect(() => {
+    if (pools.length > 0 && !formData.storagePoolId) {
+      const readyPools = pools.filter(p => p.status.phase === 'READY');
+      if (readyPools.length > 0) {
+        updateFormData({ storagePoolId: readyPools[0].id });
+      }
+    }
+  }, [pools, formData.storagePoolId, updateFormData]);
+
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
       <div className="text-center mb-8">
@@ -1693,12 +2092,30 @@ function StepStorage({
         <p className="text-text-muted mt-1">Select a storage pool and configure virtual disks</p>
       </div>
 
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-accent mr-2" />
+          <span className="text-text-muted">Loading storage pools...</span>
+        </div>
+      )}
+
+      {/* Mock data indicator */}
+      {!isLoading && isUsingMock && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30 mb-4">
+          <WifiOff className="w-4 h-4 text-warning" />
+          <p className="text-xs text-warning">
+            Using fallback storage. Create storage pools in Storage → Pools for production use.
+          </p>
+        </div>
+      )}
+
       <FormField label="Storage Pool" required>
         <div className="grid gap-3">
-          {mockStoragePools.map((pool) => {
-            const usagePercent = Math.round(
-              (pool.status.capacity.usedBytes / pool.status.capacity.totalBytes) * 100
-            );
+          {pools.filter(p => p.status.phase === 'READY').map((pool) => {
+            const usagePercent = pool.capacity.totalBytes > 0
+              ? Math.round((pool.capacity.usedBytes / pool.capacity.totalBytes) * 100)
+              : 0;
 
             return (
               <label
@@ -1719,10 +2136,13 @@ function StepStorage({
                 />
                 <HardDrive className="w-5 h-5 text-text-muted" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-text-primary">{pool.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-text-primary">{pool.name}</p>
+                    <Badge variant="default" size="sm">{pool.type}</Badge>
+                  </div>
                   <p className="text-xs text-text-muted">
-                    {formatBytes(pool.status.capacity.availableBytes)} available of{' '}
-                    {formatBytes(pool.status.capacity.totalBytes)}
+                    {formatBytes(pool.capacity.availableBytes)} available of{' '}
+                    {formatBytes(pool.capacity.totalBytes)}
                   </p>
                 </div>
                 <div className="w-24">
@@ -1740,6 +2160,12 @@ function StepStorage({
               </label>
             );
           })}
+          {pools.filter(p => p.status.phase === 'READY').length === 0 && !isLoading && (
+            <div className="p-4 text-center text-text-muted">
+              <p>No ready storage pools available.</p>
+              <p className="text-xs mt-1">Create a storage pool first in Storage → Pools.</p>
+            </div>
+          )}
         </div>
       </FormField>
 
@@ -1902,17 +2328,25 @@ function StepReview({
   clusters,
   nodes,
   cloudImages,
+  storagePools,
+  isos,
 }: {
   formData: VMCreationData;
   clusters: ProcessedCluster[];
   nodes: ProcessedNode[];
   cloudImages: CloudImage[];
+  storagePools: StoragePoolUI[];
+  isos: (CloudImage | ISOImage)[];
 }) {
   const selectedCluster = clusters.find((c) => c.id === formData.clusterId);
   const selectedHost = nodes.find((n) => n.id === formData.hostId);
   const selectedFolder = staticFolders.find((f) => f.id === formData.folderId);
-  const selectedPool = mockStoragePools.find((p) => p.id === formData.storagePoolId);
-  const selectedISO = staticISOs.find((i) => i.id === formData.isoId);
+  // Use API storage pools with fallback
+  const allPools = storagePools.length > 0 ? storagePools : mockStoragePoolsFallback;
+  const selectedPool = allPools.find((p) => p.id === formData.storagePoolId);
+  // Use API ISOs with fallback to catalog
+  const allISOs = isos.length > 0 ? isos : ISO_CATALOG;
+  const selectedISO = allISOs.find((i) => i.id === formData.isoId);
   const selectedCloudImage = cloudImages.find((i) => i.id === formData.cloudImageId);
 
   return (
@@ -2004,13 +2438,29 @@ function StepReview({
           {formData.bootMediaType === 'cloud-image' && selectedCloudImage && (
             <>
               <ReviewRow label="Cloud Image" value={selectedCloudImage.name} />
-              <ReviewRow label="Default User" value={formData.cloudInit.defaultUser || 'admin'} />
+              <ReviewRow label="Username" value={formData.cloudInit.defaultUser || 'ubuntu'} />
+              <ReviewRow 
+                label="Password" 
+                value={formData.cloudInit.password ? '••••••••  ✓ Set' : 'Not set'}
+              />
               <ReviewRow 
                 label="SSH Keys" 
                 value={
                   formData.cloudInit.sshKeys.length > 0 
                     ? `${formData.cloudInit.sshKeys.length} key(s) configured` 
-                    : 'None (password only)'
+                    : 'None'
+                } 
+              />
+              <ReviewRow 
+                label="Access" 
+                value={
+                  formData.cloudInit.password && formData.cloudInit.sshKeys.length > 0
+                    ? 'Password + SSH keys'
+                    : formData.cloudInit.password
+                      ? 'Password only'
+                      : formData.cloudInit.sshKeys.length > 0
+                        ? 'SSH keys only'
+                        : '⚠️ No access configured!'
                 } 
               />
               {formData.cloudInit.customUserData && (
@@ -2021,7 +2471,7 @@ function StepReview({
           {formData.bootMediaType === 'iso' && (
             <ReviewRow label="ISO" value={selectedISO?.name || 'None selected'} />
           )}
-          <ReviewRow label="Agent" value={formData.installAgent ? 'Will be installed' : 'Not installed'} />
+          <ReviewRow label="Quantix Agent" value={formData.installAgent ? 'Will be installed via cloud-init' : 'Not installed'} />
           {formData.hostname && <ReviewRow label="Hostname" value={formData.hostname} />}
         </ReviewSection>
 
@@ -2061,6 +2511,37 @@ function FormField({
         <p className="text-xs text-text-muted">{description}</p>
       )}
       {children}
+    </div>
+  );
+}
+
+function PasswordInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const [showPassword, setShowPassword] = useState(false);
+  
+  return (
+    <div className="relative">
+      <input
+        type={showPassword ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full px-3 py-2 pr-10 bg-bg-surface border border-border rounded-lg text-text-primary focus:border-accent focus:outline-none"
+      />
+      <button
+        type="button"
+        onClick={() => setShowPassword(!showPassword)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary transition-colors"
+      >
+        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      </button>
     </div>
   );
 }

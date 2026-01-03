@@ -8,6 +8,8 @@ import {
   Keyboard,
   Clipboard,
   Usb,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 
 interface ConsoleViewProps {
@@ -25,6 +27,8 @@ interface FramebufferUpdate {
   data: number[];
 }
 
+type ScaleMode = 'fit' | 'fill' | '100%';
+
 export function ConsoleView({
   connectionId,
   vmId,
@@ -33,10 +37,45 @@ export function ConsoleView({
 }: ConsoleViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [connected, setConnected] = useState(true);
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
   const [mouseDown, setMouseDown] = useState(0);
+  const [scaleMode, setScaleMode] = useState<ScaleMode>('fit');
+  const [canvasScale, setCanvasScale] = useState(1);
+  const hasReceivedInitialFrame = useRef(false);
+
+  // Calculate scale based on container size and resolution
+  const calculateScale = useCallback(() => {
+    const viewport = viewportRef.current;
+    const canvas = canvasRef.current;
+    if (!viewport || !canvas || resolution.width === 0) return;
+
+    const containerWidth = viewport.clientWidth;
+    const containerHeight = viewport.clientHeight;
+
+    if (scaleMode === '100%') {
+      setCanvasScale(1);
+    } else if (scaleMode === 'fit') {
+      // Scale to fit within container while maintaining aspect ratio
+      const scaleX = containerWidth / resolution.width;
+      const scaleY = containerHeight / resolution.height;
+      setCanvasScale(Math.min(scaleX, scaleY, 1)); // Don't scale up, only down
+    } else if (scaleMode === 'fill') {
+      // Scale to fill container while maintaining aspect ratio
+      const scaleX = containerWidth / resolution.width;
+      const scaleY = containerHeight / resolution.height;
+      setCanvasScale(Math.max(scaleX, scaleY));
+    }
+  }, [resolution, scaleMode]);
+
+  // Recalculate scale on resize
+  useEffect(() => {
+    calculateScale();
+    window.addEventListener('resize', calculateScale);
+    return () => window.removeEventListener('resize', calculateScale);
+  }, [calculateScale]);
 
   // Handle framebuffer updates
   useEffect(() => {
@@ -48,14 +87,18 @@ export function ConsoleView({
       if (!ctx) return;
 
       const update = event.payload;
+      
+      // Create ImageData with correct dimensions
       const imageData = ctx.createImageData(update.width, update.height);
       
-      // Copy RGBA data
-      for (let i = 0; i < update.data.length; i++) {
+      // Copy RGBA data (ensure we don't overflow)
+      const dataLength = Math.min(update.data.length, imageData.data.length);
+      for (let i = 0; i < dataLength; i++) {
         imageData.data[i] = update.data[i];
       }
 
       ctx.putImageData(imageData, update.x, update.y);
+      hasReceivedInitialFrame.current = true;
     });
 
     const unlistenDisconnect = listen<string>('vnc:disconnected', (event) => {
@@ -68,18 +111,50 @@ export function ConsoleView({
       'vnc:connected',
       (event) => {
         if (event.payload.connectionId === connectionId) {
+          const newWidth = event.payload.width;
+          const newHeight = event.payload.height;
+          
           setResolution({
-            width: event.payload.width,
-            height: event.payload.height,
+            width: newWidth,
+            height: newHeight,
           });
 
-          // Resize canvas
+          // Resize canvas to match VNC resolution
           const canvas = canvasRef.current;
           if (canvas) {
-            canvas.width = event.payload.width;
-            canvas.height = event.payload.height;
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            
+            // Clear canvas to black
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.fillStyle = '#000';
+              ctx.fillRect(0, 0, newWidth, newHeight);
+            }
           }
+          
+          // Trigger scale calculation after resolution is set
+          setTimeout(calculateScale, 50);
         }
+      }
+    );
+
+    // Listen for desktop resize
+    const unlistenResize = listen<{ width: number; height: number }>(
+      'vnc:desktop-resize',
+      (event) => {
+        setResolution({
+          width: event.payload.width,
+          height: event.payload.height,
+        });
+        
+        const canvas = canvasRef.current;
+        if (canvas) {
+          canvas.width = event.payload.width;
+          canvas.height = event.payload.height;
+        }
+        
+        calculateScale();
       }
     );
 
@@ -87,8 +162,9 @@ export function ConsoleView({
       unlistenFb.then((fn) => fn());
       unlistenDisconnect.then((fn) => fn());
       unlistenConnect.then((fn) => fn());
+      unlistenResize.then((fn) => fn());
     };
-  }, [connectionId]);
+  }, [connectionId, calculateScale]);
 
   // Handle disconnect
   const handleDisconnect = useCallback(async () => {
@@ -120,18 +196,29 @@ export function ConsoleView({
     }
   }, []);
 
+  // Calculate mouse position accounting for CSS scale transform
+  const getVNCCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+
+    const rect = canvas.getBoundingClientRect();
+    
+    // The canvas is CSS-scaled, so getBoundingClientRect gives the scaled size
+    // We need to convert screen coordinates back to VNC coordinates
+    const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
+    const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
+
+    // Clamp to canvas bounds
+    return {
+      x: Math.max(0, Math.min(canvas.width - 1, x)),
+      y: Math.max(0, Math.min(canvas.height - 1, y)),
+    };
+  }, []);
+
   // Mouse events
   const handleMouseMove = useCallback(
     async (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-
-      const x = Math.floor((e.clientX - rect.left) * scaleX);
-      const y = Math.floor((e.clientY - rect.top) * scaleY);
+      const { x, y } = getVNCCoordinates(e);
 
       try {
         await invoke('send_pointer_event', {
@@ -144,23 +231,18 @@ export function ConsoleView({
         console.error('Pointer event error:', err);
       }
     },
-    [connectionId, mouseDown]
+    [connectionId, mouseDown, getVNCCoordinates]
   );
 
   const handleMouseDown = useCallback(
     async (e: React.MouseEvent<HTMLCanvasElement>) => {
+      // Focus canvas for keyboard events
+      canvasRef.current?.focus();
+      
       const button = 1 << e.button;
       setMouseDown((prev) => prev | button);
 
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-
-      const x = Math.floor((e.clientX - rect.left) * scaleX);
-      const y = Math.floor((e.clientY - rect.top) * scaleY);
+      const { x, y } = getVNCCoordinates(e);
 
       try {
         await invoke('send_pointer_event', {
@@ -173,7 +255,7 @@ export function ConsoleView({
         console.error('Pointer event error:', err);
       }
     },
-    [connectionId, mouseDown]
+    [connectionId, mouseDown, getVNCCoordinates]
   );
 
   const handleMouseUp = useCallback(
@@ -181,15 +263,7 @@ export function ConsoleView({
       const button = 1 << e.button;
       setMouseDown((prev) => prev & ~button);
 
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-
-      const x = Math.floor((e.clientX - rect.left) * scaleX);
-      const y = Math.floor((e.clientY - rect.top) * scaleY);
+      const { x, y } = getVNCCoordinates(e);
 
       try {
         await invoke('send_pointer_event', {
@@ -202,7 +276,7 @@ export function ConsoleView({
         console.error('Pointer event error:', err);
       }
     },
-    [connectionId, mouseDown]
+    [connectionId, mouseDown, getVNCCoordinates]
   );
 
   // Convert JavaScript key event to X11 keysym
@@ -298,6 +372,15 @@ export function ConsoleView({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  // Cycle through scale modes
+  const cycleScaleMode = useCallback(() => {
+    setScaleMode(prev => {
+      if (prev === 'fit') return '100%';
+      if (prev === '100%') return 'fill';
+      return 'fit';
+    });
+  }, []);
+
   return (
     <div ref={containerRef} className="h-full flex flex-col bg-black">
       {/* Toolbar */}
@@ -324,6 +407,20 @@ export function ConsoleView({
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Scale mode toggle */}
+          <button
+            onClick={cycleScaleMode}
+            className="px-2 py-1.5 rounded-lg hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-1.5 text-xs"
+            title={`Scale mode: ${scaleMode}`}
+          >
+            {scaleMode === 'fit' && <ZoomOut className="w-4 h-4 text-[var(--text-muted)]" />}
+            {scaleMode === '100%' && <span className="text-[var(--text-muted)] font-mono">1:1</span>}
+            {scaleMode === 'fill' && <ZoomIn className="w-4 h-4 text-[var(--text-muted)]" />}
+            <span className="text-[var(--text-muted)] capitalize">{scaleMode}</span>
+          </button>
+          
+          <div className="w-px h-5 bg-[var(--border)] mx-1" />
+          
           <button
             onClick={sendCtrlAltDel}
             className="p-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
@@ -358,11 +455,19 @@ export function ConsoleView({
         </div>
       </div>
 
-      {/* Canvas */}
-      <div className="flex-1 flex items-center justify-center overflow-hidden">
+      {/* Canvas viewport */}
+      <div 
+        ref={viewportRef}
+        className="flex-1 flex items-center justify-center overflow-auto bg-black"
+      >
         <canvas
           ref={canvasRef}
-          className="max-w-full max-h-full object-contain cursor-none"
+          className="cursor-none"
+          style={{
+            transform: `scale(${canvasScale})`,
+            transformOrigin: 'center center',
+            imageRendering: scaleMode === '100%' ? 'auto' : 'auto',
+          }}
           tabIndex={0}
           onMouseMove={handleMouseMove}
           onMouseDown={handleMouseDown}
@@ -376,9 +481,16 @@ export function ConsoleView({
       {/* Status bar */}
       <div className="flex items-center justify-between px-4 py-1 bg-[var(--bg-surface)] border-t border-[var(--border)] text-xs text-[var(--text-muted)]">
         <span>VM: {vmId.slice(0, 8)}...</span>
-        <span>
-          {resolution.width}×{resolution.height}
-        </span>
+        <div className="flex items-center gap-3">
+          <span>
+            {resolution.width}×{resolution.height}
+          </span>
+          {canvasScale !== 1 && (
+            <span className="text-[var(--accent)]">
+              ({Math.round(canvasScale * 100)}%)
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -108,6 +108,8 @@ export function useImages(filters: ListImagesFilters = {}) {
       return response.images.map(toCloudImage);
     },
     staleTime: 30_000, // 30 seconds
+    retry: false, // Don't retry - fallback to catalog
+    retryOnMount: false,
   });
 }
 
@@ -135,6 +137,89 @@ export function useDeleteImage() {
       queryClient.invalidateQueries({ queryKey: imageKeys.lists() });
     },
   });
+}
+
+// Hook to create an image (for ISO uploads)
+export function useCreateImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      name: string;
+      description?: string;
+      projectId?: string;
+      labels?: Record<string, string>;
+      spec: {
+        format: 'RAW' | 'QCOW2' | 'VMDK' | 'VHD' | 'ISO';
+        visibility?: 'PRIVATE' | 'PROJECT' | 'PUBLIC';
+        osInfo?: {
+          family: 'LINUX' | 'WINDOWS' | 'BSD' | 'OTHER';
+          distribution: string;
+          version: string;
+          architecture?: string;
+          defaultUser?: string;
+          provisioningMethod?: 'CLOUD_INIT' | 'NONE' | 'SYSPREP';
+        };
+        requirements?: {
+          minCpu?: number;
+          minMemoryMib?: number;
+          minDiskGib?: number;
+        };
+      };
+    }) => {
+      const response = await imageClient.createImage({
+        name: params.name,
+        description: params.description || '',
+        projectId: params.projectId || 'default',
+        labels: params.labels || {},
+        spec: {
+          format: formatToProto(params.spec.format),
+          visibility: visibilityToProto(params.spec.visibility || 'PROJECT'),
+          os: params.spec.osInfo ? {
+            family: osFamilyToProto(params.spec.osInfo.family),
+            distribution: params.spec.osInfo.distribution,
+            version: params.spec.osInfo.version,
+            architecture: params.spec.osInfo.architecture || 'x86_64',
+            defaultUser: params.spec.osInfo.defaultUser || '',
+            provisioningMethod: provisioningToProto(params.spec.osInfo.provisioningMethod || 'NONE'),
+          } : undefined,
+          requirements: params.spec.requirements ? {
+            minCpu: params.spec.requirements.minCpu || 1,
+            minMemoryMib: BigInt(params.spec.requirements.minMemoryMib || 512),
+            minDiskGib: BigInt(params.spec.requirements.minDiskGib || 10),
+          } : undefined,
+        },
+      });
+      return toCloudImage(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: imageKeys.lists() });
+    },
+  });
+}
+
+// Helper functions to convert string enums to proto values
+function formatToProto(format: string): number {
+  const map: Record<string, number> = { RAW: 0, QCOW2: 1, VMDK: 2, VHD: 3, ISO: 4 };
+  return map[format] ?? 0;
+}
+
+function visibilityToProto(visibility: string): number {
+  const map: Record<string, number> = { PRIVATE: 0, PROJECT: 1, PUBLIC: 2 };
+  return map[visibility] ?? 1;
+}
+
+function osFamilyToProto(family: string): number {
+  const map: Record<string, number> = { UNKNOWN: 0, LINUX: 1, WINDOWS: 2, BSD: 3, OTHER: 4 };
+  return map[family] ?? 0;
+}
+
+function provisioningToProto(method: string): number {
+  const map: Record<string, number> = { 
+    PROVISIONING_UNKNOWN: 0, CLOUD_INIT: 1, IGNITION: 2, SYSPREP: 3, 
+    KICKSTART: 4, PRESEED: 5, NONE: 6 
+  };
+  return map[method] ?? 6;
 }
 
 // Hook to import an image from URL
@@ -295,6 +380,92 @@ export interface CatalogImage {
     minMemoryMib: number;
     minDiskGib: number;
     supportedFirmware: string[];
+  };
+}
+
+// ISO image type (extends CloudImage with ISO-specific fields)
+export interface ISOImage {
+  id: string;
+  name: string;
+  description: string;
+  sizeBytes: number;
+  format: 'ISO';
+  os: {
+    family: 'LINUX' | 'WINDOWS' | 'BSD' | 'OTHER';
+    distribution: string;
+    version: string;
+  };
+  status: 'pending' | 'uploading' | 'ready' | 'error';
+  uploadedAt?: Date;
+  path?: string;
+}
+
+// Built-in ISO catalog for manual installations
+export const ISO_CATALOG: ISOImage[] = [
+  {
+    id: 'iso-ubuntu-22.04',
+    name: 'Ubuntu 22.04.4 LTS Server',
+    description: 'Ubuntu Server installation ISO',
+    sizeBytes: 1.8 * 1024 * 1024 * 1024,
+    format: 'ISO',
+    os: { family: 'LINUX', distribution: 'ubuntu', version: '22.04' },
+    status: 'ready',
+  },
+  {
+    id: 'iso-ubuntu-24.04',
+    name: 'Ubuntu 24.04 LTS Server',
+    description: 'Latest Ubuntu Server installation ISO',
+    sizeBytes: 2.0 * 1024 * 1024 * 1024,
+    format: 'ISO',
+    os: { family: 'LINUX', distribution: 'ubuntu', version: '24.04' },
+    status: 'ready',
+  },
+  {
+    id: 'iso-debian-12',
+    name: 'Debian 12 (Bookworm)',
+    description: 'Debian netinst installation ISO',
+    sizeBytes: 650 * 1024 * 1024,
+    format: 'ISO',
+    os: { family: 'LINUX', distribution: 'debian', version: '12' },
+    status: 'ready',
+  },
+  {
+    id: 'iso-rocky-9',
+    name: 'Rocky Linux 9.3',
+    description: 'Rocky Linux DVD installation ISO',
+    sizeBytes: 10 * 1024 * 1024 * 1024,
+    format: 'ISO',
+    os: { family: 'LINUX', distribution: 'rocky', version: '9.3' },
+    status: 'ready',
+  },
+  {
+    id: 'iso-windows-2022',
+    name: 'Windows Server 2022',
+    description: 'Windows Server 2022 Evaluation ISO',
+    sizeBytes: 5.4 * 1024 * 1024 * 1024,
+    format: 'ISO',
+    os: { family: 'WINDOWS', distribution: 'windows-server', version: '2022' },
+    status: 'ready',
+  },
+];
+
+// Hook to list ISOs specifically
+export function useISOs() {
+  const { data: allImages, isLoading, error } = useImages();
+  
+  // Filter to only ISOs
+  const isos = allImages?.filter(img => 
+    img.os.provisioningMethod === 'NONE' || 
+    img.name.toLowerCase().includes('iso') ||
+    img.description.toLowerCase().includes('iso')
+  ) || [];
+  
+  // Fallback to catalog if no ISOs from API
+  return {
+    isos: isos.length > 0 ? isos : ISO_CATALOG,
+    isLoading,
+    error,
+    isUsingCatalog: isos.length === 0,
   };
 }
 

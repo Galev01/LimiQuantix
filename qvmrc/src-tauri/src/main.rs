@@ -46,17 +46,26 @@ impl Default for AppState {
 /// Parse a qvmrc:// URL into connection parameters
 fn parse_qvmrc_url(url: &str) -> Option<PendingConnection> {
     // Format: qvmrc://connect?url=<encoded>&vmId=<id>&vmName=<name>
-    let url = url.strip_prefix("qvmrc://connect?")?;
+    // Also handle: qvmrc://connect/?url=... (with trailing slash)
+    
+    // Try both formats
+    let query = url
+        .strip_prefix("qvmrc://connect?")
+        .or_else(|| url.strip_prefix("qvmrc://connect/?"))?;
+    
+    debug_log(&format!("Parsing query string: {}", query));
     
     let mut control_plane_url = None;
     let mut vm_id = None;
     let mut vm_name = None;
     
-    for part in url.split('&') {
+    for part in query.split('&') {
         let mut kv = part.splitn(2, '=');
         let key = kv.next()?;
         let value = kv.next().unwrap_or("");
         let decoded = urlencoding::decode(value).ok()?.into_owned();
+        
+        debug_log(&format!("Parsed param: {} = {}", key, decoded));
         
         match key {
             "url" => control_plane_url = Some(decoded),
@@ -65,6 +74,9 @@ fn parse_qvmrc_url(url: &str) -> Option<PendingConnection> {
             _ => {}
         }
     }
+    
+    debug_log(&format!("Extracted: url={:?}, vmId={:?}, vmName={:?}", 
+        control_plane_url, vm_id, vm_name));
     
     Some(PendingConnection {
         control_plane_url: control_plane_url?,
@@ -237,6 +249,10 @@ fn main() {
             vnc::send_pointer_event,
             vnc::send_ctrl_alt_del,
             vnc::get_connection_status,
+            // VM control commands
+            api::vm_power_action,
+            api::vm_mount_iso,
+            api::browse_file,
             // Deep link commands
             get_pending_connection,
             add_and_connect,

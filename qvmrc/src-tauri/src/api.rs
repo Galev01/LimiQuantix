@@ -4,7 +4,7 @@ use crate::config::{Config, DisplaySettings, SavedConnection};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use tauri::State;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 /// Response for connection list
 #[derive(Debug, Serialize)]
@@ -181,4 +181,149 @@ pub async fn list_vms(
 
     let list: ListResponse = response.json().await?;
     Ok(list.vms.unwrap_or_default())
+}
+
+// ============================================
+// VM Power Actions
+// ============================================
+
+/// Execute a power action on a VM (start, stop, shutdown, reboot)
+#[tauri::command]
+pub async fn vm_power_action(
+    control_plane_url: String,
+    vm_id: String,
+    action: String,
+) -> Result<(), String> {
+    info!("Executing VM power action: {} on {}", action, vm_id);
+    
+    let endpoint = match action.as_str() {
+        "start" => "StartVM",
+        "stop" => "StopVM",
+        "shutdown" => "StopVM", // Graceful shutdown uses StopVM with force=false
+        "reboot" => "RebootVM",
+        _ => return Err(format!("Unknown action: {}", action)),
+    };
+    
+    let url = format!(
+        "{}/limiquantix.compute.v1.VMService/{}",
+        control_plane_url.trim_end_matches('/'),
+        endpoint
+    );
+    
+    let body = if action == "shutdown" {
+        // Graceful shutdown
+        serde_json::json!({ "id": vm_id, "force": false })
+    } else if action == "stop" {
+        // Force stop
+        serde_json::json!({ "id": vm_id, "force": true })
+    } else {
+        serde_json::json!({ "id": vm_id })
+    };
+    
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("API error ({}): {}", status, body));
+    }
+    
+    info!("VM {} action completed: {}", action, vm_id);
+    Ok(())
+}
+
+// ============================================
+// ISO Mount
+// ============================================
+
+/// Mount an ISO image to a VM
+#[tauri::command]
+pub async fn vm_mount_iso(
+    control_plane_url: String,
+    vm_id: String,
+    iso_path: String,
+) -> Result<(), String> {
+    info!("Mounting ISO {} to VM {}", iso_path, vm_id);
+    
+    // This calls a custom endpoint - in a real implementation,
+    // this would attach a CDROM device with the ISO
+    let url = format!(
+        "{}/limiquantix.compute.v1.VMService/AttachDevice",
+        control_plane_url.trim_end_matches('/')
+    );
+    
+    let body = serde_json::json!({
+        "vmId": vm_id,
+        "device": {
+            "cdrom": {
+                "path": iso_path
+            }
+        }
+    });
+    
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_body = response.text().await.unwrap_or_default();
+        return Err(format!("API error ({}): {}", status, error_body));
+    }
+    
+    info!("ISO mounted successfully");
+    Ok(())
+}
+
+// ============================================
+// File Browser (for local ISO selection)
+// ============================================
+
+/// Browse for a file using native dialog
+#[tauri::command]
+pub async fn browse_file(
+    title: String,
+    filters: Vec<FileFilter>,
+) -> Result<Option<String>, String> {
+    use tauri::api::dialog::FileDialogBuilder;
+    use std::sync::mpsc;
+    
+    let (tx, rx) = mpsc::channel();
+    
+    let mut builder = FileDialogBuilder::new().set_title(&title);
+    
+    for filter in filters {
+        let extensions: Vec<&str> = filter.extensions.iter().map(|s| s.as_str()).collect();
+        builder = builder.add_filter(&filter.name, &extensions);
+    }
+    
+    builder.pick_file(move |path| {
+        let _ = tx.send(path.map(|p| p.to_string_lossy().to_string()));
+    });
+    
+    match rx.recv() {
+        Ok(path) => Ok(path),
+        Err(e) => {
+            warn!("File dialog error: {}", e);
+            Ok(None)
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FileFilter {
+    pub name: String,
+    pub extensions: Vec<String>,
 }
