@@ -322,7 +322,7 @@ function BGPSpeakerCard({
   isSelected: boolean;
   onClick: () => void;
 }) {
-  const status = statusConfig[speaker.status];
+  const status = statusConfig[speaker.status] || { color: 'default', icon: AlertTriangle };
   const StatusIcon = status.icon;
   const establishedPeers = speaker.peers.filter((p) => p.state === 'ESTABLISHED').length;
 
@@ -383,7 +383,7 @@ function BGPSpeakerCard({
       {/* Peer Status Indicators */}
       <div className="flex items-center gap-2 flex-wrap">
         {speaker.peers.map((peer) => {
-          const peerState = peerStateConfig[peer.state];
+          const peerState = peerStateConfig[peer.state] || { color: 'default', label: peer.state || 'Unknown' };
           return (
             <div
               key={peer.id}
@@ -468,7 +468,7 @@ function BGPDetailPanel({ speaker, onClose }: { speaker: BGPSpeaker; onClose: ()
             </thead>
             <tbody>
               {speaker.peers.map((peer) => {
-                const peerState = peerStateConfig[peer.state];
+                const peerState = peerStateConfig[peer.state] || { color: 'default', label: peer.state || 'Unknown' };
                 return (
                   <tr key={peer.id} className="border-t border-border">
                     <td className="py-2 px-4">

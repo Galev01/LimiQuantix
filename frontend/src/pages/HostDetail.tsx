@@ -149,7 +149,7 @@ export function HostDetail() {
     ? Math.round((node.status.resources.memoryAllocatedBytes / node.spec.memory.totalBytes) * 100)
     : 0;
 
-  const phaseInfo = phaseConfig[node.status.phase];
+  const phaseInfo = phaseConfig[node.status.phase] || { label: node.status.phase || 'Unknown', variant: 'default', icon: AlertCircle };
   const PhaseIcon = phaseInfo.icon;
 
   // Get VMs running on this host from API

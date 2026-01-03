@@ -781,15 +781,40 @@ component InstallWizard inherits Rectangle {
                 spacing: 32px;
                 padding: 40px;
                 
-                // Header
+                // Header with logo
                 VerticalLayout {
                     spacing: 12px;
                     alignment: center;
                     
-                    Text {
-                        text: "⚡";
-                        font-size: Theme.font-3xl;
-                        horizontal-alignment: center;
+                    // Logo - uses embedded image or fallback text
+                    // To use your logo, place it at assets/logo.png (or .svg)
+                    // and uncomment the Image line below:
+                    // Image {
+                    //     source: @image-url("../assets/logo.png");
+                    //     width: 64px;
+                    //     height: 64px;
+                    // }
+                    
+                    // Fallback: Text logo (remove this when using image)
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 8px;
+                        
+                        Rectangle {
+                            width: 48px;
+                            height: 48px;
+                            border-radius: 12px;
+                            background: Theme.accent-blue;
+                            
+                            Text {
+                                text: "Q";
+                                font-size: 28px;
+                                font-weight: 700;
+                                color: white;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
                     }
                     
                     Text {
@@ -1570,23 +1595,31 @@ export component MainWindow inherits Window {
     callback cancel-action();
     callback install-complete(InstallConfig);
     
-    // Keyboard navigation
-    forward-focus: focus-scope;
-    
+    // Keyboard navigation - only active on main screen, not during install wizard
+    // The FocusScope only handles special keys (F-keys, arrows) on main screen
+    // Text input fields handle their own focus
     focus-scope := FocusScope {
+        // Only enable keyboard shortcuts on main screen
+        enabled: current-screen == "main" && !show-auth-dialog && !show-confirm-dialog;
+        
         key-pressed(event) => {
-            if show-auth-dialog || show-confirm-dialog {
+            // Handle Escape for dialogs
+            if show-auth-dialog {
                 if event.text == Key.Escape {
-                    if show-auth-dialog {
-                        auth-cancelled();
-                    } else {
-                        cancel-action();
-                    }
+                    auth-cancelled();
+                    return accept;
+                }
+                return reject;
+            }
+            if show-confirm-dialog {
+                if event.text == Key.Escape {
+                    cancel-action();
                     return accept;
                 }
                 return reject;
             }
             
+            // Only handle navigation on main screen
             if current-screen == "main" {
                 if event.text == Key.UpArrow {
                     if selected-menu > 0 {
@@ -1640,6 +1673,8 @@ export component MainWindow inherits Window {
                     return accept;
                 }
             }
+            
+            // Let other keys pass through to text inputs
             return reject;
         }
     }

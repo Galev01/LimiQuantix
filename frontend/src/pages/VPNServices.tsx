@@ -330,9 +330,9 @@ function VPNServiceCard({
   isSelected: boolean;
   onClick: () => void;
 }) {
-  const status = statusConfig[vpn.status];
+  const status = statusConfig[vpn.status] || { color: 'default', icon: AlertTriangle };
   const StatusIcon = status.icon;
-  const type = typeConfig[vpn.type];
+  const type = typeConfig[vpn.type] || { label: vpn.type || 'Unknown', color: 'blue', icon: Shield };
   const TypeIcon = type.icon;
 
   return (
@@ -404,7 +404,7 @@ function VPNServiceCard({
 }
 
 function VPNDetailPanel({ vpn, onClose }: { vpn: VPNService; onClose: () => void }) {
-  const type = typeConfig[vpn.type];
+  const type = typeConfig[vpn.type] || { label: vpn.type || 'Unknown', color: 'blue', icon: Shield };
   const TypeIcon = type.icon;
 
   const copyToClipboard = (text: string) => {
@@ -483,7 +483,7 @@ function VPNDetailPanel({ vpn, onClose }: { vpn: VPNService; onClose: () => void
             </thead>
             <tbody>
               {vpn.connections.map((conn) => {
-                const status = connectionStatusConfig[conn.status];
+                const status = connectionStatusConfig[conn.status] || { color: 'default', icon: XCircle };
                 const StatusIcon = status.icon;
                 return (
                   <tr key={conn.id} className="border-t border-border">

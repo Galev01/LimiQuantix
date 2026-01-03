@@ -334,9 +334,9 @@ function LoadBalancerCard({
   isSelected: boolean;
   onClick: () => void;
 }) {
-  const status = statusConfig[lb.status];
+  const status = statusConfig[lb.status] || { color: 'default', icon: AlertTriangle };
   const StatusIcon = status.icon;
-  const algorithm = algorithmConfig[lb.algorithm];
+  const algorithm = algorithmConfig[lb.algorithm] || { label: lb.algorithm || 'Unknown', color: 'blue' };
   const healthyCount = lb.members.filter((m) => m.healthy).length;
 
   return (

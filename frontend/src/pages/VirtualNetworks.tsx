@@ -328,9 +328,9 @@ export function VirtualNetworks() {
           </thead>
           <tbody>
             {filteredNetworks.map((network, index) => {
-              const type = typeConfig[network.type];
+              const type = typeConfig[network.type] || { color: 'blue', icon: Cable, label: network.type || 'Unknown' };
               const TypeIcon = type.icon;
-              const status = statusConfig[network.status];
+              const status = statusConfig[network.status] || { color: 'default', icon: AlertTriangle };
               const StatusIcon = status.icon;
 
               return (
@@ -491,7 +491,7 @@ function NetworkDetailPanel({
   network: VirtualNetwork;
   onClose: () => void;
 }) {
-  const type = typeConfig[network.type];
+  const type = typeConfig[network.type] || { color: 'blue', icon: Cable, label: network.type || 'Unknown' };
   const TypeIcon = type.icon;
 
   return (
