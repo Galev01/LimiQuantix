@@ -24,8 +24,9 @@ if [ -x /usr/bin/qx-console-gui ]; then
     export SLINT_BACKEND="linuxkms"
     
     # Attempt to run the GUI (log to /run which is tmpfs)
+    # The GUI needs direct access to tty1 for input/output
     echo "Starting Quantix-OS Console (GUI)..." > /dev/tty1
-    /usr/bin/qx-console-gui 2>/run/quantix/console-gui.err
+    /usr/bin/qx-console-gui </dev/tty1 >/dev/tty1 2>/run/quantix/console-gui.err
     
     # If we get here, the GUI exited (error or intentional)
     EXIT_CODE=$?
