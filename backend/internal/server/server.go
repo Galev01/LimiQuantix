@@ -238,6 +238,15 @@ func (s *Server) registerRoutes() {
 	s.logger.Info("Registered agent download handler", zap.String("path", "/api/agent/"))
 
 	// =========================================================================
+	// REST API Endpoints (for simple frontend consumption)
+	// =========================================================================
+
+	// VM Power Actions REST API (POST /api/vms/{id}/{action})
+	vmRestHandler := NewVMRestHandler(s)
+	s.mux.Handle("/api/vms/", vmRestHandler)
+	s.logger.Info("Registered VM REST API", zap.String("path", "/api/vms/{id}/{action}"))
+
+	// =========================================================================
 	// Connect-RPC Services - Compute
 	// =========================================================================
 

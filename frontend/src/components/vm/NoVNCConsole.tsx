@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NoVNCConsoleProps {
@@ -18,6 +17,18 @@ export function NoVNCConsole({ vmId, vmName, isOpen, onClose, token }: NoVNCCons
 
   // Build noVNC URL
   const novncUrl = `/novnc/limiquantix.html?vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+
+  // Listen for messages from the iframe (e.g., close button click)
+  const handleMessage = useCallback((event: MessageEvent) => {
+    if (event.data?.type === 'closeConsole') {
+      onClose();
+    }
+  }, [onClose]);
+
+  useEffect(() => {
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [handleMessage]);
 
   // Listen for fullscreen changes
   useEffect(() => {
@@ -58,7 +69,7 @@ export function NoVNCConsole({ vmId, vmName, isOpen, onClose, token }: NoVNCCons
           onClick={onClose} 
         />
 
-        {/* Console Window - No duplicate header, noVNC has its own toolbar */}
+        {/* Console Window - noVNC has its own toolbar with all controls */}
         <motion.div
           ref={containerRef}
           initial={{ scale: 0.95, opacity: 0 }}
@@ -71,16 +82,7 @@ export function NoVNCConsole({ vmId, vmName, isOpen, onClose, token }: NoVNCCons
               : 'w-[1280px] h-[800px] max-w-[95vw] max-h-[90vh] rounded-xl'
           )}
         >
-          {/* Close button overlay - top right corner */}
-          <button
-            onClick={onClose}
-            className="absolute top-2 right-2 z-50 w-8 h-8 flex items-center justify-center rounded-lg bg-black/50 hover:bg-black/70 text-white/70 hover:text-white transition-colors backdrop-blur-sm"
-            title="Close console (Escape)"
-          >
-            <X className="w-4 h-4" />
-          </button>
-
-          {/* noVNC iframe - contains its own toolbar */}
+          {/* noVNC iframe - contains its own toolbar with close, fullscreen, etc. */}
           <iframe
             ref={iframeRef}
             src={novncUrl}

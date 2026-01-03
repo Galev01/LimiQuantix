@@ -2,7 +2,62 @@
 
 ## Current Status: QuantumNet 100% Complete 🚀
 
-**Last Updated:** January 3, 2026 (Session 2 - Console UI Complete)
+**Last Updated:** January 3, 2026 (Session 3 - Web Console Enhanced)
+
+---
+
+## ✅ Session 3 Accomplishments (Jan 3, 2026)
+
+### Web Console (noVNC) Major Enhancement
+
+**Fixed Duplicate Toolbar Issue:**
+- Removed redundant React header from `NoVNCConsole.tsx`
+- Kept single toolbar inside `limiquantix.html` (noVNC iframe)
+- Added floating close button overlay
+
+**Backend REST API for VM Power Actions (`backend/internal/server/vm_rest.go`):**
+- NEW file: `vm_rest.go` - REST API handler for VM power actions
+- Routes registered at `/api/vms/{id}/{action}`
+- Wraps Connect-RPC service methods for simple REST consumption
+- Actions: `start`, `stop`, `reboot`, `force_stop`
+- Proper error handling with HTTP status codes
+- JSON response format with success/error messages
+
+**Enhanced noVNC Console (`frontend/public/novnc/limiquantix.html`):**
+1. **VM Power Actions** - Full VM menu with:
+   - Power On (green accent) → `POST /api/vms/{id}/start`
+   - Shut Down Guest (warning accent) → `POST /api/vms/{id}/stop`
+   - Restart Guest → `POST /api/vms/{id}/reboot`
+   - Force Power Off (danger accent) → `POST /api/vms/{id}/force_stop`
+   - Full API integration with Control Plane backend
+
+2. **Fixed Fullscreen** - Now uses `#app` container for proper fullscreen behavior
+
+3. **Fixed Clipboard Paste** - Enhanced with:
+   - Modern Clipboard API support
+   - Fallback to prompt dialog if permissions denied
+   - Visual feedback via toast notifications
+   - Character count confirmation
+
+4. **Expandable Toolbar Buttons:**
+   - Buttons start as icon-only (34x34px)
+   - On hover, smoothly expand to reveal labels
+   - Uses `max-width` and `opacity` transitions
+   - Cubic-bezier easing for smooth animation
+   - Color-coded hover states (success/warning/danger/accent)
+
+5. **Toast Notification System:**
+   - Success, error, and info variants
+   - Slide-in/slide-out animations
+   - Auto-dismiss after 3 seconds
+   - Fixed position in top-right corner
+
+6. **Enhanced UI:**
+   - Gradient toolbar and footer with backdrop blur
+   - Toolbar dividers for visual grouping
+   - Footer with resolution and VM ID badges
+   - Dropdown menu with sections and dividers
+   - Fullscreen mode shows/hides toolbar on hover
 
 ---
 

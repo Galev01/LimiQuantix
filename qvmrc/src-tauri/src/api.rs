@@ -187,7 +187,8 @@ pub async fn list_vms(
 // VM Power Actions
 // ============================================
 
-/// Execute a power action on a VM (start, stop, shutdown, reboot)
+/// Execute a power action on a VM (start, stop, reboot, force_stop)
+/// Actions match the backend REST API at /api/vms/{id}/{action}
 #[tauri::command]
 pub async fn vm_power_action(
     control_plane_url: String,
@@ -196,12 +197,13 @@ pub async fn vm_power_action(
 ) -> Result<(), String> {
     info!("Executing VM power action: {} on {}", action, vm_id);
     
+    // Map action to gRPC endpoint
     let endpoint = match action.as_str() {
         "start" => "StartVM",
-        "stop" => "StopVM",
-        "shutdown" => "StopVM", // Graceful shutdown uses StopVM with force=false
+        "stop" => "StopVM",       // Graceful shutdown (ACPI)
         "reboot" => "RebootVM",
-        _ => return Err(format!("Unknown action: {}", action)),
+        "force_stop" => "StopVM", // Force power off (like pulling the plug)
+        _ => return Err(format!("Unknown action: {}. Supported: start, stop, reboot, force_stop", action)),
     };
     
     let url = format!(
@@ -210,14 +212,11 @@ pub async fn vm_power_action(
         endpoint
     );
     
-    let body = if action == "shutdown" {
-        // Graceful shutdown
-        serde_json::json!({ "id": vm_id, "force": false })
-    } else if action == "stop" {
-        // Force stop
-        serde_json::json!({ "id": vm_id, "force": true })
-    } else {
-        serde_json::json!({ "id": vm_id })
+    // Build request body based on action
+    let body = match action.as_str() {
+        "stop" => serde_json::json!({ "id": vm_id, "force": false }),      // Graceful
+        "force_stop" => serde_json::json!({ "id": vm_id, "force": true }), // Force
+        _ => serde_json::json!({ "id": vm_id }),
     };
     
     let client = reqwest::Client::new();
@@ -231,8 +230,8 @@ pub async fn vm_power_action(
     
     if !response.status().is_success() {
         let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!("API error ({}): {}", status, body));
+        let error_body = response.text().await.unwrap_or_default();
+        return Err(format!("API error ({}): {}", status, error_body));
     }
     
     info!("VM {} action completed: {}", action, vm_id);

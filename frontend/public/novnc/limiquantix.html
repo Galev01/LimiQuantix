@@ -11,13 +11,17 @@
             --bg-base: #0a0a0f;
             --bg-surface: #12121a;
             --bg-elevated: #1a1a24;
+            --bg-hover: #252530;
             --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
             --text-muted: #64748b;
             --accent: #9333ea;
+            --accent-hover: #a855f7;
             --success: #22c55e;
             --warning: #f59e0b;
             --error: #ef4444;
             --border: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.12);
         }
         
         * {
@@ -41,28 +45,31 @@
             height: 100%;
         }
         
-        /* Toolbar */
+        /* Enhanced Toolbar */
         .toolbar {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 8px 16px;
-            background: var(--bg-surface);
+            padding: 6px 12px;
+            background: linear-gradient(180deg, var(--bg-surface) 0%, rgba(18, 18, 26, 0.95) 100%);
             border-bottom: 1px solid var(--border);
             flex-shrink: 0;
             z-index: 100;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
         
-        .toolbar-left {
+        .toolbar-section {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 6px;
         }
         
-        .toolbar-right {
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        .toolbar-divider {
+            width: 1px;
+            height: 24px;
+            background: var(--border);
+            margin: 0 8px;
         }
         
         .logo {
@@ -71,16 +78,23 @@
             gap: 8px;
             font-weight: 600;
             color: var(--accent);
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: rgba(147, 51, 234, 0.1);
         }
         
         .logo svg {
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
         }
         
         .vm-name {
             font-weight: 500;
             color: var(--text-primary);
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         
         .status-badge {
@@ -124,46 +138,268 @@
             50% { opacity: 0.5; }
         }
         
+        /* Enhanced Expandable Buttons */
         .btn {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border: none;
-            border-radius: 6px;
+            gap: 0;
+            padding: 8px;
+            border: 1px solid transparent;
+            border-radius: 8px;
             background: var(--bg-elevated);
-            color: var(--text-primary);
-            font-size: 13px;
+            color: var(--text-secondary);
+            font-size: 12px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        
-        .btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-        
-        .btn:active {
-            transform: scale(0.98);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            white-space: nowrap;
+            overflow: hidden;
+            min-width: 34px;
+            height: 34px;
         }
         
         .btn svg {
             width: 16px;
             height: 16px;
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
         }
         
-        .btn-icon {
-            padding: 8px;
+        .btn .btn-label {
+            max-width: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-left: 0;
+        }
+        
+        .btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:hover svg {
+            transform: scale(1.1);
+        }
+        
+        .btn:hover .btn-label {
+            max-width: 120px;
+            opacity: 1;
+            margin-left: 8px;
+        }
+        
+        .btn:active {
+            transform: scale(0.96);
+        }
+        
+        .btn.btn-success:hover {
+            background: rgba(34, 197, 94, 0.15);
+            border-color: rgba(34, 197, 94, 0.3);
+            color: var(--success);
+        }
+        
+        .btn.btn-warning:hover {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.3);
+            color: var(--warning);
+        }
+        
+        .btn.btn-danger:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: var(--error);
+        }
+        
+        .btn.btn-accent:hover {
+            background: rgba(147, 51, 234, 0.15);
+            border-color: rgba(147, 51, 234, 0.3);
+            color: var(--accent-hover);
         }
         
         .btn-primary {
             background: var(--accent);
             color: white;
+            padding: 8px 16px;
+            gap: 8px;
+        }
+        
+        .btn-primary .btn-label {
+            max-width: none;
+            opacity: 1;
+            margin-left: 0;
         }
         
         .btn-primary:hover {
-            background: #7c22ce;
+            background: var(--accent-hover);
+            color: white;
+        }
+        
+        /* VM Menu Dropdown */
+        .dropdown-container {
+            position: relative;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            min-width: 200px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            padding: 6px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-8px);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .dropdown-container:hover .dropdown-menu,
+        .dropdown-menu.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        
+        .dropdown-section-title {
+            padding: 6px 10px 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+        
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 8px 10px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: left;
+        }
+        
+        .dropdown-item svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+        
+        .dropdown-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+        
+        .dropdown-item.success:hover {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+        }
+        
+        .dropdown-item.warning:hover {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+        }
+        
+        .dropdown-item.danger:hover {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--error);
+        }
+        
+        .dropdown-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 6px 4px;
+        }
+        
+        .dropdown-item .spinner-small {
+            width: 14px;
+            height: 14px;
+            border: 2px solid currentColor;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 60px;
+            right: 16px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+            font-size: 13px;
+            color: var(--text-primary);
+            animation: toastIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(8px);
+        }
+        
+        .toast.hiding {
+            animation: toastOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes toastOut {
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+        
+        .toast svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+        
+        .toast.success {
+            border-color: rgba(34, 197, 94, 0.3);
+            color: var(--success);
+        }
+        
+        .toast.error {
+            border-color: rgba(239, 68, 68, 0.3);
+            color: var(--error);
+        }
+        
+        .toast.info {
+            border-color: rgba(147, 51, 234, 0.3);
+            color: var(--accent-hover);
         }
         
         /* Console Area */
@@ -190,7 +426,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             z-index: 50;
             gap: 16px;
             transition: opacity 0.3s ease;
@@ -230,17 +466,18 @@
             color: var(--error);
         }
         
-        /* Footer */
+        /* Enhanced Footer */
         .footer {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 6px 16px;
-            background: var(--bg-surface);
+            padding: 6px 12px;
+            background: linear-gradient(0deg, var(--bg-surface) 0%, rgba(18, 18, 26, 0.95) 100%);
             border-top: 1px solid var(--border);
             font-size: 11px;
             color: var(--text-muted);
             flex-shrink: 0;
+            backdrop-filter: blur(12px);
         }
         
         .footer-left {
@@ -260,15 +497,33 @@
             align-items: center;
             padding: 2px 6px;
             background: var(--bg-elevated);
+            border: 1px solid var(--border);
             border-radius: 4px;
             font-family: monospace;
             font-size: 10px;
         }
         
-        /* Fullscreen */
+        .footer-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: var(--bg-elevated);
+            border-radius: 4px;
+        }
+        
+        /* Fullscreen Mode */
         body.fullscreen .toolbar,
         body.fullscreen .footer {
-            display: none;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        body.fullscreen:hover .toolbar,
+        body.fullscreen:hover .footer {
+            opacity: 1;
+            pointer-events: auto;
         }
         
         body.fullscreen .console-container {
@@ -276,17 +531,26 @@
         }
         
         /* Responsive */
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
             .toolbar {
-                padding: 8px 12px;
+                padding: 6px 8px;
             }
             
             .vm-name {
                 display: none;
             }
             
-            .btn span {
+            .btn .btn-label {
                 display: none;
+            }
+            
+            .btn:hover .btn-label {
+                max-width: 0;
+                margin-left: 0;
+            }
+            
+            .toolbar-divider {
+                margin: 0 4px;
             }
         }
     </style>
@@ -295,7 +559,7 @@
     <div id="app">
         <!-- Toolbar -->
         <div class="toolbar">
-            <div class="toolbar-left">
+            <div class="toolbar-section">
                 <div class="logo">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
@@ -310,20 +574,89 @@
                     <span id="statusText">Connecting</span>
                 </div>
             </div>
-            <div class="toolbar-right">
-                <button class="btn btn-icon" id="btnCtrlAltDel" title="Send Ctrl+Alt+Del">
+            
+            <div class="toolbar-section">
+                <!-- VM Power Menu -->
+                <div class="dropdown-container" id="vmMenuContainer">
+                    <button class="btn" id="btnVmMenu" title="VM Actions">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                            <line x1="6" y1="6" x2="6.01" y2="6"/>
+                            <line x1="6" y1="18" x2="6.01" y2="18"/>
+                        </svg>
+                        <span class="btn-label">VM</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;margin-left:4px;">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </button>
+                    <div class="dropdown-menu" id="vmMenu">
+                        <div class="dropdown-section-title">Power Actions</div>
+                        <button class="dropdown-item success" id="btnPowerOn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                                <line x1="12" y1="2" x2="12" y2="12"/>
+                            </svg>
+                            <span>Power On</span>
+                        </button>
+                        <button class="dropdown-item warning" id="btnShutdown">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                                <line x1="12" y1="2" x2="12" y2="12"/>
+                            </svg>
+                            <span>Shut Down Guest</span>
+                        </button>
+                        <button class="dropdown-item" id="btnRestart">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="23 4 23 10 17 10"/>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                            </svg>
+                            <span>Restart Guest</span>
+                        </button>
+                        <div class="dropdown-divider"></div>
+                        <button class="dropdown-item danger" id="btnForcePowerOff">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="6" width="20" height="12" rx="2"/>
+                                <line x1="6" y1="12" x2="18" y2="12"/>
+                            </svg>
+                            <span>Force Power Off</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="toolbar-divider"></div>
+                
+                <!-- Ctrl+Alt+Del -->
+                <button class="btn btn-warning" id="btnCtrlAltDel" title="Send Ctrl+Alt+Del">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="2" y="4" width="20" height="16" rx="2"/>
                         <path d="M6 8h4M14 8h4M6 12h12M10 16h4"/>
                     </svg>
+                    <span class="btn-label">Ctrl+Alt+Del</span>
                 </button>
-                <button class="btn btn-icon" id="btnClipboard" title="Paste from clipboard">
+                
+                <!-- Clipboard -->
+                <button class="btn btn-accent" id="btnClipboard" title="Paste from clipboard">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
                         <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
                     </svg>
+                    <span class="btn-label">Paste</span>
                 </button>
-                <button class="btn btn-icon" id="btnFullscreen" title="Toggle fullscreen">
+                
+                <div class="toolbar-divider"></div>
+                
+                <!-- Reconnect -->
+                <button class="btn" id="btnReconnect" title="Reconnect to console">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"/>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                    </svg>
+                    <span class="btn-label">Reconnect</span>
+                </button>
+                
+                <!-- Fullscreen -->
+                <button class="btn btn-success" id="btnFullscreen" title="Toggle fullscreen">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="iconFullscreen">
                         <polyline points="15 3 21 3 21 9"/>
                         <polyline points="9 21 3 21 3 15"/>
@@ -336,25 +669,34 @@
                         <line x1="14" y1="10" x2="21" y2="3"/>
                         <line x1="3" y1="21" x2="10" y2="14"/>
                     </svg>
+                    <span class="btn-label" id="fullscreenLabel">Fullscreen</span>
                 </button>
-                <button class="btn btn-icon" id="btnSettings" title="Settings">
+                
+                <div class="toolbar-divider"></div>
+                
+                <!-- Close Console -->
+                <button class="btn btn-danger" id="btnClose" title="Close console (Escape)">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
+                    <span class="btn-label">Close</span>
                 </button>
             </div>
         </div>
         
+        <!-- Toast Container -->
+        <div class="toast-container" id="toastContainer"></div>
+        
         <!-- Console -->
-        <div class="console-container">
+        <div class="console-container" id="consoleContainer">
             <div id="screen"></div>
             
             <!-- Loading Overlay -->
             <div class="overlay" id="overlayLoading">
                 <div class="spinner"></div>
-                <div class="overlay-title">Connecting to VM Console</div>
-                <div class="overlay-subtitle">Establishing secure connection...</div>
+                <div class="overlay-title" id="loadingTitle">Connecting to VM Console</div>
+                <div class="overlay-subtitle" id="loadingSubtitle">Establishing secure connection...</div>
             </div>
             
             <!-- Error Overlay -->
@@ -371,7 +713,7 @@
                         <polyline points="23 4 23 10 17 10"/>
                         <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                     </svg>
-                    <span>Retry Connection</span>
+                    <span class="btn-label">Retry Connection</span>
                 </button>
             </div>
         </div>
@@ -383,9 +725,23 @@
                 <span><kbd class="kbd">Esc</kbd> Exit fullscreen</span>
             </div>
             <div class="footer-right">
-                <span id="resolution">-</span>
-                <span>•</span>
-                <span id="vmId">-</span>
+                <div class="footer-item" id="resolutionDisplay">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                    <span id="resolution">-</span>
+                </div>
+                <div class="footer-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;">
+                        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                        <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                        <line x1="6" y1="6" x2="6.01" y2="6"/>
+                        <line x1="6" y1="18" x2="6.01" y2="18"/>
+                    </svg>
+                    <span id="vmId">-</span>
+                </div>
             </div>
         </div>
     </div>
@@ -399,6 +755,9 @@
         const vmName = params.get('vmName') || 'Virtual Machine';
         const token = params.get('token');
 
+        // API base URL - detect from current location
+        const API_BASE = `${window.location.protocol}//${window.location.hostname}:8080/api`;
+
         // DOM elements
         const elVmName = document.getElementById('vmName');
         const elVmId = document.getElementById('vmId');
@@ -409,16 +768,36 @@
         const elOverlayError = document.getElementById('overlayError');
         const elErrorTitle = document.getElementById('errorTitle');
         const elErrorMessage = document.getElementById('errorMessage');
+        const elLoadingTitle = document.getElementById('loadingTitle');
+        const elLoadingSubtitle = document.getElementById('loadingSubtitle');
         const elScreen = document.getElementById('screen');
+        const elConsoleContainer = document.getElementById('consoleContainer');
+        const elToastContainer = document.getElementById('toastContainer');
+        
+        // Track if this is a reconnection attempt
+        let isReconnecting = false;
         
         // Buttons
         const btnCtrlAltDel = document.getElementById('btnCtrlAltDel');
         const btnClipboard = document.getElementById('btnClipboard');
         const btnFullscreen = document.getElementById('btnFullscreen');
-        const btnSettings = document.getElementById('btnSettings');
+        const btnReconnect = document.getElementById('btnReconnect');
         const btnRetry = document.getElementById('btnRetry');
+        const btnClose = document.getElementById('btnClose');
+        const btnVmMenu = document.getElementById('btnVmMenu');
+        const vmMenu = document.getElementById('vmMenu');
+        const vmMenuContainer = document.getElementById('vmMenuContainer');
+        
+        // Power buttons
+        const btnPowerOn = document.getElementById('btnPowerOn');
+        const btnShutdown = document.getElementById('btnShutdown');
+        const btnRestart = document.getElementById('btnRestart');
+        const btnForcePowerOff = document.getElementById('btnForcePowerOff');
+        
+        // Icons
         const iconFullscreen = document.getElementById('iconFullscreen');
         const iconExitFullscreen = document.getElementById('iconExitFullscreen');
+        const fullscreenLabel = document.getElementById('fullscreenLabel');
 
         // Set VM info
         elVmName.textContent = vmName;
@@ -433,11 +812,64 @@
         // RFB instance
         let rfb = null;
 
+        // Toast notifications
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+                error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+                info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+            };
+            
+            toast.innerHTML = `${icons[type] || icons.info}<span>${message}</span>`;
+            elToastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('hiding');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // VM Power Actions
+        async function vmPowerAction(action) {
+            const actionNames = {
+                start: 'Power On',
+                stop: 'Shut Down',
+                reboot: 'Restart',
+                force_stop: 'Force Power Off'
+            };
+            
+            try {
+                showToast(`Sending ${actionNames[action]}...`, 'info');
+                
+                const response = await fetch(`${API_BASE}/vms/${vmId}/${action}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.message || `Failed to ${action} VM`);
+                }
+                
+                showToast(`${actionNames[action]} command sent successfully`, 'success');
+                
+                // Close menu
+                vmMenu.classList.remove('show');
+                
+            } catch (err) {
+                console.error('Power action failed:', err);
+                showToast(`Failed: ${err.message}`, 'error');
+            }
+        }
+
         // Build WebSocket URL
         function getWebSocketUrl() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const host = window.location.hostname;
-            const port = 8080; // Control plane port
+            const port = 8080;
             return `${protocol}//${host}:${port}/api/console/${vmId}/ws`;
         }
 
@@ -457,11 +889,23 @@
         }
 
         // Connect to VNC
-        function connect() {
-            // Reset UI
+        function connect(reconnect = false) {
+            // Track reconnection state for toast timing
+            isReconnecting = reconnect;
+            
+            // Update overlay text based on connection type
+            if (reconnect) {
+                elLoadingTitle.textContent = 'Reconnecting to VM Console';
+                elLoadingSubtitle.textContent = 'Re-establishing connection...';
+            } else {
+                elLoadingTitle.textContent = 'Connecting to VM Console';
+                elLoadingSubtitle.textContent = 'Establishing secure connection...';
+            }
+            
+            // Reset UI - show loading overlay
             elOverlayLoading.classList.remove('hidden');
             elOverlayError.classList.add('hidden');
-            setStatus('connecting', 'Connecting');
+            setStatus('connecting', reconnect ? 'Reconnecting' : 'Connecting');
 
             // Clean up previous connection
             if (rfb) {
@@ -491,6 +935,13 @@
                     console.log('VNC Connected');
                     elOverlayLoading.classList.add('hidden');
                     setStatus('connected', 'Connected');
+                    
+                    // Show appropriate toast based on reconnection state
+                    if (isReconnecting) {
+                        showToast('Reconnected to VM console', 'success');
+                    } else {
+                        showToast('Connected to VM console', 'success');
+                    }
                     
                     // Update resolution
                     updateResolution();
@@ -545,28 +996,53 @@
         btnCtrlAltDel.addEventListener('click', () => {
             if (rfb) {
                 rfb.sendCtrlAltDel();
+                showToast('Ctrl+Alt+Del sent', 'info');
             }
         });
 
-        // Clipboard paste
+        // Clipboard paste - Enhanced with better feedback
         btnClipboard.addEventListener('click', async () => {
             try {
-                const text = await navigator.clipboard.readText();
-                if (rfb && text) {
-                    rfb.clipboardPasteFrom(text);
+                // First try the modern Clipboard API
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    const text = await navigator.clipboard.readText();
+                    if (rfb && text) {
+                        rfb.clipboardPasteFrom(text);
+                        showToast(`Pasted ${text.length} characters`, 'success');
+                    } else if (!text) {
+                        showToast('Clipboard is empty', 'info');
+                    }
+                } else {
+                    // Fallback for older browsers - show a prompt
+                    const text = prompt('Paste text to send to VM:');
+                    if (rfb && text) {
+                        rfb.clipboardPasteFrom(text);
+                        showToast(`Pasted ${text.length} characters`, 'success');
+                    }
                 }
             } catch (err) {
                 console.warn('Clipboard access denied:', err);
-                alert('Clipboard access was denied. Please use Ctrl+V directly.');
+                // Fallback to prompt
+                const text = prompt('Clipboard access denied. Paste text here:');
+                if (rfb && text) {
+                    rfb.clipboardPasteFrom(text);
+                    showToast(`Pasted ${text.length} characters`, 'success');
+                }
             }
         });
 
-        // Fullscreen toggle
-        btnFullscreen.addEventListener('click', () => {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
-            } else {
-                document.exitFullscreen();
+        // Fullscreen toggle - Fixed to use the app container
+        btnFullscreen.addEventListener('click', async () => {
+            try {
+                if (!document.fullscreenElement) {
+                    // Request fullscreen on the app container for better control
+                    await document.getElementById('app').requestFullscreen();
+                } else {
+                    await document.exitFullscreen();
+                }
+            } catch (err) {
+                console.error('Fullscreen error:', err);
+                showToast('Fullscreen not supported', 'error');
             }
         });
 
@@ -575,15 +1051,53 @@
             document.body.classList.toggle('fullscreen', isFullscreen);
             iconFullscreen.style.display = isFullscreen ? 'none' : 'block';
             iconExitFullscreen.style.display = isFullscreen ? 'block' : 'none';
+            fullscreenLabel.textContent = isFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
         });
 
-        // Retry button
-        btnRetry.addEventListener('click', connect);
-
-        // Settings (placeholder)
-        btnSettings.addEventListener('click', () => {
-            alert('Settings coming soon!\n\n• Quality adjustment\n• Compression level\n• Local cursor toggle');
+        // Reconnect button - shows loading overlay, toast comes after connection succeeds
+        btnReconnect.addEventListener('click', () => {
+            connect(true);
         });
+
+        // Close button - notify parent window to close the modal
+        btnClose.addEventListener('click', () => {
+            // Disconnect VNC first
+            if (rfb) {
+                rfb.disconnect();
+            }
+            // Notify parent window (React) to close the modal
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'closeConsole' }, '*');
+            }
+            // If opened in a new tab/window, just close it
+            if (window.opener || window.parent === window) {
+                window.close();
+            }
+        });
+
+        // Retry button (on error overlay)
+        btnRetry.addEventListener('click', () => {
+            connect(true);
+        });
+
+        // VM Menu toggle (click-based for touch devices)
+        btnVmMenu.addEventListener('click', (e) => {
+            e.stopPropagation();
+            vmMenu.classList.toggle('show');
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!vmMenuContainer.contains(e.target)) {
+                vmMenu.classList.remove('show');
+            }
+        });
+
+        // Power action buttons
+        btnPowerOn.addEventListener('click', () => vmPowerAction('start'));
+        btnShutdown.addEventListener('click', () => vmPowerAction('stop'));
+        btnRestart.addEventListener('click', () => vmPowerAction('reboot'));
+        btnForcePowerOff.addEventListener('click', () => vmPowerAction('force_stop'));
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
@@ -592,7 +1106,13 @@
                 e.preventDefault();
                 if (rfb) {
                     rfb.sendCtrlAltDel();
+                    showToast('Ctrl+Alt+Del sent', 'info');
                 }
+            }
+            
+            // Escape to exit fullscreen (browser handles this but we track it)
+            if (e.key === 'Escape' && document.fullscreenElement) {
+                // Browser will handle exiting fullscreen
             }
         });
 
@@ -603,7 +1123,9 @@
             } else if (e.data.type === 'disconnect' && rfb) {
                 rfb.disconnect();
             } else if (e.data.type === 'reconnect') {
-                connect();
+                connect(true);
+            } else if (e.data.type === 'powerAction' && e.data.action) {
+                vmPowerAction(e.data.action);
             }
         });
 

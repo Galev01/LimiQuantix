@@ -1603,6 +1603,51 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ============================================
+   CONSOLE CONNECTION OVERLAY
+   ============================================ */
+
+.console-connection-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 50;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.console-overlay-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.console-overlay-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.console-overlay-error-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.15);
+  border: 2px solid rgba(239, 68, 68, 0.5);
+  color: var(--error);
+}
+
+/* ============================================
    CONSOLE VIEW ANIMATIONS
    ============================================ */
 

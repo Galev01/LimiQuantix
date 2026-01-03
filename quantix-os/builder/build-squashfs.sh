@@ -314,7 +314,7 @@ apply_overlay() {
 }
 
 # ============================================================================
-# Step 5: Create initramfs
+# Step 5: Create initramfs with custom init for live boot
 # ============================================================================
 create_initramfs() {
     log_info "Creating initramfs..."
@@ -329,25 +329,133 @@ create_initramfs() {
     
     log_info "Kernel version: ${KERNEL_VERSION}"
     
-    # Configure mkinitfs
+    # Configure mkinitfs with all needed features
+    mkdir -p "${ROOTFS}/etc/mkinitfs"
     cat > "${ROOTFS}/etc/mkinitfs/mkinitfs.conf" << 'EOF'
 features="ata base cdrom ext4 keymap kms lvm mmc nvme raid scsi squashfs usb virtio xfs"
 EOF
 
-    # Generate initramfs in chroot
-    # We need to mount required filesystems first
+    # Create custom initramfs overlay with our init script
+    INITRAMFS_OVERLAY="${WORK_DIR}/initramfs-overlay"
+    mkdir -p "${INITRAMFS_OVERLAY}"
+    
+    # Create our custom init script that will be appended to initramfs
+    cat > "${INITRAMFS_OVERLAY}/init-quantix" << 'INITEOF'
+#!/bin/sh
+# Quantix-OS Live Boot Init
+# This runs inside initramfs to set up the live environment
+
+export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+
+# Mount essential filesystems
+mount -t proc none /proc 2>/dev/null
+mount -t sysfs none /sys 2>/dev/null
+mount -t devtmpfs none /dev 2>/dev/null
+
+echo "Quantix-OS Boot..."
+
+# Load required modules
+modprobe loop 2>/dev/null
+modprobe squashfs 2>/dev/null
+modprobe overlay 2>/dev/null
+modprobe iso9660 2>/dev/null
+modprobe sr_mod 2>/dev/null
+modprobe sd_mod 2>/dev/null
+modprobe usb-storage 2>/dev/null
+
+sleep 2
+
+# Find the boot device (CD-ROM or USB)
+BOOT_DEV=""
+for dev in /dev/sr0 /dev/sr1 /dev/sda /dev/sdb /dev/sdc /dev/nvme0n1; do
+    if [ -b "$dev" ]; then
+        mkdir -p /cdrom
+        if mount -t iso9660 -o ro "$dev" /cdrom 2>/dev/null || \
+           mount -t vfat -o ro "$dev" /cdrom 2>/dev/null; then
+            if [ -f /cdrom/quantix/system-*.squashfs ]; then
+                BOOT_DEV="$dev"
+                echo "Found boot media: $dev"
+                break
+            fi
+            umount /cdrom 2>/dev/null
+        fi
+    fi
+done
+
+if [ -z "$BOOT_DEV" ]; then
+    echo "ERROR: Cannot find Quantix-OS boot media!"
+    echo "Dropping to emergency shell..."
+    exec /bin/sh
+fi
+
+# Mount the squashfs
+SQUASHFS=$(ls /cdrom/quantix/system-*.squashfs | head -1)
+echo "Mounting squashfs: $SQUASHFS"
+
+mkdir -p /squashfs /overlay/upper /overlay/work /newroot
+
+if ! mount -t squashfs -o ro,loop "$SQUASHFS" /squashfs; then
+    echo "ERROR: Failed to mount squashfs!"
+    exec /bin/sh
+fi
+
+# Create overlayfs for read-write layer
+if ! mount -t overlay overlay -o lowerdir=/squashfs,upperdir=/overlay/upper,workdir=/overlay/work /newroot; then
+    echo "ERROR: Failed to mount overlay!"
+    # Fallback to read-only
+    mount --bind /squashfs /newroot
+fi
+
+echo "Mounted root filesystem"
+
+# Move mounts to new root
+mkdir -p /newroot/cdrom /newroot/proc /newroot/sys /newroot/dev
+mount --move /cdrom /newroot/cdrom 2>/dev/null || true
+mount --move /proc /newroot/proc 2>/dev/null || true
+mount --move /sys /newroot/sys 2>/dev/null || true
+mount --move /dev /newroot/dev 2>/dev/null || true
+
+# Switch root
+echo "Switching to new root..."
+exec switch_root /newroot /sbin/init
+
+# Fallback
+echo "switch_root failed!"
+exec /bin/sh
+INITEOF
+    chmod +x "${INITRAMFS_OVERLAY}/init-quantix"
+
+    # Generate standard initramfs first
     mount --bind /dev "${ROOTFS}/dev"
     mount --bind /proc "${ROOTFS}/proc"
     mount --bind /sys "${ROOTFS}/sys"
     
     chroot "${ROOTFS}" mkinitfs -o "/boot/initramfs-${KERNEL_FLAVOR}" "${KERNEL_VERSION}" || true
     
-    # Unmount
     umount "${ROOTFS}/sys"
     umount "${ROOTFS}/proc"
     umount "${ROOTFS}/dev"
     
-    log_info "Initramfs created"
+    # Now append our custom init to the initramfs
+    # Extract the existing initramfs, add our script as init, and repack
+    INITRAMFS_WORK="${WORK_DIR}/initramfs-work"
+    mkdir -p "${INITRAMFS_WORK}"
+    cd "${INITRAMFS_WORK}"
+    
+    # Extract existing initramfs (it's gzipped cpio)
+    gunzip -c "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | cpio -idm 2>/dev/null || true
+    
+    # Replace init with our custom init
+    cp "${INITRAMFS_OVERLAY}/init-quantix" "${INITRAMFS_WORK}/init"
+    chmod +x "${INITRAMFS_WORK}/init"
+    
+    # Repack initramfs
+    find . | cpio -H newc -o 2>/dev/null | gzip -9 > "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}"
+    
+    cd /
+    rm -rf "${INITRAMFS_WORK}" "${INITRAMFS_OVERLAY}"
+    
+    log_info "Initramfs created with custom init"
 }
 
 # ============================================================================

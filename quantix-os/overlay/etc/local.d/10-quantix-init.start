@@ -1,0 +1,29 @@
+#!/bin/sh
+# ============================================================================
+# Quantix-OS Early Init
+# ============================================================================
+# This script runs at boot to set up the Quantix environment
+# ============================================================================
+
+# Log function
+log() {
+    echo "[QUANTIX] $1"
+}
+
+log "Quantix-OS starting..."
+
+# Ensure required directories exist
+mkdir -p /quantix /data /var/log/quantix
+
+# Check if running from squashfs (live mode)
+if grep -q "squashfs" /proc/mounts 2>/dev/null; then
+    log "Running in live/installer mode"
+fi
+
+# Set up hostname if not already set
+if [ ! -f /quantix/hostname ]; then
+    echo "quantix-node" > /etc/hostname
+    hostname quantix-node
+fi
+
+log "Early init complete"

@@ -117,6 +117,7 @@ set gfxpayload=keep
 insmod all_video
 insmod gfxterm
 insmod png
+insmod loopback
 
 # Set theme colors
 set color_normal=white/black
@@ -128,30 +129,20 @@ terminal_output gfxterm
 # Menu entries
 menuentry "Quantix-OS Installer" --class quantix {
     echo "Loading Quantix-OS..."
-    linux /boot/vmlinuz quiet modloop=/quantix/system-${VERSION}.squashfs modules=loop,squashfs console=tty0 quantix.mode=install
+    linux /boot/vmlinuz quiet
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS Installer (Serial Console)" --class quantix {
-    echo "Loading Quantix-OS (Serial)..."
-    linux /boot/vmlinuz modloop=/quantix/system-${VERSION}.squashfs modules=loop,squashfs console=ttyS0,115200n8 console=tty0 quantix.mode=install
+menuentry "Quantix-OS Installer (Verbose)" --class quantix {
+    echo "Loading Quantix-OS (Verbose)..."
+    linux /boot/vmlinuz
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS Live (RAM Mode - No Install)" --class quantix {
-    echo "Loading Quantix-OS Live..."
-    linux /boot/vmlinuz quiet modloop=/quantix/system-${VERSION}.squashfs modules=loop,squashfs console=tty0 quantix.mode=live
-    initrd /boot/initramfs
-}
-
-menuentry "Rescue Shell" --class rescue {
+menuentry "Rescue Shell (initramfs)" --class rescue {
     echo "Loading Rescue Shell..."
-    linux /boot/vmlinuz modloop=/quantix/system-${VERSION}.squashfs modules=loop,squashfs console=tty0 quantix.mode=rescue init=/bin/sh
+    linux /boot/vmlinuz rescue
     initrd /boot/initramfs
-}
-
-menuentry "Hardware Detection (memtest)" --class memtest {
-    linux16 /boot/memtest
 }
 EOF
 

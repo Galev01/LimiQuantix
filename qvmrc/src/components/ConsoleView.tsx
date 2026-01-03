@@ -38,6 +38,9 @@ interface FramebufferUpdate {
 
 type ScaleMode = 'fit' | 'fill' | '100%';
 
+// Connection state for overlay display
+type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+
 // Toast notification state
 interface Toast {
   id: string;
@@ -56,7 +59,7 @@ export function ConsoleView({
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [connected, setConnected] = useState(true);
+  const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
   const [mouseDown, setMouseDown] = useState(0);
   const [scaleMode, setScaleMode] = useState<ScaleMode>('fit');
@@ -377,20 +380,27 @@ export function ConsoleView({
 
     const unlistenDisconnect = listen<string>('vnc:disconnected', (event) => {
       if (event.payload === connectionId) {
-        setConnected(false);
+        setConnectionState('disconnected');
       }
     });
 
     const unlistenConnect = listen<{ connectionId: string; width: number; height: number }>(
       'vnc:connected',
       (event) => {
-        if (event.payload.connectionId === connectionId) {
-          const newWidth = event.payload.width;
-          const newHeight = event.payload.height;
-          
-          console.log(`[VNC] Connected event: ${newWidth}x${newHeight}`);
-          initializeCanvas(newWidth, newHeight);
+        // Accept connection events for this VM (original or reconnection)
+        // Note: On reconnect, we get a new connectionId
+        const newWidth = event.payload.width;
+        const newHeight = event.payload.height;
+        
+        console.log(`[VNC] Connected event: ${newWidth}x${newHeight}, id: ${event.payload.connectionId}`);
+        
+        // Show toast only on reconnection
+        if (connectionState === 'reconnecting') {
+          showToast('Reconnected to VM console', 'success');
         }
+        
+        setConnectionState('connected');
+        initializeCanvas(newWidth, newHeight);
       }
     );
 
@@ -432,6 +442,39 @@ export function ConsoleView({
     await stopIsoServer();
     onDisconnect();
   }, [connectionId, onDisconnect, stopIsoServer]);
+
+  // Handle reconnect - reconnects to the same VM
+  const handleReconnect = useCallback(async () => {
+    setConnectionState('reconnecting');
+    
+    try {
+      // Disconnect first if still connected
+      try {
+        await invoke('disconnect_vnc', { connectionId });
+      } catch (_) {
+        // Ignore disconnect errors
+      }
+      
+      // Small delay before reconnecting
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Connect again to the same VM using the control plane
+      // Note: This will create a new connectionId, but the vnc:connected event
+      // listener will pick it up and update the state
+      const newConnectionId = await invoke<string>('connect_vnc', {
+        controlPlaneUrl,
+        vmId,
+        password: null,
+      });
+      
+      console.log('[VNC] Reconnected with new connection ID:', newConnectionId);
+      // The vnc:connected event handler will show the success toast
+    } catch (err) {
+      console.error('Reconnect error:', err);
+      showToast(`Reconnection failed: ${err}`, 'error');
+      setConnectionState('disconnected');
+    }
+  }, [connectionId, controlPlaneUrl, vmId, showToast]);
 
   // Send Ctrl+Alt+Del
   const sendCtrlAltDel = useCallback(async () => {
@@ -805,12 +848,25 @@ export function ConsoleView({
           
           <div className="console-toolbar-vm-info">
             <span className="console-toolbar-vm-name">{vmName}</span>
-            {connected ? (
+            {connectionState === 'connected' && (
               <span className="console-toolbar-status console-toolbar-status-connected">
                 <span className="status-dot" />
                 Connected
               </span>
-            ) : (
+            )}
+            {connectionState === 'connecting' && (
+              <span className="console-toolbar-status console-toolbar-status-action">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Connecting...
+              </span>
+            )}
+            {connectionState === 'reconnecting' && (
+              <span className="console-toolbar-status console-toolbar-status-action">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Reconnecting...
+              </span>
+            )}
+            {connectionState === 'disconnected' && (
               <span className="console-toolbar-status console-toolbar-status-disconnected">
                 Disconnected
               </span>
@@ -850,7 +906,7 @@ export function ConsoleView({
                   <span>Power On</span>
                 </button>
                 <button
-                  onClick={() => handlePowerAction('shutdown')}
+                  onClick={() => handlePowerAction('stop')}
                   disabled={!!executingAction}
                   className={`dropdown-item ${executingAction ? 'dropdown-item-disabled' : ''}`}
                 >
@@ -866,7 +922,7 @@ export function ConsoleView({
                   <span>Restart Guest</span>
                 </button>
                 <button
-                  onClick={() => handlePowerAction('stop')}
+                  onClick={() => handlePowerAction('force_stop')}
                   disabled={!!executingAction}
                   className={`dropdown-item ${executingAction ? 'dropdown-item-disabled' : ''}`}
                 >
@@ -948,7 +1004,7 @@ export function ConsoleView({
       {/* Canvas viewport */}
       <div 
         ref={viewportRef}
-        className="flex-1 flex items-center justify-center overflow-hidden bg-black"
+        className="flex-1 flex items-center justify-center overflow-hidden bg-black relative"
       >
         <canvas
           ref={canvasRef}
@@ -971,6 +1027,39 @@ export function ConsoleView({
           onKeyUp={handleKeyUp}
           onContextMenu={(e) => e.preventDefault()}
         />
+        
+        {/* Connection overlay - shows during connecting/reconnecting/disconnected */}
+        {connectionState !== 'connected' && (
+          <div className="console-connection-overlay">
+            {(connectionState === 'connecting' || connectionState === 'reconnecting') && (
+              <>
+                <Loader2 className="w-12 h-12 animate-spin text-[var(--accent)]" />
+                <div className="console-overlay-title">
+                  {connectionState === 'reconnecting' ? 'Reconnecting to VM Console' : 'Connecting to VM Console'}
+                </div>
+                <div className="console-overlay-subtitle">
+                  {connectionState === 'reconnecting' ? 'Re-establishing connection...' : 'Establishing secure connection...'}
+                </div>
+              </>
+            )}
+            {connectionState === 'disconnected' && (
+              <>
+                <div className="console-overlay-error-icon">
+                  <X className="w-8 h-8" />
+                </div>
+                <div className="console-overlay-title">Disconnected</div>
+                <div className="console-overlay-subtitle">The console session has ended.</div>
+                <button 
+                  onClick={handleReconnect}
+                  className="btn btn-primary mt-4"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Retry Connection</span>
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Status bar - Enhanced */}
