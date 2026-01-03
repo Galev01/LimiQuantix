@@ -275,7 +275,7 @@ main() {
     echo ""
     echo "╔═══════════════════════════════════════════════════════════════╗"
     echo "║              QUANTIX-OS ISO BUILDER v${VERSION}                    ║"
-    echo "║                   The VMware Killer                           ║"
+    echo "║                   Quantix-HyperVisor                           ║"
     echo "╚═══════════════════════════════════════════════════════════════╝"
     echo ""
     

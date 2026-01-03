@@ -67,6 +67,7 @@ pub use storage::{
     VolumeAttachInfo,
     VolumeSource,
     DiskInfo,
+    LocalConfig,
     DEFAULT_STORAGE_PATH,
 };
 pub use network::{

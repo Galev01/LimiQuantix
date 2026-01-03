@@ -56,7 +56,7 @@ show_banner() {
      ▀▀                                                                         
 
                      QUANTIX-OS INSTALLER v1.0.0
-                       The VMware Killer
+                       Quantix-HyperVisor
 
 EOF
 }

@@ -6,7 +6,7 @@
 use anyhow::{anyhow, Context, Result};
 use limiquantix_proto::agent::{
     agent_message, AgentMessage, ExecuteRequest, ExecuteResponse, FileReadRequest,
-    FileReadResponse, FileWriteRequest, FileWriteResponse, PingRequest, PongResponse,
+    FileWriteRequest, PingRequest, PongResponse,
     QuiesceFilesystemsRequest, QuiesceFilesystemsResponse, ShutdownRequest, ShutdownResponse,
     SyncTimeRequest, SyncTimeResponse, TelemetryReport, ThawFilesystemsRequest,
     ThawFilesystemsResponse,
@@ -168,6 +168,8 @@ impl AgentClient {
             wait_for_exit: true,
             run_as_user: String::new(),
             max_output_bytes: 0,
+            run_as_group: String::new(),
+            include_supplementary_groups: true,
         })
         .await
     }
@@ -501,7 +503,7 @@ where
     // Read length prefix
     let mut len_buf = [0u8; 4];
     match reader.read_exact(&mut len_buf).await {
-        Ok(()) => {}
+        Ok(_) => {}
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
             return Ok(None);
         }
@@ -599,23 +601,24 @@ impl AgentManager {
         }
 
         let (telemetry_tx, mut telemetry_rx) = mpsc::channel::<TelemetryReport>(10);
-        let mut client = AgentClient::new(vm_id).with_telemetry_channel(telemetry_tx);
+        let vm_id_str = vm_id.to_string();
+        let mut client = AgentClient::new(&vm_id_str).with_telemetry_channel(telemetry_tx);
 
         if client.socket_exists() {
             client.connect().await?;
 
             // Forward telemetry to manager's channel
-            let vm_id = vm_id.to_string();
+            let vm_id_for_spawn = vm_id_str.clone();
             let manager_tx = self.telemetry_tx.clone();
             tokio::spawn(async move {
                 while let Some(report) = telemetry_rx.recv().await {
-                    if manager_tx.send((vm_id.clone(), report)).await.is_err() {
+                    if manager_tx.send((vm_id_for_spawn.clone(), report)).await.is_err() {
                         break;
                     }
                 }
             });
 
-            clients.insert(vm_id.to_string(), client);
+            clients.insert(vm_id_str, client);
         }
 
         Ok(())

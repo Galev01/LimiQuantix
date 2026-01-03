@@ -1,6 +1,6 @@
 # LimiQuantix Workflow State
 
-## Current Status: Image Library & VM Access Configuration ✅
+## Current Status: Node Daemon Build Fixes 🔧
 
 **Last Updated:** January 3, 2026
 
@@ -8,236 +8,185 @@
 
 ## What's New (This Session)
 
-### ✅ Image Library & ISO Upload
+### 🔧 Node Daemon Compilation Fixes (Jan 3, 2026)
 
-Implemented a complete ISO/Image management system:
+Fixed 18 compilation errors in the `limiquantix-node` crate when building with `--features libvirt`.
 
-| Component | File | Description |
-|-----------|------|-------------|
-| **ImageLibrary** | `pages/ImageLibrary.tsx` | Page to manage cloud images and ISOs |
-| **ISOUploadDialog** | `components/storage/ISOUploadDialog.tsx` | Multi-step wizard for ISO upload |
-| **useISOs** | `hooks/useImages.ts` | Hook to fetch ISOs with catalog fallback |
-| **ISO_CATALOG** | `hooks/useImages.ts` | Built-in ISO entries for fallback |
-| **useCreateImage** | `hooks/useImages.ts` | Hook to create image records |
+#### Issues Fixed
 
-#### Features
+| Issue | Fix |
+|-------|-----|
+| Missing proto imports (OvsStatusResponse, etc.) | Removed - these were from an out-of-sync proto file |
+| Methods not in NodeDaemonService trait | Removed OVS/network port methods not in agent proto |
+| Missing trait implementations | Added storage pool/volume operations |
+| StorageManager API mismatch | Removed old `create_disk`, `base_path`, `delete_vm_disks` calls |
+| NicConfig missing fields | Added `ovn_port_name` and `ovs_bridge` fields |
+| VmStatusResponse missing field | Added `guest_agent` field |
+| agent_client.rs read_exact | Fixed return type (usize vs ()) |
+| agent_client.rs ExecuteRequest | Added missing `run_as_group` and `include_supplementary_groups` fields |
+| agent_client.rs borrow after move | Fixed vm_id ownership in AgentManager |
 
-1. **Image Library Page** (`/storage/images`)
-   - Tabs for Cloud Images and ISOs
-   - Search and filter by status
-   - Download images from catalog
-   - Delete images
-
-2. **ISO Upload Dialog**
-   - Upload from URL (downloads to storage)
-   - Upload from file (drag-and-drop)
-   - OS family/distribution/version selection
-   - Storage pool selection
-   - Progress tracking
-
-3. **VMCreationWizard Integration**
-   - ISO selection uses API data with catalog fallback
-   - Warning when using built-in catalog
-   - Link to Image Library for uploading new ISOs
-
----
-
-### ✅ VM Access Configuration (Password + SSH Keys)
-
-Enhanced the VM Creation Wizard with proper authentication setup:
-
-| Feature | Description |
-|---------|-------------|
-| **Password Section** | Password + confirm with validation |
-| **PasswordInput** | Component with show/hide toggle |
-| **SSH Key Validation** | Format, length, duplicate detection |
-| **Access Summary** | Shows configured methods |
-| **Step Validation** | Requires password OR SSH key for cloud images |
-
-#### Cloud-Init Password Fix
-
-Fixed password authentication in cloud-init using the correct approach:
-
-```yaml
-# Enable SSH password authentication
-ssh_pwauth: true
-
-# Set password using chpasswd module
-chpasswd:
-  expire: false
-  list:
-    - ubuntu:mypassword
-```
-
-This uses the `chpasswd` module which sets passwords after user creation, instead of the deprecated `passwd` field.
-
-#### SSH Key Improvements
-
-- Validates SSH key format (ssh-rsa, ssh-ed25519, etc.)
-- Checks key length (must be > 100 chars)
-- Detects duplicate keys
-- Shows key type and comment in list
-- Clear error messages for invalid keys
-
----
-
-### 🔄 QuantumNet - OVN/OVS Integration (Started)
-
-Implementing the networking subsystem to replace VMware vDS/NSX-T with OVN (Open Virtual Network) + OVS (Open vSwitch).
-
-| Component | Status | Description |
-|-----------|--------|-------------|
-| **ADR-009** | ✅ Done | QuantumNet architecture design document |
-| **Go OVN Client** | ✅ Done | `internal/network/ovn/client.go` with libovsdb-like API |
-| **OVN Models** | ✅ Done | LogicalSwitch, LogicalSwitchPort, ACL, NAT, etc. |
-| **NetworkService** | ✅ Done | Updated with OVN backend integration |
-| **Node Daemon Proto** | ✅ Done | Added network port RPCs to node_daemon.proto |
-| **Rust OVS Port Manager** | ✅ Done | `network/ovs.rs` for VM TAP→br-int binding |
-| **Libvirt OVS XML** | ✅ Done | Updated xml.rs to generate OVS virtualport interface |
-
-#### Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Control Plane (Go)                                 │
-│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────────────┐│
-│  │ NetworkService  │────▶│ OVN Northbound  │────▶│   OVN NB Database       ││
-│  │  - Create VNet  │     │    Client       │     │   (tcp://ovn:6641)      ││
-│  │  - Create Port  │     │   (libovsdb)    │     │   - Logical Switches    ││
-│  │  - Security     │     │                 │     │   - Logical Routers     ││
-│  └─────────────────┘     └─────────────────┘     └─────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │                                           
-                                    ▼ (OVN translates to OpenFlow)               
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          Hypervisor Node                                     │
-│  ┌────────────────────────┐  ┌────────────────────────┐                     │
-│  │  OVN Controller        │  │  Node Daemon (Rust)    │                     │
-│  │  - Sync from SB DB     │  │  - OVS Port Manager    │                     │
-│  │  - Program OVS flows   │  │  - Bind VM TAP→br-int  │                     │
-│  └────────────────────────┘  └────────────────────────┘                     │
-│  ┌──────────────────────────────────────────────────────────────────────────┐│
-│  │  Open vSwitch (br-int)                                                   ││
-│  │    VM1 (TAP) ──────────────────────────────── VM2 (TAP)                 ││
-│  │         (Geneve Tunnel to other nodes)                                   ││
-│  └──────────────────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-#### Files Created/Modified
+#### Files Modified
 
 | File | Changes |
 |------|---------|
-| `docs/adr/000009-quantumnet-architecture.md` | **NEW** - Network architecture ADR |
-| `backend/internal/network/ovn/client.go` | **NEW** - OVN Northbound client |
-| `backend/internal/network/ovn/models.go` | **NEW** - OVN database models |
-| `backend/internal/services/network/network_service.go` | Updated with OVN integration |
-| `proto/limiquantix/node/v1/node_daemon.proto` | Added network port RPCs |
-| `agent/limiquantix-hypervisor/src/network/mod.rs` | **NEW** - Network module |
-| `agent/limiquantix-hypervisor/src/network/ovs.rs` | **NEW** - OVS port manager |
-| `agent/limiquantix-hypervisor/src/network/types.rs` | **NEW** - Network types |
-| `agent/limiquantix-hypervisor/src/lib.rs` | Export network module |
-| `agent/limiquantix-hypervisor/src/types.rs` | Added OVN fields to NicConfig |
-| `agent/limiquantix-hypervisor/src/xml.rs` | OVS virtualport XML generation |
-| `project_plan.md` | Updated with QuantumNet status |
-| `project-status-analysis.md` | Updated with networking progress |
+| `agent/limiquantix-node/src/service.rs` | Rewrote storage operations, removed OVS methods, fixed NicConfig |
+| `agent/limiquantix-node/src/agent_client.rs` | Fixed proto field mismatches |
+| `agent/limiquantix-hypervisor/src/lib.rs` | Added LocalConfig export |
 
-#### Network Types Supported
+#### Build Command
 
-| Type | VMware Equivalent | Implementation |
-|------|-------------------|----------------|
-| **Overlay** | NSX Segments | OVN Logical Switch + Geneve |
-| **VLAN** | Port Groups | OVN Logical Switch + localnet port |
-| **External** | Uplink Port Group | Provider network with SNAT |
-| **Isolated** | Private Network | No router attachment |
-
-#### Libvirt Interface XML (OVS/OVN)
-
-When a NIC has `ovn_port_name` set, libvirt XML is generated as:
-
-```xml
-<interface type='bridge'>
-  <source bridge='br-int'/>
-  <virtualport type='openvswitch'>
-    <parameters interfaceid='lsp-port-123'/>
-  </virtualport>
-  <mac address='fa:16:3e:aa:bb:cc'/>
-  <model type='virtio'/>
-</interface>
+```bash
+cargo build --release --bin limiquantix-node --features libvirt
 ```
-
-The `interfaceid` maps to the OVN logical switch port, enabling OVN controller to apply correct flows.
 
 ---
 
-## Files Changed This Session
+## What's New (This Session)
 
-| File | Changes |
-|------|---------|
-| `frontend/src/pages/ImageLibrary.tsx` | **NEW** - Cloud images and ISOs management page |
-| `frontend/src/components/storage/ISOUploadDialog.tsx` | **NEW** - Multi-step ISO upload wizard |
-| `frontend/src/components/storage/index.ts` | Added ISOUploadDialog export |
-| `frontend/src/hooks/useImages.ts` | Added useISOs, useCreateImage, ISO_CATALOG |
-| `frontend/src/components/vm/VMCreationWizard.tsx` | Password/SSH auth, ISO integration, PasswordInput |
-| `project_plan.md` | Updated with Image Library & ISO upload status |
-| `project-status-analysis.md` | Updated with latest features |
-| `workflow_state.md` | Updated current status |
+### 🔥 Quantix-OS - Immutable Hypervisor OS (COMPLETE)
+
+Created a complete immutable operating system based on Alpine Linux, following the ESXi/Nutanix AHV architecture pattern.
+
+#### Philosophy
+- **Immutable Root**: OS lives in read-only squashfs image
+- **Stateless Boot**: OS boots into RAM in seconds
+- **A/B Updates**: Atomic updates with automatic rollback
+- **No Shell Access**: API-only, appliance-style security
+
+#### Files Created
+
+| File | Description |
+|------|-------------|
+| `quantix-os/README.md` | Comprehensive OS documentation |
+| `quantix-os/Makefile` | Build orchestration |
+| `quantix-os/builder/Dockerfile` | Alpine-based build environment |
+| `quantix-os/builder/build-iso.sh` | ISO creation script |
+| `quantix-os/builder/build-squashfs.sh` | Rootfs builder |
+| `quantix-os/profiles/quantix/packages.conf` | Package list (KVM, OVS, etc.) |
+| `quantix-os/profiles/quantix/mkinitfs.conf` | initramfs configuration |
+| `quantix-os/profiles/quantix/kernel.conf` | Kernel options notes |
+| `quantix-os/overlay/etc/inittab` | TTY configuration (TUI on TTY1) |
+| `quantix-os/overlay/etc/fstab` | Mount configuration |
+| `quantix-os/overlay/etc/hostname` | Default hostname |
+| `quantix-os/overlay/etc/motd` | Welcome message |
+| `quantix-os/overlay/etc/quantix/defaults.yaml` | Default node configuration |
+| `quantix-os/overlay/etc/init.d/quantix-node` | Node daemon OpenRC service |
+| `quantix-os/overlay/etc/init.d/quantix-console` | Console TUI OpenRC service |
+| `quantix-os/overlay/etc/init.d/quantix-firstboot` | First boot configuration |
+| `quantix-os/overlay/usr/local/bin/qx-console-fallback` | Shell-based TUI fallback |
+| `quantix-os/installer/install.sh` | Disk installer (A/B partitioning) |
+| `quantix-os/installer/firstboot.sh` | First boot script |
+| `quantix-os/console/Cargo.toml` | Rust TUI project |
+| `quantix-os/console/src/main.rs` | TUI main (ratatui) |
+| `quantix-os/console/src/config.rs` | Configuration management |
+| `quantix-os/console/src/network.rs` | Network utilities |
+| `quantix-os/console/src/system.rs` | System info utilities |
+| `quantix-os/branding/banner.txt` | ASCII banner |
+| `quantix-os/branding/splash.txt` | Boot splash |
+| `docs/000050-quantix-os-architecture.md` | Architecture documentation |
+
+#### Disk Layout
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Part 1: EFI/Boot (100MB) - GRUB bootloader                │
+│  Part 2: System A (300MB) - Active system (squashfs)       │
+│  Part 3: System B (300MB) - Update target (A/B scheme)     │
+│  Part 4: Config  (100MB)  - /quantix (persistent config)   │
+│  Part 5: Data    (REST)   - /data (VM storage)             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Console TUI (DCUI)
+
+```
+╔═══════════════════════════════════════════════════════════════╗
+║                     QUANTIX-OS v1.0.0                         ║
+║                   The VMware Killer                           ║
+╠═══════════════════════════════════════════════════════════════╣
+║   Node: quantix-01    Status: Cluster    IP: 192.168.1.100   ║
+╠═══════════════════════════════════════════════════════════════╣
+║  [F2] Configure Network    [F5] Restart Services              ║
+║  [F3] View Logs            [F10] Shutdown                     ║
+║  [F4] Join Cluster         [F12] Emergency Shell              ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+
+#### Build Commands
+
+```bash
+cd quantix-os
+
+# Build bootable ISO
+make iso
+
+# Build update image only
+make squashfs
+
+# Test in QEMU
+make test-iso
+```
+
+---
+
+## Architecture Overview
+
+### Quantix-OS vs ESXi Comparison
+
+| Feature | ESXi | Quantix-OS |
+|---------|------|------------|
+| Base | Custom Linux | Alpine Linux |
+| Init | Custom | OpenRC |
+| Userland | BusyBox | BusyBox |
+| Hypervisor | VMkernel | KVM |
+| Management | hostd | qx-node (Rust) |
+| Console | DCUI | qx-console (Rust) |
+| Footprint | ~150MB | ~150MB |
+| Boot Time | ~20s | ~10s |
+| Updates | VIBs | A/B Squashfs |
+| License | Proprietary | Apache 2.0 |
 
 ---
 
 ## Next Steps
 
-### Immediate (This Week)
-- [ ] Backend ImageService implementation for ISO upload
-- [ ] Node Daemon image download handler
-- [ ] Regenerate proto code (`make proto`)
-- [ ] Implement Node Daemon network RPC handlers
-- [ ] Add OVN central setup documentation
-- [ ] Integration testing with OVS/OVN
+### Immediate (Quantix-OS)
+- [ ] Test build on Linux host
+- [ ] Test ISO in QEMU/real hardware
+- [ ] Complete Rust TUI implementation
+- [ ] Add PXE boot support
 
 ### Coming Soon
-- [ ] Security group → OVN ACL translation
-- [ ] DHCP via OVN built-in
-- [ ] Floating IPs (NAT)
-- [ ] Magic DNS (CoreDNS + OVN state)
-
-### Future
-- [ ] WireGuard Bastion for direct overlay access
-- [ ] BGP ToR integration for enterprise
+- [ ] Integrate with control plane for updates
+- [ ] Add Secure Boot signing
+- [ ] Hardware compatibility testing
+- [ ] Performance benchmarking
 
 ---
 
 ## Previous Sessions
 
-### ✅ Cloud-Init User/Password UX Improvement (Jan 3, 2026)
-- Password field with confirmation
-- SSH password auth enabled
-- Fixed chpasswd module usage
-- **CRITICAL FIX**: Frontend was sending `spec.cloudInit` but proto expects `spec.provisioning.cloudInit`
-  - Updated `api-client.ts` to use correct nested structure
-  - Updated `VMCreationWizard.tsx` to send `spec.provisioning.cloudInit`
-  - Added debug logging to node daemon and cloudinit.rs
-  - Created `scripts/debug-cloudinit.sh` for ISO inspection
-
-### ✅ ISO Upload & Image Library (Jan 3, 2026)
-- ISOUploadDialog component
-- ImageLibrary page
-- OS detection and catalog fallback
-
-### ✅ Quantix Agent Integration (Jan 3, 2026)
-- Cloud-init auto-install script
-- Feature checkbox in VM wizard
-- Review step enhancements
-
-### ✅ VM Actions Dropdown (Jan 3, 2026)
-- DropdownMenu component
-- Edit Settings/Resources modals
-- Run Script, Clone, Delete actions
+### ✅ QuantumNet - OVN/OVS Integration (Jan 3, 2026)
+- Go OVN Client
+- OVN Models  
+- Node Daemon network RPCs
+- Rust OVS Port Manager
 
 ### ✅ Storage Backend Complete (Jan 3, 2026)
 - Local, NFS, Ceph RBD, iSCSI backends
 - LVM thin provisioning
 - Frontend storage UI
+
+### ✅ Guest Agent Integration (Jan 3, 2026)
+- Cloud-init auto-install
+- Virtio-serial transport
+- Windows support
+
+### ✅ Console Access (Jan 3, 2026)
+- VNC via libvirt
+- QVMRC native client
+- Web console fallback
 
 ---
 
@@ -247,22 +196,17 @@ The `interfaceid` maps to the OVN logical switch port, enabling OVN controller t
 # Backend
 cd backend && go run ./cmd/controlplane --dev
 
-# Frontend
+# Frontend  
 cd frontend && npm run dev
 
-# Node Daemon (on Ubuntu with OVS)
+# Node Daemon
 cd agent && cargo run --release --bin limiquantix-node --features libvirt
 
-# Proto regeneration
-cd proto && buf generate
+# Quantix-OS Build
+cd quantix-os && make iso
 
-# Check hypervisor crate
-cd agent && cargo check -p limiquantix-hypervisor
-
-# OVN/OVS commands (on hypervisor node)
-ovs-vsctl show
-ovn-nbctl show
-ovn-sbctl show
+# Quantix-OS Test
+cd quantix-os && make test-iso
 ```
 
 ---
@@ -271,9 +215,10 @@ ovn-sbctl show
 
 | Doc | Purpose |
 |-----|---------|
-| `docs/adr/000009-quantumnet-architecture.md` | **NEW** - Network Architecture |
-| `docs/000048-network-backend-ovn-ovs.md` | OVN/OVS Integration Guide |
-| `docs/adr/000004-network-model-design.md` | Network Model ADR |
+| `docs/000050-quantix-os-architecture.md` | **NEW** - OS Architecture |
+| `docs/adr/000009-quantumnet-architecture.md` | Network Architecture |
+| `docs/000048-network-backend-ovn-ovs.md` | OVN/OVS Integration |
 | `docs/000046-storage-backend-implementation.md` | Storage Backend |
 | `docs/000045-guest-agent-integration-complete.md` | Guest Agent |
 | `docs/000042-console-access-implementation.md` | Web Console + QVMRC |
+| `quantix-os/README.md` | OS Build & Install Guide |

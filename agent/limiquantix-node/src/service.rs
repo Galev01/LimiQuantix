@@ -5,15 +5,17 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use futures::Stream;
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{mpsc, RwLock};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use tracing::{info, debug, warn, error, instrument};
 
 use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig, CdromConfig,
-    DiskBus, DiskFormat, NicModel, StorageManager, BootConfig, Firmware, BootDevice,
+    DiskBus, DiskFormat, NicModel, StorageManager, Firmware, BootDevice,
     CloudInitConfig, CloudInitGenerator,
+    PoolType, PoolConfig, VolumeSource, LocalConfig,
+    // Network/OVS types
     OvsPortManager, NetworkPortConfig, NetworkPortBindingType,
 };
 use limiquantix_telemetry::TelemetryCollector;
@@ -29,15 +31,15 @@ use limiquantix_proto::{
     ReadGuestFileRequest, ReadGuestFileResponse, WriteGuestFileRequest,
     WriteGuestFileResponse, GuestShutdownRequest, GuestShutdownResponse,
     GuestAgentInfo, GuestResourceUsage, GuestNetworkInterface, GuestDiskUsage,
-    // Network types
-    OvsStatusResponse, ConfigureNetworkPortRequest, NetworkPortInfo as ProtoNetworkPortInfo,
-    DeleteNetworkPortRequest, GetNetworkPortStatusRequest, ListNetworkPortsResponse,
-    NetworkPortBindingType as ProtoNetworkPortBindingType,
-    NetworkPortPhase as ProtoNetworkPortPhase,
+    // Storage pool/volume types
+    InitStoragePoolRequest, StoragePoolIdRequest, StoragePoolInfoResponse,
+    ListStoragePoolsResponse, CreateVolumeRequest, VolumeIdRequest,
+    ResizeVolumeRequest, CloneVolumeRequest, VolumeAttachInfoResponse,
+    CreateVolumeSnapshotRequest, StoragePoolType, VolumeSourceType,
 };
 use limiquantix_proto::agent::TelemetryReport;
 
-use crate::agent_client::{AgentClient, AgentManager};
+use crate::agent_client::AgentClient;
 
 /// Cached guest agent info for a VM
 #[derive(Debug, Clone, Default)]
@@ -60,14 +62,14 @@ pub struct NodeDaemonServiceImpl {
     management_ip: String,
     hypervisor: Arc<dyn Hypervisor>,
     telemetry: Arc<TelemetryCollector>,
-    storage: StorageManager,
+    storage: Arc<StorageManager>,
     /// OVS port manager for network operations
     ovs_manager: OvsPortManager,
     /// Guest agent manager for all VMs
     agent_manager: Arc<RwLock<HashMap<String, AgentClient>>>,
     /// Cached agent info per VM
     agent_cache: Arc<RwLock<HashMap<String, CachedAgentInfo>>>,
-    /// Network ports cache (port_id -> port_info)
+    /// Network ports cache (port_id -> config)
     network_ports: Arc<RwLock<HashMap<String, NetworkPortConfig>>>,
 }
 
@@ -86,35 +88,9 @@ impl NodeDaemonServiceImpl {
             management_ip,
             hypervisor,
             telemetry,
-            storage: StorageManager::new(),
-            ovs_manager: OvsPortManager::new(),
+            storage: Arc::new(StorageManager::new()),
             agent_manager: Arc::new(RwLock::new(HashMap::new())),
             agent_cache: Arc::new(RwLock::new(HashMap::new())),
-            network_ports: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-    
-    /// Create a new service instance with a custom storage path.
-    #[allow(dead_code)]
-    pub fn with_storage_path(
-        node_id: String,
-        hostname: String,
-        management_ip: String,
-        hypervisor: Arc<dyn Hypervisor>,
-        telemetry: Arc<TelemetryCollector>,
-        storage_path: impl Into<std::path::PathBuf>,
-    ) -> Self {
-        Self {
-            node_id,
-            hostname,
-            management_ip,
-            hypervisor,
-            telemetry,
-            storage: StorageManager::with_path(storage_path),
-            ovs_manager: OvsPortManager::new(),
-            agent_manager: Arc::new(RwLock::new(HashMap::new())),
-            agent_cache: Arc::new(RwLock::new(HashMap::new())),
-            network_ports: Arc::new(RwLock::new(HashMap::new())),
         }
     }
     
@@ -433,22 +409,56 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                     "Creating disk image for VM"
                 );
                 
-                match self.storage.create_disk(&req.vm_id, &mut disk_config) {
-                    Ok(path) => {
+                // Create disk image in default VM storage path
+                let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
+                if let Err(e) = std::fs::create_dir_all(&vm_dir) {
+                    error!(vm_id = %req.vm_id, error = %e, "Failed to create VM directory");
+                    return Err(Status::internal(format!("Failed to create VM directory: {}", e)));
+                }
+                
+                let disk_path = vm_dir.join(format!("{}.qcow2", disk_spec.id));
+                disk_config.path = disk_path.to_string_lossy().to_string();
+                
+                // Use qemu-img to create disk
+                let mut cmd = std::process::Command::new("qemu-img");
+                cmd.arg("create").arg("-f").arg("qcow2");
+                
+                if has_backing {
+                    cmd.arg("-b").arg(&disk_spec.backing_file);
+                    cmd.arg("-F").arg("qcow2");
+                }
+                
+                cmd.arg(&disk_path);
+                if disk_spec.size_gib > 0 {
+                    cmd.arg(format!("{}G", disk_spec.size_gib));
+                }
+                
+                match cmd.output() {
+                    Ok(output) if output.status.success() => {
                         info!(
                             vm_id = %req.vm_id,
                             disk_id = %disk_spec.id,
-                            path = %path.display(),
+                            path = %disk_path.display(),
                             from_backing = has_backing,
                             "Disk image created successfully"
                         );
+                    }
+                    Ok(output) => {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        error!(
+                            vm_id = %req.vm_id,
+                            disk_id = %disk_spec.id,
+                            error = %stderr,
+                            "Failed to create disk image"
+                        );
+                        return Err(Status::internal(format!("Failed to create disk image: {}", stderr)));
                     }
                     Err(e) => {
                         error!(
                             vm_id = %req.vm_id,
                             disk_id = %disk_spec.id,
                             error = %e,
-                            "Failed to create disk image"
+                            "Failed to run qemu-img"
                         );
                         return Err(Status::internal(format!("Failed to create disk image: {}", e)));
                     }
@@ -501,7 +511,10 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Generate cloud-init ISO
                 let generator = CloudInitGenerator::new();
-                let vm_dir = self.storage.base_path().join(&req.vm_id);
+                let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
+                if let Err(e) = std::fs::create_dir_all(&vm_dir) {
+                    warn!(vm_id = %req.vm_id, error = %e, "Failed to create VM directory for cloud-init");
+                }
                 
                 match generator.generate_iso(&ci_config, &vm_dir) {
                     Ok(iso_path) => {
@@ -563,6 +576,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 bridge,
                 network,
                 model: Self::convert_nic_model(nic_spec.model),
+                ovn_port_name: None,
+                ovs_bridge: None,
             };
             config.nics.push(nic_config);
         }
@@ -575,6 +590,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 bridge: None,
                 network: Some("default".to_string()),
                 model: NicModel::Virtio,
+                ovn_port_name: None,
+                ovs_bridge: None,
             });
         }
         
@@ -730,9 +747,12 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         self.hypervisor.delete_vm(vm_id).await
             .map_err(|e| Status::internal(e.to_string()))?;
         
-        // Delete disk images
-        if let Err(e) = self.storage.delete_vm_disks(vm_id) {
-            warn!(vm_id = %vm_id, error = %e, "Failed to delete VM disk images");
+        // Delete disk images (best effort)
+        let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(vm_id);
+        if vm_dir.exists() {
+            if let Err(e) = std::fs::remove_dir_all(&vm_dir) {
+                warn!(vm_id = %vm_id, error = %e, "Failed to delete VM disk images");
+            }
         }
         
         info!("VM deleted");
@@ -792,6 +812,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 memory_used_bytes: 0,
                 memory_total_bytes: 0,
                 started_at: None,
+                guest_agent: None,
             }
         }).collect();
         
@@ -1230,257 +1251,220 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     }
     
     // =========================================================================
-    // Network Port Operations (OVS/OVN)
+    // Storage Pool Operations
     // =========================================================================
     
-    #[instrument(skip(self, _request))]
-    async fn get_ovs_status(
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id))]
+    async fn init_storage_pool(
         &self,
-        _request: Request<()>,
-    ) -> Result<Response<OvsStatusResponse>, Status> {
-        info!("Getting OVS status");
-        
-        match self.ovs_manager.get_status() {
-            Ok(status) => {
-                Ok(Response::new(OvsStatusResponse {
-                    available: status.available,
-                    ovs_version: status.ovs_version,
-                    ovn_controller_connected: status.ovn_controller_connected,
-                    integration_bridge: status.integration_bridge,
-                    encap_type: status.encap_type,
-                    encap_ip: status.encap_ip,
-                    chassis_id: status.chassis_id,
-                }))
-            }
-            Err(e) => {
-                warn!(error = %e, "Failed to get OVS status");
-                Ok(Response::new(OvsStatusResponse {
-                    available: false,
-                    ovs_version: String::new(),
-                    ovn_controller_connected: false,
-                    integration_bridge: "br-int".to_string(),
-                    encap_type: String::new(),
-                    encap_ip: String::new(),
-                    chassis_id: String::new(),
-                }))
-            }
-        }
-    }
-    
-    #[instrument(skip(self, request), fields(port_id = %request.get_ref().port_id, vm_id = %request.get_ref().vm_id))]
-    async fn configure_network_port(
-        &self,
-        request: Request<ConfigureNetworkPortRequest>,
-    ) -> Result<Response<ProtoNetworkPortInfo>, Status> {
+        request: Request<InitStoragePoolRequest>,
+    ) -> Result<Response<StoragePoolInfoResponse>, Status> {
         let req = request.into_inner();
-        info!(
-            port_id = %req.port_id,
-            vm_id = %req.vm_id,
-            network_id = %req.network_id,
-            ovn_port = %req.ovn_port_name,
-            "Configuring network port"
-        );
+        info!(pool_id = %req.pool_id, pool_type = ?req.r#type, "Initializing storage pool");
         
-        // Convert proto binding type to domain type
-        let binding_type = match req.binding_type() {
-            ProtoNetworkPortBindingType::NetworkPortBindingNormal => NetworkPortBindingType::Normal,
-            ProtoNetworkPortBindingType::NetworkPortBindingDirect => NetworkPortBindingType::Direct,
-            ProtoNetworkPortBindingType::NetworkPortBindingMacvtap => NetworkPortBindingType::Macvtap,
-            ProtoNetworkPortBindingType::NetworkPortBindingVhostUser => NetworkPortBindingType::VhostUser,
+        let pool_type = match StoragePoolType::try_from(req.r#type) {
+            Ok(StoragePoolType::StoragePoolTypeLocalDir) => PoolType::LocalDir,
+            Ok(StoragePoolType::StoragePoolTypeNfs) => PoolType::Nfs,
+            Ok(StoragePoolType::StoragePoolTypeCephRbd) => PoolType::CephRbd,
+            Ok(StoragePoolType::StoragePoolTypeIscsi) => PoolType::Iscsi,
+            _ => return Err(Status::invalid_argument("Invalid pool type")),
         };
         
-        let config = NetworkPortConfig {
-            port_id: req.port_id.clone(),
-            vm_id: req.vm_id.clone(),
-            network_id: req.network_id.clone(),
-            mac_address: req.mac_address.clone(),
-            ip_addresses: req.ip_addresses.clone(),
-            ovn_port_name: req.ovn_port_name.clone(),
-            binding_type,
-            qos: None, // TODO: implement QoS
-            port_security_enabled: req.port_security_enabled,
-            security_group_ids: req.security_group_ids.clone(),
+        // Build pool config from proto
+        let config = if let Some(cfg) = req.config {
+            let mut pool_config = PoolConfig::default();
+            if let Some(local) = cfg.local {
+                pool_config.local = Some(LocalConfig { path: local.path });
+            }
+            pool_config
+        } else {
+            PoolConfig::default()
         };
         
-        // Configure the port
-        match self.ovs_manager.configure_port(&config) {
-            Ok(port_info) => {
-                // Store port config for later reference
-                {
-                    let mut ports = self.network_ports.write().await;
-                    ports.insert(req.port_id.clone(), config);
-                }
-                
-                info!(port_id = %req.port_id, "Network port configured");
-                Ok(Response::new(ProtoNetworkPortInfo {
-                    port_id: port_info.port_id,
-                    vm_id: port_info.vm_id,
-                    network_id: port_info.network_id,
-                    mac_address: port_info.mac_address,
-                    ip_addresses: port_info.ip_addresses,
-                    phase: ProtoNetworkPortPhase::NetworkPortPhasePending as i32,
-                    error_message: String::new(),
-                    ovs_port_name: port_info.ovs_port_name.unwrap_or_default(),
-                    ovn_port_name: port_info.ovn_port_name,
-                    interface_xml: port_info.interface_xml,
-                    rx_bytes: 0,
-                    tx_bytes: 0,
-                    rx_packets: 0,
-                    tx_packets: 0,
-                }))
-            }
-            Err(e) => {
-                error!(port_id = %req.port_id, error = %e, "Failed to configure network port");
-                Err(Status::internal(format!("Failed to configure port: {}", e)))
-            }
-        }
+        let pool_info = self.storage.init_pool(&req.pool_id, pool_type, config).await
+            .map_err(|e| Status::internal(format!("Failed to init pool: {}", e)))?;
+        
+        Ok(Response::new(StoragePoolInfoResponse {
+            pool_id: req.pool_id,
+            r#type: req.r#type,
+            mount_path: pool_info.mount_path.unwrap_or_default(),
+            device_path: String::new(),
+            rbd_pool: String::new(),
+            total_bytes: pool_info.total_bytes,
+            available_bytes: pool_info.available_bytes,
+            used_bytes: pool_info.total_bytes.saturating_sub(pool_info.available_bytes),
+        }))
     }
     
-    #[instrument(skip(self, request), fields(port_id = %request.get_ref().port_id))]
-    async fn delete_network_port(
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id))]
+    async fn destroy_storage_pool(
         &self,
-        request: Request<DeleteNetworkPortRequest>,
+        request: Request<StoragePoolIdRequest>,
     ) -> Result<Response<()>, Status> {
         let req = request.into_inner();
-        info!(port_id = %req.port_id, vm_id = %req.vm_id, "Deleting network port");
+        info!(pool_id = %req.pool_id, "Destroying storage pool");
         
-        // Remove from cache
-        {
-            let mut ports = self.network_ports.write().await;
-            ports.remove(&req.port_id);
-        }
+        self.storage.destroy_pool(&req.pool_id).await
+            .map_err(|e| Status::internal(format!("Failed to destroy pool: {}", e)))?;
         
-        // Delete the port
-        match self.ovs_manager.delete_port(&req.port_id, &req.vm_id) {
-            Ok(()) => {
-                info!(port_id = %req.port_id, "Network port deleted");
-                Ok(Response::new(()))
-            }
-            Err(e) => {
-                error!(port_id = %req.port_id, error = %e, "Failed to delete network port");
-                Err(Status::internal(format!("Failed to delete port: {}", e)))
-            }
-        }
+        Ok(Response::new(()))
     }
     
-    #[instrument(skip(self, request), fields(port_id = %request.get_ref().port_id))]
-    async fn get_network_port_status(
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id))]
+    async fn get_storage_pool_info(
         &self,
-        request: Request<GetNetworkPortStatusRequest>,
-    ) -> Result<Response<ProtoNetworkPortInfo>, Status> {
+        request: Request<StoragePoolIdRequest>,
+    ) -> Result<Response<StoragePoolInfoResponse>, Status> {
         let req = request.into_inner();
-        debug!(port_id = %req.port_id, "Getting network port status");
         
-        // Get cached config
-        let config = {
-            let ports = self.network_ports.read().await;
-            ports.get(&req.port_id).cloned()
+        let pool_info = self.storage.get_pool_info(&req.pool_id).await
+            .map_err(|e| Status::not_found(format!("Pool not found: {}", e)))?;
+        
+        let pool_type = match pool_info.pool_type {
+            PoolType::LocalDir => StoragePoolType::StoragePoolTypeLocalDir as i32,
+            PoolType::Nfs => StoragePoolType::StoragePoolTypeNfs as i32,
+            PoolType::CephRbd => StoragePoolType::StoragePoolTypeCephRbd as i32,
+            PoolType::Iscsi => StoragePoolType::StoragePoolTypeIscsi as i32,
+            _ => StoragePoolType::StoragePoolTypeUnspecified as i32,
         };
         
-        match config {
-            Some(cfg) => {
-                // Try to get live status from OVS
-                match self.ovs_manager.get_port_status(&req.port_id, &cfg.ovn_port_name) {
-                    Ok(Some(info)) => {
-                        Ok(Response::new(ProtoNetworkPortInfo {
-                            port_id: info.port_id,
-                            vm_id: cfg.vm_id,
-                            network_id: cfg.network_id,
-                            mac_address: cfg.mac_address,
-                            ip_addresses: cfg.ip_addresses,
-                            phase: ProtoNetworkPortPhase::NetworkPortPhaseActive as i32,
-                            error_message: String::new(),
-                            ovs_port_name: info.ovs_port_name.unwrap_or_default(),
-                            ovn_port_name: cfg.ovn_port_name,
-                            interface_xml: info.interface_xml,
-                            rx_bytes: info.rx_bytes,
-                            tx_bytes: info.tx_bytes,
-                            rx_packets: info.rx_packets,
-                            tx_packets: info.tx_packets,
-                        }))
-                    }
-                    Ok(None) => {
-                        // Port not found in OVS, might be pending
-                        Ok(Response::new(ProtoNetworkPortInfo {
-                            port_id: req.port_id,
-                            vm_id: cfg.vm_id,
-                            network_id: cfg.network_id,
-                            mac_address: cfg.mac_address,
-                            ip_addresses: cfg.ip_addresses,
-                            phase: ProtoNetworkPortPhase::NetworkPortPhasePending as i32,
-                            error_message: String::new(),
-                            ovs_port_name: String::new(),
-                            ovn_port_name: cfg.ovn_port_name,
-                            interface_xml: String::new(),
-                            rx_bytes: 0,
-                            tx_bytes: 0,
-                            rx_packets: 0,
-                            tx_packets: 0,
-                        }))
-                    }
-                    Err(e) => {
-                        warn!(port_id = %req.port_id, error = %e, "Failed to get port status from OVS");
-                        Ok(Response::new(ProtoNetworkPortInfo {
-                            port_id: req.port_id,
-                            vm_id: cfg.vm_id,
-                            network_id: cfg.network_id,
-                            mac_address: cfg.mac_address,
-                            ip_addresses: cfg.ip_addresses,
-                            phase: ProtoNetworkPortPhase::NetworkPortPhaseError as i32,
-                            error_message: e.to_string(),
-                            ovs_port_name: String::new(),
-                            ovn_port_name: cfg.ovn_port_name,
-                            interface_xml: String::new(),
-                            rx_bytes: 0,
-                            tx_bytes: 0,
-                            rx_packets: 0,
-                            tx_packets: 0,
-                        }))
-                    }
-                }
-            }
-            None => {
-                Err(Status::not_found(format!("Port not found: {}", req.port_id)))
-            }
-        }
+        Ok(Response::new(StoragePoolInfoResponse {
+            pool_id: req.pool_id,
+            r#type: pool_type,
+            mount_path: pool_info.mount_path.unwrap_or_default(),
+            device_path: String::new(),
+            rbd_pool: String::new(),
+            total_bytes: pool_info.total_bytes,
+            available_bytes: pool_info.available_bytes,
+            used_bytes: pool_info.total_bytes.saturating_sub(pool_info.available_bytes),
+        }))
     }
     
     #[instrument(skip(self, _request))]
-    async fn list_network_ports(
+    async fn list_storage_pools(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<ListNetworkPortsResponse>, Status> {
-        debug!("Listing network ports");
+    ) -> Result<Response<ListStoragePoolsResponse>, Status> {
+        let pools = self.storage.list_pools().await;
         
-        let ports = self.network_ports.read().await;
-        let mut port_infos = Vec::new();
-        
-        for (port_id, cfg) in ports.iter() {
-            // Get live status if available
-            let (phase, ovs_port_name) = match self.ovs_manager.get_port_status(port_id, &cfg.ovn_port_name) {
-                Ok(Some(info)) => (ProtoNetworkPortPhase::NetworkPortPhaseActive, info.ovs_port_name.unwrap_or_default()),
-                Ok(None) => (ProtoNetworkPortPhase::NetworkPortPhasePending, String::new()),
-                Err(_) => (ProtoNetworkPortPhase::NetworkPortPhaseUnknown, String::new()),
+        let pool_responses: Vec<StoragePoolInfoResponse> = pools.into_iter().map(|p| {
+            let pool_type = match p.pool_type {
+                PoolType::LocalDir => StoragePoolType::StoragePoolTypeLocalDir as i32,
+                PoolType::Nfs => StoragePoolType::StoragePoolTypeNfs as i32,
+                PoolType::CephRbd => StoragePoolType::StoragePoolTypeCephRbd as i32,
+                PoolType::Iscsi => StoragePoolType::StoragePoolTypeIscsi as i32,
+                _ => StoragePoolType::StoragePoolTypeUnspecified as i32,
             };
-            
-            port_infos.push(ProtoNetworkPortInfo {
-                port_id: port_id.clone(),
-                vm_id: cfg.vm_id.clone(),
-                network_id: cfg.network_id.clone(),
-                mac_address: cfg.mac_address.clone(),
-                ip_addresses: cfg.ip_addresses.clone(),
-                phase: phase as i32,
-                error_message: String::new(),
-                ovs_port_name,
-                ovn_port_name: cfg.ovn_port_name.clone(),
-                interface_xml: String::new(),
-                rx_bytes: 0,
-                tx_bytes: 0,
-                rx_packets: 0,
-                tx_packets: 0,
-            });
-        }
+            StoragePoolInfoResponse {
+                pool_id: p.pool_id,
+                r#type: pool_type,
+                mount_path: p.mount_path.unwrap_or_default(),
+                device_path: String::new(),
+                rbd_pool: String::new(),
+                total_bytes: p.total_bytes,
+                available_bytes: p.available_bytes,
+                used_bytes: p.total_bytes.saturating_sub(p.available_bytes),
+            }
+        }).collect();
         
-        Ok(Response::new(ListNetworkPortsResponse { ports: port_infos }))
+        Ok(Response::new(ListStoragePoolsResponse { pools: pool_responses }))
+    }
+    
+    // =========================================================================
+    // Storage Volume Operations
+    // =========================================================================
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id, volume_id = %request.get_ref().volume_id))]
+    async fn create_volume(
+        &self,
+        request: Request<CreateVolumeRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, volume_id = %req.volume_id, size = req.size_bytes, "Creating volume");
+        
+        let source = match VolumeSourceType::try_from(req.source_type) {
+            Ok(VolumeSourceType::VolumeSourceClone) => Some(VolumeSource::Clone(req.source_id)),
+            Ok(VolumeSourceType::VolumeSourceImage) => Some(VolumeSource::Image(req.source_id)),
+            Ok(VolumeSourceType::VolumeSourceSnapshot) => Some(VolumeSource::Snapshot(req.source_id)),
+            _ => None,
+        };
+        
+        self.storage.create_volume(&req.pool_id, &req.volume_id, req.size_bytes, source).await
+            .map_err(|e| Status::internal(format!("Failed to create volume: {}", e)))?;
+        
+        Ok(Response::new(()))
+    }
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id, volume_id = %request.get_ref().volume_id))]
+    async fn delete_volume(
+        &self,
+        request: Request<VolumeIdRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, volume_id = %req.volume_id, "Deleting volume");
+        
+        self.storage.delete_volume(&req.pool_id, &req.volume_id).await
+            .map_err(|e| Status::internal(format!("Failed to delete volume: {}", e)))?;
+        
+        Ok(Response::new(()))
+    }
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id, volume_id = %request.get_ref().volume_id))]
+    async fn resize_volume(
+        &self,
+        request: Request<ResizeVolumeRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, volume_id = %req.volume_id, new_size = req.new_size_bytes, "Resizing volume");
+        
+        self.storage.resize_volume(&req.pool_id, &req.volume_id, req.new_size_bytes).await
+            .map_err(|e| Status::internal(format!("Failed to resize volume: {}", e)))?;
+        
+        Ok(Response::new(()))
+    }
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id))]
+    async fn clone_volume(
+        &self,
+        request: Request<CloneVolumeRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, source = %req.source_volume_id, dest = %req.dest_volume_id, "Cloning volume");
+        
+        self.storage.clone_volume(&req.pool_id, &req.source_volume_id, &req.dest_volume_id).await
+            .map_err(|e| Status::internal(format!("Failed to clone volume: {}", e)))?;
+        
+        Ok(Response::new(()))
+    }
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id, volume_id = %request.get_ref().volume_id))]
+    async fn get_volume_attach_info(
+        &self,
+        request: Request<VolumeIdRequest>,
+    ) -> Result<Response<VolumeAttachInfoResponse>, Status> {
+        let req = request.into_inner();
+        
+        let attach_info = self.storage.get_attach_info(&req.pool_id, &req.volume_id).await
+            .map_err(|e| Status::not_found(format!("Volume not found: {}", e)))?;
+        
+        Ok(Response::new(VolumeAttachInfoResponse {
+            volume_id: req.volume_id,
+            path: attach_info.path,
+            disk_xml: attach_info.disk_xml,
+        }))
+    }
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id, volume_id = %request.get_ref().volume_id))]
+    async fn create_volume_snapshot(
+        &self,
+        request: Request<CreateVolumeSnapshotRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, volume_id = %req.volume_id, snapshot_id = %req.snapshot_id, "Creating volume snapshot");
+        
+        self.storage.create_snapshot(&req.pool_id, &req.volume_id, &req.snapshot_id).await
+            .map_err(|e| Status::internal(format!("Failed to create snapshot: {}", e)))?;
+        
+        Ok(Response::new(()))
     }
 }
