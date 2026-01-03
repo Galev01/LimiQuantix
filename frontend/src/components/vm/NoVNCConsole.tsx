@@ -1,17 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  X,
-  Monitor,
-  Maximize2,
-  Minimize2,
-  Keyboard,
-  RefreshCw,
-  ExternalLink,
-  Copy,
-  CheckCircle,
-} from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NoVNCConsoleProps {
@@ -24,52 +13,11 @@ interface NoVNCConsoleProps {
 
 export function NoVNCConsole({ vmId, vmName, isOpen, onClose, token }: NoVNCConsoleProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [copied, setCopied] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Build noVNC URL
   const novncUrl = `/novnc/limiquantix.html?vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
-
-  // Open in new tab
-  const openInNewTab = useCallback(() => {
-    window.open(novncUrl, '_blank', 'width=1024,height=768,menubar=no,toolbar=no');
-  }, [novncUrl]);
-
-  // Copy console URL
-  const copyConsoleUrl = useCallback(() => {
-    const fullUrl = `${window.location.origin}${novncUrl}`;
-    navigator.clipboard.writeText(fullUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [novncUrl]);
-
-  // Toggle fullscreen
-  const toggleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    }
-  }, []);
-
-  // Send Ctrl+Alt+Del to iframe
-  const sendCtrlAltDel = useCallback(() => {
-    if (iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage({ type: 'ctrlAltDel' }, '*');
-    }
-  }, []);
-
-  // Reconnect
-  const reconnect = useCallback(() => {
-    if (iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage({ type: 'reconnect' }, '*');
-    }
-  }, []);
 
   // Listen for fullscreen changes
   useEffect(() => {
@@ -110,7 +58,7 @@ export function NoVNCConsole({ vmId, vmName, isOpen, onClose, token }: NoVNCCons
           onClick={onClose} 
         />
 
-        {/* Console Window */}
+        {/* Console Window - No duplicate header, noVNC has its own toolbar */}
         <motion.div
           ref={containerRef}
           initial={{ scale: 0.95, opacity: 0 }}
@@ -123,74 +71,16 @@ export function NoVNCConsole({ vmId, vmName, isOpen, onClose, token }: NoVNCCons
               : 'w-[1280px] h-[800px] max-w-[95vw] max-h-[90vh] rounded-xl'
           )}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-2 bg-bg-surface border-b border-border shrink-0">
-            <div className="flex items-center gap-3">
-              <Monitor className="w-5 h-5 text-accent" />
-              <span className="font-medium text-text-primary">Console: {vmName}</span>
-            </div>
+          {/* Close button overlay - top right corner */}
+          <button
+            onClick={onClose}
+            className="absolute top-2 right-2 z-50 w-8 h-8 flex items-center justify-center rounded-lg bg-black/50 hover:bg-black/70 text-white/70 hover:text-white transition-colors backdrop-blur-sm"
+            title="Close console (Escape)"
+          >
+            <X className="w-4 h-4" />
+          </button>
 
-            <div className="flex items-center gap-1">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={sendCtrlAltDel} 
-                title="Send Ctrl+Alt+Del"
-              >
-                <Keyboard className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={reconnect} 
-                title="Reconnect"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={copyConsoleUrl} 
-                title="Copy console URL"
-              >
-                {copied ? (
-                  <CheckCircle className="w-4 h-4 text-success" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={openInNewTab} 
-                title="Open in new tab"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={toggleFullscreen} 
-                title="Toggle fullscreen"
-              >
-                {isFullscreen ? (
-                  <Minimize2 className="w-4 h-4" />
-                ) : (
-                  <Maximize2 className="w-4 h-4" />
-                )}
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={onClose} 
-                title="Close"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* noVNC iframe */}
+          {/* noVNC iframe - contains its own toolbar */}
           <iframe
             ref={iframeRef}
             src={novncUrl}

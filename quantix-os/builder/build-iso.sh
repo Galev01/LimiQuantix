@@ -192,6 +192,9 @@ create_efi_boot() {
     
     umount "${EFI_MNT}"
     
+    # Copy EFI image to ISO root for xorriso
+    cp "${EFI_IMG}" "${ISO_ROOT}/efi.img"
+    
     log_info "EFI bootloader created"
 }
 
