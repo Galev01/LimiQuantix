@@ -14,6 +14,7 @@ use limiquantix_hypervisor::{
     Hypervisor, VmConfig, VmState, DiskConfig, NicConfig, CdromConfig,
     DiskBus, DiskFormat, NicModel, StorageManager, BootConfig, Firmware, BootDevice,
     CloudInitConfig, CloudInitGenerator,
+    OvsPortManager, NetworkPortConfig, NetworkPortBindingType,
 };
 use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
@@ -28,6 +29,11 @@ use limiquantix_proto::{
     ReadGuestFileRequest, ReadGuestFileResponse, WriteGuestFileRequest,
     WriteGuestFileResponse, GuestShutdownRequest, GuestShutdownResponse,
     GuestAgentInfo, GuestResourceUsage, GuestNetworkInterface, GuestDiskUsage,
+    // Network types
+    OvsStatusResponse, ConfigureNetworkPortRequest, NetworkPortInfo as ProtoNetworkPortInfo,
+    DeleteNetworkPortRequest, GetNetworkPortStatusRequest, ListNetworkPortsResponse,
+    NetworkPortBindingType as ProtoNetworkPortBindingType,
+    NetworkPortPhase as ProtoNetworkPortPhase,
 };
 use limiquantix_proto::agent::TelemetryReport;
 
@@ -55,10 +61,14 @@ pub struct NodeDaemonServiceImpl {
     hypervisor: Arc<dyn Hypervisor>,
     telemetry: Arc<TelemetryCollector>,
     storage: StorageManager,
+    /// OVS port manager for network operations
+    ovs_manager: OvsPortManager,
     /// Guest agent manager for all VMs
     agent_manager: Arc<RwLock<HashMap<String, AgentClient>>>,
     /// Cached agent info per VM
     agent_cache: Arc<RwLock<HashMap<String, CachedAgentInfo>>>,
+    /// Network ports cache (port_id -> port_info)
+    network_ports: Arc<RwLock<HashMap<String, NetworkPortConfig>>>,
 }
 
 impl NodeDaemonServiceImpl {
@@ -77,8 +87,10 @@ impl NodeDaemonServiceImpl {
             hypervisor,
             telemetry,
             storage: StorageManager::new(),
+            ovs_manager: OvsPortManager::new(),
             agent_manager: Arc::new(RwLock::new(HashMap::new())),
             agent_cache: Arc::new(RwLock::new(HashMap::new())),
+            network_ports: Arc::new(RwLock::new(HashMap::new())),
         }
     }
     
@@ -99,8 +111,10 @@ impl NodeDaemonServiceImpl {
             hypervisor,
             telemetry,
             storage: StorageManager::with_path(storage_path),
+            ovs_manager: OvsPortManager::new(),
             agent_manager: Arc::new(RwLock::new(HashMap::new())),
             agent_cache: Arc::new(RwLock::new(HashMap::new())),
+            network_ports: Arc::new(RwLock::new(HashMap::new())),
         }
     }
     
@@ -447,13 +461,26 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         // Process cloud-init configuration if provided
         if let Some(cloud_init) = spec.cloud_init {
             if !cloud_init.user_data.is_empty() || !cloud_init.meta_data.is_empty() {
-                info!(vm_id = %req.vm_id, "Processing cloud-init configuration");
+                info!(
+                    vm_id = %req.vm_id, 
+                    user_data_len = cloud_init.user_data.len(),
+                    meta_data_len = cloud_init.meta_data.len(),
+                    "Processing cloud-init configuration"
+                );
+                
+                // Debug: Log the actual user_data content (truncated for safety)
+                let preview_len = std::cmp::min(500, cloud_init.user_data.len());
+                debug!(
+                    vm_id = %req.vm_id,
+                    user_data_preview = %&cloud_init.user_data[..preview_len],
+                    "Cloud-init user_data preview"
+                );
                 
                 // Build cloud-init config
                 let ci_config = CloudInitConfig {
                     instance_id: req.vm_id.clone(),
                     hostname: req.name.clone(),
-                    user_data: cloud_init.user_data,
+                    user_data: cloud_init.user_data.clone(),
                     meta_data: if cloud_init.meta_data.is_empty() { 
                         None 
                     } else { 
@@ -1200,5 +1227,260 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 }))
             }
         }
+    }
+    
+    // =========================================================================
+    // Network Port Operations (OVS/OVN)
+    // =========================================================================
+    
+    #[instrument(skip(self, _request))]
+    async fn get_ovs_status(
+        &self,
+        _request: Request<()>,
+    ) -> Result<Response<OvsStatusResponse>, Status> {
+        info!("Getting OVS status");
+        
+        match self.ovs_manager.get_status() {
+            Ok(status) => {
+                Ok(Response::new(OvsStatusResponse {
+                    available: status.available,
+                    ovs_version: status.ovs_version,
+                    ovn_controller_connected: status.ovn_controller_connected,
+                    integration_bridge: status.integration_bridge,
+                    encap_type: status.encap_type,
+                    encap_ip: status.encap_ip,
+                    chassis_id: status.chassis_id,
+                }))
+            }
+            Err(e) => {
+                warn!(error = %e, "Failed to get OVS status");
+                Ok(Response::new(OvsStatusResponse {
+                    available: false,
+                    ovs_version: String::new(),
+                    ovn_controller_connected: false,
+                    integration_bridge: "br-int".to_string(),
+                    encap_type: String::new(),
+                    encap_ip: String::new(),
+                    chassis_id: String::new(),
+                }))
+            }
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(port_id = %request.get_ref().port_id, vm_id = %request.get_ref().vm_id))]
+    async fn configure_network_port(
+        &self,
+        request: Request<ConfigureNetworkPortRequest>,
+    ) -> Result<Response<ProtoNetworkPortInfo>, Status> {
+        let req = request.into_inner();
+        info!(
+            port_id = %req.port_id,
+            vm_id = %req.vm_id,
+            network_id = %req.network_id,
+            ovn_port = %req.ovn_port_name,
+            "Configuring network port"
+        );
+        
+        // Convert proto binding type to domain type
+        let binding_type = match req.binding_type() {
+            ProtoNetworkPortBindingType::NetworkPortBindingNormal => NetworkPortBindingType::Normal,
+            ProtoNetworkPortBindingType::NetworkPortBindingDirect => NetworkPortBindingType::Direct,
+            ProtoNetworkPortBindingType::NetworkPortBindingMacvtap => NetworkPortBindingType::Macvtap,
+            ProtoNetworkPortBindingType::NetworkPortBindingVhostUser => NetworkPortBindingType::VhostUser,
+        };
+        
+        let config = NetworkPortConfig {
+            port_id: req.port_id.clone(),
+            vm_id: req.vm_id.clone(),
+            network_id: req.network_id.clone(),
+            mac_address: req.mac_address.clone(),
+            ip_addresses: req.ip_addresses.clone(),
+            ovn_port_name: req.ovn_port_name.clone(),
+            binding_type,
+            qos: None, // TODO: implement QoS
+            port_security_enabled: req.port_security_enabled,
+            security_group_ids: req.security_group_ids.clone(),
+        };
+        
+        // Configure the port
+        match self.ovs_manager.configure_port(&config) {
+            Ok(port_info) => {
+                // Store port config for later reference
+                {
+                    let mut ports = self.network_ports.write().await;
+                    ports.insert(req.port_id.clone(), config);
+                }
+                
+                info!(port_id = %req.port_id, "Network port configured");
+                Ok(Response::new(ProtoNetworkPortInfo {
+                    port_id: port_info.port_id,
+                    vm_id: port_info.vm_id,
+                    network_id: port_info.network_id,
+                    mac_address: port_info.mac_address,
+                    ip_addresses: port_info.ip_addresses,
+                    phase: ProtoNetworkPortPhase::NetworkPortPhasePending as i32,
+                    error_message: String::new(),
+                    ovs_port_name: port_info.ovs_port_name.unwrap_or_default(),
+                    ovn_port_name: port_info.ovn_port_name,
+                    interface_xml: port_info.interface_xml,
+                    rx_bytes: 0,
+                    tx_bytes: 0,
+                    rx_packets: 0,
+                    tx_packets: 0,
+                }))
+            }
+            Err(e) => {
+                error!(port_id = %req.port_id, error = %e, "Failed to configure network port");
+                Err(Status::internal(format!("Failed to configure port: {}", e)))
+            }
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(port_id = %request.get_ref().port_id))]
+    async fn delete_network_port(
+        &self,
+        request: Request<DeleteNetworkPortRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        info!(port_id = %req.port_id, vm_id = %req.vm_id, "Deleting network port");
+        
+        // Remove from cache
+        {
+            let mut ports = self.network_ports.write().await;
+            ports.remove(&req.port_id);
+        }
+        
+        // Delete the port
+        match self.ovs_manager.delete_port(&req.port_id, &req.vm_id) {
+            Ok(()) => {
+                info!(port_id = %req.port_id, "Network port deleted");
+                Ok(Response::new(()))
+            }
+            Err(e) => {
+                error!(port_id = %req.port_id, error = %e, "Failed to delete network port");
+                Err(Status::internal(format!("Failed to delete port: {}", e)))
+            }
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(port_id = %request.get_ref().port_id))]
+    async fn get_network_port_status(
+        &self,
+        request: Request<GetNetworkPortStatusRequest>,
+    ) -> Result<Response<ProtoNetworkPortInfo>, Status> {
+        let req = request.into_inner();
+        debug!(port_id = %req.port_id, "Getting network port status");
+        
+        // Get cached config
+        let config = {
+            let ports = self.network_ports.read().await;
+            ports.get(&req.port_id).cloned()
+        };
+        
+        match config {
+            Some(cfg) => {
+                // Try to get live status from OVS
+                match self.ovs_manager.get_port_status(&req.port_id, &cfg.ovn_port_name) {
+                    Ok(Some(info)) => {
+                        Ok(Response::new(ProtoNetworkPortInfo {
+                            port_id: info.port_id,
+                            vm_id: cfg.vm_id,
+                            network_id: cfg.network_id,
+                            mac_address: cfg.mac_address,
+                            ip_addresses: cfg.ip_addresses,
+                            phase: ProtoNetworkPortPhase::NetworkPortPhaseActive as i32,
+                            error_message: String::new(),
+                            ovs_port_name: info.ovs_port_name.unwrap_or_default(),
+                            ovn_port_name: cfg.ovn_port_name,
+                            interface_xml: info.interface_xml,
+                            rx_bytes: info.rx_bytes,
+                            tx_bytes: info.tx_bytes,
+                            rx_packets: info.rx_packets,
+                            tx_packets: info.tx_packets,
+                        }))
+                    }
+                    Ok(None) => {
+                        // Port not found in OVS, might be pending
+                        Ok(Response::new(ProtoNetworkPortInfo {
+                            port_id: req.port_id,
+                            vm_id: cfg.vm_id,
+                            network_id: cfg.network_id,
+                            mac_address: cfg.mac_address,
+                            ip_addresses: cfg.ip_addresses,
+                            phase: ProtoNetworkPortPhase::NetworkPortPhasePending as i32,
+                            error_message: String::new(),
+                            ovs_port_name: String::new(),
+                            ovn_port_name: cfg.ovn_port_name,
+                            interface_xml: String::new(),
+                            rx_bytes: 0,
+                            tx_bytes: 0,
+                            rx_packets: 0,
+                            tx_packets: 0,
+                        }))
+                    }
+                    Err(e) => {
+                        warn!(port_id = %req.port_id, error = %e, "Failed to get port status from OVS");
+                        Ok(Response::new(ProtoNetworkPortInfo {
+                            port_id: req.port_id,
+                            vm_id: cfg.vm_id,
+                            network_id: cfg.network_id,
+                            mac_address: cfg.mac_address,
+                            ip_addresses: cfg.ip_addresses,
+                            phase: ProtoNetworkPortPhase::NetworkPortPhaseError as i32,
+                            error_message: e.to_string(),
+                            ovs_port_name: String::new(),
+                            ovn_port_name: cfg.ovn_port_name,
+                            interface_xml: String::new(),
+                            rx_bytes: 0,
+                            tx_bytes: 0,
+                            rx_packets: 0,
+                            tx_packets: 0,
+                        }))
+                    }
+                }
+            }
+            None => {
+                Err(Status::not_found(format!("Port not found: {}", req.port_id)))
+            }
+        }
+    }
+    
+    #[instrument(skip(self, _request))]
+    async fn list_network_ports(
+        &self,
+        _request: Request<()>,
+    ) -> Result<Response<ListNetworkPortsResponse>, Status> {
+        debug!("Listing network ports");
+        
+        let ports = self.network_ports.read().await;
+        let mut port_infos = Vec::new();
+        
+        for (port_id, cfg) in ports.iter() {
+            // Get live status if available
+            let (phase, ovs_port_name) = match self.ovs_manager.get_port_status(port_id, &cfg.ovn_port_name) {
+                Ok(Some(info)) => (ProtoNetworkPortPhase::NetworkPortPhaseActive, info.ovs_port_name.unwrap_or_default()),
+                Ok(None) => (ProtoNetworkPortPhase::NetworkPortPhasePending, String::new()),
+                Err(_) => (ProtoNetworkPortPhase::NetworkPortPhaseUnknown, String::new()),
+            };
+            
+            port_infos.push(ProtoNetworkPortInfo {
+                port_id: port_id.clone(),
+                vm_id: cfg.vm_id.clone(),
+                network_id: cfg.network_id.clone(),
+                mac_address: cfg.mac_address.clone(),
+                ip_addresses: cfg.ip_addresses.clone(),
+                phase: phase as i32,
+                error_message: String::new(),
+                ovs_port_name,
+                ovn_port_name: cfg.ovn_port_name.clone(),
+                interface_xml: String::new(),
+                rx_bytes: 0,
+                tx_bytes: 0,
+                rx_packets: 0,
+                tx_packets: 0,
+            });
+        }
+        
+        Ok(Response::new(ListNetworkPortsResponse { ports: port_infos }))
     }
 }

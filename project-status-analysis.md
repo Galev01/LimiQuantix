@@ -11,7 +11,7 @@
 
 | Category | Status | Description |
 |----------|--------|-------------|
-| **Frontend (React UI)** | ✅ **98%** | Dashboard + Cloud-Init UI + SSH Key Management + VM Actions Dropdown |
+| **Frontend (React UI)** | ✅ **99%** | Dashboard + Image Library + ISO Upload + Password/SSH Auth + VM Actions |
 | **Backend (Go Control Plane)** | ✅ **92%** | All services + Node Daemon integration + Console WebSocket Proxy + Storage |
 | **Proto/API Definitions** | ✅ **100%** | Full API surface including cloud-init + guest agent |
 | **Node Daemon (Rust)** | ✅ **90%** | gRPC + Cloud-Init ISO + Backing Files + Real VM Creation + Storage |
@@ -66,7 +66,7 @@
 
 ## Detailed Component Status
 
-### 1. Frontend Dashboard (React) ✅ 98%
+### 1. Frontend Dashboard (React) ✅ 99%
 
 | Page | Status | Features |
 |------|--------|----------|
@@ -218,11 +218,37 @@ agent/
 | Snapshots | ✅ Done | Snapshot disk images with LVM/rbd snap |
 | Frontend UI | ✅ Done | Storage pools + volumes pages with dialogs |
 
-### 8. Components NOT Started ❌
+### 8. QuantumNet - Distributed Networking ⏳ 15%
+
+**Architecture:** OVN (Open Virtual Network) + OVS (Open vSwitch)
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| **OVN Northbound Client** | ⏳ | Go client using libovsdb |
+| **NetworkService** | ⏳ | CreateNetwork, CreatePort RPCs |
+| **OVS Port Manager** | ⏳ | Rust agent binding VMs to br-int |
+| **Libvirt OVS XML** | ⏳ | VirtualPort integration |
+| **Security Groups** | 📋 | OVN ACLs for distributed firewall |
+| **DHCP/DNS** | 📋 | Built-in OVN DHCP + Magic DNS |
+| **Floating IPs** | 📋 | 1:1 NAT via OVN routers |
+| **Load Balancing** | 📋 | L4 LB via OVN |
+| **WireGuard Bastion** | 📋 | Direct overlay access |
+
+**Network Types:**
+- **VLAN/Flat**: Like VMware Port Groups - Direct L2 with VLAN tag
+- **Overlay/VPC**: Like NSX Segments - Geneve encapsulation across nodes
+
+**Packet Flow (VM A on Node 1 → VM B on Node 2):**
+```
+VM A → TAP → br-int → OVS Geneve Tunnel → Node 2 br-int → TAP → VM B
+       ↑                    ↑                    ↑
+   OVN LSP            Encapsulation          OVN LSP
+```
+
+### 9. Components NOT Started ❌
 
 | Component | VMware Equivalent | Effort | Priority |
 |-----------|-------------------|--------|----------|
-| **Network Backend** | NSX-T/vDS | 4-6 weeks | P0 |
 | **Host OS** | ESXi | 8-12 weeks | P1 |
 | **Backup Engine** | VADP | 4 weeks | P2 |
 
@@ -232,14 +258,41 @@ agent/
 
 ### ✅ Completed Today
 
-1. **Quantix Agent Integration in VM Creation Wizard**
+1. **Image Library & ISO Upload**
+   - New **Image Library** page (`/storage/images`) with tabs for Cloud Images and ISOs
+   - **ISOUploadDialog** - Multi-step wizard for uploading ISOs
+     - Upload from URL (downloads to storage)
+     - Upload from file (drag-and-drop support)
+     - OS family/distribution/version selection
+     - Storage pool selection
+   - Built-in ISO catalog (Ubuntu, Debian, Rocky, Windows)
+   - Download cloud images from catalog to storage pools
+   - Delete images from library
+   - `useISOs()` hook for fetching ISOs with catalog fallback
+
+2. **VM Access Configuration (Password + SSH Keys)**
+   - **Password Authentication** section with:
+     - Password + confirm password fields
+     - Show/hide password toggle (`PasswordInput` component)
+     - Validation: minimum 8 characters, passwords must match
+     - Uses `chpasswd` cloud-init module (correct approach)
+     - Enables `ssh_pwauth: true` for SSH password login
+   - **SSH Key Authentication** section with:
+     - SSH key validation (format, length, duplicates)
+     - Better key display showing type and comment
+     - Error messages for invalid keys
+   - **Access Summary** showing configured methods
+   - **Warning** when no access method configured
+   - Step validation requires password OR SSH key for cloud images
+
+3. **Quantix Agent Integration in VM Creation Wizard**
    - Renamed "limiquantix Agent" → "Quantix Agent" across UI
    - Enhanced checkbox shows feature list when enabled
    - Cloud-init script auto-generates installation for Debian/Ubuntu, RHEL/Fedora, generic Linux
    - Review step shows "Quantix Agent: Will be installed via cloud-init"
    - Auto-creates pre-freeze/post-thaw hook directories for snapshot quiescing
 
-2. **VM Actions Dropdown Menu**
+4. **VM Actions Dropdown Menu**
    - Created reusable `DropdownMenu` UI component
    - **Edit Settings** modal - change name, description, labels
    - **Edit Resources** modal - CPU cores and memory with presets
@@ -248,10 +301,8 @@ agent/
    - **Clone VM** - placeholder for future
    - **Force Stop** - force stop running VM
    - **Delete VM** - with confirmation (danger variant)
-   - Dividers to group related actions
-   - Disabled state for actions requiring running VM
 
-3. **Storage Backend Complete**
+5. **Storage Backend Complete**
    - Local, NFS, Ceph RBD, iSCSI backends
    - LVM thin provisioning for iSCSI
    - Frontend storage pools and volumes pages
@@ -471,14 +522,25 @@ cd frontend && npm run dev
 - **WebSocket VNC Proxy** - Control Plane proxies browser → VNC ✅
 - **QVMRC Native Client** - Tauri desktop app with deep linking ✅
 - **Quantix Guest Agent** - Linux/Windows with telemetry, scripts, file browser ✅ NEW
-- **Storage Backends** - Local, NFS, Ceph RBD, iSCSI ✅ NEW
-- **VM Actions Dropdown** - Edit settings, resources, run scripts, clone, delete ✅ NEW
-- **Cloud-init Agent Install** - Auto-install agent during VM creation ✅ NEW
+- **Storage Backends** - Local, NFS, Ceph RBD, iSCSI ✅
+- **VM Actions Dropdown** - Edit settings, resources, run scripts, clone, delete ✅
+- **Cloud-init Agent Install** - Auto-install agent during VM creation ✅
+- **Image Library** - Manage cloud images and ISOs with upload dialog ✅ NEW
+- **ISO Upload** - Upload via URL or file with progress tracking ✅ NEW
+- **Password/SSH Access** - Improved cloud-init access config with validation ✅ NEW
 
 **What's NEXT (Immediate Priority):**
-1. **Network Backend** - Linux bridge first, then OVN/OVS
-2. **Security group enforcement** - Firewall rules via iptables/nftables
-3. **DHCP/DNS integration** - IP assignment for VMs
+1. **QuantumNet OVN Client** - Go libovsdb integration ⏳
+2. **NetworkService** - CreateNetwork/Port with OVN backend ⏳
+3. **OVS Port Manager** - Rust agent VM→br-int binding ⏳
+4. **Security Groups** - OVN ACLs for distributed firewall
+5. **Magic DNS** - CoreDNS + OVN state for auto-resolution
+6. **Floating IPs** - 1:1 NAT via OVN routers
+
+**Day 2 Features (Strategic Improvements):**
+- **Identity-based Microsegmentation** - Tag-based rules (better than IP-based)
+- **WireGuard Bastion** - Direct overlay access from laptops
+- **BGP ToR Integration** - Enterprise bare-metal integration
 
 **Medium-term:**
 - Live migration testing

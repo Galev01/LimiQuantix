@@ -144,6 +144,9 @@ pub async fn connect_vnc(
     let connection_id_clone = connection_id.clone();
     
     tokio::spawn(async move {
+        // First request should be non-incremental (full screen refresh)
+        let mut is_first_request = true;
+        
         loop {
             tokio::select! {
                 _ = shutdown_rx.recv() => {
@@ -152,7 +155,9 @@ pub async fn connect_vnc(
                 }
                 result = async {
                     let mut client = client_clone.lock().await;
-                    client.request_framebuffer_update(true).await
+                    // First request is non-incremental to get the full framebuffer
+                    let incremental = !is_first_request;
+                    client.request_framebuffer_update(incremental).await
                 } => {
                     match result {
                         Ok(updates) => {
@@ -160,6 +165,8 @@ pub async fn connect_vnc(
                             for update in updates {
                                 window_clone.emit("vnc:framebuffer", update).ok();
                             }
+                            // After first successful update, switch to incremental
+                            is_first_request = false;
                         }
                         Err(e) => {
                             error!("Framebuffer update error: {}", e);
@@ -170,7 +177,7 @@ pub async fn connect_vnc(
                 }
             }
 
-            // Small delay to prevent busy loop
+            // Small delay to prevent busy loop (60fps = ~16ms)
             tokio::time::sleep(tokio::time::Duration::from_millis(16)).await;
         }
 

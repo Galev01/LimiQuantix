@@ -237,13 +237,25 @@ impl CloudInitGenerator {
         
         // Write user-data
         let user_data = if config.user_data.is_empty() {
+            info!("No user-data provided, generating default");
             config.generate_default_user_data()
         } else {
+            info!(
+                user_data_len = config.user_data.len(),
+                "Using provided user-data"
+            );
             config.user_data.clone()
         };
         std::fs::write(temp_path.join("user-data"), &user_data)
             .map_err(|e| HypervisorError::Internal(format!("Failed to write user-data: {}", e)))?;
-        debug!(content = %user_data, "Wrote user-data");
+        
+        // Debug: Log first part of user-data for debugging
+        let preview_len = std::cmp::min(800, user_data.len());
+        info!(
+            user_data_preview = %&user_data[..preview_len],
+            full_len = user_data.len(),
+            "Wrote user-data to cloud-init ISO"
+        );
         
         // Write network-config if provided
         if let Some(ref network_config) = config.network_config {

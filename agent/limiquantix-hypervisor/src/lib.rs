@@ -46,6 +46,7 @@ pub mod types;
 pub mod mock;
 pub mod libvirt;
 pub mod storage;
+pub mod network;
 pub mod cloudinit;
 mod xml;
 
@@ -67,6 +68,15 @@ pub use storage::{
     VolumeSource,
     DiskInfo,
     DEFAULT_STORAGE_PATH,
+};
+pub use network::{
+    OvsPortManager,
+    NetworkPortConfig,
+    NetworkPortInfo,
+    NetworkPortPhase,
+    NetworkPortBindingType,
+    NetworkPortQoS,
+    OvsStatus,
 };
 pub use cloudinit::{CloudInitConfig, CloudInitGenerator};
 

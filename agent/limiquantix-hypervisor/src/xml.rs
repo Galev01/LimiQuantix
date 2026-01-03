@@ -177,30 +177,55 @@ impl<'a> DomainXmlBuilder<'a> {
         let mut xml = String::new();
         
         for nic in &self.config.nics {
-            let mac = nic.mac_address.as_ref()
-                .map(|m| format!("      <mac address='{}'/>\n", m))
-                .unwrap_or_default();
-            
-            let source = if let Some(bridge) = &nic.bridge {
-                format!("      <source bridge='{}'/>\n", bridge)
-            } else if let Some(network) = &nic.network {
-                format!("      <source network='{}'/>\n", network)
+            // Check if this is an OVN-managed interface
+            if let Some(ovn_port_name) = &nic.ovn_port_name {
+                // OVS/OVN interface with virtualport
+                let bridge = nic.ovs_bridge.as_deref().unwrap_or("br-int");
+                let mac = nic.mac_address.as_ref()
+                    .map(|m| format!("      <mac address='{}'/>\n", m))
+                    .unwrap_or_default();
+                
+                xml.push_str(&format!(
+                    r#"    <interface type='bridge'>
+      <source bridge='{}'/>
+      <virtualport type='openvswitch'>
+        <parameters interfaceid='{}'/>
+      </virtualport>
+{}      <model type='{}'/>
+    </interface>
+"#,
+                    bridge,
+                    ovn_port_name,
+                    mac,
+                    nic.model.as_str()
+                ));
             } else {
-                "      <source bridge='virbr0'/>\n".to_string()
-            };
-            
-            let interface_type = if nic.bridge.is_some() { "bridge" } else { "network" };
-            
-            xml.push_str(&format!(
-                r#"    <interface type='{}'>
+                // Standard bridge or network interface
+                let mac = nic.mac_address.as_ref()
+                    .map(|m| format!("      <mac address='{}'/>\n", m))
+                    .unwrap_or_default();
+                
+                let source = if let Some(bridge) = &nic.bridge {
+                    format!("      <source bridge='{}'/>\n", bridge)
+                } else if let Some(network) = &nic.network {
+                    format!("      <source network='{}'/>\n", network)
+                } else {
+                    "      <source bridge='virbr0'/>\n".to_string()
+                };
+                
+                let interface_type = if nic.bridge.is_some() { "bridge" } else { "network" };
+                
+                xml.push_str(&format!(
+                    r#"    <interface type='{}'>
 {}{}      <model type='{}'/>
     </interface>
 "#,
-                interface_type,
-                mac,
-                source,
-                nic.model.as_str()
-            ));
+                    interface_type,
+                    mac,
+                    source,
+                    nic.model.as_str()
+                ));
+            }
         }
         
         xml
@@ -313,6 +338,51 @@ mod tests {
         
         assert!(xml.contains("OVMF_CODE.fd"));
         assert!(xml.contains("nvram"));
+    }
+    
+    #[test]
+    fn test_ovs_nic_generation() {
+        let config = VmConfig::new("ovn-vm")
+            .with_nic(NicConfig {
+                id: "nic-1".to_string(),
+                mac_address: Some("fa:16:3e:aa:bb:cc".to_string()),
+                bridge: None,
+                network: None,
+                model: NicModel::Virtio,
+                ovn_port_name: Some("lsp-port-123".to_string()),
+                ovs_bridge: Some("br-int".to_string()),
+            });
+        
+        let xml = DomainXmlBuilder::new(&config).build();
+        
+        // Verify OVS virtualport XML is generated
+        assert!(xml.contains("type='bridge'"));
+        assert!(xml.contains("source bridge='br-int'"));
+        assert!(xml.contains("virtualport type='openvswitch'"));
+        assert!(xml.contains("interfaceid='lsp-port-123'"));
+        assert!(xml.contains("address='fa:16:3e:aa:bb:cc'"));
+        assert!(xml.contains("type='virtio'"));
+    }
+    
+    #[test]
+    fn test_standard_nic_generation() {
+        let config = VmConfig::new("std-vm")
+            .with_nic(NicConfig {
+                id: "nic-1".to_string(),
+                mac_address: Some("52:54:00:12:34:56".to_string()),
+                bridge: Some("virbr0".to_string()),
+                network: None,
+                model: NicModel::Virtio,
+                ovn_port_name: None,
+                ovs_bridge: None,
+            });
+        
+        let xml = DomainXmlBuilder::new(&config).build();
+        
+        // Verify standard bridge interface is generated (no virtualport)
+        assert!(xml.contains("source bridge='virbr0'"));
+        assert!(!xml.contains("virtualport"));
+        assert!(xml.contains("address='52:54:00:12:34:56'"));
     }
 }
 

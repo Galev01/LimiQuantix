@@ -183,11 +183,14 @@ export interface ApiVM {
       networkId?: string;
       connected?: boolean;
     }>;
-    // Cloud-init provisioning configuration
-    cloudInit?: {
-      userData?: string;    // #cloud-config YAML
-      metaData?: string;    // instance-id, hostname
-      networkConfig?: string;  // Netplan v2 (optional)
+    // Provisioning configuration (cloud-init, ignition, sysprep)
+    provisioning?: {
+      cloudInit?: {
+        userData?: string;    // #cloud-config YAML
+        metaData?: string;    // instance-id, hostname
+        networkConfig?: string;  // Netplan v2 (optional)
+        vendorData?: string;  // vendor-specific data (optional)
+      };
     };
   };
   status?: {

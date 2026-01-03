@@ -445,10 +445,12 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             networkId: nic.networkId,
             connected: nic.connected,
           })),
-          // Include cloud-init configuration
-          cloudInit: cloudInitUserData ? {
-            userData: cloudInitUserData,
-            metaData: `instance-id: ${formData.name}\nlocal-hostname: ${formData.name}`,
+          // Include cloud-init provisioning configuration (must be under 'provisioning.cloudInit')
+          provisioning: cloudInitUserData ? {
+            cloudInit: {
+              userData: cloudInitUserData,
+              metaData: `instance-id: ${formData.name}\nlocal-hostname: ${formData.name}`,
+            },
           } : undefined,
         },
       });

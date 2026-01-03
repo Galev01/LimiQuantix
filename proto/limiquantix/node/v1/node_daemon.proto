@@ -174,6 +174,25 @@ service NodeDaemonService {
   
   // Create a volume snapshot
   rpc CreateVolumeSnapshot(CreateVolumeSnapshotRequest) returns (google.protobuf.Empty);
+  
+  // =========================================================================
+  // Network Port Operations (OVS/OVN)
+  // =========================================================================
+  
+  // Check if OVS is available and get status
+  rpc GetOVSStatus(google.protobuf.Empty) returns (OVSStatusResponse);
+  
+  // Configure a network port for a VM (binds TAP to br-int)
+  rpc ConfigureNetworkPort(ConfigureNetworkPortRequest) returns (NetworkPortInfo);
+  
+  // Delete a network port
+  rpc DeleteNetworkPort(DeleteNetworkPortRequest) returns (google.protobuf.Empty);
+  
+  // Get network port status
+  rpc GetNetworkPortStatus(GetNetworkPortStatusRequest) returns (NetworkPortInfo);
+  
+  // List all network ports on this node
+  rpc ListNetworkPorts(google.protobuf.Empty) returns (ListNetworkPortsResponse);
 }
 
 // =============================================================================
@@ -824,4 +843,105 @@ message CreateVolumeSnapshotRequest {
   string pool_id = 1;
   string volume_id = 2;
   string snapshot_id = 3;
+}
+
+// =============================================================================
+// NETWORK PORT MESSAGES (OVS/OVN)
+// =============================================================================
+
+// OVS status response
+message OVSStatusResponse {
+  bool available = 1;                   // Is OVS running?
+  string ovs_version = 2;               // OVS version string
+  bool ovn_controller_connected = 3;    // Is OVN controller connected?
+  string integration_bridge = 4;        // Integration bridge name (e.g., "br-int")
+  string encap_type = 5;                // Encapsulation type (e.g., "geneve")
+  string encap_ip = 6;                  // Encapsulation IP
+  string chassis_id = 7;                // OVN chassis ID for this node
+}
+
+// Configure network port request
+message ConfigureNetworkPortRequest {
+  string port_id = 1;                   // Limiquantix port ID
+  string vm_id = 2;                     // VM this port belongs to
+  string network_id = 3;                // Network ID
+  string mac_address = 4;               // MAC address for the port
+  repeated string ip_addresses = 5;     // Allocated IP addresses
+  string ovn_port_name = 6;             // OVN logical switch port name (e.g., "lsp-xxx")
+  
+  // Port binding configuration
+  NetworkPortBindingType binding_type = 7;
+  
+  // QoS settings (optional)
+  NetworkPortQoS qos = 8;
+  
+  // Security settings
+  bool port_security_enabled = 9;
+  repeated string security_group_ids = 10;
+}
+
+// Network port binding types
+enum NetworkPortBindingType {
+  NETWORK_PORT_BINDING_NORMAL = 0;       // Standard OVS port
+  NETWORK_PORT_BINDING_DIRECT = 1;       // SR-IOV VF passthrough
+  NETWORK_PORT_BINDING_MACVTAP = 2;      // MACVTAP device
+  NETWORK_PORT_BINDING_VHOST_USER = 3;   // DPDK vhost-user
+}
+
+// Network port QoS settings
+message NetworkPortQoS {
+  uint64 ingress_rate_kbps = 1;
+  uint64 egress_rate_kbps = 2;
+  uint64 ingress_burst_kb = 3;
+  uint64 egress_burst_kb = 4;
+}
+
+// Network port info response
+message NetworkPortInfo {
+  string port_id = 1;
+  string vm_id = 2;
+  string network_id = 3;
+  string mac_address = 4;
+  repeated string ip_addresses = 5;
+  
+  // Status
+  NetworkPortPhase phase = 6;
+  string error_message = 7;
+  
+  // OVS binding info
+  string ovs_port_name = 8;             // OVS port name (e.g., "vnet0")
+  string ovn_port_name = 9;             // OVN logical port name
+  string interface_xml = 10;            // Libvirt interface XML snippet
+  
+  // Statistics
+  uint64 rx_bytes = 11;
+  uint64 tx_bytes = 12;
+  uint64 rx_packets = 13;
+  uint64 tx_packets = 14;
+}
+
+// Network port phase
+enum NetworkPortPhase {
+  NETWORK_PORT_PHASE_UNKNOWN = 0;
+  NETWORK_PORT_PHASE_PENDING = 1;
+  NETWORK_PORT_PHASE_BUILDING = 2;
+  NETWORK_PORT_PHASE_ACTIVE = 3;
+  NETWORK_PORT_PHASE_DOWN = 4;
+  NETWORK_PORT_PHASE_ERROR = 5;
+}
+
+// Delete network port request
+message DeleteNetworkPortRequest {
+  string port_id = 1;
+  string vm_id = 2;
+}
+
+// Get network port status request
+message GetNetworkPortStatusRequest {
+  string port_id = 1;
+}
+
+// List network ports response
+message ListNetworkPortsResponse {
+  repeated NetworkPortInfo ports = 1;
 }

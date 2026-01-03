@@ -313,6 +313,13 @@ pub struct NicConfig {
     pub network: Option<String>,
     /// NIC model
     pub model: NicModel,
+    /// OVN logical switch port name (for OVS/OVN integration)
+    /// When set, this creates an OVS virtualport interface
+    #[serde(default)]
+    pub ovn_port_name: Option<String>,
+    /// OVS integration bridge (default: br-int)
+    #[serde(default)]
+    pub ovs_bridge: Option<String>,
 }
 
 impl Default for NicConfig {
@@ -323,6 +330,8 @@ impl Default for NicConfig {
             bridge: Some("virbr0".to_string()),
             network: None,
             model: NicModel::Virtio,
+            ovn_port_name: None,
+            ovs_bridge: None,
         }
     }
 }

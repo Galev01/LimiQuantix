@@ -4,6 +4,8 @@ package network
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -11,13 +13,15 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/network/ovn"
 	networkv1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1"
 )
 
 // NetworkService implements the networkv1connect.VirtualNetworkServiceHandler interface.
 type NetworkService struct {
-	repo   NetworkRepository
-	logger *zap.Logger
+	repo      NetworkRepository
+	ovnClient *ovn.NorthboundClient
+	logger    *zap.Logger
 }
 
 // NewNetworkService creates a new NetworkService.
@@ -25,6 +29,15 @@ func NewNetworkService(repo NetworkRepository, logger *zap.Logger) *NetworkServi
 	return &NetworkService{
 		repo:   repo,
 		logger: logger,
+	}
+}
+
+// NewNetworkServiceWithOVN creates a new NetworkService with OVN backend.
+func NewNetworkServiceWithOVN(repo NetworkRepository, ovnClient *ovn.NorthboundClient, logger *zap.Logger) *NetworkService {
+	return &NetworkService{
+		repo:      repo,
+		ovnClient: ovnClient,
+		logger:    logger,
 	}
 }
 
@@ -63,13 +76,53 @@ func (s *NetworkService) CreateNetwork(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Simulate network becoming ready (in real implementation, OVN integration)
-	createdNetwork.Status.Phase = domain.NetworkPhaseReady
-	createdNetwork.Status.OVNLogicalSwitch = fmt.Sprintf("ls-%s", createdNetwork.ID[:8])
-	createdNetwork.Status.IPAllocationStatus = domain.IPAllocationStatus{
-		IPv4Total:     254, // Assuming /24 subnet
-		IPv4Available: 254,
+	// Create network in OVN if client is available
+	if s.ovnClient != nil {
+		ls, err := s.ovnClient.CreateLogicalSwitch(ctx, createdNetwork)
+		if err != nil {
+			logger.Error("Failed to create OVN logical switch", zap.Error(err))
+			createdNetwork.Status.Phase = domain.NetworkPhaseError
+			createdNetwork.Status.ErrorMessage = fmt.Sprintf("OVN error: %v", err)
+		} else {
+			createdNetwork.Status.Phase = domain.NetworkPhaseReady
+			createdNetwork.Status.OVNLogicalSwitch = ls.Name
+
+			// Create VLAN localnet port if this is a VLAN network
+			if createdNetwork.Spec.Type == domain.NetworkTypeVLAN && createdNetwork.Spec.VLAN != nil {
+				_, err := s.ovnClient.CreateLocalnetPort(ctx, createdNetwork.ID,
+					createdNetwork.Spec.VLAN.VLANID, createdNetwork.Spec.VLAN.PhysicalNetwork)
+				if err != nil {
+					logger.Warn("Failed to create localnet port", zap.Error(err))
+				}
+			}
+
+			// Create router attachment if router is enabled
+			if createdNetwork.Spec.Router != nil && createdNetwork.Spec.Router.Enabled {
+				gateway := fmt.Sprintf("%s/%s",
+					createdNetwork.Spec.IPConfig.IPv4Gateway,
+					extractCIDRMask(createdNetwork.Spec.IPConfig.IPv4Subnet))
+
+				routerID := fmt.Sprintf("project-%s", createdNetwork.ProjectID)
+				lrp, err := s.ovnClient.AddRouterInterface(ctx, routerID, createdNetwork.ID, gateway)
+				if err != nil {
+					logger.Warn("Failed to add router interface", zap.Error(err))
+				} else {
+					createdNetwork.Status.OVNLogicalRouter = lrp.Name
+				}
+			}
+		}
+	} else {
+		// Mock mode - simulate network becoming ready
+		createdNetwork.Status.Phase = domain.NetworkPhaseReady
+		createdNetwork.Status.OVNLogicalSwitch = fmt.Sprintf("ls-%s", createdNetwork.ID[:8])
 	}
+
+	// Calculate IP allocation status
+	createdNetwork.Status.IPAllocationStatus = domain.IPAllocationStatus{
+		IPv4Total:     calculateIPCount(createdNetwork.Spec.IPConfig.IPv4Subnet),
+		IPv4Available: calculateIPCount(createdNetwork.Spec.IPConfig.IPv4Subnet),
+	}
+
 	if err := s.repo.UpdateStatus(ctx, createdNetwork.ID, createdNetwork.Status); err != nil {
 		logger.Warn("Failed to update network status", zap.Error(err))
 	}
@@ -178,7 +231,7 @@ func (s *NetworkService) DeleteNetwork(
 	)
 	logger.Info("Deleting virtual network")
 
-	// Check if network has ports (would need PortRepository for this)
+	// Check if network has ports
 	network, err := s.repo.Get(ctx, req.Msg.Id)
 	if err != nil {
 		if err == domain.ErrNotFound {
@@ -190,6 +243,14 @@ func (s *NetworkService) DeleteNetwork(
 	if network.Status.PortCount > 0 && !req.Msg.Force {
 		return nil, connect.NewError(connect.CodeFailedPrecondition,
 			fmt.Errorf("network has %d ports, use force=true to delete", network.Status.PortCount))
+	}
+
+	// Delete from OVN if client is available
+	if s.ovnClient != nil {
+		if err := s.ovnClient.DeleteLogicalSwitch(ctx, req.Msg.Id); err != nil {
+			logger.Warn("Failed to delete OVN logical switch", zap.Error(err))
+			// Continue with repo deletion even if OVN fails
+		}
 	}
 
 	if err := s.repo.Delete(ctx, req.Msg.Id); err != nil {
@@ -254,4 +315,42 @@ func (s *NetworkService) GetNetworkTopology(
 		Nodes: nodes,
 		Edges: edges,
 	}), nil
+}
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+// calculateIPCount calculates the number of usable IPs in a CIDR subnet.
+func calculateIPCount(cidr string) uint32 {
+	if cidr == "" {
+		return 0
+	}
+
+	// Parse CIDR to get mask bits
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return 254 // Default to /24
+	}
+
+	ones, bits := ipNet.Mask.Size()
+	if bits == 0 {
+		return 254
+	}
+
+	// Calculate total IPs and subtract network/broadcast
+	total := uint32(1 << uint(bits-ones))
+	if total < 4 {
+		return 1
+	}
+	return total - 2 // Subtract network and broadcast addresses
+}
+
+// extractCIDRMask extracts the mask portion from a CIDR (e.g., "24" from "10.0.0.0/24").
+func extractCIDRMask(cidr string) string {
+	parts := strings.Split(cidr, "/")
+	if len(parts) == 2 {
+		return parts[1]
+	}
+	return "24" // Default
 }

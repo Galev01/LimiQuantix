@@ -46,28 +46,56 @@ export function ConsoleView({
   const [canvasScale, setCanvasScale] = useState(1);
   const hasReceivedInitialFrame = useRef(false);
 
-  // Calculate scale based on container size and resolution
+  // Calculate display dimensions based on container size and resolution
+  const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
+  
   const calculateScale = useCallback(() => {
     const viewport = viewportRef.current;
-    const canvas = canvasRef.current;
-    if (!viewport || !canvas || resolution.width === 0) return;
+    
+    // Need viewport
+    if (!viewport) return;
+    
+    // If no resolution yet, just hide/show at natural size
+    if (resolution.width === 0 || resolution.height === 0) {
+      return;
+    }
 
     const containerWidth = viewport.clientWidth;
     const containerHeight = viewport.clientHeight;
+    
+    // Ensure container has dimensions
+    if (containerWidth === 0 || containerHeight === 0) {
+      // Retry after a short delay
+      setTimeout(calculateScale, 100);
+      return;
+    }
 
+    let scale = 1;
+    
     if (scaleMode === '100%') {
-      setCanvasScale(1);
+      scale = 1;
     } else if (scaleMode === 'fit') {
       // Scale to fit within container while maintaining aspect ratio
       const scaleX = containerWidth / resolution.width;
       const scaleY = containerHeight / resolution.height;
-      setCanvasScale(Math.min(scaleX, scaleY, 1)); // Don't scale up, only down
+      scale = Math.min(scaleX, scaleY);
     } else if (scaleMode === 'fill') {
       // Scale to fill container while maintaining aspect ratio
       const scaleX = containerWidth / resolution.width;
       const scaleY = containerHeight / resolution.height;
-      setCanvasScale(Math.max(scaleX, scaleY));
+      scale = Math.max(scaleX, scaleY);
     }
+    
+    const newWidth = Math.floor(resolution.width * scale);
+    const newHeight = Math.floor(resolution.height * scale);
+    
+    console.log(`[VNC] Scale: ${scale.toFixed(2)}, Display: ${newWidth}x${newHeight}, Resolution: ${resolution.width}x${resolution.height}, Container: ${containerWidth}x${containerHeight}`);
+    
+    setCanvasScale(scale);
+    setDisplaySize({
+      width: newWidth,
+      height: newHeight,
+    });
   }, [resolution, scaleMode]);
 
   // Recalculate scale on resize
@@ -114,12 +142,9 @@ export function ConsoleView({
           const newWidth = event.payload.width;
           const newHeight = event.payload.height;
           
-          setResolution({
-            width: newWidth,
-            height: newHeight,
-          });
-
-          // Resize canvas to match VNC resolution
+          console.log(`[VNC] Connected with resolution: ${newWidth}x${newHeight}`);
+          
+          // Resize canvas to match VNC resolution FIRST
           const canvas = canvasRef.current;
           if (canvas) {
             canvas.width = newWidth;
@@ -133,8 +158,11 @@ export function ConsoleView({
             }
           }
           
-          // Trigger scale calculation after resolution is set
-          setTimeout(calculateScale, 50);
+          // THEN set resolution state (this triggers calculateScale via useEffect)
+          setResolution({
+            width: newWidth,
+            height: newHeight,
+          });
         }
       }
     );
@@ -196,24 +224,24 @@ export function ConsoleView({
     }
   }, []);
 
-  // Calculate mouse position accounting for CSS scale transform
+  // Calculate mouse position accounting for CSS scaling
   const getVNCCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
+    if (!canvas || resolution.width === 0) return { x: 0, y: 0 };
 
     const rect = canvas.getBoundingClientRect();
     
-    // The canvas is CSS-scaled, so getBoundingClientRect gives the scaled size
-    // We need to convert screen coordinates back to VNC coordinates
-    const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
-    const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
+    // Convert screen coordinates to VNC coordinates
+    // rect gives us the CSS-scaled size, canvas.width is the native VNC resolution
+    const x = Math.floor((e.clientX - rect.left) / rect.width * resolution.width);
+    const y = Math.floor((e.clientY - rect.top) / rect.height * resolution.height);
 
-    // Clamp to canvas bounds
+    // Clamp to resolution bounds
     return {
-      x: Math.max(0, Math.min(canvas.width - 1, x)),
-      y: Math.max(0, Math.min(canvas.height - 1, y)),
+      x: Math.max(0, Math.min(resolution.width - 1, x)),
+      y: Math.max(0, Math.min(resolution.height - 1, y)),
     };
-  }, []);
+  }, [resolution]);
 
   // Mouse events
   const handleMouseMove = useCallback(
@@ -458,15 +486,20 @@ export function ConsoleView({
       {/* Canvas viewport */}
       <div 
         ref={viewportRef}
-        className="flex-1 flex items-center justify-center overflow-auto bg-black"
+        className="flex-1 flex items-center justify-center overflow-hidden bg-black"
       >
         <canvas
           ref={canvasRef}
-          className="cursor-none"
+          className="cursor-none block"
           style={{
-            transform: `scale(${canvasScale})`,
-            transformOrigin: 'center center',
-            imageRendering: scaleMode === '100%' ? 'auto' : 'auto',
+            // Use CSS dimensions for scaling (canvas.width/height stays native for crisp rendering)
+            // When displaySize is calculated, use it; otherwise fill the container
+            width: displaySize.width > 0 ? `${displaySize.width}px` : '100%',
+            height: displaySize.height > 0 ? `${displaySize.height}px` : '100%',
+            // Crisp pixel rendering for retro/text displays
+            imageRendering: 'pixelated',
+            // Ensure aspect ratio is maintained even in fallback mode
+            objectFit: 'contain',
           }}
           tabIndex={0}
           onMouseMove={handleMouseMove}

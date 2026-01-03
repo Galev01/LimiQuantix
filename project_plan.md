@@ -27,7 +27,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 
 | VMware Component | limiquantix Equivalent | Status |
 |------------------|------------------------|--------|
-| **vSphere Web Client** | React Dashboard | ✅ 98% |
+| **vSphere Web Client** | React Dashboard | ✅ 99% |
 | **vCenter Server** | Go Control Plane | ✅ 92% |
 | **ESXi Host Agent** | Rust Node Daemon | ✅ 90% |
 | **VMware Tools** | Rust Guest Agent | ✅ 85% |
@@ -45,7 +45,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-  | Frontend (React) | ✅ 98% | 15 pages, cloud-init UI, SSH key management, VM actions dropdown |
+| Frontend (React) | ✅ 99% | 16 pages, Image Library, ISO upload, password/SSH auth, VM actions |
 | Backend (Go) | ✅ 92% | All services, scheduler, HA, DRS, storage backends |
 | Proto/API | ✅ 100% | Compute, Storage, Network + Cloud-Init + Guest Agent |
 | Node Daemon (Rust) | ✅ 90% | gRPC, cloud-init ISO, backing files, real VM creation |
@@ -478,12 +478,31 @@ curl http://127.0.0.1:8080/health
 5. ✅ Storage Backends - Local, NFS, Ceph RBD, iSCSI with LVM thin provisioning
 6. ✅ VM Actions Dropdown - Edit settings, resources, run scripts, clone, delete
 7. ✅ Cloud-init agent auto-install - Agent installed during VM creation
+8. ✅ Image Library - Manage cloud images and ISOs with upload dialog
+9. ✅ ISO Upload - Upload ISOs via URL or file with progress tracking
+10. ✅ Password/SSH Access - Improved access config with password + SSH keys + validation
 
 **Frontend VM Detail Improvements:**
 - ✅ VM Actions Dropdown Menu (Edit Settings, Edit Resources, Run Script, Browse Files, Clone, Delete)
 - ✅ Edit Settings Modal (name, description, labels)
 - ✅ Edit Resources Modal (CPU cores, memory with presets)
 - ✅ Quantix Agent tab with status, script execution, file browser
+
+**Image Library & ISO Upload:**
+- ✅ Image Library page (`/storage/images`) with cloud images and ISOs tabs
+- ✅ ISOUploadDialog - Upload from URL or file with drag-and-drop
+- ✅ ISO catalog with built-in entries (Ubuntu, Debian, Rocky, Windows)
+- ✅ Download cloud images from catalog to storage pools
+- ✅ Delete images from library
+
+**VM Access Configuration (Cloud-Init):**
+- ✅ Password authentication with SSH password enabled (`ssh_pwauth: true`)
+- ✅ Password confirmation with validation (match, length >= 8)
+- ✅ SSH key validation (format, completeness, duplicate detection)
+- ✅ Access summary showing configured methods
+- ✅ Warning when no access method configured
+- ✅ Using `chpasswd` module for proper password setup
+- ✅ PasswordInput component with show/hide toggle
 
 **Immediate Next Steps:**
 1. ✅ Complete OVN Northbound Client (Go)

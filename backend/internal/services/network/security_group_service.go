@@ -12,13 +12,15 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/network/ovn"
 	networkv1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1"
 )
 
 // SecurityGroupService implements the networkv1connect.SecurityGroupServiceHandler interface.
 type SecurityGroupService struct {
-	repo   SecurityGroupRepository
-	logger *zap.Logger
+	repo      SecurityGroupRepository
+	ovnClient *ovn.NorthboundClient
+	logger    *zap.Logger
 }
 
 // NewSecurityGroupService creates a new SecurityGroupService.
@@ -26,6 +28,15 @@ func NewSecurityGroupService(repo SecurityGroupRepository, logger *zap.Logger) *
 	return &SecurityGroupService{
 		repo:   repo,
 		logger: logger,
+	}
+}
+
+// NewSecurityGroupServiceWithOVN creates a new SecurityGroupService with OVN backend.
+func NewSecurityGroupServiceWithOVN(repo SecurityGroupRepository, ovnClient *ovn.NorthboundClient, logger *zap.Logger) *SecurityGroupService {
+	return &SecurityGroupService{
+		repo:      repo,
+		ovnClient: ovnClient,
+		logger:    logger,
 	}
 }
 
@@ -60,6 +71,14 @@ func (s *SecurityGroupService) CreateSecurityGroup(
 			return nil, connect.NewError(connect.CodeAlreadyExists, err)
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Create OVN ACLs if client is available
+	if s.ovnClient != nil {
+		if err := s.ovnClient.CreateSecurityGroupACLs(ctx, createdSG); err != nil {
+			logger.Warn("Failed to create OVN ACLs", zap.Error(err))
+			// Don't fail the request, ACLs can be synced later
+		}
 	}
 
 	logger.Info("Security group created successfully", zap.String("sg_id", createdSG.ID))
@@ -162,6 +181,14 @@ func (s *SecurityGroupService) DeleteSecurityGroup(
 	logger.Info("Deleting security group")
 
 	// TODO: Check if security group is in use by any ports
+
+	// Delete OVN ACLs if client is available
+	if s.ovnClient != nil {
+		if err := s.ovnClient.DeleteSecurityGroupACLs(ctx, req.Msg.Id); err != nil {
+			logger.Warn("Failed to delete OVN ACLs", zap.Error(err))
+			// Continue with repo deletion
+		}
+	}
 
 	if err := s.repo.Delete(ctx, req.Msg.Id); err != nil {
 		logger.Error("Failed to delete security group", zap.Error(err))
