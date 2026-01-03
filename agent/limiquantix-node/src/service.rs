@@ -1449,9 +1449,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         info!(pool_id = %req.pool_id, volume_id = %req.volume_id, size = req.size_bytes, "Creating volume");
         
         let source = match VolumeSourceType::try_from(req.source_type) {
-            Ok(VolumeSourceType::Clone) => Some(VolumeSource::Clone(req.source_id)),
-            Ok(VolumeSourceType::Image) => Some(VolumeSource::Image(req.source_id)),
-            Ok(VolumeSourceType::Snapshot) => Some(VolumeSource::Snapshot(req.source_id)),
+            Ok(VolumeSourceType::VolumeSourceClone) => Some(VolumeSource::Clone(req.source_id)),
+            Ok(VolumeSourceType::VolumeSourceImage) => Some(VolumeSource::Image(req.source_id)),
+            Ok(VolumeSourceType::VolumeSourceSnapshot) => Some(VolumeSource::Snapshot(req.source_id)),
             _ => None,
         };
         
