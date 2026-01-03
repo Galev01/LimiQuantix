@@ -29,16 +29,17 @@ type NorthboundClient struct {
 
 // mockOVNState simulates OVN state for development without actual OVN.
 type mockOVNState struct {
-	switches    map[string]*LogicalSwitch
-	ports       map[string]*LogicalSwitchPort
-	routers     map[string]*LogicalRouter
-	routerPorts map[string]*LogicalRouterPort
-	acls        map[string]*ACL
-	addressSets map[string]*AddressSet
-	dhcpOptions map[string]*DHCPOptions
-	nats        map[string]*NAT
-	natRules    map[string]NATRule // For floating IPs
-	portGroups  map[string]*PortGroup
+	switches      map[string]*LogicalSwitch
+	ports         map[string]*LogicalSwitchPort
+	routers       map[string]*LogicalRouter
+	routerPorts   map[string]*LogicalRouterPort
+	acls          map[string]*ACL
+	addressSets   map[string]*AddressSet
+	dhcpOptions   map[string]*DHCPOptions
+	nats          map[string]*NAT
+	natRules      map[string]NATRule // For floating IPs
+	portGroups    map[string]*PortGroup
+	loadBalancers map[string]*OVNLoadBalancer
 }
 
 // NATRule represents a NAT rule for floating IPs.
@@ -925,4 +926,151 @@ func stringJoin(strs []string, sep string) string {
 		result += s
 	}
 	return result
+}
+
+// =============================================================================
+// LOAD BALANCER OPERATIONS
+// =============================================================================
+
+// OVNLoadBalancer represents an OVN load balancer.
+type OVNLoadBalancer struct {
+	UUID        string
+	Name        string
+	VIPs        map[string]string // vip:port -> member_ips:port
+	Protocol    string            // tcp, udp, or sctp
+	ExternalIDs map[string]string
+}
+
+// LoadBalancerStats holds OVN load balancer statistics.
+type LoadBalancerStats struct {
+	TotalConnections  int64
+	ActiveConnections int64
+	BytesIn           int64
+	BytesOut          int64
+	RequestsPerSecond float64
+}
+
+// CreateLoadBalancer creates an OVN load balancer.
+func (c *NorthboundClient) CreateLoadBalancer(ctx context.Context, lb *domain.LoadBalancer) error {
+	c.logger.Info("Creating OVN load balancer",
+		zap.String("lb_id", lb.ID),
+		zap.String("lb_name", lb.Name),
+		zap.String("vip", lb.Spec.VIP),
+	)
+
+	// OVN load balancer format: ovn-nbctl lb-add <name> <vip:port> <ip:port,...>
+	// Example: ovn-nbctl lb-add web-lb 10.0.0.100:80 10.0.1.10:80,10.0.1.11:80
+
+	lbName := fmt.Sprintf("lb-%s", lb.ID)
+	protocol := strings.ToLower(string(lb.Spec.Protocol))
+	if protocol == "" {
+		protocol = "tcp"
+	}
+
+	// Build VIPs map
+	vips := make(map[string]string)
+	for _, listener := range lb.Spec.Listeners {
+		vipKey := fmt.Sprintf("%s:%d", lb.Spec.VIP, listener.Port)
+		
+		// Find members for this listener
+		var memberAddrs []string
+		for _, member := range lb.Spec.Members {
+			if member.ListenerID == "" || member.ListenerID == listener.ID {
+				memberAddrs = append(memberAddrs, fmt.Sprintf("%s:%d", member.Address, member.Port))
+			}
+		}
+		
+		if len(memberAddrs) > 0 {
+			vips[vipKey] = strings.Join(memberAddrs, ",")
+		}
+	}
+
+	ovnLB := &OVNLoadBalancer{
+		UUID:     generateUUID(),
+		Name:     lbName,
+		VIPs:     vips,
+		Protocol: protocol,
+		ExternalIDs: map[string]string{
+			"limiquantix-lb-id":      lb.ID,
+			"limiquantix-project-id": lb.ProjectID,
+		},
+	}
+
+	// Store in mock
+	if c.mock.loadBalancers == nil {
+		c.mock.loadBalancers = make(map[string]*OVNLoadBalancer)
+	}
+	c.mock.loadBalancers[lb.ID] = ovnLB
+
+	// TODO: Real OVN transaction
+	// ops := []ovsdb.Operation{...}
+
+	return nil
+}
+
+// UpdateLoadBalancer updates an OVN load balancer.
+func (c *NorthboundClient) UpdateLoadBalancer(ctx context.Context, lb *domain.LoadBalancer) error {
+	c.logger.Info("Updating OVN load balancer",
+		zap.String("lb_id", lb.ID),
+	)
+
+	// Delete and recreate for simplicity
+	if err := c.DeleteLoadBalancer(ctx, lb.ID); err != nil {
+		c.logger.Warn("Failed to delete old load balancer", zap.Error(err))
+	}
+
+	return c.CreateLoadBalancer(ctx, lb)
+}
+
+// DeleteLoadBalancer removes an OVN load balancer.
+func (c *NorthboundClient) DeleteLoadBalancer(ctx context.Context, lbID string) error {
+	c.logger.Info("Deleting OVN load balancer",
+		zap.String("lb_id", lbID),
+	)
+
+	if c.mock.loadBalancers != nil {
+		delete(c.mock.loadBalancers, lbID)
+	}
+
+	// TODO: Real OVN transaction
+	// ovn-nbctl lb-del <name>
+
+	return nil
+}
+
+// GetLoadBalancerStats retrieves load balancer statistics.
+func (c *NorthboundClient) GetLoadBalancerStats(ctx context.Context, lbID string) (*LoadBalancerStats, error) {
+	// In a real implementation, this would query OVN counters
+	// For now, return mock stats
+	return &LoadBalancerStats{
+		TotalConnections:  0,
+		ActiveConnections: 0,
+		BytesIn:           0,
+		BytesOut:          0,
+		RequestsPerSecond: 0,
+	}, nil
+}
+
+// AssignLoadBalancerToSwitch assigns a load balancer to a logical switch.
+func (c *NorthboundClient) AssignLoadBalancerToSwitch(ctx context.Context, lbID, switchName string) error {
+	c.logger.Info("Assigning load balancer to switch",
+		zap.String("lb_id", lbID),
+		zap.String("switch", switchName),
+	)
+
+	// OVN command: ovn-nbctl ls-lb-add <switch> <lb>
+
+	return nil
+}
+
+// AssignLoadBalancerToRouter assigns a load balancer to a logical router.
+func (c *NorthboundClient) AssignLoadBalancerToRouter(ctx context.Context, lbID, routerName string) error {
+	c.logger.Info("Assigning load balancer to router",
+		zap.String("lb_id", lbID),
+		zap.String("router", routerName),
+	)
+
+	// OVN command: ovn-nbctl lr-lb-add <router> <lb>
+
+	return nil
 }

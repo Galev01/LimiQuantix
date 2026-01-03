@@ -334,3 +334,151 @@ type FloatingIPStatus struct {
 func (f *FloatingIP) IsAssigned() bool {
 	return f.Assignment.PortID != ""
 }
+
+// =============================================================================
+// LOAD BALANCER - L4 Load Balancing
+// =============================================================================
+
+// LBPhase represents the lifecycle phase of a load balancer.
+type LBPhase string
+
+const (
+	LBPhasePending LBPhase = "PENDING"
+	LBPhaseActive  LBPhase = "ACTIVE"
+	LBPhaseError   LBPhase = "ERROR"
+)
+
+// LBAlgorithm represents the load balancing algorithm.
+type LBAlgorithm string
+
+const (
+	LBAlgorithmRoundRobin   LBAlgorithm = "ROUND_ROBIN"
+	LBAlgorithmLeastConn    LBAlgorithm = "LEAST_CONNECTIONS"
+	LBAlgorithmSourceIP     LBAlgorithm = "SOURCE_IP"
+	LBAlgorithmWeighted     LBAlgorithm = "WEIGHTED"
+)
+
+// LBProtocol represents the protocol for load balancing.
+type LBProtocol string
+
+const (
+	LBProtocolTCP  LBProtocol = "TCP"
+	LBProtocolUDP  LBProtocol = "UDP"
+	LBProtocolHTTP LBProtocol = "HTTP"
+	LBProtocolHTTPS LBProtocol = "HTTPS"
+)
+
+// LoadBalancer represents an L4 load balancer.
+type LoadBalancer struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	NetworkID   string            `json:"network_id"`
+	ProjectID   string            `json:"project_id"`
+	Description string            `json:"description"`
+	Labels      map[string]string `json:"labels"`
+
+	Spec   LoadBalancerSpec   `json:"spec"`
+	Status LoadBalancerStatus `json:"status"`
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// LoadBalancerSpec defines the desired state of the load balancer.
+type LoadBalancerSpec struct {
+	VIP       string       `json:"vip"`        // Virtual IP address
+	Algorithm LBAlgorithm  `json:"algorithm"`
+	Protocol  LBProtocol   `json:"protocol"`
+	Listeners []LBListener `json:"listeners"`
+	Members   []LBMember   `json:"members"`
+}
+
+// LoadBalancerStatus represents the current state of the load balancer.
+type LoadBalancerStatus struct {
+	Phase         LBPhase `json:"phase"`
+	ProvisionedIP string  `json:"provisioned_ip"`
+	ErrorMessage  string  `json:"error_message"`
+}
+
+// LBListener represents a frontend listener (port mapping).
+type LBListener struct {
+	ID       string     `json:"id"`
+	Port     int        `json:"port"`
+	Protocol LBProtocol `json:"protocol"`
+	Name     string     `json:"name"`
+}
+
+// LBMember represents a backend member (target server).
+type LBMember struct {
+	ID         string `json:"id"`
+	Address    string `json:"address"` // IP address or hostname
+	Port       int    `json:"port"`
+	Weight     int    `json:"weight"`   // For weighted algorithms
+	ListenerID string `json:"listener_id"` // Which listener this member belongs to
+}
+
+// =============================================================================
+// VPN SERVICE - Site-to-Site VPN
+// =============================================================================
+
+// VPNPhase represents the lifecycle phase of a VPN service.
+type VPNPhase string
+
+const (
+	VPNPhasePending VPNPhase = "PENDING"
+	VPNPhaseActive  VPNPhase = "ACTIVE"
+	VPNPhaseDown    VPNPhase = "DOWN"
+	VPNPhaseError   VPNPhase = "ERROR"
+)
+
+// VPNType represents the type of VPN.
+type VPNType string
+
+const (
+	VPNTypeIPSec     VPNType = "IPSEC"
+	VPNTypeWireGuard VPNType = "WIREGUARD"
+)
+
+// VpnService represents a VPN service for site-to-site connectivity.
+type VpnService struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	NetworkID   string            `json:"network_id"`
+	ProjectID   string            `json:"project_id"`
+	Description string            `json:"description"`
+	Labels      map[string]string `json:"labels"`
+
+	Spec   VpnServiceSpec   `json:"spec"`
+	Status VpnServiceStatus `json:"status"`
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// VpnServiceSpec defines the VPN configuration.
+type VpnServiceSpec struct {
+	Type         VPNType         `json:"type"`
+	RouterID     string          `json:"router_id"`
+	ExternalIP   string          `json:"external_ip"`
+	LocalSubnets []string        `json:"local_subnets"`
+	Connections  []VpnConnection `json:"connections"`
+}
+
+// VpnServiceStatus represents the VPN status.
+type VpnServiceStatus struct {
+	Phase        VPNPhase `json:"phase"`
+	PublicIP     string   `json:"public_ip"`
+	PublicKey    string   `json:"public_key"` // For WireGuard
+	ErrorMessage string   `json:"error_message"`
+}
+
+// VpnConnection represents a VPN peer connection.
+type VpnConnection struct {
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	PeerAddress   string   `json:"peer_address"`
+	PeerCIDRs     []string `json:"peer_cidrs"`
+	PSK           string   `json:"psk,omitempty"`       // Pre-shared key for IPSec
+	PeerPublicKey string   `json:"peer_public_key,omitempty"` // For WireGuard
+	Status        string   `json:"status"`
+}
