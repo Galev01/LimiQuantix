@@ -1,0 +1,25 @@
+# LimiQuantix Guest Agent Configuration
+# This file is installed by the MSI and can be customized.
+
+# Virtio-serial device path
+# On Windows, this is the symbolic link to the virtio-serial port
+device_path: "\\\\?\\Global\\org.limiquantix.agent.0"
+
+# Logging level: trace, debug, info, warn, error
+log_level: "info"
+
+# Telemetry interval in seconds
+telemetry_interval_secs: 60
+
+# Maximum command execution timeout (seconds)
+max_exec_timeout_secs: 300
+
+# Maximum file read chunk size (bytes)
+max_read_chunk_size: 65536
+
+# Pre-freeze scripts directory (for snapshot quiescing)
+# On Windows, place .bat or .ps1 scripts here
+pre_freeze_script_dir: "C:\\ProgramData\\LimiQuantix\\pre-freeze.d"
+
+# Post-thaw scripts directory (after snapshot)
+post_thaw_script_dir: "C:\\ProgramData\\LimiQuantix\\post-thaw.d"

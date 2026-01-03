@@ -20,35 +20,45 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NodeDaemonService_HealthCheck_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/HealthCheck"
-	NodeDaemonService_GetNodeInfo_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/GetNodeInfo"
-	NodeDaemonService_CreateVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/CreateVM"
-	NodeDaemonService_StartVM_FullMethodName           = "/limiquantix.node.v1.NodeDaemonService/StartVM"
-	NodeDaemonService_StopVM_FullMethodName            = "/limiquantix.node.v1.NodeDaemonService/StopVM"
-	NodeDaemonService_ForceStopVM_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/ForceStopVM"
-	NodeDaemonService_RebootVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/RebootVM"
-	NodeDaemonService_PauseVM_FullMethodName           = "/limiquantix.node.v1.NodeDaemonService/PauseVM"
-	NodeDaemonService_ResumeVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/ResumeVM"
-	NodeDaemonService_DeleteVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/DeleteVM"
-	NodeDaemonService_GetVMStatus_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/GetVMStatus"
-	NodeDaemonService_ListVMs_FullMethodName           = "/limiquantix.node.v1.NodeDaemonService/ListVMs"
-	NodeDaemonService_GetConsole_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/GetConsole"
-	NodeDaemonService_CreateSnapshot_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/CreateSnapshot"
-	NodeDaemonService_RevertSnapshot_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/RevertSnapshot"
-	NodeDaemonService_DeleteSnapshot_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/DeleteSnapshot"
-	NodeDaemonService_ListSnapshots_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/ListSnapshots"
-	NodeDaemonService_AttachDisk_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/AttachDisk"
-	NodeDaemonService_DetachDisk_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/DetachDisk"
-	NodeDaemonService_AttachNIC_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/AttachNIC"
-	NodeDaemonService_DetachNIC_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/DetachNIC"
-	NodeDaemonService_PrepareMigration_FullMethodName  = "/limiquantix.node.v1.NodeDaemonService/PrepareMigration"
-	NodeDaemonService_ReceiveMigration_FullMethodName  = "/limiquantix.node.v1.NodeDaemonService/ReceiveMigration"
-	NodeDaemonService_MigrateVM_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/MigrateVM"
-	NodeDaemonService_StreamMetrics_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/StreamMetrics"
-	NodeDaemonService_StreamEvents_FullMethodName      = "/limiquantix.node.v1.NodeDaemonService/StreamEvents"
-	NodeDaemonService_DownloadImage_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/DownloadImage"
-	NodeDaemonService_GetDownloadStatus_FullMethodName = "/limiquantix.node.v1.NodeDaemonService/GetDownloadStatus"
-	NodeDaemonService_CancelDownload_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/CancelDownload"
+	NodeDaemonService_HealthCheck_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/HealthCheck"
+	NodeDaemonService_GetNodeInfo_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/GetNodeInfo"
+	NodeDaemonService_CreateVM_FullMethodName             = "/limiquantix.node.v1.NodeDaemonService/CreateVM"
+	NodeDaemonService_StartVM_FullMethodName              = "/limiquantix.node.v1.NodeDaemonService/StartVM"
+	NodeDaemonService_StopVM_FullMethodName               = "/limiquantix.node.v1.NodeDaemonService/StopVM"
+	NodeDaemonService_ForceStopVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/ForceStopVM"
+	NodeDaemonService_RebootVM_FullMethodName             = "/limiquantix.node.v1.NodeDaemonService/RebootVM"
+	NodeDaemonService_PauseVM_FullMethodName              = "/limiquantix.node.v1.NodeDaemonService/PauseVM"
+	NodeDaemonService_ResumeVM_FullMethodName             = "/limiquantix.node.v1.NodeDaemonService/ResumeVM"
+	NodeDaemonService_DeleteVM_FullMethodName             = "/limiquantix.node.v1.NodeDaemonService/DeleteVM"
+	NodeDaemonService_GetVMStatus_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/GetVMStatus"
+	NodeDaemonService_ListVMs_FullMethodName              = "/limiquantix.node.v1.NodeDaemonService/ListVMs"
+	NodeDaemonService_GetConsole_FullMethodName           = "/limiquantix.node.v1.NodeDaemonService/GetConsole"
+	NodeDaemonService_CreateSnapshot_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/CreateSnapshot"
+	NodeDaemonService_RevertSnapshot_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/RevertSnapshot"
+	NodeDaemonService_DeleteSnapshot_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/DeleteSnapshot"
+	NodeDaemonService_ListSnapshots_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/ListSnapshots"
+	NodeDaemonService_AttachDisk_FullMethodName           = "/limiquantix.node.v1.NodeDaemonService/AttachDisk"
+	NodeDaemonService_DetachDisk_FullMethodName           = "/limiquantix.node.v1.NodeDaemonService/DetachDisk"
+	NodeDaemonService_AttachNIC_FullMethodName            = "/limiquantix.node.v1.NodeDaemonService/AttachNIC"
+	NodeDaemonService_DetachNIC_FullMethodName            = "/limiquantix.node.v1.NodeDaemonService/DetachNIC"
+	NodeDaemonService_PrepareMigration_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/PrepareMigration"
+	NodeDaemonService_ReceiveMigration_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/ReceiveMigration"
+	NodeDaemonService_MigrateVM_FullMethodName            = "/limiquantix.node.v1.NodeDaemonService/MigrateVM"
+	NodeDaemonService_StreamMetrics_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/StreamMetrics"
+	NodeDaemonService_StreamEvents_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/StreamEvents"
+	NodeDaemonService_DownloadImage_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/DownloadImage"
+	NodeDaemonService_GetDownloadStatus_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/GetDownloadStatus"
+	NodeDaemonService_CancelDownload_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/CancelDownload"
+	NodeDaemonService_InitStoragePool_FullMethodName      = "/limiquantix.node.v1.NodeDaemonService/InitStoragePool"
+	NodeDaemonService_DestroyStoragePool_FullMethodName   = "/limiquantix.node.v1.NodeDaemonService/DestroyStoragePool"
+	NodeDaemonService_GetStoragePoolInfo_FullMethodName   = "/limiquantix.node.v1.NodeDaemonService/GetStoragePoolInfo"
+	NodeDaemonService_ListStoragePools_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/ListStoragePools"
+	NodeDaemonService_CreateVolume_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/CreateVolume"
+	NodeDaemonService_DeleteVolume_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/DeleteVolume"
+	NodeDaemonService_ResizeVolume_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/ResizeVolume"
+	NodeDaemonService_CloneVolume_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/CloneVolume"
+	NodeDaemonService_GetVolumeAttachInfo_FullMethodName  = "/limiquantix.node.v1.NodeDaemonService/GetVolumeAttachInfo"
+	NodeDaemonService_CreateVolumeSnapshot_FullMethodName = "/limiquantix.node.v1.NodeDaemonService/CreateVolumeSnapshot"
 )
 
 // NodeDaemonServiceClient is the client API for NodeDaemonService service.
@@ -113,6 +123,26 @@ type NodeDaemonServiceClient interface {
 	GetDownloadStatus(ctx context.Context, in *GetDownloadStatusRequest, opts ...grpc.CallOption) (*DownloadProgress, error)
 	// Cancel an in-progress download
 	CancelDownload(ctx context.Context, in *CancelDownloadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Initialize/mount a storage pool on this node
+	InitStoragePool(ctx context.Context, in *InitStoragePoolRequest, opts ...grpc.CallOption) (*StoragePoolInfoResponse, error)
+	// Destroy/unmount a storage pool
+	DestroyStoragePool(ctx context.Context, in *StoragePoolIdRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Get storage pool information
+	GetStoragePoolInfo(ctx context.Context, in *StoragePoolIdRequest, opts ...grpc.CallOption) (*StoragePoolInfoResponse, error)
+	// List all storage pools on this node
+	ListStoragePools(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListStoragePoolsResponse, error)
+	// Create a volume in a storage pool
+	CreateVolume(ctx context.Context, in *CreateVolumeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Delete a volume
+	DeleteVolume(ctx context.Context, in *VolumeIdRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Resize a volume
+	ResizeVolume(ctx context.Context, in *ResizeVolumeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Clone a volume
+	CloneVolume(ctx context.Context, in *CloneVolumeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Get volume attach information (libvirt disk XML)
+	GetVolumeAttachInfo(ctx context.Context, in *VolumeIdRequest, opts ...grpc.CallOption) (*VolumeAttachInfoResponse, error)
+	// Create a volume snapshot
+	CreateVolumeSnapshot(ctx context.Context, in *CreateVolumeSnapshotRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type nodeDaemonServiceClient struct {
@@ -449,6 +479,106 @@ func (c *nodeDaemonServiceClient) CancelDownload(ctx context.Context, in *Cancel
 	return out, nil
 }
 
+func (c *nodeDaemonServiceClient) InitStoragePool(ctx context.Context, in *InitStoragePoolRequest, opts ...grpc.CallOption) (*StoragePoolInfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StoragePoolInfoResponse)
+	err := c.cc.Invoke(ctx, NodeDaemonService_InitStoragePool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) DestroyStoragePool(ctx context.Context, in *StoragePoolIdRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NodeDaemonService_DestroyStoragePool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) GetStoragePoolInfo(ctx context.Context, in *StoragePoolIdRequest, opts ...grpc.CallOption) (*StoragePoolInfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StoragePoolInfoResponse)
+	err := c.cc.Invoke(ctx, NodeDaemonService_GetStoragePoolInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) ListStoragePools(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListStoragePoolsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListStoragePoolsResponse)
+	err := c.cc.Invoke(ctx, NodeDaemonService_ListStoragePools_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) CreateVolume(ctx context.Context, in *CreateVolumeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NodeDaemonService_CreateVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) DeleteVolume(ctx context.Context, in *VolumeIdRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NodeDaemonService_DeleteVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) ResizeVolume(ctx context.Context, in *ResizeVolumeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NodeDaemonService_ResizeVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) CloneVolume(ctx context.Context, in *CloneVolumeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NodeDaemonService_CloneVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) GetVolumeAttachInfo(ctx context.Context, in *VolumeIdRequest, opts ...grpc.CallOption) (*VolumeAttachInfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VolumeAttachInfoResponse)
+	err := c.cc.Invoke(ctx, NodeDaemonService_GetVolumeAttachInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) CreateVolumeSnapshot(ctx context.Context, in *CreateVolumeSnapshotRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NodeDaemonService_CreateVolumeSnapshot_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NodeDaemonServiceServer is the server API for NodeDaemonService service.
 // All implementations should embed UnimplementedNodeDaemonServiceServer
 // for forward compatibility.
@@ -511,6 +641,26 @@ type NodeDaemonServiceServer interface {
 	GetDownloadStatus(context.Context, *GetDownloadStatusRequest) (*DownloadProgress, error)
 	// Cancel an in-progress download
 	CancelDownload(context.Context, *CancelDownloadRequest) (*emptypb.Empty, error)
+	// Initialize/mount a storage pool on this node
+	InitStoragePool(context.Context, *InitStoragePoolRequest) (*StoragePoolInfoResponse, error)
+	// Destroy/unmount a storage pool
+	DestroyStoragePool(context.Context, *StoragePoolIdRequest) (*emptypb.Empty, error)
+	// Get storage pool information
+	GetStoragePoolInfo(context.Context, *StoragePoolIdRequest) (*StoragePoolInfoResponse, error)
+	// List all storage pools on this node
+	ListStoragePools(context.Context, *emptypb.Empty) (*ListStoragePoolsResponse, error)
+	// Create a volume in a storage pool
+	CreateVolume(context.Context, *CreateVolumeRequest) (*emptypb.Empty, error)
+	// Delete a volume
+	DeleteVolume(context.Context, *VolumeIdRequest) (*emptypb.Empty, error)
+	// Resize a volume
+	ResizeVolume(context.Context, *ResizeVolumeRequest) (*emptypb.Empty, error)
+	// Clone a volume
+	CloneVolume(context.Context, *CloneVolumeRequest) (*emptypb.Empty, error)
+	// Get volume attach information (libvirt disk XML)
+	GetVolumeAttachInfo(context.Context, *VolumeIdRequest) (*VolumeAttachInfoResponse, error)
+	// Create a volume snapshot
+	CreateVolumeSnapshot(context.Context, *CreateVolumeSnapshotRequest) (*emptypb.Empty, error)
 }
 
 // UnimplementedNodeDaemonServiceServer should be embedded to have
@@ -606,6 +756,36 @@ func (UnimplementedNodeDaemonServiceServer) GetDownloadStatus(context.Context, *
 }
 func (UnimplementedNodeDaemonServiceServer) CancelDownload(context.Context, *CancelDownloadRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method CancelDownload not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) InitStoragePool(context.Context, *InitStoragePoolRequest) (*StoragePoolInfoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method InitStoragePool not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) DestroyStoragePool(context.Context, *StoragePoolIdRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DestroyStoragePool not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) GetStoragePoolInfo(context.Context, *StoragePoolIdRequest) (*StoragePoolInfoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetStoragePoolInfo not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) ListStoragePools(context.Context, *emptypb.Empty) (*ListStoragePoolsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListStoragePools not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) CreateVolume(context.Context, *CreateVolumeRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateVolume not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) DeleteVolume(context.Context, *VolumeIdRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteVolume not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) ResizeVolume(context.Context, *ResizeVolumeRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResizeVolume not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) CloneVolume(context.Context, *CloneVolumeRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CloneVolume not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) GetVolumeAttachInfo(context.Context, *VolumeIdRequest) (*VolumeAttachInfoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetVolumeAttachInfo not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) CreateVolumeSnapshot(context.Context, *CreateVolumeSnapshotRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateVolumeSnapshot not implemented")
 }
 func (UnimplementedNodeDaemonServiceServer) testEmbeddedByValue() {}
 
@@ -1121,6 +1301,186 @@ func _NodeDaemonService_CancelDownload_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeDaemonService_InitStoragePool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InitStoragePoolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).InitStoragePool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_InitStoragePool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).InitStoragePool(ctx, req.(*InitStoragePoolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_DestroyStoragePool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StoragePoolIdRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).DestroyStoragePool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_DestroyStoragePool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).DestroyStoragePool(ctx, req.(*StoragePoolIdRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_GetStoragePoolInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StoragePoolIdRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).GetStoragePoolInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_GetStoragePoolInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).GetStoragePoolInfo(ctx, req.(*StoragePoolIdRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_ListStoragePools_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).ListStoragePools(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_ListStoragePools_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).ListStoragePools(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_CreateVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateVolumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).CreateVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_CreateVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).CreateVolume(ctx, req.(*CreateVolumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_DeleteVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeIdRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).DeleteVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_DeleteVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).DeleteVolume(ctx, req.(*VolumeIdRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_ResizeVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResizeVolumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).ResizeVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_ResizeVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).ResizeVolume(ctx, req.(*ResizeVolumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_CloneVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CloneVolumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).CloneVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_CloneVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).CloneVolume(ctx, req.(*CloneVolumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_GetVolumeAttachInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeIdRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).GetVolumeAttachInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_GetVolumeAttachInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).GetVolumeAttachInfo(ctx, req.(*VolumeIdRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_CreateVolumeSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateVolumeSnapshotRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).CreateVolumeSnapshot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_CreateVolumeSnapshot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).CreateVolumeSnapshot(ctx, req.(*CreateVolumeSnapshotRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NodeDaemonService_ServiceDesc is the grpc.ServiceDesc for NodeDaemonService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1227,6 +1587,46 @@ var NodeDaemonService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelDownload",
 			Handler:    _NodeDaemonService_CancelDownload_Handler,
+		},
+		{
+			MethodName: "InitStoragePool",
+			Handler:    _NodeDaemonService_InitStoragePool_Handler,
+		},
+		{
+			MethodName: "DestroyStoragePool",
+			Handler:    _NodeDaemonService_DestroyStoragePool_Handler,
+		},
+		{
+			MethodName: "GetStoragePoolInfo",
+			Handler:    _NodeDaemonService_GetStoragePoolInfo_Handler,
+		},
+		{
+			MethodName: "ListStoragePools",
+			Handler:    _NodeDaemonService_ListStoragePools_Handler,
+		},
+		{
+			MethodName: "CreateVolume",
+			Handler:    _NodeDaemonService_CreateVolume_Handler,
+		},
+		{
+			MethodName: "DeleteVolume",
+			Handler:    _NodeDaemonService_DeleteVolume_Handler,
+		},
+		{
+			MethodName: "ResizeVolume",
+			Handler:    _NodeDaemonService_ResizeVolume_Handler,
+		},
+		{
+			MethodName: "CloneVolume",
+			Handler:    _NodeDaemonService_CloneVolume_Handler,
+		},
+		{
+			MethodName: "GetVolumeAttachInfo",
+			Handler:    _NodeDaemonService_GetVolumeAttachInfo_Handler,
+		},
+		{
+			MethodName: "CreateVolumeSnapshot",
+			Handler:    _NodeDaemonService_CreateVolumeSnapshot_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

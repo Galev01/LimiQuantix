@@ -10,7 +10,8 @@ import {
   Loader2,
   AlertTriangle,
   X,
-  Link,
+  ExternalLink,
+  Zap,
 } from 'lucide-react';
 
 interface SavedConnection {
@@ -83,7 +84,8 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
     if (!confirm('Delete this connection?')) return;
 
     try {
@@ -118,7 +120,7 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
   return (
     <div className="h-full flex flex-col bg-[var(--bg-base)]">
       {/* Header */}
-      <header className="app-header flex items-center justify-between px-6 py-5">
+      <header className="app-header">
         <div className="app-brand">
           <div className="app-brand-icon">
             <Monitor />
@@ -138,7 +140,7 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-auto p-6">
+      <main className="flex-1 overflow-auto page-content">
         {/* Error message */}
         {error && (
           <div className="alert alert-error">
@@ -153,16 +155,18 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
         {/* Add Connection Button */}
         <button
           onClick={() => setShowAddDialog(true)}
-          className="add-card mb-6"
+          className="add-card mb-8"
         >
-          <Plus />
+          <div className="add-card-icon">
+            <Plus />
+          </div>
           <span>Add Connection</span>
         </button>
 
         {/* Loading */}
         {loading && (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-10 h-10 text-[var(--accent)] animate-spin" />
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-10 h-10 text-[var(--accent)] spinner" />
           </div>
         )}
 
@@ -174,68 +178,75 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
             </div>
             <p className="empty-state-title">No saved connections</p>
             <p className="empty-state-description">
-              Click "Add Connection" to get started
+              Click "Add Connection" above to connect to your first VM
             </p>
           </div>
         )}
 
         {/* Connection List */}
-        <div className="grid gap-4">
-          {connections.map((connection) => (
-            <div
-              key={connection.id}
-              className="connection-card group"
-            >
-              <button
-                onClick={() => handleConnect(connection)}
-                disabled={connecting !== null}
-                className="w-full text-left flex items-center gap-4"
-              >
-                <div className="connection-card-icon">
-                  {connecting === connection.id ? (
-                    <Loader2 className="w-6 h-6 text-[var(--accent)] animate-spin" />
-                  ) : (
-                    <Monitor className="w-6 h-6" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-[var(--text-primary)] truncate text-[15px]">
-                    {connection.name}
-                  </p>
-                  <p className="text-sm text-[var(--text-muted)] truncate flex items-center gap-1.5 mt-1">
-                    <Link className="w-3 h-3" />
-                    {connection.control_plane_url}
-                  </p>
-                  {connection.last_connected && (
-                    <p className="text-xs text-[var(--text-muted)] flex items-center gap-1.5 mt-2">
-                      <Clock className="w-3 h-3" />
-                      Last connected: {connection.last_connected}
-                    </p>
-                  )}
-                </div>
-              </button>
-
-              {/* Delete button */}
-              <button
-                onClick={() => handleDelete(connection.id)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 icon-btn
-                           opacity-0 group-hover:opacity-100 hover:!bg-[var(--error-light)]
-                           hover:!text-[var(--error)] transition-all"
-                title="Delete connection"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+        {!loading && connections.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Zap className="w-4 h-4 text-[var(--accent)]" />
+              <span className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                Recent Connections
+              </span>
             </div>
-          ))}
-        </div>
+            <div className="grid gap-4">
+              {connections.map((connection, index) => (
+                <div
+                  key={connection.id}
+                  className="connection-card group animate-fade-in-up"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                  onClick={() => handleConnect(connection)}
+                >
+                  <div className="flex items-center gap-5 relative z-10">
+                    <div className="connection-card-icon">
+                      {connecting === connection.id ? (
+                        <Loader2 className="w-6 h-6 text-[var(--accent)] spinner" />
+                      ) : (
+                        <Monitor className="w-6 h-6" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-[var(--text-primary)] truncate text-[15px] mb-1">
+                        {connection.name}
+                      </p>
+                      <p className="text-sm text-[var(--text-muted)] truncate flex items-center gap-2">
+                        <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="truncate">{connection.control_plane_url}</span>
+                      </p>
+                      {connection.last_connected && (
+                        <p className="text-xs text-[var(--text-muted)] flex items-center gap-2 mt-2 opacity-70">
+                          <Clock className="w-3 h-3" />
+                          {connection.last_connected}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Delete button */}
+                    <button
+                      onClick={(e) => handleDelete(e, connection.id)}
+                      className="icon-btn opacity-0 group-hover:opacity-100 
+                                 hover:!bg-[var(--error-light)] hover:!text-[var(--error)]"
+                      title="Delete connection"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Add Connection Dialog */}
       {showAddDialog && (
         <div className="modal-overlay" onClick={() => setShowAddDialog(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header flex items-center justify-between">
-              <h2 className="modal-title">Add Connection</h2>
+            <div className="modal-header">
+              <h2 className="modal-title">New Connection</h2>
               <button
                 onClick={() => setShowAddDialog(false)}
                 className="icon-btn"
@@ -244,15 +255,16 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
               </button>
             </div>
 
-            <div className="modal-body space-y-5">
+            <div className="modal-body">
               <div className="form-group">
                 <label className="label">Connection Name</label>
                 <input
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="My Production Server"
+                  placeholder="Production Server"
                   className="input"
+                  autoFocus
                 />
               </div>
 
@@ -268,7 +280,7 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
               </div>
 
               <div className="form-group">
-                <label className="label">VM ID</label>
+                <label className="label">Virtual Machine ID</label>
                 <input
                   type="text"
                   value={newVmId}
@@ -291,6 +303,7 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
                 disabled={!newName || !newControlPlane || !newVmId}
                 className="btn btn-primary flex-1"
               >
+                <Plus className="w-4 h-4" />
                 Add Connection
               </button>
             </div>

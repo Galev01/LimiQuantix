@@ -11,20 +11,32 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/services/node"
+	nodev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1"
 	storagev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1"
 )
 
 // PoolService implements the storagev1connect.StoragePoolServiceHandler interface.
 type PoolService struct {
-	repo   PoolRepository
-	logger *zap.Logger
+	repo       PoolRepository
+	daemonPool *node.DaemonPool
+	nodeRepo   NodeRepository
+	logger     *zap.Logger
+}
+
+// NodeRepository provides access to node information.
+type NodeRepository interface {
+	Get(ctx context.Context, id string) (*domain.Node, error)
+	List(ctx context.Context, limit, offset int) ([]*domain.Node, int, error)
 }
 
 // NewPoolService creates a new PoolService.
-func NewPoolService(repo PoolRepository, logger *zap.Logger) *PoolService {
+func NewPoolService(repo PoolRepository, daemonPool *node.DaemonPool, nodeRepo NodeRepository, logger *zap.Logger) *PoolService {
 	return &PoolService{
-		repo:   repo,
-		logger: logger,
+		repo:       repo,
+		daemonPool: daemonPool,
+		nodeRepo:   nodeRepo,
+		logger:     logger,
 	}
 }
 
@@ -58,18 +70,141 @@ func (s *PoolService) CreatePool(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Simulate pool becoming ready (in real implementation, would be async)
-	createdPool.Status.Phase = domain.StoragePoolPhaseReady
-	createdPool.Status.Capacity = domain.StorageCapacity{
-		TotalBytes:     100 * 1024 * 1024 * 1024, // 100 GiB
-		AvailableBytes: 100 * 1024 * 1024 * 1024,
+	// Initialize pool on all applicable nodes
+	if s.daemonPool != nil {
+		poolInfo, err := s.initPoolOnNodes(ctx, createdPool, logger)
+		if err != nil {
+			logger.Error("Failed to initialize pool on nodes", zap.Error(err))
+			createdPool.Status.Phase = domain.StoragePoolPhaseError
+			createdPool.Status.ErrorMessage = err.Error()
+		} else if poolInfo != nil {
+			createdPool.Status.Phase = domain.StoragePoolPhaseReady
+			createdPool.Status.Capacity = domain.StorageCapacity{
+				TotalBytes:     poolInfo.TotalBytes,
+				AvailableBytes: poolInfo.AvailableBytes,
+				UsedBytes:      poolInfo.UsedBytes,
+			}
+		}
+	} else {
+		// Fallback for dev mode without node daemons
+		createdPool.Status.Phase = domain.StoragePoolPhaseReady
+		createdPool.Status.Capacity = domain.StorageCapacity{
+			TotalBytes:     100 * 1024 * 1024 * 1024, // 100 GiB
+			AvailableBytes: 100 * 1024 * 1024 * 1024,
+		}
 	}
+
 	if err := s.repo.UpdateStatus(ctx, createdPool.ID, createdPool.Status); err != nil {
 		logger.Warn("Failed to update pool status", zap.Error(err))
 	}
 
 	logger.Info("Storage pool created successfully", zap.String("pool_id", createdPool.ID))
 	return connect.NewResponse(convertPoolToProto(createdPool)), nil
+}
+
+// initPoolOnNodes initializes the storage pool on applicable nodes.
+func (s *PoolService) initPoolOnNodes(ctx context.Context, pool *domain.StoragePool, logger *zap.Logger) (*nodev1.StoragePoolInfoResponse, error) {
+	// Get all connected nodes
+	connectedNodes := s.daemonPool.ConnectedNodes()
+	if len(connectedNodes) == 0 {
+		logger.Warn("No connected nodes to initialize pool on")
+		return nil, nil
+	}
+
+	// Convert pool config to node daemon request
+	req := s.convertPoolToNodeRequest(pool)
+
+	// Initialize on first connected node (for shared storage like NFS/Ceph,
+	// all nodes can access the same pool)
+	var lastInfo *nodev1.StoragePoolInfoResponse
+	for _, nodeID := range connectedNodes {
+		client, err := s.daemonPool.GetOrError(nodeID)
+		if err != nil {
+			logger.Warn("Could not get client for node", zap.String("node_id", nodeID), zap.Error(err))
+			continue
+		}
+
+		info, err := client.InitStoragePool(ctx, req)
+		if err != nil {
+			logger.Warn("Failed to initialize pool on node",
+				zap.String("node_id", nodeID),
+				zap.String("pool_id", pool.ID),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		lastInfo = info
+		logger.Info("Pool initialized on node",
+			zap.String("node_id", nodeID),
+			zap.String("pool_id", pool.ID),
+			zap.Uint64("total_bytes", info.TotalBytes),
+		)
+	}
+
+	return lastInfo, nil
+}
+
+// convertPoolToNodeRequest converts a domain pool to a node daemon init request.
+func (s *PoolService) convertPoolToNodeRequest(pool *domain.StoragePool) *nodev1.InitStoragePoolRequest {
+	req := &nodev1.InitStoragePoolRequest{
+		PoolId: pool.ID,
+		Config: &nodev1.StoragePoolConfig{},
+	}
+
+	// Check backend - if nil or type empty, return with default config
+	if pool.Spec.Backend == nil || pool.Spec.Backend.Type == "" {
+		return req
+	}
+
+	switch pool.Spec.Backend.Type {
+	case domain.BackendTypeCephRBD:
+		req.Type = nodev1.StoragePoolType_STORAGE_POOL_TYPE_CEPH_RBD
+		if pool.Spec.Backend.CephConfig != nil {
+			req.Config.Ceph = &nodev1.CephPoolConfig{
+				ClusterId:   pool.Spec.Backend.CephConfig.ClusterID,
+				PoolName:    pool.Spec.Backend.CephConfig.PoolName,
+				Monitors:    pool.Spec.Backend.CephConfig.Monitors,
+				User:        pool.Spec.Backend.CephConfig.User,
+				KeyringPath: pool.Spec.Backend.CephConfig.KeyringPath,
+				Namespace:   pool.Spec.Backend.CephConfig.Namespace,
+				SecretUuid:  pool.Spec.Backend.CephConfig.SecretUUID,
+			}
+		}
+	case domain.BackendTypeNFS:
+		req.Type = nodev1.StoragePoolType_STORAGE_POOL_TYPE_NFS
+		if pool.Spec.Backend.NFSConfig != nil {
+			req.Config.Nfs = &nodev1.NfsPoolConfig{
+				Server:     pool.Spec.Backend.NFSConfig.Server,
+				ExportPath: pool.Spec.Backend.NFSConfig.ExportPath,
+				Version:    pool.Spec.Backend.NFSConfig.Version,
+				Options:    pool.Spec.Backend.NFSConfig.Options,
+				MountPoint: pool.Spec.Backend.NFSConfig.MountPoint,
+			}
+		}
+	case domain.BackendTypeLocalDir:
+		req.Type = nodev1.StoragePoolType_STORAGE_POOL_TYPE_LOCAL_DIR
+		if pool.Spec.Backend.LocalDirConfig != nil {
+			req.Config.Local = &nodev1.LocalDirPoolConfig{
+				Path: pool.Spec.Backend.LocalDirConfig.Path,
+			}
+		}
+	case domain.BackendTypeISCSI:
+		req.Type = nodev1.StoragePoolType_STORAGE_POOL_TYPE_ISCSI
+		if pool.Spec.Backend.ISCSIConfig != nil {
+			req.Config.Iscsi = &nodev1.IscsiPoolConfig{
+				Portal:       pool.Spec.Backend.ISCSIConfig.Portal,
+				Target:       pool.Spec.Backend.ISCSIConfig.Target,
+				ChapEnabled:  pool.Spec.Backend.ISCSIConfig.CHAPEnabled,
+				ChapUser:     pool.Spec.Backend.ISCSIConfig.CHAPUser,
+				ChapPassword: pool.Spec.Backend.ISCSIConfig.CHAPPassword,
+				Lun:          pool.Spec.Backend.ISCSIConfig.LUN,
+				VolumeGroup:  pool.Spec.Backend.ISCSIConfig.VolumeGroup,
+			}
+		}
+	}
+
+	return req
 }
 
 // GetPool retrieves a storage pool by ID.

@@ -1260,6 +1260,7 @@ dependencies = [
  "libc",
  "limiquantix-proto",
  "nix",
+ "once_cell",
  "prost",
  "prost-types",
  "serde",

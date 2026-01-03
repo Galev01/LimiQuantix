@@ -25,11 +25,15 @@
 
 mod local;
 mod nfs;
+mod ceph;
+mod iscsi;
 mod types;
 mod traits;
 
 pub use local::*;
 pub use nfs::*;
+pub use ceph::*;
+pub use iscsi::*;
 pub use types::*;
 pub use traits::*;
 
@@ -56,6 +60,8 @@ impl StorageManager {
         // Register default backends
         backends.insert(PoolType::LocalDir, Arc::new(LocalBackend::new()));
         backends.insert(PoolType::Nfs, Arc::new(NfsBackend::new()));
+        backends.insert(PoolType::CephRbd, Arc::new(CephBackend::new()));
+        backends.insert(PoolType::Iscsi, Arc::new(IscsiBackend::new()));
         
         Self {
             backends,

@@ -49,6 +49,9 @@ sysinfo = "0.32"
 # Byte handling
 bytes = "1.5"
 
+# Lazy initialization
+once_cell = "1.19"
+
 # Internal crates
 limiquantix-proto = { path = "../limiquantix-proto" }
 

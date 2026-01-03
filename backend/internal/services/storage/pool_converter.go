@@ -64,8 +64,10 @@ func convertPoolSpecToProto(spec *domain.StoragePoolSpec) *storagev1.StoragePool
 	}
 
 	// Convert backend
-	protoSpec.Backend = &storagev1.StorageBackend{
-		Type: storagev1.StorageBackend_BackendType(storagev1.StorageBackend_BackendType_value[string(spec.Backend.Type)]),
+	if spec.Backend != nil {
+		protoSpec.Backend = &storagev1.StorageBackend{
+			Type: storagev1.StorageBackend_BackendType(storagev1.StorageBackend_BackendType_value[string(spec.Backend.Type)]),
+		}
 	}
 
 	return protoSpec
@@ -128,7 +130,7 @@ func convertPoolSpecFromProto(spec *storagev1.StoragePoolSpec) *domain.StoragePo
 	domainSpec := &domain.StoragePoolSpec{}
 
 	if spec.Backend != nil {
-		domainSpec.Backend = domain.StorageBackend{
+		domainSpec.Backend = &domain.StorageBackend{
 			Type: domain.BackendType(spec.Backend.Type.String()),
 		}
 	}

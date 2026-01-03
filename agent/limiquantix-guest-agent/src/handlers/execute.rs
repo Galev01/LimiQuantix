@@ -76,23 +76,43 @@ pub async fn handle_execute(
     // Set up for running as different user (Unix only)
     #[cfg(unix)]
     if !req.run_as_user.is_empty() {
-        if let Some(uid) = get_user_uid(&req.run_as_user) {
-            unsafe {
-                cmd.pre_exec(move || {
-                    libc::setuid(uid);
-                    Ok(())
+        match get_user_credentials(&req.run_as_user, &req.run_as_group, req.include_supplementary_groups) {
+            Ok(creds) => {
+                unsafe {
+                    cmd.pre_exec(move || {
+                        // Set supplementary groups first (must be done before setgid/setuid)
+                        if !creds.supplementary_gids.is_empty() {
+                            let gids: Vec<libc::gid_t> = creds.supplementary_gids.iter().map(|&g| g as libc::gid_t).collect();
+                            if libc::setgroups(gids.len(), gids.as_ptr()) != 0 {
+                                return Err(std::io::Error::last_os_error());
+                            }
+                        }
+                        
+                        // Set GID before UID (required order)
+                        if libc::setgid(creds.gid) != 0 {
+                            return Err(std::io::Error::last_os_error());
+                        }
+                        
+                        // Set UID last
+                        if libc::setuid(creds.uid) != 0 {
+                            return Err(std::io::Error::last_os_error());
+                        }
+                        
+                        Ok(())
+                    });
+                }
+            }
+            Err(e) => {
+                return agent_message::Payload::ExecuteResponse(ExecuteResponse {
+                    exit_code: -1,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    truncated: false,
+                    timed_out: false,
+                    duration_ms: 0,
+                    error: e,
                 });
             }
-        } else {
-            return agent_message::Payload::ExecuteResponse(ExecuteResponse {
-                exit_code: -1,
-                stdout: String::new(),
-                stderr: String::new(),
-                truncated: false,
-                timed_out: false,
-                duration_ms: 0,
-                error: format!("User not found: {}", req.run_as_user),
-            });
         }
     }
 
@@ -262,25 +282,126 @@ async fn wait_for_output(
     ))
 }
 
-/// Get the UID for a username (Unix only).
+/// User credentials for running commands.
 #[cfg(unix)]
-fn get_user_uid(username: &str) -> Option<u32> {
+struct UserCredentials {
+    uid: u32,
+    gid: u32,
+    supplementary_gids: Vec<u32>,
+}
+
+/// Get user credentials for running commands.
+/// 
+/// # Arguments
+/// * `username` - The username to look up
+/// * `group` - Optional group name (uses user's primary group if empty)
+/// * `include_supplementary` - Whether to include supplementary groups
+#[cfg(unix)]
+fn get_user_credentials(
+    username: &str,
+    group: &str,
+    include_supplementary: bool,
+) -> Result<UserCredentials, String> {
     use std::ffi::CString;
 
-    let c_username = CString::new(username).ok()?;
-    
+    let c_username = CString::new(username)
+        .map_err(|_| "Invalid username".to_string())?;
+
     unsafe {
+        // Get user info
         let pwd = libc::getpwnam(c_username.as_ptr());
         if pwd.is_null() {
-            None
-        } else {
-            Some((*pwd).pw_uid)
+            return Err(format!("User not found: {}", username));
         }
+
+        let uid = (*pwd).pw_uid;
+        
+        // Determine GID
+        let gid = if !group.is_empty() {
+            // Use specified group
+            let c_group = CString::new(group)
+                .map_err(|_| "Invalid group name".to_string())?;
+            let grp = libc::getgrnam(c_group.as_ptr());
+            if grp.is_null() {
+                return Err(format!("Group not found: {}", group));
+            }
+            (*grp).gr_gid
+        } else {
+            // Use user's primary group
+            (*pwd).pw_gid
+        };
+
+        // Get supplementary groups
+        let supplementary_gids = if include_supplementary {
+            get_supplementary_groups(username, gid)
+        } else {
+            vec![]
+        };
+
+        Ok(UserCredentials {
+            uid,
+            gid,
+            supplementary_gids,
+        })
+    }
+}
+
+/// Get supplementary groups for a user.
+#[cfg(unix)]
+fn get_supplementary_groups(username: &str, primary_gid: u32) -> Vec<u32> {
+    use std::ffi::CString;
+
+    let c_username = match CString::new(username) {
+        Ok(s) => s,
+        Err(_) => return vec![],
+    };
+
+    unsafe {
+        // First call to get the number of groups
+        let mut ngroups: libc::c_int = 0;
+        libc::getgrouplist(
+            c_username.as_ptr(),
+            primary_gid as libc::gid_t,
+            std::ptr::null_mut(),
+            &mut ngroups,
+        );
+
+        if ngroups <= 0 {
+            return vec![];
+        }
+
+        // Allocate buffer and get the actual groups
+        let mut groups: Vec<libc::gid_t> = vec![0; ngroups as usize];
+        let result = libc::getgrouplist(
+            c_username.as_ptr(),
+            primary_gid as libc::gid_t,
+            groups.as_mut_ptr(),
+            &mut ngroups,
+        );
+
+        if result < 0 {
+            return vec![];
+        }
+
+        groups.truncate(ngroups as usize);
+        groups.into_iter().map(|g| g as u32).collect()
     }
 }
 
 #[cfg(windows)]
-fn get_user_uid(_username: &str) -> Option<u32> {
+struct UserCredentials {
+    uid: u32,
+    gid: u32,
+    supplementary_gids: Vec<u32>,
+}
+
+#[cfg(windows)]
+fn get_user_credentials(
+    _username: &str,
+    _group: &str,
+    _include_supplementary: bool,
+) -> Result<UserCredentials, String> {
     // Windows doesn't use UIDs in the same way
-    None
+    // For Windows, we would need to use CreateProcessAsUser with a token
+    Err("User context switching not yet implemented on Windows".to_string())
 }

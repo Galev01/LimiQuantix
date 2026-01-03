@@ -111,6 +111,44 @@ service NodeDaemonService {
   
   // Request guest agent to shutdown/reboot the VM gracefully
   rpc GuestShutdown(GuestShutdownRequest) returns (GuestShutdownResponse);
+  
+  // =========================================================================
+  // Storage Pool Operations
+  // =========================================================================
+  
+  // Initialize/mount a storage pool on this node
+  rpc InitStoragePool(InitStoragePoolRequest) returns (StoragePoolInfoResponse);
+  
+  // Destroy/unmount a storage pool
+  rpc DestroyStoragePool(StoragePoolIdRequest) returns (google.protobuf.Empty);
+  
+  // Get storage pool information
+  rpc GetStoragePoolInfo(StoragePoolIdRequest) returns (StoragePoolInfoResponse);
+  
+  // List all storage pools on this node
+  rpc ListStoragePools(google.protobuf.Empty) returns (ListStoragePoolsResponse);
+  
+  // =========================================================================
+  // Storage Volume Operations
+  // =========================================================================
+  
+  // Create a volume in a storage pool
+  rpc CreateVolume(CreateVolumeRequest) returns (google.protobuf.Empty);
+  
+  // Delete a volume
+  rpc DeleteVolume(VolumeIdRequest) returns (google.protobuf.Empty);
+  
+  // Resize a volume
+  rpc ResizeVolume(ResizeVolumeRequest) returns (google.protobuf.Empty);
+  
+  // Clone a volume
+  rpc CloneVolume(CloneVolumeRequest) returns (google.protobuf.Empty);
+  
+  // Get volume attach information (libvirt disk XML)
+  rpc GetVolumeAttachInfo(VolumeIdRequest) returns (VolumeAttachInfoResponse);
+  
+  // Create a volume snapshot
+  rpc CreateVolumeSnapshot(CreateVolumeSnapshotRequest) returns (google.protobuf.Empty);
 }
 
 // =============================================================================
@@ -572,4 +610,155 @@ message GuestShutdownRequest {
 message GuestShutdownResponse {
   bool accepted = 1;
   string error = 2;
+}
+
+// =============================================================================
+// STORAGE POOL OPERATIONS
+// =============================================================================
+
+// Storage pool type
+enum StoragePoolType {
+  STORAGE_POOL_TYPE_UNSPECIFIED = 0;
+  STORAGE_POOL_TYPE_LOCAL_DIR = 1;
+  STORAGE_POOL_TYPE_LOCAL_LVM = 2;
+  STORAGE_POOL_TYPE_NFS = 3;
+  STORAGE_POOL_TYPE_CEPH_RBD = 4;
+  STORAGE_POOL_TYPE_CEPH_FS = 5;
+  STORAGE_POOL_TYPE_ISCSI = 6;
+}
+
+// Initialize storage pool request
+message InitStoragePoolRequest {
+  string pool_id = 1;
+  StoragePoolType type = 2;
+  StoragePoolConfig config = 3;
+}
+
+// Storage pool configuration (matches Rust types)
+message StoragePoolConfig {
+  // Local directory configuration
+  LocalDirPoolConfig local = 1;
+  
+  // NFS configuration
+  NfsPoolConfig nfs = 2;
+  
+  // Ceph RBD configuration
+  CephPoolConfig ceph = 3;
+  
+  // iSCSI configuration
+  IscsiPoolConfig iscsi = 4;
+}
+
+message LocalDirPoolConfig {
+  string path = 1;
+}
+
+message NfsPoolConfig {
+  string server = 1;        // e.g., "192.168.1.50"
+  string export_path = 2;   // e.g., "/mnt/ssd-pool"
+  string version = 3;       // "3", "4", "4.1", "4.2"
+  string options = 4;       // Mount options
+  string mount_point = 5;   // Custom mount point (optional)
+}
+
+message CephPoolConfig {
+  string cluster_id = 1;
+  string pool_name = 2;           // Ceph RBD pool name
+  repeated string monitors = 3;   // ["10.0.0.1:6789"]
+  string user = 4;                // e.g., "libvirt"
+  string keyring_path = 5;        // e.g., "/etc/ceph/ceph.client.libvirt.keyring"
+  string namespace = 6;           // For multi-tenancy
+  string secret_uuid = 7;         // Libvirt secret UUID (auto-created if empty)
+}
+
+message IscsiPoolConfig {
+  string portal = 1;        // e.g., "192.168.1.50:3260"
+  string target = 2;        // e.g., "iqn.2023-01.com.storage:ssd-pool"
+  bool chap_enabled = 3;
+  string chap_user = 4;
+  string chap_password = 5;
+  uint32 lun = 6;
+  string volume_group = 7;  // LVM VG name
+}
+
+// Storage pool ID request
+message StoragePoolIdRequest {
+  string pool_id = 1;
+}
+
+// Storage pool info response
+message StoragePoolInfoResponse {
+  string pool_id = 1;
+  StoragePoolType type = 2;
+  
+  // Path or identifier
+  string mount_path = 3;     // For NFS, local
+  string device_path = 4;    // For iSCSI, LVM
+  string rbd_pool = 5;       // For Ceph
+  
+  // Capacity
+  uint64 total_bytes = 6;
+  uint64 available_bytes = 7;
+  uint64 used_bytes = 8;
+}
+
+// List storage pools response
+message ListStoragePoolsResponse {
+  repeated StoragePoolInfoResponse pools = 1;
+}
+
+// =============================================================================
+// STORAGE VOLUME OPERATIONS
+// =============================================================================
+
+// Volume ID request
+message VolumeIdRequest {
+  string pool_id = 1;
+  string volume_id = 2;
+}
+
+// Create volume request
+message CreateVolumeRequest {
+  string pool_id = 1;
+  string volume_id = 2;
+  uint64 size_bytes = 3;
+  
+  // Optional source for the volume
+  VolumeSourceType source_type = 4;
+  string source_id = 5;   // Clone source ID, image path, or snapshot ID
+}
+
+enum VolumeSourceType {
+  VOLUME_SOURCE_EMPTY = 0;      // Create empty volume
+  VOLUME_SOURCE_CLONE = 1;      // Clone from existing volume
+  VOLUME_SOURCE_IMAGE = 2;      // Create from backing image
+  VOLUME_SOURCE_SNAPSHOT = 3;   // Restore from snapshot
+}
+
+// Resize volume request
+message ResizeVolumeRequest {
+  string pool_id = 1;
+  string volume_id = 2;
+  uint64 new_size_bytes = 3;
+}
+
+// Clone volume request
+message CloneVolumeRequest {
+  string pool_id = 1;
+  string source_volume_id = 2;
+  string dest_volume_id = 3;
+}
+
+// Volume attach info response
+message VolumeAttachInfoResponse {
+  string volume_id = 1;
+  string path = 2;           // Path or RBD spec
+  string disk_xml = 3;       // Libvirt disk XML snippet
+}
+
+// Create volume snapshot request
+message CreateVolumeSnapshotRequest {
+  string pool_id = 1;
+  string volume_id = 2;
+  string snapshot_id = 3;
 }

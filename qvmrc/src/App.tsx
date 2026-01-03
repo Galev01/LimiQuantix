@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { ConnectionList } from './components/ConnectionList';
 import { ConsoleView } from './components/ConsoleView';
@@ -20,46 +20,74 @@ function App() {
   const [view, setView] = useState<'list' | 'console' | 'settings'>('list');
   const [activeConnection, setActiveConnection] = useState<ActiveConnection | null>(null);
   const [isAutoConnecting, setIsAutoConnecting] = useState(false);
+  const [connectionListKey, setConnectionListKey] = useState(0);
+  const [autoConnectError, setAutoConnectError] = useState<string | null>(null);
+  const hasCheckedPending = useRef(false);
 
   // Check for pending connection on startup (from deep link)
   useEffect(() => {
+    // Only run once
+    if (hasCheckedPending.current) return;
+    hasCheckedPending.current = true;
+
     const checkPendingConnection = async () => {
+      console.log('[QVMRC] Checking for pending connection...');
+      
       try {
         const pending = await invoke<PendingConnection | null>('get_pending_connection');
         
         if (pending) {
-          console.log('Auto-connecting from deep link:', pending);
+          console.log('[QVMRC] Found pending connection:', pending);
           setIsAutoConnecting(true);
+          setAutoConnectError(null);
           
-          // Save connection to config
-          await invoke<string>('add_and_connect', {
-            controlPlaneUrl: pending.control_plane_url,
-            vmId: pending.vm_id,
-            vmName: pending.vm_name,
-          });
-          
-          // Start VNC connection
-          const vncConnectionId = await invoke<string>('connect_vnc', {
-            controlPlaneUrl: pending.control_plane_url,
-            vmId: pending.vm_id,
-            password: null,
-          });
-          
-          setActiveConnection({
-            connectionId: vncConnectionId,
-            vmId: pending.vm_id,
-            vmName: pending.vm_name,
-          });
-          setView('console');
-          setIsAutoConnecting(false);
+          try {
+            // Save connection to config
+            console.log('[QVMRC] Saving connection...');
+            const savedId = await invoke<string>('add_and_connect', {
+              controlPlaneUrl: pending.control_plane_url,
+              vmId: pending.vm_id,
+              vmName: pending.vm_name,
+            });
+            console.log('[QVMRC] Connection saved with id:', savedId);
+            
+            // Refresh the connection list
+            setConnectionListKey(k => k + 1);
+            
+            // Start VNC connection
+            console.log('[QVMRC] Starting VNC connection...');
+            const vncConnectionId = await invoke<string>('connect_vnc', {
+              controlPlaneUrl: pending.control_plane_url,
+              vmId: pending.vm_id,
+              password: null,
+            });
+            
+            console.log('[QVMRC] VNC connected:', vncConnectionId);
+            
+            setActiveConnection({
+              connectionId: vncConnectionId,
+              vmId: pending.vm_id,
+              vmName: pending.vm_name,
+            });
+            setView('console');
+          } catch (err) {
+            console.error('[QVMRC] Auto-connect failed:', err);
+            setAutoConnectError(String(err));
+            // Still refresh connection list even on VNC failure - connection was saved
+            setConnectionListKey(k => k + 1);
+          } finally {
+            setIsAutoConnecting(false);
+          }
+        } else {
+          console.log('[QVMRC] No pending connection found');
         }
       } catch (err) {
-        console.error('Auto-connect failed:', err);
-        setIsAutoConnecting(false);
+        console.error('[QVMRC] Failed to check pending connection:', err);
       }
     };
     
-    checkPendingConnection();
+    // Small delay to ensure Tauri backend is ready
+    setTimeout(checkPendingConnection, 100);
   }, []);
 
   const handleConnect = useCallback((connection: ActiveConnection) => {
@@ -86,14 +114,21 @@ function App() {
       <div className="h-full w-full flex flex-col items-center justify-center bg-[var(--bg-base)]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--accent)]"></div>
         <p className="mt-4 text-[var(--text-muted)]">Connecting to VM...</p>
+        <p className="mt-2 text-xs text-[var(--text-muted)]">From deep link</p>
       </div>
     );
+  }
+
+  // Show error if auto-connect failed but don't block
+  if (autoConnectError && view === 'list') {
+    // Error will be shown in connection list
   }
 
   return (
     <div className="h-full w-full flex flex-col bg-[var(--bg-base)]">
       {view === 'list' && (
         <ConnectionList
+          key={connectionListKey}
           onConnect={handleConnect}
           onOpenSettings={handleOpenSettings}
         />

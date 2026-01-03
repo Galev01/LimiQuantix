@@ -11,8 +11,8 @@ mod config;
 mod vnc;
 
 use config::SavedConnection;
-use tauri::Manager;
-use tracing::{info, warn, Level};
+use tauri::{Manager, AppHandle};
+use tracing::{info, warn, error, Level};
 use tracing_subscriber::FmtSubscriber;
 
 /// Application state shared across commands
@@ -74,10 +74,18 @@ fn parse_qvmrc_url(url: &str) -> Option<PendingConnection> {
 }
 
 /// Get pending connection (called by frontend on startup)
+/// This will consume the pending connection to prevent double-processing
 #[tauri::command]
 fn get_pending_connection(state: tauri::State<AppState>) -> Option<PendingConnection> {
+    info!("get_pending_connection called");
     let mut pending = state.pending_connection.write().ok()?;
-    pending.take()
+    let result = pending.take();
+    if let Some(ref conn) = result {
+        info!("Returning pending connection: {:?}", conn);
+    } else {
+        info!("No pending connection found");
+    }
+    result
 }
 
 /// Save connection and mark as pending for immediate connect
@@ -88,7 +96,14 @@ fn add_and_connect(
     vm_id: String,
     vm_name: String,
 ) -> Result<String, String> {
-    let connection_id = format!("conn-{}", uuid::Uuid::new_v4());
+    // Check if connection with same vm_id already exists
+    let mut config = state.config.write().map_err(|e| e.to_string())?;
+    
+    let connection_id = if let Some(existing) = config.connections.iter().find(|c| c.vm_id == vm_id) {
+        existing.id.clone()
+    } else {
+        format!("conn-{}", uuid::Uuid::new_v4())
+    };
     
     let connection = SavedConnection {
         id: connection_id.clone(),
@@ -99,15 +114,34 @@ fn add_and_connect(
         thumbnail: None,
     };
     
-    // Save connection
-    {
-        let mut config = state.config.write().map_err(|e| e.to_string())?;
-        config.upsert_connection(connection);
-        config.save().map_err(|e| e.to_string())?;
-    }
+    // Save connection (will update if exists with same id)
+    config.upsert_connection(connection);
+    config.save().map_err(|e| e.to_string())?;
     
-    info!("Added connection: {} ({})", vm_name, connection_id);
+    info!("Added/updated connection: {} ({})", vm_name, connection_id);
     Ok(connection_id)
+}
+
+/// Handle incoming deep link URL and emit event to frontend
+fn handle_deep_link(app: &AppHandle, url: &str) {
+    info!("Processing deep link: {}", url);
+    
+    if let Some(conn) = parse_qvmrc_url(url) {
+        info!("Parsed connection from deep link: {:?}", conn);
+        
+        // Emit event to frontend to handle the connection
+        if let Err(e) = app.emit_all("deep-link-received", conn) {
+            error!("Failed to emit deep link event: {}", e);
+        }
+        
+        // Focus the window
+        if let Some(window) = app.get_window("main") {
+            let _ = window.set_focus();
+            let _ = window.unminimize();
+        }
+    } else {
+        warn!("Failed to parse deep link URL: {}", url);
+    }
 }
 
 fn main() {
@@ -126,7 +160,7 @@ fn main() {
     
     for arg in &args[1..] {
         if arg.starts_with("qvmrc://") {
-            info!("Deep link detected: {}", arg);
+            info!("Deep link detected in args: {}", arg);
             if let Some(conn) = parse_qvmrc_url(arg) {
                 info!("Parsed connection: {:?}", conn);
                 pending_conn = Some(conn);
@@ -138,7 +172,7 @@ fn main() {
     }
 
     let app_state = AppState {
-        pending_connection: std::sync::RwLock::new(pending_conn),
+        pending_connection: std::sync::RwLock::new(pending_conn.clone()),
         ..Default::default()
     };
 
@@ -162,13 +196,19 @@ fn main() {
             get_pending_connection,
             add_and_connect,
         ])
-        .setup(|app| {
-            let _window = app.get_window("main").unwrap();
+        .setup(move |app| {
+            let window = app.get_window("main").unwrap();
             
             #[cfg(debug_assertions)]
             {
                 // Open devtools in debug mode
-                _window.open_devtools();
+                window.open_devtools();
+            }
+            
+            // DON'T emit event here - the frontend will call get_pending_connection
+            // The event system has a race condition where the listener isn't ready yet
+            if let Some(ref conn) = pending_conn {
+                info!("Pending connection will be picked up by frontend: {:?}", conn);
             }
             
             info!("QVMRC initialized successfully");

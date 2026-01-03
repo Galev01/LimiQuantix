@@ -49,7 +49,7 @@ type StoragePool struct {
 
 // StoragePoolSpec defines the desired configuration of a storage pool.
 type StoragePoolSpec struct {
-	Backend     StorageBackend    `json:"backend"`
+	Backend     *StorageBackend   `json:"backend,omitempty"`
 	Defaults    VolumeDefaults    `json:"defaults"`
 	QoS         StorageQoS        `json:"qos"`
 	Encryption  EncryptionConfig  `json:"encryption"`
@@ -58,12 +58,22 @@ type StoragePoolSpec struct {
 
 // StorageBackend defines the storage backend configuration.
 type StorageBackend struct {
-	Type     BackendType `json:"type"`
-	CephRBD  *CephConfig `json:"ceph_rbd,omitempty"`
-	LocalLVM *LVMConfig  `json:"local_lvm,omitempty"`
-	LocalDir *DirConfig  `json:"local_dir,omitempty"`
-	NFS      *NFSConfig  `json:"nfs,omitempty"`
+	Type           BackendType  `json:"type"`
+	CephConfig     *CephConfig  `json:"ceph_config,omitempty"`
+	LocalLVMConfig *LVMConfig   `json:"local_lvm_config,omitempty"`
+	LocalDirConfig *DirConfig   `json:"local_dir_config,omitempty"`
+	NFSConfig      *NFSConfig   `json:"nfs_config,omitempty"`
+	ISCSIConfig    *ISCSIConfig `json:"iscsi_config,omitempty"`
 }
+
+// StorageBackendType constants for type checking.
+const (
+	StorageBackendTypeCephRBD  = BackendTypeCephRBD
+	StorageBackendTypeNFS      = BackendTypeNFS
+	StorageBackendTypeLocalDir = BackendTypeLocalDir
+	StorageBackendTypeISCSI    = BackendTypeISCSI
+	StorageBackendTypeLocalLVM = BackendTypeLocalLVM
+)
 
 // CephConfig holds Ceph-specific configuration.
 type CephConfig struct {
@@ -73,6 +83,7 @@ type CephConfig struct {
 	User        string   `json:"user"`
 	KeyringPath string   `json:"keyring_path"`
 	Namespace   string   `json:"namespace"`
+	SecretUUID  string   `json:"secret_uuid"` // Libvirt secret UUID
 }
 
 // LVMConfig holds LVM-specific configuration.
@@ -94,6 +105,18 @@ type NFSConfig struct {
 	ExportPath string `json:"export_path"`
 	Version    string `json:"version"`
 	Options    string `json:"options"`
+	MountPoint string `json:"mount_point"` // Custom mount point (optional)
+}
+
+// ISCSIConfig holds iSCSI-specific configuration.
+type ISCSIConfig struct {
+	Portal       string `json:"portal"`
+	Target       string `json:"target"`
+	CHAPEnabled  bool   `json:"chap_enabled"`
+	CHAPUser     string `json:"chap_user"`
+	CHAPPassword string `json:"chap_password"`
+	LUN          uint32 `json:"lun"`
+	VolumeGroup  string `json:"volume_group"`
 }
 
 // VolumeDefaults defines default settings for volumes created in this pool.

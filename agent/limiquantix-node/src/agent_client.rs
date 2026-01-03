@@ -7,7 +7,9 @@ use anyhow::{anyhow, Context, Result};
 use limiquantix_proto::agent::{
     agent_message, AgentMessage, ExecuteRequest, ExecuteResponse, FileReadRequest,
     FileReadResponse, FileWriteRequest, FileWriteResponse, PingRequest, PongResponse,
-    ShutdownRequest, ShutdownResponse, TelemetryReport,
+    QuiesceFilesystemsRequest, QuiesceFilesystemsResponse, ShutdownRequest, ShutdownResponse,
+    SyncTimeRequest, SyncTimeResponse, TelemetryReport, ThawFilesystemsRequest,
+    ThawFilesystemsResponse,
 };
 use prost::Message;
 use prost_types::Timestamp;
@@ -292,6 +294,84 @@ impl AgentClient {
 
         match response.payload {
             Some(agent_message::Payload::ShutdownResponse(resp)) => Ok(resp),
+            _ => Err(anyhow!("Unexpected response type")),
+        }
+    }
+
+    /// Quiesce (freeze) filesystems for safe snapshots.
+    ///
+    /// This freezes I/O on the specified mount points using fsfreeze.
+    /// The filesystems will be automatically thawed after the timeout.
+    pub async fn quiesce_filesystems(
+        &self,
+        mount_points: Vec<String>,
+        timeout_seconds: u32,
+        run_pre_freeze_scripts: bool,
+    ) -> Result<QuiesceFilesystemsResponse> {
+        let timeout = Duration::from_secs(timeout_seconds as u64 + 10); // Add buffer
+
+        let request = AgentMessage {
+            message_id: Uuid::new_v4().to_string(),
+            timestamp: Some(current_timestamp()),
+            payload: Some(agent_message::Payload::Quiesce(QuiesceFilesystemsRequest {
+                mount_points,
+                timeout_seconds,
+                run_pre_freeze_scripts,
+                pre_freeze_script_dir: String::new(), // Use default
+            })),
+        };
+
+        let response = self.send_request(request, timeout).await?;
+
+        match response.payload {
+            Some(agent_message::Payload::QuiesceResponse(resp)) => Ok(resp),
+            _ => Err(anyhow!("Unexpected response type")),
+        }
+    }
+
+    /// Thaw (unfreeze) filesystems after a snapshot.
+    pub async fn thaw_filesystems(
+        &self,
+        quiesce_token: Option<String>,
+        run_post_thaw_scripts: bool,
+    ) -> Result<ThawFilesystemsResponse> {
+        let request = AgentMessage {
+            message_id: Uuid::new_v4().to_string(),
+            timestamp: Some(current_timestamp()),
+            payload: Some(agent_message::Payload::Thaw(ThawFilesystemsRequest {
+                quiesce_token: quiesce_token.unwrap_or_default(),
+                mount_points: Vec::new(), // Thaw all
+                run_post_thaw_scripts,
+                post_thaw_script_dir: String::new(), // Use default
+            })),
+        };
+
+        let response = self.send_request(request, DEFAULT_TIMEOUT).await?;
+
+        match response.payload {
+            Some(agent_message::Payload::ThawResponse(resp)) => Ok(resp),
+            _ => Err(anyhow!("Unexpected response type")),
+        }
+    }
+
+    /// Synchronize the guest's system clock.
+    ///
+    /// This is particularly useful after resuming a VM from pause/suspend,
+    /// as the guest clock will have drifted.
+    pub async fn sync_time(&self, force: bool) -> Result<SyncTimeResponse> {
+        let request = AgentMessage {
+            message_id: Uuid::new_v4().to_string(),
+            timestamp: Some(current_timestamp()),
+            payload: Some(agent_message::Payload::SyncTime(SyncTimeRequest {
+                force,
+                set_time: None, // Use NTP
+            })),
+        };
+
+        let response = self.send_request(request, DEFAULT_TIMEOUT).await?;
+
+        match response.payload {
+            Some(agent_message::Payload::SyncTimeResponse(resp)) => Ok(resp),
             _ => Err(anyhow!("Unexpected response type")),
         }
     }

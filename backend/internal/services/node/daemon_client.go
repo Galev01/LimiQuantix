@@ -461,13 +461,251 @@ func (c *DaemonClient) StreamEvents(ctx context.Context) (<-chan *nodev1.NodeEve
 }
 
 // =============================================================================
-// Guest Agent Operations (TODO: Enable when proto definitions are complete)
+// Storage Pool Operations
 // =============================================================================
 
-// NOTE: The following guest agent operations are commented out until
-// the corresponding proto definitions are added to node_daemon.proto:
-// - PingAgent
-// - ExecuteInGuest
-// - ReadGuestFile
-// - WriteGuestFile
-// - GuestShutdown
+// InitStoragePool initializes a storage pool on the node.
+func (c *DaemonClient) InitStoragePool(ctx context.Context, req *nodev1.InitStoragePoolRequest) (*nodev1.StoragePoolInfoResponse, error) {
+	c.logger.Info("Initializing storage pool on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", req.PoolId),
+		zap.String("type", req.Type.String()),
+	)
+
+	resp, err := c.client.InitStoragePool(ctx, req)
+	if err != nil {
+		c.logger.Error("Init storage pool failed",
+			zap.String("addr", c.addr),
+			zap.String("pool_id", req.PoolId),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+
+	c.logger.Info("Storage pool initialized on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", resp.PoolId),
+		zap.Uint64("total_bytes", resp.TotalBytes),
+	)
+
+	return resp, nil
+}
+
+// DestroyStoragePool destroys a storage pool on the node.
+func (c *DaemonClient) DestroyStoragePool(ctx context.Context, poolID string) error {
+	c.logger.Info("Destroying storage pool on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", poolID),
+	)
+
+	_, err := c.client.DestroyStoragePool(ctx, &nodev1.StoragePoolIdRequest{PoolId: poolID})
+	if err != nil {
+		c.logger.Error("Destroy storage pool failed",
+			zap.String("addr", c.addr),
+			zap.String("pool_id", poolID),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	c.logger.Info("Storage pool destroyed on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", poolID),
+	)
+
+	return nil
+}
+
+// GetStoragePoolInfo gets storage pool information from the node.
+func (c *DaemonClient) GetStoragePoolInfo(ctx context.Context, poolID string) (*nodev1.StoragePoolInfoResponse, error) {
+	resp, err := c.client.GetStoragePoolInfo(ctx, &nodev1.StoragePoolIdRequest{PoolId: poolID})
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ListStoragePools lists all storage pools on the node.
+func (c *DaemonClient) ListStoragePools(ctx context.Context) (*nodev1.ListStoragePoolsResponse, error) {
+	resp, err := c.client.ListStoragePools(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// =============================================================================
+// Storage Volume Operations
+// =============================================================================
+
+// CreateVolume creates a volume in a storage pool on the node.
+func (c *DaemonClient) CreateVolume(ctx context.Context, req *nodev1.CreateVolumeRequest) error {
+	c.logger.Info("Creating volume on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", req.PoolId),
+		zap.String("volume_id", req.VolumeId),
+		zap.Uint64("size_bytes", req.SizeBytes),
+	)
+
+	_, err := c.client.CreateVolume(ctx, req)
+	if err != nil {
+		c.logger.Error("Create volume failed",
+			zap.String("addr", c.addr),
+			zap.String("pool_id", req.PoolId),
+			zap.String("volume_id", req.VolumeId),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	c.logger.Info("Volume created on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", req.PoolId),
+		zap.String("volume_id", req.VolumeId),
+	)
+
+	return nil
+}
+
+// DeleteVolume deletes a volume from a storage pool on the node.
+func (c *DaemonClient) DeleteVolume(ctx context.Context, poolID, volumeID string) error {
+	c.logger.Info("Deleting volume on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", poolID),
+		zap.String("volume_id", volumeID),
+	)
+
+	_, err := c.client.DeleteVolume(ctx, &nodev1.VolumeIdRequest{
+		PoolId:   poolID,
+		VolumeId: volumeID,
+	})
+	if err != nil {
+		c.logger.Error("Delete volume failed",
+			zap.String("addr", c.addr),
+			zap.String("pool_id", poolID),
+			zap.String("volume_id", volumeID),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	c.logger.Info("Volume deleted on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", poolID),
+		zap.String("volume_id", volumeID),
+	)
+
+	return nil
+}
+
+// ResizeVolume resizes a volume on the node.
+func (c *DaemonClient) ResizeVolume(ctx context.Context, poolID, volumeID string, newSizeBytes uint64) error {
+	c.logger.Info("Resizing volume on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", poolID),
+		zap.String("volume_id", volumeID),
+		zap.Uint64("new_size_bytes", newSizeBytes),
+	)
+
+	_, err := c.client.ResizeVolume(ctx, &nodev1.ResizeVolumeRequest{
+		PoolId:       poolID,
+		VolumeId:     volumeID,
+		NewSizeBytes: newSizeBytes,
+	})
+	if err != nil {
+		c.logger.Error("Resize volume failed",
+			zap.String("addr", c.addr),
+			zap.String("pool_id", poolID),
+			zap.String("volume_id", volumeID),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	c.logger.Info("Volume resized on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", poolID),
+		zap.String("volume_id", volumeID),
+	)
+
+	return nil
+}
+
+// CloneVolume clones a volume on the node.
+func (c *DaemonClient) CloneVolume(ctx context.Context, poolID, sourceVolumeID, destVolumeID string) error {
+	c.logger.Info("Cloning volume on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", poolID),
+		zap.String("source_volume_id", sourceVolumeID),
+		zap.String("dest_volume_id", destVolumeID),
+	)
+
+	_, err := c.client.CloneVolume(ctx, &nodev1.CloneVolumeRequest{
+		PoolId:         poolID,
+		SourceVolumeId: sourceVolumeID,
+		DestVolumeId:   destVolumeID,
+	})
+	if err != nil {
+		c.logger.Error("Clone volume failed",
+			zap.String("addr", c.addr),
+			zap.String("pool_id", poolID),
+			zap.String("source_volume_id", sourceVolumeID),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	c.logger.Info("Volume cloned on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", poolID),
+		zap.String("dest_volume_id", destVolumeID),
+	)
+
+	return nil
+}
+
+// GetVolumeAttachInfo gets volume attach information (libvirt disk XML).
+func (c *DaemonClient) GetVolumeAttachInfo(ctx context.Context, poolID, volumeID string) (*nodev1.VolumeAttachInfoResponse, error) {
+	resp, err := c.client.GetVolumeAttachInfo(ctx, &nodev1.VolumeIdRequest{
+		PoolId:   poolID,
+		VolumeId: volumeID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// CreateVolumeSnapshot creates a snapshot of a volume on the node.
+func (c *DaemonClient) CreateVolumeSnapshot(ctx context.Context, poolID, volumeID, snapshotID string) error {
+	c.logger.Info("Creating volume snapshot on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", poolID),
+		zap.String("volume_id", volumeID),
+		zap.String("snapshot_id", snapshotID),
+	)
+
+	_, err := c.client.CreateVolumeSnapshot(ctx, &nodev1.CreateVolumeSnapshotRequest{
+		PoolId:     poolID,
+		VolumeId:   volumeID,
+		SnapshotId: snapshotID,
+	})
+	if err != nil {
+		c.logger.Error("Create volume snapshot failed",
+			zap.String("addr", c.addr),
+			zap.String("pool_id", poolID),
+			zap.String("volume_id", volumeID),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	c.logger.Info("Volume snapshot created on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", poolID),
+		zap.String("volume_id", volumeID),
+		zap.String("snapshot_id", snapshotID),
+	)
+
+	return nil
+}

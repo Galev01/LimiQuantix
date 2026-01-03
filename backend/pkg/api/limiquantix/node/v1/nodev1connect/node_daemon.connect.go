@@ -121,6 +121,36 @@ const (
 	// NodeDaemonServiceCancelDownloadProcedure is the fully-qualified name of the NodeDaemonService's
 	// CancelDownload RPC.
 	NodeDaemonServiceCancelDownloadProcedure = "/limiquantix.node.v1.NodeDaemonService/CancelDownload"
+	// NodeDaemonServiceInitStoragePoolProcedure is the fully-qualified name of the NodeDaemonService's
+	// InitStoragePool RPC.
+	NodeDaemonServiceInitStoragePoolProcedure = "/limiquantix.node.v1.NodeDaemonService/InitStoragePool"
+	// NodeDaemonServiceDestroyStoragePoolProcedure is the fully-qualified name of the
+	// NodeDaemonService's DestroyStoragePool RPC.
+	NodeDaemonServiceDestroyStoragePoolProcedure = "/limiquantix.node.v1.NodeDaemonService/DestroyStoragePool"
+	// NodeDaemonServiceGetStoragePoolInfoProcedure is the fully-qualified name of the
+	// NodeDaemonService's GetStoragePoolInfo RPC.
+	NodeDaemonServiceGetStoragePoolInfoProcedure = "/limiquantix.node.v1.NodeDaemonService/GetStoragePoolInfo"
+	// NodeDaemonServiceListStoragePoolsProcedure is the fully-qualified name of the NodeDaemonService's
+	// ListStoragePools RPC.
+	NodeDaemonServiceListStoragePoolsProcedure = "/limiquantix.node.v1.NodeDaemonService/ListStoragePools"
+	// NodeDaemonServiceCreateVolumeProcedure is the fully-qualified name of the NodeDaemonService's
+	// CreateVolume RPC.
+	NodeDaemonServiceCreateVolumeProcedure = "/limiquantix.node.v1.NodeDaemonService/CreateVolume"
+	// NodeDaemonServiceDeleteVolumeProcedure is the fully-qualified name of the NodeDaemonService's
+	// DeleteVolume RPC.
+	NodeDaemonServiceDeleteVolumeProcedure = "/limiquantix.node.v1.NodeDaemonService/DeleteVolume"
+	// NodeDaemonServiceResizeVolumeProcedure is the fully-qualified name of the NodeDaemonService's
+	// ResizeVolume RPC.
+	NodeDaemonServiceResizeVolumeProcedure = "/limiquantix.node.v1.NodeDaemonService/ResizeVolume"
+	// NodeDaemonServiceCloneVolumeProcedure is the fully-qualified name of the NodeDaemonService's
+	// CloneVolume RPC.
+	NodeDaemonServiceCloneVolumeProcedure = "/limiquantix.node.v1.NodeDaemonService/CloneVolume"
+	// NodeDaemonServiceGetVolumeAttachInfoProcedure is the fully-qualified name of the
+	// NodeDaemonService's GetVolumeAttachInfo RPC.
+	NodeDaemonServiceGetVolumeAttachInfoProcedure = "/limiquantix.node.v1.NodeDaemonService/GetVolumeAttachInfo"
+	// NodeDaemonServiceCreateVolumeSnapshotProcedure is the fully-qualified name of the
+	// NodeDaemonService's CreateVolumeSnapshot RPC.
+	NodeDaemonServiceCreateVolumeSnapshotProcedure = "/limiquantix.node.v1.NodeDaemonService/CreateVolumeSnapshot"
 )
 
 // NodeDaemonServiceClient is a client for the limiquantix.node.v1.NodeDaemonService service.
@@ -183,6 +213,26 @@ type NodeDaemonServiceClient interface {
 	GetDownloadStatus(context.Context, *connect.Request[v1.GetDownloadStatusRequest]) (*connect.Response[v1.DownloadProgress], error)
 	// Cancel an in-progress download
 	CancelDownload(context.Context, *connect.Request[v1.CancelDownloadRequest]) (*connect.Response[emptypb.Empty], error)
+	// Initialize/mount a storage pool on this node
+	InitStoragePool(context.Context, *connect.Request[v1.InitStoragePoolRequest]) (*connect.Response[v1.StoragePoolInfoResponse], error)
+	// Destroy/unmount a storage pool
+	DestroyStoragePool(context.Context, *connect.Request[v1.StoragePoolIdRequest]) (*connect.Response[emptypb.Empty], error)
+	// Get storage pool information
+	GetStoragePoolInfo(context.Context, *connect.Request[v1.StoragePoolIdRequest]) (*connect.Response[v1.StoragePoolInfoResponse], error)
+	// List all storage pools on this node
+	ListStoragePools(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListStoragePoolsResponse], error)
+	// Create a volume in a storage pool
+	CreateVolume(context.Context, *connect.Request[v1.CreateVolumeRequest]) (*connect.Response[emptypb.Empty], error)
+	// Delete a volume
+	DeleteVolume(context.Context, *connect.Request[v1.VolumeIdRequest]) (*connect.Response[emptypb.Empty], error)
+	// Resize a volume
+	ResizeVolume(context.Context, *connect.Request[v1.ResizeVolumeRequest]) (*connect.Response[emptypb.Empty], error)
+	// Clone a volume
+	CloneVolume(context.Context, *connect.Request[v1.CloneVolumeRequest]) (*connect.Response[emptypb.Empty], error)
+	// Get volume attach information (libvirt disk XML)
+	GetVolumeAttachInfo(context.Context, *connect.Request[v1.VolumeIdRequest]) (*connect.Response[v1.VolumeAttachInfoResponse], error)
+	// Create a volume snapshot
+	CreateVolumeSnapshot(context.Context, *connect.Request[v1.CreateVolumeSnapshotRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewNodeDaemonServiceClient constructs a client for the limiquantix.node.v1.NodeDaemonService
@@ -370,40 +420,110 @@ func NewNodeDaemonServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(nodeDaemonServiceMethods.ByName("CancelDownload")),
 			connect.WithClientOptions(opts...),
 		),
+		initStoragePool: connect.NewClient[v1.InitStoragePoolRequest, v1.StoragePoolInfoResponse](
+			httpClient,
+			baseURL+NodeDaemonServiceInitStoragePoolProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("InitStoragePool")),
+			connect.WithClientOptions(opts...),
+		),
+		destroyStoragePool: connect.NewClient[v1.StoragePoolIdRequest, emptypb.Empty](
+			httpClient,
+			baseURL+NodeDaemonServiceDestroyStoragePoolProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("DestroyStoragePool")),
+			connect.WithClientOptions(opts...),
+		),
+		getStoragePoolInfo: connect.NewClient[v1.StoragePoolIdRequest, v1.StoragePoolInfoResponse](
+			httpClient,
+			baseURL+NodeDaemonServiceGetStoragePoolInfoProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("GetStoragePoolInfo")),
+			connect.WithClientOptions(opts...),
+		),
+		listStoragePools: connect.NewClient[emptypb.Empty, v1.ListStoragePoolsResponse](
+			httpClient,
+			baseURL+NodeDaemonServiceListStoragePoolsProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("ListStoragePools")),
+			connect.WithClientOptions(opts...),
+		),
+		createVolume: connect.NewClient[v1.CreateVolumeRequest, emptypb.Empty](
+			httpClient,
+			baseURL+NodeDaemonServiceCreateVolumeProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("CreateVolume")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteVolume: connect.NewClient[v1.VolumeIdRequest, emptypb.Empty](
+			httpClient,
+			baseURL+NodeDaemonServiceDeleteVolumeProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("DeleteVolume")),
+			connect.WithClientOptions(opts...),
+		),
+		resizeVolume: connect.NewClient[v1.ResizeVolumeRequest, emptypb.Empty](
+			httpClient,
+			baseURL+NodeDaemonServiceResizeVolumeProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("ResizeVolume")),
+			connect.WithClientOptions(opts...),
+		),
+		cloneVolume: connect.NewClient[v1.CloneVolumeRequest, emptypb.Empty](
+			httpClient,
+			baseURL+NodeDaemonServiceCloneVolumeProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("CloneVolume")),
+			connect.WithClientOptions(opts...),
+		),
+		getVolumeAttachInfo: connect.NewClient[v1.VolumeIdRequest, v1.VolumeAttachInfoResponse](
+			httpClient,
+			baseURL+NodeDaemonServiceGetVolumeAttachInfoProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("GetVolumeAttachInfo")),
+			connect.WithClientOptions(opts...),
+		),
+		createVolumeSnapshot: connect.NewClient[v1.CreateVolumeSnapshotRequest, emptypb.Empty](
+			httpClient,
+			baseURL+NodeDaemonServiceCreateVolumeSnapshotProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("CreateVolumeSnapshot")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // nodeDaemonServiceClient implements NodeDaemonServiceClient.
 type nodeDaemonServiceClient struct {
-	healthCheck       *connect.Client[v1.HealthCheckRequest, v1.HealthCheckResponse]
-	getNodeInfo       *connect.Client[emptypb.Empty, v1.NodeInfoResponse]
-	createVM          *connect.Client[v1.CreateVMOnNodeRequest, v1.CreateVMOnNodeResponse]
-	startVM           *connect.Client[v1.VMIdRequest, emptypb.Empty]
-	stopVM            *connect.Client[v1.StopVMRequest, emptypb.Empty]
-	forceStopVM       *connect.Client[v1.VMIdRequest, emptypb.Empty]
-	rebootVM          *connect.Client[v1.VMIdRequest, emptypb.Empty]
-	pauseVM           *connect.Client[v1.VMIdRequest, emptypb.Empty]
-	resumeVM          *connect.Client[v1.VMIdRequest, emptypb.Empty]
-	deleteVM          *connect.Client[v1.VMIdRequest, emptypb.Empty]
-	getVMStatus       *connect.Client[v1.VMIdRequest, v1.VMStatusResponse]
-	listVMs           *connect.Client[emptypb.Empty, v1.ListVMsOnNodeResponse]
-	getConsole        *connect.Client[v1.VMIdRequest, v1.ConsoleInfoResponse]
-	createSnapshot    *connect.Client[v1.CreateSnapshotRequest, v1.SnapshotResponse]
-	revertSnapshot    *connect.Client[v1.RevertSnapshotRequest, emptypb.Empty]
-	deleteSnapshot    *connect.Client[v1.DeleteSnapshotRequest, emptypb.Empty]
-	listSnapshots     *connect.Client[v1.VMIdRequest, v1.ListSnapshotsResponse]
-	attachDisk        *connect.Client[v1.AttachDiskRequest, emptypb.Empty]
-	detachDisk        *connect.Client[v1.DetachDiskRequest, emptypb.Empty]
-	attachNIC         *connect.Client[v1.AttachNICRequest, emptypb.Empty]
-	detachNIC         *connect.Client[v1.DetachNICRequest, emptypb.Empty]
-	prepareMigration  *connect.Client[v1.PrepareMigrationRequest, v1.MigrationToken]
-	receiveMigration  *connect.Client[v1.MigrationToken, emptypb.Empty]
-	migrateVM         *connect.Client[v1.MigrateVMRequest, v1.MigrationProgress]
-	streamMetrics     *connect.Client[v1.StreamMetricsRequest, v1.NodeMetrics]
-	streamEvents      *connect.Client[emptypb.Empty, v1.NodeEvent]
-	downloadImage     *connect.Client[v1.DownloadImageOnNodeRequest, v1.DownloadProgress]
-	getDownloadStatus *connect.Client[v1.GetDownloadStatusRequest, v1.DownloadProgress]
-	cancelDownload    *connect.Client[v1.CancelDownloadRequest, emptypb.Empty]
+	healthCheck          *connect.Client[v1.HealthCheckRequest, v1.HealthCheckResponse]
+	getNodeInfo          *connect.Client[emptypb.Empty, v1.NodeInfoResponse]
+	createVM             *connect.Client[v1.CreateVMOnNodeRequest, v1.CreateVMOnNodeResponse]
+	startVM              *connect.Client[v1.VMIdRequest, emptypb.Empty]
+	stopVM               *connect.Client[v1.StopVMRequest, emptypb.Empty]
+	forceStopVM          *connect.Client[v1.VMIdRequest, emptypb.Empty]
+	rebootVM             *connect.Client[v1.VMIdRequest, emptypb.Empty]
+	pauseVM              *connect.Client[v1.VMIdRequest, emptypb.Empty]
+	resumeVM             *connect.Client[v1.VMIdRequest, emptypb.Empty]
+	deleteVM             *connect.Client[v1.VMIdRequest, emptypb.Empty]
+	getVMStatus          *connect.Client[v1.VMIdRequest, v1.VMStatusResponse]
+	listVMs              *connect.Client[emptypb.Empty, v1.ListVMsOnNodeResponse]
+	getConsole           *connect.Client[v1.VMIdRequest, v1.ConsoleInfoResponse]
+	createSnapshot       *connect.Client[v1.CreateSnapshotRequest, v1.SnapshotResponse]
+	revertSnapshot       *connect.Client[v1.RevertSnapshotRequest, emptypb.Empty]
+	deleteSnapshot       *connect.Client[v1.DeleteSnapshotRequest, emptypb.Empty]
+	listSnapshots        *connect.Client[v1.VMIdRequest, v1.ListSnapshotsResponse]
+	attachDisk           *connect.Client[v1.AttachDiskRequest, emptypb.Empty]
+	detachDisk           *connect.Client[v1.DetachDiskRequest, emptypb.Empty]
+	attachNIC            *connect.Client[v1.AttachNICRequest, emptypb.Empty]
+	detachNIC            *connect.Client[v1.DetachNICRequest, emptypb.Empty]
+	prepareMigration     *connect.Client[v1.PrepareMigrationRequest, v1.MigrationToken]
+	receiveMigration     *connect.Client[v1.MigrationToken, emptypb.Empty]
+	migrateVM            *connect.Client[v1.MigrateVMRequest, v1.MigrationProgress]
+	streamMetrics        *connect.Client[v1.StreamMetricsRequest, v1.NodeMetrics]
+	streamEvents         *connect.Client[emptypb.Empty, v1.NodeEvent]
+	downloadImage        *connect.Client[v1.DownloadImageOnNodeRequest, v1.DownloadProgress]
+	getDownloadStatus    *connect.Client[v1.GetDownloadStatusRequest, v1.DownloadProgress]
+	cancelDownload       *connect.Client[v1.CancelDownloadRequest, emptypb.Empty]
+	initStoragePool      *connect.Client[v1.InitStoragePoolRequest, v1.StoragePoolInfoResponse]
+	destroyStoragePool   *connect.Client[v1.StoragePoolIdRequest, emptypb.Empty]
+	getStoragePoolInfo   *connect.Client[v1.StoragePoolIdRequest, v1.StoragePoolInfoResponse]
+	listStoragePools     *connect.Client[emptypb.Empty, v1.ListStoragePoolsResponse]
+	createVolume         *connect.Client[v1.CreateVolumeRequest, emptypb.Empty]
+	deleteVolume         *connect.Client[v1.VolumeIdRequest, emptypb.Empty]
+	resizeVolume         *connect.Client[v1.ResizeVolumeRequest, emptypb.Empty]
+	cloneVolume          *connect.Client[v1.CloneVolumeRequest, emptypb.Empty]
+	getVolumeAttachInfo  *connect.Client[v1.VolumeIdRequest, v1.VolumeAttachInfoResponse]
+	createVolumeSnapshot *connect.Client[v1.CreateVolumeSnapshotRequest, emptypb.Empty]
 }
 
 // HealthCheck calls limiquantix.node.v1.NodeDaemonService.HealthCheck.
@@ -551,6 +671,56 @@ func (c *nodeDaemonServiceClient) CancelDownload(ctx context.Context, req *conne
 	return c.cancelDownload.CallUnary(ctx, req)
 }
 
+// InitStoragePool calls limiquantix.node.v1.NodeDaemonService.InitStoragePool.
+func (c *nodeDaemonServiceClient) InitStoragePool(ctx context.Context, req *connect.Request[v1.InitStoragePoolRequest]) (*connect.Response[v1.StoragePoolInfoResponse], error) {
+	return c.initStoragePool.CallUnary(ctx, req)
+}
+
+// DestroyStoragePool calls limiquantix.node.v1.NodeDaemonService.DestroyStoragePool.
+func (c *nodeDaemonServiceClient) DestroyStoragePool(ctx context.Context, req *connect.Request[v1.StoragePoolIdRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.destroyStoragePool.CallUnary(ctx, req)
+}
+
+// GetStoragePoolInfo calls limiquantix.node.v1.NodeDaemonService.GetStoragePoolInfo.
+func (c *nodeDaemonServiceClient) GetStoragePoolInfo(ctx context.Context, req *connect.Request[v1.StoragePoolIdRequest]) (*connect.Response[v1.StoragePoolInfoResponse], error) {
+	return c.getStoragePoolInfo.CallUnary(ctx, req)
+}
+
+// ListStoragePools calls limiquantix.node.v1.NodeDaemonService.ListStoragePools.
+func (c *nodeDaemonServiceClient) ListStoragePools(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListStoragePoolsResponse], error) {
+	return c.listStoragePools.CallUnary(ctx, req)
+}
+
+// CreateVolume calls limiquantix.node.v1.NodeDaemonService.CreateVolume.
+func (c *nodeDaemonServiceClient) CreateVolume(ctx context.Context, req *connect.Request[v1.CreateVolumeRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.createVolume.CallUnary(ctx, req)
+}
+
+// DeleteVolume calls limiquantix.node.v1.NodeDaemonService.DeleteVolume.
+func (c *nodeDaemonServiceClient) DeleteVolume(ctx context.Context, req *connect.Request[v1.VolumeIdRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.deleteVolume.CallUnary(ctx, req)
+}
+
+// ResizeVolume calls limiquantix.node.v1.NodeDaemonService.ResizeVolume.
+func (c *nodeDaemonServiceClient) ResizeVolume(ctx context.Context, req *connect.Request[v1.ResizeVolumeRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.resizeVolume.CallUnary(ctx, req)
+}
+
+// CloneVolume calls limiquantix.node.v1.NodeDaemonService.CloneVolume.
+func (c *nodeDaemonServiceClient) CloneVolume(ctx context.Context, req *connect.Request[v1.CloneVolumeRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.cloneVolume.CallUnary(ctx, req)
+}
+
+// GetVolumeAttachInfo calls limiquantix.node.v1.NodeDaemonService.GetVolumeAttachInfo.
+func (c *nodeDaemonServiceClient) GetVolumeAttachInfo(ctx context.Context, req *connect.Request[v1.VolumeIdRequest]) (*connect.Response[v1.VolumeAttachInfoResponse], error) {
+	return c.getVolumeAttachInfo.CallUnary(ctx, req)
+}
+
+// CreateVolumeSnapshot calls limiquantix.node.v1.NodeDaemonService.CreateVolumeSnapshot.
+func (c *nodeDaemonServiceClient) CreateVolumeSnapshot(ctx context.Context, req *connect.Request[v1.CreateVolumeSnapshotRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.createVolumeSnapshot.CallUnary(ctx, req)
+}
+
 // NodeDaemonServiceHandler is an implementation of the limiquantix.node.v1.NodeDaemonService
 // service.
 type NodeDaemonServiceHandler interface {
@@ -612,6 +782,26 @@ type NodeDaemonServiceHandler interface {
 	GetDownloadStatus(context.Context, *connect.Request[v1.GetDownloadStatusRequest]) (*connect.Response[v1.DownloadProgress], error)
 	// Cancel an in-progress download
 	CancelDownload(context.Context, *connect.Request[v1.CancelDownloadRequest]) (*connect.Response[emptypb.Empty], error)
+	// Initialize/mount a storage pool on this node
+	InitStoragePool(context.Context, *connect.Request[v1.InitStoragePoolRequest]) (*connect.Response[v1.StoragePoolInfoResponse], error)
+	// Destroy/unmount a storage pool
+	DestroyStoragePool(context.Context, *connect.Request[v1.StoragePoolIdRequest]) (*connect.Response[emptypb.Empty], error)
+	// Get storage pool information
+	GetStoragePoolInfo(context.Context, *connect.Request[v1.StoragePoolIdRequest]) (*connect.Response[v1.StoragePoolInfoResponse], error)
+	// List all storage pools on this node
+	ListStoragePools(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListStoragePoolsResponse], error)
+	// Create a volume in a storage pool
+	CreateVolume(context.Context, *connect.Request[v1.CreateVolumeRequest]) (*connect.Response[emptypb.Empty], error)
+	// Delete a volume
+	DeleteVolume(context.Context, *connect.Request[v1.VolumeIdRequest]) (*connect.Response[emptypb.Empty], error)
+	// Resize a volume
+	ResizeVolume(context.Context, *connect.Request[v1.ResizeVolumeRequest]) (*connect.Response[emptypb.Empty], error)
+	// Clone a volume
+	CloneVolume(context.Context, *connect.Request[v1.CloneVolumeRequest]) (*connect.Response[emptypb.Empty], error)
+	// Get volume attach information (libvirt disk XML)
+	GetVolumeAttachInfo(context.Context, *connect.Request[v1.VolumeIdRequest]) (*connect.Response[v1.VolumeAttachInfoResponse], error)
+	// Create a volume snapshot
+	CreateVolumeSnapshot(context.Context, *connect.Request[v1.CreateVolumeSnapshotRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewNodeDaemonServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -795,6 +985,66 @@ func NewNodeDaemonServiceHandler(svc NodeDaemonServiceHandler, opts ...connect.H
 		connect.WithSchema(nodeDaemonServiceMethods.ByName("CancelDownload")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeDaemonServiceInitStoragePoolHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceInitStoragePoolProcedure,
+		svc.InitStoragePool,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("InitStoragePool")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceDestroyStoragePoolHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceDestroyStoragePoolProcedure,
+		svc.DestroyStoragePool,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("DestroyStoragePool")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceGetStoragePoolInfoHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceGetStoragePoolInfoProcedure,
+		svc.GetStoragePoolInfo,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("GetStoragePoolInfo")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceListStoragePoolsHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceListStoragePoolsProcedure,
+		svc.ListStoragePools,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("ListStoragePools")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceCreateVolumeHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceCreateVolumeProcedure,
+		svc.CreateVolume,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("CreateVolume")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceDeleteVolumeHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceDeleteVolumeProcedure,
+		svc.DeleteVolume,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("DeleteVolume")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceResizeVolumeHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceResizeVolumeProcedure,
+		svc.ResizeVolume,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("ResizeVolume")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceCloneVolumeHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceCloneVolumeProcedure,
+		svc.CloneVolume,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("CloneVolume")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceGetVolumeAttachInfoHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceGetVolumeAttachInfoProcedure,
+		svc.GetVolumeAttachInfo,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("GetVolumeAttachInfo")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceCreateVolumeSnapshotHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceCreateVolumeSnapshotProcedure,
+		svc.CreateVolumeSnapshot,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("CreateVolumeSnapshot")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/limiquantix.node.v1.NodeDaemonService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case NodeDaemonServiceHealthCheckProcedure:
@@ -855,6 +1105,26 @@ func NewNodeDaemonServiceHandler(svc NodeDaemonServiceHandler, opts ...connect.H
 			nodeDaemonServiceGetDownloadStatusHandler.ServeHTTP(w, r)
 		case NodeDaemonServiceCancelDownloadProcedure:
 			nodeDaemonServiceCancelDownloadHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceInitStoragePoolProcedure:
+			nodeDaemonServiceInitStoragePoolHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceDestroyStoragePoolProcedure:
+			nodeDaemonServiceDestroyStoragePoolHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceGetStoragePoolInfoProcedure:
+			nodeDaemonServiceGetStoragePoolInfoHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceListStoragePoolsProcedure:
+			nodeDaemonServiceListStoragePoolsHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceCreateVolumeProcedure:
+			nodeDaemonServiceCreateVolumeHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceDeleteVolumeProcedure:
+			nodeDaemonServiceDeleteVolumeHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceResizeVolumeProcedure:
+			nodeDaemonServiceResizeVolumeHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceCloneVolumeProcedure:
+			nodeDaemonServiceCloneVolumeHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceGetVolumeAttachInfoProcedure:
+			nodeDaemonServiceGetVolumeAttachInfoHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceCreateVolumeSnapshotProcedure:
+			nodeDaemonServiceCreateVolumeSnapshotHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -978,4 +1248,44 @@ func (UnimplementedNodeDaemonServiceHandler) GetDownloadStatus(context.Context, 
 
 func (UnimplementedNodeDaemonServiceHandler) CancelDownload(context.Context, *connect.Request[v1.CancelDownloadRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.CancelDownload is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) InitStoragePool(context.Context, *connect.Request[v1.InitStoragePoolRequest]) (*connect.Response[v1.StoragePoolInfoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.InitStoragePool is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) DestroyStoragePool(context.Context, *connect.Request[v1.StoragePoolIdRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.DestroyStoragePool is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) GetStoragePoolInfo(context.Context, *connect.Request[v1.StoragePoolIdRequest]) (*connect.Response[v1.StoragePoolInfoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.GetStoragePoolInfo is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) ListStoragePools(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListStoragePoolsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.ListStoragePools is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) CreateVolume(context.Context, *connect.Request[v1.CreateVolumeRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.CreateVolume is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) DeleteVolume(context.Context, *connect.Request[v1.VolumeIdRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.DeleteVolume is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) ResizeVolume(context.Context, *connect.Request[v1.ResizeVolumeRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.ResizeVolume is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) CloneVolume(context.Context, *connect.Request[v1.CloneVolumeRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.CloneVolume is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) GetVolumeAttachInfo(context.Context, *connect.Request[v1.VolumeIdRequest]) (*connect.Response[v1.VolumeAttachInfoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.GetVolumeAttachInfo is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) CreateVolumeSnapshot(context.Context, *connect.Request[v1.CreateVolumeSnapshotRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.CreateVolumeSnapshot is not implemented"))
 }

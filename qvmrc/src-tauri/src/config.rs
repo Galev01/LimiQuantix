@@ -118,12 +118,22 @@ impl Config {
     }
 
     /// Add or update a saved connection
+    /// Matches by id first, then by vm_id to avoid duplicates
     pub fn upsert_connection(&mut self, connection: SavedConnection) {
+        // First check by ID
         if let Some(existing) = self.connections.iter_mut().find(|c| c.id == connection.id) {
             *existing = connection;
-        } else {
-            self.connections.push(connection);
+            return;
         }
+        
+        // Then check by vm_id to avoid duplicate VMs
+        if let Some(existing) = self.connections.iter_mut().find(|c| c.vm_id == connection.vm_id) {
+            *existing = connection;
+            return;
+        }
+        
+        // Otherwise add as new
+        self.connections.push(connection);
     }
 
     /// Remove a saved connection

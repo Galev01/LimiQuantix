@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { ArrowLeft, Monitor, Sliders, Info, Loader2 } from 'lucide-react';
+import { ArrowLeft, Monitor, Sliders, Info, Loader2, Sparkles, Check } from 'lucide-react';
 
 interface DisplaySettings {
   scale_viewport: boolean;
@@ -22,6 +22,7 @@ interface SettingsProps {
 export function Settings({ onClose }: SettingsProps) {
   const [config, setConfig] = useState<Config | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -42,7 +43,10 @@ export function Settings({ onClose }: SettingsProps) {
     setSaving(true);
     try {
       await invoke('save_config', { config });
-      onClose();
+      setSaved(true);
+      setTimeout(() => {
+        onClose();
+      }, 500);
     } catch (err) {
       console.error('Failed to save config:', err);
     } finally {
@@ -64,7 +68,7 @@ export function Settings({ onClose }: SettingsProps) {
   if (!config) {
     return (
       <div className="h-full flex items-center justify-center bg-[var(--bg-base)]">
-        <Loader2 className="w-10 h-10 text-[var(--accent)] animate-spin" />
+        <Loader2 className="w-10 h-10 text-[var(--accent)] spinner" />
       </div>
     );
   }
@@ -72,29 +76,31 @@ export function Settings({ onClose }: SettingsProps) {
   return (
     <div className="h-full flex flex-col bg-[var(--bg-base)]">
       {/* Header */}
-      <header className="app-header flex items-center gap-4 px-6 py-5">
-        <button
-          onClick={onClose}
-          className="icon-btn"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <h1 className="text-lg font-semibold text-[var(--text-primary)]">Settings</h1>
+      <header className="app-header">
+        <div className="flex items-center gap-4">
+          <button onClick={onClose} className="icon-btn">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-lg font-bold text-[var(--text-primary)]">Settings</h1>
+            <p className="text-sm text-[var(--text-muted)]">Configure display & quality</p>
+          </div>
+        </div>
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-auto p-6 space-y-6">
+      <main className="flex-1 overflow-auto page-content space-y-6">
         {/* Display Settings */}
         <section className="section">
           <div className="section-title">
-            <Monitor className="w-5 h-5" />
+            <Monitor />
             <span>Display</span>
           </div>
 
           <div className="setting-row">
             <div className="setting-label">
               <h4>Scale to fit window</h4>
-              <p>Resize the display to match window size</p>
+              <p>Automatically resize the display to match your window size</p>
             </div>
             <button
               onClick={() => updateDisplay('scale_viewport', !config.display.scale_viewport)}
@@ -105,7 +111,7 @@ export function Settings({ onClose }: SettingsProps) {
           <div className="setting-row">
             <div className="setting-label">
               <h4>Show remote cursor</h4>
-              <p>Display the VM's cursor alongside local cursor</p>
+              <p>Display the VM's cursor alongside your local cursor</p>
             </div>
             <button
               onClick={() => updateDisplay('show_remote_cursor', !config.display.show_remote_cursor)}
@@ -117,7 +123,7 @@ export function Settings({ onClose }: SettingsProps) {
         {/* Quality Settings */}
         <section className="section">
           <div className="section-title">
-            <Sliders className="w-5 h-5" />
+            <Sliders />
             <span>Quality</span>
           </div>
 
@@ -128,17 +134,17 @@ export function Settings({ onClose }: SettingsProps) {
               onChange={(e) => updateDisplay('preferred_encoding', e.target.value)}
               className="select"
             >
-              <option value="tight">Tight (recommended)</option>
+              <option value="tight">Tight (Recommended)</option>
               <option value="zrle">ZRLE</option>
               <option value="hextile">Hextile</option>
-              <option value="raw">Raw (fastest, most bandwidth)</option>
+              <option value="raw">Raw (Fastest, highest bandwidth)</option>
             </select>
           </div>
 
           <div className="form-group mt-6">
-            <div className="flex justify-between mb-3">
+            <div className="flex items-center justify-between mb-4">
               <label className="label mb-0">Image Quality</label>
-              <span className="text-sm font-medium text-[var(--accent)]">
+              <span className="text-sm font-bold text-[var(--accent)] bg-[var(--accent-light)] px-3 py-1 rounded-full">
                 {config.display.quality}
               </span>
             </div>
@@ -148,18 +154,17 @@ export function Settings({ onClose }: SettingsProps) {
               max="9"
               value={config.display.quality}
               onChange={(e) => updateDisplay('quality', parseInt(e.target.value))}
-              style={{ '--value': (config.display.quality / 9) * 100 } as React.CSSProperties}
             />
-            <div className="flex justify-between mt-2 text-xs text-[var(--text-muted)]">
+            <div className="flex justify-between mt-3 text-xs text-[var(--text-muted)]">
               <span>Low (faster)</span>
               <span>High (sharper)</span>
             </div>
           </div>
 
           <div className="form-group mt-6">
-            <div className="flex justify-between mb-3">
+            <div className="flex items-center justify-between mb-4">
               <label className="label mb-0">Compression Level</label>
-              <span className="text-sm font-medium text-[var(--accent)]">
+              <span className="text-sm font-bold text-[var(--accent)] bg-[var(--accent-light)] px-3 py-1 rounded-full">
                 {config.display.compression}
               </span>
             </div>
@@ -169,9 +174,8 @@ export function Settings({ onClose }: SettingsProps) {
               max="9"
               value={config.display.compression}
               onChange={(e) => updateDisplay('compression', parseInt(e.target.value))}
-              style={{ '--value': (config.display.compression / 9) * 100 } as React.CSSProperties}
             />
-            <div className="flex justify-between mt-2 text-xs text-[var(--text-muted)]">
+            <div className="flex justify-between mt-3 text-xs text-[var(--text-muted)]">
               <span>None</span>
               <span>Maximum</span>
             </div>
@@ -181,21 +185,27 @@ export function Settings({ onClose }: SettingsProps) {
         {/* About */}
         <section className="section">
           <div className="section-title">
-            <Info className="w-5 h-5" />
+            <Info />
             <span>About</span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="app-brand-icon">
-              <Monitor className="w-5 h-5" />
+          <div className="flex items-center gap-5">
+            <div className="app-brand-icon" style={{ width: 56, height: 56 }}>
+              <Monitor className="w-6 h-6" />
             </div>
             <div>
-              <p className="font-semibold text-[var(--text-primary)]">QVMRC</p>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="font-bold text-[var(--text-primary)] text-lg">QVMRC</p>
+                <span className="text-xs font-medium text-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  v0.1.0
+                </span>
+              </div>
               <p className="text-sm text-[var(--text-muted)]">
                 Quantix Virtual Machine Remote Console
               </p>
-              <p className="text-xs text-[var(--text-muted)] mt-2">
-                Version 0.1.0 • © 2026 LimiQuantix
+              <p className="text-xs text-[var(--text-muted)] mt-2 opacity-60">
+                © 2026 LimiQuantix. All rights reserved.
               </p>
             </div>
           </div>
@@ -204,20 +214,22 @@ export function Settings({ onClose }: SettingsProps) {
 
       {/* Footer */}
       <footer className="footer-bar flex gap-3">
-        <button
-          onClick={onClose}
-          className="btn btn-secondary flex-1"
-        >
+        <button onClick={onClose} className="btn btn-secondary flex-1">
           Cancel
         </button>
         <button
           onClick={saveConfig}
-          disabled={saving}
+          disabled={saving || saved}
           className="btn btn-primary flex-1"
         >
-          {saving ? (
+          {saved ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Check className="w-4 h-4" />
+              Saved!
+            </>
+          ) : saving ? (
+            <>
+              <Loader2 className="w-4 h-4 spinner" />
               Saving...
             </>
           ) : (

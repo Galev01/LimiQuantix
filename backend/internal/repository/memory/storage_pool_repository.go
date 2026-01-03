@@ -31,9 +31,9 @@ func (r *StoragePoolRepository) seedData() {
 		Description: "High-performance NVMe storage pool",
 		Labels:      map[string]string{"tier": "performance", "type": "nvme"},
 		Spec: domain.StoragePoolSpec{
-			Backend: domain.StorageBackend{
+			Backend: &domain.StorageBackend{
 				Type: domain.BackendTypeLocalLVM,
-				LocalLVM: &domain.LVMConfig{
+				LocalLVMConfig: &domain.LVMConfig{
 					VolumeGroup: "nvme-vg",
 					ThinPool:    "thin-pool",
 					NodeID:      "node-1",
@@ -69,9 +69,9 @@ func (r *StoragePoolRepository) seedData() {
 		Description: "Cost-effective HDD storage for archives",
 		Labels:      map[string]string{"tier": "archive", "type": "hdd"},
 		Spec: domain.StoragePoolSpec{
-			Backend: domain.StorageBackend{
+			Backend: &domain.StorageBackend{
 				Type: domain.BackendTypeLocalDir,
-				LocalDir: &domain.DirConfig{
+				LocalDirConfig: &domain.DirConfig{
 					Path:   "/mnt/archive",
 					NodeID: "node-2",
 				},

@@ -15,8 +15,11 @@ The LimiQuantix Guest Agent integration is **complete**. This enables VMware Too
 | **Telemetry Collection** | Guest Agent | ✅ Complete |
 | **IP Reporting** | Guest Agent → Node Daemon | ✅ Complete |
 | **Command Execution** | Full Stack | ✅ Complete |
+| **User Context Execution** | Guest Agent | ✅ Complete (setuid/setgid/supplementary groups) |
 | **File Transfer** | Guest Agent | ✅ Complete |
 | **Graceful Shutdown** | Full Stack | ✅ Complete |
+| **Filesystem Quiescing** | Guest Agent | ✅ Complete (fsfreeze for safe snapshots) |
+| **Time Synchronization** | Guest Agent | ✅ Complete (chrony/ntpd/timesyncd) |
 | **Frontend Display** | VMDetail Page | ✅ Complete |
 | **Linux Packaging** | .deb/.rpm | ✅ Complete |
 | **Cloud-Init Install** | Auto-install Script | ✅ Complete |
@@ -228,30 +231,95 @@ systemctl status limiquantix-agent
 
 ---
 
-## 7. Security Considerations
+## 7. Enterprise Features
 
-### 7.1 Authentication
+### 7.1 Snapshot Quiescing (fsfreeze)
+
+For database-safe snapshots, use quiescing to freeze filesystem I/O:
+
+```bash
+# Quiesce filesystems before snapshot
+curl -X POST http://localhost:8080/api/vms/{vm_id}/quiesce \
+  -d '{"mount_points": ["/"], "timeout_seconds": 60}'
+
+# Take snapshot here...
+
+# Thaw filesystems after snapshot
+curl -X POST http://localhost:8080/api/vms/{vm_id}/thaw
+```
+
+**How it works:**
+1. Agent calls `fsfreeze -f` on specified mount points
+2. Kernel queues all I/O (writes block, reads from cache)
+3. Hypervisor takes snapshot
+4. Agent calls `fsfreeze -u` to resume I/O
+
+**Pre/Post Scripts:**
+- Place scripts in `/etc/limiquantix/pre-freeze.d/` for database flush
+- Place scripts in `/etc/limiquantix/post-thaw.d/` for database resume
+- Scripts are executed in alphabetical order
+
+### 7.2 User Context Execution
+
+Run commands as specific users (not just root):
+
+```bash
+curl -X POST http://localhost:8080/api/vms/{vm_id}/execute \
+  -d '{
+    "command": "whoami && id",
+    "run_as_user": "postgres",
+    "run_as_group": "postgres",
+    "include_supplementary_groups": true
+  }'
+```
+
+**Features:**
+- `run_as_user` - Sets UID via `setuid()`
+- `run_as_group` - Sets GID via `setgid()` (defaults to user's primary group)
+- `include_supplementary_groups` - Includes user's supplementary groups via `setgroups()`
+
+### 7.3 Time Synchronization
+
+After resuming a paused/suspended VM, sync the guest clock:
+
+```bash
+curl -X POST http://localhost:8080/api/vms/{vm_id}/sync-time \
+  -d '{"force": true}'
+```
+
+**Supported time sources:**
+- Chrony (`chronyc makestep`)
+- systemd-timesyncd
+- ntpd
+- ntpdate (legacy)
+
+---
+
+## 8. Security Considerations
+
+### 8.1 Authentication
 
 - Virtio-serial provides inherent authentication via VM isolation
 - Only the specific VM can access its character device
 - Only Node Daemon can access the host-side Unix socket
 
-### 7.2 Authorization
+### 8.2 Authorization
 
 - Control Plane validates user permissions before forwarding requests
 - Commands are logged with user and VM context
 
-### 7.3 Input Validation
+### 8.3 Input Validation
 
 - Agent validates all file paths (no directory traversal)
 - Command output is truncated to prevent memory exhaustion
 - Timeouts prevent runaway processes
+- User context switching validates users exist
 
 ---
 
-## 8. Testing
+## 9. Testing
 
-### 8.1 Test Agent Connection
+### 9.1 Test Agent Connection
 
 ```bash
 # Ping the agent from control plane
@@ -260,7 +328,7 @@ curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/PingAgent \
   -d '{"vmId": "your-vm-id"}'
 ```
 
-### 8.2 Test Script Execution
+### 9.2 Test Script Execution
 
 ```bash
 curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/ExecuteScript \
@@ -272,9 +340,18 @@ curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/ExecuteScrip
   }'
 ```
 
+### 9.3 Test Quiescing
+
+```bash
+# Test fsfreeze (requires root and a non-root filesystem)
+# In a test VM:
+sudo fsfreeze -f /mnt/data  # Freeze
+sudo fsfreeze -u /mnt/data  # Thaw
+```
+
 ---
 
-## 9. Related Documents
+## 10. Related Documents
 
 | Document | Path |
 |----------|------|
@@ -285,10 +362,10 @@ curl -X POST http://localhost:8080/limiquantix.compute.v1.VMService/ExecuteScrip
 
 ---
 
-## 10. Next Steps
+## 11. Next Steps
 
-1. **Windows Support** - Cross-compile agent for Windows, create MSI installer
-2. **Agent Metrics Dashboard** - Aggregate telemetry across all VMs
-3. **Agent Auto-Update** - Self-updating mechanism
-4. **File Browser UI** - Visual file manager via agent
-5. **Database Quiescing** - Pre-snapshot hooks for databases
+1. **Windows Support** - Cross-compile agent for Windows, create MSI installer, VSS integration
+2. **Network Re-configuration** - Allow changing IPs via API (Netplan/NetworkManager)
+3. **Agent Metrics Dashboard** - Aggregate telemetry across all VMs
+4. **Agent Version Display** - Show agent version in UI, offer update option
+5. **File Browser UI** - Visual file manager via agent

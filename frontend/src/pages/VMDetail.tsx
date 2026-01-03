@@ -23,6 +23,7 @@ import {
   Trash2,
   Download,
   Code,
+  FolderOpen,
 } from 'lucide-react';
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -34,6 +35,7 @@ import { NoVNCConsole } from '@/components/vm/NoVNCConsole';
 import { ConsoleAccessModal } from '@/components/vm/ConsoleAccessModal';
 import { ExecuteScriptModal } from '@/components/vm/ExecuteScriptModal';
 import { GuestAgentStatus } from '@/components/vm/GuestAgentStatus';
+import { FileBrowser } from '@/components/vm/FileBrowser';
 import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
 import { useVM, useStartVM, useStopVM, useDeleteVM, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
@@ -89,6 +91,7 @@ export function VMDetail() {
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [isConsoleModalOpen, setIsConsoleModalOpen] = useState(false);
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
+  const [isFileBrowserOpen, setIsFileBrowserOpen] = useState(false);
 
   // API connection and data
   const { data: isConnected = false } = useApiConnection();
@@ -515,6 +518,16 @@ export function VMDetail() {
                     className="w-full justify-start"
                     variant="secondary"
                     size="sm"
+                    onClick={() => setIsFileBrowserOpen(true)}
+                    disabled={vm.status.state !== 'RUNNING'}
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    Browse Files
+                  </Button>
+                  <Button
+                    className="w-full justify-start"
+                    variant="secondary"
+                    size="sm"
                     disabled={vm.status.state !== 'RUNNING'}
                   >
                     <RefreshCw className="w-4 h-4" />
@@ -726,6 +739,13 @@ export function VMDetail() {
         onClose={() => setIsScriptModalOpen(false)}
         vmId={id || ''}
         vmName={vm.name}
+      />
+
+      {/* File Browser Modal */}
+      <FileBrowser
+        vmId={id || ''}
+        isOpen={isFileBrowserOpen}
+        onClose={() => setIsFileBrowserOpen(false)}
       />
     </div>
   );

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LimiQuantix Guest Agent Windows Installer (WiX v4)
+  
+  Build Requirements:
+  - WiX Toolset v4 (https://wixtoolset.org/)
+  - Run: wix build main.wxs -o limiquantix-agent.msi
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package 
+    Name="LimiQuantix Guest Agent"
+    Manufacturer="LimiQuantix"
+    Version="!(bind.FileVersion.AgentExe)"
+    UpgradeCode="550E8400-E29B-41D4-A716-446655440001"
+    Scope="perMachine"
+    InstallerVersion="500"
+    Compressed="yes">
+    
+    <SummaryInformation
+      Description="LimiQuantix Guest Agent for VM integration"
+      Manufacturer="LimiQuantix" />
+    
+    <!-- Major upgrade support -->
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed."
+      Schedule="afterInstallInitialize" />
+    
+    <!-- Embed all files in the MSI -->
+    <MediaTemplate EmbedCab="yes" />
+    
+    <!-- Icon for Add/Remove Programs -->
+    <Icon Id="icon.ico" SourceFile="icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+    <Property Id="ARPHELPLINK" Value="https://limiquantix.io/docs" />
+    <Property Id="ARPURLINFOABOUT" Value="https://limiquantix.io" />
+    
+    <!-- Installation directory -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="LimiQuantix">
+        <Directory Id="AgentFolder" Name="Agent" />
+      </Directory>
+    </StandardDirectory>
+    
+    <!-- Main component: Agent executable -->
+    <ComponentGroup Id="AgentComponents" Directory="AgentFolder">
+      <Component Id="AgentExeComponent" Guid="550E8400-E29B-41D4-A716-446655440002">
+        <File Id="AgentExe" 
+              Source="limiquantix-agent.exe" 
+              KeyPath="yes" />
+        
+        <!-- Windows Service Registration -->
+        <ServiceInstall
+          Id="AgentService"
+          Name="LimiQuantixAgent"
+          DisplayName="LimiQuantix Guest Agent"
+          Description="Provides VM integration for LimiQuantix hypervisor"
+          Type="ownProcess"
+          Start="auto"
+          ErrorControl="normal"
+          Account="LocalSystem">
+          
+          <!-- Service recovery options -->
+          <ServiceConfig 
+            DelayedAutoStart="no"
+            OnInstall="yes"
+            OnReinstall="yes" />
+        </ServiceInstall>
+        
+        <!-- Start service after install -->
+        <ServiceControl
+          Id="AgentServiceControl"
+          Name="LimiQuantixAgent"
+          Start="install"
+          Stop="both"
+          Remove="uninstall"
+          Wait="yes" />
+      </Component>
+      
+      <!-- Configuration file template -->
+      <Component Id="ConfigComponent" Guid="550E8400-E29B-41D4-A716-446655440003">
+        <File Id="ConfigFile" 
+              Source="config.yaml.template" 
+              Name="config.yaml" />
+      </Component>
+    </ComponentGroup>
+    
+    <!-- Feature definition -->
+    <Feature Id="MainFeature" Title="LimiQuantix Agent" Level="1">
+      <ComponentGroupRef Id="AgentComponents" />
+    </Feature>
+    
+    <!-- Custom actions for virtio-serial port detection -->
+    <CustomAction 
+      Id="CheckVirtioPort"
+      Directory="AgentFolder"
+      ExeCommand="cmd.exe /c &quot;if not exist \\.\Global\org.limiquantix.agent.0 echo WARNING: Virtio-serial port not found. Agent may not connect.&quot;"
+      Execute="immediate"
+      Return="ignore" />
+    
+    <InstallExecuteSequence>
+      <Custom Action="CheckVirtioPort" After="InstallFinalize">NOT Installed</Custom>
+    </InstallExecuteSequence>
+    
+  </Package>
+</Wix>

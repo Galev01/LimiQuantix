@@ -47,6 +47,13 @@ message AgentMessage {
     // Network configuration
     ConfigureNetworkRequest configure_network = 16;
     
+    // Filesystem quiescing (for safe snapshots)
+    QuiesceFilesystemsRequest quiesce = 17;
+    ThawFilesystemsRequest thaw = 18;
+    
+    // Time synchronization (after resume from suspend)
+    SyncTimeRequest sync_time = 19;
+    
     // =========================================================================
     // Guest -> Host (Responses)
     // =========================================================================
@@ -67,6 +74,13 @@ message AgentMessage {
     
     // Network configuration result
     ConfigureNetworkResponse configure_network_response = 56;
+    
+    // Filesystem quiescing responses
+    QuiesceFilesystemsResponse quiesce_response = 57;
+    ThawFilesystemsResponse thaw_response = 58;
+    
+    // Time sync response
+    SyncTimeResponse sync_time_response = 59;
     
     // =========================================================================
     // Guest -> Host (Unsolicited Events)
@@ -220,6 +234,14 @@ message ExecuteRequest {
   
   // Maximum stdout/stderr size to capture (0 = unlimited, default 1MB)
   uint32 max_output_bytes = 8;
+  
+  // Run as a specific group (optional, requires root)
+  // If empty but run_as_user is set, uses the user's primary group
+  string run_as_group = 9;
+  
+  // Include supplementary groups when running as user
+  // Default: true (uses user's supplementary groups from /etc/group)
+  bool include_supplementary_groups = 10;
 }
 
 message ExecuteResponse {
@@ -445,4 +467,117 @@ enum ErrorSeverity {
   ERROR_SEVERITY_WARNING = 0;
   ERROR_SEVERITY_ERROR = 1;
   ERROR_SEVERITY_CRITICAL = 2;
+}
+
+// =============================================================================
+// FILESYSTEM QUIESCING (for safe snapshots)
+// =============================================================================
+// These operations use fsfreeze (Linux) or VSS (Windows) to ensure filesystem
+// consistency during snapshot operations. This is critical for databases.
+
+message QuiesceFilesystemsRequest {
+  // List of mount points to freeze (empty = all writable filesystems)
+  repeated string mount_points = 1;
+  
+  // Timeout in seconds for the quiesce operation (default: 60)
+  // After this timeout, filesystems will be auto-thawed
+  uint32 timeout_seconds = 2;
+  
+  // Whether to run pre-freeze scripts (e.g., database flush hooks)
+  bool run_pre_freeze_scripts = 3;
+  
+  // Directory containing pre-freeze scripts (default: /etc/limiquantix/pre-freeze.d/)
+  string pre_freeze_script_dir = 4;
+}
+
+message QuiesceFilesystemsResponse {
+  // Whether quiescing succeeded
+  bool success = 1;
+  
+  // List of mount points that were frozen
+  repeated FrozenFilesystem frozen = 2;
+  
+  // Error message if quiescing failed
+  string error = 3;
+  
+  // Token for thaw operation (for correlation)
+  string quiesce_token = 4;
+  
+  // Timestamp when auto-thaw will trigger
+  google.protobuf.Timestamp auto_thaw_at = 5;
+}
+
+message FrozenFilesystem {
+  // Mount point that was frozen
+  string mount_point = 1;
+  
+  // Device path
+  string device = 2;
+  
+  // Filesystem type
+  string filesystem = 3;
+  
+  // Whether it was successfully frozen
+  bool frozen = 4;
+  
+  // Error if freezing this specific filesystem failed
+  string error = 5;
+}
+
+message ThawFilesystemsRequest {
+  // Token from QuiesceFilesystemsResponse (optional, for verification)
+  string quiesce_token = 1;
+  
+  // List of mount points to thaw (empty = all frozen filesystems)
+  repeated string mount_points = 2;
+  
+  // Whether to run post-thaw scripts
+  bool run_post_thaw_scripts = 3;
+  
+  // Directory containing post-thaw scripts (default: /etc/limiquantix/post-thaw.d/)
+  string post_thaw_script_dir = 4;
+}
+
+message ThawFilesystemsResponse {
+  // Whether thawing succeeded
+  bool success = 1;
+  
+  // List of mount points that were thawed
+  repeated string thawed_mount_points = 2;
+  
+  // Error message if thawing failed
+  string error = 3;
+  
+  // Duration the filesystems were frozen (milliseconds)
+  uint64 frozen_duration_ms = 4;
+}
+
+// =============================================================================
+// TIME SYNCHRONIZATION
+// =============================================================================
+// Used after VM resume from suspend/pause to ensure system clock is correct.
+
+message SyncTimeRequest {
+  // Force immediate sync (vs. gradual drift correction)
+  bool force = 1;
+  
+  // Optional: Set time to this value (NTP sync if not provided)
+  google.protobuf.Timestamp set_time = 2;
+}
+
+message SyncTimeResponse {
+  // Whether sync succeeded
+  bool success = 1;
+  
+  // Time offset that was corrected (seconds, can be negative)
+  double offset_seconds = 2;
+  
+  // Current system time after sync
+  google.protobuf.Timestamp current_time = 3;
+  
+  // Time source used (e.g., "ntp", "chrony", "manual")
+  string time_source = 4;
+  
+  // Error message if sync failed
+  string error = 5;
 }

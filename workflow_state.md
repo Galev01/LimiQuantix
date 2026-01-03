@@ -1,6 +1,6 @@
 # LimiQuantix Workflow State
 
-## Current Status: Storage & Network Backend Documentation ✅
+## Current Status: Guest Agent Windows & Enterprise Features ✅
 
 **Last Updated:** January 3, 2026
 
@@ -8,180 +8,273 @@
 
 ## What's New (This Session)
 
-### ✅ Documentation Update - Complete
+### ✅ Guest Agent Windows Support & Enterprise Features
 
-Created comprehensive documentation for storage and network backends:
+Extended the Guest Agent with full Windows support and enterprise UI features:
 
-#### 1. Image Library Documentation (`docs/000043-image-library-implementation.md`)
+| Feature | Platform | Status |
+|---------|----------|--------|
+| **VSS Quiescing** | Windows | ✅ Complete |
+| **MSI Installer** | Windows | ✅ Complete |
+| **NetworkManager Support** | Linux (RHEL/CentOS) | ✅ Complete |
+| **Windows netsh Config** | Windows | ✅ Complete |
+| **Agent Version Display** | Frontend | ✅ Complete |
+| **Agent Update Button** | Frontend | ✅ Complete |
+| **File Browser UI** | Frontend | ✅ Complete |
 
-Updated to reflect the full implementation:
-- Node Daemon image scanning on registration
-- Image catalog with official cloud images
-- Download manager for async downloads
-- Frontend Image Library page with two tabs
+#### 1. Windows VSS Quiescing
 
-#### 2. Ceph RBD Storage Backend (`docs/000047-storage-backend-ceph-rbd.md`)
+**File:** `handlers/quiesce.rs`
 
-Comprehensive guide covering:
-- Architecture with librados and RBD
-- Ceph cluster setup (single-node and cluster)
-- libvirt secret management for authentication
-- Rust `CephBackend` implementation with async support
-- Libvirt XML generation for network disks
-- Volume operations: create, delete, resize, clone, snapshot
-- Pool metrics and monitoring
-- Error handling patterns
+- Uses `diskshadow` to create volatile shadow copies
+- Triggers VSS writers (SQL Server, Exchange, etc.)
+- Auto-thaw via `vssadmin delete shadows`
 
-#### 3. OVN/OVS Network Backend (`docs/000048-network-backend-ovn-ovs.md`)
+#### 2. Windows MSI Installer
 
-Comprehensive guide covering:
-- OVN architecture (Northbound/Southbound DBs)
-- OVS integration on hypervisor nodes
-- Go `NorthboundClient` for OVN control
-- Rust `OvsPortManager` for node-level OVS operations
-- Logical switches (virtual networks)
-- Logical switch ports (VM interfaces)
-- Logical routers with distributed routing
-- Security groups via OVN ACLs
-- DHCP options configuration
-- Floating IPs / NAT rules
-- Load balancing (L4)
-- libvirt integration for OVS bridging
-- Monitoring and debugging commands
+**Files:**
+- `packaging/windows/wix/main.wxs` - WiX v4 configuration
+- `packaging/windows/wix/config.yaml.template` - Default config
+- `packaging/windows/build-msi.ps1` - Build script
 
----
+Features:
+- Installs to `C:\Program Files\LimiQuantix\Agent\`
+- Registers as Windows Service
+- Auto-start on boot
 
-## Backend Architecture
+#### 3. Enhanced Network Configuration
 
-### Storage: Ceph RBD
+**File:** `handlers/lifecycle.rs`
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      CONTROL PLANE (Go)                              │
-│  ┌────────────────────────────────────────────────────────────┐     │
-│  │  StoragePoolService / VolumeService                         │     │
-│  │  - Create/Delete pools, volumes, snapshots                 │     │
-│  │  - Route requests to appropriate Node Daemon               │     │
-│  └────────────────────────────────────────────────────────────┘     │
-└───────────────────────────────────────────────────────────────────── │
-                                   │ gRPC                              
-                                   ▼                                   
-┌─────────────────────────────────────────────────────────────────────┐
-│                      NODE DAEMON (Rust)                              │
-│  ┌────────────────────────────────────────────────────────────┐     │
-│  │  CephBackend                                                │     │
-│  │  - librbd/librados integration via async Rust bindings     │     │
-│  │  - Volume lifecycle (create, resize, clone, snapshot)      │     │
-│  │  - Generate libvirt XML for network block devices          │     │
-│  └────────────────────────────────────────────────────────────┘     │
-└───────────────────────────────────────────────────────────────────── │
-                                   │                                   
-                                   ▼                                   
-┌─────────────────────────────────────────────────────────────────────┐
-│                      CEPH CLUSTER                                    │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐                     │
-│  │   MON 1    │  │   MON 2    │  │   MON 3    │                     │
-│  └────────────┘  └────────────┘  └────────────┘                     │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐                     │
-│  │   OSD 1    │  │   OSD 2    │  │   OSD 3    │                     │
-│  └────────────┘  └────────────┘  └────────────┘                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
+- Auto-detects Netplan vs NetworkManager
+- Supports Windows via netsh commands
+- Writes keyfile format for NetworkManager
 
-### Network: OVN/OVS
+#### 4. Agent Version Display & Update
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                       CONTROL PLANE (Go)                             │
-│  ┌────────────────────────────────────────────────────────────┐     │
-│  │  NetworkService (OVN Northbound Client)                     │     │
-│  │  - Logical switches, routers, ports                        │     │
-│  │  - Security groups → ACLs                                  │     │
-│  │  - Floating IPs, NAT, Load Balancers                       │     │
-│  └────────────────────────────────────────────────────────────┘     │
-└───────────────────────────────────────────────────────────────────── │
-                                   │ libovsdb                          
-                                   ▼                                   
-┌─────────────────────────────────────────────────────────────────────┐
-│                       OVN CENTRAL                                    │
-│  ┌─────────────────────────────────────────────────────────────┐    │
-│  │  OVN Northbound DB  ◄──── OVN Northbound Daemon (ovn-northd)│    │
-│  │  OVN Southbound DB  ◄──── Logical → Physical translation    │    │
-│  └─────────────────────────────────────────────────────────────┘    │
-└───────────────────────────────────────────────────────────────────── │
-                                   │                                   
-                    ┌──────────────┴──────────────┐                   
-                    ▼                             ▼                   
-┌───────────────────────────────┐  ┌───────────────────────────────┐  
-│     Hypervisor Node 1         │  │     Hypervisor Node 2         │  
-│  ┌─────────────────────────┐  │  │  ┌─────────────────────────┐  │  
-│  │  OVN Controller          │  │  │  │  OVN Controller          │  │  
-│  │  OVS (br-int, br-ex)     │  │  │  │  OVS (br-int, br-ex)     │  │  
-│  │  VM1 ◄───────────────────────────────▶ VM2                   │  │  
-│  └─────────────────────────┘  │  │  └─────────────────────────┘  │  
-└───────────────────────────────┘  └───────────────────────────────┘  
-```
+**File:** `components/vm/GuestAgentStatus.tsx`
+
+- Shows current version with badge
+- Yellow warning when update available
+- "Update Agent" button triggers:
+  1. Download new binary
+  2. Transfer via file write RPC
+  3. Execute upgrade script
+  4. Restart agent service
+
+#### 5. File Browser UI
+
+**File:** `components/vm/FileBrowser.tsx` (NEW)
+
+Full-featured file browser:
+- Quick access sidebar (/, /home, /etc, C:\, etc.)
+- Directory navigation with path bar
+- File preview for text files
+- Download and delete operations
+- Platform-aware paths
 
 ---
 
-## Files Created This Session
+### Previous: QVMRC Deep Link Connection Fixed
 
-| File | Purpose |
+Fixed the issue where clicking "Open with QVMRC" from the web UI would open the program but not populate it with the connection data:
+
+**Changes Made:**
+
+1. **`main.rs`** - Improved deep link handling:
+   - Added `deep-link-received` event emission to frontend
+   - Proper focus and unminimize window when receiving deep link
+
+2. **`App.tsx`** - Added event listener for deep links:
+   - Listens for `deep-link-received` Tauri event
+   - Saves connection to config using `add_and_connect`
+   - Starts VNC connection automatically
+   - Forces refresh of connection list
+
+3. **`config.rs`** - Improved upsert logic:
+   - `upsert_connection` now checks by `vm_id` to avoid duplicate entries
+   - Same VM from different deep links updates existing connection
+
+4. **`main.rs`** - `add_and_connect` now reuses existing connection ID:
+   - Finds existing connection by `vm_id`
+   - Updates timestamp instead of creating new entry
+
+**Result:** Clicking "Open with QVMRC" now:
+- Opens QVMRC (or focuses existing window)
+- Saves the VM connection to the saved connections list
+- Immediately attempts to connect via VNC
+
+---
+
+### ✅ Ceph RBD Backend - Complete
+
+Implemented full Ceph RBD storage backend for distributed hyper-converged storage:
+
+#### 1. CephBackend Implementation (Rust)
+
+**New File:** `agent/limiquantix-hypervisor/src/storage/ceph.rs`
+
+| Feature | Implementation |
+|---------|---------------|
+| Volume Creation | `rbd create --size <MB> <pool>/<image>` |
+| Volume Deletion | `rbd rm` with snapshot cleanup |
+| Volume Resize | `rbd resize --size <MB>` |
+| Clone (CoW) | `rbd snap create` → `rbd snap protect` → `rbd clone` |
+| Snapshots | `rbd snap create <pool>/<image>@<snap>` |
+| Pool Capacity | `rbd du` + `ceph df` parsing |
+| Libvirt Secret | Auto-creates if not exists via `virsh secret-define` |
+
+**Libvirt Disk XML Generation:**
+
+```xml
+<disk type='network' device='disk'>
+  <driver name='qemu' type='raw' cache='writeback' discard='unmap'/>
+  <source protocol='rbd' name='libvirt-pool/vm-100-disk-0'>
+    <host name='10.0.0.1' port='6789'/>
+    <host name='10.0.0.2' port='6789'/>
+  </source>
+  <auth username='libvirt'>
+    <secret type='ceph' uuid='550e8400-e29b-41d4-a716-446655440000'/>
+  </auth>
+  <target dev='vdX' bus='virtio'/>
+</disk>
+```
+
+#### 2. Node Daemon Storage gRPC
+
+Added storage RPCs to `proto/limiquantix/node/v1/node_daemon.proto`:
+
+**Pool Operations:**
+- `InitStoragePool` - Initialize/mount pool
+- `DestroyStoragePool` - Cleanup pool
+- `GetStoragePoolInfo` - Get capacity/status
+- `ListStoragePools` - List all pools
+
+**Volume Operations:**
+- `CreateVolume` - Create with optional source (clone/image/snapshot)
+- `DeleteVolume` - Remove volume
+- `ResizeVolume` - Expand volume
+- `CloneVolume` - Copy-on-write clone
+- `GetVolumeAttachInfo` - Get libvirt disk XML
+- `CreateVolumeSnapshot` - Point-in-time snapshot
+
+**Message Types:**
+- `StoragePoolType` enum (LOCAL_DIR, NFS, CEPH_RBD, etc.)
+- `StoragePoolConfig` with backend-specific configs
+- `VolumeSourceType` enum (EMPTY, CLONE, IMAGE, SNAPSHOT)
+
+#### 3. Control Plane Integration (Go)
+
+**Updated `daemon_client.go`:**
+- Added all storage pool and volume methods
+- Proper logging with zap
+- Error handling
+
+**Updated `pool_service.go`:**
+- Integrated with `DaemonPool` for node communication
+- Pool initialization on connected nodes
+- Converts domain models to node daemon requests
+
+**Domain Model Updates:**
+- Added `ISCSIConfig` struct
+- Added `SecretUUID` to CephConfig
+- Added `MountPoint` to NFSConfig
+- Changed `StorageBackend` to pointer for nil checks
+
+---
+
+## Updated Storage Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CONTROL PLANE (Go)                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │              PoolService / VolumeService                             │    │
+│  │  - Manages storage pools in etcd                                     │    │
+│  │  - Routes operations to node daemons                                 │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ gRPC (InitStoragePool, CreateVolume, etc.)
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          NODE DAEMON (Rust)                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                      StorageManager                                  │    │
+│  │  - Routes to appropriate backend based on pool type                 │    │
+│  │  - Caches pool information                                          │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                    │                                         │
+│       ┌────────────────────────────┼────────────────────────────┐           │
+│       ▼                            ▼                            ▼           │
+│  ┌──────────┐              ┌──────────┐                  ┌──────────┐       │
+│  │  Local   │              │   NFS    │                  │   Ceph   │       │
+│  │ Backend  │              │ Backend  │                  │ Backend  │       │
+│  │ qemu-img │              │ mount+   │                  │ rbd CLI  │       │
+│  │          │              │ qemu-img │                  │ librbd   │       │
+│  └──────────┘              └──────────┘                  └──────────┘       │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Files Changed This Session
+
+| File | Changes |
 |------|---------|
-| `docs/000043-image-library-implementation.md` | Image Library documentation (updated) |
-| `docs/000047-storage-backend-ceph-rbd.md` | Ceph RBD storage backend guide |
-| `docs/000048-network-backend-ovn-ovs.md` | OVN/OVS network backend guide |
+| `agent/limiquantix-hypervisor/src/storage/ceph.rs` | **NEW** - CephBackend implementation |
+| `agent/limiquantix-hypervisor/src/storage/mod.rs` | Added Ceph import and registration |
+| `agent/limiquantix-hypervisor/src/lib.rs` | Export CephBackend |
+| `proto/limiquantix/node/v1/node_daemon.proto` | Storage pool & volume RPCs |
+| `agent/limiquantix-proto/proto/node_daemon.proto` | Storage pool & volume RPCs (agent copy) |
+| `backend/internal/services/node/daemon_client.go` | Storage methods |
+| `backend/internal/services/storage/pool_service.go` | Node daemon integration |
+| `backend/internal/domain/storage.go` | ISCSIConfig, SecretUUID, MountPoint |
+| `backend/internal/repository/memory/storage_pool_repository.go` | Fixed pointer types |
+| `backend/internal/services/storage/pool_converter.go` | Fixed Backend pointer |
+| `frontend/src/hooks/useImages.ts` | Fixed connect import |
 
 ---
 
 ## Next Steps
 
-### Priority 1: Implement Ceph Backend (Rust)
-- [ ] Add `ceph` feature to `limiquantix-hypervisor` Cargo.toml
-- [ ] Implement `CephBackend` with `ceph` crate
-- [ ] Create libvirt secrets for Ceph authentication
-- [ ] Test with single-node Ceph (cephadm)
+### Priority 1: iSCSI Backend
+- [ ] Implement IscsiBackend in Rust
+- [ ] Add `iscsiadm` discovery/login integration
+- [ ] Add LVM volume group management
 
-### Priority 2: Implement OVN Client (Go)
-- [ ] Add `libovsdb` dependency to backend
-- [ ] Implement `NorthboundClient` for OVN
-- [ ] Create NetworkService handlers
-- [ ] Test with OVN sandbox
+### Priority 2: Node Daemon Storage Handler
+- [ ] Implement gRPC handlers in Rust node daemon
+- [ ] Wire StorageManager to gRPC service
 
-### Priority 3: Frontend Integration
-- [ ] Storage pool management UI
-- [ ] Network/VNet management UI
-- [ ] Security groups UI
-- [ ] Load balancer UI
+### Priority 3: Frontend Storage UI
+- [ ] Storage pools list page
+- [ ] Create storage pool form (NFS, Ceph, Local)
+- [ ] Volume management in VM details
 
 ### Priority 4: Testing
-- [ ] Ceph integration tests (single-node container)
-- [ ] OVN integration tests (ovn-fake-multinode)
-- [ ] End-to-end: VM with Ceph disk + OVN network
+- [ ] Ceph single-node container tests
+- [ ] Integration tests with real NFS server
+- [ ] iSCSI targetcli tests
 
 ---
 
 ## Previous Sessions
 
-### ✅ Image Library - Complete
-- Proto definitions for image catalog and scanning
-- Backend ImageService with DownloadManager
-- Node Daemon image scanning on registration
-- Frontend Image Library page
+### ✅ Guest Agent Enterprise Features
+- Filesystem quiescing (fsfreeze)
+- User context execution (setuid/setgid)
+- Time synchronization (chrony, ntpd)
 
-### ✅ Storage Backend Foundation - Complete
-- Modular storage architecture
-- LocalBackend and NfsBackend implementations
-- StorageBackend trait
+### ✅ Storage Backend Foundation
+- Modular StorageBackend trait
+- LocalBackend (qemu-img)
+- NfsBackend (mount + qemu-img)
 
-### ✅ Console Access - Complete
-- Web Console (noVNC)
-- QVMRC Native Client (Tauri)
-
-### ✅ VM Lifecycle - Complete
-- Cloud-init provisioning
-- ISO mounting
-- Node sync on restart
+### ✅ QVMRC Native Client
+- Full RFB VNC protocol
+- Deep link support
+- Windows installers
 
 ---
 
@@ -202,6 +295,9 @@ cd proto && buf generate
 
 # Check hypervisor crate
 cd agent && cargo check -p limiquantix-hypervisor
+
+# Test Ceph connectivity (on node)
+rbd ls --pool libvirt-pool --mon-host 10.0.0.1:6789 --id libvirt
 ```
 
 ---
@@ -210,9 +306,8 @@ cd agent && cargo check -p limiquantix-hypervisor
 
 | Doc | Purpose |
 |-----|---------|
-| `docs/000048-network-backend-ovn-ovs.md` | OVN/OVS Network Backend |
-| `docs/000047-storage-backend-ceph-rbd.md` | Ceph RBD Storage Backend |
-| `docs/000046-storage-backend-implementation.md` | Storage Backend Architecture |
-| `docs/000043-image-library-implementation.md` | Image Library Implementation |
-| `docs/000042-console-access-implementation.md` | Web Console + QVMRC |
+| `docs/000046-storage-backend-implementation.md` | Storage Backend Implementation Plan |
+| `docs/000045-guest-agent-integration-complete.md` | Guest Agent Features |
 | `docs/000044-guest-agent-architecture.md` | Guest Agent Architecture |
+| `docs/000042-console-access-implementation.md` | Web Console + QVMRC |
+| `docs/adr/000003-storage-model-design.md` | Storage Model ADR |

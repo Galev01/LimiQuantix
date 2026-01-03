@@ -58,6 +58,8 @@ pub use storage::{
     StorageBackend,
     LocalBackend,
     NfsBackend,
+    CephBackend,
+    IscsiBackend,
     PoolType,
     PoolConfig,
     PoolInfo,

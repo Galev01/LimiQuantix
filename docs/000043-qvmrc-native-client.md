@@ -1,8 +1,8 @@
 # QVMRC - Quantix Virtual Machine Remote Console
 
 **Document ID:** 000043  
-**Date:** January 3, 2026  
-**Status:** Implemented  
+**Date:** January 3, 2026 (Updated: UI Redesign & Protocol Handler Fix)  
+**Status:** Production Ready  
 **Purpose:** Native desktop VNC client for VM console access
 
 ---
@@ -10,6 +10,15 @@
 ## Overview
 
 QVMRC (Quantix Virtual Machine Remote Console) is a native desktop application built with Tauri (Rust + React) that provides high-performance VNC console access to virtual machines managed by the LimiQuantix platform.
+
+### UI Design Philosophy
+
+QVMRC follows a modern, layer-based UI design with:
+
+- **Deep color hierarchy**: Base → Surface → Elevated layers for visual depth
+- **Smooth animations**: Spring-based transitions, scale/fade effects
+- **Proper spacing**: Consistent 24px page margins, 16px component gaps
+- **Accessibility**: High contrast text, visible focus states, WCAG compliant
 
 ### Why a Native Client?
 
@@ -361,9 +370,34 @@ const qvmrcConnectionUrl = `qvmrc://connect?url=${encodeURIComponent(controlPlan
 
 The protocol handler is registered when QVMRC is installed:
 
-- **Windows:** Registry entries created by NSIS installer
+- **Windows:** Registry entries created by NSIS installer (HKCU\SOFTWARE\Classes\qvmrc)
 - **macOS:** `Info.plist` URL scheme registration
 - **Linux:** `.desktop` file with `x-scheme-handler`
+
+#### Manual Protocol Registration (Windows)
+
+If the protocol handler isn't working after installation, run the registration script:
+
+```powershell
+# Option 1: Use the provided script
+cd qvmrc/scripts
+.\register-protocol.ps1
+
+# Option 2: Manual PowerShell command
+$ExePath = "$env:LOCALAPPDATA\QVMRC\QVMRC.exe"
+New-Item -Path "HKCU:\SOFTWARE\Classes\qvmrc" -Force | Out-Null
+Set-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmrc" -Name "(Default)" -Value "URL:QVMRC Protocol"
+New-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmrc" -Name "URL Protocol" -Value "" -Force | Out-Null
+New-Item -Path "HKCU:\SOFTWARE\Classes\qvmrc\shell\open\command" -Force | Out-Null
+Set-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmrc\shell\open\command" -Name "(Default)" -Value "`"$ExePath`" `"%1`""
+```
+
+#### Verifying Registration
+
+```powershell
+# Check if protocol is registered
+Get-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmrc\shell\open\command"
+```
 
 ---
 
@@ -390,6 +424,14 @@ The protocol handler is registered when QVMRC is installed:
 ---
 
 ## Troubleshooting
+
+### "Scheme does not have a registered handler" Error
+
+This means the `qvmrc://` protocol handler isn't registered:
+
+1. **Reinstall QVMRC** using the NSIS installer (not MSI)
+2. **Or manually register** using the PowerShell script in `qvmrc/scripts/register-protocol.ps1`
+3. **Or run the registration command** shown in the "Protocol Handler Registration" section
 
 ### "Failed to connect" Error
 

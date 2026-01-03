@@ -11,6 +11,8 @@ use tracing::{debug, error, info, warn};
 mod execute;
 mod file;
 mod lifecycle;
+mod quiesce;
+mod timesync;
 
 use crate::AgentConfig;
 
@@ -73,6 +75,23 @@ impl MessageHandler {
                 Some(lifecycle::handle_configure_network(req).await)
             }
 
+            // Filesystem quiescing (for safe snapshots)
+            agent_message::Payload::Quiesce(req) => {
+                info!(mount_points = ?req.mount_points, "Handling quiesce request");
+                Some(quiesce::handle_quiesce(req, &self.config).await)
+            }
+
+            agent_message::Payload::Thaw(req) => {
+                info!(token = %req.quiesce_token, "Handling thaw request");
+                Some(quiesce::handle_thaw(req, &self.config).await)
+            }
+
+            // Time synchronization
+            agent_message::Payload::SyncTime(req) => {
+                info!(force = req.force, "Handling time sync request");
+                Some(timesync::handle_sync_time(req, &self.config).await)
+            }
+
             // Responses and events (should not be received by agent)
             agent_message::Payload::Pong(_)
             | agent_message::Payload::ExecuteResponse(_)
@@ -81,6 +100,9 @@ impl MessageHandler {
             | agent_message::Payload::ShutdownResponse(_)
             | agent_message::Payload::ResetPasswordResponse(_)
             | agent_message::Payload::ConfigureNetworkResponse(_)
+            | agent_message::Payload::QuiesceResponse(_)
+            | agent_message::Payload::ThawResponse(_)
+            | agent_message::Payload::SyncTimeResponse(_)
             | agent_message::Payload::Telemetry(_)
             | agent_message::Payload::AgentReady(_)
             | agent_message::Payload::Error(_) => {

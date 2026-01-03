@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Cpu,
   MemoryStick,
@@ -10,8 +10,13 @@ import {
   XCircle,
   Loader2,
   RefreshCw,
+  ArrowUpCircle,
+  Download,
+  Server,
+  Info,
 } from 'lucide-react';
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface GuestAgentInfo {
   connected: boolean;
@@ -19,6 +24,7 @@ interface GuestAgentInfo {
   osName: string;
   osVersion: string;
   kernelVersion: string;
+  architecture: string;
   hostname: string;
   ipAddresses: string[];
   resourceUsage?: {
@@ -46,6 +52,9 @@ interface GuestAgentInfo {
   capabilities: string[];
 }
 
+// Latest agent version (would come from backend in production)
+const LATEST_AGENT_VERSION = '0.1.0';
+
 interface GuestAgentStatusProps {
   vmId: string;
   vmState: string;
@@ -59,7 +68,14 @@ export function GuestAgentStatus({
 }: GuestAgentStatusProps) {
   const [agentInfo, setAgentInfo] = useState<GuestAgentInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showVersionInfo, setShowVersionInfo] = useState(false);
+
+  // Check if update is available
+  const isUpdateAvailable = agentInfo?.connected && 
+    agentInfo.version && 
+    compareVersions(agentInfo.version, LATEST_AGENT_VERSION) < 0;
 
   const fetchAgentInfo = async () => {
     if (vmState !== 'RUNNING') {
@@ -82,6 +98,7 @@ export function GuestAgentStatus({
           osName: data.osName || 'Unknown',
           osVersion: data.osVersion || '',
           kernelVersion: data.kernelVersion || '',
+          architecture: data.architecture || '',
           hostname: data.hostname || '',
           ipAddresses: data.ipAddresses || [],
           resourceUsage: data.resourceUsage,
@@ -94,6 +111,7 @@ export function GuestAgentStatus({
           osName: '',
           osVersion: '',
           kernelVersion: '',
+          architecture: '',
           hostname: '',
           ipAddresses: [],
           capabilities: [],
@@ -117,6 +135,62 @@ export function GuestAgentStatus({
       return () => clearInterval(interval);
     }
   }, [vmId, vmState]);
+
+  // Handle agent update
+  const handleUpdateAgent = async () => {
+    if (!agentInfo?.connected) return;
+    
+    setIsUpdating(true);
+    
+    try {
+      // The update process:
+      // 1. Download new binary to temp location
+      // 2. Execute upgrade script that replaces binary and restarts service
+      
+      const platform = agentInfo.osName.toLowerCase().includes('windows') 
+        ? 'windows' 
+        : 'linux';
+      const arch = agentInfo.architecture || 'x86_64';
+      
+      toast.info('Downloading agent update...', { duration: 2000 });
+      
+      // Step 1: Download new binary
+      const downloadResponse = await fetch(`/api/vms/${vmId}/agent/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetVersion: LATEST_AGENT_VERSION,
+          platform,
+          architecture: arch,
+        }),
+      });
+      
+      if (!downloadResponse.ok) {
+        const error = await downloadResponse.json();
+        throw new Error(error.message || 'Failed to initiate update');
+      }
+      
+      const result = await downloadResponse.json();
+      
+      if (result.success) {
+        toast.success('Agent update initiated! The agent will restart shortly.', {
+          duration: 5000,
+        });
+        
+        // Wait a bit then refresh agent info
+        setTimeout(() => {
+          fetchAgentInfo();
+        }, 10000);
+      } else {
+        throw new Error(result.error || 'Update failed');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Update failed';
+      toast.error(`Failed to update agent: ${message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   if (vmState !== 'RUNNING') {
     return (
@@ -146,21 +220,108 @@ export function GuestAgentStatus({
           />
           <h3 className="text-lg font-semibold text-text-primary">Guest Agent</h3>
           {agentInfo?.connected && (
-            <span className="text-xs text-text-muted px-2 py-0.5 bg-bg-elevated rounded-full">
-              v{agentInfo.version}
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowVersionInfo(!showVersionInfo)}
+                className={cn(
+                  'text-xs px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors',
+                  isUpdateAvailable
+                    ? 'bg-warning/20 text-warning hover:bg-warning/30'
+                    : 'bg-bg-elevated text-text-muted hover:bg-bg-hover',
+                )}
+              >
+                v{agentInfo.version}
+                {isUpdateAvailable && <ArrowUpCircle className="w-3 h-3" />}
+              </button>
+            </div>
           )}
         </div>
-        <button
-          onClick={fetchAgentInfo}
-          disabled={isLoading}
-          className="p-2 rounded-lg hover:bg-bg-hover transition-colors disabled:opacity-50"
-        >
-          <RefreshCw
-            className={cn('w-4 h-4 text-text-muted', isLoading && 'animate-spin')}
-          />
-        </button>
+        <div className="flex items-center gap-2">
+          {isUpdateAvailable && (
+            <button
+              onClick={handleUpdateAgent}
+              disabled={isUpdating}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent/20 text-accent rounded-lg hover:bg-accent/30 transition-colors disabled:opacity-50"
+            >
+              {isUpdating ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Download className="w-3 h-3" />
+              )}
+              Update Agent
+            </button>
+          )}
+          <button
+            onClick={fetchAgentInfo}
+            disabled={isLoading}
+            className="p-2 rounded-lg hover:bg-bg-hover transition-colors disabled:opacity-50"
+          >
+            <RefreshCw
+              className={cn('w-4 h-4 text-text-muted', isLoading && 'animate-spin')}
+            />
+          </button>
+        </div>
       </div>
+
+      {/* Version Info Panel */}
+      <AnimatePresence>
+        {showVersionInfo && agentInfo?.connected && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="px-6 py-4 bg-bg-base border-b border-border">
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-bg-elevated rounded-lg">
+                  <Server className="w-5 h-5 text-accent" />
+                </div>
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">
+                        LimiQuantix Guest Agent
+                      </p>
+                      <p className="text-xs text-text-muted">
+                        {agentInfo.osName} {agentInfo.architecture}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-mono text-text-primary">
+                        v{agentInfo.version}
+                      </p>
+                      {isUpdateAvailable && (
+                        <p className="text-xs text-warning">
+                          v{LATEST_AGENT_VERSION} available
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {isUpdateAvailable && (
+                    <div className="p-3 bg-warning/10 rounded-lg border border-warning/20">
+                      <div className="flex items-start gap-2">
+                        <Info className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-warning font-medium">
+                            Update Available
+                          </p>
+                          <p className="text-xs text-text-muted mt-1">
+                            A new version of the Guest Agent is available. Click
+                            "Update Agent" to download and install the latest
+                            version. The agent will restart automatically.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Content */}
       <div className="p-6">
@@ -348,4 +509,23 @@ function ResourceCard({
       </div>
     </div>
   );
+}
+
+/**
+ * Compare two semantic version strings.
+ * Returns: -1 if a < b, 0 if a == b, 1 if a > b
+ */
+function compareVersions(a: string, b: string): number {
+  const aParts = a.replace(/^v/, '').split('.').map(Number);
+  const bParts = b.replace(/^v/, '').split('.').map(Number);
+  
+  for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+    const aVal = aParts[i] || 0;
+    const bVal = bParts[i] || 0;
+    
+    if (aVal < bVal) return -1;
+    if (aVal > bVal) return 1;
+  }
+  
+  return 0;
 }
