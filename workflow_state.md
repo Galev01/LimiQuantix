@@ -1,130 +1,121 @@
 # LimiQuantix Workflow State
 
-## Current Status: QVMRC WebSocket Proxy Fix ✅ Complete
+## Current Status: Quantix-OS Slint Console Enhancement ✅ Complete
 
-**Last Updated:** January 3, 2026 (Session 5 - VNC Connection Fix)
+**Last Updated:** January 4, 2026 (Session 6 - Slint Console GUI)
 
 ---
 
-## ✅ Session 5: QVMRC VNC Connection Fix (Jan 3, 2026)
+## ✅ Session 6: Slint Console GUI Enhancement (Jan 4, 2026)
 
-### Problem Solved
+### Summary
 
-QVMRC showed error: "Handshake failed: Authentication failed: Sorry, loopback connections are not enabled"
+Replaced the Ratatui TUI with a modern Slint-based graphical console. Added:
+- Installation wizard for first boot
+- Admin authentication with Argon2 password hashing
+- SSH management (enable/disable via GUI)
+- Network configuration
+- Emergency shell access with audit logging
 
-**Root Cause:**
-1. QVMRC called `GetConsole` API which returned `host: "127.0.0.1"` (from hypervisor's perspective)
-2. QVMRC tried to connect directly to `127.0.0.1:PORT` from user's Windows machine
-3. This couldn't reach the hypervisor's localhost - the VNC server rejected it
+### Why Slint over Wayland Kiosk?
 
-**Why Web Console Works:**
-- Web console uses WebSocket proxy at `/api/console/{vmId}/ws`
-- Backend connects to VNC from hypervisor host, then proxies over WebSocket
-- User's browser connects to backend, not directly to VNC
+| Feature | Slint | Wayland Kiosk (Chromium) |
+|---------|-------|--------------------------|
+| RAM Usage | ~10 MB | ~500 MB |
+| Boot Time | Milliseconds | 5-10 seconds |
+| Dependencies | Single binary | Chromium + Mesa + Fonts |
+| Offline | ✅ Works offline | ❌ Needs web server |
+| Attack Surface | Minimal | Large (Chromium CVEs) |
+| ISO Size Impact | +3-5 MB | +150-200 MB |
 
-### Solution Implemented
+### Files Created/Modified
 
-Changed QVMRC to use WebSocket proxy like web console instead of direct VNC connection.
+| File | Action | Description |
+|------|--------|-------------|
+| `console-gui/ui/main.slint` | Modified | Complete UI with all screens, dialogs, components |
+| `console-gui/src/main.rs` | Modified | Application logic, callbacks, state management |
+| `console-gui/src/auth.rs` | Created | Admin authentication with Argon2 hashing |
+| `console-gui/src/ssh.rs` | Created | SSH service management |
+| `console-gui/src/network.rs` | Created | Network interface configuration |
+| `console-gui/Cargo.toml` | Modified | Added argon2, rand, thiserror dependencies |
+| `overlay/etc/init.d/quantix-console` | Created | OpenRC service for console |
+| `overlay/etc/init.d/quantix-setup` | Modified | First-boot detection |
+| `overlay/etc/local.d/10-quantix-init.start` | Modified | SSH key generation, first-boot check |
+| `docs/Quantix-OS/000053-console-gui-slint.md` | Created | Full documentation |
 
-**Architecture Change:**
+### Security Features
+
+1. **SSH Disabled by Default**: Must be enabled via GUI after authentication
+2. **Password Hashing**: Argon2id (memory-hard, secure)
+3. **Account Lockout**: 5 failed attempts = 15-minute lockout
+4. **Audit Logging**: All sensitive operations logged
+5. **Protected Operations**: Network, SSH, services, shell require auth
+
+### Boot Flow
+
 ```
-BEFORE (broken):
-┌──────────┐                    ┌─────────────┐     ┌─────────┐
-│  QVMRC   │──X──Direct TCP────X│  Hypervisor │─────│   VM    │
-│ (Windows)│     127.0.0.1:5900 │  (Linux)    │     │   VNC   │
-└──────────┘                    └─────────────┘     └─────────┘
-
-AFTER (working):
-┌──────────┐     ┌──────────┐     ┌─────────────┐     ┌─────────┐
-│  QVMRC   │─────│  Backend │─────│  Hypervisor │─────│   VM    │
-│ (Windows)│ WS  │  (Go)    │ TCP │  (Linux)    │     │   VNC   │
-└──────────┘     └──────────┘     └─────────────┘     └─────────┘
-                 /api/console/{vmId}/ws
-```
-
-### Files Modified
-
-| File | Changes |
-|------|---------|
-| `qvmrc/src-tauri/src/vnc/rfb.rs` | Added `Transport` enum (TCP/WebSocket), `connect_websocket()` method |
-| `qvmrc/src-tauri/src/vnc/mod.rs` | Changed `connect_vnc` to use WebSocket URL, added `build_websocket_url()` helper |
-
-### Technical Details
-
-**New Transport Abstraction (`rfb.rs`):**
-```rust
-enum Transport {
-    Tcp(TcpStream),
-    WebSocket(WebSocketStream<MaybeTlsStream<TcpStream>>),
-}
-```
-
-**New WebSocket Connection (`rfb.rs`):**
-```rust
-pub async fn connect_websocket(ws_url: &str) -> Result<Self, RFBError>
-```
-
-**URL Conversion (`mod.rs`):**
-```rust
-fn build_websocket_url(control_plane_url: &str, vm_id: &str) -> Result<String, String>
-// http://localhost:8080 → ws://localhost:8080/api/console/{vmId}/ws
-// https://host:8443 → wss://host:8443/api/console/{vmId}/ws
+First Boot?
+    │
+    ├─Yes─> Installation Wizard
+    │         1. Set hostname
+    │         2. Create admin account
+    │         3. Configure network (DHCP/Static)
+    │         4. Enable/disable SSH
+    │         └─> Creates /quantix/.setup_complete
+    │
+    └─No──> Main Console (DCUI)
+              - System status
+              - Menu navigation
+              - Protected operations require auth
 ```
 
-### How It Works Now
+### Keyboard Navigation
 
-1. User clicks "Connect" in QVMRC
-2. QVMRC builds WebSocket URL: `ws://{controlPlane}/api/console/{vmId}/ws`
-3. QVMRC connects via WebSocket to the backend
-4. Backend's console handler upgrades to WebSocket
-5. Backend connects to VNC server (which CAN access localhost since it's on same machine)
-6. Backend proxies raw RFB protocol between WebSocket and VNC TCP
-7. QVMRC handles VNC handshake/framebuffer updates over WebSocket
+| Key | Action |
+|-----|--------|
+| ↑/↓ | Navigate menu |
+| Enter | Select |
+| F2 | Network Config |
+| F3 | SSH Management |
+| F5 | Restart Services |
+| F10 | Shutdown/Reboot |
+| F12 | Emergency Shell |
 
 ---
 
 ## ✅ Previous Sessions
 
+### Session 5 (Jan 3, 2026) - QVMRC WebSocket Proxy Fix
+- Fixed VNC connection using WebSocket proxy
+- QVMRC now connects via backend like web console
+
 ### Session 4 (Jan 3, 2026) - Console Reconnection UX
 - Added loading overlay during reconnection
 - Fixed race condition with vnc:connected event
-- Added debug logging panel to QVMRC
-- Fixed power action name consistency
 
 ### Session 3 (Jan 3, 2026) - Web Console Enhancement
 - Fixed duplicate toolbar issue
 - Added VM power actions to web console
-- Backend REST API for power actions
-- Fixed fullscreen and clipboard paste
-
-### Session 2 (Jan 3, 2026) - Console UI Enhancement
-- Redesigned QVMRC toolbar with depth/shadows
-- Enhanced web console connection UI
-- Modal UI improvements with glass effects
 
 ---
 
 ## Build Commands
 
 ```bash
-# Backend
-cd backend && go build ./...
+# Console GUI (Slint) - Recommended
+cd quantix-os/console-gui && cargo build --release
+# Binary: target/release/qx-console-gui
 
-# QVMRC (build)
-cd qvmrc/src-tauri && cargo build
+# Console TUI (Ratatui) - Fallback
+cd quantix-os/console && cargo build --release
+# Binary: target/release/qx-console
 
-# QVMRC (dev mode)
-cd qvmrc && npm run tauri dev
-
-# Frontend
-cd frontend && npm run dev
+# Full OS Build
+cd quantix-os/builder && ./build-squashfs.sh
 ```
 
----
+## Deployment
 
-## Test the Fix
-
-1. Start the backend: `cd backend && go run ./cmd/backend`
-2. Ensure a VM is running with VNC (bound to localhost is fine now!)
-3. Start QVMRC: `cd qvmrc && npm run tauri dev`
-4. Connect to the VM - should work via WebSocket proxy
+1. Copy `qx-console-gui` to `/usr/bin/`
+2. Copy `quantix-console` init script to `/etc/init.d/`
+3. Enable: `rc-update add quantix-console default`

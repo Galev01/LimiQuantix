@@ -70,8 +70,8 @@ UEFI → GRUB → vmlinuz + initramfs
        └──────────────────────┘
                     │
                     ▼
-    TTY1: qx-console (TUI)    TTY2-6: Disabled
-                              SSH: Disabled by default
+    TTY1: qx-console         Web UI: https://<ip>:8443
+    (Shows connection info)   SSH: Disabled by default
 ```
 
 ## Features

@@ -1,83 +1,83 @@
 #!/sbin/openrc-run
 # ============================================================================
-# Quantix Console TUI - OpenRC Service Script
+# Quantix Console Service
 # ============================================================================
-# The Quantix Console is the "yellow screen" TUI that provides:
-# - Network configuration
-# - Cluster join wizard
-# - Service status display
-# - Emergency shell access
-# 
-# Note: This service is typically started by inittab on TTY1, not OpenRC.
-# This init script is for manual control/restart.
+# Runs the Quantix-OS console GUI on tty1.
+# This provides the DCUI (Direct Console User Interface) for local management.
 # ============================================================================
 
-name="quantix-console"
-description="Quantix Console TUI (DCUI)"
+name="Quantix Console"
+description="Quantix-OS graphical console (DCUI)"
 
-# Binary location
-command="/usr/local/bin/qx-console"
+# Run on tty1
+command="/usr/bin/qx-console-gui"
+command_background="yes"
+pidfile="/run/quantix-console.pid"
 
-# No arguments needed (reads from environment)
-command_args=""
+# Environment for framebuffer rendering
+export XDG_RUNTIME_DIR="/run/user/0"
+export HOME="/root"
 
-# Run as root
-command_user="root:root"
+# Slint backend configuration
+export SLINT_BACKEND="linuxkms"
 
-# This is NOT backgrounded - it runs on a TTY
-command_background="no"
-
-# Dependencies
 depend() {
-    # Node daemon should be running for status display
-    after quantix-node
-    # But we can start without it
-    use quantix-node
-    # Need basic system
-    need localmount
+    need localmount quantix-setup
+    after networking
+    provide dcui
 }
 
-# Pre-start checks
 start_pre() {
-    # Check if binary exists
-    if [ ! -x "${command}" ]; then
-        # Fall back to dialog-based menu if Rust console not available
-        if [ ! -x /usr/local/bin/qx-console-fallback ]; then
-            ewarn "Console binary not found, using fallback"
-            command="/usr/local/bin/qx-console-fallback"
-        fi
+    # Ensure runtime directory exists
+    mkdir -p /run/user/0
+    chmod 700 /run/user/0
+    
+    # Check if the console binary exists
+    if [ ! -x /usr/bin/qx-console-gui ]; then
+        eerror "Console binary not found at /usr/bin/qx-console-gui"
+        return 1
     fi
-
-    # Set terminal environment
-    export TERM=linux
-    export LANG=C.UTF-8
+    
+    # Clear the console
+    clear > /dev/tty1 2>/dev/null || true
     
     return 0
 }
 
-# Note: The console is typically started by inittab, not this script
-# This script is for programmatic control
-
 start() {
-    ebegin "Starting ${name}"
-    ewarn "Console is normally started by inittab on TTY1"
-    ewarn "Use 'Alt+F1' to switch to console, or restart with:"
-    ewarn "  rc-service quantix-console restart"
-    eend 0
+    ebegin "Starting Quantix Console"
+    
+    # Run on tty1 with framebuffer access
+    start-stop-daemon --start \
+        --make-pidfile \
+        --pidfile "$pidfile" \
+        --background \
+        --stdout /var/log/quantix-console.log \
+        --stderr /var/log/quantix-console.log \
+        --exec "$command" \
+        -- < /dev/tty1 > /dev/tty1 2>&1
+    
+    eend $?
 }
 
 stop() {
-    ebegin "Stopping ${name}"
-    # Kill any running console instances
-    pkill -f "qx-console" 2>/dev/null || true
-    eend 0
+    ebegin "Stopping Quantix Console"
+    
+    start-stop-daemon --stop \
+        --pidfile "$pidfile" \
+        --exec "$command"
+    
+    eend $?
 }
 
-# Restart the console (useful after updates)
-restart() {
-    ebegin "Restarting ${name}"
-    stop
-    sleep 1
-    # The inittab respawn will restart it
-    eend 0
+# Fallback to TUI if GUI fails
+fallback() {
+    ewarn "GUI console failed, falling back to TUI console"
+    
+    if [ -x /usr/bin/qx-console ]; then
+        exec /usr/bin/qx-console < /dev/tty1 > /dev/tty1 2>&1
+    else
+        ewarn "TUI console not available, dropping to shell"
+        exec /bin/sh < /dev/tty1 > /dev/tty1 2>&1
+    fi
 }

@@ -16,7 +16,7 @@ log "Quantix-OS early init starting..."
 # Create essential writable directories
 # ============================================================================
 
-# Core directories
+# Core directories - /quantix is the persistent config directory
 mkdir -p /quantix /data /var/log/quantix /tmp /run
 
 # OVS (Open vSwitch) directories - these need to be writable
@@ -54,6 +54,8 @@ mkdir -p /var/log/quantix
 mkdir -p /run/lock
 mkdir -p /run/dbus
 mkdir -p /run/udev
+mkdir -p /run/user/0
+chmod 700 /run/user/0
 
 # ============================================================================
 # Check boot mode
@@ -66,11 +68,26 @@ else
 fi
 
 # ============================================================================
+# First Boot Detection
+# ============================================================================
+
+FIRST_BOOT=0
+if [ ! -f /quantix/.setup_complete ]; then
+    log "*** FIRST BOOT DETECTED ***"
+    log "The installation wizard will guide you through setup."
+    FIRST_BOOT=1
+else
+    log "Setup already completed - loading configuration..."
+fi
+
+# ============================================================================
 # Set hostname
 # ============================================================================
 
 if [ -f /quantix/hostname ]; then
     HOSTNAME=$(cat /quantix/hostname)
+elif [ -f /etc/hostname ]; then
+    HOSTNAME=$(cat /etc/hostname)
 else
     HOSTNAME="quantix-node"
 fi
@@ -87,6 +104,45 @@ log "Hostname set to: $HOSTNAME"
 if [ ! -f /run/resolv.conf ]; then
     echo "nameserver 8.8.8.8" > /run/resolv.conf
     echo "nameserver 8.8.4.4" >> /run/resolv.conf
+fi
+
+# ============================================================================
+# SSH Configuration (disabled by default)
+# ============================================================================
+
+# Check if admin has enabled SSH
+if [ -f /quantix/admin.yaml ]; then
+    # Parse YAML to check if SSH is enabled (simple grep for now)
+    if grep -q "ssh_enabled: true" /quantix/admin.yaml 2>/dev/null; then
+        log "SSH enabled in configuration"
+        # SSH service will be started by its own init script
+    else
+        log "SSH disabled (can be enabled via console)"
+    fi
+else
+    log "No admin configuration - SSH disabled by default"
+fi
+
+# ============================================================================
+# Generate SSH host keys if they don't exist
+# ============================================================================
+
+for keytype in rsa ecdsa ed25519; do
+    keyfile="/etc/ssh/ssh_host_${keytype}_key"
+    if [ ! -f "$keyfile" ]; then
+        log "Generating SSH host key: $keytype"
+        ssh-keygen -t "$keytype" -f "$keyfile" -N "" -q 2>/dev/null || true
+    fi
+done
+
+# ============================================================================
+# Console startup message
+# ============================================================================
+
+if [ "$FIRST_BOOT" = "1" ]; then
+    log "Starting installation wizard on console..."
+else
+    log "Starting console interface..."
 fi
 
 # ============================================================================

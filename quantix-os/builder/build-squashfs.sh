@@ -346,7 +346,8 @@ EOF
     # Create our custom init script that will be appended to initramfs
     cat > "${INITRAMFS_OVERLAY}/init-quantix" << 'INITEOF'
 #!/bin/busybox sh
-# Quantix-OS Live Boot Init
+# Quantix-OS Init
+# Supports both Live ISO boot and Installed disk boot
 # All commands use explicit /bin/busybox prefix for reliability
 
 BB=/bin/busybox
@@ -358,31 +359,45 @@ $BB mount -t devtmpfs none /dev 2>/dev/null
 
 $BB echo ""
 $BB echo "========================================"
-$BB echo "       Quantix-OS Live Boot"
+$BB echo "         QUANTIX-OS v1.0.0"
 $BB echo "========================================"
 $BB echo ""
 
+# Parse kernel command line for boot mode
+BOOT_MODE="auto"
+CONFIG_UUID=""
+DATA_UUID=""
+for param in $($BB cat /proc/cmdline); do
+    case "$param" in
+        quantix.mode=*) BOOT_MODE="${param#quantix.mode=}" ;;
+        quantix.config=UUID=*) CONFIG_UUID="${param#quantix.config=UUID=}" ;;
+        quantix.data=UUID=*) DATA_UUID="${param#quantix.data=UUID=}" ;;
+    esac
+done
+
 # Load required modules
-$BB echo "Loading kernel modules..."
+$BB echo "[*] Loading kernel modules..."
 $BB modprobe loop 2>/dev/null
 $BB modprobe squashfs 2>/dev/null
 $BB modprobe overlay 2>/dev/null
+$BB modprobe ext4 2>/dev/null
+$BB modprobe xfs 2>/dev/null
 $BB modprobe iso9660 2>/dev/null
 $BB modprobe sr_mod 2>/dev/null
 $BB modprobe sd_mod 2>/dev/null
+$BB modprobe nvme 2>/dev/null
 $BB modprobe usb-storage 2>/dev/null
 $BB modprobe ata_piix 2>/dev/null
 $BB modprobe ahci 2>/dev/null
 $BB modprobe cdrom 2>/dev/null
 
-# Wait for devices - simple counter loop
-$BB echo "Waiting for devices..."
-i=0; while [ $i -lt 3000000 ]; do i=$((i+1)); done
-i=0; while [ $i -lt 3000000 ]; do i=$((i+1)); done
+# Wait for devices
+$BB echo "[*] Waiting for devices..."
+i=0; while [ $i -lt 2000000 ]; do i=$((i+1)); done
 
 # Trigger mdev
 if [ -x /sbin/mdev ]; then
-    $BB echo /sbin/mdev > /proc/sys/kernel/hotplug
+    $BB echo /sbin/mdev > /proc/sys/kernel/hotplug 2>/dev/null
     /sbin/mdev -s 2>/dev/null
 fi
 
@@ -390,82 +405,135 @@ fi
 [ ! -b /dev/sr0 ] && $BB mknod /dev/sr0 b 11 0 2>/dev/null
 [ ! -b /dev/sr1 ] && $BB mknod /dev/sr1 b 11 1 2>/dev/null
 
-$BB mkdir -p /cdrom
+$BB mkdir -p /mnt /cdrom /squashfs /overlay /newroot
 
-# Find the boot device
-$BB echo "Searching for boot media..."
+# ============================================================================
+# STEP 1: Find and mount the squashfs
+# ============================================================================
 BOOT_DEV=""
 SQUASHFS_FILE=""
+BOOT_TYPE=""
 ATTEMPTS=0
 
-while [ -z "$BOOT_DEV" ] && [ $ATTEMPTS -lt 15 ]; do
+$BB echo "[*] Searching for Quantix-OS..."
+
+while [ -z "$BOOT_DEV" ] && [ $ATTEMPTS -lt 10 ]; do
     ATTEMPTS=$((ATTEMPTS + 1))
-    $BB echo "  Attempt $ATTEMPTS/15..."
     
-    for dev in /dev/sr0 /dev/sr1 /dev/sda /dev/sda1 /dev/sdb /dev/sdb1 /dev/sdc /dev/nvme0n1 /dev/nvme0n1p1; do
+    # Try installed disk first (ext4/xfs partitions with /quantix/system.squashfs)
+    for dev in /dev/sda2 /dev/sdb2 /dev/nvme0n1p2 /dev/sda /dev/sdb /dev/nvme0n1p1; do
         [ ! -b "$dev" ] && continue
         
-        $BB echo "    Trying $dev..."
-        if $BB mount -t iso9660 -o ro "$dev" /cdrom 2>/dev/null; then
-            if [ -d /cdrom/quantix ]; then
-                for sqfs in /cdrom/quantix/system-*.squashfs; do
-                    if [ -f "$sqfs" ]; then
-                        SQUASHFS_FILE="$sqfs"
-                        BOOT_DEV="$dev"
-                        $BB echo "    Found: $sqfs"
-                        break 3
-                    fi
-                done
+        # Try ext4 mount
+        if $BB mount -t ext4 -o ro "$dev" /mnt 2>/dev/null; then
+            if [ -f /mnt/quantix/system.squashfs ]; then
+                SQUASHFS_FILE="/mnt/quantix/system.squashfs"
+                BOOT_DEV="$dev"
+                BOOT_TYPE="installed"
+                $BB echo "[OK] Found installed system on $dev"
+                break 2
             fi
+            $BB umount /mnt 2>/dev/null
+        fi
+    done
+    
+    # Try ISO/CD-ROM (iso9660 with /quantix/system-*.squashfs)
+    for dev in /dev/sr0 /dev/sr1 /dev/sda /dev/sda1 /dev/sdb /dev/sdb1; do
+        [ ! -b "$dev" ] && continue
+        
+        if $BB mount -t iso9660 -o ro "$dev" /cdrom 2>/dev/null; then
+            for sqfs in /cdrom/quantix/system-*.squashfs; do
+                if [ -f "$sqfs" ]; then
+                    SQUASHFS_FILE="$sqfs"
+                    BOOT_DEV="$dev"
+                    BOOT_TYPE="live"
+                    $BB echo "[OK] Found live system on $dev"
+                    break 3
+                fi
+            done
             $BB umount /cdrom 2>/dev/null
         fi
     done
     
-    # Delay between attempts
-    [ -z "$BOOT_DEV" ] && { i=0; while [ $i -lt 2000000 ]; do i=$((i+1)); done; }
+    # Wait before retry
+    [ -z "$BOOT_DEV" ] && { i=0; while [ $i -lt 1000000 ]; do i=$((i+1)); done; }
 done
 
 if [ -z "$BOOT_DEV" ]; then
     $BB echo ""
-    $BB echo "ERROR: Cannot find Quantix-OS boot media!"
+    $BB echo "[ERROR] Cannot find Quantix-OS!"
     $BB echo ""
     $BB echo "Available block devices:"
-    $BB ls -la /dev/sr* /dev/sd* /dev/nvme* 2>/dev/null
+    $BB ls -la /dev/sr* /dev/sd* /dev/nvme* 2>/dev/null || $BB echo "(none found)"
     $BB echo ""
-    $BB echo "Try manually: mount -t iso9660 /dev/sr0 /cdrom"
+    $BB echo "Manual recovery:"
+    $BB echo "  mount -t ext4 /dev/sdX2 /mnt"
+    $BB echo "  mount -t squashfs /mnt/quantix/system.squashfs /squashfs"
     exec $BB sh
 fi
 
-# Mount the squashfs
-$BB echo "Mounting squashfs: $SQUASHFS_FILE"
-
-$BB mkdir -p /squashfs /overlay /newroot
+# ============================================================================
+# STEP 2: Mount squashfs
+# ============================================================================
+$BB echo "[*] Mounting system image..."
 
 if ! $BB mount -t squashfs -o ro "$SQUASHFS_FILE" /squashfs; then
-    $BB echo "ERROR: Failed to mount squashfs!"
+    $BB echo "[ERROR] Failed to mount squashfs!"
     exec $BB sh
 fi
 
-# Create tmpfs for overlay
-$BB mount -t tmpfs tmpfs /overlay 2>/dev/null
+# ============================================================================
+# STEP 3: Create overlay filesystem
+# ============================================================================
+$BB echo "[*] Setting up overlay filesystem..."
+
+$BB mount -t tmpfs -o size=512M tmpfs /overlay 2>/dev/null
 $BB mkdir -p /overlay/upper /overlay/work
 
-# Create overlayfs
-$BB echo "Setting up overlay filesystem..."
 if ! $BB mount -t overlay overlay -o lowerdir=/squashfs,upperdir=/overlay/upper,workdir=/overlay/work /newroot 2>/dev/null; then
-    $BB echo "Overlay failed, using read-only root"
+    $BB echo "[WARN] Overlay failed, using read-only root"
     $BB mount --bind /squashfs /newroot
 fi
 
-$BB echo "Root filesystem mounted"
+# ============================================================================
+# STEP 4: Mount persistent partitions (installed mode)
+# ============================================================================
+if [ "$BOOT_TYPE" = "installed" ]; then
+    $BB echo "[*] Mounting persistent storage..."
+    
+    # Mount config partition
+    $BB mkdir -p /newroot/quantix
+    if [ -n "$CONFIG_UUID" ]; then
+        CONFIG_DEV=$($BB blkid -U "$CONFIG_UUID" 2>/dev/null)
+        [ -n "$CONFIG_DEV" ] && $BB mount -t ext4 "$CONFIG_DEV" /newroot/quantix 2>/dev/null
+    fi
+    
+    # Mount data partition  
+    $BB mkdir -p /newroot/data
+    if [ -n "$DATA_UUID" ]; then
+        DATA_DEV=$($BB blkid -U "$DATA_UUID" 2>/dev/null)
+        [ -n "$DATA_DEV" ] && $BB mount "$DATA_DEV" /newroot/data 2>/dev/null
+    fi
+fi
 
-# Prepare new root directories
-$BB mkdir -p /newroot/cdrom /newroot/proc /newroot/sys /newroot/dev /newroot/run /newroot/tmp
+# ============================================================================
+# STEP 5: Prepare for switch_root
+# ============================================================================
+$BB echo "[*] Preparing root filesystem..."
 
-# Move mounts to new root
-$BB mount --move /cdrom /newroot/cdrom 2>/dev/null || $BB mount --bind /cdrom /newroot/cdrom
+$BB mkdir -p /newroot/proc /newroot/sys /newroot/dev /newroot/run /newroot/tmp
+
+# Keep boot media mounted for live mode
+if [ "$BOOT_TYPE" = "live" ]; then
+    $BB mkdir -p /newroot/cdrom
+    $BB mount --move /cdrom /newroot/cdrom 2>/dev/null || $BB mount --bind /cdrom /newroot/cdrom
+else
+    $BB mkdir -p /newroot/boot
+    $BB mount --move /mnt /newroot/boot 2>/dev/null || $BB mount --bind /mnt /newroot/boot
+fi
+
 $BB mount --move /proc /newroot/proc 2>/dev/null
-$BB mount --move /sys /newroot/sys 2>/dev/null
+$BB mount --move /sys /newroot/sys 2>/dev/null  
 $BB mount --move /dev /newroot/dev 2>/dev/null
 
 # Ensure essential device nodes
@@ -475,15 +543,17 @@ $BB mount --move /dev /newroot/dev 2>/dev/null
 [ ! -c /newroot/dev/tty0 ] && $BB mknod /newroot/dev/tty0 c 4 0 2>/dev/null
 [ ! -c /newroot/dev/tty1 ] && $BB mknod /newroot/dev/tty1 c 4 1 2>/dev/null
 
+# ============================================================================
+# STEP 6: Switch to real root
+# ============================================================================
 $BB echo ""
-$BB echo "Switching to Quantix-OS..."
+$BB echo "[*] Starting Quantix-OS ($BOOT_TYPE mode)..."
 $BB echo ""
 
-# Switch root
 exec $BB switch_root /newroot /sbin/init
 
 # Fallback
-$BB echo "switch_root failed!"
+$BB echo "[ERROR] switch_root failed!"
 exec $BB sh
 INITEOF
     chmod +x "${INITRAMFS_OVERLAY}/init-quantix"
