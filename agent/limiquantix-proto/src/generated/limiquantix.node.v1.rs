@@ -118,6 +118,14 @@ pub struct DiskSpec {
     pub readonly: bool,
     #[prost(bool, tag = "7")]
     pub bootable: bool,
+    /// QoS settings
+    #[prost(uint64, tag = "8")]
+    pub iops_limit: u64,
+    #[prost(uint64, tag = "9")]
+    pub throughput_mbps: u64,
+    /// Path to backing image (e.g., cloud image for copy-on-write)
+    #[prost(string, tag = "10")]
+    pub backing_file: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
   Activity,
@@ -14,9 +14,11 @@ import {
   Code2,
   ChevronLeft,
   Shield,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import QuantixLogo from '@/assets/Logo.png';
+import { useAuthStore, useCurrentUser } from '@/stores/auth-store';
 
 interface NavItem {
   id: string;
@@ -42,6 +44,8 @@ const adminNavigation: NavItem[] = [
 
 export function AdminSidebar() {
   const location = useLocation();
+  const user = useCurrentUser();
+  const logout = useAuthStore((state) => state.logout);
 
   return (
     <motion.aside
@@ -127,6 +131,31 @@ export function AdminSidebar() {
           );
         })}
       </nav>
+
+      {/* User Info */}
+      {user && (
+        <div className="p-3 border-t border-border">
+          <div className="flex items-center gap-3 px-2 py-2">
+            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent font-semibold text-sm">
+              {user.name.charAt(0)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-text-primary truncate">{user.name}</p>
+              <p className="text-xs text-text-muted truncate">{user.email}</p>
+            </div>
+            <button
+              onClick={() => {
+                logout();
+                window.location.href = '/';
+              }}
+              className="p-1.5 rounded-lg hover:bg-sidebar-hover text-text-muted hover:text-text-primary transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="p-4 border-t border-border">

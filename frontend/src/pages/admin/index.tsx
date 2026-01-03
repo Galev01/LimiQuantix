@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AdminGuard } from '@/components/admin/AdminGuard';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminOverview } from './AdminOverview';
@@ -21,26 +21,49 @@ import { APIManagement } from './APIManagement';
  * - Content area with sub-routing
  */
 export function AdminPanel() {
+  const location = useLocation();
+  
+  // Get the sub-path after /admin
+  const subPath = location.pathname.replace(/^\/admin\/?/, '') || '';
+
+  // Render the appropriate component based on the sub-path
+  const renderContent = () => {
+    switch (subPath) {
+      case '':
+        return <AdminOverview />;
+      case 'telemetry':
+        return <Telemetry />;
+      case 'certifications':
+        return <Certifications />;
+      case 'audit-logs':
+        return <AuditLogs />;
+      case 'emails':
+        return <AdminEmails />;
+      case 'subscriptions':
+        return <Subscriptions />;
+      case 'roles':
+        return <Roles />;
+      case 'sso':
+        return <SSOConfig />;
+      case 'rules':
+        return <GlobalRules />;
+      case 'organization':
+        return <Organization />;
+      case 'apis':
+        return <APIManagement />;
+      default:
+        // Redirect unknown paths to admin overview
+        return <AdminOverview />;
+    }
+  };
+
   return (
     <AdminGuard>
       <div className="flex h-screen w-full overflow-hidden bg-bg-base">
         <AdminSidebar />
         <main className="flex-1 overflow-y-auto">
           <div className="p-6 max-w-7xl mx-auto">
-            <Routes>
-              <Route path="/" element={<AdminOverview />} />
-              <Route path="/telemetry" element={<Telemetry />} />
-              <Route path="/certifications" element={<Certifications />} />
-              <Route path="/audit-logs" element={<AuditLogs />} />
-              <Route path="/emails" element={<AdminEmails />} />
-              <Route path="/subscriptions" element={<Subscriptions />} />
-              <Route path="/roles" element={<Roles />} />
-              <Route path="/sso" element={<SSOConfig />} />
-              <Route path="/rules" element={<GlobalRules />} />
-              <Route path="/organization" element={<Organization />} />
-              <Route path="/apis" element={<APIManagement />} />
-              <Route path="*" element={<Navigate to="/admin" replace />} />
-            </Routes>
+            {renderContent()}
           </div>
         </main>
       </div>

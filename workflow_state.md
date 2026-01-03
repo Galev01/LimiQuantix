@@ -1,8 +1,57 @@
 # LimiQuantix Workflow State
 
-## Current Status: Admin Panel Implementation ✅ COMPLETE
+## Current Status: Cloud Image Setup & VM Fixes ✅
 
 **Last Updated:** January 4, 2026
+
+---
+
+## ✅ Session 5 Accomplishments (Jan 4, 2026)
+
+### VM Boot & Cloud Image Fixes
+
+**Issues Fixed:**
+1. **Agent socket directory missing** - VMs failed to start with "Unable to bind to UNIX socket path" error
+   - Added `/var/run/limiquantix/vms/` directory creation in Node Daemon startup
+   - Added directory creation before `create_vm` and `start_vm` operations
+
+2. **Force Stop not working** - Force stop was calling graceful shutdown
+   - Added `handleForceStop()` function with confirmation dialog
+   - Updated frontend to pass `force: true` for force stop
+
+3. **Cloud image backing file not applied** - VMs booting without OS
+   - Added `backing_file` field to Rust DiskSpec proto
+   - Updated `qemu-img create` to use `-b` flag for backing files
+
+### Cloud Image Setup Script
+
+Created `scripts/setup-cloud-images.sh` to automate cloud image downloads:
+
+```bash
+# Usage on hypervisor
+./setup-cloud-images.sh ubuntu-22.04
+./setup-cloud-images.sh --all
+./setup-cloud-images.sh --list
+```
+
+**Features:**
+- Downloads from official sources (Ubuntu, Debian, AlmaLinux, Rocky, etc.)
+- Verifies image integrity with `qemu-img check`
+- Auto-converts raw images to qcow2
+- Supports ISOs for Windows installs
+
+### Documentation Created
+
+- `docs/Provisioning/000054-cloud-image-setup-guide.md` - Comprehensive setup guide
+
+**Files Changed:**
+| File | Change |
+|------|--------|
+| `agent/limiquantix-node/src/service.rs` | Added socket directory creation, backing file support |
+| `agent/limiquantix-proto/src/generated/limiquantix.node.v1.rs` | Added `backing_file`, `iops_limit`, `throughput_mbps` to DiskSpec |
+| `frontend/src/pages/VMDetail.tsx` | Added `handleForceStop()` with confirmation |
+| `scripts/setup-cloud-images.sh` | NEW - Cloud image setup script |
+| `docs/Provisioning/000054-cloud-image-setup-guide.md` | NEW - Setup documentation |
 
 ---
 
@@ -121,11 +170,36 @@ frontend/src/
 
 ---
 
+## Authentication & Authorization
+
+### Auth Store (`stores/auth-store.ts`)
+- Zustand store with localStorage persistence
+- Default dev user with `super_admin` role for testing
+- Role-based permission checks: `isSuperAdmin()`, `isAdmin()`, `hasRole()`
+
+### Default Development User
+```typescript
+{
+  id: 'dev-user-001',
+  email: 'admin@quantix.local',
+  name: 'Development Admin',
+  roles: ['super_admin', 'admin'],
+}
+```
+
+### Testing Admin Access
+1. Navigate to `/admin` - should automatically have access
+2. If denied, click "Grant Super Admin Access" button
+3. User info shown in admin sidebar footer
+4. Logout button available to reset permissions
+
+---
+
 ## Next Steps (Future Work)
 
 ### High Priority
 - [ ] Backend API integration for all admin sections
-- [ ] Real permission checks (replace mock `useMockSuperAdminCheck`)
+- [ ] JWT-based authentication with backend
 - [ ] Real-time telemetry data from backend
 
 ### Medium Priority

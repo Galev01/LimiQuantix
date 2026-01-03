@@ -478,6 +478,13 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         for disk_spec in spec.disks {
             let format = Self::convert_disk_format(disk_spec.format);
             
+            // Check if backing file is specified (cloud image for copy-on-write)
+            let backing_file = if disk_spec.backing_file.is_empty() {
+                None
+            } else {
+                Some(disk_spec.backing_file.clone())
+            };
+            
             let mut disk_config = DiskConfig {
                 id: disk_spec.id.clone(),
                 path: disk_spec.path.clone(),
@@ -486,19 +493,12 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 format,
                 readonly: disk_spec.readonly,
                 bootable: disk_spec.bootable,
-                backing_file: None, // backing_file not in generated proto
+                backing_file,
                 ..Default::default()
             };
             
             // If no disk path provided, create a new disk image
             if disk_spec.path.is_empty() && disk_spec.size_gib > 0 {
-                info!(
-                    vm_id = %req.vm_id,
-                    disk_id = %disk_spec.id,
-                    size_gib = disk_spec.size_gib,
-                    "Creating disk image for VM"
-                );
-                
                 // Create disk image in default VM storage path
                 let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
                 if let Err(e) = std::fs::create_dir_all(&vm_dir) {
@@ -511,10 +511,33 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Use qemu-img to create disk
                 let mut cmd = std::process::Command::new("qemu-img");
-                cmd.arg("create")
-                    .arg("-f").arg("qcow2")
-                    .arg(&disk_path)
-                    .arg(format!("{}G", disk_spec.size_gib));
+                cmd.arg("create").arg("-f").arg("qcow2");
+                
+                // If backing file is specified, create a copy-on-write overlay
+                if let Some(ref bf) = backing_file {
+                    info!(
+                        vm_id = %req.vm_id,
+                        disk_id = %disk_spec.id,
+                        backing_file = %bf,
+                        "Creating disk with backing file (cloud image)"
+                    );
+                    cmd.arg("-b").arg(bf);
+                    cmd.arg("-F").arg("qcow2"); // Backing file format
+                } else {
+                    info!(
+                        vm_id = %req.vm_id,
+                        disk_id = %disk_spec.id,
+                        size_gib = disk_spec.size_gib,
+                        "Creating empty disk image"
+                    );
+                }
+                
+                cmd.arg(&disk_path);
+                
+                // Only specify size if no backing file (overlay inherits size)
+                if backing_file.is_none() {
+                    cmd.arg(format!("{}G", disk_spec.size_gib));
+                }
                 
                 match cmd.output() {
                     Ok(output) if output.status.success() => {
@@ -522,6 +545,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                             vm_id = %req.vm_id,
                             disk_id = %disk_spec.id,
                             path = %disk_path.display(),
+                            has_backing_file = backing_file.is_some(),
                             "Disk image created successfully"
                         );
                     }

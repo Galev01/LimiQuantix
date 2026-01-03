@@ -1,8 +1,8 @@
-import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldAlert, Lock } from 'lucide-react';
+import { ShieldAlert, Lock, User } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { useAuthStore, useCurrentUser } from '@/stores/auth-store';
 
 interface AdminGuardProps {
   children: ReactNode;
@@ -10,44 +10,37 @@ interface AdminGuardProps {
 
 /**
  * AdminGuard component that protects admin routes.
- * Currently uses a placeholder permission check.
- * Will be integrated with actual auth system later.
+ * Uses the auth store to check if the current user has super_admin role.
  */
 export function AdminGuard({ children }: AdminGuardProps) {
-  // TODO: Replace with actual permission check from auth context/store
-  // For now, we'll use a mock super admin check
-  const isSuperAdmin = useMockSuperAdminCheck();
+  const isSuperAdmin = useAuthStore((state) => state.isSuperAdmin);
+  const user = useCurrentUser();
 
-  if (!isSuperAdmin) {
-    return <AccessDenied />;
+  // Check if user has super admin access
+  if (!isSuperAdmin()) {
+    return <AccessDenied user={user} />;
   }
 
   return <>{children}</>;
 }
 
-/**
- * Mock function to check if user is super admin
- * In production, this would check JWT claims, API response, or auth context
- */
-function useMockSuperAdminCheck(): boolean {
-  // TODO: Implement actual permission check
-  // For development, always return true to allow access
-  // In production, this would check:
-  // - User's role from auth context
-  // - JWT token claims
-  // - API call to verify permissions
-  
-  // Mock: Check localStorage for dev override
-  const devOverride = localStorage.getItem('quantix_dev_admin');
-  if (devOverride === 'false') {
-    return false;
-  }
-  
-  // Default to true for development
-  return true;
+interface AccessDeniedProps {
+  user: { name: string; email: string; roles: string[] } | null;
 }
 
-function AccessDenied() {
+function AccessDenied({ user }: AccessDeniedProps) {
+  const login = useAuthStore((state) => state.login);
+
+  // Development helper: Grant super admin access
+  const grantDevAccess = () => {
+    login({
+      id: 'dev-user-001',
+      email: 'admin@quantix.local',
+      name: 'Development Admin',
+      roles: ['super_admin', 'admin'],
+    });
+  };
+
   return (
     <div className="min-h-screen bg-bg-base flex items-center justify-center p-6">
       <motion.div
@@ -67,6 +60,24 @@ function AccessDenied() {
           You don't have permission to access the Admin Panel. 
           This area is restricted to Super Administrators only.
         </p>
+
+        {/* Current User Info */}
+        {user && (
+          <div className="p-4 rounded-lg bg-bg-base border border-border mb-4 text-left">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
+                <User className="w-5 h-5 text-accent" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-primary">{user.name}</p>
+                <p className="text-xs text-text-muted">{user.email}</p>
+                <p className="text-xs text-text-muted mt-1">
+                  Roles: {user.roles.join(', ') || 'none'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className="p-4 rounded-lg bg-bg-base border border-border mb-6">
           <div className="flex items-center gap-3 text-left">
@@ -82,18 +93,37 @@ function AccessDenied() {
           </div>
         </div>
         
-        <div className="flex gap-3 justify-center">
-          <Button
-            variant="secondary"
-            onClick={() => window.history.back()}
-          >
-            Go Back
-          </Button>
-          <Button
-            onClick={() => window.location.href = '/'}
-          >
-            Return to Dashboard
-          </Button>
+        <div className="flex flex-col gap-3">
+          <div className="flex gap-3 justify-center">
+            <Button
+              variant="secondary"
+              onClick={() => window.history.back()}
+            >
+              Go Back
+            </Button>
+            <Button
+              onClick={() => window.location.href = '/'}
+            >
+              Return to Dashboard
+            </Button>
+          </div>
+
+          {/* Development Mode: Grant Access Button */}
+          {(
+            <div className="pt-4 border-t border-border mt-4">
+              <p className="text-xs text-text-muted mb-3">
+                Development Mode
+              </p>
+              <Button
+                variant="secondary"
+                onClick={grantDevAccess}
+                className="w-full"
+              >
+                <ShieldAlert className="w-4 h-4" />
+                Grant Super Admin Access
+              </Button>
+            </div>
+          )}
         </div>
       </motion.div>
     </div>

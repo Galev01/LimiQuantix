@@ -10,25 +10,34 @@
 export XDG_RUNTIME_DIR="/run/user/0"
 export HOME="/root"
 
-# Ensure runtime directory exists
+# Ensure runtime directories exist (these are on tmpfs, so writable)
 mkdir -p /run/user/0
 chmod 700 /run/user/0
+
+# Create log directory in /run (tmpfs, writable)
+mkdir -p /run/quantix
+chmod 755 /run/quantix
 
 # Try Slint GUI console first (requires KMS/framebuffer)
 if [ -x /usr/bin/qx-console-gui ]; then
     # Set Slint to use LinuxKMS backend (direct framebuffer)
     export SLINT_BACKEND="linuxkms"
     
-    # Attempt to run the GUI
+    # Attempt to run the GUI (log to /run which is tmpfs)
     echo "Starting Quantix-OS Console (GUI)..." > /dev/tty1
-    /usr/bin/qx-console-gui 2>/var/log/qx-console-gui.err
+    /usr/bin/qx-console-gui 2>/run/quantix/console-gui.err
     
     # If we get here, the GUI exited (error or intentional)
     EXIT_CODE=$?
     
     if [ $EXIT_CODE -ne 0 ]; then
+        # Show the error if available
+        if [ -s /run/quantix/console-gui.err ]; then
+            echo "GUI error:" > /dev/tty1
+            head -5 /run/quantix/console-gui.err > /dev/tty1
+        fi
         echo "GUI console failed (exit $EXIT_CODE), falling back to TUI..." > /dev/tty1
-        sleep 2
+        sleep 3
     else
         # Normal exit (e.g., shutdown/reboot initiated)
         exit 0
