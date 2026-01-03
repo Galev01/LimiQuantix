@@ -347,14 +347,27 @@ EOF
 
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin
 
+# Simple delay function (no sleep needed)
+delay() {
+    local i=0
+    while [ $i -lt 5000000 ]; do
+        i=$((i + 1))
+    done
+}
+
 # Mount essential filesystems
 mount -t proc none /proc 2>/dev/null
 mount -t sysfs none /sys 2>/dev/null
 mount -t devtmpfs none /dev 2>/dev/null
 
-echo "Quantix-OS Boot..."
+echo ""
+echo "========================================"
+echo "       Quantix-OS Live Boot"
+echo "========================================"
+echo ""
 
 # Load required modules
+echo "Loading kernel modules..."
 modprobe loop 2>/dev/null
 modprobe squashfs 2>/dev/null
 modprobe overlay 2>/dev/null
@@ -362,65 +375,133 @@ modprobe iso9660 2>/dev/null
 modprobe sr_mod 2>/dev/null
 modprobe sd_mod 2>/dev/null
 modprobe usb-storage 2>/dev/null
+modprobe ata_piix 2>/dev/null
+modprobe ahci 2>/dev/null
+modprobe cdrom 2>/dev/null
 
-sleep 2
+# Wait for devices to settle
+echo "Waiting for devices..."
+delay
+delay
+
+# Trigger udev/mdev if available
+if [ -x /sbin/mdev ]; then
+    echo /sbin/mdev > /proc/sys/kernel/hotplug
+    mdev -s
+fi
+
+# Create device nodes manually if needed
+if [ ! -b /dev/sr0 ]; then
+    mknod /dev/sr0 b 11 0 2>/dev/null
+fi
+
+mkdir -p /cdrom
 
 # Find the boot device (CD-ROM or USB)
+echo "Searching for boot media..."
 BOOT_DEV=""
-for dev in /dev/sr0 /dev/sr1 /dev/sda /dev/sdb /dev/sdc /dev/nvme0n1; do
-    if [ -b "$dev" ]; then
-        mkdir -p /cdrom
-        if mount -t iso9660 -o ro "$dev" /cdrom 2>/dev/null || \
-           mount -t vfat -o ro "$dev" /cdrom 2>/dev/null; then
-            if [ -f /cdrom/quantix/system-*.squashfs ]; then
-                BOOT_DEV="$dev"
-                echo "Found boot media: $dev"
-                break
+
+# Try multiple times with delays
+ATTEMPTS=0
+MAX_ATTEMPTS=10
+
+while [ -z "$BOOT_DEV" ] && [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
+    ATTEMPTS=$((ATTEMPTS + 1))
+    echo "  Attempt $ATTEMPTS/$MAX_ATTEMPTS..."
+    
+    # Check all possible devices
+    for dev in /dev/sr0 /dev/sr1 /dev/cdrom /dev/hda /dev/hdb /dev/sda /dev/sda1 /dev/sdb /dev/sdb1 /dev/sdc /dev/nvme0n1 /dev/nvme0n1p1; do
+        if [ -b "$dev" ]; then
+            echo "    Trying $dev..."
+            if mount -t iso9660 -o ro "$dev" /cdrom 2>/dev/null; then
+                if [ -d /cdrom/quantix ]; then
+                    SQUASHFS_FILE=$(ls /cdrom/quantix/system-*.squashfs 2>/dev/null | head -1)
+                    if [ -n "$SQUASHFS_FILE" ]; then
+                        BOOT_DEV="$dev"
+                        echo "    Found boot media: $dev"
+                        break 2
+                    fi
+                fi
+                umount /cdrom 2>/dev/null
             fi
-            umount /cdrom 2>/dev/null
         fi
+    done
+    
+    if [ -z "$BOOT_DEV" ]; then
+        delay
     fi
 done
 
 if [ -z "$BOOT_DEV" ]; then
+    echo ""
     echo "ERROR: Cannot find Quantix-OS boot media!"
+    echo ""
+    echo "Available block devices:"
+    ls -la /dev/sd* /dev/sr* /dev/hd* /dev/nvme* 2>/dev/null || echo "  (none found)"
+    echo ""
     echo "Dropping to emergency shell..."
+    echo "You can try manually mounting the CD-ROM:"
+    echo "  mount -t iso9660 /dev/sr0 /cdrom"
+    echo ""
     exec /bin/sh
 fi
 
 # Mount the squashfs
-SQUASHFS=$(ls /cdrom/quantix/system-*.squashfs | head -1)
-echo "Mounting squashfs: $SQUASHFS"
+echo "Mounting squashfs: $SQUASHFS_FILE"
 
 mkdir -p /squashfs /overlay/upper /overlay/work /newroot
 
-if ! mount -t squashfs -o ro,loop "$SQUASHFS" /squashfs; then
+if ! mount -t squashfs -o ro,loop "$SQUASHFS_FILE" /squashfs; then
     echo "ERROR: Failed to mount squashfs!"
+    echo "Dropping to emergency shell..."
     exec /bin/sh
 fi
 
+# Create tmpfs for overlay upper layer
+mount -t tmpfs tmpfs /overlay 2>/dev/null
+mkdir -p /overlay/upper /overlay/work
+
 # Create overlayfs for read-write layer
+echo "Setting up overlay filesystem..."
 if ! mount -t overlay overlay -o lowerdir=/squashfs,upperdir=/overlay/upper,workdir=/overlay/work /newroot; then
-    echo "ERROR: Failed to mount overlay!"
-    # Fallback to read-only
+    echo "WARNING: Overlay mount failed, using read-only root"
     mount --bind /squashfs /newroot
 fi
 
-echo "Mounted root filesystem"
+echo "Mounted root filesystem successfully"
+
+# Prepare new root
+mkdir -p /newroot/cdrom /newroot/proc /newroot/sys /newroot/dev /newroot/run
 
 # Move mounts to new root
-mkdir -p /newroot/cdrom /newroot/proc /newroot/sys /newroot/dev
-mount --move /cdrom /newroot/cdrom 2>/dev/null || true
+mount --move /cdrom /newroot/cdrom 2>/dev/null || mount --bind /cdrom /newroot/cdrom
 mount --move /proc /newroot/proc 2>/dev/null || true
 mount --move /sys /newroot/sys 2>/dev/null || true
 mount --move /dev /newroot/dev 2>/dev/null || true
 
+# Create essential device nodes in newroot if needed
+if [ ! -c /newroot/dev/console ]; then
+    mknod /newroot/dev/console c 5 1 2>/dev/null
+fi
+if [ ! -c /newroot/dev/null ]; then
+    mknod /newroot/dev/null c 1 3 2>/dev/null
+fi
+
 # Switch root
-echo "Switching to new root..."
+echo ""
+echo "Switching to Quantix-OS root filesystem..."
+echo ""
+
+# Use switch_root to pivot
 exec switch_root /newroot /sbin/init
 
-# Fallback
-echo "switch_root failed!"
+# If switch_root fails, try exec chroot
+echo "switch_root failed, trying chroot..."
+cd /newroot
+exec chroot /newroot /sbin/init
+
+# Last resort
+echo "All pivot methods failed!"
 exec /bin/sh
 INITEOF
     chmod +x "${INITRAMFS_OVERLAY}/init-quantix"

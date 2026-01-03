@@ -309,7 +309,7 @@ export function ConsoleView({
     setResolution({ width, height });
   }, []);
 
-  // Fetch connection info on mount (in case vnc:connected already fired)
+  // Fetch connection info on mount (in case vnc:connected already fired before listener was set up)
   useEffect(() => {
     const fetchConnectionInfo = async () => {
       try {
@@ -322,8 +322,14 @@ export function ConsoleView({
         } | null>('get_connection_info', { connectionId });
         
         if (info && info.width > 0 && info.height > 0) {
-          console.log(`[VNC] Got connection info: ${info.width}x${info.height}`);
+          console.log(`[VNC] Got connection info: ${info.width}x${info.height}, status: ${info.status}`);
           initializeCanvas(info.width, info.height);
+          
+          // If the connection is already established (status is "Connected"), update the state
+          // This handles the case where vnc:connected fired before our listener was set up
+          if (info.status === 'Connected') {
+            setConnectionState('connected');
+          }
         }
       } catch (e) {
         console.error('[VNC] Failed to get connection info:', e);
@@ -343,7 +349,7 @@ export function ConsoleView({
       clearTimeout(timer2);
       clearTimeout(timer3);
     };
-  }, [connectionId, initializeCanvas]);
+  }, [connectionId, initializeCanvas, setConnectionState]);
 
   // Handle framebuffer updates
   useEffect(() => {
@@ -355,6 +361,13 @@ export function ConsoleView({
       if (!ctx) return;
 
       const update = event.payload;
+      
+      // If we're receiving framebuffer updates, we're definitely connected
+      // This handles cases where the vnc:connected event was missed
+      if (connectionStateRef.current !== 'connected') {
+        console.log('[VNC] Got framebuffer update, marking as connected');
+        setConnectionState('connected');
+      }
       
       // If canvas not sized yet, size it based on first update
       if (canvas.width === 0 || canvas.height === 0) {
@@ -436,7 +449,9 @@ export function ConsoleView({
       unlistenConnect.then((fn) => fn());
       unlistenResize.then((fn) => fn());
     };
-  }, [connectionId, calculateScale, setConnectionState, showToast, initializeCanvas]);
+  // Note: setConnectionState uses a ref internally so it's stable
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionId, calculateScale, showToast, initializeCanvas]);
 
   // Handle disconnect
   const handleDisconnect = useCallback(async () => {
