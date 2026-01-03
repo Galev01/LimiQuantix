@@ -22,7 +22,7 @@ use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, CreateVmOnNodeRequest, CreateVmOnNodeResponse,
-    StopVmRequest, VmStatusResponse, ListVmsOnNodeResponse, ConsoleInfoResponse,
+    StopVmRequest, VmStatusResponse, ListVMsOnNodeResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -779,7 +779,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     async fn list_v_ms(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<ListVmsOnNodeResponse>, Status> {
+    ) -> Result<Response<ListVMsOnNodeResponse>, Status> {
         let vms = self.hypervisor.list_vms().await
             .map_err(|e| Status::internal(e.to_string()))?;
         
@@ -798,7 +798,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         debug!(count = responses.len(), "Listed VMs");
         
-        Ok(Response::new(ListVmsOnNodeResponse { vms: responses }))
+        Ok(Response::new(ListVMsOnNodeResponse { vms: responses }))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
@@ -1488,6 +1488,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                             mount_point: f.mount_point.clone(),
                             device: f.device.clone(),
                             filesystem: f.filesystem.clone(),
+                            frozen: f.frozen,
+                            error: f.error.clone(),
                         }
                     }).collect();
                     
