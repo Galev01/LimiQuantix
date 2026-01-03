@@ -20,32 +20,35 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NodeDaemonService_HealthCheck_FullMethodName      = "/limiquantix.node.v1.NodeDaemonService/HealthCheck"
-	NodeDaemonService_GetNodeInfo_FullMethodName      = "/limiquantix.node.v1.NodeDaemonService/GetNodeInfo"
-	NodeDaemonService_CreateVM_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/CreateVM"
-	NodeDaemonService_StartVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/StartVM"
-	NodeDaemonService_StopVM_FullMethodName           = "/limiquantix.node.v1.NodeDaemonService/StopVM"
-	NodeDaemonService_ForceStopVM_FullMethodName      = "/limiquantix.node.v1.NodeDaemonService/ForceStopVM"
-	NodeDaemonService_RebootVM_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/RebootVM"
-	NodeDaemonService_PauseVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/PauseVM"
-	NodeDaemonService_ResumeVM_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/ResumeVM"
-	NodeDaemonService_DeleteVM_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/DeleteVM"
-	NodeDaemonService_GetVMStatus_FullMethodName      = "/limiquantix.node.v1.NodeDaemonService/GetVMStatus"
-	NodeDaemonService_ListVMs_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/ListVMs"
-	NodeDaemonService_GetConsole_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/GetConsole"
-	NodeDaemonService_CreateSnapshot_FullMethodName   = "/limiquantix.node.v1.NodeDaemonService/CreateSnapshot"
-	NodeDaemonService_RevertSnapshot_FullMethodName   = "/limiquantix.node.v1.NodeDaemonService/RevertSnapshot"
-	NodeDaemonService_DeleteSnapshot_FullMethodName   = "/limiquantix.node.v1.NodeDaemonService/DeleteSnapshot"
-	NodeDaemonService_ListSnapshots_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/ListSnapshots"
-	NodeDaemonService_AttachDisk_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/AttachDisk"
-	NodeDaemonService_DetachDisk_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/DetachDisk"
-	NodeDaemonService_AttachNIC_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/AttachNIC"
-	NodeDaemonService_DetachNIC_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/DetachNIC"
-	NodeDaemonService_PrepareMigration_FullMethodName = "/limiquantix.node.v1.NodeDaemonService/PrepareMigration"
-	NodeDaemonService_ReceiveMigration_FullMethodName = "/limiquantix.node.v1.NodeDaemonService/ReceiveMigration"
-	NodeDaemonService_MigrateVM_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/MigrateVM"
-	NodeDaemonService_StreamMetrics_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/StreamMetrics"
-	NodeDaemonService_StreamEvents_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/StreamEvents"
+	NodeDaemonService_HealthCheck_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/HealthCheck"
+	NodeDaemonService_GetNodeInfo_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/GetNodeInfo"
+	NodeDaemonService_CreateVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/CreateVM"
+	NodeDaemonService_StartVM_FullMethodName           = "/limiquantix.node.v1.NodeDaemonService/StartVM"
+	NodeDaemonService_StopVM_FullMethodName            = "/limiquantix.node.v1.NodeDaemonService/StopVM"
+	NodeDaemonService_ForceStopVM_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/ForceStopVM"
+	NodeDaemonService_RebootVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/RebootVM"
+	NodeDaemonService_PauseVM_FullMethodName           = "/limiquantix.node.v1.NodeDaemonService/PauseVM"
+	NodeDaemonService_ResumeVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/ResumeVM"
+	NodeDaemonService_DeleteVM_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/DeleteVM"
+	NodeDaemonService_GetVMStatus_FullMethodName       = "/limiquantix.node.v1.NodeDaemonService/GetVMStatus"
+	NodeDaemonService_ListVMs_FullMethodName           = "/limiquantix.node.v1.NodeDaemonService/ListVMs"
+	NodeDaemonService_GetConsole_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/GetConsole"
+	NodeDaemonService_CreateSnapshot_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/CreateSnapshot"
+	NodeDaemonService_RevertSnapshot_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/RevertSnapshot"
+	NodeDaemonService_DeleteSnapshot_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/DeleteSnapshot"
+	NodeDaemonService_ListSnapshots_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/ListSnapshots"
+	NodeDaemonService_AttachDisk_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/AttachDisk"
+	NodeDaemonService_DetachDisk_FullMethodName        = "/limiquantix.node.v1.NodeDaemonService/DetachDisk"
+	NodeDaemonService_AttachNIC_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/AttachNIC"
+	NodeDaemonService_DetachNIC_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/DetachNIC"
+	NodeDaemonService_PrepareMigration_FullMethodName  = "/limiquantix.node.v1.NodeDaemonService/PrepareMigration"
+	NodeDaemonService_ReceiveMigration_FullMethodName  = "/limiquantix.node.v1.NodeDaemonService/ReceiveMigration"
+	NodeDaemonService_MigrateVM_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/MigrateVM"
+	NodeDaemonService_StreamMetrics_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/StreamMetrics"
+	NodeDaemonService_StreamEvents_FullMethodName      = "/limiquantix.node.v1.NodeDaemonService/StreamEvents"
+	NodeDaemonService_DownloadImage_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/DownloadImage"
+	NodeDaemonService_GetDownloadStatus_FullMethodName = "/limiquantix.node.v1.NodeDaemonService/GetDownloadStatus"
+	NodeDaemonService_CancelDownload_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/CancelDownload"
 )
 
 // NodeDaemonServiceClient is the client API for NodeDaemonService service.
@@ -104,6 +107,12 @@ type NodeDaemonServiceClient interface {
 	StreamMetrics(ctx context.Context, in *StreamMetricsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[NodeMetrics], error)
 	// Stream node events (VM started, stopped, crashed, etc.)
 	StreamEvents(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[NodeEvent], error)
+	// Download a cloud image to this node
+	DownloadImage(ctx context.Context, in *DownloadImageOnNodeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadProgress], error)
+	// Get the status of an image download
+	GetDownloadStatus(ctx context.Context, in *GetDownloadStatusRequest, opts ...grpc.CallOption) (*DownloadProgress, error)
+	// Cancel an in-progress download
+	CancelDownload(ctx context.Context, in *CancelDownloadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type nodeDaemonServiceClient struct {
@@ -401,6 +410,45 @@ func (c *nodeDaemonServiceClient) StreamEvents(ctx context.Context, in *emptypb.
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type NodeDaemonService_StreamEventsClient = grpc.ServerStreamingClient[NodeEvent]
 
+func (c *nodeDaemonServiceClient) DownloadImage(ctx context.Context, in *DownloadImageOnNodeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadProgress], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &NodeDaemonService_ServiceDesc.Streams[3], NodeDaemonService_DownloadImage_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[DownloadImageOnNodeRequest, DownloadProgress]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type NodeDaemonService_DownloadImageClient = grpc.ServerStreamingClient[DownloadProgress]
+
+func (c *nodeDaemonServiceClient) GetDownloadStatus(ctx context.Context, in *GetDownloadStatusRequest, opts ...grpc.CallOption) (*DownloadProgress, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DownloadProgress)
+	err := c.cc.Invoke(ctx, NodeDaemonService_GetDownloadStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) CancelDownload(ctx context.Context, in *CancelDownloadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NodeDaemonService_CancelDownload_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NodeDaemonServiceServer is the server API for NodeDaemonService service.
 // All implementations should embed UnimplementedNodeDaemonServiceServer
 // for forward compatibility.
@@ -457,6 +505,12 @@ type NodeDaemonServiceServer interface {
 	StreamMetrics(*StreamMetricsRequest, grpc.ServerStreamingServer[NodeMetrics]) error
 	// Stream node events (VM started, stopped, crashed, etc.)
 	StreamEvents(*emptypb.Empty, grpc.ServerStreamingServer[NodeEvent]) error
+	// Download a cloud image to this node
+	DownloadImage(*DownloadImageOnNodeRequest, grpc.ServerStreamingServer[DownloadProgress]) error
+	// Get the status of an image download
+	GetDownloadStatus(context.Context, *GetDownloadStatusRequest) (*DownloadProgress, error)
+	// Cancel an in-progress download
+	CancelDownload(context.Context, *CancelDownloadRequest) (*emptypb.Empty, error)
 }
 
 // UnimplementedNodeDaemonServiceServer should be embedded to have
@@ -543,6 +597,15 @@ func (UnimplementedNodeDaemonServiceServer) StreamMetrics(*StreamMetricsRequest,
 }
 func (UnimplementedNodeDaemonServiceServer) StreamEvents(*emptypb.Empty, grpc.ServerStreamingServer[NodeEvent]) error {
 	return status.Error(codes.Unimplemented, "method StreamEvents not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) DownloadImage(*DownloadImageOnNodeRequest, grpc.ServerStreamingServer[DownloadProgress]) error {
+	return status.Error(codes.Unimplemented, "method DownloadImage not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) GetDownloadStatus(context.Context, *GetDownloadStatusRequest) (*DownloadProgress, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetDownloadStatus not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) CancelDownload(context.Context, *CancelDownloadRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelDownload not implemented")
 }
 func (UnimplementedNodeDaemonServiceServer) testEmbeddedByValue() {}
 
@@ -1011,6 +1074,53 @@ func _NodeDaemonService_StreamEvents_Handler(srv interface{}, stream grpc.Server
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type NodeDaemonService_StreamEventsServer = grpc.ServerStreamingServer[NodeEvent]
 
+func _NodeDaemonService_DownloadImage_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DownloadImageOnNodeRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(NodeDaemonServiceServer).DownloadImage(m, &grpc.GenericServerStream[DownloadImageOnNodeRequest, DownloadProgress]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type NodeDaemonService_DownloadImageServer = grpc.ServerStreamingServer[DownloadProgress]
+
+func _NodeDaemonService_GetDownloadStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDownloadStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).GetDownloadStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_GetDownloadStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).GetDownloadStatus(ctx, req.(*GetDownloadStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_CancelDownload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelDownloadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).CancelDownload(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_CancelDownload_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).CancelDownload(ctx, req.(*CancelDownloadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NodeDaemonService_ServiceDesc is the grpc.ServiceDesc for NodeDaemonService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1110,6 +1220,14 @@ var NodeDaemonService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "ReceiveMigration",
 			Handler:    _NodeDaemonService_ReceiveMigration_Handler,
 		},
+		{
+			MethodName: "GetDownloadStatus",
+			Handler:    _NodeDaemonService_GetDownloadStatus_Handler,
+		},
+		{
+			MethodName: "CancelDownload",
+			Handler:    _NodeDaemonService_CancelDownload_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -1125,6 +1243,11 @@ var NodeDaemonService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "StreamEvents",
 			Handler:       _NodeDaemonService_StreamEvents_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "DownloadImage",
+			Handler:       _NodeDaemonService_DownloadImage_Handler,
 			ServerStreams: true,
 		},
 	},

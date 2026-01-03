@@ -123,6 +123,19 @@ service NodeDaemonService {
   
   // Stream node events (VM started, stopped, crashed, etc.)
   rpc StreamEvents(google.protobuf.Empty) returns (stream NodeEvent);
+  
+  // =========================================================================
+  // Image Operations
+  // =========================================================================
+  
+  // Download a cloud image to this node
+  rpc DownloadImage(DownloadImageOnNodeRequest) returns (stream DownloadProgress);
+  
+  // Get the status of an image download
+  rpc GetDownloadStatus(GetDownloadStatusRequest) returns (DownloadProgress);
+  
+  // Cancel an in-progress download
+  rpc CancelDownload(CancelDownloadRequest) returns (google.protobuf.Empty);
 }
 
 // =============================================================================
@@ -551,3 +564,76 @@ enum EventType {
   EVENT_TYPE_NODE_RECOVERED = 17;
 }
 
+
+// =============================================================================
+// IMAGE DOWNLOAD
+// =============================================================================
+
+message DownloadImageOnNodeRequest {
+  // Job ID (from control plane)
+  string job_id = 1;
+  
+  // Image ID in control plane database
+  string image_id = 2;
+  
+  // URL to download from
+  string url = 3;
+  
+  // Target directory for the image
+  string target_dir = 4;
+  
+  // Filename to use (optional, derived from URL if not specified)
+  string filename = 5;
+  
+  // Expected checksum for verification (optional)
+  string checksum = 6;
+  string checksum_type = 7;
+}
+
+message DownloadProgress {
+  // Job ID
+  string job_id = 1;
+  
+  // Image ID
+  string image_id = 2;
+  
+  // Status
+  enum Status {
+    STATUS_UNKNOWN = 0;
+    STATUS_PENDING = 1;
+    STATUS_DOWNLOADING = 2;
+    STATUS_VERIFYING = 3;
+    STATUS_CONVERTING = 4;
+    STATUS_COMPLETED = 5;
+    STATUS_FAILED = 6;
+    STATUS_CANCELLED = 7;
+  }
+  Status status = 3;
+  
+  // Progress (0-100)
+  uint32 progress_percent = 4;
+  
+  // Bytes
+  uint64 bytes_downloaded = 5;
+  uint64 bytes_total = 6;
+  
+  // Speed (bytes per second)
+  uint64 download_speed = 7;
+  
+  // Estimated time remaining (seconds)
+  uint32 eta_seconds = 8;
+  
+  // Final path of the downloaded image
+  string path = 9;
+  
+  // Error message if failed
+  string error = 10;
+}
+
+message GetDownloadStatusRequest {
+  string job_id = 1;
+}
+
+message CancelDownloadRequest {
+  string job_id = 1;
+}

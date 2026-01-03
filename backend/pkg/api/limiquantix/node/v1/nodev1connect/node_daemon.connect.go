@@ -112,6 +112,15 @@ const (
 	// NodeDaemonServiceStreamEventsProcedure is the fully-qualified name of the NodeDaemonService's
 	// StreamEvents RPC.
 	NodeDaemonServiceStreamEventsProcedure = "/limiquantix.node.v1.NodeDaemonService/StreamEvents"
+	// NodeDaemonServiceDownloadImageProcedure is the fully-qualified name of the NodeDaemonService's
+	// DownloadImage RPC.
+	NodeDaemonServiceDownloadImageProcedure = "/limiquantix.node.v1.NodeDaemonService/DownloadImage"
+	// NodeDaemonServiceGetDownloadStatusProcedure is the fully-qualified name of the
+	// NodeDaemonService's GetDownloadStatus RPC.
+	NodeDaemonServiceGetDownloadStatusProcedure = "/limiquantix.node.v1.NodeDaemonService/GetDownloadStatus"
+	// NodeDaemonServiceCancelDownloadProcedure is the fully-qualified name of the NodeDaemonService's
+	// CancelDownload RPC.
+	NodeDaemonServiceCancelDownloadProcedure = "/limiquantix.node.v1.NodeDaemonService/CancelDownload"
 )
 
 // NodeDaemonServiceClient is a client for the limiquantix.node.v1.NodeDaemonService service.
@@ -168,6 +177,12 @@ type NodeDaemonServiceClient interface {
 	StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest]) (*connect.ServerStreamForClient[v1.NodeMetrics], error)
 	// Stream node events (VM started, stopped, crashed, etc.)
 	StreamEvents(context.Context, *connect.Request[emptypb.Empty]) (*connect.ServerStreamForClient[v1.NodeEvent], error)
+	// Download a cloud image to this node
+	DownloadImage(context.Context, *connect.Request[v1.DownloadImageOnNodeRequest]) (*connect.ServerStreamForClient[v1.DownloadProgress], error)
+	// Get the status of an image download
+	GetDownloadStatus(context.Context, *connect.Request[v1.GetDownloadStatusRequest]) (*connect.Response[v1.DownloadProgress], error)
+	// Cancel an in-progress download
+	CancelDownload(context.Context, *connect.Request[v1.CancelDownloadRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewNodeDaemonServiceClient constructs a client for the limiquantix.node.v1.NodeDaemonService
@@ -337,37 +352,58 @@ func NewNodeDaemonServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(nodeDaemonServiceMethods.ByName("StreamEvents")),
 			connect.WithClientOptions(opts...),
 		),
+		downloadImage: connect.NewClient[v1.DownloadImageOnNodeRequest, v1.DownloadProgress](
+			httpClient,
+			baseURL+NodeDaemonServiceDownloadImageProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("DownloadImage")),
+			connect.WithClientOptions(opts...),
+		),
+		getDownloadStatus: connect.NewClient[v1.GetDownloadStatusRequest, v1.DownloadProgress](
+			httpClient,
+			baseURL+NodeDaemonServiceGetDownloadStatusProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("GetDownloadStatus")),
+			connect.WithClientOptions(opts...),
+		),
+		cancelDownload: connect.NewClient[v1.CancelDownloadRequest, emptypb.Empty](
+			httpClient,
+			baseURL+NodeDaemonServiceCancelDownloadProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("CancelDownload")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // nodeDaemonServiceClient implements NodeDaemonServiceClient.
 type nodeDaemonServiceClient struct {
-	healthCheck      *connect.Client[v1.HealthCheckRequest, v1.HealthCheckResponse]
-	getNodeInfo      *connect.Client[emptypb.Empty, v1.NodeInfoResponse]
-	createVM         *connect.Client[v1.CreateVMOnNodeRequest, v1.CreateVMOnNodeResponse]
-	startVM          *connect.Client[v1.VMIdRequest, emptypb.Empty]
-	stopVM           *connect.Client[v1.StopVMRequest, emptypb.Empty]
-	forceStopVM      *connect.Client[v1.VMIdRequest, emptypb.Empty]
-	rebootVM         *connect.Client[v1.VMIdRequest, emptypb.Empty]
-	pauseVM          *connect.Client[v1.VMIdRequest, emptypb.Empty]
-	resumeVM         *connect.Client[v1.VMIdRequest, emptypb.Empty]
-	deleteVM         *connect.Client[v1.VMIdRequest, emptypb.Empty]
-	getVMStatus      *connect.Client[v1.VMIdRequest, v1.VMStatusResponse]
-	listVMs          *connect.Client[emptypb.Empty, v1.ListVMsOnNodeResponse]
-	getConsole       *connect.Client[v1.VMIdRequest, v1.ConsoleInfoResponse]
-	createSnapshot   *connect.Client[v1.CreateSnapshotRequest, v1.SnapshotResponse]
-	revertSnapshot   *connect.Client[v1.RevertSnapshotRequest, emptypb.Empty]
-	deleteSnapshot   *connect.Client[v1.DeleteSnapshotRequest, emptypb.Empty]
-	listSnapshots    *connect.Client[v1.VMIdRequest, v1.ListSnapshotsResponse]
-	attachDisk       *connect.Client[v1.AttachDiskRequest, emptypb.Empty]
-	detachDisk       *connect.Client[v1.DetachDiskRequest, emptypb.Empty]
-	attachNIC        *connect.Client[v1.AttachNICRequest, emptypb.Empty]
-	detachNIC        *connect.Client[v1.DetachNICRequest, emptypb.Empty]
-	prepareMigration *connect.Client[v1.PrepareMigrationRequest, v1.MigrationToken]
-	receiveMigration *connect.Client[v1.MigrationToken, emptypb.Empty]
-	migrateVM        *connect.Client[v1.MigrateVMRequest, v1.MigrationProgress]
-	streamMetrics    *connect.Client[v1.StreamMetricsRequest, v1.NodeMetrics]
-	streamEvents     *connect.Client[emptypb.Empty, v1.NodeEvent]
+	healthCheck       *connect.Client[v1.HealthCheckRequest, v1.HealthCheckResponse]
+	getNodeInfo       *connect.Client[emptypb.Empty, v1.NodeInfoResponse]
+	createVM          *connect.Client[v1.CreateVMOnNodeRequest, v1.CreateVMOnNodeResponse]
+	startVM           *connect.Client[v1.VMIdRequest, emptypb.Empty]
+	stopVM            *connect.Client[v1.StopVMRequest, emptypb.Empty]
+	forceStopVM       *connect.Client[v1.VMIdRequest, emptypb.Empty]
+	rebootVM          *connect.Client[v1.VMIdRequest, emptypb.Empty]
+	pauseVM           *connect.Client[v1.VMIdRequest, emptypb.Empty]
+	resumeVM          *connect.Client[v1.VMIdRequest, emptypb.Empty]
+	deleteVM          *connect.Client[v1.VMIdRequest, emptypb.Empty]
+	getVMStatus       *connect.Client[v1.VMIdRequest, v1.VMStatusResponse]
+	listVMs           *connect.Client[emptypb.Empty, v1.ListVMsOnNodeResponse]
+	getConsole        *connect.Client[v1.VMIdRequest, v1.ConsoleInfoResponse]
+	createSnapshot    *connect.Client[v1.CreateSnapshotRequest, v1.SnapshotResponse]
+	revertSnapshot    *connect.Client[v1.RevertSnapshotRequest, emptypb.Empty]
+	deleteSnapshot    *connect.Client[v1.DeleteSnapshotRequest, emptypb.Empty]
+	listSnapshots     *connect.Client[v1.VMIdRequest, v1.ListSnapshotsResponse]
+	attachDisk        *connect.Client[v1.AttachDiskRequest, emptypb.Empty]
+	detachDisk        *connect.Client[v1.DetachDiskRequest, emptypb.Empty]
+	attachNIC         *connect.Client[v1.AttachNICRequest, emptypb.Empty]
+	detachNIC         *connect.Client[v1.DetachNICRequest, emptypb.Empty]
+	prepareMigration  *connect.Client[v1.PrepareMigrationRequest, v1.MigrationToken]
+	receiveMigration  *connect.Client[v1.MigrationToken, emptypb.Empty]
+	migrateVM         *connect.Client[v1.MigrateVMRequest, v1.MigrationProgress]
+	streamMetrics     *connect.Client[v1.StreamMetricsRequest, v1.NodeMetrics]
+	streamEvents      *connect.Client[emptypb.Empty, v1.NodeEvent]
+	downloadImage     *connect.Client[v1.DownloadImageOnNodeRequest, v1.DownloadProgress]
+	getDownloadStatus *connect.Client[v1.GetDownloadStatusRequest, v1.DownloadProgress]
+	cancelDownload    *connect.Client[v1.CancelDownloadRequest, emptypb.Empty]
 }
 
 // HealthCheck calls limiquantix.node.v1.NodeDaemonService.HealthCheck.
@@ -500,6 +536,21 @@ func (c *nodeDaemonServiceClient) StreamEvents(ctx context.Context, req *connect
 	return c.streamEvents.CallServerStream(ctx, req)
 }
 
+// DownloadImage calls limiquantix.node.v1.NodeDaemonService.DownloadImage.
+func (c *nodeDaemonServiceClient) DownloadImage(ctx context.Context, req *connect.Request[v1.DownloadImageOnNodeRequest]) (*connect.ServerStreamForClient[v1.DownloadProgress], error) {
+	return c.downloadImage.CallServerStream(ctx, req)
+}
+
+// GetDownloadStatus calls limiquantix.node.v1.NodeDaemonService.GetDownloadStatus.
+func (c *nodeDaemonServiceClient) GetDownloadStatus(ctx context.Context, req *connect.Request[v1.GetDownloadStatusRequest]) (*connect.Response[v1.DownloadProgress], error) {
+	return c.getDownloadStatus.CallUnary(ctx, req)
+}
+
+// CancelDownload calls limiquantix.node.v1.NodeDaemonService.CancelDownload.
+func (c *nodeDaemonServiceClient) CancelDownload(ctx context.Context, req *connect.Request[v1.CancelDownloadRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.cancelDownload.CallUnary(ctx, req)
+}
+
 // NodeDaemonServiceHandler is an implementation of the limiquantix.node.v1.NodeDaemonService
 // service.
 type NodeDaemonServiceHandler interface {
@@ -555,6 +606,12 @@ type NodeDaemonServiceHandler interface {
 	StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest], *connect.ServerStream[v1.NodeMetrics]) error
 	// Stream node events (VM started, stopped, crashed, etc.)
 	StreamEvents(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[v1.NodeEvent]) error
+	// Download a cloud image to this node
+	DownloadImage(context.Context, *connect.Request[v1.DownloadImageOnNodeRequest], *connect.ServerStream[v1.DownloadProgress]) error
+	// Get the status of an image download
+	GetDownloadStatus(context.Context, *connect.Request[v1.GetDownloadStatusRequest]) (*connect.Response[v1.DownloadProgress], error)
+	// Cancel an in-progress download
+	CancelDownload(context.Context, *connect.Request[v1.CancelDownloadRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewNodeDaemonServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -720,6 +777,24 @@ func NewNodeDaemonServiceHandler(svc NodeDaemonServiceHandler, opts ...connect.H
 		connect.WithSchema(nodeDaemonServiceMethods.ByName("StreamEvents")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeDaemonServiceDownloadImageHandler := connect.NewServerStreamHandler(
+		NodeDaemonServiceDownloadImageProcedure,
+		svc.DownloadImage,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("DownloadImage")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceGetDownloadStatusHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceGetDownloadStatusProcedure,
+		svc.GetDownloadStatus,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("GetDownloadStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceCancelDownloadHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceCancelDownloadProcedure,
+		svc.CancelDownload,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("CancelDownload")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/limiquantix.node.v1.NodeDaemonService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case NodeDaemonServiceHealthCheckProcedure:
@@ -774,6 +849,12 @@ func NewNodeDaemonServiceHandler(svc NodeDaemonServiceHandler, opts ...connect.H
 			nodeDaemonServiceStreamMetricsHandler.ServeHTTP(w, r)
 		case NodeDaemonServiceStreamEventsProcedure:
 			nodeDaemonServiceStreamEventsHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceDownloadImageProcedure:
+			nodeDaemonServiceDownloadImageHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceGetDownloadStatusProcedure:
+			nodeDaemonServiceGetDownloadStatusHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceCancelDownloadProcedure:
+			nodeDaemonServiceCancelDownloadHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -885,4 +966,16 @@ func (UnimplementedNodeDaemonServiceHandler) StreamMetrics(context.Context, *con
 
 func (UnimplementedNodeDaemonServiceHandler) StreamEvents(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[v1.NodeEvent]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.StreamEvents is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) DownloadImage(context.Context, *connect.Request[v1.DownloadImageOnNodeRequest], *connect.ServerStream[v1.DownloadProgress]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.DownloadImage is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) GetDownloadStatus(context.Context, *connect.Request[v1.GetDownloadStatusRequest]) (*connect.Response[v1.DownloadProgress], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.GetDownloadStatus is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) CancelDownload(context.Context, *connect.Request[v1.CancelDownloadRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.CancelDownload is not implemented"))
 }

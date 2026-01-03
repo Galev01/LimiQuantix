@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
-import { ImageService } from '@/api/limiquantix/storage/v1/storage_service_connect';
-import type { Image, ListImagesRequest, OsInfo_OsFamily, ImageSpec_Visibility } from '@/api/limiquantix/storage/v1/storage_pb';
+import { ImageService } from '@/api/limiquantix/storage/v1/storage_service_pb';
+import type { Image, OsInfo_OsFamily, ImageSpec_Visibility } from '@/api/limiquantix/storage/v1/storage_pb';
 
 // Create transport for Connect-RPC
 const transport = createConnectTransport({

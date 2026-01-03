@@ -472,6 +472,71 @@ func (EventType) EnumDescriptor() ([]byte, []int) {
 	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{7}
 }
 
+// Status
+type DownloadProgress_Status int32
+
+const (
+	DownloadProgress_STATUS_UNKNOWN     DownloadProgress_Status = 0
+	DownloadProgress_STATUS_PENDING     DownloadProgress_Status = 1
+	DownloadProgress_STATUS_DOWNLOADING DownloadProgress_Status = 2
+	DownloadProgress_STATUS_VERIFYING   DownloadProgress_Status = 3
+	DownloadProgress_STATUS_CONVERTING  DownloadProgress_Status = 4
+	DownloadProgress_STATUS_COMPLETED   DownloadProgress_Status = 5
+	DownloadProgress_STATUS_FAILED      DownloadProgress_Status = 6
+	DownloadProgress_STATUS_CANCELLED   DownloadProgress_Status = 7
+)
+
+// Enum value maps for DownloadProgress_Status.
+var (
+	DownloadProgress_Status_name = map[int32]string{
+		0: "STATUS_UNKNOWN",
+		1: "STATUS_PENDING",
+		2: "STATUS_DOWNLOADING",
+		3: "STATUS_VERIFYING",
+		4: "STATUS_CONVERTING",
+		5: "STATUS_COMPLETED",
+		6: "STATUS_FAILED",
+		7: "STATUS_CANCELLED",
+	}
+	DownloadProgress_Status_value = map[string]int32{
+		"STATUS_UNKNOWN":     0,
+		"STATUS_PENDING":     1,
+		"STATUS_DOWNLOADING": 2,
+		"STATUS_VERIFYING":   3,
+		"STATUS_CONVERTING":  4,
+		"STATUS_COMPLETED":   5,
+		"STATUS_FAILED":      6,
+		"STATUS_CANCELLED":   7,
+	}
+)
+
+func (x DownloadProgress_Status) Enum() *DownloadProgress_Status {
+	p := new(DownloadProgress_Status)
+	*p = x
+	return p
+}
+
+func (x DownloadProgress_Status) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DownloadProgress_Status) Descriptor() protoreflect.EnumDescriptor {
+	return file_limiquantix_node_v1_node_daemon_proto_enumTypes[8].Descriptor()
+}
+
+func (DownloadProgress_Status) Type() protoreflect.EnumType {
+	return &file_limiquantix_node_v1_node_daemon_proto_enumTypes[8]
+}
+
+func (x DownloadProgress_Status) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DownloadProgress_Status.Descriptor instead.
+func (DownloadProgress_Status) EnumDescriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{42, 0}
+}
+
 // Health Check
 type HealthCheckRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -3459,6 +3524,316 @@ func (x *NodeEvent) GetMetadata() map[string]string {
 	return nil
 }
 
+type DownloadImageOnNodeRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Job ID (from control plane)
+	JobId string `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	// Image ID in control plane database
+	ImageId string `protobuf:"bytes,2,opt,name=image_id,json=imageId,proto3" json:"image_id,omitempty"`
+	// URL to download from
+	Url string `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
+	// Target directory for the image
+	TargetDir string `protobuf:"bytes,4,opt,name=target_dir,json=targetDir,proto3" json:"target_dir,omitempty"`
+	// Filename to use (optional, derived from URL if not specified)
+	Filename string `protobuf:"bytes,5,opt,name=filename,proto3" json:"filename,omitempty"`
+	// Expected checksum for verification (optional)
+	Checksum      string `protobuf:"bytes,6,opt,name=checksum,proto3" json:"checksum,omitempty"`
+	ChecksumType  string `protobuf:"bytes,7,opt,name=checksum_type,json=checksumType,proto3" json:"checksum_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DownloadImageOnNodeRequest) Reset() {
+	*x = DownloadImageOnNodeRequest{}
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DownloadImageOnNodeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DownloadImageOnNodeRequest) ProtoMessage() {}
+
+func (x *DownloadImageOnNodeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DownloadImageOnNodeRequest.ProtoReflect.Descriptor instead.
+func (*DownloadImageOnNodeRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *DownloadImageOnNodeRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *DownloadImageOnNodeRequest) GetImageId() string {
+	if x != nil {
+		return x.ImageId
+	}
+	return ""
+}
+
+func (x *DownloadImageOnNodeRequest) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *DownloadImageOnNodeRequest) GetTargetDir() string {
+	if x != nil {
+		return x.TargetDir
+	}
+	return ""
+}
+
+func (x *DownloadImageOnNodeRequest) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
+func (x *DownloadImageOnNodeRequest) GetChecksum() string {
+	if x != nil {
+		return x.Checksum
+	}
+	return ""
+}
+
+func (x *DownloadImageOnNodeRequest) GetChecksumType() string {
+	if x != nil {
+		return x.ChecksumType
+	}
+	return ""
+}
+
+type DownloadProgress struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Job ID
+	JobId string `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	// Image ID
+	ImageId string                  `protobuf:"bytes,2,opt,name=image_id,json=imageId,proto3" json:"image_id,omitempty"`
+	Status  DownloadProgress_Status `protobuf:"varint,3,opt,name=status,proto3,enum=limiquantix.node.v1.DownloadProgress_Status" json:"status,omitempty"`
+	// Progress (0-100)
+	ProgressPercent uint32 `protobuf:"varint,4,opt,name=progress_percent,json=progressPercent,proto3" json:"progress_percent,omitempty"`
+	// Bytes
+	BytesDownloaded uint64 `protobuf:"varint,5,opt,name=bytes_downloaded,json=bytesDownloaded,proto3" json:"bytes_downloaded,omitempty"`
+	BytesTotal      uint64 `protobuf:"varint,6,opt,name=bytes_total,json=bytesTotal,proto3" json:"bytes_total,omitempty"`
+	// Speed (bytes per second)
+	DownloadSpeed uint64 `protobuf:"varint,7,opt,name=download_speed,json=downloadSpeed,proto3" json:"download_speed,omitempty"`
+	// Estimated time remaining (seconds)
+	EtaSeconds uint32 `protobuf:"varint,8,opt,name=eta_seconds,json=etaSeconds,proto3" json:"eta_seconds,omitempty"`
+	// Final path of the downloaded image
+	Path string `protobuf:"bytes,9,opt,name=path,proto3" json:"path,omitempty"`
+	// Error message if failed
+	Error         string `protobuf:"bytes,10,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DownloadProgress) Reset() {
+	*x = DownloadProgress{}
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DownloadProgress) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DownloadProgress) ProtoMessage() {}
+
+func (x *DownloadProgress) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DownloadProgress.ProtoReflect.Descriptor instead.
+func (*DownloadProgress) Descriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *DownloadProgress) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *DownloadProgress) GetImageId() string {
+	if x != nil {
+		return x.ImageId
+	}
+	return ""
+}
+
+func (x *DownloadProgress) GetStatus() DownloadProgress_Status {
+	if x != nil {
+		return x.Status
+	}
+	return DownloadProgress_STATUS_UNKNOWN
+}
+
+func (x *DownloadProgress) GetProgressPercent() uint32 {
+	if x != nil {
+		return x.ProgressPercent
+	}
+	return 0
+}
+
+func (x *DownloadProgress) GetBytesDownloaded() uint64 {
+	if x != nil {
+		return x.BytesDownloaded
+	}
+	return 0
+}
+
+func (x *DownloadProgress) GetBytesTotal() uint64 {
+	if x != nil {
+		return x.BytesTotal
+	}
+	return 0
+}
+
+func (x *DownloadProgress) GetDownloadSpeed() uint64 {
+	if x != nil {
+		return x.DownloadSpeed
+	}
+	return 0
+}
+
+func (x *DownloadProgress) GetEtaSeconds() uint32 {
+	if x != nil {
+		return x.EtaSeconds
+	}
+	return 0
+}
+
+func (x *DownloadProgress) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *DownloadProgress) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type GetDownloadStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDownloadStatusRequest) Reset() {
+	*x = GetDownloadStatusRequest{}
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDownloadStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDownloadStatusRequest) ProtoMessage() {}
+
+func (x *GetDownloadStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDownloadStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetDownloadStatusRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *GetDownloadStatusRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+type CancelDownloadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelDownloadRequest) Reset() {
+	*x = CancelDownloadRequest{}
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelDownloadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelDownloadRequest) ProtoMessage() {}
+
+func (x *CancelDownloadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelDownloadRequest.ProtoReflect.Descriptor instead.
+func (*CancelDownloadRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *CancelDownloadRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
 var File_limiquantix_node_v1_node_daemon_proto protoreflect.FileDescriptor
 
 const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
@@ -3729,7 +4104,43 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\bmetadata\x18\x06 \x03(\v2,.limiquantix.node.v1.NodeEvent.MetadataEntryR\bmetadata\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01*0\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xdc\x01\n" +
+	"\x1aDownloadImageOnNodeRequest\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x19\n" +
+	"\bimage_id\x18\x02 \x01(\tR\aimageId\x12\x10\n" +
+	"\x03url\x18\x03 \x01(\tR\x03url\x12\x1d\n" +
+	"\n" +
+	"target_dir\x18\x04 \x01(\tR\ttargetDir\x12\x1a\n" +
+	"\bfilename\x18\x05 \x01(\tR\bfilename\x12\x1a\n" +
+	"\bchecksum\x18\x06 \x01(\tR\bchecksum\x12#\n" +
+	"\rchecksum_type\x18\a \x01(\tR\fchecksumType\"\xaa\x04\n" +
+	"\x10DownloadProgress\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x19\n" +
+	"\bimage_id\x18\x02 \x01(\tR\aimageId\x12D\n" +
+	"\x06status\x18\x03 \x01(\x0e2,.limiquantix.node.v1.DownloadProgress.StatusR\x06status\x12)\n" +
+	"\x10progress_percent\x18\x04 \x01(\rR\x0fprogressPercent\x12)\n" +
+	"\x10bytes_downloaded\x18\x05 \x01(\x04R\x0fbytesDownloaded\x12\x1f\n" +
+	"\vbytes_total\x18\x06 \x01(\x04R\n" +
+	"bytesTotal\x12%\n" +
+	"\x0edownload_speed\x18\a \x01(\x04R\rdownloadSpeed\x12\x1f\n" +
+	"\veta_seconds\x18\b \x01(\rR\n" +
+	"etaSeconds\x12\x12\n" +
+	"\x04path\x18\t \x01(\tR\x04path\x12\x14\n" +
+	"\x05error\x18\n" +
+	" \x01(\tR\x05error\"\xb4\x01\n" +
+	"\x06Status\x12\x12\n" +
+	"\x0eSTATUS_UNKNOWN\x10\x00\x12\x12\n" +
+	"\x0eSTATUS_PENDING\x10\x01\x12\x16\n" +
+	"\x12STATUS_DOWNLOADING\x10\x02\x12\x14\n" +
+	"\x10STATUS_VERIFYING\x10\x03\x12\x15\n" +
+	"\x11STATUS_CONVERTING\x10\x04\x12\x14\n" +
+	"\x10STATUS_COMPLETED\x10\x05\x12\x11\n" +
+	"\rSTATUS_FAILED\x10\x06\x12\x14\n" +
+	"\x10STATUS_CANCELLED\x10\a\"1\n" +
+	"\x18GetDownloadStatusRequest\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\".\n" +
+	"\x15CancelDownloadRequest\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId*0\n" +
 	"\bFirmware\x12\x11\n" +
 	"\rFIRMWARE_BIOS\x10\x00\x12\x11\n" +
 	"\rFIRMWARE_UEFI\x10\x01*R\n" +
@@ -3784,7 +4195,7 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\x17EVENT_TYPE_NIC_ATTACHED\x10\x0e\x12\x1b\n" +
 	"\x17EVENT_TYPE_NIC_DETACHED\x10\x0f\x12\x1e\n" +
 	"\x1aEVENT_TYPE_NODE_OVERLOADED\x10\x10\x12\x1d\n" +
-	"\x19EVENT_TYPE_NODE_RECOVERED\x10\x112\xf8\x10\n" +
+	"\x19EVENT_TYPE_NODE_RECOVERED\x10\x112\xa4\x13\n" +
 	"\x11NodeDaemonService\x12`\n" +
 	"\vHealthCheck\x12'.limiquantix.node.v1.HealthCheckRequest\x1a(.limiquantix.node.v1.HealthCheckResponse\x12L\n" +
 	"\vGetNodeInfo\x12\x16.google.protobuf.Empty\x1a%.limiquantix.node.v1.NodeInfoResponse\x12c\n" +
@@ -3814,7 +4225,10 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\x10ReceiveMigration\x12#.limiquantix.node.v1.MigrationToken\x1a\x16.google.protobuf.Empty\x12\\\n" +
 	"\tMigrateVM\x12%.limiquantix.node.v1.MigrateVMRequest\x1a&.limiquantix.node.v1.MigrationProgress0\x01\x12^\n" +
 	"\rStreamMetrics\x12).limiquantix.node.v1.StreamMetricsRequest\x1a .limiquantix.node.v1.NodeMetrics0\x01\x12H\n" +
-	"\fStreamEvents\x12\x16.google.protobuf.Empty\x1a\x1e.limiquantix.node.v1.NodeEvent0\x01B\xdf\x01\n" +
+	"\fStreamEvents\x12\x16.google.protobuf.Empty\x1a\x1e.limiquantix.node.v1.NodeEvent0\x01\x12i\n" +
+	"\rDownloadImage\x12/.limiquantix.node.v1.DownloadImageOnNodeRequest\x1a%.limiquantix.node.v1.DownloadProgress0\x01\x12i\n" +
+	"\x11GetDownloadStatus\x12-.limiquantix.node.v1.GetDownloadStatusRequest\x1a%.limiquantix.node.v1.DownloadProgress\x12T\n" +
+	"\x0eCancelDownload\x12*.limiquantix.node.v1.CancelDownloadRequest\x1a\x16.google.protobuf.EmptyB\xdf\x01\n" +
 	"\x17com.limiquantix.node.v1B\x0fNodeDaemonProtoP\x01ZEgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1;nodev1\xa2\x02\x03LNX\xaa\x02\x13Limiquantix.Node.V1\xca\x02\x13Limiquantix\\Node\\V1\xe2\x02\x1fLimiquantix\\Node\\V1\\GPBMetadata\xea\x02\x15Limiquantix::Node::V1b\x06proto3"
 
 var (
@@ -3829,156 +4243,168 @@ func file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP() []byte {
 	return file_limiquantix_node_v1_node_daemon_proto_rawDescData
 }
 
-var file_limiquantix_node_v1_node_daemon_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
-var file_limiquantix_node_v1_node_daemon_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
+var file_limiquantix_node_v1_node_daemon_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
+var file_limiquantix_node_v1_node_daemon_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
 var file_limiquantix_node_v1_node_daemon_proto_goTypes = []any{
-	(Firmware)(0),                   // 0: limiquantix.node.v1.Firmware
-	(BootDevice)(0),                 // 1: limiquantix.node.v1.BootDevice
-	(DiskBus)(0),                    // 2: limiquantix.node.v1.DiskBus
-	(DiskFormat)(0),                 // 3: limiquantix.node.v1.DiskFormat
-	(NicModel)(0),                   // 4: limiquantix.node.v1.NicModel
-	(PowerState)(0),                 // 5: limiquantix.node.v1.PowerState
-	(MigrationPhase)(0),             // 6: limiquantix.node.v1.MigrationPhase
-	(EventType)(0),                  // 7: limiquantix.node.v1.EventType
-	(*HealthCheckRequest)(nil),      // 8: limiquantix.node.v1.HealthCheckRequest
-	(*HealthCheckResponse)(nil),     // 9: limiquantix.node.v1.HealthCheckResponse
-	(*NodeInfoResponse)(nil),        // 10: limiquantix.node.v1.NodeInfoResponse
-	(*CpuInfo)(nil),                 // 11: limiquantix.node.v1.CpuInfo
-	(*MemoryInfo)(nil),              // 12: limiquantix.node.v1.MemoryInfo
-	(*StorageInfo)(nil),             // 13: limiquantix.node.v1.StorageInfo
-	(*NetworkInfo)(nil),             // 14: limiquantix.node.v1.NetworkInfo
-	(*HypervisorCapabilities)(nil),  // 15: limiquantix.node.v1.HypervisorCapabilities
-	(*VMIdRequest)(nil),             // 16: limiquantix.node.v1.VMIdRequest
-	(*CreateVMOnNodeRequest)(nil),   // 17: limiquantix.node.v1.CreateVMOnNodeRequest
-	(*VMSpec)(nil),                  // 18: limiquantix.node.v1.VMSpec
-	(*CloudInitConfig)(nil),         // 19: limiquantix.node.v1.CloudInitConfig
-	(*DiskSpec)(nil),                // 20: limiquantix.node.v1.DiskSpec
-	(*NicSpec)(nil),                 // 21: limiquantix.node.v1.NicSpec
-	(*CdromSpec)(nil),               // 22: limiquantix.node.v1.CdromSpec
-	(*ConsoleSpec)(nil),             // 23: limiquantix.node.v1.ConsoleSpec
-	(*CreateVMOnNodeResponse)(nil),  // 24: limiquantix.node.v1.CreateVMOnNodeResponse
-	(*StopVMRequest)(nil),           // 25: limiquantix.node.v1.StopVMRequest
-	(*VMStatusResponse)(nil),        // 26: limiquantix.node.v1.VMStatusResponse
-	(*ResourceUsage)(nil),           // 27: limiquantix.node.v1.ResourceUsage
-	(*ListVMsOnNodeResponse)(nil),   // 28: limiquantix.node.v1.ListVMsOnNodeResponse
-	(*ConsoleInfoResponse)(nil),     // 29: limiquantix.node.v1.ConsoleInfoResponse
-	(*CreateSnapshotRequest)(nil),   // 30: limiquantix.node.v1.CreateSnapshotRequest
-	(*SnapshotResponse)(nil),        // 31: limiquantix.node.v1.SnapshotResponse
-	(*RevertSnapshotRequest)(nil),   // 32: limiquantix.node.v1.RevertSnapshotRequest
-	(*DeleteSnapshotRequest)(nil),   // 33: limiquantix.node.v1.DeleteSnapshotRequest
-	(*ListSnapshotsResponse)(nil),   // 34: limiquantix.node.v1.ListSnapshotsResponse
-	(*AttachDiskRequest)(nil),       // 35: limiquantix.node.v1.AttachDiskRequest
-	(*DetachDiskRequest)(nil),       // 36: limiquantix.node.v1.DetachDiskRequest
-	(*AttachNICRequest)(nil),        // 37: limiquantix.node.v1.AttachNICRequest
-	(*DetachNICRequest)(nil),        // 38: limiquantix.node.v1.DetachNICRequest
-	(*PrepareMigrationRequest)(nil), // 39: limiquantix.node.v1.PrepareMigrationRequest
-	(*MigrationToken)(nil),          // 40: limiquantix.node.v1.MigrationToken
-	(*MigrateVMRequest)(nil),        // 41: limiquantix.node.v1.MigrateVMRequest
-	(*MigrationProgress)(nil),       // 42: limiquantix.node.v1.MigrationProgress
-	(*StreamMetricsRequest)(nil),    // 43: limiquantix.node.v1.StreamMetricsRequest
-	(*NodeMetrics)(nil),             // 44: limiquantix.node.v1.NodeMetrics
-	(*DiskMetrics)(nil),             // 45: limiquantix.node.v1.DiskMetrics
-	(*NetworkMetrics)(nil),          // 46: limiquantix.node.v1.NetworkMetrics
-	(*VMMetrics)(nil),               // 47: limiquantix.node.v1.VMMetrics
-	(*NodeEvent)(nil),               // 48: limiquantix.node.v1.NodeEvent
-	nil,                             // 49: limiquantix.node.v1.CreateVMOnNodeRequest.LabelsEntry
-	nil,                             // 50: limiquantix.node.v1.NodeEvent.MetadataEntry
-	(*timestamppb.Timestamp)(nil),   // 51: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),           // 52: google.protobuf.Empty
+	(Firmware)(0),                      // 0: limiquantix.node.v1.Firmware
+	(BootDevice)(0),                    // 1: limiquantix.node.v1.BootDevice
+	(DiskBus)(0),                       // 2: limiquantix.node.v1.DiskBus
+	(DiskFormat)(0),                    // 3: limiquantix.node.v1.DiskFormat
+	(NicModel)(0),                      // 4: limiquantix.node.v1.NicModel
+	(PowerState)(0),                    // 5: limiquantix.node.v1.PowerState
+	(MigrationPhase)(0),                // 6: limiquantix.node.v1.MigrationPhase
+	(EventType)(0),                     // 7: limiquantix.node.v1.EventType
+	(DownloadProgress_Status)(0),       // 8: limiquantix.node.v1.DownloadProgress.Status
+	(*HealthCheckRequest)(nil),         // 9: limiquantix.node.v1.HealthCheckRequest
+	(*HealthCheckResponse)(nil),        // 10: limiquantix.node.v1.HealthCheckResponse
+	(*NodeInfoResponse)(nil),           // 11: limiquantix.node.v1.NodeInfoResponse
+	(*CpuInfo)(nil),                    // 12: limiquantix.node.v1.CpuInfo
+	(*MemoryInfo)(nil),                 // 13: limiquantix.node.v1.MemoryInfo
+	(*StorageInfo)(nil),                // 14: limiquantix.node.v1.StorageInfo
+	(*NetworkInfo)(nil),                // 15: limiquantix.node.v1.NetworkInfo
+	(*HypervisorCapabilities)(nil),     // 16: limiquantix.node.v1.HypervisorCapabilities
+	(*VMIdRequest)(nil),                // 17: limiquantix.node.v1.VMIdRequest
+	(*CreateVMOnNodeRequest)(nil),      // 18: limiquantix.node.v1.CreateVMOnNodeRequest
+	(*VMSpec)(nil),                     // 19: limiquantix.node.v1.VMSpec
+	(*CloudInitConfig)(nil),            // 20: limiquantix.node.v1.CloudInitConfig
+	(*DiskSpec)(nil),                   // 21: limiquantix.node.v1.DiskSpec
+	(*NicSpec)(nil),                    // 22: limiquantix.node.v1.NicSpec
+	(*CdromSpec)(nil),                  // 23: limiquantix.node.v1.CdromSpec
+	(*ConsoleSpec)(nil),                // 24: limiquantix.node.v1.ConsoleSpec
+	(*CreateVMOnNodeResponse)(nil),     // 25: limiquantix.node.v1.CreateVMOnNodeResponse
+	(*StopVMRequest)(nil),              // 26: limiquantix.node.v1.StopVMRequest
+	(*VMStatusResponse)(nil),           // 27: limiquantix.node.v1.VMStatusResponse
+	(*ResourceUsage)(nil),              // 28: limiquantix.node.v1.ResourceUsage
+	(*ListVMsOnNodeResponse)(nil),      // 29: limiquantix.node.v1.ListVMsOnNodeResponse
+	(*ConsoleInfoResponse)(nil),        // 30: limiquantix.node.v1.ConsoleInfoResponse
+	(*CreateSnapshotRequest)(nil),      // 31: limiquantix.node.v1.CreateSnapshotRequest
+	(*SnapshotResponse)(nil),           // 32: limiquantix.node.v1.SnapshotResponse
+	(*RevertSnapshotRequest)(nil),      // 33: limiquantix.node.v1.RevertSnapshotRequest
+	(*DeleteSnapshotRequest)(nil),      // 34: limiquantix.node.v1.DeleteSnapshotRequest
+	(*ListSnapshotsResponse)(nil),      // 35: limiquantix.node.v1.ListSnapshotsResponse
+	(*AttachDiskRequest)(nil),          // 36: limiquantix.node.v1.AttachDiskRequest
+	(*DetachDiskRequest)(nil),          // 37: limiquantix.node.v1.DetachDiskRequest
+	(*AttachNICRequest)(nil),           // 38: limiquantix.node.v1.AttachNICRequest
+	(*DetachNICRequest)(nil),           // 39: limiquantix.node.v1.DetachNICRequest
+	(*PrepareMigrationRequest)(nil),    // 40: limiquantix.node.v1.PrepareMigrationRequest
+	(*MigrationToken)(nil),             // 41: limiquantix.node.v1.MigrationToken
+	(*MigrateVMRequest)(nil),           // 42: limiquantix.node.v1.MigrateVMRequest
+	(*MigrationProgress)(nil),          // 43: limiquantix.node.v1.MigrationProgress
+	(*StreamMetricsRequest)(nil),       // 44: limiquantix.node.v1.StreamMetricsRequest
+	(*NodeMetrics)(nil),                // 45: limiquantix.node.v1.NodeMetrics
+	(*DiskMetrics)(nil),                // 46: limiquantix.node.v1.DiskMetrics
+	(*NetworkMetrics)(nil),             // 47: limiquantix.node.v1.NetworkMetrics
+	(*VMMetrics)(nil),                  // 48: limiquantix.node.v1.VMMetrics
+	(*NodeEvent)(nil),                  // 49: limiquantix.node.v1.NodeEvent
+	(*DownloadImageOnNodeRequest)(nil), // 50: limiquantix.node.v1.DownloadImageOnNodeRequest
+	(*DownloadProgress)(nil),           // 51: limiquantix.node.v1.DownloadProgress
+	(*GetDownloadStatusRequest)(nil),   // 52: limiquantix.node.v1.GetDownloadStatusRequest
+	(*CancelDownloadRequest)(nil),      // 53: limiquantix.node.v1.CancelDownloadRequest
+	nil,                                // 54: limiquantix.node.v1.CreateVMOnNodeRequest.LabelsEntry
+	nil,                                // 55: limiquantix.node.v1.NodeEvent.MetadataEntry
+	(*timestamppb.Timestamp)(nil),      // 56: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),              // 57: google.protobuf.Empty
 }
 var file_limiquantix_node_v1_node_daemon_proto_depIdxs = []int32{
-	11, // 0: limiquantix.node.v1.NodeInfoResponse.cpu:type_name -> limiquantix.node.v1.CpuInfo
-	12, // 1: limiquantix.node.v1.NodeInfoResponse.memory:type_name -> limiquantix.node.v1.MemoryInfo
-	13, // 2: limiquantix.node.v1.NodeInfoResponse.storage:type_name -> limiquantix.node.v1.StorageInfo
-	14, // 3: limiquantix.node.v1.NodeInfoResponse.network:type_name -> limiquantix.node.v1.NetworkInfo
-	15, // 4: limiquantix.node.v1.NodeInfoResponse.capabilities:type_name -> limiquantix.node.v1.HypervisorCapabilities
-	18, // 5: limiquantix.node.v1.CreateVMOnNodeRequest.spec:type_name -> limiquantix.node.v1.VMSpec
-	49, // 6: limiquantix.node.v1.CreateVMOnNodeRequest.labels:type_name -> limiquantix.node.v1.CreateVMOnNodeRequest.LabelsEntry
+	12, // 0: limiquantix.node.v1.NodeInfoResponse.cpu:type_name -> limiquantix.node.v1.CpuInfo
+	13, // 1: limiquantix.node.v1.NodeInfoResponse.memory:type_name -> limiquantix.node.v1.MemoryInfo
+	14, // 2: limiquantix.node.v1.NodeInfoResponse.storage:type_name -> limiquantix.node.v1.StorageInfo
+	15, // 3: limiquantix.node.v1.NodeInfoResponse.network:type_name -> limiquantix.node.v1.NetworkInfo
+	16, // 4: limiquantix.node.v1.NodeInfoResponse.capabilities:type_name -> limiquantix.node.v1.HypervisorCapabilities
+	19, // 5: limiquantix.node.v1.CreateVMOnNodeRequest.spec:type_name -> limiquantix.node.v1.VMSpec
+	54, // 6: limiquantix.node.v1.CreateVMOnNodeRequest.labels:type_name -> limiquantix.node.v1.CreateVMOnNodeRequest.LabelsEntry
 	0,  // 7: limiquantix.node.v1.VMSpec.firmware:type_name -> limiquantix.node.v1.Firmware
 	1,  // 8: limiquantix.node.v1.VMSpec.boot_order:type_name -> limiquantix.node.v1.BootDevice
-	20, // 9: limiquantix.node.v1.VMSpec.disks:type_name -> limiquantix.node.v1.DiskSpec
-	21, // 10: limiquantix.node.v1.VMSpec.nics:type_name -> limiquantix.node.v1.NicSpec
-	22, // 11: limiquantix.node.v1.VMSpec.cdroms:type_name -> limiquantix.node.v1.CdromSpec
-	23, // 12: limiquantix.node.v1.VMSpec.console:type_name -> limiquantix.node.v1.ConsoleSpec
-	19, // 13: limiquantix.node.v1.VMSpec.cloud_init:type_name -> limiquantix.node.v1.CloudInitConfig
+	21, // 9: limiquantix.node.v1.VMSpec.disks:type_name -> limiquantix.node.v1.DiskSpec
+	22, // 10: limiquantix.node.v1.VMSpec.nics:type_name -> limiquantix.node.v1.NicSpec
+	23, // 11: limiquantix.node.v1.VMSpec.cdroms:type_name -> limiquantix.node.v1.CdromSpec
+	24, // 12: limiquantix.node.v1.VMSpec.console:type_name -> limiquantix.node.v1.ConsoleSpec
+	20, // 13: limiquantix.node.v1.VMSpec.cloud_init:type_name -> limiquantix.node.v1.CloudInitConfig
 	2,  // 14: limiquantix.node.v1.DiskSpec.bus:type_name -> limiquantix.node.v1.DiskBus
 	3,  // 15: limiquantix.node.v1.DiskSpec.format:type_name -> limiquantix.node.v1.DiskFormat
 	4,  // 16: limiquantix.node.v1.NicSpec.model:type_name -> limiquantix.node.v1.NicModel
 	5,  // 17: limiquantix.node.v1.VMStatusResponse.state:type_name -> limiquantix.node.v1.PowerState
-	27, // 18: limiquantix.node.v1.VMStatusResponse.resource_usage:type_name -> limiquantix.node.v1.ResourceUsage
-	51, // 19: limiquantix.node.v1.VMStatusResponse.started_at:type_name -> google.protobuf.Timestamp
-	26, // 20: limiquantix.node.v1.ListVMsOnNodeResponse.vms:type_name -> limiquantix.node.v1.VMStatusResponse
-	51, // 21: limiquantix.node.v1.SnapshotResponse.created_at:type_name -> google.protobuf.Timestamp
+	28, // 18: limiquantix.node.v1.VMStatusResponse.resource_usage:type_name -> limiquantix.node.v1.ResourceUsage
+	56, // 19: limiquantix.node.v1.VMStatusResponse.started_at:type_name -> google.protobuf.Timestamp
+	27, // 20: limiquantix.node.v1.ListVMsOnNodeResponse.vms:type_name -> limiquantix.node.v1.VMStatusResponse
+	56, // 21: limiquantix.node.v1.SnapshotResponse.created_at:type_name -> google.protobuf.Timestamp
 	5,  // 22: limiquantix.node.v1.SnapshotResponse.vm_state:type_name -> limiquantix.node.v1.PowerState
-	31, // 23: limiquantix.node.v1.ListSnapshotsResponse.snapshots:type_name -> limiquantix.node.v1.SnapshotResponse
-	20, // 24: limiquantix.node.v1.AttachDiskRequest.disk:type_name -> limiquantix.node.v1.DiskSpec
-	21, // 25: limiquantix.node.v1.AttachNICRequest.nic:type_name -> limiquantix.node.v1.NicSpec
-	51, // 26: limiquantix.node.v1.MigrationToken.expires_at:type_name -> google.protobuf.Timestamp
+	32, // 23: limiquantix.node.v1.ListSnapshotsResponse.snapshots:type_name -> limiquantix.node.v1.SnapshotResponse
+	21, // 24: limiquantix.node.v1.AttachDiskRequest.disk:type_name -> limiquantix.node.v1.DiskSpec
+	22, // 25: limiquantix.node.v1.AttachNICRequest.nic:type_name -> limiquantix.node.v1.NicSpec
+	56, // 26: limiquantix.node.v1.MigrationToken.expires_at:type_name -> google.protobuf.Timestamp
 	6,  // 27: limiquantix.node.v1.MigrationProgress.phase:type_name -> limiquantix.node.v1.MigrationPhase
-	51, // 28: limiquantix.node.v1.NodeMetrics.timestamp:type_name -> google.protobuf.Timestamp
-	45, // 29: limiquantix.node.v1.NodeMetrics.disks:type_name -> limiquantix.node.v1.DiskMetrics
-	46, // 30: limiquantix.node.v1.NodeMetrics.networks:type_name -> limiquantix.node.v1.NetworkMetrics
-	47, // 31: limiquantix.node.v1.NodeMetrics.vms:type_name -> limiquantix.node.v1.VMMetrics
-	51, // 32: limiquantix.node.v1.NodeEvent.timestamp:type_name -> google.protobuf.Timestamp
+	56, // 28: limiquantix.node.v1.NodeMetrics.timestamp:type_name -> google.protobuf.Timestamp
+	46, // 29: limiquantix.node.v1.NodeMetrics.disks:type_name -> limiquantix.node.v1.DiskMetrics
+	47, // 30: limiquantix.node.v1.NodeMetrics.networks:type_name -> limiquantix.node.v1.NetworkMetrics
+	48, // 31: limiquantix.node.v1.NodeMetrics.vms:type_name -> limiquantix.node.v1.VMMetrics
+	56, // 32: limiquantix.node.v1.NodeEvent.timestamp:type_name -> google.protobuf.Timestamp
 	7,  // 33: limiquantix.node.v1.NodeEvent.type:type_name -> limiquantix.node.v1.EventType
-	50, // 34: limiquantix.node.v1.NodeEvent.metadata:type_name -> limiquantix.node.v1.NodeEvent.MetadataEntry
-	8,  // 35: limiquantix.node.v1.NodeDaemonService.HealthCheck:input_type -> limiquantix.node.v1.HealthCheckRequest
-	52, // 36: limiquantix.node.v1.NodeDaemonService.GetNodeInfo:input_type -> google.protobuf.Empty
-	17, // 37: limiquantix.node.v1.NodeDaemonService.CreateVM:input_type -> limiquantix.node.v1.CreateVMOnNodeRequest
-	16, // 38: limiquantix.node.v1.NodeDaemonService.StartVM:input_type -> limiquantix.node.v1.VMIdRequest
-	25, // 39: limiquantix.node.v1.NodeDaemonService.StopVM:input_type -> limiquantix.node.v1.StopVMRequest
-	16, // 40: limiquantix.node.v1.NodeDaemonService.ForceStopVM:input_type -> limiquantix.node.v1.VMIdRequest
-	16, // 41: limiquantix.node.v1.NodeDaemonService.RebootVM:input_type -> limiquantix.node.v1.VMIdRequest
-	16, // 42: limiquantix.node.v1.NodeDaemonService.PauseVM:input_type -> limiquantix.node.v1.VMIdRequest
-	16, // 43: limiquantix.node.v1.NodeDaemonService.ResumeVM:input_type -> limiquantix.node.v1.VMIdRequest
-	16, // 44: limiquantix.node.v1.NodeDaemonService.DeleteVM:input_type -> limiquantix.node.v1.VMIdRequest
-	16, // 45: limiquantix.node.v1.NodeDaemonService.GetVMStatus:input_type -> limiquantix.node.v1.VMIdRequest
-	52, // 46: limiquantix.node.v1.NodeDaemonService.ListVMs:input_type -> google.protobuf.Empty
-	16, // 47: limiquantix.node.v1.NodeDaemonService.GetConsole:input_type -> limiquantix.node.v1.VMIdRequest
-	30, // 48: limiquantix.node.v1.NodeDaemonService.CreateSnapshot:input_type -> limiquantix.node.v1.CreateSnapshotRequest
-	32, // 49: limiquantix.node.v1.NodeDaemonService.RevertSnapshot:input_type -> limiquantix.node.v1.RevertSnapshotRequest
-	33, // 50: limiquantix.node.v1.NodeDaemonService.DeleteSnapshot:input_type -> limiquantix.node.v1.DeleteSnapshotRequest
-	16, // 51: limiquantix.node.v1.NodeDaemonService.ListSnapshots:input_type -> limiquantix.node.v1.VMIdRequest
-	35, // 52: limiquantix.node.v1.NodeDaemonService.AttachDisk:input_type -> limiquantix.node.v1.AttachDiskRequest
-	36, // 53: limiquantix.node.v1.NodeDaemonService.DetachDisk:input_type -> limiquantix.node.v1.DetachDiskRequest
-	37, // 54: limiquantix.node.v1.NodeDaemonService.AttachNIC:input_type -> limiquantix.node.v1.AttachNICRequest
-	38, // 55: limiquantix.node.v1.NodeDaemonService.DetachNIC:input_type -> limiquantix.node.v1.DetachNICRequest
-	39, // 56: limiquantix.node.v1.NodeDaemonService.PrepareMigration:input_type -> limiquantix.node.v1.PrepareMigrationRequest
-	40, // 57: limiquantix.node.v1.NodeDaemonService.ReceiveMigration:input_type -> limiquantix.node.v1.MigrationToken
-	41, // 58: limiquantix.node.v1.NodeDaemonService.MigrateVM:input_type -> limiquantix.node.v1.MigrateVMRequest
-	43, // 59: limiquantix.node.v1.NodeDaemonService.StreamMetrics:input_type -> limiquantix.node.v1.StreamMetricsRequest
-	52, // 60: limiquantix.node.v1.NodeDaemonService.StreamEvents:input_type -> google.protobuf.Empty
-	9,  // 61: limiquantix.node.v1.NodeDaemonService.HealthCheck:output_type -> limiquantix.node.v1.HealthCheckResponse
-	10, // 62: limiquantix.node.v1.NodeDaemonService.GetNodeInfo:output_type -> limiquantix.node.v1.NodeInfoResponse
-	24, // 63: limiquantix.node.v1.NodeDaemonService.CreateVM:output_type -> limiquantix.node.v1.CreateVMOnNodeResponse
-	52, // 64: limiquantix.node.v1.NodeDaemonService.StartVM:output_type -> google.protobuf.Empty
-	52, // 65: limiquantix.node.v1.NodeDaemonService.StopVM:output_type -> google.protobuf.Empty
-	52, // 66: limiquantix.node.v1.NodeDaemonService.ForceStopVM:output_type -> google.protobuf.Empty
-	52, // 67: limiquantix.node.v1.NodeDaemonService.RebootVM:output_type -> google.protobuf.Empty
-	52, // 68: limiquantix.node.v1.NodeDaemonService.PauseVM:output_type -> google.protobuf.Empty
-	52, // 69: limiquantix.node.v1.NodeDaemonService.ResumeVM:output_type -> google.protobuf.Empty
-	52, // 70: limiquantix.node.v1.NodeDaemonService.DeleteVM:output_type -> google.protobuf.Empty
-	26, // 71: limiquantix.node.v1.NodeDaemonService.GetVMStatus:output_type -> limiquantix.node.v1.VMStatusResponse
-	28, // 72: limiquantix.node.v1.NodeDaemonService.ListVMs:output_type -> limiquantix.node.v1.ListVMsOnNodeResponse
-	29, // 73: limiquantix.node.v1.NodeDaemonService.GetConsole:output_type -> limiquantix.node.v1.ConsoleInfoResponse
-	31, // 74: limiquantix.node.v1.NodeDaemonService.CreateSnapshot:output_type -> limiquantix.node.v1.SnapshotResponse
-	52, // 75: limiquantix.node.v1.NodeDaemonService.RevertSnapshot:output_type -> google.protobuf.Empty
-	52, // 76: limiquantix.node.v1.NodeDaemonService.DeleteSnapshot:output_type -> google.protobuf.Empty
-	34, // 77: limiquantix.node.v1.NodeDaemonService.ListSnapshots:output_type -> limiquantix.node.v1.ListSnapshotsResponse
-	52, // 78: limiquantix.node.v1.NodeDaemonService.AttachDisk:output_type -> google.protobuf.Empty
-	52, // 79: limiquantix.node.v1.NodeDaemonService.DetachDisk:output_type -> google.protobuf.Empty
-	52, // 80: limiquantix.node.v1.NodeDaemonService.AttachNIC:output_type -> google.protobuf.Empty
-	52, // 81: limiquantix.node.v1.NodeDaemonService.DetachNIC:output_type -> google.protobuf.Empty
-	40, // 82: limiquantix.node.v1.NodeDaemonService.PrepareMigration:output_type -> limiquantix.node.v1.MigrationToken
-	52, // 83: limiquantix.node.v1.NodeDaemonService.ReceiveMigration:output_type -> google.protobuf.Empty
-	42, // 84: limiquantix.node.v1.NodeDaemonService.MigrateVM:output_type -> limiquantix.node.v1.MigrationProgress
-	44, // 85: limiquantix.node.v1.NodeDaemonService.StreamMetrics:output_type -> limiquantix.node.v1.NodeMetrics
-	48, // 86: limiquantix.node.v1.NodeDaemonService.StreamEvents:output_type -> limiquantix.node.v1.NodeEvent
-	61, // [61:87] is the sub-list for method output_type
-	35, // [35:61] is the sub-list for method input_type
-	35, // [35:35] is the sub-list for extension type_name
-	35, // [35:35] is the sub-list for extension extendee
-	0,  // [0:35] is the sub-list for field type_name
+	55, // 34: limiquantix.node.v1.NodeEvent.metadata:type_name -> limiquantix.node.v1.NodeEvent.MetadataEntry
+	8,  // 35: limiquantix.node.v1.DownloadProgress.status:type_name -> limiquantix.node.v1.DownloadProgress.Status
+	9,  // 36: limiquantix.node.v1.NodeDaemonService.HealthCheck:input_type -> limiquantix.node.v1.HealthCheckRequest
+	57, // 37: limiquantix.node.v1.NodeDaemonService.GetNodeInfo:input_type -> google.protobuf.Empty
+	18, // 38: limiquantix.node.v1.NodeDaemonService.CreateVM:input_type -> limiquantix.node.v1.CreateVMOnNodeRequest
+	17, // 39: limiquantix.node.v1.NodeDaemonService.StartVM:input_type -> limiquantix.node.v1.VMIdRequest
+	26, // 40: limiquantix.node.v1.NodeDaemonService.StopVM:input_type -> limiquantix.node.v1.StopVMRequest
+	17, // 41: limiquantix.node.v1.NodeDaemonService.ForceStopVM:input_type -> limiquantix.node.v1.VMIdRequest
+	17, // 42: limiquantix.node.v1.NodeDaemonService.RebootVM:input_type -> limiquantix.node.v1.VMIdRequest
+	17, // 43: limiquantix.node.v1.NodeDaemonService.PauseVM:input_type -> limiquantix.node.v1.VMIdRequest
+	17, // 44: limiquantix.node.v1.NodeDaemonService.ResumeVM:input_type -> limiquantix.node.v1.VMIdRequest
+	17, // 45: limiquantix.node.v1.NodeDaemonService.DeleteVM:input_type -> limiquantix.node.v1.VMIdRequest
+	17, // 46: limiquantix.node.v1.NodeDaemonService.GetVMStatus:input_type -> limiquantix.node.v1.VMIdRequest
+	57, // 47: limiquantix.node.v1.NodeDaemonService.ListVMs:input_type -> google.protobuf.Empty
+	17, // 48: limiquantix.node.v1.NodeDaemonService.GetConsole:input_type -> limiquantix.node.v1.VMIdRequest
+	31, // 49: limiquantix.node.v1.NodeDaemonService.CreateSnapshot:input_type -> limiquantix.node.v1.CreateSnapshotRequest
+	33, // 50: limiquantix.node.v1.NodeDaemonService.RevertSnapshot:input_type -> limiquantix.node.v1.RevertSnapshotRequest
+	34, // 51: limiquantix.node.v1.NodeDaemonService.DeleteSnapshot:input_type -> limiquantix.node.v1.DeleteSnapshotRequest
+	17, // 52: limiquantix.node.v1.NodeDaemonService.ListSnapshots:input_type -> limiquantix.node.v1.VMIdRequest
+	36, // 53: limiquantix.node.v1.NodeDaemonService.AttachDisk:input_type -> limiquantix.node.v1.AttachDiskRequest
+	37, // 54: limiquantix.node.v1.NodeDaemonService.DetachDisk:input_type -> limiquantix.node.v1.DetachDiskRequest
+	38, // 55: limiquantix.node.v1.NodeDaemonService.AttachNIC:input_type -> limiquantix.node.v1.AttachNICRequest
+	39, // 56: limiquantix.node.v1.NodeDaemonService.DetachNIC:input_type -> limiquantix.node.v1.DetachNICRequest
+	40, // 57: limiquantix.node.v1.NodeDaemonService.PrepareMigration:input_type -> limiquantix.node.v1.PrepareMigrationRequest
+	41, // 58: limiquantix.node.v1.NodeDaemonService.ReceiveMigration:input_type -> limiquantix.node.v1.MigrationToken
+	42, // 59: limiquantix.node.v1.NodeDaemonService.MigrateVM:input_type -> limiquantix.node.v1.MigrateVMRequest
+	44, // 60: limiquantix.node.v1.NodeDaemonService.StreamMetrics:input_type -> limiquantix.node.v1.StreamMetricsRequest
+	57, // 61: limiquantix.node.v1.NodeDaemonService.StreamEvents:input_type -> google.protobuf.Empty
+	50, // 62: limiquantix.node.v1.NodeDaemonService.DownloadImage:input_type -> limiquantix.node.v1.DownloadImageOnNodeRequest
+	52, // 63: limiquantix.node.v1.NodeDaemonService.GetDownloadStatus:input_type -> limiquantix.node.v1.GetDownloadStatusRequest
+	53, // 64: limiquantix.node.v1.NodeDaemonService.CancelDownload:input_type -> limiquantix.node.v1.CancelDownloadRequest
+	10, // 65: limiquantix.node.v1.NodeDaemonService.HealthCheck:output_type -> limiquantix.node.v1.HealthCheckResponse
+	11, // 66: limiquantix.node.v1.NodeDaemonService.GetNodeInfo:output_type -> limiquantix.node.v1.NodeInfoResponse
+	25, // 67: limiquantix.node.v1.NodeDaemonService.CreateVM:output_type -> limiquantix.node.v1.CreateVMOnNodeResponse
+	57, // 68: limiquantix.node.v1.NodeDaemonService.StartVM:output_type -> google.protobuf.Empty
+	57, // 69: limiquantix.node.v1.NodeDaemonService.StopVM:output_type -> google.protobuf.Empty
+	57, // 70: limiquantix.node.v1.NodeDaemonService.ForceStopVM:output_type -> google.protobuf.Empty
+	57, // 71: limiquantix.node.v1.NodeDaemonService.RebootVM:output_type -> google.protobuf.Empty
+	57, // 72: limiquantix.node.v1.NodeDaemonService.PauseVM:output_type -> google.protobuf.Empty
+	57, // 73: limiquantix.node.v1.NodeDaemonService.ResumeVM:output_type -> google.protobuf.Empty
+	57, // 74: limiquantix.node.v1.NodeDaemonService.DeleteVM:output_type -> google.protobuf.Empty
+	27, // 75: limiquantix.node.v1.NodeDaemonService.GetVMStatus:output_type -> limiquantix.node.v1.VMStatusResponse
+	29, // 76: limiquantix.node.v1.NodeDaemonService.ListVMs:output_type -> limiquantix.node.v1.ListVMsOnNodeResponse
+	30, // 77: limiquantix.node.v1.NodeDaemonService.GetConsole:output_type -> limiquantix.node.v1.ConsoleInfoResponse
+	32, // 78: limiquantix.node.v1.NodeDaemonService.CreateSnapshot:output_type -> limiquantix.node.v1.SnapshotResponse
+	57, // 79: limiquantix.node.v1.NodeDaemonService.RevertSnapshot:output_type -> google.protobuf.Empty
+	57, // 80: limiquantix.node.v1.NodeDaemonService.DeleteSnapshot:output_type -> google.protobuf.Empty
+	35, // 81: limiquantix.node.v1.NodeDaemonService.ListSnapshots:output_type -> limiquantix.node.v1.ListSnapshotsResponse
+	57, // 82: limiquantix.node.v1.NodeDaemonService.AttachDisk:output_type -> google.protobuf.Empty
+	57, // 83: limiquantix.node.v1.NodeDaemonService.DetachDisk:output_type -> google.protobuf.Empty
+	57, // 84: limiquantix.node.v1.NodeDaemonService.AttachNIC:output_type -> google.protobuf.Empty
+	57, // 85: limiquantix.node.v1.NodeDaemonService.DetachNIC:output_type -> google.protobuf.Empty
+	41, // 86: limiquantix.node.v1.NodeDaemonService.PrepareMigration:output_type -> limiquantix.node.v1.MigrationToken
+	57, // 87: limiquantix.node.v1.NodeDaemonService.ReceiveMigration:output_type -> google.protobuf.Empty
+	43, // 88: limiquantix.node.v1.NodeDaemonService.MigrateVM:output_type -> limiquantix.node.v1.MigrationProgress
+	45, // 89: limiquantix.node.v1.NodeDaemonService.StreamMetrics:output_type -> limiquantix.node.v1.NodeMetrics
+	49, // 90: limiquantix.node.v1.NodeDaemonService.StreamEvents:output_type -> limiquantix.node.v1.NodeEvent
+	51, // 91: limiquantix.node.v1.NodeDaemonService.DownloadImage:output_type -> limiquantix.node.v1.DownloadProgress
+	51, // 92: limiquantix.node.v1.NodeDaemonService.GetDownloadStatus:output_type -> limiquantix.node.v1.DownloadProgress
+	57, // 93: limiquantix.node.v1.NodeDaemonService.CancelDownload:output_type -> google.protobuf.Empty
+	65, // [65:94] is the sub-list for method output_type
+	36, // [36:65] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_limiquantix_node_v1_node_daemon_proto_init() }
@@ -3991,8 +4417,8 @@ func file_limiquantix_node_v1_node_daemon_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_node_v1_node_daemon_proto_rawDesc), len(file_limiquantix_node_v1_node_daemon_proto_rawDesc)),
-			NumEnums:      8,
-			NumMessages:   43,
+			NumEnums:      9,
+			NumMessages:   47,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
