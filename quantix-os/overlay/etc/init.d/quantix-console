@@ -1,0 +1,83 @@
+#!/sbin/openrc-run
+# ============================================================================
+# Quantix Console TUI - OpenRC Service Script
+# ============================================================================
+# The Quantix Console is the "yellow screen" TUI that provides:
+# - Network configuration
+# - Cluster join wizard
+# - Service status display
+# - Emergency shell access
+# 
+# Note: This service is typically started by inittab on TTY1, not OpenRC.
+# This init script is for manual control/restart.
+# ============================================================================
+
+name="quantix-console"
+description="Quantix Console TUI (DCUI)"
+
+# Binary location
+command="/usr/local/bin/qx-console"
+
+# No arguments needed (reads from environment)
+command_args=""
+
+# Run as root
+command_user="root:root"
+
+# This is NOT backgrounded - it runs on a TTY
+command_background="no"
+
+# Dependencies
+depend() {
+    # Node daemon should be running for status display
+    after quantix-node
+    # But we can start without it
+    use quantix-node
+    # Need basic system
+    need localmount
+}
+
+# Pre-start checks
+start_pre() {
+    # Check if binary exists
+    if [ ! -x "${command}" ]; then
+        # Fall back to dialog-based menu if Rust console not available
+        if [ ! -x /usr/local/bin/qx-console-fallback ]; then
+            ewarn "Console binary not found, using fallback"
+            command="/usr/local/bin/qx-console-fallback"
+        fi
+    fi
+
+    # Set terminal environment
+    export TERM=linux
+    export LANG=C.UTF-8
+    
+    return 0
+}
+
+# Note: The console is typically started by inittab, not this script
+# This script is for programmatic control
+
+start() {
+    ebegin "Starting ${name}"
+    ewarn "Console is normally started by inittab on TTY1"
+    ewarn "Use 'Alt+F1' to switch to console, or restart with:"
+    ewarn "  rc-service quantix-console restart"
+    eend 0
+}
+
+stop() {
+    ebegin "Stopping ${name}"
+    # Kill any running console instances
+    pkill -f "qx-console" 2>/dev/null || true
+    eend 0
+}
+
+# Restart the console (useful after updates)
+restart() {
+    ebegin "Restarting ${name}"
+    stop
+    sleep 1
+    # The inittab respawn will restart it
+    eend 0
+}

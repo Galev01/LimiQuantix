@@ -1,0 +1,163 @@
+#!/sbin/openrc-run
+# ============================================================================
+# Quantix Node Daemon - OpenRC Service Script
+# ============================================================================
+# The Quantix Node Daemon is the primary management agent that:
+# - Registers with the control plane
+# - Manages VMs via libvirt
+# - Reports telemetry and health
+# - Handles VM lifecycle operations
+# ============================================================================
+
+name="quantix-node"
+description="Quantix Hypervisor Node Daemon"
+
+# Binary location
+command="/usr/local/bin/qx-node"
+
+# Command arguments
+command_args="--config /quantix/node.yaml"
+
+# Run as root (required for libvirt/qemu access)
+command_user="root:root"
+
+# Background the process
+command_background="yes"
+
+# PID file
+pidfile="/run/quantix-node.pid"
+
+# Output logging
+output_log="/var/log/quantix-node.log"
+error_log="/var/log/quantix-node.log"
+
+# Respawn if crashes (OpenRC 0.41+)
+respawn="yes"
+respawn_delay="5"
+respawn_max="10"
+
+# Dependencies
+depend() {
+    # Network must be up
+    need net
+    # Libvirt must be running for VM management
+    need libvirtd
+    # OVS must be running for networking
+    after ovsdb-server ovs-vswitchd
+    # Storage devices should be mounted
+    after localmount
+    # Run before our console TUI
+    before quantix-console
+}
+
+# Pre-start checks
+start_pre() {
+    # Ensure config directory exists
+    if [ ! -d /quantix ]; then
+        eerror "Config directory /quantix not mounted!"
+        eerror "Is the config partition available?"
+        return 1
+    fi
+
+    # Generate node ID if first boot
+    if [ ! -f /quantix/node.yaml ]; then
+        einfo "First boot detected, initializing configuration..."
+        
+        # Copy defaults
+        cp /etc/quantix/defaults.yaml /quantix/node.yaml
+        
+        # Generate UUID
+        NODE_ID=$(cat /proc/sys/kernel/random/uuid)
+        sed -i "s/^  id: \"\"/  id: \"${NODE_ID}\"/" /quantix/node.yaml
+        
+        # Set hostname
+        HOSTNAME=$(cat /etc/hostname)
+        sed -i "s/^  hostname: \"quantix\"/  hostname: \"${HOSTNAME}\"/" /quantix/node.yaml
+        
+        # Create certificate directory
+        mkdir -p /quantix/certificates
+        
+        # Mark first boot for console
+        touch /quantix/.firstboot
+        
+        einfo "Configuration initialized with node ID: ${NODE_ID}"
+    fi
+
+    # Check if binary exists
+    if [ ! -x "${command}" ]; then
+        eerror "Node daemon binary not found: ${command}"
+        return 1
+    fi
+
+    # Create log file if needed
+    touch /var/log/quantix-node.log
+    
+    return 0
+}
+
+# Post-start actions
+start_post() {
+    # Wait for daemon to initialize
+    local timeout=30
+    local count=0
+    
+    while [ $count -lt $timeout ]; do
+        if [ -f "${pidfile}" ] && kill -0 $(cat "${pidfile}") 2>/dev/null; then
+            einfo "Node daemon started (PID: $(cat ${pidfile}))"
+            return 0
+        fi
+        sleep 1
+        count=$((count + 1))
+    done
+    
+    eerror "Node daemon failed to start within ${timeout} seconds"
+    return 1
+}
+
+# Stop actions
+stop_pre() {
+    # Signal graceful shutdown
+    if [ -f "${pidfile}" ]; then
+        einfo "Requesting graceful shutdown..."
+        kill -TERM $(cat "${pidfile}") 2>/dev/null
+        
+        # Wait for graceful shutdown (up to 30s)
+        local timeout=30
+        local count=0
+        while [ $count -lt $timeout ]; do
+            if ! kill -0 $(cat "${pidfile}") 2>/dev/null; then
+                return 0
+            fi
+            sleep 1
+            count=$((count + 1))
+        done
+        
+        ewarn "Graceful shutdown timed out, forcing..."
+    fi
+}
+
+# Reload configuration
+reload() {
+    ebegin "Reloading ${name} configuration"
+    if [ -f "${pidfile}" ]; then
+        kill -HUP $(cat "${pidfile}") 2>/dev/null
+        eend $?
+    else
+        eerror "No PID file found"
+        eend 1
+    fi
+}
+
+# Status check
+status() {
+    if [ -f "${pidfile}" ] && kill -0 $(cat "${pidfile}") 2>/dev/null; then
+        einfo "${name} is running (PID: $(cat ${pidfile}))"
+        return 0
+    else
+        ewarn "${name} is not running"
+        return 1
+    fi
+}
+
+# Extra commands
+extra_commands="reload"

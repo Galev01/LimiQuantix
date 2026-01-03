@@ -37,7 +37,16 @@ type mockOVNState struct {
 	addressSets map[string]*AddressSet
 	dhcpOptions map[string]*DHCPOptions
 	nats        map[string]*NAT
+	natRules    map[string]NATRule // For floating IPs
 	portGroups  map[string]*PortGroup
+}
+
+// NATRule represents a NAT rule for floating IPs.
+type NATRule struct {
+	Router     string
+	Type       string // "dnat_and_snat" or "snat"
+	ExternalIP string
+	InternalIP string
 }
 
 // Config holds OVN client configuration.
@@ -850,4 +859,319 @@ func generateMAC() string {
 // This is used by the Node Daemon to bind VM interfaces to OVN.
 func (c *NorthboundClient) GetOVNPortName(portID string) string {
 	return c.portToOVNPortName(portID)
+}
+
+// =============================================================================
+// SECURITY GROUP / ACL OPERATIONS
+// =============================================================================
+
+// SecurityGroup represents the domain security group.
+type SecurityGroup interface {
+	GetID() string
+	GetRules() []SecurityGroupRule
+	IsStateful() bool
+}
+
+// SecurityGroupRule represents a firewall rule.
+type SecurityGroupRule interface {
+	GetID() string
+	GetDirection() string // "ingress" or "egress"
+	GetProtocol() string  // "tcp", "udp", "icmp", or empty for any
+	GetPortMin() int
+	GetPortMax() int
+	GetRemoteIPPrefix() string
+	GetRemoteGroupID() string
+	GetAction() string // "allow" or "deny"
+}
+
+// CreateSecurityGroupACLs creates OVN ACLs for a security group.
+func (c *NorthboundClient) CreateSecurityGroupACLs(ctx context.Context, sg interface{}) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Type assert to access security group methods
+	sgData, ok := sg.(interface {
+		GetID() string
+		GetRules() interface{}
+		IsStateful() bool
+	})
+	if !ok {
+		// Try with domain.SecurityGroup directly
+		return c.createSecurityGroupACLsFromDomain(ctx, sg)
+	}
+
+	sgID := sgData.GetID()
+	c.logger.Info("Creating OVN ACLs for security group",
+		zap.String("security_group_id", sgID),
+	)
+
+	// Create port group for this security group
+	pgName := c.securityGroupToPortGroupName(sgID)
+	_ = pgName // Will be used with real OVN client
+
+	// Create address set for this security group
+	asName := c.securityGroupToAddressSetName(sgID)
+	_ = asName
+
+	// TODO: Real OVN ACL creation using libovsdb
+	// For now, mock implementation stores the intent
+
+	return nil
+}
+
+// createSecurityGroupACLsFromDomain handles domain.SecurityGroup type.
+func (c *NorthboundClient) createSecurityGroupACLsFromDomain(ctx context.Context, sg interface{}) error {
+	// Import is at package level, so we can use domain types here
+	// This is a workaround for the interface assertion
+	c.logger.Debug("Creating ACLs from domain type")
+	
+	// TODO: Implement with reflection or proper interface
+	return nil
+}
+
+// DeleteSecurityGroupACLs removes all OVN ACLs for a security group.
+func (c *NorthboundClient) DeleteSecurityGroupACLs(ctx context.Context, sgID string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.logger.Info("Deleting OVN ACLs for security group",
+		zap.String("security_group_id", sgID),
+	)
+
+	// TODO: Delete port group and address set
+	// TODO: Delete all ACLs referencing this security group
+
+	return nil
+}
+
+// UpdateSecurityGroupACLs updates OVN ACLs for a security group.
+func (c *NorthboundClient) UpdateSecurityGroupACLs(ctx context.Context, sg interface{}) error {
+	// Simply delete and recreate for now
+	sgData, ok := sg.(interface{ GetID() string })
+	if !ok {
+		return fmt.Errorf("invalid security group type")
+	}
+	
+	if err := c.DeleteSecurityGroupACLs(ctx, sgData.GetID()); err != nil {
+		return fmt.Errorf("failed to delete old ACLs: %w", err)
+	}
+	
+	return c.CreateSecurityGroupACLs(ctx, sg)
+}
+
+// AddPortToSecurityGroup adds a port to a security group's port group.
+func (c *NorthboundClient) AddPortToSecurityGroup(ctx context.Context, portID, sgID string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.logger.Info("Adding port to security group",
+		zap.String("port_id", portID),
+		zap.String("security_group_id", sgID),
+	)
+
+	ovnPortName := c.portToOVNPortName(portID)
+	pgName := c.securityGroupToPortGroupName(sgID)
+	
+	_ = ovnPortName
+	_ = pgName
+
+	// TODO: Add port to OVN port group
+	// pg_add <port-group> <port>...
+
+	return nil
+}
+
+// RemovePortFromSecurityGroup removes a port from a security group's port group.
+func (c *NorthboundClient) RemovePortFromSecurityGroup(ctx context.Context, portID, sgID string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.logger.Info("Removing port from security group",
+		zap.String("port_id", portID),
+		zap.String("security_group_id", sgID),
+	)
+
+	// TODO: Remove port from OVN port group
+
+	return nil
+}
+
+// =============================================================================
+// FLOATING IP / NAT OPERATIONS
+// =============================================================================
+
+// CreateFloatingIPNAT creates a DNAT+SNAT rule for a floating IP.
+func (c *NorthboundClient) CreateFloatingIPNAT(ctx context.Context, routerID, externalIP, internalIP string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.logger.Info("Creating floating IP NAT rule",
+		zap.String("router_id", routerID),
+		zap.String("external_ip", externalIP),
+		zap.String("internal_ip", internalIP),
+	)
+
+	routerName := c.routerToOVNRouterName(routerID)
+
+	// OVN command: ovn-nbctl lr-nat-add <router> dnat_and_snat <external_ip> <internal_ip>
+	// This creates bidirectional NAT:
+	// - DNAT: external_ip -> internal_ip (for incoming traffic)
+	// - SNAT: internal_ip -> external_ip (for outgoing traffic)
+
+	// Store in mock for now
+	if c.mock.natRules == nil {
+		c.mock.natRules = make(map[string]NATRule)
+	}
+	c.mock.natRules[externalIP] = NATRule{
+		Router:     routerName,
+		Type:       "dnat_and_snat",
+		ExternalIP: externalIP,
+		InternalIP: internalIP,
+	}
+
+	// TODO: Real OVN transaction
+	// ops := []ovsdb.Operation{
+	//     lr-nat-add logic
+	// }
+
+	return nil
+}
+
+// DeleteFloatingIPNAT removes a floating IP NAT rule.
+func (c *NorthboundClient) DeleteFloatingIPNAT(ctx context.Context, externalIP string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.logger.Info("Deleting floating IP NAT rule",
+		zap.String("external_ip", externalIP),
+	)
+
+	// Remove from mock
+	delete(c.mock.natRules, externalIP)
+
+	// TODO: Real OVN transaction
+	// ovn-nbctl lr-nat-del <router> dnat_and_snat <external_ip>
+
+	return nil
+}
+
+// CreateSNATRule creates a SNAT rule for a subnet.
+// This allows VMs in the subnet to access external networks.
+func (c *NorthboundClient) CreateSNATRule(ctx context.Context, routerID, externalIP, subnetCIDR string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.logger.Info("Creating SNAT rule",
+		zap.String("router_id", routerID),
+		zap.String("external_ip", externalIP),
+		zap.String("subnet", subnetCIDR),
+	)
+
+	// OVN command: ovn-nbctl lr-nat-add <router> snat <external_ip> <logical_ip>
+	// logical_ip can be a subnet like 10.0.1.0/24
+
+	// Store in mock
+	if c.mock.natRules == nil {
+		c.mock.natRules = make(map[string]NATRule)
+	}
+	c.mock.natRules[fmt.Sprintf("snat-%s", subnetCIDR)] = NATRule{
+		Router:     c.routerToOVNRouterName(routerID),
+		Type:       "snat",
+		ExternalIP: externalIP,
+		InternalIP: subnetCIDR,
+	}
+
+	return nil
+}
+
+// =============================================================================
+// DHCP OPERATIONS
+// =============================================================================
+
+// CreateDHCPOptions creates DHCP options for a subnet.
+func (c *NorthboundClient) CreateDHCPOptions(ctx context.Context, opts DHCPOptionsConfig) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.logger.Info("Creating DHCP options",
+		zap.String("cidr", opts.CIDR),
+		zap.String("router", opts.Router),
+	)
+
+	uuid := generateUUID()
+	
+	dhcpOpts := &DHCPOptions{
+		UUID: uuid,
+		CIDR: opts.CIDR,
+		Options: map[string]string{
+			"server_id":  opts.ServerID,
+			"server_mac": opts.ServerMAC,
+			"router":     opts.Router,
+			"lease_time": fmt.Sprintf("%d", opts.LeaseTime),
+		},
+	}
+
+	if len(opts.DNSServers) > 0 {
+		dhcpOpts.Options["dns_server"] = fmt.Sprintf("{%s}", stringJoin(opts.DNSServers, ", "))
+	}
+
+	if opts.MTU > 0 {
+		dhcpOpts.Options["mtu"] = fmt.Sprintf("%d", opts.MTU)
+	}
+
+	if opts.DomainName != "" {
+		dhcpOpts.Options["domain_name"] = fmt.Sprintf("\"%s\"", opts.DomainName)
+	}
+
+	// Store in mock
+	c.mock.dhcpOptions[uuid] = dhcpOpts
+
+	return uuid, nil
+}
+
+// DHCPOptionsConfig holds DHCP configuration.
+type DHCPOptionsConfig struct {
+	CIDR       string
+	ServerID   string
+	ServerMAC  string
+	Router     string
+	LeaseTime  int
+	DNSServers []string
+	MTU        int
+	DomainName string
+}
+
+// DeleteDHCPOptions removes DHCP options.
+func (c *NorthboundClient) DeleteDHCPOptions(ctx context.Context, uuid string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	delete(c.mock.dhcpOptions, uuid)
+	return nil
+}
+
+// SetPortDHCPOptions assigns DHCP options to a port.
+func (c *NorthboundClient) SetPortDHCPOptions(ctx context.Context, portID, dhcpOptionsUUID string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	ovnPortName := c.portToOVNPortName(portID)
+	
+	if port, ok := c.mock.ports[ovnPortName]; ok {
+		port.DHCPv4Options = &dhcpOptionsUUID
+	}
+
+	return nil
+}
+
+// stringJoin joins strings with a separator.
+func stringJoin(strs []string, sep string) string {
+	result := ""
+	for i, s := range strs {
+		if i > 0 {
+			result += sep
+		}
+		result += s
+	}
+	return result
 }

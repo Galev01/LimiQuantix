@@ -1,0 +1,167 @@
+#!/sbin/openrc-run
+# ============================================================================
+# Quantix First Boot Service - OpenRC Service Script
+# ============================================================================
+# This service runs ONCE on first boot to:
+# - Generate node UUID
+# - Create TLS certificates
+# - Initialize storage
+# - Set initial network configuration
+# ============================================================================
+
+name="quantix-firstboot"
+description="Quantix OS First Boot Configuration"
+
+# Dependencies
+depend() {
+    # Run early in boot
+    before quantix-node
+    # Need filesystem
+    need localmount
+    # Need network for time sync
+    after networking
+}
+
+start() {
+    # Check if first boot marker exists
+    if [ ! -f /quantix/.firstboot ] && [ -f /quantix/node.yaml ]; then
+        einfo "Not first boot, skipping"
+        return 0
+    fi
+
+    ebegin "Running first boot configuration"
+
+    # =========================================================================
+    # 1. Generate Node Identity
+    # =========================================================================
+    einfo "Generating node identity..."
+    
+    NODE_ID=$(cat /proc/sys/kernel/random/uuid)
+    HOSTNAME=$(hostname)
+    
+    # Update node.yaml with generated ID
+    if [ -f /quantix/node.yaml ]; then
+        sed -i "s/^  id: \"\"/  id: \"${NODE_ID}\"/" /quantix/node.yaml
+        sed -i "s/^  hostname: \".*\"/  hostname: \"${HOSTNAME}\"/" /quantix/node.yaml
+    fi
+
+    # =========================================================================
+    # 2. Generate TLS Certificates
+    # =========================================================================
+    einfo "Generating TLS certificates..."
+    
+    CERT_DIR="/quantix/certificates"
+    mkdir -p "${CERT_DIR}"
+    
+    # Generate CA (self-signed for now)
+    if [ ! -f "${CERT_DIR}/ca.key" ]; then
+        openssl genrsa -out "${CERT_DIR}/ca.key" 4096
+        openssl req -new -x509 -days 3650 -key "${CERT_DIR}/ca.key" \
+            -out "${CERT_DIR}/ca.crt" \
+            -subj "/CN=Quantix-CA/O=Quantix"
+    fi
+    
+    # Generate node certificate
+    if [ ! -f "${CERT_DIR}/node.key" ]; then
+        openssl genrsa -out "${CERT_DIR}/node.key" 2048
+        
+        # Create CSR
+        openssl req -new -key "${CERT_DIR}/node.key" \
+            -out "${CERT_DIR}/node.csr" \
+            -subj "/CN=${HOSTNAME}/O=Quantix"
+        
+        # Get management IP
+        MGMT_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
+        
+        # Create SAN extension file
+        cat > "${CERT_DIR}/node.ext" << EOF
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth, clientAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = ${HOSTNAME}
+DNS.2 = ${HOSTNAME}.local
+DNS.3 = localhost
+IP.1 = ${MGMT_IP}
+IP.2 = 127.0.0.1
+EOF
+        
+        # Sign certificate
+        openssl x509 -req -days 365 \
+            -in "${CERT_DIR}/node.csr" \
+            -CA "${CERT_DIR}/ca.crt" \
+            -CAkey "${CERT_DIR}/ca.key" \
+            -CAcreateserial \
+            -out "${CERT_DIR}/node.crt" \
+            -extfile "${CERT_DIR}/node.ext"
+        
+        # Cleanup
+        rm -f "${CERT_DIR}/node.csr" "${CERT_DIR}/node.ext"
+    fi
+    
+    # Set permissions
+    chmod 600 "${CERT_DIR}"/*.key
+    chmod 644 "${CERT_DIR}"/*.crt
+
+    # =========================================================================
+    # 3. Initialize Storage
+    # =========================================================================
+    einfo "Initializing local storage..."
+    
+    # Create VM storage directory
+    mkdir -p /data/vms
+    mkdir -p /data/isos
+    mkdir -p /data/images
+    mkdir -p /data/backups
+    
+    # Set permissions
+    chmod 755 /data/vms /data/isos /data/images /data/backups
+
+    # =========================================================================
+    # 4. Configure Libvirt
+    # =========================================================================
+    einfo "Configuring libvirt..."
+    
+    # Create default storage pool if it doesn't exist
+    virsh pool-define-as --name default --type dir --target /data/vms 2>/dev/null || true
+    virsh pool-autostart default 2>/dev/null || true
+    virsh pool-start default 2>/dev/null || true
+
+    # =========================================================================
+    # 5. Configure Open vSwitch
+    # =========================================================================
+    einfo "Configuring Open vSwitch..."
+    
+    # Create integration bridge if not exists
+    ovs-vsctl --may-exist add-br br-int 2>/dev/null || true
+
+    # =========================================================================
+    # 6. Sync Time
+    # =========================================================================
+    einfo "Synchronizing system time..."
+    
+    # Try to sync time via NTP (best effort)
+    ntpd -d -q -n -p pool.ntp.org 2>/dev/null || \
+    chronyd -q 'server pool.ntp.org iburst' 2>/dev/null || \
+    true
+
+    # =========================================================================
+    # 7. Mark First Boot Complete
+    # =========================================================================
+    rm -f /quantix/.firstboot
+    date -u +"%Y-%m-%dT%H:%M:%SZ" > /quantix/.installed_at
+    
+    einfo "First boot configuration complete!"
+    einfo "Node ID: ${NODE_ID}"
+    einfo "Hostname: ${HOSTNAME}"
+    
+    eend 0
+}
+
+stop() {
+    # Nothing to stop
+    return 0
+}

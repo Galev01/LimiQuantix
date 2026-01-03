@@ -1,0 +1,288 @@
+#!/bin/sh
+# ============================================================================
+# Quantix Console Fallback (Shell-based TUI)
+# ============================================================================
+# This is a simple dialog-based console for cases where the Rust TUI
+# binary is not available. It provides basic configuration options.
+# ============================================================================
+
+# Check for dialog
+if ! command -v dialog >/dev/null 2>&1; then
+    echo "Error: dialog not installed"
+    exec /bin/sh
+fi
+
+# Configuration
+CONFIG_FILE="/quantix/node.yaml"
+BACKTITLE="Quantix-OS Console"
+
+# Get system information
+get_hostname() {
+    cat /etc/hostname 2>/dev/null || echo "quantix"
+}
+
+get_ip() {
+    ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1 || echo "Not configured"
+}
+
+get_node_status() {
+    if pgrep -x "qx-node" >/dev/null; then
+        echo "Running"
+    else
+        echo "Stopped"
+    fi
+}
+
+get_vm_count() {
+    virsh list --all 2>/dev/null | grep -c "running\|paused\|shut off" || echo "0"
+}
+
+# Main menu
+main_menu() {
+    while true; do
+        HOSTNAME=$(get_hostname)
+        IP=$(get_ip)
+        NODE_STATUS=$(get_node_status)
+        VM_COUNT=$(get_vm_count)
+        
+        CHOICE=$(dialog --clear --backtitle "$BACKTITLE" \
+            --title "Quantix-OS v1.0.0" \
+            --menu "\n  Hostname: $HOSTNAME\n  IP Address: $IP\n  Node Status: $NODE_STATUS\n  VMs: $VM_COUNT\n\n  Management URL: https://$IP:8443\n" \
+            20 60 8 \
+            "1" "Configure Network" \
+            "2" "View Logs" \
+            "3" "Join Cluster" \
+            "4" "Restart Services" \
+            "5" "Test Connection" \
+            "6" "System Info" \
+            "7" "Emergency Shell" \
+            "8" "Reboot / Shutdown" \
+            2>&1 >/dev/tty)
+        
+        case $CHOICE in
+            1) configure_network ;;
+            2) view_logs ;;
+            3) join_cluster ;;
+            4) restart_services ;;
+            5) test_connection ;;
+            6) system_info ;;
+            7) emergency_shell ;;
+            8) power_menu ;;
+            *) ;; # Stay in menu
+        esac
+    done
+}
+
+# Configure network
+configure_network() {
+    IFACE=$(ip link | grep -E '^[0-9]+:' | grep -v 'lo:' | head -1 | cut -d: -f2 | tr -d ' ')
+    
+    MODE=$(dialog --clear --backtitle "$BACKTITLE" \
+        --title "Network Configuration" \
+        --menu "Select network mode for $IFACE:" 15 50 3 \
+        "dhcp" "DHCP (Automatic)" \
+        "static" "Static IP" \
+        "back" "Back to Menu" \
+        2>&1 >/dev/tty)
+    
+    case $MODE in
+        dhcp)
+            dialog --infobox "Requesting DHCP lease..." 3 40
+            udhcpc -i "$IFACE" -n -q
+            sleep 2
+            dialog --msgbox "Network configured via DHCP\n\nNew IP: $(get_ip)" 8 40
+            ;;
+        static)
+            IP=$(dialog --inputbox "Enter IP address (e.g., 192.168.1.100):" 8 50 2>&1 >/dev/tty)
+            MASK=$(dialog --inputbox "Enter netmask (e.g., 255.255.255.0):" 8 50 "255.255.255.0" 2>&1 >/dev/tty)
+            GW=$(dialog --inputbox "Enter gateway (e.g., 192.168.1.1):" 8 50 2>&1 >/dev/tty)
+            DNS=$(dialog --inputbox "Enter DNS server:" 8 50 "8.8.8.8" 2>&1 >/dev/tty)
+            
+            # Apply configuration
+            ip addr flush dev "$IFACE"
+            ip addr add "$IP/$MASK" dev "$IFACE"
+            ip route add default via "$GW"
+            echo "nameserver $DNS" > /etc/resolv.conf
+            
+            dialog --msgbox "Static IP configured: $IP" 6 40
+            ;;
+        *) ;;
+    esac
+}
+
+# View logs
+view_logs() {
+    LOG_CHOICE=$(dialog --clear --backtitle "$BACKTITLE" \
+        --title "View Logs" \
+        --menu "Select log to view:" 15 50 4 \
+        "node" "Node Daemon Log" \
+        "libvirt" "Libvirt Log" \
+        "ovs" "Open vSwitch Log" \
+        "dmesg" "Kernel Messages" \
+        2>&1 >/dev/tty)
+    
+    case $LOG_CHOICE in
+        node)
+            dialog --textbox /var/log/quantix-node.log 20 70
+            ;;
+        libvirt)
+            dialog --textbox /var/log/libvirt/libvirtd.log 20 70 2>/dev/null || \
+            dialog --msgbox "Libvirt log not available" 6 40
+            ;;
+        ovs)
+            dialog --programbox "ovs-vsctl show" 20 70
+            ;;
+        dmesg)
+            dmesg | tail -100 | dialog --programbox 20 70
+            ;;
+    esac
+}
+
+# Join cluster
+join_cluster() {
+    URL=$(dialog --inputbox "Enter Control Plane URL:\n(e.g., https://control.example.com:6443)" 10 60 2>&1 >/dev/tty)
+    
+    if [ -n "$URL" ]; then
+        TOKEN=$(dialog --inputbox "Enter Join Token:" 8 60 2>&1 >/dev/tty)
+        
+        if [ -n "$TOKEN" ]; then
+            dialog --infobox "Joining cluster..." 3 30
+            
+            # Update config
+            sed -i "s|url: \"\"|url: \"$URL\"|" "$CONFIG_FILE"
+            sed -i "s|join_token: \"\"|join_token: \"$TOKEN\"|" "$CONFIG_FILE"
+            
+            # Restart node daemon
+            rc-service quantix-node restart
+            
+            sleep 3
+            dialog --msgbox "Cluster join initiated.\nCheck status in main menu." 8 50
+        fi
+    fi
+}
+
+# Restart services
+restart_services() {
+    SVC=$(dialog --clear --backtitle "$BACKTITLE" \
+        --title "Restart Services" \
+        --menu "Select service to restart:" 15 50 5 \
+        "node" "Quantix Node Daemon" \
+        "libvirt" "Libvirt" \
+        "ovs" "Open vSwitch" \
+        "network" "Networking" \
+        "all" "All Services" \
+        2>&1 >/dev/tty)
+    
+    case $SVC in
+        node) rc-service quantix-node restart ;;
+        libvirt) rc-service libvirtd restart ;;
+        ovs) rc-service ovsdb-server restart; rc-service ovs-vswitchd restart ;;
+        network) rc-service networking restart ;;
+        all)
+            rc-service networking restart
+            rc-service ovsdb-server restart
+            rc-service ovs-vswitchd restart
+            rc-service libvirtd restart
+            rc-service quantix-node restart
+            ;;
+    esac
+    
+    dialog --msgbox "Service restart complete" 6 30
+}
+
+# Test connection
+test_connection() {
+    dialog --infobox "Testing connections..." 3 30
+    
+    RESULT=""
+    
+    # Test DNS
+    if ping -c 1 google.com >/dev/null 2>&1; then
+        RESULT="$RESULT\nDNS: OK"
+    else
+        RESULT="$RESULT\nDNS: FAILED"
+    fi
+    
+    # Test gateway
+    GW=$(ip route | grep default | awk '{print $3}')
+    if ping -c 1 "$GW" >/dev/null 2>&1; then
+        RESULT="$RESULT\nGateway ($GW): OK"
+    else
+        RESULT="$RESULT\nGateway ($GW): FAILED"
+    fi
+    
+    # Test control plane (if configured)
+    CP_URL=$(grep 'url:' "$CONFIG_FILE" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"')
+    if [ -n "$CP_URL" ] && [ "$CP_URL" != "" ]; then
+        if curl -sk --connect-timeout 5 "$CP_URL/health" >/dev/null 2>&1; then
+            RESULT="$RESULT\nControl Plane: OK"
+        else
+            RESULT="$RESULT\nControl Plane: FAILED"
+        fi
+    else
+        RESULT="$RESULT\nControl Plane: Not configured"
+    fi
+    
+    dialog --msgbox "Connection Test Results:$RESULT" 12 50
+}
+
+# System info
+system_info() {
+    INFO=$(cat << EOF
+Hostname: $(hostname)
+Kernel: $(uname -r)
+Uptime: $(uptime -p)
+
+CPU: $(grep 'model name' /proc/cpuinfo | head -1 | cut -d: -f2)
+Cores: $(nproc)
+Memory: $(free -h | grep Mem | awk '{print $2}') total, $(free -h | grep Mem | awk '{print $3}') used
+
+Storage:
+$(df -h /data 2>/dev/null | tail -1)
+
+Network Interfaces:
+$(ip -4 addr show | grep inet | grep -v 127.0.0.1)
+EOF
+)
+    dialog --msgbox "$INFO" 20 70
+}
+
+# Emergency shell
+emergency_shell() {
+    dialog --yesno "Open emergency shell?\n\nThis will exit the console.\nPress Alt+F1 to return." 10 40
+    if [ $? -eq 0 ]; then
+        clear
+        echo ""
+        echo "╔═══════════════════════════════════════════════════════════════╗"
+        echo "║                    EMERGENCY SHELL                            ║"
+        echo "║   Type 'exit' or press Ctrl+D to return to console           ║"
+        echo "╚═══════════════════════════════════════════════════════════════╝"
+        echo ""
+        exec /bin/sh
+    fi
+}
+
+# Power menu
+power_menu() {
+    ACTION=$(dialog --clear --backtitle "$BACKTITLE" \
+        --title "Power Options" \
+        --menu "Select action:" 12 50 3 \
+        "reboot" "Reboot System" \
+        "shutdown" "Shutdown System" \
+        "back" "Back to Menu" \
+        2>&1 >/dev/tty)
+    
+    case $ACTION in
+        reboot)
+            dialog --yesno "Reboot the system?" 6 30
+            [ $? -eq 0 ] && reboot
+            ;;
+        shutdown)
+            dialog --yesno "Shutdown the system?" 6 30
+            [ $? -eq 0 ] && poweroff
+            ;;
+    esac
+}
+
+# Start main menu
+main_menu

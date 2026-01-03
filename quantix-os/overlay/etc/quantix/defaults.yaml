@@ -1,0 +1,190 @@
+# ============================================================================
+# Quantix-OS Default Configuration
+# ============================================================================
+# This file contains default values for a fresh Quantix-OS installation.
+# Actual configuration is stored in /quantix/node.yaml after first boot.
+# ============================================================================
+
+# Node identity (generated on first boot)
+node:
+  # UUID generated on first boot, persists across reinstalls if config preserved
+  id: ""
+  # Hostname (set during install or DHCP)
+  hostname: "quantix"
+  # Human-readable description
+  description: "Quantix Hypervisor Node"
+  # Labels for scheduling and organization
+  labels: {}
+  # Taints to prevent VM scheduling
+  taints: []
+
+# Cluster membership
+cluster:
+  # Control plane URL (set during cluster join)
+  url: ""
+  # Join token (used once, then cleared)
+  join_token: ""
+  # Node's unique token for authentication
+  node_token: ""
+  # Is this node part of a cluster?
+  joined: false
+
+# Network configuration
+network:
+  # Management network (for control plane communication)
+  management:
+    # Network interface (e.g., eth0, eno1, bond0)
+    interface: "eth0"
+    # DHCP or static
+    mode: "dhcp"
+    # Static IP configuration (only used if mode: static)
+    address: ""      # e.g., "192.168.1.100/24"
+    gateway: ""      # e.g., "192.168.1.1"
+    dns:
+      - "8.8.8.8"
+      - "8.8.4.4"
+    search: []       # DNS search domains
+    # VLAN tagging (0 = untagged)
+    vlan: 0
+    # MTU (0 = default)
+    mtu: 0
+
+  # Overlay network (for VM traffic between nodes)
+  overlay:
+    # Tunnel interface for Geneve/VXLAN
+    interface: ""    # Auto-detected if empty
+    # Tunnel type: geneve (default) or vxlan
+    tunnel_type: "geneve"
+    # Local tunnel IP (usually same as management IP)
+    local_ip: ""
+
+  # Storage network (optional dedicated network for storage traffic)
+  storage:
+    enabled: false
+    interface: ""
+    mode: "dhcp"
+    address: ""
+    gateway: ""
+    vlan: 0
+    mtu: 9000        # Jumbo frames for storage
+
+# Storage configuration
+storage:
+  # Default storage pool for VMs
+  default_pool: "local"
+  
+  # Local storage (always available)
+  local:
+    path: "/data/vms"
+    enabled: true
+  
+  # Shared storage (configured via web UI)
+  # shared:
+  #   type: "nfs"  # nfs, iscsi, ceph
+  #   ...
+
+# Virtualization settings
+virtualization:
+  # Enable nested virtualization
+  nested: false
+  # Default machine type
+  machine_type: "pc-q35"
+  # Default CPU model (host-passthrough for best performance)
+  cpu_model: "host-passthrough"
+  # Huge pages configuration
+  hugepages:
+    enabled: false
+    size: "2M"       # 2M or 1G
+    count: 0         # 0 = auto-calculate
+  # IOMMU for device passthrough
+  iommu:
+    enabled: true    # Enabled by default if hardware supports
+    mode: "pt"       # Passthrough mode for best performance
+
+# Services
+services:
+  # Node daemon (always enabled)
+  quantix_node:
+    enabled: true
+    port: 9443
+    log_level: "info"
+  
+  # SSH access (disabled by default for security)
+  ssh:
+    enabled: false
+    port: 22
+    password_auth: false
+    root_login: false
+  
+  # SNMP (optional monitoring)
+  snmp:
+    enabled: false
+    community: "public"
+  
+  # Prometheus metrics endpoint
+  metrics:
+    enabled: true
+    port: 9100
+
+# Security settings
+security:
+  # Firewall (nftables)
+  firewall:
+    enabled: true
+    # Default policy
+    default_policy: "drop"
+    # Allowed management ports
+    allowed_ports:
+      - 22     # SSH (if enabled)
+      - 443    # Web UI
+      - 8443   # API
+      - 9443   # Node daemon
+      - 5900-5999  # VNC (dynamic)
+      - 16509  # libvirt
+  
+  # TLS configuration
+  tls:
+    # Auto-generate self-signed cert on first boot
+    auto_cert: true
+    # Certificate paths
+    cert_path: "/quantix/certificates/node.crt"
+    key_path: "/quantix/certificates/node.key"
+    ca_path: "/quantix/certificates/ca.crt"
+
+# Logging
+logging:
+  # Log level: debug, info, warn, error
+  level: "info"
+  # Log to journald (in RAM)
+  journald: true
+  # Forward to syslog server
+  syslog:
+    enabled: false
+    server: ""
+    port: 514
+    protocol: "udp"  # udp or tcp
+
+# Update settings
+updates:
+  # Automatic security updates (recommended)
+  auto_update: false
+  # Update channel
+  channel: "stable"  # stable, beta, nightly
+  # Update server URL
+  server: "https://updates.quantix.io"
+  # Maintenance window (UTC)
+  maintenance_window:
+    day: "sunday"
+    hour: 3
+
+# High availability
+ha:
+  # Enable HA features
+  enabled: false
+  # Fencing method (ipmi, pdu, agent)
+  fencing_method: "agent"
+  # IPMI configuration (if fencing_method: ipmi)
+  ipmi:
+    address: ""
+    username: ""
+    password: ""

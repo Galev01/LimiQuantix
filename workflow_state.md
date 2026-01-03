@@ -170,9 +170,26 @@ The `interfaceid` maps to the OVN logical switch port, enabling OVN controller t
 
 ---
 
+## Files Changed This Session
+
+| File | Changes |
+|------|---------|
+| `frontend/src/pages/ImageLibrary.tsx` | **NEW** - Cloud images and ISOs management page |
+| `frontend/src/components/storage/ISOUploadDialog.tsx` | **NEW** - Multi-step ISO upload wizard |
+| `frontend/src/components/storage/index.ts` | Added ISOUploadDialog export |
+| `frontend/src/hooks/useImages.ts` | Added useISOs, useCreateImage, ISO_CATALOG |
+| `frontend/src/components/vm/VMCreationWizard.tsx` | Password/SSH auth, ISO integration, PasswordInput |
+| `project_plan.md` | Updated with Image Library & ISO upload status |
+| `project-status-analysis.md` | Updated with latest features |
+| `workflow_state.md` | Updated current status |
+
+---
+
 ## Next Steps
 
 ### Immediate (This Week)
+- [ ] Backend ImageService implementation for ISO upload
+- [ ] Node Daemon image download handler
 - [ ] Regenerate proto code (`make proto`)
 - [ ] Implement Node Daemon network RPC handlers
 - [ ] Add OVN central setup documentation

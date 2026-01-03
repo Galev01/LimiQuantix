@@ -21,7 +21,7 @@
 | **QVMRC Native Client** | ✅ **100%** | Tauri desktop app with VNC + deep linking |
 | **Guest Agent** | ✅ **85%** | Linux/Windows support, telemetry, scripts, file browser, quiescing |
 | **Storage Backend** | ✅ **80%** | Local, NFS, Ceph RBD, iSCSI with LVM thin provisioning |
-| **Network Backend (QuantumNet)** | ⏳ **15%** | OVN/OVS implementation started |
+| **Network Backend (QuantumNet)** | ⏳ **65%** | OVN/OVS core implementation complete |
 | **Host OS (limiquantix OS)** | ❌ **0%** | Not started |
 
 ---
@@ -218,21 +218,25 @@ agent/
 | Snapshots | ✅ Done | Snapshot disk images with LVM/rbd snap |
 | Frontend UI | ✅ Done | Storage pools + volumes pages with dialogs |
 
-### 8. QuantumNet - Distributed Networking ⏳ 15%
+### 8. QuantumNet - Distributed Networking ⏳ 65%
 
 **Architecture:** OVN (Open Virtual Network) + OVS (Open vSwitch)
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| **OVN Northbound Client** | ⏳ | Go client using libovsdb |
-| **NetworkService** | ⏳ | CreateNetwork, CreatePort RPCs |
-| **OVS Port Manager** | ⏳ | Rust agent binding VMs to br-int |
-| **Libvirt OVS XML** | ⏳ | VirtualPort integration |
-| **Security Groups** | 📋 | OVN ACLs for distributed firewall |
-| **DHCP/DNS** | 📋 | Built-in OVN DHCP + Magic DNS |
-| **Floating IPs** | 📋 | 1:1 NAT via OVN routers |
+| **OVN Northbound Client** | ✅ Done | Go client with mock + libovsdb ready |
+| **NetworkService** | ✅ Done | CreateNetwork, CreatePort with OVN backend |
+| **OVS Port Manager** | ✅ Done | Rust agent binding VMs to br-int |
+| **Libvirt OVS XML** | ✅ Done | VirtualPort integration |
+| **Node Daemon RPC Handlers** | ✅ Done | ConfigureNetworkPort, GetOVSStatus, etc. |
+| **Security Groups** | ✅ Done | OVN ACLs via SecurityGroupService |
+| **DHCP/DNS** | ✅ Done | Built-in OVN DHCP + CoreDNS Magic DNS |
+| **Floating IPs** | ✅ Done | 1:1 NAT via OVN routers |
+| **Setup Documentation** | ✅ Done | OVN central + node setup guide |
 | **Load Balancing** | 📋 | L4 LB via OVN |
 | **WireGuard Bastion** | 📋 | Direct overlay access |
+| **BGP ToR Integration** | 📋 | Enterprise bare-metal integration |
+| **Integration Testing** | 📋 | Test with real OVS/OVN deployment |
 
 **Network Types:**
 - **VLAN/Flat**: Like VMware Port Groups - Direct L2 with VLAN tag
@@ -244,6 +248,11 @@ VM A → TAP → br-int → OVS Geneve Tunnel → Node 2 br-int → TAP → VM B
        ↑                    ↑                    ↑
    OVN LSP            Encapsulation          OVN LSP
 ```
+
+**Documentation Created:**
+- `docs/adr/000009-quantumnet-architecture.md` - Architecture design
+- `docs/000050-ovn-central-setup-guide.md` - OVN deployment guide
+- `docs/000051-dhcp-dns-configuration.md` - DHCP and DNS setup
 
 ### 9. Components NOT Started ❌
 

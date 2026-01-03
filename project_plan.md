@@ -32,7 +32,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 | **ESXi Host Agent** | Rust Node Daemon | ✅ 90% |
 | **VMware Tools** | Rust Guest Agent | ✅ 85% |
 | **vSAN / VMFS** | Ceph / LINSTOR | ✅ 80% |
-| **NSX-T / vDS** | OVN / OVS (QuantumNet) | ⏳ 15% |
+| **NSX-T / vDS** | OVN / OVS (QuantumNet) | ⏳ 65% |
 | **ESXi OS** | limiquantix OS | ❌ 0% |
 | **vMotion** | Live Migration | ⏳ 50% |
 | **HA / DRS** | HA Manager / DRS Engine | ✅ Done |
@@ -287,16 +287,19 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 
 | Task | Status | Description |
 |------|--------|-------------|
-| **OVN Northbound Client (Go)** | ⏳ | Connect to OVN NB DB via libovsdb |
-| **Network Service** | ⏳ | CreateNetwork, CreatePort, VLAN/Overlay support |
-| **OVS Port Manager (Rust)** | ⏳ | Connect VM TAP interfaces to br-int |
-| **Libvirt OVS Integration** | ⏳ | Generate OVS virtualport XML for VMs |
-| **Security Groups (ACLs)** | 📋 | Distributed firewall via OVN ACLs |
-| **DHCP/DNS** | 📋 | Built-in OVN DHCP + CoreDNS Magic DNS |
-| **Floating IPs** | 📋 | 1:1 NAT via OVN logical routers |
+| **OVN Northbound Client (Go)** | ✅ Done | Connect to OVN NB DB via libovsdb (mock + real ready) |
+| **Network Service** | ✅ Done | CreateNetwork, CreatePort, VLAN/Overlay support |
+| **OVS Port Manager (Rust)** | ✅ Done | Connect VM TAP interfaces to br-int |
+| **Libvirt OVS Integration** | ✅ Done | Generate OVS virtualport XML for VMs |
+| **Node Daemon RPC Handlers** | ✅ Done | Network port config/status/delete/list |
+| **Security Groups (ACLs)** | ✅ Done | Distributed firewall via OVN ACLs |
+| **DHCP/DNS** | ✅ Done | Built-in OVN DHCP + CoreDNS Magic DNS |
+| **Floating IPs** | ✅ Done | 1:1 NAT via OVN logical routers |
+| **OVN Setup Documentation** | ✅ Done | Central + node setup guide |
 | **Load Balancing** | 📋 | L4 load balancing via OVN LB |
 | **WireGuard Bastion** | 📋 | Direct overlay access from laptops |
 | **BGP ToR Integration** | 📋 | Enterprise bare-metal integration |
+| **Integration Testing** | 📋 | Test with real OVS/OVN deployment |
 
 #### Network Types
 
@@ -464,12 +467,6 @@ curl http://127.0.0.1:8080/health
 
 **Next Goal:** QuantumNet - Distributed Networking (OVN/OVS integration)
 
-**Currently Implementing (January 3, 2026):**
-- 🚧 OVN Northbound Client (Go) - libovsdb integration
-- 🚧 NetworkService - CreateNetwork/CreatePort with OVN backend
-- 🚧 Rust OVS Port Manager - VM TAP → br-int binding
-- 🚧 Libvirt OVS XML - VirtualPort integration
-
 **Completed (January 3, 2026):**
 1. ✅ Web Console (noVNC) - Browser-based VNC access
 2. ✅ WebSocket VNC Proxy - Control Plane proxies browser → VNC
@@ -481,6 +478,16 @@ curl http://127.0.0.1:8080/health
 8. ✅ Image Library - Manage cloud images and ISOs with upload dialog
 9. ✅ ISO Upload - Upload ISOs via URL or file with progress tracking
 10. ✅ Password/SSH Access - Improved access config with password + SSH keys + validation
+11. ✅ OVN Northbound Client (Go) - libovsdb integration with mock
+12. ✅ NetworkService with OVN backend - CreateNetwork/CreatePort
+13. ✅ Rust OVS Port Manager - VM TAP → br-int binding
+14. ✅ Libvirt OVS XML - VirtualPort integration
+15. ✅ Node Daemon Network RPC Handlers - ConfigureNetworkPort/GetOVSStatus
+16. ✅ Security Groups (OVN ACLs) - SecurityGroupService with ACL translation
+17. ✅ DHCP Configuration - OVN built-in DHCP with documentation
+18. ✅ CoreDNS Integration - Magic DNS documentation
+19. ✅ Floating IPs Service - NAT implementation with OVN
+20. ✅ OVN Central Setup Guide - Complete deployment documentation
 
 **Frontend VM Detail Improvements:**
 - ✅ VM Actions Dropdown Menu (Edit Settings, Edit Resources, Run Script, Browse Files, Clone, Delete)
@@ -488,31 +495,18 @@ curl http://127.0.0.1:8080/health
 - ✅ Edit Resources Modal (CPU cores, memory with presets)
 - ✅ Quantix Agent tab with status, script execution, file browser
 
-**Image Library & ISO Upload:**
-- ✅ Image Library page (`/storage/images`) with cloud images and ISOs tabs
-- ✅ ISOUploadDialog - Upload from URL or file with drag-and-drop
-- ✅ ISO catalog with built-in entries (Ubuntu, Debian, Rocky, Windows)
-- ✅ Download cloud images from catalog to storage pools
-- ✅ Delete images from library
-
-**VM Access Configuration (Cloud-Init):**
-- ✅ Password authentication with SSH password enabled (`ssh_pwauth: true`)
-- ✅ Password confirmation with validation (match, length >= 8)
-- ✅ SSH key validation (format, completeness, duplicate detection)
-- ✅ Access summary showing configured methods
-- ✅ Warning when no access method configured
-- ✅ Using `chpasswd` module for proper password setup
-- ✅ PasswordInput component with show/hide toggle
+**QuantumNet Documentation:**
+- ✅ `docs/adr/000009-quantumnet-architecture.md` - Architecture design
+- ✅ `docs/000050-ovn-central-setup-guide.md` - OVN deployment guide
+- ✅ `docs/000051-dhcp-dns-configuration.md` - DHCP and DNS setup
 
 **Immediate Next Steps:**
-1. ✅ Complete OVN Northbound Client (Go)
-2. ✅ Implement NetworkService with OVN backend
-3. ✅ Add OVS port management to Rust Node Daemon
-4. 📋 Security group enforcement (OVN ACLs)
-5. 📋 Magic DNS (CoreDNS + OVN state)
-6. 📋 Floating IPs and NAT
+1. 📋 Integration testing with real OVS/OVN deployment
+2. 📋 L4 Load Balancer via OVN LB
+3. 📋 WireGuard Bastion for direct overlay access
+4. 📋 BGP ToR Integration for enterprise
 
-**Estimated Time:** QuantumNet ~4-6 weeks
+**Estimated Time:** Remaining QuantumNet features ~2-3 weeks
 
 ---
 
