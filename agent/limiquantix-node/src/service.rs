@@ -16,6 +16,8 @@ use limiquantix_hypervisor::{
     CloudInitConfig, CloudInitGenerator,
     // Network/OVS types
     OvsPortManager, NetworkPortConfig,
+    // Storage types
+    PoolType, PoolConfig, VolumeSource, LocalConfig,
 };
 use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
@@ -30,6 +32,11 @@ use limiquantix_proto::{
     ReadGuestFileRequest, ReadGuestFileResponse, WriteGuestFileRequest,
     WriteGuestFileResponse, GuestShutdownRequest, GuestShutdownResponse,
     GuestAgentInfo, GuestResourceUsage, GuestNetworkInterface, GuestDiskUsage,
+    // Storage pool/volume types
+    InitStoragePoolRequest, StoragePoolIdRequest, StoragePoolInfoResponse,
+    ListStoragePoolsResponse, CreateVolumeRequest, VolumeIdRequest,
+    ResizeVolumeRequest, CloneVolumeRequest, VolumeAttachInfoResponse,
+    CreateVolumeSnapshotRequest, StoragePoolType, VolumeSourceType,
 };
 use limiquantix_proto::agent::TelemetryReport;
 
@@ -96,7 +103,7 @@ impl NodeDaemonServiceImpl {
     
     /// Get OVS status information
     pub fn get_ovs_status_info(&self) -> Result<limiquantix_hypervisor::OvsStatus, String> {
-        self.ovs_manager.get_status()
+        self.ovs_manager.get_status().map_err(|e| e.to_string())
     }
     
     /// Configure a network port for a VM
@@ -107,7 +114,7 @@ impl NodeDaemonServiceImpl {
         let port_id = config.port_id.clone();
         
         // Configure the port in OVS
-        let result = self.ovs_manager.configure_port(&config)?;
+        let result = self.ovs_manager.configure_port(&config).map_err(|e| e.to_string())?;
         
         // Store in cache for later reference
         {
@@ -131,7 +138,7 @@ impl NodeDaemonServiceImpl {
         }
         
         // Delete from OVS
-        self.ovs_manager.delete_port(port_id, vm_id)
+        self.ovs_manager.delete_port(port_id, vm_id).map_err(|e| e.to_string())
     }
     
     /// Get network port status
@@ -1309,4 +1316,221 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         }
     }
     
+    // =========================================================================
+    // Storage Pool Operations
+    // =========================================================================
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id))]
+    async fn init_storage_pool(
+        &self,
+        request: Request<InitStoragePoolRequest>,
+    ) -> Result<Response<StoragePoolInfoResponse>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, pool_type = ?req.r#type, "Initializing storage pool");
+        
+        let pool_type = match StoragePoolType::try_from(req.r#type) {
+            Ok(StoragePoolType::StoragePoolTypeLocalDir) => PoolType::LocalDir,
+            Ok(StoragePoolType::StoragePoolTypeNfs) => PoolType::Nfs,
+            Ok(StoragePoolType::StoragePoolTypeCephRbd) => PoolType::CephRbd,
+            Ok(StoragePoolType::StoragePoolTypeIscsi) => PoolType::Iscsi,
+            _ => return Err(Status::invalid_argument("Invalid pool type")),
+        };
+        
+        // Build pool config from proto
+        let config = if let Some(cfg) = req.config {
+            let mut pool_config = PoolConfig::default();
+            if let Some(local) = cfg.local {
+                pool_config.local = Some(LocalConfig { path: local.path });
+            }
+            pool_config
+        } else {
+            PoolConfig::default()
+        };
+        
+        let pool_info = self.storage.init_pool(&req.pool_id, pool_type, config).await
+            .map_err(|e| Status::internal(format!("Failed to init pool: {}", e)))?;
+        
+        Ok(Response::new(StoragePoolInfoResponse {
+            pool_id: req.pool_id,
+            r#type: req.r#type,
+            mount_path: pool_info.mount_path.unwrap_or_default(),
+            device_path: String::new(),
+            rbd_pool: String::new(),
+            total_bytes: pool_info.total_bytes,
+            available_bytes: pool_info.available_bytes,
+            used_bytes: pool_info.total_bytes.saturating_sub(pool_info.available_bytes),
+        }))
+    }
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id))]
+    async fn destroy_storage_pool(
+        &self,
+        request: Request<StoragePoolIdRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, "Destroying storage pool");
+        
+        self.storage.destroy_pool(&req.pool_id).await
+            .map_err(|e| Status::internal(format!("Failed to destroy pool: {}", e)))?;
+        
+        Ok(Response::new(()))
+    }
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id))]
+    async fn get_storage_pool_info(
+        &self,
+        request: Request<StoragePoolIdRequest>,
+    ) -> Result<Response<StoragePoolInfoResponse>, Status> {
+        let req = request.into_inner();
+        
+        let pool_info = self.storage.get_pool_info(&req.pool_id).await
+            .map_err(|e| Status::not_found(format!("Pool not found: {}", e)))?;
+        
+        let pool_type = match pool_info.pool_type {
+            PoolType::LocalDir => StoragePoolType::StoragePoolTypeLocalDir as i32,
+            PoolType::Nfs => StoragePoolType::StoragePoolTypeNfs as i32,
+            PoolType::CephRbd => StoragePoolType::StoragePoolTypeCephRbd as i32,
+            PoolType::Iscsi => StoragePoolType::StoragePoolTypeIscsi as i32,
+            _ => StoragePoolType::StoragePoolTypeUnspecified as i32,
+        };
+        
+        Ok(Response::new(StoragePoolInfoResponse {
+            pool_id: req.pool_id,
+            r#type: pool_type,
+            mount_path: pool_info.mount_path.unwrap_or_default(),
+            device_path: String::new(),
+            rbd_pool: String::new(),
+            total_bytes: pool_info.total_bytes,
+            available_bytes: pool_info.available_bytes,
+            used_bytes: pool_info.total_bytes.saturating_sub(pool_info.available_bytes),
+        }))
+    }
+    
+    #[instrument(skip(self, _request))]
+    async fn list_storage_pools(
+        &self,
+        _request: Request<()>,
+    ) -> Result<Response<ListStoragePoolsResponse>, Status> {
+        let pools = self.storage.list_pools().await;
+        
+        let pool_responses: Vec<StoragePoolInfoResponse> = pools.into_iter().map(|p| {
+            let pool_type = match p.pool_type {
+                PoolType::LocalDir => StoragePoolType::StoragePoolTypeLocalDir as i32,
+                PoolType::Nfs => StoragePoolType::StoragePoolTypeNfs as i32,
+                PoolType::CephRbd => StoragePoolType::StoragePoolTypeCephRbd as i32,
+                PoolType::Iscsi => StoragePoolType::StoragePoolTypeIscsi as i32,
+                _ => StoragePoolType::StoragePoolTypeUnspecified as i32,
+            };
+            StoragePoolInfoResponse {
+                pool_id: p.pool_id,
+                r#type: pool_type,
+                mount_path: p.mount_path.unwrap_or_default(),
+                device_path: String::new(),
+                rbd_pool: String::new(),
+                total_bytes: p.total_bytes,
+                available_bytes: p.available_bytes,
+                used_bytes: p.total_bytes.saturating_sub(p.available_bytes),
+            }
+        }).collect();
+        
+        Ok(Response::new(ListStoragePoolsResponse { pools: pool_responses }))
+    }
+    
+    // =========================================================================
+    // Storage Volume Operations
+    // =========================================================================
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id, volume_id = %request.get_ref().volume_id))]
+    async fn create_volume(
+        &self,
+        request: Request<CreateVolumeRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, volume_id = %req.volume_id, size = req.size_bytes, "Creating volume");
+        
+        let source = match VolumeSourceType::try_from(req.source_type) {
+            Ok(VolumeSourceType::VolumeSourceClone) => Some(VolumeSource::Clone(req.source_id)),
+            Ok(VolumeSourceType::VolumeSourceImage) => Some(VolumeSource::Image(req.source_id)),
+            Ok(VolumeSourceType::VolumeSourceSnapshot) => Some(VolumeSource::Snapshot(req.source_id)),
+            _ => None,
+        };
+        
+        self.storage.create_volume(&req.pool_id, &req.volume_id, req.size_bytes, source).await
+            .map_err(|e| Status::internal(format!("Failed to create volume: {}", e)))?;
+        
+        Ok(Response::new(()))
+    }
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id, volume_id = %request.get_ref().volume_id))]
+    async fn delete_volume(
+        &self,
+        request: Request<VolumeIdRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, volume_id = %req.volume_id, "Deleting volume");
+        
+        self.storage.delete_volume(&req.pool_id, &req.volume_id).await
+            .map_err(|e| Status::internal(format!("Failed to delete volume: {}", e)))?;
+        
+        Ok(Response::new(()))
+    }
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id, volume_id = %request.get_ref().volume_id))]
+    async fn resize_volume(
+        &self,
+        request: Request<ResizeVolumeRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, volume_id = %req.volume_id, new_size = req.new_size_bytes, "Resizing volume");
+        
+        self.storage.resize_volume(&req.pool_id, &req.volume_id, req.new_size_bytes).await
+            .map_err(|e| Status::internal(format!("Failed to resize volume: {}", e)))?;
+        
+        Ok(Response::new(()))
+    }
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id))]
+    async fn clone_volume(
+        &self,
+        request: Request<CloneVolumeRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, source = %req.source_volume_id, dest = %req.dest_volume_id, "Cloning volume");
+        
+        self.storage.clone_volume(&req.pool_id, &req.source_volume_id, &req.dest_volume_id).await
+            .map_err(|e| Status::internal(format!("Failed to clone volume: {}", e)))?;
+        
+        Ok(Response::new(()))
+    }
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id, volume_id = %request.get_ref().volume_id))]
+    async fn get_volume_attach_info(
+        &self,
+        request: Request<VolumeIdRequest>,
+    ) -> Result<Response<VolumeAttachInfoResponse>, Status> {
+        let req = request.into_inner();
+        
+        let attach_info = self.storage.get_attach_info(&req.pool_id, &req.volume_id).await
+            .map_err(|e| Status::not_found(format!("Volume not found: {}", e)))?;
+        
+        Ok(Response::new(VolumeAttachInfoResponse {
+            volume_id: req.volume_id,
+            path: attach_info.path,
+            disk_xml: attach_info.disk_xml,
+        }))
+    }
+    
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id, volume_id = %request.get_ref().volume_id))]
+    async fn create_volume_snapshot(
+        &self,
+        request: Request<CreateVolumeSnapshotRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, volume_id = %req.volume_id, snapshot_id = %req.snapshot_id, "Creating volume snapshot");
+        
+        self.storage.create_snapshot(&req.pool_id, &req.volume_id, &req.snapshot_id).await
+            .map_err(|e| Status::internal(format!("Failed to create snapshot: {}", e)))?;
+        
+        Ok(Response::new(()))
+    }
 }
