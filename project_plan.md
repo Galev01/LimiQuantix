@@ -101,7 +101,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 
 | Component | Effort | Priority |
 |-----------|--------|----------|
-| Network Backend | 4-6 weeks | P0 |
+| **QuantumNet (OVN/OVS)** | 4-6 weeks | **P0** - In Progress |
 | limiquantix OS | 8-12 weeks | P1 |
 
 ---
@@ -462,7 +462,13 @@ curl http://127.0.0.1:8080/health
 - ✅ SSH key injection via cloud-init
 - ✅ Frontend cloud-init UI (image selector, SSH keys, custom config)
 
-**Next Goal:** Network Backend (OVN/OVS integration)
+**Next Goal:** QuantumNet - Distributed Networking (OVN/OVS integration)
+
+**Currently Implementing (January 3, 2026):**
+- 🚧 OVN Northbound Client (Go) - libovsdb integration
+- 🚧 NetworkService - CreateNetwork/CreatePort with OVN backend
+- 🚧 Rust OVS Port Manager - VM TAP → br-int binding
+- 🚧 Libvirt OVS XML - VirtualPort integration
 
 **Completed (January 3, 2026):**
 1. ✅ Web Console (noVNC) - Browser-based VNC access
@@ -480,11 +486,14 @@ curl http://127.0.0.1:8080/health
 - ✅ Quantix Agent tab with status, script execution, file browser
 
 **Immediate Next Steps:**
-1. Network backend (Linux bridge first, then OVN/OVS)
-2. Security group enforcement
-3. DHCP/DNS integration
+1. ✅ Complete OVN Northbound Client (Go)
+2. ✅ Implement NetworkService with OVN backend
+3. ✅ Add OVS port management to Rust Node Daemon
+4. 📋 Security group enforcement (OVN ACLs)
+5. 📋 Magic DNS (CoreDNS + OVN state)
+6. 📋 Floating IPs and NAT
 
-**Estimated Time:** Network backend ~4-6 weeks
+**Estimated Time:** QuantumNet ~4-6 weeks
 
 ---
 

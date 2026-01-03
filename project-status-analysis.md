@@ -21,7 +21,7 @@
 | **QVMRC Native Client** | ✅ **100%** | Tauri desktop app with VNC + deep linking |
 | **Guest Agent** | ✅ **85%** | Linux/Windows support, telemetry, scripts, file browser, quiescing |
 | **Storage Backend** | ✅ **80%** | Local, NFS, Ceph RBD, iSCSI with LVM thin provisioning |
-| **Network Backend** | ❌ **0%** | Not started (API ready) |
+| **Network Backend (QuantumNet)** | ⏳ **15%** | OVN/OVS implementation started |
 | **Host OS (limiquantix OS)** | ❌ **0%** | Not started |
 
 ---
@@ -55,8 +55,8 @@
 │         ▼                 ▼                 ▼                 ▼             │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
 │  │ Ceph/LINSTOR│   │  OVN/OVS    │   │ limiquantix │   │   libvirt   │     │
-│  │   Storage   │   │  Networking │   │     OS      │   │  + KVM      │     │
-│  │   ✅ 80%    │   │   ❌ 0%     │   │   ❌ 0%     │   │   ✅ 80%    │     │
+│  │   Storage   │   │ QuantumNet  │   │     OS      │   │  + KVM      │     │
+│  │   ✅ 80%    │   │   ⏳ 15%    │   │   ❌ 0%     │   │   ✅ 80%    │     │
 │  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘     │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
