@@ -21,8 +21,8 @@ use limiquantix_hypervisor::{
 use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
-    NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
-    StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
+    NodeInfoResponse, VmIdRequest, CreateVmOnNodeRequest, CreateVmOnNodeResponse,
+    StopVmRequest, VmStatusResponse, ListVmsOnNodeResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -35,7 +35,11 @@ use limiquantix_proto::{
     InitStoragePoolRequest, StoragePoolIdRequest, StoragePoolInfoResponse,
     ListStoragePoolsResponse, CreateVolumeRequest, VolumeIdRequest,
     ResizeVolumeRequest, CloneVolumeRequest, VolumeAttachInfoResponse,
-    CreateVolumeSnapshotRequest, StoragePoolType, VolumeSourceType,
+    CreateVolumeSnapshotRequest, StoragePoolType,
+    // Filesystem quiesce/thaw and time sync
+    QuiesceFilesystemsRequest, QuiesceFilesystemsResponse, FrozenFilesystem,
+    ThawFilesystemsRequest, ThawFilesystemsResponse,
+    SyncTimeRequest, SyncTimeResponse,
 };
 use limiquantix_proto::agent::TelemetryReport;
 
@@ -423,30 +427,40 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, name = %request.get_ref().name))]
     async fn create_vm(
         &self,
-        request: Request<CreateVmRequest>,
-    ) -> Result<Response<CreateVmResponse>, Status> {
+        request: Request<CreateVmOnNodeRequest>,
+    ) -> Result<Response<CreateVmOnNodeResponse>, Status> {
         info!("Creating VM via libvirt");
         
         let req = request.into_inner();
+        
+        // Get the nested spec (required field)
+        let spec = req.spec.ok_or_else(|| {
+            Status::invalid_argument("VM spec is required")
+        })?;
         
         // Build VM configuration from the request fields
         let mut config = VmConfig::new(&req.name)
             .with_id(&req.vm_id);
         
-        // Set CPU configuration (flat fields in proto)
-        config.cpu.cores = req.cpu_cores;
-        config.cpu.sockets = if req.cpu_sockets > 0 { req.cpu_sockets } else { 1 };
-        config.cpu.threads_per_core = if req.cpu_threads > 0 { req.cpu_threads } else { 1 };
+        // Set CPU configuration from nested spec
+        config.cpu.cores = spec.cpu_cores;
+        config.cpu.sockets = if spec.cpu_sockets > 0 { spec.cpu_sockets } else { 1 };
+        config.cpu.threads_per_core = if spec.cpu_threads_per_core > 0 { spec.cpu_threads_per_core } else { 1 };
         
-        // Set memory configuration (flat fields in proto)
-        config.memory.size_mib = req.memory_mib;
+        // Set memory configuration from nested spec
+        config.memory.size_mib = spec.memory_mib;
         
-        // Set boot configuration (flat fields in proto)
-        config.boot.firmware = Self::convert_firmware(req.firmware);
-        config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
+        // Set boot configuration from nested spec
+        config.boot.firmware = Self::convert_firmware(spec.firmware);
+        config.boot.order = spec.boot_order.iter()
+            .map(|&b| Self::convert_boot_device(b))
+            .collect();
+        if config.boot.order.is_empty() {
+            config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
+        }
         
         // Process disks - create disk images if path not provided
-        for disk_spec in req.disks {
+        for disk_spec in spec.disks {
             let format = Self::convert_disk_format(disk_spec.format);
             
             let mut disk_config = DiskConfig {
@@ -521,12 +535,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             config.disks.push(disk_config);
         }
         
-        // NOTE: Cloud-init configuration is in the nested VMSpec in the proto definition,
-        // but the generated code has flat fields without cloud_init support.
-        // Cloud-init will be available after proto regeneration on Linux.
-        
         // Process NICs
-        for nic_spec in req.nics {
+        for nic_spec in spec.nics {
             // Determine bridge vs network mode
             // If the network name looks like a mock ID (starts with "net-" or is a UUID),
             // fall back to the default libvirt "default" network or virbr0 bridge
@@ -578,10 +588,11 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             });
         }
         
-        // Note: CD-ROMs and console configuration are in the nested spec in the proto file
-        // but the generated code has flat fields. The generated proto uses vnc_enabled flag only.
-        // Set console configuration from flat vnc_enabled field
-        config.console.vnc_enabled = req.vnc_enabled;
+        // Set console configuration from nested spec
+        if let Some(console_spec) = spec.console {
+            config.console.vnc_enabled = console_spec.vnc_enabled;
+            config.console.spice_enabled = console_spec.spice_enabled;
+        }
         
         // Create the VM via the hypervisor backend
         info!(
@@ -598,7 +609,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Ok(created_id) => {
                 info!(vm_id = %created_id, "VM created successfully in libvirt");
                 
-                Ok(Response::new(CreateVmResponse {
+                Ok(Response::new(CreateVmOnNodeResponse {
                     vm_id: created_id,
                     created: true,
                     message: "VM created successfully".to_string(),
@@ -768,7 +779,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     async fn list_v_ms(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<ListVMsResponse>, Status> {
+    ) -> Result<Response<ListVmsOnNodeResponse>, Status> {
         let vms = self.hypervisor.list_vms().await
             .map_err(|e| Status::internal(e.to_string()))?;
         
@@ -787,7 +798,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         debug!(count = responses.len(), "Listed VMs");
         
-        Ok(Response::new(ListVMsResponse { vms: responses }))
+        Ok(Response::new(ListVmsOnNodeResponse { vms: responses }))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
@@ -1355,11 +1366,12 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         let req = request.into_inner();
         info!(pool_id = %req.pool_id, volume_id = %req.volume_id, size = req.size_bytes, "Creating volume");
         
-        let source = match VolumeSourceType::try_from(req.source_type) {
-            Ok(VolumeSourceType::Clone) => Some(VolumeSource::Clone(req.source_id)),
-            Ok(VolumeSourceType::Image) => Some(VolumeSource::Image(req.source_id)),
-            Ok(VolumeSourceType::Snapshot) => Some(VolumeSource::Snapshot(req.source_id)),
-            _ => None,
+        // VolumeSourceType enum values: 0=Empty, 1=Clone, 2=Image, 3=Snapshot
+        let source = match req.source_type {
+            1 => Some(VolumeSource::Clone(req.source_id.clone())), // VOLUME_SOURCE_CLONE
+            2 => Some(VolumeSource::Image(req.source_id.clone())), // VOLUME_SOURCE_IMAGE
+            3 => Some(VolumeSource::Snapshot(req.source_id.clone())), // VOLUME_SOURCE_SNAPSHOT
+            _ => None, // 0 = VOLUME_SOURCE_EMPTY or unknown
         };
         
         self.storage.create_volume(&req.pool_id, &req.volume_id, req.size_bytes, source).await
@@ -1439,5 +1451,187 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             .map_err(|e| Status::internal(format!("Failed to create snapshot: {}", e)))?;
         
         Ok(Response::new(()))
+    }
+    
+    // =========================================================================
+    // Filesystem Quiesce/Thaw Operations (for consistent snapshots)
+    // =========================================================================
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn quiesce_filesystems(
+        &self,
+        request: Request<QuiesceFilesystemsRequest>,
+    ) -> Result<Response<QuiesceFilesystemsResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, "Quiescing filesystems");
+        
+        // Try to connect to the guest agent
+        if let Err(e) = self.get_agent_client(&req.vm_id).await {
+            return Ok(Response::new(QuiesceFilesystemsResponse {
+                success: false,
+                frozen: vec![],
+                error: format!("Agent not available: {}", e.message()),
+                quiesce_token: String::new(),
+            }));
+        }
+        
+        let agents = self.agent_manager.read().await;
+        if let Some(client) = agents.get(&req.vm_id) {
+            match client.quiesce_filesystems(
+                req.mount_points.clone(),
+                req.timeout_seconds,
+                req.run_pre_freeze_scripts,
+            ).await {
+                Ok(response) => {
+                    let frozen: Vec<FrozenFilesystem> = response.frozen.iter().map(|f| {
+                        FrozenFilesystem {
+                            mount_point: f.mount_point.clone(),
+                            device: f.device.clone(),
+                            filesystem: f.filesystem.clone(),
+                        }
+                    }).collect();
+                    
+                    info!(vm_id = %req.vm_id, frozen_count = frozen.len(), "Filesystems quiesced");
+                    Ok(Response::new(QuiesceFilesystemsResponse {
+                        success: response.success,
+                        frozen,
+                        error: response.error,
+                        quiesce_token: response.quiesce_token,
+                    }))
+                }
+                Err(e) => {
+                    error!(vm_id = %req.vm_id, error = %e, "Failed to quiesce filesystems");
+                    Ok(Response::new(QuiesceFilesystemsResponse {
+                        success: false,
+                        frozen: vec![],
+                        error: e.to_string(),
+                        quiesce_token: String::new(),
+                    }))
+                }
+            }
+        } else {
+            Ok(Response::new(QuiesceFilesystemsResponse {
+                success: false,
+                frozen: vec![],
+                error: "Agent not connected".to_string(),
+                quiesce_token: String::new(),
+            }))
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn thaw_filesystems(
+        &self,
+        request: Request<ThawFilesystemsRequest>,
+    ) -> Result<Response<ThawFilesystemsResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, token = %req.quiesce_token, "Thawing filesystems");
+        
+        // Try to connect to the guest agent
+        if let Err(e) = self.get_agent_client(&req.vm_id).await {
+            return Ok(Response::new(ThawFilesystemsResponse {
+                success: false,
+                thawed_mount_points: vec![],
+                error: format!("Agent not available: {}", e.message()),
+                frozen_duration_ms: 0,
+            }));
+        }
+        
+        let agents = self.agent_manager.read().await;
+        if let Some(client) = agents.get(&req.vm_id) {
+            let token = if req.quiesce_token.is_empty() {
+                None
+            } else {
+                Some(req.quiesce_token.clone())
+            };
+            
+            match client.thaw_filesystems(token, req.run_post_thaw_scripts).await {
+                Ok(response) => {
+                    info!(
+                        vm_id = %req.vm_id,
+                        thawed_count = response.thawed_mount_points.len(),
+                        frozen_duration_ms = response.frozen_duration_ms,
+                        "Filesystems thawed"
+                    );
+                    Ok(Response::new(ThawFilesystemsResponse {
+                        success: response.success,
+                        thawed_mount_points: response.thawed_mount_points,
+                        error: response.error,
+                        frozen_duration_ms: response.frozen_duration_ms,
+                    }))
+                }
+                Err(e) => {
+                    error!(vm_id = %req.vm_id, error = %e, "Failed to thaw filesystems");
+                    Ok(Response::new(ThawFilesystemsResponse {
+                        success: false,
+                        thawed_mount_points: vec![],
+                        error: e.to_string(),
+                        frozen_duration_ms: 0,
+                    }))
+                }
+            }
+        } else {
+            Ok(Response::new(ThawFilesystemsResponse {
+                success: false,
+                thawed_mount_points: vec![],
+                error: "Agent not connected".to_string(),
+                frozen_duration_ms: 0,
+            }))
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn sync_time(
+        &self,
+        request: Request<SyncTimeRequest>,
+    ) -> Result<Response<SyncTimeResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, force = req.force, "Syncing time");
+        
+        // Try to connect to the guest agent
+        if let Err(e) = self.get_agent_client(&req.vm_id).await {
+            return Ok(Response::new(SyncTimeResponse {
+                success: false,
+                offset_seconds: 0.0,
+                time_source: String::new(),
+                error: format!("Agent not available: {}", e.message()),
+            }));
+        }
+        
+        let agents = self.agent_manager.read().await;
+        if let Some(client) = agents.get(&req.vm_id) {
+            match client.sync_time(req.force).await {
+                Ok(response) => {
+                    info!(
+                        vm_id = %req.vm_id,
+                        offset_seconds = response.offset_seconds,
+                        time_source = %response.time_source,
+                        "Time synchronized"
+                    );
+                    Ok(Response::new(SyncTimeResponse {
+                        success: response.success,
+                        offset_seconds: response.offset_seconds,
+                        time_source: response.time_source,
+                        error: response.error,
+                    }))
+                }
+                Err(e) => {
+                    error!(vm_id = %req.vm_id, error = %e, "Failed to sync time");
+                    Ok(Response::new(SyncTimeResponse {
+                        success: false,
+                        offset_seconds: 0.0,
+                        time_source: String::new(),
+                        error: e.to_string(),
+                    }))
+                }
+            }
+        } else {
+            Ok(Response::new(SyncTimeResponse {
+                success: false,
+                offset_seconds: 0.0,
+                time_source: String::new(),
+                error: "Agent not connected".to_string(),
+            }))
+        }
     }
 }

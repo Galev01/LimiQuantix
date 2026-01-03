@@ -18,7 +18,10 @@ import {
   X,
   Loader2,
   FolderOpen,
+  Bug,
 } from 'lucide-react';
+import { DebugPanel } from './DebugPanel';
+import { vncLog } from '../lib/debug-logger';
 
 interface ConsoleViewProps {
   connectionId: string;
@@ -81,6 +84,7 @@ export function ConsoleView({
   const [isoServerUrl, setIsoServerUrl] = useState<string | null>(null);
   const [executingAction, setExecutingAction] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
   const vmMenuRef = useRef<HTMLDivElement>(null);
   
   // Toast helpers
@@ -273,7 +277,7 @@ export function ConsoleView({
     const newWidth = Math.floor(resolution.width * scale);
     const newHeight = Math.floor(resolution.height * scale);
     
-    console.log(`[VNC] Scale: ${scale.toFixed(2)}, Display: ${newWidth}x${newHeight}, Resolution: ${resolution.width}x${resolution.height}, Container: ${containerWidth}x${containerHeight}`);
+    vncLog.debug(`Scale: ${scale.toFixed(2)}, Display: ${newWidth}x${newHeight}, Resolution: ${resolution.width}x${resolution.height}, Container: ${containerWidth}x${containerHeight}`);
     
     setCanvasScale(scale);
     setDisplaySize({
@@ -291,7 +295,7 @@ export function ConsoleView({
 
   // Helper to initialize canvas with resolution
   const initializeCanvas = useCallback((width: number, height: number) => {
-    console.log(`[VNC] Initializing canvas: ${width}x${height}`);
+    vncLog.info(`Initializing canvas: ${width}x${height}`);
     
     const canvas = canvasRef.current;
     if (canvas && width > 0 && height > 0) {
@@ -311,28 +315,35 @@ export function ConsoleView({
 
   // Fetch connection info on mount (in case vnc:connected already fired before listener was set up)
   useEffect(() => {
+    vncLog.info(`ConsoleView mounted for VM ${vmId}`, { connectionId, vmName, controlPlaneUrl });
+    
     const fetchConnectionInfo = async () => {
       try {
         const info = await invoke<{
           id: string;
           vm_id: string;
-          status: string;
+          status: string; // "connected", "disconnected", "connecting", etc. (lowercase from Rust serde)
           width: number;
           height: number;
         } | null>('get_connection_info', { connectionId });
         
-        if (info && info.width > 0 && info.height > 0) {
-          console.log(`[VNC] Got connection info: ${info.width}x${info.height}, status: ${info.status}`);
-          initializeCanvas(info.width, info.height);
-          
-          // If the connection is already established (status is "Connected"), update the state
-          // This handles the case where vnc:connected fired before our listener was set up
-          if (info.status === 'Connected') {
+        vncLog.info('Connection info received', info);
+        
+        if (info) {
+          // If the connection is already established (status is "connected"), update the state
+          // Note: Rust serde serializes as lowercase ("connected" not "Connected")
+          if (info.status === 'connected') {
+            vncLog.info('Connection already established, hiding overlay');
             setConnectionState('connected');
+          }
+          
+          if (info.width > 0 && info.height > 0) {
+            vncLog.info(`Got resolution: ${info.width}x${info.height}`);
+            initializeCanvas(info.width, info.height);
           }
         }
       } catch (e) {
-        console.error('[VNC] Failed to get connection info:', e);
+        vncLog.error('Failed to get connection info', e);
       }
     };
 
@@ -365,7 +376,7 @@ export function ConsoleView({
       // If we're receiving framebuffer updates, we're definitely connected
       // This handles cases where the vnc:connected event was missed
       if (connectionStateRef.current !== 'connected') {
-        console.log('[VNC] Got framebuffer update, marking as connected');
+        vncLog.info('Got framebuffer update, marking as connected');
         setConnectionState('connected');
       }
       
@@ -412,7 +423,7 @@ export function ConsoleView({
         const newWidth = event.payload.width;
         const newHeight = event.payload.height;
         
-        console.log(`[VNC] Connected event: ${newWidth}x${newHeight}, id: ${event.payload.connectionId}`);
+        vncLog.info(`Connected event: ${newWidth}x${newHeight}, id: ${event.payload.connectionId}`);
         
         // Show toast only on reconnection (use ref to get current value in closure)
         if (connectionStateRef.current === 'reconnecting') {
@@ -489,14 +500,14 @@ export function ConsoleView({
         password: null,
       });
       
-      console.log('[VNC] Reconnected with new connection ID:', newConnectionId);
+      vncLog.info('Reconnected with new connection ID', newConnectionId);
       // The vnc:connected event handler will show the success toast
     } catch (err) {
-      console.error('Reconnect error:', err);
+      vncLog.error('Reconnect error', err);
       showToast(`Reconnection failed: ${err}`, 'error');
       setConnectionState('disconnected');
     }
-  }, [connectionId, controlPlaneUrl, vmId, showToast]);
+  }, [connectionId, controlPlaneUrl, vmId, showToast, setConnectionState]);
 
   // Send Ctrl+Alt+Del
   const sendCtrlAltDel = useCallback(async () => {
@@ -1009,6 +1020,15 @@ export function ConsoleView({
           
           <div className="console-toolbar-divider" />
           
+          {/* Debug button */}
+          <button
+            onClick={() => setShowDebugPanel(true)}
+            className="console-toolbar-btn"
+            title="Debug Logs"
+          >
+            <Bug className="w-4.5 h-4.5" />
+          </button>
+          
           <button
             onClick={toggleFullscreen}
             className="console-toolbar-btn console-toolbar-btn-fullscreen"
@@ -1100,6 +1120,12 @@ export function ConsoleView({
           )}
         </div>
       </div>
+      
+      {/* Debug Panel */}
+      <DebugPanel
+        isOpen={showDebugPanel}
+        onClose={() => setShowDebugPanel(false)}
+      />
     </div>
   );
 }

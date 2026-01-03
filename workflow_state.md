@@ -52,6 +52,41 @@
 - `qvmrc/src/components/ConsoleView.tsx` - Button actions
 - `qvmrc/src-tauri/src/api.rs` - `vm_power_action` endpoint mapping
 
+### Debug Logging Panel
+
+Added comprehensive debug logging system to QVMRC for troubleshooting connection issues.
+
+**New Files:**
+- `qvmrc/src/lib/debug-logger.ts` - Debug logger singleton that intercepts console.* calls
+- `qvmrc/src/components/DebugPanel.tsx` - UI panel for viewing, filtering, and exporting logs
+
+**Features:**
+1. **Console Interception** - Captures all `console.log/info/warn/error/debug` calls
+2. **Structured Logging** - Custom `vncLog` and `apiLog` helpers with source context
+3. **Search & Filter** - Filter by log level (info/warn/error/debug) and text search
+4. **Auto-scroll** - Automatically scroll to newest entries
+5. **Export Options:**
+   - Copy to clipboard (as formatted text)
+   - Download as `.txt` file
+6. **Clear Logs** - Reset the log buffer
+
+**UI Access:**
+- Bug icon button in toolbar next to fullscreen button
+- Opens modal overlay with log viewer
+
+### Connection State Fix
+
+Fixed the "stuck in connecting" issue where the overlay wouldn't hide.
+
+**Root Cause:** 
+- Initial state was `'connecting'` but the `vnc:connected` event may have fired before the listener was set up
+- The status check compared `'Connected'` (PascalCase) but Rust serde serializes as `'connected'` (lowercase)
+
+**Fixes:**
+1. Changed status check from `'Connected'` to `'connected'` (matching Rust serde output)
+2. Added logging to `fetchConnectionInfo` to help debug state transitions
+3. Added fallback: if framebuffer updates are received, mark as connected
+
 ---
 
 ## ✅ Session 3 Accomplishments (Jan 3, 2026)
