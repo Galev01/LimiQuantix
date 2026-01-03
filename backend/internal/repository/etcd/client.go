@@ -27,9 +27,15 @@ type Client struct {
 
 // NewClient creates a new etcd client.
 func NewClient(cfg config.EtcdConfig, logger *zap.Logger) (*Client, error) {
+	// Use a reasonable dial timeout (default to 5s if not set)
+	dialTimeout := cfg.DialTimeout
+	if dialTimeout == 0 {
+		dialTimeout = 5 * time.Second
+	}
+
 	client, err := clientv3.New(clientv3.Config{
 		Endpoints:   cfg.Endpoints,
-		DialTimeout: cfg.DialTimeout,
+		DialTimeout: dialTimeout,
 		Username:    cfg.Username,
 		Password:    cfg.Password,
 	})
@@ -37,8 +43,21 @@ func NewClient(cfg config.EtcdConfig, logger *zap.Logger) (*Client, error) {
 		return nil, fmt.Errorf("failed to connect to etcd: %w", err)
 	}
 
+	// Verify connectivity before creating session - this prevents hanging
+	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
+	defer cancel()
+
+	_, err = client.Status(ctx, cfg.Endpoints[0])
+	if err != nil {
+		client.Close()
+		return nil, fmt.Errorf("failed to verify etcd connection: %w", err)
+	}
+
 	// Create a session for distributed coordination
-	session, err := concurrency.NewSession(client, concurrency.WithTTL(30))
+	sessionCtx, sessionCancel := context.WithTimeout(context.Background(), dialTimeout)
+	defer sessionCancel()
+
+	session, err := concurrency.NewSession(client, concurrency.WithTTL(30), concurrency.WithContext(sessionCtx))
 	if err != nil {
 		client.Close()
 		return nil, fmt.Errorf("failed to create etcd session: %w", err)

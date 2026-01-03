@@ -307,9 +307,115 @@ qemu-img info /var/lib/limiquantix/cloud-images/ubuntu-22.04.qcow2
 
 ---
 
+## Image Library UI (Completed)
+
+A dedicated Image Library page has been implemented at `/storage/images`:
+
+### Features
+
+- **Cloud Catalog Tab** - Browse and download official cloud images
+- **Local Images Tab** - View images downloaded to nodes
+- **Real-time Progress** - Download progress bar with percentage
+- **Distribution Logos** - Visual identification of OS distributions
+- **Verified Badge** - Indicates official/verified images
+- **Search Filtering** - Quick search by name or distribution
+
+### React Components
+
+```typescript
+// frontend/src/pages/ImageLibrary.tsx
+export default function ImageLibrary() {
+  const { data: localImages } = useImages();
+  const { data: catalogImages } = useImageCatalog();
+  const downloadImage = useDownloadImage();
+  
+  // Tabs: 'catalog' | 'local'
+  // Real-time download progress via useImportStatus(jobId)
+}
+```
+
+### Navigation
+
+Added to sidebar under Storage section:
+- Storage Pools
+- Volumes
+- **Image Library** (new)
+
+---
+
+## Download Manager (Backend)
+
+The backend includes a `DownloadManager` for tracking download jobs:
+
+```go
+// backend/internal/services/storage/download_manager.go
+type DownloadJob struct {
+    ID              string
+    ImageID         string
+    CatalogID       string
+    URL             string
+    TargetPath      string
+    NodeID          string
+    Status          string  // pending, downloading, completed, failed
+    ProgressPercent uint32
+    BytesDownloaded uint64
+    BytesTotal      uint64
+    ErrorMessage    string
+}
+```
+
+### Progress Streaming
+
+The Node Daemon proto supports streaming download progress:
+
+```protobuf
+// proto/limiquantix/node/v1/node_daemon.proto
+rpc DownloadImage(DownloadImageOnNodeRequest) returns (stream DownloadProgress);
+
+message DownloadProgress {
+    string job_id = 1;
+    string image_id = 2;
+    Status status = 3;  // PENDING, DOWNLOADING, VERIFYING, COMPLETED, FAILED
+    uint32 progress_percent = 4;
+    uint64 bytes_downloaded = 5;
+    uint64 bytes_total = 6;
+    uint64 download_speed = 7;  // bytes per second
+    uint32 eta_seconds = 8;
+    string path = 9;
+    string error = 10;
+}
+```
+
+---
+
+## Node Daemon Image Scanning
+
+The Node Daemon scans for local images during registration:
+
+```rust
+// agent/limiquantix-node/src/registration.rs
+async fn sync_images(&self, node_id: &str) -> anyhow::Result<()> {
+    // Scan /var/lib/limiquantix/cloud-images
+    // Detect OS from filename (ubuntu, debian, rocky, etc.)
+    // Report to control plane via ScanLocalImages RPC
+}
+```
+
+### OS Detection from Filename
+
+```rust
+fn detect_os_from_filename(filename: &str) -> DetectedOs {
+    // ubuntu-22.04.qcow2 -> ubuntu, 22.04, "ubuntu"
+    // debian-12.qcow2 -> debian, 12, "debian"
+    // rocky-9.qcow2 -> rocky, 9, "rocky"
+}
+```
+
+---
+
 ## Future Enhancements
 
-1. **Image Download in UI** - Add "Download" button for catalog images
+1. ~~**Image Download in UI**~~ ✅ Completed
 2. **Image Conversion** - Convert VMDK/VHD to QCOW2 automatically
 3. **Image Checksums** - Verify downloaded images against SHA256
 4. **Shared Storage** - Distribute images across Ceph/NFS automatically
