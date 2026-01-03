@@ -22,8 +22,8 @@ use limiquantix_hypervisor::{
 use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
-    NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
-    StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
+    NodeInfoResponse, VmidRequest, CreateVmonNodeRequest, CreateVmonNodeResponse,
+    StopVmrequest, VmStatusResponse, ListVmsOnNodeResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -411,8 +411,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, name = %request.get_ref().name))]
     async fn create_vm(
         &self,
-        request: Request<CreateVmRequest>,
-    ) -> Result<Response<CreateVmResponse>, Status> {
+        request: Request<CreateVmonNodeRequest>,
+    ) -> Result<Response<CreateVmonNodeResponse>, Status> {
         info!("Creating VM via libvirt");
         
         let req = request.into_inner();
@@ -695,7 +695,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Ok(created_id) => {
                 info!(vm_id = %created_id, "VM created successfully in libvirt");
                 
-                Ok(Response::new(CreateVmResponse {
+                Ok(Response::new(CreateVmonNodeResponse {
                     vm_id: created_id,
                     created: true,
                     message: "VM created successfully".to_string(),
@@ -711,7 +711,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn start_vm(
         &self,
-        request: Request<VmIdRequest>,
+        request: Request<VmidRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Starting VM");
         
@@ -726,7 +726,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn stop_vm(
         &self,
-        request: Request<StopVmRequest>,
+        request: Request<StopVmrequest>,
     ) -> Result<Response<()>, Status> {
         info!("Stopping VM");
         
@@ -743,7 +743,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn force_stop_vm(
         &self,
-        request: Request<VmIdRequest>,
+        request: Request<VmidRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Force stopping VM");
         
@@ -758,7 +758,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn reboot_vm(
         &self,
-        request: Request<VmIdRequest>,
+        request: Request<VmidRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Rebooting VM");
         
@@ -773,7 +773,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn pause_vm(
         &self,
-        request: Request<VmIdRequest>,
+        request: Request<VmidRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Pausing VM");
         
@@ -788,7 +788,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn resume_vm(
         &self,
-        request: Request<VmIdRequest>,
+        request: Request<VmidRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Resuming VM");
         
@@ -803,7 +803,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn delete_vm(
         &self,
-        request: Request<VmIdRequest>,
+        request: Request<VmidRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Deleting VM");
         
@@ -828,7 +828,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn get_vm_status(
         &self,
-        request: Request<VmIdRequest>,
+        request: Request<VmidRequest>,
     ) -> Result<Response<VmStatusResponse>, Status> {
         let vm_id = &request.into_inner().vm_id;
         
@@ -865,7 +865,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     async fn list_v_ms(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<ListVMsResponse>, Status> {
+    ) -> Result<Response<ListVmsOnNodeResponse>, Status> {
         let vms = self.hypervisor.list_vms().await
             .map_err(|e| Status::internal(e.to_string()))?;
         
@@ -884,13 +884,13 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         debug!(count = responses.len(), "Listed VMs");
         
-        Ok(Response::new(ListVMsResponse { vms: responses }))
+        Ok(Response::new(ListVmsOnNodeResponse { vms: responses }))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn get_console(
         &self,
-        request: Request<VmIdRequest>,
+        request: Request<VmidRequest>,
     ) -> Result<Response<ConsoleInfoResponse>, Status> {
         let vm_id = &request.into_inner().vm_id;
         
@@ -981,7 +981,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn list_snapshots(
         &self,
-        request: Request<VmIdRequest>,
+        request: Request<VmidRequest>,
     ) -> Result<Response<ListSnapshotsResponse>, Status> {
         let vm_id = &request.into_inner().vm_id;
         
@@ -1106,7 +1106,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn ping_agent(
         &self,
-        request: Request<VmIdRequest>,
+        request: Request<VmidRequest>,
     ) -> Result<Response<AgentPingResponse>, Status> {
         let vm_id = &request.into_inner().vm_id;
         debug!("Pinging guest agent");
@@ -1329,10 +1329,10 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         info!(pool_id = %req.pool_id, pool_type = ?req.r#type, "Initializing storage pool");
         
         let pool_type = match StoragePoolType::try_from(req.r#type) {
-            Ok(StoragePoolType::LocalDir) => PoolType::LocalDir,
-            Ok(StoragePoolType::Nfs) => PoolType::Nfs,
-            Ok(StoragePoolType::CephRbd) => PoolType::CephRbd,
-            Ok(StoragePoolType::Iscsi) => PoolType::Iscsi,
+            Ok(StoragePoolType::StoragePoolTypeLocalDir) => PoolType::LocalDir,
+            Ok(StoragePoolType::StoragePoolTypeNfs) => PoolType::Nfs,
+            Ok(StoragePoolType::StoragePoolTypeCephRbd) => PoolType::CephRbd,
+            Ok(StoragePoolType::StoragePoolTypeIscsi) => PoolType::Iscsi,
             _ => return Err(Status::invalid_argument("Invalid pool type")),
         };
         
@@ -1387,11 +1387,11 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             .map_err(|e| Status::not_found(format!("Pool not found: {}", e)))?;
         
         let pool_type = match pool_info.pool_type {
-            PoolType::LocalDir => StoragePoolType::LocalDir as i32,
-            PoolType::Nfs => StoragePoolType::Nfs as i32,
-            PoolType::CephRbd => StoragePoolType::CephRbd as i32,
-            PoolType::Iscsi => StoragePoolType::Iscsi as i32,
-            _ => StoragePoolType::Unspecified as i32,
+            PoolType::LocalDir => StoragePoolType::StoragePoolTypeLocalDir as i32,
+            PoolType::Nfs => StoragePoolType::StoragePoolTypeNfs as i32,
+            PoolType::CephRbd => StoragePoolType::StoragePoolTypeCephRbd as i32,
+            PoolType::Iscsi => StoragePoolType::StoragePoolTypeIscsi as i32,
+            _ => StoragePoolType::StoragePoolTypeUnspecified as i32,
         };
         
         Ok(Response::new(StoragePoolInfoResponse {
@@ -1415,11 +1415,11 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         let pool_responses: Vec<StoragePoolInfoResponse> = pools.into_iter().map(|p| {
             let pool_type = match p.pool_type {
-                PoolType::LocalDir => StoragePoolType::LocalDir as i32,
-                PoolType::Nfs => StoragePoolType::Nfs as i32,
-                PoolType::CephRbd => StoragePoolType::CephRbd as i32,
-                PoolType::Iscsi => StoragePoolType::Iscsi as i32,
-                _ => StoragePoolType::Unspecified as i32,
+                PoolType::LocalDir => StoragePoolType::StoragePoolTypeLocalDir as i32,
+                PoolType::Nfs => StoragePoolType::StoragePoolTypeNfs as i32,
+                PoolType::CephRbd => StoragePoolType::StoragePoolTypeCephRbd as i32,
+                PoolType::Iscsi => StoragePoolType::StoragePoolTypeIscsi as i32,
+                _ => StoragePoolType::StoragePoolTypeUnspecified as i32,
             };
             StoragePoolInfoResponse {
                 pool_id: p.pool_id,
@@ -1449,9 +1449,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         info!(pool_id = %req.pool_id, volume_id = %req.volume_id, size = req.size_bytes, "Creating volume");
         
         let source = match VolumeSourceType::try_from(req.source_type) {
-            Ok(VolumeSourceType::Clone) => Some(VolumeSource::Clone(req.source_id)),
-            Ok(VolumeSourceType::Image) => Some(VolumeSource::Image(req.source_id)),
-            Ok(VolumeSourceType::Snapshot) => Some(VolumeSource::Snapshot(req.source_id)),
+            Ok(VolumeSourceType::VolumeSourceClone) => Some(VolumeSource::Clone(req.source_id)),
+            Ok(VolumeSourceType::VolumeSourceImage) => Some(VolumeSource::Image(req.source_id)),
+            Ok(VolumeSourceType::VolumeSourceSnapshot) => Some(VolumeSource::Snapshot(req.source_id)),
             _ => None,
         };
         

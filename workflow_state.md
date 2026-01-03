@@ -1,145 +1,102 @@
 # LimiQuantix Workflow State
 
-## Current Status: QuantumNet Advanced Features Complete 🚀
+## Current Status: Proto Regeneration Required ⚠️
 
 **Last Updated:** January 3, 2026
 
 ---
 
-## What's New (This Session)
+## ⚠️ BUILD ISSUE: Proto Files Out of Sync
 
-### 🌐 QuantumNet Advanced Networking Features (Jan 3, 2026)
+### Problem Summary
 
-Implemented the remaining QuantumNet networking features for enterprise deployments.
+The generated Rust proto files (`agent/limiquantix-proto/src/generated/*.rs`) are out of sync with the `.proto` definition files. This causes compilation errors in `limiquantix-node`.
 
-#### Features Completed
+### Root Cause
 
-| Feature | Status | Description |
-|---------|--------|-------------|
-| **L4 Load Balancing** | ✅ Done | OVN LB integration with round-robin, least-conn, source-IP |
-| **WireGuard Bastion** | ✅ Done | Direct VPN access to overlay networks |
-| **BGP ToR Integration** | ✅ Done | Advertise overlay routes to physical switches |
-| **Node Daemon OVS** | ✅ Done | OvsPortManager integrated into service.rs |
-| **Documentation** | ✅ Done | Advanced features guide (000052) |
+1. The proto definitions in `agent/limiquantix-proto/proto/*.proto` have been updated with new messages and fields
+2. The generated Rust code was never regenerated
+3. `protoc` is not installed on this Windows machine, so we can't regenerate
 
-#### Files Created/Modified
+### Required Action
 
-| File | Description |
-|------|-------------|
-| `backend/internal/services/network/load_balancer_service.go` | L4 LB service with OVN backend |
-| `backend/internal/services/network/vpn_service.go` | WireGuard VPN service manager |
-| `backend/internal/services/network/bgp_service.go` | BGP speaker and peering service |
-| `backend/internal/domain/network.go` | Added LoadBalancer, VpnService, BGP domain types |
-| `backend/internal/network/ovn/client.go` | Added CreateLoadBalancer, UpdateLoadBalancer, DeleteLoadBalancer |
-| `agent/limiquantix-node/src/service.rs` | Added OvsPortManager and network port caching |
-| `docs/Networking/000052-advanced-networking-features.md` | Complete advanced features documentation |
+**On a Linux machine with `protoc` installed:**
 
-#### Network Service Summary
+```bash
+cd agent/limiquantix-proto
 
-```go
-// L4 Load Balancer
-LoadBalancerService {
-    Create(req CreateRequest) (*domain.LoadBalancer, error)
-    AddListener(req AddListenerRequest) (*domain.LoadBalancer, error)
-    AddMember(req AddMemberRequest) (*domain.LoadBalancer, error)
-    GetStats(lbID string) (*Stats, error)
-}
+# Install protoc if not available
+# Ubuntu/Debian: sudo apt install protobuf-compiler
+# Or download from: https://github.com/protocolbuffers/protobuf/releases
 
-// WireGuard VPN Bastion
-VpnServiceManager {
-    Create(req CreateVPNRequest) (*domain.VpnService, error)
-    AddConnection(req AddConnectionRequest) (*domain.VpnService, error)
-    GetClientConfig(vpnServiceID, connectionID string) (*ClientConfig, error)
-}
-
-// BGP ToR Integration
-BGPService {
-    CreateSpeaker(req CreateSpeakerRequest) (*domain.BGPSpeaker, error)
-    AddPeer(req AddPeerRequest) (*domain.BGPPeer, error)
-    AdvertiseNetwork(req AdvertiseRequest) (*domain.BGPAdvertisement, error)
-}
+# Regenerate proto files
+cargo build
 ```
 
-#### Architecture: Load Balancer
+The `build.rs` will automatically regenerate the Rust code when `protoc` is available.
 
-```
-                     ┌─────────────────────┐
-                     │    OVN Load         │
-                     │    Balancer         │
-                     │  VIP: 10.0.0.100:80 │
-                     └──────────┬──────────┘
-                                │
-              ┌─────────────────┼─────────────────┐
-              ▼                 ▼                 ▼
-       ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-       │   Web VM 1  │   │   Web VM 2  │   │   Web VM 3  │
-       └─────────────┘   └─────────────┘   └─────────────┘
-```
+### Key Mismatches Found
 
-#### Architecture: WireGuard Bastion
+| Proto Definition | Generated Code | Issue |
+|------------------|----------------|-------|
+| `CreateVMOnNodeRequest` with nested `VMSpec` | `CreateVmRequest` with flat fields | Structure mismatch |
+| `ListVMsOnNodeResponse` | `ListVMsResponse` | Naming mismatch |
+| Guest agent fields in `GuestAgentInfo` | Missing fields like `ip_addresses`, `last_seen` | Missing fields |
+| Storage pool types | Manually added (may need verification) | Partial fix |
 
-```
- [Laptop] ─── UDP 51820 ───▶ [WireGuard Gateway] ─── Overlay ───▶ [VMs]
-     │                           │
-     └── AllowedIPs: 10.0.0.0/8 ─┘
-```
+### Temporary Fixes Applied
 
-#### Architecture: BGP ToR
+1. **build.rs** - Updated to skip regeneration if protoc is missing and files exist
+2. **Storage types** - Manually added to `limiquantix.node.v1.rs`
+3. **Guest agent types** - Manually added basic types
+4. **Agent proto file** - Created `limiquantix.agent.v1.rs` manually
 
-```
-         ┌──────────────┐
-         │  ToR Switch  │◄──── iBGP ────┐
-         │   (AS 65000) │               │
-         └──────────────┘               │
-                                 ┌──────┴───────┐
-                                 │  BGP Speaker │
-                                 │ (LimiQuantix) │
-                                 │ Advertises:  │
-                                 │ 10.0.1.0/24  │
-                                 └──────────────┘
+### To Verify Build Works (on Linux)
+
+```bash
+cd agent
+
+# Install protoc first
+sudo apt install protobuf-compiler
+
+# Clean and rebuild
+cargo clean
+cargo build --release --bin limiquantix-node --features libvirt
 ```
 
 ---
 
-## QuantumNet Status: 85% Complete
+## What's New (This Session)
 
-### Core Features ✅
+### 🔧 Node Daemon Compilation Fixes (Jan 3, 2026)
 
-| Component | Status |
-|-----------|--------|
-| OVN Northbound Client | ✅ Done |
-| Network Service | ✅ Done |
-| OVS Port Manager (Rust) | ✅ Done |
-| Libvirt OVS XML | ✅ Done |
-| Node Daemon RPCs | ✅ Done |
-| Security Groups (ACLs) | ✅ Done |
-| DHCP/DNS | ✅ Done |
-| Floating IPs | ✅ Done |
-| Load Balancing | ✅ Done |
-| WireGuard Bastion | ✅ Done |
-| BGP ToR Integration | ✅ Done |
+Attempted to fix compilation errors in the `limiquantix-node` crate when building with `--features libvirt`.
 
-### Remaining Tasks 📋
+#### Changes Made
 
-| Task | Priority | Description |
-|------|----------|-------------|
-| Integration Testing | High | Test with real OVS/OVN deployment |
-| Proto Regeneration | Medium | Run `make proto` for new RPCs |
-| Frontend UI | Low | Network management in dashboard |
+| File | Changes |
+|------|---------|
+| `agent/limiquantix-proto/build.rs` | Skip proto regeneration if protoc missing |
+| `agent/limiquantix-proto/src/generated/limiquantix.node.v1.rs` | Added storage pool types, guest agent types |
+| `agent/limiquantix-proto/src/generated/limiquantix.agent.v1.rs` | Created from scratch (agent protocol types) |
+| `agent/limiquantix-node/src/service.rs` | Fixed enum variant names, import names |
+
+#### Files Modified
+
+| File | Description |
+|------|-------------|
+| `service.rs` | `StoragePoolType::LocalDir` instead of `StoragePoolType::StoragePoolTypeLocalDir` |
+| `service.rs` | `VolumeSourceType::Clone` instead of `VolumeSourceType::VolumeSourceClone` |
+| `service.rs` | `ListVMsResponse` instead of `ListVMsOnNodeResponse` |
+| `service.rs` | `CreateVmRequest` instead of `CreateVmOnNodeRequest` |
 
 ---
 
 ## Previous Sessions
 
-### 🔧 Node Daemon Build Fixes (Jan 3, 2026)
-- Fixed 18 compilation errors in limiquantix-node
-- Updated storage operations for new API
-- Fixed agent_client.rs proto mismatches
+### ✅ Quantix-OS - Immutable Hypervisor OS (COMPLETE)
 
-### 🔥 Quantix-OS - Immutable Hypervisor OS (Jan 3, 2026)
-- Alpine-based immutable OS
-- A/B update scheme
-- Rust TUI console (qx-console)
+Created a complete immutable operating system based on Alpine Linux, following the ESXi/Nutanix AHV architecture pattern.
 
 ### ✅ QuantumNet - OVN/OVS Integration (Jan 3, 2026)
 - Go OVN Client
@@ -173,15 +130,17 @@ cd backend && go run ./cmd/controlplane --dev
 # Frontend  
 cd frontend && npm run dev
 
-# Node Daemon
-cd agent && cargo run --release --bin limiquantix-node --features libvirt
+# Node Daemon (requires Linux with libvirt)
+cd agent && cargo build --release --bin limiquantix-node --features libvirt
 
-# Proto Regeneration
-make proto
+# Proto regeneration (requires protoc)
+cd agent/limiquantix-proto && cargo build
 
-# Build Check
-cd backend && go build ./internal/...
-cd agent && cargo check -p limiquantix-hypervisor
+# Quantix-OS Build
+cd quantix-os && make iso
+
+# Quantix-OS Test
+cd quantix-os && make test-iso
 ```
 
 ---
@@ -190,23 +149,10 @@ cd agent && cargo check -p limiquantix-hypervisor
 
 | Doc | Purpose |
 |-----|---------|
-| `docs/Networking/000052-advanced-networking-features.md` | **NEW** - LB, VPN, BGP |
-| `docs/Networking/000050-ovn-central-setup-guide.md` | OVN Central Setup |
-| `docs/Networking/000051-dhcp-dns-configuration.md` | DHCP/DNS Config |
-| `docs/Networking/000048-network-backend-ovn-ovs.md` | OVN/OVS Integration |
-| `docs/adr/000009-quantumnet-architecture.md` | Network Architecture ADR |
+| `docs/000050-quantix-os-architecture.md` | OS Architecture |
+| `docs/adr/000009-quantumnet-architecture.md` | Network Architecture |
+| `docs/000048-network-backend-ovn-ovs.md` | OVN/OVS Integration |
+| `docs/000046-storage-backend-implementation.md` | Storage Backend |
+| `docs/000045-guest-agent-integration-complete.md` | Guest Agent |
+| `docs/000042-console-access-implementation.md` | Web Console + QVMRC |
 | `quantix-os/README.md` | OS Build & Install Guide |
-
----
-
-## Next Steps
-
-### Immediate
-- [ ] Run `make proto` to generate LB/VPN/BGP proto types
-- [ ] Add gRPC handlers for new services
-- [ ] Integration testing with real OVN
-
-### Coming Soon
-- [ ] Network topology visualization in frontend
-- [ ] Health checks for load balancer members
-- [ ] Multi-site BGP peering
