@@ -640,117 +640,125 @@ export function ConsoleView({
 
   return (
     <div ref={containerRef} className="h-full flex flex-col bg-black">
-      {/* Toast notifications */}
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
+      {/* Toast notifications - Enhanced */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-3">
         {toasts.map(toast => (
           <div
             key={toast.id}
-            className={`px-4 py-2 rounded-lg shadow-lg text-sm font-medium animate-slide-in ${
-              toast.type === 'success' ? 'bg-green-500/90 text-white' :
-              toast.type === 'error' ? 'bg-red-500/90 text-white' :
-              'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+            className={`toast ${
+              toast.type === 'success' ? 'toast-success' :
+              toast.type === 'error' ? 'toast-error' :
+              'toast-info'
             }`}
           >
-            {toast.message}
+            {toast.type === 'success' && <span className="text-lg">✓</span>}
+            {toast.type === 'error' && <span className="text-lg">✕</span>}
+            {toast.type === 'info' && <span className="text-lg">ℹ</span>}
+            <span>{toast.message}</span>
           </div>
         ))}
       </div>
       
-      {/* ISO Mount Dialog */}
+      {/* ISO Mount Dialog - Enhanced with depth */}
       {showISODialog && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-          <div className="bg-[var(--bg-surface)] rounded-xl shadow-2xl w-[520px] border border-[var(--border)]">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
-              <div className="flex items-center gap-3">
-                <Disc className="w-5 h-5 text-[var(--accent)]" />
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">Mount ISO Image</h2>
+        <div className="modal-overlay" onClick={() => { setShowISODialog(false); setIsoPath(''); }}>
+          <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+            {/* Header with icon */}
+            <div className="modal-header">
+              <div className="flex items-center gap-4">
+                <div className="modal-header-icon">
+                  <Disc />
+                </div>
+                <div>
+                  <h2 className="modal-title">Mount ISO Image</h2>
+                  <p className="modal-subtitle">Attach a virtual disc to {vmName}</p>
+                </div>
               </div>
               <button
                 onClick={() => { setShowISODialog(false); setIsoPath(''); }}
-                className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
+                className="icon-btn"
               >
-                <X className="w-4 h-4 text-[var(--text-muted)]" />
+                <X className="w-5 h-5" />
               </button>
             </div>
             
-            <div className="p-5 space-y-4">
-              {/* Mode Toggle */}
-              <div className="flex rounded-lg bg-[var(--bg-base)] p-1">
+            {/* Body */}
+            <div className="modal-body space-y-5">
+              {/* Mode Toggle - Segmented Control */}
+              <div className="segmented-control">
                 <button
                   onClick={() => setIsoMode('local')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-                    isoMode === 'local'
-                      ? 'bg-[var(--accent)] text-white shadow-sm'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                  }`}
+                  className={`segmented-control-item ${isoMode === 'local' ? 'active' : ''}`}
                 >
-                  📁 Local File
+                  <span className="icon">📁</span>
+                  <span>Local File</span>
                 </button>
                 <button
                   onClick={() => setIsoMode('remote')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-                    isoMode === 'remote'
-                      ? 'bg-[var(--accent)] text-white shadow-sm'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                  }`}
+                  className={`segmented-control-item ${isoMode === 'remote' ? 'active' : ''}`}
                 >
-                  🖥️ Hypervisor Path
+                  <span className="icon">🖥️</span>
+                  <span>Hypervisor Path</span>
                 </button>
               </div>
               
               {isoMode === 'local' ? (
                 <>
-                  <p className="text-sm text-[var(--text-secondary)]">
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
                     Select an ISO from your computer. QVMRC will serve it over HTTP so the hypervisor can access it.
                   </p>
                   
-                  <div className="flex gap-2">
+                  {/* File browser input */}
+                  <div className="file-input-group">
                     <input
                       type="text"
                       value={isoPath}
                       onChange={(e) => setIsoPath(e.target.value)}
                       placeholder="Select an ISO file..."
                       readOnly
-                      className="flex-1 px-3 py-2.5 rounded-lg bg-[var(--bg-base)] border border-[var(--border)] text-[var(--text-primary)] text-sm focus:outline-none cursor-default"
+                      className="input cursor-default"
                     />
-                    <button
-                      onClick={handleBrowseISO}
-                      className="px-4 py-2 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] border border-[var(--border)] transition-colors flex items-center gap-2"
-                    >
-                      <FolderOpen className="w-4 h-4 text-[var(--text-muted)]" />
-                      <span className="text-sm text-[var(--text-primary)]">Browse</span>
+                    <button onClick={handleBrowseISO} className="browse-btn">
+                      <FolderOpen />
+                      <span>Browse</span>
                     </button>
                   </div>
                   
+                  {/* Server status indicator */}
                   {isoServerUrl && (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20">
-                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                      <span className="text-xs text-green-400">
-                        Serving at: {isoServerUrl}
+                    <div className="modal-server-status">
+                      <div className="status-dot" />
+                      <span className="text-sm text-[var(--success)] font-medium">
+                        Serving at: <span className="font-mono text-xs">{isoServerUrl}</span>
                       </span>
                     </div>
                   )}
                   
-                  <div className="px-3 py-2 rounded-lg bg-[var(--bg-base)] border border-[var(--border)]">
-                    <p className="text-xs text-[var(--text-muted)]">
-                      <strong className="text-[var(--text-secondary)]">How it works:</strong> QVMRC starts a temporary HTTP server on your machine. 
+                  {/* Info box */}
+                  <div className="modal-info-box">
+                    <p>
+                      <strong>How it works:</strong> QVMRC starts a temporary HTTP server on your machine. 
                       The hypervisor downloads the ISO from your computer over the network.
                     </p>
                   </div>
                 </>
               ) : (
                 <>
-                  <p className="text-sm text-[var(--text-secondary)]">
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
                     Enter the path to an ISO file on the hypervisor's local storage.
                   </p>
                   
-                  <input
-                    type="text"
-                    value={isoPath}
-                    onChange={(e) => setIsoPath(e.target.value)}
-                    placeholder="/var/lib/libvirt/images/ubuntu.iso"
-                    className="w-full px-3 py-2.5 rounded-lg bg-[var(--bg-base)] border border-[var(--border)] text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                  />
+                  <div className="form-group">
+                    <label className="label">ISO Path</label>
+                    <input
+                      type="text"
+                      value={isoPath}
+                      onChange={(e) => setIsoPath(e.target.value)}
+                      placeholder="/var/lib/libvirt/images/ubuntu.iso"
+                      className="input font-mono text-sm"
+                      autoFocus
+                    />
+                  </div>
                   
                   <p className="text-xs text-[var(--text-muted)]">
                     The path must be accessible from the hypervisor host where the VM is running.
@@ -759,19 +767,21 @@ export function ConsoleView({
               )}
             </div>
             
-            <div className="flex justify-end gap-3 px-5 py-4 border-t border-[var(--border)]">
+            {/* Footer */}
+            <div className="modal-footer">
               <button
                 onClick={() => { setShowISODialog(false); setIsoPath(''); }}
-                className="px-4 py-2 rounded-lg hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] text-sm transition-colors"
+                className="btn btn-secondary flex-1"
               >
                 Cancel
               </button>
               <button
                 onClick={handleMountISO}
                 disabled={!isoPath.trim() || executingAction === 'mount-iso'}
-                className="px-4 py-2 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="btn btn-primary flex-1"
               >
-                {executingAction === 'mount-iso' && <Loader2 className="w-4 h-4 animate-spin" />}
+                {executingAction === 'mount-iso' && <Loader2 className="w-4 h-4 spinner" />}
+                <Disc className="w-4 h-4" />
                 {isoMode === 'local' ? 'Upload & Mount' : 'Mount ISO'}
               </button>
             </div>
@@ -822,55 +832,51 @@ export function ConsoleView({
             </button>
             
             {showVMMenu && (
-              <div className="absolute right-0 top-full mt-1 w-48 py-1 bg-[var(--bg-elevated)] rounded-lg shadow-xl border border-[var(--border)] z-50 animate-slide-down">
-                <div className="px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
-                  Power
-                </div>
+              <div className="dropdown-menu">
+                <div className="dropdown-section-title">Power</div>
                 <button
                   onClick={() => handlePowerAction('start')}
                   disabled={!!executingAction}
-                  className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] flex items-center gap-2 text-sm disabled:opacity-50"
+                  className={`dropdown-item ${executingAction ? 'dropdown-item-disabled' : ''}`}
                 >
-                  <Power className="w-4 h-4 text-green-400" />
-                  <span className="text-[var(--text-primary)]">Power On</span>
+                  <Power className="text-green-400" />
+                  <span>Power On</span>
                 </button>
                 <button
                   onClick={() => handlePowerAction('shutdown')}
                   disabled={!!executingAction}
-                  className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] flex items-center gap-2 text-sm disabled:opacity-50"
+                  className={`dropdown-item ${executingAction ? 'dropdown-item-disabled' : ''}`}
                 >
-                  <PowerOff className="w-4 h-4 text-orange-400" />
-                  <span className="text-[var(--text-primary)]">Shut Down Guest</span>
+                  <PowerOff className="text-orange-400" />
+                  <span>Shut Down Guest</span>
                 </button>
                 <button
                   onClick={() => handlePowerAction('reboot')}
                   disabled={!!executingAction}
-                  className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] flex items-center gap-2 text-sm disabled:opacity-50"
+                  className={`dropdown-item ${executingAction ? 'dropdown-item-disabled' : ''}`}
                 >
-                  <RefreshCw className="w-4 h-4 text-blue-400" />
-                  <span className="text-[var(--text-primary)]">Restart Guest</span>
+                  <RefreshCw className="text-blue-400" />
+                  <span>Restart Guest</span>
                 </button>
                 <button
                   onClick={() => handlePowerAction('stop')}
                   disabled={!!executingAction}
-                  className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] flex items-center gap-2 text-sm disabled:opacity-50"
+                  className={`dropdown-item ${executingAction ? 'dropdown-item-disabled' : ''}`}
                 >
-                  <PowerOff className="w-4 h-4 text-red-400" />
-                  <span className="text-[var(--text-primary)]">Force Power Off</span>
+                  <PowerOff className="text-red-400" />
+                  <span>Force Power Off</span>
                 </button>
                 
-                <div className="my-1 border-t border-[var(--border)]" />
+                <div className="dropdown-divider" />
                 
-                <div className="px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
-                  Devices
-                </div>
+                <div className="dropdown-section-title">Devices</div>
                 <button
                   onClick={() => { setShowVMMenu(false); setShowISODialog(true); }}
                   disabled={!!executingAction}
-                  className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] flex items-center gap-2 text-sm disabled:opacity-50"
+                  className={`dropdown-item ${executingAction ? 'dropdown-item-disabled' : ''}`}
                 >
-                  <Disc className="w-4 h-4 text-[var(--accent)]" />
-                  <span className="text-[var(--text-primary)]">Mount ISO...</span>
+                  <Disc className="text-[var(--accent)]" />
+                  <span>Mount ISO...</span>
                 </button>
               </div>
             )}

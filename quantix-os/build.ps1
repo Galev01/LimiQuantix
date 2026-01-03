@@ -36,7 +36,8 @@ param(
     [switch]$Help
 )
 
-$ErrorActionPreference = "Stop"
+# Use SilentlyContinue to prevent Docker's stderr output from being treated as errors
+$ErrorActionPreference = "SilentlyContinue"
 
 # Configuration
 $BUILDER_IMAGE = "quantix-os-builder"
@@ -107,11 +108,9 @@ function Show-Help {
 function Test-Docker {
     Write-Step "Checking Docker..."
     
-    try {
-        $dockerVersion = docker --version
-        Write-Info "Docker found: $dockerVersion"
-    }
-    catch {
+    # Check if docker command exists
+    $dockerCmd = Get-Command docker -ErrorAction SilentlyContinue
+    if (-not $dockerCmd) {
         Write-Err "Docker not found! Please install Docker Desktop for Windows."
         Write-Host ""
         Write-Host "Download from: https://www.docker.com/products/docker-desktop/"
@@ -119,18 +118,20 @@ function Test-Docker {
         exit 1
     }
     
-    # Check if Docker is running
-    try {
-        docker info | Out-Null
-        Write-Success "Docker is running"
-    }
-    catch {
+    $dockerVersion = docker --version 2>$null
+    Write-Info "Docker found: $dockerVersion"
+    
+    # Check if Docker daemon is running
+    $null = docker info 2>$null
+    if ($LASTEXITCODE -ne 0) {
         Write-Err "Docker is not running! Please start Docker Desktop."
+        Write-Host ""
         exit 1
     }
+    Write-Success "Docker is running"
     
     # Check Linux container mode
-    $dockerInfo = docker info 2>&1
+    $dockerInfo = docker info 2>$null
     if ($dockerInfo -match "OSType: windows") {
         Write-Err "Docker is in Windows container mode!"
         Write-Host ""
@@ -169,33 +170,51 @@ function Build-ISO {
         New-Item -ItemType Directory -Path $outputDir | Out-Null
     }
     
-    # Convert Windows paths to Docker-compatible format
-    $dockerOutputPath = $outputDir -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
-    $dockerProfilesPath = (Join-Path $SCRIPT_DIR "profiles") -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
-    $dockerOverlayPath = (Join-Path $SCRIPT_DIR "overlay") -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
-    $dockerInstallerPath = (Join-Path $SCRIPT_DIR "installer") -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
-    $dockerBrandingPath = (Join-Path $SCRIPT_DIR "branding") -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
+    # Get paths - Docker Desktop on Windows handles Windows paths directly
+    $profilesPath = Join-Path $SCRIPT_DIR "profiles"
+    $overlayPath = Join-Path $SCRIPT_DIR "overlay"
+    $installerPath = Join-Path $SCRIPT_DIR "installer"
+    $brandingPath = Join-Path $SCRIPT_DIR "branding"
     
     Write-Info "Output directory: $outputDir"
+    Write-Info "This will take several minutes..."
+    Write-Host ""
     
-    # Run the build in Docker
-    $dockerArgs = @(
-        "run", "--rm", "--privileged",
-        "-v", "${dockerOutputPath}:/output",
-        "-v", "${dockerProfilesPath}:/profiles:ro",
-        "-v", "${dockerOverlayPath}:/overlay:ro",
-        "-v", "${dockerInstallerPath}:/installer:ro",
-        "-v", "${dockerBrandingPath}:/branding:ro",
-        "-e", "VERSION=$Version",
-        "-e", "ARCH=x86_64",
-        $BUILDER_IMAGE,
-        "/build/build-iso.sh"
-    )
+    # Create a temporary batch file to run Docker (avoids path issues with spaces)
+    $batchFile = Join-Path $env:TEMP "quantix-build-$([guid]::NewGuid().ToString('N').Substring(0,8)).bat"
     
-    & docker @dockerArgs
+    # Write batch file with proper quoting
+    $batchContent = @"
+@echo off
+docker run --rm --privileged ^
+  -v "$outputDir:/output" ^
+  -v "$profilesPath:/profiles:ro" ^
+  -v "$overlayPath:/overlay:ro" ^
+  -v "$installerPath:/installer:ro" ^
+  -v "$brandingPath:/branding:ro" ^
+  -e VERSION=$Version ^
+  -e ARCH=x86_64 ^
+  $BUILDER_IMAGE
+exit /b %ERRORLEVEL%
+"@
     
-    if ($LASTEXITCODE -ne 0) {
-        Write-Err "ISO build failed!"
+    Set-Content -Path $batchFile -Value $batchContent -Encoding ASCII
+    
+    Write-Info "Running Docker build..."
+    
+    # Execute the batch file
+    & cmd /c $batchFile
+    $exitCode = $LASTEXITCODE
+    
+    # Clean up batch file
+    Remove-Item -Path $batchFile -Force -ErrorAction SilentlyContinue
+    
+    if ($exitCode -ne 0) {
+        Write-Err "ISO build failed with exit code: $exitCode"
+        Write-Host ""
+        Write-Host "To debug, run interactively:" -ForegroundColor Yellow
+        Write-Host "  docker run --rm -it --privileged -v `"$outputDir`":/output -v `"$profilesPath`":/profiles:ro $BUILDER_IMAGE /bin/bash" -ForegroundColor Gray
+        Write-Host ""
         exit 1
     }
     
@@ -232,22 +251,17 @@ function Build-Squashfs {
         New-Item -ItemType Directory -Path $outputDir | Out-Null
     }
     
-    $dockerOutputPath = $outputDir -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
-    $dockerProfilesPath = (Join-Path $SCRIPT_DIR "profiles") -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
-    $dockerOverlayPath = (Join-Path $SCRIPT_DIR "overlay") -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
+    $profilesPath = Join-Path $SCRIPT_DIR "profiles"
+    $overlayPath = Join-Path $SCRIPT_DIR "overlay"
     
-    $dockerArgs = @(
-        "run", "--rm", "--privileged",
-        "-v", "${dockerOutputPath}:/output",
-        "-v", "${dockerProfilesPath}:/profiles:ro",
-        "-v", "${dockerOverlayPath}:/overlay:ro",
-        "-e", "VERSION=$Version",
-        "-e", "ARCH=x86_64",
-        $BUILDER_IMAGE,
-        "/build/build-squashfs.sh"
-    )
-    
-    & docker @dockerArgs
+    docker run --rm --privileged `
+        -v "${outputDir}:/output" `
+        -v "${profilesPath}:/profiles:ro" `
+        -v "${overlayPath}:/overlay:ro" `
+        -e "VERSION=$Version" `
+        -e "ARCH=x86_64" `
+        $BUILDER_IMAGE `
+        /build/build-squashfs.sh
     
     if ($LASTEXITCODE -ne 0) {
         Write-Err "Squashfs build failed!"
