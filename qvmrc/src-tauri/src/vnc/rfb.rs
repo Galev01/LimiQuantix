@@ -1,14 +1,17 @@
 //! RFB Protocol Implementation (RFC 6143)
 //!
 //! This module implements the Remote Framebuffer protocol used by VNC.
+//! Supports both direct TCP connections and WebSocket proxy connections.
 
 use des::cipher::{BlockEncrypt, KeyInit};
 use des::Des;
+use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 use tracing::{debug, info, warn};
 
 /// RFB protocol errors
@@ -108,9 +111,70 @@ pub struct FramebufferUpdate {
     pub data: Vec<u8>,
 }
 
-/// RFB Client
+/// Transport type for VNC connections
+enum Transport {
+    /// Direct TCP connection to VNC server
+    Tcp(TcpStream),
+    /// WebSocket connection via proxy (binary frames contain raw VNC data)
+    WebSocket(WebSocketStream<MaybeTlsStream<TcpStream>>),
+}
+
+impl Transport {
+    /// Read exactly `len` bytes from the transport
+    async fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), RFBError> {
+        match self {
+            Transport::Tcp(stream) => {
+                stream.read_exact(buf).await?;
+                Ok(())
+            }
+            Transport::WebSocket(ws) => {
+                let mut offset = 0;
+                while offset < buf.len() {
+                    match ws.next().await {
+                        Some(Ok(Message::Binary(data))) => {
+                            let copy_len = std::cmp::min(data.len(), buf.len() - offset);
+                            buf[offset..offset + copy_len].copy_from_slice(&data[..copy_len]);
+                            offset += copy_len;
+                        }
+                        Some(Ok(Message::Close(_))) => {
+                            return Err(RFBError::ConnectionClosed);
+                        }
+                        Some(Ok(_)) => {
+                            // Ignore other message types (text, ping, pong)
+                            continue;
+                        }
+                        Some(Err(e)) => {
+                            return Err(RFBError::Protocol(format!("WebSocket error: {}", e)));
+                        }
+                        None => {
+                            return Err(RFBError::ConnectionClosed);
+                        }
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Write all bytes to the transport
+    async fn write_all(&mut self, buf: &[u8]) -> Result<(), RFBError> {
+        match self {
+            Transport::Tcp(stream) => {
+                stream.write_all(buf).await?;
+                Ok(())
+            }
+            Transport::WebSocket(ws) => {
+                ws.send(Message::Binary(buf.to_vec())).await
+                    .map_err(|e| RFBError::Protocol(format!("WebSocket send error: {}", e)))?;
+                Ok(())
+            }
+        }
+    }
+}
+
+/// RFB Client - supports both TCP and WebSocket transports
 pub struct RFBClient {
-    stream: TcpStream,
+    transport: Transport,
     pub width: u16,
     pub height: u16,
     pub pixel_format: PixelFormat,
@@ -129,7 +193,7 @@ impl fmt::Debug for RFBClient {
 }
 
 impl RFBClient {
-    /// Connect to a VNC server
+    /// Connect to a VNC server via direct TCP
     pub async fn connect(host: &str, port: u16) -> Result<Self, RFBError> {
         info!("Connecting to VNC server at {}:{}", host, port);
         
@@ -137,7 +201,27 @@ impl RFBClient {
         stream.set_nodelay(true)?;
 
         Ok(Self {
-            stream,
+            transport: Transport::Tcp(stream),
+            width: 0,
+            height: 0,
+            pixel_format: PixelFormat::default(),
+            name: String::new(),
+        })
+    }
+
+    /// Connect to VNC via WebSocket proxy
+    /// The proxy handles the TCP connection to the VNC server and forwards raw RFB data
+    pub async fn connect_websocket(ws_url: &str) -> Result<Self, RFBError> {
+        info!("Connecting to VNC via WebSocket proxy: {}", ws_url);
+        
+        let (ws_stream, _response) = connect_async(ws_url)
+            .await
+            .map_err(|e| RFBError::Protocol(format!("WebSocket connection failed: {}", e)))?;
+        
+        info!("WebSocket connection established");
+
+        Ok(Self {
+            transport: Transport::WebSocket(ws_stream),
             width: 0,
             height: 0,
             pixel_format: PixelFormat::default(),
@@ -149,13 +233,13 @@ impl RFBClient {
     pub async fn handshake(&mut self, password: Option<&str>) -> Result<(), RFBError> {
         // Step 1: Protocol version
         let mut version = [0u8; 12];
-        self.stream.read_exact(&mut version).await?;
+        self.transport.read_exact(&mut version).await?;
         
         let version_str = String::from_utf8_lossy(&version);
         info!("Server version: {}", version_str.trim());
 
         // Send our version (3.8)
-        self.stream.write_all(b"RFB 003.008\n").await?;
+        self.transport.write_all(b"RFB 003.008\n").await?;
 
         // Step 2: Security types
         let num_types = self.read_u8().await?;
@@ -164,12 +248,12 @@ impl RFBClient {
             // Read error message
             let len = self.read_u32().await?;
             let mut msg = vec![0u8; len as usize];
-            self.stream.read_exact(&mut msg).await?;
+            self.transport.read_exact(&mut msg).await?;
             return Err(RFBError::AuthFailed(String::from_utf8_lossy(&msg).to_string()));
         }
 
         let mut security_types = vec![0u8; num_types as usize];
-        self.stream.read_exact(&mut security_types).await?;
+        self.transport.read_exact(&mut security_types).await?;
 
         debug!("Available security types: {:?}", security_types);
 
@@ -185,7 +269,7 @@ impl RFBClient {
             return Err(RFBError::AuthFailed("No supported security type".to_string()));
         };
 
-        self.stream.write_all(&[chosen_type]).await?;
+        self.transport.write_all(&[chosen_type]).await?;
 
         // Handle authentication
         match chosen_type {
@@ -198,14 +282,14 @@ impl RFBClient {
                 info!("Using VNC authentication");
                 
                 let mut challenge = [0u8; 16];
-                self.stream.read_exact(&mut challenge).await?;
+                self.transport.read_exact(&mut challenge).await?;
 
                 let password = password.ok_or_else(|| {
                     RFBError::AuthFailed("Password required but not provided".to_string())
                 })?;
 
                 let response = Self::encrypt_challenge(&challenge, password);
-                self.stream.write_all(&response).await?;
+                self.transport.write_all(&response).await?;
             }
             _ => {
                 return Err(RFBError::AuthFailed(format!(
@@ -222,7 +306,7 @@ impl RFBClient {
             // Try to read error message
             if let Ok(len) = self.read_u32().await {
                 let mut msg = vec![0u8; len as usize];
-                self.stream.read_exact(&mut msg).await.ok();
+                self.transport.read_exact(&mut msg).await.ok();
                 return Err(RFBError::AuthFailed(String::from_utf8_lossy(&msg).to_string()));
             }
             return Err(RFBError::AuthFailed("Authentication failed".to_string()));
@@ -232,19 +316,19 @@ impl RFBClient {
 
         // Step 4: Client init
         // Share flag = 1 (allow other clients)
-        self.stream.write_all(&[1]).await?;
+        self.transport.write_all(&[1]).await?;
 
         // Step 5: Server init
         self.width = self.read_u16().await?;
         self.height = self.read_u16().await?;
 
         let mut pf_bytes = [0u8; 16];
-        self.stream.read_exact(&mut pf_bytes).await?;
+        self.transport.read_exact(&mut pf_bytes).await?;
         self.pixel_format = PixelFormat::from_bytes(&pf_bytes);
 
         let name_len = self.read_u32().await?;
         let mut name_bytes = vec![0u8; name_len as usize];
-        self.stream.read_exact(&mut name_bytes).await?;
+        self.transport.read_exact(&mut name_bytes).await?;
         self.name = String::from_utf8_lossy(&name_bytes).to_string();
 
         info!(
@@ -297,7 +381,7 @@ impl RFBClient {
         msg[0] = 0; // SetPixelFormat
         // 3 bytes padding
         msg[4..20].copy_from_slice(&pf.to_bytes());
-        self.stream.write_all(&msg).await?;
+        self.transport.write_all(&msg).await?;
         self.pixel_format = pf.clone();
         Ok(())
     }
@@ -325,7 +409,7 @@ impl RFBClient {
             msg[4 + i * 4..8 + i * 4].copy_from_slice(&enc.to_be_bytes());
         }
 
-        self.stream.write_all(&msg).await?;
+        self.transport.write_all(&msg).await?;
         Ok(())
     }
 
@@ -345,7 +429,7 @@ impl RFBClient {
             (self.height >> 8) as u8,
             self.height as u8,
         ];
-        self.stream.write_all(&msg).await?;
+        self.transport.write_all(&msg).await?;
 
         // Wait for and process server messages
         self.process_server_messages().await
@@ -377,7 +461,7 @@ impl RFBClient {
                             let bytes_per_pixel = (self.pixel_format.bits_per_pixel / 8) as usize;
                             let data_len = width as usize * height as usize * bytes_per_pixel;
                             let mut data = vec![0u8; data_len];
-                            self.stream.read_exact(&mut data).await?;
+                            self.transport.read_exact(&mut data).await?;
 
                             // Convert to RGBA
                             let rgba = self.convert_to_rgba(&data, width, height);
@@ -406,8 +490,8 @@ impl RFBClient {
                             let mut cursor_data = vec![0u8; cursor_len];
                             let mut mask_data = vec![0u8; mask_len];
                             
-                            self.stream.read_exact(&mut cursor_data).await?;
-                            self.stream.read_exact(&mut mask_data).await?;
+                            self.transport.read_exact(&mut cursor_data).await?;
+                            self.transport.read_exact(&mut mask_data).await?;
                             
                             debug!("Cursor update: {}x{}", width, height);
                         }
@@ -432,7 +516,7 @@ impl RFBClient {
                 // Skip color data
                 let data_len = num_colors as usize * 6;
                 let mut data = vec![0u8; data_len];
-                self.stream.read_exact(&mut data).await?;
+                self.transport.read_exact(&mut data).await?;
                 
                 debug!("Color map: {} colors starting at {}", num_colors, first_color);
             }
@@ -442,12 +526,12 @@ impl RFBClient {
             }
             3 => {
                 // ServerCutText (clipboard)
-                let _padding = [0u8; 3];
-                self.stream.read_exact(&mut [0u8; 3]).await?;
+                let mut padding = [0u8; 3];
+                self.transport.read_exact(&mut padding).await?;
                 let text_len = self.read_u32().await?;
                 
                 let mut text = vec![0u8; text_len as usize];
-                self.stream.read_exact(&mut text).await?;
+                self.transport.read_exact(&mut text).await?;
                 
                 debug!("Server clipboard: {} bytes", text_len);
             }
@@ -546,7 +630,7 @@ impl RFBClient {
             (key >> 8) as u8,
             key as u8,
         ];
-        self.stream.write_all(&msg).await?;
+        self.transport.write_all(&msg).await?;
         Ok(())
     }
 
@@ -560,7 +644,7 @@ impl RFBClient {
             (y >> 8) as u8,
             y as u8,
         ];
-        self.stream.write_all(&msg).await?;
+        self.transport.write_all(&msg).await?;
         Ok(())
     }
 
@@ -592,32 +676,32 @@ impl RFBClient {
         // 3 bytes padding
         msg[4..8].copy_from_slice(&(text_bytes.len() as u32).to_be_bytes());
         msg[8..].copy_from_slice(text_bytes);
-        self.stream.write_all(&msg).await?;
+        self.transport.write_all(&msg).await?;
         Ok(())
     }
 
     // Helper methods for reading values
     async fn read_u8(&mut self) -> Result<u8, RFBError> {
         let mut buf = [0u8; 1];
-        self.stream.read_exact(&mut buf).await?;
+        self.transport.read_exact(&mut buf).await?;
         Ok(buf[0])
     }
 
     async fn read_u16(&mut self) -> Result<u16, RFBError> {
         let mut buf = [0u8; 2];
-        self.stream.read_exact(&mut buf).await?;
+        self.transport.read_exact(&mut buf).await?;
         Ok(u16::from_be_bytes(buf))
     }
 
     async fn read_u32(&mut self) -> Result<u32, RFBError> {
         let mut buf = [0u8; 4];
-        self.stream.read_exact(&mut buf).await?;
+        self.transport.read_exact(&mut buf).await?;
         Ok(u32::from_be_bytes(buf))
     }
 
     async fn read_i32(&mut self) -> Result<i32, RFBError> {
         let mut buf = [0u8; 4];
-        self.stream.read_exact(&mut buf).await?;
+        self.transport.read_exact(&mut buf).await?;
         Ok(i32::from_be_bytes(buf))
     }
 }

@@ -11,7 +11,6 @@ mod encodings;
 pub mod keysym;
 mod rfb;
 
-use crate::api;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -65,7 +64,11 @@ impl VNCConnection {
     }
 }
 
-/// Connect to a VM's VNC console
+/// Connect to a VM's VNC console via WebSocket proxy
+/// 
+/// This connects through the Control Plane's WebSocket proxy which handles
+/// the actual VNC connection server-side. This allows QVMRC to work even
+/// when the VNC server is not directly accessible (e.g., bound to localhost).
 #[tauri::command]
 pub async fn connect_vnc(
     window: Window,
@@ -76,28 +79,24 @@ pub async fn connect_vnc(
 ) -> Result<String, String> {
     info!("Connecting to VM {} via {}", vm_id, control_plane_url);
 
-    // Get console info from control plane
-    let console_info = api::get_console_info(&control_plane_url, &vm_id)
-        .await
-        .map_err(|e| format!("Failed to get console info: {}", e))?;
-
-    let host = console_info.host;
-    let port = console_info.port as u16;
-    let vnc_password = password.or(console_info.password);
-
-    info!("Connecting to VNC at {}:{}", host, port);
+    // Build WebSocket URL for the control plane's console proxy
+    // The proxy handles the VNC connection server-side and forwards raw RFB data
+    let ws_url = build_websocket_url(&control_plane_url, &vm_id)?;
+    
+    info!("Connecting to VNC via WebSocket proxy: {}", ws_url);
 
     // Create connection ID
     let connection_id = format!("vnc-{}", uuid::Uuid::new_v4());
 
-    // Create RFB client
-    let mut client = RFBClient::connect(&host, port)
+    // Create RFB client via WebSocket
+    let mut client = RFBClient::connect_websocket(&ws_url)
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
 
-    // Perform handshake
+    // Perform VNC handshake (the proxy transparently passes RFB protocol)
+    // Note: Authentication is handled by the VNC server, not the proxy
     client
-        .handshake(vnc_password.as_deref())
+        .handshake(password.as_deref())
         .await
         .map_err(|e| format!("Handshake failed: {}", e))?;
 
@@ -132,8 +131,8 @@ pub async fn connect_vnc(
             id: connection_id.clone(),
             vm_id: vm_id.clone(),
             status: ConnectionStatus::Connected,
-            host: host.clone(),
-            port,
+            host: control_plane_url.clone(),
+            port: 0, // Not used for WebSocket connections
             client: Some(client),
             shutdown_tx: Some(shutdown_tx),
         });
@@ -361,4 +360,29 @@ pub async fn get_connection_info(
         width,
         height,
     }))
+}
+
+/// Build WebSocket URL for the control plane's console proxy
+/// 
+/// Converts HTTP/HTTPS URL to WS/WSS and appends the console path
+/// Example: http://localhost:8080 -> ws://localhost:8080/api/console/{vmId}/ws
+fn build_websocket_url(control_plane_url: &str, vm_id: &str) -> Result<String, String> {
+    let base = control_plane_url.trim_end_matches('/');
+    
+    // Convert HTTP scheme to WebSocket scheme
+    let ws_base = if base.starts_with("https://") {
+        base.replacen("https://", "wss://", 1)
+    } else if base.starts_with("http://") {
+        base.replacen("http://", "ws://", 1)
+    } else if base.starts_with("wss://") || base.starts_with("ws://") {
+        base.to_string()
+    } else {
+        // Assume http if no scheme provided
+        format!("ws://{}", base)
+    };
+    
+    // Append console proxy path
+    let ws_url = format!("{}/api/console/{}/ws", ws_base, vm_id);
+    
+    Ok(ws_url)
 }
