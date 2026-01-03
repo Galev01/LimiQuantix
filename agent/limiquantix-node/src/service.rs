@@ -86,6 +86,21 @@ impl NodeDaemonServiceImpl {
         hypervisor: Arc<dyn Hypervisor>,
         telemetry: Arc<TelemetryCollector>,
     ) -> Self {
+        // Ensure runtime directories exist on startup
+        // These directories are in /var/run which is typically a tmpfs and cleared on reboot
+        let runtime_dirs = [
+            "/var/run/limiquantix",
+            "/var/run/limiquantix/vms",
+        ];
+        
+        for dir in &runtime_dirs {
+            if let Err(e) = std::fs::create_dir_all(dir) {
+                tracing::warn!(path = %dir, error = %e, "Failed to create runtime directory");
+            } else {
+                tracing::debug!(path = %dir, "Ensured runtime directory exists");
+            }
+        }
+        
         Self {
             node_id,
             hostname,
@@ -595,6 +610,15 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         }
         
         // Create the VM via the hypervisor backend
+        // Ensure the agent socket directory exists before creating the VM
+        // This is required because libvirt will try to bind the virtio-serial socket
+        let socket_dir = std::path::PathBuf::from("/var/run/limiquantix/vms");
+        if let Err(e) = std::fs::create_dir_all(&socket_dir) {
+            error!(error = %e, "Failed to create agent socket directory");
+            return Err(Status::internal(format!("Failed to create agent socket directory: {}", e)));
+        }
+        debug!(path = %socket_dir.display(), "Ensured agent socket directory exists");
+        
         info!(
             vm_id = %req.vm_id,
             vm_name = %req.name,
@@ -630,6 +654,15 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         info!("Starting VM");
         
         let vm_id = &request.into_inner().vm_id;
+        
+        // Ensure the agent socket directory exists before starting the VM
+        // This directory is in /var/run which may be cleared on reboot
+        let socket_dir = std::path::PathBuf::from("/var/run/limiquantix/vms");
+        if let Err(e) = std::fs::create_dir_all(&socket_dir) {
+            error!(error = %e, "Failed to create agent socket directory");
+            return Err(Status::internal(format!("Failed to create agent socket directory: {}", e)));
+        }
+        
         self.hypervisor.start_vm(vm_id).await
             .map_err(|e| Status::internal(e.to_string()))?;
         

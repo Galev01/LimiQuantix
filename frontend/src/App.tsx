@@ -20,6 +20,7 @@ import { Monitoring } from '@/pages/Monitoring';
 import { Alerts } from '@/pages/Alerts';
 import { DRSRecommendations } from '@/pages/DRSRecommendations';
 import ImageLibrary from '@/pages/ImageLibrary';
+import { AdminPanel } from '@/pages/admin';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +70,11 @@ function App() {
             
             {/* Catch-all redirect */}
             <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          
+          {/* Admin Panel - Outside Layout for custom sidebar */}
+          <Routes>
+            <Route path="/admin/*" element={<AdminPanel />} />
           </Routes>
         </Layout>
       </BrowserRouter>
