@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
+import { API_CONFIG } from '@/lib/api-client';
 
 interface ConsoleAccessModalProps {
   isOpen: boolean;
@@ -69,7 +70,7 @@ export function ConsoleAccessModal({
   onOpenWebConsole,
   vmId,
   vmName,
-  controlPlaneUrl = window.location.origin,
+  controlPlaneUrl = API_CONFIG.baseUrl,
 }: ConsoleAccessModalProps) {
   const [platform, setPlatform] = useState<Platform>('unknown');
   const [copied, setCopied] = useState(false);

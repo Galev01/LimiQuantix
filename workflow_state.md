@@ -1,12 +1,89 @@
 # LimiQuantix Workflow State
 
-## Current Status: Guest Agent Windows & Enterprise Features ✅
+## Current Status: VM Actions Dropdown Menu ✅
 
 **Last Updated:** January 3, 2026
 
 ---
 
 ## What's New (This Session)
+
+### ✅ VM Actions Dropdown Menu
+
+Added a dropdown menu to the VM Detail page with additional actions:
+
+| Component | File | Description |
+|-----------|------|-------------|
+| **DropdownMenu** | `components/ui/DropdownMenu.tsx` | Reusable dropdown component |
+| **EditSettingsModal** | `components/vm/EditSettingsModal.tsx` | Edit VM name, description, labels |
+| **EditResourcesModal** | `components/vm/EditResourcesModal.tsx` | Edit CPU cores and memory |
+| **VMDetail** | `pages/VMDetail.tsx` | Integrated all components |
+
+#### Dropdown Menu Items
+
+1. **Edit Settings** - Opens modal to change name, description, labels
+2. **Edit Resources** - Opens modal to change CPU cores and memory
+3. **Run Script** - Execute scripts via Quantix Agent (moved from top bar)
+4. **Browse Files** - File browser via Quantix Agent
+5. **Clone VM** - Clone the VM (placeholder)
+6. **Force Stop** - Force stop a running VM
+7. **Delete VM** - Delete the VM with confirmation
+
+#### Features
+
+- Click outside or ESC to close dropdown
+- Dividers to group related actions
+- Danger variant for destructive actions (red text)
+- Disabled state for actions requiring running VM
+- Animated entry with scale and fade
+
+---
+
+## Previous: Storage Backend Complete ✅
+
+### ✅ iSCSI Backend Complete
+
+Implemented full iSCSI storage backend with LVM thin provisioning:
+
+**New File:** `agent/limiquantix-hypervisor/src/storage/iscsi.rs`
+
+| Feature | Implementation |
+|---------|---------------|
+| Target Discovery | `iscsiadm -m discovery -t st -p <portal>` |
+| Login/Logout | `iscsiadm -m node -T <iqn> -l/-u` |
+| CHAP Auth | Configure via `iscsiadm -o update` |
+| LVM Init | `pvcreate`, `vgcreate`, thin pool creation |
+| Thin Volumes | `lvcreate -T` for space-efficient provisioning |
+| Snapshots | LVM snapshot (`lvcreate -s`) |
+
+### ✅ Frontend Storage UI Complete
+
+**Storage Pools Page** (`frontend/src/pages/StoragePools.tsx`):
+- Pool list with status badges
+- Summary cards (total pools, capacity, usage)
+- Filter by status
+- Create Pool dialog (multi-step wizard)
+
+**Volumes Page** (`frontend/src/pages/Volumes.tsx`):
+- Volume table with actions
+- Inline resize
+- Attach/detach operations
+- Create Volume dialog
+
+**New Components:**
+- `components/storage/CreatePoolDialog.tsx` - Pool creation wizard
+- `components/storage/CreateVolumeDialog.tsx` - Volume creation wizard
+
+**New Hooks** (`hooks/useStorage.ts`):
+- `useStoragePools`, `useStoragePool`, `usePoolMetrics`
+- `useCreateStoragePool`, `useDeleteStoragePool`
+- `useVolumes`, `useVolume`
+- `useCreateVolume`, `useDeleteVolume`, `useResizeVolume`
+- `useAttachVolume`, `useDetachVolume`
+
+---
+
+## Previous Session
 
 ### ✅ Guest Agent Windows Support & Enterprise Features
 
@@ -205,14 +282,17 @@ Added storage RPCs to `proto/limiquantix/node/v1/node_daemon.proto`:
 │  │  - Caches pool information                                          │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                    │                                         │
-│       ┌────────────────────────────┼────────────────────────────┐           │
-│       ▼                            ▼                            ▼           │
-│  ┌──────────┐              ┌──────────┐                  ┌──────────┐       │
-│  │  Local   │              │   NFS    │                  │   Ceph   │       │
-│  │ Backend  │              │ Backend  │                  │ Backend  │       │
-│  │ qemu-img │              │ mount+   │                  │ rbd CLI  │       │
-│  │          │              │ qemu-img │                  │ librbd   │       │
-│  └──────────┘              └──────────┘                  └──────────┘       │
+│  ┌──────────────┬──────────────┬──────────────┬──────────────┐             │
+│  ▼              ▼              ▼              ▼              │             │
+│  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐             │             │
+│  │ Local  │  │  NFS   │  │  Ceph  │  │ iSCSI  │             │             │
+│  │Backend │  │Backend │  │Backend │  │Backend │             │             │
+│  │qemu-img│  │mount+  │  │rbd CLI │  │iscsiadm│             │             │
+│  │        │  │qemu-img│  │        │  │+ LVM   │             │             │
+│  └────────┘  └────────┘  └────────┘  └────────┘             │             │
+│       │           │           │           │                  │             │
+│       ▼           ▼           ▼           ▼                  │             │
+│   file://     file://     rbd://    /dev/vg/lv              │             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -222,40 +302,34 @@ Added storage RPCs to `proto/limiquantix/node/v1/node_daemon.proto`:
 
 | File | Changes |
 |------|---------|
-| `agent/limiquantix-hypervisor/src/storage/ceph.rs` | **NEW** - CephBackend implementation |
-| `agent/limiquantix-hypervisor/src/storage/mod.rs` | Added Ceph import and registration |
-| `agent/limiquantix-hypervisor/src/lib.rs` | Export CephBackend |
-| `proto/limiquantix/node/v1/node_daemon.proto` | Storage pool & volume RPCs |
-| `agent/limiquantix-proto/proto/node_daemon.proto` | Storage pool & volume RPCs (agent copy) |
-| `backend/internal/services/node/daemon_client.go` | Storage methods |
-| `backend/internal/services/storage/pool_service.go` | Node daemon integration |
-| `backend/internal/domain/storage.go` | ISCSIConfig, SecretUUID, MountPoint |
-| `backend/internal/repository/memory/storage_pool_repository.go` | Fixed pointer types |
-| `backend/internal/services/storage/pool_converter.go` | Fixed Backend pointer |
-| `frontend/src/hooks/useImages.ts` | Fixed connect import |
+| `agent/limiquantix-hypervisor/src/storage/iscsi.rs` | **NEW** - IscsiBackend implementation |
+| `agent/limiquantix-hypervisor/src/storage/mod.rs` | Added iSCSI import and registration |
+| `agent/limiquantix-hypervisor/src/lib.rs` | Export IscsiBackend |
+| `frontend/src/pages/StoragePools.tsx` | Updated with API integration |
+| `frontend/src/pages/Volumes.tsx` | Updated with API integration |
+| `frontend/src/hooks/useStorage.ts` | **NEW** - Storage API hooks |
+| `frontend/src/components/storage/CreatePoolDialog.tsx` | **NEW** - Pool creation wizard |
+| `frontend/src/components/storage/CreateVolumeDialog.tsx` | **NEW** - Volume creation wizard |
+| `frontend/src/components/storage/index.ts` | **NEW** - Component exports |
+| `docs/000046-storage-backend-implementation.md` | Updated with iSCSI & Frontend sections |
 
 ---
 
 ## Next Steps
 
-### Priority 1: iSCSI Backend
-- [ ] Implement IscsiBackend in Rust
-- [ ] Add `iscsiadm` discovery/login integration
-- [ ] Add LVM volume group management
-
-### Priority 2: Node Daemon Storage Handler
+### Priority 1: Node Daemon Storage Handler
 - [ ] Implement gRPC handlers in Rust node daemon
 - [ ] Wire StorageManager to gRPC service
 
-### Priority 3: Frontend Storage UI
-- [ ] Storage pools list page
-- [ ] Create storage pool form (NFS, Ceph, Local)
-- [ ] Volume management in VM details
-
-### Priority 4: Testing
+### Priority 2: Testing
 - [ ] Ceph single-node container tests
 - [ ] Integration tests with real NFS server
 - [ ] iSCSI targetcli tests
+
+### Priority 3: VM Disk Management
+- [ ] Add disks tab to VM details page
+- [ ] Hot-attach/detach volumes
+- [ ] Boot order configuration
 
 ---
 

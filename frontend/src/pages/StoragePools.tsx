@@ -12,37 +12,105 @@ import {
   AlertTriangle,
   XCircle,
   MoreHorizontal,
-  Settings,
   Trash2,
   BarChart3,
   WifiOff,
+  Wifi,
+  Loader2,
+  Folder,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { mockStoragePools, type StoragePool } from '@/data/mock-data';
-// Note: Storage service not yet implemented in backend - using mock data only
+import { useStoragePools, useDeleteStoragePool, type StoragePoolUI } from '@/hooks/useStorage';
+import { CreatePoolDialog } from '@/components/storage/CreatePoolDialog';
+import { toast } from 'sonner';
+
+// Fallback mock data when API is unavailable
+const mockStoragePools: StoragePoolUI[] = [
+  {
+    id: 'pool-1',
+    name: 'ceph-ssd',
+    description: 'High-performance SSD-backed Ceph pool',
+    projectId: 'default',
+    type: 'CEPH_RBD',
+    status: { phase: 'READY', volumeCount: 12 },
+    capacity: {
+      totalBytes: 10 * 1024 * 1024 * 1024 * 1024,
+      usedBytes: 3.5 * 1024 * 1024 * 1024 * 1024,
+      availableBytes: 6.5 * 1024 * 1024 * 1024 * 1024,
+      provisionedBytes: 5 * 1024 * 1024 * 1024 * 1024,
+    },
+    createdAt: new Date(),
+    labels: {},
+  },
+  {
+    id: 'pool-2',
+    name: 'nfs-archive',
+    description: 'NFS storage for archives',
+    projectId: 'default',
+    type: 'NFS',
+    status: { phase: 'READY', volumeCount: 5 },
+    capacity: {
+      totalBytes: 50 * 1024 * 1024 * 1024 * 1024,
+      usedBytes: 30 * 1024 * 1024 * 1024 * 1024,
+      availableBytes: 20 * 1024 * 1024 * 1024 * 1024,
+      provisionedBytes: 35 * 1024 * 1024 * 1024 * 1024,
+    },
+    createdAt: new Date(),
+    labels: {},
+  },
+  {
+    id: 'pool-3',
+    name: 'iscsi-san',
+    description: 'Enterprise SAN storage',
+    projectId: 'default',
+    type: 'ISCSI',
+    status: { phase: 'DEGRADED', volumeCount: 8, errorMessage: 'One path unavailable' },
+    capacity: {
+      totalBytes: 20 * 1024 * 1024 * 1024 * 1024,
+      usedBytes: 18 * 1024 * 1024 * 1024 * 1024,
+      availableBytes: 2 * 1024 * 1024 * 1024 * 1024,
+      provisionedBytes: 19 * 1024 * 1024 * 1024 * 1024,
+    },
+    createdAt: new Date(),
+    labels: {},
+  },
+];
 
 type FilterTab = 'all' | 'ready' | 'degraded' | 'error';
 
 const statusConfig = {
+  PENDING: { label: 'Pending', variant: 'default' as const, icon: Loader2 },
   READY: { label: 'Ready', variant: 'success' as const, icon: CheckCircle },
   DEGRADED: { label: 'Degraded', variant: 'warning' as const, icon: AlertTriangle },
   ERROR: { label: 'Error', variant: 'error' as const, icon: XCircle },
+  DELETING: { label: 'Deleting', variant: 'default' as const, icon: Loader2 },
 };
 
-const typeLabels = {
-  CEPH_RBD: 'Ceph RBD',
-  LOCAL_LVM: 'Local LVM',
-  NFS: 'NFS',
+const typeConfig = {
+  CEPH_RBD: { label: 'Ceph RBD', icon: Database },
+  NFS: { label: 'NFS', icon: Server },
+  ISCSI: { label: 'iSCSI', icon: HardDrive },
+  LOCAL_DIR: { label: 'Local', icon: Folder },
+  LOCAL_LVM: { label: 'LVM', icon: HardDrive },
 };
 
 export function StoragePools() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-  const filteredPools = mockStoragePools.filter((pool) => {
+  // Fetch pools from API
+  const { data: apiPools, isLoading, error, refetch } = useStoragePools();
+  const deletePool = useDeleteStoragePool();
+  
+  // Use API data or fallback to mock
+  const pools = apiPools && apiPools.length > 0 ? apiPools : mockStoragePools;
+  const isUsingMock = !apiPools || apiPools.length === 0;
+
+  const filteredPools = pools.filter((pool) => {
     const matchesSearch = pool.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTab =
       activeTab === 'all' ||
@@ -53,16 +121,27 @@ export function StoragePools() {
   });
 
   const poolCounts = {
-    all: mockStoragePools.length,
-    ready: mockStoragePools.filter((p) => p.status.phase === 'READY').length,
-    degraded: mockStoragePools.filter((p) => p.status.phase === 'DEGRADED').length,
-    error: mockStoragePools.filter((p) => p.status.phase === 'ERROR').length,
+    all: pools.length,
+    ready: pools.filter((p) => p.status.phase === 'READY').length,
+    degraded: pools.filter((p) => p.status.phase === 'DEGRADED').length,
+    error: pools.filter((p) => p.status.phase === 'ERROR').length,
   };
 
   // Calculate totals
-  const totalCapacity = mockStoragePools.reduce((sum, p) => sum + p.status.capacity.totalBytes, 0);
-  const usedCapacity = mockStoragePools.reduce((sum, p) => sum + p.status.capacity.usedBytes, 0);
-  const usagePercent = Math.round((usedCapacity / totalCapacity) * 100);
+  const totalCapacity = pools.reduce((sum, p) => sum + p.capacity.totalBytes, 0);
+  const usedCapacity = pools.reduce((sum, p) => sum + p.capacity.usedBytes, 0);
+  const usagePercent = totalCapacity > 0 ? Math.round((usedCapacity / totalCapacity) * 100) : 0;
+
+  const handleDelete = async (pool: StoragePoolUI) => {
+    if (!confirm(`Are you sure you want to delete pool "${pool.name}"?`)) return;
+    
+    try {
+      await deletePool.mutateAsync(pool.id);
+      toast.success(`Pool "${pool.name}" deleted`);
+    } catch (err) {
+      toast.error(`Failed to delete pool: ${(err as Error).message}`);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -77,18 +156,23 @@ export function StoragePools() {
             <h1 className="text-2xl font-bold text-text-primary">Storage Pools</h1>
             <p className="text-text-muted mt-1">Manage your storage infrastructure</p>
           </div>
-          {/* Storage service not yet implemented - always mock */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-warning/20 text-warning border border-warning/30">
-            <WifiOff className="w-3 h-3" />
-            Mock Data
+          {/* Connection status */}
+          <div className={cn(
+            'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border',
+            isUsingMock
+              ? 'bg-warning/20 text-warning border-warning/30'
+              : 'bg-success/20 text-success border-success/30'
+          )}>
+            {isUsingMock ? <WifiOff className="w-3 h-3" /> : <Wifi className="w-3 h-3" />}
+            {isUsingMock ? 'Mock Data' : 'Connected'}
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm">
-            <RefreshCw className="w-4 h-4" />
+          <Button variant="secondary" size="sm" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
             Refresh
           </Button>
-          <Button size="sm">
+          <Button size="sm" onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="w-4 h-4" />
             Create Pool
           </Button>
@@ -109,7 +193,7 @@ export function StoragePools() {
             </div>
             <span className="text-sm text-text-muted">Total Pools</span>
           </div>
-          <p className="text-2xl font-bold text-text-primary">{mockStoragePools.length}</p>
+          <p className="text-2xl font-bold text-text-primary">{pools.length}</p>
         </motion.div>
 
         <motion.div
@@ -200,15 +284,29 @@ export function StoragePools() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-accent" />
+        </div>
+      )}
+
       {/* Pools Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredPools.map((pool, index) => (
-          <PoolCard key={pool.id} pool={pool} index={index} />
-        ))}
-      </div>
+      {!isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredPools.map((pool, index) => (
+            <PoolCard 
+              key={pool.id} 
+              pool={pool} 
+              index={index} 
+              onDelete={() => handleDelete(pool)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Empty State */}
-      {filteredPools.length === 0 && (
+      {!isLoading && filteredPools.length === 0 && (
         <div className="text-center py-12 bg-bg-surface rounded-xl border border-border">
           <Database className="w-12 h-12 mx-auto text-text-muted mb-4" />
           <h3 className="text-lg font-medium text-text-primary mb-2">No Storage Pools Found</h3>
@@ -216,23 +314,34 @@ export function StoragePools() {
             {searchQuery ? 'No pools match your search criteria' : 'Create your first storage pool'}
           </p>
           {!searchQuery && (
-            <Button size="sm">
+            <Button size="sm" onClick={() => setIsCreateDialogOpen(true)}>
               <Plus className="w-4 h-4" />
               Create Pool
             </Button>
           )}
         </div>
       )}
+
+      {/* Create Dialog - only render when open to avoid unnecessary API calls */}
+      {isCreateDialogOpen && (
+        <CreatePoolDialog 
+          isOpen={isCreateDialogOpen} 
+          onClose={() => setIsCreateDialogOpen(false)} 
+        />
+      )}
     </div>
   );
 }
 
-function PoolCard({ pool, index }: { pool: StoragePool; index: number }) {
+function PoolCard({ pool, index, onDelete }: { pool: StoragePoolUI; index: number; onDelete: () => void }) {
+  const [showMenu, setShowMenu] = useState(false);
   const statusInfo = statusConfig[pool.status.phase];
+  const typeInfo = typeConfig[pool.type];
   const StatusIcon = statusInfo.icon;
-  const usagePercent = Math.round(
-    (pool.status.capacity.usedBytes / pool.status.capacity.totalBytes) * 100
-  );
+  const TypeIcon = typeInfo.icon;
+  const usagePercent = pool.capacity.totalBytes > 0 
+    ? Math.round((pool.capacity.usedBytes / pool.capacity.totalBytes) * 100)
+    : 0;
 
   return (
     <motion.div
@@ -242,35 +351,60 @@ function PoolCard({ pool, index }: { pool: StoragePool; index: number }) {
       className={cn(
         'bg-bg-surface rounded-xl border border-border p-5',
         'shadow-floating hover:shadow-elevated',
-        'transition-all duration-200 cursor-pointer group',
+        'transition-all duration-200 cursor-pointer group relative',
       )}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-bg-elevated group-hover:bg-accent/10 flex items-center justify-center transition-colors">
-            <Database className="w-5 h-5 text-text-muted group-hover:text-accent" />
+            <TypeIcon className="w-5 h-5 text-text-muted group-hover:text-accent" />
           </div>
           <div>
             <h3 className="font-semibold text-text-primary group-hover:text-accent transition-colors">
               {pool.name}
             </h3>
-            <p className="text-xs text-text-muted">{typeLabels[pool.type]}</p>
+            <p className="text-xs text-text-muted">{typeInfo.label}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant={statusInfo.variant}>
-            <StatusIcon className="w-3 h-3 mr-1" />
+            <StatusIcon className={cn('w-3 h-3 mr-1', pool.status.phase === 'PENDING' && 'animate-spin')} />
             {statusInfo.label}
           </Badge>
-          <button
-            onClick={(e) => e.stopPropagation()}
-            className="p-1.5 rounded-md hover:bg-bg-hover text-text-muted hover:text-text-primary opacity-0 group-hover:opacity-100 transition-all"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}
+              className="p-1.5 rounded-md hover:bg-bg-hover text-text-muted hover:text-text-primary opacity-0 group-hover:opacity-100 transition-all"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            {showMenu && (
+              <div className="absolute right-0 top-8 z-10 w-40 bg-bg-surface rounded-lg border border-border shadow-lg py-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    onDelete();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-error hover:bg-bg-hover"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Pool
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Description */}
+      {pool.description && (
+        <p className="text-xs text-text-muted mb-3 line-clamp-1">{pool.description}</p>
+      )}
 
       {/* Usage Bar */}
       <div className="mb-4">
@@ -303,23 +437,22 @@ function PoolCard({ pool, index }: { pool: StoragePool; index: number }) {
         <div>
           <p className="text-xs text-text-muted">Total</p>
           <p className="text-sm font-medium text-text-primary">
-            {formatBytes(pool.status.capacity.totalBytes)}
+            {formatBytes(pool.capacity.totalBytes)}
           </p>
         </div>
         <div>
           <p className="text-xs text-text-muted">Used</p>
           <p className="text-sm font-medium text-text-primary">
-            {formatBytes(pool.status.capacity.usedBytes)}
+            {formatBytes(pool.capacity.usedBytes)}
           </p>
         </div>
         <div>
-          <p className="text-xs text-text-muted">Available</p>
+          <p className="text-xs text-text-muted">Volumes</p>
           <p className="text-sm font-medium text-text-primary">
-            {formatBytes(pool.status.capacity.availableBytes)}
+            {pool.status.volumeCount}
           </p>
         </div>
       </div>
     </motion.div>
   );
 }
-

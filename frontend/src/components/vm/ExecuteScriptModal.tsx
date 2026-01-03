@@ -127,7 +127,7 @@ export function ExecuteScriptModal({
                   Execute Script
                 </h2>
                 <p className="text-sm text-text-muted">
-                  Run commands on {vmName} via Guest Agent
+                  Run commands on {vmName} via Quantix Agent
                 </p>
               </div>
             </div>

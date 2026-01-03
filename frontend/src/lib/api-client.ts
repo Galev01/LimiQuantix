@@ -11,7 +11,7 @@
  */
 
 // Configuration
-const API_CONFIG = {
+export const API_CONFIG = {
   baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:8080',
   timeout: 30000, // 30 seconds
   retryAttempts: 3,

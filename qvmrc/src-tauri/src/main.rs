@@ -77,13 +77,26 @@ fn parse_qvmrc_url(url: &str) -> Option<PendingConnection> {
 /// This will consume the pending connection to prevent double-processing
 #[tauri::command]
 fn get_pending_connection(state: tauri::State<AppState>) -> Option<PendingConnection> {
+    debug_log("get_pending_connection called by frontend");
     info!("get_pending_connection called");
-    let mut pending = state.pending_connection.write().ok()?;
+    
+    let mut pending = match state.pending_connection.write() {
+        Ok(guard) => guard,
+        Err(e) => {
+            debug_log(&format!("Failed to acquire write lock: {:?}", e));
+            return None;
+        }
+    };
+    
+    debug_log(&format!("Current pending value: {:?}", *pending));
+    
     let result = pending.take();
     if let Some(ref conn) = result {
         info!("Returning pending connection: {:?}", conn);
+        debug_log(&format!("Returning pending connection: {:?}", conn));
     } else {
         info!("No pending connection found");
+        debug_log("No pending connection found - returning None");
     }
     result
 }
@@ -144,6 +157,22 @@ fn handle_deep_link(app: &AppHandle, url: &str) {
     }
 }
 
+/// Write debug info to a log file for troubleshooting
+fn debug_log(msg: &str) {
+    use std::io::Write;
+    if let Some(home) = dirs::home_dir() {
+        let log_path = home.join("qvmrc-debug.log");
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+        {
+            let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+            let _ = writeln!(file, "[{}] {}", timestamp, msg);
+        }
+    }
+}
+
 fn main() {
     // Initialize logging
     let _subscriber = FmtSubscriber::builder()
@@ -153,28 +182,44 @@ fn main() {
         .init();
 
     info!("Starting QVMRC v{}", env!("CARGO_PKG_VERSION"));
+    debug_log(&format!("Starting QVMRC v{}", env!("CARGO_PKG_VERSION")));
 
     // Check for deep link URL in command line args
     let args: Vec<String> = std::env::args().collect();
+    debug_log(&format!("Command line args: {:?}", args));
+    
     let mut pending_conn: Option<PendingConnection> = None;
     
     for arg in &args[1..] {
+        debug_log(&format!("Checking arg: {}", arg));
         if arg.starts_with("qvmrc://") {
             info!("Deep link detected in args: {}", arg);
+            debug_log(&format!("Deep link detected: {}", arg));
             if let Some(conn) = parse_qvmrc_url(arg) {
                 info!("Parsed connection: {:?}", conn);
+                debug_log(&format!("Parsed connection: {:?}", conn));
                 pending_conn = Some(conn);
             } else {
                 warn!("Failed to parse deep link URL: {}", arg);
+                debug_log(&format!("FAILED to parse deep link URL: {}", arg));
             }
             break;
         }
     }
 
+    debug_log(&format!("pending_conn before AppState: {:?}", pending_conn));
+
+    // Build AppState with the pending connection
     let app_state = AppState {
-        pending_connection: std::sync::RwLock::new(pending_conn.clone()),
-        ..Default::default()
+        config: std::sync::RwLock::new(config::Config::load().unwrap_or_default()),
+        connections: std::sync::RwLock::new(Vec::new()),
+        pending_connection: std::sync::RwLock::new(pending_conn),
     };
+
+    // Verify it was set
+    if let Ok(guard) = app_state.pending_connection.read() {
+        debug_log(&format!("AppState pending_connection after creation: {:?}", *guard));
+    }
 
     tauri::Builder::default()
         .manage(app_state)
@@ -196,7 +241,9 @@ fn main() {
             get_pending_connection,
             add_and_connect,
         ])
-        .setup(move |app| {
+        .setup(|app| {
+            debug_log("Tauri setup running");
+            
             let window = app.get_window("main").unwrap();
             
             #[cfg(debug_assertions)]
@@ -205,12 +252,7 @@ fn main() {
                 window.open_devtools();
             }
             
-            // DON'T emit event here - the frontend will call get_pending_connection
-            // The event system has a race condition where the listener isn't ready yet
-            if let Some(ref conn) = pending_conn {
-                info!("Pending connection will be picked up by frontend: {:?}", conn);
-            }
-            
+            debug_log("QVMRC initialized successfully");
             info!("QVMRC initialized successfully");
             Ok(())
         })

@@ -18,7 +18,7 @@ import {
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
 import { toast } from 'sonner';
 
-interface GuestAgentInfo {
+interface QuantixAgentInfo {
   connected: boolean;
   version: string;
   osName: string;
@@ -55,18 +55,18 @@ interface GuestAgentInfo {
 // Latest agent version (would come from backend in production)
 const LATEST_AGENT_VERSION = '0.1.0';
 
-interface GuestAgentStatusProps {
+interface QuantixAgentStatusProps {
   vmId: string;
   vmState: string;
   className?: string;
 }
 
-export function GuestAgentStatus({
+export function QuantixAgentStatus({
   vmId,
   vmState,
   className,
-}: GuestAgentStatusProps) {
-  const [agentInfo, setAgentInfo] = useState<GuestAgentInfo | null>(null);
+}: QuantixAgentStatusProps) {
+  const [agentInfo, setAgentInfo] = useState<QuantixAgentInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,8 +87,27 @@ export function GuestAgentStatus({
     setError(null);
 
     try {
-      // Ping the agent first
+      // Ping the agent
       const response = await fetch(`/api/vms/${vmId}/agent/ping`);
+      
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // API endpoint doesn't exist or returned HTML
+        throw new Error('Agent API not available. Ensure the Quantix Agent is installed in the VM.');
+      }
+      
+      if (!response.ok) {
+        // Handle HTTP errors
+        if (response.status === 404) {
+          throw new Error('Agent API endpoint not found. Backend may not support agent operations.');
+        }
+        if (response.status === 503) {
+          throw new Error('Agent not reachable. VM may not have the Quantix Agent installed.');
+        }
+        throw new Error(`Server error: ${response.status}`);
+      }
+
       const data = await response.json();
 
       if (data.connected) {
@@ -119,8 +138,24 @@ export function GuestAgentStatus({
         setError(data.error || 'Agent not connected');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch agent status');
-      setAgentInfo(null);
+      const message = err instanceof Error ? err.message : 'Failed to fetch agent status';
+      // Don't show JSON parsing errors directly - they're confusing
+      if (message.includes('Unexpected token') || message.includes('JSON')) {
+        setError('Agent API not available. Install the Quantix Agent in this VM.');
+      } else {
+        setError(message);
+      }
+      setAgentInfo({
+        connected: false,
+        version: '',
+        osName: '',
+        osVersion: '',
+        kernelVersion: '',
+        architecture: '',
+        hostname: '',
+        ipAddresses: [],
+        capabilities: [],
+      });
     } finally {
       setIsLoading(false);
     }
@@ -197,7 +232,7 @@ export function GuestAgentStatus({
       <div className={cn('p-4 bg-bg-surface rounded-xl border border-border', className)}>
         <div className="flex items-center gap-2 text-text-muted">
           <XCircle className="w-4 h-4" />
-          <span className="text-sm">Guest Agent unavailable (VM not running)</span>
+          <span className="text-sm">Quantix Agent unavailable (VM not running)</span>
         </div>
       </div>
     );
@@ -218,7 +253,7 @@ export function GuestAgentStatus({
                 : 'bg-error',
             )}
           />
-          <h3 className="text-lg font-semibold text-text-primary">Guest Agent</h3>
+          <h3 className="text-lg font-semibold text-text-primary">Quantix Agent</h3>
           {agentInfo?.connected && (
             <div className="flex items-center gap-2">
               <button
@@ -281,7 +316,7 @@ export function GuestAgentStatus({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-text-primary">
-                        LimiQuantix Guest Agent
+                        Quantix Agent
                       </p>
                       <p className="text-xs text-text-muted">
                         {agentInfo.osName} {agentInfo.architecture}
@@ -332,9 +367,9 @@ export function GuestAgentStatus({
         ) : !agentInfo?.connected ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <XCircle className="w-12 h-12 text-error/50 mb-4" />
-            <p className="text-text-muted mb-2">Guest Agent not connected</p>
-            <p className="text-xs text-text-muted">
-              {error || 'Install the LimiQuantix Guest Agent inside the VM'}
+            <p className="text-text-muted mb-2">Quantix Agent not connected</p>
+            <p className="text-xs text-text-muted max-w-md">
+              {error || 'Install the Quantix Agent inside the VM for enhanced integration features.'}
             </p>
           </div>
         ) : (

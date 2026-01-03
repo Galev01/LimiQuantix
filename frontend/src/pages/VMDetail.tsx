@@ -24,17 +24,24 @@ import {
   Download,
   Code,
   FolderOpen,
+  Settings,
+  Copy,
+  Power,
+  Pause,
 } from 'lucide-react';
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { DropdownMenu, type DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import { VMStatusBadge } from '@/components/vm/VMStatusBadge';
 import { ProgressRing } from '@/components/dashboard/ProgressRing';
 import { NoVNCConsole } from '@/components/vm/NoVNCConsole';
 import { ConsoleAccessModal } from '@/components/vm/ConsoleAccessModal';
 import { ExecuteScriptModal } from '@/components/vm/ExecuteScriptModal';
-import { GuestAgentStatus } from '@/components/vm/GuestAgentStatus';
+import { EditSettingsModal } from '@/components/vm/EditSettingsModal';
+import { EditResourcesModal } from '@/components/vm/EditResourcesModal';
+import { QuantixAgentStatus } from '@/components/vm/QuantixAgentStatus';
 import { FileBrowser } from '@/components/vm/FileBrowser';
 import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
 import { useVM, useStartVM, useStopVM, useDeleteVM, type ApiVM } from '@/hooks/useVMs';
@@ -92,6 +99,8 @@ export function VMDetail() {
   const [isConsoleModalOpen, setIsConsoleModalOpen] = useState(false);
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
   const [isFileBrowserOpen, setIsFileBrowserOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isResourcesModalOpen, setIsResourcesModalOpen] = useState(false);
 
   // API connection and data
   const { data: isConnected = false } = useApiConnection();
@@ -135,6 +144,79 @@ export function VMDetail() {
     }
     await deleteVM.mutateAsync({ id });
     navigate('/vms');
+  };
+
+  const handleSaveSettings = async (settings: { name: string; description: string; labels: Record<string, string> }) => {
+    if (useMockData || !id) {
+      console.log('Mock: Update VM settings', id, settings);
+      return;
+    }
+    // TODO: Call update VM API when available
+    console.log('Update VM settings', id, settings);
+  };
+
+  const handleSaveResources = async (resources: { cores: number; memoryMib: number }) => {
+    if (useMockData || !id) {
+      console.log('Mock: Update VM resources', id, resources);
+      return;
+    }
+    // TODO: Call update VM API when available
+    console.log('Update VM resources', id, resources);
+  };
+
+  const handleCloneVM = () => {
+    console.log('Clone VM', id);
+    // TODO: Open clone VM modal
+  };
+
+  // Generate dropdown menu items
+  const getVMActions = (): DropdownMenuItem[] => {
+    const isRunning = vm?.status.state === 'RUNNING';
+    
+    return [
+      {
+        label: 'Edit Settings',
+        icon: <Settings className="w-4 h-4" />,
+        onClick: () => setIsSettingsModalOpen(true),
+      },
+      {
+        label: 'Edit Resources',
+        icon: <Cpu className="w-4 h-4" />,
+        onClick: () => setIsResourcesModalOpen(true),
+      },
+      {
+        label: 'Run Script',
+        icon: <Code className="w-4 h-4" />,
+        onClick: () => setIsScriptModalOpen(true),
+        disabled: !isRunning,
+      },
+      {
+        label: 'Browse Files',
+        icon: <FolderOpen className="w-4 h-4" />,
+        onClick: () => setIsFileBrowserOpen(true),
+        disabled: !isRunning,
+      },
+      {
+        label: 'Clone VM',
+        icon: <Copy className="w-4 h-4" />,
+        onClick: handleCloneVM,
+        divider: true,
+      },
+      {
+        label: 'Force Stop',
+        icon: <Power className="w-4 h-4" />,
+        onClick: handleStop,
+        disabled: !isRunning,
+        divider: true,
+      },
+      {
+        label: 'Delete VM',
+        icon: <Trash2 className="w-4 h-4" />,
+        onClick: handleDelete,
+        variant: 'danger',
+        divider: true,
+      },
+    ];
   };
 
   if (isLoading && !useMockData) {
@@ -242,23 +324,18 @@ export function VMDetail() {
               <MonitorPlay className="w-4 h-4" />
               Console
             </Button>
-            <Button 
-              variant="secondary" 
-              size="sm"
-              onClick={() => setIsScriptModalOpen(true)}
-              disabled={vm.status.state !== 'RUNNING'}
-              title={vm.status.state !== 'RUNNING' ? 'VM must be running to execute scripts' : 'Run script via Guest Agent'}
-            >
-              <Code className="w-4 h-4" />
-              Run Script
-            </Button>
             <Button variant="secondary" size="sm">
               <Camera className="w-4 h-4" />
               Snapshot
             </Button>
-            <Button variant="ghost" size="sm">
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
+            <DropdownMenu
+              trigger={
+                <Button variant="ghost" size="sm">
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              }
+              items={getVMActions()}
+            />
           </div>
         </div>
       </motion.div>
@@ -268,7 +345,7 @@ export function VMDetail() {
         <TabsList>
           <TabsTrigger value="summary">Summary</TabsTrigger>
           <TabsTrigger value="console">Console</TabsTrigger>
-          <TabsTrigger value="agent">Guest Agent</TabsTrigger>
+          <TabsTrigger value="agent">Quantix Agent</TabsTrigger>
           <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
           <TabsTrigger value="disks">Disks</TabsTrigger>
           <TabsTrigger value="network">Network</TabsTrigger>
@@ -494,11 +571,11 @@ export function VMDetail() {
           </div>
         </TabsContent>
 
-        {/* Guest Agent Tab */}
+        {/* Quantix Agent Tab */}
         <TabsContent value="agent">
           <div className="grid grid-cols-3 gap-6">
             <div className="col-span-2">
-              <GuestAgentStatus vmId={id || ''} vmState={vm.status.state} />
+              <QuantixAgentStatus vmId={id || ''} vmState={vm.status.state} />
             </div>
             <div className="space-y-4">
               <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
@@ -545,9 +622,9 @@ export function VMDetail() {
                 </div>
               </div>
               <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
-                <h3 className="text-sm font-semibold text-text-primary mb-3">About Guest Agent</h3>
+                <h3 className="text-sm font-semibold text-text-primary mb-3">About Quantix Agent</h3>
                 <p className="text-xs text-text-muted leading-relaxed">
-                  The LimiQuantix Guest Agent runs inside the VM and provides:
+                  The Quantix Agent runs inside the VM and provides:
                 </p>
                 <ul className="text-xs text-text-muted mt-2 space-y-1">
                   <li>• Real resource usage metrics</li>
@@ -746,6 +823,29 @@ export function VMDetail() {
         vmId={id || ''}
         isOpen={isFileBrowserOpen}
         onClose={() => setIsFileBrowserOpen(false)}
+      />
+
+      {/* Edit Settings Modal */}
+      <EditSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        vmId={id || ''}
+        vmName={vm.name}
+        vmDescription={vm.description}
+        vmLabels={vm.labels}
+        onSave={handleSaveSettings}
+      />
+
+      {/* Edit Resources Modal */}
+      <EditResourcesModal
+        isOpen={isResourcesModalOpen}
+        onClose={() => setIsResourcesModalOpen(false)}
+        vmId={id || ''}
+        vmName={vm.name}
+        vmState={vm.status.state}
+        currentCores={vm.spec.cpu.cores}
+        currentMemoryMib={vm.spec.memory.sizeMib}
+        onSave={handleSaveResources}
       />
     </div>
   );

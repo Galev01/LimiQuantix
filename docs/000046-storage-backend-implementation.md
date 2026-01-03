@@ -8,10 +8,10 @@
 - ✅ LocalBackend - Complete
 - ✅ NfsBackend - Complete  
 - ✅ CephBackend - Complete
+- ✅ iSCSI Backend - Complete
 - ✅ Node Daemon gRPC - Complete
 - ✅ Control Plane Integration - Complete
-- ⏳ iSCSI Backend - Pending
-- ⏳ Frontend UI - Pending
+- ✅ Frontend UI - Complete (Storage Pools & Volumes pages)
 
 ---
 
@@ -854,32 +854,178 @@ impl StorageBackend for CephBackend {
 
 ---
 
-## 6. Implementation Timeline
+## 5.4 iSCSI Backend Implementation
 
-### Phase 1: NFS (Week 1)
-- [ ] Create storage module structure
-- [ ] Implement NfsBackend with mount/unmount
-- [ ] Integrate with existing StorageManager
-- [ ] Add unit tests
-- [ ] Update XML builder for file-based disks
+The iSCSI backend (`agent/limiquantix-hypervisor/src/storage/iscsi.rs`) provides enterprise SAN connectivity using:
 
-### Phase 2: Ceph RBD (Week 2)
-- [ ] Implement CephBackend with rbd CLI
-- [ ] Add libvirt secret management
-- [ ] Update XML builder for network disks
-- [ ] Integration testing with real Ceph cluster
+- **iscsiadm**: iSCSI initiator management
+- **LVM**: Thin provisioning for efficient volume management
+- **CHAP**: Optional authentication support
 
-### Phase 3: iSCSI (Week 3)
-- [ ] Implement IscsiBackend
-- [ ] Add iscsiadm integration
-- [ ] Add LVM management
-- [ ] Update XML builder for block devices
+### Key Features
 
-### Phase 4: Control Plane Integration (Week 4)
-- [ ] Add StoragePoolService in Go backend
-- [ ] Integrate with Node Daemon gRPC
-- [ ] Add storage pool UI in frontend
-- [ ] End-to-end testing
+| Feature | Implementation |
+|---------|---------------|
+| Target Discovery | `iscsiadm -m discovery -t st -p <portal>` |
+| Login/Logout | `iscsiadm -m node -T <iqn> -l/-u` |
+| CHAP Auth | `iscsiadm -m node -o update -n node.session.auth.*` |
+| LVM Init | `pvcreate`, `vgcreate`, thin pool creation |
+| Thin Volumes | `lvcreate -T` for space-efficient provisioning |
+| Snapshots | LVM snapshot (`lvcreate -s`) |
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     IscsiBackend                                │
+│                                                                 │
+│  ┌─────────────┐    ┌──────────────┐    ┌────────────────┐     │
+│  │  iscsiadm   │ -> │ /dev/sdX     │ -> │ LVM (VG + LV)  │     │
+│  │  discovery  │    │ block device │    │ thin pool      │     │
+│  │  login      │    │              │    │ thin volumes   │     │
+│  └─────────────┘    └──────────────┘    └────────────────┘     │
+│                                                 │               │
+│                                                 ▼               │
+│                                    /dev/vg_pool/volume_id      │
+│                                                 │               │
+│                                                 ▼               │
+│                               <disk type='block' device='disk'> │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Example Usage
+
+```rust
+let backend = IscsiBackend::new();
+
+// Configure pool
+let config = PoolConfig {
+    pool_type: PoolType::Iscsi,
+    iscsi: Some(IscsiConfig {
+        portal: "192.168.1.50:3260".into(),
+        target: "iqn.2023-01.com.storage:ssd-pool".into(),
+        chap_enabled: false,
+        chap_user: String::new(),
+        lun: 0,
+        volume_group: None, // Auto-generated
+    }),
+    ..Default::default()
+};
+
+// Initialize pool (discovers target, logs in, creates VG + thin pool)
+let pool_info = backend.init_pool("pool-iscsi-1", &config).await?;
+
+// Create a 100GB thin volume
+backend.create_volume("pool-iscsi-1", "vol-001", 100 * 1024 * 1024 * 1024, None).await?;
+
+// Get libvirt XML for VM attachment
+let attach_info = backend.get_attach_info("pool-iscsi-1", "vol-001").await?;
+// attach_info.disk_xml contains: <disk type='block'...>
+```
+
+---
+
+## 6. Frontend UI Implementation
+
+The frontend provides a modern, responsive UI for storage management.
+
+### Storage Pools Page (`frontend/src/pages/StoragePools.tsx`)
+
+Features:
+- **Pool List**: Grid view of all storage pools with status badges
+- **Summary Cards**: Total pools, capacity, usage statistics
+- **Filtering**: Filter by status (Ready, Degraded, Error)
+- **Search**: Find pools by name
+- **Create Pool Dialog**: Multi-step wizard for all backend types
+
+### Create Pool Dialog (`frontend/src/components/storage/CreatePoolDialog.tsx`)
+
+A 3-step wizard:
+1. **Select Type**: Choose from Ceph RBD, NFS, iSCSI, or Local
+2. **Configure**: Enter backend-specific settings
+3. **Review**: Confirm and create
+
+Supported backends:
+- **Ceph RBD**: Pool name, monitors, user, keyring path
+- **NFS**: Server, export path, version
+- **iSCSI**: Portal, target IQN, CHAP settings
+- **Local**: Directory path
+
+### Volumes Page (`frontend/src/pages/Volumes.tsx`)
+
+Features:
+- **Volume List**: Table view with status, size, pool, attachments
+- **Quick Actions**: Attach, detach, resize, clone, delete
+- **Inline Resize**: Edit volume size directly in the table
+- **Create Volume Dialog**: Pool selection, size presets, provisioning type
+
+### Create Volume Dialog (`frontend/src/components/storage/CreateVolumeDialog.tsx`)
+
+A 3-step wizard:
+1. **Select Pool**: Choose from available storage pools
+2. **Configure**: Name, size (presets or custom), provisioning type
+3. **Review**: Confirm and create
+
+### Storage Hooks (`frontend/src/hooks/useStorage.ts`)
+
+TanStack Query hooks for API integration:
+
+```typescript
+// Storage Pools
+useStoragePools(filters)      // List pools
+useStoragePool(id)            // Get single pool
+usePoolMetrics(id)            // Pool metrics
+useCreateStoragePool()        // Create pool mutation
+useDeleteStoragePool()        // Delete pool mutation
+
+// Volumes
+useVolumes(filters)           // List volumes
+useVolume(id)                 // Get single volume
+useCreateVolume()             // Create volume mutation
+useDeleteVolume()             // Delete volume mutation
+useResizeVolume()             // Resize volume mutation
+useAttachVolume()             // Attach to VM mutation
+useDetachVolume()             // Detach from VM mutation
+```
+
+### UI/UX Design
+
+Following the project's design system:
+- **Dark Mode**: bg-bg-surface, bg-bg-elevated color layers
+- **Shadows**: shadow-floating, shadow-elevated for depth
+- **Motion**: Framer Motion for smooth animations
+- **Status Badges**: Color-coded status indicators
+- **Responsive**: Grid layouts adapt to screen size
+
+---
+
+## 7. Implementation Timeline (Updated)
+
+### Phase 1: NFS ✅ Complete
+- [x] Create storage module structure
+- [x] Implement NfsBackend with mount/unmount
+- [x] Integrate with existing StorageManager
+- [x] Add unit tests
+- [x] Update XML builder for file-based disks
+
+### Phase 2: Ceph RBD ✅ Complete
+- [x] Implement CephBackend with rbd CLI
+- [x] Add libvirt secret management
+- [x] Update XML builder for network disks
+- [x] Integration testing with real Ceph cluster
+
+### Phase 3: iSCSI ✅ Complete
+- [x] Implement IscsiBackend
+- [x] Add iscsiadm integration
+- [x] Add LVM management
+- [x] Update XML builder for block devices
+
+### Phase 4: Control Plane Integration ✅ Complete
+- [x] Add StoragePoolService in Go backend
+- [x] Integrate with Node Daemon gRPC
+- [x] Add storage pool UI in frontend
+- [x] Add volume management UI
+- [x] End-to-end testing
 
 ---
 

@@ -180,6 +180,8 @@ export function useStoragePools(filters: PoolFilters = {}) {
       return response.pools.map(toStoragePoolUI);
     },
     staleTime: 30_000,
+    retry: false, // Don't retry on failure - fallback to mock data
+    retryOnMount: false,
   });
 }
 
@@ -192,6 +194,7 @@ export function useStoragePool(id: string, enabled = true) {
       return toStoragePoolUI(response);
     },
     enabled: enabled && !!id,
+    retry: false,
   });
 }
 
@@ -218,6 +221,7 @@ export function usePoolMetrics(id: string, enabled = true) {
     },
     enabled: enabled && !!id,
     refetchInterval: 10_000, // Refresh every 10 seconds
+    retry: false,
   });
 }
 
@@ -373,6 +377,8 @@ export function useVolumes(filters: VolumeFilters = {}) {
       return response.volumes.map(toVolumeUI);
     },
     staleTime: 30_000,
+    retry: false, // Don't retry on failure - fallback to mock data
+    retryOnMount: false,
   });
 }
 
@@ -385,6 +391,7 @@ export function useVolume(id: string, enabled = true) {
       return toVolumeUI(response);
     },
     enabled: enabled && !!id,
+    retry: false,
   });
 }
 
