@@ -1,17 +1,33 @@
-# ============================================================================
-# Quantix-OS Build Script for Windows
-# ============================================================================
-# Builds the Quantix-OS ISO using Docker Desktop
-#
-# Prerequisites:
-#   - Docker Desktop for Windows (with Linux containers mode)
-#
-# Usage:
-#   .\build.ps1              # Build ISO
-#   .\build.ps1 -Target iso  # Build ISO (explicit)
-#   .\build.ps1 -Target squashfs  # Build update image only
-#   .\build.ps1 -Clean       # Clean build artifacts
-# ============================================================================
+<#
+.SYNOPSIS
+    Quantix-OS Build Script for Windows
+
+.DESCRIPTION
+    Builds the Quantix-OS ISO using Docker Desktop.
+    
+    Prerequisites:
+    - Docker Desktop for Windows (with Linux containers mode)
+
+.PARAMETER Target
+    Build target: iso, squashfs, builder (default: iso)
+
+.PARAMETER Version
+    Set version number (default: 1.0.0)
+
+.PARAMETER Clean
+    Remove build artifacts
+
+.PARAMETER Help
+    Show help message
+
+.EXAMPLE
+    .\build.ps1
+    Build the ISO with default settings
+
+.EXAMPLE
+    .\build.ps1 -Target squashfs -Version 1.2.0
+    Build update image with custom version
+#>
 
 param(
     [string]$Target = "iso",
@@ -26,20 +42,40 @@ $ErrorActionPreference = "Stop"
 $BUILDER_IMAGE = "quantix-os-builder"
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# Colors
-function Write-Info { Write-Host "ℹ️  $args" -ForegroundColor Cyan }
-function Write-Success { Write-Host "✅ $args" -ForegroundColor Green }
-function Write-Warning { Write-Host "⚠️  $args" -ForegroundColor Yellow }
-function Write-Error { Write-Host "❌ $args" -ForegroundColor Red }
-function Write-Step { Write-Host "`n🔧 $args" -ForegroundColor Magenta }
+# Helper functions
+function Write-Info {
+    param([string]$Message)
+    Write-Host "[INFO] $Message" -ForegroundColor Cyan
+}
+
+function Write-Success {
+    param([string]$Message)
+    Write-Host "[OK] $Message" -ForegroundColor Green
+}
+
+function Write-Warn {
+    param([string]$Message)
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
+function Write-Err {
+    param([string]$Message)
+    Write-Host "[ERROR] $Message" -ForegroundColor Red
+}
+
+function Write-Step {
+    param([string]$Message)
+    Write-Host ""
+    Write-Host "==> $Message" -ForegroundColor Magenta
+}
 
 # Banner
 function Show-Banner {
     Write-Host ""
-    Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║              QUANTIX-OS BUILD SYSTEM (Windows)                ║" -ForegroundColor Cyan
-    Write-Host "║                     Version $Version                              ║" -ForegroundColor Cyan
-    Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host "================================================================" -ForegroundColor Cyan
+    Write-Host "          QUANTIX-OS BUILD SYSTEM (Windows)                     " -ForegroundColor Cyan
+    Write-Host "                   Version $Version                             " -ForegroundColor Cyan
+    Write-Host "================================================================" -ForegroundColor Cyan
     Write-Host ""
 }
 
@@ -50,8 +86,8 @@ function Show-Help {
     Write-Host "    .\build.ps1 [options]"
     Write-Host ""
     Write-Host "OPTIONS:"
-    Write-Host "    -Target <target>    Build target: iso, squashfs, builder (default: iso)"
-    Write-Host "    -Version <version>  Set version number (default: 1.0.0)"
+    Write-Host "    -Target [target]    Build target: iso, squashfs, builder (default: iso)"
+    Write-Host "    -Version [version]  Set version number (default: 1.0.0)"
     Write-Host "    -Clean              Remove build artifacts"
     Write-Host "    -Help               Show this help message"
     Write-Host ""
@@ -76,7 +112,7 @@ function Test-Docker {
         Write-Info "Docker found: $dockerVersion"
     }
     catch {
-        Write-Error "Docker not found! Please install Docker Desktop for Windows."
+        Write-Err "Docker not found! Please install Docker Desktop for Windows."
         Write-Host ""
         Write-Host "Download from: https://www.docker.com/products/docker-desktop/"
         Write-Host ""
@@ -89,14 +125,14 @@ function Test-Docker {
         Write-Success "Docker is running"
     }
     catch {
-        Write-Error "Docker is not running! Please start Docker Desktop."
+        Write-Err "Docker is not running! Please start Docker Desktop."
         exit 1
     }
     
     # Check Linux container mode
     $dockerInfo = docker info 2>&1
     if ($dockerInfo -match "OSType: windows") {
-        Write-Error "Docker is in Windows container mode!"
+        Write-Err "Docker is in Windows container mode!"
         Write-Host ""
         Write-Host "Please switch to Linux containers:"
         Write-Host "  1. Right-click Docker Desktop icon in system tray"
@@ -143,18 +179,23 @@ function Build-ISO {
     Write-Info "Output directory: $outputDir"
     
     # Run the build in Docker
-    docker run --rm --privileged `
-        -v "${dockerOutputPath}:/output" `
-        -v "${dockerProfilesPath}:/profiles:ro" `
-        -v "${dockerOverlayPath}:/overlay:ro" `
-        -v "${dockerInstallerPath}:/installer:ro" `
-        -v "${dockerBrandingPath}:/branding:ro" `
-        -e "VERSION=$Version" `
-        -e "ARCH=x86_64" `
-        $BUILDER_IMAGE /build/build-iso.sh
+    $dockerArgs = @(
+        "run", "--rm", "--privileged",
+        "-v", "${dockerOutputPath}:/output",
+        "-v", "${dockerProfilesPath}:/profiles:ro",
+        "-v", "${dockerOverlayPath}:/overlay:ro",
+        "-v", "${dockerInstallerPath}:/installer:ro",
+        "-v", "${dockerBrandingPath}:/branding:ro",
+        "-e", "VERSION=$Version",
+        "-e", "ARCH=x86_64",
+        $BUILDER_IMAGE,
+        "/build/build-iso.sh"
+    )
+    
+    & docker @dockerArgs
     
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "ISO build failed!"
+        Write-Err "ISO build failed!"
         exit 1
     }
     
@@ -163,12 +204,12 @@ function Build-ISO {
         $isoSize = (Get-Item $isoPath).Length / 1MB
         Write-Success "ISO built successfully!"
         Write-Host ""
-        Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-        Write-Host "║                      BUILD COMPLETE!                          ║" -ForegroundColor Green
-        Write-Host "╠═══════════════════════════════════════════════════════════════╣" -ForegroundColor Green
-        Write-Host "║  ISO: $isoPath" -ForegroundColor Green
-        Write-Host "║  Size: $([math]::Round($isoSize, 2)) MB" -ForegroundColor Green
-        Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+        Write-Host "================================================================" -ForegroundColor Green
+        Write-Host "                    BUILD COMPLETE!                             " -ForegroundColor Green
+        Write-Host "================================================================" -ForegroundColor Green
+        Write-Host "  ISO: $isoPath" -ForegroundColor Green
+        Write-Host "  Size: $([math]::Round($isoSize, 2)) MB" -ForegroundColor Green
+        Write-Host "================================================================" -ForegroundColor Green
         Write-Host ""
         Write-Host "Next steps:" -ForegroundColor Yellow
         Write-Host "  1. Write ISO to USB: Use Rufus or balenaEtcher"
@@ -177,7 +218,7 @@ function Build-ISO {
         Write-Host ""
     }
     else {
-        Write-Error "ISO file not found at expected location!"
+        Write-Err "ISO file not found at expected location!"
         exit 1
     }
 }
@@ -195,16 +236,21 @@ function Build-Squashfs {
     $dockerProfilesPath = (Join-Path $SCRIPT_DIR "profiles") -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
     $dockerOverlayPath = (Join-Path $SCRIPT_DIR "overlay") -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
     
-    docker run --rm --privileged `
-        -v "${dockerOutputPath}:/output" `
-        -v "${dockerProfilesPath}:/profiles:ro" `
-        -v "${dockerOverlayPath}:/overlay:ro" `
-        -e "VERSION=$Version" `
-        -e "ARCH=x86_64" `
-        $BUILDER_IMAGE /build/build-squashfs.sh
+    $dockerArgs = @(
+        "run", "--rm", "--privileged",
+        "-v", "${dockerOutputPath}:/output",
+        "-v", "${dockerProfilesPath}:/profiles:ro",
+        "-v", "${dockerOverlayPath}:/overlay:ro",
+        "-e", "VERSION=$Version",
+        "-e", "ARCH=x86_64",
+        $BUILDER_IMAGE,
+        "/build/build-squashfs.sh"
+    )
+    
+    & docker @dockerArgs
     
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Squashfs build failed!"
+        Write-Err "Squashfs build failed!"
         exit 1
     }
     
@@ -257,7 +303,7 @@ function Main {
             Build-ISO
         }
         default {
-            Write-Error "Unknown target: $Target"
+            Write-Err "Unknown target: $Target"
             Write-Host "Valid targets: iso, squashfs, builder"
             exit 1
         }

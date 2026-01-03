@@ -528,14 +528,16 @@ pub struct GuestAgentInfo {
     pub kernel_version: ::prost::alloc::string::String,
     #[prost(string, tag = "6")]
     pub hostname: ::prost::alloc::string::String,
-    #[prost(string, tag = "7")]
-    pub timezone: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "7")]
+    pub ip_addresses: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag = "8")]
     pub interfaces: ::prost::alloc::vec::Vec<GuestNetworkInterface>,
     #[prost(message, optional, tag = "9")]
     pub resource_usage: ::core::option::Option<GuestResourceUsage>,
     #[prost(string, repeated, tag = "10")]
     pub capabilities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "11")]
+    pub last_seen: ::core::option::Option<::prost_types::Timestamp>,
 }
 
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -550,7 +552,7 @@ pub struct GuestNetworkInterface {
     #[prost(string, repeated, tag = "4")]
     pub ipv6_addresses: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(bool, tag = "5")]
-    pub up: bool,
+    pub is_up: bool,
 }
 
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -563,21 +565,23 @@ pub struct GuestResourceUsage {
     #[prost(uint64, tag = "3")]
     pub memory_used_bytes: u64,
     #[prost(uint64, tag = "4")]
-    pub memory_cached_bytes: u64,
+    pub memory_available_bytes: u64,
     #[prost(uint64, tag = "5")]
-    pub memory_buffers_bytes: u64,
-    #[prost(uint64, tag = "6")]
     pub swap_total_bytes: u64,
-    #[prost(uint64, tag = "7")]
+    #[prost(uint64, tag = "6")]
     pub swap_used_bytes: u64,
-    #[prost(uint64, tag = "8")]
-    pub uptime_seconds: u64,
-    #[prost(double, repeated, tag = "9")]
-    pub load_average: ::prost::alloc::vec::Vec<f64>,
+    #[prost(double, tag = "7")]
+    pub load_avg_1: f64,
+    #[prost(double, tag = "8")]
+    pub load_avg_5: f64,
+    #[prost(double, tag = "9")]
+    pub load_avg_15: f64,
     #[prost(message, repeated, tag = "10")]
     pub disks: ::prost::alloc::vec::Vec<GuestDiskUsage>,
     #[prost(uint32, tag = "11")]
     pub process_count: u32,
+    #[prost(uint64, tag = "12")]
+    pub uptime_seconds: u64,
 }
 
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -595,6 +599,8 @@ pub struct GuestDiskUsage {
     pub used_bytes: u64,
     #[prost(uint64, tag = "6")]
     pub available_bytes: u64,
+    #[prost(double, tag = "7")]
+    pub usage_percent: f64,
 }
 
 #[allow(clippy::derive_partial_eq_without_eq)]

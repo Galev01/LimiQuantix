@@ -111,7 +111,7 @@ impl TelemetryCollector {
         let mut system = System::new_all();
         system.refresh_all();
 
-        let mut disks = Disks::new_with_refreshed_list();
+        let disks = Disks::new_with_refreshed_list();
         let mut networks = Networks::new_with_refreshed_list();
         networks.refresh();
 

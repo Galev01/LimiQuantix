@@ -211,28 +211,37 @@ impl NodeDaemonServiceImpl {
         
         cache.get(vm_id).map(|info| {
             let resource_usage = info.last_telemetry.as_ref().map(|t| {
-                // Convert separate load averages to Vec
-                let load_average = vec![t.load_avg_1, t.load_avg_5, t.load_avg_15];
-                
-                GuestResourceUsage {
-                    cpu_usage_percent: t.cpu_usage_percent,
-                    memory_total_bytes: t.memory_total_bytes,
-                    memory_used_bytes: t.memory_used_bytes,
-                    memory_cached_bytes: 0, // Not available in our telemetry
-                    memory_buffers_bytes: 0, // Not available in our telemetry
-                    swap_total_bytes: t.swap_total_bytes,
-                    swap_used_bytes: t.swap_used_bytes,
-                    uptime_seconds: t.uptime_seconds,
-                    load_average,
-                    disks: t.disks.iter().map(|d| GuestDiskUsage {
+                // Calculate usage_percent for each disk
+                let disks = t.disks.iter().map(|d| {
+                    let usage_percent = if d.total_bytes > 0 {
+                        (d.used_bytes as f64 / d.total_bytes as f64) * 100.0
+                    } else {
+                        0.0
+                    };
+                    GuestDiskUsage {
                         mount_point: d.mount_point.clone(),
                         device: d.device.clone(),
                         filesystem: d.filesystem.clone(),
                         total_bytes: d.total_bytes,
                         used_bytes: d.used_bytes,
                         available_bytes: d.available_bytes,
-                    }).collect(),
+                        usage_percent,
+                    }
+                }).collect();
+                
+                GuestResourceUsage {
+                    cpu_usage_percent: t.cpu_usage_percent,
+                    memory_total_bytes: t.memory_total_bytes,
+                    memory_used_bytes: t.memory_used_bytes,
+                    memory_available_bytes: t.memory_total_bytes.saturating_sub(t.memory_used_bytes),
+                    swap_total_bytes: t.swap_total_bytes,
+                    swap_used_bytes: t.swap_used_bytes,
+                    load_avg_1: t.load_avg_1,
+                    load_avg_5: t.load_avg_5,
+                    load_avg_15: t.load_avg_15,
+                    disks,
                     process_count: t.process_count,
+                    uptime_seconds: t.uptime_seconds,
                 }
             });
             
@@ -242,7 +251,7 @@ impl NodeDaemonServiceImpl {
                     mac_address: i.mac_address.clone(),
                     ipv4_addresses: i.ipv4_addresses.clone(),
                     ipv6_addresses: i.ipv6_addresses.clone(),
-                    up: i.state == 1, // INTERFACE_STATE_UP
+                    is_up: i.state == 1, // INTERFACE_STATE_UP
                 }).collect())
                 .unwrap_or_default();
             
@@ -253,7 +262,7 @@ impl NodeDaemonServiceImpl {
                 os_version: info.os_version.clone(),
                 kernel_version: info.kernel_version.clone(),
                 hostname: info.hostname.clone(),
-                timezone: String::new(), // Not tracked in cache
+                ip_addresses: info.ip_addresses.clone(),
                 interfaces,
                 resource_usage,
                 capabilities: vec![
@@ -263,6 +272,16 @@ impl NodeDaemonServiceImpl {
                     "file_write".to_string(),
                     "shutdown".to_string(),
                 ],
+                last_seen: info.last_seen.map(|instant| {
+                    let duration = instant.elapsed();
+                    let now = std::time::SystemTime::now();
+                    let seen_time = now - duration;
+                    let unix_time = seen_time.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+                    prost_types::Timestamp {
+                        seconds: unix_time.as_secs() as i64,
+                        nanos: unix_time.subsec_nanos() as i32,
+                    }
+                }),
             }
         })
     }

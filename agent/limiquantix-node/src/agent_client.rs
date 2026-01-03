@@ -42,7 +42,7 @@ mod unix_impl {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::UnixStream;
     use tokio::sync::oneshot;
-    use tracing::{debug, error, info, warn};
+    use tracing::{debug, error, info};
     use uuid::Uuid;
 
     /// Maximum message size (16 MB)

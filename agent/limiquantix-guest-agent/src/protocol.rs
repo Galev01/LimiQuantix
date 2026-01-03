@@ -30,7 +30,7 @@ where
     // Read the 4-byte length prefix
     let mut len_buf = [0u8; 4];
     match reader.read_exact(&mut len_buf).await {
-        Ok(()) => {}
+        Ok(_) => {}
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
             // Stream closed
             return Ok(None);
