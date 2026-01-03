@@ -15,7 +15,7 @@ all: iso
 # Build the Docker builder image
 builder:
 	@echo "==> Building builder Docker image..."
-	docker build -t $(BUILDER_IMAGE) builder/
+	docker build --no-cache -t $(BUILDER_IMAGE) builder/
 
 # Build the bootable ISO installer
 iso: builder console-binary
