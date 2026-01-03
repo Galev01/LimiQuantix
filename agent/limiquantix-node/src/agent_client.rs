@@ -654,7 +654,10 @@ mod unix_impl {
 #[cfg(not(unix))]
 mod stub_impl {
     use super::*;
-    use limiquantix_proto::agent::{PongResponse, ShutdownResponse};
+    use limiquantix_proto::agent::{
+        PongResponse, ShutdownResponse,
+        QuiesceFilesystemsResponse, ThawFilesystemsResponse, SyncTimeResponse,
+    };
     use tracing::warn;
 
     /// Guest Agent Client stub for non-Unix platforms.
@@ -721,6 +724,27 @@ mod stub_impl {
         }
 
         pub async fn shutdown(&self, _reboot: bool) -> Result<ShutdownResponse> {
+            Err(anyhow!("Guest agent not supported on this platform"))
+        }
+
+        pub async fn quiesce_filesystems(
+            &self,
+            _mount_points: Vec<String>,
+            _timeout_seconds: u32,
+            _run_pre_freeze_scripts: bool,
+        ) -> Result<QuiesceFilesystemsResponse> {
+            Err(anyhow!("Guest agent not supported on this platform"))
+        }
+
+        pub async fn thaw_filesystems(
+            &self,
+            _quiesce_token: Option<String>,
+            _run_post_thaw_scripts: bool,
+        ) -> Result<ThawFilesystemsResponse> {
+            Err(anyhow!("Guest agent not supported on this platform"))
+        }
+
+        pub async fn sync_time(&self, _force: bool) -> Result<SyncTimeResponse> {
             Err(anyhow!("Guest agent not supported on this platform"))
         }
     }
