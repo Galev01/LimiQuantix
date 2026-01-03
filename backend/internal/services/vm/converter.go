@@ -308,3 +308,30 @@ func parseDisplayType(t string) computev1.DisplayConfig_DisplayType {
 		return computev1.DisplayConfig_VNC
 	}
 }
+
+// ============================================================================
+// Snapshot Converters
+// ============================================================================
+
+// SnapshotToProto converts a domain Snapshot to a proto Snapshot.
+func SnapshotToProto(snap *domain.Snapshot) *computev1.Snapshot {
+	if snap == nil {
+		return nil
+	}
+
+	result := &computev1.Snapshot{
+		Id:             snap.ID,
+		Name:           snap.Name,
+		Description:    snap.Description,
+		ParentId:       snap.ParentID,
+		MemoryIncluded: snap.MemoryIncluded,
+		Quiesced:       snap.Quiesced,
+		SizeBytes:      snap.SizeBytes,
+	}
+
+	if !snap.CreatedAt.IsZero() {
+		result.CreatedAt = timestamppb.New(snap.CreatedAt)
+	}
+
+	return result
+}

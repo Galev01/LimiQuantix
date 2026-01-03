@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Scale,
   Plus,
@@ -16,6 +16,7 @@ import {
   Edit,
   Loader2,
   Shield,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -171,6 +172,7 @@ function formatBytes(bytes: number): string {
 export function LoadBalancers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLB, setSelectedLB] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const filteredLBs = mockLoadBalancers.filter((lb) =>
     lb.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -200,7 +202,7 @@ export function LoadBalancers() {
             <RefreshCw className="w-4 h-4" />
             Refresh
           </Button>
-          <Button>
+          <Button onClick={() => setIsCreateModalOpen(true)}>
             <Plus className="w-4 h-4" />
             New Load Balancer
           </Button>
@@ -268,6 +270,16 @@ export function LoadBalancers() {
           onClose={() => setSelectedLB(null)}
         />
       )}
+
+      {/* Create Load Balancer Modal */}
+      <CreateLoadBalancerModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={(data) => {
+          console.log('Create load balancer:', data);
+          setIsCreateModalOpen(false);
+        }}
+      />
     </div>
   );
 }
@@ -512,6 +524,180 @@ function StatBox({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-text-muted mb-1">{label}</p>
       <p className="text-lg font-bold text-text-primary">{value}</p>
     </div>
+  );
+}
+
+// Create Load Balancer Modal
+function CreateLoadBalancerModal({
+  isOpen,
+  onClose,
+  onSubmit,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: Partial<LoadBalancer>) => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    vip: '',
+    networkId: 'net-prod',
+    algorithm: 'ROUND_ROBIN' as 'ROUND_ROBIN' | 'LEAST_CONNECTIONS' | 'SOURCE_IP',
+    protocol: 'TCP' as 'TCP' | 'UDP' | 'HTTP' | 'HTTPS',
+    listenerPort: '80',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      name: formData.name,
+      description: formData.description,
+      vip: formData.vip,
+      networkId: formData.networkId,
+      algorithm: formData.algorithm,
+      protocol: formData.protocol,
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-lg bg-bg-surface rounded-xl border border-border shadow-elevated"
+        >
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <h2 className="text-lg font-semibold text-text-primary">Create Load Balancer</h2>
+            <button onClick={onClose} className="text-text-muted hover:text-text-primary">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="form-input w-full"
+                placeholder="Web Frontend LB"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Description</label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="form-input w-full"
+                placeholder="Load balancer for web application"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">VIP Address</label>
+                <input
+                  type="text"
+                  value={formData.vip}
+                  onChange={(e) => setFormData({ ...formData, vip: e.target.value })}
+                  className="form-input w-full"
+                  placeholder="10.0.1.100"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Listener Port</label>
+                <input
+                  type="number"
+                  value={formData.listenerPort}
+                  onChange={(e) => setFormData({ ...formData, listenerPort: e.target.value })}
+                  className="form-input w-full"
+                  placeholder="80"
+                  min="1"
+                  max="65535"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Protocol</label>
+                <select
+                  value={formData.protocol}
+                  onChange={(e) => setFormData({ ...formData, protocol: e.target.value as any })}
+                  className="form-input w-full"
+                >
+                  <option value="TCP">TCP</option>
+                  <option value="UDP">UDP</option>
+                  <option value="HTTP">HTTP</option>
+                  <option value="HTTPS">HTTPS</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Algorithm</label>
+                <select
+                  value={formData.algorithm}
+                  onChange={(e) => setFormData({ ...formData, algorithm: e.target.value as any })}
+                  className="form-input w-full"
+                >
+                  <option value="ROUND_ROBIN">Round Robin</option>
+                  <option value="LEAST_CONNECTIONS">Least Connections</option>
+                  <option value="SOURCE_IP">Source IP Hash</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Network</label>
+              <select
+                value={formData.networkId}
+                onChange={(e) => setFormData({ ...formData, networkId: e.target.value })}
+                className="form-input w-full"
+              >
+                <option value="net-prod">Production Network (10.100.0.0/16)</option>
+                <option value="net-dev">Development Network (10.200.0.0/16)</option>
+                <option value="net-storage">Storage Network (10.30.0.0/24)</option>
+              </select>
+            </div>
+
+            <div className="p-4 rounded-lg bg-bg-base">
+              <h4 className="text-sm font-medium text-text-secondary mb-2">Next Steps</h4>
+              <p className="text-xs text-text-muted">
+                After creating the load balancer, you'll be able to add backend members 
+                and configure health checks from the detail panel.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button type="button" variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                Create Load Balancer
+              </Button>
+            </div>
+          </form>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 

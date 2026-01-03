@@ -28,6 +28,11 @@ import {
   Copy,
   Power,
   Pause,
+  RotateCcw,
+  Plus,
+  X,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -46,6 +51,7 @@ import { FileBrowser } from '@/components/vm/FileBrowser';
 import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
 import { useVM, useStartVM, useStopVM, useDeleteVM, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
+import { useSnapshots, useCreateSnapshot, useRevertToSnapshot, useDeleteSnapshot, formatSnapshotSize, type ApiSnapshot } from '@/hooks/useSnapshots';
 
 // Convert API VM to display format
 function apiToDisplayVM(apiVm: ApiVM): MockVM {
@@ -101,6 +107,13 @@ export function VMDetail() {
   const [isFileBrowserOpen, setIsFileBrowserOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isResourcesModalOpen, setIsResourcesModalOpen] = useState(false);
+  
+  // Snapshot state
+  const [isCreateSnapshotOpen, setIsCreateSnapshotOpen] = useState(false);
+  const [snapshotName, setSnapshotName] = useState('');
+  const [snapshotDescription, setSnapshotDescription] = useState('');
+  const [includeMemory, setIncludeMemory] = useState(false);
+  const [quiesceFs, setQuiesceFs] = useState(false);
 
   // API connection and data
   const { data: isConnected = false } = useApiConnection();
@@ -110,6 +123,12 @@ export function VMDetail() {
   const startVM = useStartVM();
   const stopVM = useStopVM();
   const deleteVM = useDeleteVM();
+  
+  // Snapshot hooks
+  const { data: snapshots = [], isLoading: isLoadingSnapshots } = useSnapshots(id || '', !!isConnected && !!id);
+  const createSnapshot = useCreateSnapshot();
+  const revertToSnapshot = useRevertToSnapshot();
+  const deleteSnapshot = useDeleteSnapshot();
 
   // Determine data source
   const mockVm = mockVMs.find((v) => v.id === id);
@@ -117,6 +136,7 @@ export function VMDetail() {
   const vm: MockVM | undefined = useMockData ? mockVm : apiToDisplayVM(apiVm);
 
   const isActionPending = startVM.isPending || stopVM.isPending || deleteVM.isPending;
+  const isSnapshotActionPending = createSnapshot.isPending || revertToSnapshot.isPending || deleteSnapshot.isPending;
 
   // Action handlers
   const handleStart = async () => {
@@ -167,6 +187,55 @@ export function VMDetail() {
   const handleCloneVM = () => {
     console.log('Clone VM', id);
     // TODO: Open clone VM modal
+  };
+
+  // Snapshot handlers
+  const handleCreateSnapshot = async () => {
+    if (!id || !snapshotName.trim()) return;
+    
+    try {
+      await createSnapshot.mutateAsync({
+        vmId: id,
+        name: snapshotName.trim(),
+        description: snapshotDescription.trim() || undefined,
+        includeMemory,
+        quiesce: quiesceFs,
+      });
+      // Reset form
+      setSnapshotName('');
+      setSnapshotDescription('');
+      setIncludeMemory(false);
+      setQuiesceFs(false);
+      setIsCreateSnapshotOpen(false);
+    } catch (error) {
+      console.error('Failed to create snapshot:', error);
+    }
+  };
+
+  const handleRevertToSnapshot = async (snapshotId: string) => {
+    if (!id) return;
+    if (!confirm('Are you sure you want to revert to this snapshot? Any unsaved changes will be lost.')) return;
+    
+    try {
+      await revertToSnapshot.mutateAsync({
+        vmId: id,
+        snapshotId,
+        startAfterRevert: false,
+      });
+    } catch (error) {
+      console.error('Failed to revert to snapshot:', error);
+    }
+  };
+
+  const handleDeleteSnapshot = async (snapshotId: string) => {
+    if (!id) return;
+    if (!confirm('Are you sure you want to delete this snapshot? This action cannot be undone.')) return;
+    
+    try {
+      await deleteSnapshot.mutateAsync({ vmId: id, snapshotId });
+    } catch (error) {
+      console.error('Failed to delete snapshot:', error);
+    }
   };
 
   // Generate dropdown menu items
@@ -324,7 +393,11 @@ export function VMDetail() {
               <MonitorPlay className="w-4 h-4" />
               Console
             </Button>
-            <Button variant="secondary" size="sm">
+            <Button 
+              variant="secondary" 
+              size="sm"
+              onClick={() => setIsCreateSnapshotOpen(true)}
+            >
               <Camera className="w-4 h-4" />
               Snapshot
             </Button>
@@ -349,6 +422,7 @@ export function VMDetail() {
           <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
           <TabsTrigger value="disks">Disks</TabsTrigger>
           <TabsTrigger value="network">Network</TabsTrigger>
+          <TabsTrigger value="configuration">Configuration</TabsTrigger>
           <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
         </TabsList>
@@ -640,18 +714,172 @@ export function VMDetail() {
 
         {/* Snapshots Tab */}
         <TabsContent value="snapshots">
-          <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-text-primary">Snapshots</h3>
-              <Button size="sm">
-                <Camera className="w-4 h-4" />
-                Create Snapshot
-              </Button>
+          <div className="space-y-6">
+            {/* Create Snapshot Form */}
+            {isCreateSnapshotOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-text-primary">Create Snapshot</h3>
+                  <button
+                    onClick={() => setIsCreateSnapshotOpen(false)}
+                    className="p-1 rounded hover:bg-bg-hover transition-colors"
+                  >
+                    <X className="w-5 h-5 text-text-muted" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Snapshot Name <span className="text-error">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={snapshotName}
+                      onChange={(e) => setSnapshotName(e.target.value)}
+                      placeholder="e.g., before-update"
+                      className="w-full px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50"
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Description
+                    </label>
+                    <input
+                      type="text"
+                      value={snapshotDescription}
+                      onChange={(e) => setSnapshotDescription(e.target.value)}
+                      placeholder="Optional description"
+                      className="w-full px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50"
+                    />
+                  </div>
+                  <div className="col-span-2 flex flex-wrap gap-6">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeMemory}
+                        onChange={(e) => setIncludeMemory(e.target.checked)}
+                        className="w-4 h-4 rounded border-border text-accent focus:ring-accent/50"
+                      />
+                      <span className="text-sm text-text-secondary">Include memory state</span>
+                      <span className="text-xs text-text-muted">(hot snapshot)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={quiesceFs}
+                        onChange={(e) => setQuiesceFs(e.target.checked)}
+                        disabled={vm?.status.state !== 'RUNNING'}
+                        className="w-4 h-4 rounded border-border text-accent focus:ring-accent/50 disabled:opacity-50"
+                      />
+                      <span className={cn("text-sm", vm?.status.state !== 'RUNNING' ? 'text-text-muted' : 'text-text-secondary')}>
+                        Quiesce filesystem
+                      </span>
+                      <span className="text-xs text-text-muted">(requires agent)</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-6">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setIsCreateSnapshotOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleCreateSnapshot}
+                    disabled={!snapshotName.trim() || isSnapshotActionPending}
+                  >
+                    {createSnapshot.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Camera className="w-4 h-4" />
+                    )}
+                    Create Snapshot
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Snapshot List */}
+            <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-semibold text-text-primary">Snapshots</h3>
+                  {snapshots.length > 0 && (
+                    <span className="px-2 py-0.5 text-xs font-medium bg-accent/20 text-accent rounded-full">
+                      {snapshots.length}
+                    </span>
+                  )}
+                </div>
+                {!isCreateSnapshotOpen && (
+                  <Button size="sm" onClick={() => setIsCreateSnapshotOpen(true)}>
+                    <Plus className="w-4 h-4" />
+                    Create Snapshot
+                  </Button>
+                )}
+              </div>
+
+              {isLoadingSnapshots ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                </div>
+              ) : snapshots.length === 0 ? (
+                <div className="text-center py-12">
+                  <Camera className="w-12 h-12 mx-auto text-text-muted mb-4" />
+                  <h4 className="text-lg font-medium text-text-primary mb-2">No Snapshots</h4>
+                  <p className="text-text-muted mb-4">
+                    Create a snapshot to save the current state of this VM
+                  </p>
+                  {!isCreateSnapshotOpen && (
+                    <Button size="sm" onClick={() => setIsCreateSnapshotOpen(true)}>
+                      <Camera className="w-4 h-4" />
+                      Create First Snapshot
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {snapshots.map((snapshot) => (
+                    <SnapshotRow
+                      key={snapshot.id}
+                      snapshot={snapshot}
+                      onRevert={() => handleRevertToSnapshot(snapshot.id)}
+                      onDelete={() => handleDeleteSnapshot(snapshot.id)}
+                      isActionPending={isSnapshotActionPending}
+                      vmState={vm?.status.state || 'STOPPED'}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="text-center py-12">
-              <Camera className="w-12 h-12 mx-auto text-text-muted mb-4" />
-              <h4 className="text-lg font-medium text-text-primary mb-2">No Snapshots</h4>
-              <p className="text-text-muted">Create a snapshot to save the current state of this VM</p>
+
+            {/* Snapshot Info */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <h3 className="text-sm font-semibold text-text-primary mb-3">About Snapshots</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-text-muted">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
+                  <span>Snapshots capture the complete disk state at a point in time</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
+                  <span>Memory snapshots allow resuming from the exact running state</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
+                  <span>Reverting will discard all changes since the snapshot</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
+                  <span>VM must be stopped to revert to a disk-only snapshot</span>
+                </div>
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -735,6 +963,156 @@ export function VMDetail() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </TabsContent>
+
+        {/* Configuration Tab */}
+        <TabsContent value="configuration">
+          <div className="grid grid-cols-2 gap-6">
+            {/* Boot Options */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Power className="w-5 h-5 text-accent" />
+                  Boot Options
+                </h3>
+                <Button variant="secondary" size="sm">Edit</Button>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="Boot Device" value="Hard Disk" />
+                <ConfigRow label="Boot Order" value="disk, cdrom, network" />
+                <ConfigRow label="UEFI Firmware" value="Enabled" />
+                <ConfigRow label="Secure Boot" value="Disabled" />
+                <ConfigRow label="TPM" value="Not configured" />
+              </div>
+            </div>
+
+            {/* CPU Configuration */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Cpu className="w-5 h-5 text-accent" />
+                  CPU Configuration
+                </h3>
+                <Button variant="secondary" size="sm" onClick={() => setIsResourcesModalOpen(true)}>Edit</Button>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="vCPUs" value={`${vm.spec.cpu.cores}`} />
+                <ConfigRow label="Sockets" value={`${vm.spec.cpu.sockets}`} />
+                <ConfigRow label="Cores per Socket" value={`${Math.floor(vm.spec.cpu.cores / vm.spec.cpu.sockets)}`} />
+                <ConfigRow label="CPU Model" value={vm.spec.cpu.model || 'host'} />
+                <ConfigRow label="CPU Reservation" value="None" />
+                <ConfigRow label="CPU Limit" value="Unlimited" />
+              </div>
+            </div>
+
+            {/* Memory Configuration */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <MemoryStick className="w-5 h-5 text-accent" />
+                  Memory Configuration
+                </h3>
+                <Button variant="secondary" size="sm" onClick={() => setIsResourcesModalOpen(true)}>Edit</Button>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="Memory" value={`${vm.spec.memory.sizeMib} MiB`} />
+                <ConfigRow label="Memory Ballooning" value="Enabled" />
+                <ConfigRow label="Huge Pages" value="Disabled" />
+                <ConfigRow label="Memory Reservation" value="None" />
+                <ConfigRow label="Memory Limit" value="Unlimited" />
+              </div>
+            </div>
+
+            {/* Display & Console */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Terminal className="w-5 h-5 text-accent" />
+                  Display & Console
+                </h3>
+                <Button variant="secondary" size="sm">Edit</Button>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="Display Type" value="VNC" />
+                <ConfigRow label="VNC Port" value="Auto" />
+                <ConfigRow label="VNC Password" value="Enabled" />
+                <ConfigRow label="Video Memory" value="16 MB" />
+                <ConfigRow label="Serial Port" value="Disabled" />
+              </div>
+            </div>
+
+            {/* Guest Agent */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-accent" />
+                  Guest Agent (QEMU Agent)
+                </h3>
+                <Button variant="secondary" size="sm">Edit</Button>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="Status" value={vm.status.guestInfo.agentVersion ? 'Connected' : 'Not Connected'} />
+                <ConfigRow label="Agent Version" value={vm.status.guestInfo.agentVersion || '—'} />
+                <ConfigRow label="Communication" value="virtio-serial" />
+                <ConfigRow label="Freeze on Snapshot" value="Enabled" />
+                <ConfigRow label="Time Sync" value="Enabled" />
+              </div>
+            </div>
+
+            {/* Cloud-Init / Provisioning */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-accent" />
+                  Provisioning (Cloud-Init)
+                </h3>
+                <Button variant="secondary" size="sm">Edit</Button>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="Cloud-Init" value="Enabled" />
+                <ConfigRow label="Hostname" value={vm.status.guestInfo.hostname || vm.name} />
+                <ConfigRow label="SSH Key" value="Configured" />
+                <ConfigRow label="User Data" value="Custom script" />
+                <ConfigRow label="Network Config" value="DHCP" />
+              </div>
+            </div>
+
+            {/* High Availability */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <RefreshCw className="w-5 h-5 text-accent" />
+                  High Availability
+                </h3>
+                <Button variant="secondary" size="sm">Edit</Button>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="HA Enabled" value="Yes" />
+                <ConfigRow label="HA Priority" value="Medium (100)" />
+                <ConfigRow label="Auto-Restart" value="Enabled" />
+                <ConfigRow label="Host Affinity" value="None" />
+                <ConfigRow label="Anti-Affinity Group" value="—" />
+              </div>
+            </div>
+
+            {/* Advanced Options */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-accent" />
+                  Advanced Options
+                </h3>
+                <Button variant="secondary" size="sm">Edit</Button>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="Hardware Version" value="v6" />
+                <ConfigRow label="Machine Type" value="q35" />
+                <ConfigRow label="RTC Base" value="UTC" />
+                <ConfigRow label="Watchdog" value="i6300esb" />
+                <ConfigRow label="RNG Device" value="virtio-rng" />
+              </div>
+            </div>
           </div>
         </TabsContent>
 
@@ -892,6 +1270,87 @@ function StatRow({ icon, label, value }: { icon: React.ReactNode; label: string;
         <span className="text-sm">{label}</span>
       </div>
       <span className="text-sm font-medium text-text-primary">{value}</span>
+    </div>
+  );
+}
+
+function SnapshotRow({
+  snapshot,
+  onRevert,
+  onDelete,
+  isActionPending,
+  vmState,
+}: {
+  snapshot: ApiSnapshot;
+  onRevert: () => void;
+  onDelete: () => void;
+  isActionPending: boolean;
+  vmState: string;
+}) {
+  const createdDate = snapshot.createdAt ? new Date(snapshot.createdAt) : null;
+  
+  return (
+    <div className="px-6 py-4 hover:bg-bg-hover transition-colors">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <div className="p-2 rounded-lg bg-bg-base border border-border">
+            <Camera className="w-5 h-5 text-accent" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h4 className="font-medium text-text-primary truncate">{snapshot.name}</h4>
+              {snapshot.memoryIncluded && (
+                <Badge variant="default" size="sm">Memory</Badge>
+              )}
+              {snapshot.quiesced && (
+                <Badge variant="default" size="sm">Quiesced</Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-4 mt-1 text-sm text-text-muted">
+              {snapshot.description && (
+                <span className="truncate max-w-xs">{snapshot.description}</span>
+              )}
+              {createdDate && (
+                <span className="flex items-center gap-1 whitespace-nowrap">
+                  <Clock className="w-3 h-3" />
+                  {createdDate.toLocaleDateString()} {createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              <span className="whitespace-nowrap">{formatSnapshotSize(snapshot.sizeBytes)}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 ml-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onRevert}
+            disabled={isActionPending || (vmState === 'RUNNING' && !snapshot.memoryIncluded)}
+            title={vmState === 'RUNNING' && !snapshot.memoryIncluded ? 'Stop VM to revert to disk-only snapshot' : 'Revert to this snapshot'}
+          >
+            <RotateCcw className="w-4 h-4" />
+            Revert
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            disabled={isActionPending}
+            className="text-error hover:text-error hover:bg-error/10"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConfigRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between py-2 border-b border-border last:border-0">
+      <span className="text-sm text-text-muted">{label}</span>
+      <span className="text-sm text-text-primary font-mono">{value}</span>
     </div>
   );
 }

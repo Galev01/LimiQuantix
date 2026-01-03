@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield,
   Plus,
@@ -17,6 +17,7 @@ import {
   Download,
   Server,
   Activity,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -172,6 +173,7 @@ function formatBytes(bytes: number): string {
 export function VPNServices() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVPN, setSelectedVPN] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const filteredVPNs = mockVPNServices.filter((vpn) =>
     vpn.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -201,7 +203,7 @@ export function VPNServices() {
             <RefreshCw className="w-4 h-4" />
             Refresh
           </Button>
-          <Button>
+          <Button onClick={() => setIsCreateModalOpen(true)}>
             <Plus className="w-4 h-4" />
             New VPN Service
           </Button>
@@ -268,6 +270,16 @@ export function VPNServices() {
           onClose={() => setSelectedVPN(null)}
         />
       )}
+
+      {/* Create VPN Service Modal */}
+      <CreateVPNModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={(data) => {
+          console.log('Create VPN service:', data);
+          setIsCreateModalOpen(false);
+        }}
+      />
     </div>
   );
 }
@@ -524,6 +536,164 @@ function StatBox({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-text-muted mb-1">{label}</p>
       <p className="text-lg font-bold text-text-primary">{value}</p>
     </div>
+  );
+}
+
+// Create VPN Service Modal
+function CreateVPNModal({
+  isOpen,
+  onClose,
+  onSubmit,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: Partial<VPNService>) => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    type: 'WIREGUARD' as 'WIREGUARD' | 'IPSEC',
+    listenPort: '51820',
+    networkId: 'net-overlay',
+    allowedNetworks: '10.0.0.0/8, 172.16.0.0/12',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      name: formData.name,
+      description: formData.description,
+      type: formData.type,
+      networkId: formData.networkId,
+      allowedNetworks: formData.allowedNetworks.split(',').map(s => s.trim()),
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-lg bg-bg-surface rounded-xl border border-border shadow-elevated"
+        >
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <h2 className="text-lg font-semibold text-text-primary">Create VPN Service</h2>
+            <button onClick={onClose} className="text-text-muted hover:text-text-primary">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="form-input w-full"
+                placeholder="Bastion VPN Gateway"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Description</label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="form-input w-full"
+                placeholder="WireGuard bastion for secure overlay access"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">VPN Type</label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                  className="form-input w-full"
+                >
+                  <option value="WIREGUARD">WireGuard</option>
+                  <option value="IPSEC">IPsec (Site-to-Site)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Listen Port</label>
+                <input
+                  type="number"
+                  value={formData.listenPort}
+                  onChange={(e) => setFormData({ ...formData, listenPort: e.target.value })}
+                  className="form-input w-full"
+                  placeholder="51820"
+                  min="1"
+                  max="65535"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Network</label>
+              <select
+                value={formData.networkId}
+                onChange={(e) => setFormData({ ...formData, networkId: e.target.value })}
+                className="form-input w-full"
+              >
+                <option value="net-overlay">Tenant Overlay (172.16.0.0/12)</option>
+                <option value="net-prod">Production Network (10.100.0.0/16)</option>
+                <option value="net-dev">Development Network (10.200.0.0/16)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Allowed Networks (comma-separated)</label>
+              <input
+                type="text"
+                value={formData.allowedNetworks}
+                onChange={(e) => setFormData({ ...formData, allowedNetworks: e.target.value })}
+                className="form-input w-full"
+                placeholder="10.0.0.0/8, 172.16.0.0/12"
+              />
+              <p className="text-xs text-text-muted mt-1">Networks accessible through this VPN</p>
+            </div>
+
+            <div className="p-4 rounded-lg bg-bg-base">
+              <h4 className="text-sm font-medium text-text-secondary mb-2">
+                {formData.type === 'WIREGUARD' ? 'WireGuard Keys' : 'IPsec Configuration'}
+              </h4>
+              <p className="text-xs text-text-muted">
+                {formData.type === 'WIREGUARD' 
+                  ? 'Public/private key pairs will be generated automatically. You can download client configurations after creation.'
+                  : 'Pre-shared keys and IKE configuration will be available after creation.'
+                }
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button type="button" variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                Create VPN Service
+              </Button>
+            </div>
+          </form>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 

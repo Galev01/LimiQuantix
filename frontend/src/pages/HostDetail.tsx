@@ -249,6 +249,7 @@ export function HostDetail() {
           <TabsTrigger value="hardware">Hardware</TabsTrigger>
           <TabsTrigger value="storage">Storage</TabsTrigger>
           <TabsTrigger value="network">Network</TabsTrigger>
+          <TabsTrigger value="configuration">Configuration</TabsTrigger>
           <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
         </TabsList>
@@ -628,6 +629,185 @@ export function HostDetail() {
           </div>
         </TabsContent>
 
+        {/* Configuration Tab */}
+        <TabsContent value="configuration">
+          <div className="grid grid-cols-2 gap-6">
+            {/* OVN Controller Configuration */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Network className="w-5 h-5 text-accent" />
+                  OVN Controller
+                </h3>
+                <Badge variant="success">Connected</Badge>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="OVN Remote" value="tcp:10.0.0.10:6642" />
+                <ConfigRow label="System ID" value={node.id} />
+                <ConfigRow label="Encapsulation Type" value="geneve" />
+                <ConfigRow label="Encapsulation IP" value={node.managementIp} />
+                <ConfigRow label="Bridge Mappings" value="external:br-ex" />
+                <ConfigRow label="Chassis Name" value={node.hostname} />
+              </div>
+              <div className="mt-4 pt-4 border-t border-border">
+                <Button variant="secondary" size="sm">Reconfigure OVN</Button>
+              </div>
+            </div>
+
+            {/* Open vSwitch Configuration */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Network className="w-5 h-5 text-accent" />
+                  Open vSwitch
+                </h3>
+                <Badge variant="success">Running</Badge>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="OVS Version" value="3.2.1" />
+                <ConfigRow label="DPDK Enabled" value="No" />
+                <ConfigRow label="Flow Timeout" value="30000ms" />
+                <ConfigRow label="Bridge Count" value="2" />
+                <ConfigRow label="Port Count" value="12" />
+                <ConfigRow label="Max OpenFlow Version" value="1.5" />
+              </div>
+              <div className="mt-4 pt-4 border-t border-border">
+                <Button variant="secondary" size="sm">View OVS DB</Button>
+              </div>
+            </div>
+
+            {/* WireGuard VPN Configuration */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Server className="w-5 h-5 text-accent" />
+                  WireGuard VPN
+                </h3>
+                <Badge variant="default">Disabled</Badge>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="Interfaces" value="0" />
+                <ConfigRow label="Listen Port" value="51820" />
+                <ConfigRow label="Config Path" value="/quantix/wireguard/" />
+                <ConfigRow label="Active Peers" value="0" />
+              </div>
+              <div className="mt-4 pt-4 border-t border-border">
+                <Button size="sm">Enable WireGuard</Button>
+              </div>
+            </div>
+
+            {/* FRRouting / BGP Configuration */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Network className="w-5 h-5 text-accent" />
+                  FRRouting (BGP)
+                </h3>
+                <Badge variant="default">Disabled</Badge>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="FRR Version" value="9.0" />
+                <ConfigRow label="BGP Status" value="Not Running" />
+                <ConfigRow label="Local ASN" value="—" />
+                <ConfigRow label="Router ID" value="—" />
+                <ConfigRow label="Config Path" value="/quantix/frr/" />
+              </div>
+              <div className="mt-4 pt-4 border-t border-border">
+                <Button size="sm">Enable BGP</Button>
+              </div>
+            </div>
+
+            {/* Libvirt Configuration */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <MonitorCog className="w-5 h-5 text-accent" />
+                  Libvirt
+                </h3>
+                <Badge variant="success">Running</Badge>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="Libvirt Version" value="9.10.0" />
+                <ConfigRow label="QEMU Version" value="8.2.0" />
+                <ConfigRow label="Connection URI" value="qemu:///system" />
+                <ConfigRow label="Max VMs" value="Unlimited" />
+                <ConfigRow label="Default Network" value="br-int" />
+                <ConfigRow label="Migration Port Range" value="49152-49215" />
+              </div>
+              <div className="mt-4 pt-4 border-t border-border">
+                <Button variant="secondary" size="sm">Configure Migration</Button>
+              </div>
+            </div>
+
+            {/* Node Daemon Configuration */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-accent" />
+                  Node Daemon
+                </h3>
+                <Badge variant="success">Healthy</Badge>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="Daemon Version" value="1.0.0" />
+                <ConfigRow label="gRPC Port" value="9443" />
+                <ConfigRow label="Metrics Port" value="9100" />
+                <ConfigRow label="API Endpoint" value={`https://${node.managementIp}:9443`} />
+                <ConfigRow label="TLS" value="Enabled" />
+                <ConfigRow label="Cert Expiry" value="364 days" />
+              </div>
+              <div className="mt-4 pt-4 border-t border-border">
+                <Button variant="secondary" size="sm">Rotate Certificates</Button>
+              </div>
+            </div>
+
+            {/* Storage Backend Configuration */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <HardDrive className="w-5 h-5 text-accent" />
+                  Storage Backend
+                </h3>
+                <Badge variant="success">Connected</Badge>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="Primary Pool" value="ceph-ssd" />
+                <ConfigRow label="Ceph Cluster" value="quantix-ceph" />
+                <ConfigRow label="Ceph User" value="admin" />
+                <ConfigRow label="RBD Pool" value="vms" />
+                <ConfigRow label="Local Cache" value="/data/cache" />
+                <ConfigRow label="Cache Size" value="500 GB" />
+              </div>
+              <div className="mt-4 pt-4 border-t border-border">
+                <Button variant="secondary" size="sm">Configure Storage</Button>
+              </div>
+            </div>
+
+            {/* Scheduling Configuration */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-accent" />
+                  Scheduling & DRS
+                </h3>
+                <Badge variant="success">Schedulable</Badge>
+              </div>
+              <div className="space-y-3">
+                <ConfigRow label="Schedulable" value="Yes" />
+                <ConfigRow label="CPU Overcommit" value="4:1" />
+                <ConfigRow label="Memory Overcommit" value="1.5:1" />
+                <ConfigRow label="DRS Automation" value="Full Auto" />
+                <ConfigRow label="Taints" value="None" />
+                <ConfigRow label="Cordoned" value="No" />
+              </div>
+              <div className="mt-4 pt-4 border-t border-border flex gap-2">
+                <Button variant="secondary" size="sm">Add Taint</Button>
+                <Button variant="secondary" size="sm">Cordon Node</Button>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
         {/* Monitoring Tab */}
         <TabsContent value="monitoring">
           <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
@@ -768,6 +948,15 @@ function StatRow({
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+function ConfigRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between py-2 border-b border-border last:border-0">
+      <span className="text-sm text-text-muted">{label}</span>
+      <span className="text-sm text-text-primary font-mono">{value}</span>
     </div>
   );
 }

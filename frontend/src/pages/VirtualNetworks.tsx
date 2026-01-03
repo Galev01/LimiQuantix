@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Network,
   Plus,
@@ -20,6 +20,7 @@ import {
   Trash2,
   Edit,
   Loader2,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -177,6 +178,9 @@ export function VirtualNetworks() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'OVERLAY' | 'VLAN' | 'EXTERNAL'>('all');
   const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingNetwork, setEditingNetwork] = useState<VirtualNetwork | null>(null);
 
   // API connection and data
   const { data: isConnected = false } = useApiConnection();
@@ -248,7 +252,7 @@ export function VirtualNetworks() {
             <RefreshCw className={cn('w-4 h-4', (isRefetching || isLoading) && 'animate-spin')} />
             Refresh
           </Button>
-          <Button>
+          <Button onClick={() => setIsCreateModalOpen(true)}>
             <Plus className="w-4 h-4" />
             New Network
           </Button>
@@ -387,13 +391,19 @@ export function VirtualNetworks() {
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex items-center justify-end gap-1">
-                      <button className="p-1.5 rounded-md hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setEditingNetwork(network); setIsEditModalOpen(true); }}
+                        className="p-1.5 rounded-md hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+                      >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button className="p-1.5 rounded-md hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors">
                         <Settings className="w-4 h-4" />
                       </button>
-                      <button className="p-1.5 rounded-md hover:bg-error/10 text-text-muted hover:text-error transition-colors">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(network.id); }}
+                        className="p-1.5 rounded-md hover:bg-error/10 text-text-muted hover:text-error transition-colors"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -410,6 +420,30 @@ export function VirtualNetworks() {
         <NetworkDetailPanel
           network={mockNetworks.find((n) => n.id === selectedNetwork)!}
           onClose={() => setSelectedNetwork(null)}
+        />
+      )}
+
+      {/* Create Network Modal */}
+      <CreateNetworkModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={(data) => {
+          console.log('Create network:', data);
+          setIsCreateModalOpen(false);
+        }}
+      />
+
+      {/* Edit Network Modal */}
+      {editingNetwork && (
+        <EditNetworkModal
+          isOpen={isEditModalOpen}
+          onClose={() => { setIsEditModalOpen(false); setEditingNetwork(null); }}
+          network={editingNetwork}
+          onSubmit={(data) => {
+            console.log('Update network:', data);
+            setIsEditModalOpen(false);
+            setEditingNetwork(null);
+          }}
         />
       )}
     </div>
@@ -515,6 +549,329 @@ function DetailItem({
         <span className="text-sm font-medium text-text-primary">{value}</span>
       </div>
     </div>
+  );
+}
+
+// Create Network Modal
+function CreateNetworkModal({
+  isOpen,
+  onClose,
+  onSubmit,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: Partial<VirtualNetwork>) => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    type: 'VLAN' as 'VLAN' | 'OVERLAY' | 'EXTERNAL',
+    vlanId: '',
+    cidr: '',
+    gateway: '',
+    dhcpEnabled: true,
+    mtu: '1500',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      name: formData.name,
+      description: formData.description,
+      type: formData.type,
+      vlanId: formData.vlanId ? parseInt(formData.vlanId) : undefined,
+      cidr: formData.cidr,
+      gateway: formData.gateway,
+      dhcpEnabled: formData.dhcpEnabled,
+      mtu: parseInt(formData.mtu),
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-lg bg-bg-surface rounded-xl border border-border shadow-elevated"
+        >
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <h2 className="text-lg font-semibold text-text-primary">Create Virtual Network</h2>
+            <button onClick={onClose} className="text-text-muted hover:text-text-primary">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="form-input w-full"
+                placeholder="Production Network"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Description</label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="form-input w-full"
+                placeholder="Network for production workloads"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Type</label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                  className="form-input w-full"
+                >
+                  <option value="VLAN">VLAN</option>
+                  <option value="OVERLAY">Overlay (Geneve)</option>
+                  <option value="EXTERNAL">External</option>
+                </select>
+              </div>
+
+              {formData.type === 'VLAN' && (
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">VLAN ID</label>
+                  <input
+                    type="number"
+                    value={formData.vlanId}
+                    onChange={(e) => setFormData({ ...formData, vlanId: e.target.value })}
+                    className="form-input w-full"
+                    placeholder="100"
+                    min="1"
+                    max="4094"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">CIDR</label>
+                <input
+                  type="text"
+                  value={formData.cidr}
+                  onChange={(e) => setFormData({ ...formData, cidr: e.target.value })}
+                  className="form-input w-full"
+                  placeholder="10.0.0.0/24"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Gateway</label>
+                <input
+                  type="text"
+                  value={formData.gateway}
+                  onChange={(e) => setFormData({ ...formData, gateway: e.target.value })}
+                  className="form-input w-full"
+                  placeholder="10.0.0.1"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">MTU</label>
+                <input
+                  type="number"
+                  value={formData.mtu}
+                  onChange={(e) => setFormData({ ...formData, mtu: e.target.value })}
+                  className="form-input w-full"
+                  min="576"
+                  max="9000"
+                />
+              </div>
+
+              <div className="flex items-center pt-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.dhcpEnabled}
+                    onChange={(e) => setFormData({ ...formData, dhcpEnabled: e.target.checked })}
+                    className="form-checkbox"
+                  />
+                  <span className="text-sm text-text-secondary">Enable DHCP</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button type="button" variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                Create Network
+              </Button>
+            </div>
+          </form>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// Edit Network Modal
+function EditNetworkModal({
+  isOpen,
+  onClose,
+  network,
+  onSubmit,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  network: VirtualNetwork;
+  onSubmit: (data: Partial<VirtualNetwork>) => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: network.name,
+    description: network.description,
+    dhcpEnabled: network.dhcpEnabled,
+    mtu: network.mtu.toString(),
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      id: network.id,
+      name: formData.name,
+      description: formData.description,
+      dhcpEnabled: formData.dhcpEnabled,
+      mtu: parseInt(formData.mtu),
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-lg bg-bg-surface rounded-xl border border-border shadow-elevated"
+        >
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <h2 className="text-lg font-semibold text-text-primary">Edit Network: {network.name}</h2>
+            <button onClick={onClose} className="text-text-muted hover:text-text-primary">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="form-input w-full"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Description</label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="form-input w-full"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Type</label>
+                <input
+                  type="text"
+                  value={network.type}
+                  className="form-input w-full bg-bg-base cursor-not-allowed"
+                  disabled
+                />
+                <p className="text-xs text-text-muted mt-1">Type cannot be changed</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">CIDR</label>
+                <input
+                  type="text"
+                  value={network.cidr}
+                  className="form-input w-full bg-bg-base cursor-not-allowed"
+                  disabled
+                />
+                <p className="text-xs text-text-muted mt-1">CIDR cannot be changed</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">MTU</label>
+                <input
+                  type="number"
+                  value={formData.mtu}
+                  onChange={(e) => setFormData({ ...formData, mtu: e.target.value })}
+                  className="form-input w-full"
+                  min="576"
+                  max="9000"
+                />
+              </div>
+
+              <div className="flex items-center pt-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.dhcpEnabled}
+                    onChange={(e) => setFormData({ ...formData, dhcpEnabled: e.target.checked })}
+                    className="form-checkbox"
+                  />
+                  <span className="text-sm text-text-secondary">Enable DHCP</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button type="button" variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 

@@ -262,7 +262,65 @@ export const vmApi = {
       { id, force }
     );
   },
+
+  // Snapshot operations
+  async createSnapshot(data: {
+    vmId: string;
+    name: string;
+    description?: string;
+    includeMemory?: boolean;
+    quiesce?: boolean;
+  }): Promise<ApiSnapshot> {
+    return apiCall<ApiSnapshot>(
+      'limiquantix.compute.v1.VMService',
+      'CreateSnapshot',
+      data
+    );
+  },
+
+  async listSnapshots(vmId: string): Promise<ListSnapshotsResponse> {
+    return apiCall<ListSnapshotsResponse>(
+      'limiquantix.compute.v1.VMService',
+      'ListSnapshots',
+      { vmId }
+    );
+  },
+
+  async revertToSnapshot(vmId: string, snapshotId: string, startAfterRevert?: boolean): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'RevertToSnapshot',
+      { vmId, snapshotId, startAfterRevert }
+    );
+  },
+
+  async deleteSnapshot(vmId: string, snapshotId: string): Promise<void> {
+    await apiCall<void>(
+      'limiquantix.compute.v1.VMService',
+      'DeleteSnapshot',
+      { vmId, snapshotId }
+    );
+  },
 };
+
+// =============================================================================
+// Snapshot Types
+// =============================================================================
+
+export interface ApiSnapshot {
+  id: string;
+  name: string;
+  description?: string;
+  parentId?: string;
+  memoryIncluded?: boolean;
+  quiesced?: boolean;
+  createdAt?: string;
+  sizeBytes?: number;
+}
+
+export interface ListSnapshotsResponse {
+  snapshots: ApiSnapshot[];
+}
 
 // =============================================================================
 // Node Service API

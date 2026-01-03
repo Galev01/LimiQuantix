@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Radio,
   Plus,
@@ -16,6 +16,7 @@ import {
   Trash2,
   Link2,
   Globe,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -163,6 +164,7 @@ function formatUptime(seconds: number): string {
 export function BGPSpeakers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const filteredSpeakers = mockBGPSpeakers.filter((speaker) =>
     speaker.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -193,7 +195,7 @@ export function BGPSpeakers() {
             <RefreshCw className="w-4 h-4" />
             Refresh
           </Button>
-          <Button>
+          <Button onClick={() => setIsCreateModalOpen(true)}>
             <Plus className="w-4 h-4" />
             New Speaker
           </Button>
@@ -260,6 +262,16 @@ export function BGPSpeakers() {
           onClose={() => setSelectedSpeaker(null)}
         />
       )}
+
+      {/* Create BGP Speaker Modal */}
+      <CreateBGPSpeakerModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={(data) => {
+          console.log('Create BGP speaker:', data);
+          setIsCreateModalOpen(false);
+        }}
+      />
     </div>
   );
 }
@@ -549,6 +561,175 @@ function BGPDetailPanel({ speaker, onClose }: { speaker: BGPSpeaker; onClose: ()
         </Button>
       </div>
     </motion.div>
+  );
+}
+
+// Create BGP Speaker Modal
+function CreateBGPSpeakerModal({
+  isOpen,
+  onClose,
+  onSubmit,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: Partial<BGPSpeaker>) => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    localAsn: '65001',
+    routerId: '',
+    nodeId: 'node-ctrl-01',
+    advertiseTenantNetworks: true,
+    advertiseFloatingIps: true,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      name: formData.name,
+      description: formData.description,
+      localAsn: parseInt(formData.localAsn),
+      routerId: formData.routerId,
+      nodeId: formData.nodeId,
+      advertiseTenantNetworks: formData.advertiseTenantNetworks,
+      advertiseFloatingIps: formData.advertiseFloatingIps,
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-lg bg-bg-surface rounded-xl border border-border shadow-elevated"
+        >
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <h2 className="text-lg font-semibold text-text-primary">Create BGP Speaker</h2>
+            <button onClick={onClose} className="text-text-muted hover:text-text-primary">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="form-input w-full"
+                placeholder="Primary ToR Peering"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Description</label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="form-input w-full"
+                placeholder="BGP speaker for advertising routes to ToR switches"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Local ASN</label>
+                <input
+                  type="number"
+                  value={formData.localAsn}
+                  onChange={(e) => setFormData({ ...formData, localAsn: e.target.value })}
+                  className="form-input w-full"
+                  placeholder="65001"
+                  min="1"
+                  max="4294967295"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Router ID</label>
+                <input
+                  type="text"
+                  value={formData.routerId}
+                  onChange={(e) => setFormData({ ...formData, routerId: e.target.value })}
+                  className="form-input w-full"
+                  placeholder="10.0.0.1"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Node</label>
+              <select
+                value={formData.nodeId}
+                onChange={(e) => setFormData({ ...formData, nodeId: e.target.value })}
+                className="form-input w-full"
+              >
+                <option value="node-ctrl-01">Control Node 01</option>
+                <option value="node-ctrl-02">Control Node 02</option>
+                <option value="node-ctrl-03">Control Node 03</option>
+              </select>
+              <p className="text-xs text-text-muted mt-1">Node where FRRouting will run</p>
+            </div>
+
+            <div className="p-4 rounded-lg bg-bg-base space-y-3">
+              <h4 className="text-sm font-medium text-text-secondary">Auto-Advertisement</h4>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.advertiseTenantNetworks}
+                  onChange={(e) => setFormData({ ...formData, advertiseTenantNetworks: e.target.checked })}
+                  className="form-checkbox"
+                />
+                <span className="text-sm text-text-secondary">Advertise tenant networks</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.advertiseFloatingIps}
+                  onChange={(e) => setFormData({ ...formData, advertiseFloatingIps: e.target.checked })}
+                  className="form-checkbox"
+                />
+                <span className="text-sm text-text-secondary">Advertise floating IPs</span>
+              </label>
+            </div>
+
+            <div className="p-4 rounded-lg bg-accent/5 border border-accent/20">
+              <h4 className="text-sm font-medium text-accent mb-2">Next Steps</h4>
+              <p className="text-xs text-text-muted">
+                After creating the BGP speaker, you'll need to add peers (ToR switches) 
+                and optionally configure additional network advertisements.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button type="button" variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                Create BGP Speaker
+              </Button>
+            </div>
+          </form>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 

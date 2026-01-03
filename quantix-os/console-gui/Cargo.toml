@@ -14,9 +14,17 @@ panic = "abort"
 strip = true
 opt-level = "s"
 
+[features]
+default = ["desktop"]
+# Desktop mode - for testing on Linux/Windows/macOS with X11/Wayland
+desktop = ["slint/backend-winit", "slint/renderer-femtovg"]
+# Production mode - direct framebuffer rendering on Quantix-OS (no display server)
+linuxkms = ["slint/backend-linuxkms", "slint/renderer-skia"]
+
 [dependencies]
-# Slint UI framework - renders to framebuffer
-slint = { version = "1.9", default-features = false, features = ["backend-linuxkms", "renderer-skia", "compat-1-2"] }
+# Slint UI framework
+# Backend is selected via features above
+slint = { version = "1.9", default-features = false, features = ["compat-1-2"] }
 
 # Async runtime
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "process", "fs"] }

@@ -197,3 +197,20 @@ func (vm *VirtualMachine) CanStop() bool {
 	return vm.Status.State == VMStateRunning || vm.Status.State == VMStatePaused
 }
 
+// ============================================================================
+// Snapshot
+// ============================================================================
+
+// Snapshot represents a point-in-time snapshot of a virtual machine.
+type Snapshot struct {
+	ID             string    `json:"id"`
+	VMID           string    `json:"vm_id"`
+	Name           string    `json:"name"`
+	Description    string    `json:"description"`
+	ParentID       string    `json:"parent_id,omitempty"`
+	MemoryIncluded bool      `json:"memory_included"`
+	Quiesced       bool      `json:"quiesced"`
+	SizeBytes      uint64    `json:"size_bytes"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+

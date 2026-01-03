@@ -1073,6 +1073,286 @@ func convertToNodeDaemonCreateRequest(vm *domain.VirtualMachine, spec *computev1
 }
 
 // ============================================================================
+// Snapshot Operations
+// ============================================================================
+
+// CreateSnapshot creates a point-in-time snapshot of a VM.
+func (s *Service) CreateSnapshot(
+	ctx context.Context,
+	req *connect.Request[computev1.CreateSnapshotRequest],
+) (*connect.Response[computev1.Snapshot], error) {
+	logger := s.logger.With(
+		zap.String("method", "CreateSnapshot"),
+		zap.String("vm_id", req.Msg.VmId),
+		zap.String("name", req.Msg.Name),
+	)
+
+	logger.Info("Creating snapshot")
+
+	// Validate request
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+	if req.Msg.Name == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("snapshot name is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Create snapshot on Node Daemon
+	if vm.Status.NodeID == "" {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("VM is not assigned to a node"))
+	}
+
+	client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+	if err != nil {
+		logger.Error("Failed to connect to node daemon", zap.Error(err))
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node: %w", err))
+	}
+
+	resp, err := client.CreateSnapshot(ctx, req.Msg.VmId, req.Msg.Name, req.Msg.Description, req.Msg.Quiesce)
+	if err != nil {
+		logger.Error("Failed to create snapshot on node daemon", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create snapshot: %w", err))
+	}
+
+	// Build response
+	snapshot := &domain.Snapshot{
+		ID:             resp.SnapshotId,
+		VMID:           req.Msg.VmId,
+		Name:           resp.Name,
+		Description:    resp.Description,
+		ParentID:       resp.ParentId,
+		MemoryIncluded: req.Msg.IncludeMemory,
+		Quiesced:       req.Msg.Quiesce,
+		SizeBytes:      0, // Size is calculated by the hypervisor
+		CreatedAt:      time.Now(),
+	}
+
+	logger.Info("Snapshot created successfully",
+		zap.String("snapshot_id", snapshot.ID),
+	)
+
+	return connect.NewResponse(SnapshotToProto(snapshot)), nil
+}
+
+// ListSnapshots returns all snapshots for a VM.
+func (s *Service) ListSnapshots(
+	ctx context.Context,
+	req *connect.Request[computev1.ListSnapshotsRequest],
+) (*connect.Response[computev1.ListSnapshotsResponse], error) {
+	logger := s.logger.With(
+		zap.String("method", "ListSnapshots"),
+		zap.String("vm_id", req.Msg.VmId),
+	)
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// If VM has no node, return empty list
+	if vm.Status.NodeID == "" {
+		logger.Debug("VM has no node assigned, returning empty snapshot list")
+		return connect.NewResponse(&computev1.ListSnapshotsResponse{
+			Snapshots: []*computev1.Snapshot{},
+		}), nil
+	}
+
+	// Get snapshots from Node Daemon
+	client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+	if err != nil {
+		logger.Warn("Failed to connect to node daemon, returning empty list", zap.Error(err))
+		return connect.NewResponse(&computev1.ListSnapshotsResponse{
+			Snapshots: []*computev1.Snapshot{},
+		}), nil
+	}
+
+	resp, err := client.ListSnapshots(ctx, req.Msg.VmId)
+	if err != nil {
+		logger.Warn("Failed to list snapshots from node daemon", zap.Error(err))
+		return connect.NewResponse(&computev1.ListSnapshotsResponse{
+			Snapshots: []*computev1.Snapshot{},
+		}), nil
+	}
+
+	// Convert to proto
+	var snapshots []*computev1.Snapshot
+	for _, snap := range resp.Snapshots {
+		domainSnap := &domain.Snapshot{
+			ID:             snap.SnapshotId,
+			VMID:           req.Msg.VmId,
+			Name:           snap.Name,
+			Description:    snap.Description,
+			ParentID:       snap.ParentId,
+			MemoryIncluded: false, // TODO: Add to node daemon proto
+			Quiesced:       false,
+			SizeBytes:      0, // Size calculated by hypervisor
+		}
+		if snap.CreatedAt != nil {
+			domainSnap.CreatedAt = snap.CreatedAt.AsTime()
+		}
+		snapshots = append(snapshots, SnapshotToProto(domainSnap))
+	}
+
+	logger.Debug("Listed snapshots", zap.Int("count", len(snapshots)))
+
+	return connect.NewResponse(&computev1.ListSnapshotsResponse{
+		Snapshots: snapshots,
+	}), nil
+}
+
+// RevertToSnapshot reverts a VM to a previous snapshot state.
+func (s *Service) RevertToSnapshot(
+	ctx context.Context,
+	req *connect.Request[computev1.RevertToSnapshotRequest],
+) (*connect.Response[computev1.VirtualMachine], error) {
+	logger := s.logger.With(
+		zap.String("method", "RevertToSnapshot"),
+		zap.String("vm_id", req.Msg.VmId),
+		zap.String("snapshot_id", req.Msg.SnapshotId),
+	)
+
+	logger.Info("Reverting to snapshot")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+	if req.Msg.SnapshotId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("snapshot ID is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Check if VM is in a valid state for revert
+	// For disk-only snapshots, VM must be stopped
+	// For memory snapshots, VM can be in any state (it will be restored)
+	if vm.IsRunning() {
+		// For now, require VM to be stopped for safety
+		// TODO: Check if snapshot includes memory and allow if so
+		logger.Warn("VM is running, revert may fail for disk-only snapshots")
+	}
+
+	if vm.Status.NodeID == "" {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("VM is not assigned to a node"))
+	}
+
+	// Revert on Node Daemon
+	client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+	if err != nil {
+		logger.Error("Failed to connect to node daemon", zap.Error(err))
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node: %w", err))
+	}
+
+	err = client.RevertSnapshot(ctx, req.Msg.VmId, req.Msg.SnapshotId)
+	if err != nil {
+		logger.Error("Failed to revert snapshot on node daemon", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to revert snapshot: %w", err))
+	}
+
+	// Update VM status
+	vm.Status.Message = fmt.Sprintf("Reverted to snapshot %s", req.Msg.SnapshotId)
+	vm.UpdatedAt = time.Now()
+	_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
+
+	// Optionally start VM after revert
+	if req.Msg.StartAfterRevert && !vm.IsRunning() {
+		logger.Info("Starting VM after snapshot revert")
+		// Use StartVM logic
+		if startErr := client.StartVM(ctx, vm.ID); startErr != nil {
+			logger.Warn("Failed to start VM after revert", zap.Error(startErr))
+		} else {
+			vm.Status.State = domain.VMStateRunning
+			vm.Status.Message = "VM started after snapshot revert"
+			_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
+		}
+	}
+
+	// Fetch updated VM
+	updated, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	logger.Info("Snapshot reverted successfully")
+
+	return connect.NewResponse(ToProto(updated)), nil
+}
+
+// DeleteSnapshot removes a snapshot from a VM.
+func (s *Service) DeleteSnapshot(
+	ctx context.Context,
+	req *connect.Request[computev1.DeleteSnapshotRequest],
+) (*connect.Response[emptypb.Empty], error) {
+	logger := s.logger.With(
+		zap.String("method", "DeleteSnapshot"),
+		zap.String("vm_id", req.Msg.VmId),
+		zap.String("snapshot_id", req.Msg.SnapshotId),
+	)
+
+	logger.Info("Deleting snapshot")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+	if req.Msg.SnapshotId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("snapshot ID is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if vm.Status.NodeID == "" {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("VM is not assigned to a node"))
+	}
+
+	// Delete on Node Daemon
+	client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+	if err != nil {
+		logger.Error("Failed to connect to node daemon", zap.Error(err))
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node: %w", err))
+	}
+
+	err = client.DeleteSnapshot(ctx, req.Msg.VmId, req.Msg.SnapshotId)
+	if err != nil {
+		logger.Error("Failed to delete snapshot on node daemon", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete snapshot: %w", err))
+	}
+
+	logger.Info("Snapshot deleted successfully")
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// ============================================================================
 // Guest Agent Operations (TODO: Enable when proto definitions are complete)
 // ============================================================================
 

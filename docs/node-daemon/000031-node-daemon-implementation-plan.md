@@ -2,8 +2,151 @@
 
 **Document ID:** 000031  
 **Date:** 2026-01-02  
+**Last Updated:** 2026-01-03  
 **Status:** In Progress  
 **Related ADR:** [000007-hypervisor-integration.md](adr/000007-hypervisor-integration.md)  
+
+---
+
+## Recent Changes (2026-01-03)
+
+### Proto Type Naming Conventions
+
+The Node Daemon proto uses specific naming conventions that affect Rust code generation via `prost`:
+
+| Proto Type | Generated Rust Type |
+|------------|---------------------|
+| `CreateVMOnNodeRequest` | `CreateVmOnNodeRequest` |
+| `CreateVMOnNodeResponse` | `CreateVmOnNodeResponse` |
+| `ListVMsOnNodeResponse` | `ListVMsOnNodeResponse` (capital VMs preserved) |
+| `VMIdRequest` | `VmIdRequest` |
+| `VMStatusResponse` | `VmStatusResponse` |
+| `StopVMRequest` | `StopVmRequest` |
+
+**Important:** Prost preserves consecutive capitals like `VMs` → `VMs` but converts individual capitals.
+
+### New gRPC Methods Added
+
+The `NodeDaemonService` trait now includes guest agent operations:
+
+```rust
+// Filesystem quiesce/thaw for consistent snapshots
+async fn quiesce_filesystems(&self, request: Request<QuiesceFilesystemsRequest>) 
+    -> Result<Response<QuiesceFilesystemsResponse>, Status>;
+    
+async fn thaw_filesystems(&self, request: Request<ThawFilesystemsRequest>) 
+    -> Result<Response<ThawFilesystemsResponse>, Status>;
+
+// Time sync after VM resume
+async fn sync_time(&self, request: Request<SyncTimeRequest>) 
+    -> Result<Response<SyncTimeResponse>, Status>;
+```
+
+### Nested VMSpec in CreateVM
+
+The `CreateVMOnNodeRequest` now uses a nested `VMSpec` message:
+
+```protobuf
+message CreateVMOnNodeRequest {
+  string vm_id = 1;
+  string name = 2;
+  VMSpec spec = 3;  // Nested spec - access via req.spec
+  map<string, string> labels = 4;
+}
+```
+
+**Rust Implementation:**
+```rust
+let spec = req.spec.ok_or_else(|| {
+    Status::invalid_argument("VM spec is required")
+})?;
+
+config.cpu.cores = spec.cpu_cores;
+config.memory.size_mib = spec.memory_mib;
+```
+
+### Guest Agent Info Updates
+
+`GuestAgentInfo` proto structure updated:
+
+```protobuf
+message GuestAgentInfo {
+  bool connected = 1;
+  string version = 2;
+  string os_name = 3;
+  string os_version = 4;
+  string kernel_version = 5;
+  string hostname = 6;
+  repeated string ip_addresses = 7;  // Changed from timezone
+  repeated GuestNetworkInterface interfaces = 8;
+  GuestResourceUsage resource_usage = 9;
+  repeated string capabilities = 10;
+  google.protobuf.Timestamp last_seen = 11;  // New field
+}
+```
+
+### GuestResourceUsage Updates
+
+```protobuf
+message GuestResourceUsage {
+  double cpu_usage_percent = 1;
+  uint64 memory_total_bytes = 2;
+  uint64 memory_used_bytes = 3;
+  uint64 memory_available_bytes = 4;  // Changed from memory_cached_bytes
+  uint64 swap_total_bytes = 5;
+  uint64 swap_used_bytes = 6;
+  double load_avg_1 = 7;   // Individual load averages
+  double load_avg_5 = 8;   // instead of Vec<f64>
+  double load_avg_15 = 9;
+  repeated GuestDiskUsage disks = 10;
+  uint32 process_count = 11;
+  uint64 uptime_seconds = 12;
+}
+
+message GuestDiskUsage {
+  string mount_point = 1;
+  string device = 2;
+  string filesystem = 3;
+  uint64 total_bytes = 4;
+  uint64 used_bytes = 5;
+  uint64 available_bytes = 6;
+  double usage_percent = 7;  // New field
+}
+
+message GuestNetworkInterface {
+  string name = 1;
+  string mac_address = 2;
+  repeated string ipv4_addresses = 3;
+  repeated string ipv6_addresses = 4;
+  bool is_up = 5;  // Changed from "up"
+}
+```
+
+### FrozenFilesystem Updates
+
+```protobuf
+message FrozenFilesystem {
+  string mount_point = 1;
+  string device = 2;
+  string filesystem = 3;
+  bool frozen = 4;    // New field
+  string error = 5;   // New field
+}
+```
+
+### VolumeSourceType Enum Handling
+
+Due to prost enum naming differences across platforms, use raw i32 values instead of enum variants:
+
+```rust
+// Instead of matching on VolumeSourceType::Clone, use raw values:
+let source = match req.source_type {
+    1 => Some(VolumeSource::Clone(req.source_id.clone())),   // VOLUME_SOURCE_CLONE
+    2 => Some(VolumeSource::Image(req.source_id.clone())),   // VOLUME_SOURCE_IMAGE  
+    3 => Some(VolumeSource::Snapshot(req.source_id.clone())), // VOLUME_SOURCE_SNAPSHOT
+    _ => None, // 0 = VOLUME_SOURCE_EMPTY or unknown
+};
+```
 
 ---
 

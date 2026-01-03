@@ -4,6 +4,94 @@
 **Category:** Architecture / Integration  
 **Status:** Implemented  
 **Created:** January 2, 2026  
+**Last Updated:** January 3, 2026  
+
+---
+
+## Recent Changes (2026-01-03)
+
+### Proto Type Naming
+
+The Node Daemon proto uses specific naming that affects code generation:
+
+| Proto Message | Rust Type | Notes |
+|---------------|-----------|-------|
+| `CreateVMOnNodeRequest` | `CreateVmOnNodeRequest` | Nested `spec` field |
+| `CreateVMOnNodeResponse` | `CreateVmOnNodeResponse` | |
+| `ListVMsOnNodeResponse` | `ListVMsOnNodeResponse` | Capital VMs preserved |
+| `VMIdRequest` | `VmIdRequest` | |
+| `VMSpec` | `VmSpec` | Nested in CreateVM request |
+
+### New Service Methods
+
+The `NodeDaemonService` now includes guest agent filesystem operations:
+
+```go
+// Go Control Plane calling Node Daemon
+client.QuiesceFilesystems(ctx, &nodev1.QuiesceFilesystemsRequest{
+    VmId:                vmID,
+    MountPoints:         []string{"/", "/var"},
+    TimeoutSeconds:      60,
+    RunPreFreezeScripts: true,
+})
+
+client.ThawFilesystems(ctx, &nodev1.ThawFilesystemsRequest{
+    VmId:               vmID,
+    QuiesceToken:       quiesceToken,
+    RunPostThawScripts: true,
+})
+
+client.SyncTime(ctx, &nodev1.SyncTimeRequest{
+    VmId:  vmID,
+    Force: true,
+})
+```
+
+### Updated CreateVM Flow
+
+CreateVM now uses a nested `VMSpec` message:
+
+```go
+req := &nodev1.CreateVMOnNodeRequest{
+    VmId:   vm.ID,
+    Name:   vm.Name,
+    Labels: vm.Labels,
+    Spec: &nodev1.VMSpec{
+        CpuCores:          spec.GetCpu().GetCores(),
+        CpuSockets:        spec.GetCpu().GetSockets(),
+        CpuThreadsPerCore: spec.GetCpu().GetThreadsPerCore(),
+        MemoryMib:         spec.GetMemory().GetSizeMib(),
+        Firmware:          convertFirmware(spec.GetBoot().GetFirmware()),
+        BootOrder:         convertBootOrder(spec.GetBoot().GetOrder()),
+        Disks:             convertDisks(spec.GetDisks()),
+        Nics:              convertNics(spec.GetNics()),
+        Console: &nodev1.ConsoleSpec{
+            VncEnabled:   spec.GetDisplay().GetVncEnabled(),
+            SpiceEnabled: spec.GetDisplay().GetSpiceEnabled(),
+        },
+    },
+}
+```
+
+### GuestAgentInfo Structure
+
+The `GuestAgentInfo` returned in `VMStatusResponse` has updated fields:
+
+```protobuf
+message GuestAgentInfo {
+  bool connected = 1;
+  string version = 2;
+  string os_name = 3;
+  string os_version = 4;
+  string kernel_version = 5;
+  string hostname = 6;
+  repeated string ip_addresses = 7;     // New: list of IPs
+  repeated GuestNetworkInterface interfaces = 8;
+  GuestResourceUsage resource_usage = 9;
+  repeated string capabilities = 10;
+  google.protobuf.Timestamp last_seen = 11;  // New: last contact time
+}
+```
 
 ---
 
@@ -121,7 +209,7 @@ type DaemonClient struct {
     logger *zap.Logger
 }
 
-// Available operations
+// VM Lifecycle Operations
 func (c *DaemonClient) HealthCheck(ctx context.Context) (*nodev1.HealthCheckResponse, error)
 func (c *DaemonClient) GetNodeInfo(ctx context.Context) (*nodev1.NodeInfoResponse, error)
 func (c *DaemonClient) CreateVM(ctx context.Context, req *nodev1.CreateVMOnNodeRequest) (*nodev1.CreateVMOnNodeResponse, error)
@@ -132,6 +220,25 @@ func (c *DaemonClient) RebootVM(ctx context.Context, vmID string) error
 func (c *DaemonClient) PauseVM(ctx context.Context, vmID string) error
 func (c *DaemonClient) ResumeVM(ctx context.Context, vmID string) error
 func (c *DaemonClient) DeleteVM(ctx context.Context, vmID string) error
+
+// Snapshot Operations
+func (c *DaemonClient) CreateSnapshot(ctx context.Context, req *nodev1.CreateSnapshotRequest) (*nodev1.SnapshotResponse, error)
+func (c *DaemonClient) ListSnapshots(ctx context.Context, vmID string) (*nodev1.ListSnapshotsResponse, error)
+func (c *DaemonClient) RevertSnapshot(ctx context.Context, vmID, snapshotID string) error
+func (c *DaemonClient) DeleteSnapshot(ctx context.Context, vmID, snapshotID string) error
+
+// Guest Agent Operations (New)
+func (c *DaemonClient) PingAgent(ctx context.Context, vmID string) (*nodev1.AgentPingResponse, error)
+func (c *DaemonClient) ExecuteInGuest(ctx context.Context, req *nodev1.ExecuteInGuestRequest) (*nodev1.ExecuteInGuestResponse, error)
+func (c *DaemonClient) QuiesceFilesystems(ctx context.Context, req *nodev1.QuiesceFilesystemsRequest) (*nodev1.QuiesceFilesystemsResponse, error)
+func (c *DaemonClient) ThawFilesystems(ctx context.Context, req *nodev1.ThawFilesystemsRequest) (*nodev1.ThawFilesystemsResponse, error)
+func (c *DaemonClient) SyncTime(ctx context.Context, req *nodev1.SyncTimeRequest) (*nodev1.SyncTimeResponse, error)
+
+// Storage Operations
+func (c *DaemonClient) InitStoragePool(ctx context.Context, req *nodev1.InitStoragePoolRequest) (*nodev1.StoragePoolInfoResponse, error)
+func (c *DaemonClient) CreateVolume(ctx context.Context, req *nodev1.CreateVolumeRequest) error
+func (c *DaemonClient) DeleteVolume(ctx context.Context, poolID, volumeID string) error
+func (c *DaemonClient) ResizeVolume(ctx context.Context, req *nodev1.ResizeVolumeRequest) error
 ```
 
 ---
@@ -256,6 +363,121 @@ func (s *Service) StartVM(ctx context.Context, req *connect.Request[computev1.St
    - DaemonClient.DeleteVM() removes from hypervisor
 4. VM deleted from PostgreSQL
 5. Returns success
+```
+
+---
+
+### CreateSnapshot Flow
+
+```
+1. Frontend sends CreateSnapshotRequest with vmId, name, description
+2. VMService validates request and retrieves VM
+3. Verifies VM is assigned to a node
+4. DaemonClient.CreateSnapshot() calls Node Daemon
+5. Node Daemon creates snapshot via libvirt
+6. Returns Snapshot object with ID, name, timestamps
+```
+
+### ListSnapshots Flow
+
+```
+1. Frontend sends ListSnapshotsRequest with vmId
+2. VMService retrieves VM and verifies node assignment
+3. DaemonClient.ListSnapshots() gets snapshots from Node Daemon
+4. Node Daemon lists snapshots via libvirt
+5. Returns list of Snapshot objects
+```
+
+### RevertToSnapshot Flow
+
+```
+1. Frontend sends RevertToSnapshotRequest with vmId, snapshotId
+2. VMService validates request and retrieves VM
+3. DaemonClient.RevertSnapshot() sends revert command
+4. Node Daemon reverts VM via libvirt
+5. Optionally starts VM if startAfterRevert=true
+6. Returns updated VM
+```
+
+### DeleteSnapshot Flow
+
+```
+1. Frontend sends DeleteSnapshotRequest with vmId, snapshotId
+2. VMService validates request and retrieves VM
+3. DaemonClient.DeleteSnapshot() sends delete command
+4. Node Daemon removes snapshot via libvirt
+5. Returns success
+```
+
+---
+
+## Guest Agent Operations (New in 2026-01-03)
+
+### QuiesceFilesystems Flow
+
+Used before creating consistent snapshots of running VMs:
+
+```
+1. Control Plane calls QuiesceFilesystems with VM ID and mount points
+2. Node Daemon connects to guest agent via virtio-serial
+3. Guest agent freezes specified filesystems (fsfreeze)
+4. Guest agent optionally runs pre-freeze scripts (database flush)
+5. Returns quiesce token and list of frozen filesystems
+6. Snapshot is taken while filesystems are frozen
+7. ThawFilesystems is called to unfreeze
+```
+
+```go
+// Go Control Plane
+quiesceResp, err := client.QuiesceFilesystems(ctx, &nodev1.QuiesceFilesystemsRequest{
+    VmId:                vmID,
+    MountPoints:         []string{"/", "/var/lib/mysql"},
+    TimeoutSeconds:      60,  // Auto-thaw after 60s
+    RunPreFreezeScripts: true,
+})
+
+// Take snapshot while frozen
+_, err = client.CreateSnapshot(ctx, &nodev1.CreateSnapshotRequest{
+    VmId:        vmID,
+    Name:        "consistent-backup",
+    Description: "Taken with quiesced filesystems",
+})
+
+// Thaw filesystems
+thawResp, err := client.ThawFilesystems(ctx, &nodev1.ThawFilesystemsRequest{
+    VmId:               vmID,
+    QuiesceToken:       quiesceResp.QuiesceToken,
+    RunPostThawScripts: true,
+})
+```
+
+### SyncTime Flow
+
+Used after VM resume from pause/suspend to correct clock drift:
+
+```
+1. Control Plane calls ResumeVM
+2. After resume succeeds, calls SyncTime
+3. Node Daemon sends time sync request to guest agent
+4. Guest agent syncs with NTP/chrony or sets time manually
+5. Returns offset corrected and time source used
+```
+
+```go
+// After resuming a VM
+err := client.ResumeVM(ctx, vmID)
+if err == nil {
+    syncResp, err := client.SyncTime(ctx, &nodev1.SyncTimeRequest{
+        VmId:  vmID,
+        Force: true,  // Force immediate sync
+    })
+    if err == nil {
+        logger.Info("Time synced after resume",
+            zap.Float64("offset_seconds", syncResp.OffsetSeconds),
+            zap.String("time_source", syncResp.TimeSource),
+        )
+    }
+}
 ```
 
 ---
@@ -414,6 +636,15 @@ curl -X POST http://127.0.0.1:8080/limiquantix.compute.v1.VMService/CreateVM \
 
 ---
 
+## Implemented Features (2026-01-03)
+
+1. ✅ **Guest Agent Integration**: Full guest agent communication via virtio-serial
+2. ✅ **Filesystem Quiesce/Thaw**: For consistent VM snapshots
+3. ✅ **Time Synchronization**: Sync guest time after pause/resume
+4. ✅ **Storage Pool Management**: Local, NFS, Ceph, iSCSI pools
+5. ✅ **Volume Operations**: Create, resize, clone, snapshot volumes
+6. ✅ **Nested VMSpec**: CreateVM uses structured VMSpec message
+
 ## Future Enhancements
 
 1. **Connection Health Checks**: Periodic ping to detect dead connections
@@ -421,6 +652,7 @@ curl -X POST http://127.0.0.1:8080/limiquantix.compute.v1.VMService/CreateVM \
 3. **Circuit Breaker**: Prevent cascading failures when Node Daemon is down
 4. **Metrics**: Track gRPC call latency and error rates
 5. **TLS**: Mutual TLS for secure communication
+6. **Live Migration**: VM migration between nodes with progress streaming
 
 ---
 

@@ -352,30 +352,23 @@ impl Hypervisor for LibvirtBackend {
         // For now, return a placeholder snapshot info.
         warn!("Snapshot creation not fully implemented in virt crate v0.4 - using virsh fallback");
         
-        // Use virsh command as fallback
-        let snap_xml = format!(
-            r#"<domainsnapshot><name>{}</name><description>{}</description></domainsnapshot>"#,
-            name, description
-        );
+        // Use virsh snapshot-create-as command which accepts name/description directly
+        let mut args = vec!["snapshot-create-as", vm_id, "--name", name];
+        
+        // Add description if not empty
+        if !description.is_empty() {
+            args.push("--description");
+            args.push(description);
+        }
         
         let output = std::process::Command::new("virsh")
-            .args(["snapshot-create", vm_id, "--xmldesc", "/dev/stdin"])
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .and_then(|mut child| {
-                use std::io::Write;
-                if let Some(ref mut stdin) = child.stdin {
-                    stdin.write_all(snap_xml.as_bytes())?;
-                }
-                child.wait_with_output()
-            })
+            .args(&args)
+            .output()
             .map_err(|e| HypervisorError::SnapshotFailed(format!("virsh command failed: {}", e)))?;
         
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(HypervisorError::SnapshotFailed(format!("virsh snapshot-create failed: {}", stderr)));
+            return Err(HypervisorError::SnapshotFailed(format!("virsh snapshot-create-as failed: {}", stderr)));
         }
         
         info!(snapshot = %name, "Snapshot created via virsh");
