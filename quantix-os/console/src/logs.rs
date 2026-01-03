@@ -514,40 +514,44 @@ pub fn render_log_viewer(frame: &mut Frame, area: Rect, viewer: &mut LogViewer) 
 
 /// Render a compact log summary (for main dashboard)
 pub fn render_log_summary(frame: &mut Frame, area: Rect, viewer: &LogViewer) {
-    let content = if viewer.stats.errors > 0 {
-        format!(
-            "❌ {} errors | ⚠️ {} warnings\n\nLast error:\n{}",
-            viewer.stats.errors,
-            viewer.stats.warnings,
-            viewer.stats.last_error.as_deref().unwrap_or("None").chars().take(60).collect::<String>()
-        )
+    let error_color = if viewer.stats.errors > 0 { Color::Red } else { Color::Green };
+    let warn_color = if viewer.stats.warnings > 0 { Color::Yellow } else { Color::DarkGray };
+
+    let status_text = if viewer.stats.errors > 0 {
+        "Errors detected"
     } else {
-        format!(
-            "✅ No errors | ⚠️ {} warnings\n\n📊 {} total log entries",
-            viewer.stats.warnings,
-            viewer.stats.total
-        )
+        "No errors"
     };
 
-    let style = if viewer.stats.errors > 0 {
-        Style::default().fg(Color::Red)
-    } else {
-        Style::default().fg(Color::Green)
-    };
+    let lines = vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  Status:  ", Style::default().fg(Color::DarkGray)),
+            Span::styled(status_text, Style::default().fg(error_color).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  Errors:  ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}", viewer.stats.errors), Style::default().fg(error_color)),
+        ]),
+        Line::from(vec![
+            Span::styled("  Warns:   ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}", viewer.stats.warnings), Style::default().fg(warn_color)),
+        ]),
+        Line::from(vec![
+            Span::styled("  Total:   ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}", viewer.stats.total), Style::default().fg(Color::White)),
+        ]),
+    ];
 
-    let widget = Paragraph::new(content)
-        .style(style)
+    let widget = Paragraph::new(lines)
         .block(
             Block::default()
-                .title(" 📋 Log Summary ")
+                .title(" Log Summary ")
+                .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
                 .borders(Borders::ALL)
-                .border_style(if viewer.stats.errors > 0 {
-                    Style::default().fg(Color::Red)
-                } else {
-                    Style::default().fg(Color::Green)
-                }),
-        )
-        .wrap(Wrap { trim: true });
+                .border_style(Style::default().fg(Color::DarkGray)),
+        );
 
     frame.render_widget(widget, area);
 }

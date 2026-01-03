@@ -222,11 +222,15 @@ EOF
     ln -sf /etc/init.d/dmesg "${ROOTFS}/etc/runlevels/sysinit/dmesg" 2>/dev/null || true
     ln -sf /etc/init.d/mdev "${ROOTFS}/etc/runlevels/sysinit/mdev" 2>/dev/null || true
     
+    # Quantix setup - runs early to create writable directories
+    ln -sf /etc/init.d/quantix-setup "${ROOTFS}/etc/runlevels/boot/quantix-setup" 2>/dev/null || true
+    
     ln -sf /etc/init.d/hwclock "${ROOTFS}/etc/runlevels/boot/hwclock" 2>/dev/null || true
     ln -sf /etc/init.d/modules "${ROOTFS}/etc/runlevels/boot/modules" 2>/dev/null || true
     ln -sf /etc/init.d/sysctl "${ROOTFS}/etc/runlevels/boot/sysctl" 2>/dev/null || true
     ln -sf /etc/init.d/hostname "${ROOTFS}/etc/runlevels/boot/hostname" 2>/dev/null || true
     ln -sf /etc/init.d/networking "${ROOTFS}/etc/runlevels/boot/networking" 2>/dev/null || true
+    ln -sf /etc/init.d/local "${ROOTFS}/etc/runlevels/boot/local" 2>/dev/null || true
     
     # Enable our services
     ln -sf /etc/init.d/libvirtd "${ROOTFS}/etc/runlevels/default/libvirtd" 2>/dev/null || true

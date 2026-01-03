@@ -208,13 +208,14 @@ impl App {
 fn ui(frame: &mut Frame, app: &mut App) {
     let size = frame.area();
 
-    // Create main layout
+    // Create main layout with more breathing room
     let chunks = Layout::default()
         .direction(Direction::Vertical)
+        .margin(1) // Add margin around the entire UI
         .constraints([
-            Constraint::Length(7),  // Header/Banner
-            Constraint::Min(10),    // Main content
-            Constraint::Length(3),  // Footer/Status
+            Constraint::Length(5),  // Header/Banner (compact)
+            Constraint::Min(12),    // Main content
+            Constraint::Length(1),  // Footer/Status
         ])
         .split(size);
 
@@ -241,38 +242,52 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
     let hostname = app.config.hostname.as_deref().unwrap_or("quantix");
     let ip = system::get_management_ip().unwrap_or_else(|| "Not configured".to_string());
     let node_status = if app.config.cluster_joined {
-        "🟢 Joined"
+        "Joined"
     } else {
-        "🟡 Standalone"
+        "Standalone"
     };
 
     // Status indicator based on log errors
     let health = if app.log_viewer.stats.errors > 0 {
-        format!("❌ {} errors", app.log_viewer.stats.errors)
+        "Errors"
     } else {
-        "✅ Healthy".to_string()
+        "Healthy"
     };
 
-    let header_text = format!(
-        r#"
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║  🖥️  QUANTIX-OS v1.0.0                                        {}  ║
-╠═══════════════════════════════════════════════════════════════════════════════╣
-║  Node: {:<18}  Status: {:<14}  IP: {:<15}  ║
-╚═══════════════════════════════════════════════════════════════════════════════╝"#,
-        health,
-        hostname, node_status, ip
+    let health_color = if app.log_viewer.stats.errors > 0 {
+        Color::Red
+    } else {
+        Color::Green
+    };
+
+    // Build header as styled spans for better control
+    let header_line1 = Line::from(vec![
+        Span::styled("  QUANTIX-OS ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::styled("v1.0.0", Style::default().fg(Color::White)),
+        Span::raw("                                                    "),
+        Span::styled(health, Style::default().fg(health_color).add_modifier(Modifier::BOLD)),
+    ]);
+
+    let header_line2 = Line::from(vec![
+        Span::styled("  Node: ", Style::default().fg(Color::DarkGray)),
+        Span::styled(format!("{:<16}", hostname), Style::default().fg(Color::White)),
+        Span::styled("  Status: ", Style::default().fg(Color::DarkGray)),
+        Span::styled(format!("{:<12}", node_status), Style::default().fg(Color::Yellow)),
+        Span::styled("  IP: ", Style::default().fg(Color::DarkGray)),
+        Span::styled(ip, Style::default().fg(Color::Cyan)),
+    ]);
+
+    let header = Paragraph::new(vec![
+        Line::from(""),
+        header_line1,
+        Line::from(""),
+        header_line2,
+    ])
+    .block(
+        Block::default()
+            .borders(Borders::BOTTOM)
+            .border_style(Style::default().fg(Color::DarkGray)),
     );
-
-    let header_style = if app.log_viewer.stats.errors > 0 {
-        Style::default().fg(Color::Yellow)
-    } else {
-        Style::default().fg(Color::Cyan)
-    };
-
-    let header = Paragraph::new(header_text)
-        .style(header_style)
-        .alignment(Alignment::Left);
 
     frame.render_widget(header, area);
 }
@@ -281,51 +296,53 @@ fn render_main_menu(frame: &mut Frame, area: Rect, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(35),
-            Constraint::Percentage(35),
-            Constraint::Percentage(30),
+            Constraint::Percentage(30),  // Menu
+            Constraint::Percentage(40),  // System Status
+            Constraint::Percentage(30),  // Log Summary
         ])
         .split(area);
 
-    // Left: Menu - collect menu items first, then create widget
-    let items: Vec<(&str, &str, &str)> = vec![
-        ("F2", "🌐", "Configure Network"),
-        ("F3", "📋", "View Logs"),
-        ("F4", "🔗", "Join Cluster"),
-        ("F5", "🔄", "Restart Services"),
-        ("F10", "⏻", "Shutdown/Reboot"),
-        ("F12", "🔧", "Emergency Shell"),
+    // Left: Menu with better spacing
+    let items: Vec<(&str, &str)> = vec![
+        ("F2", "Configure Network"),
+        ("F3", "View Logs"),
+        ("F4", "Join Cluster"),
+        ("F5", "Restart Services"),
+        ("F10", "Shutdown/Reboot"),
+        ("F12", "Emergency Shell"),
     ];
     
     let menu_items: Vec<ListItem> = items
         .iter()
-        .map(|(key, emoji, label)| {
+        .map(|(key, label)| {
             ListItem::new(Line::from(vec![
                 Span::styled(
-                    format!(" [{key}] "),
+                    format!("  [{}]  ", key),
                     Style::default()
                         .fg(Color::Yellow)
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::raw(format!("{} ", emoji)),
-                Span::raw(*label),
+                Span::styled(*label, Style::default().fg(Color::White)),
             ]))
+            .style(Style::default())
         })
         .collect();
 
     let menu = List::new(menu_items)
         .block(
             Block::default()
-                .title(" 📋 Menu ")
+                .title(" Menu ")
+                .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)),
+                .border_style(Style::default().fg(Color::DarkGray)),
         )
         .highlight_style(
             Style::default()
-                .bg(Color::DarkGray)
+                .bg(Color::Rgb(40, 60, 80))
+                .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )
-        .highlight_symbol("▶ ");
+        .highlight_symbol(" > ");
 
     frame.render_stateful_widget(menu, chunks[0], &mut app.menu_state);
 
@@ -346,45 +363,66 @@ fn render_system_status(frame: &mut Frame, area: Rect, app: &App) {
     let uptime = system::get_uptime();
 
     // CPU bar
-    let cpu_bar = create_progress_bar(cpu_usage as f64, 100.0, 20);
-    let mem_bar = create_progress_bar(mem_percent, 100.0, 20);
+    let cpu_bar = create_progress_bar(cpu_usage as f64, 100.0, 24);
+    let mem_bar = create_progress_bar(mem_percent, 100.0, 24);
 
-    let cpu_emoji = if cpu_usage > 90.0 { "🔴" } else if cpu_usage > 70.0 { "🟡" } else { "🟢" };
-    let mem_emoji = if mem_percent > 90.0 { "🔴" } else if mem_percent > 80.0 { "🟡" } else { "🟢" };
+    let cpu_color = if cpu_usage > 90.0 { Color::Red } else if cpu_usage > 70.0 { Color::Yellow } else { Color::Green };
+    let mem_color = if mem_percent > 90.0 { Color::Red } else if mem_percent > 80.0 { Color::Yellow } else { Color::Green };
 
-    let status_text = format!(
-        r#"
-  💻 CPU:    {} {:.1}%
-         {}
+    let ip = system::get_management_ip().unwrap_or_else(|| "<ip>".to_string());
 
-  🧠 Memory: {} {:.1}%
-         {}
-         {} / {}
+    // Build lines with proper styling
+    let lines = vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  CPU:     ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{:.1}%", cpu_usage), Style::default().fg(cpu_color).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(vec![
+            Span::styled(format!("           {}", cpu_bar), Style::default().fg(cpu_color)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  Memory:  ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{:.1}%", mem_percent), Style::default().fg(mem_color).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(vec![
+            Span::styled(format!("           {}", mem_bar), Style::default().fg(mem_color)),
+        ]),
+        Line::from(vec![
+            Span::styled("           ", Style::default()),
+            Span::styled(
+                format!("{} / {}", 
+                    humansize::format_size(used_mem, humansize::BINARY),
+                    humansize::format_size(total_mem, humansize::BINARY)
+                ),
+                Style::default().fg(Color::DarkGray)
+            ),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  VMs:     ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{} running", vm_count), Style::default().fg(Color::White)),
+        ]),
+        Line::from(vec![
+            Span::styled("  Uptime:  ", Style::default().fg(Color::DarkGray)),
+            Span::styled(uptime, Style::default().fg(Color::White)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  URL:     ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("https://{}:8443", ip), Style::default().fg(Color::Cyan)),
+        ]),
+    ];
 
-  🖥️ VMs:    {} running
-  ⏱️ Uptime: {}
-
-  🌐 URL: https://{}:8443
-  "#,
-        cpu_emoji, cpu_usage,
-        cpu_bar,
-        mem_emoji, mem_percent,
-        mem_bar,
-        humansize::format_size(used_mem, humansize::BINARY),
-        humansize::format_size(total_mem, humansize::BINARY),
-        vm_count,
-        uptime,
-        system::get_management_ip().unwrap_or_else(|| "<ip>".to_string()),
-    );
-
-    let status = Paragraph::new(status_text)
+    let status = Paragraph::new(lines)
         .block(
             Block::default()
-                .title(" 📊 System Status ")
+                .title(" System Status ")
+                .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)),
-        )
-        .style(Style::default().fg(Color::White));
+                .border_style(Style::default().fg(Color::DarkGray)),
+        );
 
     frame.render_widget(status, area);
 }
@@ -639,13 +677,13 @@ fn render_diagnostics(frame: &mut Frame, area: Rect, app: &App) {
 fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
     let footer_text = match app.screen {
         Screen::ViewLogs => {
-            " [Tab] Switch Log | [E] Errors Only | [P] Pause | [R] Reload | [↑↓] Scroll | [Esc] Back "
+            "[Tab] Switch  [E] Errors  [P] Pause  [R] Reload  [↑↓] Scroll  [Esc] Back"
         }
-        _ => " [F1] Main | [↑↓] Navigate | [Enter] Select | [Esc] Back | [F3] Logs | [F7] Diag ",
+        _ => "[↑↓] Navigate  [Enter] Select  [Esc] Back  [F3] Logs  [F7] Diagnostics",
     };
 
     let footer = Paragraph::new(footer_text)
-        .style(Style::default().fg(Color::White).bg(Color::DarkGray))
+        .style(Style::default().fg(Color::DarkGray))
         .alignment(Alignment::Center);
 
     frame.render_widget(footer, area);

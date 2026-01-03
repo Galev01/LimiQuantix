@@ -116,7 +116,11 @@ enum Transport {
     /// Direct TCP connection to VNC server
     Tcp(TcpStream),
     /// WebSocket connection via proxy (binary frames contain raw VNC data)
-    WebSocket(WebSocketStream<MaybeTlsStream<TcpStream>>),
+    WebSocket {
+        ws: WebSocketStream<MaybeTlsStream<TcpStream>>,
+        /// Buffer for excess data from WebSocket messages
+        buffer: Vec<u8>,
+    },
 }
 
 impl Transport {
@@ -127,14 +131,32 @@ impl Transport {
                 stream.read_exact(buf).await?;
                 Ok(())
             }
-            Transport::WebSocket(ws) => {
+            Transport::WebSocket { ws, buffer } => {
                 let mut offset = 0;
+                
+                // First, drain any data from the buffer
+                if !buffer.is_empty() {
+                    let copy_len = std::cmp::min(buffer.len(), buf.len());
+                    buf[..copy_len].copy_from_slice(&buffer[..copy_len]);
+                    buffer.drain(..copy_len);
+                    offset = copy_len;
+                }
+                
+                // Read more from WebSocket if needed
                 while offset < buf.len() {
                     match ws.next().await {
                         Some(Ok(Message::Binary(data))) => {
-                            let copy_len = std::cmp::min(data.len(), buf.len() - offset);
-                            buf[offset..offset + copy_len].copy_from_slice(&data[..copy_len]);
-                            offset += copy_len;
+                            let needed = buf.len() - offset;
+                            if data.len() <= needed {
+                                // Use all the data
+                                buf[offset..offset + data.len()].copy_from_slice(&data);
+                                offset += data.len();
+                            } else {
+                                // Copy what we need, buffer the rest
+                                buf[offset..].copy_from_slice(&data[..needed]);
+                                buffer.extend_from_slice(&data[needed..]);
+                                offset = buf.len();
+                            }
                         }
                         Some(Ok(Message::Close(_))) => {
                             return Err(RFBError::ConnectionClosed);
@@ -163,7 +185,7 @@ impl Transport {
                 stream.write_all(buf).await?;
                 Ok(())
             }
-            Transport::WebSocket(ws) => {
+            Transport::WebSocket { ws, .. } => {
                 ws.send(Message::Binary(buf.to_vec())).await
                     .map_err(|e| RFBError::Protocol(format!("WebSocket send error: {}", e)))?;
                 Ok(())
@@ -221,7 +243,10 @@ impl RFBClient {
         info!("WebSocket connection established");
 
         Ok(Self {
-            transport: Transport::WebSocket(ws_stream),
+            transport: Transport::WebSocket {
+                ws: ws_stream,
+                buffer: Vec::new(),
+            },
             width: 0,
             height: 0,
             pixel_format: PixelFormat::default(),
