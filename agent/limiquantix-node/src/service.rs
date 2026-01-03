@@ -22,8 +22,8 @@ use limiquantix_hypervisor::{
 use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
-    NodeInfoResponse, VmidRequest, CreateVmonNodeRequest, CreateVmonNodeResponse,
-    StopVmrequest, VmStatusResponse, ListVmsOnNodeResponse, ConsoleInfoResponse,
+    NodeInfoResponse, VmIdRequest, CreateVmOnNodeRequest, CreateVmOnNodeResponse,
+    StopVmRequest, VmStatusResponse, ListVMsOnNodeResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -411,8 +411,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, name = %request.get_ref().name))]
     async fn create_vm(
         &self,
-        request: Request<CreateVmonNodeRequest>,
-    ) -> Result<Response<CreateVmonNodeResponse>, Status> {
+        request: Request<CreateVmOnNodeRequest>,
+    ) -> Result<Response<CreateVmOnNodeResponse>, Status> {
         info!("Creating VM via libvirt");
         
         let req = request.into_inner();
@@ -695,7 +695,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Ok(created_id) => {
                 info!(vm_id = %created_id, "VM created successfully in libvirt");
                 
-                Ok(Response::new(CreateVmonNodeResponse {
+                Ok(Response::new(CreateVmOnNodeResponse {
                     vm_id: created_id,
                     created: true,
                     message: "VM created successfully".to_string(),
@@ -711,7 +711,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn start_vm(
         &self,
-        request: Request<VmidRequest>,
+        request: Request<VmIdRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Starting VM");
         
@@ -726,7 +726,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn stop_vm(
         &self,
-        request: Request<StopVmrequest>,
+        request: Request<StopVmRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Stopping VM");
         
@@ -743,7 +743,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn force_stop_vm(
         &self,
-        request: Request<VmidRequest>,
+        request: Request<VmIdRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Force stopping VM");
         
@@ -758,7 +758,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn reboot_vm(
         &self,
-        request: Request<VmidRequest>,
+        request: Request<VmIdRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Rebooting VM");
         
@@ -773,7 +773,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn pause_vm(
         &self,
-        request: Request<VmidRequest>,
+        request: Request<VmIdRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Pausing VM");
         
@@ -788,7 +788,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn resume_vm(
         &self,
-        request: Request<VmidRequest>,
+        request: Request<VmIdRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Resuming VM");
         
@@ -803,7 +803,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn delete_vm(
         &self,
-        request: Request<VmidRequest>,
+        request: Request<VmIdRequest>,
     ) -> Result<Response<()>, Status> {
         info!("Deleting VM");
         
@@ -828,7 +828,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn get_vm_status(
         &self,
-        request: Request<VmidRequest>,
+        request: Request<VmIdRequest>,
     ) -> Result<Response<VmStatusResponse>, Status> {
         let vm_id = &request.into_inner().vm_id;
         
@@ -865,7 +865,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     async fn list_v_ms(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<ListVmsOnNodeResponse>, Status> {
+    ) -> Result<Response<ListVMsOnNodeResponse>, Status> {
         let vms = self.hypervisor.list_vms().await
             .map_err(|e| Status::internal(e.to_string()))?;
         
@@ -884,13 +884,13 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         debug!(count = responses.len(), "Listed VMs");
         
-        Ok(Response::new(ListVmsOnNodeResponse { vms: responses }))
+        Ok(Response::new(ListVMsOnNodeResponse { vms: responses }))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn get_console(
         &self,
-        request: Request<VmidRequest>,
+        request: Request<VmIdRequest>,
     ) -> Result<Response<ConsoleInfoResponse>, Status> {
         let vm_id = &request.into_inner().vm_id;
         
@@ -981,7 +981,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn list_snapshots(
         &self,
-        request: Request<VmidRequest>,
+        request: Request<VmIdRequest>,
     ) -> Result<Response<ListSnapshotsResponse>, Status> {
         let vm_id = &request.into_inner().vm_id;
         
@@ -1106,7 +1106,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn ping_agent(
         &self,
-        request: Request<VmidRequest>,
+        request: Request<VmIdRequest>,
     ) -> Result<Response<AgentPingResponse>, Status> {
         let vm_id = &request.into_inner().vm_id;
         debug!("Pinging guest agent");
