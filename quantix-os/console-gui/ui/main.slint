@@ -786,35 +786,12 @@ component InstallWizard inherits Rectangle {
                     spacing: 12px;
                     alignment: center;
                     
-                    // Logo - uses embedded image or fallback text
-                    // To use your logo, place it at assets/logo.png (or .svg)
-                    // and uncomment the Image line below:
-                    // Image {
-                    //     source: @image-url("../assets/logo.png");
-                    //     width: 64px;
-                    //     height: 64px;
-                    // }
-                    
-                    // Fallback: Text logo (remove this when using image)
-                    HorizontalLayout {
-                        alignment: center;
-                        spacing: 8px;
-                        
-                        Rectangle {
-                            width: 48px;
-                            height: 48px;
-                            border-radius: 12px;
-                            background: Theme.accent-blue;
-                            
-                            Text {
-                                text: "Q";
-                                font-size: 28px;
-                                font-weight: 700;
-                                color: white;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-                        }
+                    // Logo image (copied from frontend/src/assets/PNG-64x64.png)
+                    Image {
+                        source: @image-url("../assets/logo.png");
+                        width: 64px;
+                        height: 64px;
+                        image-fit: contain;
                     }
                     
                     Text {
@@ -1595,91 +1572,7 @@ export component MainWindow inherits Window {
     callback cancel-action();
     callback install-complete(InstallConfig);
     
-    // Keyboard navigation - only active on main screen, not during install wizard
-    // The FocusScope only handles special keys (F-keys, arrows) on main screen
-    // Text input fields handle their own focus
-    focus-scope := FocusScope {
-        // Only enable keyboard shortcuts on main screen
-        enabled: current-screen == "main" && !show-auth-dialog && !show-confirm-dialog;
-        
-        key-pressed(event) => {
-            // Handle Escape for dialogs
-            if show-auth-dialog {
-                if event.text == Key.Escape {
-                    auth-cancelled();
-                    return accept;
-                }
-                return reject;
-            }
-            if show-confirm-dialog {
-                if event.text == Key.Escape {
-                    cancel-action();
-                    return accept;
-                }
-                return reject;
-            }
-            
-            // Only handle navigation on main screen
-            if current-screen == "main" {
-                if event.text == Key.UpArrow {
-                    if selected-menu > 0 {
-                        selected-menu -= 1;
-                    }
-                    return accept;
-                }
-                if event.text == Key.DownArrow {
-                    if selected-menu < 6 {
-                        selected-menu += 1;
-                    }
-                    return accept;
-                }
-                if event.text == Key.Return {
-                    menu-selected(selected-menu);
-                    return accept;
-                }
-                if event.text == Key.F2 {
-                    selected-menu = 0;
-                    menu-selected(0);
-                    return accept;
-                }
-                if event.text == Key.F3 {
-                    selected-menu = 1;
-                    menu-selected(1);
-                    return accept;
-                }
-                if event.text == Key.F4 {
-                    selected-menu = 2;
-                    menu-selected(2);
-                    return accept;
-                }
-                if event.text == Key.F5 {
-                    selected-menu = 3;
-                    menu-selected(3);
-                    return accept;
-                }
-                if event.text == Key.F7 {
-                    selected-menu = 4;
-                    menu-selected(4);
-                    return accept;
-                }
-                if event.text == Key.F10 {
-                    selected-menu = 5;
-                    menu-selected(5);
-                    return accept;
-                }
-                if event.text == Key.F12 {
-                    selected-menu = 6;
-                    menu-selected(6);
-                    return accept;
-                }
-            }
-            
-            // Let other keys pass through to text inputs
-            return reject;
-        }
-    }
-    
-    // Main content layer
+    // Main content layer - Install Wizard (no FocusScope interference)
     if current-screen == "install" : InstallWizard {
         cfg-hostname <=> install-hostname;
         cfg-admin-username <=> install-admin-username;
@@ -1707,6 +1600,88 @@ export component MainWindow inherits Window {
         
         menu-selected(index) => {
             root.menu-selected(index);
+        }
+    }
+    
+    // Keyboard navigation - ONLY on main screen
+    // Placed after MainScreen so it overlays for keyboard shortcuts
+    if current-screen == "main" : FocusScope {
+        width: 100%;
+        height: 100%;
+        
+        key-pressed(event) => {
+            // Handle Escape for dialogs
+            if show-auth-dialog {
+                if event.text == Key.Escape {
+                    auth-cancelled();
+                    return accept;
+                }
+                return reject;
+            }
+            if show-confirm-dialog {
+                if event.text == Key.Escape {
+                    cancel-action();
+                    return accept;
+                }
+                return reject;
+            }
+            
+            // Arrow key navigation
+            if event.text == Key.UpArrow {
+                if selected-menu > 0 {
+                    selected-menu -= 1;
+                }
+                return accept;
+            }
+            if event.text == Key.DownArrow {
+                if selected-menu < 6 {
+                    selected-menu += 1;
+                }
+                return accept;
+            }
+            if event.text == Key.Return {
+                menu-selected(selected-menu);
+                return accept;
+            }
+            
+            // F-key shortcuts
+            if event.text == Key.F2 {
+                selected-menu = 0;
+                menu-selected(0);
+                return accept;
+            }
+            if event.text == Key.F3 {
+                selected-menu = 1;
+                menu-selected(1);
+                return accept;
+            }
+            if event.text == Key.F4 {
+                selected-menu = 2;
+                menu-selected(2);
+                return accept;
+            }
+            if event.text == Key.F5 {
+                selected-menu = 3;
+                menu-selected(3);
+                return accept;
+            }
+            if event.text == Key.F7 {
+                selected-menu = 4;
+                menu-selected(4);
+                return accept;
+            }
+            if event.text == Key.F10 {
+                selected-menu = 5;
+                menu-selected(5);
+                return accept;
+            }
+            if event.text == Key.F12 {
+                selected-menu = 6;
+                menu-selected(6);
+                return accept;
+            }
+            
+            return reject;
         }
     }
     
