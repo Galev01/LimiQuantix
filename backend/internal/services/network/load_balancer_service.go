@@ -1,4 +1,8 @@
 // Package network implements the LoadBalancerService.
+//
+// NOTE: This service provides the business logic for L4 load balancing.
+// Proto types for LoadBalancer are defined in proto/limiquantix/network/v1/network_service.proto.
+// gRPC handlers use Connect-RPC and require proto regeneration with `make proto`.
 package network
 
 import (
@@ -7,19 +11,14 @@ import (
 	"strings"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/limiquantix/limiquantix/internal/domain"
 	"github.com/limiquantix/limiquantix/internal/network/ovn"
-	networkv1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1"
 )
 
-// LoadBalancerService implements the networkv1connect.LoadBalancerServiceHandler interface.
-// It provides L4 load balancing via OVN's built-in load balancer support.
+// LoadBalancerService provides L4 load balancing via OVN's built-in load balancer support.
 type LoadBalancerService struct {
 	repo      LoadBalancerRepository
 	ovnClient *ovn.NorthboundClient
@@ -52,35 +51,48 @@ func NewLoadBalancerServiceWithOVN(repo LoadBalancerRepository, ovnClient *ovn.N
 	}
 }
 
-// CreateLoadBalancer creates a new load balancer.
-func (s *LoadBalancerService) CreateLoadBalancer(
-	ctx context.Context,
-	req *connect.Request[networkv1.CreateLoadBalancerRequest],
-) (*connect.Response[networkv1.LoadBalancer], error) {
+// =============================================================================
+// Load Balancer CRUD Operations
+// =============================================================================
+
+// CreateRequest holds parameters for creating a load balancer.
+type CreateRequest struct {
+	Name        string
+	NetworkID   string
+	ProjectID   string
+	Description string
+	Labels      map[string]string
+	VIP         string
+	Algorithm   domain.LBAlgorithm
+	Protocol    domain.LBProtocol
+}
+
+// Create creates a new load balancer.
+func (s *LoadBalancerService) Create(ctx context.Context, req CreateRequest) (*domain.LoadBalancer, error) {
 	logger := s.logger.With(
 		zap.String("method", "CreateLoadBalancer"),
-		zap.String("lb_name", req.Msg.Name),
+		zap.String("lb_name", req.Name),
 	)
 	logger.Info("Creating load balancer")
 
-	if req.Msg.Name == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("name is required"))
+	if req.Name == "" {
+		return nil, fmt.Errorf("name is required")
 	}
-	if req.Msg.NetworkId == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("network_id is required"))
+	if req.NetworkID == "" {
+		return nil, fmt.Errorf("network_id is required")
 	}
 
 	lb := &domain.LoadBalancer{
 		ID:          uuid.NewString(),
-		Name:        req.Msg.Name,
-		NetworkID:   req.Msg.NetworkId,
-		ProjectID:   req.Msg.ProjectId,
-		Description: req.Msg.Description,
-		Labels:      req.Msg.Labels,
+		Name:        req.Name,
+		NetworkID:   req.NetworkID,
+		ProjectID:   req.ProjectID,
+		Description: req.Description,
+		Labels:      req.Labels,
 		Spec: domain.LoadBalancerSpec{
-			VIP:       req.Msg.Vip,
-			Algorithm: domain.LBAlgorithm(req.Msg.Algorithm),
-			Protocol:  domain.LBProtocol(req.Msg.Protocol),
+			VIP:       req.VIP,
+			Algorithm: req.Algorithm,
+			Protocol:  req.Protocol,
 			Listeners: []domain.LBListener{},
 			Members:   []domain.LBMember{},
 		},
@@ -94,14 +106,23 @@ func (s *LoadBalancerService) CreateLoadBalancer(
 
 	// Assign VIP if not provided
 	if lb.Spec.VIP == "" {
-		// TODO: Allocate VIP from network IPAM
 		lb.Spec.VIP = "auto"
+	}
+
+	// Default algorithm
+	if lb.Spec.Algorithm == "" {
+		lb.Spec.Algorithm = domain.LBAlgorithmRoundRobin
+	}
+
+	// Default protocol
+	if lb.Spec.Protocol == "" {
+		lb.Spec.Protocol = domain.LBProtocolTCP
 	}
 
 	createdLB, err := s.repo.Create(ctx, lb)
 	if err != nil {
 		logger.Error("Failed to create load balancer", zap.Error(err))
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("failed to create load balancer: %w", err)
 	}
 
 	// Create OVN load balancer if client is available
@@ -113,147 +134,82 @@ func (s *LoadBalancerService) CreateLoadBalancer(
 		} else {
 			createdLB.Status.Phase = domain.LBPhaseActive
 		}
-		// Update status
 		if _, err := s.repo.Update(ctx, createdLB); err != nil {
 			logger.Warn("Failed to update load balancer status", zap.Error(err))
 		}
 	}
 
 	logger.Info("Load balancer created", zap.String("lb_id", createdLB.ID))
-	return connect.NewResponse(s.toProto(createdLB)), nil
+	return createdLB, nil
 }
 
-// GetLoadBalancer retrieves a load balancer by ID.
-func (s *LoadBalancerService) GetLoadBalancer(
-	ctx context.Context,
-	req *connect.Request[networkv1.GetLoadBalancerRequest],
-) (*connect.Response[networkv1.LoadBalancer], error) {
-	lb, err := s.repo.Get(ctx, req.Msg.Id)
-	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(s.toProto(lb)), nil
+// Get retrieves a load balancer by ID.
+func (s *LoadBalancerService) Get(ctx context.Context, id string) (*domain.LoadBalancer, error) {
+	return s.repo.Get(ctx, id)
 }
 
-// ListLoadBalancers returns all load balancers.
-func (s *LoadBalancerService) ListLoadBalancers(
-	ctx context.Context,
-	req *connect.Request[networkv1.ListLoadBalancersRequest],
-) (*connect.Response[networkv1.ListLoadBalancersResponse], error) {
-	limit := int(req.Msg.PageSize)
+// List returns all load balancers.
+func (s *LoadBalancerService) List(ctx context.Context, projectID string, limit, offset int) ([]*domain.LoadBalancer, int, error) {
 	if limit == 0 {
 		limit = 100
 	}
-
-	lbs, total, err := s.repo.List(ctx, req.Msg.ProjectId, limit, 0)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	var protoLBs []*networkv1.LoadBalancer
-	for _, lb := range lbs {
-		protoLBs = append(protoLBs, s.toProto(lb))
-	}
-
-	return connect.NewResponse(&networkv1.ListLoadBalancersResponse{
-		LoadBalancers: protoLBs,
-		TotalCount:    int32(total),
-	}), nil
+	return s.repo.List(ctx, projectID, limit, offset)
 }
 
-// UpdateLoadBalancer updates a load balancer.
-func (s *LoadBalancerService) UpdateLoadBalancer(
-	ctx context.Context,
-	req *connect.Request[networkv1.UpdateLoadBalancerRequest],
-) (*connect.Response[networkv1.LoadBalancer], error) {
-	logger := s.logger.With(
-		zap.String("method", "UpdateLoadBalancer"),
-		zap.String("lb_id", req.Msg.Id),
-	)
-	logger.Info("Updating load balancer")
-
-	lb, err := s.repo.Get(ctx, req.Msg.Id)
-	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	if req.Msg.Description != "" {
-		lb.Description = req.Msg.Description
-	}
-	if req.Msg.Labels != nil {
-		lb.Labels = req.Msg.Labels
-	}
-	lb.UpdatedAt = time.Now()
-
-	updatedLB, err := s.repo.Update(ctx, lb)
-	if err != nil {
-		logger.Error("Failed to update load balancer", zap.Error(err))
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(s.toProto(updatedLB)), nil
-}
-
-// DeleteLoadBalancer removes a load balancer.
-func (s *LoadBalancerService) DeleteLoadBalancer(
-	ctx context.Context,
-	req *connect.Request[networkv1.DeleteLoadBalancerRequest],
-) (*connect.Response[emptypb.Empty], error) {
+// Delete removes a load balancer.
+func (s *LoadBalancerService) Delete(ctx context.Context, id string) error {
 	logger := s.logger.With(
 		zap.String("method", "DeleteLoadBalancer"),
-		zap.String("lb_id", req.Msg.Id),
+		zap.String("lb_id", id),
 	)
 	logger.Info("Deleting load balancer")
 
 	// Delete OVN load balancer if client is available
 	if s.ovnClient != nil {
-		if err := s.ovnClient.DeleteLoadBalancer(ctx, req.Msg.Id); err != nil {
+		if err := s.ovnClient.DeleteLoadBalancer(ctx, id); err != nil {
 			logger.Warn("Failed to delete OVN load balancer", zap.Error(err))
 		}
 	}
 
-	if err := s.repo.Delete(ctx, req.Msg.Id); err != nil {
+	if err := s.repo.Delete(ctx, id); err != nil {
 		logger.Error("Failed to delete load balancer", zap.Error(err))
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return fmt.Errorf("failed to delete load balancer: %w", err)
 	}
 
 	logger.Info("Load balancer deleted")
-	return connect.NewResponse(&emptypb.Empty{}), nil
+	return nil
+}
+
+// =============================================================================
+// Listener Operations
+// =============================================================================
+
+// AddListenerRequest holds parameters for adding a listener.
+type AddListenerRequest struct {
+	LoadBalancerID string
+	Port           int
+	Protocol       domain.LBProtocol
+	Name           string
 }
 
 // AddListener adds a listener (frontend) to a load balancer.
-func (s *LoadBalancerService) AddListener(
-	ctx context.Context,
-	req *connect.Request[networkv1.AddListenerRequest],
-) (*connect.Response[networkv1.LoadBalancer], error) {
+func (s *LoadBalancerService) AddListener(ctx context.Context, req AddListenerRequest) (*domain.LoadBalancer, error) {
 	logger := s.logger.With(
 		zap.String("method", "AddListener"),
-		zap.String("lb_id", req.Msg.LoadBalancerId),
+		zap.String("lb_id", req.LoadBalancerID),
 	)
 	logger.Info("Adding listener to load balancer")
 
-	lb, err := s.repo.Get(ctx, req.Msg.LoadBalancerId)
+	lb, err := s.repo.Get(ctx, req.LoadBalancerID)
 	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("load balancer not found: %w", err)
 	}
 
 	listener := domain.LBListener{
 		ID:       uuid.NewString(),
-		Port:     int(req.Msg.Port),
-		Protocol: domain.LBProtocol(req.Msg.Protocol),
-		Name:     req.Msg.Name,
+		Port:     req.Port,
+		Protocol: req.Protocol,
+		Name:     req.Name,
 	}
 
 	lb.Spec.Listeners = append(lb.Spec.Listeners, listener)
@@ -269,36 +225,30 @@ func (s *LoadBalancerService) AddListener(
 	updatedLB, err := s.repo.Update(ctx, lb)
 	if err != nil {
 		logger.Error("Failed to update load balancer", zap.Error(err))
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("failed to update load balancer: %w", err)
 	}
 
-	return connect.NewResponse(s.toProto(updatedLB)), nil
+	return updatedLB, nil
 }
 
 // RemoveListener removes a listener from a load balancer.
-func (s *LoadBalancerService) RemoveListener(
-	ctx context.Context,
-	req *connect.Request[networkv1.RemoveListenerRequest],
-) (*connect.Response[networkv1.LoadBalancer], error) {
+func (s *LoadBalancerService) RemoveListener(ctx context.Context, lbID, listenerID string) (*domain.LoadBalancer, error) {
 	logger := s.logger.With(
 		zap.String("method", "RemoveListener"),
-		zap.String("lb_id", req.Msg.LoadBalancerId),
+		zap.String("lb_id", lbID),
 	)
 	logger.Info("Removing listener from load balancer")
 
-	lb, err := s.repo.Get(ctx, req.Msg.LoadBalancerId)
+	lb, err := s.repo.Get(ctx, lbID)
 	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("load balancer not found: %w", err)
 	}
 
 	// Find and remove listener
 	var newListeners []domain.LBListener
 	found := false
 	for _, l := range lb.Spec.Listeners {
-		if l.ID == req.Msg.ListenerId {
+		if l.ID == listenerID {
 			found = true
 			continue
 		}
@@ -306,7 +256,7 @@ func (s *LoadBalancerService) RemoveListener(
 	}
 
 	if !found {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("listener not found"))
+		return nil, fmt.Errorf("listener not found")
 	}
 
 	lb.Spec.Listeners = newListeners
@@ -322,37 +272,44 @@ func (s *LoadBalancerService) RemoveListener(
 	updatedLB, err := s.repo.Update(ctx, lb)
 	if err != nil {
 		logger.Error("Failed to update load balancer", zap.Error(err))
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("failed to update load balancer: %w", err)
 	}
 
-	return connect.NewResponse(s.toProto(updatedLB)), nil
+	return updatedLB, nil
+}
+
+// =============================================================================
+// Member Operations
+// =============================================================================
+
+// AddMemberRequest holds parameters for adding a member.
+type AddMemberRequest struct {
+	LoadBalancerID string
+	Address        string
+	Port           int
+	Weight         int
+	ListenerID     string
 }
 
 // AddMember adds a backend member to a load balancer.
-func (s *LoadBalancerService) AddMember(
-	ctx context.Context,
-	req *connect.Request[networkv1.AddMemberRequest],
-) (*connect.Response[networkv1.LoadBalancer], error) {
+func (s *LoadBalancerService) AddMember(ctx context.Context, req AddMemberRequest) (*domain.LoadBalancer, error) {
 	logger := s.logger.With(
 		zap.String("method", "AddMember"),
-		zap.String("lb_id", req.Msg.LoadBalancerId),
+		zap.String("lb_id", req.LoadBalancerID),
 	)
 	logger.Info("Adding member to load balancer")
 
-	lb, err := s.repo.Get(ctx, req.Msg.LoadBalancerId)
+	lb, err := s.repo.Get(ctx, req.LoadBalancerID)
 	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("load balancer not found: %w", err)
 	}
 
 	member := domain.LBMember{
 		ID:         uuid.NewString(),
-		Address:    req.Msg.Address,
-		Port:       int(req.Msg.Port),
-		Weight:     int(req.Msg.Weight),
-		ListenerID: req.Msg.ListenerId,
+		Address:    req.Address,
+		Port:       req.Port,
+		Weight:     req.Weight,
+		ListenerID: req.ListenerID,
 	}
 	if member.Weight == 0 {
 		member.Weight = 1 // Default weight
@@ -371,36 +328,30 @@ func (s *LoadBalancerService) AddMember(
 	updatedLB, err := s.repo.Update(ctx, lb)
 	if err != nil {
 		logger.Error("Failed to update load balancer", zap.Error(err))
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("failed to update load balancer: %w", err)
 	}
 
-	return connect.NewResponse(s.toProto(updatedLB)), nil
+	return updatedLB, nil
 }
 
 // RemoveMember removes a backend member from a load balancer.
-func (s *LoadBalancerService) RemoveMember(
-	ctx context.Context,
-	req *connect.Request[networkv1.RemoveMemberRequest],
-) (*connect.Response[networkv1.LoadBalancer], error) {
+func (s *LoadBalancerService) RemoveMember(ctx context.Context, lbID, memberID string) (*domain.LoadBalancer, error) {
 	logger := s.logger.With(
 		zap.String("method", "RemoveMember"),
-		zap.String("lb_id", req.Msg.LoadBalancerId),
+		zap.String("lb_id", lbID),
 	)
 	logger.Info("Removing member from load balancer")
 
-	lb, err := s.repo.Get(ctx, req.Msg.LoadBalancerId)
+	lb, err := s.repo.Get(ctx, lbID)
 	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("load balancer not found: %w", err)
 	}
 
 	// Find and remove member
 	var newMembers []domain.LBMember
 	found := false
 	for _, m := range lb.Spec.Members {
-		if m.ID == req.Msg.MemberId {
+		if m.ID == memberID {
 			found = true
 			continue
 		}
@@ -408,7 +359,7 @@ func (s *LoadBalancerService) RemoveMember(
 	}
 
 	if !found {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("member not found"))
+		return nil, fmt.Errorf("member not found")
 	}
 
 	lb.Spec.Members = newMembers
@@ -424,117 +375,49 @@ func (s *LoadBalancerService) RemoveMember(
 	updatedLB, err := s.repo.Update(ctx, lb)
 	if err != nil {
 		logger.Error("Failed to update load balancer", zap.Error(err))
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("failed to update load balancer: %w", err)
 	}
 
-	return connect.NewResponse(s.toProto(updatedLB)), nil
-}
-
-// GetStats returns load balancer statistics.
-func (s *LoadBalancerService) GetStats(
-	ctx context.Context,
-	req *connect.Request[networkv1.GetLoadBalancerStatsRequest],
-) (*connect.Response[networkv1.LoadBalancerStats], error) {
-	lb, err := s.repo.Get(ctx, req.Msg.LoadBalancerId)
-	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Get stats from OVN if available
-	var stats *networkv1.LoadBalancerStats
-	if s.ovnClient != nil {
-		ovnStats, err := s.ovnClient.GetLoadBalancerStats(ctx, lb.ID)
-		if err == nil && ovnStats != nil {
-			stats = &networkv1.LoadBalancerStats{
-				LoadBalancerId:      lb.ID,
-				TotalConnections:    ovnStats.TotalConnections,
-				ActiveConnections:   ovnStats.ActiveConnections,
-				BytesIn:             ovnStats.BytesIn,
-				BytesOut:            ovnStats.BytesOut,
-				RequestsPerSecond:   ovnStats.RequestsPerSecond,
-			}
-		}
-	}
-
-	if stats == nil {
-		// Return empty stats
-		stats = &networkv1.LoadBalancerStats{
-			LoadBalancerId: lb.ID,
-		}
-	}
-
-	return connect.NewResponse(stats), nil
-}
-
-// toProto converts domain LoadBalancer to proto.
-func (s *LoadBalancerService) toProto(lb *domain.LoadBalancer) *networkv1.LoadBalancer {
-	var listeners []*networkv1.LoadBalancerListener
-	for _, l := range lb.Spec.Listeners {
-		listeners = append(listeners, &networkv1.LoadBalancerListener{
-			Id:       l.ID,
-			Port:     int32(l.Port),
-			Protocol: string(l.Protocol),
-			Name:     l.Name,
-		})
-	}
-
-	var members []*networkv1.LoadBalancerMember
-	for _, m := range lb.Spec.Members {
-		members = append(members, &networkv1.LoadBalancerMember{
-			Id:         m.ID,
-			Address:    m.Address,
-			Port:       int32(m.Port),
-			Weight:     int32(m.Weight),
-			ListenerId: m.ListenerID,
-		})
-	}
-
-	phase := networkv1.LoadBalancerStatus_UNKNOWN
-	switch lb.Status.Phase {
-	case domain.LBPhasePending:
-		phase = networkv1.LoadBalancerStatus_PENDING
-	case domain.LBPhaseActive:
-		phase = networkv1.LoadBalancerStatus_ACTIVE
-	case domain.LBPhaseError:
-		phase = networkv1.LoadBalancerStatus_ERROR
-	}
-
-	return &networkv1.LoadBalancer{
-		Id:          lb.ID,
-		Name:        lb.Name,
-		NetworkId:   lb.NetworkID,
-		ProjectId:   lb.ProjectID,
-		Description: lb.Description,
-		Labels:      lb.Labels,
-		Spec: &networkv1.LoadBalancerSpec{
-			Vip:       lb.Spec.VIP,
-			Algorithm: string(lb.Spec.Algorithm),
-			Protocol:  string(lb.Spec.Protocol),
-			Listeners: listeners,
-			Members:   members,
-		},
-		Status: &networkv1.LoadBalancerStatus{
-			Phase:         phase,
-			ProvisionedIp: lb.Status.ProvisionedIP,
-			ErrorMessage:  lb.Status.ErrorMessage,
-		},
-		CreatedAt: timestamppb.New(lb.CreatedAt),
-		UpdatedAt: timestamppb.New(lb.UpdatedAt),
-	}
+	return updatedLB, nil
 }
 
 // =============================================================================
-// OVN Load Balancer Statistics
+// Statistics
 // =============================================================================
 
-// OVNLoadBalancerStats holds OVN-specific stats.
-type OVNLoadBalancerStats struct {
+// Stats holds load balancer statistics.
+type Stats struct {
 	TotalConnections  int64
 	ActiveConnections int64
 	BytesIn           int64
 	BytesOut          int64
 	RequestsPerSecond float64
 }
+
+// GetStats returns load balancer statistics.
+func (s *LoadBalancerService) GetStats(ctx context.Context, lbID string) (*Stats, error) {
+	lb, err := s.repo.Get(ctx, lbID)
+	if err != nil {
+		return nil, fmt.Errorf("load balancer not found: %w", err)
+	}
+
+	// Get stats from OVN if available
+	if s.ovnClient != nil {
+		ovnStats, err := s.ovnClient.GetLoadBalancerStats(ctx, lb.ID)
+		if err == nil && ovnStats != nil {
+			return &Stats{
+				TotalConnections:  ovnStats.TotalConnections,
+				ActiveConnections: ovnStats.ActiveConnections,
+				BytesIn:           ovnStats.BytesIn,
+				BytesOut:          ovnStats.BytesOut,
+				RequestsPerSecond: ovnStats.RequestsPerSecond,
+			}, nil
+		}
+	}
+
+	// Return empty stats
+	return &Stats{}, nil
+}
+
+// Ensure unused import is used
+var _ = strings.Join

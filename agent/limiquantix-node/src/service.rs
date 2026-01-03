@@ -22,8 +22,8 @@ use limiquantix_hypervisor::{
 use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
-    NodeInfoResponse, VmIdRequest, CreateVmOnNodeRequest, CreateVmOnNodeResponse,
-    StopVmRequest, VmStatusResponse, ListVMsOnNodeResponse, ConsoleInfoResponse,
+    NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
+    StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -411,8 +411,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, name = %request.get_ref().name))]
     async fn create_vm(
         &self,
-        request: Request<CreateVmOnNodeRequest>,
-    ) -> Result<Response<CreateVmOnNodeResponse>, Status> {
+        request: Request<CreateVmRequest>,
+    ) -> Result<Response<CreateVmResponse>, Status> {
         info!("Creating VM via libvirt");
         
         let req = request.into_inner();
@@ -695,7 +695,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Ok(created_id) => {
                 info!(vm_id = %created_id, "VM created successfully in libvirt");
                 
-                Ok(Response::new(CreateVmOnNodeResponse {
+                Ok(Response::new(CreateVmResponse {
                     vm_id: created_id,
                     created: true,
                     message: "VM created successfully".to_string(),
@@ -865,7 +865,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     async fn list_v_ms(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<ListVMsOnNodeResponse>, Status> {
+    ) -> Result<Response<ListVMsResponse>, Status> {
         let vms = self.hypervisor.list_vms().await
             .map_err(|e| Status::internal(e.to_string()))?;
         
@@ -884,7 +884,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         debug!(count = responses.len(), "Listed VMs");
         
-        Ok(Response::new(ListVMsOnNodeResponse { vms: responses }))
+        Ok(Response::new(ListVMsResponse { vms: responses }))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
@@ -1329,10 +1329,10 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         info!(pool_id = %req.pool_id, pool_type = ?req.r#type, "Initializing storage pool");
         
         let pool_type = match StoragePoolType::try_from(req.r#type) {
-            Ok(StoragePoolType::StoragePoolTypeLocalDir) => PoolType::LocalDir,
-            Ok(StoragePoolType::StoragePoolTypeNfs) => PoolType::Nfs,
-            Ok(StoragePoolType::StoragePoolTypeCephRbd) => PoolType::CephRbd,
-            Ok(StoragePoolType::StoragePoolTypeIscsi) => PoolType::Iscsi,
+            Ok(StoragePoolType::LocalDir) => PoolType::LocalDir,
+            Ok(StoragePoolType::Nfs) => PoolType::Nfs,
+            Ok(StoragePoolType::CephRbd) => PoolType::CephRbd,
+            Ok(StoragePoolType::Iscsi) => PoolType::Iscsi,
             _ => return Err(Status::invalid_argument("Invalid pool type")),
         };
         
@@ -1387,11 +1387,11 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             .map_err(|e| Status::not_found(format!("Pool not found: {}", e)))?;
         
         let pool_type = match pool_info.pool_type {
-            PoolType::LocalDir => StoragePoolType::StoragePoolTypeLocalDir as i32,
-            PoolType::Nfs => StoragePoolType::StoragePoolTypeNfs as i32,
-            PoolType::CephRbd => StoragePoolType::StoragePoolTypeCephRbd as i32,
-            PoolType::Iscsi => StoragePoolType::StoragePoolTypeIscsi as i32,
-            _ => StoragePoolType::StoragePoolTypeUnspecified as i32,
+            PoolType::LocalDir => StoragePoolType::LocalDir as i32,
+            PoolType::Nfs => StoragePoolType::Nfs as i32,
+            PoolType::CephRbd => StoragePoolType::CephRbd as i32,
+            PoolType::Iscsi => StoragePoolType::Iscsi as i32,
+            _ => StoragePoolType::Unspecified as i32,
         };
         
         Ok(Response::new(StoragePoolInfoResponse {
@@ -1415,11 +1415,11 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         let pool_responses: Vec<StoragePoolInfoResponse> = pools.into_iter().map(|p| {
             let pool_type = match p.pool_type {
-                PoolType::LocalDir => StoragePoolType::StoragePoolTypeLocalDir as i32,
-                PoolType::Nfs => StoragePoolType::StoragePoolTypeNfs as i32,
-                PoolType::CephRbd => StoragePoolType::StoragePoolTypeCephRbd as i32,
-                PoolType::Iscsi => StoragePoolType::StoragePoolTypeIscsi as i32,
-                _ => StoragePoolType::StoragePoolTypeUnspecified as i32,
+                PoolType::LocalDir => StoragePoolType::LocalDir as i32,
+                PoolType::Nfs => StoragePoolType::Nfs as i32,
+                PoolType::CephRbd => StoragePoolType::CephRbd as i32,
+                PoolType::Iscsi => StoragePoolType::Iscsi as i32,
+                _ => StoragePoolType::Unspecified as i32,
             };
             StoragePoolInfoResponse {
                 pool_id: p.pool_id,

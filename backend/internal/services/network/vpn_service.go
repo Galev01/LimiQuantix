@@ -1,4 +1,8 @@
 // Package network implements the VpnService (WireGuard Bastion).
+//
+// NOTE: This service provides the business logic for VPN management.
+// Proto types for VPN are defined in proto/limiquantix/network/v1/network_service.proto.
+// Some RPCs may need to be added and regenerated with `make proto`.
 package network
 
 import (
@@ -8,19 +12,14 @@ import (
 	"fmt"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/limiquantix/limiquantix/internal/domain"
-	networkv1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1"
 )
 
-// VpnService implements the networkv1connect.VpnServiceHandler interface.
-// It provides WireGuard-based VPN access to overlay networks ("Bastion" mode).
-type VpnService struct {
+// VpnServiceManager implements WireGuard-based VPN access to overlay networks ("Bastion" mode).
+type VpnServiceManager struct {
 	repo   VpnRepository
 	logger *zap.Logger
 }
@@ -34,56 +33,69 @@ type VpnRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
-// NewVpnService creates a new VpnService.
-func NewVpnService(repo VpnRepository, logger *zap.Logger) *VpnService {
-	return &VpnService{
+// NewVpnServiceManager creates a new VpnServiceManager.
+func NewVpnServiceManager(repo VpnRepository, logger *zap.Logger) *VpnServiceManager {
+	return &VpnServiceManager{
 		repo:   repo,
 		logger: logger,
 	}
 }
 
-// CreateVpnService creates a new VPN service (WireGuard gateway).
-func (s *VpnService) CreateVpnService(
-	ctx context.Context,
-	req *connect.Request[networkv1.CreateVpnServiceRequest],
-) (*connect.Response[networkv1.VpnService], error) {
+// =============================================================================
+// VPN Service Operations
+// =============================================================================
+
+// CreateVPNRequest holds parameters for creating a VPN service.
+type CreateVPNRequest struct {
+	Name         string
+	NetworkID    string
+	ProjectID    string
+	Description  string
+	Labels       map[string]string
+	RouterID     string
+	ExternalIP   string
+	LocalSubnets []string
+}
+
+// Create creates a new VPN service (WireGuard gateway).
+func (s *VpnServiceManager) Create(ctx context.Context, req CreateVPNRequest) (*domain.VpnService, error) {
 	logger := s.logger.With(
 		zap.String("method", "CreateVpnService"),
-		zap.String("vpn_name", req.Msg.Name),
+		zap.String("vpn_name", req.Name),
 	)
 	logger.Info("Creating VPN service")
 
-	if req.Msg.Name == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("name is required"))
+	if req.Name == "" {
+		return nil, fmt.Errorf("name is required")
 	}
-	if req.Msg.NetworkId == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("network_id is required"))
+	if req.NetworkID == "" {
+		return nil, fmt.Errorf("network_id is required")
 	}
 
 	// Generate WireGuard keypair
 	privateKey, publicKey, err := generateWireGuardKeyPair()
 	if err != nil {
 		logger.Error("Failed to generate WireGuard keys", zap.Error(err))
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to generate keys"))
+		return nil, fmt.Errorf("failed to generate keys: %w", err)
 	}
 
 	vpn := &domain.VpnService{
 		ID:          uuid.NewString(),
-		Name:        req.Msg.Name,
-		NetworkID:   req.Msg.NetworkId,
-		ProjectID:   req.Msg.ProjectId,
-		Description: req.Msg.Description,
-		Labels:      req.Msg.Labels,
+		Name:        req.Name,
+		NetworkID:   req.NetworkID,
+		ProjectID:   req.ProjectID,
+		Description: req.Description,
+		Labels:      req.Labels,
 		Spec: domain.VpnServiceSpec{
 			Type:         domain.VPNTypeWireGuard,
-			RouterID:     req.Msg.RouterId,
-			ExternalIP:   req.Msg.ExternalIp,
-			LocalSubnets: req.Msg.LocalSubnets,
+			RouterID:     req.RouterID,
+			ExternalIP:   req.ExternalIP,
+			LocalSubnets: req.LocalSubnets,
 			Connections:  []domain.VpnConnection{},
 		},
 		Status: domain.VpnServiceStatus{
-			Phase:      domain.VPNPhasePending,
-			PublicKey:  publicKey,
+			Phase:     domain.VPNPhasePending,
+			PublicKey: publicKey,
 		},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -95,7 +107,7 @@ func (s *VpnService) CreateVpnService(
 	createdVPN, err := s.repo.Create(ctx, vpn)
 	if err != nil {
 		logger.Error("Failed to create VPN service", zap.Error(err))
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("failed to create VPN: %w", err)
 	}
 
 	// TODO: Deploy WireGuard container/pod on the network's gateway node
@@ -106,136 +118,73 @@ func (s *VpnService) CreateVpnService(
 	}
 
 	logger.Info("VPN service created", zap.String("vpn_id", createdVPN.ID))
-	return connect.NewResponse(s.toProto(createdVPN)), nil
+	return createdVPN, nil
 }
 
-// GetVpnService retrieves a VPN service by ID.
-func (s *VpnService) GetVpnService(
-	ctx context.Context,
-	req *connect.Request[networkv1.GetVpnServiceRequest],
-) (*connect.Response[networkv1.VpnService], error) {
-	vpn, err := s.repo.Get(ctx, req.Msg.Id)
-	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(s.toProto(vpn)), nil
+// Get retrieves a VPN service by ID.
+func (s *VpnServiceManager) Get(ctx context.Context, id string) (*domain.VpnService, error) {
+	return s.repo.Get(ctx, id)
 }
 
-// ListVpnServices returns all VPN services.
-func (s *VpnService) ListVpnServices(
-	ctx context.Context,
-	req *connect.Request[networkv1.ListVpnServicesRequest],
-) (*connect.Response[networkv1.ListVpnServicesResponse], error) {
-	limit := int(req.Msg.PageSize)
+// List returns all VPN services.
+func (s *VpnServiceManager) List(ctx context.Context, projectID string, limit, offset int) ([]*domain.VpnService, int, error) {
 	if limit == 0 {
 		limit = 100
 	}
-
-	vpns, total, err := s.repo.List(ctx, req.Msg.ProjectId, limit, 0)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	var protoVPNs []*networkv1.VpnService
-	for _, vpn := range vpns {
-		protoVPNs = append(protoVPNs, s.toProto(vpn))
-	}
-
-	return connect.NewResponse(&networkv1.ListVpnServicesResponse{
-		VpnServices: protoVPNs,
-		TotalCount:  int32(total),
-	}), nil
+	return s.repo.List(ctx, projectID, limit, offset)
 }
 
-// UpdateVpnService updates a VPN service.
-func (s *VpnService) UpdateVpnService(
-	ctx context.Context,
-	req *connect.Request[networkv1.UpdateVpnServiceRequest],
-) (*connect.Response[networkv1.VpnService], error) {
-	logger := s.logger.With(
-		zap.String("method", "UpdateVpnService"),
-		zap.String("vpn_id", req.Msg.Id),
-	)
-	logger.Info("Updating VPN service")
-
-	vpn, err := s.repo.Get(ctx, req.Msg.Id)
-	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	if req.Msg.Description != "" {
-		vpn.Description = req.Msg.Description
-	}
-	if req.Msg.Labels != nil {
-		vpn.Labels = req.Msg.Labels
-	}
-	vpn.UpdatedAt = time.Now()
-
-	updatedVPN, err := s.repo.Update(ctx, vpn)
-	if err != nil {
-		logger.Error("Failed to update VPN service", zap.Error(err))
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(s.toProto(updatedVPN)), nil
-}
-
-// DeleteVpnService removes a VPN service.
-func (s *VpnService) DeleteVpnService(
-	ctx context.Context,
-	req *connect.Request[networkv1.DeleteVpnServiceRequest],
-) (*connect.Response[emptypb.Empty], error) {
+// Delete removes a VPN service.
+func (s *VpnServiceManager) Delete(ctx context.Context, id string) error {
 	logger := s.logger.With(
 		zap.String("method", "DeleteVpnService"),
-		zap.String("vpn_id", req.Msg.Id),
+		zap.String("vpn_id", id),
 	)
 	logger.Info("Deleting VPN service")
 
 	// TODO: Remove WireGuard container/pod
 
-	if err := s.repo.Delete(ctx, req.Msg.Id); err != nil {
+	if err := s.repo.Delete(ctx, id); err != nil {
 		logger.Error("Failed to delete VPN service", zap.Error(err))
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return fmt.Errorf("failed to delete VPN: %w", err)
 	}
 
 	logger.Info("VPN service deleted")
-	return connect.NewResponse(&emptypb.Empty{}), nil
+	return nil
+}
+
+// =============================================================================
+// VPN Connection Operations
+// =============================================================================
+
+// AddConnectionRequest holds parameters for adding a VPN connection.
+type AddConnectionRequest struct {
+	VpnServiceID  string
+	Name          string
+	PeerAddress   string
+	PeerCIDRs     []string
+	PeerPublicKey string
 }
 
 // AddConnection adds a peer connection (client) to the VPN service.
-func (s *VpnService) AddConnection(
-	ctx context.Context,
-	req *connect.Request[networkv1.AddVpnConnectionRequest],
-) (*connect.Response[networkv1.VpnService], error) {
+func (s *VpnServiceManager) AddConnection(ctx context.Context, req AddConnectionRequest) (*domain.VpnService, error) {
 	logger := s.logger.With(
 		zap.String("method", "AddConnection"),
-		zap.String("vpn_id", req.Msg.VpnServiceId),
+		zap.String("vpn_id", req.VpnServiceID),
 	)
 	logger.Info("Adding VPN connection")
 
-	vpn, err := s.repo.Get(ctx, req.Msg.VpnServiceId)
+	vpn, err := s.repo.Get(ctx, req.VpnServiceID)
 	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("VPN service not found: %w", err)
 	}
 
 	connection := domain.VpnConnection{
 		ID:            uuid.NewString(),
-		Name:          req.Msg.Name,
-		PeerAddress:   req.Msg.PeerAddress,
-		PeerCIDRs:     req.Msg.PeerCidrs,
-		PeerPublicKey: req.Msg.PeerPublicKey,
+		Name:          req.Name,
+		PeerAddress:   req.PeerAddress,
+		PeerCIDRs:     req.PeerCIDRs,
+		PeerPublicKey: req.PeerPublicKey,
 		Status:        "pending",
 	}
 
@@ -247,7 +196,7 @@ func (s *VpnService) AddConnection(
 	updatedVPN, err := s.repo.Update(ctx, vpn)
 	if err != nil {
 		logger.Error("Failed to update VPN service", zap.Error(err))
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("failed to update VPN: %w", err)
 	}
 
 	// Mark connection as active
@@ -259,33 +208,27 @@ func (s *VpnService) AddConnection(
 	_, _ = s.repo.Update(ctx, updatedVPN)
 
 	logger.Info("VPN connection added", zap.String("connection_id", connection.ID))
-	return connect.NewResponse(s.toProto(updatedVPN)), nil
+	return updatedVPN, nil
 }
 
 // RemoveConnection removes a peer connection from the VPN service.
-func (s *VpnService) RemoveConnection(
-	ctx context.Context,
-	req *connect.Request[networkv1.RemoveVpnConnectionRequest],
-) (*connect.Response[networkv1.VpnService], error) {
+func (s *VpnServiceManager) RemoveConnection(ctx context.Context, vpnServiceID, connectionID string) (*domain.VpnService, error) {
 	logger := s.logger.With(
 		zap.String("method", "RemoveConnection"),
-		zap.String("vpn_id", req.Msg.VpnServiceId),
+		zap.String("vpn_id", vpnServiceID),
 	)
 	logger.Info("Removing VPN connection")
 
-	vpn, err := s.repo.Get(ctx, req.Msg.VpnServiceId)
+	vpn, err := s.repo.Get(ctx, vpnServiceID)
 	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("VPN service not found: %w", err)
 	}
 
 	// Find and remove connection
 	var newConnections []domain.VpnConnection
 	found := false
 	for _, c := range vpn.Spec.Connections {
-		if c.ID == req.Msg.ConnectionId {
+		if c.ID == connectionID {
 			found = true
 			continue
 		}
@@ -293,7 +236,7 @@ func (s *VpnService) RemoveConnection(
 	}
 
 	if !found {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("connection not found"))
+		return nil, fmt.Errorf("connection not found")
 	}
 
 	vpn.Spec.Connections = newConnections
@@ -304,88 +247,46 @@ func (s *VpnService) RemoveConnection(
 	updatedVPN, err := s.repo.Update(ctx, vpn)
 	if err != nil {
 		logger.Error("Failed to update VPN service", zap.Error(err))
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("failed to update VPN: %w", err)
 	}
 
-	return connect.NewResponse(s.toProto(updatedVPN)), nil
+	return updatedVPN, nil
 }
 
-// GetStatus returns the VPN service status including connection info.
-func (s *VpnService) GetStatus(
-	ctx context.Context,
-	req *connect.Request[networkv1.GetVpnStatusRequest],
-) (*connect.Response[networkv1.VpnServiceStatus], error) {
-	vpn, err := s.repo.Get(ctx, req.Msg.VpnServiceId)
-	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+// =============================================================================
+// Client Configuration
+// =============================================================================
 
-	// Get connection statuses
-	var connections []*networkv1.VpnConnectionStatus
-	for _, c := range vpn.Spec.Connections {
-		connections = append(connections, &networkv1.VpnConnectionStatus{
-			ConnectionId:  c.ID,
-			Name:          c.Name,
-			Status:        c.Status,
-			LastHandshake: nil, // TODO: Get from WireGuard
-			BytesIn:       0,
-			BytesOut:      0,
-		})
-	}
-
-	phase := networkv1.VpnServiceStatus_UNKNOWN
-	switch vpn.Status.Phase {
-	case domain.VPNPhasePending:
-		phase = networkv1.VpnServiceStatus_PENDING
-	case domain.VPNPhaseActive:
-		phase = networkv1.VpnServiceStatus_ACTIVE
-	case domain.VPNPhaseDown:
-		phase = networkv1.VpnServiceStatus_DOWN
-	case domain.VPNPhaseError:
-		phase = networkv1.VpnServiceStatus_ERROR
-	}
-
-	return connect.NewResponse(&networkv1.VpnServiceStatus{
-		Phase:        phase,
-		PublicIp:     vpn.Spec.ExternalIP,
-		PublicKey:    vpn.Status.PublicKey,
-		ErrorMessage: vpn.Status.ErrorMessage,
-		Connections:  connections,
-	}), nil
+// ClientConfig holds WireGuard client configuration.
+type ClientConfig struct {
+	Config    string
+	PublicKey string
+	Endpoint  string
 }
 
 // GetClientConfig generates a WireGuard client configuration for a peer.
-func (s *VpnService) GetClientConfig(
-	ctx context.Context,
-	req *connect.Request[networkv1.GetVpnClientConfigRequest],
-) (*connect.Response[networkv1.VpnClientConfig], error) {
+func (s *VpnServiceManager) GetClientConfig(ctx context.Context, vpnServiceID, connectionID string) (*ClientConfig, error) {
 	logger := s.logger.With(
 		zap.String("method", "GetClientConfig"),
-		zap.String("vpn_id", req.Msg.VpnServiceId),
+		zap.String("vpn_id", vpnServiceID),
 	)
 
-	vpn, err := s.repo.Get(ctx, req.Msg.VpnServiceId)
+	vpn, err := s.repo.Get(ctx, vpnServiceID)
 	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, fmt.Errorf("VPN service not found: %w", err)
 	}
 
 	// Find the connection
 	var connection *domain.VpnConnection
 	for i := range vpn.Spec.Connections {
-		if vpn.Spec.Connections[i].ID == req.Msg.ConnectionId {
+		if vpn.Spec.Connections[i].ID == connectionID {
 			connection = &vpn.Spec.Connections[i]
 			break
 		}
 	}
 
 	if connection == nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("connection not found"))
+		return nil, fmt.Errorf("connection not found")
 	}
 
 	// Generate WireGuard config
@@ -410,68 +311,16 @@ PersistentKeepalive = 25
 
 	logger.Info("Generated client config", zap.String("connection_id", connection.ID))
 
-	return connect.NewResponse(&networkv1.VpnClientConfig{
+	return &ClientConfig{
 		Config:    config,
 		PublicKey: vpn.Status.PublicKey,
 		Endpoint:  fmt.Sprintf("%s:51820", vpn.Spec.ExternalIP),
-	}), nil
+	}, nil
 }
 
-// toProto converts domain VpnService to proto.
-func (s *VpnService) toProto(vpn *domain.VpnService) *networkv1.VpnService {
-	var connections []*networkv1.VpnConnection
-	for _, c := range vpn.Spec.Connections {
-		connections = append(connections, &networkv1.VpnConnection{
-			Id:            c.ID,
-			Name:          c.Name,
-			PeerAddress:   c.PeerAddress,
-			PeerCidrs:     c.PeerCIDRs,
-			PeerPublicKey: c.PeerPublicKey,
-			Status:        c.Status,
-		})
-	}
-
-	vpnType := networkv1.VpnType_WIREGUARD
-	if vpn.Spec.Type == domain.VPNTypeIPSec {
-		vpnType = networkv1.VpnType_IPSEC
-	}
-
-	phase := networkv1.VpnServiceStatus_UNKNOWN
-	switch vpn.Status.Phase {
-	case domain.VPNPhasePending:
-		phase = networkv1.VpnServiceStatus_PENDING
-	case domain.VPNPhaseActive:
-		phase = networkv1.VpnServiceStatus_ACTIVE
-	case domain.VPNPhaseDown:
-		phase = networkv1.VpnServiceStatus_DOWN
-	case domain.VPNPhaseError:
-		phase = networkv1.VpnServiceStatus_ERROR
-	}
-
-	return &networkv1.VpnService{
-		Id:          vpn.ID,
-		Name:        vpn.Name,
-		NetworkId:   vpn.NetworkID,
-		ProjectId:   vpn.ProjectID,
-		Description: vpn.Description,
-		Labels:      vpn.Labels,
-		Spec: &networkv1.VpnServiceSpec{
-			Type:         vpnType,
-			RouterId:     vpn.Spec.RouterID,
-			ExternalIp:   vpn.Spec.ExternalIP,
-			LocalSubnets: vpn.Spec.LocalSubnets,
-			Connections:  connections,
-		},
-		Status: &networkv1.VpnServiceStatus{
-			Phase:        phase,
-			PublicIp:     vpn.Spec.ExternalIP,
-			PublicKey:    vpn.Status.PublicKey,
-			ErrorMessage: vpn.Status.ErrorMessage,
-		},
-		CreatedAt: timestamppb.New(vpn.CreatedAt),
-		UpdatedAt: timestamppb.New(vpn.UpdatedAt),
-	}
-}
+// =============================================================================
+// Helper Functions
+// =============================================================================
 
 // generateWireGuardKeyPair generates a WireGuard keypair.
 func generateWireGuardKeyPair() (privateKey, publicKey string, err error) {

@@ -482,3 +482,85 @@ type VpnConnection struct {
 	PeerPublicKey string   `json:"peer_public_key,omitempty"` // For WireGuard
 	Status        string   `json:"status"`
 }
+
+// =============================================================================
+// BGP - Top-of-Rack Switch Integration
+// =============================================================================
+
+// BGPPhase represents the lifecycle phase of a BGP speaker.
+type BGPPhase string
+
+const (
+	BGPPhasePending BGPPhase = "PENDING"
+	BGPPhaseActive  BGPPhase = "ACTIVE"
+	BGPPhaseError   BGPPhase = "ERROR"
+)
+
+// BGPState represents the BGP peer state machine.
+type BGPState string
+
+const (
+	BGPStateIdle        BGPState = "IDLE"
+	BGPStateConnect     BGPState = "CONNECT"
+	BGPStateActive      BGPState = "ACTIVE"
+	BGPStateOpenSent    BGPState = "OPENSENT"
+	BGPStateOpenConfirm BGPState = "OPENCONFIRM"
+	BGPStateEstablished BGPState = "ESTABLISHED"
+)
+
+// BGPSpeaker represents a BGP speaker on a node.
+type BGPSpeaker struct {
+	ID        string            `json:"id"`
+	NodeID    string            `json:"node_id"`    // Node where the speaker runs
+	LocalASN  uint32            `json:"local_asn"`  // Local Autonomous System Number
+	RouterID  string            `json:"router_id"`  // BGP Router ID (usually an IP)
+	ProjectID string            `json:"project_id"`
+	Labels    map[string]string `json:"labels"`
+
+	Status BGPSpeakerStatus `json:"status"`
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// BGPSpeakerStatus represents the status of a BGP speaker.
+type BGPSpeakerStatus struct {
+	Phase            BGPPhase `json:"phase"`
+	EstablishedPeers int      `json:"established_peers"`
+	ErrorMessage     string   `json:"error_message"`
+}
+
+// BGPPeer represents a BGP peer (typically a ToR switch).
+type BGPPeer struct {
+	ID          string `json:"id"`
+	SpeakerID   string `json:"speaker_id"`
+	Name        string `json:"name"`
+	PeerAddress string `json:"peer_address"` // IP of the ToR switch
+	PeerASN     uint32 `json:"peer_asn"`     // Remote ASN
+	Password    string `json:"password,omitempty"` // MD5 auth password
+
+	Status BGPPeerStatus `json:"status"`
+
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// BGPPeerStatus represents the status of a BGP peer.
+type BGPPeerStatus struct {
+	State            BGPState `json:"state"`
+	PrefixesReceived int      `json:"prefixes_received"`
+	PrefixesSent     int      `json:"prefixes_sent"`
+	Uptime           string   `json:"uptime"`
+	LastError        string   `json:"last_error"`
+}
+
+// BGPAdvertisement represents a network prefix to advertise via BGP.
+type BGPAdvertisement struct {
+	ID          string   `json:"id"`
+	SpeakerID   string   `json:"speaker_id"`
+	Prefix      string   `json:"prefix"`      // CIDR prefix (e.g., "10.0.1.0/24")
+	NextHop     string   `json:"next_hop"`    // Next hop IP address
+	Communities []string `json:"communities"` // BGP communities (e.g., "65000:100")
+	LocalPref   int      `json:"local_pref"`  // Local preference
+
+	CreatedAt time.Time `json:"created_at"`
+}

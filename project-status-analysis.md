@@ -21,7 +21,7 @@
 | **QVMRC Native Client** | ✅ **100%** | Tauri desktop app with VNC + deep linking |
 | **Guest Agent** | ✅ **85%** | Linux/Windows support, telemetry, scripts, file browser, quiescing |
 | **Storage Backend** | ✅ **80%** | Local, NFS, Ceph RBD, iSCSI with LVM thin provisioning |
-| **Network Backend (QuantumNet)** | ⏳ **65%** | OVN/OVS core implementation complete |
+| **Network Backend (QuantumNet)** | ⏳ **85%** | OVN/OVS full implementation (LB, VPN, BGP) |
 | **Host OS (limiquantix OS)** | ❌ **0%** | Not started |
 
 ---
@@ -233,9 +233,9 @@ agent/
 | **DHCP/DNS** | ✅ Done | Built-in OVN DHCP + CoreDNS Magic DNS |
 | **Floating IPs** | ✅ Done | 1:1 NAT via OVN routers |
 | **Setup Documentation** | ✅ Done | OVN central + node setup guide |
-| **Load Balancing** | 📋 | L4 LB via OVN |
-| **WireGuard Bastion** | 📋 | Direct overlay access |
-| **BGP ToR Integration** | 📋 | Enterprise bare-metal integration |
+| **Load Balancing** | ✅ Done | L4 LB via OVN LB + LoadBalancerService |
+| **WireGuard Bastion** | ✅ Done | VpnServiceManager with client config |
+| **BGP ToR Integration** | ✅ Done | BGPService for ToR switch peering |
 | **Integration Testing** | 📋 | Test with real OVS/OVN deployment |
 
 **Network Types:**

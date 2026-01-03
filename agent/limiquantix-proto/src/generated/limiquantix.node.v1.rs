@@ -168,6 +168,8 @@ pub struct VmStatusResponse {
     pub memory_total_bytes: u64,
     #[prost(message, optional, tag = "7")]
     pub started_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag = "8")]
+    pub guest_agent: ::core::option::Option<GuestAgentInfo>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -506,6 +508,481 @@ impl EventType {
         }
     }
 }
+
+// =============================================================================
+// GUEST AGENT TYPES (manually added - regenerate with protoc when available)
+// =============================================================================
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GuestAgentInfo {
+    #[prost(bool, tag = "1")]
+    pub connected: bool,
+    #[prost(string, tag = "2")]
+    pub version: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub os_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub os_version: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub kernel_version: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub hostname: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub timezone: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "8")]
+    pub interfaces: ::prost::alloc::vec::Vec<GuestNetworkInterface>,
+    #[prost(message, optional, tag = "9")]
+    pub resource_usage: ::core::option::Option<GuestResourceUsage>,
+    #[prost(string, repeated, tag = "10")]
+    pub capabilities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GuestNetworkInterface {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub mac_address: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "3")]
+    pub ipv4_addresses: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "4")]
+    pub ipv6_addresses: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(bool, tag = "5")]
+    pub up: bool,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GuestResourceUsage {
+    #[prost(double, tag = "1")]
+    pub cpu_usage_percent: f64,
+    #[prost(uint64, tag = "2")]
+    pub memory_total_bytes: u64,
+    #[prost(uint64, tag = "3")]
+    pub memory_used_bytes: u64,
+    #[prost(uint64, tag = "4")]
+    pub memory_cached_bytes: u64,
+    #[prost(uint64, tag = "5")]
+    pub memory_buffers_bytes: u64,
+    #[prost(uint64, tag = "6")]
+    pub swap_total_bytes: u64,
+    #[prost(uint64, tag = "7")]
+    pub swap_used_bytes: u64,
+    #[prost(uint64, tag = "8")]
+    pub uptime_seconds: u64,
+    #[prost(double, repeated, tag = "9")]
+    pub load_average: ::prost::alloc::vec::Vec<f64>,
+    #[prost(message, repeated, tag = "10")]
+    pub disks: ::prost::alloc::vec::Vec<GuestDiskUsage>,
+    #[prost(uint32, tag = "11")]
+    pub process_count: u32,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GuestDiskUsage {
+    #[prost(string, tag = "1")]
+    pub mount_point: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub device: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub filesystem: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "4")]
+    pub total_bytes: u64,
+    #[prost(uint64, tag = "5")]
+    pub used_bytes: u64,
+    #[prost(uint64, tag = "6")]
+    pub available_bytes: u64,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentPingResponse {
+    #[prost(bool, tag = "1")]
+    pub connected: bool,
+    #[prost(string, tag = "2")]
+    pub version: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "3")]
+    pub uptime_seconds: u64,
+    #[prost(string, repeated, tag = "4")]
+    pub capabilities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExecuteInGuestRequest {
+    #[prost(string, tag = "1")]
+    pub vm_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub command: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "3")]
+    pub args: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(map = "string, string", tag = "4")]
+    pub environment: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
+    #[prost(string, tag = "5")]
+    pub working_directory: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "6")]
+    pub stdin: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint32, tag = "7")]
+    pub timeout_seconds: u32,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExecuteInGuestResponse {
+    #[prost(bool, tag = "1")]
+    pub success: bool,
+    #[prost(int32, tag = "2")]
+    pub exit_code: i32,
+    #[prost(string, tag = "3")]
+    pub stdout: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub stderr: ::prost::alloc::string::String,
+    #[prost(bool, tag = "5")]
+    pub timed_out: bool,
+    #[prost(string, tag = "6")]
+    pub error: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadGuestFileRequest {
+    #[prost(string, tag = "1")]
+    pub vm_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "3")]
+    pub offset: u64,
+    #[prost(uint64, tag = "4")]
+    pub max_bytes: u64,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadGuestFileResponse {
+    #[prost(bool, tag = "1")]
+    pub success: bool,
+    #[prost(bytes = "vec", tag = "2")]
+    pub data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag = "3")]
+    pub total_size: u64,
+    #[prost(bool, tag = "4")]
+    pub eof: bool,
+    #[prost(string, tag = "5")]
+    pub error: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WriteGuestFileRequest {
+    #[prost(string, tag = "1")]
+    pub vm_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "3")]
+    pub data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bool, tag = "4")]
+    pub append: bool,
+    #[prost(uint32, tag = "5")]
+    pub mode: u32,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WriteGuestFileResponse {
+    #[prost(bool, tag = "1")]
+    pub success: bool,
+    #[prost(uint64, tag = "2")]
+    pub bytes_written: u64,
+    #[prost(string, tag = "3")]
+    pub error: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GuestShutdownRequest {
+    #[prost(string, tag = "1")]
+    pub vm_id: ::prost::alloc::string::String,
+    #[prost(bool, tag = "2")]
+    pub reboot: bool,
+    #[prost(uint32, tag = "3")]
+    pub delay_seconds: u32,
+    #[prost(string, tag = "4")]
+    pub message: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GuestShutdownResponse {
+    #[prost(bool, tag = "1")]
+    pub accepted: bool,
+    #[prost(string, tag = "2")]
+    pub error: ::prost::alloc::string::String,
+}
+
+// =============================================================================
+// STORAGE POOL TYPES (manually added - regenerate with protoc when available)
+// =============================================================================
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum StoragePoolType {
+    Unspecified = 0,
+    LocalDir = 1,
+    LocalLvm = 2,
+    Nfs = 3,
+    CephRbd = 4,
+    CephFs = 5,
+    Iscsi = 6,
+}
+impl StoragePoolType {
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            StoragePoolType::Unspecified => "STORAGE_POOL_TYPE_UNSPECIFIED",
+            StoragePoolType::LocalDir => "STORAGE_POOL_TYPE_LOCAL_DIR",
+            StoragePoolType::LocalLvm => "STORAGE_POOL_TYPE_LOCAL_LVM",
+            StoragePoolType::Nfs => "STORAGE_POOL_TYPE_NFS",
+            StoragePoolType::CephRbd => "STORAGE_POOL_TYPE_CEPH_RBD",
+            StoragePoolType::CephFs => "STORAGE_POOL_TYPE_CEPH_FS",
+            StoragePoolType::Iscsi => "STORAGE_POOL_TYPE_ISCSI",
+        }
+    }
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "STORAGE_POOL_TYPE_UNSPECIFIED" => Some(Self::Unspecified),
+            "STORAGE_POOL_TYPE_LOCAL_DIR" => Some(Self::LocalDir),
+            "STORAGE_POOL_TYPE_LOCAL_LVM" => Some(Self::LocalLvm),
+            "STORAGE_POOL_TYPE_NFS" => Some(Self::Nfs),
+            "STORAGE_POOL_TYPE_CEPH_RBD" => Some(Self::CephRbd),
+            "STORAGE_POOL_TYPE_CEPH_FS" => Some(Self::CephFs),
+            "STORAGE_POOL_TYPE_ISCSI" => Some(Self::Iscsi),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum VolumeSourceType {
+    Empty = 0,
+    Clone = 1,
+    Image = 2,
+    Snapshot = 3,
+}
+impl VolumeSourceType {
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            VolumeSourceType::Empty => "VOLUME_SOURCE_EMPTY",
+            VolumeSourceType::Clone => "VOLUME_SOURCE_CLONE",
+            VolumeSourceType::Image => "VOLUME_SOURCE_IMAGE",
+            VolumeSourceType::Snapshot => "VOLUME_SOURCE_SNAPSHOT",
+        }
+    }
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "VOLUME_SOURCE_EMPTY" => Some(Self::Empty),
+            "VOLUME_SOURCE_CLONE" => Some(Self::Clone),
+            "VOLUME_SOURCE_IMAGE" => Some(Self::Image),
+            "VOLUME_SOURCE_SNAPSHOT" => Some(Self::Snapshot),
+            _ => None,
+        }
+    }
+}
+
+// Storage pool configuration messages
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LocalDirPoolConfig {
+    #[prost(string, tag = "1")]
+    pub path: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NfsPoolConfig {
+    #[prost(string, tag = "1")]
+    pub server: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub export_path: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub version: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub options: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub mount_point: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CephPoolConfig {
+    #[prost(string, tag = "1")]
+    pub cluster_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub pool_name: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "3")]
+    pub monitors: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag = "4")]
+    pub user: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub keyring_path: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub namespace: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub secret_uuid: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct IscsiPoolConfig {
+    #[prost(string, tag = "1")]
+    pub portal: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub target: ::prost::alloc::string::String,
+    #[prost(bool, tag = "3")]
+    pub chap_enabled: bool,
+    #[prost(string, tag = "4")]
+    pub chap_user: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub chap_password: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "6")]
+    pub lun: u32,
+    #[prost(string, tag = "7")]
+    pub volume_group: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StoragePoolConfig {
+    #[prost(message, optional, tag = "1")]
+    pub local: ::core::option::Option<LocalDirPoolConfig>,
+    #[prost(message, optional, tag = "2")]
+    pub nfs: ::core::option::Option<NfsPoolConfig>,
+    #[prost(message, optional, tag = "3")]
+    pub ceph: ::core::option::Option<CephPoolConfig>,
+    #[prost(message, optional, tag = "4")]
+    pub iscsi: ::core::option::Option<IscsiPoolConfig>,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InitStoragePoolRequest {
+    #[prost(string, tag = "1")]
+    pub pool_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "StoragePoolType", tag = "2")]
+    pub r#type: i32,
+    #[prost(message, optional, tag = "3")]
+    pub config: ::core::option::Option<StoragePoolConfig>,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StoragePoolIdRequest {
+    #[prost(string, tag = "1")]
+    pub pool_id: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StoragePoolInfoResponse {
+    #[prost(string, tag = "1")]
+    pub pool_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "StoragePoolType", tag = "2")]
+    pub r#type: i32,
+    #[prost(string, tag = "3")]
+    pub mount_path: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub device_path: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub rbd_pool: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "6")]
+    pub total_bytes: u64,
+    #[prost(uint64, tag = "7")]
+    pub available_bytes: u64,
+    #[prost(uint64, tag = "8")]
+    pub used_bytes: u64,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListStoragePoolsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub pools: ::prost::alloc::vec::Vec<StoragePoolInfoResponse>,
+}
+
+// Volume operation messages
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct VolumeIdRequest {
+    #[prost(string, tag = "1")]
+    pub pool_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub volume_id: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateVolumeRequest {
+    #[prost(string, tag = "1")]
+    pub pool_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub volume_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "3")]
+    pub size_bytes: u64,
+    #[prost(enumeration = "VolumeSourceType", tag = "4")]
+    pub source_type: i32,
+    #[prost(string, tag = "5")]
+    pub source_id: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResizeVolumeRequest {
+    #[prost(string, tag = "1")]
+    pub pool_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub volume_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "3")]
+    pub new_size_bytes: u64,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CloneVolumeRequest {
+    #[prost(string, tag = "1")]
+    pub pool_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub source_volume_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub dest_volume_id: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct VolumeAttachInfoResponse {
+    #[prost(string, tag = "1")]
+    pub volume_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub disk_xml: ::prost::alloc::string::String,
+}
+
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateVolumeSnapshotRequest {
+    #[prost(string, tag = "1")]
+    pub pool_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub volume_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub snapshot_id: ::prost::alloc::string::String,
+}
+
 /// Generated client implementations.
 pub mod node_daemon_service_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]

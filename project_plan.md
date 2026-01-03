@@ -32,7 +32,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 | **ESXi Host Agent** | Rust Node Daemon | ✅ 90% |
 | **VMware Tools** | Rust Guest Agent | ✅ 85% |
 | **vSAN / VMFS** | Ceph / LINSTOR | ✅ 80% |
-| **NSX-T / vDS** | OVN / OVS (QuantumNet) | ⏳ 65% |
+| **NSX-T / vDS** | OVN / OVS (QuantumNet) | ⏳ 85% |
 | **ESXi OS** | limiquantix OS | ❌ 0% |
 | **vMotion** | Live Migration | ⏳ 50% |
 | **HA / DRS** | HA Manager / DRS Engine | ✅ Done |
@@ -296,9 +296,9 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 | **DHCP/DNS** | ✅ Done | Built-in OVN DHCP + CoreDNS Magic DNS |
 | **Floating IPs** | ✅ Done | 1:1 NAT via OVN logical routers |
 | **OVN Setup Documentation** | ✅ Done | Central + node setup guide |
-| **Load Balancing** | 📋 | L4 load balancing via OVN LB |
-| **WireGuard Bastion** | 📋 | Direct overlay access from laptops |
-| **BGP ToR Integration** | 📋 | Enterprise bare-metal integration |
+| **Load Balancing** | ✅ Done | L4 load balancing via OVN LB |
+| **WireGuard Bastion** | ✅ Done | Direct overlay access from laptops |
+| **BGP ToR Integration** | ✅ Done | Enterprise bare-metal integration |
 | **Integration Testing** | 📋 | Test with real OVS/OVN deployment |
 
 #### Network Types
