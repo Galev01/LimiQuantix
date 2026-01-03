@@ -67,6 +67,8 @@ export function ConsoleView({
   const [showVMMenu, setShowVMMenu] = useState(false);
   const [showISODialog, setShowISODialog] = useState(false);
   const [isoPath, setIsoPath] = useState('');
+  const [isoMode, setIsoMode] = useState<'local' | 'remote'>('local');
+  const [isoServerUrl, setIsoServerUrl] = useState<string | null>(null);
   const [executingAction, setExecutingAction] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const vmMenuRef = useRef<HTMLDivElement>(null);
@@ -127,8 +129,46 @@ export function ConsoleView({
     }
   }, [showToast]);
   
-  // Mount ISO
-  const handleMountISO = useCallback(async () => {
+  // Start local ISO server and mount
+  const handleMountLocalISO = useCallback(async () => {
+    if (!isoPath.trim()) return;
+    
+    setExecutingAction('mount-iso');
+    
+    try {
+      // Start the local HTTP server to serve the ISO
+      const serverInfo = await invoke<{ url: string; localPath: string; isServing: boolean }>('start_iso_server', {
+        isoPath: isoPath.trim(),
+      });
+      
+      setIsoServerUrl(serverInfo.url);
+      showToast(`ISO server started at ${serverInfo.url}`, 'info');
+      
+      // Now mount using the HTTP URL
+      await invoke('vm_mount_iso', {
+        controlPlaneUrl,
+        vmId,
+        isoPath: serverInfo.url,
+      });
+      
+      showToast('Local ISO mounted successfully', 'success');
+      setShowISODialog(false);
+      setIsoPath('');
+    } catch (err) {
+      console.error('Mount local ISO failed:', err);
+      showToast(`Failed to mount ISO: ${err}`, 'error');
+      // Stop the server if mounting failed
+      try {
+        await invoke('stop_iso_server');
+        setIsoServerUrl(null);
+      } catch (_) {}
+    } finally {
+      setExecutingAction(null);
+    }
+  }, [controlPlaneUrl, vmId, isoPath, showToast]);
+  
+  // Mount remote ISO (hypervisor path)
+  const handleMountRemoteISO = useCallback(async () => {
     if (!isoPath.trim()) return;
     
     setExecutingAction('mount-iso');
@@ -149,6 +189,36 @@ export function ConsoleView({
       setExecutingAction(null);
     }
   }, [controlPlaneUrl, vmId, isoPath, showToast]);
+  
+  // Mount ISO based on mode
+  const handleMountISO = useCallback(async () => {
+    if (isoMode === 'local') {
+      await handleMountLocalISO();
+    } else {
+      await handleMountRemoteISO();
+    }
+  }, [isoMode, handleMountLocalISO, handleMountRemoteISO]);
+  
+  // Stop ISO server when disconnecting
+  const stopIsoServer = useCallback(async () => {
+    if (isoServerUrl) {
+      try {
+        await invoke('stop_iso_server');
+        setIsoServerUrl(null);
+      } catch (err) {
+        console.error('Failed to stop ISO server:', err);
+      }
+    }
+  }, [isoServerUrl]);
+  
+  // Cleanup ISO server on unmount
+  useEffect(() => {
+    return () => {
+      if (isoServerUrl) {
+        invoke('stop_iso_server').catch(() => {});
+      }
+    };
+  }, [isoServerUrl]);
 
   // Calculate display dimensions based on container size and resolution
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
@@ -358,8 +428,10 @@ export function ConsoleView({
     } catch (err) {
       console.error('Disconnect error:', err);
     }
+    // Stop ISO server if running
+    await stopIsoServer();
     onDisconnect();
-  }, [connectionId, onDisconnect]);
+  }, [connectionId, onDisconnect, stopIsoServer]);
 
   // Send Ctrl+Alt+Del
   const sendCtrlAltDel = useCallback(async () => {
@@ -587,7 +659,7 @@ export function ConsoleView({
       {/* ISO Mount Dialog */}
       {showISODialog && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-          <div className="bg-[var(--bg-surface)] rounded-xl shadow-2xl w-[480px] border border-[var(--border)]">
+          <div className="bg-[var(--bg-surface)] rounded-xl shadow-2xl w-[520px] border border-[var(--border)]">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
               <div className="flex items-center gap-3">
                 <Disc className="w-5 h-5 text-[var(--accent)]" />
@@ -602,30 +674,89 @@ export function ConsoleView({
             </div>
             
             <div className="p-5 space-y-4">
-              <p className="text-sm text-[var(--text-secondary)]">
-                Select an ISO image from your local machine to mount to the VM's CD/DVD drive.
-              </p>
-              
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={isoPath}
-                  onChange={(e) => setIsoPath(e.target.value)}
-                  placeholder="Path to ISO file..."
-                  className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-base)] border border-[var(--border)] text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                />
+              {/* Mode Toggle */}
+              <div className="flex rounded-lg bg-[var(--bg-base)] p-1">
                 <button
-                  onClick={handleBrowseISO}
-                  className="px-3 py-2 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] border border-[var(--border)] transition-colors flex items-center gap-2"
+                  onClick={() => setIsoMode('local')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                    isoMode === 'local'
+                      ? 'bg-[var(--accent)] text-white shadow-sm'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                  }`}
                 >
-                  <FolderOpen className="w-4 h-4 text-[var(--text-muted)]" />
-                  <span className="text-sm text-[var(--text-primary)]">Browse</span>
+                  📁 Local File
+                </button>
+                <button
+                  onClick={() => setIsoMode('remote')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                    isoMode === 'remote'
+                      ? 'bg-[var(--accent)] text-white shadow-sm'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  🖥️ Hypervisor Path
                 </button>
               </div>
               
-              <p className="text-xs text-[var(--text-muted)]">
-                Note: The ISO file must be accessible from the hypervisor host.
-              </p>
+              {isoMode === 'local' ? (
+                <>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Select an ISO from your computer. QVMRC will serve it over HTTP so the hypervisor can access it.
+                  </p>
+                  
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={isoPath}
+                      onChange={(e) => setIsoPath(e.target.value)}
+                      placeholder="Select an ISO file..."
+                      readOnly
+                      className="flex-1 px-3 py-2.5 rounded-lg bg-[var(--bg-base)] border border-[var(--border)] text-[var(--text-primary)] text-sm focus:outline-none cursor-default"
+                    />
+                    <button
+                      onClick={handleBrowseISO}
+                      className="px-4 py-2 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] border border-[var(--border)] transition-colors flex items-center gap-2"
+                    >
+                      <FolderOpen className="w-4 h-4 text-[var(--text-muted)]" />
+                      <span className="text-sm text-[var(--text-primary)]">Browse</span>
+                    </button>
+                  </div>
+                  
+                  {isoServerUrl && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-xs text-green-400">
+                        Serving at: {isoServerUrl}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className="px-3 py-2 rounded-lg bg-[var(--bg-base)] border border-[var(--border)]">
+                    <p className="text-xs text-[var(--text-muted)]">
+                      <strong className="text-[var(--text-secondary)]">How it works:</strong> QVMRC starts a temporary HTTP server on your machine. 
+                      The hypervisor downloads the ISO from your computer over the network.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Enter the path to an ISO file on the hypervisor's local storage.
+                  </p>
+                  
+                  <input
+                    type="text"
+                    value={isoPath}
+                    onChange={(e) => setIsoPath(e.target.value)}
+                    placeholder="/var/lib/libvirt/images/ubuntu.iso"
+                    className="w-full px-3 py-2.5 rounded-lg bg-[var(--bg-base)] border border-[var(--border)] text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent)]"
+                  />
+                  
+                  <p className="text-xs text-[var(--text-muted)]">
+                    The path must be accessible from the hypervisor host where the VM is running.
+                  </p>
+                </>
+              )}
             </div>
             
             <div className="flex justify-end gap-3 px-5 py-4 border-t border-[var(--border)]">
@@ -641,7 +772,7 @@ export function ConsoleView({
                 className="px-4 py-2 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {executingAction === 'mount-iso' && <Loader2 className="w-4 h-4 animate-spin" />}
-                Mount ISO
+                {isoMode === 'local' ? 'Upload & Mount' : 'Mount ISO'}
               </button>
             </div>
           </div>

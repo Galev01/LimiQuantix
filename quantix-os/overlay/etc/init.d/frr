@@ -1,0 +1,120 @@
+#!/sbin/openrc-run
+# vim: set ft=sh: -*- sh -*-
+# Quantix-OS FRRouting Service
+# BGP daemon for ToR switch integration
+
+name="FRRouting"
+description="FRRouting suite for BGP"
+
+# Configuration
+FRR_DIR="${FRR_DIR:-/quantix/frr}"
+FRR_STATE_DIR="/run/frr"
+FRR_LOG_DIR="/var/log/frr"
+
+command="/usr/lib/frr/frrinit.sh"
+command_args="start"
+
+pidfile="${FRR_STATE_DIR}/zebra.pid"
+
+depend() {
+    need net
+    after networking openvswitch ovn-controller
+}
+
+start_pre() {
+    # Create required directories
+    checkpath -d -m 0755 -o frr:frr "${FRR_STATE_DIR}"
+    checkpath -d -m 0755 -o frr:frr "${FRR_LOG_DIR}"
+    
+    # Check if FRR configuration exists
+    if [ ! -d "${FRR_DIR}" ]; then
+        ewarn "FRR config directory not found: ${FRR_DIR}"
+        ewarn "Creating default configuration"
+        mkdir -p "${FRR_DIR}"
+        
+        # Create minimal default configuration
+        cat > "${FRR_DIR}/frr.conf" << 'EOF'
+! Quantix-OS FRRouting Configuration
+! This is a minimal default configuration
+! Edit /quantix/frr/frr.conf to add BGP peers
+
+frr version 9.0
+frr defaults traditional
+
+hostname quantix-node
+log syslog informational
+service integrated-vtysh-config
+
+! Enable zebra
+router zebra
+  no log stdout
+
+! BGP is configured via API or manually
+! Example:
+! router bgp 65001
+!   bgp router-id 192.168.1.100
+!   neighbor 192.168.1.1 remote-as 65000
+!   address-family ipv4 unicast
+!     redistribute connected
+!   exit-address-family
+
+line vty
+EOF
+        chown -R frr:frr "${FRR_DIR}"
+    fi
+    
+    # Link FRR configuration
+    if [ -L /etc/frr ] || [ ! -d /etc/frr ]; then
+        rm -rf /etc/frr 2>/dev/null
+        ln -sf "${FRR_DIR}" /etc/frr
+    fi
+}
+
+start() {
+    ebegin "Starting ${name}"
+    
+    # Check if BGP is enabled
+    if [ -f "${FRR_DIR}/disable_bgp" ]; then
+        ewarn "BGP is disabled (${FRR_DIR}/disable_bgp exists)"
+        eend 0
+        return 0
+    fi
+    
+    # Start FRR using its init script
+    /usr/lib/frr/frrinit.sh start
+    local ret=$?
+    
+    if [ $ret -eq 0 ]; then
+        einfo "FRRouting started successfully"
+    fi
+    
+    eend $ret
+}
+
+stop() {
+    ebegin "Stopping ${name}"
+    /usr/lib/frr/frrinit.sh stop
+    eend $?
+}
+
+status() {
+    # Check if FRR daemons are running
+    /usr/lib/frr/frrinit.sh status
+    local ret=$?
+    
+    if [ $ret -eq 0 ]; then
+        # Show BGP summary if running
+        if pgrep -x bgpd >/dev/null 2>&1; then
+            einfo "BGP Summary:"
+            vtysh -c "show bgp summary" 2>/dev/null | sed 's/^/  /'
+        fi
+    fi
+    
+    return $ret
+}
+
+reload() {
+    ebegin "Reloading ${name}"
+    /usr/lib/frr/frrinit.sh reload
+    eend $?
+}

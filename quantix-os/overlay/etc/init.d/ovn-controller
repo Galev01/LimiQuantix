@@ -1,0 +1,56 @@
+#!/sbin/openrc-run
+# vim: set ft=sh: -*- sh -*-
+# Quantix-OS OVN Controller Service
+# Connects to OVN Southbound database and manages local OVS
+
+name="OVN Controller"
+description="Open Virtual Network controller daemon"
+
+command="/usr/share/openvswitch/scripts/ovn-ctl"
+command_args="run_controller"
+command_background="yes"
+
+pidfile="/run/ovn/ovn-controller.pid"
+output_log="/var/log/ovn/ovn-controller.log"
+error_log="/var/log/ovn/ovn-controller.log"
+
+# Retry connecting to OVN SB database
+retry="5"
+
+depend() {
+    need net
+    need ovsdb-server
+    need ovs-vswitchd
+    after networking
+}
+
+start_pre() {
+    # Create required directories
+    checkpath -d -m 0755 -o root:root /run/ovn
+    checkpath -d -m 0755 -o root:root /var/log/ovn
+    
+    # Wait for OVS to be ready
+    local timeout=30
+    local count=0
+    while ! ovs-vsctl show >/dev/null 2>&1; do
+        count=$((count + 1))
+        if [ $count -ge $timeout ]; then
+            eerror "Timeout waiting for Open vSwitch to become ready"
+            return 1
+        fi
+        sleep 1
+    done
+    
+    # Check if OVN remote is configured
+    local ovn_remote=$(ovs-vsctl get open_vswitch . external_ids:ovn-remote 2>/dev/null | tr -d '"')
+    if [ -z "$ovn_remote" ]; then
+        ewarn "OVN remote not configured. Set with:"
+        ewarn "  ovs-vsctl set open_vswitch . external_ids:ovn-remote=tcp:<ovn-central-ip>:6642"
+    fi
+}
+
+stop() {
+    ebegin "Stopping ${name}"
+    /usr/share/openvswitch/scripts/ovn-ctl stop_controller
+    eend $?
+}

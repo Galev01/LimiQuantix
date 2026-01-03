@@ -2,7 +2,81 @@
 
 ## Current Status: QuantumNet 100% Complete 🚀
 
-**Last Updated:** January 3, 2026
+**Last Updated:** January 3, 2026 (Session 2)
+
+---
+
+## ✅ Session 2 Accomplishments (Jan 3, 2026)
+
+### Quantix-OS Networking Integration
+
+Added advanced networking packages to `quantix-os/profiles/quantix/packages.conf`:
+- `openvswitch-ovn` - OVN for logical networking
+- `frr`, `frr-bgpd`, `frr-zebra` - FRRouting for BGP
+
+Created OpenRC service scripts in `quantix-os/overlay/etc/init.d/`:
+- `ovn-controller` - Connects to OVN Southbound DB
+- `wireguard` - Manages WireGuard VPN interfaces
+- `frr` - FRRouting BGP daemon for ToR integration
+
+Updated documentation with Quantix-OS compatibility section
+
+---
+
+## ✅ QVMRC Local ISO Mounting (Jan 3, 2026)
+
+Added local ISO mounting capability similar to VMware VMRC and iLO/iDRAC.
+
+### How It Works
+
+```
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────┐
+│  QVMRC (Client)     │     │  Hypervisor Host    │     │  Virtual Machine│
+│  ┌───────────────┐  │     │                     │     │                 │
+│  │ Local ISO     │  │     │                     │     │                 │
+│  │ (C:\iso\...)  │  │     │                     │     │                 │
+│  └───────┬───────┘  │     │                     │     │                 │
+│          │          │     │                     │     │                 │
+│  ┌───────▼───────┐  │HTTP │                     │     │                 │
+│  │ Warp HTTP     │──┼─────┼────────────────────▶│     │ CD/DVD Drive   │
+│  │ Server        │  │     │                     │     │                 │
+│  └───────────────┘  │     │                     │     │                 │
+└─────────────────────┘     └─────────────────────┘     └─────────────────┘
+```
+
+### Features
+
+1. **Local File Mode** - Select ISO from your computer
+   - QVMRC starts embedded HTTP server (Warp)
+   - Auto-detects local IP address
+   - Picks random available port
+   - Hypervisor downloads ISO over HTTP
+
+2. **Remote Path Mode** - Enter path on hypervisor
+   - Direct path like `/var/lib/libvirt/images/ubuntu.iso`
+   - No HTTP server needed
+
+3. **Range Request Support** - Efficient streaming for large ISOs
+   - Hypervisor can seek to specific parts
+   - No need to buffer entire file
+
+### Files Added/Changed
+
+| File | Description |
+|------|-------------|
+| `qvmrc/src-tauri/src/iso_server.rs` | **NEW** - Warp HTTP server for ISO serving |
+| `qvmrc/src-tauri/src/api.rs` | Added `start_iso_server`, `stop_iso_server`, `get_network_interfaces` |
+| `qvmrc/src-tauri/src/main.rs` | Registered new commands and state |
+| `qvmrc/src-tauri/Cargo.toml` | Added `warp`, `local-ip-address`, `portpicker` |
+| `qvmrc/src/components/ConsoleView.tsx` | Enhanced ISO dialog with Local/Remote toggle |
+
+### New Dependencies
+
+| Crate | Purpose |
+|-------|---------|
+| `warp` | Lightweight HTTP server |
+| `local-ip-address` | Detect client's network IP |
+| `portpicker` | Find available port |
 
 ---
 

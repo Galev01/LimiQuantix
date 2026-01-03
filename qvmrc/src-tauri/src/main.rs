@@ -8,6 +8,7 @@
 
 mod api;
 mod config;
+mod iso_server;
 mod vnc;
 
 use config::SavedConnection;
@@ -233,8 +234,12 @@ fn main() {
         debug_log(&format!("AppState pending_connection after creation: {:?}", *guard));
     }
 
+    // Create ISO server state
+    let iso_server_state = api::IsoServerState::new();
+
     tauri::Builder::default()
         .manage(app_state)
+        .manage(iso_server_state)
         .invoke_handler(tauri::generate_handler![
             // API commands
             api::get_saved_connections,
@@ -254,6 +259,11 @@ fn main() {
             api::vm_power_action,
             api::vm_mount_iso,
             api::browse_file,
+            // ISO server commands
+            api::start_iso_server,
+            api::stop_iso_server,
+            api::get_iso_server_status,
+            api::get_network_interfaces,
             // Deep link commands
             get_pending_connection,
             add_and_connect,

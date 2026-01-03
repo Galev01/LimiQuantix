@@ -1,0 +1,84 @@
+# Quantix-OS Log Rotation Configuration
+# ============================================================================
+# Manages log file sizes to prevent disk exhaustion
+# Logs are stored in tmpfs (/var/log) so this prevents RAM exhaustion
+
+# Node daemon logs
+/var/log/quantix-node.log {
+    # Rotate when file exceeds 50MB
+    size 50M
+    # Keep 5 rotated files
+    rotate 5
+    # Compress old logs
+    compress
+    # Delay compression by one rotation
+    delaycompress
+    # Don't error if log is missing
+    missingok
+    # Don't rotate if empty
+    notifempty
+    # Create new file with same permissions
+    create 0644 root root
+    # Use date in rotated filename
+    dateext
+    dateformat -%Y%m%d-%H%M%S
+    # Reload daemon to reopen log file
+    postrotate
+        if [ -f /run/quantix-node.pid ]; then
+            kill -HUP $(cat /run/quantix-node.pid) 2>/dev/null || true
+        fi
+    endscript
+}
+
+# Error-only log (smaller rotation)
+/var/log/quantix-node.err.log {
+    size 10M
+    rotate 10
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 root root
+    dateext
+    dateformat -%Y%m%d-%H%M%S
+}
+
+# Libvirt logs
+/var/log/libvirt/*.log {
+    size 20M
+    rotate 3
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 root root
+    sharedscripts
+    postrotate
+        /bin/kill -HUP $(cat /var/run/libvirtd.pid 2>/dev/null) 2>/dev/null || true
+    endscript
+}
+
+# OVS logs
+/var/log/openvswitch/*.log {
+    size 20M
+    rotate 3
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 root root
+}
+
+# System messages
+/var/log/messages {
+    size 50M
+    rotate 3
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 root root
+    postrotate
+        /bin/kill -HUP $(cat /var/run/syslogd.pid 2>/dev/null) 2>/dev/null || true
+    endscript
+}

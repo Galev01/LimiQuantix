@@ -16,6 +16,54 @@ QuantumNet provides enterprise-grade networking features beyond basic connectivi
 
 ---
 
+## Quantix-OS (Alpine Linux) Compatibility
+
+All QuantumNet features are fully compatible with Quantix-OS:
+
+### Required Alpine Packages
+
+| Feature | Package | Repository | Notes |
+|---------|---------|------------|-------|
+| OVS | `openvswitch` | main | ✅ Included |
+| OVN | `openvswitch-ovn` | community | ✅ Added |
+| WireGuard | `wireguard-tools` | main | ✅ Included |
+| BGP | `frr`, `frr-bgpd`, `frr-zebra` | community | ✅ Added |
+
+### OpenRC Services
+
+The following services are configured in Quantix-OS:
+
+| Service | Init Script | Purpose |
+|---------|-------------|---------|
+| `ovsdb-server` | Alpine default | OVS database |
+| `ovs-vswitchd` | Alpine default | OVS switch daemon |
+| `ovn-controller` | `/etc/init.d/ovn-controller` | OVN host agent |
+| `wireguard` | `/etc/init.d/wireguard` | WireGuard VPN interfaces |
+| `frr` | `/etc/init.d/frr` | FRRouting BGP daemon |
+
+### Configuration Directories (Persistent)
+
+| Service | Config Location | Notes |
+|---------|-----------------|-------|
+| OVN | `/quantix/ovn/` | OVN external IDs |
+| WireGuard | `/quantix/wireguard/` | `*.conf` files |
+| FRR | `/quantix/frr/` | `frr.conf` |
+
+These directories persist across reboots on the config partition.
+
+### Service Startup Order
+
+```
+1. ovsdb-server      (OVS database)
+2. ovs-vswitchd      (OVS switch daemon)
+3. ovn-controller    (OVN host controller)
+4. wireguard         (VPN interfaces)
+5. frr               (BGP routing)
+6. quantix-node      (Node daemon)
+```
+
+---
+
 ## Part 1: L4 Load Balancing
 
 OVN provides native L4 load balancing without requiring external load balancer VMs.

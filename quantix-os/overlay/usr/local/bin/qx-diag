@@ -1,0 +1,720 @@
+#!/bin/sh
+# ============================================================================
+# Quantix-OS Diagnostic Tool (qx-diag)
+# ============================================================================
+# A comprehensive diagnostic tool with emoji-rich output for easy debugging.
+#
+# Usage:
+#   qx-diag              - Run all diagnostics
+#   qx-diag logs         - View recent logs
+#   qx-diag errors       - View recent errors only
+#   qx-diag system       - System health check
+#   qx-diag network      - Network diagnostics
+#   qx-diag storage      - Storage diagnostics
+#   qx-diag vms          - VM status
+#   qx-diag services     - Service status
+#   qx-diag watch        - Live log viewer
+#   qx-diag report       - Generate full diagnostic report
+# ============================================================================
+
+VERSION="1.0.0"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m' # No Color
+
+# Emojis
+E_OK="✅"
+E_ERR="❌"
+E_WARN="⚠️"
+E_INFO="ℹ️"
+E_VM="🖥️"
+E_NET="🌐"
+E_DISK="💾"
+E_CPU="💻"
+E_MEM="🧠"
+E_RUN="🟢"
+E_STOP="🔴"
+E_PEND="🟡"
+E_TIMER="⏱️"
+E_ALERT="🚨"
+E_HEART="💓"
+E_SEARCH="🔍"
+E_ROCKET="🚀"
+E_TOOLS="🔧"
+
+# Log locations
+NODE_LOG="/var/log/quantix-node.log"
+NODE_ERR_LOG="/var/log/quantix-node.err.log"
+SYSTEM_LOG="/var/log/messages"
+LIBVIRT_LOG="/var/log/libvirt/libvirtd.log"
+OVS_LOG="/var/log/openvswitch/ovs-vswitchd.log"
+
+# ============================================================================
+# Utility Functions
+# ============================================================================
+
+print_header() {
+    echo ""
+    echo "${CYAN}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
+    echo "${CYAN}║${NC} ${WHITE}$1${NC}"
+    echo "${CYAN}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
+print_section() {
+    echo ""
+    echo "${BLUE}┌─────────────────────────────────────────────────────────────────────────────┐${NC}"
+    echo "${BLUE}│${NC} ${YELLOW}$1${NC}"
+    echo "${BLUE}└─────────────────────────────────────────────────────────────────────────────┘${NC}"
+}
+
+print_ok() {
+    echo "${GREEN}${E_OK} $1${NC}"
+}
+
+print_err() {
+    echo "${RED}${E_ERR} $1${NC}"
+}
+
+print_warn() {
+    echo "${YELLOW}${E_WARN} $1${NC}"
+}
+
+print_info() {
+    echo "${BLUE}${E_INFO} $1${NC}"
+}
+
+# ============================================================================
+# System Diagnostics
+# ============================================================================
+
+diag_system() {
+    print_header "${E_TOOLS} SYSTEM DIAGNOSTICS"
+    
+    # OS Info
+    print_section "Operating System"
+    if [ -f /etc/quantix-release ]; then
+        . /etc/quantix-release
+        print_ok "Quantix-OS v${QUANTIX_VERSION:-unknown}"
+        print_info "Build Date: ${BUILD_DATE:-unknown}"
+    else
+        print_warn "Quantix release info not found"
+    fi
+    
+    # Hostname
+    HOSTNAME=$(hostname 2>/dev/null || cat /etc/hostname)
+    print_info "Hostname: ${HOSTNAME}"
+    
+    # Kernel
+    KERNEL=$(uname -r)
+    print_info "Kernel: ${KERNEL}"
+    
+    # Uptime
+    UPTIME=$(uptime -p 2>/dev/null || uptime)
+    print_info "Uptime: ${UPTIME}"
+    
+    # CPU
+    print_section "${E_CPU} CPU"
+    CPU_MODEL=$(grep 'model name' /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)
+    CPU_CORES=$(nproc)
+    CPU_LOAD=$(cat /proc/loadavg | awk '{print $1, $2, $3}')
+    
+    print_info "Model: ${CPU_MODEL}"
+    print_info "Cores: ${CPU_CORES}"
+    print_info "Load Average: ${CPU_LOAD}"
+    
+    # Check if load is high
+    LOAD_1=$(echo "$CPU_LOAD" | awk '{print $1}')
+    if [ "$(echo "$LOAD_1 > $CPU_CORES" | bc 2>/dev/null || echo 0)" = "1" ]; then
+        print_warn "High CPU load detected!"
+    else
+        print_ok "CPU load normal"
+    fi
+    
+    # Memory
+    print_section "${E_MEM} Memory"
+    MEM_TOTAL=$(free -h | grep Mem | awk '{print $2}')
+    MEM_USED=$(free -h | grep Mem | awk '{print $3}')
+    MEM_FREE=$(free -h | grep Mem | awk '{print $4}')
+    MEM_PERCENT=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100}')
+    
+    print_info "Total: ${MEM_TOTAL}"
+    print_info "Used: ${MEM_USED} (${MEM_PERCENT}%)"
+    print_info "Free: ${MEM_FREE}"
+    
+    if [ "$(echo "$MEM_PERCENT > 90" | bc 2>/dev/null || echo 0)" = "1" ]; then
+        print_err "Memory usage critical! (>90%)"
+    elif [ "$(echo "$MEM_PERCENT > 80" | bc 2>/dev/null || echo 0)" = "1" ]; then
+        print_warn "Memory usage high (>80%)"
+    else
+        print_ok "Memory usage normal"
+    fi
+    
+    # Disk
+    print_section "${E_DISK} Disk Usage"
+    df -h / /quantix /data 2>/dev/null | while read line; do
+        if echo "$line" | grep -q "100%\|9[0-9]%"; then
+            print_err "$line"
+        elif echo "$line" | grep -q "8[0-9]%"; then
+            print_warn "$line"
+        else
+            print_info "$line"
+        fi
+    done
+}
+
+# ============================================================================
+# Service Diagnostics
+# ============================================================================
+
+diag_services() {
+    print_header "${E_TOOLS} SERVICE STATUS"
+    
+    check_service() {
+        SERVICE=$1
+        DISPLAY_NAME=$2
+        
+        if rc-service $SERVICE status >/dev/null 2>&1; then
+            print_ok "${DISPLAY_NAME}: ${E_RUN} Running"
+        elif [ -f "/etc/init.d/$SERVICE" ]; then
+            print_err "${DISPLAY_NAME}: ${E_STOP} Stopped"
+        else
+            print_warn "${DISPLAY_NAME}: Not installed"
+        fi
+    }
+    
+    print_section "Core Services"
+    check_service "quantix-node" "Quantix Node Daemon"
+    check_service "libvirtd" "Libvirt"
+    check_service "ovsdb-server" "OVS DB Server"
+    check_service "ovs-vswitchd" "OVS Switch Daemon"
+    
+    print_section "Supporting Services"
+    check_service "networking" "Networking"
+    check_service "sshd" "SSH Server"
+    check_service "dnsmasq" "DHCP/DNS"
+    
+    # Check if quantix-node is responding
+    print_section "Node Daemon Health"
+    if pgrep -x "qx-node\|limiquantix-node" >/dev/null 2>&1; then
+        PID=$(pgrep -x "qx-node\|limiquantix-node" | head -1)
+        print_ok "Node daemon running (PID: ${PID})"
+        
+        # Check memory usage
+        MEM_RSS=$(ps -o rss= -p $PID 2>/dev/null | xargs)
+        if [ -n "$MEM_RSS" ]; then
+            MEM_MB=$((MEM_RSS / 1024))
+            print_info "Memory usage: ${MEM_MB}MB"
+        fi
+        
+        # Check open file descriptors
+        FD_COUNT=$(ls /proc/$PID/fd 2>/dev/null | wc -l)
+        if [ -n "$FD_COUNT" ]; then
+            print_info "Open file descriptors: ${FD_COUNT}"
+        fi
+    else
+        print_err "Node daemon not running!"
+    fi
+}
+
+# ============================================================================
+# Network Diagnostics
+# ============================================================================
+
+diag_network() {
+    print_header "${E_NET} NETWORK DIAGNOSTICS"
+    
+    # Interfaces
+    print_section "Network Interfaces"
+    ip -4 addr show 2>/dev/null | while read line; do
+        if echo "$line" | grep -q "inet "; then
+            IF=$(echo "$line" | awk '{print $NF}')
+            IP=$(echo "$line" | awk '{print $2}')
+            print_info "${IF}: ${IP}"
+        fi
+    done
+    
+    # Default route
+    print_section "Routing"
+    GATEWAY=$(ip route | grep default | awk '{print $3}')
+    if [ -n "$GATEWAY" ]; then
+        print_info "Default Gateway: ${GATEWAY}"
+        if ping -c 1 -W 2 $GATEWAY >/dev/null 2>&1; then
+            print_ok "Gateway reachable"
+        else
+            print_err "Gateway unreachable!"
+        fi
+    else
+        print_warn "No default gateway configured"
+    fi
+    
+    # DNS
+    print_section "DNS"
+    if [ -f /etc/resolv.conf ]; then
+        DNS_SERVERS=$(grep nameserver /etc/resolv.conf | awk '{print $2}' | tr '\n' ' ')
+        print_info "DNS Servers: ${DNS_SERVERS}"
+        
+        # Test DNS
+        if nslookup google.com >/dev/null 2>&1 || host google.com >/dev/null 2>&1; then
+            print_ok "DNS resolution working"
+        else
+            print_err "DNS resolution failed!"
+        fi
+    else
+        print_warn "No resolv.conf found"
+    fi
+    
+    # Open vSwitch
+    print_section "Open vSwitch"
+    if command -v ovs-vsctl >/dev/null 2>&1; then
+        BRIDGES=$(ovs-vsctl list-br 2>/dev/null)
+        if [ -n "$BRIDGES" ]; then
+            for BR in $BRIDGES; do
+                PORTS=$(ovs-vsctl list-ports $BR 2>/dev/null | wc -l)
+                print_info "Bridge ${BR}: ${PORTS} ports"
+            done
+            print_ok "OVS operational"
+        else
+            print_warn "No OVS bridges configured"
+        fi
+    else
+        print_warn "OVS not installed"
+    fi
+    
+    # Connectivity test
+    print_section "External Connectivity"
+    if ping -c 1 -W 3 8.8.8.8 >/dev/null 2>&1; then
+        print_ok "Internet reachable (8.8.8.8)"
+    else
+        print_err "Cannot reach internet!"
+    fi
+}
+
+# ============================================================================
+# Storage Diagnostics
+# ============================================================================
+
+diag_storage() {
+    print_header "${E_DISK} STORAGE DIAGNOSTICS"
+    
+    # Partitions
+    print_section "Disk Partitions"
+    lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,LABEL 2>/dev/null
+    
+    # Config partition
+    print_section "Configuration Storage"
+    if mountpoint -q /quantix 2>/dev/null; then
+        USED=$(df -h /quantix | tail -1 | awk '{print $3}')
+        AVAIL=$(df -h /quantix | tail -1 | awk '{print $4}')
+        print_ok "/quantix mounted (Used: ${USED}, Avail: ${AVAIL})"
+    else
+        print_err "/quantix not mounted!"
+    fi
+    
+    # Data partition
+    print_section "Data Storage"
+    if mountpoint -q /data 2>/dev/null; then
+        USED=$(df -h /data | tail -1 | awk '{print $3}')
+        AVAIL=$(df -h /data | tail -1 | awk '{print $4}')
+        print_ok "/data mounted (Used: ${USED}, Avail: ${AVAIL})"
+        
+        # Check VM storage
+        if [ -d /data/vms ]; then
+            VM_COUNT=$(ls -1 /data/vms 2>/dev/null | wc -l)
+            print_info "VM images: ${VM_COUNT}"
+        fi
+        
+        # Check ISO storage
+        if [ -d /data/isos ]; then
+            ISO_COUNT=$(ls -1 /data/isos 2>/dev/null | wc -l)
+            print_info "ISO images: ${ISO_COUNT}"
+        fi
+    else
+        print_err "/data not mounted!"
+    fi
+    
+    # Libvirt pools
+    print_section "Libvirt Storage Pools"
+    if command -v virsh >/dev/null 2>&1; then
+        virsh pool-list --all 2>/dev/null | while read line; do
+            if echo "$line" | grep -q "running"; then
+                print_ok "$line"
+            elif echo "$line" | grep -q "inactive"; then
+                print_warn "$line"
+            else
+                print_info "$line"
+            fi
+        done
+    fi
+}
+
+# ============================================================================
+# VM Diagnostics
+# ============================================================================
+
+diag_vms() {
+    print_header "${E_VM} VIRTUAL MACHINE STATUS"
+    
+    if ! command -v virsh >/dev/null 2>&1; then
+        print_err "Libvirt not installed"
+        return 1
+    fi
+    
+    # VM Summary
+    print_section "VM Summary"
+    RUNNING=$(virsh list --state-running 2>/dev/null | tail -n +3 | grep -v '^$' | wc -l)
+    STOPPED=$(virsh list --state-shutoff 2>/dev/null | tail -n +3 | grep -v '^$' | wc -l)
+    PAUSED=$(virsh list --state-paused 2>/dev/null | tail -n +3 | grep -v '^$' | wc -l)
+    TOTAL=$((RUNNING + STOPPED + PAUSED))
+    
+    echo "${E_RUN} Running:  ${RUNNING}"
+    echo "${E_STOP} Stopped:  ${STOPPED}"
+    echo "${E_PEND} Paused:   ${PAUSED}"
+    echo "────────────────"
+    echo "   Total:    ${TOTAL}"
+    
+    # VM List
+    print_section "VM Details"
+    virsh list --all 2>/dev/null | tail -n +3 | while read ID NAME STATE REST; do
+        if [ -n "$NAME" ]; then
+            case "$STATE" in
+                running)
+                    print_ok "${E_RUN} ${NAME}"
+                    # Get resource usage
+                    CPU=$(virsh dominfo "$NAME" 2>/dev/null | grep "CPU(s)" | awk '{print $2}')
+                    MEM=$(virsh dominfo "$NAME" 2>/dev/null | grep "Max memory" | awk '{print $3, $4}')
+                    print_info "    CPUs: ${CPU}, Memory: ${MEM}"
+                    ;;
+                "shut off")
+                    print_warn "${E_STOP} ${NAME} (stopped)"
+                    ;;
+                paused)
+                    print_warn "${E_PEND} ${NAME} (paused)"
+                    ;;
+                *)
+                    print_info "${NAME} (${STATE})"
+                    ;;
+            esac
+        fi
+    done
+}
+
+# ============================================================================
+# Log Viewing
+# ============================================================================
+
+diag_logs() {
+    LINES=${1:-50}
+    
+    print_header "${E_SEARCH} RECENT LOGS (last ${LINES} lines)"
+    
+    if [ -f "$NODE_LOG" ]; then
+        print_section "Node Daemon Log"
+        tail -n $LINES "$NODE_LOG" 2>/dev/null | while read line; do
+            if echo "$line" | grep -qi "error\|failed\|❌"; then
+                echo "${RED}${line}${NC}"
+            elif echo "$line" | grep -qi "warn\|⚠️"; then
+                echo "${YELLOW}${line}${NC}"
+            elif echo "$line" | grep -qi "success\|✅\|completed"; then
+                echo "${GREEN}${line}${NC}"
+            else
+                echo "$line"
+            fi
+        done
+    else
+        print_warn "Node log not found at $NODE_LOG"
+    fi
+}
+
+diag_errors() {
+    LINES=${1:-30}
+    
+    print_header "${E_ALERT} RECENT ERRORS"
+    
+    if [ -f "$NODE_ERR_LOG" ]; then
+        print_section "Error Log"
+        tail -n $LINES "$NODE_ERR_LOG" 2>/dev/null
+    fi
+    
+    if [ -f "$NODE_LOG" ]; then
+        print_section "Errors from Main Log"
+        grep -i "error\|failed\|❌" "$NODE_LOG" 2>/dev/null | tail -n $LINES | while read line; do
+            echo "${RED}${line}${NC}"
+        done
+    fi
+    
+    print_section "System Errors (dmesg)"
+    dmesg 2>/dev/null | grep -i "error\|fail\|warn" | tail -n 10
+}
+
+# ============================================================================
+# Live Log Viewer
+# ============================================================================
+
+diag_watch() {
+    print_header "${E_SEARCH} LIVE LOG VIEWER (Ctrl+C to exit)"
+    
+    if [ -f "$NODE_LOG" ]; then
+        tail -f "$NODE_LOG" 2>/dev/null | while read line; do
+            if echo "$line" | grep -qi "error\|failed\|❌"; then
+                echo "${RED}${line}${NC}"
+            elif echo "$line" | grep -qi "warn\|⚠️"; then
+                echo "${YELLOW}${line}${NC}"
+            elif echo "$line" | grep -qi "success\|✅\|completed"; then
+                echo "${GREEN}${line}${NC}"
+            else
+                echo "$line"
+            fi
+        done
+    else
+        print_err "Log file not found"
+    fi
+}
+
+# ============================================================================
+# Full Report
+# ============================================================================
+
+diag_report() {
+    REPORT_FILE="/tmp/quantix-diag-$(date +%Y%m%d-%H%M%S).txt"
+    
+    print_header "📋 GENERATING DIAGNOSTIC REPORT"
+    print_info "Output: ${REPORT_FILE}"
+    
+    {
+        echo "=============================================="
+        echo "QUANTIX-OS DIAGNOSTIC REPORT"
+        echo "Generated: $(date)"
+        echo "=============================================="
+        echo ""
+        
+        diag_system
+        echo ""
+        diag_services
+        echo ""
+        diag_network
+        echo ""
+        diag_storage
+        echo ""
+        diag_vms
+        echo ""
+        
+        echo "=============================================="
+        echo "RECENT LOGS"
+        echo "=============================================="
+        if [ -f "$NODE_LOG" ]; then
+            echo "--- Last 100 lines of node daemon log ---"
+            tail -n 100 "$NODE_LOG" 2>/dev/null
+        fi
+        
+        echo ""
+        echo "--- Recent errors ---"
+        if [ -f "$NODE_ERR_LOG" ]; then
+            tail -n 50 "$NODE_ERR_LOG" 2>/dev/null
+        fi
+        
+    } > "$REPORT_FILE" 2>&1
+    
+    # Strip color codes from file
+    sed -i 's/\x1b\[[0-9;]*m//g' "$REPORT_FILE" 2>/dev/null || true
+    
+    print_ok "Report saved to: ${REPORT_FILE}"
+    print_info "You can share this file for troubleshooting"
+    
+    # Also create a summary
+    ERRORS=$(grep -c "❌\|ERROR\|error" "$REPORT_FILE" 2>/dev/null || echo "0")
+    WARNINGS=$(grep -c "⚠️\|WARN\|warn" "$REPORT_FILE" 2>/dev/null || echo "0")
+    
+    echo ""
+    print_section "Summary"
+    if [ "$ERRORS" -gt 0 ]; then
+        print_err "Errors found: ${ERRORS}"
+    else
+        print_ok "No errors found"
+    fi
+    
+    if [ "$WARNINGS" -gt 0 ]; then
+        print_warn "Warnings found: ${WARNINGS}"
+    fi
+}
+
+# ============================================================================
+# Quick Health Check
+# ============================================================================
+
+diag_health() {
+    print_header "${E_HEART} QUICK HEALTH CHECK"
+    
+    HEALTHY=true
+    
+    # Node daemon
+    if pgrep -x "qx-node\|limiquantix-node" >/dev/null 2>&1; then
+        print_ok "Node daemon: Running"
+    else
+        print_err "Node daemon: NOT RUNNING"
+        HEALTHY=false
+    fi
+    
+    # Libvirt
+    if pgrep -x "libvirtd" >/dev/null 2>&1; then
+        print_ok "Libvirt: Running"
+    else
+        print_err "Libvirt: NOT RUNNING"
+        HEALTHY=false
+    fi
+    
+    # OVS
+    if pgrep -x "ovs-vswitchd" >/dev/null 2>&1; then
+        print_ok "OVS: Running"
+    else
+        print_warn "OVS: Not running"
+    fi
+    
+    # Memory
+    MEM_PERCENT=$(free | grep Mem | awk '{printf "%.0f", $3/$2 * 100}')
+    if [ "$MEM_PERCENT" -gt 90 ]; then
+        print_err "Memory: ${MEM_PERCENT}% (CRITICAL)"
+        HEALTHY=false
+    elif [ "$MEM_PERCENT" -gt 80 ]; then
+        print_warn "Memory: ${MEM_PERCENT}% (High)"
+    else
+        print_ok "Memory: ${MEM_PERCENT}%"
+    fi
+    
+    # Disk
+    DISK_PERCENT=$(df /data 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%')
+    if [ -n "$DISK_PERCENT" ]; then
+        if [ "$DISK_PERCENT" -gt 90 ]; then
+            print_err "Disk: ${DISK_PERCENT}% (CRITICAL)"
+            HEALTHY=false
+        elif [ "$DISK_PERCENT" -gt 80 ]; then
+            print_warn "Disk: ${DISK_PERCENT}% (High)"
+        else
+            print_ok "Disk: ${DISK_PERCENT}%"
+        fi
+    fi
+    
+    # Recent errors
+    if [ -f "$NODE_ERR_LOG" ]; then
+        RECENT_ERRORS=$(find "$NODE_ERR_LOG" -mmin -5 -exec wc -l {} \; 2>/dev/null | awk '{sum+=$1}END{print sum}')
+        if [ -n "$RECENT_ERRORS" ] && [ "$RECENT_ERRORS" -gt 0 ]; then
+            print_warn "Recent errors (last 5 min): ${RECENT_ERRORS}"
+        else
+            print_ok "No recent errors"
+        fi
+    fi
+    
+    echo ""
+    if [ "$HEALTHY" = true ]; then
+        echo "${GREEN}${E_OK}${E_OK}${E_OK} SYSTEM HEALTHY ${E_OK}${E_OK}${E_OK}${NC}"
+    else
+        echo "${RED}${E_ALERT}${E_ALERT}${E_ALERT} ISSUES DETECTED - Run 'qx-diag' for details ${E_ALERT}${E_ALERT}${E_ALERT}${NC}"
+    fi
+}
+
+# ============================================================================
+# Help
+# ============================================================================
+
+show_help() {
+    cat << EOF
+
+${CYAN}╔═══════════════════════════════════════════════════════════════════════════╗${NC}
+${CYAN}║${NC}            ${WHITE}QUANTIX-OS DIAGNOSTIC TOOL v${VERSION}${NC}                            ${CYAN}║${NC}
+${CYAN}╚═══════════════════════════════════════════════════════════════════════════╝${NC}
+
+${YELLOW}USAGE:${NC}
+    qx-diag [command] [options]
+
+${YELLOW}COMMANDS:${NC}
+    ${GREEN}(none)${NC}        Run all diagnostics
+    ${GREEN}health${NC}        Quick health check (recommended first step)
+    ${GREEN}system${NC}        System info (CPU, memory, disk)
+    ${GREEN}services${NC}      Service status
+    ${GREEN}network${NC}       Network diagnostics
+    ${GREEN}storage${NC}       Storage diagnostics
+    ${GREEN}vms${NC}           Virtual machine status
+
+${YELLOW}LOG COMMANDS:${NC}
+    ${GREEN}logs [N]${NC}      Show last N log lines (default: 50)
+    ${GREEN}errors [N]${NC}    Show last N errors (default: 30)
+    ${GREEN}watch${NC}         Live log viewer (Ctrl+C to exit)
+
+${YELLOW}REPORTING:${NC}
+    ${GREEN}report${NC}        Generate full diagnostic report
+
+${YELLOW}EXAMPLES:${NC}
+    qx-diag health          Quick health check
+    qx-diag errors 100      Show last 100 errors
+    qx-diag watch           Watch logs in real-time
+    qx-diag report          Generate report for support
+
+${YELLOW}LOG LOCATIONS:${NC}
+    Node Daemon:  ${NODE_LOG}
+    Errors:       ${NODE_ERR_LOG}
+    Libvirt:      ${LIBVIRT_LOG}
+    OVS:          ${OVS_LOG}
+
+EOF
+}
+
+# ============================================================================
+# Main
+# ============================================================================
+
+case "${1:-all}" in
+    health)
+        diag_health
+        ;;
+    system)
+        diag_system
+        ;;
+    services)
+        diag_services
+        ;;
+    network)
+        diag_network
+        ;;
+    storage)
+        diag_storage
+        ;;
+    vms)
+        diag_vms
+        ;;
+    logs)
+        diag_logs "${2:-50}"
+        ;;
+    errors)
+        diag_errors "${2:-30}"
+        ;;
+    watch)
+        diag_watch
+        ;;
+    report)
+        diag_report
+        ;;
+    help|-h|--help)
+        show_help
+        ;;
+    all)
+        diag_health
+        echo ""
+        diag_system
+        diag_services
+        diag_network
+        diag_storage
+        diag_vms
+        ;;
+    *)
+        print_err "Unknown command: $1"
+        show_help
+        exit 1
+        ;;
+esac

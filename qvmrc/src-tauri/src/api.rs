@@ -327,3 +327,90 @@ pub struct FileFilter {
     pub name: String,
     pub extensions: Vec<String>,
 }
+
+// ============================================
+// Local ISO Server
+// ============================================
+
+use crate::iso_server::{IsoServerManager, NetworkInterface};
+use std::path::PathBuf;
+
+/// Start serving a local ISO file via HTTP
+/// Returns the URL that the hypervisor can use to mount the ISO
+#[tauri::command]
+pub async fn start_iso_server(
+    state: State<'_, IsoServerState>,
+    iso_path: String,
+) -> Result<IsoServerInfo, String> {
+    let path = PathBuf::from(&iso_path);
+    
+    // Verify file exists and is an ISO
+    if !path.exists() {
+        return Err(format!("File not found: {}", iso_path));
+    }
+    
+    if path.extension().and_then(|e| e.to_str()) != Some("iso") {
+        warn!("File may not be an ISO: {}", iso_path);
+    }
+    
+    let url = state.manager.start_serving(path.clone()).await?;
+    
+    info!("ISO server started: {} -> {}", iso_path, url);
+    
+    Ok(IsoServerInfo {
+        url,
+        local_path: iso_path,
+        is_serving: true,
+    })
+}
+
+/// Stop the ISO server
+#[tauri::command]
+pub async fn stop_iso_server(
+    state: State<'_, IsoServerState>,
+) -> Result<(), String> {
+    state.manager.stop_serving().await;
+    info!("ISO server stopped");
+    Ok(())
+}
+
+/// Get current ISO server status
+#[tauri::command]
+pub async fn get_iso_server_status(
+    state: State<'_, IsoServerState>,
+) -> Result<Option<IsoServerInfo>, String> {
+    let url = state.manager.get_current_url().await;
+    
+    Ok(url.map(|url| IsoServerInfo {
+        url,
+        local_path: String::new(), // Could store this in state if needed
+        is_serving: true,
+    }))
+}
+
+/// Get available network interfaces
+#[tauri::command]
+pub fn get_network_interfaces() -> Vec<NetworkInterface> {
+    crate::iso_server::get_network_interfaces()
+}
+
+/// ISO server info returned to frontend
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct IsoServerInfo {
+    pub url: String,
+    pub local_path: String,
+    pub is_serving: bool,
+}
+
+/// State wrapper for ISO server manager
+pub struct IsoServerState {
+    pub manager: IsoServerManager,
+}
+
+impl IsoServerState {
+    pub fn new() -> Self {
+        Self {
+            manager: IsoServerManager::new(),
+        }
+    }
+}

@@ -1,0 +1,49 @@
+#!/sbin/openrc-run
+# ============================================================================
+# Quantix Log Rotation Service
+# ============================================================================
+# Runs logrotate periodically to manage log file sizes
+# Prevents RAM exhaustion since /var/log is in tmpfs
+
+name="quantix-logrotate"
+description="Quantix Log Rotation Timer"
+
+depend() {
+    after quantix-node
+    use logger
+}
+
+start() {
+    ebegin "Starting ${name}"
+    
+    # Run in background with periodic checks
+    (
+        while true; do
+            # Run logrotate every 5 minutes
+            sleep 300
+            /usr/sbin/logrotate -s /var/lib/logrotate.status /etc/logrotate.conf 2>/dev/null
+        done
+    ) &
+    
+    echo $! > /run/quantix-logrotate.pid
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping ${name}"
+    if [ -f /run/quantix-logrotate.pid ]; then
+        kill $(cat /run/quantix-logrotate.pid) 2>/dev/null
+        rm -f /run/quantix-logrotate.pid
+    fi
+    eend 0
+}
+
+status() {
+    if [ -f /run/quantix-logrotate.pid ] && kill -0 $(cat /run/quantix-logrotate.pid) 2>/dev/null; then
+        einfo "${name} is running"
+        return 0
+    else
+        ewarn "${name} is not running"
+        return 1
+    fi
+}

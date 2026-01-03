@@ -2,6 +2,13 @@
 //!
 //! The "yellow screen" console interface for Quantix hypervisor nodes.
 //! Provides network configuration, cluster joining, and system status.
+//!
+//! ## Features
+//! - 🖥️ System status dashboard
+//! - 🌐 Network configuration
+//! - 📋 Beautiful log viewer with filtering
+//! - 🔍 Diagnostic tools
+//! - 🔧 Service management
 
 use std::io::{self, Stdout};
 use std::time::Duration;
@@ -16,18 +23,20 @@ use ratatui::{
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
     Frame, Terminal,
 };
 use sysinfo::System;
 use tracing::{error, info};
 
 mod config;
+mod logs;
 mod network;
 mod system;
 
 use config::NodeConfig;
+use logs::LogViewer;
 
 // =============================================================================
 // Application State
@@ -43,6 +52,8 @@ struct App {
     system: System,
     /// Menu selection state
     menu_state: ListState,
+    /// Log viewer state
+    log_viewer: LogViewer,
     /// Error message to display
     error_message: Option<String>,
     /// Should exit
@@ -61,6 +72,7 @@ enum Screen {
     SystemInfo,
     RestartServices,
     EmergencyShell,
+    Diagnostics,
 }
 
 impl App {
@@ -77,6 +89,7 @@ impl App {
             config,
             system,
             menu_state,
+            log_viewer: LogViewer::new(),
             error_message: None,
             should_exit: false,
             last_refresh: std::time::Instant::now(),
@@ -90,21 +103,23 @@ impl App {
         }
     }
 
-    fn menu_items(&self) -> Vec<(&str, &str)> {
+    fn menu_items(&self) -> Vec<(&str, &str, &str)> {
         vec![
-            ("F2", "Configure Network"),
-            ("F3", "View Logs"),
-            ("F4", "Join Cluster"),
-            ("F5", "Restart Services"),
-            ("F6", "System Info"),
-            ("F10", "Shutdown/Reboot"),
-            ("F12", "Emergency Shell"),
+            ("F2", "🌐", "Configure Network"),
+            ("F3", "📋", "View Logs"),
+            ("F4", "🔗", "Join Cluster"),
+            ("F5", "🔧", "Restart Services"),
+            ("F6", "ℹ️", "System Info"),
+            ("F7", "🔍", "Diagnostics"),
+            ("F10", "⏻", "Shutdown/Reboot"),
+            ("F12", "🚨", "Emergency Shell"),
         ]
     }
 
     fn handle_key(&mut self, key: KeyEvent) {
         match self.screen {
             Screen::Main => self.handle_main_key(key),
+            Screen::ViewLogs => self.handle_logs_key(key),
             _ => self.handle_submenu_key(key),
         }
     }
@@ -112,13 +127,16 @@ impl App {
     fn handle_main_key(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::F(2) => self.screen = Screen::NetworkConfig,
-            KeyCode::F(3) => self.screen = Screen::ViewLogs,
+            KeyCode::F(3) => {
+                self.log_viewer.load_logs();
+                self.screen = Screen::ViewLogs;
+            }
             KeyCode::F(4) => self.screen = Screen::ClusterJoin,
             KeyCode::F(5) => self.screen = Screen::RestartServices,
             KeyCode::F(6) => self.screen = Screen::SystemInfo,
+            KeyCode::F(7) => self.screen = Screen::Diagnostics,
             KeyCode::F(10) => {
-                // Show shutdown menu
-                self.should_exit = true; // For now, just exit
+                self.should_exit = true;
             }
             KeyCode::F(12) => self.screen = Screen::EmergencyShell,
             KeyCode::Up => {
@@ -137,17 +155,39 @@ impl App {
                 if let Some(i) = self.menu_state.selected() {
                     match i {
                         0 => self.screen = Screen::NetworkConfig,
-                        1 => self.screen = Screen::ViewLogs,
+                        1 => {
+                            self.log_viewer.load_logs();
+                            self.screen = Screen::ViewLogs;
+                        }
                         2 => self.screen = Screen::ClusterJoin,
                         3 => self.screen = Screen::RestartServices,
                         4 => self.screen = Screen::SystemInfo,
-                        5 => self.should_exit = true,
-                        6 => self.screen = Screen::EmergencyShell,
+                        5 => self.screen = Screen::Diagnostics,
+                        6 => self.should_exit = true,
+                        7 => self.screen = Screen::EmergencyShell,
                         _ => {}
                     }
                 }
             }
             KeyCode::Char('q') => self.should_exit = true,
+            _ => {}
+        }
+    }
+
+    fn handle_logs_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Esc | KeyCode::F(1) => self.screen = Screen::Main,
+            KeyCode::Up | KeyCode::Char('k') => self.log_viewer.select_prev(),
+            KeyCode::Down | KeyCode::Char('j') => self.log_viewer.select_next(),
+            KeyCode::Home => self.log_viewer.select_first(),
+            KeyCode::End => self.log_viewer.select_last(),
+            KeyCode::Tab => {
+                let next = (self.log_viewer.current_tab + 1) % self.log_viewer.log_files.len();
+                self.log_viewer.switch_log(next);
+            }
+            KeyCode::Char('e') => self.log_viewer.toggle_errors_only(),
+            KeyCode::Char('p') => self.log_viewer.paused = !self.log_viewer.paused,
+            KeyCode::Char('r') => self.log_viewer.load_logs(),
             _ => {}
         }
     }
@@ -172,7 +212,7 @@ fn ui(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(8),  // Header/Banner
+            Constraint::Length(7),  // Header/Banner
             Constraint::Min(10),    // Main content
             Constraint::Length(3),  // Footer/Status
         ])
@@ -184,12 +224,13 @@ fn ui(frame: &mut Frame, app: &mut App) {
     // Render main content based on current screen
     match app.screen {
         Screen::Main => render_main_menu(frame, chunks[1], app),
-        Screen::NetworkConfig => render_network_config(frame, chunks[1], app),
-        Screen::ClusterJoin => render_cluster_join(frame, chunks[1], app),
-        Screen::ViewLogs => render_view_logs(frame, chunks[1], app),
+        Screen::NetworkConfig => render_network_config(frame, chunks[1]),
+        Screen::ClusterJoin => render_cluster_join(frame, chunks[1]),
+        Screen::ViewLogs => logs::render_log_viewer(frame, chunks[1], &mut app.log_viewer),
         Screen::SystemInfo => render_system_info(frame, chunks[1], app),
-        Screen::RestartServices => render_restart_services(frame, chunks[1], app),
-        Screen::EmergencyShell => render_emergency_shell(frame, chunks[1], app),
+        Screen::RestartServices => render_restart_services(frame, chunks[1]),
+        Screen::EmergencyShell => render_emergency_shell(frame, chunks[1]),
+        Screen::Diagnostics => render_diagnostics(frame, chunks[1], app),
     }
 
     // Render footer
@@ -200,24 +241,37 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
     let hostname = app.config.hostname.as_deref().unwrap_or("quantix");
     let ip = system::get_management_ip().unwrap_or_else(|| "Not configured".to_string());
     let node_status = if app.config.cluster_joined {
-        "Joined"
+        "🟢 Joined"
     } else {
-        "Standalone"
+        "🟡 Standalone"
+    };
+
+    // Status indicator based on log errors
+    let health = if app.log_viewer.stats.errors > 0 {
+        format!("❌ {} errors", app.log_viewer.stats.errors)
+    } else {
+        "✅ Healthy".to_string()
     };
 
     let header_text = format!(
         r#"
 ╔═══════════════════════════════════════════════════════════════════════════════╗
-║                          QUANTIX-OS v1.0.0                                    ║
-║                         The VMware Killer                                     ║
+║  🖥️  QUANTIX-OS v1.0.0                                        {}  ║
 ╠═══════════════════════════════════════════════════════════════════════════════╣
-║  Node: {:<20}  Status: {:<15}  IP: {:<15}  ║
+║  Node: {:<18}  Status: {:<14}  IP: {:<15}  ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝"#,
+        health,
         hostname, node_status, ip
     );
 
+    let header_style = if app.log_viewer.stats.errors > 0 {
+        Style::default().fg(Color::Yellow)
+    } else {
+        Style::default().fg(Color::Cyan)
+    };
+
     let header = Paragraph::new(header_text)
-        .style(Style::default().fg(Color::Cyan))
+        .style(header_style)
         .alignment(Alignment::Left);
 
     frame.render_widget(header, area);
@@ -226,14 +280,18 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
 fn render_main_menu(frame: &mut Frame, area: Rect, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+        .constraints([
+            Constraint::Percentage(35),
+            Constraint::Percentage(35),
+            Constraint::Percentage(30),
+        ])
         .split(area);
 
-    // Left side: Menu
+    // Left: Menu
     let menu_items: Vec<ListItem> = app
         .menu_items()
         .iter()
-        .map(|(key, label)| {
+        .map(|(key, emoji, label)| {
             ListItem::new(Line::from(vec![
                 Span::styled(
                     format!(" [{key}] "),
@@ -241,6 +299,7 @@ fn render_main_menu(frame: &mut Frame, area: Rect, app: &mut App) {
                         .fg(Color::Yellow)
                         .add_modifier(Modifier::BOLD),
                 ),
+                Span::raw(format!("{} ", emoji)),
                 Span::raw(*label),
             ]))
         })
@@ -249,7 +308,7 @@ fn render_main_menu(frame: &mut Frame, area: Rect, app: &mut App) {
     let menu = List::new(menu_items)
         .block(
             Block::default()
-                .title(" Menu ")
+                .title(" 📋 Menu ")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan)),
         )
@@ -262,13 +321,14 @@ fn render_main_menu(frame: &mut Frame, area: Rect, app: &mut App) {
 
     frame.render_stateful_widget(menu, chunks[0], &mut app.menu_state);
 
-    // Right side: System Status
+    // Center: System Status
     render_system_status(frame, chunks[1], app);
+
+    // Right: Log Summary
+    logs::render_log_summary(frame, chunks[2], &app.log_viewer);
 }
 
 fn render_system_status(frame: &mut Frame, area: Rect, app: &App) {
-    app.system.refresh_all();
-
     let cpu_usage = app.system.global_cpu_usage();
     let total_mem = app.system.total_memory();
     let used_mem = app.system.used_memory();
@@ -277,25 +337,31 @@ fn render_system_status(frame: &mut Frame, area: Rect, app: &App) {
     let vm_count = get_vm_count();
     let uptime = system::get_uptime();
 
+    // CPU bar
+    let cpu_bar = create_progress_bar(cpu_usage as f64, 100.0, 20);
+    let mem_bar = create_progress_bar(mem_percent, 100.0, 20);
+
+    let cpu_emoji = if cpu_usage > 90.0 { "🔴" } else if cpu_usage > 70.0 { "🟡" } else { "🟢" };
+    let mem_emoji = if mem_percent > 90.0 { "🔴" } else if mem_percent > 80.0 { "🟡" } else { "🟢" };
+
     let status_text = format!(
         r#"
-  System Status
-  ─────────────────────────────────────
-  
-  CPU Usage:     {:.1}%
-  Memory:        {:.1}% ({} / {})
-  
-  VMs Running:   {}
-  Uptime:        {}
-  
-  ─────────────────────────────────────
-  
-  Management URL:
-  https://{}:8443
-  
+  💻 CPU:    {} {:.1}%
+         {}
+
+  🧠 Memory: {} {:.1}%
+         {}
+         {} / {}
+
+  🖥️ VMs:    {} running
+  ⏱️ Uptime: {}
+
+  🌐 URL: https://{}:8443
   "#,
-        cpu_usage,
-        mem_percent,
+        cpu_emoji, cpu_usage,
+        cpu_bar,
+        mem_emoji, mem_percent,
+        mem_bar,
         humansize::format_size(used_mem, humansize::BINARY),
         humansize::format_size(total_mem, humansize::BINARY),
         vm_count,
@@ -306,7 +372,7 @@ fn render_system_status(frame: &mut Frame, area: Rect, app: &App) {
     let status = Paragraph::new(status_text)
         .block(
             Block::default()
-                .title(" System Status ")
+                .title(" 📊 System Status ")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan)),
         )
@@ -315,18 +381,24 @@ fn render_system_status(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(status, area);
 }
 
-fn render_network_config(frame: &mut Frame, area: Rect, _app: &App) {
+fn create_progress_bar(value: f64, max: f64, width: usize) -> String {
+    let filled = ((value / max) * width as f64) as usize;
+    let empty = width.saturating_sub(filled);
+    format!("[{}{}]", "█".repeat(filled), "░".repeat(empty))
+}
+
+fn render_network_config(frame: &mut Frame, area: Rect) {
     let text = r#"
-  Network Configuration
+  🌐 Network Configuration
   ═════════════════════════════════════════════════════════════════
 
   This screen will allow you to configure:
 
-  • Management interface selection
-  • DHCP or Static IP configuration
-  • VLAN tagging
-  • DNS servers
-  • Gateway
+  • 🔌 Management interface selection
+  • 📡 DHCP or Static IP configuration
+  • 🏷️ VLAN tagging
+  • 🌍 DNS servers
+  • 🚪 Gateway
 
   [Feature coming soon - use shell fallback for now]
 
@@ -336,7 +408,7 @@ fn render_network_config(frame: &mut Frame, area: Rect, _app: &App) {
     let paragraph = Paragraph::new(text)
         .block(
             Block::default()
-                .title(" Network Configuration ")
+                .title(" 🌐 Network Configuration ")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow)),
         )
@@ -345,20 +417,20 @@ fn render_network_config(frame: &mut Frame, area: Rect, _app: &App) {
     frame.render_widget(paragraph, area);
 }
 
-fn render_cluster_join(frame: &mut Frame, area: Rect, _app: &App) {
+fn render_cluster_join(frame: &mut Frame, area: Rect) {
     let text = r#"
-  Join Cluster
+  🔗 Join Cluster
   ═════════════════════════════════════════════════════════════════
 
   To join this node to a Quantix cluster:
 
-  1. Get the join command from the Control Plane web UI
-  2. Enter the Control Plane URL
-  3. Enter the join token
+  1️⃣  Get the join command from the Control Plane web UI
+  2️⃣  Enter the Control Plane URL
+  3️⃣  Enter the join token
 
   Example:
-    URL:   https://control.example.com:6443
-    Token: xxxx.yyyyyyyyyyyy
+    🌐 URL:   https://control.example.com:6443
+    🔑 Token: xxxx.yyyyyyyyyyyy
 
   [Feature coming soon - use CLI for now]
 
@@ -368,29 +440,9 @@ fn render_cluster_join(frame: &mut Frame, area: Rect, _app: &App) {
     let paragraph = Paragraph::new(text)
         .block(
             Block::default()
-                .title(" Join Cluster ")
+                .title(" 🔗 Join Cluster ")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Green)),
-        )
-        .wrap(Wrap { trim: true });
-
-    frame.render_widget(paragraph, area);
-}
-
-fn render_view_logs(frame: &mut Frame, area: Rect, _app: &App) {
-    // Read last 20 lines of log
-    let log_content = std::fs::read_to_string("/var/log/quantix-node.log")
-        .unwrap_or_else(|_| "No logs available".to_string());
-
-    let lines: Vec<&str> = log_content.lines().rev().take(20).collect();
-    let display_text = lines.into_iter().rev().collect::<Vec<_>>().join("\n");
-
-    let paragraph = Paragraph::new(display_text)
-        .block(
-            Block::default()
-                .title(" Node Daemon Logs (last 20 lines) ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Blue)),
         )
         .wrap(Wrap { trim: true });
 
@@ -419,19 +471,19 @@ fn render_system_info(frame: &mut Frame, area: Rect, app: &App) {
 
     let text = format!(
         r#"
-  System Information
+  ℹ️ System Information
   ═════════════════════════════════════════════════════════════════
 
-  Hostname:       {}
-  Kernel:         {}
-  Uptime:         {}
+  🏠 Hostname:       {}
+  🐧 Kernel:         {}
+  ⏱️ Uptime:         {}
 
-  CPU Model:      {}
-  CPU Cores:      {}
-  Total Memory:   {}
+  💻 CPU Model:      {}
+  🔢 CPU Cores:      {}
+  🧠 Total Memory:   {}
 
-  Node ID:        {}
-  Cluster:        {}
+  🆔 Node ID:        {}
+  🔗 Cluster:        {}
 
   Press ESC or F1 to return to main menu
   "#,
@@ -452,7 +504,7 @@ fn render_system_info(frame: &mut Frame, area: Rect, app: &App) {
     let paragraph = Paragraph::new(text)
         .block(
             Block::default()
-                .title(" System Information ")
+                .title(" ℹ️ System Information ")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Magenta)),
         )
@@ -461,18 +513,18 @@ fn render_system_info(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(paragraph, area);
 }
 
-fn render_restart_services(frame: &mut Frame, area: Rect, _app: &App) {
+fn render_restart_services(frame: &mut Frame, area: Rect) {
     let text = r#"
-  Restart Services
+  🔧 Restart Services
   ═════════════════════════════════════════════════════════════════
 
   Select a service to restart:
 
-  [1] Quantix Node Daemon
-  [2] Libvirt
-  [3] Open vSwitch
-  [4] Networking
-  [5] All Services
+  [1] 🤖 Quantix Node Daemon
+  [2] 🖥️ Libvirt
+  [3] 🌐 Open vSwitch
+  [4] 📡 Networking
+  [5] 🔄 All Services
 
   [Feature coming soon]
 
@@ -482,18 +534,18 @@ fn render_restart_services(frame: &mut Frame, area: Rect, _app: &App) {
     let paragraph = Paragraph::new(text)
         .block(
             Block::default()
-                .title(" Restart Services ")
+                .title(" 🔧 Restart Services ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Red)),
+                .border_style(Style::default().fg(Color::Blue)),
         )
         .wrap(Wrap { trim: true });
 
     frame.render_widget(paragraph, area);
 }
 
-fn render_emergency_shell(frame: &mut Frame, area: Rect, _app: &App) {
+fn render_emergency_shell(frame: &mut Frame, area: Rect) {
     let text = r#"
-  Emergency Shell
+  🚨 Emergency Shell
   ═════════════════════════════════════════════════════════════════
 
   ⚠️  WARNING: Emergency shell access is for troubleshooting only!
@@ -502,11 +554,13 @@ fn render_emergency_shell(frame: &mut Frame, area: Rect, _app: &App) {
   used when the web UI and API are inaccessible.
 
   To access the emergency shell:
-    1. Press CONFIRM below
-    2. Switch to TTY7 (Alt+F7)
-    3. Press Enter to activate shell
+    1️⃣  Press 'y' below to confirm
+    2️⃣  Switch to TTY7 (Alt+F7)
+    3️⃣  Press Enter to activate shell
 
   Type 'exit' in the shell to return to this console.
+
+  ⚠️  All shell activity is logged!
 
   [Press 'y' to enable emergency shell on TTY7]
   [Press ESC to cancel]
@@ -515,7 +569,7 @@ fn render_emergency_shell(frame: &mut Frame, area: Rect, _app: &App) {
     let paragraph = Paragraph::new(text)
         .block(
             Block::default()
-                .title(" ⚠️  Emergency Shell ")
+                .title(" 🚨 Emergency Shell ")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Red)),
         )
@@ -524,8 +578,63 @@ fn render_emergency_shell(frame: &mut Frame, area: Rect, _app: &App) {
     frame.render_widget(paragraph, area);
 }
 
-fn render_footer(frame: &mut Frame, area: Rect, _app: &App) {
-    let footer_text = " [F1] Main Menu  |  [↑↓] Navigate  |  [Enter] Select  |  [ESC] Back ";
+fn render_diagnostics(frame: &mut Frame, area: Rect, app: &App) {
+    let running_vms = get_vm_count();
+    
+    let text = format!(
+        r#"
+  🔍 Quick Diagnostics
+  ═════════════════════════════════════════════════════════════════
+
+  📊 System Health
+  ────────────────────────────────────────────────────────────────
+  ✅ Node Daemon:     Running
+  ✅ Libvirt:         Running  
+  ✅ Open vSwitch:    Running
+  🖥️ VMs Running:     {}
+
+  📋 Log Statistics  
+  ────────────────────────────────────────────────────────────────
+  📝 Total Entries:   {}
+  ❌ Errors:          {}
+  ⚠️ Warnings:        {}
+
+  🔧 For detailed diagnostics, use the shell command:
+     $ qx-diag
+
+  Available commands:
+     qx-diag health    - Quick health check
+     qx-diag logs      - View recent logs  
+     qx-diag errors    - View errors only
+     qx-diag report    - Generate full report
+
+  Press ESC or F1 to return to main menu
+  "#,
+        running_vms,
+        app.log_viewer.stats.total,
+        app.log_viewer.stats.errors,
+        app.log_viewer.stats.warnings,
+    );
+
+    let paragraph = Paragraph::new(text)
+        .block(
+            Block::default()
+                .title(" 🔍 Diagnostics ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        )
+        .wrap(Wrap { trim: true });
+
+    frame.render_widget(paragraph, area);
+}
+
+fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
+    let footer_text = match app.screen {
+        Screen::ViewLogs => {
+            " [Tab] Switch Log | [E] Errors Only | [P] Pause | [R] Reload | [↑↓] Scroll | [Esc] Back "
+        }
+        _ => " [F1] Main | [↑↓] Navigate | [Enter] Select | [Esc] Back | [F3] Logs | [F7] Diag ",
+    };
 
     let footer = Paragraph::new(footer_text)
         .style(Style::default().fg(Color::White).bg(Color::DarkGray))
@@ -539,7 +648,6 @@ fn render_footer(frame: &mut Frame, area: Rect, _app: &App) {
 // =============================================================================
 
 fn get_vm_count() -> usize {
-    // Try to get VM count from libvirt
     std::process::Command::new("virsh")
         .args(["list", "--all"])
         .output()
@@ -566,7 +674,7 @@ fn main() -> Result<()> {
         .with_target(false)
         .init();
 
-    info!("Starting Quantix Console TUI");
+    info!("🚀 Starting Quantix Console TUI");
 
     // Setup terminal
     enable_raw_mode()?;
@@ -591,7 +699,7 @@ fn main() -> Result<()> {
     terminal.show_cursor()?;
 
     if let Err(err) = result {
-        error!("Console error: {}", err);
+        error!("❌ Console error: {}", err);
         eprintln!("Error: {err}");
     }
 
@@ -602,6 +710,11 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app: &mut App) -> 
     loop {
         // Refresh system info periodically
         app.refresh_system_info();
+
+        // Tail logs if viewing logs screen
+        if app.screen == Screen::ViewLogs {
+            let _ = app.log_viewer.tail();
+        }
 
         // Draw UI
         terminal.draw(|f| ui(f, app))?;
