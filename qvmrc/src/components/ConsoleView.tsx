@@ -10,12 +10,21 @@ import {
   Usb,
   ZoomIn,
   ZoomOut,
+  ChevronDown,
+  Power,
+  PowerOff,
+  RefreshCw,
+  Disc,
+  X,
+  Loader2,
+  FolderOpen,
 } from 'lucide-react';
 
 interface ConsoleViewProps {
   connectionId: string;
   vmId: string;
   vmName: string;
+  controlPlaneUrl: string;
   onDisconnect: () => void;
 }
 
@@ -29,10 +38,18 @@ interface FramebufferUpdate {
 
 type ScaleMode = 'fit' | 'fill' | '100%';
 
+// Toast notification state
+interface Toast {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
 export function ConsoleView({
   connectionId,
   vmId,
   vmName,
+  controlPlaneUrl,
   onDisconnect,
 }: ConsoleViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,6 +62,93 @@ export function ConsoleView({
   const [scaleMode, setScaleMode] = useState<ScaleMode>('fit');
   const [canvasScale, setCanvasScale] = useState(1);
   const hasReceivedInitialFrame = useRef(false);
+  
+  // VM Menu state
+  const [showVMMenu, setShowVMMenu] = useState(false);
+  const [showISODialog, setShowISODialog] = useState(false);
+  const [isoPath, setIsoPath] = useState('');
+  const [executingAction, setExecutingAction] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const vmMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Toast helpers
+  const showToast = useCallback((message: string, type: Toast['type'] = 'info') => {
+    const id = Date.now().toString();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  }, []);
+  
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (vmMenuRef.current && !vmMenuRef.current.contains(e.target as Node)) {
+        setShowVMMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+  
+  // Power action handler
+  const handlePowerAction = useCallback(async (action: string) => {
+    setExecutingAction(action);
+    setShowVMMenu(false);
+    
+    try {
+      await invoke('vm_power_action', {
+        controlPlaneUrl,
+        vmId,
+        action,
+      });
+      showToast(`VM ${action} command sent successfully`, 'success');
+    } catch (err) {
+      console.error(`Power action ${action} failed:`, err);
+      showToast(`Failed to ${action} VM: ${err}`, 'error');
+    } finally {
+      setExecutingAction(null);
+    }
+  }, [controlPlaneUrl, vmId, showToast]);
+  
+  // Browse for local ISO
+  const handleBrowseISO = useCallback(async () => {
+    try {
+      const path = await invoke<string | null>('browse_file', {
+        title: 'Select ISO Image',
+        filters: [{ name: 'ISO Images', extensions: ['iso'] }],
+      });
+      if (path) {
+        setIsoPath(path);
+      }
+    } catch (err) {
+      console.error('Browse failed:', err);
+      showToast('Failed to open file browser', 'error');
+    }
+  }, [showToast]);
+  
+  // Mount ISO
+  const handleMountISO = useCallback(async () => {
+    if (!isoPath.trim()) return;
+    
+    setExecutingAction('mount-iso');
+    
+    try {
+      await invoke('vm_mount_iso', {
+        controlPlaneUrl,
+        vmId,
+        isoPath: isoPath.trim(),
+      });
+      showToast('ISO mounted successfully', 'success');
+      setShowISODialog(false);
+      setIsoPath('');
+    } catch (err) {
+      console.error('Mount ISO failed:', err);
+      showToast(`Failed to mount ISO: ${err}`, 'error');
+    } finally {
+      setExecutingAction(null);
+    }
+  }, [controlPlaneUrl, vmId, isoPath, showToast]);
 
   // Calculate display dimensions based on container size and resolution
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
@@ -105,6 +209,62 @@ export function ConsoleView({
     return () => window.removeEventListener('resize', calculateScale);
   }, [calculateScale]);
 
+  // Helper to initialize canvas with resolution
+  const initializeCanvas = useCallback((width: number, height: number) => {
+    console.log(`[VNC] Initializing canvas: ${width}x${height}`);
+    
+    const canvas = canvasRef.current;
+    if (canvas && width > 0 && height > 0) {
+      canvas.width = width;
+      canvas.height = height;
+      
+      // Clear canvas to black
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, width, height);
+      }
+    }
+    
+    setResolution({ width, height });
+  }, []);
+
+  // Fetch connection info on mount (in case vnc:connected already fired)
+  useEffect(() => {
+    const fetchConnectionInfo = async () => {
+      try {
+        const info = await invoke<{
+          id: string;
+          vm_id: string;
+          status: string;
+          width: number;
+          height: number;
+        } | null>('get_connection_info', { connectionId });
+        
+        if (info && info.width > 0 && info.height > 0) {
+          console.log(`[VNC] Got connection info: ${info.width}x${info.height}`);
+          initializeCanvas(info.width, info.height);
+        }
+      } catch (e) {
+        console.error('[VNC] Failed to get connection info:', e);
+      }
+    };
+
+    // Fetch immediately in case connection was already established
+    fetchConnectionInfo();
+    
+    // Also poll a few times in case there's a delay
+    const timer1 = setTimeout(fetchConnectionInfo, 100);
+    const timer2 = setTimeout(fetchConnectionInfo, 500);
+    const timer3 = setTimeout(fetchConnectionInfo, 1000);
+    
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [connectionId, initializeCanvas]);
+
   // Handle framebuffer updates
   useEffect(() => {
     const unlistenFb = listen<FramebufferUpdate>('vnc:framebuffer', (event) => {
@@ -115,6 +275,22 @@ export function ConsoleView({
       if (!ctx) return;
 
       const update = event.payload;
+      
+      // If canvas not sized yet, size it based on first update
+      if (canvas.width === 0 || canvas.height === 0) {
+        // Try to get resolution from connection
+        invoke<{
+          id: string;
+          vm_id: string;
+          status: string;
+          width: number;
+          height: number;
+        } | null>('get_connection_info', { connectionId }).then((info) => {
+          if (info && info.width > 0 && info.height > 0) {
+            initializeCanvas(info.width, info.height);
+          }
+        });
+      }
       
       // Create ImageData with correct dimensions
       const imageData = ctx.createImageData(update.width, update.height);
@@ -142,27 +318,8 @@ export function ConsoleView({
           const newWidth = event.payload.width;
           const newHeight = event.payload.height;
           
-          console.log(`[VNC] Connected with resolution: ${newWidth}x${newHeight}`);
-          
-          // Resize canvas to match VNC resolution FIRST
-          const canvas = canvasRef.current;
-          if (canvas) {
-            canvas.width = newWidth;
-            canvas.height = newHeight;
-            
-            // Clear canvas to black
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.fillStyle = '#000';
-              ctx.fillRect(0, 0, newWidth, newHeight);
-            }
-          }
-          
-          // THEN set resolution state (this triggers calculateScale via useEffect)
-          setResolution({
-            width: newWidth,
-            height: newHeight,
-          });
+          console.log(`[VNC] Connected event: ${newWidth}x${newHeight}`);
+          initializeCanvas(newWidth, newHeight);
         }
       }
     );
@@ -411,6 +568,86 @@ export function ConsoleView({
 
   return (
     <div ref={containerRef} className="h-full flex flex-col bg-black">
+      {/* Toast notifications */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className={`px-4 py-2 rounded-lg shadow-lg text-sm font-medium animate-slide-in ${
+              toast.type === 'success' ? 'bg-green-500/90 text-white' :
+              toast.type === 'error' ? 'bg-red-500/90 text-white' :
+              'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+            }`}
+          >
+            {toast.message}
+          </div>
+        ))}
+      </div>
+      
+      {/* ISO Mount Dialog */}
+      {showISODialog && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
+          <div className="bg-[var(--bg-surface)] rounded-xl shadow-2xl w-[480px] border border-[var(--border)]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+              <div className="flex items-center gap-3">
+                <Disc className="w-5 h-5 text-[var(--accent)]" />
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">Mount ISO Image</h2>
+              </div>
+              <button
+                onClick={() => { setShowISODialog(false); setIsoPath(''); }}
+                className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
+              >
+                <X className="w-4 h-4 text-[var(--text-muted)]" />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-[var(--text-secondary)]">
+                Select an ISO image from your local machine to mount to the VM's CD/DVD drive.
+              </p>
+              
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={isoPath}
+                  onChange={(e) => setIsoPath(e.target.value)}
+                  placeholder="Path to ISO file..."
+                  className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-base)] border border-[var(--border)] text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent)]"
+                />
+                <button
+                  onClick={handleBrowseISO}
+                  className="px-3 py-2 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] border border-[var(--border)] transition-colors flex items-center gap-2"
+                >
+                  <FolderOpen className="w-4 h-4 text-[var(--text-muted)]" />
+                  <span className="text-sm text-[var(--text-primary)]">Browse</span>
+                </button>
+              </div>
+              
+              <p className="text-xs text-[var(--text-muted)]">
+                Note: The ISO file must be accessible from the hypervisor host.
+              </p>
+            </div>
+            
+            <div className="flex justify-end gap-3 px-5 py-4 border-t border-[var(--border)]">
+              <button
+                onClick={() => { setShowISODialog(false); setIsoPath(''); }}
+                className="px-4 py-2 rounded-lg hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleMountISO}
+                disabled={!isoPath.trim() || executingAction === 'mount-iso'}
+                className="px-4 py-2 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {executingAction === 'mount-iso' && <Loader2 className="w-4 h-4 animate-spin" />}
+                Mount ISO
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-surface)] border-b border-[var(--border)]">
         <div className="flex items-center gap-3">
@@ -432,9 +669,83 @@ export function ConsoleView({
               Disconnected
             </span>
           )}
+          
+          {/* Executing action indicator */}
+          {executingAction && (
+            <span className="flex items-center gap-1.5 text-xs text-[var(--accent)] px-2 py-0.5 bg-[var(--accent)]/10 rounded-full">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              {executingAction === 'mount-iso' ? 'Mounting...' : `${executingAction}...`}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1">
+          {/* VM Menu Dropdown */}
+          <div ref={vmMenuRef} className="relative">
+            <button
+              onClick={() => setShowVMMenu(!showVMMenu)}
+              className="px-3 py-1.5 rounded-lg hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-1.5 text-sm"
+            >
+              <span className="text-[var(--text-primary)]">VM</span>
+              <ChevronDown className={`w-4 h-4 text-[var(--text-muted)] transition-transform ${showVMMenu ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showVMMenu && (
+              <div className="absolute right-0 top-full mt-1 w-48 py-1 bg-[var(--bg-elevated)] rounded-lg shadow-xl border border-[var(--border)] z-50 animate-slide-down">
+                <div className="px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                  Power
+                </div>
+                <button
+                  onClick={() => handlePowerAction('start')}
+                  disabled={!!executingAction}
+                  className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] flex items-center gap-2 text-sm disabled:opacity-50"
+                >
+                  <Power className="w-4 h-4 text-green-400" />
+                  <span className="text-[var(--text-primary)]">Power On</span>
+                </button>
+                <button
+                  onClick={() => handlePowerAction('shutdown')}
+                  disabled={!!executingAction}
+                  className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] flex items-center gap-2 text-sm disabled:opacity-50"
+                >
+                  <PowerOff className="w-4 h-4 text-orange-400" />
+                  <span className="text-[var(--text-primary)]">Shut Down Guest</span>
+                </button>
+                <button
+                  onClick={() => handlePowerAction('reboot')}
+                  disabled={!!executingAction}
+                  className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] flex items-center gap-2 text-sm disabled:opacity-50"
+                >
+                  <RefreshCw className="w-4 h-4 text-blue-400" />
+                  <span className="text-[var(--text-primary)]">Restart Guest</span>
+                </button>
+                <button
+                  onClick={() => handlePowerAction('stop')}
+                  disabled={!!executingAction}
+                  className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] flex items-center gap-2 text-sm disabled:opacity-50"
+                >
+                  <PowerOff className="w-4 h-4 text-red-400" />
+                  <span className="text-[var(--text-primary)]">Force Power Off</span>
+                </button>
+                
+                <div className="my-1 border-t border-[var(--border)]" />
+                
+                <div className="px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                  Devices
+                </div>
+                <button
+                  onClick={() => { setShowVMMenu(false); setShowISODialog(true); }}
+                  disabled={!!executingAction}
+                  className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] flex items-center gap-2 text-sm disabled:opacity-50"
+                >
+                  <Disc className="w-4 h-4 text-[var(--accent)]" />
+                  <span className="text-[var(--text-primary)]">Mount ISO...</span>
+                </button>
+              </div>
+            )}
+          </div>
+          
+          <div className="w-px h-5 bg-[var(--border)] mx-1" />
           {/* Scale mode toggle */}
           <button
             onClick={cycleScaleMode}

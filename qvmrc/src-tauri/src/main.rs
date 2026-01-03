@@ -249,6 +249,7 @@ fn main() {
             vnc::send_pointer_event,
             vnc::send_ctrl_alt_del,
             vnc::get_connection_status,
+            vnc::get_connection_info,
             // VM control commands
             api::vm_power_action,
             api::vm_mount_iso,

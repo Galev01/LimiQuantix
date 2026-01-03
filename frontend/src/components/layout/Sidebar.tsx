@@ -13,7 +13,6 @@ import {
   ChevronDown,
   MonitorCog,
   Boxes,
-  Cpu,
   FolderTree,
   Layers,
   Plus,
@@ -23,7 +22,11 @@ import {
   Bell,
   Zap,
   Cloud,
+  Scale,
+  KeyRound,
+  Radio,
 } from 'lucide-react';
+import QuantixLogo from '@/assets/Logo.png';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/app-store';
 
@@ -65,6 +68,9 @@ const navigation: NavItem[] = [
     icon: Network,
     children: [
       { id: 'networks', label: 'Virtual Networks', icon: Network, href: '/networks' },
+      { id: 'load-balancers', label: 'Load Balancers', icon: Scale, href: '/networks/load-balancers' },
+      { id: 'vpn', label: 'VPN Services', icon: KeyRound, href: '/networks/vpn' },
+      { id: 'bgp', label: 'BGP Speakers', icon: Radio, href: '/networks/bgp' },
       { id: 'security', label: 'Security Groups', icon: Shield, href: '/security' },
     ],
   },
@@ -274,9 +280,11 @@ export function Sidebar() {
         {/* Logo */}
         <div className="h-16 flex items-center px-4 border-b border-border">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-blue-400 flex items-center justify-center shadow-glow">
-              <Cpu className="w-5 h-5 text-white" />
-            </div>
+            <img 
+              src={QuantixLogo} 
+              alt="Quantix" 
+              className="w-10 h-10 object-contain"
+            />
             <AnimatePresence>
               {!sidebarCollapsed && (
                 <motion.div
@@ -285,7 +293,7 @@ export function Sidebar() {
                   exit={{ opacity: 0, x: -10 }}
                   className="flex flex-col"
                 >
-                  <span className="font-bold text-text-primary tracking-tight">limiquantix</span>
+                  <span className="font-bold text-text-primary tracking-tight text-lg">Quantix</span>
                   <span className="text-[10px] text-text-muted uppercase tracking-widest">
                     Virtualization
                   </span>

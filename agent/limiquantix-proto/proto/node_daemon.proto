@@ -112,6 +112,15 @@ service NodeDaemonService {
   // Request guest agent to shutdown/reboot the VM gracefully
   rpc GuestShutdown(GuestShutdownRequest) returns (GuestShutdownResponse);
   
+  // Quiesce filesystems for safe snapshots (fsfreeze/VSS)
+  rpc QuiesceFilesystems(QuiesceFilesystemsRequest) returns (QuiesceFilesystemsResponse);
+  
+  // Thaw filesystems after snapshot
+  rpc ThawFilesystems(ThawFilesystemsRequest) returns (ThawFilesystemsResponse);
+  
+  // Sync time after VM resume
+  rpc SyncTime(SyncTimeRequest) returns (SyncTimeResponse);
+  
   // =========================================================================
   // Storage Pool Operations
   // =========================================================================
@@ -610,6 +619,70 @@ message GuestShutdownRequest {
 message GuestShutdownResponse {
   bool accepted = 1;
   string error = 2;
+}
+
+// =============================================================================
+// FILESYSTEM QUIESCING (for safe snapshots)
+// =============================================================================
+
+message QuiesceFilesystemsRequest {
+  string vm_id = 1;
+  // Mount points to freeze (empty = all writable filesystems)
+  repeated string mount_points = 2;
+  // Timeout in seconds (default: 60, auto-thaw after this)
+  uint32 timeout_seconds = 3;
+  // Run pre-freeze scripts (e.g., database flush hooks)
+  bool run_pre_freeze_scripts = 4;
+}
+
+message QuiesceFilesystemsResponse {
+  bool success = 1;
+  // List of frozen filesystems
+  repeated FrozenFilesystem frozen = 2;
+  string error = 3;
+  // Token for thaw correlation
+  string quiesce_token = 4;
+}
+
+message FrozenFilesystem {
+  string mount_point = 1;
+  string device = 2;
+  string filesystem = 3;
+  bool frozen = 4;
+  string error = 5;
+}
+
+message ThawFilesystemsRequest {
+  string vm_id = 1;
+  // Token from QuiesceFilesystemsResponse
+  string quiesce_token = 2;
+  // Mount points to thaw (empty = all frozen)
+  repeated string mount_points = 3;
+  // Run post-thaw scripts
+  bool run_post_thaw_scripts = 4;
+}
+
+message ThawFilesystemsResponse {
+  bool success = 1;
+  repeated string thawed_mount_points = 2;
+  string error = 3;
+  // Duration filesystems were frozen (ms)
+  uint64 frozen_duration_ms = 4;
+}
+
+message SyncTimeRequest {
+  string vm_id = 1;
+  // Force immediate sync vs gradual drift correction
+  bool force = 2;
+}
+
+message SyncTimeResponse {
+  bool success = 1;
+  // Time offset corrected (seconds, can be negative)
+  double offset_seconds = 2;
+  // Time source used (ntp, chrony, manual)
+  string time_source = 3;
+  string error = 4;
 }
 
 // =============================================================================

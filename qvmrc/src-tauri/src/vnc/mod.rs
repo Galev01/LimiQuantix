@@ -319,3 +319,46 @@ pub fn get_connection_status(
         Ok(ConnectionStatus::Disconnected)
     }
 }
+
+/// Connection info including resolution
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectionInfo {
+    pub id: String,
+    pub vm_id: String,
+    pub status: ConnectionStatus,
+    pub width: u16,
+    pub height: u16,
+}
+
+/// Get connection info including resolution
+#[tauri::command]
+pub async fn get_connection_info(
+    state: State<'_, AppState>,
+    connection_id: String,
+) -> Result<Option<ConnectionInfo>, String> {
+    // First get basic info from connections
+    let (vm_id, status, client) = {
+        let connections = state.connections.read().map_err(|e| e.to_string())?;
+        if let Some(conn) = connections.iter().find(|c| c.id == connection_id) {
+            (conn.vm_id.clone(), conn.status.clone(), conn.client.clone())
+        } else {
+            return Ok(None);
+        }
+    };
+
+    // Get resolution from client if available
+    let (width, height) = if let Some(client) = client {
+        let client = client.lock().await;
+        (client.width, client.height)
+    } else {
+        (0, 0)
+    };
+
+    Ok(Some(ConnectionInfo {
+        id: connection_id,
+        vm_id,
+        status,
+        width,
+        height,
+    }))
+}

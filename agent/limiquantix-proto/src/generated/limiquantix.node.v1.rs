@@ -1727,6 +1727,108 @@ pub mod node_daemon_service_server {
             tonic::Response<Self::StreamEventsStream>,
             tonic::Status,
         >;
+        
+        // =========================================================================
+        // Guest Agent Operations
+        // =========================================================================
+        
+        /// Ping the guest agent
+        async fn ping_agent(
+            &self,
+            request: tonic::Request<super::VmIdRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentPingResponse>, tonic::Status>;
+        
+        /// Execute a command inside the VM
+        async fn execute_in_guest(
+            &self,
+            request: tonic::Request<super::ExecuteInGuestRequest>,
+        ) -> std::result::Result<tonic::Response<super::ExecuteInGuestResponse>, tonic::Status>;
+        
+        /// Read a file from the VM
+        async fn read_guest_file(
+            &self,
+            request: tonic::Request<super::ReadGuestFileRequest>,
+        ) -> std::result::Result<tonic::Response<super::ReadGuestFileResponse>, tonic::Status>;
+        
+        /// Write a file to the VM
+        async fn write_guest_file(
+            &self,
+            request: tonic::Request<super::WriteGuestFileRequest>,
+        ) -> std::result::Result<tonic::Response<super::WriteGuestFileResponse>, tonic::Status>;
+        
+        /// Request guest shutdown/reboot
+        async fn guest_shutdown(
+            &self,
+            request: tonic::Request<super::GuestShutdownRequest>,
+        ) -> std::result::Result<tonic::Response<super::GuestShutdownResponse>, tonic::Status>;
+        
+        // =========================================================================
+        // Storage Pool Operations
+        // =========================================================================
+        
+        /// Initialize a storage pool
+        async fn init_storage_pool(
+            &self,
+            request: tonic::Request<super::InitStoragePoolRequest>,
+        ) -> std::result::Result<tonic::Response<super::StoragePoolInfoResponse>, tonic::Status>;
+        
+        /// Destroy a storage pool
+        async fn destroy_storage_pool(
+            &self,
+            request: tonic::Request<super::StoragePoolIdRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
+        
+        /// Get storage pool info
+        async fn get_storage_pool_info(
+            &self,
+            request: tonic::Request<super::StoragePoolIdRequest>,
+        ) -> std::result::Result<tonic::Response<super::StoragePoolInfoResponse>, tonic::Status>;
+        
+        /// List all storage pools
+        async fn list_storage_pools(
+            &self,
+            request: tonic::Request<()>,
+        ) -> std::result::Result<tonic::Response<super::ListStoragePoolsResponse>, tonic::Status>;
+        
+        // =========================================================================
+        // Storage Volume Operations
+        // =========================================================================
+        
+        /// Create a volume
+        async fn create_volume(
+            &self,
+            request: tonic::Request<super::CreateVolumeRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
+        
+        /// Delete a volume
+        async fn delete_volume(
+            &self,
+            request: tonic::Request<super::VolumeIdRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
+        
+        /// Resize a volume
+        async fn resize_volume(
+            &self,
+            request: tonic::Request<super::ResizeVolumeRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
+        
+        /// Clone a volume
+        async fn clone_volume(
+            &self,
+            request: tonic::Request<super::CloneVolumeRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
+        
+        /// Get volume attach info
+        async fn get_volume_attach_info(
+            &self,
+            request: tonic::Request<super::VolumeIdRequest>,
+        ) -> std::result::Result<tonic::Response<super::VolumeAttachInfoResponse>, tonic::Status>;
+        
+        /// Create a volume snapshot
+        async fn create_volume_snapshot(
+            &self,
+            request: tonic::Request<super::CreateVolumeSnapshotRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct NodeDaemonServiceServer<T: NodeDaemonService> {

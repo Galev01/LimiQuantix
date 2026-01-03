@@ -445,6 +445,54 @@ curl -X POST http://localhost:8080/limiquantix.network.v1.BGPService/ListBGPPeer
 
 ---
 
+## Part 5: Frontend UI
+
+The LimiQuantix dashboard provides a comprehensive UI for managing all networking features.
+
+### 5.1 Navigation
+
+All networking features are accessible under the **Networking** section in the sidebar:
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/networks` | Virtual Networks | VLAN/overlay network management |
+| `/networks/load-balancers` | Load Balancers | L4 load balancer configuration |
+| `/networks/vpn` | VPN Services | WireGuard and IPsec management |
+| `/networks/bgp` | BGP Speakers | ToR switch integration |
+| `/security` | Security Groups | Firewall rules and ACLs |
+
+### 5.2 Load Balancer UI Features
+
+- **Dashboard cards** showing total LBs, active connections, healthy members
+- **LB list** with VIP, algorithm, listener ports, and member health
+- **Detail panel** with:
+  - Real-time stats (connections, RPS, traffic)
+  - Backend member table with health status
+  - Add/remove member actions
+  - Health check configuration
+
+### 5.3 VPN Services UI Features
+
+- **Dashboard cards** showing active VPN services and connections
+- **VPN list** with endpoint, type (WireGuard/IPsec), and allowed networks
+- **Detail panel** with:
+  - Server public key (for WireGuard)
+  - Client connections table with handshake status
+  - Traffic statistics per client
+  - Export config / Generate client config actions
+
+### 5.4 BGP Speakers UI Features
+
+- **Dashboard cards** showing speakers, established peers, advertised prefixes
+- **Speaker list** with ASN, router ID, node, peer status indicators
+- **Detail panel** with:
+  - Auto-advertisement settings
+  - Peer table with state, uptime, prefix counts
+  - Advertisements table with CIDR, communities, local preference
+  - Add peer / Advertise network actions
+
+---
+
 ## References
 
 - [OVN Load Balancer](https://docs.ovn.org/en/latest/ref/ovn-nb.5.html#load-balancer-table)

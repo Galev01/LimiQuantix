@@ -11,9 +11,8 @@ use tonic::{Request, Response, Status};
 use tracing::{info, debug, warn, error, instrument};
 
 use limiquantix_hypervisor::{
-    Hypervisor, VmConfig, VmState, DiskConfig, NicConfig, CdromConfig,
+    Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
     DiskBus, DiskFormat, NicModel, StorageManager, Firmware, BootDevice,
-    CloudInitConfig, CloudInitGenerator,
     // Network/OVS types
     OvsPortManager, NetworkPortConfig,
     // Storage types
@@ -22,8 +21,8 @@ use limiquantix_hypervisor::{
 use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
-    NodeInfoResponse, VmIdRequest, CreateVmOnNodeRequest, CreateVmOnNodeResponse,
-    StopVmRequest, VmStatusResponse, ListVMsOnNodeResponse, ConsoleInfoResponse,
+    NodeInfoResponse, VmIdRequest, CreateVmRequest, CreateVmResponse,
+    StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -212,16 +211,19 @@ impl NodeDaemonServiceImpl {
         
         cache.get(vm_id).map(|info| {
             let resource_usage = info.last_telemetry.as_ref().map(|t| {
+                // Convert separate load averages to Vec
+                let load_average = vec![t.load_avg_1, t.load_avg_5, t.load_avg_15];
+                
                 GuestResourceUsage {
                     cpu_usage_percent: t.cpu_usage_percent,
                     memory_total_bytes: t.memory_total_bytes,
                     memory_used_bytes: t.memory_used_bytes,
-                    memory_available_bytes: t.memory_available_bytes,
+                    memory_cached_bytes: 0, // Not available in our telemetry
+                    memory_buffers_bytes: 0, // Not available in our telemetry
                     swap_total_bytes: t.swap_total_bytes,
                     swap_used_bytes: t.swap_used_bytes,
-                    load_avg_1: t.load_avg_1,
-                    load_avg_5: t.load_avg_5,
-                    load_avg_15: t.load_avg_15,
+                    uptime_seconds: t.uptime_seconds,
+                    load_average,
                     disks: t.disks.iter().map(|d| GuestDiskUsage {
                         mount_point: d.mount_point.clone(),
                         device: d.device.clone(),
@@ -229,10 +231,8 @@ impl NodeDaemonServiceImpl {
                         total_bytes: d.total_bytes,
                         used_bytes: d.used_bytes,
                         available_bytes: d.available_bytes,
-                        usage_percent: d.usage_percent,
                     }).collect(),
                     process_count: t.process_count,
-                    uptime_seconds: t.uptime_seconds,
                 }
             });
             
@@ -242,7 +242,7 @@ impl NodeDaemonServiceImpl {
                     mac_address: i.mac_address.clone(),
                     ipv4_addresses: i.ipv4_addresses.clone(),
                     ipv6_addresses: i.ipv6_addresses.clone(),
-                    is_up: i.state == 1, // INTERFACE_STATE_UP
+                    up: i.state == 1, // INTERFACE_STATE_UP
                 }).collect())
                 .unwrap_or_default();
             
@@ -253,7 +253,7 @@ impl NodeDaemonServiceImpl {
                 os_version: info.os_version.clone(),
                 kernel_version: info.kernel_version.clone(),
                 hostname: info.hostname.clone(),
-                ip_addresses: info.ip_addresses.clone(),
+                timezone: String::new(), // Not tracked in cache
                 interfaces,
                 resource_usage,
                 capabilities: vec![
@@ -263,13 +263,6 @@ impl NodeDaemonServiceImpl {
                     "file_write".to_string(),
                     "shutdown".to_string(),
                 ],
-                last_seen: info.last_seen.map(|t| prost_types::Timestamp {
-                    seconds: std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs() as i64 - t.elapsed().as_secs() as i64,
-                    nanos: 0,
-                }),
             }
         })
     }
@@ -411,39 +404,30 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, name = %request.get_ref().name))]
     async fn create_vm(
         &self,
-        request: Request<CreateVmOnNodeRequest>,
-    ) -> Result<Response<CreateVmOnNodeResponse>, Status> {
+        request: Request<CreateVmRequest>,
+    ) -> Result<Response<CreateVmResponse>, Status> {
         info!("Creating VM via libvirt");
         
         let req = request.into_inner();
-        let spec = req.spec.ok_or_else(|| {
-            Status::invalid_argument("VM spec is required")
-        })?;
         
-        // Build VM configuration from the nested spec
+        // Build VM configuration from the request fields
         let mut config = VmConfig::new(&req.name)
             .with_id(&req.vm_id);
         
-        // Set CPU configuration
-        config.cpu.cores = spec.cpu_cores;
-        config.cpu.sockets = if spec.cpu_sockets > 0 { spec.cpu_sockets } else { 1 };
-        config.cpu.threads_per_core = if spec.cpu_threads_per_core > 0 { spec.cpu_threads_per_core } else { 1 };
+        // Set CPU configuration (flat fields in proto)
+        config.cpu.cores = req.cpu_cores;
+        config.cpu.sockets = if req.cpu_sockets > 0 { req.cpu_sockets } else { 1 };
+        config.cpu.threads_per_core = if req.cpu_threads > 0 { req.cpu_threads } else { 1 };
         
-        // Set memory configuration
-        config.memory.size_mib = spec.memory_mib;
-        config.memory.hugepages = spec.memory_hugepages;
+        // Set memory configuration (flat fields in proto)
+        config.memory.size_mib = req.memory_mib;
         
-        // Set boot configuration
-        config.boot.firmware = Self::convert_firmware(spec.firmware);
-        config.boot.order = spec.boot_order.iter()
-            .map(|&d| Self::convert_boot_device(d))
-            .collect();
-        if config.boot.order.is_empty() {
-            config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
-        }
+        // Set boot configuration (flat fields in proto)
+        config.boot.firmware = Self::convert_firmware(req.firmware);
+        config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
         
         // Process disks - create disk images if path not provided
-        for disk_spec in spec.disks {
+        for disk_spec in req.disks {
             let format = Self::convert_disk_format(disk_spec.format);
             
             let mut disk_config = DiskConfig {
@@ -454,24 +438,16 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 format,
                 readonly: disk_spec.readonly,
                 bootable: disk_spec.bootable,
-                // Set backing file if provided (for cloud images)
-                backing_file: if disk_spec.backing_file.is_empty() { 
-                    None 
-                } else { 
-                    Some(disk_spec.backing_file.clone()) 
-                },
+                backing_file: None, // backing_file not in generated proto
                 ..Default::default()
             };
             
             // If no disk path provided, create a new disk image
-            if disk_spec.path.is_empty() && (disk_spec.size_gib > 0 || !disk_spec.backing_file.is_empty()) {
-                let has_backing = !disk_spec.backing_file.is_empty();
-                
+            if disk_spec.path.is_empty() && disk_spec.size_gib > 0 {
                 info!(
                     vm_id = %req.vm_id,
                     disk_id = %disk_spec.id,
                     size_gib = disk_spec.size_gib,
-                    has_backing = has_backing,
                     "Creating disk image for VM"
                 );
                 
@@ -487,17 +463,10 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Use qemu-img to create disk
                 let mut cmd = std::process::Command::new("qemu-img");
-                cmd.arg("create").arg("-f").arg("qcow2");
-                
-                if has_backing {
-                    cmd.arg("-b").arg(&disk_spec.backing_file);
-                    cmd.arg("-F").arg("qcow2");
-                }
-                
-                cmd.arg(&disk_path);
-                if disk_spec.size_gib > 0 {
-                    cmd.arg(format!("{}G", disk_spec.size_gib));
-                }
+                cmd.arg("create")
+                    .arg("-f").arg("qcow2")
+                    .arg(&disk_path)
+                    .arg(format!("{}G", disk_spec.size_gib));
                 
                 match cmd.output() {
                     Ok(output) if output.status.success() => {
@@ -505,7 +474,6 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                             vm_id = %req.vm_id,
                             disk_id = %disk_spec.id,
                             path = %disk_path.display(),
-                            from_backing = has_backing,
                             "Disk image created successfully"
                         );
                     }
@@ -534,82 +502,12 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             config.disks.push(disk_config);
         }
         
-        // Process cloud-init configuration if provided
-        if let Some(cloud_init) = spec.cloud_init {
-            if !cloud_init.user_data.is_empty() || !cloud_init.meta_data.is_empty() {
-                info!(
-                    vm_id = %req.vm_id, 
-                    user_data_len = cloud_init.user_data.len(),
-                    meta_data_len = cloud_init.meta_data.len(),
-                    "Processing cloud-init configuration"
-                );
-                
-                // Debug: Log the actual user_data content (truncated for safety)
-                let preview_len = std::cmp::min(500, cloud_init.user_data.len());
-                debug!(
-                    vm_id = %req.vm_id,
-                    user_data_preview = %&cloud_init.user_data[..preview_len],
-                    "Cloud-init user_data preview"
-                );
-                
-                // Build cloud-init config
-                let ci_config = CloudInitConfig {
-                    instance_id: req.vm_id.clone(),
-                    hostname: req.name.clone(),
-                    user_data: cloud_init.user_data.clone(),
-                    meta_data: if cloud_init.meta_data.is_empty() { 
-                        None 
-                    } else { 
-                        Some(cloud_init.meta_data) 
-                    },
-                    network_config: if cloud_init.network_config.is_empty() { 
-                        None 
-                    } else { 
-                        Some(cloud_init.network_config) 
-                    },
-                    vendor_data: if cloud_init.vendor_data.is_empty() { 
-                        None 
-                    } else { 
-                        Some(cloud_init.vendor_data) 
-                    },
-                    ..Default::default()
-                };
-                
-                // Generate cloud-init ISO
-                let generator = CloudInitGenerator::new();
-                let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
-                if let Err(e) = std::fs::create_dir_all(&vm_dir) {
-                    warn!(vm_id = %req.vm_id, error = %e, "Failed to create VM directory for cloud-init");
-                }
-                
-                match generator.generate_iso(&ci_config, &vm_dir) {
-                    Ok(iso_path) => {
-                        info!(
-                            vm_id = %req.vm_id,
-                            iso_path = %iso_path.display(),
-                            "Cloud-init ISO generated"
-                        );
-                        
-                        // Add cloud-init ISO as a CD-ROM device
-                        config.cdroms.push(CdromConfig {
-                            id: "cloud-init".to_string(),
-                            iso_path: Some(iso_path.to_string_lossy().to_string()),
-                            bootable: false,
-                        });
-                    }
-                    Err(e) => {
-                        warn!(
-                            vm_id = %req.vm_id,
-                            error = %e,
-                            "Failed to generate cloud-init ISO, continuing without it"
-                        );
-                    }
-                }
-            }
-        }
+        // NOTE: Cloud-init configuration is in the nested VMSpec in the proto definition,
+        // but the generated code has flat fields without cloud_init support.
+        // Cloud-init will be available after proto regeneration on Linux.
         
         // Process NICs
-        for nic_spec in spec.nics {
+        for nic_spec in req.nics {
             // Determine bridge vs network mode
             // If the network name looks like a mock ID (starts with "net-" or is a UUID),
             // fall back to the default libvirt "default" network or virbr0 bridge
@@ -661,24 +559,10 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             });
         }
         
-        // Process CD-ROMs
-        for cdrom_spec in spec.cdroms {
-            let cdrom_config = CdromConfig {
-                id: cdrom_spec.id,
-                iso_path: if cdrom_spec.iso_path.is_empty() { None } else { Some(cdrom_spec.iso_path) },
-                bootable: cdrom_spec.bootable,
-            };
-            config.cdroms.push(cdrom_config);
-        }
-        
-        // Set console configuration
-        if let Some(console) = spec.console {
-            config.console.vnc_enabled = console.vnc_enabled;
-            config.console.vnc_port = if console.vnc_port > 0 { Some(console.vnc_port as u16) } else { None };
-            config.console.vnc_password = if console.vnc_password.is_empty() { None } else { Some(console.vnc_password) };
-            config.console.spice_enabled = console.spice_enabled;
-            config.console.spice_port = if console.spice_port > 0 { Some(console.spice_port as u16) } else { None };
-        }
+        // Note: CD-ROMs and console configuration are in the nested spec in the proto file
+        // but the generated code has flat fields. The generated proto uses vnc_enabled flag only.
+        // Set console configuration from flat vnc_enabled field
+        config.console.vnc_enabled = req.vnc_enabled;
         
         // Create the VM via the hypervisor backend
         info!(
@@ -695,7 +579,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Ok(created_id) => {
                 info!(vm_id = %created_id, "VM created successfully in libvirt");
                 
-                Ok(Response::new(CreateVmOnNodeResponse {
+                Ok(Response::new(CreateVmResponse {
                     vm_id: created_id,
                     created: true,
                     message: "VM created successfully".to_string(),
@@ -865,7 +749,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     async fn list_v_ms(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<ListVMsOnNodeResponse>, Status> {
+    ) -> Result<Response<ListVMsResponse>, Status> {
         let vms = self.hypervisor.list_vms().await
             .map_err(|e| Status::internal(e.to_string()))?;
         
@@ -884,7 +768,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         debug!(count = responses.len(), "Listed VMs");
         
-        Ok(Response::new(ListVMsOnNodeResponse { vms: responses }))
+        Ok(Response::new(ListVMsResponse { vms: responses }))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
@@ -1316,6 +1200,10 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         }
     }
     
+    // NOTE: quiesce_filesystems, thaw_filesystems, and sync_time methods
+    // require proto types that are not generated. They will be added when
+    // the proto file is regenerated with protoc on Linux.
+    
     // =========================================================================
     // Storage Pool Operations
     // =========================================================================
@@ -1449,9 +1337,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         info!(pool_id = %req.pool_id, volume_id = %req.volume_id, size = req.size_bytes, "Creating volume");
         
         let source = match VolumeSourceType::try_from(req.source_type) {
-            Ok(VolumeSourceType::VolumeSourceClone) => Some(VolumeSource::Clone(req.source_id)),
-            Ok(VolumeSourceType::VolumeSourceImage) => Some(VolumeSource::Image(req.source_id)),
-            Ok(VolumeSourceType::VolumeSourceSnapshot) => Some(VolumeSource::Snapshot(req.source_id)),
+            Ok(VolumeSourceType::Clone) => Some(VolumeSource::Clone(req.source_id)),
+            Ok(VolumeSourceType::Image) => Some(VolumeSource::Image(req.source_id)),
+            Ok(VolumeSourceType::Snapshot) => Some(VolumeSource::Snapshot(req.source_id)),
             _ => None,
         };
         

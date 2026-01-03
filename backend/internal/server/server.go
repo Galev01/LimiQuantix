@@ -232,6 +232,11 @@ func (s *Server) registerRoutes() {
 	s.mux.Handle("/api/console/", consoleHandler)
 	s.logger.Info("Registered console WebSocket handler", zap.String("path", "/api/console/{vmId}/ws"))
 
+	// Agent download endpoint (for cloud-init auto-install)
+	agentHandler := NewAgentDownloadHandler(s.logger)
+	s.mux.Handle("/api/agent/", agentHandler)
+	s.logger.Info("Registered agent download handler", zap.String("path", "/api/agent/"))
+
 	// =========================================================================
 	// Connect-RPC Services - Compute
 	// =========================================================================

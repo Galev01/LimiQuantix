@@ -8,6 +8,7 @@ interface ActiveConnection {
   connectionId: string;
   vmId: string;
   vmName: string;
+  controlPlaneUrl: string;
 }
 
 interface PendingConnection {
@@ -68,6 +69,7 @@ function App() {
               connectionId: vncConnectionId,
               vmId: pending.vm_id,
               vmName: pending.vm_name,
+              controlPlaneUrl: pending.control_plane_url,
             });
             setView('console');
           } catch (err) {
@@ -139,6 +141,7 @@ function App() {
           connectionId={activeConnection.connectionId}
           vmId={activeConnection.vmId}
           vmName={activeConnection.vmName}
+          controlPlaneUrl={activeConnection.controlPlaneUrl}
           onDisconnect={handleDisconnect}
         />
       )}

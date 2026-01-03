@@ -567,3 +567,138 @@ message TunnelStatus {
   string ipsec_state = 9;
 }
 
+// =============================================================================
+// BGP SERVICE (FOR TOR INTEGRATION)
+// =============================================================================
+
+// BGPService manages BGP speakers for advertising overlay routes to physical switches.
+service BGPService {
+  // CreateSpeaker creates a new BGP speaker.
+  rpc CreateSpeaker(CreateBGPSpeakerRequest) returns (BGPSpeaker);
+  
+  // GetSpeaker retrieves a BGP speaker by ID.
+  rpc GetSpeaker(GetBGPSpeakerRequest) returns (BGPSpeaker);
+  
+  // ListSpeakers returns all BGP speakers.
+  rpc ListSpeakers(ListBGPSpeakersRequest) returns (ListBGPSpeakersResponse);
+  
+  // DeleteSpeaker removes a BGP speaker.
+  rpc DeleteSpeaker(DeleteBGPSpeakerRequest) returns (google.protobuf.Empty);
+  
+  // AddPeer adds a BGP peer to a speaker.
+  rpc AddPeer(AddBGPPeerRequest) returns (BGPPeer);
+  
+  // RemovePeer removes a BGP peer.
+  rpc RemovePeer(RemoveBGPPeerRequest) returns (google.protobuf.Empty);
+  
+  // ListPeers returns all peers for a speaker.
+  rpc ListPeers(ListBGPPeersRequest) returns (ListBGPPeersResponse);
+  
+  // AdvertiseNetwork advertises a network prefix.
+  rpc AdvertiseNetwork(AdvertiseNetworkRequest) returns (BGPAdvertisement);
+  
+  // WithdrawNetwork withdraws a network prefix.
+  rpc WithdrawNetwork(WithdrawNetworkRequest) returns (google.protobuf.Empty);
+  
+  // ListAdvertisements returns all advertised prefixes.
+  rpc ListAdvertisements(ListAdvertisementsRequest) returns (ListAdvertisementsResponse);
+  
+  // GetSpeakerStatus returns detailed BGP speaker status.
+  rpc GetSpeakerStatus(GetBGPSpeakerStatusRequest) returns (BGPSpeakerDetailedStatus);
+}
+
+// =============================================================================
+// BGP REQUEST/RESPONSE
+// =============================================================================
+
+message CreateBGPSpeakerRequest {
+  string name = 1;
+  string project_id = 2;
+  string description = 3;
+  map<string, string> labels = 4;
+  BGPSpeakerSpec spec = 5;
+}
+
+message GetBGPSpeakerRequest {
+  string id = 1;
+}
+
+message ListBGPSpeakersRequest {
+  string project_id = 1;
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListBGPSpeakersResponse {
+  repeated BGPSpeaker speakers = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message DeleteBGPSpeakerRequest {
+  string id = 1;
+}
+
+message AddBGPPeerRequest {
+  string speaker_id = 1;
+  string name = 2;
+  string peer_ip = 3;
+  uint32 remote_asn = 4;
+  string md5_password = 5;
+  uint32 hold_time = 6;
+  uint32 keepalive_interval = 7;
+  bool bfd_enabled = 8;
+}
+
+message RemoveBGPPeerRequest {
+  string speaker_id = 1;
+  string peer_id = 2;
+}
+
+message ListBGPPeersRequest {
+  string speaker_id = 1;
+}
+
+message ListBGPPeersResponse {
+  repeated BGPPeer peers = 1;
+}
+
+message AdvertiseNetworkRequest {
+  string speaker_id = 1;
+  string cidr = 2;
+  string next_hop = 3;
+  repeated string communities = 4;
+  uint32 local_preference = 5;
+}
+
+message WithdrawNetworkRequest {
+  string speaker_id = 1;
+  string advertisement_id = 2;
+}
+
+message ListAdvertisementsRequest {
+  string speaker_id = 1;
+}
+
+message ListAdvertisementsResponse {
+  repeated BGPAdvertisement advertisements = 1;
+}
+
+message GetBGPSpeakerStatusRequest {
+  string id = 1;
+}
+
+message BGPSpeakerDetailedStatus {
+  string speaker_id = 1;
+  BGPSpeakerStatus status = 2;
+  
+  // Per-peer status
+  repeated BGPPeer peers = 3;
+  
+  // Advertised routes
+  repeated BGPAdvertisement advertisements = 4;
+  
+  // Received routes (from peers)
+  uint32 received_routes = 5;
+}
+

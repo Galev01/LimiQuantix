@@ -730,3 +730,135 @@ message VpnStatus {
   string error_message = 2;
 }
 
+// =============================================================================
+// BGP (BORDER GATEWAY PROTOCOL) FOR TOR INTEGRATION
+// =============================================================================
+
+// BGPSpeaker represents a BGP speaker instance for advertising routes
+// to physical Top-of-Rack (ToR) switches.
+message BGPSpeaker {
+  string id = 1;
+  string name = 2;
+  string project_id = 3;
+  string description = 4;
+  map<string, string> labels = 5;
+  
+  BGPSpeakerSpec spec = 6;
+  BGPSpeakerStatus status = 7;
+  
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message BGPSpeakerSpec {
+  // Local ASN for this speaker
+  uint32 local_asn = 1;
+  
+  // Router ID (usually an IPv4 address)
+  string router_id = 2;
+  
+  // Associated router for route redistribution
+  string router_id_ref = 3;
+  
+  // Node where the BGP speaker runs (empty = control plane)
+  string node_id = 4;
+  
+  // Networks to advertise automatically from connected subnets
+  bool advertise_tenant_networks = 5;
+  
+  // Networks to advertise automatically from floating IPs
+  bool advertise_floating_ips = 6;
+}
+
+message BGPSpeakerStatus {
+  enum Phase {
+    UNKNOWN = 0;
+    PENDING = 1;
+    ACTIVE = 2;
+    DEGRADED = 3;
+    ERROR = 4;
+  }
+  Phase phase = 1;
+  
+  // Number of active peers
+  uint32 active_peers = 2;
+  
+  // Number of advertised routes
+  uint32 advertised_routes = 3;
+  
+  string error_message = 4;
+}
+
+// BGPPeer represents a BGP peering session with a ToR switch.
+message BGPPeer {
+  string id = 1;
+  string speaker_id = 2;
+  string name = 3;
+  
+  // Peer configuration
+  string peer_ip = 4;
+  uint32 remote_asn = 5;
+  
+  // Authentication
+  string md5_password = 6;
+  
+  // Timers
+  uint32 hold_time = 7;
+  uint32 keepalive_interval = 8;
+  
+  // BFD (Bidirectional Forwarding Detection) for fast failover
+  bool bfd_enabled = 9;
+  
+  BGPPeerStatus status = 10;
+  
+  google.protobuf.Timestamp created_at = 11;
+}
+
+message BGPPeerStatus {
+  enum State {
+    UNKNOWN = 0;
+    IDLE = 1;
+    CONNECT = 2;
+    ACTIVE = 3;
+    OPEN_SENT = 4;
+    OPEN_CONFIRM = 5;
+    ESTABLISHED = 6;
+  }
+  State state = 1;
+  
+  // Uptime in seconds (0 if not established)
+  uint64 uptime_seconds = 2;
+  
+  // Route statistics
+  uint32 prefixes_received = 3;
+  uint32 prefixes_advertised = 4;
+  
+  // Last state change
+  google.protobuf.Timestamp last_change = 5;
+  
+  string error_message = 6;
+}
+
+// BGPAdvertisement represents a network prefix advertised via BGP.
+message BGPAdvertisement {
+  string id = 1;
+  string speaker_id = 2;
+  
+  // The network prefix to advertise (CIDR notation)
+  string cidr = 3;
+  
+  // Next-hop IP (empty = use speaker's router ID)
+  string next_hop = 4;
+  
+  // Optional BGP communities
+  repeated string communities = 5;
+  
+  // Local preference (higher = more preferred)
+  uint32 local_preference = 6;
+  
+  // Whether this is actively being advertised
+  bool active = 7;
+  
+  google.protobuf.Timestamp created_at = 10;
+}
+

@@ -12,6 +12,9 @@ import { ClusterList } from '@/pages/ClusterList';
 import { ClusterDetail } from '@/pages/ClusterDetail';
 import { VirtualNetworks } from '@/pages/VirtualNetworks';
 import { SecurityGroups } from '@/pages/SecurityGroups';
+import { LoadBalancers } from '@/pages/LoadBalancers';
+import { VPNServices } from '@/pages/VPNServices';
+import { BGPSpeakers } from '@/pages/BGPSpeakers';
 import { Settings } from '@/pages/Settings';
 import { Monitoring } from '@/pages/Monitoring';
 import { Alerts } from '@/pages/Alerts';
@@ -51,6 +54,9 @@ function App() {
             
             {/* Networking */}
             <Route path="/networks" element={<VirtualNetworks />} />
+            <Route path="/networks/load-balancers" element={<LoadBalancers />} />
+            <Route path="/networks/vpn" element={<VPNServices />} />
+            <Route path="/networks/bgp" element={<BGPSpeakers />} />
             <Route path="/security" element={<SecurityGroups />} />
             
             {/* Operations */}

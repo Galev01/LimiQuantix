@@ -361,6 +361,10 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
           
           // Add Quantix Agent installation if enabled
           if (formData.installAgent) {
+            // Get the control plane URL from browser location
+            // In production, this should be configured via environment variable
+            const controlPlaneUrl = window.location.origin;
+            
             lines.push('');
             lines.push('# Quantix Agent Installation');
             lines.push('write_files:');
@@ -373,42 +377,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             lines.push('  # Start QEMU Guest Agent');
             lines.push('  - systemctl enable qemu-guest-agent');
             lines.push('  - systemctl start qemu-guest-agent');
-            lines.push('  # Install Quantix Agent');
-            lines.push('  - |');
-            lines.push('    # Detect OS and install Quantix Agent');
-            lines.push('    if command -v apt-get &> /dev/null; then');
-            lines.push('      # Debian/Ubuntu');
-            lines.push('      curl -fsSL https://releases.quantix.io/agent/latest/quantix-agent-linux-amd64.deb -o /tmp/quantix-agent.deb');
-            lines.push('      dpkg -i /tmp/quantix-agent.deb || apt-get install -f -y');
-            lines.push('      rm -f /tmp/quantix-agent.deb');
-            lines.push('    elif command -v dnf &> /dev/null || command -v yum &> /dev/null; then');
-            lines.push('      # RHEL/CentOS/Fedora');
-            lines.push('      curl -fsSL https://releases.quantix.io/agent/latest/quantix-agent-linux-amd64.rpm -o /tmp/quantix-agent.rpm');
-            lines.push('      rpm -ivh /tmp/quantix-agent.rpm || true');
-            lines.push('      rm -f /tmp/quantix-agent.rpm');
-            lines.push('    else');
-            lines.push('      # Fallback: direct binary install');
-            lines.push('      curl -fsSL https://releases.quantix.io/agent/latest/quantix-agent-linux-amd64 -o /usr/local/bin/quantix-agent');
-            lines.push('      chmod +x /usr/local/bin/quantix-agent');
-            lines.push('      # Create systemd service');
-            lines.push('      cat > /etc/systemd/system/quantix-agent.service << EOF');
-            lines.push('[Unit]');
-            lines.push('Description=Quantix Guest Agent');
-            lines.push('After=network.target');
-            lines.push('');
-            lines.push('[Service]');
-            lines.push('Type=simple');
-            lines.push('ExecStart=/usr/local/bin/quantix-agent');
-            lines.push('Restart=always');
-            lines.push('RestartSec=5');
-            lines.push('');
-            lines.push('[Install]');
-            lines.push('WantedBy=multi-user.target');
-            lines.push('EOF');
-            lines.push('    fi');
-            lines.push('  - systemctl daemon-reload');
-            lines.push('  - systemctl enable quantix-agent');
-            lines.push('  - systemctl start quantix-agent');
+            lines.push('  # Install Quantix Agent from Control Plane');
+            lines.push(`  - curl -fsSL ${controlPlaneUrl}/api/agent/install.sh | bash`);
           } else {
             lines.push('', 'runcmd:', '  - systemctl enable qemu-guest-agent', '  - systemctl start qemu-guest-agent');
           }

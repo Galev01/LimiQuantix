@@ -36,6 +36,7 @@ interface ConnectionListProps {
     connectionId: string;
     vmId: string;
     vmName: string;
+    controlPlaneUrl: string;
   }) => void;
   onOpenSettings: () => void;
 }
@@ -116,6 +117,7 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
         connectionId,
         vmId: connection.vm_id,
         vmName: connection.name,
+        controlPlaneUrl: connection.control_plane_url,
       });
     } catch (err) {
       console.error('Connection failed:', err);
