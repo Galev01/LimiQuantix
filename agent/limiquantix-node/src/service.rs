@@ -1329,10 +1329,10 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         info!(pool_id = %req.pool_id, pool_type = ?req.r#type, "Initializing storage pool");
         
         let pool_type = match StoragePoolType::try_from(req.r#type) {
-            Ok(StoragePoolType::StoragePoolTypeLocalDir) => PoolType::LocalDir,
-            Ok(StoragePoolType::StoragePoolTypeNfs) => PoolType::Nfs,
-            Ok(StoragePoolType::StoragePoolTypeCephRbd) => PoolType::CephRbd,
-            Ok(StoragePoolType::StoragePoolTypeIscsi) => PoolType::Iscsi,
+            Ok(StoragePoolType::LocalDir) => PoolType::LocalDir,
+            Ok(StoragePoolType::Nfs) => PoolType::Nfs,
+            Ok(StoragePoolType::CephRbd) => PoolType::CephRbd,
+            Ok(StoragePoolType::Iscsi) => PoolType::Iscsi,
             _ => return Err(Status::invalid_argument("Invalid pool type")),
         };
         
@@ -1387,11 +1387,11 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             .map_err(|e| Status::not_found(format!("Pool not found: {}", e)))?;
         
         let pool_type = match pool_info.pool_type {
-            PoolType::LocalDir => StoragePoolType::StoragePoolTypeLocalDir as i32,
-            PoolType::Nfs => StoragePoolType::StoragePoolTypeNfs as i32,
-            PoolType::CephRbd => StoragePoolType::StoragePoolTypeCephRbd as i32,
-            PoolType::Iscsi => StoragePoolType::StoragePoolTypeIscsi as i32,
-            _ => StoragePoolType::StoragePoolTypeUnspecified as i32,
+            PoolType::LocalDir => StoragePoolType::LocalDir as i32,
+            PoolType::Nfs => StoragePoolType::Nfs as i32,
+            PoolType::CephRbd => StoragePoolType::CephRbd as i32,
+            PoolType::Iscsi => StoragePoolType::Iscsi as i32,
+            _ => StoragePoolType::Unspecified as i32,
         };
         
         Ok(Response::new(StoragePoolInfoResponse {
@@ -1415,11 +1415,11 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         let pool_responses: Vec<StoragePoolInfoResponse> = pools.into_iter().map(|p| {
             let pool_type = match p.pool_type {
-                PoolType::LocalDir => StoragePoolType::StoragePoolTypeLocalDir as i32,
-                PoolType::Nfs => StoragePoolType::StoragePoolTypeNfs as i32,
-                PoolType::CephRbd => StoragePoolType::StoragePoolTypeCephRbd as i32,
-                PoolType::Iscsi => StoragePoolType::StoragePoolTypeIscsi as i32,
-                _ => StoragePoolType::StoragePoolTypeUnspecified as i32,
+                PoolType::LocalDir => StoragePoolType::LocalDir as i32,
+                PoolType::Nfs => StoragePoolType::Nfs as i32,
+                PoolType::CephRbd => StoragePoolType::CephRbd as i32,
+                PoolType::Iscsi => StoragePoolType::Iscsi as i32,
+                _ => StoragePoolType::Unspecified as i32,
             };
             StoragePoolInfoResponse {
                 pool_id: p.pool_id,
@@ -1449,9 +1449,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         info!(pool_id = %req.pool_id, volume_id = %req.volume_id, size = req.size_bytes, "Creating volume");
         
         let source = match VolumeSourceType::try_from(req.source_type) {
-            Ok(VolumeSourceType::VolumeSourceClone) => Some(VolumeSource::Clone(req.source_id)),
-            Ok(VolumeSourceType::VolumeSourceImage) => Some(VolumeSource::Image(req.source_id)),
-            Ok(VolumeSourceType::VolumeSourceSnapshot) => Some(VolumeSource::Snapshot(req.source_id)),
+            Ok(VolumeSourceType::Clone) => Some(VolumeSource::Clone(req.source_id)),
+            Ok(VolumeSourceType::Image) => Some(VolumeSource::Image(req.source_id)),
+            Ok(VolumeSourceType::Snapshot) => Some(VolumeSource::Snapshot(req.source_id)),
             _ => None,
         };
         
