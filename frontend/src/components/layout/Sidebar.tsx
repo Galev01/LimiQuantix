@@ -22,6 +22,7 @@ import {
   Activity,
   Bell,
   Zap,
+  Cloud,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/app-store';
@@ -55,6 +56,7 @@ const navigation: NavItem[] = [
     children: [
       { id: 'pools', label: 'Storage Pools', icon: Layers, href: '/storage/pools' },
       { id: 'volumes', label: 'Volumes', icon: HardDrive, href: '/storage/volumes' },
+      { id: 'images', label: 'Image Library', icon: Cloud, href: '/storage/images' },
     ],
   },
   {

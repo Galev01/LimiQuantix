@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release -p limiquantix-guest-agent
+
+override_dh_auto_install:
+	install -D -m 755 target/release/limiquantix-agent debian/limiquantix-guest-agent/usr/bin/limiquantix-agent
+	install -D -m 644 packaging/systemd/limiquantix-agent.service debian/limiquantix-guest-agent/lib/systemd/system/limiquantix-agent.service
+
+override_dh_auto_clean:
+	cargo clean || true
+
+override_dh_auto_test:
+	# Skip tests during package build

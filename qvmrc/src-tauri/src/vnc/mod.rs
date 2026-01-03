@@ -222,16 +222,21 @@ pub async fn send_key_event(
     key: u32,
     down: bool,
 ) -> Result<(), String> {
-    let connections = state.connections.read().map_err(|e| e.to_string())?;
+    // Clone the client Arc outside the lock
+    let client = {
+        let connections = state.connections.read().map_err(|e| e.to_string())?;
+        connections
+            .iter()
+            .find(|c| c.id == connection_id)
+            .and_then(|c| c.client.clone())
+    };
 
-    if let Some(conn) = connections.iter().find(|c| c.id == connection_id) {
-        if let Some(client) = &conn.client {
-            let mut client = client.lock().await;
-            client
-                .send_key_event(key, down)
-                .await
-                .map_err(|e| e.to_string())?;
-        }
+    if let Some(client) = client {
+        let mut client = client.lock().await;
+        client
+            .send_key_event(key, down)
+            .await
+            .map_err(|e| e.to_string())?;
     }
 
     Ok(())
@@ -246,16 +251,21 @@ pub async fn send_pointer_event(
     y: u16,
     buttons: u8,
 ) -> Result<(), String> {
-    let connections = state.connections.read().map_err(|e| e.to_string())?;
+    // Clone the client Arc outside the lock
+    let client = {
+        let connections = state.connections.read().map_err(|e| e.to_string())?;
+        connections
+            .iter()
+            .find(|c| c.id == connection_id)
+            .and_then(|c| c.client.clone())
+    };
 
-    if let Some(conn) = connections.iter().find(|c| c.id == connection_id) {
-        if let Some(client) = &conn.client {
-            let mut client = client.lock().await;
-            client
-                .send_pointer_event(x, y, buttons)
-                .await
-                .map_err(|e| e.to_string())?;
-        }
+    if let Some(client) = client {
+        let mut client = client.lock().await;
+        client
+            .send_pointer_event(x, y, buttons)
+            .await
+            .map_err(|e| e.to_string())?;
     }
 
     Ok(())
@@ -267,16 +277,21 @@ pub async fn send_ctrl_alt_del(
     state: State<'_, AppState>,
     connection_id: String,
 ) -> Result<(), String> {
-    let connections = state.connections.read().map_err(|e| e.to_string())?;
+    // Clone the client Arc outside the lock
+    let client = {
+        let connections = state.connections.read().map_err(|e| e.to_string())?;
+        connections
+            .iter()
+            .find(|c| c.id == connection_id)
+            .and_then(|c| c.client.clone())
+    };
 
-    if let Some(conn) = connections.iter().find(|c| c.id == connection_id) {
-        if let Some(client) = &conn.client {
-            let mut client = client.lock().await;
-            client
-                .send_ctrl_alt_del()
-                .await
-                .map_err(|e| e.to_string())?;
-        }
+    if let Some(client) = client {
+        let mut client = client.lock().await;
+        client
+            .send_ctrl_alt_del()
+            .await
+            .map_err(|e| e.to_string())?;
     }
 
     info!("Sent Ctrl+Alt+Del to {}", connection_id);

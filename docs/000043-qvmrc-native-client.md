@@ -325,6 +325,48 @@ window_maximized = false
 
 ---
 
+## Deep Link Integration
+
+QVMRC supports deep link URLs to automatically open and connect to VMs directly from the web UI.
+
+### URL Format
+
+```
+qvmrc://connect?url=<control_plane_url>&vmId=<vm_id>&vmName=<vm_name>
+```
+
+**Example:**
+```
+qvmrc://connect?url=http%3A%2F%2Flocalhost%3A8080&vmId=vm-abc123&vmName=My%20Web%20Server
+```
+
+### How It Works
+
+1. **User clicks "Open in QVMRC"** in the web UI
+2. Browser launches QVMRC with the deep link URL
+3. QVMRC parses the URL and:
+   - Saves the connection to config
+   - Immediately connects to the VM's VNC console
+4. Connection is saved for future access
+
+### Frontend Integration
+
+The web UI `ConsoleAccessModal` component generates the deep link:
+
+```typescript
+const qvmrcConnectionUrl = `qvmrc://connect?url=${encodeURIComponent(controlPlaneUrl)}&vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}`;
+```
+
+### Protocol Handler Registration
+
+The protocol handler is registered when QVMRC is installed:
+
+- **Windows:** Registry entries created by NSIS installer
+- **macOS:** `Info.plist` URL scheme registration
+- **Linux:** `.desktop` file with `x-scheme-handler`
+
+---
+
 ## Security Considerations
 
 1. **VNC Passwords** - Stored in config file (consider adding keychain integration)

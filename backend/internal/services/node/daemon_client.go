@@ -459,3 +459,15 @@ func (c *DaemonClient) StreamEvents(ctx context.Context) (<-chan *nodev1.NodeEve
 
 	return eventsChan, nil
 }
+
+// =============================================================================
+// Guest Agent Operations (TODO: Enable when proto definitions are complete)
+// =============================================================================
+
+// NOTE: The following guest agent operations are commented out until
+// the corresponding proto definitions are added to node_daemon.proto:
+// - PingAgent
+// - ExecuteInGuest
+// - ReadGuestFile
+// - WriteGuestFile
+// - GuestShutdown

@@ -127,6 +127,9 @@ const (
 	// ImageServiceDownloadImageProcedure is the fully-qualified name of the ImageService's
 	// DownloadImage RPC.
 	ImageServiceDownloadImageProcedure = "/limiquantix.storage.v1.ImageService/DownloadImage"
+	// ImageServiceGetImageCatalogProcedure is the fully-qualified name of the ImageService's
+	// GetImageCatalog RPC.
+	ImageServiceGetImageCatalogProcedure = "/limiquantix.storage.v1.ImageService/GetImageCatalog"
 )
 
 // StoragePoolServiceClient is a client for the limiquantix.storage.v1.StoragePoolService service.
@@ -876,6 +879,8 @@ type ImageServiceClient interface {
 	ScanLocalImages(context.Context, *connect.Request[v1.ScanLocalImagesRequest]) (*connect.Response[v1.ScanLocalImagesResponse], error)
 	// DownloadImage downloads a cloud image from an official source.
 	DownloadImage(context.Context, *connect.Request[v1.DownloadImageRequest]) (*connect.Response[v1.DownloadImageResponse], error)
+	// GetImageCatalog returns the list of available cloud images for download.
+	GetImageCatalog(context.Context, *connect.Request[v1.GetImageCatalogRequest]) (*connect.Response[v1.GetImageCatalogResponse], error)
 }
 
 // NewImageServiceClient constructs a client for the limiquantix.storage.v1.ImageService service. By
@@ -943,6 +948,12 @@ func NewImageServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(imageServiceMethods.ByName("DownloadImage")),
 			connect.WithClientOptions(opts...),
 		),
+		getImageCatalog: connect.NewClient[v1.GetImageCatalogRequest, v1.GetImageCatalogResponse](
+			httpClient,
+			baseURL+ImageServiceGetImageCatalogProcedure,
+			connect.WithSchema(imageServiceMethods.ByName("GetImageCatalog")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -957,6 +968,7 @@ type imageServiceClient struct {
 	getImportStatus *connect.Client[v1.GetImportStatusRequest, v1.ImportStatus]
 	scanLocalImages *connect.Client[v1.ScanLocalImagesRequest, v1.ScanLocalImagesResponse]
 	downloadImage   *connect.Client[v1.DownloadImageRequest, v1.DownloadImageResponse]
+	getImageCatalog *connect.Client[v1.GetImageCatalogRequest, v1.GetImageCatalogResponse]
 }
 
 // CreateImage calls limiquantix.storage.v1.ImageService.CreateImage.
@@ -1004,6 +1016,11 @@ func (c *imageServiceClient) DownloadImage(ctx context.Context, req *connect.Req
 	return c.downloadImage.CallUnary(ctx, req)
 }
 
+// GetImageCatalog calls limiquantix.storage.v1.ImageService.GetImageCatalog.
+func (c *imageServiceClient) GetImageCatalog(ctx context.Context, req *connect.Request[v1.GetImageCatalogRequest]) (*connect.Response[v1.GetImageCatalogResponse], error) {
+	return c.getImageCatalog.CallUnary(ctx, req)
+}
+
 // ImageServiceHandler is an implementation of the limiquantix.storage.v1.ImageService service.
 type ImageServiceHandler interface {
 	// CreateImage creates/imports a new image.
@@ -1025,6 +1042,8 @@ type ImageServiceHandler interface {
 	ScanLocalImages(context.Context, *connect.Request[v1.ScanLocalImagesRequest]) (*connect.Response[v1.ScanLocalImagesResponse], error)
 	// DownloadImage downloads a cloud image from an official source.
 	DownloadImage(context.Context, *connect.Request[v1.DownloadImageRequest]) (*connect.Response[v1.DownloadImageResponse], error)
+	// GetImageCatalog returns the list of available cloud images for download.
+	GetImageCatalog(context.Context, *connect.Request[v1.GetImageCatalogRequest]) (*connect.Response[v1.GetImageCatalogResponse], error)
 }
 
 // NewImageServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -1088,6 +1107,12 @@ func NewImageServiceHandler(svc ImageServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(imageServiceMethods.ByName("DownloadImage")),
 		connect.WithHandlerOptions(opts...),
 	)
+	imageServiceGetImageCatalogHandler := connect.NewUnaryHandler(
+		ImageServiceGetImageCatalogProcedure,
+		svc.GetImageCatalog,
+		connect.WithSchema(imageServiceMethods.ByName("GetImageCatalog")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/limiquantix.storage.v1.ImageService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ImageServiceCreateImageProcedure:
@@ -1108,6 +1133,8 @@ func NewImageServiceHandler(svc ImageServiceHandler, opts ...connect.HandlerOpti
 			imageServiceScanLocalImagesHandler.ServeHTTP(w, r)
 		case ImageServiceDownloadImageProcedure:
 			imageServiceDownloadImageHandler.ServeHTTP(w, r)
+		case ImageServiceGetImageCatalogProcedure:
+			imageServiceGetImageCatalogHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1151,4 +1178,8 @@ func (UnimplementedImageServiceHandler) ScanLocalImages(context.Context, *connec
 
 func (UnimplementedImageServiceHandler) DownloadImage(context.Context, *connect.Request[v1.DownloadImageRequest]) (*connect.Response[v1.DownloadImageResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.ImageService.DownloadImage is not implemented"))
+}
+
+func (UnimplementedImageServiceHandler) GetImageCatalog(context.Context, *connect.Request[v1.GetImageCatalogRequest]) (*connect.Response[v1.GetImageCatalogResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.ImageService.GetImageCatalog is not implemented"))
 }

@@ -258,11 +258,27 @@ impl<'a> DomainXmlBuilder<'a> {
     }
     
     fn build_channels(&self) -> String {
-        // Guest agent channel
-        r#"    <channel type='unix'>
+        let mut xml = String::new();
+        
+        // LimiQuantix Guest Agent channel
+        // Creates a virtio-serial port that the guest agent can connect to
+        let socket_path = format!("/var/run/limiquantix/vms/{}.agent.sock", self.config.id);
+        xml.push_str(&format!(
+            r#"    <channel type='unix'>
+      <source mode='bind' path='{}'/>
+      <target type='virtio' name='org.limiquantix.agent.0'/>
+    </channel>
+"#,
+            socket_path
+        ));
+        
+        // QEMU Guest Agent channel (for compatibility with qemu-ga)
+        xml.push_str(r#"    <channel type='unix'>
       <target type='virtio' name='org.qemu.guest_agent.0'/>
     </channel>
-"#.to_string()
+"#);
+        
+        xml
     }
 }
 

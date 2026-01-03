@@ -1,86 +1,39 @@
 #!/usr/bin/env node
 
 /**
- * Generate placeholder icon files for QVMRC
+ * Generate icon files for QVMRC from source PNG
  * 
- * For production, use `npm run tauri:icon` with a proper 1024x1024 PNG image.
- * This script creates minimal placeholder icons for development/testing.
+ * This script uses the 32x32 source icon and generates all required sizes.
+ * For best quality, provide a 1024x1024 source and use `npm run tauri:icon`.
  * 
  * Usage:
  *   node scripts/generate-icons.cjs
- * 
- * For proper icons:
- *   1. Create a 1024x1024 PNG named "app-icon.png" in qvmrc/
- *   2. Run: npm run tauri:icon
  */
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const iconsDir = path.join(__dirname, '..', 'src-tauri', 'icons');
+const sourceIcon = path.join(__dirname, '..', '..', 'frontend', 'src', 'assets', 'QVMRC.png');
 
 // Ensure icons directory exists
 if (!fs.existsSync(iconsDir)) {
   fs.mkdirSync(iconsDir, { recursive: true });
 }
 
-// Create a simple valid PNG with solid color
-function createSolidPNG(size) {
-  // This creates a minimal valid PNG
-  // PNG signature
-  const signature = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
-  
-  // IHDR chunk
-  const ihdrData = Buffer.alloc(13);
-  ihdrData.writeUInt32BE(size, 0);  // width
-  ihdrData.writeUInt32BE(size, 4);  // height
-  ihdrData.writeUInt8(8, 8);        // bit depth
-  ihdrData.writeUInt8(2, 9);        // color type (RGB)
-  ihdrData.writeUInt8(0, 10);       // compression
-  ihdrData.writeUInt8(0, 11);       // filter
-  ihdrData.writeUInt8(0, 12);       // interlace
-  
-  const ihdrCRC = crc32(Buffer.concat([Buffer.from('IHDR'), ihdrData]));
-  const ihdrChunk = Buffer.concat([
-    Buffer.from([0, 0, 0, 13]),     // length
-    Buffer.from('IHDR'),
-    ihdrData,
-    ihdrCRC
-  ]);
-  
-  // Create raw image data (purple color)
-  const rawData = [];
-  for (let y = 0; y < size; y++) {
-    rawData.push(0); // filter byte
-    for (let x = 0; x < size; x++) {
-      rawData.push(0x93, 0x33, 0xEA); // RGB for purple (#9333ea)
-    }
-  }
-  
-  // Compress with zlib
-  const zlib = require('zlib');
-  const compressed = zlib.deflateSync(Buffer.from(rawData));
-  
-  const idatCRC = crc32(Buffer.concat([Buffer.from('IDAT'), compressed]));
-  const idatLenBuf = Buffer.alloc(4);
-  idatLenBuf.writeUInt32BE(compressed.length, 0);
-  
-  const idatChunk = Buffer.concat([
-    idatLenBuf,
-    Buffer.from('IDAT'),
-    compressed,
-    idatCRC
-  ]);
-  
-  // IEND chunk
-  const iendCRC = crc32(Buffer.from('IEND'));
-  const iendChunk = Buffer.concat([
-    Buffer.from([0, 0, 0, 0]),
-    Buffer.from('IEND'),
-    iendCRC
-  ]);
-  
-  return Buffer.concat([signature, ihdrChunk, idatChunk, iendChunk]);
+console.log('Generating icons for QVMRC...');
+console.log('Source icon:', sourceIcon);
+console.log('Icons directory:', iconsDir);
+console.log('');
+
+// Read source PNG if it exists
+let sourcePNG = null;
+if (fs.existsSync(sourceIcon)) {
+  sourcePNG = fs.readFileSync(sourceIcon);
+  console.log('✓ Found source icon: QVMRC.png');
+} else {
+  console.log('⚠ Source icon not found, will create placeholders');
 }
 
 // Simple CRC32 implementation for PNG
@@ -105,34 +58,81 @@ function crc32(data) {
   return result;
 }
 
-// Create a minimal ICO file (Windows icon)
-function createICO(pngData) {
-  // ICO header
-  const header = Buffer.alloc(6);
-  header.writeUInt16LE(0, 0);     // Reserved
-  header.writeUInt16LE(1, 2);     // Type: 1 = ICO
-  header.writeUInt16LE(1, 4);     // Number of images
+// Create a simple valid PNG with solid color (fallback)
+function createSolidPNG(size) {
+  const signature = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
   
-  // Image directory entry
+  const ihdrData = Buffer.alloc(13);
+  ihdrData.writeUInt32BE(size, 0);
+  ihdrData.writeUInt32BE(size, 4);
+  ihdrData.writeUInt8(8, 8);
+  ihdrData.writeUInt8(2, 9);
+  ihdrData.writeUInt8(0, 10);
+  ihdrData.writeUInt8(0, 11);
+  ihdrData.writeUInt8(0, 12);
+  
+  const ihdrCRC = crc32(Buffer.concat([Buffer.from('IHDR'), ihdrData]));
+  const ihdrChunk = Buffer.concat([
+    Buffer.from([0, 0, 0, 13]),
+    Buffer.from('IHDR'),
+    ihdrData,
+    ihdrCRC
+  ]);
+  
+  const rawData = [];
+  for (let y = 0; y < size; y++) {
+    rawData.push(0);
+    for (let x = 0; x < size; x++) {
+      rawData.push(0x93, 0x33, 0xEA);
+    }
+  }
+  
+  const compressed = zlib.deflateSync(Buffer.from(rawData));
+  
+  const idatCRC = crc32(Buffer.concat([Buffer.from('IDAT'), compressed]));
+  const idatLenBuf = Buffer.alloc(4);
+  idatLenBuf.writeUInt32BE(compressed.length, 0);
+  
+  const idatChunk = Buffer.concat([
+    idatLenBuf,
+    Buffer.from('IDAT'),
+    compressed,
+    idatCRC
+  ]);
+  
+  const iendCRC = crc32(Buffer.from('IEND'));
+  const iendChunk = Buffer.concat([
+    Buffer.from([0, 0, 0, 0]),
+    Buffer.from('IEND'),
+    iendCRC
+  ]);
+  
+  return Buffer.concat([signature, ihdrChunk, idatChunk, iendChunk]);
+}
+
+// Create ICO file from PNG data
+function createICO(pngData) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(1, 4);
+  
   const entry = Buffer.alloc(16);
-  entry.writeUInt8(0, 0);         // Width (0 = 256)
-  entry.writeUInt8(0, 1);         // Height (0 = 256)
-  entry.writeUInt8(0, 2);         // Color palette
-  entry.writeUInt8(0, 3);         // Reserved
-  entry.writeUInt16LE(1, 4);      // Color planes
-  entry.writeUInt16LE(32, 6);     // Bits per pixel
-  entry.writeUInt32LE(pngData.length, 8);  // Size of image data
-  entry.writeUInt32LE(22, 12);    // Offset to image data (6 + 16)
+  entry.writeUInt8(0, 0);
+  entry.writeUInt8(0, 1);
+  entry.writeUInt8(0, 2);
+  entry.writeUInt8(0, 3);
+  entry.writeUInt16LE(1, 4);
+  entry.writeUInt16LE(32, 6);
+  entry.writeUInt32LE(pngData.length, 8);
+  entry.writeUInt32LE(22, 12);
   
   return Buffer.concat([header, entry, pngData]);
 }
 
-// Create minimal ICNS (macOS icon bundle)
+// Create ICNS file from PNG data
 function createICNS(pngData) {
-  // ICNS header
   const magic = Buffer.from('icns');
-  
-  // ic07 = 128x128 PNG
   const iconType = Buffer.from('ic07');
   const iconDataLen = Buffer.alloc(4);
   iconDataLen.writeUInt32BE(8 + pngData.length, 0);
@@ -143,44 +143,61 @@ function createICNS(pngData) {
   return Buffer.concat([magic, totalLen, iconType, iconDataLen, pngData]);
 }
 
-console.log('Generating icons for QVMRC...');
-console.log('Icons directory:', iconsDir);
-console.log('');
+// Copy source to 32x32 if we have it
+if (sourcePNG) {
+  const dest32 = path.join(iconsDir, '32x32.png');
+  fs.writeFileSync(dest32, sourcePNG);
+  console.log('✓ Copied source to 32x32.png');
+  
+  // For other sizes, we'll use the 32x32 source directly
+  // (Not ideal, but works - Tauri will scale as needed)
+  const dest128 = path.join(iconsDir, '128x128.png');
+  const dest256 = path.join(iconsDir, '128x128@2x.png');
+  
+  // Copy source to other locations (Tauri accepts any valid PNG)
+  fs.writeFileSync(dest128, sourcePNG);
+  fs.writeFileSync(dest256, sourcePNG);
+  console.log('✓ Created 128x128.png (using source)');
+  console.log('✓ Created 128x128@2x.png (using source)');
+  
+  // Create ICO using source PNG
+  const icoPath = path.join(iconsDir, 'icon.ico');
+  fs.writeFileSync(icoPath, createICO(sourcePNG));
+  console.log('✓ Created icon.ico');
+  
+  // Create ICNS using source PNG
+  const icnsPath = path.join(iconsDir, 'icon.icns');
+  fs.writeFileSync(icnsPath, createICNS(sourcePNG));
+  console.log('✓ Created icon.icns');
+} else {
+  // Fallback to solid color placeholders
+  const pngSizes = [
+    { name: '32x32.png', size: 32 },
+    { name: '128x128.png', size: 128 },
+    { name: '128x128@2x.png', size: 256 },
+  ];
 
-// Generate PNGs
-const pngSizes = [
-  { name: '32x32.png', size: 32 },
-  { name: '128x128.png', size: 128 },
-  { name: '128x128@2x.png', size: 256 },
-];
+  pngSizes.forEach(({ name, size }) => {
+    const filepath = path.join(iconsDir, name);
+    const pngData = createSolidPNG(size);
+    fs.writeFileSync(filepath, pngData);
+    console.log(`✓ Created ${name} (${size}x${size})`);
+  });
 
-pngSizes.forEach(({ name, size }) => {
-  const filepath = path.join(iconsDir, name);
-  const pngData = createSolidPNG(size);
-  fs.writeFileSync(filepath, pngData);
-  console.log(`✓ Created ${name} (${size}x${size})`);
-});
+  const ico256 = createSolidPNG(256);
+  const icoPath = path.join(iconsDir, 'icon.ico');
+  fs.writeFileSync(icoPath, createICO(ico256));
+  console.log('✓ Created icon.ico');
 
-// Generate ICO using 256x256 PNG
-const ico256 = createSolidPNG(256);
-const icoPath = path.join(iconsDir, 'icon.ico');
-fs.writeFileSync(icoPath, createICO(ico256));
-console.log('✓ Created icon.ico');
-
-// Generate ICNS using 128x128 PNG
-const png128 = createSolidPNG(128);
-const icnsPath = path.join(iconsDir, 'icon.icns');
-fs.writeFileSync(icnsPath, createICNS(png128));
-console.log('✓ Created icon.icns');
+  const png128 = createSolidPNG(128);
+  const icnsPath = path.join(iconsDir, 'icon.icns');
+  fs.writeFileSync(icnsPath, createICNS(png128));
+  console.log('✓ Created icon.icns');
+}
 
 console.log('');
 console.log('✅ Icons generated successfully!');
 console.log('');
-console.log('The icons are solid purple (#9333EA) placeholders.');
-console.log('For a custom icon, create app-icon.png (1024x1024) and run:');
+console.log('Note: Using 32x32 source for all sizes.');
+console.log('For best quality, provide a 1024x1024 PNG and run:');
 console.log('  npm run tauri:icon');
-console.log('');
-console.log('Next steps:');
-console.log('  cd qvmrc');
-console.log('  npm install');
-console.log('  npm run tauri:build');

@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+# Enable and start the service
+if [ "$1" = "configure" ]; then
+    systemctl daemon-reload
+    systemctl enable limiquantix-agent.service
+    systemctl start limiquantix-agent.service || true
+fi
+
+#DEBHELPER#
+
+exit 0

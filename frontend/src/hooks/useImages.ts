@@ -207,6 +207,97 @@ export function useDownloadImage() {
   });
 }
 
+// Hook to get import/download status
+export function useImportStatus(jobId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...imageKeys.all, 'import-status', jobId],
+    queryFn: async () => {
+      const response = await imageClient.getImportStatus({ jobId });
+      return {
+        jobId: response.jobId,
+        imageId: response.imageId,
+        status: response.status,
+        progressPercent: response.progressPercent,
+        bytesDownloaded: Number(response.bytesDownloaded),
+        bytesTotal: Number(response.bytesTotal),
+        errorMessage: response.errorMessage,
+      };
+    },
+    enabled: enabled && !!jobId,
+    refetchInterval: (data) => {
+      // Poll while downloading
+      const status = data?.status;
+      if (status === 1 || status === 2 || status === 3) { // pending, downloading, converting
+        return 1000; // 1 second
+      }
+      return false;
+    },
+  });
+}
+
+// Hook to get image catalog
+export function useImageCatalog() {
+  return useQuery({
+    queryKey: imageKeys.catalog(),
+    queryFn: async () => {
+      const response = await imageClient.getImageCatalog({});
+      return response.images.map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        description: entry.description,
+        url: entry.url,
+        checksum: entry.checksum,
+        checksumType: entry.checksumType,
+        sizeBytes: Number(entry.sizeBytes),
+        verified: entry.verified,
+        os: {
+          family: entry.os?.family?.toString() || 'LINUX',
+          distribution: entry.os?.distribution || 'unknown',
+          version: entry.os?.version || '',
+          architecture: entry.os?.architecture || 'x86_64',
+          defaultUser: entry.os?.defaultUser || 'root',
+          cloudInitEnabled: entry.os?.cloudInitEnabled || false,
+          provisioningMethod: entry.os?.provisioningMethod?.toString() || 'NONE',
+        },
+        requirements: {
+          minCpu: entry.requirements?.minCpu || 1,
+          minMemoryMib: Number(entry.requirements?.minMemoryMib || 512),
+          minDiskGib: Number(entry.requirements?.minDiskGib || 10),
+          supportedFirmware: entry.requirements?.supportedFirmware || ['bios', 'uefi'],
+        },
+      }));
+    },
+    staleTime: 60_000, // 1 minute - catalog doesn't change often
+  });
+}
+
+// Catalog entry type
+export interface CatalogImage {
+  id: string;
+  name: string;
+  description: string;
+  url: string;
+  checksum: string;
+  checksumType: string;
+  sizeBytes: number;
+  verified: boolean;
+  os: {
+    family: string;
+    distribution: string;
+    version: string;
+    architecture: string;
+    defaultUser: string;
+    cloudInitEnabled: boolean;
+    provisioningMethod: string;
+  };
+  requirements: {
+    minCpu: number;
+    minMemoryMib: number;
+    minDiskGib: number;
+    supportedFirmware: string[];
+  };
+}
+
 // Built-in catalog of cloud images (matches backend catalog)
 // This is a fallback when the backend doesn't have images yet
 // Path follows convention: /var/lib/limiquantix/cloud-images/<distro>-<version>.qcow2

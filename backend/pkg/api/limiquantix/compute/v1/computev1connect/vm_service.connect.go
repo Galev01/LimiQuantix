@@ -80,6 +80,17 @@ const (
 	VMServiceWatchVMProcedure = "/limiquantix.compute.v1.VMService/WatchVM"
 	// VMServiceStreamMetricsProcedure is the fully-qualified name of the VMService's StreamMetrics RPC.
 	VMServiceStreamMetricsProcedure = "/limiquantix.compute.v1.VMService/StreamMetrics"
+	// VMServicePingAgentProcedure is the fully-qualified name of the VMService's PingAgent RPC.
+	VMServicePingAgentProcedure = "/limiquantix.compute.v1.VMService/PingAgent"
+	// VMServiceExecuteScriptProcedure is the fully-qualified name of the VMService's ExecuteScript RPC.
+	VMServiceExecuteScriptProcedure = "/limiquantix.compute.v1.VMService/ExecuteScript"
+	// VMServiceReadGuestFileProcedure is the fully-qualified name of the VMService's ReadGuestFile RPC.
+	VMServiceReadGuestFileProcedure = "/limiquantix.compute.v1.VMService/ReadGuestFile"
+	// VMServiceWriteGuestFileProcedure is the fully-qualified name of the VMService's WriteGuestFile
+	// RPC.
+	VMServiceWriteGuestFileProcedure = "/limiquantix.compute.v1.VMService/WriteGuestFile"
+	// VMServiceGuestShutdownProcedure is the fully-qualified name of the VMService's GuestShutdown RPC.
+	VMServiceGuestShutdownProcedure = "/limiquantix.compute.v1.VMService/GuestShutdown"
 )
 
 // VMServiceClient is a client for the limiquantix.compute.v1.VMService service.
@@ -130,6 +141,16 @@ type VMServiceClient interface {
 	WatchVM(context.Context, *connect.Request[v1.WatchVMRequest]) (*connect.ServerStreamForClient[v1.VirtualMachine], error)
 	// StreamMetrics streams real-time performance metrics.
 	StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest]) (*connect.ServerStreamForClient[v1.ResourceUsage], error)
+	// PingAgent checks if the guest agent is available and responding.
+	PingAgent(context.Context, *connect.Request[v1.PingAgentRequest]) (*connect.Response[v1.PingAgentResponse], error)
+	// ExecuteScript runs a command inside the VM via the guest agent.
+	ExecuteScript(context.Context, *connect.Request[v1.ExecuteScriptRequest]) (*connect.Response[v1.ExecuteScriptResponse], error)
+	// ReadGuestFile reads a file from inside the VM.
+	ReadGuestFile(context.Context, *connect.Request[v1.ReadGuestFileRequest]) (*connect.Response[v1.ReadGuestFileResponse], error)
+	// WriteGuestFile writes a file to the VM.
+	WriteGuestFile(context.Context, *connect.Request[v1.WriteGuestFileRequest]) (*connect.Response[v1.WriteGuestFileResponse], error)
+	// GuestShutdown requests the guest agent to gracefully shutdown/reboot.
+	GuestShutdown(context.Context, *connect.Request[v1.GuestShutdownRequest]) (*connect.Response[v1.GuestShutdownResponse], error)
 }
 
 // NewVMServiceClient constructs a client for the limiquantix.compute.v1.VMService service. By
@@ -269,6 +290,36 @@ func NewVMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...c
 			connect.WithSchema(vMServiceMethods.ByName("StreamMetrics")),
 			connect.WithClientOptions(opts...),
 		),
+		pingAgent: connect.NewClient[v1.PingAgentRequest, v1.PingAgentResponse](
+			httpClient,
+			baseURL+VMServicePingAgentProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("PingAgent")),
+			connect.WithClientOptions(opts...),
+		),
+		executeScript: connect.NewClient[v1.ExecuteScriptRequest, v1.ExecuteScriptResponse](
+			httpClient,
+			baseURL+VMServiceExecuteScriptProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("ExecuteScript")),
+			connect.WithClientOptions(opts...),
+		),
+		readGuestFile: connect.NewClient[v1.ReadGuestFileRequest, v1.ReadGuestFileResponse](
+			httpClient,
+			baseURL+VMServiceReadGuestFileProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("ReadGuestFile")),
+			connect.WithClientOptions(opts...),
+		),
+		writeGuestFile: connect.NewClient[v1.WriteGuestFileRequest, v1.WriteGuestFileResponse](
+			httpClient,
+			baseURL+VMServiceWriteGuestFileProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("WriteGuestFile")),
+			connect.WithClientOptions(opts...),
+		),
+		guestShutdown: connect.NewClient[v1.GuestShutdownRequest, v1.GuestShutdownResponse](
+			httpClient,
+			baseURL+VMServiceGuestShutdownProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("GuestShutdown")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -295,6 +346,11 @@ type vMServiceClient struct {
 	convertToTemplate *connect.Client[v1.ConvertToTemplateRequest, v1.VirtualMachine]
 	watchVM           *connect.Client[v1.WatchVMRequest, v1.VirtualMachine]
 	streamMetrics     *connect.Client[v1.StreamMetricsRequest, v1.ResourceUsage]
+	pingAgent         *connect.Client[v1.PingAgentRequest, v1.PingAgentResponse]
+	executeScript     *connect.Client[v1.ExecuteScriptRequest, v1.ExecuteScriptResponse]
+	readGuestFile     *connect.Client[v1.ReadGuestFileRequest, v1.ReadGuestFileResponse]
+	writeGuestFile    *connect.Client[v1.WriteGuestFileRequest, v1.WriteGuestFileResponse]
+	guestShutdown     *connect.Client[v1.GuestShutdownRequest, v1.GuestShutdownResponse]
 }
 
 // CreateVM calls limiquantix.compute.v1.VMService.CreateVM.
@@ -402,6 +458,31 @@ func (c *vMServiceClient) StreamMetrics(ctx context.Context, req *connect.Reques
 	return c.streamMetrics.CallServerStream(ctx, req)
 }
 
+// PingAgent calls limiquantix.compute.v1.VMService.PingAgent.
+func (c *vMServiceClient) PingAgent(ctx context.Context, req *connect.Request[v1.PingAgentRequest]) (*connect.Response[v1.PingAgentResponse], error) {
+	return c.pingAgent.CallUnary(ctx, req)
+}
+
+// ExecuteScript calls limiquantix.compute.v1.VMService.ExecuteScript.
+func (c *vMServiceClient) ExecuteScript(ctx context.Context, req *connect.Request[v1.ExecuteScriptRequest]) (*connect.Response[v1.ExecuteScriptResponse], error) {
+	return c.executeScript.CallUnary(ctx, req)
+}
+
+// ReadGuestFile calls limiquantix.compute.v1.VMService.ReadGuestFile.
+func (c *vMServiceClient) ReadGuestFile(ctx context.Context, req *connect.Request[v1.ReadGuestFileRequest]) (*connect.Response[v1.ReadGuestFileResponse], error) {
+	return c.readGuestFile.CallUnary(ctx, req)
+}
+
+// WriteGuestFile calls limiquantix.compute.v1.VMService.WriteGuestFile.
+func (c *vMServiceClient) WriteGuestFile(ctx context.Context, req *connect.Request[v1.WriteGuestFileRequest]) (*connect.Response[v1.WriteGuestFileResponse], error) {
+	return c.writeGuestFile.CallUnary(ctx, req)
+}
+
+// GuestShutdown calls limiquantix.compute.v1.VMService.GuestShutdown.
+func (c *vMServiceClient) GuestShutdown(ctx context.Context, req *connect.Request[v1.GuestShutdownRequest]) (*connect.Response[v1.GuestShutdownResponse], error) {
+	return c.guestShutdown.CallUnary(ctx, req)
+}
+
 // VMServiceHandler is an implementation of the limiquantix.compute.v1.VMService service.
 type VMServiceHandler interface {
 	// CreateVM creates a new virtual machine.
@@ -450,6 +531,16 @@ type VMServiceHandler interface {
 	WatchVM(context.Context, *connect.Request[v1.WatchVMRequest], *connect.ServerStream[v1.VirtualMachine]) error
 	// StreamMetrics streams real-time performance metrics.
 	StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest], *connect.ServerStream[v1.ResourceUsage]) error
+	// PingAgent checks if the guest agent is available and responding.
+	PingAgent(context.Context, *connect.Request[v1.PingAgentRequest]) (*connect.Response[v1.PingAgentResponse], error)
+	// ExecuteScript runs a command inside the VM via the guest agent.
+	ExecuteScript(context.Context, *connect.Request[v1.ExecuteScriptRequest]) (*connect.Response[v1.ExecuteScriptResponse], error)
+	// ReadGuestFile reads a file from inside the VM.
+	ReadGuestFile(context.Context, *connect.Request[v1.ReadGuestFileRequest]) (*connect.Response[v1.ReadGuestFileResponse], error)
+	// WriteGuestFile writes a file to the VM.
+	WriteGuestFile(context.Context, *connect.Request[v1.WriteGuestFileRequest]) (*connect.Response[v1.WriteGuestFileResponse], error)
+	// GuestShutdown requests the guest agent to gracefully shutdown/reboot.
+	GuestShutdown(context.Context, *connect.Request[v1.GuestShutdownRequest]) (*connect.Response[v1.GuestShutdownResponse], error)
 }
 
 // NewVMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -585,6 +676,36 @@ func NewVMServiceHandler(svc VMServiceHandler, opts ...connect.HandlerOption) (s
 		connect.WithSchema(vMServiceMethods.ByName("StreamMetrics")),
 		connect.WithHandlerOptions(opts...),
 	)
+	vMServicePingAgentHandler := connect.NewUnaryHandler(
+		VMServicePingAgentProcedure,
+		svc.PingAgent,
+		connect.WithSchema(vMServiceMethods.ByName("PingAgent")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vMServiceExecuteScriptHandler := connect.NewUnaryHandler(
+		VMServiceExecuteScriptProcedure,
+		svc.ExecuteScript,
+		connect.WithSchema(vMServiceMethods.ByName("ExecuteScript")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vMServiceReadGuestFileHandler := connect.NewUnaryHandler(
+		VMServiceReadGuestFileProcedure,
+		svc.ReadGuestFile,
+		connect.WithSchema(vMServiceMethods.ByName("ReadGuestFile")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vMServiceWriteGuestFileHandler := connect.NewUnaryHandler(
+		VMServiceWriteGuestFileProcedure,
+		svc.WriteGuestFile,
+		connect.WithSchema(vMServiceMethods.ByName("WriteGuestFile")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vMServiceGuestShutdownHandler := connect.NewUnaryHandler(
+		VMServiceGuestShutdownProcedure,
+		svc.GuestShutdown,
+		connect.WithSchema(vMServiceMethods.ByName("GuestShutdown")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/limiquantix.compute.v1.VMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case VMServiceCreateVMProcedure:
@@ -629,6 +750,16 @@ func NewVMServiceHandler(svc VMServiceHandler, opts ...connect.HandlerOption) (s
 			vMServiceWatchVMHandler.ServeHTTP(w, r)
 		case VMServiceStreamMetricsProcedure:
 			vMServiceStreamMetricsHandler.ServeHTTP(w, r)
+		case VMServicePingAgentProcedure:
+			vMServicePingAgentHandler.ServeHTTP(w, r)
+		case VMServiceExecuteScriptProcedure:
+			vMServiceExecuteScriptHandler.ServeHTTP(w, r)
+		case VMServiceReadGuestFileProcedure:
+			vMServiceReadGuestFileHandler.ServeHTTP(w, r)
+		case VMServiceWriteGuestFileProcedure:
+			vMServiceWriteGuestFileHandler.ServeHTTP(w, r)
+		case VMServiceGuestShutdownProcedure:
+			vMServiceGuestShutdownHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -720,4 +851,24 @@ func (UnimplementedVMServiceHandler) WatchVM(context.Context, *connect.Request[v
 
 func (UnimplementedVMServiceHandler) StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest], *connect.ServerStream[v1.ResourceUsage]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.StreamMetrics is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) PingAgent(context.Context, *connect.Request[v1.PingAgentRequest]) (*connect.Response[v1.PingAgentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.PingAgent is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) ExecuteScript(context.Context, *connect.Request[v1.ExecuteScriptRequest]) (*connect.Response[v1.ExecuteScriptResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.ExecuteScript is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) ReadGuestFile(context.Context, *connect.Request[v1.ReadGuestFileRequest]) (*connect.Response[v1.ReadGuestFileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.ReadGuestFile is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) WriteGuestFile(context.Context, *connect.Request[v1.WriteGuestFileRequest]) (*connect.Response[v1.WriteGuestFileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.WriteGuestFile is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) GuestShutdown(context.Context, *connect.Request[v1.GuestShutdownRequest]) (*connect.Response[v1.GuestShutdownResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.GuestShutdown is not implemented"))
 }

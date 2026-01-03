@@ -1,6 +1,6 @@
 # LimiQuantix Workflow State
 
-## Current Status: Image Library Implementation Complete ✅
+## Current Status: Storage Backend Foundation ✅
 
 **Last Updated:** January 3, 2026
 
@@ -8,55 +8,151 @@
 
 ## What's New (This Session)
 
-### ✅ Image Library API - Complete
+### ✅ Storage Backend Foundation - Complete
 
-Implemented a comprehensive Image Library with cloud image catalog:
+Implemented a modular storage backend architecture for LimiQuantix:
 
-#### Backend (Go)
-1. **Enhanced Proto Definitions**
-   - Added `cloud_init_enabled` and `provisioning_method` to `OsInfo`
-   - Added `ScanLocalImages` RPC for Node Daemon integration
-   - Added `DownloadImage` RPC for downloading from catalog
-   - Added `LocalImageInfo`, `ImageCatalogEntry` messages
+#### 1. Proto Definitions Updated
 
-2. **ImageService Implementation** (`backend/internal/services/storage/image_service.go`)
-   - Built-in catalog with 8 Linux distributions
-   - Default usernames per distro (ubuntu, debian, rocky, etc.)
-   - Create, Get, List, Update, Delete operations
-   - Import from URL (async)
-   - Scan local images from Node Daemon
-   - Download from catalog
+Enhanced storage proto with production-ready configurations:
 
-3. **MemoryImageRepository** (`backend/internal/services/storage/image_repository.go`)
-   - In-memory storage for development
-   - Filter by project, OS family, visibility, node, phase
+| Field | Message | Purpose |
+|-------|---------|---------|
+| `secret_uuid` | `CephConfig` | Libvirt Secret UUID for Ceph auth |
+| `mount_point` | `NfsConfig` | Local mount path on node |
+| `chap_enabled` | `IscsiConfig` | CHAP authentication flag |
+| `lun` | `IscsiConfig` | iSCSI LUN number |
+| `volume_group` | `IscsiConfig` | LVM VG name |
 
-#### Frontend (React/TypeScript)
-1. **useImages Hook** (`frontend/src/hooks/useImages.ts`)
-   - `useImages()` - List images from API
-   - `useAvailableImages()` - API + catalog fallback
-   - `useImportImage()` - Import from URL
-   - `useDownloadImage()` - Download from catalog
-   - Built-in `CLOUD_IMAGE_CATALOG` for offline mode
+#### 2. Modular Storage Backend (Rust)
 
-2. **VMCreationWizard Updates**
-   - Dynamic cloud image selection from API
-   - Auto-set default user based on distribution
-   - Display image size and default username
-   - Warning when using built-in catalog
+Created a new modular storage system with trait-based abstraction:
 
-### Cloud Image Catalog
+```
+agent/limiquantix-hypervisor/src/storage/
+├── mod.rs           # StorageManager + backend routing
+├── types.rs         # PoolConfig, PoolInfo, VolumeSource
+├── traits.rs        # StorageBackend trait definition
+├── local.rs         # LocalBackend (file-based)
+└── nfs.rs           # NfsBackend (NFS mount)
+```
 
-| Distribution | ID | Default User |
-|-------------|-----|--------------|
-| Ubuntu 22.04 | `ubuntu-22.04` | `ubuntu` |
-| Ubuntu 24.04 | `ubuntu-24.04` | `ubuntu` |
-| Debian 12 | `debian-12` | `debian` |
-| Rocky Linux 9 | `rocky-9` | `rocky` |
-| AlmaLinux 9 | `almalinux-9` | `almalinux` |
-| Fedora 40 | `fedora-40` | `fedora` |
-| CentOS Stream 9 | `centos-stream-9` | `cloud-user` |
-| openSUSE Leap 15.5 | `opensuse-leap-15.5` | `root` |
+**StorageBackend Trait:**
+- `init_pool()` - Initialize/mount storage pool
+- `destroy_pool()` - Cleanup/unmount pool
+- `get_pool_info()` - Get capacity and metrics
+- `create_volume()` - Create disk image
+- `delete_volume()` - Remove disk image
+- `resize_volume()` - Expand volume
+- `get_attach_info()` - Generate libvirt disk XML
+- `clone_volume()` - Copy-on-write clone
+- `create_snapshot()` - QCOW2 internal snapshot
+
+**NfsBackend Features:**
+- NFS v3/v4/v4.1/v4.2 support
+- Automatic mount/unmount lifecycle
+- QCOW2 disk images with CoW cloning
+- Configurable mount options
+- Filesystem stats reporting
+
+#### 3. Fixed Frontend Proto Error
+
+Resolved import error caused by version mismatch:
+- **Problem:** `protoc-gen-connect-es v1.6.1` generated old-style connect files incompatible with `@bufbuild/protobuf v2`
+- **Solution:** Removed deprecated `connect-es` plugin, using `protoc-gen-es v2.2.3` which generates service descriptors directly
+
+**Updated `buf.gen.yaml`:**
+```yaml
+- remote: buf.build/bufbuild/es:v2.2.3
+  out: ../frontend/src/api
+  opt:
+    - target=ts
+    - import_extension=none
+```
+
+#### 4. Documentation
+
+Created comprehensive implementation plan: `docs/000046-storage-backend-implementation.md`
+
+Covers:
+- Architecture overview
+- Proto definitions
+- Rust implementation guide
+- Libvirt XML generation for NFS, Ceph, iSCSI
+- Implementation timeline
+- Testing strategy
+
+---
+
+## Storage Backend Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CONTROL PLANE (Go)                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │              StoragePoolService / VolumeService                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ gRPC
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          NODE DAEMON (Rust)                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                      StorageManager                                  │    │
+│  │  - Routes to appropriate backend based on pool type                 │    │
+│  │  - Caches pool information                                          │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                    │                                         │
+│       ┌────────────────────────────┼────────────────────────────┐           │
+│       ▼                            ▼                            ▼           │
+│  ┌──────────┐              ┌──────────┐                  ┌──────────┐       │
+│  │  Local   │              │   NFS    │                  │   Ceph   │       │
+│  │ Backend  │              │ Backend  │                  │ Backend  │       │
+│  └──────────┘              └──────────┘                  └──────────┘       │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Files Changed This Session
+
+| File | Changes |
+|------|---------|
+| `proto/limiquantix/storage/v1/storage.proto` | Added secret_uuid, mount_point, chap_enabled, lun, volume_group |
+| `proto/buf.gen.yaml` | Updated to use protoc-gen-es v2.2.3 |
+| `agent/limiquantix-hypervisor/src/storage/mod.rs` | New - StorageManager |
+| `agent/limiquantix-hypervisor/src/storage/types.rs` | New - Storage types |
+| `agent/limiquantix-hypervisor/src/storage/traits.rs` | New - StorageBackend trait |
+| `agent/limiquantix-hypervisor/src/storage/local.rs` | New - LocalBackend |
+| `agent/limiquantix-hypervisor/src/storage/nfs.rs` | New - NfsBackend |
+| `agent/limiquantix-hypervisor/src/lib.rs` | Updated exports |
+| `docs/000046-storage-backend-implementation.md` | New - Implementation plan |
+| `frontend/src/api/limiquantix/**/*_pb.ts` | Regenerated with v2.2.3 |
+
+---
+
+## Next Steps
+
+### Priority 1: Ceph RBD Backend
+- [ ] Implement CephBackend in Rust
+- [ ] Add libvirt secret management
+- [ ] Generate network disk XML
+
+### Priority 2: iSCSI Backend
+- [ ] Implement IscsiBackend
+- [ ] Add iscsiadm integration
+- [ ] Add LVM management
+
+### Priority 3: Control Plane Integration
+- [ ] Add storage pool endpoints in Go backend
+- [ ] Integrate with Node Daemon gRPC
+- [ ] Add storage pool UI in frontend
+
+### Priority 4: Testing
+- [ ] Integration tests with NFS server
+- [ ] Ceph single-node container tests
+- [ ] iSCSI targetcli tests
 
 ---
 
@@ -64,50 +160,14 @@ Implemented a comprehensive Image Library with cloud image catalog:
 
 ### ✅ Web Console (noVNC) - Complete
 - noVNC static files in `frontend/public/novnc/`
-- Custom `limiquantix.html` with dark theme
 - `NoVNCConsole` React component
-- Backend WebSocket proxy at `/api/console/{vmId}/ws`
+- Backend WebSocket proxy
 
-### ✅ QVMRC Native Client - Scaffolded
-- Tauri project structure in `qvmrc/`
-- Rust VNC client with RFB protocol
-- React frontend with ConnectionList, ConsoleView, Settings
-
----
-
-## Remaining Tasks
-
-### Priority 1: Node Daemon Image Scanning
-- [ ] Add image scanning in Node Daemon registration
-- [ ] Call `ScanLocalImages` RPC after node joins
-- [ ] Detect OS from filename patterns
-
-### Priority 2: Image Download Implementation
-- [ ] Implement actual download in Node Daemon
-- [ ] Progress reporting via streaming
-- [ ] Checksum verification
-
-### Priority 3: Guest Agent (0%)
-- [ ] Design agent protocol
-- [ ] Implement Rust agent
-- [ ] Add telemetry collection
-
-### Priority 4: Storage Backend (0%)
-- [ ] Ceph RBD integration
-- [ ] Volume lifecycle management
-
-### Priority 5: Network Backend (0%)
-- [ ] OVN/OVS integration
-- [ ] VXLAN overlay networking
-
----
-
-## Documentation
-
-| Doc | Purpose |
-|-----|---------|
-| `000042-console-access-implementation.md` | Web Console + QVMRC |
-| `000045-image-library-implementation.md` | Image Library API |
+### ✅ QVMRC Native Client - Complete
+- Tauri project in `qvmrc/`
+- Full RFB VNC protocol
+- Deep link support (`qvmrc://connect?...`)
+- Windows installers
 
 ---
 
@@ -125,4 +185,18 @@ cd agent && cargo run --release --bin limiquantix-node --features libvirt
 
 # Proto regeneration
 cd proto && buf generate
+
+# Check hypervisor crate
+cd agent && cargo check -p limiquantix-hypervisor
 ```
+
+---
+
+## Documentation
+
+| Doc | Purpose |
+|-----|---------|
+| `docs/000046-storage-backend-implementation.md` | Storage Backend Implementation Plan |
+| `docs/000044-guest-agent-architecture.md` | Guest Agent Architecture |
+| `docs/000042-console-access-implementation.md` | Web Console + QVMRC |
+| `docs/adr/000003-storage-model-design.md` | Storage Model ADR |

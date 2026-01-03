@@ -19,11 +19,14 @@ use anyhow::Result;
 use clap::Parser;
 use tracing::{info, error};
 
+mod agent_client;
 mod cli;
 mod config;
 mod registration;
 mod server;
 mod service;
+
+pub use agent_client::{AgentClient, AgentManager};
 
 use cli::Args;
 use config::Config;

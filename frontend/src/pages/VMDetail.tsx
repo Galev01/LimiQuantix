@@ -22,6 +22,7 @@ import {
   Loader2,
   Trash2,
   Download,
+  Code,
 } from 'lucide-react';
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -30,6 +31,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { VMStatusBadge } from '@/components/vm/VMStatusBadge';
 import { ProgressRing } from '@/components/dashboard/ProgressRing';
 import { NoVNCConsole } from '@/components/vm/NoVNCConsole';
+import { ConsoleAccessModal } from '@/components/vm/ConsoleAccessModal';
+import { ExecuteScriptModal } from '@/components/vm/ExecuteScriptModal';
+import { GuestAgentStatus } from '@/components/vm/GuestAgentStatus';
 import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
 import { useVM, useStartVM, useStopVM, useDeleteVM, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
@@ -83,6 +87,8 @@ export function VMDetail() {
   
   // Console state
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
+  const [isConsoleModalOpen, setIsConsoleModalOpen] = useState(false);
+  const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
 
   // API connection and data
   const { data: isConnected = false } = useApiConnection();
@@ -226,12 +232,22 @@ export function VMDetail() {
             <Button 
               variant="secondary" 
               size="sm" 
-              onClick={() => setIsConsoleOpen(true)}
+              onClick={() => setIsConsoleModalOpen(true)}
               disabled={vm.status.state !== 'RUNNING'}
               title={vm.status.state !== 'RUNNING' ? 'VM must be running to access console' : 'Open VM console'}
             >
               <MonitorPlay className="w-4 h-4" />
               Console
+            </Button>
+            <Button 
+              variant="secondary" 
+              size="sm"
+              onClick={() => setIsScriptModalOpen(true)}
+              disabled={vm.status.state !== 'RUNNING'}
+              title={vm.status.state !== 'RUNNING' ? 'VM must be running to execute scripts' : 'Run script via Guest Agent'}
+            >
+              <Code className="w-4 h-4" />
+              Run Script
             </Button>
             <Button variant="secondary" size="sm">
               <Camera className="w-4 h-4" />
@@ -249,6 +265,7 @@ export function VMDetail() {
         <TabsList>
           <TabsTrigger value="summary">Summary</TabsTrigger>
           <TabsTrigger value="console">Console</TabsTrigger>
+          <TabsTrigger value="agent">Guest Agent</TabsTrigger>
           <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
           <TabsTrigger value="disks">Disks</TabsTrigger>
           <TabsTrigger value="network">Network</TabsTrigger>
@@ -437,24 +454,23 @@ export function VMDetail() {
                   <MonitorPlay className="w-16 h-16 mx-auto text-accent mb-4" />
                   <h3 className="text-lg font-medium text-text-primary mb-2">Console Available</h3>
                   <p className="text-text-muted mb-6 max-w-md">
-                    Access the VM console using VNC. Click the button below to open the web console.
+                    Access the VM console using VNC. Choose between web console or QVMRC native client.
                   </p>
-                  <div className="flex flex-col items-center gap-3">
-                    <Button onClick={() => setIsConsoleOpen(true)}>
-                      <MonitorPlay className="w-4 h-4" />
-                      Open Web Console
-                    </Button>
-                    <p className="text-xs text-text-muted">
-                      For better performance, try the{' '}
-                      <a 
-                        href="https://github.com/Galev01/LimiQuantix/releases" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-accent hover:underline inline-flex items-center gap-1"
-                      >
-                        QVMRC Native Client
-                        <Download className="w-3 h-3" />
-                      </a>
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex items-center gap-3">
+                      <Button onClick={() => setIsConsoleOpen(true)}>
+                        <MonitorPlay className="w-4 h-4" />
+                        Web Console
+                      </Button>
+                      <Button variant="secondary" onClick={() => setIsConsoleModalOpen(true)}>
+                        <Download className="w-4 h-4" />
+                        QVMRC Native
+                      </Button>
+                    </div>
+                    <p className="text-xs text-text-muted max-w-sm">
+                      <strong>Web Console:</strong> Opens in browser, no installation needed.
+                      <br />
+                      <strong>QVMRC:</strong> Better performance, USB passthrough, lower latency.
                     </p>
                   </div>
                 </div>
@@ -471,6 +487,63 @@ export function VMDetail() {
                   </Button>
                 </div>
               )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Guest Agent Tab */}
+        <TabsContent value="agent">
+          <div className="grid grid-cols-3 gap-6">
+            <div className="col-span-2">
+              <GuestAgentStatus vmId={id || ''} vmState={vm.status.state} />
+            </div>
+            <div className="space-y-4">
+              <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+                <h3 className="text-lg font-semibold text-text-primary mb-4">Quick Actions</h3>
+                <div className="space-y-3">
+                  <Button
+                    className="w-full justify-start"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setIsScriptModalOpen(true)}
+                    disabled={vm.status.state !== 'RUNNING'}
+                  >
+                    <Code className="w-4 h-4" />
+                    Run Script
+                  </Button>
+                  <Button
+                    className="w-full justify-start"
+                    variant="secondary"
+                    size="sm"
+                    disabled={vm.status.state !== 'RUNNING'}
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Graceful Reboot
+                  </Button>
+                  <Button
+                    className="w-full justify-start text-warning hover:text-warning"
+                    variant="secondary"
+                    size="sm"
+                    disabled={vm.status.state !== 'RUNNING'}
+                  >
+                    <Square className="w-4 h-4" />
+                    Graceful Shutdown
+                  </Button>
+                </div>
+              </div>
+              <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+                <h3 className="text-sm font-semibold text-text-primary mb-3">About Guest Agent</h3>
+                <p className="text-xs text-text-muted leading-relaxed">
+                  The LimiQuantix Guest Agent runs inside the VM and provides:
+                </p>
+                <ul className="text-xs text-text-muted mt-2 space-y-1">
+                  <li>• Real resource usage metrics</li>
+                  <li>• IP address reporting</li>
+                  <li>• Remote script execution</li>
+                  <li>• Graceful shutdown/reboot</li>
+                  <li>• File transfer capabilities</li>
+                </ul>
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -636,6 +709,23 @@ export function VMDetail() {
         vmName={vm.name}
         isOpen={isConsoleOpen}
         onClose={() => setIsConsoleOpen(false)}
+      />
+
+      {/* Console Access Modal (Web vs QVMRC choice) */}
+      <ConsoleAccessModal
+        isOpen={isConsoleModalOpen}
+        onClose={() => setIsConsoleModalOpen(false)}
+        onOpenWebConsole={() => setIsConsoleOpen(true)}
+        vmId={id || ''}
+        vmName={vm.name}
+      />
+
+      {/* Execute Script Modal */}
+      <ExecuteScriptModal
+        isOpen={isScriptModalOpen}
+        onClose={() => setIsScriptModalOpen(false)}
+        vmId={id || ''}
+        vmName={vm.name}
       />
     </div>
   );

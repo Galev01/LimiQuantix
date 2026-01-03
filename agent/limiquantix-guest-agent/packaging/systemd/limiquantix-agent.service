@@ -1,0 +1,29 @@
+[Unit]
+Description=LimiQuantix Guest Agent
+Documentation=https://github.com/limiquantix/limiquantix
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/limiquantix-agent
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=limiquantix-agent
+
+# Security hardening
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=read-only
+PrivateTmp=true
+
+# Resource limits
+LimitNOFILE=65535
+LimitNPROC=4096
+
+# Environment
+Environment="RUST_LOG=info,limiquantix_guest_agent=debug"
+
+[Install]
+WantedBy=multi-user.target

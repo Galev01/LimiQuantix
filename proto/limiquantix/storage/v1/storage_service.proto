@@ -127,6 +127,9 @@ service ImageService {
   
   // DownloadImage downloads a cloud image from an official source.
   rpc DownloadImage(DownloadImageRequest) returns (DownloadImageResponse);
+  
+  // GetImageCatalog returns the list of available cloud images for download.
+  rpc GetImageCatalog(GetImageCatalogRequest) returns (GetImageCatalogResponse);
 }
 
 // =============================================================================
@@ -535,4 +538,14 @@ message ImageCatalogEntry {
   
   // Last updated
   string updated_at = 11;
+}
+
+message GetImageCatalogRequest {
+  // Optional filter by OS family
+  OsInfo.OsFamily os_family = 1;
+}
+
+message GetImageCatalogResponse {
+  // List of available images in the catalog
+  repeated ImageCatalogEntry images = 1;
 }

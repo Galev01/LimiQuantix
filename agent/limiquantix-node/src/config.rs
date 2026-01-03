@@ -158,6 +158,8 @@ pub struct HypervisorConfig {
     pub libvirt_uri: Option<String>,
     /// Path for VM storage
     pub storage_path: String,
+    /// Path for cloud images
+    pub images_path: String,
 }
 
 impl Default for HypervisorConfig {
@@ -166,6 +168,7 @@ impl Default for HypervisorConfig {
             backend: HypervisorBackend::Mock,
             libvirt_uri: Some("qemu:///system".to_string()),
             storage_path: "/var/lib/limiquantix/vms".to_string(),
+            images_path: "/var/lib/limiquantix/cloud-images".to_string(),
         }
     }
 }

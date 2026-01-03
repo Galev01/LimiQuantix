@@ -41,6 +41,11 @@ const (
 	VMService_ConvertToTemplate_FullMethodName = "/limiquantix.compute.v1.VMService/ConvertToTemplate"
 	VMService_WatchVM_FullMethodName           = "/limiquantix.compute.v1.VMService/WatchVM"
 	VMService_StreamMetrics_FullMethodName     = "/limiquantix.compute.v1.VMService/StreamMetrics"
+	VMService_PingAgent_FullMethodName         = "/limiquantix.compute.v1.VMService/PingAgent"
+	VMService_ExecuteScript_FullMethodName     = "/limiquantix.compute.v1.VMService/ExecuteScript"
+	VMService_ReadGuestFile_FullMethodName     = "/limiquantix.compute.v1.VMService/ReadGuestFile"
+	VMService_WriteGuestFile_FullMethodName    = "/limiquantix.compute.v1.VMService/WriteGuestFile"
+	VMService_GuestShutdown_FullMethodName     = "/limiquantix.compute.v1.VMService/GuestShutdown"
 )
 
 // VMServiceClient is the client API for VMService service.
@@ -95,6 +100,16 @@ type VMServiceClient interface {
 	WatchVM(ctx context.Context, in *WatchVMRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[VirtualMachine], error)
 	// StreamMetrics streams real-time performance metrics.
 	StreamMetrics(ctx context.Context, in *StreamMetricsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ResourceUsage], error)
+	// PingAgent checks if the guest agent is available and responding.
+	PingAgent(ctx context.Context, in *PingAgentRequest, opts ...grpc.CallOption) (*PingAgentResponse, error)
+	// ExecuteScript runs a command inside the VM via the guest agent.
+	ExecuteScript(ctx context.Context, in *ExecuteScriptRequest, opts ...grpc.CallOption) (*ExecuteScriptResponse, error)
+	// ReadGuestFile reads a file from inside the VM.
+	ReadGuestFile(ctx context.Context, in *ReadGuestFileRequest, opts ...grpc.CallOption) (*ReadGuestFileResponse, error)
+	// WriteGuestFile writes a file to the VM.
+	WriteGuestFile(ctx context.Context, in *WriteGuestFileRequest, opts ...grpc.CallOption) (*WriteGuestFileResponse, error)
+	// GuestShutdown requests the guest agent to gracefully shutdown/reboot.
+	GuestShutdown(ctx context.Context, in *GuestShutdownRequest, opts ...grpc.CallOption) (*GuestShutdownResponse, error)
 }
 
 type vMServiceClient struct {
@@ -333,6 +348,56 @@ func (c *vMServiceClient) StreamMetrics(ctx context.Context, in *StreamMetricsRe
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type VMService_StreamMetricsClient = grpc.ServerStreamingClient[ResourceUsage]
 
+func (c *vMServiceClient) PingAgent(ctx context.Context, in *PingAgentRequest, opts ...grpc.CallOption) (*PingAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PingAgentResponse)
+	err := c.cc.Invoke(ctx, VMService_PingAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) ExecuteScript(ctx context.Context, in *ExecuteScriptRequest, opts ...grpc.CallOption) (*ExecuteScriptResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExecuteScriptResponse)
+	err := c.cc.Invoke(ctx, VMService_ExecuteScript_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) ReadGuestFile(ctx context.Context, in *ReadGuestFileRequest, opts ...grpc.CallOption) (*ReadGuestFileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReadGuestFileResponse)
+	err := c.cc.Invoke(ctx, VMService_ReadGuestFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) WriteGuestFile(ctx context.Context, in *WriteGuestFileRequest, opts ...grpc.CallOption) (*WriteGuestFileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WriteGuestFileResponse)
+	err := c.cc.Invoke(ctx, VMService_WriteGuestFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) GuestShutdown(ctx context.Context, in *GuestShutdownRequest, opts ...grpc.CallOption) (*GuestShutdownResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GuestShutdownResponse)
+	err := c.cc.Invoke(ctx, VMService_GuestShutdown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // VMServiceServer is the server API for VMService service.
 // All implementations should embed UnimplementedVMServiceServer
 // for forward compatibility.
@@ -385,6 +450,16 @@ type VMServiceServer interface {
 	WatchVM(*WatchVMRequest, grpc.ServerStreamingServer[VirtualMachine]) error
 	// StreamMetrics streams real-time performance metrics.
 	StreamMetrics(*StreamMetricsRequest, grpc.ServerStreamingServer[ResourceUsage]) error
+	// PingAgent checks if the guest agent is available and responding.
+	PingAgent(context.Context, *PingAgentRequest) (*PingAgentResponse, error)
+	// ExecuteScript runs a command inside the VM via the guest agent.
+	ExecuteScript(context.Context, *ExecuteScriptRequest) (*ExecuteScriptResponse, error)
+	// ReadGuestFile reads a file from inside the VM.
+	ReadGuestFile(context.Context, *ReadGuestFileRequest) (*ReadGuestFileResponse, error)
+	// WriteGuestFile writes a file to the VM.
+	WriteGuestFile(context.Context, *WriteGuestFileRequest) (*WriteGuestFileResponse, error)
+	// GuestShutdown requests the guest agent to gracefully shutdown/reboot.
+	GuestShutdown(context.Context, *GuestShutdownRequest) (*GuestShutdownResponse, error)
 }
 
 // UnimplementedVMServiceServer should be embedded to have
@@ -456,6 +531,21 @@ func (UnimplementedVMServiceServer) WatchVM(*WatchVMRequest, grpc.ServerStreamin
 }
 func (UnimplementedVMServiceServer) StreamMetrics(*StreamMetricsRequest, grpc.ServerStreamingServer[ResourceUsage]) error {
 	return status.Error(codes.Unimplemented, "method StreamMetrics not implemented")
+}
+func (UnimplementedVMServiceServer) PingAgent(context.Context, *PingAgentRequest) (*PingAgentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PingAgent not implemented")
+}
+func (UnimplementedVMServiceServer) ExecuteScript(context.Context, *ExecuteScriptRequest) (*ExecuteScriptResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ExecuteScript not implemented")
+}
+func (UnimplementedVMServiceServer) ReadGuestFile(context.Context, *ReadGuestFileRequest) (*ReadGuestFileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReadGuestFile not implemented")
+}
+func (UnimplementedVMServiceServer) WriteGuestFile(context.Context, *WriteGuestFileRequest) (*WriteGuestFileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method WriteGuestFile not implemented")
+}
+func (UnimplementedVMServiceServer) GuestShutdown(context.Context, *GuestShutdownRequest) (*GuestShutdownResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GuestShutdown not implemented")
 }
 func (UnimplementedVMServiceServer) testEmbeddedByValue() {}
 
@@ -841,6 +931,96 @@ func _VMService_StreamMetrics_Handler(srv interface{}, stream grpc.ServerStream)
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type VMService_StreamMetricsServer = grpc.ServerStreamingServer[ResourceUsage]
 
+func _VMService_PingAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PingAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).PingAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_PingAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).PingAgent(ctx, req.(*PingAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_ExecuteScript_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExecuteScriptRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).ExecuteScript(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_ExecuteScript_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).ExecuteScript(ctx, req.(*ExecuteScriptRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_ReadGuestFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadGuestFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).ReadGuestFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_ReadGuestFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).ReadGuestFile(ctx, req.(*ReadGuestFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_WriteGuestFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WriteGuestFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).WriteGuestFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_WriteGuestFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).WriteGuestFile(ctx, req.(*WriteGuestFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_GuestShutdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GuestShutdownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).GuestShutdown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_GuestShutdown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).GuestShutdown(ctx, req.(*GuestShutdownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // VMService_ServiceDesc is the grpc.ServiceDesc for VMService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -923,6 +1103,26 @@ var VMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ConvertToTemplate",
 			Handler:    _VMService_ConvertToTemplate_Handler,
+		},
+		{
+			MethodName: "PingAgent",
+			Handler:    _VMService_PingAgent_Handler,
+		},
+		{
+			MethodName: "ExecuteScript",
+			Handler:    _VMService_ExecuteScript_Handler,
+		},
+		{
+			MethodName: "ReadGuestFile",
+			Handler:    _VMService_ReadGuestFile_Handler,
+		},
+		{
+			MethodName: "WriteGuestFile",
+			Handler:    _VMService_WriteGuestFile_Handler,
+		},
+		{
+			MethodName: "GuestShutdown",
+			Handler:    _VMService_GuestShutdown_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

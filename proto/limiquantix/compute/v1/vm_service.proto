@@ -108,6 +108,25 @@ service VMService {
   
   // StreamMetrics streams real-time performance metrics.
   rpc StreamMetrics(StreamMetricsRequest) returns (stream ResourceUsage);
+  
+  // ==========================================================================
+  // Guest Agent Operations
+  // ==========================================================================
+  
+  // PingAgent checks if the guest agent is available and responding.
+  rpc PingAgent(PingAgentRequest) returns (PingAgentResponse);
+  
+  // ExecuteScript runs a command inside the VM via the guest agent.
+  rpc ExecuteScript(ExecuteScriptRequest) returns (ExecuteScriptResponse);
+  
+  // ReadGuestFile reads a file from inside the VM.
+  rpc ReadGuestFile(ReadGuestFileRequest) returns (ReadGuestFileResponse);
+  
+  // WriteGuestFile writes a file to the VM.
+  rpc WriteGuestFile(WriteGuestFileRequest) returns (WriteGuestFileResponse);
+  
+  // GuestShutdown requests the guest agent to gracefully shutdown/reboot.
+  rpc GuestShutdown(GuestShutdownRequest) returns (GuestShutdownResponse);
 }
 
 // =============================================================================
@@ -371,5 +390,154 @@ message StreamMetricsRequest {
   
   // Update interval in seconds (default: 5)
   uint32 interval_sec = 2;
+}
+
+// =============================================================================
+// GUEST AGENT MESSAGES
+// =============================================================================
+
+// PingAgent - Check guest agent connectivity
+
+message PingAgentRequest {
+  string vm_id = 1;
+}
+
+message PingAgentResponse {
+  // Whether the agent is connected and responding
+  bool connected = 1;
+  
+  // Agent version
+  string version = 2;
+  
+  // Agent uptime in seconds
+  uint64 uptime_seconds = 3;
+  
+  // Error message if not connected
+  string error = 4;
+}
+
+// ExecuteScript - Run commands in the VM
+
+message ExecuteScriptRequest {
+  string vm_id = 1;
+  
+  // Command to execute
+  string command = 2;
+  
+  // Command arguments (optional, for direct execution)
+  repeated string args = 3;
+  
+  // Timeout in seconds (0 = default 60s)
+  uint32 timeout_seconds = 4;
+  
+  // Whether to wait for the command to complete
+  bool wait_for_exit = 5;
+  
+  // Working directory (optional)
+  string working_directory = 6;
+  
+  // Environment variables to set
+  map<string, string> environment = 7;
+}
+
+message ExecuteScriptResponse {
+  // Whether the command succeeded (exit code 0)
+  bool success = 1;
+  
+  // Exit code (-1 if execution failed to start)
+  int32 exit_code = 2;
+  
+  // Standard output
+  string stdout = 3;
+  
+  // Standard error
+  string stderr = 4;
+  
+  // Whether the command timed out
+  bool timed_out = 5;
+  
+  // Execution duration in milliseconds
+  uint64 duration_ms = 6;
+  
+  // Error message if execution failed to start
+  string error = 7;
+}
+
+// ReadGuestFile - Read files from the VM
+
+message ReadGuestFileRequest {
+  string vm_id = 1;
+  
+  // Absolute path to the file
+  string path = 2;
+  
+  // Maximum bytes to read (0 = all)
+  uint64 max_size = 3;
+}
+
+message ReadGuestFileResponse {
+  // Whether the read succeeded
+  bool success = 1;
+  
+  // File contents
+  bytes data = 2;
+  
+  // Total file size
+  uint64 total_size = 3;
+  
+  // Error message if failed
+  string error = 4;
+}
+
+// WriteGuestFile - Write files to the VM
+
+message WriteGuestFileRequest {
+  string vm_id = 1;
+  
+  // Absolute path to the file
+  string path = 2;
+  
+  // File contents
+  bytes data = 3;
+  
+  // File permissions (octal, e.g., 0644)
+  uint32 mode = 4;
+  
+  // Create parent directories if they don't exist
+  bool create_parents = 5;
+}
+
+message WriteGuestFileResponse {
+  // Whether the write succeeded
+  bool success = 1;
+  
+  // Number of bytes written
+  uint64 bytes_written = 2;
+  
+  // Error message if failed
+  string error = 3;
+}
+
+// GuestShutdown - Graceful shutdown/reboot
+
+message GuestShutdownRequest {
+  string vm_id = 1;
+  
+  // Whether to reboot (true) or shutdown (false)
+  bool reboot = 2;
+  
+  // Delay in seconds before shutdown
+  uint32 delay_seconds = 3;
+  
+  // Message to broadcast to users
+  string message = 4;
+}
+
+message GuestShutdownResponse {
+  // Whether the shutdown was accepted by the agent
+  bool accepted = 1;
+  
+  // Error message if rejected
+  string error = 2;
 }
 

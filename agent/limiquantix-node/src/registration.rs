@@ -5,7 +5,9 @@
 //! - Periodic heartbeat to report node status
 //! - Re-registration on connection loss
 //! - VM sync to report existing VMs to the control plane
+//! - Image scanning and sync to report available cloud images
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -27,6 +29,8 @@ pub struct RegistrationClient {
     telemetry: Arc<TelemetryCollector>,
     hypervisor: Arc<dyn Hypervisor>,
     http_client: reqwest::Client,
+    /// Path to cloud images directory
+    images_path: PathBuf,
     /// The server-assigned node ID (set after registration)
     registered_node_id: RwLock<Option<String>>,
 }
@@ -53,6 +57,7 @@ impl RegistrationClient {
             telemetry,
             hypervisor,
             http_client: reqwest::Client::new(),
+            images_path: PathBuf::from(&config.hypervisor.images_path),
             registered_node_id: RwLock::new(None),
         }
     }
@@ -181,6 +186,11 @@ impl RegistrationClient {
                             warn!(error = %e, "Failed to sync VMs to control plane");
                         }
                         
+                        // Scan and sync local images to the control plane
+                        if let Err(e) = self.sync_images(id).await {
+                            warn!(error = %e, "Failed to sync images to control plane");
+                        }
+                        
                         Ok(id.clone())
                     } else {
                         warn!(
@@ -284,6 +294,158 @@ impl RegistrationClient {
             Err(e) => {
                 warn!(error = %e, "Failed to send VM sync request");
                 Err(anyhow::anyhow!("VM sync request failed: {}", e))
+            }
+        }
+    }
+    
+    /// Scan local images and sync them to the control plane.
+    async fn sync_images(&self, node_id: &str) -> anyhow::Result<()> {
+        info!(node_id = %node_id, path = %self.images_path.display(), "Scanning local images");
+        
+        // Ensure the images directory exists
+        if !self.images_path.exists() {
+            info!("Images directory does not exist, skipping image sync");
+            return Ok(());
+        }
+        
+        // Scan the images directory
+        let mut images = Vec::new();
+        let mut entries = match tokio::fs::read_dir(&self.images_path).await {
+            Ok(entries) => entries,
+            Err(e) => {
+                warn!(error = %e, "Failed to read images directory");
+                return Ok(()); // Not a fatal error
+            }
+        };
+        
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let path = entry.path();
+            
+            // Only process files with supported extensions
+            let extension = path.extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("");
+            
+            if !matches!(extension.to_lowercase().as_str(), "qcow2" | "img" | "raw" | "iso" | "vmdk") {
+                continue;
+            }
+            
+            // Get file metadata
+            let metadata = match tokio::fs::metadata(&path).await {
+                Ok(m) => m,
+                Err(e) => {
+                    warn!(path = %path.display(), error = %e, "Failed to get file metadata");
+                    continue;
+                }
+            };
+            
+            if !metadata.is_file() {
+                continue;
+            }
+            
+            let filename = path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string();
+            
+            let size_bytes = metadata.len();
+            
+            // Get virtual size for qcow2 images using qemu-img
+            let virtual_size_bytes = if extension == "qcow2" {
+                get_qcow2_virtual_size(&path).await.unwrap_or(size_bytes)
+            } else {
+                size_bytes
+            };
+            
+            // Detect OS from filename
+            let detected_os = detect_os_from_filename(&filename);
+            
+            // Get modification time
+            let modified_at = metadata.modified()
+                .ok()
+                .map(|t| {
+                    chrono::DateTime::<chrono::Utc>::from(t)
+                        .format("%Y-%m-%dT%H:%M:%SZ")
+                        .to_string()
+                })
+                .unwrap_or_default();
+            
+            info!(
+                filename = %filename,
+                size_mb = size_bytes / 1024 / 1024,
+                os = %detected_os.distribution,
+                "Found cloud image"
+            );
+            
+            images.push(serde_json::json!({
+                "path": path.to_string_lossy(),
+                "filename": filename,
+                "sizeBytes": size_bytes,
+                "virtualSizeBytes": virtual_size_bytes,
+                "format": extension,
+                "checksum": "", // TODO: Calculate SHA256
+                "detectedOs": {
+                    "family": detected_os.family,
+                    "distribution": detected_os.distribution,
+                    "version": detected_os.version,
+                    "architecture": "x86_64",
+                    "defaultUser": detected_os.default_user,
+                    "cloudInitEnabled": true,
+                    "provisioningMethod": 1 // CLOUD_INIT
+                },
+                "modifiedAt": modified_at
+            }));
+        }
+        
+        if images.is_empty() {
+            info!("No cloud images found in {}", self.images_path.display());
+            return Ok(());
+        }
+        
+        info!(count = images.len(), "Found cloud images to sync");
+        
+        // Send sync request to control plane
+        let request = serde_json::json!({
+            "nodeId": node_id,
+            "images": images
+        });
+        
+        let url = format!(
+            "{}/limiquantix.storage.v1.ImageService/ScanLocalImages",
+            self.control_plane_address
+        );
+        
+        let response = self.http_client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .await;
+        
+        match response {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    let body = resp.text().await.unwrap_or_default();
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                        let registered = json.get("registeredCount").and_then(|v| v.as_i64()).unwrap_or(0);
+                        let existing = json.get("existingCount").and_then(|v| v.as_i64()).unwrap_or(0);
+                        info!(
+                            registered = registered,
+                            existing = existing,
+                            "Image sync completed"
+                        );
+                    }
+                    Ok(())
+                } else {
+                    let status = resp.status();
+                    let body = resp.text().await.unwrap_or_default();
+                    warn!(status = %status, body = %body, "Image sync request failed");
+                    Err(anyhow::anyhow!("Image sync failed: {} - {}", status, body))
+                }
+            }
+            Err(e) => {
+                warn!(error = %e, "Failed to send image sync request");
+                Err(anyhow::anyhow!("Image sync request failed: {}", e))
             }
         }
     }
@@ -432,6 +594,123 @@ pub fn detect_management_ip() -> Option<String> {
     local_ip_address::local_ip()
         .ok()
         .map(|ip| ip.to_string())
+}
+
+/// Detected OS information from filename.
+struct DetectedOs {
+    family: i32,     // 1 = Linux, 2 = Windows
+    distribution: String,
+    version: String,
+    default_user: String,
+}
+
+/// Detect OS information from a cloud image filename.
+fn detect_os_from_filename(filename: &str) -> DetectedOs {
+    let filename_lower = filename.to_lowercase();
+    
+    // Check for known distributions
+    if filename_lower.contains("ubuntu") {
+        let version = extract_version(&filename_lower, &["22.04", "24.04", "20.04", "18.04"]);
+        DetectedOs {
+            family: 1,
+            distribution: "ubuntu".to_string(),
+            version,
+            default_user: "ubuntu".to_string(),
+        }
+    } else if filename_lower.contains("debian") {
+        let version = extract_version(&filename_lower, &["12", "11", "10"]);
+        DetectedOs {
+            family: 1,
+            distribution: "debian".to_string(),
+            version,
+            default_user: "debian".to_string(),
+        }
+    } else if filename_lower.contains("rocky") {
+        let version = extract_version(&filename_lower, &["9", "8"]);
+        DetectedOs {
+            family: 1,
+            distribution: "rocky".to_string(),
+            version,
+            default_user: "rocky".to_string(),
+        }
+    } else if filename_lower.contains("almalinux") || filename_lower.contains("alma") {
+        let version = extract_version(&filename_lower, &["9", "8"]);
+        DetectedOs {
+            family: 1,
+            distribution: "almalinux".to_string(),
+            version,
+            default_user: "almalinux".to_string(),
+        }
+    } else if filename_lower.contains("centos") {
+        let version = extract_version(&filename_lower, &["9", "8", "7"]);
+        DetectedOs {
+            family: 1,
+            distribution: "centos".to_string(),
+            version,
+            default_user: "cloud-user".to_string(),
+        }
+    } else if filename_lower.contains("fedora") {
+        let version = extract_version(&filename_lower, &["40", "39", "38"]);
+        DetectedOs {
+            family: 1,
+            distribution: "fedora".to_string(),
+            version,
+            default_user: "fedora".to_string(),
+        }
+    } else if filename_lower.contains("opensuse") || filename_lower.contains("suse") {
+        let version = extract_version(&filename_lower, &["15.5", "15.4", "15"]);
+        DetectedOs {
+            family: 1,
+            distribution: "opensuse".to_string(),
+            version,
+            default_user: "root".to_string(),
+        }
+    } else if filename_lower.contains("windows") {
+        DetectedOs {
+            family: 2,
+            distribution: "windows".to_string(),
+            version: String::new(),
+            default_user: "Administrator".to_string(),
+        }
+    } else {
+        DetectedOs {
+            family: 1,
+            distribution: "unknown".to_string(),
+            version: String::new(),
+            default_user: "root".to_string(),
+        }
+    }
+}
+
+/// Extract version from filename.
+fn extract_version(filename: &str, versions: &[&str]) -> String {
+    for version in versions {
+        if filename.contains(version) {
+            return version.to_string();
+        }
+    }
+    String::new()
+}
+
+/// Get virtual size of a QCOW2 image using qemu-img.
+async fn get_qcow2_virtual_size(path: &std::path::Path) -> Option<u64> {
+    use tokio::process::Command;
+    
+    let output = Command::new("qemu-img")
+        .args(["info", "--output=json", &path.to_string_lossy()])
+        .output()
+        .await
+        .ok()?;
+    
+    if !output.status.success() {
+        return None;
+    }
+    
+    let json_str = String::from_utf8_lossy(&output.stdout);
+    let json: serde_json::Value = serde_json::from_str(&json_str).ok()?;
+    
+    json.get("virtual-size")
+        .and_then(|v| v.as_u64())
 }
 
 #[cfg(test)]

@@ -86,6 +86,17 @@
     "updater": {
       "active": false
     },
+    "cli": {
+      "description": "QVMRC - Quantix Virtual Machine Remote Console",
+      "args": [
+        {
+          "name": "url",
+          "short": "u",
+          "takesValue": true,
+          "description": "Connection URL (qvmrc://connect?...)"
+        }
+      ]
+    },
     "windows": [
       {
         "fullscreen": false,

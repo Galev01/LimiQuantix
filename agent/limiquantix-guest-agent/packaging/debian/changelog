@@ -1,0 +1,11 @@
+limiquantix-guest-agent (0.1.0-1) unstable; urgency=medium
+
+  * Initial release
+  * Telemetry collection (CPU, memory, disk, network)
+  * IP address reporting via virtio-serial
+  * Remote command execution
+  * File read/write operations
+  * Graceful shutdown/reboot support
+  * Password reset functionality
+
+ -- LimiQuantix Team <team@limiquantix.io>  Sat, 03 Jan 2026 12:00:00 +0000

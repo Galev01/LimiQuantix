@@ -43,18 +43,13 @@ plugins:
   #     - paths=source_relative
 
   # ==========================================================================
-  # TypeScript Frontend Generation (Connect-ES / gRPC-Web)
+  # TypeScript Frontend Generation (Connect-ES v2 / @bufbuild/protobuf v2)
   # ==========================================================================
   
-  # TypeScript message types
-  - remote: buf.build/bufbuild/es
-    out: ../frontend/src/api
-    opt:
-      - target=ts
-      - import_extension=none
-  
-  # Connect-ES services (modern, recommended)
-  - remote: buf.build/connectrpc/es
+  # TypeScript message types and Connect services (using protoc-gen-es v2)
+  # Note: protoc-gen-es v2 generates both messages AND service descriptors
+  # The connect-es v2 library uses the service descriptors from protoc-gen-es
+  - remote: buf.build/bufbuild/es:v2.2.3
     out: ../frontend/src/api
     opt:
       - target=ts

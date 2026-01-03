@@ -92,6 +92,25 @@ service NodeDaemonService {
   
   // Stream node events (VM started, stopped, crashed, etc.)
   rpc StreamEvents(google.protobuf.Empty) returns (stream NodeEvent);
+  
+  // =========================================================================
+  // Guest Agent Operations
+  // =========================================================================
+  
+  // Check if guest agent is available and responding
+  rpc PingAgent(VMIdRequest) returns (AgentPingResponse);
+  
+  // Execute a command inside the VM via guest agent
+  rpc ExecuteInGuest(ExecuteInGuestRequest) returns (ExecuteInGuestResponse);
+  
+  // Read a file from inside the VM
+  rpc ReadGuestFile(ReadGuestFileRequest) returns (ReadGuestFileResponse);
+  
+  // Write a file inside the VM
+  rpc WriteGuestFile(WriteGuestFileRequest) returns (WriteGuestFileResponse);
+  
+  // Request guest agent to shutdown/reboot the VM gracefully
+  rpc GuestShutdown(GuestShutdownRequest) returns (GuestShutdownResponse);
 }
 
 // =============================================================================
@@ -286,6 +305,88 @@ message VMStatusResponse {
   uint64 memory_used_bytes = 5;
   uint64 memory_total_bytes = 6;
   google.protobuf.Timestamp started_at = 7;
+  
+  // Guest agent information (populated when agent is running)
+  GuestAgentInfo guest_agent = 8;
+}
+
+// Information reported by the guest agent
+message GuestAgentInfo {
+  // Whether the guest agent is connected
+  bool connected = 1;
+  
+  // Agent version
+  string version = 2;
+  
+  // Guest OS information
+  string os_name = 3;
+  string os_version = 4;
+  string kernel_version = 5;
+  string hostname = 6;
+  
+  // IP addresses reported by the agent
+  repeated string ip_addresses = 7;
+  
+  // Network interfaces with detailed info
+  repeated GuestNetworkInterface interfaces = 8;
+  
+  // Real resource usage from inside the VM
+  GuestResourceUsage resource_usage = 9;
+  
+  // Agent capabilities
+  repeated string capabilities = 10;
+  
+  // Last update timestamp
+  google.protobuf.Timestamp last_seen = 11;
+}
+
+// Network interface information from guest agent
+message GuestNetworkInterface {
+  string name = 1;
+  string mac_address = 2;
+  repeated string ipv4_addresses = 3;
+  repeated string ipv6_addresses = 4;
+  bool is_up = 5;
+}
+
+// Resource usage as reported by the guest agent (actual in-use, not allocated)
+message GuestResourceUsage {
+  // CPU usage percentage (0-100)
+  double cpu_usage_percent = 1;
+  
+  // Memory usage
+  uint64 memory_total_bytes = 2;
+  uint64 memory_used_bytes = 3;
+  uint64 memory_available_bytes = 4;
+  
+  // Swap usage
+  uint64 swap_total_bytes = 5;
+  uint64 swap_used_bytes = 6;
+  
+  // Load averages
+  double load_avg_1 = 7;
+  double load_avg_5 = 8;
+  double load_avg_15 = 9;
+  
+  // Disk usage per mount point
+  repeated GuestDiskUsage disks = 10;
+  
+  // Process count
+  uint32 process_count = 11;
+  
+  // System uptime
+  uint64 uptime_seconds = 12;
+}
+
+// Disk usage from guest agent
+message GuestDiskUsage {
+  string mount_point = 1;
+  string device = 2;
+  string filesystem = 3;
+  uint64 total_bytes = 4;
+  uint64 used_bytes = 5;
+  uint64 available_bytes = 6;
+  double usage_percent = 7;
 }
 
 enum PowerState {
@@ -392,4 +493,83 @@ enum EventType {
   EVENT_TYPE_SNAPSHOT_DELETED = 9;
   EVENT_TYPE_NODE_OVERLOADED = 10;
   EVENT_TYPE_NODE_RECOVERED = 11;
+  EVENT_TYPE_AGENT_CONNECTED = 12;
+  EVENT_TYPE_AGENT_DISCONNECTED = 13;
+}
+
+// =============================================================================
+// GUEST AGENT OPERATIONS
+// =============================================================================
+
+// Ping the guest agent
+message AgentPingResponse {
+  bool connected = 1;
+  string version = 2;
+  uint64 uptime_seconds = 3;
+  string error = 4;
+}
+
+// Execute command in guest
+message ExecuteInGuestRequest {
+  string vm_id = 1;
+  string command = 2;
+  repeated string args = 3;
+  uint32 timeout_seconds = 4;
+  bool wait_for_exit = 5;
+  string working_directory = 6;
+  map<string, string> environment = 7;
+}
+
+message ExecuteInGuestResponse {
+  bool success = 1;
+  int32 exit_code = 2;
+  string stdout = 3;
+  string stderr = 4;
+  bool timed_out = 5;
+  uint64 duration_ms = 6;
+  string error = 7;
+}
+
+// Read file from guest
+message ReadGuestFileRequest {
+  string vm_id = 1;
+  string path = 2;
+  uint64 offset = 3;
+  uint64 max_size = 4;  // Maximum bytes to read (0 = all)
+}
+
+message ReadGuestFileResponse {
+  bool success = 1;
+  bytes data = 2;
+  uint64 total_size = 3;
+  bool eof = 4;
+  string error = 5;
+}
+
+// Write file to guest
+message WriteGuestFileRequest {
+  string vm_id = 1;
+  string path = 2;
+  bytes data = 3;
+  uint32 mode = 4;      // File permissions (e.g., 0644)
+  bool create_parents = 5;
+}
+
+message WriteGuestFileResponse {
+  bool success = 1;
+  uint64 bytes_written = 2;
+  string error = 3;
+}
+
+// Guest shutdown request
+message GuestShutdownRequest {
+  string vm_id = 1;
+  bool reboot = 2;      // true = reboot, false = poweroff
+  uint32 delay_seconds = 3;
+  string message = 4;   // Broadcast message
+}
+
+message GuestShutdownResponse {
+  bool accepted = 1;
+  string error = 2;
 }

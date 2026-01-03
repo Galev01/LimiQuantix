@@ -4,7 +4,7 @@
 //! Based on X11/keysymdef.h
 
 /// Convert a JavaScript key string to X11 keysym
-pub fn js_key_to_keysym(key: &str, code: &str, shift: bool) -> Option<u32> {
+pub fn js_key_to_keysym(key: &str, code: &str, _shift: bool) -> Option<u32> {
     // First check for special keys by code
     if let Some(keysym) = code_to_keysym(code) {
         return Some(keysym);

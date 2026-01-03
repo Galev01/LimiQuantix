@@ -1054,3 +1054,15 @@ func convertToNodeDaemonCreateRequest(vm *domain.VirtualMachine, spec *computev1
 
 	return req
 }
+
+// ============================================================================
+// Guest Agent Operations (TODO: Enable when proto definitions are complete)
+// ============================================================================
+
+// NOTE: The following guest agent operations are commented out until
+// the corresponding proto definitions are added:
+// - PingAgent
+// - ExecuteScript
+// - ReadGuestFile
+// - WriteGuestFile
+// - GuestShutdown

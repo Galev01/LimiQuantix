@@ -19,9 +19,11 @@ import (
 
 // ImageService implements the storagev1connect.ImageServiceHandler interface.
 type ImageService struct {
-	repo    ImageRepository
-	catalog []CatalogEntry
-	logger  *zap.Logger
+	repo            ImageRepository
+	catalog         []CatalogEntry
+	downloadManager *DownloadManager
+	imagesDir       string // Default directory for downloaded images
+	logger          *zap.Logger
 }
 
 // CatalogEntry represents a known cloud image that can be downloaded.
@@ -41,10 +43,12 @@ type CatalogEntry struct {
 // NewImageService creates a new ImageService with a built-in catalog.
 func NewImageService(repo ImageRepository, logger *zap.Logger) *ImageService {
 	svc := &ImageService{
-		repo:   repo,
-		logger: logger.Named("image-service"),
+		repo:      repo,
+		imagesDir: "/var/lib/limiquantix/cloud-images",
+		logger:    logger.Named("image-service"),
 	}
 	svc.initCatalog()
+	svc.downloadManager = NewDownloadManager(repo, svc.catalog, logger)
 	return svc
 }
 
@@ -267,6 +271,63 @@ func (s *ImageService) GetCatalog() []CatalogEntry {
 	return s.catalog
 }
 
+// GetDownloadJobs returns all active download jobs.
+func (s *ImageService) GetDownloadJobs() []*DownloadJob {
+	return s.downloadManager.ListJobs()
+}
+
+// GetDownloadManager returns the download manager for external access.
+func (s *ImageService) GetDownloadManager() *DownloadManager {
+	return s.downloadManager
+}
+
+// GetImageCatalog returns the list of available cloud images for download.
+func (s *ImageService) GetImageCatalog(
+	ctx context.Context,
+	req *connect.Request[storagev1.GetImageCatalogRequest],
+) (*connect.Response[storagev1.GetImageCatalogResponse], error) {
+	var entries []*storagev1.ImageCatalogEntry
+
+	for _, e := range s.catalog {
+		// Apply OS family filter if specified
+		if req.Msg.OsFamily != storagev1.OsInfo_UNKNOWN {
+			if convertOSFamilyToProto(e.OS.Family) != req.Msg.OsFamily {
+				continue
+			}
+		}
+
+		entries = append(entries, &storagev1.ImageCatalogEntry{
+			Id:           e.ID,
+			Name:         e.Name,
+			Description:  e.Description,
+			Url:          e.URL,
+			Checksum:     e.Checksum,
+			ChecksumType: e.ChecksumType,
+			Os: &storagev1.OsInfo{
+				Family:             convertOSFamilyToProto(e.OS.Family),
+				Distribution:       e.OS.Distribution,
+				Version:            e.OS.Version,
+				Architecture:       e.OS.Architecture,
+				DefaultUser:        e.OS.DefaultUser,
+				CloudInitEnabled:   e.OS.CloudInitEnabled,
+				ProvisioningMethod: convertProvisioningMethodToProto(e.OS.ProvisioningMethod),
+			},
+			SizeBytes: e.SizeBytes,
+			Requirements: &storagev1.ImageRequirements{
+				MinCpu:            e.Requirements.MinCPU,
+				MinMemoryMib:      e.Requirements.MinMemoryMiB,
+				MinDiskGib:        e.Requirements.MinDiskGiB,
+				SupportedFirmware: e.Requirements.SupportedFirmware,
+			},
+			Verified: e.Verified,
+		})
+	}
+
+	return connect.NewResponse(&storagev1.GetImageCatalogResponse{
+		Images: entries,
+	}), nil
+}
+
 // CreateImage creates a new image.
 func (s *ImageService) CreateImage(
 	ctx context.Context,
@@ -482,12 +543,8 @@ func (s *ImageService) GetImportStatus(
 	ctx context.Context,
 	req *connect.Request[storagev1.GetImportStatusRequest],
 ) (*connect.Response[storagev1.ImportStatus], error) {
-	// TODO: Implement actual job tracking
-	return connect.NewResponse(&storagev1.ImportStatus{
-		JobId:           req.Msg.JobId,
-		Status:          storagev1.ImportStatus_PENDING,
-		ProgressPercent: 0,
-	}), nil
+	status := s.downloadManager.GetJobStatus(req.Msg.JobId)
+	return connect.NewResponse(status), nil
 }
 
 // ScanLocalImages registers images scanned by the Node Daemon.
@@ -627,7 +684,16 @@ func (s *ImageService) DownloadImage(
 
 	jobID := uuid.New().String()
 
-	// TODO: Send download request to Node Daemon
+	// Start download job
+	if err := s.downloadManager.StartDownload(ctx, jobID, created.ID, req.Msg.CatalogId, req.Msg.NodeId, s.imagesDir); err != nil {
+		logger.Error("Failed to start download job", zap.Error(err))
+		// Update image status to error
+		created.Status.Phase = domain.ImagePhaseError
+		created.Status.ErrorMessage = err.Error()
+		s.repo.Update(ctx, created)
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	logger.Info("Image download started",
 		zap.String("job_id", jobID),
 		zap.String("image_id", created.ID),

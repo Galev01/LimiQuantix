@@ -56,6 +56,9 @@ futures.workspace = true
 reqwest = { version = "0.12", features = ["json"] }
 local-ip-address = "0.6"
 
+# Random number generation
+rand = "0.8"
+
 # Internal crates
 limiquantix-hypervisor.workspace = true
 limiquantix-telemetry.workspace = true

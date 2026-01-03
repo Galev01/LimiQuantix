@@ -1,10 +1,11 @@
 //! Node Daemon gRPC service implementation.
 
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use futures::Stream;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use tracing::{info, debug, warn, error, instrument};
@@ -22,7 +23,29 @@ use limiquantix_proto::{
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
+    // Guest agent types
+    AgentPingResponse, ExecuteInGuestRequest, ExecuteInGuestResponse,
+    ReadGuestFileRequest, ReadGuestFileResponse, WriteGuestFileRequest,
+    WriteGuestFileResponse, GuestShutdownRequest, GuestShutdownResponse,
+    GuestAgentInfo, GuestResourceUsage, GuestNetworkInterface, GuestDiskUsage,
 };
+use limiquantix_proto::agent::TelemetryReport;
+
+use crate::agent_client::{AgentClient, AgentManager};
+
+/// Cached guest agent info for a VM
+#[derive(Debug, Clone, Default)]
+struct CachedAgentInfo {
+    connected: bool,
+    version: String,
+    os_name: String,
+    os_version: String,
+    kernel_version: String,
+    hostname: String,
+    ip_addresses: Vec<String>,
+    last_telemetry: Option<TelemetryReport>,
+    last_seen: Option<std::time::Instant>,
+}
 
 /// Node Daemon gRPC service implementation.
 pub struct NodeDaemonServiceImpl {
@@ -32,6 +55,10 @@ pub struct NodeDaemonServiceImpl {
     hypervisor: Arc<dyn Hypervisor>,
     telemetry: Arc<TelemetryCollector>,
     storage: StorageManager,
+    /// Guest agent manager for all VMs
+    agent_manager: Arc<RwLock<HashMap<String, AgentClient>>>,
+    /// Cached agent info per VM
+    agent_cache: Arc<RwLock<HashMap<String, CachedAgentInfo>>>,
 }
 
 impl NodeDaemonServiceImpl {
@@ -50,6 +77,8 @@ impl NodeDaemonServiceImpl {
             hypervisor,
             telemetry,
             storage: StorageManager::new(),
+            agent_manager: Arc::new(RwLock::new(HashMap::new())),
+            agent_cache: Arc::new(RwLock::new(HashMap::new())),
         }
     }
     
@@ -70,7 +99,123 @@ impl NodeDaemonServiceImpl {
             hypervisor,
             telemetry,
             storage: StorageManager::with_path(storage_path),
+            agent_manager: Arc::new(RwLock::new(HashMap::new())),
+            agent_cache: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+    
+    /// Get or create an agent client for a VM
+    async fn get_agent_client(&self, vm_id: &str) -> Result<(), Status> {
+        let mut agents = self.agent_manager.write().await;
+        
+        if !agents.contains_key(vm_id) {
+            let mut client = AgentClient::new(vm_id);
+            
+            if client.socket_exists() {
+                match client.connect().await {
+                    Ok(()) => {
+                        info!(vm_id = %vm_id, "Connected to guest agent");
+                        agents.insert(vm_id.to_string(), client);
+                    }
+                    Err(e) => {
+                        debug!(vm_id = %vm_id, error = %e, "Failed to connect to guest agent");
+                        return Err(Status::unavailable(format!("Agent not available: {}", e)));
+                    }
+                }
+            } else {
+                return Err(Status::unavailable("Agent socket not found"));
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Update cached agent info from telemetry
+    async fn update_agent_cache(&self, vm_id: &str, telemetry: &TelemetryReport) {
+        let mut cache = self.agent_cache.write().await;
+        let entry = cache.entry(vm_id.to_string()).or_default();
+        
+        entry.connected = true;
+        entry.hostname = telemetry.hostname.clone();
+        entry.last_telemetry = Some(telemetry.clone());
+        entry.last_seen = Some(std::time::Instant::now());
+        
+        // Extract IPs from interfaces
+        let mut ips = Vec::new();
+        for iface in &telemetry.interfaces {
+            ips.extend(iface.ipv4_addresses.clone());
+        }
+        if !ips.is_empty() {
+            entry.ip_addresses = ips;
+        }
+    }
+    
+    /// Get cached agent info for a VM
+    async fn get_agent_info(&self, vm_id: &str) -> Option<GuestAgentInfo> {
+        let cache = self.agent_cache.read().await;
+        
+        cache.get(vm_id).map(|info| {
+            let resource_usage = info.last_telemetry.as_ref().map(|t| {
+                GuestResourceUsage {
+                    cpu_usage_percent: t.cpu_usage_percent,
+                    memory_total_bytes: t.memory_total_bytes,
+                    memory_used_bytes: t.memory_used_bytes,
+                    memory_available_bytes: t.memory_available_bytes,
+                    swap_total_bytes: t.swap_total_bytes,
+                    swap_used_bytes: t.swap_used_bytes,
+                    load_avg_1: t.load_avg_1,
+                    load_avg_5: t.load_avg_5,
+                    load_avg_15: t.load_avg_15,
+                    disks: t.disks.iter().map(|d| GuestDiskUsage {
+                        mount_point: d.mount_point.clone(),
+                        device: d.device.clone(),
+                        filesystem: d.filesystem.clone(),
+                        total_bytes: d.total_bytes,
+                        used_bytes: d.used_bytes,
+                        available_bytes: d.available_bytes,
+                        usage_percent: d.usage_percent,
+                    }).collect(),
+                    process_count: t.process_count,
+                    uptime_seconds: t.uptime_seconds,
+                }
+            });
+            
+            let interfaces = info.last_telemetry.as_ref()
+                .map(|t| t.interfaces.iter().map(|i| GuestNetworkInterface {
+                    name: i.name.clone(),
+                    mac_address: i.mac_address.clone(),
+                    ipv4_addresses: i.ipv4_addresses.clone(),
+                    ipv6_addresses: i.ipv6_addresses.clone(),
+                    is_up: i.state == 1, // INTERFACE_STATE_UP
+                }).collect())
+                .unwrap_or_default();
+            
+            GuestAgentInfo {
+                connected: info.connected,
+                version: info.version.clone(),
+                os_name: info.os_name.clone(),
+                os_version: info.os_version.clone(),
+                kernel_version: info.kernel_version.clone(),
+                hostname: info.hostname.clone(),
+                ip_addresses: info.ip_addresses.clone(),
+                interfaces,
+                resource_usage,
+                capabilities: vec![
+                    "telemetry".to_string(),
+                    "execute".to_string(),
+                    "file_read".to_string(),
+                    "file_write".to_string(),
+                    "shutdown".to_string(),
+                ],
+                last_seen: info.last_seen.map(|t| prost_types::Timestamp {
+                    seconds: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs() as i64 - t.elapsed().as_secs() as i64,
+                    nanos: 0,
+                }),
+            }
+        })
     }
     
     /// Perform a local health check (used by the server loop).
@@ -577,14 +722,29 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         let status = self.hypervisor.get_vm_status(vm_id).await
             .map_err(|e| Status::not_found(e.to_string()))?;
         
+        // Try to get guest agent info
+        let guest_agent = self.get_agent_info(vm_id).await;
+        
+        // If VM is running, try to connect to agent if not already connected
+        if status.state == VmState::Running && guest_agent.is_none() {
+            let _ = self.get_agent_client(vm_id).await;
+        }
+        
         Ok(Response::new(VmStatusResponse {
             vm_id: status.id,
             name: status.name,
             state: Self::map_vm_state(status.state),
-            cpu_usage_percent: 0.0,
-            memory_used_bytes: status.memory_rss_bytes,
+            cpu_usage_percent: guest_agent.as_ref()
+                .and_then(|a| a.resource_usage.as_ref())
+                .map(|r| r.cpu_usage_percent)
+                .unwrap_or(0.0),
+            memory_used_bytes: guest_agent.as_ref()
+                .and_then(|a| a.resource_usage.as_ref())
+                .map(|r| r.memory_used_bytes)
+                .unwrap_or(status.memory_rss_bytes),
             memory_total_bytes: status.memory_max_bytes,
             started_at: None,
+            guest_agent,
         }))
     }
     
@@ -823,5 +983,222 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         });
         
         Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
+    }
+    
+    // =========================================================================
+    // Guest Agent Operations
+    // =========================================================================
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn ping_agent(
+        &self,
+        request: Request<VmIdRequest>,
+    ) -> Result<Response<AgentPingResponse>, Status> {
+        let vm_id = &request.into_inner().vm_id;
+        debug!("Pinging guest agent");
+        
+        // Try to connect/get agent client
+        if let Err(e) = self.get_agent_client(vm_id).await {
+            return Ok(Response::new(AgentPingResponse {
+                connected: false,
+                version: String::new(),
+                uptime_seconds: 0,
+                error: e.message().to_string(),
+            }));
+        }
+        
+        let agents = self.agent_manager.read().await;
+        if let Some(client) = agents.get(vm_id) {
+            match client.ping().await {
+                Ok(pong) => {
+                    info!(vm_id = %vm_id, version = %pong.version, "Agent ping successful");
+                    Ok(Response::new(AgentPingResponse {
+                        connected: true,
+                        version: pong.version,
+                        uptime_seconds: pong.uptime_seconds,
+                        error: String::new(),
+                    }))
+                }
+                Err(e) => {
+                    warn!(vm_id = %vm_id, error = %e, "Agent ping failed");
+                    Ok(Response::new(AgentPingResponse {
+                        connected: false,
+                        version: String::new(),
+                        uptime_seconds: 0,
+                        error: e.to_string(),
+                    }))
+                }
+            }
+        } else {
+            Ok(Response::new(AgentPingResponse {
+                connected: false,
+                version: String::new(),
+                uptime_seconds: 0,
+                error: "Agent not connected".to_string(),
+            }))
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn execute_in_guest(
+        &self,
+        request: Request<ExecuteInGuestRequest>,
+    ) -> Result<Response<ExecuteInGuestResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, command = %req.command, "Executing command in guest");
+        
+        // Ensure agent is connected
+        self.get_agent_client(&req.vm_id).await?;
+        
+        let agents = self.agent_manager.read().await;
+        let client = agents.get(&req.vm_id)
+            .ok_or_else(|| Status::unavailable("Agent not connected"))?;
+        
+        // Execute the command
+        let timeout = if req.timeout_seconds > 0 { req.timeout_seconds } else { 60 };
+        
+        match client.execute(&req.command, timeout).await {
+            Ok(response) => {
+                info!(
+                    vm_id = %req.vm_id,
+                    exit_code = response.exit_code,
+                    duration_ms = response.duration_ms,
+                    "Command executed successfully"
+                );
+                Ok(Response::new(ExecuteInGuestResponse {
+                    success: response.exit_code == 0,
+                    exit_code: response.exit_code,
+                    stdout: response.stdout,
+                    stderr: response.stderr,
+                    timed_out: response.timed_out,
+                    duration_ms: response.duration_ms,
+                    error: response.error,
+                }))
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, error = %e, "Command execution failed");
+                Ok(Response::new(ExecuteInGuestResponse {
+                    success: false,
+                    exit_code: -1,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    timed_out: false,
+                    duration_ms: 0,
+                    error: e.to_string(),
+                }))
+            }
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, path = %request.get_ref().path))]
+    async fn read_guest_file(
+        &self,
+        request: Request<ReadGuestFileRequest>,
+    ) -> Result<Response<ReadGuestFileResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, path = %req.path, "Reading file from guest");
+        
+        // Ensure agent is connected
+        self.get_agent_client(&req.vm_id).await?;
+        
+        let agents = self.agent_manager.read().await;
+        let client = agents.get(&req.vm_id)
+            .ok_or_else(|| Status::unavailable("Agent not connected"))?;
+        
+        match client.read_file(&req.path).await {
+            Ok(data) => {
+                let total_size = data.len() as u64;
+                info!(vm_id = %req.vm_id, path = %req.path, size = total_size, "File read successfully");
+                Ok(Response::new(ReadGuestFileResponse {
+                    success: true,
+                    data,
+                    total_size,
+                    eof: true,
+                    error: String::new(),
+                }))
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, path = %req.path, error = %e, "File read failed");
+                Ok(Response::new(ReadGuestFileResponse {
+                    success: false,
+                    data: Vec::new(),
+                    total_size: 0,
+                    eof: true,
+                    error: e.to_string(),
+                }))
+            }
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, path = %request.get_ref().path))]
+    async fn write_guest_file(
+        &self,
+        request: Request<WriteGuestFileRequest>,
+    ) -> Result<Response<WriteGuestFileResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, path = %req.path, size = req.data.len(), "Writing file to guest");
+        
+        // Ensure agent is connected
+        self.get_agent_client(&req.vm_id).await?;
+        
+        let agents = self.agent_manager.read().await;
+        let client = agents.get(&req.vm_id)
+            .ok_or_else(|| Status::unavailable("Agent not connected"))?;
+        
+        match client.write_file(&req.path, &req.data, req.mode).await {
+            Ok(()) => {
+                info!(vm_id = %req.vm_id, path = %req.path, "File written successfully");
+                Ok(Response::new(WriteGuestFileResponse {
+                    success: true,
+                    bytes_written: req.data.len() as u64,
+                    error: String::new(),
+                }))
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, path = %req.path, error = %e, "File write failed");
+                Ok(Response::new(WriteGuestFileResponse {
+                    success: false,
+                    bytes_written: 0,
+                    error: e.to_string(),
+                }))
+            }
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn guest_shutdown(
+        &self,
+        request: Request<GuestShutdownRequest>,
+    ) -> Result<Response<GuestShutdownResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, reboot = req.reboot, "Requesting guest shutdown");
+        
+        // Ensure agent is connected
+        self.get_agent_client(&req.vm_id).await?;
+        
+        let agents = self.agent_manager.read().await;
+        let client = agents.get(&req.vm_id)
+            .ok_or_else(|| Status::unavailable("Agent not connected"))?;
+        
+        match client.shutdown(req.reboot).await {
+            Ok(response) => {
+                if response.accepted {
+                    info!(vm_id = %req.vm_id, reboot = req.reboot, "Shutdown request accepted");
+                } else {
+                    warn!(vm_id = %req.vm_id, error = %response.error, "Shutdown request rejected");
+                }
+                Ok(Response::new(GuestShutdownResponse {
+                    accepted: response.accepted,
+                    error: response.error,
+                }))
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, error = %e, "Shutdown request failed");
+                Ok(Response::new(GuestShutdownResponse {
+                    accepted: false,
+                    error: e.to_string(),
+                }))
+            }
+        }
     }
 }

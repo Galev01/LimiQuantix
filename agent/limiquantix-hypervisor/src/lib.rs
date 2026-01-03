@@ -53,7 +53,19 @@ pub use error::HypervisorError;
 pub use traits::{Hypervisor, HypervisorCapabilities};
 pub use types::*;
 pub use mock::MockBackend;
-pub use storage::{StorageManager, DiskInfo, DEFAULT_STORAGE_PATH};
+pub use storage::{
+    StorageManager, 
+    StorageBackend,
+    LocalBackend,
+    NfsBackend,
+    PoolType,
+    PoolConfig,
+    PoolInfo,
+    VolumeAttachInfo,
+    VolumeSource,
+    DiskInfo,
+    DEFAULT_STORAGE_PATH,
+};
 pub use cloudinit::{CloudInitConfig, CloudInitGenerator};
 
 // Re-export libvirt backend when available

@@ -1,0 +1,24 @@
+Source: limiquantix-guest-agent
+Section: admin
+Priority: optional
+Maintainer: LimiQuantix Team <team@limiquantix.io>
+Build-Depends: debhelper (>= 12), cargo, rustc (>= 1.70)
+Standards-Version: 4.5.0
+Homepage: https://github.com/limiquantix/limiquantix
+Vcs-Browser: https://github.com/limiquantix/limiquantix
+Vcs-Git: https://github.com/limiquantix/limiquantix.git
+
+Package: limiquantix-guest-agent
+Architecture: amd64 arm64
+Depends: ${misc:Depends}
+Description: LimiQuantix Guest Agent for VM Integration
+ The LimiQuantix Guest Agent is a lightweight daemon that runs inside
+ guest VMs to enable deep integration with the LimiQuantix hypervisor
+ platform.
+ .
+ Features:
+  * Real-time telemetry (CPU, memory, disk, network)
+  * IP address reporting
+  * Remote command execution
+  * File transfer without SSH
+  * Graceful shutdown/reboot

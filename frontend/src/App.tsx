@@ -16,6 +16,7 @@ import { Settings } from '@/pages/Settings';
 import { Monitoring } from '@/pages/Monitoring';
 import { Alerts } from '@/pages/Alerts';
 import { DRSRecommendations } from '@/pages/DRSRecommendations';
+import ImageLibrary from '@/pages/ImageLibrary';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +47,7 @@ function App() {
             {/* Storage */}
             <Route path="/storage/pools" element={<StoragePools />} />
             <Route path="/storage/volumes" element={<Volumes />} />
+            <Route path="/storage/images" element={<ImageLibrary />} />
             
             {/* Networking */}
             <Route path="/networks" element={<VirtualNetworks />} />

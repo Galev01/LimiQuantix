@@ -1547,6 +1547,721 @@ func (x *StreamMetricsRequest) GetIntervalSec() uint32 {
 	return 0
 }
 
+type PingAgentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	VmId          string                 `protobuf:"bytes,1,opt,name=vm_id,json=vmId,proto3" json:"vm_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PingAgentRequest) Reset() {
+	*x = PingAgentRequest{}
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PingAgentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PingAgentRequest) ProtoMessage() {}
+
+func (x *PingAgentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PingAgentRequest.ProtoReflect.Descriptor instead.
+func (*PingAgentRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *PingAgentRequest) GetVmId() string {
+	if x != nil {
+		return x.VmId
+	}
+	return ""
+}
+
+type PingAgentResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether the agent is connected and responding
+	Connected bool `protobuf:"varint,1,opt,name=connected,proto3" json:"connected,omitempty"`
+	// Agent version
+	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	// Agent uptime in seconds
+	UptimeSeconds uint64 `protobuf:"varint,3,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"`
+	// Error message if not connected
+	Error         string `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PingAgentResponse) Reset() {
+	*x = PingAgentResponse{}
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PingAgentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PingAgentResponse) ProtoMessage() {}
+
+func (x *PingAgentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PingAgentResponse.ProtoReflect.Descriptor instead.
+func (*PingAgentResponse) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *PingAgentResponse) GetConnected() bool {
+	if x != nil {
+		return x.Connected
+	}
+	return false
+}
+
+func (x *PingAgentResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *PingAgentResponse) GetUptimeSeconds() uint64 {
+	if x != nil {
+		return x.UptimeSeconds
+	}
+	return 0
+}
+
+func (x *PingAgentResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type ExecuteScriptRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	VmId  string                 `protobuf:"bytes,1,opt,name=vm_id,json=vmId,proto3" json:"vm_id,omitempty"`
+	// Command to execute
+	Command string `protobuf:"bytes,2,opt,name=command,proto3" json:"command,omitempty"`
+	// Command arguments (optional, for direct execution)
+	Args []string `protobuf:"bytes,3,rep,name=args,proto3" json:"args,omitempty"`
+	// Timeout in seconds (0 = default 60s)
+	TimeoutSeconds uint32 `protobuf:"varint,4,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
+	// Whether to wait for the command to complete
+	WaitForExit bool `protobuf:"varint,5,opt,name=wait_for_exit,json=waitForExit,proto3" json:"wait_for_exit,omitempty"`
+	// Working directory (optional)
+	WorkingDirectory string `protobuf:"bytes,6,opt,name=working_directory,json=workingDirectory,proto3" json:"working_directory,omitempty"`
+	// Environment variables to set
+	Environment   map[string]string `protobuf:"bytes,7,rep,name=environment,proto3" json:"environment,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExecuteScriptRequest) Reset() {
+	*x = ExecuteScriptRequest{}
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecuteScriptRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecuteScriptRequest) ProtoMessage() {}
+
+func (x *ExecuteScriptRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecuteScriptRequest.ProtoReflect.Descriptor instead.
+func (*ExecuteScriptRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *ExecuteScriptRequest) GetVmId() string {
+	if x != nil {
+		return x.VmId
+	}
+	return ""
+}
+
+func (x *ExecuteScriptRequest) GetCommand() string {
+	if x != nil {
+		return x.Command
+	}
+	return ""
+}
+
+func (x *ExecuteScriptRequest) GetArgs() []string {
+	if x != nil {
+		return x.Args
+	}
+	return nil
+}
+
+func (x *ExecuteScriptRequest) GetTimeoutSeconds() uint32 {
+	if x != nil {
+		return x.TimeoutSeconds
+	}
+	return 0
+}
+
+func (x *ExecuteScriptRequest) GetWaitForExit() bool {
+	if x != nil {
+		return x.WaitForExit
+	}
+	return false
+}
+
+func (x *ExecuteScriptRequest) GetWorkingDirectory() string {
+	if x != nil {
+		return x.WorkingDirectory
+	}
+	return ""
+}
+
+func (x *ExecuteScriptRequest) GetEnvironment() map[string]string {
+	if x != nil {
+		return x.Environment
+	}
+	return nil
+}
+
+type ExecuteScriptResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether the command succeeded (exit code 0)
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Exit code (-1 if execution failed to start)
+	ExitCode int32 `protobuf:"varint,2,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	// Standard output
+	Stdout string `protobuf:"bytes,3,opt,name=stdout,proto3" json:"stdout,omitempty"`
+	// Standard error
+	Stderr string `protobuf:"bytes,4,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	// Whether the command timed out
+	TimedOut bool `protobuf:"varint,5,opt,name=timed_out,json=timedOut,proto3" json:"timed_out,omitempty"`
+	// Execution duration in milliseconds
+	DurationMs uint64 `protobuf:"varint,6,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
+	// Error message if execution failed to start
+	Error         string `protobuf:"bytes,7,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExecuteScriptResponse) Reset() {
+	*x = ExecuteScriptResponse{}
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecuteScriptResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecuteScriptResponse) ProtoMessage() {}
+
+func (x *ExecuteScriptResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecuteScriptResponse.ProtoReflect.Descriptor instead.
+func (*ExecuteScriptResponse) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *ExecuteScriptResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *ExecuteScriptResponse) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
+	}
+	return 0
+}
+
+func (x *ExecuteScriptResponse) GetStdout() string {
+	if x != nil {
+		return x.Stdout
+	}
+	return ""
+}
+
+func (x *ExecuteScriptResponse) GetStderr() string {
+	if x != nil {
+		return x.Stderr
+	}
+	return ""
+}
+
+func (x *ExecuteScriptResponse) GetTimedOut() bool {
+	if x != nil {
+		return x.TimedOut
+	}
+	return false
+}
+
+func (x *ExecuteScriptResponse) GetDurationMs() uint64 {
+	if x != nil {
+		return x.DurationMs
+	}
+	return 0
+}
+
+func (x *ExecuteScriptResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type ReadGuestFileRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	VmId  string                 `protobuf:"bytes,1,opt,name=vm_id,json=vmId,proto3" json:"vm_id,omitempty"`
+	// Absolute path to the file
+	Path string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	// Maximum bytes to read (0 = all)
+	MaxSize       uint64 `protobuf:"varint,3,opt,name=max_size,json=maxSize,proto3" json:"max_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadGuestFileRequest) Reset() {
+	*x = ReadGuestFileRequest{}
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadGuestFileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadGuestFileRequest) ProtoMessage() {}
+
+func (x *ReadGuestFileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadGuestFileRequest.ProtoReflect.Descriptor instead.
+func (*ReadGuestFileRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ReadGuestFileRequest) GetVmId() string {
+	if x != nil {
+		return x.VmId
+	}
+	return ""
+}
+
+func (x *ReadGuestFileRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ReadGuestFileRequest) GetMaxSize() uint64 {
+	if x != nil {
+		return x.MaxSize
+	}
+	return 0
+}
+
+type ReadGuestFileResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether the read succeeded
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// File contents
+	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	// Total file size
+	TotalSize uint64 `protobuf:"varint,3,opt,name=total_size,json=totalSize,proto3" json:"total_size,omitempty"`
+	// Error message if failed
+	Error         string `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadGuestFileResponse) Reset() {
+	*x = ReadGuestFileResponse{}
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadGuestFileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadGuestFileResponse) ProtoMessage() {}
+
+func (x *ReadGuestFileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadGuestFileResponse.ProtoReflect.Descriptor instead.
+func (*ReadGuestFileResponse) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *ReadGuestFileResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *ReadGuestFileResponse) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *ReadGuestFileResponse) GetTotalSize() uint64 {
+	if x != nil {
+		return x.TotalSize
+	}
+	return 0
+}
+
+func (x *ReadGuestFileResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type WriteGuestFileRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	VmId  string                 `protobuf:"bytes,1,opt,name=vm_id,json=vmId,proto3" json:"vm_id,omitempty"`
+	// Absolute path to the file
+	Path string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	// File contents
+	Data []byte `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	// File permissions (octal, e.g., 0644)
+	Mode uint32 `protobuf:"varint,4,opt,name=mode,proto3" json:"mode,omitempty"`
+	// Create parent directories if they don't exist
+	CreateParents bool `protobuf:"varint,5,opt,name=create_parents,json=createParents,proto3" json:"create_parents,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WriteGuestFileRequest) Reset() {
+	*x = WriteGuestFileRequest{}
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WriteGuestFileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WriteGuestFileRequest) ProtoMessage() {}
+
+func (x *WriteGuestFileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WriteGuestFileRequest.ProtoReflect.Descriptor instead.
+func (*WriteGuestFileRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *WriteGuestFileRequest) GetVmId() string {
+	if x != nil {
+		return x.VmId
+	}
+	return ""
+}
+
+func (x *WriteGuestFileRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *WriteGuestFileRequest) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *WriteGuestFileRequest) GetMode() uint32 {
+	if x != nil {
+		return x.Mode
+	}
+	return 0
+}
+
+func (x *WriteGuestFileRequest) GetCreateParents() bool {
+	if x != nil {
+		return x.CreateParents
+	}
+	return false
+}
+
+type WriteGuestFileResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether the write succeeded
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Number of bytes written
+	BytesWritten uint64 `protobuf:"varint,2,opt,name=bytes_written,json=bytesWritten,proto3" json:"bytes_written,omitempty"`
+	// Error message if failed
+	Error         string `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WriteGuestFileResponse) Reset() {
+	*x = WriteGuestFileResponse{}
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WriteGuestFileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WriteGuestFileResponse) ProtoMessage() {}
+
+func (x *WriteGuestFileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WriteGuestFileResponse.ProtoReflect.Descriptor instead.
+func (*WriteGuestFileResponse) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *WriteGuestFileResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *WriteGuestFileResponse) GetBytesWritten() uint64 {
+	if x != nil {
+		return x.BytesWritten
+	}
+	return 0
+}
+
+func (x *WriteGuestFileResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type GuestShutdownRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	VmId  string                 `protobuf:"bytes,1,opt,name=vm_id,json=vmId,proto3" json:"vm_id,omitempty"`
+	// Whether to reboot (true) or shutdown (false)
+	Reboot bool `protobuf:"varint,2,opt,name=reboot,proto3" json:"reboot,omitempty"`
+	// Delay in seconds before shutdown
+	DelaySeconds uint32 `protobuf:"varint,3,opt,name=delay_seconds,json=delaySeconds,proto3" json:"delay_seconds,omitempty"`
+	// Message to broadcast to users
+	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GuestShutdownRequest) Reset() {
+	*x = GuestShutdownRequest{}
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GuestShutdownRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GuestShutdownRequest) ProtoMessage() {}
+
+func (x *GuestShutdownRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GuestShutdownRequest.ProtoReflect.Descriptor instead.
+func (*GuestShutdownRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *GuestShutdownRequest) GetVmId() string {
+	if x != nil {
+		return x.VmId
+	}
+	return ""
+}
+
+func (x *GuestShutdownRequest) GetReboot() bool {
+	if x != nil {
+		return x.Reboot
+	}
+	return false
+}
+
+func (x *GuestShutdownRequest) GetDelaySeconds() uint32 {
+	if x != nil {
+		return x.DelaySeconds
+	}
+	return 0
+}
+
+func (x *GuestShutdownRequest) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type GuestShutdownResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether the shutdown was accepted by the agent
+	Accepted bool `protobuf:"varint,1,opt,name=accepted,proto3" json:"accepted,omitempty"`
+	// Error message if rejected
+	Error         string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GuestShutdownResponse) Reset() {
+	*x = GuestShutdownResponse{}
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GuestShutdownResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GuestShutdownResponse) ProtoMessage() {}
+
+func (x *GuestShutdownResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GuestShutdownResponse.ProtoReflect.Descriptor instead.
+func (*GuestShutdownResponse) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *GuestShutdownResponse) GetAccepted() bool {
+	if x != nil {
+		return x.Accepted
+	}
+	return false
+}
+
+func (x *GuestShutdownResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 var File_limiquantix_compute_v1_vm_service_proto protoreflect.FileDescriptor
 
 const file_limiquantix_compute_v1_vm_service_proto_rawDesc = "" +
@@ -1673,7 +2388,62 @@ const file_limiquantix_compute_v1_vm_service_proto_rawDesc = "" +
 	"\x05vm_id\x18\x01 \x01(\tR\x04vmId\"N\n" +
 	"\x14StreamMetricsRequest\x12\x13\n" +
 	"\x05vm_id\x18\x01 \x01(\tR\x04vmId\x12!\n" +
-	"\finterval_sec\x18\x02 \x01(\rR\vintervalSec2\xd3\x0f\n" +
+	"\finterval_sec\x18\x02 \x01(\rR\vintervalSec\"'\n" +
+	"\x10PingAgentRequest\x12\x13\n" +
+	"\x05vm_id\x18\x01 \x01(\tR\x04vmId\"\x88\x01\n" +
+	"\x11PingAgentResponse\x12\x1c\n" +
+	"\tconnected\x18\x01 \x01(\bR\tconnected\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\x12%\n" +
+	"\x0euptime_seconds\x18\x03 \x01(\x04R\ruptimeSeconds\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"\xf4\x02\n" +
+	"\x14ExecuteScriptRequest\x12\x13\n" +
+	"\x05vm_id\x18\x01 \x01(\tR\x04vmId\x12\x18\n" +
+	"\acommand\x18\x02 \x01(\tR\acommand\x12\x12\n" +
+	"\x04args\x18\x03 \x03(\tR\x04args\x12'\n" +
+	"\x0ftimeout_seconds\x18\x04 \x01(\rR\x0etimeoutSeconds\x12\"\n" +
+	"\rwait_for_exit\x18\x05 \x01(\bR\vwaitForExit\x12+\n" +
+	"\x11working_directory\x18\x06 \x01(\tR\x10workingDirectory\x12_\n" +
+	"\venvironment\x18\a \x03(\v2=.limiquantix.compute.v1.ExecuteScriptRequest.EnvironmentEntryR\venvironment\x1a>\n" +
+	"\x10EnvironmentEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd2\x01\n" +
+	"\x15ExecuteScriptResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x1b\n" +
+	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x16\n" +
+	"\x06stdout\x18\x03 \x01(\tR\x06stdout\x12\x16\n" +
+	"\x06stderr\x18\x04 \x01(\tR\x06stderr\x12\x1b\n" +
+	"\ttimed_out\x18\x05 \x01(\bR\btimedOut\x12\x1f\n" +
+	"\vduration_ms\x18\x06 \x01(\x04R\n" +
+	"durationMs\x12\x14\n" +
+	"\x05error\x18\a \x01(\tR\x05error\"Z\n" +
+	"\x14ReadGuestFileRequest\x12\x13\n" +
+	"\x05vm_id\x18\x01 \x01(\tR\x04vmId\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x19\n" +
+	"\bmax_size\x18\x03 \x01(\x04R\amaxSize\"z\n" +
+	"\x15ReadGuestFileResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x12\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\x12\x1d\n" +
+	"\n" +
+	"total_size\x18\x03 \x01(\x04R\ttotalSize\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"\x8f\x01\n" +
+	"\x15WriteGuestFileRequest\x12\x13\n" +
+	"\x05vm_id\x18\x01 \x01(\tR\x04vmId\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x12\n" +
+	"\x04data\x18\x03 \x01(\fR\x04data\x12\x12\n" +
+	"\x04mode\x18\x04 \x01(\rR\x04mode\x12%\n" +
+	"\x0ecreate_parents\x18\x05 \x01(\bR\rcreateParents\"m\n" +
+	"\x16WriteGuestFileResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12#\n" +
+	"\rbytes_written\x18\x02 \x01(\x04R\fbytesWritten\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"\x82\x01\n" +
+	"\x14GuestShutdownRequest\x12\x13\n" +
+	"\x05vm_id\x18\x01 \x01(\tR\x04vmId\x12\x16\n" +
+	"\x06reboot\x18\x02 \x01(\bR\x06reboot\x12#\n" +
+	"\rdelay_seconds\x18\x03 \x01(\rR\fdelaySeconds\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\"I\n" +
+	"\x15GuestShutdownResponse\x12\x1a\n" +
+	"\baccepted\x18\x01 \x01(\bR\baccepted\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error2\xf0\x13\n" +
 	"\tVMService\x12[\n" +
 	"\bCreateVM\x12'.limiquantix.compute.v1.CreateVMRequest\x1a&.limiquantix.compute.v1.VirtualMachine\x12U\n" +
 	"\x05GetVM\x12$.limiquantix.compute.v1.GetVMRequest\x1a&.limiquantix.compute.v1.VirtualMachine\x12Z\n" +
@@ -1696,7 +2466,12 @@ const file_limiquantix_compute_v1_vm_service_proto_rawDesc = "" +
 	"\aCloneVM\x12&.limiquantix.compute.v1.CloneVMRequest\x1a&.limiquantix.compute.v1.VirtualMachine\x12m\n" +
 	"\x11ConvertToTemplate\x120.limiquantix.compute.v1.ConvertToTemplateRequest\x1a&.limiquantix.compute.v1.VirtualMachine\x12[\n" +
 	"\aWatchVM\x12&.limiquantix.compute.v1.WatchVMRequest\x1a&.limiquantix.compute.v1.VirtualMachine0\x01\x12f\n" +
-	"\rStreamMetrics\x12,.limiquantix.compute.v1.StreamMetricsRequest\x1a%.limiquantix.compute.v1.ResourceUsage0\x01B\xf3\x01\n" +
+	"\rStreamMetrics\x12,.limiquantix.compute.v1.StreamMetricsRequest\x1a%.limiquantix.compute.v1.ResourceUsage0\x01\x12`\n" +
+	"\tPingAgent\x12(.limiquantix.compute.v1.PingAgentRequest\x1a).limiquantix.compute.v1.PingAgentResponse\x12l\n" +
+	"\rExecuteScript\x12,.limiquantix.compute.v1.ExecuteScriptRequest\x1a-.limiquantix.compute.v1.ExecuteScriptResponse\x12l\n" +
+	"\rReadGuestFile\x12,.limiquantix.compute.v1.ReadGuestFileRequest\x1a-.limiquantix.compute.v1.ReadGuestFileResponse\x12o\n" +
+	"\x0eWriteGuestFile\x12-.limiquantix.compute.v1.WriteGuestFileRequest\x1a..limiquantix.compute.v1.WriteGuestFileResponse\x12l\n" +
+	"\rGuestShutdown\x12,.limiquantix.compute.v1.GuestShutdownRequest\x1a-.limiquantix.compute.v1.GuestShutdownResponseB\xf3\x01\n" +
 	"\x1acom.limiquantix.compute.v1B\x0eVmServiceProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1;computev1\xa2\x02\x03LCX\xaa\x02\x16Limiquantix.Compute.V1\xca\x02\x16Limiquantix\\Compute\\V1\xe2\x02\"Limiquantix\\Compute\\V1\\GPBMetadata\xea\x02\x18Limiquantix::Compute::V1b\x06proto3"
 
 var (
@@ -1711,7 +2486,7 @@ func file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP() []byte {
 	return file_limiquantix_compute_v1_vm_service_proto_rawDescData
 }
 
-var file_limiquantix_compute_v1_vm_service_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_limiquantix_compute_v1_vm_service_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
 var file_limiquantix_compute_v1_vm_service_proto_goTypes = []any{
 	(*CreateVMRequest)(nil),          // 0: limiquantix.compute.v1.CreateVMRequest
 	(*GetVMRequest)(nil),             // 1: limiquantix.compute.v1.GetVMRequest
@@ -1738,83 +2513,105 @@ var file_limiquantix_compute_v1_vm_service_proto_goTypes = []any{
 	(*ConvertToTemplateRequest)(nil), // 22: limiquantix.compute.v1.ConvertToTemplateRequest
 	(*WatchVMRequest)(nil),           // 23: limiquantix.compute.v1.WatchVMRequest
 	(*StreamMetricsRequest)(nil),     // 24: limiquantix.compute.v1.StreamMetricsRequest
-	nil,                              // 25: limiquantix.compute.v1.CreateVMRequest.LabelsEntry
-	nil,                              // 26: limiquantix.compute.v1.ListVMsRequest.LabelsEntry
-	nil,                              // 27: limiquantix.compute.v1.UpdateVMRequest.LabelsEntry
-	(*VmSpec)(nil),                   // 28: limiquantix.compute.v1.VmSpec
-	(VmStatus_PowerState)(0),         // 29: limiquantix.compute.v1.VmStatus.PowerState
-	(*VirtualMachine)(nil),           // 30: limiquantix.compute.v1.VirtualMachine
-	(*fieldmaskpb.FieldMask)(nil),    // 31: google.protobuf.FieldMask
-	(*Snapshot)(nil),                 // 32: limiquantix.compute.v1.Snapshot
-	(DisplayConfig_DisplayType)(0),   // 33: limiquantix.compute.v1.DisplayConfig.DisplayType
-	(TemplateConfig_CloneType)(0),    // 34: limiquantix.compute.v1.TemplateConfig.CloneType
-	(*ProvisioningConfig)(nil),       // 35: limiquantix.compute.v1.ProvisioningConfig
-	(*emptypb.Empty)(nil),            // 36: google.protobuf.Empty
-	(*ConsoleInfo)(nil),              // 37: limiquantix.compute.v1.ConsoleInfo
-	(*ResourceUsage)(nil),            // 38: limiquantix.compute.v1.ResourceUsage
+	(*PingAgentRequest)(nil),         // 25: limiquantix.compute.v1.PingAgentRequest
+	(*PingAgentResponse)(nil),        // 26: limiquantix.compute.v1.PingAgentResponse
+	(*ExecuteScriptRequest)(nil),     // 27: limiquantix.compute.v1.ExecuteScriptRequest
+	(*ExecuteScriptResponse)(nil),    // 28: limiquantix.compute.v1.ExecuteScriptResponse
+	(*ReadGuestFileRequest)(nil),     // 29: limiquantix.compute.v1.ReadGuestFileRequest
+	(*ReadGuestFileResponse)(nil),    // 30: limiquantix.compute.v1.ReadGuestFileResponse
+	(*WriteGuestFileRequest)(nil),    // 31: limiquantix.compute.v1.WriteGuestFileRequest
+	(*WriteGuestFileResponse)(nil),   // 32: limiquantix.compute.v1.WriteGuestFileResponse
+	(*GuestShutdownRequest)(nil),     // 33: limiquantix.compute.v1.GuestShutdownRequest
+	(*GuestShutdownResponse)(nil),    // 34: limiquantix.compute.v1.GuestShutdownResponse
+	nil,                              // 35: limiquantix.compute.v1.CreateVMRequest.LabelsEntry
+	nil,                              // 36: limiquantix.compute.v1.ListVMsRequest.LabelsEntry
+	nil,                              // 37: limiquantix.compute.v1.UpdateVMRequest.LabelsEntry
+	nil,                              // 38: limiquantix.compute.v1.ExecuteScriptRequest.EnvironmentEntry
+	(*VmSpec)(nil),                   // 39: limiquantix.compute.v1.VmSpec
+	(VmStatus_PowerState)(0),         // 40: limiquantix.compute.v1.VmStatus.PowerState
+	(*VirtualMachine)(nil),           // 41: limiquantix.compute.v1.VirtualMachine
+	(*fieldmaskpb.FieldMask)(nil),    // 42: google.protobuf.FieldMask
+	(*Snapshot)(nil),                 // 43: limiquantix.compute.v1.Snapshot
+	(DisplayConfig_DisplayType)(0),   // 44: limiquantix.compute.v1.DisplayConfig.DisplayType
+	(TemplateConfig_CloneType)(0),    // 45: limiquantix.compute.v1.TemplateConfig.CloneType
+	(*ProvisioningConfig)(nil),       // 46: limiquantix.compute.v1.ProvisioningConfig
+	(*emptypb.Empty)(nil),            // 47: google.protobuf.Empty
+	(*ConsoleInfo)(nil),              // 48: limiquantix.compute.v1.ConsoleInfo
+	(*ResourceUsage)(nil),            // 49: limiquantix.compute.v1.ResourceUsage
 }
 var file_limiquantix_compute_v1_vm_service_proto_depIdxs = []int32{
-	25, // 0: limiquantix.compute.v1.CreateVMRequest.labels:type_name -> limiquantix.compute.v1.CreateVMRequest.LabelsEntry
-	28, // 1: limiquantix.compute.v1.CreateVMRequest.spec:type_name -> limiquantix.compute.v1.VmSpec
-	26, // 2: limiquantix.compute.v1.ListVMsRequest.labels:type_name -> limiquantix.compute.v1.ListVMsRequest.LabelsEntry
-	29, // 3: limiquantix.compute.v1.ListVMsRequest.states:type_name -> limiquantix.compute.v1.VmStatus.PowerState
-	30, // 4: limiquantix.compute.v1.ListVMsResponse.vms:type_name -> limiquantix.compute.v1.VirtualMachine
-	28, // 5: limiquantix.compute.v1.UpdateVMRequest.spec:type_name -> limiquantix.compute.v1.VmSpec
-	31, // 6: limiquantix.compute.v1.UpdateVMRequest.update_mask:type_name -> google.protobuf.FieldMask
-	27, // 7: limiquantix.compute.v1.UpdateVMRequest.labels:type_name -> limiquantix.compute.v1.UpdateVMRequest.LabelsEntry
-	32, // 8: limiquantix.compute.v1.ListSnapshotsResponse.snapshots:type_name -> limiquantix.compute.v1.Snapshot
-	30, // 9: limiquantix.compute.v1.MigrateVMResponse.vm:type_name -> limiquantix.compute.v1.VirtualMachine
+	35, // 0: limiquantix.compute.v1.CreateVMRequest.labels:type_name -> limiquantix.compute.v1.CreateVMRequest.LabelsEntry
+	39, // 1: limiquantix.compute.v1.CreateVMRequest.spec:type_name -> limiquantix.compute.v1.VmSpec
+	36, // 2: limiquantix.compute.v1.ListVMsRequest.labels:type_name -> limiquantix.compute.v1.ListVMsRequest.LabelsEntry
+	40, // 3: limiquantix.compute.v1.ListVMsRequest.states:type_name -> limiquantix.compute.v1.VmStatus.PowerState
+	41, // 4: limiquantix.compute.v1.ListVMsResponse.vms:type_name -> limiquantix.compute.v1.VirtualMachine
+	39, // 5: limiquantix.compute.v1.UpdateVMRequest.spec:type_name -> limiquantix.compute.v1.VmSpec
+	42, // 6: limiquantix.compute.v1.UpdateVMRequest.update_mask:type_name -> google.protobuf.FieldMask
+	37, // 7: limiquantix.compute.v1.UpdateVMRequest.labels:type_name -> limiquantix.compute.v1.UpdateVMRequest.LabelsEntry
+	43, // 8: limiquantix.compute.v1.ListSnapshotsResponse.snapshots:type_name -> limiquantix.compute.v1.Snapshot
+	41, // 9: limiquantix.compute.v1.MigrateVMResponse.vm:type_name -> limiquantix.compute.v1.VirtualMachine
 	19, // 10: limiquantix.compute.v1.MigrateVMResponse.stats:type_name -> limiquantix.compute.v1.MigrationStats
-	33, // 11: limiquantix.compute.v1.GetConsoleRequest.type:type_name -> limiquantix.compute.v1.DisplayConfig.DisplayType
-	34, // 12: limiquantix.compute.v1.CloneVMRequest.clone_type:type_name -> limiquantix.compute.v1.TemplateConfig.CloneType
-	35, // 13: limiquantix.compute.v1.CloneVMRequest.provisioning:type_name -> limiquantix.compute.v1.ProvisioningConfig
-	0,  // 14: limiquantix.compute.v1.VMService.CreateVM:input_type -> limiquantix.compute.v1.CreateVMRequest
-	1,  // 15: limiquantix.compute.v1.VMService.GetVM:input_type -> limiquantix.compute.v1.GetVMRequest
-	2,  // 16: limiquantix.compute.v1.VMService.ListVMs:input_type -> limiquantix.compute.v1.ListVMsRequest
-	4,  // 17: limiquantix.compute.v1.VMService.UpdateVM:input_type -> limiquantix.compute.v1.UpdateVMRequest
-	5,  // 18: limiquantix.compute.v1.VMService.DeleteVM:input_type -> limiquantix.compute.v1.DeleteVMRequest
-	6,  // 19: limiquantix.compute.v1.VMService.StartVM:input_type -> limiquantix.compute.v1.StartVMRequest
-	7,  // 20: limiquantix.compute.v1.VMService.StopVM:input_type -> limiquantix.compute.v1.StopVMRequest
-	8,  // 21: limiquantix.compute.v1.VMService.RebootVM:input_type -> limiquantix.compute.v1.RebootVMRequest
-	9,  // 22: limiquantix.compute.v1.VMService.PauseVM:input_type -> limiquantix.compute.v1.PauseVMRequest
-	10, // 23: limiquantix.compute.v1.VMService.ResumeVM:input_type -> limiquantix.compute.v1.ResumeVMRequest
-	11, // 24: limiquantix.compute.v1.VMService.SuspendVM:input_type -> limiquantix.compute.v1.SuspendVMRequest
-	12, // 25: limiquantix.compute.v1.VMService.CreateSnapshot:input_type -> limiquantix.compute.v1.CreateSnapshotRequest
-	13, // 26: limiquantix.compute.v1.VMService.ListSnapshots:input_type -> limiquantix.compute.v1.ListSnapshotsRequest
-	15, // 27: limiquantix.compute.v1.VMService.RevertToSnapshot:input_type -> limiquantix.compute.v1.RevertToSnapshotRequest
-	16, // 28: limiquantix.compute.v1.VMService.DeleteSnapshot:input_type -> limiquantix.compute.v1.DeleteSnapshotRequest
-	17, // 29: limiquantix.compute.v1.VMService.MigrateVM:input_type -> limiquantix.compute.v1.MigrateVMRequest
-	20, // 30: limiquantix.compute.v1.VMService.GetConsole:input_type -> limiquantix.compute.v1.GetConsoleRequest
-	21, // 31: limiquantix.compute.v1.VMService.CloneVM:input_type -> limiquantix.compute.v1.CloneVMRequest
-	22, // 32: limiquantix.compute.v1.VMService.ConvertToTemplate:input_type -> limiquantix.compute.v1.ConvertToTemplateRequest
-	23, // 33: limiquantix.compute.v1.VMService.WatchVM:input_type -> limiquantix.compute.v1.WatchVMRequest
-	24, // 34: limiquantix.compute.v1.VMService.StreamMetrics:input_type -> limiquantix.compute.v1.StreamMetricsRequest
-	30, // 35: limiquantix.compute.v1.VMService.CreateVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	30, // 36: limiquantix.compute.v1.VMService.GetVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	3,  // 37: limiquantix.compute.v1.VMService.ListVMs:output_type -> limiquantix.compute.v1.ListVMsResponse
-	30, // 38: limiquantix.compute.v1.VMService.UpdateVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	36, // 39: limiquantix.compute.v1.VMService.DeleteVM:output_type -> google.protobuf.Empty
-	30, // 40: limiquantix.compute.v1.VMService.StartVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	30, // 41: limiquantix.compute.v1.VMService.StopVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	30, // 42: limiquantix.compute.v1.VMService.RebootVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	30, // 43: limiquantix.compute.v1.VMService.PauseVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	30, // 44: limiquantix.compute.v1.VMService.ResumeVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	30, // 45: limiquantix.compute.v1.VMService.SuspendVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	32, // 46: limiquantix.compute.v1.VMService.CreateSnapshot:output_type -> limiquantix.compute.v1.Snapshot
-	14, // 47: limiquantix.compute.v1.VMService.ListSnapshots:output_type -> limiquantix.compute.v1.ListSnapshotsResponse
-	30, // 48: limiquantix.compute.v1.VMService.RevertToSnapshot:output_type -> limiquantix.compute.v1.VirtualMachine
-	36, // 49: limiquantix.compute.v1.VMService.DeleteSnapshot:output_type -> google.protobuf.Empty
-	18, // 50: limiquantix.compute.v1.VMService.MigrateVM:output_type -> limiquantix.compute.v1.MigrateVMResponse
-	37, // 51: limiquantix.compute.v1.VMService.GetConsole:output_type -> limiquantix.compute.v1.ConsoleInfo
-	30, // 52: limiquantix.compute.v1.VMService.CloneVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	30, // 53: limiquantix.compute.v1.VMService.ConvertToTemplate:output_type -> limiquantix.compute.v1.VirtualMachine
-	30, // 54: limiquantix.compute.v1.VMService.WatchVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	38, // 55: limiquantix.compute.v1.VMService.StreamMetrics:output_type -> limiquantix.compute.v1.ResourceUsage
-	35, // [35:56] is the sub-list for method output_type
-	14, // [14:35] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	44, // 11: limiquantix.compute.v1.GetConsoleRequest.type:type_name -> limiquantix.compute.v1.DisplayConfig.DisplayType
+	45, // 12: limiquantix.compute.v1.CloneVMRequest.clone_type:type_name -> limiquantix.compute.v1.TemplateConfig.CloneType
+	46, // 13: limiquantix.compute.v1.CloneVMRequest.provisioning:type_name -> limiquantix.compute.v1.ProvisioningConfig
+	38, // 14: limiquantix.compute.v1.ExecuteScriptRequest.environment:type_name -> limiquantix.compute.v1.ExecuteScriptRequest.EnvironmentEntry
+	0,  // 15: limiquantix.compute.v1.VMService.CreateVM:input_type -> limiquantix.compute.v1.CreateVMRequest
+	1,  // 16: limiquantix.compute.v1.VMService.GetVM:input_type -> limiquantix.compute.v1.GetVMRequest
+	2,  // 17: limiquantix.compute.v1.VMService.ListVMs:input_type -> limiquantix.compute.v1.ListVMsRequest
+	4,  // 18: limiquantix.compute.v1.VMService.UpdateVM:input_type -> limiquantix.compute.v1.UpdateVMRequest
+	5,  // 19: limiquantix.compute.v1.VMService.DeleteVM:input_type -> limiquantix.compute.v1.DeleteVMRequest
+	6,  // 20: limiquantix.compute.v1.VMService.StartVM:input_type -> limiquantix.compute.v1.StartVMRequest
+	7,  // 21: limiquantix.compute.v1.VMService.StopVM:input_type -> limiquantix.compute.v1.StopVMRequest
+	8,  // 22: limiquantix.compute.v1.VMService.RebootVM:input_type -> limiquantix.compute.v1.RebootVMRequest
+	9,  // 23: limiquantix.compute.v1.VMService.PauseVM:input_type -> limiquantix.compute.v1.PauseVMRequest
+	10, // 24: limiquantix.compute.v1.VMService.ResumeVM:input_type -> limiquantix.compute.v1.ResumeVMRequest
+	11, // 25: limiquantix.compute.v1.VMService.SuspendVM:input_type -> limiquantix.compute.v1.SuspendVMRequest
+	12, // 26: limiquantix.compute.v1.VMService.CreateSnapshot:input_type -> limiquantix.compute.v1.CreateSnapshotRequest
+	13, // 27: limiquantix.compute.v1.VMService.ListSnapshots:input_type -> limiquantix.compute.v1.ListSnapshotsRequest
+	15, // 28: limiquantix.compute.v1.VMService.RevertToSnapshot:input_type -> limiquantix.compute.v1.RevertToSnapshotRequest
+	16, // 29: limiquantix.compute.v1.VMService.DeleteSnapshot:input_type -> limiquantix.compute.v1.DeleteSnapshotRequest
+	17, // 30: limiquantix.compute.v1.VMService.MigrateVM:input_type -> limiquantix.compute.v1.MigrateVMRequest
+	20, // 31: limiquantix.compute.v1.VMService.GetConsole:input_type -> limiquantix.compute.v1.GetConsoleRequest
+	21, // 32: limiquantix.compute.v1.VMService.CloneVM:input_type -> limiquantix.compute.v1.CloneVMRequest
+	22, // 33: limiquantix.compute.v1.VMService.ConvertToTemplate:input_type -> limiquantix.compute.v1.ConvertToTemplateRequest
+	23, // 34: limiquantix.compute.v1.VMService.WatchVM:input_type -> limiquantix.compute.v1.WatchVMRequest
+	24, // 35: limiquantix.compute.v1.VMService.StreamMetrics:input_type -> limiquantix.compute.v1.StreamMetricsRequest
+	25, // 36: limiquantix.compute.v1.VMService.PingAgent:input_type -> limiquantix.compute.v1.PingAgentRequest
+	27, // 37: limiquantix.compute.v1.VMService.ExecuteScript:input_type -> limiquantix.compute.v1.ExecuteScriptRequest
+	29, // 38: limiquantix.compute.v1.VMService.ReadGuestFile:input_type -> limiquantix.compute.v1.ReadGuestFileRequest
+	31, // 39: limiquantix.compute.v1.VMService.WriteGuestFile:input_type -> limiquantix.compute.v1.WriteGuestFileRequest
+	33, // 40: limiquantix.compute.v1.VMService.GuestShutdown:input_type -> limiquantix.compute.v1.GuestShutdownRequest
+	41, // 41: limiquantix.compute.v1.VMService.CreateVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	41, // 42: limiquantix.compute.v1.VMService.GetVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	3,  // 43: limiquantix.compute.v1.VMService.ListVMs:output_type -> limiquantix.compute.v1.ListVMsResponse
+	41, // 44: limiquantix.compute.v1.VMService.UpdateVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	47, // 45: limiquantix.compute.v1.VMService.DeleteVM:output_type -> google.protobuf.Empty
+	41, // 46: limiquantix.compute.v1.VMService.StartVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	41, // 47: limiquantix.compute.v1.VMService.StopVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	41, // 48: limiquantix.compute.v1.VMService.RebootVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	41, // 49: limiquantix.compute.v1.VMService.PauseVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	41, // 50: limiquantix.compute.v1.VMService.ResumeVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	41, // 51: limiquantix.compute.v1.VMService.SuspendVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	43, // 52: limiquantix.compute.v1.VMService.CreateSnapshot:output_type -> limiquantix.compute.v1.Snapshot
+	14, // 53: limiquantix.compute.v1.VMService.ListSnapshots:output_type -> limiquantix.compute.v1.ListSnapshotsResponse
+	41, // 54: limiquantix.compute.v1.VMService.RevertToSnapshot:output_type -> limiquantix.compute.v1.VirtualMachine
+	47, // 55: limiquantix.compute.v1.VMService.DeleteSnapshot:output_type -> google.protobuf.Empty
+	18, // 56: limiquantix.compute.v1.VMService.MigrateVM:output_type -> limiquantix.compute.v1.MigrateVMResponse
+	48, // 57: limiquantix.compute.v1.VMService.GetConsole:output_type -> limiquantix.compute.v1.ConsoleInfo
+	41, // 58: limiquantix.compute.v1.VMService.CloneVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	41, // 59: limiquantix.compute.v1.VMService.ConvertToTemplate:output_type -> limiquantix.compute.v1.VirtualMachine
+	41, // 60: limiquantix.compute.v1.VMService.WatchVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	49, // 61: limiquantix.compute.v1.VMService.StreamMetrics:output_type -> limiquantix.compute.v1.ResourceUsage
+	26, // 62: limiquantix.compute.v1.VMService.PingAgent:output_type -> limiquantix.compute.v1.PingAgentResponse
+	28, // 63: limiquantix.compute.v1.VMService.ExecuteScript:output_type -> limiquantix.compute.v1.ExecuteScriptResponse
+	30, // 64: limiquantix.compute.v1.VMService.ReadGuestFile:output_type -> limiquantix.compute.v1.ReadGuestFileResponse
+	32, // 65: limiquantix.compute.v1.VMService.WriteGuestFile:output_type -> limiquantix.compute.v1.WriteGuestFileResponse
+	34, // 66: limiquantix.compute.v1.VMService.GuestShutdown:output_type -> limiquantix.compute.v1.GuestShutdownResponse
+	41, // [41:67] is the sub-list for method output_type
+	15, // [15:41] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_limiquantix_compute_v1_vm_service_proto_init() }
@@ -1829,7 +2626,7 @@ func file_limiquantix_compute_v1_vm_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_compute_v1_vm_service_proto_rawDesc), len(file_limiquantix_compute_v1_vm_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   28,
+			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

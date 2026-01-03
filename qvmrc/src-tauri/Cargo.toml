@@ -13,7 +13,7 @@ tauri-build = { version = "1", features = [] }
 
 [dependencies]
 # Tauri framework
-tauri = { version = "1", features = ["shell-open", "window-all", "clipboard-all", "dialog-all"] }
+tauri = { version = "1", features = ["shell-open", "window-all", "clipboard-all", "dialog-all", "cli"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
@@ -47,6 +47,12 @@ uuid = { version = "1", features = ["v4"] }
 
 # DES encryption (for VNC authentication)
 des = "0.8"
+
+# URL encoding/decoding for deep links
+urlencoding = "2"
+
+# Date/time handling
+chrono = { version = "0.4", features = ["serde"] }
 
 # Logging
 tracing = "0.1"
