@@ -53,11 +53,16 @@ console-binary:
 	cp console/target/x86_64-unknown-linux-musl/release/qx-console overlay/usr/local/bin/
 
 # Build the Slint console GUI (primary)
+# NOTE: This requires building on Linux with the linuxkms dependencies installed:
+#   sudo apt install libudev-dev libxkbcommon-dev libfreetype-dev \
+#                    libfontconfig1-dev libgbm-dev libinput-dev libseat-dev
 console-gui-binary:
 	@echo "==> Building qx-console-gui (Slint GUI)..."
-	cd console-gui && cargo build --release --no-default-features --features linuxkms --target x86_64-unknown-linux-gnu
+	@echo "    NOTE: Must be run on Linux with KMS/DRM development libraries installed"
+	cd console-gui && cargo build --release --no-default-features --features linuxkms
 	@mkdir -p overlay/usr/bin
-	cp console-gui/target/x86_64-unknown-linux-gnu/release/qx-console-gui overlay/usr/bin/
+	cp console-gui/target/release/qx-console-gui overlay/usr/bin/
+	@echo "==> GUI binary copied to overlay/usr/bin/qx-console-gui"
 
 # Build the node daemon (from agent crate)
 node-binary:

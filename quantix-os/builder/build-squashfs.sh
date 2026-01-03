@@ -187,25 +187,28 @@ LABEL=QUANTIX-DATA /data      xfs       defaults        0    2
 EOF
 
     # Configure inittab - disable regular login, start our console
+    # Uses the launcher which tries Slint GUI first, then falls back to TUI
     cat > "${ROOTFS}/etc/inittab" << 'EOF'
 # Quantix-OS inittab
 # 
-# No traditional login - we run our TUI console instead
+# No traditional login - we run our graphical console instead
+# The launcher tries Slint GUI first, falls back to TUI if needed
 
 # Default runlevel
 ::sysinit:/sbin/openrc sysinit
 ::sysinit:/sbin/openrc boot
 ::wait:/sbin/openrc default
 
-# TTY1: Our custom console (no login!)
-tty1::respawn:/usr/local/bin/qx-console
+# TTY1: Quantix Console (GUI with TUI fallback)
+tty1::respawn:/usr/local/bin/qx-console-launcher
 
 # TTY2-6: Disabled by default (no getty)
 # Uncomment for emergency access:
 # tty2::respawn:/sbin/getty 38400 tty2
 
-# Emergency shell (activated by kernel parameter: emergency)
-ttyS0::respawn:/sbin/getty -L ttyS0 115200 vt100
+# Serial console (for headless servers / IPMI / VMs)
+ttyS0::respawn:/sbin/getty -L 115200 ttyS0 vt100
+hvc0::respawn:/sbin/getty -L 115200 hvc0 vt100
 
 # Shutdown
 ::shutdown:/sbin/openrc shutdown

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from '@/components/layout/Layout';
 import { Dashboard } from '@/pages/Dashboard';
@@ -31,52 +31,66 @@ const queryClient = new QueryClient({
   },
 });
 
+/**
+ * Main App Routes Component
+ * Handles routing between main layout and admin panel
+ */
+function AppRoutes() {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
+
+  // Admin panel has its own layout with custom sidebar
+  if (isAdminRoute) {
+    return <AdminPanel />;
+  }
+
+  // Main application with standard layout
+  return (
+    <Layout>
+      <Routes>
+        {/* Dashboard */}
+        <Route path="/" element={<Dashboard />} />
+        
+        {/* Inventory */}
+        <Route path="/vms" element={<VMList />} />
+        <Route path="/vms/:id" element={<VMDetail />} />
+        <Route path="/hosts" element={<HostList />} />
+        <Route path="/hosts/:id" element={<HostDetail />} />
+        <Route path="/clusters" element={<ClusterList />} />
+        <Route path="/clusters/:id" element={<ClusterDetail />} />
+        
+        {/* Storage */}
+        <Route path="/storage/pools" element={<StoragePools />} />
+        <Route path="/storage/volumes" element={<Volumes />} />
+        <Route path="/storage/images" element={<ImageLibrary />} />
+        
+        {/* Networking */}
+        <Route path="/networks" element={<VirtualNetworks />} />
+        <Route path="/networks/load-balancers" element={<LoadBalancers />} />
+        <Route path="/networks/vpn" element={<VPNServices />} />
+        <Route path="/networks/bgp" element={<BGPSpeakers />} />
+        <Route path="/security" element={<SecurityGroups />} />
+        
+        {/* Operations */}
+        <Route path="/monitoring" element={<Monitoring />} />
+        <Route path="/alerts" element={<Alerts />} />
+        <Route path="/drs" element={<DRSRecommendations />} />
+        
+        {/* Settings */}
+        <Route path="/settings" element={<Settings />} />
+        
+        {/* Catch-all redirect */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Layout>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Layout>
-          <Routes>
-            {/* Dashboard */}
-            <Route path="/" element={<Dashboard />} />
-            
-            {/* Inventory */}
-            <Route path="/vms" element={<VMList />} />
-            <Route path="/vms/:id" element={<VMDetail />} />
-            <Route path="/hosts" element={<HostList />} />
-            <Route path="/hosts/:id" element={<HostDetail />} />
-            <Route path="/clusters" element={<ClusterList />} />
-            <Route path="/clusters/:id" element={<ClusterDetail />} />
-            
-            {/* Storage */}
-            <Route path="/storage/pools" element={<StoragePools />} />
-            <Route path="/storage/volumes" element={<Volumes />} />
-            <Route path="/storage/images" element={<ImageLibrary />} />
-            
-            {/* Networking */}
-            <Route path="/networks" element={<VirtualNetworks />} />
-            <Route path="/networks/load-balancers" element={<LoadBalancers />} />
-            <Route path="/networks/vpn" element={<VPNServices />} />
-            <Route path="/networks/bgp" element={<BGPSpeakers />} />
-            <Route path="/security" element={<SecurityGroups />} />
-            
-            {/* Operations */}
-            <Route path="/monitoring" element={<Monitoring />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/drs" element={<DRSRecommendations />} />
-            
-            {/* Settings */}
-            <Route path="/settings" element={<Settings />} />
-            
-            {/* Catch-all redirect */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          
-          {/* Admin Panel - Outside Layout for custom sidebar */}
-          <Routes>
-            <Route path="/admin/*" element={<AdminPanel />} />
-          </Routes>
-        </Layout>
+        <AppRoutes />
       </BrowserRouter>
     </QueryClientProvider>
   );

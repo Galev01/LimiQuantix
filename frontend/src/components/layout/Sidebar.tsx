@@ -25,6 +25,7 @@ import {
   Scale,
   KeyRound,
   Radio,
+  ShieldCheck,
 } from 'lucide-react';
 import QuantixLogo from '@/assets/Logo.png';
 import { cn } from '@/lib/utils';
@@ -85,6 +86,7 @@ const navigation: NavItem[] = [
     ],
   },
   { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
+  { id: 'admin', label: 'Admin Panel', icon: ShieldCheck, href: '/admin' },
 ];
 
 interface ContextMenuState {

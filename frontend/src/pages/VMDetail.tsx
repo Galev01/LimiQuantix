@@ -147,12 +147,19 @@ export function VMDetail() {
     await startVM.mutateAsync(id);
   };
 
-  const handleStop = async () => {
+  const handleStop = async (force = false) => {
     if (useMockData || !id) {
-      console.log('Mock: Stop VM', id);
+      console.log('Mock: Stop VM', id, { force });
       return;
     }
-    await stopVM.mutateAsync({ id });
+    await stopVM.mutateAsync({ id, force });
+  };
+
+  const handleForceStop = async () => {
+    if (!confirm('Are you sure you want to force stop this VM? This is equivalent to pulling the power plug and may cause data loss.')) {
+      return;
+    }
+    await handleStop(true);
   };
 
   const handleDelete = async () => {
@@ -274,8 +281,9 @@ export function VMDetail() {
       {
         label: 'Force Stop',
         icon: <Power className="w-4 h-4" />,
-        onClick: handleStop,
+        onClick: handleForceStop,
         disabled: !isRunning,
+        variant: 'danger',
         divider: true,
       },
       {
