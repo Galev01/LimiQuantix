@@ -60,6 +60,9 @@ des = "0.8"
 # URL encoding/decoding for deep links
 urlencoding = "2"
 
+# Base64 encoding/decoding for file transfer
+base64 = "0.22"
+
 # Date/time handling
 chrono = { version = "0.4", features = ["serde"] }
 

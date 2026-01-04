@@ -1,10 +1,10 @@
 //! Tauri API commands for configuration and Control Plane communication
 
-use crate::config::{Config, DisplaySettings, SavedConnection};
+use crate::config::{Config, SavedConnection};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use tauri::State;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 /// Response for connection list
 #[derive(Debug, Serialize)]

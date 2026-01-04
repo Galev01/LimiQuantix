@@ -12,8 +12,8 @@
 use super::rfb::PixelFormat;
 use flate2::read::ZlibDecoder;
 use flate2::Decompress;
-use std::io::{Cursor, Read};
-use tracing::{debug, trace, warn};
+use std::io::Read;
+use tracing::{trace, warn};
 
 /// Decode RRE (Rise-and-Run-length Encoding)
 pub fn decode_rre(
@@ -983,21 +983,23 @@ fn decompress_tight_data(
     let decompressor = zlib_state.get_or_create(stream_id);
 
     let mut output = vec![0u8; expected_len];
-    let mut output_offset = 0;
 
-    let status = decompressor
+    // Track bytes written by comparing total_out before and after
+    let total_out_before = decompressor.total_out();
+
+    let _status = decompressor
         .decompress(compressed, &mut output, flate2::FlushDecompress::Sync)
         .map_err(|e| format!("Tight: zlib decompression failed: {}", e))?;
 
-    output_offset = status.bytes_written();
+    let bytes_written = (decompressor.total_out() - total_out_before) as usize;
 
     // If we didn't get enough data, the stream state might be corrupted
-    if output_offset < expected_len {
+    if bytes_written < expected_len {
         warn!(
             "Tight: got {} bytes, expected {}",
-            output_offset, expected_len
+            bytes_written, expected_len
         );
-        output.truncate(output_offset);
+        output.truncate(bytes_written);
     }
 
     Ok((output, len_bytes + compressed_len))

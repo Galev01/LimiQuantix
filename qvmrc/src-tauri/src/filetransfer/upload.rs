@@ -2,7 +2,7 @@
 //!
 //! Uploads files from the host to VM guests via the Control Plane API.
 
-use super::{FileTransfer, FileWriteResponse, ProgressTracker, TransferDirection, TransferStatus};
+use super::{FileTransfer, FileWriteResponse, ProgressTracker, TransferStatus};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use std::path::Path;
 use tauri::Window;
