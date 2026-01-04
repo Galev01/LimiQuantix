@@ -1,15 +1,8 @@
 import { 
-  Server, 
   Cpu, 
   MemoryStick, 
-  HardDrive, 
   MonitorCog, 
-  Play, 
-  Square, 
   Clock,
-  Activity,
-  AlertCircle,
-  CheckCircle2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { HostHeader } from '@/components/layout';
@@ -21,7 +14,7 @@ import { formatBytes, formatUptime, formatPercent } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 export function Dashboard() {
-  const { data: hostInfo, isLoading: hostLoading } = useHostInfo();
+  const { data: hostInfo } = useHostInfo();
   const { data: health, refetch: refetchHealth, isFetching } = useHostHealth();
   const { data: vms } = useVMs();
   const { data: pools } = useStoragePools();

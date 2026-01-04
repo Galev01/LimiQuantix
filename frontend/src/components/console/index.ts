@@ -7,3 +7,4 @@
 export { ConsoleTabBar } from './ConsoleTabBar';
 export { ConsoleGrid } from './ConsoleGrid';
 export { VMSidebar } from './VMSidebar';
+export { FileTransferPanel } from './FileTransferPanel';

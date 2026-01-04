@@ -4,116 +4,148 @@ No active workflows.
 
 ---
 
-## Completed: Quantix-OS Web UI Integration (January 4, 2026)
+## Completed: Console Performance, File Transfer & VM Sidebar (January 4, 2026)
 
-Successfully integrated the Quantix Host UI into the Quantix-OS, similar to VMware ESXi Host Client.
+Successfully implemented the console improvements plan covering:
+1. VNC encoding optimizations (Tight/ZRLE) for QVMRC
+2. VM Sidebar for Console Dock quick navigation
+3. File transfer between host and VM guests
 
-### What Was Built
+### Summary
 
-Extended the Node Daemon (`limiquantix-node`) with an Axum-based HTTP server that:
-1. **Serves Static Files**: React SPA from `/usr/share/quantix/webui/`
-2. **REST API Gateway**: Proxies requests to gRPC service methods
-3. **Runs Concurrently**: HTTP (port 8443) runs alongside gRPC (port 9443)
+#### Phase 1: QVMRC VNC Performance (Tight/ZRLE Encodings)
 
-### Files Modified
+Added support for high-performance VNC encodings:
 
+**Files Modified:**
+- `qvmrc/src-tauri/src/vnc/encodings.rs` - Added `decode_tight()` and `decode_zrle()` functions
+- `qvmrc/src-tauri/src/vnc/rfb.rs` - Integrated encodings, added `TightZlibState`, reordered encoding priority
+
+**Key Features:**
+- **ZRLE Decoder**: 64x64 tile-based with Raw, Solid, PackedPalette, PlainRLE, PaletteRLE subencodings
+- **Tight Decoder**: FillCompression, JpegCompression, BasicCompression with Copy/Palette/Gradient filters
+- **Persistent Zlib Streams**: Maintains 4 zlib streams per Tight spec for better compression
+- **Encoding Priority**: ZRLE > Tight > Hextile > Zlib > RRE > CopyRect > Raw
+
+#### Phase 2: VM Sidebar for Console Dock
+
+Created a collapsible VM sidebar for quick console navigation:
+
+**Files Created:**
+- `frontend/src/components/console/VMSidebar.tsx`
+
+**Files Modified:**
+- `frontend/src/hooks/useConsoleStore.ts` - Added `sidebarCollapsed` state
+- `frontend/src/pages/ConsoleDock.tsx` - Integrated sidebar layout
+- `frontend/src/components/console/index.ts` - Added export
+
+**Features:**
+- Search/filter VMs by name or ID
+- Status indicators (running/stopped)
+- "Open" badge for VMs with active console sessions
+- Keyboard navigation (arrow keys + Enter)
+- Collapsible to icon-only mode (persisted)
+
+#### Phase 3: Backend File Transfer Endpoints
+
+Added REST API for guest agent file operations:
+
+**Files Created:**
+- `backend/internal/server/file_transfer.go`
+
+**Files Modified:**
+- `backend/internal/server/vm_rest.go` - Routes file transfer requests
+- `backend/internal/server/server.go` - Updated route registration
+
+**API Endpoints:**
 ```
-agent/
-├── Cargo.toml                      # Added axum, tower-http, mime_guess dependencies
-├── limiquantix-node/
-│   ├── Cargo.toml                  # Added axum, tower-http, num_cpus
-│   └── src/
-│       ├── main.rs                 # Added http_server module
-│       ├── cli.rs                  # Added --http-listen, --webui-path, --no-webui
-│       ├── config.rs               # Added HttpServerConfig struct
-│       ├── server.rs               # Runs HTTP and gRPC concurrently
-│       ├── http_server.rs          # NEW: Axum HTTP server implementation
-│       └── service.rs              # Fixed proto type names, added Clone
-└── limiquantix-hypervisor/
-    └── src/network/ovs.rs          # Added Clone derive
-
-quantix-os/
-├── Makefile                        # Added webui target, updated iso/squashfs deps
-└── overlay/usr/share/quantix/
-    └── webui/.keep                 # Placeholder for built static files
-
-docs/ui/000056-host-ui-architecture.md  # Added HTTP server documentation
-```
-
-### API Endpoints Implemented
-
-```
-GET  /api/v1/host              # Host info (hostname, IP, CPU, memory)
-GET  /api/v1/host/health       # Health check (hypervisor status)
-GET  /api/v1/vms               # List all VMs
-GET  /api/v1/vms/:id           # Get single VM
-POST /api/v1/vms/:id/start     # Start VM
-POST /api/v1/vms/:id/stop      # Stop VM (graceful)
-POST /api/v1/vms/:id/force-stop # Force stop VM
-POST /api/v1/vms/:id/reboot    # Reboot VM
-POST /api/v1/vms/:id/pause     # Pause VM
-POST /api/v1/vms/:id/resume    # Resume VM
-GET  /api/v1/vms/:id/console   # Get console connection info
-GET  /api/v1/storage/pools     # List storage pools
-```
-
-### Configuration
-
-```yaml
-# /etc/limiquantix/node.yaml
-server:
-  listen_address: "0.0.0.0:9090"  # gRPC
-  http:
-    enabled: true
-    listen_address: "0.0.0.0:8443"
-    webui_path: "/usr/share/quantix/webui"
+POST   /api/vms/{id}/files/write   - Write file to guest
+POST   /api/vms/{id}/files/read    - Read file from guest
+GET    /api/vms/{id}/files/list    - List directory in guest
+GET    /api/vms/{id}/files/stat    - Get file metadata
+DELETE /api/vms/{id}/files/delete  - Delete file in guest
 ```
 
-### CLI Options
+#### Phase 4: QVMRC File Transfer Module
 
-```bash
-limiquantix-node \
-  --http-listen 0.0.0.0:8443 \
-  --webui-path /usr/share/quantix/webui \
-  --no-webui  # Disable HTTP server
-```
+Created native file transfer for the Tauri desktop client:
 
-### Build Commands
+**Files Created:**
+- `qvmrc/src-tauri/src/filetransfer/mod.rs` - Module exports and types
+- `qvmrc/src-tauri/src/filetransfer/upload.rs` - Upload implementation
+- `qvmrc/src-tauri/src/filetransfer/download.rs` - Download implementation
+- `qvmrc/src-tauri/src/filetransfer/progress.rs` - Progress tracking
 
-```bash
-# Build webui only
-cd quantix-os && make webui
+**Files Modified:**
+- `qvmrc/src-tauri/src/main.rs` - Registered file transfer commands
 
-# Build complete ISO (includes webui)
-cd quantix-os && make iso VERSION=1.0.0
-```
+**Tauri Commands:**
+- `upload_file_to_vm` - Upload single file with progress
+- `upload_files_to_vm` - Upload multiple files
+- `download_file_from_vm` - Download file with progress
+- `list_files_in_vm` - Directory listing
+- `stat_file_in_vm` - File metadata
+- `delete_file_in_vm` - Delete file
 
-### How It Works
+#### Phase 5: Web Console File Transfer UI
 
-1. **Build Time**: `make webui` runs npm build in `quantix-host-ui/` and copies output to `overlay/usr/share/quantix/webui/`
-2. **ISO Creation**: The webui files are included in the squashfs
-3. **Runtime**: Node daemon serves static files on port 8443, proxies API calls to gRPC
+Created React components and hooks for browser-based file transfer:
 
-### Access Points
+**Files Created:**
+- `frontend/src/hooks/useFileTransfer.ts` - React Query hooks
+- `frontend/src/components/console/FileTransferPanel.tsx` - File browser UI
 
-- **Local Console**: TTY1 → Slint Console GUI (DCUI)
-- **Remote Web**: `https://<host-ip>:8443` → Quantix Host UI (React)
+**Features:**
+- File browser with navigation
+- Drag-and-drop upload
+- Download files to host
+- Create/delete files
+- Upload progress tracking
+- Breadcrumb navigation
 
 ---
 
-## Next Steps
+## Architecture
 
-### Frontend (Host UI) - Phase 2
-- [ ] VM Detail page with tabs (Summary, Console, Settings, Snapshots)
-- [ ] VM Creation wizard with cloud-init
-- [ ] Storage Pools page
-- [ ] Volumes management page
-- [ ] Hardware inventory page
-- [ ] Networking configuration page
-- [ ] Performance monitoring with Recharts
-- [ ] Events log page
+```mermaid
+sequenceDiagram
+    participant User
+    participant QVMRC_or_Web as QVMRC/WebConsole
+    participant Backend as ControlPlane
+    participant NodeDaemon as NodeDaemon
+    participant GuestAgent as GuestAgent
 
-### Backend (Node Daemon) - Phase 2
-- [ ] WebSocket endpoint for real-time updates
-- [ ] JWT authentication
-- [ ] TLS/HTTPS support
+    User->>QVMRC_or_Web: Drop file to upload
+    QVMRC_or_Web->>Backend: POST /api/vms/{id}/files/write
+    Backend->>NodeDaemon: gRPC FileWriteRequest
+    NodeDaemon->>GuestAgent: virtio-serial FileWriteRequest
+    GuestAgent->>GuestAgent: Write to filesystem
+    GuestAgent-->>NodeDaemon: FileWriteResponse
+    NodeDaemon-->>Backend: gRPC Response
+    Backend-->>QVMRC_or_Web: HTTP 200 + progress
+    QVMRC_or_Web-->>User: Upload complete
+```
+
+---
+
+## Files Summary
+
+### Created (12 files)
+- `frontend/src/components/console/VMSidebar.tsx`
+- `frontend/src/components/console/FileTransferPanel.tsx`
+- `frontend/src/hooks/useFileTransfer.ts`
+- `backend/internal/server/file_transfer.go`
+- `qvmrc/src-tauri/src/filetransfer/mod.rs`
+- `qvmrc/src-tauri/src/filetransfer/upload.rs`
+- `qvmrc/src-tauri/src/filetransfer/download.rs`
+- `qvmrc/src-tauri/src/filetransfer/progress.rs`
+
+### Modified (9 files)
+- `qvmrc/src-tauri/src/vnc/encodings.rs`
+- `qvmrc/src-tauri/src/vnc/rfb.rs`
+- `qvmrc/src-tauri/src/main.rs`
+- `frontend/src/pages/ConsoleDock.tsx`
+- `frontend/src/hooks/useConsoleStore.ts`
+- `frontend/src/components/console/index.ts`
+- `backend/internal/server/vm_rest.go`
+- `backend/internal/server/server.go`

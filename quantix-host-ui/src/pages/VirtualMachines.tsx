@@ -5,9 +5,7 @@ import {
   Play,
   Square,
   RotateCcw,
-  Pause,
   Monitor,
-  Trash2,
   MoreVertical,
   RefreshCw,
 } from 'lucide-react';

@@ -5,7 +5,7 @@ interface ProgressRingProps {
   size?: number;
   strokeWidth?: number;
   className?: string;
-  color?: 'accent' | 'success' | 'warning' | 'error';
+  color?: 'accent' | 'success' | 'warning' | 'error' | 'info';
   label?: string;
   sublabel?: string;
 }
@@ -15,6 +15,7 @@ const colorClasses = {
   success: 'stroke-success',
   warning: 'stroke-warning',
   error: 'stroke-error',
+  info: 'stroke-info',
 };
 
 export function ProgressRing({

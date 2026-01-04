@@ -8,6 +8,7 @@
 
 mod api;
 mod config;
+mod filetransfer;
 mod iso_server;
 mod usb;
 mod vnc;
@@ -275,6 +276,13 @@ fn main() {
             usb::attach_usb_device,
             usb::detach_usb_device,
             usb::get_vm_usb_devices,
+            // File transfer commands
+            filetransfer::upload_file_to_vm,
+            filetransfer::upload_files_to_vm,
+            filetransfer::download_file_from_vm,
+            filetransfer::list_files_in_vm,
+            filetransfer::stat_file_in_vm,
+            filetransfer::delete_file_in_vm,
         ])
         .setup(|app| {
             debug_log("Tauri setup running");
