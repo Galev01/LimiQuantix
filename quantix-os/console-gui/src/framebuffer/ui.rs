@@ -15,7 +15,7 @@ use embedded_graphics::{
     pixelcolor::Rgb888,
     prelude::*,
     primitives::{Line, PrimitiveStyle, Rectangle, RoundedRectangle},
-    text::{Alignment, Text, TextStyleBuilder},
+    text::{Alignment, Text},
 };
 
 /// ESXi-inspired color palette

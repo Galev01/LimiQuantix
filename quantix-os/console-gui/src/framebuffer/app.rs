@@ -15,7 +15,6 @@ use super::input::{InputHandler, KeyEvent};
 use super::ui::{colors, SystemStatus, UiRenderer};
 
 use crate::auth::{audit_power_action, audit_service_restart, audit_shell_end, audit_shell_start, AuthManager};
-use crate::network::NetworkManager;
 use crate::ssh::SshManager;
 use crate::system_info;
 

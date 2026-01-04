@@ -3,17 +3,15 @@
 //! Reads keyboard events from evdev (`/dev/input/event*`) for framebuffer mode.
 //! Falls back to raw stdin if evdev is unavailable.
 
-use std::collections::HashMap;
-use std::fs::{self, File};
+use std::fs;
 use std::io::{self, Read};
-use std::os::unix::io::AsRawFd;
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use anyhow::{Context, Result};
-use evdev::{Device, EventType, InputEventKind, Key};
+use anyhow::Result;
+use evdev::{Device, InputEventKind, Key};
 use tracing::{debug, error, info, warn};
 
 /// Key events that the UI responds to

@@ -1,86 +1,64 @@
-# Workflow State: Framebuffer Fallback GUI for Quantix-OS Console
+# Workflow State: Error Handling Polish Sprint
 
-## Problem
+## Summary
 
-The current console launcher fails when:
-- DRM/KMS is unavailable (basic VGA-only VMs)
-- TTY terminal emulation is broken
+Completed a comprehensive error handling polish sprint for the frontend, replacing all `console.log`/`console.error` statements with proper user-facing toast notifications.
 
-Current fallback chain: Slint LinuxKMS (GPU) → Slint LinuxKMS (Software) → TUI → Shell
+## Completed Tasks
 
-## Solution
+### Phase 1: Foundation
+- [x] Added `<Toaster />` component from `sonner` to `App.tsx`
+- [x] Created `frontend/src/lib/toast.ts` - Centralized toast utilities with `showSuccess`, `showError`, `showWarning`, `showInfo`
+- [x] Created `frontend/src/components/ErrorBoundary.tsx` - React error boundary with retry functionality
+- [x] Wrapped routes with `RouteErrorBoundary` in App.tsx
 
-Add a **raw framebuffer backend** that renders directly to `/dev/fb0` using `linuxfb` + `embedded-graphics`. This bypasses all display servers and terminal requirements.
+### Phase 2: API Layer Improvements
+- [x] Enhanced `useVMs.ts` - Added `onSuccess`/`onError` toast callbacks to all mutations
+- [x] Created `useUpdateVM()` hook for VM settings/resources updates
+- [x] Added `update()` method to `vmApi` in api-client.ts
+- [x] Enhanced `useStorage.ts` - Added toast notifications to all storage mutations
+- [x] Enhanced `useNetworks.ts` - Added toast notifications + `useUpdateNetwork` hook
+- [x] Added `update()` method to `networkApi` in api-client.ts
+- [x] Enhanced `useSecurityGroups.ts` - Added toast notifications to all mutations
+- [x] Enhanced `useSnapshots.ts` - Added toast notifications to all mutations
 
-New fallback chain: Slint LinuxKMS (GPU) → Slint LinuxKMS (Software) → **Raw Framebuffer** → TUI → Shell
+### Phase 3: Page-Level Error Handling
+- [x] `VMDetail.tsx` - Replaced 8 console.log statements, wired up `useUpdateVM`
+- [x] `VMList.tsx` - Replaced 3 console.log statements
+- [x] `VirtualNetworks.tsx` - Wired up create/update/delete with API + toast
+- [x] `SecurityGroups.tsx` - Wired up delete with API + toast
+- [x] `HostList.tsx` - Added proper toast feedback for context menu actions
+- [x] `LoadBalancers.tsx` - Replaced console.log with toast
+- [x] `VPNServices.tsx` - Replaced console.log with toast
+- [x] `BGPSpeakers.tsx` - Replaced console.log with toast
 
-## Implementation Tasks
-
-- [x] 1. Update `Cargo.toml` with framebuffer dependencies (`linuxfb`, `embedded-graphics`, `evdev`)
-- [x] 2. Create `framebuffer/mod.rs` - Module root with run() entry point
-- [x] 3. Create `framebuffer/fb.rs` - Framebuffer device wrapper with double-buffering
-- [x] 4. Create `framebuffer/ui.rs` - UI rendering (header, status, menu, dialogs)
-- [x] 5. Create `framebuffer/input.rs` - Keyboard input via evdev or raw stdin
-- [x] 6. Create `framebuffer/app.rs` - Application state and event loop
-- [x] 7. Update `main.rs` - Add framebuffer fallback path with `--framebuffer` flag
-- [x] 8. Update `qx-console-launcher` - Add framebuffer attempt before shell fallback
-- [x] 9. Update `Makefile` - Build with framebuffer feature
-- [x] 10. Update `Dockerfile.rust-gui` - Add framebuffer library dependencies
-- [x] 11. Update `README.md` - Document framebuffer fallback
-
-## Files Created
-
-- `quantix-os/console-gui/src/framebuffer/mod.rs` - Module root
-- `quantix-os/console-gui/src/framebuffer/fb.rs` - Framebuffer wrapper with IOCTL, mmap, double-buffering
-- `quantix-os/console-gui/src/framebuffer/ui.rs` - ESXi-style UI rendering with embedded-graphics
-- `quantix-os/console-gui/src/framebuffer/input.rs` - Evdev keyboard input handler
-- `quantix-os/console-gui/src/framebuffer/app.rs` - Application event loop and state
+### Phase 4: Component-Level Error Handling
+- [x] `ConsoleAccessModal.tsx` - Replaced console.error with toast for clipboard errors
+- [x] `Layout.tsx` - Wired up VM creation with `useCreateVM` hook
 
 ## Files Modified
 
-- `quantix-os/console-gui/Cargo.toml` - Added framebuffer feature and dependencies
-- `quantix-os/console-gui/src/main.rs` - Added `--framebuffer` flag and fallback logic
-- `quantix-os/overlay/usr/local/bin/qx-console-launcher` - Added framebuffer attempt step
-- `quantix-os/Makefile` - Build with `linuxkms,framebuffer` features
-- `quantix-os/builder/Dockerfile.rust-gui` - Updated description
-- `quantix-os/README.md` - Added framebuffer documentation
+### New Files
+- `frontend/src/lib/toast.ts`
+- `frontend/src/components/ErrorBoundary.tsx`
 
-## Key Features
-
-### Framebuffer Rendering (`fb.rs`)
-- Direct `/dev/fb0` access via IOCTL and mmap
-- Supports 16, 24, and 32-bit color depths
-- Automatic pixel format detection (BGR/RGB)
-- Double-buffering for flicker-free updates
-- Implements `DrawTarget` trait for embedded-graphics
-
-### Input Handling (`input.rs`)
-- Evdev-based keyboard reading from `/dev/input/event*`
-- Automatic keyboard device detection
-- Fallback to raw stdin reading
-- Full function key support (F1-F12)
-- Character input for authentication dialogs
-
-### UI Components (`ui.rs`)
-- ESXi-inspired color palette
-- Header with branding and version
-- Node status panel (hostname, IP, cluster, uptime)
-- Resource usage with progress bars (CPU, memory, VMs)
-- Function key menu bar
-- Authentication dialog with username/password fields
-- Confirmation dialogs for dangerous actions
-
-### Application Logic (`app.rs`)
-- Same features as Slint GUI (auth, SSH toggle, services, shell, reboot)
-- 60fps render loop with periodic status refresh
-- State machine for screen transitions
-- Full audit logging for sensitive actions
-
-## Testing
-
-To test framebuffer mode:
-1. Boot QEMU with `-vga std` (no virtio-gpu)
-2. The console launcher will try Slint first, then fall back to framebuffer
-3. Or manually run: `qx-console-gui --framebuffer`
+### Modified Files
+1. `frontend/src/App.tsx` - Added Toaster + ErrorBoundary
+2. `frontend/src/lib/api-client.ts` - Added vmApi.update(), networkApi.update()
+3. `frontend/src/hooks/useVMs.ts` - Added useUpdateVM, toast to all mutations
+4. `frontend/src/hooks/useStorage.ts` - Added toast to all mutations
+5. `frontend/src/hooks/useNetworks.ts` - Added useUpdateNetwork, toast to all mutations
+6. `frontend/src/hooks/useSecurityGroups.ts` - Added toast to all mutations
+7. `frontend/src/hooks/useSnapshots.ts` - Added toast to all mutations
+8. `frontend/src/pages/VMDetail.tsx` - Replaced console.log with toast
+9. `frontend/src/pages/VMList.tsx` - Replaced console.log with toast
+10. `frontend/src/pages/VirtualNetworks.tsx` - Wired up API + toast
+11. `frontend/src/pages/SecurityGroups.tsx` - Wired up API + toast
+12. `frontend/src/pages/HostList.tsx` - Added toast for actions
+13. `frontend/src/pages/LoadBalancers.tsx` - Added toast for create
+14. `frontend/src/pages/VPNServices.tsx` - Added toast for create
+15. `frontend/src/pages/BGPSpeakers.tsx` - Added toast for create
+16. `frontend/src/components/vm/ConsoleAccessModal.tsx` - Replaced console.error with toast
+17. `frontend/src/components/layout/Layout.tsx` - Wired up VM creation
 
 ## Status: COMPLETE ✅

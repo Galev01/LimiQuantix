@@ -5,7 +5,7 @@
 //! Supports 16, 24, and 32-bit color depths with automatic format detection.
 
 use std::fs::{File, OpenOptions};
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::io;
 use std::os::unix::io::AsRawFd;
 
 use anyhow::{Context, Result};
@@ -18,8 +18,9 @@ use embedded_graphics::{
 use tracing::{debug, info};
 
 /// IOCTL constants for framebuffer
-const FBIOGET_VSCREENINFO: libc::c_ulong = 0x4600;
-const FBIOGET_FSCREENINFO: libc::c_ulong = 0x4602;
+/// These are architecture-specific; using i32 for compatibility with libc::ioctl
+const FBIOGET_VSCREENINFO: libc::c_int = 0x4600;
+const FBIOGET_FSCREENINFO: libc::c_int = 0x4602;
 
 /// Variable screen info structure (simplified)
 #[repr(C)]
