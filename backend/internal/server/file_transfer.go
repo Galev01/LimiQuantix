@@ -192,16 +192,16 @@ func (h *FileTransferHandler) handleWrite(w http.ResponseWriter, r *http.Request
 	}
 
 	// Get the node daemon connection
-	nodeID := vm.GetStatus().GetNodeId()
+	nodeID := vm.Status.NodeID
 	if nodeID == "" {
 		h.jsonError(w, "VM is not running on any node", http.StatusBadRequest)
 		return
 	}
 
 	// Get node daemon client
-	daemon, err := h.server.daemonPool.Get(ctx, nodeID)
-	if err != nil {
-		h.jsonError(w, fmt.Sprintf("Cannot connect to node daemon: %v", err), http.StatusServiceUnavailable)
+	daemon := h.server.daemonPool.Get(nodeID)
+	if daemon == nil {
+		h.jsonError(w, "Cannot connect to node daemon", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -276,7 +276,7 @@ func (h *FileTransferHandler) handleMultipartWrite(w http.ResponseWriter, r *htt
 		return
 	}
 
-	nodeID := vm.GetStatus().GetNodeId()
+	nodeID := vm.Status.NodeID
 	if nodeID == "" {
 		h.jsonError(w, "VM is not running on any node", http.StatusBadRequest)
 		return
@@ -333,7 +333,7 @@ func (h *FileTransferHandler) handleRead(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	nodeID := vm.GetStatus().GetNodeId()
+	nodeID := vm.Status.NodeID
 	if nodeID == "" {
 		h.jsonError(w, "VM is not running on any node", http.StatusBadRequest)
 		return
@@ -390,7 +390,7 @@ func (h *FileTransferHandler) handleList(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	nodeID := vm.GetStatus().GetNodeId()
+	nodeID := vm.Status.NodeID
 	if nodeID == "" {
 		h.jsonError(w, "VM is not running on any node", http.StatusBadRequest)
 		return
@@ -450,7 +450,7 @@ func (h *FileTransferHandler) handleStat(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	nodeID := vm.GetStatus().GetNodeId()
+	nodeID := vm.Status.NodeID
 	if nodeID == "" {
 		h.jsonError(w, "VM is not running on any node", http.StatusBadRequest)
 		return
@@ -509,7 +509,7 @@ func (h *FileTransferHandler) handleDelete(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	nodeID := vm.GetStatus().GetNodeId()
+	nodeID := vm.Status.NodeID
 	if nodeID == "" {
 		h.jsonError(w, "VM is not running on any node", http.StatusBadRequest)
 		return

@@ -29,6 +29,13 @@ export function getAuthToken(): string | null {
   return authToken;
 }
 
+/**
+ * Get the API base URL for direct HTTP calls
+ */
+export function getApiBase(): string {
+  return API_CONFIG.baseUrl;
+}
+
 // Connection status
 interface ConnectionState {
   isConnected: boolean;

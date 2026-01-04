@@ -376,7 +376,7 @@ export function VMDetail() {
 
             {vm.status.state === 'RUNNING' ? (
               <>
-                <Button variant="secondary" size="sm" onClick={handleStop} disabled={isActionPending}>
+                <Button variant="secondary" size="sm" onClick={() => handleStop()} disabled={isActionPending}>
                   {stopVM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4" />}
                   Stop
                 </Button>

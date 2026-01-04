@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -591,18 +592,35 @@ func (s *Service) StopVM(
 			stopErr = client.StopVM(ctx, vm.ID, 30) // 30 second timeout
 		}
 		if stopErr != nil {
-			logger.Error("Failed to stop VM on node daemon",
-				zap.String("vm_id", vm.ID),
-				zap.String("node_id", vm.Status.NodeID),
-				zap.Error(stopErr),
-			)
-			// Revert status
-			vm.Status.State = domain.VMStateRunning
-			vm.Status.Message = fmt.Sprintf("Failed to stop: %s", stopErr)
-			_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to stop VM on node: %w", stopErr))
+			// Check if the error is because the VM doesn't exist on the node (stale state)
+			// This can happen if the VM was manually deleted or crashed
+			errStr := stopErr.Error()
+			isNotFound := strings.Contains(errStr, "nodomain") ||
+				strings.Contains(errStr, "Domain not found") ||
+				strings.Contains(errStr, "VM not found")
+
+			if isNotFound {
+				logger.Warn("VM not found on node daemon, marking as stopped in control plane",
+					zap.String("vm_id", vm.ID),
+					zap.String("node_id", vm.Status.NodeID),
+					zap.Error(stopErr),
+				)
+				// Continue - we'll mark it as stopped since it doesn't exist on the node
+			} else {
+				logger.Error("Failed to stop VM on node daemon",
+					zap.String("vm_id", vm.ID),
+					zap.String("node_id", vm.Status.NodeID),
+					zap.Error(stopErr),
+				)
+				// Revert status
+				vm.Status.State = domain.VMStateRunning
+				vm.Status.Message = fmt.Sprintf("Failed to stop: %s", stopErr)
+				_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to stop VM on node: %w", stopErr))
+			}
+		} else {
+			logger.Info("VM stopped on node daemon")
 		}
-		logger.Info("VM stopped on node daemon")
 	}
 
 	// Update to stopped state

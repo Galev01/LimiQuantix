@@ -2,9 +2,8 @@
 # ============================================================================
 # Quantix-OS libvirtd Starter
 # ============================================================================
-# Starts virtlogd and libvirtd in background.
-# Both services are started manually to prevent boot hangs when nested 
-# virtualization isn't enabled or when dependencies aren't ready.
+# Starts virtlogd and libvirtd in background ASYNCHRONOUSLY.
+# This script MUST NOT block boot - it spawns background processes and exits.
 # ============================================================================
 
 LOG="/var/log/quantix/libvirtd-starter.log"
@@ -16,79 +15,51 @@ log() {
 }
 
 # ============================================================================
-# Create required directories for libvirt
+# Create required directories for libvirt (fast, non-blocking)
 # ============================================================================
 log "Creating libvirt runtime directories..."
-mkdir -p /run/libvirt
-mkdir -p /var/lib/libvirt/qemu
-mkdir -p /var/lib/libvirt/images
-mkdir -p /var/log/libvirt/qemu
+mkdir -p /run/libvirt /var/lib/libvirt/qemu /var/lib/libvirt/images /var/log/libvirt/qemu
 chmod 755 /run/libvirt
 
 # ============================================================================
-# Start virtlogd first (required for libvirtd)
+# Spawn background process to start libvirt services
+# This ensures boot is NOT blocked
 # ============================================================================
-if pgrep -x virtlogd >/dev/null 2>&1; then
-    log "virtlogd already running"
-else
-    log "Starting virtlogd..."
-    # Start virtlogd in daemon mode
-    /usr/sbin/virtlogd -d 2>>"$LOG" &
-    sleep 1
+(
+    # Give the system a moment to stabilize after boot
+    sleep 2
     
-    if pgrep -x virtlogd >/dev/null 2>&1; then
-        log "virtlogd started successfully"
-    else
-        log "WARNING: virtlogd failed to start (non-fatal)"
+    # Start virtlogd if not running
+    if ! pgrep -x virtlogd >/dev/null 2>&1; then
+        log "Starting virtlogd..."
+        /usr/sbin/virtlogd -d 2>>"$LOG" || true
+        sleep 1
     fi
-fi
-
-# ============================================================================
-# Start libvirtd
-# ============================================================================
-# Check if libvirtd is already running
-if pgrep -x libvirtd >/dev/null 2>&1; then
-    log "libvirtd already running"
-    exit 0
-fi
-
-# Check if the service is stuck (OpenRC might be waiting)
-if rc-status 2>/dev/null | grep -q "libvirtd.*starting"; then
-    log "libvirtd appears to be stuck starting"
-    log "Killing stuck process and restarting..."
     
-    # Kill any stuck libvirtd processes
-    pkill -9 libvirtd 2>/dev/null || true
-    sleep 1
-fi
-
-# Check KVM availability
-if [ -c /dev/kvm ]; then
-    log "KVM is available"
-else
-    log "WARNING: KVM not available - VMs will use emulation"
-fi
-
-# Start libvirtd manually in daemon mode
-log "Starting libvirtd manually..."
-/usr/sbin/libvirtd -d -f /etc/libvirt/libvirtd.conf 2>>"$LOG" &
-
-# Wait a moment for it to initialize
-sleep 3
-
-# Verify it started
-if pgrep -x libvirtd >/dev/null 2>&1; then
-    log "libvirtd started successfully"
-    
-    # Test if API is responding
-    if virsh list --all >/dev/null 2>&1; then
-        log "libvirt API is responsive"
+    # Start libvirtd if not running
+    if ! pgrep -x libvirtd >/dev/null 2>&1; then
+        log "Starting libvirtd..."
+        
+        # Check KVM availability
+        if [ -c /dev/kvm ]; then
+            log "KVM is available"
+        else
+            log "WARNING: KVM not available - VMs will use emulation"
+        fi
+        
+        /usr/sbin/libvirtd -d -f /etc/libvirt/libvirtd.conf 2>>"$LOG" || true
+        sleep 2
+        
+        if pgrep -x libvirtd >/dev/null 2>&1; then
+            log "libvirtd started successfully"
+        else
+            log "WARNING: libvirtd failed to start"
+        fi
     else
-        log "WARNING: libvirt API not responding yet (may need more time)"
+        log "libvirtd already running"
     fi
-else
-    log "ERROR: Failed to start libvirtd"
-    exit 1
-fi
+) &
 
+# Exit immediately - don't block boot
+log "libvirtd startup scheduled in background"
 exit 0
