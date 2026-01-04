@@ -7,9 +7,14 @@
 //! To force regeneration, delete the generated files and install protoc.
 
 use std::path::PathBuf;
+use std::env;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let out_dir = PathBuf::from("src/generated");
+    // Get the manifest directory (where Cargo.toml lives)
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+    
+    let out_dir = manifest_dir.join("src/generated");
+    let proto_dir = manifest_dir.join("proto");
     
     // Check if generated files already exist
     let node_rs = out_dir.join("limiquantix.node.v1.rs");
@@ -27,8 +32,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Skip regeneration if files exist and protoc is not available
     if files_exist && !protoc_available {
         println!("cargo:warning=Using pre-generated proto files (protoc not found)");
-        println!("cargo:rerun-if-changed=proto/node_daemon.proto");
-        println!("cargo:rerun-if-changed=proto/agent.proto");
+        println!("cargo:rerun-if-changed={}", proto_dir.join("node_daemon.proto").display());
+        println!("cargo:rerun-if-changed={}", proto_dir.join("agent.proto").display());
         return Ok(());
     }
     
@@ -40,10 +45,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create output directory if it doesn't exist
     std::fs::create_dir_all(&out_dir)?;
     
-    // Proto files to compile
+    // Proto files to compile (using absolute paths)
     let proto_files = vec![
-        PathBuf::from("proto/node_daemon.proto"),
-        PathBuf::from("proto/agent.proto"),
+        proto_dir.join("node_daemon.proto"),
+        proto_dir.join("agent.proto"),
     ];
     
     // Check which proto files exist
@@ -61,16 +66,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect();
     
     if existing_protos.is_empty() {
-        println!("cargo:warning=No proto files found");
+        println!("cargo:warning=No proto files found in {:?}", proto_dir);
         return Ok(());
     }
+    
+    println!("cargo:warning=Generating proto files to {:?}", out_dir);
     
     // Configure tonic-build
     tonic_build::configure()
         .build_server(true)
         .build_client(true)
         .out_dir(&out_dir)
-        .compile(&existing_protos, &[PathBuf::from("proto")])?;
+        .compile(&existing_protos, &[&proto_dir])?;
+    
+    println!("cargo:warning=Proto generation complete");
     
     Ok(())
 }

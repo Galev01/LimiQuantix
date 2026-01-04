@@ -78,10 +78,26 @@ mkdir -p "$PROTO_GEN_DIR"
 
 # Build the proto crate (triggers build.rs which generates the files)
 log_info "Building limiquantix-proto..."
-cargo build -p limiquantix-proto 2>&1 | tail -5
+
+# Change to the proto crate directory for proper path resolution
+cd "$AGENT_DIR/limiquantix-proto"
+
+# Run cargo build from within the crate directory
+if ! cargo build 2>&1; then
+    log_error "Proto generation failed!"
+    echo ""
+    echo "Troubleshooting:"
+    echo "  1. Make sure protoc is installed: protoc --version"
+    echo "  2. Check proto files exist in: $AGENT_DIR/limiquantix-proto/proto/"
+    echo "  3. Try manually: cd $AGENT_DIR/limiquantix-proto && cargo build -vv"
+    exit 1
+fi
+
+# Return to agent directory
+cd "$AGENT_DIR"
 
 if [ ! -f "$PROTO_GEN_DIR/limiquantix.node.v1.rs" ]; then
-    log_error "Proto generation failed! Check build.rs output."
+    log_error "Proto generation failed! Generated files not found."
     exit 1
 fi
 
