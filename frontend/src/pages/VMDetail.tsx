@@ -49,9 +49,10 @@ import { EditResourcesModal } from '@/components/vm/EditResourcesModal';
 import { QuantixAgentStatus } from '@/components/vm/QuantixAgentStatus';
 import { FileBrowser } from '@/components/vm/FileBrowser';
 import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
-import { useVM, useStartVM, useStopVM, useDeleteVM, type ApiVM } from '@/hooks/useVMs';
+import { useVM, useStartVM, useStopVM, useDeleteVM, useUpdateVM, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { useSnapshots, useCreateSnapshot, useRevertToSnapshot, useDeleteSnapshot, formatSnapshotSize, type ApiSnapshot } from '@/hooks/useSnapshots';
+import { showInfo, showWarning } from '@/lib/toast';
 
 // Convert API VM to display format
 function apiToDisplayVM(apiVm: ApiVM): MockVM {
@@ -123,6 +124,7 @@ export function VMDetail() {
   const startVM = useStartVM();
   const stopVM = useStopVM();
   const deleteVM = useDeleteVM();
+  const updateVM = useUpdateVM();
   
   // Snapshot hooks
   const { data: snapshots = [], isLoading: isLoadingSnapshots } = useSnapshots(id || '', !!isConnected && !!id);
@@ -135,13 +137,13 @@ export function VMDetail() {
   const useMockData = !isConnected || !apiVm;
   const vm: MockVM | undefined = useMockData ? mockVm : apiToDisplayVM(apiVm);
 
-  const isActionPending = startVM.isPending || stopVM.isPending || deleteVM.isPending;
+  const isActionPending = startVM.isPending || stopVM.isPending || deleteVM.isPending || updateVM.isPending;
   const isSnapshotActionPending = createSnapshot.isPending || revertToSnapshot.isPending || deleteSnapshot.isPending;
 
   // Action handlers
   const handleStart = async () => {
     if (useMockData || !id) {
-      console.log('Mock: Start VM', id);
+      showInfo('Demo mode: VM start simulated');
       return;
     }
     await startVM.mutateAsync(id);
@@ -149,7 +151,7 @@ export function VMDetail() {
 
   const handleStop = async (force = false) => {
     if (useMockData || !id) {
-      console.log('Mock: Stop VM', id, { force });
+      showInfo('Demo mode: VM stop simulated');
       return;
     }
     await stopVM.mutateAsync({ id, force });
@@ -165,7 +167,7 @@ export function VMDetail() {
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this VM?')) return;
     if (useMockData || !id) {
-      console.log('Mock: Delete VM', id);
+      showInfo('Demo mode: VM delete simulated');
       navigate('/vms');
       return;
     }
@@ -174,75 +176,73 @@ export function VMDetail() {
   };
 
   const handleSaveSettings = async (settings: { name: string; description: string; labels: Record<string, string> }) => {
-    if (useMockData || !id) {
-      console.log('Mock: Update VM settings', id, settings);
+    if (!id) return;
+    if (useMockData) {
+      showInfo('Demo mode: Settings update simulated');
       return;
     }
-    // TODO: Call update VM API when available
-    console.log('Update VM settings', id, settings);
+    await updateVM.mutateAsync({
+      id,
+      name: settings.name,
+      description: settings.description,
+      labels: settings.labels,
+    });
   };
 
   const handleSaveResources = async (resources: { cores: number; memoryMib: number }) => {
-    if (useMockData || !id) {
-      console.log('Mock: Update VM resources', id, resources);
+    if (!id) return;
+    if (useMockData) {
+      showInfo('Demo mode: Resources update simulated');
       return;
     }
-    // TODO: Call update VM API when available
-    console.log('Update VM resources', id, resources);
+    await updateVM.mutateAsync({
+      id,
+      spec: {
+        cpu: { cores: resources.cores },
+        memory: { sizeMib: resources.memoryMib },
+      },
+    });
   };
 
   const handleCloneVM = () => {
-    console.log('Clone VM', id);
-    // TODO: Open clone VM modal
+    showWarning('Clone VM feature coming soon');
   };
 
   // Snapshot handlers
   const handleCreateSnapshot = async () => {
     if (!id || !snapshotName.trim()) return;
     
-    try {
-      await createSnapshot.mutateAsync({
-        vmId: id,
-        name: snapshotName.trim(),
-        description: snapshotDescription.trim() || undefined,
-        includeMemory,
-        quiesce: quiesceFs,
-      });
-      // Reset form
-      setSnapshotName('');
-      setSnapshotDescription('');
-      setIncludeMemory(false);
-      setQuiesceFs(false);
-      setIsCreateSnapshotOpen(false);
-    } catch (error) {
-      console.error('Failed to create snapshot:', error);
-    }
+    await createSnapshot.mutateAsync({
+      vmId: id,
+      name: snapshotName.trim(),
+      description: snapshotDescription.trim() || undefined,
+      includeMemory,
+      quiesce: quiesceFs,
+    });
+    // Reset form on success (error is handled by the hook's onError)
+    setSnapshotName('');
+    setSnapshotDescription('');
+    setIncludeMemory(false);
+    setQuiesceFs(false);
+    setIsCreateSnapshotOpen(false);
   };
 
   const handleRevertToSnapshot = async (snapshotId: string) => {
     if (!id) return;
     if (!confirm('Are you sure you want to revert to this snapshot? Any unsaved changes will be lost.')) return;
     
-    try {
-      await revertToSnapshot.mutateAsync({
-        vmId: id,
-        snapshotId,
-        startAfterRevert: false,
-      });
-    } catch (error) {
-      console.error('Failed to revert to snapshot:', error);
-    }
+    await revertToSnapshot.mutateAsync({
+      vmId: id,
+      snapshotId,
+      startAfterRevert: false,
+    });
   };
 
   const handleDeleteSnapshot = async (snapshotId: string) => {
     if (!id) return;
     if (!confirm('Are you sure you want to delete this snapshot? This action cannot be undone.')) return;
     
-    try {
-      await deleteSnapshot.mutateAsync({ vmId: id, snapshotId });
-    } catch (error) {
-      console.error('Failed to delete snapshot:', error);
-    }
+    await deleteSnapshot.mutateAsync({ vmId: id, snapshotId });
   };
 
   // Generate dropdown menu items

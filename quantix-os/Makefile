@@ -61,15 +61,16 @@ console-binary:
 # Build the Slint console GUI (primary)
 # Built inside an Alpine Docker container to ensure musl compatibility
 # The container has all LinuxKMS dependencies pre-installed
+# Includes framebuffer fallback for VGA-only VMs without DRM/KMS
 console-gui-binary: rust-gui-builder
-	@echo "==> Building qx-console-gui (Slint GUI) in Alpine container..."
+	@echo "==> Building qx-console-gui (Slint GUI + Framebuffer fallback) in Alpine container..."
 	@mkdir -p overlay/usr/bin
 	docker run --rm \
 		-v $(PWD)/console-gui:/build:rw \
 		-v $(PWD)/overlay/usr/bin:/output \
 		-w /build \
 		$(RUST_GUI_BUILDER_IMAGE) \
-		sh -c "cargo build --release --no-default-features --features linuxkms && \
+		sh -c "cargo build --release --no-default-features --features linuxkms,framebuffer && \
 		       cp target/release/qx-console-gui /output/ && \
 		       chmod 755 /output/qx-console-gui"
 	@echo "==> GUI binary copied to overlay/usr/bin/qx-console-gui"

@@ -8,6 +8,7 @@ import type {
   StoragePoolSpec,
   StorageBackend_BackendType,
 } from '@/api/limiquantix/storage/v1/storage_pb';
+import { showSuccess, showError } from '@/lib/toast';
 
 // Create transport for Connect-RPC
 const transport = createConnectTransport({
@@ -341,8 +342,12 @@ export function useCreateStoragePool() {
 
       return toStoragePoolUI(response);
     },
-    onSuccess: () => {
+    onSuccess: (pool) => {
+      showSuccess(`Storage pool "${pool.name}" created successfully`);
       queryClient.invalidateQueries({ queryKey: storageKeys.pools.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to create storage pool');
     },
   });
 }
@@ -356,7 +361,11 @@ export function useDeleteStoragePool() {
       await poolClient.deletePool({ id });
     },
     onSuccess: () => {
+      showSuccess('Storage pool deleted successfully');
       queryClient.invalidateQueries({ queryKey: storageKeys.pools.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to delete storage pool');
     },
   });
 }
@@ -425,9 +434,13 @@ export function useCreateVolume() {
       });
       return toVolumeUI(response);
     },
-    onSuccess: (_, params) => {
+    onSuccess: (volume, params) => {
+      showSuccess(`Volume "${volume.name}" created successfully`);
       queryClient.invalidateQueries({ queryKey: storageKeys.volumes.lists() });
       queryClient.invalidateQueries({ queryKey: storageKeys.pools.detail(params.poolId) });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to create volume');
     },
   });
 }
@@ -442,8 +455,12 @@ export function useDeleteVolume() {
       return poolId;
     },
     onSuccess: (poolId) => {
+      showSuccess('Volume deleted successfully');
       queryClient.invalidateQueries({ queryKey: storageKeys.volumes.lists() });
       queryClient.invalidateQueries({ queryKey: storageKeys.pools.detail(poolId) });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to delete volume');
     },
   });
 }
@@ -461,8 +478,12 @@ export function useResizeVolume() {
       return toVolumeUI(response);
     },
     onSuccess: (volume) => {
+      showSuccess(`Volume "${volume.name}" resized successfully`);
       queryClient.invalidateQueries({ queryKey: storageKeys.volumes.detail(volume.id) });
       queryClient.invalidateQueries({ queryKey: storageKeys.volumes.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to resize volume');
     },
   });
 }
@@ -480,8 +501,12 @@ export function useAttachVolume() {
       return toVolumeUI(response);
     },
     onSuccess: (volume) => {
+      showSuccess(`Volume "${volume.name}" attached successfully`);
       queryClient.invalidateQueries({ queryKey: storageKeys.volumes.detail(volume.id) });
       queryClient.invalidateQueries({ queryKey: storageKeys.volumes.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to attach volume');
     },
   });
 }
@@ -496,8 +521,12 @@ export function useDetachVolume() {
       return toVolumeUI(response);
     },
     onSuccess: (volume) => {
+      showSuccess(`Volume "${volume.name}" detached successfully`);
       queryClient.invalidateQueries({ queryKey: storageKeys.volumes.detail(volume.id) });
       queryClient.invalidateQueries({ queryKey: storageKeys.volumes.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to detach volume');
     },
   });
 }

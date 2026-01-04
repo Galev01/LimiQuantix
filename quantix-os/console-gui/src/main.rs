@@ -10,10 +10,17 @@
 //! - Network configuration
 //! - System status monitoring
 //! - Emergency shell access (logged)
+//!
+//! Fallback chain:
+//! 1. Slint LinuxKMS (GPU acceleration)
+//! 2. Slint LinuxKMS (Software rendering)
+//! 3. Raw framebuffer (embedded-graphics) - when DRM/KMS unavailable
+//! 4. Shell fallback
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::process::Command;
+use std::env;
 
 use anyhow::Result;
 use slint::ModelRc;
@@ -27,6 +34,9 @@ mod auth;
 mod network;
 mod ssh;
 mod system_info;
+
+#[cfg(feature = "framebuffer")]
+mod framebuffer;
 
 use auth::{AuthManager, audit_shell_start, audit_shell_end, audit_service_restart, audit_power_action};
 use network::NetworkManager;
@@ -270,10 +280,44 @@ fn main() -> Result<()> {
         .with_target(false)
         .init();
 
-    info!("Starting Quantix-OS Graphical Console");
+    // Check for --framebuffer flag (used by qx-console-launcher)
+    let args: Vec<String> = env::args().collect();
+    let use_framebuffer = args.iter().any(|a| a == "--framebuffer");
 
-    // Create the Slint window
-    let ui = MainWindow::new()?;
+    if use_framebuffer {
+        #[cfg(feature = "framebuffer")]
+        {
+            info!("Running in raw framebuffer mode");
+            return framebuffer::run();
+        }
+
+        #[cfg(not(feature = "framebuffer"))]
+        {
+            return Err(anyhow::anyhow!(
+                "Framebuffer mode requested but not compiled with 'framebuffer' feature"
+            ));
+        }
+    }
+
+    info!("Starting Quantix-OS Graphical Console (Slint)");
+
+    // Try to create the Slint window
+    let ui = match MainWindow::new() {
+        Ok(ui) => ui,
+        Err(e) => {
+            error!(error = %e, "Failed to create Slint window");
+
+            // Try framebuffer fallback
+            #[cfg(feature = "framebuffer")]
+            {
+                warn!("Slint failed, attempting framebuffer fallback");
+                return framebuffer::run();
+            }
+
+            #[cfg(not(feature = "framebuffer"))]
+            return Err(anyhow::anyhow!("Slint window creation failed: {}", e));
+        }
+    };
 
     // Shared state
     let state = Arc::new(Mutex::new(AppState::new()));

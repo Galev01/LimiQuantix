@@ -421,6 +421,32 @@ cargo build --release --target x86_64-unknown-linux-musl
 cp target/x86_64-unknown-linux-musl/release/qx-console ../overlay/usr/local/bin/
 ```
 
+### Building the Console GUI
+
+The console GUI uses Slint with multiple rendering backends for maximum compatibility:
+
+```bash
+# Build with all features (Slint + framebuffer fallback)
+cd console-gui
+make console-gui-binary
+```
+
+**Rendering Backend Priority:**
+1. **LinuxKMS + GPU** (Slint with femtovg) - Best performance, requires DRM/KMS + GPU
+2. **LinuxKMS + Software** (Slint with software renderer) - Works without GPU
+3. **Raw Framebuffer** (embedded-graphics) - Fallback for VGA-only VMs, renders to `/dev/fb0`
+4. **TUI** - Terminal-based fallback
+
+The framebuffer fallback is useful for:
+- VMs running with basic VGA (no virtio-gpu)
+- Systems with broken DRM/KMS
+- Legacy hardware without proper GPU drivers
+
+To test framebuffer mode manually:
+```bash
+qx-console-gui --framebuffer
+```
+
 ## Why Alpine Linux?
 
 | Feature | Alpine | Ubuntu | Talos |

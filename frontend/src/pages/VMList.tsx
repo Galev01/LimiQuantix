@@ -23,6 +23,7 @@ import { VMCreationWizard } from '@/components/vm/VMCreationWizard';
 import { useVMs, useStartVM, useStopVM, useDeleteVM, isVMRunning, isVMStopped, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
+import { showInfo } from '@/lib/toast';
 
 type FilterTab = 'all' | 'running' | 'stopped' | 'other';
 
@@ -142,7 +143,7 @@ export function VMList() {
   const handleStartVM = async (vmId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (useMockData) {
-      console.log('Mock: Start VM', vmId);
+      showInfo('Demo mode: VM start simulated');
       return;
     }
     setActionInProgress(vmId);
@@ -156,7 +157,7 @@ export function VMList() {
   const handleStopVM = async (vmId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (useMockData) {
-      console.log('Mock: Stop VM', vmId);
+      showInfo('Demo mode: VM stop simulated');
       return;
     }
     setActionInProgress(vmId);
@@ -171,7 +172,7 @@ export function VMList() {
     e?.stopPropagation();
     if (!confirm('Are you sure you want to delete this VM?')) return;
     if (useMockData) {
-      console.log('Mock: Delete VM', vmId);
+      showInfo('Demo mode: VM delete simulated');
       return;
     }
     setActionInProgress(vmId);

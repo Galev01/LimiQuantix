@@ -6,6 +6,7 @@
 # - Rust compilation with musl target
 # - Slint LinuxKMS backend (libinput, libxkbcommon, etc.)
 # - Femtovg renderer (OpenGL ES)
+# - Raw framebuffer fallback (embedded-graphics + evdev)
 
 FROM rust:1.92-alpine3.21
 

@@ -25,8 +25,9 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { useNetworks, useDeleteNetwork, type ApiVirtualNetwork } from '@/hooks/useNetworks';
+import { useNetworks, useCreateNetwork, useUpdateNetwork, useDeleteNetwork, type ApiVirtualNetwork } from '@/hooks/useNetworks';
 import { useApiConnection } from '@/hooks/useDashboard';
+import { showInfo } from '@/lib/toast';
 
 interface VirtualNetwork {
   id: string;
@@ -185,6 +186,8 @@ export function VirtualNetworks() {
   // API connection and data
   const { data: isConnected = false } = useApiConnection();
   const { data: apiResponse, isLoading, refetch, isRefetching } = useNetworks({ enabled: !!isConnected });
+  const createNetwork = useCreateNetwork();
+  const updateNetwork = useUpdateNetwork();
   const deleteNetwork = useDeleteNetwork();
 
   // Determine data source

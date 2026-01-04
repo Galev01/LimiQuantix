@@ -6,6 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vmApi, type ApiVM, type VMListRequest, type VMListResponse } from '../lib/api-client';
+import { showSuccess, showError } from '../lib/toast';
 
 // Query keys for cache invalidation
 export const vmKeys = {
@@ -70,9 +71,13 @@ export function useCreateVM() {
       nodeId?: string;
       spec?: ApiVM['spec'];
     }) => vmApi.create(data),
-    onSuccess: () => {
+    onSuccess: (vm) => {
+      showSuccess(`VM "${vm.name}" created successfully`);
       // Invalidate VM list cache
       queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to create VM');
     },
   });
 }
@@ -86,10 +91,14 @@ export function useStartVM() {
   return useMutation({
     mutationFn: (id: string) => vmApi.start(id),
     onSuccess: (vm) => {
+      showSuccess(`VM "${vm.name}" is starting`);
       // Update the VM in the cache
       queryClient.setQueryData(vmKeys.detail(vm.id), vm);
       // Invalidate lists
       queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to start VM');
     },
   });
 }
@@ -104,8 +113,12 @@ export function useStopVM() {
     mutationFn: ({ id, force = false }: { id: string; force?: boolean }) =>
       vmApi.stop(id, force),
     onSuccess: (vm) => {
+      showSuccess(`VM "${vm.name}" is stopping`);
       queryClient.setQueryData(vmKeys.detail(vm.id), vm);
       queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to stop VM');
     },
   });
 }
@@ -120,10 +133,41 @@ export function useDeleteVM() {
     mutationFn: ({ id, force = false }: { id: string; force?: boolean }) =>
       vmApi.delete(id, force),
     onSuccess: (_, variables) => {
+      showSuccess('VM deleted successfully');
       // Remove from cache
       queryClient.removeQueries({ queryKey: vmKeys.detail(variables.id) });
       // Invalidate lists
       queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to delete VM');
+    },
+  });
+}
+
+/**
+ * Hook to update a VM's settings (name, description, labels)
+ */
+export function useUpdateVM() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      id: string;
+      name?: string;
+      description?: string;
+      labels?: Record<string, string>;
+      spec?: ApiVM['spec'];
+    }) => vmApi.update(data),
+    onSuccess: (vm) => {
+      showSuccess(`VM "${vm.name}" updated successfully`);
+      // Update the VM in the cache
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      // Invalidate lists
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to update VM');
     },
   });
 }

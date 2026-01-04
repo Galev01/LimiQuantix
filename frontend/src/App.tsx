@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
 import { Layout } from '@/components/layout/Layout';
 import { Dashboard } from '@/pages/Dashboard';
 import { VMList } from '@/pages/VMList';
@@ -21,6 +22,7 @@ import { Alerts } from '@/pages/Alerts';
 import { DRSRecommendations } from '@/pages/DRSRecommendations';
 import ImageLibrary from '@/pages/ImageLibrary';
 import { AdminPanel } from '@/pages/admin';
+import { RouteErrorBoundary } from '@/components/ErrorBoundary';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,13 +43,18 @@ function AppRoutes() {
 
   // Admin panel has its own layout with custom sidebar
   if (isAdminRoute) {
-    return <AdminPanel />;
+    return (
+      <RouteErrorBoundary>
+        <AdminPanel />
+      </RouteErrorBoundary>
+    );
   }
 
   // Main application with standard layout
   return (
-    <Layout>
-      <Routes>
+    <RouteErrorBoundary>
+      <Layout>
+        <Routes>
         {/* Dashboard */}
         <Route path="/" element={<Dashboard />} />
         
@@ -82,7 +89,8 @@ function AppRoutes() {
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </Layout>
+      </Layout>
+    </RouteErrorBoundary>
   );
 }
 
@@ -92,6 +100,21 @@ function App() {
       <BrowserRouter>
         <AppRoutes />
       </BrowserRouter>
+      <Toaster
+        position="bottom-right"
+        expand={false}
+        richColors
+        closeButton
+        theme="dark"
+        toastOptions={{
+          duration: 4000,
+          classNames: {
+            toast: 'bg-surface border-white/10',
+            title: 'text-white',
+            description: 'text-gray-400',
+          },
+        }}
+      />
     </QueryClientProvider>
   );
 }

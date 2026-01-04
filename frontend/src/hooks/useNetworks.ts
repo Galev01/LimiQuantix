@@ -4,6 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { networkApi, type ApiVirtualNetwork, type NetworkListResponse } from '../lib/api-client';
+import { showSuccess, showError } from '../lib/toast';
 
 export const networkKeys = {
   all: ['networks'] as const,
@@ -42,8 +43,33 @@ export function useCreateNetwork() {
       description?: string;
       spec?: ApiVirtualNetwork['spec'];
     }) => networkApi.create(data),
-    onSuccess: () => {
+    onSuccess: (network) => {
+      showSuccess(`Network "${network.name}" created successfully`);
       queryClient.invalidateQueries({ queryKey: networkKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to create network');
+    },
+  });
+}
+
+export function useUpdateNetwork() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      id: string;
+      name?: string;
+      description?: string;
+      spec?: ApiVirtualNetwork['spec'];
+    }) => networkApi.update(data),
+    onSuccess: (network) => {
+      showSuccess(`Network "${network.name}" updated successfully`);
+      queryClient.setQueryData(networkKeys.detail(network.id), network);
+      queryClient.invalidateQueries({ queryKey: networkKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to update network');
     },
   });
 }
@@ -54,8 +80,12 @@ export function useDeleteNetwork() {
   return useMutation({
     mutationFn: (id: string) => networkApi.delete(id),
     onSuccess: (_, id) => {
+      showSuccess('Network deleted successfully');
       queryClient.removeQueries({ queryKey: networkKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: networkKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to delete network');
     },
   });
 }

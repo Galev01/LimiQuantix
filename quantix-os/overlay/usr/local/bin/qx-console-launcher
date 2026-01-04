@@ -5,7 +5,8 @@
 # Tries to launch the Slint GUI console with multiple rendering backends:
 # 1. LinuxKMS with GPU (femtovg) - fastest, requires GPU/DRM
 # 2. LinuxKMS with software renderer - works without GPU
-# 3. TUI fallback - terminal-based interface
+# 3. Raw framebuffer (embedded-graphics) - bypasses DRM, uses /dev/fb0 directly
+# 4. TUI fallback - terminal-based interface
 # ============================================================================
 
 # Setup environment
@@ -55,7 +56,21 @@ if [ -x /usr/bin/qx-console-gui ]; then
         SW_EXIT=$?
         
         if [ $SW_EXIT -ne 0 ]; then
-            # Both failed, show error
+            # Slint failed, try raw framebuffer (no DRM/KMS needed)
+            if [ -c /dev/fb0 ]; then
+                echo "Slint failed, trying raw framebuffer..." > /dev/tty1
+                sleep 1
+                
+                # Try 3: Raw framebuffer rendering (embedded-graphics)
+                SLINT_BACKEND="" /usr/bin/qx-console-gui --framebuffer </dev/tty1 >/dev/tty1 2>/run/quantix/console-gui.err
+                FB_EXIT=$?
+                
+                if [ $FB_EXIT -eq 0 ]; then
+                    exit 0
+                fi
+            fi
+            
+            # All GUI backends failed, show error
             if [ -s /run/quantix/console-gui.err ]; then
                 echo "GUI error:" > /dev/tty1
                 head -5 /run/quantix/console-gui.err > /dev/tty1

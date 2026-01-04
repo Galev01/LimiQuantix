@@ -7,6 +7,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vmApi, type ApiSnapshot, type ListSnapshotsResponse } from '../lib/api-client';
 import { vmKeys } from './useVMs';
+import { showSuccess, showError } from '../lib/toast';
 
 // Query keys for cache invalidation
 export const snapshotKeys = {
@@ -47,10 +48,14 @@ export function useCreateSnapshot() {
       quiesce?: boolean;
     }) => vmApi.createSnapshot(data),
     onSuccess: (snapshot, variables) => {
+      showSuccess(`Snapshot "${snapshot.name}" created successfully`);
       // Invalidate snapshot list cache for this VM
       queryClient.invalidateQueries({ queryKey: snapshotKeys.list(variables.vmId) });
       // Also invalidate the VM to refresh snapshot count
       queryClient.invalidateQueries({ queryKey: vmKeys.detail(variables.vmId) });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to create snapshot');
     },
   });
 }
@@ -68,10 +73,14 @@ export function useRevertToSnapshot() {
       startAfterRevert?: boolean;
     }) => vmApi.revertToSnapshot(vmId, snapshotId, startAfterRevert),
     onSuccess: (vm) => {
+      showSuccess(`VM reverted to snapshot successfully`);
       // Update the VM in the cache
       queryClient.setQueryData(vmKeys.detail(vm.id), vm);
       // Invalidate lists
       queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to revert to snapshot');
     },
   });
 }
@@ -86,10 +95,14 @@ export function useDeleteSnapshot() {
     mutationFn: ({ vmId, snapshotId }: { vmId: string; snapshotId: string }) =>
       vmApi.deleteSnapshot(vmId, snapshotId),
     onSuccess: (_, variables) => {
+      showSuccess('Snapshot deleted successfully');
       // Invalidate snapshot list cache for this VM
       queryClient.invalidateQueries({ queryKey: snapshotKeys.list(variables.vmId) });
       // Also invalidate the VM
       queryClient.invalidateQueries({ queryKey: vmKeys.detail(variables.vmId) });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to delete snapshot');
     },
   });
 }

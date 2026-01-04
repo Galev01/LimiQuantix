@@ -4,6 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { securityGroupApi, type ApiSecurityGroup, type SecurityGroupListResponse } from '../lib/api-client';
+import { showSuccess, showError } from '../lib/toast';
 
 export const securityGroupKeys = {
   all: ['securityGroups'] as const,
@@ -38,8 +39,12 @@ export function useCreateSecurityGroup() {
   return useMutation({
     mutationFn: (data: { name: string; projectId: string; description?: string }) =>
       securityGroupApi.create(data),
-    onSuccess: () => {
+    onSuccess: (sg) => {
+      showSuccess(`Security group "${sg.name}" created successfully`);
       queryClient.invalidateQueries({ queryKey: securityGroupKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to create security group');
     },
   });
 }
@@ -62,8 +67,12 @@ export function useAddSecurityGroupRule() {
       };
     }) => securityGroupApi.addRule(securityGroupId, rule),
     onSuccess: (sg) => {
+      showSuccess('Rule added successfully');
       queryClient.setQueryData(securityGroupKeys.detail(sg.id), sg);
       queryClient.invalidateQueries({ queryKey: securityGroupKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to add rule');
     },
   });
 }
@@ -75,8 +84,12 @@ export function useRemoveSecurityGroupRule() {
     mutationFn: ({ securityGroupId, ruleId }: { securityGroupId: string; ruleId: string }) =>
       securityGroupApi.removeRule(securityGroupId, ruleId),
     onSuccess: (sg) => {
+      showSuccess('Rule removed successfully');
       queryClient.setQueryData(securityGroupKeys.detail(sg.id), sg);
       queryClient.invalidateQueries({ queryKey: securityGroupKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to remove rule');
     },
   });
 }
@@ -87,8 +100,12 @@ export function useDeleteSecurityGroup() {
   return useMutation({
     mutationFn: (id: string) => securityGroupApi.delete(id),
     onSuccess: (_, id) => {
+      showSuccess('Security group deleted successfully');
       queryClient.removeQueries({ queryKey: securityGroupKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: securityGroupKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to delete security group');
     },
   });
 }

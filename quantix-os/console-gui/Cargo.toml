@@ -21,6 +21,9 @@ desktop = ["slint/backend-winit", "slint/renderer-femtovg"]
 # Production mode - direct framebuffer rendering on Quantix-OS (no display server)
 # Includes both femtovg (GPU) and software renderer for systems without GPU
 linuxkms = ["slint/backend-linuxkms", "slint/renderer-femtovg", "slint/renderer-software"]
+# Raw framebuffer fallback - renders directly to /dev/fb0 without DRM/KMS
+# Used when Slint's LinuxKMS backend fails (e.g., VGA-only VMs, broken DRM)
+framebuffer = ["dep:libc", "embedded-graphics", "embedded-graphics-mono-font", "evdev"]
 
 [dependencies]
 # Slint UI framework
@@ -53,6 +56,12 @@ rand = "0.8"
 # Utilities
 chrono = { version = "0.4", features = ["serde"] }
 humansize = "2"
+
+# Raw framebuffer rendering (optional - for fallback mode)
+libc = { version = "0.2", optional = true }
+embedded-graphics = { version = "0.8", optional = true }
+embedded-graphics-mono-font = { version = "0.6", optional = true }
+evdev = { version = "0.12", optional = true }
 
 [build-dependencies]
 slint-build = "1.9"

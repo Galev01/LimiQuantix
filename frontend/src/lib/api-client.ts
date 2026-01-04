@@ -262,6 +262,20 @@ export const vmApi = {
       { id, force }
     );
   },
+  
+  async update(data: {
+    id: string;
+    name?: string;
+    description?: string;
+    labels?: Record<string, string>;
+    spec?: ApiVM['spec'];
+  }): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'UpdateVM',
+      data
+    );
+  },
 
   // Snapshot operations
   async createSnapshot(data: {
@@ -479,6 +493,19 @@ export const networkApi = {
     return apiCall<ApiVirtualNetwork>(
       'limiquantix.network.v1.VirtualNetworkService',
       'CreateNetwork',
+      data
+    );
+  },
+  
+  async update(data: {
+    id: string;
+    name?: string;
+    description?: string;
+    spec?: ApiVirtualNetwork['spec'];
+  }): Promise<ApiVirtualNetwork> {
+    return apiCall<ApiVirtualNetwork>(
+      'limiquantix.network.v1.VirtualNetworkService',
+      'UpdateNetwork',
       data
     );
   },

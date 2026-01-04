@@ -1,93 +1,86 @@
-# Workflow State: Fix Cloud-Init Boot Issue for Ubuntu Cloud Images
+# Workflow State: Framebuffer Fallback GUI for Quantix-OS Console
 
 ## Problem
 
-When creating a VM from an Ubuntu cloud image, the VM fails to boot properly and falls back to iPXE network boot with the error:
-- "Nothing to boot: No such file or directory"
+The current console launcher fails when:
+- DRM/KMS is unavailable (basic VGA-only VMs)
+- TTY terminal emulation is broken
 
-## Root Cause Analysis
+Current fallback chain: Slint LinuxKMS (GPU) → Slint LinuxKMS (Software) → TUI → Shell
 
-1. **Cloud images require cloud-init data** - Ubuntu/Debian cloud images expect a NoCloud datasource (ISO with `meta-data`, `user-data`, `network-config`)
+## Solution
 
-2. **The cloud-init ISO was not being generated or attached** - The proto defines `CloudInitConfig cloud_init = 12` in `VMSpec`, but the service code didn't process it
+Add a **raw framebuffer backend** that renders directly to `/dev/fb0` using `linuxfb` + `embedded-graphics`. This bypasses all display servers and terminal requirements.
 
-3. **Current flow** (BEFORE fix):
-   - Disk is created with backing file (cloud image) ✓
-   - VM boots but cloud-init can't find configuration
-   - Cloud-init fails, boot hangs or falls back to network boot
+New fallback chain: Slint LinuxKMS (GPU) → Slint LinuxKMS (Software) → **Raw Framebuffer** → TUI → Shell
 
-## Solution Applied
+## Implementation Tasks
 
-Modified `agent/limiquantix-node/src/service.rs` to:
-1. ✅ Import `CloudInitConfig`, `CloudInitGenerator`, and `CdromConfig` from hypervisor crate
-2. ✅ Check for `cloud_init` config in the request
-3. ✅ Generate a cloud-init ISO using `CloudInitGenerator` 
-4. ✅ Add the ISO as a CDROM device in the VM config
-5. ✅ Auto-generate default cloud-init when a cloud image is detected but no config provided
+- [x] 1. Update `Cargo.toml` with framebuffer dependencies (`linuxfb`, `embedded-graphics`, `evdev`)
+- [x] 2. Create `framebuffer/mod.rs` - Module root with run() entry point
+- [x] 3. Create `framebuffer/fb.rs` - Framebuffer device wrapper with double-buffering
+- [x] 4. Create `framebuffer/ui.rs` - UI rendering (header, status, menu, dialogs)
+- [x] 5. Create `framebuffer/input.rs` - Keyboard input via evdev or raw stdin
+- [x] 6. Create `framebuffer/app.rs` - Application state and event loop
+- [x] 7. Update `main.rs` - Add framebuffer fallback path with `--framebuffer` flag
+- [x] 8. Update `qx-console-launcher` - Add framebuffer attempt before shell fallback
+- [x] 9. Update `Makefile` - Build with framebuffer feature
+- [x] 10. Update `Dockerfile.rust-gui` - Add framebuffer library dependencies
+- [x] 11. Update `README.md` - Document framebuffer fallback
 
-## Changes Made
+## Files Created
 
-### `agent/limiquantix-node/src/service.rs`
+- `quantix-os/console-gui/src/framebuffer/mod.rs` - Module root
+- `quantix-os/console-gui/src/framebuffer/fb.rs` - Framebuffer wrapper with IOCTL, mmap, double-buffering
+- `quantix-os/console-gui/src/framebuffer/ui.rs` - ESXi-style UI rendering with embedded-graphics
+- `quantix-os/console-gui/src/framebuffer/input.rs` - Evdev keyboard input handler
+- `quantix-os/console-gui/src/framebuffer/app.rs` - Application event loop and state
 
-1. **Added imports:**
-```rust
-use limiquantix_hypervisor::{
-    // ... existing ...
-    CdromConfig,
-    // Cloud-init
-    CloudInitConfig, CloudInitGenerator,
-};
-```
+## Files Modified
 
-2. **Added cloud-init processing logic** (after NIC processing, before VM creation):
-   - Checks if `spec.cloud_init` is provided
-   - Detects if a cloud image is being used (disk with backing_file)
-   - Generates ISO using `CloudInitGenerator::generate_iso()`
-   - Attaches ISO as CDROM with `config.cdroms.push(...)`
-   - Falls back to default cloud-init when cloud image detected but no explicit config
+- `quantix-os/console-gui/Cargo.toml` - Added framebuffer feature and dependencies
+- `quantix-os/console-gui/src/main.rs` - Added `--framebuffer` flag and fallback logic
+- `quantix-os/overlay/usr/local/bin/qx-console-launcher` - Added framebuffer attempt step
+- `quantix-os/Makefile` - Build with `linuxkms,framebuffer` features
+- `quantix-os/builder/Dockerfile.rust-gui` - Updated description
+- `quantix-os/README.md` - Added framebuffer documentation
 
-3. **Updated logging** to show CDROM count
+## Key Features
 
-## How It Works Now
+### Framebuffer Rendering (`fb.rs`)
+- Direct `/dev/fb0` access via IOCTL and mmap
+- Supports 16, 24, and 32-bit color depths
+- Automatic pixel format detection (BGR/RGB)
+- Double-buffering for flicker-free updates
+- Implements `DrawTarget` trait for embedded-graphics
 
-```
-CreateVM Request with cloud image
-  └── spec.cloud_init provided?
-      ├── YES: Use provided user-data, meta-data, network-config
-      │        Generate ISO at /var/lib/limiquantix/vms/{vm_id}/cloud-init.iso
-      │        Attach as CDROM (cidata volume)
-      │
-      └── NO: Detect if disk has backing_file (cloud image)
-              ├── YES: Generate default cloud-init (admin user, qemu-guest-agent)
-              └── NO: No cloud-init needed (regular disk install)
-```
+### Input Handling (`input.rs`)
+- Evdev-based keyboard reading from `/dev/input/event*`
+- Automatic keyboard device detection
+- Fallback to raw stdin reading
+- Full function key support (F1-F12)
+- Character input for authentication dialogs
 
-## Cloud-Init ISO Contents
+### UI Components (`ui.rs`)
+- ESXi-inspired color palette
+- Header with branding and version
+- Node status panel (hostname, IP, cluster, uptime)
+- Resource usage with progress bars (CPU, memory, VMs)
+- Function key menu bar
+- Authentication dialog with username/password fields
+- Confirmation dialogs for dangerous actions
 
-The generated ISO contains:
-- `meta-data` - Instance ID and hostname
-- `user-data` - #cloud-config YAML (users, packages, runcmd)
-- `network-config` - (optional) Netplan v2 format
-- `vendor-data` - (optional) Provider-specific config
+### Application Logic (`app.rs`)
+- Same features as Slint GUI (auth, SSH toggle, services, shell, reboot)
+- 60fps render loop with periodic status refresh
+- State machine for screen transitions
+- Full audit logging for sensitive actions
 
-Volume label: `cidata` (required for NoCloud detection)
+## Testing
 
-## Next Steps
-
-1. **Rebuild the node daemon** on your Linux host:
-   ```bash
-   cd ~/LimiQuantix/agent/limiquantix-node
-   cargo build --release
-   ```
-
-2. **Restart the daemon** if running:
-   ```bash
-   sudo systemctl restart limiquantix-node
-   ```
-
-3. **Test VM creation** with a cloud image:
-   - Create a VM with Ubuntu cloud image as backing file
-   - The cloud-init ISO should be auto-generated
-   - VM should boot and cloud-init should configure the instance
+To test framebuffer mode:
+1. Boot QEMU with `-vga std` (no virtio-gpu)
+2. The console launcher will try Slint first, then fall back to framebuffer
+3. Or manually run: `qx-console-gui --framebuffer`
 
 ## Status: COMPLETE ✅
