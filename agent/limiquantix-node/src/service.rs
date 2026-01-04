@@ -24,7 +24,7 @@ use limiquantix_proto::{
     NodeInfoResponse, VmIdRequest, 
     // VM types - after proto regeneration, these will have nested VMSpec
     CreateVmOnNodeRequest, CreateVmOnNodeResponse,
-    StopVmRequest, VmStatusResponse, ListVmsOnNodeResponse, ConsoleInfoResponse,
+    StopVmRequest, VmStatusResponse, ListVMsOnNodeResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -33,14 +33,20 @@ use limiquantix_proto::{
     ReadGuestFileRequest, ReadGuestFileResponse, WriteGuestFileRequest,
     WriteGuestFileResponse, GuestShutdownRequest, GuestShutdownResponse,
     GuestAgentInfo, GuestResourceUsage, GuestNetworkInterface, GuestDiskUsage,
+    // Filesystem quiescing and time sync types
+    QuiesceFilesystemsRequest, QuiesceFilesystemsResponse, FrozenFilesystem,
+    ThawFilesystemsRequest, ThawFilesystemsResponse,
+    SyncTimeRequest, SyncTimeResponse,
     // Storage pool/volume types
     InitStoragePoolRequest, StoragePoolIdRequest, StoragePoolInfoResponse,
     ListStoragePoolsResponse, CreateVolumeRequest, VolumeIdRequest,
     ResizeVolumeRequest, CloneVolumeRequest, VolumeAttachInfoResponse,
     CreateVolumeSnapshotRequest, StoragePoolType,
 };
-// Agent types
+// Agent types (from guest agent protocol)
 use limiquantix_proto::agent::TelemetryReport;
+// Note: agent::QuiesceFilesystemsResponse, ThawFilesystemsResponse, SyncTimeResponse
+// are returned by AgentClient methods but we convert to node daemon types for gRPC
 
 use crate::agent_client::AgentClient;
 
@@ -1510,8 +1516,162 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         Ok(Response::new(()))
     }
     
-    // NOTE: quiesce_filesystems, thaw_filesystems, and sync_time methods
-    // are defined in the proto but not yet in the generated Rust code.
-    // These will be added when the proto is regenerated on Linux.
-    // For now, the agent_client has these methods available for direct use.
+    // =========================================================================
+    // Filesystem Quiescing & Time Sync (via Guest Agent)
+    // =========================================================================
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn quiesce_filesystems(
+        &self,
+        request: Request<QuiesceFilesystemsRequest>,
+    ) -> Result<Response<QuiesceFilesystemsResponse>, Status> {
+        let req = request.into_inner();
+        info!("Quiescing filesystems via guest agent");
+        
+        // Ensure agent is connected
+        self.get_agent_client(&req.vm_id).await?;
+        
+        let agents = self.agent_manager.read().await;
+        let client = agents.get(&req.vm_id)
+            .ok_or_else(|| Status::unavailable("Agent not connected"))?;
+        
+        // Call the guest agent to freeze filesystems
+        let timeout = if req.timeout_seconds > 0 {
+            req.timeout_seconds
+        } else {
+            60 // Default 60 second timeout
+        };
+        
+        match client.quiesce_filesystems(req.mount_points, timeout, req.run_pre_freeze_scripts).await {
+            Ok(result) => {
+                info!(
+                    vm_id = %req.vm_id,
+                    frozen_count = result.frozen.len(),
+                    quiesce_token = %result.quiesce_token,
+                    "Filesystems quiesced successfully"
+                );
+                
+                // Convert agent response to node daemon response
+                let frozen: Vec<FrozenFilesystem> = result.frozen.into_iter().map(|f| {
+                    FrozenFilesystem {
+                        mount_point: f.mount_point,
+                        device: f.device,
+                        filesystem: f.filesystem,
+                        frozen: f.frozen,
+                        error: f.error,
+                    }
+                }).collect();
+                
+                Ok(Response::new(QuiesceFilesystemsResponse {
+                    success: result.success,
+                    frozen,
+                    error: result.error,
+                    quiesce_token: result.quiesce_token,
+                }))
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, error = %e, "Failed to quiesce filesystems");
+                Ok(Response::new(QuiesceFilesystemsResponse {
+                    success: false,
+                    frozen: vec![],
+                    error: e.to_string(),
+                    quiesce_token: String::new(),
+                }))
+            }
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn thaw_filesystems(
+        &self,
+        request: Request<ThawFilesystemsRequest>,
+    ) -> Result<Response<ThawFilesystemsResponse>, Status> {
+        let req = request.into_inner();
+        info!("Thawing filesystems via guest agent");
+        
+        // Ensure agent is connected
+        self.get_agent_client(&req.vm_id).await?;
+        
+        let agents = self.agent_manager.read().await;
+        let client = agents.get(&req.vm_id)
+            .ok_or_else(|| Status::unavailable("Agent not connected"))?;
+        
+        // Call the guest agent to thaw filesystems
+        let quiesce_token = if req.quiesce_token.is_empty() {
+            None
+        } else {
+            Some(req.quiesce_token)
+        };
+        
+        match client.thaw_filesystems(quiesce_token, req.run_post_thaw_scripts).await {
+            Ok(result) => {
+                info!(
+                    vm_id = %req.vm_id,
+                    thawed_count = result.thawed_mount_points.len(),
+                    frozen_duration_ms = result.frozen_duration_ms,
+                    "Filesystems thawed successfully"
+                );
+                
+                Ok(Response::new(ThawFilesystemsResponse {
+                    success: result.success,
+                    thawed_mount_points: result.thawed_mount_points,
+                    error: result.error,
+                    frozen_duration_ms: result.frozen_duration_ms,
+                }))
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, error = %e, "Failed to thaw filesystems");
+                Ok(Response::new(ThawFilesystemsResponse {
+                    success: false,
+                    thawed_mount_points: vec![],
+                    error: e.to_string(),
+                    frozen_duration_ms: 0,
+                }))
+            }
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn sync_time(
+        &self,
+        request: Request<SyncTimeRequest>,
+    ) -> Result<Response<SyncTimeResponse>, Status> {
+        let req = request.into_inner();
+        info!("Syncing time via guest agent");
+        
+        // Ensure agent is connected
+        self.get_agent_client(&req.vm_id).await?;
+        
+        let agents = self.agent_manager.read().await;
+        let client = agents.get(&req.vm_id)
+            .ok_or_else(|| Status::unavailable("Agent not connected"))?;
+        
+        // Call the guest agent to sync time
+        match client.sync_time(req.force).await {
+            Ok(result) => {
+                info!(
+                    vm_id = %req.vm_id,
+                    offset_seconds = result.offset_seconds,
+                    time_source = %result.time_source,
+                    "Time synced successfully"
+                );
+                
+                Ok(Response::new(SyncTimeResponse {
+                    success: result.success,
+                    offset_seconds: result.offset_seconds,
+                    time_source: result.time_source,
+                    error: result.error,
+                }))
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, error = %e, "Failed to sync time");
+                Ok(Response::new(SyncTimeResponse {
+                    success: false,
+                    offset_seconds: 0.0,
+                    time_source: String::new(),
+                    error: e.to_string(),
+                }))
+            }
+        }
+    }
 }
