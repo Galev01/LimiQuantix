@@ -19,8 +19,8 @@ default = ["desktop"]
 # Desktop mode - for testing on Linux/Windows/macOS with X11/Wayland
 desktop = ["slint/backend-winit", "slint/renderer-femtovg"]
 # Production mode - direct framebuffer rendering on Quantix-OS (no display server)
-# Uses femtovg (pure Rust) instead of Skia to enable static linking with musl
-linuxkms = ["slint/backend-linuxkms", "slint/renderer-femtovg"]
+# Includes both femtovg (GPU) and software renderer for systems without GPU
+linuxkms = ["slint/backend-linuxkms", "slint/renderer-femtovg", "slint/renderer-software"]
 
 [dependencies]
 # Slint UI framework

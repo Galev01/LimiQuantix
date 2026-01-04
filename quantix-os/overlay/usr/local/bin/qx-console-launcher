@@ -2,8 +2,10 @@
 # ============================================================================
 # Quantix Console Launcher
 # ============================================================================
-# Tries to launch the Slint GUI console first.
-# Falls back to TUI console if GUI fails (no KMS, no framebuffer, etc.)
+# Tries to launch the Slint GUI console with multiple rendering backends:
+# 1. LinuxKMS with GPU (femtovg) - fastest, requires GPU/DRM
+# 2. LinuxKMS with software renderer - works without GPU
+# 3. TUI fallback - terminal-based interface
 # ============================================================================
 
 # Setup environment
@@ -18,30 +20,49 @@ chmod 700 /run/user/0
 mkdir -p /run/quantix
 chmod 755 /run/quantix
 
-# Try Slint GUI console first (requires KMS/framebuffer)
-if [ -x /usr/bin/qx-console-gui ]; then
-    # Set Slint to use LinuxKMS backend (direct framebuffer)
-    export SLINT_BACKEND="linuxkms"
+# Function to try running GUI with a specific backend
+try_gui() {
+    BACKEND="$1"
+    BACKEND_NAME="$2"
     
-    # Attempt to run the GUI (log to /run which is tmpfs)
-    # The GUI needs direct access to tty1 for input/output
-    echo "Starting Quantix-OS Console (GUI)..." > /dev/tty1
+    export SLINT_BACKEND="$BACKEND"
+    echo "Starting Quantix-OS Console (GUI - $BACKEND_NAME)..." > /dev/tty1
     /usr/bin/qx-console-gui </dev/tty1 >/dev/tty1 2>/run/quantix/console-gui.err
     
-    # If we get here, the GUI exited (error or intentional)
     EXIT_CODE=$?
     
-    if [ $EXIT_CODE -ne 0 ]; then
-        # Show the error if available
-        if [ -s /run/quantix/console-gui.err ]; then
-            echo "GUI error:" > /dev/tty1
-            head -5 /run/quantix/console-gui.err > /dev/tty1
-        fi
-        echo "GUI console failed (exit $EXIT_CODE), falling back to TUI..." > /dev/tty1
-        sleep 3
-    else
+    if [ $EXIT_CODE -eq 0 ]; then
         # Normal exit (e.g., shutdown/reboot initiated)
         exit 0
+    fi
+    
+    return $EXIT_CODE
+}
+
+# Try Slint GUI console if available
+if [ -x /usr/bin/qx-console-gui ]; then
+    # Try 1: LinuxKMS with GPU acceleration (femtovg)
+    try_gui "linuxkms" "GPU"
+    GPU_EXIT=$?
+    
+    # If GPU failed, try software rendering
+    if [ $GPU_EXIT -ne 0 ]; then
+        echo "GPU rendering failed, trying software renderer..." > /dev/tty1
+        sleep 1
+        
+        # Try 2: LinuxKMS with software renderer (no GPU needed)
+        try_gui "linuxkms-software" "Software"
+        SW_EXIT=$?
+        
+        if [ $SW_EXIT -ne 0 ]; then
+            # Both failed, show error
+            if [ -s /run/quantix/console-gui.err ]; then
+                echo "GUI error:" > /dev/tty1
+                head -5 /run/quantix/console-gui.err > /dev/tty1
+            fi
+            echo "GUI console failed, falling back to TUI..." > /dev/tty1
+            sleep 2
+        fi
     fi
 fi
 
