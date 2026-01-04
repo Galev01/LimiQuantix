@@ -1,52 +1,36 @@
-# Workflow State: Fix Slint GUI Build for Alpine
+# Workflow State: Fix Cloud-Init Boot Issue for Ubuntu Cloud Images
 
-## Problem (RESOLVED)
+## Problem
 
-Building `qx-console-gui` with `--target x86_64-unknown-linux-musl` fails because:
-1. `libudev-sys` requires system libraries that can't be cross-compiled
-2. pkg-config can't find musl-compatible udev libraries on the Ubuntu host
+When creating a VM from an Ubuntu cloud image, the VM fails to boot properly and falls back to iPXE network boot with the error:
+- "Nothing to boot: No such file or directory"
 
-## Solution Applied
+## Root Cause Analysis
 
-Build the GUI binary **inside an Alpine Docker container** that has all the correct musl-based libraries pre-installed.
+1. **Cloud images require cloud-init data** - Ubuntu/Debian cloud images expect a NoCloud datasource (ISO with `meta-data`, `user-data`, `network-config`)
 
-### Files Created/Modified
+2. **The cloud-init ISO is not being generated or attached** - The proto defines `CloudInitConfig cloud_init = 12` in `VMSpec`, but the service code doesn't process it
 
-1. **`builder/Dockerfile.rust-gui`** (NEW):
-   - Alpine 3.20 + Rust 1.83
-   - All Slint LinuxKMS dependencies pre-installed (eudev-dev, libxkbcommon-dev, etc.)
-   - Builds natively with musl libc
+3. **Current flow**:
+   - Disk is created with backing file (cloud image) ✓
+   - VM boots but cloud-init can't find configuration
+   - Cloud-init fails, boot hangs or falls back to network boot
 
-2. **`Makefile`** (UPDATED):
-   - Added `rust-gui-builder` target to build the Docker image
-   - Changed `console-gui-binary` to build inside the Docker container
-   - Updated help text and distclean target
+## Solution
 
-3. **`console-gui/Cargo.toml`** (PREVIOUS UPDATE):
-   - Changed `linuxkms` feature to use `renderer-femtovg` (pure Rust, no Skia)
+Modify `agent/limiquantix-node/src/service.rs` to:
+1. Check for `cloud_init` config in the request
+2. Generate a cloud-init ISO using `CloudInitGenerator`
+3. Add the ISO as a CDROM device in the VM config
 
-## How It Works
+## Files to Modify
 
-```
-make console-gui-binary
-  └── make rust-gui-builder (builds quantix-rust-gui-builder Docker image)
-  └── docker run ... cargo build --release --no-default-features --features linuxkms
-  └── Copies binary to overlay/usr/bin/qx-console-gui
-```
+1. **`agent/limiquantix-node/src/service.rs`**:
+   - Add import for `CloudInitConfig` and `CloudInitGenerator`
+   - Process `spec.cloud_init` field
+   - Generate ISO and attach as CDROM
 
-## Next Steps for User
+2. **`agent/limiquantix-hypervisor/src/types.rs`** (if needed):
+   - Verify CDROM config struct is complete
 
-```bash
-cd ~/LimiQuantix/quantix-os
-
-# Clean old binary
-rm -f overlay/usr/bin/qx-console-gui
-
-# Build the GUI binary (this will build the Docker image automatically)
-make console-gui-binary
-
-# Build the ISO
-make iso
-```
-
-## Status: COMPLETE
+## Status: IN PROGRESS
