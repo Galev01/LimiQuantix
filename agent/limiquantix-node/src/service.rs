@@ -476,6 +476,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             } else {
                 Some(disk_spec.backing_file.clone())
             };
+            let has_backing_file = backing_file.is_some();
             
             let mut disk_config = DiskConfig {
                 id: disk_spec.id.clone(),
@@ -485,7 +486,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 format,
                 readonly: disk_spec.readonly,
                 bootable: disk_spec.bootable,
-                backing_file,
+                backing_file: backing_file.clone(),
                 ..Default::default()
             };
             
@@ -527,7 +528,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 cmd.arg(&disk_path);
                 
                 // Only specify size if no backing file (overlay inherits size)
-                if backing_file.is_none() {
+                if !has_backing_file {
                     cmd.arg(format!("{}G", disk_spec.size_gib));
                 }
                 
@@ -537,7 +538,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                             vm_id = %req.vm_id,
                             disk_id = %disk_spec.id,
                             path = %disk_path.display(),
-                            has_backing_file = backing_file.is_some(),
+                            has_backing_file = has_backing_file,
                             "Disk image created successfully"
                         );
                     }
