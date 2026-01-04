@@ -35,3 +35,4 @@ node_modules/
 target/
 dist/
 
+agent/limiquantix-proto/src/generated/
