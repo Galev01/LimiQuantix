@@ -214,14 +214,50 @@ export function VirtualNetworks() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this network?')) return;
     if (useMockData) {
-      console.log('Mock: Delete network', id);
+      showInfo('Demo mode: Network delete simulated');
       return;
     }
-    try {
-      await deleteNetwork.mutateAsync(id);
-    } catch (err) {
-      console.error('Failed to delete network:', err);
+    await deleteNetwork.mutateAsync(id);
+  };
+
+  // Handle create network
+  const handleCreateNetwork = async (data: { name: string; description?: string; type: string; cidr: string; gateway?: string; vlanId?: number; dhcpEnabled?: boolean }) => {
+    if (useMockData) {
+      showInfo('Demo mode: Network create simulated');
+      setIsCreateModalOpen(false);
+      return;
     }
+    await createNetwork.mutateAsync({
+      name: data.name,
+      projectId: 'default',
+      description: data.description,
+      spec: {
+        type: data.type,
+        cidr: data.cidr,
+        gateway: data.gateway,
+        vlanId: data.vlanId,
+        dhcpEnabled: data.dhcpEnabled,
+      },
+    });
+    setIsCreateModalOpen(false);
+  };
+
+  // Handle update network
+  const handleUpdateNetwork = async (data: { name: string; description?: string }) => {
+    if (!editingNetwork) return;
+    if (useMockData) {
+      showInfo('Demo mode: Network update simulated');
+      setIsEditModalOpen(false);
+      setEditingNetwork(null);
+      return;
+    }
+    await updateNetwork.mutateAsync({
+      id: editingNetwork.id,
+      name: data.name,
+      description: data.description,
+    });
+    setIsEditModalOpen(false);
+    setEditingNetwork(null);
   };
 
   return (
