@@ -1550,9 +1550,150 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     // =========================================================================
     // Filesystem Quiescing & Time Sync
     // =========================================================================
-    // NOTE: These methods (quiesce_filesystems, thaw_filesystems, sync_time)
-    // require proto types that are not generated yet. They will be added when
-    // the proto file is regenerated with protoc on Linux.
-    // 
-    // The implementation is ready but commented out until the proto types exist.
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn quiesce_filesystems(
+        &self,
+        request: Request<QuiesceFilesystemsRequest>,
+    ) -> Result<Response<QuiesceFilesystemsResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, "Quiescing filesystems via guest agent");
+        
+        // Get agent client for this VM
+        let agents = self.agent_manager.read().await;
+        let agent = agents.get(&req.vm_id).ok_or_else(|| {
+            Status::unavailable(format!("No agent connection for VM {}", req.vm_id))
+        })?;
+        
+        // Execute fsfreeze command via guest agent
+        match agent.execute("fsfreeze", &["--freeze", "/"]).await {
+            Ok(output) => {
+                if output.exit_code == 0 {
+                    // Generate a quiesce token (simple UUID for now)
+                    let token = uuid::Uuid::new_v4().to_string();
+                    info!(vm_id = %req.vm_id, token = %token, "Filesystems quiesced");
+                    Ok(Response::new(QuiesceFilesystemsResponse {
+                        success: true,
+                        token,
+                        frozen_filesystems: vec!["/".to_string()],
+                        error: String::new(),
+                    }))
+                } else {
+                    warn!(vm_id = %req.vm_id, stderr = %output.stderr, "fsfreeze failed");
+                    Ok(Response::new(QuiesceFilesystemsResponse {
+                        success: false,
+                        token: String::new(),
+                        frozen_filesystems: vec![],
+                        error: output.stderr,
+                    }))
+                }
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, error = %e, "Failed to quiesce filesystems");
+                Ok(Response::new(QuiesceFilesystemsResponse {
+                    success: false,
+                    token: String::new(),
+                    frozen_filesystems: vec![],
+                    error: e.to_string(),
+                }))
+            }
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn thaw_filesystems(
+        &self,
+        request: Request<ThawFilesystemsRequest>,
+    ) -> Result<Response<ThawFilesystemsResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, token = %req.token, "Thawing filesystems via guest agent");
+        
+        // Get agent client for this VM
+        let agents = self.agent_manager.read().await;
+        let agent = agents.get(&req.vm_id).ok_or_else(|| {
+            Status::unavailable(format!("No agent connection for VM {}", req.vm_id))
+        })?;
+        
+        // Execute fsfreeze --unfreeze command via guest agent
+        match agent.execute("fsfreeze", &["--unfreeze", "/"]).await {
+            Ok(output) => {
+                if output.exit_code == 0 {
+                    info!(vm_id = %req.vm_id, "Filesystems thawed");
+                    Ok(Response::new(ThawFilesystemsResponse {
+                        success: true,
+                        thawed_filesystems: vec!["/".to_string()],
+                        error: String::new(),
+                    }))
+                } else {
+                    warn!(vm_id = %req.vm_id, stderr = %output.stderr, "fsfreeze --unfreeze failed");
+                    Ok(Response::new(ThawFilesystemsResponse {
+                        success: false,
+                        thawed_filesystems: vec![],
+                        error: output.stderr,
+                    }))
+                }
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, error = %e, "Failed to thaw filesystems");
+                Ok(Response::new(ThawFilesystemsResponse {
+                    success: false,
+                    thawed_filesystems: vec![],
+                    error: e.to_string(),
+                }))
+            }
+        }
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn sync_time(
+        &self,
+        request: Request<SyncTimeRequest>,
+    ) -> Result<Response<SyncTimeResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, "Syncing guest time via guest agent");
+        
+        // Get agent client for this VM
+        let agents = self.agent_manager.read().await;
+        let agent = agents.get(&req.vm_id).ok_or_else(|| {
+            Status::unavailable(format!("No agent connection for VM {}", req.vm_id))
+        })?;
+        
+        // Get current host time
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| Status::internal(format!("Failed to get host time: {}", e)))?;
+        
+        // Set time via guest agent (using date command)
+        let timestamp = now.as_secs().to_string();
+        match agent.execute("date", &["-s", &format!("@{}", timestamp)]).await {
+            Ok(output) => {
+                if output.exit_code == 0 {
+                    info!(vm_id = %req.vm_id, "Guest time synchronized");
+                    Ok(Response::new(SyncTimeResponse {
+                        success: true,
+                        old_time_offset_ns: 0, // We don't know the old offset
+                        new_time_offset_ns: 0,
+                        error: String::new(),
+                    }))
+                } else {
+                    warn!(vm_id = %req.vm_id, stderr = %output.stderr, "time sync failed");
+                    Ok(Response::new(SyncTimeResponse {
+                        success: false,
+                        old_time_offset_ns: 0,
+                        new_time_offset_ns: 0,
+                        error: output.stderr,
+                    }))
+                }
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, error = %e, "Failed to sync time");
+                Ok(Response::new(SyncTimeResponse {
+                    success: false,
+                    old_time_offset_ns: 0,
+                    new_time_offset_ns: 0,
+                    error: e.to_string(),
+                }))
+            }
+        }
+    }
 }
