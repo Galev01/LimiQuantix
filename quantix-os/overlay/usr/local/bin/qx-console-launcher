@@ -2,12 +2,17 @@
 # ============================================================================
 # Quantix Console Launcher
 # ============================================================================
-# Tries to launch the Slint GUI console with multiple rendering backends:
-# 1. LinuxKMS with GPU (femtovg) - fastest, requires GPU/DRM
-# 2. LinuxKMS with software renderer - works without GPU
-# 3. Raw framebuffer (embedded-graphics) - bypasses DRM, uses /dev/fb0 directly
-# 4. TUI fallback - terminal-based interface
+# Intelligently detects available graphics capabilities and launches the
+# appropriate console interface.
+#
+# Rendering backend priority:
+# 1. Slint LinuxKMS with GPU (femtovg) - requires DRM card with GPU
+# 2. Slint LinuxKMS with software renderer - requires DRM card, no GPU needed
+# 3. Raw framebuffer (embedded-graphics) - requires /dev/fb0, bypasses DRM
+# 4. TUI fallback (ratatui) - works on any terminal, no framebuffer needed
 # ============================================================================
+
+set -e
 
 # Setup environment
 export XDG_RUNTIME_DIR="/run/user/0"
@@ -21,72 +26,233 @@ chmod 700 /run/user/0
 mkdir -p /run/quantix
 chmod 755 /run/quantix
 
-# Function to try running GUI with a specific backend
+LOG_FILE="/run/quantix/console-launcher.log"
+
+# Logging function
+log() {
+    echo "$(date '+%Y-%m-%dT%H:%M:%S') $1" >> "$LOG_FILE"
+    echo "$1" > /dev/tty1
+}
+
+log_debug() {
+    echo "$(date '+%Y-%m-%dT%H:%M:%S') [DEBUG] $1" >> "$LOG_FILE"
+}
+
+# ============================================================================
+# Graphics Detection Functions
+# ============================================================================
+
+# Check if DRM/KMS is available (required for Slint LinuxKMS backend)
+has_drm() {
+    # Check for any DRM card devices
+    if [ -d /sys/class/drm ]; then
+        for card in /sys/class/drm/card*; do
+            if [ -d "$card" ] && [ "$(basename "$card")" != "card*" ]; then
+                log_debug "Found DRM card: $card"
+                return 0
+            fi
+        done
+    fi
+    return 1
+}
+
+# Check if GPU rendering is likely to work (has a render node)
+has_gpu_render() {
+    # Check for render nodes (indicates GPU acceleration available)
+    for render in /dev/dri/renderD*; do
+        if [ -c "$render" ]; then
+            log_debug "Found render node: $render"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Check if legacy framebuffer is available
+has_framebuffer() {
+    for fb in /dev/fb0 /dev/fb1 /dev/fb2; do
+        if [ -c "$fb" ]; then
+            log_debug "Found framebuffer: $fb"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Wait for graphics devices to appear (udev may still be processing)
+wait_for_graphics() {
+    local max_wait=5
+    local waited=0
+    
+    log_debug "Waiting for graphics devices..."
+    
+    while [ $waited -lt $max_wait ]; do
+        if has_drm || has_framebuffer; then
+            log_debug "Graphics device found after ${waited}s"
+            return 0
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    
+    log_debug "No graphics devices found after ${max_wait}s"
+    return 1
+}
+
+# Try to load graphics modules if not already loaded
+try_load_graphics_modules() {
+    log_debug "Attempting to load graphics modules..."
+    
+    # Try to load virtual GPU drivers first (most common in VMs)
+    for mod in virtio_gpu simpledrm bochs cirrus; do
+        if modprobe "$mod" 2>/dev/null; then
+            log_debug "Loaded module: $mod"
+        fi
+    done
+    
+    # Try framebuffer drivers
+    for mod in efifb simplefb vesafb; do
+        if modprobe "$mod" 2>/dev/null; then
+            log_debug "Loaded module: $mod"
+        fi
+    done
+    
+    # Give udev a moment to create devices
+    sleep 1
+}
+
+# ============================================================================
+# Console Launch Functions
+# ============================================================================
+
+# Try running GUI with a specific backend
 try_gui() {
-    BACKEND="$1"
-    BACKEND_NAME="$2"
+    local backend="$1"
+    local backend_name="$2"
     
-    export SLINT_BACKEND="$BACKEND"
-    echo "Starting Quantix-OS Console (GUI - $BACKEND_NAME)..." > /dev/tty1
+    export SLINT_BACKEND="$backend"
+    log "Starting Quantix-OS Graphical Console (Slint)"
+    log_debug "Backend: $backend_name ($backend)"
+    
     /usr/bin/qx-console-gui </dev/tty1 >/dev/tty1 2>/run/quantix/console-gui.err
+    local exit_code=$?
     
-    EXIT_CODE=$?
-    
-    if [ $EXIT_CODE -eq 0 ]; then
-        # Normal exit (e.g., shutdown/reboot initiated)
+    if [ $exit_code -eq 0 ]; then
+        log_debug "GUI exited normally"
         exit 0
     fi
     
-    return $EXIT_CODE
+    log_debug "GUI failed with exit code: $exit_code"
+    if [ -s /run/quantix/console-gui.err ]; then
+        log_debug "Error output:"
+        cat /run/quantix/console-gui.err >> "$LOG_FILE"
+    fi
+    
+    return $exit_code
 }
 
-# Try Slint GUI console if available
-if [ -x /usr/bin/qx-console-gui ]; then
-    # Try 1: LinuxKMS with GPU acceleration (femtovg)
-    try_gui "linuxkms" "GPU"
-    GPU_EXIT=$?
+# Try raw framebuffer mode
+try_framebuffer() {
+    log "Starting Quantix-OS Framebuffer Console"
+    log_debug "Using embedded-graphics framebuffer renderer"
     
-    # If GPU failed, try software rendering
-    if [ $GPU_EXIT -ne 0 ]; then
-        echo "GPU rendering failed, trying software renderer..." > /dev/tty1
-        sleep 1
+    SLINT_BACKEND="" /usr/bin/qx-console-gui --framebuffer </dev/tty1 >/dev/tty1 2>/run/quantix/console-gui.err
+    local exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        log_debug "Framebuffer console exited normally"
+        exit 0
+    fi
+    
+    log_debug "Framebuffer console failed with exit code: $exit_code"
+    return $exit_code
+}
+
+# Launch TUI console
+launch_tui() {
+    log "Starting Quantix-OS Console (TUI)"
+    exec /usr/local/bin/qx-console
+}
+
+# ============================================================================
+# Main Logic
+# ============================================================================
+
+main() {
+    log_debug "=== Console Launcher Starting ==="
+    log_debug "Date: $(date)"
+    
+    # Try to ensure graphics modules are loaded
+    try_load_graphics_modules
+    
+    # Wait briefly for graphics devices
+    wait_for_graphics
+    
+    # Detect available graphics
+    local has_drm_available=false
+    local has_gpu_available=false
+    local has_fb_available=false
+    
+    if has_drm; then
+        has_drm_available=true
+        log_debug "DRM/KMS is available"
+    fi
+    
+    if has_gpu_render; then
+        has_gpu_available=true
+        log_debug "GPU rendering is available"
+    fi
+    
+    if has_framebuffer; then
+        has_fb_available=true
+        log_debug "Framebuffer is available"
+    fi
+    
+    log_debug "Graphics summary: DRM=$has_drm_available GPU=$has_gpu_available FB=$has_fb_available"
+    
+    # Try GUI console if available
+    if [ -x /usr/bin/qx-console-gui ]; then
         
-        # Try 2: LinuxKMS with software renderer (no GPU needed)
-        try_gui "linuxkms-software" "Software"
-        SW_EXIT=$?
-        
-        if [ $SW_EXIT -ne 0 ]; then
-            # Slint failed, try raw framebuffer (no DRM/KMS needed)
-            if [ -c /dev/fb0 ]; then
-                echo "Slint failed, trying raw framebuffer..." > /dev/tty1
-                sleep 1
-                
-                # Try 3: Raw framebuffer rendering (embedded-graphics)
-                SLINT_BACKEND="" /usr/bin/qx-console-gui --framebuffer </dev/tty1 >/dev/tty1 2>/run/quantix/console-gui.err
-                FB_EXIT=$?
-                
-                if [ $FB_EXIT -eq 0 ]; then
-                    exit 0
-                fi
+        # Strategy 1: If DRM is available, try Slint backends
+        if [ "$has_drm_available" = "true" ]; then
+            
+            # Try GPU-accelerated rendering first if GPU is available
+            if [ "$has_gpu_available" = "true" ]; then
+                log_debug "Trying LinuxKMS with GPU acceleration"
+                try_gui "linuxkms" "GPU" || true
             fi
             
-            # All GUI backends failed, show error
-            if [ -s /run/quantix/console-gui.err ]; then
-                echo "GUI error:" > /dev/tty1
-                head -5 /run/quantix/console-gui.err > /dev/tty1
-            fi
-            echo "GUI console failed, falling back to TUI..." > /dev/tty1
-            sleep 2
+            # Try software rendering (still uses DRM for display)
+            log_debug "Trying LinuxKMS with software renderer"
+            try_gui "linuxkms-software" "Software" || true
         fi
+        
+        # Strategy 2: Try raw framebuffer if available
+        if [ "$has_fb_available" = "true" ]; then
+            log_debug "Trying raw framebuffer mode"
+            try_framebuffer || true
+        fi
+        
+        # All GUI backends failed
+        log "GUI console failed, falling back to TUI..."
+        if [ -s /run/quantix/console-gui.err ]; then
+            echo "Error: Failed to open framebuffer" > /dev/tty1
+            head -3 /run/quantix/console-gui.err > /dev/tty1
+        fi
+        sleep 2
+        
+    else
+        log_debug "GUI console binary not found, using TUI"
     fi
-fi
+    
+    # Fallback to TUI console
+    if [ -x /usr/local/bin/qx-console ]; then
+        launch_tui
+    fi
+    
+    # Ultimate fallback: simple shell
+    log "No console available, dropping to shell..."
+    exec /bin/sh
+}
 
-# Fallback to TUI console
-if [ -x /usr/local/bin/qx-console ]; then
-    echo "Starting Quantix-OS Console (TUI)..." > /dev/tty1
-    exec /usr/local/bin/qx-console
-fi
-
-# Ultimate fallback: simple shell
-echo "No console available, dropping to shell..." > /dev/tty1
-exec /bin/sh
+main "$@"

@@ -55,7 +55,51 @@ mkdir -p /run/lock
 mkdir -p /run/dbus
 mkdir -p /run/udev
 mkdir -p /run/user/0
+mkdir -p /run/quantix
 chmod 700 /run/user/0
+chmod 755 /run/quantix
+
+# ============================================================================
+# Load Graphics Modules for Console GUI
+# ============================================================================
+
+log "Loading graphics modules..."
+
+# DRM core (required for Slint LinuxKMS)
+modprobe drm 2>/dev/null || true
+modprobe drm_kms_helper 2>/dev/null || true
+
+# Virtual GPU drivers (common in VMs)
+modprobe virtio_gpu 2>/dev/null || true
+modprobe simpledrm 2>/dev/null || true
+modprobe bochs 2>/dev/null || true
+
+# Legacy framebuffer drivers (fallback)
+modprobe efifb 2>/dev/null || true
+modprobe simplefb 2>/dev/null || true
+modprobe vesafb 2>/dev/null || true
+
+# Input drivers for GUI
+modprobe evdev 2>/dev/null || true
+modprobe uinput 2>/dev/null || true
+
+# Trigger udev to create device nodes
+if [ -x /sbin/udevadm ]; then
+    udevadm trigger --subsystem-match=drm 2>/dev/null || true
+    udevadm trigger --subsystem-match=graphics 2>/dev/null || true
+    udevadm trigger --subsystem-match=input 2>/dev/null || true
+    udevadm settle --timeout=5 2>/dev/null || true
+fi
+
+# Log detected graphics devices
+if [ -d /sys/class/drm ]; then
+    for card in /sys/class/drm/card*; do
+        [ -d "$card" ] && log "DRM device: $(basename $card)"
+    done
+fi
+if [ -c /dev/fb0 ]; then
+    log "Framebuffer available: /dev/fb0"
+fi
 
 # ============================================================================
 # Check boot mode

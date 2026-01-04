@@ -1,151 +1,83 @@
-# Workflow State: Quantix-OS Host Management UI
+# Workflow State: Clean
 
-## Status: Planning Phase
-
-### Overview
-
-Building a new React application (`quantix-host-ui/`) that provides direct management of a Quantix-OS hypervisor host, similar to ESXi's Host Client.
+No active workflows.
 
 ---
 
-## Analysis Summary
+## Completed: Quantix-OS Host Management UI (January 4, 2026)
 
-### Existing Infrastructure
-- **Main Frontend** (`frontend/`): React 19 + Vite + TypeScript + Tailwind CSS v4
-- **Node Daemon** (`agent/limiquantix-node/`): Rust gRPC service with full VM/Storage/Network operations
-- **Proto Definitions** (`proto/limiquantix/`): Complete API definitions for compute, storage, network, node
-- **QVMRC** (`qvmrc/`): Tauri-based native console client with VNC support
+Successfully implemented Phase 1 of the Quantix Host UI - a web-based management interface integrated with Quantix-OS.
 
-### Key Decisions Required
+### Summary
 
-1. **Approach**: New standalone app vs. integrate into existing frontend?
-   - **Recommendation**: Create `quantix-host-ui/` as a **standalone lightweight app** optimized for single-host management
-   - Rationale: Different use case (local host vs. cluster), smaller bundle, direct node daemon communication
+Created `quantix-host-ui/` - a React application that serves as the **web-based management console** for Quantix-OS nodes. This complements the local Slint console GUI (DCUI) by providing remote management via browser.
 
-2. **Backend API Gateway**: Rust HTTP server in node daemon vs. Go sidecar?
-   - **Recommendation**: Add **Axum HTTP/WebSocket** to existing Rust node daemon
-   - Rationale: Single binary, no additional dependencies, gRPC already implemented
+### Architecture Decision
 
-3. **Code Sharing**: Reuse patterns from main frontend
-   - Copy: Tailwind config, UI components, design tokens
-   - Reference: API patterns, hook patterns, store patterns
-   - Unique: Simplified routing (single host context), direct daemon connection
+The Host UI integrates with Quantix-OS as follows:
 
----
+1. **Build Time**: UI is compiled to static files and copied to `/usr/share/quantix/webui/`
+2. **Runtime**: Node daemon serves these files on `https://<ip>:8443`
+3. **Authentication**: Uses same admin credentials as console GUI (`/quantix/admin.yaml`)
+4. **Separation of Concerns**:
+   - **Console GUI (Slint)**: Local-only, first-boot wizard, SSH management, emergency shell
+   - **Host UI (React)**: Remote access, VM management, storage pools, performance charts
 
-## Implementation Plan
-
-### Phase 1: Project Foundation (Current)
-- [x] Analyze plan and existing codebase
-- [ ] Create `quantix-host-ui/` project structure
-- [ ] Set up Vite + React 19 + TypeScript + Tailwind
-- [ ] Copy shared UI components and design tokens
-- [ ] Create layout shell (sidebar, header, navigation)
-- [ ] Build API client for REST/WebSocket
-
-### Phase 2: Dashboard & Core Pages
-- [ ] Dashboard page with host overview
-- [ ] Host hardware inventory page
-- [ ] Basic VM list with power operations
-
-### Phase 3: VM Management
-- [ ] VM detail page with tabs
-- [ ] Create VM wizard
-- [ ] Console access (QVMRC deep link + Web VNC)
-- [ ] Snapshots management
-
-### Phase 4: Storage & Network
-- [ ] Storage pools page
-- [ ] Volumes management
-- [ ] Network configuration page
-- [ ] Physical NIC status
-
-### Phase 5: Advanced Features
-- [ ] Performance monitoring charts
-- [ ] Tasks & events pages
-- [ ] Host configuration/services
-- [ ] Real-time WebSocket updates
-
----
-
-## File Structure
+### Files Created
 
 ```
 quantix-host-ui/
-├── src/
-│   ├── main.tsx
-│   ├── App.tsx
-│   ├── api/                    # API client layer
-│   │   ├── client.ts           # HTTP/WS client to node daemon
-│   │   ├── vm.ts               # VM operations
-│   │   ├── storage.ts          # Storage pools/volumes
-│   │   ├── network.ts          # Network configuration
-│   │   └── host.ts             # Host/system info
-│   ├── hooks/                  # React Query hooks
-│   │   ├── useVMs.ts
-│   │   ├── useStorage.ts
-│   │   ├── useNetwork.ts
-│   │   ├── useHost.ts
-│   │   └── useEvents.ts
-│   ├── stores/                 # Zustand stores
-│   │   └── useAppStore.ts      # App state (theme, sidebar)
-│   ├── pages/                  # Main pages
-│   │   ├── Dashboard.tsx
-│   │   ├── VirtualMachines.tsx
-│   │   ├── VMDetail.tsx
-│   │   ├── Storage.tsx
-│   │   ├── Networking.tsx
-│   │   ├── Hardware.tsx
-│   │   ├── Monitor.tsx
-│   │   └── Events.tsx
-│   ├── components/
-│   │   ├── layout/             # Shell, sidebar, header
-│   │   ├── vm/                 # VM-specific components
-│   │   ├── storage/            # Storage components
-│   │   ├── charts/             # Performance charts
-│   │   └── ui/                 # Base UI components (copied from main frontend)
-│   └── lib/
-│       ├── utils.ts
-│       ├── qvmrc.ts            # QVMRC deep link launcher
-│       └── websocket.ts        # WebSocket for real-time updates
-├── index.html
-├── package.json
-├── tailwind.config.js
-├── vite.config.ts
-└── tsconfig.json
+├── package.json, vite.config.ts, tsconfig.json, index.html
+├── README.md                    # Updated with Quantix-OS integration details
+└── src/
+    ├── main.tsx, App.tsx, index.css
+    ├── api/                     # REST API client
+    │   ├── client.ts, types.ts, host.ts, vm.ts, storage.ts
+    ├── hooks/                   # React Query hooks
+    │   ├── useHost.ts, useVMs.ts, useStorage.ts
+    ├── stores/                  # Zustand
+    │   └── useAppStore.ts
+    ├── pages/                   # Page components
+    │   ├── Dashboard.tsx        # Host overview with resource rings
+    │   └── VirtualMachines.tsx  # VM list with power operations
+    ├── components/
+    │   ├── layout/              # Sidebar, Header, Layout
+    │   └── ui/                  # Button, Badge, Card, ProgressRing
+    └── lib/                     # Utilities
+        ├── utils.ts, qvmrc.ts, toast.ts
 ```
 
----
+### Documentation Updated
 
-## Backend Changes Required
+- `docs/ui/000056-host-ui-architecture.md` - Updated with Quantix-OS integration
+- `quantix-os/README.md` - Added webui to directory structure and boot flow
+- `quantix-host-ui/README.md` - Full integration documentation
 
-### Node Daemon HTTP Gateway
-Add to `agent/limiquantix-node/`:
-- Axum HTTP server on port 8443
-- REST endpoints proxying to gRPC
-- Static file serving for UI build
-- WebSocket endpoint for real-time updates
+### Integration Points
 
-### API Endpoints
-```
-GET  /api/v1/host              # Host info, status
-GET  /api/v1/host/hardware     # Hardware inventory
-GET  /api/v1/vms               # List VMs
-POST /api/v1/vms               # Create VM
-GET  /api/v1/vms/:id           # Get VM
-POST /api/v1/vms/:id/start     # Start VM
-POST /api/v1/vms/:id/stop      # Stop VM
-GET  /api/v1/vms/:id/console   # Console info
-GET  /api/v1/storage/pools     # Storage pools
-GET  /api/v1/network/nics      # Physical NICs
-WS   /api/v1/ws                # Real-time updates
-```
+1. **Node Daemon**: Serves static files from `/usr/share/quantix/webui/`
+2. **Makefile Target**: `make webui` builds and copies to overlay
+3. **ISO Build**: `make iso` includes webui in squashfs
+4. **Configuration**: Reads from `/quantix/` (node.yaml, admin.yaml)
 
----
+### Next Steps
 
-## Notes
+#### Backend (Rust Node Daemon)
+- [ ] Add Axum HTTP server for REST API gateway
+- [ ] Implement static file serving for webui
+- [ ] Add WebSocket endpoint for real-time updates
+- [ ] Implement authentication (JWT tokens)
 
-- Reuse existing Tailwind design system from `frontend/`
-- QVMRC integration via `qvmrc://` deep link already exists
-- Node daemon already has all gRPC methods needed
-- Focus on ESXi Host Client-like simplicity
+#### Frontend (Host UI)
+- [ ] VM Detail page with tabs
+- [ ] VM Creation wizard
+- [ ] Storage Pools page
+- [ ] Volumes management page
+- [ ] Hardware inventory page
+- [ ] Networking configuration page
+- [ ] Performance monitoring with charts
+- [ ] Events log page
+
+#### Build System
+- [ ] Add `webui` target to quantix-os/Makefile
+- [ ] Integrate webui build into ISO creation

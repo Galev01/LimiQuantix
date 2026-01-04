@@ -1,51 +1,106 @@
 # 000056 - Quantix Host UI Architecture
 
-**Description:** Documentation for the standalone Quantix-OS Host Management UI - an ESXi Host Client-like interface for direct hypervisor management.
+**Description:** Documentation for the Quantix-OS Host Management UI - the web-based ESXi Host Client-like interface for remote hypervisor management. This complements the local Slint console GUI (DCUI).
+
+**Related Documents:**
+- [000052 - Quantix-OS Architecture](../Quantix-OS/000052-quantix-os-architecture.md)
+- [000053 - Console GUI (Slint)](../Quantix-OS/000053-console-gui-slint.md)
+- [000051 - Logging & Diagnostics](../Quantix-OS/000051-quantix-os-logging-diagnostics.md)
 
 ## Overview
 
-The `quantix-host-ui` is a lightweight React application designed to run directly on a Quantix-OS hypervisor node. It provides:
+The `quantix-host-ui` is a lightweight React application that runs on every Quantix-OS node, providing **remote management via web browser**. It works alongside the Slint console GUI which handles local DCUI management.
 
-- **Standalone Mode**: Direct management of a single hypervisor host
-- **ESXi-like Experience**: Familiar UI patterns from VMware ESXi Host Client
-- **QVMRC Integration**: Deep link launching of the native console application
-- **Real-time Updates**: WebSocket-based live status updates
+### Two Consoles, One Node
+
+| Feature | Console GUI (Slint) | Host UI (React) |
+|---------|---------------------|-----------------|
+| **Access** | Local TTY1 only | Remote via browser |
+| **First Boot** | ✅ Setup wizard | ❌ Requires setup complete |
+| **Network Config** | ✅ Full control | ⚠️ View only (future) |
+| **SSH Management** | ✅ Enable/disable | ⚠️ View only (future) |
+| **Emergency Shell** | ✅ Authenticated | ❌ Not available |
+| **VM Management** | ❌ Not available | ✅ Full CRUD |
+| **Storage Pools** | ❌ Status only | ✅ Full management |
+| **Performance** | ❌ Basic stats | ✅ Charts + history |
+| **Console Access** | ❌ N/A | ✅ QVMRC deep link |
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Web Browser                              │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │              quantix-host-ui (React SPA)                  │  │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────────────┐ │  │
-│  │  │Dashboard│ │ VMs     │ │ Storage │ │ Hardware/Config │ │  │
-│  │  └────┬────┘ └────┬────┘ └────┬────┘ └────────┬────────┘ │  │
-│  │       └───────────┴──────────┴────────────────┘          │  │
-│  │                        ↓                                  │  │
-│  │              TanStack Query + Zustand                     │  │
-│  │                        ↓                                  │  │
-│  │              API Client (fetch + WebSocket)               │  │
-│  └──────────────────────┬───────────────────────────────────┘  │
-│                         ↓                                       │
-└─────────────────────────┬───────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    Quantix-OS Host                              │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │              Node Daemon (Rust)                          │  │
-│  │  ┌─────────────────┐  ┌─────────────────────────────┐   │  │
-│  │  │ REST/WS Gateway │←→│     gRPC Service            │   │  │
-│  │  │   (Port 8443)   │  │                             │   │  │
-│  │  └────────┬────────┘  └──────────────┬──────────────┘   │  │
-│  │           │                          │                   │  │
-│  │           ↓                          ↓                   │  │
-│  │  ┌────────────────┐      ┌─────────────────────────┐    │  │
-│  │  │ Static Files   │      │    Hypervisor Layer     │    │  │
-│  │  │ (UI Build)     │      │  (libvirt/QEMU/KVM)     │    │  │
-│  │  └────────────────┘      └─────────────────────────┘    │  │
-│  └──────────────────────────────────────────────────────────┘  │
+│                      Quantix-OS Node                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  LOCAL (Physical Console)     │    REMOTE (Web Browser)         │
+│  ┌────────────────────────┐   │   ┌────────────────────────┐   │
+│  │  Slint Console GUI     │   │   │   Quantix Host UI      │   │
+│  │  (DCUI - TTY1)         │   │   │   (Port 8443)          │   │
+│  │                        │   │   │                        │   │
+│  │  - First boot wizard   │   │   │  - Dashboard           │   │
+│  │  - Network config      │   │   │  - VM management       │   │
+│  │  - SSH enable/disable  │   │   │  - Storage pools       │   │
+│  │  - Emergency shell     │   │   │  - Performance charts  │   │
+│  │  - Cluster join        │   │   │  - QVMRC console       │   │
+│  └────────────────────────┘   │   └────────────────────────┘   │
+│            │                  │              │                  │
+│            └──────────────────┼──────────────┘                  │
+│                               │                                 │
+│                               ▼                                 │
+│              ┌─────────────────────────────────┐                │
+│              │       Node Daemon (Rust)        │                │
+│              │  - gRPC API (port 9443)         │                │
+│              │  - REST/WebSocket (port 8443)   │                │
+│              │  - Static file serving          │                │
+│              └─────────────────────────────────┘                │
+│                               │                                 │
+│              ┌────────────────┼────────────────┐                │
+│              ▼                ▼                ▼                │
+│         libvirtd          OVS/OVN         Storage               │
+│                                                                  │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+## Integration with Quantix-OS
+
+The Host UI is baked into the Quantix-OS ISO during build time:
+
+### Build Process
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  quantix-os/Makefile                                           │
+│                                                                 │
+│  webui:                                                         │
+│      cd ../quantix-host-ui && npm ci && npm run build          │
+│      cp -r ../quantix-host-ui/dist/* overlay/usr/share/...     │
+│                                                                 │
+│  iso: webui console-gui ...                                     │
+│      # Include webui in squashfs                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### File Layout on Quantix-OS
+
+```
+/                                    # OverlayFS root
+├── usr/
+│   ├── bin/
+│   │   ├── qx-node                  # Node daemon (serves webui)
+│   │   └── qx-console-gui           # Slint console GUI
+│   └── share/
+│       └── quantix/
+│           └── webui/               # ← This project's build output
+│               ├── index.html
+│               ├── assets/
+│               │   ├── index-xxx.js
+│               │   └── index-xxx.css
+│               └── icon.png
+│
+└── quantix/                         # Persistent config (Part 4)
+    ├── node.yaml                    # Node configuration
+    ├── admin.yaml                   # Admin credentials (from console wizard)
+    └── certificates/                # TLS certs
 ```
 
 ## Technology Stack

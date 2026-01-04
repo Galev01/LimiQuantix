@@ -70,8 +70,19 @@ UEFI → GRUB → vmlinuz + initramfs
        └──────────────────────┘
                     │
                     ▼
-    TTY1: qx-console         Web UI: https://<ip>:8443
-    (Shows connection info)   SSH: Disabled by default
+┌───────────────────────────────────────────────────────────┐
+│  LOCAL CONSOLE (TTY1)          │  REMOTE (Web Browser)   │
+│  ┌──────────────────────────┐  │  ┌──────────────────┐   │
+│  │  Slint Console GUI       │  │  │ Quantix Host UI  │   │
+│  │  - First boot wizard     │  │  │ https://<ip>:8443│   │
+│  │  - Network config        │  │  │                  │   │
+│  │  - SSH enable/disable    │  │  │ - VM management  │   │
+│  │  - Emergency shell       │  │  │ - Storage pools  │   │
+│  └──────────────────────────┘  │  │ - Performance    │   │
+│                                │  └──────────────────┘   │
+└───────────────────────────────────────────────────────────┘
+                    │
+                    └───> SSH: Disabled by default
 ```
 
 ## Features
@@ -174,6 +185,7 @@ quantix-os/
 │
 ├── builder/
 │   ├── Dockerfile              # Build environment
+│   ├── Dockerfile.rust-gui     # Slint GUI builder (Alpine + Rust)
 │   ├── build-iso.sh            # Main ISO build script
 │   └── build-squashfs.sh       # Root filesystem builder
 │
@@ -196,10 +208,18 @@ quantix-os/
 │   │   └── quantix/
 │   │       └── defaults.yaml  # Default configuration
 │   │
-│   ├── usr/local/bin/
-│   │   ├── qx-node            # Node daemon binary
-│   │   ├── qx-console         # Console TUI binary
-│   │   └── qx-update          # Update utility
+│   ├── usr/
+│   │   ├── bin/
+│   │   │   ├── qx-node            # Node daemon binary
+│   │   │   ├── qx-console-gui     # Slint console GUI
+│   │   │   └── qx-update          # Update utility
+│   │   ├── local/bin/
+│   │   │   ├── qx-console         # TUI console (fallback)
+│   │   │   └── qx-console-launcher# Console launcher script
+│   │   └── share/quantix/
+│   │       └── webui/             # ← Host UI (React) build output
+│   │           ├── index.html
+│   │           └── assets/
 │   │
 │   └── var/lib/quantix/
 │       └── .keep
@@ -213,6 +233,12 @@ quantix-os/
 │   └── src/
 │       └── main.rs
 │
+├── console-gui/                # Slint Console GUI
+│   ├── Cargo.toml
+│   ├── ui/main.slint
+│   └── src/
+│       └── main.rs
+│
 ├── branding/
 │   ├── splash.txt              # Boot splash ASCII art
 │   └── banner.txt              # Console banner
@@ -220,6 +246,14 @@ quantix-os/
 └── output/                     # Build artifacts
     ├── quantix-os-1.0.0.iso    # Bootable installer
     └── system-1.0.0.squashfs   # Update image
+
+../quantix-host-ui/             # Host UI (separate project)
+├── package.json
+├── src/
+│   ├── App.tsx
+│   ├── pages/
+│   └── components/
+└── dist/                       # → copied to overlay/usr/share/quantix/webui/
 ```
 
 ## Building
@@ -446,6 +480,69 @@ To test framebuffer mode manually:
 ```bash
 qx-console-gui --framebuffer
 ```
+
+### Running Quantix-OS in a VM (Graphics Requirements)
+
+When testing Quantix-OS in a virtual machine, you must configure a graphics device that the console GUI can use. The GUI requires either:
+
+1. **DRM/KMS device** (`/dev/dri/card*`) - for Slint LinuxKMS backend
+2. **Framebuffer device** (`/dev/fb0`) - for raw framebuffer fallback
+3. **Terminal only** - TUI works without any graphics device
+
+**Recommended QEMU Graphics Options:**
+
+```bash
+# Best: virtio-gpu (modern, GPU-accelerated)
+qemu-system-x86_64 -device virtio-vga-gl -display gtk,gl=on ...
+
+# Good: virtio-gpu without GL (software rendering)
+qemu-system-x86_64 -device virtio-vga -display gtk ...
+
+# Fallback: Standard VGA (creates /dev/fb0)
+qemu-system-x86_64 -vga std ...
+
+# Headless: Serial console only (TUI fallback)
+qemu-system-x86_64 -nographic -serial mon:stdio ...
+```
+
+**Complete Example (Testing with QEMU):**
+
+```bash
+qemu-system-x86_64 \
+    -name "Quantix-OS Test" \
+    -machine q35,accel=kvm \
+    -cpu host \
+    -m 4G \
+    -smp 4 \
+    -device virtio-vga-gl \
+    -display gtk,gl=on \
+    -boot d \
+    -cdrom output/quantix-os-1.0.0.iso \
+    -drive file=test-disk.qcow2,if=virtio,format=qcow2
+```
+
+**Libvirt/virt-manager Configuration:**
+
+In virt-manager, set the video device to one of:
+- **Virtio** (recommended) - Modern GPU with 3D acceleration
+- **VGA** - Legacy VGA, creates `/dev/fb0`
+- **QXL** - For SPICE, but may not create framebuffer
+
+**Troubleshooting GUI Fallback:**
+
+If the GUI console fails and falls back to TUI, check:
+
+1. **GRUB boot option**: Ensure you're NOT using "No KMS - Legacy" which disables DRM
+2. **Kernel modules**: In the VM, verify DRM modules are loaded:
+   ```bash
+   lsmod | grep -E 'drm|virtio_gpu|simpledrm'
+   ```
+3. **Device nodes**: Check for graphics devices:
+   ```bash
+   ls -la /dev/dri/    # Should show card0, renderD128
+   ls -la /dev/fb0     # Should exist for framebuffer mode
+   ```
+4. **Console log**: Check `/run/quantix/console-launcher.log` for details
 
 ## Why Alpine Linux?
 
