@@ -32,7 +32,8 @@ if [ ! -f /etc/openvswitch/conf.db ]; then
 fi
 
 # Libvirt directories - these need to be writable
-mkdir -p /var/run/libvirt
+# Use /run/libvirt (modern) and /var/run/libvirt (compat symlink)
+mkdir -p /run/libvirt
 mkdir -p /var/log/libvirt/qemu
 mkdir -p /var/lib/libvirt/images
 mkdir -p /var/lib/libvirt/qemu
@@ -40,7 +41,9 @@ mkdir -p /var/lib/libvirt/dnsmasq
 mkdir -p /var/cache/libvirt/qemu
 mkdir -p /etc/libvirt/qemu/networks
 mkdir -p /etc/libvirt/qemu/autostart
-chmod 755 /var/run/libvirt /var/log/libvirt /var/lib/libvirt
+chmod 755 /run/libvirt /var/log/libvirt /var/lib/libvirt
+# Ensure /var/run/libvirt exists as a symlink if /var/run is not a symlink to /run
+[ -L /var/run ] || ln -sf /run/libvirt /var/run/libvirt 2>/dev/null || true
 
 # QEMU directories
 mkdir -p /var/lib/qemu

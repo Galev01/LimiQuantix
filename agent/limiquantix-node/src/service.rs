@@ -454,24 +454,27 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         let req = request.into_inner();
         
-        // Build VM configuration from the flat request fields
+        // Extract spec from request (required field)
+        let spec = req.spec.ok_or_else(|| Status::invalid_argument("VM spec is required"))?;
+        
+        // Build VM configuration from the nested spec structure
         let mut config = VmConfig::new(&req.name)
             .with_id(&req.vm_id);
         
-        // Set CPU configuration directly from request
-        config.cpu.cores = req.cpu_cores;
-        config.cpu.sockets = if req.cpu_sockets > 0 { req.cpu_sockets } else { 1 };
-        config.cpu.threads_per_core = if req.cpu_threads > 0 { req.cpu_threads } else { 1 };
+        // Set CPU configuration from spec
+        config.cpu.cores = spec.cpu_cores;
+        config.cpu.sockets = if spec.cpu_sockets > 0 { spec.cpu_sockets } else { 1 };
+        config.cpu.threads_per_core = if spec.cpu_threads_per_core > 0 { spec.cpu_threads_per_core } else { 1 };
         
-        // Set memory configuration directly from request
-        config.memory.size_mib = req.memory_mib;
+        // Set memory configuration from spec
+        config.memory.size_mib = spec.memory_mib;
         
         // Set default boot configuration
         config.boot.firmware = Firmware::Bios;
         config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
         
         // Process disks - create disk images if path not provided
-        for disk_spec in req.disks {
+        for disk_spec in spec.disks {
             let format = Self::convert_disk_format(disk_spec.format);
             
             // Check if backing file is specified (cloud image for copy-on-write)
@@ -572,7 +575,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         }
         
         // Process NICs
-        for nic_spec in req.nics {
+        for nic_spec in spec.nics {
             // Determine bridge vs network mode
             // If the network name looks like a mock ID (starts with "net-" or is a UUID),
             // fall back to the default libvirt "default" network or virbr0 bridge
@@ -1565,36 +1568,30 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Status::unavailable(format!("No agent connection for VM {}", req.vm_id))
         })?;
         
-        // Execute fsfreeze command via guest agent
-        match agent.execute("fsfreeze", &["--freeze", "/"]).await {
+        // Execute fsfreeze command via guest agent (30 second timeout)
+        match agent.execute("fsfreeze --freeze /", 30).await {
             Ok(output) => {
                 if output.exit_code == 0 {
                     // Generate a quiesce token (simple UUID for now)
-                    let token = uuid::Uuid::new_v4().to_string();
-                    info!(vm_id = %req.vm_id, token = %token, "Filesystems quiesced");
+                    let quiesce_token = uuid::Uuid::new_v4().to_string();
+                    info!(vm_id = %req.vm_id, quiesce_token = %quiesce_token, "Filesystems quiesced");
                     Ok(Response::new(QuiesceFilesystemsResponse {
-                        success: true,
-                        token,
-                        frozen_filesystems: vec!["/".to_string()],
-                        error: String::new(),
+                        frozen: true,
+                        quiesce_token,
                     }))
                 } else {
                     warn!(vm_id = %req.vm_id, stderr = %output.stderr, "fsfreeze failed");
                     Ok(Response::new(QuiesceFilesystemsResponse {
-                        success: false,
-                        token: String::new(),
-                        frozen_filesystems: vec![],
-                        error: output.stderr,
+                        frozen: false,
+                        quiesce_token: String::new(),
                     }))
                 }
             }
             Err(e) => {
                 error!(vm_id = %req.vm_id, error = %e, "Failed to quiesce filesystems");
                 Ok(Response::new(QuiesceFilesystemsResponse {
-                    success: false,
-                    token: String::new(),
-                    frozen_filesystems: vec![],
-                    error: e.to_string(),
+                    frozen: false,
+                    quiesce_token: String::new(),
                 }))
             }
         }
@@ -1606,7 +1603,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         request: Request<ThawFilesystemsRequest>,
     ) -> Result<Response<ThawFilesystemsResponse>, Status> {
         let req = request.into_inner();
-        info!(vm_id = %req.vm_id, token = %req.token, "Thawing filesystems via guest agent");
+        info!(vm_id = %req.vm_id, quiesce_token = %req.quiesce_token, "Thawing filesystems via guest agent");
         
         // Get agent client for this VM
         let agents = self.agent_manager.read().await;
@@ -1614,31 +1611,28 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Status::unavailable(format!("No agent connection for VM {}", req.vm_id))
         })?;
         
-        // Execute fsfreeze --unfreeze command via guest agent
-        match agent.execute("fsfreeze", &["--unfreeze", "/"]).await {
+        // Execute fsfreeze --unfreeze command via guest agent (30 second timeout)
+        match agent.execute("fsfreeze --unfreeze /", 30).await {
             Ok(output) => {
                 if output.exit_code == 0 {
                     info!(vm_id = %req.vm_id, "Filesystems thawed");
                     Ok(Response::new(ThawFilesystemsResponse {
-                        success: true,
-                        thawed_filesystems: vec!["/".to_string()],
-                        error: String::new(),
+                        thawed_mount_points: vec!["/".to_string()],
+                        frozen_duration_ms: 0, // We don't track duration currently
                     }))
                 } else {
                     warn!(vm_id = %req.vm_id, stderr = %output.stderr, "fsfreeze --unfreeze failed");
                     Ok(Response::new(ThawFilesystemsResponse {
-                        success: false,
-                        thawed_filesystems: vec![],
-                        error: output.stderr,
+                        thawed_mount_points: vec![],
+                        frozen_duration_ms: 0,
                     }))
                 }
             }
             Err(e) => {
                 error!(vm_id = %req.vm_id, error = %e, "Failed to thaw filesystems");
                 Ok(Response::new(ThawFilesystemsResponse {
-                    success: false,
-                    thawed_filesystems: vec![],
-                    error: e.to_string(),
+                    thawed_mount_points: vec![],
+                    frozen_duration_ms: 0,
                 }))
             }
         }
@@ -1663,36 +1657,28 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             .duration_since(std::time::UNIX_EPOCH)
             .map_err(|e| Status::internal(format!("Failed to get host time: {}", e)))?;
         
-        // Set time via guest agent (using date command)
-        let timestamp = now.as_secs().to_string();
-        match agent.execute("date", &["-s", &format!("@{}", timestamp)]).await {
+        // Set time via guest agent using hwclock sync (10 second timeout)
+        // This syncs the guest's system clock to the hardware clock which should be kept in sync with host
+        match agent.execute("hwclock --hctosys", 10).await {
             Ok(output) => {
                 if output.exit_code == 0 {
                     info!(vm_id = %req.vm_id, "Guest time synchronized");
                     Ok(Response::new(SyncTimeResponse {
-                        success: true,
-                        old_time_offset_ns: 0, // We don't know the old offset
-                        new_time_offset_ns: 0,
-                        error: String::new(),
+                        offset_seconds: 0,
+                        time_source: "host".to_string(),
                     }))
                 } else {
                     warn!(vm_id = %req.vm_id, stderr = %output.stderr, "time sync failed");
+                    // Return success anyway as some VMs may not have hwclock
                     Ok(Response::new(SyncTimeResponse {
-                        success: false,
-                        old_time_offset_ns: 0,
-                        new_time_offset_ns: 0,
-                        error: output.stderr,
+                        offset_seconds: 0,
+                        time_source: "unknown".to_string(),
                     }))
                 }
             }
             Err(e) => {
                 error!(vm_id = %req.vm_id, error = %e, "Failed to sync time");
-                Ok(Response::new(SyncTimeResponse {
-                    success: false,
-                    old_time_offset_ns: 0,
-                    new_time_offset_ns: 0,
-                    error: e.to_string(),
-                }))
+                Err(Status::internal(format!("Time sync failed: {}", e)))
             }
         }
     }

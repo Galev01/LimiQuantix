@@ -2,8 +2,9 @@
 # ============================================================================
 # Quantix-OS libvirtd Starter
 # ============================================================================
-# Starts libvirtd in background if the OpenRC service hangs.
-# This is a failsafe for when nested virtualization isn't enabled.
+# Starts virtlogd and libvirtd in background.
+# Both services are started manually to prevent boot hangs when nested 
+# virtualization isn't enabled or when dependencies aren't ready.
 # ============================================================================
 
 LOG="/var/log/quantix/libvirtd-starter.log"
@@ -14,7 +15,38 @@ log() {
     echo "[QUANTIX] $1"
 }
 
-# Check if libvirtd is already running (started by OpenRC)
+# ============================================================================
+# Create required directories for libvirt
+# ============================================================================
+log "Creating libvirt runtime directories..."
+mkdir -p /run/libvirt
+mkdir -p /var/lib/libvirt/qemu
+mkdir -p /var/lib/libvirt/images
+mkdir -p /var/log/libvirt/qemu
+chmod 755 /run/libvirt
+
+# ============================================================================
+# Start virtlogd first (required for libvirtd)
+# ============================================================================
+if pgrep -x virtlogd >/dev/null 2>&1; then
+    log "virtlogd already running"
+else
+    log "Starting virtlogd..."
+    # Start virtlogd in daemon mode
+    /usr/sbin/virtlogd -d 2>>"$LOG" &
+    sleep 1
+    
+    if pgrep -x virtlogd >/dev/null 2>&1; then
+        log "virtlogd started successfully"
+    else
+        log "WARNING: virtlogd failed to start (non-fatal)"
+    fi
+fi
+
+# ============================================================================
+# Start libvirtd
+# ============================================================================
+# Check if libvirtd is already running
 if pgrep -x libvirtd >/dev/null 2>&1; then
     log "libvirtd already running"
     exit 0
@@ -27,13 +59,6 @@ if rc-status 2>/dev/null | grep -q "libvirtd.*starting"; then
     
     # Kill any stuck libvirtd processes
     pkill -9 libvirtd 2>/dev/null || true
-    sleep 1
-fi
-
-# Ensure virtlogd is running first
-if ! pgrep -x virtlogd >/dev/null 2>&1; then
-    log "Starting virtlogd..."
-    /usr/sbin/virtlogd -d 2>/dev/null || true
     sleep 1
 fi
 
