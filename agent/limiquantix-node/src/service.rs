@@ -22,9 +22,9 @@ use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, 
-    // VM types - using actual generated names
-    CreateVmRequest, CreateVmResponse,
-    StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
+    // VM types - after proto regeneration, these will have nested VMSpec
+    CreateVmOnNodeRequest, CreateVmOnNodeResponse,
+    StopVmRequest, VmStatusResponse, ListVmsOnNodeResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -441,33 +441,40 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, name = %request.get_ref().name))]
     async fn create_vm(
         &self,
-        request: Request<CreateVmRequest>,
-    ) -> Result<Response<CreateVmResponse>, Status> {
+        request: Request<CreateVmOnNodeRequest>,
+    ) -> Result<Response<CreateVmOnNodeResponse>, Status> {
         info!("Creating VM via libvirt");
         
         let req = request.into_inner();
         
+        // Get the nested spec (required field)
+        let spec = req.spec.ok_or_else(|| {
+            Status::invalid_argument("VM spec is required")
+        })?;
+        
         // Build VM configuration from the request fields
-        // Note: The generated proto has flat fields, not nested spec
         let mut config = VmConfig::new(&req.name)
             .with_id(&req.vm_id);
         
-        // Set CPU configuration from flat request fields
-        config.cpu.cores = req.cpu_cores;
-        config.cpu.sockets = if req.cpu_sockets > 0 { req.cpu_sockets } else { 1 };
-        // Note: cpu_threads in flat proto, not cpu_threads_per_core
-        config.cpu.threads_per_core = if req.cpu_threads > 0 { req.cpu_threads } else { 1 };
+        // Set CPU configuration from nested spec
+        config.cpu.cores = spec.cpu_cores;
+        config.cpu.sockets = if spec.cpu_sockets > 0 { spec.cpu_sockets } else { 1 };
+        config.cpu.threads_per_core = if spec.cpu_threads_per_core > 0 { spec.cpu_threads_per_core } else { 1 };
         
-        // Set memory configuration from flat request fields
-        config.memory.size_mib = req.memory_mib;
+        // Set memory configuration from nested spec
+        config.memory.size_mib = spec.memory_mib;
         
-        // Set boot configuration from flat request fields
-        config.boot.firmware = Self::convert_firmware(req.firmware);
-        // Note: boot_order not in flat proto, use defaults
-        config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
+        // Set boot configuration from nested spec
+        config.boot.firmware = Self::convert_firmware(spec.firmware);
+        config.boot.order = spec.boot_order.iter()
+            .map(|&b| Self::convert_boot_device(b))
+            .collect();
+        if config.boot.order.is_empty() {
+            config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
+        }
         
         // Process disks - create disk images if path not provided
-        for disk_spec in req.disks {
+        for disk_spec in spec.disks {
             let format = Self::convert_disk_format(disk_spec.format);
             
             // Check if backing file is specified (cloud image for copy-on-write)
@@ -568,7 +575,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         }
         
         // Process NICs
-        for nic_spec in req.nics {
+        for nic_spec in spec.nics {
             // Determine bridge vs network mode
             // If the network name looks like a mock ID (starts with "net-" or is a UUID),
             // fall back to the default libvirt "default" network or virbr0 bridge
@@ -620,9 +627,11 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             });
         }
         
-        // Set console configuration from flat request fields
-        // Note: The flat proto has vnc_enabled as a bool, not a nested ConsoleSpec
-        config.console.vnc_enabled = req.vnc_enabled;
+        // Set console configuration from nested spec
+        if let Some(console_spec) = spec.console {
+            config.console.vnc_enabled = console_spec.vnc_enabled;
+            config.console.spice_enabled = console_spec.spice_enabled;
+        }
         
         // Create the VM via the hypervisor backend
         // Ensure the agent socket directory exists before creating the VM
@@ -648,7 +657,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Ok(created_id) => {
                 info!(vm_id = %created_id, "VM created successfully in libvirt");
                 
-                Ok(Response::new(CreateVmResponse {
+                Ok(Response::new(CreateVmOnNodeResponse {
                     vm_id: created_id,
                     created: true,
                     message: "VM created successfully".to_string(),
@@ -827,7 +836,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     async fn list_v_ms(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<ListVMsResponse>, Status> {
+    ) -> Result<Response<ListVmsOnNodeResponse>, Status> {
         let vms = self.hypervisor.list_vms().await
             .map_err(|e| Status::internal(e.to_string()))?;
         
@@ -846,7 +855,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         debug!(count = responses.len(), "Listed VMs");
         
-        Ok(Response::new(ListVMsResponse { vms: responses }))
+        Ok(Response::new(ListVmsOnNodeResponse { vms: responses }))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
