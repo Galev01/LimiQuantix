@@ -718,25 +718,25 @@ func (c *DaemonClient) CreateVolumeSnapshot(ctx context.Context, poolID, volumeI
 type FileEntry struct {
 	Name    string `json:"name"`
 	Path    string `json:"path"`
-	IsDir   bool   `json:"is_dir"`
+	IsDir   bool   `json:"isDir"`
 	Size    int64  `json:"size"`
-	Mode    uint32 `json:"mode"`
-	ModTime string `json:"mod_time"`
+	Mode    int    `json:"mode"`
+	ModTime string `json:"modTime"`
 }
 
 // FileStat represents file metadata
 type FileStat struct {
 	Path    string `json:"path"`
 	Exists  bool   `json:"exists"`
-	IsDir   bool   `json:"is_dir"`
+	IsDir   bool   `json:"isDir"`
 	Size    int64  `json:"size"`
-	Mode    uint32 `json:"mode"`
-	ModTime string `json:"mod_time"`
+	Mode    int    `json:"mode"`
+	ModTime string `json:"modTime"`
 }
 
 // WriteFile writes content to a file in the guest VM via the guest agent.
 // TODO: Implement when guest agent file transfer is available
-func (c *DaemonClient) WriteFile(ctx context.Context, vmID, path string, content []byte, mode uint32) error {
+func (c *DaemonClient) WriteFile(ctx context.Context, vmID, path string, content []byte, mode int) error {
 	c.logger.Warn("WriteFile not implemented - guest agent file transfer not available",
 		zap.String("vm_id", vmID),
 		zap.String("path", path),
