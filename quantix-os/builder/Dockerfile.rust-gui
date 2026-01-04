@@ -23,12 +23,12 @@ RUN apk add --no-cache \
     libxkbcommon-dev \
     libinput-dev \
     mesa-dev \
-    libgbm \
+    mesa-gbm \
     # Femtovg renderer dependencies
     freetype-dev \
     fontconfig-dev \
-    # Seatd for session management
-    seatd-dev \
+    # Seatd/libseat for session management
+    libseat-dev \
     # Git for cargo dependencies
     git
 
