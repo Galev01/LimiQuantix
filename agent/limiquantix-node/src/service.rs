@@ -11,12 +11,14 @@ use tonic::{Request, Response, Status};
 use tracing::{info, debug, warn, error, instrument};
 
 use limiquantix_hypervisor::{
-    Hypervisor, VmConfig, VmState, DiskConfig, NicConfig,
+    Hypervisor, VmConfig, VmState, DiskConfig, NicConfig, CdromConfig,
     DiskBus, DiskFormat, NicModel, StorageManager, Firmware, BootDevice,
     // Network/OVS types
     OvsPortManager, NetworkPortConfig,
     // Storage types
     PoolType, PoolConfig, VolumeSource, LocalConfig,
+    // Cloud-init
+    CloudInitConfig, CloudInitGenerator,
 };
 use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
@@ -638,6 +640,117 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             config.console.spice_enabled = console_spec.spice_enabled;
         }
         
+        // Process cloud-init configuration if provided
+        // This generates a NoCloud ISO that gets attached as a CDROM for automated provisioning
+        if let Some(cloud_init_spec) = spec.cloud_init {
+            // Only generate if there's actual user-data or we have a backing file (cloud image)
+            let has_cloud_image = config.disks.iter().any(|d| d.backing_file.is_some());
+            let has_user_data = !cloud_init_spec.user_data.is_empty();
+            
+            if has_user_data || has_cloud_image {
+                info!(
+                    vm_id = %req.vm_id,
+                    has_user_data = has_user_data,
+                    has_cloud_image = has_cloud_image,
+                    "Generating cloud-init ISO"
+                );
+                
+                // Build cloud-init configuration
+                let mut ci_config = CloudInitConfig::new(&req.vm_id, &req.name);
+                
+                // Set user-data (either from request or generate default)
+                if has_user_data {
+                    ci_config.user_data = cloud_init_spec.user_data;
+                }
+                
+                // Set meta-data if provided
+                if !cloud_init_spec.meta_data.is_empty() {
+                    ci_config.meta_data = Some(cloud_init_spec.meta_data);
+                }
+                
+                // Set network-config if provided
+                if !cloud_init_spec.network_config.is_empty() {
+                    ci_config.network_config = Some(cloud_init_spec.network_config);
+                }
+                
+                // Set vendor-data if provided
+                if !cloud_init_spec.vendor_data.is_empty() {
+                    ci_config.vendor_data = Some(cloud_init_spec.vendor_data);
+                }
+                
+                // Generate the cloud-init ISO
+                let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
+                let generator = CloudInitGenerator::new();
+                
+                match generator.generate_iso(&ci_config, &vm_dir) {
+                    Ok(iso_path) => {
+                        info!(
+                            vm_id = %req.vm_id,
+                            iso_path = %iso_path.display(),
+                            "Cloud-init ISO generated successfully"
+                        );
+                        
+                        // Add the cloud-init ISO as a CDROM device
+                        config.cdroms.push(CdromConfig {
+                            id: "cloud-init".to_string(),
+                            iso_path: Some(iso_path.to_string_lossy().to_string()),
+                            bootable: false, // Cloud-init ISO is not bootable
+                        });
+                    }
+                    Err(e) => {
+                        error!(
+                            vm_id = %req.vm_id,
+                            error = %e,
+                            "Failed to generate cloud-init ISO"
+                        );
+                        return Err(Status::internal(format!("Failed to generate cloud-init ISO: {}", e)));
+                    }
+                }
+            }
+        } else {
+            // No explicit cloud-init config provided, but check if we have a cloud image
+            // If so, generate a minimal default cloud-init with basic access
+            let has_cloud_image = config.disks.iter().any(|d| d.backing_file.is_some());
+            
+            if has_cloud_image {
+                info!(
+                    vm_id = %req.vm_id,
+                    "No cloud-init config provided for cloud image, generating default"
+                );
+                
+                // Generate default cloud-init config
+                let ci_config = CloudInitConfig::new(&req.vm_id, &req.name);
+                // generate_default_user_data() will be called by the generator if user_data is empty
+                
+                let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
+                let generator = CloudInitGenerator::new();
+                
+                match generator.generate_iso(&ci_config, &vm_dir) {
+                    Ok(iso_path) => {
+                        info!(
+                            vm_id = %req.vm_id,
+                            iso_path = %iso_path.display(),
+                            "Default cloud-init ISO generated"
+                        );
+                        
+                        config.cdroms.push(CdromConfig {
+                            id: "cloud-init".to_string(),
+                            iso_path: Some(iso_path.to_string_lossy().to_string()),
+                            bootable: false,
+                        });
+                    }
+                    Err(e) => {
+                        warn!(
+                            vm_id = %req.vm_id,
+                            error = %e,
+                            "Failed to generate default cloud-init ISO (continuing without it)"
+                        );
+                        // Don't fail the VM creation, just warn
+                    }
+                }
+            }
+        }
+        
         // Create the VM via the hypervisor backend
         // Ensure the agent socket directory exists before creating the VM
         // This is required because libvirt will try to bind the virtio-serial socket
@@ -654,6 +767,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             cpu_cores = config.cpu.total_vcpus(),
             memory_mib = config.memory.size_mib,
             disk_count = config.disks.len(),
+            cdrom_count = config.cdroms.len(),
             nic_count = config.nics.len(),
             "Creating VM in hypervisor"
         );
