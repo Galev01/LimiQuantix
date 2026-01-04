@@ -1,0 +1,42 @@
+# Quantix-OS Rust GUI Builder
+# ============================
+# Alpine-based environment for building the Slint GUI console with LinuxKMS backend
+#
+# This container provides all dependencies needed for:
+# - Rust compilation with musl target
+# - Slint LinuxKMS backend (libinput, libxkbcommon, etc.)
+# - Femtovg renderer (OpenGL ES)
+
+FROM rust:1.83-alpine3.20
+
+LABEL maintainer="Quantix Team <team@quantix.io>"
+LABEL description="Build environment for qx-console-gui (Slint)"
+
+# Install build dependencies for Slint LinuxKMS backend
+RUN apk add --no-cache \
+    # Core build tools
+    build-base \
+    musl-dev \
+    pkgconf \
+    # Slint LinuxKMS backend dependencies
+    eudev-dev \
+    libxkbcommon-dev \
+    libinput-dev \
+    mesa-dev \
+    libgbm \
+    # Femtovg renderer dependencies
+    freetype-dev \
+    fontconfig-dev \
+    # Seatd for session management
+    seatd-dev \
+    # Git for cargo dependencies
+    git
+
+# Set cargo home to a fixed location for caching
+ENV CARGO_HOME=/cargo
+RUN mkdir -p /cargo && chmod 777 /cargo
+
+WORKDIR /build
+
+# Default command - will be overridden by docker run
+CMD ["cargo", "build", "--release"]

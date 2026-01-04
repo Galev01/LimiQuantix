@@ -2,20 +2,26 @@
 # ========================
 # Build the immutable hypervisor operating system
 
-.PHONY: all iso squashfs console builder clean help
+.PHONY: all iso squashfs console builder rust-gui-builder clean help
 
 VERSION ?= 1.0.0
 ARCH ?= x86_64
 OUTPUT_DIR := output
 BUILDER_IMAGE := quantix-os-builder
+RUST_GUI_BUILDER_IMAGE := quantix-rust-gui-builder
 
 # Default target
 all: iso
 
-# Build the Docker builder image
+# Build the Docker builder image (for ISO/squashfs)
 builder:
 	@echo "==> Building builder Docker image..."
 	docker build --no-cache -t $(BUILDER_IMAGE) builder/
+
+# Build the Docker image for Rust GUI compilation (Alpine + Slint deps)
+rust-gui-builder:
+	@echo "==> Building Rust GUI builder Docker image..."
+	docker build -t $(RUST_GUI_BUILDER_IMAGE) -f builder/Dockerfile.rust-gui builder/
 
 # Build the bootable ISO installer
 iso: builder console-binary console-gui-binary
@@ -53,17 +59,19 @@ console-binary:
 	cp console/target/x86_64-unknown-linux-musl/release/qx-console overlay/usr/local/bin/
 
 # Build the Slint console GUI (primary)
-# NOTE: This requires building on Linux with the linuxkms dependencies installed:
-#   sudo apt install libudev-dev libxkbcommon-dev libfreetype-dev \
-#                    libfontconfig1-dev libgbm-dev libinput-dev libseat-dev musl-tools
-# The binary is statically linked with musl to work on Alpine Linux (Quantix-OS)
-console-gui-binary:
-	@echo "==> Building qx-console-gui (Slint GUI for Alpine/musl)..."
-	@echo "    NOTE: Must be run on Linux with KMS/DRM development libraries installed"
-	@echo "    Building with musl target for Alpine Linux compatibility..."
-	cd console-gui && cargo build --release --no-default-features --features linuxkms --target x86_64-unknown-linux-musl
+# Built inside an Alpine Docker container to ensure musl compatibility
+# The container has all LinuxKMS dependencies pre-installed
+console-gui-binary: rust-gui-builder
+	@echo "==> Building qx-console-gui (Slint GUI) in Alpine container..."
 	@mkdir -p overlay/usr/bin
-	cp console-gui/target/x86_64-unknown-linux-musl/release/qx-console-gui overlay/usr/bin/
+	docker run --rm \
+		-v $(PWD)/console-gui:/build:rw \
+		-v $(PWD)/overlay/usr/bin:/output \
+		-w /build \
+		$(RUST_GUI_BUILDER_IMAGE) \
+		sh -c "cargo build --release --no-default-features --features linuxkms && \
+		       cp target/release/qx-console-gui /output/ && \
+		       chmod 755 /output/qx-console-gui"
 	@echo "==> GUI binary copied to overlay/usr/bin/qx-console-gui"
 
 # Build the node daemon (from agent crate)
@@ -98,9 +106,10 @@ clean:
 	cd console && cargo clean
 	cd console-gui && cargo clean
 
-# Deep clean including Docker image
+# Deep clean including Docker images
 distclean: clean
 	docker rmi $(BUILDER_IMAGE) 2>/dev/null || true
+	docker rmi $(RUST_GUI_BUILDER_IMAGE) 2>/dev/null || true
 
 # Show help
 help:
@@ -112,13 +121,14 @@ help:
 	@echo "  make iso          - Build bootable ISO installer"
 	@echo "  make squashfs     - Build update image only"
 	@echo "  make console-binary     - Build TUI console (fallback)"
-	@echo "  make console-gui-binary - Build Slint GUI console (primary)"
+	@echo "  make console-gui-binary - Build Slint GUI console (in Docker)"
 	@echo "  make node-binary  - Build node daemon"
 	@echo "  make binaries     - Build all Rust binaries"
-	@echo "  make builder      - Build Docker builder image"
+	@echo "  make builder      - Build Docker builder image (ISO/squashfs)"
+	@echo "  make rust-gui-builder   - Build Docker image for Slint GUI compilation"
 	@echo "  make test-iso     - Test ISO in QEMU"
 	@echo "  make clean        - Remove build artifacts"
-	@echo "  make distclean    - Remove all including Docker image"
+	@echo "  make distclean    - Remove all including Docker images"
 	@echo ""
 	@echo "Variables:"
 	@echo "  VERSION=x.y.z     - Set version (default: 1.0.0)"

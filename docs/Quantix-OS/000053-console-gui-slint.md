@@ -434,21 +434,44 @@ make console-gui-binary
 
 ### Manual Build for Production
 
+The GUI binary must be built inside an Alpine Docker container because:
+1. Quantix-OS uses Alpine Linux (musl libc), not glibc
+2. The Slint LinuxKMS backend requires system libraries (libudev, libinput, etc.)
+3. Cross-compiling these C dependencies from Ubuntu to musl is complex
+
+**Recommended: Use the Makefile target** (handles Docker automatically):
+
 ```bash
-cd quantix-os/console-gui
+cd quantix-os
 
-# Build with LinuxKMS backend for framebuffer rendering
-# Uses musl target for Alpine Linux compatibility
-cargo build --release --no-default-features --features linuxkms --target x86_64-unknown-linux-musl
+# Build the GUI binary in Docker container
+make console-gui-binary
 
-# Strip symbols for smaller binary
-strip target/x86_64-unknown-linux-musl/release/qx-console-gui
-
-# Copy to overlay
-cp target/x86_64-unknown-linux-musl/release/qx-console-gui ../overlay/usr/bin/
+# This will:
+# 1. Build the quantix-rust-gui-builder Docker image (Alpine + Rust + Slint deps)
+# 2. Compile the GUI inside the container
+# 3. Copy the binary to overlay/usr/bin/qx-console-gui
 ```
 
-> **Important**: Always build with `x86_64-unknown-linux-musl` target. The `x86_64-unknown-linux-gnu` target produces glibc binaries that fail with "not found" on Alpine Linux (which uses musl libc).
+**Alternative: Build manually in Docker**:
+
+```bash
+cd quantix-os
+
+# Build the Docker image
+docker build -t quantix-rust-gui-builder -f builder/Dockerfile.rust-gui builder/
+
+# Run the build
+docker run --rm \
+    -v $(pwd)/console-gui:/build:rw \
+    -v $(pwd)/overlay/usr/bin:/output \
+    -w /build \
+    quantix-rust-gui-builder \
+    sh -c "cargo build --release --no-default-features --features linuxkms && \
+           cp target/release/qx-console-gui /output/"
+```
+
+> **Important**: Do NOT build with `--target x86_64-unknown-linux-musl` from an Ubuntu host. The Slint dependencies (libudev-sys, libinput-sys) require native system libraries that can't be easily cross-compiled. Always build inside the Alpine container.
 
 ### Console Launcher
 

@@ -1,56 +1,52 @@
-# Workflow State: Fix Slint GUI "not found" Error on Alpine
+# Workflow State: Fix Slint GUI Build for Alpine
 
 ## Problem (RESOLVED)
 
-The `qx-console-gui` binary fails to start on Quantix-OS (Alpine Linux) with:
-```
-/usr/local/bin/qx-console-launcher: line 29: /usr/bin/qx-console-gui: not found
-```
-
-**Root Cause**: The binary was built on Ubuntu (glibc) but Alpine uses musl libc. The "not found" error occurs because the dynamic linker `/lib/ld-linux-x86-64.so.2` doesn't exist on Alpine.
+Building `qx-console-gui` with `--target x86_64-unknown-linux-musl` fails because:
+1. `libudev-sys` requires system libraries that can't be cross-compiled
+2. pkg-config can't find musl-compatible udev libraries on the Ubuntu host
 
 ## Solution Applied
 
-Changed the build configuration to use:
-1. **Femtovg renderer** instead of Skia (pure Rust, no C++ deps)
-2. **musl target** (`x86_64-unknown-linux-musl`) for static linking
+Build the GUI binary **inside an Alpine Docker container** that has all the correct musl-based libraries pre-installed.
 
-### Files Changed
+### Files Created/Modified
 
-1. `quantix-os/console-gui/Cargo.toml`:
-   - Changed `linuxkms` feature to use `renderer-femtovg` instead of `renderer-skia`
+1. **`builder/Dockerfile.rust-gui`** (NEW):
+   - Alpine 3.20 + Rust 1.83
+   - All Slint LinuxKMS dependencies pre-installed (eudev-dev, libxkbcommon-dev, etc.)
+   - Builds natively with musl libc
 
-2. `quantix-os/Makefile`:
-   - Updated `console-gui-binary` target to build with `--target x86_64-unknown-linux-musl`
-   - Updated binary copy path to match musl target output
+2. **`Makefile`** (UPDATED):
+   - Added `rust-gui-builder` target to build the Docker image
+   - Changed `console-gui-binary` to build inside the Docker container
+   - Updated help text and distclean target
 
-3. `docs/Quantix-OS/000053-console-gui-slint.md`:
-   - Updated documentation to reflect musl target requirement
-   - Added explanation for why femtovg is used over skia
+3. **`console-gui/Cargo.toml`** (PREVIOUS UPDATE):
+   - Changed `linuxkms` feature to use `renderer-femtovg` (pure Rust, no Skia)
+
+## How It Works
+
+```
+make console-gui-binary
+  └── make rust-gui-builder (builds quantix-rust-gui-builder Docker image)
+  └── docker run ... cargo build --release --no-default-features --features linuxkms
+  └── Copies binary to overlay/usr/bin/qx-console-gui
+```
 
 ## Next Steps for User
-
-Rebuild the GUI binary and ISO:
 
 ```bash
 cd ~/LimiQuantix/quantix-os
 
-# Ensure musl target is installed
-rustup target add x86_64-unknown-linux-musl
+# Clean old binary
+rm -f overlay/usr/bin/qx-console-gui
 
-# Rebuild the GUI binary
+# Build the GUI binary (this will build the Docker image automatically)
 make console-gui-binary
 
-# Rebuild the ISO
+# Build the ISO
 make iso
 ```
-
-## Tasks
-
-- [x] Analyze the error and identify root cause
-- [x] Update Cargo.toml to use femtovg renderer for linuxkms
-- [x] Update Makefile to build with musl target
-- [x] Update documentation
-- [ ] User to rebuild and test
 
 ## Status: COMPLETE
