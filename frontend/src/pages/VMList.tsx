@@ -10,6 +10,7 @@ import {
   Square,
   MoreHorizontal,
   MonitorCog,
+  Monitor,
   Download,
   Trash2,
   Wifi,
@@ -24,6 +25,7 @@ import { useVMs, useStartVM, useStopVM, useDeleteVM, isVMRunning, isVMStopped, t
 import { useApiConnection } from '@/hooks/useDashboard';
 import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
 import { showInfo } from '@/lib/toast';
+import { useConsoleStore } from '@/hooks/useConsoleStore';
 
 type FilterTab = 'all' | 'running' | 'stopped' | 'other';
 
@@ -77,6 +79,9 @@ export function VMList() {
   const [selectedVMs, setSelectedVMs] = useState<Set<string>>(new Set());
   const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+
+  // Console store for quick console access
+  const { openConsole } = useConsoleStore();
 
   // API connection and data
   const { data: isConnected = false, isLoading: isCheckingConnection } = useApiConnection();
@@ -181,6 +186,17 @@ export function VMList() {
     } finally {
       setActionInProgress(null);
     }
+  };
+
+  // Quick console access - opens the console dock with this VM
+  const handleOpenConsole = (vm: MockVM, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (vm.status.state !== 'RUNNING') {
+      showInfo('VM must be running to open console');
+      return;
+    }
+    openConsole(vm.id, vm.name);
+    navigate('/consoles');
   };
 
   // Bulk actions
@@ -471,6 +487,16 @@ export function VMList() {
                     <Loader2 className="w-4 h-4 animate-spin text-accent" />
                   ) : (
                     <>
+                      {/* Quick Console Button - only for running VMs */}
+                      {vm.status.state === 'RUNNING' && (
+                        <button
+                          className="p-1.5 rounded-md hover:bg-accent/20 text-text-muted hover:text-accent transition-colors"
+                          title="Open Console"
+                          onClick={(e) => handleOpenConsole(vm, e)}
+                        >
+                          <Monitor className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       {vm.status.state === 'RUNNING' ? (
                         <button
                           className="p-1.5 rounded-md hover:bg-bg-active text-text-muted hover:text-error transition-colors"

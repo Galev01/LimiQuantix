@@ -21,6 +21,7 @@ import { Monitoring } from '@/pages/Monitoring';
 import { Alerts } from '@/pages/Alerts';
 import { DRSRecommendations } from '@/pages/DRSRecommendations';
 import ImageLibrary from '@/pages/ImageLibrary';
+import { ConsoleDock } from '@/pages/ConsoleDock';
 import { AdminPanel } from '@/pages/admin';
 import { RouteErrorBoundary } from '@/components/ErrorBoundary';
 
@@ -61,6 +62,7 @@ function AppRoutes() {
         {/* Inventory */}
         <Route path="/vms" element={<VMList />} />
         <Route path="/vms/:id" element={<VMDetail />} />
+        <Route path="/consoles" element={<ConsoleDock />} />
         <Route path="/hosts" element={<HostList />} />
         <Route path="/hosts/:id" element={<HostDetail />} />
         <Route path="/clusters" element={<ClusterList />} />

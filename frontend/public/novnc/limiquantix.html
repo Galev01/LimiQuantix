@@ -333,6 +333,29 @@
             animation: spin 0.8s linear infinite;
         }
         
+        .quality-check {
+            color: var(--success);
+            font-weight: bold;
+        }
+        
+        .quality-option.active .quality-check {
+            display: inline !important;
+        }
+        
+        .toggle-indicator {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--success);
+        }
+        
+        .toggle-indicator.off {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--error);
+        }
+        
         /* Toast Notifications */
         .toast-container {
             position: fixed;
@@ -655,6 +678,76 @@
                     <span class="btn-label">Reconnect</span>
                 </button>
                 
+                <!-- Quality Settings Dropdown -->
+                <div class="dropdown-container" id="qualityMenuContainer">
+                    <button class="btn" id="btnQuality" title="Quality Settings">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                        </svg>
+                        <span class="btn-label">Quality</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;margin-left:4px;">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </button>
+                    <div class="dropdown-menu" id="qualityMenu">
+                        <div class="dropdown-section-title">Compression Quality</div>
+                        <button class="dropdown-item quality-option" data-quality="auto">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 16v-4M12 8h.01"/>
+                            </svg>
+                            <span>Auto (Recommended)</span>
+                            <span class="quality-check" style="margin-left:auto;display:none;">✓</span>
+                        </button>
+                        <button class="dropdown-item quality-option" data-quality="high">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                <circle cx="12" cy="12" r="4"/>
+                            </svg>
+                            <span>High Quality</span>
+                            <span class="quality-check" style="margin-left:auto;display:none;">✓</span>
+                        </button>
+                        <button class="dropdown-item quality-option" data-quality="medium">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                <line x1="9" y1="9" x2="15" y2="15"/>
+                                <line x1="15" y1="9" x2="9" y2="15"/>
+                            </svg>
+                            <span>Balanced</span>
+                            <span class="quality-check" style="margin-left:auto;display:none;">✓</span>
+                        </button>
+                        <button class="dropdown-item quality-option" data-quality="low">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                            </svg>
+                            <span>Low Bandwidth</span>
+                            <span class="quality-check" style="margin-left:auto;display:none;">✓</span>
+                        </button>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-section-title">Performance</div>
+                        <button class="dropdown-item" id="btnToggleScale">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="15 3 21 3 21 9"/>
+                                <polyline points="9 21 3 21 3 15"/>
+                                <line x1="21" y1="3" x2="14" y2="10"/>
+                                <line x1="3" y1="21" x2="10" y2="14"/>
+                            </svg>
+                            <span>Scale to Fit</span>
+                            <span class="toggle-indicator" id="scaleIndicator" style="margin-left:auto;">ON</span>
+                        </button>
+                        <button class="dropdown-item" id="btnToggleLocalCursor">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4l7.07 17 2.51-7.39L21 11.07z"/>
+                            </svg>
+                            <span>Show Local Cursor</span>
+                            <span class="toggle-indicator" id="cursorIndicator" style="margin-left:auto;">ON</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="toolbar-divider"></div>
+                
                 <!-- Fullscreen -->
                 <button class="btn btn-success" id="btnFullscreen" title="Toggle fullscreen">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="iconFullscreen">
@@ -794,6 +887,16 @@
         const btnRestart = document.getElementById('btnRestart');
         const btnForcePowerOff = document.getElementById('btnForcePowerOff');
         
+        // Quality menu elements
+        const btnQuality = document.getElementById('btnQuality');
+        const qualityMenu = document.getElementById('qualityMenu');
+        const qualityMenuContainer = document.getElementById('qualityMenuContainer');
+        const qualityOptions = document.querySelectorAll('.quality-option');
+        const btnToggleScale = document.getElementById('btnToggleScale');
+        const btnToggleLocalCursor = document.getElementById('btnToggleLocalCursor');
+        const scaleIndicator = document.getElementById('scaleIndicator');
+        const cursorIndicator = document.getElementById('cursorIndicator');
+        
         // Icons
         const iconFullscreen = document.getElementById('iconFullscreen');
         const iconExitFullscreen = document.getElementById('iconExitFullscreen');
@@ -924,11 +1027,18 @@
                     credentials: token ? { password: token } : undefined,
                 });
 
-                // Configure RFB
-                rfb.scaleViewport = true;
+                // Configure RFB with stored settings
+                rfb.scaleViewport = scaleViewport;
                 rfb.resizeSession = true;
-                rfb.showDotCursor = true;
+                rfb.showDotCursor = showLocalCursor;
                 rfb.clipViewport = false;
+                
+                // Apply quality preset
+                const preset = qualityPresets[currentQuality];
+                if (preset) {
+                    rfb.compressionLevel = preset.compressionLevel;
+                    rfb.qualityLevel = preset.qualityLevel;
+                }
 
                 // Event: Connected
                 rfb.addEventListener('connect', () => {
@@ -977,6 +1087,21 @@
                 // Event: Desktop name
                 rfb.addEventListener('desktopname', (e) => {
                     console.log('Desktop name:', e.detail.name);
+                });
+                
+                // Event: Clipboard from server (ServerCutText)
+                rfb.addEventListener('clipboard', (e) => {
+                    const text = e.detail.text;
+                    if (text && navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(text)
+                            .then(() => {
+                                console.log('Clipboard synced from VM:', text.length, 'chars');
+                                showToast('Clipboard synced from VM', 'info');
+                            })
+                            .catch(err => {
+                                console.warn('Failed to sync clipboard from VM:', err);
+                            });
+                    }
                 });
 
             } catch (err) {
@@ -1098,6 +1223,151 @@
         btnShutdown.addEventListener('click', () => vmPowerAction('stop'));
         btnRestart.addEventListener('click', () => vmPowerAction('reboot'));
         btnForcePowerOff.addEventListener('click', () => vmPowerAction('force_stop'));
+        
+        // Quality Settings
+        let currentQuality = localStorage.getItem('consoleQuality') || 'auto';
+        let scaleViewport = localStorage.getItem('consoleScale') !== 'false';
+        let showLocalCursor = localStorage.getItem('consoleCursor') !== 'false';
+        
+        // Quality presets (compression level and JPEG quality)
+        const qualityPresets = {
+            auto: { compressionLevel: 2, qualityLevel: 6 },  // Balanced defaults
+            high: { compressionLevel: 0, qualityLevel: 9 },  // Best quality, no compression
+            medium: { compressionLevel: 5, qualityLevel: 5 }, // Medium compression
+            low: { compressionLevel: 9, qualityLevel: 2 }    // Maximum compression for slow networks
+        };
+        
+        // Initialize quality menu UI
+        function updateQualityUI() {
+            qualityOptions.forEach(opt => {
+                const isActive = opt.dataset.quality === currentQuality;
+                opt.classList.toggle('active', isActive);
+            });
+            
+            scaleIndicator.textContent = scaleViewport ? 'ON' : 'OFF';
+            scaleIndicator.classList.toggle('off', !scaleViewport);
+            
+            cursorIndicator.textContent = showLocalCursor ? 'ON' : 'OFF';
+            cursorIndicator.classList.toggle('off', !showLocalCursor);
+        }
+        
+        // Apply quality settings to RFB
+        function applyQualitySettings() {
+            if (!rfb) return;
+            
+            const preset = qualityPresets[currentQuality];
+            if (preset) {
+                rfb.compressionLevel = preset.compressionLevel;
+                rfb.qualityLevel = preset.qualityLevel;
+            }
+            
+            rfb.scaleViewport = scaleViewport;
+            rfb.showDotCursor = showLocalCursor;
+        }
+        
+        // Quality option click handlers
+        qualityOptions.forEach(opt => {
+            opt.addEventListener('click', () => {
+                currentQuality = opt.dataset.quality;
+                localStorage.setItem('consoleQuality', currentQuality);
+                updateQualityUI();
+                applyQualitySettings();
+                qualityMenu.classList.remove('show');
+                
+                const qualityNames = { auto: 'Auto', high: 'High Quality', medium: 'Balanced', low: 'Low Bandwidth' };
+                showToast(`Quality set to ${qualityNames[currentQuality]}`, 'success');
+            });
+        });
+        
+        // Scale toggle
+        btnToggleScale.addEventListener('click', () => {
+            scaleViewport = !scaleViewport;
+            localStorage.setItem('consoleScale', scaleViewport);
+            updateQualityUI();
+            applyQualitySettings();
+            showToast(`Scale to Fit ${scaleViewport ? 'enabled' : 'disabled'}`, 'info');
+        });
+        
+        // Local cursor toggle
+        btnToggleLocalCursor.addEventListener('click', () => {
+            showLocalCursor = !showLocalCursor;
+            localStorage.setItem('consoleCursor', showLocalCursor);
+            updateQualityUI();
+            applyQualitySettings();
+            showToast(`Local cursor ${showLocalCursor ? 'visible' : 'hidden'}`, 'info');
+        });
+        
+        // Quality menu toggle (click-based)
+        btnQuality.addEventListener('click', (e) => {
+            e.stopPropagation();
+            qualityMenu.classList.toggle('show');
+            // Close VM menu if open
+            vmMenu.classList.remove('show');
+        });
+        
+        // Close quality menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!qualityMenuContainer.contains(e.target)) {
+                qualityMenu.classList.remove('show');
+            }
+        });
+        
+        // Initialize quality UI on load
+        updateQualityUI();
+        
+        // Bidirectional Clipboard Sync
+        // Poll local clipboard for changes and send to VM
+        let lastClipboardText = '';
+        let clipboardSyncEnabled = localStorage.getItem('clipboardSync') !== 'false';
+        
+        async function syncClipboardToVM() {
+            if (!clipboardSyncEnabled || !rfb) return;
+            
+            try {
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    // Check if document has focus before reading clipboard
+                    if (document.hasFocus()) {
+                        const text = await navigator.clipboard.readText();
+                        if (text && text !== lastClipboardText) {
+                            lastClipboardText = text;
+                            rfb.clipboardPasteFrom(text);
+                            console.log('Clipboard synced to VM:', text.length, 'chars');
+                        }
+                    }
+                }
+            } catch (err) {
+                // Silently fail - clipboard access may not be allowed
+                console.debug('Clipboard read failed:', err.message);
+            }
+        }
+        
+        // Start clipboard polling when connected (every 500ms)
+        let clipboardPollInterval = null;
+        
+        function startClipboardSync() {
+            if (clipboardPollInterval) clearInterval(clipboardPollInterval);
+            if (clipboardSyncEnabled) {
+                clipboardPollInterval = setInterval(syncClipboardToVM, 500);
+            }
+        }
+        
+        function stopClipboardSync() {
+            if (clipboardPollInterval) {
+                clearInterval(clipboardPollInterval);
+                clipboardPollInterval = null;
+            }
+        }
+        
+        // Handle focus/blur to optimize clipboard polling
+        window.addEventListener('focus', () => {
+            if (rfb && clipboardSyncEnabled) {
+                startClipboardSync();
+            }
+        });
+        
+        window.addEventListener('blur', () => {
+            stopClipboardSync();
+        });
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {

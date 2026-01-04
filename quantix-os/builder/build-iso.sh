@@ -129,19 +129,25 @@ terminal_output gfxterm
 # Menu entries
 menuentry "Quantix-OS Installer" --class quantix {
     echo "Loading Quantix-OS..."
-    linux /boot/vmlinuz quiet
+    linux /boot/vmlinuz quiet nomodeset video=vesafb:mtrr:3,ywrap
     initrd /boot/initramfs
 }
 
 menuentry "Quantix-OS Installer (Verbose)" --class quantix {
     echo "Loading Quantix-OS (Verbose)..."
-    linux /boot/vmlinuz
+    linux /boot/vmlinuz nomodeset video=vesafb:mtrr:3,ywrap
+    initrd /boot/initramfs
+}
+
+menuentry "Quantix-OS Installer (KMS - GPU)" --class quantix {
+    echo "Loading Quantix-OS (KMS Mode)..."
+    linux /boot/vmlinuz quiet
     initrd /boot/initramfs
 }
 
 menuentry "Rescue Shell (initramfs)" --class rescue {
     echo "Loading Rescue Shell..."
-    linux /boot/vmlinuz rescue
+    linux /boot/vmlinuz rescue nomodeset
     initrd /boot/initramfs
 }
 EOF

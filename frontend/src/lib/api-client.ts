@@ -683,6 +683,6 @@ export const alertApi = {
 export function getTransport() {
   // This is a stub for code that imports getTransport
   // Real API calls use the vmApi/nodeApi objects above
-  console.warn('getTransport() is deprecated. Use vmApi/nodeApi instead.');
+  // Note: This function is deprecated - use vmApi/nodeApi instead
   return null;
 }

@@ -1,64 +1,54 @@
-# Workflow State: Error Handling Polish Sprint
+# Workflow State: Admin Panel Backend Implementation
 
-## Summary
+## Current Task
+Implementing the Admin Panel Backend based on the plan in `admin_panel_backend_6f99ffdf.plan.md`
 
-Completed a comprehensive error handling polish sprint for the frontend, replacing all `console.log`/`console.error` statements with proper user-facing toast notifications.
+## Analysis Summary
 
-## Completed Tasks
+### Existing Infrastructure
+- **Domain Models** (`backend/internal/domain/user.go`): Already has `User`, `Role`, `Permission`, `AuditEntry` definitions
+- **Auth Service** (`backend/internal/services/auth/service.go`): Has `UserRepository`, `AuditRepository`, `SessionStore` interfaces
+- **Database Schema** (`backend/migrations/000001_init.up.sql`): Has `users`, `audit_log` tables
+- **Server** (`backend/internal/server/server.go`): HTTP server with middleware, no admin routes yet
 
-### Phase 1: Foundation
-- [x] Added `<Toaster />` component from `sonner` to `App.tsx`
-- [x] Created `frontend/src/lib/toast.ts` - Centralized toast utilities with `showSuccess`, `showError`, `showWarning`, `showInfo`
-- [x] Created `frontend/src/components/ErrorBoundary.tsx` - React error boundary with retry functionality
-- [x] Wrapped routes with `RouteErrorBoundary` in App.tsx
+### What Needs to Be Built
 
-### Phase 2: API Layer Improvements
-- [x] Enhanced `useVMs.ts` - Added `onSuccess`/`onError` toast callbacks to all mutations
-- [x] Created `useUpdateVM()` hook for VM settings/resources updates
-- [x] Added `update()` method to `vmApi` in api-client.ts
-- [x] Enhanced `useStorage.ts` - Added toast notifications to all storage mutations
-- [x] Enhanced `useNetworks.ts` - Added toast notifications + `useUpdateNetwork` hook
-- [x] Added `update()` method to `networkApi` in api-client.ts
-- [x] Enhanced `useSecurityGroups.ts` - Added toast notifications to all mutations
-- [x] Enhanced `useSnapshots.ts` - Added toast notifications to all mutations
+#### Phase 1: Core Security (Priority)
+1. **Domain Models** - Extend with CustomRole, APIKey, Organization, SSOConfig, GlobalRule
+2. **Database Migration** - Add tables: roles, api_keys, sso_configs, organizations, admin_emails, global_rules
+3. **Repositories** - PostgreSQL implementations for each new entity
+4. **Services** - Business logic for roles, API keys, audit, organization, global rules
+5. **REST Handlers** - Admin API endpoints
 
-### Phase 3: Page-Level Error Handling
-- [x] `VMDetail.tsx` - Replaced 8 console.log statements, wired up `useUpdateVM`
-- [x] `VMList.tsx` - Replaced 3 console.log statements
-- [x] `VirtualNetworks.tsx` - Wired up create/update/delete with API + toast
-- [x] `SecurityGroups.tsx` - Wired up delete with API + toast
-- [x] `HostList.tsx` - Added proper toast feedback for context menu actions
-- [x] `LoadBalancers.tsx` - Replaced console.log with toast
-- [x] `VPNServices.tsx` - Replaced console.log with toast
-- [x] `BGPSpeakers.tsx` - Replaced console.log with toast
+#### Phase 2: SSO Integration
+- OIDC Service
+- SAML Service (placeholder)
+- SSO Routes
 
-### Phase 4: Component-Level Error Handling
-- [x] `ConsoleAccessModal.tsx` - Replaced console.error with toast for clipboard errors
-- [x] `Layout.tsx` - Wired up VM creation with `useCreateVM` hook
+#### Phase 3: Telemetry & Metrics
+- Telemetry Service aggregating data from existing services
+- Telemetry Routes
 
-## Files Modified
+## Implementation Order (Phase 1)
 
-### New Files
-- `frontend/src/lib/toast.ts`
-- `frontend/src/components/ErrorBoundary.tsx`
+| # | Task | Status |
+|---|------|--------|
+| 1 | Create `domain/admin.go` with CustomRole, APIKey, Organization, SSOConfig, AdminEmail, GlobalRule | pending |
+| 2 | Create migration `002_admin_tables.sql` | pending |
+| 3 | Create `postgres/role_repository.go` | pending |
+| 4 | Create `postgres/api_key_repository.go` | pending |
+| 5 | Create `postgres/audit_repository.go` | pending |
+| 6 | Create `postgres/organization_repository.go` | pending |
+| 7 | Create `postgres/admin_email_repository.go` | pending |
+| 8 | Create `postgres/global_rule_repository.go` | pending |
+| 9 | Create `services/admin/role_service.go` | pending |
+| 10 | Create `services/admin/api_key_service.go` | pending |
+| 11 | Create `services/admin/audit_service.go` | pending |
+| 12 | Create `services/admin/organization_service.go` | pending |
+| 13 | Create `services/admin/admin_email_service.go` | pending |
+| 14 | Create `services/admin/global_rule_service.go` | pending |
+| 15 | Create `server/admin_handlers.go` with REST endpoints | pending |
+| 16 | Register admin routes in `server/server.go` | pending |
 
-### Modified Files
-1. `frontend/src/App.tsx` - Added Toaster + ErrorBoundary
-2. `frontend/src/lib/api-client.ts` - Added vmApi.update(), networkApi.update()
-3. `frontend/src/hooks/useVMs.ts` - Added useUpdateVM, toast to all mutations
-4. `frontend/src/hooks/useStorage.ts` - Added toast to all mutations
-5. `frontend/src/hooks/useNetworks.ts` - Added useUpdateNetwork, toast to all mutations
-6. `frontend/src/hooks/useSecurityGroups.ts` - Added toast to all mutations
-7. `frontend/src/hooks/useSnapshots.ts` - Added toast to all mutations
-8. `frontend/src/pages/VMDetail.tsx` - Replaced console.log with toast
-9. `frontend/src/pages/VMList.tsx` - Replaced console.log with toast
-10. `frontend/src/pages/VirtualNetworks.tsx` - Wired up API + toast
-11. `frontend/src/pages/SecurityGroups.tsx` - Wired up API + toast
-12. `frontend/src/pages/HostList.tsx` - Added toast for actions
-13. `frontend/src/pages/LoadBalancers.tsx` - Added toast for create
-14. `frontend/src/pages/VPNServices.tsx` - Added toast for create
-15. `frontend/src/pages/BGPSpeakers.tsx` - Added toast for create
-16. `frontend/src/components/vm/ConsoleAccessModal.tsx` - Replaced console.error with toast
-17. `frontend/src/components/layout/Layout.tsx` - Wired up VM creation
-
-## Status: COMPLETE ✅
+## Log
+- 2026-01-04: Started admin panel backend implementation analysis

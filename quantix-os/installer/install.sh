@@ -329,9 +329,20 @@ terminal_output gfxterm
 set color_normal=white/black
 set color_highlight=black/light-cyan
 
-# System A (Active)
+# System A (Active) - Default uses VESA framebuffer for widest compatibility
 menuentry "Quantix-OS (System A)" --class quantix {
     echo "Loading Quantix-OS..."
+    search --no-floppy --fs-uuid --set=root ${SYSA_UUID}
+    linux /boot/vmlinuz root=UUID=${SYSA_UUID} ro quiet \
+        nomodeset video=vesafb:mtrr:3,ywrap \
+        modloop=/quantix/system.squashfs modules=loop,squashfs,overlay \
+        quantix.config=UUID=${CFG_UUID} quantix.data=UUID=${DATA_UUID}
+    initrd /boot/initramfs
+}
+
+# System A with KMS (GPU acceleration if available)
+menuentry "Quantix-OS (System A - KMS)" --class quantix {
+    echo "Loading Quantix-OS with KMS..."
     search --no-floppy --fs-uuid --set=root ${SYSA_UUID}
     linux /boot/vmlinuz root=UUID=${SYSA_UUID} ro quiet \
         modloop=/quantix/system.squashfs modules=loop,squashfs,overlay \
@@ -344,6 +355,7 @@ menuentry "Quantix-OS (System B)" --class quantix {
     echo "Loading Quantix-OS (System B)..."
     search --no-floppy --fs-uuid --set=root ${SYSB_UUID}
     linux /boot/vmlinuz root=UUID=${SYSB_UUID} ro quiet \
+        nomodeset video=vesafb:mtrr:3,ywrap \
         modloop=/quantix/system.squashfs modules=loop,squashfs,overlay \
         quantix.config=UUID=${CFG_UUID} quantix.data=UUID=${DATA_UUID}
     initrd /boot/initramfs
@@ -353,7 +365,7 @@ menuentry "Quantix-OS (System B)" --class quantix {
 menuentry "Quantix-OS Recovery Shell" --class rescue {
     echo "Loading Recovery Shell..."
     search --no-floppy --fs-uuid --set=root ${SYSA_UUID}
-    linux /boot/vmlinuz root=UUID=${SYSA_UUID} ro \
+    linux /boot/vmlinuz root=UUID=${SYSA_UUID} ro nomodeset \
         modloop=/quantix/system.squashfs modules=loop,squashfs,overlay \
         quantix.config=UUID=${CFG_UUID} init=/bin/sh
     initrd /boot/initramfs
