@@ -32,6 +32,8 @@ interface ConsoleState {
   gridLayout: GridLayout;
   // User's default console preference
   defaultConsoleType: 'web' | 'qvmrc';
+  // Whether the VM sidebar is collapsed
+  sidebarCollapsed: boolean;
   
   // Actions
   openConsole: (vmId: string, vmName: string) => void;
@@ -41,6 +43,7 @@ interface ConsoleState {
   setViewMode: (mode: ViewMode) => void;
   setGridLayout: (layout: GridLayout) => void;
   setDefaultConsoleType: (type: 'web' | 'qvmrc') => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   reorderSessions: (fromIndex: number, toIndex: number) => void;
   getSessionByVmId: (vmId: string) => ConsoleSession | undefined;
   updateThumbnail: (vmId: string, thumbnail: string, width?: number, height?: number) => void;
@@ -54,6 +57,7 @@ export const useConsoleStore = create<ConsoleState>()(
       viewMode: 'tabs',
       gridLayout: '2x2',
       defaultConsoleType: 'web',
+      sidebarCollapsed: false,
 
       openConsole: (vmId: string, vmName: string) => {
         const existing = get().sessions.find((s) => s.vmId === vmId);
@@ -122,6 +126,10 @@ export const useConsoleStore = create<ConsoleState>()(
         set({ defaultConsoleType: type });
       },
 
+      setSidebarCollapsed: (collapsed: boolean) => {
+        set({ sidebarCollapsed: collapsed });
+      },
+
       reorderSessions: (fromIndex: number, toIndex: number) => {
         const sessions = [...get().sessions];
         const [moved] = sessions.splice(fromIndex, 1);
@@ -150,6 +158,7 @@ export const useConsoleStore = create<ConsoleState>()(
         viewMode: state.viewMode,
         gridLayout: state.gridLayout,
         defaultConsoleType: state.defaultConsoleType,
+        sidebarCollapsed: state.sidebarCollapsed,
         // Don't persist sessions - they should be fresh on page load
       }),
     }
@@ -166,3 +175,4 @@ export const useActiveSession = () => {
 export const useConsoleViewMode = () => useConsoleStore((state) => state.viewMode);
 export const useConsoleGridLayout = () => useConsoleStore((state) => state.gridLayout);
 export const useDefaultConsoleType = () => useConsoleStore((state) => state.defaultConsoleType);
+export const useSidebarCollapsed = () => useConsoleStore((state) => state.sidebarCollapsed);

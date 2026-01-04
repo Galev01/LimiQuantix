@@ -286,10 +286,13 @@ func (s *Server) registerRoutes() {
 	// REST API Endpoints (for simple frontend consumption)
 	// =========================================================================
 
-	// VM Power Actions REST API (POST /api/vms/{id}/{action})
+	// VM REST API (power actions + file transfer)
+	// Routes:
+	//   - POST /api/vms/{id}/{action} - Power actions (start, stop, reboot, force_stop)
+	//   - /api/vms/{id}/files/* - File transfer operations (write, read, list, stat, delete)
 	vmRestHandler := NewVMRestHandler(s)
 	s.mux.Handle("/api/vms/", vmRestHandler)
-	s.logger.Info("Registered VM REST API", zap.String("path", "/api/vms/{id}/{action}"))
+	s.logger.Info("Registered VM REST API", zap.String("path", "/api/vms/{id}/*"))
 
 	// =========================================================================
 	// Connect-RPC Services - Compute

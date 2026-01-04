@@ -1,0 +1,69 @@
+#!/bin/sh
+# ============================================================================
+# Quantix-OS libvirtd Starter
+# ============================================================================
+# Starts libvirtd in background if the OpenRC service hangs.
+# This is a failsafe for when nested virtualization isn't enabled.
+# ============================================================================
+
+LOG="/var/log/quantix/libvirtd-starter.log"
+mkdir -p /var/log/quantix
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> "$LOG"
+    echo "[QUANTIX] $1"
+}
+
+# Check if libvirtd is already running (started by OpenRC)
+if pgrep -x libvirtd >/dev/null 2>&1; then
+    log "libvirtd already running"
+    exit 0
+fi
+
+# Check if the service is stuck (OpenRC might be waiting)
+if rc-status 2>/dev/null | grep -q "libvirtd.*starting"; then
+    log "libvirtd appears to be stuck starting"
+    log "Killing stuck process and restarting..."
+    
+    # Kill any stuck libvirtd processes
+    pkill -9 libvirtd 2>/dev/null || true
+    sleep 1
+fi
+
+# Ensure virtlogd is running first
+if ! pgrep -x virtlogd >/dev/null 2>&1; then
+    log "Starting virtlogd..."
+    /usr/sbin/virtlogd -d 2>/dev/null || true
+    sleep 1
+fi
+
+# Check KVM availability
+if [ -c /dev/kvm ]; then
+    log "KVM is available"
+else
+    log "WARNING: KVM not available - VMs will use emulation"
+fi
+
+# Start libvirtd manually in daemon mode
+log "Starting libvirtd manually..."
+/usr/sbin/libvirtd -d -f /etc/libvirt/libvirtd.conf 2>>"$LOG" &
+
+# Wait a moment for it to initialize
+sleep 3
+
+# Verify it started
+if pgrep -x libvirtd >/dev/null 2>&1; then
+    log "libvirtd started successfully"
+    
+    # Test if API is responding
+    if virsh list --all >/dev/null 2>&1; then
+        log "libvirt API is responsive"
+    else
+        log "WARNING: libvirt API not responding yet (may need more time)"
+    fi
+else
+    log "ERROR: Failed to start libvirtd"
+    exit 1
+fi
+
+exit 0

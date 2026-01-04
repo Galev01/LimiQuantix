@@ -276,6 +276,49 @@ The built UI is served by the node daemon:
 2. Copy `dist/` to node daemon's static file path
 3. Node daemon serves files on port 8443
 
+### Node Daemon HTTP Server
+
+The node daemon (`limiquantix-node`) includes an Axum-based HTTP server that:
+
+1. **Serves Static Files**: The React SPA from `/usr/share/quantix/webui/`
+2. **REST API Gateway**: Proxies requests to the gRPC service
+3. **SPA Fallback**: All unknown routes return `index.html` for client-side routing
+
+```rust
+// Configuration (from /etc/limiquantix/node.yaml or CLI)
+server:
+  http:
+    enabled: true
+    listen_address: "0.0.0.0:8443"
+    webui_path: "/usr/share/quantix/webui"
+```
+
+#### CLI Options
+
+```bash
+limiquantix-node \
+  --http-listen 0.0.0.0:8443 \
+  --webui-path /usr/share/quantix/webui \
+  --no-webui  # Disable HTTP server entirely
+```
+
+### Build Integration
+
+The Quantix-OS Makefile automates the build:
+
+```bash
+# Build just the webui
+make webui
+
+# Build complete ISO (includes webui)
+make iso VERSION=1.0.0
+```
+
+The webui target:
+1. Runs `npm ci` in `quantix-host-ui/`
+2. Runs `npm run build`
+3. Copies `dist/*` to `overlay/usr/share/quantix/webui/`
+
 ## Future Enhancements
 
 - [ ] WebSocket-based real-time updates

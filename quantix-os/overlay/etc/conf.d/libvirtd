@@ -1,0 +1,24 @@
+# ============================================================================
+# Quantix-OS libvirtd Configuration
+# ============================================================================
+# Configuration for the libvirt daemon
+
+# Arguments for libvirtd
+# -d = daemonize (background)
+# -f = config file path
+# -t = startup timeout (seconds)
+LIBVIRTD_OPTS="-d -f /etc/libvirt/libvirtd.conf -t 10"
+
+# Timeout for daemon startup (prevents hanging on boot)
+# Libvirt may hang if KVM isn't available (nested virt not enabled)
+rc_start_timeout=30
+
+# Supervisor mode - don't wait for process to fully initialize
+supervisor=supervise-daemon
+
+# Dependencies - minimal to avoid blocking
+rc_need=""
+rc_after="virtlogd dbus"
+
+# Start in background to not block boot
+command_background=yes

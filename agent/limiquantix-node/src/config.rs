@@ -58,6 +58,11 @@ impl Config {
         // Always apply listen address from CLI
         self.server.listen_address = args.listen.clone();
         
+        // HTTP server settings
+        self.server.http.listen_address = args.http_listen.clone();
+        self.server.http.webui_path = args.webui_path.clone();
+        self.server.http.enabled = !args.no_webui;
+        
         if let Some(ref control_plane) = args.control_plane {
             self.control_plane.address = control_plane.clone();
         }
@@ -137,6 +142,8 @@ pub struct ServerConfig {
     pub listen_address: String,
     /// Port for Prometheus metrics
     pub metrics_port: u16,
+    /// HTTP server configuration (for Web UI)
+    pub http: HttpServerConfig,
 }
 
 impl Default for ServerConfig {
@@ -144,6 +151,29 @@ impl Default for ServerConfig {
         Self {
             listen_address: "0.0.0.0:9090".to_string(),
             metrics_port: 9091,
+            http: HttpServerConfig::default(),
+        }
+    }
+}
+
+/// HTTP server configuration for Web UI.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct HttpServerConfig {
+    /// Enable HTTP server for Web UI
+    pub enabled: bool,
+    /// Address to listen on for HTTP (Web UI + REST API)
+    pub listen_address: String,
+    /// Path to static files for Web UI
+    pub webui_path: String,
+}
+
+impl Default for HttpServerConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            listen_address: "0.0.0.0:8443".to_string(),
+            webui_path: "/usr/share/quantix/webui".to_string(),
         }
     }
 }

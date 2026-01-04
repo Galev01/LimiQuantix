@@ -6,3 +6,4 @@
 
 export { ConsoleTabBar } from './ConsoleTabBar';
 export { ConsoleGrid } from './ConsoleGrid';
+export { VMSidebar } from './VMSidebar';

@@ -20,6 +20,18 @@ pub struct Args {
     #[arg(long, default_value = "0.0.0.0:9090")]
     pub listen: String,
     
+    /// Listen address for HTTP server (Web UI + REST API)
+    #[arg(long, default_value = "0.0.0.0:8443")]
+    pub http_listen: String,
+    
+    /// Path to Web UI static files
+    #[arg(long, default_value = "/usr/share/quantix/webui")]
+    pub webui_path: String,
+    
+    /// Disable HTTP server (Web UI)
+    #[arg(long)]
+    pub no_webui: bool,
+    
     /// Control plane address to register with
     #[arg(long)]
     pub control_plane: Option<String>,

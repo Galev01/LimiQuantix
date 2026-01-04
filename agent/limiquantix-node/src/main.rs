@@ -22,6 +22,7 @@ use tracing::{info, error};
 mod agent_client;
 mod cli;
 mod config;
+mod http_server;
 mod registration;
 mod server;
 mod service;

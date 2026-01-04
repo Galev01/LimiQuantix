@@ -236,7 +236,10 @@ EOF
     ln -sf /etc/init.d/local "${ROOTFS}/etc/runlevels/boot/local" 2>/dev/null || true
     
     # Enable our services
-    ln -sf /etc/init.d/libvirtd "${ROOTFS}/etc/runlevels/default/libvirtd" 2>/dev/null || true
+    # NOTE: libvirtd is NOT added to runlevel - it's started by local.d script
+    # This prevents boot hangs when KVM/nested virtualization isn't available
+    # See: overlay/etc/local.d/20-start-libvirtd.start
+    ln -sf /etc/init.d/virtlogd "${ROOTFS}/etc/runlevels/default/virtlogd" 2>/dev/null || true
     ln -sf /etc/init.d/ovsdb-server "${ROOTFS}/etc/runlevels/default/ovsdb-server" 2>/dev/null || true
     ln -sf /etc/init.d/ovs-vswitchd "${ROOTFS}/etc/runlevels/default/ovs-vswitchd" 2>/dev/null || true
     

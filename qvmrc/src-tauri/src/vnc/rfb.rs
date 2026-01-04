@@ -3,6 +3,7 @@
 //! This module implements the Remote Framebuffer protocol used by VNC.
 //! Supports both direct TCP connections and WebSocket proxy connections.
 
+use super::encodings::{self, TightZlibState};
 use des::cipher::{BlockEncrypt, KeyInit};
 use des::Des;
 use futures_util::{SinkExt, StreamExt};
@@ -12,7 +13,7 @@ use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
-use tracing::{debug, info, warn};
+use tracing::{debug, info, trace, warn};
 
 /// RFB protocol errors
 #[derive(Error, Debug)]
@@ -203,6 +204,8 @@ pub struct RFBClient {
     pub name: String,
     /// Last clipboard text received from server (ServerCutText)
     pub last_server_clipboard: Option<String>,
+    /// Persistent zlib decompressor state for Tight encoding (4 streams per spec)
+    tight_zlib_state: TightZlibState,
 }
 
 impl fmt::Debug for RFBClient {
@@ -231,6 +234,7 @@ impl RFBClient {
             pixel_format: PixelFormat::default(),
             name: String::new(),
             last_server_clipboard: None,
+            tight_zlib_state: TightZlibState::new(),
         })
     }
 
@@ -255,6 +259,7 @@ impl RFBClient {
             pixel_format: PixelFormat::default(),
             name: String::new(),
             last_server_clipboard: None,
+            tight_zlib_state: TightZlibState::new(),
         })
     }
 
@@ -416,15 +421,18 @@ impl RFBClient {
     }
 
     /// Set supported encodings
+    /// Order matters - preferred encodings should come first
     async fn set_encodings(&mut self) -> Result<(), RFBError> {
+        // Encoding priority: ZRLE > Tight > Hextile > Zlib > RRE > CopyRect > Raw
+        // ZRLE and Tight provide the best compression for most workloads
         let encodings: &[i32] = &[
-            0,   // Raw
-            1,   // CopyRect
-            2,   // RRE
-            5,   // Hextile
-            6,   // Zlib
-            7,   // Tight
-            16,  // ZRLE
+            16,  // ZRLE - excellent for desktop content, run-length + zlib
+            7,   // Tight - best for mixed content (JPEG for photos, zlib for desktop)
+            5,   // Hextile - good balance of speed and compression
+            6,   // Zlib - simple zlib compression
+            2,   // RRE - rise-and-run-length encoding
+            1,   // CopyRect - copy from another screen region
+            0,   // Raw - uncompressed fallback
             -239, // Cursor pseudo-encoding
             -223, // DesktopSize pseudo-encoding
         ];
@@ -439,6 +447,11 @@ impl RFBClient {
         }
 
         self.transport.write_all(&msg).await?;
+        
+        debug!(
+            "Set encodings: ZRLE, Tight, Hextile, Zlib, RRE, CopyRect, Raw + pseudo-encodings"
+        );
+        
         Ok(())
     }
 
@@ -477,12 +490,23 @@ impl RFBClient {
                 let _padding = self.read_u8().await?;
                 let num_rects = self.read_u16().await?;
 
-                for _ in 0..num_rects {
+                for rect_idx in 0..num_rects {
                     let x = self.read_u16().await?;
                     let y = self.read_u16().await?;
                     let width = self.read_u16().await?;
                     let height = self.read_u16().await?;
                     let encoding = self.read_i32().await?;
+
+                    trace!(
+                        "Rect {}/{}: {}x{} at ({},{}) encoding={}",
+                        rect_idx + 1,
+                        num_rects,
+                        width,
+                        height,
+                        x,
+                        y,
+                        encodings::encoding_name(encoding)
+                    );
 
                     match encoding {
                         0 => {
@@ -510,6 +534,122 @@ impl RFBClient {
                             // Handle copy rect (would need framebuffer state)
                             debug!("CopyRect from ({}, {})", src_x, src_y);
                         }
+                        2 => {
+                            // RRE encoding
+                            let bytes_per_pixel = (self.pixel_format.bits_per_pixel / 8) as usize;
+                            
+                            // Read number of subrectangles + background + subrects
+                            // First read header: 4 bytes (num_subrects) + bpp (background)
+                            let num_subrects = self.read_u32().await? as usize;
+                            let mut bg_pixel = vec![0u8; bytes_per_pixel];
+                            self.transport.read_exact(&mut bg_pixel).await?;
+                            
+                            // Read all subrectangles
+                            let subrect_size = bytes_per_pixel + 8;
+                            let mut subrect_data = vec![0u8; num_subrects * subrect_size];
+                            if num_subrects > 0 {
+                                self.transport.read_exact(&mut subrect_data).await?;
+                            }
+                            
+                            // Decode RRE
+                            let mut full_data = Vec::with_capacity(4 + bytes_per_pixel + subrect_data.len());
+                            full_data.extend_from_slice(&(num_subrects as u32).to_be_bytes());
+                            full_data.extend_from_slice(&bg_pixel);
+                            full_data.extend_from_slice(&subrect_data);
+                            
+                            match encodings::decode_rre(&full_data, width, height, &self.pixel_format) {
+                                Ok(decoded) => {
+                                    let rgba = self.convert_to_rgba(&decoded, width, height);
+                                    updates.push(FramebufferUpdate {
+                                        x,
+                                        y,
+                                        width,
+                                        height,
+                                        data: rgba,
+                                    });
+                                }
+                                Err(e) => {
+                                    warn!("RRE decode failed: {}", e);
+                                }
+                            }
+                        }
+                        5 => {
+                            // Hextile encoding
+                            // Hextile is tile-based, we need to read data incrementally
+                            let decoded = self.read_hextile(width, height).await?;
+                            let rgba = self.convert_to_rgba(&decoded, width, height);
+                            updates.push(FramebufferUpdate {
+                                x,
+                                y,
+                                width,
+                                height,
+                                data: rgba,
+                            });
+                        }
+                        6 => {
+                            // Zlib encoding
+                            let compressed_len = self.read_u32().await? as usize;
+                            let mut compressed = vec![0u8; compressed_len];
+                            self.transport.read_exact(&mut compressed).await?;
+                            
+                            let mut full_data = Vec::with_capacity(4 + compressed_len);
+                            full_data.extend_from_slice(&(compressed_len as u32).to_be_bytes());
+                            full_data.extend_from_slice(&compressed);
+                            
+                            match encodings::decode_zlib(&full_data, width, height, &self.pixel_format) {
+                                Ok(decoded) => {
+                                    let rgba = self.convert_to_rgba(&decoded, width, height);
+                                    updates.push(FramebufferUpdate {
+                                        x,
+                                        y,
+                                        width,
+                                        height,
+                                        data: rgba,
+                                    });
+                                }
+                                Err(e) => {
+                                    warn!("Zlib decode failed: {}", e);
+                                }
+                            }
+                        }
+                        7 => {
+                            // Tight encoding
+                            let decoded = self.read_tight(width, height).await?;
+                            let rgba = self.convert_to_rgba(&decoded, width, height);
+                            updates.push(FramebufferUpdate {
+                                x,
+                                y,
+                                width,
+                                height,
+                                data: rgba,
+                            });
+                        }
+                        16 => {
+                            // ZRLE encoding
+                            let compressed_len = self.read_u32().await? as usize;
+                            let mut compressed = vec![0u8; compressed_len];
+                            self.transport.read_exact(&mut compressed).await?;
+                            
+                            let mut full_data = Vec::with_capacity(4 + compressed_len);
+                            full_data.extend_from_slice(&(compressed_len as u32).to_be_bytes());
+                            full_data.extend_from_slice(&compressed);
+                            
+                            match encodings::decode_zrle(&full_data, width, height, &self.pixel_format) {
+                                Ok(decoded) => {
+                                    let rgba = self.convert_to_rgba(&decoded, width, height);
+                                    updates.push(FramebufferUpdate {
+                                        x,
+                                        y,
+                                        width,
+                                        height,
+                                        data: rgba,
+                                    });
+                                }
+                                Err(e) => {
+                                    warn!("ZRLE decode failed: {}", e);
+                                }
+                            }
+                        }
                         -239 => {
                             // Cursor pseudo-encoding
                             let bytes_per_pixel = (self.pixel_format.bits_per_pixel / 8) as usize;
@@ -531,7 +671,7 @@ impl RFBClient {
                             info!("Desktop resize: {}x{}", width, height);
                         }
                         _ => {
-                            warn!("Unsupported encoding: {}", encoding);
+                            warn!("Unsupported encoding: {} ({})", encoding, encodings::encoding_name(encoding));
                         }
                     }
                 }
@@ -575,6 +715,250 @@ impl RFBClient {
         }
 
         Ok(updates)
+    }
+
+    /// Read and decode Hextile encoding
+    async fn read_hextile(&mut self, width: u16, height: u16) -> Result<Vec<u8>, RFBError> {
+        let bpp = (self.pixel_format.bits_per_pixel / 8) as usize;
+        let pixel_count = width as usize * height as usize;
+        let mut output = vec![0u8; pixel_count * bpp];
+
+        const RAW: u8 = 1;
+        const BACKGROUND_SPECIFIED: u8 = 2;
+        const FOREGROUND_SPECIFIED: u8 = 4;
+        const ANY_SUBRECTS: u8 = 8;
+        const SUBRECTS_COLORED: u8 = 16;
+
+        let mut bg_pixel = vec![0u8; bpp];
+        let mut fg_pixel = vec![0u8; bpp];
+
+        let tiles_x = (width as usize + 15) / 16;
+        let tiles_y = (height as usize + 15) / 16;
+
+        for ty in 0..tiles_y {
+            for tx in 0..tiles_x {
+                let tile_x = tx * 16;
+                let tile_y = ty * 16;
+                let tile_w = std::cmp::min(16, width as usize - tile_x);
+                let tile_h = std::cmp::min(16, height as usize - tile_y);
+
+                let subencoding = self.read_u8().await?;
+
+                if subencoding & RAW != 0 {
+                    // Raw tile
+                    let raw_len = tile_w * tile_h * bpp;
+                    let mut raw_data = vec![0u8; raw_len];
+                    self.transport.read_exact(&mut raw_data).await?;
+
+                    for row in 0..tile_h {
+                        for col in 0..tile_w {
+                            let src_idx = (row * tile_w + col) * bpp;
+                            let dst_idx = ((tile_y + row) * width as usize + tile_x + col) * bpp;
+                            output[dst_idx..dst_idx + bpp]
+                                .copy_from_slice(&raw_data[src_idx..src_idx + bpp]);
+                        }
+                    }
+                    continue;
+                }
+
+                if subencoding & BACKGROUND_SPECIFIED != 0 {
+                    self.transport.read_exact(&mut bg_pixel).await?;
+                }
+
+                // Fill tile with background
+                for row in 0..tile_h {
+                    for col in 0..tile_w {
+                        let dst_idx = ((tile_y + row) * width as usize + tile_x + col) * bpp;
+                        output[dst_idx..dst_idx + bpp].copy_from_slice(&bg_pixel);
+                    }
+                }
+
+                if subencoding & FOREGROUND_SPECIFIED != 0 {
+                    self.transport.read_exact(&mut fg_pixel).await?;
+                }
+
+                if subencoding & ANY_SUBRECTS != 0 {
+                    let num_subrects = self.read_u8().await? as usize;
+
+                    for _ in 0..num_subrects {
+                        let pixel = if subencoding & SUBRECTS_COLORED != 0 {
+                            let mut p = vec![0u8; bpp];
+                            self.transport.read_exact(&mut p).await?;
+                            p
+                        } else {
+                            fg_pixel.clone()
+                        };
+
+                        let xy = self.read_u8().await?;
+                        let wh = self.read_u8().await?;
+
+                        let sx = (xy >> 4) as usize;
+                        let sy = (xy & 0x0F) as usize;
+                        let sw = ((wh >> 4) + 1) as usize;
+                        let sh = ((wh & 0x0F) + 1) as usize;
+
+                        for row in 0..sh {
+                            for col in 0..sw {
+                                let x = tile_x + sx + col;
+                                let y = tile_y + sy + row;
+                                if x < width as usize && y < height as usize {
+                                    let dst_idx = (y * width as usize + x) * bpp;
+                                    output[dst_idx..dst_idx + bpp].copy_from_slice(&pixel);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(output)
+    }
+
+    /// Read and decode Tight encoding
+    async fn read_tight(&mut self, width: u16, height: u16) -> Result<Vec<u8>, RFBError> {
+        let bpp = (self.pixel_format.bits_per_pixel / 8) as usize;
+        
+        // Tight encoding is variable-length, we need to read it incrementally
+        // First, read a reasonable buffer and try to decode
+        // The maximum size for tight is roughly the uncompressed size
+        let max_size = width as usize * height as usize * bpp + 1024;
+        let mut buffer = Vec::with_capacity(max_size);
+        
+        // Read control byte
+        let control = self.read_u8().await?;
+        buffer.push(control);
+        
+        // Determine how much more data we need based on control byte
+        let comp_type = control >> 4;
+        
+        // TPIXEL size
+        let tpixel_size = if self.pixel_format.true_color
+            && self.pixel_format.bits_per_pixel == 32
+            && self.pixel_format.depth == 24
+        {
+            3
+        } else {
+            bpp
+        };
+        
+        if control & 0xF0 == 0x80 {
+            // Fill - just need one TPIXEL
+            let mut pixel = vec![0u8; tpixel_size];
+            self.transport.read_exact(&mut pixel).await?;
+            buffer.extend_from_slice(&pixel);
+        } else if control & 0xF0 == 0x90 {
+            // JPEG - read compact length then JPEG data
+            let len_data = self.read_compact_length().await?;
+            buffer.extend_from_slice(&len_data.0);
+            
+            let mut jpeg_data = vec![0u8; len_data.1];
+            self.transport.read_exact(&mut jpeg_data).await?;
+            buffer.extend_from_slice(&jpeg_data);
+        } else if comp_type <= 7 {
+            // BasicCompression
+            let has_filter = control & 0x40 != 0;
+            
+            if has_filter {
+                let filter_id = self.read_u8().await?;
+                buffer.push(filter_id);
+                
+                if filter_id == 0x01 {
+                    // Palette filter
+                    let palette_size = self.read_u8().await?;
+                    buffer.push(palette_size);
+                    
+                    let palette_len = (palette_size as usize + 1) * tpixel_size;
+                    let mut palette_data = vec![0u8; palette_len];
+                    self.transport.read_exact(&mut palette_data).await?;
+                    buffer.extend_from_slice(&palette_data);
+                    
+                    // Calculate data length for palette mode
+                    let bits_per_pixel = if palette_size < 2 { 1 } else { 8 };
+                    let row_bytes = if bits_per_pixel == 1 {
+                        (width as usize + 7) / 8
+                    } else {
+                        width as usize
+                    };
+                    let data_len = row_bytes * height as usize;
+                    
+                    // Read compressed or uncompressed data
+                    if data_len < 12 {
+                        let mut raw = vec![0u8; data_len];
+                        self.transport.read_exact(&mut raw).await?;
+                        buffer.extend_from_slice(&raw);
+                    } else {
+                        let len_data = self.read_compact_length().await?;
+                        buffer.extend_from_slice(&len_data.0);
+                        
+                        let mut compressed = vec![0u8; len_data.1];
+                        self.transport.read_exact(&mut compressed).await?;
+                        buffer.extend_from_slice(&compressed);
+                    }
+                } else {
+                    // Gradient or Copy filter
+                    let data_len = width as usize * height as usize * tpixel_size;
+                    
+                    if data_len < 12 {
+                        let mut raw = vec![0u8; data_len];
+                        self.transport.read_exact(&mut raw).await?;
+                        buffer.extend_from_slice(&raw);
+                    } else {
+                        let len_data = self.read_compact_length().await?;
+                        buffer.extend_from_slice(&len_data.0);
+                        
+                        let mut compressed = vec![0u8; len_data.1];
+                        self.transport.read_exact(&mut compressed).await?;
+                        buffer.extend_from_slice(&compressed);
+                    }
+                }
+            } else {
+                // No explicit filter (Copy filter implied)
+                let data_len = width as usize * height as usize * tpixel_size;
+                
+                if data_len < 12 {
+                    let mut raw = vec![0u8; data_len];
+                    self.transport.read_exact(&mut raw).await?;
+                    buffer.extend_from_slice(&raw);
+                } else {
+                    let len_data = self.read_compact_length().await?;
+                    buffer.extend_from_slice(&len_data.0);
+                    
+                    let mut compressed = vec![0u8; len_data.1];
+                    self.transport.read_exact(&mut compressed).await?;
+                    buffer.extend_from_slice(&compressed);
+                }
+            }
+        }
+        
+        // Now decode the buffered data
+        match encodings::decode_tight(&buffer, width, height, &self.pixel_format, &mut self.tight_zlib_state) {
+            Ok((decoded, _consumed)) => Ok(decoded),
+            Err(e) => {
+                warn!("Tight decode failed: {}", e);
+                // Return black pixels as fallback
+                Ok(vec![0u8; width as usize * height as usize * bpp])
+            }
+        }
+    }
+    
+    /// Read a Tight compact length (1-3 bytes)
+    async fn read_compact_length(&mut self) -> Result<(Vec<u8>, usize), RFBError> {
+        let b0 = self.read_u8().await?;
+        
+        if b0 & 0x80 == 0 {
+            return Ok((vec![b0], b0 as usize));
+        }
+        
+        let b1 = self.read_u8().await?;
+        if b1 & 0x80 == 0 {
+            let len = ((b0 & 0x7F) as usize) | ((b1 as usize) << 7);
+            return Ok((vec![b0, b1], len));
+        }
+        
+        let b2 = self.read_u8().await?;
+        let len = ((b0 & 0x7F) as usize) | (((b1 & 0x7F) as usize) << 7) | ((b2 as usize) << 14);
+        Ok((vec![b0, b1, b2], len))
     }
 
     /// Convert pixel data to RGBA

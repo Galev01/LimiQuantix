@@ -1,15 +1,17 @@
-//! gRPC server setup and lifecycle.
+//! gRPC and HTTP server setup and lifecycle.
 
 use anyhow::Result;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tonic::transport::Server;
-use tracing::{info, warn};
+use tracing::{info, warn, error};
 
 use limiquantix_hypervisor::{Hypervisor, MockBackend};
 use limiquantix_proto::NodeDaemonServiceServer;
 use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::{Config, HypervisorBackend};
+use crate::http_server;
 use crate::registration::{RegistrationClient, detect_management_ip};
 use crate::service::NodeDaemonServiceImpl;
 
@@ -79,20 +81,20 @@ pub async fn run(config: Config) -> Result<()> {
     // Clone hypervisor before moving into service (needed for registration)
     let hypervisor_for_registration = hypervisor.clone();
     
-    let service = NodeDaemonServiceImpl::new(
+    let service = Arc::new(NodeDaemonServiceImpl::new(
         node_id.clone(),
         hostname.clone(),
-        management_ip,
+        management_ip.clone(),
         hypervisor,
         telemetry.clone(),
-    );
+    ));
     
-    // Parse listen address
-    let addr: std::net::SocketAddr = config.server.listen_address.parse()
-        .map_err(|e| anyhow::anyhow!("Invalid listen address: {}", e))?;
+    // Parse gRPC listen address
+    let grpc_addr: std::net::SocketAddr = config.server.listen_address.parse()
+        .map_err(|e| anyhow::anyhow!("Invalid gRPC listen address: {}", e))?;
     
     info!(
-        address = %addr,
+        grpc_address = %grpc_addr,
         node_id = %node_id,
         hostname = %hostname,
         "Starting gRPC server"
@@ -120,12 +122,51 @@ pub async fn run(config: Config) -> Result<()> {
         info!("Control plane registration disabled");
     }
     
-    // Start gRPC server
-    Server::builder()
-        .add_service(NodeDaemonServiceServer::new(service))
-        .serve(addr)
-        .await
-        .map_err(|e| anyhow::anyhow!("gRPC server error: {}", e))?;
+    // Clone service for HTTP server
+    let http_service = service.clone();
+    
+    // Start HTTP server for Web UI (if enabled)
+    let http_handle = if config.server.http.enabled {
+        let http_addr: std::net::SocketAddr = config.server.http.listen_address.parse()
+            .map_err(|e| anyhow::anyhow!("Invalid HTTP listen address: {}", e))?;
+        
+        let webui_path = PathBuf::from(&config.server.http.webui_path);
+        
+        info!(
+            http_address = %http_addr,
+            webui_path = %webui_path.display(),
+            "Starting HTTP server for Web UI"
+        );
+        
+        // Print the management URL
+        info!(
+            "🌐 Management URL: https://{}:{}",
+            if management_ip == "0.0.0.0" { "localhost" } else { &management_ip },
+            http_addr.port()
+        );
+        
+        Some(tokio::spawn(async move {
+            if let Err(e) = http_server::run_http_server(http_addr, http_service, webui_path).await {
+                error!(error = %e, "HTTP server failed");
+            }
+        }))
+    } else {
+        info!("HTTP server (Web UI) disabled");
+        None
+    };
+    
+    // Start gRPC server (this blocks)
+    let grpc_result = Server::builder()
+        .add_service(NodeDaemonServiceServer::new(service.as_ref().clone()))
+        .serve(grpc_addr)
+        .await;
+    
+    // If gRPC server exits, also stop HTTP server
+    if let Some(handle) = http_handle {
+        handle.abort();
+    }
+    
+    grpc_result.map_err(|e| anyhow::anyhow!("gRPC server error: {}", e))?;
     
     Ok(())
 }

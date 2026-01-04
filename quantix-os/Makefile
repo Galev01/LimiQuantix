@@ -2,7 +2,7 @@
 # ========================
 # Build the immutable hypervisor operating system
 
-.PHONY: all iso squashfs console builder rust-gui-builder clean help
+.PHONY: all iso squashfs console builder rust-gui-builder webui clean help
 
 VERSION ?= 1.0.0
 ARCH ?= x86_64
@@ -24,7 +24,7 @@ rust-gui-builder:
 	docker build -t $(RUST_GUI_BUILDER_IMAGE) -f builder/Dockerfile.rust-gui builder/
 
 # Build the bootable ISO installer
-iso: builder console-binary console-gui-binary
+iso: builder console-binary console-gui-binary webui
 	@echo "==> Building Quantix-OS $(VERSION) ISO..."
 	@mkdir -p $(OUTPUT_DIR)
 	docker run --rm --privileged \
@@ -39,7 +39,7 @@ iso: builder console-binary console-gui-binary
 	@echo "==> ISO built: $(OUTPUT_DIR)/quantix-os-$(VERSION).iso"
 
 # Build just the root filesystem squashfs (for updates)
-squashfs: builder console-binary console-gui-binary
+squashfs: builder console-binary console-gui-binary webui
 	@echo "==> Building system squashfs..."
 	@mkdir -p $(OUTPUT_DIR)
 	docker run --rm --privileged \
@@ -82,6 +82,14 @@ node-binary:
 	@mkdir -p overlay/usr/local/bin
 	cp ../agent/target/x86_64-unknown-linux-musl/release/limiquantix-node overlay/usr/local/bin/qx-node
 
+# Build the Web UI (React SPA for remote management)
+webui:
+	@echo "==> Building Quantix Host UI (Web Management Interface)..."
+	@mkdir -p overlay/usr/share/quantix/webui
+	cd ../quantix-host-ui && npm ci && npm run build
+	cp -r ../quantix-host-ui/dist/* overlay/usr/share/quantix/webui/
+	@echo "==> Web UI built: overlay/usr/share/quantix/webui/"
+
 # Build all binaries
 binaries: console-binary console-gui-binary node-binary
 
@@ -104,8 +112,10 @@ clean:
 	rm -f overlay/usr/local/bin/qx-console
 	rm -f overlay/usr/local/bin/qx-node
 	rm -f overlay/usr/bin/qx-console-gui
+	rm -rf overlay/usr/share/quantix/webui/*
 	cd console && cargo clean
 	cd console-gui && cargo clean
+	cd ../quantix-host-ui && rm -rf node_modules dist 2>/dev/null || true
 
 # Deep clean including Docker images
 distclean: clean
@@ -123,6 +133,7 @@ help:
 	@echo "  make squashfs     - Build update image only"
 	@echo "  make console-binary     - Build TUI console (fallback)"
 	@echo "  make console-gui-binary - Build Slint GUI console (in Docker)"
+	@echo "  make webui        - Build Web UI (React SPA for remote management)"
 	@echo "  make node-binary  - Build node daemon"
 	@echo "  make binaries     - Build all Rust binaries"
 	@echo "  make builder      - Build Docker builder image (ISO/squashfs)"

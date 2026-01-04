@@ -23,7 +23,9 @@ start() {
     
     # Console directories (for Slint GUI)
     mkdir -p /run/user/0
+    mkdir -p /run/quantix
     chmod 700 /run/user/0
+    chmod 755 /run/quantix
     
     # Seatd directories (for KMS session management)
     mkdir -p /run/seatd
@@ -53,6 +55,40 @@ start() {
     mkdir -p /etc/libvirt/qemu/networks
     mkdir -p /etc/libvirt/qemu/autostart
     chmod 755 /var/run/libvirt /var/log/libvirt /var/lib/libvirt
+    
+    # Check KVM availability
+    KVM_AVAILABLE=0
+    if [ -c /dev/kvm ]; then
+        KVM_AVAILABLE=1
+        einfo "KVM hardware acceleration available"
+    else
+        ewarn "KVM not available - loading kvm modules..."
+        # Try to load KVM modules
+        modprobe kvm 2>/dev/null || true
+        if grep -q "Intel" /proc/cpuinfo 2>/dev/null; then
+            modprobe kvm_intel nested=1 2>/dev/null || true
+        elif grep -q "AMD" /proc/cpuinfo 2>/dev/null; then
+            modprobe kvm_amd nested=1 2>/dev/null || true
+        fi
+        
+        # Check again after loading
+        sleep 1
+        if [ -c /dev/kvm ]; then
+            KVM_AVAILABLE=1
+            einfo "KVM modules loaded successfully"
+        else
+            ewarn "KVM unavailable - nested virtualization may not be enabled"
+            ewarn "VMs will use QEMU emulation (slower)"
+            ewarn "To enable: Add 'kvm.nested=1' to host's boot params"
+        fi
+    fi
+    
+    # Create a flag file for other scripts to check
+    if [ "$KVM_AVAILABLE" = "1" ]; then
+        touch /run/quantix/kvm_available
+    else
+        rm -f /run/quantix/kvm_available
+    fi
     
     # QEMU directories
     mkdir -p /var/lib/qemu

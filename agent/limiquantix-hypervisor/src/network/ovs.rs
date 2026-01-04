@@ -15,6 +15,7 @@ use super::types::{
 };
 
 /// OVS port manager for connecting VMs to OVN.
+#[derive(Clone)]
 pub struct OvsPortManager {
     /// Integration bridge name (default: "br-int")
     integration_bridge: String,

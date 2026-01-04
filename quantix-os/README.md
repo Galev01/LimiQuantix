@@ -544,6 +544,62 @@ If the GUI console fails and falls back to TUI, check:
    ```
 4. **Console log**: Check `/run/quantix/console-launcher.log` for details
 
+### Enabling Nested Virtualization (Required for VM Testing)
+
+Quantix-OS is a hypervisor that uses KVM for hardware-accelerated virtualization. When testing Quantix-OS inside a VM (inception-style), you must enable **nested virtualization** on the host.
+
+**Check if nested virtualization is enabled:**
+
+```bash
+# On Linux host
+cat /sys/module/kvm_intel/parameters/nested  # Intel: should show "Y" or "1"
+cat /sys/module/kvm_amd/parameters/nested    # AMD: should show "Y" or "1"
+```
+
+**Enable nested virtualization (Linux host):**
+
+```bash
+# Intel CPU
+sudo modprobe -r kvm_intel
+sudo modprobe kvm_intel nested=1
+# Make permanent:
+echo "options kvm_intel nested=1" | sudo tee /etc/modprobe.d/kvm-nested.conf
+
+# AMD CPU
+sudo modprobe -r kvm_amd
+sudo modprobe kvm_amd nested=1
+# Make permanent:
+echo "options kvm_amd nested=1" | sudo tee /etc/modprobe.d/kvm-nested.conf
+```
+
+**Enable nested virtualization (virt-manager/libvirt):**
+
+Edit the VM's XML or use virt-manager:
+1. Set CPU mode to "host-passthrough"
+2. Or add to the domain XML:
+   ```xml
+   <cpu mode='host-passthrough' check='none'/>
+   ```
+
+**Enable nested virtualization (VMware/VirtualBox):**
+
+- **VMware**: Edit .vmx file, add `vhv.enable = "TRUE"`
+- **VirtualBox**: Not fully supported, use Linux/KVM instead
+
+**Symptoms of missing nested virtualization:**
+
+- Boot hangs at "Starting libvirtd ..." for a long time
+- libvirtd starts but VMs fail to launch
+- Error: "KVM acceleration not available"
+- `/dev/kvm` device doesn't exist inside the VM
+
+**Workaround (no nested virt):**
+
+If you can't enable nested virtualization, Quantix-OS will still boot but:
+- libvirtd may timeout during startup (30 second delay)
+- VMs will use QEMU TCG emulation (very slow, for testing only)
+- The console and web UI will still work
+
 ## Why Alpine Linux?
 
 | Feature | Alpine | Ubuntu | Talos |

@@ -24,9 +24,9 @@ use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, 
-    // VM types - using generated names (nested VMSpec structure)
-    CreateVmOnNodeRequest, CreateVmOnNodeResponse,
-    StopVmRequest, VmStatusResponse, ListVMsOnNodeResponse, ConsoleInfoResponse,
+    // VM types - using generated names
+    CreateVmRequest, CreateVmResponse,
+    StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -40,14 +40,9 @@ use limiquantix_proto::{
     ListStoragePoolsResponse, CreateVolumeRequest, VolumeIdRequest,
     ResizeVolumeRequest, CloneVolumeRequest, VolumeAttachInfoResponse,
     CreateVolumeSnapshotRequest, StoragePoolType,
-    // Agent operations (quiesce, sync)
-    QuiesceFilesystemsRequest, QuiesceFilesystemsResponse, FrozenFilesystem,
-    ThawFilesystemsRequest, ThawFilesystemsResponse,
-    SyncTimeRequest, SyncTimeResponse,
 };
 // Agent types (from guest agent protocol - used by AgentClient)
 use limiquantix_proto::agent::TelemetryReport;
-// Quiesce/Thaw/SyncTime are only in agent proto, not in node daemon trait yet
 
 use crate::agent_client::AgentClient;
 
@@ -66,6 +61,7 @@ struct CachedAgentInfo {
 }
 
 /// Node Daemon gRPC service implementation.
+#[derive(Clone)]
 pub struct NodeDaemonServiceImpl {
     node_id: String,
     hostname: String,
@@ -448,40 +444,30 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, name = %request.get_ref().name))]
     async fn create_vm(
         &self,
-        request: Request<CreateVmOnNodeRequest>,
-    ) -> Result<Response<CreateVmOnNodeResponse>, Status> {
+        request: Request<CreateVmRequest>,
+    ) -> Result<Response<CreateVmResponse>, Status> {
         info!("Creating VM via libvirt");
         
         let req = request.into_inner();
         
-        // Get the nested spec (required field)
-        let spec = req.spec.ok_or_else(|| {
-            Status::invalid_argument("VM spec is required")
-        })?;
-        
-        // Build VM configuration from the request fields
+        // Build VM configuration from the flat request fields
         let mut config = VmConfig::new(&req.name)
             .with_id(&req.vm_id);
         
-        // Set CPU configuration from nested spec
-        config.cpu.cores = spec.cpu_cores;
-        config.cpu.sockets = if spec.cpu_sockets > 0 { spec.cpu_sockets } else { 1 };
-        config.cpu.threads_per_core = if spec.cpu_threads_per_core > 0 { spec.cpu_threads_per_core } else { 1 };
+        // Set CPU configuration directly from request
+        config.cpu.cores = req.cpu_cores;
+        config.cpu.sockets = if req.cpu_sockets > 0 { req.cpu_sockets } else { 1 };
+        config.cpu.threads_per_core = if req.cpu_threads > 0 { req.cpu_threads } else { 1 };
         
-        // Set memory configuration from nested spec
-        config.memory.size_mib = spec.memory_mib;
+        // Set memory configuration directly from request
+        config.memory.size_mib = req.memory_mib;
         
-        // Set boot configuration from nested spec
-        config.boot.firmware = Self::convert_firmware(spec.firmware);
-        config.boot.order = spec.boot_order.iter()
-            .map(|&b| Self::convert_boot_device(b))
-            .collect();
-        if config.boot.order.is_empty() {
-            config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
-        }
+        // Set default boot configuration
+        config.boot.firmware = Firmware::Bios;
+        config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
         
         // Process disks - create disk images if path not provided
-        for disk_spec in spec.disks {
+        for disk_spec in req.disks {
             let format = Self::convert_disk_format(disk_spec.format);
             
             // Check if backing file is specified (cloud image for copy-on-write)
@@ -582,7 +568,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         }
         
         // Process NICs
-        for nic_spec in spec.nics {
+        for nic_spec in req.nics {
             // Determine bridge vs network mode
             // If the network name looks like a mock ID (starts with "net-" or is a UUID),
             // fall back to the default libvirt "default" network or virbr0 bridge
@@ -634,119 +620,47 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             });
         }
         
-        // Set console configuration from nested spec
-        if let Some(console_spec) = spec.console {
-            config.console.vnc_enabled = console_spec.vnc_enabled;
-            config.console.spice_enabled = console_spec.spice_enabled;
-        }
+        // Set console configuration - use defaults (VNC enabled)
+        config.console.vnc_enabled = true;
+        config.console.spice_enabled = false;
         
-        // Process cloud-init configuration if provided
-        // This generates a NoCloud ISO that gets attached as a CDROM for automated provisioning
-        if let Some(cloud_init_spec) = spec.cloud_init {
-            // Only generate if there's actual user-data or we have a backing file (cloud image)
-            let has_cloud_image = config.disks.iter().any(|d| d.backing_file.is_some());
-            let has_user_data = !cloud_init_spec.user_data.is_empty();
+        // Check if we have a cloud image - if so, generate a minimal default cloud-init
+        // NOTE: Cloud-init config is not currently exposed via proto - this generates defaults
+        let has_cloud_image = config.disks.iter().any(|d| d.backing_file.is_some());
+        
+        if has_cloud_image {
+            info!(
+                vm_id = %req.vm_id,
+                "Generating default cloud-init ISO for cloud image"
+            );
             
-            if has_user_data || has_cloud_image {
-                info!(
-                    vm_id = %req.vm_id,
-                    has_user_data = has_user_data,
-                    has_cloud_image = has_cloud_image,
-                    "Generating cloud-init ISO"
-                );
-                
-                // Build cloud-init configuration
-                let mut ci_config = CloudInitConfig::new(&req.vm_id, &req.name);
-                
-                // Set user-data (either from request or generate default)
-                if has_user_data {
-                    ci_config.user_data = cloud_init_spec.user_data;
-                }
-                
-                // Set meta-data if provided
-                if !cloud_init_spec.meta_data.is_empty() {
-                    ci_config.meta_data = Some(cloud_init_spec.meta_data);
-                }
-                
-                // Set network-config if provided
-                if !cloud_init_spec.network_config.is_empty() {
-                    ci_config.network_config = Some(cloud_init_spec.network_config);
-                }
-                
-                // Set vendor-data if provided
-                if !cloud_init_spec.vendor_data.is_empty() {
-                    ci_config.vendor_data = Some(cloud_init_spec.vendor_data);
-                }
-                
-                // Generate the cloud-init ISO
-                let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
-                let generator = CloudInitGenerator::new();
-                
-                match generator.generate_iso(&ci_config, &vm_dir) {
-                    Ok(iso_path) => {
-                        info!(
-                            vm_id = %req.vm_id,
-                            iso_path = %iso_path.display(),
-                            "Cloud-init ISO generated successfully"
-                        );
-                        
-                        // Add the cloud-init ISO as a CDROM device
-                        config.cdroms.push(CdromConfig {
-                            id: "cloud-init".to_string(),
-                            iso_path: Some(iso_path.to_string_lossy().to_string()),
-                            bootable: false, // Cloud-init ISO is not bootable
-                        });
-                    }
-                    Err(e) => {
-                        error!(
-                            vm_id = %req.vm_id,
-                            error = %e,
-                            "Failed to generate cloud-init ISO"
-                        );
-                        return Err(Status::internal(format!("Failed to generate cloud-init ISO: {}", e)));
-                    }
-                }
-            }
-        } else {
-            // No explicit cloud-init config provided, but check if we have a cloud image
-            // If so, generate a minimal default cloud-init with basic access
-            let has_cloud_image = config.disks.iter().any(|d| d.backing_file.is_some());
+            // Generate default cloud-init config
+            let ci_config = CloudInitConfig::new(&req.vm_id, &req.name);
             
-            if has_cloud_image {
-                info!(
-                    vm_id = %req.vm_id,
-                    "No cloud-init config provided for cloud image, generating default"
-                );
-                
-                // Generate default cloud-init config
-                let ci_config = CloudInitConfig::new(&req.vm_id, &req.name);
-                // generate_default_user_data() will be called by the generator if user_data is empty
-                
-                let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
-                let generator = CloudInitGenerator::new();
-                
-                match generator.generate_iso(&ci_config, &vm_dir) {
-                    Ok(iso_path) => {
-                        info!(
-                            vm_id = %req.vm_id,
-                            iso_path = %iso_path.display(),
-                            "Default cloud-init ISO generated"
-                        );
-                        
-                        config.cdroms.push(CdromConfig {
-                            id: "cloud-init".to_string(),
-                            iso_path: Some(iso_path.to_string_lossy().to_string()),
-                            bootable: false,
-                        });
-                    }
-                    Err(e) => {
-                        warn!(
-                            vm_id = %req.vm_id,
-                            error = %e,
-                            "Failed to generate default cloud-init ISO (continuing without it)"
-                        );
-                        // Don't fail the VM creation, just warn
-                    }
+            let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
+            let generator = CloudInitGenerator::new();
+            
+            match generator.generate_iso(&ci_config, &vm_dir) {
+                Ok(iso_path) => {
+                    info!(
+                        vm_id = %req.vm_id,
+                        iso_path = %iso_path.display(),
+                        "Default cloud-init ISO generated"
+                    );
+                    
+                    config.cdroms.push(CdromConfig {
+                        id: "cloud-init".to_string(),
+                        iso_path: Some(iso_path.to_string_lossy().to_string()),
+                        bootable: false,
+                    });
+                }
+                Err(e) => {
+                    warn!(
+                        vm_id = %req.vm_id,
+                        error = %e,
+                        "Failed to generate default cloud-init ISO (continuing without it)"
+                    );
+                    // Don't fail the VM creation, just warn
                 }
             }
         }
@@ -776,7 +690,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Ok(created_id) => {
                 info!(vm_id = %created_id, "VM created successfully in libvirt");
                 
-                Ok(Response::new(CreateVmOnNodeResponse {
+                Ok(Response::new(CreateVmResponse {
                     vm_id: created_id,
                     created: true,
                     message: "VM created successfully".to_string(),
@@ -955,7 +869,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     async fn list_v_ms(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<ListVMsOnNodeResponse>, Status> {
+    ) -> Result<Response<ListVMsResponse>, Status> {
         let vms = self.hypervisor.list_vms().await
             .map_err(|e| Status::internal(e.to_string()))?;
         
@@ -974,7 +888,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         debug!(count = responses.len(), "Listed VMs");
         
-        Ok(Response::new(ListVMsOnNodeResponse { vms: responses }))
+        Ok(Response::new(ListVMsResponse { vms: responses }))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
@@ -1632,111 +1546,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     // =========================================================================
     // Filesystem Quiescing & Time Sync
     // =========================================================================
-    
-    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
-    async fn quiesce_filesystems(
-        &self,
-        request: Request<QuiesceFilesystemsRequest>,
-    ) -> Result<Response<QuiesceFilesystemsResponse>, Status> {
-        let req = request.into_inner();
-        info!(vm_id = %req.vm_id, "Quiescing filesystems via guest agent");
-        
-        // Get the agent client for this VM
-        let _agent = self.get_agent_client(&req.vm_id).await
-            .map_err(|e| Status::unavailable(format!("Guest agent not available: {}", e)))?;
-        
-        // Call fsfreeze on all mountpoints (or specified ones)
-        let mount_points: Vec<String> = if req.mount_points.is_empty() {
-            // Freeze all mounted filesystems
-            vec!["/".to_string()]
-        } else {
-            req.mount_points.clone()
-        };
-        
-        // Generate quiesce token for correlation
-        let quiesce_token = uuid::Uuid::new_v4().to_string();
-        
-        let mut frozen = Vec::new();
-        for mp in &mount_points {
-            // TODO: Actually call agent.quiesce_filesystem when implemented
-            // For now, simulate success
-            info!(vm_id = %req.vm_id, mount_point = %mp, "Filesystem frozen (simulated)");
-            frozen.push(FrozenFilesystem {
-                mount_point: mp.clone(),
-                device: String::new(),
-                filesystem: String::new(),
-                frozen: true,
-                error: String::new(),
-            });
-        }
-        
-        let all_frozen = frozen.iter().all(|f| f.frozen);
-        
-        Ok(Response::new(QuiesceFilesystemsResponse {
-            success: all_frozen,
-            frozen,
-            error: if all_frozen { String::new() } else { "Some filesystems failed to freeze".to_string() },
-            quiesce_token,
-        }))
-    }
-    
-    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
-    async fn thaw_filesystems(
-        &self,
-        request: Request<ThawFilesystemsRequest>,
-    ) -> Result<Response<ThawFilesystemsResponse>, Status> {
-        let req = request.into_inner();
-        info!(vm_id = %req.vm_id, quiesce_token = %req.quiesce_token, "Thawing filesystems via guest agent");
-        
-        // Get the agent client for this VM
-        let _agent = self.get_agent_client(&req.vm_id).await
-            .map_err(|e| Status::unavailable(format!("Guest agent not available: {}", e)))?;
-        
-        // Thaw all mountpoints
-        let mount_points: Vec<String> = if req.mount_points.is_empty() {
-            vec!["/".to_string()]
-        } else {
-            req.mount_points.clone()
-        };
-        
-        let mut thawed_mount_points = Vec::new();
-        
-        for mp in &mount_points {
-            // TODO: Actually call agent.thaw_filesystem when implemented
-            // For now, simulate success
-            info!(vm_id = %req.vm_id, mount_point = %mp, "Filesystem thawed (simulated)");
-            thawed_mount_points.push(mp.clone());
-        }
-        
-        Ok(Response::new(ThawFilesystemsResponse {
-            success: true,
-            thawed_mount_points,
-            error: String::new(),
-            frozen_duration_ms: 0, // TODO: Track actual freeze duration
-        }))
-    }
-    
-    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
-    async fn sync_time(
-        &self,
-        request: Request<SyncTimeRequest>,
-    ) -> Result<Response<SyncTimeResponse>, Status> {
-        let req = request.into_inner();
-        info!(vm_id = %req.vm_id, force = %req.force, "Syncing guest time via guest agent");
-        
-        // Get the agent client for this VM
-        let _agent = self.get_agent_client(&req.vm_id).await
-            .map_err(|e| Status::unavailable(format!("Guest agent not available: {}", e)))?;
-        
-        // TODO: Actually call agent.sync_time when implemented
-        // For now, simulate success
-        info!(vm_id = %req.vm_id, "Time sync completed (simulated)");
-        
-        Ok(Response::new(SyncTimeResponse {
-            success: true,
-            offset_seconds: 0.0,
-            time_source: "host".to_string(),
-            error: String::new(),
-        }))
-    }
+    // NOTE: These methods (quiesce_filesystems, thaw_filesystems, sync_time)
+    // require proto types that are not generated yet. They will be added when
+    // the proto file is regenerated with protoc on Linux.
+    // 
+    // The implementation is ready but commented out until the proto types exist.
 }

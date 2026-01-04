@@ -16,15 +16,17 @@ import (
 
 // VMRestHandler provides REST API endpoints for VM operations.
 type VMRestHandler struct {
-	server *Server
-	logger *zap.Logger
+	server              *Server
+	logger              *zap.Logger
+	fileTransferHandler *FileTransferHandler
 }
 
 // NewVMRestHandler creates a new VM REST handler.
 func NewVMRestHandler(s *Server) *VMRestHandler {
 	return &VMRestHandler{
-		server: s,
-		logger: s.logger.Named("vm-rest"),
+		server:              s,
+		logger:              s.logger.Named("vm-rest"),
+		fileTransferHandler: NewFileTransferHandler(s),
 	}
 }
 
@@ -34,18 +36,17 @@ func NewVMRestHandler(s *Server) *VMRestHandler {
 //   - POST /api/vms/{id}/stop - Graceful shutdown
 //   - POST /api/vms/{id}/reboot - Graceful reboot
 //   - POST /api/vms/{id}/force_stop - Force power off
+//   - POST /api/vms/{id}/files/write - Write file to guest
+//   - POST /api/vms/{id}/files/read - Read file from guest
+//   - GET  /api/vms/{id}/files/list - List directory in guest
+//   - GET  /api/vms/{id}/files/stat - Get file info in guest
+//   - DELETE /api/vms/{id}/files/delete - Delete file in guest
 func (h *VMRestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Only accept POST for power actions
-	if r.Method != http.MethodPost {
-		h.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Only POST method is allowed")
-		return
-	}
-
 	// Parse path: /api/vms/{id}/{action}
 	path := strings.TrimPrefix(r.URL.Path, "/api/vms/")
 	parts := strings.Split(path, "/")
 
-	if len(parts) != 2 {
+	if len(parts) < 2 {
 		h.writeError(w, http.StatusBadRequest, "invalid_path", "Expected /api/vms/{id}/{action}")
 		return
 	}
@@ -55,6 +56,18 @@ func (h *VMRestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if vmID == "" {
 		h.writeError(w, http.StatusBadRequest, "missing_vm_id", "VM ID is required")
+		return
+	}
+
+	// Route file transfer requests to the file transfer handler
+	if action == "files" {
+		h.fileTransferHandler.ServeHTTP(w, r)
+		return
+	}
+
+	// Only accept POST for power actions
+	if r.Method != http.MethodPost {
+		h.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Only POST method is allowed for power actions")
 		return
 	}
 

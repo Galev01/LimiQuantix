@@ -2,6 +2,7 @@
  * ConsoleDock - Multi-console workspace page
  * 
  * Allows users to open and manage multiple VM consoles in tabs or grid layout.
+ * Includes a collapsible VM sidebar for quick navigation.
  * Route: /consoles
  */
 
@@ -19,9 +20,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
-import { ConsoleTabBar } from '@/components/console/ConsoleTabBar';
-import { ConsoleGrid } from '@/components/console/ConsoleGrid';
-import { useConsoleStore, useConsoleSessions } from '@/hooks/useConsoleStore';
+import { ConsoleTabBar, ConsoleGrid, VMSidebar } from '@/components/console';
+import { useConsoleStore, useConsoleSessions, useSidebarCollapsed } from '@/hooks/useConsoleStore';
 import { useVMs, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
 
@@ -29,13 +29,12 @@ export function ConsoleDock() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessions = useConsoleSessions();
-  const { openConsole, setActiveSession } = useConsoleStore();
+  const sidebarCollapsed = useSidebarCollapsed();
+  const { openConsole, setActiveSession, setSidebarCollapsed, updateThumbnail } = useConsoleStore();
 
   // VM picker modal state
   const [showVMPicker, setShowVMPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const { updateThumbnail } = useConsoleStore();
 
   // Check for vmId in URL params (for direct linking)
   useEffect(() => {
@@ -95,13 +94,26 @@ export function ConsoleDock() {
     [openConsole]
   );
 
-  return (
-    <div className="h-full flex flex-col bg-bg-base">
-      {/* Tab Bar */}
-      <ConsoleTabBar onAddConsole={handleAddConsole} />
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  }, [sidebarCollapsed, setSidebarCollapsed]);
 
-      {/* Console Grid */}
-      <ConsoleGrid className="flex-1" />
+  return (
+    <div className="h-full flex bg-bg-base">
+      {/* VM Sidebar */}
+      <VMSidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
+      />
+
+      {/* Main Console Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Tab Bar */}
+        <ConsoleTabBar onAddConsole={handleAddConsole} />
+
+        {/* Console Grid */}
+        <ConsoleGrid className="flex-1" />
+      </div>
 
       {/* VM Picker Modal */}
       <AnimatePresence>
