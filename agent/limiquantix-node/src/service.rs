@@ -40,6 +40,10 @@ use limiquantix_proto::{
     ListStoragePoolsResponse, CreateVolumeRequest, VolumeIdRequest,
     ResizeVolumeRequest, CloneVolumeRequest, VolumeAttachInfoResponse,
     CreateVolumeSnapshotRequest, StoragePoolType,
+    // Filesystem quiesce types
+    QuiesceFilesystemsRequest, QuiesceFilesystemsResponse,
+    ThawFilesystemsRequest, ThawFilesystemsResponse,
+    SyncTimeRequest, SyncTimeResponse,
 };
 // Agent types (from guest agent protocol - used by AgentClient)
 use limiquantix_proto::agent::TelemetryReport;
