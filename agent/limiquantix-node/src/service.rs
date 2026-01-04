@@ -24,7 +24,7 @@ use limiquantix_proto::{
     NodeInfoResponse, VmIdRequest, 
     // VM types - using generated names (nested VMSpec structure)
     CreateVmOnNodeRequest, CreateVmOnNodeResponse,
-    StopVmRequest, VmStatusResponse, ListVmsOnNodeResponse, ConsoleInfoResponse,
+    StopVmRequest, VmStatusResponse, ListVMsOnNodeResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -38,6 +38,10 @@ use limiquantix_proto::{
     ListStoragePoolsResponse, CreateVolumeRequest, VolumeIdRequest,
     ResizeVolumeRequest, CloneVolumeRequest, VolumeAttachInfoResponse,
     CreateVolumeSnapshotRequest, StoragePoolType,
+    // Agent operations (quiesce, sync)
+    QuiesceFilesystemsRequest, QuiesceFilesystemsResponse, FrozenFilesystem,
+    ThawFilesystemsRequest, ThawFilesystemsResponse,
+    SyncTimeRequest, SyncTimeResponse,
 };
 // Agent types (from guest agent protocol - used by AgentClient)
 use limiquantix_proto::agent::TelemetryReport;
@@ -856,7 +860,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         debug!(count = responses.len(), "Listed VMs");
         
-        Ok(Response::new(ListVmsOnNodeResponse { vms: responses }))
+        Ok(Response::new(ListVMsOnNodeResponse { vms: responses }))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
@@ -1514,13 +1518,151 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     // =========================================================================
     // Filesystem Quiescing & Time Sync
     // =========================================================================
-    // NOTE: These methods are available via AgentClient directly but are not
-    // yet exposed in the NodeDaemonService gRPC trait. The proto needs to be
-    // regenerated with tonic-build to include these methods. For now, quiescing
-    // is handled internally during snapshot operations.
-    //
-    // To add these RPCs:
-    // 1. Ensure node_daemon.proto has QuiesceFilesystems, ThawFilesystems, SyncTime RPCs
-    // 2. Regenerate proto: cd agent/limiquantix-proto && cargo build
-    // 3. Implement the trait methods here
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn quiesce_filesystems(
+        &self,
+        request: Request<QuiesceFilesystemsRequest>,
+    ) -> Result<Response<QuiesceFilesystemsResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, "Quiescing filesystems via guest agent");
+        
+        // Get the agent client for this VM
+        let agent = self.get_agent_client(&req.vm_id).await
+            .map_err(|e| Status::unavailable(format!("Guest agent not available: {}", e)))?;
+        
+        // Call fsfreeze on all mountpoints (or specified ones)
+        let mountpoints: Vec<String> = if req.mountpoints.is_empty() {
+            // Freeze all mounted filesystems
+            vec!["/".to_string()]
+        } else {
+            req.mountpoints.clone()
+        };
+        
+        let mut frozen = Vec::new();
+        for mp in &mountpoints {
+            match agent.quiesce_filesystem(mp).await {
+                Ok(_) => {
+                    info!(vm_id = %req.vm_id, mountpoint = %mp, "Filesystem frozen");
+                    frozen.push(FrozenFilesystem {
+                        mountpoint: mp.clone(),
+                        frozen: true,
+                        error: String::new(),
+                    });
+                }
+                Err(e) => {
+                    warn!(vm_id = %req.vm_id, mountpoint = %mp, error = %e, "Failed to freeze filesystem");
+                    frozen.push(FrozenFilesystem {
+                        mountpoint: mp.clone(),
+                        frozen: false,
+                        error: e.to_string(),
+                    });
+                }
+            }
+        }
+        
+        let all_frozen = frozen.iter().all(|f| f.frozen);
+        
+        Ok(Response::new(QuiesceFilesystemsResponse {
+            success: all_frozen,
+            frozen_filesystems: frozen,
+            message: if all_frozen { 
+                "All filesystems frozen".to_string() 
+            } else { 
+                "Some filesystems failed to freeze".to_string() 
+            },
+        }))
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn thaw_filesystems(
+        &self,
+        request: Request<ThawFilesystemsRequest>,
+    ) -> Result<Response<ThawFilesystemsResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, "Thawing filesystems via guest agent");
+        
+        // Get the agent client for this VM
+        let agent = self.get_agent_client(&req.vm_id).await
+            .map_err(|e| Status::unavailable(format!("Guest agent not available: {}", e)))?;
+        
+        // Thaw all mountpoints
+        let mountpoints: Vec<String> = if req.mountpoints.is_empty() {
+            vec!["/".to_string()]
+        } else {
+            req.mountpoints.clone()
+        };
+        
+        let mut thawed_count = 0u32;
+        let mut errors = Vec::new();
+        
+        for mp in &mountpoints {
+            match agent.thaw_filesystem(mp).await {
+                Ok(_) => {
+                    info!(vm_id = %req.vm_id, mountpoint = %mp, "Filesystem thawed");
+                    thawed_count += 1;
+                }
+                Err(e) => {
+                    warn!(vm_id = %req.vm_id, mountpoint = %mp, error = %e, "Failed to thaw filesystem");
+                    errors.push(format!("{}: {}", mp, e));
+                }
+            }
+        }
+        
+        Ok(Response::new(ThawFilesystemsResponse {
+            success: errors.is_empty(),
+            thawed_count,
+            message: if errors.is_empty() {
+                format!("Thawed {} filesystems", thawed_count)
+            } else {
+                format!("Thawed {} filesystems with {} errors: {}", 
+                    thawed_count, errors.len(), errors.join("; "))
+            },
+        }))
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn sync_time(
+        &self,
+        request: Request<SyncTimeRequest>,
+    ) -> Result<Response<SyncTimeResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, "Syncing guest time via guest agent");
+        
+        // Get the agent client for this VM
+        let agent = self.get_agent_client(&req.vm_id).await
+            .map_err(|e| Status::unavailable(format!("Guest agent not available: {}", e)))?;
+        
+        // Get current host time
+        let host_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        
+        // Sync the guest time
+        match agent.sync_time(host_time).await {
+            Ok(guest_time) => {
+                let drift_ms = ((host_time - guest_time) * 1000) as i64;
+                info!(vm_id = %req.vm_id, host_time, guest_time, drift_ms, "Time synced");
+                
+                Ok(Response::new(SyncTimeResponse {
+                    success: true,
+                    host_time_unix: host_time,
+                    guest_time_unix: guest_time,
+                    drift_ms,
+                    message: format!("Time synchronized, drift was {}ms", drift_ms),
+                }))
+            }
+            Err(e) => {
+                warn!(vm_id = %req.vm_id, error = %e, "Failed to sync time");
+                Ok(Response::new(SyncTimeResponse {
+                    success: false,
+                    host_time_unix: host_time,
+                    guest_time_unix: 0,
+                    drift_ms: 0,
+                    message: format!("Failed to sync time: {}", e),
+                }))
+            }
+        }
+    }
 }
