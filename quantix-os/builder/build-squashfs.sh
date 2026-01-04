@@ -323,12 +323,24 @@ apply_overlay() {
     OVERLAY_DIR="/overlay"
     
     if [[ -d "${OVERLAY_DIR}" ]]; then
-        # Copy overlay files into rootfs
-        rsync -av --ignore-existing "${OVERLAY_DIR}/" "${ROOTFS}/"
+        # Ensure target directories exist
+        mkdir -p "${ROOTFS}/usr/bin"
+        mkdir -p "${ROOTFS}/usr/local/bin"
         
-        # Make scripts executable
+        # Copy overlay files into rootfs (overwrite existing)
+        rsync -av "${OVERLAY_DIR}/" "${ROOTFS}/"
+        
+        # Make scripts and binaries executable
         find "${ROOTFS}/etc/init.d" -type f -exec chmod +x {} \; 2>/dev/null || true
         find "${ROOTFS}/usr/local/bin" -type f -exec chmod +x {} \; 2>/dev/null || true
+        find "${ROOTFS}/usr/bin" -type f -exec chmod +x {} \; 2>/dev/null || true
+        
+        # Verify GUI binary was copied
+        if [[ -f "${ROOTFS}/usr/bin/qx-console-gui" ]]; then
+            log_info "GUI console binary installed: $(ls -lh ${ROOTFS}/usr/bin/qx-console-gui)"
+        else
+            log_warn "GUI console binary NOT found in overlay!"
+        fi
         
         log_info "Overlay applied"
     else
