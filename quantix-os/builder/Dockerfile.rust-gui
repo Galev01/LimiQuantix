@@ -18,19 +18,40 @@ RUN apk add --no-cache \
     build-base \
     musl-dev \
     pkgconf \
-    # Slint LinuxKMS backend dependencies
+    # Slint LinuxKMS backend dependencies (dev packages for headers)
     eudev-dev \
+    eudev-libs \
     libxkbcommon-dev \
+    libxkbcommon \
     libinput-dev \
+    libinput \
     mesa-dev \
     mesa-gbm \
     # Femtovg renderer dependencies
     freetype-dev \
+    freetype \
     fontconfig-dev \
+    fontconfig \
     # Seatd/libseat for session management
     libseat-dev \
+    libseat \
+    # Additional libraries needed for linking
+    libdrm-dev \
+    libdrm \
+    libevdev-dev \
+    libevdev \
+    mtdev-dev \
+    mtdev \
+    libffi-dev \
+    expat-dev \
+    # Static library archives
+    eudev-static \
     # Git for cargo dependencies
     git
+
+# Force dynamic linking for these C libraries since static versions aren't available
+# The binary will still work on Alpine since the runtime has these libs installed
+ENV RUSTFLAGS="-C target-feature=-crt-static"
 
 # Set cargo home to a fixed location for caching
 ENV CARGO_HOME=/cargo

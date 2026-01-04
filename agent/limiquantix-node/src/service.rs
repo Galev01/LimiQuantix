@@ -1563,7 +1563,6 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             frozen,
             error: if all_frozen { String::new() } else { "Some filesystems failed to freeze".to_string() },
             quiesce_token,
-            auto_thaw_at: None,
         }))
     }
     
@@ -1622,7 +1621,6 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         Ok(Response::new(SyncTimeResponse {
             success: true,
             offset_seconds: 0.0,
-            current_time: None,
             time_source: "host".to_string(),
             error: String::new(),
         }))
