@@ -709,3 +709,77 @@ func (c *DaemonClient) CreateVolumeSnapshot(ctx context.Context, poolID, volumeI
 
 	return nil
 }
+
+// ============================================================================
+// File Transfer Operations (stub implementations - requires guest agent support)
+// ============================================================================
+
+// FileEntry represents a file or directory in the guest filesystem
+type FileEntry struct {
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	IsDir   bool   `json:"is_dir"`
+	Size    int64  `json:"size"`
+	Mode    uint32 `json:"mode"`
+	ModTime string `json:"mod_time"`
+}
+
+// FileStat represents file metadata
+type FileStat struct {
+	Path    string `json:"path"`
+	Exists  bool   `json:"exists"`
+	IsDir   bool   `json:"is_dir"`
+	Size    int64  `json:"size"`
+	Mode    uint32 `json:"mode"`
+	ModTime string `json:"mod_time"`
+}
+
+// WriteFile writes content to a file in the guest VM via the guest agent.
+// TODO: Implement when guest agent file transfer is available
+func (c *DaemonClient) WriteFile(ctx context.Context, vmID, path string, content []byte, mode uint32) error {
+	c.logger.Warn("WriteFile not implemented - guest agent file transfer not available",
+		zap.String("vm_id", vmID),
+		zap.String("path", path),
+	)
+	return fmt.Errorf("file transfer not implemented: guest agent support required")
+}
+
+// ReadFile reads content from a file in the guest VM via the guest agent.
+// TODO: Implement when guest agent file transfer is available
+func (c *DaemonClient) ReadFile(ctx context.Context, vmID, path string, offset, length int64) ([]byte, error) {
+	c.logger.Warn("ReadFile not implemented - guest agent file transfer not available",
+		zap.String("vm_id", vmID),
+		zap.String("path", path),
+	)
+	return nil, fmt.Errorf("file transfer not implemented: guest agent support required")
+}
+
+// ListDirectory lists files and directories in the guest VM.
+// TODO: Implement when guest agent file transfer is available
+func (c *DaemonClient) ListDirectory(ctx context.Context, vmID, path string) ([]FileEntry, error) {
+	c.logger.Warn("ListDirectory not implemented - guest agent file transfer not available",
+		zap.String("vm_id", vmID),
+		zap.String("path", path),
+	)
+	return nil, fmt.Errorf("file transfer not implemented: guest agent support required")
+}
+
+// StatFile returns metadata about a file in the guest VM.
+// TODO: Implement when guest agent file transfer is available
+func (c *DaemonClient) StatFile(ctx context.Context, vmID, path string) (*FileStat, error) {
+	c.logger.Warn("StatFile not implemented - guest agent file transfer not available",
+		zap.String("vm_id", vmID),
+		zap.String("path", path),
+	)
+	return nil, fmt.Errorf("file transfer not implemented: guest agent support required")
+}
+
+// DeleteFile deletes a file in the guest VM.
+// TODO: Implement when guest agent file transfer is available
+func (c *DaemonClient) DeleteFile(ctx context.Context, vmID, path string) error {
+	c.logger.Warn("DeleteFile not implemented - guest agent file transfer not available",
+		zap.String("vm_id", vmID),
+		zap.String("path", path),
+	)
+	return fmt.Errorf("file transfer not implemented: guest agent support required")
+}

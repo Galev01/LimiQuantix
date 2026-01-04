@@ -282,9 +282,9 @@ func (h *FileTransferHandler) handleMultipartWrite(w http.ResponseWriter, r *htt
 		return
 	}
 
-	daemon, err := h.server.daemonPool.Get(ctx, nodeID)
-	if err != nil {
-		h.jsonError(w, fmt.Sprintf("Cannot connect to node daemon: %v", err), http.StatusServiceUnavailable)
+	daemon := h.server.daemonPool.Get(nodeID)
+	if daemon == nil {
+		h.jsonError(w, "Cannot connect to node daemon", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -339,9 +339,9 @@ func (h *FileTransferHandler) handleRead(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	daemon, err := h.server.daemonPool.Get(ctx, nodeID)
-	if err != nil {
-		h.jsonError(w, fmt.Sprintf("Cannot connect to node daemon: %v", err), http.StatusServiceUnavailable)
+	daemon := h.server.daemonPool.Get(nodeID)
+	if daemon == nil {
+		h.jsonError(w, "Cannot connect to node daemon", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -396,9 +396,9 @@ func (h *FileTransferHandler) handleList(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	daemon, err := h.server.daemonPool.Get(ctx, nodeID)
-	if err != nil {
-		h.jsonError(w, fmt.Sprintf("Cannot connect to node daemon: %v", err), http.StatusServiceUnavailable)
+	daemon := h.server.daemonPool.Get(nodeID)
+	if daemon == nil {
+		h.jsonError(w, "Cannot connect to node daemon", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -456,9 +456,9 @@ func (h *FileTransferHandler) handleStat(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	daemon, err := h.server.daemonPool.Get(ctx, nodeID)
-	if err != nil {
-		h.jsonError(w, fmt.Sprintf("Cannot connect to node daemon: %v", err), http.StatusServiceUnavailable)
+	daemon := h.server.daemonPool.Get(nodeID)
+	if daemon == nil {
+		h.jsonError(w, "Cannot connect to node daemon", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -515,9 +515,9 @@ func (h *FileTransferHandler) handleDelete(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	daemon, err := h.server.daemonPool.Get(ctx, nodeID)
-	if err != nil {
-		h.jsonError(w, fmt.Sprintf("Cannot connect to node daemon: %v", err), http.StatusServiceUnavailable)
+	daemon := h.server.daemonPool.Get(nodeID)
+	if daemon == nil {
+		h.jsonError(w, "Cannot connect to node daemon", http.StatusServiceUnavailable)
 		return
 	}
 
