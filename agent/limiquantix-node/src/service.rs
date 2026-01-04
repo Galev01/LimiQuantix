@@ -24,9 +24,9 @@ use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
     NodeInfoResponse, VmIdRequest, 
-    // VM types - using generated names from node daemon proto
-    CreateVmRequest, CreateVmResponse,
-    StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
+    // VM types - note: proto uses CreateVmOnNodeRequest/Response naming
+    CreateVmOnNodeRequest, CreateVmOnNodeResponse,
+    StopVmRequest, VmStatusResponse, ListVMsOnNodeResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -40,11 +40,13 @@ use limiquantix_proto::{
     ListStoragePoolsResponse, CreateVolumeRequest, VolumeIdRequest,
     ResizeVolumeRequest, CloneVolumeRequest, VolumeAttachInfoResponse,
     CreateVolumeSnapshotRequest, StoragePoolType,
+    // Filesystem quiesce/time sync types
+    QuiesceFilesystemsRequest, QuiesceFilesystemsResponse,
+    ThawFilesystemsRequest, ThawFilesystemsResponse,
+    SyncTimeRequest, SyncTimeResponse,
 };
 // Agent types (from guest agent protocol - used by AgentClient)
 use limiquantix_proto::agent::TelemetryReport;
-// NOTE: Quiesce/Thaw/SyncTime types are in the agent proto but the node daemon
-// proto defines its own versions with vm_id. Those need proto regeneration.
 
 use crate::agent_client::AgentClient;
 
@@ -446,8 +448,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, name = %request.get_ref().name))]
     async fn create_vm(
         &self,
-        request: Request<CreateVmRequest>,
-    ) -> Result<Response<CreateVmResponse>, Status> {
+        request: Request<CreateVmOnNodeRequest>,
+    ) -> Result<Response<CreateVmOnNodeResponse>, Status> {
         info!("Creating VM via libvirt");
         
         let req = request.into_inner();
@@ -692,7 +694,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Ok(created_id) => {
                 info!(vm_id = %created_id, "VM created successfully in libvirt");
                 
-                Ok(Response::new(CreateVmResponse {
+                Ok(Response::new(CreateVmOnNodeResponse {
                     vm_id: created_id,
                     created: true,
                     message: "VM created successfully".to_string(),
@@ -871,7 +873,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     async fn list_v_ms(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<ListVMsResponse>, Status> {
+    ) -> Result<Response<ListVMsOnNodeResponse>, Status> {
         let vms = self.hypervisor.list_vms().await
             .map_err(|e| Status::internal(e.to_string()))?;
         
@@ -890,7 +892,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         debug!(count = responses.len(), "Listed VMs");
         
-        Ok(Response::new(ListVMsResponse { vms: responses }))
+        Ok(Response::new(ListVMsOnNodeResponse { vms: responses }))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
@@ -1548,40 +1550,150 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     // =========================================================================
     // Filesystem Quiescing & Time Sync
     // =========================================================================
-    // NOTE: These methods are commented out because the proto types were updated
-    // but the generated Rust code wasn't regenerated. To enable these features:
-    // 1. Run `make proto` in the agent directory to regenerate
-    // 2. Uncomment the methods below
-    // =========================================================================
     
-    // TODO: Re-enable after proto regeneration
-    // The node daemon proto defines QuiesceFilesystemsRequest with vm_id field,
-    // but the generated code doesn't have these RPCs yet.
-    
-    /*
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn quiesce_filesystems(
         &self,
-        request: Request<node::QuiesceFilesystemsRequest>,
-    ) -> Result<Response<node::QuiesceFilesystemsResponse>, Status> {
-        // Implementation moved to agent_client.rs when protos are regenerated
-        unimplemented!("Quiesce filesystems - regenerate protos first")
+        request: Request<QuiesceFilesystemsRequest>,
+    ) -> Result<Response<QuiesceFilesystemsResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, "Quiescing filesystems via guest agent");
+        
+        // Get agent client for this VM
+        let agents = self.agent_manager.read().await;
+        let agent = agents.get(&req.vm_id).ok_or_else(|| {
+            Status::unavailable(format!("No agent connection for VM {}", req.vm_id))
+        })?;
+        
+        // Execute fsfreeze command via guest agent
+        match agent.execute("fsfreeze", &["--freeze", "/"]).await {
+            Ok(output) => {
+                if output.exit_code == 0 {
+                    // Generate a quiesce token (simple UUID for now)
+                    let token = uuid::Uuid::new_v4().to_string();
+                    info!(vm_id = %req.vm_id, token = %token, "Filesystems quiesced");
+                    Ok(Response::new(QuiesceFilesystemsResponse {
+                        success: true,
+                        token,
+                        frozen_filesystems: vec!["/".to_string()],
+                        error: String::new(),
+                    }))
+                } else {
+                    warn!(vm_id = %req.vm_id, stderr = %output.stderr, "fsfreeze failed");
+                    Ok(Response::new(QuiesceFilesystemsResponse {
+                        success: false,
+                        token: String::new(),
+                        frozen_filesystems: vec![],
+                        error: output.stderr,
+                    }))
+                }
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, error = %e, "Failed to quiesce filesystems");
+                Ok(Response::new(QuiesceFilesystemsResponse {
+                    success: false,
+                    token: String::new(),
+                    frozen_filesystems: vec![],
+                    error: e.to_string(),
+                }))
+            }
+        }
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn thaw_filesystems(
         &self,
-        request: Request<node::ThawFilesystemsRequest>,
-    ) -> Result<Response<node::ThawFilesystemsResponse>, Status> {
-        unimplemented!("Thaw filesystems - regenerate protos first")
+        request: Request<ThawFilesystemsRequest>,
+    ) -> Result<Response<ThawFilesystemsResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, token = %req.token, "Thawing filesystems via guest agent");
+        
+        // Get agent client for this VM
+        let agents = self.agent_manager.read().await;
+        let agent = agents.get(&req.vm_id).ok_or_else(|| {
+            Status::unavailable(format!("No agent connection for VM {}", req.vm_id))
+        })?;
+        
+        // Execute fsfreeze --unfreeze command via guest agent
+        match agent.execute("fsfreeze", &["--unfreeze", "/"]).await {
+            Ok(output) => {
+                if output.exit_code == 0 {
+                    info!(vm_id = %req.vm_id, "Filesystems thawed");
+                    Ok(Response::new(ThawFilesystemsResponse {
+                        success: true,
+                        thawed_filesystems: vec!["/".to_string()],
+                        error: String::new(),
+                    }))
+                } else {
+                    warn!(vm_id = %req.vm_id, stderr = %output.stderr, "fsfreeze --unfreeze failed");
+                    Ok(Response::new(ThawFilesystemsResponse {
+                        success: false,
+                        thawed_filesystems: vec![],
+                        error: output.stderr,
+                    }))
+                }
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, error = %e, "Failed to thaw filesystems");
+                Ok(Response::new(ThawFilesystemsResponse {
+                    success: false,
+                    thawed_filesystems: vec![],
+                    error: e.to_string(),
+                }))
+            }
+        }
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
     async fn sync_time(
         &self,
-        request: Request<node::SyncTimeRequest>,
-    ) -> Result<Response<node::SyncTimeResponse>, Status> {
-        unimplemented!("Sync time - regenerate protos first")
+        request: Request<SyncTimeRequest>,
+    ) -> Result<Response<SyncTimeResponse>, Status> {
+        let req = request.into_inner();
+        info!(vm_id = %req.vm_id, "Syncing guest time via guest agent");
+        
+        // Get agent client for this VM
+        let agents = self.agent_manager.read().await;
+        let agent = agents.get(&req.vm_id).ok_or_else(|| {
+            Status::unavailable(format!("No agent connection for VM {}", req.vm_id))
+        })?;
+        
+        // Get current host time
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| Status::internal(format!("Failed to get host time: {}", e)))?;
+        
+        // Set time via guest agent (using date command)
+        let timestamp = now.as_secs().to_string();
+        match agent.execute("date", &["-s", &format!("@{}", timestamp)]).await {
+            Ok(output) => {
+                if output.exit_code == 0 {
+                    info!(vm_id = %req.vm_id, "Guest time synchronized");
+                    Ok(Response::new(SyncTimeResponse {
+                        success: true,
+                        old_time_offset_ns: 0, // We don't know the old offset
+                        new_time_offset_ns: 0,
+                        error: String::new(),
+                    }))
+                } else {
+                    warn!(vm_id = %req.vm_id, stderr = %output.stderr, "time sync failed");
+                    Ok(Response::new(SyncTimeResponse {
+                        success: false,
+                        old_time_offset_ns: 0,
+                        new_time_offset_ns: 0,
+                        error: output.stderr,
+                    }))
+                }
+            }
+            Err(e) => {
+                error!(vm_id = %req.vm_id, error = %e, "Failed to sync time");
+                Ok(Response::new(SyncTimeResponse {
+                    success: false,
+                    old_time_offset_ns: 0,
+                    new_time_offset_ns: 0,
+                    error: e.to_string(),
+                }))
+            }
+        }
     }
-    */
 }
