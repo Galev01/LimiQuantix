@@ -8,7 +8,7 @@
 //! The actual USB redirection is handled by the hypervisor (QEMU/libvirt).
 
 use serde::{Deserialize, Serialize};
-use tauri::State;
+// Note: State is reserved for future use when tracking attached devices
 use tracing::{debug, error, info, warn};
 
 /// USB Device information
@@ -90,7 +90,6 @@ pub fn list_usb_devices() -> Result<Vec<UsbDevice>, String> {
         // Try to get device name
         let handle = device.open();
         let (name, manufacturer, serial) = if let Ok(ref h) = handle {
-            let timeout = std::time::Duration::from_millis(100);
             let name = h.read_product_string_ascii(&desc).ok();
             let manufacturer = h.read_manufacturer_string_ascii(&desc).ok();
             let serial = h.read_serial_number_string_ascii(&desc).ok();

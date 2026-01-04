@@ -35,13 +35,19 @@ tty7::askfirst:/bin/sh
 # Serial Console (for headless servers / IPMI)
 # ---------------------------------------------------------------------------
 
-# Serial port at 115200 baud
-ttyS0::respawn:/sbin/getty -L 115200 ttyS0 vt100
-ttyS1::respawn:/sbin/getty -L 115200 ttyS1 vt100
+# Serial port at 115200 baud (only if device exists)
+# These use 'once' instead of 'respawn' to avoid spam if device doesn't exist
+# Or use a wrapper script that checks device existence first
+ttyS0::respawn:/bin/sh -c '[ -c /dev/ttyS0 ] && exec /sbin/getty -L 115200 ttyS0 vt100 || sleep 60'
 
-# Virtual serial (for VMs)
-ttyAMA0::respawn:/sbin/getty -L 115200 ttyAMA0 vt100
-hvc0::respawn:/sbin/getty -L 115200 hvc0 vt100
+# Uncomment for additional serial ports if needed:
+# ttyS1::respawn:/bin/sh -c '[ -c /dev/ttyS1 ] && exec /sbin/getty -L 115200 ttyS1 vt100 || sleep 60'
+
+# Virtual consoles (only if device exists - these are VM/ARM specific)
+# ttyAMA0 is ARM UART, hvc0 is Xen/KVM virtio-console
+# Disabled by default - uncomment if running on ARM or with virtio-console
+# ttyAMA0::respawn:/bin/sh -c '[ -c /dev/ttyAMA0 ] && exec /sbin/getty -L 115200 ttyAMA0 vt100 || sleep 60'
+# hvc0::respawn:/bin/sh -c '[ -c /dev/hvc0 ] && exec /sbin/getty -L 115200 hvc0 vt100 || sleep 60'
 
 # ---------------------------------------------------------------------------
 # Shutdown Handling
