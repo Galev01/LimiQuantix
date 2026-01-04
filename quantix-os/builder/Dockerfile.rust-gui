@@ -44,8 +44,6 @@ RUN apk add --no-cache \
     mtdev \
     libffi-dev \
     expat-dev \
-    # Static library archives
-    eudev-static \
     # Git for cargo dependencies
     git
 
