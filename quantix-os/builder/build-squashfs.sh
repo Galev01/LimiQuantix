@@ -322,6 +322,14 @@ apply_overlay() {
     
     OVERLAY_DIR="/overlay"
     
+    # Debug: Show what's in the overlay mount
+    log_info "=== DEBUG: Overlay directory contents ==="
+    log_info "Listing ${OVERLAY_DIR}/usr/bin:"
+    ls -la "${OVERLAY_DIR}/usr/bin/" 2>&1 || log_warn "No ${OVERLAY_DIR}/usr/bin directory"
+    log_info "Listing ${OVERLAY_DIR}/usr/local/bin:"
+    ls -la "${OVERLAY_DIR}/usr/local/bin/" 2>&1 || log_warn "No ${OVERLAY_DIR}/usr/local/bin directory"
+    log_info "=== END DEBUG ==="
+    
     if [[ -d "${OVERLAY_DIR}" ]]; then
         # Ensure target directories exist
         mkdir -p "${ROOTFS}/usr/bin"
@@ -335,11 +343,40 @@ apply_overlay() {
         find "${ROOTFS}/usr/local/bin" -type f -exec chmod +x {} \; 2>/dev/null || true
         find "${ROOTFS}/usr/bin" -type f -exec chmod +x {} \; 2>/dev/null || true
         
+        # Debug: Verify what was copied
+        log_info "=== DEBUG: Rootfs after overlay ==="
+        log_info "Listing ${ROOTFS}/usr/bin:"
+        ls -la "${ROOTFS}/usr/bin/" 2>&1 || log_warn "No ${ROOTFS}/usr/bin directory"
+        log_info "Listing ${ROOTFS}/usr/local/bin:"
+        ls -la "${ROOTFS}/usr/local/bin/" 2>&1 || log_warn "No ${ROOTFS}/usr/local/bin directory"
+        log_info "=== END DEBUG ==="
+        
         # Verify GUI binary was copied
         if [[ -f "${ROOTFS}/usr/bin/qx-console-gui" ]]; then
-            log_info "GUI console binary installed: $(ls -lh ${ROOTFS}/usr/bin/qx-console-gui)"
+            log_info "✓ GUI console binary installed: $(ls -lh ${ROOTFS}/usr/bin/qx-console-gui)"
         else
-            log_warn "GUI console binary NOT found in overlay!"
+            log_error "✗ GUI console binary NOT found after applying overlay!"
+            log_error "  Expected at: ${ROOTFS}/usr/bin/qx-console-gui"
+            log_error "  Source was: ${OVERLAY_DIR}/usr/bin/qx-console-gui"
+            if [[ -f "${OVERLAY_DIR}/usr/bin/qx-console-gui" ]]; then
+                log_info "  Source file exists in overlay with size: $(ls -lh ${OVERLAY_DIR}/usr/bin/qx-console-gui)"
+            else
+                log_error "  Source file does NOT exist in overlay mount!"
+            fi
+        fi
+        
+        # Verify TUI binary was copied
+        if [[ -f "${ROOTFS}/usr/local/bin/qx-console" ]]; then
+            log_info "✓ TUI console binary installed: $(ls -lh ${ROOTFS}/usr/local/bin/qx-console)"
+        else
+            log_error "✗ TUI console binary NOT found after applying overlay!"
+        fi
+        
+        # Verify launcher script was copied
+        if [[ -f "${ROOTFS}/usr/local/bin/qx-console-launcher" ]]; then
+            log_info "✓ Console launcher installed: $(ls -lh ${ROOTFS}/usr/local/bin/qx-console-launcher)"
+        else
+            log_error "✗ Console launcher NOT found after applying overlay!"
         fi
         
         log_info "Overlay applied"
