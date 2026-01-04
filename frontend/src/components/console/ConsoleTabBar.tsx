@@ -73,41 +73,70 @@ export function ConsoleTabBar({ onAddConsole }: ConsoleTabBarProps) {
       <div className="flex items-center gap-1 flex-1 overflow-x-auto scrollbar-none">
         <AnimatePresence mode="popLayout">
           {sessions.map((session, index) => (
-            <motion.button
+            <motion.div
               key={session.id}
               initial={{ opacity: 0, scale: 0.9, x: -10 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
               exit={{ opacity: 0, scale: 0.9, x: -10 }}
               transition={{ duration: 0.15 }}
-              onClick={() => handleTabClick(session)}
-              className={cn(
-                'group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
-                'hover:bg-bg-hover',
-                session.id === activeSessionId
-                  ? 'bg-bg-elevated text-text-primary shadow-sm border border-border'
-                  : 'text-text-muted hover:text-text-secondary'
-              )}
+              className="relative group"
             >
-              <Monitor className="w-4 h-4 text-accent shrink-0" />
-              <span className="truncate max-w-[120px]">{session.vmName}</span>
               <button
-                onClick={(e) => handleCloseTab(e, session.id)}
+                onClick={() => handleTabClick(session)}
                 className={cn(
-                  'w-5 h-5 rounded flex items-center justify-center',
-                  'opacity-0 group-hover:opacity-100 transition-opacity',
-                  'hover:bg-error/20 hover:text-error'
+                  'group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                  'hover:bg-bg-hover',
+                  session.id === activeSessionId
+                    ? 'bg-bg-elevated text-text-primary shadow-sm border border-border'
+                    : 'text-text-muted hover:text-text-secondary'
                 )}
-                title="Close console"
               >
-                <X className="w-3 h-3" />
+                {/* Thumbnail or Monitor icon */}
+                {session.thumbnail ? (
+                  <img
+                    src={session.thumbnail}
+                    alt={session.vmName}
+                    className="w-6 h-4 rounded object-cover shrink-0 border border-border"
+                  />
+                ) : (
+                  <Monitor className="w-4 h-4 text-accent shrink-0" />
+                )}
+                <span className="truncate max-w-[120px]">{session.vmName}</span>
+                <button
+                  onClick={(e) => handleCloseTab(e, session.id)}
+                  className={cn(
+                    'w-5 h-5 rounded flex items-center justify-center',
+                    'opacity-0 group-hover:opacity-100 transition-opacity',
+                    'hover:bg-error/20 hover:text-error'
+                  )}
+                  title="Close console"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+                {/* Keyboard shortcut hint */}
+                {index < 9 && (
+                  <kbd className="hidden group-hover:inline-flex text-[10px] px-1 py-0.5 bg-bg-base rounded border border-border text-text-muted">
+                    {index + 1}
+                  </kbd>
+                )}
               </button>
-              {/* Keyboard shortcut hint */}
-              {index < 9 && (
-                <kbd className="hidden group-hover:inline-flex text-[10px] px-1 py-0.5 bg-bg-base rounded border border-border text-text-muted">
-                  {index + 1}
-                </kbd>
+              
+              {/* Thumbnail preview tooltip on hover */}
+              {session.thumbnail && (
+                <div className="absolute left-0 top-full mt-2 z-50 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+                  <div className="p-1 bg-bg-elevated border border-border rounded-lg shadow-lg">
+                    <img
+                      src={session.thumbnail}
+                      alt={`${session.vmName} preview`}
+                      className="w-48 rounded"
+                    />
+                    <div className="px-2 py-1 text-xs text-text-muted">
+                      {session.thumbnailWidth}×{session.thumbnailHeight}
+                    </div>
+                  </div>
+                </div>
               )}
-            </motion.button>
+            </motion.div>
           ))}
         </AnimatePresence>
 

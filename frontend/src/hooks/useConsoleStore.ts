@@ -13,6 +13,9 @@ export interface ConsoleSession {
   vmName: string;
   openedAt: number;
   lastActiveAt: number;
+  thumbnail?: string;
+  thumbnailWidth?: number;
+  thumbnailHeight?: number;
 }
 
 export type ViewMode = 'tabs' | 'grid';
@@ -40,6 +43,7 @@ interface ConsoleState {
   setDefaultConsoleType: (type: 'web' | 'qvmrc') => void;
   reorderSessions: (fromIndex: number, toIndex: number) => void;
   getSessionByVmId: (vmId: string) => ConsoleSession | undefined;
+  updateThumbnail: (vmId: string, thumbnail: string, width?: number, height?: number) => void;
 }
 
 export const useConsoleStore = create<ConsoleState>()(
@@ -127,6 +131,16 @@ export const useConsoleStore = create<ConsoleState>()(
 
       getSessionByVmId: (vmId: string) => {
         return get().sessions.find((s) => s.vmId === vmId);
+      },
+
+      updateThumbnail: (vmId: string, thumbnail: string, width?: number, height?: number) => {
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.vmId === vmId
+              ? { ...s, thumbnail, thumbnailWidth: width, thumbnailHeight: height }
+              : s
+          ),
+        }));
       },
     }),
     {

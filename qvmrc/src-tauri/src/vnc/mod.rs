@@ -156,9 +156,24 @@ pub async fn connect_vnc(
                     let mut client = client_clone.lock().await;
                     // First request is non-incremental to get the full framebuffer
                     let incremental = !is_first_request;
-                    client.request_framebuffer_update(incremental).await
+                    let updates = client.request_framebuffer_update(incremental).await;
+                    
+                    // Check for clipboard updates from server
+                    let clipboard = client.take_server_clipboard();
+                    
+                    (updates, clipboard)
                 } => {
-                    match result {
+                    let (updates_result, clipboard) = result;
+                    
+                    // Emit clipboard if server sent new text
+                    if let Some(text) = clipboard {
+                        window_clone.emit("vnc:clipboard", serde_json::json!({
+                            "connectionId": connection_id_clone,
+                            "text": text,
+                        })).ok();
+                    }
+                    
+                    match updates_result {
                         Ok(updates) => {
                             // Emit framebuffer updates to frontend
                             for update in updates {
@@ -360,6 +375,61 @@ pub async fn get_connection_info(
         width,
         height,
     }))
+}
+
+/// Send clipboard text to the VM
+#[tauri::command]
+pub async fn send_clipboard(
+    state: State<'_, AppState>,
+    connection_id: String,
+    text: String,
+) -> Result<(), String> {
+    // Clone the client Arc outside the lock
+    let client = {
+        let connections = state.connections.read().map_err(|e| e.to_string())?;
+        connections
+            .iter()
+            .find(|c| c.id == connection_id)
+            .and_then(|c| c.client.clone())
+    };
+
+    if let Some(client) = client {
+        let mut client = client.lock().await;
+        client
+            .send_clipboard(&text)
+            .await
+            .map_err(|e| e.to_string())?;
+        info!("Sent clipboard to VM: {} chars", text.len());
+    }
+
+    Ok(())
+}
+
+/// Get clipboard text from the VM (if any new text received)
+#[tauri::command]
+pub async fn get_vm_clipboard(
+    state: State<'_, AppState>,
+    connection_id: String,
+) -> Result<Option<String>, String> {
+    // Clone the client Arc outside the lock
+    let client = {
+        let connections = state.connections.read().map_err(|e| e.to_string())?;
+        connections
+            .iter()
+            .find(|c| c.id == connection_id)
+            .and_then(|c| c.client.clone())
+    };
+
+    if let Some(client) = client {
+        let mut client = client.lock().await;
+        let text = client.take_server_clipboard();
+        if text.is_some() {
+            info!("Got clipboard from VM");
+        }
+        return Ok(text);
+    }
+
+    Ok(None)
 }
 
 /// Build WebSocket URL for the control plane's console proxy

@@ -326,7 +326,7 @@ type GlobalRule struct {
 	Priority    int                `json:"priority"` // Lower = higher priority
 	Enabled     bool               `json:"enabled"`
 	Conditions  []RuleCondition    `json:"conditions"`
-	Actions     []RuleAction       `json:"actions"`
+	Actions     []GlobalRuleAction `json:"actions"`
 	CreatedAt   time.Time          `json:"created_at"`
 	UpdatedAt   time.Time          `json:"updated_at"`
 	CreatedBy   string             `json:"created_by,omitempty"`
@@ -339,8 +339,8 @@ type RuleCondition struct {
 	Value    interface{} `json:"value"`    // Comparison value
 }
 
-// RuleAction defines what happens when a rule matches.
-type RuleAction struct {
+// GlobalRuleAction defines what happens when a global rule matches.
+type GlobalRuleAction struct {
 	Type    string      `json:"type"`    // e.g., "deny", "warn", "modify"
 	Field   string      `json:"field,omitempty"`
 	Value   interface{} `json:"value,omitempty"`
@@ -371,7 +371,7 @@ var RuleActionTypes = []string{
 }
 
 // Evaluate checks if this rule applies to a given context.
-func (r *GlobalRule) Evaluate(context map[string]interface{}) (matches bool, action *RuleAction) {
+func (r *GlobalRule) Evaluate(context map[string]interface{}) (matches bool, action *GlobalRuleAction) {
 	if !r.Enabled {
 		return false, nil
 	}

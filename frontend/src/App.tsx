@@ -24,6 +24,7 @@ import ImageLibrary from '@/pages/ImageLibrary';
 import { ConsoleDock } from '@/pages/ConsoleDock';
 import { AdminPanel } from '@/pages/admin';
 import { RouteErrorBoundary } from '@/components/ErrorBoundary';
+import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,8 +55,9 @@ function AppRoutes() {
   // Main application with standard layout
   return (
     <RouteErrorBoundary>
-      <Layout>
-        <Routes>
+      <KeyboardShortcuts>
+        <Layout>
+          <Routes>
         {/* Dashboard */}
         <Route path="/" element={<Dashboard />} />
         
@@ -88,10 +90,11 @@ function AppRoutes() {
         {/* Settings */}
         <Route path="/settings" element={<Settings />} />
         
-        {/* Catch-all redirect */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      </Layout>
+          {/* Catch-all redirect */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        </Layout>
+      </KeyboardShortcuts>
     </RouteErrorBoundary>
   );
 }

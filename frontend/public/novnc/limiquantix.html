@@ -1055,11 +1055,19 @@
                     
                     // Update resolution
                     updateResolution();
+                    
+                    // Start clipboard sync
+                    startClipboardSync();
+                    
+                    // Start thumbnail capture for parent window
+                    startThumbnailCapture();
                 });
 
                 // Event: Disconnected
                 rfb.addEventListener('disconnect', (e) => {
                     console.log('VNC Disconnected', e.detail);
+                    stopClipboardSync();
+                    stopThumbnailCapture();
                     if (!e.detail.clean) {
                         showError('Connection Lost', 'The connection to the VM was interrupted.');
                     } else {
@@ -1399,6 +1407,59 @@
             }
         });
 
+        // Thumbnail capture - capture canvas periodically and send to parent
+        let thumbnailInterval = null;
+        
+        function captureThumbnail() {
+            if (!rfb || !rfb._canvas) return;
+            
+            try {
+                // Create a small thumbnail (160x90 for 16:9, or 160x120 for 4:3)
+                const canvas = rfb._canvas;
+                const aspectRatio = canvas.width / canvas.height;
+                const thumbWidth = 160;
+                const thumbHeight = Math.round(thumbWidth / aspectRatio);
+                
+                const thumbCanvas = document.createElement('canvas');
+                thumbCanvas.width = thumbWidth;
+                thumbCanvas.height = thumbHeight;
+                
+                const ctx = thumbCanvas.getContext('2d');
+                ctx.drawImage(canvas, 0, 0, thumbWidth, thumbHeight);
+                
+                const dataUrl = thumbCanvas.toDataURL('image/jpeg', 0.6);
+                
+                // Send to parent window
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'consoleThumbnail',
+                        vmId: vmId,
+                        vmName: vmName,
+                        thumbnail: dataUrl,
+                        width: canvas.width,
+                        height: canvas.height,
+                    }, '*');
+                }
+            } catch (err) {
+                console.debug('Thumbnail capture failed:', err);
+            }
+        }
+        
+        function startThumbnailCapture() {
+            if (thumbnailInterval) clearInterval(thumbnailInterval);
+            // Capture every 5 seconds
+            thumbnailInterval = setInterval(captureThumbnail, 5000);
+            // Capture immediately
+            setTimeout(captureThumbnail, 1000);
+        }
+        
+        function stopThumbnailCapture() {
+            if (thumbnailInterval) {
+                clearInterval(thumbnailInterval);
+                thumbnailInterval = null;
+            }
+        }
+        
         // Start connection
         connect();
     </script>

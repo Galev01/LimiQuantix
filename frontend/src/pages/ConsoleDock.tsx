@@ -35,6 +35,8 @@ export function ConsoleDock() {
   const [showVMPicker, setShowVMPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const { updateThumbnail } = useConsoleStore();
+
   // Check for vmId in URL params (for direct linking)
   useEffect(() => {
     const vmId = searchParams.get('vmId');
@@ -45,6 +47,21 @@ export function ConsoleDock() {
       navigate('/consoles', { replace: true });
     }
   }, [searchParams, openConsole, navigate]);
+
+  // Listen for thumbnail messages from console iframes
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'consoleThumbnail') {
+        const { vmId, thumbnail, width, height } = event.data;
+        if (vmId && thumbnail) {
+          updateThumbnail(vmId, thumbnail, width, height);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [updateThumbnail]);
 
   // Keyboard shortcuts for switching tabs (Ctrl+1-9)
   useEffect(() => {

@@ -18,6 +18,7 @@ import (
 	"github.com/limiquantix/limiquantix/internal/repository/postgres"
 	"github.com/limiquantix/limiquantix/internal/repository/redis"
 	"github.com/limiquantix/limiquantix/internal/scheduler"
+	"github.com/limiquantix/limiquantix/internal/services/admin"
 	networkservice "github.com/limiquantix/limiquantix/internal/services/network"
 	"github.com/limiquantix/limiquantix/internal/services/node"
 	nodeservice "github.com/limiquantix/limiquantix/internal/services/node"
@@ -52,6 +53,14 @@ type Server struct {
 	networkRepo       *memory.NetworkRepository
 	securityGroupRepo *memory.SecurityGroupRepository
 
+	// Admin repositories (PostgreSQL)
+	roleRepo    *postgres.RoleRepository
+	apiKeyRepo  *postgres.APIKeyRepository
+	auditRepo   *postgres.AuditRepository
+	orgRepo     *postgres.OrganizationRepository
+	emailRepo   *postgres.AdminEmailRepository
+	ruleRepo    *postgres.GlobalRuleRepository
+
 	// Scheduler
 	scheduler *scheduler.Scheduler
 
@@ -64,6 +73,9 @@ type Server struct {
 	networkService       *networkservice.NetworkService
 	securityGroupService *networkservice.SecurityGroupService
 	imageService         *storageservice.ImageService
+
+	// Admin services
+	adminHandler *AdminHandler
 
 	// Leader election (for HA)
 	leader *etcd.Leader
@@ -136,6 +148,15 @@ func (s *Server) initRepositories() {
 		s.logger.Info("Initializing PostgreSQL repositories")
 		s.vmRepo = postgres.NewVMRepository(s.db, s.logger)
 		s.nodeRepo = postgres.NewNodeRepository(s.db, s.logger)
+
+		// Initialize admin repositories (PostgreSQL only)
+		s.roleRepo = postgres.NewRoleRepository(s.db, s.logger)
+		s.apiKeyRepo = postgres.NewAPIKeyRepository(s.db, s.logger)
+		s.auditRepo = postgres.NewAuditRepository(s.db, s.logger)
+		s.orgRepo = postgres.NewOrganizationRepository(s.db, s.logger)
+		s.emailRepo = postgres.NewAdminEmailRepository(s.db, s.logger)
+		s.ruleRepo = postgres.NewGlobalRuleRepository(s.db, s.logger)
+		s.logger.Info("Admin repositories initialized (PostgreSQL)")
 	} else {
 		// Use in-memory repositories (development mode)
 		s.logger.Info("Initializing in-memory repositories")
@@ -148,6 +169,9 @@ func (s *Server) initRepositories() {
 
 		s.vmRepo = memVMRepo
 		s.nodeRepo = memNodeRepo
+
+		// Admin repositories require PostgreSQL - log warning
+		s.logger.Warn("Admin panel requires PostgreSQL - admin features disabled in development mode")
 	}
 
 	// These remain in-memory for now (PostgreSQL implementations can be added later)
@@ -208,6 +232,27 @@ func (s *Server) initServices() {
 
 	// Storage services
 	s.imageService = storageservice.NewImageService(s.imageRepo, s.logger)
+
+	// Initialize admin services if PostgreSQL is available
+	if s.db != nil && s.roleRepo != nil {
+		roleService := admin.NewRoleService(s.roleRepo, s.logger)
+		apiKeyService := admin.NewAPIKeyService(s.apiKeyRepo, 10, s.logger)
+		auditService := admin.NewAuditService(s.auditRepo, 90, s.logger)
+		orgService := admin.NewOrganizationService(s.orgRepo, s.logger)
+		emailService := admin.NewAdminEmailService(s.emailRepo, nil, s.logger) // nil email sender for now
+		ruleService := admin.NewGlobalRuleService(s.ruleRepo, s.logger)
+
+		s.adminHandler = NewAdminHandler(
+			roleService,
+			apiKeyService,
+			auditService,
+			orgService,
+			emailService,
+			ruleService,
+			s.logger,
+		)
+		s.logger.Info("Admin services initialized")
+	}
 
 	s.logger.Info("Services initialized",
 		zap.String("scheduler_strategy", schedulerConfig.PlacementStrategy),
@@ -282,6 +327,14 @@ func (s *Server) registerRoutes() {
 	imagePath, imageHandler := storagev1connect.NewImageServiceHandler(s.imageService)
 	s.mux.Handle(imagePath, imageHandler)
 	s.logger.Info("Registered Image service", zap.String("path", imagePath))
+
+	// =========================================================================
+	// Admin REST API (requires PostgreSQL)
+	// =========================================================================
+	if s.adminHandler != nil {
+		s.adminHandler.RegisterRoutes(s.mux)
+		s.logger.Info("Registered Admin API routes", zap.String("path", "/api/admin/*"))
+	}
 
 	s.logger.Info("All routes registered")
 }

@@ -12,11 +12,14 @@ import {
   Copy,
   Loader2,
   Command,
+  Settings2,
+  Star,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { API_CONFIG } from '@/lib/api-client';
-import { showSuccess, showError } from '@/lib/toast';
+import { showSuccess, showError, showInfo } from '@/lib/toast';
+import { useDefaultConsoleType } from '@/hooks/useConsoleStore';
 
 interface ConsoleAccessModalProps {
   isOpen: boolean;
@@ -25,6 +28,29 @@ interface ConsoleAccessModalProps {
   vmId: string;
   vmName: string;
   controlPlaneUrl?: string;
+}
+
+/**
+ * Helper to open console with default preference
+ * Call this directly instead of showing modal for streamlined access
+ */
+export function openDefaultConsole(
+  vmId: string,
+  vmName: string,
+  controlPlaneUrl: string,
+  onOpenWebConsole: () => void,
+): void {
+  const defaultType = localStorage.getItem('limiquantix-console-store')
+    ? JSON.parse(localStorage.getItem('limiquantix-console-store') || '{}').state?.defaultConsoleType
+    : 'web';
+
+  if (defaultType === 'qvmrc') {
+    const qvmrcUrl = `qvmrc://connect?url=${encodeURIComponent(controlPlaneUrl)}&vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}`;
+    window.location.href = qvmrcUrl;
+    showInfo('Opening QVMRC...');
+  } else {
+    onOpenWebConsole();
+  }
 }
 
 type Platform = 'windows' | 'macos' | 'linux' | 'unknown';
@@ -76,10 +102,18 @@ export function ConsoleAccessModal({
   const [platform, setPlatform] = useState<Platform>('unknown');
   const [copied, setCopied] = useState(false);
   const [isLaunchingQVMRC, setIsLaunchingQVMRC] = useState(false);
+  const defaultConsoleType = useDefaultConsoleType();
+  const { setDefaultConsoleType } = require('@/hooks/useConsoleStore').useConsoleStore.getState();
 
   useEffect(() => {
     setPlatform(detectPlatform());
   }, []);
+
+  // Set default console type
+  const handleSetDefault = (type: 'web' | 'qvmrc') => {
+    setDefaultConsoleType(type);
+    showSuccess(`Default console set to ${type === 'web' ? 'Web Console' : 'QVMRC'}`);
+  };
 
   // Generate QVMRC connection URL (custom protocol)
   const qvmrcConnectionUrl = `qvmrc://connect?url=${encodeURIComponent(controlPlaneUrl)}&vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}`;
@@ -199,48 +233,85 @@ export function ConsoleAccessModal({
                 </h3>
 
                 {/* Web Console Option - Enhanced card */}
-                <button
-                  onClick={() => {
-                    onOpenWebConsole();
-                    onClose();
-                  }}
-                  className={cn(
-                    'w-full flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-200',
-                    'bg-bg-base hover:bg-bg-hover border-border hover:border-accent/50',
-                    'text-left group',
-                    'shadow-[0_2px_8px_rgba(0,0,0,0.1)]',
-                    'hover:shadow-[0_4px_16px_rgba(0,0,0,0.15),0_0_0_1px_rgba(139,92,246,0.2)]',
-                    'hover:-translate-y-0.5'
+                <div className={cn(
+                  'relative w-full rounded-xl border-2 transition-all duration-200',
+                  'bg-bg-base border-border',
+                  'shadow-[0_2px_8px_rgba(0,0,0,0.1)]',
+                  defaultConsoleType === 'web' && 'border-accent/50 ring-1 ring-accent/20'
+                )}>
+                  <button
+                    onClick={() => {
+                      onOpenWebConsole();
+                      onClose();
+                    }}
+                    className={cn(
+                      'w-full flex items-center gap-4 p-5',
+                      'hover:bg-bg-hover',
+                      'text-left group',
+                      'hover:-translate-y-0.5 transition-all duration-200'
+                    )}
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center group-hover:from-accent/30 group-hover:to-accent/10 transition-colors border border-accent/20">
+                      <MonitorPlay className="w-6 h-6 text-accent" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-text-primary group-hover:text-accent transition-colors">Web Console</h4>
+                        {defaultConsoleType === 'web' && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-accent/20 text-accent rounded font-medium">Default</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-text-muted mt-0.5">
+                        Opens in browser using noVNC. No installation required.
+                      </p>
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-bg-surface flex items-center justify-center group-hover:bg-accent group-hover:text-white transition-all">
+                      <ExternalLink className="w-4 h-4" />
+                    </div>
+                  </button>
+                  {/* Set as default button */}
+                  {defaultConsoleType !== 'web' && (
+                    <button
+                      onClick={() => handleSetDefault('web')}
+                      className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-bg-hover text-text-muted hover:text-accent transition-colors"
+                      title="Set as default"
+                    >
+                      <Star className="w-4 h-4" />
+                    </button>
                   )}
-                >
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center group-hover:from-accent/30 group-hover:to-accent/10 transition-colors border border-accent/20">
-                    <MonitorPlay className="w-6 h-6 text-accent" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-text-primary group-hover:text-accent transition-colors">Web Console</h4>
-                    <p className="text-sm text-text-muted mt-0.5">
-                      Opens in browser using noVNC. No installation required.
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 rounded-lg bg-bg-surface flex items-center justify-center group-hover:bg-accent group-hover:text-white transition-all">
-                    <ExternalLink className="w-4 h-4" />
-                  </div>
-                </button>
+                </div>
 
                 {/* QVMRC Native Option - Enhanced card */}
                 <div
                   className={cn(
-                    'w-full p-5 rounded-xl border-2 transition-all',
+                    'relative w-full p-5 rounded-xl border-2 transition-all',
                     'bg-bg-base border-border',
-                    'shadow-[0_2px_8px_rgba(0,0,0,0.1)]'
+                    'shadow-[0_2px_8px_rgba(0,0,0,0.1)]',
+                    defaultConsoleType === 'qvmrc' && 'border-purple-500/50 ring-1 ring-purple-500/20'
                   )}
                 >
+                  {/* Set as default button */}
+                  {defaultConsoleType !== 'qvmrc' && (
+                    <button
+                      onClick={() => handleSetDefault('qvmrc')}
+                      className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-bg-hover text-text-muted hover:text-purple-400 transition-colors"
+                      title="Set as default"
+                    >
+                      <Star className="w-4 h-4" />
+                    </button>
+                  )}
+                  
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/5 flex items-center justify-center border border-purple-500/20">
                       <Laptop className="w-6 h-6 text-purple-400" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-text-primary">QVMRC Native Client</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-text-primary">QVMRC Native Client</h4>
+                        {defaultConsoleType === 'qvmrc' && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded font-medium">Default</span>
+                        )}
+                      </div>
                       <p className="text-sm text-text-muted mt-0.5">
                         Better performance, USB passthrough, lower latency.
                       </p>
@@ -322,8 +393,8 @@ export function ConsoleAccessModal({
               <div className="flex items-start gap-3 text-sm p-4 bg-accent/5 border border-accent/15 rounded-xl">
                 <span className="text-lg">💡</span>
                 <p className="text-text-muted text-xs leading-relaxed">
-                  <strong className="text-text-secondary">Tip:</strong> QVMRC will automatically connect to this VM when launched.
-                  First-time users: Download and install QVMRC, then click "Open in QVMRC".
+                  <strong className="text-text-secondary">Tip:</strong> Click the <Star className="inline w-3 h-3" /> icon to set your default console.
+                  The quick console button on VM rows will use your default choice.
                 </p>
               </div>
             </div>

@@ -9,6 +9,7 @@
 mod api;
 mod config;
 mod iso_server;
+mod usb;
 mod vnc;
 
 use config::SavedConnection;
@@ -255,6 +256,8 @@ fn main() {
             vnc::send_ctrl_alt_del,
             vnc::get_connection_status,
             vnc::get_connection_info,
+            vnc::send_clipboard,
+            vnc::get_vm_clipboard,
             // VM control commands
             api::vm_power_action,
             api::vm_mount_iso,
@@ -267,6 +270,11 @@ fn main() {
             // Deep link commands
             get_pending_connection,
             add_and_connect,
+            // USB passthrough commands
+            usb::list_usb_devices,
+            usb::attach_usb_device,
+            usb::detach_usb_device,
+            usb::get_vm_usb_devices,
         ])
         .setup(|app| {
             debug_log("Tauri setup running");

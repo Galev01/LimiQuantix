@@ -25,7 +25,9 @@ import { useVMs, useStartVM, useStopVM, useDeleteVM, isVMRunning, isVMStopped, t
 import { useApiConnection } from '@/hooks/useDashboard';
 import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
 import { showInfo } from '@/lib/toast';
-import { useConsoleStore } from '@/hooks/useConsoleStore';
+import { useConsoleStore, useDefaultConsoleType } from '@/hooks/useConsoleStore';
+import { openDefaultConsole } from '@/components/vm/ConsoleAccessModal';
+import { API_CONFIG } from '@/lib/api-client';
 
 type FilterTab = 'all' | 'running' | 'stopped' | 'other';
 
@@ -188,15 +190,25 @@ export function VMList() {
     }
   };
 
-  // Quick console access - opens the console dock with this VM
+  // Quick console access - uses default console preference
   const handleOpenConsole = (vm: MockVM, e: React.MouseEvent) => {
     e.stopPropagation();
     if (vm.status.state !== 'RUNNING') {
       showInfo('VM must be running to open console');
       return;
     }
-    openConsole(vm.id, vm.name);
-    navigate('/consoles');
+    
+    // Use default console type preference
+    openDefaultConsole(
+      vm.id,
+      vm.name,
+      API_CONFIG.baseUrl,
+      () => {
+        // Web console: open in console dock
+        openConsole(vm.id, vm.name);
+        navigate('/consoles');
+      }
+    );
   };
 
   // Bulk actions

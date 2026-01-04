@@ -201,6 +201,8 @@ pub struct RFBClient {
     pub height: u16,
     pub pixel_format: PixelFormat,
     pub name: String,
+    /// Last clipboard text received from server (ServerCutText)
+    pub last_server_clipboard: Option<String>,
 }
 
 impl fmt::Debug for RFBClient {
@@ -228,6 +230,7 @@ impl RFBClient {
             height: 0,
             pixel_format: PixelFormat::default(),
             name: String::new(),
+            last_server_clipboard: None,
         })
     }
 
@@ -251,6 +254,7 @@ impl RFBClient {
             height: 0,
             pixel_format: PixelFormat::default(),
             name: String::new(),
+            last_server_clipboard: None,
         })
     }
 
@@ -559,6 +563,11 @@ impl RFBClient {
                 self.transport.read_exact(&mut text).await?;
                 
                 debug!("Server clipboard: {} bytes", text_len);
+                
+                // Store clipboard text for retrieval
+                if let Ok(text_str) = String::from_utf8(text) {
+                    self.last_server_clipboard = Some(text_str);
+                }
             }
             _ => {
                 warn!("Unknown message type: {}", msg_type);
@@ -693,7 +702,7 @@ impl RFBClient {
         Ok(())
     }
 
-    /// Send clipboard text
+    /// Send clipboard text to the server (ClientCutText)
     pub async fn send_clipboard(&mut self, text: &str) -> Result<(), RFBError> {
         let text_bytes = text.as_bytes();
         let mut msg = vec![0u8; 8 + text_bytes.len()];
@@ -703,6 +712,16 @@ impl RFBClient {
         msg[8..].copy_from_slice(text_bytes);
         self.transport.write_all(&msg).await?;
         Ok(())
+    }
+    
+    /// Take the last clipboard text received from server (clears it after reading)
+    pub fn take_server_clipboard(&mut self) -> Option<String> {
+        self.last_server_clipboard.take()
+    }
+    
+    /// Get the last clipboard text received from server (does not clear)
+    pub fn get_server_clipboard(&self) -> Option<&str> {
+        self.last_server_clipboard.as_deref()
     }
 
     // Helper methods for reading values
