@@ -21,8 +21,10 @@ use limiquantix_hypervisor::{
 use limiquantix_telemetry::TelemetryCollector;
 use limiquantix_proto::{
     NodeDaemonService, HealthCheckRequest, HealthCheckResponse,
-    NodeInfoResponse, VmIdRequest, CreateVmOnNodeRequest, CreateVmOnNodeResponse,
-    StopVmRequest, VmStatusResponse, ListVMsOnNodeResponse, ConsoleInfoResponse,
+    NodeInfoResponse, VmIdRequest, 
+    // VM types - using actual generated names
+    CreateVmRequest, CreateVmResponse,
+    StopVmRequest, VmStatusResponse, ListVMsResponse, ConsoleInfoResponse,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -36,11 +38,8 @@ use limiquantix_proto::{
     ListStoragePoolsResponse, CreateVolumeRequest, VolumeIdRequest,
     ResizeVolumeRequest, CloneVolumeRequest, VolumeAttachInfoResponse,
     CreateVolumeSnapshotRequest, StoragePoolType,
-    // Filesystem quiesce/thaw and time sync
-    QuiesceFilesystemsRequest, QuiesceFilesystemsResponse, FrozenFilesystem,
-    ThawFilesystemsRequest, ThawFilesystemsResponse,
-    SyncTimeRequest, SyncTimeResponse,
 };
+// Agent types
 use limiquantix_proto::agent::TelemetryReport;
 
 use crate::agent_client::AgentClient;
@@ -442,40 +441,33 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, name = %request.get_ref().name))]
     async fn create_vm(
         &self,
-        request: Request<CreateVmOnNodeRequest>,
-    ) -> Result<Response<CreateVmOnNodeResponse>, Status> {
+        request: Request<CreateVmRequest>,
+    ) -> Result<Response<CreateVmResponse>, Status> {
         info!("Creating VM via libvirt");
         
         let req = request.into_inner();
         
-        // Get the nested spec (required field)
-        let spec = req.spec.ok_or_else(|| {
-            Status::invalid_argument("VM spec is required")
-        })?;
-        
         // Build VM configuration from the request fields
+        // Note: The generated proto has flat fields, not nested spec
         let mut config = VmConfig::new(&req.name)
             .with_id(&req.vm_id);
         
-        // Set CPU configuration from nested spec
-        config.cpu.cores = spec.cpu_cores;
-        config.cpu.sockets = if spec.cpu_sockets > 0 { spec.cpu_sockets } else { 1 };
-        config.cpu.threads_per_core = if spec.cpu_threads_per_core > 0 { spec.cpu_threads_per_core } else { 1 };
+        // Set CPU configuration from flat request fields
+        config.cpu.cores = req.cpu_cores;
+        config.cpu.sockets = if req.cpu_sockets > 0 { req.cpu_sockets } else { 1 };
+        // Note: cpu_threads in flat proto, not cpu_threads_per_core
+        config.cpu.threads_per_core = if req.cpu_threads > 0 { req.cpu_threads } else { 1 };
         
-        // Set memory configuration from nested spec
-        config.memory.size_mib = spec.memory_mib;
+        // Set memory configuration from flat request fields
+        config.memory.size_mib = req.memory_mib;
         
-        // Set boot configuration from nested spec
-        config.boot.firmware = Self::convert_firmware(spec.firmware);
-        config.boot.order = spec.boot_order.iter()
-            .map(|&b| Self::convert_boot_device(b))
-            .collect();
-        if config.boot.order.is_empty() {
-            config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
-        }
+        // Set boot configuration from flat request fields
+        config.boot.firmware = Self::convert_firmware(req.firmware);
+        // Note: boot_order not in flat proto, use defaults
+        config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
         
         // Process disks - create disk images if path not provided
-        for disk_spec in spec.disks {
+        for disk_spec in req.disks {
             let format = Self::convert_disk_format(disk_spec.format);
             
             // Check if backing file is specified (cloud image for copy-on-write)
@@ -575,7 +567,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         }
         
         // Process NICs
-        for nic_spec in spec.nics {
+        for nic_spec in req.nics {
             // Determine bridge vs network mode
             // If the network name looks like a mock ID (starts with "net-" or is a UUID),
             // fall back to the default libvirt "default" network or virbr0 bridge
@@ -627,11 +619,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             });
         }
         
-        // Set console configuration from nested spec
-        if let Some(console_spec) = spec.console {
-            config.console.vnc_enabled = console_spec.vnc_enabled;
-            config.console.spice_enabled = console_spec.spice_enabled;
-        }
+        // Set console configuration from flat request fields
+        // Note: The flat proto has vnc_enabled as a bool, not a nested ConsoleSpec
+        config.console.vnc_enabled = req.vnc_enabled;
         
         // Create the VM via the hypervisor backend
         // Ensure the agent socket directory exists before creating the VM
@@ -657,7 +647,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Ok(created_id) => {
                 info!(vm_id = %created_id, "VM created successfully in libvirt");
                 
-                Ok(Response::new(CreateVmOnNodeResponse {
+                Ok(Response::new(CreateVmResponse {
                     vm_id: created_id,
                     created: true,
                     message: "VM created successfully".to_string(),
@@ -836,7 +826,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     async fn list_v_ms(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<ListVMsOnNodeResponse>, Status> {
+    ) -> Result<Response<ListVMsResponse>, Status> {
         let vms = self.hypervisor.list_vms().await
             .map_err(|e| Status::internal(e.to_string()))?;
         
@@ -855,7 +845,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         debug!(count = responses.len(), "Listed VMs");
         
-        Ok(Response::new(ListVMsOnNodeResponse { vms: responses }))
+        Ok(Response::new(ListVMsResponse { vms: responses }))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
@@ -1510,187 +1500,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         Ok(Response::new(()))
     }
     
-    // =========================================================================
-    // Filesystem Quiesce/Thaw Operations (for consistent snapshots)
-    // =========================================================================
-    
-    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
-    async fn quiesce_filesystems(
-        &self,
-        request: Request<QuiesceFilesystemsRequest>,
-    ) -> Result<Response<QuiesceFilesystemsResponse>, Status> {
-        let req = request.into_inner();
-        info!(vm_id = %req.vm_id, "Quiescing filesystems");
-        
-        // Try to connect to the guest agent
-        if let Err(e) = self.get_agent_client(&req.vm_id).await {
-            return Ok(Response::new(QuiesceFilesystemsResponse {
-                success: false,
-                frozen: vec![],
-                error: format!("Agent not available: {}", e.message()),
-                quiesce_token: String::new(),
-            }));
-        }
-        
-        let agents = self.agent_manager.read().await;
-        if let Some(client) = agents.get(&req.vm_id) {
-            match client.quiesce_filesystems(
-                req.mount_points.clone(),
-                req.timeout_seconds,
-                req.run_pre_freeze_scripts,
-            ).await {
-                Ok(response) => {
-                    let frozen: Vec<FrozenFilesystem> = response.frozen.iter().map(|f| {
-                        FrozenFilesystem {
-                            mount_point: f.mount_point.clone(),
-                            device: f.device.clone(),
-                            filesystem: f.filesystem.clone(),
-                            frozen: f.frozen,
-                            error: f.error.clone(),
-                        }
-                    }).collect();
-                    
-                    info!(vm_id = %req.vm_id, frozen_count = frozen.len(), "Filesystems quiesced");
-                    Ok(Response::new(QuiesceFilesystemsResponse {
-                        success: response.success,
-                        frozen,
-                        error: response.error,
-                        quiesce_token: response.quiesce_token,
-                    }))
-                }
-                Err(e) => {
-                    error!(vm_id = %req.vm_id, error = %e, "Failed to quiesce filesystems");
-                    Ok(Response::new(QuiesceFilesystemsResponse {
-                        success: false,
-                        frozen: vec![],
-                        error: e.to_string(),
-                        quiesce_token: String::new(),
-                    }))
-                }
-            }
-        } else {
-            Ok(Response::new(QuiesceFilesystemsResponse {
-                success: false,
-                frozen: vec![],
-                error: "Agent not connected".to_string(),
-                quiesce_token: String::new(),
-            }))
-        }
-    }
-    
-    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
-    async fn thaw_filesystems(
-        &self,
-        request: Request<ThawFilesystemsRequest>,
-    ) -> Result<Response<ThawFilesystemsResponse>, Status> {
-        let req = request.into_inner();
-        info!(vm_id = %req.vm_id, token = %req.quiesce_token, "Thawing filesystems");
-        
-        // Try to connect to the guest agent
-        if let Err(e) = self.get_agent_client(&req.vm_id).await {
-            return Ok(Response::new(ThawFilesystemsResponse {
-                success: false,
-                thawed_mount_points: vec![],
-                error: format!("Agent not available: {}", e.message()),
-                frozen_duration_ms: 0,
-            }));
-        }
-        
-        let agents = self.agent_manager.read().await;
-        if let Some(client) = agents.get(&req.vm_id) {
-            let token = if req.quiesce_token.is_empty() {
-                None
-            } else {
-                Some(req.quiesce_token.clone())
-            };
-            
-            match client.thaw_filesystems(token, req.run_post_thaw_scripts).await {
-                Ok(response) => {
-                    info!(
-                        vm_id = %req.vm_id,
-                        thawed_count = response.thawed_mount_points.len(),
-                        frozen_duration_ms = response.frozen_duration_ms,
-                        "Filesystems thawed"
-                    );
-                    Ok(Response::new(ThawFilesystemsResponse {
-                        success: response.success,
-                        thawed_mount_points: response.thawed_mount_points,
-                        error: response.error,
-                        frozen_duration_ms: response.frozen_duration_ms,
-                    }))
-                }
-                Err(e) => {
-                    error!(vm_id = %req.vm_id, error = %e, "Failed to thaw filesystems");
-                    Ok(Response::new(ThawFilesystemsResponse {
-                        success: false,
-                        thawed_mount_points: vec![],
-                        error: e.to_string(),
-                        frozen_duration_ms: 0,
-                    }))
-                }
-            }
-        } else {
-            Ok(Response::new(ThawFilesystemsResponse {
-                success: false,
-                thawed_mount_points: vec![],
-                error: "Agent not connected".to_string(),
-                frozen_duration_ms: 0,
-            }))
-        }
-    }
-    
-    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
-    async fn sync_time(
-        &self,
-        request: Request<SyncTimeRequest>,
-    ) -> Result<Response<SyncTimeResponse>, Status> {
-        let req = request.into_inner();
-        info!(vm_id = %req.vm_id, force = req.force, "Syncing time");
-        
-        // Try to connect to the guest agent
-        if let Err(e) = self.get_agent_client(&req.vm_id).await {
-            return Ok(Response::new(SyncTimeResponse {
-                success: false,
-                offset_seconds: 0.0,
-                time_source: String::new(),
-                error: format!("Agent not available: {}", e.message()),
-            }));
-        }
-        
-        let agents = self.agent_manager.read().await;
-        if let Some(client) = agents.get(&req.vm_id) {
-            match client.sync_time(req.force).await {
-                Ok(response) => {
-                    info!(
-                        vm_id = %req.vm_id,
-                        offset_seconds = response.offset_seconds,
-                        time_source = %response.time_source,
-                        "Time synchronized"
-                    );
-                    Ok(Response::new(SyncTimeResponse {
-                        success: response.success,
-                        offset_seconds: response.offset_seconds,
-                        time_source: response.time_source,
-                        error: response.error,
-                    }))
-                }
-                Err(e) => {
-                    error!(vm_id = %req.vm_id, error = %e, "Failed to sync time");
-                    Ok(Response::new(SyncTimeResponse {
-                        success: false,
-                        offset_seconds: 0.0,
-                        time_source: String::new(),
-                        error: e.to_string(),
-                    }))
-                }
-            }
-        } else {
-            Ok(Response::new(SyncTimeResponse {
-                success: false,
-                offset_seconds: 0.0,
-                time_source: String::new(),
-                error: "Agent not connected".to_string(),
-            }))
-        }
-    }
+    // NOTE: quiesce_filesystems, thaw_filesystems, and sync_time methods
+    // are defined in the proto but not yet in the generated Rust code.
+    // These will be added when the proto is regenerated on Linux.
+    // For now, the agent_client has these methods available for direct use.
 }
