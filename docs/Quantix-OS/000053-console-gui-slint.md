@@ -115,8 +115,14 @@ The `Cargo.toml` uses feature flags to support different rendering backends:
 [features]
 default = ["desktop"]
 desktop = ["slint/backend-winit", "slint/renderer-femtovg"]
-linuxkms = ["slint/backend-linuxkms", "slint/renderer-skia"]
+# Uses femtovg (pure Rust) instead of Skia to enable static linking with musl
+linuxkms = ["slint/backend-linuxkms", "slint/renderer-femtovg"]
 ```
+
+> **Note**: We use `renderer-femtovg` instead of `renderer-skia` for the production build because:
+> 1. Femtovg is pure Rust and links statically with musl
+> 2. Skia has C++ dependencies that require glibc, causing "not found" errors on Alpine
+> 3. The binary must run on Quantix-OS (Alpine Linux with musl libc)
 
 ### Desktop Build (Development)
 
@@ -432,14 +438,17 @@ make console-gui-binary
 cd quantix-os/console-gui
 
 # Build with LinuxKMS backend for framebuffer rendering
-cargo build --release --no-default-features --features linuxkms --target x86_64-unknown-linux-gnu
+# Uses musl target for Alpine Linux compatibility
+cargo build --release --no-default-features --features linuxkms --target x86_64-unknown-linux-musl
 
 # Strip symbols for smaller binary
-strip target/x86_64-unknown-linux-gnu/release/qx-console-gui
+strip target/x86_64-unknown-linux-musl/release/qx-console-gui
 
 # Copy to overlay
-cp target/x86_64-unknown-linux-gnu/release/qx-console-gui ../overlay/usr/bin/
+cp target/x86_64-unknown-linux-musl/release/qx-console-gui ../overlay/usr/bin/
 ```
+
+> **Important**: Always build with `x86_64-unknown-linux-musl` target. The `x86_64-unknown-linux-gnu` target produces glibc binaries that fail with "not found" on Alpine Linux (which uses musl libc).
 
 ### Console Launcher
 
