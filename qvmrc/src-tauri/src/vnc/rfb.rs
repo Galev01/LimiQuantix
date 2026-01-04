@@ -423,16 +423,13 @@ impl RFBClient {
     /// Set supported encodings
     /// Order matters - preferred encodings should come first
     async fn set_encodings(&mut self) -> Result<(), RFBError> {
-        // Encoding priority: ZRLE > Tight > Hextile > Zlib > RRE > CopyRect > Raw
-        // ZRLE and Tight provide the best compression for most workloads
+        // Start with simpler encodings for better compatibility
+        // Tight and ZRLE are complex - fall back to simpler encodings first
         let encodings: &[i32] = &[
-            16,  // ZRLE - excellent for desktop content, run-length + zlib
-            7,   // Tight - best for mixed content (JPEG for photos, zlib for desktop)
             5,   // Hextile - good balance of speed and compression
-            6,   // Zlib - simple zlib compression
             2,   // RRE - rise-and-run-length encoding
             1,   // CopyRect - copy from another screen region
-            0,   // Raw - uncompressed fallback
+            0,   // Raw - uncompressed fallback (most compatible)
             -239, // Cursor pseudo-encoding
             -223, // DesktopSize pseudo-encoding
         ];
@@ -449,7 +446,7 @@ impl RFBClient {
         self.transport.write_all(&msg).await?;
         
         debug!(
-            "Set encodings: ZRLE, Tight, Hextile, Zlib, RRE, CopyRect, Raw + pseudo-encodings"
+            "Set encodings: Hextile, RRE, CopyRect, Raw + pseudo-encodings"
         );
         
         Ok(())
@@ -497,7 +494,7 @@ impl RFBClient {
                     let height = self.read_u16().await?;
                     let encoding = self.read_i32().await?;
 
-                    trace!(
+                    info!(
                         "Rect {}/{}: {}x{} at ({},{}) encoding={}",
                         rect_idx + 1,
                         num_rects,
