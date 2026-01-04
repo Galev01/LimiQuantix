@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { API_CONFIG } from '@/lib/api-client';
 import { showSuccess, showError, showInfo } from '@/lib/toast';
-import { useDefaultConsoleType } from '@/hooks/useConsoleStore';
+import { useDefaultConsoleType, useConsoleStore } from '@/hooks/useConsoleStore';
 
 interface ConsoleAccessModalProps {
   isOpen: boolean;
@@ -103,7 +103,7 @@ export function ConsoleAccessModal({
   const [copied, setCopied] = useState(false);
   const [isLaunchingQVMRC, setIsLaunchingQVMRC] = useState(false);
   const defaultConsoleType = useDefaultConsoleType();
-  const { setDefaultConsoleType } = require('@/hooks/useConsoleStore').useConsoleStore.getState();
+  const setDefaultConsoleType = useConsoleStore((state) => state.setDefaultConsoleType);
 
   useEffect(() => {
     setPlatform(detectPlatform());

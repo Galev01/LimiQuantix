@@ -1,73 +1,151 @@
-# Workflow State: Clean
+# Workflow State: Quantix-OS Host Management UI
 
-No active workflows.
+## Status: Planning Phase
+
+### Overview
+
+Building a new React application (`quantix-host-ui/`) that provides direct management of a Quantix-OS hypervisor host, similar to ESXi's Host Client.
 
 ---
 
-## Completed: Console UX Improvements (January 3, 2026)
+## Analysis Summary
 
-Successfully implemented all 10 tasks from the Console Access & Web UI Improvement Plan.
+### Existing Infrastructure
+- **Main Frontend** (`frontend/`): React 19 + Vite + TypeScript + Tailwind CSS v4
+- **Node Daemon** (`agent/limiquantix-node/`): Rust gRPC service with full VM/Storage/Network operations
+- **Proto Definitions** (`proto/limiquantix/`): Complete API definitions for compute, storage, network, node
+- **QVMRC** (`qvmrc/`): Tauri-based native console client with VNC support
 
-### Summary of Changes
+### Key Decisions Required
 
-#### Multi-Console Support
-- **ConsoleDock page** (`frontend/src/pages/ConsoleDock.tsx`) - New page at `/consoles` for viewing multiple VM consoles in tabs or grid layout
-- **ConsoleTabBar** (`frontend/src/components/console/ConsoleTabBar.tsx`) - Tab navigation with close buttons, view mode toggle
-- **ConsoleGrid** (`frontend/src/components/console/ConsoleGrid.tsx`) - Grid layout manager with 1x1, 2x1, 2x2, 3x2 options
-- **useConsoleStore** (`frontend/src/hooks/useConsoleStore.ts`) - Zustand store for console session state management
+1. **Approach**: New standalone app vs. integrate into existing frontend?
+   - **Recommendation**: Create `quantix-host-ui/` as a **standalone lightweight app** optimized for single-host management
+   - Rationale: Different use case (local host vs. cluster), smaller bundle, direct node daemon communication
 
-#### Quick Console Access
-- Added one-click console button (Monitor icon) to VM list rows in `VMList.tsx`
-- Uses user's default console preference (Web or QVMRC)
+2. **Backend API Gateway**: Rust HTTP server in node daemon vs. Go sidecar?
+   - **Recommendation**: Add **Axum HTTP/WebSocket** to existing Rust node daemon
+   - Rationale: Single binary, no additional dependencies, gRPC already implemented
 
-#### Performance Optimizations
-- **Quality Settings dropdown** in noVNC toolbar with Auto/High/Medium/Low presets
-- Settings persisted in localStorage (compression level, quality level, scale, cursor)
-- Toggle for Scale to Fit and Show Local Cursor
+3. **Code Sharing**: Reuse patterns from main frontend
+   - Copy: Tailwind config, UI components, design tokens
+   - Reference: API patterns, hook patterns, store patterns
+   - Unique: Simplified routing (single host context), direct daemon connection
 
-#### Clipboard Sync
-- **Web Console**: Bidirectional clipboard sync with polling every 500ms
-- **QVMRC**: Added `send_clipboard`, `get_vm_clipboard` commands, `vnc:clipboard` event emission
+---
 
-#### Console Thumbnails
-- Thumbnail capture every 5 seconds from noVNC canvas
-- Sent to parent window via postMessage
-- Displayed in console tabs with hover preview
+## Implementation Plan
 
-#### Streamlined Console Modal
-- Added `openDefaultConsole` helper function for quick access
-- Star icon to set default console type (Web or QVMRC)
-- Quick console button uses default preference
+### Phase 1: Project Foundation (Current)
+- [x] Analyze plan and existing codebase
+- [ ] Create `quantix-host-ui/` project structure
+- [ ] Set up Vite + React 19 + TypeScript + Tailwind
+- [ ] Copy shared UI components and design tokens
+- [ ] Create layout shell (sidebar, header, navigation)
+- [ ] Build API client for REST/WebSocket
 
-#### Global Keyboard Shortcuts
-- **KeyboardShortcuts** component wraps the main layout
-- Ctrl+1-9: Switch console tabs
-- Ctrl+Tab / Ctrl+Shift+Tab: Next/Previous console
-- Ctrl+Shift+C: Open console dock
-- Ctrl+Shift+F: Toggle fullscreen
+### Phase 2: Dashboard & Core Pages
+- [ ] Dashboard page with host overview
+- [ ] Host hardware inventory page
+- [ ] Basic VM list with power operations
 
-#### USB Passthrough (QVMRC)
-- **usb module** (`qvmrc/src-tauri/src/usb/mod.rs`) with:
-  - `list_usb_devices` - Enumerate connected USB devices
-  - `attach_usb_device` - Attach device to VM via control plane
-  - `detach_usb_device` - Detach device from VM
-  - `get_vm_usb_devices` - List devices attached to a VM
+### Phase 3: VM Management
+- [ ] VM detail page with tabs
+- [ ] Create VM wizard
+- [ ] Console access (QVMRC deep link + Web VNC)
+- [ ] Snapshots management
 
-### Files Created
-- `frontend/src/pages/ConsoleDock.tsx`
-- `frontend/src/components/console/ConsoleTabBar.tsx`
-- `frontend/src/components/console/ConsoleGrid.tsx`
-- `frontend/src/components/console/index.ts`
-- `frontend/src/hooks/useConsoleStore.ts`
-- `frontend/src/components/KeyboardShortcuts.tsx`
-- `qvmrc/src-tauri/src/usb/mod.rs`
+### Phase 4: Storage & Network
+- [ ] Storage pools page
+- [ ] Volumes management
+- [ ] Network configuration page
+- [ ] Physical NIC status
 
-### Files Modified
-- `frontend/src/App.tsx` - Added ConsoleDock route and KeyboardShortcuts wrapper
-- `frontend/src/pages/VMList.tsx` - Added quick console button
-- `frontend/src/components/vm/ConsoleAccessModal.tsx` - Streamlined with default actions
-- `frontend/public/novnc/limiquantix.html` - Quality settings, clipboard sync, thumbnails
-- `qvmrc/src-tauri/src/vnc/mod.rs` - Clipboard commands and events
-- `qvmrc/src-tauri/src/vnc/rfb.rs` - Clipboard storage field
-- `qvmrc/src-tauri/src/main.rs` - USB and clipboard command registration
-- `qvmrc/src-tauri/Cargo.toml` - Added rusb dependency
+### Phase 5: Advanced Features
+- [ ] Performance monitoring charts
+- [ ] Tasks & events pages
+- [ ] Host configuration/services
+- [ ] Real-time WebSocket updates
+
+---
+
+## File Structure
+
+```
+quantix-host-ui/
+├── src/
+│   ├── main.tsx
+│   ├── App.tsx
+│   ├── api/                    # API client layer
+│   │   ├── client.ts           # HTTP/WS client to node daemon
+│   │   ├── vm.ts               # VM operations
+│   │   ├── storage.ts          # Storage pools/volumes
+│   │   ├── network.ts          # Network configuration
+│   │   └── host.ts             # Host/system info
+│   ├── hooks/                  # React Query hooks
+│   │   ├── useVMs.ts
+│   │   ├── useStorage.ts
+│   │   ├── useNetwork.ts
+│   │   ├── useHost.ts
+│   │   └── useEvents.ts
+│   ├── stores/                 # Zustand stores
+│   │   └── useAppStore.ts      # App state (theme, sidebar)
+│   ├── pages/                  # Main pages
+│   │   ├── Dashboard.tsx
+│   │   ├── VirtualMachines.tsx
+│   │   ├── VMDetail.tsx
+│   │   ├── Storage.tsx
+│   │   ├── Networking.tsx
+│   │   ├── Hardware.tsx
+│   │   ├── Monitor.tsx
+│   │   └── Events.tsx
+│   ├── components/
+│   │   ├── layout/             # Shell, sidebar, header
+│   │   ├── vm/                 # VM-specific components
+│   │   ├── storage/            # Storage components
+│   │   ├── charts/             # Performance charts
+│   │   └── ui/                 # Base UI components (copied from main frontend)
+│   └── lib/
+│       ├── utils.ts
+│       ├── qvmrc.ts            # QVMRC deep link launcher
+│       └── websocket.ts        # WebSocket for real-time updates
+├── index.html
+├── package.json
+├── tailwind.config.js
+├── vite.config.ts
+└── tsconfig.json
+```
+
+---
+
+## Backend Changes Required
+
+### Node Daemon HTTP Gateway
+Add to `agent/limiquantix-node/`:
+- Axum HTTP server on port 8443
+- REST endpoints proxying to gRPC
+- Static file serving for UI build
+- WebSocket endpoint for real-time updates
+
+### API Endpoints
+```
+GET  /api/v1/host              # Host info, status
+GET  /api/v1/host/hardware     # Hardware inventory
+GET  /api/v1/vms               # List VMs
+POST /api/v1/vms               # Create VM
+GET  /api/v1/vms/:id           # Get VM
+POST /api/v1/vms/:id/start     # Start VM
+POST /api/v1/vms/:id/stop      # Stop VM
+GET  /api/v1/vms/:id/console   # Console info
+GET  /api/v1/storage/pools     # Storage pools
+GET  /api/v1/network/nics      # Physical NICs
+WS   /api/v1/ws                # Real-time updates
+```
+
+---
+
+## Notes
+
+- Reuse existing Tailwind design system from `frontend/`
+- QVMRC integration via `qvmrc://` deep link already exists
+- Node daemon already has all gRPC methods needed
+- Focus on ESXi Host Client-like simplicity
