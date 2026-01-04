@@ -1559,6 +1559,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         &self,
         request: Request<QuiesceFilesystemsRequest>,
     ) -> Result<Response<QuiesceFilesystemsResponse>, Status> {
+        use limiquantix_proto::FrozenFilesystem;
+        
         let req = request.into_inner();
         info!(vm_id = %req.vm_id, "Quiescing filesystems via guest agent");
         
@@ -1576,13 +1578,23 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                     let quiesce_token = uuid::Uuid::new_v4().to_string();
                     info!(vm_id = %req.vm_id, quiesce_token = %quiesce_token, "Filesystems quiesced");
                     Ok(Response::new(QuiesceFilesystemsResponse {
-                        frozen: true,
+                        success: true,
+                        frozen: vec![FrozenFilesystem {
+                            mount_point: "/".to_string(),
+                            device: String::new(),
+                            filesystem: String::new(),
+                            frozen: true,
+                            error: String::new(),
+                        }],
+                        error: String::new(),
                         quiesce_token,
                     }))
                 } else {
                     warn!(vm_id = %req.vm_id, stderr = %output.stderr, "fsfreeze failed");
                     Ok(Response::new(QuiesceFilesystemsResponse {
-                        frozen: false,
+                        success: false,
+                        frozen: vec![],
+                        error: output.stderr,
                         quiesce_token: String::new(),
                     }))
                 }
@@ -1590,7 +1602,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Err(e) => {
                 error!(vm_id = %req.vm_id, error = %e, "Failed to quiesce filesystems");
                 Ok(Response::new(QuiesceFilesystemsResponse {
-                    frozen: false,
+                    success: false,
+                    frozen: vec![],
+                    error: e.to_string(),
                     quiesce_token: String::new(),
                 }))
             }
@@ -1617,13 +1631,17 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 if output.exit_code == 0 {
                     info!(vm_id = %req.vm_id, "Filesystems thawed");
                     Ok(Response::new(ThawFilesystemsResponse {
+                        success: true,
                         thawed_mount_points: vec!["/".to_string()],
+                        error: String::new(),
                         frozen_duration_ms: 0, // We don't track duration currently
                     }))
                 } else {
                     warn!(vm_id = %req.vm_id, stderr = %output.stderr, "fsfreeze --unfreeze failed");
                     Ok(Response::new(ThawFilesystemsResponse {
+                        success: false,
                         thawed_mount_points: vec![],
+                        error: output.stderr,
                         frozen_duration_ms: 0,
                     }))
                 }
@@ -1631,7 +1649,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Err(e) => {
                 error!(vm_id = %req.vm_id, error = %e, "Failed to thaw filesystems");
                 Ok(Response::new(ThawFilesystemsResponse {
+                    success: false,
                     thawed_mount_points: vec![],
+                    error: e.to_string(),
                     frozen_duration_ms: 0,
                 }))
             }
@@ -1652,11 +1672,6 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Status::unavailable(format!("No agent connection for VM {}", req.vm_id))
         })?;
         
-        // Get current host time
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|e| Status::internal(format!("Failed to get host time: {}", e)))?;
-        
         // Set time via guest agent using hwclock sync (10 second timeout)
         // This syncs the guest's system clock to the hardware clock which should be kept in sync with host
         match agent.execute("hwclock --hctosys", 10).await {
@@ -1664,21 +1679,30 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 if output.exit_code == 0 {
                     info!(vm_id = %req.vm_id, "Guest time synchronized");
                     Ok(Response::new(SyncTimeResponse {
-                        offset_seconds: 0,
+                        success: true,
+                        offset_seconds: 0.0,
                         time_source: "host".to_string(),
+                        error: String::new(),
                     }))
                 } else {
                     warn!(vm_id = %req.vm_id, stderr = %output.stderr, "time sync failed");
                     // Return success anyway as some VMs may not have hwclock
                     Ok(Response::new(SyncTimeResponse {
-                        offset_seconds: 0,
+                        success: false,
+                        offset_seconds: 0.0,
                         time_source: "unknown".to_string(),
+                        error: output.stderr,
                     }))
                 }
             }
             Err(e) => {
                 error!(vm_id = %req.vm_id, error = %e, "Failed to sync time");
-                Err(Status::internal(format!("Time sync failed: {}", e)))
+                Ok(Response::new(SyncTimeResponse {
+                    success: false,
+                    offset_seconds: 0.0,
+                    time_source: String::new(),
+                    error: e.to_string(),
+                }))
             }
         }
     }
