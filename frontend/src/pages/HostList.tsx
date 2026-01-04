@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/Button';
 import { mockNodes, type Node as MockNode, type NodePhase } from '@/data/mock-data';
 import { useNodes, type ApiNode, isNodeReady } from '@/hooks/useNodes';
 import { useApiConnection } from '@/hooks/useDashboard';
+import { showInfo, showWarning } from '@/lib/toast';
 
 type FilterTab = 'all' | 'ready' | 'not_ready' | 'maintenance';
 
@@ -182,8 +183,26 @@ export function HostList() {
   const handleContextAction = (action: string) => {
     if (!contextMenu.node) return;
     
-    console.log(`Action: ${action} on host: ${contextMenu.node.hostname}`);
-    // TODO: Implement actual actions via API
+    // These actions are placeholders for future node management API
+    switch (action) {
+      case 'maintenance':
+        showWarning(`Maintenance mode for "${contextMenu.node.hostname}" coming soon`);
+        break;
+      case 'migrate_vms':
+        showWarning(`Migrate VMs from "${contextMenu.node.hostname}" coming soon`);
+        break;
+      case 'reboot':
+        showWarning(`Reboot "${contextMenu.node.hostname}" coming soon`);
+        break;
+      case 'shutdown':
+        showWarning(`Shutdown "${contextMenu.node.hostname}" coming soon`);
+        break;
+      case 'remove':
+        showWarning(`Remove "${contextMenu.node.hostname}" from cluster coming soon`);
+        break;
+      default:
+        showInfo(`Action "${action}" on host "${contextMenu.node.hostname}"`);
+    }
     
     setContextMenu((prev) => ({ ...prev, visible: false }));
   };

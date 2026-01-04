@@ -466,10 +466,7 @@ export function VirtualNetworks() {
       <CreateNetworkModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('Create network:', data);
-          setIsCreateModalOpen(false);
-        }}
+        onSubmit={handleCreateNetwork}
       />
 
       {/* Edit Network Modal */}
@@ -478,11 +475,7 @@ export function VirtualNetworks() {
           isOpen={isEditModalOpen}
           onClose={() => { setIsEditModalOpen(false); setEditingNetwork(null); }}
           network={editingNetwork}
-          onSubmit={(data) => {
-            console.log('Update network:', data);
-            setIsEditModalOpen(false);
-            setEditingNetwork(null);
-          }}
+          onSubmit={handleUpdateNetwork}
         />
       )}
     </div>

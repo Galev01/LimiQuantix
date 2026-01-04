@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useSecurityGroups, useDeleteSecurityGroup, type ApiSecurityGroup } from '@/hooks/useSecurityGroups';
 import { useApiConnection } from '@/hooks/useDashboard';
+import { showInfo } from '@/lib/toast';
 
 interface SecurityRule {
   id: string;
@@ -267,14 +268,10 @@ export function SecurityGroups() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this security group?')) return;
     if (useMockData) {
-      console.log('Mock: Delete security group', id);
+      showInfo('Demo mode: Security group delete simulated');
       return;
     }
-    try {
-      await deleteSG.mutateAsync(id);
-    } catch (err) {
-      console.error('Failed to delete security group:', err);
-    }
+    await deleteSG.mutateAsync(id);
   };
 
   return (

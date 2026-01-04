@@ -22,6 +22,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { showInfo } from '@/lib/toast';
 
 interface VPNService {
   id: string;
@@ -276,7 +277,7 @@ export function VPNServices() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={(data) => {
-          console.log('Create VPN service:', data);
+          showInfo(`Demo mode: VPN service "${data.name}" created (simulated)`);
           setIsCreateModalOpen(false);
         }}
       />

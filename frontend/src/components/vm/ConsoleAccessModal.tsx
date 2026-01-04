@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { API_CONFIG } from '@/lib/api-client';
+import { showSuccess, showError } from '@/lib/toast';
 
 interface ConsoleAccessModalProps {
   isOpen: boolean;
@@ -101,9 +102,10 @@ export function ConsoleAccessModal({
     try {
       await navigator.clipboard.writeText(qvmrcConnectionUrl);
       setCopied(true);
+      showSuccess('Connection URL copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      console.error('Failed to copy to clipboard');
+      showError('Failed to copy to clipboard', 'Clipboard access denied');
     }
   };
 

@@ -21,6 +21,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { showInfo } from '@/lib/toast';
 
 interface LoadBalancer {
   id: string;
@@ -276,7 +277,7 @@ export function LoadBalancers() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={(data) => {
-          console.log('Create load balancer:', data);
+          showInfo(`Demo mode: Load balancer "${data.name}" created (simulated)`);
           setIsCreateModalOpen(false);
         }}
       />

@@ -21,6 +21,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { showInfo } from '@/lib/toast';
 
 interface BGPSpeaker {
   id: string;
@@ -268,7 +269,7 @@ export function BGPSpeakers() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={(data) => {
-          console.log('Create BGP speaker:', data);
+          showInfo(`Demo mode: BGP speaker "${data.name}" created (simulated)`);
           setIsCreateModalOpen(false);
         }}
       />
