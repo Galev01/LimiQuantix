@@ -127,27 +127,36 @@ set color_highlight=black/light-cyan
 terminal_output gfxterm
 
 # Menu entries
+# Default: KMS mode with DRM for GUI console (virtio-gpu, simpledrm, etc.)
 menuentry "Quantix-OS Installer" --class quantix {
     echo "Loading Quantix-OS..."
-    linux /boot/vmlinuz quiet nomodeset video=vesafb:mtrr:3,ywrap
+    linux /boot/vmlinuz quiet loglevel=3 video=simplefb:on video=efifb:on
     initrd /boot/initramfs
 }
 
 menuentry "Quantix-OS Installer (Verbose)" --class quantix {
     echo "Loading Quantix-OS (Verbose)..."
-    linux /boot/vmlinuz nomodeset video=vesafb:mtrr:3,ywrap
+    linux /boot/vmlinuz video=simplefb:on video=efifb:on
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS Installer (KMS - GPU)" --class quantix {
-    echo "Loading Quantix-OS (KMS Mode)..."
-    linux /boot/vmlinuz quiet
+# Fallback: nomodeset for broken GPU drivers (uses vesafb, no GUI console)
+menuentry "Quantix-OS Installer (No KMS - Legacy)" --class quantix {
+    echo "Loading Quantix-OS (Legacy VGA)..."
+    linux /boot/vmlinuz quiet nomodeset video=vesafb:mtrr:3,ywrap
+    initrd /boot/initramfs
+}
+
+# Serial console mode for headless servers
+menuentry "Quantix-OS Installer (Serial Console)" --class quantix {
+    echo "Loading Quantix-OS (Serial)..."
+    linux /boot/vmlinuz console=ttyS0,115200n8 console=tty0 quiet
     initrd /boot/initramfs
 }
 
 menuentry "Rescue Shell (initramfs)" --class rescue {
     echo "Loading Rescue Shell..."
-    linux /boot/vmlinuz rescue nomodeset
+    linux /boot/vmlinuz rescue
     initrd /boot/initramfs
 }
 EOF

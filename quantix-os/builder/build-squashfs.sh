@@ -269,13 +269,25 @@ dm_mod
 dm_thin_pool
 
 # Graphics/Console (for Slint GUI with KMS)
+# DRM core
 drm
 drm_kms_helper
+
+# Virtual GPU drivers (VMs) - load first for VM environments
+virtio_gpu
+simpledrm
+bochs
+cirrus
+
+# Physical GPU drivers (bare metal)
 i915
 amdgpu
-virtio_gpu
-bochs
-simpledrm
+nouveau
+
+# Legacy framebuffer drivers (fallback for basic VGA)
+efifb
+simplefb
+vesafb
 
 # Input devices (for Slint GUI)
 uinput
