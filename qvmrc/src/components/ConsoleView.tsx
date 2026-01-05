@@ -294,15 +294,24 @@ export function ConsoleView({
   }, [calculateScale]);
 
   // Helper to initialize canvas with resolution
+  // Only initializes if dimensions changed to avoid clearing existing framebuffer
   const initializeCanvas = useCallback((width: number, height: number) => {
-    vncLog.info(`Initializing canvas: ${width}x${height}`);
-    
     const canvas = canvasRef.current;
-    if (canvas && width > 0 && height > 0) {
-      canvas.width = width;
-      canvas.height = height;
-      
-      // Clear canvas to black
+    if (!canvas || width <= 0 || height <= 0) return;
+    
+    // Skip if already initialized with same dimensions
+    if (canvas.width === width && canvas.height === height) {
+      vncLog.debug(`Canvas already initialized: ${width}x${height}, skipping`);
+      return;
+    }
+    
+    vncLog.info(`Initializing canvas: ${width}x${height}`);
+    canvas.width = width;
+    canvas.height = height;
+    
+    // Only clear if we haven't received any frames yet
+    // (hasReceivedInitialFrame guards against clearing after first paint)
+    if (!hasReceivedInitialFrame.current) {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.fillStyle = '#000';
@@ -373,36 +382,38 @@ export function ConsoleView({
 
       const update = event.payload;
       
-      // Debug logging
-      vncLog.debug(`FB update: ${update.width}x${update.height} at (${update.x},${update.y}), data type: ${typeof update.data}, length: ${update.data?.length || 'undefined'}`);
+      // Debug logging (only log occasionally to reduce noise)
+      if (update.width > 100 || !hasReceivedInitialFrame.current) {
+        vncLog.debug(`FB update: ${update.width}x${update.height} at (${update.x},${update.y}), length: ${update.data?.length || 'undefined'}`);
+      }
       
       // If we're receiving framebuffer updates, we're definitely connected
-      // This handles cases where the vnc:connected event was missed
       if (connectionStateRef.current !== 'connected') {
         vncLog.info('Got framebuffer update, marking as connected');
         setConnectionState('connected');
-      }
-      
-      // If canvas not sized yet, size it based on first update
-      if (canvas.width === 0 || canvas.height === 0) {
-        // Try to get resolution from connection
-        invoke<{
-          id: string;
-          vm_id: string;
-          status: string;
-          width: number;
-          height: number;
-        } | null>('get_connection_info', { connectionId }).then((info) => {
-          if (info && info.width > 0 && info.height > 0) {
-            initializeCanvas(info.width, info.height);
-          }
-        });
       }
       
       // Check if data is valid
       if (!update.data || !Array.isArray(update.data)) {
         vncLog.error(`Invalid framebuffer data: ${typeof update.data}`);
         return;
+      }
+      
+      // If canvas not sized yet, initialize it from the update dimensions
+      // This handles the case where we receive a full screen update before vnc:connected
+      if (canvas.width === 0 || canvas.height === 0) {
+        // Use the update position + dimensions to infer full resolution
+        // A full screen update at (0,0) gives us the resolution directly
+        if (update.x === 0 && update.y === 0 && update.width > 0 && update.height > 0) {
+          vncLog.info(`Initializing canvas from first FB update: ${update.width}x${update.height}`);
+          canvas.width = update.width;
+          canvas.height = update.height;
+          setResolution({ width: update.width, height: update.height });
+        } else {
+          // Partial update but canvas not ready - skip for now
+          vncLog.warn(`Canvas not initialized, skipping partial update at (${update.x},${update.y})`);
+          return;
+        }
       }
       
       // Create ImageData with correct dimensions

@@ -331,8 +331,15 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
             </div>
             <p className="empty-state-title">No saved connections</p>
             <p className="empty-state-description">
-              Click the + button to add your first VM connection
+              Add your first VM connection to get started
             </p>
+            <button
+              onClick={() => setShowAddDialog(true)}
+              className="btn btn-primary mt-6"
+            >
+              <Plus className="w-4 h-4" />
+              Add Connection
+            </button>
           </div>
         )}
 
