@@ -56,23 +56,37 @@ export interface CloudImage {
   nodeId?: string;
 }
 
+// Construct cloud image path from OS info
+// Path convention: /var/lib/limiquantix/cloud-images/{distro}-{version}.qcow2
+function constructCloudImagePath(os: { distribution?: string; version?: string }): string | undefined {
+  if (!os.distribution || !os.version) {
+    return undefined;
+  }
+  const distro = os.distribution.toLowerCase();
+  const version = os.version;
+  return `/var/lib/limiquantix/cloud-images/${distro}-${version}.qcow2`;
+}
+
 // Convert proto Image to CloudImage
 function toCloudImage(img: Image): CloudImage {
+  const osInfo = {
+    family: img.spec?.os?.family?.toString() || 'LINUX',
+    distribution: img.spec?.os?.distribution || 'unknown',
+    version: img.spec?.os?.version || '',
+    architecture: img.spec?.os?.architecture || 'x86_64',
+    defaultUser: img.spec?.os?.defaultUser || 'root',
+    cloudInitEnabled: img.spec?.os?.cloudInitEnabled || false,
+    provisioningMethod: img.spec?.os?.provisioningMethod?.toString() || 'NONE',
+  };
+
   return {
     id: img.id,
     name: img.name,
     description: img.description,
-    path: img.status?.storagePoolId ? undefined : undefined, // Path is internal
+    // Construct path from OS info (follows storage convention on hypervisor nodes)
+    path: constructCloudImagePath({ distribution: osInfo.distribution, version: osInfo.version }),
     sizeBytes: Number(img.status?.sizeBytes || 0),
-    os: {
-      family: img.spec?.os?.family?.toString() || 'LINUX',
-      distribution: img.spec?.os?.distribution || 'unknown',
-      version: img.spec?.os?.version || '',
-      architecture: img.spec?.os?.architecture || 'x86_64',
-      defaultUser: img.spec?.os?.defaultUser || 'root',
-      cloudInitEnabled: img.spec?.os?.cloudInitEnabled || false,
-      provisioningMethod: img.spec?.os?.provisioningMethod?.toString() || 'NONE',
-    },
+    os: osInfo,
     requirements: {
       minCpu: img.spec?.requirements?.minCpu || 1,
       minMemoryMib: Number(img.spec?.requirements?.minMemoryMib || 512),

@@ -178,6 +178,17 @@ func (s *Service) CreateVM(
 				zap.Error(err),
 			)
 		} else {
+			// Debug: Log what we received from the frontend
+			for i, disk := range req.Msg.Spec.GetDisks() {
+				logger.Info("DEBUG: Disk spec from frontend",
+					zap.Int("disk_index", i),
+					zap.String("disk_id", disk.GetId()),
+					zap.Uint64("size_gib", disk.GetSizeGib()),
+					zap.String("backing_file", disk.GetBackingFile()),
+					zap.String("volume_id", disk.GetVolumeId()),
+				)
+			}
+
 			// Build Node Daemon request
 			daemonReq := convertToNodeDaemonCreateRequest(created, req.Msg.Spec)
 

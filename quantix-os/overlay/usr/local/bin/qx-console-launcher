@@ -205,15 +205,65 @@ echo ""
 echo "  Input device list from kernel:"
 grep -E '^N:|^H:' /proc/bus/input/devices 2>/dev/null | head -10
 echo ""
+
+# Identify keyboard and mouse event devices
+KEYBOARD_DEV=""
+MOUSE_DEV=""
+for handler in $(grep -E '^H:' /proc/bus/input/devices | sed 's/.*Handlers=//'); do
+    for h in $handler; do
+        case "$h" in
+            event*)
+                # Check if this is keyboard or mouse
+                DEV_PATH="/dev/input/$h"
+                if [ -e "$DEV_PATH" ]; then
+                    # Get the device name
+                    DEV_NAME=$(grep -B10 "H:.*$h" /proc/bus/input/devices | grep "^N:" | tail -1 | sed 's/N: Name="//' | sed 's/"$//')
+                    case "$DEV_NAME" in
+                        *[Kk]eyboard*|*AT*|*atkbd*)
+                            KEYBOARD_DEV="$DEV_PATH"
+                            echo "  Keyboard: $DEV_PATH ($DEV_NAME)"
+                            ;;
+                        *[Mm]ouse*|*VMware*)
+                            MOUSE_DEV="$DEV_PATH"
+                            echo "  Mouse: $DEV_PATH ($DEV_NAME)"
+                            ;;
+                    esac
+                fi
+                ;;
+        esac
+    done
+done
+
+echo ""
 echo "================================================================="
 echo "  SLINT GUI WILL START IN 10 SECONDS"
 echo "  Press Alt+F2 NOW to switch to emergency shell"
+echo ""
+echo "  KEYBOARD TEST: Press any key now to test input detection..."
 echo "================================================================="
 echo ""
 
+# Quick raw input test - read a few bytes from keyboard device
+if [ -n "$KEYBOARD_DEV" ] && [ -r "$KEYBOARD_DEV" ]; then
+    echo "  Testing keyboard input (press a key)..."
+    # Try to read 1 event (with timeout) to verify kernel is receiving input
+    timeout 5 dd if="$KEYBOARD_DEV" bs=24 count=1 of=/tmp/kb_test.bin 2>/dev/null
+    if [ -s /tmp/kb_test.bin ]; then
+        echo "  [OK] Keyboard input received by kernel!"
+        echo "KEYBOARD TEST: SUCCESS - kernel received input" >> "$INPUT_LOG"
+    else
+        echo "  [!!] No keyboard input detected in 5 seconds"
+        echo "KEYBOARD TEST: FAILED - no input received" >> "$INPUT_LOG"
+    fi
+else
+    echo "  [!!] No keyboard device found for testing"
+    echo "KEYBOARD TEST: SKIPPED - no keyboard device" >> "$INPUT_LOG"
+fi
+
 # Countdown
-for i in 10 9 8 7 6 5 4 3 2 1; do
-    echo "  Starting in $i..."
+echo ""
+for i in 5 4 3 2 1; do
+    echo "  Starting Slint in $i..."
     sleep 1
 done
 
@@ -225,9 +275,23 @@ log "Launching Slint GUI..."
 export SLINT_BACKEND="linuxkms-software"
 export SLINT_DEBUG="1"
 
+# Add libinput debug
+export LIBINPUT_DEBUG="1"
+
+# Capture seatd log state before Slint
+echo "" >> "$INPUT_LOG"
+echo "=== SEATD LOG BEFORE SLINT ===" >> "$INPUT_LOG"
+cat /run/quantix/seatd.log >> "$INPUT_LOG" 2>&1
+
 # Run Slint, capturing output
 /usr/bin/qx-console-gui 2>&1 | tee -a /run/quantix/console-gui.log &
 GUI_PID=$!
+
+# Wait a few seconds then capture seatd log again
+sleep 3
+echo "" >> "$INPUT_LOG"
+echo "=== SEATD LOG AFTER SLINT START (3s) ===" >> "$INPUT_LOG"
+cat /run/quantix/seatd.log >> "$INPUT_LOG" 2>&1
 
 log "Slint started (PID: $GUI_PID)"
 

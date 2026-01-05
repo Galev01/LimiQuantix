@@ -136,6 +136,11 @@ async function apiCall<T>(
       // Convert camelCase keys to snake_case for Go proto compatibility
       const snakeCaseBody = body ? convertKeysToSnakeCase(body) : {};
       
+      // Debug logging for VM creation
+      if (method === 'CreateVM') {
+        console.log('[API] CreateVM request body (snake_case):', JSON.stringify(snakeCaseBody, null, 2));
+      }
+      
       const response = await fetch(url, {
         method: 'POST',
         headers,
