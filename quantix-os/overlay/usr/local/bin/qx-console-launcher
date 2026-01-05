@@ -57,17 +57,26 @@ chmod 666 /dev/input/mice 2>/dev/null || true
 chmod 666 /dev/input/mouse* 2>/dev/null || true
 
 # Ensure seatd is running (required for Slint LinuxKMS input)
+# seatd must run with a group that the GUI user belongs to
 if ! pgrep -x seatd >/dev/null 2>&1; then
     boot_msg "Starting seatd for input device access..."
-    # Try to start seatd service
-    rc-service seatd start 2>/dev/null || /usr/sbin/seatd -g video 2>/dev/null &
+    # Start seatd with 'root' group so root user can access it
+    /usr/bin/seatd -g root 2>/dev/null &
     sleep 1
 fi
 
-# Add root to seat/video groups for input access
+# Add root to all input-related groups
 addgroup root video 2>/dev/null || true
 addgroup root input 2>/dev/null || true
 addgroup root seat 2>/dev/null || true
+addgroup root tty 2>/dev/null || true
+
+# Set seatd socket permissions
+chmod 777 /run/seatd.sock 2>/dev/null || true
+
+# Set environment for libseat
+export LIBSEAT_BACKEND=seatd
+export XDG_SEAT=seat0
 
 LOG_FILE="/run/quantix/console-launcher.log"
 
@@ -176,9 +185,18 @@ try_gui() {
     local backend="$1"
     local backend_name="$2"
     
+    # Set Slint backend
     export SLINT_BACKEND="$backend"
+    
+    # Environment for libseat/libinput (critical for input handling)
+    export LIBSEAT_BACKEND=seatd
+    export XDG_SEAT=seat0
+    export XDG_SESSION_TYPE=tty
+    export XDG_RUNTIME_DIR=/run/user/0
+    
     log "Starting Quantix-OS Graphical Console (Slint)"
     log_debug "Backend: $backend_name ($backend)"
+    boot_msg "Starting GUI with backend: $backend_name"
     
     /usr/bin/qx-console-gui </dev/tty1 >/dev/tty1 2>/run/quantix/console-gui.err
     local exit_code=$?
@@ -192,6 +210,7 @@ try_gui() {
     if [ -s /run/quantix/console-gui.err ]; then
         log_debug "Error output:"
         cat /run/quantix/console-gui.err >> "$LOG_FILE"
+        boot_msg "GUI error - check /run/quantix/console-gui.err"
     fi
     
     return $exit_code
@@ -292,7 +311,25 @@ main() {
     # Try GUI console if available
     if [ -x /usr/bin/qx-console-gui ]; then
         
-        # Strategy 1: If DRM is available, try Slint backends
+        # Detect if we're in a VM (VMware, VirtualBox, QEMU, etc.)
+        # VMs often have simpler input handling with framebuffer mode
+        local in_vm=false
+        if grep -qE 'vmware|virtualbox|qemu|kvm|xen|hyperv' /sys/class/dmi/id/sys_vendor 2>/dev/null ||
+           grep -qE 'vmware|virtualbox|qemu|kvm|xen|hyperv' /sys/class/dmi/id/product_name 2>/dev/null ||
+           [ -d /sys/bus/vmbus ] || [ -f /sys/class/dmi/id/chassis_vendor ]; then
+            in_vm=true
+            boot_msg "VM environment detected"
+        fi
+        
+        # Strategy 1: Try raw framebuffer FIRST if available
+        # Framebuffer mode uses our custom evdev input handler which is more reliable
+        if [ "$has_fb_available" = "true" ]; then
+            boot_msg "Trying raw framebuffer mode (preferred for VMs)..."
+            log_debug "Trying raw framebuffer mode"
+            try_framebuffer || true
+        fi
+        
+        # Strategy 2: If DRM is available, try Slint LinuxKMS backends
         if [ "$has_drm_available" = "true" ]; then
             
             # Try GPU-accelerated rendering first if GPU is available
@@ -306,13 +343,6 @@ main() {
             boot_msg "Trying LinuxKMS software..."
             log_debug "Trying LinuxKMS with software renderer"
             try_gui "linuxkms-software" "Software" || true
-        fi
-        
-        # Strategy 2: Try raw framebuffer if available
-        if [ "$has_fb_available" = "true" ]; then
-            boot_msg "Trying raw framebuffer..."
-            log_debug "Trying raw framebuffer mode"
-            try_framebuffer || true
         fi
         
         # All GUI backends failed
