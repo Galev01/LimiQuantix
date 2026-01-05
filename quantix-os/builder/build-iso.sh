@@ -136,7 +136,7 @@ menuentry "Quantix-OS Installer" --class quantix {
 
 menuentry "Quantix-OS Installer (Verbose)" --class quantix {
     echo "Loading Quantix-OS (Verbose)..."
-    linux /boot/vmlinuz video=simplefb:on video=efifb:on
+    linux /boot/vmlinuz loglevel=7 video=simplefb:on video=efifb:on earlyprintk=vga
     initrd /boot/initramfs
 }
 
