@@ -745,13 +745,14 @@ func (c *DaemonClient) WriteFile(ctx context.Context, vmID, path string, content
 }
 
 // ReadFile reads content from a file in the guest VM via the guest agent.
+// Returns: content, totalSize, error
 // TODO: Implement when guest agent file transfer is available
-func (c *DaemonClient) ReadFile(ctx context.Context, vmID, path string, offset, length int64) ([]byte, error) {
+func (c *DaemonClient) ReadFile(ctx context.Context, vmID, path string, offset, length int64) ([]byte, int64, error) {
 	c.logger.Warn("ReadFile not implemented - guest agent file transfer not available",
 		zap.String("vm_id", vmID),
 		zap.String("path", path),
 	)
-	return nil, fmt.Errorf("file transfer not implemented: guest agent support required")
+	return nil, 0, fmt.Errorf("file transfer not implemented: guest agent support required")
 }
 
 // ListDirectory lists files and directories in the guest VM.

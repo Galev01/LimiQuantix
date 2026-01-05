@@ -12,30 +12,42 @@
 # 4. TUI fallback (ratatui) - works on any terminal, no framebuffer needed
 # ============================================================================
 
-set -e
+# IMPORTANT: Remove set -e to prevent silent exits on errors
+# set -e
+
+# Function to print to both log and screen (visible during boot)
+boot_msg() {
+    echo "[QUANTIX] $1"
+    echo "$(date '+%Y-%m-%dT%H:%M:%S') $1" >> /tmp/console-launcher.log 2>/dev/null || true
+}
+
+# Trap errors to show them on screen
+trap 'boot_msg "ERROR: Script failed at line $LINENO"' ERR
+
+boot_msg "=== Console Launcher Starting ==="
 
 # Setup environment
 export XDG_RUNTIME_DIR="/run/user/0"
 export HOME="/root"
 
 # Ensure runtime directories exist (these are on tmpfs, so writable)
-mkdir -p /run/user/0
-chmod 700 /run/user/0
+mkdir -p /run/user/0 2>/dev/null || true
+chmod 700 /run/user/0 2>/dev/null || true
 
 # Create log directory in /run (tmpfs, writable)
-mkdir -p /run/quantix
-chmod 755 /run/quantix
+mkdir -p /run/quantix 2>/dev/null || true
+chmod 755 /run/quantix 2>/dev/null || true
 
 LOG_FILE="/run/quantix/console-launcher.log"
 
 # Logging function
 log() {
-    echo "$(date '+%Y-%m-%dT%H:%M:%S') $1" >> "$LOG_FILE"
-    echo "$1" > /dev/tty1
+    echo "$(date '+%Y-%m-%dT%H:%M:%S') $1" >> "$LOG_FILE" 2>/dev/null || true
+    echo "[QUANTIX] $1"
 }
 
 log_debug() {
-    echo "$(date '+%Y-%m-%dT%H:%M:%S') [DEBUG] $1" >> "$LOG_FILE"
+    echo "$(date '+%Y-%m-%dT%H:%M:%S') [DEBUG] $1" >> "$LOG_FILE" 2>/dev/null || true
 }
 
 # ============================================================================
@@ -102,16 +114,19 @@ wait_for_graphics() {
 # Try to load graphics modules if not already loaded
 try_load_graphics_modules() {
     log_debug "Attempting to load graphics modules..."
+    boot_msg "Loading graphics modules..."
     
     # Try to load virtual GPU drivers first (most common in VMs)
-    for mod in virtio_gpu simpledrm bochs cirrus; do
+    # vmwgfx = VMware, virtio_gpu = KVM/QEMU, bochs/cirrus = legacy QEMU
+    for mod in vmwgfx virtio_gpu simpledrm bochs cirrus vboxvideo; do
         if modprobe "$mod" 2>/dev/null; then
             log_debug "Loaded module: $mod"
+            boot_msg "  Loaded: $mod"
         fi
     done
     
-    # Try framebuffer drivers
-    for mod in efifb simplefb vesafb; do
+    # Try framebuffer drivers (creates /dev/fb0)
+    for mod in vesafb efifb simplefb vga16fb; do
         if modprobe "$mod" 2>/dev/null; then
             log_debug "Loaded module: $mod"
         fi
@@ -171,7 +186,23 @@ try_framebuffer() {
 # Launch TUI console
 launch_tui() {
     log "Starting Quantix-OS Console (TUI)"
-    exec /usr/local/bin/qx-console
+    boot_msg "Launching TUI console..."
+    
+    # Run TUI and capture any errors
+    /usr/local/bin/qx-console </dev/tty1 >/dev/tty1 2>/run/quantix/console-tui.err
+    local exit_code=$?
+    
+    if [ $exit_code -ne 0 ]; then
+        boot_msg "TUI console exited with code: $exit_code"
+        if [ -s /run/quantix/console-tui.err ]; then
+            boot_msg "TUI error:"
+            cat /run/quantix/console-tui.err
+        fi
+        # Don't exit - let the fallback shell run
+        return $exit_code
+    fi
+    
+    exit 0
 }
 
 # ============================================================================
@@ -179,13 +210,29 @@ launch_tui() {
 # ============================================================================
 
 main() {
+    boot_msg "Console launcher main() starting..."
     log_debug "=== Console Launcher Starting ==="
     log_debug "Date: $(date)"
     
+    # Diagnostic: Show what binaries exist
+    boot_msg "Checking console binaries..."
+    if [ -x /usr/bin/qx-console-gui ]; then
+        boot_msg "  - qx-console-gui: FOUND"
+    else
+        boot_msg "  - qx-console-gui: NOT FOUND"
+    fi
+    if [ -x /usr/local/bin/qx-console ]; then
+        boot_msg "  - qx-console (TUI): FOUND"
+    else
+        boot_msg "  - qx-console (TUI): NOT FOUND"
+    fi
+    
     # Try to ensure graphics modules are loaded
+    boot_msg "Loading graphics modules..."
     try_load_graphics_modules
     
     # Wait briefly for graphics devices
+    boot_msg "Waiting for graphics devices..."
     wait_for_graphics
     
     # Detect available graphics
@@ -208,6 +255,7 @@ main() {
         log_debug "Framebuffer is available"
     fi
     
+    boot_msg "Graphics: DRM=$has_drm_available GPU=$has_gpu_available FB=$has_fb_available"
     log_debug "Graphics summary: DRM=$has_drm_available GPU=$has_gpu_available FB=$has_fb_available"
     
     # Try GUI console if available
@@ -218,41 +266,81 @@ main() {
             
             # Try GPU-accelerated rendering first if GPU is available
             if [ "$has_gpu_available" = "true" ]; then
+                boot_msg "Trying LinuxKMS with GPU..."
                 log_debug "Trying LinuxKMS with GPU acceleration"
                 try_gui "linuxkms" "GPU" || true
             fi
             
             # Try software rendering (still uses DRM for display)
+            boot_msg "Trying LinuxKMS software..."
             log_debug "Trying LinuxKMS with software renderer"
             try_gui "linuxkms-software" "Software" || true
         fi
         
         # Strategy 2: Try raw framebuffer if available
         if [ "$has_fb_available" = "true" ]; then
+            boot_msg "Trying raw framebuffer..."
             log_debug "Trying raw framebuffer mode"
             try_framebuffer || true
         fi
         
         # All GUI backends failed
+        boot_msg "GUI console failed, falling back to TUI..."
         log "GUI console failed, falling back to TUI..."
         if [ -s /run/quantix/console-gui.err ]; then
-            echo "Error: Failed to open framebuffer" > /dev/tty1
-            head -3 /run/quantix/console-gui.err > /dev/tty1
+            boot_msg "Error details:"
+            head -3 /run/quantix/console-gui.err 2>/dev/null || true
         fi
         sleep 2
         
     else
+        boot_msg "GUI console binary not found, using TUI"
         log_debug "GUI console binary not found, using TUI"
     fi
     
     # Fallback to TUI console
     if [ -x /usr/local/bin/qx-console ]; then
+        boot_msg "Starting TUI console..."
         launch_tui
+        # If we get here, TUI failed
+        boot_msg "TUI console failed"
+    else
+        boot_msg "TUI binary not found at /usr/local/bin/qx-console"
     fi
     
-    # Ultimate fallback: simple shell
-    log "No console available, dropping to shell..."
+    # Ultimate fallback: simple shell with banner
+    boot_msg "============================================"
+    boot_msg "  QUANTIX-OS EMERGENCY SHELL"
+    boot_msg "  Graphics: DRM=$has_drm_available FB=$has_fb_available"
+    boot_msg "  Console binaries failed to start"
+    boot_msg "  Check /run/quantix/*.err for errors"
+    boot_msg "============================================"
+    log "Dropping to emergency shell..."
+    
+    # Clear screen and show a proper prompt
+    clear 2>/dev/null || true
+    echo ""
+    echo "=========================================="
+    echo "  QUANTIX-OS EMERGENCY SHELL"
+    echo "=========================================="
+    echo ""
+    echo "The graphical/TUI console failed to start."
+    echo ""
+    echo "Diagnostics:"
+    echo "  - DRM available: $has_drm_available"
+    echo "  - Framebuffer available: $has_fb_available"
+    echo ""
+    echo "Check logs with:"
+    echo "  cat /run/quantix/console-launcher.log"
+    echo "  cat /run/quantix/console-gui.err"
+    echo "  cat /run/quantix/console-tui.err"
+    echo ""
+    echo "To retry TUI: /usr/local/bin/qx-console"
+    echo ""
+    
     exec /bin/sh
 }
 
+boot_msg "About to call main()..."
 main "$@"
+boot_msg "main() returned unexpectedly"

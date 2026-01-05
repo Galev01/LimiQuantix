@@ -71,16 +71,19 @@ log "Loading graphics modules..."
 # DRM core (required for Slint LinuxKMS)
 modprobe drm 2>/dev/null || true
 modprobe drm_kms_helper 2>/dev/null || true
+modprobe ttm 2>/dev/null || true
 
-# Virtual GPU drivers (common in VMs)
-modprobe virtio_gpu 2>/dev/null || true
-modprobe simpledrm 2>/dev/null || true
-modprobe bochs 2>/dev/null || true
+# Virtual GPU drivers (by hypervisor type)
+modprobe vmwgfx 2>/dev/null || true       # VMware Workstation/ESXi
+modprobe virtio_gpu 2>/dev/null || true   # KVM/QEMU
+modprobe vboxvideo 2>/dev/null || true    # VirtualBox
+modprobe simpledrm 2>/dev/null || true    # Generic VESA DRM
+modprobe bochs 2>/dev/null || true        # QEMU legacy
 
-# Legacy framebuffer drivers (fallback)
+# Legacy framebuffer drivers (fallback if no DRM)
+modprobe vesafb 2>/dev/null || true
 modprobe efifb 2>/dev/null || true
 modprobe simplefb 2>/dev/null || true
-modprobe vesafb 2>/dev/null || true
 
 # Input drivers for GUI
 modprobe evdev 2>/dev/null || true
@@ -197,3 +200,5 @@ fi
 # ============================================================================
 
 log "Early init complete - services starting..."
+log "Console will start on TTY1 after OpenRC completes"
+log "Press Alt+F2 for emergency shell if console fails"
