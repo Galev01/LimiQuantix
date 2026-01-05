@@ -105,6 +105,7 @@ create_grub_config() {
     log_step "Creating GRUB configuration..."
     
     # Main GRUB config
+    # Uses search to find the correct partition regardless of boot method (USB, CD, Ventoy)
     cat > "${ISO_ROOT}/boot/grub/grub.cfg" << 'EOF'
 # Quantix-OS GRUB Configuration
 
@@ -113,50 +114,57 @@ set timeout=5
 set gfxmode=auto
 set gfxpayload=keep
 
+# Try to find the boot partition by looking for our kernel
+# This works for direct boot, USB, and Ventoy
+search --no-floppy --file /boot/vmlinuz --set=root
+
+# If search failed, try common locations
+if [ -z "$root" ]; then
+    search --no-floppy --label QUANTIX_OS --set=root
+fi
+
 # Load video modules
 insmod all_video
 insmod gfxterm
-insmod png
-insmod loopback
 
 # Set theme colors
 set color_normal=white/black
 set color_highlight=black/light-cyan
 
-# Terminal output
+# Terminal output - fall back to console if gfxterm fails
 terminal_output gfxterm
+if [ "$?" != "0" ]; then
+    terminal_output console
+fi
 
 # Menu entries
-# Default: KMS mode with DRM for GUI console (virtio-gpu, simpledrm, etc.)
 menuentry "Quantix-OS Installer" --class quantix {
     echo "Loading Quantix-OS..."
-    linux /boot/vmlinuz quiet loglevel=3 rootwait video=simplefb:on video=efifb:on
+    linux /boot/vmlinuz quiet loglevel=3 rootwait
     initrd /boot/initramfs
 }
 
 menuentry "Quantix-OS Installer (Verbose)" --class quantix {
     echo "Loading Quantix-OS (Verbose)..."
-    linux /boot/vmlinuz loglevel=7 rootwait video=simplefb:on video=efifb:on
+    linux /boot/vmlinuz loglevel=7 rootwait
     initrd /boot/initramfs
 }
 
-# Fallback: nomodeset for broken GPU drivers (uses vesafb, no GUI console)
-menuentry "Quantix-OS Installer (No KMS - Legacy)" --class quantix {
-    echo "Loading Quantix-OS (Legacy VGA)..."
-    linux /boot/vmlinuz quiet nomodeset video=vesafb:mtrr:3,ywrap
+menuentry "Quantix-OS Installer (No KMS - Safe Mode)" --class quantix {
+    echo "Loading Quantix-OS (Safe Mode)..."
+    linux /boot/vmlinuz quiet nomodeset rootwait
     initrd /boot/initramfs
 }
 
-# Serial console mode for headless servers
 menuentry "Quantix-OS Installer (Serial Console)" --class quantix {
     echo "Loading Quantix-OS (Serial)..."
-    linux /boot/vmlinuz console=ttyS0,115200n8 console=tty0 quiet
+    linux /boot/vmlinuz console=ttyS0,115200n8 console=tty0 quiet rootwait
     initrd /boot/initramfs
 }
 
-menuentry "Rescue Shell (initramfs)" --class rescue {
+menuentry "Rescue Shell" --class rescue {
     echo "Loading Rescue Shell..."
-    linux /boot/vmlinuz rescue
+    linux /boot/vmlinuz rescue rootwait
     initrd /boot/initramfs
 }
 EOF
@@ -173,15 +181,15 @@ EOF
 create_efi_boot() {
     log_step "Creating EFI bootloader..."
     
-    # Create EFI GRUB image
+    # Create EFI GRUB image with all needed modules for ISO/USB/Ventoy boot
     grub-mkimage \
         -o "${ISO_ROOT}/EFI/BOOT/BOOTX64.EFI" \
         -O x86_64-efi \
         -p /boot/grub \
-        part_gpt part_msdos fat ext2 normal boot linux \
+        part_gpt part_msdos fat ext2 iso9660 normal boot linux \
         configfile loopback search search_fs_uuid search_fs_file \
         search_label gfxterm gfxterm_background gfxterm_menu \
-        test all_video echo font gzio minicmd
+        test all_video echo font gzio minicmd ls cat
     
     # Create EFI system partition image
     EFI_IMG="${WORK_DIR}/efi.img"
@@ -234,18 +242,26 @@ create_iso() {
     OUTPUT_ISO="${OUTPUT_DIR}/quantix-os-${VERSION}.iso"
     EFI_IMG="${WORK_DIR}/efi.img"
     
+    # Create hybrid ISO bootable from both CD and USB
+    # -isohybrid-mbr is CRITICAL for USB boot (writes MBR boot code)
     xorriso -as mkisofs \
         -iso-level 3 \
         -full-iso9660-filenames \
-        -volid "QUANTIX_OS_${VERSION}" \
+        -joliet \
+        -joliet-long \
+        -rational-rock \
+        -volid "QUANTIX_OS" \
         -appid "Quantix-OS ${VERSION}" \
         -publisher "Quantix Team" \
         -preparer "quantix-os-builder" \
+        \
+        -isohybrid-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
         \
         -eltorito-boot boot/grub/eltorito.img \
         -no-emul-boot \
         -boot-load-size 4 \
         -boot-info-table \
+        --grub2-boot-info \
         \
         -eltorito-alt-boot \
         -e efi.img \
@@ -256,9 +272,6 @@ create_iso() {
         \
         -output "${OUTPUT_ISO}" \
         "${ISO_ROOT}"
-    
-    # Make ISO hybrid (bootable from USB)
-    # Note: xorriso already handles this with -isohybrid-gpt-basdat
     
     # Calculate checksums
     sha256sum "${OUTPUT_ISO}" > "${OUTPUT_ISO}.sha256"
