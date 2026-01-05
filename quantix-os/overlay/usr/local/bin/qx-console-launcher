@@ -1,18 +1,21 @@
 #!/bin/sh
 # ============================================================================
-# Quantix Console Launcher - Slint GUI Only
+# Quantix Console Launcher - DEBUG VERSION v2
 # ============================================================================
-# Launches the Slint GUI console. Falls back to emergency shell if GUI fails.
-# TUI is disabled - we only support the graphical console.
+# Key fix: Uses eudev instead of mdev for libinput compatibility
+# Slint launch is delayed 10 seconds to allow TTY switching if needed.
 # ============================================================================
 
-# Function to print messages (visible during boot)
-boot_msg() {
+LOG="/tmp/console-launcher.log"
+INPUT_LOG="/tmp/input-debug.log"
+
+log() {
     echo "[QUANTIX] $1"
-    echo "$(date '+%Y-%m-%dT%H:%M:%S') $1" >> /tmp/console-launcher.log 2>/dev/null || true
+    echo "$(date '+%Y-%m-%dT%H:%M:%S') $1" >> "$LOG" 2>/dev/null
 }
 
-boot_msg "=== Quantix Console Launcher ==="
+log "=== Quantix Console Launcher (DEBUG v2) ==="
+echo "=== INPUT DIAGNOSTICS (v2) ===" > "$INPUT_LOG"
 
 # ============================================================================
 # Setup Environment
@@ -22,193 +25,256 @@ export XDG_RUNTIME_DIR="/run/user/0"
 export XDG_SEAT="seat0"
 export XDG_SESSION_TYPE="tty"
 export HOME="/root"
-export LIBSEAT_BACKEND="seatd"
+export RUST_LOG="slint=debug,info"
 
-# Create runtime directories
-mkdir -p /run/user/0 /run/quantix 2>/dev/null || true
-chmod 700 /run/user/0 2>/dev/null || true
-chmod 755 /run/quantix 2>/dev/null || true
-
-LOG_FILE="/run/quantix/console-launcher.log"
+mkdir -p /run/user/0 /run/quantix /run/udev 2>/dev/null
+chmod 700 /run/user/0 2>/dev/null
+chmod 755 /run/quantix 2>/dev/null
 
 # ============================================================================
-# Load Graphics and Input Modules
+# Load ALL Modules
 # ============================================================================
 
-boot_msg "Loading graphics modules..."
+log "Loading kernel modules..."
 
-# DRM core
-modprobe drm 2>/dev/null || true
-modprobe drm_kms_helper 2>/dev/null || true
-modprobe ttm 2>/dev/null || true
-
-# Virtual GPU drivers (VMware, QEMU, VirtualBox)
-modprobe vmwgfx 2>/dev/null || true
-modprobe virtio_gpu 2>/dev/null || true
-modprobe vboxvideo 2>/dev/null || true
-modprobe simpledrm 2>/dev/null || true
-modprobe bochs 2>/dev/null || true
-
-boot_msg "Loading input modules..."
-
-# Input drivers
-modprobe evdev 2>/dev/null || true
-modprobe uinput 2>/dev/null || true
-modprobe psmouse 2>/dev/null || true
-modprobe mousedev 2>/dev/null || true
-modprobe hid-generic 2>/dev/null || true
-
-# Wait for udev to process
-sleep 1
-
-# Set input device permissions
-chmod 666 /dev/input/event* 2>/dev/null || true
-chmod 666 /dev/input/mice 2>/dev/null || true
-chmod 666 /dev/input/mouse* 2>/dev/null || true
-chmod 666 /dev/dri/card* 2>/dev/null || true
-chmod 666 /dev/dri/renderD* 2>/dev/null || true
-
-# ============================================================================
-# Setup seatd (required for Slint LinuxKMS input)
-# ============================================================================
-
-boot_msg "Setting up seat management..."
-
-# Kill any existing seatd with wrong config
-pkill seatd 2>/dev/null || true
-sleep 0.5
-
-# Start seatd with root group
-if [ -x /usr/bin/seatd ]; then
-    /usr/bin/seatd -g root -l debug 2>/run/quantix/seatd.log &
-    sleep 1
-    
-    # Verify it started
-    if pgrep -x seatd >/dev/null 2>&1; then
-        boot_msg "seatd started successfully"
-    else
-        boot_msg "WARNING: seatd failed to start"
+# Graphics - VMware first
+for mod in drm drm_kms_helper ttm vmwgfx virtio_gpu simpledrm bochs; do
+    if modprobe "$mod" 2>/dev/null; then
+        log "  Loaded graphics: $mod"
+        echo "Loaded graphics: $mod" >> "$INPUT_LOG"
     fi
-fi
-
-# Set socket permissions
-chmod 777 /run/seatd.sock 2>/dev/null || true
-
-# Add root to required groups
-addgroup root video 2>/dev/null || true
-addgroup root input 2>/dev/null || true
-addgroup root seat 2>/dev/null || true
-addgroup root tty 2>/dev/null || true
-
-# ============================================================================
-# Check Graphics Availability
-# ============================================================================
-
-has_drm() {
-    for card in /sys/class/drm/card*; do
-        if [ -d "$card" ] && [ "$(basename "$card")" != "card*" ]; then
-            return 0
-        fi
-    done
-    return 1
-}
-
-# Wait for graphics devices
-boot_msg "Waiting for graphics devices..."
-waited=0
-while [ $waited -lt 5 ]; do
-    if has_drm; then
-        boot_msg "DRM device found"
-        break
-    fi
-    sleep 1
-    waited=$((waited + 1))
 done
 
-if ! has_drm; then
-    boot_msg "ERROR: No DRM graphics device found"
-    boot_msg "Slint LinuxKMS requires DRM. Dropping to shell."
+# Input - load everything for VMware
+for mod in evdev uinput hid hid-generic i8042 atkbd psmouse mousedev; do
+    if modprobe "$mod" 2>/dev/null; then
+        log "  Loaded input: $mod"
+        echo "Loaded input: $mod" >> "$INPUT_LOG"
+    fi
+done
+
+# VMware specific mouse driver
+modprobe vmmouse 2>/dev/null && log "  Loaded: vmmouse"
+
+# ============================================================================
+# Ensure udevd is running and wait for it
+# ============================================================================
+
+log "Checking udevd (required for libinput)..."
+echo "" >> "$INPUT_LOG"
+echo "=== UDEV STATUS ===" >> "$INPUT_LOG"
+
+if ! pgrep -x udevd >/dev/null 2>&1; then
+    log "WARNING: udevd not running - starting it..."
+    /sbin/udevd --daemon 2>/dev/null
+    sleep 2
+    echo "Started udevd manually" >> "$INPUT_LOG"
+else
+    echo "udevd already running" >> "$INPUT_LOG"
+fi
+
+pgrep -a udevd >> "$INPUT_LOG" 2>&1
+
+# Trigger udev to populate database with all devices
+log "Triggering udev events and waiting for settle..."
+udevadm trigger --type=subsystems 2>/dev/null
+udevadm trigger --type=devices 2>/dev/null
+udevadm trigger --subsystem-match=input 2>/dev/null
+udevadm trigger --subsystem-match=drm 2>/dev/null
+udevadm settle --timeout=10 2>/dev/null
+
+log "udev settle complete"
+echo "udev settle complete" >> "$INPUT_LOG"
+
+# Extra delay for devices to stabilize
+sleep 2
+
+# ============================================================================
+# Fix Permissions
+# ============================================================================
+
+log "Setting device permissions..."
+
+chmod 666 /dev/dri/* 2>/dev/null
+chmod 666 /dev/input/* 2>/dev/null
+chmod 666 /dev/tty* 2>/dev/null
+chown root:input /dev/input/* 2>/dev/null
+
+# ============================================================================
+# Setup seatd
+# ============================================================================
+
+log "Configuring seatd..."
+
+pkill -9 seatd 2>/dev/null
+rm -f /run/seatd.sock 2>/dev/null
+sleep 0.5
+
+# Start seatd with debug logging, allowing root group access
+/usr/bin/seatd -g root -l debug 2>/run/quantix/seatd.log &
+SEATD_PID=$!
+sleep 1
+
+if kill -0 $SEATD_PID 2>/dev/null; then
+    log "seatd started (PID: $SEATD_PID)"
+    echo "seatd started PID=$SEATD_PID" >> "$INPUT_LOG"
+else
+    log "ERROR: seatd failed to start"
+    echo "seatd FAILED to start" >> "$INPUT_LOG"
+fi
+
+chmod 777 /run/seatd.sock 2>/dev/null
+
+export LIBSEAT_BACKEND="seatd"
+
+# ============================================================================
+# DIAGNOSTIC: Capture Input State
+# ============================================================================
+
+echo "" >> "$INPUT_LOG"
+echo "=== INPUT DEVICES (/dev/input/) ===" >> "$INPUT_LOG"
+ls -la /dev/input/ >> "$INPUT_LOG" 2>&1
+
+echo "" >> "$INPUT_LOG"
+echo "=== /proc/bus/input/devices ===" >> "$INPUT_LOG"
+cat /proc/bus/input/devices >> "$INPUT_LOG" 2>&1
+
+echo "" >> "$INPUT_LOG"
+echo "=== udevadm info on event devices ===" >> "$INPUT_LOG"
+for dev in /dev/input/event*; do
+    if [ -e "$dev" ]; then
+        echo "--- $dev ---" >> "$INPUT_LOG"
+        udevadm info --query=all "$dev" >> "$INPUT_LOG" 2>&1
+    fi
+done
+
+echo "" >> "$INPUT_LOG"
+echo "=== libinput list-devices ===" >> "$INPUT_LOG"
+if command -v libinput >/dev/null 2>&1; then
+    libinput list-devices >> "$INPUT_LOG" 2>&1
+else
+    echo "libinput command not found (expected - using library directly)" >> "$INPUT_LOG"
+fi
+
+echo "" >> "$INPUT_LOG"
+echo "=== ldd qx-console-gui ===" >> "$INPUT_LOG"
+ldd /usr/bin/qx-console-gui >> "$INPUT_LOG" 2>&1
+
+echo "" >> "$INPUT_LOG"
+echo "=== Environment ===" >> "$INPUT_LOG"
+env | grep -E '^(LIBSEAT|XDG|SLINT|RUST|HOME|PATH)' >> "$INPUT_LOG"
+
+# ============================================================================
+# DRM Check
+# ============================================================================
+
+if [ ! -d /sys/class/drm ] || [ -z "$(ls /sys/class/drm/card* 2>/dev/null)" ]; then
+    log "ERROR: No DRM device found"
+    echo "ERROR: No DRM device found" >> "$INPUT_LOG"
     exec /bin/sh
 fi
 
-# Log available devices
-boot_msg "Graphics devices:"
-ls -la /dev/dri/ 2>/dev/null || boot_msg "  No /dev/dri"
-boot_msg "Input devices:"
-ls -la /dev/input/ 2>/dev/null || boot_msg "  No /dev/input"
+DRM_CARD=$(ls /sys/class/drm/card* 2>/dev/null | head -1)
+log "DRM: $DRM_CARD"
+echo "DRM: $DRM_CARD" >> "$INPUT_LOG"
 
 # ============================================================================
-# Launch Slint GUI
+# Console binary check
 # ============================================================================
 
-launch_slint_gui() {
-    local backend="$1"
-    boot_msg "Starting Slint GUI (backend: $backend)..."
-    
-    export SLINT_BACKEND="$backend"
-    
-    # Run the GUI
-    /usr/bin/qx-console-gui 2>/run/quantix/console-gui.err
-    local exit_code=$?
-    
-    if [ $exit_code -eq 0 ]; then
-        boot_msg "GUI exited normally"
-        return 0
-    fi
-    
-    boot_msg "GUI exited with code: $exit_code"
-    if [ -s /run/quantix/console-gui.err ]; then
-        boot_msg "Error log:"
-        cat /run/quantix/console-gui.err
-    fi
-    
-    return $exit_code
-}
-
-# Check if GUI binary exists
 if [ ! -x /usr/bin/qx-console-gui ]; then
-    boot_msg "ERROR: qx-console-gui not found"
+    log "ERROR: qx-console-gui not found"
     exec /bin/sh
 fi
 
-# Try different Slint backends
-boot_msg "Attempting to start Slint GUI..."
-
-# Try 1: LinuxKMS with software renderer (most compatible)
-launch_slint_gui "linuxkms-software" && exit 0
-
-# Try 2: LinuxKMS with GPU (if software failed)
-launch_slint_gui "linuxkms" && exit 0
-
 # ============================================================================
-# Fallback to Emergency Shell
+# Show diagnostic summary on screen
 # ============================================================================
 
-boot_msg "============================================"
-boot_msg "  SLINT GUI FAILED - EMERGENCY SHELL"
-boot_msg "============================================"
+clear
+echo ""
+echo "================================================================="
+echo "  QUANTIX-OS DEBUG BOOT"
+echo "================================================================="
+echo ""
+echo "  Graphics: $(basename "$DRM_CARD" 2>/dev/null || echo 'unknown')"
+echo "  Input devices: $(ls /dev/input/event* 2>/dev/null | wc -w)"
+echo "  udevd: $(pgrep -x udevd >/dev/null && echo 'running' || echo 'NOT RUNNING')"
+echo "  seatd: $(pgrep -x seatd >/dev/null && echo 'running' || echo 'NOT RUNNING')"
+echo ""
+echo "  Input device list from kernel:"
+grep -E '^N:|^H:' /proc/bus/input/devices 2>/dev/null | head -10
+echo ""
+echo "================================================================="
+echo "  SLINT GUI WILL START IN 10 SECONDS"
+echo "  Press Alt+F2 NOW to switch to emergency shell"
+echo "================================================================="
+echo ""
 
-clear 2>/dev/null || true
-cat << 'EOF'
+# Countdown
+for i in 10 9 8 7 6 5 4 3 2 1; do
+    echo "  Starting in $i..."
+    sleep 1
+done
 
-==========================================
-  QUANTIX-OS EMERGENCY SHELL
-==========================================
+# ============================================================================
+# Launch Slint with extensive logging
+# ============================================================================
 
-The Slint graphical console failed to start.
+log "Launching Slint GUI..."
+export SLINT_BACKEND="linuxkms-software"
+export SLINT_DEBUG="1"
 
-Diagnostic commands:
-  cat /run/quantix/console-gui.err   # GUI error log
-  cat /run/quantix/seatd.log         # Seat manager log
-  ls -la /dev/dri/                   # Check DRM devices
-  ls -la /dev/input/                 # Check input devices
-  cat /proc/bus/input/devices        # Kernel input devices
+# Run Slint, capturing output
+/usr/bin/qx-console-gui 2>&1 | tee -a /run/quantix/console-gui.log &
+GUI_PID=$!
 
-To retry the GUI:
-  export SLINT_BACKEND=linuxkms-software
-  /usr/bin/qx-console-gui
+log "Slint started (PID: $GUI_PID)"
 
-==========================================
-EOF
+# Wait for it to exit
+wait $GUI_PID
+RC=$?
+
+log "Slint exited with code: $RC"
+echo "" >> "$INPUT_LOG"
+echo "=== SLINT EXIT ===" >> "$INPUT_LOG"
+echo "Exit code: $RC" >> "$INPUT_LOG"
+
+# Capture post-mortem seatd log
+echo "" >> "$INPUT_LOG"
+echo "=== seatd log (post-run) ===" >> "$INPUT_LOG"
+cat /run/quantix/seatd.log >> "$INPUT_LOG" 2>&1
+
+# ============================================================================
+# Fallback to shell
+# ============================================================================
+
+log "Dropping to emergency shell"
+clear
+cat << 'BANNER'
+
+╔══════════════════════════════════════════════════════════════╗
+║           QUANTIX-OS - DEBUG SHELL                           ║
+╠══════════════════════════════════════════════════════════════╣
+║                                                              ║
+║  Slint GUI has exited. Debug logs:                           ║
+║                                                              ║
+║    cat /tmp/console-launcher.log                             ║
+║    cat /tmp/input-debug.log                                  ║
+║    cat /run/quantix/seatd.log                                ║
+║    cat /run/quantix/console-gui.log                          ║
+║                                                              ║
+║  Key commands:                                               ║
+║    cat /proc/bus/input/devices    # Kernel input devices     ║
+║    udevadm info /dev/input/event0 # udev device info         ║
+║    pgrep -a udevd                 # Check udevd               ║
+║    pgrep -a seatd                 # Check seatd               ║
+║                                                              ║
+║  To retry:                                                   ║
+║    SLINT_BACKEND=linuxkms-software /usr/bin/qx-console-gui   ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+BANNER
 
 exec /bin/sh

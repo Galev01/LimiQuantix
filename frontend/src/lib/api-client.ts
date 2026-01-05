@@ -25,6 +25,35 @@ export function setAuthToken(token: string | null) {
   authToken = token;
 }
 
+/**
+ * Convert camelCase keys to snake_case for proto JSON compatibility.
+ * Go's proto3 JSON uses snake_case by default, but TypeScript uses camelCase.
+ */
+function toSnakeCase(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+function convertKeysToSnakeCase(obj: unknown): unknown {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => convertKeysToSnakeCase(item));
+  }
+  
+  if (typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      const snakeKey = toSnakeCase(key);
+      result[snakeKey] = convertKeysToSnakeCase(value);
+    }
+    return result;
+  }
+  
+  return obj;
+}
+
 export function getAuthToken(): string | null {
   return authToken;
 }
@@ -104,10 +133,13 @@ async function apiCall<T>(
         headers['Authorization'] = `Bearer ${authToken}`;
       }
       
+      // Convert camelCase keys to snake_case for Go proto compatibility
+      const snakeCaseBody = body ? convertKeysToSnakeCase(body) : {};
+      
       const response = await fetch(url, {
         method: 'POST',
         headers,
-        body: body ? JSON.stringify(body) : '{}',
+        body: JSON.stringify(snakeCaseBody),
         signal: AbortSignal.timeout(timeout),
       });
       

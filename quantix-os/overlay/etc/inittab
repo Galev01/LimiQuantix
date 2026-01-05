@@ -19,9 +19,9 @@
 # Tries GUI first, falls back to TUI if no framebuffer/KMS available
 tty1::respawn:/usr/local/bin/qx-console-launcher
 
-# TTY2: Emergency login shell (for debugging if console launcher fails)
-# Access with Alt+F2
-tty2::respawn:/sbin/getty 38400 tty2
+# TTY2: Emergency debug shell (no login required)
+# Access with Alt+F2 during boot or from Slint
+tty2::respawn:/bin/sh
 
 # TTY3-6: Disabled by default (security)
 # To enable for debugging, uncomment:
