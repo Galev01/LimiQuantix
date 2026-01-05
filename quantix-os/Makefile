@@ -113,8 +113,8 @@ clean:
 	rm -f overlay/usr/local/bin/qx-node
 	rm -f overlay/usr/bin/qx-console-gui
 	rm -rf overlay/usr/share/quantix/webui/*
-	cd console && cargo clean
-	cd console-gui && cargo clean
+	cd console && cargo clean 2>/dev/null || true
+	cd console-gui && cargo clean 2>/dev/null || true
 	cd ../quantix-host-ui && rm -rf node_modules dist 2>/dev/null || true
 
 # Deep clean including Docker images
