@@ -175,9 +175,35 @@ pub async fn connect_vnc(
                     
                     match updates_result {
                         Ok(updates) => {
+                            if !updates.is_empty() {
+                                // Calculate non-zero pixels for first update
+                                let non_zero = updates[0].data.iter().filter(|&&b| b != 0).count();
+                                info!(
+                                    "Received {} framebuffer updates, first: {}x{} at ({},{}), {} bytes, {} non-zero bytes",
+                                    updates.len(),
+                                    updates[0].width,
+                                    updates[0].height,
+                                    updates[0].x,
+                                    updates[0].y,
+                                    updates[0].data.len(),
+                                    non_zero
+                                );
+                                
+                                // Log first few bytes for debugging
+                                if updates[0].data.len() >= 16 {
+                                    info!(
+                                        "First 16 bytes: {:?}",
+                                        &updates[0].data[0..16]
+                                    );
+                                }
+                            } else {
+                                info!("Received empty framebuffer update (0 rects)");
+                            }
                             // Emit framebuffer updates to frontend
                             for update in updates {
-                                window_clone.emit("vnc:framebuffer", update).ok();
+                                if let Err(e) = window_clone.emit("vnc:framebuffer", &update) {
+                                    error!("Failed to emit framebuffer update: {}", e);
+                                }
                             }
                             // After first successful update, switch to incremental
                             is_first_request = false;

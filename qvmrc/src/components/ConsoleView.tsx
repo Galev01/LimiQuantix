@@ -373,6 +373,9 @@ export function ConsoleView({
 
       const update = event.payload;
       
+      // Debug logging
+      vncLog.debug(`FB update: ${update.width}x${update.height} at (${update.x},${update.y}), data type: ${typeof update.data}, length: ${update.data?.length || 'undefined'}`);
+      
       // If we're receiving framebuffer updates, we're definitely connected
       // This handles cases where the vnc:connected event was missed
       if (connectionStateRef.current !== 'connected') {
@@ -394,6 +397,12 @@ export function ConsoleView({
             initializeCanvas(info.width, info.height);
           }
         });
+      }
+      
+      // Check if data is valid
+      if (!update.data || !Array.isArray(update.data)) {
+        vncLog.error(`Invalid framebuffer data: ${typeof update.data}`);
+        return;
       }
       
       // Create ImageData with correct dimensions

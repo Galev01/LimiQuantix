@@ -108,8 +108,29 @@ pub struct FramebufferUpdate {
     pub y: u16,
     pub width: u16,
     pub height: u16,
-    /// RGBA pixel data
+    /// RGBA pixel data as array of numbers (for JS compatibility)
+    /// Note: Serde serializes Vec<u8> as an array of numbers, not bytes
     pub data: Vec<u8>,
+}
+
+/// Check if serde properly handles the Vec<u8> as array
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_framebuffer_serialization() {
+        let update = FramebufferUpdate {
+            x: 0,
+            y: 0,
+            width: 2,
+            height: 2,
+            data: vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255],
+        };
+        let json = serde_json::to_string(&update).unwrap();
+        println!("Serialized: {}", json);
+        assert!(json.contains("[255,0,0,255"));
+    }
 }
 
 /// Transport type for VNC connections
@@ -513,8 +534,20 @@ impl RFBClient {
                             let mut data = vec![0u8; data_len];
                             self.transport.read_exact(&mut data).await?;
 
+                            info!(
+                                "Raw encoding: {}x{} = {} bytes, bpp={}, first 8 raw bytes: {:?}",
+                                width, height, data_len, bytes_per_pixel,
+                                if data.len() >= 8 { &data[0..8] } else { &data[..] }
+                            );
+
                             // Convert to RGBA
                             let rgba = self.convert_to_rgba(&data, width, height);
+                            
+                            info!(
+                                "After RGBA conversion: {} bytes, first 8 RGBA bytes: {:?}",
+                                rgba.len(),
+                                if rgba.len() >= 8 { &rgba[0..8] } else { &rgba[..] }
+                            );
 
                             updates.push(FramebufferUpdate {
                                 x,

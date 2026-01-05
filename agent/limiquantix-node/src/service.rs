@@ -474,7 +474,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         config.boot.order = vec![BootDevice::Disk, BootDevice::Cdrom, BootDevice::Network];
         
         // Process disks - create disk images if path not provided
-        for disk_spec in spec.disks {
+        for (disk_index, disk_spec) in spec.disks.into_iter().enumerate() {
             let format = Self::convert_disk_format(disk_spec.format);
             
             // Check if backing file is specified (cloud image for copy-on-write)
@@ -485,8 +485,25 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             };
             let has_backing_file = backing_file.is_some();
             
+            // Generate disk ID if not provided
+            let disk_id = if disk_spec.id.is_empty() {
+                format!("disk{}", disk_index)
+            } else {
+                disk_spec.id.clone()
+            };
+            
+            info!(
+                vm_id = %req.vm_id,
+                disk_index = disk_index,
+                disk_id = %disk_id,
+                disk_path = %disk_spec.path,
+                size_gib = disk_spec.size_gib,
+                backing_file = ?backing_file,
+                "Processing disk spec"
+            );
+            
             let mut disk_config = DiskConfig {
-                id: disk_spec.id.clone(),
+                id: disk_id.clone(),
                 path: disk_spec.path.clone(),
                 size_gib: disk_spec.size_gib,
                 bus: Self::convert_disk_bus(disk_spec.bus),
@@ -501,6 +518,16 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             // Note: When using a backing file (cloud image), we MUST create an overlay even if size_gib is 0
             let needs_disk_creation = disk_spec.path.is_empty() && (disk_spec.size_gib > 0 || has_backing_file);
             
+            info!(
+                vm_id = %req.vm_id,
+                disk_id = %disk_id,
+                needs_creation = needs_disk_creation,
+                path_empty = disk_spec.path.is_empty(),
+                size_gib = disk_spec.size_gib,
+                has_backing_file = has_backing_file,
+                "Disk creation check"
+            );
+            
             if needs_disk_creation {
                 // Create disk image in default VM storage path
                 let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
@@ -509,7 +536,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                     return Err(Status::internal(format!("Failed to create VM directory: {}", e)));
                 }
                 
-                let disk_path = vm_dir.join(format!("{}.qcow2", disk_spec.id));
+                let disk_path = vm_dir.join(format!("{}.qcow2", disk_id));
                 disk_config.path = disk_path.to_string_lossy().to_string();
                 
                 // Use qemu-img to create disk
@@ -534,7 +561,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                     
                     info!(
                         vm_id = %req.vm_id,
-                        disk_id = %disk_spec.id,
+                        disk_id = %disk_id,
                         backing_file = %bf,
                         "Creating disk with backing file (cloud image)"
                     );
@@ -543,7 +570,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 } else {
                     info!(
                         vm_id = %req.vm_id,
-                        disk_id = %disk_spec.id,
+                        disk_id = %disk_id,
                         size_gib = disk_spec.size_gib,
                         "Creating empty disk image"
                     );
@@ -567,7 +594,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                     Ok(output) if output.status.success() => {
                         info!(
                             vm_id = %req.vm_id,
-                            disk_id = %disk_spec.id,
+                            disk_id = %disk_id,
                             path = %disk_path.display(),
                             has_backing_file = has_backing_file,
                             "Disk image created successfully"
@@ -577,7 +604,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                         let stderr = String::from_utf8_lossy(&output.stderr);
                         error!(
                             vm_id = %req.vm_id,
-                            disk_id = %disk_spec.id,
+                            disk_id = %disk_id,
                             error = %stderr,
                             "Failed to create disk image"
                         );
@@ -586,7 +613,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                     Err(e) => {
                         error!(
                             vm_id = %req.vm_id,
-                            disk_id = %disk_spec.id,
+                            disk_id = %disk_id,
                             error = %e,
                             "Failed to run qemu-img"
                         );
