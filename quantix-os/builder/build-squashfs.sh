@@ -667,13 +667,34 @@ INITEOF
     cd "${INITRAMFS_WORK}"
     
     # Extract existing initramfs (it's gzipped cpio)
-    gunzip -c "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | cpio -idm 2>/dev/null || true
+    # Try different compression formats (Alpine may use different ones)
+    if file "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | grep -q "gzip"; then
+        gunzip -c "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | cpio -idm 2>/dev/null || true
+    elif file "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | grep -q "XZ"; then
+        xz -dc "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | cpio -idm 2>/dev/null || true
+    else
+        # Try gzip anyway
+        gunzip -c "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | cpio -idm 2>/dev/null || true
+    fi
     
     # Replace init with our custom init
     cp "${INITRAMFS_OVERLAY}/init-quantix" "${INITRAMFS_WORK}/init"
     chmod +x "${INITRAMFS_WORK}/init"
     
-    # Repack initramfs
+    # Ensure busybox is present and linked
+    if [ ! -f "${INITRAMFS_WORK}/bin/busybox" ]; then
+        log_warn "Busybox not found in initramfs, copying..."
+        mkdir -p "${INITRAMFS_WORK}/bin"
+        cp "${ROOTFS}/bin/busybox" "${INITRAMFS_WORK}/bin/" 2>/dev/null || true
+    fi
+    
+    # Create essential symlinks if missing
+    cd "${INITRAMFS_WORK}"
+    for cmd in sh mount umount mkdir cat echo ls modprobe mknod switch_root; do
+        [ ! -e "bin/$cmd" ] && ln -sf busybox "bin/$cmd" 2>/dev/null || true
+    done
+    
+    # Repack initramfs with gzip (most compatible)
     find . | cpio -H newc -o 2>/dev/null | gzip -9 > "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}"
     
     cd /

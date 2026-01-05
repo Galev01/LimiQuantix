@@ -140,19 +140,25 @@ fi
 # Menu entries
 menuentry "Quantix-OS Installer" --class quantix {
     echo "Loading Quantix-OS..."
-    linux /boot/vmlinuz quiet loglevel=3 rootwait
+    linux /boot/vmlinuz console=tty0 loglevel=7 rootwait
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS Installer (Verbose)" --class quantix {
+menuentry "Quantix-OS Installer (Verbose - Debug)" --class quantix {
     echo "Loading Quantix-OS (Verbose)..."
-    linux /boot/vmlinuz loglevel=7 rootwait
+    linux /boot/vmlinuz console=tty0 loglevel=7 rootwait initcall_debug ignore_loglevel
     initrd /boot/initramfs
 }
 
 menuentry "Quantix-OS Installer (No KMS - Safe Mode)" --class quantix {
     echo "Loading Quantix-OS (Safe Mode)..."
-    linux /boot/vmlinuz quiet nomodeset rootwait
+    linux /boot/vmlinuz console=tty0 loglevel=7 nomodeset rootwait
+    initrd /boot/initramfs
+}
+
+menuentry "Quantix-OS Installer (Minimal - Troubleshoot)" --class quantix {
+    echo "Loading Quantix-OS (Minimal)..."
+    linux /boot/vmlinuz console=tty0 loglevel=7 nomodeset noapic rootwait
     initrd /boot/initramfs
 }
 
