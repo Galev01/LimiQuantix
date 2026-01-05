@@ -130,13 +130,13 @@ terminal_output gfxterm
 # Default: KMS mode with DRM for GUI console (virtio-gpu, simpledrm, etc.)
 menuentry "Quantix-OS Installer" --class quantix {
     echo "Loading Quantix-OS..."
-    linux /boot/vmlinuz quiet loglevel=3 video=simplefb:on video=efifb:on
+    linux /boot/vmlinuz quiet loglevel=3 rootwait video=simplefb:on video=efifb:on
     initrd /boot/initramfs
 }
 
 menuentry "Quantix-OS Installer (Verbose)" --class quantix {
     echo "Loading Quantix-OS (Verbose)..."
-    linux /boot/vmlinuz loglevel=7 video=simplefb:on video=efifb:on earlyprintk=vga
+    linux /boot/vmlinuz loglevel=7 rootwait video=simplefb:on video=efifb:on
     initrd /boot/initramfs
 }
 
