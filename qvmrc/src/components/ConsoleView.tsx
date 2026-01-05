@@ -327,27 +327,28 @@ export function ConsoleView({
     vncLog.info(`ConsoleView mounted for VM ${vmId}`, { connectionId, vmName, controlPlaneUrl });
     
     const fetchConnectionInfo = async () => {
+      // Skip if we already have frames - canvas is already initialized correctly
+      if (hasReceivedInitialFrame.current) {
+        return;
+      }
+      
       try {
         const info = await invoke<{
           id: string;
           vm_id: string;
-          status: string; // "connected", "disconnected", "connecting", etc. (lowercase from Rust serde)
+          status: string;
           width: number;
           height: number;
         } | null>('get_connection_info', { connectionId });
         
-        vncLog.info('Connection info received', info);
-        
         if (info) {
-          // If the connection is already established (status is "connected"), update the state
-          // Note: Rust serde serializes as lowercase ("connected" not "Connected")
-          if (info.status === 'connected') {
+          if (info.status === 'connected' && connectionStateRef.current !== 'connected') {
             vncLog.info('Connection already established, hiding overlay');
             setConnectionState('connected');
           }
           
-          if (info.width > 0 && info.height > 0) {
-            vncLog.info(`Got resolution: ${info.width}x${info.height}`);
+          // Only initialize if we haven't received frames yet
+          if (!hasReceivedInitialFrame.current && info.width > 0 && info.height > 0) {
             initializeCanvas(info.width, info.height);
           }
         }
@@ -356,18 +357,11 @@ export function ConsoleView({
       }
     };
 
-    // Fetch immediately in case connection was already established
-    fetchConnectionInfo();
-    
-    // Also poll a few times in case there's a delay
-    const timer1 = setTimeout(fetchConnectionInfo, 100);
-    const timer2 = setTimeout(fetchConnectionInfo, 500);
-    const timer3 = setTimeout(fetchConnectionInfo, 1000);
+    // Fetch once after a short delay
+    const timer = setTimeout(fetchConnectionInfo, 200);
     
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
+      clearTimeout(timer);
     };
   }, [connectionId, initializeCanvas, setConnectionState]);
 
