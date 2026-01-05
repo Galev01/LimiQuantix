@@ -1,151 +1,74 @@
-# Workflow State: Clean
+# Workflow State: Fix Cloud Image Boot Issue
 
-No active workflows.
+## Problem
 
----
+Ubuntu 22.04 cloud image VMs fail to boot with "Boot failed: not a bootable disk" and "No bootable device".
 
-## Completed: Console Performance, File Transfer & VM Sidebar (January 4, 2026)
+## Root Cause
 
-Successfully implemented the console improvements plan covering:
-1. VNC encoding optimizations (Tight/ZRLE) for QVMRC
-2. VM Sidebar for Console Dock quick navigation
-3. File transfer between host and VM guests
-
-### Summary
-
-#### Phase 1: QVMRC VNC Performance (Tight/ZRLE Encodings)
-
-Added support for high-performance VNC encodings:
-
-**Files Modified:**
-- `qvmrc/src-tauri/src/vnc/encodings.rs` - Added `decode_tight()` and `decode_zrle()` functions
-- `qvmrc/src-tauri/src/vnc/rfb.rs` - Integrated encodings, added `TightZlibState`, reordered encoding priority
-
-**Key Features:**
-- **ZRLE Decoder**: 64x64 tile-based with Raw, Solid, PackedPalette, PlainRLE, PaletteRLE subencodings
-- **Tight Decoder**: FillCompression, JpegCompression, BasicCompression with Copy/Palette/Gradient filters
-- **Persistent Zlib Streams**: Maintains 4 zlib streams per Tight spec for better compression
-- **Encoding Priority**: ZRLE > Tight > Hextile > Zlib > RRE > CopyRect > Raw
-
-#### Phase 2: VM Sidebar for Console Dock
-
-Created a collapsible VM sidebar for quick console navigation:
-
-**Files Created:**
-- `frontend/src/components/console/VMSidebar.tsx`
-
-**Files Modified:**
-- `frontend/src/hooks/useConsoleStore.ts` - Added `sidebarCollapsed` state
-- `frontend/src/pages/ConsoleDock.tsx` - Integrated sidebar layout
-- `frontend/src/components/console/index.ts` - Added export
-
-**Features:**
-- Search/filter VMs by name or ID
-- Status indicators (running/stopped)
-- "Open" badge for VMs with active console sessions
-- Keyboard navigation (arrow keys + Enter)
-- Collapsible to icon-only mode (persisted)
-
-#### Phase 3: Backend File Transfer Endpoints
-
-Added REST API for guest agent file operations:
-
-**Files Created:**
-- `backend/internal/server/file_transfer.go`
-
-**Files Modified:**
-- `backend/internal/server/vm_rest.go` - Routes file transfer requests
-- `backend/internal/server/server.go` - Updated route registration
-
-**API Endpoints:**
-```
-POST   /api/vms/{id}/files/write   - Write file to guest
-POST   /api/vms/{id}/files/read    - Read file from guest
-GET    /api/vms/{id}/files/list    - List directory in guest
-GET    /api/vms/{id}/files/stat    - Get file metadata
-DELETE /api/vms/{id}/files/delete  - Delete file in guest
+The disk creation logic in `service.rs` had a bug:
+```rust
+// OLD (buggy): Skip disk creation if size_gib = 0
+if disk_spec.path.is_empty() && disk_spec.size_gib > 0 {
 ```
 
-#### Phase 4: QVMRC File Transfer Module
+When using a cloud image with a backing file:
+1. Users often set `size_gib = 0` (since the backing file has its own size)
+2. This caused the overlay disk creation to be **skipped entirely**
+3. The VM had no bootable disk attached!
 
-Created native file transfer for the Tauri desktop client:
+## Fix Applied
 
-**Files Created:**
-- `qvmrc/src-tauri/src/filetransfer/mod.rs` - Module exports and types
-- `qvmrc/src-tauri/src/filetransfer/upload.rs` - Upload implementation
-- `qvmrc/src-tauri/src/filetransfer/download.rs` - Download implementation
-- `qvmrc/src-tauri/src/filetransfer/progress.rs` - Progress tracking
+Modified `agent/limiquantix-node/src/service.rs`:
 
-**Files Modified:**
-- `qvmrc/src-tauri/src/main.rs` - Registered file transfer commands
-
-**Tauri Commands:**
-- `upload_file_to_vm` - Upload single file with progress
-- `upload_files_to_vm` - Upload multiple files
-- `download_file_from_vm` - Download file with progress
-- `list_files_in_vm` - Directory listing
-- `stat_file_in_vm` - File metadata
-- `delete_file_in_vm` - Delete file
-
-#### Phase 5: Web Console File Transfer UI
-
-Created React components and hooks for browser-based file transfer:
-
-**Files Created:**
-- `frontend/src/hooks/useFileTransfer.ts` - React Query hooks
-- `frontend/src/components/console/FileTransferPanel.tsx` - File browser UI
-
-**Features:**
-- File browser with navigation
-- Drag-and-drop upload
-- Download files to host
-- Create/delete files
-- Upload progress tracking
-- Breadcrumb navigation
-
----
-
-## Architecture
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant QVMRC_or_Web as QVMRC/WebConsole
-    participant Backend as ControlPlane
-    participant NodeDaemon as NodeDaemon
-    participant GuestAgent as GuestAgent
-
-    User->>QVMRC_or_Web: Drop file to upload
-    QVMRC_or_Web->>Backend: POST /api/vms/{id}/files/write
-    Backend->>NodeDaemon: gRPC FileWriteRequest
-    NodeDaemon->>GuestAgent: virtio-serial FileWriteRequest
-    GuestAgent->>GuestAgent: Write to filesystem
-    GuestAgent-->>NodeDaemon: FileWriteResponse
-    NodeDaemon-->>Backend: gRPC Response
-    Backend-->>QVMRC_or_Web: HTTP 200 + progress
-    QVMRC_or_Web-->>User: Upload complete
+1. **Fixed disk creation condition** - Now creates overlay even when `size_gib = 0`:
+```rust
+// NEW: Create disk if we have a backing file OR a size specified
+let needs_disk_creation = disk_spec.path.is_empty() && (disk_spec.size_gib > 0 || has_backing_file);
 ```
 
----
+2. **Added backing file validation** - Verify cloud image exists before creating overlay:
+```rust
+if !backing_path.exists() {
+    return Err(Status::failed_precondition(format!(
+        "Cloud image not found: {}. Download it with: setup-cloud-images.sh ubuntu-22.04",
+        bf
+    )));
+}
+```
 
-## Files Summary
+3. **Added debug logging** - Log the full qemu-img command for troubleshooting
 
-### Created (12 files)
-- `frontend/src/components/console/VMSidebar.tsx`
-- `frontend/src/components/console/FileTransferPanel.tsx`
-- `frontend/src/hooks/useFileTransfer.ts`
-- `backend/internal/server/file_transfer.go`
-- `qvmrc/src-tauri/src/filetransfer/mod.rs`
-- `qvmrc/src-tauri/src/filetransfer/upload.rs`
-- `qvmrc/src-tauri/src/filetransfer/download.rs`
-- `qvmrc/src-tauri/src/filetransfer/progress.rs`
+## How Cloud Image VMs Work
 
-### Modified (9 files)
-- `qvmrc/src-tauri/src/vnc/encodings.rs`
-- `qvmrc/src-tauri/src/vnc/rfb.rs`
-- `qvmrc/src-tauri/src/main.rs`
-- `frontend/src/pages/ConsoleDock.tsx`
-- `frontend/src/hooks/useConsoleStore.ts`
-- `frontend/src/components/console/index.ts`
-- `backend/internal/server/vm_rest.go`
-- `backend/internal/server/server.go`
+```
+1. Cloud image downloaded to: /var/lib/limiquantix/cloud-images/ubuntu-22.04.qcow2
+2. VM creation request specifies:
+   - disk.backing_file = "/var/lib/limiquantix/cloud-images/ubuntu-22.04.qcow2"
+   - disk.size_gib = 0 (inherit size) or larger
+3. Node daemon creates:
+   - Overlay disk: /var/lib/limiquantix/vms/{vm_id}/{disk_id}.qcow2
+     └── qemu-img create -f qcow2 -b <backing_file> -F qcow2 <overlay_path>
+   - Cloud-init ISO: /var/lib/limiquantix/vms/{vm_id}/cloud-init.iso
+4. VM boots from overlay disk → cloud-init configures system
+```
+
+## Testing
+
+1. Rebuild node daemon:
+```bash
+cd ~/LimiQuantix/agent/limiquantix-node
+cargo build --release
+sudo systemctl restart limiquantix-node
+```
+
+2. Ensure cloud image exists:
+```bash
+ls -la /var/lib/limiquantix/cloud-images/ubuntu-22.04.qcow2
+# If missing:
+./scripts/setup-cloud-images.sh ubuntu-22.04
+```
+
+3. Create VM with cloud image
+
+## Status: COMPLETE ✅

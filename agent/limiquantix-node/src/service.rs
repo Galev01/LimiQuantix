@@ -498,7 +498,10 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             };
             
             // If no disk path provided, create a new disk image
-            if disk_spec.path.is_empty() && disk_spec.size_gib > 0 {
+            // Note: When using a backing file (cloud image), we MUST create an overlay even if size_gib is 0
+            let needs_disk_creation = disk_spec.path.is_empty() && (disk_spec.size_gib > 0 || has_backing_file);
+            
+            if needs_disk_creation {
                 // Create disk image in default VM storage path
                 let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
                 if let Err(e) = std::fs::create_dir_all(&vm_dir) {
@@ -515,6 +518,20 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // If backing file is specified, create a copy-on-write overlay
                 if let Some(ref bf) = backing_file {
+                    // Verify the backing file exists before trying to use it
+                    let backing_path = std::path::Path::new(bf);
+                    if !backing_path.exists() {
+                        error!(
+                            vm_id = %req.vm_id,
+                            backing_file = %bf,
+                            "Backing file (cloud image) does not exist"
+                        );
+                        return Err(Status::failed_precondition(format!(
+                            "Cloud image not found: {}. Download it with: setup-cloud-images.sh ubuntu-22.04",
+                            bf
+                        )));
+                    }
+                    
                     info!(
                         vm_id = %req.vm_id,
                         disk_id = %disk_spec.id,
@@ -538,6 +555,13 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 if !has_backing_file {
                     cmd.arg(format!("{}G", disk_spec.size_gib));
                 }
+                
+                // Log the full command for debugging
+                debug!(
+                    vm_id = %req.vm_id,
+                    command = ?cmd,
+                    "Executing qemu-img command"
+                );
                 
                 match cmd.output() {
                     Ok(output) if output.status.success() => {
