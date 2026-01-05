@@ -38,6 +38,37 @@ chmod 700 /run/user/0 2>/dev/null || true
 mkdir -p /run/quantix 2>/dev/null || true
 chmod 755 /run/quantix 2>/dev/null || true
 
+# ============================================================================
+# Setup Input Devices
+# ============================================================================
+boot_msg "Setting up input devices..."
+
+# Load input drivers
+modprobe evdev 2>/dev/null || true
+modprobe uinput 2>/dev/null || true
+modprobe psmouse 2>/dev/null || true      # PS/2 mouse
+modprobe vmmouse 2>/dev/null || true      # VMware mouse driver
+modprobe mousedev 2>/dev/null || true     # Mouse device support
+modprobe hid-generic 2>/dev/null || true  # Generic HID
+
+# Ensure input devices have correct permissions
+chmod 666 /dev/input/event* 2>/dev/null || true
+chmod 666 /dev/input/mice 2>/dev/null || true
+chmod 666 /dev/input/mouse* 2>/dev/null || true
+
+# Ensure seatd is running (required for Slint LinuxKMS input)
+if ! pgrep -x seatd >/dev/null 2>&1; then
+    boot_msg "Starting seatd for input device access..."
+    # Try to start seatd service
+    rc-service seatd start 2>/dev/null || /usr/sbin/seatd -g video 2>/dev/null &
+    sleep 1
+fi
+
+# Add root to seat/video groups for input access
+addgroup root video 2>/dev/null || true
+addgroup root input 2>/dev/null || true
+addgroup root seat 2>/dev/null || true
+
 LOG_FILE="/run/quantix/console-launcher.log"
 
 # Logging function

@@ -88,6 +88,15 @@ modprobe simplefb 2>/dev/null || true
 # Input drivers for GUI
 modprobe evdev 2>/dev/null || true
 modprobe uinput 2>/dev/null || true
+modprobe psmouse 2>/dev/null || true      # PS/2 mouse
+modprobe vmmouse 2>/dev/null || true      # VMware mouse
+modprobe mousedev 2>/dev/null || true     # Mouse device
+modprobe hid-generic 2>/dev/null || true  # Generic HID devices
+
+# Set input device permissions (for GUI access)
+chmod 666 /dev/input/event* 2>/dev/null || true
+chmod 666 /dev/input/mice 2>/dev/null || true
+chmod 666 /dev/input/mouse* 2>/dev/null || true
 
 # Trigger udev to create device nodes
 if [ -x /sbin/udevadm ]; then
