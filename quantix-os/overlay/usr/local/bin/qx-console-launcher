@@ -53,22 +53,27 @@ setup_gui_env() {
     # Ensure seatd is running
     if ! pgrep -x seatd >/dev/null 2>&1; then
         echo "Starting seatd daemon..."
-        # Start seatd with video group access
-        seatd -g video &
+        # Start seatd with video group access, non-daemonize for better control
+        seatd -g video -n &
         sleep 1
     fi
     
-    # Set seatd socket path if using libseat
-    if [ -S /run/seatd.sock ]; then
-        export LIBSEAT_BACKEND=seatd
-    fi
+    # Set seatd socket path for libseat (CRITICAL for input to work)
+    export SEATD_VTHND_PATH=/run/seatd.sock
+    export LIBSEAT_BACKEND=seatd
     
     # Ensure input devices are accessible
-    # The input group should already have access, but ensure permissions
+    # The input group should already have access via udev rules, but ensure permissions
     if [ -d /dev/input ]; then
         chmod 660 /dev/input/event* 2>/dev/null || true
         chgrp input /dev/input/event* 2>/dev/null || true
     fi
+    
+    echo "Environment configured:"
+    echo "  XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+    echo "  SLINT_BACKEND=$SLINT_BACKEND"
+    echo "  SEATD_VTHND_PATH=$SEATD_VTHND_PATH"
+    echo "  LIBSEAT_BACKEND=$LIBSEAT_BACKEND"
 }
 
 # Main logic
