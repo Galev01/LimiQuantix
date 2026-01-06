@@ -424,10 +424,24 @@ create_initramfs() {
     
     log_info "Kernel version: ${KERNEL_VERSION}"
     
-    # Configure mkinitfs with all needed features
+    # Configure mkinitfs with needed features
+    # IMPORTANT: Do NOT include 'kms' - it pulls in GPU drivers that can hang on some hardware
+    # simplefb/simpledrm are added explicitly for early console output
     mkdir -p "${ROOTFS}/etc/mkinitfs"
     cat > "${ROOTFS}/etc/mkinitfs/mkinitfs.conf" << 'EOF'
-features="ata base cdrom ext4 keymap kms lvm mmc nvme raid scsi squashfs usb virtio xfs"
+features="ata base cdrom ext4 keymap lvm mmc nvme raid scsi squashfs usb virtio xfs"
+# Ensure simplefb and fbcon are available for early console
+# Required for Dell Latitude and similar systems
+# See: https://forum.proxmox.com/threads/104377/
+EOF
+
+    # Add simplefb to initramfs modules for early console support
+    mkdir -p "${ROOTFS}/etc/mkinitfs/features.d"
+    cat > "${ROOTFS}/etc/mkinitfs/features.d/quantix.modules" << 'EOF'
+kernel/drivers/video/fbdev/simplefb.ko*
+kernel/drivers/video/fbdev/efifb.ko*
+kernel/drivers/gpu/drm/tiny/simpledrm.ko*
+kernel/drivers/video/console/fbcon.ko*
 EOF
 
     # Create custom initramfs overlay with our init script

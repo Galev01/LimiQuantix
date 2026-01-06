@@ -140,31 +140,19 @@ fi
 # Menu entries
 menuentry "Quantix-OS Installer" --class quantix {
     echo "Loading Quantix-OS..."
+    linux /boot/vmlinuz console=tty0 loglevel=4 rootwait
+    initrd /boot/initramfs
+}
+
+menuentry "Quantix-OS (Verbose)" --class quantix {
+    echo "Loading Quantix-OS (Verbose)..."
     linux /boot/vmlinuz console=tty0 loglevel=7 rootwait
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS (No EFI FB)" --class quantix {
-    echo "Loading without EFI framebuffer..."
-    linux /boot/vmlinuz console=tty0 loglevel=7 noefi rootwait
-    initrd /boot/initramfs
-}
-
-menuentry "Quantix-OS (VGA Console)" --class quantix {
-    echo "Loading with VGA console..."
-    linux /boot/vmlinuz console=tty0 loglevel=7 vga=normal nomodeset rootwait
-    initrd /boot/initramfs
-}
-
-menuentry "Quantix-OS (Disable ACPI)" --class quantix {
-    echo "Loading without ACPI..."
-    linux /boot/vmlinuz console=tty0 loglevel=7 acpi=off noapic nolapic rootwait
-    initrd /boot/initramfs
-}
-
-menuentry "Quantix-OS (All Workarounds)" --class quantix {
-    echo "Loading with all workarounds..."
-    linux /boot/vmlinuz console=tty0 loglevel=7 nomodeset noefi acpi=off noapic nolapic dis_ucode_ldr rootwait
+menuentry "Quantix-OS (Safe Mode)" --class quantix {
+    echo "Loading Quantix-OS (Safe Mode)..."
+    linux /boot/vmlinuz console=tty0 loglevel=7 nomodeset rootwait
     initrd /boot/initramfs
 }
 
