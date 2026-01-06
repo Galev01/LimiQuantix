@@ -54,9 +54,9 @@ echo "📦 Step 3: Copying boot files..."
 # Copy squashfs
 cp "$SQUASHFS" "${ISO_DIR}/quantix/system.squashfs"
 
-# Extract kernel from squashfs
+    # Extract kernel from squashfs
 echo "   Extracting kernel from squashfs..."
-mkdir -p /tmp/sqmount
+    mkdir -p /tmp/sqmount
 mount -t squashfs -o loop "$SQUASHFS" /tmp/sqmount || {
     echo "❌ Failed to mount squashfs"
     exit 1
@@ -73,8 +73,8 @@ for kfile in /tmp/sqmount/boot/vmlinuz-lts /tmp/sqmount/boot/vmlinuz*; do
     fi
 done
 
-umount /tmp/sqmount
-rmdir /tmp/sqmount
+    umount /tmp/sqmount
+    rmdir /tmp/sqmount
 
 # If no kernel found in squashfs, download from Alpine
 if [ "$KERNEL_FOUND" = "false" ]; then
@@ -98,7 +98,7 @@ fi
 
 # ALWAYS build our custom initramfs for Live boot support
 echo "   Building custom Quantix-OS initramfs..."
-"${SCRIPT_DIR}/build-initramfs.sh"
+    "${SCRIPT_DIR}/build-initramfs.sh"
 if [ -f "${OUTPUT_DIR}/initramfs.img" ]; then
     cp "${OUTPUT_DIR}/initramfs.img" "${ISO_DIR}/boot/initramfs"
     echo "   Custom initramfs installed"
