@@ -16,6 +16,9 @@ LABEL maintainer="Quantix-KVM Team"
 LABEL description="Rust build environment for Quantix-OS Console GUI"
 
 # Install Rust and build dependencies
+# Note: In Alpine Linux:
+#   - libgbm is part of mesa-dev (no separate package)
+#   - seatd-dev is called libseat-dev
 RUN apk add --no-cache \
     # Rust toolchain
     rust \
@@ -30,9 +33,7 @@ RUN apk add --no-cache \
     libinput-dev \
     libxkbcommon-dev \
     mesa-dev \
-    libgbm \
-    mesa-gbm \
-    seatd-dev \
+    libseat-dev \
     # Font rendering
     freetype-dev \
     fontconfig-dev \

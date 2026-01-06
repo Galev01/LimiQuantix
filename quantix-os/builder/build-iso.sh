@@ -33,29 +33,7 @@ if [ ! -f "$SQUASHFS" ]; then
     exit 1
 fi
 
-# Check for kernel and initramfs
-KERNEL=""
-INITRAMFS=""
-
-# Try to find kernel in rootfs or use host kernel
-if [ -f "${OUTPUT_DIR}/vmlinuz" ]; then
-    KERNEL="${OUTPUT_DIR}/vmlinuz"
-elif [ -f "/boot/vmlinuz-lts" ]; then
-    KERNEL="/boot/vmlinuz-lts"
-elif [ -f "/boot/vmlinuz" ]; then
-    KERNEL="/boot/vmlinuz"
-fi
-
-if [ -f "${OUTPUT_DIR}/initramfs.img" ]; then
-    INITRAMFS="${OUTPUT_DIR}/initramfs.img"
-elif [ -f "/boot/initramfs-lts" ]; then
-    INITRAMFS="/boot/initramfs-lts"
-fi
-
-if [ -z "$KERNEL" ]; then
-    echo "⚠️  Kernel not found, will extract from squashfs..."
-fi
-
+# Kernel and initramfs will be extracted from squashfs
 echo "✅ Files verified"
 
 # -----------------------------------------------------------------------------
@@ -76,27 +54,73 @@ echo "📦 Step 3: Copying boot files..."
 # Copy squashfs
 cp "$SQUASHFS" "${ISO_DIR}/quantix/system.squashfs"
 
-# Copy or extract kernel
-if [ -n "$KERNEL" ]; then
-    cp "$KERNEL" "${ISO_DIR}/boot/vmlinuz"
-else
-    # Extract kernel from squashfs
-    mkdir -p /tmp/sqmount
-    mount -t squashfs "$SQUASHFS" /tmp/sqmount
-    cp /tmp/sqmount/boot/vmlinuz* "${ISO_DIR}/boot/vmlinuz" 2>/dev/null || \
-    cp /tmp/sqmount/boot/vmlinuz-lts "${ISO_DIR}/boot/vmlinuz" 2>/dev/null || true
-    cp /tmp/sqmount/boot/initramfs* "${ISO_DIR}/boot/initramfs" 2>/dev/null || true
-    umount /tmp/sqmount
-    rmdir /tmp/sqmount
+# Extract kernel and initramfs from squashfs
+echo "   Extracting kernel from squashfs..."
+mkdir -p /tmp/sqmount
+mount -t squashfs -o loop "$SQUASHFS" /tmp/sqmount || {
+    echo "❌ Failed to mount squashfs"
+    exit 1
+}
+
+# Find and copy kernel
+KERNEL_FOUND=false
+for kfile in /tmp/sqmount/boot/vmlinuz-lts /tmp/sqmount/boot/vmlinuz*; do
+    if [ -f "$kfile" ]; then
+        cp "$kfile" "${ISO_DIR}/boot/vmlinuz"
+        echo "   Found kernel: $(basename $kfile)"
+        KERNEL_FOUND=true
+        break
+    fi
+done
+
+# Find and copy initramfs
+for ifile in /tmp/sqmount/boot/initramfs-lts /tmp/sqmount/boot/initramfs*; do
+    if [ -f "$ifile" ]; then
+        cp "$ifile" "${ISO_DIR}/boot/initramfs"
+        echo "   Found initramfs: $(basename $ifile)"
+        break
+    fi
+done
+
+umount /tmp/sqmount
+rmdir /tmp/sqmount
+
+# If no kernel found in squashfs, we need to add linux-lts to packages
+if [ "$KERNEL_FOUND" = "false" ]; then
+    echo "⚠️  No kernel found in squashfs!"
+    echo "   Make sure 'linux-lts' is in profiles/quantix/packages.conf"
+    echo "   Creating a minimal boot setup for live ISO..."
+    
+    # Download Alpine kernel for live boot
+    ALPINE_MIRROR="https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64"
+    NETBOOT_URL="${ALPINE_MIRROR}/netboot/vmlinuz-lts"
+    INITRAMFS_URL="${ALPINE_MIRROR}/netboot/initramfs-lts"
+    
+    echo "   Downloading Alpine kernel..."
+    curl -sL "$NETBOOT_URL" -o "${ISO_DIR}/boot/vmlinuz" || wget -q "$NETBOOT_URL" -O "${ISO_DIR}/boot/vmlinuz" || {
+        echo "❌ Failed to download kernel"
+        exit 1
+    }
+    
+    echo "   Downloading Alpine initramfs..."
+    curl -sL "$INITRAMFS_URL" -o "${ISO_DIR}/boot/initramfs" || wget -q "$INITRAMFS_URL" -O "${ISO_DIR}/boot/initramfs" || {
+        echo "❌ Failed to download initramfs"
+        exit 1
+    }
 fi
 
-# Copy or create initramfs
-if [ -n "$INITRAMFS" ]; then
-    cp "$INITRAMFS" "${ISO_DIR}/boot/initramfs"
-elif [ ! -f "${ISO_DIR}/boot/initramfs" ]; then
-    echo "⚠️  Creating minimal initramfs..."
-    "${SCRIPT_DIR}/build-initramfs.sh"
-    cp "${OUTPUT_DIR}/initramfs.img" "${ISO_DIR}/boot/initramfs"
+# Verify we have boot files
+if [ ! -f "${ISO_DIR}/boot/vmlinuz" ]; then
+    echo "❌ No kernel available for ISO"
+    exit 1
+fi
+
+if [ ! -f "${ISO_DIR}/boot/initramfs" ]; then
+    echo "⚠️  No initramfs found, creating minimal one..."
+    "${SCRIPT_DIR}/build-initramfs.sh" || true
+    if [ -f "${OUTPUT_DIR}/initramfs.img" ]; then
+        cp "${OUTPUT_DIR}/initramfs.img" "${ISO_DIR}/boot/initramfs"
+    fi
 fi
 
 echo "✅ Boot files copied"
@@ -232,30 +256,61 @@ echo "📦 Step 8: Creating ISO image..."
 
 mkdir -p "${OUTPUT_DIR}"
 
-xorriso -as mkisofs \
-    -o "${OUTPUT_DIR}/${ISO_NAME}" \
-    -isohybrid-mbr /usr/lib/grub/i386-pc/boot_hybrid.img 2>/dev/null || true \
-    -c boot/boot.cat \
-    -b boot/grub/bios.img \
-    -no-emul-boot \
-    -boot-load-size 4 \
-    -boot-info-table \
-    --grub2-boot-info \
-    -eltorito-alt-boot \
-    -e boot/efi.img \
-    -no-emul-boot \
-    -isohybrid-gpt-basdat \
-    -V "QUANTIX-OS" \
-    -R -J \
-    "${ISO_DIR}" 2>/dev/null || {
-    # Fallback to simpler ISO creation
+# Check for required files
+echo "   Checking boot files..."
+ls -la "${ISO_DIR}/boot/" || true
+
+# Determine hybrid MBR path
+HYBRID_MBR=""
+if [ -f "/usr/lib/grub/i386-pc/boot_hybrid.img" ]; then
+    HYBRID_MBR="/usr/lib/grub/i386-pc/boot_hybrid.img"
+elif [ -f "/usr/share/grub/i386-pc/boot_hybrid.img" ]; then
+    HYBRID_MBR="/usr/share/grub/i386-pc/boot_hybrid.img"
+fi
+
+# Try full hybrid ISO first
+ISO_CREATED=false
+
+if [ -n "$HYBRID_MBR" ] && [ -f "${ISO_DIR}/boot/grub/bios.img" ] && [ -f "${ISO_DIR}/boot/efi.img" ]; then
+    echo "   Creating hybrid BIOS/UEFI ISO..."
+    if xorriso -as mkisofs \
+        -o "${OUTPUT_DIR}/${ISO_NAME}" \
+        -isohybrid-mbr "$HYBRID_MBR" \
+        -c boot/boot.cat \
+        -b boot/grub/bios.img \
+        -no-emul-boot \
+        -boot-load-size 4 \
+        -boot-info-table \
+        --grub2-boot-info \
+        -eltorito-alt-boot \
+        -e boot/efi.img \
+        -no-emul-boot \
+        -isohybrid-gpt-basdat \
+        -V "QUANTIX-OS" \
+        -R -J \
+        "${ISO_DIR}" 2>&1; then
+        ISO_CREATED=true
+    fi
+fi
+
+# Fallback to simpler ISO if hybrid failed
+if [ "$ISO_CREATED" = false ]; then
     echo "⚠️  Falling back to basic ISO creation..."
     xorriso -as mkisofs \
         -o "${OUTPUT_DIR}/${ISO_NAME}" \
         -V "QUANTIX-OS" \
         -R -J \
-        "${ISO_DIR}"
-}
+        "${ISO_DIR}" || {
+        echo "❌ ISO creation failed!"
+        exit 1
+    }
+fi
+
+# Verify ISO was created
+if [ ! -f "${OUTPUT_DIR}/${ISO_NAME}" ]; then
+    echo "❌ ISO file was not created!"
+    exit 1
+fi
 
 # Calculate size
 ISO_SIZE=$(du -h "${OUTPUT_DIR}/${ISO_NAME}" | cut -f1)

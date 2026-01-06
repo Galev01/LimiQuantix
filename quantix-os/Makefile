@@ -16,15 +16,15 @@
 
 .PHONY: all iso squashfs initramfs console-gui console-tui host-ui \
         node-daemon test-qemu test-qemu-uefi clean help \
-        docker-builder docker-rust-gui docker-rust-tui
+        docker-builder docker-rust-gui docker-rust-tui scripts-executable
 
 # Version
 VERSION ?= 1.0.0
 ISO_NAME := quantix-os-$(VERSION).iso
 SQUASHFS_NAME := system-$(VERSION).squashfs
 
-# Directories
-BUILD_DIR := $(PWD)
+# Directories - use CURDIR instead of PWD for better compatibility
+BUILD_DIR := $(CURDIR)
 OUTPUT_DIR := $(BUILD_DIR)/output
 OVERLAY_DIR := $(BUILD_DIR)/overlay
 ROOTFS_DIR := $(BUILD_DIR)/.rootfs
@@ -42,33 +42,38 @@ RUST_TUI_IMAGE := quantix-rust-tui-builder
 all: iso
 
 # Build complete bootable ISO
-iso: squashfs console-gui console-tui host-ui node-daemon
+iso: squashfs console-gui console-tui host-ui node-daemon scripts-executable
 	@echo "🔨 Building bootable ISO..."
 	@mkdir -p $(OUTPUT_DIR)
-	./builder/build-iso.sh $(VERSION)
+	docker run --rm --privileged \
+		-v "$(BUILD_DIR):/work" \
+		-v "$(OUTPUT_DIR):/output" \
+		-w /work \
+		$(BUILDER_IMAGE) \
+		/bin/bash ./builder/build-iso.sh $(VERSION)
 	@echo "✅ ISO built: $(OUTPUT_DIR)/$(ISO_NAME)"
 
 # Build rootfs squashfs
-squashfs: docker-builder
+squashfs: docker-builder scripts-executable
 	@echo "🔨 Building rootfs squashfs..."
 	@mkdir -p $(OUTPUT_DIR)
 	docker run --rm --privileged \
-		-v $(BUILD_DIR):/work \
-		-v $(OUTPUT_DIR):/output \
+		-v "$(BUILD_DIR):/work" \
+		-v "$(OUTPUT_DIR):/output" \
 		-w /work \
 		$(BUILDER_IMAGE) \
-		./builder/build-squashfs.sh $(VERSION)
+		/bin/bash ./builder/build-squashfs.sh $(VERSION)
 	@echo "✅ Squashfs built: $(OUTPUT_DIR)/$(SQUASHFS_NAME)"
 
 # Build initramfs
-initramfs: docker-builder
+initramfs: docker-builder scripts-executable
 	@echo "🔨 Building initramfs..."
 	docker run --rm --privileged \
-		-v $(BUILD_DIR):/work \
-		-v $(OUTPUT_DIR):/output \
+		-v "$(BUILD_DIR):/work" \
+		-v "$(OUTPUT_DIR):/output" \
 		-w /work \
 		$(BUILDER_IMAGE) \
-		./builder/build-initramfs.sh
+		/bin/bash ./builder/build-initramfs.sh
 	@echo "✅ Initramfs built"
 
 # =============================================================================
@@ -80,8 +85,8 @@ console-gui: docker-rust-gui
 	@echo "🔨 Building Slint GUI console..."
 	@mkdir -p $(OVERLAY_DIR)/usr/bin
 	docker run --rm \
-		-v $(BUILD_DIR)/console-gui:/build:rw \
-		-v $(OVERLAY_DIR)/usr/bin:/output \
+		-v "$(BUILD_DIR)/console-gui:/build:rw" \
+		-v "$(OVERLAY_DIR)/usr/bin:/output" \
 		-w /build \
 		$(RUST_GUI_IMAGE) \
 		sh -c "cargo build --release --no-default-features --features linuxkms && \
@@ -94,8 +99,8 @@ console-tui: docker-rust-tui
 	@echo "🔨 Building TUI console..."
 	@mkdir -p $(OVERLAY_DIR)/usr/local/bin
 	docker run --rm \
-		-v $(BUILD_DIR)/console-tui:/build:rw \
-		-v $(OVERLAY_DIR)/usr/local/bin:/output \
+		-v "$(BUILD_DIR)/console-tui:/build:rw" \
+		-v "$(OVERLAY_DIR)/usr/local/bin:/output" \
 		-w /build \
 		$(RUST_TUI_IMAGE) \
 		sh -c "cargo build --release && \
@@ -146,6 +151,20 @@ docker-rust-gui:
 docker-rust-tui:
 	@echo "🐳 Building Docker image: $(RUST_TUI_IMAGE)..."
 	docker build -t $(RUST_TUI_IMAGE) -f builder/Dockerfile.rust-tui builder/
+
+# =============================================================================
+# Utility Targets
+# =============================================================================
+
+# Make all scripts executable
+scripts-executable:
+	@echo "🔧 Making scripts executable..."
+	@chmod +x builder/*.sh 2>/dev/null || true
+	@chmod +x installer/*.sh 2>/dev/null || true
+	@chmod +x overlay/usr/local/bin/* 2>/dev/null || true
+	@chmod +x overlay/etc/init.d/* 2>/dev/null || true
+	@chmod +x overlay/etc/local.d/*.start 2>/dev/null || true
+	@chmod +x initramfs/init 2>/dev/null || true
 
 # =============================================================================
 # Testing
