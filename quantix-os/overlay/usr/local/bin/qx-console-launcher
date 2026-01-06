@@ -49,91 +49,54 @@ main() {
     case "$1" in
         --gui)
             echo "Forcing GUI mode..."
-            exec /usr/bin/qx-console-gui "$@"
+            setup_gui_env
+            exec /usr/bin/qx-console-gui
             ;;
         --tui)
             echo "Forcing TUI mode..."
-            exec /usr/local/bin/qx-console "$@"
+            exec /usr/local/bin/qx-console
             ;;
         --help|-h)
             echo "Usage: $0 [--gui|--tui]"
             echo ""
             echo "Options:"
-            echo "  --gui    Force graphical console (Slint)"
-            echo "  --tui    Force text console (Ratatui)"
+            echo "  --gui    Force graphical console (Slint) - experimental"
+            echo "  --tui    Force text console (Ratatui) - recommended"
             echo ""
-            echo "Without options, automatically selects based on hardware."
+            echo "Default: TUI mode (GUI input not yet working)"
             exit 0
             ;;
     esac
     
-    # Auto-detect best mode
-    if is_serial_or_ssh; then
-        echo "Serial/SSH detected, using TUI..."
-        if [ -x /usr/local/bin/qx-console ]; then
-            exec /usr/local/bin/qx-console "$@"
-        else
-            echo "TUI not available, falling back to shell"
-            exec /bin/sh
-        fi
-    elif check_graphics; then
-        echo "Graphics detected, using GUI..."
-        if [ -x /usr/bin/qx-console-gui ]; then
-            # Check if GUI binary can actually run (has all libraries)
-            if ! ldd /usr/bin/qx-console-gui 2>&1 | grep -q "not found"; then
-                # Set up environment for LinuxKMS/DRM
-                export XDG_RUNTIME_DIR=/run/user/0
-                export SLINT_BACKEND=linuxkms
-                mkdir -p /run/user/0
-                chmod 700 /run/user/0
-                
-                # Ensure seatd is running for input device access
-                if ! rc-service seatd status >/dev/null 2>&1; then
-                    echo "Starting seatd for input access..."
-                    rc-service seatd start 2>/dev/null || true
-                    sleep 1
-                fi
-                
-                # Add root to seat group for input access
-                addgroup root seat 2>/dev/null || true
-                addgroup root input 2>/dev/null || true
-                addgroup root video 2>/dev/null || true
-                
-                # Ensure input devices are accessible
-                chmod 660 /dev/input/* 2>/dev/null || true
-                chgrp input /dev/input/* 2>/dev/null || true
-                
-                # Use seatd-launch for proper seat management
-                if command -v seatd-launch >/dev/null 2>&1; then
-                    echo "Launching GUI with seatd..."
-                    exec seatd-launch -- /usr/bin/qx-console-gui "$@"
-                else
-                    echo "Launching GUI directly..."
-                    exec /usr/bin/qx-console-gui "$@"
-                fi
-            else
-                echo "GUI binary missing libraries, falling back to TUI..."
-                ldd /usr/bin/qx-console-gui 2>&1 | grep "not found" || true
-            fi
-        fi
-        
-        # Fall back to TUI
-        echo "Falling back to TUI..."
-        if [ -x /usr/local/bin/qx-console ]; then
-            exec /usr/local/bin/qx-console "$@"
-        else
-            echo "No console available, starting shell"
-            exec /bin/sh
-        fi
+    # Default to TUI - it works reliably
+    # GUI mode has input issues with LinuxKMS backend
+    echo "Starting TUI console (default)..."
+    echo "(Use --gui flag to try experimental GUI mode)"
+    
+    if [ -x /usr/local/bin/qx-console ]; then
+        exec /usr/local/bin/qx-console "$@"
     else
-        echo "No graphics, using TUI..."
-        if [ -x /usr/local/bin/qx-console ]; then
-            exec /usr/local/bin/qx-console "$@"
-        else
-            echo "TUI not available, falling back to shell"
-            exec /bin/sh
-        fi
+        echo "TUI not available, falling back to shell"
+        exec /bin/sh
     fi
+}
+
+# Setup GUI environment
+setup_gui_env() {
+    export XDG_RUNTIME_DIR=/run/user/0
+    export SLINT_BACKEND=linuxkms
+    mkdir -p /run/user/0
+    chmod 700 /run/user/0
+    
+    # Ensure seatd is running
+    rc-service seatd start 2>/dev/null || true
+    sleep 1
+    
+    # Setup permissions
+    addgroup root seat 2>/dev/null || true
+    addgroup root input 2>/dev/null || true
+    addgroup root video 2>/dev/null || true
+    chmod 660 /dev/input/* 2>/dev/null || true
 }
 
 main "$@"
