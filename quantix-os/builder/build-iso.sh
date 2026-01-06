@@ -182,6 +182,33 @@ menuentry "Rescue Shell" --class rescue {
     linux /boot/vmlinuz rdinit=/init rescue
     initrd /boot/initramfs
 }
+
+menuentry "Debug: Show Boot Info" --class debug {
+    echo "=== GRUB Debug Info ==="
+    echo "Root device: $root"
+    echo "Prefix: $prefix"
+    echo ""
+    echo "=== Listing /boot ==="
+    ls ($root)/boot/
+    echo ""
+    echo "=== Listing /boot/grub ==="
+    ls ($root)/boot/grub/
+    echo ""
+    echo "=== Checking files ==="
+    if [ -f ($root)/boot/vmlinuz ]; then
+        echo "vmlinuz: FOUND"
+    else
+        echo "vmlinuz: NOT FOUND"
+    fi
+    if [ -f ($root)/boot/initramfs ]; then
+        echo "initramfs: FOUND"
+    else
+        echo "initramfs: NOT FOUND"
+    fi
+    echo ""
+    echo "Press any key to return to menu..."
+    read
+}
 EOF
 
     # Replace VERSION placeholder
@@ -196,20 +223,44 @@ EOF
 create_efi_boot() {
     log_step "Creating EFI bootloader..."
     
-    # Create EFI GRUB image with all needed modules for ISO/USB/Ventoy boot
+    # Create a minimal early grub.cfg that searches for the real config
+    # This is embedded into BOOTX64.EFI and executed first
+    EARLY_CFG="${WORK_DIR}/early-grub.cfg"
+    cat > "${EARLY_CFG}" << 'EARLYCFG'
+# Early GRUB config - embedded in EFI binary
+# Searches for the main ISO/USB partition and loads the real config
+
+# Try to find partition containing our kernel
+search --no-floppy --file /boot/vmlinuz --set=root
+
+# Fallback: search by label
+if [ -z "$root" ]; then
+    search --no-floppy --label QUANTIX_OS --set=root
+fi
+
+# Set prefix to where grub.cfg lives on the found partition
+set prefix=($root)/boot/grub
+
+# Load the main config
+configfile ($root)/boot/grub/grub.cfg
+EARLYCFG
+
+    # Create EFI GRUB image with embedded early config
+    # The -c option embeds a config that runs before looking for grub.cfg
     grub-mkimage \
         -o "${ISO_ROOT}/EFI/BOOT/BOOTX64.EFI" \
         -O x86_64-efi \
+        -c "${EARLY_CFG}" \
         -p /boot/grub \
         part_gpt part_msdos fat ext2 iso9660 normal boot linux \
         configfile loopback search search_fs_uuid search_fs_file \
         search_label gfxterm gfxterm_background gfxterm_menu \
         test all_video echo font gzio minicmd ls cat
     
-    # Create EFI system partition image
+    # Create EFI system partition image (larger to include grub.cfg backup)
     EFI_IMG="${WORK_DIR}/efi.img"
-    dd if=/dev/zero of="${EFI_IMG}" bs=1M count=10
-    mkfs.vfat "${EFI_IMG}"
+    dd if=/dev/zero of="${EFI_IMG}" bs=1M count=16
+    mkfs.vfat -F 12 "${EFI_IMG}"
     
     # Mount and populate
     EFI_MNT="${WORK_DIR}/efi_mnt"
@@ -219,12 +270,19 @@ create_efi_boot() {
     mkdir -p "${EFI_MNT}/EFI/BOOT"
     cp "${ISO_ROOT}/EFI/BOOT/BOOTX64.EFI" "${EFI_MNT}/EFI/BOOT/"
     
+    # Also copy grub.cfg to EFI partition as fallback
+    mkdir -p "${EFI_MNT}/boot/grub"
+    cp "${ISO_ROOT}/boot/grub/grub.cfg" "${EFI_MNT}/boot/grub/"
+    
     umount "${EFI_MNT}"
+    
+    # Clean up
+    rm -f "${EARLY_CFG}"
     
     # Copy EFI image to ISO root for xorriso
     cp "${EFI_IMG}" "${ISO_ROOT}/efi.img"
     
-    log_info "EFI bootloader created"
+    log_info "EFI bootloader created with embedded search config"
 }
 
 # ============================================================================

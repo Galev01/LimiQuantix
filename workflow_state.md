@@ -1,62 +1,58 @@
-# Workflow State: Fix Quantix-OS Kernel Panic on Boot
+# Workflow State: Fix Quantix-OS Boot on Real Hardware (Dell Latitude)
 
 ## Problem
 
-Quantix-OS ISO fails to boot with kernel panic:
+Quantix-OS ISO works in VMware but fails on Dell Latitude 5420 with:
 ```
-VFS: Cannot open root device "" or unknown-block(0,0): error -6
-Please append a correct "root=" boot option
-Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)
+error: file '/boot/initramfs' not found
+press any key to continue
 ```
 
 ## Root Cause
 
-The kernel was panicking because:
-1. **GRUB config missing `rdinit=/init`** - The kernel didn't know to use our custom init script from the initramfs
-2. **Initramfs extraction might have failed silently** - No verification that `/init` was properly installed
+**UEFI boot path issue**: When booting via UEFI on real hardware:
 
-Without `rdinit=/init`, the kernel uses its built-in default init which expects a `root=` parameter. Since we deliberately don't provide `root=` (our custom init finds the squashfs dynamically), the kernel panics.
+1. The EFI bootloader (`BOOTX64.EFI`) was built with `-p /boot/grub`
+2. This tells GRUB to look for config at `/boot/grub/grub.cfg` relative to the **EFI partition**
+3. But the EFI partition only contained `BOOTX64.EFI` - **no grub.cfg, no kernel, no initramfs!**
+4. GRUB couldn't find files because `$root` wasn't set to the ISO partition
+
+**VMware worked** because:
+- It may use BIOS emulation
+- Or its UEFI implementation handles cross-partition access differently
 
 ## Fixes Applied
 
-### Fix 1: Added `rdinit=/init` to GRUB config
+### Fix 1: Embedded early config in EFI binary
 **File:** `quantix-os/builder/build-iso.sh`
 
-All menu entries now include `rdinit=/init` which tells the kernel:
-> "Use /init from the initramfs as the initial process, not your built-in default"
+Added `-c early-grub.cfg` to `grub-mkimage` that:
+1. Searches for the partition containing `/boot/vmlinuz`
+2. Falls back to searching by label `QUANTIX_OS`
+3. Sets `$root` and `$prefix` correctly
+4. Loads the main `grub.cfg` from the found partition
 
-Before:
-```
-linux /boot/vmlinuz console=tty0 loglevel=4 rootwait
-```
+### Fix 2: Backup grub.cfg in EFI partition
+Also copies `grub.cfg` into the EFI partition as a fallback.
 
-After:
-```
-linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=4
-```
+### Fix 3: Added Debug menu entry
+New "Debug: Show Boot Info" menu option that displays:
+- Current `$root` device
+- Current `$prefix` path
+- Lists `/boot/` contents
+- Checks if vmlinuz and initramfs exist
 
-Also removed `rootwait` since our custom init handles device waiting.
+## Testing
 
-### Fix 2: Improved initramfs creation with verification
-**File:** `quantix-os/builder/build-squashfs.sh`
+1. Rebuild the ISO
+2. Flash to USB with Rufus (DD mode) or `dd`
+3. Boot on Dell Latitude
+4. If boot fails, select "Debug: Show Boot Info" to see what GRUB found
+5. Report the debug output
 
-- Added compression format auto-detection (gzip, xz, zstd)
-- Added fallback to try all compression formats
-- Added extensive logging during extraction and repacking
-- Added verification that `/init` exists in final initramfs
-- Added verification that busybox and essential symlinks exist
-- Build now fails if `/init` is missing from final initramfs
+## Previous Fix (Still Applied)
 
-## Next Steps
+- Added `rdinit=/init` to kernel cmdline (fixes kernel panic after files are found)
+- Improved initramfs creation with verification
 
-1. Rebuild the ISO:
-   ```bash
-   cd quantix-os
-   ./build.ps1   # or make build
-   ```
-
-2. Boot the new ISO and verify the custom init runs (should see "QUANTIX-OS v1.0.0" banner)
-
-## Status: FIXED ✅
-
-Rebuild required to apply changes.
+## Status: FIXED - Rebuild Required ✅
