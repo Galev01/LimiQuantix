@@ -256,30 +256,61 @@ echo "📦 Step 8: Creating ISO image..."
 
 mkdir -p "${OUTPUT_DIR}"
 
-xorriso -as mkisofs \
-    -o "${OUTPUT_DIR}/${ISO_NAME}" \
-    -isohybrid-mbr /usr/lib/grub/i386-pc/boot_hybrid.img 2>/dev/null || true \
-    -c boot/boot.cat \
-    -b boot/grub/bios.img \
-    -no-emul-boot \
-    -boot-load-size 4 \
-    -boot-info-table \
-    --grub2-boot-info \
-    -eltorito-alt-boot \
-    -e boot/efi.img \
-    -no-emul-boot \
-    -isohybrid-gpt-basdat \
-    -V "QUANTIX-OS" \
-    -R -J \
-    "${ISO_DIR}" 2>/dev/null || {
-    # Fallback to simpler ISO creation
+# Check for required files
+echo "   Checking boot files..."
+ls -la "${ISO_DIR}/boot/" || true
+
+# Determine hybrid MBR path
+HYBRID_MBR=""
+if [ -f "/usr/lib/grub/i386-pc/boot_hybrid.img" ]; then
+    HYBRID_MBR="/usr/lib/grub/i386-pc/boot_hybrid.img"
+elif [ -f "/usr/share/grub/i386-pc/boot_hybrid.img" ]; then
+    HYBRID_MBR="/usr/share/grub/i386-pc/boot_hybrid.img"
+fi
+
+# Try full hybrid ISO first
+ISO_CREATED=false
+
+if [ -n "$HYBRID_MBR" ] && [ -f "${ISO_DIR}/boot/grub/bios.img" ] && [ -f "${ISO_DIR}/boot/efi.img" ]; then
+    echo "   Creating hybrid BIOS/UEFI ISO..."
+    if xorriso -as mkisofs \
+        -o "${OUTPUT_DIR}/${ISO_NAME}" \
+        -isohybrid-mbr "$HYBRID_MBR" \
+        -c boot/boot.cat \
+        -b boot/grub/bios.img \
+        -no-emul-boot \
+        -boot-load-size 4 \
+        -boot-info-table \
+        --grub2-boot-info \
+        -eltorito-alt-boot \
+        -e boot/efi.img \
+        -no-emul-boot \
+        -isohybrid-gpt-basdat \
+        -V "QUANTIX-OS" \
+        -R -J \
+        "${ISO_DIR}" 2>&1; then
+        ISO_CREATED=true
+    fi
+fi
+
+# Fallback to simpler ISO if hybrid failed
+if [ "$ISO_CREATED" = false ]; then
     echo "⚠️  Falling back to basic ISO creation..."
     xorriso -as mkisofs \
         -o "${OUTPUT_DIR}/${ISO_NAME}" \
         -V "QUANTIX-OS" \
         -R -J \
-        "${ISO_DIR}"
-}
+        "${ISO_DIR}" || {
+        echo "❌ ISO creation failed!"
+        exit 1
+    }
+fi
+
+# Verify ISO was created
+if [ ! -f "${OUTPUT_DIR}/${ISO_NAME}" ]; then
+    echo "❌ ISO file was not created!"
+    exit 1
+fi
 
 # Calculate size
 ISO_SIZE=$(du -h "${OUTPUT_DIR}/${ISO_NAME}" | cut -f1)
