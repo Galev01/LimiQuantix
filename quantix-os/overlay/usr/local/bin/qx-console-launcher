@@ -15,7 +15,7 @@ main() {
     # Check for force flags
     case "$1" in
         --gui)
-            echo "WARNING: GUI mode is experimental and may freeze input!"
+            echo "WARNING: GUI mode is experimental and may freeze!"
             echo "Starting GUI in 3 seconds... (Ctrl+C to cancel)"
             sleep 3
             setup_gui_env
@@ -32,13 +32,13 @@ main() {
             echo "  --tui    Text console (Ratatui) - DEFAULT, recommended"
             echo "  --gui    Graphical console (Slint) - EXPERIMENTAL"
             echo ""
-            echo "Default: TUI mode (GUI has input issues)"
+            echo "Default: TUI mode (GUI has stability issues)"
             exit 0
             ;;
     esac
     
     # DEFAULT: Use TUI - it works reliably
-    echo "Starting TUI console..."
+    echo "Starting TUI console (default)..."
     
     if [ -x /usr/local/bin/qx-console ]; then
         exec /usr/local/bin/qx-console
