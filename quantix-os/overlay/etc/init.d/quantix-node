@@ -1,163 +1,79 @@
 #!/sbin/openrc-run
-# ============================================================================
-# Quantix Node Daemon - OpenRC Service Script
-# ============================================================================
-# The Quantix Node Daemon is the primary management agent that:
-# - Registers with the control plane
-# - Manages VMs via libvirt
-# - Reports telemetry and health
-# - Handles VM lifecycle operations
-# ============================================================================
+# =============================================================================
+# Quantix-OS Node Daemon Service
+# =============================================================================
+# Manages the Quantix node daemon (qx-node).
+# =============================================================================
 
-name="quantix-node"
-description="Quantix Hypervisor Node Daemon"
-
-# Binary location
-command="/usr/local/bin/qx-node"
-
-# Command arguments
-command_args="--config /quantix/node.yaml"
-
-# Run as root (required for libvirt/qemu access)
-command_user="root:root"
-
-# Background the process
+name="Quantix Node Daemon"
+description="Quantix-OS hypervisor management daemon"
+command="/usr/bin/qx-node"
+command_args=""
 command_background="yes"
-
-# PID file
 pidfile="/run/quantix-node.pid"
-
-# Output logging
 output_log="/var/log/quantix-node.log"
-error_log="/var/log/quantix-node.log"
+error_log="/var/log/quantix-node.err.log"
 
-# Respawn if crashes (OpenRC 0.41+)
-respawn="yes"
-respawn_delay="5"
-respawn_max="10"
-
-# Dependencies
 depend() {
-    # Network must be up
-    need net
-    # Libvirt must be running for VM management
-    need libvirtd
-    # OVS must be running for networking
-    after ovsdb-server ovs-vswitchd
-    # Storage devices should be mounted
-    after localmount
-    # Run before our console TUI
-    before quantix-console
+    need net localmount
+    after libvirtd ovsdb-server ovs-vswitchd quantix-firstboot
+    provide quantix-node
 }
 
-# Pre-start checks
 start_pre() {
+    # Ensure log directory exists
+    mkdir -p /var/log
+    
+    # Ensure runtime directory exists
+    mkdir -p /run/quantix
+    mkdir -p /run/user/0
+    chmod 700 /run/user/0
+    
     # Ensure config directory exists
-    if [ ! -d /quantix ]; then
-        eerror "Config directory /quantix not mounted!"
-        eerror "Is the config partition available?"
-        return 1
-    fi
-
-    # Generate node ID if first boot
-    if [ ! -f /quantix/node.yaml ]; then
-        einfo "First boot detected, initializing configuration..."
-        
-        # Copy defaults
-        cp /etc/quantix/defaults.yaml /quantix/node.yaml
-        
-        # Generate UUID
-        NODE_ID=$(cat /proc/sys/kernel/random/uuid)
-        sed -i "s/^  id: \"\"/  id: \"${NODE_ID}\"/" /quantix/node.yaml
-        
-        # Set hostname
-        HOSTNAME=$(cat /etc/hostname)
-        sed -i "s/^  hostname: \"quantix\"/  hostname: \"${HOSTNAME}\"/" /quantix/node.yaml
-        
-        # Create certificate directory
-        mkdir -p /quantix/certificates
-        
-        # Mark first boot for console
-        touch /quantix/.firstboot
-        
-        einfo "Configuration initialized with node ID: ${NODE_ID}"
-    fi
-
+    mkdir -p /quantix
+    
     # Check if binary exists
-    if [ ! -x "${command}" ]; then
-        eerror "Node daemon binary not found: ${command}"
+    if [ ! -x "$command" ]; then
+        eerror "Node daemon binary not found: $command"
         return 1
     fi
-
-    # Create log file if needed
-    touch /var/log/quantix-node.log
     
     return 0
 }
 
-# Post-start actions
-start_post() {
-    # Wait for daemon to initialize
-    local timeout=30
-    local count=0
+start() {
+    ebegin "Starting $name"
     
-    while [ $count -lt $timeout ]; do
-        if [ -f "${pidfile}" ] && kill -0 $(cat "${pidfile}") 2>/dev/null; then
-            einfo "Node daemon started (PID: $(cat ${pidfile}))"
+    start-stop-daemon --start \
+        --background \
+        --make-pidfile \
+        --pidfile "$pidfile" \
+        --stdout "$output_log" \
+        --stderr "$error_log" \
+        --exec "$command" \
+        -- $command_args
+    
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping $name"
+    
+    start-stop-daemon --stop \
+        --pidfile "$pidfile" \
+        --retry TERM/30/KILL/5
+    
+    eend $?
+}
+
+status() {
+    if [ -f "$pidfile" ]; then
+        if kill -0 $(cat "$pidfile") 2>/dev/null; then
+            einfo "$name is running (PID: $(cat $pidfile))"
             return 0
         fi
-        sleep 1
-        count=$((count + 1))
-    done
+    fi
     
-    eerror "Node daemon failed to start within ${timeout} seconds"
-    return 1
+    einfo "$name is not running"
+    return 3
 }
-
-# Stop actions
-stop_pre() {
-    # Signal graceful shutdown
-    if [ -f "${pidfile}" ]; then
-        einfo "Requesting graceful shutdown..."
-        kill -TERM $(cat "${pidfile}") 2>/dev/null
-        
-        # Wait for graceful shutdown (up to 30s)
-        local timeout=30
-        local count=0
-        while [ $count -lt $timeout ]; do
-            if ! kill -0 $(cat "${pidfile}") 2>/dev/null; then
-                return 0
-            fi
-            sleep 1
-            count=$((count + 1))
-        done
-        
-        ewarn "Graceful shutdown timed out, forcing..."
-    fi
-}
-
-# Reload configuration
-reload() {
-    ebegin "Reloading ${name} configuration"
-    if [ -f "${pidfile}" ]; then
-        kill -HUP $(cat "${pidfile}") 2>/dev/null
-        eend $?
-    else
-        eerror "No PID file found"
-        eend 1
-    fi
-}
-
-# Status check
-status() {
-    if [ -f "${pidfile}" ] && kill -0 $(cat "${pidfile}") 2>/dev/null; then
-        einfo "${name} is running (PID: $(cat ${pidfile}))"
-        return 0
-    else
-        ewarn "${name} is not running"
-        return 1
-    fi
-}
-
-# Extra commands
-extra_commands="reload"

@@ -1,62 +1,54 @@
-# Quantix-OS Rust GUI Builder
-# ============================
-# Alpine-based environment for building the Slint GUI console with LinuxKMS backend
+# =============================================================================
+# Quantix-OS Rust GUI Builder Dockerfile
+# =============================================================================
+# This container builds the Slint-based console GUI for Quantix-OS.
+# Uses Alpine Linux with all required dependencies for LinuxKMS backend.
 #
-# This container provides all dependencies needed for:
-# - Rust compilation with musl target
-# - Slint LinuxKMS backend (libinput, libxkbcommon, etc.)
-# - Femtovg renderer (OpenGL ES)
-# - Raw framebuffer fallback (embedded-graphics + evdev)
+# Usage:
+#   docker build -t quantix-rust-gui-builder -f builder/Dockerfile.rust-gui builder/
+#   docker run --rm -v $(pwd)/console-gui:/build quantix-rust-gui-builder \
+#       cargo build --release --no-default-features --features linuxkms
+# =============================================================================
 
-FROM rust:1.92-alpine3.21
+FROM alpine:3.20
 
-LABEL maintainer="Quantix Team <team@quantix.io>"
-LABEL description="Build environment for qx-console-gui (Slint)"
+LABEL maintainer="Quantix-KVM Team"
+LABEL description="Rust build environment for Quantix-OS Console GUI"
 
-# Install build dependencies for Slint LinuxKMS backend
+# Install Rust and build dependencies
 RUN apk add --no-cache \
-    # Core build tools
+    # Rust toolchain
+    rust \
+    cargo \
+    # Build essentials
     build-base \
     musl-dev \
     pkgconf \
-    # Slint LinuxKMS backend dependencies (dev packages for headers)
+    cmake \
+    # Slint LinuxKMS backend dependencies
     eudev-dev \
-    eudev-libs \
-    libxkbcommon-dev \
-    libxkbcommon \
     libinput-dev \
-    libinput \
+    libxkbcommon-dev \
     mesa-dev \
+    libgbm \
     mesa-gbm \
-    # Femtovg renderer dependencies
+    seatd-dev \
+    # Font rendering
     freetype-dev \
-    freetype \
     fontconfig-dev \
-    fontconfig \
-    # Seatd/libseat for session management
-    libseat-dev \
-    libseat \
-    # Additional libraries needed for linking
-    libdrm-dev \
-    libdrm \
-    libevdev-dev \
-    libevdev \
-    mtdev-dev \
-    mtdev \
-    libffi-dev \
-    expat-dev \
-    # Git for cargo dependencies
-    git
+    # SSL for network operations
+    openssl-dev \
+    openssl-libs-static \
+    # Misc
+    git \
+    && rm -rf /var/cache/apk/*
 
-# Force dynamic linking for these C libraries since static versions aren't available
-# The binary will still work on Alpine since the runtime has these libs installed
+# Set environment for static linking where possible
 ENV RUSTFLAGS="-C target-feature=-crt-static"
+ENV PKG_CONFIG_ALL_STATIC=1
 
-# Set cargo home to a fixed location for caching
-ENV CARGO_HOME=/cargo
-RUN mkdir -p /cargo && chmod 777 /cargo
-
+# Create build directory
 WORKDIR /build
 
-# Default command - will be overridden by docker run
-CMD ["cargo", "build", "--release"]
+# Default command - build with linuxkms feature
+CMD ["cargo", "build", "--release", "--no-default-features", "--features", "linuxkms"]

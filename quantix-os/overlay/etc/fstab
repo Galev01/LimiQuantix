@@ -1,50 +1,25 @@
-# /etc/fstab - Quantix-OS Filesystem Table
-# ============================================================================
-# This fstab is for the installed system. The live/installer uses different mounts.
+# /etc/fstab - Quantix-OS filesystem table
 #
-# <device>            <mountpoint>  <type>      <options>              <dump> <pass>
-# ============================================================================
+# The root filesystem is mounted by initramfs as an overlay:
+#   lower = squashfs (read-only)
+#   upper = tmpfs (ephemeral)
+#
+# Only /quantix (config) and /data (VMs) are persistent.
 
-# Root filesystem (squashfs, read-only, overlayed in initramfs)
-# Note: Actual mount is handled by initramfs, this is for reference
-# /dev/root           /             squashfs    ro                      0      0
+# Pseudo filesystems
+proc            /proc           proc    defaults                0 0
+sysfs           /sys            sysfs   defaults                0 0
+devtmpfs        /dev            devtmpfs defaults               0 0
+devpts          /dev/pts        devpts  defaults,gid=5,mode=620 0 0
+tmpfs           /dev/shm        tmpfs   defaults                0 0
+tmpfs           /run            tmpfs   defaults,mode=755       0 0
+tmpfs           /tmp            tmpfs   defaults,size=1G        0 0
 
-# Virtual filesystems (mounted by OpenRC)
-proc                  /proc         proc        nosuid,nodev,noexec     0      0
-sysfs                 /sys          sysfs       nosuid,nodev,noexec     0      0
-devpts                /dev/pts      devpts      gid=5,mode=620          0      0
-tmpfs                 /dev/shm      tmpfs       nosuid,nodev            0      0
+# Logs in RAM (rotated to prevent exhaustion)
+tmpfs           /var/log        tmpfs   defaults,size=256M      0 0
 
-# Runtime directories (in RAM)
-tmpfs                 /tmp          tmpfs       nosuid,nodev,size=1G    0      0
-tmpfs                 /run          tmpfs       nosuid,nodev,mode=755   0      0
-tmpfs                 /var/log      tmpfs       nosuid,nodev,size=512M  0      0
-tmpfs                 /var/tmp      tmpfs       nosuid,nodev,size=256M  0      0
+# Persistent configuration partition
+LABEL=QUANTIX-CFG /quantix      ext4    defaults,noatime        0 2
 
-# Cgroups v2
-cgroup2               /sys/fs/cgroup cgroup2    rw,nosuid,nodev,noexec  0      0
-
-# Huge pages for VM memory (optional, configured at runtime)
-# hugetlbfs           /dev/hugepages hugetlbfs  pagesize=1G,mode=1770   0      0
-# hugetlbfs           /dev/hugepages-2M hugetlbfs pagesize=2M,mode=1770 0      0
-
-# ============================================================================
-# Persistent Storage (configured by installer, labels set during install)
-# ============================================================================
-
-# Configuration partition - stores node config, certificates, etc.
-# Label: QUANTIX-CFG
-LABEL=QUANTIX-CFG     /quantix      ext4        defaults,noatime        0      2
-
-# Data partition - VM storage, ISO library, backups
-# Label: QUANTIX-DATA
-# Note: Filesystem type depends on what was chosen during install (xfs/ext4/zfs)
-LABEL=QUANTIX-DATA    /data         xfs         defaults,noatime        0      2
-
-# ============================================================================
-# Optional: Additional storage mounts (configured via web UI)
-# ============================================================================
-# Examples:
-# /dev/sdb1           /data/storage2  xfs       defaults                0      2
-# nfs.server:/export  /data/nfs       nfs       defaults,_netdev        0      0
-# /dev/mapper/vg-lv   /data/lvm       xfs       defaults                0      2
+# Persistent data partition (VMs, ISOs, images)
+LABEL=QUANTIX-DATA /data        xfs     defaults,noatime        0 2

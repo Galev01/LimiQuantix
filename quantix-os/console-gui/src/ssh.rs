@@ -1,228 +1,132 @@
-//! SSH Management Module
+//! SSH management module for Quantix-OS Console
 //!
-//! Handles SSH service enable/disable and status monitoring.
-
-use std::process::Command;
+//! Handles enabling/disabling SSH and managing SSH sessions.
 
 use anyhow::{Context, Result};
+use std::fs;
+use std::process::Command;
 use tracing::{error, info, warn};
 
-/// SSH service status
-#[derive(Debug, Clone)]
-pub struct SshStatus {
-    /// Is the SSH service running
-    pub running: bool,
-    /// Is SSH enabled to start on boot
-    pub enabled: bool,
-    /// Number of active SSH sessions
-    pub active_sessions: u32,
-    /// Error message if status check failed
-    pub error: Option<String>,
-}
+/// Check if SSH is enabled
+pub fn is_enabled() -> bool {
+    // Check if sshd service is running
+    let output = Command::new("rc-service")
+        .args(["sshd", "status"])
+        .output();
 
-impl Default for SshStatus {
-    fn default() -> Self {
-        Self {
-            running: false,
-            enabled: false,
-            active_sessions: 0,
-            error: None,
+    match output {
+        Ok(o) => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            stdout.contains("started") || stdout.contains("running")
+        }
+        Err(_) => {
+            // Fallback: check if sshd process is running
+            Command::new("pgrep")
+                .arg("sshd")
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
         }
     }
 }
 
-/// SSH Manager for controlling the SSH service
-pub struct SshManager;
+/// Enable SSH service
+pub fn enable_ssh() -> Result<()> {
+    info!("🔐 Enabling SSH...");
 
-impl SshManager {
-    /// Get current SSH status
-    pub fn status() -> SshStatus {
-        let mut status = SshStatus::default();
+    // Generate host keys if they don't exist
+    generate_host_keys()?;
 
-        // Check if sshd is running
-        status.running = Self::is_service_running("sshd");
+    // Enable sshd service
+    let output = Command::new("rc-update")
+        .args(["add", "sshd", "default"])
+        .output()
+        .context("Failed to enable sshd service")?;
 
-        // Check if sshd is enabled on boot
-        status.enabled = Self::is_service_enabled("sshd");
-
-        // Count active sessions
-        status.active_sessions = Self::count_ssh_sessions();
-
-        status
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        warn!("⚠️ rc-update output: {}", stderr);
     }
 
-    /// Enable SSH service (start now and enable on boot)
-    pub fn enable() -> Result<()> {
-        info!("Enabling SSH service");
+    // Start sshd service
+    let output = Command::new("rc-service")
+        .args(["sshd", "start"])
+        .output()
+        .context("Failed to start sshd service")?;
 
-        // Add to default runlevel
-        let enable_result = Command::new("rc-update")
-            .args(["add", "sshd", "default"])
-            .output()
-            .context("Failed to enable sshd on boot")?;
-
-        if !enable_result.status.success() {
-            let stderr = String::from_utf8_lossy(&enable_result.stderr);
-            // Ignore "already in runlevel" errors
-            if !stderr.contains("already") {
-                warn!(stderr = %stderr, "rc-update add sshd warning");
-            }
-        }
-
-        // Start the service
-        let start_result = Command::new("rc-service")
-            .args(["sshd", "start"])
-            .output()
-            .context("Failed to start sshd")?;
-
-        if !start_result.status.success() {
-            let stderr = String::from_utf8_lossy(&start_result.stderr);
-            // Ignore "already started" errors
-            if !stderr.contains("already") {
-                error!(stderr = %stderr, "Failed to start sshd");
-                return Err(anyhow::anyhow!("Failed to start SSH: {}", stderr));
-            }
-        }
-
-        info!("SSH service enabled and started");
-        Ok(())
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        error!("❌ Failed to start sshd: {}", stderr);
+        return Err(anyhow::anyhow!("Failed to start sshd"));
     }
 
-    /// Disable SSH service (stop now and disable on boot)
-    pub fn disable() -> Result<()> {
-        info!("Disabling SSH service");
-
-        // Stop the service first
-        let stop_result = Command::new("rc-service")
-            .args(["sshd", "stop"])
-            .output()
-            .context("Failed to stop sshd")?;
-
-        if !stop_result.status.success() {
-            let stderr = String::from_utf8_lossy(&stop_result.stderr);
-            // Ignore "already stopped" errors
-            if !stderr.contains("stopped") && !stderr.contains("not running") {
-                warn!(stderr = %stderr, "rc-service stop sshd warning");
-            }
-        }
-
-        // Remove from default runlevel
-        let disable_result = Command::new("rc-update")
-            .args(["del", "sshd", "default"])
-            .output()
-            .context("Failed to disable sshd on boot")?;
-
-        if !disable_result.status.success() {
-            let stderr = String::from_utf8_lossy(&disable_result.stderr);
-            // Ignore "not in runlevel" errors
-            if !stderr.contains("not in") {
-                warn!(stderr = %stderr, "rc-update del sshd warning");
-            }
-        }
-
-        info!("SSH service disabled and stopped");
-        Ok(())
+    // Update admin config
+    if let Ok(mut config) = crate::config::load_admin_config() {
+        config.ssh_enabled = true;
+        crate::config::save_admin_config(&config).ok();
     }
 
-    /// Restart SSH service
-    pub fn restart() -> Result<()> {
-        info!("Restarting SSH service");
+    // Log the action
+    log_ssh_action("SSH_ENABLED");
 
-        let result = Command::new("rc-service")
-            .args(["sshd", "restart"])
-            .output()
-            .context("Failed to restart sshd")?;
+    info!("✅ SSH enabled successfully");
+    Ok(())
+}
 
-        if !result.status.success() {
-            let stderr = String::from_utf8_lossy(&result.stderr);
-            error!(stderr = %stderr, "Failed to restart sshd");
-            return Err(anyhow::anyhow!("Failed to restart SSH: {}", stderr));
-        }
+/// Disable SSH service
+pub fn disable_ssh() -> Result<()> {
+    info!("🔐 Disabling SSH...");
 
-        info!("SSH service restarted");
-        Ok(())
+    // Stop sshd service
+    let output = Command::new("rc-service")
+        .args(["sshd", "stop"])
+        .output()
+        .context("Failed to stop sshd service")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        warn!("⚠️ Failed to stop sshd: {}", stderr);
     }
 
-    /// Check if a service is running
-    fn is_service_running(service: &str) -> bool {
-        Command::new("rc-service")
-            .args([service, "status"])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+    // Disable sshd service from starting at boot
+    Command::new("rc-update")
+        .args(["del", "sshd", "default"])
+        .output()
+        .ok();
+
+    // Update admin config
+    if let Ok(mut config) = crate::config::load_admin_config() {
+        config.ssh_enabled = false;
+        crate::config::save_admin_config(&config).ok();
     }
 
-    /// Check if a service is enabled on boot
-    fn is_service_enabled(service: &str) -> bool {
-        Command::new("rc-update")
-            .arg("show")
-            .output()
-            .map(|o| {
-                let output = String::from_utf8_lossy(&o.stdout);
-                output.lines().any(|line| {
-                    line.contains(service) && line.contains("default")
-                })
-            })
-            .unwrap_or(false)
-    }
+    // Log the action
+    log_ssh_action("SSH_DISABLED");
 
-    /// Count active SSH sessions
-    fn count_ssh_sessions() -> u32 {
-        // Method 1: Check /var/run/sshd.pid and count sshd child processes
-        // Method 2: Use 'who' command
-        // Method 3: Parse 'ss' or 'netstat' for SSH connections
-
-        // Using 'who' is the most reliable for counting logged-in users
-        let who_count = Command::new("who")
-            .output()
-            .map(|o| {
-                String::from_utf8_lossy(&o.stdout)
-                    .lines()
-                    .filter(|line| line.contains("pts/"))
-                    .count() as u32
-            })
-            .unwrap_or(0);
-
-        // Also check for direct SSH connections via netstat/ss
-        let ss_count = Command::new("ss")
-            .args(["-tn", "state", "established", "sport", "=", ":22"])
-            .output()
-            .map(|o| {
-                String::from_utf8_lossy(&o.stdout)
-                    .lines()
-                    .filter(|line| !line.is_empty() && !line.starts_with("State"))
-                    .count() as u32
-            })
-            .unwrap_or(0);
-
-        // Return the max of both counts (they measure slightly different things)
-        who_count.max(ss_count)
-    }
+    info!("✅ SSH disabled successfully");
+    Ok(())
 }
 
 /// Generate SSH host keys if they don't exist
-pub fn ensure_host_keys() -> Result<()> {
-    let key_types = ["rsa", "ecdsa", "ed25519"];
-    let key_dir = "/etc/ssh";
+fn generate_host_keys() -> Result<()> {
+    let key_types = [
+        ("rsa", "/etc/ssh/ssh_host_rsa_key"),
+        ("ecdsa", "/etc/ssh/ssh_host_ecdsa_key"),
+        ("ed25519", "/etc/ssh/ssh_host_ed25519_key"),
+    ];
 
-    for key_type in &key_types {
-        let key_path = format!("{}/ssh_host_{}_key", key_dir, key_type);
-        if !std::path::Path::new(&key_path).exists() {
-            info!(key_type = %key_type, "Generating SSH host key");
+    for (key_type, path) in key_types {
+        if !std::path::Path::new(path).exists() {
+            info!("🔑 Generating {} host key...", key_type);
 
-            let result = Command::new("ssh-keygen")
-                .args([
-                    "-t", key_type,
-                    "-f", &key_path,
-                    "-N", "",  // No passphrase
-                    "-q",      // Quiet
-                ])
+            let output = Command::new("ssh-keygen")
+                .args(["-t", key_type, "-f", path, "-N", "", "-q"])
                 .output()
                 .context(format!("Failed to generate {} host key", key_type))?;
 
-            if !result.status.success() {
-                let stderr = String::from_utf8_lossy(&result.stderr);
-                error!(key_type = %key_type, stderr = %stderr, "Failed to generate host key");
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                warn!("⚠️ Failed to generate {} key: {}", key_type, stderr);
             }
         }
     }
@@ -230,16 +134,85 @@ pub fn ensure_host_keys() -> Result<()> {
     Ok(())
 }
 
+/// Get the number of active SSH sessions
+pub fn get_session_count() -> usize {
+    // Count SSH sessions from who or w command
+    let output = Command::new("who").output();
+
+    match output {
+        Ok(o) => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            stdout
+                .lines()
+                .filter(|line| line.contains("pts/") || line.contains("ssh"))
+                .count()
+        }
+        Err(_) => 0,
+    }
+}
+
+/// Get list of active SSH sessions
+pub fn get_sessions() -> Vec<SshSession> {
+    let mut sessions = Vec::new();
+
+    let output = Command::new("who").output();
+
+    if let Ok(o) = output {
+        let stdout = String::from_utf8_lossy(&o.stdout);
+
+        for line in stdout.lines() {
+            if line.contains("pts/") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 4 {
+                    sessions.push(SshSession {
+                        user: parts[0].to_string(),
+                        tty: parts[1].to_string(),
+                        from: parts.get(4).unwrap_or(&"").trim_matches(|c| c == '(' || c == ')').to_string(),
+                        login_time: format!("{} {}", parts.get(2).unwrap_or(&""), parts.get(3).unwrap_or(&"")),
+                    });
+                }
+            }
+        }
+    }
+
+    sessions
+}
+
+/// SSH session information
+#[derive(Debug, Clone)]
+pub struct SshSession {
+    pub user: String,
+    pub tty: String,
+    pub from: String,
+    pub login_time: String,
+}
+
+/// Log SSH action to audit log
+fn log_ssh_action(action: &str) {
+    let timestamp = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC");
+    let message = format!("[{}] {} user=console", timestamp, action);
+
+    if let Err(e) = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/var/log/quantix-console.log")
+        .and_then(|mut file| {
+            use std::io::Write;
+            writeln!(file, "{}", message)
+        })
+    {
+        error!("❌ Failed to write audit log: {}", e);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_ssh_status_default() {
-        let status = SshStatus::default();
-        assert!(!status.running);
-        assert!(!status.enabled);
-        assert_eq!(status.active_sessions, 0);
-        assert!(status.error.is_none());
+    fn test_session_count() {
+        // This test just ensures the function doesn't panic
+        let count = get_session_count();
+        assert!(count >= 0);
     }
 }

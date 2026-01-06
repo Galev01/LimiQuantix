@@ -1,213 +1,35 @@
 #!/bin/sh
-# ============================================================================
-# Quantix-OS Early Init
-# ============================================================================
-# This script runs at boot to set up the Quantix environment.
-# It creates necessary writable directories for services that need them.
-# ============================================================================
+# =============================================================================
+# Quantix-OS Early Initialization
+# =============================================================================
+# Runs early in the boot process to set up essential configuration.
+# =============================================================================
 
-log() {
-    echo "[QUANTIX] $1"
-}
+# Set up console
+echo "Quantix-OS initializing..."
 
-log "Quantix-OS early init starting..."
-
-# ============================================================================
-# Create essential writable directories
-# ============================================================================
-
-# Core directories - /quantix is the persistent config directory
-mkdir -p /quantix /data /var/log/quantix /tmp /run
-
-# OVS (Open vSwitch) directories - these need to be writable
-mkdir -p /var/run/openvswitch
-mkdir -p /var/log/openvswitch  
-mkdir -p /etc/openvswitch
-chmod 755 /var/run/openvswitch /var/log/openvswitch /etc/openvswitch
-
-# Initialize OVS database if it doesn't exist
-if [ ! -f /etc/openvswitch/conf.db ]; then
-    log "Initializing Open vSwitch database..."
-    ovsdb-tool create /etc/openvswitch/conf.db /usr/share/openvswitch/vswitch.ovsschema 2>/dev/null || true
+# Ensure /quantix is mounted
+if ! mountpoint -q /quantix 2>/dev/null; then
+    echo "Warning: /quantix not mounted, config may not persist"
 fi
 
-# Libvirt directories - these need to be writable
-# Use /run/libvirt (modern) and /var/run/libvirt (compat symlink)
-mkdir -p /run/libvirt
-mkdir -p /var/log/libvirt/qemu
-mkdir -p /var/lib/libvirt/images
-mkdir -p /var/lib/libvirt/qemu
-mkdir -p /var/lib/libvirt/dnsmasq
-mkdir -p /var/cache/libvirt/qemu
-mkdir -p /etc/libvirt/qemu/networks
-mkdir -p /etc/libvirt/qemu/autostart
-chmod 755 /run/libvirt /var/log/libvirt /var/lib/libvirt
-# Ensure /var/run/libvirt exists as a symlink if /var/run is not a symlink to /run
-[ -L /var/run ] || ln -sf /run/libvirt /var/run/libvirt 2>/dev/null || true
-
-# QEMU directories
-mkdir -p /var/lib/qemu
-mkdir -p /var/cache/qemu
-
-# Quantix node directories
-mkdir -p /var/lib/quantix
-mkdir -p /var/log/quantix
-
-# Runtime directories
-mkdir -p /run/lock
-mkdir -p /run/dbus
-mkdir -p /run/udev
-mkdir -p /run/user/0
-mkdir -p /run/quantix
-chmod 700 /run/user/0
-chmod 755 /run/quantix
-
-# ============================================================================
-# Load Graphics Modules for Console GUI
-# ============================================================================
-
-log "Loading graphics modules..."
-
-# DRM core (required for Slint LinuxKMS)
-modprobe drm 2>/dev/null || true
-modprobe drm_kms_helper 2>/dev/null || true
-modprobe ttm 2>/dev/null || true
-
-# Virtual GPU drivers (by hypervisor type)
-modprobe vmwgfx 2>/dev/null || true       # VMware Workstation/ESXi
-modprobe virtio_gpu 2>/dev/null || true   # KVM/QEMU
-modprobe vboxvideo 2>/dev/null || true    # VirtualBox
-modprobe simpledrm 2>/dev/null || true    # Generic VESA DRM
-modprobe bochs 2>/dev/null || true        # QEMU legacy
-
-# Legacy framebuffer drivers (fallback if no DRM)
-modprobe vesafb 2>/dev/null || true
-modprobe efifb 2>/dev/null || true
-modprobe simplefb 2>/dev/null || true
-
-# Input drivers for GUI
-modprobe evdev 2>/dev/null || true
-modprobe uinput 2>/dev/null || true
-modprobe psmouse 2>/dev/null || true      # PS/2 mouse
-modprobe vmmouse 2>/dev/null || true      # VMware mouse
-modprobe mousedev 2>/dev/null || true     # Mouse device
-modprobe hid-generic 2>/dev/null || true  # Generic HID devices
-
-# Set input device permissions (for GUI access)
-chmod 666 /dev/input/event* 2>/dev/null || true
-chmod 666 /dev/input/mice 2>/dev/null || true
-chmod 666 /dev/input/mouse* 2>/dev/null || true
-
-# Trigger udev to create device nodes
-if [ -x /sbin/udevadm ]; then
-    udevadm trigger --subsystem-match=drm 2>/dev/null || true
-    udevadm trigger --subsystem-match=graphics 2>/dev/null || true
-    udevadm trigger --subsystem-match=input 2>/dev/null || true
-    udevadm settle --timeout=5 2>/dev/null || true
+# Ensure /data is mounted
+if ! mountpoint -q /data 2>/dev/null; then
+    echo "Warning: /data not mounted, VMs will not be stored"
 fi
 
-# Log detected graphics devices
-if [ -d /sys/class/drm ]; then
-    for card in /sys/class/drm/card*; do
-        [ -d "$card" ] && log "DRM device: $(basename $card)"
-    done
-fi
-if [ -c /dev/fb0 ]; then
-    log "Framebuffer available: /dev/fb0"
-fi
-
-# ============================================================================
-# Check boot mode
-# ============================================================================
-
-if grep -q "squashfs" /proc/mounts 2>/dev/null; then
-    log "Running in live/installer mode (overlay filesystem)"
-else
-    log "Running from installed system"
-fi
-
-# ============================================================================
-# First Boot Detection
-# ============================================================================
-
-FIRST_BOOT=0
-if [ ! -f /quantix/.setup_complete ]; then
-    log "*** FIRST BOOT DETECTED ***"
-    log "The installation wizard will guide you through setup."
-    FIRST_BOOT=1
-else
-    log "Setup already completed - loading configuration..."
-fi
-
-# ============================================================================
-# Set hostname
-# ============================================================================
-
-if [ -f /quantix/hostname ]; then
-    HOSTNAME=$(cat /quantix/hostname)
-elif [ -f /etc/hostname ]; then
-    HOSTNAME=$(cat /etc/hostname)
-else
-    HOSTNAME="quantix-node"
-fi
-
-echo "$HOSTNAME" > /etc/hostname
-hostname "$HOSTNAME"
-log "Hostname set to: $HOSTNAME"
-
-# ============================================================================
-# Network configuration
-# ============================================================================
-
-# Create resolv.conf if missing
-if [ ! -f /run/resolv.conf ]; then
-    echo "nameserver 8.8.8.8" > /run/resolv.conf
-    echo "nameserver 8.8.4.4" >> /run/resolv.conf
-fi
-
-# ============================================================================
-# SSH Configuration (disabled by default)
-# ============================================================================
-
-# Check if admin has enabled SSH
-if [ -f /quantix/admin.yaml ]; then
-    # Parse YAML to check if SSH is enabled (simple grep for now)
-    if grep -q "ssh_enabled: true" /quantix/admin.yaml 2>/dev/null; then
-        log "SSH enabled in configuration"
-        # SSH service will be started by its own init script
-    else
-        log "SSH disabled (can be enabled via console)"
-    fi
-else
-    log "No admin configuration - SSH disabled by default"
-fi
-
-# ============================================================================
-# Generate SSH host keys if they don't exist
-# ============================================================================
-
-for keytype in rsa ecdsa ed25519; do
-    keyfile="/etc/ssh/ssh_host_${keytype}_key"
-    if [ ! -f "$keyfile" ]; then
-        log "Generating SSH host key: $keytype"
-        ssh-keygen -t "$keytype" -f "$keyfile" -N "" -q 2>/dev/null || true
-    fi
+# Load kernel modules
+for mod in kvm kvm_intel kvm_amd vhost_net tun tap bridge 8021q; do
+    modprobe $mod 2>/dev/null || true
 done
 
-# ============================================================================
-# Console startup message
-# ============================================================================
-
-if [ "$FIRST_BOOT" = "1" ]; then
-    log "Starting installation wizard on console..."
-else
-    log "Starting console interface..."
+# Set hostname from config
+if [ -f /quantix/node.yaml ]; then
+    HOSTNAME=$(grep "^  hostname:" /quantix/node.yaml 2>/dev/null | cut -d'"' -f2)
+    if [ -n "$HOSTNAME" ]; then
+        hostname "$HOSTNAME"
+        echo "$HOSTNAME" > /etc/hostname
+    fi
 fi
 
-# ============================================================================
-# Done
-# ============================================================================
-
-log "Early init complete - services starting..."
-log "Console will start on TTY1 after OpenRC completes"
-log "Press Alt+F2 for emergency shell if console fails"
+echo "Quantix-OS initialization complete"

@@ -1,83 +1,64 @@
-# Quantix-OS Builder
-# ==================
-# Alpine-based build environment for creating Quantix-OS images
+# =============================================================================
+# Quantix-OS Builder Dockerfile
+# =============================================================================
+# This container provides the build environment for creating Quantix-OS images.
+# Based on Alpine Linux for consistency with the target OS.
 #
-# This container includes all tools needed to:
-# - Build Alpine rootfs with custom packages
-# - Create squashfs images
-# - Generate bootable ISOs with GRUB
-# - Sign images for secure boot
+# Usage:
+#   docker build -t quantix-builder -f builder/Dockerfile builder/
+#   docker run --rm -v $(pwd):/work quantix-builder ./builder/build-squashfs.sh
+# =============================================================================
 
 FROM alpine:3.20
 
-LABEL maintainer="Quantix Team <team@quantix.io>"
-LABEL description="Build environment for Quantix-OS hypervisor operating system"
+LABEL maintainer="Quantix-KVM Team"
+LABEL description="Build environment for Quantix-OS"
 
 # Install build dependencies
 RUN apk add --no-cache \
     # Core build tools
     alpine-sdk \
-    build-base \
-    abuild \
-    sudo \
-    # Alpine image creation
-    alpine-conf \
-    mkinitfs \
+    bash \
+    coreutils \
+    findutils \
+    grep \
+    sed \
+    gawk \
+    # Filesystem tools
     squashfs-tools \
-    # Bootloader and ISO tools
+    dosfstools \
+    e2fsprogs \
+    xfsprogs \
+    parted \
+    util-linux \
+    # Bootloader
     grub \
     grub-efi \
     grub-bios \
+    # ISO creation
     xorriso \
     mtools \
-    dosfstools \
-    # Filesystem tools
-    e2fsprogs \
-    xfsprogs \
-    lvm2 \
-    parted \
-    # Utilities
-    coreutils \
-    util-linux \
-    bash \
+    # Alpine tools
+    apk-tools \
+    alpine-conf \
+    mkinitfs \
+    # Compression
+    xz \
+    zstd \
+    gzip \
+    # Misc
     curl \
     wget \
+    ca-certificates \
+    openssl \
     rsync \
-    tar \
-    gzip \
-    xz \
-    cpio \
-    # APK tools for custom repos
-    apk-tools \
-    # Signing and verification
-    gnupg \
-    openssl
+    && rm -rf /var/cache/apk/*
 
-# Create build directories
-RUN mkdir -p /build /output /work /rootfs
+# Create working directories
+RUN mkdir -p /work /output /rootfs /iso
 
-# Copy build scripts
-COPY build-iso.sh /build/
-COPY build-squashfs.sh /build/
-
-# Make scripts executable
-RUN chmod +x /build/*.sh
-
-# Create non-root builder user (for abuild)
-RUN adduser -D builder && \
-    addgroup builder abuild && \
-    echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-# Set up abuild keys
-RUN su - builder -c "abuild-keygen -a -i -n"
-
-# Default environment
-ENV VERSION=1.0.0
-ENV ARCH=x86_64
-ENV ALPINE_VERSION=3.20
-ENV KERNEL_FLAVOR=lts
-
-WORKDIR /build
+# Set working directory
+WORKDIR /work
 
 # Default command
-CMD ["/build/build-iso.sh"]
+CMD ["/bin/bash"]

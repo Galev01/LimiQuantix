@@ -1,876 +1,211 @@
 #!/bin/bash
-# ============================================================================
-# Quantix-OS Root Filesystem Builder
-# ============================================================================
-# Creates the immutable squashfs root filesystem for Quantix-OS
+# =============================================================================
+# Quantix-OS Squashfs Builder
+# =============================================================================
+# Creates an Alpine Linux-based rootfs with KVM virtualization stack,
+# then packages it as a squashfs image.
 #
-# This script:
-# 1. Creates a minimal Alpine-based rootfs
-# 2. Installs hypervisor packages (KVM, libvirt, OVS)
-# 3. Applies the overlay (our custom configs and binaries)
-# 4. Compresses to squashfs
-#
-# Usage: ./build-squashfs.sh
-# Environment:
-#   VERSION        - OS version (default: 1.0.0)
-#   ARCH           - Architecture (default: x86_64)
-#   ALPINE_VERSION - Alpine version (default: 3.20)
-# ============================================================================
+# Usage: ./build-squashfs.sh [VERSION]
+# =============================================================================
 
-set -euo pipefail
+set -e
 
-# Configuration
-VERSION="${VERSION:-1.0.0}"
-ARCH="${ARCH:-x86_64}"
-ALPINE_VERSION="${ALPINE_VERSION:-3.20}"
-KERNEL_FLAVOR="${KERNEL_FLAVOR:-lts}"
-
-# Directories
-WORK_DIR="/work/rootfs-${VERSION}"
-ROOTFS="${WORK_DIR}/rootfs"
+VERSION="${1:-1.0.0}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+WORK_DIR="$(dirname "$SCRIPT_DIR")"
+ROOTFS_DIR="/rootfs"
 OUTPUT_DIR="/output"
+SQUASHFS_NAME="system-${VERSION}.squashfs"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Alpine version
+ALPINE_VERSION="3.20"
+ALPINE_MIRROR="https://dl-cdn.alpinelinux.org/alpine"
 
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║           Quantix-OS Squashfs Builder v${VERSION}                   ║"
+echo "╚═══════════════════════════════════════════════════════════════╝"
+echo ""
 
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
+# -----------------------------------------------------------------------------
+# Step 1: Create base Alpine rootfs
+# -----------------------------------------------------------------------------
+echo "📦 Step 1: Creating Alpine rootfs..."
 
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+# Clean any previous build
+rm -rf "${ROOTFS_DIR}"
+mkdir -p "${ROOTFS_DIR}"
 
-# ============================================================================
-# Step 1: Initialize root filesystem
-# ============================================================================
-init_rootfs() {
-    log_info "Initializing root filesystem..."
-    
-    # Clean previous builds
-    rm -rf "${WORK_DIR}"
-    mkdir -p "${ROOTFS}"
-    
-    # Set up APK directories
-    mkdir -p "${ROOTFS}/etc/apk/keys"
-    
-    # Copy APK keys from the build container to target rootfs
-    cp -a /etc/apk/keys/* "${ROOTFS}/etc/apk/keys/"
-    
-    # Set up APK repositories
-    cat > "${ROOTFS}/etc/apk/repositories" << EOF
-https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main
-https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/community
-EOF
+# Initialize APK in the rootfs
+mkdir -p "${ROOTFS_DIR}/etc/apk"
+echo "${ALPINE_MIRROR}/v${ALPINE_VERSION}/main" > "${ROOTFS_DIR}/etc/apk/repositories"
+echo "${ALPINE_MIRROR}/v${ALPINE_VERSION}/community" >> "${ROOTFS_DIR}/etc/apk/repositories"
 
-    # Initialize APK database with keys directory specified
-    apk add --root "${ROOTFS}" --initdb --no-cache \
-        --keys-dir "${ROOTFS}/etc/apk/keys" \
-        --repositories-file "${ROOTFS}/etc/apk/repositories" \
-        --arch "${ARCH}" \
-        alpine-base
-    
-    log_info "Root filesystem initialized"
-}
+# Copy APK keys
+cp -a /etc/apk/keys "${ROOTFS_DIR}/etc/apk/"
 
-# ============================================================================
+# Install base system
+apk --root "${ROOTFS_DIR}" --initdb add alpine-base
+
+echo "✅ Base rootfs created"
+
+# -----------------------------------------------------------------------------
 # Step 2: Install packages
-# ============================================================================
-install_packages() {
-    log_info "Installing packages..."
-    
-    # Read package list from profile
-    PACKAGES_FILE="/profiles/quantix/packages.conf"
-    
-    if [[ -f "${PACKAGES_FILE}" ]]; then
-        # Filter comments and empty lines
-        PACKAGES=$(grep -v '^#' "${PACKAGES_FILE}" | grep -v '^$' | tr '\n' ' ')
-    else
-        log_warn "No packages.conf found, using defaults"
-        PACKAGES="
-            linux-lts
-            linux-firmware
-            busybox
-            busybox-suid
-            openrc
-            e2fsprogs
-            util-linux
-            blkid
-            lvm2
-            mdadm
-            eudev
-            udev-init-scripts
-            
-            # Virtualization
-            qemu-system-x86_64
-            qemu-img
-            libvirt
-            libvirt-daemon
-            libvirt-qemu
-            
-            # Networking
-            openvswitch
-            iproute2
-            iptables
-            bridge-utils
-            dnsmasq
-            
-            # Storage
-            lvm2
-            xfsprogs
-            nfs-utils
-            open-iscsi
-            
-            # Tools
-            openssh
-            curl
-            jq
-            
-            # TUI
-            ncurses
-            ncurses-terminfo-base
-        "
-    fi
-    
-    # Install packages into rootfs
-    apk add --root "${ROOTFS}" --no-cache \
-        --keys-dir "${ROOTFS}/etc/apk/keys" \
-        --repositories-file "${ROOTFS}/etc/apk/repositories" \
-        --arch "${ARCH}" \
-        ${PACKAGES}
-    
-    log_info "Packages installed"
+# -----------------------------------------------------------------------------
+echo "📦 Step 2: Installing packages..."
+
+# Read package list (skip comments and empty lines)
+PACKAGES=$(grep -v '^#' "${WORK_DIR}/profiles/quantix/packages.conf" | grep -v '^$' | tr '\n' ' ')
+
+# Install all packages
+apk --root "${ROOTFS_DIR}" add ${PACKAGES} || {
+    echo "⚠️  Some packages failed to install, continuing with available packages..."
 }
 
-# ============================================================================
-# Step 3: Configure base system
-# ============================================================================
-configure_system() {
-    log_info "Configuring base system..."
-    
-    # Set up basic configuration
-    echo "quantix" > "${ROOTFS}/etc/hostname"
-    
-    # Configure /etc/hosts
-    cat > "${ROOTFS}/etc/hosts" << 'EOF'
-127.0.0.1   localhost
-::1         localhost ip6-localhost ip6-loopback
-ff02::1     ip6-allnodes
-ff02::2     ip6-allrouters
-EOF
+echo "✅ Packages installed"
 
-    # Configure resolv.conf (symlink to runtime)
-    rm -f "${ROOTFS}/etc/resolv.conf"
-    ln -s /run/resolv.conf "${ROOTFS}/etc/resolv.conf"
-    
-    # Configure /etc/fstab
-    cat > "${ROOTFS}/etc/fstab" << 'EOF'
-# Quantix-OS Filesystem Table
-# Device          Mountpoint  Type      Options         Dump Pass
-/dev/root         /           squashfs  ro              0    0
-tmpfs             /tmp        tmpfs     nosuid,nodev    0    0
-tmpfs             /run        tmpfs     nosuid,nodev    0    0
-devpts            /dev/pts    devpts    gid=5,mode=620  0    0
-sysfs             /sys        sysfs     defaults        0    0
-proc              /proc       proc      defaults        0    0
-# Config partition (set by initramfs)
-LABEL=QUANTIX-CFG /quantix    ext4      defaults        0    2
-# Data partition (set by initramfs)
-LABEL=QUANTIX-DATA /data      xfs       defaults        0    2
-EOF
+# -----------------------------------------------------------------------------
+# Step 3: Apply overlay files
+# -----------------------------------------------------------------------------
+echo "📦 Step 3: Applying overlay files..."
 
-    # Configure inittab - disable regular login, start our console
-    # Uses the launcher which tries Slint GUI first
-    cat > "${ROOTFS}/etc/inittab" << 'EOF'
-# Quantix-OS inittab
-# 
-# No traditional login - we run our graphical console instead
-
-# Default runlevel
-::sysinit:/sbin/openrc sysinit
-::sysinit:/sbin/openrc boot
-::wait:/sbin/openrc default
-
-# TTY1: Quantix Console (Slint GUI)
-tty1::respawn:/usr/local/bin/qx-console-launcher
-
-# TTY2: Emergency debug shell (no login required)
-# Access with Alt+F2 when Slint isn't blocking VT switch
-tty2::respawn:/bin/sh
-
-# TTY3: Optional login shell for debugging
-# tty3::respawn:/sbin/getty 38400 tty3
-
-# Serial console (for headless servers / IPMI / VMs)
-ttyS0::respawn:/sbin/getty -L 115200 ttyS0 vt100
-hvc0::respawn:/sbin/getty -L 115200 hvc0 vt100
-
-# Shutdown
-::shutdown:/sbin/openrc shutdown
-::ctrlaltdel:/sbin/reboot
-EOF
-
-    # Set up OpenRC runlevels
-    mkdir -p "${ROOTFS}/etc/runlevels/default"
-    mkdir -p "${ROOTFS}/etc/runlevels/boot"
-    mkdir -p "${ROOTFS}/etc/runlevels/sysinit"
-    
-    # Enable essential services
-    ln -sf /etc/init.d/devfs "${ROOTFS}/etc/runlevels/sysinit/devfs" 2>/dev/null || true
-    ln -sf /etc/init.d/dmesg "${ROOTFS}/etc/runlevels/sysinit/dmesg" 2>/dev/null || true
-    
-    # Use eudev (not mdev) - required for libinput to enumerate input devices
-    # libinput needs udev's device database to find keyboards/mice
-    ln -sf /etc/init.d/udev "${ROOTFS}/etc/runlevels/sysinit/udev" 2>/dev/null || true
-    ln -sf /etc/init.d/udev-trigger "${ROOTFS}/etc/runlevels/sysinit/udev-trigger" 2>/dev/null || true
-    ln -sf /etc/init.d/udev-settle "${ROOTFS}/etc/runlevels/sysinit/udev-settle" 2>/dev/null || true
-    ln -sf /etc/init.d/udev-postmount "${ROOTFS}/etc/runlevels/default/udev-postmount" 2>/dev/null || true
-    
-    # Quantix setup - runs early to create writable directories
-    ln -sf /etc/init.d/quantix-setup "${ROOTFS}/etc/runlevels/boot/quantix-setup" 2>/dev/null || true
-    
-    ln -sf /etc/init.d/hwclock "${ROOTFS}/etc/runlevels/boot/hwclock" 2>/dev/null || true
-    ln -sf /etc/init.d/modules "${ROOTFS}/etc/runlevels/boot/modules" 2>/dev/null || true
-    ln -sf /etc/init.d/sysctl "${ROOTFS}/etc/runlevels/boot/sysctl" 2>/dev/null || true
-    ln -sf /etc/init.d/hostname "${ROOTFS}/etc/runlevels/boot/hostname" 2>/dev/null || true
-    ln -sf /etc/init.d/networking "${ROOTFS}/etc/runlevels/boot/networking" 2>/dev/null || true
-    ln -sf /etc/init.d/local "${ROOTFS}/etc/runlevels/boot/local" 2>/dev/null || true
-    
-    # Enable our services
-    # NOTE: libvirtd AND virtlogd are NOT added to runlevel - they're started by local.d script
-    # This prevents boot hangs when KVM/nested virtualization isn't available
-    # See: overlay/etc/local.d/20-start-libvirtd.start
-    # virtlogd can also hang if libvirt sockets aren't ready, so we start it manually too
-    ln -sf /etc/init.d/ovsdb-server "${ROOTFS}/etc/runlevels/default/ovsdb-server" 2>/dev/null || true
-    ln -sf /etc/init.d/ovs-vswitchd "${ROOTFS}/etc/runlevels/default/ovs-vswitchd" 2>/dev/null || true
-    
-    # Enable seatd for KMS/DRM session management (required for Slint GUI)
-    ln -sf /etc/init.d/seatd "${ROOTFS}/etc/runlevels/boot/seatd" 2>/dev/null || true
-    
-    # Configure modules to load
-    cat > "${ROOTFS}/etc/modules" << 'EOF'
-# Virtualization
-kvm
-kvm_intel
-kvm_amd
-vhost_net
-vhost_vsock
-
-# Networking
-openvswitch
-bridge
-vxlan
-geneve
-tun
-tap
-
-# Storage
-virtio_blk
-virtio_scsi
-nbd
-loop
-dm_mod
-dm_thin_pool
-
-# Graphics/Console (for Slint GUI with KMS)
-# DRM core
-drm
-drm_kms_helper
-
-# Virtual GPU drivers (VMs) - load first for VM environments
-virtio_gpu
-simpledrm
-bochs
-cirrus
-
-# Physical GPU drivers (bare metal)
-i915
-amdgpu
-nouveau
-
-# Legacy framebuffer drivers (fallback for basic VGA)
-efifb
-simplefb
-vesafb
-
-# Input devices (for Slint GUI)
-uinput
-evdev
-EOF
-
-    # Configure sysctl for virtualization
-    cat > "${ROOTFS}/etc/sysctl.d/99-quantix.conf" << 'EOF'
-# Quantix-OS Kernel Parameters
-
-# Enable IP forwarding for VM networking
-net.ipv4.ip_forward = 1
-net.ipv6.conf.all.forwarding = 1
-
-# Increase inotify limits for many VMs
-fs.inotify.max_user_instances = 8192
-fs.inotify.max_user_watches = 524288
-
-# Increase file descriptor limits
-fs.file-max = 2097152
-
-# Memory management for VMs
-vm.swappiness = 10
-vm.dirty_ratio = 10
-vm.dirty_background_ratio = 5
-
-# Network performance
-net.core.somaxconn = 65535
-net.core.netdev_max_backlog = 65535
-net.ipv4.tcp_max_syn_backlog = 65535
-
-# Enable ARP proxy for OVN
-net.ipv4.conf.all.proxy_arp = 1
-EOF
-
-    log_info "Base system configured"
-}
-
-# ============================================================================
-# Step 4: Apply overlay
-# ============================================================================
-apply_overlay() {
-    log_info "Applying overlay..."
-    
-    OVERLAY_DIR="/overlay"
-    
-    # Debug: Show what's in the overlay mount
-    log_info "=== DEBUG: Overlay directory contents ==="
-    log_info "Listing ${OVERLAY_DIR}/usr/bin:"
-    ls -la "${OVERLAY_DIR}/usr/bin/" 2>&1 || log_warn "No ${OVERLAY_DIR}/usr/bin directory"
-    log_info "Listing ${OVERLAY_DIR}/usr/local/bin:"
-    ls -la "${OVERLAY_DIR}/usr/local/bin/" 2>&1 || log_warn "No ${OVERLAY_DIR}/usr/local/bin directory"
-    log_info "=== END DEBUG ==="
-    
-    if [[ -d "${OVERLAY_DIR}" ]]; then
-        # Ensure target directories exist
-        mkdir -p "${ROOTFS}/usr/bin"
-        mkdir -p "${ROOTFS}/usr/local/bin"
-        
-        # Copy overlay files into rootfs (overwrite existing)
-        rsync -av "${OVERLAY_DIR}/" "${ROOTFS}/"
-        
-        # Make scripts and binaries executable
-        find "${ROOTFS}/etc/init.d" -type f -exec chmod +x {} \; 2>/dev/null || true
-        find "${ROOTFS}/usr/local/bin" -type f -exec chmod +x {} \; 2>/dev/null || true
-        find "${ROOTFS}/usr/bin" -type f -exec chmod +x {} \; 2>/dev/null || true
-        
-        # Debug: Verify what was copied
-        log_info "=== DEBUG: Rootfs after overlay ==="
-        log_info "Listing ${ROOTFS}/usr/bin:"
-        ls -la "${ROOTFS}/usr/bin/" 2>&1 || log_warn "No ${ROOTFS}/usr/bin directory"
-        log_info "Listing ${ROOTFS}/usr/local/bin:"
-        ls -la "${ROOTFS}/usr/local/bin/" 2>&1 || log_warn "No ${ROOTFS}/usr/local/bin directory"
-        log_info "=== END DEBUG ==="
-        
-        # Verify GUI binary was copied
-        if [[ -f "${ROOTFS}/usr/bin/qx-console-gui" ]]; then
-            log_info "✓ GUI console binary installed: $(ls -lh ${ROOTFS}/usr/bin/qx-console-gui)"
-        else
-            log_error "✗ GUI console binary NOT found after applying overlay!"
-            log_error "  Expected at: ${ROOTFS}/usr/bin/qx-console-gui"
-            log_error "  Source was: ${OVERLAY_DIR}/usr/bin/qx-console-gui"
-            if [[ -f "${OVERLAY_DIR}/usr/bin/qx-console-gui" ]]; then
-                log_info "  Source file exists in overlay with size: $(ls -lh ${OVERLAY_DIR}/usr/bin/qx-console-gui)"
-            else
-                log_error "  Source file does NOT exist in overlay mount!"
-            fi
-        fi
-        
-        # Verify TUI binary was copied
-        if [[ -f "${ROOTFS}/usr/local/bin/qx-console" ]]; then
-            log_info "✓ TUI console binary installed: $(ls -lh ${ROOTFS}/usr/local/bin/qx-console)"
-        else
-            log_error "✗ TUI console binary NOT found after applying overlay!"
-        fi
-        
-        # Verify launcher script was copied
-        if [[ -f "${ROOTFS}/usr/local/bin/qx-console-launcher" ]]; then
-            log_info "✓ Console launcher installed: $(ls -lh ${ROOTFS}/usr/local/bin/qx-console-launcher)"
-        else
-            log_error "✗ Console launcher NOT found after applying overlay!"
-        fi
-        
-        log_info "Overlay applied"
-    else
-        log_warn "No overlay directory found at ${OVERLAY_DIR}"
-    fi
-}
-
-# ============================================================================
-# Step 5: Create initramfs with custom init for live boot
-# ============================================================================
-create_initramfs() {
-    log_info "Creating initramfs..."
-    
-    # Get kernel version
-    KERNEL_VERSION=$(ls "${ROOTFS}/lib/modules" | head -1)
-    
-    if [[ -z "${KERNEL_VERSION}" ]]; then
-        log_error "No kernel found in rootfs!"
-        exit 1
-    fi
-    
-    log_info "Kernel version: ${KERNEL_VERSION}"
-    
-    # Configure mkinitfs with needed features
-    # IMPORTANT: Do NOT include 'kms' - it pulls in GPU drivers that can hang on some hardware
-    # simplefb/simpledrm are added explicitly for early console output
-    mkdir -p "${ROOTFS}/etc/mkinitfs"
-    cat > "${ROOTFS}/etc/mkinitfs/mkinitfs.conf" << 'EOF'
-features="ata base cdrom ext4 keymap lvm mmc nvme raid scsi squashfs usb virtio xfs"
-# Ensure simplefb and fbcon are available for early console
-# Required for Dell Latitude and similar systems
-# See: https://forum.proxmox.com/threads/104377/
-EOF
-
-    # Add simplefb to initramfs modules for early console support
-    mkdir -p "${ROOTFS}/etc/mkinitfs/features.d"
-    cat > "${ROOTFS}/etc/mkinitfs/features.d/quantix.modules" << 'EOF'
-kernel/drivers/video/fbdev/simplefb.ko*
-kernel/drivers/video/fbdev/efifb.ko*
-kernel/drivers/gpu/drm/tiny/simpledrm.ko*
-kernel/drivers/video/console/fbcon.ko*
-EOF
-
-    # Create custom initramfs overlay with our init script
-    INITRAMFS_OVERLAY="${WORK_DIR}/initramfs-overlay"
-    mkdir -p "${INITRAMFS_OVERLAY}"
-    
-    # Create our custom init script that will be appended to initramfs
-    cat > "${INITRAMFS_OVERLAY}/init-quantix" << 'INITEOF'
-#!/bin/busybox sh
-# Quantix-OS Init
-# Supports both Live ISO boot and Installed disk boot
-# All commands use explicit /bin/busybox prefix for reliability
-
-BB=/bin/busybox
-
-# Mount essential filesystems first
-$BB mount -t proc none /proc 2>/dev/null
-$BB mount -t sysfs none /sys 2>/dev/null
-$BB mount -t devtmpfs none /dev 2>/dev/null
-
-$BB echo ""
-$BB echo "========================================"
-$BB echo "         QUANTIX-OS v1.0.0"
-$BB echo "========================================"
-$BB echo ""
-
-# Parse kernel command line for boot mode
-BOOT_MODE="auto"
-CONFIG_UUID=""
-DATA_UUID=""
-for param in $($BB cat /proc/cmdline); do
-    case "$param" in
-        quantix.mode=*) BOOT_MODE="${param#quantix.mode=}" ;;
-        quantix.config=UUID=*) CONFIG_UUID="${param#quantix.config=UUID=}" ;;
-        quantix.data=UUID=*) DATA_UUID="${param#quantix.data=UUID=}" ;;
-    esac
-done
-
-# Load required modules
-$BB echo "[*] Loading kernel modules..."
-$BB modprobe loop 2>/dev/null
-$BB modprobe squashfs 2>/dev/null
-$BB modprobe overlay 2>/dev/null
-$BB modprobe ext4 2>/dev/null
-$BB modprobe xfs 2>/dev/null
-$BB modprobe iso9660 2>/dev/null
-$BB modprobe sr_mod 2>/dev/null
-$BB modprobe sd_mod 2>/dev/null
-$BB modprobe nvme 2>/dev/null
-$BB modprobe usb-storage 2>/dev/null
-$BB modprobe ata_piix 2>/dev/null
-$BB modprobe ahci 2>/dev/null
-$BB modprobe cdrom 2>/dev/null
-
-# Wait for devices
-$BB echo "[*] Waiting for devices..."
-i=0; while [ $i -lt 2000000 ]; do i=$((i+1)); done
-
-# Trigger mdev
-if [ -x /sbin/mdev ]; then
-    $BB echo /sbin/mdev > /proc/sys/kernel/hotplug 2>/dev/null
-    /sbin/mdev -s 2>/dev/null
-fi
-
-# Create device nodes manually if needed
-[ ! -b /dev/sr0 ] && $BB mknod /dev/sr0 b 11 0 2>/dev/null
-[ ! -b /dev/sr1 ] && $BB mknod /dev/sr1 b 11 1 2>/dev/null
-
-$BB mkdir -p /mnt /cdrom /squashfs /overlay /newroot
-
-# ============================================================================
-# STEP 1: Find and mount the squashfs
-# ============================================================================
-BOOT_DEV=""
-SQUASHFS_FILE=""
-BOOT_TYPE=""
-ATTEMPTS=0
-
-$BB echo "[*] Searching for Quantix-OS..."
-
-while [ -z "$BOOT_DEV" ] && [ $ATTEMPTS -lt 10 ]; do
-    ATTEMPTS=$((ATTEMPTS + 1))
-    
-    # Try installed disk first (ext4/xfs partitions with /quantix/system.squashfs)
-    for dev in /dev/sda2 /dev/sdb2 /dev/nvme0n1p2 /dev/sda /dev/sdb /dev/nvme0n1p1; do
-        [ ! -b "$dev" ] && continue
-        
-        # Try ext4 mount
-        if $BB mount -t ext4 -o ro "$dev" /mnt 2>/dev/null; then
-            if [ -f /mnt/quantix/system.squashfs ]; then
-                SQUASHFS_FILE="/mnt/quantix/system.squashfs"
-                BOOT_DEV="$dev"
-                BOOT_TYPE="installed"
-                $BB echo "[OK] Found installed system on $dev"
-                break 2
-            fi
-            $BB umount /mnt 2>/dev/null
-        fi
-    done
-    
-    # Try ISO/CD-ROM (iso9660 with /quantix/system-*.squashfs)
-    for dev in /dev/sr0 /dev/sr1 /dev/sda /dev/sda1 /dev/sdb /dev/sdb1; do
-        [ ! -b "$dev" ] && continue
-        
-        if $BB mount -t iso9660 -o ro "$dev" /cdrom 2>/dev/null; then
-            for sqfs in /cdrom/quantix/system-*.squashfs; do
-                if [ -f "$sqfs" ]; then
-                    SQUASHFS_FILE="$sqfs"
-                    BOOT_DEV="$dev"
-                    BOOT_TYPE="live"
-                    $BB echo "[OK] Found live system on $dev"
-                    break 3
-                fi
-            done
-            $BB umount /cdrom 2>/dev/null
-        fi
-    done
-    
-    # Wait before retry
-    [ -z "$BOOT_DEV" ] && { i=0; while [ $i -lt 1000000 ]; do i=$((i+1)); done; }
-done
-
-if [ -z "$BOOT_DEV" ]; then
-    $BB echo ""
-    $BB echo "[ERROR] Cannot find Quantix-OS!"
-    $BB echo ""
-    $BB echo "Available block devices:"
-    $BB ls -la /dev/sr* /dev/sd* /dev/nvme* 2>/dev/null || $BB echo "(none found)"
-    $BB echo ""
-    $BB echo "Manual recovery:"
-    $BB echo "  mount -t ext4 /dev/sdX2 /mnt"
-    $BB echo "  mount -t squashfs /mnt/quantix/system.squashfs /squashfs"
-    exec $BB sh
-fi
-
-# ============================================================================
-# STEP 2: Mount squashfs
-# ============================================================================
-$BB echo "[*] Mounting system image..."
-
-if ! $BB mount -t squashfs -o ro "$SQUASHFS_FILE" /squashfs; then
-    $BB echo "[ERROR] Failed to mount squashfs!"
-    exec $BB sh
-fi
-
-# ============================================================================
-# STEP 3: Create overlay filesystem
-# ============================================================================
-$BB echo "[*] Setting up overlay filesystem..."
-
-$BB mount -t tmpfs -o size=512M tmpfs /overlay 2>/dev/null
-$BB mkdir -p /overlay/upper /overlay/work
-
-if ! $BB mount -t overlay overlay -o lowerdir=/squashfs,upperdir=/overlay/upper,workdir=/overlay/work /newroot 2>/dev/null; then
-    $BB echo "[WARN] Overlay failed, using read-only root"
-    $BB mount --bind /squashfs /newroot
-fi
-
-# ============================================================================
-# STEP 4: Mount persistent partitions (installed mode)
-# ============================================================================
-if [ "$BOOT_TYPE" = "installed" ]; then
-    $BB echo "[*] Mounting persistent storage..."
-    
-    # Mount config partition
-    $BB mkdir -p /newroot/quantix
-    if [ -n "$CONFIG_UUID" ]; then
-        CONFIG_DEV=$($BB blkid -U "$CONFIG_UUID" 2>/dev/null)
-        [ -n "$CONFIG_DEV" ] && $BB mount -t ext4 "$CONFIG_DEV" /newroot/quantix 2>/dev/null
-    fi
-    
-    # Mount data partition  
-    $BB mkdir -p /newroot/data
-    if [ -n "$DATA_UUID" ]; then
-        DATA_DEV=$($BB blkid -U "$DATA_UUID" 2>/dev/null)
-        [ -n "$DATA_DEV" ] && $BB mount "$DATA_DEV" /newroot/data 2>/dev/null
-    fi
-fi
-
-# ============================================================================
-# STEP 5: Prepare for switch_root
-# ============================================================================
-$BB echo "[*] Preparing root filesystem..."
-
-$BB mkdir -p /newroot/proc /newroot/sys /newroot/dev /newroot/run /newroot/tmp
-
-# Keep boot media mounted for live mode
-if [ "$BOOT_TYPE" = "live" ]; then
-    $BB mkdir -p /newroot/cdrom
-    $BB mount --move /cdrom /newroot/cdrom 2>/dev/null || $BB mount --bind /cdrom /newroot/cdrom
+# Copy overlay files
+if [ -d "${WORK_DIR}/overlay" ]; then
+    cp -a "${WORK_DIR}/overlay/"* "${ROOTFS_DIR}/"
+    echo "✅ Overlay files applied"
 else
-    $BB mkdir -p /newroot/boot
-    $BB mount --move /mnt /newroot/boot 2>/dev/null || $BB mount --bind /mnt /newroot/boot
+    echo "⚠️  No overlay directory found"
 fi
 
-$BB mount --move /proc /newroot/proc 2>/dev/null
-$BB mount --move /sys /newroot/sys 2>/dev/null  
-$BB mount --move /dev /newroot/dev 2>/dev/null
+# Make scripts executable
+chmod +x "${ROOTFS_DIR}/usr/local/bin/"* 2>/dev/null || true
+chmod +x "${ROOTFS_DIR}/etc/init.d/"* 2>/dev/null || true
+chmod +x "${ROOTFS_DIR}/etc/local.d/"* 2>/dev/null || true
 
-# Ensure essential device nodes
-[ ! -c /newroot/dev/console ] && $BB mknod /newroot/dev/console c 5 1 2>/dev/null
-[ ! -c /newroot/dev/null ] && $BB mknod /newroot/dev/null c 1 3 2>/dev/null
-[ ! -c /newroot/dev/tty ] && $BB mknod /newroot/dev/tty c 5 0 2>/dev/null
-[ ! -c /newroot/dev/tty0 ] && $BB mknod /newroot/dev/tty0 c 4 0 2>/dev/null
-[ ! -c /newroot/dev/tty1 ] && $BB mknod /newroot/dev/tty1 c 4 1 2>/dev/null
+# -----------------------------------------------------------------------------
+# Step 4: Configure system
+# -----------------------------------------------------------------------------
+echo "📦 Step 4: Configuring system..."
 
-# ============================================================================
-# STEP 6: Switch to real root
-# ============================================================================
-$BB echo ""
-$BB echo "[*] Starting Quantix-OS ($BOOT_TYPE mode)..."
-$BB echo ""
+# Set timezone
+ln -sf /usr/share/zoneinfo/UTC "${ROOTFS_DIR}/etc/localtime"
+echo "UTC" > "${ROOTFS_DIR}/etc/timezone"
 
-exec $BB switch_root /newroot /sbin/init
+# Configure OpenRC
+mkdir -p "${ROOTFS_DIR}/run/openrc"
+touch "${ROOTFS_DIR}/run/openrc/softlevel"
 
-# Fallback
-$BB echo "[ERROR] switch_root failed!"
-exec $BB sh
-INITEOF
-    chmod +x "${INITRAMFS_OVERLAY}/init-quantix"
+# Enable essential services
+chroot "${ROOTFS_DIR}" /sbin/rc-update add devfs sysinit || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add dmesg sysinit || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add mdev sysinit || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add hwdrivers sysinit || true
 
-    # Generate standard initramfs first
-    mount --bind /dev "${ROOTFS}/dev"
-    mount --bind /proc "${ROOTFS}/proc"
-    mount --bind /sys "${ROOTFS}/sys"
-    
-    chroot "${ROOTFS}" mkinitfs -o "/boot/initramfs-${KERNEL_FLAVOR}" "${KERNEL_VERSION}" || true
-    
-    umount "${ROOTFS}/sys"
-    umount "${ROOTFS}/proc"
-    umount "${ROOTFS}/dev"
-    
-    # Now append our custom init to the initramfs
-    # Extract the existing initramfs, add our script as init, and repack
-    INITRAMFS_WORK="${WORK_DIR}/initramfs-work"
-    mkdir -p "${INITRAMFS_WORK}"
-    cd "${INITRAMFS_WORK}"
-    
-    log_info "Extracting initramfs..."
-    INITRAMFS_FILE="${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}"
-    EXTRACT_SUCCESS=false
-    
-    # Detect compression format
-    COMPRESSION=$(file "${INITRAMFS_FILE}" | awk '{print $2}')
-    log_info "Detected initramfs format: ${COMPRESSION}"
-    
-    # Extract existing initramfs (it's gzipped cpio)
-    # Try different compression formats (Alpine may use different ones)
-    if echo "${COMPRESSION}" | grep -qi "gzip"; then
-        log_info "Extracting gzip compressed initramfs..."
-        if gunzip -c "${INITRAMFS_FILE}" | cpio -idm 2>/dev/null; then
-            EXTRACT_SUCCESS=true
-        fi
-    elif echo "${COMPRESSION}" | grep -qi "XZ"; then
-        log_info "Extracting XZ compressed initramfs..."
-        if xz -dc "${INITRAMFS_FILE}" | cpio -idm 2>/dev/null; then
-            EXTRACT_SUCCESS=true
-        fi
-    elif echo "${COMPRESSION}" | grep -qi "Zstandard\|zstd"; then
-        log_info "Extracting Zstd compressed initramfs..."
-        if zstd -dc "${INITRAMFS_FILE}" | cpio -idm 2>/dev/null; then
-            EXTRACT_SUCCESS=true
-        fi
-    fi
-    
-    # Fallback: try all formats
-    if [ "${EXTRACT_SUCCESS}" = "false" ]; then
-        log_warn "Auto-detection failed, trying all compression formats..."
-        for decompress in "gunzip -c" "xz -dc" "zstd -dc" "cat"; do
-            if ${decompress} "${INITRAMFS_FILE}" 2>/dev/null | cpio -idm 2>/dev/null; then
-                EXTRACT_SUCCESS=true
-                log_info "Successfully extracted with: ${decompress}"
-                break
-            fi
-        done
-    fi
-    
-    if [ "${EXTRACT_SUCCESS}" = "false" ]; then
-        log_error "Failed to extract initramfs! Creating minimal initramfs from scratch..."
-        # Create minimal structure
-        mkdir -p bin sbin lib dev proc sys newroot mnt cdrom squashfs overlay tmp run
-    fi
-    
-    # Show what we extracted
-    log_info "Initramfs contents after extraction:"
-    ls -la "${INITRAMFS_WORK}/" || true
-    ls -la "${INITRAMFS_WORK}/bin/" 2>/dev/null || log_warn "No bin directory"
-    
-    # Replace init with our custom init
-    log_info "Installing custom init script..."
-    cp "${INITRAMFS_OVERLAY}/init-quantix" "${INITRAMFS_WORK}/init"
-    chmod +x "${INITRAMFS_WORK}/init"
-    
-    # Verify init was copied
-    if [ ! -x "${INITRAMFS_WORK}/init" ]; then
-        log_error "CRITICAL: Failed to install custom init script!"
-        exit 1
-    fi
-    log_info "Custom init installed: $(ls -la ${INITRAMFS_WORK}/init)"
-    
-    # Ensure busybox is present and linked
-    if [ ! -f "${INITRAMFS_WORK}/bin/busybox" ]; then
-        log_warn "Busybox not found in initramfs, copying from rootfs..."
-        mkdir -p "${INITRAMFS_WORK}/bin"
-        if [ -f "${ROOTFS}/bin/busybox" ]; then
-            cp "${ROOTFS}/bin/busybox" "${INITRAMFS_WORK}/bin/"
-            chmod +x "${INITRAMFS_WORK}/bin/busybox"
-            log_info "Copied busybox: $(ls -la ${INITRAMFS_WORK}/bin/busybox)"
-        else
-            log_error "CRITICAL: Busybox not found in rootfs!"
-            exit 1
-        fi
-    fi
-    
-    # Create essential directories
-    mkdir -p "${INITRAMFS_WORK}"/{bin,sbin,lib,dev,proc,sys,newroot,mnt,cdrom,squashfs,overlay,tmp,run}
-    
-    # Create essential symlinks if missing
-    cd "${INITRAMFS_WORK}"
-    for cmd in sh mount umount mkdir cat echo ls modprobe mknod switch_root sleep blkid; do
-        if [ ! -e "bin/$cmd" ]; then
-            ln -sf busybox "bin/$cmd"
-            log_info "Created symlink: bin/$cmd -> busybox"
-        fi
-    done
-    
-    # Also create in sbin for compatibility
-    mkdir -p sbin
-    for cmd in modprobe switch_root mdev; do
-        if [ ! -e "sbin/$cmd" ]; then
-            ln -sf ../bin/busybox "sbin/$cmd" 2>/dev/null || true
-        fi
-    done
-    
-    # Verify essential files exist
-    log_info "Verifying initramfs contents..."
-    for file in init bin/busybox bin/sh bin/mount; do
-        if [ -e "${INITRAMFS_WORK}/${file}" ]; then
-            log_info "  ✓ ${file} exists"
-        else
-            log_error "  ✗ ${file} MISSING!"
-        fi
-    done
-    
-    # Show first 10 lines of init to verify
-    log_info "Init script header:"
-    head -5 "${INITRAMFS_WORK}/init" || true
-    
-    # Repack initramfs with gzip (most compatible)
-    log_info "Repacking initramfs..."
-    find . | cpio -H newc -o 2>/dev/null | gzip -9 > "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}"
-    
-    # Verify output
-    INITRAMFS_SIZE=$(du -h "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | cut -f1)
-    log_info "Initramfs repacked: ${INITRAMFS_SIZE}"
-    
-    # Verify the repacked initramfs
-    log_info "Verifying repacked initramfs contains /init..."
-    if gunzip -c "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" 2>/dev/null | cpio -t 2>/dev/null | grep -q "^init$"; then
-        log_info "  ✓ /init is present in final initramfs"
-    else
-        log_error "  ✗ /init NOT FOUND in final initramfs!"
-        exit 1
-    fi
-    
-    cd /
-    rm -rf "${INITRAMFS_WORK}" "${INITRAMFS_OVERLAY}"
-    
-    log_info "Initramfs created with custom init"
-}
+chroot "${ROOTFS_DIR}" /sbin/rc-update add modules boot || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add sysctl boot || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add hostname boot || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add bootmisc boot || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add syslog boot || true
 
-# ============================================================================
-# Step 6: Clean up and create squashfs
-# ============================================================================
-create_squashfs() {
-    log_info "Creating squashfs image..."
-    
-    # Clean up unnecessary files
-    rm -rf "${ROOTFS}/var/cache/apk"/*
-    rm -rf "${ROOTFS}/tmp"/*
-    rm -rf "${ROOTFS}/usr/share/man"/*
-    rm -rf "${ROOTFS}/usr/share/doc"/*
-    
-    # Create version file
-    cat > "${ROOTFS}/etc/quantix-release" << EOF
+chroot "${ROOTFS_DIR}" /sbin/rc-update add networking default || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add dbus default || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add libvirtd default || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add ovsdb-server default || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add ovs-vswitchd default || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add seatd default || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add chronyd default || true
+
+chroot "${ROOTFS_DIR}" /sbin/rc-update add mount-ro shutdown || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add killprocs shutdown || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add savecache shutdown || true
+
+echo "✅ System configured"
+
+# -----------------------------------------------------------------------------
+# Step 5: Create required directories
+# -----------------------------------------------------------------------------
+echo "📦 Step 5: Creating directories..."
+
+mkdir -p "${ROOTFS_DIR}/quantix"
+mkdir -p "${ROOTFS_DIR}/quantix/certificates"
+mkdir -p "${ROOTFS_DIR}/data"
+mkdir -p "${ROOTFS_DIR}/data/vms"
+mkdir -p "${ROOTFS_DIR}/data/isos"
+mkdir -p "${ROOTFS_DIR}/data/images"
+mkdir -p "${ROOTFS_DIR}/data/backups"
+mkdir -p "${ROOTFS_DIR}/var/log"
+mkdir -p "${ROOTFS_DIR}/var/lib/libvirt"
+mkdir -p "${ROOTFS_DIR}/var/lib/quantix"
+mkdir -p "${ROOTFS_DIR}/run/user/0"
+mkdir -p "${ROOTFS_DIR}/run/libvirt"
+mkdir -p "${ROOTFS_DIR}/run/openvswitch"
+
+# Set permissions
+chmod 700 "${ROOTFS_DIR}/quantix"
+chmod 700 "${ROOTFS_DIR}/quantix/certificates"
+chmod 755 "${ROOTFS_DIR}/data"
+chmod 700 "${ROOTFS_DIR}/run/user/0"
+
+echo "✅ Directories created"
+
+# -----------------------------------------------------------------------------
+# Step 6: Write version info
+# -----------------------------------------------------------------------------
+echo "📦 Step 6: Writing version info..."
+
+cat > "${ROOTFS_DIR}/etc/quantix-release" << EOF
 QUANTIX_VERSION="${VERSION}"
-BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+QUANTIX_CODENAME="genesis"
+QUANTIX_BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ALPINE_VERSION="${ALPINE_VERSION}"
-KERNEL_FLAVOR="${KERNEL_FLAVOR}"
 EOF
 
-    # Create squashfs
-    OUTPUT_FILE="${OUTPUT_DIR}/system-${VERSION}.squashfs"
-    
-    mksquashfs "${ROOTFS}" "${OUTPUT_FILE}" \
-        -comp xz \
-        -b 1M \
-        -Xdict-size 100% \
-        -no-xattrs \
-        -noappend
-    
-    # Calculate checksum
-    sha256sum "${OUTPUT_FILE}" > "${OUTPUT_FILE}.sha256"
-    
-    # Report size
-    SIZE=$(du -h "${OUTPUT_FILE}" | cut -f1)
-    log_info "Squashfs created: ${OUTPUT_FILE} (${SIZE})"
-}
+echo "✅ Version info written"
 
-# ============================================================================
-# Main
-# ============================================================================
-main() {
-    log_info "============================================"
-    log_info "Building Quantix-OS ${VERSION} (${ARCH})"
-    log_info "Alpine ${ALPINE_VERSION}, Kernel: ${KERNEL_FLAVOR}"
-    log_info "============================================"
-    
-    init_rootfs
-    install_packages
-    configure_system
-    apply_overlay
-    create_initramfs
-    create_squashfs
-    
-    log_info "============================================"
-    log_info "Build complete!"
-    log_info "Output: ${OUTPUT_DIR}/system-${VERSION}.squashfs"
-    log_info "============================================"
-}
+# -----------------------------------------------------------------------------
+# Step 7: Clean up
+# -----------------------------------------------------------------------------
+echo "📦 Step 7: Cleaning up..."
 
-main "$@"
+# Remove APK cache
+rm -rf "${ROOTFS_DIR}/var/cache/apk/"*
+
+# Remove package manager (security hardening)
+# Note: Uncomment for production builds
+# rm -f "${ROOTFS_DIR}/sbin/apk"
+# rm -rf "${ROOTFS_DIR}/etc/apk"
+# rm -rf "${ROOTFS_DIR}/lib/apk"
+
+# Remove unnecessary files
+rm -rf "${ROOTFS_DIR}/usr/share/doc/"*
+rm -rf "${ROOTFS_DIR}/usr/share/man/"*
+rm -rf "${ROOTFS_DIR}/usr/share/info/"*
+
+# Clear logs
+rm -rf "${ROOTFS_DIR}/var/log/"*
+
+echo "✅ Cleanup complete"
+
+# -----------------------------------------------------------------------------
+# Step 8: Create squashfs
+# -----------------------------------------------------------------------------
+echo "📦 Step 8: Creating squashfs..."
+
+mkdir -p "${OUTPUT_DIR}"
+
+mksquashfs "${ROOTFS_DIR}" "${OUTPUT_DIR}/${SQUASHFS_NAME}" \
+    -comp xz \
+    -b 1M \
+    -Xbcj x86 \
+    -no-xattrs \
+    -noappend
+
+# Calculate size
+SQUASHFS_SIZE=$(du -h "${OUTPUT_DIR}/${SQUASHFS_NAME}" | cut -f1)
+
+echo ""
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║                    Build Complete!                            ║"
+echo "╠═══════════════════════════════════════════════════════════════╣"
+echo "║  Output: ${OUTPUT_DIR}/${SQUASHFS_NAME}"
+echo "║  Size:   ${SQUASHFS_SIZE}"
+echo "╚═══════════════════════════════════════════════════════════════╝"

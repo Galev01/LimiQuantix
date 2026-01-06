@@ -1,519 +1,453 @@
-#!/bin/sh
-# ============================================================================
+#!/bin/bash
+# =============================================================================
 # Quantix-OS Installer
-# ============================================================================
-# This script installs Quantix-OS to a target disk with A/B partitioning.
+# =============================================================================
+# Installs Quantix-OS to a target disk with A/B partitioning.
+#
+# Usage: ./install.sh [TARGET_DISK]
 #
 # Partition Layout:
-#   Part 1: EFI/Boot (100MB) - EFI system partition
-#   Part 2: System A (300MB) - Active system (squashfs + kernel)
-#   Part 3: System B (300MB) - Update target (empty initially)
-#   Part 4: Config  (100MB)  - Persistent configuration
-#   Part 5: Data    (REST)   - VM storage (XFS by default)
-#
-# Usage: ./install.sh [--auto] [--disk /dev/sdX] [--data-fs xfs|ext4|zfs]
-# ============================================================================
+#   1. EFI (100MB)    - FAT32, UEFI bootloader
+#   2. QUANTIX-A (300MB) - ext4, System A
+#   3. QUANTIX-B (300MB) - ext4, System B (empty initially)
+#   4. QUANTIX-CFG (100MB) - ext4, Configuration
+#   5. QUANTIX-DATA (rest) - XFS, VM storage
+# =============================================================================
 
 set -e
-
-# Configuration
-VERSION="1.0.0"
-SCRIPT_DIR="$(dirname "$0")"
-SQUASHFS_PATH="/quantix/system-${VERSION}.squashfs"
-KERNEL_PATH="/boot/vmlinuz"
-INITRAMFS_PATH="/boot/initramfs"
-
-# Partition sizes in MB
-EFI_SIZE=100
-SYSTEM_SIZE=300
-CONFIG_SIZE=100
 
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m'
+NC='\033[0m' # No Color
 
-# Logging functions
-log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
-log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
+# Configuration
+TARGET_DISK="${1:-}"
+EFI_SIZE="100M"
+SYSTEM_SIZE="300M"
+CONFIG_SIZE="100M"
 
-# ============================================================================
-# Banner
-# ============================================================================
-show_banner() {
-    clear
-    cat << 'EOF'
+# Paths
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SQUASHFS_PATH=""
 
-  ██████  ██    ██  █████  ███    ██ ████████ ██ ██   ██        ██████  ███████ 
- ██    ██ ██    ██ ██   ██ ████   ██    ██    ██  ██ ██        ██    ██ ██      
- ██    ██ ██    ██ ███████ ██ ██  ██    ██    ██   ███   █████ ██    ██ ███████ 
- ██ ▄▄ ██ ██    ██ ██   ██ ██  ██ ██    ██    ██  ██ ██        ██    ██      ██ 
-  ██████   ██████  ██   ██ ██   ████    ██    ██ ██   ██        ██████  ███████ 
-     ▀▀                                                                         
+echo -e "${BLUE}"
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║              Quantix-OS Installer v1.0.0                      ║"
+echo "╚═══════════════════════════════════════════════════════════════╝"
+echo -e "${NC}"
 
-                     QUANTIX-OS INSTALLER v1.0.0
-                       Quantix-HyperVisor
+# -----------------------------------------------------------------------------
+# Helper Functions
+# -----------------------------------------------------------------------------
 
-EOF
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
 }
 
-# ============================================================================
-# Disk Detection
-# ============================================================================
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+confirm() {
+    local prompt="$1"
+    local response
+    echo -e "${YELLOW}${prompt}${NC}"
+    read -r response
+    [[ "$response" =~ ^[Yy] ]]
+}
+
+# -----------------------------------------------------------------------------
+# Step 1: Detect available disks
+# -----------------------------------------------------------------------------
+
 detect_disks() {
-    log_step "Detecting available disks..."
-    
-    # Find block devices (exclude loop, ram, rom)
-    DISKS=$(lsblk -d -n -o NAME,SIZE,TYPE,MODEL | grep disk | awk '{print "/dev/"$1" ("$2") - "$4}')
-    
-    if [ -z "$DISKS" ]; then
-        log_error "No disks detected!"
-        exit 1
-    fi
-    
     echo ""
+    log_info "Detecting available disks..."
+    echo ""
+    
     echo "Available disks:"
-    echo "================"
-    lsblk -d -n -o NAME,SIZE,TYPE,MODEL | grep disk | while read line; do
-        DISK_NAME=$(echo "$line" | awk '{print $1}')
-        DISK_SIZE=$(echo "$line" | awk '{print $2}')
-        DISK_MODEL=$(echo "$line" | awk '{$1=$2=$3=""; print $0}' | xargs)
-        echo "  /dev/$DISK_NAME - $DISK_SIZE - $DISK_MODEL"
-    done
+    echo "----------------"
+    lsblk -d -o NAME,SIZE,MODEL,TYPE | grep -E "disk|NAME"
     echo ""
 }
 
-# ============================================================================
-# Disk Selection (Interactive)
-# ============================================================================
+# -----------------------------------------------------------------------------
+# Step 2: Select target disk
+# -----------------------------------------------------------------------------
+
 select_disk() {
-    if [ -n "$AUTO_DISK" ]; then
-        TARGET_DISK="$AUTO_DISK"
-        return
-    fi
-    
-    echo "Enter target disk (e.g., /dev/sda, /dev/nvme0n1):"
-    read -p "> " TARGET_DISK
-    
-    # Validate disk exists
-    if [ ! -b "$TARGET_DISK" ]; then
-        log_error "Disk $TARGET_DISK not found!"
-        exit 1
-    fi
-    
-    # Confirm destruction
-    echo ""
-    log_warn "╔════════════════════════════════════════════════════════════════╗"
-    log_warn "║                         WARNING                                ║"
-    log_warn "╠════════════════════════════════════════════════════════════════╣"
-    log_warn "║  ALL DATA ON $TARGET_DISK WILL BE DESTROYED!                   "
-    log_warn "║  This action cannot be undone.                                 ║"
-    log_warn "╚════════════════════════════════════════════════════════════════╝"
-    echo ""
-    
-    if [ -z "$AUTO_MODE" ]; then
-        read -p "Type 'YES' to continue: " CONFIRM
-        if [ "$CONFIRM" != "YES" ]; then
-            log_info "Installation cancelled."
-            exit 0
+    if [ -n "$TARGET_DISK" ]; then
+        if [ -b "$TARGET_DISK" ]; then
+            log_info "Using specified disk: ${TARGET_DISK}"
+            return 0
+        else
+            log_error "Specified disk not found: ${TARGET_DISK}"
+            exit 1
         fi
     fi
+    
+    detect_disks
+    
+    echo -n "Enter target disk (e.g., /dev/sda): "
+    read -r TARGET_DISK
+    
+    if [ ! -b "$TARGET_DISK" ]; then
+        log_error "Invalid disk: ${TARGET_DISK}"
+        exit 1
+    fi
 }
 
-# ============================================================================
-# Filesystem Selection
-# ============================================================================
-select_filesystem() {
-    if [ -n "$DATA_FS" ]; then
-        return
+# -----------------------------------------------------------------------------
+# Step 3: Find squashfs
+# -----------------------------------------------------------------------------
+
+find_squashfs() {
+    log_info "Locating system image..."
+    
+    # Try common locations
+    for path in \
+        "/run/media/cdrom/quantix/system.squashfs" \
+        "/mnt/cdrom/quantix/system.squashfs" \
+        "/media/cdrom/quantix/system.squashfs" \
+        "/cdrom/quantix/system.squashfs" \
+        "${SCRIPT_DIR}/../quantix/system.squashfs" \
+        "/quantix/system.squashfs"; do
+        if [ -f "$path" ]; then
+            SQUASHFS_PATH="$path"
+            log_info "Found system image: ${SQUASHFS_PATH}"
+            return 0
+        fi
+    done
+    
+    # Search for any squashfs
+    SQUASHFS_PATH=$(find /mnt /media /run/media /cdrom -name "system*.squashfs" 2>/dev/null | head -1)
+    
+    if [ -z "$SQUASHFS_PATH" ]; then
+        log_error "System image not found!"
+        log_error "Make sure you're booting from the Quantix-OS ISO."
+        exit 1
     fi
     
-    DATA_FS="xfs"  # Default
-    
-    if [ -z "$AUTO_MODE" ]; then
-        echo ""
-        echo "Select filesystem for data partition:"
-        echo "  1) XFS (recommended for large files, VM images)"
-        echo "  2) EXT4 (traditional, well-tested)"
-        echo "  3) ZFS (advanced features, requires more RAM)"
-        read -p "Choice [1]: " FS_CHOICE
-        
-        case "$FS_CHOICE" in
-            2) DATA_FS="ext4" ;;
-            3) DATA_FS="zfs" ;;
-            *) DATA_FS="xfs" ;;
-        esac
-    fi
-    
-    log_info "Using $DATA_FS for data partition"
+    log_info "Found system image: ${SQUASHFS_PATH}"
 }
 
-# ============================================================================
-# Partition Disk
-# ============================================================================
-partition_disk() {
-    log_step "Partitioning disk..."
+# -----------------------------------------------------------------------------
+# Step 4: Confirm installation
+# -----------------------------------------------------------------------------
+
+confirm_install() {
+    echo ""
+    echo -e "${RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║                        WARNING                                ║${NC}"
+    echo -e "${RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${RED}║  ALL DATA ON ${TARGET_DISK} WILL BE DESTROYED!${NC}"
+    echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo "Target disk: ${TARGET_DISK}"
+    echo "Disk size:   $(lsblk -d -o SIZE -n ${TARGET_DISK})"
+    echo ""
+    
+    if ! confirm "Are you sure you want to continue? (y/N): "; then
+        log_info "Installation cancelled."
+        exit 0
+    fi
+    
+    echo ""
+    if ! confirm "FINAL WARNING: This will ERASE ${TARGET_DISK}. Type 'y' to confirm: "; then
+        log_info "Installation cancelled."
+        exit 0
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Step 5: Create partitions
+# -----------------------------------------------------------------------------
+
+create_partitions() {
+    log_info "Creating partition table..."
     
     # Unmount any existing partitions
-    umount "${TARGET_DISK}"* 2>/dev/null || true
-    
-    # Wipe existing partition table
-    wipefs -a "$TARGET_DISK"
-    
-    # Determine partition suffix (nvme uses 'p', sata uses nothing)
-    if echo "$TARGET_DISK" | grep -q "nvme"; then
-        PART_PREFIX="${TARGET_DISK}p"
-    else
-        PART_PREFIX="${TARGET_DISK}"
-    fi
-    
-    # Calculate partition positions
-    EFI_END=$EFI_SIZE
-    SYSA_END=$((EFI_END + SYSTEM_SIZE))
-    SYSB_END=$((SYSA_END + SYSTEM_SIZE))
-    CFG_END=$((SYSB_END + CONFIG_SIZE))
+    umount ${TARGET_DISK}* 2>/dev/null || true
     
     # Create GPT partition table
-    parted -s "$TARGET_DISK" mklabel gpt
+    parted -s "${TARGET_DISK}" mklabel gpt
+    
+    log_info "Creating partitions..."
+    
+    # Calculate partition positions
+    local efi_end="${EFI_SIZE}"
+    local sys_a_end="400M"   # 100M + 300M
+    local sys_b_end="700M"   # 400M + 300M
+    local cfg_end="800M"     # 700M + 100M
     
     # Create partitions
-    parted -s "$TARGET_DISK" mkpart "EFI" fat32 1MiB "${EFI_END}MiB"
-    parted -s "$TARGET_DISK" set 1 esp on
+    parted -s "${TARGET_DISK}" mkpart "EFI" fat32 1MiB ${efi_end}
+    parted -s "${TARGET_DISK}" set 1 esp on
     
-    parted -s "$TARGET_DISK" mkpart "QUANTIX-A" ext4 "${EFI_END}MiB" "${SYSA_END}MiB"
-    
-    parted -s "$TARGET_DISK" mkpart "QUANTIX-B" ext4 "${SYSA_END}MiB" "${SYSB_END}MiB"
-    
-    parted -s "$TARGET_DISK" mkpart "QUANTIX-CFG" ext4 "${SYSB_END}MiB" "${CFG_END}MiB"
-    
-    parted -s "$TARGET_DISK" mkpart "QUANTIX-DATA" xfs "${CFG_END}MiB" 100%
+    parted -s "${TARGET_DISK}" mkpart "QUANTIX-A" ext4 ${efi_end} ${sys_a_end}
+    parted -s "${TARGET_DISK}" mkpart "QUANTIX-B" ext4 ${sys_a_end} ${sys_b_end}
+    parted -s "${TARGET_DISK}" mkpart "QUANTIX-CFG" ext4 ${sys_b_end} ${cfg_end}
+    parted -s "${TARGET_DISK}" mkpart "QUANTIX-DATA" xfs ${cfg_end} 100%
     
     # Wait for kernel to recognize partitions
-    partprobe "$TARGET_DISK"
+    partprobe "${TARGET_DISK}"
     sleep 2
     
-    log_info "Partitions created:"
-    lsblk "$TARGET_DISK"
+    log_info "Partitions created successfully"
 }
 
-# ============================================================================
-# Format Partitions
-# ============================================================================
+# -----------------------------------------------------------------------------
+# Step 6: Format partitions
+# -----------------------------------------------------------------------------
+
 format_partitions() {
-    log_step "Formatting partitions..."
+    log_info "Formatting partitions..."
     
-    # EFI partition (FAT32)
-    log_info "Formatting EFI partition..."
-    mkfs.vfat -F 32 -n "EFI" "${PART_PREFIX}1"
+    # Determine partition naming (nvme vs sda)
+    if [[ "${TARGET_DISK}" == *"nvme"* ]]; then
+        P="p"
+    else
+        P=""
+    fi
     
-    # System A partition (ext4)
-    log_info "Formatting System A partition..."
-    mkfs.ext4 -L "QUANTIX-A" -F "${PART_PREFIX}2"
+    # Format EFI partition
+    mkfs.vfat -F 32 -n "EFI" "${TARGET_DISK}${P}1"
     
-    # System B partition (ext4) - leave empty
-    log_info "Formatting System B partition..."
-    mkfs.ext4 -L "QUANTIX-B" -F "${PART_PREFIX}3"
+    # Format System A
+    mkfs.ext4 -L "QUANTIX-A" -F "${TARGET_DISK}${P}2"
     
-    # Config partition (ext4)
-    log_info "Formatting Config partition..."
-    mkfs.ext4 -L "QUANTIX-CFG" -F "${PART_PREFIX}4"
+    # Format System B
+    mkfs.ext4 -L "QUANTIX-B" -F "${TARGET_DISK}${P}3"
     
-    # Data partition (user choice)
-    log_info "Formatting Data partition with $DATA_FS..."
-    case "$DATA_FS" in
-        xfs)
-            mkfs.xfs -f -L "QUANTIX-DATA" "${PART_PREFIX}5"
-            ;;
-        ext4)
-            mkfs.ext4 -L "QUANTIX-DATA" -F "${PART_PREFIX}5"
-            ;;
-        zfs)
-            # ZFS requires special handling
-            zpool create -f -o ashift=12 -O atime=off -O compression=lz4 \
-                quantix-data "${PART_PREFIX}5"
-            zfs set mountpoint=/data quantix-data
-            ;;
-    esac
+    # Format Config
+    mkfs.ext4 -L "QUANTIX-CFG" -F "${TARGET_DISK}${P}4"
     
-    log_info "Partitions formatted"
+    # Format Data
+    mkfs.xfs -L "QUANTIX-DATA" -f "${TARGET_DISK}${P}5"
+    
+    log_info "Partitions formatted successfully"
 }
 
-# ============================================================================
-# Install System
-# ============================================================================
+# -----------------------------------------------------------------------------
+# Step 7: Install system
+# -----------------------------------------------------------------------------
+
 install_system() {
-    log_step "Installing Quantix-OS..."
+    log_info "Installing Quantix-OS..."
+    
+    # Determine partition naming
+    if [[ "${TARGET_DISK}" == *"nvme"* ]]; then
+        P="p"
+    else
+        P=""
+    fi
     
     # Create mount points
-    INSTALL_ROOT="/mnt/install"
-    mkdir -p "${INSTALL_ROOT}/efi"
-    mkdir -p "${INSTALL_ROOT}/system"
-    mkdir -p "${INSTALL_ROOT}/config"
-    mkdir -p "${INSTALL_ROOT}/data"
+    mkdir -p /mnt/install/{efi,system,config,data}
     
     # Mount partitions
-    mount "${PART_PREFIX}1" "${INSTALL_ROOT}/efi"
-    mount "${PART_PREFIX}2" "${INSTALL_ROOT}/system"
-    mount "${PART_PREFIX}4" "${INSTALL_ROOT}/config"
+    mount "${TARGET_DISK}${P}2" /mnt/install/system
+    mount "${TARGET_DISK}${P}1" /mnt/install/efi
+    mount "${TARGET_DISK}${P}4" /mnt/install/config
+    mount "${TARGET_DISK}${P}5" /mnt/install/data
     
-    if [ "$DATA_FS" != "zfs" ]; then
-        mount "${PART_PREFIX}5" "${INSTALL_ROOT}/data"
-    fi
-    
-    # =========================================================================
-    # Copy system files
-    # =========================================================================
-    log_info "Copying system image..."
-    
-    # Create directory structure
-    mkdir -p "${INSTALL_ROOT}/system/boot"
-    mkdir -p "${INSTALL_ROOT}/system/quantix"
-    
-    # Copy kernel and initramfs
-    cp "$KERNEL_PATH" "${INSTALL_ROOT}/system/boot/vmlinuz"
-    cp "$INITRAMFS_PATH" "${INSTALL_ROOT}/system/boot/initramfs"
+    # Create directory structure on System A
+    mkdir -p /mnt/install/system/{boot,quantix}
     
     # Copy squashfs
-    cp "$SQUASHFS_PATH" "${INSTALL_ROOT}/system/quantix/system.squashfs"
+    log_info "Copying system image..."
+    cp "${SQUASHFS_PATH}" /mnt/install/system/quantix/system.squashfs
     
-    # Create version file
-    echo "$VERSION" > "${INSTALL_ROOT}/system/quantix/version"
-    echo "A" > "${INSTALL_ROOT}/system/quantix/active"
+    # Extract kernel and initramfs from squashfs
+    log_info "Extracting boot files..."
+    mkdir -p /tmp/sqmount
+    mount -t squashfs "${SQUASHFS_PATH}" /tmp/sqmount
     
-    # =========================================================================
-    # Install EFI bootloader
-    # =========================================================================
-    log_info "Installing EFI bootloader..."
-    
-    mkdir -p "${INSTALL_ROOT}/efi/EFI/BOOT"
-    mkdir -p "${INSTALL_ROOT}/efi/EFI/quantix"
-    mkdir -p "${INSTALL_ROOT}/efi/boot/grub"
-    
-    # Copy GRUB EFI binary
-    if [ -f /usr/lib/grub/x86_64-efi/grub.efi ]; then
-        cp /usr/lib/grub/x86_64-efi/grub.efi "${INSTALL_ROOT}/efi/EFI/BOOT/BOOTX64.EFI"
-    else
-        # Create GRUB image
-        grub-mkimage -o "${INSTALL_ROOT}/efi/EFI/BOOT/BOOTX64.EFI" \
-            -O x86_64-efi -p /boot/grub \
-            part_gpt part_msdos fat ext2 normal boot linux \
-            configfile loopback search search_fs_uuid search_label \
-            gfxterm all_video font
+    if [ -f /tmp/sqmount/boot/vmlinuz-lts ]; then
+        cp /tmp/sqmount/boot/vmlinuz-lts /mnt/install/system/boot/vmlinuz
+    elif [ -f /tmp/sqmount/boot/vmlinuz ]; then
+        cp /tmp/sqmount/boot/vmlinuz /mnt/install/system/boot/vmlinuz
     fi
     
-    # Get UUIDs
-    EFI_UUID=$(blkid -s UUID -o value "${PART_PREFIX}1")
-    SYSA_UUID=$(blkid -s UUID -o value "${PART_PREFIX}2")
-    SYSB_UUID=$(blkid -s UUID -o value "${PART_PREFIX}3")
-    CFG_UUID=$(blkid -s UUID -o value "${PART_PREFIX}4")
-    DATA_UUID=$(blkid -s UUID -o value "${PART_PREFIX}5")
+    if [ -f /tmp/sqmount/boot/initramfs-lts ]; then
+        cp /tmp/sqmount/boot/initramfs-lts /mnt/install/system/boot/initramfs
+    elif [ -f /tmp/sqmount/boot/initramfs ]; then
+        cp /tmp/sqmount/boot/initramfs /mnt/install/system/boot/initramfs
+    fi
+    
+    umount /tmp/sqmount
+    rmdir /tmp/sqmount
+    
+    # Create config directory structure
+    log_info "Creating configuration directories..."
+    mkdir -p /mnt/install/config/certificates
+    chmod 700 /mnt/install/config
+    chmod 700 /mnt/install/config/certificates
+    
+    # Create data directory structure
+    log_info "Creating data directories..."
+    mkdir -p /mnt/install/data/{vms,isos,images,backups}
+    
+    log_info "System files installed"
+}
+
+# -----------------------------------------------------------------------------
+# Step 8: Install bootloader
+# -----------------------------------------------------------------------------
+
+install_bootloader() {
+    log_info "Installing GRUB bootloader..."
+    
+    # Determine partition naming
+    if [[ "${TARGET_DISK}" == *"nvme"* ]]; then
+        P="p"
+    else
+        P=""
+    fi
+    
+    # Mount system for chroot
+    mkdir -p /mnt/install/root
+    mount -t squashfs /mnt/install/system/quantix/system.squashfs /mnt/install/root
+    
+    # Bind mount EFI
+    mkdir -p /mnt/install/root/boot/efi
+    mount --bind /mnt/install/efi /mnt/install/root/boot/efi
+    
+    # Bind mount required filesystems
+    mount --bind /dev /mnt/install/root/dev
+    mount --bind /proc /mnt/install/root/proc
+    mount --bind /sys /mnt/install/root/sys
+    
+    # Install GRUB for UEFI
+    log_info "Installing GRUB for UEFI..."
+    chroot /mnt/install/root grub-install \
+        --target=x86_64-efi \
+        --efi-directory=/boot/efi \
+        --bootloader-id=quantix \
+        --recheck \
+        "${TARGET_DISK}" 2>/dev/null || log_warn "UEFI GRUB installation failed (may be BIOS system)"
+    
+    # Install GRUB for BIOS
+    log_info "Installing GRUB for BIOS..."
+    chroot /mnt/install/root grub-install \
+        --target=i386-pc \
+        --recheck \
+        "${TARGET_DISK}" 2>/dev/null || log_warn "BIOS GRUB installation failed (may be UEFI-only system)"
     
     # Create GRUB configuration
-    cat > "${INSTALL_ROOT}/efi/boot/grub/grub.cfg" << EOF
-# Quantix-OS GRUB Configuration
-# Generated by installer on $(date)
-
-set default=0
+    log_info "Creating GRUB configuration..."
+    
+    cat > /mnt/install/root/boot/grub/grub.cfg << 'GRUBCFG'
 set timeout=5
-set gfxmode=auto
-set gfxpayload=keep
+set default=0
 
 insmod all_video
 insmod gfxterm
+set gfxmode=auto
 terminal_output gfxterm
 
-set color_normal=white/black
-set color_highlight=black/light-cyan
+set menu_color_normal=white/black
+set menu_color_highlight=black/light-cyan
 
-# System A (Active) - Default uses VESA framebuffer for widest compatibility
-menuentry "Quantix-OS (System A)" --class quantix {
+menuentry "Quantix-OS" --id quantix {
     echo "Loading Quantix-OS..."
-    search --no-floppy --fs-uuid --set=root ${SYSA_UUID}
-    linux /boot/vmlinuz root=UUID=${SYSA_UUID} ro quiet \
-        nomodeset video=vesafb:mtrr:3,ywrap \
-        modloop=/quantix/system.squashfs modules=loop,squashfs,overlay \
-        quantix.config=UUID=${CFG_UUID} quantix.data=UUID=${DATA_UUID}
+    search --label --set=root QUANTIX-A
+    linux /boot/vmlinuz root=LABEL=QUANTIX-A ro quiet
     initrd /boot/initramfs
 }
 
-# System A with KMS (GPU acceleration if available)
-menuentry "Quantix-OS (System A - KMS)" --class quantix {
-    echo "Loading Quantix-OS with KMS..."
-    search --no-floppy --fs-uuid --set=root ${SYSA_UUID}
-    linux /boot/vmlinuz root=UUID=${SYSA_UUID} ro quiet \
-        modloop=/quantix/system.squashfs modules=loop,squashfs,overlay \
-        quantix.config=UUID=${CFG_UUID} quantix.data=UUID=${DATA_UUID}
+menuentry "Quantix-OS (System B)" --id quantix-b {
+    echo "Loading Quantix-OS from System B..."
+    search --label --set=root QUANTIX-B
+    linux /boot/vmlinuz root=LABEL=QUANTIX-B ro quiet
     initrd /boot/initramfs
 }
 
-# System B (Fallback/Update Target)
-menuentry "Quantix-OS (System B)" --class quantix {
-    echo "Loading Quantix-OS (System B)..."
-    search --no-floppy --fs-uuid --set=root ${SYSB_UUID}
-    linux /boot/vmlinuz root=UUID=${SYSB_UUID} ro quiet \
-        nomodeset video=vesafb:mtrr:3,ywrap \
-        modloop=/quantix/system.squashfs modules=loop,squashfs,overlay \
-        quantix.config=UUID=${CFG_UUID} quantix.data=UUID=${DATA_UUID}
+menuentry "Quantix-OS (Recovery)" --id recovery {
+    echo "Loading Quantix-OS in recovery mode..."
+    search --label --set=root QUANTIX-A
+    linux /boot/vmlinuz root=LABEL=QUANTIX-A ro single
     initrd /boot/initramfs
 }
-
-# Recovery Mode
-menuentry "Quantix-OS Recovery Shell" --class rescue {
-    echo "Loading Recovery Shell..."
-    search --no-floppy --fs-uuid --set=root ${SYSA_UUID}
-    linux /boot/vmlinuz root=UUID=${SYSA_UUID} ro nomodeset \
-        modloop=/quantix/system.squashfs modules=loop,squashfs,overlay \
-        quantix.config=UUID=${CFG_UUID} init=/bin/sh
-    initrd /boot/initramfs
+GRUBCFG
+    
+    # Copy GRUB config to EFI partition
+    mkdir -p /mnt/install/efi/EFI/quantix
+    cp /mnt/install/root/boot/grub/grub.cfg /mnt/install/efi/EFI/quantix/
+    
+    # Cleanup mounts
+    umount /mnt/install/root/sys
+    umount /mnt/install/root/proc
+    umount /mnt/install/root/dev
+    umount /mnt/install/root/boot/efi
+    umount /mnt/install/root
+    
+    log_info "Bootloader installed"
 }
-EOF
 
-    # =========================================================================
-    # Initialize config partition
-    # =========================================================================
-    log_info "Initializing configuration..."
+# -----------------------------------------------------------------------------
+# Step 9: Finalize installation
+# -----------------------------------------------------------------------------
+
+finalize_install() {
+    log_info "Finalizing installation..."
     
-    mkdir -p "${INSTALL_ROOT}/config/quantix"
-    mkdir -p "${INSTALL_ROOT}/config/quantix/certificates"
+    # Unmount all partitions
+    umount /mnt/install/data
+    umount /mnt/install/config
+    umount /mnt/install/efi
+    umount /mnt/install/system
     
-    # Copy default config
-    if [ -f /etc/quantix/defaults.yaml ]; then
-        cp /etc/quantix/defaults.yaml "${INSTALL_ROOT}/config/quantix/node.yaml"
-    fi
-    
-    # Mark for first boot
-    touch "${INSTALL_ROOT}/config/quantix/.firstboot"
-    
-    # =========================================================================
-    # Initialize data partition
-    # =========================================================================
-    log_info "Initializing data storage..."
-    
-    if [ "$DATA_FS" = "zfs" ]; then
-        zfs create quantix-data/vms
-        zfs create quantix-data/isos
-        zfs create quantix-data/images
-        zfs create quantix-data/backups
-    else
-        mkdir -p "${INSTALL_ROOT}/data/vms"
-        mkdir -p "${INSTALL_ROOT}/data/isos"
-        mkdir -p "${INSTALL_ROOT}/data/images"
-        mkdir -p "${INSTALL_ROOT}/data/backups"
-    fi
-    
-    # =========================================================================
-    # Cleanup
-    # =========================================================================
-    log_info "Finishing installation..."
-    
+    # Sync
     sync
     
-    # Unmount
-    umount "${INSTALL_ROOT}/efi"
-    umount "${INSTALL_ROOT}/system"
-    umount "${INSTALL_ROOT}/config"
-    
-    if [ "$DATA_FS" = "zfs" ]; then
-        zpool export quantix-data
-    else
-        umount "${INSTALL_ROOT}/data"
-    fi
-    
-    rmdir "${INSTALL_ROOT}/efi" "${INSTALL_ROOT}/system" \
-          "${INSTALL_ROOT}/config" "${INSTALL_ROOT}/data" "${INSTALL_ROOT}"
-    
-    log_info "Installation complete!"
-}
-
-# ============================================================================
-# Summary
-# ============================================================================
-show_summary() {
     echo ""
-    echo "╔═══════════════════════════════════════════════════════════════╗"
-    echo "║              INSTALLATION COMPLETE!                           ║"
-    echo "╠═══════════════════════════════════════════════════════════════╣"
-    echo "║                                                               ║"
-    echo "║  Quantix-OS has been installed to: $TARGET_DISK"
-    echo "║                                                               ║"
-    echo "║  Partition Layout:                                            ║"
-    echo "║    ${PART_PREFIX}1 - EFI Boot (${EFI_SIZE}MB)                  "
-    echo "║    ${PART_PREFIX}2 - System A (${SYSTEM_SIZE}MB) [ACTIVE]     "
-    echo "║    ${PART_PREFIX}3 - System B (${SYSTEM_SIZE}MB) [Updates]    "
-    echo "║    ${PART_PREFIX}4 - Config (${CONFIG_SIZE}MB)                "
-    echo "║    ${PART_PREFIX}5 - Data ($DATA_FS)                          "
-    echo "║                                                               ║"
-    echo "║  Next Steps:                                                  ║"
-    echo "║    1. Remove installation media                               ║"
-    echo "║    2. Reboot the system                                       ║"
-    echo "║    3. Configure network via console (F2)                      ║"
-    echo "║    4. Access web UI at https://<ip>:8443                      ║"
-    echo "║                                                               ║"
-    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║              Installation Complete!                           ║${NC}"
+    echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${GREEN}║                                                               ║${NC}"
+    echo -e "${GREEN}║  Quantix-OS has been installed to ${TARGET_DISK}${NC}"
+    echo -e "${GREEN}║                                                               ║${NC}"
+    echo -e "${GREEN}║  Next steps:                                                  ║${NC}"
+    echo -e "${GREEN}║  1. Remove the installation media                             ║${NC}"
+    echo -e "${GREEN}║  2. Reboot the system                                         ║${NC}"
+    echo -e "${GREEN}║  3. Complete the first-boot wizard                            ║${NC}"
+    echo -e "${GREEN}║                                                               ║${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     
-    if [ -z "$AUTO_MODE" ]; then
-        read -p "Press Enter to reboot..."
+    if confirm "Would you like to reboot now? (y/N): "; then
+        log_info "Rebooting..."
         reboot
     fi
 }
 
-# ============================================================================
-# Parse Arguments
-# ============================================================================
-parse_args() {
-    while [ $# -gt 0 ]; do
-        case "$1" in
-            --auto)
-                AUTO_MODE=1
-                ;;
-            --disk)
-                AUTO_DISK="$2"
-                shift
-                ;;
-            --data-fs)
-                DATA_FS="$2"
-                shift
-                ;;
-            --help|-h)
-                echo "Quantix-OS Installer"
-                echo ""
-                echo "Usage: $0 [options]"
-                echo ""
-                echo "Options:"
-                echo "  --auto           Non-interactive mode"
-                echo "  --disk /dev/X    Target disk"
-                echo "  --data-fs TYPE   Data filesystem (xfs, ext4, zfs)"
-                echo "  --help           Show this help"
-                exit 0
-                ;;
-            *)
-                log_error "Unknown option: $1"
-                exit 1
-                ;;
-        esac
-        shift
-    done
-}
-
-# ============================================================================
+# -----------------------------------------------------------------------------
 # Main
-# ============================================================================
+# -----------------------------------------------------------------------------
+
 main() {
-    parse_args "$@"
+    # Check if running as root
+    if [ "$(id -u)" -ne 0 ]; then
+        log_error "This script must be run as root"
+        exit 1
+    fi
     
-    show_banner
-    detect_disks
     select_disk
-    select_filesystem
-    partition_disk
+    find_squashfs
+    confirm_install
+    create_partitions
     format_partitions
     install_system
-    show_summary
+    install_bootloader
+    finalize_install
 }
 
 main "$@"

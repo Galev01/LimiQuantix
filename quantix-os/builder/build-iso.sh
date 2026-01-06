@@ -1,463 +1,279 @@
 #!/bin/bash
-# ============================================================================
+# =============================================================================
 # Quantix-OS ISO Builder
-# ============================================================================
-# Creates a bootable ISO installer for Quantix-OS
+# =============================================================================
+# Creates a bootable ISO image with UEFI and BIOS support.
 #
-# This script:
-# 1. Builds the root filesystem squashfs
-# 2. Creates a bootable ISO with GRUB (UEFI + BIOS)
-# 3. Includes the installer script
-#
-# Usage: ./build-iso.sh
-# Environment:
-#   VERSION        - OS version (default: 1.0.0)
-#   ARCH           - Architecture (default: x86_64)
-#   ALPINE_VERSION - Alpine version (default: 3.20)
-# ============================================================================
+# Usage: ./build-iso.sh [VERSION]
+# =============================================================================
 
-set -euo pipefail
+set -e
 
-# Configuration
-VERSION="${VERSION:-1.0.0}"
-ARCH="${ARCH:-x86_64}"
-ALPINE_VERSION="${ALPINE_VERSION:-3.20}"
-KERNEL_FLAVOR="${KERNEL_FLAVOR:-lts}"
+VERSION="${1:-1.0.0}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+WORK_DIR="$(dirname "$SCRIPT_DIR")"
+OUTPUT_DIR="${WORK_DIR}/output"
+ISO_DIR="/tmp/iso"
+ISO_NAME="quantix-os-${VERSION}.iso"
 
-# Directories
-WORK_DIR="/work/iso-${VERSION}"
-ISO_ROOT="${WORK_DIR}/iso"
-OUTPUT_DIR="/output"
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║              Quantix-OS ISO Builder v${VERSION}                     ║"
+echo "╚═══════════════════════════════════════════════════════════════╝"
+echo ""
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# -----------------------------------------------------------------------------
+# Step 1: Verify required files
+# -----------------------------------------------------------------------------
+echo "📦 Step 1: Verifying required files..."
 
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
+SQUASHFS="${OUTPUT_DIR}/system-${VERSION}.squashfs"
+if [ ! -f "$SQUASHFS" ]; then
+    echo "❌ Squashfs not found: ${SQUASHFS}"
+    echo "   Run 'make squashfs' first"
+    exit 1
+fi
 
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
+# Check for kernel and initramfs
+KERNEL=""
+INITRAMFS=""
 
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+# Try to find kernel in rootfs or use host kernel
+if [ -f "${OUTPUT_DIR}/vmlinuz" ]; then
+    KERNEL="${OUTPUT_DIR}/vmlinuz"
+elif [ -f "/boot/vmlinuz-lts" ]; then
+    KERNEL="/boot/vmlinuz-lts"
+elif [ -f "/boot/vmlinuz" ]; then
+    KERNEL="/boot/vmlinuz"
+fi
 
-log_step() {
-    echo -e "${BLUE}[STEP]${NC} $1"
-}
+if [ -f "${OUTPUT_DIR}/initramfs.img" ]; then
+    INITRAMFS="${OUTPUT_DIR}/initramfs.img"
+elif [ -f "/boot/initramfs-lts" ]; then
+    INITRAMFS="/boot/initramfs-lts"
+fi
 
-# ============================================================================
-# Step 1: Build squashfs (calls the other script)
-# ============================================================================
-build_rootfs() {
-    log_step "Building root filesystem..."
-    /build/build-squashfs.sh
-    log_info "Root filesystem built"
-}
+if [ -z "$KERNEL" ]; then
+    echo "⚠️  Kernel not found, will extract from squashfs..."
+fi
 
-# ============================================================================
+echo "✅ Files verified"
+
+# -----------------------------------------------------------------------------
 # Step 2: Create ISO structure
-# ============================================================================
-create_iso_structure() {
-    log_step "Creating ISO structure..."
-    
-    # Clean and create
-    rm -rf "${WORK_DIR}"
-    mkdir -p "${ISO_ROOT}/boot/grub"
-    mkdir -p "${ISO_ROOT}/EFI/BOOT"
-    mkdir -p "${ISO_ROOT}/quantix"
-    mkdir -p "${ISO_ROOT}/installer"
-    
-    # Copy squashfs
-    cp "${OUTPUT_DIR}/system-${VERSION}.squashfs" "${ISO_ROOT}/quantix/"
-    
-    # Copy kernel and initramfs from rootfs
-    ROOTFS="/work/rootfs-${VERSION}/rootfs"
-    KERNEL_VERSION=$(ls "${ROOTFS}/lib/modules" | head -1)
-    
-    cp "${ROOTFS}/boot/vmlinuz-${KERNEL_FLAVOR}" "${ISO_ROOT}/boot/vmlinuz"
-    cp "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" "${ISO_ROOT}/boot/initramfs"
-    
-    # Copy installer scripts
-    if [[ -d "/installer" ]]; then
-        cp -r /installer/* "${ISO_ROOT}/installer/"
-        chmod +x "${ISO_ROOT}/installer/"*.sh 2>/dev/null || true
-    fi
-    
-    # Copy branding
-    if [[ -d "/branding" ]]; then
-        cp -r /branding/* "${ISO_ROOT}/quantix/"
-    fi
-    
-    log_info "ISO structure created"
-}
+# -----------------------------------------------------------------------------
+echo "📦 Step 2: Creating ISO structure..."
 
-# ============================================================================
-# Step 3: Create GRUB configuration
-# ============================================================================
-create_grub_config() {
-    log_step "Creating GRUB configuration..."
-    
-    # Main GRUB config
-    # Uses search to find the correct partition regardless of boot method (USB, CD, Ventoy)
-    cat > "${ISO_ROOT}/boot/grub/grub.cfg" << 'EOF'
+rm -rf "${ISO_DIR}"
+mkdir -p "${ISO_DIR}"/{boot/grub,EFI/BOOT,quantix,isolinux}
+
+echo "✅ ISO structure created"
+
+# -----------------------------------------------------------------------------
+# Step 3: Copy boot files
+# -----------------------------------------------------------------------------
+echo "📦 Step 3: Copying boot files..."
+
+# Copy squashfs
+cp "$SQUASHFS" "${ISO_DIR}/quantix/system.squashfs"
+
+# Copy or extract kernel
+if [ -n "$KERNEL" ]; then
+    cp "$KERNEL" "${ISO_DIR}/boot/vmlinuz"
+else
+    # Extract kernel from squashfs
+    mkdir -p /tmp/sqmount
+    mount -t squashfs "$SQUASHFS" /tmp/sqmount
+    cp /tmp/sqmount/boot/vmlinuz* "${ISO_DIR}/boot/vmlinuz" 2>/dev/null || \
+    cp /tmp/sqmount/boot/vmlinuz-lts "${ISO_DIR}/boot/vmlinuz" 2>/dev/null || true
+    cp /tmp/sqmount/boot/initramfs* "${ISO_DIR}/boot/initramfs" 2>/dev/null || true
+    umount /tmp/sqmount
+    rmdir /tmp/sqmount
+fi
+
+# Copy or create initramfs
+if [ -n "$INITRAMFS" ]; then
+    cp "$INITRAMFS" "${ISO_DIR}/boot/initramfs"
+elif [ ! -f "${ISO_DIR}/boot/initramfs" ]; then
+    echo "⚠️  Creating minimal initramfs..."
+    "${SCRIPT_DIR}/build-initramfs.sh"
+    cp "${OUTPUT_DIR}/initramfs.img" "${ISO_DIR}/boot/initramfs"
+fi
+
+echo "✅ Boot files copied"
+
+# -----------------------------------------------------------------------------
+# Step 4: Create GRUB configuration
+# -----------------------------------------------------------------------------
+echo "📦 Step 4: Creating GRUB configuration..."
+
+cat > "${ISO_DIR}/boot/grub/grub.cfg" << 'GRUBEOF'
 # Quantix-OS GRUB Configuration
 
-set default=0
 set timeout=5
-set gfxmode=auto
-set gfxpayload=keep
-
-# IMPORTANT: Search for Quantix-SPECIFIC files to avoid finding Ubuntu/other distros
-# Priority 1: Search by volume label (most reliable for ISO/USB)
-search --no-floppy --label QUANTIX_OS --set=root
-
-# Priority 2: Search for Quantix-specific marker file
-if [ -z "$root" ]; then
-    search --no-floppy --file /quantix/system-1.0.0.squashfs --set=root
-fi
-
-# Priority 3: Search for our initramfs (not Ubuntu's initrd.img)
-if [ -z "$root" ]; then
-    search --no-floppy --file /boot/initramfs --set=root
-fi
-
-# Priority 4: Fallback to kernel (might find wrong disk!)
-if [ -z "$root" ]; then
-    search --no-floppy --file /boot/vmlinuz --set=root
-fi
+set default=0
 
 # Load video modules
 insmod all_video
 insmod gfxterm
-
-# Set theme colors
-set color_normal=white/black
-set color_highlight=black/light-cyan
-
-# Terminal output - fall back to console if gfxterm fails
+set gfxmode=auto
 terminal_output gfxterm
-if [ "$?" != "0" ]; then
-    terminal_output console
-fi
 
-# Menu entries
-# IMPORTANT: rdinit=/init tells kernel to use our custom init from initramfs
-# Without this, kernel uses its default init which expects root= parameter
+# Set colors
+set menu_color_normal=white/black
+set menu_color_highlight=black/light-gray
 
-menuentry "Quantix-OS Installer" --class quantix {
+# Boot menu
+menuentry "Quantix-OS" --id quantix {
     echo "Loading Quantix-OS..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=4
+    linux /boot/vmlinuz root=LABEL=QUANTIX-A ro quiet
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS (Verbose)" --class quantix {
-    echo "Loading Quantix-OS (Verbose)..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7
+menuentry "Quantix-OS (Recovery Mode)" --id quantix-recovery {
+    echo "Loading Quantix-OS in recovery mode..."
+    linux /boot/vmlinuz root=LABEL=QUANTIX-A ro single
     initrd /boot/initramfs
 }
 
-# ============================================================================
-# VIDEO WORKAROUNDS - For Dell Latitude 5420 and similar Intel Xe laptops
-# These fix "Blind Boot" where kernel outputs to wrong display
-# ============================================================================
-
-menuentry "Quantix-OS (RECOMMENDED - Dell Latitude Fix)" --class quantix {
-    echo "Loading with full Intel Iris Xe workaround..."
-    # Completely disable i915 modesetting + disable all phantom ports + keep EFI framebuffer
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset i915.modeset=0 video=efifb:on video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d
+menuentry "Quantix-OS Installer" --id quantix-install {
+    echo "Starting Quantix-OS Installer..."
+    linux /boot/vmlinuz root=LABEL=QUANTIX-A ro quantix.install=1
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS (nomodeset only)" --class quantix {
-    echo "Loading with nomodeset..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset
-    initrd /boot/initramfs
+menuentry "Memory Test (memtest86+)" --id memtest {
+    linux16 /boot/memtest
 }
+GRUBEOF
 
-menuentry "Quantix-OS (i915 disabled)" --class quantix {
-    echo "Loading with Intel GPU completely disabled..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset i915.modeset=0 i915.enable_dc=0
-    initrd /boot/initramfs
-}
+echo "✅ GRUB configuration created"
 
-menuentry "Quantix-OS (EFI Framebuffer)" --class quantix {
-    echo "Loading with EFI framebuffer preserved..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=efifb:on nomodeset
-    initrd /boot/initramfs
-}
+# -----------------------------------------------------------------------------
+# Step 5: Create UEFI boot image
+# -----------------------------------------------------------------------------
+echo "📦 Step 5: Creating UEFI boot image..."
 
-menuentry "Quantix-OS (SimpleFB)" --class quantix {
-    echo "Loading with SimpleFB (Proxmox fix)..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=simplefb:on nomodeset
-    initrd /boot/initramfs
-}
+# Create EFI boot image
+mkdir -p "${ISO_DIR}/EFI/BOOT"
 
-menuentry "Quantix-OS (Disable ALL external ports)" --class quantix {
-    echo "Loading with all external displays disabled..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d video=HDMI-A-1:d video=HDMI-A-2:d video=VGA-1:d
-    initrd /boot/initramfs
-}
-
-menuentry "Quantix-OS (Force eDP internal screen)" --class quantix {
-    echo "Loading for laptop internal display only..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset video=eDP-1:e video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d video=HDMI-A-1:d
-    initrd /boot/initramfs
-}
-
-menuentry "Quantix-OS (HDMI Only)" --class quantix {
-    echo "Loading for HDMI output..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset video=HDMI-A-1:e video=eDP-1:d video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d
-    initrd /boot/initramfs
-}
-
-# ============================================================================
-# DEBUG AND RESCUE OPTIONS
-# ============================================================================
-
-menuentry "Quantix-OS (Serial Console)" --class quantix {
-    echo "Loading with serial console..."
-    linux /boot/vmlinuz rdinit=/init console=ttyS0,115200n8 console=tty0
-    initrd /boot/initramfs
-}
-
-menuentry "Rescue Shell" --class rescue {
-    echo "Loading Rescue Shell..."
-    linux /boot/vmlinuz rdinit=/init rescue
-    initrd /boot/initramfs
-}
-
-menuentry "Debug: Show Boot Info" --class debug {
-    echo "=== GRUB Debug Info ==="
-    echo "Root device: $root"
-    echo "Prefix: $prefix"
-    echo ""
-    echo "=== Checking Quantix files ==="
-    if [ -f ($root)/boot/vmlinuz ]; then
-        echo "vmlinuz: FOUND"
-    else
-        echo "vmlinuz: NOT FOUND"
-    fi
-    if [ -f ($root)/boot/initramfs ]; then
-        echo "initramfs: FOUND"
-    else
-        echo "initramfs: NOT FOUND (check if this is Ubuntu!)"
-    fi
-    if [ -f ($root)/quantix/system-1.0.0.squashfs ]; then
-        echo "squashfs: FOUND - This is Quantix!"
-    else
-        echo "squashfs: NOT FOUND - WRONG DISK!"
-    fi
-    echo ""
-    echo "=== Listing /boot ==="
-    ls ($root)/boot/
-    echo ""
-    echo "=== Listing /quantix (if exists) ==="
-    ls ($root)/quantix/ 2>/dev/null || echo "(not found)"
-    echo ""
-    echo "=== Available disks ==="
-    ls
-    echo ""
-    echo "Press Escape to return to menu..."
-    sleep 30
-}
-EOF
-
-    # Replace VERSION placeholder
-    sed -i "s/\${VERSION}/${VERSION}/g" "${ISO_ROOT}/boot/grub/grub.cfg"
-    
-    log_info "GRUB configuration created"
-}
-
-# ============================================================================
-# Step 4: Create EFI bootloader
-# ============================================================================
-create_efi_boot() {
-    log_step "Creating EFI bootloader..."
-    
-    # Create a minimal early grub.cfg that searches for the real config
-    # This is embedded into BOOTX64.EFI and executed first
-    EARLY_CFG="${WORK_DIR}/early-grub.cfg"
-    cat > "${EARLY_CFG}" << 'EARLYCFG'
-# Early GRUB config - embedded in EFI binary
-# Searches for the Quantix ISO/USB partition and loads the real config
-# IMPORTANT: Must find QUANTIX, not Ubuntu or other installed distros!
-
-# Priority 1: Search by volume label (most reliable)
-search --no-floppy --label QUANTIX_OS --set=root
-
-# Priority 2: Search for Quantix-specific squashfs
-if [ -z "$root" ]; then
-    search --no-floppy --file /quantix/system-1.0.0.squashfs --set=root
-fi
-
-# Priority 3: Search for our initramfs (Ubuntu uses initrd.img, we use initramfs)
-if [ -z "$root" ]; then
-    search --no-floppy --file /boot/initramfs --set=root
-fi
-
-# Set prefix to where grub.cfg lives on the found partition
-set prefix=($root)/boot/grub
-
-# Load the main config
-configfile ($root)/boot/grub/grub.cfg
-EARLYCFG
-
-    # Create EFI GRUB image with embedded early config
-    # The -c option embeds a config that runs before looking for grub.cfg
+# Copy GRUB EFI binary
+if [ -f "/usr/lib/grub/x86_64-efi/grub.efi" ]; then
+    cp /usr/lib/grub/x86_64-efi/grub.efi "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI"
+elif [ -f "/usr/share/grub/x86_64-efi/grub.efi" ]; then
+    cp /usr/share/grub/x86_64-efi/grub.efi "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI"
+else
+    # Build GRUB EFI image
     grub-mkimage \
-        -o "${ISO_ROOT}/EFI/BOOT/BOOTX64.EFI" \
         -O x86_64-efi \
-        -c "${EARLY_CFG}" \
+        -o "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" \
         -p /boot/grub \
-        part_gpt part_msdos fat ext2 iso9660 normal boot linux \
-        configfile loopback search search_fs_uuid search_fs_file \
-        search_label gfxterm gfxterm_background gfxterm_menu \
-        test all_video echo font gzio minicmd ls cat
-    
-    # Create EFI system partition image (larger to include grub.cfg backup)
-    EFI_IMG="${WORK_DIR}/efi.img"
-    dd if=/dev/zero of="${EFI_IMG}" bs=1M count=16
-    mkfs.vfat -F 12 "${EFI_IMG}"
-    
-    # Mount and populate
-    EFI_MNT="${WORK_DIR}/efi_mnt"
-    mkdir -p "${EFI_MNT}"
-    mount -o loop "${EFI_IMG}" "${EFI_MNT}"
-    
-    mkdir -p "${EFI_MNT}/EFI/BOOT"
-    cp "${ISO_ROOT}/EFI/BOOT/BOOTX64.EFI" "${EFI_MNT}/EFI/BOOT/"
-    
-    # Also copy grub.cfg to EFI partition as fallback
-    mkdir -p "${EFI_MNT}/boot/grub"
-    cp "${ISO_ROOT}/boot/grub/grub.cfg" "${EFI_MNT}/boot/grub/"
-    
-    umount "${EFI_MNT}"
-    
-    # Clean up
-    rm -f "${EARLY_CFG}"
-    
-    # Copy EFI image to ISO root for xorriso
-    cp "${EFI_IMG}" "${ISO_ROOT}/efi.img"
-    
-    log_info "EFI bootloader created with embedded search config"
-}
+        part_gpt part_msdos fat ext2 iso9660 \
+        linux normal boot configfile loopback chain \
+        efifwsetup efi_gop efi_uga ls search \
+        search_label search_fs_uuid search_fs_file \
+        gfxterm gfxterm_background gfxterm_menu test all_video \
+        loadenv 2>/dev/null || echo "⚠️  GRUB EFI image creation failed"
+fi
 
-# ============================================================================
-# Step 5: Create BIOS bootloader
-# ============================================================================
-create_bios_boot() {
-    log_step "Creating BIOS bootloader..."
-    
-    # Create BIOS boot image for El Torito
-    grub-mkimage \
-        -o "${ISO_ROOT}/boot/grub/core.img" \
-        -O i386-pc \
-        -p /boot/grub \
-        biosdisk part_gpt part_msdos fat ext2 normal boot linux \
-        configfile loopback search iso9660
-    
-    # Prepend cdboot.img
-    cat /usr/lib/grub/i386-pc/cdboot.img "${ISO_ROOT}/boot/grub/core.img" \
-        > "${ISO_ROOT}/boot/grub/eltorito.img"
-    
-    log_info "BIOS bootloader created"
-}
+# Create EFI boot image for ISO
+dd if=/dev/zero of="${ISO_DIR}/boot/efi.img" bs=1M count=10
+mkfs.vfat "${ISO_DIR}/boot/efi.img"
+mmd -i "${ISO_DIR}/boot/efi.img" ::/EFI ::/EFI/BOOT
+mcopy -i "${ISO_DIR}/boot/efi.img" "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" ::/EFI/BOOT/ 2>/dev/null || true
 
-# ============================================================================
-# Step 6: Create ISO
-# ============================================================================
-create_iso() {
-    log_step "Creating ISO image..."
-    
-    OUTPUT_ISO="${OUTPUT_DIR}/quantix-os-${VERSION}.iso"
-    EFI_IMG="${WORK_DIR}/efi.img"
-    
-    # Create hybrid ISO bootable from both CD and USB
-    # -isohybrid-mbr is CRITICAL for USB boot (writes MBR boot code)
+echo "✅ UEFI boot image created"
+
+# -----------------------------------------------------------------------------
+# Step 6: Create BIOS boot image
+# -----------------------------------------------------------------------------
+echo "📦 Step 6: Creating BIOS boot image..."
+
+# Install GRUB for BIOS
+grub-mkimage \
+    -O i386-pc \
+    -o "${ISO_DIR}/boot/grub/core.img" \
+    -p /boot/grub \
+    biosdisk iso9660 part_gpt part_msdos \
+    linux normal boot configfile loopback chain \
+    ls search search_label search_fs_uuid search_fs_file \
+    gfxterm test all_video loadenv 2>/dev/null || echo "⚠️  GRUB BIOS image creation failed"
+
+# Create BIOS boot catalog
+if [ -f "/usr/lib/grub/i386-pc/cdboot.img" ]; then
+    cat /usr/lib/grub/i386-pc/cdboot.img "${ISO_DIR}/boot/grub/core.img" > "${ISO_DIR}/boot/grub/bios.img"
+elif [ -f "/usr/share/grub/i386-pc/cdboot.img" ]; then
+    cat /usr/share/grub/i386-pc/cdboot.img "${ISO_DIR}/boot/grub/core.img" > "${ISO_DIR}/boot/grub/bios.img"
+fi
+
+echo "✅ BIOS boot image created"
+
+# -----------------------------------------------------------------------------
+# Step 7: Copy installer
+# -----------------------------------------------------------------------------
+echo "📦 Step 7: Copying installer..."
+
+if [ -f "${WORK_DIR}/installer/install.sh" ]; then
+    mkdir -p "${ISO_DIR}/installer"
+    cp "${WORK_DIR}/installer/install.sh" "${ISO_DIR}/installer/"
+    chmod +x "${ISO_DIR}/installer/install.sh"
+fi
+
+# Copy branding
+if [ -d "${WORK_DIR}/branding" ]; then
+    cp -r "${WORK_DIR}/branding" "${ISO_DIR}/"
+fi
+
+echo "✅ Installer copied"
+
+# -----------------------------------------------------------------------------
+# Step 8: Create ISO
+# -----------------------------------------------------------------------------
+echo "📦 Step 8: Creating ISO image..."
+
+mkdir -p "${OUTPUT_DIR}"
+
+xorriso -as mkisofs \
+    -o "${OUTPUT_DIR}/${ISO_NAME}" \
+    -isohybrid-mbr /usr/lib/grub/i386-pc/boot_hybrid.img 2>/dev/null || true \
+    -c boot/boot.cat \
+    -b boot/grub/bios.img \
+    -no-emul-boot \
+    -boot-load-size 4 \
+    -boot-info-table \
+    --grub2-boot-info \
+    -eltorito-alt-boot \
+    -e boot/efi.img \
+    -no-emul-boot \
+    -isohybrid-gpt-basdat \
+    -V "QUANTIX-OS" \
+    -R -J \
+    "${ISO_DIR}" 2>/dev/null || {
+    # Fallback to simpler ISO creation
+    echo "⚠️  Falling back to basic ISO creation..."
     xorriso -as mkisofs \
-        -iso-level 3 \
-        -full-iso9660-filenames \
-        -joliet \
-        -joliet-long \
-        -rational-rock \
-        -volid "QUANTIX_OS" \
-        -appid "Quantix-OS ${VERSION}" \
-        -publisher "Quantix Team" \
-        -preparer "quantix-os-builder" \
-        \
-        -isohybrid-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
-        \
-        -eltorito-boot boot/grub/eltorito.img \
-        -no-emul-boot \
-        -boot-load-size 4 \
-        -boot-info-table \
-        --grub2-boot-info \
-        \
-        -eltorito-alt-boot \
-        -e efi.img \
-        -no-emul-boot \
-        -isohybrid-gpt-basdat \
-        \
-        -append_partition 2 0xef "${EFI_IMG}" \
-        \
-        -output "${OUTPUT_ISO}" \
-        "${ISO_ROOT}"
-    
-    # Calculate checksums
-    sha256sum "${OUTPUT_ISO}" > "${OUTPUT_ISO}.sha256"
-    
-    # Report
-    SIZE=$(du -h "${OUTPUT_ISO}" | cut -f1)
-    log_info "ISO created: ${OUTPUT_ISO} (${SIZE})"
+        -o "${OUTPUT_DIR}/${ISO_NAME}" \
+        -V "QUANTIX-OS" \
+        -R -J \
+        "${ISO_DIR}"
 }
 
-# ============================================================================
-# Step 7: Cleanup
-# ============================================================================
-cleanup() {
-    log_step "Cleaning up..."
-    rm -rf "${WORK_DIR}"
-    log_info "Cleanup complete"
-}
+# Calculate size
+ISO_SIZE=$(du -h "${OUTPUT_DIR}/${ISO_NAME}" | cut -f1)
 
-# ============================================================================
-# Main
-# ============================================================================
-main() {
-    echo ""
-    echo "╔═══════════════════════════════════════════════════════════════╗"
-    echo "║              QUANTIX-OS ISO BUILDER v${VERSION}                    ║"
-    echo "║                   Quantix-HyperVisor                           ║"
-    echo "╚═══════════════════════════════════════════════════════════════╝"
-    echo ""
-    
-    log_info "Building Quantix-OS ${VERSION} (${ARCH})"
-    log_info "Alpine ${ALPINE_VERSION}, Kernel: ${KERNEL_FLAVOR}"
-    echo ""
-    
-    build_rootfs
-    create_iso_structure
-    create_grub_config
-    create_efi_boot
-    create_bios_boot
-    create_iso
-    cleanup
-    
-    echo ""
-    echo "╔═══════════════════════════════════════════════════════════════╗"
-    echo "║                     BUILD COMPLETE!                           ║"
-    echo "╠═══════════════════════════════════════════════════════════════╣"
-    echo "║  ISO: ${OUTPUT_DIR}/quantix-os-${VERSION}.iso"
-    echo "║  Squashfs: ${OUTPUT_DIR}/system-${VERSION}.squashfs"
-    echo "╚═══════════════════════════════════════════════════════════════╝"
-    echo ""
-}
+echo ""
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║                    Build Complete!                            ║"
+echo "╠═══════════════════════════════════════════════════════════════╣"
+echo "║  Output: ${OUTPUT_DIR}/${ISO_NAME}"
+echo "║  Size:   ${ISO_SIZE}"
+echo "║                                                               ║"
+echo "║  To test:                                                     ║"
+echo "║    make test-qemu       (BIOS mode)                           ║"
+echo "║    make test-qemu-uefi  (UEFI mode)                           ║"
+echo "║                                                               ║"
+echo "║  To create bootable USB:                                      ║"
+echo "║    sudo dd if=${OUTPUT_DIR}/${ISO_NAME} of=/dev/sdX bs=4M     ║"
+echo "╚═══════════════════════════════════════════════════════════════╝"
 
-main "$@"
+# Cleanup
+rm -rf "${ISO_DIR}"

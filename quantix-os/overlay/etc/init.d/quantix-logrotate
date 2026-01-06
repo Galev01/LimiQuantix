@@ -1,49 +1,90 @@
 #!/sbin/openrc-run
-# ============================================================================
-# Quantix Log Rotation Service
-# ============================================================================
-# Runs logrotate periodically to manage log file sizes
-# Prevents RAM exhaustion since /var/log is in tmpfs
+# =============================================================================
+# Quantix-OS Log Rotation Service
+# =============================================================================
+# Rotates logs to prevent RAM exhaustion (logs are in tmpfs).
+# =============================================================================
 
-name="quantix-logrotate"
-description="Quantix Log Rotation Timer"
+name="Quantix Log Rotation"
+description="Periodic log rotation for Quantix-OS"
 
 depend() {
+    need localmount
     after quantix-node
-    use logger
 }
 
 start() {
-    ebegin "Starting ${name}"
+    ebegin "Starting $name"
     
-    # Run in background with periodic checks
-    (
-        while true; do
-            # Run logrotate every 5 minutes
-            sleep 300
-            /usr/sbin/logrotate -s /var/lib/logrotate.status /etc/logrotate.conf 2>/dev/null
-        done
-    ) &
+    # Create logrotate config
+    mkdir -p /etc/logrotate.d
     
-    echo $! > /run/quantix-logrotate.pid
-    eend $?
+    cat > /etc/logrotate.d/quantix << 'EOF'
+/var/log/quantix-node.log {
+    size 50M
+    rotate 5
+    compress
+    missingok
+    notifempty
+    copytruncate
 }
 
-stop() {
-    ebegin "Stopping ${name}"
-    if [ -f /run/quantix-logrotate.pid ]; then
-        kill $(cat /run/quantix-logrotate.pid) 2>/dev/null
-        rm -f /run/quantix-logrotate.pid
-    fi
+/var/log/quantix-node.err.log {
+    size 10M
+    rotate 10
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
+
+/var/log/quantix-console.log {
+    size 10M
+    rotate 3
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
+
+/var/log/libvirt/*.log {
+    size 20M
+    rotate 3
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
+
+/var/log/openvswitch/*.log {
+    size 20M
+    rotate 3
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
+EOF
+
+    # Run logrotate every 5 minutes via cron-like mechanism
+    (
+        while true; do
+            sleep 300
+            logrotate /etc/logrotate.d/quantix 2>/dev/null || true
+        done
+    ) &
+    echo $! > /run/quantix-logrotate.pid
+    
     eend 0
 }
 
-status() {
-    if [ -f /run/quantix-logrotate.pid ] && kill -0 $(cat /run/quantix-logrotate.pid) 2>/dev/null; then
-        einfo "${name} is running"
-        return 0
-    else
-        ewarn "${name} is not running"
-        return 1
+stop() {
+    ebegin "Stopping $name"
+    
+    if [ -f /run/quantix-logrotate.pid ]; then
+        kill $(cat /run/quantix-logrotate.pid) 2>/dev/null || true
+        rm -f /run/quantix-logrotate.pid
     fi
+    
+    eend 0
 }

@@ -1,262 +1,193 @@
-#!/bin/sh
-# ============================================================================
+#!/bin/bash
+# =============================================================================
 # Quantix-OS First Boot Script
-# ============================================================================
-# This script runs on first boot after installation to complete setup.
-# It is called by the quantix-firstboot OpenRC service.
-#
-# Tasks:
-# - Generate unique node ID
-# - Create TLS certificates
-# - Initialize storage pools
-# - Configure networking
-# - Start services
-# ============================================================================
+# =============================================================================
+# Runs on first boot to perform initial system configuration.
+# This script is called by the quantix-firstboot OpenRC service.
+# =============================================================================
 
 set -e
 
-# Configuration
-CONFIG_DIR="/quantix"
-CERT_DIR="${CONFIG_DIR}/certificates"
-DATA_DIR="/data"
+MARKER_FILE="/quantix/.setup_complete"
+LOG_FILE="/var/log/quantix-firstboot.log"
 
-# Logging
-log_info() { echo "[FIRSTBOOT] $1"; }
-log_error() { echo "[FIRSTBOOT] ERROR: $1" >&2; }
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
 
-# ============================================================================
-# Generate Node Identity
-# ============================================================================
-generate_node_id() {
-    log_info "Generating node identity..."
+# Check if first boot
+if [ -f "$MARKER_FILE" ]; then
+    log "First boot already completed, skipping..."
+    exit 0
+fi
+
+log "Starting Quantix-OS first boot configuration..."
+
+# -----------------------------------------------------------------------------
+# Generate SSH host keys
+# -----------------------------------------------------------------------------
+generate_ssh_keys() {
+    log "Generating SSH host keys..."
     
-    NODE_ID=$(cat /proc/sys/kernel/random/uuid)
+    if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+        ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q
+    fi
     
-    if [ -f "${CONFIG_DIR}/node.yaml" ]; then
-        sed -i "s/^  id: \"\"/  id: \"${NODE_ID}\"/" "${CONFIG_DIR}/node.yaml"
-    else
-        mkdir -p "${CONFIG_DIR}"
-        cat > "${CONFIG_DIR}/node.yaml" << EOF
+    if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
+        ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q
+    fi
+    
+    if [ ! -f /etc/ssh/ssh_host_ecdsa_key ]; then
+        ssh-keygen -t ecdsa -b 521 -f /etc/ssh/ssh_host_ecdsa_key -N "" -q
+    fi
+    
+    log "SSH host keys generated"
+}
+
+# -----------------------------------------------------------------------------
+# Generate TLS certificates
+# -----------------------------------------------------------------------------
+generate_tls_certs() {
+    log "Generating TLS certificates..."
+    
+    CERT_DIR="/quantix/certificates"
+    mkdir -p "$CERT_DIR"
+    
+    if [ ! -f "$CERT_DIR/server.key" ]; then
+        # Generate private key
+        openssl genrsa -out "$CERT_DIR/server.key" 4096
+        
+        # Get hostname
+        HOSTNAME=$(hostname)
+        
+        # Generate self-signed certificate
+        openssl req -new -x509 \
+            -key "$CERT_DIR/server.key" \
+            -out "$CERT_DIR/server.crt" \
+            -days 3650 \
+            -subj "/CN=${HOSTNAME}/O=Quantix-KVM/OU=Hypervisor" \
+            -addext "subjectAltName=DNS:${HOSTNAME},DNS:localhost,IP:127.0.0.1"
+        
+        chmod 600 "$CERT_DIR/server.key"
+        chmod 644 "$CERT_DIR/server.crt"
+    fi
+    
+    log "TLS certificates generated"
+}
+
+# -----------------------------------------------------------------------------
+# Initialize libvirt
+# -----------------------------------------------------------------------------
+init_libvirt() {
+    log "Initializing libvirt..."
+    
+    # Create default storage pool
+    if ! virsh pool-info default &>/dev/null; then
+        virsh pool-define-as default dir --target /data/vms
+        virsh pool-autostart default
+        virsh pool-start default
+    fi
+    
+    # Create default network (if not using OVS)
+    if ! virsh net-info default &>/dev/null; then
+        cat > /tmp/default-network.xml << 'EOF'
+<network>
+  <name>default</name>
+  <forward mode='nat'>
+    <nat>
+      <port start='1024' end='65535'/>
+    </nat>
+  </forward>
+  <bridge name='virbr0' stp='on' delay='0'/>
+  <ip address='192.168.122.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.122.2' end='192.168.122.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+        virsh net-define /tmp/default-network.xml
+        virsh net-autostart default
+        virsh net-start default
+        rm /tmp/default-network.xml
+    fi
+    
+    log "Libvirt initialized"
+}
+
+# -----------------------------------------------------------------------------
+# Initialize OVS
+# -----------------------------------------------------------------------------
+init_ovs() {
+    log "Initializing Open vSwitch..."
+    
+    # Create integration bridge if not exists
+    if ! ovs-vsctl br-exists br-int 2>/dev/null; then
+        ovs-vsctl add-br br-int
+        log "Created OVS integration bridge: br-int"
+    fi
+    
+    log "Open vSwitch initialized"
+}
+
+# -----------------------------------------------------------------------------
+# Create default configuration
+# -----------------------------------------------------------------------------
+create_default_config() {
+    log "Creating default configuration..."
+    
+    # Create node.yaml if not exists
+    if [ ! -f /quantix/node.yaml ]; then
+        cat > /quantix/node.yaml << EOF
+# Quantix-OS Node Configuration
+# Generated on first boot: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
 node:
-  id: "${NODE_ID}"
+  # Node identifier (generated on first boot)
+  id: "$(cat /proc/sys/kernel/random/uuid)"
+  # Hostname (set via console wizard)
   hostname: "$(hostname)"
-  description: "Quantix Hypervisor Node"
+
+# Network configuration
+network:
+  management_interface: ""
+  use_dhcp: true
+
+# Security settings
+security:
+  ssh_enabled: false
+
+# Cluster settings
+cluster:
+  control_plane_address: ""
+  registration_token: ""
 EOF
+        chmod 600 /quantix/node.yaml
     fi
     
-    log_info "Node ID: ${NODE_ID}"
+    log "Default configuration created"
 }
 
-# ============================================================================
-# Generate TLS Certificates
-# ============================================================================
-generate_certificates() {
-    log_info "Generating TLS certificates..."
-    
-    mkdir -p "${CERT_DIR}"
-    
-    # Get management IP
-    MGMT_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
-    HOSTNAME=$(hostname)
-    
-    # Generate CA key and certificate
-    if [ ! -f "${CERT_DIR}/ca.key" ]; then
-        openssl genrsa -out "${CERT_DIR}/ca.key" 4096 2>/dev/null
-        openssl req -new -x509 -days 3650 \
-            -key "${CERT_DIR}/ca.key" \
-            -out "${CERT_DIR}/ca.crt" \
-            -subj "/CN=Quantix-CA/O=Quantix" 2>/dev/null
-    fi
-    
-    # Generate node key and certificate
-    if [ ! -f "${CERT_DIR}/node.key" ]; then
-        openssl genrsa -out "${CERT_DIR}/node.key" 2048 2>/dev/null
-        
-        # Create CSR config with SANs
-        cat > /tmp/node-csr.conf << EOF
-[req]
-default_bits = 2048
-prompt = no
-default_md = sha256
-distinguished_name = dn
-req_extensions = req_ext
-
-[dn]
-CN = ${HOSTNAME}
-O = Quantix
-
-[req_ext]
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = ${HOSTNAME}
-DNS.2 = ${HOSTNAME}.local
-DNS.3 = localhost
-IP.1 = ${MGMT_IP:-127.0.0.1}
-IP.2 = 127.0.0.1
-EOF
-        
-        # Generate CSR
-        openssl req -new \
-            -key "${CERT_DIR}/node.key" \
-            -out "${CERT_DIR}/node.csr" \
-            -config /tmp/node-csr.conf 2>/dev/null
-        
-        # Sign certificate
-        cat > /tmp/node-ext.conf << EOF
-authorityKeyIdentifier=keyid,issuer
-basicConstraints=CA:FALSE
-keyUsage = digitalSignature, keyEncipherment
-extendedKeyUsage = serverAuth, clientAuth
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = ${HOSTNAME}
-DNS.2 = ${HOSTNAME}.local
-DNS.3 = localhost
-IP.1 = ${MGMT_IP:-127.0.0.1}
-IP.2 = 127.0.0.1
-EOF
-        
-        openssl x509 -req -days 365 \
-            -in "${CERT_DIR}/node.csr" \
-            -CA "${CERT_DIR}/ca.crt" \
-            -CAkey "${CERT_DIR}/ca.key" \
-            -CAcreateserial \
-            -out "${CERT_DIR}/node.crt" \
-            -extfile /tmp/node-ext.conf 2>/dev/null
-        
-        # Cleanup
-        rm -f "${CERT_DIR}/node.csr" /tmp/node-csr.conf /tmp/node-ext.conf
-    fi
-    
-    # Set permissions
-    chmod 600 "${CERT_DIR}"/*.key
-    chmod 644 "${CERT_DIR}"/*.crt
-    
-    log_info "Certificates generated"
-}
-
-# ============================================================================
-# Initialize Storage
-# ============================================================================
-initialize_storage() {
-    log_info "Initializing storage..."
-    
-    # Create storage directories
-    mkdir -p "${DATA_DIR}/vms"
-    mkdir -p "${DATA_DIR}/isos"
-    mkdir -p "${DATA_DIR}/images"
-    mkdir -p "${DATA_DIR}/backups"
-    mkdir -p "${DATA_DIR}/snapshots"
-    
-    # Set permissions
-    chmod 755 "${DATA_DIR}"/*
-    
-    # Initialize libvirt default pool
-    if command -v virsh >/dev/null 2>&1; then
-        # Check if pool exists
-        if ! virsh pool-info default >/dev/null 2>&1; then
-            virsh pool-define-as default dir --target "${DATA_DIR}/vms"
-            virsh pool-autostart default
-            virsh pool-start default
-        fi
-    fi
-    
-    log_info "Storage initialized"
-}
-
-# ============================================================================
-# Initialize Open vSwitch
-# ============================================================================
-initialize_ovs() {
-    log_info "Initializing Open vSwitch..."
-    
-    if command -v ovs-vsctl >/dev/null 2>&1; then
-        # Wait for OVS to be ready
-        local count=0
-        while ! ovs-vsctl show >/dev/null 2>&1; do
-            sleep 1
-            count=$((count + 1))
-            if [ $count -ge 30 ]; then
-                log_error "OVS not ready after 30 seconds"
-                return 1
-            fi
-        done
-        
-        # Create integration bridge
-        ovs-vsctl --may-exist add-br br-int
-        
-        # Set fail-mode to standalone (allows local switching without controller)
-        ovs-vsctl set-fail-mode br-int standalone
-        
-        log_info "OVS initialized with br-int bridge"
-    fi
-}
-
-# ============================================================================
-# Sync Time
-# ============================================================================
-sync_time() {
-    log_info "Synchronizing time..."
-    
-    # Try NTP sync (best effort)
-    if command -v ntpd >/dev/null 2>&1; then
-        ntpd -d -q -n -p pool.ntp.org 2>/dev/null || true
-    elif command -v chronyd >/dev/null 2>&1; then
-        chronyd -q 'server pool.ntp.org iburst' 2>/dev/null || true
-    fi
-    
-    # Set hardware clock
-    hwclock -w 2>/dev/null || true
-    
-    log_info "Time synchronized"
-}
-
-# ============================================================================
-# Complete First Boot
-# ============================================================================
-complete_firstboot() {
-    log_info "Completing first boot setup..."
-    
-    # Remove first boot marker
-    rm -f "${CONFIG_DIR}/.firstboot"
-    
-    # Record installation timestamp
-    date -u +"%Y-%m-%dT%H:%M:%SZ" > "${CONFIG_DIR}/.installed_at"
-    
-    # Record version
-    if [ -f /etc/quantix-release ]; then
-        cp /etc/quantix-release "${CONFIG_DIR}/.version"
-    fi
-    
-    log_info "First boot complete!"
-}
-
-# ============================================================================
+# -----------------------------------------------------------------------------
 # Main
-# ============================================================================
+# -----------------------------------------------------------------------------
+
 main() {
-    log_info "=========================================="
-    log_info "Quantix-OS First Boot Configuration"
-    log_info "=========================================="
+    log "============================================"
+    log "Quantix-OS First Boot Configuration"
+    log "============================================"
     
-    # Check if already configured
-    if [ ! -f "${CONFIG_DIR}/.firstboot" ] && [ -f "${CONFIG_DIR}/node.yaml" ]; then
-        log_info "Already configured, skipping first boot"
-        exit 0
-    fi
+    generate_ssh_keys
+    generate_tls_certs
+    init_libvirt
+    init_ovs
+    create_default_config
     
-    generate_node_id
-    generate_certificates
-    initialize_storage
-    initialize_ovs
-    sync_time
-    complete_firstboot
+    # Note: We don't create the marker file here
+    # The console wizard creates it after user completes setup
     
-    log_info "=========================================="
-    log_info "First boot configuration complete!"
-    log_info "=========================================="
+    log "First boot configuration complete"
+    log "Waiting for user to complete setup wizard..."
 }
 
 main "$@"

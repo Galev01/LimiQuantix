@@ -1,0 +1,43 @@
+[package]
+name = "qx-console"
+version = "0.1.0"
+edition = "2021"
+authors = ["Quantix-KVM Team"]
+description = "Quantix-OS Console TUI - Terminal-based local management interface"
+license = "Apache-2.0"
+
+[dependencies]
+# TUI Framework
+ratatui = "0.29"
+crossterm = "0.28"
+
+# Async runtime
+tokio = { version = "1", features = ["full", "rt-multi-thread"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+
+# Password hashing
+argon2 = "0.5"
+
+# System information
+sysinfo = "0.32"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Random
+rand = "0.8"
+
+# Error handling
+thiserror = "1"
+anyhow = "1"
+
+[[bin]]
+name = "qx-console"
+path = "src/main.rs"

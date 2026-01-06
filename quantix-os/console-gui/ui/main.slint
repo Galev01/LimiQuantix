@@ -1,28 +1,29 @@
-// ============================================================================
-// Quantix-OS Console GUI
-// ============================================================================
-// A clean, modern framebuffer GUI for hypervisor management
-// Inspired by VMware ESXi DCUI with modern design sensibilities
-// ============================================================================
+// =============================================================================
+// Quantix-OS Console GUI - Main UI Definition
+// =============================================================================
+// This file defines the complete UI for the Quantix-OS console (DCUI).
+// Built with Slint for lightweight, native rendering.
+// =============================================================================
 
-import { Button, VerticalBox, HorizontalBox, GridBox, ListView, ProgressIndicator, LineEdit } from "std-widgets.slint";
+import { Button, LineEdit, CheckBox, ComboBox, ProgressIndicator, Spinner } from "std-widgets.slint";
 
-// Color palette - dark theme optimized for server consoles
+// =============================================================================
+// Theme - Dark color scheme optimized for server consoles
+// =============================================================================
 global Theme {
-    // Background colors
+    // Background layers (dark to light)
     out property <color> bg-dark: #0a0e14;
     out property <color> bg-panel: #141a22;
     out property <color> bg-card: #1a222c;
     out property <color> bg-hover: #242d3a;
     out property <color> bg-selected: #2a3645;
     out property <color> bg-input: #0d1117;
-    out property <color> bg-dialog: #1a222cee;
     
     // Text colors
     out property <color> text-primary: #e6edf3;
     out property <color> text-secondary: #8b949e;
     out property <color> text-muted: #6e7681;
-    out property <color> text-placeholder: #484f58;
+    out property <color> text-inverse: #0a0e14;
     
     // Brand colors
     out property <color> accent-blue: #58a6ff;
@@ -30,11 +31,10 @@ global Theme {
     out property <color> accent-yellow: #d29922;
     out property <color> accent-red: #f85149;
     out property <color> accent-purple: #a371f7;
-    out property <color> accent-cyan: #39c5cf;
     
-    // Border
-    out property <color> border: #30363d;
-    out property <color> border-focus: #58a6ff;
+    // Border colors
+    out property <color> border-default: #30363d;
+    out property <color> border-hover: #484f58;
     
     // Font sizes
     out property <length> font-xs: 11px;
@@ -43,14 +43,25 @@ global Theme {
     out property <length> font-lg: 18px;
     out property <length> font-xl: 24px;
     out property <length> font-2xl: 32px;
-    out property <length> font-3xl: 42px;
+    out property <length> font-3xl: 48px;
+    
+    // Spacing
+    out property <length> spacing-xs: 4px;
+    out property <length> spacing-sm: 8px;
+    out property <length> spacing-md: 16px;
+    out property <length> spacing-lg: 24px;
+    out property <length> spacing-xl: 32px;
+    
+    // Border radius
+    out property <length> radius-sm: 4px;
+    out property <length> radius-md: 8px;
+    out property <length> radius-lg: 12px;
 }
 
-// ============================================================================
+// =============================================================================
 // Data Structures
-// ============================================================================
+// =============================================================================
 
-// System status data passed from Rust
 export struct SystemStatus {
     hostname: string,
     ip-address: string,
@@ -66,23 +77,19 @@ export struct SystemStatus {
     ssh-sessions: int,
 }
 
-// Log entry
 export struct LogEntry {
     timestamp: string,
-    level: string,  // "info", "warn", "error"
+    level: string,
     message: string,
 }
 
-// Network interface
 export struct NetworkInterface {
     name: string,
-    ip-address: string,
-    mac-address: string,
-    state: string,  // "up", "down"
-    dhcp: bool,
+    mac: string,
+    ip: string,
+    status: string,
 }
 
-// Installation config
 export struct InstallConfig {
     hostname: string,
     admin-username: string,
@@ -96,61 +103,51 @@ export struct InstallConfig {
     enable-ssh: bool,
 }
 
-// ============================================================================
+// =============================================================================
 // Reusable Components
-// ============================================================================
+// =============================================================================
 
-// Status indicator dot
 component StatusDot inherits Rectangle {
-    in property <string> status: "healthy";
+    in property <string> status;
     
-    width: 12px;
-    height: 12px;
-    border-radius: 6px;
-    background: status == "healthy" ? Theme.accent-green : 
-                status == "warning" ? Theme.accent-yellow : 
-                Theme.accent-red;
-    
-    animate background { duration: 200ms; }
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background: status == "running" ? Theme.accent-green :
+                status == "warning" ? Theme.accent-yellow :
+                status == "error" ? Theme.accent-red :
+                Theme.text-muted;
 }
 
-// Progress bar component
 component ProgressBar inherits Rectangle {
-    in property <float> value: 0;
+    in property <float> value;
     in property <color> bar-color: Theme.accent-blue;
     
     height: 8px;
     border-radius: 4px;
-    background: Theme.bg-dark;
+    background: Theme.bg-input;
     
     Rectangle {
         x: 0;
         y: 0;
+        width: parent.width * clamp(value, 0, 1);
         height: parent.height;
-        width: parent.width * clamp(value / 100, 0, 1);
-        border-radius: 4px;
+        border-radius: parent.border-radius;
         background: bar-color;
-        
-        animate width { duration: 300ms; easing: ease-out; }
     }
 }
 
-// Card container
 component Card inherits Rectangle {
-    in property <string> title: "";
+    in property <string> title;
     
     background: Theme.bg-card;
-    border-radius: 12px;
+    border-radius: Theme.radius-lg;
     border-width: 1px;
-    border-color: Theme.border;
-    
-    drop-shadow-blur: 8px;
-    drop-shadow-offset-y: 2px;
-    drop-shadow-color: #00000033;
+    border-color: Theme.border-default;
     
     VerticalLayout {
-        padding: 20px;
-        spacing: 16px;
+        padding: Theme.spacing-md;
+        spacing: Theme.spacing-sm;
         
         if title != "" : Text {
             text: title;
@@ -163,126 +160,90 @@ component Card inherits Rectangle {
     }
 }
 
-// Menu button
 component MenuButton inherits Rectangle {
-    in property <string> shortcut: "";
-    in property <string> label: "";
+    in property <string> label;
+    in property <string> shortcut;
     in property <bool> selected: false;
-    in property <bool> enabled: true;
     
     callback clicked();
     
-    height: 52px;
+    height: 44px;
+    border-radius: Theme.radius-md;
     background: selected ? Theme.bg-selected : 
-                touch.has-hover && enabled ? Theme.bg-hover : 
-                transparent;
-    border-radius: 8px;
-    opacity: enabled ? 1.0 : 0.5;
-    
-    animate background { duration: 150ms; }
+                touch.has-hover ? Theme.bg-hover : transparent;
     
     touch := TouchArea {
-        enabled: root.enabled;
         clicked => { root.clicked(); }
     }
     
     HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
-        spacing: 16px;
-        alignment: start;
-        
-        Rectangle {
-            width: 44px;
-            height: 32px;
-            border-radius: 6px;
-            background: Theme.bg-dark;
-            border-width: 1px;
-            border-color: Theme.border;
-            
-            Text {
-                text: shortcut;
-                font-size: Theme.font-sm;
-                font-weight: 600;
-                color: Theme.accent-yellow;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-        }
+        padding-left: Theme.spacing-md;
+        padding-right: Theme.spacing-md;
+        alignment: space-between;
         
         Text {
             text: label;
             font-size: Theme.font-md;
-            font-weight: selected ? 600 : 400;
-            color: selected ? Theme.accent-blue : 
-                   enabled ? Theme.text-primary : Theme.text-muted;
+            color: selected ? Theme.accent-blue : Theme.text-primary;
+            vertical-alignment: center;
+        }
+        
+        Text {
+            text: shortcut;
+            font-size: Theme.font-sm;
+            color: Theme.text-muted;
             vertical-alignment: center;
         }
     }
 }
 
-// Action button (for dialogs)
 component ActionButton inherits Rectangle {
-    in property <string> text: "";
+    in property <string> label;
     in property <bool> primary: false;
     in property <bool> danger: false;
     in property <bool> enabled: true;
     
     callback clicked();
     
-    min-width: 120px;
     height: 40px;
-    border-radius: 8px;
-    background: danger ? Theme.accent-red :
-                primary ? Theme.accent-blue : Theme.bg-hover;
-    opacity: enabled ? 1.0 : 0.5;
-    
-    animate background { duration: 150ms; }
+    min-width: 100px;
+    border-radius: Theme.radius-md;
+    background: !enabled ? Theme.bg-panel :
+                danger ? (touch.has-hover ? #dc2626 : Theme.accent-red) :
+                primary ? (touch.has-hover ? #2563eb : Theme.accent-blue) :
+                touch.has-hover ? Theme.bg-hover : Theme.bg-card;
+    border-width: primary || danger ? 0 : 1px;
+    border-color: Theme.border-default;
     
     touch := TouchArea {
         enabled: root.enabled;
         clicked => { root.clicked(); }
     }
     
-    states [
-        pressed when touch.pressed: {
-            root.background: danger ? #d73a49 :
-                             primary ? #4090e0 : Theme.bg-selected;
-        }
-        hovered when touch.has-hover && enabled: {
-            root.background: danger ? #ff6b6b :
-                             primary ? #79b8ff : Theme.bg-selected;
-        }
-    ]
-    
     Text {
-        text: root.text;
+        text: label;
         font-size: Theme.font-md;
-        font-weight: 600;
-        color: primary || danger ? white : Theme.text-primary;
+        font-weight: 500;
+        color: primary || danger ? Theme.text-primary : Theme.text-primary;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
 }
 
-// Text input field
 component InputField inherits Rectangle {
-    in property <string> label: "";
-    in property <string> placeholder: "";
+    in property <string> label;
+    in property <string> placeholder;
     in property <bool> password: false;
-    in-out property <string> value: "";
-    in property <bool> error: false;
-    in property <string> error-message: "";
+    in-out property <string> value;
     
     callback edited(string);
-    callback accepted(string);
     
-    height: label == "" ? 44px : 72px;
+    height: 72px;
     
     VerticalLayout {
-        spacing: 6px;
+        spacing: Theme.spacing-xs;
         
-        if label != "" : Text {
+        Text {
             text: label;
             font-size: Theme.font-sm;
             color: Theme.text-secondary;
@@ -290,99 +251,78 @@ component InputField inherits Rectangle {
         
         Rectangle {
             height: 44px;
-            border-radius: 8px;
+            border-radius: Theme.radius-md;
             background: Theme.bg-input;
             border-width: 1px;
-            border-color: error ? Theme.accent-red :
-                          input.has-focus ? Theme.border-focus : Theme.border;
+            border-color: input.has-focus ? Theme.accent-blue : Theme.border-default;
             
             input := TextInput {
-                x: 12px;
-                width: parent.width - 24px;
+                x: Theme.spacing-md;
+                width: parent.width - Theme.spacing-md * 2;
                 vertical-alignment: center;
                 font-size: Theme.font-md;
                 color: Theme.text-primary;
-                selection-foreground-color: white;
-                selection-background-color: Theme.accent-blue;
                 input-type: password ? InputType.password : InputType.text;
                 text: value;
                 
                 edited => {
-                    root.value = self.text;
+                    value = self.text;
                     root.edited(self.text);
-                }
-                
-                accepted => {
-                    root.accepted(self.text);
                 }
             }
             
             // Placeholder
             if input.text == "" : Text {
-                x: 12px;
+                x: Theme.spacing-md;
                 text: placeholder;
                 font-size: Theme.font-md;
-                color: Theme.text-placeholder;
+                color: Theme.text-muted;
                 vertical-alignment: center;
             }
         }
-        
-        if error && error-message != "" : Text {
-            text: error-message;
-            font-size: Theme.font-xs;
-            color: Theme.accent-red;
-        }
-    }
-    
-    public function set-focus() {
-        input.focus();
     }
 }
 
-// Toggle switch
 component Toggle inherits Rectangle {
-    in property <string> label: "";
-    in-out property <bool> checked: false;
+    in property <string> label;
+    in-out property <bool> checked;
     
     callback toggled(bool);
     
     height: 32px;
     
     HorizontalLayout {
-        spacing: 12px;
+        spacing: Theme.spacing-md;
         alignment: start;
         
         Rectangle {
             width: 48px;
-            height: 26px;
-            border-radius: 13px;
-            background: checked ? Theme.accent-green : Theme.bg-dark;
+            height: 24px;
+            border-radius: 12px;
+            background: checked ? Theme.accent-blue : Theme.bg-input;
             border-width: 1px;
-            border-color: checked ? Theme.accent-green : Theme.border;
+            border-color: checked ? Theme.accent-blue : Theme.border-default;
             
-            animate background { duration: 200ms; }
-            
-            TouchArea {
+            touch := TouchArea {
                 clicked => {
-                    root.checked = !root.checked;
-                    root.toggled(root.checked);
+                    checked = !checked;
+                    root.toggled(checked);
                 }
             }
             
-            // Knob
             Rectangle {
-                x: checked ? parent.width - self.width - 3px : 3px;
-                y: (parent.height - self.height) / 2;
+                x: checked ? parent.width - self.width - 2px : 2px;
+                y: 2px;
                 width: 20px;
                 height: 20px;
                 border-radius: 10px;
-                background: white;
+                background: Theme.text-primary;
                 
-                animate x { duration: 200ms; easing: ease-out; }
+                animate x { duration: 150ms; easing: ease-out; }
             }
         }
         
-        if label != "" : Text {
+        Text {
             text: label;
             font-size: Theme.font-md;
             color: Theme.text-primary;
@@ -391,40 +331,39 @@ component Toggle inherits Rectangle {
     }
 }
 
-// Stat row
-component StatRow inherits HorizontalLayout {
-    in property <string> label: "";
-    in property <string> value: "";
-    in property <color> value-color: Theme.text-primary;
+component StatRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
     
-    spacing: 8px;
+    height: 28px;
     
-    Text {
-        text: label;
-        font-size: Theme.font-md;
-        color: Theme.text-secondary;
-        min-width: 100px;
-    }
-    
-    Text {
-        text: value;
-        font-size: Theme.font-md;
-        font-weight: 500;
-        color: value-color;
+    HorizontalLayout {
+        alignment: space-between;
+        
+        Text {
+            text: label;
+            font-size: Theme.font-sm;
+            color: Theme.text-secondary;
+            vertical-alignment: center;
+        }
+        
+        Text {
+            text: value;
+            font-size: Theme.font-sm;
+            font-weight: 500;
+            color: Theme.text-primary;
+            vertical-alignment: center;
+        }
     }
 }
 
-// Log entry row
 component LogRow inherits Rectangle {
     in property <LogEntry> entry;
     
-    height: 32px;
-    background: transparent;
+    height: 24px;
     
     HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        spacing: 12px;
+        spacing: Theme.spacing-sm;
         
         // Level indicator
         Rectangle {
@@ -433,92 +372,70 @@ component LogRow inherits Rectangle {
             border-radius: 3px;
             background: entry.level == "error" ? Theme.accent-red :
                         entry.level == "warn" ? Theme.accent-yellow :
-                        Theme.accent-green;
-            y: (parent.height - self.height) / 2;
+                        Theme.accent-blue;
+            vertical-alignment: center;
         }
         
-        // Timestamp
         Text {
             text: entry.timestamp;
-            font-size: Theme.font-sm;
+            font-size: Theme.font-xs;
             color: Theme.text-muted;
-            min-width: 70px;
             vertical-alignment: center;
+            min-width: 80px;
         }
         
-        // Message
         Text {
             text: entry.message;
-            font-size: Theme.font-sm;
-            color: entry.level == "error" ? Theme.accent-red :
-                   entry.level == "warn" ? Theme.accent-yellow :
-                   Theme.text-primary;
-            overflow: elide;
+            font-size: Theme.font-xs;
+            color: Theme.text-secondary;
             vertical-alignment: center;
+            overflow: elide;
         }
     }
 }
 
-// Network interface row
 component InterfaceRow inherits Rectangle {
     in property <NetworkInterface> iface;
     in property <bool> selected: false;
     
     callback clicked();
     
-    height: 56px;
-    background: selected ? Theme.bg-selected :
+    height: 60px;
+    border-radius: Theme.radius-md;
+    background: selected ? Theme.bg-selected : 
                 touch.has-hover ? Theme.bg-hover : transparent;
-    border-radius: 8px;
+    border-width: selected ? 2px : 0;
+    border-color: Theme.accent-blue;
     
     touch := TouchArea {
         clicked => { root.clicked(); }
     }
     
     HorizontalLayout {
-        padding: 12px;
-        spacing: 16px;
+        padding: Theme.spacing-md;
+        spacing: Theme.spacing-md;
         
-        // Status dot
-        Rectangle {
-            width: 12px;
-            height: 12px;
-            border-radius: 6px;
-            background: iface.state == "up" ? Theme.accent-green : Theme.accent-red;
-            y: (parent.height - self.height) / 2;
-        }
-        
-        // Interface name
         VerticalLayout {
-            spacing: 2px;
             alignment: center;
-            min-width: 80px;
+            spacing: 2px;
+            
+            HorizontalLayout {
+                spacing: Theme.spacing-sm;
+                
+                StatusDot {
+                    status: iface.status == "up" ? "running" : "error";
+                }
+                
+                Text {
+                    text: iface.name;
+                    font-size: Theme.font-md;
+                    font-weight: 600;
+                    color: Theme.text-primary;
+                }
+            }
             
             Text {
-                text: iface.name;
-                font-size: Theme.font-md;
-                font-weight: 600;
-                color: Theme.text-primary;
-            }
-            Text {
-                text: iface.state == "up" ? "UP" : "DOWN";
-                font-size: Theme.font-xs;
-                color: iface.state == "up" ? Theme.accent-green : Theme.accent-red;
-            }
-        }
-        
-        // IP Address
-        VerticalLayout {
-            spacing: 2px;
-            alignment: center;
-            
-            Text {
-                text: iface.ip-address != "" ? iface.ip-address : "No IP";
-                font-size: Theme.font-md;
-                color: iface.ip-address != "" ? Theme.accent-cyan : Theme.text-muted;
-            }
-            Text {
-                text: iface.dhcp ? "DHCP" : "Static";
+                text: iface.mac;
                 font-size: Theme.font-xs;
                 color: Theme.text-muted;
             }
@@ -526,965 +443,636 @@ component InterfaceRow inherits Rectangle {
         
         Rectangle { }
         
-        // MAC Address
         Text {
-            text: iface.mac-address;
+            text: iface.ip != "" ? iface.ip : "No IP";
             font-size: Theme.font-sm;
-            color: Theme.text-muted;
+            color: iface.ip != "" ? Theme.text-primary : Theme.text-muted;
             vertical-alignment: center;
         }
     }
 }
 
-// ============================================================================
-// Dialog Components
-// ============================================================================
+// =============================================================================
+// Modal Dialogs
+// =============================================================================
 
-// Modal overlay
 component ModalOverlay inherits Rectangle {
-    in property <bool> show: false;
+    in property <bool> visible: false;
     
-    background: #00000099;
-    opacity: show ? 1.0 : 0.0;
+    background: #000000aa;
+    opacity: visible ? 1 : 0;
     
     animate opacity { duration: 200ms; }
-    
-    // Block clicks
-    TouchArea {
-        // Clicking outside does nothing (modal)
-    }
     
     @children
 }
 
-// Authentication dialog
-component AuthDialog inherits ModalOverlay {
+component AuthDialog inherits Rectangle {
+    in property <bool> visible: false;
     in property <string> title: "Authentication Required";
-    in property <string> message: "Enter admin credentials to continue.";
+    in property <string> error-message: "";
     
-    callback authenticate(string, string);
-    callback cancelled();
+    out property <string> username;
+    out property <string> password;
     
-    property <string> username: "";
-    property <string> password: "";
-    property <bool> auth-error: false;
+    callback submit(string, string);
+    callback cancel();
     
-    Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: 420px;
-        height: 340px;
-        border-radius: 16px;
-        background: Theme.bg-card;
-        border-width: 1px;
-        border-color: Theme.border;
-        drop-shadow-blur: 24px;
-        drop-shadow-color: #00000066;
+    if visible : ModalOverlay {
+        visible: true;
         
-        VerticalLayout {
-            padding: 24px;
-            spacing: 20px;
+        TouchArea {
+            clicked => { root.cancel(); }
+        }
+        
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 400px;
+            height: 320px;
+            background: Theme.bg-panel;
+            border-radius: Theme.radius-lg;
+            border-width: 1px;
+            border-color: Theme.border-default;
             
-            // Header
+            TouchArea { }
+            
             VerticalLayout {
-                spacing: 8px;
+                padding: Theme.spacing-lg;
+                spacing: Theme.spacing-md;
                 
                 Text {
                     text: title;
                     font-size: Theme.font-xl;
                     font-weight: 600;
                     color: Theme.text-primary;
+                    horizontal-alignment: center;
+                }
+                
+                InputField {
+                    label: "Username";
+                    placeholder: "admin";
+                    value <=> username;
+                }
+                
+                InputField {
+                    label: "Password";
+                    placeholder: "Enter password";
+                    password: true;
+                    value <=> password;
+                }
+                
+                if error-message != "" : Text {
+                    text: error-message;
+                    font-size: Theme.font-sm;
+                    color: Theme.accent-red;
+                    horizontal-alignment: center;
+                }
+                
+                HorizontalLayout {
+                    spacing: Theme.spacing-md;
+                    alignment: center;
+                    
+                    ActionButton {
+                        label: "Cancel";
+                        clicked => { root.cancel(); }
+                    }
+                    
+                    ActionButton {
+                        label: "Login";
+                        primary: true;
+                        clicked => { root.submit(username, password); }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ConfirmDialog inherits Rectangle {
+    in property <bool> visible: false;
+    in property <string> title: "Confirm Action";
+    in property <string> message: "";
+    in property <bool> danger: false;
+    
+    callback confirm();
+    callback cancel();
+    
+    if visible : ModalOverlay {
+        visible: true;
+        
+        TouchArea {
+            clicked => { root.cancel(); }
+        }
+        
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 400px;
+            height: 200px;
+            background: Theme.bg-panel;
+            border-radius: Theme.radius-lg;
+            border-width: 1px;
+            border-color: Theme.border-default;
+            
+            TouchArea { }
+            
+            VerticalLayout {
+                padding: Theme.spacing-lg;
+                spacing: Theme.spacing-lg;
+                
+                Text {
+                    text: title;
+                    font-size: Theme.font-xl;
+                    font-weight: 600;
+                    color: danger ? Theme.accent-red : Theme.text-primary;
+                    horizontal-alignment: center;
                 }
                 
                 Text {
                     text: message;
                     font-size: Theme.font-md;
                     color: Theme.text-secondary;
+                    horizontal-alignment: center;
                     wrap: word-wrap;
                 }
-            }
-            
-            // Form
-            VerticalLayout {
-                spacing: 12px;
                 
-                username-input := InputField {
-                    label: "Username";
-                    placeholder: "admin";
-                    value: username;
-                    error: auth-error;
+                HorizontalLayout {
+                    spacing: Theme.spacing-md;
+                    alignment: center;
                     
-                    edited(text) => {
-                        username = text;
-                    }
-                }
-                
-                password-input := InputField {
-                    label: "Password";
-                    placeholder: "Enter password";
-                    password: true;
-                    value: password;
-                    error: auth-error;
-                    error-message: auth-error ? "Invalid credentials" : "";
-                    
-                    edited(text) => {
-                        password = text;
+                    ActionButton {
+                        label: "Cancel";
+                        clicked => { root.cancel(); }
                     }
                     
-                    accepted(text) => {
-                        if username != "" && password != "" {
-                            root.authenticate(username, password);
-                        }
+                    ActionButton {
+                        label: "Confirm";
+                        primary: !danger;
+                        danger: danger;
+                        clicked => { root.confirm(); }
                     }
-                }
-            }
-            
-            Rectangle { }
-            
-            // Buttons
-            HorizontalLayout {
-                spacing: 12px;
-                alignment: end;
-                
-                ActionButton {
-                    text: "Cancel";
-                    clicked => {
-                        root.username = "";
-                        root.password = "";
-                        root.auth-error = false;
-                        root.cancelled();
-                    }
-                }
-                
-                ActionButton {
-                    text: "Authenticate";
-                    primary: true;
-                    enabled: username != "" && password != "";
-                    clicked => {
-                        root.authenticate(username, password);
-                    }
-                }
-            }
-        }
-    }
-    
-    public function show-error() {
-        auth-error = true;
-        password = "";
-    }
-    
-    public function reset() {
-        username = "";
-        password = "";
-        auth-error = false;
-    }
-}
-
-// Confirmation dialog
-component ConfirmDialog inherits ModalOverlay {
-    in property <string> title: "Confirm Action";
-    in property <string> message: "";
-    in property <bool> danger: false;
-    in property <string> confirm-text: "Confirm";
-    
-    callback confirmed();
-    callback cancelled();
-    
-    Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: 400px;
-        height: 200px;
-        border-radius: 16px;
-        background: Theme.bg-card;
-        border-width: 1px;
-        border-color: danger ? Theme.accent-red : Theme.border;
-        drop-shadow-blur: 24px;
-        drop-shadow-color: #00000066;
-        
-        VerticalLayout {
-            padding: 24px;
-            spacing: 20px;
-            
-            Text {
-                text: title;
-                font-size: Theme.font-xl;
-                font-weight: 600;
-                color: danger ? Theme.accent-red : Theme.text-primary;
-            }
-            
-            Text {
-                text: message;
-                font-size: Theme.font-md;
-                color: Theme.text-secondary;
-                wrap: word-wrap;
-            }
-            
-            Rectangle { }
-            
-            HorizontalLayout {
-                spacing: 12px;
-                alignment: end;
-                
-                ActionButton {
-                    text: "Cancel";
-                    clicked => { root.cancelled(); }
-                }
-                
-                ActionButton {
-                    text: confirm-text;
-                    primary: !danger;
-                    danger: danger;
-                    clicked => { root.confirmed(); }
                 }
             }
         }
     }
 }
 
-// ============================================================================
-// Screen: Installation Wizard
-// ============================================================================
+// =============================================================================
+// Installation Wizard
+// =============================================================================
 
 component InstallWizard inherits Rectangle {
-    in-out property <int> current-step: 0;
+    in-out property <int> current-step: 1;
+    in property <[NetworkInterface]> interfaces;
+    in-out property <InstallConfig> config;
     
-    // Individual properties instead of struct binding
-    in-out property <string> cfg-hostname: "";
-    in-out property <string> cfg-admin-username: "";
-    in-out property <string> cfg-admin-password: "";
-    in-out property <string> cfg-confirm-password: "";
-    in-out property <string> cfg-network-interface: "";
-    in-out property <bool> cfg-use-dhcp: true;
-    in-out property <string> cfg-static-ip: "";
-    in-out property <string> cfg-gateway: "";
-    in-out property <string> cfg-dns: "";
-    in-out property <bool> cfg-enable-ssh: false;
-    
-    in property <[NetworkInterface]> interfaces: [];
-    
-    callback install-complete(InstallConfig);
-    callback cancelled();
-    
-    property <bool> password-mismatch: cfg-admin-password != cfg-confirm-password && cfg-confirm-password != "";
+    callback next-step();
+    callback prev-step();
+    callback complete(InstallConfig);
     
     background: Theme.bg-dark;
     
     VerticalLayout {
+        padding: Theme.spacing-xl;
+        spacing: Theme.spacing-xl;
         alignment: center;
         
+        // Header
+        VerticalLayout {
+            spacing: Theme.spacing-sm;
+            alignment: center;
+            
+            Text {
+                text: "QUANTIX-OS";
+                font-size: Theme.font-3xl;
+                font-weight: 700;
+                color: Theme.accent-blue;
+                horizontal-alignment: center;
+            }
+            
+            Text {
+                text: "Installation Wizard";
+                font-size: Theme.font-lg;
+                color: Theme.text-secondary;
+                horizontal-alignment: center;
+            }
+        }
+        
+        // Progress indicator
+        HorizontalLayout {
+            alignment: center;
+            spacing: Theme.spacing-md;
+            
+            for i in [1, 2, 3, 4] : Rectangle {
+                width: 40px;
+                height: 40px;
+                border-radius: 20px;
+                background: current-step >= i ? Theme.accent-blue : Theme.bg-card;
+                border-width: 2px;
+                border-color: current-step >= i ? Theme.accent-blue : Theme.border-default;
+                
+                Text {
+                    text: i;
+                    font-size: Theme.font-md;
+                    font-weight: 600;
+                    color: current-step >= i ? Theme.text-primary : Theme.text-muted;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        
+        // Step content
         Rectangle {
-            max-width: 600px;
-            horizontal-stretch: 0;
+            width: 500px;
+            background: Theme.bg-panel;
+            border-radius: Theme.radius-lg;
+            border-width: 1px;
+            border-color: Theme.border-default;
             
             VerticalLayout {
-                spacing: 32px;
-                padding: 40px;
+                padding: Theme.spacing-lg;
+                spacing: Theme.spacing-md;
                 
-                // Header with logo
-                VerticalLayout {
-                    spacing: 12px;
-                    alignment: center;
+                // Step 1: Node Identity
+                if current-step == 1 : VerticalLayout {
+                    spacing: Theme.spacing-md;
                     
-                    // Logo image (copied from frontend/src/assets/PNG-64x64.png)
-                    Image {
-                        source: @image-url("../assets/logo.png");
-                        width: 64px;
-                        height: 64px;
-                        image-fit: contain;
+                    Text {
+                        text: "Step 1: Node Identity";
+                        font-size: Theme.font-xl;
+                        font-weight: 600;
+                        color: Theme.text-primary;
                     }
                     
                     Text {
-                        text: "Quantix-OS Setup";
-                        font-size: Theme.font-2xl;
-                        font-weight: 700;
-                        color: Theme.accent-blue;
-                        horizontal-alignment: center;
-                    }
-                    
-                    Text {
-                        text: "Configure your hypervisor node";
+                        text: "Enter a hostname for this Quantix-OS node.";
                         font-size: Theme.font-md;
                         color: Theme.text-secondary;
-                        horizontal-alignment: center;
+                    }
+                    
+                    InputField {
+                        label: "Hostname";
+                        placeholder: "quantix-01";
+                        value <=> config.hostname;
                     }
                 }
                 
-                // Progress indicator
-                HorizontalLayout {
-                    spacing: 8px;
-                    alignment: center;
+                // Step 2: Admin Account
+                if current-step == 2 : VerticalLayout {
+                    spacing: Theme.spacing-md;
                     
-                    for i in [0, 1, 2, 3] : Rectangle {
-                        width: 60px;
-                        height: 4px;
-                        border-radius: 2px;
-                        background: i <= current-step ? Theme.accent-blue : Theme.bg-hover;
-                        
-                        animate background { duration: 200ms; }
+                    Text {
+                        text: "Step 2: Admin Account";
+                        font-size: Theme.font-xl;
+                        font-weight: 600;
+                        color: Theme.text-primary;
+                    }
+                    
+                    Text {
+                        text: "Create the administrator account for this node.";
+                        font-size: Theme.font-md;
+                        color: Theme.text-secondary;
+                    }
+                    
+                    InputField {
+                        label: "Username";
+                        placeholder: "admin";
+                        value <=> config.admin-username;
+                    }
+                    
+                    InputField {
+                        label: "Password";
+                        placeholder: "Enter password";
+                        password: true;
+                        value <=> config.admin-password;
+                    }
+                    
+                    InputField {
+                        label: "Confirm Password";
+                        placeholder: "Confirm password";
+                        password: true;
+                        value <=> config.confirm-password;
                     }
                 }
                 
-                // Step content
-                Card {
-                    if current-step == 0 : VerticalLayout {
-                        spacing: 16px;
-                        
-                        Text {
-                            text: "Step 1: Node Identity";
-                            font-size: Theme.font-lg;
-                            font-weight: 600;
-                            color: Theme.text-primary;
-                        }
-                        
-                        Text {
-                            text: "Choose a unique hostname for this node.";
-                            font-size: Theme.font-md;
-                            color: Theme.text-secondary;
-                        }
-                        
-                        InputField {
-                            label: "Hostname";
-                            placeholder: "quantix-node-01";
-                            value: cfg-hostname;
-                            
-                            edited(text) => {
-                                cfg-hostname = text;
-                            }
-                        }
+                // Step 3: Network Configuration
+                if current-step == 3 : VerticalLayout {
+                    spacing: Theme.spacing-md;
+                    
+                    Text {
+                        text: "Step 3: Network Configuration";
+                        font-size: Theme.font-xl;
+                        font-weight: 600;
+                        color: Theme.text-primary;
                     }
                     
-                    if current-step == 1 : VerticalLayout {
-                        spacing: 16px;
-                        
-                        Text {
-                            text: "Step 2: Admin Account";
-                            font-size: Theme.font-lg;
-                            font-weight: 600;
-                            color: Theme.text-primary;
-                        }
-                        
-                        Text {
-                            text: "Create an administrator account for console access.";
-                            font-size: Theme.font-md;
-                            color: Theme.text-secondary;
-                        }
-                        
-                        InputField {
-                            label: "Username";
-                            placeholder: "admin";
-                            value: cfg-admin-username;
-                            
-                            edited(text) => {
-                                cfg-admin-username = text;
-                            }
-                        }
-                        
-                        InputField {
-                            label: "Password";
-                            placeholder: "Enter a strong password";
-                            password: true;
-                            value: cfg-admin-password;
-                            
-                            edited(text) => {
-                                cfg-admin-password = text;
-                            }
-                        }
-                        
-                        InputField {
-                            label: "Confirm Password";
-                            placeholder: "Re-enter password";
-                            password: true;
-                            value: cfg-confirm-password;
-                            error: password-mismatch;
-                            error-message: "Passwords do not match";
-                            
-                            edited(text) => {
-                                cfg-confirm-password = text;
-                            }
-                        }
+                    Text {
+                        text: "Select the management network interface.";
+                        font-size: Theme.font-md;
+                        color: Theme.text-secondary;
                     }
                     
-                    if current-step == 2 : VerticalLayout {
-                        spacing: 16px;
-                        
-                        Text {
-                            text: "Step 3: Network Configuration";
-                            font-size: Theme.font-lg;
-                            font-weight: 600;
-                            color: Theme.text-primary;
-                        }
-                        
-                        Text {
-                            text: "Configure the management network interface.";
-                            font-size: Theme.font-md;
-                            color: Theme.text-secondary;
-                        }
-                        
-                        // Interface list
-                        Rectangle {
-                            background: Theme.bg-dark;
-                            border-radius: 8px;
-                            height: 120px;
-                            
-                            VerticalLayout {
-                                padding: 8px;
-                                
-                                for iface[i] in interfaces : InterfaceRow {
-                                    iface: iface;
-                                    selected: iface.name == cfg-network-interface;
-                                    clicked => {
-                                        cfg-network-interface = iface.name;
-                                    }
-                                }
-                            }
-                        }
-                        
-                        Toggle {
-                            label: "Use DHCP";
-                            checked: cfg-use-dhcp;
-                            
-                            toggled(val) => {
-                                cfg-use-dhcp = val;
-                            }
-                        }
-                        
-                        if !cfg-use-dhcp : VerticalLayout {
-                            spacing: 12px;
-                            
-                            InputField {
-                                label: "Static IP (CIDR)";
-                                placeholder: "192.168.1.100/24";
-                                value: cfg-static-ip;
-                                
-                                edited(text) => {
-                                    cfg-static-ip = text;
-                                }
-                            }
-                            
-                            InputField {
-                                label: "Gateway";
-                                placeholder: "192.168.1.1";
-                                value: cfg-gateway;
-                                
-                                edited(text) => {
-                                    cfg-gateway = text;
-                                }
-                            }
-                            
-                            InputField {
-                                label: "DNS Server";
-                                placeholder: "8.8.8.8";
-                                value: cfg-dns;
-                                
-                                edited(text) => {
-                                    cfg-dns = text;
-                                }
-                            }
-                        }
+                    // Interface list
+                    for iface[idx] in interfaces : InterfaceRow {
+                        iface: iface;
+                        selected: config.network-interface == iface.name;
+                        clicked => { config.network-interface = iface.name; }
                     }
                     
-                    if current-step == 3 : VerticalLayout {
-                        spacing: 16px;
+                    Toggle {
+                        label: "Use DHCP";
+                        checked <=> config.use-dhcp;
+                    }
+                    
+                    if !config.use-dhcp : VerticalLayout {
+                        spacing: Theme.spacing-sm;
                         
-                        Text {
-                            text: "Step 4: Security Settings";
-                            font-size: Theme.font-lg;
-                            font-weight: 600;
-                            color: Theme.text-primary;
+                        InputField {
+                            label: "IP Address";
+                            placeholder: "192.168.1.100/24";
+                            value <=> config.static-ip;
                         }
                         
-                        Text {
-                            text: "Configure remote access settings.";
-                            font-size: Theme.font-md;
-                            color: Theme.text-secondary;
+                        InputField {
+                            label: "Gateway";
+                            placeholder: "192.168.1.1";
+                            value <=> config.gateway;
                         }
                         
-                        Rectangle {
-                            height: 80px;
-                            background: Theme.bg-dark;
-                            border-radius: 8px;
-                            
-                            HorizontalLayout {
-                                padding: 16px;
-                                spacing: 16px;
-                                
-                                VerticalLayout {
-                                    spacing: 4px;
-                                    
-                                    Text {
-                                        text: "SSH Access";
-                                        font-size: Theme.font-md;
-                                        font-weight: 600;
-                                        color: Theme.text-primary;
-                                    }
-                                    
-                                    Text {
-                                        text: "Enable SSH for remote administration";
-                                        font-size: Theme.font-sm;
-                                        color: Theme.text-secondary;
-                                    }
-                                }
-                                
-                                Rectangle { }
-                                
-                                Toggle {
-                                    checked: cfg-enable-ssh;
-                                    
-                                    toggled(val) => {
-                                        cfg-enable-ssh = val;
-                                    }
-                                }
-                            }
-                        }
-                        
-                        Rectangle {
-                            background: #d2992233;
-                            border-radius: 8px;
-                            height: 60px;
-                            
-                            HorizontalLayout {
-                                padding: 16px;
-                                spacing: 12px;
-                                
-                                Text {
-                                    text: "⚠";
-                                    font-size: Theme.font-lg;
-                                    color: Theme.accent-yellow;
-                                    vertical-alignment: center;
-                                }
-                                
-                                Text {
-                                    text: "SSH can be enabled later from the console menu.";
-                                    font-size: Theme.font-sm;
-                                    color: Theme.accent-yellow;
-                                    vertical-alignment: center;
-                                    wrap: word-wrap;
-                                }
-                            }
-                        }
-                        
-                        Rectangle { }
-                        
-                        // Summary
-                        Text {
-                            text: "Configuration Summary";
-                            font-size: Theme.font-md;
-                            font-weight: 600;
-                            color: Theme.text-primary;
-                        }
-                        
-                        GridLayout {
-                            spacing: 8px;
-                            
-                            Text { text: "Hostname:"; font-size: Theme.font-sm; color: Theme.text-secondary; }
-                            Text { text: cfg-hostname; font-size: Theme.font-sm; color: Theme.text-primary; }
-                            
-                            Text { text: "Admin User:"; font-size: Theme.font-sm; color: Theme.text-secondary; }
-                            Text { text: cfg-admin-username; font-size: Theme.font-sm; color: Theme.text-primary; }
-                            
-                            Text { text: "Network:"; font-size: Theme.font-sm; color: Theme.text-secondary; }
-                            Text { text: cfg-network-interface + " (" + (cfg-use-dhcp ? "DHCP" : cfg-static-ip) + ")"; font-size: Theme.font-sm; color: Theme.text-primary; }
-                            
-                            Text { text: "SSH:"; font-size: Theme.font-sm; color: Theme.text-secondary; }
-                            Text { text: cfg-enable-ssh ? "Enabled" : "Disabled"; font-size: Theme.font-sm; color: cfg-enable-ssh ? Theme.accent-green : Theme.text-muted; }
+                        InputField {
+                            label: "DNS Server";
+                            placeholder: "8.8.8.8";
+                            value <=> config.dns;
                         }
                     }
                 }
                 
-                // Navigation buttons
-                HorizontalLayout {
-                    spacing: 16px;
-                    alignment: end;
+                // Step 4: Security Settings
+                if current-step == 4 : VerticalLayout {
+                    spacing: Theme.spacing-md;
                     
-                    if current-step > 0 : ActionButton {
-                        text: "← Back";
-                        clicked => { current-step -= 1; }
+                    Text {
+                        text: "Step 4: Security Settings";
+                        font-size: Theme.font-xl;
+                        font-weight: 600;
+                        color: Theme.text-primary;
                     }
                     
-                    Rectangle { }
-                    
-                    if current-step < 3 : ActionButton {
-                        text: "Next →";
-                        primary: true;
-                        enabled: current-step == 0 ? cfg-hostname != "" :
-                                 current-step == 1 ? (cfg-admin-username != "" && cfg-admin-password != "" && !password-mismatch) :
-                                 current-step == 2 ? cfg-network-interface != "" :
-                                 true;
-                        clicked => { current-step += 1; }
+                    Text {
+                        text: "Configure security options for this node.";
+                        font-size: Theme.font-md;
+                        color: Theme.text-secondary;
                     }
                     
-                    if current-step == 3 : ActionButton {
-                        text: "Complete Setup";
-                        primary: true;
-                        clicked => {
-                            root.install-complete({
-                                hostname: cfg-hostname,
-                                admin-username: cfg-admin-username,
-                                admin-password: cfg-admin-password,
-                                confirm-password: cfg-confirm-password,
-                                network-interface: cfg-network-interface,
-                                use-dhcp: cfg-use-dhcp,
-                                static-ip: cfg-static-ip,
-                                gateway: cfg-gateway,
-                                dns: cfg-dns,
-                                enable-ssh: cfg-enable-ssh,
-                            });
+                    Toggle {
+                        label: "Enable SSH Access";
+                        checked <=> config.enable-ssh;
+                    }
+                    
+                    if config.enable-ssh : Text {
+                        text: "⚠️ SSH will be enabled. Ensure you use a strong password.";
+                        font-size: Theme.font-sm;
+                        color: Theme.accent-yellow;
+                    }
+                    
+                    // Summary
+                    Rectangle {
+                        background: Theme.bg-card;
+                        border-radius: Theme.radius-md;
+                        
+                        VerticalLayout {
+                            padding: Theme.spacing-md;
+                            spacing: Theme.spacing-sm;
+                            
+                            Text {
+                                text: "Summary";
+                                font-size: Theme.font-md;
+                                font-weight: 600;
+                                color: Theme.text-primary;
+                            }
+                            
+                            StatRow { label: "Hostname"; value: config.hostname; }
+                            StatRow { label: "Username"; value: config.admin-username; }
+                            StatRow { label: "Network"; value: config.network-interface; }
+                            StatRow { label: "DHCP"; value: config.use-dhcp ? "Yes" : "No"; }
+                            StatRow { label: "SSH"; value: config.enable-ssh ? "Enabled" : "Disabled"; }
                         }
                     }
                 }
             }
         }
+        
+        // Navigation buttons
+        HorizontalLayout {
+            alignment: center;
+            spacing: Theme.spacing-md;
+            
+            if current-step > 1 : ActionButton {
+                label: "Back";
+                clicked => { root.prev-step(); }
+            }
+            
+            if current-step < 4 : ActionButton {
+                label: "Next";
+                primary: true;
+                clicked => { root.next-step(); }
+            }
+            
+            if current-step == 4 : ActionButton {
+                label: "Complete Setup";
+                primary: true;
+                clicked => { root.complete(config); }
+            }
+        }
     }
 }
 
-// ============================================================================
-// Screen: Main Dashboard
-// ============================================================================
+// =============================================================================
+// Main Dashboard
+// =============================================================================
 
 component MainScreen inherits Rectangle {
     in property <SystemStatus> status;
-    in property <[LogEntry]> logs: [];
-    in property <int> error-count: 0;
-    in property <int> warning-count: 0;
-    in-out property <int> selected-menu: 0;
+    in property <[LogEntry]> logs;
     
-    callback menu-selected(int);
+    callback menu-action(string);
     
     background: Theme.bg-dark;
     
-    VerticalLayout {
-        padding: 24px;
-        spacing: 20px;
-        
-        // ========== Header ==========
-        HorizontalLayout {
-            spacing: 16px;
-            alignment: space-between;
-            
-            // Left: Branding
-            HorizontalLayout {
-                spacing: 16px;
-                alignment: start;
-                
-                Text {
-                    text: "QUANTIX-OS";
-                    font-size: Theme.font-2xl;
-                    font-weight: 700;
-                    color: Theme.accent-blue;
-                    vertical-alignment: center;
-                }
-                
-                Rectangle {
-                    width: 1px;
-                    height: 24px;
-                    background: Theme.border;
-                }
-                
-                Text {
-                    text: "v" + status.version;
-                    font-size: Theme.font-md;
-                    color: Theme.text-muted;
-                    vertical-alignment: center;
-                }
-            }
-            
-            // Right: Health status
-            HorizontalLayout {
-                spacing: 12px;
-                alignment: end;
-                
-                // SSH Status
-                HorizontalLayout {
-                    spacing: 6px;
-                    
-                    Text {
-                        text: "SSH:";
-                        font-size: Theme.font-sm;
-                        color: Theme.text-muted;
-                        vertical-alignment: center;
-                    }
-                    
-                    Text {
-                        text: status.ssh-enabled ? "ON" : "OFF";
-                        font-size: Theme.font-sm;
-                        font-weight: 600;
-                        color: status.ssh-enabled ? Theme.accent-green : Theme.text-muted;
-                        vertical-alignment: center;
-                    }
-                    
-                    if status.ssh-sessions > 0 : Text {
-                        text: "(" + status.ssh-sessions + ")";
-                        font-size: Theme.font-sm;
-                        color: Theme.accent-yellow;
-                        vertical-alignment: center;
-                    }
-                }
-                
-                Rectangle {
-                    width: 1px;
-                    height: 20px;
-                    background: Theme.border;
-                }
-                
-                StatusDot {
-                    status: error-count > 0 ? "error" : 
-                            warning-count > 0 ? "warning" : "healthy";
-                }
-                
-                Text {
-                    text: error-count > 0 ? error-count + " errors" :
-                          warning-count > 0 ? warning-count + " warnings" :
-                          "Healthy";
-                    font-size: Theme.font-md;
-                    font-weight: 500;
-                    color: error-count > 0 ? Theme.accent-red :
-                           warning-count > 0 ? Theme.accent-yellow :
-                           Theme.accent-green;
-                    vertical-alignment: center;
-                }
-            }
-        }
-        
-        // ========== Node Info Bar ==========
+    HorizontalLayout {
+        // Left panel - Status
         Rectangle {
-            background: Theme.bg-panel;
-            border-radius: 12px;
-            height: 56px;
-            border-width: 1px;
-            border-color: Theme.border;
+            width: 60%;
             
-            HorizontalLayout {
-                padding: 20px;
-                spacing: 40px;
+            VerticalLayout {
+                padding: Theme.spacing-lg;
+                spacing: Theme.spacing-lg;
                 
+                // Header
                 HorizontalLayout {
-                    spacing: 8px;
-                    Text { text: "Node:"; font-size: Theme.font-md; color: Theme.text-secondary; vertical-alignment: center; }
-                    Text { text: status.hostname; font-size: Theme.font-md; font-weight: 600; color: Theme.text-primary; vertical-alignment: center; }
-                }
-                
-                HorizontalLayout {
-                    spacing: 8px;
-                    Text { text: "Status:"; font-size: Theme.font-md; color: Theme.text-secondary; vertical-alignment: center; }
-                    Text { text: status.cluster-status; font-size: Theme.font-md; font-weight: 600; color: Theme.accent-yellow; vertical-alignment: center; }
-                }
-                
-                HorizontalLayout {
-                    spacing: 8px;
-                    Text { text: "IP:"; font-size: Theme.font-md; color: Theme.text-secondary; vertical-alignment: center; }
-                    Text { text: status.ip-address; font-size: Theme.font-md; font-weight: 600; color: Theme.accent-cyan; vertical-alignment: center; }
-                }
-                
-                Rectangle { }
-                
-                HorizontalLayout {
-                    spacing: 8px;
-                    Text { text: "Uptime:"; font-size: Theme.font-md; color: Theme.text-secondary; vertical-alignment: center; }
-                    Text { text: status.uptime; font-size: Theme.font-md; color: Theme.text-primary; vertical-alignment: center; }
-                }
-            }
-        }
-        
-        // ========== Main Content ==========
-        HorizontalLayout {
-            spacing: 20px;
-            
-            // Left: Menu
-            Card {
-                title: "Menu";
-                width: 300px;
-                
-                VerticalLayout {
-                    spacing: 4px;
+                    alignment: space-between;
                     
-                    MenuButton {
-                        shortcut: "F2";
-                        label: "Configure Network";
-                        selected: selected-menu == 0;
-                        clicked => { menu-selected(0); }
-                    }
-                    
-                    MenuButton {
-                        shortcut: "F3";
-                        label: "SSH Management";
-                        selected: selected-menu == 1;
-                        clicked => { menu-selected(1); }
-                    }
-                    
-                    MenuButton {
-                        shortcut: "F4";
-                        label: "Join Cluster";
-                        selected: selected-menu == 2;
-                        clicked => { menu-selected(2); }
-                    }
-                    
-                    MenuButton {
-                        shortcut: "F5";
-                        label: "Restart Services";
-                        selected: selected-menu == 3;
-                        clicked => { menu-selected(3); }
-                    }
-                    
-                    MenuButton {
-                        shortcut: "F7";
-                        label: "Diagnostics";
-                        selected: selected-menu == 4;
-                        clicked => { menu-selected(4); }
-                    }
-                    
-                    MenuButton {
-                        shortcut: "F10";
-                        label: "Shutdown / Reboot";
-                        selected: selected-menu == 5;
-                        clicked => { menu-selected(5); }
-                    }
-                    
-                    Rectangle {
-                        height: 1px;
-                        background: Theme.border;
-                    }
-                    
-                    MenuButton {
-                        shortcut: "F12";
-                        label: "Emergency Shell";
-                        selected: selected-menu == 6;
-                        clicked => { menu-selected(6); }
-                    }
-                }
-            }
-            
-            // Center: System Status
-            Card {
-                title: "System Status";
-                
-                VerticalLayout {
-                    spacing: 20px;
-                    
-                    // CPU
                     VerticalLayout {
-                        spacing: 8px;
+                        spacing: Theme.spacing-xs;
                         
-                        HorizontalLayout {
-                            Text { text: "CPU"; font-size: Theme.font-md; color: Theme.text-secondary; }
-                            Rectangle { }
-                            Text { 
-                                text: round(status.cpu-percent) + "%"; 
-                                font-size: Theme.font-md; 
-                                font-weight: 600;
-                                color: status.cpu-percent > 90 ? Theme.accent-red :
-                                       status.cpu-percent > 70 ? Theme.accent-yellow :
-                                       Theme.accent-green;
-                            }
-                        }
-                        
-                        ProgressBar {
-                            value: status.cpu-percent;
-                            bar-color: status.cpu-percent > 90 ? Theme.accent-red :
-                                       status.cpu-percent > 70 ? Theme.accent-yellow :
-                                       Theme.accent-green;
-                        }
-                    }
-                    
-                    // Memory
-                    VerticalLayout {
-                        spacing: 8px;
-                        
-                        HorizontalLayout {
-                            Text { text: "Memory"; font-size: Theme.font-md; color: Theme.text-secondary; }
-                            Rectangle { }
-                            Text { 
-                                text: round(status.memory-percent) + "%"; 
-                                font-size: Theme.font-md;
-                                font-weight: 600;
-                                color: status.memory-percent > 90 ? Theme.accent-red :
-                                       status.memory-percent > 80 ? Theme.accent-yellow :
-                                       Theme.accent-green;
-                            }
-                        }
-                        
-                        ProgressBar {
-                            value: status.memory-percent;
-                            bar-color: status.memory-percent > 90 ? Theme.accent-red :
-                                       status.memory-percent > 80 ? Theme.accent-yellow :
-                                       Theme.accent-green;
+                        Text {
+                            text: "QUANTIX-OS";
+                            font-size: Theme.font-2xl;
+                            font-weight: 700;
+                            color: Theme.accent-blue;
                         }
                         
                         Text {
-                            text: status.memory-used + " / " + status.memory-total;
+                            text: "v" + status.version;
                             font-size: Theme.font-sm;
                             color: Theme.text-muted;
                         }
                     }
                     
+                    // Cluster status badge
                     Rectangle {
-                        height: 1px;
-                        background: Theme.border;
-                    }
-                    
-                    // Stats
-                    StatRow { label: "VMs Running"; value: status.vm-count + ""; value-color: Theme.accent-blue; }
-                    StatRow { label: "Uptime"; value: status.uptime; }
-                    
-                    Rectangle {
-                        height: 1px;
-                        background: Theme.border;
-                    }
-                    
-                    // Management URL
-                    VerticalLayout {
-                        spacing: 6px;
+                        width: 140px;
+                        height: 32px;
+                        border-radius: Theme.radius-md;
+                        background: status.cluster-status == "Cluster Member" ? 
+                                    Theme.accent-green : Theme.bg-card;
                         
-                        Text {
-                            text: "Management URL";
-                            font-size: Theme.font-sm;
-                            color: Theme.text-secondary;
-                        }
-                        
-                        Text {
-                            text: status.ip-address != "Not configured" ? 
-                                  "https://" + status.ip-address + ":8443" :
-                                  "Network not configured";
-                            font-size: Theme.font-md;
-                            font-weight: 500;
-                            color: status.ip-address != "Not configured" ? 
-                                   Theme.accent-cyan : Theme.accent-red;
+                        HorizontalLayout {
+                            padding-left: Theme.spacing-sm;
+                            padding-right: Theme.spacing-sm;
+                            spacing: Theme.spacing-xs;
+                            alignment: center;
+                            
+                            StatusDot {
+                                status: status.cluster-status == "Cluster Member" ? 
+                                        "running" : "warning";
+                            }
+                            
+                            Text {
+                                text: status.cluster-status;
+                                font-size: Theme.font-sm;
+                                font-weight: 500;
+                                color: Theme.text-primary;
+                            }
                         }
                     }
                 }
-            }
-            
-            // Right: Recent Logs
-            Card {
-                title: "Recent Logs";
-                width: 420px;
                 
-                VerticalLayout {
-                    spacing: 8px;
+                // System info card
+                Card {
+                    title: "System Information";
                     
-                    // Log stats
+                    StatRow { label: "Hostname"; value: status.hostname; }
+                    StatRow { label: "IP Address"; value: status.ip-address; }
+                    StatRow { label: "Uptime"; value: status.uptime; }
+                    StatRow { label: "VMs Running"; value: status.vm-count; }
+                }
+                
+                // Resource usage
+                Card {
+                    title: "Resource Usage";
+                    
+                    VerticalLayout {
+                        spacing: Theme.spacing-md;
+                        
+                        // CPU
+                        VerticalLayout {
+                            spacing: Theme.spacing-xs;
+                            
+                            HorizontalLayout {
+                                alignment: space-between;
+                                
+                                Text {
+                                    text: "CPU";
+                                    font-size: Theme.font-sm;
+                                    color: Theme.text-secondary;
+                                }
+                                
+                                Text {
+                                    text: round(status.cpu-percent) + "%";
+                                    font-size: Theme.font-sm;
+                                    font-weight: 500;
+                                    color: Theme.text-primary;
+                                }
+                            }
+                            
+                            ProgressBar {
+                                value: status.cpu-percent / 100;
+                                bar-color: status.cpu-percent > 80 ? Theme.accent-red :
+                                          status.cpu-percent > 60 ? Theme.accent-yellow :
+                                          Theme.accent-blue;
+                            }
+                        }
+                        
+                        // Memory
+                        VerticalLayout {
+                            spacing: Theme.spacing-xs;
+                            
+                            HorizontalLayout {
+                                alignment: space-between;
+                                
+                                Text {
+                                    text: "Memory";
+                                    font-size: Theme.font-sm;
+                                    color: Theme.text-secondary;
+                                }
+                                
+                                Text {
+                                    text: round(status.memory-percent) + "% (" + 
+                                          status.memory-used + " / " + status.memory-total + ")";
+                                    font-size: Theme.font-sm;
+                                    font-weight: 500;
+                                    color: Theme.text-primary;
+                                }
+                            }
+                            
+                            ProgressBar {
+                                value: status.memory-percent / 100;
+                                bar-color: status.memory-percent > 80 ? Theme.accent-red :
+                                          status.memory-percent > 60 ? Theme.accent-yellow :
+                                          Theme.accent-green;
+                            }
+                        }
+                    }
+                }
+                
+                // SSH Status
+                Card {
+                    title: "SSH Access";
+                    
                     HorizontalLayout {
-                        spacing: 20px;
+                        alignment: space-between;
                         
                         HorizontalLayout {
-                            spacing: 6px;
-                            StatusDot { status: "error"; width: 8px; height: 8px; }
-                            Text { text: error-count + " errors"; font-size: Theme.font-sm; color: Theme.text-secondary; }
+                            spacing: Theme.spacing-sm;
+                            
+                            StatusDot {
+                                status: status.ssh-enabled ? "running" : "error";
+                            }
+                            
+                            Text {
+                                text: status.ssh-enabled ? "Enabled" : "Disabled";
+                                font-size: Theme.font-md;
+                                color: Theme.text-primary;
+                                vertical-alignment: center;
+                            }
                         }
                         
-                        HorizontalLayout {
-                            spacing: 6px;
-                            StatusDot { status: "warning"; width: 8px; height: 8px; }
-                            Text { text: warning-count + " warnings"; font-size: Theme.font-sm; color: Theme.text-secondary; }
+                        if status.ssh-enabled : Text {
+                            text: status.ssh-sessions + " active session(s)";
+                            font-size: Theme.font-sm;
+                            color: Theme.text-secondary;
+                            vertical-alignment: center;
                         }
                     }
+                }
+                
+                // Recent logs
+                Card {
+                    title: "Recent Activity";
                     
-                    Rectangle {
-                        height: 1px;
-                        background: Theme.border;
-                    }
-                    
-                    // Log list
                     for entry in logs : LogRow {
                         entry: entry;
                     }
@@ -1492,234 +1080,168 @@ component MainScreen inherits Rectangle {
             }
         }
         
-        // ========== Footer ==========
+        // Right panel - Menu
         Rectangle {
-            height: 36px;
+            width: 40%;
+            background: Theme.bg-panel;
             
-            HorizontalLayout {
-                alignment: center;
-                spacing: 32px;
+            VerticalLayout {
+                padding: Theme.spacing-lg;
+                spacing: Theme.spacing-sm;
                 
-                Text { text: "[↑↓] Navigate"; font-size: Theme.font-sm; color: Theme.text-muted; }
-                Text { text: "[Enter] Select"; font-size: Theme.font-sm; color: Theme.text-muted; }
-                Text { text: "[F3] SSH"; font-size: Theme.font-sm; color: Theme.text-muted; }
-                Text { text: "[F7] Diagnostics"; font-size: Theme.font-sm; color: Theme.text-muted; }
-                Text { text: "[F12] Shell"; font-size: Theme.font-sm; color: Theme.text-muted; }
+                Text {
+                    text: "Management Menu";
+                    font-size: Theme.font-lg;
+                    font-weight: 600;
+                    color: Theme.text-primary;
+                }
+                
+                Rectangle { height: Theme.spacing-md; }
+                
+                MenuButton {
+                    label: "Configure Network";
+                    shortcut: "F2";
+                    clicked => { root.menu-action("network"); }
+                }
+                
+                MenuButton {
+                    label: "SSH Management";
+                    shortcut: "F3";
+                    clicked => { root.menu-action("ssh"); }
+                }
+                
+                MenuButton {
+                    label: "Join Cluster";
+                    shortcut: "F4";
+                    clicked => { root.menu-action("cluster"); }
+                }
+                
+                MenuButton {
+                    label: "Restart Services";
+                    shortcut: "F5";
+                    clicked => { root.menu-action("services"); }
+                }
+                
+                MenuButton {
+                    label: "View Diagnostics";
+                    shortcut: "F7";
+                    clicked => { root.menu-action("diagnostics"); }
+                }
+                
+                Rectangle { }
+                
+                MenuButton {
+                    label: "Shutdown / Reboot";
+                    shortcut: "F10";
+                    clicked => { root.menu-action("power"); }
+                }
+                
+                MenuButton {
+                    label: "Emergency Shell";
+                    shortcut: "F12";
+                    clicked => { root.menu-action("shell"); }
+                }
+                
+                Rectangle { }
+                
+                // Management URL
+                Rectangle {
+                    background: Theme.bg-card;
+                    border-radius: Theme.radius-md;
+                    
+                    VerticalLayout {
+                        padding: Theme.spacing-md;
+                        spacing: Theme.spacing-xs;
+                        
+                        Text {
+                            text: "Management URL";
+                            font-size: Theme.font-sm;
+                            color: Theme.text-muted;
+                        }
+                        
+                        Text {
+                            text: "https://" + status.ip-address + ":8443";
+                            font-size: Theme.font-md;
+                            font-weight: 500;
+                            color: Theme.accent-blue;
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-// ============================================================================
-// Main Window
-// ============================================================================
+// =============================================================================
+// Main Application Window
+// =============================================================================
 
-export component MainWindow inherits Window {
+export component AppWindow inherits Window {
     title: "Quantix-OS Console";
     background: Theme.bg-dark;
-    default-font-size: Theme.font-md;
     
-    // Screen state
-    in property <string> current-screen: "main";  // "install", "main"
+    // Properties
+    in property <bool> show-wizard: true;
+    in property <int> wizard-step: 1;
+    in property <[NetworkInterface]> interfaces;
+    in-out property <InstallConfig> install-config;
+    in property <SystemStatus> system-status;
+    in property <[LogEntry]> log-entries;
     
-    // Properties from Rust
-    in property <SystemStatus> status: {
-        hostname: "quantix-node",
-        ip-address: "Not configured",
-        cluster-status: "Standalone",
-        cpu-percent: 0,
-        memory-percent: 0,
-        memory-used: "0 B",
-        memory-total: "0 B",
-        vm-count: 0,
-        uptime: "0m",
-        version: "1.0.0",
-        ssh-enabled: false,
-        ssh-sessions: 0,
-    };
-    
-    in property <[LogEntry]> logs: [];
-    in property <[NetworkInterface]> interfaces: [];
-    in property <int> error-count: 0;
-    in property <int> warning-count: 0;
-    in-out property <int> selected-menu: 0;
-    
-    // Dialog visibility
-    in-out property <bool> show-auth-dialog: false;
-    in-out property <bool> show-confirm-dialog: false;
+    // Dialog state
+    in property <bool> show-auth-dialog: false;
+    in property <string> auth-dialog-title: "Authentication Required";
+    in property <string> auth-error: "";
+    in property <bool> show-confirm-dialog: false;
     in property <string> confirm-title: "";
     in property <string> confirm-message: "";
     in property <bool> confirm-danger: false;
     
-    // Install wizard properties (individual instead of struct)
-    in-out property <string> install-hostname: "";
-    in-out property <string> install-admin-username: "";
-    in-out property <string> install-admin-password: "";
-    in-out property <string> install-confirm-password: "";
-    in-out property <string> install-network-interface: "";
-    in-out property <bool> install-use-dhcp: true;
-    in-out property <string> install-static-ip: "";
-    in-out property <string> install-gateway: "";
-    in-out property <string> install-dns: "";
-    in-out property <bool> install-enable-ssh: false;
-    
-    // Callbacks to Rust
-    callback menu-selected(int);
-    callback refresh-requested();
-    callback authenticate(string, string);
-    callback auth-cancelled();
+    // Callbacks
+    callback wizard-next();
+    callback wizard-prev();
+    callback wizard-complete(InstallConfig);
+    callback menu-action(string);
+    callback auth-submit(string, string);
+    callback auth-cancel();
     callback confirm-action();
-    callback cancel-action();
-    callback install-complete(InstallConfig);
+    callback confirm-cancel();
     
-    // Main content layer - Install Wizard (no FocusScope interference)
-    if current-screen == "install" : InstallWizard {
-        cfg-hostname <=> install-hostname;
-        cfg-admin-username <=> install-admin-username;
-        cfg-admin-password <=> install-admin-password;
-        cfg-confirm-password <=> install-confirm-password;
-        cfg-network-interface <=> install-network-interface;
-        cfg-use-dhcp <=> install-use-dhcp;
-        cfg-static-ip <=> install-static-ip;
-        cfg-gateway <=> install-gateway;
-        cfg-dns <=> install-dns;
-        cfg-enable-ssh <=> install-enable-ssh;
+    // Main content
+    if show-wizard : InstallWizard {
+        current-step <=> wizard-step;
         interfaces: interfaces;
+        config <=> install-config;
         
-        install-complete(config) => {
-            root.install-complete(config);
-        }
+        next-step => { root.wizard-next(); }
+        prev-step => { root.wizard-prev(); }
+        complete(config) => { root.wizard-complete(config); }
     }
     
-    if current-screen == "main" : MainScreen {
-        status: status;
-        logs: logs;
-        error-count: error-count;
-        warning-count: warning-count;
-        selected-menu <=> selected-menu;
+    if !show-wizard : MainScreen {
+        status: system-status;
+        logs: log-entries;
         
-        menu-selected(index) => {
-            root.menu-selected(index);
-        }
+        menu-action(action) => { root.menu-action(action); }
     }
     
-    // Keyboard navigation - ONLY on main screen
-    // Placed after MainScreen so it overlays for keyboard shortcuts
-    if current-screen == "main" : FocusScope {
-        width: 100%;
-        height: 100%;
+    // Dialogs
+    AuthDialog {
+        visible: show-auth-dialog;
+        title: auth-dialog-title;
+        error-message: auth-error;
         
-        key-pressed(event) => {
-            // Handle Escape for dialogs
-            if show-auth-dialog {
-                if event.text == Key.Escape {
-                    auth-cancelled();
-                    return accept;
-                }
-                return reject;
-            }
-            if show-confirm-dialog {
-                if event.text == Key.Escape {
-                    cancel-action();
-                    return accept;
-                }
-                return reject;
-            }
-            
-            // Arrow key navigation
-            if event.text == Key.UpArrow {
-                if selected-menu > 0 {
-                    selected-menu -= 1;
-                }
-                return accept;
-            }
-            if event.text == Key.DownArrow {
-                if selected-menu < 6 {
-                    selected-menu += 1;
-                }
-                return accept;
-            }
-            if event.text == Key.Return {
-                menu-selected(selected-menu);
-                return accept;
-            }
-            
-            // F-key shortcuts
-            if event.text == Key.F2 {
-                selected-menu = 0;
-                menu-selected(0);
-                return accept;
-            }
-            if event.text == Key.F3 {
-                selected-menu = 1;
-                menu-selected(1);
-                return accept;
-            }
-            if event.text == Key.F4 {
-                selected-menu = 2;
-                menu-selected(2);
-                return accept;
-            }
-            if event.text == Key.F5 {
-                selected-menu = 3;
-                menu-selected(3);
-                return accept;
-            }
-            if event.text == Key.F7 {
-                selected-menu = 4;
-                menu-selected(4);
-                return accept;
-            }
-            if event.text == Key.F10 {
-                selected-menu = 5;
-                menu-selected(5);
-                return accept;
-            }
-            if event.text == Key.F12 {
-                selected-menu = 6;
-                menu-selected(6);
-                return accept;
-            }
-            
-            return reject;
-        }
+        submit(user, pass) => { root.auth-submit(user, pass); }
+        cancel => { root.auth-cancel(); }
     }
     
-    // Auth dialog layer
-    auth-dialog := AuthDialog {
-        show: show-auth-dialog;
-        
-        authenticate(user, pass) => {
-            root.authenticate(user, pass);
-        }
-        
-        cancelled => {
-            root.auth-cancelled();
-        }
-    }
-    
-    // Confirm dialog layer
     ConfirmDialog {
-        show: show-confirm-dialog;
+        visible: show-confirm-dialog;
         title: confirm-title;
         message: confirm-message;
         danger: confirm-danger;
         
-        confirmed => {
-            root.confirm-action();
-        }
-        
-        cancelled => {
-            root.cancel-action();
-        }
-    }
-    
-    // Public functions
-    public function show-auth-error() {
-        auth-dialog.show-error();
-    }
-    
-    public function reset-auth() {
-        auth-dialog.reset();
+        confirm => { root.confirm-action(); }
+        cancel => { root.confirm-cancel(); }
     }
 }

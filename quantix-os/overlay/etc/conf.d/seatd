@@ -1,9 +1,0 @@
-# /etc/conf.d/seatd - Configuration for seatd service
-# seatd is required for Slint's LinuxKMS backend to access input devices
-
-# Group that can access the seat
-# Use "root" so the console GUI (running as root) can access it
-SEATD_OPTS="-g root"
-
-# Log level (error, info, debug, silent)
-# SEATD_LOGLEVEL="-l info"

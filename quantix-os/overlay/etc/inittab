@@ -1,66 +1,26 @@
-# /etc/inittab - Quantix-OS Init Configuration
-# ============================================================================
-# This inittab is designed for an appliance-style hypervisor:
-# - No traditional login prompts
-# - TTY1 runs our Slint GUI console (primary) or TUI console (fallback)
-# - Emergency shell available via F12 or serial
-# ============================================================================
+# /etc/inittab - Quantix-OS init configuration
+#
+# This inittab is designed for a headless hypervisor with a graphical console.
+# TTY1 runs the Quantix Console (Slint GUI or TUI fallback).
+# Other TTYs are disabled for security.
 
 # Default runlevel
 ::sysinit:/sbin/openrc sysinit
 ::sysinit:/sbin/openrc boot
 ::wait:/sbin/openrc default
 
-# ---------------------------------------------------------------------------
-# TTY Configuration
-# ---------------------------------------------------------------------------
-
-# TTY1: Quantix Console GUI (Slint) with TUI fallback
-# Tries GUI first, falls back to TUI if no framebuffer/KMS available
+# TTY1: Quantix Console (GUI/TUI)
+# The launcher script tries GUI first, falls back to TUI, then getty
 tty1::respawn:/usr/local/bin/qx-console-launcher
 
-# TTY2: Emergency debug shell (no login required)
-# Access with Alt+F2 during boot or from Slint
-tty2::respawn:/bin/sh
+# TTY2: Emergency shell (disabled by default, enabled via console menu)
+# tty2::respawn:/sbin/getty 38400 tty2
 
-# TTY3-6: Disabled by default (security)
-# To enable for debugging, uncomment:
-# tty3::respawn:/sbin/getty 38400 tty3
-# tty4::respawn:/sbin/getty 38400 tty4
-# tty5::respawn:/sbin/getty 38400 tty5
-# tty6::respawn:/sbin/getty 38400 tty6
+# Serial console for headless servers
+ttyS0::respawn:/sbin/getty -L 115200 ttyS0 vt100
 
-# TTY7: Emergency shell (enabled by F12 in console or kernel param)
-# Only spawns if /tmp/.emergency_shell exists
-tty7::askfirst:/bin/sh
-
-# ---------------------------------------------------------------------------
-# Serial Console (for headless servers / IPMI)
-# ---------------------------------------------------------------------------
-
-# Serial port at 115200 baud (only if device exists)
-# These use 'once' instead of 'respawn' to avoid spam if device doesn't exist
-# Or use a wrapper script that checks device existence first
-ttyS0::respawn:/bin/sh -c '[ -c /dev/ttyS0 ] && exec /sbin/getty -L 115200 ttyS0 vt100 || sleep 60'
-
-# Uncomment for additional serial ports if needed:
-# ttyS1::respawn:/bin/sh -c '[ -c /dev/ttyS1 ] && exec /sbin/getty -L 115200 ttyS1 vt100 || sleep 60'
-
-# Virtual consoles (only if device exists - these are VM/ARM specific)
-# ttyAMA0 is ARM UART, hvc0 is Xen/KVM virtio-console
-# Disabled by default - uncomment if running on ARM or with virtio-console
-# ttyAMA0::respawn:/bin/sh -c '[ -c /dev/ttyAMA0 ] && exec /sbin/getty -L 115200 ttyAMA0 vt100 || sleep 60'
-# hvc0::respawn:/bin/sh -c '[ -c /dev/hvc0 ] && exec /sbin/getty -L 115200 hvc0 vt100 || sleep 60'
-
-# ---------------------------------------------------------------------------
-# Shutdown Handling
-# ---------------------------------------------------------------------------
-
-# Properly shutdown on these signals
-::shutdown:/sbin/openrc shutdown
-
-# Ctrl+Alt+Del reboots
+# Ctrl-Alt-Del handling
 ::ctrlaltdel:/sbin/reboot
 
-# Power button handling (via ACPI)
-# Requires acpid service
+# Shutdown
+::shutdown:/sbin/openrc shutdown

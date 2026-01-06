@@ -1,83 +1,81 @@
 #!/sbin/openrc-run
-# ============================================================================
-# Quantix Console Service
-# ============================================================================
-# Runs the Quantix-OS console GUI on tty1.
-# This provides the DCUI (Direct Console User Interface) for local management.
-# ============================================================================
+# =============================================================================
+# Quantix-OS Console Service
+# =============================================================================
+# Manages the Quantix console GUI/TUI on TTY1.
+# =============================================================================
 
 name="Quantix Console"
-description="Quantix-OS graphical console (DCUI)"
-
-# Run on tty1
-command="/usr/bin/qx-console-gui"
+description="Quantix-OS local management console"
+command="/usr/local/bin/qx-console-launcher"
 command_background="yes"
 pidfile="/run/quantix-console.pid"
-
-# Environment for framebuffer rendering
-export XDG_RUNTIME_DIR="/run/user/0"
-export HOME="/root"
-
-# Slint backend configuration
-export SLINT_BACKEND="linuxkms"
+output_log="/var/log/quantix-console.log"
+error_log="/var/log/quantix-console.log"
 
 depend() {
-    need localmount quantix-setup
-    after networking
-    provide dcui
+    need localmount
+    after quantix-firstboot seatd
+    keyword -prefix
 }
 
 start_pre() {
-    # Ensure runtime directory exists
+    # Ensure log directory exists
+    mkdir -p /var/log
+    
+    # Ensure runtime directory for Slint
     mkdir -p /run/user/0
     chmod 700 /run/user/0
     
-    # Check if the console binary exists
-    if [ ! -x /usr/bin/qx-console-gui ]; then
-        eerror "Console binary not found at /usr/bin/qx-console-gui"
+    # Set environment for Slint LinuxKMS backend
+    export SLINT_BACKEND=linuxkms
+    export XDG_RUNTIME_DIR=/run/user/0
+    
+    # Check if launcher exists
+    if [ ! -x "$command" ]; then
+        eerror "Console launcher not found: $command"
         return 1
     fi
-    
-    # Clear the console
-    clear > /dev/tty1 2>/dev/null || true
     
     return 0
 }
 
 start() {
-    ebegin "Starting Quantix Console"
+    ebegin "Starting $name"
     
-    # Run on tty1 with framebuffer access
+    # Set environment variables
+    export SLINT_BACKEND=linuxkms
+    export XDG_RUNTIME_DIR=/run/user/0
+    
     start-stop-daemon --start \
+        --background \
         --make-pidfile \
         --pidfile "$pidfile" \
-        --background \
-        --stdout /var/log/quantix-console.log \
-        --stderr /var/log/quantix-console.log \
-        --exec "$command" \
-        -- < /dev/tty1 > /dev/tty1 2>&1
-    
-    eend $?
-}
-
-stop() {
-    ebegin "Stopping Quantix Console"
-    
-    start-stop-daemon --stop \
-        --pidfile "$pidfile" \
+        --stdout "$output_log" \
+        --stderr "$error_log" \
         --exec "$command"
     
     eend $?
 }
 
-# Fallback to TUI if GUI fails
-fallback() {
-    ewarn "GUI console failed, falling back to TUI console"
+stop() {
+    ebegin "Stopping $name"
     
-    if [ -x /usr/bin/qx-console ]; then
-        exec /usr/bin/qx-console < /dev/tty1 > /dev/tty1 2>&1
-    else
-        ewarn "TUI console not available, dropping to shell"
-        exec /bin/sh < /dev/tty1 > /dev/tty1 2>&1
+    start-stop-daemon --stop \
+        --pidfile "$pidfile" \
+        --retry TERM/10/KILL/5
+    
+    eend $?
+}
+
+status() {
+    if [ -f "$pidfile" ]; then
+        if kill -0 $(cat "$pidfile") 2>/dev/null; then
+            einfo "$name is running (PID: $(cat $pidfile))"
+            return 0
+        fi
     fi
+    
+    einfo "$name is not running"
+    return 3
 }

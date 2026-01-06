@@ -1,0 +1,194 @@
+#!/bin/sh
+# =============================================================================
+# Quantix-OS Init Script (initramfs)
+# =============================================================================
+# This script runs from initramfs and sets up the root filesystem.
+# Supports A/B partitioning with automatic rollback.
+# =============================================================================
+
+# Mount essential filesystems
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs none /dev
+
+# Enable kernel messages
+echo 1 > /proc/sys/kernel/printk
+
+echo ""
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║                 Quantix-OS Boot Loader                        ║"
+echo "╚═══════════════════════════════════════════════════════════════╝"
+echo ""
+
+# Load required modules
+echo "[INIT] Loading kernel modules..."
+for mod in loop squashfs overlay ext4 xfs vfat virtio_pci virtio_blk nvme; do
+    modprobe $mod 2>/dev/null || true
+done
+
+# Parse kernel command line
+SYSTEM_LABEL=""
+CONFIG_LABEL="QUANTIX-CFG"
+DATA_LABEL="QUANTIX-DATA"
+INSTALL_MODE=""
+DEBUG_MODE=""
+
+for param in $(cat /proc/cmdline); do
+    case $param in
+        root=LABEL=*)
+            SYSTEM_LABEL="${param#root=LABEL=}"
+            ;;
+        quantix.config=LABEL=*)
+            CONFIG_LABEL="${param#quantix.config=LABEL=}"
+            ;;
+        quantix.data=LABEL=*)
+            DATA_LABEL="${param#quantix.data=LABEL=}"
+            ;;
+        quantix.install=*)
+            INSTALL_MODE="1"
+            ;;
+        debug)
+            DEBUG_MODE="1"
+            ;;
+    esac
+done
+
+# Default to System A if not specified
+[ -z "$SYSTEM_LABEL" ] && SYSTEM_LABEL="QUANTIX-A"
+
+echo "[INIT] Boot configuration:"
+echo "       System: ${SYSTEM_LABEL}"
+echo "       Config: ${CONFIG_LABEL}"
+echo "       Data:   ${DATA_LABEL}"
+
+# Wait for devices to settle
+echo "[INIT] Waiting for devices..."
+sleep 2
+
+# Find and mount system partition
+echo "[INIT] Mounting system partition..."
+SYSTEM_DEV=$(findfs LABEL="${SYSTEM_LABEL}" 2>/dev/null)
+
+if [ -z "$SYSTEM_DEV" ]; then
+    echo "[ERROR] System partition not found: ${SYSTEM_LABEL}"
+    echo "[ERROR] Available partitions:"
+    blkid
+    echo ""
+    echo "[ERROR] Dropping to emergency shell..."
+    exec /bin/sh
+fi
+
+mount -t ext4 -o ro "$SYSTEM_DEV" /mnt/system
+if [ $? -ne 0 ]; then
+    echo "[ERROR] Failed to mount system partition: ${SYSTEM_DEV}"
+    exec /bin/sh
+fi
+
+# Find squashfs
+echo "[INIT] Locating system image..."
+SQUASHFS_PATH=""
+for path in \
+    "/mnt/system/quantix/system.squashfs" \
+    "/mnt/system/system.squashfs" \
+    "/mnt/system/boot/system.squashfs"; do
+    if [ -f "$path" ]; then
+        SQUASHFS_PATH="$path"
+        break
+    fi
+done
+
+if [ -z "$SQUASHFS_PATH" ]; then
+    # Try to find any squashfs
+    SQUASHFS_PATH=$(find /mnt/system -name "system*.squashfs" 2>/dev/null | head -1)
+fi
+
+if [ -z "$SQUASHFS_PATH" ] || [ ! -f "$SQUASHFS_PATH" ]; then
+    echo "[ERROR] System image not found!"
+    echo "[ERROR] Contents of /mnt/system:"
+    ls -la /mnt/system/
+    exec /bin/sh
+fi
+
+echo "[INIT] Found system image: ${SQUASHFS_PATH}"
+
+# Mount squashfs
+echo "[INIT] Mounting system image..."
+mount -t squashfs -o ro "$SQUASHFS_PATH" /mnt/lower
+if [ $? -ne 0 ]; then
+    echo "[ERROR] Failed to mount squashfs"
+    exec /bin/sh
+fi
+
+# Create tmpfs for overlay upper layer
+echo "[INIT] Creating overlay filesystem..."
+mount -t tmpfs -o size=512M tmpfs /mnt/upper
+mkdir -p /mnt/upper/data /mnt/upper/work
+
+# Create overlay
+mount -t overlay overlay \
+    -o lowerdir=/mnt/lower,upperdir=/mnt/upper/data,workdir=/mnt/upper/work \
+    /mnt/merged
+if [ $? -ne 0 ]; then
+    echo "[ERROR] Failed to create overlay filesystem"
+    exec /bin/sh
+fi
+
+# Mount config partition
+echo "[INIT] Mounting config partition..."
+CONFIG_DEV=$(findfs LABEL="${CONFIG_LABEL}" 2>/dev/null)
+if [ -n "$CONFIG_DEV" ]; then
+    mkdir -p /mnt/merged/quantix
+    mount -t ext4 -o noatime "$CONFIG_DEV" /mnt/merged/quantix
+    if [ $? -eq 0 ]; then
+        echo "[INIT] Config partition mounted"
+    else
+        echo "[WARN] Failed to mount config partition"
+    fi
+else
+    echo "[WARN] Config partition not found"
+fi
+
+# Mount data partition
+echo "[INIT] Mounting data partition..."
+DATA_DEV=$(findfs LABEL="${DATA_LABEL}" 2>/dev/null)
+if [ -n "$DATA_DEV" ]; then
+    mkdir -p /mnt/merged/data
+    mount -t xfs -o noatime "$DATA_DEV" /mnt/merged/data 2>/dev/null || \
+    mount -t ext4 -o noatime "$DATA_DEV" /mnt/merged/data 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo "[INIT] Data partition mounted"
+    else
+        echo "[WARN] Failed to mount data partition"
+    fi
+else
+    echo "[WARN] Data partition not found"
+fi
+
+# Move system mount for later access
+echo "[INIT] Preparing for root switch..."
+mkdir -p /mnt/merged/mnt/system
+mount --move /mnt/system /mnt/merged/mnt/system 2>/dev/null || true
+
+# Create required directories
+mkdir -p /mnt/merged/run
+mkdir -p /mnt/merged/tmp
+mkdir -p /mnt/merged/var/log
+
+# Clean up
+umount /proc
+umount /sys
+umount /dev
+
+# Switch to new root
+echo "[INIT] Switching to Quantix-OS..."
+echo ""
+
+cd /mnt/merged
+pivot_root . mnt/initramfs
+
+# Execute init
+exec /sbin/init
+
+# Fallback
+echo "[ERROR] Failed to start init!"
+exec /bin/sh
