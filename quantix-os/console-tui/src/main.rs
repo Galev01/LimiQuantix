@@ -18,7 +18,7 @@ use ratatui::{
 };
 use std::io;
 use std::time::Duration;
-use sysinfo::{System, SystemExt, CpuExt};
+use sysinfo::System;
 use tracing::info;
 
 mod auth;
@@ -55,7 +55,7 @@ enum Screen {
 
 impl App {
     fn new() -> Self {
-        let mut system = System::new_all();
+        let mut system = System::new();
         system.refresh_all();
 
         Self {
@@ -69,7 +69,8 @@ impl App {
     }
 
     fn refresh(&mut self) {
-        self.system.refresh_all();
+        self.system.refresh_cpu_all();
+        self.system.refresh_memory();
     }
 
     fn menu_items(&self) -> Vec<(&str, &str)> {
@@ -316,7 +317,7 @@ fn render_main_screen(f: &mut Frame, app: &App, area: Rect) {
         .unwrap_or_else(|_| "quantix".to_string());
 
     let ip = get_primary_ip();
-    let uptime = format_uptime(app.system.uptime());
+    let uptime = format_uptime(System::uptime());
     let vm_count = get_vm_count();
 
     let info_text = vec![
