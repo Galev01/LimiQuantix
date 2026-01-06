@@ -114,13 +114,23 @@ set timeout=5
 set gfxmode=auto
 set gfxpayload=keep
 
-# Try to find the boot partition by looking for our kernel
-# This works for direct boot, USB, and Ventoy
-search --no-floppy --file /boot/vmlinuz --set=root
+# IMPORTANT: Search for Quantix-SPECIFIC files to avoid finding Ubuntu/other distros
+# Priority 1: Search by volume label (most reliable for ISO/USB)
+search --no-floppy --label QUANTIX_OS --set=root
 
-# If search failed, try common locations
+# Priority 2: Search for Quantix-specific marker file
 if [ -z "$root" ]; then
-    search --no-floppy --label QUANTIX_OS --set=root
+    search --no-floppy --file /quantix/system-1.0.0.squashfs --set=root
+fi
+
+# Priority 3: Search for our initramfs (not Ubuntu's initrd.img)
+if [ -z "$root" ]; then
+    search --no-floppy --file /boot/initramfs --set=root
+fi
+
+# Priority 4: Fallback to kernel (might find wrong disk!)
+if [ -z "$root" ]; then
+    search --no-floppy --file /boot/vmlinuz --set=root
 fi
 
 # Load video modules
@@ -153,27 +163,48 @@ menuentry "Quantix-OS (Verbose)" --class quantix {
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS (Safe Mode - nomodeset)" --class quantix {
-    echo "Loading Quantix-OS (Safe Mode)..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset
+# ============================================================================
+# VIDEO WORKAROUNDS - For Dell Latitude 5420 and similar Intel Xe laptops
+# These fix "Blind Boot" where kernel outputs to wrong display
+# ============================================================================
+
+menuentry "Quantix-OS (Intel Fix - nomodeset)" --class quantix {
+    echo "Loading with Intel GPU workaround..."
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset i915.modeset=0
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS (HDMI Output Only)" --class quantix {
-    echo "Loading Quantix-OS (HDMI)..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d video=eDP-1:d
+menuentry "Quantix-OS (Force SimpleFB)" --class quantix {
+    echo "Loading with SimpleFB (Proxmox fix)..."
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=simplefb:on nomodeset
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS (Internal Display Only)" --class quantix {
-    echo "Loading Quantix-OS (Internal Display)..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=HDMI-A-1:d video=DP-1:d video=DP-2:d
+menuentry "Quantix-OS (Internal eDP Screen)" --class quantix {
+    echo "Loading for laptop internal display..."
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=eDP-1:e video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d video=HDMI-A-1:d
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS Installer (Serial Console)" --class quantix {
-    echo "Loading Quantix-OS (Serial)..."
-    linux /boot/vmlinuz rdinit=/init console=ttyS0,115200n8 console=tty0 quiet
+menuentry "Quantix-OS (HDMI Only)" --class quantix {
+    echo "Loading for HDMI output..."
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=HDMI-A-1:e video=eDP-1:d video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d
+    initrd /boot/initramfs
+}
+
+menuentry "Quantix-OS (DisplayPort Only)" --class quantix {
+    echo "Loading for DisplayPort output..."
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=DP-1:e video=eDP-1:d video=HDMI-A-1:d
+    initrd /boot/initramfs
+}
+
+# ============================================================================
+# DEBUG AND RESCUE OPTIONS
+# ============================================================================
+
+menuentry "Quantix-OS (Serial Console)" --class quantix {
+    echo "Loading with serial console..."
+    linux /boot/vmlinuz rdinit=/init console=ttyS0,115200n8 console=tty0
     initrd /boot/initramfs
 }
 
@@ -188,13 +219,7 @@ menuentry "Debug: Show Boot Info" --class debug {
     echo "Root device: $root"
     echo "Prefix: $prefix"
     echo ""
-    echo "=== Listing /boot ==="
-    ls ($root)/boot/
-    echo ""
-    echo "=== Listing /boot/grub ==="
-    ls ($root)/boot/grub/
-    echo ""
-    echo "=== Checking files ==="
+    echo "=== Checking Quantix files ==="
     if [ -f ($root)/boot/vmlinuz ]; then
         echo "vmlinuz: FOUND"
     else
@@ -203,11 +228,25 @@ menuentry "Debug: Show Boot Info" --class debug {
     if [ -f ($root)/boot/initramfs ]; then
         echo "initramfs: FOUND"
     else
-        echo "initramfs: NOT FOUND"
+        echo "initramfs: NOT FOUND (check if this is Ubuntu!)"
+    fi
+    if [ -f ($root)/quantix/system-1.0.0.squashfs ]; then
+        echo "squashfs: FOUND - This is Quantix!"
+    else
+        echo "squashfs: NOT FOUND - WRONG DISK!"
     fi
     echo ""
-    echo "Press any key to return to menu..."
-    read
+    echo "=== Listing /boot ==="
+    ls ($root)/boot/
+    echo ""
+    echo "=== Listing /quantix (if exists) ==="
+    ls ($root)/quantix/ 2>/dev/null || echo "(not found)"
+    echo ""
+    echo "=== Available disks ==="
+    ls
+    echo ""
+    echo "Press Escape to return to menu..."
+    sleep 30
 }
 EOF
 
@@ -228,14 +267,20 @@ create_efi_boot() {
     EARLY_CFG="${WORK_DIR}/early-grub.cfg"
     cat > "${EARLY_CFG}" << 'EARLYCFG'
 # Early GRUB config - embedded in EFI binary
-# Searches for the main ISO/USB partition and loads the real config
+# Searches for the Quantix ISO/USB partition and loads the real config
+# IMPORTANT: Must find QUANTIX, not Ubuntu or other installed distros!
 
-# Try to find partition containing our kernel
-search --no-floppy --file /boot/vmlinuz --set=root
+# Priority 1: Search by volume label (most reliable)
+search --no-floppy --label QUANTIX_OS --set=root
 
-# Fallback: search by label
+# Priority 2: Search for Quantix-specific squashfs
 if [ -z "$root" ]; then
-    search --no-floppy --label QUANTIX_OS --set=root
+    search --no-floppy --file /quantix/system-1.0.0.squashfs --set=root
+fi
+
+# Priority 3: Search for our initramfs (Ubuntu uses initrd.img, we use initramfs)
+if [ -z "$root" ]; then
+    search --no-floppy --file /boot/initramfs --set=root
 fi
 
 # Set prefix to where grub.cfg lives on the found partition
