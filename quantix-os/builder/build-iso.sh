@@ -54,9 +54,9 @@ echo "📦 Step 3: Copying boot files..."
 # Copy squashfs
 cp "$SQUASHFS" "${ISO_DIR}/quantix/system.squashfs"
 
-# Extract kernel and initramfs from squashfs
+# Extract kernel from squashfs
 echo "   Extracting kernel from squashfs..."
-    mkdir -p /tmp/sqmount
+mkdir -p /tmp/sqmount
 mount -t squashfs -o loop "$SQUASHFS" /tmp/sqmount || {
     echo "❌ Failed to mount squashfs"
     exit 1
@@ -73,54 +73,38 @@ for kfile in /tmp/sqmount/boot/vmlinuz-lts /tmp/sqmount/boot/vmlinuz*; do
     fi
 done
 
-# Find and copy initramfs
-for ifile in /tmp/sqmount/boot/initramfs-lts /tmp/sqmount/boot/initramfs*; do
-    if [ -f "$ifile" ]; then
-        cp "$ifile" "${ISO_DIR}/boot/initramfs"
-        echo "   Found initramfs: $(basename $ifile)"
-        break
-    fi
-done
+umount /tmp/sqmount
+rmdir /tmp/sqmount
 
-    umount /tmp/sqmount
-    rmdir /tmp/sqmount
-
-# If no kernel found in squashfs, we need to add linux-lts to packages
+# If no kernel found in squashfs, download from Alpine
 if [ "$KERNEL_FOUND" = "false" ]; then
     echo "⚠️  No kernel found in squashfs!"
-    echo "   Make sure 'linux-lts' is in profiles/quantix/packages.conf"
-    echo "   Creating a minimal boot setup for live ISO..."
+    echo "   Downloading Alpine kernel..."
     
-    # Download Alpine kernel for live boot
     ALPINE_MIRROR="https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64"
     NETBOOT_URL="${ALPINE_MIRROR}/netboot/vmlinuz-lts"
-    INITRAMFS_URL="${ALPINE_MIRROR}/netboot/initramfs-lts"
     
-    echo "   Downloading Alpine kernel..."
     curl -sL "$NETBOOT_URL" -o "${ISO_DIR}/boot/vmlinuz" || wget -q "$NETBOOT_URL" -O "${ISO_DIR}/boot/vmlinuz" || {
         echo "❌ Failed to download kernel"
         exit 1
     }
-    
-    echo "   Downloading Alpine initramfs..."
-    curl -sL "$INITRAMFS_URL" -o "${ISO_DIR}/boot/initramfs" || wget -q "$INITRAMFS_URL" -O "${ISO_DIR}/boot/initramfs" || {
-        echo "❌ Failed to download initramfs"
-        exit 1
-    }
 fi
 
-# Verify we have boot files
+# Verify we have kernel
 if [ ! -f "${ISO_DIR}/boot/vmlinuz" ]; then
     echo "❌ No kernel available for ISO"
     exit 1
 fi
 
-if [ ! -f "${ISO_DIR}/boot/initramfs" ]; then
-    echo "⚠️  No initramfs found, creating minimal one..."
-    "${SCRIPT_DIR}/build-initramfs.sh" || true
-    if [ -f "${OUTPUT_DIR}/initramfs.img" ]; then
+# ALWAYS build our custom initramfs for Live boot support
+echo "   Building custom Quantix-OS initramfs..."
+"${SCRIPT_DIR}/build-initramfs.sh"
+if [ -f "${OUTPUT_DIR}/initramfs.img" ]; then
     cp "${OUTPUT_DIR}/initramfs.img" "${ISO_DIR}/boot/initramfs"
-    fi
+    echo "   Custom initramfs installed"
+else
+    echo "❌ Failed to build custom initramfs"
+    exit 1
 fi
 
 echo "✅ Boot files copied"
