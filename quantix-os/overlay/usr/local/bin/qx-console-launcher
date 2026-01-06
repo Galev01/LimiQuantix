@@ -79,24 +79,33 @@ main() {
     elif check_graphics; then
         echo "Graphics detected, using GUI..."
         if [ -x /usr/bin/qx-console-gui ]; then
-            # Set up environment for LinuxKMS/DRM
-            export XDG_RUNTIME_DIR=/run/user/0
-            export SLINT_BACKEND=linuxkms
-            
-            # Ensure seat access
-            if command -v seatd-launch >/dev/null 2>&1; then
-                exec seatd-launch -- /usr/bin/qx-console-gui "$@"
+            # Check if GUI binary can actually run (has all libraries)
+            if ! ldd /usr/bin/qx-console-gui 2>&1 | grep -q "not found"; then
+                # Set up environment for LinuxKMS/DRM
+                export XDG_RUNTIME_DIR=/run/user/0
+                export SLINT_BACKEND=linuxkms
+                mkdir -p /run/user/0
+                chmod 700 /run/user/0
+                
+                # Ensure seat access
+                if command -v seatd-launch >/dev/null 2>&1; then
+                    exec seatd-launch -- /usr/bin/qx-console-gui "$@"
+                else
+                    exec /usr/bin/qx-console-gui "$@"
+                fi
             else
-                exec /usr/bin/qx-console-gui "$@"
+                echo "GUI binary missing libraries, falling back to TUI..."
+                ldd /usr/bin/qx-console-gui 2>&1 | grep "not found" || true
             fi
+        fi
+        
+        # Fall back to TUI
+        echo "Falling back to TUI..."
+        if [ -x /usr/local/bin/qx-console ]; then
+            exec /usr/local/bin/qx-console "$@"
         else
-            echo "GUI not available, falling back to TUI..."
-            if [ -x /usr/local/bin/qx-console ]; then
-                exec /usr/local/bin/qx-console "$@"
-            else
-                echo "No console available, starting shell"
-                exec /bin/sh
-            fi
+            echo "No console available, starting shell"
+            exec /bin/sh
         fi
     else
         echo "No graphics, using TUI..."
