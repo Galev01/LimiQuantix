@@ -2,54 +2,111 @@
 # =============================================================================
 # Quantix-OS Console Launcher
 # =============================================================================
-# This script launches the appropriate console interface:
-# 1. Try Slint GUI (qx-console-gui) - best experience
-# 2. Fall back to TUI (qx-console) - works without GPU
-# 3. Ultimate fallback: getty login prompt
+# Automatically selects the best console interface based on available hardware:
+# - GUI (Slint) if graphics are available
+# - TUI (Ratatui) for serial/SSH/headless
 # =============================================================================
 
-set -e
-
-LOG_FILE="/var/log/quantix-console.log"
-
-log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+# Check if we're on a real TTY with graphics capability
+check_graphics() {
+    # Check for framebuffer device
+    if [ -e /dev/fb0 ]; then
+        return 0
+    fi
+    
+    # Check for DRM devices
+    if ls /dev/dri/card* >/dev/null 2>&1; then
+        return 0
+    fi
+    
+    return 1
 }
 
-# Ensure log directory exists
-mkdir -p /var/log
-
-log "Console launcher starting..."
-
-# Check if we have a display (DRM/KMS)
-if [ -e /dev/dri/card0 ]; then
-    log "DRM device found, attempting GUI..."
-    
-    # Set environment for Slint LinuxKMS backend
-    export SLINT_BACKEND=linuxkms
-    export XDG_RUNTIME_DIR=/run/user/0
-    mkdir -p "$XDG_RUNTIME_DIR"
-    chmod 700 "$XDG_RUNTIME_DIR"
-    
-    # Try the Slint GUI
-    if [ -x /usr/bin/qx-console-gui ]; then
-        log "Starting Slint GUI console..."
-        exec /usr/bin/qx-console-gui 2>> "$LOG_FILE"
-    else
-        log "GUI binary not found, falling back to TUI..."
+# Check if we're on a serial console or SSH
+is_serial_or_ssh() {
+    # Check if SSH session
+    if [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_TTY" ]; then
+        return 0
     fi
-else
-    log "No DRM device found, skipping GUI..."
-fi
+    
+    # Check if serial console
+    TTY=$(tty 2>/dev/null)
+    case "$TTY" in
+        /dev/ttyS*|/dev/ttyAMA*|/dev/ttyUSB*|/dev/hvc*)
+            return 0
+            ;;
+    esac
+    
+    return 1
+}
 
-# Fall back to TUI
-if [ -x /usr/local/bin/qx-console ]; then
-    log "Starting TUI console..."
-    exec /usr/local/bin/qx-console 2>> "$LOG_FILE"
-else
-    log "TUI binary not found, falling back to getty..."
-fi
+# Main logic
+main() {
+    echo "Quantix-OS Console Launcher"
+    echo "==========================="
+    
+    # Check for force flags
+    case "$1" in
+        --gui)
+            echo "Forcing GUI mode..."
+            exec /usr/bin/qx-console-gui "$@"
+            ;;
+        --tui)
+            echo "Forcing TUI mode..."
+            exec /usr/local/bin/qx-console "$@"
+            ;;
+        --help|-h)
+            echo "Usage: $0 [--gui|--tui]"
+            echo ""
+            echo "Options:"
+            echo "  --gui    Force graphical console (Slint)"
+            echo "  --tui    Force text console (Ratatui)"
+            echo ""
+            echo "Without options, automatically selects based on hardware."
+            exit 0
+            ;;
+    esac
+    
+    # Auto-detect best mode
+    if is_serial_or_ssh; then
+        echo "Serial/SSH detected, using TUI..."
+        if [ -x /usr/local/bin/qx-console ]; then
+            exec /usr/local/bin/qx-console "$@"
+        else
+            echo "TUI not available, falling back to shell"
+            exec /bin/sh
+        fi
+    elif check_graphics; then
+        echo "Graphics detected, using GUI..."
+        if [ -x /usr/bin/qx-console-gui ]; then
+            # Set up environment for LinuxKMS/DRM
+            export XDG_RUNTIME_DIR=/run/user/0
+            export SLINT_BACKEND=linuxkms
+            
+            # Ensure seat access
+            if command -v seatd-launch >/dev/null 2>&1; then
+                exec seatd-launch -- /usr/bin/qx-console-gui "$@"
+            else
+                exec /usr/bin/qx-console-gui "$@"
+            fi
+        else
+            echo "GUI not available, falling back to TUI..."
+            if [ -x /usr/local/bin/qx-console ]; then
+                exec /usr/local/bin/qx-console "$@"
+            else
+                echo "No console available, starting shell"
+                exec /bin/sh
+            fi
+        fi
+    else
+        echo "No graphics, using TUI..."
+        if [ -x /usr/local/bin/qx-console ]; then
+            exec /usr/local/bin/qx-console "$@"
+        else
+            echo "TUI not available, falling back to shell"
+            exec /bin/sh
+        fi
+    fi
+}
 
-# Ultimate fallback: getty
-log "Falling back to getty..."
-exec /sbin/getty 38400 tty1
+main "$@"

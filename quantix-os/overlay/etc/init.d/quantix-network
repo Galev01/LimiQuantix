@@ -1,0 +1,94 @@
+#!/sbin/openrc-run
+# =============================================================================
+# Quantix-OS Network Auto-Configuration Service
+# =============================================================================
+# Automatically configures all network interfaces via DHCP.
+# Supports Ethernet and WiFi (if wpa_supplicant is configured).
+# =============================================================================
+
+name="Quantix Network"
+description="Auto-configure network interfaces via DHCP"
+
+depend() {
+    need localmount
+    before quantix-node
+    provide net
+    keyword -jail -prefix -vserver -docker -lxc -systemd-nspawn
+}
+
+start() {
+    ebegin "Starting $name"
+    
+    # Bring up loopback
+    ip link set lo up 2>/dev/null
+    
+    # Find and configure all ethernet interfaces
+    for iface in /sys/class/net/*; do
+        iface=$(basename "$iface")
+        
+        # Skip loopback and virtual interfaces
+        case "$iface" in
+            lo|bond*|br*|veth*|docker*|virbr*|ovs*)
+                continue
+                ;;
+        esac
+        
+        # Check if it's a physical interface
+        if [ -d "/sys/class/net/$iface/device" ]; then
+            einfo "Configuring interface: $iface"
+            
+            # Bring up the interface
+            ip link set "$iface" up
+            
+            # Check if it's a wireless interface
+            if [ -d "/sys/class/net/$iface/wireless" ]; then
+                # WiFi interface - check for wpa_supplicant config
+                if [ -f "/etc/wpa_supplicant/wpa_supplicant.conf" ] && command -v wpa_supplicant >/dev/null 2>&1; then
+                    einfo "Starting WiFi on $iface"
+                    wpa_supplicant -B -i "$iface" -c /etc/wpa_supplicant/wpa_supplicant.conf
+                    sleep 2
+                else
+                    ewarn "WiFi interface $iface found but no wpa_supplicant config"
+                fi
+            fi
+            
+            # Try DHCP
+            if command -v udhcpc >/dev/null 2>&1; then
+                einfo "Running DHCP on $iface"
+                udhcpc -i "$iface" -t 5 -T 3 -A 5 -b -q 2>/dev/null &
+            elif command -v dhclient >/dev/null 2>&1; then
+                dhclient -1 "$iface" 2>/dev/null &
+            fi
+        fi
+    done
+    
+    # Wait a moment for DHCP
+    sleep 3
+    
+    # Log the result
+    einfo "Network configuration:"
+    ip -4 addr show | grep -E "inet |^[0-9]" | head -20
+    
+    eend 0
+}
+
+stop() {
+    ebegin "Stopping $name"
+    
+    # Kill any DHCP clients
+    killall udhcpc 2>/dev/null
+    killall dhclient 2>/dev/null
+    killall wpa_supplicant 2>/dev/null
+    
+    eend 0
+}
+
+status() {
+    einfo "Network interfaces:"
+    ip -4 addr show
+    
+    einfo "Default route:"
+    ip route show default
+    
+    return 0
+}

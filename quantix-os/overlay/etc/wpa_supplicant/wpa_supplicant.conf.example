@@ -1,0 +1,34 @@
+# =============================================================================
+# Quantix-OS WiFi Configuration
+# =============================================================================
+# Copy this file to /etc/wpa_supplicant/wpa_supplicant.conf and edit it.
+# Then restart the network: rc-service quantix-network restart
+# =============================================================================
+
+ctrl_interface=/var/run/wpa_supplicant
+update_config=1
+country=US
+
+# Example network configuration - uncomment and edit:
+#network={
+#    ssid="YourNetworkName"
+#    psk="YourPassword"
+#    key_mgmt=WPA-PSK
+#    priority=1
+#}
+
+# For enterprise networks (WPA2-Enterprise):
+#network={
+#    ssid="EnterpriseNetwork"
+#    key_mgmt=WPA-EAP
+#    eap=PEAP
+#    identity="username"
+#    password="password"
+#    phase2="auth=MSCHAPV2"
+#}
+
+# For open networks:
+#network={
+#    ssid="OpenNetwork"
+#    key_mgmt=NONE
+#}

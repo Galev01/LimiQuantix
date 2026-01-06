@@ -145,6 +145,38 @@ else
 fi
 
 # -----------------------------------------------------------------------------
+# Build Console GUI (Slint) - For graphical console
+# -----------------------------------------------------------------------------
+echo ""
+echo "📦 Building Console GUI (Slint)..."
+
+CONSOLE_GUI_DIR="${WORK_DIR}/console-gui"
+if [ -d "${CONSOLE_GUI_DIR}" ] && [ -f "${CONSOLE_GUI_DIR}/Cargo.toml" ]; then
+    echo "   Found Console GUI source at: ${CONSOLE_GUI_DIR}"
+    
+    cd "${CONSOLE_GUI_DIR}"
+    
+    # Build with LinuxKMS backend for direct framebuffer rendering
+    echo "   Compiling with LinuxKMS backend (for direct console)..."
+    OPENSSL_STATIC=1 cargo build --release --no-default-features --features linuxkms 2>&1 | tail -20 || {
+        echo "   ⚠️  LinuxKMS build failed, trying desktop build..."
+        OPENSSL_STATIC=1 cargo build --release 2>&1 | tail -20 || {
+            echo "   ⚠️  GUI build failed, skipping..."
+        }
+    }
+    
+    if [ -f "${CONSOLE_GUI_DIR}/target/release/qx-console-gui" ]; then
+        mkdir -p "${OVERLAY_DIR}/usr/bin"
+        cp "${CONSOLE_GUI_DIR}/target/release/qx-console-gui" "${OVERLAY_DIR}/usr/bin/"
+        chmod +x "${OVERLAY_DIR}/usr/bin/qx-console-gui"
+        echo "   ✅ Console GUI built"
+        ls -lh "${OVERLAY_DIR}/usr/bin/qx-console-gui"
+    fi
+else
+    echo "   ⚠️  Console GUI source not found, skipping..."
+fi
+
+# -----------------------------------------------------------------------------
 # Create symlinks for compatibility
 # -----------------------------------------------------------------------------
 echo ""
