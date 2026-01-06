@@ -56,7 +56,7 @@ cp "$SQUASHFS" "${ISO_DIR}/quantix/system.squashfs"
 
 # Extract kernel AND modules from squashfs
 echo "   Extracting kernel and modules from squashfs..."
-mkdir -p /tmp/sqmount
+    mkdir -p /tmp/sqmount
 mount -t squashfs -o loop "$SQUASHFS" /tmp/sqmount || {
     echo "❌ Failed to mount squashfs"
     exit 1
@@ -95,8 +95,8 @@ else
     echo "   ⚠️  No modules found in squashfs /lib/modules"
 fi
 
-umount /tmp/sqmount
-rmdir /tmp/sqmount
+    umount /tmp/sqmount
+    rmdir /tmp/sqmount
 
 # If no kernel found in squashfs, download from Alpine
 if [ "$KERNEL_FOUND" = "false" ]; then

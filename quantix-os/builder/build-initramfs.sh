@@ -44,7 +44,7 @@ echo "📦 Step 1b: Injecting kernel modules..."
 # Check if modules were extracted by build-iso.sh
 if [ -d "${OUTPUT_DIR}/modules" ] && [ "$(ls -A ${OUTPUT_DIR}/modules 2>/dev/null)" ]; then
     echo "   Found extracted modules in ${OUTPUT_DIR}/modules"
-    
+
     # Copy the ENTIRE module tree - modprobe needs the full structure
     # This includes modules.dep, modules.alias, and the kernel/ subdirectory
     cp -r "${OUTPUT_DIR}/modules/"* "${INITRAMFS_DIR}/lib/modules/"
@@ -151,7 +151,7 @@ if [ -f "${WORK_DIR}/initramfs/init" ]; then
         "${WORK_DIR}/initramfs/init" > "${INITRAMFS_DIR}/init"
 else
     echo "   Creating embedded init script..."
-    cat > "${INITRAMFS_DIR}/init" << 'INITEOF'
+cat > "${INITRAMFS_DIR}/init" << 'INITEOF'
 #!/bin/busybox sh
 # Quantix-OS Initramfs Init Script
 
@@ -195,7 +195,7 @@ fi
 
 if [ -n "$KVER" ] && [ -d "/lib/modules/$KVER" ]; then
     $BB echo "  Kernel modules: $KVER"
-    
+
     # Method 1: Try modprobe (needs modules.dep)
     # Block device drivers - MUST load these to see disks!
     $BB echo "  Loading block device drivers..."
@@ -219,8 +219,8 @@ if [ -n "$KVER" ] && [ -d "/lib/modules/$KVER" ]; then
     $BB echo "  Loading video drivers..."
     for mod in i915 amdgpu nouveau drm drm_kms_helper; do
         $BB modprobe $mod 2>/dev/null && $BB echo "    ✓ $mod" || true
-    done
-    
+done
+
     # VirtIO drivers (for QEMU)
     $BB echo "  Loading VirtIO drivers..."
     for mod in virtio virtio_pci virtio_blk virtio_scsi virtio_net virtio_ring; do

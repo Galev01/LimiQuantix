@@ -43,15 +43,78 @@ echo "[INIT] Shell: $0"
 echo "[INIT] PID: $$"
 echo ""
 
-# Load required modules
+# =============================================================================
+# CRITICAL: Load kernel modules for block devices FIRST
+# =============================================================================
 echo "[INIT] Loading kernel modules..."
-echo "[INIT] Available modules in /lib/modules:"
-ls -la /lib/modules/ 2>/dev/null || echo "  (no modules directory)"
 
-for mod in loop squashfs overlay ext4 xfs vfat iso9660 sr_mod cdrom usb_storage virtio_pci virtio_blk nvme; do
-    echo "[INIT]   Loading: $mod"
-    modprobe $mod 2>/dev/null && echo "[INIT]     OK" || echo "[INIT]     not available (built-in?)"
-done
+# Find kernel version
+KVER=""
+if [ -d /lib/modules ]; then
+    KVER=$(ls /lib/modules 2>/dev/null | head -1)
+    echo "[INIT] Kernel modules directory: /lib/modules/$KVER"
+    ls -la /lib/modules/ 2>/dev/null
+else
+    echo "[INIT] WARNING: No /lib/modules directory!"
+fi
+
+if [ -n "$KVER" ] && [ -d "/lib/modules/$KVER" ]; then
+    # SCSI subsystem (MUST load first - other drivers depend on it)
+    echo "[INIT] Loading SCSI subsystem..."
+    for mod in scsi_mod sd_mod sr_mod; do
+        modprobe $mod 2>/dev/null && echo "[INIT]   ✓ $mod" || echo "[INIT]   - $mod (built-in?)"
+    done
+    
+    # USB drivers (for USB boot)
+    echo "[INIT] Loading USB drivers..."
+    for mod in usbcore usb_common xhci_hcd xhci_pci ehci_hcd ehci_pci uhci_hcd usb_storage uas; do
+        modprobe $mod 2>/dev/null && echo "[INIT]   ✓ $mod" || true
+    done
+    
+    # SATA/AHCI drivers
+    echo "[INIT] Loading SATA/AHCI drivers..."
+    for mod in libata ahci ata_piix ata_generic; do
+        modprobe $mod 2>/dev/null && echo "[INIT]   ✓ $mod" || true
+    done
+    
+    # NVMe drivers
+    echo "[INIT] Loading NVMe drivers..."
+    for mod in nvme nvme_core; do
+        modprobe $mod 2>/dev/null && echo "[INIT]   ✓ $mod" || true
+    done
+    
+    # VirtIO drivers (for QEMU/KVM)
+    echo "[INIT] Loading VirtIO drivers..."
+    for mod in virtio virtio_ring virtio_pci virtio_blk virtio_scsi virtio_net; do
+        modprobe $mod 2>/dev/null && echo "[INIT]   ✓ $mod" || true
+    done
+    
+    # Filesystem drivers
+    echo "[INIT] Loading filesystem drivers..."
+    for mod in loop squashfs overlay isofs iso9660 vfat fat ext4 xfs; do
+        modprobe $mod 2>/dev/null && echo "[INIT]   ✓ $mod" || true
+    done
+    
+    # CD-ROM driver
+    echo "[INIT] Loading CD-ROM driver..."
+    modprobe cdrom 2>/dev/null && echo "[INIT]   ✓ cdrom" || true
+    
+    # Video drivers (optional, for display)
+    echo "[INIT] Loading video drivers..."
+    for mod in drm drm_kms_helper i915 amdgpu nouveau; do
+        modprobe $mod 2>/dev/null && echo "[INIT]   ✓ $mod" || true
+    done
+else
+    echo "[INIT] WARNING: No kernel modules available!"
+    echo "[INIT] Block devices may not be detected."
+fi
+
+# Rescan devices after loading modules
+echo "[INIT] Rescanning devices..."
+mdev -s 2>/dev/null || true
+sleep 1
+mdev -s 2>/dev/null || true
+
 echo "[INIT] Module loading complete"
 
 # Parse kernel command line
