@@ -196,16 +196,30 @@ test-qemu-uefi:
 		echo "❌ ISO not found. Run 'make iso' first."; \
 		exit 1; \
 	fi
-	@if [ ! -f "/usr/share/OVMF/OVMF_CODE.fd" ]; then \
+	@OVMF_CODE=""; \
+	for path in \
+		/usr/share/OVMF/OVMF_CODE.fd \
+		/usr/share/OVMF/OVMF_CODE_4M.fd \
+		/usr/share/edk2/ovmf/OVMF_CODE.fd \
+		/usr/share/edk2-ovmf/x64/OVMF_CODE.fd \
+		/usr/share/qemu/OVMF.fd; do \
+		if [ -f "$$path" ]; then \
+			OVMF_CODE="$$path"; \
+			break; \
+		fi; \
+	done; \
+	if [ -z "$$OVMF_CODE" ]; then \
 		echo "❌ OVMF not found. Install ovmf package."; \
+		echo "   Searched: /usr/share/OVMF/, /usr/share/edk2/ovmf/, /usr/share/qemu/"; \
 		exit 1; \
-	fi
+	fi; \
+	echo "   Using OVMF: $$OVMF_CODE"; \
 	qemu-system-x86_64 \
 		-enable-kvm \
 		-m 4G \
 		-cpu host \
 		-smp 2 \
-		-drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd \
+		-drive if=pflash,format=raw,readonly=on,file="$$OVMF_CODE" \
 		-cdrom $(OUTPUT_DIR)/$(ISO_NAME) \
 		-boot d \
 		-display gtk \

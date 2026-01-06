@@ -56,7 +56,7 @@ cp "$SQUASHFS" "${ISO_DIR}/quantix/system.squashfs"
 
 # Extract kernel and initramfs from squashfs
 echo "   Extracting kernel from squashfs..."
-mkdir -p /tmp/sqmount
+    mkdir -p /tmp/sqmount
 mount -t squashfs -o loop "$SQUASHFS" /tmp/sqmount || {
     echo "❌ Failed to mount squashfs"
     exit 1
@@ -82,8 +82,8 @@ for ifile in /tmp/sqmount/boot/initramfs-lts /tmp/sqmount/boot/initramfs*; do
     fi
 done
 
-umount /tmp/sqmount
-rmdir /tmp/sqmount
+    umount /tmp/sqmount
+    rmdir /tmp/sqmount
 
 # If no kernel found in squashfs, we need to add linux-lts to packages
 if [ "$KERNEL_FOUND" = "false" ]; then
@@ -119,7 +119,7 @@ if [ ! -f "${ISO_DIR}/boot/initramfs" ]; then
     echo "⚠️  No initramfs found, creating minimal one..."
     "${SCRIPT_DIR}/build-initramfs.sh" || true
     if [ -f "${OUTPUT_DIR}/initramfs.img" ]; then
-        cp "${OUTPUT_DIR}/initramfs.img" "${ISO_DIR}/boot/initramfs"
+    cp "${OUTPUT_DIR}/initramfs.img" "${ISO_DIR}/boot/initramfs"
     fi
 fi
 
@@ -274,20 +274,20 @@ ISO_CREATED=false
 if [ -n "$HYBRID_MBR" ] && [ -f "${ISO_DIR}/boot/grub/bios.img" ] && [ -f "${ISO_DIR}/boot/efi.img" ]; then
     echo "   Creating hybrid BIOS/UEFI ISO..."
     if xorriso -as mkisofs \
-        -o "${OUTPUT_DIR}/${ISO_NAME}" \
+    -o "${OUTPUT_DIR}/${ISO_NAME}" \
         -isohybrid-mbr "$HYBRID_MBR" \
-        -c boot/boot.cat \
-        -b boot/grub/bios.img \
-        -no-emul-boot \
-        -boot-load-size 4 \
-        -boot-info-table \
-        --grub2-boot-info \
-        -eltorito-alt-boot \
-        -e boot/efi.img \
-        -no-emul-boot \
-        -isohybrid-gpt-basdat \
-        -V "QUANTIX-OS" \
-        -R -J \
+    -c boot/boot.cat \
+    -b boot/grub/bios.img \
+    -no-emul-boot \
+    -boot-load-size 4 \
+    -boot-info-table \
+    --grub2-boot-info \
+    -eltorito-alt-boot \
+    -e boot/efi.img \
+    -no-emul-boot \
+    -isohybrid-gpt-basdat \
+    -V "QUANTIX-OS" \
+    -R -J \
         "${ISO_DIR}" 2>&1; then
         ISO_CREATED=true
     fi
