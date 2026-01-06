@@ -37,7 +37,7 @@ mkdir -p "${INITRAMFS_DIR}"/lib/modules
 echo "✅ Structure created"
 
 # -----------------------------------------------------------------------------
-# Step 1b: Inject kernel modules (CRITICAL for graphics!)
+# Step 1b: Inject kernel modules (CRITICAL for disk/USB/graphics!)
 # -----------------------------------------------------------------------------
 echo "📦 Step 1b: Injecting kernel modules..."
 
@@ -45,53 +45,32 @@ echo "📦 Step 1b: Injecting kernel modules..."
 if [ -d "${OUTPUT_DIR}/modules" ] && [ "$(ls -A ${OUTPUT_DIR}/modules 2>/dev/null)" ]; then
     echo "   Found extracted modules in ${OUTPUT_DIR}/modules"
     
-    # Copy essential modules for boot (not ALL - that would be huge)
-    # We need: graphics (i915, amdgpu, nouveau), disk (loop, squashfs), overlay
+    # Copy the ENTIRE module tree - modprobe needs the full structure
+    # This includes modules.dep, modules.alias, and the kernel/ subdirectory
+    cp -r "${OUTPUT_DIR}/modules/"* "${INITRAMFS_DIR}/lib/modules/"
     
-    for KVER_DIR in "${OUTPUT_DIR}/modules/"*; do
+    # Show what we got
+    for KVER_DIR in "${INITRAMFS_DIR}/lib/modules/"*; do
         [ -d "$KVER_DIR" ] || continue
         KVER=$(basename "$KVER_DIR")
+        MOD_COUNT=$(find "$KVER_DIR" -name "*.ko*" 2>/dev/null | wc -l)
+        MOD_SIZE=$(du -sh "$KVER_DIR" 2>/dev/null | cut -f1)
         echo "   Kernel version: $KVER"
+        echo "   ✅ Copied ${MOD_COUNT} modules (${MOD_SIZE})"
         
-        TARGET_MOD_DIR="${INITRAMFS_DIR}/lib/modules/${KVER}"
-        mkdir -p "$TARGET_MOD_DIR"
-        
-        # Copy module metadata files
-        cp "$KVER_DIR"/modules.* "$TARGET_MOD_DIR/" 2>/dev/null || true
-        
-        # Copy ESSENTIAL modules only (to keep initramfs small)
-        # Graphics drivers
-        find "$KVER_DIR" -name "i915*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "amdgpu*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "nouveau*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "drm*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "fb*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "video*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        
-        # Filesystem drivers (CRITICAL for squashfs)
-        find "$KVER_DIR" -name "squashfs*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "overlay*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "loop*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "isofs*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "iso9660*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        
-        # USB/Disk drivers (for USB boot)
-        find "$KVER_DIR" -name "usb*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "sd_mod*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "sr_mod*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "ahci*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "nvme*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "xhci*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        find "$KVER_DIR" -name "ehci*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
-        
-        # Count what we copied
-        MOD_COUNT=$(find "$TARGET_MOD_DIR" -name "*.ko*" 2>/dev/null | wc -l)
-        echo "   ✅ Copied ${MOD_COUNT} essential modules"
+        # Verify critical files exist
+        if [ -f "$KVER_DIR/modules.dep" ]; then
+            echo "   ✅ modules.dep present (modprobe will work)"
+        else
+            echo "   ⚠️  modules.dep missing - running depmod..."
+            # Try to regenerate if depmod is available
+            depmod -b "${INITRAMFS_DIR}" "$KVER" 2>/dev/null || true
+        fi
     done
 else
     echo "   ⚠️  WARNING: No modules found in ${OUTPUT_DIR}/modules"
-    echo "   Graphics drivers will NOT be available!"
-    echo "   Boot with 'nomodeset' option to use EFI framebuffer"
+    echo "   Block device drivers will NOT be available!"
+    echo "   USB boot will fail!"
 fi
 
 # -----------------------------------------------------------------------------
@@ -195,17 +174,6 @@ $BB mdev -s 2>/dev/null || true
 # Enable kernel messages to console
 $BB echo 8 > /proc/sys/kernel/printk
 
-# Load essential kernel modules if available
-$BB echo "Loading kernel modules..."
-if [ -d /lib/modules ]; then
-    for mod in loop squashfs overlay isofs; do
-        $BB modprobe $mod 2>/dev/null || true
-    done
-    $BB echo "  Modules loaded"
-else
-    $BB echo "  No modules directory"
-fi
-
 $BB echo ""
 $BB echo "============================================================"
 $BB echo "     QUANTIX-OS INITRAMFS v1.0"
@@ -213,6 +181,62 @@ $BB echo "============================================================"
 $BB echo ""
 $BB echo "Kernel command line: $($BB cat /proc/cmdline)"
 $BB echo ""
+
+# -----------------------------------------------------------------------------
+# CRITICAL: Load block device drivers BEFORE looking for disks!
+# -----------------------------------------------------------------------------
+$BB echo "Loading essential kernel modules..."
+
+# Find kernel version
+KVER=""
+if [ -d /lib/modules ]; then
+    KVER=$($BB ls /lib/modules 2>/dev/null | $BB head -1)
+fi
+
+if [ -n "$KVER" ] && [ -d "/lib/modules/$KVER" ]; then
+    $BB echo "  Kernel modules: $KVER"
+    
+    # Method 1: Try modprobe (needs modules.dep)
+    # Block device drivers - MUST load these to see disks!
+    $BB echo "  Loading block device drivers..."
+    for mod in loop sd_mod sr_mod usb_storage ahci nvme xhci_hcd xhci_pci ehci_hcd ehci_pci uhci_hcd; do
+        $BB modprobe $mod 2>/dev/null && $BB echo "    ✓ $mod" || true
+    done
+    
+    # Filesystem drivers
+    $BB echo "  Loading filesystem drivers..."
+    for mod in squashfs overlay isofs iso9660 vfat fat; do
+        $BB modprobe $mod 2>/dev/null && $BB echo "    ✓ $mod" || true
+    done
+    
+    # SCSI subsystem (needed for sd_mod)
+    $BB echo "  Loading SCSI subsystem..."
+    for mod in scsi_mod scsi_common; do
+        $BB modprobe $mod 2>/dev/null && $BB echo "    ✓ $mod" || true
+    done
+    
+    # Video drivers (for display)
+    $BB echo "  Loading video drivers..."
+    for mod in i915 amdgpu nouveau drm drm_kms_helper; do
+        $BB modprobe $mod 2>/dev/null && $BB echo "    ✓ $mod" || true
+    done
+    
+    # VirtIO drivers (for QEMU)
+    $BB echo "  Loading VirtIO drivers..."
+    for mod in virtio virtio_pci virtio_blk virtio_scsi virtio_net virtio_ring; do
+        $BB modprobe $mod 2>/dev/null && $BB echo "    ✓ $mod" || true
+    done
+else
+    $BB echo "  ⚠️  No kernel modules found!"
+    $BB echo "  Block devices may not be detected."
+fi
+
+# Re-scan devices after loading modules
+$BB echo ""
+$BB echo "Rescanning devices..."
+$BB mdev -s 2>/dev/null || true
+$BB sleep 1
+$BB mdev -s 2>/dev/null || true
 
 # Parse command line
 LIVE_BOOT=""
@@ -233,13 +257,14 @@ if [ "$BREAK" = "premount" ]; then
 fi
 
 # Wait for devices to settle
-$BB echo "Waiting for devices..."
-$BB sleep 3
+$BB echo ""
+$BB echo "Waiting for devices to settle..."
+$BB sleep 2
 $BB mdev -s 2>/dev/null || true
 
 # Show available devices
 $BB echo "Available block devices:"
-$BB ls -la /dev/sd* /dev/sr* /dev/vd* /dev/nvme* 2>/dev/null || $BB echo "  (none found yet)"
+$BB ls -la /dev/sd* /dev/sr* /dev/vd* /dev/nvme* /dev/loop* 2>/dev/null || $BB echo "  (none found)"
 
 # Find boot media
 $BB echo ""
