@@ -148,6 +148,14 @@ chmod 700 "${ROOTFS_DIR}/quantix/certificates"
 chmod 755 "${ROOTFS_DIR}/data"
 chmod 700 "${ROOTFS_DIR}/run/user/0"
 
+# Create input group and add root for GUI console access
+chroot "${ROOTFS_DIR}" addgroup -S input 2>/dev/null || true
+chroot "${ROOTFS_DIR}" addgroup -S video 2>/dev/null || true
+chroot "${ROOTFS_DIR}" addgroup -S seat 2>/dev/null || true
+chroot "${ROOTFS_DIR}" adduser root input 2>/dev/null || true
+chroot "${ROOTFS_DIR}" adduser root video 2>/dev/null || true
+chroot "${ROOTFS_DIR}" adduser root seat 2>/dev/null || true
+
 echo "✅ Directories created"
 
 # -----------------------------------------------------------------------------
