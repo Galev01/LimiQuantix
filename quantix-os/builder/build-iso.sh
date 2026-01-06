@@ -120,39 +120,41 @@ cat > "${ISO_DIR}/boot/grub/grub.cfg" << 'GRUBEOF'
 set timeout=5
 set default=0
 
-# Load video modules
-insmod all_video
-insmod gfxterm
+# Try to set up graphics, fall back to text
 set gfxmode=auto
-terminal_output gfxterm
+terminal_output console
 
 # Set colors
 set menu_color_normal=white/black
 set menu_color_highlight=black/light-gray
 
 # Boot menu - Live mode boots from ISO/USB squashfs
-menuentry "Quantix-OS Live" --id quantix-live {
-    echo "Loading Quantix-OS Live..."
+menuentry "Quantix-OS Live" {
     linux /boot/vmlinuz boot=live toram quiet
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS Live (Debug)" --id quantix-live-debug {
-    echo "Loading Quantix-OS Live (Debug Mode)..."
+menuentry "Quantix-OS Live (Debug)" {
     linux /boot/vmlinuz boot=live toram debug
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS Installer" --id quantix-install {
-    echo "Starting Quantix-OS Installer..."
+menuentry "Quantix-OS Installer" {
     linux /boot/vmlinuz boot=live toram quantix.install=1
     initrd /boot/initramfs
 }
 
-menuentry "Boot from installed system (QUANTIX-A)" --id quantix-installed {
-    echo "Booting installed Quantix-OS..."
+menuentry "Boot from installed system" {
     linux /boot/vmlinuz root=LABEL=QUANTIX-A ro quiet
     initrd /boot/initramfs
+}
+
+menuentry "Reboot" {
+    reboot
+}
+
+menuentry "Power Off" {
+    halt
 }
 GRUBEOF
 
@@ -165,31 +167,52 @@ echo "📦 Step 5: Creating UEFI boot image..."
 
 # Create EFI boot image
 mkdir -p "${ISO_DIR}/EFI/BOOT"
+mkdir -p "${ISO_DIR}/boot/grub/x86_64-efi"
 
-# Copy GRUB EFI binary
-if [ -f "/usr/lib/grub/x86_64-efi/grub.efi" ]; then
-    cp /usr/lib/grub/x86_64-efi/grub.efi "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI"
-elif [ -f "/usr/share/grub/x86_64-efi/grub.efi" ]; then
-    cp /usr/share/grub/x86_64-efi/grub.efi "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI"
-else
-    # Build GRUB EFI image
+# Copy GRUB EFI modules (needed for UEFI boot)
+if [ -d "/usr/lib/grub/x86_64-efi" ]; then
+    cp -r /usr/lib/grub/x86_64-efi/*.mod "${ISO_DIR}/boot/grub/x86_64-efi/" 2>/dev/null || true
+    cp -r /usr/lib/grub/x86_64-efi/*.lst "${ISO_DIR}/boot/grub/x86_64-efi/" 2>/dev/null || true
+elif [ -d "/usr/share/grub/x86_64-efi" ]; then
+    cp -r /usr/share/grub/x86_64-efi/*.mod "${ISO_DIR}/boot/grub/x86_64-efi/" 2>/dev/null || true
+    cp -r /usr/share/grub/x86_64-efi/*.lst "${ISO_DIR}/boot/grub/x86_64-efi/" 2>/dev/null || true
+fi
+
+# Build GRUB EFI image with all necessary modules embedded
+echo "   Building GRUB EFI image..."
+grub-mkimage \
+    -O x86_64-efi \
+    -o "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" \
+    -p /boot/grub \
+    -d /usr/lib/grub/x86_64-efi \
+    part_gpt part_msdos fat ext2 iso9660 udf \
+    linux linuxefi normal boot echo configfile loopback chain \
+    efifwsetup efi_gop efi_uga ls search search_label search_fs_uuid search_fs_file \
+    gfxterm gfxterm_background gfxterm_menu test all_video video video_fb \
+    loadenv cat help true reboot halt || {
+    echo "   Trying alternate GRUB path..."
     grub-mkimage \
         -O x86_64-efi \
         -o "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" \
         -p /boot/grub \
-        part_gpt part_msdos fat ext2 iso9660 \
-        linux normal boot configfile loopback chain \
-        efifwsetup efi_gop efi_uga ls search \
-        search_label search_fs_uuid search_fs_file \
-        gfxterm gfxterm_background gfxterm_menu test all_video \
-        loadenv 2>/dev/null || echo "⚠️  GRUB EFI image creation failed"
-fi
+        -d /usr/share/grub/x86_64-efi \
+        part_gpt part_msdos fat ext2 iso9660 udf \
+        linux linuxefi normal boot echo configfile loopback chain \
+        efifwsetup efi_gop efi_uga ls search search_label search_fs_uuid search_fs_file \
+        gfxterm gfxterm_background gfxterm_menu test all_video video video_fb \
+        loadenv cat help true reboot halt 2>/dev/null || echo "⚠️  GRUB EFI image creation failed"
+}
 
-# Create EFI boot image for ISO
-dd if=/dev/zero of="${ISO_DIR}/boot/efi.img" bs=1M count=10
-mkfs.vfat "${ISO_DIR}/boot/efi.img"
+# Create EFI boot image for ISO (FAT filesystem containing EFI bootloader)
+echo "   Creating EFI boot partition image..."
+dd if=/dev/zero of="${ISO_DIR}/boot/efi.img" bs=1M count=16
+mkfs.vfat -F 12 "${ISO_DIR}/boot/efi.img"
 mmd -i "${ISO_DIR}/boot/efi.img" ::/EFI ::/EFI/BOOT
-mcopy -i "${ISO_DIR}/boot/efi.img" "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" ::/EFI/BOOT/ 2>/dev/null || true
+mcopy -i "${ISO_DIR}/boot/efi.img" "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" ::/EFI/BOOT/
+
+# Also copy grub.cfg to EFI partition for standalone EFI boot
+mmd -i "${ISO_DIR}/boot/efi.img" ::/boot ::/boot/grub 2>/dev/null || true
+mcopy -i "${ISO_DIR}/boot/efi.img" "${ISO_DIR}/boot/grub/grub.cfg" ::/boot/grub/ 2>/dev/null || true
 
 echo "✅ UEFI boot image created"
 
