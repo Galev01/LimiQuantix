@@ -161,10 +161,16 @@ else
     log_step "Step 2: Skipping clean (use --clean to force)"
 fi
 
-# Step 3: Build Docker image
-log_step "Step 3: Building Docker build environment"
+# Step 3: Build Docker images
+log_step "Step 3: Building Docker build environments"
 docker build -t "${BUILDER_IMAGE}" -f builder/Dockerfile builder/
 log_success "Docker image built: ${BUILDER_IMAGE}"
+
+# Build full builder image (includes Rust, Node.js)
+FULL_BUILDER_IMAGE="quantix-full-builder"
+log_info "Building full builder image (includes Rust, Node.js)..."
+docker build -t "${FULL_BUILDER_IMAGE}" -f builder/Dockerfile.full builder/
+log_success "Docker image built: ${FULL_BUILDER_IMAGE}"
 
 # Step 4: Make scripts executable
 log_step "Step 4: Setting script permissions"
@@ -175,6 +181,20 @@ chmod +x overlay/etc/init.d/* 2>/dev/null || true
 chmod +x overlay/etc/local.d/*.start 2>/dev/null || true
 chmod +x initramfs/init 2>/dev/null || true
 log_success "Permissions set"
+
+# Step 4b: Build components (Node Daemon, Host UI) inside Docker
+log_step "Step 4b: Building Quantix-OS components (Node Daemon, Host UI)"
+log_info "This may take several minutes on first run..."
+
+# Mount the entire repo so we can access agent/ and quantix-host-ui/
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+docker run --rm \
+    -v "${REPO_ROOT}:/work" \
+    -w /work/quantix-os \
+    "${FULL_BUILDER_IMAGE}" \
+    /bin/bash ./builder/build-all-components.sh
+
+log_success "Components built"
 
 # Step 5: Build squashfs
 mkdir -p "${OUTPUT_DIR}"
