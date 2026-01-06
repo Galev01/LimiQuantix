@@ -2,43 +2,10 @@
 # =============================================================================
 # Quantix-OS Console Launcher
 # =============================================================================
-# Automatically selects the best console interface based on available hardware:
-# - GUI (Slint) if graphics are available
-# - TUI (Ratatui) for serial/SSH/headless
+# Selects the console interface:
+# - TUI (Ratatui) - DEFAULT, works reliably
+# - GUI (Slint) - Experimental, use --gui flag
 # =============================================================================
-
-# Check if we're on a real TTY with graphics capability
-check_graphics() {
-    # Check for framebuffer device
-    if [ -e /dev/fb0 ]; then
-        return 0
-    fi
-    
-    # Check for DRM devices
-    if ls /dev/dri/card* >/dev/null 2>&1; then
-        return 0
-    fi
-    
-    return 1
-}
-
-# Check if we're on a serial console or SSH
-is_serial_or_ssh() {
-    # Check if SSH session
-    if [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_TTY" ]; then
-        return 0
-    fi
-    
-    # Check if serial console
-    TTY=$(tty 2>/dev/null)
-    case "$TTY" in
-        /dev/ttyS*|/dev/ttyAMA*|/dev/ttyUSB*|/dev/hvc*)
-            return 0
-            ;;
-    esac
-    
-    return 1
-}
 
 # Main logic
 main() {
@@ -48,51 +15,48 @@ main() {
     # Check for force flags
     case "$1" in
         --gui)
-            echo "Forcing GUI mode..."
+            echo "WARNING: GUI mode is experimental and may freeze input!"
+            echo "Starting GUI in 3 seconds... (Ctrl+C to cancel)"
+            sleep 3
             setup_gui_env
             exec /usr/bin/qx-console-gui
             ;;
         --tui)
-            echo "Forcing TUI mode..."
+            echo "Starting TUI mode..."
             exec /usr/local/bin/qx-console
             ;;
         --help|-h)
             echo "Usage: $0 [--gui|--tui]"
             echo ""
             echo "Options:"
-            echo "  --gui    Force graphical console (Slint) - experimental"
-            echo "  --tui    Force text console (Ratatui) - recommended"
+            echo "  --tui    Text console (Ratatui) - DEFAULT, recommended"
+            echo "  --gui    Graphical console (Slint) - EXPERIMENTAL"
             echo ""
-            echo "Default: TUI mode (GUI input not yet working)"
+            echo "Default: TUI mode (GUI has input issues)"
             exit 0
             ;;
     esac
     
-    # Default to TUI - it works reliably
-    # GUI mode has input issues with LinuxKMS backend
-    echo "Starting TUI console (default)..."
-    echo "(Use --gui flag to try experimental GUI mode)"
+    # DEFAULT: Use TUI - it works reliably
+    echo "Starting TUI console..."
     
     if [ -x /usr/local/bin/qx-console ]; then
-        exec /usr/local/bin/qx-console "$@"
+        exec /usr/local/bin/qx-console
     else
-        echo "TUI not available, falling back to shell"
+        echo "TUI not available, starting shell"
         exec /bin/sh
     fi
 }
 
-# Setup GUI environment
+# Setup GUI environment (experimental)
 setup_gui_env() {
     export XDG_RUNTIME_DIR=/run/user/0
     export SLINT_BACKEND=linuxkms
     mkdir -p /run/user/0
     chmod 700 /run/user/0
     
-    # Ensure seatd is running
+    # Try to setup seatd
     rc-service seatd start 2>/dev/null || true
-    sleep 1
-    
-    # Setup permissions
     addgroup root seat 2>/dev/null || true
     addgroup root input 2>/dev/null || true
     addgroup root video 2>/dev/null || true
