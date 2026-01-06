@@ -1,6 +1,6 @@
 # 000059 - Quantix-OS Build Guide
 
-**Description:** Complete guide for building Quantix-OS from source, including all components (Alpine rootfs, Slint console GUI, TUI fallback, Host UI integration).
+**Description:** Complete guide for building Quantix-OS from source, including all components (Alpine rootfs, Web Kiosk GUI, TUI fallback, Host UI integration).
 
 **Last Updated:** January 7, 2026
 
@@ -135,12 +135,8 @@ Quantix-OS/
 │   ├── install.sh              # Disk installer
 │   └── firstboot.sh            # First-boot setup
 │
-├── console-gui/                # Slint GUI (Rust)
-│   ├── Cargo.toml
-│   ├── build.rs
-│   ├── src/                    # Rust source
-│   └── ui/
-│       └── main.slint          # Slint UI definition
+├── console-gui/                # DEPRECATED: Slint GUI (replaced by Web Kiosk)
+│   └── (No longer used - GUI now uses Cage + Cog)
 │
 ├── console-tui/                # Ratatui TUI (Rust)
 │   ├── Cargo.toml
@@ -186,9 +182,11 @@ Inside the Docker container, `build-all-components.sh` builds:
    - Built with `cargo build --release`
    - Copied to `/usr/local/bin/qx-console`
 
-4. **Console GUI** (`qx-console-gui`)
-   - Built with LinuxKMS backend for direct framebuffer
-   - Copied to `/usr/bin/qx-console-gui`
+4. **Console GUI** (Web Kiosk)
+   - Uses `cage` (Wayland kiosk compositor)
+   - Uses `cog` + `wpewebkit` (embedded browser)
+   - Displays the React Host UI at http://localhost:8443
+   - No Rust compilation needed - packages installed via packages.conf
 
 ### Phase 3: Alpine Rootfs (Squashfs)
 
@@ -393,7 +391,9 @@ rc-service quantix-network status
    ls -la /usr/share/quantix-host-ui/
    ```
 
-### GUI Console Not Starting
+### GUI Console (Web Kiosk) Not Starting
+
+The GUI uses Cage (Wayland kiosk) + Cog (WPE WebKit browser) to display the React Host UI.
 
 1. Check for graphics:
    ```bash
@@ -406,9 +406,29 @@ rc-service quantix-network status
    rc-service seatd status
    ```
 
-3. Try TUI fallback:
+3. Check node daemon is running (Web UI must be available):
+   ```bash
+   rc-service quantix-node status
+   curl http://localhost:8443/
+   ```
+
+4. Check cage and cog are installed:
+   ```bash
+   which cage
+   which cog
+   ```
+
+5. Try TUI fallback:
    ```bash
    qx-console-launcher --tui
+   ```
+
+6. Manual kiosk launch for debugging:
+   ```bash
+   export XDG_RUNTIME_DIR=/run/user/0
+   mkdir -p $XDG_RUNTIME_DIR
+   seatd -g video &
+   cage -- cog http://localhost:8443
    ```
 
 ## Customization
@@ -453,9 +473,35 @@ menuentry "My Custom Entry" {
 }
 ```
 
+## GUI Architecture (Web Kiosk)
+
+The Quantix-OS GUI console uses a "Web Kiosk" pattern instead of a native GUI toolkit:
+
+```
+┌─────────────────────────────────────────┐
+│     React Host UI (same as Web UI)      │  <- Your existing dashboard
+├─────────────────────────────────────────┤
+│       Cog (WPE WebKit Browser)          │  <- Embedded browser
+├─────────────────────────────────────────┤
+│     Cage (Wayland Kiosk Compositor)     │  <- Fullscreen kiosk mode
+├─────────────────────────────────────────┤
+│     wlroots → DRM/KMS → libinput        │  <- Hardware abstraction
+└─────────────────────────────────────────┘
+```
+
+**Benefits:**
+- Reuses existing React UI code
+- Stable input handling via libinput/libseat
+- No complex LinuxKMS/fbdev driver issues
+- Proven Wayland infrastructure
+
+**Packages:**
+- `cage` - Wayland kiosk compositor (runs single app fullscreen)
+- `cog` - Simple WPE WebKit launcher
+- `wpewebkit` - Lightweight embedded WebKit engine
+
 ## Related Documents
 
 - [000052 - Quantix-OS Architecture](./000052-quantix-os-architecture.md)
-- [000053 - Console GUI (Slint)](./000053-console-gui-slint.md)
 - [000058 - Complete Vision](./000058-quantix-os-complete-vision.md)
 - [000060 - Network and GUI Setup](./000060-network-and-gui-setup.md)

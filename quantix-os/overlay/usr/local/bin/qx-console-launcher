@@ -3,9 +3,19 @@
 # Quantix-OS Console Launcher
 # =============================================================================
 # Automatically selects the best console interface based on available hardware:
-# - GUI (Slint) if graphics are available and input works
+# - Web Kiosk (Cage + Cog) if graphics are available
 # - TUI (Ratatui) for serial/SSH/headless or if GUI fails
 # =============================================================================
+
+set -e
+
+# Configuration
+WEBUI_URL="${QUANTIX_WEBUI_URL:-http://localhost:8443}"
+LOG_FILE="/var/log/quantix-console.log"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
 
 # Check if we're on a real TTY with graphics capability
 check_graphics() {
@@ -40,106 +50,141 @@ is_serial_or_ssh() {
     return 1
 }
 
-# Setup environment for GUI
-setup_gui_env() {
-    # XDG runtime directory
-    export XDG_RUNTIME_DIR=/run/user/0
-    mkdir -p /run/user/0
-    chmod 700 /run/user/0
+# Wait for the node daemon to be ready
+wait_for_webui() {
+    log "Waiting for Web UI at $WEBUI_URL..."
     
-    # Slint backend
-    export SLINT_BACKEND=linuxkms
+    MAX_WAIT=60
+    WAITED=0
     
-    # Ensure seatd is running
+    while [ $WAITED -lt $MAX_WAIT ]; do
+        if wget -q -O /dev/null --spider "$WEBUI_URL" 2>/dev/null; then
+            log "Web UI is ready!"
+            return 0
+        fi
+        sleep 2
+        WAITED=$((WAITED + 2))
+    done
+    
+    log "WARNING: Web UI not responding after ${MAX_WAIT}s, starting anyway..."
+    return 1
+}
+
+# Setup environment for Wayland/Cage
+setup_wayland_env() {
+    log "Setting up Wayland environment..."
+    
+    # XDG runtime directory (required for Wayland)
+    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/0}"
+    mkdir -p "$XDG_RUNTIME_DIR"
+    chmod 700 "$XDG_RUNTIME_DIR"
+    
+    # Ensure seatd is running for seat management
     if ! pgrep -x seatd >/dev/null 2>&1; then
-        echo "Starting seatd daemon..."
-        # Start seatd with video group access, non-daemonize for better control
-        seatd -g video -n &
+        log "Starting seatd daemon..."
+        seatd -g video &
         sleep 1
     fi
     
-    # Set seatd socket path for libseat (CRITICAL for input to work)
-    export SEATD_VTHND_PATH=/run/seatd.sock
+    # Environment for libseat
     export LIBSEAT_BACKEND=seatd
     
-    # Ensure input devices are accessible
-    # The input group should already have access via udev rules, but ensure permissions
-    if [ -d /dev/input ]; then
-        chmod 660 /dev/input/event* 2>/dev/null || true
-        chgrp input /dev/input/event* 2>/dev/null || true
+    # Wayland-specific settings
+    export WLR_RENDERER_ALLOW_SOFTWARE=1
+    
+    log "Wayland environment configured:"
+    log "  XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+    log "  LIBSEAT_BACKEND=$LIBSEAT_BACKEND"
+}
+
+# Start the Web Kiosk (Cage + Cog)
+start_web_kiosk() {
+    log "Starting Web Kiosk mode..."
+    
+    setup_wayland_env
+    
+    # Wait for node daemon to start the web UI
+    wait_for_webui
+    
+    # Check for cage
+    if ! command -v cage >/dev/null 2>&1; then
+        log "ERROR: cage not found!"
+        return 1
     fi
     
-    echo "Environment configured:"
-    echo "  XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
-    echo "  SLINT_BACKEND=$SLINT_BACKEND"
-    echo "  SEATD_VTHND_PATH=$SEATD_VTHND_PATH"
-    echo "  LIBSEAT_BACKEND=$LIBSEAT_BACKEND"
+    # Check for cog
+    if ! command -v cog >/dev/null 2>&1; then
+        log "ERROR: cog not found!"
+        return 1
+    fi
+    
+    log "Launching cage with cog browser..."
+    log "  URL: $WEBUI_URL"
+    
+    # Cage launches a single Wayland application in fullscreen kiosk mode
+    # Cog is the WPE WebKit browser that loads our React dashboard
+    # -s disables decorations (kiosk mode)
+    exec cage -- cog "$WEBUI_URL"
+}
+
+# Start TUI console
+start_tui() {
+    log "Starting TUI console..."
+    
+    if [ -x /usr/local/bin/qx-console ]; then
+        exec /usr/local/bin/qx-console
+    else
+        log "TUI not available, starting shell"
+        exec /bin/sh
+    fi
 }
 
 # Main logic
 main() {
-    echo "Quantix-OS Console Launcher"
-    echo "==========================="
+    log "========================================"
+    log "Quantix-OS Console Launcher"
+    log "========================================"
     
     # Check for force flags
     case "$1" in
-        --gui)
-            echo "Forcing GUI mode..."
-            setup_gui_env
-            exec /usr/bin/qx-console-gui
+        --gui|--kiosk|--web)
+            log "Forcing Web Kiosk mode..."
+            start_web_kiosk || start_tui
             ;;
         --tui)
-            echo "Forcing TUI mode..."
-            exec /usr/local/bin/qx-console
+            log "Forcing TUI mode..."
+            start_tui
             ;;
         --help|-h)
             echo "Usage: $0 [--gui|--tui]"
             echo ""
             echo "Options:"
-            echo "  --gui    Force graphical console (Slint)"
-            echo "  --tui    Force text console (Ratatui)"
+            echo "  --gui, --kiosk, --web  Force Web Kiosk console (Cage + Cog)"
+            echo "  --tui                  Force text console (Ratatui)"
             echo ""
             echo "Without options, automatically selects based on hardware."
+            echo ""
+            echo "Environment variables:"
+            echo "  QUANTIX_WEBUI_URL  URL for the web UI (default: http://localhost:8443)"
             exit 0
             ;;
     esac
     
     # Auto-detect best mode
     if is_serial_or_ssh; then
-        echo "Serial/SSH detected, using TUI..."
+        log "Serial/SSH session detected, using TUI..."
         start_tui
     elif check_graphics; then
-        echo "Graphics detected, trying GUI..."
+        log "Graphics hardware detected, trying Web Kiosk..."
         
-        # Check if GUI binary exists and has all libraries
-        if [ -x /usr/bin/qx-console-gui ]; then
-            if ! ldd /usr/bin/qx-console-gui 2>&1 | grep -q "not found"; then
-                setup_gui_env
-                echo "Launching GUI..."
-                exec /usr/bin/qx-console-gui
-            else
-                echo "GUI binary missing libraries:"
-                ldd /usr/bin/qx-console-gui 2>&1 | grep "not found"
-                echo "Falling back to TUI..."
-            fi
-        else
-            echo "GUI binary not found, using TUI..."
-        fi
-        
-        start_tui
+        # Try web kiosk, fall back to TUI on failure
+        start_web_kiosk || {
+            log "Web Kiosk failed, falling back to TUI..."
+            start_tui
+        }
     else
-        echo "No graphics, using TUI..."
+        log "No graphics detected, using TUI..."
         start_tui
-    fi
-}
-
-# Start TUI or fall back to shell
-start_tui() {
-    if [ -x /usr/local/bin/qx-console ]; then
-        exec /usr/local/bin/qx-console
-    else
-        echo "TUI not available, starting shell"
-        exec /bin/sh
     fi
 }
 
