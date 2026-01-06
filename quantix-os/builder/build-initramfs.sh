@@ -37,6 +37,64 @@ mkdir -p "${INITRAMFS_DIR}"/lib/modules
 echo "✅ Structure created"
 
 # -----------------------------------------------------------------------------
+# Step 1b: Inject kernel modules (CRITICAL for graphics!)
+# -----------------------------------------------------------------------------
+echo "📦 Step 1b: Injecting kernel modules..."
+
+# Check if modules were extracted by build-iso.sh
+if [ -d "${OUTPUT_DIR}/modules" ] && [ "$(ls -A ${OUTPUT_DIR}/modules 2>/dev/null)" ]; then
+    echo "   Found extracted modules in ${OUTPUT_DIR}/modules"
+    
+    # Copy essential modules for boot (not ALL - that would be huge)
+    # We need: graphics (i915, amdgpu, nouveau), disk (loop, squashfs), overlay
+    
+    for KVER_DIR in "${OUTPUT_DIR}/modules/"*; do
+        [ -d "$KVER_DIR" ] || continue
+        KVER=$(basename "$KVER_DIR")
+        echo "   Kernel version: $KVER"
+        
+        TARGET_MOD_DIR="${INITRAMFS_DIR}/lib/modules/${KVER}"
+        mkdir -p "$TARGET_MOD_DIR"
+        
+        # Copy module metadata files
+        cp "$KVER_DIR"/modules.* "$TARGET_MOD_DIR/" 2>/dev/null || true
+        
+        # Copy ESSENTIAL modules only (to keep initramfs small)
+        # Graphics drivers
+        find "$KVER_DIR" -name "i915*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "amdgpu*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "nouveau*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "drm*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "fb*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "video*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        
+        # Filesystem drivers (CRITICAL for squashfs)
+        find "$KVER_DIR" -name "squashfs*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "overlay*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "loop*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "isofs*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "iso9660*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        
+        # USB/Disk drivers (for USB boot)
+        find "$KVER_DIR" -name "usb*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "sd_mod*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "sr_mod*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "ahci*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "nvme*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "xhci*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        find "$KVER_DIR" -name "ehci*.ko*" -exec cp {} "$TARGET_MOD_DIR/" \; 2>/dev/null || true
+        
+        # Count what we copied
+        MOD_COUNT=$(find "$TARGET_MOD_DIR" -name "*.ko*" 2>/dev/null | wc -l)
+        echo "   ✅ Copied ${MOD_COUNT} essential modules"
+    done
+else
+    echo "   ⚠️  WARNING: No modules found in ${OUTPUT_DIR}/modules"
+    echo "   Graphics drivers will NOT be available!"
+    echo "   Boot with 'nomodeset' option to use EFI framebuffer"
+fi
+
+# -----------------------------------------------------------------------------
 # Step 2: Install STATIC Busybox
 # -----------------------------------------------------------------------------
 echo "📦 Step 2: Installing STATIC busybox..."
@@ -134,8 +192,19 @@ $BB mount -t devtmpfs devtmpfs /dev 2>/dev/null || {
 # Populate /dev with device nodes
 $BB mdev -s 2>/dev/null || true
 
-# Enable kernel messages
+# Enable kernel messages to console
 $BB echo 8 > /proc/sys/kernel/printk
+
+# Load essential kernel modules if available
+$BB echo "Loading kernel modules..."
+if [ -d /lib/modules ]; then
+    for mod in loop squashfs overlay isofs; do
+        $BB modprobe $mod 2>/dev/null || true
+    done
+    $BB echo "  Modules loaded"
+else
+    $BB echo "  No modules directory"
+fi
 
 $BB echo ""
 $BB echo "============================================================"

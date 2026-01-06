@@ -47,16 +47,16 @@ mkdir -p "${ISO_DIR}"/{boot/grub,EFI/BOOT,quantix,isolinux}
 echo "✅ ISO structure created"
 
 # -----------------------------------------------------------------------------
-# Step 3: Copy boot files
+# Step 3: Copy boot files and extract kernel modules
 # -----------------------------------------------------------------------------
 echo "📦 Step 3: Copying boot files..."
 
 # Copy squashfs
 cp "$SQUASHFS" "${ISO_DIR}/quantix/system.squashfs"
 
-    # Extract kernel from squashfs
-echo "   Extracting kernel from squashfs..."
-    mkdir -p /tmp/sqmount
+# Extract kernel AND modules from squashfs
+echo "   Extracting kernel and modules from squashfs..."
+mkdir -p /tmp/sqmount
 mount -t squashfs -o loop "$SQUASHFS" /tmp/sqmount || {
     echo "❌ Failed to mount squashfs"
     exit 1
@@ -64,17 +64,39 @@ mount -t squashfs -o loop "$SQUASHFS" /tmp/sqmount || {
 
 # Find and copy kernel
 KERNEL_FOUND=false
+KERNEL_VERSION=""
 for kfile in /tmp/sqmount/boot/vmlinuz-lts /tmp/sqmount/boot/vmlinuz*; do
     if [ -f "$kfile" ]; then
         cp "$kfile" "${ISO_DIR}/boot/vmlinuz"
         echo "   Found kernel: $(basename $kfile)"
         KERNEL_FOUND=true
+        # Extract kernel version from filename or uname
+        KERNEL_VERSION=$(basename "$kfile" | sed 's/vmlinuz-//')
         break
     fi
 done
 
-    umount /tmp/sqmount
-    rmdir /tmp/sqmount
+# --- CRITICAL: Extract kernel modules for initramfs ---
+echo "   Extracting kernel modules..."
+rm -rf "${OUTPUT_DIR}/modules"
+mkdir -p "${OUTPUT_DIR}/modules"
+
+if [ -d "/tmp/sqmount/lib/modules" ]; then
+    # Copy ALL modules (we'll filter in initramfs builder)
+    cp -r /tmp/sqmount/lib/modules/* "${OUTPUT_DIR}/modules/" 2>/dev/null || true
+    
+    # Count what we got
+    MODULE_COUNT=$(find "${OUTPUT_DIR}/modules" -name "*.ko*" 2>/dev/null | wc -l)
+    echo "   ✅ Extracted ${MODULE_COUNT} kernel modules"
+    
+    # Show the kernel version we found
+    ls -la "${OUTPUT_DIR}/modules/" | head -5
+else
+    echo "   ⚠️  No modules found in squashfs /lib/modules"
+fi
+
+umount /tmp/sqmount
+rmdir /tmp/sqmount
 
 # If no kernel found in squashfs, download from Alpine
 if [ "$KERNEL_FOUND" = "false" ]; then
@@ -130,6 +152,13 @@ set menu_color_highlight=black/light-gray
 # Boot menu - Live mode boots from ISO/USB squashfs
 menuentry "Quantix-OS Live" {
     linux /boot/vmlinuz boot=live toram quiet
+    initrd /boot/initramfs
+}
+
+menuentry "Quantix-OS Live (Safe Graphics)" {
+    # nomodeset: Use simple EFI framebuffer, don't load GPU drivers
+    # This is the SAFEST option for new/unknown hardware
+    linux /boot/vmlinuz boot=live toram nomodeset video=efifb
     initrd /boot/initramfs
 }
 
