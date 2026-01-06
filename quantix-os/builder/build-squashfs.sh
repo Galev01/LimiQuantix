@@ -113,7 +113,7 @@ chroot "${ROOTFS_DIR}" /sbin/rc-update add ovs-vswitchd default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add seatd default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add chronyd default || true
 
-n# Quantix-OS custom services
+# Quantix-OS custom services
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-network boot || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-node default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-console default || true
