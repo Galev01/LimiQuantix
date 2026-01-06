@@ -145,6 +145,17 @@ else
 fi
 
 # -----------------------------------------------------------------------------
+# Create symlinks for compatibility
+# -----------------------------------------------------------------------------
+echo ""
+echo "📦 Creating compatibility symlinks..."
+
+# The node daemon expects webui at /usr/share/quantix/webui
+mkdir -p "${OVERLAY_DIR}/usr/share/quantix"
+ln -sf ../quantix-host-ui "${OVERLAY_DIR}/usr/share/quantix/webui"
+echo "   ✅ /usr/share/quantix/webui -> ../quantix-host-ui"
+
+# -----------------------------------------------------------------------------
 # Summary
 # -----------------------------------------------------------------------------
 echo ""
