@@ -117,11 +117,10 @@ echo "📦 Step 4: Creating GRUB configuration..."
 cat > "${ISO_DIR}/boot/grub/grub.cfg" << 'GRUBEOF'
 # Quantix-OS GRUB Configuration
 
-set timeout=5
+set timeout=10
 set default=0
 
-# Try to set up graphics, fall back to text
-set gfxmode=auto
+# Text mode for maximum compatibility
 terminal_output console
 
 # Set colors
@@ -134,8 +133,35 @@ menuentry "Quantix-OS Live" {
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS Live (Debug)" {
-    linux /boot/vmlinuz boot=live toram debug
+menuentry "Quantix-OS Live (Verbose)" {
+    linux /boot/vmlinuz boot=live toram
+    initrd /boot/initramfs
+}
+
+menuentry ">>> FULL DEBUG MODE <<<" {
+    # Maximum kernel verbosity - shows ALL boot messages
+    # earlyprintk: show messages before console is ready
+    # debug: enable kernel debug messages
+    # ignore_loglevel: show ALL messages regardless of level
+    # initcall_debug: show every init function call
+    # no_console_suspend: keep console active
+    # console=tty0: output to main screen
+    # console=ttyS0: also output to serial (for QEMU)
+    linux /boot/vmlinuz boot=live debug earlyprintk=vga ignore_loglevel initcall_debug no_console_suspend console=tty0 console=ttyS0,115200 loglevel=7 printk.time=1
+    initrd /boot/initramfs
+}
+
+menuentry ">>> DEBUG: Drop to initramfs shell <<<" {
+    # This will boot and immediately drop to shell in initramfs
+    # Allows manual inspection of what's available
+    linux /boot/vmlinuz boot=live debug break=premount console=tty0 console=ttyS0,115200
+    initrd /boot/initramfs
+}
+
+menuentry ">>> DEBUG: Alpine init (bypass our init) <<<" {
+    # Try booting with Alpine's standard init parameters
+    # This tests if the kernel/initramfs work at all
+    linux /boot/vmlinuz modules=loop,squashfs,sd-mod,usb-storage quiet console=tty0
     initrd /boot/initramfs
 }
 

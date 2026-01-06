@@ -9,27 +9,55 @@
 #   - A/B partitioning with automatic rollback
 # =============================================================================
 
-# Mount essential filesystems
-mount -t proc none /proc
-mount -t sysfs none /sys
-mount -t devtmpfs none /dev
+# VERY FIRST THING: Try to get output working
+# This runs before anything else to ensure we can see messages
 
-# Enable kernel messages
-echo 1 > /proc/sys/kernel/printk
+# Mount essential filesystems
+/bin/busybox mount -t proc none /proc 2>/dev/null || mount -t proc none /proc
+/bin/busybox mount -t sysfs none /sys 2>/dev/null || mount -t sysfs none /sys
+/bin/busybox mount -t devtmpfs none /dev 2>/dev/null || mount -t devtmpfs none /dev
+
+# Enable ALL kernel messages to console
+echo 8 > /proc/sys/kernel/printk 2>/dev/null
+
+# Create essential device nodes if devtmpfs didn't
+[ -c /dev/console ] || mknod -m 622 /dev/console c 5 1 2>/dev/null
+[ -c /dev/null ] || mknod -m 666 /dev/null c 1 3 2>/dev/null
+[ -c /dev/tty ] || mknod -m 666 /dev/tty c 5 0 2>/dev/null
+[ -c /dev/tty0 ] || mknod -m 666 /dev/tty0 c 4 0 2>/dev/null
+[ -c /dev/tty1 ] || mknod -m 666 /dev/tty1 c 4 1 2>/dev/null
+
+# Redirect output to console
+exec 0</dev/console
+exec 1>/dev/console
+exec 2>/dev/console
 
 echo ""
-echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║                 Quantix-OS Boot Loader                        ║"
-echo "╚═══════════════════════════════════════════════════════════════╝"
+echo "============================================================"
+echo "     QUANTIX-OS INITRAMFS STARTING"
+echo "============================================================"
+echo ""
+echo "[INIT] Script is running!"
+echo "[INIT] Date: $(date 2>/dev/null || echo 'unknown')"
+echo "[INIT] Shell: $0"
+echo "[INIT] PID: $$"
 echo ""
 
 # Load required modules
 echo "[INIT] Loading kernel modules..."
+echo "[INIT] Available modules in /lib/modules:"
+ls -la /lib/modules/ 2>/dev/null || echo "  (no modules directory)"
+
 for mod in loop squashfs overlay ext4 xfs vfat iso9660 sr_mod cdrom usb_storage virtio_pci virtio_blk nvme; do
-    modprobe $mod 2>/dev/null || true
+    echo "[INIT]   Loading: $mod"
+    modprobe $mod 2>/dev/null && echo "[INIT]     OK" || echo "[INIT]     not available (built-in?)"
 done
+echo "[INIT] Module loading complete"
 
 # Parse kernel command line
+echo "[INIT] Parsing kernel command line..."
+echo "[INIT] cmdline: $(cat /proc/cmdline)"
+
 LIVE_BOOT=""
 TORAM=""
 SYSTEM_LABEL=""
@@ -37,17 +65,21 @@ CONFIG_LABEL="QUANTIX-CFG"
 DATA_LABEL="QUANTIX-DATA"
 INSTALL_MODE=""
 DEBUG_MODE=""
+BREAK_POINT=""
 
 for param in $(cat /proc/cmdline); do
     case $param in
         boot=live)
             LIVE_BOOT="1"
+            echo "[INIT]   Found: boot=live"
             ;;
         toram)
             TORAM="1"
+            echo "[INIT]   Found: toram"
             ;;
         root=LABEL=*)
             SYSTEM_LABEL="${param#root=LABEL=}"
+            echo "[INIT]   Found: root=LABEL=$SYSTEM_LABEL"
             ;;
         quantix.config=LABEL=*)
             CONFIG_LABEL="${param#quantix.config=LABEL=}"
@@ -57,18 +89,46 @@ for param in $(cat /proc/cmdline); do
             ;;
         quantix.install=*)
             INSTALL_MODE="1"
+            echo "[INIT]   Found: install mode"
             ;;
         debug)
             DEBUG_MODE="1"
+            echo "[INIT]   Found: debug mode"
+            ;;
+        break=*)
+            BREAK_POINT="${param#break=}"
+            echo "[INIT]   Found: break=$BREAK_POINT"
             ;;
     esac
 done
 
-# Debug output
-if [ -n "$DEBUG_MODE" ]; then
-    echo "[DEBUG] Kernel cmdline: $(cat /proc/cmdline)"
-    echo "[DEBUG] LIVE_BOOT=$LIVE_BOOT"
-    echo "[DEBUG] SYSTEM_LABEL=$SYSTEM_LABEL"
+echo ""
+echo "[INIT] Parsed configuration:"
+echo "[INIT]   LIVE_BOOT=$LIVE_BOOT"
+echo "[INIT]   TORAM=$TORAM"  
+echo "[INIT]   DEBUG_MODE=$DEBUG_MODE"
+echo "[INIT]   SYSTEM_LABEL=$SYSTEM_LABEL"
+echo "[INIT]   BREAK_POINT=$BREAK_POINT"
+echo ""
+
+# Debug breakpoint - drop to shell before mounting
+if [ "$BREAK_POINT" = "premount" ]; then
+    echo ""
+    echo "============================================================"
+    echo "  DEBUG BREAKPOINT: premount"
+    echo "  Dropping to shell for manual debugging."
+    echo "  Type 'exit' to continue boot process."
+    echo "============================================================"
+    echo ""
+    echo "Useful commands:"
+    echo "  cat /proc/cmdline    - see kernel parameters"
+    echo "  ls /dev/             - see available devices"
+    echo "  blkid                - see block device labels"
+    echo "  ls /                 - see initramfs contents"
+    echo "  cat /init            - see this init script"
+    echo ""
+    /bin/sh
+    echo "[INIT] Continuing boot after debug shell..."
 fi
 
 # Wait for devices to settle
