@@ -188,7 +188,7 @@ log_info "This may take several minutes on first run..."
 
 # Mount the entire repo so we can access agent/ and quantix-host-ui/
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-docker run --rm \
+docker run --rm --network=host \
     -v "${REPO_ROOT}:/work" \
     -w /work/quantix-os \
     "${FULL_BUILDER_IMAGE}" \
