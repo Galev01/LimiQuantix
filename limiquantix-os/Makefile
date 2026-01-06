@@ -45,7 +45,12 @@ all: iso
 iso: squashfs console-gui console-tui host-ui node-daemon scripts-executable
 	@echo "🔨 Building bootable ISO..."
 	@mkdir -p $(OUTPUT_DIR)
-	/bin/bash ./builder/build-iso.sh $(VERSION)
+	docker run --rm --privileged \
+		-v "$(BUILD_DIR):/work" \
+		-v "$(OUTPUT_DIR):/output" \
+		-w /work \
+		$(BUILDER_IMAGE) \
+		/bin/bash ./builder/build-iso.sh $(VERSION)
 	@echo "✅ ISO built: $(OUTPUT_DIR)/$(ISO_NAME)"
 
 # Build rootfs squashfs
