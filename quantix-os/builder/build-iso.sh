@@ -168,33 +168,52 @@ menuentry "Quantix-OS (Verbose)" --class quantix {
 # These fix "Blind Boot" where kernel outputs to wrong display
 # ============================================================================
 
-menuentry "Quantix-OS (Intel Fix - nomodeset)" --class quantix {
-    echo "Loading with Intel GPU workaround..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset i915.modeset=0
+menuentry "Quantix-OS (RECOMMENDED - Dell Latitude Fix)" --class quantix {
+    echo "Loading with full Intel Iris Xe workaround..."
+    # Completely disable i915 modesetting + disable all phantom ports + keep EFI framebuffer
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset i915.modeset=0 video=efifb:on video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS (Force SimpleFB)" --class quantix {
+menuentry "Quantix-OS (nomodeset only)" --class quantix {
+    echo "Loading with nomodeset..."
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset
+    initrd /boot/initramfs
+}
+
+menuentry "Quantix-OS (i915 disabled)" --class quantix {
+    echo "Loading with Intel GPU completely disabled..."
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset i915.modeset=0 i915.enable_dc=0
+    initrd /boot/initramfs
+}
+
+menuentry "Quantix-OS (EFI Framebuffer)" --class quantix {
+    echo "Loading with EFI framebuffer preserved..."
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=efifb:on nomodeset
+    initrd /boot/initramfs
+}
+
+menuentry "Quantix-OS (SimpleFB)" --class quantix {
     echo "Loading with SimpleFB (Proxmox fix)..."
     linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=simplefb:on nomodeset
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS (Internal eDP Screen)" --class quantix {
-    echo "Loading for laptop internal display..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=eDP-1:e video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d video=HDMI-A-1:d
+menuentry "Quantix-OS (Disable ALL external ports)" --class quantix {
+    echo "Loading with all external displays disabled..."
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d video=HDMI-A-1:d video=HDMI-A-2:d video=VGA-1:d
+    initrd /boot/initramfs
+}
+
+menuentry "Quantix-OS (Force eDP internal screen)" --class quantix {
+    echo "Loading for laptop internal display only..."
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset video=eDP-1:e video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d video=HDMI-A-1:d
     initrd /boot/initramfs
 }
 
 menuentry "Quantix-OS (HDMI Only)" --class quantix {
     echo "Loading for HDMI output..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=HDMI-A-1:e video=eDP-1:d video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d
-    initrd /boot/initramfs
-}
-
-menuentry "Quantix-OS (DisplayPort Only)" --class quantix {
-    echo "Loading for DisplayPort output..."
-    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=DP-1:e video=eDP-1:d video=HDMI-A-1:d
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset video=HDMI-A-1:e video=eDP-1:d video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d
     initrd /boot/initramfs
 }
 
