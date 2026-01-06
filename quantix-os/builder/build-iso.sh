@@ -150,9 +150,21 @@ menuentry "Quantix-OS (Verbose)" --class quantix {
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS (Safe Mode)" --class quantix {
+menuentry "Quantix-OS (Safe Mode - nomodeset)" --class quantix {
     echo "Loading Quantix-OS (Safe Mode)..."
     linux /boot/vmlinuz console=tty0 loglevel=7 nomodeset rootwait
+    initrd /boot/initramfs
+}
+
+menuentry "Quantix-OS (HDMI Output Only)" --class quantix {
+    echo "Loading Quantix-OS (HDMI)..."
+    linux /boot/vmlinuz console=tty0 loglevel=7 video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d video=eDP-1:d rootwait
+    initrd /boot/initramfs
+}
+
+menuentry "Quantix-OS (Internal Display Only)" --class quantix {
+    echo "Loading Quantix-OS (Internal Display)..."
+    linux /boot/vmlinuz console=tty0 loglevel=7 video=HDMI-A-1:d video=DP-1:d video=DP-2:d rootwait
     initrd /boot/initramfs
 }
 
