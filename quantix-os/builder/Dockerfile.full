@@ -14,7 +14,7 @@ FROM alpine:3.20
 LABEL maintainer="Quantix-KVM Team"
 LABEL description="Full build environment for Quantix-OS (includes Rust)"
 
-# Install build dependencies
+# Install build dependencies (excluding Alpine's old Rust)
 RUN apk add --no-cache \
     # Core build tools
     alpine-sdk \
@@ -50,15 +50,14 @@ RUN apk add --no-cache \
     curl \
     wget \
     ca-certificates \
-    # Rust build dependencies
-    rust \
-    cargo \
+    # Build dependencies for Rust
     openssl-dev \
     openssl-libs-static \
     musl-dev \
     pkgconf \
     protobuf-dev \
     protoc \
+    perl \
     # For node daemon dependencies
     libvirt-dev \
     # Node.js for Host UI
@@ -66,11 +65,20 @@ RUN apk add --no-cache \
     npm \
     && rm -rf /var/cache/apk/*
 
+# Install Rust via rustup (gets latest stable version)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+
+# Add Rust to PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
+
 # Set environment for static OpenSSL linking
 ENV OPENSSL_STATIC=1
 ENV OPENSSL_LIB_DIR=/usr/lib
 ENV OPENSSL_INCLUDE_DIR=/usr/include
 ENV PKG_CONFIG_ALLOW_CROSS=1
+
+# Verify Rust installation
+RUN rustc --version && cargo --version
 
 # Create working directories
 RUN mkdir -p /work /output /rootfs /iso
