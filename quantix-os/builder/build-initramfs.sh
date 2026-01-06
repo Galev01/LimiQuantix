@@ -81,26 +81,51 @@ echo "📦 Step 2: Installing STATIC busybox..."
 # Critical: We MUST use a statically-linked busybox
 # The one in Alpine/Docker containers is dynamically linked and won't work
 
-BUSYBOX_URL="https://www.busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox"
 BUSYBOX_PATH="${INITRAMFS_DIR}/bin/busybox"
 
-# Try to download static busybox
-if command -v curl >/dev/null 2>&1; then
-    echo "   Downloading static busybox via curl..."
-    curl -L -f "${BUSYBOX_URL}" -o "${BUSYBOX_PATH}" || {
-        echo "   curl download failed, trying wget..."
-        wget -q "${BUSYBOX_URL}" -O "${BUSYBOX_PATH}"
-    }
-elif command -v wget >/dev/null 2>&1; then
-    echo "   Downloading static busybox via wget..."
-    wget -q "${BUSYBOX_URL}" -O "${BUSYBOX_PATH}"
+# Method 1: Install busybox-static from Alpine (most reliable)
+echo "   Installing busybox-static from Alpine..."
+apk add --no-cache busybox-static >/dev/null 2>&1 || true
+
+if [ -f /bin/busybox.static ]; then
+    echo "   Using Alpine busybox-static"
+    cp /bin/busybox.static "${BUSYBOX_PATH}"
+elif [ -f /usr/bin/busybox.static ]; then
+    echo "   Using Alpine busybox-static from /usr/bin"
+    cp /usr/bin/busybox.static "${BUSYBOX_PATH}"
 else
-    echo "❌ Neither curl nor wget available!"
-    exit 1
+    # Method 2: Try downloading from busybox.net
+    echo "   busybox-static not found, trying download..."
+    BUSYBOX_URL="https://www.busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox"
+    
+    if command -v curl >/dev/null 2>&1; then
+        echo "   Downloading static busybox via curl..."
+        curl -L -f --connect-timeout 10 "${BUSYBOX_URL}" -o "${BUSYBOX_PATH}" 2>/dev/null || true
+    fi
+    
+    if [ ! -f "${BUSYBOX_PATH}" ] || [ ! -s "${BUSYBOX_PATH}" ]; then
+        if command -v wget >/dev/null 2>&1; then
+            echo "   Trying wget..."
+            wget -q --timeout=10 "${BUSYBOX_URL}" -O "${BUSYBOX_PATH}" 2>/dev/null || true
+        fi
+    fi
+    
+    # Method 3: Use the squashfs busybox if it's statically linked
+    if [ ! -f "${BUSYBOX_PATH}" ] || [ ! -s "${BUSYBOX_PATH}" ]; then
+        echo "   Download failed, checking squashfs for static busybox..."
+        if [ -f "/rootfs/bin/busybox" ]; then
+            # Check if it's static
+            if file /rootfs/bin/busybox 2>/dev/null | grep -q "statically linked"; then
+                echo "   Found static busybox in squashfs"
+                cp /rootfs/bin/busybox "${BUSYBOX_PATH}"
+            fi
+        fi
+    fi
 fi
 
 if [ ! -f "${BUSYBOX_PATH}" ] || [ ! -s "${BUSYBOX_PATH}" ]; then
-    echo "❌ Failed to download static busybox"
+    echo "❌ Failed to get static busybox"
+    echo "   Tried: Alpine package, download, squashfs"
     exit 1
 fi
 

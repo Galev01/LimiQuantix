@@ -48,6 +48,8 @@ RUN apk add --no-cache \
     gzip \
     # Network/download
     curl \
+    # Static busybox for initramfs
+    busybox-static \
     wget \
     ca-certificates \
     # Build dependencies for Rust
