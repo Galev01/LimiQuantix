@@ -146,27 +146,29 @@ terminal_output gfxterm
 set menu_color_normal=white/black
 set menu_color_highlight=black/light-gray
 
-# Boot menu
-menuentry "Quantix-OS" --id quantix {
-    echo "Loading Quantix-OS..."
-    linux /boot/vmlinuz root=LABEL=QUANTIX-A ro quiet
+# Boot menu - Live mode boots from ISO/USB squashfs
+menuentry "Quantix-OS Live" --id quantix-live {
+    echo "Loading Quantix-OS Live..."
+    linux /boot/vmlinuz boot=live toram quiet
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS (Recovery Mode)" --id quantix-recovery {
-    echo "Loading Quantix-OS in recovery mode..."
-    linux /boot/vmlinuz root=LABEL=QUANTIX-A ro single
+menuentry "Quantix-OS Live (Debug)" --id quantix-live-debug {
+    echo "Loading Quantix-OS Live (Debug Mode)..."
+    linux /boot/vmlinuz boot=live toram debug
     initrd /boot/initramfs
 }
 
 menuentry "Quantix-OS Installer" --id quantix-install {
     echo "Starting Quantix-OS Installer..."
-    linux /boot/vmlinuz root=LABEL=QUANTIX-A ro quantix.install=1
+    linux /boot/vmlinuz boot=live toram quantix.install=1
     initrd /boot/initramfs
 }
 
-menuentry "Memory Test (memtest86+)" --id memtest {
-    linux16 /boot/memtest
+menuentry "Boot from installed system (QUANTIX-A)" --id quantix-installed {
+    echo "Booting installed Quantix-OS..."
+    linux /boot/vmlinuz root=LABEL=QUANTIX-A ro quiet
+    initrd /boot/initramfs
 }
 GRUBEOF
 

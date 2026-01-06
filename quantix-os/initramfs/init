@@ -3,7 +3,10 @@
 # Quantix-OS Init Script (initramfs)
 # =============================================================================
 # This script runs from initramfs and sets up the root filesystem.
-# Supports A/B partitioning with automatic rollback.
+# Supports:
+#   - Live boot from ISO/USB (boot=live)
+#   - Installed system boot (root=LABEL=QUANTIX-A)
+#   - A/B partitioning with automatic rollback
 # =============================================================================
 
 # Mount essential filesystems
@@ -22,11 +25,13 @@ echo ""
 
 # Load required modules
 echo "[INIT] Loading kernel modules..."
-for mod in loop squashfs overlay ext4 xfs vfat virtio_pci virtio_blk nvme; do
+for mod in loop squashfs overlay ext4 xfs vfat iso9660 sr_mod cdrom usb_storage virtio_pci virtio_blk nvme; do
     modprobe $mod 2>/dev/null || true
 done
 
 # Parse kernel command line
+LIVE_BOOT=""
+TORAM=""
 SYSTEM_LABEL=""
 CONFIG_LABEL="QUANTIX-CFG"
 DATA_LABEL="QUANTIX-DATA"
@@ -35,6 +40,12 @@ DEBUG_MODE=""
 
 for param in $(cat /proc/cmdline); do
     case $param in
+        boot=live)
+            LIVE_BOOT="1"
+            ;;
+        toram)
+            TORAM="1"
+            ;;
         root=LABEL=*)
             SYSTEM_LABEL="${param#root=LABEL=}"
             ;;
@@ -53,17 +64,178 @@ for param in $(cat /proc/cmdline); do
     esac
 done
 
+# Debug output
+if [ -n "$DEBUG_MODE" ]; then
+    echo "[DEBUG] Kernel cmdline: $(cat /proc/cmdline)"
+    echo "[DEBUG] LIVE_BOOT=$LIVE_BOOT"
+    echo "[DEBUG] SYSTEM_LABEL=$SYSTEM_LABEL"
+fi
+
+# Wait for devices to settle
+echo "[INIT] Waiting for devices..."
+sleep 3
+
+# Scan for new devices
+echo "[INIT] Scanning for block devices..."
+for i in 1 2 3; do
+    mdev -s 2>/dev/null || true
+    sleep 1
+done
+
+# =============================================================================
+# LIVE BOOT MODE (from ISO/USB)
+# =============================================================================
+if [ -n "$LIVE_BOOT" ]; then
+    echo "[INIT] Live boot mode detected"
+    
+    # Find the boot media (CD-ROM or USB)
+    BOOT_MEDIA=""
+    SQUASHFS_PATH=""
+    
+    # Try CD-ROM devices first
+    for dev in /dev/sr0 /dev/sr1 /dev/cdrom; do
+        if [ -b "$dev" ]; then
+            echo "[INIT] Trying CD-ROM: $dev"
+            mkdir -p /mnt/cdrom
+            if mount -t iso9660 -o ro "$dev" /mnt/cdrom 2>/dev/null; then
+                if [ -f "/mnt/cdrom/quantix/system.squashfs" ]; then
+                    BOOT_MEDIA="$dev"
+                    SQUASHFS_PATH="/mnt/cdrom/quantix/system.squashfs"
+                    echo "[INIT] Found squashfs on CD-ROM: $dev"
+                    break
+                fi
+                umount /mnt/cdrom 2>/dev/null
+            fi
+        fi
+    done
+    
+    # Try USB/disk devices if CD-ROM not found
+    if [ -z "$SQUASHFS_PATH" ]; then
+        for dev in /dev/sd[a-z] /dev/sd[a-z][0-9] /dev/nvme[0-9]n[0-9]p[0-9]; do
+            if [ -b "$dev" ]; then
+                echo "[INIT] Trying device: $dev"
+                mkdir -p /mnt/usb
+                # Try ISO9660 first (for USB with ISO written via dd)
+                if mount -t iso9660 -o ro "$dev" /mnt/usb 2>/dev/null || \
+                   mount -t vfat -o ro "$dev" /mnt/usb 2>/dev/null || \
+                   mount -t ext4 -o ro "$dev" /mnt/usb 2>/dev/null; then
+                    if [ -f "/mnt/usb/quantix/system.squashfs" ]; then
+                        BOOT_MEDIA="$dev"
+                        SQUASHFS_PATH="/mnt/usb/quantix/system.squashfs"
+                        # Remount at /mnt/cdrom for consistency
+                        umount /mnt/usb
+                        mount -o ro "$dev" /mnt/cdrom 2>/dev/null
+                        SQUASHFS_PATH="/mnt/cdrom/quantix/system.squashfs"
+                        echo "[INIT] Found squashfs on USB: $dev"
+                        break
+                    fi
+                    umount /mnt/usb 2>/dev/null
+                fi
+            fi
+        done
+    fi
+    
+    if [ -z "$SQUASHFS_PATH" ]; then
+        echo "[ERROR] Could not find Quantix-OS boot media!"
+        echo "[ERROR] Available block devices:"
+        ls -la /dev/sd* /dev/sr* /dev/nvme* 2>/dev/null || echo "  (none found)"
+        echo ""
+        echo "[ERROR] Trying blkid:"
+        blkid 2>/dev/null || echo "  (blkid not available)"
+        echo ""
+        echo "[ERROR] Dropping to emergency shell..."
+        exec /bin/sh
+    fi
+    
+    echo "[INIT] Using squashfs: $SQUASHFS_PATH"
+    
+    # Copy squashfs to RAM if requested
+    if [ -n "$TORAM" ]; then
+        echo "[INIT] Copying system to RAM (this may take a moment)..."
+        mkdir -p /mnt/toram
+        mount -t tmpfs -o size=80% tmpfs /mnt/toram
+        cp "$SQUASHFS_PATH" /mnt/toram/system.squashfs
+        SQUASHFS_PATH="/mnt/toram/system.squashfs"
+        # Unmount boot media - no longer needed
+        umount /mnt/cdrom 2>/dev/null || true
+        echo "[INIT] System loaded to RAM"
+    fi
+    
+    # Mount squashfs
+    echo "[INIT] Mounting system image..."
+    mkdir -p /mnt/lower
+    mount -t squashfs -o ro "$SQUASHFS_PATH" /mnt/lower
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] Failed to mount squashfs: $SQUASHFS_PATH"
+        exec /bin/sh
+    fi
+    
+    # Create tmpfs overlay for writable root
+    echo "[INIT] Creating overlay filesystem..."
+    mkdir -p /mnt/upper /mnt/work /mnt/merged
+    mount -t tmpfs -o size=512M tmpfs /mnt/upper
+    mkdir -p /mnt/upper/data /mnt/upper/work
+    
+    mount -t overlay overlay \
+        -o lowerdir=/mnt/lower,upperdir=/mnt/upper/data,workdir=/mnt/upper/work \
+        /mnt/merged
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] Failed to create overlay filesystem"
+        exec /bin/sh
+    fi
+    
+    # Create required directories
+    mkdir -p /mnt/merged/run
+    mkdir -p /mnt/merged/tmp
+    mkdir -p /mnt/merged/var/log
+    mkdir -p /mnt/merged/mnt/cdrom
+    
+    # Keep boot media mounted if not using toram
+    if [ -z "$TORAM" ] && [ -d "/mnt/cdrom" ]; then
+        mount --move /mnt/cdrom /mnt/merged/mnt/cdrom 2>/dev/null || true
+    fi
+    
+    # Check if installer mode
+    if [ -n "$INSTALL_MODE" ]; then
+        echo "[INIT] Installer mode - will launch installer after boot"
+        touch /mnt/merged/tmp/.quantix_install_mode
+    fi
+    
+    # Switch to new root
+    echo "[INIT] Switching to Quantix-OS Live..."
+    echo ""
+    
+    # Clean up
+    umount /proc 2>/dev/null
+    umount /sys 2>/dev/null
+    umount /dev 2>/dev/null
+    
+    cd /mnt/merged
+    pivot_root . mnt/initramfs 2>/dev/null || {
+        # Fallback if pivot_root fails
+        exec switch_root /mnt/merged /sbin/init
+    }
+    
+    # Execute init
+    exec /sbin/init
+    
+    # Fallback
+    echo "[ERROR] Failed to start init!"
+    exec /bin/sh
+fi
+
+# =============================================================================
+# INSTALLED SYSTEM BOOT MODE
+# =============================================================================
+
 # Default to System A if not specified
 [ -z "$SYSTEM_LABEL" ] && SYSTEM_LABEL="QUANTIX-A"
 
+echo "[INIT] Installed system boot mode"
 echo "[INIT] Boot configuration:"
 echo "       System: ${SYSTEM_LABEL}"
 echo "       Config: ${CONFIG_LABEL}"
 echo "       Data:   ${DATA_LABEL}"
-
-# Wait for devices to settle
-echo "[INIT] Waiting for devices..."
-sleep 2
 
 # Find and mount system partition
 echo "[INIT] Mounting system partition..."
@@ -72,12 +244,13 @@ SYSTEM_DEV=$(findfs LABEL="${SYSTEM_LABEL}" 2>/dev/null)
 if [ -z "$SYSTEM_DEV" ]; then
     echo "[ERROR] System partition not found: ${SYSTEM_LABEL}"
     echo "[ERROR] Available partitions:"
-    blkid
+    blkid 2>/dev/null || ls -la /dev/sd* /dev/nvme* 2>/dev/null
     echo ""
     echo "[ERROR] Dropping to emergency shell..."
     exec /bin/sh
 fi
 
+mkdir -p /mnt/system
 mount -t ext4 -o ro "$SYSTEM_DEV" /mnt/system
 if [ $? -ne 0 ]; then
     echo "[ERROR] Failed to mount system partition: ${SYSTEM_DEV}"
@@ -113,6 +286,7 @@ echo "[INIT] Found system image: ${SQUASHFS_PATH}"
 
 # Mount squashfs
 echo "[INIT] Mounting system image..."
+mkdir -p /mnt/lower
 mount -t squashfs -o ro "$SQUASHFS_PATH" /mnt/lower
 if [ $? -ne 0 ]; then
     echo "[ERROR] Failed to mount squashfs"
@@ -121,6 +295,7 @@ fi
 
 # Create tmpfs for overlay upper layer
 echo "[INIT] Creating overlay filesystem..."
+mkdir -p /mnt/upper /mnt/work /mnt/merged
 mount -t tmpfs -o size=512M tmpfs /mnt/upper
 mkdir -p /mnt/upper/data /mnt/upper/work
 
@@ -175,16 +350,18 @@ mkdir -p /mnt/merged/tmp
 mkdir -p /mnt/merged/var/log
 
 # Clean up
-umount /proc
-umount /sys
-umount /dev
+umount /proc 2>/dev/null
+umount /sys 2>/dev/null
+umount /dev 2>/dev/null
 
 # Switch to new root
 echo "[INIT] Switching to Quantix-OS..."
 echo ""
 
 cd /mnt/merged
-pivot_root . mnt/initramfs
+pivot_root . mnt/initramfs 2>/dev/null || {
+    exec switch_root /mnt/merged /sbin/init
+}
 
 # Execute init
 exec /sbin/init
