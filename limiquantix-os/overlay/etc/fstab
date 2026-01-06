@@ -1,0 +1,25 @@
+# /etc/fstab - Quantix-OS filesystem table
+#
+# The root filesystem is mounted by initramfs as an overlay:
+#   lower = squashfs (read-only)
+#   upper = tmpfs (ephemeral)
+#
+# Only /quantix (config) and /data (VMs) are persistent.
+
+# Pseudo filesystems
+proc            /proc           proc    defaults                0 0
+sysfs           /sys            sysfs   defaults                0 0
+devtmpfs        /dev            devtmpfs defaults               0 0
+devpts          /dev/pts        devpts  defaults,gid=5,mode=620 0 0
+tmpfs           /dev/shm        tmpfs   defaults                0 0
+tmpfs           /run            tmpfs   defaults,mode=755       0 0
+tmpfs           /tmp            tmpfs   defaults,size=1G        0 0
+
+# Logs in RAM (rotated to prevent exhaustion)
+tmpfs           /var/log        tmpfs   defaults,size=256M      0 0
+
+# Persistent configuration partition
+LABEL=QUANTIX-CFG /quantix      ext4    defaults,noatime        0 2
+
+# Persistent data partition (VMs, ISOs, images)
+LABEL=QUANTIX-DATA /data        xfs     defaults,noatime        0 2

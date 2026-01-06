@@ -1,0 +1,54 @@
+# =============================================================================
+# Quantix-OS Rust GUI Builder Dockerfile
+# =============================================================================
+# This container builds the Slint-based console GUI for Quantix-OS.
+# Uses Alpine Linux with all required dependencies for LinuxKMS backend.
+#
+# Usage:
+#   docker build -t quantix-rust-gui-builder -f builder/Dockerfile.rust-gui builder/
+#   docker run --rm -v $(pwd)/console-gui:/build quantix-rust-gui-builder \
+#       cargo build --release --no-default-features --features linuxkms
+# =============================================================================
+
+FROM alpine:3.20
+
+LABEL maintainer="Quantix-KVM Team"
+LABEL description="Rust build environment for Quantix-OS Console GUI"
+
+# Install Rust and build dependencies
+RUN apk add --no-cache \
+    # Rust toolchain
+    rust \
+    cargo \
+    # Build essentials
+    build-base \
+    musl-dev \
+    pkgconf \
+    cmake \
+    # Slint LinuxKMS backend dependencies
+    eudev-dev \
+    libinput-dev \
+    libxkbcommon-dev \
+    mesa-dev \
+    libgbm \
+    mesa-gbm \
+    seatd-dev \
+    # Font rendering
+    freetype-dev \
+    fontconfig-dev \
+    # SSL for network operations
+    openssl-dev \
+    openssl-libs-static \
+    # Misc
+    git \
+    && rm -rf /var/cache/apk/*
+
+# Set environment for static linking where possible
+ENV RUSTFLAGS="-C target-feature=-crt-static"
+ENV PKG_CONFIG_ALL_STATIC=1
+
+# Create build directory
+WORKDIR /build
+
+# Default command - build with linuxkms feature
+CMD ["cargo", "build", "--release", "--no-default-features", "--features", "linuxkms"]

@@ -1,0 +1,81 @@
+#!/sbin/openrc-run
+# =============================================================================
+# Quantix-OS First Boot Service
+# =============================================================================
+# Runs on first boot to perform initial system configuration.
+# =============================================================================
+
+name="Quantix First Boot"
+description="One-time first boot configuration"
+
+depend() {
+    need localmount
+    before quantix-node quantix-console
+}
+
+start() {
+    # Check if first boot
+    if [ -f /quantix/.setup_complete ]; then
+        einfo "First boot already completed"
+        return 0
+    fi
+
+    ebegin "Running first boot configuration"
+
+    # Generate SSH host keys
+    if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+        einfo "Generating SSH host keys..."
+        ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q
+        ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q
+        ssh-keygen -t ecdsa -b 521 -f /etc/ssh/ssh_host_ecdsa_key -N "" -q
+    fi
+
+    # Generate TLS certificates
+    CERT_DIR="/quantix/certificates"
+    if [ ! -f "$CERT_DIR/server.key" ]; then
+        einfo "Generating TLS certificates..."
+        mkdir -p "$CERT_DIR"
+        
+        HOSTNAME=$(hostname)
+        
+        openssl genrsa -out "$CERT_DIR/server.key" 4096 2>/dev/null
+        openssl req -new -x509 \
+            -key "$CERT_DIR/server.key" \
+            -out "$CERT_DIR/server.crt" \
+            -days 3650 \
+            -subj "/CN=${HOSTNAME}/O=Quantix-KVM/OU=Hypervisor" \
+            -addext "subjectAltName=DNS:${HOSTNAME},DNS:localhost,IP:127.0.0.1" 2>/dev/null
+        
+        chmod 600 "$CERT_DIR/server.key"
+        chmod 644 "$CERT_DIR/server.crt"
+    fi
+
+    # Create default storage directories
+    einfo "Creating storage directories..."
+    mkdir -p /data/vms /data/isos /data/images /data/backups
+    chmod 755 /data
+
+    # Initialize libvirt default pool
+    if command -v virsh >/dev/null 2>&1; then
+        if ! virsh pool-info default >/dev/null 2>&1; then
+            einfo "Creating default libvirt storage pool..."
+            virsh pool-define-as default dir --target /data/vms 2>/dev/null || true
+            virsh pool-autostart default 2>/dev/null || true
+            virsh pool-start default 2>/dev/null || true
+        fi
+    fi
+
+    # Initialize OVS
+    if command -v ovs-vsctl >/dev/null 2>&1; then
+        if ! ovs-vsctl br-exists br-int 2>/dev/null; then
+            einfo "Creating OVS integration bridge..."
+            ovs-vsctl add-br br-int 2>/dev/null || true
+        fi
+    fi
+
+    eend 0
+}
+
+stop() {
+    return 0
+}

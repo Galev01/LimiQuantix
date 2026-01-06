@@ -1,0 +1,81 @@
+#!/sbin/openrc-run
+# =============================================================================
+# Quantix-OS Console Service
+# =============================================================================
+# Manages the Quantix console GUI/TUI on TTY1.
+# =============================================================================
+
+name="Quantix Console"
+description="Quantix-OS local management console"
+command="/usr/local/bin/qx-console-launcher"
+command_background="yes"
+pidfile="/run/quantix-console.pid"
+output_log="/var/log/quantix-console.log"
+error_log="/var/log/quantix-console.log"
+
+depend() {
+    need localmount
+    after quantix-firstboot seatd
+    keyword -prefix
+}
+
+start_pre() {
+    # Ensure log directory exists
+    mkdir -p /var/log
+    
+    # Ensure runtime directory for Slint
+    mkdir -p /run/user/0
+    chmod 700 /run/user/0
+    
+    # Set environment for Slint LinuxKMS backend
+    export SLINT_BACKEND=linuxkms
+    export XDG_RUNTIME_DIR=/run/user/0
+    
+    # Check if launcher exists
+    if [ ! -x "$command" ]; then
+        eerror "Console launcher not found: $command"
+        return 1
+    fi
+    
+    return 0
+}
+
+start() {
+    ebegin "Starting $name"
+    
+    # Set environment variables
+    export SLINT_BACKEND=linuxkms
+    export XDG_RUNTIME_DIR=/run/user/0
+    
+    start-stop-daemon --start \
+        --background \
+        --make-pidfile \
+        --pidfile "$pidfile" \
+        --stdout "$output_log" \
+        --stderr "$error_log" \
+        --exec "$command"
+    
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping $name"
+    
+    start-stop-daemon --stop \
+        --pidfile "$pidfile" \
+        --retry TERM/10/KILL/5
+    
+    eend $?
+}
+
+status() {
+    if [ -f "$pidfile" ]; then
+        if kill -0 $(cat "$pidfile") 2>/dev/null; then
+            einfo "$name is running (PID: $(cat $pidfile))"
+            return 0
+        fi
+    fi
+    
+    einfo "$name is not running"
+    return 3
+}

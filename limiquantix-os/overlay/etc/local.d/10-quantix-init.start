@@ -1,0 +1,35 @@
+#!/bin/sh
+# =============================================================================
+# Quantix-OS Early Initialization
+# =============================================================================
+# Runs early in the boot process to set up essential configuration.
+# =============================================================================
+
+# Set up console
+echo "Quantix-OS initializing..."
+
+# Ensure /quantix is mounted
+if ! mountpoint -q /quantix 2>/dev/null; then
+    echo "Warning: /quantix not mounted, config may not persist"
+fi
+
+# Ensure /data is mounted
+if ! mountpoint -q /data 2>/dev/null; then
+    echo "Warning: /data not mounted, VMs will not be stored"
+fi
+
+# Load kernel modules
+for mod in kvm kvm_intel kvm_amd vhost_net tun tap bridge 8021q; do
+    modprobe $mod 2>/dev/null || true
+done
+
+# Set hostname from config
+if [ -f /quantix/node.yaml ]; then
+    HOSTNAME=$(grep "^  hostname:" /quantix/node.yaml 2>/dev/null | cut -d'"' -f2)
+    if [ -n "$HOSTNAME" ]; then
+        hostname "$HOSTNAME"
+        echo "$HOSTNAME" > /etc/hostname
+    fi
+fi
+
+echo "Quantix-OS initialization complete"

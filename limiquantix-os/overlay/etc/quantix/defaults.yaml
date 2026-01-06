@@ -1,0 +1,83 @@
+# =============================================================================
+# Quantix-OS Default Configuration
+# =============================================================================
+# This file provides default values for the system configuration.
+# User settings are stored in /quantix/node.yaml and override these defaults.
+# =============================================================================
+
+# System identification
+system:
+  version: "1.0.0"
+  codename: "genesis"
+
+# Node daemon settings
+node:
+  # gRPC server port
+  grpc_port: 9443
+  # HTTP/REST server port
+  http_port: 8443
+  # Control plane address (set during cluster join)
+  control_plane_address: ""
+  # Node registration token
+  registration_token: ""
+
+# Logging configuration
+logging:
+  # Log level: trace, debug, info, warn, error
+  level: info
+  # Log format: text, json
+  format: text
+  # Max log file size before rotation (MB)
+  max_size_mb: 50
+  # Number of rotated files to keep
+  max_files: 5
+
+# Network defaults
+network:
+  # Default management interface (auto-detected if empty)
+  management_interface: ""
+  # Use DHCP by default
+  use_dhcp: true
+  # DNS servers (used if not provided by DHCP)
+  dns_servers:
+    - "8.8.8.8"
+    - "8.8.4.4"
+
+# Security defaults
+security:
+  # SSH disabled by default
+  ssh_enabled: false
+  # TLS for all API communication
+  tls_enabled: true
+  # Certificate paths
+  cert_path: "/quantix/certificates/server.crt"
+  key_path: "/quantix/certificates/server.key"
+
+# Libvirt settings
+libvirt:
+  # Connection URI
+  uri: "qemu:///system"
+  # Default storage pool
+  default_pool: "default"
+  # Default network
+  default_network: "default"
+
+# Storage defaults
+storage:
+  # VM disk images location
+  vm_path: "/data/vms"
+  # ISO library location
+  iso_path: "/data/isos"
+  # Template images location
+  image_path: "/data/images"
+  # Backup location
+  backup_path: "/data/backups"
+
+# Console settings
+console:
+  # Refresh interval for system stats (seconds)
+  refresh_interval: 5
+  # Idle timeout before screen blanking (minutes, 0 = disabled)
+  idle_timeout: 0
+  # Enable keyboard shortcuts
+  shortcuts_enabled: true
