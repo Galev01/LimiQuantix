@@ -1,0 +1,12 @@
+# Quantix-OS Input Device Permissions
+# Ensure input devices are accessible to the input group for GUI console
+
+# Input devices (keyboard, mouse, etc.)
+KERNEL=="event*", SUBSYSTEM=="input", GROUP="input", MODE="0660"
+
+# DRM/GPU devices
+KERNEL=="card*", SUBSYSTEM=="drm", GROUP="video", MODE="0660"
+KERNEL=="renderD*", SUBSYSTEM=="drm", GROUP="video", MODE="0660"
+
+# Framebuffer devices
+KERNEL=="fb*", SUBSYSTEM=="graphics", GROUP="video", MODE="0660"

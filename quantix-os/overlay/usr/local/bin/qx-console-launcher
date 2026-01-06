@@ -2,10 +2,74 @@
 # =============================================================================
 # Quantix-OS Console Launcher
 # =============================================================================
-# Selects the console interface:
-# - TUI (Ratatui) - DEFAULT, works reliably
-# - GUI (Slint) - Experimental, use --gui flag
+# Automatically selects the best console interface based on available hardware:
+# - GUI (Slint) if graphics are available and input works
+# - TUI (Ratatui) for serial/SSH/headless or if GUI fails
 # =============================================================================
+
+# Check if we're on a real TTY with graphics capability
+check_graphics() {
+    # Check for framebuffer device
+    if [ -e /dev/fb0 ]; then
+        return 0
+    fi
+    
+    # Check for DRM devices
+    if ls /dev/dri/card* >/dev/null 2>&1; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# Check if we're on a serial console or SSH
+is_serial_or_ssh() {
+    # Check if SSH session
+    if [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_TTY" ]; then
+        return 0
+    fi
+    
+    # Check if serial console
+    TTY=$(tty 2>/dev/null)
+    case "$TTY" in
+        /dev/ttyS*|/dev/ttyAMA*|/dev/ttyUSB*|/dev/hvc*)
+            return 0
+            ;;
+    esac
+    
+    return 1
+}
+
+# Setup environment for GUI
+setup_gui_env() {
+    # XDG runtime directory
+    export XDG_RUNTIME_DIR=/run/user/0
+    mkdir -p /run/user/0
+    chmod 700 /run/user/0
+    
+    # Slint backend
+    export SLINT_BACKEND=linuxkms
+    
+    # Ensure seatd is running
+    if ! pgrep -x seatd >/dev/null 2>&1; then
+        echo "Starting seatd daemon..."
+        # Start seatd with video group access
+        seatd -g video &
+        sleep 1
+    fi
+    
+    # Set seatd socket path if using libseat
+    if [ -S /run/seatd.sock ]; then
+        export LIBSEAT_BACKEND=seatd
+    fi
+    
+    # Ensure input devices are accessible
+    # The input group should already have access, but ensure permissions
+    if [ -d /dev/input ]; then
+        chmod 660 /dev/input/event* 2>/dev/null || true
+        chgrp input /dev/input/event* 2>/dev/null || true
+    fi
+}
 
 # Main logic
 main() {
@@ -15,52 +79,63 @@ main() {
     # Check for force flags
     case "$1" in
         --gui)
-            echo "WARNING: GUI mode is experimental and may freeze!"
-            echo "Starting GUI in 3 seconds... (Ctrl+C to cancel)"
-            sleep 3
+            echo "Forcing GUI mode..."
             setup_gui_env
             exec /usr/bin/qx-console-gui
             ;;
         --tui)
-            echo "Starting TUI mode..."
+            echo "Forcing TUI mode..."
             exec /usr/local/bin/qx-console
             ;;
         --help|-h)
             echo "Usage: $0 [--gui|--tui]"
             echo ""
             echo "Options:"
-            echo "  --tui    Text console (Ratatui) - DEFAULT, recommended"
-            echo "  --gui    Graphical console (Slint) - EXPERIMENTAL"
+            echo "  --gui    Force graphical console (Slint)"
+            echo "  --tui    Force text console (Ratatui)"
             echo ""
-            echo "Default: TUI mode (GUI has stability issues)"
+            echo "Without options, automatically selects based on hardware."
             exit 0
             ;;
     esac
     
-    # DEFAULT: Use TUI - it works reliably
-    echo "Starting TUI console (default)..."
-    
+    # Auto-detect best mode
+    if is_serial_or_ssh; then
+        echo "Serial/SSH detected, using TUI..."
+        start_tui
+    elif check_graphics; then
+        echo "Graphics detected, trying GUI..."
+        
+        # Check if GUI binary exists and has all libraries
+        if [ -x /usr/bin/qx-console-gui ]; then
+            if ! ldd /usr/bin/qx-console-gui 2>&1 | grep -q "not found"; then
+                setup_gui_env
+                echo "Launching GUI..."
+                exec /usr/bin/qx-console-gui
+            else
+                echo "GUI binary missing libraries:"
+                ldd /usr/bin/qx-console-gui 2>&1 | grep "not found"
+                echo "Falling back to TUI..."
+            fi
+        else
+            echo "GUI binary not found, using TUI..."
+        fi
+        
+        start_tui
+    else
+        echo "No graphics, using TUI..."
+        start_tui
+    fi
+}
+
+# Start TUI or fall back to shell
+start_tui() {
     if [ -x /usr/local/bin/qx-console ]; then
         exec /usr/local/bin/qx-console
     else
         echo "TUI not available, starting shell"
         exec /bin/sh
     fi
-}
-
-# Setup GUI environment (experimental)
-setup_gui_env() {
-    export XDG_RUNTIME_DIR=/run/user/0
-    export SLINT_BACKEND=linuxkms
-    mkdir -p /run/user/0
-    chmod 700 /run/user/0
-    
-    # Try to setup seatd
-    rc-service seatd start 2>/dev/null || true
-    addgroup root seat 2>/dev/null || true
-    addgroup root input 2>/dev/null || true
-    addgroup root video 2>/dev/null || true
-    chmod 660 /dev/input/* 2>/dev/null || true
 }
 
 main "$@"
