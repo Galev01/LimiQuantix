@@ -41,7 +41,7 @@ struct App {
 }
 
 /// Application screens
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 enum Screen {
     Main,
     Network,
