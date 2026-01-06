@@ -179,29 +179,37 @@ elif [ -d "/usr/share/grub/x86_64-efi" ]; then
 fi
 
 # Build GRUB EFI image with all necessary modules embedded
+# Note: linuxefi doesn't exist in Alpine, use linux module instead
 echo "   Building GRUB EFI image..."
-grub-mkimage \
-    -O x86_64-efi \
-    -o "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" \
-    -p /boot/grub \
-    -d /usr/lib/grub/x86_64-efi \
-    part_gpt part_msdos fat ext2 iso9660 udf \
-    linux linuxefi normal boot echo configfile loopback chain \
-    efifwsetup efi_gop efi_uga ls search search_label search_fs_uuid search_fs_file \
-    gfxterm gfxterm_background gfxterm_menu test all_video video video_fb \
-    loadenv cat help true reboot halt || {
-    echo "   Trying alternate GRUB path..."
+
+# Find GRUB modules directory
+GRUB_EFI_DIR=""
+for dir in /usr/lib/grub/x86_64-efi /usr/share/grub/x86_64-efi; do
+    if [ -d "$dir" ]; then
+        GRUB_EFI_DIR="$dir"
+        break
+    fi
+done
+
+if [ -z "$GRUB_EFI_DIR" ]; then
+    echo "⚠️  GRUB EFI modules not found"
+else
+    echo "   Using GRUB modules from: $GRUB_EFI_DIR"
+    
+    # List available modules for debugging
+    echo "   Available modules: $(ls $GRUB_EFI_DIR/*.mod 2>/dev/null | wc -l)"
+    
     grub-mkimage \
         -O x86_64-efi \
         -o "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" \
         -p /boot/grub \
-        -d /usr/share/grub/x86_64-efi \
-        part_gpt part_msdos fat ext2 iso9660 udf \
-        linux linuxefi normal boot echo configfile loopback chain \
-        efifwsetup efi_gop efi_uga ls search search_label search_fs_uuid search_fs_file \
-        gfxterm gfxterm_background gfxterm_menu test all_video video video_fb \
-        loadenv cat help true reboot halt 2>/dev/null || echo "⚠️  GRUB EFI image creation failed"
-}
+        -d "$GRUB_EFI_DIR" \
+        part_gpt part_msdos fat ext2 iso9660 \
+        linux normal boot echo configfile loopback chain \
+        efi_gop efi_uga ls search search_label search_fs_uuid search_fs_file \
+        gfxterm test all_video \
+        loadenv reboot halt || echo "⚠️  GRUB EFI image creation failed"
+fi
 
 # Create EFI boot image for ISO (FAT filesystem containing EFI bootloader)
 echo "   Creating EFI boot partition image..."
