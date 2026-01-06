@@ -680,36 +680,132 @@ INITEOF
     mkdir -p "${INITRAMFS_WORK}"
     cd "${INITRAMFS_WORK}"
     
+    log_info "Extracting initramfs..."
+    INITRAMFS_FILE="${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}"
+    EXTRACT_SUCCESS=false
+    
+    # Detect compression format
+    COMPRESSION=$(file "${INITRAMFS_FILE}" | awk '{print $2}')
+    log_info "Detected initramfs format: ${COMPRESSION}"
+    
     # Extract existing initramfs (it's gzipped cpio)
     # Try different compression formats (Alpine may use different ones)
-    if file "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | grep -q "gzip"; then
-        gunzip -c "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | cpio -idm 2>/dev/null || true
-    elif file "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | grep -q "XZ"; then
-        xz -dc "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | cpio -idm 2>/dev/null || true
-    else
-        # Try gzip anyway
-        gunzip -c "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | cpio -idm 2>/dev/null || true
+    if echo "${COMPRESSION}" | grep -qi "gzip"; then
+        log_info "Extracting gzip compressed initramfs..."
+        if gunzip -c "${INITRAMFS_FILE}" | cpio -idm 2>/dev/null; then
+            EXTRACT_SUCCESS=true
+        fi
+    elif echo "${COMPRESSION}" | grep -qi "XZ"; then
+        log_info "Extracting XZ compressed initramfs..."
+        if xz -dc "${INITRAMFS_FILE}" | cpio -idm 2>/dev/null; then
+            EXTRACT_SUCCESS=true
+        fi
+    elif echo "${COMPRESSION}" | grep -qi "Zstandard\|zstd"; then
+        log_info "Extracting Zstd compressed initramfs..."
+        if zstd -dc "${INITRAMFS_FILE}" | cpio -idm 2>/dev/null; then
+            EXTRACT_SUCCESS=true
+        fi
     fi
     
+    # Fallback: try all formats
+    if [ "${EXTRACT_SUCCESS}" = "false" ]; then
+        log_warn "Auto-detection failed, trying all compression formats..."
+        for decompress in "gunzip -c" "xz -dc" "zstd -dc" "cat"; do
+            if ${decompress} "${INITRAMFS_FILE}" 2>/dev/null | cpio -idm 2>/dev/null; then
+                EXTRACT_SUCCESS=true
+                log_info "Successfully extracted with: ${decompress}"
+                break
+            fi
+        done
+    fi
+    
+    if [ "${EXTRACT_SUCCESS}" = "false" ]; then
+        log_error "Failed to extract initramfs! Creating minimal initramfs from scratch..."
+        # Create minimal structure
+        mkdir -p bin sbin lib dev proc sys newroot mnt cdrom squashfs overlay tmp run
+    fi
+    
+    # Show what we extracted
+    log_info "Initramfs contents after extraction:"
+    ls -la "${INITRAMFS_WORK}/" || true
+    ls -la "${INITRAMFS_WORK}/bin/" 2>/dev/null || log_warn "No bin directory"
+    
     # Replace init with our custom init
+    log_info "Installing custom init script..."
     cp "${INITRAMFS_OVERLAY}/init-quantix" "${INITRAMFS_WORK}/init"
     chmod +x "${INITRAMFS_WORK}/init"
     
+    # Verify init was copied
+    if [ ! -x "${INITRAMFS_WORK}/init" ]; then
+        log_error "CRITICAL: Failed to install custom init script!"
+        exit 1
+    fi
+    log_info "Custom init installed: $(ls -la ${INITRAMFS_WORK}/init)"
+    
     # Ensure busybox is present and linked
     if [ ! -f "${INITRAMFS_WORK}/bin/busybox" ]; then
-        log_warn "Busybox not found in initramfs, copying..."
+        log_warn "Busybox not found in initramfs, copying from rootfs..."
         mkdir -p "${INITRAMFS_WORK}/bin"
-        cp "${ROOTFS}/bin/busybox" "${INITRAMFS_WORK}/bin/" 2>/dev/null || true
+        if [ -f "${ROOTFS}/bin/busybox" ]; then
+            cp "${ROOTFS}/bin/busybox" "${INITRAMFS_WORK}/bin/"
+            chmod +x "${INITRAMFS_WORK}/bin/busybox"
+            log_info "Copied busybox: $(ls -la ${INITRAMFS_WORK}/bin/busybox)"
+        else
+            log_error "CRITICAL: Busybox not found in rootfs!"
+            exit 1
+        fi
     fi
+    
+    # Create essential directories
+    mkdir -p "${INITRAMFS_WORK}"/{bin,sbin,lib,dev,proc,sys,newroot,mnt,cdrom,squashfs,overlay,tmp,run}
     
     # Create essential symlinks if missing
     cd "${INITRAMFS_WORK}"
-    for cmd in sh mount umount mkdir cat echo ls modprobe mknod switch_root; do
-        [ ! -e "bin/$cmd" ] && ln -sf busybox "bin/$cmd" 2>/dev/null || true
+    for cmd in sh mount umount mkdir cat echo ls modprobe mknod switch_root sleep blkid; do
+        if [ ! -e "bin/$cmd" ]; then
+            ln -sf busybox "bin/$cmd"
+            log_info "Created symlink: bin/$cmd -> busybox"
+        fi
     done
     
+    # Also create in sbin for compatibility
+    mkdir -p sbin
+    for cmd in modprobe switch_root mdev; do
+        if [ ! -e "sbin/$cmd" ]; then
+            ln -sf ../bin/busybox "sbin/$cmd" 2>/dev/null || true
+        fi
+    done
+    
+    # Verify essential files exist
+    log_info "Verifying initramfs contents..."
+    for file in init bin/busybox bin/sh bin/mount; do
+        if [ -e "${INITRAMFS_WORK}/${file}" ]; then
+            log_info "  ✓ ${file} exists"
+        else
+            log_error "  ✗ ${file} MISSING!"
+        fi
+    done
+    
+    # Show first 10 lines of init to verify
+    log_info "Init script header:"
+    head -5 "${INITRAMFS_WORK}/init" || true
+    
     # Repack initramfs with gzip (most compatible)
+    log_info "Repacking initramfs..."
     find . | cpio -H newc -o 2>/dev/null | gzip -9 > "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}"
+    
+    # Verify output
+    INITRAMFS_SIZE=$(du -h "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" | cut -f1)
+    log_info "Initramfs repacked: ${INITRAMFS_SIZE}"
+    
+    # Verify the repacked initramfs
+    log_info "Verifying repacked initramfs contains /init..."
+    if gunzip -c "${ROOTFS}/boot/initramfs-${KERNEL_FLAVOR}" 2>/dev/null | cpio -t 2>/dev/null | grep -q "^init$"; then
+        log_info "  ✓ /init is present in final initramfs"
+    else
+        log_error "  ✗ /init NOT FOUND in final initramfs!"
+        exit 1
+    fi
     
     cd /
     rm -rf "${INITRAMFS_WORK}" "${INITRAMFS_OVERLAY}"

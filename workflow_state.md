@@ -1,55 +1,62 @@
-# Workflow State: Fix Cloud Image Boot Issue
+# Workflow State: Fix Quantix-OS Kernel Panic on Boot
 
 ## Problem
 
-Ubuntu cloud image VMs fail to boot with "Boot failed: not a bootable disk".
+Quantix-OS ISO fails to boot with kernel panic:
+```
+VFS: Cannot open root device "" or unknown-block(0,0): error -6
+Please append a correct "root=" boot option
+Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)
+```
 
-## Root Causes Found and Fixed
+## Root Cause
 
-### Issue 1: Empty disk ID (FIXED)
-- Disk was being named `.qcow2` instead of `disk0.qcow2`
-- Fixed by generating disk ID if empty in Rust node daemon
+The kernel was panicking because:
+1. **GRUB config missing `rdinit=/init`** - The kernel didn't know to use our custom init script from the initramfs
+2. **Initramfs extraction might have failed silently** - No verification that `/init` was properly installed
 
-### Issue 2: Mock hypervisor (FIXED)
-- Node daemon was using mock hypervisor instead of libvirt
-- Fixed by building with `--features libvirt`
+Without `rdinit=/init`, the kernel uses its built-in default init which expects a `root=` parameter. Since we deliberately don't provide `root=` (our custom init finds the squashfs dynamically), the kernel panics.
 
-### Issue 3: camelCase vs snake_case JSON keys (FIXED)
-- Frontend sends `backingFile` (camelCase)
-- Go proto expects `backing_file` (snake_case in JSON tags)
-- Fixed by adding `convertKeysToSnakeCase()` in api-client.ts
+## Fixes Applied
 
-### Issue 4: Cloud image path always undefined (FIXED - LATEST)
-- The `toCloudImage()` function was returning `path: undefined` for all images
-- Original code: `path: img.status?.storagePoolId ? undefined : undefined`
-- This meant `backingFile` was always empty!
-- **Fixed by adding `constructCloudImagePath()` function** that builds the path from OS info
+### Fix 1: Added `rdinit=/init` to GRUB config
+**File:** `quantix-os/builder/build-iso.sh`
 
-## Changes Made
+All menu entries now include `rdinit=/init` which tells the kernel:
+> "Use /init from the initramfs as the initial process, not your built-in default"
 
-### 1. `agent/limiquantix-node/src/service.rs`
-- Generate disk ID if empty: `disk0`, `disk1`, etc.
-- Added logging for disk processing
+Before:
+```
+linux /boot/vmlinuz console=tty0 loglevel=4 rootwait
+```
 
-### 2. `frontend/src/lib/api-client.ts`
-- Added `toSnakeCase()` and `convertKeysToSnakeCase()` functions
-- Convert all request bodies from camelCase to snake_case before sending
-- Added debug console.log for CreateVM requests
+After:
+```
+linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=4
+```
 
-### 3. `frontend/src/hooks/useImages.ts` (NEW FIX)
-- Added `constructCloudImagePath()` function to build path from OS info
-- Path convention: `/var/lib/limiquantix/cloud-images/{distro}-{version}.qcow2`
-- Now API images properly include the path needed for backing files
+Also removed `rootwait` since our custom init handles device waiting.
 
-### 4. `backend/internal/services/vm/service.go`
-- Added debug logging to see what disk specs are received
+### Fix 2: Improved initramfs creation with verification
+**File:** `quantix-os/builder/build-squashfs.sh`
 
-## Testing
+- Added compression format auto-detection (gzip, xz, zstd)
+- Added fallback to try all compression formats
+- Added extensive logging during extraction and repacking
+- Added verification that `/init` exists in final initramfs
+- Added verification that busybox and essential symlinks exist
+- Build now fails if `/init` is missing from final initramfs
 
-1. **Fully restart the frontend** (Ctrl+C then npm run dev)
-2. **Hard refresh browser** (Ctrl+Shift+R)
-3. Create a new VM with Ubuntu 22.04 cloud image
-4. Check browser console for `[API] CreateVM request body` - should show `backing_file` with path
-5. Check node daemon logs for `backing_file=Some(...)` instead of `None`
+## Next Steps
 
-## Status: FIXED - Testing Required ✅
+1. Rebuild the ISO:
+   ```bash
+   cd quantix-os
+   ./build.ps1   # or make build
+   ```
+
+2. Boot the new ISO and verify the custom init runs (should see "QUANTIX-OS v1.0.0" banner)
+
+## Status: FIXED ✅
+
+Rebuild required to apply changes.

@@ -138,45 +138,48 @@ if [ "$?" != "0" ]; then
 fi
 
 # Menu entries
+# IMPORTANT: rdinit=/init tells kernel to use our custom init from initramfs
+# Without this, kernel uses its default init which expects root= parameter
+
 menuentry "Quantix-OS Installer" --class quantix {
     echo "Loading Quantix-OS..."
-    linux /boot/vmlinuz console=tty0 loglevel=4 rootwait
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=4
     initrd /boot/initramfs
 }
 
 menuentry "Quantix-OS (Verbose)" --class quantix {
     echo "Loading Quantix-OS (Verbose)..."
-    linux /boot/vmlinuz console=tty0 loglevel=7 rootwait
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7
     initrd /boot/initramfs
 }
 
 menuentry "Quantix-OS (Safe Mode - nomodeset)" --class quantix {
     echo "Loading Quantix-OS (Safe Mode)..."
-    linux /boot/vmlinuz console=tty0 loglevel=7 nomodeset rootwait
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 nomodeset
     initrd /boot/initramfs
 }
 
 menuentry "Quantix-OS (HDMI Output Only)" --class quantix {
     echo "Loading Quantix-OS (HDMI)..."
-    linux /boot/vmlinuz console=tty0 loglevel=7 video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d video=eDP-1:d rootwait
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=DP-1:d video=DP-2:d video=DP-3:d video=DP-4:d video=eDP-1:d
     initrd /boot/initramfs
 }
 
 menuentry "Quantix-OS (Internal Display Only)" --class quantix {
     echo "Loading Quantix-OS (Internal Display)..."
-    linux /boot/vmlinuz console=tty0 loglevel=7 video=HDMI-A-1:d video=DP-1:d video=DP-2:d rootwait
+    linux /boot/vmlinuz rdinit=/init console=tty0 loglevel=7 video=HDMI-A-1:d video=DP-1:d video=DP-2:d
     initrd /boot/initramfs
 }
 
 menuentry "Quantix-OS Installer (Serial Console)" --class quantix {
     echo "Loading Quantix-OS (Serial)..."
-    linux /boot/vmlinuz console=ttyS0,115200n8 console=tty0 quiet rootwait
+    linux /boot/vmlinuz rdinit=/init console=ttyS0,115200n8 console=tty0 quiet
     initrd /boot/initramfs
 }
 
 menuentry "Rescue Shell" --class rescue {
     echo "Loading Rescue Shell..."
-    linux /boot/vmlinuz rescue rootwait
+    linux /boot/vmlinuz rdinit=/init rescue
     initrd /boot/initramfs
 }
 EOF
