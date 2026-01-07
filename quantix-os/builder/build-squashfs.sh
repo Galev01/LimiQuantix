@@ -177,6 +177,7 @@ chroot "${ROOTFS_DIR}" /sbin/rc-update add chronyd default || true
 
 # Quantix-OS custom services
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-network boot || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-firstboot boot || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-node default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-console default || true
 
