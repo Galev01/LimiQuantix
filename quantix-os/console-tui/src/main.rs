@@ -262,12 +262,17 @@ fn handle_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) {
             }
             KeyCode::Char('s') | KeyCode::Char('S') => {
                 // Go to Static IP configuration screen
-                app.input_field_index = 0;
+                app.input_field_index = 1; // Start at IP Address field, not Interface
                 app.available_interfaces = get_interface_names();
                 app.selected_interface = 0;
-                if let Some(iface) = app.available_interfaces.first() {
-                    app.static_ip_config.interface = iface.clone();
-                }
+                // Reset the config to clean state
+                app.static_ip_config = StaticIpConfig {
+                    interface: app.available_interfaces.first().cloned().unwrap_or_else(|| "eth0".to_string()),
+                    ip_address: String::new(),
+                    netmask: "255.255.255.0".to_string(),
+                    gateway: String::new(),
+                    dns: "8.8.8.8".to_string(),
+                };
                 app.screen = Screen::StaticIp;
             }
             KeyCode::Char('w') | KeyCode::Char('W') => {
@@ -945,17 +950,24 @@ fn render_static_ip_screen(f: &mut Frame, app: &App, area: Rect) {
         
         let cursor = if is_selected { "▶ " } else { "  " };
         
-        let value_display = if *is_selector && is_selected {
-            format!("◀ {} ▶", value)
+        // Show cursor indicator for text input fields
+        let final_value = if *is_selector {
+            if is_selected {
+                format!("◀ {} ▶", value)
+            } else {
+                value.to_string()
+            }
+        } else if is_selected {
+            // Show block cursor for selected text field
+            if value.is_empty() {
+                "█ (type here)".to_string()
+            } else {
+                format!("{}█", value)
+            }
+        } else if value.is_empty() {
+            "(not set)".to_string()
         } else {
             value.to_string()
-        };
-        
-        // Show cursor indicator for text input fields
-        let final_value = if is_selected && !*is_selector {
-            format!("{}▏", value_display)
-        } else {
-            value_display
         };
         
         lines.push(Line::from(vec![
@@ -966,7 +978,7 @@ fn render_static_ip_screen(f: &mut Frame, app: &App, area: Rect) {
     }
     
     lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled("Example: 192.168.1.100", Style::default().fg(Color::DarkGray))));
+    lines.push(Line::from(Span::styled("Type IP address (numbers and dots only)", Style::default().fg(Color::DarkGray))));
     
     let text = Paragraph::new(lines)
         .block(Block::default().borders(Borders::ALL).title("Static IP"))
@@ -1014,17 +1026,24 @@ fn render_wifi_screen(f: &mut Frame, app: &App, area: Rect) {
         
         let cursor = if is_selected { "▶ " } else { "  " };
         
-        let value_display = if *is_selector && is_selected {
-            format!("◀ {} ▶", value)
+        // Show cursor indicator for text input fields
+        let final_value = if *is_selector {
+            if is_selected {
+                format!("◀ {} ▶", value)
+            } else {
+                value.to_string()
+            }
+        } else if is_selected {
+            // Show block cursor for selected text field
+            if value.is_empty() {
+                "█ (type here)".to_string()
+            } else {
+                format!("{}█", value)
+            }
+        } else if value.is_empty() {
+            "(not set)".to_string()
         } else {
             value.to_string()
-        };
-        
-        // Show cursor indicator for text input fields
-        let final_value = if is_selected && !*is_selector {
-            format!("{}▏", value_display)
-        } else {
-            value_display
         };
         
         lines.push(Line::from(vec![
