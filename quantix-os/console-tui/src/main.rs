@@ -348,15 +348,12 @@ fn handle_menu_action(app: &mut App, index: usize) {
 fn restart_management_services() {
     use std::process::Stdio;
     // Redirect all output to null to prevent TUI corruption
+    // Use spawn() to avoid blocking the TUI
     let _ = std::process::Command::new("rc-service")
         .args(["quantix-node", "restart"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .spawn();
-    let _ = std::process::Command::new("rc-service")
-        .args(["quantix-network", "restart"])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdin(Stdio::null())
         .spawn();
 }
 
@@ -1227,36 +1224,42 @@ fn get_vm_count() -> i32 {
 }
 
 fn is_ssh_enabled() -> bool {
-    std::process::Command::new("rc-service")
-        .args(["sshd", "status"])
+    // Check if sshd process is running instead of using rc-service (faster, non-blocking)
+    std::process::Command::new("pgrep")
+        .args(["-x", "sshd"])
         .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).contains("started"))
+        .map(|o| o.status.success())
         .unwrap_or(false)
 }
 
 fn enable_ssh() -> Result<()> {
     use std::process::Stdio;
+    // Use spawn() to avoid blocking the TUI
     std::process::Command::new("rc-service")
         .args(["sshd", "start"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .output()?;
+        .stdin(Stdio::null())
+        .spawn()?;
     Ok(())
 }
 
 fn disable_ssh() -> Result<()> {
     use std::process::Stdio;
+    // Use spawn() to avoid blocking the TUI
     std::process::Command::new("rc-service")
         .args(["sshd", "stop"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .output()?;
+        .stdin(Stdio::null())
+        .spawn()?;
     Ok(())
 }
 
 fn run_dhcp_all() {
     use std::process::Stdio;
     // Get all interfaces and run DHCP
+    // Note: This one blocking call is OK - it's fast (just reads interface list)
     if let Ok(output) = std::process::Command::new("ip")
         .args(["-o", "link", "show"])
         .output()
@@ -1270,25 +1273,28 @@ fn run_dhcp_all() {
                     continue;
                 }
                 
-                // Bring interface up (silent)
+                // Bring interface up (non-blocking)
                 let _ = std::process::Command::new("ip")
                     .args(["link", "set", iface, "up"])
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
-                    .output();
+                    .stdin(Stdio::null())
+                    .spawn();
                 
-                // Run DHCP (kill existing first, silent)
+                // Run DHCP (kill existing first, non-blocking)
                 let _ = std::process::Command::new("pkill")
                     .args(["-f", &format!("udhcpc.*{}", iface)])
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
-                    .output();
+                    .stdin(Stdio::null())
+                    .spawn();
                 
-                // Run udhcpc silently in background
+                // Run udhcpc silently in background (non-blocking)
                 let _ = std::process::Command::new("udhcpc")
-                    .args(["-i", iface, "-n", "-q"])
+                    .args(["-i", iface, "-n", "-q", "-t", "3"])
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
+                    .stdin(Stdio::null())
                     .spawn();
             }
         }
@@ -1297,11 +1303,14 @@ fn run_dhcp_all() {
 
 fn restart_network() {
     use std::process::Stdio;
+    // Use spawn() instead of output() to avoid blocking the TUI
+    // The network restart runs in background
     let _ = std::process::Command::new("rc-service")
-        .args(["quantix-network", "restart"])
+        .args(["networking", "restart"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .output();
+        .stdin(Stdio::null())
+        .spawn();
 }
 
 fn configure_wifi() {
