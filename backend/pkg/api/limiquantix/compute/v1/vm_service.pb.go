@@ -23,6 +23,55 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type VMUpdate_UpdateType int32
+
+const (
+	VMUpdate_ADDED    VMUpdate_UpdateType = 0
+	VMUpdate_MODIFIED VMUpdate_UpdateType = 1
+	VMUpdate_DELETED  VMUpdate_UpdateType = 2
+)
+
+// Enum value maps for VMUpdate_UpdateType.
+var (
+	VMUpdate_UpdateType_name = map[int32]string{
+		0: "ADDED",
+		1: "MODIFIED",
+		2: "DELETED",
+	}
+	VMUpdate_UpdateType_value = map[string]int32{
+		"ADDED":    0,
+		"MODIFIED": 1,
+		"DELETED":  2,
+	}
+)
+
+func (x VMUpdate_UpdateType) Enum() *VMUpdate_UpdateType {
+	p := new(VMUpdate_UpdateType)
+	*p = x
+	return p
+}
+
+func (x VMUpdate_UpdateType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (VMUpdate_UpdateType) Descriptor() protoreflect.EnumDescriptor {
+	return file_limiquantix_compute_v1_vm_service_proto_enumTypes[0].Descriptor()
+}
+
+func (VMUpdate_UpdateType) Type() protoreflect.EnumType {
+	return &file_limiquantix_compute_v1_vm_service_proto_enumTypes[0]
+}
+
+func (x VMUpdate_UpdateType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use VMUpdate_UpdateType.Descriptor instead.
+func (VMUpdate_UpdateType) EnumDescriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{36, 0}
+}
+
 type CreateVMRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Required: VM name
@@ -2262,6 +2311,121 @@ func (x *GuestShutdownResponse) GetError() string {
 	return ""
 }
 
+type WatchVMsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Filter by node ID (empty = all nodes, for standalone use current node)
+	NodeId string `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// Filter by project
+	ProjectId string `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	// Filter by labels
+	Labels        map[string]string `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WatchVMsRequest) Reset() {
+	*x = WatchVMsRequest{}
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WatchVMsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WatchVMsRequest) ProtoMessage() {}
+
+func (x *WatchVMsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WatchVMsRequest.ProtoReflect.Descriptor instead.
+func (*WatchVMsRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *WatchVMsRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *WatchVMsRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *WatchVMsRequest) GetLabels() map[string]string {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
+}
+
+type VMUpdate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          VMUpdate_UpdateType    `protobuf:"varint,1,opt,name=type,proto3,enum=limiquantix.compute.v1.VMUpdate_UpdateType" json:"type,omitempty"`
+	Vm            *VirtualMachine        `protobuf:"bytes,2,opt,name=vm,proto3" json:"vm,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VMUpdate) Reset() {
+	*x = VMUpdate{}
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VMUpdate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VMUpdate) ProtoMessage() {}
+
+func (x *VMUpdate) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_service_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VMUpdate.ProtoReflect.Descriptor instead.
+func (*VMUpdate) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *VMUpdate) GetType() VMUpdate_UpdateType {
+	if x != nil {
+		return x.Type
+	}
+	return VMUpdate_ADDED
+}
+
+func (x *VMUpdate) GetVm() *VirtualMachine {
+	if x != nil {
+		return x.Vm
+	}
+	return nil
+}
+
 var File_limiquantix_compute_v1_vm_service_proto protoreflect.FileDescriptor
 
 const file_limiquantix_compute_v1_vm_service_proto_rawDesc = "" +
@@ -2443,7 +2607,23 @@ const file_limiquantix_compute_v1_vm_service_proto_rawDesc = "" +
 	"\amessage\x18\x04 \x01(\tR\amessage\"I\n" +
 	"\x15GuestShutdownResponse\x12\x1a\n" +
 	"\baccepted\x18\x01 \x01(\bR\baccepted\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error2\xf0\x13\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"\xd1\x01\n" +
+	"\x0fWatchVMsRequest\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x02 \x01(\tR\tprojectId\x12K\n" +
+	"\x06labels\x18\x03 \x03(\v23.limiquantix.compute.v1.WatchVMsRequest.LabelsEntryR\x06labels\x1a9\n" +
+	"\vLabelsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb7\x01\n" +
+	"\bVMUpdate\x12?\n" +
+	"\x04type\x18\x01 \x01(\x0e2+.limiquantix.compute.v1.VMUpdate.UpdateTypeR\x04type\x126\n" +
+	"\x02vm\x18\x02 \x01(\v2&.limiquantix.compute.v1.VirtualMachineR\x02vm\"2\n" +
+	"\n" +
+	"UpdateType\x12\t\n" +
+	"\x05ADDED\x10\x00\x12\f\n" +
+	"\bMODIFIED\x10\x01\x12\v\n" +
+	"\aDELETED\x10\x022\xc9\x14\n" +
 	"\tVMService\x12[\n" +
 	"\bCreateVM\x12'.limiquantix.compute.v1.CreateVMRequest\x1a&.limiquantix.compute.v1.VirtualMachine\x12U\n" +
 	"\x05GetVM\x12$.limiquantix.compute.v1.GetVMRequest\x1a&.limiquantix.compute.v1.VirtualMachine\x12Z\n" +
@@ -2466,7 +2646,8 @@ const file_limiquantix_compute_v1_vm_service_proto_rawDesc = "" +
 	"\aCloneVM\x12&.limiquantix.compute.v1.CloneVMRequest\x1a&.limiquantix.compute.v1.VirtualMachine\x12m\n" +
 	"\x11ConvertToTemplate\x120.limiquantix.compute.v1.ConvertToTemplateRequest\x1a&.limiquantix.compute.v1.VirtualMachine\x12[\n" +
 	"\aWatchVM\x12&.limiquantix.compute.v1.WatchVMRequest\x1a&.limiquantix.compute.v1.VirtualMachine0\x01\x12f\n" +
-	"\rStreamMetrics\x12,.limiquantix.compute.v1.StreamMetricsRequest\x1a%.limiquantix.compute.v1.ResourceUsage0\x01\x12`\n" +
+	"\rStreamMetrics\x12,.limiquantix.compute.v1.StreamMetricsRequest\x1a%.limiquantix.compute.v1.ResourceUsage0\x01\x12W\n" +
+	"\bWatchVMs\x12'.limiquantix.compute.v1.WatchVMsRequest\x1a .limiquantix.compute.v1.VMUpdate0\x01\x12`\n" +
 	"\tPingAgent\x12(.limiquantix.compute.v1.PingAgentRequest\x1a).limiquantix.compute.v1.PingAgentResponse\x12l\n" +
 	"\rExecuteScript\x12,.limiquantix.compute.v1.ExecuteScriptRequest\x1a-.limiquantix.compute.v1.ExecuteScriptResponse\x12l\n" +
 	"\rReadGuestFile\x12,.limiquantix.compute.v1.ReadGuestFileRequest\x1a-.limiquantix.compute.v1.ReadGuestFileResponse\x12o\n" +
@@ -2486,132 +2667,142 @@ func file_limiquantix_compute_v1_vm_service_proto_rawDescGZIP() []byte {
 	return file_limiquantix_compute_v1_vm_service_proto_rawDescData
 }
 
-var file_limiquantix_compute_v1_vm_service_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_limiquantix_compute_v1_vm_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_limiquantix_compute_v1_vm_service_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
 var file_limiquantix_compute_v1_vm_service_proto_goTypes = []any{
-	(*CreateVMRequest)(nil),          // 0: limiquantix.compute.v1.CreateVMRequest
-	(*GetVMRequest)(nil),             // 1: limiquantix.compute.v1.GetVMRequest
-	(*ListVMsRequest)(nil),           // 2: limiquantix.compute.v1.ListVMsRequest
-	(*ListVMsResponse)(nil),          // 3: limiquantix.compute.v1.ListVMsResponse
-	(*UpdateVMRequest)(nil),          // 4: limiquantix.compute.v1.UpdateVMRequest
-	(*DeleteVMRequest)(nil),          // 5: limiquantix.compute.v1.DeleteVMRequest
-	(*StartVMRequest)(nil),           // 6: limiquantix.compute.v1.StartVMRequest
-	(*StopVMRequest)(nil),            // 7: limiquantix.compute.v1.StopVMRequest
-	(*RebootVMRequest)(nil),          // 8: limiquantix.compute.v1.RebootVMRequest
-	(*PauseVMRequest)(nil),           // 9: limiquantix.compute.v1.PauseVMRequest
-	(*ResumeVMRequest)(nil),          // 10: limiquantix.compute.v1.ResumeVMRequest
-	(*SuspendVMRequest)(nil),         // 11: limiquantix.compute.v1.SuspendVMRequest
-	(*CreateSnapshotRequest)(nil),    // 12: limiquantix.compute.v1.CreateSnapshotRequest
-	(*ListSnapshotsRequest)(nil),     // 13: limiquantix.compute.v1.ListSnapshotsRequest
-	(*ListSnapshotsResponse)(nil),    // 14: limiquantix.compute.v1.ListSnapshotsResponse
-	(*RevertToSnapshotRequest)(nil),  // 15: limiquantix.compute.v1.RevertToSnapshotRequest
-	(*DeleteSnapshotRequest)(nil),    // 16: limiquantix.compute.v1.DeleteSnapshotRequest
-	(*MigrateVMRequest)(nil),         // 17: limiquantix.compute.v1.MigrateVMRequest
-	(*MigrateVMResponse)(nil),        // 18: limiquantix.compute.v1.MigrateVMResponse
-	(*MigrationStats)(nil),           // 19: limiquantix.compute.v1.MigrationStats
-	(*GetConsoleRequest)(nil),        // 20: limiquantix.compute.v1.GetConsoleRequest
-	(*CloneVMRequest)(nil),           // 21: limiquantix.compute.v1.CloneVMRequest
-	(*ConvertToTemplateRequest)(nil), // 22: limiquantix.compute.v1.ConvertToTemplateRequest
-	(*WatchVMRequest)(nil),           // 23: limiquantix.compute.v1.WatchVMRequest
-	(*StreamMetricsRequest)(nil),     // 24: limiquantix.compute.v1.StreamMetricsRequest
-	(*PingAgentRequest)(nil),         // 25: limiquantix.compute.v1.PingAgentRequest
-	(*PingAgentResponse)(nil),        // 26: limiquantix.compute.v1.PingAgentResponse
-	(*ExecuteScriptRequest)(nil),     // 27: limiquantix.compute.v1.ExecuteScriptRequest
-	(*ExecuteScriptResponse)(nil),    // 28: limiquantix.compute.v1.ExecuteScriptResponse
-	(*ReadGuestFileRequest)(nil),     // 29: limiquantix.compute.v1.ReadGuestFileRequest
-	(*ReadGuestFileResponse)(nil),    // 30: limiquantix.compute.v1.ReadGuestFileResponse
-	(*WriteGuestFileRequest)(nil),    // 31: limiquantix.compute.v1.WriteGuestFileRequest
-	(*WriteGuestFileResponse)(nil),   // 32: limiquantix.compute.v1.WriteGuestFileResponse
-	(*GuestShutdownRequest)(nil),     // 33: limiquantix.compute.v1.GuestShutdownRequest
-	(*GuestShutdownResponse)(nil),    // 34: limiquantix.compute.v1.GuestShutdownResponse
-	nil,                              // 35: limiquantix.compute.v1.CreateVMRequest.LabelsEntry
-	nil,                              // 36: limiquantix.compute.v1.ListVMsRequest.LabelsEntry
-	nil,                              // 37: limiquantix.compute.v1.UpdateVMRequest.LabelsEntry
-	nil,                              // 38: limiquantix.compute.v1.ExecuteScriptRequest.EnvironmentEntry
-	(*VmSpec)(nil),                   // 39: limiquantix.compute.v1.VmSpec
-	(VmStatus_PowerState)(0),         // 40: limiquantix.compute.v1.VmStatus.PowerState
-	(*VirtualMachine)(nil),           // 41: limiquantix.compute.v1.VirtualMachine
-	(*fieldmaskpb.FieldMask)(nil),    // 42: google.protobuf.FieldMask
-	(*Snapshot)(nil),                 // 43: limiquantix.compute.v1.Snapshot
-	(DisplayConfig_DisplayType)(0),   // 44: limiquantix.compute.v1.DisplayConfig.DisplayType
-	(TemplateConfig_CloneType)(0),    // 45: limiquantix.compute.v1.TemplateConfig.CloneType
-	(*ProvisioningConfig)(nil),       // 46: limiquantix.compute.v1.ProvisioningConfig
-	(*emptypb.Empty)(nil),            // 47: google.protobuf.Empty
-	(*ConsoleInfo)(nil),              // 48: limiquantix.compute.v1.ConsoleInfo
-	(*ResourceUsage)(nil),            // 49: limiquantix.compute.v1.ResourceUsage
+	(VMUpdate_UpdateType)(0),         // 0: limiquantix.compute.v1.VMUpdate.UpdateType
+	(*CreateVMRequest)(nil),          // 1: limiquantix.compute.v1.CreateVMRequest
+	(*GetVMRequest)(nil),             // 2: limiquantix.compute.v1.GetVMRequest
+	(*ListVMsRequest)(nil),           // 3: limiquantix.compute.v1.ListVMsRequest
+	(*ListVMsResponse)(nil),          // 4: limiquantix.compute.v1.ListVMsResponse
+	(*UpdateVMRequest)(nil),          // 5: limiquantix.compute.v1.UpdateVMRequest
+	(*DeleteVMRequest)(nil),          // 6: limiquantix.compute.v1.DeleteVMRequest
+	(*StartVMRequest)(nil),           // 7: limiquantix.compute.v1.StartVMRequest
+	(*StopVMRequest)(nil),            // 8: limiquantix.compute.v1.StopVMRequest
+	(*RebootVMRequest)(nil),          // 9: limiquantix.compute.v1.RebootVMRequest
+	(*PauseVMRequest)(nil),           // 10: limiquantix.compute.v1.PauseVMRequest
+	(*ResumeVMRequest)(nil),          // 11: limiquantix.compute.v1.ResumeVMRequest
+	(*SuspendVMRequest)(nil),         // 12: limiquantix.compute.v1.SuspendVMRequest
+	(*CreateSnapshotRequest)(nil),    // 13: limiquantix.compute.v1.CreateSnapshotRequest
+	(*ListSnapshotsRequest)(nil),     // 14: limiquantix.compute.v1.ListSnapshotsRequest
+	(*ListSnapshotsResponse)(nil),    // 15: limiquantix.compute.v1.ListSnapshotsResponse
+	(*RevertToSnapshotRequest)(nil),  // 16: limiquantix.compute.v1.RevertToSnapshotRequest
+	(*DeleteSnapshotRequest)(nil),    // 17: limiquantix.compute.v1.DeleteSnapshotRequest
+	(*MigrateVMRequest)(nil),         // 18: limiquantix.compute.v1.MigrateVMRequest
+	(*MigrateVMResponse)(nil),        // 19: limiquantix.compute.v1.MigrateVMResponse
+	(*MigrationStats)(nil),           // 20: limiquantix.compute.v1.MigrationStats
+	(*GetConsoleRequest)(nil),        // 21: limiquantix.compute.v1.GetConsoleRequest
+	(*CloneVMRequest)(nil),           // 22: limiquantix.compute.v1.CloneVMRequest
+	(*ConvertToTemplateRequest)(nil), // 23: limiquantix.compute.v1.ConvertToTemplateRequest
+	(*WatchVMRequest)(nil),           // 24: limiquantix.compute.v1.WatchVMRequest
+	(*StreamMetricsRequest)(nil),     // 25: limiquantix.compute.v1.StreamMetricsRequest
+	(*PingAgentRequest)(nil),         // 26: limiquantix.compute.v1.PingAgentRequest
+	(*PingAgentResponse)(nil),        // 27: limiquantix.compute.v1.PingAgentResponse
+	(*ExecuteScriptRequest)(nil),     // 28: limiquantix.compute.v1.ExecuteScriptRequest
+	(*ExecuteScriptResponse)(nil),    // 29: limiquantix.compute.v1.ExecuteScriptResponse
+	(*ReadGuestFileRequest)(nil),     // 30: limiquantix.compute.v1.ReadGuestFileRequest
+	(*ReadGuestFileResponse)(nil),    // 31: limiquantix.compute.v1.ReadGuestFileResponse
+	(*WriteGuestFileRequest)(nil),    // 32: limiquantix.compute.v1.WriteGuestFileRequest
+	(*WriteGuestFileResponse)(nil),   // 33: limiquantix.compute.v1.WriteGuestFileResponse
+	(*GuestShutdownRequest)(nil),     // 34: limiquantix.compute.v1.GuestShutdownRequest
+	(*GuestShutdownResponse)(nil),    // 35: limiquantix.compute.v1.GuestShutdownResponse
+	(*WatchVMsRequest)(nil),          // 36: limiquantix.compute.v1.WatchVMsRequest
+	(*VMUpdate)(nil),                 // 37: limiquantix.compute.v1.VMUpdate
+	nil,                              // 38: limiquantix.compute.v1.CreateVMRequest.LabelsEntry
+	nil,                              // 39: limiquantix.compute.v1.ListVMsRequest.LabelsEntry
+	nil,                              // 40: limiquantix.compute.v1.UpdateVMRequest.LabelsEntry
+	nil,                              // 41: limiquantix.compute.v1.ExecuteScriptRequest.EnvironmentEntry
+	nil,                              // 42: limiquantix.compute.v1.WatchVMsRequest.LabelsEntry
+	(*VmSpec)(nil),                   // 43: limiquantix.compute.v1.VmSpec
+	(VmStatus_PowerState)(0),         // 44: limiquantix.compute.v1.VmStatus.PowerState
+	(*VirtualMachine)(nil),           // 45: limiquantix.compute.v1.VirtualMachine
+	(*fieldmaskpb.FieldMask)(nil),    // 46: google.protobuf.FieldMask
+	(*Snapshot)(nil),                 // 47: limiquantix.compute.v1.Snapshot
+	(DisplayConfig_DisplayType)(0),   // 48: limiquantix.compute.v1.DisplayConfig.DisplayType
+	(TemplateConfig_CloneType)(0),    // 49: limiquantix.compute.v1.TemplateConfig.CloneType
+	(*ProvisioningConfig)(nil),       // 50: limiquantix.compute.v1.ProvisioningConfig
+	(*emptypb.Empty)(nil),            // 51: google.protobuf.Empty
+	(*ConsoleInfo)(nil),              // 52: limiquantix.compute.v1.ConsoleInfo
+	(*ResourceUsage)(nil),            // 53: limiquantix.compute.v1.ResourceUsage
 }
 var file_limiquantix_compute_v1_vm_service_proto_depIdxs = []int32{
-	35, // 0: limiquantix.compute.v1.CreateVMRequest.labels:type_name -> limiquantix.compute.v1.CreateVMRequest.LabelsEntry
-	39, // 1: limiquantix.compute.v1.CreateVMRequest.spec:type_name -> limiquantix.compute.v1.VmSpec
-	36, // 2: limiquantix.compute.v1.ListVMsRequest.labels:type_name -> limiquantix.compute.v1.ListVMsRequest.LabelsEntry
-	40, // 3: limiquantix.compute.v1.ListVMsRequest.states:type_name -> limiquantix.compute.v1.VmStatus.PowerState
-	41, // 4: limiquantix.compute.v1.ListVMsResponse.vms:type_name -> limiquantix.compute.v1.VirtualMachine
-	39, // 5: limiquantix.compute.v1.UpdateVMRequest.spec:type_name -> limiquantix.compute.v1.VmSpec
-	42, // 6: limiquantix.compute.v1.UpdateVMRequest.update_mask:type_name -> google.protobuf.FieldMask
-	37, // 7: limiquantix.compute.v1.UpdateVMRequest.labels:type_name -> limiquantix.compute.v1.UpdateVMRequest.LabelsEntry
-	43, // 8: limiquantix.compute.v1.ListSnapshotsResponse.snapshots:type_name -> limiquantix.compute.v1.Snapshot
-	41, // 9: limiquantix.compute.v1.MigrateVMResponse.vm:type_name -> limiquantix.compute.v1.VirtualMachine
-	19, // 10: limiquantix.compute.v1.MigrateVMResponse.stats:type_name -> limiquantix.compute.v1.MigrationStats
-	44, // 11: limiquantix.compute.v1.GetConsoleRequest.type:type_name -> limiquantix.compute.v1.DisplayConfig.DisplayType
-	45, // 12: limiquantix.compute.v1.CloneVMRequest.clone_type:type_name -> limiquantix.compute.v1.TemplateConfig.CloneType
-	46, // 13: limiquantix.compute.v1.CloneVMRequest.provisioning:type_name -> limiquantix.compute.v1.ProvisioningConfig
-	38, // 14: limiquantix.compute.v1.ExecuteScriptRequest.environment:type_name -> limiquantix.compute.v1.ExecuteScriptRequest.EnvironmentEntry
-	0,  // 15: limiquantix.compute.v1.VMService.CreateVM:input_type -> limiquantix.compute.v1.CreateVMRequest
-	1,  // 16: limiquantix.compute.v1.VMService.GetVM:input_type -> limiquantix.compute.v1.GetVMRequest
-	2,  // 17: limiquantix.compute.v1.VMService.ListVMs:input_type -> limiquantix.compute.v1.ListVMsRequest
-	4,  // 18: limiquantix.compute.v1.VMService.UpdateVM:input_type -> limiquantix.compute.v1.UpdateVMRequest
-	5,  // 19: limiquantix.compute.v1.VMService.DeleteVM:input_type -> limiquantix.compute.v1.DeleteVMRequest
-	6,  // 20: limiquantix.compute.v1.VMService.StartVM:input_type -> limiquantix.compute.v1.StartVMRequest
-	7,  // 21: limiquantix.compute.v1.VMService.StopVM:input_type -> limiquantix.compute.v1.StopVMRequest
-	8,  // 22: limiquantix.compute.v1.VMService.RebootVM:input_type -> limiquantix.compute.v1.RebootVMRequest
-	9,  // 23: limiquantix.compute.v1.VMService.PauseVM:input_type -> limiquantix.compute.v1.PauseVMRequest
-	10, // 24: limiquantix.compute.v1.VMService.ResumeVM:input_type -> limiquantix.compute.v1.ResumeVMRequest
-	11, // 25: limiquantix.compute.v1.VMService.SuspendVM:input_type -> limiquantix.compute.v1.SuspendVMRequest
-	12, // 26: limiquantix.compute.v1.VMService.CreateSnapshot:input_type -> limiquantix.compute.v1.CreateSnapshotRequest
-	13, // 27: limiquantix.compute.v1.VMService.ListSnapshots:input_type -> limiquantix.compute.v1.ListSnapshotsRequest
-	15, // 28: limiquantix.compute.v1.VMService.RevertToSnapshot:input_type -> limiquantix.compute.v1.RevertToSnapshotRequest
-	16, // 29: limiquantix.compute.v1.VMService.DeleteSnapshot:input_type -> limiquantix.compute.v1.DeleteSnapshotRequest
-	17, // 30: limiquantix.compute.v1.VMService.MigrateVM:input_type -> limiquantix.compute.v1.MigrateVMRequest
-	20, // 31: limiquantix.compute.v1.VMService.GetConsole:input_type -> limiquantix.compute.v1.GetConsoleRequest
-	21, // 32: limiquantix.compute.v1.VMService.CloneVM:input_type -> limiquantix.compute.v1.CloneVMRequest
-	22, // 33: limiquantix.compute.v1.VMService.ConvertToTemplate:input_type -> limiquantix.compute.v1.ConvertToTemplateRequest
-	23, // 34: limiquantix.compute.v1.VMService.WatchVM:input_type -> limiquantix.compute.v1.WatchVMRequest
-	24, // 35: limiquantix.compute.v1.VMService.StreamMetrics:input_type -> limiquantix.compute.v1.StreamMetricsRequest
-	25, // 36: limiquantix.compute.v1.VMService.PingAgent:input_type -> limiquantix.compute.v1.PingAgentRequest
-	27, // 37: limiquantix.compute.v1.VMService.ExecuteScript:input_type -> limiquantix.compute.v1.ExecuteScriptRequest
-	29, // 38: limiquantix.compute.v1.VMService.ReadGuestFile:input_type -> limiquantix.compute.v1.ReadGuestFileRequest
-	31, // 39: limiquantix.compute.v1.VMService.WriteGuestFile:input_type -> limiquantix.compute.v1.WriteGuestFileRequest
-	33, // 40: limiquantix.compute.v1.VMService.GuestShutdown:input_type -> limiquantix.compute.v1.GuestShutdownRequest
-	41, // 41: limiquantix.compute.v1.VMService.CreateVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	41, // 42: limiquantix.compute.v1.VMService.GetVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	3,  // 43: limiquantix.compute.v1.VMService.ListVMs:output_type -> limiquantix.compute.v1.ListVMsResponse
-	41, // 44: limiquantix.compute.v1.VMService.UpdateVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	47, // 45: limiquantix.compute.v1.VMService.DeleteVM:output_type -> google.protobuf.Empty
-	41, // 46: limiquantix.compute.v1.VMService.StartVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	41, // 47: limiquantix.compute.v1.VMService.StopVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	41, // 48: limiquantix.compute.v1.VMService.RebootVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	41, // 49: limiquantix.compute.v1.VMService.PauseVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	41, // 50: limiquantix.compute.v1.VMService.ResumeVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	41, // 51: limiquantix.compute.v1.VMService.SuspendVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	43, // 52: limiquantix.compute.v1.VMService.CreateSnapshot:output_type -> limiquantix.compute.v1.Snapshot
-	14, // 53: limiquantix.compute.v1.VMService.ListSnapshots:output_type -> limiquantix.compute.v1.ListSnapshotsResponse
-	41, // 54: limiquantix.compute.v1.VMService.RevertToSnapshot:output_type -> limiquantix.compute.v1.VirtualMachine
-	47, // 55: limiquantix.compute.v1.VMService.DeleteSnapshot:output_type -> google.protobuf.Empty
-	18, // 56: limiquantix.compute.v1.VMService.MigrateVM:output_type -> limiquantix.compute.v1.MigrateVMResponse
-	48, // 57: limiquantix.compute.v1.VMService.GetConsole:output_type -> limiquantix.compute.v1.ConsoleInfo
-	41, // 58: limiquantix.compute.v1.VMService.CloneVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	41, // 59: limiquantix.compute.v1.VMService.ConvertToTemplate:output_type -> limiquantix.compute.v1.VirtualMachine
-	41, // 60: limiquantix.compute.v1.VMService.WatchVM:output_type -> limiquantix.compute.v1.VirtualMachine
-	49, // 61: limiquantix.compute.v1.VMService.StreamMetrics:output_type -> limiquantix.compute.v1.ResourceUsage
-	26, // 62: limiquantix.compute.v1.VMService.PingAgent:output_type -> limiquantix.compute.v1.PingAgentResponse
-	28, // 63: limiquantix.compute.v1.VMService.ExecuteScript:output_type -> limiquantix.compute.v1.ExecuteScriptResponse
-	30, // 64: limiquantix.compute.v1.VMService.ReadGuestFile:output_type -> limiquantix.compute.v1.ReadGuestFileResponse
-	32, // 65: limiquantix.compute.v1.VMService.WriteGuestFile:output_type -> limiquantix.compute.v1.WriteGuestFileResponse
-	34, // 66: limiquantix.compute.v1.VMService.GuestShutdown:output_type -> limiquantix.compute.v1.GuestShutdownResponse
-	41, // [41:67] is the sub-list for method output_type
-	15, // [15:41] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	38, // 0: limiquantix.compute.v1.CreateVMRequest.labels:type_name -> limiquantix.compute.v1.CreateVMRequest.LabelsEntry
+	43, // 1: limiquantix.compute.v1.CreateVMRequest.spec:type_name -> limiquantix.compute.v1.VmSpec
+	39, // 2: limiquantix.compute.v1.ListVMsRequest.labels:type_name -> limiquantix.compute.v1.ListVMsRequest.LabelsEntry
+	44, // 3: limiquantix.compute.v1.ListVMsRequest.states:type_name -> limiquantix.compute.v1.VmStatus.PowerState
+	45, // 4: limiquantix.compute.v1.ListVMsResponse.vms:type_name -> limiquantix.compute.v1.VirtualMachine
+	43, // 5: limiquantix.compute.v1.UpdateVMRequest.spec:type_name -> limiquantix.compute.v1.VmSpec
+	46, // 6: limiquantix.compute.v1.UpdateVMRequest.update_mask:type_name -> google.protobuf.FieldMask
+	40, // 7: limiquantix.compute.v1.UpdateVMRequest.labels:type_name -> limiquantix.compute.v1.UpdateVMRequest.LabelsEntry
+	47, // 8: limiquantix.compute.v1.ListSnapshotsResponse.snapshots:type_name -> limiquantix.compute.v1.Snapshot
+	45, // 9: limiquantix.compute.v1.MigrateVMResponse.vm:type_name -> limiquantix.compute.v1.VirtualMachine
+	20, // 10: limiquantix.compute.v1.MigrateVMResponse.stats:type_name -> limiquantix.compute.v1.MigrationStats
+	48, // 11: limiquantix.compute.v1.GetConsoleRequest.type:type_name -> limiquantix.compute.v1.DisplayConfig.DisplayType
+	49, // 12: limiquantix.compute.v1.CloneVMRequest.clone_type:type_name -> limiquantix.compute.v1.TemplateConfig.CloneType
+	50, // 13: limiquantix.compute.v1.CloneVMRequest.provisioning:type_name -> limiquantix.compute.v1.ProvisioningConfig
+	41, // 14: limiquantix.compute.v1.ExecuteScriptRequest.environment:type_name -> limiquantix.compute.v1.ExecuteScriptRequest.EnvironmentEntry
+	42, // 15: limiquantix.compute.v1.WatchVMsRequest.labels:type_name -> limiquantix.compute.v1.WatchVMsRequest.LabelsEntry
+	0,  // 16: limiquantix.compute.v1.VMUpdate.type:type_name -> limiquantix.compute.v1.VMUpdate.UpdateType
+	45, // 17: limiquantix.compute.v1.VMUpdate.vm:type_name -> limiquantix.compute.v1.VirtualMachine
+	1,  // 18: limiquantix.compute.v1.VMService.CreateVM:input_type -> limiquantix.compute.v1.CreateVMRequest
+	2,  // 19: limiquantix.compute.v1.VMService.GetVM:input_type -> limiquantix.compute.v1.GetVMRequest
+	3,  // 20: limiquantix.compute.v1.VMService.ListVMs:input_type -> limiquantix.compute.v1.ListVMsRequest
+	5,  // 21: limiquantix.compute.v1.VMService.UpdateVM:input_type -> limiquantix.compute.v1.UpdateVMRequest
+	6,  // 22: limiquantix.compute.v1.VMService.DeleteVM:input_type -> limiquantix.compute.v1.DeleteVMRequest
+	7,  // 23: limiquantix.compute.v1.VMService.StartVM:input_type -> limiquantix.compute.v1.StartVMRequest
+	8,  // 24: limiquantix.compute.v1.VMService.StopVM:input_type -> limiquantix.compute.v1.StopVMRequest
+	9,  // 25: limiquantix.compute.v1.VMService.RebootVM:input_type -> limiquantix.compute.v1.RebootVMRequest
+	10, // 26: limiquantix.compute.v1.VMService.PauseVM:input_type -> limiquantix.compute.v1.PauseVMRequest
+	11, // 27: limiquantix.compute.v1.VMService.ResumeVM:input_type -> limiquantix.compute.v1.ResumeVMRequest
+	12, // 28: limiquantix.compute.v1.VMService.SuspendVM:input_type -> limiquantix.compute.v1.SuspendVMRequest
+	13, // 29: limiquantix.compute.v1.VMService.CreateSnapshot:input_type -> limiquantix.compute.v1.CreateSnapshotRequest
+	14, // 30: limiquantix.compute.v1.VMService.ListSnapshots:input_type -> limiquantix.compute.v1.ListSnapshotsRequest
+	16, // 31: limiquantix.compute.v1.VMService.RevertToSnapshot:input_type -> limiquantix.compute.v1.RevertToSnapshotRequest
+	17, // 32: limiquantix.compute.v1.VMService.DeleteSnapshot:input_type -> limiquantix.compute.v1.DeleteSnapshotRequest
+	18, // 33: limiquantix.compute.v1.VMService.MigrateVM:input_type -> limiquantix.compute.v1.MigrateVMRequest
+	21, // 34: limiquantix.compute.v1.VMService.GetConsole:input_type -> limiquantix.compute.v1.GetConsoleRequest
+	22, // 35: limiquantix.compute.v1.VMService.CloneVM:input_type -> limiquantix.compute.v1.CloneVMRequest
+	23, // 36: limiquantix.compute.v1.VMService.ConvertToTemplate:input_type -> limiquantix.compute.v1.ConvertToTemplateRequest
+	24, // 37: limiquantix.compute.v1.VMService.WatchVM:input_type -> limiquantix.compute.v1.WatchVMRequest
+	25, // 38: limiquantix.compute.v1.VMService.StreamMetrics:input_type -> limiquantix.compute.v1.StreamMetricsRequest
+	36, // 39: limiquantix.compute.v1.VMService.WatchVMs:input_type -> limiquantix.compute.v1.WatchVMsRequest
+	26, // 40: limiquantix.compute.v1.VMService.PingAgent:input_type -> limiquantix.compute.v1.PingAgentRequest
+	28, // 41: limiquantix.compute.v1.VMService.ExecuteScript:input_type -> limiquantix.compute.v1.ExecuteScriptRequest
+	30, // 42: limiquantix.compute.v1.VMService.ReadGuestFile:input_type -> limiquantix.compute.v1.ReadGuestFileRequest
+	32, // 43: limiquantix.compute.v1.VMService.WriteGuestFile:input_type -> limiquantix.compute.v1.WriteGuestFileRequest
+	34, // 44: limiquantix.compute.v1.VMService.GuestShutdown:input_type -> limiquantix.compute.v1.GuestShutdownRequest
+	45, // 45: limiquantix.compute.v1.VMService.CreateVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	45, // 46: limiquantix.compute.v1.VMService.GetVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	4,  // 47: limiquantix.compute.v1.VMService.ListVMs:output_type -> limiquantix.compute.v1.ListVMsResponse
+	45, // 48: limiquantix.compute.v1.VMService.UpdateVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	51, // 49: limiquantix.compute.v1.VMService.DeleteVM:output_type -> google.protobuf.Empty
+	45, // 50: limiquantix.compute.v1.VMService.StartVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	45, // 51: limiquantix.compute.v1.VMService.StopVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	45, // 52: limiquantix.compute.v1.VMService.RebootVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	45, // 53: limiquantix.compute.v1.VMService.PauseVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	45, // 54: limiquantix.compute.v1.VMService.ResumeVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	45, // 55: limiquantix.compute.v1.VMService.SuspendVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	47, // 56: limiquantix.compute.v1.VMService.CreateSnapshot:output_type -> limiquantix.compute.v1.Snapshot
+	15, // 57: limiquantix.compute.v1.VMService.ListSnapshots:output_type -> limiquantix.compute.v1.ListSnapshotsResponse
+	45, // 58: limiquantix.compute.v1.VMService.RevertToSnapshot:output_type -> limiquantix.compute.v1.VirtualMachine
+	51, // 59: limiquantix.compute.v1.VMService.DeleteSnapshot:output_type -> google.protobuf.Empty
+	19, // 60: limiquantix.compute.v1.VMService.MigrateVM:output_type -> limiquantix.compute.v1.MigrateVMResponse
+	52, // 61: limiquantix.compute.v1.VMService.GetConsole:output_type -> limiquantix.compute.v1.ConsoleInfo
+	45, // 62: limiquantix.compute.v1.VMService.CloneVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	45, // 63: limiquantix.compute.v1.VMService.ConvertToTemplate:output_type -> limiquantix.compute.v1.VirtualMachine
+	45, // 64: limiquantix.compute.v1.VMService.WatchVM:output_type -> limiquantix.compute.v1.VirtualMachine
+	53, // 65: limiquantix.compute.v1.VMService.StreamMetrics:output_type -> limiquantix.compute.v1.ResourceUsage
+	37, // 66: limiquantix.compute.v1.VMService.WatchVMs:output_type -> limiquantix.compute.v1.VMUpdate
+	27, // 67: limiquantix.compute.v1.VMService.PingAgent:output_type -> limiquantix.compute.v1.PingAgentResponse
+	29, // 68: limiquantix.compute.v1.VMService.ExecuteScript:output_type -> limiquantix.compute.v1.ExecuteScriptResponse
+	31, // 69: limiquantix.compute.v1.VMService.ReadGuestFile:output_type -> limiquantix.compute.v1.ReadGuestFileResponse
+	33, // 70: limiquantix.compute.v1.VMService.WriteGuestFile:output_type -> limiquantix.compute.v1.WriteGuestFileResponse
+	35, // 71: limiquantix.compute.v1.VMService.GuestShutdown:output_type -> limiquantix.compute.v1.GuestShutdownResponse
+	45, // [45:72] is the sub-list for method output_type
+	18, // [18:45] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_limiquantix_compute_v1_vm_service_proto_init() }
@@ -2625,13 +2816,14 @@ func file_limiquantix_compute_v1_vm_service_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_compute_v1_vm_service_proto_rawDesc), len(file_limiquantix_compute_v1_vm_service_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   39,
+			NumEnums:      1,
+			NumMessages:   42,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_limiquantix_compute_v1_vm_service_proto_goTypes,
 		DependencyIndexes: file_limiquantix_compute_v1_vm_service_proto_depIdxs,
+		EnumInfos:         file_limiquantix_compute_v1_vm_service_proto_enumTypes,
 		MessageInfos:      file_limiquantix_compute_v1_vm_service_proto_msgTypes,
 	}.Build()
 	File_limiquantix_compute_v1_vm_service_proto = out.File

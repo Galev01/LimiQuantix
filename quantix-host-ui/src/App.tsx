@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
 import { Dashboard, VirtualMachines } from '@/pages';
+import { Network } from '@/pages/Network';
 
 // Create a query client
 const queryClient = new QueryClient({
@@ -47,7 +48,7 @@ export function App() {
             <Route path="/storage/volumes" element={<PlaceholderPage title="Volumes" />} />
             
             {/* Networking */}
-            <Route path="/networking" element={<PlaceholderPage title="Networking" />} />
+            <Route path="/networking" element={<Network />} />
             
             {/* Hardware */}
             <Route path="/hardware" element={<PlaceholderPage title="Hardware" />} />

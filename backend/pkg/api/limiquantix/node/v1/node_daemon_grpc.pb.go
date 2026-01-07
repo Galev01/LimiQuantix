@@ -59,6 +59,11 @@ const (
 	NodeDaemonService_CloneVolume_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/CloneVolume"
 	NodeDaemonService_GetVolumeAttachInfo_FullMethodName  = "/limiquantix.node.v1.NodeDaemonService/GetVolumeAttachInfo"
 	NodeDaemonService_CreateVolumeSnapshot_FullMethodName = "/limiquantix.node.v1.NodeDaemonService/CreateVolumeSnapshot"
+	NodeDaemonService_GetOVSStatus_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/GetOVSStatus"
+	NodeDaemonService_ConfigureNetworkPort_FullMethodName = "/limiquantix.node.v1.NodeDaemonService/ConfigureNetworkPort"
+	NodeDaemonService_DeleteNetworkPort_FullMethodName    = "/limiquantix.node.v1.NodeDaemonService/DeleteNetworkPort"
+	NodeDaemonService_GetNetworkPortStatus_FullMethodName = "/limiquantix.node.v1.NodeDaemonService/GetNetworkPortStatus"
+	NodeDaemonService_ListNetworkPorts_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/ListNetworkPorts"
 )
 
 // NodeDaemonServiceClient is the client API for NodeDaemonService service.
@@ -143,6 +148,16 @@ type NodeDaemonServiceClient interface {
 	GetVolumeAttachInfo(ctx context.Context, in *VolumeIdRequest, opts ...grpc.CallOption) (*VolumeAttachInfoResponse, error)
 	// Create a volume snapshot
 	CreateVolumeSnapshot(ctx context.Context, in *CreateVolumeSnapshotRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Check if OVS is available and get status
+	GetOVSStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*OVSStatusResponse, error)
+	// Configure a network port for a VM (binds TAP to br-int)
+	ConfigureNetworkPort(ctx context.Context, in *ConfigureNetworkPortRequest, opts ...grpc.CallOption) (*NetworkPortInfo, error)
+	// Delete a network port
+	DeleteNetworkPort(ctx context.Context, in *DeleteNetworkPortRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Get network port status
+	GetNetworkPortStatus(ctx context.Context, in *GetNetworkPortStatusRequest, opts ...grpc.CallOption) (*NetworkPortInfo, error)
+	// List all network ports on this node
+	ListNetworkPorts(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListNetworkPortsResponse, error)
 }
 
 type nodeDaemonServiceClient struct {
@@ -579,6 +594,56 @@ func (c *nodeDaemonServiceClient) CreateVolumeSnapshot(ctx context.Context, in *
 	return out, nil
 }
 
+func (c *nodeDaemonServiceClient) GetOVSStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*OVSStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OVSStatusResponse)
+	err := c.cc.Invoke(ctx, NodeDaemonService_GetOVSStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) ConfigureNetworkPort(ctx context.Context, in *ConfigureNetworkPortRequest, opts ...grpc.CallOption) (*NetworkPortInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NetworkPortInfo)
+	err := c.cc.Invoke(ctx, NodeDaemonService_ConfigureNetworkPort_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) DeleteNetworkPort(ctx context.Context, in *DeleteNetworkPortRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NodeDaemonService_DeleteNetworkPort_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) GetNetworkPortStatus(ctx context.Context, in *GetNetworkPortStatusRequest, opts ...grpc.CallOption) (*NetworkPortInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NetworkPortInfo)
+	err := c.cc.Invoke(ctx, NodeDaemonService_GetNetworkPortStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) ListNetworkPorts(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListNetworkPortsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNetworkPortsResponse)
+	err := c.cc.Invoke(ctx, NodeDaemonService_ListNetworkPorts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NodeDaemonServiceServer is the server API for NodeDaemonService service.
 // All implementations should embed UnimplementedNodeDaemonServiceServer
 // for forward compatibility.
@@ -661,6 +726,16 @@ type NodeDaemonServiceServer interface {
 	GetVolumeAttachInfo(context.Context, *VolumeIdRequest) (*VolumeAttachInfoResponse, error)
 	// Create a volume snapshot
 	CreateVolumeSnapshot(context.Context, *CreateVolumeSnapshotRequest) (*emptypb.Empty, error)
+	// Check if OVS is available and get status
+	GetOVSStatus(context.Context, *emptypb.Empty) (*OVSStatusResponse, error)
+	// Configure a network port for a VM (binds TAP to br-int)
+	ConfigureNetworkPort(context.Context, *ConfigureNetworkPortRequest) (*NetworkPortInfo, error)
+	// Delete a network port
+	DeleteNetworkPort(context.Context, *DeleteNetworkPortRequest) (*emptypb.Empty, error)
+	// Get network port status
+	GetNetworkPortStatus(context.Context, *GetNetworkPortStatusRequest) (*NetworkPortInfo, error)
+	// List all network ports on this node
+	ListNetworkPorts(context.Context, *emptypb.Empty) (*ListNetworkPortsResponse, error)
 }
 
 // UnimplementedNodeDaemonServiceServer should be embedded to have
@@ -786,6 +861,21 @@ func (UnimplementedNodeDaemonServiceServer) GetVolumeAttachInfo(context.Context,
 }
 func (UnimplementedNodeDaemonServiceServer) CreateVolumeSnapshot(context.Context, *CreateVolumeSnapshotRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateVolumeSnapshot not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) GetOVSStatus(context.Context, *emptypb.Empty) (*OVSStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetOVSStatus not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) ConfigureNetworkPort(context.Context, *ConfigureNetworkPortRequest) (*NetworkPortInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConfigureNetworkPort not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) DeleteNetworkPort(context.Context, *DeleteNetworkPortRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteNetworkPort not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) GetNetworkPortStatus(context.Context, *GetNetworkPortStatusRequest) (*NetworkPortInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetNetworkPortStatus not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) ListNetworkPorts(context.Context, *emptypb.Empty) (*ListNetworkPortsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListNetworkPorts not implemented")
 }
 func (UnimplementedNodeDaemonServiceServer) testEmbeddedByValue() {}
 
@@ -1481,6 +1571,96 @@ func _NodeDaemonService_CreateVolumeSnapshot_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeDaemonService_GetOVSStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).GetOVSStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_GetOVSStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).GetOVSStatus(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_ConfigureNetworkPort_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfigureNetworkPortRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).ConfigureNetworkPort(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_ConfigureNetworkPort_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).ConfigureNetworkPort(ctx, req.(*ConfigureNetworkPortRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_DeleteNetworkPort_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteNetworkPortRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).DeleteNetworkPort(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_DeleteNetworkPort_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).DeleteNetworkPort(ctx, req.(*DeleteNetworkPortRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_GetNetworkPortStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNetworkPortStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).GetNetworkPortStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_GetNetworkPortStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).GetNetworkPortStatus(ctx, req.(*GetNetworkPortStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_ListNetworkPorts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).ListNetworkPorts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_ListNetworkPorts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).ListNetworkPorts(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NodeDaemonService_ServiceDesc is the grpc.ServiceDesc for NodeDaemonService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1627,6 +1807,26 @@ var NodeDaemonService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateVolumeSnapshot",
 			Handler:    _NodeDaemonService_CreateVolumeSnapshot_Handler,
+		},
+		{
+			MethodName: "GetOVSStatus",
+			Handler:    _NodeDaemonService_GetOVSStatus_Handler,
+		},
+		{
+			MethodName: "ConfigureNetworkPort",
+			Handler:    _NodeDaemonService_ConfigureNetworkPort_Handler,
+		},
+		{
+			MethodName: "DeleteNetworkPort",
+			Handler:    _NodeDaemonService_DeleteNetworkPort_Handler,
+		},
+		{
+			MethodName: "GetNetworkPortStatus",
+			Handler:    _NodeDaemonService_GetNetworkPortStatus_Handler,
+		},
+		{
+			MethodName: "ListNetworkPorts",
+			Handler:    _NodeDaemonService_ListNetworkPorts_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

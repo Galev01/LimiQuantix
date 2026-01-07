@@ -586,6 +586,118 @@ func (VolumeSourceType) EnumDescriptor() ([]byte, []int) {
 	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{9}
 }
 
+// Network port binding types
+type NetworkPortBindingType int32
+
+const (
+	NetworkPortBindingType_NETWORK_PORT_BINDING_NORMAL     NetworkPortBindingType = 0 // Standard OVS port
+	NetworkPortBindingType_NETWORK_PORT_BINDING_DIRECT     NetworkPortBindingType = 1 // SR-IOV VF passthrough
+	NetworkPortBindingType_NETWORK_PORT_BINDING_MACVTAP    NetworkPortBindingType = 2 // MACVTAP device
+	NetworkPortBindingType_NETWORK_PORT_BINDING_VHOST_USER NetworkPortBindingType = 3 // DPDK vhost-user
+)
+
+// Enum value maps for NetworkPortBindingType.
+var (
+	NetworkPortBindingType_name = map[int32]string{
+		0: "NETWORK_PORT_BINDING_NORMAL",
+		1: "NETWORK_PORT_BINDING_DIRECT",
+		2: "NETWORK_PORT_BINDING_MACVTAP",
+		3: "NETWORK_PORT_BINDING_VHOST_USER",
+	}
+	NetworkPortBindingType_value = map[string]int32{
+		"NETWORK_PORT_BINDING_NORMAL":     0,
+		"NETWORK_PORT_BINDING_DIRECT":     1,
+		"NETWORK_PORT_BINDING_MACVTAP":    2,
+		"NETWORK_PORT_BINDING_VHOST_USER": 3,
+	}
+)
+
+func (x NetworkPortBindingType) Enum() *NetworkPortBindingType {
+	p := new(NetworkPortBindingType)
+	*p = x
+	return p
+}
+
+func (x NetworkPortBindingType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (NetworkPortBindingType) Descriptor() protoreflect.EnumDescriptor {
+	return file_limiquantix_node_v1_node_daemon_proto_enumTypes[10].Descriptor()
+}
+
+func (NetworkPortBindingType) Type() protoreflect.EnumType {
+	return &file_limiquantix_node_v1_node_daemon_proto_enumTypes[10]
+}
+
+func (x NetworkPortBindingType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use NetworkPortBindingType.Descriptor instead.
+func (NetworkPortBindingType) EnumDescriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{10}
+}
+
+// Network port phase
+type NetworkPortPhase int32
+
+const (
+	NetworkPortPhase_NETWORK_PORT_PHASE_UNKNOWN  NetworkPortPhase = 0
+	NetworkPortPhase_NETWORK_PORT_PHASE_PENDING  NetworkPortPhase = 1
+	NetworkPortPhase_NETWORK_PORT_PHASE_BUILDING NetworkPortPhase = 2
+	NetworkPortPhase_NETWORK_PORT_PHASE_ACTIVE   NetworkPortPhase = 3
+	NetworkPortPhase_NETWORK_PORT_PHASE_DOWN     NetworkPortPhase = 4
+	NetworkPortPhase_NETWORK_PORT_PHASE_ERROR    NetworkPortPhase = 5
+)
+
+// Enum value maps for NetworkPortPhase.
+var (
+	NetworkPortPhase_name = map[int32]string{
+		0: "NETWORK_PORT_PHASE_UNKNOWN",
+		1: "NETWORK_PORT_PHASE_PENDING",
+		2: "NETWORK_PORT_PHASE_BUILDING",
+		3: "NETWORK_PORT_PHASE_ACTIVE",
+		4: "NETWORK_PORT_PHASE_DOWN",
+		5: "NETWORK_PORT_PHASE_ERROR",
+	}
+	NetworkPortPhase_value = map[string]int32{
+		"NETWORK_PORT_PHASE_UNKNOWN":  0,
+		"NETWORK_PORT_PHASE_PENDING":  1,
+		"NETWORK_PORT_PHASE_BUILDING": 2,
+		"NETWORK_PORT_PHASE_ACTIVE":   3,
+		"NETWORK_PORT_PHASE_DOWN":     4,
+		"NETWORK_PORT_PHASE_ERROR":    5,
+	}
+)
+
+func (x NetworkPortPhase) Enum() *NetworkPortPhase {
+	p := new(NetworkPortPhase)
+	*p = x
+	return p
+}
+
+func (x NetworkPortPhase) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (NetworkPortPhase) Descriptor() protoreflect.EnumDescriptor {
+	return file_limiquantix_node_v1_node_daemon_proto_enumTypes[11].Descriptor()
+}
+
+func (NetworkPortPhase) Type() protoreflect.EnumType {
+	return &file_limiquantix_node_v1_node_daemon_proto_enumTypes[11]
+}
+
+func (x NetworkPortPhase) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use NetworkPortPhase.Descriptor instead.
+func (NetworkPortPhase) EnumDescriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{11}
+}
+
 // Status
 type DownloadProgress_Status int32
 
@@ -635,11 +747,11 @@ func (x DownloadProgress_Status) String() string {
 }
 
 func (DownloadProgress_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_node_v1_node_daemon_proto_enumTypes[10].Descriptor()
+	return file_limiquantix_node_v1_node_daemon_proto_enumTypes[12].Descriptor()
 }
 
 func (DownloadProgress_Status) Type() protoreflect.EnumType {
-	return &file_limiquantix_node_v1_node_daemon_proto_enumTypes[10]
+	return &file_limiquantix_node_v1_node_daemon_proto_enumTypes[12]
 }
 
 func (x DownloadProgress_Status) Number() protoreflect.EnumNumber {
@@ -4954,6 +5066,583 @@ func (x *CreateVolumeSnapshotRequest) GetSnapshotId() string {
 	return ""
 }
 
+// OVS status response
+type OVSStatusResponse struct {
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Available              bool                   `protobuf:"varint,1,opt,name=available,proto3" json:"available,omitempty"`                                                           // Is OVS running?
+	OvsVersion             string                 `protobuf:"bytes,2,opt,name=ovs_version,json=ovsVersion,proto3" json:"ovs_version,omitempty"`                                        // OVS version string
+	OvnControllerConnected bool                   `protobuf:"varint,3,opt,name=ovn_controller_connected,json=ovnControllerConnected,proto3" json:"ovn_controller_connected,omitempty"` // Is OVN controller connected?
+	IntegrationBridge      string                 `protobuf:"bytes,4,opt,name=integration_bridge,json=integrationBridge,proto3" json:"integration_bridge,omitempty"`                   // Integration bridge name (e.g., "br-int")
+	EncapType              string                 `protobuf:"bytes,5,opt,name=encap_type,json=encapType,proto3" json:"encap_type,omitempty"`                                           // Encapsulation type (e.g., "geneve")
+	EncapIp                string                 `protobuf:"bytes,6,opt,name=encap_ip,json=encapIp,proto3" json:"encap_ip,omitempty"`                                                 // Encapsulation IP
+	ChassisId              string                 `protobuf:"bytes,7,opt,name=chassis_id,json=chassisId,proto3" json:"chassis_id,omitempty"`                                           // OVN chassis ID for this node
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *OVSStatusResponse) Reset() {
+	*x = OVSStatusResponse{}
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OVSStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OVSStatusResponse) ProtoMessage() {}
+
+func (x *OVSStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OVSStatusResponse.ProtoReflect.Descriptor instead.
+func (*OVSStatusResponse) Descriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *OVSStatusResponse) GetAvailable() bool {
+	if x != nil {
+		return x.Available
+	}
+	return false
+}
+
+func (x *OVSStatusResponse) GetOvsVersion() string {
+	if x != nil {
+		return x.OvsVersion
+	}
+	return ""
+}
+
+func (x *OVSStatusResponse) GetOvnControllerConnected() bool {
+	if x != nil {
+		return x.OvnControllerConnected
+	}
+	return false
+}
+
+func (x *OVSStatusResponse) GetIntegrationBridge() string {
+	if x != nil {
+		return x.IntegrationBridge
+	}
+	return ""
+}
+
+func (x *OVSStatusResponse) GetEncapType() string {
+	if x != nil {
+		return x.EncapType
+	}
+	return ""
+}
+
+func (x *OVSStatusResponse) GetEncapIp() string {
+	if x != nil {
+		return x.EncapIp
+	}
+	return ""
+}
+
+func (x *OVSStatusResponse) GetChassisId() string {
+	if x != nil {
+		return x.ChassisId
+	}
+	return ""
+}
+
+// Configure network port request
+type ConfigureNetworkPortRequest struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	PortId      string                 `protobuf:"bytes,1,opt,name=port_id,json=portId,proto3" json:"port_id,omitempty"`                  // Limiquantix port ID
+	VmId        string                 `protobuf:"bytes,2,opt,name=vm_id,json=vmId,proto3" json:"vm_id,omitempty"`                        // VM this port belongs to
+	NetworkId   string                 `protobuf:"bytes,3,opt,name=network_id,json=networkId,proto3" json:"network_id,omitempty"`         // Network ID
+	MacAddress  string                 `protobuf:"bytes,4,opt,name=mac_address,json=macAddress,proto3" json:"mac_address,omitempty"`      // MAC address for the port
+	IpAddresses []string               `protobuf:"bytes,5,rep,name=ip_addresses,json=ipAddresses,proto3" json:"ip_addresses,omitempty"`   // Allocated IP addresses
+	OvnPortName string                 `protobuf:"bytes,6,opt,name=ovn_port_name,json=ovnPortName,proto3" json:"ovn_port_name,omitempty"` // OVN logical switch port name (e.g., "lsp-xxx")
+	// Port binding configuration
+	BindingType NetworkPortBindingType `protobuf:"varint,7,opt,name=binding_type,json=bindingType,proto3,enum=limiquantix.node.v1.NetworkPortBindingType" json:"binding_type,omitempty"`
+	// QoS settings (optional)
+	Qos *NetworkPortQoS `protobuf:"bytes,8,opt,name=qos,proto3" json:"qos,omitempty"`
+	// Security settings
+	PortSecurityEnabled bool     `protobuf:"varint,9,opt,name=port_security_enabled,json=portSecurityEnabled,proto3" json:"port_security_enabled,omitempty"`
+	SecurityGroupIds    []string `protobuf:"bytes,10,rep,name=security_group_ids,json=securityGroupIds,proto3" json:"security_group_ids,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *ConfigureNetworkPortRequest) Reset() {
+	*x = ConfigureNetworkPortRequest{}
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfigureNetworkPortRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfigureNetworkPortRequest) ProtoMessage() {}
+
+func (x *ConfigureNetworkPortRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfigureNetworkPortRequest.ProtoReflect.Descriptor instead.
+func (*ConfigureNetworkPortRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *ConfigureNetworkPortRequest) GetPortId() string {
+	if x != nil {
+		return x.PortId
+	}
+	return ""
+}
+
+func (x *ConfigureNetworkPortRequest) GetVmId() string {
+	if x != nil {
+		return x.VmId
+	}
+	return ""
+}
+
+func (x *ConfigureNetworkPortRequest) GetNetworkId() string {
+	if x != nil {
+		return x.NetworkId
+	}
+	return ""
+}
+
+func (x *ConfigureNetworkPortRequest) GetMacAddress() string {
+	if x != nil {
+		return x.MacAddress
+	}
+	return ""
+}
+
+func (x *ConfigureNetworkPortRequest) GetIpAddresses() []string {
+	if x != nil {
+		return x.IpAddresses
+	}
+	return nil
+}
+
+func (x *ConfigureNetworkPortRequest) GetOvnPortName() string {
+	if x != nil {
+		return x.OvnPortName
+	}
+	return ""
+}
+
+func (x *ConfigureNetworkPortRequest) GetBindingType() NetworkPortBindingType {
+	if x != nil {
+		return x.BindingType
+	}
+	return NetworkPortBindingType_NETWORK_PORT_BINDING_NORMAL
+}
+
+func (x *ConfigureNetworkPortRequest) GetQos() *NetworkPortQoS {
+	if x != nil {
+		return x.Qos
+	}
+	return nil
+}
+
+func (x *ConfigureNetworkPortRequest) GetPortSecurityEnabled() bool {
+	if x != nil {
+		return x.PortSecurityEnabled
+	}
+	return false
+}
+
+func (x *ConfigureNetworkPortRequest) GetSecurityGroupIds() []string {
+	if x != nil {
+		return x.SecurityGroupIds
+	}
+	return nil
+}
+
+// Network port QoS settings
+type NetworkPortQoS struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	IngressRateKbps uint64                 `protobuf:"varint,1,opt,name=ingress_rate_kbps,json=ingressRateKbps,proto3" json:"ingress_rate_kbps,omitempty"`
+	EgressRateKbps  uint64                 `protobuf:"varint,2,opt,name=egress_rate_kbps,json=egressRateKbps,proto3" json:"egress_rate_kbps,omitempty"`
+	IngressBurstKb  uint64                 `protobuf:"varint,3,opt,name=ingress_burst_kb,json=ingressBurstKb,proto3" json:"ingress_burst_kb,omitempty"`
+	EgressBurstKb   uint64                 `protobuf:"varint,4,opt,name=egress_burst_kb,json=egressBurstKb,proto3" json:"egress_burst_kb,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *NetworkPortQoS) Reset() {
+	*x = NetworkPortQoS{}
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NetworkPortQoS) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NetworkPortQoS) ProtoMessage() {}
+
+func (x *NetworkPortQoS) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NetworkPortQoS.ProtoReflect.Descriptor instead.
+func (*NetworkPortQoS) Descriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *NetworkPortQoS) GetIngressRateKbps() uint64 {
+	if x != nil {
+		return x.IngressRateKbps
+	}
+	return 0
+}
+
+func (x *NetworkPortQoS) GetEgressRateKbps() uint64 {
+	if x != nil {
+		return x.EgressRateKbps
+	}
+	return 0
+}
+
+func (x *NetworkPortQoS) GetIngressBurstKb() uint64 {
+	if x != nil {
+		return x.IngressBurstKb
+	}
+	return 0
+}
+
+func (x *NetworkPortQoS) GetEgressBurstKb() uint64 {
+	if x != nil {
+		return x.EgressBurstKb
+	}
+	return 0
+}
+
+// Network port info response
+type NetworkPortInfo struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	PortId      string                 `protobuf:"bytes,1,opt,name=port_id,json=portId,proto3" json:"port_id,omitempty"`
+	VmId        string                 `protobuf:"bytes,2,opt,name=vm_id,json=vmId,proto3" json:"vm_id,omitempty"`
+	NetworkId   string                 `protobuf:"bytes,3,opt,name=network_id,json=networkId,proto3" json:"network_id,omitempty"`
+	MacAddress  string                 `protobuf:"bytes,4,opt,name=mac_address,json=macAddress,proto3" json:"mac_address,omitempty"`
+	IpAddresses []string               `protobuf:"bytes,5,rep,name=ip_addresses,json=ipAddresses,proto3" json:"ip_addresses,omitempty"`
+	// Status
+	Phase        NetworkPortPhase `protobuf:"varint,6,opt,name=phase,proto3,enum=limiquantix.node.v1.NetworkPortPhase" json:"phase,omitempty"`
+	ErrorMessage string           `protobuf:"bytes,7,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	// OVS binding info
+	OvsPortName  string `protobuf:"bytes,8,opt,name=ovs_port_name,json=ovsPortName,proto3" json:"ovs_port_name,omitempty"`   // OVS port name (e.g., "vnet0")
+	OvnPortName  string `protobuf:"bytes,9,opt,name=ovn_port_name,json=ovnPortName,proto3" json:"ovn_port_name,omitempty"`   // OVN logical port name
+	InterfaceXml string `protobuf:"bytes,10,opt,name=interface_xml,json=interfaceXml,proto3" json:"interface_xml,omitempty"` // Libvirt interface XML snippet
+	// Statistics
+	RxBytes       uint64 `protobuf:"varint,11,opt,name=rx_bytes,json=rxBytes,proto3" json:"rx_bytes,omitempty"`
+	TxBytes       uint64 `protobuf:"varint,12,opt,name=tx_bytes,json=txBytes,proto3" json:"tx_bytes,omitempty"`
+	RxPackets     uint64 `protobuf:"varint,13,opt,name=rx_packets,json=rxPackets,proto3" json:"rx_packets,omitempty"`
+	TxPackets     uint64 `protobuf:"varint,14,opt,name=tx_packets,json=txPackets,proto3" json:"tx_packets,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NetworkPortInfo) Reset() {
+	*x = NetworkPortInfo{}
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NetworkPortInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NetworkPortInfo) ProtoMessage() {}
+
+func (x *NetworkPortInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NetworkPortInfo.ProtoReflect.Descriptor instead.
+func (*NetworkPortInfo) Descriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *NetworkPortInfo) GetPortId() string {
+	if x != nil {
+		return x.PortId
+	}
+	return ""
+}
+
+func (x *NetworkPortInfo) GetVmId() string {
+	if x != nil {
+		return x.VmId
+	}
+	return ""
+}
+
+func (x *NetworkPortInfo) GetNetworkId() string {
+	if x != nil {
+		return x.NetworkId
+	}
+	return ""
+}
+
+func (x *NetworkPortInfo) GetMacAddress() string {
+	if x != nil {
+		return x.MacAddress
+	}
+	return ""
+}
+
+func (x *NetworkPortInfo) GetIpAddresses() []string {
+	if x != nil {
+		return x.IpAddresses
+	}
+	return nil
+}
+
+func (x *NetworkPortInfo) GetPhase() NetworkPortPhase {
+	if x != nil {
+		return x.Phase
+	}
+	return NetworkPortPhase_NETWORK_PORT_PHASE_UNKNOWN
+}
+
+func (x *NetworkPortInfo) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *NetworkPortInfo) GetOvsPortName() string {
+	if x != nil {
+		return x.OvsPortName
+	}
+	return ""
+}
+
+func (x *NetworkPortInfo) GetOvnPortName() string {
+	if x != nil {
+		return x.OvnPortName
+	}
+	return ""
+}
+
+func (x *NetworkPortInfo) GetInterfaceXml() string {
+	if x != nil {
+		return x.InterfaceXml
+	}
+	return ""
+}
+
+func (x *NetworkPortInfo) GetRxBytes() uint64 {
+	if x != nil {
+		return x.RxBytes
+	}
+	return 0
+}
+
+func (x *NetworkPortInfo) GetTxBytes() uint64 {
+	if x != nil {
+		return x.TxBytes
+	}
+	return 0
+}
+
+func (x *NetworkPortInfo) GetRxPackets() uint64 {
+	if x != nil {
+		return x.RxPackets
+	}
+	return 0
+}
+
+func (x *NetworkPortInfo) GetTxPackets() uint64 {
+	if x != nil {
+		return x.TxPackets
+	}
+	return 0
+}
+
+// Delete network port request
+type DeleteNetworkPortRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PortId        string                 `protobuf:"bytes,1,opt,name=port_id,json=portId,proto3" json:"port_id,omitempty"`
+	VmId          string                 `protobuf:"bytes,2,opt,name=vm_id,json=vmId,proto3" json:"vm_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteNetworkPortRequest) Reset() {
+	*x = DeleteNetworkPortRequest{}
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteNetworkPortRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteNetworkPortRequest) ProtoMessage() {}
+
+func (x *DeleteNetworkPortRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteNetworkPortRequest.ProtoReflect.Descriptor instead.
+func (*DeleteNetworkPortRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *DeleteNetworkPortRequest) GetPortId() string {
+	if x != nil {
+		return x.PortId
+	}
+	return ""
+}
+
+func (x *DeleteNetworkPortRequest) GetVmId() string {
+	if x != nil {
+		return x.VmId
+	}
+	return ""
+}
+
+// Get network port status request
+type GetNetworkPortStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PortId        string                 `protobuf:"bytes,1,opt,name=port_id,json=portId,proto3" json:"port_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetNetworkPortStatusRequest) Reset() {
+	*x = GetNetworkPortStatusRequest{}
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetNetworkPortStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNetworkPortStatusRequest) ProtoMessage() {}
+
+func (x *GetNetworkPortStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNetworkPortStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetNetworkPortStatusRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *GetNetworkPortStatusRequest) GetPortId() string {
+	if x != nil {
+		return x.PortId
+	}
+	return ""
+}
+
+// List network ports response
+type ListNetworkPortsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ports         []*NetworkPortInfo     `protobuf:"bytes,1,rep,name=ports,proto3" json:"ports,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNetworkPortsResponse) Reset() {
+	*x = ListNetworkPortsResponse{}
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNetworkPortsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNetworkPortsResponse) ProtoMessage() {}
+
+func (x *ListNetworkPortsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_node_v1_node_daemon_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNetworkPortsResponse.ProtoReflect.Descriptor instead.
+func (*ListNetworkPortsResponse) Descriptor() ([]byte, []int) {
+	return file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *ListNetworkPortsResponse) GetPorts() []*NetworkPortInfo {
+	if x != nil {
+		return x.Ports
+	}
+	return nil
+}
+
 var File_limiquantix_node_v1_node_daemon_proto protoreflect.FileDescriptor
 
 const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
@@ -5342,7 +6031,64 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\apool_id\x18\x01 \x01(\tR\x06poolId\x12\x1b\n" +
 	"\tvolume_id\x18\x02 \x01(\tR\bvolumeId\x12\x1f\n" +
 	"\vsnapshot_id\x18\x03 \x01(\tR\n" +
-	"snapshotId*0\n" +
+	"snapshotId\"\x94\x02\n" +
+	"\x11OVSStatusResponse\x12\x1c\n" +
+	"\tavailable\x18\x01 \x01(\bR\tavailable\x12\x1f\n" +
+	"\vovs_version\x18\x02 \x01(\tR\n" +
+	"ovsVersion\x128\n" +
+	"\x18ovn_controller_connected\x18\x03 \x01(\bR\x16ovnControllerConnected\x12-\n" +
+	"\x12integration_bridge\x18\x04 \x01(\tR\x11integrationBridge\x12\x1d\n" +
+	"\n" +
+	"encap_type\x18\x05 \x01(\tR\tencapType\x12\x19\n" +
+	"\bencap_ip\x18\x06 \x01(\tR\aencapIp\x12\x1d\n" +
+	"\n" +
+	"chassis_id\x18\a \x01(\tR\tchassisId\"\xbb\x03\n" +
+	"\x1bConfigureNetworkPortRequest\x12\x17\n" +
+	"\aport_id\x18\x01 \x01(\tR\x06portId\x12\x13\n" +
+	"\x05vm_id\x18\x02 \x01(\tR\x04vmId\x12\x1d\n" +
+	"\n" +
+	"network_id\x18\x03 \x01(\tR\tnetworkId\x12\x1f\n" +
+	"\vmac_address\x18\x04 \x01(\tR\n" +
+	"macAddress\x12!\n" +
+	"\fip_addresses\x18\x05 \x03(\tR\vipAddresses\x12\"\n" +
+	"\rovn_port_name\x18\x06 \x01(\tR\vovnPortName\x12N\n" +
+	"\fbinding_type\x18\a \x01(\x0e2+.limiquantix.node.v1.NetworkPortBindingTypeR\vbindingType\x125\n" +
+	"\x03qos\x18\b \x01(\v2#.limiquantix.node.v1.NetworkPortQoSR\x03qos\x122\n" +
+	"\x15port_security_enabled\x18\t \x01(\bR\x13portSecurityEnabled\x12,\n" +
+	"\x12security_group_ids\x18\n" +
+	" \x03(\tR\x10securityGroupIds\"\xb8\x01\n" +
+	"\x0eNetworkPortQoS\x12*\n" +
+	"\x11ingress_rate_kbps\x18\x01 \x01(\x04R\x0fingressRateKbps\x12(\n" +
+	"\x10egress_rate_kbps\x18\x02 \x01(\x04R\x0eegressRateKbps\x12(\n" +
+	"\x10ingress_burst_kb\x18\x03 \x01(\x04R\x0eingressBurstKb\x12&\n" +
+	"\x0fegress_burst_kb\x18\x04 \x01(\x04R\regressBurstKb\"\xe5\x03\n" +
+	"\x0fNetworkPortInfo\x12\x17\n" +
+	"\aport_id\x18\x01 \x01(\tR\x06portId\x12\x13\n" +
+	"\x05vm_id\x18\x02 \x01(\tR\x04vmId\x12\x1d\n" +
+	"\n" +
+	"network_id\x18\x03 \x01(\tR\tnetworkId\x12\x1f\n" +
+	"\vmac_address\x18\x04 \x01(\tR\n" +
+	"macAddress\x12!\n" +
+	"\fip_addresses\x18\x05 \x03(\tR\vipAddresses\x12;\n" +
+	"\x05phase\x18\x06 \x01(\x0e2%.limiquantix.node.v1.NetworkPortPhaseR\x05phase\x12#\n" +
+	"\rerror_message\x18\a \x01(\tR\ferrorMessage\x12\"\n" +
+	"\rovs_port_name\x18\b \x01(\tR\vovsPortName\x12\"\n" +
+	"\rovn_port_name\x18\t \x01(\tR\vovnPortName\x12#\n" +
+	"\rinterface_xml\x18\n" +
+	" \x01(\tR\finterfaceXml\x12\x19\n" +
+	"\brx_bytes\x18\v \x01(\x04R\arxBytes\x12\x19\n" +
+	"\btx_bytes\x18\f \x01(\x04R\atxBytes\x12\x1d\n" +
+	"\n" +
+	"rx_packets\x18\r \x01(\x04R\trxPackets\x12\x1d\n" +
+	"\n" +
+	"tx_packets\x18\x0e \x01(\x04R\ttxPackets\"H\n" +
+	"\x18DeleteNetworkPortRequest\x12\x17\n" +
+	"\aport_id\x18\x01 \x01(\tR\x06portId\x12\x13\n" +
+	"\x05vm_id\x18\x02 \x01(\tR\x04vmId\"6\n" +
+	"\x1bGetNetworkPortStatusRequest\x12\x17\n" +
+	"\aport_id\x18\x01 \x01(\tR\x06portId\"V\n" +
+	"\x18ListNetworkPortsResponse\x12:\n" +
+	"\x05ports\x18\x01 \x03(\v2$.limiquantix.node.v1.NetworkPortInfoR\x05ports*0\n" +
 	"\bFirmware\x12\x11\n" +
 	"\rFIRMWARE_BIOS\x10\x00\x12\x11\n" +
 	"\rFIRMWARE_UEFI\x10\x01*R\n" +
@@ -5410,7 +6156,19 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\x13VOLUME_SOURCE_EMPTY\x10\x00\x12\x17\n" +
 	"\x13VOLUME_SOURCE_CLONE\x10\x01\x12\x17\n" +
 	"\x13VOLUME_SOURCE_IMAGE\x10\x02\x12\x1a\n" +
-	"\x16VOLUME_SOURCE_SNAPSHOT\x10\x032\xc5\x1a\n" +
+	"\x16VOLUME_SOURCE_SNAPSHOT\x10\x03*\xa1\x01\n" +
+	"\x16NetworkPortBindingType\x12\x1f\n" +
+	"\x1bNETWORK_PORT_BINDING_NORMAL\x10\x00\x12\x1f\n" +
+	"\x1bNETWORK_PORT_BINDING_DIRECT\x10\x01\x12 \n" +
+	"\x1cNETWORK_PORT_BINDING_MACVTAP\x10\x02\x12#\n" +
+	"\x1fNETWORK_PORT_BINDING_VHOST_USER\x10\x03*\xcd\x01\n" +
+	"\x10NetworkPortPhase\x12\x1e\n" +
+	"\x1aNETWORK_PORT_PHASE_UNKNOWN\x10\x00\x12\x1e\n" +
+	"\x1aNETWORK_PORT_PHASE_PENDING\x10\x01\x12\x1f\n" +
+	"\x1bNETWORK_PORT_PHASE_BUILDING\x10\x02\x12\x1d\n" +
+	"\x19NETWORK_PORT_PHASE_ACTIVE\x10\x03\x12\x1b\n" +
+	"\x17NETWORK_PORT_PHASE_DOWN\x10\x04\x12\x1c\n" +
+	"\x18NETWORK_PORT_PHASE_ERROR\x10\x052\xac\x1e\n" +
 	"\x11NodeDaemonService\x12`\n" +
 	"\vHealthCheck\x12'.limiquantix.node.v1.HealthCheckRequest\x1a(.limiquantix.node.v1.HealthCheckResponse\x12L\n" +
 	"\vGetNodeInfo\x12\x16.google.protobuf.Empty\x1a%.limiquantix.node.v1.NodeInfoResponse\x12c\n" +
@@ -5453,7 +6211,12 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\fResizeVolume\x12(.limiquantix.node.v1.ResizeVolumeRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
 	"\vCloneVolume\x12'.limiquantix.node.v1.CloneVolumeRequest\x1a\x16.google.protobuf.Empty\x12j\n" +
 	"\x13GetVolumeAttachInfo\x12$.limiquantix.node.v1.VolumeIdRequest\x1a-.limiquantix.node.v1.VolumeAttachInfoResponse\x12`\n" +
-	"\x14CreateVolumeSnapshot\x120.limiquantix.node.v1.CreateVolumeSnapshotRequest\x1a\x16.google.protobuf.EmptyB\xdf\x01\n" +
+	"\x14CreateVolumeSnapshot\x120.limiquantix.node.v1.CreateVolumeSnapshotRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
+	"\fGetOVSStatus\x12\x16.google.protobuf.Empty\x1a&.limiquantix.node.v1.OVSStatusResponse\x12n\n" +
+	"\x14ConfigureNetworkPort\x120.limiquantix.node.v1.ConfigureNetworkPortRequest\x1a$.limiquantix.node.v1.NetworkPortInfo\x12Z\n" +
+	"\x11DeleteNetworkPort\x12-.limiquantix.node.v1.DeleteNetworkPortRequest\x1a\x16.google.protobuf.Empty\x12n\n" +
+	"\x14GetNetworkPortStatus\x120.limiquantix.node.v1.GetNetworkPortStatusRequest\x1a$.limiquantix.node.v1.NetworkPortInfo\x12Y\n" +
+	"\x10ListNetworkPorts\x12\x16.google.protobuf.Empty\x1a-.limiquantix.node.v1.ListNetworkPortsResponseB\xdf\x01\n" +
 	"\x17com.limiquantix.node.v1B\x0fNodeDaemonProtoP\x01ZEgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/node/v1;nodev1\xa2\x02\x03LNX\xaa\x02\x13Limiquantix.Node.V1\xca\x02\x13Limiquantix\\Node\\V1\xe2\x02\x1fLimiquantix\\Node\\V1\\GPBMetadata\xea\x02\x15Limiquantix::Node::V1b\x06proto3"
 
 var (
@@ -5468,8 +6231,8 @@ func file_limiquantix_node_v1_node_daemon_proto_rawDescGZIP() []byte {
 	return file_limiquantix_node_v1_node_daemon_proto_rawDescData
 }
 
-var file_limiquantix_node_v1_node_daemon_proto_enumTypes = make([]protoimpl.EnumInfo, 11)
-var file_limiquantix_node_v1_node_daemon_proto_msgTypes = make([]protoimpl.MessageInfo, 62)
+var file_limiquantix_node_v1_node_daemon_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
+var file_limiquantix_node_v1_node_daemon_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
 var file_limiquantix_node_v1_node_daemon_proto_goTypes = []any{
 	(Firmware)(0),                       // 0: limiquantix.node.v1.Firmware
 	(BootDevice)(0),                     // 1: limiquantix.node.v1.BootDevice
@@ -5481,201 +6244,224 @@ var file_limiquantix_node_v1_node_daemon_proto_goTypes = []any{
 	(EventType)(0),                      // 7: limiquantix.node.v1.EventType
 	(StoragePoolType)(0),                // 8: limiquantix.node.v1.StoragePoolType
 	(VolumeSourceType)(0),               // 9: limiquantix.node.v1.VolumeSourceType
-	(DownloadProgress_Status)(0),        // 10: limiquantix.node.v1.DownloadProgress.Status
-	(*HealthCheckRequest)(nil),          // 11: limiquantix.node.v1.HealthCheckRequest
-	(*HealthCheckResponse)(nil),         // 12: limiquantix.node.v1.HealthCheckResponse
-	(*NodeInfoResponse)(nil),            // 13: limiquantix.node.v1.NodeInfoResponse
-	(*CpuInfo)(nil),                     // 14: limiquantix.node.v1.CpuInfo
-	(*MemoryInfo)(nil),                  // 15: limiquantix.node.v1.MemoryInfo
-	(*StorageInfo)(nil),                 // 16: limiquantix.node.v1.StorageInfo
-	(*NetworkInfo)(nil),                 // 17: limiquantix.node.v1.NetworkInfo
-	(*HypervisorCapabilities)(nil),      // 18: limiquantix.node.v1.HypervisorCapabilities
-	(*VMIdRequest)(nil),                 // 19: limiquantix.node.v1.VMIdRequest
-	(*CreateVMOnNodeRequest)(nil),       // 20: limiquantix.node.v1.CreateVMOnNodeRequest
-	(*VMSpec)(nil),                      // 21: limiquantix.node.v1.VMSpec
-	(*CloudInitConfig)(nil),             // 22: limiquantix.node.v1.CloudInitConfig
-	(*DiskSpec)(nil),                    // 23: limiquantix.node.v1.DiskSpec
-	(*NicSpec)(nil),                     // 24: limiquantix.node.v1.NicSpec
-	(*CdromSpec)(nil),                   // 25: limiquantix.node.v1.CdromSpec
-	(*ConsoleSpec)(nil),                 // 26: limiquantix.node.v1.ConsoleSpec
-	(*CreateVMOnNodeResponse)(nil),      // 27: limiquantix.node.v1.CreateVMOnNodeResponse
-	(*StopVMRequest)(nil),               // 28: limiquantix.node.v1.StopVMRequest
-	(*VMStatusResponse)(nil),            // 29: limiquantix.node.v1.VMStatusResponse
-	(*ResourceUsage)(nil),               // 30: limiquantix.node.v1.ResourceUsage
-	(*ListVMsOnNodeResponse)(nil),       // 31: limiquantix.node.v1.ListVMsOnNodeResponse
-	(*ConsoleInfoResponse)(nil),         // 32: limiquantix.node.v1.ConsoleInfoResponse
-	(*CreateSnapshotRequest)(nil),       // 33: limiquantix.node.v1.CreateSnapshotRequest
-	(*SnapshotResponse)(nil),            // 34: limiquantix.node.v1.SnapshotResponse
-	(*RevertSnapshotRequest)(nil),       // 35: limiquantix.node.v1.RevertSnapshotRequest
-	(*DeleteSnapshotRequest)(nil),       // 36: limiquantix.node.v1.DeleteSnapshotRequest
-	(*ListSnapshotsResponse)(nil),       // 37: limiquantix.node.v1.ListSnapshotsResponse
-	(*AttachDiskRequest)(nil),           // 38: limiquantix.node.v1.AttachDiskRequest
-	(*DetachDiskRequest)(nil),           // 39: limiquantix.node.v1.DetachDiskRequest
-	(*AttachNICRequest)(nil),            // 40: limiquantix.node.v1.AttachNICRequest
-	(*DetachNICRequest)(nil),            // 41: limiquantix.node.v1.DetachNICRequest
-	(*PrepareMigrationRequest)(nil),     // 42: limiquantix.node.v1.PrepareMigrationRequest
-	(*MigrationToken)(nil),              // 43: limiquantix.node.v1.MigrationToken
-	(*MigrateVMRequest)(nil),            // 44: limiquantix.node.v1.MigrateVMRequest
-	(*MigrationProgress)(nil),           // 45: limiquantix.node.v1.MigrationProgress
-	(*StreamMetricsRequest)(nil),        // 46: limiquantix.node.v1.StreamMetricsRequest
-	(*NodeMetrics)(nil),                 // 47: limiquantix.node.v1.NodeMetrics
-	(*DiskMetrics)(nil),                 // 48: limiquantix.node.v1.DiskMetrics
-	(*NetworkMetrics)(nil),              // 49: limiquantix.node.v1.NetworkMetrics
-	(*VMMetrics)(nil),                   // 50: limiquantix.node.v1.VMMetrics
-	(*NodeEvent)(nil),                   // 51: limiquantix.node.v1.NodeEvent
-	(*DownloadImageOnNodeRequest)(nil),  // 52: limiquantix.node.v1.DownloadImageOnNodeRequest
-	(*DownloadProgress)(nil),            // 53: limiquantix.node.v1.DownloadProgress
-	(*GetDownloadStatusRequest)(nil),    // 54: limiquantix.node.v1.GetDownloadStatusRequest
-	(*CancelDownloadRequest)(nil),       // 55: limiquantix.node.v1.CancelDownloadRequest
-	(*InitStoragePoolRequest)(nil),      // 56: limiquantix.node.v1.InitStoragePoolRequest
-	(*StoragePoolConfig)(nil),           // 57: limiquantix.node.v1.StoragePoolConfig
-	(*LocalDirPoolConfig)(nil),          // 58: limiquantix.node.v1.LocalDirPoolConfig
-	(*NfsPoolConfig)(nil),               // 59: limiquantix.node.v1.NfsPoolConfig
-	(*CephPoolConfig)(nil),              // 60: limiquantix.node.v1.CephPoolConfig
-	(*IscsiPoolConfig)(nil),             // 61: limiquantix.node.v1.IscsiPoolConfig
-	(*StoragePoolIdRequest)(nil),        // 62: limiquantix.node.v1.StoragePoolIdRequest
-	(*StoragePoolInfoResponse)(nil),     // 63: limiquantix.node.v1.StoragePoolInfoResponse
-	(*ListStoragePoolsResponse)(nil),    // 64: limiquantix.node.v1.ListStoragePoolsResponse
-	(*VolumeIdRequest)(nil),             // 65: limiquantix.node.v1.VolumeIdRequest
-	(*CreateVolumeRequest)(nil),         // 66: limiquantix.node.v1.CreateVolumeRequest
-	(*ResizeVolumeRequest)(nil),         // 67: limiquantix.node.v1.ResizeVolumeRequest
-	(*CloneVolumeRequest)(nil),          // 68: limiquantix.node.v1.CloneVolumeRequest
-	(*VolumeAttachInfoResponse)(nil),    // 69: limiquantix.node.v1.VolumeAttachInfoResponse
-	(*CreateVolumeSnapshotRequest)(nil), // 70: limiquantix.node.v1.CreateVolumeSnapshotRequest
-	nil,                                 // 71: limiquantix.node.v1.CreateVMOnNodeRequest.LabelsEntry
-	nil,                                 // 72: limiquantix.node.v1.NodeEvent.MetadataEntry
-	(*timestamppb.Timestamp)(nil),       // 73: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),               // 74: google.protobuf.Empty
+	(NetworkPortBindingType)(0),         // 10: limiquantix.node.v1.NetworkPortBindingType
+	(NetworkPortPhase)(0),               // 11: limiquantix.node.v1.NetworkPortPhase
+	(DownloadProgress_Status)(0),        // 12: limiquantix.node.v1.DownloadProgress.Status
+	(*HealthCheckRequest)(nil),          // 13: limiquantix.node.v1.HealthCheckRequest
+	(*HealthCheckResponse)(nil),         // 14: limiquantix.node.v1.HealthCheckResponse
+	(*NodeInfoResponse)(nil),            // 15: limiquantix.node.v1.NodeInfoResponse
+	(*CpuInfo)(nil),                     // 16: limiquantix.node.v1.CpuInfo
+	(*MemoryInfo)(nil),                  // 17: limiquantix.node.v1.MemoryInfo
+	(*StorageInfo)(nil),                 // 18: limiquantix.node.v1.StorageInfo
+	(*NetworkInfo)(nil),                 // 19: limiquantix.node.v1.NetworkInfo
+	(*HypervisorCapabilities)(nil),      // 20: limiquantix.node.v1.HypervisorCapabilities
+	(*VMIdRequest)(nil),                 // 21: limiquantix.node.v1.VMIdRequest
+	(*CreateVMOnNodeRequest)(nil),       // 22: limiquantix.node.v1.CreateVMOnNodeRequest
+	(*VMSpec)(nil),                      // 23: limiquantix.node.v1.VMSpec
+	(*CloudInitConfig)(nil),             // 24: limiquantix.node.v1.CloudInitConfig
+	(*DiskSpec)(nil),                    // 25: limiquantix.node.v1.DiskSpec
+	(*NicSpec)(nil),                     // 26: limiquantix.node.v1.NicSpec
+	(*CdromSpec)(nil),                   // 27: limiquantix.node.v1.CdromSpec
+	(*ConsoleSpec)(nil),                 // 28: limiquantix.node.v1.ConsoleSpec
+	(*CreateVMOnNodeResponse)(nil),      // 29: limiquantix.node.v1.CreateVMOnNodeResponse
+	(*StopVMRequest)(nil),               // 30: limiquantix.node.v1.StopVMRequest
+	(*VMStatusResponse)(nil),            // 31: limiquantix.node.v1.VMStatusResponse
+	(*ResourceUsage)(nil),               // 32: limiquantix.node.v1.ResourceUsage
+	(*ListVMsOnNodeResponse)(nil),       // 33: limiquantix.node.v1.ListVMsOnNodeResponse
+	(*ConsoleInfoResponse)(nil),         // 34: limiquantix.node.v1.ConsoleInfoResponse
+	(*CreateSnapshotRequest)(nil),       // 35: limiquantix.node.v1.CreateSnapshotRequest
+	(*SnapshotResponse)(nil),            // 36: limiquantix.node.v1.SnapshotResponse
+	(*RevertSnapshotRequest)(nil),       // 37: limiquantix.node.v1.RevertSnapshotRequest
+	(*DeleteSnapshotRequest)(nil),       // 38: limiquantix.node.v1.DeleteSnapshotRequest
+	(*ListSnapshotsResponse)(nil),       // 39: limiquantix.node.v1.ListSnapshotsResponse
+	(*AttachDiskRequest)(nil),           // 40: limiquantix.node.v1.AttachDiskRequest
+	(*DetachDiskRequest)(nil),           // 41: limiquantix.node.v1.DetachDiskRequest
+	(*AttachNICRequest)(nil),            // 42: limiquantix.node.v1.AttachNICRequest
+	(*DetachNICRequest)(nil),            // 43: limiquantix.node.v1.DetachNICRequest
+	(*PrepareMigrationRequest)(nil),     // 44: limiquantix.node.v1.PrepareMigrationRequest
+	(*MigrationToken)(nil),              // 45: limiquantix.node.v1.MigrationToken
+	(*MigrateVMRequest)(nil),            // 46: limiquantix.node.v1.MigrateVMRequest
+	(*MigrationProgress)(nil),           // 47: limiquantix.node.v1.MigrationProgress
+	(*StreamMetricsRequest)(nil),        // 48: limiquantix.node.v1.StreamMetricsRequest
+	(*NodeMetrics)(nil),                 // 49: limiquantix.node.v1.NodeMetrics
+	(*DiskMetrics)(nil),                 // 50: limiquantix.node.v1.DiskMetrics
+	(*NetworkMetrics)(nil),              // 51: limiquantix.node.v1.NetworkMetrics
+	(*VMMetrics)(nil),                   // 52: limiquantix.node.v1.VMMetrics
+	(*NodeEvent)(nil),                   // 53: limiquantix.node.v1.NodeEvent
+	(*DownloadImageOnNodeRequest)(nil),  // 54: limiquantix.node.v1.DownloadImageOnNodeRequest
+	(*DownloadProgress)(nil),            // 55: limiquantix.node.v1.DownloadProgress
+	(*GetDownloadStatusRequest)(nil),    // 56: limiquantix.node.v1.GetDownloadStatusRequest
+	(*CancelDownloadRequest)(nil),       // 57: limiquantix.node.v1.CancelDownloadRequest
+	(*InitStoragePoolRequest)(nil),      // 58: limiquantix.node.v1.InitStoragePoolRequest
+	(*StoragePoolConfig)(nil),           // 59: limiquantix.node.v1.StoragePoolConfig
+	(*LocalDirPoolConfig)(nil),          // 60: limiquantix.node.v1.LocalDirPoolConfig
+	(*NfsPoolConfig)(nil),               // 61: limiquantix.node.v1.NfsPoolConfig
+	(*CephPoolConfig)(nil),              // 62: limiquantix.node.v1.CephPoolConfig
+	(*IscsiPoolConfig)(nil),             // 63: limiquantix.node.v1.IscsiPoolConfig
+	(*StoragePoolIdRequest)(nil),        // 64: limiquantix.node.v1.StoragePoolIdRequest
+	(*StoragePoolInfoResponse)(nil),     // 65: limiquantix.node.v1.StoragePoolInfoResponse
+	(*ListStoragePoolsResponse)(nil),    // 66: limiquantix.node.v1.ListStoragePoolsResponse
+	(*VolumeIdRequest)(nil),             // 67: limiquantix.node.v1.VolumeIdRequest
+	(*CreateVolumeRequest)(nil),         // 68: limiquantix.node.v1.CreateVolumeRequest
+	(*ResizeVolumeRequest)(nil),         // 69: limiquantix.node.v1.ResizeVolumeRequest
+	(*CloneVolumeRequest)(nil),          // 70: limiquantix.node.v1.CloneVolumeRequest
+	(*VolumeAttachInfoResponse)(nil),    // 71: limiquantix.node.v1.VolumeAttachInfoResponse
+	(*CreateVolumeSnapshotRequest)(nil), // 72: limiquantix.node.v1.CreateVolumeSnapshotRequest
+	(*OVSStatusResponse)(nil),           // 73: limiquantix.node.v1.OVSStatusResponse
+	(*ConfigureNetworkPortRequest)(nil), // 74: limiquantix.node.v1.ConfigureNetworkPortRequest
+	(*NetworkPortQoS)(nil),              // 75: limiquantix.node.v1.NetworkPortQoS
+	(*NetworkPortInfo)(nil),             // 76: limiquantix.node.v1.NetworkPortInfo
+	(*DeleteNetworkPortRequest)(nil),    // 77: limiquantix.node.v1.DeleteNetworkPortRequest
+	(*GetNetworkPortStatusRequest)(nil), // 78: limiquantix.node.v1.GetNetworkPortStatusRequest
+	(*ListNetworkPortsResponse)(nil),    // 79: limiquantix.node.v1.ListNetworkPortsResponse
+	nil,                                 // 80: limiquantix.node.v1.CreateVMOnNodeRequest.LabelsEntry
+	nil,                                 // 81: limiquantix.node.v1.NodeEvent.MetadataEntry
+	(*timestamppb.Timestamp)(nil),       // 82: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),               // 83: google.protobuf.Empty
 }
 var file_limiquantix_node_v1_node_daemon_proto_depIdxs = []int32{
-	14, // 0: limiquantix.node.v1.NodeInfoResponse.cpu:type_name -> limiquantix.node.v1.CpuInfo
-	15, // 1: limiquantix.node.v1.NodeInfoResponse.memory:type_name -> limiquantix.node.v1.MemoryInfo
-	16, // 2: limiquantix.node.v1.NodeInfoResponse.storage:type_name -> limiquantix.node.v1.StorageInfo
-	17, // 3: limiquantix.node.v1.NodeInfoResponse.network:type_name -> limiquantix.node.v1.NetworkInfo
-	18, // 4: limiquantix.node.v1.NodeInfoResponse.capabilities:type_name -> limiquantix.node.v1.HypervisorCapabilities
-	21, // 5: limiquantix.node.v1.CreateVMOnNodeRequest.spec:type_name -> limiquantix.node.v1.VMSpec
-	71, // 6: limiquantix.node.v1.CreateVMOnNodeRequest.labels:type_name -> limiquantix.node.v1.CreateVMOnNodeRequest.LabelsEntry
+	16, // 0: limiquantix.node.v1.NodeInfoResponse.cpu:type_name -> limiquantix.node.v1.CpuInfo
+	17, // 1: limiquantix.node.v1.NodeInfoResponse.memory:type_name -> limiquantix.node.v1.MemoryInfo
+	18, // 2: limiquantix.node.v1.NodeInfoResponse.storage:type_name -> limiquantix.node.v1.StorageInfo
+	19, // 3: limiquantix.node.v1.NodeInfoResponse.network:type_name -> limiquantix.node.v1.NetworkInfo
+	20, // 4: limiquantix.node.v1.NodeInfoResponse.capabilities:type_name -> limiquantix.node.v1.HypervisorCapabilities
+	23, // 5: limiquantix.node.v1.CreateVMOnNodeRequest.spec:type_name -> limiquantix.node.v1.VMSpec
+	80, // 6: limiquantix.node.v1.CreateVMOnNodeRequest.labels:type_name -> limiquantix.node.v1.CreateVMOnNodeRequest.LabelsEntry
 	0,  // 7: limiquantix.node.v1.VMSpec.firmware:type_name -> limiquantix.node.v1.Firmware
 	1,  // 8: limiquantix.node.v1.VMSpec.boot_order:type_name -> limiquantix.node.v1.BootDevice
-	23, // 9: limiquantix.node.v1.VMSpec.disks:type_name -> limiquantix.node.v1.DiskSpec
-	24, // 10: limiquantix.node.v1.VMSpec.nics:type_name -> limiquantix.node.v1.NicSpec
-	25, // 11: limiquantix.node.v1.VMSpec.cdroms:type_name -> limiquantix.node.v1.CdromSpec
-	26, // 12: limiquantix.node.v1.VMSpec.console:type_name -> limiquantix.node.v1.ConsoleSpec
-	22, // 13: limiquantix.node.v1.VMSpec.cloud_init:type_name -> limiquantix.node.v1.CloudInitConfig
+	25, // 9: limiquantix.node.v1.VMSpec.disks:type_name -> limiquantix.node.v1.DiskSpec
+	26, // 10: limiquantix.node.v1.VMSpec.nics:type_name -> limiquantix.node.v1.NicSpec
+	27, // 11: limiquantix.node.v1.VMSpec.cdroms:type_name -> limiquantix.node.v1.CdromSpec
+	28, // 12: limiquantix.node.v1.VMSpec.console:type_name -> limiquantix.node.v1.ConsoleSpec
+	24, // 13: limiquantix.node.v1.VMSpec.cloud_init:type_name -> limiquantix.node.v1.CloudInitConfig
 	2,  // 14: limiquantix.node.v1.DiskSpec.bus:type_name -> limiquantix.node.v1.DiskBus
 	3,  // 15: limiquantix.node.v1.DiskSpec.format:type_name -> limiquantix.node.v1.DiskFormat
 	4,  // 16: limiquantix.node.v1.NicSpec.model:type_name -> limiquantix.node.v1.NicModel
 	5,  // 17: limiquantix.node.v1.VMStatusResponse.state:type_name -> limiquantix.node.v1.PowerState
-	30, // 18: limiquantix.node.v1.VMStatusResponse.resource_usage:type_name -> limiquantix.node.v1.ResourceUsage
-	73, // 19: limiquantix.node.v1.VMStatusResponse.started_at:type_name -> google.protobuf.Timestamp
-	29, // 20: limiquantix.node.v1.ListVMsOnNodeResponse.vms:type_name -> limiquantix.node.v1.VMStatusResponse
-	73, // 21: limiquantix.node.v1.SnapshotResponse.created_at:type_name -> google.protobuf.Timestamp
+	32, // 18: limiquantix.node.v1.VMStatusResponse.resource_usage:type_name -> limiquantix.node.v1.ResourceUsage
+	82, // 19: limiquantix.node.v1.VMStatusResponse.started_at:type_name -> google.protobuf.Timestamp
+	31, // 20: limiquantix.node.v1.ListVMsOnNodeResponse.vms:type_name -> limiquantix.node.v1.VMStatusResponse
+	82, // 21: limiquantix.node.v1.SnapshotResponse.created_at:type_name -> google.protobuf.Timestamp
 	5,  // 22: limiquantix.node.v1.SnapshotResponse.vm_state:type_name -> limiquantix.node.v1.PowerState
-	34, // 23: limiquantix.node.v1.ListSnapshotsResponse.snapshots:type_name -> limiquantix.node.v1.SnapshotResponse
-	23, // 24: limiquantix.node.v1.AttachDiskRequest.disk:type_name -> limiquantix.node.v1.DiskSpec
-	24, // 25: limiquantix.node.v1.AttachNICRequest.nic:type_name -> limiquantix.node.v1.NicSpec
-	73, // 26: limiquantix.node.v1.MigrationToken.expires_at:type_name -> google.protobuf.Timestamp
+	36, // 23: limiquantix.node.v1.ListSnapshotsResponse.snapshots:type_name -> limiquantix.node.v1.SnapshotResponse
+	25, // 24: limiquantix.node.v1.AttachDiskRequest.disk:type_name -> limiquantix.node.v1.DiskSpec
+	26, // 25: limiquantix.node.v1.AttachNICRequest.nic:type_name -> limiquantix.node.v1.NicSpec
+	82, // 26: limiquantix.node.v1.MigrationToken.expires_at:type_name -> google.protobuf.Timestamp
 	6,  // 27: limiquantix.node.v1.MigrationProgress.phase:type_name -> limiquantix.node.v1.MigrationPhase
-	73, // 28: limiquantix.node.v1.NodeMetrics.timestamp:type_name -> google.protobuf.Timestamp
-	48, // 29: limiquantix.node.v1.NodeMetrics.disks:type_name -> limiquantix.node.v1.DiskMetrics
-	49, // 30: limiquantix.node.v1.NodeMetrics.networks:type_name -> limiquantix.node.v1.NetworkMetrics
-	50, // 31: limiquantix.node.v1.NodeMetrics.vms:type_name -> limiquantix.node.v1.VMMetrics
-	73, // 32: limiquantix.node.v1.NodeEvent.timestamp:type_name -> google.protobuf.Timestamp
+	82, // 28: limiquantix.node.v1.NodeMetrics.timestamp:type_name -> google.protobuf.Timestamp
+	50, // 29: limiquantix.node.v1.NodeMetrics.disks:type_name -> limiquantix.node.v1.DiskMetrics
+	51, // 30: limiquantix.node.v1.NodeMetrics.networks:type_name -> limiquantix.node.v1.NetworkMetrics
+	52, // 31: limiquantix.node.v1.NodeMetrics.vms:type_name -> limiquantix.node.v1.VMMetrics
+	82, // 32: limiquantix.node.v1.NodeEvent.timestamp:type_name -> google.protobuf.Timestamp
 	7,  // 33: limiquantix.node.v1.NodeEvent.type:type_name -> limiquantix.node.v1.EventType
-	72, // 34: limiquantix.node.v1.NodeEvent.metadata:type_name -> limiquantix.node.v1.NodeEvent.MetadataEntry
-	10, // 35: limiquantix.node.v1.DownloadProgress.status:type_name -> limiquantix.node.v1.DownloadProgress.Status
+	81, // 34: limiquantix.node.v1.NodeEvent.metadata:type_name -> limiquantix.node.v1.NodeEvent.MetadataEntry
+	12, // 35: limiquantix.node.v1.DownloadProgress.status:type_name -> limiquantix.node.v1.DownloadProgress.Status
 	8,  // 36: limiquantix.node.v1.InitStoragePoolRequest.type:type_name -> limiquantix.node.v1.StoragePoolType
-	57, // 37: limiquantix.node.v1.InitStoragePoolRequest.config:type_name -> limiquantix.node.v1.StoragePoolConfig
-	58, // 38: limiquantix.node.v1.StoragePoolConfig.local:type_name -> limiquantix.node.v1.LocalDirPoolConfig
-	59, // 39: limiquantix.node.v1.StoragePoolConfig.nfs:type_name -> limiquantix.node.v1.NfsPoolConfig
-	60, // 40: limiquantix.node.v1.StoragePoolConfig.ceph:type_name -> limiquantix.node.v1.CephPoolConfig
-	61, // 41: limiquantix.node.v1.StoragePoolConfig.iscsi:type_name -> limiquantix.node.v1.IscsiPoolConfig
+	59, // 37: limiquantix.node.v1.InitStoragePoolRequest.config:type_name -> limiquantix.node.v1.StoragePoolConfig
+	60, // 38: limiquantix.node.v1.StoragePoolConfig.local:type_name -> limiquantix.node.v1.LocalDirPoolConfig
+	61, // 39: limiquantix.node.v1.StoragePoolConfig.nfs:type_name -> limiquantix.node.v1.NfsPoolConfig
+	62, // 40: limiquantix.node.v1.StoragePoolConfig.ceph:type_name -> limiquantix.node.v1.CephPoolConfig
+	63, // 41: limiquantix.node.v1.StoragePoolConfig.iscsi:type_name -> limiquantix.node.v1.IscsiPoolConfig
 	8,  // 42: limiquantix.node.v1.StoragePoolInfoResponse.type:type_name -> limiquantix.node.v1.StoragePoolType
-	63, // 43: limiquantix.node.v1.ListStoragePoolsResponse.pools:type_name -> limiquantix.node.v1.StoragePoolInfoResponse
+	65, // 43: limiquantix.node.v1.ListStoragePoolsResponse.pools:type_name -> limiquantix.node.v1.StoragePoolInfoResponse
 	9,  // 44: limiquantix.node.v1.CreateVolumeRequest.source_type:type_name -> limiquantix.node.v1.VolumeSourceType
-	11, // 45: limiquantix.node.v1.NodeDaemonService.HealthCheck:input_type -> limiquantix.node.v1.HealthCheckRequest
-	74, // 46: limiquantix.node.v1.NodeDaemonService.GetNodeInfo:input_type -> google.protobuf.Empty
-	20, // 47: limiquantix.node.v1.NodeDaemonService.CreateVM:input_type -> limiquantix.node.v1.CreateVMOnNodeRequest
-	19, // 48: limiquantix.node.v1.NodeDaemonService.StartVM:input_type -> limiquantix.node.v1.VMIdRequest
-	28, // 49: limiquantix.node.v1.NodeDaemonService.StopVM:input_type -> limiquantix.node.v1.StopVMRequest
-	19, // 50: limiquantix.node.v1.NodeDaemonService.ForceStopVM:input_type -> limiquantix.node.v1.VMIdRequest
-	19, // 51: limiquantix.node.v1.NodeDaemonService.RebootVM:input_type -> limiquantix.node.v1.VMIdRequest
-	19, // 52: limiquantix.node.v1.NodeDaemonService.PauseVM:input_type -> limiquantix.node.v1.VMIdRequest
-	19, // 53: limiquantix.node.v1.NodeDaemonService.ResumeVM:input_type -> limiquantix.node.v1.VMIdRequest
-	19, // 54: limiquantix.node.v1.NodeDaemonService.DeleteVM:input_type -> limiquantix.node.v1.VMIdRequest
-	19, // 55: limiquantix.node.v1.NodeDaemonService.GetVMStatus:input_type -> limiquantix.node.v1.VMIdRequest
-	74, // 56: limiquantix.node.v1.NodeDaemonService.ListVMs:input_type -> google.protobuf.Empty
-	19, // 57: limiquantix.node.v1.NodeDaemonService.GetConsole:input_type -> limiquantix.node.v1.VMIdRequest
-	33, // 58: limiquantix.node.v1.NodeDaemonService.CreateSnapshot:input_type -> limiquantix.node.v1.CreateSnapshotRequest
-	35, // 59: limiquantix.node.v1.NodeDaemonService.RevertSnapshot:input_type -> limiquantix.node.v1.RevertSnapshotRequest
-	36, // 60: limiquantix.node.v1.NodeDaemonService.DeleteSnapshot:input_type -> limiquantix.node.v1.DeleteSnapshotRequest
-	19, // 61: limiquantix.node.v1.NodeDaemonService.ListSnapshots:input_type -> limiquantix.node.v1.VMIdRequest
-	38, // 62: limiquantix.node.v1.NodeDaemonService.AttachDisk:input_type -> limiquantix.node.v1.AttachDiskRequest
-	39, // 63: limiquantix.node.v1.NodeDaemonService.DetachDisk:input_type -> limiquantix.node.v1.DetachDiskRequest
-	40, // 64: limiquantix.node.v1.NodeDaemonService.AttachNIC:input_type -> limiquantix.node.v1.AttachNICRequest
-	41, // 65: limiquantix.node.v1.NodeDaemonService.DetachNIC:input_type -> limiquantix.node.v1.DetachNICRequest
-	42, // 66: limiquantix.node.v1.NodeDaemonService.PrepareMigration:input_type -> limiquantix.node.v1.PrepareMigrationRequest
-	43, // 67: limiquantix.node.v1.NodeDaemonService.ReceiveMigration:input_type -> limiquantix.node.v1.MigrationToken
-	44, // 68: limiquantix.node.v1.NodeDaemonService.MigrateVM:input_type -> limiquantix.node.v1.MigrateVMRequest
-	46, // 69: limiquantix.node.v1.NodeDaemonService.StreamMetrics:input_type -> limiquantix.node.v1.StreamMetricsRequest
-	74, // 70: limiquantix.node.v1.NodeDaemonService.StreamEvents:input_type -> google.protobuf.Empty
-	52, // 71: limiquantix.node.v1.NodeDaemonService.DownloadImage:input_type -> limiquantix.node.v1.DownloadImageOnNodeRequest
-	54, // 72: limiquantix.node.v1.NodeDaemonService.GetDownloadStatus:input_type -> limiquantix.node.v1.GetDownloadStatusRequest
-	55, // 73: limiquantix.node.v1.NodeDaemonService.CancelDownload:input_type -> limiquantix.node.v1.CancelDownloadRequest
-	56, // 74: limiquantix.node.v1.NodeDaemonService.InitStoragePool:input_type -> limiquantix.node.v1.InitStoragePoolRequest
-	62, // 75: limiquantix.node.v1.NodeDaemonService.DestroyStoragePool:input_type -> limiquantix.node.v1.StoragePoolIdRequest
-	62, // 76: limiquantix.node.v1.NodeDaemonService.GetStoragePoolInfo:input_type -> limiquantix.node.v1.StoragePoolIdRequest
-	74, // 77: limiquantix.node.v1.NodeDaemonService.ListStoragePools:input_type -> google.protobuf.Empty
-	66, // 78: limiquantix.node.v1.NodeDaemonService.CreateVolume:input_type -> limiquantix.node.v1.CreateVolumeRequest
-	65, // 79: limiquantix.node.v1.NodeDaemonService.DeleteVolume:input_type -> limiquantix.node.v1.VolumeIdRequest
-	67, // 80: limiquantix.node.v1.NodeDaemonService.ResizeVolume:input_type -> limiquantix.node.v1.ResizeVolumeRequest
-	68, // 81: limiquantix.node.v1.NodeDaemonService.CloneVolume:input_type -> limiquantix.node.v1.CloneVolumeRequest
-	65, // 82: limiquantix.node.v1.NodeDaemonService.GetVolumeAttachInfo:input_type -> limiquantix.node.v1.VolumeIdRequest
-	70, // 83: limiquantix.node.v1.NodeDaemonService.CreateVolumeSnapshot:input_type -> limiquantix.node.v1.CreateVolumeSnapshotRequest
-	12, // 84: limiquantix.node.v1.NodeDaemonService.HealthCheck:output_type -> limiquantix.node.v1.HealthCheckResponse
-	13, // 85: limiquantix.node.v1.NodeDaemonService.GetNodeInfo:output_type -> limiquantix.node.v1.NodeInfoResponse
-	27, // 86: limiquantix.node.v1.NodeDaemonService.CreateVM:output_type -> limiquantix.node.v1.CreateVMOnNodeResponse
-	74, // 87: limiquantix.node.v1.NodeDaemonService.StartVM:output_type -> google.protobuf.Empty
-	74, // 88: limiquantix.node.v1.NodeDaemonService.StopVM:output_type -> google.protobuf.Empty
-	74, // 89: limiquantix.node.v1.NodeDaemonService.ForceStopVM:output_type -> google.protobuf.Empty
-	74, // 90: limiquantix.node.v1.NodeDaemonService.RebootVM:output_type -> google.protobuf.Empty
-	74, // 91: limiquantix.node.v1.NodeDaemonService.PauseVM:output_type -> google.protobuf.Empty
-	74, // 92: limiquantix.node.v1.NodeDaemonService.ResumeVM:output_type -> google.protobuf.Empty
-	74, // 93: limiquantix.node.v1.NodeDaemonService.DeleteVM:output_type -> google.protobuf.Empty
-	29, // 94: limiquantix.node.v1.NodeDaemonService.GetVMStatus:output_type -> limiquantix.node.v1.VMStatusResponse
-	31, // 95: limiquantix.node.v1.NodeDaemonService.ListVMs:output_type -> limiquantix.node.v1.ListVMsOnNodeResponse
-	32, // 96: limiquantix.node.v1.NodeDaemonService.GetConsole:output_type -> limiquantix.node.v1.ConsoleInfoResponse
-	34, // 97: limiquantix.node.v1.NodeDaemonService.CreateSnapshot:output_type -> limiquantix.node.v1.SnapshotResponse
-	74, // 98: limiquantix.node.v1.NodeDaemonService.RevertSnapshot:output_type -> google.protobuf.Empty
-	74, // 99: limiquantix.node.v1.NodeDaemonService.DeleteSnapshot:output_type -> google.protobuf.Empty
-	37, // 100: limiquantix.node.v1.NodeDaemonService.ListSnapshots:output_type -> limiquantix.node.v1.ListSnapshotsResponse
-	74, // 101: limiquantix.node.v1.NodeDaemonService.AttachDisk:output_type -> google.protobuf.Empty
-	74, // 102: limiquantix.node.v1.NodeDaemonService.DetachDisk:output_type -> google.protobuf.Empty
-	74, // 103: limiquantix.node.v1.NodeDaemonService.AttachNIC:output_type -> google.protobuf.Empty
-	74, // 104: limiquantix.node.v1.NodeDaemonService.DetachNIC:output_type -> google.protobuf.Empty
-	43, // 105: limiquantix.node.v1.NodeDaemonService.PrepareMigration:output_type -> limiquantix.node.v1.MigrationToken
-	74, // 106: limiquantix.node.v1.NodeDaemonService.ReceiveMigration:output_type -> google.protobuf.Empty
-	45, // 107: limiquantix.node.v1.NodeDaemonService.MigrateVM:output_type -> limiquantix.node.v1.MigrationProgress
-	47, // 108: limiquantix.node.v1.NodeDaemonService.StreamMetrics:output_type -> limiquantix.node.v1.NodeMetrics
-	51, // 109: limiquantix.node.v1.NodeDaemonService.StreamEvents:output_type -> limiquantix.node.v1.NodeEvent
-	53, // 110: limiquantix.node.v1.NodeDaemonService.DownloadImage:output_type -> limiquantix.node.v1.DownloadProgress
-	53, // 111: limiquantix.node.v1.NodeDaemonService.GetDownloadStatus:output_type -> limiquantix.node.v1.DownloadProgress
-	74, // 112: limiquantix.node.v1.NodeDaemonService.CancelDownload:output_type -> google.protobuf.Empty
-	63, // 113: limiquantix.node.v1.NodeDaemonService.InitStoragePool:output_type -> limiquantix.node.v1.StoragePoolInfoResponse
-	74, // 114: limiquantix.node.v1.NodeDaemonService.DestroyStoragePool:output_type -> google.protobuf.Empty
-	63, // 115: limiquantix.node.v1.NodeDaemonService.GetStoragePoolInfo:output_type -> limiquantix.node.v1.StoragePoolInfoResponse
-	64, // 116: limiquantix.node.v1.NodeDaemonService.ListStoragePools:output_type -> limiquantix.node.v1.ListStoragePoolsResponse
-	74, // 117: limiquantix.node.v1.NodeDaemonService.CreateVolume:output_type -> google.protobuf.Empty
-	74, // 118: limiquantix.node.v1.NodeDaemonService.DeleteVolume:output_type -> google.protobuf.Empty
-	74, // 119: limiquantix.node.v1.NodeDaemonService.ResizeVolume:output_type -> google.protobuf.Empty
-	74, // 120: limiquantix.node.v1.NodeDaemonService.CloneVolume:output_type -> google.protobuf.Empty
-	69, // 121: limiquantix.node.v1.NodeDaemonService.GetVolumeAttachInfo:output_type -> limiquantix.node.v1.VolumeAttachInfoResponse
-	74, // 122: limiquantix.node.v1.NodeDaemonService.CreateVolumeSnapshot:output_type -> google.protobuf.Empty
-	84, // [84:123] is the sub-list for method output_type
-	45, // [45:84] is the sub-list for method input_type
-	45, // [45:45] is the sub-list for extension type_name
-	45, // [45:45] is the sub-list for extension extendee
-	0,  // [0:45] is the sub-list for field type_name
+	10, // 45: limiquantix.node.v1.ConfigureNetworkPortRequest.binding_type:type_name -> limiquantix.node.v1.NetworkPortBindingType
+	75, // 46: limiquantix.node.v1.ConfigureNetworkPortRequest.qos:type_name -> limiquantix.node.v1.NetworkPortQoS
+	11, // 47: limiquantix.node.v1.NetworkPortInfo.phase:type_name -> limiquantix.node.v1.NetworkPortPhase
+	76, // 48: limiquantix.node.v1.ListNetworkPortsResponse.ports:type_name -> limiquantix.node.v1.NetworkPortInfo
+	13, // 49: limiquantix.node.v1.NodeDaemonService.HealthCheck:input_type -> limiquantix.node.v1.HealthCheckRequest
+	83, // 50: limiquantix.node.v1.NodeDaemonService.GetNodeInfo:input_type -> google.protobuf.Empty
+	22, // 51: limiquantix.node.v1.NodeDaemonService.CreateVM:input_type -> limiquantix.node.v1.CreateVMOnNodeRequest
+	21, // 52: limiquantix.node.v1.NodeDaemonService.StartVM:input_type -> limiquantix.node.v1.VMIdRequest
+	30, // 53: limiquantix.node.v1.NodeDaemonService.StopVM:input_type -> limiquantix.node.v1.StopVMRequest
+	21, // 54: limiquantix.node.v1.NodeDaemonService.ForceStopVM:input_type -> limiquantix.node.v1.VMIdRequest
+	21, // 55: limiquantix.node.v1.NodeDaemonService.RebootVM:input_type -> limiquantix.node.v1.VMIdRequest
+	21, // 56: limiquantix.node.v1.NodeDaemonService.PauseVM:input_type -> limiquantix.node.v1.VMIdRequest
+	21, // 57: limiquantix.node.v1.NodeDaemonService.ResumeVM:input_type -> limiquantix.node.v1.VMIdRequest
+	21, // 58: limiquantix.node.v1.NodeDaemonService.DeleteVM:input_type -> limiquantix.node.v1.VMIdRequest
+	21, // 59: limiquantix.node.v1.NodeDaemonService.GetVMStatus:input_type -> limiquantix.node.v1.VMIdRequest
+	83, // 60: limiquantix.node.v1.NodeDaemonService.ListVMs:input_type -> google.protobuf.Empty
+	21, // 61: limiquantix.node.v1.NodeDaemonService.GetConsole:input_type -> limiquantix.node.v1.VMIdRequest
+	35, // 62: limiquantix.node.v1.NodeDaemonService.CreateSnapshot:input_type -> limiquantix.node.v1.CreateSnapshotRequest
+	37, // 63: limiquantix.node.v1.NodeDaemonService.RevertSnapshot:input_type -> limiquantix.node.v1.RevertSnapshotRequest
+	38, // 64: limiquantix.node.v1.NodeDaemonService.DeleteSnapshot:input_type -> limiquantix.node.v1.DeleteSnapshotRequest
+	21, // 65: limiquantix.node.v1.NodeDaemonService.ListSnapshots:input_type -> limiquantix.node.v1.VMIdRequest
+	40, // 66: limiquantix.node.v1.NodeDaemonService.AttachDisk:input_type -> limiquantix.node.v1.AttachDiskRequest
+	41, // 67: limiquantix.node.v1.NodeDaemonService.DetachDisk:input_type -> limiquantix.node.v1.DetachDiskRequest
+	42, // 68: limiquantix.node.v1.NodeDaemonService.AttachNIC:input_type -> limiquantix.node.v1.AttachNICRequest
+	43, // 69: limiquantix.node.v1.NodeDaemonService.DetachNIC:input_type -> limiquantix.node.v1.DetachNICRequest
+	44, // 70: limiquantix.node.v1.NodeDaemonService.PrepareMigration:input_type -> limiquantix.node.v1.PrepareMigrationRequest
+	45, // 71: limiquantix.node.v1.NodeDaemonService.ReceiveMigration:input_type -> limiquantix.node.v1.MigrationToken
+	46, // 72: limiquantix.node.v1.NodeDaemonService.MigrateVM:input_type -> limiquantix.node.v1.MigrateVMRequest
+	48, // 73: limiquantix.node.v1.NodeDaemonService.StreamMetrics:input_type -> limiquantix.node.v1.StreamMetricsRequest
+	83, // 74: limiquantix.node.v1.NodeDaemonService.StreamEvents:input_type -> google.protobuf.Empty
+	54, // 75: limiquantix.node.v1.NodeDaemonService.DownloadImage:input_type -> limiquantix.node.v1.DownloadImageOnNodeRequest
+	56, // 76: limiquantix.node.v1.NodeDaemonService.GetDownloadStatus:input_type -> limiquantix.node.v1.GetDownloadStatusRequest
+	57, // 77: limiquantix.node.v1.NodeDaemonService.CancelDownload:input_type -> limiquantix.node.v1.CancelDownloadRequest
+	58, // 78: limiquantix.node.v1.NodeDaemonService.InitStoragePool:input_type -> limiquantix.node.v1.InitStoragePoolRequest
+	64, // 79: limiquantix.node.v1.NodeDaemonService.DestroyStoragePool:input_type -> limiquantix.node.v1.StoragePoolIdRequest
+	64, // 80: limiquantix.node.v1.NodeDaemonService.GetStoragePoolInfo:input_type -> limiquantix.node.v1.StoragePoolIdRequest
+	83, // 81: limiquantix.node.v1.NodeDaemonService.ListStoragePools:input_type -> google.protobuf.Empty
+	68, // 82: limiquantix.node.v1.NodeDaemonService.CreateVolume:input_type -> limiquantix.node.v1.CreateVolumeRequest
+	67, // 83: limiquantix.node.v1.NodeDaemonService.DeleteVolume:input_type -> limiquantix.node.v1.VolumeIdRequest
+	69, // 84: limiquantix.node.v1.NodeDaemonService.ResizeVolume:input_type -> limiquantix.node.v1.ResizeVolumeRequest
+	70, // 85: limiquantix.node.v1.NodeDaemonService.CloneVolume:input_type -> limiquantix.node.v1.CloneVolumeRequest
+	67, // 86: limiquantix.node.v1.NodeDaemonService.GetVolumeAttachInfo:input_type -> limiquantix.node.v1.VolumeIdRequest
+	72, // 87: limiquantix.node.v1.NodeDaemonService.CreateVolumeSnapshot:input_type -> limiquantix.node.v1.CreateVolumeSnapshotRequest
+	83, // 88: limiquantix.node.v1.NodeDaemonService.GetOVSStatus:input_type -> google.protobuf.Empty
+	74, // 89: limiquantix.node.v1.NodeDaemonService.ConfigureNetworkPort:input_type -> limiquantix.node.v1.ConfigureNetworkPortRequest
+	77, // 90: limiquantix.node.v1.NodeDaemonService.DeleteNetworkPort:input_type -> limiquantix.node.v1.DeleteNetworkPortRequest
+	78, // 91: limiquantix.node.v1.NodeDaemonService.GetNetworkPortStatus:input_type -> limiquantix.node.v1.GetNetworkPortStatusRequest
+	83, // 92: limiquantix.node.v1.NodeDaemonService.ListNetworkPorts:input_type -> google.protobuf.Empty
+	14, // 93: limiquantix.node.v1.NodeDaemonService.HealthCheck:output_type -> limiquantix.node.v1.HealthCheckResponse
+	15, // 94: limiquantix.node.v1.NodeDaemonService.GetNodeInfo:output_type -> limiquantix.node.v1.NodeInfoResponse
+	29, // 95: limiquantix.node.v1.NodeDaemonService.CreateVM:output_type -> limiquantix.node.v1.CreateVMOnNodeResponse
+	83, // 96: limiquantix.node.v1.NodeDaemonService.StartVM:output_type -> google.protobuf.Empty
+	83, // 97: limiquantix.node.v1.NodeDaemonService.StopVM:output_type -> google.protobuf.Empty
+	83, // 98: limiquantix.node.v1.NodeDaemonService.ForceStopVM:output_type -> google.protobuf.Empty
+	83, // 99: limiquantix.node.v1.NodeDaemonService.RebootVM:output_type -> google.protobuf.Empty
+	83, // 100: limiquantix.node.v1.NodeDaemonService.PauseVM:output_type -> google.protobuf.Empty
+	83, // 101: limiquantix.node.v1.NodeDaemonService.ResumeVM:output_type -> google.protobuf.Empty
+	83, // 102: limiquantix.node.v1.NodeDaemonService.DeleteVM:output_type -> google.protobuf.Empty
+	31, // 103: limiquantix.node.v1.NodeDaemonService.GetVMStatus:output_type -> limiquantix.node.v1.VMStatusResponse
+	33, // 104: limiquantix.node.v1.NodeDaemonService.ListVMs:output_type -> limiquantix.node.v1.ListVMsOnNodeResponse
+	34, // 105: limiquantix.node.v1.NodeDaemonService.GetConsole:output_type -> limiquantix.node.v1.ConsoleInfoResponse
+	36, // 106: limiquantix.node.v1.NodeDaemonService.CreateSnapshot:output_type -> limiquantix.node.v1.SnapshotResponse
+	83, // 107: limiquantix.node.v1.NodeDaemonService.RevertSnapshot:output_type -> google.protobuf.Empty
+	83, // 108: limiquantix.node.v1.NodeDaemonService.DeleteSnapshot:output_type -> google.protobuf.Empty
+	39, // 109: limiquantix.node.v1.NodeDaemonService.ListSnapshots:output_type -> limiquantix.node.v1.ListSnapshotsResponse
+	83, // 110: limiquantix.node.v1.NodeDaemonService.AttachDisk:output_type -> google.protobuf.Empty
+	83, // 111: limiquantix.node.v1.NodeDaemonService.DetachDisk:output_type -> google.protobuf.Empty
+	83, // 112: limiquantix.node.v1.NodeDaemonService.AttachNIC:output_type -> google.protobuf.Empty
+	83, // 113: limiquantix.node.v1.NodeDaemonService.DetachNIC:output_type -> google.protobuf.Empty
+	45, // 114: limiquantix.node.v1.NodeDaemonService.PrepareMigration:output_type -> limiquantix.node.v1.MigrationToken
+	83, // 115: limiquantix.node.v1.NodeDaemonService.ReceiveMigration:output_type -> google.protobuf.Empty
+	47, // 116: limiquantix.node.v1.NodeDaemonService.MigrateVM:output_type -> limiquantix.node.v1.MigrationProgress
+	49, // 117: limiquantix.node.v1.NodeDaemonService.StreamMetrics:output_type -> limiquantix.node.v1.NodeMetrics
+	53, // 118: limiquantix.node.v1.NodeDaemonService.StreamEvents:output_type -> limiquantix.node.v1.NodeEvent
+	55, // 119: limiquantix.node.v1.NodeDaemonService.DownloadImage:output_type -> limiquantix.node.v1.DownloadProgress
+	55, // 120: limiquantix.node.v1.NodeDaemonService.GetDownloadStatus:output_type -> limiquantix.node.v1.DownloadProgress
+	83, // 121: limiquantix.node.v1.NodeDaemonService.CancelDownload:output_type -> google.protobuf.Empty
+	65, // 122: limiquantix.node.v1.NodeDaemonService.InitStoragePool:output_type -> limiquantix.node.v1.StoragePoolInfoResponse
+	83, // 123: limiquantix.node.v1.NodeDaemonService.DestroyStoragePool:output_type -> google.protobuf.Empty
+	65, // 124: limiquantix.node.v1.NodeDaemonService.GetStoragePoolInfo:output_type -> limiquantix.node.v1.StoragePoolInfoResponse
+	66, // 125: limiquantix.node.v1.NodeDaemonService.ListStoragePools:output_type -> limiquantix.node.v1.ListStoragePoolsResponse
+	83, // 126: limiquantix.node.v1.NodeDaemonService.CreateVolume:output_type -> google.protobuf.Empty
+	83, // 127: limiquantix.node.v1.NodeDaemonService.DeleteVolume:output_type -> google.protobuf.Empty
+	83, // 128: limiquantix.node.v1.NodeDaemonService.ResizeVolume:output_type -> google.protobuf.Empty
+	83, // 129: limiquantix.node.v1.NodeDaemonService.CloneVolume:output_type -> google.protobuf.Empty
+	71, // 130: limiquantix.node.v1.NodeDaemonService.GetVolumeAttachInfo:output_type -> limiquantix.node.v1.VolumeAttachInfoResponse
+	83, // 131: limiquantix.node.v1.NodeDaemonService.CreateVolumeSnapshot:output_type -> google.protobuf.Empty
+	73, // 132: limiquantix.node.v1.NodeDaemonService.GetOVSStatus:output_type -> limiquantix.node.v1.OVSStatusResponse
+	76, // 133: limiquantix.node.v1.NodeDaemonService.ConfigureNetworkPort:output_type -> limiquantix.node.v1.NetworkPortInfo
+	83, // 134: limiquantix.node.v1.NodeDaemonService.DeleteNetworkPort:output_type -> google.protobuf.Empty
+	76, // 135: limiquantix.node.v1.NodeDaemonService.GetNetworkPortStatus:output_type -> limiquantix.node.v1.NetworkPortInfo
+	79, // 136: limiquantix.node.v1.NodeDaemonService.ListNetworkPorts:output_type -> limiquantix.node.v1.ListNetworkPortsResponse
+	93, // [93:137] is the sub-list for method output_type
+	49, // [49:93] is the sub-list for method input_type
+	49, // [49:49] is the sub-list for extension type_name
+	49, // [49:49] is the sub-list for extension extendee
+	0,  // [0:49] is the sub-list for field type_name
 }
 
 func init() { file_limiquantix_node_v1_node_daemon_proto_init() }
@@ -5688,8 +6474,8 @@ func file_limiquantix_node_v1_node_daemon_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_node_v1_node_daemon_proto_rawDesc), len(file_limiquantix_node_v1_node_daemon_proto_rawDesc)),
-			NumEnums:      11,
-			NumMessages:   62,
+			NumEnums:      13,
+			NumMessages:   69,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

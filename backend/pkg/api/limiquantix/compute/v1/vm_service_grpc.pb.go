@@ -41,6 +41,7 @@ const (
 	VMService_ConvertToTemplate_FullMethodName = "/limiquantix.compute.v1.VMService/ConvertToTemplate"
 	VMService_WatchVM_FullMethodName           = "/limiquantix.compute.v1.VMService/WatchVM"
 	VMService_StreamMetrics_FullMethodName     = "/limiquantix.compute.v1.VMService/StreamMetrics"
+	VMService_WatchVMs_FullMethodName          = "/limiquantix.compute.v1.VMService/WatchVMs"
 	VMService_PingAgent_FullMethodName         = "/limiquantix.compute.v1.VMService/PingAgent"
 	VMService_ExecuteScript_FullMethodName     = "/limiquantix.compute.v1.VMService/ExecuteScript"
 	VMService_ReadGuestFile_FullMethodName     = "/limiquantix.compute.v1.VMService/ReadGuestFile"
@@ -100,6 +101,8 @@ type VMServiceClient interface {
 	WatchVM(ctx context.Context, in *WatchVMRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[VirtualMachine], error)
 	// StreamMetrics streams real-time performance metrics.
 	StreamMetrics(ctx context.Context, in *StreamMetricsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ResourceUsage], error)
+	// WatchVMs streams updates for all VMs (for Host UI dashboard).
+	WatchVMs(ctx context.Context, in *WatchVMsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[VMUpdate], error)
 	// PingAgent checks if the guest agent is available and responding.
 	PingAgent(ctx context.Context, in *PingAgentRequest, opts ...grpc.CallOption) (*PingAgentResponse, error)
 	// ExecuteScript runs a command inside the VM via the guest agent.
@@ -348,6 +351,25 @@ func (c *vMServiceClient) StreamMetrics(ctx context.Context, in *StreamMetricsRe
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type VMService_StreamMetricsClient = grpc.ServerStreamingClient[ResourceUsage]
 
+func (c *vMServiceClient) WatchVMs(ctx context.Context, in *WatchVMsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[VMUpdate], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &VMService_ServiceDesc.Streams[2], VMService_WatchVMs_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[WatchVMsRequest, VMUpdate]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type VMService_WatchVMsClient = grpc.ServerStreamingClient[VMUpdate]
+
 func (c *vMServiceClient) PingAgent(ctx context.Context, in *PingAgentRequest, opts ...grpc.CallOption) (*PingAgentResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PingAgentResponse)
@@ -450,6 +472,8 @@ type VMServiceServer interface {
 	WatchVM(*WatchVMRequest, grpc.ServerStreamingServer[VirtualMachine]) error
 	// StreamMetrics streams real-time performance metrics.
 	StreamMetrics(*StreamMetricsRequest, grpc.ServerStreamingServer[ResourceUsage]) error
+	// WatchVMs streams updates for all VMs (for Host UI dashboard).
+	WatchVMs(*WatchVMsRequest, grpc.ServerStreamingServer[VMUpdate]) error
 	// PingAgent checks if the guest agent is available and responding.
 	PingAgent(context.Context, *PingAgentRequest) (*PingAgentResponse, error)
 	// ExecuteScript runs a command inside the VM via the guest agent.
@@ -531,6 +555,9 @@ func (UnimplementedVMServiceServer) WatchVM(*WatchVMRequest, grpc.ServerStreamin
 }
 func (UnimplementedVMServiceServer) StreamMetrics(*StreamMetricsRequest, grpc.ServerStreamingServer[ResourceUsage]) error {
 	return status.Error(codes.Unimplemented, "method StreamMetrics not implemented")
+}
+func (UnimplementedVMServiceServer) WatchVMs(*WatchVMsRequest, grpc.ServerStreamingServer[VMUpdate]) error {
+	return status.Error(codes.Unimplemented, "method WatchVMs not implemented")
 }
 func (UnimplementedVMServiceServer) PingAgent(context.Context, *PingAgentRequest) (*PingAgentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PingAgent not implemented")
@@ -931,6 +958,17 @@ func _VMService_StreamMetrics_Handler(srv interface{}, stream grpc.ServerStream)
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type VMService_StreamMetricsServer = grpc.ServerStreamingServer[ResourceUsage]
 
+func _VMService_WatchVMs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WatchVMsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(VMServiceServer).WatchVMs(m, &grpc.GenericServerStream[WatchVMsRequest, VMUpdate]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type VMService_WatchVMsServer = grpc.ServerStreamingServer[VMUpdate]
+
 func _VMService_PingAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PingAgentRequest)
 	if err := dec(in); err != nil {
@@ -1134,6 +1172,11 @@ var VMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "StreamMetrics",
 			Handler:       _VMService_StreamMetrics_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "WatchVMs",
+			Handler:       _VMService_WatchVMs_Handler,
 			ServerStreams: true,
 		},
 	},

@@ -151,6 +151,21 @@ const (
 	// NodeDaemonServiceCreateVolumeSnapshotProcedure is the fully-qualified name of the
 	// NodeDaemonService's CreateVolumeSnapshot RPC.
 	NodeDaemonServiceCreateVolumeSnapshotProcedure = "/limiquantix.node.v1.NodeDaemonService/CreateVolumeSnapshot"
+	// NodeDaemonServiceGetOVSStatusProcedure is the fully-qualified name of the NodeDaemonService's
+	// GetOVSStatus RPC.
+	NodeDaemonServiceGetOVSStatusProcedure = "/limiquantix.node.v1.NodeDaemonService/GetOVSStatus"
+	// NodeDaemonServiceConfigureNetworkPortProcedure is the fully-qualified name of the
+	// NodeDaemonService's ConfigureNetworkPort RPC.
+	NodeDaemonServiceConfigureNetworkPortProcedure = "/limiquantix.node.v1.NodeDaemonService/ConfigureNetworkPort"
+	// NodeDaemonServiceDeleteNetworkPortProcedure is the fully-qualified name of the
+	// NodeDaemonService's DeleteNetworkPort RPC.
+	NodeDaemonServiceDeleteNetworkPortProcedure = "/limiquantix.node.v1.NodeDaemonService/DeleteNetworkPort"
+	// NodeDaemonServiceGetNetworkPortStatusProcedure is the fully-qualified name of the
+	// NodeDaemonService's GetNetworkPortStatus RPC.
+	NodeDaemonServiceGetNetworkPortStatusProcedure = "/limiquantix.node.v1.NodeDaemonService/GetNetworkPortStatus"
+	// NodeDaemonServiceListNetworkPortsProcedure is the fully-qualified name of the NodeDaemonService's
+	// ListNetworkPorts RPC.
+	NodeDaemonServiceListNetworkPortsProcedure = "/limiquantix.node.v1.NodeDaemonService/ListNetworkPorts"
 )
 
 // NodeDaemonServiceClient is a client for the limiquantix.node.v1.NodeDaemonService service.
@@ -233,6 +248,16 @@ type NodeDaemonServiceClient interface {
 	GetVolumeAttachInfo(context.Context, *connect.Request[v1.VolumeIdRequest]) (*connect.Response[v1.VolumeAttachInfoResponse], error)
 	// Create a volume snapshot
 	CreateVolumeSnapshot(context.Context, *connect.Request[v1.CreateVolumeSnapshotRequest]) (*connect.Response[emptypb.Empty], error)
+	// Check if OVS is available and get status
+	GetOVSStatus(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.OVSStatusResponse], error)
+	// Configure a network port for a VM (binds TAP to br-int)
+	ConfigureNetworkPort(context.Context, *connect.Request[v1.ConfigureNetworkPortRequest]) (*connect.Response[v1.NetworkPortInfo], error)
+	// Delete a network port
+	DeleteNetworkPort(context.Context, *connect.Request[v1.DeleteNetworkPortRequest]) (*connect.Response[emptypb.Empty], error)
+	// Get network port status
+	GetNetworkPortStatus(context.Context, *connect.Request[v1.GetNetworkPortStatusRequest]) (*connect.Response[v1.NetworkPortInfo], error)
+	// List all network ports on this node
+	ListNetworkPorts(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListNetworkPortsResponse], error)
 }
 
 // NewNodeDaemonServiceClient constructs a client for the limiquantix.node.v1.NodeDaemonService
@@ -480,6 +505,36 @@ func NewNodeDaemonServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(nodeDaemonServiceMethods.ByName("CreateVolumeSnapshot")),
 			connect.WithClientOptions(opts...),
 		),
+		getOVSStatus: connect.NewClient[emptypb.Empty, v1.OVSStatusResponse](
+			httpClient,
+			baseURL+NodeDaemonServiceGetOVSStatusProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("GetOVSStatus")),
+			connect.WithClientOptions(opts...),
+		),
+		configureNetworkPort: connect.NewClient[v1.ConfigureNetworkPortRequest, v1.NetworkPortInfo](
+			httpClient,
+			baseURL+NodeDaemonServiceConfigureNetworkPortProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("ConfigureNetworkPort")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteNetworkPort: connect.NewClient[v1.DeleteNetworkPortRequest, emptypb.Empty](
+			httpClient,
+			baseURL+NodeDaemonServiceDeleteNetworkPortProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("DeleteNetworkPort")),
+			connect.WithClientOptions(opts...),
+		),
+		getNetworkPortStatus: connect.NewClient[v1.GetNetworkPortStatusRequest, v1.NetworkPortInfo](
+			httpClient,
+			baseURL+NodeDaemonServiceGetNetworkPortStatusProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("GetNetworkPortStatus")),
+			connect.WithClientOptions(opts...),
+		),
+		listNetworkPorts: connect.NewClient[emptypb.Empty, v1.ListNetworkPortsResponse](
+			httpClient,
+			baseURL+NodeDaemonServiceListNetworkPortsProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("ListNetworkPorts")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -524,6 +579,11 @@ type nodeDaemonServiceClient struct {
 	cloneVolume          *connect.Client[v1.CloneVolumeRequest, emptypb.Empty]
 	getVolumeAttachInfo  *connect.Client[v1.VolumeIdRequest, v1.VolumeAttachInfoResponse]
 	createVolumeSnapshot *connect.Client[v1.CreateVolumeSnapshotRequest, emptypb.Empty]
+	getOVSStatus         *connect.Client[emptypb.Empty, v1.OVSStatusResponse]
+	configureNetworkPort *connect.Client[v1.ConfigureNetworkPortRequest, v1.NetworkPortInfo]
+	deleteNetworkPort    *connect.Client[v1.DeleteNetworkPortRequest, emptypb.Empty]
+	getNetworkPortStatus *connect.Client[v1.GetNetworkPortStatusRequest, v1.NetworkPortInfo]
+	listNetworkPorts     *connect.Client[emptypb.Empty, v1.ListNetworkPortsResponse]
 }
 
 // HealthCheck calls limiquantix.node.v1.NodeDaemonService.HealthCheck.
@@ -721,6 +781,31 @@ func (c *nodeDaemonServiceClient) CreateVolumeSnapshot(ctx context.Context, req 
 	return c.createVolumeSnapshot.CallUnary(ctx, req)
 }
 
+// GetOVSStatus calls limiquantix.node.v1.NodeDaemonService.GetOVSStatus.
+func (c *nodeDaemonServiceClient) GetOVSStatus(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.OVSStatusResponse], error) {
+	return c.getOVSStatus.CallUnary(ctx, req)
+}
+
+// ConfigureNetworkPort calls limiquantix.node.v1.NodeDaemonService.ConfigureNetworkPort.
+func (c *nodeDaemonServiceClient) ConfigureNetworkPort(ctx context.Context, req *connect.Request[v1.ConfigureNetworkPortRequest]) (*connect.Response[v1.NetworkPortInfo], error) {
+	return c.configureNetworkPort.CallUnary(ctx, req)
+}
+
+// DeleteNetworkPort calls limiquantix.node.v1.NodeDaemonService.DeleteNetworkPort.
+func (c *nodeDaemonServiceClient) DeleteNetworkPort(ctx context.Context, req *connect.Request[v1.DeleteNetworkPortRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.deleteNetworkPort.CallUnary(ctx, req)
+}
+
+// GetNetworkPortStatus calls limiquantix.node.v1.NodeDaemonService.GetNetworkPortStatus.
+func (c *nodeDaemonServiceClient) GetNetworkPortStatus(ctx context.Context, req *connect.Request[v1.GetNetworkPortStatusRequest]) (*connect.Response[v1.NetworkPortInfo], error) {
+	return c.getNetworkPortStatus.CallUnary(ctx, req)
+}
+
+// ListNetworkPorts calls limiquantix.node.v1.NodeDaemonService.ListNetworkPorts.
+func (c *nodeDaemonServiceClient) ListNetworkPorts(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListNetworkPortsResponse], error) {
+	return c.listNetworkPorts.CallUnary(ctx, req)
+}
+
 // NodeDaemonServiceHandler is an implementation of the limiquantix.node.v1.NodeDaemonService
 // service.
 type NodeDaemonServiceHandler interface {
@@ -802,6 +887,16 @@ type NodeDaemonServiceHandler interface {
 	GetVolumeAttachInfo(context.Context, *connect.Request[v1.VolumeIdRequest]) (*connect.Response[v1.VolumeAttachInfoResponse], error)
 	// Create a volume snapshot
 	CreateVolumeSnapshot(context.Context, *connect.Request[v1.CreateVolumeSnapshotRequest]) (*connect.Response[emptypb.Empty], error)
+	// Check if OVS is available and get status
+	GetOVSStatus(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.OVSStatusResponse], error)
+	// Configure a network port for a VM (binds TAP to br-int)
+	ConfigureNetworkPort(context.Context, *connect.Request[v1.ConfigureNetworkPortRequest]) (*connect.Response[v1.NetworkPortInfo], error)
+	// Delete a network port
+	DeleteNetworkPort(context.Context, *connect.Request[v1.DeleteNetworkPortRequest]) (*connect.Response[emptypb.Empty], error)
+	// Get network port status
+	GetNetworkPortStatus(context.Context, *connect.Request[v1.GetNetworkPortStatusRequest]) (*connect.Response[v1.NetworkPortInfo], error)
+	// List all network ports on this node
+	ListNetworkPorts(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListNetworkPortsResponse], error)
 }
 
 // NewNodeDaemonServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -1045,6 +1140,36 @@ func NewNodeDaemonServiceHandler(svc NodeDaemonServiceHandler, opts ...connect.H
 		connect.WithSchema(nodeDaemonServiceMethods.ByName("CreateVolumeSnapshot")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeDaemonServiceGetOVSStatusHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceGetOVSStatusProcedure,
+		svc.GetOVSStatus,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("GetOVSStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceConfigureNetworkPortHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceConfigureNetworkPortProcedure,
+		svc.ConfigureNetworkPort,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("ConfigureNetworkPort")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceDeleteNetworkPortHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceDeleteNetworkPortProcedure,
+		svc.DeleteNetworkPort,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("DeleteNetworkPort")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceGetNetworkPortStatusHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceGetNetworkPortStatusProcedure,
+		svc.GetNetworkPortStatus,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("GetNetworkPortStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceListNetworkPortsHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceListNetworkPortsProcedure,
+		svc.ListNetworkPorts,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("ListNetworkPorts")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/limiquantix.node.v1.NodeDaemonService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case NodeDaemonServiceHealthCheckProcedure:
@@ -1125,6 +1250,16 @@ func NewNodeDaemonServiceHandler(svc NodeDaemonServiceHandler, opts ...connect.H
 			nodeDaemonServiceGetVolumeAttachInfoHandler.ServeHTTP(w, r)
 		case NodeDaemonServiceCreateVolumeSnapshotProcedure:
 			nodeDaemonServiceCreateVolumeSnapshotHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceGetOVSStatusProcedure:
+			nodeDaemonServiceGetOVSStatusHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceConfigureNetworkPortProcedure:
+			nodeDaemonServiceConfigureNetworkPortHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceDeleteNetworkPortProcedure:
+			nodeDaemonServiceDeleteNetworkPortHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceGetNetworkPortStatusProcedure:
+			nodeDaemonServiceGetNetworkPortStatusHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceListNetworkPortsProcedure:
+			nodeDaemonServiceListNetworkPortsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1288,4 +1423,24 @@ func (UnimplementedNodeDaemonServiceHandler) GetVolumeAttachInfo(context.Context
 
 func (UnimplementedNodeDaemonServiceHandler) CreateVolumeSnapshot(context.Context, *connect.Request[v1.CreateVolumeSnapshotRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.CreateVolumeSnapshot is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) GetOVSStatus(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.OVSStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.GetOVSStatus is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) ConfigureNetworkPort(context.Context, *connect.Request[v1.ConfigureNetworkPortRequest]) (*connect.Response[v1.NetworkPortInfo], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.ConfigureNetworkPort is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) DeleteNetworkPort(context.Context, *connect.Request[v1.DeleteNetworkPortRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.DeleteNetworkPort is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) GetNetworkPortStatus(context.Context, *connect.Request[v1.GetNetworkPortStatusRequest]) (*connect.Response[v1.NetworkPortInfo], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.GetNetworkPortStatus is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) ListNetworkPorts(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListNetworkPortsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.ListNetworkPorts is not implemented"))
 }

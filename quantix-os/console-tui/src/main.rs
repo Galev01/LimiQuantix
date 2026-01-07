@@ -151,9 +151,9 @@ fn run_app<B: ratatui::backend::Backend>(
     loop {
         // Block waiting for input - no polling, no flickering!
         // This uses zero CPU while waiting for user input
-        if let Event::Key(key) = event::read()? {
-            handle_input(app, key.code, key.modifiers);
-            
+            if let Event::Key(key) = event::read()? {
+                handle_input(app, key.code, key.modifiers);
+
             // Only redraw after user input
             terminal.draw(|f| ui(f, app))?;
         }
@@ -211,6 +211,15 @@ fn handle_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) {
             KeyCode::Char('r') | KeyCode::Char('R') => {
                 app.success_message = Some("Restarting network service...".to_string());
                 restart_network();
+            }
+            KeyCode::Char('s') | KeyCode::Char('S') => {
+                // Static IP configuration - show instructions
+                app.success_message = Some("Static IP: Edit /etc/network/interfaces manually".to_string());
+            }
+            KeyCode::Char('w') | KeyCode::Char('W') => {
+                // WiFi configuration
+                configure_wifi();
+                app.success_message = Some("WiFi: Edit /etc/wpa_supplicant/wpa_supplicant.conf".to_string());
             }
             _ => {}
         },
@@ -479,8 +488,8 @@ fn render_network_screen(f: &mut Frame, area: Rect) {
     lines.push(Line::from(Span::styled("Press Esc to return", Style::default().fg(Color::Yellow))));
 
     let text = Paragraph::new(lines)
-        .block(Block::default().borders(Borders::ALL).title("Network"))
-        .wrap(Wrap { trim: true });
+    .block(Block::default().borders(Borders::ALL).title("Network"))
+    .wrap(Wrap { trim: true });
     f.render_widget(text, area);
 }
 
@@ -717,6 +726,16 @@ fn restart_network() {
     use std::process::Stdio;
     let _ = std::process::Command::new("rc-service")
         .args(["quantix-network", "restart"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output();
+}
+
+fn configure_wifi() {
+    use std::process::Stdio;
+    // Start wpa_supplicant if not running
+    let _ = std::process::Command::new("rc-service")
+        .args(["wpa_supplicant", "start"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .output();

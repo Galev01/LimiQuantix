@@ -20,23 +20,25 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NodeService_RegisterNode_FullMethodName     = "/limiquantix.compute.v1.NodeService/RegisterNode"
-	NodeService_GetNode_FullMethodName          = "/limiquantix.compute.v1.NodeService/GetNode"
-	NodeService_ListNodes_FullMethodName        = "/limiquantix.compute.v1.NodeService/ListNodes"
-	NodeService_UpdateNode_FullMethodName       = "/limiquantix.compute.v1.NodeService/UpdateNode"
-	NodeService_DecommissionNode_FullMethodName = "/limiquantix.compute.v1.NodeService/DecommissionNode"
-	NodeService_EnableNode_FullMethodName       = "/limiquantix.compute.v1.NodeService/EnableNode"
-	NodeService_DisableNode_FullMethodName      = "/limiquantix.compute.v1.NodeService/DisableNode"
-	NodeService_DrainNode_FullMethodName        = "/limiquantix.compute.v1.NodeService/DrainNode"
-	NodeService_AddTaint_FullMethodName         = "/limiquantix.compute.v1.NodeService/AddTaint"
-	NodeService_RemoveTaint_FullMethodName      = "/limiquantix.compute.v1.NodeService/RemoveTaint"
-	NodeService_UpdateLabels_FullMethodName     = "/limiquantix.compute.v1.NodeService/UpdateLabels"
-	NodeService_UpdateHeartbeat_FullMethodName  = "/limiquantix.compute.v1.NodeService/UpdateHeartbeat"
-	NodeService_SyncNodeVMs_FullMethodName      = "/limiquantix.compute.v1.NodeService/SyncNodeVMs"
-	NodeService_GetNodeMetrics_FullMethodName   = "/limiquantix.compute.v1.NodeService/GetNodeMetrics"
-	NodeService_ListNodeEvents_FullMethodName   = "/limiquantix.compute.v1.NodeService/ListNodeEvents"
-	NodeService_WatchNode_FullMethodName        = "/limiquantix.compute.v1.NodeService/WatchNode"
-	NodeService_WatchNodes_FullMethodName       = "/limiquantix.compute.v1.NodeService/WatchNodes"
+	NodeService_RegisterNode_FullMethodName      = "/limiquantix.compute.v1.NodeService/RegisterNode"
+	NodeService_GetNode_FullMethodName           = "/limiquantix.compute.v1.NodeService/GetNode"
+	NodeService_ListNodes_FullMethodName         = "/limiquantix.compute.v1.NodeService/ListNodes"
+	NodeService_UpdateNode_FullMethodName        = "/limiquantix.compute.v1.NodeService/UpdateNode"
+	NodeService_DecommissionNode_FullMethodName  = "/limiquantix.compute.v1.NodeService/DecommissionNode"
+	NodeService_EnableNode_FullMethodName        = "/limiquantix.compute.v1.NodeService/EnableNode"
+	NodeService_DisableNode_FullMethodName       = "/limiquantix.compute.v1.NodeService/DisableNode"
+	NodeService_DrainNode_FullMethodName         = "/limiquantix.compute.v1.NodeService/DrainNode"
+	NodeService_AddTaint_FullMethodName          = "/limiquantix.compute.v1.NodeService/AddTaint"
+	NodeService_RemoveTaint_FullMethodName       = "/limiquantix.compute.v1.NodeService/RemoveTaint"
+	NodeService_UpdateLabels_FullMethodName      = "/limiquantix.compute.v1.NodeService/UpdateLabels"
+	NodeService_UpdateHeartbeat_FullMethodName   = "/limiquantix.compute.v1.NodeService/UpdateHeartbeat"
+	NodeService_SyncNodeVMs_FullMethodName       = "/limiquantix.compute.v1.NodeService/SyncNodeVMs"
+	NodeService_GetNodeMetrics_FullMethodName    = "/limiquantix.compute.v1.NodeService/GetNodeMetrics"
+	NodeService_ListNodeEvents_FullMethodName    = "/limiquantix.compute.v1.NodeService/ListNodeEvents"
+	NodeService_WatchNode_FullMethodName         = "/limiquantix.compute.v1.NodeService/WatchNode"
+	NodeService_WatchNodes_FullMethodName        = "/limiquantix.compute.v1.NodeService/WatchNodes"
+	NodeService_StreamNodeMetrics_FullMethodName = "/limiquantix.compute.v1.NodeService/StreamNodeMetrics"
+	NodeService_StreamEvents_FullMethodName      = "/limiquantix.compute.v1.NodeService/StreamEvents"
 )
 
 // NodeServiceClient is the client API for NodeService service.
@@ -82,6 +84,12 @@ type NodeServiceClient interface {
 	WatchNode(ctx context.Context, in *WatchNodeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Node], error)
 	// WatchNodes streams updates for all nodes.
 	WatchNodes(ctx context.Context, in *WatchNodesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[NodeUpdate], error)
+	// StreamNodeMetrics streams real-time node metrics at regular intervals.
+	// Used by the Host UI for live dashboard updates.
+	StreamNodeMetrics(ctx context.Context, in *StreamNodeMetricsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[NodeMetrics], error)
+	// StreamEvents streams system events in real-time.
+	// Used by the Host UI for event monitoring.
+	StreamEvents(ctx context.Context, in *StreamEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SystemEvent], error)
 }
 
 type nodeServiceClient struct {
@@ -280,6 +288,44 @@ func (c *nodeServiceClient) WatchNodes(ctx context.Context, in *WatchNodesReques
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type NodeService_WatchNodesClient = grpc.ServerStreamingClient[NodeUpdate]
 
+func (c *nodeServiceClient) StreamNodeMetrics(ctx context.Context, in *StreamNodeMetricsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[NodeMetrics], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &NodeService_ServiceDesc.Streams[2], NodeService_StreamNodeMetrics_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[StreamNodeMetricsRequest, NodeMetrics]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type NodeService_StreamNodeMetricsClient = grpc.ServerStreamingClient[NodeMetrics]
+
+func (c *nodeServiceClient) StreamEvents(ctx context.Context, in *StreamEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SystemEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &NodeService_ServiceDesc.Streams[3], NodeService_StreamEvents_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[StreamEventsRequest, SystemEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type NodeService_StreamEventsClient = grpc.ServerStreamingClient[SystemEvent]
+
 // NodeServiceServer is the server API for NodeService service.
 // All implementations should embed UnimplementedNodeServiceServer
 // for forward compatibility.
@@ -323,6 +369,12 @@ type NodeServiceServer interface {
 	WatchNode(*WatchNodeRequest, grpc.ServerStreamingServer[Node]) error
 	// WatchNodes streams updates for all nodes.
 	WatchNodes(*WatchNodesRequest, grpc.ServerStreamingServer[NodeUpdate]) error
+	// StreamNodeMetrics streams real-time node metrics at regular intervals.
+	// Used by the Host UI for live dashboard updates.
+	StreamNodeMetrics(*StreamNodeMetricsRequest, grpc.ServerStreamingServer[NodeMetrics]) error
+	// StreamEvents streams system events in real-time.
+	// Used by the Host UI for event monitoring.
+	StreamEvents(*StreamEventsRequest, grpc.ServerStreamingServer[SystemEvent]) error
 }
 
 // UnimplementedNodeServiceServer should be embedded to have
@@ -382,6 +434,12 @@ func (UnimplementedNodeServiceServer) WatchNode(*WatchNodeRequest, grpc.ServerSt
 }
 func (UnimplementedNodeServiceServer) WatchNodes(*WatchNodesRequest, grpc.ServerStreamingServer[NodeUpdate]) error {
 	return status.Error(codes.Unimplemented, "method WatchNodes not implemented")
+}
+func (UnimplementedNodeServiceServer) StreamNodeMetrics(*StreamNodeMetricsRequest, grpc.ServerStreamingServer[NodeMetrics]) error {
+	return status.Error(codes.Unimplemented, "method StreamNodeMetrics not implemented")
+}
+func (UnimplementedNodeServiceServer) StreamEvents(*StreamEventsRequest, grpc.ServerStreamingServer[SystemEvent]) error {
+	return status.Error(codes.Unimplemented, "method StreamEvents not implemented")
 }
 func (UnimplementedNodeServiceServer) testEmbeddedByValue() {}
 
@@ -695,6 +753,28 @@ func _NodeService_WatchNodes_Handler(srv interface{}, stream grpc.ServerStream) 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type NodeService_WatchNodesServer = grpc.ServerStreamingServer[NodeUpdate]
 
+func _NodeService_StreamNodeMetrics_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StreamNodeMetricsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(NodeServiceServer).StreamNodeMetrics(m, &grpc.GenericServerStream[StreamNodeMetricsRequest, NodeMetrics]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type NodeService_StreamNodeMetricsServer = grpc.ServerStreamingServer[NodeMetrics]
+
+func _NodeService_StreamEvents_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StreamEventsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(NodeServiceServer).StreamEvents(m, &grpc.GenericServerStream[StreamEventsRequest, SystemEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type NodeService_StreamEventsServer = grpc.ServerStreamingServer[SystemEvent]
+
 // NodeService_ServiceDesc is the grpc.ServiceDesc for NodeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -772,6 +852,16 @@ var NodeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "WatchNodes",
 			Handler:       _NodeService_WatchNodes_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "StreamNodeMetrics",
+			Handler:       _NodeService_StreamNodeMetrics_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "StreamEvents",
+			Handler:       _NodeService_StreamEvents_Handler,
 			ServerStreams: true,
 		},
 	},

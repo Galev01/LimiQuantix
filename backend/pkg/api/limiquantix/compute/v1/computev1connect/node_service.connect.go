@@ -74,6 +74,12 @@ const (
 	NodeServiceWatchNodeProcedure = "/limiquantix.compute.v1.NodeService/WatchNode"
 	// NodeServiceWatchNodesProcedure is the fully-qualified name of the NodeService's WatchNodes RPC.
 	NodeServiceWatchNodesProcedure = "/limiquantix.compute.v1.NodeService/WatchNodes"
+	// NodeServiceStreamNodeMetricsProcedure is the fully-qualified name of the NodeService's
+	// StreamNodeMetrics RPC.
+	NodeServiceStreamNodeMetricsProcedure = "/limiquantix.compute.v1.NodeService/StreamNodeMetrics"
+	// NodeServiceStreamEventsProcedure is the fully-qualified name of the NodeService's StreamEvents
+	// RPC.
+	NodeServiceStreamEventsProcedure = "/limiquantix.compute.v1.NodeService/StreamEvents"
 )
 
 // NodeServiceClient is a client for the limiquantix.compute.v1.NodeService service.
@@ -115,6 +121,12 @@ type NodeServiceClient interface {
 	WatchNode(context.Context, *connect.Request[v1.WatchNodeRequest]) (*connect.ServerStreamForClient[v1.Node], error)
 	// WatchNodes streams updates for all nodes.
 	WatchNodes(context.Context, *connect.Request[v1.WatchNodesRequest]) (*connect.ServerStreamForClient[v1.NodeUpdate], error)
+	// StreamNodeMetrics streams real-time node metrics at regular intervals.
+	// Used by the Host UI for live dashboard updates.
+	StreamNodeMetrics(context.Context, *connect.Request[v1.StreamNodeMetricsRequest]) (*connect.ServerStreamForClient[v1.NodeMetrics], error)
+	// StreamEvents streams system events in real-time.
+	// Used by the Host UI for event monitoring.
+	StreamEvents(context.Context, *connect.Request[v1.StreamEventsRequest]) (*connect.ServerStreamForClient[v1.SystemEvent], error)
 }
 
 // NewNodeServiceClient constructs a client for the limiquantix.compute.v1.NodeService service. By
@@ -230,28 +242,42 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("WatchNodes")),
 			connect.WithClientOptions(opts...),
 		),
+		streamNodeMetrics: connect.NewClient[v1.StreamNodeMetricsRequest, v1.NodeMetrics](
+			httpClient,
+			baseURL+NodeServiceStreamNodeMetricsProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("StreamNodeMetrics")),
+			connect.WithClientOptions(opts...),
+		),
+		streamEvents: connect.NewClient[v1.StreamEventsRequest, v1.SystemEvent](
+			httpClient,
+			baseURL+NodeServiceStreamEventsProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("StreamEvents")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // nodeServiceClient implements NodeServiceClient.
 type nodeServiceClient struct {
-	registerNode     *connect.Client[v1.RegisterNodeRequest, v1.Node]
-	getNode          *connect.Client[v1.GetNodeRequest, v1.Node]
-	listNodes        *connect.Client[v1.ListNodesRequest, v1.ListNodesResponse]
-	updateNode       *connect.Client[v1.UpdateNodeRequest, v1.Node]
-	decommissionNode *connect.Client[v1.DecommissionNodeRequest, emptypb.Empty]
-	enableNode       *connect.Client[v1.EnableNodeRequest, v1.Node]
-	disableNode      *connect.Client[v1.DisableNodeRequest, v1.Node]
-	drainNode        *connect.Client[v1.DrainNodeRequest, v1.DrainNodeResponse]
-	addTaint         *connect.Client[v1.AddTaintRequest, v1.Node]
-	removeTaint      *connect.Client[v1.RemoveTaintRequest, v1.Node]
-	updateLabels     *connect.Client[v1.UpdateLabelsRequest, v1.Node]
-	updateHeartbeat  *connect.Client[v1.UpdateHeartbeatRequest, v1.UpdateHeartbeatResponse]
-	syncNodeVMs      *connect.Client[v1.SyncNodeVMsRequest, v1.SyncNodeVMsResponse]
-	getNodeMetrics   *connect.Client[v1.GetNodeMetricsRequest, v1.NodeMetrics]
-	listNodeEvents   *connect.Client[v1.ListNodeEventsRequest, v1.ListNodeEventsResponse]
-	watchNode        *connect.Client[v1.WatchNodeRequest, v1.Node]
-	watchNodes       *connect.Client[v1.WatchNodesRequest, v1.NodeUpdate]
+	registerNode      *connect.Client[v1.RegisterNodeRequest, v1.Node]
+	getNode           *connect.Client[v1.GetNodeRequest, v1.Node]
+	listNodes         *connect.Client[v1.ListNodesRequest, v1.ListNodesResponse]
+	updateNode        *connect.Client[v1.UpdateNodeRequest, v1.Node]
+	decommissionNode  *connect.Client[v1.DecommissionNodeRequest, emptypb.Empty]
+	enableNode        *connect.Client[v1.EnableNodeRequest, v1.Node]
+	disableNode       *connect.Client[v1.DisableNodeRequest, v1.Node]
+	drainNode         *connect.Client[v1.DrainNodeRequest, v1.DrainNodeResponse]
+	addTaint          *connect.Client[v1.AddTaintRequest, v1.Node]
+	removeTaint       *connect.Client[v1.RemoveTaintRequest, v1.Node]
+	updateLabels      *connect.Client[v1.UpdateLabelsRequest, v1.Node]
+	updateHeartbeat   *connect.Client[v1.UpdateHeartbeatRequest, v1.UpdateHeartbeatResponse]
+	syncNodeVMs       *connect.Client[v1.SyncNodeVMsRequest, v1.SyncNodeVMsResponse]
+	getNodeMetrics    *connect.Client[v1.GetNodeMetricsRequest, v1.NodeMetrics]
+	listNodeEvents    *connect.Client[v1.ListNodeEventsRequest, v1.ListNodeEventsResponse]
+	watchNode         *connect.Client[v1.WatchNodeRequest, v1.Node]
+	watchNodes        *connect.Client[v1.WatchNodesRequest, v1.NodeUpdate]
+	streamNodeMetrics *connect.Client[v1.StreamNodeMetricsRequest, v1.NodeMetrics]
+	streamEvents      *connect.Client[v1.StreamEventsRequest, v1.SystemEvent]
 }
 
 // RegisterNode calls limiquantix.compute.v1.NodeService.RegisterNode.
@@ -339,6 +365,16 @@ func (c *nodeServiceClient) WatchNodes(ctx context.Context, req *connect.Request
 	return c.watchNodes.CallServerStream(ctx, req)
 }
 
+// StreamNodeMetrics calls limiquantix.compute.v1.NodeService.StreamNodeMetrics.
+func (c *nodeServiceClient) StreamNodeMetrics(ctx context.Context, req *connect.Request[v1.StreamNodeMetricsRequest]) (*connect.ServerStreamForClient[v1.NodeMetrics], error) {
+	return c.streamNodeMetrics.CallServerStream(ctx, req)
+}
+
+// StreamEvents calls limiquantix.compute.v1.NodeService.StreamEvents.
+func (c *nodeServiceClient) StreamEvents(ctx context.Context, req *connect.Request[v1.StreamEventsRequest]) (*connect.ServerStreamForClient[v1.SystemEvent], error) {
+	return c.streamEvents.CallServerStream(ctx, req)
+}
+
 // NodeServiceHandler is an implementation of the limiquantix.compute.v1.NodeService service.
 type NodeServiceHandler interface {
 	// RegisterNode adds a new node to the cluster.
@@ -378,6 +414,12 @@ type NodeServiceHandler interface {
 	WatchNode(context.Context, *connect.Request[v1.WatchNodeRequest], *connect.ServerStream[v1.Node]) error
 	// WatchNodes streams updates for all nodes.
 	WatchNodes(context.Context, *connect.Request[v1.WatchNodesRequest], *connect.ServerStream[v1.NodeUpdate]) error
+	// StreamNodeMetrics streams real-time node metrics at regular intervals.
+	// Used by the Host UI for live dashboard updates.
+	StreamNodeMetrics(context.Context, *connect.Request[v1.StreamNodeMetricsRequest], *connect.ServerStream[v1.NodeMetrics]) error
+	// StreamEvents streams system events in real-time.
+	// Used by the Host UI for event monitoring.
+	StreamEvents(context.Context, *connect.Request[v1.StreamEventsRequest], *connect.ServerStream[v1.SystemEvent]) error
 }
 
 // NewNodeServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -489,6 +531,18 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("WatchNodes")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceStreamNodeMetricsHandler := connect.NewServerStreamHandler(
+		NodeServiceStreamNodeMetricsProcedure,
+		svc.StreamNodeMetrics,
+		connect.WithSchema(nodeServiceMethods.ByName("StreamNodeMetrics")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceStreamEventsHandler := connect.NewServerStreamHandler(
+		NodeServiceStreamEventsProcedure,
+		svc.StreamEvents,
+		connect.WithSchema(nodeServiceMethods.ByName("StreamEvents")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/limiquantix.compute.v1.NodeService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case NodeServiceRegisterNodeProcedure:
@@ -525,6 +579,10 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceWatchNodeHandler.ServeHTTP(w, r)
 		case NodeServiceWatchNodesProcedure:
 			nodeServiceWatchNodesHandler.ServeHTTP(w, r)
+		case NodeServiceStreamNodeMetricsProcedure:
+			nodeServiceStreamNodeMetricsHandler.ServeHTTP(w, r)
+		case NodeServiceStreamEventsProcedure:
+			nodeServiceStreamEventsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -600,4 +658,12 @@ func (UnimplementedNodeServiceHandler) WatchNode(context.Context, *connect.Reque
 
 func (UnimplementedNodeServiceHandler) WatchNodes(context.Context, *connect.Request[v1.WatchNodesRequest], *connect.ServerStream[v1.NodeUpdate]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.NodeService.WatchNodes is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) StreamNodeMetrics(context.Context, *connect.Request[v1.StreamNodeMetricsRequest], *connect.ServerStream[v1.NodeMetrics]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.NodeService.StreamNodeMetrics is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) StreamEvents(context.Context, *connect.Request[v1.StreamEventsRequest], *connect.ServerStream[v1.SystemEvent]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.NodeService.StreamEvents is not implemented"))
 }

@@ -109,6 +109,9 @@ service VMService {
   // StreamMetrics streams real-time performance metrics.
   rpc StreamMetrics(StreamMetricsRequest) returns (stream ResourceUsage);
   
+  // WatchVMs streams updates for all VMs (for Host UI dashboard).
+  rpc WatchVMs(WatchVMsRequest) returns (stream VMUpdate);
+  
   // ==========================================================================
   // Guest Agent Operations
   // ==========================================================================
@@ -541,3 +544,29 @@ message GuestShutdownResponse {
   string error = 2;
 }
 
+// =============================================================================
+// STREAMING MESSAGES (for Host UI)
+// =============================================================================
+
+// WatchVMs - Stream updates for all VMs
+
+message WatchVMsRequest {
+  // Filter by node ID (empty = all nodes, for standalone use current node)
+  string node_id = 1;
+  
+  // Filter by project
+  string project_id = 2;
+  
+  // Filter by labels
+  map<string, string> labels = 3;
+}
+
+message VMUpdate {
+  enum UpdateType {
+    ADDED = 0;
+    MODIFIED = 1;
+    DELETED = 2;
+  }
+  UpdateType type = 1;
+  VirtualMachine vm = 2;
+}

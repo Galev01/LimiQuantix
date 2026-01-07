@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file limiquantix/network/v1/network.proto.
  */
 export const file_limiquantix_network_v1_network: GenFile = /*@__PURE__*/
-  fileDesc("CiRsaW1pcXVhbnRpeC9uZXR3b3JrL3YxL25ldHdvcmsucHJvdG8SFmxpbWlxdWFudGl4Lm5ldHdvcmsudjEingMKDlZpcnR1YWxOZXR3b3JrEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSEgoKcHJvamVjdF9pZBgDIAEoCRITCgtkZXNjcmlwdGlvbhgEIAEoCRJCCgZsYWJlbHMYBSADKAsyMi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlZpcnR1YWxOZXR3b3JrLkxhYmVsc0VudHJ5EjgKBHNwZWMYBiABKAsyKi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlZpcnR1YWxOZXR3b3JrU3BlYxI8CgZzdGF0dXMYByABKAsyLC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlZpcnR1YWxOZXR3b3JrU3RhdHVzEi4KCmNyZWF0ZWRfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiwwMKElZpcnR1YWxOZXR3b3JrU3BlYxJECgR0eXBlGAEgASgOMjYubGltaXF1YW50aXgubmV0d29yay52MS5WaXJ0dWFsTmV0d29ya1NwZWMuTmV0d29ya1R5cGUSPgoJaXBfY29uZmlnGAIgASgLMisubGltaXF1YW50aXgubmV0d29yay52MS5JcEFkZHJlc3NNYW5hZ2VtZW50EjAKBHZsYW4YAyABKAsyIi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlZsYW5Db25maWcSNAoGcm91dGVyGAQgASgLMiQubGltaXF1YW50aXgubmV0d29yay52MS5Sb3V0ZXJDb25maWcSCwoDbXR1GAUgASgNEi4KA2RucxgGIAEoCzIhLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuRG5zQ29uZmlnEiEKGWRlZmF1bHRfc2VjdXJpdHlfZ3JvdXBfaWQYByABKAkSHQoVcG9ydF9zZWN1cml0eV9lbmFibGVkGAggASgIIkAKC05ldHdvcmtUeXBlEgsKB09WRVJMQVkQABIICgRWTEFOEAESDAoIRVhURVJOQUwQAhIMCghJU09MQVRFRBADIu4BChNJcEFkZHJlc3NNYW5hZ2VtZW50EhMKC2lwdjRfc3VibmV0GAEgASgJEhQKDGlwdjRfZ2F0ZXdheRgCIAEoCRITCgtpcHY2X3N1Ym5ldBgDIAEoCRIUCgxpcHY2X2dhdGV3YXkYBCABKAkSMAoEZGhjcBgFIAEoCzIiLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuRGhjcENvbmZpZxI5ChBhbGxvY2F0aW9uX3Bvb2xzGAYgAygLMh8ubGltaXF1YW50aXgubmV0d29yay52MS5JcFJhbmdlEhQKDHJlc2VydmVkX2lwcxgHIAMoCSKyAQoKRGhjcENvbmZpZxIPCgdlbmFibGVkGAEgASgIEhYKDmxlYXNlX3RpbWVfc2VjGAIgASgNEhMKC2Ruc19zZXJ2ZXJzGAMgAygJEhMKC250cF9zZXJ2ZXJzGAQgAygJEhMKC2RvbWFpbl9uYW1lGAUgASgJEjwKD3N0YXRpY19iaW5kaW5ncxgGIAMoCzIjLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuRGhjcEJpbmRpbmciSAoLRGhjcEJpbmRpbmcSEwoLbWFjX2FkZHJlc3MYASABKAkSEgoKaXBfYWRkcmVzcxgCIAEoCRIQCghob3N0bmFtZRgDIAEoCSIlCgdJcFJhbmdlEg0KBXN0YXJ0GAEgASgJEgsKA2VuZBgCIAEoCSI3CgpWbGFuQ29uZmlnEg8KB3ZsYW5faWQYASABKA0SGAoQcGh5c2ljYWxfbmV0d29yaxgCIAEoCSKOAQoMUm91dGVyQ29uZmlnEg8KB2VuYWJsZWQYASABKAgSIwobZXh0ZXJuYWxfZ2F0ZXdheV9uZXR3b3JrX2lkGAIgASgJEhMKC2VuYWJsZV9zbmF0GAMgASgIEjMKBnJvdXRlcxgEIAMoCzIjLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuU3RhdGljUm91dGUiNAoLU3RhdGljUm91dGUSEwoLZGVzdGluYXRpb24YASABKAkSEAoIbmV4dF9ob3AYAiABKAkiOAoJRG5zQ29uZmlnEhMKC25hbWVzZXJ2ZXJzGAEgAygJEhYKDnNlYXJjaF9kb21haW5zGAIgAygJIsICChRWaXJ0dWFsTmV0d29ya1N0YXR1cxJBCgVwaGFzZRgBIAEoDjIyLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuVmlydHVhbE5ldHdvcmtTdGF0dXMuUGhhc2USGgoSb3ZuX2xvZ2ljYWxfc3dpdGNoGAIgASgJEhoKEm92bl9sb2dpY2FsX3JvdXRlchgDIAEoCRISCgpwb3J0X2NvdW50GAQgASgNEj0KCWlwX3N0YXR1cxgFIAEoCzIqLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuSXBBbGxvY2F0aW9uU3RhdHVzEhUKDWVycm9yX21lc3NhZ2UYBiABKAkiRQoFUGhhc2USCwoHVU5LTk9XThAAEgsKB1BFTkRJTkcQARIJCgVSRUFEWRACEgkKBUVSUk9SEAMSDAoIREVMRVRJTkcQBCJwChJJcEFsbG9jYXRpb25TdGF0dXMSEgoKaXB2NF90b3RhbBgBIAEoDRIWCg5pcHY0X2FsbG9jYXRlZBgCIAEoDRIWCg5pcHY0X2F2YWlsYWJsZRgDIAEoDRIWCg5pcHY2X2FsbG9jYXRlZBgEIAEoBCL1AgoEUG9ydBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhIKCm5ldHdvcmtfaWQYAyABKAkSEgoKcHJvamVjdF9pZBgEIAEoCRI4CgZsYWJlbHMYBSADKAsyKC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlBvcnQuTGFiZWxzRW50cnkSLgoEc3BlYxgGIAEoCzIgLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuUG9ydFNwZWMSMgoGc3RhdHVzGAcgASgLMiIubGltaXF1YW50aXgubmV0d29yay52MS5Qb3J0U3RhdHVzEi4KCmNyZWF0ZWRfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEi0QIKCFBvcnRTcGVjEhMKC21hY19hZGRyZXNzGAEgASgJEjIKCWZpeGVkX2lwcxgCIAMoCzIfLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuRml4ZWRJcBIaChJzZWN1cml0eV9ncm91cF9pZHMYAyADKAkSQgoVYWxsb3dlZF9hZGRyZXNzX3BhaXJzGAQgAygLMiMubGltaXF1YW50aXgubmV0d29yay52MS5BZGRyZXNzUGFpchIdChVwb3J0X3NlY3VyaXR5X2VuYWJsZWQYBSABKAgSFgoOYWRtaW5fc3RhdGVfdXAYBiABKAgSLAoDcW9zGAcgASgLMh8ubGltaXF1YW50aXgubmV0d29yay52MS5Qb3J0UW9zEjcKB2JpbmRpbmcYCCABKAsyJi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkJpbmRpbmdQcm9maWxlIjAKB0ZpeGVkSXASEQoJc3VibmV0X2lkGAEgASgJEhIKCmlwX2FkZHJlc3MYAiABKAkiNgoLQWRkcmVzc1BhaXISEgoKaXBfYWRkcmVzcxgBIAEoCRITCgttYWNfYWRkcmVzcxgCIAEoCSJxCgdQb3J0UW9zEhkKEWluZ3Jlc3NfcmF0ZV9rYnBzGAEgASgEEhgKEGVncmVzc19yYXRlX2ticHMYAiABKAQSGAoQaW5ncmVzc19idXJzdF9rYhgDIAEoBBIXCg9lZ3Jlc3NfYnVyc3Rfa2IYBCABKAQi1QEKDkJpbmRpbmdQcm9maWxlEkAKBHR5cGUYASABKA4yMi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkJpbmRpbmdQcm9maWxlLkJpbmRpbmdUeXBlEhAKCHBjaV9zbG90GAIgASgJEhQKDHZob3N0X3NvY2tldBgDIAEoCRIVCg1udW1hX2FmZmluaXR5GAQgASgNIkIKC0JpbmRpbmdUeXBlEgoKBk5PUk1BTBAAEgoKBkRJUkVDVBABEgsKB01BQ1ZUQVAQAhIOCgpWSE9TVF9VU0VSEAMiiAIKClBvcnRTdGF0dXMSNwoFcGhhc2UYASABKA4yKC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlBvcnRTdGF0dXMuUGhhc2USEwoLbWFjX2FkZHJlc3MYAiABKAkSFAoMaXBfYWRkcmVzc2VzGAMgAygJEhAKCG92bl9wb3J0GAQgASgJEg0KBXZtX2lkGAUgASgJEg8KB2hvc3RfaWQYBiABKAkSFQoNZXJyb3JfbWVzc2FnZRgHIAEoCSJNCgVQaGFzZRILCgdVTktOT1dOEAASCwoHUEVORElORxABEgkKBUJVSUxEEAISCgoGQUNUSVZFEAMSCAoERE9XThAEEgkKBUVSUk9SEAUi8AIKDVNlY3VyaXR5R3JvdXASCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRISCgpwcm9qZWN0X2lkGAQgASgJEkEKBmxhYmVscxgFIAMoCzIxLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuU2VjdXJpdHlHcm91cC5MYWJlbHNFbnRyeRI4CgVydWxlcxgGIAMoCzIpLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuU2VjdXJpdHlHcm91cFJ1bGUSEAoIc3RhdGVmdWwYByABKAgSLgoKY3JlYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAaLQoLTGFiZWxzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASK5AwoRU2VjdXJpdHlHcm91cFJ1bGUSCgoCaWQYASABKAkSRgoJZGlyZWN0aW9uGAIgASgOMjMubGltaXF1YW50aXgubmV0d29yay52MS5TZWN1cml0eUdyb3VwUnVsZS5EaXJlY3Rpb24SEAoIcHJvdG9jb2wYAyABKAkSEAoIcG9ydF9taW4YBCABKA0SEAoIcG9ydF9tYXgYBSABKA0SEQoJaWNtcF90eXBlGAYgASgFEhEKCWljbXBfY29kZRgHIAEoBRIYChByZW1vdGVfaXBfcHJlZml4GAggASgJEiAKGHJlbW90ZV9zZWN1cml0eV9ncm91cF9pZBgJIAEoCRJACgZhY3Rpb24YCiABKA4yMC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlNlY3VyaXR5R3JvdXBSdWxlLkFjdGlvbhIQCghwcmlvcml0eRgLIAEoDRITCgtkZXNjcmlwdGlvbhgMIAEoCSIkCglEaXJlY3Rpb24SCwoHSU5HUkVTUxAAEgoKBkVHUkVTUxABIikKBkFjdGlvbhIJCgVBTExPVxAAEggKBERST1AQARIKCgZSRUpFQ1QQAiK9AwoKRmxvYXRpbmdJcBIKCgJpZBgBIAEoCRISCgppcF9hZGRyZXNzGAIgASgJEhsKE2V4dGVybmFsX25ldHdvcmtfaWQYAyABKAkSEgoKcHJvamVjdF9pZBgEIAEoCRITCgtkZXNjcmlwdGlvbhgFIAEoCRI+CgZsYWJlbHMYBiADKAsyLi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkZsb2F0aW5nSXAuTGFiZWxzRW50cnkSQAoKYXNzaWdubWVudBgHIAEoCzIsLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuRmxvYXRpbmdJcEFzc2lnbm1lbnQSOAoGc3RhdHVzGAggASgLMigubGltaXF1YW50aXgubmV0d29yay52MS5GbG9hdGluZ0lwU3RhdHVzEi4KCmNyZWF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiOQoURmxvYXRpbmdJcEFzc2lnbm1lbnQSDwoHcG9ydF9pZBgBIAEoCRIQCghmaXhlZF9pcBgCIAEoCSLOAQoQRmxvYXRpbmdJcFN0YXR1cxI9CgVwaGFzZRgBIAEoDjIuLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuRmxvYXRpbmdJcFN0YXR1cy5QaGFzZRINCgV2bV9pZBgCIAEoCRIRCglyb3V0ZXJfaWQYAyABKAkSFQoNZXJyb3JfbWVzc2FnZRgEIAEoCSJCCgVQaGFzZRILCgdVTktOT1dOEAASCwoHUEVORElORxABEgoKBkFDVElWRRACEggKBERPV04QAxIJCgVFUlJPUhAEIpYDCgxMb2FkQmFsYW5jZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRISCgpwcm9qZWN0X2lkGAQgASgJEkAKBmxhYmVscxgFIAMoCzIwLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuTG9hZEJhbGFuY2VyLkxhYmVsc0VudHJ5EjYKBHNwZWMYBiABKAsyKC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkxvYWRCYWxhbmNlclNwZWMSOgoGc3RhdHVzGAcgASgLMioubGltaXF1YW50aXgubmV0d29yay52MS5Mb2FkQmFsYW5jZXJTdGF0dXMSLgoKY3JlYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAaLQoLTGFiZWxzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASKwAQoQTG9hZEJhbGFuY2VyU3BlYxISCgpuZXR3b3JrX2lkGAEgASgJEhEKCXN1Ym5ldF9pZBgCIAEoCRITCgt2aXBfYWRkcmVzcxgDIAEoCRIzCglsaXN0ZW5lcnMYBCADKAsyIC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkxpc3RlbmVyEisKBXBvb2xzGAUgAygLMhwubGltaXF1YW50aXgubmV0d29yay52MS5Qb29sIoUCCghMaXN0ZW5lchIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEjsKCHByb3RvY29sGAMgASgOMikubGltaXF1YW50aXgubmV0d29yay52MS5MaXN0ZW5lci5Qcm90b2NvbBIMCgRwb3J0GAQgASgNEhcKD2RlZmF1bHRfcG9vbF9pZBgFIAEoCRIuCgN0bHMYBiABKAsyIS5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlRsc0NvbmZpZxIYChBjb25uZWN0aW9uX2xpbWl0GAcgASgNIjEKCFByb3RvY29sEgcKA1RDUBAAEggKBEhUVFAQARIJCgVIVFRQUxACEgcKA1VEUBADInQKCVRsc0NvbmZpZxITCgtjZXJ0aWZpY2F0ZRgBIAEoCRITCgtwcml2YXRlX2tleRgCIAEoCRIXCg9jYV9jZXJ0aWZpY2F0ZXMYAyABKAkSEwoLbWluX3ZlcnNpb24YBCABKAkSDwoHY2lwaGVycxgFIAMoCSKrAwoEUG9vbBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEjkKCWFsZ29yaXRobRgDIAEoDjImLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuUG9vbC5BbGdvcml0aG0SOwoIcHJvdG9jb2wYBCABKA4yKS5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkxpc3RlbmVyLlByb3RvY29sEjMKB21lbWJlcnMYBSADKAsyIi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlBvb2xNZW1iZXISPQoOaGVhbHRoX21vbml0b3IYBiABKAsyJS5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkhlYWx0aE1vbml0b3ISPwoLcGVyc2lzdGVuY2UYByABKAsyKi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlNlc3Npb25QZXJzaXN0ZW5jZSJcCglBbGdvcml0aG0SDwoLUk9VTkRfUk9CSU4QABIVChFMRUFTVF9DT05ORUNUSU9OUxABEg0KCVNPVVJDRV9JUBACEhgKFFdFSUdIVEVEX1JPVU5EX1JPQklOEAMicgoKUG9vbE1lbWJlchIKCgJpZBgBIAEoCRIPCgdhZGRyZXNzGAIgASgJEgwKBHBvcnQYAyABKA0SDgoGd2VpZ2h0GAQgASgNEhYKDmFkbWluX3N0YXRlX3VwGAUgASgIEhEKCXN1Ym5ldF9pZBgGIAEoCSLtAQoNSGVhbHRoTW9uaXRvchI4CgR0eXBlGAEgASgOMioubGltaXF1YW50aXgubmV0d29yay52MS5IZWFsdGhNb25pdG9yLlR5cGUSDQoFZGVsYXkYAiABKA0SDwoHdGltZW91dBgDIAEoDRITCgttYXhfcmV0cmllcxgEIAEoDRITCgtodHRwX21ldGhvZBgFIAEoCRIQCgh1cmxfcGF0aBgGIAEoCRIWCg5leHBlY3RlZF9jb2RlcxgHIAEoCSIuCgRUeXBlEggKBFBJTkcQABIHCgNUQ1AQARIICgRIVFRQEAISCQoFSFRUUFMQAyKqAQoSU2Vzc2lvblBlcnNpc3RlbmNlEj0KBHR5cGUYASABKA4yLy5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlNlc3Npb25QZXJzaXN0ZW5jZS5UeXBlEhMKC2Nvb2tpZV9uYW1lGAIgASgJIkAKBFR5cGUSCAoETk9ORRAAEg0KCVNPVVJDRV9JUBABEg8KC0hUVFBfQ09PS0lFEAISDgoKQVBQX0NPT0tJRRADIpUCChJMb2FkQmFsYW5jZXJTdGF0dXMSPwoFcGhhc2UYASABKA4yMC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkxvYWRCYWxhbmNlclN0YXR1cy5QaGFzZRIbChNwcm92aXNpb25pbmdfc3RhdHVzGAIgASgJEhgKEG9wZXJhdGluZ19zdGF0dXMYAyABKAkSEwoLdmlwX2FkZHJlc3MYBCABKAkSEwoLdmlwX3BvcnRfaWQYBSABKAkSFQoNZXJyb3JfbWVzc2FnZRgGIAEoCSJGCgVQaGFzZRILCgdVTktOT1dOEAASCwoHUEVORElORxABEgoKBkFDVElWRRACEgkKBUVSUk9SEAMSDAoIREVMRVRJTkcQBCKWAgoKVnBuU2VydmljZRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhIKCnByb2plY3RfaWQYBCABKAkSEQoJcm91dGVyX2lkGAUgASgJEhMKC2V4dGVybmFsX2lwGAYgASgJEjoKC2Nvbm5lY3Rpb25zGAcgAygLMiUubGltaXF1YW50aXgubmV0d29yay52MS5WcG5Db25uZWN0aW9uEjEKBnN0YXR1cxgIIAEoCzIhLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuVnBuU3RhdHVzEi4KCmNyZWF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIqgCCg1WcG5Db25uZWN0aW9uEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSFAoMcGVlcl9hZGRyZXNzGAMgASgJEg8KB3BlZXJfaWQYBCABKAkSCwoDcHNrGAUgASgJEhMKC2xvY2FsX2NpZHJzGAYgAygJEhIKCnBlZXJfY2lkcnMYByADKAkSNQoKaWtlX3BvbGljeRgIIAEoCzIhLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuSWtlUG9saWN5EjkKDGlwc2VjX3BvbGljeRgJIAEoCzIjLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuSXBzZWNQb2xpY3kSLgoDZHBkGAogASgLMiEubGltaXF1YW50aXgubmV0d29yay52MS5EcGRDb25maWcifQoJSWtlUG9saWN5EhYKDmF1dGhfYWxnb3JpdGhtGAEgASgJEhwKFGVuY3J5cHRpb25fYWxnb3JpdGhtGAIgASgJEhMKC2lrZV92ZXJzaW9uGAMgASgJEhgKEGxpZmV0aW1lX3NlY29uZHMYBCABKA0SCwoDcGZzGAUgASgJIqIBCgtJcHNlY1BvbGljeRIWCg5hdXRoX2FsZ29yaXRobRgBIAEoCRIcChRlbmNyeXB0aW9uX2FsZ29yaXRobRgCIAEoCRIaChJlbmNhcHN1bGF0aW9uX21vZGUYAyABKAkSGAoQbGlmZXRpbWVfc2Vjb25kcxgEIAEoDRILCgNwZnMYBSABKAkSGgoSdHJhbnNmb3JtX3Byb3RvY29sGAYgASgJIj4KCURwZENvbmZpZxIOCgZhY3Rpb24YASABKAkSEAoIaW50ZXJ2YWwYAiABKA0SDwoHdGltZW91dBgDIAEoDSKeAQoJVnBuU3RhdHVzEjYKBXBoYXNlGAEgASgOMicubGltaXF1YW50aXgubmV0d29yay52MS5WcG5TdGF0dXMuUGhhc2USFQoNZXJyb3JfbWVzc2FnZRgCIAEoCSJCCgVQaGFzZRILCgdVTktOT1dOEAASCwoHUEVORElORxABEgoKBkFDVElWRRACEggKBERPV04QAxIJCgVFUlJPUhAEQvEBChpjb20ubGltaXF1YW50aXgubmV0d29yay52MUIMTmV0d29ya1Byb3RvUAFaS2dpdGh1Yi5jb20vbGltaXF1YW50aXgvbGltaXF1YW50aXgvcGtnL2FwaS9saW1pcXVhbnRpeC9uZXR3b3JrL3YxO25ldHdvcmt2MaICA0xOWKoCFkxpbWlxdWFudGl4Lk5ldHdvcmsuVjHKAhZMaW1pcXVhbnRpeFxOZXR3b3JrXFYx4gIiTGltaXF1YW50aXhcTmV0d29ya1xWMVxHUEJNZXRhZGF0YeoCGExpbWlxdWFudGl4OjpOZXR3b3JrOjpWMWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("CiRsaW1pcXVhbnRpeC9uZXR3b3JrL3YxL25ldHdvcmsucHJvdG8SFmxpbWlxdWFudGl4Lm5ldHdvcmsudjEingMKDlZpcnR1YWxOZXR3b3JrEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSEgoKcHJvamVjdF9pZBgDIAEoCRITCgtkZXNjcmlwdGlvbhgEIAEoCRJCCgZsYWJlbHMYBSADKAsyMi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlZpcnR1YWxOZXR3b3JrLkxhYmVsc0VudHJ5EjgKBHNwZWMYBiABKAsyKi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlZpcnR1YWxOZXR3b3JrU3BlYxI8CgZzdGF0dXMYByABKAsyLC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlZpcnR1YWxOZXR3b3JrU3RhdHVzEi4KCmNyZWF0ZWRfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiwwMKElZpcnR1YWxOZXR3b3JrU3BlYxJECgR0eXBlGAEgASgOMjYubGltaXF1YW50aXgubmV0d29yay52MS5WaXJ0dWFsTmV0d29ya1NwZWMuTmV0d29ya1R5cGUSPgoJaXBfY29uZmlnGAIgASgLMisubGltaXF1YW50aXgubmV0d29yay52MS5JcEFkZHJlc3NNYW5hZ2VtZW50EjAKBHZsYW4YAyABKAsyIi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlZsYW5Db25maWcSNAoGcm91dGVyGAQgASgLMiQubGltaXF1YW50aXgubmV0d29yay52MS5Sb3V0ZXJDb25maWcSCwoDbXR1GAUgASgNEi4KA2RucxgGIAEoCzIhLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuRG5zQ29uZmlnEiEKGWRlZmF1bHRfc2VjdXJpdHlfZ3JvdXBfaWQYByABKAkSHQoVcG9ydF9zZWN1cml0eV9lbmFibGVkGAggASgIIkAKC05ldHdvcmtUeXBlEgsKB09WRVJMQVkQABIICgRWTEFOEAESDAoIRVhURVJOQUwQAhIMCghJU09MQVRFRBADIu4BChNJcEFkZHJlc3NNYW5hZ2VtZW50EhMKC2lwdjRfc3VibmV0GAEgASgJEhQKDGlwdjRfZ2F0ZXdheRgCIAEoCRITCgtpcHY2X3N1Ym5ldBgDIAEoCRIUCgxpcHY2X2dhdGV3YXkYBCABKAkSMAoEZGhjcBgFIAEoCzIiLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuRGhjcENvbmZpZxI5ChBhbGxvY2F0aW9uX3Bvb2xzGAYgAygLMh8ubGltaXF1YW50aXgubmV0d29yay52MS5JcFJhbmdlEhQKDHJlc2VydmVkX2lwcxgHIAMoCSKyAQoKRGhjcENvbmZpZxIPCgdlbmFibGVkGAEgASgIEhYKDmxlYXNlX3RpbWVfc2VjGAIgASgNEhMKC2Ruc19zZXJ2ZXJzGAMgAygJEhMKC250cF9zZXJ2ZXJzGAQgAygJEhMKC2RvbWFpbl9uYW1lGAUgASgJEjwKD3N0YXRpY19iaW5kaW5ncxgGIAMoCzIjLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuRGhjcEJpbmRpbmciSAoLRGhjcEJpbmRpbmcSEwoLbWFjX2FkZHJlc3MYASABKAkSEgoKaXBfYWRkcmVzcxgCIAEoCRIQCghob3N0bmFtZRgDIAEoCSIlCgdJcFJhbmdlEg0KBXN0YXJ0GAEgASgJEgsKA2VuZBgCIAEoCSI3CgpWbGFuQ29uZmlnEg8KB3ZsYW5faWQYASABKA0SGAoQcGh5c2ljYWxfbmV0d29yaxgCIAEoCSKOAQoMUm91dGVyQ29uZmlnEg8KB2VuYWJsZWQYASABKAgSIwobZXh0ZXJuYWxfZ2F0ZXdheV9uZXR3b3JrX2lkGAIgASgJEhMKC2VuYWJsZV9zbmF0GAMgASgIEjMKBnJvdXRlcxgEIAMoCzIjLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuU3RhdGljUm91dGUiNAoLU3RhdGljUm91dGUSEwoLZGVzdGluYXRpb24YASABKAkSEAoIbmV4dF9ob3AYAiABKAkiOAoJRG5zQ29uZmlnEhMKC25hbWVzZXJ2ZXJzGAEgAygJEhYKDnNlYXJjaF9kb21haW5zGAIgAygJIsICChRWaXJ0dWFsTmV0d29ya1N0YXR1cxJBCgVwaGFzZRgBIAEoDjIyLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuVmlydHVhbE5ldHdvcmtTdGF0dXMuUGhhc2USGgoSb3ZuX2xvZ2ljYWxfc3dpdGNoGAIgASgJEhoKEm92bl9sb2dpY2FsX3JvdXRlchgDIAEoCRISCgpwb3J0X2NvdW50GAQgASgNEj0KCWlwX3N0YXR1cxgFIAEoCzIqLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuSXBBbGxvY2F0aW9uU3RhdHVzEhUKDWVycm9yX21lc3NhZ2UYBiABKAkiRQoFUGhhc2USCwoHVU5LTk9XThAAEgsKB1BFTkRJTkcQARIJCgVSRUFEWRACEgkKBUVSUk9SEAMSDAoIREVMRVRJTkcQBCJwChJJcEFsbG9jYXRpb25TdGF0dXMSEgoKaXB2NF90b3RhbBgBIAEoDRIWCg5pcHY0X2FsbG9jYXRlZBgCIAEoDRIWCg5pcHY0X2F2YWlsYWJsZRgDIAEoDRIWCg5pcHY2X2FsbG9jYXRlZBgEIAEoBCL1AgoEUG9ydBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhIKCm5ldHdvcmtfaWQYAyABKAkSEgoKcHJvamVjdF9pZBgEIAEoCRI4CgZsYWJlbHMYBSADKAsyKC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlBvcnQuTGFiZWxzRW50cnkSLgoEc3BlYxgGIAEoCzIgLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuUG9ydFNwZWMSMgoGc3RhdHVzGAcgASgLMiIubGltaXF1YW50aXgubmV0d29yay52MS5Qb3J0U3RhdHVzEi4KCmNyZWF0ZWRfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEi0QIKCFBvcnRTcGVjEhMKC21hY19hZGRyZXNzGAEgASgJEjIKCWZpeGVkX2lwcxgCIAMoCzIfLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuRml4ZWRJcBIaChJzZWN1cml0eV9ncm91cF9pZHMYAyADKAkSQgoVYWxsb3dlZF9hZGRyZXNzX3BhaXJzGAQgAygLMiMubGltaXF1YW50aXgubmV0d29yay52MS5BZGRyZXNzUGFpchIdChVwb3J0X3NlY3VyaXR5X2VuYWJsZWQYBSABKAgSFgoOYWRtaW5fc3RhdGVfdXAYBiABKAgSLAoDcW9zGAcgASgLMh8ubGltaXF1YW50aXgubmV0d29yay52MS5Qb3J0UW9zEjcKB2JpbmRpbmcYCCABKAsyJi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkJpbmRpbmdQcm9maWxlIjAKB0ZpeGVkSXASEQoJc3VibmV0X2lkGAEgASgJEhIKCmlwX2FkZHJlc3MYAiABKAkiNgoLQWRkcmVzc1BhaXISEgoKaXBfYWRkcmVzcxgBIAEoCRITCgttYWNfYWRkcmVzcxgCIAEoCSJxCgdQb3J0UW9zEhkKEWluZ3Jlc3NfcmF0ZV9rYnBzGAEgASgEEhgKEGVncmVzc19yYXRlX2ticHMYAiABKAQSGAoQaW5ncmVzc19idXJzdF9rYhgDIAEoBBIXCg9lZ3Jlc3NfYnVyc3Rfa2IYBCABKAQi1QEKDkJpbmRpbmdQcm9maWxlEkAKBHR5cGUYASABKA4yMi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkJpbmRpbmdQcm9maWxlLkJpbmRpbmdUeXBlEhAKCHBjaV9zbG90GAIgASgJEhQKDHZob3N0X3NvY2tldBgDIAEoCRIVCg1udW1hX2FmZmluaXR5GAQgASgNIkIKC0JpbmRpbmdUeXBlEgoKBk5PUk1BTBAAEgoKBkRJUkVDVBABEgsKB01BQ1ZUQVAQAhIOCgpWSE9TVF9VU0VSEAMiiAIKClBvcnRTdGF0dXMSNwoFcGhhc2UYASABKA4yKC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlBvcnRTdGF0dXMuUGhhc2USEwoLbWFjX2FkZHJlc3MYAiABKAkSFAoMaXBfYWRkcmVzc2VzGAMgAygJEhAKCG92bl9wb3J0GAQgASgJEg0KBXZtX2lkGAUgASgJEg8KB2hvc3RfaWQYBiABKAkSFQoNZXJyb3JfbWVzc2FnZRgHIAEoCSJNCgVQaGFzZRILCgdVTktOT1dOEAASCwoHUEVORElORxABEgkKBUJVSUxEEAISCgoGQUNUSVZFEAMSCAoERE9XThAEEgkKBUVSUk9SEAUi8AIKDVNlY3VyaXR5R3JvdXASCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRISCgpwcm9qZWN0X2lkGAQgASgJEkEKBmxhYmVscxgFIAMoCzIxLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuU2VjdXJpdHlHcm91cC5MYWJlbHNFbnRyeRI4CgVydWxlcxgGIAMoCzIpLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuU2VjdXJpdHlHcm91cFJ1bGUSEAoIc3RhdGVmdWwYByABKAgSLgoKY3JlYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAaLQoLTGFiZWxzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASK5AwoRU2VjdXJpdHlHcm91cFJ1bGUSCgoCaWQYASABKAkSRgoJZGlyZWN0aW9uGAIgASgOMjMubGltaXF1YW50aXgubmV0d29yay52MS5TZWN1cml0eUdyb3VwUnVsZS5EaXJlY3Rpb24SEAoIcHJvdG9jb2wYAyABKAkSEAoIcG9ydF9taW4YBCABKA0SEAoIcG9ydF9tYXgYBSABKA0SEQoJaWNtcF90eXBlGAYgASgFEhEKCWljbXBfY29kZRgHIAEoBRIYChByZW1vdGVfaXBfcHJlZml4GAggASgJEiAKGHJlbW90ZV9zZWN1cml0eV9ncm91cF9pZBgJIAEoCRJACgZhY3Rpb24YCiABKA4yMC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlNlY3VyaXR5R3JvdXBSdWxlLkFjdGlvbhIQCghwcmlvcml0eRgLIAEoDRITCgtkZXNjcmlwdGlvbhgMIAEoCSIkCglEaXJlY3Rpb24SCwoHSU5HUkVTUxAAEgoKBkVHUkVTUxABIikKBkFjdGlvbhIJCgVBTExPVxAAEggKBERST1AQARIKCgZSRUpFQ1QQAiK9AwoKRmxvYXRpbmdJcBIKCgJpZBgBIAEoCRISCgppcF9hZGRyZXNzGAIgASgJEhsKE2V4dGVybmFsX25ldHdvcmtfaWQYAyABKAkSEgoKcHJvamVjdF9pZBgEIAEoCRITCgtkZXNjcmlwdGlvbhgFIAEoCRI+CgZsYWJlbHMYBiADKAsyLi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkZsb2F0aW5nSXAuTGFiZWxzRW50cnkSQAoKYXNzaWdubWVudBgHIAEoCzIsLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuRmxvYXRpbmdJcEFzc2lnbm1lbnQSOAoGc3RhdHVzGAggASgLMigubGltaXF1YW50aXgubmV0d29yay52MS5GbG9hdGluZ0lwU3RhdHVzEi4KCmNyZWF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiOQoURmxvYXRpbmdJcEFzc2lnbm1lbnQSDwoHcG9ydF9pZBgBIAEoCRIQCghmaXhlZF9pcBgCIAEoCSLOAQoQRmxvYXRpbmdJcFN0YXR1cxI9CgVwaGFzZRgBIAEoDjIuLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuRmxvYXRpbmdJcFN0YXR1cy5QaGFzZRINCgV2bV9pZBgCIAEoCRIRCglyb3V0ZXJfaWQYAyABKAkSFQoNZXJyb3JfbWVzc2FnZRgEIAEoCSJCCgVQaGFzZRILCgdVTktOT1dOEAASCwoHUEVORElORxABEgoKBkFDVElWRRACEggKBERPV04QAxIJCgVFUlJPUhAEIpYDCgxMb2FkQmFsYW5jZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRISCgpwcm9qZWN0X2lkGAQgASgJEkAKBmxhYmVscxgFIAMoCzIwLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuTG9hZEJhbGFuY2VyLkxhYmVsc0VudHJ5EjYKBHNwZWMYBiABKAsyKC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkxvYWRCYWxhbmNlclNwZWMSOgoGc3RhdHVzGAcgASgLMioubGltaXF1YW50aXgubmV0d29yay52MS5Mb2FkQmFsYW5jZXJTdGF0dXMSLgoKY3JlYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAaLQoLTGFiZWxzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASKwAQoQTG9hZEJhbGFuY2VyU3BlYxISCgpuZXR3b3JrX2lkGAEgASgJEhEKCXN1Ym5ldF9pZBgCIAEoCRITCgt2aXBfYWRkcmVzcxgDIAEoCRIzCglsaXN0ZW5lcnMYBCADKAsyIC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkxpc3RlbmVyEisKBXBvb2xzGAUgAygLMhwubGltaXF1YW50aXgubmV0d29yay52MS5Qb29sIoUCCghMaXN0ZW5lchIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEjsKCHByb3RvY29sGAMgASgOMikubGltaXF1YW50aXgubmV0d29yay52MS5MaXN0ZW5lci5Qcm90b2NvbBIMCgRwb3J0GAQgASgNEhcKD2RlZmF1bHRfcG9vbF9pZBgFIAEoCRIuCgN0bHMYBiABKAsyIS5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlRsc0NvbmZpZxIYChBjb25uZWN0aW9uX2xpbWl0GAcgASgNIjEKCFByb3RvY29sEgcKA1RDUBAAEggKBEhUVFAQARIJCgVIVFRQUxACEgcKA1VEUBADInQKCVRsc0NvbmZpZxITCgtjZXJ0aWZpY2F0ZRgBIAEoCRITCgtwcml2YXRlX2tleRgCIAEoCRIXCg9jYV9jZXJ0aWZpY2F0ZXMYAyABKAkSEwoLbWluX3ZlcnNpb24YBCABKAkSDwoHY2lwaGVycxgFIAMoCSKrAwoEUG9vbBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEjkKCWFsZ29yaXRobRgDIAEoDjImLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuUG9vbC5BbGdvcml0aG0SOwoIcHJvdG9jb2wYBCABKA4yKS5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkxpc3RlbmVyLlByb3RvY29sEjMKB21lbWJlcnMYBSADKAsyIi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlBvb2xNZW1iZXISPQoOaGVhbHRoX21vbml0b3IYBiABKAsyJS5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkhlYWx0aE1vbml0b3ISPwoLcGVyc2lzdGVuY2UYByABKAsyKi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlNlc3Npb25QZXJzaXN0ZW5jZSJcCglBbGdvcml0aG0SDwoLUk9VTkRfUk9CSU4QABIVChFMRUFTVF9DT05ORUNUSU9OUxABEg0KCVNPVVJDRV9JUBACEhgKFFdFSUdIVEVEX1JPVU5EX1JPQklOEAMicgoKUG9vbE1lbWJlchIKCgJpZBgBIAEoCRIPCgdhZGRyZXNzGAIgASgJEgwKBHBvcnQYAyABKA0SDgoGd2VpZ2h0GAQgASgNEhYKDmFkbWluX3N0YXRlX3VwGAUgASgIEhEKCXN1Ym5ldF9pZBgGIAEoCSLtAQoNSGVhbHRoTW9uaXRvchI4CgR0eXBlGAEgASgOMioubGltaXF1YW50aXgubmV0d29yay52MS5IZWFsdGhNb25pdG9yLlR5cGUSDQoFZGVsYXkYAiABKA0SDwoHdGltZW91dBgDIAEoDRITCgttYXhfcmV0cmllcxgEIAEoDRITCgtodHRwX21ldGhvZBgFIAEoCRIQCgh1cmxfcGF0aBgGIAEoCRIWCg5leHBlY3RlZF9jb2RlcxgHIAEoCSIuCgRUeXBlEggKBFBJTkcQABIHCgNUQ1AQARIICgRIVFRQEAISCQoFSFRUUFMQAyKqAQoSU2Vzc2lvblBlcnNpc3RlbmNlEj0KBHR5cGUYASABKA4yLy5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLlNlc3Npb25QZXJzaXN0ZW5jZS5UeXBlEhMKC2Nvb2tpZV9uYW1lGAIgASgJIkAKBFR5cGUSCAoETk9ORRAAEg0KCVNPVVJDRV9JUBABEg8KC0hUVFBfQ09PS0lFEAISDgoKQVBQX0NPT0tJRRADIpUCChJMb2FkQmFsYW5jZXJTdGF0dXMSPwoFcGhhc2UYASABKA4yMC5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkxvYWRCYWxhbmNlclN0YXR1cy5QaGFzZRIbChNwcm92aXNpb25pbmdfc3RhdHVzGAIgASgJEhgKEG9wZXJhdGluZ19zdGF0dXMYAyABKAkSEwoLdmlwX2FkZHJlc3MYBCABKAkSEwoLdmlwX3BvcnRfaWQYBSABKAkSFQoNZXJyb3JfbWVzc2FnZRgGIAEoCSJGCgVQaGFzZRILCgdVTktOT1dOEAASCwoHUEVORElORxABEgoKBkFDVElWRRACEgkKBUVSUk9SEAMSDAoIREVMRVRJTkcQBCKWAgoKVnBuU2VydmljZRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhIKCnByb2plY3RfaWQYBCABKAkSEQoJcm91dGVyX2lkGAUgASgJEhMKC2V4dGVybmFsX2lwGAYgASgJEjoKC2Nvbm5lY3Rpb25zGAcgAygLMiUubGltaXF1YW50aXgubmV0d29yay52MS5WcG5Db25uZWN0aW9uEjEKBnN0YXR1cxgIIAEoCzIhLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuVnBuU3RhdHVzEi4KCmNyZWF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIqgCCg1WcG5Db25uZWN0aW9uEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSFAoMcGVlcl9hZGRyZXNzGAMgASgJEg8KB3BlZXJfaWQYBCABKAkSCwoDcHNrGAUgASgJEhMKC2xvY2FsX2NpZHJzGAYgAygJEhIKCnBlZXJfY2lkcnMYByADKAkSNQoKaWtlX3BvbGljeRgIIAEoCzIhLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuSWtlUG9saWN5EjkKDGlwc2VjX3BvbGljeRgJIAEoCzIjLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuSXBzZWNQb2xpY3kSLgoDZHBkGAogASgLMiEubGltaXF1YW50aXgubmV0d29yay52MS5EcGRDb25maWcifQoJSWtlUG9saWN5EhYKDmF1dGhfYWxnb3JpdGhtGAEgASgJEhwKFGVuY3J5cHRpb25fYWxnb3JpdGhtGAIgASgJEhMKC2lrZV92ZXJzaW9uGAMgASgJEhgKEGxpZmV0aW1lX3NlY29uZHMYBCABKA0SCwoDcGZzGAUgASgJIqIBCgtJcHNlY1BvbGljeRIWCg5hdXRoX2FsZ29yaXRobRgBIAEoCRIcChRlbmNyeXB0aW9uX2FsZ29yaXRobRgCIAEoCRIaChJlbmNhcHN1bGF0aW9uX21vZGUYAyABKAkSGAoQbGlmZXRpbWVfc2Vjb25kcxgEIAEoDRILCgNwZnMYBSABKAkSGgoSdHJhbnNmb3JtX3Byb3RvY29sGAYgASgJIj4KCURwZENvbmZpZxIOCgZhY3Rpb24YASABKAkSEAoIaW50ZXJ2YWwYAiABKA0SDwoHdGltZW91dBgDIAEoDSKeAQoJVnBuU3RhdHVzEjYKBXBoYXNlGAEgASgOMicubGltaXF1YW50aXgubmV0d29yay52MS5WcG5TdGF0dXMuUGhhc2USFQoNZXJyb3JfbWVzc2FnZRgCIAEoCSJCCgVQaGFzZRILCgdVTktOT1dOEAASCwoHUEVORElORxABEgoKBkFDVElWRRACEggKBERPV04QAxIJCgVFUlJPUhAEIo4DCgpCR1BTcGVha2VyEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSEgoKcHJvamVjdF9pZBgDIAEoCRITCgtkZXNjcmlwdGlvbhgEIAEoCRI+CgZsYWJlbHMYBSADKAsyLi5saW1pcXVhbnRpeC5uZXR3b3JrLnYxLkJHUFNwZWFrZXIuTGFiZWxzRW50cnkSNAoEc3BlYxgGIAEoCzImLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuQkdQU3BlYWtlclNwZWMSOAoGc3RhdHVzGAcgASgLMigubGltaXF1YW50aXgubmV0d29yay52MS5CR1BTcGVha2VyU3RhdHVzEi4KCmNyZWF0ZWRfYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEioQEKDkJHUFNwZWFrZXJTcGVjEhEKCWxvY2FsX2FzbhgBIAEoDRIRCglyb3V0ZXJfaWQYAiABKAkSFQoNcm91dGVyX2lkX3JlZhgDIAEoCRIPCgdub2RlX2lkGAQgASgJEiEKGWFkdmVydGlzZV90ZW5hbnRfbmV0d29ya3MYBSABKAgSHgoWYWR2ZXJ0aXNlX2Zsb2F0aW5nX2lwcxgGIAEoCCLhAQoQQkdQU3BlYWtlclN0YXR1cxI9CgVwaGFzZRgBIAEoDjIuLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuQkdQU3BlYWtlclN0YXR1cy5QaGFzZRIUCgxhY3RpdmVfcGVlcnMYAiABKA0SGQoRYWR2ZXJ0aXNlZF9yb3V0ZXMYAyABKA0SFQoNZXJyb3JfbWVzc2FnZRgEIAEoCSJGCgVQaGFzZRILCgdVTktOT1dOEAASCwoHUEVORElORxABEgoKBkFDVElWRRACEgwKCERFR1JBREVEEAMSCQoFRVJST1IQBCKdAgoHQkdQUGVlchIKCgJpZBgBIAEoCRISCgpzcGVha2VyX2lkGAIgASgJEgwKBG5hbWUYAyABKAkSDwoHcGVlcl9pcBgEIAEoCRISCgpyZW1vdGVfYXNuGAUgASgNEhQKDG1kNV9wYXNzd29yZBgGIAEoCRIRCglob2xkX3RpbWUYByABKA0SGgoSa2VlcGFsaXZlX2ludGVydmFsGAggASgNEhMKC2JmZF9lbmFibGVkGAkgASgIEjUKBnN0YXR1cxgKIAEoCzIlLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuQkdQUGVlclN0YXR1cxIuCgpjcmVhdGVkX2F0GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCLOAgoNQkdQUGVlclN0YXR1cxI6CgVzdGF0ZRgBIAEoDjIrLmxpbWlxdWFudGl4Lm5ldHdvcmsudjEuQkdQUGVlclN0YXR1cy5TdGF0ZRIWCg51cHRpbWVfc2Vjb25kcxgCIAEoBBIZChFwcmVmaXhlc19yZWNlaXZlZBgDIAEoDRIbChNwcmVmaXhlc19hZHZlcnRpc2VkGAQgASgNEi8KC2xhc3RfY2hhbmdlGAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIVCg1lcnJvcl9tZXNzYWdlGAYgASgJImkKBVN0YXRlEgsKB1VOS05PV04QABIICgRJRExFEAESCwoHQ09OTkVDVBACEgoKBkFDVElWRRADEg0KCU9QRU5fU0VOVBAEEhAKDE9QRU5fQ09ORklSTRAFEg8KC0VTVEFCTElTSEVEEAYiwQEKEEJHUEFkdmVydGlzZW1lbnQSCgoCaWQYASABKAkSEgoKc3BlYWtlcl9pZBgCIAEoCRIMCgRjaWRyGAMgASgJEhAKCG5leHRfaG9wGAQgASgJEhMKC2NvbW11bml0aWVzGAUgAygJEhgKEGxvY2FsX3ByZWZlcmVuY2UYBiABKA0SDgoGYWN0aXZlGAcgASgIEi4KCmNyZWF0ZWRfYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQvEBChpjb20ubGltaXF1YW50aXgubmV0d29yay52MUIMTmV0d29ya1Byb3RvUAFaS2dpdGh1Yi5jb20vbGltaXF1YW50aXgvbGltaXF1YW50aXgvcGtnL2FwaS9saW1pcXVhbnRpeC9uZXR3b3JrL3YxO25ldHdvcmt2MaICA0xOWKoCFkxpbWlxdWFudGl4Lk5ldHdvcmsuVjHKAhZMaW1pcXVhbnRpeFxOZXR3b3JrXFYx4gIiTGltaXF1YW50aXhcTmV0d29ya1xWMVxHUEJNZXRhZGF0YeoCGExpbWlxdWFudGl4OjpOZXR3b3JrOjpWMWIGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * VirtualNetwork represents a software-defined network (SDN) for VMs.
@@ -2316,4 +2316,425 @@ export enum VpnStatus_Phase {
  */
 export const VpnStatus_PhaseSchema: GenEnum<VpnStatus_Phase> = /*@__PURE__*/
   enumDesc(file_limiquantix_network_v1_network, 38, 0);
+
+/**
+ * BGPSpeaker represents a BGP speaker instance for advertising routes
+ * to physical Top-of-Rack (ToR) switches.
+ *
+ * @generated from message limiquantix.network.v1.BGPSpeaker
+ */
+export type BGPSpeaker = Message<"limiquantix.network.v1.BGPSpeaker"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string project_id = 3;
+   */
+  projectId: string;
+
+  /**
+   * @generated from field: string description = 4;
+   */
+  description: string;
+
+  /**
+   * @generated from field: map<string, string> labels = 5;
+   */
+  labels: { [key: string]: string };
+
+  /**
+   * @generated from field: limiquantix.network.v1.BGPSpeakerSpec spec = 6;
+   */
+  spec?: BGPSpeakerSpec;
+
+  /**
+   * @generated from field: limiquantix.network.v1.BGPSpeakerStatus status = 7;
+   */
+  status?: BGPSpeakerStatus;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 10;
+   */
+  createdAt?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp updated_at = 11;
+   */
+  updatedAt?: Timestamp;
+};
+
+/**
+ * Describes the message limiquantix.network.v1.BGPSpeaker.
+ * Use `create(BGPSpeakerSchema)` to create a new message.
+ */
+export const BGPSpeakerSchema: GenMessage<BGPSpeaker> = /*@__PURE__*/
+  messageDesc(file_limiquantix_network_v1_network, 39);
+
+/**
+ * @generated from message limiquantix.network.v1.BGPSpeakerSpec
+ */
+export type BGPSpeakerSpec = Message<"limiquantix.network.v1.BGPSpeakerSpec"> & {
+  /**
+   * Local ASN for this speaker
+   *
+   * @generated from field: uint32 local_asn = 1;
+   */
+  localAsn: number;
+
+  /**
+   * Router ID (usually an IPv4 address)
+   *
+   * @generated from field: string router_id = 2;
+   */
+  routerId: string;
+
+  /**
+   * Associated router for route redistribution
+   *
+   * @generated from field: string router_id_ref = 3;
+   */
+  routerIdRef: string;
+
+  /**
+   * Node where the BGP speaker runs (empty = control plane)
+   *
+   * @generated from field: string node_id = 4;
+   */
+  nodeId: string;
+
+  /**
+   * Networks to advertise automatically from connected subnets
+   *
+   * @generated from field: bool advertise_tenant_networks = 5;
+   */
+  advertiseTenantNetworks: boolean;
+
+  /**
+   * Networks to advertise automatically from floating IPs
+   *
+   * @generated from field: bool advertise_floating_ips = 6;
+   */
+  advertiseFloatingIps: boolean;
+};
+
+/**
+ * Describes the message limiquantix.network.v1.BGPSpeakerSpec.
+ * Use `create(BGPSpeakerSpecSchema)` to create a new message.
+ */
+export const BGPSpeakerSpecSchema: GenMessage<BGPSpeakerSpec> = /*@__PURE__*/
+  messageDesc(file_limiquantix_network_v1_network, 40);
+
+/**
+ * @generated from message limiquantix.network.v1.BGPSpeakerStatus
+ */
+export type BGPSpeakerStatus = Message<"limiquantix.network.v1.BGPSpeakerStatus"> & {
+  /**
+   * @generated from field: limiquantix.network.v1.BGPSpeakerStatus.Phase phase = 1;
+   */
+  phase: BGPSpeakerStatus_Phase;
+
+  /**
+   * Number of active peers
+   *
+   * @generated from field: uint32 active_peers = 2;
+   */
+  activePeers: number;
+
+  /**
+   * Number of advertised routes
+   *
+   * @generated from field: uint32 advertised_routes = 3;
+   */
+  advertisedRoutes: number;
+
+  /**
+   * @generated from field: string error_message = 4;
+   */
+  errorMessage: string;
+};
+
+/**
+ * Describes the message limiquantix.network.v1.BGPSpeakerStatus.
+ * Use `create(BGPSpeakerStatusSchema)` to create a new message.
+ */
+export const BGPSpeakerStatusSchema: GenMessage<BGPSpeakerStatus> = /*@__PURE__*/
+  messageDesc(file_limiquantix_network_v1_network, 41);
+
+/**
+ * @generated from enum limiquantix.network.v1.BGPSpeakerStatus.Phase
+ */
+export enum BGPSpeakerStatus_Phase {
+  /**
+   * @generated from enum value: UNKNOWN = 0;
+   */
+  UNKNOWN = 0,
+
+  /**
+   * @generated from enum value: PENDING = 1;
+   */
+  PENDING = 1,
+
+  /**
+   * @generated from enum value: ACTIVE = 2;
+   */
+  ACTIVE = 2,
+
+  /**
+   * @generated from enum value: DEGRADED = 3;
+   */
+  DEGRADED = 3,
+
+  /**
+   * @generated from enum value: ERROR = 4;
+   */
+  ERROR = 4,
+}
+
+/**
+ * Describes the enum limiquantix.network.v1.BGPSpeakerStatus.Phase.
+ */
+export const BGPSpeakerStatus_PhaseSchema: GenEnum<BGPSpeakerStatus_Phase> = /*@__PURE__*/
+  enumDesc(file_limiquantix_network_v1_network, 41, 0);
+
+/**
+ * BGPPeer represents a BGP peering session with a ToR switch.
+ *
+ * @generated from message limiquantix.network.v1.BGPPeer
+ */
+export type BGPPeer = Message<"limiquantix.network.v1.BGPPeer"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string speaker_id = 2;
+   */
+  speakerId: string;
+
+  /**
+   * @generated from field: string name = 3;
+   */
+  name: string;
+
+  /**
+   * Peer configuration
+   *
+   * @generated from field: string peer_ip = 4;
+   */
+  peerIp: string;
+
+  /**
+   * @generated from field: uint32 remote_asn = 5;
+   */
+  remoteAsn: number;
+
+  /**
+   * Authentication
+   *
+   * @generated from field: string md5_password = 6;
+   */
+  md5Password: string;
+
+  /**
+   * Timers
+   *
+   * @generated from field: uint32 hold_time = 7;
+   */
+  holdTime: number;
+
+  /**
+   * @generated from field: uint32 keepalive_interval = 8;
+   */
+  keepaliveInterval: number;
+
+  /**
+   * BFD (Bidirectional Forwarding Detection) for fast failover
+   *
+   * @generated from field: bool bfd_enabled = 9;
+   */
+  bfdEnabled: boolean;
+
+  /**
+   * @generated from field: limiquantix.network.v1.BGPPeerStatus status = 10;
+   */
+  status?: BGPPeerStatus;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 11;
+   */
+  createdAt?: Timestamp;
+};
+
+/**
+ * Describes the message limiquantix.network.v1.BGPPeer.
+ * Use `create(BGPPeerSchema)` to create a new message.
+ */
+export const BGPPeerSchema: GenMessage<BGPPeer> = /*@__PURE__*/
+  messageDesc(file_limiquantix_network_v1_network, 42);
+
+/**
+ * @generated from message limiquantix.network.v1.BGPPeerStatus
+ */
+export type BGPPeerStatus = Message<"limiquantix.network.v1.BGPPeerStatus"> & {
+  /**
+   * @generated from field: limiquantix.network.v1.BGPPeerStatus.State state = 1;
+   */
+  state: BGPPeerStatus_State;
+
+  /**
+   * Uptime in seconds (0 if not established)
+   *
+   * @generated from field: uint64 uptime_seconds = 2;
+   */
+  uptimeSeconds: bigint;
+
+  /**
+   * Route statistics
+   *
+   * @generated from field: uint32 prefixes_received = 3;
+   */
+  prefixesReceived: number;
+
+  /**
+   * @generated from field: uint32 prefixes_advertised = 4;
+   */
+  prefixesAdvertised: number;
+
+  /**
+   * Last state change
+   *
+   * @generated from field: google.protobuf.Timestamp last_change = 5;
+   */
+  lastChange?: Timestamp;
+
+  /**
+   * @generated from field: string error_message = 6;
+   */
+  errorMessage: string;
+};
+
+/**
+ * Describes the message limiquantix.network.v1.BGPPeerStatus.
+ * Use `create(BGPPeerStatusSchema)` to create a new message.
+ */
+export const BGPPeerStatusSchema: GenMessage<BGPPeerStatus> = /*@__PURE__*/
+  messageDesc(file_limiquantix_network_v1_network, 43);
+
+/**
+ * @generated from enum limiquantix.network.v1.BGPPeerStatus.State
+ */
+export enum BGPPeerStatus_State {
+  /**
+   * @generated from enum value: UNKNOWN = 0;
+   */
+  UNKNOWN = 0,
+
+  /**
+   * @generated from enum value: IDLE = 1;
+   */
+  IDLE = 1,
+
+  /**
+   * @generated from enum value: CONNECT = 2;
+   */
+  CONNECT = 2,
+
+  /**
+   * @generated from enum value: ACTIVE = 3;
+   */
+  ACTIVE = 3,
+
+  /**
+   * @generated from enum value: OPEN_SENT = 4;
+   */
+  OPEN_SENT = 4,
+
+  /**
+   * @generated from enum value: OPEN_CONFIRM = 5;
+   */
+  OPEN_CONFIRM = 5,
+
+  /**
+   * @generated from enum value: ESTABLISHED = 6;
+   */
+  ESTABLISHED = 6,
+}
+
+/**
+ * Describes the enum limiquantix.network.v1.BGPPeerStatus.State.
+ */
+export const BGPPeerStatus_StateSchema: GenEnum<BGPPeerStatus_State> = /*@__PURE__*/
+  enumDesc(file_limiquantix_network_v1_network, 43, 0);
+
+/**
+ * BGPAdvertisement represents a network prefix advertised via BGP.
+ *
+ * @generated from message limiquantix.network.v1.BGPAdvertisement
+ */
+export type BGPAdvertisement = Message<"limiquantix.network.v1.BGPAdvertisement"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string speaker_id = 2;
+   */
+  speakerId: string;
+
+  /**
+   * The network prefix to advertise (CIDR notation)
+   *
+   * @generated from field: string cidr = 3;
+   */
+  cidr: string;
+
+  /**
+   * Next-hop IP (empty = use speaker's router ID)
+   *
+   * @generated from field: string next_hop = 4;
+   */
+  nextHop: string;
+
+  /**
+   * Optional BGP communities
+   *
+   * @generated from field: repeated string communities = 5;
+   */
+  communities: string[];
+
+  /**
+   * Local preference (higher = more preferred)
+   *
+   * @generated from field: uint32 local_preference = 6;
+   */
+  localPreference: number;
+
+  /**
+   * Whether this is actively being advertised
+   *
+   * @generated from field: bool active = 7;
+   */
+  active: boolean;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 10;
+   */
+  createdAt?: Timestamp;
+};
+
+/**
+ * Describes the message limiquantix.network.v1.BGPAdvertisement.
+ * Use `create(BGPAdvertisementSchema)` to create a new message.
+ */
+export const BGPAdvertisementSchema: GenMessage<BGPAdvertisement> = /*@__PURE__*/
+  messageDesc(file_limiquantix_network_v1_network, 44);
 

@@ -3509,6 +3509,869 @@ func (x *TunnelStatus) GetIpsecState() string {
 	return ""
 }
 
+type CreateBGPSpeakerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	ProjectId     string                 `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Labels        map[string]string      `protobuf:"bytes,4,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Spec          *BGPSpeakerSpec        `protobuf:"bytes,5,opt,name=spec,proto3" json:"spec,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateBGPSpeakerRequest) Reset() {
+	*x = CreateBGPSpeakerRequest{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateBGPSpeakerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateBGPSpeakerRequest) ProtoMessage() {}
+
+func (x *CreateBGPSpeakerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateBGPSpeakerRequest.ProtoReflect.Descriptor instead.
+func (*CreateBGPSpeakerRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *CreateBGPSpeakerRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateBGPSpeakerRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *CreateBGPSpeakerRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *CreateBGPSpeakerRequest) GetLabels() map[string]string {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
+}
+
+func (x *CreateBGPSpeakerRequest) GetSpec() *BGPSpeakerSpec {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+type GetBGPSpeakerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBGPSpeakerRequest) Reset() {
+	*x = GetBGPSpeakerRequest{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBGPSpeakerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBGPSpeakerRequest) ProtoMessage() {}
+
+func (x *GetBGPSpeakerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBGPSpeakerRequest.ProtoReflect.Descriptor instead.
+func (*GetBGPSpeakerRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *GetBGPSpeakerRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ListBGPSpeakersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ProjectId     string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	PageSize      int32                  `protobuf:"varint,10,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken     string                 `protobuf:"bytes,11,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBGPSpeakersRequest) Reset() {
+	*x = ListBGPSpeakersRequest{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBGPSpeakersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBGPSpeakersRequest) ProtoMessage() {}
+
+func (x *ListBGPSpeakersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBGPSpeakersRequest.ProtoReflect.Descriptor instead.
+func (*ListBGPSpeakersRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *ListBGPSpeakersRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *ListBGPSpeakersRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListBGPSpeakersRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+type ListBGPSpeakersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Speakers      []*BGPSpeaker          `protobuf:"bytes,1,rep,name=speakers,proto3" json:"speakers,omitempty"`
+	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	TotalCount    int32                  `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBGPSpeakersResponse) Reset() {
+	*x = ListBGPSpeakersResponse{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBGPSpeakersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBGPSpeakersResponse) ProtoMessage() {}
+
+func (x *ListBGPSpeakersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBGPSpeakersResponse.ProtoReflect.Descriptor instead.
+func (*ListBGPSpeakersResponse) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *ListBGPSpeakersResponse) GetSpeakers() []*BGPSpeaker {
+	if x != nil {
+		return x.Speakers
+	}
+	return nil
+}
+
+func (x *ListBGPSpeakersResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *ListBGPSpeakersResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+type DeleteBGPSpeakerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteBGPSpeakerRequest) Reset() {
+	*x = DeleteBGPSpeakerRequest{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteBGPSpeakerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteBGPSpeakerRequest) ProtoMessage() {}
+
+func (x *DeleteBGPSpeakerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteBGPSpeakerRequest.ProtoReflect.Descriptor instead.
+func (*DeleteBGPSpeakerRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *DeleteBGPSpeakerRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type AddBGPPeerRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	SpeakerId         string                 `protobuf:"bytes,1,opt,name=speaker_id,json=speakerId,proto3" json:"speaker_id,omitempty"`
+	Name              string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	PeerIp            string                 `protobuf:"bytes,3,opt,name=peer_ip,json=peerIp,proto3" json:"peer_ip,omitempty"`
+	RemoteAsn         uint32                 `protobuf:"varint,4,opt,name=remote_asn,json=remoteAsn,proto3" json:"remote_asn,omitempty"`
+	Md5Password       string                 `protobuf:"bytes,5,opt,name=md5_password,json=md5Password,proto3" json:"md5_password,omitempty"`
+	HoldTime          uint32                 `protobuf:"varint,6,opt,name=hold_time,json=holdTime,proto3" json:"hold_time,omitempty"`
+	KeepaliveInterval uint32                 `protobuf:"varint,7,opt,name=keepalive_interval,json=keepaliveInterval,proto3" json:"keepalive_interval,omitempty"`
+	BfdEnabled        bool                   `protobuf:"varint,8,opt,name=bfd_enabled,json=bfdEnabled,proto3" json:"bfd_enabled,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *AddBGPPeerRequest) Reset() {
+	*x = AddBGPPeerRequest{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddBGPPeerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddBGPPeerRequest) ProtoMessage() {}
+
+func (x *AddBGPPeerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddBGPPeerRequest.ProtoReflect.Descriptor instead.
+func (*AddBGPPeerRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *AddBGPPeerRequest) GetSpeakerId() string {
+	if x != nil {
+		return x.SpeakerId
+	}
+	return ""
+}
+
+func (x *AddBGPPeerRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AddBGPPeerRequest) GetPeerIp() string {
+	if x != nil {
+		return x.PeerIp
+	}
+	return ""
+}
+
+func (x *AddBGPPeerRequest) GetRemoteAsn() uint32 {
+	if x != nil {
+		return x.RemoteAsn
+	}
+	return 0
+}
+
+func (x *AddBGPPeerRequest) GetMd5Password() string {
+	if x != nil {
+		return x.Md5Password
+	}
+	return ""
+}
+
+func (x *AddBGPPeerRequest) GetHoldTime() uint32 {
+	if x != nil {
+		return x.HoldTime
+	}
+	return 0
+}
+
+func (x *AddBGPPeerRequest) GetKeepaliveInterval() uint32 {
+	if x != nil {
+		return x.KeepaliveInterval
+	}
+	return 0
+}
+
+func (x *AddBGPPeerRequest) GetBfdEnabled() bool {
+	if x != nil {
+		return x.BfdEnabled
+	}
+	return false
+}
+
+type RemoveBGPPeerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SpeakerId     string                 `protobuf:"bytes,1,opt,name=speaker_id,json=speakerId,proto3" json:"speaker_id,omitempty"`
+	PeerId        string                 `protobuf:"bytes,2,opt,name=peer_id,json=peerId,proto3" json:"peer_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveBGPPeerRequest) Reset() {
+	*x = RemoveBGPPeerRequest{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveBGPPeerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveBGPPeerRequest) ProtoMessage() {}
+
+func (x *RemoveBGPPeerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveBGPPeerRequest.ProtoReflect.Descriptor instead.
+func (*RemoveBGPPeerRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *RemoveBGPPeerRequest) GetSpeakerId() string {
+	if x != nil {
+		return x.SpeakerId
+	}
+	return ""
+}
+
+func (x *RemoveBGPPeerRequest) GetPeerId() string {
+	if x != nil {
+		return x.PeerId
+	}
+	return ""
+}
+
+type ListBGPPeersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SpeakerId     string                 `protobuf:"bytes,1,opt,name=speaker_id,json=speakerId,proto3" json:"speaker_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBGPPeersRequest) Reset() {
+	*x = ListBGPPeersRequest{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBGPPeersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBGPPeersRequest) ProtoMessage() {}
+
+func (x *ListBGPPeersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBGPPeersRequest.ProtoReflect.Descriptor instead.
+func (*ListBGPPeersRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *ListBGPPeersRequest) GetSpeakerId() string {
+	if x != nil {
+		return x.SpeakerId
+	}
+	return ""
+}
+
+type ListBGPPeersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Peers         []*BGPPeer             `protobuf:"bytes,1,rep,name=peers,proto3" json:"peers,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBGPPeersResponse) Reset() {
+	*x = ListBGPPeersResponse{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBGPPeersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBGPPeersResponse) ProtoMessage() {}
+
+func (x *ListBGPPeersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBGPPeersResponse.ProtoReflect.Descriptor instead.
+func (*ListBGPPeersResponse) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *ListBGPPeersResponse) GetPeers() []*BGPPeer {
+	if x != nil {
+		return x.Peers
+	}
+	return nil
+}
+
+type AdvertiseNetworkRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	SpeakerId       string                 `protobuf:"bytes,1,opt,name=speaker_id,json=speakerId,proto3" json:"speaker_id,omitempty"`
+	Cidr            string                 `protobuf:"bytes,2,opt,name=cidr,proto3" json:"cidr,omitempty"`
+	NextHop         string                 `protobuf:"bytes,3,opt,name=next_hop,json=nextHop,proto3" json:"next_hop,omitempty"`
+	Communities     []string               `protobuf:"bytes,4,rep,name=communities,proto3" json:"communities,omitempty"`
+	LocalPreference uint32                 `protobuf:"varint,5,opt,name=local_preference,json=localPreference,proto3" json:"local_preference,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *AdvertiseNetworkRequest) Reset() {
+	*x = AdvertiseNetworkRequest{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdvertiseNetworkRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdvertiseNetworkRequest) ProtoMessage() {}
+
+func (x *AdvertiseNetworkRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdvertiseNetworkRequest.ProtoReflect.Descriptor instead.
+func (*AdvertiseNetworkRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *AdvertiseNetworkRequest) GetSpeakerId() string {
+	if x != nil {
+		return x.SpeakerId
+	}
+	return ""
+}
+
+func (x *AdvertiseNetworkRequest) GetCidr() string {
+	if x != nil {
+		return x.Cidr
+	}
+	return ""
+}
+
+func (x *AdvertiseNetworkRequest) GetNextHop() string {
+	if x != nil {
+		return x.NextHop
+	}
+	return ""
+}
+
+func (x *AdvertiseNetworkRequest) GetCommunities() []string {
+	if x != nil {
+		return x.Communities
+	}
+	return nil
+}
+
+func (x *AdvertiseNetworkRequest) GetLocalPreference() uint32 {
+	if x != nil {
+		return x.LocalPreference
+	}
+	return 0
+}
+
+type WithdrawNetworkRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	SpeakerId       string                 `protobuf:"bytes,1,opt,name=speaker_id,json=speakerId,proto3" json:"speaker_id,omitempty"`
+	AdvertisementId string                 `protobuf:"bytes,2,opt,name=advertisement_id,json=advertisementId,proto3" json:"advertisement_id,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *WithdrawNetworkRequest) Reset() {
+	*x = WithdrawNetworkRequest{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WithdrawNetworkRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WithdrawNetworkRequest) ProtoMessage() {}
+
+func (x *WithdrawNetworkRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WithdrawNetworkRequest.ProtoReflect.Descriptor instead.
+func (*WithdrawNetworkRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *WithdrawNetworkRequest) GetSpeakerId() string {
+	if x != nil {
+		return x.SpeakerId
+	}
+	return ""
+}
+
+func (x *WithdrawNetworkRequest) GetAdvertisementId() string {
+	if x != nil {
+		return x.AdvertisementId
+	}
+	return ""
+}
+
+type ListAdvertisementsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SpeakerId     string                 `protobuf:"bytes,1,opt,name=speaker_id,json=speakerId,proto3" json:"speaker_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAdvertisementsRequest) Reset() {
+	*x = ListAdvertisementsRequest{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAdvertisementsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAdvertisementsRequest) ProtoMessage() {}
+
+func (x *ListAdvertisementsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAdvertisementsRequest.ProtoReflect.Descriptor instead.
+func (*ListAdvertisementsRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *ListAdvertisementsRequest) GetSpeakerId() string {
+	if x != nil {
+		return x.SpeakerId
+	}
+	return ""
+}
+
+type ListAdvertisementsResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Advertisements []*BGPAdvertisement    `protobuf:"bytes,1,rep,name=advertisements,proto3" json:"advertisements,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ListAdvertisementsResponse) Reset() {
+	*x = ListAdvertisementsResponse{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAdvertisementsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAdvertisementsResponse) ProtoMessage() {}
+
+func (x *ListAdvertisementsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAdvertisementsResponse.ProtoReflect.Descriptor instead.
+func (*ListAdvertisementsResponse) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *ListAdvertisementsResponse) GetAdvertisements() []*BGPAdvertisement {
+	if x != nil {
+		return x.Advertisements
+	}
+	return nil
+}
+
+type GetBGPSpeakerStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBGPSpeakerStatusRequest) Reset() {
+	*x = GetBGPSpeakerStatusRequest{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBGPSpeakerStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBGPSpeakerStatusRequest) ProtoMessage() {}
+
+func (x *GetBGPSpeakerStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBGPSpeakerStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetBGPSpeakerStatusRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *GetBGPSpeakerStatusRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type BGPSpeakerDetailedStatus struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	SpeakerId string                 `protobuf:"bytes,1,opt,name=speaker_id,json=speakerId,proto3" json:"speaker_id,omitempty"`
+	Status    *BGPSpeakerStatus      `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	// Per-peer status
+	Peers []*BGPPeer `protobuf:"bytes,3,rep,name=peers,proto3" json:"peers,omitempty"`
+	// Advertised routes
+	Advertisements []*BGPAdvertisement `protobuf:"bytes,4,rep,name=advertisements,proto3" json:"advertisements,omitempty"`
+	// Received routes (from peers)
+	ReceivedRoutes uint32 `protobuf:"varint,5,opt,name=received_routes,json=receivedRoutes,proto3" json:"received_routes,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *BGPSpeakerDetailedStatus) Reset() {
+	*x = BGPSpeakerDetailedStatus{}
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BGPSpeakerDetailedStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BGPSpeakerDetailedStatus) ProtoMessage() {}
+
+func (x *BGPSpeakerDetailedStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_network_v1_network_service_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BGPSpeakerDetailedStatus.ProtoReflect.Descriptor instead.
+func (*BGPSpeakerDetailedStatus) Descriptor() ([]byte, []int) {
+	return file_limiquantix_network_v1_network_service_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *BGPSpeakerDetailedStatus) GetSpeakerId() string {
+	if x != nil {
+		return x.SpeakerId
+	}
+	return ""
+}
+
+func (x *BGPSpeakerDetailedStatus) GetStatus() *BGPSpeakerStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
+func (x *BGPSpeakerDetailedStatus) GetPeers() []*BGPPeer {
+	if x != nil {
+		return x.Peers
+	}
+	return nil
+}
+
+func (x *BGPSpeakerDetailedStatus) GetAdvertisements() []*BGPAdvertisement {
+	if x != nil {
+		return x.Advertisements
+	}
+	return nil
+}
+
+func (x *BGPSpeakerDetailedStatus) GetReceivedRoutes() uint32 {
+	if x != nil {
+		return x.ReceivedRoutes
+	}
+	return 0
+}
+
 var File_limiquantix_network_v1_network_service_proto protoreflect.FileDescriptor
 
 const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
@@ -3823,7 +4686,79 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\aUNKNOWN\x10\x00\x12\b\n" +
 	"\x04DOWN\x10\x01\x12\x0f\n" +
 	"\vNEGOTIATING\x10\x02\x12\x06\n" +
-	"\x02UP\x10\x032\xfa\x04\n" +
+	"\x02UP\x10\x03\"\xba\x02\n" +
+	"\x17CreateBGPSpeakerRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x02 \x01(\tR\tprojectId\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12S\n" +
+	"\x06labels\x18\x04 \x03(\v2;.limiquantix.network.v1.CreateBGPSpeakerRequest.LabelsEntryR\x06labels\x12:\n" +
+	"\x04spec\x18\x05 \x01(\v2&.limiquantix.network.v1.BGPSpeakerSpecR\x04spec\x1a9\n" +
+	"\vLabelsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"&\n" +
+	"\x14GetBGPSpeakerRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"s\n" +
+	"\x16ListBGPSpeakersRequest\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x01 \x01(\tR\tprojectId\x12\x1b\n" +
+	"\tpage_size\x18\n" +
+	" \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\v \x01(\tR\tpageToken\"\xa2\x01\n" +
+	"\x17ListBGPSpeakersResponse\x12>\n" +
+	"\bspeakers\x18\x01 \x03(\v2\".limiquantix.network.v1.BGPSpeakerR\bspeakers\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
+	"\vtotal_count\x18\x03 \x01(\x05R\n" +
+	"totalCount\")\n" +
+	"\x17DeleteBGPSpeakerRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x8e\x02\n" +
+	"\x11AddBGPPeerRequest\x12\x1d\n" +
+	"\n" +
+	"speaker_id\x18\x01 \x01(\tR\tspeakerId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n" +
+	"\apeer_ip\x18\x03 \x01(\tR\x06peerIp\x12\x1d\n" +
+	"\n" +
+	"remote_asn\x18\x04 \x01(\rR\tremoteAsn\x12!\n" +
+	"\fmd5_password\x18\x05 \x01(\tR\vmd5Password\x12\x1b\n" +
+	"\thold_time\x18\x06 \x01(\rR\bholdTime\x12-\n" +
+	"\x12keepalive_interval\x18\a \x01(\rR\x11keepaliveInterval\x12\x1f\n" +
+	"\vbfd_enabled\x18\b \x01(\bR\n" +
+	"bfdEnabled\"N\n" +
+	"\x14RemoveBGPPeerRequest\x12\x1d\n" +
+	"\n" +
+	"speaker_id\x18\x01 \x01(\tR\tspeakerId\x12\x17\n" +
+	"\apeer_id\x18\x02 \x01(\tR\x06peerId\"4\n" +
+	"\x13ListBGPPeersRequest\x12\x1d\n" +
+	"\n" +
+	"speaker_id\x18\x01 \x01(\tR\tspeakerId\"M\n" +
+	"\x14ListBGPPeersResponse\x125\n" +
+	"\x05peers\x18\x01 \x03(\v2\x1f.limiquantix.network.v1.BGPPeerR\x05peers\"\xb4\x01\n" +
+	"\x17AdvertiseNetworkRequest\x12\x1d\n" +
+	"\n" +
+	"speaker_id\x18\x01 \x01(\tR\tspeakerId\x12\x12\n" +
+	"\x04cidr\x18\x02 \x01(\tR\x04cidr\x12\x19\n" +
+	"\bnext_hop\x18\x03 \x01(\tR\anextHop\x12 \n" +
+	"\vcommunities\x18\x04 \x03(\tR\vcommunities\x12)\n" +
+	"\x10local_preference\x18\x05 \x01(\rR\x0flocalPreference\"b\n" +
+	"\x16WithdrawNetworkRequest\x12\x1d\n" +
+	"\n" +
+	"speaker_id\x18\x01 \x01(\tR\tspeakerId\x12)\n" +
+	"\x10advertisement_id\x18\x02 \x01(\tR\x0fadvertisementId\":\n" +
+	"\x19ListAdvertisementsRequest\x12\x1d\n" +
+	"\n" +
+	"speaker_id\x18\x01 \x01(\tR\tspeakerId\"n\n" +
+	"\x1aListAdvertisementsResponse\x12P\n" +
+	"\x0eadvertisements\x18\x01 \x03(\v2(.limiquantix.network.v1.BGPAdvertisementR\x0eadvertisements\",\n" +
+	"\x1aGetBGPSpeakerStatusRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xad\x02\n" +
+	"\x18BGPSpeakerDetailedStatus\x12\x1d\n" +
+	"\n" +
+	"speaker_id\x18\x01 \x01(\tR\tspeakerId\x12@\n" +
+	"\x06status\x18\x02 \x01(\v2(.limiquantix.network.v1.BGPSpeakerStatusR\x06status\x125\n" +
+	"\x05peers\x18\x03 \x03(\v2\x1f.limiquantix.network.v1.BGPPeerR\x05peers\x12P\n" +
+	"\x0eadvertisements\x18\x04 \x03(\v2(.limiquantix.network.v1.BGPAdvertisementR\x0eadvertisements\x12'\n" +
+	"\x0freceived_routes\x18\x05 \x01(\rR\x0ereceivedRoutes2\xfa\x04\n" +
 	"\x15VirtualNetworkService\x12e\n" +
 	"\rCreateNetwork\x12,.limiquantix.network.v1.CreateNetworkRequest\x1a&.limiquantix.network.v1.VirtualNetwork\x12_\n" +
 	"\n" +
@@ -3878,7 +4813,22 @@ const file_limiquantix_network_v1_network_service_proto_rawDesc = "" +
 	"\tDeleteVpn\x12(.limiquantix.network.v1.DeleteVpnRequest\x1a\x16.google.protobuf.Empty\x12a\n" +
 	"\rAddConnection\x12,.limiquantix.network.v1.AddConnectionRequest\x1a\".limiquantix.network.v1.VpnService\x12g\n" +
 	"\x10RemoveConnection\x12/.limiquantix.network.v1.RemoveConnectionRequest\x1a\".limiquantix.network.v1.VpnService\x12d\n" +
-	"\fGetVpnStatus\x12+.limiquantix.network.v1.GetVpnStatusRequest\x1a'.limiquantix.network.v1.VpnTunnelStatusB\xf8\x01\n" +
+	"\fGetVpnStatus\x12+.limiquantix.network.v1.GetVpnStatusRequest\x1a'.limiquantix.network.v1.VpnTunnelStatus2\xf1\b\n" +
+	"\n" +
+	"BGPService\x12d\n" +
+	"\rCreateSpeaker\x12/.limiquantix.network.v1.CreateBGPSpeakerRequest\x1a\".limiquantix.network.v1.BGPSpeaker\x12^\n" +
+	"\n" +
+	"GetSpeaker\x12,.limiquantix.network.v1.GetBGPSpeakerRequest\x1a\".limiquantix.network.v1.BGPSpeaker\x12o\n" +
+	"\fListSpeakers\x12..limiquantix.network.v1.ListBGPSpeakersRequest\x1a/.limiquantix.network.v1.ListBGPSpeakersResponse\x12X\n" +
+	"\rDeleteSpeaker\x12/.limiquantix.network.v1.DeleteBGPSpeakerRequest\x1a\x16.google.protobuf.Empty\x12U\n" +
+	"\aAddPeer\x12).limiquantix.network.v1.AddBGPPeerRequest\x1a\x1f.limiquantix.network.v1.BGPPeer\x12R\n" +
+	"\n" +
+	"RemovePeer\x12,.limiquantix.network.v1.RemoveBGPPeerRequest\x1a\x16.google.protobuf.Empty\x12f\n" +
+	"\tListPeers\x12+.limiquantix.network.v1.ListBGPPeersRequest\x1a,.limiquantix.network.v1.ListBGPPeersResponse\x12m\n" +
+	"\x10AdvertiseNetwork\x12/.limiquantix.network.v1.AdvertiseNetworkRequest\x1a(.limiquantix.network.v1.BGPAdvertisement\x12Y\n" +
+	"\x0fWithdrawNetwork\x12..limiquantix.network.v1.WithdrawNetworkRequest\x1a\x16.google.protobuf.Empty\x12{\n" +
+	"\x12ListAdvertisements\x121.limiquantix.network.v1.ListAdvertisementsRequest\x1a2.limiquantix.network.v1.ListAdvertisementsResponse\x12x\n" +
+	"\x10GetSpeakerStatus\x122.limiquantix.network.v1.GetBGPSpeakerStatusRequest\x1a0.limiquantix.network.v1.BGPSpeakerDetailedStatusB\xf8\x01\n" +
 	"\x1acom.limiquantix.network.v1B\x13NetworkServiceProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/network/v1;networkv1\xa2\x02\x03LNX\xaa\x02\x16Limiquantix.Network.V1\xca\x02\x16Limiquantix\\Network\\V1\xe2\x02\"Limiquantix\\Network\\V1\\GPBMetadata\xea\x02\x18Limiquantix::Network::V1b\x06proto3"
 
 var (
@@ -3894,7 +4844,7 @@ func file_limiquantix_network_v1_network_service_proto_rawDescGZIP() []byte {
 }
 
 var file_limiquantix_network_v1_network_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_limiquantix_network_v1_network_service_proto_msgTypes = make([]protoimpl.MessageInfo, 67)
+var file_limiquantix_network_v1_network_service_proto_msgTypes = make([]protoimpl.MessageInfo, 83)
 var file_limiquantix_network_v1_network_service_proto_goTypes = []any{
 	(TunnelStatus_Status)(0),              // 0: limiquantix.network.v1.TunnelStatus.Status
 	(*CreateNetworkRequest)(nil),          // 1: limiquantix.network.v1.CreateNetworkRequest
@@ -3954,161 +4904,212 @@ var file_limiquantix_network_v1_network_service_proto_goTypes = []any{
 	(*GetVpnStatusRequest)(nil),           // 55: limiquantix.network.v1.GetVpnStatusRequest
 	(*VpnTunnelStatus)(nil),               // 56: limiquantix.network.v1.VpnTunnelStatus
 	(*TunnelStatus)(nil),                  // 57: limiquantix.network.v1.TunnelStatus
-	nil,                                   // 58: limiquantix.network.v1.CreateNetworkRequest.LabelsEntry
-	nil,                                   // 59: limiquantix.network.v1.ListNetworksRequest.LabelsEntry
-	nil,                                   // 60: limiquantix.network.v1.UpdateNetworkRequest.LabelsEntry
-	nil,                                   // 61: limiquantix.network.v1.NetworkNode.PropertiesEntry
-	nil,                                   // 62: limiquantix.network.v1.CreatePortRequest.LabelsEntry
-	nil,                                   // 63: limiquantix.network.v1.CreateSecurityGroupRequest.LabelsEntry
-	nil,                                   // 64: limiquantix.network.v1.UpdateSecurityGroupRequest.LabelsEntry
-	nil,                                   // 65: limiquantix.network.v1.AllocateFloatingIpRequest.LabelsEntry
-	nil,                                   // 66: limiquantix.network.v1.CreateLoadBalancerRequest.LabelsEntry
-	nil,                                   // 67: limiquantix.network.v1.UpdateLoadBalancerRequest.LabelsEntry
-	(*VirtualNetworkSpec)(nil),            // 68: limiquantix.network.v1.VirtualNetworkSpec
-	(VirtualNetworkSpec_NetworkType)(0),   // 69: limiquantix.network.v1.VirtualNetworkSpec.NetworkType
-	(*VirtualNetwork)(nil),                // 70: limiquantix.network.v1.VirtualNetwork
-	(*fieldmaskpb.FieldMask)(nil),         // 71: google.protobuf.FieldMask
-	(*PortSpec)(nil),                      // 72: limiquantix.network.v1.PortSpec
-	(*Port)(nil),                          // 73: limiquantix.network.v1.Port
-	(*SecurityGroupRule)(nil),             // 74: limiquantix.network.v1.SecurityGroupRule
-	(*SecurityGroup)(nil),                 // 75: limiquantix.network.v1.SecurityGroup
-	(*FloatingIp)(nil),                    // 76: limiquantix.network.v1.FloatingIp
-	(*LoadBalancerSpec)(nil),              // 77: limiquantix.network.v1.LoadBalancerSpec
-	(*LoadBalancer)(nil),                  // 78: limiquantix.network.v1.LoadBalancer
-	(*Listener)(nil),                      // 79: limiquantix.network.v1.Listener
-	(*PoolMember)(nil),                    // 80: limiquantix.network.v1.PoolMember
-	(*VpnConnection)(nil),                 // 81: limiquantix.network.v1.VpnConnection
-	(*VpnService)(nil),                    // 82: limiquantix.network.v1.VpnService
-	(*emptypb.Empty)(nil),                 // 83: google.protobuf.Empty
+	(*CreateBGPSpeakerRequest)(nil),       // 58: limiquantix.network.v1.CreateBGPSpeakerRequest
+	(*GetBGPSpeakerRequest)(nil),          // 59: limiquantix.network.v1.GetBGPSpeakerRequest
+	(*ListBGPSpeakersRequest)(nil),        // 60: limiquantix.network.v1.ListBGPSpeakersRequest
+	(*ListBGPSpeakersResponse)(nil),       // 61: limiquantix.network.v1.ListBGPSpeakersResponse
+	(*DeleteBGPSpeakerRequest)(nil),       // 62: limiquantix.network.v1.DeleteBGPSpeakerRequest
+	(*AddBGPPeerRequest)(nil),             // 63: limiquantix.network.v1.AddBGPPeerRequest
+	(*RemoveBGPPeerRequest)(nil),          // 64: limiquantix.network.v1.RemoveBGPPeerRequest
+	(*ListBGPPeersRequest)(nil),           // 65: limiquantix.network.v1.ListBGPPeersRequest
+	(*ListBGPPeersResponse)(nil),          // 66: limiquantix.network.v1.ListBGPPeersResponse
+	(*AdvertiseNetworkRequest)(nil),       // 67: limiquantix.network.v1.AdvertiseNetworkRequest
+	(*WithdrawNetworkRequest)(nil),        // 68: limiquantix.network.v1.WithdrawNetworkRequest
+	(*ListAdvertisementsRequest)(nil),     // 69: limiquantix.network.v1.ListAdvertisementsRequest
+	(*ListAdvertisementsResponse)(nil),    // 70: limiquantix.network.v1.ListAdvertisementsResponse
+	(*GetBGPSpeakerStatusRequest)(nil),    // 71: limiquantix.network.v1.GetBGPSpeakerStatusRequest
+	(*BGPSpeakerDetailedStatus)(nil),      // 72: limiquantix.network.v1.BGPSpeakerDetailedStatus
+	nil,                                   // 73: limiquantix.network.v1.CreateNetworkRequest.LabelsEntry
+	nil,                                   // 74: limiquantix.network.v1.ListNetworksRequest.LabelsEntry
+	nil,                                   // 75: limiquantix.network.v1.UpdateNetworkRequest.LabelsEntry
+	nil,                                   // 76: limiquantix.network.v1.NetworkNode.PropertiesEntry
+	nil,                                   // 77: limiquantix.network.v1.CreatePortRequest.LabelsEntry
+	nil,                                   // 78: limiquantix.network.v1.CreateSecurityGroupRequest.LabelsEntry
+	nil,                                   // 79: limiquantix.network.v1.UpdateSecurityGroupRequest.LabelsEntry
+	nil,                                   // 80: limiquantix.network.v1.AllocateFloatingIpRequest.LabelsEntry
+	nil,                                   // 81: limiquantix.network.v1.CreateLoadBalancerRequest.LabelsEntry
+	nil,                                   // 82: limiquantix.network.v1.UpdateLoadBalancerRequest.LabelsEntry
+	nil,                                   // 83: limiquantix.network.v1.CreateBGPSpeakerRequest.LabelsEntry
+	(*VirtualNetworkSpec)(nil),            // 84: limiquantix.network.v1.VirtualNetworkSpec
+	(VirtualNetworkSpec_NetworkType)(0),   // 85: limiquantix.network.v1.VirtualNetworkSpec.NetworkType
+	(*VirtualNetwork)(nil),                // 86: limiquantix.network.v1.VirtualNetwork
+	(*fieldmaskpb.FieldMask)(nil),         // 87: google.protobuf.FieldMask
+	(*PortSpec)(nil),                      // 88: limiquantix.network.v1.PortSpec
+	(*Port)(nil),                          // 89: limiquantix.network.v1.Port
+	(*SecurityGroupRule)(nil),             // 90: limiquantix.network.v1.SecurityGroupRule
+	(*SecurityGroup)(nil),                 // 91: limiquantix.network.v1.SecurityGroup
+	(*FloatingIp)(nil),                    // 92: limiquantix.network.v1.FloatingIp
+	(*LoadBalancerSpec)(nil),              // 93: limiquantix.network.v1.LoadBalancerSpec
+	(*LoadBalancer)(nil),                  // 94: limiquantix.network.v1.LoadBalancer
+	(*Listener)(nil),                      // 95: limiquantix.network.v1.Listener
+	(*PoolMember)(nil),                    // 96: limiquantix.network.v1.PoolMember
+	(*VpnConnection)(nil),                 // 97: limiquantix.network.v1.VpnConnection
+	(*VpnService)(nil),                    // 98: limiquantix.network.v1.VpnService
+	(*BGPSpeakerSpec)(nil),                // 99: limiquantix.network.v1.BGPSpeakerSpec
+	(*BGPSpeaker)(nil),                    // 100: limiquantix.network.v1.BGPSpeaker
+	(*BGPPeer)(nil),                       // 101: limiquantix.network.v1.BGPPeer
+	(*BGPAdvertisement)(nil),              // 102: limiquantix.network.v1.BGPAdvertisement
+	(*BGPSpeakerStatus)(nil),              // 103: limiquantix.network.v1.BGPSpeakerStatus
+	(*emptypb.Empty)(nil),                 // 104: google.protobuf.Empty
 }
 var file_limiquantix_network_v1_network_service_proto_depIdxs = []int32{
-	58, // 0: limiquantix.network.v1.CreateNetworkRequest.labels:type_name -> limiquantix.network.v1.CreateNetworkRequest.LabelsEntry
-	68, // 1: limiquantix.network.v1.CreateNetworkRequest.spec:type_name -> limiquantix.network.v1.VirtualNetworkSpec
-	59, // 2: limiquantix.network.v1.ListNetworksRequest.labels:type_name -> limiquantix.network.v1.ListNetworksRequest.LabelsEntry
-	69, // 3: limiquantix.network.v1.ListNetworksRequest.type:type_name -> limiquantix.network.v1.VirtualNetworkSpec.NetworkType
-	70, // 4: limiquantix.network.v1.ListNetworksResponse.networks:type_name -> limiquantix.network.v1.VirtualNetwork
-	68, // 5: limiquantix.network.v1.UpdateNetworkRequest.spec:type_name -> limiquantix.network.v1.VirtualNetworkSpec
-	71, // 6: limiquantix.network.v1.UpdateNetworkRequest.update_mask:type_name -> google.protobuf.FieldMask
-	60, // 7: limiquantix.network.v1.UpdateNetworkRequest.labels:type_name -> limiquantix.network.v1.UpdateNetworkRequest.LabelsEntry
-	9,  // 8: limiquantix.network.v1.NetworkTopology.nodes:type_name -> limiquantix.network.v1.NetworkNode
-	10, // 9: limiquantix.network.v1.NetworkTopology.edges:type_name -> limiquantix.network.v1.NetworkEdge
-	61, // 10: limiquantix.network.v1.NetworkNode.properties:type_name -> limiquantix.network.v1.NetworkNode.PropertiesEntry
-	62, // 11: limiquantix.network.v1.CreatePortRequest.labels:type_name -> limiquantix.network.v1.CreatePortRequest.LabelsEntry
-	72, // 12: limiquantix.network.v1.CreatePortRequest.spec:type_name -> limiquantix.network.v1.PortSpec
-	73, // 13: limiquantix.network.v1.ListPortsResponse.ports:type_name -> limiquantix.network.v1.Port
-	72, // 14: limiquantix.network.v1.UpdatePortRequest.spec:type_name -> limiquantix.network.v1.PortSpec
-	71, // 15: limiquantix.network.v1.UpdatePortRequest.update_mask:type_name -> google.protobuf.FieldMask
-	63, // 16: limiquantix.network.v1.CreateSecurityGroupRequest.labels:type_name -> limiquantix.network.v1.CreateSecurityGroupRequest.LabelsEntry
-	74, // 17: limiquantix.network.v1.CreateSecurityGroupRequest.rules:type_name -> limiquantix.network.v1.SecurityGroupRule
-	75, // 18: limiquantix.network.v1.ListSecurityGroupsResponse.security_groups:type_name -> limiquantix.network.v1.SecurityGroup
-	64, // 19: limiquantix.network.v1.UpdateSecurityGroupRequest.labels:type_name -> limiquantix.network.v1.UpdateSecurityGroupRequest.LabelsEntry
-	74, // 20: limiquantix.network.v1.AddRuleRequest.rule:type_name -> limiquantix.network.v1.SecurityGroupRule
-	65, // 21: limiquantix.network.v1.AllocateFloatingIpRequest.labels:type_name -> limiquantix.network.v1.AllocateFloatingIpRequest.LabelsEntry
-	76, // 22: limiquantix.network.v1.ListFloatingIpsResponse.floating_ips:type_name -> limiquantix.network.v1.FloatingIp
-	66, // 23: limiquantix.network.v1.CreateLoadBalancerRequest.labels:type_name -> limiquantix.network.v1.CreateLoadBalancerRequest.LabelsEntry
-	77, // 24: limiquantix.network.v1.CreateLoadBalancerRequest.spec:type_name -> limiquantix.network.v1.LoadBalancerSpec
-	78, // 25: limiquantix.network.v1.ListLoadBalancersResponse.load_balancers:type_name -> limiquantix.network.v1.LoadBalancer
-	67, // 26: limiquantix.network.v1.UpdateLoadBalancerRequest.labels:type_name -> limiquantix.network.v1.UpdateLoadBalancerRequest.LabelsEntry
-	79, // 27: limiquantix.network.v1.AddListenerRequest.listener:type_name -> limiquantix.network.v1.Listener
-	80, // 28: limiquantix.network.v1.AddPoolMemberRequest.member:type_name -> limiquantix.network.v1.PoolMember
-	46, // 29: limiquantix.network.v1.LoadBalancerStats.listener_stats:type_name -> limiquantix.network.v1.ListenerStats
-	47, // 30: limiquantix.network.v1.LoadBalancerStats.member_stats:type_name -> limiquantix.network.v1.MemberStats
-	81, // 31: limiquantix.network.v1.CreateVpnRequest.connections:type_name -> limiquantix.network.v1.VpnConnection
-	82, // 32: limiquantix.network.v1.ListVpnsResponse.vpn_services:type_name -> limiquantix.network.v1.VpnService
-	81, // 33: limiquantix.network.v1.AddConnectionRequest.connection:type_name -> limiquantix.network.v1.VpnConnection
-	57, // 34: limiquantix.network.v1.VpnTunnelStatus.tunnels:type_name -> limiquantix.network.v1.TunnelStatus
-	0,  // 35: limiquantix.network.v1.TunnelStatus.status:type_name -> limiquantix.network.v1.TunnelStatus.Status
-	1,  // 36: limiquantix.network.v1.VirtualNetworkService.CreateNetwork:input_type -> limiquantix.network.v1.CreateNetworkRequest
-	2,  // 37: limiquantix.network.v1.VirtualNetworkService.GetNetwork:input_type -> limiquantix.network.v1.GetNetworkRequest
-	3,  // 38: limiquantix.network.v1.VirtualNetworkService.ListNetworks:input_type -> limiquantix.network.v1.ListNetworksRequest
-	5,  // 39: limiquantix.network.v1.VirtualNetworkService.UpdateNetwork:input_type -> limiquantix.network.v1.UpdateNetworkRequest
-	6,  // 40: limiquantix.network.v1.VirtualNetworkService.DeleteNetwork:input_type -> limiquantix.network.v1.DeleteNetworkRequest
-	7,  // 41: limiquantix.network.v1.VirtualNetworkService.GetNetworkTopology:input_type -> limiquantix.network.v1.GetNetworkTopologyRequest
-	11, // 42: limiquantix.network.v1.PortService.CreatePort:input_type -> limiquantix.network.v1.CreatePortRequest
-	12, // 43: limiquantix.network.v1.PortService.GetPort:input_type -> limiquantix.network.v1.GetPortRequest
-	13, // 44: limiquantix.network.v1.PortService.ListPorts:input_type -> limiquantix.network.v1.ListPortsRequest
-	15, // 45: limiquantix.network.v1.PortService.UpdatePort:input_type -> limiquantix.network.v1.UpdatePortRequest
-	16, // 46: limiquantix.network.v1.PortService.DeletePort:input_type -> limiquantix.network.v1.DeletePortRequest
-	17, // 47: limiquantix.network.v1.PortService.BindPort:input_type -> limiquantix.network.v1.BindPortRequest
-	18, // 48: limiquantix.network.v1.PortService.UnbindPort:input_type -> limiquantix.network.v1.UnbindPortRequest
-	19, // 49: limiquantix.network.v1.SecurityGroupService.CreateSecurityGroup:input_type -> limiquantix.network.v1.CreateSecurityGroupRequest
-	20, // 50: limiquantix.network.v1.SecurityGroupService.GetSecurityGroup:input_type -> limiquantix.network.v1.GetSecurityGroupRequest
-	21, // 51: limiquantix.network.v1.SecurityGroupService.ListSecurityGroups:input_type -> limiquantix.network.v1.ListSecurityGroupsRequest
-	23, // 52: limiquantix.network.v1.SecurityGroupService.UpdateSecurityGroup:input_type -> limiquantix.network.v1.UpdateSecurityGroupRequest
-	24, // 53: limiquantix.network.v1.SecurityGroupService.DeleteSecurityGroup:input_type -> limiquantix.network.v1.DeleteSecurityGroupRequest
-	25, // 54: limiquantix.network.v1.SecurityGroupService.AddRule:input_type -> limiquantix.network.v1.AddRuleRequest
-	26, // 55: limiquantix.network.v1.SecurityGroupService.RemoveRule:input_type -> limiquantix.network.v1.RemoveRuleRequest
-	27, // 56: limiquantix.network.v1.FloatingIpService.AllocateFloatingIp:input_type -> limiquantix.network.v1.AllocateFloatingIpRequest
-	28, // 57: limiquantix.network.v1.FloatingIpService.GetFloatingIp:input_type -> limiquantix.network.v1.GetFloatingIpRequest
-	29, // 58: limiquantix.network.v1.FloatingIpService.ListFloatingIps:input_type -> limiquantix.network.v1.ListFloatingIpsRequest
-	31, // 59: limiquantix.network.v1.FloatingIpService.ReleaseFloatingIp:input_type -> limiquantix.network.v1.ReleaseFloatingIpRequest
-	32, // 60: limiquantix.network.v1.FloatingIpService.AssociateFloatingIp:input_type -> limiquantix.network.v1.AssociateFloatingIpRequest
-	33, // 61: limiquantix.network.v1.FloatingIpService.DisassociateFloatingIp:input_type -> limiquantix.network.v1.DisassociateFloatingIpRequest
-	34, // 62: limiquantix.network.v1.LoadBalancerService.CreateLoadBalancer:input_type -> limiquantix.network.v1.CreateLoadBalancerRequest
-	35, // 63: limiquantix.network.v1.LoadBalancerService.GetLoadBalancer:input_type -> limiquantix.network.v1.GetLoadBalancerRequest
-	36, // 64: limiquantix.network.v1.LoadBalancerService.ListLoadBalancers:input_type -> limiquantix.network.v1.ListLoadBalancersRequest
-	38, // 65: limiquantix.network.v1.LoadBalancerService.UpdateLoadBalancer:input_type -> limiquantix.network.v1.UpdateLoadBalancerRequest
-	39, // 66: limiquantix.network.v1.LoadBalancerService.DeleteLoadBalancer:input_type -> limiquantix.network.v1.DeleteLoadBalancerRequest
-	40, // 67: limiquantix.network.v1.LoadBalancerService.AddListener:input_type -> limiquantix.network.v1.AddListenerRequest
-	41, // 68: limiquantix.network.v1.LoadBalancerService.RemoveListener:input_type -> limiquantix.network.v1.RemoveListenerRequest
-	42, // 69: limiquantix.network.v1.LoadBalancerService.AddPoolMember:input_type -> limiquantix.network.v1.AddPoolMemberRequest
-	43, // 70: limiquantix.network.v1.LoadBalancerService.RemovePoolMember:input_type -> limiquantix.network.v1.RemovePoolMemberRequest
-	44, // 71: limiquantix.network.v1.LoadBalancerService.GetLoadBalancerStats:input_type -> limiquantix.network.v1.GetLoadBalancerStatsRequest
-	48, // 72: limiquantix.network.v1.VpnServiceManager.CreateVpn:input_type -> limiquantix.network.v1.CreateVpnRequest
-	49, // 73: limiquantix.network.v1.VpnServiceManager.GetVpn:input_type -> limiquantix.network.v1.GetVpnRequest
-	50, // 74: limiquantix.network.v1.VpnServiceManager.ListVpns:input_type -> limiquantix.network.v1.ListVpnsRequest
-	52, // 75: limiquantix.network.v1.VpnServiceManager.DeleteVpn:input_type -> limiquantix.network.v1.DeleteVpnRequest
-	53, // 76: limiquantix.network.v1.VpnServiceManager.AddConnection:input_type -> limiquantix.network.v1.AddConnectionRequest
-	54, // 77: limiquantix.network.v1.VpnServiceManager.RemoveConnection:input_type -> limiquantix.network.v1.RemoveConnectionRequest
-	55, // 78: limiquantix.network.v1.VpnServiceManager.GetVpnStatus:input_type -> limiquantix.network.v1.GetVpnStatusRequest
-	70, // 79: limiquantix.network.v1.VirtualNetworkService.CreateNetwork:output_type -> limiquantix.network.v1.VirtualNetwork
-	70, // 80: limiquantix.network.v1.VirtualNetworkService.GetNetwork:output_type -> limiquantix.network.v1.VirtualNetwork
-	4,  // 81: limiquantix.network.v1.VirtualNetworkService.ListNetworks:output_type -> limiquantix.network.v1.ListNetworksResponse
-	70, // 82: limiquantix.network.v1.VirtualNetworkService.UpdateNetwork:output_type -> limiquantix.network.v1.VirtualNetwork
-	83, // 83: limiquantix.network.v1.VirtualNetworkService.DeleteNetwork:output_type -> google.protobuf.Empty
-	8,  // 84: limiquantix.network.v1.VirtualNetworkService.GetNetworkTopology:output_type -> limiquantix.network.v1.NetworkTopology
-	73, // 85: limiquantix.network.v1.PortService.CreatePort:output_type -> limiquantix.network.v1.Port
-	73, // 86: limiquantix.network.v1.PortService.GetPort:output_type -> limiquantix.network.v1.Port
-	14, // 87: limiquantix.network.v1.PortService.ListPorts:output_type -> limiquantix.network.v1.ListPortsResponse
-	73, // 88: limiquantix.network.v1.PortService.UpdatePort:output_type -> limiquantix.network.v1.Port
-	83, // 89: limiquantix.network.v1.PortService.DeletePort:output_type -> google.protobuf.Empty
-	73, // 90: limiquantix.network.v1.PortService.BindPort:output_type -> limiquantix.network.v1.Port
-	73, // 91: limiquantix.network.v1.PortService.UnbindPort:output_type -> limiquantix.network.v1.Port
-	75, // 92: limiquantix.network.v1.SecurityGroupService.CreateSecurityGroup:output_type -> limiquantix.network.v1.SecurityGroup
-	75, // 93: limiquantix.network.v1.SecurityGroupService.GetSecurityGroup:output_type -> limiquantix.network.v1.SecurityGroup
-	22, // 94: limiquantix.network.v1.SecurityGroupService.ListSecurityGroups:output_type -> limiquantix.network.v1.ListSecurityGroupsResponse
-	75, // 95: limiquantix.network.v1.SecurityGroupService.UpdateSecurityGroup:output_type -> limiquantix.network.v1.SecurityGroup
-	83, // 96: limiquantix.network.v1.SecurityGroupService.DeleteSecurityGroup:output_type -> google.protobuf.Empty
-	75, // 97: limiquantix.network.v1.SecurityGroupService.AddRule:output_type -> limiquantix.network.v1.SecurityGroup
-	75, // 98: limiquantix.network.v1.SecurityGroupService.RemoveRule:output_type -> limiquantix.network.v1.SecurityGroup
-	76, // 99: limiquantix.network.v1.FloatingIpService.AllocateFloatingIp:output_type -> limiquantix.network.v1.FloatingIp
-	76, // 100: limiquantix.network.v1.FloatingIpService.GetFloatingIp:output_type -> limiquantix.network.v1.FloatingIp
-	30, // 101: limiquantix.network.v1.FloatingIpService.ListFloatingIps:output_type -> limiquantix.network.v1.ListFloatingIpsResponse
-	83, // 102: limiquantix.network.v1.FloatingIpService.ReleaseFloatingIp:output_type -> google.protobuf.Empty
-	76, // 103: limiquantix.network.v1.FloatingIpService.AssociateFloatingIp:output_type -> limiquantix.network.v1.FloatingIp
-	76, // 104: limiquantix.network.v1.FloatingIpService.DisassociateFloatingIp:output_type -> limiquantix.network.v1.FloatingIp
-	78, // 105: limiquantix.network.v1.LoadBalancerService.CreateLoadBalancer:output_type -> limiquantix.network.v1.LoadBalancer
-	78, // 106: limiquantix.network.v1.LoadBalancerService.GetLoadBalancer:output_type -> limiquantix.network.v1.LoadBalancer
-	37, // 107: limiquantix.network.v1.LoadBalancerService.ListLoadBalancers:output_type -> limiquantix.network.v1.ListLoadBalancersResponse
-	78, // 108: limiquantix.network.v1.LoadBalancerService.UpdateLoadBalancer:output_type -> limiquantix.network.v1.LoadBalancer
-	83, // 109: limiquantix.network.v1.LoadBalancerService.DeleteLoadBalancer:output_type -> google.protobuf.Empty
-	78, // 110: limiquantix.network.v1.LoadBalancerService.AddListener:output_type -> limiquantix.network.v1.LoadBalancer
-	78, // 111: limiquantix.network.v1.LoadBalancerService.RemoveListener:output_type -> limiquantix.network.v1.LoadBalancer
-	78, // 112: limiquantix.network.v1.LoadBalancerService.AddPoolMember:output_type -> limiquantix.network.v1.LoadBalancer
-	78, // 113: limiquantix.network.v1.LoadBalancerService.RemovePoolMember:output_type -> limiquantix.network.v1.LoadBalancer
-	45, // 114: limiquantix.network.v1.LoadBalancerService.GetLoadBalancerStats:output_type -> limiquantix.network.v1.LoadBalancerStats
-	82, // 115: limiquantix.network.v1.VpnServiceManager.CreateVpn:output_type -> limiquantix.network.v1.VpnService
-	82, // 116: limiquantix.network.v1.VpnServiceManager.GetVpn:output_type -> limiquantix.network.v1.VpnService
-	51, // 117: limiquantix.network.v1.VpnServiceManager.ListVpns:output_type -> limiquantix.network.v1.ListVpnsResponse
-	83, // 118: limiquantix.network.v1.VpnServiceManager.DeleteVpn:output_type -> google.protobuf.Empty
-	82, // 119: limiquantix.network.v1.VpnServiceManager.AddConnection:output_type -> limiquantix.network.v1.VpnService
-	82, // 120: limiquantix.network.v1.VpnServiceManager.RemoveConnection:output_type -> limiquantix.network.v1.VpnService
-	56, // 121: limiquantix.network.v1.VpnServiceManager.GetVpnStatus:output_type -> limiquantix.network.v1.VpnTunnelStatus
-	79, // [79:122] is the sub-list for method output_type
-	36, // [36:79] is the sub-list for method input_type
-	36, // [36:36] is the sub-list for extension type_name
-	36, // [36:36] is the sub-list for extension extendee
-	0,  // [0:36] is the sub-list for field type_name
+	73,  // 0: limiquantix.network.v1.CreateNetworkRequest.labels:type_name -> limiquantix.network.v1.CreateNetworkRequest.LabelsEntry
+	84,  // 1: limiquantix.network.v1.CreateNetworkRequest.spec:type_name -> limiquantix.network.v1.VirtualNetworkSpec
+	74,  // 2: limiquantix.network.v1.ListNetworksRequest.labels:type_name -> limiquantix.network.v1.ListNetworksRequest.LabelsEntry
+	85,  // 3: limiquantix.network.v1.ListNetworksRequest.type:type_name -> limiquantix.network.v1.VirtualNetworkSpec.NetworkType
+	86,  // 4: limiquantix.network.v1.ListNetworksResponse.networks:type_name -> limiquantix.network.v1.VirtualNetwork
+	84,  // 5: limiquantix.network.v1.UpdateNetworkRequest.spec:type_name -> limiquantix.network.v1.VirtualNetworkSpec
+	87,  // 6: limiquantix.network.v1.UpdateNetworkRequest.update_mask:type_name -> google.protobuf.FieldMask
+	75,  // 7: limiquantix.network.v1.UpdateNetworkRequest.labels:type_name -> limiquantix.network.v1.UpdateNetworkRequest.LabelsEntry
+	9,   // 8: limiquantix.network.v1.NetworkTopology.nodes:type_name -> limiquantix.network.v1.NetworkNode
+	10,  // 9: limiquantix.network.v1.NetworkTopology.edges:type_name -> limiquantix.network.v1.NetworkEdge
+	76,  // 10: limiquantix.network.v1.NetworkNode.properties:type_name -> limiquantix.network.v1.NetworkNode.PropertiesEntry
+	77,  // 11: limiquantix.network.v1.CreatePortRequest.labels:type_name -> limiquantix.network.v1.CreatePortRequest.LabelsEntry
+	88,  // 12: limiquantix.network.v1.CreatePortRequest.spec:type_name -> limiquantix.network.v1.PortSpec
+	89,  // 13: limiquantix.network.v1.ListPortsResponse.ports:type_name -> limiquantix.network.v1.Port
+	88,  // 14: limiquantix.network.v1.UpdatePortRequest.spec:type_name -> limiquantix.network.v1.PortSpec
+	87,  // 15: limiquantix.network.v1.UpdatePortRequest.update_mask:type_name -> google.protobuf.FieldMask
+	78,  // 16: limiquantix.network.v1.CreateSecurityGroupRequest.labels:type_name -> limiquantix.network.v1.CreateSecurityGroupRequest.LabelsEntry
+	90,  // 17: limiquantix.network.v1.CreateSecurityGroupRequest.rules:type_name -> limiquantix.network.v1.SecurityGroupRule
+	91,  // 18: limiquantix.network.v1.ListSecurityGroupsResponse.security_groups:type_name -> limiquantix.network.v1.SecurityGroup
+	79,  // 19: limiquantix.network.v1.UpdateSecurityGroupRequest.labels:type_name -> limiquantix.network.v1.UpdateSecurityGroupRequest.LabelsEntry
+	90,  // 20: limiquantix.network.v1.AddRuleRequest.rule:type_name -> limiquantix.network.v1.SecurityGroupRule
+	80,  // 21: limiquantix.network.v1.AllocateFloatingIpRequest.labels:type_name -> limiquantix.network.v1.AllocateFloatingIpRequest.LabelsEntry
+	92,  // 22: limiquantix.network.v1.ListFloatingIpsResponse.floating_ips:type_name -> limiquantix.network.v1.FloatingIp
+	81,  // 23: limiquantix.network.v1.CreateLoadBalancerRequest.labels:type_name -> limiquantix.network.v1.CreateLoadBalancerRequest.LabelsEntry
+	93,  // 24: limiquantix.network.v1.CreateLoadBalancerRequest.spec:type_name -> limiquantix.network.v1.LoadBalancerSpec
+	94,  // 25: limiquantix.network.v1.ListLoadBalancersResponse.load_balancers:type_name -> limiquantix.network.v1.LoadBalancer
+	82,  // 26: limiquantix.network.v1.UpdateLoadBalancerRequest.labels:type_name -> limiquantix.network.v1.UpdateLoadBalancerRequest.LabelsEntry
+	95,  // 27: limiquantix.network.v1.AddListenerRequest.listener:type_name -> limiquantix.network.v1.Listener
+	96,  // 28: limiquantix.network.v1.AddPoolMemberRequest.member:type_name -> limiquantix.network.v1.PoolMember
+	46,  // 29: limiquantix.network.v1.LoadBalancerStats.listener_stats:type_name -> limiquantix.network.v1.ListenerStats
+	47,  // 30: limiquantix.network.v1.LoadBalancerStats.member_stats:type_name -> limiquantix.network.v1.MemberStats
+	97,  // 31: limiquantix.network.v1.CreateVpnRequest.connections:type_name -> limiquantix.network.v1.VpnConnection
+	98,  // 32: limiquantix.network.v1.ListVpnsResponse.vpn_services:type_name -> limiquantix.network.v1.VpnService
+	97,  // 33: limiquantix.network.v1.AddConnectionRequest.connection:type_name -> limiquantix.network.v1.VpnConnection
+	57,  // 34: limiquantix.network.v1.VpnTunnelStatus.tunnels:type_name -> limiquantix.network.v1.TunnelStatus
+	0,   // 35: limiquantix.network.v1.TunnelStatus.status:type_name -> limiquantix.network.v1.TunnelStatus.Status
+	83,  // 36: limiquantix.network.v1.CreateBGPSpeakerRequest.labels:type_name -> limiquantix.network.v1.CreateBGPSpeakerRequest.LabelsEntry
+	99,  // 37: limiquantix.network.v1.CreateBGPSpeakerRequest.spec:type_name -> limiquantix.network.v1.BGPSpeakerSpec
+	100, // 38: limiquantix.network.v1.ListBGPSpeakersResponse.speakers:type_name -> limiquantix.network.v1.BGPSpeaker
+	101, // 39: limiquantix.network.v1.ListBGPPeersResponse.peers:type_name -> limiquantix.network.v1.BGPPeer
+	102, // 40: limiquantix.network.v1.ListAdvertisementsResponse.advertisements:type_name -> limiquantix.network.v1.BGPAdvertisement
+	103, // 41: limiquantix.network.v1.BGPSpeakerDetailedStatus.status:type_name -> limiquantix.network.v1.BGPSpeakerStatus
+	101, // 42: limiquantix.network.v1.BGPSpeakerDetailedStatus.peers:type_name -> limiquantix.network.v1.BGPPeer
+	102, // 43: limiquantix.network.v1.BGPSpeakerDetailedStatus.advertisements:type_name -> limiquantix.network.v1.BGPAdvertisement
+	1,   // 44: limiquantix.network.v1.VirtualNetworkService.CreateNetwork:input_type -> limiquantix.network.v1.CreateNetworkRequest
+	2,   // 45: limiquantix.network.v1.VirtualNetworkService.GetNetwork:input_type -> limiquantix.network.v1.GetNetworkRequest
+	3,   // 46: limiquantix.network.v1.VirtualNetworkService.ListNetworks:input_type -> limiquantix.network.v1.ListNetworksRequest
+	5,   // 47: limiquantix.network.v1.VirtualNetworkService.UpdateNetwork:input_type -> limiquantix.network.v1.UpdateNetworkRequest
+	6,   // 48: limiquantix.network.v1.VirtualNetworkService.DeleteNetwork:input_type -> limiquantix.network.v1.DeleteNetworkRequest
+	7,   // 49: limiquantix.network.v1.VirtualNetworkService.GetNetworkTopology:input_type -> limiquantix.network.v1.GetNetworkTopologyRequest
+	11,  // 50: limiquantix.network.v1.PortService.CreatePort:input_type -> limiquantix.network.v1.CreatePortRequest
+	12,  // 51: limiquantix.network.v1.PortService.GetPort:input_type -> limiquantix.network.v1.GetPortRequest
+	13,  // 52: limiquantix.network.v1.PortService.ListPorts:input_type -> limiquantix.network.v1.ListPortsRequest
+	15,  // 53: limiquantix.network.v1.PortService.UpdatePort:input_type -> limiquantix.network.v1.UpdatePortRequest
+	16,  // 54: limiquantix.network.v1.PortService.DeletePort:input_type -> limiquantix.network.v1.DeletePortRequest
+	17,  // 55: limiquantix.network.v1.PortService.BindPort:input_type -> limiquantix.network.v1.BindPortRequest
+	18,  // 56: limiquantix.network.v1.PortService.UnbindPort:input_type -> limiquantix.network.v1.UnbindPortRequest
+	19,  // 57: limiquantix.network.v1.SecurityGroupService.CreateSecurityGroup:input_type -> limiquantix.network.v1.CreateSecurityGroupRequest
+	20,  // 58: limiquantix.network.v1.SecurityGroupService.GetSecurityGroup:input_type -> limiquantix.network.v1.GetSecurityGroupRequest
+	21,  // 59: limiquantix.network.v1.SecurityGroupService.ListSecurityGroups:input_type -> limiquantix.network.v1.ListSecurityGroupsRequest
+	23,  // 60: limiquantix.network.v1.SecurityGroupService.UpdateSecurityGroup:input_type -> limiquantix.network.v1.UpdateSecurityGroupRequest
+	24,  // 61: limiquantix.network.v1.SecurityGroupService.DeleteSecurityGroup:input_type -> limiquantix.network.v1.DeleteSecurityGroupRequest
+	25,  // 62: limiquantix.network.v1.SecurityGroupService.AddRule:input_type -> limiquantix.network.v1.AddRuleRequest
+	26,  // 63: limiquantix.network.v1.SecurityGroupService.RemoveRule:input_type -> limiquantix.network.v1.RemoveRuleRequest
+	27,  // 64: limiquantix.network.v1.FloatingIpService.AllocateFloatingIp:input_type -> limiquantix.network.v1.AllocateFloatingIpRequest
+	28,  // 65: limiquantix.network.v1.FloatingIpService.GetFloatingIp:input_type -> limiquantix.network.v1.GetFloatingIpRequest
+	29,  // 66: limiquantix.network.v1.FloatingIpService.ListFloatingIps:input_type -> limiquantix.network.v1.ListFloatingIpsRequest
+	31,  // 67: limiquantix.network.v1.FloatingIpService.ReleaseFloatingIp:input_type -> limiquantix.network.v1.ReleaseFloatingIpRequest
+	32,  // 68: limiquantix.network.v1.FloatingIpService.AssociateFloatingIp:input_type -> limiquantix.network.v1.AssociateFloatingIpRequest
+	33,  // 69: limiquantix.network.v1.FloatingIpService.DisassociateFloatingIp:input_type -> limiquantix.network.v1.DisassociateFloatingIpRequest
+	34,  // 70: limiquantix.network.v1.LoadBalancerService.CreateLoadBalancer:input_type -> limiquantix.network.v1.CreateLoadBalancerRequest
+	35,  // 71: limiquantix.network.v1.LoadBalancerService.GetLoadBalancer:input_type -> limiquantix.network.v1.GetLoadBalancerRequest
+	36,  // 72: limiquantix.network.v1.LoadBalancerService.ListLoadBalancers:input_type -> limiquantix.network.v1.ListLoadBalancersRequest
+	38,  // 73: limiquantix.network.v1.LoadBalancerService.UpdateLoadBalancer:input_type -> limiquantix.network.v1.UpdateLoadBalancerRequest
+	39,  // 74: limiquantix.network.v1.LoadBalancerService.DeleteLoadBalancer:input_type -> limiquantix.network.v1.DeleteLoadBalancerRequest
+	40,  // 75: limiquantix.network.v1.LoadBalancerService.AddListener:input_type -> limiquantix.network.v1.AddListenerRequest
+	41,  // 76: limiquantix.network.v1.LoadBalancerService.RemoveListener:input_type -> limiquantix.network.v1.RemoveListenerRequest
+	42,  // 77: limiquantix.network.v1.LoadBalancerService.AddPoolMember:input_type -> limiquantix.network.v1.AddPoolMemberRequest
+	43,  // 78: limiquantix.network.v1.LoadBalancerService.RemovePoolMember:input_type -> limiquantix.network.v1.RemovePoolMemberRequest
+	44,  // 79: limiquantix.network.v1.LoadBalancerService.GetLoadBalancerStats:input_type -> limiquantix.network.v1.GetLoadBalancerStatsRequest
+	48,  // 80: limiquantix.network.v1.VpnServiceManager.CreateVpn:input_type -> limiquantix.network.v1.CreateVpnRequest
+	49,  // 81: limiquantix.network.v1.VpnServiceManager.GetVpn:input_type -> limiquantix.network.v1.GetVpnRequest
+	50,  // 82: limiquantix.network.v1.VpnServiceManager.ListVpns:input_type -> limiquantix.network.v1.ListVpnsRequest
+	52,  // 83: limiquantix.network.v1.VpnServiceManager.DeleteVpn:input_type -> limiquantix.network.v1.DeleteVpnRequest
+	53,  // 84: limiquantix.network.v1.VpnServiceManager.AddConnection:input_type -> limiquantix.network.v1.AddConnectionRequest
+	54,  // 85: limiquantix.network.v1.VpnServiceManager.RemoveConnection:input_type -> limiquantix.network.v1.RemoveConnectionRequest
+	55,  // 86: limiquantix.network.v1.VpnServiceManager.GetVpnStatus:input_type -> limiquantix.network.v1.GetVpnStatusRequest
+	58,  // 87: limiquantix.network.v1.BGPService.CreateSpeaker:input_type -> limiquantix.network.v1.CreateBGPSpeakerRequest
+	59,  // 88: limiquantix.network.v1.BGPService.GetSpeaker:input_type -> limiquantix.network.v1.GetBGPSpeakerRequest
+	60,  // 89: limiquantix.network.v1.BGPService.ListSpeakers:input_type -> limiquantix.network.v1.ListBGPSpeakersRequest
+	62,  // 90: limiquantix.network.v1.BGPService.DeleteSpeaker:input_type -> limiquantix.network.v1.DeleteBGPSpeakerRequest
+	63,  // 91: limiquantix.network.v1.BGPService.AddPeer:input_type -> limiquantix.network.v1.AddBGPPeerRequest
+	64,  // 92: limiquantix.network.v1.BGPService.RemovePeer:input_type -> limiquantix.network.v1.RemoveBGPPeerRequest
+	65,  // 93: limiquantix.network.v1.BGPService.ListPeers:input_type -> limiquantix.network.v1.ListBGPPeersRequest
+	67,  // 94: limiquantix.network.v1.BGPService.AdvertiseNetwork:input_type -> limiquantix.network.v1.AdvertiseNetworkRequest
+	68,  // 95: limiquantix.network.v1.BGPService.WithdrawNetwork:input_type -> limiquantix.network.v1.WithdrawNetworkRequest
+	69,  // 96: limiquantix.network.v1.BGPService.ListAdvertisements:input_type -> limiquantix.network.v1.ListAdvertisementsRequest
+	71,  // 97: limiquantix.network.v1.BGPService.GetSpeakerStatus:input_type -> limiquantix.network.v1.GetBGPSpeakerStatusRequest
+	86,  // 98: limiquantix.network.v1.VirtualNetworkService.CreateNetwork:output_type -> limiquantix.network.v1.VirtualNetwork
+	86,  // 99: limiquantix.network.v1.VirtualNetworkService.GetNetwork:output_type -> limiquantix.network.v1.VirtualNetwork
+	4,   // 100: limiquantix.network.v1.VirtualNetworkService.ListNetworks:output_type -> limiquantix.network.v1.ListNetworksResponse
+	86,  // 101: limiquantix.network.v1.VirtualNetworkService.UpdateNetwork:output_type -> limiquantix.network.v1.VirtualNetwork
+	104, // 102: limiquantix.network.v1.VirtualNetworkService.DeleteNetwork:output_type -> google.protobuf.Empty
+	8,   // 103: limiquantix.network.v1.VirtualNetworkService.GetNetworkTopology:output_type -> limiquantix.network.v1.NetworkTopology
+	89,  // 104: limiquantix.network.v1.PortService.CreatePort:output_type -> limiquantix.network.v1.Port
+	89,  // 105: limiquantix.network.v1.PortService.GetPort:output_type -> limiquantix.network.v1.Port
+	14,  // 106: limiquantix.network.v1.PortService.ListPorts:output_type -> limiquantix.network.v1.ListPortsResponse
+	89,  // 107: limiquantix.network.v1.PortService.UpdatePort:output_type -> limiquantix.network.v1.Port
+	104, // 108: limiquantix.network.v1.PortService.DeletePort:output_type -> google.protobuf.Empty
+	89,  // 109: limiquantix.network.v1.PortService.BindPort:output_type -> limiquantix.network.v1.Port
+	89,  // 110: limiquantix.network.v1.PortService.UnbindPort:output_type -> limiquantix.network.v1.Port
+	91,  // 111: limiquantix.network.v1.SecurityGroupService.CreateSecurityGroup:output_type -> limiquantix.network.v1.SecurityGroup
+	91,  // 112: limiquantix.network.v1.SecurityGroupService.GetSecurityGroup:output_type -> limiquantix.network.v1.SecurityGroup
+	22,  // 113: limiquantix.network.v1.SecurityGroupService.ListSecurityGroups:output_type -> limiquantix.network.v1.ListSecurityGroupsResponse
+	91,  // 114: limiquantix.network.v1.SecurityGroupService.UpdateSecurityGroup:output_type -> limiquantix.network.v1.SecurityGroup
+	104, // 115: limiquantix.network.v1.SecurityGroupService.DeleteSecurityGroup:output_type -> google.protobuf.Empty
+	91,  // 116: limiquantix.network.v1.SecurityGroupService.AddRule:output_type -> limiquantix.network.v1.SecurityGroup
+	91,  // 117: limiquantix.network.v1.SecurityGroupService.RemoveRule:output_type -> limiquantix.network.v1.SecurityGroup
+	92,  // 118: limiquantix.network.v1.FloatingIpService.AllocateFloatingIp:output_type -> limiquantix.network.v1.FloatingIp
+	92,  // 119: limiquantix.network.v1.FloatingIpService.GetFloatingIp:output_type -> limiquantix.network.v1.FloatingIp
+	30,  // 120: limiquantix.network.v1.FloatingIpService.ListFloatingIps:output_type -> limiquantix.network.v1.ListFloatingIpsResponse
+	104, // 121: limiquantix.network.v1.FloatingIpService.ReleaseFloatingIp:output_type -> google.protobuf.Empty
+	92,  // 122: limiquantix.network.v1.FloatingIpService.AssociateFloatingIp:output_type -> limiquantix.network.v1.FloatingIp
+	92,  // 123: limiquantix.network.v1.FloatingIpService.DisassociateFloatingIp:output_type -> limiquantix.network.v1.FloatingIp
+	94,  // 124: limiquantix.network.v1.LoadBalancerService.CreateLoadBalancer:output_type -> limiquantix.network.v1.LoadBalancer
+	94,  // 125: limiquantix.network.v1.LoadBalancerService.GetLoadBalancer:output_type -> limiquantix.network.v1.LoadBalancer
+	37,  // 126: limiquantix.network.v1.LoadBalancerService.ListLoadBalancers:output_type -> limiquantix.network.v1.ListLoadBalancersResponse
+	94,  // 127: limiquantix.network.v1.LoadBalancerService.UpdateLoadBalancer:output_type -> limiquantix.network.v1.LoadBalancer
+	104, // 128: limiquantix.network.v1.LoadBalancerService.DeleteLoadBalancer:output_type -> google.protobuf.Empty
+	94,  // 129: limiquantix.network.v1.LoadBalancerService.AddListener:output_type -> limiquantix.network.v1.LoadBalancer
+	94,  // 130: limiquantix.network.v1.LoadBalancerService.RemoveListener:output_type -> limiquantix.network.v1.LoadBalancer
+	94,  // 131: limiquantix.network.v1.LoadBalancerService.AddPoolMember:output_type -> limiquantix.network.v1.LoadBalancer
+	94,  // 132: limiquantix.network.v1.LoadBalancerService.RemovePoolMember:output_type -> limiquantix.network.v1.LoadBalancer
+	45,  // 133: limiquantix.network.v1.LoadBalancerService.GetLoadBalancerStats:output_type -> limiquantix.network.v1.LoadBalancerStats
+	98,  // 134: limiquantix.network.v1.VpnServiceManager.CreateVpn:output_type -> limiquantix.network.v1.VpnService
+	98,  // 135: limiquantix.network.v1.VpnServiceManager.GetVpn:output_type -> limiquantix.network.v1.VpnService
+	51,  // 136: limiquantix.network.v1.VpnServiceManager.ListVpns:output_type -> limiquantix.network.v1.ListVpnsResponse
+	104, // 137: limiquantix.network.v1.VpnServiceManager.DeleteVpn:output_type -> google.protobuf.Empty
+	98,  // 138: limiquantix.network.v1.VpnServiceManager.AddConnection:output_type -> limiquantix.network.v1.VpnService
+	98,  // 139: limiquantix.network.v1.VpnServiceManager.RemoveConnection:output_type -> limiquantix.network.v1.VpnService
+	56,  // 140: limiquantix.network.v1.VpnServiceManager.GetVpnStatus:output_type -> limiquantix.network.v1.VpnTunnelStatus
+	100, // 141: limiquantix.network.v1.BGPService.CreateSpeaker:output_type -> limiquantix.network.v1.BGPSpeaker
+	100, // 142: limiquantix.network.v1.BGPService.GetSpeaker:output_type -> limiquantix.network.v1.BGPSpeaker
+	61,  // 143: limiquantix.network.v1.BGPService.ListSpeakers:output_type -> limiquantix.network.v1.ListBGPSpeakersResponse
+	104, // 144: limiquantix.network.v1.BGPService.DeleteSpeaker:output_type -> google.protobuf.Empty
+	101, // 145: limiquantix.network.v1.BGPService.AddPeer:output_type -> limiquantix.network.v1.BGPPeer
+	104, // 146: limiquantix.network.v1.BGPService.RemovePeer:output_type -> google.protobuf.Empty
+	66,  // 147: limiquantix.network.v1.BGPService.ListPeers:output_type -> limiquantix.network.v1.ListBGPPeersResponse
+	102, // 148: limiquantix.network.v1.BGPService.AdvertiseNetwork:output_type -> limiquantix.network.v1.BGPAdvertisement
+	104, // 149: limiquantix.network.v1.BGPService.WithdrawNetwork:output_type -> google.protobuf.Empty
+	70,  // 150: limiquantix.network.v1.BGPService.ListAdvertisements:output_type -> limiquantix.network.v1.ListAdvertisementsResponse
+	72,  // 151: limiquantix.network.v1.BGPService.GetSpeakerStatus:output_type -> limiquantix.network.v1.BGPSpeakerDetailedStatus
+	98,  // [98:152] is the sub-list for method output_type
+	44,  // [44:98] is the sub-list for method input_type
+	44,  // [44:44] is the sub-list for extension type_name
+	44,  // [44:44] is the sub-list for extension extendee
+	0,   // [0:44] is the sub-list for field type_name
 }
 
 func init() { file_limiquantix_network_v1_network_service_proto_init() }
@@ -4123,9 +5124,9 @@ func file_limiquantix_network_v1_network_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_network_v1_network_service_proto_rawDesc), len(file_limiquantix_network_v1_network_service_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   67,
+			NumMessages:   83,
 			NumExtensions: 0,
-			NumServices:   6,
+			NumServices:   7,
 		},
 		GoTypes:           file_limiquantix_network_v1_network_service_proto_goTypes,
 		DependencyIndexes: file_limiquantix_network_v1_network_service_proto_depIdxs,

@@ -80,6 +80,8 @@ const (
 	VMServiceWatchVMProcedure = "/limiquantix.compute.v1.VMService/WatchVM"
 	// VMServiceStreamMetricsProcedure is the fully-qualified name of the VMService's StreamMetrics RPC.
 	VMServiceStreamMetricsProcedure = "/limiquantix.compute.v1.VMService/StreamMetrics"
+	// VMServiceWatchVMsProcedure is the fully-qualified name of the VMService's WatchVMs RPC.
+	VMServiceWatchVMsProcedure = "/limiquantix.compute.v1.VMService/WatchVMs"
 	// VMServicePingAgentProcedure is the fully-qualified name of the VMService's PingAgent RPC.
 	VMServicePingAgentProcedure = "/limiquantix.compute.v1.VMService/PingAgent"
 	// VMServiceExecuteScriptProcedure is the fully-qualified name of the VMService's ExecuteScript RPC.
@@ -141,6 +143,8 @@ type VMServiceClient interface {
 	WatchVM(context.Context, *connect.Request[v1.WatchVMRequest]) (*connect.ServerStreamForClient[v1.VirtualMachine], error)
 	// StreamMetrics streams real-time performance metrics.
 	StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest]) (*connect.ServerStreamForClient[v1.ResourceUsage], error)
+	// WatchVMs streams updates for all VMs (for Host UI dashboard).
+	WatchVMs(context.Context, *connect.Request[v1.WatchVMsRequest]) (*connect.ServerStreamForClient[v1.VMUpdate], error)
 	// PingAgent checks if the guest agent is available and responding.
 	PingAgent(context.Context, *connect.Request[v1.PingAgentRequest]) (*connect.Response[v1.PingAgentResponse], error)
 	// ExecuteScript runs a command inside the VM via the guest agent.
@@ -290,6 +294,12 @@ func NewVMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...c
 			connect.WithSchema(vMServiceMethods.ByName("StreamMetrics")),
 			connect.WithClientOptions(opts...),
 		),
+		watchVMs: connect.NewClient[v1.WatchVMsRequest, v1.VMUpdate](
+			httpClient,
+			baseURL+VMServiceWatchVMsProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("WatchVMs")),
+			connect.WithClientOptions(opts...),
+		),
 		pingAgent: connect.NewClient[v1.PingAgentRequest, v1.PingAgentResponse](
 			httpClient,
 			baseURL+VMServicePingAgentProcedure,
@@ -346,6 +356,7 @@ type vMServiceClient struct {
 	convertToTemplate *connect.Client[v1.ConvertToTemplateRequest, v1.VirtualMachine]
 	watchVM           *connect.Client[v1.WatchVMRequest, v1.VirtualMachine]
 	streamMetrics     *connect.Client[v1.StreamMetricsRequest, v1.ResourceUsage]
+	watchVMs          *connect.Client[v1.WatchVMsRequest, v1.VMUpdate]
 	pingAgent         *connect.Client[v1.PingAgentRequest, v1.PingAgentResponse]
 	executeScript     *connect.Client[v1.ExecuteScriptRequest, v1.ExecuteScriptResponse]
 	readGuestFile     *connect.Client[v1.ReadGuestFileRequest, v1.ReadGuestFileResponse]
@@ -458,6 +469,11 @@ func (c *vMServiceClient) StreamMetrics(ctx context.Context, req *connect.Reques
 	return c.streamMetrics.CallServerStream(ctx, req)
 }
 
+// WatchVMs calls limiquantix.compute.v1.VMService.WatchVMs.
+func (c *vMServiceClient) WatchVMs(ctx context.Context, req *connect.Request[v1.WatchVMsRequest]) (*connect.ServerStreamForClient[v1.VMUpdate], error) {
+	return c.watchVMs.CallServerStream(ctx, req)
+}
+
 // PingAgent calls limiquantix.compute.v1.VMService.PingAgent.
 func (c *vMServiceClient) PingAgent(ctx context.Context, req *connect.Request[v1.PingAgentRequest]) (*connect.Response[v1.PingAgentResponse], error) {
 	return c.pingAgent.CallUnary(ctx, req)
@@ -531,6 +547,8 @@ type VMServiceHandler interface {
 	WatchVM(context.Context, *connect.Request[v1.WatchVMRequest], *connect.ServerStream[v1.VirtualMachine]) error
 	// StreamMetrics streams real-time performance metrics.
 	StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest], *connect.ServerStream[v1.ResourceUsage]) error
+	// WatchVMs streams updates for all VMs (for Host UI dashboard).
+	WatchVMs(context.Context, *connect.Request[v1.WatchVMsRequest], *connect.ServerStream[v1.VMUpdate]) error
 	// PingAgent checks if the guest agent is available and responding.
 	PingAgent(context.Context, *connect.Request[v1.PingAgentRequest]) (*connect.Response[v1.PingAgentResponse], error)
 	// ExecuteScript runs a command inside the VM via the guest agent.
@@ -676,6 +694,12 @@ func NewVMServiceHandler(svc VMServiceHandler, opts ...connect.HandlerOption) (s
 		connect.WithSchema(vMServiceMethods.ByName("StreamMetrics")),
 		connect.WithHandlerOptions(opts...),
 	)
+	vMServiceWatchVMsHandler := connect.NewServerStreamHandler(
+		VMServiceWatchVMsProcedure,
+		svc.WatchVMs,
+		connect.WithSchema(vMServiceMethods.ByName("WatchVMs")),
+		connect.WithHandlerOptions(opts...),
+	)
 	vMServicePingAgentHandler := connect.NewUnaryHandler(
 		VMServicePingAgentProcedure,
 		svc.PingAgent,
@@ -750,6 +774,8 @@ func NewVMServiceHandler(svc VMServiceHandler, opts ...connect.HandlerOption) (s
 			vMServiceWatchVMHandler.ServeHTTP(w, r)
 		case VMServiceStreamMetricsProcedure:
 			vMServiceStreamMetricsHandler.ServeHTTP(w, r)
+		case VMServiceWatchVMsProcedure:
+			vMServiceWatchVMsHandler.ServeHTTP(w, r)
 		case VMServicePingAgentProcedure:
 			vMServicePingAgentHandler.ServeHTTP(w, r)
 		case VMServiceExecuteScriptProcedure:
@@ -851,6 +877,10 @@ func (UnimplementedVMServiceHandler) WatchVM(context.Context, *connect.Request[v
 
 func (UnimplementedVMServiceHandler) StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest], *connect.ServerStream[v1.ResourceUsage]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.StreamMetrics is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) WatchVMs(context.Context, *connect.Request[v1.WatchVMsRequest], *connect.ServerStream[v1.VMUpdate]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.WatchVMs is not implemented"))
 }
 
 func (UnimplementedVMServiceHandler) PingAgent(context.Context, *connect.Request[v1.PingAgentRequest]) (*connect.Response[v1.PingAgentResponse], error) {

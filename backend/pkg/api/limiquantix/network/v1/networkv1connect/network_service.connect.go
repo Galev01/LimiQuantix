@@ -34,6 +34,8 @@ const (
 	LoadBalancerServiceName = "limiquantix.network.v1.LoadBalancerService"
 	// VpnServiceManagerName is the fully-qualified name of the VpnServiceManager service.
 	VpnServiceManagerName = "limiquantix.network.v1.VpnServiceManager"
+	// BGPServiceName is the fully-qualified name of the BGPService service.
+	BGPServiceName = "limiquantix.network.v1.BGPService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -166,6 +168,34 @@ const (
 	// VpnServiceManagerGetVpnStatusProcedure is the fully-qualified name of the VpnServiceManager's
 	// GetVpnStatus RPC.
 	VpnServiceManagerGetVpnStatusProcedure = "/limiquantix.network.v1.VpnServiceManager/GetVpnStatus"
+	// BGPServiceCreateSpeakerProcedure is the fully-qualified name of the BGPService's CreateSpeaker
+	// RPC.
+	BGPServiceCreateSpeakerProcedure = "/limiquantix.network.v1.BGPService/CreateSpeaker"
+	// BGPServiceGetSpeakerProcedure is the fully-qualified name of the BGPService's GetSpeaker RPC.
+	BGPServiceGetSpeakerProcedure = "/limiquantix.network.v1.BGPService/GetSpeaker"
+	// BGPServiceListSpeakersProcedure is the fully-qualified name of the BGPService's ListSpeakers RPC.
+	BGPServiceListSpeakersProcedure = "/limiquantix.network.v1.BGPService/ListSpeakers"
+	// BGPServiceDeleteSpeakerProcedure is the fully-qualified name of the BGPService's DeleteSpeaker
+	// RPC.
+	BGPServiceDeleteSpeakerProcedure = "/limiquantix.network.v1.BGPService/DeleteSpeaker"
+	// BGPServiceAddPeerProcedure is the fully-qualified name of the BGPService's AddPeer RPC.
+	BGPServiceAddPeerProcedure = "/limiquantix.network.v1.BGPService/AddPeer"
+	// BGPServiceRemovePeerProcedure is the fully-qualified name of the BGPService's RemovePeer RPC.
+	BGPServiceRemovePeerProcedure = "/limiquantix.network.v1.BGPService/RemovePeer"
+	// BGPServiceListPeersProcedure is the fully-qualified name of the BGPService's ListPeers RPC.
+	BGPServiceListPeersProcedure = "/limiquantix.network.v1.BGPService/ListPeers"
+	// BGPServiceAdvertiseNetworkProcedure is the fully-qualified name of the BGPService's
+	// AdvertiseNetwork RPC.
+	BGPServiceAdvertiseNetworkProcedure = "/limiquantix.network.v1.BGPService/AdvertiseNetwork"
+	// BGPServiceWithdrawNetworkProcedure is the fully-qualified name of the BGPService's
+	// WithdrawNetwork RPC.
+	BGPServiceWithdrawNetworkProcedure = "/limiquantix.network.v1.BGPService/WithdrawNetwork"
+	// BGPServiceListAdvertisementsProcedure is the fully-qualified name of the BGPService's
+	// ListAdvertisements RPC.
+	BGPServiceListAdvertisementsProcedure = "/limiquantix.network.v1.BGPService/ListAdvertisements"
+	// BGPServiceGetSpeakerStatusProcedure is the fully-qualified name of the BGPService's
+	// GetSpeakerStatus RPC.
+	BGPServiceGetSpeakerStatusProcedure = "/limiquantix.network.v1.BGPService/GetSpeakerStatus"
 )
 
 // VirtualNetworkServiceClient is a client for the limiquantix.network.v1.VirtualNetworkService
@@ -1647,4 +1677,356 @@ func (UnimplementedVpnServiceManagerHandler) RemoveConnection(context.Context, *
 
 func (UnimplementedVpnServiceManagerHandler) GetVpnStatus(context.Context, *connect.Request[v1.GetVpnStatusRequest]) (*connect.Response[v1.VpnTunnelStatus], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.network.v1.VpnServiceManager.GetVpnStatus is not implemented"))
+}
+
+// BGPServiceClient is a client for the limiquantix.network.v1.BGPService service.
+type BGPServiceClient interface {
+	// CreateSpeaker creates a new BGP speaker.
+	CreateSpeaker(context.Context, *connect.Request[v1.CreateBGPSpeakerRequest]) (*connect.Response[v1.BGPSpeaker], error)
+	// GetSpeaker retrieves a BGP speaker by ID.
+	GetSpeaker(context.Context, *connect.Request[v1.GetBGPSpeakerRequest]) (*connect.Response[v1.BGPSpeaker], error)
+	// ListSpeakers returns all BGP speakers.
+	ListSpeakers(context.Context, *connect.Request[v1.ListBGPSpeakersRequest]) (*connect.Response[v1.ListBGPSpeakersResponse], error)
+	// DeleteSpeaker removes a BGP speaker.
+	DeleteSpeaker(context.Context, *connect.Request[v1.DeleteBGPSpeakerRequest]) (*connect.Response[emptypb.Empty], error)
+	// AddPeer adds a BGP peer to a speaker.
+	AddPeer(context.Context, *connect.Request[v1.AddBGPPeerRequest]) (*connect.Response[v1.BGPPeer], error)
+	// RemovePeer removes a BGP peer.
+	RemovePeer(context.Context, *connect.Request[v1.RemoveBGPPeerRequest]) (*connect.Response[emptypb.Empty], error)
+	// ListPeers returns all peers for a speaker.
+	ListPeers(context.Context, *connect.Request[v1.ListBGPPeersRequest]) (*connect.Response[v1.ListBGPPeersResponse], error)
+	// AdvertiseNetwork advertises a network prefix.
+	AdvertiseNetwork(context.Context, *connect.Request[v1.AdvertiseNetworkRequest]) (*connect.Response[v1.BGPAdvertisement], error)
+	// WithdrawNetwork withdraws a network prefix.
+	WithdrawNetwork(context.Context, *connect.Request[v1.WithdrawNetworkRequest]) (*connect.Response[emptypb.Empty], error)
+	// ListAdvertisements returns all advertised prefixes.
+	ListAdvertisements(context.Context, *connect.Request[v1.ListAdvertisementsRequest]) (*connect.Response[v1.ListAdvertisementsResponse], error)
+	// GetSpeakerStatus returns detailed BGP speaker status.
+	GetSpeakerStatus(context.Context, *connect.Request[v1.GetBGPSpeakerStatusRequest]) (*connect.Response[v1.BGPSpeakerDetailedStatus], error)
+}
+
+// NewBGPServiceClient constructs a client for the limiquantix.network.v1.BGPService service. By
+// default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
+// and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
+// connect.WithGRPC() or connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewBGPServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) BGPServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	bGPServiceMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("BGPService").Methods()
+	return &bGPServiceClient{
+		createSpeaker: connect.NewClient[v1.CreateBGPSpeakerRequest, v1.BGPSpeaker](
+			httpClient,
+			baseURL+BGPServiceCreateSpeakerProcedure,
+			connect.WithSchema(bGPServiceMethods.ByName("CreateSpeaker")),
+			connect.WithClientOptions(opts...),
+		),
+		getSpeaker: connect.NewClient[v1.GetBGPSpeakerRequest, v1.BGPSpeaker](
+			httpClient,
+			baseURL+BGPServiceGetSpeakerProcedure,
+			connect.WithSchema(bGPServiceMethods.ByName("GetSpeaker")),
+			connect.WithClientOptions(opts...),
+		),
+		listSpeakers: connect.NewClient[v1.ListBGPSpeakersRequest, v1.ListBGPSpeakersResponse](
+			httpClient,
+			baseURL+BGPServiceListSpeakersProcedure,
+			connect.WithSchema(bGPServiceMethods.ByName("ListSpeakers")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteSpeaker: connect.NewClient[v1.DeleteBGPSpeakerRequest, emptypb.Empty](
+			httpClient,
+			baseURL+BGPServiceDeleteSpeakerProcedure,
+			connect.WithSchema(bGPServiceMethods.ByName("DeleteSpeaker")),
+			connect.WithClientOptions(opts...),
+		),
+		addPeer: connect.NewClient[v1.AddBGPPeerRequest, v1.BGPPeer](
+			httpClient,
+			baseURL+BGPServiceAddPeerProcedure,
+			connect.WithSchema(bGPServiceMethods.ByName("AddPeer")),
+			connect.WithClientOptions(opts...),
+		),
+		removePeer: connect.NewClient[v1.RemoveBGPPeerRequest, emptypb.Empty](
+			httpClient,
+			baseURL+BGPServiceRemovePeerProcedure,
+			connect.WithSchema(bGPServiceMethods.ByName("RemovePeer")),
+			connect.WithClientOptions(opts...),
+		),
+		listPeers: connect.NewClient[v1.ListBGPPeersRequest, v1.ListBGPPeersResponse](
+			httpClient,
+			baseURL+BGPServiceListPeersProcedure,
+			connect.WithSchema(bGPServiceMethods.ByName("ListPeers")),
+			connect.WithClientOptions(opts...),
+		),
+		advertiseNetwork: connect.NewClient[v1.AdvertiseNetworkRequest, v1.BGPAdvertisement](
+			httpClient,
+			baseURL+BGPServiceAdvertiseNetworkProcedure,
+			connect.WithSchema(bGPServiceMethods.ByName("AdvertiseNetwork")),
+			connect.WithClientOptions(opts...),
+		),
+		withdrawNetwork: connect.NewClient[v1.WithdrawNetworkRequest, emptypb.Empty](
+			httpClient,
+			baseURL+BGPServiceWithdrawNetworkProcedure,
+			connect.WithSchema(bGPServiceMethods.ByName("WithdrawNetwork")),
+			connect.WithClientOptions(opts...),
+		),
+		listAdvertisements: connect.NewClient[v1.ListAdvertisementsRequest, v1.ListAdvertisementsResponse](
+			httpClient,
+			baseURL+BGPServiceListAdvertisementsProcedure,
+			connect.WithSchema(bGPServiceMethods.ByName("ListAdvertisements")),
+			connect.WithClientOptions(opts...),
+		),
+		getSpeakerStatus: connect.NewClient[v1.GetBGPSpeakerStatusRequest, v1.BGPSpeakerDetailedStatus](
+			httpClient,
+			baseURL+BGPServiceGetSpeakerStatusProcedure,
+			connect.WithSchema(bGPServiceMethods.ByName("GetSpeakerStatus")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// bGPServiceClient implements BGPServiceClient.
+type bGPServiceClient struct {
+	createSpeaker      *connect.Client[v1.CreateBGPSpeakerRequest, v1.BGPSpeaker]
+	getSpeaker         *connect.Client[v1.GetBGPSpeakerRequest, v1.BGPSpeaker]
+	listSpeakers       *connect.Client[v1.ListBGPSpeakersRequest, v1.ListBGPSpeakersResponse]
+	deleteSpeaker      *connect.Client[v1.DeleteBGPSpeakerRequest, emptypb.Empty]
+	addPeer            *connect.Client[v1.AddBGPPeerRequest, v1.BGPPeer]
+	removePeer         *connect.Client[v1.RemoveBGPPeerRequest, emptypb.Empty]
+	listPeers          *connect.Client[v1.ListBGPPeersRequest, v1.ListBGPPeersResponse]
+	advertiseNetwork   *connect.Client[v1.AdvertiseNetworkRequest, v1.BGPAdvertisement]
+	withdrawNetwork    *connect.Client[v1.WithdrawNetworkRequest, emptypb.Empty]
+	listAdvertisements *connect.Client[v1.ListAdvertisementsRequest, v1.ListAdvertisementsResponse]
+	getSpeakerStatus   *connect.Client[v1.GetBGPSpeakerStatusRequest, v1.BGPSpeakerDetailedStatus]
+}
+
+// CreateSpeaker calls limiquantix.network.v1.BGPService.CreateSpeaker.
+func (c *bGPServiceClient) CreateSpeaker(ctx context.Context, req *connect.Request[v1.CreateBGPSpeakerRequest]) (*connect.Response[v1.BGPSpeaker], error) {
+	return c.createSpeaker.CallUnary(ctx, req)
+}
+
+// GetSpeaker calls limiquantix.network.v1.BGPService.GetSpeaker.
+func (c *bGPServiceClient) GetSpeaker(ctx context.Context, req *connect.Request[v1.GetBGPSpeakerRequest]) (*connect.Response[v1.BGPSpeaker], error) {
+	return c.getSpeaker.CallUnary(ctx, req)
+}
+
+// ListSpeakers calls limiquantix.network.v1.BGPService.ListSpeakers.
+func (c *bGPServiceClient) ListSpeakers(ctx context.Context, req *connect.Request[v1.ListBGPSpeakersRequest]) (*connect.Response[v1.ListBGPSpeakersResponse], error) {
+	return c.listSpeakers.CallUnary(ctx, req)
+}
+
+// DeleteSpeaker calls limiquantix.network.v1.BGPService.DeleteSpeaker.
+func (c *bGPServiceClient) DeleteSpeaker(ctx context.Context, req *connect.Request[v1.DeleteBGPSpeakerRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.deleteSpeaker.CallUnary(ctx, req)
+}
+
+// AddPeer calls limiquantix.network.v1.BGPService.AddPeer.
+func (c *bGPServiceClient) AddPeer(ctx context.Context, req *connect.Request[v1.AddBGPPeerRequest]) (*connect.Response[v1.BGPPeer], error) {
+	return c.addPeer.CallUnary(ctx, req)
+}
+
+// RemovePeer calls limiquantix.network.v1.BGPService.RemovePeer.
+func (c *bGPServiceClient) RemovePeer(ctx context.Context, req *connect.Request[v1.RemoveBGPPeerRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.removePeer.CallUnary(ctx, req)
+}
+
+// ListPeers calls limiquantix.network.v1.BGPService.ListPeers.
+func (c *bGPServiceClient) ListPeers(ctx context.Context, req *connect.Request[v1.ListBGPPeersRequest]) (*connect.Response[v1.ListBGPPeersResponse], error) {
+	return c.listPeers.CallUnary(ctx, req)
+}
+
+// AdvertiseNetwork calls limiquantix.network.v1.BGPService.AdvertiseNetwork.
+func (c *bGPServiceClient) AdvertiseNetwork(ctx context.Context, req *connect.Request[v1.AdvertiseNetworkRequest]) (*connect.Response[v1.BGPAdvertisement], error) {
+	return c.advertiseNetwork.CallUnary(ctx, req)
+}
+
+// WithdrawNetwork calls limiquantix.network.v1.BGPService.WithdrawNetwork.
+func (c *bGPServiceClient) WithdrawNetwork(ctx context.Context, req *connect.Request[v1.WithdrawNetworkRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.withdrawNetwork.CallUnary(ctx, req)
+}
+
+// ListAdvertisements calls limiquantix.network.v1.BGPService.ListAdvertisements.
+func (c *bGPServiceClient) ListAdvertisements(ctx context.Context, req *connect.Request[v1.ListAdvertisementsRequest]) (*connect.Response[v1.ListAdvertisementsResponse], error) {
+	return c.listAdvertisements.CallUnary(ctx, req)
+}
+
+// GetSpeakerStatus calls limiquantix.network.v1.BGPService.GetSpeakerStatus.
+func (c *bGPServiceClient) GetSpeakerStatus(ctx context.Context, req *connect.Request[v1.GetBGPSpeakerStatusRequest]) (*connect.Response[v1.BGPSpeakerDetailedStatus], error) {
+	return c.getSpeakerStatus.CallUnary(ctx, req)
+}
+
+// BGPServiceHandler is an implementation of the limiquantix.network.v1.BGPService service.
+type BGPServiceHandler interface {
+	// CreateSpeaker creates a new BGP speaker.
+	CreateSpeaker(context.Context, *connect.Request[v1.CreateBGPSpeakerRequest]) (*connect.Response[v1.BGPSpeaker], error)
+	// GetSpeaker retrieves a BGP speaker by ID.
+	GetSpeaker(context.Context, *connect.Request[v1.GetBGPSpeakerRequest]) (*connect.Response[v1.BGPSpeaker], error)
+	// ListSpeakers returns all BGP speakers.
+	ListSpeakers(context.Context, *connect.Request[v1.ListBGPSpeakersRequest]) (*connect.Response[v1.ListBGPSpeakersResponse], error)
+	// DeleteSpeaker removes a BGP speaker.
+	DeleteSpeaker(context.Context, *connect.Request[v1.DeleteBGPSpeakerRequest]) (*connect.Response[emptypb.Empty], error)
+	// AddPeer adds a BGP peer to a speaker.
+	AddPeer(context.Context, *connect.Request[v1.AddBGPPeerRequest]) (*connect.Response[v1.BGPPeer], error)
+	// RemovePeer removes a BGP peer.
+	RemovePeer(context.Context, *connect.Request[v1.RemoveBGPPeerRequest]) (*connect.Response[emptypb.Empty], error)
+	// ListPeers returns all peers for a speaker.
+	ListPeers(context.Context, *connect.Request[v1.ListBGPPeersRequest]) (*connect.Response[v1.ListBGPPeersResponse], error)
+	// AdvertiseNetwork advertises a network prefix.
+	AdvertiseNetwork(context.Context, *connect.Request[v1.AdvertiseNetworkRequest]) (*connect.Response[v1.BGPAdvertisement], error)
+	// WithdrawNetwork withdraws a network prefix.
+	WithdrawNetwork(context.Context, *connect.Request[v1.WithdrawNetworkRequest]) (*connect.Response[emptypb.Empty], error)
+	// ListAdvertisements returns all advertised prefixes.
+	ListAdvertisements(context.Context, *connect.Request[v1.ListAdvertisementsRequest]) (*connect.Response[v1.ListAdvertisementsResponse], error)
+	// GetSpeakerStatus returns detailed BGP speaker status.
+	GetSpeakerStatus(context.Context, *connect.Request[v1.GetBGPSpeakerStatusRequest]) (*connect.Response[v1.BGPSpeakerDetailedStatus], error)
+}
+
+// NewBGPServiceHandler builds an HTTP handler from the service implementation. It returns the path
+// on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewBGPServiceHandler(svc BGPServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	bGPServiceMethods := v1.File_limiquantix_network_v1_network_service_proto.Services().ByName("BGPService").Methods()
+	bGPServiceCreateSpeakerHandler := connect.NewUnaryHandler(
+		BGPServiceCreateSpeakerProcedure,
+		svc.CreateSpeaker,
+		connect.WithSchema(bGPServiceMethods.ByName("CreateSpeaker")),
+		connect.WithHandlerOptions(opts...),
+	)
+	bGPServiceGetSpeakerHandler := connect.NewUnaryHandler(
+		BGPServiceGetSpeakerProcedure,
+		svc.GetSpeaker,
+		connect.WithSchema(bGPServiceMethods.ByName("GetSpeaker")),
+		connect.WithHandlerOptions(opts...),
+	)
+	bGPServiceListSpeakersHandler := connect.NewUnaryHandler(
+		BGPServiceListSpeakersProcedure,
+		svc.ListSpeakers,
+		connect.WithSchema(bGPServiceMethods.ByName("ListSpeakers")),
+		connect.WithHandlerOptions(opts...),
+	)
+	bGPServiceDeleteSpeakerHandler := connect.NewUnaryHandler(
+		BGPServiceDeleteSpeakerProcedure,
+		svc.DeleteSpeaker,
+		connect.WithSchema(bGPServiceMethods.ByName("DeleteSpeaker")),
+		connect.WithHandlerOptions(opts...),
+	)
+	bGPServiceAddPeerHandler := connect.NewUnaryHandler(
+		BGPServiceAddPeerProcedure,
+		svc.AddPeer,
+		connect.WithSchema(bGPServiceMethods.ByName("AddPeer")),
+		connect.WithHandlerOptions(opts...),
+	)
+	bGPServiceRemovePeerHandler := connect.NewUnaryHandler(
+		BGPServiceRemovePeerProcedure,
+		svc.RemovePeer,
+		connect.WithSchema(bGPServiceMethods.ByName("RemovePeer")),
+		connect.WithHandlerOptions(opts...),
+	)
+	bGPServiceListPeersHandler := connect.NewUnaryHandler(
+		BGPServiceListPeersProcedure,
+		svc.ListPeers,
+		connect.WithSchema(bGPServiceMethods.ByName("ListPeers")),
+		connect.WithHandlerOptions(opts...),
+	)
+	bGPServiceAdvertiseNetworkHandler := connect.NewUnaryHandler(
+		BGPServiceAdvertiseNetworkProcedure,
+		svc.AdvertiseNetwork,
+		connect.WithSchema(bGPServiceMethods.ByName("AdvertiseNetwork")),
+		connect.WithHandlerOptions(opts...),
+	)
+	bGPServiceWithdrawNetworkHandler := connect.NewUnaryHandler(
+		BGPServiceWithdrawNetworkProcedure,
+		svc.WithdrawNetwork,
+		connect.WithSchema(bGPServiceMethods.ByName("WithdrawNetwork")),
+		connect.WithHandlerOptions(opts...),
+	)
+	bGPServiceListAdvertisementsHandler := connect.NewUnaryHandler(
+		BGPServiceListAdvertisementsProcedure,
+		svc.ListAdvertisements,
+		connect.WithSchema(bGPServiceMethods.ByName("ListAdvertisements")),
+		connect.WithHandlerOptions(opts...),
+	)
+	bGPServiceGetSpeakerStatusHandler := connect.NewUnaryHandler(
+		BGPServiceGetSpeakerStatusProcedure,
+		svc.GetSpeakerStatus,
+		connect.WithSchema(bGPServiceMethods.ByName("GetSpeakerStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/limiquantix.network.v1.BGPService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case BGPServiceCreateSpeakerProcedure:
+			bGPServiceCreateSpeakerHandler.ServeHTTP(w, r)
+		case BGPServiceGetSpeakerProcedure:
+			bGPServiceGetSpeakerHandler.ServeHTTP(w, r)
+		case BGPServiceListSpeakersProcedure:
+			bGPServiceListSpeakersHandler.ServeHTTP(w, r)
+		case BGPServiceDeleteSpeakerProcedure:
+			bGPServiceDeleteSpeakerHandler.ServeHTTP(w, r)
+		case BGPServiceAddPeerProcedure:
+			bGPServiceAddPeerHandler.ServeHTTP(w, r)
+		case BGPServiceRemovePeerProcedure:
+			bGPServiceRemovePeerHandler.ServeHTTP(w, r)
+		case BGPServiceListPeersProcedure:
+			bGPServiceListPeersHandler.ServeHTTP(w, r)
+		case BGPServiceAdvertiseNetworkProcedure:
+			bGPServiceAdvertiseNetworkHandler.ServeHTTP(w, r)
+		case BGPServiceWithdrawNetworkProcedure:
+			bGPServiceWithdrawNetworkHandler.ServeHTTP(w, r)
+		case BGPServiceListAdvertisementsProcedure:
+			bGPServiceListAdvertisementsHandler.ServeHTTP(w, r)
+		case BGPServiceGetSpeakerStatusProcedure:
+			bGPServiceGetSpeakerStatusHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedBGPServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedBGPServiceHandler struct{}
+
+func (UnimplementedBGPServiceHandler) CreateSpeaker(context.Context, *connect.Request[v1.CreateBGPSpeakerRequest]) (*connect.Response[v1.BGPSpeaker], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.network.v1.BGPService.CreateSpeaker is not implemented"))
+}
+
+func (UnimplementedBGPServiceHandler) GetSpeaker(context.Context, *connect.Request[v1.GetBGPSpeakerRequest]) (*connect.Response[v1.BGPSpeaker], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.network.v1.BGPService.GetSpeaker is not implemented"))
+}
+
+func (UnimplementedBGPServiceHandler) ListSpeakers(context.Context, *connect.Request[v1.ListBGPSpeakersRequest]) (*connect.Response[v1.ListBGPSpeakersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.network.v1.BGPService.ListSpeakers is not implemented"))
+}
+
+func (UnimplementedBGPServiceHandler) DeleteSpeaker(context.Context, *connect.Request[v1.DeleteBGPSpeakerRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.network.v1.BGPService.DeleteSpeaker is not implemented"))
+}
+
+func (UnimplementedBGPServiceHandler) AddPeer(context.Context, *connect.Request[v1.AddBGPPeerRequest]) (*connect.Response[v1.BGPPeer], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.network.v1.BGPService.AddPeer is not implemented"))
+}
+
+func (UnimplementedBGPServiceHandler) RemovePeer(context.Context, *connect.Request[v1.RemoveBGPPeerRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.network.v1.BGPService.RemovePeer is not implemented"))
+}
+
+func (UnimplementedBGPServiceHandler) ListPeers(context.Context, *connect.Request[v1.ListBGPPeersRequest]) (*connect.Response[v1.ListBGPPeersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.network.v1.BGPService.ListPeers is not implemented"))
+}
+
+func (UnimplementedBGPServiceHandler) AdvertiseNetwork(context.Context, *connect.Request[v1.AdvertiseNetworkRequest]) (*connect.Response[v1.BGPAdvertisement], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.network.v1.BGPService.AdvertiseNetwork is not implemented"))
+}
+
+func (UnimplementedBGPServiceHandler) WithdrawNetwork(context.Context, *connect.Request[v1.WithdrawNetworkRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.network.v1.BGPService.WithdrawNetwork is not implemented"))
+}
+
+func (UnimplementedBGPServiceHandler) ListAdvertisements(context.Context, *connect.Request[v1.ListAdvertisementsRequest]) (*connect.Response[v1.ListAdvertisementsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.network.v1.BGPService.ListAdvertisements is not implemented"))
+}
+
+func (UnimplementedBGPServiceHandler) GetSpeakerStatus(context.Context, *connect.Request[v1.GetBGPSpeakerStatusRequest]) (*connect.Response[v1.BGPSpeakerDetailedStatus], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.network.v1.BGPService.GetSpeakerStatus is not implemented"))
 }

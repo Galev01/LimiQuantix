@@ -6,6 +6,7 @@ option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;compu
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
 import "limiquantix/compute/v1/node.proto";
 
 // =============================================================================
@@ -91,6 +92,18 @@ service NodeService {
   
   // WatchNodes streams updates for all nodes.
   rpc WatchNodes(WatchNodesRequest) returns (stream NodeUpdate);
+  
+  // ==========================================================================
+  // Real-Time Streaming (for Host UI)
+  // ==========================================================================
+  
+  // StreamNodeMetrics streams real-time node metrics at regular intervals.
+  // Used by the Host UI for live dashboard updates.
+  rpc StreamNodeMetrics(StreamNodeMetricsRequest) returns (stream NodeMetrics);
+  
+  // StreamEvents streams system events in real-time.
+  // Used by the Host UI for event monitoring.
+  rpc StreamEvents(StreamEventsRequest) returns (stream SystemEvent);
 }
 
 // =============================================================================
@@ -416,4 +429,106 @@ message SyncNodeVMsResponse {
   
   // Any errors encountered
   repeated string errors = 3;
+}
+
+// =============================================================================
+// STREAMING MESSAGES (for Host UI)
+// =============================================================================
+
+// StreamNodeMetrics - Real-time metrics streaming
+
+message StreamNodeMetricsRequest {
+  // Node ID (empty = current node for standalone mode)
+  string node_id = 1;
+  
+  // Update interval in seconds (default: 2)
+  uint32 interval_sec = 2;
+}
+
+// StreamEvents - Real-time event streaming
+
+message StreamEventsRequest {
+  // Node ID (empty = current node for standalone mode)
+  string node_id = 1;
+  
+  // Filter by event types (empty = all)
+  repeated SystemEvent.EventType types = 2;
+}
+
+// SystemEvent - System-level events for monitoring
+
+message SystemEvent {
+  // Event ID
+  string id = 1;
+  
+  // Timestamp
+  google.protobuf.Timestamp timestamp = 2;
+  
+  // Event type
+  enum EventType {
+    UNKNOWN = 0;
+    
+    // Service events
+    SERVICE_STARTED = 1;
+    SERVICE_STOPPED = 2;
+    SERVICE_FAILED = 3;
+    SERVICE_RESTARTED = 4;
+    
+    // VM events
+    VM_CREATED = 10;
+    VM_STARTED = 11;
+    VM_STOPPED = 12;
+    VM_CRASHED = 13;
+    VM_DELETED = 14;
+    
+    // Hardware events
+    HARDWARE_ADDED = 20;
+    HARDWARE_REMOVED = 21;
+    HARDWARE_FAILURE = 22;
+    
+    // Network events
+    NETWORK_INTERFACE_UP = 30;
+    NETWORK_INTERFACE_DOWN = 31;
+    NETWORK_CONFIGURED = 32;
+    
+    // Storage events
+    STORAGE_POOL_CREATED = 40;
+    STORAGE_POOL_DELETED = 41;
+    STORAGE_POOL_FULL = 42;
+    VOLUME_CREATED = 43;
+    VOLUME_DELETED = 44;
+    
+    // System events
+    SYSTEM_BOOT = 50;
+    SYSTEM_SHUTDOWN = 51;
+    SYSTEM_REBOOT = 52;
+    SYSTEM_OVERLOAD = 53;
+    SYSTEM_RECOVERED = 54;
+    
+    // Error events
+    ERROR_OCCURRED = 60;
+    WARNING_ISSUED = 61;
+  }
+  EventType type = 3;
+  
+  // Severity
+  enum Severity {
+    INFO = 0;
+    WARNING = 1;
+    ERROR = 2;
+    CRITICAL = 3;
+  }
+  Severity severity = 4;
+  
+  // Source component
+  string source = 5;
+  
+  // Event message
+  string message = 6;
+  
+  // Related resource ID (VM ID, pool ID, etc.)
+  string resource_id = 7;
+  
+  // Additional metadata
+  map<string, string> metadata = 8;
 }

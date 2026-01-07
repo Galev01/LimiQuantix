@@ -4,8 +4,8 @@
 
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv1";
 import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv1";
-import type { EmptySchema, FieldMask } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_empty, file_google_protobuf_field_mask } from "@bufbuild/protobuf/wkt";
+import type { EmptySchema, FieldMask, Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_empty, file_google_protobuf_field_mask, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { CpuInfo, MemoryInfo, NetworkDevice, Node, NodeEvent, NodeEvent_EventType, NodeRole, NodeSchema, NodeStatus_Phase, SchedulingConfig, StorageDevice, Taint } from "./node_pb";
 import { file_limiquantix_compute_v1_node } from "./node_pb";
 import type { Message } from "@bufbuild/protobuf";
@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file limiquantix/compute/v1/node_service.proto.
  */
 export const file_limiquantix_compute_v1_node_service: GenFile = /*@__PURE__*/
-  fileDesc("CilsaW1pcXVhbnRpeC9jb21wdXRlL3YxL25vZGVfc2VydmljZS5wcm90bxIWbGltaXF1YW50aXguY29tcHV0ZS52MSKZBAoTUmVnaXN0ZXJOb2RlUmVxdWVzdBIQCghob3N0bmFtZRgBIAEoCRIVCg1tYW5hZ2VtZW50X2lwGAIgASgJEkcKBmxhYmVscxgDIAMoCzI3LmxpbWlxdWFudGl4LmNvbXB1dGUudjEuUmVnaXN0ZXJOb2RlUmVxdWVzdC5MYWJlbHNFbnRyeRIuCgRyb2xlGAQgASgLMiAubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlUm9sZRItCgZ0YWludHMYBSADKAsyHS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlRhaW50EhYKDmFnZW50X2VuZHBvaW50GAYgASgJEjEKCGNwdV9pbmZvGAcgASgLMh8ubGltaXF1YW50aXguY29tcHV0ZS52MS5DcHVJbmZvEjcKC21lbW9yeV9pbmZvGAggASgLMiIubGltaXF1YW50aXguY29tcHV0ZS52MS5NZW1vcnlJbmZvEj4KD3N0b3JhZ2VfZGV2aWNlcxgJIAMoCzIlLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RvcmFnZURldmljZRI+Cg9uZXR3b3JrX2RldmljZXMYCiADKAsyJS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5ldHdvcmtEZXZpY2UaLQoLTGFiZWxzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASIcCg5HZXROb2RlUmVxdWVzdBIKCgJpZBgBIAEoCSKwAgoQTGlzdE5vZGVzUmVxdWVzdBJECgZsYWJlbHMYASADKAsyNC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkxpc3ROb2Rlc1JlcXVlc3QuTGFiZWxzRW50cnkSOAoGcGhhc2VzGAIgAygOMigubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlU3RhdHVzLlBoYXNlEhQKDGNvbXB1dGVfb25seRgDIAEoCBIUCgxzdG9yYWdlX29ubHkYBCABKAgSGgoSY29udHJvbF9wbGFuZV9vbmx5GAUgASgIEhEKCXBhZ2Vfc2l6ZRgKIAEoBRISCgpwYWdlX3Rva2VuGAsgASgJGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEibgoRTGlzdE5vZGVzUmVzcG9uc2USKwoFbm9kZXMYASADKAsyHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEhMKC3RvdGFsX2NvdW50GAMgASgFIr4BChFVcGRhdGVOb2RlUmVxdWVzdBIKCgJpZBgBIAEoCRI8CgpzY2hlZHVsaW5nGAIgASgLMigubGltaXF1YW50aXguY29tcHV0ZS52MS5TY2hlZHVsaW5nQ29uZmlnEi4KBHJvbGUYAyABKAsyIC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVSb2xlEi8KC3VwZGF0ZV9tYXNrGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLkZpZWxkTWFzayI0ChdEZWNvbW1pc3Npb25Ob2RlUmVxdWVzdBIKCgJpZBgBIAEoCRINCgVmb3JjZRgCIAEoCCIfChFFbmFibGVOb2RlUmVxdWVzdBIKCgJpZBgBIAEoCSIwChJEaXNhYmxlTm9kZVJlcXVlc3QSCgoCaWQYASABKAkSDgoGcmVhc29uGAIgASgJIl8KEERyYWluTm9kZVJlcXVlc3QSCgoCaWQYASABKAkSGAoQZ3JhY2VfcGVyaW9kX3NlYxgCIAEoBRINCgVmb3JjZRgDIAEoCBIWCg50YXJnZXRfbm9kZV9pZBgEIAEoCSKoAQoRRHJhaW5Ob2RlUmVzcG9uc2USKgoEbm9kZRgBIAEoCzIcLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRIXCg9taWdyYXRlZF92bV9pZHMYAiADKAkSFgoOc3RvcHBlZF92bV9pZHMYAyADKAkSNgoIZmFpbHVyZXMYBCADKAsyJC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRyYWluRmFpbHVyZSIsCgxEcmFpbkZhaWx1cmUSDQoFdm1faWQYASABKAkSDQoFZXJyb3IYAiABKAkiUAoPQWRkVGFpbnRSZXF1ZXN0Eg8KB25vZGVfaWQYASABKAkSLAoFdGFpbnQYAiABKAsyHS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlRhaW50IjgKElJlbW92ZVRhaW50UmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEhEKCXRhaW50X2tleRgCIAEoCSK/AQoTVXBkYXRlTGFiZWxzUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEk4KCmFkZF9sYWJlbHMYAiADKAsyOi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlVwZGF0ZUxhYmVsc1JlcXVlc3QuQWRkTGFiZWxzRW50cnkSFQoNcmVtb3ZlX2xhYmVscxgDIAMoCRowCg5BZGRMYWJlbHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIvgBChZVcGRhdGVIZWFydGJlYXRSZXF1ZXN0Eg8KB25vZGVfaWQYASABKAkSGQoRY3B1X3VzYWdlX3BlcmNlbnQYAiABKAESFwoPbWVtb3J5X3VzZWRfbWliGAMgASgEEhgKEG1lbW9yeV90b3RhbF9taWIYBCABKAQSGAoQcnVubmluZ192bV9jb3VudBgFIAEoDRIXCg9kaXNrX3VzZWRfYnl0ZXMYBiABKAQSGAoQZGlza190b3RhbF9ieXRlcxgHIAEoBBIPCgdsb2FkXzFtGAggASgBEg8KB2xvYWRfNW0YCSABKAESEAoIbG9hZF8xNW0YCiABKAEiagoXVXBkYXRlSGVhcnRiZWF0UmVzcG9uc2USFAoMYWNrbm93bGVkZ2VkGAEgASgIEhgKEHNlcnZlcl90aW1lX3VuaXgYAiABKAMSHwoXaGVhcnRiZWF0X2ludGVydmFsX3NlY3MYAyABKA0iIwoVR2V0Tm9kZU1ldHJpY3NSZXF1ZXN0EgoKAmlkGAEgASgJIukDCgtOb2RlTWV0cmljcxIPCgdub2RlX2lkGAEgASgJEhkKEWNwdV91c2FnZV9wZXJjZW50GAIgASgBEhcKD2NwdV9jb3Jlc190b3RhbBgDIAEoDRIbChNjcHVfY29yZXNfYWxsb2NhdGVkGAQgASgNEhoKEm1lbW9yeV90b3RhbF9ieXRlcxgFIAEoBBIZChFtZW1vcnlfdXNlZF9ieXRlcxgGIAEoBBIeChZtZW1vcnlfYWxsb2NhdGVkX2J5dGVzGAcgASgEEh4KFm1lbW9yeV9hdmFpbGFibGVfYnl0ZXMYCCABKAQSGwoTc3RvcmFnZV90b3RhbF9ieXRlcxgJIAEoBBIaChJzdG9yYWdlX3VzZWRfYnl0ZXMYCiABKAQSGAoQbmV0d29ya19yeF9ieXRlcxgLIAEoBBIYChBuZXR3b3JrX3R4X2J5dGVzGAwgASgEEhkKEW5ldHdvcmtfcnhfZXJyb3JzGA0gASgEEhkKEW5ldHdvcmtfdHhfZXJyb3JzGA4gASgEEhAKCHZtX2NvdW50GA8gASgNEhgKEHZtX3J1bm5pbmdfY291bnQYECABKA0SDwoHbG9hZF8xbRgRIAEoARIPCgdsb2FkXzVtGBIgASgBEhAKCGxvYWRfMTVtGBMgASgBInMKFUxpc3ROb2RlRXZlbnRzUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEjoKBXR5cGVzGAIgAygOMisubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlRXZlbnQuRXZlbnRUeXBlEg0KBWxpbWl0GAMgASgFIksKFkxpc3ROb2RlRXZlbnRzUmVzcG9uc2USMQoGZXZlbnRzGAEgAygLMiEubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlRXZlbnQiIwoQV2F0Y2hOb2RlUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJIokBChFXYXRjaE5vZGVzUmVxdWVzdBJFCgZsYWJlbHMYASADKAsyNS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLldhdGNoTm9kZXNSZXF1ZXN0LkxhYmVsc0VudHJ5Gi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiqQEKCk5vZGVVcGRhdGUSOwoEdHlwZRgBIAEoDjItLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZVVwZGF0ZS5VcGRhdGVUeXBlEioKBG5vZGUYAiABKAsyHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUiMgoKVXBkYXRlVHlwZRIJCgVBRERFRBAAEgwKCE1PRElGSUVEEAESCwoHREVMRVRFRBACIlYKElN5bmNOb2RlVk1zUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEi8KA3ZtcxgCIAMoCzIiLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZVZNSW5mbyJwCgpOb2RlVk1JbmZvEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDQoFc3RhdGUYAyABKAkSEQoJY3B1X2NvcmVzGAQgASgNEhIKCm1lbW9yeV9taWIYBSABKAQSEgoKZGlza19wYXRocxgGIAMoCSJVChNTeW5jTm9kZVZNc1Jlc3BvbnNlEhYKDmltcG9ydGVkX2NvdW50GAEgASgFEhYKDmV4aXN0aW5nX2NvdW50GAIgASgFEg4KBmVycm9ycxgDIAMoCTLRDAoLTm9kZVNlcnZpY2USWQoMUmVnaXN0ZXJOb2RlEisubGltaXF1YW50aXguY29tcHV0ZS52MS5SZWdpc3Rlck5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlEk8KB0dldE5vZGUSJi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkdldE5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlEmAKCUxpc3ROb2RlcxIoLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTGlzdE5vZGVzUmVxdWVzdBopLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTGlzdE5vZGVzUmVzcG9uc2USVQoKVXBkYXRlTm9kZRIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuVXBkYXRlTm9kZVJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSWwoQRGVjb21taXNzaW9uTm9kZRIvLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuRGVjb21taXNzaW9uTm9kZVJlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkSVQoKRW5hYmxlTm9kZRIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuRW5hYmxlTm9kZVJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSVwoLRGlzYWJsZU5vZGUSKi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRpc2FibGVOb2RlUmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJgCglEcmFpbk5vZGUSKC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRyYWluTm9kZVJlcXVlc3QaKS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRyYWluTm9kZVJlc3BvbnNlElEKCEFkZFRhaW50EicubGltaXF1YW50aXguY29tcHV0ZS52MS5BZGRUYWludFJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSVwoLUmVtb3ZlVGFpbnQSKi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlJlbW92ZVRhaW50UmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJZCgxVcGRhdGVMYWJlbHMSKy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlVwZGF0ZUxhYmVsc1JlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUScgoPVXBkYXRlSGVhcnRiZWF0Ei4ubGltaXF1YW50aXguY29tcHV0ZS52MS5VcGRhdGVIZWFydGJlYXRSZXF1ZXN0Gi8ubGltaXF1YW50aXguY29tcHV0ZS52MS5VcGRhdGVIZWFydGJlYXRSZXNwb25zZRJmCgtTeW5jTm9kZVZNcxIqLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3luY05vZGVWTXNSZXF1ZXN0GisubGltaXF1YW50aXguY29tcHV0ZS52MS5TeW5jTm9kZVZNc1Jlc3BvbnNlEmQKDkdldE5vZGVNZXRyaWNzEi0ubGltaXF1YW50aXguY29tcHV0ZS52MS5HZXROb2RlTWV0cmljc1JlcXVlc3QaIy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVNZXRyaWNzEm8KDkxpc3ROb2RlRXZlbnRzEi0ubGltaXF1YW50aXguY29tcHV0ZS52MS5MaXN0Tm9kZUV2ZW50c1JlcXVlc3QaLi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkxpc3ROb2RlRXZlbnRzUmVzcG9uc2USVQoJV2F0Y2hOb2RlEigubGltaXF1YW50aXguY29tcHV0ZS52MS5XYXRjaE5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlMAESXQoKV2F0Y2hOb2RlcxIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuV2F0Y2hOb2Rlc1JlcXVlc3QaIi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVVcGRhdGUwAUL1AQoaY29tLmxpbWlxdWFudGl4LmNvbXB1dGUudjFCEE5vZGVTZXJ2aWNlUHJvdG9QAVpLZ2l0aHViLmNvbS9saW1pcXVhbnRpeC9saW1pcXVhbnRpeC9wa2cvYXBpL2xpbWlxdWFudGl4L2NvbXB1dGUvdjE7Y29tcHV0ZXYxogIDTENYqgIWTGltaXF1YW50aXguQ29tcHV0ZS5WMcoCFkxpbWlxdWFudGl4XENvbXB1dGVcVjHiAiJMaW1pcXVhbnRpeFxDb21wdXRlXFYxXEdQQk1ldGFkYXRh6gIYTGltaXF1YW50aXg6OkNvbXB1dGU6OlYxYgZwcm90bzM", [file_google_protobuf_empty, file_google_protobuf_field_mask, file_limiquantix_compute_v1_node]);
+  fileDesc("CilsaW1pcXVhbnRpeC9jb21wdXRlL3YxL25vZGVfc2VydmljZS5wcm90bxIWbGltaXF1YW50aXguY29tcHV0ZS52MSKZBAoTUmVnaXN0ZXJOb2RlUmVxdWVzdBIQCghob3N0bmFtZRgBIAEoCRIVCg1tYW5hZ2VtZW50X2lwGAIgASgJEkcKBmxhYmVscxgDIAMoCzI3LmxpbWlxdWFudGl4LmNvbXB1dGUudjEuUmVnaXN0ZXJOb2RlUmVxdWVzdC5MYWJlbHNFbnRyeRIuCgRyb2xlGAQgASgLMiAubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlUm9sZRItCgZ0YWludHMYBSADKAsyHS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlRhaW50EhYKDmFnZW50X2VuZHBvaW50GAYgASgJEjEKCGNwdV9pbmZvGAcgASgLMh8ubGltaXF1YW50aXguY29tcHV0ZS52MS5DcHVJbmZvEjcKC21lbW9yeV9pbmZvGAggASgLMiIubGltaXF1YW50aXguY29tcHV0ZS52MS5NZW1vcnlJbmZvEj4KD3N0b3JhZ2VfZGV2aWNlcxgJIAMoCzIlLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RvcmFnZURldmljZRI+Cg9uZXR3b3JrX2RldmljZXMYCiADKAsyJS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5ldHdvcmtEZXZpY2UaLQoLTGFiZWxzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASIcCg5HZXROb2RlUmVxdWVzdBIKCgJpZBgBIAEoCSKwAgoQTGlzdE5vZGVzUmVxdWVzdBJECgZsYWJlbHMYASADKAsyNC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkxpc3ROb2Rlc1JlcXVlc3QuTGFiZWxzRW50cnkSOAoGcGhhc2VzGAIgAygOMigubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlU3RhdHVzLlBoYXNlEhQKDGNvbXB1dGVfb25seRgDIAEoCBIUCgxzdG9yYWdlX29ubHkYBCABKAgSGgoSY29udHJvbF9wbGFuZV9vbmx5GAUgASgIEhEKCXBhZ2Vfc2l6ZRgKIAEoBRISCgpwYWdlX3Rva2VuGAsgASgJGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEibgoRTGlzdE5vZGVzUmVzcG9uc2USKwoFbm9kZXMYASADKAsyHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEhMKC3RvdGFsX2NvdW50GAMgASgFIr4BChFVcGRhdGVOb2RlUmVxdWVzdBIKCgJpZBgBIAEoCRI8CgpzY2hlZHVsaW5nGAIgASgLMigubGltaXF1YW50aXguY29tcHV0ZS52MS5TY2hlZHVsaW5nQ29uZmlnEi4KBHJvbGUYAyABKAsyIC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVSb2xlEi8KC3VwZGF0ZV9tYXNrGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLkZpZWxkTWFzayI0ChdEZWNvbW1pc3Npb25Ob2RlUmVxdWVzdBIKCgJpZBgBIAEoCRINCgVmb3JjZRgCIAEoCCIfChFFbmFibGVOb2RlUmVxdWVzdBIKCgJpZBgBIAEoCSIwChJEaXNhYmxlTm9kZVJlcXVlc3QSCgoCaWQYASABKAkSDgoGcmVhc29uGAIgASgJIl8KEERyYWluTm9kZVJlcXVlc3QSCgoCaWQYASABKAkSGAoQZ3JhY2VfcGVyaW9kX3NlYxgCIAEoBRINCgVmb3JjZRgDIAEoCBIWCg50YXJnZXRfbm9kZV9pZBgEIAEoCSKoAQoRRHJhaW5Ob2RlUmVzcG9uc2USKgoEbm9kZRgBIAEoCzIcLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRIXCg9taWdyYXRlZF92bV9pZHMYAiADKAkSFgoOc3RvcHBlZF92bV9pZHMYAyADKAkSNgoIZmFpbHVyZXMYBCADKAsyJC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRyYWluRmFpbHVyZSIsCgxEcmFpbkZhaWx1cmUSDQoFdm1faWQYASABKAkSDQoFZXJyb3IYAiABKAkiUAoPQWRkVGFpbnRSZXF1ZXN0Eg8KB25vZGVfaWQYASABKAkSLAoFdGFpbnQYAiABKAsyHS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlRhaW50IjgKElJlbW92ZVRhaW50UmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEhEKCXRhaW50X2tleRgCIAEoCSK/AQoTVXBkYXRlTGFiZWxzUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEk4KCmFkZF9sYWJlbHMYAiADKAsyOi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlVwZGF0ZUxhYmVsc1JlcXVlc3QuQWRkTGFiZWxzRW50cnkSFQoNcmVtb3ZlX2xhYmVscxgDIAMoCRowCg5BZGRMYWJlbHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIvgBChZVcGRhdGVIZWFydGJlYXRSZXF1ZXN0Eg8KB25vZGVfaWQYASABKAkSGQoRY3B1X3VzYWdlX3BlcmNlbnQYAiABKAESFwoPbWVtb3J5X3VzZWRfbWliGAMgASgEEhgKEG1lbW9yeV90b3RhbF9taWIYBCABKAQSGAoQcnVubmluZ192bV9jb3VudBgFIAEoDRIXCg9kaXNrX3VzZWRfYnl0ZXMYBiABKAQSGAoQZGlza190b3RhbF9ieXRlcxgHIAEoBBIPCgdsb2FkXzFtGAggASgBEg8KB2xvYWRfNW0YCSABKAESEAoIbG9hZF8xNW0YCiABKAEiagoXVXBkYXRlSGVhcnRiZWF0UmVzcG9uc2USFAoMYWNrbm93bGVkZ2VkGAEgASgIEhgKEHNlcnZlcl90aW1lX3VuaXgYAiABKAMSHwoXaGVhcnRiZWF0X2ludGVydmFsX3NlY3MYAyABKA0iIwoVR2V0Tm9kZU1ldHJpY3NSZXF1ZXN0EgoKAmlkGAEgASgJIukDCgtOb2RlTWV0cmljcxIPCgdub2RlX2lkGAEgASgJEhkKEWNwdV91c2FnZV9wZXJjZW50GAIgASgBEhcKD2NwdV9jb3Jlc190b3RhbBgDIAEoDRIbChNjcHVfY29yZXNfYWxsb2NhdGVkGAQgASgNEhoKEm1lbW9yeV90b3RhbF9ieXRlcxgFIAEoBBIZChFtZW1vcnlfdXNlZF9ieXRlcxgGIAEoBBIeChZtZW1vcnlfYWxsb2NhdGVkX2J5dGVzGAcgASgEEh4KFm1lbW9yeV9hdmFpbGFibGVfYnl0ZXMYCCABKAQSGwoTc3RvcmFnZV90b3RhbF9ieXRlcxgJIAEoBBIaChJzdG9yYWdlX3VzZWRfYnl0ZXMYCiABKAQSGAoQbmV0d29ya19yeF9ieXRlcxgLIAEoBBIYChBuZXR3b3JrX3R4X2J5dGVzGAwgASgEEhkKEW5ldHdvcmtfcnhfZXJyb3JzGA0gASgEEhkKEW5ldHdvcmtfdHhfZXJyb3JzGA4gASgEEhAKCHZtX2NvdW50GA8gASgNEhgKEHZtX3J1bm5pbmdfY291bnQYECABKA0SDwoHbG9hZF8xbRgRIAEoARIPCgdsb2FkXzVtGBIgASgBEhAKCGxvYWRfMTVtGBMgASgBInMKFUxpc3ROb2RlRXZlbnRzUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEjoKBXR5cGVzGAIgAygOMisubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlRXZlbnQuRXZlbnRUeXBlEg0KBWxpbWl0GAMgASgFIksKFkxpc3ROb2RlRXZlbnRzUmVzcG9uc2USMQoGZXZlbnRzGAEgAygLMiEubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlRXZlbnQiIwoQV2F0Y2hOb2RlUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJIokBChFXYXRjaE5vZGVzUmVxdWVzdBJFCgZsYWJlbHMYASADKAsyNS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLldhdGNoTm9kZXNSZXF1ZXN0LkxhYmVsc0VudHJ5Gi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiqQEKCk5vZGVVcGRhdGUSOwoEdHlwZRgBIAEoDjItLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZVVwZGF0ZS5VcGRhdGVUeXBlEioKBG5vZGUYAiABKAsyHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUiMgoKVXBkYXRlVHlwZRIJCgVBRERFRBAAEgwKCE1PRElGSUVEEAESCwoHREVMRVRFRBACIlYKElN5bmNOb2RlVk1zUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEi8KA3ZtcxgCIAMoCzIiLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZVZNSW5mbyJwCgpOb2RlVk1JbmZvEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDQoFc3RhdGUYAyABKAkSEQoJY3B1X2NvcmVzGAQgASgNEhIKCm1lbW9yeV9taWIYBSABKAQSEgoKZGlza19wYXRocxgGIAMoCSJVChNTeW5jTm9kZVZNc1Jlc3BvbnNlEhYKDmltcG9ydGVkX2NvdW50GAEgASgFEhYKDmV4aXN0aW5nX2NvdW50GAIgASgFEg4KBmVycm9ycxgDIAMoCSJBChhTdHJlYW1Ob2RlTWV0cmljc1JlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCRIUCgxpbnRlcnZhbF9zZWMYAiABKA0iZAoTU3RyZWFtRXZlbnRzUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEjwKBXR5cGVzGAIgAygOMi0ubGltaXF1YW50aXguY29tcHV0ZS52MS5TeXN0ZW1FdmVudC5FdmVudFR5cGUi+gcKC1N5c3RlbUV2ZW50EgoKAmlkGAEgASgJEi0KCXRpbWVzdGFtcBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASOwoEdHlwZRgDIAEoDjItLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3lzdGVtRXZlbnQuRXZlbnRUeXBlEj4KCHNldmVyaXR5GAQgASgOMiwubGltaXF1YW50aXguY29tcHV0ZS52MS5TeXN0ZW1FdmVudC5TZXZlcml0eRIOCgZzb3VyY2UYBSABKAkSDwoHbWVzc2FnZRgGIAEoCRITCgtyZXNvdXJjZV9pZBgHIAEoCRJDCghtZXRhZGF0YRgIIAMoCzIxLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3lzdGVtRXZlbnQuTWV0YWRhdGFFbnRyeRovCg1NZXRhZGF0YUVudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiygQKCUV2ZW50VHlwZRILCgdVTktOT1dOEAASEwoPU0VSVklDRV9TVEFSVEVEEAESEwoPU0VSVklDRV9TVE9QUEVEEAISEgoOU0VSVklDRV9GQUlMRUQQAxIVChFTRVJWSUNFX1JFU1RBUlRFRBAEEg4KClZNX0NSRUFURUQQChIOCgpWTV9TVEFSVEVEEAsSDgoKVk1fU1RPUFBFRBAMEg4KClZNX0NSQVNIRUQQDRIOCgpWTV9ERUxFVEVEEA4SEgoOSEFSRFdBUkVfQURERUQQFBIUChBIQVJEV0FSRV9SRU1PVkVEEBUSFAoQSEFSRFdBUkVfRkFJTFVSRRAWEhgKFE5FVFdPUktfSU5URVJGQUNFX1VQEB4SGgoWTkVUV09SS19JTlRFUkZBQ0VfRE9XThAfEhYKEk5FVFdPUktfQ09ORklHVVJFRBAgEhgKFFNUT1JBR0VfUE9PTF9DUkVBVEVEECgSGAoUU1RPUkFHRV9QT09MX0RFTEVURUQQKRIVChFTVE9SQUdFX1BPT0xfRlVMTBAqEhIKDlZPTFVNRV9DUkVBVEVEECsSEgoOVk9MVU1FX0RFTEVURUQQLBIPCgtTWVNURU1fQk9PVBAyEhMKD1NZU1RFTV9TSFVURE9XThAzEhEKDVNZU1RFTV9SRUJPT1QQNBITCg9TWVNURU1fT1ZFUkxPQUQQNRIUChBTWVNURU1fUkVDT1ZFUkVEEDYSEgoORVJST1JfT0NDVVJSRUQQPBISCg5XQVJOSU5HX0lTU1VFRBA9IjoKCFNldmVyaXR5EggKBElORk8QABILCgdXQVJOSU5HEAESCQoFRVJST1IQAhIMCghDUklUSUNBTBADMqMOCgtOb2RlU2VydmljZRJZCgxSZWdpc3Rlck5vZGUSKy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlJlZ2lzdGVyTm9kZVJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSTwoHR2V0Tm9kZRImLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuR2V0Tm9kZVJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSYAoJTGlzdE5vZGVzEigubGltaXF1YW50aXguY29tcHV0ZS52MS5MaXN0Tm9kZXNSZXF1ZXN0GikubGltaXF1YW50aXguY29tcHV0ZS52MS5MaXN0Tm9kZXNSZXNwb25zZRJVCgpVcGRhdGVOb2RlEikubGltaXF1YW50aXguY29tcHV0ZS52MS5VcGRhdGVOb2RlUmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJbChBEZWNvbW1pc3Npb25Ob2RlEi8ubGltaXF1YW50aXguY29tcHV0ZS52MS5EZWNvbW1pc3Npb25Ob2RlUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJVCgpFbmFibGVOb2RlEikubGltaXF1YW50aXguY29tcHV0ZS52MS5FbmFibGVOb2RlUmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJXCgtEaXNhYmxlTm9kZRIqLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuRGlzYWJsZU5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlEmAKCURyYWluTm9kZRIoLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuRHJhaW5Ob2RlUmVxdWVzdBopLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuRHJhaW5Ob2RlUmVzcG9uc2USUQoIQWRkVGFpbnQSJy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkFkZFRhaW50UmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJXCgtSZW1vdmVUYWludBIqLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuUmVtb3ZlVGFpbnRSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlElkKDFVwZGF0ZUxhYmVscxIrLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuVXBkYXRlTGFiZWxzUmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJyCg9VcGRhdGVIZWFydGJlYXQSLi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlVwZGF0ZUhlYXJ0YmVhdFJlcXVlc3QaLy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlVwZGF0ZUhlYXJ0YmVhdFJlc3BvbnNlEmYKC1N5bmNOb2RlVk1zEioubGltaXF1YW50aXguY29tcHV0ZS52MS5TeW5jTm9kZVZNc1JlcXVlc3QaKy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlN5bmNOb2RlVk1zUmVzcG9uc2USZAoOR2V0Tm9kZU1ldHJpY3MSLS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkdldE5vZGVNZXRyaWNzUmVxdWVzdBojLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZU1ldHJpY3MSbwoOTGlzdE5vZGVFdmVudHMSLS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkxpc3ROb2RlRXZlbnRzUmVxdWVzdBouLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTGlzdE5vZGVFdmVudHNSZXNwb25zZRJVCglXYXRjaE5vZGUSKC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLldhdGNoTm9kZVJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUwARJdCgpXYXRjaE5vZGVzEikubGltaXF1YW50aXguY29tcHV0ZS52MS5XYXRjaE5vZGVzUmVxdWVzdBoiLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZVVwZGF0ZTABEmwKEVN0cmVhbU5vZGVNZXRyaWNzEjAubGltaXF1YW50aXguY29tcHV0ZS52MS5TdHJlYW1Ob2RlTWV0cmljc1JlcXVlc3QaIy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVNZXRyaWNzMAESYgoMU3RyZWFtRXZlbnRzEisubGltaXF1YW50aXguY29tcHV0ZS52MS5TdHJlYW1FdmVudHNSZXF1ZXN0GiMubGltaXF1YW50aXguY29tcHV0ZS52MS5TeXN0ZW1FdmVudDABQvUBChpjb20ubGltaXF1YW50aXguY29tcHV0ZS52MUIQTm9kZVNlcnZpY2VQcm90b1ABWktnaXRodWIuY29tL2xpbWlxdWFudGl4L2xpbWlxdWFudGl4L3BrZy9hcGkvbGltaXF1YW50aXgvY29tcHV0ZS92MTtjb21wdXRldjGiAgNMQ1iqAhZMaW1pcXVhbnRpeC5Db21wdXRlLlYxygIWTGltaXF1YW50aXhcQ29tcHV0ZVxWMeICIkxpbWlxdWFudGl4XENvbXB1dGVcVjFcR1BCTWV0YWRhdGHqAhhMaW1pcXVhbnRpeDo6Q29tcHV0ZTo6VjFiBnByb3RvMw", [file_google_protobuf_empty, file_google_protobuf_field_mask, file_google_protobuf_timestamp, file_limiquantix_compute_v1_node]);
 
 /**
  * @generated from message limiquantix.compute.v1.RegisterNodeRequest
@@ -966,6 +966,322 @@ export const SyncNodeVMsResponseSchema: GenMessage<SyncNodeVMsResponse> = /*@__P
   messageDesc(file_limiquantix_compute_v1_node_service, 25);
 
 /**
+ * @generated from message limiquantix.compute.v1.StreamNodeMetricsRequest
+ */
+export type StreamNodeMetricsRequest = Message<"limiquantix.compute.v1.StreamNodeMetricsRequest"> & {
+  /**
+   * Node ID (empty = current node for standalone mode)
+   *
+   * @generated from field: string node_id = 1;
+   */
+  nodeId: string;
+
+  /**
+   * Update interval in seconds (default: 2)
+   *
+   * @generated from field: uint32 interval_sec = 2;
+   */
+  intervalSec: number;
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.StreamNodeMetricsRequest.
+ * Use `create(StreamNodeMetricsRequestSchema)` to create a new message.
+ */
+export const StreamNodeMetricsRequestSchema: GenMessage<StreamNodeMetricsRequest> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 26);
+
+/**
+ * @generated from message limiquantix.compute.v1.StreamEventsRequest
+ */
+export type StreamEventsRequest = Message<"limiquantix.compute.v1.StreamEventsRequest"> & {
+  /**
+   * Node ID (empty = current node for standalone mode)
+   *
+   * @generated from field: string node_id = 1;
+   */
+  nodeId: string;
+
+  /**
+   * Filter by event types (empty = all)
+   *
+   * @generated from field: repeated limiquantix.compute.v1.SystemEvent.EventType types = 2;
+   */
+  types: SystemEvent_EventType[];
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.StreamEventsRequest.
+ * Use `create(StreamEventsRequestSchema)` to create a new message.
+ */
+export const StreamEventsRequestSchema: GenMessage<StreamEventsRequest> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 27);
+
+/**
+ * @generated from message limiquantix.compute.v1.SystemEvent
+ */
+export type SystemEvent = Message<"limiquantix.compute.v1.SystemEvent"> & {
+  /**
+   * Event ID
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Timestamp
+   *
+   * @generated from field: google.protobuf.Timestamp timestamp = 2;
+   */
+  timestamp?: Timestamp;
+
+  /**
+   * @generated from field: limiquantix.compute.v1.SystemEvent.EventType type = 3;
+   */
+  type: SystemEvent_EventType;
+
+  /**
+   * @generated from field: limiquantix.compute.v1.SystemEvent.Severity severity = 4;
+   */
+  severity: SystemEvent_Severity;
+
+  /**
+   * Source component
+   *
+   * @generated from field: string source = 5;
+   */
+  source: string;
+
+  /**
+   * Event message
+   *
+   * @generated from field: string message = 6;
+   */
+  message: string;
+
+  /**
+   * Related resource ID (VM ID, pool ID, etc.)
+   *
+   * @generated from field: string resource_id = 7;
+   */
+  resourceId: string;
+
+  /**
+   * Additional metadata
+   *
+   * @generated from field: map<string, string> metadata = 8;
+   */
+  metadata: { [key: string]: string };
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.SystemEvent.
+ * Use `create(SystemEventSchema)` to create a new message.
+ */
+export const SystemEventSchema: GenMessage<SystemEvent> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 28);
+
+/**
+ * Event type
+ *
+ * @generated from enum limiquantix.compute.v1.SystemEvent.EventType
+ */
+export enum SystemEvent_EventType {
+  /**
+   * @generated from enum value: UNKNOWN = 0;
+   */
+  UNKNOWN = 0,
+
+  /**
+   * Service events
+   *
+   * @generated from enum value: SERVICE_STARTED = 1;
+   */
+  SERVICE_STARTED = 1,
+
+  /**
+   * @generated from enum value: SERVICE_STOPPED = 2;
+   */
+  SERVICE_STOPPED = 2,
+
+  /**
+   * @generated from enum value: SERVICE_FAILED = 3;
+   */
+  SERVICE_FAILED = 3,
+
+  /**
+   * @generated from enum value: SERVICE_RESTARTED = 4;
+   */
+  SERVICE_RESTARTED = 4,
+
+  /**
+   * VM events
+   *
+   * @generated from enum value: VM_CREATED = 10;
+   */
+  VM_CREATED = 10,
+
+  /**
+   * @generated from enum value: VM_STARTED = 11;
+   */
+  VM_STARTED = 11,
+
+  /**
+   * @generated from enum value: VM_STOPPED = 12;
+   */
+  VM_STOPPED = 12,
+
+  /**
+   * @generated from enum value: VM_CRASHED = 13;
+   */
+  VM_CRASHED = 13,
+
+  /**
+   * @generated from enum value: VM_DELETED = 14;
+   */
+  VM_DELETED = 14,
+
+  /**
+   * Hardware events
+   *
+   * @generated from enum value: HARDWARE_ADDED = 20;
+   */
+  HARDWARE_ADDED = 20,
+
+  /**
+   * @generated from enum value: HARDWARE_REMOVED = 21;
+   */
+  HARDWARE_REMOVED = 21,
+
+  /**
+   * @generated from enum value: HARDWARE_FAILURE = 22;
+   */
+  HARDWARE_FAILURE = 22,
+
+  /**
+   * Network events
+   *
+   * @generated from enum value: NETWORK_INTERFACE_UP = 30;
+   */
+  NETWORK_INTERFACE_UP = 30,
+
+  /**
+   * @generated from enum value: NETWORK_INTERFACE_DOWN = 31;
+   */
+  NETWORK_INTERFACE_DOWN = 31,
+
+  /**
+   * @generated from enum value: NETWORK_CONFIGURED = 32;
+   */
+  NETWORK_CONFIGURED = 32,
+
+  /**
+   * Storage events
+   *
+   * @generated from enum value: STORAGE_POOL_CREATED = 40;
+   */
+  STORAGE_POOL_CREATED = 40,
+
+  /**
+   * @generated from enum value: STORAGE_POOL_DELETED = 41;
+   */
+  STORAGE_POOL_DELETED = 41,
+
+  /**
+   * @generated from enum value: STORAGE_POOL_FULL = 42;
+   */
+  STORAGE_POOL_FULL = 42,
+
+  /**
+   * @generated from enum value: VOLUME_CREATED = 43;
+   */
+  VOLUME_CREATED = 43,
+
+  /**
+   * @generated from enum value: VOLUME_DELETED = 44;
+   */
+  VOLUME_DELETED = 44,
+
+  /**
+   * System events
+   *
+   * @generated from enum value: SYSTEM_BOOT = 50;
+   */
+  SYSTEM_BOOT = 50,
+
+  /**
+   * @generated from enum value: SYSTEM_SHUTDOWN = 51;
+   */
+  SYSTEM_SHUTDOWN = 51,
+
+  /**
+   * @generated from enum value: SYSTEM_REBOOT = 52;
+   */
+  SYSTEM_REBOOT = 52,
+
+  /**
+   * @generated from enum value: SYSTEM_OVERLOAD = 53;
+   */
+  SYSTEM_OVERLOAD = 53,
+
+  /**
+   * @generated from enum value: SYSTEM_RECOVERED = 54;
+   */
+  SYSTEM_RECOVERED = 54,
+
+  /**
+   * Error events
+   *
+   * @generated from enum value: ERROR_OCCURRED = 60;
+   */
+  ERROR_OCCURRED = 60,
+
+  /**
+   * @generated from enum value: WARNING_ISSUED = 61;
+   */
+  WARNING_ISSUED = 61,
+}
+
+/**
+ * Describes the enum limiquantix.compute.v1.SystemEvent.EventType.
+ */
+export const SystemEvent_EventTypeSchema: GenEnum<SystemEvent_EventType> = /*@__PURE__*/
+  enumDesc(file_limiquantix_compute_v1_node_service, 28, 0);
+
+/**
+ * Severity
+ *
+ * @generated from enum limiquantix.compute.v1.SystemEvent.Severity
+ */
+export enum SystemEvent_Severity {
+  /**
+   * @generated from enum value: INFO = 0;
+   */
+  INFO = 0,
+
+  /**
+   * @generated from enum value: WARNING = 1;
+   */
+  WARNING = 1,
+
+  /**
+   * @generated from enum value: ERROR = 2;
+   */
+  ERROR = 2,
+
+  /**
+   * @generated from enum value: CRITICAL = 3;
+   */
+  CRITICAL = 3,
+}
+
+/**
+ * Describes the enum limiquantix.compute.v1.SystemEvent.Severity.
+ */
+export const SystemEvent_SeveritySchema: GenEnum<SystemEvent_Severity> = /*@__PURE__*/
+  enumDesc(file_limiquantix_compute_v1_node_service, 28, 1);
+
+/**
  * NodeService provides management operations for physical compute nodes.
  *
  * ==========================================================================
@@ -1147,6 +1463,28 @@ export const NodeService: GenService<{
     methodKind: "server_streaming";
     input: typeof WatchNodesRequestSchema;
     output: typeof NodeUpdateSchema;
+  },
+  /**
+   * StreamNodeMetrics streams real-time node metrics at regular intervals.
+   * Used by the Host UI for live dashboard updates.
+   *
+   * @generated from rpc limiquantix.compute.v1.NodeService.StreamNodeMetrics
+   */
+  streamNodeMetrics: {
+    methodKind: "server_streaming";
+    input: typeof StreamNodeMetricsRequestSchema;
+    output: typeof NodeMetricsSchema;
+  },
+  /**
+   * StreamEvents streams system events in real-time.
+   * Used by the Host UI for event monitoring.
+   *
+   * @generated from rpc limiquantix.compute.v1.NodeService.StreamEvents
+   */
+  streamEvents: {
+    methodKind: "server_streaming";
+    input: typeof StreamEventsRequestSchema;
+    output: typeof SystemEventSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_limiquantix_compute_v1_node_service, 0);

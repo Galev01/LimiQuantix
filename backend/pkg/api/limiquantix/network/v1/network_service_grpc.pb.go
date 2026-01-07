@@ -2138,3 +2138,509 @@ var VpnServiceManager_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "limiquantix/network/v1/network_service.proto",
 }
+
+const (
+	BGPService_CreateSpeaker_FullMethodName      = "/limiquantix.network.v1.BGPService/CreateSpeaker"
+	BGPService_GetSpeaker_FullMethodName         = "/limiquantix.network.v1.BGPService/GetSpeaker"
+	BGPService_ListSpeakers_FullMethodName       = "/limiquantix.network.v1.BGPService/ListSpeakers"
+	BGPService_DeleteSpeaker_FullMethodName      = "/limiquantix.network.v1.BGPService/DeleteSpeaker"
+	BGPService_AddPeer_FullMethodName            = "/limiquantix.network.v1.BGPService/AddPeer"
+	BGPService_RemovePeer_FullMethodName         = "/limiquantix.network.v1.BGPService/RemovePeer"
+	BGPService_ListPeers_FullMethodName          = "/limiquantix.network.v1.BGPService/ListPeers"
+	BGPService_AdvertiseNetwork_FullMethodName   = "/limiquantix.network.v1.BGPService/AdvertiseNetwork"
+	BGPService_WithdrawNetwork_FullMethodName    = "/limiquantix.network.v1.BGPService/WithdrawNetwork"
+	BGPService_ListAdvertisements_FullMethodName = "/limiquantix.network.v1.BGPService/ListAdvertisements"
+	BGPService_GetSpeakerStatus_FullMethodName   = "/limiquantix.network.v1.BGPService/GetSpeakerStatus"
+)
+
+// BGPServiceClient is the client API for BGPService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// BGPService manages BGP speakers for advertising overlay routes to physical switches.
+type BGPServiceClient interface {
+	// CreateSpeaker creates a new BGP speaker.
+	CreateSpeaker(ctx context.Context, in *CreateBGPSpeakerRequest, opts ...grpc.CallOption) (*BGPSpeaker, error)
+	// GetSpeaker retrieves a BGP speaker by ID.
+	GetSpeaker(ctx context.Context, in *GetBGPSpeakerRequest, opts ...grpc.CallOption) (*BGPSpeaker, error)
+	// ListSpeakers returns all BGP speakers.
+	ListSpeakers(ctx context.Context, in *ListBGPSpeakersRequest, opts ...grpc.CallOption) (*ListBGPSpeakersResponse, error)
+	// DeleteSpeaker removes a BGP speaker.
+	DeleteSpeaker(ctx context.Context, in *DeleteBGPSpeakerRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// AddPeer adds a BGP peer to a speaker.
+	AddPeer(ctx context.Context, in *AddBGPPeerRequest, opts ...grpc.CallOption) (*BGPPeer, error)
+	// RemovePeer removes a BGP peer.
+	RemovePeer(ctx context.Context, in *RemoveBGPPeerRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// ListPeers returns all peers for a speaker.
+	ListPeers(ctx context.Context, in *ListBGPPeersRequest, opts ...grpc.CallOption) (*ListBGPPeersResponse, error)
+	// AdvertiseNetwork advertises a network prefix.
+	AdvertiseNetwork(ctx context.Context, in *AdvertiseNetworkRequest, opts ...grpc.CallOption) (*BGPAdvertisement, error)
+	// WithdrawNetwork withdraws a network prefix.
+	WithdrawNetwork(ctx context.Context, in *WithdrawNetworkRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// ListAdvertisements returns all advertised prefixes.
+	ListAdvertisements(ctx context.Context, in *ListAdvertisementsRequest, opts ...grpc.CallOption) (*ListAdvertisementsResponse, error)
+	// GetSpeakerStatus returns detailed BGP speaker status.
+	GetSpeakerStatus(ctx context.Context, in *GetBGPSpeakerStatusRequest, opts ...grpc.CallOption) (*BGPSpeakerDetailedStatus, error)
+}
+
+type bGPServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewBGPServiceClient(cc grpc.ClientConnInterface) BGPServiceClient {
+	return &bGPServiceClient{cc}
+}
+
+func (c *bGPServiceClient) CreateSpeaker(ctx context.Context, in *CreateBGPSpeakerRequest, opts ...grpc.CallOption) (*BGPSpeaker, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BGPSpeaker)
+	err := c.cc.Invoke(ctx, BGPService_CreateSpeaker_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bGPServiceClient) GetSpeaker(ctx context.Context, in *GetBGPSpeakerRequest, opts ...grpc.CallOption) (*BGPSpeaker, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BGPSpeaker)
+	err := c.cc.Invoke(ctx, BGPService_GetSpeaker_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bGPServiceClient) ListSpeakers(ctx context.Context, in *ListBGPSpeakersRequest, opts ...grpc.CallOption) (*ListBGPSpeakersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBGPSpeakersResponse)
+	err := c.cc.Invoke(ctx, BGPService_ListSpeakers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bGPServiceClient) DeleteSpeaker(ctx context.Context, in *DeleteBGPSpeakerRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, BGPService_DeleteSpeaker_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bGPServiceClient) AddPeer(ctx context.Context, in *AddBGPPeerRequest, opts ...grpc.CallOption) (*BGPPeer, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BGPPeer)
+	err := c.cc.Invoke(ctx, BGPService_AddPeer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bGPServiceClient) RemovePeer(ctx context.Context, in *RemoveBGPPeerRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, BGPService_RemovePeer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bGPServiceClient) ListPeers(ctx context.Context, in *ListBGPPeersRequest, opts ...grpc.CallOption) (*ListBGPPeersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBGPPeersResponse)
+	err := c.cc.Invoke(ctx, BGPService_ListPeers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bGPServiceClient) AdvertiseNetwork(ctx context.Context, in *AdvertiseNetworkRequest, opts ...grpc.CallOption) (*BGPAdvertisement, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BGPAdvertisement)
+	err := c.cc.Invoke(ctx, BGPService_AdvertiseNetwork_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bGPServiceClient) WithdrawNetwork(ctx context.Context, in *WithdrawNetworkRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, BGPService_WithdrawNetwork_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bGPServiceClient) ListAdvertisements(ctx context.Context, in *ListAdvertisementsRequest, opts ...grpc.CallOption) (*ListAdvertisementsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAdvertisementsResponse)
+	err := c.cc.Invoke(ctx, BGPService_ListAdvertisements_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bGPServiceClient) GetSpeakerStatus(ctx context.Context, in *GetBGPSpeakerStatusRequest, opts ...grpc.CallOption) (*BGPSpeakerDetailedStatus, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BGPSpeakerDetailedStatus)
+	err := c.cc.Invoke(ctx, BGPService_GetSpeakerStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// BGPServiceServer is the server API for BGPService service.
+// All implementations should embed UnimplementedBGPServiceServer
+// for forward compatibility.
+//
+// BGPService manages BGP speakers for advertising overlay routes to physical switches.
+type BGPServiceServer interface {
+	// CreateSpeaker creates a new BGP speaker.
+	CreateSpeaker(context.Context, *CreateBGPSpeakerRequest) (*BGPSpeaker, error)
+	// GetSpeaker retrieves a BGP speaker by ID.
+	GetSpeaker(context.Context, *GetBGPSpeakerRequest) (*BGPSpeaker, error)
+	// ListSpeakers returns all BGP speakers.
+	ListSpeakers(context.Context, *ListBGPSpeakersRequest) (*ListBGPSpeakersResponse, error)
+	// DeleteSpeaker removes a BGP speaker.
+	DeleteSpeaker(context.Context, *DeleteBGPSpeakerRequest) (*emptypb.Empty, error)
+	// AddPeer adds a BGP peer to a speaker.
+	AddPeer(context.Context, *AddBGPPeerRequest) (*BGPPeer, error)
+	// RemovePeer removes a BGP peer.
+	RemovePeer(context.Context, *RemoveBGPPeerRequest) (*emptypb.Empty, error)
+	// ListPeers returns all peers for a speaker.
+	ListPeers(context.Context, *ListBGPPeersRequest) (*ListBGPPeersResponse, error)
+	// AdvertiseNetwork advertises a network prefix.
+	AdvertiseNetwork(context.Context, *AdvertiseNetworkRequest) (*BGPAdvertisement, error)
+	// WithdrawNetwork withdraws a network prefix.
+	WithdrawNetwork(context.Context, *WithdrawNetworkRequest) (*emptypb.Empty, error)
+	// ListAdvertisements returns all advertised prefixes.
+	ListAdvertisements(context.Context, *ListAdvertisementsRequest) (*ListAdvertisementsResponse, error)
+	// GetSpeakerStatus returns detailed BGP speaker status.
+	GetSpeakerStatus(context.Context, *GetBGPSpeakerStatusRequest) (*BGPSpeakerDetailedStatus, error)
+}
+
+// UnimplementedBGPServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedBGPServiceServer struct{}
+
+func (UnimplementedBGPServiceServer) CreateSpeaker(context.Context, *CreateBGPSpeakerRequest) (*BGPSpeaker, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateSpeaker not implemented")
+}
+func (UnimplementedBGPServiceServer) GetSpeaker(context.Context, *GetBGPSpeakerRequest) (*BGPSpeaker, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSpeaker not implemented")
+}
+func (UnimplementedBGPServiceServer) ListSpeakers(context.Context, *ListBGPSpeakersRequest) (*ListBGPSpeakersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSpeakers not implemented")
+}
+func (UnimplementedBGPServiceServer) DeleteSpeaker(context.Context, *DeleteBGPSpeakerRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteSpeaker not implemented")
+}
+func (UnimplementedBGPServiceServer) AddPeer(context.Context, *AddBGPPeerRequest) (*BGPPeer, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddPeer not implemented")
+}
+func (UnimplementedBGPServiceServer) RemovePeer(context.Context, *RemoveBGPPeerRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemovePeer not implemented")
+}
+func (UnimplementedBGPServiceServer) ListPeers(context.Context, *ListBGPPeersRequest) (*ListBGPPeersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPeers not implemented")
+}
+func (UnimplementedBGPServiceServer) AdvertiseNetwork(context.Context, *AdvertiseNetworkRequest) (*BGPAdvertisement, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdvertiseNetwork not implemented")
+}
+func (UnimplementedBGPServiceServer) WithdrawNetwork(context.Context, *WithdrawNetworkRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method WithdrawNetwork not implemented")
+}
+func (UnimplementedBGPServiceServer) ListAdvertisements(context.Context, *ListAdvertisementsRequest) (*ListAdvertisementsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAdvertisements not implemented")
+}
+func (UnimplementedBGPServiceServer) GetSpeakerStatus(context.Context, *GetBGPSpeakerStatusRequest) (*BGPSpeakerDetailedStatus, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSpeakerStatus not implemented")
+}
+func (UnimplementedBGPServiceServer) testEmbeddedByValue() {}
+
+// UnsafeBGPServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to BGPServiceServer will
+// result in compilation errors.
+type UnsafeBGPServiceServer interface {
+	mustEmbedUnimplementedBGPServiceServer()
+}
+
+func RegisterBGPServiceServer(s grpc.ServiceRegistrar, srv BGPServiceServer) {
+	// If the following call panics, it indicates UnimplementedBGPServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&BGPService_ServiceDesc, srv)
+}
+
+func _BGPService_CreateSpeaker_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateBGPSpeakerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BGPServiceServer).CreateSpeaker(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BGPService_CreateSpeaker_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BGPServiceServer).CreateSpeaker(ctx, req.(*CreateBGPSpeakerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BGPService_GetSpeaker_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBGPSpeakerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BGPServiceServer).GetSpeaker(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BGPService_GetSpeaker_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BGPServiceServer).GetSpeaker(ctx, req.(*GetBGPSpeakerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BGPService_ListSpeakers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBGPSpeakersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BGPServiceServer).ListSpeakers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BGPService_ListSpeakers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BGPServiceServer).ListSpeakers(ctx, req.(*ListBGPSpeakersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BGPService_DeleteSpeaker_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteBGPSpeakerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BGPServiceServer).DeleteSpeaker(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BGPService_DeleteSpeaker_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BGPServiceServer).DeleteSpeaker(ctx, req.(*DeleteBGPSpeakerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BGPService_AddPeer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddBGPPeerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BGPServiceServer).AddPeer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BGPService_AddPeer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BGPServiceServer).AddPeer(ctx, req.(*AddBGPPeerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BGPService_RemovePeer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveBGPPeerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BGPServiceServer).RemovePeer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BGPService_RemovePeer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BGPServiceServer).RemovePeer(ctx, req.(*RemoveBGPPeerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BGPService_ListPeers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBGPPeersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BGPServiceServer).ListPeers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BGPService_ListPeers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BGPServiceServer).ListPeers(ctx, req.(*ListBGPPeersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BGPService_AdvertiseNetwork_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdvertiseNetworkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BGPServiceServer).AdvertiseNetwork(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BGPService_AdvertiseNetwork_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BGPServiceServer).AdvertiseNetwork(ctx, req.(*AdvertiseNetworkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BGPService_WithdrawNetwork_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WithdrawNetworkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BGPServiceServer).WithdrawNetwork(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BGPService_WithdrawNetwork_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BGPServiceServer).WithdrawNetwork(ctx, req.(*WithdrawNetworkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BGPService_ListAdvertisements_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAdvertisementsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BGPServiceServer).ListAdvertisements(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BGPService_ListAdvertisements_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BGPServiceServer).ListAdvertisements(ctx, req.(*ListAdvertisementsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BGPService_GetSpeakerStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBGPSpeakerStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BGPServiceServer).GetSpeakerStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BGPService_GetSpeakerStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BGPServiceServer).GetSpeakerStatus(ctx, req.(*GetBGPSpeakerStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// BGPService_ServiceDesc is the grpc.ServiceDesc for BGPService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var BGPService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "limiquantix.network.v1.BGPService",
+	HandlerType: (*BGPServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateSpeaker",
+			Handler:    _BGPService_CreateSpeaker_Handler,
+		},
+		{
+			MethodName: "GetSpeaker",
+			Handler:    _BGPService_GetSpeaker_Handler,
+		},
+		{
+			MethodName: "ListSpeakers",
+			Handler:    _BGPService_ListSpeakers_Handler,
+		},
+		{
+			MethodName: "DeleteSpeaker",
+			Handler:    _BGPService_DeleteSpeaker_Handler,
+		},
+		{
+			MethodName: "AddPeer",
+			Handler:    _BGPService_AddPeer_Handler,
+		},
+		{
+			MethodName: "RemovePeer",
+			Handler:    _BGPService_RemovePeer_Handler,
+		},
+		{
+			MethodName: "ListPeers",
+			Handler:    _BGPService_ListPeers_Handler,
+		},
+		{
+			MethodName: "AdvertiseNetwork",
+			Handler:    _BGPService_AdvertiseNetwork_Handler,
+		},
+		{
+			MethodName: "WithdrawNetwork",
+			Handler:    _BGPService_WithdrawNetwork_Handler,
+		},
+		{
+			MethodName: "ListAdvertisements",
+			Handler:    _BGPService_ListAdvertisements_Handler,
+		},
+		{
+			MethodName: "GetSpeakerStatus",
+			Handler:    _BGPService_GetSpeakerStatus_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "limiquantix/network/v1/network_service.proto",
+}

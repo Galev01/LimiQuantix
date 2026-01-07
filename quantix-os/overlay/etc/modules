@@ -28,3 +28,6 @@ virtio_net
 virtio_console
 virtio_balloon
 virtio_scsi
+
+# Intel Graphics
+i915

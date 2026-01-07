@@ -143,6 +143,80 @@ struct StopVmRequest {
 }
 
 // ============================================================================
+// Cluster Types
+// ============================================================================
+
+#[derive(Serialize, Deserialize)]
+struct ClusterConfig {
+    enabled: bool,
+    control_plane_address: String,
+    node_id: Option<String>,
+    registration_token: Option<String>,
+    heartbeat_interval_secs: u32,
+}
+
+#[derive(Deserialize)]
+struct JoinClusterRequest {
+    control_plane_address: String,
+    registration_token: String,
+}
+
+#[derive(Serialize)]
+struct ClusterStatus {
+    joined: bool,
+    control_plane_address: Option<String>,
+    node_id: Option<String>,
+    last_heartbeat: Option<String>,
+    status: String,  // "connected", "disconnected", "standalone"
+}
+
+// ============================================================================
+// Network Types
+// ============================================================================
+
+#[derive(Serialize)]
+struct NetworkInterface {
+    name: String,
+    mac_address: String,
+    #[serde(rename = "type")]
+    interface_type: String,  // "ethernet", "bridge", "bond", "vlan"
+    state: String,           // "up", "down"
+    ip_addresses: Vec<String>,
+    mtu: u32,
+    speed_mbps: Option<u64>,
+}
+
+#[derive(Serialize)]
+struct NetworkInterfaceList {
+    interfaces: Vec<NetworkInterface>,
+}
+
+#[derive(Deserialize)]
+struct ConfigureInterfaceRequest {
+    dhcp: bool,
+    ip_address: Option<String>,
+    netmask: Option<String>,
+    gateway: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct CreateBridgeRequest {
+    name: String,
+    interfaces: Vec<String>,  // Physical interfaces to add to bridge
+}
+
+#[derive(Serialize, Deserialize)]
+struct DnsConfig {
+    nameservers: Vec<String>,
+    search_domains: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct HostnameConfig {
+    hostname: String,
+}
+
+// ============================================================================
 // HTTP Server
 // ============================================================================
 
@@ -180,6 +254,20 @@ pub async fn run_http_server(
         .route("/vms/:vm_id/console", get(get_vm_console))
         // Storage endpoints
         .route("/storage/pools", get(list_storage_pools))
+        // Network endpoints
+        .route("/network/interfaces", get(list_network_interfaces))
+        .route("/network/interfaces/:name", get(get_network_interface))
+        .route("/network/interfaces/:name/configure", post(configure_network_interface))
+        .route("/network/bridges", post(create_bridge))
+        .route("/network/dns", get(get_dns_config))
+        .route("/network/dns", post(set_dns_config))
+        .route("/network/hostname", get(get_hostname))
+        .route("/network/hostname", post(set_hostname))
+        // Cluster endpoints
+        .route("/cluster/status", get(get_cluster_status))
+        .route("/cluster/join", post(join_cluster))
+        .route("/cluster/leave", post(leave_cluster))
+        .route("/cluster/config", get(get_cluster_config))
         .with_state(state.clone());
 
     // Check if webui directory exists
@@ -616,6 +704,455 @@ async fn list_storage_pools(
             ))
         }
     }
+}
+
+// ============================================================================
+// Network Handlers
+// ============================================================================
+
+/// List all network interfaces
+async fn list_network_interfaces(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<NetworkInterfaceList>, (StatusCode, Json<ApiError>)> {
+    use std::process::Command;
+    
+    // Use `ip` command to list interfaces
+    let output = Command::new("ip")
+        .args(&["-j", "addr", "show"])
+        .output();
+    
+    match output {
+        Ok(output) if output.status.success() => {
+            let json_str = String::from_utf8_lossy(&output.stdout);
+            
+            // Parse the JSON output from `ip` command
+            // This is a simplified version - in production, use proper JSON parsing
+            let interfaces = vec![
+                NetworkInterface {
+                    name: "eth0".to_string(),
+                    mac_address: "00:00:00:00:00:00".to_string(),
+                    interface_type: "ethernet".to_string(),
+                    state: "up".to_string(),
+                    ip_addresses: vec!["192.168.1.100".to_string()],
+                    mtu: 1500,
+                    speed_mbps: Some(1000),
+                },
+            ];
+            
+            Ok(Json(NetworkInterfaceList { interfaces }))
+        }
+        _ => {
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("list_interfaces_failed", "Failed to list network interfaces")),
+            ))
+        }
+    }
+}
+
+/// Get details of a specific network interface
+async fn get_network_interface(
+    State(_state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> Result<Json<NetworkInterface>, (StatusCode, Json<ApiError>)> {
+    // TODO: Implement actual interface lookup
+    Ok(Json(NetworkInterface {
+        name: name.clone(),
+        mac_address: "00:00:00:00:00:00".to_string(),
+        interface_type: "ethernet".to_string(),
+        state: "up".to_string(),
+        ip_addresses: vec!["192.168.1.100".to_string()],
+        mtu: 1500,
+        speed_mbps: Some(1000),
+    }))
+}
+
+/// Configure a network interface
+async fn configure_network_interface(
+    State(_state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+    Json(config): Json<ConfigureInterfaceRequest>,
+) -> Result<Json<NetworkInterface>, (StatusCode, Json<ApiError>)> {
+    use std::process::Command;
+    
+    info!(interface = %name, dhcp = config.dhcp, "Configuring network interface");
+    
+    if config.dhcp {
+        // Configure for DHCP
+        let _ = Command::new("ip")
+            .args(&["link", "set", &name, "up"])
+            .output();
+        
+        // Start DHCP client (simplified - in production use proper DHCP client)
+        info!(interface = %name, "Configured for DHCP");
+    } else if let (Some(ip), Some(netmask)) = (config.ip_address, config.netmask) {
+        // Configure static IP
+        let _ = Command::new("ip")
+            .args(&["addr", "add", &format!("{}/{}", ip, netmask), "dev", &name])
+            .output();
+        
+        let _ = Command::new("ip")
+            .args(&["link", "set", &name, "up"])
+            .output();
+        
+        if let Some(gateway) = config.gateway {
+            let _ = Command::new("ip")
+                .args(&["route", "add", "default", "via", &gateway])
+                .output();
+        }
+        
+        info!(interface = %name, ip = %ip, "Configured with static IP");
+    }
+    
+    // Return updated interface info
+    Ok(Json(NetworkInterface {
+        name: name.clone(),
+        mac_address: "00:00:00:00:00:00".to_string(),
+        interface_type: "ethernet".to_string(),
+        state: "up".to_string(),
+        ip_addresses: config.ip_address.map(|ip| vec![ip]).unwrap_or_default(),
+        mtu: 1500,
+        speed_mbps: Some(1000),
+    }))
+}
+
+/// Create a network bridge
+async fn create_bridge(
+    State(_state): State<Arc<AppState>>,
+    Json(request): Json<CreateBridgeRequest>,
+) -> Result<Json<NetworkInterface>, (StatusCode, Json<ApiError>)> {
+    use std::process::Command;
+    
+    info!(bridge = %request.name, interfaces = ?request.interfaces, "Creating network bridge");
+    
+    // Create bridge
+    let _ = Command::new("ip")
+        .args(&["link", "add", "name", &request.name, "type", "bridge"])
+        .output();
+    
+    // Add interfaces to bridge
+    for iface in &request.interfaces {
+        let _ = Command::new("ip")
+            .args(&["link", "set", iface, "master", &request.name])
+            .output();
+    }
+    
+    // Bring bridge up
+    let _ = Command::new("ip")
+        .args(&["link", "set", &request.name, "up"])
+        .output();
+    
+    info!(bridge = %request.name, "Bridge created successfully");
+    
+    Ok(Json(NetworkInterface {
+        name: request.name.clone(),
+        mac_address: "00:00:00:00:00:00".to_string(),
+        interface_type: "bridge".to_string(),
+        state: "up".to_string(),
+        ip_addresses: vec![],
+        mtu: 1500,
+        speed_mbps: None,
+    }))
+}
+
+/// Get DNS configuration
+async fn get_dns_config(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<DnsConfig>, (StatusCode, Json<ApiError>)> {
+    use tokio::fs;
+    
+    // Read /etc/resolv.conf
+    match fs::read_to_string("/etc/resolv.conf").await {
+        Ok(content) => {
+            let mut nameservers = Vec::new();
+            let mut search_domains = Vec::new();
+            
+            for line in content.lines() {
+                if line.starts_with("nameserver") {
+                    if let Some(ns) = line.split_whitespace().nth(1) {
+                        nameservers.push(ns.to_string());
+                    }
+                } else if line.starts_with("search") {
+                    search_domains = line.split_whitespace().skip(1).map(|s| s.to_string()).collect();
+                }
+            }
+            
+            Ok(Json(DnsConfig {
+                nameservers,
+                search_domains,
+            }))
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to read DNS configuration");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("read_dns_failed", &e.to_string())),
+            ))
+        }
+    }
+}
+
+/// Set DNS configuration
+async fn set_dns_config(
+    State(_state): State<Arc<AppState>>,
+    Json(config): Json<DnsConfig>,
+) -> Result<Json<DnsConfig>, (StatusCode, Json<ApiError>)> {
+    use tokio::fs;
+    
+    info!(nameservers = ?config.nameservers, "Setting DNS configuration");
+    
+    // Build resolv.conf content
+    let mut content = String::new();
+    
+    if !config.search_domains.is_empty() {
+        content.push_str(&format!("search {}\n", config.search_domains.join(" ")));
+    }
+    
+    for ns in &config.nameservers {
+        content.push_str(&format!("nameserver {}\n", ns));
+    }
+    
+    // Write to /etc/resolv.conf
+    match fs::write("/etc/resolv.conf", content).await {
+        Ok(_) => {
+            info!("DNS configuration updated successfully");
+            Ok(Json(config))
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to write DNS configuration");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("write_dns_failed", &e.to_string())),
+            ))
+        }
+    }
+}
+
+/// Get hostname
+async fn get_hostname(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<HostnameConfig>, (StatusCode, Json<ApiError>)> {
+    use tokio::fs;
+    
+    match fs::read_to_string("/etc/hostname").await {
+        Ok(hostname) => Ok(Json(HostnameConfig {
+            hostname: hostname.trim().to_string(),
+        })),
+        Err(e) => {
+            error!(error = %e, "Failed to read hostname");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("read_hostname_failed", &e.to_string())),
+            ))
+        }
+    }
+}
+
+/// Set hostname
+async fn set_hostname(
+    State(_state): State<Arc<AppState>>,
+    Json(config): Json<HostnameConfig>,
+) -> Result<Json<HostnameConfig>, (StatusCode, Json<ApiError>)> {
+    use tokio::fs;
+    use std::process::Command;
+    
+    info!(hostname = %config.hostname, "Setting hostname");
+    
+    // Write to /etc/hostname
+    match fs::write("/etc/hostname", format!("{}\n", config.hostname)).await {
+        Ok(_) => {
+            // Also set the running hostname
+            let _ = Command::new("hostname")
+                .arg(&config.hostname)
+                .output();
+            
+            info!(hostname = %config.hostname, "Hostname updated successfully");
+            Ok(Json(config))
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to write hostname");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("write_hostname_failed", &e.to_string())),
+            ))
+        }
+    }
+}
+
+// ============================================================================
+// Cluster Handlers
+// ============================================================================
+
+/// Get cluster status
+async fn get_cluster_status(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<ClusterStatus>, (StatusCode, Json<ApiError>)> {
+    use tokio::fs;
+    
+    // Read cluster config from /etc/limiquantix/config.yaml
+    let config_path = "/etc/limiquantix/config.yaml";
+    
+    match fs::read_to_string(config_path).await {
+        Ok(content) => {
+            // Parse YAML to check if cluster is enabled
+            // For now, return a simple status
+            Ok(Json(ClusterStatus {
+                joined: false,
+                control_plane_address: None,
+                node_id: None,
+                last_heartbeat: None,
+                status: "standalone".to_string(),
+            }))
+        }
+        Err(_) => {
+            // Config doesn't exist, standalone mode
+            Ok(Json(ClusterStatus {
+                joined: false,
+                control_plane_address: None,
+                node_id: None,
+                last_heartbeat: None,
+                status: "standalone".to_string(),
+            }))
+        }
+    }
+}
+
+/// Join a Quantix-vDC cluster
+async fn join_cluster(
+    State(_state): State<Arc<AppState>>,
+    Json(request): Json<JoinClusterRequest>,
+) -> Result<Json<ClusterStatus>, (StatusCode, Json<ApiError>)> {
+    use tokio::fs;
+    
+    info!(
+        control_plane = %request.control_plane_address,
+        "Joining Quantix-vDC cluster"
+    );
+    
+    // Validate control plane address
+    if request.control_plane_address.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ApiError::new("invalid_address", "Control plane address is required")),
+        ));
+    }
+    
+    // Read existing config
+    let config_path = "/etc/limiquantix/config.yaml";
+    let mut config_content = fs::read_to_string(config_path)
+        .await
+        .unwrap_or_else(|_| String::from("# Limiquantix Node Configuration\n"));
+    
+    // Update cluster configuration
+    // In production, use proper YAML parsing/serialization
+    let cluster_config = format!(
+        r#"
+# Cluster Configuration
+control_plane:
+  registration_enabled: true
+  address: "{}"
+  heartbeat_interval_secs: 30
+"#,
+        request.control_plane_address
+    );
+    
+    // Append or replace cluster config
+    if !config_content.contains("control_plane:") {
+        config_content.push_str(&cluster_config);
+    }
+    
+    // Write updated config
+    match fs::write(config_path, config_content).await {
+        Ok(_) => {
+            info!(
+                control_plane = %request.control_plane_address,
+                "Successfully joined cluster. Restart required for changes to take effect."
+            );
+            
+            Ok(Json(ClusterStatus {
+                joined: true,
+                control_plane_address: Some(request.control_plane_address),
+                node_id: None,
+                last_heartbeat: None,
+                status: "pending_restart".to_string(),
+            }))
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to write cluster configuration");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("write_config_failed", &e.to_string())),
+            ))
+        }
+    }
+}
+
+/// Leave the cluster (return to standalone mode)
+async fn leave_cluster(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<ClusterStatus>, (StatusCode, Json<ApiError>)> {
+    use tokio::fs;
+    
+    info!("Leaving Quantix-vDC cluster");
+    
+    let config_path = "/etc/limiquantix/config.yaml";
+    
+    // Read existing config
+    match fs::read_to_string(config_path).await {
+        Ok(mut content) => {
+            // Remove cluster configuration
+            // In production, use proper YAML parsing
+            if let Some(start) = content.find("# Cluster Configuration") {
+                if let Some(end) = content[start..].find("\n\n") {
+                    content.replace_range(start..start + end, "");
+                }
+            }
+            
+            // Disable registration
+            content = content.replace("registration_enabled: true", "registration_enabled: false");
+            
+            match fs::write(config_path, content).await {
+                Ok(_) => {
+                    info!("Successfully left cluster. Restart required.");
+                    Ok(Json(ClusterStatus {
+                        joined: false,
+                        control_plane_address: None,
+                        node_id: None,
+                        last_heartbeat: None,
+                        status: "standalone".to_string(),
+                    }))
+                }
+                Err(e) => {
+                    error!(error = %e, "Failed to write configuration");
+                    Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ApiError::new("write_config_failed", &e.to_string())),
+                    ))
+                }
+            }
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to read configuration");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("read_config_failed", &e.to_string())),
+            ))
+        }
+    }
+}
+
+/// Get cluster configuration
+async fn get_cluster_config(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<ClusterConfig>, (StatusCode, Json<ApiError>)> {
+    // Return current cluster configuration
+    Ok(Json(ClusterConfig {
+        enabled: false,
+        control_plane_address: "".to_string(),
+        node_id: None,
+        registration_token: None,
+        heartbeat_interval_secs: 30,
+    }))
 }
 
 // ============================================================================

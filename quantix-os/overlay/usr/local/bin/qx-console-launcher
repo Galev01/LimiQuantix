@@ -292,7 +292,7 @@ start_dcui_session() {
     stty sane 2>/dev/null || true
     printf '\033[2J\033[H\033[3J'
     
-    if [ -x /usr/local/bin/qx-console ]; then
+if [ -x /usr/local/bin/qx-console ]; then
         /usr/local/bin/qx-console
     else
         log "TUI not available, starting shell"
