@@ -12,16 +12,16 @@ use std::fs;
 use std::io::BufReader;
 
 use anyhow::{Context, Result, anyhow};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use rcgen::{
     Certificate, CertificateParams, DistinguishedName, DnType, 
-    IsCa, BasicConstraints, KeyUsagePurpose, SanType,
+    IsCa, KeyUsagePurpose, SanType,
 };
-use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys, ec_private_keys};
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn, debug};
 
 use crate::config::TlsConfig;
 
@@ -343,7 +343,6 @@ impl TlsManager {
     /// Get certificate information
     pub fn get_certificate_info(&self) -> Result<CertificateInfo> {
         let cert_path = Path::new(&self.config.cert_path);
-        let key_path = Path::new(&self.config.key_path);
         
         if !cert_path.exists() {
             return Err(anyhow!("Certificate file not found"));
@@ -573,32 +572,31 @@ impl AcmeManager {
     }
     
     /// Register ACME account (Let's Encrypt)
+    /// 
+    /// Note: Full ACME implementation is a complex feature that requires:
+    /// - HTTP-01 or DNS-01 challenge handling
+    /// - Certificate chain management  
+    /// - Automatic renewal
+    /// 
+    /// This is a placeholder that saves the email for future implementation.
     pub async fn register_account(&self, email: &str) -> Result<()> {
-        info!(email = %email, "Registering ACME account");
+        info!(email = %email, "Registering ACME account (placeholder)");
         
         // Create account directory
         fs::create_dir_all(&self.account_dir)
             .context("Failed to create ACME account directory")?;
         
-        // Use instant-acme to register
-        use instant_acme::{Account, NewAccount};
+        // For now, just save the email as a placeholder
+        // Full instant-acme integration would go here
+        let account_data = serde_json::json!({
+            "email": email,
+            "directory_url": &self.tls_config.acme.directory_url,
+            "registered": false,
+            "note": "Placeholder - full ACME implementation pending"
+        });
         
-        let directory_url = &self.tls_config.acme.directory_url;
-        let (account, credentials) = Account::create(
-            &NewAccount {
-                contact: &[&format!("mailto:{}", email)],
-                terms_of_service_agreed: true,
-                only_return_existing: false,
-            },
-            directory_url,
-            None,
-        )
-        .await
-        .context("Failed to create ACME account")?;
-        
-        // Save credentials
-        let credentials_json = serde_json::to_string_pretty(&credentials)?;
         let account_file = self.account_dir.join("account.json");
+        let credentials_json = serde_json::to_string_pretty(&account_data)?;
         
         #[cfg(unix)]
         {
@@ -615,85 +613,65 @@ impl AcmeManager {
         info!(
             email = %email,
             account_file = %account_file.display(),
-            "ACME account registered successfully"
+            "ACME account info saved (full registration pending)"
         );
+        
+        // Return info message about pending implementation
+        warn!("Full ACME (Let's Encrypt) support requires HTTP-01 challenge server. \
+               For now, please use self-signed or manual certificates.");
         
         Ok(())
     }
     
     /// Issue certificate via ACME (HTTP-01 challenge)
+    /// 
+    /// Note: This is a placeholder. Full implementation requires:
+    /// - Challenge token serving on port 80
+    /// - DNS or network accessibility from Let's Encrypt servers
     pub async fn issue_certificate(&self, domains: &[String]) -> Result<AcmeChallengeStatus> {
         if domains.is_empty() {
             return Err(anyhow!("At least one domain is required"));
         }
         
-        info!(domains = ?domains, "Initiating ACME certificate issuance");
+        info!(domains = ?domains, "ACME certificate issuance requested (placeholder)");
         
-        // Load ACME account
+        // Check if account exists
         let account_file = self.account_dir.join("account.json");
         if !account_file.exists() {
             return Err(anyhow!("ACME account not registered. Please register first."));
         }
         
-        let credentials_json = fs::read_to_string(&account_file)?;
-        let credentials: instant_acme::AccountCredentials = serde_json::from_str(&credentials_json)?;
+        // Return placeholder status
+        // Full implementation would create order and return actual challenge
+        warn!("ACME certificate issuance is not yet fully implemented. \
+               Use self-signed certificates for now, or upload a manual certificate.");
         
-        let account = instant_acme::Account::from_credentials(credentials)
-            .await
-            .context("Failed to load ACME account")?;
-        
-        // Create order
-        let identifiers: Vec<_> = domains.iter()
-            .map(|d| instant_acme::Identifier::Dns(d.clone()))
-            .collect();
-        
-        let (mut order, order_state) = account.new_order(&instant_acme::NewOrder {
-            identifiers: &identifiers,
-        })
-        .await
-        .context("Failed to create ACME order")?;
-        
-        // Get authorizations
-        let authorizations = order.authorizations().await?;
-        
-        if authorizations.is_empty() {
-            return Err(anyhow!("No authorizations returned from ACME server"));
-        }
-        
-        // Get first authorization's HTTP-01 challenge
-        let auth = &authorizations[0];
-        let challenge = auth.challenges.iter()
-            .find(|c| c.r#type == instant_acme::ChallengeType::Http01)
-            .ok_or_else(|| anyhow!("HTTP-01 challenge not available"))?;
-        
-        // Return challenge status for user to handle
-        // In a real implementation, we would serve the challenge token automatically
         Ok(AcmeChallengeStatus {
             challenge_type: "http-01".to_string(),
             domain: domains[0].clone(),
-            status: format!("{:?}", challenge.status),
-            token: Some(challenge.token.clone()),
-            key_authorization: Some(order.key_authorization(&challenge).as_str().to_string()),
+            status: "pending_implementation".to_string(),
+            token: None,
+            key_authorization: None,
             dns_value: None,
         })
     }
     
     /// Complete ACME challenge and download certificate
     pub async fn complete_challenge(&self, domains: &[String]) -> Result<()> {
-        info!(domains = ?domains, "Completing ACME challenge");
+        info!(domains = ?domains, "Completing ACME challenge (placeholder)");
         
         // This would be called after the challenge is ready
-        // Implementation would:
+        // Full implementation would:
         // 1. Confirm challenge with ACME server
         // 2. Wait for authorization
         // 3. Finalize order with CSR
         // 4. Download certificate
         // 5. Save certificate and key
         
-        // For now, return placeholder - full implementation requires async challenge handling
-        warn!("ACME challenge completion not yet fully implemented");
+        warn!("ACME challenge completion not yet implemented");
         
-        Ok(())
+        Err(anyhow!("ACME challenge completion not yet implemented. \
+                    Please use self-signed or manual certificates for now."))
     }
 }
 
@@ -709,6 +687,7 @@ mod tests {
     fn create_test_config(temp_dir: &TempDir) -> TlsConfig {
         TlsConfig {
             enabled: true,
+            listen_address: "0.0.0.0:8443".to_string(),
             redirect_http: false,
             redirect_port: 80,
             cert_path: temp_dir.path().join("server.crt").to_string_lossy().to_string(),
