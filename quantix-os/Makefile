@@ -124,14 +124,21 @@ host-ui:
 		echo "⚠️  quantix-host-ui not found, skipping..."; \
 	fi
 
-# Build node daemon
-node-daemon:
+# Build node daemon (uses Docker for musl cross-compilation)
+node-daemon: docker-rust-tui
 	@echo "🔨 Building node daemon..."
 	@mkdir -p $(OVERLAY_DIR)/usr/bin
 	@if [ -d "../agent/limiquantix-node" ]; then \
-		cd ../agent && cargo build --release -p limiquantix-node; \
-		cp ../agent/target/release/limiquantix-node $(OVERLAY_DIR)/usr/bin/qx-node 2>/dev/null || true; \
-		echo "✅ Node daemon built"; \
+		docker run --rm \
+			-v "$$(cd .. && pwd)/agent:/build:rw" \
+			-w /build \
+			$(RUST_TUI_IMAGE) \
+			sh -c "cargo build --release -p limiquantix-node && \
+			       cp target/release/limiquantix-node /build/limiquantix-node-musl"; \
+		cp ../agent/limiquantix-node-musl $(OVERLAY_DIR)/usr/bin/qx-node; \
+		rm -f ../agent/limiquantix-node-musl; \
+		chmod +x $(OVERLAY_DIR)/usr/bin/qx-node; \
+		echo "✅ Node daemon built (musl)"; \
 	else \
 		echo "⚠️  limiquantix-node not found, skipping..."; \
 	fi

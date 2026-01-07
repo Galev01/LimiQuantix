@@ -173,7 +173,7 @@ impl Default for HttpServerConfig {
         Self {
             enabled: true,
             listen_address: "0.0.0.0:8443".to_string(),
-            webui_path: "/usr/share/quantix/webui".to_string(),
+            webui_path: "/usr/share/quantix-host-ui".to_string(),
         }
     }
 }

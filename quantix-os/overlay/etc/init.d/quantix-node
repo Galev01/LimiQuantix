@@ -8,7 +8,7 @@
 name="Quantix Node Daemon"
 description="Quantix-OS hypervisor management daemon"
 command="/usr/bin/qx-node"
-command_args=""
+command_args="--webui-path /usr/share/quantix-host-ui"
 command_background="yes"
 pidfile="/run/quantix-node.pid"
 output_log="/var/log/quantix-node.log"

@@ -25,7 +25,7 @@ pub struct Args {
     pub http_listen: String,
     
     /// Path to Web UI static files
-    #[arg(long, default_value = "/usr/share/quantix/webui")]
+    #[arg(long, default_value = "/usr/share/quantix-host-ui")]
     pub webui_path: String,
     
     /// Disable HTTP server (Web UI)
