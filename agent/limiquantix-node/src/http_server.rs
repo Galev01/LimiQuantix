@@ -58,6 +58,7 @@ impl ApiError {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct HostInfo {
     node_id: String,
     hostname: String,
@@ -76,6 +77,7 @@ struct HostInfo {
 
 // Hardware inventory types
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct HardwareInventory {
     cpu: CpuInfo,
     memory: MemoryInfo,
@@ -86,6 +88,7 @@ struct HardwareInventory {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct CpuInfo {
     model: String,
     vendor: String,
@@ -98,6 +101,7 @@ struct CpuInfo {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct MemoryInfo {
     total_bytes: u64,
     available_bytes: u64,
@@ -109,6 +113,7 @@ struct MemoryInfo {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct DiskInfo {
     name: String,
     model: String,
@@ -122,6 +127,7 @@ struct DiskInfo {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PartitionInfo {
     name: String,
     mount_point: Option<String>,
@@ -131,6 +137,7 @@ struct PartitionInfo {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct NicInfo {
     name: String,
     mac_address: String,
@@ -143,6 +150,7 @@ struct NicInfo {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct GpuInfo {
     name: String,
     vendor: String,
@@ -153,6 +161,7 @@ struct GpuInfo {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PciDevice {
     address: String,
     vendor: String,
@@ -163,6 +172,7 @@ struct PciDevice {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct HealthResponse {
     healthy: bool,
     version: String,
@@ -172,6 +182,7 @@ struct HealthResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct HostMetricsResponse {
     timestamp: String,
     cpu_usage_percent: f64,
@@ -190,6 +201,7 @@ struct HostMetricsResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct EventResponse {
     event_id: String,
     timestamp: String,
@@ -201,12 +213,14 @@ struct EventResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct EventListResponse {
     events: Vec<EventResponse>,
     total_count: u32,
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SettingsResponse {
     node_name: String,
     node_id: String,
@@ -221,6 +235,7 @@ struct SettingsResponse {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpdateSettingsRequest {
     node_name: Option<String>,
     log_level: Option<String>,
@@ -230,6 +245,7 @@ struct UpdateSettingsRequest {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ServiceInfo {
     name: String,
     status: String,
@@ -238,11 +254,13 @@ struct ServiceInfo {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ServiceListResponse {
     services: Vec<ServiceInfo>,
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct VmResponse {
     vm_id: String,
     name: String,
@@ -254,6 +272,7 @@ struct VmResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct GuestAgentInfo {
     connected: bool,
     version: String,
@@ -263,11 +282,13 @@ struct GuestAgentInfo {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct VmListResponse {
     vms: Vec<VmResponse>,
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ConsoleResponse {
     console_type: String,
     host: String,
@@ -277,6 +298,7 @@ struct ConsoleResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct StoragePoolResponse {
     pool_id: String,
     #[serde(rename = "type")]
@@ -289,11 +311,13 @@ struct StoragePoolResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct StoragePoolListResponse {
     pools: Vec<StoragePoolResponse>,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateStoragePoolRequest {
     pool_id: String,
     #[serde(rename = "type")]
@@ -304,6 +328,7 @@ struct CreateStoragePoolRequest {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct VolumeResponse {
     volume_id: String,
     pool_id: String,
@@ -314,11 +339,13 @@ struct VolumeResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct VolumeListResponse {
     volumes: Vec<VolumeResponse>,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateVolumeRequest {
     volume_id: String,
     size_bytes: u64,
@@ -326,6 +353,7 @@ struct CreateVolumeRequest {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ImageResponse {
     image_id: String,
     name: String,
@@ -335,6 +363,7 @@ struct ImageResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ImageListResponse {
     images: Vec<ImageResponse>,
 }
@@ -344,11 +373,13 @@ struct ImageListResponse {
 // ============================================================================
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct StopVmRequest {
     timeout_seconds: Option<u32>,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateVmRequest {
     name: String,
     cpu_cores: u32,
@@ -360,6 +391,7 @@ struct CreateVmRequest {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct DiskSpecRequest {
     id: String,
     size_gib: u64,
@@ -370,6 +402,7 @@ struct DiskSpecRequest {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct NicSpecRequest {
     id: String,
     network: Option<String>,
@@ -379,6 +412,7 @@ struct NicSpecRequest {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CloudInitRequest {
     user_data: Option<String>,
     meta_data: Option<String>,
@@ -386,6 +420,7 @@ struct CloudInitRequest {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateSnapshotRequest {
     name: String,
     description: Option<String>,
@@ -393,6 +428,7 @@ struct CreateSnapshotRequest {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SnapshotResponse {
     snapshot_id: String,
     name: String,
@@ -403,6 +439,7 @@ struct SnapshotResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SnapshotListResponse {
     snapshots: Vec<SnapshotResponse>,
 }
@@ -412,6 +449,7 @@ struct SnapshotListResponse {
 // ============================================================================
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ClusterConfig {
     enabled: bool,
     control_plane_address: String,
@@ -421,12 +459,14 @@ struct ClusterConfig {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct JoinClusterRequest {
     control_plane_address: String,
     registration_token: String,
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ClusterStatus {
     joined: bool,
     control_plane_address: Option<String>,
@@ -440,6 +480,7 @@ struct ClusterStatus {
 // ============================================================================
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct NetworkInterface {
     name: String,
     mac_address: String,
@@ -452,11 +493,13 @@ struct NetworkInterface {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct NetworkInterfaceList {
     interfaces: Vec<NetworkInterface>,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ConfigureInterfaceRequest {
     dhcp: bool,
     ip_address: Option<String>,
@@ -465,18 +508,21 @@ struct ConfigureInterfaceRequest {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateBridgeRequest {
     name: String,
     interfaces: Vec<String>,  // Physical interfaces to add to bridge
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct DnsConfig {
     nameservers: Vec<String>,
     search_domains: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct HostnameConfig {
     hostname: String,
 }
