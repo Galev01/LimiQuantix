@@ -1,10 +1,20 @@
 # Workflow State
 
-## Current Status: COMPLETED
+## Current Status: READY FOR REBUILD
 
 ## Active Workflow: Quantix-OS Full QA Check & Fixes
 
-**Date:** January 7, 2026
+**Date:** January 8, 2026
+
+### Latest Fix: rcgen 0.13 API Update
+
+Fixed Node Daemon TLS module (`agent/limiquantix-node/src/tls.rs`) to use the new `rcgen` 0.13 API:
+- Changed `Certificate::from_params(params)` → `params.self_signed(&key_pair)` 
+- Changed `cert.serialize_pem()` → `certified_key.cert.pem()`
+- Changed `cert.serialize_private_key_pem()` → `key_pair.serialize_pem()`
+- Added `KeyPair::generate()` for key generation
+
+**Rebuild required:** The previous ISO build used a cached `qx-node` binary. Run `./build.sh --clean` again to compile with the fixed code.
 
 ### Summary
 

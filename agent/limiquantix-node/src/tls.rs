@@ -14,8 +14,8 @@ use std::io::BufReader;
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
 use rcgen::{
-    Certificate, CertificateParams, DistinguishedName, DnType, 
-    IsCa, KeyUsagePurpose, SanType,
+    CertificateParams, DistinguishedName, DnType, 
+    IsCa, KeyPair, KeyUsagePurpose, SanType,
 };
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::ServerConfig;
@@ -237,14 +237,17 @@ impl TlsManager {
         // Not a CA certificate
         params.is_ca = IsCa::NoCa;
         
-        // Generate the certificate
-        let cert = Certificate::from_params(params)
+        // Generate a new key pair
+        let key_pair = KeyPair::generate()
+            .context("Failed to generate key pair")?;
+        
+        // Generate the self-signed certificate
+        let certified_key = params.self_signed(&key_pair)
             .context("Failed to generate certificate")?;
         
         // Get PEM encoded certificate and key
-        let cert_pem = cert.serialize_pem()
-            .context("Failed to serialize certificate")?;
-        let key_pem = cert.serialize_private_key_pem();
+        let cert_pem = certified_key.cert.pem();
+        let key_pem = key_pair.serialize_pem();
         
         // Write certificate
         fs::write(&self.config.cert_path, &cert_pem)
