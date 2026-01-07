@@ -101,9 +101,18 @@ The Quantix Host UI is a React-based web application that provides a comprehensi
 ### Phase 6: Settings
 - **Settings Page** (`/settings`)
   - General settings (node name, log level)
-  - Cluster status display
+  - **Quantix-vDC Cluster Integration**
+    - View cluster connection status
+    - Join cluster with control plane URL and registration token
+    - Leave cluster to return to standalone mode
+    - Connection status and heartbeat monitoring
   - Storage defaults
   - Network defaults (VNC configuration)
+  - **SSH Access Management**
+    - Enable/disable SSH with time-limited sessions
+    - Session duration options (15, 30, 60, 120 minutes)
+    - Real-time countdown display for active sessions
+    - SSH connection info display
   - System services management
   - About/System information
 
@@ -195,6 +204,13 @@ The Quantix Host UI is a React-based web application that provides a comprehensi
 | POST | `/api/v1/settings` | Update settings |
 | GET | `/api/v1/settings/services` | List system services |
 | POST | `/api/v1/settings/services/:name/restart` | Restart service |
+
+### SSH Management APIs
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/settings/ssh` | Get SSH status (enabled, timer, expiry) |
+| POST | `/api/v1/settings/ssh/enable` | Enable SSH with time limit |
+| POST | `/api/v1/settings/ssh/disable` | Disable SSH immediately |
 
 ### Events API
 | Method | Endpoint | Description |

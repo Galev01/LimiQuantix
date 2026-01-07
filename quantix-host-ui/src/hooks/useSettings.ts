@@ -11,8 +11,11 @@ import {
   getAcmeInfo,
   registerAcmeAccount,
   issueAcmeCertificate,
+  getSshStatus,
+  enableSsh,
+  disableSsh,
 } from '@/api/settings';
-import type { UpdateSettingsRequest } from '@/api/settings';
+import type { UpdateSettingsRequest, EnableSshRequest } from '@/api/settings';
 import { toast } from '@/lib/toast';
 
 /**
@@ -187,6 +190,60 @@ export function useIssueAcmeCertificate() {
     },
     onError: (error: Error) => {
       toast.error(`Failed to issue certificate: ${error.message}`);
+    },
+  });
+}
+
+// ============================================================================
+// SSH Management Hooks
+// ============================================================================
+
+/**
+ * Hook to fetch SSH status
+ */
+export function useSshStatus() {
+  return useQuery({
+    queryKey: ['settings', 'ssh'],
+    queryFn: getSshStatus,
+    staleTime: 10_000, // 10 seconds - refresh frequently since SSH can expire
+    refetchInterval: 30_000, // Auto-refresh every 30 seconds
+  });
+}
+
+/**
+ * Hook to enable SSH with time limit
+ */
+export function useEnableSsh() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (request: EnableSshRequest) => enableSsh(request),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['settings', 'ssh'] });
+      queryClient.invalidateQueries({ queryKey: ['settings', 'services'] });
+      toast.success(`SSH enabled for ${data.remainingMinutes ?? 'unknown'} minutes`);
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to enable SSH: ${error.message}`);
+    },
+  });
+}
+
+/**
+ * Hook to disable SSH
+ */
+export function useDisableSsh() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: disableSsh,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings', 'ssh'] });
+      queryClient.invalidateQueries({ queryKey: ['settings', 'services'] });
+      toast.success('SSH disabled');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to disable SSH: ${error.message}`);
     },
   });
 }

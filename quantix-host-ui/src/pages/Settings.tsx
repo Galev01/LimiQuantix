@@ -1,10 +1,10 @@
-import { useState, type ChangeEvent } from 'react';
-import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, RotateCcw, Lock, Upload, Key, Globe } from 'lucide-react';
+import { useState, useEffect, type ChangeEvent } from 'react';
+import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, RotateCcw, Lock, Upload, Key, Globe, Terminal, Unplug, Link2, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Header } from '@/components/layout';
 import { Card, Badge, Button, Input, Label } from '@/components/ui';
-import { useSettings, useUpdateSettings, useServices, useRestartService, useCertificateInfo, useGenerateSelfSigned, useResetCertificate } from '@/hooks/useSettings';
+import { useSettings, useUpdateSettings, useServices, useRestartService, useCertificateInfo, useGenerateSelfSigned, useResetCertificate, useSshStatus, useEnableSsh, useDisableSsh } from '@/hooks/useSettings';
 import { useHostInfo } from '@/hooks/useHost';
-import { useClusterStatus } from '@/hooks/useCluster';
+import { useClusterStatus, useJoinCluster, useLeaveCluster } from '@/hooks/useCluster';
 import { cn } from '@/lib/utils';
 
 type Tab = 'general' | 'storage' | 'network' | 'security' | 'services' | 'about';
@@ -15,15 +15,36 @@ export function Settings() {
   const { data: clusterStatus } = useClusterStatus();
   const { data: servicesData } = useServices();
   const { data: certInfo } = useCertificateInfo();
+  const { data: sshStatus } = useSshStatus();
   const updateSettingsMutation = useUpdateSettings();
   const restartServiceMutation = useRestartService();
   const generateSelfSignedMutation = useGenerateSelfSigned();
   const resetCertMutation = useResetCertificate();
+  const joinClusterMutation = useJoinCluster();
+  const leaveClusterMutation = useLeaveCluster();
+  const enableSshMutation = useEnableSsh();
+  const disableSshMutation = useDisableSsh();
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
   // Form state
   const [nodeName, setNodeName] = useState(settings?.node_name || '');
   const [logLevel, setLogLevel] = useState(settings?.log_level || 'info');
+
+  // Cluster join form state
+  const [showJoinForm, setShowJoinForm] = useState(false);
+  const [clusterAddress, setClusterAddress] = useState('');
+  const [registrationToken, setRegistrationToken] = useState('');
+
+  // SSH form state
+  const [sshDuration, setSshDuration] = useState(30);
+
+  // Update form when settings load
+  useEffect(() => {
+    if (settings) {
+      setNodeName(settings.node_name || '');
+      setLogLevel(settings.log_level || 'info');
+    }
+  }, [settings]);
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'general', label: 'General', icon: <SettingsIcon className="w-4 h-4" /> },
@@ -129,27 +150,154 @@ export function Settings() {
                 </Card>
 
                 <Card>
-                  <h3 className="text-lg font-semibold text-text-primary mb-4">Cluster Status</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-text-muted">Mode</span>
-                      <Badge variant={clusterStatus?.mode === 'cluster' ? 'success' : 'default'}>
-                        {clusterStatus?.mode === 'cluster' ? 'Cluster Member' : 'Standalone'}
-                      </Badge>
-                    </div>
-                    {clusterStatus?.mode === 'cluster' && (
-                      <>
-                        <div className="flex justify-between items-center">
-                          <span className="text-text-muted">Cluster Name</span>
-                          <span className="text-text-primary">{clusterStatus.clusterName}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-text-muted">Controller</span>
-                          <span className="text-text-primary">{clusterStatus.controllerUrl}</span>
-                        </div>
-                      </>
-                    )}
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                      <Link2 className="w-5 h-5 text-accent" />
+                      Quantix-vDC Cluster
+                    </h3>
+                    <Badge variant={clusterStatus?.joined || clusterStatus?.mode === 'cluster' ? 'success' : 'default'}>
+                      {clusterStatus?.joined || clusterStatus?.mode === 'cluster' ? 'Connected' : 'Standalone'}
+                    </Badge>
                   </div>
+
+                  {/* Connected to cluster */}
+                  {(clusterStatus?.joined || clusterStatus?.mode === 'cluster') ? (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
+                        <div className="flex items-center gap-2 text-success mb-2">
+                          <CheckCircle2 className="w-5 h-5" />
+                          <span className="font-medium">Connected to Quantix-vDC</span>
+                        </div>
+                        <p className="text-sm text-text-muted">
+                          This host is managed by a Quantix-vDC control plane.
+                        </p>
+                      </div>
+                      <div className="grid gap-3">
+                        {clusterStatus?.clusterName && (
+                          <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+                            <span className="text-text-muted">Cluster Name</span>
+                            <span className="text-text-primary font-medium">{clusterStatus.clusterName}</span>
+                          </div>
+                        )}
+                        {clusterStatus?.controllerUrl && (
+                          <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+                            <span className="text-text-muted">Controller URL</span>
+                            <span className="text-text-primary font-mono text-sm">{clusterStatus.controllerUrl}</span>
+                          </div>
+                        )}
+                        {clusterStatus?.control_plane_address && (
+                          <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+                            <span className="text-text-muted">Control Plane</span>
+                            <span className="text-text-primary font-mono text-sm">{clusterStatus.control_plane_address}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+                          <span className="text-text-muted">Connection Status</span>
+                          <Badge variant={clusterStatus?.status === 'connected' ? 'success' : 'warning'}>
+                            {clusterStatus?.status || 'Unknown'}
+                          </Badge>
+                        </div>
+                        {clusterStatus?.last_heartbeat && (
+                          <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+                            <span className="text-text-muted">Last Heartbeat</span>
+                            <span className="text-text-primary text-sm">
+                              {new Date(clusterStatus.last_heartbeat).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="pt-4 border-t border-border">
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            if (confirm('Are you sure you want to leave the cluster? This will put the host in standalone mode.')) {
+                              leaveClusterMutation.mutate();
+                            }
+                          }}
+                          disabled={leaveClusterMutation.isPending}
+                          className="text-error hover:bg-error/10"
+                        >
+                          <Unplug className="w-4 h-4" />
+                          {leaveClusterMutation.isPending ? 'Leaving...' : 'Leave Cluster'}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Standalone mode - show join form */
+                    <div className="space-y-4">
+                      <div className="p-4 bg-bg-base rounded-lg">
+                        <p className="text-text-muted text-sm">
+                          This host is running in standalone mode. Connect to a Quantix-vDC control plane
+                          to enable centralized management, live migration, and cluster features.
+                        </p>
+                      </div>
+
+                      {!showJoinForm ? (
+                        <Button onClick={() => setShowJoinForm(true)}>
+                          <Link2 className="w-4 h-4" />
+                          Join Quantix-vDC Cluster
+                        </Button>
+                      ) : (
+                        <div className="space-y-4 p-4 border border-border rounded-lg">
+                          <h4 className="font-medium text-text-primary">Connect to Control Plane</h4>
+                          <div>
+                            <Label htmlFor="clusterAddress">Control Plane Address</Label>
+                            <Input
+                              id="clusterAddress"
+                              value={clusterAddress}
+                              onChange={(e: ChangeEvent<HTMLInputElement>) => setClusterAddress(e.target.value)}
+                              placeholder="https://vdc.example.com:8443"
+                            />
+                            <p className="text-xs text-text-muted mt-1">
+                              The URL of your Quantix-vDC control plane
+                            </p>
+                          </div>
+                          <div>
+                            <Label htmlFor="registrationToken">Registration Token</Label>
+                            <Input
+                              id="registrationToken"
+                              type="password"
+                              value={registrationToken}
+                              onChange={(e: ChangeEvent<HTMLInputElement>) => setRegistrationToken(e.target.value)}
+                              placeholder="Enter registration token"
+                            />
+                            <p className="text-xs text-text-muted mt-1">
+                              Obtain this token from your Quantix-vDC admin console
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => {
+                                joinClusterMutation.mutate({
+                                  control_plane_address: clusterAddress,
+                                  registration_token: registrationToken,
+                                }, {
+                                  onSuccess: () => {
+                                    setShowJoinForm(false);
+                                    setClusterAddress('');
+                                    setRegistrationToken('');
+                                  }
+                                });
+                              }}
+                              disabled={joinClusterMutation.isPending || !clusterAddress || !registrationToken}
+                            >
+                              {joinClusterMutation.isPending ? 'Connecting...' : 'Connect'}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() => {
+                                setShowJoinForm(false);
+                                setClusterAddress('');
+                                setRegistrationToken('');
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </Card>
               </div>
             )}
@@ -333,12 +481,128 @@ export function Settings() {
                 </Card>
 
                 <Card>
-                  <h3 className="text-lg font-semibold text-text-primary mb-4">SSH Access</h3>
-                  <p className="text-text-muted mb-4">
-                    SSH access is managed from the local console (DCUI). Use the F3 key on the
-                    direct console to enable time-limited SSH access.
-                  </p>
-                  <Badge variant="info">Managed via Console TUI</Badge>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                      <Terminal className="w-5 h-5 text-warning" />
+                      SSH Access
+                    </h3>
+                    <Badge variant={sshStatus?.enabled ? 'success' : 'default'}>
+                      {sshStatus?.enabled ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                  </div>
+
+                  {sshStatus?.enabled ? (
+                    <div className="space-y-4">
+                      {/* SSH is enabled */}
+                      <div className={cn(
+                        'p-4 rounded-lg border',
+                        sshStatus.timerActive 
+                          ? 'bg-warning/10 border-warning/20'
+                          : 'bg-success/10 border-success/20'
+                      )}>
+                        <div className="flex items-center gap-2 mb-2">
+                          {sshStatus.timerActive ? (
+                            <>
+                              <Clock className="w-5 h-5 text-warning" />
+                              <span className="font-medium text-warning">Time-Limited SSH Active</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-5 h-5 text-success" />
+                              <span className="font-medium text-success">SSH Enabled</span>
+                            </>
+                          )}
+                        </div>
+                        {sshStatus.timerActive && sshStatus.remainingMinutes !== undefined && (
+                          <p className="text-sm text-text-muted">
+                            SSH access will be automatically disabled in{' '}
+                            <span className="font-medium text-warning">
+                              {sshStatus.remainingMinutes} minute{sshStatus.remainingMinutes !== 1 ? 's' : ''}
+                            </span>
+                          </p>
+                        )}
+                        {sshStatus.expiresAt && (
+                          <p className="text-xs text-text-muted mt-1">
+                            Expires: {new Date(sshStatus.expiresAt).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+                        <span className="text-text-muted">SSH Port</span>
+                        <span className="text-text-primary font-mono">{sshStatus.port || 22}</span>
+                      </div>
+
+                      <div className="p-4 bg-bg-base rounded-lg">
+                        <p className="text-sm text-text-muted mb-3">
+                          Connect using: <code className="bg-bg-surface px-2 py-1 rounded text-text-primary">
+                            ssh root@{hostInfo?.managementIp || 'host-ip'}
+                          </code>
+                        </p>
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          if (confirm('Are you sure you want to disable SSH access?')) {
+                            disableSshMutation.mutate();
+                          }
+                        }}
+                        disabled={disableSshMutation.isPending}
+                        className="text-error hover:bg-error/10"
+                      >
+                        <Unplug className="w-4 h-4" />
+                        {disableSshMutation.isPending ? 'Disabling...' : 'Disable SSH'}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* SSH is disabled */}
+                      <div className="p-4 bg-bg-base rounded-lg">
+                        <div className="flex items-center gap-2 text-text-muted mb-2">
+                          <AlertTriangle className="w-5 h-5" />
+                          <span className="font-medium">SSH is Disabled</span>
+                        </div>
+                        <p className="text-sm text-text-muted">
+                          Enable SSH access for remote administration. For security, 
+                          it's recommended to use time-limited sessions.
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="sshDuration">Session Duration (minutes)</Label>
+                        <div className="flex gap-2 mt-1">
+                          {[15, 30, 60, 120].map((mins) => (
+                            <button
+                              key={mins}
+                              onClick={() => setSshDuration(mins)}
+                              className={cn(
+                                'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+                                sshDuration === mins
+                                  ? 'bg-accent text-white'
+                                  : 'bg-bg-base text-text-secondary hover:bg-bg-hover'
+                              )}
+                            >
+                              {mins}m
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-text-muted mt-2">
+                          SSH will be automatically disabled after this duration
+                        </p>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => enableSshMutation.mutate({ durationMinutes: sshDuration })}
+                          disabled={enableSshMutation.isPending}
+                        >
+                          <Terminal className="w-4 h-4" />
+                          {enableSshMutation.isPending ? 'Enabling...' : `Enable SSH (${sshDuration}m)`}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </Card>
               </div>
             )}

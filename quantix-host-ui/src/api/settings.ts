@@ -146,3 +146,46 @@ export async function registerAcmeAccount(email: string, directory?: string): Pr
 export async function issueAcmeCertificate(domains: string[]): Promise<void> {
   return post('/settings/certificates/acme/issue', { domains });
 }
+
+// ============================================================================
+// SSH Management
+// ============================================================================
+
+/**
+ * SSH status information
+ */
+export interface SshStatus {
+  enabled: boolean;
+  timerActive: boolean;
+  expiresAt?: string;
+  remainingMinutes?: number;
+  port: number;
+}
+
+/**
+ * Enable SSH request
+ */
+export interface EnableSshRequest {
+  durationMinutes: number;
+}
+
+/**
+ * Get SSH status
+ */
+export async function getSshStatus(): Promise<SshStatus> {
+  return get<SshStatus>('/settings/ssh');
+}
+
+/**
+ * Enable SSH with a time limit
+ */
+export async function enableSsh(request: EnableSshRequest): Promise<SshStatus> {
+  return post<SshStatus>('/settings/ssh/enable', request);
+}
+
+/**
+ * Disable SSH immediately
+ */
+export async function disableSsh(): Promise<SshStatus> {
+  return post<SshStatus>('/settings/ssh/disable');
+}

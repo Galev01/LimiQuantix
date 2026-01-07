@@ -141,6 +141,7 @@ enum Screen {
     Diagnostics,
     Power,
     Auth,
+    FactoryReset,
 }
 
 impl App {
@@ -387,6 +388,23 @@ fn handle_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) {
         Screen::WiFi => handle_wifi_input(app, key),
         Screen::Ssh => handle_ssh_input(app, key),
         Screen::Cluster => handle_cluster_input(app, key),
+        Screen::FactoryReset => match key {
+            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('n') | KeyCode::Char('N') => {
+                app.screen = Screen::Main;
+                app.success_message = Some("Factory reset cancelled".to_string());
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                app.set_status("⚠️ Performing factory reset...");
+                perform_factory_reset();
+                app.success_message = Some("Factory reset complete. Rebooting...".to_string());
+                // Reboot after reset
+                std::thread::spawn(|| {
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    let _ = std::process::Command::new("reboot").spawn();
+                });
+            }
+            _ => {}
+        },
         Screen::Power => match key {
             KeyCode::Esc | KeyCode::Char('q') => {
                 app.screen = Screen::Main;
@@ -437,7 +455,8 @@ fn handle_menu_action(app: &mut App, index: usize) {
         }
         5 => app.screen = Screen::Diagnostics,
         6 => {
-            app.error_message = Some("Factory reset requires confirmation in a future update".to_string());
+            // Go to Factory Reset confirmation screen
+            app.screen = Screen::FactoryReset;
         }
         7 => app.screen = Screen::Power,
         8 => {
@@ -859,6 +878,7 @@ fn ui(f: &mut Frame, app: &App) {
         Screen::Cluster => render_cluster_screen(f, app, chunks[1]),
         Screen::Diagnostics => render_diagnostics_screen(f, app, chunks[1]),
         Screen::Power => render_power_screen(f, chunks[1]),
+        Screen::FactoryReset => render_factory_reset_screen(f, chunks[1]),
         _ => render_placeholder_screen(f, chunks[1], &format!("{:?}", app.screen)),
     }
 
@@ -1858,6 +1878,133 @@ fn render_placeholder_screen(f: &mut Frame, area: Rect, name: &str) {
     f.render_widget(text, area);
 }
 
+fn render_factory_reset_screen(f: &mut Frame, area: Rect) {
+    let text = Paragraph::new(vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "  ⚠️  FACTORY RESET  ⚠️",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  This will reset ALL system configuration to defaults!",
+            Style::default().fg(Color::Yellow),
+        )),
+        Line::from(""),
+        Line::from("  The following will be DELETED:"),
+        Line::from(Span::styled("    • Network configuration (static IP, WiFi)", Style::default().fg(Color::White))),
+        Line::from(Span::styled("    • SSH keys and authorized_keys", Style::default().fg(Color::White))),
+        Line::from(Span::styled("    • TLS certificates", Style::default().fg(Color::White))),
+        Line::from(Span::styled("    • Cluster registration", Style::default().fg(Color::White))),
+        Line::from(Span::styled("    • Node daemon configuration", Style::default().fg(Color::White))),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  ❗ Virtual machines and storage data will NOT be deleted.",
+            Style::default().fg(Color::Green),
+        )),
+        Line::from(""),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  The system will REBOOT after reset.",
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  Press ", Style::default().fg(Color::White)),
+            Span::styled("Y", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::styled(" to confirm reset, ", Style::default().fg(Color::White)),
+            Span::styled("N", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled(" or ", Style::default().fg(Color::White)),
+            Span::styled("Esc", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled(" to cancel", Style::default().fg(Color::White)),
+        ]),
+    ])
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Red))
+            .title(Span::styled(
+                " ⚠️ Factory Reset Confirmation ",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )),
+    )
+    .wrap(Wrap { trim: true });
+    f.render_widget(text, area);
+}
+
+/// Perform factory reset - delete all configuration and return to defaults
+fn perform_factory_reset() {
+    use std::process::Stdio;
+    
+    // Files and directories to delete
+    let config_paths = [
+        // Network configuration
+        "/etc/network/interfaces",
+        "/etc/wpa_supplicant/wpa_supplicant.conf",
+        "/etc/resolv.conf",
+        // TLS certificates
+        "/etc/limiquantix/certs/server.key",
+        "/etc/limiquantix/certs/server.crt",
+        "/etc/limiquantix/certs/ca.crt",
+        // SSH configuration (keys only, not config)
+        "/root/.ssh/authorized_keys",
+        "/etc/ssh/ssh_host_rsa_key",
+        "/etc/ssh/ssh_host_rsa_key.pub",
+        "/etc/ssh/ssh_host_ecdsa_key",
+        "/etc/ssh/ssh_host_ecdsa_key.pub",
+        "/etc/ssh/ssh_host_ed25519_key",
+        "/etc/ssh/ssh_host_ed25519_key.pub",
+        // Node daemon configuration
+        "/etc/limiquantix/node.yaml",
+        "/etc/limiquantix/cluster.yaml",
+        // Hostname (will regenerate on boot)
+        "/etc/hostname",
+        // First boot marker (trigger firstboot script again)
+        "/etc/limiquantix/.firstboot-done",
+    ];
+    
+    for path in config_paths {
+        let _ = std::fs::remove_file(path);
+    }
+    
+    // Remove any custom network interface configs
+    if let Ok(entries) = std::fs::read_dir("/etc/network/interfaces.d") {
+        for entry in entries.flatten() {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+    
+    // Create default network configuration (DHCP on all interfaces)
+    let default_network = r#"# Default network configuration - DHCP on all interfaces
+auto lo
+iface lo inet loopback
+
+# DHCP on primary interface (configured by quantix-network service)
+"#;
+    let _ = std::fs::write("/etc/network/interfaces", default_network);
+    
+    // Create a marker file so firstboot knows to run
+    let _ = std::fs::remove_file("/etc/limiquantix/.configured");
+    
+    // Stop services before they might access deleted configs
+    let _ = std::process::Command::new("rc-service")
+        .args(["quantix-node", "stop"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output();
+    
+    let _ = std::process::Command::new("rc-service")
+        .args(["sshd", "stop"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output();
+    
+    // Sync filesystem to ensure changes are written
+    let _ = std::process::Command::new("sync").output();
+}
+
 // Helper functions
 
 fn get_primary_ip() -> String {
@@ -1948,59 +2095,74 @@ fn disable_ssh() -> Result<()> {
 
 fn run_dhcp_all() {
     use std::process::Stdio;
-    // Get all interfaces and run DHCP
-    // Note: This one blocking call is OK - it's fast (just reads interface list)
-    if let Ok(output) = std::process::Command::new("ip")
-        .args(["-o", "link", "show"])
-        .output()
-    {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        for line in stdout.lines() {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                let iface = parts[1].trim_end_matches(':');
-                if iface == "lo" {
-                    continue;
+    
+    // Spawn a background thread to avoid blocking the TUI at all
+    std::thread::spawn(|| {
+        // Get all interfaces
+        if let Ok(output) = std::process::Command::new("ip")
+            .args(["-o", "link", "show"])
+            .output()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let iface = parts[1].trim_end_matches(':');
+                    // Skip loopback and virtual interfaces
+                    if iface == "lo" || iface.starts_with("vir") || iface.starts_with("br-") {
+                        continue;
+                    }
+                    
+                    // Bring interface up
+                    let _ = std::process::Command::new("ip")
+                        .args(["link", "set", iface, "up"])
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .output(); // Use output() here - it's fast
+                    
+                    // Kill any existing udhcpc for this interface
+                    let _ = std::process::Command::new("pkill")
+                        .args(["-f", &format!("udhcpc.*{}", iface)])
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .output();
+                    
+                    // Run udhcpc in background mode (-b) with timeout
+                    // -b = background after getting IP
+                    // -t 2 = 2 retries
+                    // -T 3 = 3 second timeout per retry
+                    let _ = std::process::Command::new("udhcpc")
+                        .args(["-i", iface, "-b", "-t", "2", "-T", "3", "-S"])
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .spawn();
                 }
-                
-                // Bring interface up (non-blocking)
-                let _ = std::process::Command::new("ip")
-                    .args(["link", "set", iface, "up"])
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .stdin(Stdio::null())
-                    .spawn();
-                
-                // Run DHCP (kill existing first, non-blocking)
-                let _ = std::process::Command::new("pkill")
-                    .args(["-f", &format!("udhcpc.*{}", iface)])
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .stdin(Stdio::null())
-                    .spawn();
-                
-                // Run udhcpc silently in background (non-blocking)
-                let _ = std::process::Command::new("udhcpc")
-                    .args(["-i", iface, "-n", "-q", "-t", "3"])
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .stdin(Stdio::null())
-                    .spawn();
             }
         }
-    }
+    });
 }
 
 fn restart_network() {
     use std::process::Stdio;
-    // Use spawn() instead of output() to avoid blocking the TUI
-    // The network restart runs in background
-    let _ = std::process::Command::new("rc-service")
-        .args(["networking", "restart"])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .stdin(Stdio::null())
-        .spawn();
+    
+    // Spawn a background thread to avoid blocking the TUI
+    std::thread::spawn(|| {
+        // Try quantix-network service first (our custom service)
+        let result = std::process::Command::new("rc-service")
+            .args(["quantix-network", "restart"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .output();
+        
+        // If that fails, try the standard networking service
+        if result.is_err() || !result.unwrap().status.success() {
+            let _ = std::process::Command::new("rc-service")
+                .args(["networking", "restart"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .output();
+        }
+    });
 }
 
 fn configure_wifi() {

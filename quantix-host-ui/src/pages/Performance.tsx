@@ -28,12 +28,12 @@ export function Performance() {
       setHistory(prev => {
         const newPoint: MetricHistory = {
           timestamp: Date.now(),
-          cpu: metrics.cpu_usage_percent,
-          memory: metrics.memory_usage_percent,
-          diskRead: metrics.disk_read_bytes_per_sec,
-          diskWrite: metrics.disk_write_bytes_per_sec,
-          netRx: metrics.network_rx_bytes_per_sec,
-          netTx: metrics.network_tx_bytes_per_sec,
+          cpu: metrics.cpu_usage_percent ?? 0,
+          memory: metrics.memory_usage_percent ?? 0,
+          diskRead: metrics.disk_read_bytes_per_sec ?? 0,
+          diskWrite: metrics.disk_write_bytes_per_sec ?? 0,
+          netRx: metrics.network_rx_bytes_per_sec ?? 0,
+          netTx: metrics.network_tx_bytes_per_sec ?? 0,
         };
         const updated = [...prev, newPoint];
         // Keep only the last MAX_HISTORY_POINTS
@@ -72,9 +72,9 @@ export function Performance() {
                 icon={<Cpu className="w-5 h-5" />}
                 title="CPU Usage"
                 value={formatPercent(metrics.cpu_usage_percent)}
-                subtitle={`Load: ${metrics.load_average_1min.toFixed(2)} / ${metrics.load_average_5min.toFixed(2)} / ${metrics.load_average_15min.toFixed(2)}`}
+                subtitle={`Load: ${(metrics.load_average_1min ?? 0).toFixed(2)} / ${(metrics.load_average_5min ?? 0).toFixed(2)} / ${(metrics.load_average_15min ?? 0).toFixed(2)}`}
                 color="accent"
-                percent={metrics.cpu_usage_percent}
+                percent={metrics.cpu_usage_percent ?? 0}
               />
               <MetricCard
                 icon={<MemoryStick className="w-5 h-5" />}
@@ -82,15 +82,15 @@ export function Performance() {
                 value={formatBytes(metrics.memory_used_bytes)}
                 subtitle={`of ${formatBytes(metrics.memory_total_bytes)} (${formatPercent(metrics.memory_usage_percent)})`}
                 color="info"
-                percent={metrics.memory_usage_percent}
+                percent={metrics.memory_usage_percent ?? 0}
               />
               <MetricCard
                 icon={<Server className="w-5 h-5" />}
                 title="Virtual Machines"
-                value={`${metrics.vm_running_count} / ${metrics.vm_count}`}
+                value={`${metrics.vm_running_count ?? 0} / ${metrics.vm_count ?? 0}`}
                 subtitle="Running / Total"
                 color="success"
-                percent={metrics.vm_count > 0 ? (metrics.vm_running_count / metrics.vm_count) * 100 : 0}
+                percent={(metrics.vm_count ?? 0) > 0 ? ((metrics.vm_running_count ?? 0) / (metrics.vm_count ?? 1)) * 100 : 0}
               />
               <MetricCard
                 icon={<Activity className="w-5 h-5" />}
@@ -121,15 +121,15 @@ export function Performance() {
                 <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
                   <div>
                     <div className="text-text-muted">1 min avg</div>
-                    <div className="text-text-primary font-medium">{metrics.load_average_1min.toFixed(2)}</div>
+                    <div className="text-text-primary font-medium">{(metrics.load_average_1min ?? 0).toFixed(2)}</div>
                   </div>
                   <div>
                     <div className="text-text-muted">5 min avg</div>
-                    <div className="text-text-primary font-medium">{metrics.load_average_5min.toFixed(2)}</div>
+                    <div className="text-text-primary font-medium">{(metrics.load_average_5min ?? 0).toFixed(2)}</div>
                   </div>
                   <div>
                     <div className="text-text-muted">15 min avg</div>
-                    <div className="text-text-primary font-medium">{metrics.load_average_15min.toFixed(2)}</div>
+                    <div className="text-text-primary font-medium">{(metrics.load_average_15min ?? 0).toFixed(2)}</div>
                   </div>
                 </div>
               </Card>
