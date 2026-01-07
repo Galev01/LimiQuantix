@@ -467,33 +467,60 @@ get_device_info() {
 # Unmount all partitions on device
 unmount_device() {
     local device="$1"
+    local devname="${device##*/}"
     
     log_step "Step 1: Unmounting all partitions"
     
-    local partitions=$(lsblk -nlo NAME "$device" 2>/dev/null | tail -n +2)
+    # Method 1: Use /sys to find partitions (fast, no I/O to device)
+    local partitions=""
+    log_debug "Looking for partitions in /sys/block/$devname/"
+    if [ -d "/sys/block/$devname" ]; then
+        partitions=$(ls "/sys/block/$devname/" 2>/dev/null | grep "^${devname}[0-9]" || true)
+    fi
+    
+    # Method 2: Fallback to lsblk with timeout if /sys method failed
+    if [ -z "$partitions" ]; then
+        log_debug "Trying lsblk with timeout..."
+        if command -v timeout &> /dev/null; then
+            partitions=$(timeout 5 lsblk -nlo NAME "$device" 2>/dev/null | tail -n +2 || true)
+        fi
+    fi
+    
+    log_debug "Found partitions: $partitions"
+    
     local unmounted=0
     
-    for part in $partitions; do
-        local part_dev="/dev/$part"
-        if mountpoint -q "$part_dev" 2>/dev/null || mount | grep -q "^$part_dev "; then
-            log_info "Unmounting $part_dev..."
-            umount -f "$part_dev" 2>/dev/null || true
-            unmounted=$((unmounted + 1))
-        fi
-    done
+    if [ -n "$partitions" ]; then
+        for part in $partitions; do
+            local part_dev="/dev/$part"
+            log_info "Checking $part_dev..."
+            
+            # Check if mounted via /proc/mounts (faster than mount command)
+            if grep -q "^$part_dev " /proc/mounts 2>/dev/null; then
+                log_info "Unmounting $part_dev..."
+                # Try normal unmount first, then lazy unmount as fallback
+                umount "$part_dev" 2>/dev/null || umount -f "$part_dev" 2>/dev/null || umount -l "$part_dev" 2>/dev/null || true
+                unmounted=$((unmounted + 1))
+            fi
+        done
+    fi
     
     # Also try to unmount the main device (in case it's mounted directly)
-    if mount | grep -q "^$device "; then
+    if grep -q "^$device " /proc/mounts 2>/dev/null; then
         log_info "Unmounting $device..."
-        umount -f "$device" 2>/dev/null || true
+        umount "$device" 2>/dev/null || umount -f "$device" 2>/dev/null || umount -l "$device" 2>/dev/null || true
         unmounted=$((unmounted + 1))
     fi
     
     # Use udisksctl if available (better for desktop environments)
-    if command -v udisksctl &> /dev/null; then
-        for part in $partitions; do
-            udisksctl unmount -b "/dev/$part" 2>/dev/null || true
-        done
+    # Use timeout to prevent hanging on D-Bus issues
+    if command -v udisksctl &> /dev/null && command -v timeout &> /dev/null; then
+        if [ -n "$partitions" ]; then
+            for part in $partitions; do
+                log_debug "Trying udisksctl unmount for /dev/$part..."
+                timeout 3 udisksctl unmount -b "/dev/$part" 2>/dev/null || true
+            done
+        fi
         # Don't power off - we need the device!
     fi
     
