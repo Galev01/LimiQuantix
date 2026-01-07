@@ -14,7 +14,7 @@ import {
 import { Card, Button, Input, Label, Badge } from '@/components/ui';
 import { useCreateVM } from '@/hooks/useVMs';
 import { cn, formatBytes } from '@/lib/utils';
-import type { DiskSpec, NicSpec } from '@/api/types';
+import type { CreateVmRequest, DiskSpec, NicSpec, CloudInitSpec } from '@/api/types';
 
 interface CreateVMWizardProps {
   isOpen: boolean;

@@ -33,7 +33,8 @@ export function Volumes() {
     }
   };
 
-  const _isLoading = poolsLoading || volumesLoading;
+  // Combined loading state for potential future use
+  void (poolsLoading || volumesLoading);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
