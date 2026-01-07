@@ -40,7 +40,7 @@ Created a comprehensive USB deployment script (`deploy-usb.sh`) that handles all
 
 ### Usage
 
-```bash
+   ```bash
 # List USB devices
 sudo ./builder/deploy-usb.sh --list
 # Or: make list-usb

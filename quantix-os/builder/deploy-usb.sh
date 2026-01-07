@@ -17,10 +17,15 @@
 #      finished the physical write (fixes "2.5 GB/s fake speed" issue)
 #
 # Usage:
+#   sudo ./deploy-usb.sh                             # Interactive device selection
 #   sudo ./deploy-usb.sh /dev/sdb                    # Use default ISO
 #   sudo ./deploy-usb.sh /dev/sdb path/to/image.iso  # Use custom ISO
 #   sudo ./deploy-usb.sh --list                      # List USB devices
 #   sudo ./deploy-usb.sh --verify /dev/sdb           # Verify after write
+#   sudo ./deploy-usb.sh --no-wipe /dev/sdb          # Skip signature wiping
+#   sudo ./deploy-usb.sh --force /dev/sdb            # Skip confirmation prompt
+#   sudo ./deploy-usb.sh --debug                     # Enable debug output
+#   sudo ./deploy-usb.sh --help                      # Show this help
 #
 # =============================================================================
 
@@ -34,6 +39,7 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 BOLD='\033[1m'
+DIM='\033[2m'
 NC='\033[0m'
 
 # Configuration
@@ -127,7 +133,7 @@ check_root() {
 check_dependencies() {
     local missing=()
     
-    for cmd in dd wipefs sgdisk lsblk blockdev sync; do
+    for cmd in dd lsblk blockdev sync; do
         if ! command -v "$cmd" &> /dev/null; then
             missing+=("$cmd")
         fi
@@ -135,19 +141,47 @@ check_dependencies() {
     
     if [ ${#missing[@]} -ne 0 ]; then
         log_error "Missing required tools: ${missing[*]}"
-        log_info "Install with: apt install coreutils gdisk util-linux"
+        log_info "Install with: apt install coreutils util-linux"
         exit 1
+    fi
+    
+    # Check optional tools (non-fatal)
+    if ! command -v wipefs &> /dev/null; then
+        log_warning "wipefs not found - signature wiping will be limited"
+    fi
+    if ! command -v sgdisk &> /dev/null; then
+        log_warning "sgdisk not found - GPT wiping will be limited"
     fi
     
     log_success "All required tools available"
 }
 
-# List available USB devices
+# Get list of USB devices as array
+get_usb_devices() {
+    local devices=()
+    
+    while IFS= read -r line; do
+        local dev=$(echo "$line" | awk '{print $1}')
+        [ -z "$dev" ] && continue
+        
+        # Check if it's USB
+        local usb_path="/sys/block/${dev}"
+        if [ -d "$usb_path" ]; then
+            local devpath=$(readlink -f "$usb_path")
+            if echo "$devpath" | grep -q "usb"; then
+                devices+=("$dev")
+            fi
+        fi
+    done < <(lsblk -dno NAME 2>/dev/null | grep -v "loop\|sr\|rom")
+    
+    echo "${devices[@]}"
+}
+
+# List available USB devices (display mode)
 list_usb_devices() {
     log_step "Available USB Storage Devices"
     echo ""
     
-    # Get USB block devices
     local found=0
     
     while IFS= read -r line; do
@@ -155,11 +189,10 @@ list_usb_devices() {
         local size=$(echo "$line" | awk '{print $2}')
         local model=$(echo "$line" | cut -d' ' -f3-)
         
-        # Skip if empty or not a disk
         [ -z "$dev" ] && continue
         
         # Check if it's USB
-        local usb_path="/sys/block/${dev##*/}"
+        local usb_path="/sys/block/${dev}"
         if [ -d "$usb_path" ]; then
             local devpath=$(readlink -f "$usb_path")
             if echo "$devpath" | grep -q "usb"; then
@@ -183,6 +216,93 @@ list_usb_devices() {
         echo -e "  ${CYAN}Tip:${NC} Make sure your USB drive is connected and recognized by the system."
         echo -e "       Run ${BOLD}lsblk${NC} to see all block devices."
     fi
+}
+
+# Interactive device selector
+select_usb_device() {
+    log_step "Select Target USB Device"
+    echo ""
+    
+    # Build array of USB devices
+    local devices=()
+    local device_info=()
+    local index=1
+    
+    while IFS= read -r line; do
+        local dev=$(echo "$line" | awk '{print $1}')
+        local size=$(echo "$line" | awk '{print $2}')
+        local model=$(echo "$line" | cut -d' ' -f3-)
+        
+        [ -z "$dev" ] && continue
+        
+        # Check if it's USB
+        local usb_path="/sys/block/${dev}"
+        if [ -d "$usb_path" ]; then
+            local devpath=$(readlink -f "$usb_path")
+            if echo "$devpath" | grep -q "usb"; then
+                devices+=("/dev/$dev")
+                device_info+=("$size - $model")
+                
+                echo -e "  ${GREEN}[$index]${NC} ${BOLD}/dev/$dev${NC}"
+                echo -e "      Size:  ${CYAN}$size${NC}"
+                echo -e "      Model: ${CYAN}$model${NC}"
+                
+                # Show partitions (indented)
+                lsblk -no NAME,SIZE,FSTYPE,LABEL "/dev/$dev" 2>/dev/null | tail -n +2 | while read pline; do
+                    echo -e "      └─ ${DIM}$pline${NC}"
+                done
+                echo ""
+                
+                index=$((index + 1))
+            fi
+        fi
+    done < <(lsblk -dno NAME,SIZE,MODEL 2>/dev/null | grep -v "loop\|sr\|rom")
+    
+    local num_devices=${#devices[@]}
+    
+    if [ $num_devices -eq 0 ]; then
+        log_error "No USB storage devices found"
+        echo ""
+        echo -e "  ${CYAN}Tip:${NC} Make sure your USB drive is connected and recognized."
+        echo -e "       Run ${BOLD}lsblk${NC} to see all block devices."
+        exit 1
+    fi
+    
+    # If only one device, auto-select with confirmation
+    if [ $num_devices -eq 1 ]; then
+        echo -e "  ${CYAN}Only one USB device found.${NC}"
+        echo ""
+        read -p "  Use ${devices[0]}? (y/n): " confirm
+        if [[ "$confirm" =~ ^[Yy] ]]; then
+            SELECTED_DEVICE="${devices[0]}"
+            return 0
+        else
+            log_info "Aborted by user"
+            exit 0
+        fi
+    fi
+    
+    # Multiple devices - let user choose
+    echo -e "  ${CYAN}Enter device number [1-$num_devices] or 'q' to quit:${NC}"
+    echo ""
+    
+    while true; do
+        read -p "  Selection: " choice
+        
+        if [ "$choice" = "q" ] || [ "$choice" = "Q" ]; then
+            log_info "Aborted by user"
+            exit 0
+        fi
+        
+        # Validate input
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le $num_devices ]; then
+            SELECTED_DEVICE="${devices[$((choice - 1))]}"
+            log_success "Selected: $SELECTED_DEVICE"
+            return 0
+        else
+            echo -e "  ${RED}Invalid selection. Enter 1-$num_devices or 'q' to quit.${NC}"
+        fi
+    done
 }
 
 # Validate target device
@@ -278,10 +398,7 @@ unmount_device() {
         for part in $partitions; do
             udisksctl unmount -b "/dev/$part" 2>/dev/null || true
         done
-        udisksctl power-off -b "$device" 2>/dev/null || true
-        sleep 1
-        # Power it back on for writing
-        udisksctl power-on -b "$device" 2>/dev/null || true
+        # Don't power off - we need the device!
     fi
     
     if [ $unmounted -gt 0 ]; then
@@ -302,26 +419,34 @@ wipe_signatures() {
     log_info "This removes metadata that confuses Windows..."
     
     # First, use wipefs to remove filesystem signatures
-    log_info "Running wipefs -a $device..."
-    wipefs -a "$device" 2>/dev/null || {
-        log_warning "wipefs failed (non-fatal, continuing...)"
-    }
+    if command -v wipefs &> /dev/null; then
+        log_info "Running wipefs -a $device..."
+        if ! wipefs -a "$device" 2>/dev/null; then
+            log_debug "wipefs returned non-zero (may be normal for clean device)"
+        fi
+    else
+        log_info "wipefs not available, skipping..."
+    fi
     
     # Then use sgdisk to zap GPT and MBR structures
-    log_info "Running sgdisk --zap-all $device..."
-    sgdisk --zap-all "$device" 2>/dev/null || {
-        log_warning "sgdisk failed (non-fatal, continuing...)"
-    }
+    if command -v sgdisk &> /dev/null; then
+        log_info "Running sgdisk --zap-all $device..."
+        if ! sgdisk --zap-all "$device" 2>/dev/null; then
+            log_debug "sgdisk returned non-zero (may be normal for clean device)"
+        fi
+    else
+        log_info "sgdisk not available, skipping..."
+    fi
     
     # Zero out first and last 1MB (catches any remaining signatures)
     log_info "Zeroing first 1MB (MBR/GPT area)..."
     dd if=/dev/zero of="$device" bs=1M count=1 conv=notrunc status=none 2>/dev/null || true
     
     log_info "Zeroing last 1MB (backup GPT area)..."
-    local size_bytes=$(blockdev --getsize64 "$device")
-    local last_mb=$((size_bytes - 1048576))
-    if [ $last_mb -gt 0 ]; then
-        dd if=/dev/zero of="$device" bs=1M count=1 seek=$((last_mb / 1048576)) conv=notrunc status=none 2>/dev/null || true
+    local size_bytes=$(blockdev --getsize64 "$device" 2>/dev/null || echo "0")
+    if [ "$size_bytes" -gt 1048576 ]; then
+        local last_mb_offset=$(( (size_bytes - 1048576) / 1048576 ))
+        dd if=/dev/zero of="$device" bs=1M count=1 seek=$last_mb_offset conv=notrunc status=none 2>/dev/null || true
     fi
     
     # Force kernel to re-read partition table
@@ -330,7 +455,11 @@ wipe_signatures() {
     blockdev --rereadpt "$device" 2>/dev/null || true
     
     # Wait for udev to settle
-    udevadm settle 2>/dev/null || sleep 2
+    if command -v udevadm &> /dev/null; then
+        udevadm settle 2>/dev/null || sleep 2
+    else
+        sleep 2
+    fi
     
     log_success "Signatures wiped - device is now clean"
 }
@@ -428,12 +557,13 @@ verify_write() {
 
 # Print usage
 usage() {
-    echo "Usage: $0 [OPTIONS] <device> [iso_path]"
+    echo "Usage: $0 [OPTIONS] [device] [iso_path]"
     echo ""
     echo "Deploy Quantix-OS ISO to a USB drive safely."
     echo ""
     echo "Arguments:"
-    echo "  <device>     Target USB device (e.g., /dev/sdb)"
+    echo "  [device]     Target USB device (e.g., /dev/sdb)"
+    echo "               If not specified, shows interactive device selector"
     echo "  [iso_path]   Path to ISO file (default: output/quantix-os-${VERSION}.iso)"
     echo ""
     echo "Options:"
@@ -445,10 +575,11 @@ usage() {
     echo "  --help       Show this help"
     echo ""
     echo "Examples:"
-    echo "  sudo $0 /dev/sdb                      # Deploy default ISO to /dev/sdb"
-    echo "  sudo $0 /dev/sdb custom.iso           # Deploy custom ISO"
-    echo "  sudo $0 --verify /dev/sdb             # Deploy and verify"
-    echo "  sudo $0 --list                        # List USB devices"
+    echo "  sudo $0                             # Interactive device selection"
+    echo "  sudo $0 /dev/sdb                    # Deploy default ISO to /dev/sdb"
+    echo "  sudo $0 /dev/sdb custom.iso         # Deploy custom ISO"
+    echo "  sudo $0 --verify /dev/sdb           # Deploy and verify"
+    echo "  sudo $0 --list                      # List USB devices"
     echo ""
     echo "Why this is better than manual dd:"
     echo "  • Wipes partition signatures (fixes Windows 'file not found' errors)"
@@ -469,6 +600,7 @@ DO_VERIFY=0
 DO_WIPE=1
 DO_FORCE=0
 DO_LIST=0
+SELECTED_DEVICE=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -526,13 +658,18 @@ if [ $DO_LIST -eq 1 ]; then
     exit 0
 fi
 
-# Validate arguments
+# Check root first
+check_root
+check_dependencies
+
+# If no device specified, use interactive selector
 if [ -z "$DEVICE" ]; then
-    log_error "No device specified"
-    echo ""
-    usage
-    exit 1
+    select_usb_device
+    DEVICE="$SELECTED_DEVICE"
 fi
+
+# Validate device
+validate_device "$DEVICE"
 
 # Set default ISO if not specified
 if [ -z "$ISO_PATH" ]; then
@@ -545,11 +682,6 @@ if [ ! -f "$ISO_PATH" ]; then
     log_info "Run 'make iso' or './build.sh' to build the ISO first"
     exit 1
 fi
-
-# Run checks
-check_root
-check_dependencies
-validate_device "$DEVICE"
 
 # Show device info and get size
 log_step "Target Device Information"
