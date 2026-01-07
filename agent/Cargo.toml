@@ -65,7 +65,7 @@ futures = "0.3"
 bytes = "1.5"
 
 # HTTP/REST server (for web UI)
-axum = { version = "0.7", features = ["macros"] }
+axum = { version = "0.7", features = ["macros", "multipart"] }
 axum-server = { version = "0.7", features = ["tls-rustls"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["fs", "cors", "trace"] }
