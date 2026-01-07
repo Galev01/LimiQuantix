@@ -73,6 +73,42 @@ export function DnsConfigModal({ config, onClose }: DnsConfigModalProps) {
             </button>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-2">
+              Search Domains (Optional)
+            </label>
+            {searchDomains.map((domain, i) => (
+              <div key={i} className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={domain}
+                  onChange={(e) => {
+                    const newDomains = [...searchDomains];
+                    newDomains[i] = e.target.value;
+                    setSearchDomains(newDomains);
+                  }}
+                  placeholder="example.com"
+                  className="flex-1 px-3 py-2 bg-bg-base border border-border-default rounded-lg text-text-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => setSearchDomains(searchDomains.filter((_, idx) => idx !== i))}
+                  className="p-2 hover:bg-red-500/10 text-red-400 rounded-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setSearchDomains([...searchDomains, ''])}
+              className="text-sm text-neonBlue hover:underline flex items-center gap-1"
+            >
+              <Plus className="w-4 h-4" />
+              Add Search Domain
+            </button>
+          </div>
+
           <div className="flex gap-3 pt-4">
             <button
               type="button"
