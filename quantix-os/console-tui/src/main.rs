@@ -13,7 +13,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Frame, Terminal,
 };
 use std::io;
@@ -83,9 +83,8 @@ impl App {
     }
 
     fn refresh(&mut self) {
-        self.system.refresh_cpu_all();
-        self.system.refresh_memory();
-        // Refresh cached values
+        // Only refresh on explicit user request (F5 - Restart Services)
+        // CPU/Memory stats removed to eliminate flickering
         self.primary_ip = get_primary_ip();
         self.vm_count = get_vm_count();
     }
@@ -146,31 +145,17 @@ fn run_app<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     app: &mut App,
 ) -> Result<()> {
-    // Slower tick rate to reduce flickering (update stats every 2 seconds)
-    let tick_rate = Duration::from_secs(2);
-    let mut last_tick = std::time::Instant::now();
-    let mut needs_redraw = true;
+    // Initial draw
+    terminal.draw(|f| ui(f, app))?;
 
     loop {
-        // Only redraw when something changed
-        if needs_redraw {
+        // Block waiting for input - no polling, no flickering!
+        // This uses zero CPU while waiting for user input
+        if let Event::Key(key) = event::read()? {
+            handle_input(app, key.code, key.modifiers);
+            
+            // Only redraw after user input
             terminal.draw(|f| ui(f, app))?;
-            needs_redraw = false;
-        }
-
-        // Wait for input or timeout (100ms poll to stay responsive)
-        if crossterm::event::poll(Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                handle_input(app, key.code, key.modifiers);
-                needs_redraw = true;  // Redraw after input
-            }
-        }
-
-        // Refresh stats periodically (every tick_rate)
-        if last_tick.elapsed() >= tick_rate {
-            app.refresh();
-            last_tick = std::time::Instant::now();
-            needs_redraw = true;  // Redraw after refresh
         }
 
         if app.should_quit {
@@ -411,43 +396,19 @@ fn render_main_screen(f: &mut Frame, app: &App, area: Rect) {
         .block(Block::default().borders(Borders::ALL).title("System Information"));
     f.render_widget(info, left_chunks[0]);
 
-    // CPU/Memory gauges
-    let cpu_percent = get_cpu_usage(&app.system);
-    let mem_percent = get_memory_percent(&app.system);
-
-    let gauge_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(2), Constraint::Length(2)])
-        .split(left_chunks[1]);
-
-    let cpu_gauge = Gauge::default()
-        .block(Block::default().title("CPU"))
-        .gauge_style(Style::default().fg(if cpu_percent > 80.0 {
-            Color::Red
-        } else if cpu_percent > 60.0 {
-            Color::Yellow
-        } else {
-            Color::Green
-        }))
-        .percent(cpu_percent as u16)
-        .label(format!("{:.0}%", cpu_percent));
-    f.render_widget(cpu_gauge, gauge_chunks[0]);
-
-    let mem_gauge = Gauge::default()
-        .block(Block::default().title("Memory"))
-        .gauge_style(Style::default().fg(if mem_percent > 80.0 {
-            Color::Red
-        } else if mem_percent > 60.0 {
-            Color::Yellow
-        } else {
-            Color::Green
-        }))
-        .percent(mem_percent as u16)
-        .label(format!("{:.0}%", mem_percent));
-    f.render_widget(mem_gauge, gauge_chunks[1]);
+    // System resources (static display - no real-time updates to avoid flickering)
+    let resources_text = vec![
+        Line::from(vec![
+            Span::styled("Resources: ", Style::default().fg(Color::Gray)),
+            Span::styled("Press F5 to refresh", Style::default().fg(Color::DarkGray)),
+        ]),
+    ];
+    let resources = Paragraph::new(resources_text)
+        .block(Block::default().borders(Borders::ALL).title("System Status"));
+    f.render_widget(resources, left_chunks[1]);
 
     // Management URL
-    let url_text = format!("https://{}:8443", ip);
+    let url_text = format!("https://{}:8443", app.primary_ip);
     let url = Paragraph::new(vec![
         Line::from(Span::styled("Management URL:", Style::default().fg(Color::Gray))),
         Line::from(Span::styled(&url_text, Style::default().fg(Color::Cyan))),
@@ -648,23 +609,6 @@ fn get_primary_ip() -> String {
         }
     }
     "0.0.0.0".to_string()
-}
-
-fn get_cpu_usage(sys: &System) -> f32 {
-    let cpus = sys.cpus();
-    if cpus.is_empty() {
-        return 0.0;
-    }
-    let total: f32 = cpus.iter().map(|c| c.cpu_usage()).sum();
-    total / cpus.len() as f32
-}
-
-fn get_memory_percent(sys: &System) -> f32 {
-    let total = sys.total_memory();
-    if total == 0 {
-        return 0.0;
-    }
-    (sys.used_memory() as f32 / total as f32) * 100.0
 }
 
 fn format_uptime(seconds: u64) -> String {
