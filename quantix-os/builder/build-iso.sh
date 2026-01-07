@@ -88,21 +88,32 @@ done
 
 # --- CRITICAL: Extract kernel modules for initramfs ---
 echo "   Extracting kernel modules..."
+echo "   OUTPUT_DIR is: ${OUTPUT_DIR}"
 rm -rf "${OUTPUT_DIR}/modules"
 mkdir -p "${OUTPUT_DIR}/modules"
 
+echo "   Checking /tmp/sqmount/lib/modules..."
+ls -la /tmp/sqmount/lib/modules/ 2>/dev/null || echo "   (directory listing failed)"
+
 if [ -d "/tmp/sqmount/lib/modules" ]; then
     # Copy ALL modules (we'll filter in initramfs builder)
-    cp -r /tmp/sqmount/lib/modules/* "${OUTPUT_DIR}/modules/" 2>/dev/null || true
+    echo "   Copying modules to ${OUTPUT_DIR}/modules/..."
+    cp -rv /tmp/sqmount/lib/modules/* "${OUTPUT_DIR}/modules/" 2>&1 | tail -10
     
     # Count what we got
     MODULE_COUNT=$(find "${OUTPUT_DIR}/modules" -name "*.ko*" 2>/dev/null | wc -l)
-    echo "   ✅ Extracted ${MODULE_COUNT} kernel modules"
+    echo "   ✅ Extracted ${MODULE_COUNT} kernel modules to ${OUTPUT_DIR}/modules/"
     
     # Show the kernel version we found
-    ls -la "${OUTPUT_DIR}/modules/" | head -5
+    echo "   Contents of ${OUTPUT_DIR}/modules/:"
+    ls -la "${OUTPUT_DIR}/modules/"
+    
+    # Show a sample of drivers
+    echo "   Sample drivers:"
+    find "${OUTPUT_DIR}/modules" -name "*.ko*" 2>/dev/null | head -10
 else
-    echo "   ⚠️  No modules found in squashfs /lib/modules"
+    echo "   ❌ ERROR: No modules found in squashfs /lib/modules"
+    echo "   This will cause boot failure - no USB/SCSI/NVMe drivers!"
 fi
 
     umount /tmp/sqmount

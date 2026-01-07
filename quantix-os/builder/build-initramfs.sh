@@ -42,8 +42,13 @@ echo "✅ Structure created"
 echo "📦 Step 1b: Injecting kernel modules..."
 
 # Check if modules were extracted by build-iso.sh
+echo "   Looking for modules in ${OUTPUT_DIR}/modules..."
+echo "   OUTPUT_DIR is: ${OUTPUT_DIR}"
+ls -la "${OUTPUT_DIR}/" 2>/dev/null || echo "   (OUTPUT_DIR listing failed)"
+
 if [ -d "${OUTPUT_DIR}/modules" ] && [ "$(ls -A ${OUTPUT_DIR}/modules 2>/dev/null)" ]; then
-    echo "   Found extracted modules in ${OUTPUT_DIR}/modules"
+    echo "   ✅ Found extracted modules in ${OUTPUT_DIR}/modules"
+    ls -la "${OUTPUT_DIR}/modules/"
 
     # Copy the ENTIRE module tree - modprobe needs the full structure
     # This includes modules.dep, modules.alias, and the kernel/ subdirectory
