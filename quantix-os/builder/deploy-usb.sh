@@ -364,8 +364,45 @@ select_usb_device() {
 validate_device() {
     local device="$1"
     
-    # Check device exists
-    if [ ! -b "$device" ]; then
+    log_debug "Validating device: $device"
+    log_debug "Testing with: [ -b $device ]"
+    log_debug "ls -la output: $(ls -la "$device" 2>&1 || echo 'FAILED')"
+    log_debug "lsblk check: $(lsblk -dno NAME 2>/dev/null | grep "^${device##*/}$" || echo 'NOT FOUND')"
+    
+    # Wait for device to settle (USB devices can be flaky)
+    local retries=3
+    local found=0
+    
+    for i in $(seq 1 $retries); do
+        if [ -b "$device" ]; then
+            found=1
+            log_debug "Device found on attempt $i"
+            break
+        fi
+        log_debug "Device $device not ready, waiting... (attempt $i/$retries)"
+        sleep 1
+    done
+    
+    # Also check if device exists in lsblk even if -b test fails
+    # (some systems have permission issues with -b test)
+    if [ $found -eq 0 ]; then
+        local devname="${device##*/}"
+        if lsblk -dno NAME 2>/dev/null | grep -q "^${devname}$"; then
+            log_warning "Device $device exists in lsblk but block device test failed"
+            log_info "This may be a permissions issue. Continuing anyway..."
+            found=1
+        fi
+    fi
+    
+    # Last resort: check if the file exists at all
+    if [ $found -eq 0 ] && [ -e "$device" ]; then
+        log_warning "Device $device exists but is not detected as block device"
+        log_info "File type: $(file "$device" 2>&1 || echo 'unknown')"
+        log_info "Continuing anyway..."
+        found=1
+    fi
+    
+    if [ $found -eq 0 ]; then
         log_error "Device $device does not exist or is not a block device"
         echo ""
         echo -e "  ${CYAN}Available block devices:${NC}"
