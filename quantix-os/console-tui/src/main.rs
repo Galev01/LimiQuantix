@@ -44,6 +44,34 @@ struct App {
     primary_ip: String,
     /// Cached VM count (refreshed periodically)
     vm_count: i32,
+    /// Static IP configuration state
+    static_ip_config: StaticIpConfig,
+    /// WiFi configuration state
+    wifi_config: WiFiConfig,
+    /// Current input field index (for forms)
+    input_field_index: usize,
+    /// Available network interfaces
+    available_interfaces: Vec<String>,
+    /// Selected interface index
+    selected_interface: usize,
+}
+
+/// Static IP configuration
+#[derive(Default, Clone)]
+struct StaticIpConfig {
+    interface: String,
+    ip_address: String,
+    netmask: String,
+    gateway: String,
+    dns: String,
+}
+
+/// WiFi configuration  
+#[derive(Default, Clone)]
+struct WiFiConfig {
+    ssid: String,
+    password: String,
+    security: String, // "WPA2", "WPA3", "OPEN"
 }
 
 /// Application screens
@@ -51,6 +79,8 @@ struct App {
 enum Screen {
     Main,
     Network,
+    StaticIp,
+    WiFi,
     Ssh,
     Cluster,
     Services,
@@ -69,6 +99,9 @@ impl App {
             .map(|s| s.trim().to_string())
             .unwrap_or_else(|_| "quantix".to_string());
 
+        // Get available network interfaces
+        let available_interfaces = get_interface_names();
+
         Self {
             screen: Screen::Main,
             selected_menu: 0,
@@ -79,6 +112,21 @@ impl App {
             hostname,
             primary_ip: get_primary_ip(),
             vm_count: get_vm_count(),
+            static_ip_config: StaticIpConfig {
+                interface: available_interfaces.first().cloned().unwrap_or_default(),
+                ip_address: String::new(),
+                netmask: "255.255.255.0".to_string(),
+                gateway: String::new(),
+                dns: "8.8.8.8".to_string(),
+            },
+            wifi_config: WiFiConfig {
+                ssid: String::new(),
+                password: String::new(),
+                security: "WPA2".to_string(),
+            },
+            input_field_index: 0,
+            available_interfaces,
+            selected_interface: 0,
         }
     }
 
@@ -213,16 +261,26 @@ fn handle_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) {
                 restart_network();
             }
             KeyCode::Char('s') | KeyCode::Char('S') => {
-                // Static IP configuration - show instructions
-                app.success_message = Some("Static IP: Edit /etc/network/interfaces manually".to_string());
+                // Go to Static IP configuration screen
+                app.input_field_index = 0;
+                app.available_interfaces = get_interface_names();
+                app.selected_interface = 0;
+                if let Some(iface) = app.available_interfaces.first() {
+                    app.static_ip_config.interface = iface.clone();
+                }
+                app.screen = Screen::StaticIp;
             }
             KeyCode::Char('w') | KeyCode::Char('W') => {
-                // WiFi configuration
-                configure_wifi();
-                app.success_message = Some("WiFi: Edit /etc/wpa_supplicant/wpa_supplicant.conf".to_string());
+                // Go to WiFi configuration screen
+                app.input_field_index = 0;
+                app.wifi_config = WiFiConfig::default();
+                app.wifi_config.security = "WPA2".to_string();
+                app.screen = Screen::WiFi;
             }
             _ => {}
         },
+        Screen::StaticIp => handle_static_ip_input(app, key),
+        Screen::WiFi => handle_wifi_input(app, key),
         Screen::Power => match key {
             KeyCode::Esc | KeyCode::Char('q') => {
                 app.screen = Screen::Main;
@@ -297,6 +355,369 @@ fn restart_management_services() {
         .spawn();
 }
 
+fn handle_static_ip_input(app: &mut App, key: KeyCode) {
+    match key {
+        KeyCode::Esc => {
+            app.screen = Screen::Network;
+        }
+        KeyCode::Tab | KeyCode::Down => {
+            // Move to next field (5 fields: interface, ip, netmask, gateway, dns)
+            app.input_field_index = (app.input_field_index + 1) % 5;
+        }
+        KeyCode::BackTab | KeyCode::Up => {
+            // Move to previous field
+            if app.input_field_index > 0 {
+                app.input_field_index -= 1;
+            } else {
+                app.input_field_index = 4;
+            }
+        }
+        KeyCode::Left => {
+            // For interface selector (field 0), cycle through interfaces
+            if app.input_field_index == 0 && !app.available_interfaces.is_empty() {
+                if app.selected_interface > 0 {
+                    app.selected_interface -= 1;
+                } else {
+                    app.selected_interface = app.available_interfaces.len() - 1;
+                }
+                app.static_ip_config.interface = app.available_interfaces[app.selected_interface].clone();
+            }
+        }
+        KeyCode::Right => {
+            // For interface selector (field 0), cycle through interfaces
+            if app.input_field_index == 0 && !app.available_interfaces.is_empty() {
+                app.selected_interface = (app.selected_interface + 1) % app.available_interfaces.len();
+                app.static_ip_config.interface = app.available_interfaces[app.selected_interface].clone();
+            }
+        }
+        KeyCode::Char(c) => {
+            // Only allow valid IP characters
+            if c.is_ascii_digit() || c == '.' {
+                match app.input_field_index {
+                    1 => app.static_ip_config.ip_address.push(c),
+                    2 => app.static_ip_config.netmask.push(c),
+                    3 => app.static_ip_config.gateway.push(c),
+                    4 => app.static_ip_config.dns.push(c),
+                    _ => {}
+                }
+            }
+        }
+        KeyCode::Backspace => {
+            match app.input_field_index {
+                1 => { app.static_ip_config.ip_address.pop(); }
+                2 => { app.static_ip_config.netmask.pop(); }
+                3 => { app.static_ip_config.gateway.pop(); }
+                4 => { app.static_ip_config.dns.pop(); }
+                _ => {}
+            }
+        }
+        KeyCode::Enter => {
+            // Apply the static IP configuration
+            if app.static_ip_config.ip_address.is_empty() {
+                app.error_message = Some("IP address is required".to_string());
+            } else if !is_valid_ip(&app.static_ip_config.ip_address) {
+                app.error_message = Some("Invalid IP address format".to_string());
+            } else {
+                match apply_static_ip(&app.static_ip_config) {
+                    Ok(_) => {
+                        app.success_message = Some(format!(
+                            "Static IP {} applied to {}",
+                            app.static_ip_config.ip_address,
+                            app.static_ip_config.interface
+                        ));
+                        app.primary_ip = app.static_ip_config.ip_address.clone();
+                        app.screen = Screen::Network;
+                    }
+                    Err(e) => {
+                        app.error_message = Some(format!("Failed to apply: {}", e));
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_wifi_input(app: &mut App, key: KeyCode) {
+    match key {
+        KeyCode::Esc => {
+            app.screen = Screen::Network;
+        }
+        KeyCode::Tab | KeyCode::Down => {
+            // Move to next field (3 fields: ssid, password, security)
+            app.input_field_index = (app.input_field_index + 1) % 3;
+        }
+        KeyCode::BackTab | KeyCode::Up => {
+            // Move to previous field
+            if app.input_field_index > 0 {
+                app.input_field_index -= 1;
+            } else {
+                app.input_field_index = 2;
+            }
+        }
+        KeyCode::Left | KeyCode::Right => {
+            // For security selector (field 2), cycle through options
+            if app.input_field_index == 2 {
+                let options = ["WPA2", "WPA3", "OPEN"];
+                let current_idx = options.iter().position(|&s| s == app.wifi_config.security).unwrap_or(0);
+                let new_idx = if key == KeyCode::Right {
+                    (current_idx + 1) % options.len()
+                } else if current_idx > 0 {
+                    current_idx - 1
+                } else {
+                    options.len() - 1
+                };
+                app.wifi_config.security = options[new_idx].to_string();
+            }
+        }
+        KeyCode::Char(c) => {
+            match app.input_field_index {
+                0 => app.wifi_config.ssid.push(c),
+                1 => app.wifi_config.password.push(c),
+                _ => {}
+            }
+        }
+        KeyCode::Backspace => {
+            match app.input_field_index {
+                0 => { app.wifi_config.ssid.pop(); }
+                1 => { app.wifi_config.password.pop(); }
+                _ => {}
+            }
+        }
+        KeyCode::Enter => {
+            // Apply the WiFi configuration
+            if app.wifi_config.ssid.is_empty() {
+                app.error_message = Some("SSID is required".to_string());
+            } else if app.wifi_config.security != "OPEN" && app.wifi_config.password.len() < 8 {
+                app.error_message = Some("Password must be at least 8 characters".to_string());
+            } else {
+                match apply_wifi_config(&app.wifi_config) {
+                    Ok(_) => {
+                        app.success_message = Some(format!(
+                            "WiFi configured for network: {}",
+                            app.wifi_config.ssid
+                        ));
+                        app.screen = Screen::Network;
+                    }
+                    Err(e) => {
+                        app.error_message = Some(format!("Failed to configure WiFi: {}", e));
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn is_valid_ip(ip: &str) -> bool {
+    let parts: Vec<&str> = ip.split('.').collect();
+    if parts.len() != 4 {
+        return false;
+    }
+    for part in parts {
+        match part.parse::<u8>() {
+            Ok(_) => continue,
+            Err(_) => return false,
+        }
+    }
+    true
+}
+
+fn apply_static_ip(config: &StaticIpConfig) -> Result<()> {
+    use std::process::Stdio;
+    
+    // First, flush existing IP on interface
+    let _ = std::process::Command::new("ip")
+        .args(["addr", "flush", "dev", &config.interface])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output();
+    
+    // Bring interface up
+    let _ = std::process::Command::new("ip")
+        .args(["link", "set", &config.interface, "up"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output();
+    
+    // Calculate CIDR prefix from netmask
+    let prefix = netmask_to_cidr(&config.netmask);
+    let ip_cidr = format!("{}/{}", config.ip_address, prefix);
+    
+    // Add the IP address
+    let result = std::process::Command::new("ip")
+        .args(["addr", "add", &ip_cidr, "dev", &config.interface])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output()?;
+    
+    if !result.status.success() {
+        return Err(anyhow::anyhow!("Failed to set IP address"));
+    }
+    
+    // Set default gateway if provided
+    if !config.gateway.is_empty() {
+        // Remove existing default route first
+        let _ = std::process::Command::new("ip")
+            .args(["route", "del", "default"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .output();
+        
+        let _ = std::process::Command::new("ip")
+            .args(["route", "add", "default", "via", &config.gateway])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .output();
+    }
+    
+    // Set DNS if provided
+    if !config.dns.is_empty() {
+        let resolv_content = format!("nameserver {}\n", config.dns);
+        let _ = std::fs::write("/etc/resolv.conf", resolv_content);
+    }
+    
+    // Save to /etc/network/interfaces for persistence
+    let interfaces_content = format!(
+        "auto lo\niface lo inet loopback\n\nauto {}\niface {} inet static\n    address {}\n    netmask {}\n    gateway {}\n",
+        config.interface, config.interface, config.ip_address, config.netmask, config.gateway
+    );
+    let _ = std::fs::write("/etc/network/interfaces", interfaces_content);
+    
+    Ok(())
+}
+
+fn netmask_to_cidr(netmask: &str) -> u8 {
+    let parts: Vec<u8> = netmask
+        .split('.')
+        .filter_map(|s| s.parse().ok())
+        .collect();
+    
+    if parts.len() != 4 {
+        return 24; // Default to /24
+    }
+    
+    let mut bits = 0u8;
+    for octet in parts {
+        bits += octet.count_ones() as u8;
+    }
+    bits
+}
+
+fn apply_wifi_config(config: &WiFiConfig) -> Result<()> {
+    use std::process::Stdio;
+    
+    // Generate wpa_supplicant.conf content
+    let wpa_content = if config.security == "OPEN" {
+        format!(
+            r#"ctrl_interface=/run/wpa_supplicant
+update_config=1
+
+network={{
+    ssid="{}"
+    key_mgmt=NONE
+}}
+"#,
+            config.ssid
+        )
+    } else {
+        format!(
+            r#"ctrl_interface=/run/wpa_supplicant
+update_config=1
+
+network={{
+    ssid="{}"
+    psk="{}"
+    key_mgmt=WPA-PSK
+}}
+"#,
+            config.ssid, config.password
+        )
+    };
+    
+    // Write wpa_supplicant.conf
+    std::fs::write("/etc/wpa_supplicant/wpa_supplicant.conf", wpa_content)?;
+    
+    // Find wireless interface
+    let wireless_iface = find_wireless_interface().unwrap_or_else(|| "wlan0".to_string());
+    
+    // Stop any existing wpa_supplicant
+    let _ = std::process::Command::new("pkill")
+        .args(["-9", "wpa_supplicant"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output();
+    
+    // Bring wireless interface up
+    let _ = std::process::Command::new("ip")
+        .args(["link", "set", &wireless_iface, "up"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output();
+    
+    // Start wpa_supplicant
+    let _ = std::process::Command::new("wpa_supplicant")
+        .args(["-B", "-i", &wireless_iface, "-c", "/etc/wpa_supplicant/wpa_supplicant.conf"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+    
+    // Wait a moment for connection
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    
+    // Run DHCP on wireless interface
+    let _ = std::process::Command::new("udhcpc")
+        .args(["-i", &wireless_iface, "-n", "-q"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+    
+    Ok(())
+}
+
+fn find_wireless_interface() -> Option<String> {
+    // Look for wireless interfaces in /sys/class/net/*/wireless
+    if let Ok(entries) = std::fs::read_dir("/sys/class/net") {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let wireless_path = path.join("wireless");
+            if wireless_path.exists() {
+                if let Some(name) = path.file_name() {
+                    return Some(name.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn get_interface_names() -> Vec<String> {
+    let mut interfaces = Vec::new();
+    
+    if let Ok(output) = std::process::Command::new("ip")
+        .args(["-o", "link", "show"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                let iface = parts[1].trim_end_matches(':');
+                // Skip loopback
+                if iface != "lo" {
+                    interfaces.push(iface.to_string());
+                }
+            }
+        }
+    }
+    
+    if interfaces.is_empty() {
+        interfaces.push("eth0".to_string());
+    }
+    
+    interfaces
+}
+
 fn ui(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -327,6 +748,8 @@ fn ui(f: &mut Frame, app: &App) {
     match app.screen {
         Screen::Main => render_main_screen(f, app, chunks[1]),
         Screen::Network => render_network_screen(f, chunks[1]),
+        Screen::StaticIp => render_static_ip_screen(f, app, chunks[1]),
+        Screen::WiFi => render_wifi_screen(f, app, chunks[1]),
         Screen::Diagnostics => render_diagnostics_screen(f, app, chunks[1]),
         Screen::Power => render_power_screen(f, chunks[1]),
         _ => render_placeholder_screen(f, chunks[1], &format!("{:?}", app.screen)),
@@ -491,6 +914,137 @@ fn render_network_screen(f: &mut Frame, area: Rect) {
     .block(Block::default().borders(Borders::ALL).title("Network"))
     .wrap(Wrap { trim: true });
     f.render_widget(text, area);
+}
+
+fn render_static_ip_screen(f: &mut Frame, app: &App, area: Rect) {
+    let mut lines = vec![
+        Line::from(Span::styled("Static IP Configuration", Style::default().add_modifier(Modifier::BOLD))),
+        Line::from(""),
+        Line::from(Span::styled("Use Tab/↑↓ to navigate fields, Left/Right to select interface", Style::default().fg(Color::DarkGray))),
+        Line::from(Span::styled("Press Enter to apply, Esc to cancel", Style::default().fg(Color::DarkGray))),
+        Line::from(""),
+    ];
+    
+    // Field labels and values
+    let fields = [
+        ("Interface:", &app.static_ip_config.interface, true),  // true = selector
+        ("IP Address:", &app.static_ip_config.ip_address, false),
+        ("Netmask:", &app.static_ip_config.netmask, false),
+        ("Gateway:", &app.static_ip_config.gateway, false),
+        ("DNS Server:", &app.static_ip_config.dns, false),
+    ];
+    
+    for (i, (label, value, is_selector)) in fields.iter().enumerate() {
+        let is_selected = i == app.input_field_index;
+        let label_style = Style::default().fg(Color::Gray);
+        let value_style = if is_selected {
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        
+        let cursor = if is_selected { "▶ " } else { "  " };
+        
+        let value_display = if *is_selector && is_selected {
+            format!("◀ {} ▶", value)
+        } else {
+            value.to_string()
+        };
+        
+        // Show cursor indicator for text input fields
+        let final_value = if is_selected && !*is_selector {
+            format!("{}▏", value_display)
+        } else {
+            value_display
+        };
+        
+        lines.push(Line::from(vec![
+            Span::styled(cursor, value_style),
+            Span::styled(format!("{:<12}", label), label_style),
+            Span::styled(final_value, value_style),
+        ]));
+    }
+    
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled("Example: 192.168.1.100", Style::default().fg(Color::DarkGray))));
+    
+    let text = Paragraph::new(lines)
+        .block(Block::default().borders(Borders::ALL).title("Static IP"))
+        .wrap(Wrap { trim: true });
+    f.render_widget(text, area);
+}
+
+fn render_wifi_screen(f: &mut Frame, app: &App, area: Rect) {
+    let mut lines = vec![
+        Line::from(Span::styled("WiFi Configuration", Style::default().add_modifier(Modifier::BOLD))),
+        Line::from(""),
+        Line::from(Span::styled("Use Tab/↑↓ to navigate, Left/Right for security type", Style::default().fg(Color::DarkGray))),
+        Line::from(Span::styled("Press Enter to connect, Esc to cancel", Style::default().fg(Color::DarkGray))),
+        Line::from(""),
+    ];
+    
+    // Check for wireless interface
+    let wireless_iface = find_wireless_interface();
+    if wireless_iface.is_none() {
+        lines.push(Line::from(Span::styled("⚠ No wireless interface detected!", Style::default().fg(Color::Red))));
+        lines.push(Line::from(""));
+    } else {
+        lines.push(Line::from(vec![
+            Span::styled("Wireless Interface: ", Style::default().fg(Color::Gray)),
+            Span::styled(wireless_iface.as_ref().unwrap(), Style::default().fg(Color::Cyan)),
+        ]));
+        lines.push(Line::from(""));
+    }
+    
+    // Field labels and values
+    let fields = [
+        ("SSID:", &app.wifi_config.ssid, false),
+        ("Password:", &mask_password(&app.wifi_config.password), false),
+        ("Security:", &app.wifi_config.security, true), // true = selector
+    ];
+    
+    for (i, (label, value, is_selector)) in fields.iter().enumerate() {
+        let is_selected = i == app.input_field_index;
+        let label_style = Style::default().fg(Color::Gray);
+        let value_style = if is_selected {
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        
+        let cursor = if is_selected { "▶ " } else { "  " };
+        
+        let value_display = if *is_selector && is_selected {
+            format!("◀ {} ▶", value)
+        } else {
+            value.to_string()
+        };
+        
+        // Show cursor indicator for text input fields
+        let final_value = if is_selected && !*is_selector {
+            format!("{}▏", value_display)
+        } else {
+            value_display
+        };
+        
+        lines.push(Line::from(vec![
+            Span::styled(cursor, value_style),
+            Span::styled(format!("{:<12}", label), label_style),
+            Span::styled(final_value, value_style),
+        ]));
+    }
+    
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled("Security options: WPA2, WPA3, OPEN", Style::default().fg(Color::DarkGray))));
+    
+    let text = Paragraph::new(lines)
+        .block(Block::default().borders(Borders::ALL).title("WiFi"))
+        .wrap(Wrap { trim: true });
+    f.render_widget(text, area);
+}
+
+fn mask_password(password: &str) -> String {
+    "*".repeat(password.len())
 }
 
 fn get_network_interfaces() -> Vec<(String, String, String)> {

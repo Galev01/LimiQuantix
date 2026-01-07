@@ -10,6 +10,7 @@ import { Card, CardHeader, Badge, Button, ProgressRing } from '@/components/ui';
 import { useHostInfo, useHostHealth } from '@/hooks/useHost';
 import { useVMs } from '@/hooks/useVMs';
 import { useStoragePools } from '@/hooks/useStorage';
+import { ClusterStatusCard } from '@/components/cluster/ClusterStatusCard';
 import { formatBytes, formatUptime, formatPercent } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -122,6 +123,9 @@ export function Dashboard() {
             </div>
           </Card>
         </div>
+
+        {/* Cluster Status */}
+        <ClusterStatusCard />
 
         {/* VM List Preview & System Info */}
         <div className="grid-2-cols">
