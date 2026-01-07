@@ -2,7 +2,7 @@
 # Quantix-OS Rust TUI Builder Dockerfile
 # =============================================================================
 # This container builds the ratatui-based console TUI for Quantix-OS.
-# Produces a fully static musl binary.
+# Builds natively on Alpine (which uses musl) for a static binary.
 #
 # Usage:
 #   docker build -t quantix-rust-tui-builder -f builder/Dockerfile.rust-tui builder/
@@ -15,11 +15,9 @@ LABEL maintainer="Quantix-KVM Team"
 LABEL description="Rust build environment for Quantix-OS Console TUI"
 
 # Install Rust and build dependencies
-# Use Alpine's edge repo for newer Rust version (supports edition 2024)
-RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories && \
-    echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && \
-    apk add --no-cache \
-    # Rust toolchain from edge (latest version)
+# Use Alpine's stable repos - edge has compatibility issues with proc-macros
+RUN apk add --no-cache \
+    # Rust toolchain (stable Alpine version)
     rust \
     cargo \
     # Build essentials
@@ -36,11 +34,15 @@ RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositor
     protobuf-dev \
     && rm -rf /var/cache/apk/*
 
-# Set environment for static linking
-ENV RUSTFLAGS="-C target-feature=+crt-static"
+# Set environment for static linking with musl
+# Build natively on Alpine (already musl-based) - no cross-compile needed
+ENV RUSTFLAGS="-C target-feature=+crt-static -C link-self-contained=yes"
+ENV OPENSSL_STATIC=1
+ENV OPENSSL_LIB_DIR=/usr/lib
+ENV OPENSSL_INCLUDE_DIR=/usr/include
 
 # Create build directory
 WORKDIR /build
 
-# Default command - build static binary
-CMD ["cargo", "build", "--release", "--target", "x86_64-unknown-linux-musl"]
+# Default command - build native static binary (Alpine is already musl)
+CMD ["cargo", "build", "--release"]
