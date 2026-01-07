@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   X,
@@ -7,16 +7,14 @@ import {
   Check,
   Server,
   Cpu,
-  MemoryStick,
   HardDrive,
   Network,
   Cloud,
 } from 'lucide-react';
 import { Card, Button, Input, Label, Badge } from '@/components/ui';
 import { useCreateVM } from '@/hooks/useVMs';
-import { useStoragePools } from '@/hooks/useStorage';
 import { cn, formatBytes } from '@/lib/utils';
-import type { CreateVmRequest, DiskSpec, NicSpec, CloudInitSpec } from '@/api/types';
+import type { DiskSpec, NicSpec } from '@/api/types';
 
 interface CreateVMWizardProps {
   isOpen: boolean;
@@ -37,7 +35,6 @@ const steps: { id: Step; title: string; icon: React.ReactNode }[] = [
 export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
   const navigate = useNavigate();
   const createVMMutation = useCreateVM();
-  const { data: storagePools } = useStoragePools();
   const [currentStep, setCurrentStep] = useState<Step>('basics');
 
   // Form state
@@ -201,7 +198,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                 <Input
                   id="vmName"
                   value={vmName}
-                  onChange={(e) => setVmName(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setVmName(e.target.value)}
                   placeholder="e.g., web-server-01"
                   className="mt-2"
                 />
@@ -224,7 +221,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                     min={1}
                     max={64}
                     value={cpuCores}
-                    onChange={(e) => setCpuCores(parseInt(e.target.value) || 1)}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setCpuCores(parseInt(e.target.value) || 1)}
                     className="w-32"
                   />
                   <div className="flex gap-2">
@@ -255,7 +252,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                     min={256}
                     step={256}
                     value={memoryMib}
-                    onChange={(e) => setMemoryMib(parseInt(e.target.value) || 256)}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setMemoryMib(parseInt(e.target.value) || 256)}
                     className="w-32"
                   />
                   <div className="flex gap-2 flex-wrap">
@@ -314,7 +311,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                           type="number"
                           min={1}
                           value={disk.sizeGib}
-                          onChange={(e) => updateDisk(disk.id, { sizeGib: parseInt(e.target.value) || 1 })}
+                          onChange={(e: ChangeEvent<HTMLInputElement>) => updateDisk(disk.id, { sizeGib: parseInt(e.target.value) || 1 })}
                           className="mt-1"
                         />
                       </div>
@@ -322,7 +319,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                         <Label>Bus</Label>
                         <select
                           value={disk.bus}
-                          onChange={(e) => updateDisk(disk.id, { bus: e.target.value as DiskSpec['bus'] })}
+                          onChange={(e: ChangeEvent<HTMLSelectElement>) => updateDisk(disk.id, { bus: e.target.value as DiskSpec['bus'] })}
                           className="w-full mt-1 px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary"
                         >
                           <option value="virtio">VirtIO</option>
@@ -335,7 +332,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                         <Label>Format</Label>
                         <select
                           value={disk.format}
-                          onChange={(e) => updateDisk(disk.id, { format: e.target.value as DiskSpec['format'] })}
+                          onChange={(e: ChangeEvent<HTMLSelectElement>) => updateDisk(disk.id, { format: e.target.value as DiskSpec['format'] })}
                           className="w-full mt-1 px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary"
                         >
                           <option value="qcow2">QCOW2</option>
@@ -397,7 +394,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                           <Label>Bridge</Label>
                           <Input
                             value={nic.bridge || ''}
-                            onChange={(e) => updateNic(nic.id, { bridge: e.target.value })}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => updateNic(nic.id, { bridge: e.target.value })}
                             placeholder="br0"
                             className="mt-1"
                           />
@@ -406,7 +403,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                           <Label>Model</Label>
                           <select
                             value={nic.model}
-                            onChange={(e) => updateNic(nic.id, { model: e.target.value as NicSpec['model'] })}
+                            onChange={(e: ChangeEvent<HTMLSelectElement>) => updateNic(nic.id, { model: e.target.value as NicSpec['model'] })}
                             className="w-full mt-1 px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary"
                           >
                             <option value="virtio">VirtIO</option>
@@ -418,7 +415,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                           <Label>MAC Address (optional)</Label>
                           <Input
                             value={nic.macAddress || ''}
-                            onChange={(e) => updateNic(nic.id, { macAddress: e.target.value })}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => updateNic(nic.id, { macAddress: e.target.value })}
                             placeholder="Auto-generated"
                             className="mt-1"
                           />
@@ -439,7 +436,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                   <input
                     type="checkbox"
                     checked={useCloudInit}
-                    onChange={(e) => setUseCloudInit(e.target.checked)}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setUseCloudInit(e.target.checked)}
                     className="w-4 h-4 rounded border-border"
                   />
                   <span className="text-text-primary font-medium">Enable Cloud-Init</span>
@@ -453,7 +450,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                     <textarea
                       id="userData"
                       value={cloudInit.userData || ''}
-                      onChange={(e) => setCloudInit({ ...cloudInit, userData: e.target.value })}
+                      onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setCloudInit({ ...cloudInit, userData: e.target.value })}
                       placeholder={`#cloud-config
 users:
   - name: admin

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, RotateCcw } from 'lucide-react';
 import { Header } from '@/components/layout';
 import { Card, Badge, Button, Input, Label } from '@/components/ui';
@@ -89,7 +89,7 @@ export function Settings() {
                       <Input
                         id="nodeName"
                         value={nodeName}
-                        onChange={(e) => setNodeName(e.target.value)}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setNodeName(e.target.value)}
                         placeholder="Enter node name"
                       />
                     </div>
@@ -278,19 +278,19 @@ export function Settings() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-text-muted">Operating System</span>
-                      <span className="text-text-primary">{hostInfo?.os_name} {hostInfo?.os_version}</span>
+                      <span className="text-text-primary">{hostInfo?.osName} {hostInfo?.osVersion}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-text-muted">Kernel</span>
-                      <span className="text-text-primary font-mono text-sm">{hostInfo?.kernel_version}</span>
+                      <span className="text-text-primary font-mono text-sm">{hostInfo?.kernelVersion}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-text-muted">CPU</span>
-                      <span className="text-text-primary">{hostInfo?.cpu_model}</span>
+                      <span className="text-text-primary">{hostInfo?.cpuModel}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-text-muted">Hypervisor</span>
-                      <span className="text-text-primary">{hostInfo?.hypervisor_name} {hostInfo?.hypervisor_version}</span>
+                      <span className="text-text-primary">{hostInfo?.hypervisorName} {hostInfo?.hypervisorVersion}</span>
                     </div>
                   </div>
                 </Card>

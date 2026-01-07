@@ -9,7 +9,6 @@ import {
   RefreshCw,
   CheckCircle,
   AlertCircle,
-  Zap,
 } from 'lucide-react';
 import { Header } from '@/components/layout';
 import { Card, Badge, Button } from '@/components/ui';

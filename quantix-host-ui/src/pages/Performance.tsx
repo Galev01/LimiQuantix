@@ -46,7 +46,7 @@ export function Performance() {
     <div className="flex-1 flex flex-col overflow-hidden">
       <Header
         title="Performance Monitor"
-        subtitle={hostInfo ? `${hostInfo.hostname} - ${hostInfo.cpu_model}` : 'Loading...'}
+        subtitle={hostInfo ? `${hostInfo.hostname} - ${hostInfo.cpuModel}` : 'Loading...'}
         actions={
           <Button
             variant="ghost"

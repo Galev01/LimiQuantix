@@ -10,6 +10,9 @@ export interface ClusterStatus {
   node_id?: string;
   last_heartbeat?: string;
   status: 'connected' | 'disconnected' | 'standalone' | 'pending_restart';
+  mode: 'standalone' | 'cluster';
+  clusterName?: string;
+  controllerUrl?: string;
 }
 
 export interface ClusterConfig {

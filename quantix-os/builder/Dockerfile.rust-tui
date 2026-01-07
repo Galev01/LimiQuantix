@@ -14,14 +14,12 @@ FROM alpine:3.20
 LABEL maintainer="Quantix-KVM Team"
 LABEL description="Rust build environment for Quantix-OS Console TUI"
 
-# Install Rust and minimal build dependencies
+# Install build dependencies (not Rust - we'll use rustup for newer version)
 RUN apk add --no-cache \
-    # Rust toolchain
-    rust \
-    cargo \
     # Build essentials
     build-base \
     musl-dev \
+    curl \
     # SSL for network operations (static)
     openssl-dev \
     openssl-libs-static \
@@ -32,6 +30,13 @@ RUN apk add --no-cache \
     protobuf \
     protobuf-dev \
     && rm -rf /var/cache/apk/*
+
+# Install Rust via rustup (gets latest stable version)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Add musl target
+RUN rustup target add x86_64-unknown-linux-musl
 
 # Set environment for static linking
 ENV RUSTFLAGS="-C target-feature=+crt-static"

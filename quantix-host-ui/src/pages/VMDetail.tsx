@@ -5,14 +5,12 @@ import {
   Play,
   Square,
   RotateCcw,
-  Pause,
   Monitor,
   Trash2,
   RefreshCw,
   Cpu,
   MemoryStick,
   HardDrive,
-  Network,
   Camera,
   Clock,
   Activity,
@@ -327,7 +325,7 @@ export function VMDetail() {
                     <span className="text-text-secondary">Storage</span>
                   </div>
                   <div className="text-2xl font-bold text-text-primary">
-                    {vm.guestAgent?.resourceUsage?.disks?.length || 0} disks
+                    {vm.guestAgent ? '1' : '0'} disks
                   </div>
                 </div>
               </div>

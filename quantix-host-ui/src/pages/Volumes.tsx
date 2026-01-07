@@ -33,7 +33,7 @@ export function Volumes() {
     }
   };
 
-  const isLoading = poolsLoading || volumesLoading;
+  const _isLoading = poolsLoading || volumesLoading;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">

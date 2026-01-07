@@ -21,7 +21,7 @@ export function StoragePools() {
   const { data: pools, isLoading, refetch, isFetching } = useStoragePools();
   const destroyPool = useDestroyStoragePool();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [poolToDelete, setPoolToDelete] = useState<string | null>(null);
+  const [_poolToDelete, _setPoolToDelete] = useState<string | null>(null);
 
   const handleDeletePool = (poolId: string) => {
     if (confirm(`Are you sure you want to destroy storage pool "${poolId}"? This cannot be undone.`)) {
