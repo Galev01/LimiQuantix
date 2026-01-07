@@ -266,11 +266,17 @@ fn handle_menu_action(app: &mut App, index: usize) {
 }
 
 fn restart_management_services() {
+    use std::process::Stdio;
+    // Redirect all output to null to prevent TUI corruption
     let _ = std::process::Command::new("rc-service")
         .args(["quantix-node", "restart"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .spawn();
     let _ = std::process::Command::new("rc-service")
         .args(["quantix-network", "restart"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .spawn();
 }
 
@@ -686,20 +692,27 @@ fn is_ssh_enabled() -> bool {
 }
 
 fn enable_ssh() -> Result<()> {
+    use std::process::Stdio;
     std::process::Command::new("rc-service")
         .args(["sshd", "start"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .output()?;
     Ok(())
 }
 
 fn disable_ssh() -> Result<()> {
+    use std::process::Stdio;
     std::process::Command::new("rc-service")
         .args(["sshd", "stop"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .output()?;
     Ok(())
 }
 
 fn run_dhcp_all() {
+    use std::process::Stdio;
     // Get all interfaces and run DHCP
     if let Ok(output) = std::process::Command::new("ip")
         .args(["-o", "link", "show"])
@@ -714,18 +727,25 @@ fn run_dhcp_all() {
                     continue;
                 }
                 
-                // Bring interface up
+                // Bring interface up (silent)
                 let _ = std::process::Command::new("ip")
                     .args(["link", "set", iface, "up"])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
                     .output();
                 
-                // Run DHCP (kill existing first)
+                // Run DHCP (kill existing first, silent)
                 let _ = std::process::Command::new("pkill")
                     .args(["-f", &format!("udhcpc.*{}", iface)])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
                     .output();
                 
+                // Run udhcpc silently in background
                 let _ = std::process::Command::new("udhcpc")
                     .args(["-i", iface, "-n", "-q"])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
                     .spawn();
             }
         }
@@ -733,7 +753,10 @@ fn run_dhcp_all() {
 }
 
 fn restart_network() {
+    use std::process::Stdio;
     let _ = std::process::Command::new("rc-service")
         .args(["quantix-network", "restart"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .output();
 }
