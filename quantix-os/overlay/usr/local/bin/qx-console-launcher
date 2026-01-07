@@ -232,7 +232,7 @@ start_dcui_session() {
         chvt 2 2>/dev/null || true
     fi
     
-    if [ -x /usr/local/bin/qx-console ]; then
+if [ -x /usr/local/bin/qx-console ]; then
         /usr/local/bin/qx-console
     else
         log "TUI not available, starting shell"
@@ -256,7 +256,7 @@ start_dcui() {
     
     if [ -x /usr/local/bin/qx-console ]; then
         exec /usr/local/bin/qx-console
-    else
+else
         log "TUI not available, starting shell"
         exec /bin/sh
     fi
