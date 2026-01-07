@@ -1977,7 +1977,7 @@ async fn create_volume(
         pool_id: pool_id.clone(),
         volume_id: request.volume_id.clone(),
         size_bytes: request.size_bytes,
-        source_type: VolumeSourceType::Empty as i32,
+        source_type: VolumeSourceType::VolumeSourceEmpty as i32,
         source_id: "".to_string(),
     };
 
