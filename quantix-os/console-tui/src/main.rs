@@ -129,25 +129,31 @@ fn run_app<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     app: &mut App,
 ) -> Result<()> {
-    let tick_rate = Duration::from_millis(250);
+    // Slower tick rate to reduce flickering (update stats every 2 seconds)
+    let tick_rate = Duration::from_secs(2);
     let mut last_tick = std::time::Instant::now();
+    let mut needs_redraw = true;
 
     loop {
-        terminal.draw(|f| ui(f, app))?;
+        // Only redraw when something changed
+        if needs_redraw {
+            terminal.draw(|f| ui(f, app))?;
+            needs_redraw = false;
+        }
 
-        let timeout = tick_rate
-            .checked_sub(last_tick.elapsed())
-            .unwrap_or_else(|| Duration::from_secs(0));
-
-        if crossterm::event::poll(timeout)? {
+        // Wait for input or timeout (100ms poll to stay responsive)
+        if crossterm::event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
                 handle_input(app, key.code, key.modifiers);
+                needs_redraw = true;  // Redraw after input
             }
         }
 
+        // Refresh stats periodically (every tick_rate)
         if last_tick.elapsed() >= tick_rate {
             app.refresh();
             last_tick = std::time::Instant::now();
+            needs_redraw = true;  // Redraw after refresh
         }
 
         if app.should_quit {
