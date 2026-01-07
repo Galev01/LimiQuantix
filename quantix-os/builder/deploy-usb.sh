@@ -156,6 +156,45 @@ check_dependencies() {
     log_success "All required tools available"
 }
 
+# Check if a device is removable/USB
+is_removable_device() {
+    local dev="$1"
+    local devname="${dev##*/}"
+    local sys_path="/sys/block/$devname"
+    
+    [ ! -d "$sys_path" ] && return 1
+    
+    # Method 1: Check if device path contains "usb"
+    local devpath=$(readlink -f "$sys_path")
+    if echo "$devpath" | grep -q "usb"; then
+        return 0
+    fi
+    
+    # Method 2: Check removable flag
+    if [ -f "$sys_path/removable" ]; then
+        local removable=$(cat "$sys_path/removable" 2>/dev/null)
+        if [ "$removable" = "1" ]; then
+            return 0
+        fi
+    fi
+    
+    # Method 3: Check transport type via udevadm
+    if command -v udevadm &> /dev/null; then
+        local id_bus=$(udevadm info --query=property --name="$dev" 2>/dev/null | grep "^ID_BUS=" | cut -d= -f2)
+        if [ "$id_bus" = "usb" ]; then
+            return 0
+        fi
+    fi
+    
+    # Method 4: Check if it's a hotplug device (common for USB)
+    if [ -f "$sys_path/device/delete" ]; then
+        # Has a delete file = hotpluggable
+        return 0
+    fi
+    
+    return 1
+}
+
 # Get list of USB devices as array
 get_usb_devices() {
     local devices=()
@@ -164,13 +203,8 @@ get_usb_devices() {
         local dev=$(echo "$line" | awk '{print $1}')
         [ -z "$dev" ] && continue
         
-        # Check if it's USB
-        local usb_path="/sys/block/${dev}"
-        if [ -d "$usb_path" ]; then
-            local devpath=$(readlink -f "$usb_path")
-            if echo "$devpath" | grep -q "usb"; then
-                devices+=("$dev")
-            fi
+        if is_removable_device "/dev/$dev"; then
+            devices+=("$dev")
         fi
     done < <(lsblk -dno NAME 2>/dev/null | grep -v "loop\|sr\|rom")
     
@@ -179,7 +213,7 @@ get_usb_devices() {
 
 # List available USB devices (display mode)
 list_usb_devices() {
-    log_step "Available USB Storage Devices"
+    log_step "Available Removable Storage Devices"
     echo ""
     
     local found=0
@@ -191,27 +225,23 @@ list_usb_devices() {
         
         [ -z "$dev" ] && continue
         
-        # Check if it's USB
-        local usb_path="/sys/block/${dev}"
-        if [ -d "$usb_path" ]; then
-            local devpath=$(readlink -f "$usb_path")
-            if echo "$devpath" | grep -q "usb"; then
-                found=1
-                echo -e "  ${GREEN}●${NC} ${BOLD}/dev/$dev${NC}"
-                echo -e "    Size:  ${CYAN}$size${NC}"
-                echo -e "    Model: ${CYAN}$model${NC}"
-                
-                # Show partitions
-                lsblk -no NAME,SIZE,FSTYPE,LABEL "/dev/$dev" 2>/dev/null | tail -n +2 | while read pline; do
-                    echo -e "    └─ ${YELLOW}$pline${NC}"
-                done
-                echo ""
-            fi
+        # Check if it's a removable/USB device
+        if is_removable_device "/dev/$dev"; then
+            found=1
+            echo -e "  ${GREEN}●${NC} ${BOLD}/dev/$dev${NC}"
+            echo -e "    Size:  ${CYAN}$size${NC}"
+            echo -e "    Model: ${CYAN}$model${NC}"
+            
+            # Show partitions
+            lsblk -no NAME,SIZE,FSTYPE,LABEL "/dev/$dev" 2>/dev/null | tail -n +2 | while read pline; do
+                echo -e "    └─ ${YELLOW}$pline${NC}"
+            done
+            echo ""
         fi
     done < <(lsblk -dno NAME,SIZE,MODEL 2>/dev/null | grep -v "loop\|sr\|rom")
     
     if [ $found -eq 0 ]; then
-        log_warning "No USB storage devices found"
+        log_warning "No removable storage devices found"
         echo ""
         echo -e "  ${CYAN}Tip:${NC} Make sure your USB drive is connected and recognized by the system."
         echo -e "       Run ${BOLD}lsblk${NC} to see all block devices."
@@ -220,7 +250,7 @@ list_usb_devices() {
 
 # Interactive device selector
 select_usb_device() {
-    log_step "Select Target USB Device"
+    log_step "Select Target Removable Device"
     echo ""
     
     # Build array of USB devices
@@ -235,26 +265,22 @@ select_usb_device() {
         
         [ -z "$dev" ] && continue
         
-        # Check if it's USB
-        local usb_path="/sys/block/${dev}"
-        if [ -d "$usb_path" ]; then
-            local devpath=$(readlink -f "$usb_path")
-            if echo "$devpath" | grep -q "usb"; then
-                devices+=("/dev/$dev")
-                device_info+=("$size - $model")
-                
-                echo -e "  ${GREEN}[$index]${NC} ${BOLD}/dev/$dev${NC}"
-                echo -e "      Size:  ${CYAN}$size${NC}"
-                echo -e "      Model: ${CYAN}$model${NC}"
-                
-                # Show partitions (indented)
-                lsblk -no NAME,SIZE,FSTYPE,LABEL "/dev/$dev" 2>/dev/null | tail -n +2 | while read pline; do
-                    echo -e "      └─ ${DIM}$pline${NC}"
-                done
-                echo ""
-                
-                index=$((index + 1))
-            fi
+        # Check if it's a removable/USB device
+        if is_removable_device "/dev/$dev"; then
+            devices+=("/dev/$dev")
+            device_info+=("$size - $model")
+            
+            echo -e "  ${GREEN}[$index]${NC} ${BOLD}/dev/$dev${NC}"
+            echo -e "      Size:  ${CYAN}$size${NC}"
+            echo -e "      Model: ${CYAN}$model${NC}"
+            
+            # Show partitions (indented)
+            lsblk -no NAME,SIZE,FSTYPE,LABEL "/dev/$dev" 2>/dev/null | tail -n +2 | while read pline; do
+                echo -e "      └─ ${DIM}$pline${NC}"
+            done
+            echo ""
+            
+            index=$((index + 1))
         fi
     done < <(lsblk -dno NAME,SIZE,MODEL 2>/dev/null | grep -v "loop\|sr\|rom")
     
@@ -338,19 +364,14 @@ validate_device() {
         exit 1
     fi
     
-    # Check if it's USB (optional safety check)
-    local devname="${device##*/}"
-    local usb_path="/sys/block/$devname"
-    if [ -d "$usb_path" ]; then
-        local devpath=$(readlink -f "$usb_path")
-        if ! echo "$devpath" | grep -q "usb"; then
-            log_warning "Device $device does not appear to be a USB device"
-            echo ""
-            read -p "  Are you sure you want to continue? (yes/no): " confirm
-            if [ "$confirm" != "yes" ]; then
-                log_info "Aborted by user"
-                exit 0
-            fi
+    # Check if it's a removable/USB device (optional safety check)
+    if ! is_removable_device "$device"; then
+        log_warning "Device $device does not appear to be a removable/USB device"
+        echo ""
+        read -p "  Are you sure you want to continue? (yes/no): " confirm
+        if [ "$confirm" != "yes" ]; then
+            log_info "Aborted by user"
+            exit 0
         fi
     fi
     
