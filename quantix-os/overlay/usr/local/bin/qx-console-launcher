@@ -1,378 +1,29 @@
 #!/bin/sh
 # =============================================================================
-# Quantix-OS Console Launcher (DCUI Mode)
+# Quantix-OS Console Launcher
 # =============================================================================
-# Implements a VMware ESXi-style DCUI (Direct Console User Interface):
-# - Shows Web Kiosk (React dashboard) when graphics are available
-# - F10 key switches to TUI (always accessible, even without network)
-# - TUI is the fallback for serial/SSH/headless sessions
+# Launches the Direct Console User Interface (DCUI) - a TUI-based console
+# for initial system configuration, similar to VMware ESXi's DCUI.
+#
+# The TUI provides:
+# - Network configuration (DHCP, static IP, WiFi)
+# - SSH access management with security timer
+# - Cluster join/leave functionality
+# - System diagnostics and logs
+# - Power management (reboot/shutdown)
 # =============================================================================
 
 set -e
 
-# Configuration
-WEBUI_URL="${QUANTIX_WEBUI_URL:-http://localhost:8443}"
 LOG_FILE="/var/log/quantix-console.log"
-DCUI_LOCKFILE="/tmp/.dcui-mode"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-# Check if we're on a real TTY with graphics capability
-check_graphics() {
-    # Check for framebuffer device
-    if [ -e /dev/fb0 ]; then
-        return 0
-    fi
-    
-    # Check for DRM devices
-    if ls /dev/dri/card* >/dev/null 2>&1; then
-        return 0
-    fi
-    
-    return 1
-}
-
-# Check if DRI/GPU actually works (not just device exists)
-check_dri_working() {
-    # Quick test if we can actually use DRI
-    # This catches cases where device exists but driver is broken
-    
-    # Check for Intel Iris driver issues (kernel too old error)
-    if dmesg 2>/dev/null | grep -q "iris.*kernel.*too old\|unusable for iris"; then
-        log "Intel Iris driver issue detected (kernel compatibility)"
-        return 1
-    fi
-    
-    # Check if any DRI device is actually usable
-    for card in /dev/dri/card*; do
-        if [ -e "$card" ]; then
-            # Try to get DRM info - if this fails, driver is broken
-            if command -v drm_info >/dev/null 2>&1; then
-                if drm_info "$card" >/dev/null 2>&1; then
-                    return 0
-                fi
-            fi
-            # Fallback: check if we can at least open the device
-            if [ -r "$card" ] && [ -w "$card" ]; then
-                # Device is accessible, assume it might work
-                return 0
-            fi
-        fi
-    done
-    
-    # No working DRI found
-    return 1
-}
-
-# Check if we're on a serial console or SSH
-is_serial_or_ssh() {
-    # Check if SSH session
-    if [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_TTY" ]; then
-        return 0
-    fi
-    
-    # Check if serial console
-    TTY=$(tty 2>/dev/null)
-    case "$TTY" in
-        /dev/ttyS*|/dev/ttyAMA*|/dev/ttyUSB*|/dev/hvc*)
-            return 0
-            ;;
-    esac
-    
-    return 1
-}
-
-# Check if running in a virtual machine (QEMU, VirtualBox, VMware, etc.)
-is_virtual_machine() {
-    # Check DMI product name
-    if [ -f /sys/class/dmi/id/product_name ]; then
-        PRODUCT=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
-        case "$PRODUCT" in
-            *QEMU*|*VirtualBox*|*VMware*|*Bochs*|*KVM*)
-                return 0
-                ;;
-        esac
-    fi
-    
-    # Check for hypervisor flag in cpuinfo
-    if grep -q "hypervisor" /proc/cpuinfo 2>/dev/null; then
-        return 0
-    fi
-    
-    # Check for virtual devices
-    if [ -e /dev/vda ] || [ -e /dev/vdb ]; then
-        return 0
-    fi
-    
-    # Check systemd-detect-virt if available
-    if command -v systemd-detect-virt >/dev/null 2>&1; then
-        if systemd-detect-virt -q 2>/dev/null; then
-            return 0
-        fi
-    fi
-    
-    return 1
-}
-
-# Wait for the node daemon to be ready
-wait_for_webui() {
-    log "Waiting for Web UI at $WEBUI_URL..."
-    
-    MAX_WAIT=60
-    WAITED=0
-    
-    while [ $WAITED -lt $MAX_WAIT ]; do
-        # Try HTTP first, then HTTPS with --no-check-certificate
-        if wget -q -O /dev/null --spider "$WEBUI_URL" 2>/dev/null; then
-            log "Web UI is ready!"
-            return 0
-        fi
-        # Try HTTPS (node daemon uses self-signed certs)
-        if wget -q -O /dev/null --spider --no-check-certificate "https://localhost:8443" 2>/dev/null; then
-            log "Web UI is ready (HTTPS)!"
-            # Update URL to use HTTPS
-            WEBUI_URL="https://localhost:8443"
-            return 0
-        fi
-        # Also check if the port is listening (even if wget fails)
-        if ss -tlnp 2>/dev/null | grep -q ':8443' || netstat -tlnp 2>/dev/null | grep -q ':8443'; then
-            log "Port 8443 is listening, Web UI should be ready"
-            return 0
-        fi
-        sleep 2
-        WAITED=$((WAITED + 2))
-        log "  Still waiting... ($WAITED/${MAX_WAIT}s)"
-    done
-    
-    log "WARNING: Web UI not responding after ${MAX_WAIT}s"
-    return 1
-}
-
-# Setup environment for Wayland/Cage
-setup_wayland_env() {
-    log "Setting up Wayland environment..."
-    
-    # XDG runtime directory (required for Wayland)
-    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/0}"
-    mkdir -p "$XDG_RUNTIME_DIR"
-    chmod 700 "$XDG_RUNTIME_DIR"
-    
-    # Ensure seatd is running for seat management
-    if ! pgrep -x seatd >/dev/null 2>&1; then
-        log "Starting seatd daemon..."
-        seatd -g video &
-        sleep 1
-    fi
-    
-    # Environment for libseat
-    export LIBSEAT_BACKEND=seatd
-    
-    # =========================================================================
-    # Mesa/EGL/DRI Configuration (CRITICAL for graphics)
-    # =========================================================================
-    
-    # Set Mesa DRI driver search path (Alpine Linux locations)
-    export LIBGL_DRIVERS_PATH="/usr/lib/dri:/usr/lib/xorg/modules/dri"
-    export EGL_DRIVERS_PATH="/usr/lib/dri"
-    
-    # =========================================================================
-    # Intel GPU Driver Selection
-    # =========================================================================
-    # Mesa's Iris driver requires Gen8+ (Broadwell 2014+) Intel GPUs.
-    # For older GPUs or driver issues, we fall back to software rendering.
-    # The Gallium llvmpipe driver provides software OpenGL.
-    # =========================================================================
-    
-    # Log Intel GPU device ID for debugging
-    if [ -f /sys/class/drm/card0/device/device ]; then
-        DEVICE_ID=$(cat /sys/class/drm/card0/device/device 2>/dev/null)
-        log "  Intel GPU Device ID: $DEVICE_ID"
-    fi
-    
-    # Allow software rendering as fallback (llvmpipe)
-    export WLR_RENDERER_ALLOW_SOFTWARE=1
-    export LIBGL_ALWAYS_SOFTWARE=0  # Try hardware first
-    
-    # Suppress non-critical DRI warnings
-    export LIBGL_DRI3_DISABLE=0
-    export MESA_GL_VERSION_OVERRIDE=3.3
-    export MESA_GLSL_VERSION_OVERRIDE=330
-    
-    # Wayland-specific backend hints
-    export WLR_BACKENDS="drm,libinput"
-    export WLR_DRM_DEVICES="/dev/dri/card0:/dev/dri/card1"
-    
-    # For QEMU/VirtIO GPU
-    export WLR_NO_HARDWARE_CURSORS=1
-    
-    # Debug output (comment out for production)
-    # export WAYLAND_DEBUG=1
-    # export MESA_DEBUG=1
-    
-    log "Wayland environment configured:"
-    log "  XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
-    log "  LIBSEAT_BACKEND=$LIBSEAT_BACKEND"
-    log "  LIBGL_DRIVERS_PATH=$LIBGL_DRIVERS_PATH"
-    log "  WLR_RENDERER_ALLOW_SOFTWARE=$WLR_RENDERER_ALLOW_SOFTWARE"
-}
-
-# Start the Web Kiosk (Cage + Cog)
-start_web_kiosk() {
-    log "Starting Web Kiosk mode..."
-    log "  Press F10 at any time to access DCUI (local configuration menu)"
-    
-    setup_wayland_env
-    
-    # Wait for node daemon to start the web UI
-    if ! wait_for_webui; then
-        log "Web UI not available, starting DCUI directly..."
-        start_dcui
-        return
-    fi
-    
-    # Check for cage
-    if ! command -v cage >/dev/null 2>&1; then
-        log "ERROR: cage not found! Starting DCUI..."
-        start_dcui
-        return
-    fi
-    
-    # Check for cog
-    if ! command -v cog >/dev/null 2>&1; then
-        log "ERROR: cog not found! Starting DCUI..."
-        start_dcui
-        return
-    fi
-    
-    log "Launching Web Kiosk..."
-    log "  URL: $WEBUI_URL"
-    log ""
-    log "  ┌─────────────────────────────────────────────────────────┐"
-    log "  │  To access DCUI (local console), press:                 │"
-    log "  │    Ctrl+Alt+F2  - Switch to text console                │"
-    log "  │    Ctrl+Alt+F1  - Return to Web Kiosk                   │"
-    log "  └─────────────────────────────────────────────────────────┘"
-    log ""
-    
-    # Check if we're in a VM - Web Kiosk doesn't work well in QEMU/VirtualBox
-    if is_virtual_machine; then
-        log "Virtual machine detected - Web Kiosk not supported"
-        log "Starting DCUI (TUI) instead..."
-        start_dcui
-        return
-    fi
-    
-    # Pre-check: verify DRI actually works before trying Wayland
-    if ! check_dri_working; then
-        log "DRI/GPU driver not working properly"
-        log "  This is common with Intel Iris on older kernels"
-        log "  Starting DCUI (TUI) instead..."
-        start_dcui
-        return
-    fi
-    
-    # Start TUI on VT2 in background
-    log "Starting DCUI on VT2 (accessible via Ctrl+Alt+F2)..."
-    (
-        sleep 3  # Wait for kiosk to start
-        openvt -c 2 -s -w -- /usr/local/bin/qx-console 2>/dev/null || true
-    ) &
-    
-    # Track consecutive failures
-    # Attempts: 1=hardware (iris/i965), 2=software (llvmpipe)
-    FAIL_COUNT=0
-    MAX_FAILURES=2
-    
-    # Run the kiosk on VT1
-    while [ $FAIL_COUNT -lt $MAX_FAILURES ]; do
-        log "Launching cage with cog (attempt $((FAIL_COUNT + 1))/$MAX_FAILURES)..."
-        
-        # Record start time to detect rapid failures
-        START_TIME=$(date +%s)
-        
-        # Start cage with cog
-        cage -- cog "$WEBUI_URL" 2>&1 | tee -a "$LOG_FILE"
-        CAGE_EXIT=$?
-        
-        END_TIME=$(date +%s)
-        RUN_TIME=$((END_TIME - START_TIME))
-        
-        log "Cage exited with code: $CAGE_EXIT after ${RUN_TIME}s"
-        
-        # If cage ran for less than 5 seconds, it's a failure regardless of exit code
-        if [ $RUN_TIME -lt 5 ]; then
-            FAIL_COUNT=$((FAIL_COUNT + 1))
-            log "Web Kiosk failed quickly ($FAIL_COUNT/$MAX_FAILURES)"
-            
-            # Try different rendering strategies on subsequent attempts
-            if [ $FAIL_COUNT -eq 1 ]; then
-                log "Trying software rendering (llvmpipe)..."
-                export LIBGL_ALWAYS_SOFTWARE=1
-                export WLR_RENDERER=pixman
-                export GALLIUM_DRIVER=llvmpipe
-            fi
-            
-            sleep 2
-            continue
-        fi
-        
-        # If cage ran for a while but exited, restart it
-        log "Web Kiosk exited, restarting..."
-        sleep 1
-    done
-    
-    # All attempts failed - fall back to DCUI
-    log "Web Kiosk failed $MAX_FAILURES times, falling back to DCUI..."
-    log ""
-    log "  ┌───────────────────────────────────────────────────────────┐"
-    log "  │  Web Kiosk failed - Graphics driver issue                 │"
-    log "  │  Common causes:                                           │"
-    log "  │    - Intel Iris driver requires kernel 4.16+              │"
-    log "  │    - Missing Mesa/DRI packages                            │"
-    log "  │    - Unsupported GPU                                      │"
-    log "  │  Starting DCUI (Text Console) instead...                  │"
-    log "  └───────────────────────────────────────────────────────────┘"
-    log ""
-    start_dcui
-}
-
-# Start DCUI (TUI) session - returns when user exits
-start_dcui_session() {
-    log "Starting DCUI session..."
-    
-    # Switch to a text console VT if we were in graphics
-    if check_graphics; then
-        # Try to switch to VT2 for TUI
-        chvt 2 2>/dev/null || true
-    fi
-    
-    # Reset and clear terminal
-    stty sane 2>/dev/null || true
-    printf '\033[2J\033[H\033[3J'
-    
-if [ -x /usr/local/bin/qx-console ]; then
-        /usr/local/bin/qx-console
-    else
-        log "TUI not available, starting shell"
-        echo ""
-        echo "=========================================="
-        echo "  QUANTIX-OS Direct Console (DCUI)"
-        echo "=========================================="
-        echo ""
-        echo "TUI binary not found. Starting emergency shell."
-        echo "Type 'exit' to return to Web Kiosk."
-        echo ""
-        /bin/sh
-    fi
-    
-    log "DCUI session ended"
-}
-
-# Start DCUI as the main console (no web kiosk)
+# Start DCUI (TUI) as the main console
 start_dcui() {
-    log "Starting DCUI (TUI) as primary console..."
+    log "Starting DCUI (TUI) console..."
     
     # Wait a moment for boot messages to finish
     sleep 1
@@ -386,7 +37,17 @@ start_dcui() {
     if [ -x /usr/local/bin/qx-console ]; then
         exec /usr/local/bin/qx-console
     else
-        log "TUI not available, starting shell"
+        log "ERROR: TUI binary not found at /usr/local/bin/qx-console"
+        echo ""
+        echo "=========================================="
+        echo "  QUANTIX-OS Direct Console (DCUI)"
+        echo "=========================================="
+        echo ""
+        echo "TUI binary not found. Starting emergency shell."
+        echo ""
+        echo "To access the web management interface:"
+        echo "  https://<this-host-ip>:8443"
+        echo ""
         exec /bin/sh
     fi
 }
@@ -394,54 +55,33 @@ start_dcui() {
 # Main logic
 main() {
     log "========================================"
-    log "Quantix-OS Console Launcher (DCUI Mode)"
+    log "Quantix-OS Console Launcher"
     log "========================================"
     
-    # Check for force flags
     case "$1" in
-        --gui|--kiosk|--web)
-            log "Forcing Web Kiosk mode..."
-            if check_graphics; then
-                start_web_kiosk
-            else
-                log "No graphics available, falling back to DCUI"
-                start_dcui
-            fi
-            ;;
-        --tui|--dcui)
-            log "Forcing DCUI (TUI) mode..."
-            start_dcui
-            ;;
         --help|-h)
-            echo "Usage: $0 [--gui|--dcui]"
+            echo "Usage: $0"
             echo ""
-            echo "Options:"
-            echo "  --gui, --kiosk, --web  Force Web Kiosk console"
-            echo "  --tui, --dcui          Force Direct Console UI (TUI)"
+            echo "Starts the Quantix-OS Direct Console User Interface (DCUI)."
             echo ""
-            echo "Without options, automatically selects based on hardware."
+            echo "The DCUI provides:"
+            echo "  - Network configuration (F2)"
+            echo "  - SSH access management with timer (F3)"
+            echo "  - Cluster join/leave (F4)"
+            echo "  - Display refresh (F5)"
+            echo "  - Restart management services (F6)"
+            echo "  - View system logs (F7)"
+            echo "  - Shutdown/Reboot (F10)"
             echo ""
-            echo "In Web Kiosk mode:"
-            echo "  Press F10 to access DCUI (local configuration menu)"
+            echo "For web-based management, access:"
+            echo "  https://<host-ip>:8443"
             echo ""
-            echo "Environment variables:"
-            echo "  QUANTIX_WEBUI_URL  URL for the web UI (default: http://localhost:8443)"
             exit 0
             ;;
     esac
     
-    # Auto-detect best mode
-    if is_serial_or_ssh; then
-        log "Serial/SSH session detected, using DCUI..."
-        start_dcui
-    elif check_graphics; then
-        log "Graphics hardware detected, starting Web Kiosk..."
-        log "  TIP: Press F10 at any time to access DCUI for local configuration"
-        start_web_kiosk
-    else
-        log "No graphics detected, using DCUI..."
-        start_dcui
-    fi
+    log "Starting DCUI console..."
+    start_dcui
 }
 
 main "$@"

@@ -2,13 +2,12 @@
 # =============================================================================
 # Quantix-OS Console Service
 # =============================================================================
-# Manages the Quantix console (Web Kiosk or TUI) on the local display.
-# Uses Cage (Wayland kiosk compositor) + Cog (WPE WebKit browser) for GUI,
-# or falls back to TUI for headless/serial/SSH sessions.
+# Manages the Quantix TUI console on the local display.
+# Provides a VMware ESXi-style DCUI for initial system configuration.
 # =============================================================================
 
 name="Quantix Console"
-description="Quantix-OS local management console"
+description="Quantix-OS local management console (TUI)"
 command="/usr/local/bin/qx-console-launcher"
 command_background="yes"
 pidfile="/run/quantix-console.pid"
@@ -17,7 +16,7 @@ error_log="/var/log/quantix-console.log"
 
 depend() {
     need localmount
-    after quantix-firstboot quantix-node seatd
+    after quantix-firstboot quantix-node
     keyword -prefix
 }
 
@@ -25,21 +24,10 @@ start_pre() {
     # Ensure log directory exists
     mkdir -p /var/log
     
-    # Ensure runtime directory for Wayland
-    export XDG_RUNTIME_DIR=/run/user/0
-    mkdir -p /run/user/0
-    chmod 700 /run/user/0
-    
     # Check if launcher exists
     if [ ! -x "$command" ]; then
         eerror "Console launcher not found: $command"
         return 1
-    fi
-    
-    # Ensure seatd is running (needed for Cage)
-    if ! rc-service seatd status >/dev/null 2>&1; then
-        einfo "Starting seatd for seat management..."
-        rc-service seatd start || true
     fi
     
     return 0
@@ -47,10 +35,6 @@ start_pre() {
 
 start() {
     ebegin "Starting $name"
-    
-    # Set environment variables for Wayland
-    export XDG_RUNTIME_DIR=/run/user/0
-    export LIBSEAT_BACKEND=seatd
     
     start-stop-daemon --start \
         --background \

@@ -16,8 +16,7 @@
 
 .PHONY: all iso squashfs initramfs console-gui console-tui host-ui \
         node-daemon test-qemu test-qemu-uefi clean help \
-        docker-builder docker-rust-gui docker-rust-tui scripts-executable \
-        deploy-usb list-usb
+        docker-builder docker-rust-gui docker-rust-tui scripts-executable
 
 # Version
 VERSION ?= 1.0.0
@@ -263,39 +262,6 @@ test-qemu-install:
 		-netdev user,id=net0,hostfwd=tcp::8443-:8443
 
 # =============================================================================
-# USB Deployment
-# =============================================================================
-
-# Deploy ISO to USB drive
-# Usage: make deploy-usb USB=/dev/sdb
-#        make deploy-usb USB=/dev/sdb VERIFY=1
-deploy-usb: scripts-executable
-	@if [ -z "$(USB)" ]; then \
-		echo ""; \
-		echo "❌ Error: USB device not specified"; \
-		echo ""; \
-		echo "Usage: make deploy-usb USB=/dev/sdX"; \
-		echo "       make deploy-usb USB=/dev/sdX VERIFY=1"; \
-		echo ""; \
-		echo "Run 'make list-usb' to see available USB devices"; \
-		exit 1; \
-	fi
-	@if [ ! -f "$(OUTPUT_DIR)/$(ISO_NAME)" ]; then \
-		echo "❌ ISO not found: $(OUTPUT_DIR)/$(ISO_NAME)"; \
-		echo "   Run 'make iso' first."; \
-		exit 1; \
-	fi
-	@VERIFY_FLAG=""; \
-	if [ "$(VERIFY)" = "1" ]; then \
-		VERIFY_FLAG="--verify"; \
-	fi; \
-	sudo ./builder/deploy-usb.sh $$VERIFY_FLAG $(USB) $(OUTPUT_DIR)/$(ISO_NAME)
-
-# List available USB devices
-list-usb:
-	@sudo ./builder/deploy-usb.sh --list
-
-# =============================================================================
 # Cleanup
 # =============================================================================
 
@@ -334,10 +300,6 @@ help:
 	@echo "║    make console-tui   - Build ratatui TUI console                ║"
 	@echo "║    make host-ui       - Build Host UI web interface              ║"
 	@echo "║    make node-daemon   - Build node daemon                        ║"
-	@echo "║                                                                  ║"
-	@echo "║  Deploy Commands:                                                ║"
-	@echo "║    make list-usb              - List available USB devices       ║"
-	@echo "║    make deploy-usb USB=/dev/X - Deploy ISO to USB drive          ║"
 	@echo "║                                                                  ║"
 	@echo "║  Test Commands:                                                  ║"
 	@echo "║    make test-qemu     - Test ISO in QEMU (BIOS)                  ║"
