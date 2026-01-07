@@ -2,75 +2,95 @@
 
 ## Current Status: COMPLETED
 
-## Active Workflow: USB Deployment Script
+## Active Workflow: Remove Web Kiosk - TUI Only
 
 **Date:** January 7, 2026
 
-### Task Completed
+### Summary
 
-Created a comprehensive USB deployment script (`deploy-usb.sh`) that handles all the edge cases that cause issues with manual `dd`:
+Removed the Web Kiosk (Cage + Cog + Wayland) functionality entirely. The TUI is now the only local console interface, which simplifies the system significantly and eliminates all the graphics driver issues.
 
-### Files Created/Modified
+### Changes Made
 
-| File | Change |
-|------|--------|
-| `Quantix-OS/builder/deploy-usb.sh` | **NEW** - Complete USB deployment script |
-| `Quantix-OS/Makefile` | Added `deploy-usb` and `list-usb` targets |
-| `Quantix-OS/build.sh` | Updated final instructions to use deploy-usb.sh |
-| `docs/Quantix-OS/000059-quantix-os-build-guide.md` | Added USB deployment documentation |
+#### 1. Simplified Console Launcher (`qx-console-launcher`)
+- Removed all Web Kiosk code (Cage, Cog, Wayland setup)
+- Removed graphics detection and DRI checks
+- Removed fallback logic and retry mechanisms
+- Now directly launches the TUI console
+- Kept emergency shell fallback if TUI binary is missing
 
-### Why This Is Better Than Manual DD
+#### 2. Reduced Package List (`packages.conf`)
+**Removed packages:**
+- `cage` - Wayland kiosk compositor
+- `wpewebkit` - WebKit browser engine
+- `cog` - WPE WebKit browser
+- `wlroots` - Wayland compositor library
+- `seatd`, `seatd-openrc`, `libseat` - Seat management (for Wayland)
+- `setxkbmap` - X keyboard config
+- `mesa-*` - All Mesa OpenGL/Vulkan packages
+- `mesa-vulkan-intel`, `libva-intel-driver`, `intel-media-driver` - Intel GPU
+- `libdrm` - DRM library
+- `freetype`, `fontconfig`, `font-*`, `ttf-*` - Fonts
 
-| Problem | Manual DD | deploy-usb.sh |
-|---------|-----------|---------------|
-| Windows "file not found" error | ❌ Leaves old signatures | ✅ Wipes with wipefs + sgdisk |
-| "Device busy" errors | ❌ Must manually unmount | ✅ Auto-unmounts all partitions |
-| Fake "2.5 GB/s" speed | ❌ Reports cached speed | ✅ Uses `conv=fsync` for true sync |
-| Corrupted writes | ❌ No verification | ✅ Optional MD5 verification |
-| Wrong device | ❌ Easy to destroy system | ✅ Validates USB, warns on non-USB |
+**Kept packages:**
+- `kbd` - Keyboard utilities
+- `libinput` - Input handling
+- `ncurses`, `ncurses-terminfo-base` - Terminal support for TUI
 
-### Script Features
+#### 3. Simplified Console Service (`quantix-console`)
+- Removed Wayland/seatd dependencies
+- Removed XDG_RUNTIME_DIR setup
+- Simplified service to just launch TUI
 
-1. **Signature Wiping** - `wipefs -a` + `sgdisk --zap-all` + zero first/last 1MB
-2. **Auto Unmounting** - Detaches all partitions, uses udisksctl if available
-3. **Hardware Sync** - `conv=fsync oflag=direct` + standalone `sync`
-4. **Device Validation** - Checks for system disk, warns on non-USB
-5. **Verification** - Optional MD5 checksum comparison
-6. **Pretty Output** - Colored progress, ASCII art banner
+### Benefits
 
-### Usage
+1. **Reliability** - No more graphics driver issues
+2. **Smaller Image** - Removed ~200MB of graphics packages
+3. **Faster Boot** - No waiting for Web UI or graphics initialization
+4. **Simpler Code** - Easier to maintain and debug
+5. **Universal** - Works on all hardware (VMs, servers, laptops)
 
-   ```bash
-# List USB devices
-sudo ./builder/deploy-usb.sh --list
-# Or: make list-usb
+### Architecture
 
-# Deploy ISO to USB
-sudo ./builder/deploy-usb.sh /dev/sdb
-# Or: make deploy-usb USB=/dev/sdb
-
-# Deploy with verification
-sudo ./builder/deploy-usb.sh --verify /dev/sdb
-# Or: make deploy-usb USB=/dev/sdb VERIFY=1
-
-# Force mode (skip confirmation)
-sudo ./builder/deploy-usb.sh --force /dev/sdb
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Quantix-OS Console                       │
+├─────────────────────────────────────────────────────────────┤
+│  TTY1: TUI Console (qx-console)                             │
+│    - Network configuration (F2)                             │
+│    - SSH access with timer (F3)                             │
+│    - Cluster join/leave (F4)                                │
+│    - Refresh display (F5)                                   │
+│    - Restart services (F6)                                  │
+│    - System logs (F7)                                       │
+│    - Shutdown/Reboot (F10)                                  │
+├─────────────────────────────────────────────────────────────┤
+│  ttyS0: Serial Console (getty)                              │
+│    - For headless servers                                   │
+│    - 115200 baud                                            │
+├─────────────────────────────────────────────────────────────┤
+│  Web UI: https://<host-ip>:8443                             │
+│    - Full management interface                              │
+│    - Served by qx-node daemon                               │
+│    - Access from any browser                                │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Testing Checklist
+### Files Modified
 
-- [ ] Script executes without errors
-- [ ] `--list` shows USB devices correctly
-- [ ] Device validation catches partition paths (e.g., /dev/sdb1)
-- [ ] Device validation warns on non-USB devices
-- [ ] Unmounting works for mounted partitions
-- [ ] Signature wiping completes
-- [ ] DD with progress works
-- [ ] Verification mode works
-- [ ] Make targets work (`make list-usb`, `make deploy-usb USB=/dev/sdb`)
+- `Quantix-OS/overlay/usr/local/bin/qx-console-launcher` - Simplified to TUI only
+- `Quantix-OS/profiles/quantix/packages.conf` - Removed graphics packages
+- `Quantix-OS/overlay/etc/init.d/quantix-console` - Simplified service
 
----
+### Testing
 
-## Previous Workflow (Archived)
+To rebuild and test:
 
-The TUI Build Fix workflow has been moved to `completed_workflow.md`.
+```bash
+cd Quantix-OS
+make iso
+```
+
+### Previous Work
+
+Previous workflows have been archived to `completed_workflow.md`.
