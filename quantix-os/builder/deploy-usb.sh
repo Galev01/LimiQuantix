@@ -192,7 +192,36 @@ is_removable_device() {
         return 0
     fi
     
+    # Method 5: Check if it's NOT the system disk (nvme or has / mounted)
+    # If it's sd* and not system disk, it's likely external
+    if [[ "$devname" =~ ^sd[a-z]+$ ]]; then
+        local mounts=$(lsblk -no MOUNTPOINT "$dev" 2>/dev/null | grep -E "^/$|^/boot|^/home" || true)
+        if [ -z "$mounts" ]; then
+            # It's an sd* device with no system mounts - likely external
+            return 0
+        fi
+    fi
+    
     return 1
+}
+
+# Check if device is a system disk (should never be written to)
+is_system_disk() {
+    local dev="$1"
+    local devname="${dev##*/}"
+    
+    # Check for system mount points
+    local mounts=$(lsblk -no MOUNTPOINT "$dev" 2>/dev/null | grep -E "^/$|^/boot|^/home|^/var|^/usr" || true)
+    if [ -n "$mounts" ]; then
+        return 0  # Is system disk
+    fi
+    
+    # NVMe is typically the system disk
+    if [[ "$devname" =~ ^nvme ]]; then
+        return 0  # Likely system disk
+    fi
+    
+    return 1  # Not system disk
 }
 
 # Get list of USB devices as array
