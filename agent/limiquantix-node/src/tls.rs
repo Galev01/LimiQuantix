@@ -21,7 +21,7 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys, ec_private_keys};
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, debug};
+use tracing::{info, warn};
 
 use crate::config::TlsConfig;
 
@@ -242,11 +242,11 @@ impl TlsManager {
             .context("Failed to generate key pair")?;
         
         // Generate the self-signed certificate
-        let certified_key = params.self_signed(&key_pair)
+        let cert = params.self_signed(&key_pair)
             .context("Failed to generate certificate")?;
         
         // Get PEM encoded certificate and key
-        let cert_pem = certified_key.cert.pem();
+        let cert_pem = cert.pem();
         let key_pem = key_pair.serialize_pem();
         
         // Write certificate
@@ -434,7 +434,7 @@ impl TlsManager {
     /// Read private key in various formats (PKCS8, RSA, EC)
     fn read_private_key(reader: &mut BufReader<fs::File>, path: &Path) -> Result<PrivateKeyDer<'static>> {
         // Reset reader
-        use std::io::{Read, Seek, SeekFrom};
+        use std::io::{Seek, SeekFrom};
         reader.seek(SeekFrom::Start(0))?;
         
         // Try PKCS8 first
