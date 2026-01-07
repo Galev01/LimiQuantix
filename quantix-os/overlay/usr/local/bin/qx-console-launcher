@@ -246,9 +246,9 @@ start_dcui_session() {
         chvt 2 2>/dev/null || true
     fi
     
-    # Clear the screen completely before starting TUI
-    clear 2>/dev/null || printf '\033[2J\033[H'
+    # Reset and clear terminal
     stty sane 2>/dev/null || true
+    printf '\033[2J\033[H\033[3J'
     
     if [ -x /usr/local/bin/qx-console ]; then
         /usr/local/bin/qx-console
@@ -272,27 +272,17 @@ start_dcui_session() {
 start_dcui() {
     log "Starting DCUI (TUI) as primary console..."
     
-    # Wait a moment for any remaining boot output to finish
+    # Wait a moment for boot messages to finish
     sleep 1
     
     # Reset terminal to sane state
     stty sane 2>/dev/null || true
     
-    # Clear the screen completely using multiple methods for compatibility
-    # 1. Try 'clear' command
-    clear 2>/dev/null || true
-    # 2. Use ANSI escape sequences as fallback
-    #    \033[2J = clear entire screen
-    #    \033[H = move cursor to home position (1,1)
-    #    \033[3J = clear scrollback buffer (some terminals)
-    printf '\033[2J\033[H\033[3J' 2>/dev/null || true
-    
-    # Redirect stdout/stderr from other processes to prevent them from writing to our terminal
-    exec 2>/dev/null
+    # Clear screen and scrollback
+    printf '\033[2J\033[H\033[3J'
     
     if [ -x /usr/local/bin/qx-console ]; then
-        # Run TUI with clean terminal
-        exec /usr/local/bin/qx-console </dev/tty >/dev/tty 2>/dev/null
+        exec /usr/local/bin/qx-console
     else
         log "TUI not available, starting shell"
         exec /bin/sh
