@@ -38,6 +38,12 @@ struct App {
     error_message: Option<String>,
     /// Success message to display
     success_message: Option<String>,
+    /// Cached hostname (read once)
+    hostname: String,
+    /// Cached primary IP (refreshed periodically)
+    primary_ip: String,
+    /// Cached VM count (refreshed periodically)
+    vm_count: i32,
 }
 
 /// Application screens
@@ -57,6 +63,11 @@ impl App {
     fn new() -> Self {
         let mut system = System::new();
         system.refresh_all();
+        
+        // Read hostname once at startup
+        let hostname = std::fs::read_to_string("/etc/hostname")
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|_| "quantix".to_string());
 
         Self {
             screen: Screen::Main,
@@ -65,12 +76,18 @@ impl App {
             should_quit: false,
             error_message: None,
             success_message: None,
+            hostname,
+            primary_ip: get_primary_ip(),
+            vm_count: get_vm_count(),
         }
     }
 
     fn refresh(&mut self) {
         self.system.refresh_cpu_all();
         self.system.refresh_memory();
+        // Refresh cached values
+        self.primary_ip = get_primary_ip();
+        self.vm_count = get_vm_count();
     }
 
     fn menu_items(&self) -> Vec<(&str, &str)> {
@@ -364,23 +381,17 @@ fn render_main_screen(f: &mut Frame, app: &App, area: Rect) {
         .margin(1)
         .split(chunks[0]);
 
-    // System info
-    let hostname = std::fs::read_to_string("/etc/hostname")
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|_| "quantix".to_string());
-
-    let ip = get_primary_ip();
+    // System info - use cached values from app state
     let uptime = format_uptime(System::uptime());
-    let vm_count = get_vm_count();
 
     let info_text = vec![
         Line::from(vec![
             Span::styled("Hostname: ", Style::default().fg(Color::Gray)),
-            Span::styled(&hostname, Style::default().fg(Color::White)),
+            Span::styled(&app.hostname, Style::default().fg(Color::White)),
         ]),
         Line::from(vec![
             Span::styled("IP:       ", Style::default().fg(Color::Gray)),
-            Span::styled(&ip, Style::default().fg(Color::Cyan)),
+            Span::styled(&app.primary_ip, Style::default().fg(Color::Cyan)),
         ]),
         Line::from(vec![
             Span::styled("Status:   ", Style::default().fg(Color::Gray)),
@@ -392,7 +403,7 @@ fn render_main_screen(f: &mut Frame, app: &App, area: Rect) {
         ]),
         Line::from(vec![
             Span::styled("VMs:      ", Style::default().fg(Color::Gray)),
-            Span::styled(format!("{}", vm_count), Style::default().fg(Color::White)),
+            Span::styled(format!("{}", app.vm_count), Style::default().fg(Color::White)),
         ]),
     ];
 
