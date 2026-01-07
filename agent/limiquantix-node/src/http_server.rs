@@ -133,6 +133,262 @@ struct StoragePoolListResponse {
     pools: Vec<StoragePoolResponse>,
 }
 
+#[derive(Serialize)]
+struct StorageVolumeResponse {
+    id: String,
+    name: String,
+    pool_id: String,
+    size_bytes: u64,
+    allocated_bytes: u64,
+    format: String,  // "qcow2", "raw", "vmdk"
+    path: String,
+    attached_to: Option<String>,  // VM ID if attached
+    created_at: String,
+}
+
+#[derive(Serialize)]
+struct StorageVolumeListResponse {
+    volumes: Vec<StorageVolumeResponse>,
+}
+
+// ============================================================================
+// Hardware Types
+// ============================================================================
+
+#[derive(Serialize)]
+struct CpuInfo {
+    model: String,
+    vendor: String,
+    physical_cores: u32,
+    logical_cores: u32,
+    sockets: u32,
+    cores_per_socket: u32,
+    threads_per_core: u32,
+    base_frequency_mhz: u64,
+    current_frequency_mhz: u64,
+    features: Vec<String>,
+    usage_percent: f64,
+}
+
+#[derive(Serialize)]
+struct MemoryInfo {
+    total_bytes: u64,
+    available_bytes: u64,
+    used_bytes: u64,
+    cached_bytes: u64,
+    buffers_bytes: u64,
+    swap_total_bytes: u64,
+    swap_used_bytes: u64,
+    usage_percent: f64,
+}
+
+#[derive(Serialize)]
+struct DiskInfo {
+    name: String,
+    model: String,
+    serial: String,
+    size_bytes: u64,
+    #[serde(rename = "type")]
+    disk_type: String,  // "HDD", "SSD", "NVMe"
+    interface: String,  // "SATA", "NVMe", "USB"
+    partitions: Vec<PartitionInfo>,
+    smart_status: String,  // "healthy", "warning", "failing"
+    temperature_celsius: Option<u32>,
+}
+
+#[derive(Serialize)]
+struct PartitionInfo {
+    name: String,
+    mount_point: Option<String>,
+    filesystem: String,
+    size_bytes: u64,
+    used_bytes: u64,
+}
+
+#[derive(Serialize)]
+struct PciDeviceInfo {
+    address: String,  // e.g., "0000:00:02.0"
+    vendor: String,
+    device: String,
+    class: String,  // "VGA", "Network", "Storage", etc.
+    driver: Option<String>,
+    iommu_group: Option<u32>,
+}
+
+#[derive(Serialize)]
+struct UsbDeviceInfo {
+    bus: u32,
+    device: u32,
+    vendor_id: String,
+    product_id: String,
+    vendor: String,
+    product: String,
+    speed: String,  // "USB 2.0", "USB 3.0", etc.
+}
+
+#[derive(Serialize)]
+struct HardwareInfoResponse {
+    cpu: CpuInfo,
+    memory: MemoryInfo,
+    disks: Vec<DiskInfo>,
+    pci_devices: Vec<PciDeviceInfo>,
+    usb_devices: Vec<UsbDeviceInfo>,
+    network_adapters: Vec<NetworkAdapterHwInfo>,
+}
+
+#[derive(Serialize)]
+struct NetworkAdapterHwInfo {
+    name: String,
+    mac_address: String,
+    vendor: String,
+    model: String,
+    speed_mbps: Option<u64>,
+    link_state: String,  // "up", "down"
+    pci_address: Option<String>,
+}
+
+// ============================================================================
+// Events Types
+// ============================================================================
+
+#[derive(Serialize)]
+struct SystemEvent {
+    id: String,
+    timestamp: String,
+    #[serde(rename = "type")]
+    event_type: String,  // "info", "warning", "error", "critical"
+    category: String,    // "vm", "storage", "network", "system", "security"
+    source: String,      // Component that generated the event
+    message: String,
+    resource_id: Option<String>,
+    details: Option<serde_json::Value>,
+}
+
+#[derive(Serialize)]
+struct EventsListResponse {
+    events: Vec<SystemEvent>,
+    total: u32,
+    page: u32,
+    per_page: u32,
+}
+
+#[derive(Deserialize)]
+struct EventsQuery {
+    #[serde(default)]
+    page: Option<u32>,
+    #[serde(default)]
+    per_page: Option<u32>,
+    #[serde(default)]
+    category: Option<String>,
+    #[serde(default)]
+    event_type: Option<String>,
+    #[serde(default)]
+    since: Option<String>,  // ISO 8601 timestamp
+}
+
+// ============================================================================
+// Performance/Metrics Types
+// ============================================================================
+
+#[derive(Serialize)]
+struct PerformanceMetrics {
+    timestamp: String,
+    cpu: CpuMetrics,
+    memory: MemoryMetrics,
+    disk: DiskMetrics,
+    network: NetworkMetrics,
+}
+
+#[derive(Serialize)]
+struct CpuMetrics {
+    usage_percent: f64,
+    user_percent: f64,
+    system_percent: f64,
+    iowait_percent: f64,
+    load_average: [f64; 3],  // 1, 5, 15 minutes
+    per_core_usage: Vec<f64>,
+}
+
+#[derive(Serialize)]
+struct MemoryMetrics {
+    used_bytes: u64,
+    available_bytes: u64,
+    cached_bytes: u64,
+    usage_percent: f64,
+    swap_used_bytes: u64,
+    swap_usage_percent: f64,
+}
+
+#[derive(Serialize)]
+struct DiskMetrics {
+    read_bytes_per_sec: u64,
+    write_bytes_per_sec: u64,
+    read_iops: u64,
+    write_iops: u64,
+    io_utilization_percent: f64,
+}
+
+#[derive(Serialize)]
+struct NetworkMetrics {
+    rx_bytes_per_sec: u64,
+    tx_bytes_per_sec: u64,
+    rx_packets_per_sec: u64,
+    tx_packets_per_sec: u64,
+    rx_errors: u64,
+    tx_errors: u64,
+}
+
+// ============================================================================
+// Settings Types
+// ============================================================================
+
+#[derive(Serialize, Deserialize)]
+struct HostSettings {
+    hostname: String,
+    timezone: String,
+    ntp_enabled: bool,
+    ntp_servers: Vec<String>,
+    ssh_enabled: bool,
+    ssh_port: u16,
+    console_timeout_minutes: u32,
+    auto_update_enabled: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+struct StorageSettings {
+    default_pool: String,
+    vm_storage_path: String,
+    iso_storage_path: String,
+    backup_path: String,
+    thin_provisioning: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+struct NetworkSettings {
+    management_interface: String,
+    default_bridge: String,
+    mtu: u32,
+    dns_servers: Vec<String>,
+    search_domains: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SecuritySettings {
+    tls_enabled: bool,
+    certificate_path: Option<String>,
+    key_path: Option<String>,
+    api_auth_enabled: bool,
+    allowed_networks: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct AllSettings {
+    host: HostSettings,
+    storage: StorageSettings,
+    network: NetworkSettings,
+    security: SecuritySettings,
+}
+
 // ============================================================================
 // Request Types
 // ============================================================================
@@ -254,6 +510,33 @@ pub async fn run_http_server(
         .route("/vms/:vm_id/console", get(get_vm_console))
         // Storage endpoints
         .route("/storage/pools", get(list_storage_pools))
+        .route("/storage/pools/:pool_id", get(get_storage_pool))
+        .route("/storage/volumes", get(list_storage_volumes))
+        .route("/storage/volumes/:volume_id", get(get_storage_volume))
+        // Hardware endpoints
+        .route("/hardware", get(get_hardware_info))
+        .route("/hardware/cpu", get(get_cpu_info))
+        .route("/hardware/memory", get(get_memory_info))
+        .route("/hardware/disks", get(get_disk_info))
+        .route("/hardware/pci", get(get_pci_devices))
+        .route("/hardware/usb", get(get_usb_devices))
+        // Performance/Metrics endpoints
+        .route("/metrics", get(get_performance_metrics))
+        .route("/metrics/history", get(get_metrics_history))
+        // Events endpoints
+        .route("/events", get(list_events))
+        .route("/events/:event_id", get(get_event))
+        // Settings endpoints
+        .route("/settings", get(get_all_settings))
+        .route("/settings", post(update_settings))
+        .route("/settings/host", get(get_host_settings))
+        .route("/settings/host", post(update_host_settings))
+        .route("/settings/storage", get(get_storage_settings))
+        .route("/settings/storage", post(update_storage_settings))
+        .route("/settings/network", get(get_network_settings))
+        .route("/settings/network", post(update_network_settings))
+        .route("/settings/security", get(get_security_settings))
+        .route("/settings/security", post(update_security_settings))
         // Network endpoints
         .route("/network/interfaces", get(list_network_interfaces))
         .route("/network/interfaces/:name", get(get_network_interface))
