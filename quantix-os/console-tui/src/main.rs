@@ -48,12 +48,16 @@ struct App {
     static_ip_config: StaticIpConfig,
     /// WiFi configuration state
     wifi_config: WiFiConfig,
+    /// SSH configuration state
+    ssh_config: SshConfig,
     /// Current input field index (for forms)
     input_field_index: usize,
     /// Available network interfaces
     available_interfaces: Vec<String>,
     /// Selected interface index
     selected_interface: usize,
+    /// Status message (shown prominently at top)
+    status_message: Option<(String, std::time::Instant)>,
 }
 
 /// Static IP configuration
@@ -72,6 +76,24 @@ struct WiFiConfig {
     ssid: String,
     password: String,
     security: String, // "WPA2", "WPA3", "OPEN"
+}
+
+/// SSH configuration with timer
+#[derive(Clone)]
+struct SshConfig {
+    enabled: bool,
+    timer_minutes: u32,
+    timer_start: Option<std::time::Instant>,
+}
+
+impl Default for SshConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            timer_minutes: 30, // Default 30 minutes
+            timer_start: None,
+        }
+    }
 }
 
 /// Application screens
@@ -102,6 +124,9 @@ impl App {
         // Get available network interfaces
         let available_interfaces = get_interface_names();
 
+        // Check current SSH status
+        let ssh_enabled = is_ssh_enabled();
+        
         Self {
             screen: Screen::Main,
             selected_menu: 0,
@@ -124,9 +149,15 @@ impl App {
                 password: String::new(),
                 security: "WPA2".to_string(),
             },
+            ssh_config: SshConfig {
+                enabled: ssh_enabled,
+                timer_minutes: 30,
+                timer_start: None,
+            },
             input_field_index: 0,
             available_interfaces,
             selected_interface: 0,
+            status_message: None,
         }
     }
 
@@ -140,14 +171,33 @@ impl App {
     fn menu_items(&self) -> Vec<(&str, &str)> {
         vec![
             ("Configure Management Network", "F2"),
-            ("Enable/Disable SSH", "F3"),
+            ("Configure SSH Access", "F3"),
             ("Join/Leave Cluster", "F4"),
-            ("Restart Management Services", "F5"),
+            ("Refresh Display", "F5"),
+            ("Restart Management Services", "F6"),
             ("View System Logs", "F7"),
             ("Reset to Factory Defaults", "F9"),
             ("Shutdown / Reboot", "F10"),
             ("Exit to Web Console", "F12"),
         ]
+    }
+    
+    fn set_status(&mut self, msg: &str) {
+        self.status_message = Some((msg.to_string(), std::time::Instant::now()));
+    }
+    
+    fn check_ssh_timer(&mut self) {
+        if let Some(start) = self.ssh_config.timer_start {
+            let elapsed = start.elapsed().as_secs() / 60;
+            if elapsed >= self.ssh_config.timer_minutes as u64 {
+                // Timer expired, disable SSH
+                if disable_ssh().is_ok() {
+                    self.ssh_config.enabled = false;
+                    self.ssh_config.timer_start = None;
+                    self.set_status("SSH auto-disabled (timer expired)");
+                }
+            }
+        }
     }
 }
 
@@ -197,14 +247,26 @@ fn run_app<B: ratatui::backend::Backend>(
     terminal.draw(|f| ui(f, app))?;
 
     loop {
-        // Block waiting for input - no polling, no flickering!
-        // This uses zero CPU while waiting for user input
+        // Use poll with timeout to check SSH timer periodically
+        // Poll every 5 seconds to check if SSH timer expired
+        if event::poll(Duration::from_secs(5))? {
             if let Event::Key(key) = event::read()? {
                 handle_input(app, key.code, key.modifiers);
-
-            // Only redraw after user input
-            terminal.draw(|f| ui(f, app))?;
+            }
         }
+        
+        // Check SSH timer on every loop iteration
+        app.check_ssh_timer();
+        
+        // Clear status message after 5 seconds
+        if let Some((_, start)) = &app.status_message {
+            if start.elapsed().as_secs() > 5 {
+                app.status_message = None;
+            }
+        }
+
+        // Redraw the UI
+        terminal.draw(|f| ui(f, app))?;
 
         if app.should_quit {
             return Ok(());
@@ -239,13 +301,14 @@ fn handle_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) {
                 handle_menu_action(app, app.selected_menu);
             }
             KeyCode::F(2) => handle_menu_action(app, 0),  // Network
-            KeyCode::F(3) => handle_menu_action(app, 1),  // SSH
+            KeyCode::F(3) => handle_menu_action(app, 1),  // SSH Config
             KeyCode::F(4) => handle_menu_action(app, 2),  // Cluster
-            KeyCode::F(5) => handle_menu_action(app, 3),  // Restart Services
-            KeyCode::F(7) => handle_menu_action(app, 4),  // Logs
-            KeyCode::F(9) => handle_menu_action(app, 5),  // Factory Reset
-            KeyCode::F(10) => handle_menu_action(app, 6), // Shutdown
-            KeyCode::F(12) => handle_menu_action(app, 7), // Exit to Web
+            KeyCode::F(5) => handle_menu_action(app, 3),  // Refresh
+            KeyCode::F(6) => handle_menu_action(app, 4),  // Restart Services
+            KeyCode::F(7) => handle_menu_action(app, 5),  // Logs
+            KeyCode::F(9) => handle_menu_action(app, 6),  // Factory Reset
+            KeyCode::F(10) => handle_menu_action(app, 7), // Shutdown
+            KeyCode::F(12) => handle_menu_action(app, 8), // Exit to Web
             _ => {}
         },
         Screen::Network => match key {
@@ -286,6 +349,7 @@ fn handle_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) {
         },
         Screen::StaticIp => handle_static_ip_input(app, key),
         Screen::WiFi => handle_wifi_input(app, key),
+        Screen::Ssh => handle_ssh_input(app, key),
         Screen::Power => match key {
             KeyCode::Esc | KeyCode::Char('q') => {
                 app.screen = Screen::Main;
@@ -311,33 +375,30 @@ fn handle_menu_action(app: &mut App, index: usize) {
     match index {
         0 => app.screen = Screen::Network,
         1 => {
-            // Toggle SSH
-            let ssh_enabled = is_ssh_enabled();
-            if ssh_enabled {
-                if disable_ssh().is_ok() {
-                    app.success_message = Some("SSH disabled".to_string());
-                } else {
-                    app.error_message = Some("Failed to disable SSH".to_string());
-                }
-            } else {
-                if enable_ssh().is_ok() {
-                    app.success_message = Some("SSH enabled".to_string());
-                } else {
-                    app.error_message = Some("Failed to enable SSH".to_string());
-                }
-            }
+            // Go to SSH configuration screen
+            app.input_field_index = 0;
+            app.ssh_config.enabled = is_ssh_enabled();
+            app.screen = Screen::Ssh;
         }
         2 => app.screen = Screen::Cluster,
         3 => {
-            app.success_message = Some("Restarting management services...".to_string());
-            restart_management_services();
+            // Refresh display
+            app.set_status("Refreshing system information...");
+            app.refresh();
+            app.success_message = Some("Display refreshed".to_string());
         }
-        4 => app.screen = Screen::Diagnostics,
-        5 => {
+        4 => {
+            // Restart management services
+            app.set_status("⏳ Restarting management services...");
+            restart_management_services();
+            app.success_message = Some("Management services restarting...".to_string());
+        }
+        5 => app.screen = Screen::Diagnostics,
+        6 => {
             app.error_message = Some("Factory reset requires confirmation in a future update".to_string());
         }
-        6 => app.screen = Screen::Power,
-        7 => {
+        7 => app.screen = Screen::Power,
+        8 => {
             // Exit to web console (quit TUI so launcher can restart web kiosk)
             app.should_quit = true;
         }
@@ -752,34 +813,76 @@ fn ui(f: &mut Frame, app: &App) {
         Screen::Network => render_network_screen(f, chunks[1]),
         Screen::StaticIp => render_static_ip_screen(f, app, chunks[1]),
         Screen::WiFi => render_wifi_screen(f, app, chunks[1]),
+        Screen::Ssh => render_ssh_screen(f, app, chunks[1]),
         Screen::Diagnostics => render_diagnostics_screen(f, app, chunks[1]),
         Screen::Power => render_power_screen(f, chunks[1]),
         _ => render_placeholder_screen(f, chunks[1], &format!("{:?}", app.screen)),
     }
 
-    // Footer with messages or help
-    let footer_text = if let Some(ref msg) = app.error_message {
-        Line::from(Span::styled(
-            format!("❌ {}", msg),
+    // Footer with messages or help - improved visibility
+    let (footer_text, footer_style) = if let Some(ref msg) = app.error_message {
+        (
+            vec![
+                Line::from(vec![
+                    Span::styled(" ❌ ERROR: ", Style::default().fg(Color::White).bg(Color::Red).add_modifier(Modifier::BOLD)),
+                    Span::styled(format!(" {} ", msg), Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                ]),
+            ],
             Style::default().fg(Color::Red),
-        ))
+        )
     } else if let Some(ref msg) = app.success_message {
-        Line::from(Span::styled(
-            format!("✅ {}", msg),
+        (
+            vec![
+                Line::from(vec![
+                    Span::styled(" ✅ ", Style::default().fg(Color::White).bg(Color::Green).add_modifier(Modifier::BOLD)),
+                    Span::styled(format!(" {} ", msg), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                ]),
+            ],
             Style::default().fg(Color::Green),
-        ))
+        )
+    } else if let Some((ref msg, _)) = app.status_message {
+        (
+            vec![
+                Line::from(vec![
+                    Span::styled(" ⏳ ", Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled(format!(" {} ", msg), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                ]),
+            ],
+            Style::default().fg(Color::Yellow),
+        )
     } else {
-        Line::from(vec![
-            Span::raw("↑↓ Navigate | "),
-            Span::raw("Enter Select | "),
-            Span::raw("Esc Back | "),
-            Span::styled("Ctrl+Q", Style::default().fg(Color::Yellow)),
-            Span::raw(" Quit"),
-        ])
+        (
+            vec![
+                Line::from(vec![
+                    Span::styled(" ↑↓ ", Style::default().fg(Color::Cyan)),
+                    Span::raw("Navigate  "),
+                    Span::styled(" Enter ", Style::default().fg(Color::Cyan)),
+                    Span::raw("Select  "),
+                    Span::styled(" Esc ", Style::default().fg(Color::Cyan)),
+                    Span::raw("Back  "),
+                    Span::styled(" F5 ", Style::default().fg(Color::Yellow)),
+                    Span::raw("Refresh  "),
+                    Span::styled(" Ctrl+Q ", Style::default().fg(Color::Red)),
+                    Span::raw("Quit"),
+                ]),
+            ],
+            Style::default(),
+        )
+    };
+
+    let footer_block = if app.error_message.is_some() {
+        Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Red)).title(" Message ")
+    } else if app.success_message.is_some() {
+        Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Green)).title(" Message ")
+    } else if app.status_message.is_some() {
+        Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Yellow)).title(" Status ")
+    } else {
+        Block::default().borders(Borders::ALL).title(" Help ")
     };
 
     let footer = Paragraph::new(footer_text)
-        .block(Block::default().borders(Borders::ALL));
+        .block(footer_block)
+        .style(footer_style);
     f.render_widget(footer, chunks[2]);
 }
 
@@ -1059,6 +1162,105 @@ fn render_wifi_screen(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(text, area);
 }
 
+fn handle_ssh_input(app: &mut App, key: KeyCode) {
+    match key {
+        KeyCode::Esc => {
+            app.screen = Screen::Main;
+        }
+        KeyCode::Tab | KeyCode::Down => {
+            // Move to next field (2 fields: enable/disable toggle, timer)
+            app.input_field_index = (app.input_field_index + 1) % 2;
+        }
+        KeyCode::BackTab | KeyCode::Up => {
+            // Move to previous field
+            if app.input_field_index > 0 {
+                app.input_field_index -= 1;
+            } else {
+                app.input_field_index = 1;
+            }
+        }
+        KeyCode::Left => {
+            if app.input_field_index == 1 {
+                // Decrease timer (min 5 minutes)
+                if app.ssh_config.timer_minutes > 5 {
+                    app.ssh_config.timer_minutes -= 5;
+                }
+            }
+        }
+        KeyCode::Right => {
+            if app.input_field_index == 1 {
+                // Increase timer (max 120 minutes)
+                if app.ssh_config.timer_minutes < 120 {
+                    app.ssh_config.timer_minutes += 5;
+                }
+            }
+        }
+        KeyCode::Char(' ') | KeyCode::Enter => {
+            if app.input_field_index == 0 {
+                // Toggle SSH
+                if app.ssh_config.enabled {
+                    // Disable SSH
+                    if disable_ssh().is_ok() {
+                        app.ssh_config.enabled = false;
+                        app.ssh_config.timer_start = None;
+                        app.set_status("SSH access disabled");
+                        app.success_message = Some("SSH disabled successfully".to_string());
+                    } else {
+                        app.error_message = Some("Failed to disable SSH".to_string());
+                    }
+                } else {
+                    // Enable SSH with timer
+                    if enable_ssh().is_ok() {
+                        app.ssh_config.enabled = true;
+                        app.ssh_config.timer_start = Some(std::time::Instant::now());
+                        app.set_status(&format!("SSH enabled for {} minutes", app.ssh_config.timer_minutes));
+                        app.success_message = Some(format!(
+                            "SSH enabled - will auto-disable in {} minutes",
+                            app.ssh_config.timer_minutes
+                        ));
+                    } else {
+                        app.error_message = Some("Failed to enable SSH".to_string());
+                    }
+                }
+            }
+        }
+        KeyCode::Char('e') | KeyCode::Char('E') => {
+            // Quick enable SSH with timer
+            if !app.ssh_config.enabled {
+                if enable_ssh().is_ok() {
+                    app.ssh_config.enabled = true;
+                    app.ssh_config.timer_start = Some(std::time::Instant::now());
+                    app.set_status(&format!("SSH enabled for {} minutes", app.ssh_config.timer_minutes));
+                    app.success_message = Some(format!(
+                        "SSH enabled - will auto-disable in {} minutes",
+                        app.ssh_config.timer_minutes
+                    ));
+                }
+            }
+        }
+        KeyCode::Char('d') | KeyCode::Char('D') => {
+            // Quick disable SSH
+            if app.ssh_config.enabled {
+                if disable_ssh().is_ok() {
+                    app.ssh_config.enabled = false;
+                    app.ssh_config.timer_start = None;
+                    app.set_status("SSH access disabled");
+                    app.success_message = Some("SSH disabled".to_string());
+                }
+            }
+        }
+        KeyCode::Char('p') | KeyCode::Char('P') => {
+            // Make SSH permanent (no timer)
+            if app.ssh_config.enabled {
+                app.ssh_config.timer_start = None;
+                app.set_status("SSH set to permanent (no auto-disable)");
+                app.success_message = Some("SSH timer disabled - connection is now permanent".to_string());
+            }
+        }
+        _ => {}
+    }
+}
+
 fn mask_password(password: &str) -> String {
     "*".repeat(password.len())
 }
@@ -1114,6 +1316,109 @@ fn get_interface_ip(iface: &str) -> String {
         }
     }
     "No IP".to_string()
+}
+
+fn render_ssh_screen(f: &mut Frame, app: &App, area: Rect) {
+    let mut lines = vec![
+        Line::from(Span::styled("🔐 SSH Access Configuration", Style::default().add_modifier(Modifier::BOLD))),
+        Line::from(""),
+        Line::from(Span::styled("Configure secure shell access to this host.", Style::default().fg(Color::DarkGray))),
+        Line::from(Span::styled("SSH will auto-disable after timer expires for security.", Style::default().fg(Color::DarkGray))),
+        Line::from(""),
+    ];
+    
+    // Current status with prominent display
+    let status_style = if app.ssh_config.enabled {
+        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+    };
+    
+    let status_text = if app.ssh_config.enabled {
+        "● SSH ENABLED"
+    } else {
+        "○ SSH DISABLED"
+    };
+    
+    lines.push(Line::from(vec![
+        Span::styled("Current Status: ", Style::default().fg(Color::Gray)),
+        Span::styled(status_text, status_style),
+    ]));
+    
+    // Show remaining time if timer is active
+    if let Some(start) = app.ssh_config.timer_start {
+        let elapsed_mins = start.elapsed().as_secs() / 60;
+        let remaining = app.ssh_config.timer_minutes.saturating_sub(elapsed_mins as u32);
+        lines.push(Line::from(vec![
+            Span::styled("Time Remaining: ", Style::default().fg(Color::Gray)),
+            Span::styled(format!("{} minutes", remaining), Style::default().fg(Color::Yellow)),
+        ]));
+    } else if app.ssh_config.enabled {
+        lines.push(Line::from(vec![
+            Span::styled("Timer: ", Style::default().fg(Color::Gray)),
+            Span::styled("Permanent (no auto-disable)", Style::default().fg(Color::Cyan)),
+        ]));
+    }
+    
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled("─".repeat(50), Style::default().fg(Color::DarkGray))));
+    lines.push(Line::from(""));
+    
+    // Enable/Disable toggle
+    let toggle_selected = app.input_field_index == 0;
+    let toggle_style = if toggle_selected {
+        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    
+    let toggle_text = if app.ssh_config.enabled {
+        "[  ENABLED  ] - Press Space to disable"
+    } else {
+        "[ DISABLED ] - Press Space to enable"
+    };
+    
+    lines.push(Line::from(vec![
+        Span::styled(if toggle_selected { "▶ " } else { "  " }, toggle_style),
+        Span::styled("SSH Access: ", Style::default().fg(Color::Gray)),
+        Span::styled(toggle_text, toggle_style),
+    ]));
+    
+    lines.push(Line::from(""));
+    
+    // Timer setting
+    let timer_selected = app.input_field_index == 1;
+    let timer_style = if timer_selected {
+        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    
+    lines.push(Line::from(vec![
+        Span::styled(if timer_selected { "▶ " } else { "  " }, timer_style),
+        Span::styled("Auto-Disable Timer: ", Style::default().fg(Color::Gray)),
+        Span::styled(
+            format!("◀ {} minutes ▶", app.ssh_config.timer_minutes),
+            timer_style,
+        ),
+    ]));
+    
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled("─".repeat(50), Style::default().fg(Color::DarkGray))));
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled("Quick Actions:", Style::default().fg(Color::Cyan))));
+    lines.push(Line::from(""));
+    lines.push(Line::from("  E - Enable SSH with timer"));
+    lines.push(Line::from("  D - Disable SSH immediately"));
+    lines.push(Line::from("  P - Make SSH permanent (disable timer)"));
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled("Use ←/→ to adjust timer (5-120 min), Tab to switch fields", Style::default().fg(Color::DarkGray))));
+    lines.push(Line::from(Span::styled("Press Esc to return to main menu", Style::default().fg(Color::Yellow))));
+    
+    let text = Paragraph::new(lines)
+        .block(Block::default().borders(Borders::ALL).title("SSH Configuration"))
+        .wrap(Wrap { trim: true });
+    f.render_widget(text, area);
 }
 
 fn render_diagnostics_screen(f: &mut Frame, app: &App, area: Rect) {
