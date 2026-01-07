@@ -91,10 +91,39 @@ setup_wayland_env() {
     # Environment for libseat
     export LIBSEAT_BACKEND=seatd
     
-    # Wayland-specific settings
-    export WLR_RENDERER_ALLOW_SOFTWARE=1
+    # =========================================================================
+    # Mesa/EGL/DRI Configuration (CRITICAL for graphics)
+    # =========================================================================
     
-    log "Wayland environment configured"
+    # Set Mesa DRI driver search path (Alpine Linux locations)
+    export LIBGL_DRIVERS_PATH="/usr/lib/dri:/usr/lib/xorg/modules/dri"
+    export EGL_DRIVERS_PATH="/usr/lib/dri"
+    
+    # Allow software rendering as fallback (llvmpipe)
+    export WLR_RENDERER_ALLOW_SOFTWARE=1
+    export LIBGL_ALWAYS_SOFTWARE=0  # Try hardware first
+    
+    # Suppress non-critical DRI warnings
+    export LIBGL_DRI3_DISABLE=0
+    export MESA_GL_VERSION_OVERRIDE=3.3
+    export MESA_GLSL_VERSION_OVERRIDE=330
+    
+    # Wayland-specific backend hints
+    export WLR_BACKENDS="drm,libinput"
+    export WLR_DRM_DEVICES="/dev/dri/card0:/dev/dri/card1"
+    
+    # For QEMU/VirtIO GPU
+    export WLR_NO_HARDWARE_CURSORS=1
+    
+    # Debug output (comment out for production)
+    # export WAYLAND_DEBUG=1
+    # export MESA_DEBUG=1
+    
+    log "Wayland environment configured:"
+    log "  XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+    log "  LIBSEAT_BACKEND=$LIBSEAT_BACKEND"
+    log "  LIBGL_DRIVERS_PATH=$LIBGL_DRIVERS_PATH"
+    log "  WLR_RENDERER_ALLOW_SOFTWARE=$WLR_RENDERER_ALLOW_SOFTWARE"
 }
 
 # Start the Web Kiosk (Cage + Cog)
