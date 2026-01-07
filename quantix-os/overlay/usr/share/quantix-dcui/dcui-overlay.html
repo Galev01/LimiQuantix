@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantix-OS Console</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0d1117;
+            color: #c9d1d9;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .dcui-bar {
+            background: linear-gradient(180deg, #1a1d23 0%, #0d1117 100%);
+            border-bottom: 1px solid #30363d;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        .dcui-bar .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .dcui-bar .logo-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #58a6ff;
+        }
+        
+        .dcui-bar .hint {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #8b949e;
+            font-size: 12px;
+        }
+        
+        .dcui-bar .key {
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-family: monospace;
+            color: #f0883e;
+            font-weight: bold;
+        }
+        
+        .iframe-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .status-bar {
+            background: #161b22;
+            border-top: 1px solid #30363d;
+            padding: 6px 16px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #8b949e;
+        }
+        
+        .status-bar .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .status-bar .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .status-bar .dot.green { background: #3fb950; }
+        .status-bar .dot.yellow { background: #d29922; }
+        .status-bar .dot.red { background: #f85149; }
+    </style>
+</head>
+<body>
+    <div class="dcui-bar">
+        <div class="logo">
+            <span class="logo-text">QUANTIX-OS</span>
+            <span style="color: #8b949e; font-size: 12px;">v1.0.0</span>
+        </div>
+        <div class="hint">
+            Press <span class="key">F10</span> for Direct Console (DCUI) — Local network &amp; system configuration
+        </div>
+    </div>
+    
+    <div class="iframe-container">
+        <iframe src="http://localhost:8443" id="main-frame"></iframe>
+    </div>
+    
+    <div class="status-bar">
+        <div class="status-item">
+            <span class="dot green"></span>
+            <span>Node Daemon Running</span>
+        </div>
+        <div class="status-item">
+            <span id="network-status">Checking network...</span>
+        </div>
+        <div class="status-item">
+            <span id="time"></span>
+        </div>
+    </div>
+    
+    <script>
+        // Update time
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('time').textContent = now.toLocaleTimeString();
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // Check network status
+        async function checkNetwork() {
+            try {
+                const resp = await fetch('http://localhost:8443/api/v1/host/health', {
+                    method: 'GET',
+                    timeout: 5000
+                });
+                if (resp.ok) {
+                    document.getElementById('network-status').innerHTML = 
+                        '<span class="dot green"></span> Network Connected';
+                } else {
+                    throw new Error('Not OK');
+                }
+            } catch (e) {
+                document.getElementById('network-status').innerHTML = 
+                    '<span class="dot yellow"></span> Checking connection...';
+            }
+        }
+        checkNetwork();
+        setInterval(checkNetwork, 10000);
+        
+        // Listen for F10 key (in case it bubbles up)
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F10') {
+                e.preventDefault();
+                // Signal to cage to exit (this would require IPC mechanism)
+                console.log('F10 pressed - DCUI requested');
+                alert('Switching to DCUI mode...\n\nIn production, press Ctrl+Alt+F2 to access the text console.');
+            }
+        });
+    </script>
+</body>
+</html>

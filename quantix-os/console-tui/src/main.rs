@@ -75,13 +75,14 @@ impl App {
 
     fn menu_items(&self) -> Vec<(&str, &str)> {
         vec![
-            ("Configure Network", "F2"),
-            ("SSH Management", "F3"),
-            ("Join Cluster", "F4"),
-            ("Restart Services", "F5"),
-            ("View Diagnostics", "F7"),
+            ("Configure Management Network", "F2"),
+            ("Enable/Disable SSH", "F3"),
+            ("Join/Leave Cluster", "F4"),
+            ("Restart Management Services", "F5"),
+            ("View System Logs", "F7"),
+            ("Reset to Factory Defaults", "F9"),
             ("Shutdown / Reboot", "F10"),
-            ("Emergency Shell", "F12"),
+            ("Exit to Web Console", "F12"),
         ]
     }
 }
@@ -181,13 +182,40 @@ fn handle_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) {
             KeyCode::Enter => {
                 handle_menu_action(app, app.selected_menu);
             }
-            KeyCode::F(2) => handle_menu_action(app, 0),
-            KeyCode::F(3) => handle_menu_action(app, 1),
-            KeyCode::F(4) => handle_menu_action(app, 2),
-            KeyCode::F(5) => handle_menu_action(app, 3),
-            KeyCode::F(7) => handle_menu_action(app, 4),
-            KeyCode::F(10) => handle_menu_action(app, 5),
-            KeyCode::F(12) => handle_menu_action(app, 6),
+            KeyCode::F(2) => handle_menu_action(app, 0),  // Network
+            KeyCode::F(3) => handle_menu_action(app, 1),  // SSH
+            KeyCode::F(4) => handle_menu_action(app, 2),  // Cluster
+            KeyCode::F(5) => handle_menu_action(app, 3),  // Restart Services
+            KeyCode::F(7) => handle_menu_action(app, 4),  // Logs
+            KeyCode::F(9) => handle_menu_action(app, 5),  // Factory Reset
+            KeyCode::F(10) => handle_menu_action(app, 6), // Shutdown
+            KeyCode::F(12) => handle_menu_action(app, 7), // Exit to Web
+            _ => {}
+        },
+        Screen::Network => match key {
+            KeyCode::Esc | KeyCode::Char('q') => {
+                app.screen = Screen::Main;
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                app.success_message = Some("Running DHCP on all interfaces...".to_string());
+                run_dhcp_all();
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                app.success_message = Some("Restarting network service...".to_string());
+                restart_network();
+            }
+            _ => {}
+        },
+        Screen::Power => match key {
+            KeyCode::Esc | KeyCode::Char('q') => {
+                app.screen = Screen::Main;
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                let _ = std::process::Command::new("reboot").spawn();
+            }
+            KeyCode::Char('s') | KeyCode::Char('S') => {
+                let _ = std::process::Command::new("poweroff").spawn();
+            }
             _ => {}
         },
         _ => match key {
@@ -221,16 +249,29 @@ fn handle_menu_action(app: &mut App, index: usize) {
         }
         2 => app.screen = Screen::Cluster,
         3 => {
-            app.success_message = Some("Restarting services...".to_string());
-            // TODO: Implement service restart
+            app.success_message = Some("Restarting management services...".to_string());
+            restart_management_services();
         }
         4 => app.screen = Screen::Diagnostics,
-        5 => app.screen = Screen::Power,
-        6 => {
-            app.error_message = Some("Emergency shell not available in TUI mode".to_string());
+        5 => {
+            app.error_message = Some("Factory reset requires confirmation in a future update".to_string());
+        }
+        6 => app.screen = Screen::Power,
+        7 => {
+            // Exit to web console (quit TUI so launcher can restart web kiosk)
+            app.should_quit = true;
         }
         _ => {}
     }
+}
+
+fn restart_management_services() {
+    let _ = std::process::Command::new("rc-service")
+        .args(["quantix-node", "restart"])
+        .spawn();
+    let _ = std::process::Command::new("rc-service")
+        .args(["quantix-network", "restart"])
+        .spawn();
 }
 
 fn ui(f: &mut Frame, app: &App) {
@@ -243,7 +284,7 @@ fn ui(f: &mut Frame, app: &App) {
         ])
         .split(f.area());
 
-    // Header
+    // Header - ESXi-style DCUI branding
     let header = Paragraph::new(vec![
         Line::from(vec![
             Span::styled(
@@ -253,10 +294,10 @@ fn ui(f: &mut Frame, app: &App) {
                     .add_modifier(Modifier::BOLD),
             ),
             Span::raw(" v1.0.0 - "),
-            Span::styled("The VMware Killer", Style::default().fg(Color::Gray)),
+            Span::styled("Direct Console User Interface (DCUI)", Style::default().fg(Color::Gray)),
         ]),
     ])
-    .block(Block::default().borders(Borders::ALL).title("Console"));
+    .block(Block::default().borders(Borders::ALL).title(" System Console "));
     f.render_widget(header, chunks[0]);
 
     // Content based on screen
@@ -423,17 +464,93 @@ fn render_main_screen(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_network_screen(f: &mut Frame, area: Rect) {
-    let text = Paragraph::new(vec![
-        Line::from("Network Configuration"),
+    // Get current network status
+    let interfaces = get_network_interfaces();
+    
+    let mut lines = vec![
+        Line::from(Span::styled("Network Configuration", Style::default().add_modifier(Modifier::BOLD))),
         Line::from(""),
-        Line::from("This feature is not yet implemented in TUI mode."),
-        Line::from("Use the GUI console or edit /etc/network/interfaces directly."),
+        Line::from(Span::styled("Current Interfaces:", Style::default().fg(Color::Cyan))),
         Line::from(""),
-        Line::from(Span::styled("Press Esc to return", Style::default().fg(Color::Yellow))),
-    ])
-    .block(Block::default().borders(Borders::ALL).title("Network"))
-    .wrap(Wrap { trim: true });
+    ];
+    
+    for (iface, ip, status) in &interfaces {
+        let status_color = if status == "UP" { Color::Green } else { Color::Red };
+        lines.push(Line::from(vec![
+            Span::raw("  "),
+            Span::styled(format!("{:<12}", iface), Style::default().fg(Color::White)),
+            Span::styled(format!("{:<16}", ip), Style::default().fg(Color::Cyan)),
+            Span::styled(status, Style::default().fg(status_color)),
+        ]));
+    }
+    
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled("Actions:", Style::default().fg(Color::Cyan))));
+    lines.push(Line::from(""));
+    lines.push(Line::from("  D - Run DHCP on all interfaces"));
+    lines.push(Line::from("  R - Restart network service"));
+    lines.push(Line::from("  S - Set static IP (manual entry)"));
+    lines.push(Line::from("  W - Configure WiFi"));
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled("Press Esc to return", Style::default().fg(Color::Yellow))));
+
+    let text = Paragraph::new(lines)
+        .block(Block::default().borders(Borders::ALL).title("Network"))
+        .wrap(Wrap { trim: true });
     f.render_widget(text, area);
+}
+
+fn get_network_interfaces() -> Vec<(String, String, String)> {
+    let mut interfaces = Vec::new();
+    
+    // Get list of interfaces
+    if let Ok(output) = std::process::Command::new("ip")
+        .args(["-o", "link", "show"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                let iface = parts[1].trim_end_matches(':');
+                // Skip loopback
+                if iface == "lo" {
+                    continue;
+                }
+                
+                // Get IP address
+                let ip = get_interface_ip(iface);
+                
+                // Get status (UP/DOWN)
+                let status = if line.contains("state UP") { "UP" } else { "DOWN" };
+                
+                interfaces.push((iface.to_string(), ip, status.to_string()));
+            }
+        }
+    }
+    
+    if interfaces.is_empty() {
+        interfaces.push(("(no interfaces)".to_string(), "-".to_string(), "-".to_string()));
+    }
+    
+    interfaces
+}
+
+fn get_interface_ip(iface: &str) -> String {
+    if let Ok(output) = std::process::Command::new("ip")
+        .args(["-4", "addr", "show", iface])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            if line.contains("inet ") {
+                if let Some(ip) = line.split_whitespace().nth(1) {
+                    return ip.to_string();
+                }
+            }
+        }
+    }
+    "No IP".to_string()
 }
 
 fn render_diagnostics_screen(f: &mut Frame, app: &App, area: Rect) {
@@ -580,4 +697,43 @@ fn disable_ssh() -> Result<()> {
         .args(["sshd", "stop"])
         .output()?;
     Ok(())
+}
+
+fn run_dhcp_all() {
+    // Get all interfaces and run DHCP
+    if let Ok(output) = std::process::Command::new("ip")
+        .args(["-o", "link", "show"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                let iface = parts[1].trim_end_matches(':');
+                if iface == "lo" {
+                    continue;
+                }
+                
+                // Bring interface up
+                let _ = std::process::Command::new("ip")
+                    .args(["link", "set", iface, "up"])
+                    .output();
+                
+                // Run DHCP (kill existing first)
+                let _ = std::process::Command::new("pkill")
+                    .args(["-f", &format!("udhcpc.*{}", iface)])
+                    .output();
+                
+                let _ = std::process::Command::new("udhcpc")
+                    .args(["-i", iface, "-n", "-q"])
+                    .spawn();
+            }
+        }
+    }
+}
+
+fn restart_network() {
+    let _ = std::process::Command::new("rc-service")
+        .args(["quantix-network", "restart"])
+        .output();
 }

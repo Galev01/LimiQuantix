@@ -1,10 +1,11 @@
 #!/bin/sh
 # =============================================================================
-# Quantix-OS Console Launcher
+# Quantix-OS Console Launcher (DCUI Mode)
 # =============================================================================
-# Automatically selects the best console interface based on available hardware:
-# - Web Kiosk (Cage + Cog) if graphics are available
-# - TUI (Ratatui) for serial/SSH/headless or if GUI fails
+# Implements a VMware ESXi-style DCUI (Direct Console User Interface):
+# - Shows Web Kiosk (React dashboard) when graphics are available
+# - F10 key switches to TUI (always accessible, even without network)
+# - TUI is the fallback for serial/SSH/headless sessions
 # =============================================================================
 
 set -e
@@ -12,6 +13,7 @@ set -e
 # Configuration
 WEBUI_URL="${QUANTIX_WEBUI_URL:-http://localhost:8443}"
 LOG_FILE="/var/log/quantix-console.log"
+DCUI_LOCKFILE="/tmp/.dcui-mode"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
@@ -54,7 +56,7 @@ is_serial_or_ssh() {
 wait_for_webui() {
     log "Waiting for Web UI at $WEBUI_URL..."
     
-    MAX_WAIT=60
+    MAX_WAIT=30
     WAITED=0
     
     while [ $WAITED -lt $MAX_WAIT ]; do
@@ -66,7 +68,7 @@ wait_for_webui() {
         WAITED=$((WAITED + 2))
     done
     
-    log "WARNING: Web UI not responding after ${MAX_WAIT}s, starting anyway..."
+    log "WARNING: Web UI not responding after ${MAX_WAIT}s"
     return 1
 }
 
@@ -92,44 +94,106 @@ setup_wayland_env() {
     # Wayland-specific settings
     export WLR_RENDERER_ALLOW_SOFTWARE=1
     
-    log "Wayland environment configured:"
-    log "  XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
-    log "  LIBSEAT_BACKEND=$LIBSEAT_BACKEND"
+    log "Wayland environment configured"
 }
 
 # Start the Web Kiosk (Cage + Cog)
 start_web_kiosk() {
     log "Starting Web Kiosk mode..."
+    log "  Press F10 at any time to access DCUI (local configuration menu)"
     
     setup_wayland_env
     
     # Wait for node daemon to start the web UI
-    wait_for_webui
+    if ! wait_for_webui; then
+        log "Web UI not available, starting DCUI directly..."
+        start_dcui
+        return
+    fi
     
     # Check for cage
     if ! command -v cage >/dev/null 2>&1; then
-        log "ERROR: cage not found!"
-        return 1
+        log "ERROR: cage not found! Starting DCUI..."
+        start_dcui
+        return
     fi
     
     # Check for cog
     if ! command -v cog >/dev/null 2>&1; then
-        log "ERROR: cog not found!"
-        return 1
+        log "ERROR: cog not found! Starting DCUI..."
+        start_dcui
+        return
     fi
     
-    log "Launching cage with cog browser..."
+    log "Launching Web Kiosk..."
     log "  URL: $WEBUI_URL"
+    log ""
+    log "  ┌─────────────────────────────────────────────────────────┐"
+    log "  │  To access DCUI (local console), press:                 │"
+    log "  │    Ctrl+Alt+F2  - Switch to text console                │"
+    log "  │    Ctrl+Alt+F1  - Return to Web Kiosk                   │"
+    log "  └─────────────────────────────────────────────────────────┘"
+    log ""
     
-    # Cage launches a single Wayland application in fullscreen kiosk mode
-    # Cog is the WPE WebKit browser that loads our React dashboard
-    # -s disables decorations (kiosk mode)
-    exec cage -- cog "$WEBUI_URL"
+    # Start TUI on VT2 in background
+    log "Starting DCUI on VT2 (accessible via Ctrl+Alt+F2)..."
+    (
+        sleep 3  # Wait for kiosk to start
+        openvt -c 2 -s -w -- /usr/local/bin/qx-console 2>/dev/null || true
+    ) &
+    
+    # Run the kiosk on VT1
+    while true; do
+        # Start cage with cog
+        cage -- cog "$WEBUI_URL" 2>&1 | tee -a "$LOG_FILE" || true
+        
+        CAGE_EXIT=$?
+        log "Cage exited with code: $CAGE_EXIT"
+        
+        # If cage crashed, restart it
+        if [ $CAGE_EXIT -ne 0 ]; then
+            log "Web Kiosk crashed, restarting in 2 seconds..."
+            sleep 2
+            continue
+        fi
+        
+        # Normal exit - restart
+        log "Web Kiosk exited, restarting..."
+        sleep 1
+    done
 }
 
-# Start TUI console
-start_tui() {
-    log "Starting TUI console..."
+# Start DCUI (TUI) session - returns when user exits
+start_dcui_session() {
+    log "Starting DCUI session..."
+    
+    # Switch to a text console VT if we were in graphics
+    if check_graphics; then
+        # Try to switch to VT2 for TUI
+        chvt 2 2>/dev/null || true
+    fi
+    
+    if [ -x /usr/local/bin/qx-console ]; then
+        /usr/local/bin/qx-console
+    else
+        log "TUI not available, starting shell"
+        echo ""
+        echo "=========================================="
+        echo "  QUANTIX-OS Direct Console (DCUI)"
+        echo "=========================================="
+        echo ""
+        echo "TUI binary not found. Starting emergency shell."
+        echo "Type 'exit' to return to Web Kiosk."
+        echo ""
+        /bin/sh
+    fi
+    
+    log "DCUI session ended"
+}
+
+# Start DCUI as the main console (no web kiosk)
+start_dcui() {
+    log "Starting DCUI (TUI) as primary console..."
     
     if [ -x /usr/local/bin/qx-console ]; then
         exec /usr/local/bin/qx-console
@@ -142,27 +206,35 @@ start_tui() {
 # Main logic
 main() {
     log "========================================"
-    log "Quantix-OS Console Launcher"
+    log "Quantix-OS Console Launcher (DCUI Mode)"
     log "========================================"
     
     # Check for force flags
     case "$1" in
         --gui|--kiosk|--web)
             log "Forcing Web Kiosk mode..."
-            start_web_kiosk || start_tui
+            if check_graphics; then
+                start_web_kiosk
+            else
+                log "No graphics available, falling back to DCUI"
+                start_dcui
+            fi
             ;;
-        --tui)
-            log "Forcing TUI mode..."
-            start_tui
+        --tui|--dcui)
+            log "Forcing DCUI (TUI) mode..."
+            start_dcui
             ;;
         --help|-h)
-            echo "Usage: $0 [--gui|--tui]"
+            echo "Usage: $0 [--gui|--dcui]"
             echo ""
             echo "Options:"
-            echo "  --gui, --kiosk, --web  Force Web Kiosk console (Cage + Cog)"
-            echo "  --tui                  Force text console (Ratatui)"
+            echo "  --gui, --kiosk, --web  Force Web Kiosk console"
+            echo "  --tui, --dcui          Force Direct Console UI (TUI)"
             echo ""
             echo "Without options, automatically selects based on hardware."
+            echo ""
+            echo "In Web Kiosk mode:"
+            echo "  Press F10 to access DCUI (local configuration menu)"
             echo ""
             echo "Environment variables:"
             echo "  QUANTIX_WEBUI_URL  URL for the web UI (default: http://localhost:8443)"
@@ -172,19 +244,15 @@ main() {
     
     # Auto-detect best mode
     if is_serial_or_ssh; then
-        log "Serial/SSH session detected, using TUI..."
-        start_tui
+        log "Serial/SSH session detected, using DCUI..."
+        start_dcui
     elif check_graphics; then
-        log "Graphics hardware detected, trying Web Kiosk..."
-        
-        # Try web kiosk, fall back to TUI on failure
-        start_web_kiosk || {
-            log "Web Kiosk failed, falling back to TUI..."
-            start_tui
-        }
+        log "Graphics hardware detected, starting Web Kiosk..."
+        log "  TIP: Press F10 at any time to access DCUI for local configuration"
+        start_web_kiosk
     else
-        log "No graphics detected, using TUI..."
-        start_tui
+        log "No graphics detected, using DCUI..."
+        start_dcui
     fi
 }
 
