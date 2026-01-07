@@ -500,6 +500,69 @@ The Quantix-OS GUI console uses a "Web Kiosk" pattern instead of a native GUI to
 - `cog` - Simple WPE WebKit launcher
 - `wpewebkit` - Lightweight embedded WebKit engine
 
+## USB Deployment
+
+After building the ISO, use the `deploy-usb.sh` script for reliable USB deployment:
+
+### Why Use deploy-usb.sh Instead of Manual DD
+
+| Problem | Manual DD | deploy-usb.sh |
+|---------|-----------|---------------|
+| Windows "file not found" error | ❌ Leaves old partition signatures | ✅ Wipes all signatures with wipefs + sgdisk |
+| "Device busy" errors | ❌ Must manually unmount | ✅ Auto-unmounts all partitions |
+| Fake "2.5 GB/s" speed | ❌ Reports cached speed | ✅ Uses `conv=fsync` for true hardware sync |
+| Corrupted writes | ❌ No verification | ✅ Optional MD5 verification |
+| Wrong device | ❌ Easy to destroy system disk | ✅ Validates USB device, warns on non-USB |
+
+### Usage
+
+```bash
+# List available USB devices
+sudo ./builder/deploy-usb.sh --list
+
+# Deploy to USB (interactive confirmation)
+sudo ./builder/deploy-usb.sh /dev/sdb
+
+# Deploy with verification (recommended)
+sudo ./builder/deploy-usb.sh --verify /dev/sdb
+
+# Deploy custom ISO
+sudo ./builder/deploy-usb.sh /dev/sdb path/to/custom.iso
+
+# Force mode (skip confirmation)
+sudo ./builder/deploy-usb.sh --force /dev/sdb
+```
+
+### Using Make
+
+```bash
+# List USB devices
+make list-usb
+
+# Deploy to USB
+make deploy-usb USB=/dev/sdb
+
+# Deploy with verification
+make deploy-usb USB=/dev/sdb VERIFY=1
+```
+
+### What the Script Does
+
+1. **Unmount**: Detaches all partitions from the file manager
+2. **Wipe Signatures**: Removes MBR/GPT/filesystem signatures that confuse Windows
+3. **Write ISO**: Uses `dd` with `conv=fsync oflag=direct` for true hardware sync
+4. **Final Sync**: Ensures all data is physically written before reporting success
+5. **Verify** (optional): Compares checksums to catch bad USB drives
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Device does not exist" | Check device path with `lsblk` |
+| "Permission denied" | Run with `sudo` |
+| "Device is too small" | Use a larger USB drive (min: ISO size + 10%) |
+| Verification fails | USB drive may be faulty, try a different one |
+
 ## Related Documents
 
 - [000052 - Quantix-OS Architecture](./000052-quantix-os-architecture.md)

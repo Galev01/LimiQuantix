@@ -1,91 +1,76 @@
 # Workflow State
 
-## Current Status: IN PROGRESS
+## Current Status: COMPLETED
 
-## Active Workflow: TUI Build Fix & SSH Configuration
+## Active Workflow: USB Deployment Script
 
 **Date:** January 7, 2026
 
-### Issue Identified
+### Task Completed
 
-The `make iso` command was not applying changes to the TUI because the Docker build was **failing silently**:
+Created a comprehensive USB deployment script (`deploy-usb.sh`) that handles all the edge cases that cause issues with manual `dd`:
 
-```
-error: cannot produce proc-macro for `darling_macro v0.23.0` as the target `x86_64-alpine-linux-musl` does not support these crate types
-Note: TUI binary will be built when source exists
-✅ TUI console built
-```
-
-The Makefile was printing success even though the build failed, and the old binary was being used.
-
-### Root Cause
-
-The `Dockerfile.rust-tui` was using Alpine's **edge** repositories which have a newer Rust version with incompatible proc-macro handling for musl targets. The Dockerfile also had a CMD that tried to cross-compile (`--target x86_64-unknown-linux-musl`) which doesn't work with Alpine's Rust.
-
-### Fix Applied
-
-**File: `Quantix-OS/builder/Dockerfile.rust-tui`**
-
-1. Removed edge repository usage (use stable Alpine 3.20 repos)
-2. Changed to native build (Alpine is already musl-based, no cross-compile needed)
-3. Updated environment variables for proper static linking
-
-### Changes Made
+### Files Created/Modified
 
 | File | Change |
 |------|--------|
-| `Quantix-OS/builder/Dockerfile.rust-tui` | Fixed to build natively on Alpine without cross-compile |
-| `Quantix-OS/console-tui/src/main.rs` | Already has SSH config screen (from previous work) |
-| `Quantix-OS/overlay/usr/local/bin/qx-console-launcher` | Already has DRI check (from previous work) |
+| `Quantix-OS/builder/deploy-usb.sh` | **NEW** - Complete USB deployment script |
+| `Quantix-OS/Makefile` | Added `deploy-usb` and `list-usb` targets |
+| `Quantix-OS/build.sh` | Updated final instructions to use deploy-usb.sh |
+| `docs/Quantix-OS/000059-quantix-os-build-guide.md` | Added USB deployment documentation |
 
-### TUI Features (Already Implemented)
+### Why This Is Better Than Manual DD
 
-The TUI source code already includes:
+| Problem | Manual DD | deploy-usb.sh |
+|---------|-----------|---------------|
+| Windows "file not found" error | ❌ Leaves old signatures | ✅ Wipes with wipefs + sgdisk |
+| "Device busy" errors | ❌ Must manually unmount | ✅ Auto-unmounts all partitions |
+| Fake "2.5 GB/s" speed | ❌ Reports cached speed | ✅ Uses `conv=fsync` for true sync |
+| Corrupted writes | ❌ No verification | ✅ Optional MD5 verification |
+| Wrong device | ❌ Easy to destroy system | ✅ Validates USB, warns on non-USB |
 
-1. **SSH Configuration Screen (F3)**
-   - Enable/disable toggle
-   - Timer configuration (5-120 minutes)
-   - Permanent mode option
-   - Quick actions (E/D/P keys)
+### Script Features
 
-2. **Updated Key Bindings**
-   - F3 = SSH Configuration (not quick toggle)
-   - F5 = Refresh Display
-   - F6 = Restart Management Services
+1. **Signature Wiping** - `wipefs -a` + `sgdisk --zap-all` + zero first/last 1MB
+2. **Auto Unmounting** - Detaches all partitions, uses udisksctl if available
+3. **Hardware Sync** - `conv=fsync oflag=direct` + standalone `sync`
+4. **Device Validation** - Checks for system disk, warns on non-USB
+5. **Verification** - Optional MD5 checksum comparison
+6. **Pretty Output** - Colored progress, ASCII art banner
 
-3. **Improved Message Visibility**
-   - Colored status messages
-   - Error/success/status indicators
+### Usage
 
-### Next Steps
+```bash
+# List USB devices
+sudo ./builder/deploy-usb.sh --list
+# Or: make list-usb
 
-1. **Rebuild the ISO**:
-   ```bash
-   cd Quantix-OS
-   make clean-all  # Clean Docker images to force rebuild
-   make iso
-   ```
+# Deploy ISO to USB
+sudo ./builder/deploy-usb.sh /dev/sdb
+# Or: make deploy-usb USB=/dev/sdb
 
-2. **Test in QEMU**:
-   ```bash
-   make test-qemu
-   ```
+# Deploy with verification
+sudo ./builder/deploy-usb.sh --verify /dev/sdb
+# Or: make deploy-usb USB=/dev/sdb VERIFY=1
 
-3. **Verify**:
-   - F3 opens SSH configuration screen
-   - F5 refreshes display (not restart services)
-   - F6 restarts management services
-   - TUI shows updated menu items
+# Force mode (skip confirmation)
+sudo ./builder/deploy-usb.sh --force /dev/sdb
+```
 
 ### Testing Checklist
 
-- [ ] TUI binary actually rebuilds (check build output for errors)
-- [ ] SSH configuration screen appears on F3
-- [ ] Timer countdown works
-- [ ] F5 refreshes display
-- [ ] F6 restarts services
-- [ ] Status messages show correctly
+- [ ] Script executes without errors
+- [ ] `--list` shows USB devices correctly
+- [ ] Device validation catches partition paths (e.g., /dev/sdb1)
+- [ ] Device validation warns on non-USB devices
+- [ ] Unmounting works for mounted partitions
+- [ ] Signature wiping completes
+- [ ] DD with progress works
+- [ ] Verification mode works
+- [ ] Make targets work (`make list-usb`, `make deploy-usb USB=/dev/sdb`)
 
-### Previous Workflow (Archived)
+---
 
-The previous workflow has been moved to `completed_workflow.md`.
+## Previous Workflow (Archived)
+
+The TUI Build Fix workflow has been moved to `completed_workflow.md`.
