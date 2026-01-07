@@ -72,7 +72,7 @@ rustls.workspace = true
 rustls-pemfile.workspace = true
 tokio-rustls.workspace = true
 rcgen.workspace = true
-instant-acme.workspace = true
+# instant-acme.workspace = true  # Disabled - ACME is placeholder, aws-lc-sys has complex build requirements
 base64.workspace = true
 time.workspace = true
 
