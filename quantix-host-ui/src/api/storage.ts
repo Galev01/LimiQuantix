@@ -35,7 +35,15 @@ export interface CreatePoolRequest {
 }
 
 export async function createStoragePool(request: CreatePoolRequest): Promise<StoragePool> {
-  return post<StoragePool>('/storage/pools', request);
+  // Convert to backend expected format
+  const backendRequest = {
+    pool_id: request.poolId,
+    type: request.type,
+    path: request.config.local?.path,
+    nfs_server: request.config.nfs?.server,
+    nfs_export: request.config.nfs?.export,
+  };
+  return post<StoragePool>('/storage/pools', backendRequest);
 }
 
 /**

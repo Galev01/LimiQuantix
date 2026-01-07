@@ -141,11 +141,17 @@ service NodeDaemonService {
   // Storage Volume Operations
   // =========================================================================
   
+  // List volumes in a storage pool
+  rpc ListVolumes(ListVolumesRequest) returns (ListVolumesResponse);
+  
   // Create a volume in a storage pool
-  rpc CreateVolume(CreateVolumeRequest) returns (google.protobuf.Empty);
+  rpc CreateVolume(CreateVolumeRequest) returns (VolumeInfoResponse);
   
   // Delete a volume
   rpc DeleteVolume(VolumeIdRequest) returns (google.protobuf.Empty);
+  
+  // List ISO images
+  rpc ListImages(google.protobuf.Empty) returns (ListImagesResponse);
   
   // Resize a volume
   rpc ResizeVolume(ResizeVolumeRequest) returns (google.protobuf.Empty);
@@ -773,6 +779,9 @@ message StoragePoolInfoResponse {
   uint64 total_bytes = 6;
   uint64 available_bytes = 7;
   uint64 used_bytes = 8;
+  
+  // Volume count
+  uint32 volume_count = 9;
 }
 
 // List storage pools response
@@ -834,4 +843,38 @@ message CreateVolumeSnapshotRequest {
   string pool_id = 1;
   string volume_id = 2;
   string snapshot_id = 3;
+}
+
+// List volumes request
+message ListVolumesRequest {
+  string pool_id = 1;
+}
+
+// Volume info response
+message VolumeInfoResponse {
+  string volume_id = 1;
+  string pool_id = 2;
+  uint64 size_bytes = 3;
+  string format = 4;       // "qcow2", "raw"
+  string path = 5;
+  string attached_to = 6;  // VM ID if attached
+}
+
+// List volumes response
+message ListVolumesResponse {
+  repeated VolumeInfoResponse volumes = 1;
+}
+
+// Image info (ISO files)
+message ImageInfo {
+  string image_id = 1;
+  string name = 2;
+  string path = 3;
+  uint64 size_bytes = 4;
+  string format = 5;       // "iso", "qcow2", etc.
+}
+
+// List images response
+message ListImagesResponse {
+  repeated ImageInfo images = 1;
 }

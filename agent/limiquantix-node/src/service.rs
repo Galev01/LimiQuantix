@@ -40,6 +40,9 @@ use limiquantix_proto::{
     ListStoragePoolsResponse, CreateVolumeRequest, VolumeIdRequest,
     ResizeVolumeRequest, CloneVolumeRequest, VolumeAttachInfoResponse,
     CreateVolumeSnapshotRequest, StoragePoolType,
+    // Volume listing types
+    ListVolumesRequest, ListVolumesResponse, VolumeInfoResponse,
+    ListImagesResponse, ImageInfo,
     // Filesystem quiesce/time sync types
     QuiesceFilesystemsRequest, QuiesceFilesystemsResponse,
     ThawFilesystemsRequest, ThawFilesystemsResponse,
@@ -1493,7 +1496,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     ) -> Result<Response<ListStoragePoolsResponse>, Status> {
         let pools = self.storage.list_pools().await;
         
-        let pool_responses: Vec<StoragePoolInfoResponse> = pools.into_iter().map(|p| {
+        let mut pool_responses = Vec::new();
+        for p in pools {
             let pool_type = match p.pool_type {
                 PoolType::LocalDir => StoragePoolType::LocalDir as i32,
                 PoolType::Nfs => StoragePoolType::Nfs as i32,
@@ -1501,7 +1505,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 PoolType::Iscsi => StoragePoolType::Iscsi as i32,
                 _ => StoragePoolType::Unspecified as i32,
             };
-            StoragePoolInfoResponse {
+            
+            // Get volume count
+            pool_responses.push(StoragePoolInfoResponse {
                 pool_id: p.pool_id,
                 r#type: pool_type,
                 mount_path: p.mount_path.unwrap_or_default(),
@@ -1510,8 +1516,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 total_bytes: p.total_bytes,
                 available_bytes: p.available_bytes,
                 used_bytes: p.total_bytes.saturating_sub(p.available_bytes),
-            }
-        }).collect();
+            });
+        }
         
         Ok(Response::new(ListStoragePoolsResponse { pools: pool_responses }))
     }
@@ -1520,11 +1526,36 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
     // Storage Volume Operations
     // =========================================================================
     
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id))]
+    async fn list_volumes(
+        &self,
+        request: Request<ListVolumesRequest>,
+    ) -> Result<Response<ListVolumesResponse>, Status> {
+        let req = request.into_inner();
+        debug!(pool_id = %req.pool_id, "Listing volumes");
+        
+        let volumes = self.storage.list_volumes(&req.pool_id).await
+            .map_err(|e| Status::internal(format!("Failed to list volumes: {}", e)))?;
+        
+        let proto_volumes: Vec<VolumeInfoResponse> = volumes.into_iter().map(|v| {
+            VolumeInfoResponse {
+                volume_id: v.name,
+                pool_id: req.pool_id.clone(),
+                size_bytes: v.capacity,
+                format: v.format.unwrap_or_else(|| "qcow2".to_string()),
+                path: v.path,
+                attached_to: String::new(), // TODO: Track attachments
+            }
+        }).collect();
+        
+        Ok(Response::new(ListVolumesResponse { volumes: proto_volumes }))
+    }
+    
     #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id, volume_id = %request.get_ref().volume_id))]
     async fn create_volume(
         &self,
         request: Request<CreateVolumeRequest>,
-    ) -> Result<Response<()>, Status> {
+    ) -> Result<Response<VolumeInfoResponse>, Status> {
         let req = request.into_inner();
         info!(pool_id = %req.pool_id, volume_id = %req.volume_id, size = req.size_bytes, "Creating volume");
         
@@ -1539,7 +1570,18 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         self.storage.create_volume(&req.pool_id, &req.volume_id, req.size_bytes, source).await
             .map_err(|e| Status::internal(format!("Failed to create volume: {}", e)))?;
         
-        Ok(Response::new(()))
+        // Get the volume path
+        let attach_info = self.storage.get_attach_info(&req.pool_id, &req.volume_id).await
+            .map_err(|e| Status::internal(format!("Failed to get volume info: {}", e)))?;
+        
+        Ok(Response::new(VolumeInfoResponse {
+            volume_id: req.volume_id,
+            pool_id: req.pool_id,
+            size_bytes: req.size_bytes,
+            format: "qcow2".to_string(),
+            path: attach_info.path,
+            attached_to: String::new(),
+        }))
     }
     
     #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id, volume_id = %request.get_ref().volume_id))]
@@ -1613,6 +1655,51 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             .map_err(|e| Status::internal(format!("Failed to create snapshot: {}", e)))?;
         
         Ok(Response::new(()))
+    }
+    
+    #[instrument(skip(self, _request))]
+    async fn list_images(
+        &self,
+        _request: Request<()>,
+    ) -> Result<Response<ListImagesResponse>, Status> {
+        debug!("Listing ISO images");
+        
+        // Look for ISO files in the images directory
+        let images_path = std::path::Path::new("/var/lib/limiquantix/cloud-images");
+        let iso_path = std::path::Path::new("/var/lib/limiquantix/isos");
+        
+        let mut images = Vec::new();
+        
+        // Helper to scan a directory for images
+        async fn scan_dir(path: &std::path::Path, images: &mut Vec<ImageInfo>) {
+            if let Ok(mut entries) = tokio::fs::read_dir(path).await {
+                while let Ok(Some(entry)) = entries.next_entry().await {
+                    let file_path = entry.path();
+                    if let Some(ext) = file_path.extension() {
+                        let ext_str = ext.to_string_lossy().to_lowercase();
+                        if ext_str == "iso" || ext_str == "qcow2" || ext_str == "img" {
+                            if let Ok(metadata) = entry.metadata().await {
+                                let name = file_path.file_name()
+                                    .map(|n| n.to_string_lossy().to_string())
+                                    .unwrap_or_default();
+                                images.push(ImageInfo {
+                                    image_id: name.clone(),
+                                    name,
+                                    path: file_path.to_string_lossy().to_string(),
+                                    size_bytes: metadata.len(),
+                                    format: ext_str,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        scan_dir(images_path, &mut images).await;
+        scan_dir(iso_path, &mut images).await;
+        
+        Ok(Response::new(ListImagesResponse { images }))
     }
     
     // =========================================================================

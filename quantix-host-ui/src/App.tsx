@@ -1,8 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
-import { Dashboard, VirtualMachines } from '@/pages';
-import { Network } from '@/pages/Network';
+import { Dashboard, VirtualMachines, VMDetail, Network, StoragePools, Volumes, Hardware, Performance, Events, Settings } from '@/pages';
 
 // Create a query client
 const queryClient = new QueryClient({
@@ -41,26 +40,26 @@ export function App() {
             
             {/* Virtual Machines */}
             <Route path="/vms" element={<VirtualMachines />} />
-            <Route path="/vms/:vmId" element={<PlaceholderPage title="VM Detail" />} />
+            <Route path="/vms/:vmId" element={<VMDetail />} />
             
             {/* Storage */}
-            <Route path="/storage/pools" element={<PlaceholderPage title="Storage Pools" />} />
-            <Route path="/storage/volumes" element={<PlaceholderPage title="Volumes" />} />
+            <Route path="/storage/pools" element={<StoragePools />} />
+            <Route path="/storage/pools/:poolId/volumes" element={<Volumes />} />
             
             {/* Networking */}
             <Route path="/networking" element={<Network />} />
             
             {/* Hardware */}
-            <Route path="/hardware" element={<PlaceholderPage title="Hardware" />} />
+            <Route path="/hardware" element={<Hardware />} />
             
             {/* Performance Monitor */}
-            <Route path="/monitor" element={<PlaceholderPage title="Performance" />} />
+            <Route path="/monitor" element={<Performance />} />
             
             {/* Events */}
-            <Route path="/events" element={<PlaceholderPage title="Events" />} />
+            <Route path="/events" element={<Events />} />
             
             {/* Configuration */}
-            <Route path="/settings" element={<PlaceholderPage title="Configuration" />} />
+            <Route path="/settings" element={<Settings />} />
             
             {/* 404 */}
             <Route path="*" element={<PlaceholderPage title="Page Not Found" />} />

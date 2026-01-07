@@ -149,6 +149,7 @@ export interface StoragePool {
   totalBytes: number;
   availableBytes: number;
   usedBytes: number;
+  volumeCount: number;
 }
 
 export interface Volume {

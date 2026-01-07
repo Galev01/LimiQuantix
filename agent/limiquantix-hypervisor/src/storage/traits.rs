@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 
 use crate::error::Result;
-use super::types::{PoolConfig, PoolInfo, VolumeAttachInfo, VolumeSource};
+use super::types::{PoolConfig, PoolInfo, VolumeAttachInfo, VolumeSource, VolumeInfo};
 
 /// Storage backend trait - implemented by each storage type.
 ///
@@ -27,6 +27,9 @@ pub trait StorageBackend: Send + Sync {
     ///
     /// Returns current capacity and health information.
     async fn get_pool_info(&self, pool_id: &str) -> Result<PoolInfo>;
+    
+    /// List all volumes in a pool.
+    async fn list_volumes(&self, pool_id: &str) -> Result<Vec<VolumeInfo>>;
     
     /// Create a new volume in the pool.
     ///

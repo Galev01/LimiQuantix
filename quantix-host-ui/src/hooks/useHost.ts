@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getHostInfo, getHostHealth, getHardwareInventory } from '@/api/host';
+import { getHostInfo, getHostHealth, getHardwareInventory, getHostMetrics } from '@/api/host';
 
 /**
  * Hook to fetch host information
@@ -34,5 +34,17 @@ export function useHardwareInventory() {
     queryKey: ['host', 'hardware'],
     queryFn: getHardwareInventory,
     staleTime: 60_000, // 1 minute
+  });
+}
+
+/**
+ * Hook to fetch current host metrics
+ */
+export function useHostMetrics() {
+  return useQuery({
+    queryKey: ['host', 'metrics'],
+    queryFn: getHostMetrics,
+    staleTime: 5_000, // 5 seconds
+    refetchInterval: 5_000, // Auto-refresh every 5 seconds
   });
 }

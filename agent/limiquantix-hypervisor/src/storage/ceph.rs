@@ -35,7 +35,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::error::{HypervisorError, Result};
-use super::types::{PoolConfig, PoolInfo, PoolType, VolumeAttachInfo, VolumeSource};
+use super::types::{PoolConfig, PoolInfo, PoolType, VolumeAttachInfo, VolumeSource, VolumeInfo};
 use super::traits::StorageBackend;
 
 /// Cached Ceph pool configuration.
@@ -496,6 +496,36 @@ impl StorageBackend for CephBackend {
             total_bytes,
             available_bytes,
         })
+    }
+    
+    async fn list_volumes(&self, pool_id: &str) -> Result<Vec<VolumeInfo>> {
+        let state = self.get_pool_state(pool_id).await?;
+        
+        // Use rbd ls --format json to list all images
+        let output = self.run_rbd(&["ls", "--pool", &state.pool_name, "--format", "json"], &state)?;
+        
+        let images: Vec<String> = serde_json::from_str(&output).unwrap_or_default();
+        let mut volumes = Vec::new();
+        
+        for image_name in images {
+            // Get image info
+            if let Ok(info_output) = self.run_rbd(&["info", "--pool", &state.pool_name, &image_name, "--format", "json"], &state) {
+                if let Ok(info) = serde_json::from_str::<serde_json::Value>(&info_output) {
+                    let capacity = info["size"].as_u64().unwrap_or(0);
+                    let allocation = info["objects"].as_u64().unwrap_or(0) * 4 * 1024 * 1024; // Estimate based on 4MB objects
+                    
+                    volumes.push(VolumeInfo {
+                        name: image_name.clone(),
+                        path: format!("rbd:{}/{}", state.pool_name, image_name),
+                        capacity,
+                        allocation,
+                        format: Some("rbd".to_string()),
+                    });
+                }
+            }
+        }
+        
+        Ok(volumes)
     }
     
     #[instrument(skip(self, source), fields(pool_id = %pool_id, volume_id = %volume_id, size_bytes = %size_bytes))]

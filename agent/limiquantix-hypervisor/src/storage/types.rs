@@ -197,6 +197,21 @@ pub enum VolumeSource {
     Snapshot(String),
 }
 
+/// Information about a volume in a storage pool.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VolumeInfo {
+    /// Volume name/ID
+    pub name: String,
+    /// Path to the volume
+    pub path: String,
+    /// Capacity in bytes
+    pub capacity: u64,
+    /// Allocation (actual size on disk) in bytes
+    pub allocation: u64,
+    /// Format (qcow2, raw, etc.)
+    pub format: Option<String>,
+}
+
 /// Information about a disk image.
 #[derive(Debug, Clone)]
 pub struct DiskInfo {

@@ -1,8 +1,12 @@
 import { Outlet } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { Sidebar } from './Sidebar';
+import { CreateVMWizard } from '@/components/vm/CreateVMWizard';
+import { useAppStore } from '@/stores/useAppStore';
 
 export function Layout() {
+  const { vmWizardOpen, closeVmWizard } = useAppStore();
+
   return (
     <div className="flex h-screen bg-bg-base">
       <Sidebar />
@@ -22,6 +26,9 @@ export function Layout() {
           },
         }}
       />
+
+      {/* VM Creation Wizard */}
+      <CreateVMWizard isOpen={vmWizardOpen} onClose={closeVmWizard} />
     </div>
   );
 }

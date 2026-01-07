@@ -1,3 +1,10 @@
 export { Dashboard } from './Dashboard';
 export { VirtualMachines } from './VirtualMachines';
+export { VMDetail } from './VMDetail';
 export { Network } from './Network';
+export { StoragePools } from './StoragePools';
+export { Volumes } from './Volumes';
+export { Hardware } from './Hardware';
+export { Performance } from './Performance';
+export { Events } from './Events';
+export { Settings } from './Settings';

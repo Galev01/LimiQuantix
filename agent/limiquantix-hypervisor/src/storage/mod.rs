@@ -305,6 +305,22 @@ impl StorageManager {
         let pools = self.pools.read().await;
         pools.values().cloned().collect()
     }
+    
+    /// List all volumes in a pool.
+    #[instrument(skip(self), fields(pool_id = %pool_id))]
+    pub async fn list_volumes(&self, pool_id: &str) -> Result<Vec<VolumeInfo>> {
+        let pool_type = {
+            let pools = self.pools.read().await;
+            pools.get(pool_id)
+                .map(|p| p.pool_type)
+                .ok_or_else(|| HypervisorError::Internal(
+                    format!("Pool {} not found", pool_id)
+                ))?
+        };
+        
+        let backend = self.get_backend(pool_type)?;
+        backend.list_volumes(pool_id).await
+    }
 }
 
 impl Default for StorageManager {

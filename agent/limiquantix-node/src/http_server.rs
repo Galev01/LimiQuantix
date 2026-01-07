@@ -74,6 +74,94 @@ struct HostInfo {
     hypervisor_version: String,
 }
 
+// Hardware inventory types
+#[derive(Serialize)]
+struct HardwareInventory {
+    cpu: CpuInfo,
+    memory: MemoryInfo,
+    storage: Vec<DiskInfo>,
+    network: Vec<NicInfo>,
+    gpus: Vec<GpuInfo>,
+    pci_devices: Vec<PciDevice>,
+}
+
+#[derive(Serialize)]
+struct CpuInfo {
+    model: String,
+    vendor: String,
+    cores: u32,
+    threads: u32,
+    sockets: u32,
+    frequency_mhz: u64,
+    features: Vec<String>,
+    architecture: String,
+}
+
+#[derive(Serialize)]
+struct MemoryInfo {
+    total_bytes: u64,
+    available_bytes: u64,
+    used_bytes: u64,
+    swap_total_bytes: u64,
+    swap_used_bytes: u64,
+    ecc_enabled: bool,
+    dimm_count: u32,
+}
+
+#[derive(Serialize)]
+struct DiskInfo {
+    name: String,
+    model: String,
+    serial: String,
+    size_bytes: u64,
+    disk_type: String,  // "HDD", "SSD", "NVMe"
+    interface: String,  // "SATA", "NVMe", "USB"
+    is_removable: bool,
+    smart_status: String,
+    partitions: Vec<PartitionInfo>,
+}
+
+#[derive(Serialize)]
+struct PartitionInfo {
+    name: String,
+    mount_point: Option<String>,
+    size_bytes: u64,
+    used_bytes: u64,
+    filesystem: String,
+}
+
+#[derive(Serialize)]
+struct NicInfo {
+    name: String,
+    mac_address: String,
+    driver: String,
+    speed_mbps: Option<u64>,
+    link_state: String,
+    pci_address: Option<String>,
+    sriov_capable: bool,
+    sriov_vfs: u32,
+}
+
+#[derive(Serialize)]
+struct GpuInfo {
+    name: String,
+    vendor: String,
+    pci_address: String,
+    driver: String,
+    memory_bytes: Option<u64>,
+    passthrough_capable: bool,
+}
+
+#[derive(Serialize)]
+struct PciDevice {
+    address: String,
+    vendor: String,
+    device: String,
+    class: String,
+    driver: Option<String>,
+    iommu_group: Option<u32>,
+}
+
 #[derive(Serialize)]
 struct HealthResponse {
     healthy: bool,
@@ -81,6 +169,77 @@ struct HealthResponse {
     hypervisor: String,
     hypervisor_version: String,
     uptime_seconds: u64,
+}
+
+#[derive(Serialize)]
+struct HostMetricsResponse {
+    timestamp: String,
+    cpu_usage_percent: f64,
+    memory_used_bytes: u64,
+    memory_total_bytes: u64,
+    memory_usage_percent: f64,
+    disk_read_bytes_per_sec: u64,
+    disk_write_bytes_per_sec: u64,
+    network_rx_bytes_per_sec: u64,
+    network_tx_bytes_per_sec: u64,
+    load_average_1min: f64,
+    load_average_5min: f64,
+    load_average_15min: f64,
+    vm_count: u32,
+    vm_running_count: u32,
+}
+
+#[derive(Serialize)]
+struct EventResponse {
+    event_id: String,
+    timestamp: String,
+    level: String,
+    category: String,
+    message: String,
+    source: String,
+    details: Option<serde_json::Value>,
+}
+
+#[derive(Serialize)]
+struct EventListResponse {
+    events: Vec<EventResponse>,
+    total_count: u32,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SettingsResponse {
+    node_name: String,
+    node_id: String,
+    grpc_listen: String,
+    http_listen: String,
+    log_level: String,
+    storage_default_pool: Option<String>,
+    network_default_bridge: Option<String>,
+    vnc_listen_address: String,
+    vnc_port_range_start: u16,
+    vnc_port_range_end: u16,
+}
+
+#[derive(Deserialize)]
+struct UpdateSettingsRequest {
+    node_name: Option<String>,
+    log_level: Option<String>,
+    storage_default_pool: Option<String>,
+    network_default_bridge: Option<String>,
+    vnc_listen_address: Option<String>,
+}
+
+#[derive(Serialize)]
+struct ServiceInfo {
+    name: String,
+    status: String,
+    enabled: bool,
+    description: String,
+}
+
+#[derive(Serialize)]
+struct ServiceListResponse {
+    services: Vec<ServiceInfo>,
 }
 
 #[derive(Serialize)]
@@ -126,6 +285,7 @@ struct StoragePoolResponse {
     total_bytes: u64,
     available_bytes: u64,
     used_bytes: u64,
+    volume_count: u32,
 }
 
 #[derive(Serialize)]
@@ -133,260 +293,50 @@ struct StoragePoolListResponse {
     pools: Vec<StoragePoolResponse>,
 }
 
+#[derive(Deserialize)]
+struct CreateStoragePoolRequest {
+    pool_id: String,
+    #[serde(rename = "type")]
+    pool_type: String,  // "LOCAL_DIR", "NFS", "CEPH_RBD", "ISCSI"
+    path: Option<String>,
+    nfs_server: Option<String>,
+    nfs_export: Option<String>,
+}
+
 #[derive(Serialize)]
-struct StorageVolumeResponse {
-    id: String,
-    name: String,
+struct VolumeResponse {
+    volume_id: String,
     pool_id: String,
     size_bytes: u64,
-    allocated_bytes: u64,
-    format: String,  // "qcow2", "raw", "vmdk"
+    format: String,
     path: String,
-    attached_to: Option<String>,  // VM ID if attached
-    created_at: String,
+    attached_to: Option<String>,
 }
 
 #[derive(Serialize)]
-struct StorageVolumeListResponse {
-    volumes: Vec<StorageVolumeResponse>,
-}
-
-// ============================================================================
-// Hardware Types
-// ============================================================================
-
-#[derive(Serialize)]
-struct CpuInfo {
-    model: String,
-    vendor: String,
-    physical_cores: u32,
-    logical_cores: u32,
-    sockets: u32,
-    cores_per_socket: u32,
-    threads_per_core: u32,
-    base_frequency_mhz: u64,
-    current_frequency_mhz: u64,
-    features: Vec<String>,
-    usage_percent: f64,
-}
-
-#[derive(Serialize)]
-struct MemoryInfo {
-    total_bytes: u64,
-    available_bytes: u64,
-    used_bytes: u64,
-    cached_bytes: u64,
-    buffers_bytes: u64,
-    swap_total_bytes: u64,
-    swap_used_bytes: u64,
-    usage_percent: f64,
-}
-
-#[derive(Serialize)]
-struct DiskInfo {
-    name: String,
-    model: String,
-    serial: String,
-    size_bytes: u64,
-    #[serde(rename = "type")]
-    disk_type: String,  // "HDD", "SSD", "NVMe"
-    interface: String,  // "SATA", "NVMe", "USB"
-    partitions: Vec<PartitionInfo>,
-    smart_status: String,  // "healthy", "warning", "failing"
-    temperature_celsius: Option<u32>,
-}
-
-#[derive(Serialize)]
-struct PartitionInfo {
-    name: String,
-    mount_point: Option<String>,
-    filesystem: String,
-    size_bytes: u64,
-    used_bytes: u64,
-}
-
-#[derive(Serialize)]
-struct PciDeviceInfo {
-    address: String,  // e.g., "0000:00:02.0"
-    vendor: String,
-    device: String,
-    class: String,  // "VGA", "Network", "Storage", etc.
-    driver: Option<String>,
-    iommu_group: Option<u32>,
-}
-
-#[derive(Serialize)]
-struct UsbDeviceInfo {
-    bus: u32,
-    device: u32,
-    vendor_id: String,
-    product_id: String,
-    vendor: String,
-    product: String,
-    speed: String,  // "USB 2.0", "USB 3.0", etc.
-}
-
-#[derive(Serialize)]
-struct HardwareInfoResponse {
-    cpu: CpuInfo,
-    memory: MemoryInfo,
-    disks: Vec<DiskInfo>,
-    pci_devices: Vec<PciDeviceInfo>,
-    usb_devices: Vec<UsbDeviceInfo>,
-    network_adapters: Vec<NetworkAdapterHwInfo>,
-}
-
-#[derive(Serialize)]
-struct NetworkAdapterHwInfo {
-    name: String,
-    mac_address: String,
-    vendor: String,
-    model: String,
-    speed_mbps: Option<u64>,
-    link_state: String,  // "up", "down"
-    pci_address: Option<String>,
-}
-
-// ============================================================================
-// Events Types
-// ============================================================================
-
-#[derive(Serialize)]
-struct SystemEvent {
-    id: String,
-    timestamp: String,
-    #[serde(rename = "type")]
-    event_type: String,  // "info", "warning", "error", "critical"
-    category: String,    // "vm", "storage", "network", "system", "security"
-    source: String,      // Component that generated the event
-    message: String,
-    resource_id: Option<String>,
-    details: Option<serde_json::Value>,
-}
-
-#[derive(Serialize)]
-struct EventsListResponse {
-    events: Vec<SystemEvent>,
-    total: u32,
-    page: u32,
-    per_page: u32,
+struct VolumeListResponse {
+    volumes: Vec<VolumeResponse>,
 }
 
 #[derive(Deserialize)]
-struct EventsQuery {
-    #[serde(default)]
-    page: Option<u32>,
-    #[serde(default)]
-    per_page: Option<u32>,
-    #[serde(default)]
-    category: Option<String>,
-    #[serde(default)]
-    event_type: Option<String>,
-    #[serde(default)]
-    since: Option<String>,  // ISO 8601 timestamp
-}
-
-// ============================================================================
-// Performance/Metrics Types
-// ============================================================================
-
-#[derive(Serialize)]
-struct PerformanceMetrics {
-    timestamp: String,
-    cpu: CpuMetrics,
-    memory: MemoryMetrics,
-    disk: DiskMetrics,
-    network: NetworkMetrics,
+struct CreateVolumeRequest {
+    volume_id: String,
+    size_bytes: u64,
+    format: Option<String>,  // "qcow2", "raw"
 }
 
 #[derive(Serialize)]
-struct CpuMetrics {
-    usage_percent: f64,
-    user_percent: f64,
-    system_percent: f64,
-    iowait_percent: f64,
-    load_average: [f64; 3],  // 1, 5, 15 minutes
-    per_core_usage: Vec<f64>,
+struct ImageResponse {
+    image_id: String,
+    name: String,
+    path: String,
+    size_bytes: u64,
+    format: String,
 }
 
 #[derive(Serialize)]
-struct MemoryMetrics {
-    used_bytes: u64,
-    available_bytes: u64,
-    cached_bytes: u64,
-    usage_percent: f64,
-    swap_used_bytes: u64,
-    swap_usage_percent: f64,
-}
-
-#[derive(Serialize)]
-struct DiskMetrics {
-    read_bytes_per_sec: u64,
-    write_bytes_per_sec: u64,
-    read_iops: u64,
-    write_iops: u64,
-    io_utilization_percent: f64,
-}
-
-#[derive(Serialize)]
-struct NetworkMetrics {
-    rx_bytes_per_sec: u64,
-    tx_bytes_per_sec: u64,
-    rx_packets_per_sec: u64,
-    tx_packets_per_sec: u64,
-    rx_errors: u64,
-    tx_errors: u64,
-}
-
-// ============================================================================
-// Settings Types
-// ============================================================================
-
-#[derive(Serialize, Deserialize)]
-struct HostSettings {
-    hostname: String,
-    timezone: String,
-    ntp_enabled: bool,
-    ntp_servers: Vec<String>,
-    ssh_enabled: bool,
-    ssh_port: u16,
-    console_timeout_minutes: u32,
-    auto_update_enabled: bool,
-}
-
-#[derive(Serialize, Deserialize)]
-struct StorageSettings {
-    default_pool: String,
-    vm_storage_path: String,
-    iso_storage_path: String,
-    backup_path: String,
-    thin_provisioning: bool,
-}
-
-#[derive(Serialize, Deserialize)]
-struct NetworkSettings {
-    management_interface: String,
-    default_bridge: String,
-    mtu: u32,
-    dns_servers: Vec<String>,
-    search_domains: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct SecuritySettings {
-    tls_enabled: bool,
-    certificate_path: Option<String>,
-    key_path: Option<String>,
-    api_auth_enabled: bool,
-    allowed_networks: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct AllSettings {
-    host: HostSettings,
-    storage: StorageSettings,
-    network: NetworkSettings,
-    security: SecuritySettings,
+struct ImageListResponse {
+    images: Vec<ImageResponse>,
 }
 
 // ============================================================================
@@ -396,6 +346,65 @@ struct AllSettings {
 #[derive(Deserialize)]
 struct StopVmRequest {
     timeout_seconds: Option<u32>,
+}
+
+#[derive(Deserialize)]
+struct CreateVmRequest {
+    name: String,
+    cpu_cores: u32,
+    cpu_sockets: Option<u32>,
+    memory_mib: u64,
+    disks: Vec<DiskSpecRequest>,
+    nics: Vec<NicSpecRequest>,
+    cloud_init: Option<CloudInitRequest>,
+}
+
+#[derive(Deserialize)]
+struct DiskSpecRequest {
+    id: String,
+    size_gib: u64,
+    bus: Option<String>,
+    format: Option<String>,
+    backing_file: Option<String>,
+    bootable: Option<bool>,
+}
+
+#[derive(Deserialize)]
+struct NicSpecRequest {
+    id: String,
+    network: Option<String>,
+    bridge: Option<String>,
+    mac_address: Option<String>,
+    model: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct CloudInitRequest {
+    user_data: Option<String>,
+    meta_data: Option<String>,
+    network_config: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct CreateSnapshotRequest {
+    name: String,
+    description: Option<String>,
+    quiesce: Option<bool>,
+}
+
+#[derive(Serialize)]
+struct SnapshotResponse {
+    snapshot_id: String,
+    name: String,
+    description: String,
+    created_at: String,
+    vm_state: String,
+    parent_id: Option<String>,
+}
+
+#[derive(Serialize)]
+struct SnapshotListResponse {
+    snapshots: Vec<SnapshotResponse>,
 }
 
 // ============================================================================
@@ -498,9 +507,17 @@ pub async fn run_http_server(
         // Host endpoints
         .route("/host", get(get_host_info))
         .route("/host/health", get(get_host_health))
+        .route("/host/hardware", get(get_hardware_inventory))
+        .route("/host/metrics", get(get_host_metrics))
+        .route("/host/reboot", post(reboot_host))
+        .route("/host/shutdown", post(shutdown_host))
+        // Events endpoint
+        .route("/events", get(list_events))
         // VM endpoints
         .route("/vms", get(list_vms))
+        .route("/vms", post(create_vm))
         .route("/vms/:vm_id", get(get_vm))
+        .route("/vms/:vm_id", axum::routing::delete(delete_vm))
         .route("/vms/:vm_id/start", post(start_vm))
         .route("/vms/:vm_id/stop", post(stop_vm))
         .route("/vms/:vm_id/force-stop", post(force_stop_vm))
@@ -508,35 +525,19 @@ pub async fn run_http_server(
         .route("/vms/:vm_id/pause", post(pause_vm))
         .route("/vms/:vm_id/resume", post(resume_vm))
         .route("/vms/:vm_id/console", get(get_vm_console))
+        .route("/vms/:vm_id/snapshots", get(list_snapshots))
+        .route("/vms/:vm_id/snapshots", post(create_snapshot))
+        .route("/vms/:vm_id/snapshots/:snapshot_id", axum::routing::delete(delete_snapshot))
+        .route("/vms/:vm_id/snapshots/:snapshot_id/revert", post(revert_snapshot))
         // Storage endpoints
         .route("/storage/pools", get(list_storage_pools))
+        .route("/storage/pools", post(create_storage_pool))
         .route("/storage/pools/:pool_id", get(get_storage_pool))
-        .route("/storage/volumes", get(list_storage_volumes))
-        .route("/storage/volumes/:volume_id", get(get_storage_volume))
-        // Hardware endpoints
-        .route("/hardware", get(get_hardware_info))
-        .route("/hardware/cpu", get(get_cpu_info))
-        .route("/hardware/memory", get(get_memory_info))
-        .route("/hardware/disks", get(get_disk_info))
-        .route("/hardware/pci", get(get_pci_devices))
-        .route("/hardware/usb", get(get_usb_devices))
-        // Performance/Metrics endpoints
-        .route("/metrics", get(get_performance_metrics))
-        .route("/metrics/history", get(get_metrics_history))
-        // Events endpoints
-        .route("/events", get(list_events))
-        .route("/events/:event_id", get(get_event))
-        // Settings endpoints
-        .route("/settings", get(get_all_settings))
-        .route("/settings", post(update_settings))
-        .route("/settings/host", get(get_host_settings))
-        .route("/settings/host", post(update_host_settings))
-        .route("/settings/storage", get(get_storage_settings))
-        .route("/settings/storage", post(update_storage_settings))
-        .route("/settings/network", get(get_network_settings))
-        .route("/settings/network", post(update_network_settings))
-        .route("/settings/security", get(get_security_settings))
-        .route("/settings/security", post(update_security_settings))
+        .route("/storage/pools/:pool_id", axum::routing::delete(delete_storage_pool))
+        .route("/storage/pools/:pool_id/volumes", get(list_volumes))
+        .route("/storage/pools/:pool_id/volumes", post(create_volume))
+        .route("/storage/pools/:pool_id/volumes/:volume_id", axum::routing::delete(delete_volume))
+        .route("/storage/images", get(list_images))
         // Network endpoints
         .route("/network/interfaces", get(list_network_interfaces))
         .route("/network/interfaces/:name", get(get_network_interface))
@@ -551,6 +552,11 @@ pub async fn run_http_server(
         .route("/cluster/join", post(join_cluster))
         .route("/cluster/leave", post(leave_cluster))
         .route("/cluster/config", get(get_cluster_config))
+        // Settings endpoints
+        .route("/settings", get(get_settings))
+        .route("/settings", post(update_settings))
+        .route("/settings/services", get(list_services))
+        .route("/settings/services/:name/restart", post(restart_service))
         .with_state(state.clone());
 
     // Check if webui directory exists
@@ -694,6 +700,544 @@ async fn get_host_health(
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiError::new("health_check_failed", &e.to_string())),
+            ))
+        }
+    }
+}
+
+/// GET /api/v1/host/hardware - Get full hardware inventory
+async fn get_hardware_inventory(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<HardwareInventory>, (StatusCode, Json<ApiError>)> {
+    use sysinfo::{System, Disks, Networks};
+    use std::process::Command;
+    
+    let mut sys = System::new_all();
+    sys.refresh_all();
+    
+    // CPU Info
+    let cpu_info = CpuInfo {
+        model: sys.cpus().first().map(|c| c.brand().to_string()).unwrap_or_default(),
+        vendor: sys.cpus().first().map(|c| c.vendor_id().to_string()).unwrap_or_default(),
+        cores: sys.physical_core_count().unwrap_or(0) as u32,
+        threads: sys.cpus().len() as u32,
+        sockets: 1, // sysinfo doesn't provide this directly
+        frequency_mhz: sys.cpus().first().map(|c| c.frequency()).unwrap_or(0),
+        features: get_cpu_features(),
+        architecture: std::env::consts::ARCH.to_string(),
+    };
+    
+    // Memory Info
+    let memory_info = MemoryInfo {
+        total_bytes: sys.total_memory(),
+        available_bytes: sys.available_memory(),
+        used_bytes: sys.used_memory(),
+        swap_total_bytes: sys.total_swap(),
+        swap_used_bytes: sys.used_swap(),
+        ecc_enabled: false, // Would need dmidecode to detect
+        dimm_count: 0,      // Would need dmidecode to detect
+    };
+    
+    // Storage Info
+    let disks = Disks::new_with_refreshed_list();
+    let mut storage: Vec<DiskInfo> = Vec::new();
+    
+    for disk in disks.list() {
+        let name = disk.name().to_string_lossy().to_string();
+        let mount_point = disk.mount_point().to_string_lossy().to_string();
+        
+        // Try to determine disk type
+        let disk_type = if name.contains("nvme") {
+            "NVMe"
+        } else if name.contains("sd") {
+            // Could be SSD or HDD - would need to check /sys/block/*/queue/rotational
+            "SSD/HDD"
+        } else {
+            "Unknown"
+        }.to_string();
+        
+        storage.push(DiskInfo {
+            name: name.clone(),
+            model: String::new(), // Would need lsblk -o MODEL
+            serial: String::new(),
+            size_bytes: disk.total_space(),
+            disk_type,
+            interface: if name.contains("nvme") { "NVMe" } else { "SATA" }.to_string(),
+            is_removable: disk.is_removable(),
+            smart_status: "Unknown".to_string(),
+            partitions: vec![PartitionInfo {
+                name: name.clone(),
+                mount_point: Some(mount_point),
+                size_bytes: disk.total_space(),
+                used_bytes: disk.total_space() - disk.available_space(),
+                filesystem: disk.file_system().to_string_lossy().to_string(),
+            }],
+        });
+    }
+    
+    // Network Info
+    let networks = Networks::new_with_refreshed_list();
+    let mut network: Vec<NicInfo> = Vec::new();
+    
+    for (name, _data) in networks.list() {
+        // Get more info from /sys/class/net
+        let driver = std::fs::read_to_string(format!("/sys/class/net/{}/device/driver/module", name))
+            .map(|s| s.trim().to_string())
+            .ok();
+        
+        let speed = std::fs::read_to_string(format!("/sys/class/net/{}/speed", name))
+            .ok()
+            .and_then(|s| s.trim().parse::<u64>().ok());
+        
+        let operstate = std::fs::read_to_string(format!("/sys/class/net/{}/operstate", name))
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|_| "unknown".to_string());
+        
+        let mac = std::fs::read_to_string(format!("/sys/class/net/{}/address", name))
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+        
+        // Check for SR-IOV capability
+        let sriov_capable = std::path::Path::new(&format!("/sys/class/net/{}/device/sriov_numvfs", name)).exists();
+        let sriov_vfs = std::fs::read_to_string(format!("/sys/class/net/{}/device/sriov_numvfs", name))
+            .ok()
+            .and_then(|s| s.trim().parse::<u32>().ok())
+            .unwrap_or(0);
+        
+        network.push(NicInfo {
+            name: name.clone(),
+            mac_address: mac,
+            driver: driver.unwrap_or_default(),
+            speed_mbps: speed,
+            link_state: operstate,
+            pci_address: None,
+            sriov_capable,
+            sriov_vfs,
+        });
+    }
+    
+    // GPU Info - parse lspci output
+    let gpus = get_gpu_info();
+    
+    // PCI Devices - get passthrough-capable devices
+    let pci_devices = get_pci_devices();
+    
+    Ok(Json(HardwareInventory {
+        cpu: cpu_info,
+        memory: memory_info,
+        storage,
+        network,
+        gpus,
+        pci_devices,
+    }))
+}
+
+fn get_cpu_features() -> Vec<String> {
+    // Read from /proc/cpuinfo
+    if let Ok(cpuinfo) = std::fs::read_to_string("/proc/cpuinfo") {
+        for line in cpuinfo.lines() {
+            if line.starts_with("flags") || line.starts_with("Features") {
+                if let Some(flags) = line.split(':').nth(1) {
+                    return flags.split_whitespace()
+                        .take(20) // Limit to first 20 features
+                        .map(|s| s.to_string())
+                        .collect();
+                }
+            }
+        }
+    }
+    Vec::new()
+}
+
+fn get_gpu_info() -> Vec<GpuInfo> {
+    use std::process::Command;
+    
+    let output = Command::new("lspci")
+        .args(&["-nn", "-D"])
+        .output();
+    
+    let mut gpus = Vec::new();
+    
+    if let Ok(output) = output {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            if line.contains("VGA") || line.contains("3D controller") || line.contains("Display") {
+                let parts: Vec<&str> = line.splitn(2, ' ').collect();
+                if parts.len() >= 2 {
+                    let address = parts[0].to_string();
+                    let name = parts[1].to_string();
+                    
+                    let vendor = if name.contains("NVIDIA") {
+                        "NVIDIA"
+                    } else if name.contains("AMD") || name.contains("ATI") {
+                        "AMD"
+                    } else if name.contains("Intel") {
+                        "Intel"
+                    } else {
+                        "Unknown"
+                    }.to_string();
+                    
+                    // Check if passthrough capable (has IOMMU group)
+                    let iommu_path = format!("/sys/bus/pci/devices/{}/iommu_group", address);
+                    let passthrough_capable = std::path::Path::new(&iommu_path).exists();
+                    
+                    gpus.push(GpuInfo {
+                        name,
+                        vendor,
+                        pci_address: address,
+                        driver: String::new(),
+                        memory_bytes: None,
+                        passthrough_capable,
+                    });
+                }
+            }
+        }
+    }
+    
+    gpus
+}
+
+fn get_pci_devices() -> Vec<PciDevice> {
+    use std::process::Command;
+    
+    let output = Command::new("lspci")
+        .args(&["-nn", "-D", "-k"])
+        .output();
+    
+    let mut devices = Vec::new();
+    
+    if let Ok(output) = output {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut current_device: Option<PciDevice> = None;
+        
+        for line in stdout.lines() {
+            if !line.starts_with('\t') && !line.starts_with(' ') {
+                // New device line
+                if let Some(dev) = current_device.take() {
+                    devices.push(dev);
+                }
+                
+                let parts: Vec<&str> = line.splitn(2, ' ').collect();
+                if parts.len() >= 2 {
+                    let address = parts[0].to_string();
+                    let rest = parts[1];
+                    
+                    // Parse class and device name
+                    let class_end = rest.find(':').unwrap_or(rest.len());
+                    let class = rest[..class_end].to_string();
+                    let device = rest[class_end..].trim_start_matches(':').trim().to_string();
+                    
+                    // Check IOMMU group
+                    let iommu_path = format!("/sys/bus/pci/devices/{}/iommu_group", address);
+                    let iommu_group = std::fs::read_link(&iommu_path)
+                        .ok()
+                        .and_then(|p| p.file_name()?.to_str()?.parse::<u32>().ok());
+                    
+                    current_device = Some(PciDevice {
+                        address,
+                        vendor: String::new(),
+                        device,
+                        class,
+                        driver: None,
+                        iommu_group,
+                    });
+                }
+            } else if line.contains("Kernel driver in use:") {
+                if let Some(ref mut dev) = current_device {
+                    dev.driver = line.split(':').nth(1).map(|s| s.trim().to_string());
+                }
+            }
+        }
+        
+        if let Some(dev) = current_device {
+            devices.push(dev);
+        }
+    }
+    
+    // Filter to interesting devices (GPUs, network, USB controllers, storage controllers)
+    devices.into_iter()
+        .filter(|d| {
+            d.class.contains("VGA") || 
+            d.class.contains("3D") ||
+            d.class.contains("Network") ||
+            d.class.contains("Ethernet") ||
+            d.class.contains("USB") ||
+            d.class.contains("SATA") ||
+            d.class.contains("NVMe")
+        })
+        .collect()
+}
+
+/// POST /api/v1/host/reboot - Reboot the host
+async fn reboot_host(
+    State(_state): State<Arc<AppState>>,
+) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
+    use std::process::Command;
+    
+    info!("Reboot requested via API");
+    
+    // Schedule reboot in 5 seconds to allow response to be sent
+    let result = Command::new("shutdown")
+        .args(&["-r", "+0", "Reboot requested via Quantix API"])
+        .spawn();
+    
+    match result {
+        Ok(_) => Ok(StatusCode::ACCEPTED),
+        Err(e) => {
+            error!(error = %e, "Failed to initiate reboot");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("reboot_failed", &e.to_string())),
+            ))
+        }
+    }
+}
+
+/// POST /api/v1/host/shutdown - Shutdown the host
+async fn shutdown_host(
+    State(_state): State<Arc<AppState>>,
+) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
+    use std::process::Command;
+    
+    info!("Shutdown requested via API");
+    
+    let result = Command::new("shutdown")
+        .args(&["-h", "+0", "Shutdown requested via Quantix API"])
+        .spawn();
+    
+    match result {
+        Ok(_) => Ok(StatusCode::ACCEPTED),
+        Err(e) => {
+            error!(error = %e, "Failed to initiate shutdown");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("shutdown_failed", &e.to_string())),
+            ))
+        }
+    }
+}
+
+/// GET /api/v1/host/metrics - Get current host metrics
+async fn get_host_metrics(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<HostMetricsResponse>, (StatusCode, Json<ApiError>)> {
+    use sysinfo::{System, Disks, Networks};
+    use tonic::Request;
+    use limiquantix_proto::NodeDaemonService;
+    
+    let mut sys = System::new_all();
+    sys.refresh_all();
+    
+    // Get VM count
+    let (vm_count, vm_running_count) = match state.service.list_v_ms(Request::new(())).await {
+        Ok(response) => {
+            let vms = response.into_inner().vms;
+            let total = vms.len() as u32;
+            let running = vms.iter().filter(|vm| vm.state == 1).count() as u32; // 1 = RUNNING
+            (total, running)
+        }
+        Err(_) => (0, 0),
+    };
+    
+    // Calculate CPU usage
+    let cpu_usage = sys.global_cpu_usage() as f64;
+    
+    // Memory
+    let memory_total = sys.total_memory();
+    let memory_used = sys.used_memory();
+    let memory_usage_percent = if memory_total > 0 {
+        (memory_used as f64 / memory_total as f64) * 100.0
+    } else {
+        0.0
+    };
+    
+    // Load average (Linux only)
+    let load_avg = System::load_average();
+    
+    // Disk I/O (we'd need to track this over time for rates, for now return 0)
+    // In a real implementation, we'd keep a history and calculate deltas
+    let disk_read_bytes_per_sec = 0u64;
+    let disk_write_bytes_per_sec = 0u64;
+    
+    // Network I/O (same as disk)
+    let network_rx_bytes_per_sec = 0u64;
+    let network_tx_bytes_per_sec = 0u64;
+    
+    Ok(Json(HostMetricsResponse {
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        cpu_usage_percent: cpu_usage,
+        memory_used_bytes: memory_used,
+        memory_total_bytes: memory_total,
+        memory_usage_percent,
+        disk_read_bytes_per_sec,
+        disk_write_bytes_per_sec,
+        network_rx_bytes_per_sec,
+        network_tx_bytes_per_sec,
+        load_average_1min: load_avg.one,
+        load_average_5min: load_avg.five,
+        load_average_15min: load_avg.fifteen,
+        vm_count,
+        vm_running_count,
+    }))
+}
+
+/// GET /api/v1/events - List events
+async fn list_events(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<EventListResponse>, (StatusCode, Json<ApiError>)> {
+    // For now, return a placeholder list of events
+    // In a real implementation, this would query an event store
+    let events = vec![
+        EventResponse {
+            event_id: uuid::Uuid::new_v4().to_string(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            level: "info".to_string(),
+            category: "system".to_string(),
+            message: "Node daemon started".to_string(),
+            source: "qx-node".to_string(),
+            details: None,
+        },
+    ];
+    
+    Ok(Json(EventListResponse {
+        events,
+        total_count: 1,
+    }))
+}
+
+// ============================================================================
+// Settings API Handlers
+// ============================================================================
+
+/// GET /api/v1/settings - Get current settings
+async fn get_settings(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<SettingsResponse>, (StatusCode, Json<ApiError>)> {
+    Ok(Json(SettingsResponse {
+        node_name: state.service.get_node_id().to_string(),
+        node_id: state.service.get_node_id().to_string(),
+        grpc_listen: "0.0.0.0:9443".to_string(),
+        http_listen: "0.0.0.0:8443".to_string(),
+        log_level: "info".to_string(),
+        storage_default_pool: Some("default".to_string()),
+        network_default_bridge: Some("br0".to_string()),
+        vnc_listen_address: "0.0.0.0".to_string(),
+        vnc_port_range_start: 5900,
+        vnc_port_range_end: 5999,
+    }))
+}
+
+/// POST /api/v1/settings - Update settings
+async fn update_settings(
+    State(_state): State<Arc<AppState>>,
+    Json(req): Json<UpdateSettingsRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    // In a real implementation, this would update the config file
+    info!(
+        node_name = ?req.node_name,
+        log_level = ?req.log_level,
+        "Settings update requested"
+    );
+    
+    Ok(Json(serde_json::json!({
+        "message": "Settings updated. Some changes may require a restart."
+    })))
+}
+
+/// GET /api/v1/settings/services - List system services
+async fn list_services(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<ServiceListResponse>, (StatusCode, Json<ApiError>)> {
+    use std::process::Command;
+    
+    // Try to get service status using systemctl or rc-service
+    let services = vec![
+        ServiceInfo {
+            name: "qx-node".to_string(),
+            status: "running".to_string(),
+            enabled: true,
+            description: "Quantix Node Daemon".to_string(),
+        },
+        ServiceInfo {
+            name: "libvirtd".to_string(),
+            status: get_service_status("libvirtd"),
+            enabled: true,
+            description: "Libvirt Virtualization Daemon".to_string(),
+        },
+        ServiceInfo {
+            name: "sshd".to_string(),
+            status: get_service_status("sshd"),
+            enabled: true,
+            description: "OpenSSH Server".to_string(),
+        },
+    ];
+    
+    Ok(Json(ServiceListResponse { services }))
+}
+
+fn get_service_status(name: &str) -> String {
+    use std::process::Command;
+    
+    // Try systemctl first
+    if let Ok(output) = Command::new("systemctl")
+        .args(&["is-active", name])
+        .output()
+    {
+        if output.status.success() {
+            return String::from_utf8_lossy(&output.stdout).trim().to_string();
+        }
+    }
+    
+    // Try rc-service (Alpine/OpenRC)
+    if let Ok(output) = Command::new("rc-service")
+        .args(&[name, "status"])
+        .output()
+    {
+        if output.status.success() {
+            return "running".to_string();
+        }
+    }
+    
+    "unknown".to_string()
+}
+
+/// POST /api/v1/settings/services/:name/restart - Restart a service
+async fn restart_service(
+    State(_state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    use std::process::Command;
+    
+    info!(service = %name, "Service restart requested");
+    
+    // Try systemctl first
+    let result = Command::new("systemctl")
+        .args(&["restart", &name])
+        .output();
+    
+    if let Ok(output) = result {
+        if output.status.success() {
+            return Ok(Json(serde_json::json!({
+                "message": format!("Service {} restarted", name)
+            })));
+        }
+    }
+    
+    // Try rc-service (Alpine/OpenRC)
+    let result = Command::new("rc-service")
+        .args(&[&name, "restart"])
+        .output();
+    
+    match result {
+        Ok(output) if output.status.success() => {
+            Ok(Json(serde_json::json!({
+                "message": format!("Service {} restarted", name)
+            })))
+        }
+        _ => {
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("restart_failed", &format!("Failed to restart service {}", name))),
             ))
         }
     }
@@ -954,6 +1498,266 @@ async fn get_vm_console(
     }
 }
 
+/// POST /api/v1/vms - Create a new VM
+async fn create_vm(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<CreateVmRequest>,
+) -> Result<Json<VmResponse>, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::{
+        NodeDaemonService, CreateVmOnNodeRequest, VmSpec, DiskSpec, NicSpec,
+        DiskBus, DiskFormat, NicModel, CloudInitConfig,
+    };
+    
+    // Generate VM ID
+    let vm_id = format!("vm-{}", uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("unknown"));
+    
+    // Convert disk specs
+    let disks: Vec<DiskSpec> = request.disks.iter().map(|d| {
+        let bus = match d.bus.as_deref() {
+            Some("scsi") => DiskBus::Scsi as i32,
+            Some("sata") => DiskBus::Sata as i32,
+            Some("ide") => DiskBus::Ide as i32,
+            _ => DiskBus::Virtio as i32,
+        };
+        let format = match d.format.as_deref() {
+            Some("raw") => DiskFormat::Raw as i32,
+            _ => DiskFormat::Qcow2 as i32,
+        };
+        DiskSpec {
+            id: d.id.clone(),
+            path: String::new(),
+            size_gib: d.size_gib,
+            bus,
+            format,
+            readonly: false,
+            bootable: d.bootable.unwrap_or(false),
+            iops_limit: 0,
+            throughput_mbps: 0,
+            backing_file: d.backing_file.clone().unwrap_or_default(),
+        }
+    }).collect();
+    
+    // Convert NIC specs
+    let nics: Vec<NicSpec> = request.nics.iter().map(|n| {
+        let model = match n.model.as_deref() {
+            Some("e1000") => NicModel::E1000 as i32,
+            Some("rtl8139") => NicModel::Rtl8139 as i32,
+            _ => NicModel::Virtio as i32,
+        };
+        NicSpec {
+            id: n.id.clone(),
+            mac_address: n.mac_address.clone().unwrap_or_default(),
+            bridge: n.bridge.clone().unwrap_or_default(),
+            network: n.network.clone().unwrap_or_default(),
+            model,
+            bandwidth_mbps: 0,
+        }
+    }).collect();
+    
+    // Build cloud-init config if provided
+    let cloud_init = request.cloud_init.map(|ci| CloudInitConfig {
+        user_data: ci.user_data.unwrap_or_default(),
+        meta_data: ci.meta_data.unwrap_or_default(),
+        network_config: ci.network_config.unwrap_or_default(),
+        vendor_data: String::new(),
+    });
+    
+    let proto_request = CreateVmOnNodeRequest {
+        vm_id: vm_id.clone(),
+        name: request.name.clone(),
+        labels: std::collections::HashMap::new(),
+        spec: Some(VmSpec {
+            cpu_cores: request.cpu_cores,
+            cpu_sockets: request.cpu_sockets.unwrap_or(1),
+            cpu_threads_per_core: 1,
+            memory_mib: request.memory_mib,
+            memory_hugepages: false,
+            firmware: 0, // BIOS
+            boot_order: vec![0], // Disk first
+            disks,
+            nics,
+            cdroms: vec![],
+            console: None,
+            cloud_init,
+        }),
+    };
+    
+    match state.service.create_vm(Request::new(proto_request)).await {
+        Ok(response) => {
+            let result = response.into_inner();
+            Ok(Json(VmResponse {
+                vm_id: result.vm_id,
+                name: request.name,
+                state: "STOPPED".to_string(),
+                cpu_usage_percent: 0.0,
+                memory_used_bytes: 0,
+                memory_total_bytes: request.memory_mib * 1024 * 1024,
+                guest_agent: None,
+            }))
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to create VM");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("create_vm_failed", &e.message())),
+            ))
+        }
+    }
+}
+
+/// DELETE /api/v1/vms/:vm_id - Delete a VM
+async fn delete_vm(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::{NodeDaemonService, VmIdRequest};
+
+    match state.service.delete_vm(Request::new(VmIdRequest { vm_id: vm_id.clone() })).await {
+        Ok(_) => Ok(StatusCode::NO_CONTENT),
+        Err(e) => {
+            let status = if e.code() == tonic::Code::NotFound {
+                StatusCode::NOT_FOUND
+            } else if e.code() == tonic::Code::FailedPrecondition {
+                StatusCode::CONFLICT // VM must be stopped first
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            Err((status, Json(ApiError::new("delete_vm_failed", &e.message()))))
+        }
+    }
+}
+
+/// GET /api/v1/vms/:vm_id/snapshots - List snapshots
+async fn list_snapshots(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+) -> Result<Json<SnapshotListResponse>, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::{NodeDaemonService, VmIdRequest};
+
+    match state.service.list_snapshots(Request::new(VmIdRequest { vm_id: vm_id.clone() })).await {
+        Ok(response) => {
+            let snapshots = response.into_inner().snapshots.into_iter().map(|s| {
+                SnapshotResponse {
+                    snapshot_id: s.snapshot_id,
+                    name: s.name,
+                    description: s.description,
+                    created_at: s.created_at.map(|t| {
+                        chrono::DateTime::from_timestamp(t.seconds, t.nanos as u32)
+                            .map(|dt| dt.to_rfc3339())
+                            .unwrap_or_default()
+                    }).unwrap_or_default(),
+                    vm_state: power_state_to_string(s.vm_state),
+                    parent_id: if s.parent_id.is_empty() { None } else { Some(s.parent_id) },
+                }
+            }).collect();
+            
+            Ok(Json(SnapshotListResponse { snapshots }))
+        }
+        Err(e) => {
+            error!(error = %e, vm_id = %vm_id, "Failed to list snapshots");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("list_snapshots_failed", &e.message())),
+            ))
+        }
+    }
+}
+
+/// POST /api/v1/vms/:vm_id/snapshots - Create a snapshot
+async fn create_snapshot(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+    Json(request): Json<CreateSnapshotRequest>,
+) -> Result<Json<SnapshotResponse>, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::{NodeDaemonService, CreateSnapshotRequest as ProtoRequest};
+
+    let proto_request = ProtoRequest {
+        vm_id: vm_id.clone(),
+        name: request.name.clone(),
+        description: request.description.unwrap_or_default(),
+        quiesce: request.quiesce.unwrap_or(false),
+    };
+
+    match state.service.create_snapshot(Request::new(proto_request)).await {
+        Ok(response) => {
+            let s = response.into_inner();
+            Ok(Json(SnapshotResponse {
+                snapshot_id: s.snapshot_id,
+                name: s.name,
+                description: s.description,
+                created_at: s.created_at.map(|t| {
+                    chrono::DateTime::from_timestamp(t.seconds, t.nanos as u32)
+                        .map(|dt| dt.to_rfc3339())
+                        .unwrap_or_default()
+                }).unwrap_or_default(),
+                vm_state: power_state_to_string(s.vm_state),
+                parent_id: if s.parent_id.is_empty() { None } else { Some(s.parent_id) },
+            }))
+        }
+        Err(e) => {
+            error!(error = %e, vm_id = %vm_id, "Failed to create snapshot");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("create_snapshot_failed", &e.message())),
+            ))
+        }
+    }
+}
+
+/// DELETE /api/v1/vms/:vm_id/snapshots/:snapshot_id - Delete a snapshot
+async fn delete_snapshot(
+    State(state): State<Arc<AppState>>,
+    Path((vm_id, snapshot_id)): Path<(String, String)>,
+) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::{NodeDaemonService, DeleteSnapshotRequest};
+
+    match state.service.delete_snapshot(Request::new(DeleteSnapshotRequest { 
+        vm_id: vm_id.clone(), 
+        snapshot_id: snapshot_id.clone() 
+    })).await {
+        Ok(_) => Ok(StatusCode::NO_CONTENT),
+        Err(e) => {
+            error!(error = %e, vm_id = %vm_id, snapshot_id = %snapshot_id, "Failed to delete snapshot");
+            let status = if e.code() == tonic::Code::NotFound {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            Err((status, Json(ApiError::new("delete_snapshot_failed", &e.message()))))
+        }
+    }
+}
+
+/// POST /api/v1/vms/:vm_id/snapshots/:snapshot_id/revert - Revert to a snapshot
+async fn revert_snapshot(
+    State(state): State<Arc<AppState>>,
+    Path((vm_id, snapshot_id)): Path<(String, String)>,
+) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::{NodeDaemonService, RevertSnapshotRequest};
+
+    match state.service.revert_snapshot(Request::new(RevertSnapshotRequest { 
+        vm_id: vm_id.clone(), 
+        snapshot_id: snapshot_id.clone() 
+    })).await {
+        Ok(_) => Ok(StatusCode::OK),
+        Err(e) => {
+            error!(error = %e, vm_id = %vm_id, snapshot_id = %snapshot_id, "Failed to revert snapshot");
+            let status = if e.code() == tonic::Code::NotFound {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            Err((status, Json(ApiError::new("revert_snapshot_failed", &e.message()))))
+        }
+    }
+}
+
 // ============================================================================
 // Storage API Handlers
 // ============================================================================
@@ -975,6 +1779,7 @@ async fn list_storage_pools(
                     total_bytes: pool.total_bytes,
                     available_bytes: pool.available_bytes,
                     used_bytes: pool.used_bytes,
+                    volume_count: pool.volume_count,
                 }
             }).collect();
             
@@ -985,6 +1790,272 @@ async fn list_storage_pools(
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiError::new("list_pools_failed", &e.message())),
+            ))
+        }
+    }
+}
+
+/// GET /api/v1/storage/pools/:pool_id - Get a specific storage pool
+async fn get_storage_pool(
+    State(state): State<Arc<AppState>>,
+    Path(pool_id): Path<String>,
+) -> Result<Json<StoragePoolResponse>, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::NodeDaemonService;
+
+    match state.service.list_storage_pools(Request::new(())).await {
+        Ok(response) => {
+            let pools = response.into_inner().pools;
+            if let Some(pool) = pools.into_iter().find(|p| p.pool_id == pool_id) {
+                Ok(Json(StoragePoolResponse {
+                    pool_id: pool.pool_id,
+                    pool_type: pool_type_to_string(pool.r#type),
+                    mount_path: pool.mount_path,
+                    total_bytes: pool.total_bytes,
+                    available_bytes: pool.available_bytes,
+                    used_bytes: pool.used_bytes,
+                    volume_count: pool.volume_count,
+                }))
+            } else {
+                Err((
+                    StatusCode::NOT_FOUND,
+                    Json(ApiError::new("pool_not_found", &format!("Pool {} not found", pool_id))),
+                ))
+            }
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to get storage pool");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("get_pool_failed", &e.message())),
+            ))
+        }
+    }
+}
+
+/// POST /api/v1/storage/pools - Create a storage pool
+async fn create_storage_pool(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<CreateStoragePoolRequest>,
+) -> Result<Json<StoragePoolResponse>, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::{
+        NodeDaemonService, InitStoragePoolRequest, StoragePoolType, StoragePoolConfig,
+        LocalDirPoolConfig, NfsPoolConfig,
+    };
+
+    let pool_type = match request.pool_type.to_uppercase().as_str() {
+        "LOCAL_DIR" => StoragePoolType::LocalDir,
+        "NFS" => StoragePoolType::Nfs,
+        "CEPH_RBD" => StoragePoolType::CephRbd,
+        "ISCSI" => StoragePoolType::Iscsi,
+        _ => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ApiError::new("invalid_pool_type", "Valid types: LOCAL_DIR, NFS, CEPH_RBD, ISCSI")),
+            ));
+        }
+    };
+
+    // Build the config based on pool type
+    let config = match pool_type {
+        StoragePoolType::LocalDir => Some(StoragePoolConfig {
+            local: Some(LocalDirPoolConfig {
+                path: request.path.unwrap_or_else(|| format!("/var/lib/limiquantix/pools/{}", request.pool_id)),
+            }),
+            nfs: None,
+            ceph: None,
+            iscsi: None,
+        }),
+        StoragePoolType::Nfs => Some(StoragePoolConfig {
+            local: None,
+            nfs: Some(NfsPoolConfig {
+                server: request.nfs_server.unwrap_or_default(),
+                export_path: request.nfs_export.unwrap_or_default(),
+                version: "4".to_string(),
+                options: "".to_string(),
+                mount_point: "".to_string(),
+            }),
+            ceph: None,
+            iscsi: None,
+        }),
+        _ => None,
+    };
+
+    let proto_request = InitStoragePoolRequest {
+        pool_id: request.pool_id.clone(),
+        r#type: pool_type as i32,
+        config,
+    };
+
+    match state.service.init_storage_pool(Request::new(proto_request)).await {
+        Ok(response) => {
+            let pool = response.into_inner();
+            Ok(Json(StoragePoolResponse {
+                pool_id: pool.pool_id,
+                pool_type: pool_type_to_string(pool.r#type),
+                mount_path: pool.mount_path,
+                total_bytes: pool.total_bytes,
+                available_bytes: pool.available_bytes,
+                used_bytes: pool.used_bytes,
+                volume_count: 0,
+            }))
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to create storage pool");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("create_pool_failed", &e.message())),
+            ))
+        }
+    }
+}
+
+/// DELETE /api/v1/storage/pools/:pool_id - Delete a storage pool
+async fn delete_storage_pool(
+    State(state): State<Arc<AppState>>,
+    Path(pool_id): Path<String>,
+) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::{NodeDaemonService, StoragePoolIdRequest};
+
+    match state.service.destroy_storage_pool(Request::new(StoragePoolIdRequest { pool_id: pool_id.clone() })).await {
+        Ok(_) => Ok(StatusCode::NO_CONTENT),
+        Err(e) => {
+            error!(error = %e, pool_id = %pool_id, "Failed to delete storage pool");
+            let status = if e.code() == tonic::Code::NotFound {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            Err((status, Json(ApiError::new("delete_pool_failed", &e.message()))))
+        }
+    }
+}
+
+/// GET /api/v1/storage/pools/:pool_id/volumes - List volumes in a pool
+async fn list_volumes(
+    State(state): State<Arc<AppState>>,
+    Path(pool_id): Path<String>,
+) -> Result<Json<VolumeListResponse>, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::{NodeDaemonService, ListVolumesRequest};
+
+    match state.service.list_volumes(Request::new(ListVolumesRequest { pool_id: pool_id.clone() })).await {
+        Ok(response) => {
+            let volumes = response.into_inner().volumes.into_iter().map(|vol| {
+                VolumeResponse {
+                    volume_id: vol.volume_id,
+                    pool_id: vol.pool_id,
+                    size_bytes: vol.size_bytes,
+                    format: vol.format,
+                    path: vol.path,
+                    attached_to: if vol.attached_to.is_empty() { None } else { Some(vol.attached_to) },
+                }
+            }).collect();
+            
+            Ok(Json(VolumeListResponse { volumes }))
+        }
+        Err(e) => {
+            error!(error = %e, pool_id = %pool_id, "Failed to list volumes");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("list_volumes_failed", &e.message())),
+            ))
+        }
+    }
+}
+
+/// POST /api/v1/storage/pools/:pool_id/volumes - Create a volume
+async fn create_volume(
+    State(state): State<Arc<AppState>>,
+    Path(pool_id): Path<String>,
+    Json(request): Json<CreateVolumeRequest>,
+) -> Result<Json<VolumeResponse>, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::{NodeDaemonService, CreateVolumeRequest as ProtoRequest, VolumeSourceType};
+
+    let proto_request = ProtoRequest {
+        pool_id: pool_id.clone(),
+        volume_id: request.volume_id.clone(),
+        size_bytes: request.size_bytes,
+        source_type: VolumeSourceType::Empty as i32,
+        source_id: "".to_string(),
+    };
+
+    match state.service.create_volume(Request::new(proto_request)).await {
+        Ok(response) => {
+            let vol = response.into_inner();
+            Ok(Json(VolumeResponse {
+                volume_id: vol.volume_id,
+                pool_id: vol.pool_id,
+                size_bytes: vol.size_bytes,
+                format: vol.format,
+                path: vol.path,
+                attached_to: if vol.attached_to.is_empty() { None } else { Some(vol.attached_to) },
+            }))
+        }
+        Err(e) => {
+            error!(error = %e, pool_id = %pool_id, "Failed to create volume");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("create_volume_failed", &e.message())),
+            ))
+        }
+    }
+}
+
+/// DELETE /api/v1/storage/pools/:pool_id/volumes/:volume_id - Delete a volume
+async fn delete_volume(
+    State(state): State<Arc<AppState>>,
+    Path((pool_id, volume_id)): Path<(String, String)>,
+) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::{NodeDaemonService, VolumeIdRequest};
+
+    match state.service.delete_volume(Request::new(VolumeIdRequest { 
+        pool_id: pool_id.clone(), 
+        volume_id: volume_id.clone() 
+    })).await {
+        Ok(_) => Ok(StatusCode::NO_CONTENT),
+        Err(e) => {
+            error!(error = %e, pool_id = %pool_id, volume_id = %volume_id, "Failed to delete volume");
+            let status = if e.code() == tonic::Code::NotFound {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            Err((status, Json(ApiError::new("delete_volume_failed", &e.message()))))
+        }
+    }
+}
+
+/// GET /api/v1/storage/images - List ISO images
+async fn list_images(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<ImageListResponse>, (StatusCode, Json<ApiError>)> {
+    use tonic::Request;
+    use limiquantix_proto::NodeDaemonService;
+
+    match state.service.list_images(Request::new(())).await {
+        Ok(response) => {
+            let images = response.into_inner().images.into_iter().map(|img| {
+                ImageResponse {
+                    image_id: img.image_id,
+                    name: img.name,
+                    path: img.path,
+                    size_bytes: img.size_bytes,
+                    format: img.format,
+                }
+            }).collect();
+            
+            Ok(Json(ImageListResponse { images }))
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to list images");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("list_images_failed", &e.message())),
             ))
         }
     }

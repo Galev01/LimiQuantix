@@ -40,7 +40,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::error::{HypervisorError, Result};
-use super::types::{PoolConfig, PoolInfo, PoolType, VolumeAttachInfo, VolumeSource};
+use super::types::{PoolConfig, PoolInfo, PoolType, VolumeAttachInfo, VolumeSource, VolumeInfo};
 use super::traits::StorageBackend;
 
 /// Cached iSCSI pool state.
@@ -476,6 +476,49 @@ impl StorageBackend for IscsiBackend {
             total_bytes,
             available_bytes,
         })
+    }
+    
+    async fn list_volumes(&self, pool_id: &str) -> Result<Vec<VolumeInfo>> {
+        let state = self.get_pool_state(pool_id).await?;
+        
+        // Use lvs to list logical volumes in the VG
+        let output = Command::new("lvs")
+            .args(&[
+                "--noheadings",
+                "--units", "b",
+                "--separator", ",",
+                "-o", "lv_name,lv_size,lv_path",
+                &state.volume_group,
+            ])
+            .output()
+            .map_err(|e| HypervisorError::Internal(format!("lvs command failed: {}", e)))?;
+        
+        if !output.status.success() {
+            return Ok(Vec::new());
+        }
+        
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut volumes = Vec::new();
+        
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.trim().split(',').collect();
+            if parts.len() >= 3 {
+                let name = parts[0].trim().to_string();
+                let size_str = parts[1].trim().trim_end_matches('B');
+                let capacity: u64 = size_str.parse().unwrap_or(0);
+                let path = parts[2].trim().to_string();
+                
+                volumes.push(VolumeInfo {
+                    name,
+                    path,
+                    capacity,
+                    allocation: capacity, // LVM thin provisioning would need separate tracking
+                    format: Some("lvm".to_string()),
+                });
+            }
+        }
+        
+        Ok(volumes)
     }
     
     #[instrument(skip(self, source), fields(pool_id = %pool_id, volume_id = %volume_id, size_bytes = %size_bytes))]

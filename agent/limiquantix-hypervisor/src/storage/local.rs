@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use tracing::{debug, info, instrument, warn};
 
 use crate::error::{HypervisorError, Result};
-use super::types::{DiskInfo, PoolConfig, PoolInfo, PoolType, VolumeAttachInfo, VolumeSource};
+use super::types::{DiskInfo, PoolConfig, PoolInfo, PoolType, VolumeAttachInfo, VolumeSource, VolumeInfo};
 use super::traits::StorageBackend;
 
 /// Default storage base path for disk images.
@@ -276,6 +276,49 @@ impl StorageBackend for LocalBackend {
             total_bytes: total,
             available_bytes: available,
         })
+    }
+    
+    async fn list_volumes(&self, pool_id: &str) -> Result<Vec<VolumeInfo>> {
+        let pool_path = self.pool_path(pool_id);
+        
+        if !pool_path.exists() {
+            return Ok(Vec::new());
+        }
+        
+        let mut volumes = Vec::new();
+        
+        if let Ok(entries) = std::fs::read_dir(&pool_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(ext) = path.extension() {
+                    if ext == "qcow2" || ext == "raw" || ext == "img" {
+                        let name = path.file_stem()
+                            .map(|s| s.to_string_lossy().to_string())
+                            .unwrap_or_default();
+                        
+                        // Get disk info if possible
+                        let (capacity, allocation, format) = match self.get_disk_info(&path) {
+                            Ok(info) => (info.virtual_size, info.actual_size, Some(info.format)),
+                            Err(_) => {
+                                // Fallback to file size
+                                let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                                (size, size, None)
+                            }
+                        };
+                        
+                        volumes.push(VolumeInfo {
+                            name,
+                            path: path.to_string_lossy().to_string(),
+                            capacity,
+                            allocation,
+                            format,
+                        });
+                    }
+                }
+            }
+        }
+        
+        Ok(volumes)
     }
     
     async fn create_volume(

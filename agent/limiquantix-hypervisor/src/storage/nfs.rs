@@ -27,7 +27,7 @@ use async_trait::async_trait;
 use tracing::{debug, info, instrument, warn};
 
 use crate::error::{HypervisorError, Result};
-use super::types::{PoolConfig, PoolInfo, PoolType, VolumeAttachInfo, VolumeSource};
+use super::types::{PoolConfig, PoolInfo, PoolType, VolumeAttachInfo, VolumeSource, VolumeInfo};
 use super::traits::StorageBackend;
 
 /// Base path for NFS mount points.
@@ -68,6 +68,45 @@ impl NfsBackend {
     /// Get the volume path within a mounted pool.
     fn volume_path(&self, pool_id: &str, volume_id: &str) -> PathBuf {
         self.mount_point(pool_id).join(format!("{}.qcow2", volume_id))
+    }
+    
+    /// Get information about a disk image.
+    #[instrument(skip(self), fields(path = %path.display()))]
+    fn get_disk_info(&self, path: &Path) -> Result<super::types::DiskInfo> {
+        use super::types::DiskInfo;
+        
+        debug!("Getting disk info");
+        
+        if !path.exists() {
+            return Err(HypervisorError::InvalidConfig(
+                format!("Disk image does not exist: {}", path.display())
+            ));
+        }
+        
+        let output = Command::new(&self.qemu_img_path)
+            .args([
+                "info",
+                "--output=json",
+                path.to_str().unwrap_or_default(),
+            ])
+            .output()
+            .map_err(|e| HypervisorError::Internal(format!("qemu-img info failed: {}", e)))?;
+        
+        if !output.status.success() {
+            return Err(HypervisorError::Internal("qemu-img info failed".into()));
+        }
+        
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let info: serde_json::Value = serde_json::from_str(&stdout)
+            .map_err(|e| HypervisorError::Internal(format!("Failed to parse qemu-img output: {}", e)))?;
+        
+        Ok(DiskInfo {
+            path: path.to_path_buf(),
+            format: info["format"].as_str().unwrap_or("unknown").to_string(),
+            virtual_size: info["virtual-size"].as_u64().unwrap_or(0),
+            actual_size: info["actual-size"].as_u64().unwrap_or(0),
+            backing_file: info["backing-filename"].as_str().map(PathBuf::from),
+        })
     }
     
     /// Mount an NFS share.
@@ -352,6 +391,47 @@ impl StorageBackend for NfsBackend {
             total_bytes: total,
             available_bytes: available,
         })
+    }
+    
+    async fn list_volumes(&self, pool_id: &str) -> Result<Vec<VolumeInfo>> {
+        let mount_path = self.mount_point(pool_id);
+        
+        if !mount_path.exists() {
+            return Ok(Vec::new());
+        }
+        
+        let mut volumes = Vec::new();
+        
+        if let Ok(entries) = std::fs::read_dir(&mount_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(ext) = path.extension() {
+                    if ext == "qcow2" || ext == "raw" || ext == "img" {
+                        let name = path.file_stem()
+                            .map(|s| s.to_string_lossy().to_string())
+                            .unwrap_or_default();
+                        
+                        let (capacity, allocation, format) = match self.get_disk_info(&path) {
+                            Ok(info) => (info.virtual_size, info.actual_size, Some(info.format)),
+                            Err(_) => {
+                                let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                                (size, size, None)
+                            }
+                        };
+                        
+                        volumes.push(VolumeInfo {
+                            name,
+                            path: path.to_string_lossy().to_string(),
+                            capacity,
+                            allocation,
+                            format,
+                        });
+                    }
+                }
+            }
+        }
+        
+        Ok(volumes)
     }
     
     #[instrument(skip(self, source), fields(pool_id = %pool_id, volume_id = %volume_id, size_bytes = %size_bytes))]
