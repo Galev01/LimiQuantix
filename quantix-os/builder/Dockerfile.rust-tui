@@ -25,6 +25,12 @@ RUN apk add --no-cache \
     # SSL for network operations (static)
     openssl-dev \
     openssl-libs-static \
+    # Libvirt for VM management
+    libvirt-dev \
+    pkgconfig \
+    # Protobuf compiler for gRPC
+    protobuf \
+    protobuf-dev \
     && rm -rf /var/cache/apk/*
 
 # Set environment for static linking

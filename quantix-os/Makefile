@@ -137,7 +137,7 @@ node-daemon: docker-rust-tui
 			-v "$$(cd .. && pwd)/agent:/build:rw" \
 			-w /build \
 			$(RUST_TUI_IMAGE) \
-			sh -c "cargo build --release -p limiquantix-node && \
+			sh -c "cargo build --release -p limiquantix-node --features libvirt && \
 			       cp target/release/limiquantix-node /build/limiquantix-node-musl"; \
 		cp ../agent/limiquantix-node-musl $(OVERLAY_DIR)/usr/bin/qx-node; \
 		rm -f ../agent/limiquantix-node-musl; \
