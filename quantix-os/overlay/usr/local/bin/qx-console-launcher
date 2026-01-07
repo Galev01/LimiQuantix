@@ -52,6 +52,38 @@ is_serial_or_ssh() {
     return 1
 }
 
+# Check if running in a virtual machine (QEMU, VirtualBox, VMware, etc.)
+is_virtual_machine() {
+    # Check DMI product name
+    if [ -f /sys/class/dmi/id/product_name ]; then
+        PRODUCT=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
+        case "$PRODUCT" in
+            *QEMU*|*VirtualBox*|*VMware*|*Bochs*|*KVM*)
+                return 0
+                ;;
+        esac
+    fi
+    
+    # Check for hypervisor flag in cpuinfo
+    if grep -q "hypervisor" /proc/cpuinfo 2>/dev/null; then
+        return 0
+    fi
+    
+    # Check for virtual devices
+    if [ -e /dev/vda ] || [ -e /dev/vdb ]; then
+        return 0
+    fi
+    
+    # Check systemd-detect-virt if available
+    if command -v systemd-detect-virt >/dev/null 2>&1; then
+        if systemd-detect-virt -q 2>/dev/null; then
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
 # Wait for the node daemon to be ready
 wait_for_webui() {
     log "Waiting for Web UI at $WEBUI_URL..."
@@ -178,6 +210,14 @@ start_web_kiosk() {
     log "  └─────────────────────────────────────────────────────────┘"
     log ""
     
+    # Check if we're in a VM - Web Kiosk doesn't work well in QEMU/VirtualBox
+    if is_virtual_machine; then
+        log "Virtual machine detected - Web Kiosk not supported"
+        log "Starting DCUI (TUI) instead..."
+        start_dcui
+        return
+    fi
+    
     # Start TUI on VT2 in background
     log "Starting DCUI on VT2 (accessible via Ctrl+Alt+F2)..."
     (
@@ -190,50 +230,52 @@ start_web_kiosk() {
     MAX_FAILURES=3
     
     # Run the kiosk on VT1
-    while true; do
-        log "Launching cage with cog..."
+    while [ $FAIL_COUNT -lt $MAX_FAILURES ]; do
+        log "Launching cage with cog (attempt $((FAIL_COUNT + 1))/$MAX_FAILURES)..."
+        
+        # Record start time to detect rapid failures
+        START_TIME=$(date +%s)
         
         # Start cage with cog
         cage -- cog "$WEBUI_URL" 2>&1 | tee -a "$LOG_FILE"
         CAGE_EXIT=$?
         
-        log "Cage exited with code: $CAGE_EXIT"
+        END_TIME=$(date +%s)
+        RUN_TIME=$((END_TIME - START_TIME))
         
-        # If cage crashed, track failures
-        if [ $CAGE_EXIT -ne 0 ]; then
+        log "Cage exited with code: $CAGE_EXIT after ${RUN_TIME}s"
+        
+        # If cage ran for less than 5 seconds, it's a failure regardless of exit code
+        if [ $RUN_TIME -lt 5 ]; then
             FAIL_COUNT=$((FAIL_COUNT + 1))
-            log "Web Kiosk failed ($FAIL_COUNT/$MAX_FAILURES)"
+            log "Web Kiosk failed quickly ($FAIL_COUNT/$MAX_FAILURES)"
             
-            # Check for EGL/DRI errors and try software rendering
-            if grep -q "eglInitialize\|drm_dri\|DRI\|EGL" "$LOG_FILE" 2>/dev/null; then
-                log "Graphics driver issue detected, enabling software rendering..."
+            # Try software rendering on subsequent attempts
+            if [ $FAIL_COUNT -eq 1 ]; then
+                log "Trying software rendering..."
                 export LIBGL_ALWAYS_SOFTWARE=1
                 export WLR_RENDERER=pixman
             fi
             
-            # If we've failed too many times, fall back to DCUI
-            if [ $FAIL_COUNT -ge $MAX_FAILURES ]; then
-                log "Too many failures, falling back to DCUI (TUI)..."
-                log ""
-                log "  ┌─────────────────────────────────────────────────────────┐"
-                log "  │  Web Kiosk failed to start - Graphics driver issue      │"
-                log "  │  Starting DCUI (Text Console) instead...                │"
-                log "  └─────────────────────────────────────────────────────────┘"
-                log ""
-                start_dcui
-                return
-            fi
-            
-            log "Restarting in 3 seconds..."
-            sleep 3
+            sleep 2
             continue
         fi
         
-        # Normal exit (success) - reset fail count and restart
-        FAIL_COUNT=0
-        log "Web Kiosk exited normally, restarting..."
+        # If cage ran for a while but exited, restart it
+        log "Web Kiosk exited, restarting..."
         sleep 1
     done
+    
+    # All attempts failed - fall back to DCUI
+    log "Web Kiosk failed $MAX_FAILURES times, falling back to DCUI..."
+    log ""
+    log "  ┌─────────────────────────────────────────────────────────┐"
+    log "  │  Web Kiosk failed - Graphics driver not available      │"
+    log "  │  Starting DCUI (Text Console) instead...               │"
+    log "  │  This is normal for VMs and headless systems.          │"
+    log "  └─────────────────────────────────────────────────────────┘"
+    log ""
+    start_dcui
 }
 
 # Start DCUI (TUI) session - returns when user exits
