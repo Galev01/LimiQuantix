@@ -112,12 +112,16 @@ console-tui: docker-rust-tui
 # Host UI & Node Daemon
 # =============================================================================
 
-# Build Host UI web interface
+# Build Host UI web interface (uses Docker for consistent builds)
 host-ui:
 	@echo "🔨 Building Host UI..."
 	@mkdir -p $(OVERLAY_DIR)/usr/share/quantix-host-ui
 	@if [ -d "../quantix-host-ui" ]; then \
-		cd ../quantix-host-ui && npm install && npm run build; \
+		docker run --rm \
+			-v "$$(cd .. && pwd)/quantix-host-ui:/app:rw" \
+			-w /app \
+			node:20-alpine \
+			sh -c "npm install && npm run build"; \
 		cp -r ../quantix-host-ui/dist/* $(OVERLAY_DIR)/usr/share/quantix-host-ui/; \
 		echo "✅ Host UI built"; \
 	else \

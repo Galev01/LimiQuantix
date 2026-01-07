@@ -3,6 +3,7 @@
 # Quantix-OS Host UI Builder
 # =============================================================================
 # Builds the React-based Host UI and copies it to the overlay.
+# Uses Docker for consistent cross-platform builds.
 #
 # Usage: ./build-host-ui.sh
 # =============================================================================
@@ -63,33 +64,34 @@ fi
 
 echo "📦 Building Host UI from: $HOST_UI_DIR"
 
-# Check for Node.js
-if ! command -v node &> /dev/null; then
-    echo "❌ Node.js not found. Please install Node.js 18+."
+# Check for Docker
+if ! command -v docker &> /dev/null; then
+    echo "❌ Docker not found. Please install Docker."
     exit 1
 fi
 
-# Install dependencies
-echo "📦 Installing dependencies..."
-cd "$HOST_UI_DIR"
-npm install
-
-# Build
-echo "🔨 Building production bundle..."
-npm run build
+# Build using Docker for consistent results
+echo "🐳 Building with Docker (node:20-alpine)..."
+docker run --rm \
+    -v "${HOST_UI_DIR}:/app:rw" \
+    -w /app \
+    node:20-alpine \
+    sh -c "npm install && npm run build"
 
 # Copy to overlay
 echo "📋 Copying to overlay..."
+mkdir -p "$OUTPUT_DIR"
 rm -rf "$OUTPUT_DIR"/*
 cp -r "$HOST_UI_DIR/dist/"* "$OUTPUT_DIR/"
 
 # Calculate size
 UI_SIZE=$(du -sh "$OUTPUT_DIR" | cut -f1)
+FILE_COUNT=$(find "$OUTPUT_DIR" -type f | wc -l)
 
 echo ""
 echo "╔═══════════════════════════════════════════════════════════════╗"
 echo "║                    Build Complete!                            ║"
 echo "╠═══════════════════════════════════════════════════════════════╣"
 echo "║  Output: $OUTPUT_DIR"
-echo "║  Size:   $UI_SIZE"
+echo "║  Size:   $UI_SIZE ($FILE_COUNT files)"
 echo "╚═══════════════════════════════════════════════════════════════╝"
