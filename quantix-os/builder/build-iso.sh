@@ -12,9 +12,19 @@ set -e
 VERSION="${1:-1.0.0}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WORK_DIR="$(dirname "$SCRIPT_DIR")"
-OUTPUT_DIR="${WORK_DIR}/output"
+
+# OUTPUT_DIR can be passed via environment or defaults to /output (Docker mount)
+# When running in Docker, build.sh mounts host output dir to /output
+OUTPUT_DIR="${OUTPUT_DIR:-/output}"
+
 ISO_DIR="/tmp/iso"
 ISO_NAME="quantix-os-${VERSION}.iso"
+
+echo "Build paths:"
+echo "  SCRIPT_DIR: ${SCRIPT_DIR}"
+echo "  WORK_DIR: ${WORK_DIR}"
+echo "  OUTPUT_DIR: ${OUTPUT_DIR}"
+echo ""
 
 echo "╔═══════════════════════════════════════════════════════════════╗"
 echo "║              Quantix-OS ISO Builder v${VERSION}                     ║"
