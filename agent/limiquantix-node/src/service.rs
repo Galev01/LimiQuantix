@@ -122,6 +122,20 @@ impl NodeDaemonServiceImpl {
     }
     
     // =========================================================================
+    // Accessors
+    // =========================================================================
+    
+    /// Get the node ID
+    pub fn get_node_id(&self) -> &str {
+        &self.node_id
+    }
+    
+    /// Get current telemetry data
+    pub fn get_telemetry(&self) -> limiquantix_telemetry::NodeTelemetry {
+        self.telemetry.collect()
+    }
+    
+    // =========================================================================
     // Network Operations (OVS/OVN)
     // =========================================================================
     

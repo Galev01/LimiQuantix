@@ -357,24 +357,25 @@ async fn api_only_fallback() -> impl IntoResponse {
 async fn get_host_info(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<HostInfo>, (StatusCode, Json<ApiError>)> {
+    // Get telemetry from the service
+    let telemetry = state.service.get_telemetry();
+    
     // Call the local health check method (not gRPC)
     match state.service.health_check().await {
         Ok(health) => {
             Ok(Json(HostInfo {
-                node_id: "node-1".to_string(),
-                hostname: hostname::get()
-                    .map(|h| h.to_string_lossy().to_string())
-                    .unwrap_or_else(|_| "unknown".to_string()),
+                node_id: state.service.get_node_id().to_string(),
+                hostname: telemetry.system.hostname.clone(),
                 management_ip: local_ip_address::local_ip()
                     .map(|ip| ip.to_string())
                     .unwrap_or_else(|_| "127.0.0.1".to_string()),
-                cpu_model: "Unknown".to_string(),
-                cpu_cores: num_cpus::get() as u32,
-                memory_total_bytes: 0,
-                memory_available_bytes: 0,
-                os_name: std::env::consts::OS.to_string(),
-                os_version: "".to_string(),
-                kernel_version: "".to_string(),
+                cpu_model: telemetry.cpu.model.clone(),
+                cpu_cores: telemetry.cpu.logical_cores as u32,
+                memory_total_bytes: telemetry.memory.total_bytes,
+                memory_available_bytes: telemetry.memory.available_bytes,
+                os_name: telemetry.system.os_name.clone(),
+                os_version: telemetry.system.os_version.clone(),
+                kernel_version: telemetry.system.kernel_version.clone(),
                 uptime_seconds: health.uptime_seconds,
                 hypervisor_name: health.hypervisor,
                 hypervisor_version: health.hypervisor_version,
@@ -716,7 +717,7 @@ async fn list_network_interfaces(
 ) -> Result<Json<NetworkInterfaceList>, (StatusCode, Json<ApiError>)> {
     use std::process::Command;
     
-    // Use `ip` command to list interfaces
+    // Use `ip` command to list interfaces with JSON output
     let output = Command::new("ip")
         .args(&["-j", "addr", "show"])
         .output();
@@ -726,25 +727,86 @@ async fn list_network_interfaces(
             let json_str = String::from_utf8_lossy(&output.stdout);
             
             // Parse the JSON output from `ip` command
-            // This is a simplified version - in production, use proper JSON parsing
-            let interfaces = vec![
-                NetworkInterface {
-                    name: "eth0".to_string(),
-                    mac_address: "00:00:00:00:00:00".to_string(),
-                    interface_type: "ethernet".to_string(),
-                    state: "up".to_string(),
-                    ip_addresses: vec!["192.168.1.100".to_string()],
-                    mtu: 1500,
-                    speed_mbps: Some(1000),
-                },
-            ];
+            let ip_interfaces: Vec<serde_json::Value> = serde_json::from_str(&json_str)
+                .unwrap_or_default();
+            
+            let interfaces: Vec<NetworkInterface> = ip_interfaces.iter().filter_map(|iface| {
+                let name = iface.get("ifname")?.as_str()?.to_string();
+                
+                // Skip loopback interface
+                if name == "lo" {
+                    return None;
+                }
+                
+                let mac_address = iface.get("address")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("00:00:00:00:00:00")
+                    .to_string();
+                
+                let state = iface.get("operstate")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_lowercase())
+                    .unwrap_or_else(|| "unknown".to_string());
+                
+                let mtu = iface.get("mtu")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(1500) as u32;
+                
+                // Get link type to determine interface type
+                let link_type = iface.get("link_type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("ether");
+                
+                let interface_type = if name.starts_with("br") || name.starts_with("virbr") {
+                    "bridge"
+                } else if name.starts_with("bond") {
+                    "bond"
+                } else if name.contains(".") {
+                    "vlan"
+                } else if link_type == "ether" {
+                    "ethernet"
+                } else {
+                    link_type
+                }.to_string();
+                
+                // Extract IP addresses
+                let addr_info = iface.get("addr_info")
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+                
+                let ip_addresses: Vec<String> = addr_info.iter().filter_map(|addr| {
+                    let local = addr.get("local")?.as_str()?;
+                    let prefixlen = addr.get("prefixlen")?.as_u64()?;
+                    Some(format!("{}/{}", local, prefixlen))
+                }).collect();
+                
+                Some(NetworkInterface {
+                    name,
+                    mac_address,
+                    interface_type,
+                    state,
+                    ip_addresses,
+                    mtu,
+                    speed_mbps: None, // Would need ethtool to get this
+                })
+            }).collect();
             
             Ok(Json(NetworkInterfaceList { interfaces }))
         }
-        _ => {
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            error!(stderr = %stderr, "ip command failed");
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiError::new("list_interfaces_failed", "Failed to list network interfaces")),
+                Json(ApiError::new("list_interfaces_failed", &format!("ip command failed: {}", stderr))),
+            ))
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to execute ip command");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("list_interfaces_failed", &format!("Failed to execute ip command: {}", e))),
             ))
         }
     }
@@ -755,16 +817,85 @@ async fn get_network_interface(
     State(_state): State<Arc<AppState>>,
     Path(name): Path<String>,
 ) -> Result<Json<NetworkInterface>, (StatusCode, Json<ApiError>)> {
-    // TODO: Implement actual interface lookup
-    Ok(Json(NetworkInterface {
-        name: name.clone(),
-        mac_address: "00:00:00:00:00:00".to_string(),
-        interface_type: "ethernet".to_string(),
-        state: "up".to_string(),
-        ip_addresses: vec!["192.168.1.100".to_string()],
-        mtu: 1500,
-        speed_mbps: Some(1000),
-    }))
+    use std::process::Command;
+    
+    // Use `ip` command to get specific interface
+    let output = Command::new("ip")
+        .args(&["-j", "addr", "show", "dev", &name])
+        .output();
+    
+    match output {
+        Ok(output) if output.status.success() => {
+            let json_str = String::from_utf8_lossy(&output.stdout);
+            
+            let ip_interfaces: Vec<serde_json::Value> = serde_json::from_str(&json_str)
+                .unwrap_or_default();
+            
+            if let Some(iface) = ip_interfaces.first() {
+                let mac_address = iface.get("address")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("00:00:00:00:00:00")
+                    .to_string();
+                
+                let state = iface.get("operstate")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_lowercase())
+                    .unwrap_or_else(|| "unknown".to_string());
+                
+                let mtu = iface.get("mtu")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(1500) as u32;
+                
+                let link_type = iface.get("link_type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("ether");
+                
+                let interface_type = if name.starts_with("br") || name.starts_with("virbr") {
+                    "bridge"
+                } else if name.starts_with("bond") {
+                    "bond"
+                } else if name.contains(".") {
+                    "vlan"
+                } else if link_type == "ether" {
+                    "ethernet"
+                } else {
+                    link_type
+                }.to_string();
+                
+                let addr_info = iface.get("addr_info")
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+                
+                let ip_addresses: Vec<String> = addr_info.iter().filter_map(|addr| {
+                    let local = addr.get("local")?.as_str()?;
+                    let prefixlen = addr.get("prefixlen")?.as_u64()?;
+                    Some(format!("{}/{}", local, prefixlen))
+                }).collect();
+                
+                Ok(Json(NetworkInterface {
+                    name,
+                    mac_address,
+                    interface_type,
+                    state,
+                    ip_addresses,
+                    mtu,
+                    speed_mbps: None,
+                }))
+            } else {
+                Err((
+                    StatusCode::NOT_FOUND,
+                    Json(ApiError::new("interface_not_found", &format!("Interface {} not found", name))),
+                ))
+            }
+        }
+        _ => {
+            Err((
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("interface_not_found", &format!("Interface {} not found", name))),
+            ))
+        }
+    }
 }
 
 /// Configure a network interface

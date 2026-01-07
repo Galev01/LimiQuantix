@@ -34,6 +34,38 @@ check_graphics() {
     return 1
 }
 
+# Check if DRI/GPU actually works (not just device exists)
+check_dri_working() {
+    # Quick test if we can actually use DRI
+    # This catches cases where device exists but driver is broken
+    
+    # Check for Intel Iris driver issues (kernel too old error)
+    if dmesg 2>/dev/null | grep -q "iris.*kernel.*too old\|unusable for iris"; then
+        log "Intel Iris driver issue detected (kernel compatibility)"
+        return 1
+    fi
+    
+    # Check if any DRI device is actually usable
+    for card in /dev/dri/card*; do
+        if [ -e "$card" ]; then
+            # Try to get DRM info - if this fails, driver is broken
+            if command -v drm_info >/dev/null 2>&1; then
+                if drm_info "$card" >/dev/null 2>&1; then
+                    return 0
+                fi
+            fi
+            # Fallback: check if we can at least open the device
+            if [ -r "$card" ] && [ -w "$card" ]; then
+                # Device is accessible, assume it might work
+                return 0
+            fi
+        fi
+    done
+    
+    # No working DRI found
+    return 1
+}
+
 # Check if we're on a serial console or SSH
 is_serial_or_ssh() {
     # Check if SSH session
@@ -218,6 +250,15 @@ start_web_kiosk() {
         return
     fi
     
+    # Pre-check: verify DRI actually works before trying Wayland
+    if ! check_dri_working; then
+        log "DRI/GPU driver not working properly"
+        log "  This is common with Intel Iris on older kernels"
+        log "  Starting DCUI (TUI) instead..."
+        start_dcui
+        return
+    fi
+    
     # Start TUI on VT2 in background
     log "Starting DCUI on VT2 (accessible via Ctrl+Alt+F2)..."
     (
@@ -225,9 +266,9 @@ start_web_kiosk() {
         openvt -c 2 -s -w -- /usr/local/bin/qx-console 2>/dev/null || true
     ) &
     
-    # Track consecutive failures
+    # Track consecutive failures - reduced to 2 for faster fallback
     FAIL_COUNT=0
-    MAX_FAILURES=3
+    MAX_FAILURES=2
     
     # Run the kiosk on VT1
     while [ $FAIL_COUNT -lt $MAX_FAILURES ]; do
@@ -269,11 +310,14 @@ start_web_kiosk() {
     # All attempts failed - fall back to DCUI
     log "Web Kiosk failed $MAX_FAILURES times, falling back to DCUI..."
     log ""
-    log "  ┌─────────────────────────────────────────────────────────┐"
-    log "  │  Web Kiosk failed - Graphics driver not available      │"
-    log "  │  Starting DCUI (Text Console) instead...               │"
-    log "  │  This is normal for VMs and headless systems.          │"
-    log "  └─────────────────────────────────────────────────────────┘"
+    log "  ┌───────────────────────────────────────────────────────────┐"
+    log "  │  Web Kiosk failed - Graphics driver issue                 │"
+    log "  │  Common causes:                                           │"
+    log "  │    - Intel Iris driver requires kernel 4.16+              │"
+    log "  │    - Missing Mesa/DRI packages                            │"
+    log "  │    - Unsupported GPU                                      │"
+    log "  │  Starting DCUI (Text Console) instead...                  │"
+    log "  └───────────────────────────────────────────────────────────┘"
     log ""
     start_dcui
 }
