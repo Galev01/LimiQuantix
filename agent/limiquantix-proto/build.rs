@@ -71,15 +71,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     
     println!("cargo:warning=Generating proto files to {:?}", out_dir);
+    println!("cargo:warning=Proto files: {:?}", existing_protos);
+    println!("cargo:warning=Include dir: {:?}", proto_dir);
     
     // Configure tonic-build
-    tonic_build::configure()
+    match tonic_build::configure()
         .build_server(true)
         .build_client(true)
         .out_dir(&out_dir)
-        .compile(&existing_protos, &[&proto_dir])?;
-    
-    println!("cargo:warning=Proto generation complete");
+        .compile(&existing_protos, &[&proto_dir])
+    {
+        Ok(_) => {
+            println!("cargo:warning=Proto generation complete");
+            
+            // Verify files were created
+            if node_rs.exists() {
+                println!("cargo:warning=Generated: {:?}", node_rs);
+            } else {
+                println!("cargo:warning=ERROR: {:?} was not created!", node_rs);
+            }
+            if agent_rs.exists() {
+                println!("cargo:warning=Generated: {:?}", agent_rs);
+            } else {
+                println!("cargo:warning=ERROR: {:?} was not created!", agent_rs);
+            }
+        }
+        Err(e) => {
+            println!("cargo:warning=Proto generation FAILED: {}", e);
+            return Err(e.into());
+        }
+    }
     
     Ok(())
 }
