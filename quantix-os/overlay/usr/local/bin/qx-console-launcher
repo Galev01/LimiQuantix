@@ -171,23 +171,53 @@ start_web_kiosk() {
         openvt -c 2 -s -w -- /usr/local/bin/qx-console 2>/dev/null || true
     ) &
     
+    # Track consecutive failures
+    FAIL_COUNT=0
+    MAX_FAILURES=3
+    
     # Run the kiosk on VT1
     while true; do
-        # Start cage with cog
-        cage -- cog "$WEBUI_URL" 2>&1 | tee -a "$LOG_FILE" || true
+        log "Launching cage with cog..."
         
+        # Start cage with cog
+        cage -- cog "$WEBUI_URL" 2>&1 | tee -a "$LOG_FILE"
         CAGE_EXIT=$?
+        
         log "Cage exited with code: $CAGE_EXIT"
         
-        # If cage crashed, restart it
+        # If cage crashed, track failures
         if [ $CAGE_EXIT -ne 0 ]; then
-            log "Web Kiosk crashed, restarting in 2 seconds..."
-            sleep 2
+            FAIL_COUNT=$((FAIL_COUNT + 1))
+            log "Web Kiosk failed ($FAIL_COUNT/$MAX_FAILURES)"
+            
+            # Check for EGL/DRI errors and try software rendering
+            if grep -q "eglInitialize\|drm_dri\|DRI\|EGL" "$LOG_FILE" 2>/dev/null; then
+                log "Graphics driver issue detected, enabling software rendering..."
+                export LIBGL_ALWAYS_SOFTWARE=1
+                export WLR_RENDERER=pixman
+            fi
+            
+            # If we've failed too many times, fall back to DCUI
+            if [ $FAIL_COUNT -ge $MAX_FAILURES ]; then
+                log "Too many failures, falling back to DCUI (TUI)..."
+                log ""
+                log "  ┌─────────────────────────────────────────────────────────┐"
+                log "  │  Web Kiosk failed to start - Graphics driver issue      │"
+                log "  │  Starting DCUI (Text Console) instead...                │"
+                log "  └─────────────────────────────────────────────────────────┘"
+                log ""
+                start_dcui
+                return
+            fi
+            
+            log "Restarting in 3 seconds..."
+            sleep 3
             continue
         fi
         
-        # Normal exit - restart
-        log "Web Kiosk exited, restarting..."
+        # Normal exit (success) - reset fail count and restart
+        FAIL_COUNT=0
+        log "Web Kiosk exited normally, restarting..."
         sleep 1
     done
 }
