@@ -56,16 +56,30 @@ is_serial_or_ssh() {
 wait_for_webui() {
     log "Waiting for Web UI at $WEBUI_URL..."
     
-    MAX_WAIT=30
+    MAX_WAIT=60
     WAITED=0
     
     while [ $WAITED -lt $MAX_WAIT ]; do
+        # Try HTTP first, then HTTPS with --no-check-certificate
         if wget -q -O /dev/null --spider "$WEBUI_URL" 2>/dev/null; then
             log "Web UI is ready!"
             return 0
         fi
+        # Try HTTPS (node daemon uses self-signed certs)
+        if wget -q -O /dev/null --spider --no-check-certificate "https://localhost:8443" 2>/dev/null; then
+            log "Web UI is ready (HTTPS)!"
+            # Update URL to use HTTPS
+            WEBUI_URL="https://localhost:8443"
+            return 0
+        fi
+        # Also check if the port is listening (even if wget fails)
+        if ss -tlnp 2>/dev/null | grep -q ':8443' || netstat -tlnp 2>/dev/null | grep -q ':8443'; then
+            log "Port 8443 is listening, Web UI should be ready"
+            return 0
+        fi
         sleep 2
         WAITED=$((WAITED + 2))
+        log "  Still waiting... ($WAITED/${MAX_WAIT}s)"
     done
     
     log "WARNING: Web UI not responding after ${MAX_WAIT}s"
