@@ -56,10 +56,52 @@ echo "📦 Step 2: Installing packages..."
 # Read package list (skip comments and empty lines)
 PACKAGES=$(grep -v '^#' "${WORK_DIR}/profiles/quantix/packages.conf" | grep -v '^$' | tr '\n' ' ')
 
-# Install all packages
-apk --root "${ROOTFS_DIR}" add ${PACKAGES} || {
-    echo "⚠️  Some packages failed to install, continuing with available packages..."
-}
+# Critical packages that MUST be installed (system won't boot without these)
+CRITICAL_PACKAGES="linux-lts linux-firmware openrc busybox musl e2fsprogs"
+
+echo "   Installing critical packages first..."
+for pkg in ${CRITICAL_PACKAGES}; do
+    apk --root "${ROOTFS_DIR}" add "$pkg" || {
+        echo "❌ CRITICAL ERROR: Failed to install $pkg - system will not boot!"
+        exit 1
+    }
+done
+echo "   ✅ Critical packages installed"
+
+# Verify kernel and modules were installed
+if [ ! -d "${ROOTFS_DIR}/lib/modules" ]; then
+    echo "❌ CRITICAL ERROR: No kernel modules found after installing linux-lts!"
+    echo "   Checking installed packages..."
+    apk --root "${ROOTFS_DIR}" info 2>/dev/null | head -20
+    exit 1
+fi
+
+KERNEL_VERSION=$(ls "${ROOTFS_DIR}/lib/modules" 2>/dev/null | head -1)
+if [ -z "$KERNEL_VERSION" ]; then
+    echo "❌ CRITICAL ERROR: Kernel modules directory is empty!"
+    exit 1
+fi
+echo "   ✅ Kernel modules installed: ${KERNEL_VERSION}"
+
+# Install remaining packages (allow individual failures)
+echo "   Installing additional packages..."
+FAILED_PKGS=""
+for pkg in ${PACKAGES}; do
+    # Skip critical packages (already installed)
+    case " ${CRITICAL_PACKAGES} " in
+        *" $pkg "*) continue ;;
+    esac
+    
+    apk --root "${ROOTFS_DIR}" add "$pkg" 2>/dev/null || {
+        FAILED_PKGS="${FAILED_PKGS} $pkg"
+    }
+done
+
+if [ -n "$FAILED_PKGS" ]; then
+    echo "   ⚠️  Some optional packages failed:${FAILED_PKGS}"
+else
+    echo "   ✅ All additional packages installed"
+fi
 
 echo "✅ Packages installed"
 
@@ -117,6 +159,7 @@ chroot "${ROOTFS_DIR}" /sbin/rc-update add chronyd default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-network boot || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-node default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-console default || true
+
 chroot "${ROOTFS_DIR}" /sbin/rc-update add mount-ro shutdown || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add killprocs shutdown || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add savecache shutdown || true
@@ -156,7 +199,7 @@ chroot "${ROOTFS_DIR}" adduser root input 2>/dev/null || true
 chroot "${ROOTFS_DIR}" adduser root video 2>/dev/null || true
 chroot "${ROOTFS_DIR}" adduser root seat 2>/dev/null || true
 
-echo "✅ Directories created"
+echo "✅ Directories created and permissions set"
 
 # -----------------------------------------------------------------------------
 # Step 6: Write version info
