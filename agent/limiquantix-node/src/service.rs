@@ -1434,7 +1434,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             .map_err(|e| Status::internal(format!("Failed to init pool: {}", e)))?;
         
         Ok(Response::new(StoragePoolInfoResponse {
-            pool_id: req.pool_id,
+            pool_id: req.pool_id.clone(),
             r#type: req.r#type,
             mount_path: pool_info.mount_path.unwrap_or_default(),
             device_path: String::new(),
@@ -1442,6 +1442,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             total_bytes: pool_info.total_bytes,
             available_bytes: pool_info.available_bytes,
             used_bytes: pool_info.total_bytes.saturating_sub(pool_info.available_bytes),
+            volume_count: self.storage.list_volumes(&req.pool_id).await.unwrap_or_default().len() as u32,
         }))
     }
     
@@ -1478,7 +1479,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         };
         
         Ok(Response::new(StoragePoolInfoResponse {
-            pool_id: req.pool_id,
+            pool_id: req.pool_id.clone(),
             r#type: pool_type,
             mount_path: pool_info.mount_path.unwrap_or_default(),
             device_path: String::new(),
@@ -1486,6 +1487,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             total_bytes: pool_info.total_bytes,
             available_bytes: pool_info.available_bytes,
             used_bytes: pool_info.total_bytes.saturating_sub(pool_info.available_bytes),
+            volume_count: self.storage.list_volumes(&req.pool_id).await.unwrap_or_default().len() as u32,
         }))
     }
     
@@ -1507,6 +1509,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             };
             
             // Get volume count
+            let volume_count = self.storage.list_volumes(&p.pool_id).await.unwrap_or_default().len() as u32;
             pool_responses.push(StoragePoolInfoResponse {
                 pool_id: p.pool_id,
                 r#type: pool_type,
@@ -1516,6 +1519,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 total_bytes: p.total_bytes,
                 available_bytes: p.available_bytes,
                 used_bytes: p.total_bytes.saturating_sub(p.available_bytes),
+                volume_count,
             });
         }
         

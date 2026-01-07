@@ -66,6 +66,9 @@ tower-http.workspace = true
 mime_guess.workspace = true
 num_cpus = "1.16"
 
+# System information
+sysinfo = "0.32"
+
 # Internal crates
 limiquantix-hypervisor.workspace = true
 limiquantix-telemetry.workspace = true

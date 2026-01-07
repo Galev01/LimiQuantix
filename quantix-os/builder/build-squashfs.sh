@@ -59,9 +59,9 @@ PACKAGES=$(grep -v '^#' "${WORK_DIR}/profiles/quantix/packages.conf" | grep -v '
 # Critical packages that MUST be installed (system won't boot without these)
 CRITICAL_PACKAGES="linux-lts linux-firmware openrc busybox musl e2fsprogs"
 
-
 # Firmware packages - required for GPU and network hardware
 FIRMWARE_PACKAGES="linux-firmware-intel linux-firmware-amd linux-firmware-nvidia"
+
 echo "   Installing critical packages first..."
 for pkg in ${CRITICAL_PACKAGES}; do
     apk --root "${ROOTFS_DIR}" add "$pkg" || {
@@ -71,20 +71,19 @@ for pkg in ${CRITICAL_PACKAGES}; do
 done
 echo "   ✅ Critical packages installed"
 
-
-echo "   Installing firmware packages (GPU/NIC)..."
+echo "   Installing firmware packages..."
 for pkg in ${FIRMWARE_PACKAGES}; do
     apk --root "${ROOTFS_DIR}" add "$pkg" 2>/dev/null && {
         echo "   ✅ $pkg installed"
     } || {
-        echo "   ⚠️  $pkg not available"
+        echo "   ⚠️  $pkg not available (may not be needed)"
     }
 done
 
 # Verify Intel firmware is present (critical for Intel Iris GPUs)
 if [ -d "${ROOTFS_DIR}/lib/firmware/i915" ]; then
     I915_COUNT=$(find "${ROOTFS_DIR}/lib/firmware/i915" -name "*.bin" 2>/dev/null | wc -l)
-    echo "   ✅ Intel GPU firmware: ${I915_COUNT} files"
+    echo "   ✅ Intel GPU firmware: ${I915_COUNT} files in /lib/firmware/i915/"
 else
     echo "   ⚠️  Intel GPU firmware not found - Intel graphics may not work!"
 fi

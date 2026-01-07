@@ -782,6 +782,9 @@ message StoragePoolInfoResponse {
   uint64 total_bytes = 6;
   uint64 available_bytes = 7;
   uint64 used_bytes = 8;
+  
+  // Volume count
+  uint32 volume_count = 9;
 }
 
 // List storage pools response

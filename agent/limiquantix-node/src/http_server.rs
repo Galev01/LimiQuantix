@@ -707,22 +707,22 @@ async fn get_host_health(
 
 /// GET /api/v1/host/hardware - Get full hardware inventory
 async fn get_hardware_inventory(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
 ) -> Result<Json<HardwareInventory>, (StatusCode, Json<ApiError>)> {
-    use sysinfo::{System, Disks, Networks};
-    use std::process::Command;
+    use sysinfo::{System, Disks, Networks, Cpu};
     
     let mut sys = System::new_all();
     sys.refresh_all();
     
     // CPU Info
+    let first_cpu: Option<&Cpu> = sys.cpus().first();
     let cpu_info = CpuInfo {
-        model: sys.cpus().first().map(|c| c.brand().to_string()).unwrap_or_default(),
-        vendor: sys.cpus().first().map(|c| c.vendor_id().to_string()).unwrap_or_default(),
+        model: first_cpu.map(|c| c.brand().to_string()).unwrap_or_default(),
+        vendor: first_cpu.map(|c| c.vendor_id().to_string()).unwrap_or_default(),
         cores: sys.physical_core_count().unwrap_or(0) as u32,
         threads: sys.cpus().len() as u32,
         sockets: 1, // sysinfo doesn't provide this directly
-        frequency_mhz: sys.cpus().first().map(|c| c.frequency()).unwrap_or(0),
+        frequency_mhz: first_cpu.map(|c| c.frequency()).unwrap_or(0),
         features: get_cpu_features(),
         architecture: std::env::consts::ARCH.to_string(),
     };
@@ -743,13 +743,13 @@ async fn get_hardware_inventory(
     let mut storage: Vec<DiskInfo> = Vec::new();
     
     for disk in disks.list() {
-        let name = disk.name().to_string_lossy().to_string();
+        let disk_name = disk.name().to_string_lossy().to_string();
         let mount_point = disk.mount_point().to_string_lossy().to_string();
         
         // Try to determine disk type
-        let disk_type = if name.contains("nvme") {
+        let disk_type = if disk_name.contains("nvme") {
             "NVMe"
-        } else if name.contains("sd") {
+        } else if disk_name.contains("sd") {
             // Could be SSD or HDD - would need to check /sys/block/*/queue/rotational
             "SSD/HDD"
         } else {
@@ -757,16 +757,16 @@ async fn get_hardware_inventory(
         }.to_string();
         
         storage.push(DiskInfo {
-            name: name.clone(),
+            name: disk_name.clone(),
             model: String::new(), // Would need lsblk -o MODEL
             serial: String::new(),
             size_bytes: disk.total_space(),
             disk_type,
-            interface: if name.contains("nvme") { "NVMe" } else { "SATA" }.to_string(),
+            interface: if disk_name.contains("nvme") { "NVMe" } else { "SATA" }.to_string(),
             is_removable: disk.is_removable(),
             smart_status: "Unknown".to_string(),
             partitions: vec![PartitionInfo {
-                name: name.clone(),
+                name: disk_name.clone(),
                 mount_point: Some(mount_point),
                 size_bytes: disk.total_space(),
                 used_bytes: disk.total_space() - disk.available_space(),
@@ -779,33 +779,33 @@ async fn get_hardware_inventory(
     let networks = Networks::new_with_refreshed_list();
     let mut network: Vec<NicInfo> = Vec::new();
     
-    for (name, _data) in networks.list() {
+    for (iface_name, _data) in networks.list() {
         // Get more info from /sys/class/net
-        let driver = std::fs::read_to_string(format!("/sys/class/net/{}/device/driver/module", name))
+        let driver = std::fs::read_to_string(format!("/sys/class/net/{}/device/driver/module", iface_name))
             .map(|s| s.trim().to_string())
             .ok();
         
-        let speed = std::fs::read_to_string(format!("/sys/class/net/{}/speed", name))
+        let speed = std::fs::read_to_string(format!("/sys/class/net/{}/speed", iface_name))
             .ok()
             .and_then(|s| s.trim().parse::<u64>().ok());
         
-        let operstate = std::fs::read_to_string(format!("/sys/class/net/{}/operstate", name))
+        let operstate = std::fs::read_to_string(format!("/sys/class/net/{}/operstate", iface_name))
             .map(|s| s.trim().to_string())
             .unwrap_or_else(|_| "unknown".to_string());
         
-        let mac = std::fs::read_to_string(format!("/sys/class/net/{}/address", name))
+        let mac = std::fs::read_to_string(format!("/sys/class/net/{}/address", iface_name))
             .map(|s| s.trim().to_string())
             .unwrap_or_default();
         
         // Check for SR-IOV capability
-        let sriov_capable = std::path::Path::new(&format!("/sys/class/net/{}/device/sriov_numvfs", name)).exists();
-        let sriov_vfs = std::fs::read_to_string(format!("/sys/class/net/{}/device/sriov_numvfs", name))
+        let sriov_capable = std::path::Path::new(&format!("/sys/class/net/{}/device/sriov_numvfs", iface_name)).exists();
+        let sriov_vfs = std::fs::read_to_string(format!("/sys/class/net/{}/device/sriov_numvfs", iface_name))
             .ok()
             .and_then(|s| s.trim().parse::<u32>().ok())
             .unwrap_or(0);
         
         network.push(NicInfo {
-            name: name.clone(),
+            name: iface_name.clone(),
             mac_address: mac,
             driver: driver.unwrap_or_default(),
             speed_mbps: speed,
@@ -1021,7 +1021,7 @@ async fn shutdown_host(
 async fn get_host_metrics(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<HostMetricsResponse>, (StatusCode, Json<ApiError>)> {
-    use sysinfo::{System, Disks, Networks};
+    use sysinfo::System;
     use tonic::Request;
     use limiquantix_proto::NodeDaemonService;
     
@@ -1148,8 +1148,6 @@ async fn update_settings(
 async fn list_services(
     State(_state): State<Arc<AppState>>,
 ) -> Result<Json<ServiceListResponse>, (StatusCode, Json<ApiError>)> {
-    use std::process::Command;
-    
     // Try to get service status using systemctl or rc-service
     let services = vec![
         ServiceInfo {
@@ -2262,6 +2260,9 @@ async fn configure_network_interface(
     
     info!(interface = %name, dhcp = config.dhcp, "Configuring network interface");
     
+    // Clone the IP address before the match to use later
+    let configured_ip = config.ip_address.clone();
+    
     if config.dhcp {
         // Configure for DHCP
         let _ = Command::new("ip")
@@ -2295,7 +2296,7 @@ async fn configure_network_interface(
         mac_address: "00:00:00:00:00:00".to_string(),
         interface_type: "ethernet".to_string(),
         state: "up".to_string(),
-        ip_addresses: config.ip_address.map(|ip| vec![ip]).unwrap_or_default(),
+        ip_addresses: configured_ip.map(|ip| vec![ip]).unwrap_or_default(),
         mtu: 1500,
         speed_mbps: Some(1000),
     }))
@@ -2478,7 +2479,7 @@ async fn get_cluster_status(
     let config_path = "/etc/limiquantix/config.yaml";
     
     match fs::read_to_string(config_path).await {
-        Ok(content) => {
+        Ok(_content) => {
             // Parse YAML to check if cluster is enabled
             // For now, return a simple status
             Ok(Json(ClusterStatus {
