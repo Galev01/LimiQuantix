@@ -172,7 +172,9 @@ set menu_color_highlight=black/light-gray
 
 # Boot menu - Live mode boots from ISO/USB squashfs
 menuentry "Quantix-OS Live" {
-    linux /boot/vmlinuz boot=live toram quiet
+    # i915.modeset=1: Enable Intel GPU kernel mode setting
+    # drm.modeset=1: Enable DRM modesetting for all GPUs
+    linux /boot/vmlinuz boot=live toram quiet i915.modeset=1 drm.modeset=1
     initrd /boot/initramfs
 }
 
@@ -184,7 +186,7 @@ menuentry "Quantix-OS Live (Safe Graphics)" {
 }
 
 menuentry "Quantix-OS Live (Verbose)" {
-    linux /boot/vmlinuz boot=live toram
+    linux /boot/vmlinuz boot=live toram i915.modeset=1 drm.modeset=1
     initrd /boot/initramfs
 }
 

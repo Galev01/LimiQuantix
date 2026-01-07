@@ -177,6 +177,25 @@ setup_wayland_env() {
     export LIBGL_DRIVERS_PATH="/usr/lib/dri:/usr/lib/xorg/modules/dri"
     export EGL_DRIVERS_PATH="/usr/lib/dri"
     
+    # =========================================================================
+    # Intel GPU Driver Selection
+    # =========================================================================
+    # Mesa has two Intel drivers:
+    #   - iris: For Gen8+ (Broadwell 2014+), requires kernel 4.16+
+    #   - i965: For Gen4-Gen11 (2006-2019), more compatible
+    # 
+    # If Iris fails, try i965 by setting MESA_LOADER_DRIVER_OVERRIDE=i965
+    # Or use software rendering with LIBGL_ALWAYS_SOFTWARE=1
+    # =========================================================================
+    
+    # Try to detect Intel GPU generation and choose appropriate driver
+    if [ -f /sys/class/drm/card0/device/device ]; then
+        DEVICE_ID=$(cat /sys/class/drm/card0/device/device 2>/dev/null)
+        log "  Intel GPU Device ID: $DEVICE_ID"
+        # If we detect issues, we could force i965 here
+        # export MESA_LOADER_DRIVER_OVERRIDE=i965
+    fi
+    
     # Allow software rendering as fallback (llvmpipe)
     export WLR_RENDERER_ALLOW_SOFTWARE=1
     export LIBGL_ALWAYS_SOFTWARE=0  # Try hardware first
@@ -266,9 +285,10 @@ start_web_kiosk() {
         openvt -c 2 -s -w -- /usr/local/bin/qx-console 2>/dev/null || true
     ) &
     
-    # Track consecutive failures - reduced to 2 for faster fallback
+    # Track consecutive failures
+    # Attempts: 1=iris (default), 2=i965 (legacy), 3=software (llvmpipe)
     FAIL_COUNT=0
-    MAX_FAILURES=2
+    MAX_FAILURES=3
     
     # Run the kiosk on VT1
     while [ $FAIL_COUNT -lt $MAX_FAILURES ]; do
@@ -291,11 +311,15 @@ start_web_kiosk() {
             FAIL_COUNT=$((FAIL_COUNT + 1))
             log "Web Kiosk failed quickly ($FAIL_COUNT/$MAX_FAILURES)"
             
-            # Try software rendering on subsequent attempts
+            # Try different driver strategies on subsequent attempts
             if [ $FAIL_COUNT -eq 1 ]; then
-                log "Trying software rendering..."
+                log "Trying i965 driver instead of Iris..."
+                export MESA_LOADER_DRIVER_OVERRIDE=i965
+            elif [ $FAIL_COUNT -eq 2 ]; then
+                log "Trying software rendering (llvmpipe)..."
                 export LIBGL_ALWAYS_SOFTWARE=1
                 export WLR_RENDERER=pixman
+                unset MESA_LOADER_DRIVER_OVERRIDE
             fi
             
             sleep 2
