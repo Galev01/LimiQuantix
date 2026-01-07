@@ -98,7 +98,7 @@ console-gui: docker-rust-gui
 console-tui: docker-rust-tui
 	@echo "🔨 Building TUI console..."
 	@mkdir -p $(OVERLAY_DIR)/usr/local/bin
-	docker run --rm \
+	docker run --rm --network=host \
 		-v "$(BUILD_DIR)/console-tui:/build:rw" \
 		-v "$(OVERLAY_DIR)/usr/local/bin:/output" \
 		-w /build \
@@ -133,7 +133,7 @@ node-daemon: docker-rust-tui
 	@echo "🔨 Building node daemon..."
 	@mkdir -p $(OVERLAY_DIR)/usr/bin
 	@if [ -d "../agent/limiquantix-node" ]; then \
-		docker run --rm \
+		docker run --rm --network=host \
 			-v "$$(cd .. && pwd)/agent:/build:rw" \
 			-w /build \
 			$(RUST_TUI_IMAGE) \
