@@ -1,6 +1,6 @@
 # 000059 - Quantix-OS Build Guide
 
-**Description:** Complete guide for building Quantix-OS from source, including all components (Alpine rootfs, Web Kiosk GUI, TUI fallback, Host UI integration).
+**Description:** Complete guide for building Quantix-OS from source, including all components (Alpine rootfs, TUI console, Node daemon, Host UI).
 
 **Last Updated:** January 7, 2026
 
@@ -24,7 +24,7 @@ This document provides step-by-step instructions for building Quantix-OS, a cust
 
 | Software | Version | Purpose |
 |----------|---------|---------|
-| Rust | 1.83+ | Console GUI/TUI development |
+| Rust | 1.83+ | TUI/Node daemon development |
 | Node.js | 20+ | Host UI development |
 | QEMU | 8.0+ | Testing |
 | OVMF | Any | UEFI testing |
@@ -37,44 +37,33 @@ git clone https://github.com/Quantix-KVM/LimiQuantix.git
 cd LimiQuantix/Quantix-OS
 
 # Build the complete ISO (recommended method)
-./build.sh --clean
-
-# Or use make
 make iso
 
 # Test in QEMU
 make test-qemu
 ```
 
-## Build Methods
+## Build Targets
 
-### Method 1: build.sh (Recommended)
-
-The `build.sh` script is the primary build method. It handles all Docker setup, component building, and ISO creation.
-
-```bash
-# Full clean build
-./build.sh --clean
-
-# Incremental build (faster, reuses cached components)
-./build.sh
-
-# Skip component builds (use existing binaries)
-./build.sh --skip-components
-```
-
-### Method 2: Makefile
-
-The Makefile provides granular control over individual build steps:
+### Makefile Targets
 
 ```bash
 # Build everything
-make iso
+make iso            # Complete bootable ISO
 
 # Build individual components
-make squashfs       # Alpine rootfs
-make initramfs      # Boot initramfs
-make docker-full    # Docker build environment
+make tui            # TUI console (qx-console)
+make node-daemon    # Node daemon (qx-node)
+make host-ui        # React Host UI
+make squashfs       # Alpine rootfs only
+make initramfs      # Boot initramfs only
+
+# Testing
+make test-qemu      # Test ISO in QEMU
+make test-qemu-uefi # Test ISO in QEMU with UEFI
+
+# Cleanup
+make clean          # Remove build artifacts
 ```
 
 ## Build Output
@@ -93,18 +82,17 @@ output/
 
 ```
 Quantix-OS/
-├── build.sh                    # Main build script
-├── Makefile                    # Alternative build orchestration
+├── Makefile                    # Build orchestration
 ├── README.md                   # Project overview
 ├── TESTING.md                  # Testing guide
 │
 ├── builder/                    # Docker build scripts
-│   ├── Dockerfile              # Alpine build environment
-│   ├── Dockerfile.full         # Full build environment (Rust + Node.js)
+│   ├── Dockerfile.rust-tui     # TUI build environment (Alpine + Rust)
 │   ├── build-squashfs.sh       # Rootfs builder
 │   ├── build-initramfs.sh      # Initramfs builder
 │   ├── build-iso.sh            # ISO builder
-│   └── build-all-components.sh # Component builder (runs in Docker)
+│   ├── build-node-daemon.sh    # Node daemon builder
+│   └── build-host-ui.sh        # Host UI builder
 │
 ├── profiles/quantix/           # System configuration
 │   └── packages.conf           # APK packages to install
@@ -116,13 +104,13 @@ Quantix-OS/
 │   │   ├── init.d/             # OpenRC services
 │   │   │   ├── quantix-network # Network auto-config
 │   │   │   ├── quantix-node    # Node daemon service
-│   │   │   └── quantix-console # Console service
+│   │   │   └── quantix-console # TUI console service
 │   │   ├── local.d/            # Early init scripts
 │   │   ├── quantix/            # Default configuration
 │   │   └── wpa_supplicant/     # WiFi configuration
 │   └── usr/
-│       ├── bin/                # Binaries (qx-node, qx-console-gui)
-│       ├── local/bin/          # Scripts (qx-console-launcher)
+│       ├── bin/                # Binaries (qx-node)
+│       ├── local/bin/          # Scripts (qx-console, qx-console-launcher)
 │       └── share/quantix-host-ui/  # Web UI
 │
 ├── grub/                       # GRUB configuration
@@ -135,12 +123,10 @@ Quantix-OS/
 │   ├── install.sh              # Disk installer
 │   └── firstboot.sh            # First-boot setup
 │
-├── console-gui/                # DEPRECATED: Slint GUI (replaced by Web Kiosk)
-│   └── (No longer used - GUI now uses Cage + Cog)
-│
 ├── console-tui/                # Ratatui TUI (Rust)
 │   ├── Cargo.toml
 │   └── src/
+│       └── main.rs
 │
 ├── branding/                   # ASCII art, logos
 │   ├── banner.txt
@@ -151,42 +137,76 @@ Quantix-OS/
 
 ## Build Process Details
 
-### Phase 1: Docker Environment
+### Phase 1: Docker Build Environments
 
-The build uses a unified Docker container (`Dockerfile.full`) that includes:
-- Alpine Linux base
-- Rust toolchain (via rustup for latest version)
-- Node.js and npm
-- All build dependencies
+The build uses specialized Docker containers for cross-compilation:
 
 ```bash
-# Built automatically by build.sh
-docker build -t quantix-full-builder -f builder/Dockerfile.full builder/
+# TUI Console - Alpine + Rust + musl
+docker build -t quantix-rust-tui-builder -f builder/Dockerfile.rust-tui builder/
+
+# Host UI - Node.js Alpine
+# Uses node:20-alpine directly
+
+# Node Daemon - same as TUI builder
 ```
 
 ### Phase 2: Component Building
 
-Inside the Docker container, `build-all-components.sh` builds:
+#### TUI Console (`qx-console`)
 
-1. **Node Daemon** (`qx-node`)
-   - Built with `cargo build --release`
-   - Statically linked for Alpine compatibility
-   - Copied to `/usr/bin/qx-node`
+Built with Rust targeting musl for Alpine compatibility:
 
-2. **Host UI** (React web interface)
-   - Built with `npm run build`
-   - Copied to `/usr/share/quantix-host-ui/`
-   - Symlinked to `/usr/share/quantix/webui`
+```bash
+# Inside Docker container
+cargo build --release --target x86_64-unknown-linux-musl
+# Output: overlay/usr/local/bin/qx-console
+```
 
-3. **Console TUI** (`qx-console`)
-   - Built with `cargo build --release`
-   - Copied to `/usr/local/bin/qx-console`
+Features:
+- System status dashboard
+- Network configuration (DHCP/Static)
+- SSH management with security timer
+- Cluster join interface
+- Service management
+- Power operations
 
-4. **Console GUI** (Web Kiosk)
-   - Uses `cage` (Wayland kiosk compositor)
-   - Uses `cog` + `wpewebkit` (embedded browser)
-   - Displays the React Host UI at http://localhost:8443
-   - No Rust compilation needed - packages installed via packages.conf
+#### Node Daemon (`qx-node`)
+
+Built with Rust, provides HTTP/gRPC APIs:
+
+```bash
+# Inside Docker container
+cargo build --release --target x86_64-unknown-linux-musl
+# Output: overlay/usr/bin/qx-node
+```
+
+Features:
+- REST API at `/api/v1/*`
+- gRPC API at port 9443
+- Static file serving for Host UI
+- HTTPS with TLS certificate management
+- VM lifecycle management via libvirt
+- Storage pool management
+- Network configuration via OVS
+
+#### Host UI (React)
+
+Built with Vite, produces static files:
+
+```bash
+# Inside Docker container
+npm ci
+npm run build
+# Output: overlay/usr/share/quantix-host-ui/
+```
+
+Features:
+- Dashboard with system status
+- VM management (create, start, stop, console)
+- Storage pool management
+- Performance monitoring
+- Cluster status
 
 ### Phase 3: Alpine Rootfs (Squashfs)
 
@@ -194,12 +214,13 @@ The `build-squashfs.sh` script:
 
 1. Creates Alpine rootfs via `apk --root`
 2. Installs packages from `profiles/quantix/packages.conf`
-3. Applies overlay files (services, configs, binaries)
-4. Enables OpenRC services:
+3. Installs firmware packages (Intel, AMD, Broadcom)
+4. Applies overlay files (services, configs, binaries)
+5. Enables OpenRC services:
    - `quantix-network` (boot) - Auto DHCP on all interfaces
    - `quantix-node` (default) - Node daemon API server
-   - `quantix-console` (default) - Management console
-5. Creates squashfs with XZ compression
+   - `quantix-console` (default) - TUI console
+6. Creates squashfs with XZ compression
 
 ### Phase 4: Initramfs
 
@@ -209,7 +230,7 @@ The `build-initramfs.sh` script creates a custom initramfs that:
 2. Includes kernel modules for:
    - Block devices (SCSI, USB, NVMe, SATA)
    - Filesystems (squashfs, overlay, iso9660)
-   - Graphics (DRM, GPU drivers)
+   - Network (virtio, e1000, etc.)
 3. Mounts the squashfs and pivots to it
 
 **Critical**: The initramfs must include all kernel modules needed to detect boot media.
@@ -228,9 +249,8 @@ The `build-iso.sh` script:
 | Service | Runlevel | Purpose |
 |---------|----------|---------|
 | `quantix-network` | boot | Auto-configure network via DHCP |
-| `quantix-node` | default | Node daemon (API server on port 8443/9090) |
-| `quantix-console` | default | Management console (GUI or TUI) |
-| `seatd` | default | Seat management for GUI |
+| `quantix-node` | default | Node daemon (API server on port 8443/9443) |
+| `quantix-console` | default | TUI console on TTY1 |
 | `libvirtd` | default | Libvirt daemon |
 | `chronyd` | default | NTP time sync |
 
@@ -243,20 +263,6 @@ The `quantix-network` service automatically:
 - Brings up interfaces
 - Runs DHCP on each interface
 - Supports WiFi (if configured)
-
-### WiFi Setup
-
-```bash
-# Copy example config
-cp /etc/wpa_supplicant/wpa_supplicant.conf.example \
-   /etc/wpa_supplicant/wpa_supplicant.conf
-
-# Edit with your network
-vi /etc/wpa_supplicant/wpa_supplicant.conf
-
-# Restart network
-rc-service quantix-network restart
-```
 
 ### Manual Network
 
@@ -277,14 +283,14 @@ ip route add default via 192.168.1.1
 ### QEMU (Quick Test)
 
 ```bash
-# Basic test (no port forwarding)
+# Basic test
 make test-qemu
 
 # With port forwarding (access Web UI from host)
 qemu-system-x86_64 -enable-kvm -m 4G \
     -cdrom output/quantix-os-1.0.0.iso \
     -device virtio-net-pci,netdev=net0 \
-    -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::9090-:9090
+    -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::9443-:9443
 
 # UEFI mode
 make test-qemu-uefi
@@ -300,15 +306,10 @@ After booting in QEMU with port forwarding:
    udhcpc -i eth0
    ```
 
-2. **Start node daemon** (if not auto-started):
-   ```bash
-   /usr/bin/qx-node --webui-path /usr/share/quantix-host-ui
-   ```
-
-3. **From host**, access:
-   - Web UI: http://localhost:8443/
-   - Health API: http://localhost:8443/api/v1/host/health
-   - gRPC: localhost:9090
+2. **From host**, access:
+   - Web UI: https://localhost:8443/
+   - Health API: https://localhost:8443/api/v1/host/health
+   - gRPC: localhost:9443
 
 ### Physical Hardware
 
@@ -323,11 +324,11 @@ sync
 ### Build Fails: "Permission denied"
 
 ```bash
-# Make build script executable
-chmod +x build.sh builder/*.sh
+# Make build scripts executable
+chmod +x builder/*.sh
 
 # Or run with bash explicitly
-bash ./build.sh
+bash ./builder/build-squashfs.sh
 ```
 
 ### Build Fails: "Package not found"
@@ -340,7 +341,7 @@ docker run --rm alpine:3.20 apk search <package-name>
 
 ### Build Fails: "Rust version too old"
 
-The `Dockerfile.full` uses rustup to get the latest Rust. If building locally:
+The Dockerfile.rust-tui uses rustup for latest Rust. If building locally:
 ```bash
 rustup update stable
 ```
@@ -353,7 +354,7 @@ rustup update stable
 
 ### ISO Boots but "No block devices found"
 
-This indicates missing kernel modules in initramfs. The build should automatically include them, but verify:
+This indicates missing kernel modules in initramfs. Verify:
 ```bash
 # Check initramfs contents
 zcat output/initramfs-*.cpio.gz | cpio -t | grep -E "\.ko"
@@ -391,44 +392,21 @@ rc-service quantix-network status
    ls -la /usr/share/quantix-host-ui/
    ```
 
-### GUI Console (Web Kiosk) Not Starting
+### TUI Console Not Starting
 
-The GUI uses Cage (Wayland kiosk) + Cog (WPE WebKit browser) to display the React Host UI.
-
-1. Check for graphics:
+1. Check console service:
    ```bash
-   ls /dev/dri/
-   ls /dev/fb0
+   rc-service quantix-console status
    ```
 
-2. Check seatd is running:
+2. Check logs:
    ```bash
-   rc-service seatd status
+   cat /var/log/quantix-console.log
    ```
 
-3. Check node daemon is running (Web UI must be available):
+3. Run manually:
    ```bash
-   rc-service quantix-node status
-   curl http://localhost:8443/
-   ```
-
-4. Check cage and cog are installed:
-   ```bash
-   which cage
-   which cog
-   ```
-
-5. Try TUI fallback:
-   ```bash
-   qx-console-launcher --tui
-   ```
-
-6. Manual kiosk launch for debugging:
-   ```bash
-   export XDG_RUNTIME_DIR=/run/user/0
-   mkdir -p $XDG_RUNTIME_DIR
-   seatd -g video &
-   cage -- cog http://localhost:8443
+   /usr/local/bin/qx-console
    ```
 
 ## Customization
@@ -473,35 +451,30 @@ menuentry "My Custom Entry" {
 }
 ```
 
-## GUI Architecture (Web Kiosk)
+## Console Architecture
 
-The Quantix-OS GUI console uses a "Web Kiosk" pattern instead of a native GUI toolkit:
+Quantix-OS uses a TUI (Text User Interface) for local console management:
 
 ```
 ┌─────────────────────────────────────────┐
-│     React Host UI (same as Web UI)      │  <- Your existing dashboard
+│     qx-console (Ratatui TUI)            │  <- Rust binary
 ├─────────────────────────────────────────┤
-│       Cog (WPE WebKit Browser)          │  <- Embedded browser
+│     crossterm (Terminal abstraction)    │  <- Cross-platform
 ├─────────────────────────────────────────┤
-│     Cage (Wayland Kiosk Compositor)     │  <- Fullscreen kiosk mode
-├─────────────────────────────────────────┤
-│     wlroots → DRM/KMS → libinput        │  <- Hardware abstraction
+│     Linux TTY (TTY1)                    │  <- Physical console
 └─────────────────────────────────────────┘
 ```
 
 **Benefits:**
-- Reuses existing React UI code
-- Stable input handling via libinput/libseat
-- No complex LinuxKMS/fbdev driver issues
-- Proven Wayland infrastructure
-
-**Packages:**
-- `cage` - Wayland kiosk compositor (runs single app fullscreen)
-- `cog` - Simple WPE WebKit launcher
-- `wpewebkit` - Lightweight embedded WebKit engine
+- Works on all hardware (no GPU required)
+- Minimal footprint (~3MB binary)
+- Fast startup (< 100ms)
+- No graphics driver issues
+- Works over serial console
 
 ## Related Documents
 
 - [000052 - Quantix-OS Architecture](./000052-quantix-os-architecture.md)
 - [000058 - Complete Vision](./000058-quantix-os-complete-vision.md)
-- [000060 - Network and GUI Setup](./000060-network-and-gui-setup.md)
+- [000060 - Network and TUI Setup](./000060-network-and-gui-setup.md)
+- [000061 - Agent Architecture](./000061-agent-architecture.md)

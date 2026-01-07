@@ -1,12 +1,13 @@
-# 000060 - Quantix-OS Network and GUI Setup
+# 000060 - Quantix-OS Network and TUI Console Setup
 
 **Document Type:** Implementation Guide  
 **Created:** 2026-01-07  
+**Last Updated:** 2026-01-07  
 **Status:** Active
 
 ## Overview
 
-This document describes the automatic network configuration and graphical console (GUI) setup for Quantix-OS.
+This document describes the automatic network configuration and TUI console setup for Quantix-OS.
 
 ## Network Auto-Configuration
 
@@ -111,44 +112,95 @@ ping -c 3 8.8.8.8
 | WiFi not connecting | Check `/var/log/messages` for wpa_supplicant errors |
 | DNS not working | Check `/etc/resolv.conf` |
 
-## Graphical Console (Slint GUI)
+## TUI Console (DCUI)
 
 ### Overview
 
-Quantix-OS includes a graphical management console built with [Slint](https://slint.dev/). It provides:
+Quantix-OS uses a **TUI (Text User Interface)** for local console management, built with [Ratatui](https://ratatui.rs/). It provides:
 
-- First-boot setup wizard
 - System status dashboard
 - Network configuration
-- SSH management
+- SSH management with security timer
 - Cluster join interface
+- Service management
+- Power operations
 
-### Display Modes
+### Why TUI Over GUI?
 
-The console launcher (`qx-console-launcher`) automatically selects the best mode:
+| Feature | TUI (Ratatui) | GUI (Slint/Wayland) |
+|---------|---------------|---------------------|
+| RAM Usage | ~5 MB | ~50-500 MB |
+| Works Everywhere | ✅ All hardware | ⚠️ Requires GPU |
+| Boot Time | Milliseconds | Seconds |
+| Dependencies | Single binary | GPU drivers, Mesa |
+| Reliability | Very high | GPU driver dependent |
 
-| Environment | Mode | Backend |
-|-------------|------|---------|
-| Physical console with GPU | GUI | Slint + LinuxKMS |
-| Serial console | TUI | Ratatui |
-| SSH session | TUI | Ratatui |
-| No graphics | TUI | Ratatui |
+### Console Features
 
-### Manual Mode Selection
-
-```bash
-# Force GUI mode
-qx-console-launcher --gui
-
-# Force TUI mode
-qx-console-launcher --tui
+```
+╔═══════════════════════════════════════════════════════════════╗
+║                     QUANTIX-OS v1.0.0                         ║
+║                   The VMware Killer                           ║
+╠═══════════════════════════════════════════════════════════════╣
+║                                                               ║
+║   Node:     quantix-01.local                                  ║
+║   Status:   Cluster Member                                    ║
+║   IP:       192.168.1.100                                     ║
+║                                                               ║
+║   CPU:      [████████░░░░░░░░] 48%                           ║
+║   Memory:   [██████████░░░░░░] 64% (32GB / 50GB)            ║
+║   VMs:      12 running                                        ║
+║   Uptime:   5 days, 3 hours                                   ║
+║                                                               ║
+║   Management URL: https://192.168.1.100:8443                  ║
+║                                                               ║
+╠═══════════════════════════════════════════════════════════════╣
+║  [F2] Configure Network    [F5] Refresh Display               ║
+║  [F3] Configure SSH        [F6] Restart Services              ║
+║  [F4] Join Cluster         [F10] Shutdown/Reboot              ║
+╚═══════════════════════════════════════════════════════════════╝
 ```
 
-### Requirements for GUI Mode
+### Menu Functions
 
-1. **Framebuffer or DRM device**: `/dev/fb0` or `/dev/dri/card*`
-2. **Seat daemon**: `seatd` must be running
-3. **Runtime directory**: `/run/user/0` must exist
+| Key | Function | Description |
+|-----|----------|-------------|
+| F2 | Configure Network | DHCP/Static IP, DNS, Gateway |
+| F3 | Configure SSH | Enable/disable with security timer |
+| F4 | Join Cluster | Enter control plane URL + token |
+| F5 | Refresh Display | Update system status |
+| F6 | Restart Services | Node daemon, libvirt, OVS |
+| F7 | View Diagnostics | System logs, hardware info |
+| F10 | Power Menu | Reboot/Shutdown |
+| F12 | Emergency Shell | Break-glass access (logged) |
+
+### SSH Security Timer
+
+The TUI includes a security feature for SSH access:
+
+- **Timed Access**: Enable SSH for 5-120 minutes
+- **Auto-Disable**: SSH automatically disables when timer expires
+- **Permanent Mode**: Optional for trusted environments
+- **Audit Logging**: All enable/disable actions are logged
+
+Access via F3:
+
+```
+╔═══════════════════════════════════════════════════════════════╗
+║                     SSH Configuration                          ║
+╠═══════════════════════════════════════════════════════════════╣
+║                                                               ║
+║   Status: ● SSH ENABLED                                       ║
+║   Auto-disable in: 14:32                                      ║
+║                                                               ║
+║   Timer: ◀ 15 minutes ▶                                       ║
+║                                                               ║
+║   [E] Enable SSH (with timer)                                 ║
+║   [D] Disable SSH                                             ║
+║   [P] Toggle Permanent SSH                                    ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+```
 
 ### Starting the Console Manually
 
@@ -157,34 +209,17 @@ qx-console-launcher --tui
 rc-service quantix-console start
 
 # Or run directly
-export XDG_RUNTIME_DIR=/run/user/0
-export SLINT_BACKEND=linuxkms
-/usr/bin/qx-console-gui
+/usr/local/bin/qx-console
 ```
 
-### Troubleshooting GUI Issues
+### Troubleshooting TUI Issues
 
 | Issue | Solution |
 |-------|----------|
-| Black screen | Add `nomodeset` to kernel command line |
-| "No DRM device" | Check `/dev/dri/` exists, load GPU drivers |
-| Permission denied | Ensure `seatd` is running |
-| Crashes immediately | Check `/var/log/quantix-console.log` |
-
-### Kernel Parameters for Graphics
-
-Add to GRUB command line if needed:
-
-```
-# For problematic GPUs
-nomodeset video=efifb
-
-# For specific resolution
-video=1920x1080
-
-# For Intel graphics issues
-i915.modeset=1
-```
+| Console not starting | Check `rc-service quantix-console status` |
+| Blank screen | Try running `/usr/local/bin/qx-console` directly |
+| Keyboard not working | Check terminal is TTY1 |
+| Display garbled | Reset terminal with `reset` command |
 
 ## Service Management
 
@@ -194,7 +229,7 @@ i915.modeset=1
 |---------|---------|---------|
 | `quantix-network` | Auto-configure network | boot |
 | `quantix-node` | Node daemon (API server) | default |
-| `quantix-console` | Management console | default |
+| `quantix-console` | TUI console | default |
 
 ### Commands
 
@@ -221,23 +256,51 @@ rc-update del quantix-node default
 | `/etc/init.d/quantix-console` | Console service |
 | `/etc/wpa_supplicant/wpa_supplicant.conf` | WiFi configuration |
 | `/usr/bin/qx-node` | Node daemon binary |
-| `/usr/bin/qx-console-gui` | Slint GUI binary |
 | `/usr/local/bin/qx-console` | TUI binary |
-| `/usr/local/bin/qx-console-launcher` | Console mode selector |
+| `/usr/local/bin/qx-console-launcher` | Console launcher script |
+| `/usr/share/quantix-host-ui/` | React Host UI files |
 | `/var/log/quantix-node.log` | Node daemon logs |
 | `/var/log/quantix-console.log` | Console logs |
 
-## Building with Network and GUI Support
+## Web UI Access
+
+The React Host UI is served by the node daemon at port 8443:
+
+- **URL**: `https://<node-ip>:8443`
+- **Features**: VM management, storage, performance monitoring
+- **API**: REST API at `/api/v1/*`
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/host` | GET | Host information |
+| `/api/v1/host/health` | GET | Health check |
+| `/api/v1/vms` | GET | List VMs |
+| `/api/v1/vms` | POST | Create VM |
+| `/api/v1/storage/pools` | GET | List storage pools |
+| `/api/v1/cluster/status` | GET | Cluster status |
+
+## Building with Network and TUI Support
 
 To rebuild the ISO with these features:
 
 ```bash
 cd Quantix-OS
-./build.sh --clean
+make iso
 ```
 
 The build will:
-1. Install WiFi packages (`wpa_supplicant`, `wireless-tools`, etc.)
-2. Build the Slint GUI with LinuxKMS backend
-3. Configure services to start at boot
-4. Include the network auto-configuration service
+1. Install network packages (`wpa_supplicant`, `wireless-tools`, etc.)
+2. Build the TUI console with Ratatui
+3. Build the Node daemon
+4. Build the React Host UI
+5. Configure services to start at boot
+6. Include the network auto-configuration service
+
+## Related Documents
+
+- [000052 - Quantix-OS Architecture](./000052-quantix-os-architecture.md)
+- [000058 - Complete Vision](./000058-quantix-os-complete-vision.md)
+- [000059 - Build Guide](./000059-quantix-os-build-guide.md)
+- [000061 - Agent Architecture](./000061-agent-architecture.md)

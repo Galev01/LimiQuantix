@@ -1,15 +1,15 @@
 # 000052 - Quantix-OS Architecture
 
-**Document:** Quantix-OS Immutable Hypervisor Operating System  
+**Document:** Quantix-OS Immutable Type-1 Hypervisor Operating System  
 **Status:** Active  
 **Created:** January 3, 2026  
-**Last Updated:** January 3, 2026
+**Last Updated:** January 7, 2026
 
 ---
 
 ## Overview
 
-Quantix-OS is a custom Alpine Linux-based operating system designed specifically for running the Quantix-KVM hypervisor. It follows the **ESXi/Nutanix AHV** architecture pattern: immutable root filesystem, A/B partitioning for safe updates, and a minimal attack surface.
+Quantix-OS is a custom Alpine Linux-based **Type-1 hypervisor operating system** designed specifically for running the Quantix-KVM virtualization platform. It follows the **ESXi/Nutanix AHV** architecture pattern: immutable root filesystem, A/B partitioning for safe updates, and a minimal attack surface.
 
 This document describes the architecture, design decisions, and implementation details of Quantix-OS.
 
@@ -19,14 +19,15 @@ This document describes the architecture, design decisions, and implementation d
 
 1. [Philosophy](#1-philosophy)
 2. [Technology Choice](#2-technology-choice)
-3. [Disk Layout](#3-disk-layout)
-4. [Boot Process](#4-boot-process)
-5. [Console TUI (DCUI)](#5-console-tui-dcui)
-6. [Update Mechanism](#6-update-mechanism)
-7. [Security Model](#7-security-model)
-8. [Directory Structure](#8-directory-structure)
-9. [Building](#9-building)
-10. [Future Enhancements](#10-future-enhancements)
+3. [Tech Stack](#3-tech-stack)
+4. [Disk Layout](#4-disk-layout)
+5. [Boot Process](#5-boot-process)
+6. [Console TUI (DCUI)](#6-console-tui-dcui)
+7. [Update Mechanism](#7-update-mechanism)
+8. [Security Model](#8-security-model)
+9. [Directory Structure](#9-directory-structure)
+10. [Building](#10-building)
+11. [Future Enhancements](#11-future-enhancements)
 
 ---
 
@@ -42,6 +43,7 @@ Quantix-OS embodies the **appliance philosophy**:
 | **Stateless Boot** | The OS boots into RAM in seconds. A reboot resets to a known-good state. |
 | **Config Separation** | Only `/quantix` (config) and `/data` (VMs) persist across reboots. |
 | **A/B Updates** | Updates are atomic. Flash to inactive partition, reboot, auto-rollback on failure. |
+| **Type-1 Hypervisor** | Runs directly on hardware, VMs run on KVM with minimal overhead. |
 
 ### Why This Matters
 
@@ -50,7 +52,7 @@ Quantix-OS embodies the **appliance philosophy**:
 | `apt upgrade` can break | Atomic updates, automatic rollback |
 | Configuration drift over time | Immutable base, declarative config |
 | Slow boot (30-60s) | Fast boot (< 10s from RAM) |
-| Large attack surface | Minimal 150MB footprint |
+| Large attack surface | Minimal 200MB footprint |
 | Shell access by default | No shell, API-only |
 
 ---
@@ -61,7 +63,7 @@ Quantix-OS embodies the **appliance philosophy**:
 
 | Alternative | Pros | Cons | Verdict |
 |-------------|------|------|---------|
-| **Alpine Linux** | 150MB footprint, musl libc, OpenRC, designed for appliances | musl can cause binary issues | ✅ **Best choice** |
+| **Alpine Linux** | 200MB footprint, musl libc, OpenRC, designed for appliances | musl can cause binary issues | ✅ **Best choice** |
 | **Talos Linux** | Immutable, Kubernetes-native | Too K8s-focused | ❌ Wrong use case |
 | **Flatcar Container Linux** | Immutable, auto-updates | 800MB+, systemd | ⚠️ Too big |
 | **NixOS** | Declarative, reproducible | Complex, 1GB+ | ❌ Too complex |
@@ -69,7 +71,7 @@ Quantix-OS embodies the **appliance philosophy**:
 
 ### Key Alpine Benefits
 
-1. **Size**: ~150MB total footprint vs. 2GB+ for Ubuntu
+1. **Size**: ~200MB total footprint vs. 2GB+ for Ubuntu
 2. **Init System**: OpenRC (simple, fast, scriptable) vs. systemd
 3. **Userland**: BusyBox (same as ESXi!)
 4. **Package Manager**: APK (only at build time, not runtime)
@@ -77,7 +79,61 @@ Quantix-OS embodies the **appliance philosophy**:
 
 ---
 
-## 3. Disk Layout
+## 3. Tech Stack
+
+### Quantix-OS Components
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Base OS** | Alpine Linux 3.20 | Minimal immutable base |
+| **Kernel** | Linux LTS 6.6 | Hardware support, KVM |
+| **Init System** | OpenRC | Service management |
+| **Hypervisor** | KVM + QEMU + libvirt | VM execution |
+| **Networking** | OVS + OVN | Software-defined networking |
+| **Storage** | Local/NFS/Ceph/iSCSI | VM disk storage |
+
+### Node Daemon (Rust)
+
+| Crate | Purpose |
+|-------|---------|
+| `limiquantix-node` | Main daemon service, HTTP/gRPC server |
+| `limiquantix-hypervisor` | libvirt abstraction, VM lifecycle |
+| `limiquantix-telemetry` | System metrics collection |
+| `limiquantix-proto` | gRPC protocol definitions |
+| `limiquantix-common` | Shared utilities, logging |
+
+### Console TUI (Rust)
+
+| Library | Purpose |
+|---------|---------|
+| `ratatui` | Terminal UI rendering |
+| `crossterm` | Cross-platform terminal control |
+| `sysinfo` | System information gathering |
+
+### Host UI (React)
+
+| Technology | Purpose |
+|------------|---------|
+| React 19 | UI framework |
+| TypeScript | Type safety |
+| Vite | Build tool |
+| TanStack Query | Server state management |
+| Tailwind CSS v4 | Styling |
+| Zustand | Client state management |
+
+### Control Plane (Go)
+
+| Technology | Purpose |
+|------------|---------|
+| Go 1.22+ | Language |
+| Gin | HTTP router |
+| gRPC-Go | Node communication |
+| etcd | Distributed state |
+| PostgreSQL | Persistent storage |
+
+---
+
+## 4. Disk Layout
 
 Quantix-OS uses a GPT partition layout optimized for A/B updates:
 
@@ -125,7 +181,7 @@ Quantix-OS uses a GPT partition layout optimized for A/B updates:
 
 ---
 
-## 4. Boot Process
+## 5. Boot Process
 
 ```
 UEFI → GRUB → vmlinuz + initramfs
@@ -185,9 +241,9 @@ mount -t overlay overlay \
 
 ---
 
-## 5. Console TUI (DCUI)
+## 6. Console TUI (DCUI)
 
-The "yellow screen" Direct Console User Interface provides local management:
+The "yellow screen" Direct Console User Interface provides local management via a Ratatui-based TUI:
 
 ```
 ╔═══════════════════════════════════════════════════════════════╗
@@ -202,9 +258,9 @@ The "yellow screen" Direct Console User Interface provides local management:
 ║   Management URL: https://192.168.1.100:8443                  ║
 ║                                                               ║
 ╠═══════════════════════════════════════════════════════════════╣
-║  [F2] Configure Network    [F5] Restart Services              ║
-║  [F3] View Logs            [F10] Shutdown                     ║
-║  [F4] Join Cluster         [F12] Emergency Shell              ║
+║  [F2] Configure Network    [F5] Refresh Display               ║
+║  [F3] Configure SSH        [F6] Restart Services              ║
+║  [F4] Join Cluster         [F10] Shutdown/Reboot              ║
 ╚═══════════════════════════════════════════════════════════════╝
 ```
 
@@ -213,10 +269,11 @@ The "yellow screen" Direct Console User Interface provides local management:
 | Key | Function | Description |
 |-----|----------|-------------|
 | F2 | Configure Network | DHCP/Static, VLAN, DNS |
-| F3 | View Logs | Node daemon, libvirt, OVS |
+| F3 | Configure SSH | Enable/disable with security timer |
 | F4 | Join Cluster | Enter control plane URL + token |
-| F5 | Restart Services | Selective service restart |
-| F6 | System Info | Hardware, resources, status |
+| F5 | Refresh Display | Update system status |
+| F6 | Restart Services | Node daemon, libvirt, OVS |
+| F7 | View Diagnostics | System logs, hardware info |
 | F10 | Power Menu | Reboot/Shutdown |
 | F12 | Emergency Shell | Break-glass access |
 
@@ -224,12 +281,12 @@ The "yellow screen" Direct Console User Interface provides local management:
 
 - **Language**: Rust
 - **Framework**: ratatui + crossterm
-- **Binary Size**: ~2MB (static musl)
+- **Binary Size**: ~3MB (static musl)
 - **Startup Time**: < 100ms
 
 ---
 
-## 6. Update Mechanism
+## 7. Update Mechanism
 
 ### A/B Update Process
 
@@ -269,28 +326,17 @@ A watchdog timer ensures safety:
 3. If not called, system reboots automatically into previous partition
 4. On successful health check, `quantix.pending` is cleared
 
-### Update Commands
-
-```bash
-# From control plane
-qxctl node update quantix-01 --image system-1.1.0.squashfs
-
-# Manual update (emergency)
-qx-update --image /tmp/system-1.1.0.squashfs
-reboot
-```
-
 ---
 
-## 7. Security Model
+## 8. Security Model
 
 ### No Shell Access by Default
 
 | Access Method | Default State | Enable Via |
 |---------------|---------------|------------|
 | Login prompt | Disabled | Cannot enable |
-| SSH | Disabled | DCUI F12 → Enable SSH |
-| Emergency Shell | Disabled | DCUI F12 + confirm |
+| SSH | Disabled | TUI F3 → Enable with timer |
+| Emergency Shell | Disabled | TUI F12 + confirm |
 | Serial Console | Available | For headless servers |
 
 ### Attack Surface Reduction
@@ -307,9 +353,8 @@ Default policy is **DROP** with these exceptions:
 
 | Port | Service | Direction |
 |------|---------|-----------|
-| 443 | Web UI | Inbound |
-| 8443 | API | Inbound |
-| 9443 | Node Daemon | Inbound |
+| 8443 | Web UI (HTTPS) | Inbound |
+| 9443 | Node Daemon (gRPC) | Inbound |
 | 5900-5999 | VNC | Inbound |
 | 16509 | Libvirt | Internal |
 | 6081 | Geneve (OVN) | Internal |
@@ -318,23 +363,28 @@ Default policy is **DROP** with these exceptions:
 
 - All node-to-control-plane communication is TLS 1.3
 - Self-signed certificates generated on first boot
+- ACME (Let's Encrypt) support for public certificates
 - CA can be provided via cluster join
 
 ---
 
-## 8. Directory Structure
+## 9. Directory Structure
 
 ### Repository Layout
 
 ```
-quantix-os/
+Quantix-OS/
 ├── Makefile                    # Build orchestration
 ├── README.md                   # Documentation
+├── build.sh                    # Main build script
 │
 ├── builder/
-│   ├── Dockerfile              # Build environment
+│   ├── Dockerfile.rust-tui     # TUI build environment
 │   ├── build-iso.sh            # ISO builder
-│   └── build-squashfs.sh       # Rootfs builder
+│   ├── build-squashfs.sh       # Rootfs builder
+│   ├── build-initramfs.sh      # Initramfs builder
+│   ├── build-node-daemon.sh    # Node daemon builder
+│   └── build-host-ui.sh        # Host UI builder
 │
 ├── profiles/
 │   └── quantix/
@@ -353,20 +403,27 @@ quantix-os/
 │   │   └── quantix/
 │   │       └── defaults.yaml
 │   ├── usr/local/bin/
-│   │   └── qx-console-fallback # Shell TUI
-│   └── var/lib/quantix/
+│   │   ├── qx-console          # TUI binary
+│   │   └── qx-console-launcher # Launcher script
+│   ├── usr/bin/
+│   │   └── qx-node             # Node daemon binary
+│   └── usr/share/
+│       └── quantix-host-ui/    # React Host UI
 │
-├── installer/
-│   ├── install.sh              # Disk installer
-│   └── firstboot.sh            # First boot script
-│
-├── console/                    # Rust TUI
+├── console-tui/                # Rust TUI
 │   ├── Cargo.toml
 │   └── src/
-│       ├── main.rs
-│       ├── config.rs
-│       ├── network.rs
-│       └── system.rs
+│       └── main.rs
+│
+├── grub/
+│   └── grub.cfg
+│
+├── initramfs/
+│   └── init
+│
+├── installer/
+│   ├── install.sh
+│   └── firstboot.sh
 │
 ├── branding/
 │   ├── banner.txt
@@ -406,7 +463,7 @@ quantix-os/
 
 ---
 
-## 9. Building
+## 10. Building
 
 ### Prerequisites
 
@@ -417,22 +474,19 @@ quantix-os/
 ### Build Commands
 
 ```bash
-cd quantix-os
+cd Quantix-OS
 
-# Build bootable ISO (includes squashfs)
+# Build bootable ISO (includes all components)
 make iso
 
-# Build update image only
-make squashfs
-
-# Build TUI console
-make console-binary
-
-# Build node daemon (from agent crate)
-make node-binary
+# Build individual components
+make tui              # TUI console
+make node-daemon      # Node daemon
+make host-ui          # React Host UI
+make squashfs         # Root filesystem
 
 # Test ISO in QEMU
-make test-iso
+make test-qemu
 
 # Clean
 make clean
@@ -442,45 +496,33 @@ make clean
 
 ```bash
 # What happens inside the builder container:
-1. Create Alpine rootfs with apk
-2. Install packages (KVM, libvirt, OVS, etc.)
-3. Apply overlay files
-4. Generate initramfs
-5. Create squashfs
-6. Build ISO with GRUB (UEFI + BIOS)
-```
-
-### Cross-Compilation
-
-Rust binaries must be built for musl:
-
-```bash
-# Add musl target
-rustup target add x86_64-unknown-linux-musl
-
-# Build console
-cd console
-cargo build --release --target x86_64-unknown-linux-musl
-
-# Binary is fully static, ~2MB
+1. Build TUI console (Rust, musl target)
+2. Build Node daemon (Rust, musl target)
+3. Build Host UI (React, npm build)
+4. Create Alpine rootfs with apk
+5. Install packages (KVM, libvirt, OVS, etc.)
+6. Apply overlay files
+7. Generate initramfs
+8. Create squashfs
+9. Build ISO with GRUB (UEFI + BIOS)
 ```
 
 ---
 
-## 10. Future Enhancements
+## 11. Future Enhancements
 
-### Phase 1 (Current)
+### Phase 1 (Complete)
 
 - [x] Basic Alpine rootfs builder
 - [x] A/B partition layout
 - [x] OpenRC services
-- [x] Shell-based fallback TUI
-- [x] Rust TUI skeleton
+- [x] Rust TUI console
+- [x] Node daemon with HTTP/gRPC
+- [x] Host UI (React)
 - [x] Installer script
 
-### Phase 2 (Next)
+### Phase 2 (Current)
 
-- [ ] Rust TUI full implementation
 - [ ] PXE boot support
 - [ ] Automated testing in QEMU
 - [ ] Secure Boot signing
@@ -511,7 +553,7 @@ cargo build --release --target x86_64-unknown-linux-musl
 - [GRUB Manual](https://www.gnu.org/software/grub/manual/)
 - [SquashFS Tools](https://github.com/plougher/squashfs-tools)
 - [ESXi Architecture](https://docs.vmware.com/en/VMware-vSphere/index.html)
-- [Talos Linux Design](https://www.talos.dev/docs/)
+- [Ratatui Documentation](https://ratatui.rs/)
 
 ---
 
@@ -526,6 +568,7 @@ See `profiles/quantix/packages.conf` for the complete list. Key packages:
 | Networking | openvswitch, iproute2, iptables |
 | Storage | lvm2, xfsprogs, nfs-utils, open-iscsi |
 | Security | openssl, tpm2-tools, audit |
+| TUI | kbd, libinput |
 
 ---
 
@@ -538,8 +581,8 @@ See `profiles/quantix/packages.conf` for the complete list. Key packages:
 | Userland | BusyBox | BusyBox |
 | Hypervisor | VMkernel | KVM |
 | Management Agent | hostd | qx-node (Rust) |
-| Console | DCUI | qx-console (Rust) |
-| Footprint | ~150MB | ~150MB |
+| Console | DCUI | qx-console (Rust TUI) |
+| Footprint | ~150MB | ~200MB |
 | Boot Time | ~20s | ~10s |
 | Update | VIBs | A/B Squashfs |
 | Licensing | Proprietary | Apache 2.0 |
