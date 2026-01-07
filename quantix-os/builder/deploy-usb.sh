@@ -312,6 +312,15 @@ validate_device() {
     # Check device exists
     if [ ! -b "$device" ]; then
         log_error "Device $device does not exist or is not a block device"
+        echo ""
+        echo -e "  ${CYAN}Available block devices:${NC}"
+        lsblk -dno NAME,SIZE,MODEL 2>/dev/null | grep -v "loop\|sr\|rom" | while read line; do
+            echo -e "    /dev/$line"
+        done
+        echo ""
+        log_info "Tip: USB devices may change names after being written to."
+        log_info "     Run 'sudo ./builder/deploy-usb.sh --list' to see USB devices,"
+        log_info "     or run without arguments for interactive selection."
         exit 1
     fi
     
