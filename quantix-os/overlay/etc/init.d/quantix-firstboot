@@ -31,12 +31,17 @@ start() {
     fi
 
     # Generate TLS certificates
-    CERT_DIR="/quantix/certificates"
+    CERT_DIR="/etc/limiquantix/certs"
     if [ ! -f "$CERT_DIR/server.key" ]; then
         einfo "Generating TLS certificates..."
         mkdir -p "$CERT_DIR"
+        chmod 700 "$CERT_DIR"
         
         HOSTNAME=$(hostname)
+        
+        # Get primary IP for SAN
+        PRIMARY_IP=$(ip -4 addr show scope global | grep inet | head -1 | awk '{print $2}' | cut -d/ -f1)
+        PRIMARY_IP=${PRIMARY_IP:-"127.0.0.1"}
         
         openssl genrsa -out "$CERT_DIR/server.key" 4096 2>/dev/null
         openssl req -new -x509 \
@@ -44,11 +49,18 @@ start() {
             -out "$CERT_DIR/server.crt" \
             -days 3650 \
             -subj "/CN=${HOSTNAME}/O=Quantix-KVM/OU=Hypervisor" \
-            -addext "subjectAltName=DNS:${HOSTNAME},DNS:localhost,IP:127.0.0.1" 2>/dev/null
+            -addext "subjectAltName=DNS:${HOSTNAME},DNS:localhost,IP:127.0.0.1,IP:${PRIMARY_IP}" 2>/dev/null
         
         chmod 600 "$CERT_DIR/server.key"
         chmod 644 "$CERT_DIR/server.crt"
+        
+        einfo "TLS certificate generated for ${HOSTNAME} (${PRIMARY_IP})"
     fi
+    
+    # Also create symlink in legacy location for compatibility
+    mkdir -p /quantix/certificates
+    ln -sf "$CERT_DIR/server.key" /quantix/certificates/server.key 2>/dev/null || true
+    ln -sf "$CERT_DIR/server.crt" /quantix/certificates/server.crt 2>/dev/null || true
 
     # Create default storage directories
     einfo "Creating storage directories..."

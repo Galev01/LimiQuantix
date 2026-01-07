@@ -26,6 +26,7 @@ mod http_server;
 mod registration;
 mod server;
 mod service;
+mod tls;
 
 pub use agent_client::{AgentClient, AgentManager};
 

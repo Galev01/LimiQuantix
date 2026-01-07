@@ -66,9 +66,18 @@ bytes = "1.5"
 
 # HTTP/REST server (for web UI)
 axum = { version = "0.7", features = ["macros"] }
+axum-server = { version = "0.7", features = ["tls-rustls"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["fs", "cors", "trace"] }
 mime_guess = "2.0"
+
+# TLS and certificate management
+rustls = "0.23"
+rustls-pemfile = "2.1"
+tokio-rustls = "0.26"
+rcgen = "0.13"
+instant-acme = "0.7"
+base64 = "0.22"
 
 # System information
 sysinfo = "0.32"

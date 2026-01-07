@@ -1,0 +1,101 @@
+# =============================================================================
+# Quantix Node Daemon Configuration
+# =============================================================================
+# Location: /etc/limiquantix/node.yaml
+# 
+# This file configures the Quantix node daemon (qx-node).
+# All settings can also be overridden via command-line arguments.
+# =============================================================================
+
+# Node identity
+node:
+  # Node ID (auto-generated if not set)
+  # id: "node-1"
+  
+  # Hostname (auto-detected if not set)
+  # hostname: "quantix-host"
+  
+  # Labels for node selection/affinity
+  labels: {}
+
+# Server configuration
+server:
+  # gRPC server listen address
+  listen_address: "0.0.0.0:9090"
+  
+  # Prometheus metrics port
+  metrics_port: 9091
+  
+  # HTTP/HTTPS server configuration
+  http:
+    # Enable HTTP server (port 8080) - enabled by default
+    enabled: true
+    
+    # HTTP listen address
+    listen_address: "0.0.0.0:8080"
+    
+    # Path to web UI static files
+    webui_path: "/usr/share/quantix-host-ui"
+    
+    # TLS/HTTPS configuration
+    tls:
+      # Enable HTTPS server (port 8443) - disabled by default
+      # Use --enable-https flag or set to true here
+      enabled: false
+      
+      # HTTPS listen address
+      listen_address: "0.0.0.0:8443"
+      
+      # Enable HTTP→HTTPS redirect from port 80
+      # Requires root privileges for port 80
+      redirect_http: false
+      redirect_port: 80
+      
+      # TLS certificate paths
+      cert_path: "/etc/limiquantix/certs/server.crt"
+      key_path: "/etc/limiquantix/certs/server.key"
+      
+      # Certificate mode: self-signed, manual, or acme
+      mode: "self-signed"
+      
+      # Self-signed certificate settings
+      self_signed:
+        # Common name (defaults to hostname)
+        # common_name: "quantix-host"
+        
+        # Validity in days
+        validity_days: 365
+      
+      # ACME (Let's Encrypt) settings
+      acme:
+        enabled: false
+        # email: "admin@example.com"
+        directory_url: "https://acme-v02.api.letsencrypt.org/directory"
+        domains: []
+        challenge_type: "http-01"
+        account_path: "/etc/limiquantix/certs/acme/account.json"
+        auto_renew: true
+        renew_before_days: 30
+
+# Hypervisor configuration
+hypervisor:
+  # Backend: mock, libvirt, or cloud-hypervisor
+  backend: "libvirt"
+  
+  # Libvirt connection URI
+  libvirt_uri: "qemu:///system"
+  
+  # VM storage paths
+  storage_path: "/var/lib/limiquantix/vms"
+  images_path: "/var/lib/limiquantix/cloud-images"
+
+# Control plane configuration (for cluster mode)
+control_plane:
+  # Control plane address
+  address: "http://localhost:8080"
+  
+  # Enable automatic registration with control plane
+  registration_enabled: false
+  
+  # Heartbeat interval in seconds
+  heartbeat_interval_secs: 30

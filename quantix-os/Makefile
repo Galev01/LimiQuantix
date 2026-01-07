@@ -198,7 +198,7 @@ test-qemu:
 		-display gtk \
 		-vga virtio \
 		-device virtio-net-pci,netdev=net0 \
-		-netdev user,id=net0,hostfwd=tcp::8443-:8443
+		-netdev user,id=net0,hostfwd=tcp::8080-:8080,hostfwd=tcp::8443-:8443
 
 # Test ISO in QEMU (UEFI mode)
 test-qemu-uefi:
@@ -236,7 +236,7 @@ test-qemu-uefi:
 		-display gtk \
 		-vga virtio \
 		-device virtio-net-pci,netdev=net0 \
-		-netdev user,id=net0,hostfwd=tcp::8443-:8443
+		-netdev user,id=net0,hostfwd=tcp::8080-:8080,hostfwd=tcp::8443-:8443
 
 # Test with virtual disk (for installer testing)
 test-qemu-install:
@@ -259,7 +259,7 @@ test-qemu-install:
 		-display gtk \
 		-vga virtio \
 		-device virtio-net-pci,netdev=net0 \
-		-netdev user,id=net0,hostfwd=tcp::8443-:8443
+		-netdev user,id=net0,hostfwd=tcp::8080-:8080,hostfwd=tcp::8443-:8443
 
 # =============================================================================
 # Cleanup

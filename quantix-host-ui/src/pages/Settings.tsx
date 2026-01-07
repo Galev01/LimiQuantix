@@ -1,21 +1,24 @@
 import { useState, type ChangeEvent } from 'react';
-import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, RotateCcw } from 'lucide-react';
+import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, RotateCcw, Lock, Upload, Key, Globe } from 'lucide-react';
 import { Header } from '@/components/layout';
 import { Card, Badge, Button, Input, Label } from '@/components/ui';
-import { useSettings, useUpdateSettings, useServices, useRestartService } from '@/hooks/useSettings';
+import { useSettings, useUpdateSettings, useServices, useRestartService, useCertificateInfo, useGenerateSelfSigned, useResetCertificate } from '@/hooks/useSettings';
 import { useHostInfo } from '@/hooks/useHost';
 import { useClusterStatus } from '@/hooks/useCluster';
 import { cn } from '@/lib/utils';
 
-type Tab = 'general' | 'storage' | 'network' | 'services' | 'about';
+type Tab = 'general' | 'storage' | 'network' | 'security' | 'services' | 'about';
 
 export function Settings() {
   const { data: settings, isLoading, refetch, isFetching } = useSettings();
   const { data: hostInfo } = useHostInfo();
   const { data: clusterStatus } = useClusterStatus();
   const { data: servicesData } = useServices();
+  const { data: certInfo } = useCertificateInfo();
   const updateSettingsMutation = useUpdateSettings();
   const restartServiceMutation = useRestartService();
+  const generateSelfSignedMutation = useGenerateSelfSigned();
+  const resetCertMutation = useResetCertificate();
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
   // Form state
@@ -26,6 +29,7 @@ export function Settings() {
     { id: 'general', label: 'General', icon: <SettingsIcon className="w-4 h-4" /> },
     { id: 'storage', label: 'Storage', icon: <HardDrive className="w-4 h-4" /> },
     { id: 'network', label: 'Network', icon: <Network className="w-4 h-4" /> },
+    { id: 'security', label: 'Security', icon: <Lock className="w-4 h-4" /> },
     { id: 'services', label: 'Services', icon: <Server className="w-4 h-4" /> },
     { id: 'about', label: 'About', icon: <Shield className="w-4 h-4" /> },
   ];
@@ -218,6 +222,123 @@ export function Settings() {
                       </div>
                     </div>
                   </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Security Tab */}
+            {activeTab === 'security' && (
+              <div className="space-y-6">
+                <Card>
+                  <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+                    <Key className="w-5 h-5 text-accent" />
+                    TLS Certificate
+                  </h3>
+                  {certInfo ? (
+                    <div className="space-y-4">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+                          <span className="text-text-muted">Mode</span>
+                          <Badge variant={certInfo.mode === 'acme' ? 'success' : certInfo.mode === 'manual' ? 'info' : 'default'}>
+                            {certInfo.mode === 'self-signed' ? 'Self-Signed' : 
+                             certInfo.mode === 'acme' ? 'Let\'s Encrypt' : 'Custom'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+                          <span className="text-text-muted">Expires</span>
+                          <span className={cn(
+                            'text-text-primary font-medium',
+                            certInfo.daysUntilExpiry < 30 && 'text-warning',
+                            certInfo.daysUntilExpiry < 7 && 'text-error'
+                          )}>
+                            {certInfo.daysUntilExpiry} days
+                          </span>
+                        </div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between py-2 border-b border-border/50">
+                          <span className="text-text-muted">Issuer</span>
+                          <span className="text-text-primary font-mono">{certInfo.issuer}</span>
+                        </div>
+                        <div className="flex justify-between py-2 border-b border-border/50">
+                          <span className="text-text-muted">Subject</span>
+                          <span className="text-text-primary font-mono">{certInfo.subject}</span>
+                        </div>
+                        <div className="flex justify-between py-2 border-b border-border/50">
+                          <span className="text-text-muted">Valid From</span>
+                          <span className="text-text-primary">{certInfo.validFrom}</span>
+                        </div>
+                        <div className="flex justify-between py-2 border-b border-border/50">
+                          <span className="text-text-muted">Valid Until</span>
+                          <span className="text-text-primary">{certInfo.validUntil}</span>
+                        </div>
+                        <div className="flex justify-between py-2">
+                          <span className="text-text-muted">Fingerprint</span>
+                          <span className="text-text-primary font-mono text-xs">{certInfo.fingerprint}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-text-muted">
+                      Loading certificate information...
+                    </div>
+                  )}
+                </Card>
+
+                <Card>
+                  <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-info" />
+                    Certificate Actions
+                  </h3>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="p-4 border border-border rounded-lg">
+                      <h4 className="font-medium text-text-primary mb-2">Self-Signed</h4>
+                      <p className="text-sm text-text-muted mb-3">
+                        Generate a new self-signed certificate for this host.
+                      </p>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => generateSelfSignedMutation.mutate(hostInfo?.hostname)}
+                        disabled={generateSelfSignedMutation.isPending}
+                      >
+                        {generateSelfSignedMutation.isPending ? 'Generating...' : 'Regenerate'}
+                      </Button>
+                    </div>
+                    <div className="p-4 border border-border rounded-lg">
+                      <h4 className="font-medium text-text-primary mb-2">Upload Custom</h4>
+                      <p className="text-sm text-text-muted mb-3">
+                        Upload your own certificate and private key.
+                      </p>
+                      <Button variant="secondary" size="sm">
+                        <Upload className="w-4 h-4" />
+                        Upload
+                      </Button>
+                    </div>
+                    <div className="p-4 border border-border rounded-lg">
+                      <h4 className="font-medium text-text-primary mb-2">Reset Default</h4>
+                      <p className="text-sm text-text-muted mb-3">
+                        Reset to the default self-signed certificate.
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => resetCertMutation.mutate()}
+                        disabled={resetCertMutation.isPending}
+                      >
+                        {resetCertMutation.isPending ? 'Resetting...' : 'Reset'}
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card>
+                  <h3 className="text-lg font-semibold text-text-primary mb-4">SSH Access</h3>
+                  <p className="text-text-muted mb-4">
+                    SSH access is managed from the local console (DCUI). Use the F3 key on the
+                    direct console to enable time-limited SSH access.
+                  </p>
+                  <Badge variant="info">Managed via Console TUI</Badge>
                 </Card>
               </div>
             )}

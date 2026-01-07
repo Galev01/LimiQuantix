@@ -1,0 +1,417 @@
+---
+description: Everything related to Quantix-OS and the web host UI
+alwaysApply: false
+---
+# QUANTIX-OS DEVELOPMENT RULES
+
+*Scope:* Apply when working on Quantix-OS, the Host UI, Console TUI, or any related components.
+
+*Purpose:* Ensure consistent development practices for the custom hypervisor operating system.
+
+---
+
+## Project Overview
+
+**Quantix-OS** is a custom, immutable, Alpine Linux-based Type-1 hypervisor operating system designed to power the Quantix-KVM virtualization platform.
+
+### Core Components
+
+| Component | Location | Technology | Purpose |
+|-----------|----------|------------|---------|
+| **Console TUI** | `Quantix-OS/console-tui/` | Rust + Ratatui | Local TTY1 console (DCUI) |
+| **Node Daemon** | `agent/limiquantix-node/` | Rust + Axum | HTTP/gRPC API server |
+| **Host UI** | `quantix-host-ui/` | React 19 + Vite | Web management interface |
+| **Build Scripts** | `Quantix-OS/builder/` | Shell + Docker | ISO build pipeline |
+| **Overlay Files** | `Quantix-OS/overlay/` | Config files | System configuration |
+
+---
+
+## Build System Rules
+
+### ALWAYS use Make targets for building
+
+```bash
+# Build complete ISO (preferred)
+make iso
+
+# Build individual components
+make tui            # Console TUI (qx-console)
+make node-daemon    # Node daemon (qx-node)
+make host-ui        # React Host UI
+make squashfs       # Alpine rootfs only
+make initramfs      # Boot initramfs only
+
+# Testing
+make test-qemu      # Test in QEMU
+make test-qemu-uefi # Test with UEFI
+```
+
+### Build Environment
+
+- All Rust components are built inside Docker containers using Alpine + musl
+- Target: `x86_64-unknown-linux-musl` (static binaries for Alpine)
+- Docker image: `quantix-rust-tui-builder` (defined in `builder/Dockerfile.rust-tui`)
+
+### Build Output Locations
+
+```
+Quantix-OS/output/
+├── quantix-os-1.0.0.iso      # Bootable ISO
+├── system-1.0.0.squashfs     # Root filesystem
+└── initramfs-1.0.0.cpio.gz   # Boot initramfs
+
+Quantix-OS/overlay/
+├── usr/local/bin/qx-console  # TUI binary (built)
+├── usr/bin/qx-node           # Node daemon (built)
+└── usr/share/quantix-host-ui/ # Web UI (built)
+```
+
+---
+
+## Console TUI (qx-console) Rules
+
+### Architecture
+
+The TUI is the **primary local console** (like VMware ESXi DCUI):
+
+- Runs on TTY1 when graphics work
+- Falls back from Web Kiosk on graphics failure
+- Always accessible via Ctrl+Alt+F2
+
+### Key Features to Maintain
+
+| Feature | Purpose |
+|---------|---------|
+| **Dashboard** | System status, CPU, RAM, uptime |
+| **Network Config (F2)** | DHCP/Static IP, DNS, gateway |
+| **SSH Management (F3)** | Timer-based SSH (5-120 min) |
+| **Cluster Join (F4)** | Connect to control plane |
+| **Diagnostics (F7)** | Logs, hardware info |
+| **Power Menu (F10)** | Reboot/Shutdown |
+| **Emergency Shell (F12)** | Break-glass access |
+
+### Rust/Ratatui Patterns
+
+```rust
+// Use tracing for logging (not println!)
+use tracing::{info, warn, error};
+
+// Use thiserror for error types
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum TuiError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("API error: {0}")]
+    Api(String),
+}
+
+// Use crossterm for terminal abstraction
+use crossterm::{
+    event::{self, Event, KeyCode},
+    terminal::{self, ClearType},
+};
+```
+
+### Console Launcher Rules
+
+The launcher script (`overlay/usr/local/bin/qx-console-launcher`) must:
+
+1. **Detect graphics capability** before trying Web Kiosk
+2. **Check for DRI/GPU issues** (Intel Iris kernel errors, broken drivers)
+3. **Limit retry attempts** (max 2-3 attempts before TUI fallback)
+4. **Support VM detection** (VMs go straight to TUI)
+5. **Handle serial/SSH sessions** (always use TUI)
+
+### Common Graphics Issues
+
+When encountering graphics errors like:
+```
+error: Kernel is too old (4.16+ required) or unusable for iris.
+libEGL warning: egl: failed to create dri2 screen
+```
+
+**Solution**: The launcher should detect these and fall back to TUI immediately.
+
+---
+
+## Host UI (React) Rules
+
+### Technology Stack
+
+| Package | Purpose |
+|---------|---------|
+| React 19 | UI framework |
+| Vite | Build tooling |
+| TypeScript | Type safety |
+| TanStack Query | Server state |
+| Zustand | Client state |
+| Tailwind CSS v4 | Styling |
+| Lucide React | Icons |
+| Sonner | Toasts |
+
+### API Communication
+
+The Host UI communicates with the Node Daemon via REST:
+
+```typescript
+// Base URL is the node itself
+const API_BASE = '/api/v1';
+
+// Example API call
+const response = await fetch(`${API_BASE}/vms`);
+const vms = await response.json();
+```
+
+### Key Pages
+
+| Route | Component | Purpose |
+|-------|-----------|---------|
+| `/` | Dashboard | System overview |
+| `/vms` | VMList | VM management |
+| `/storage/pools` | StoragePools | Storage management |
+| `/hardware` | Hardware | Hardware inventory |
+| `/monitor` | Performance | Metrics charts |
+| `/settings` | Settings | Node configuration |
+
+### HTTPS/TLS
+
+- Node Daemon serves HTTPS on port 8443
+- Self-signed certificates by default
+- UI supports certificate management (upload, ACME)
+
+---
+
+## Node Daemon (limiquantix-node) Rules
+
+### HTTP Server (`http_server.rs`)
+
+The HTTP server serves:
+- Static files from `/usr/share/quantix-host-ui/`
+- REST API at `/api/v1/*`
+- SPA fallback (routes to `index.html`)
+
+### Key API Endpoints
+
+```
+GET  /api/v1/host           - Host information
+GET  /api/v1/host/health    - Health check
+GET  /api/v1/host/hardware  - Hardware inventory
+GET  /api/v1/host/metrics   - Current metrics
+
+GET  /api/v1/vms            - List VMs
+POST /api/v1/vms            - Create VM
+GET  /api/v1/vms/:id        - Get VM details
+POST /api/v1/vms/:id/start  - Start VM
+POST /api/v1/vms/:id/stop   - Stop VM
+
+GET  /api/v1/storage/pools  - List storage pools
+POST /api/v1/storage/pools  - Create pool
+```
+
+### TLS Configuration
+
+```yaml
+# /etc/limiquantix/node.yaml
+server:
+  http:
+    enabled: true
+    listen_address: "0.0.0.0:8443"
+    webui_path: "/usr/share/quantix-host-ui"
+    
+    tls:
+      enabled: true
+      redirect_http: true
+      redirect_port: 80
+      mode: "self-signed"  # or "manual" or "acme"
+```
+
+---
+
+## OpenRC Service Rules
+
+### Services Enabled at Boot
+
+| Service | Runlevel | Purpose |
+|---------|----------|---------|
+| `quantix-network` | boot | Auto-DHCP on all interfaces |
+| `quantix-node` | default | Node daemon API server |
+| `quantix-console` | default | TUI console on TTY1 |
+| `libvirtd` | default | Libvirt daemon |
+| `chronyd` | default | NTP time sync |
+
+### Service Script Pattern
+
+```bash
+#!/sbin/openrc-run
+# /etc/init.d/quantix-node
+
+name="Quantix Node Daemon"
+description="Quantix-KVM hypervisor node daemon"
+command="/usr/bin/qx-node"
+command_args="--config /etc/limiquantix/node.yaml"
+command_background="yes"
+pidfile="/run/qx-node.pid"
+output_log="/var/log/qx-node.log"
+error_log="/var/log/qx-node.log"
+
+depend() {
+    need net quantix-network
+    after libvirtd
+}
+```
+
+---
+
+## Overlay File Structure
+
+```
+Quantix-OS/overlay/
+├── etc/
+│   ├── inittab                    # TTY configuration
+│   ├── fstab                      # Filesystem mounts
+│   ├── init.d/                    # OpenRC services
+│   │   ├── quantix-network        # Network auto-config
+│   │   ├── quantix-node           # Node daemon
+│   │   └── quantix-console        # TUI console
+│   ├── local.d/                   # Early boot scripts
+│   ├── limiquantix/               # Default config
+│   │   └── node.yaml
+│   └── wpa_supplicant/            # WiFi config
+└── usr/
+    ├── bin/
+    │   └── qx-node                # Node daemon binary
+    ├── local/bin/
+    │   ├── qx-console             # TUI binary
+    │   └── qx-console-launcher    # Console launcher script
+    └── share/
+        └── quantix-host-ui/       # React app build
+```
+
+---
+
+## Testing Rules
+
+### QEMU Testing
+
+```bash
+# Basic test
+make test-qemu
+
+# With port forwarding (access Web UI from host)
+qemu-system-x86_64 -enable-kvm -m 4G \
+    -cdrom output/quantix-os-1.0.0.iso \
+    -device virtio-net-pci,netdev=net0 \
+    -netdev user,id=net0,hostfwd=tcp::8443-:8443
+
+# Access from host browser
+# https://localhost:8443/
+```
+
+### Inside QEMU
+
+```bash
+# Configure network
+ip link set eth0 up
+udhcpc -i eth0
+
+# Check services
+rc-service quantix-node status
+rc-service quantix-console status
+
+# View logs
+cat /var/log/qx-node.log
+cat /var/log/quantix-console.log
+```
+
+---
+
+## Troubleshooting Checklist
+
+### ISO Won't Boot
+
+1. Check kernel modules in initramfs
+2. Verify GRUB configuration
+3. Try "Safe Graphics" mode (nomodeset)
+
+### TUI Not Starting
+
+1. Check `rc-service quantix-console status`
+2. View logs: `cat /var/log/quantix-console.log`
+3. Run manually: `/usr/local/bin/qx-console`
+
+### Web UI Not Loading
+
+1. Check node daemon: `ps aux | grep qx-node`
+2. Check port: `netstat -tlnp | grep 8443`
+3. Check files: `ls -la /usr/share/quantix-host-ui/`
+
+### Network Not Working
+
+1. Check interface: `ip link show`
+2. Run DHCP: `udhcpc -i eth0`
+3. Check service: `rc-service quantix-network status`
+
+---
+
+## Documentation Requirements
+
+When modifying Quantix-OS components, update:
+
+1. `docs/Quantix-OS/000058-quantix-os-complete-vision.md` - Overall architecture
+2. `docs/Quantix-OS/000059-quantix-os-build-guide.md` - Build instructions
+3. `docs/ui/000071-host-ui-complete-implementation.md` - Host UI details
+
+### ADR Documents (for major changes)
+
+Create in `docs/adr/` following the pattern:
+- `000XXX-[topic].md`
+- Include: Context, Decision, Consequences
+
+---
+
+## Critical Patterns
+
+### Immutable OS Philosophy
+
+> "The OS is a detail, not the product."
+
+- Root filesystem is **read-only** (squashfs)
+- Configuration in `/etc/limiquantix/` (persistent partition)
+- Data in `/data/` (VMs, ISOs, images)
+- No package manager in production
+
+### Security Model
+
+| Access | Default | Enable Via |
+|--------|---------|------------|
+| Login prompt | Disabled | Cannot enable |
+| SSH | Disabled | TUI → F3 (timer-based) |
+| Emergency Shell | Disabled | TUI → F12 + auth |
+| Web UI | Enabled | HTTPS on port 8443 |
+
+### Performance Targets
+
+- Boot time: < 10 seconds
+- Platform overhead: < 1%
+- TUI binary size: < 5 MB
+- ISO size: < 1 GB
+
+---
+
+## Anti-Patterns to Avoid
+
+❌ **Don't** use println!/print! in Rust code (use tracing)
+❌ **Don't** hardcode paths (use config/environment)
+❌ **Don't** skip error handling (wrap with context)
+❌ **Don't** add GUI dependencies to TUI (no Mesa, Wayland in TUI)
+❌ **Don't** modify build scripts without testing full ISO build
+❌ **Don't** forget to update documentation for changes
+
+✅ **Do** use structured logging with tracing
+✅ **Do** test in QEMU before physical hardware
+✅ **Do** support both graphics and headless modes
+✅ **Do** handle network-down scenarios (TUI works offline)
+✅ **Do** run `make iso` to verify complete build
+✅ **Do** update related docs when changing components

@@ -58,6 +58,8 @@ struct App {
     selected_interface: usize,
     /// Status message (shown prominently at top)
     status_message: Option<(String, std::time::Instant)>,
+    /// Cluster configuration state
+    cluster_config: ClusterConfig,
 }
 
 /// Static IP configuration
@@ -92,6 +94,36 @@ impl Default for SshConfig {
             enabled: false,
             timer_minutes: 30, // Default 30 minutes
             timer_start: None,
+        }
+    }
+}
+
+/// Cluster configuration for joining Quantix-vDC control plane
+#[derive(Clone)]
+struct ClusterConfig {
+    /// Control plane address (e.g., "https://control.example.com:8080")
+    control_plane_address: String,
+    /// Registration token from control plane
+    registration_token: String,
+    /// Current cluster status
+    status: ClusterStatus,
+}
+
+#[derive(Clone, PartialEq)]
+enum ClusterStatus {
+    Standalone,
+    Joining,
+    Connected,
+    Disconnected,
+    Error(String),
+}
+
+impl Default for ClusterConfig {
+    fn default() -> Self {
+        Self {
+            control_plane_address: String::new(),
+            registration_token: String::new(),
+            status: ClusterStatus::Standalone,
         }
     }
 }
@@ -158,6 +190,10 @@ impl App {
             available_interfaces,
             selected_interface: 0,
             status_message: None,
+            cluster_config: ClusterConfig {
+                status: get_cluster_status(),
+                ..Default::default()
+            },
         }
     }
 
@@ -350,6 +386,7 @@ fn handle_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) {
         Screen::StaticIp => handle_static_ip_input(app, key),
         Screen::WiFi => handle_wifi_input(app, key),
         Screen::Ssh => handle_ssh_input(app, key),
+        Screen::Cluster => handle_cluster_input(app, key),
         Screen::Power => match key {
             KeyCode::Esc | KeyCode::Char('q') => {
                 app.screen = Screen::Main;
@@ -380,7 +417,12 @@ fn handle_menu_action(app: &mut App, index: usize) {
             app.ssh_config.enabled = is_ssh_enabled();
             app.screen = Screen::Ssh;
         }
-        2 => app.screen = Screen::Cluster,
+        2 => {
+            // Go to Cluster configuration screen
+            app.input_field_index = 0;
+            app.cluster_config.status = get_cluster_status();
+            app.screen = Screen::Cluster;
+        }
         3 => {
             // Refresh display
             app.set_status("Refreshing system information...");
@@ -814,6 +856,7 @@ fn ui(f: &mut Frame, app: &App) {
         Screen::StaticIp => render_static_ip_screen(f, app, chunks[1]),
         Screen::WiFi => render_wifi_screen(f, app, chunks[1]),
         Screen::Ssh => render_ssh_screen(f, app, chunks[1]),
+        Screen::Cluster => render_cluster_screen(f, app, chunks[1]),
         Screen::Diagnostics => render_diagnostics_screen(f, app, chunks[1]),
         Screen::Power => render_power_screen(f, chunks[1]),
         _ => render_placeholder_screen(f, chunks[1], &format!("{:?}", app.screen)),
@@ -1419,6 +1462,348 @@ fn render_ssh_screen(f: &mut Frame, app: &App, area: Rect) {
         .block(Block::default().borders(Borders::ALL).title("SSH Configuration"))
         .wrap(Wrap { trim: true });
     f.render_widget(text, area);
+}
+
+fn render_cluster_screen(f: &mut Frame, app: &App, area: Rect) {
+    let mut lines = vec![
+        Line::from(Span::styled("🔗 Cluster Configuration", Style::default().add_modifier(Modifier::BOLD))),
+        Line::from(""),
+        Line::from(Span::styled("Join this host to a Quantix-vDC control plane cluster.", Style::default().fg(Color::DarkGray))),
+        Line::from(Span::styled("When joined, the host will be managed centrally.", Style::default().fg(Color::DarkGray))),
+        Line::from(""),
+    ];
+    
+    // Current status with prominent display
+    let status_style = match &app.cluster_config.status {
+        ClusterStatus::Connected => Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+        ClusterStatus::Standalone => Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        ClusterStatus::Joining => Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+        ClusterStatus::Disconnected => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        ClusterStatus::Error(_) => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+    };
+    
+    let status_text = match &app.cluster_config.status {
+        ClusterStatus::Connected => "● CONNECTED TO CLUSTER",
+        ClusterStatus::Standalone => "○ STANDALONE MODE",
+        ClusterStatus::Joining => "◐ JOINING CLUSTER...",
+        ClusterStatus::Disconnected => "◯ DISCONNECTED",
+        ClusterStatus::Error(_) => "✖ ERROR",
+    };
+    
+    lines.push(Line::from(vec![
+        Span::styled("Current Status: ", Style::default().fg(Color::Gray)),
+        Span::styled(status_text, status_style),
+    ]));
+    
+    // Show error details if any
+    if let ClusterStatus::Error(ref msg) = app.cluster_config.status {
+        lines.push(Line::from(vec![
+            Span::styled("  Error: ", Style::default().fg(Color::Red)),
+            Span::styled(msg.as_str(), Style::default().fg(Color::Red)),
+        ]));
+    }
+    
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled("─".repeat(50), Style::default().fg(Color::DarkGray))));
+    lines.push(Line::from(""));
+    
+    // Show join form only if not connected
+    if !matches!(app.cluster_config.status, ClusterStatus::Connected) {
+        lines.push(Line::from(Span::styled("Join Cluster:", Style::default().fg(Color::Cyan))));
+        lines.push(Line::from(""));
+        
+        // Control plane address field
+        let addr_selected = app.input_field_index == 0;
+        let addr_style = if addr_selected {
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        
+        let addr_value = if app.cluster_config.control_plane_address.is_empty() {
+            if addr_selected { "█ (e.g., https://control:8080)".to_string() } else { "(not set)".to_string() }
+        } else if addr_selected {
+            format!("{}█", app.cluster_config.control_plane_address)
+        } else {
+            app.cluster_config.control_plane_address.clone()
+        };
+        
+        lines.push(Line::from(vec![
+            Span::styled(if addr_selected { "▶ " } else { "  " }, addr_style),
+            Span::styled("Control Plane: ", Style::default().fg(Color::Gray)),
+            Span::styled(addr_value, addr_style),
+        ]));
+        
+        lines.push(Line::from(""));
+        
+        // Registration token field
+        let token_selected = app.input_field_index == 1;
+        let token_style = if token_selected {
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        
+        let token_display = if app.cluster_config.registration_token.is_empty() {
+            if token_selected { "█ (registration token)".to_string() } else { "(not set)".to_string() }
+        } else if token_selected {
+            format!("{}█", "*".repeat(app.cluster_config.registration_token.len()))
+        } else {
+            "*".repeat(app.cluster_config.registration_token.len().min(20))
+        };
+        
+        lines.push(Line::from(vec![
+            Span::styled(if token_selected { "▶ " } else { "  " }, token_style),
+            Span::styled("Token:         ", Style::default().fg(Color::Gray)),
+            Span::styled(token_display, token_style),
+        ]));
+        
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled("─".repeat(50), Style::default().fg(Color::DarkGray))));
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled("Actions:", Style::default().fg(Color::Cyan))));
+        lines.push(Line::from(""));
+        lines.push(Line::from("  J - Join Cluster (apply settings)"));
+        lines.push(Line::from("  C - Clear form"));
+    } else {
+        // Connected - show leave option
+        lines.push(Line::from(Span::styled("Cluster Actions:", Style::default().fg(Color::Cyan))));
+        lines.push(Line::from(""));
+        lines.push(Line::from("  L - Leave Cluster (return to standalone)"));
+        lines.push(Line::from("  R - Refresh Status"));
+    }
+    
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled("Use Tab/↑↓ to navigate, type to enter values", Style::default().fg(Color::DarkGray))));
+    lines.push(Line::from(Span::styled("Press Esc to return to main menu", Style::default().fg(Color::Yellow))));
+    
+    let text = Paragraph::new(lines)
+        .block(Block::default().borders(Borders::ALL).title("Cluster Management"))
+        .wrap(Wrap { trim: true });
+    f.render_widget(text, area);
+}
+
+fn handle_cluster_input(app: &mut App, key: KeyCode) {
+    match key {
+        KeyCode::Esc => {
+            app.screen = Screen::Main;
+        }
+        KeyCode::Tab | KeyCode::Down => {
+            // Toggle between address and token fields
+            app.input_field_index = (app.input_field_index + 1) % 2;
+        }
+        KeyCode::BackTab | KeyCode::Up => {
+            if app.input_field_index > 0 {
+                app.input_field_index -= 1;
+            } else {
+                app.input_field_index = 1;
+            }
+        }
+        KeyCode::Char(c) => {
+            // Allow typing in the current field
+            match app.input_field_index {
+                0 => {
+                    // Control plane address - allow URL-safe characters
+                    if c.is_ascii_alphanumeric() || ":/.-_".contains(c) {
+                        app.cluster_config.control_plane_address.push(c);
+                    }
+                }
+                1 => {
+                    // Registration token - allow alphanumeric and common token chars
+                    if c.is_ascii_alphanumeric() || "-_".contains(c) {
+                        app.cluster_config.registration_token.push(c);
+                    }
+                }
+                _ => {}
+            }
+        }
+        KeyCode::Backspace => {
+            match app.input_field_index {
+                0 => { app.cluster_config.control_plane_address.pop(); }
+                1 => { app.cluster_config.registration_token.pop(); }
+                _ => {}
+            }
+        }
+        KeyCode::Enter => {
+            // Same as 'J' - join cluster
+            if !matches!(app.cluster_config.status, ClusterStatus::Connected) {
+                attempt_join_cluster(app);
+            }
+        }
+        _ => {
+            // Handle quick action keys
+            match key {
+                KeyCode::Char('j') | KeyCode::Char('J') => {
+                    if !matches!(app.cluster_config.status, ClusterStatus::Connected) {
+                        attempt_join_cluster(app);
+                    }
+                }
+                KeyCode::Char('l') | KeyCode::Char('L') => {
+                    if matches!(app.cluster_config.status, ClusterStatus::Connected) {
+                        attempt_leave_cluster(app);
+                    }
+                }
+                KeyCode::Char('c') | KeyCode::Char('C') => {
+                    // Clear form
+                    app.cluster_config.control_plane_address.clear();
+                    app.cluster_config.registration_token.clear();
+                    app.success_message = Some("Form cleared".to_string());
+                }
+                KeyCode::Char('r') | KeyCode::Char('R') => {
+                    // Refresh status
+                    app.cluster_config.status = get_cluster_status();
+                    app.success_message = Some("Status refreshed".to_string());
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn attempt_join_cluster(app: &mut App) {
+    // Validate inputs
+    if app.cluster_config.control_plane_address.is_empty() {
+        app.error_message = Some("Control plane address is required".to_string());
+        return;
+    }
+    
+    if app.cluster_config.registration_token.is_empty() {
+        app.error_message = Some("Registration token is required".to_string());
+        return;
+    }
+    
+    app.cluster_config.status = ClusterStatus::Joining;
+    app.set_status("Joining cluster...");
+    
+    // Make API call to join cluster
+    match join_cluster_api(
+        &app.cluster_config.control_plane_address,
+        &app.cluster_config.registration_token,
+    ) {
+        Ok(_) => {
+            app.cluster_config.status = ClusterStatus::Connected;
+            app.success_message = Some("Successfully joined cluster! Restart may be required.".to_string());
+        }
+        Err(e) => {
+            app.cluster_config.status = ClusterStatus::Error(e.clone());
+            app.error_message = Some(format!("Failed to join: {}", e));
+        }
+    }
+}
+
+fn attempt_leave_cluster(app: &mut App) {
+    app.set_status("Leaving cluster...");
+    
+    match leave_cluster_api() {
+        Ok(_) => {
+            app.cluster_config.status = ClusterStatus::Standalone;
+            app.cluster_config.control_plane_address.clear();
+            app.cluster_config.registration_token.clear();
+            app.success_message = Some("Left cluster. Now in standalone mode.".to_string());
+        }
+        Err(e) => {
+            app.error_message = Some(format!("Failed to leave cluster: {}", e));
+        }
+    }
+}
+
+/// Get current cluster status by calling the local node daemon API
+fn get_cluster_status() -> ClusterStatus {
+    // Try to call the local node daemon API
+    // The node daemon runs on localhost:8443
+    match std::process::Command::new("curl")
+        .args(["-s", "-k", "--max-time", "2", "https://127.0.0.1:8443/api/v1/cluster/status"])
+        .output()
+    {
+        Ok(output) => {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                // Simple JSON parsing - look for "status" field
+                if stdout.contains("\"status\":\"connected\"") {
+                    ClusterStatus::Connected
+                } else if stdout.contains("\"status\":\"disconnected\"") {
+                    ClusterStatus::Disconnected
+                } else {
+                    ClusterStatus::Standalone
+                }
+            } else {
+                ClusterStatus::Standalone
+            }
+        }
+        Err(_) => ClusterStatus::Standalone,
+    }
+}
+
+/// Call the node daemon API to join a cluster
+fn join_cluster_api(control_plane: &str, token: &str) -> Result<(), String> {
+    use std::process::Stdio;
+    
+    // Build JSON payload
+    let payload = format!(
+        r#"{{"controlPlaneAddress":"{}","registrationToken":"{}"}}"#,
+        control_plane, token
+    );
+    
+    // Call the local node daemon API
+    let result = std::process::Command::new("curl")
+        .args([
+            "-s", "-k", "--max-time", "10",
+            "-X", "POST",
+            "-H", "Content-Type: application/json",
+            "-d", &payload,
+            "https://127.0.0.1:8443/api/v1/cluster/join"
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .output();
+    
+    match result {
+        Ok(output) => {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if stdout.contains("\"error\"") {
+                    // Extract error message
+                    Err(stdout.to_string())
+                } else {
+                    Ok(())
+                }
+            } else {
+                Err("API request failed".to_string())
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to node daemon: {}", e)),
+    }
+}
+
+/// Call the node daemon API to leave a cluster
+fn leave_cluster_api() -> Result<(), String> {
+    use std::process::Stdio;
+    
+    let result = std::process::Command::new("curl")
+        .args([
+            "-s", "-k", "--max-time", "10",
+            "-X", "POST",
+            "https://127.0.0.1:8443/api/v1/cluster/leave"
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .output();
+    
+    match result {
+        Ok(output) => {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if stdout.contains("\"error\"") {
+                    Err(stdout.to_string())
+                } else {
+                    Ok(())
+                }
+            } else {
+                Err("API request failed".to_string())
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to node daemon: {}", e)),
+    }
 }
 
 fn render_diagnostics_screen(f: &mut Frame, app: &App, area: Rect) {

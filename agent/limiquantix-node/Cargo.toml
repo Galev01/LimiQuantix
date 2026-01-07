@@ -61,10 +61,19 @@ rand = "0.8"
 
 # HTTP server for Web UI (REST API + static files)
 axum.workspace = true
+axum-server.workspace = true
 tower.workspace = true
 tower-http.workspace = true
 mime_guess.workspace = true
 num_cpus = "1.16"
+
+# TLS and certificate management
+rustls.workspace = true
+rustls-pemfile.workspace = true
+tokio-rustls.workspace = true
+rcgen.workspace = true
+instant-acme.workspace = true
+base64.workspace = true
 
 # System information
 sysinfo = "0.32"

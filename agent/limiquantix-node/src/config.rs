@@ -1,11 +1,12 @@
 //! Configuration management for the Node Daemon.
 
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
 use crate::cli::Args;
+use crate::tls::CertificateMode;
 
 /// Main configuration structure.
 #[derive(Debug, Clone, Deserialize)]
@@ -19,8 +20,6 @@ pub struct Config {
     pub hypervisor: HypervisorConfig,
     /// Control plane connection configuration
     pub control_plane: ControlPlaneConfig,
-    /// TLS configuration
-    pub tls: Option<TlsConfig>,
 }
 
 impl Default for Config {
@@ -30,7 +29,6 @@ impl Default for Config {
             server: ServerConfig::default(),
             hypervisor: HypervisorConfig::default(),
             control_plane: ControlPlaneConfig::default(),
-            tls: None,
         }
     }
 }
@@ -61,7 +59,21 @@ impl Config {
         // HTTP server settings
         self.server.http.listen_address = args.http_listen.clone();
         self.server.http.webui_path = args.webui_path.clone();
-        self.server.http.enabled = !args.no_webui;
+        self.server.http.enabled = !args.no_http;
+        
+        // TLS/HTTPS settings
+        if args.enable_https {
+            self.server.http.tls.enabled = true;
+        }
+        self.server.http.tls.listen_address = args.https_listen.clone();
+        self.server.http.tls.cert_path = args.tls_cert.clone();
+        self.server.http.tls.key_path = args.tls_key.clone();
+        
+        // HTTP→HTTPS redirect (only when explicitly enabled)
+        if args.redirect_http {
+            self.server.http.tls.redirect_http = true;
+        }
+        self.server.http.tls.redirect_port = args.redirect_port;
         
         if let Some(ref control_plane) = args.control_plane {
             self.control_plane.address = control_plane.clone();
@@ -160,20 +172,122 @@ impl Default for ServerConfig {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct HttpServerConfig {
-    /// Enable HTTP server for Web UI
+    /// Enable HTTP server for Web UI (port 8080 by default)
     pub enabled: bool,
     /// Address to listen on for HTTP (Web UI + REST API)
     pub listen_address: String,
     /// Path to static files for Web UI
     pub webui_path: String,
+    /// TLS/HTTPS configuration (optional, runs on separate port)
+    pub tls: TlsConfig,
 }
 
 impl Default for HttpServerConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            listen_address: "0.0.0.0:8443".to_string(),
+            listen_address: "0.0.0.0:8080".to_string(),
             webui_path: "/usr/share/quantix-host-ui".to_string(),
+            tls: TlsConfig::default(),
+        }
+    }
+}
+
+/// TLS configuration for HTTPS.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TlsConfig {
+    /// Enable HTTPS server (runs on separate port from HTTP)
+    pub enabled: bool,
+    /// Address to listen on for HTTPS (default: 0.0.0.0:8443)
+    pub listen_address: String,
+    /// Redirect HTTP (port 80) to HTTPS - requires separate redirect server
+    pub redirect_http: bool,
+    /// Port for HTTP→HTTPS redirect server (default: 80)
+    pub redirect_port: u16,
+    /// Path to certificate file
+    pub cert_path: String,
+    /// Path to private key file
+    pub key_path: String,
+    /// Path to CA certificate (for mutual TLS)
+    pub ca_path: Option<String>,
+    /// Certificate mode
+    pub mode: CertificateMode,
+    /// Self-signed certificate configuration
+    pub self_signed: SelfSignedConfig,
+    /// ACME (Let's Encrypt) configuration
+    pub acme: AcmeConfig,
+}
+
+impl Default for TlsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,  // HTTPS disabled by default, HTTP on 8080 is default
+            listen_address: "0.0.0.0:8443".to_string(),
+            redirect_http: false,  // Redirect disabled by default
+            redirect_port: 80,
+            cert_path: "/etc/limiquantix/certs/server.crt".to_string(),
+            key_path: "/etc/limiquantix/certs/server.key".to_string(),
+            ca_path: None,
+            mode: CertificateMode::SelfSigned,
+            self_signed: SelfSignedConfig::default(),
+            acme: AcmeConfig::default(),
+        }
+    }
+}
+
+/// Self-signed certificate configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SelfSignedConfig {
+    /// Common name for the certificate (defaults to hostname)
+    pub common_name: Option<String>,
+    /// Certificate validity in days
+    pub validity_days: u32,
+}
+
+impl Default for SelfSignedConfig {
+    fn default() -> Self {
+        Self {
+            common_name: None,
+            validity_days: 365,
+        }
+    }
+}
+
+/// ACME (Let's Encrypt) configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AcmeConfig {
+    /// Enable ACME certificate provisioning
+    pub enabled: bool,
+    /// Contact email for Let's Encrypt notifications
+    pub email: Option<String>,
+    /// ACME directory URL (defaults to Let's Encrypt production)
+    pub directory_url: String,
+    /// Domains to request certificates for
+    pub domains: Vec<String>,
+    /// Challenge type: "http-01" or "dns-01"
+    pub challenge_type: String,
+    /// Path to store ACME account credentials
+    pub account_path: String,
+    /// Enable automatic certificate renewal
+    pub auto_renew: bool,
+    /// Days before expiry to trigger renewal
+    pub renew_before_days: u32,
+}
+
+impl Default for AcmeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            email: None,
+            directory_url: "https://acme-v02.api.letsencrypt.org/directory".to_string(),
+            domains: Vec::new(),
+            challenge_type: "http-01".to_string(),
+            account_path: "/etc/limiquantix/certs/acme/account.json".to_string(),
+            auto_renew: true,
+            renew_before_days: 30,
         }
     }
 }
@@ -242,17 +356,3 @@ impl Default for ControlPlaneConfig {
         }
     }
 }
-
-/// TLS configuration.
-#[derive(Debug, Clone, Deserialize)]
-pub struct TlsConfig {
-    /// Enable TLS
-    pub enabled: bool,
-    /// Path to certificate file
-    pub cert_path: String,
-    /// Path to private key file
-    pub key_path: String,
-    /// Path to CA certificate (for mutual TLS)
-    pub ca_path: Option<String>,
-}
-

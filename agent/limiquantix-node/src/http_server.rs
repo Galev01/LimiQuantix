@@ -3,9 +3,11 @@
 //! This module provides:
 //! - Static file serving for the React-based Host UI
 //! - REST API endpoints that proxy to the gRPC service
+//! - HTTPS with TLS certificate management
+//! - HTTP to HTTPS redirect
 //! - WebSocket support for real-time updates (future)
 //!
-//! The HTTP server runs on port 8443 alongside the gRPC server on port 9443.
+//! The HTTP server runs on port 8443 (HTTPS) alongside the gRPC server on port 9443.
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -13,22 +15,25 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    routing::{get, post},
-    extract::{Path, State},
-    http::{StatusCode, header, Method},
-    response::{IntoResponse, Response, Json},
+    routing::{get, post, put},
+    extract::{Path, State, Multipart},
+    http::{StatusCode, header, Method, Uri},
+    response::{IntoResponse, Response, Json, Redirect},
     body::Body,
 };
+use axum_server::tls_rustls::RustlsConfig;
 use tower_http::{
     cors::{CorsLayer, Any},
     trace::TraceLayer,
     services::ServeDir,
 };
 use tokio::fs;
-use tracing::{info, error};
+use tracing::{info, warn, error, debug};
 use serde::{Deserialize, Serialize};
 
+use crate::config::{HttpServerConfig, TlsConfig};
 use crate::service::NodeDaemonServiceImpl;
+use crate::tls::{TlsManager, AcmeManager, CertificateInfo, CertificateMode, AcmeAccountInfo, AcmeChallengeStatus};
 
 /// Shared state for HTTP handlers
 pub struct AppState {
@@ -36,6 +41,10 @@ pub struct AppState {
     pub service: Arc<NodeDaemonServiceImpl>,
     /// Path to webui static files
     pub webui_path: PathBuf,
+    /// TLS manager for certificate operations
+    pub tls_manager: Arc<TlsManager>,
+    /// TLS configuration
+    pub tls_config: TlsConfig,
 }
 
 // ============================================================================
@@ -528,20 +537,81 @@ struct HostnameConfig {
 }
 
 // ============================================================================
-// HTTP Server
+// HTTP/HTTPS Server
 // ============================================================================
 
-/// Start the HTTP server for Web UI
+/// Start HTTP server for Web UI (port 8080 by default)
 pub async fn run_http_server(
-    listen_addr: SocketAddr,
+    http_addr: SocketAddr,
     service: Arc<NodeDaemonServiceImpl>,
     webui_path: PathBuf,
+    tls_config: TlsConfig,
 ) -> anyhow::Result<()> {
+    // Initialize TLS manager (needed for certificate management API even if HTTPS is disabled)
+    let tls_manager = Arc::new(TlsManager::new(tls_config.clone()));
+    
     let state = Arc::new(AppState {
         service,
         webui_path: webui_path.clone(),
+        tls_manager: tls_manager.clone(),
+        tls_config: tls_config.clone(),
     });
 
+    // Build the application router
+    let app = build_app_router(state, &webui_path);
+
+    info!(address = %http_addr, "Starting HTTP server for Web UI");
+    
+    let listener = tokio::net::TcpListener::bind(http_addr).await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
+}
+
+/// Start HTTPS server for Web UI (port 8443 by default)
+pub async fn run_https_server(
+    https_addr: SocketAddr,
+    service: Arc<NodeDaemonServiceImpl>,
+    webui_path: PathBuf,
+    tls_config: TlsConfig,
+) -> anyhow::Result<()> {
+    // Initialize TLS manager and certificates
+    let tls_manager = Arc::new(TlsManager::new(tls_config.clone()));
+    tls_manager.initialize().await?;
+    
+    let state = Arc::new(AppState {
+        service,
+        webui_path: webui_path.clone(),
+        tls_manager: tls_manager.clone(),
+        tls_config: tls_config.clone(),
+    });
+
+    // Build the application router
+    let app = build_app_router(state, &webui_path);
+
+    // Load TLS configuration
+    let rustls_config = RustlsConfig::from_pem_file(
+        &tls_config.cert_path,
+        &tls_config.key_path,
+    )
+    .await
+    .map_err(|e| anyhow::anyhow!("Failed to load TLS certificates: {}", e))?;
+    
+    info!(
+        address = %https_addr,
+        cert = %tls_config.cert_path,
+        "Starting HTTPS server for Web UI"
+    );
+    
+    axum_server::bind_rustls(https_addr, rustls_config)
+        .serve(app.into_make_service())
+        .await?;
+
+    Ok(())
+}
+
+/// Build the application router with all routes
+fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
     // CORS configuration for development
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -603,6 +673,14 @@ pub async fn run_http_server(
         .route("/settings", post(update_settings))
         .route("/settings/services", get(list_services))
         .route("/settings/services/:name/restart", post(restart_service))
+        // Certificate management endpoints
+        .route("/settings/certificates", get(get_certificate_info))
+        .route("/settings/certificates", axum::routing::delete(reset_certificate))
+        .route("/settings/certificates/upload", post(upload_certificate))
+        .route("/settings/certificates/generate", post(generate_self_signed))
+        .route("/settings/certificates/acme", get(get_acme_info))
+        .route("/settings/certificates/acme/register", post(register_acme_account))
+        .route("/settings/certificates/acme/issue", post(issue_acme_certificate))
         .with_state(state.clone());
 
     // Check if webui directory exists
@@ -631,16 +709,58 @@ pub async fn run_http_server(
             .with_state(state)
     };
 
-    let app = app
+    app
         .layer(cors)
-        .layer(TraceLayer::new_for_http());
+        .layer(TraceLayer::new_for_http())
+}
 
-    info!(address = %listen_addr, "Starting HTTP server for Web UI");
-
-    let listener = tokio::net::TcpListener::bind(listen_addr).await?;
-    axum::serve(listener, app).await?;
-
-    Ok(())
+/// Start HTTP→HTTPS redirect server (port 80 by default)
+pub async fn run_redirect_server(redirect_addr: SocketAddr, https_port: u16) {
+    info!(
+        address = %redirect_addr,
+        https_port = https_port,
+        "Starting HTTP→HTTPS redirect server"
+    );
+    
+    let redirect_app = Router::new()
+        .fallback(move |uri: Uri, headers: axum::http::HeaderMap| async move {
+            // Get the host from the request
+            let host = headers
+                .get(header::HOST)
+                .and_then(|h| h.to_str().ok())
+                .map(|h| {
+                    // Remove port from host if present
+                    h.split(':').next().unwrap_or(h).to_string()
+                })
+                .unwrap_or_else(|| "localhost".to_string());
+            
+            // Build HTTPS URL
+            let https_url = if https_port == 443 {
+                format!("https://{}{}", host, uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("/"))
+            } else {
+                format!("https://{}:{}{}", host, https_port, uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("/"))
+            };
+            
+            debug!(from = %uri, to = %https_url, "Redirecting HTTP to HTTPS");
+            
+            Redirect::permanent(&https_url)
+        });
+    
+    match tokio::net::TcpListener::bind(redirect_addr).await {
+        Ok(listener) => {
+            info!(address = %redirect_addr, "HTTP redirect server started");
+            if let Err(e) = axum::serve(listener, redirect_app).await {
+                error!(error = %e, "HTTP redirect server failed");
+            }
+        }
+        Err(e) => {
+            warn!(
+                error = %e,
+                address = %redirect_addr,
+                "Failed to start HTTP redirect server (port may be in use or require root)"
+            );
+        }
+    }
 }
 
 // ============================================================================
@@ -2685,6 +2805,195 @@ async fn get_cluster_config(
         registration_token: None,
         heartbeat_interval_secs: 30,
     }))
+}
+
+// ============================================================================
+// Certificate Management Handlers
+// ============================================================================
+
+/// Get current certificate information
+async fn get_certificate_info(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<CertificateInfo>, (StatusCode, Json<ApiError>)> {
+    debug!("Getting certificate information");
+    
+    match state.tls_manager.get_certificate_info() {
+        Ok(info) => Ok(Json(info)),
+        Err(e) => {
+            error!(error = %e, "Failed to get certificate info");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("certificate_error", &e.to_string())),
+            ))
+        }
+    }
+}
+
+/// Request body for certificate upload
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UploadCertificateRequest {
+    /// PEM-encoded certificate
+    certificate: String,
+    /// PEM-encoded private key
+    private_key: String,
+    /// Optional PEM-encoded CA certificate
+    ca_certificate: Option<String>,
+}
+
+/// Upload a custom certificate
+async fn upload_certificate(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<UploadCertificateRequest>,
+) -> Result<Json<CertificateInfo>, (StatusCode, Json<ApiError>)> {
+    info!("Uploading custom certificate");
+    
+    match state.tls_manager.upload_certificate(
+        &request.certificate,
+        &request.private_key,
+        request.ca_certificate.as_deref(),
+    ).await {
+        Ok(()) => {
+            // Get updated certificate info
+            match state.tls_manager.get_certificate_info() {
+                Ok(info) => {
+                    info!("Certificate uploaded successfully - restart required");
+                    Ok(Json(info))
+                }
+                Err(e) => Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ApiError::new("certificate_info_error", &e.to_string())),
+                ))
+            }
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to upload certificate");
+            Err((
+                StatusCode::BAD_REQUEST,
+                Json(ApiError::new("invalid_certificate", &e.to_string())),
+            ))
+        }
+    }
+}
+
+/// Generate a new self-signed certificate
+async fn generate_self_signed(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<CertificateInfo>, (StatusCode, Json<ApiError>)> {
+    info!("Generating self-signed certificate");
+    
+    match state.tls_manager.generate_self_signed().await {
+        Ok(()) => {
+            match state.tls_manager.get_certificate_info() {
+                Ok(info) => {
+                    info!("Self-signed certificate generated - restart required");
+                    Ok(Json(info))
+                }
+                Err(e) => Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ApiError::new("certificate_info_error", &e.to_string())),
+                ))
+            }
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to generate self-signed certificate");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("generate_error", &e.to_string())),
+            ))
+        }
+    }
+}
+
+/// Reset to self-signed certificate
+async fn reset_certificate(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<CertificateInfo>, (StatusCode, Json<ApiError>)> {
+    info!("Resetting certificate to self-signed");
+    
+    // Generate a new self-signed certificate
+    generate_self_signed(State(state)).await
+}
+
+/// Get ACME (Let's Encrypt) account information
+async fn get_acme_info(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<AcmeAccountInfo>, (StatusCode, Json<ApiError>)> {
+    debug!("Getting ACME account information");
+    
+    let acme_manager = AcmeManager::new(state.tls_config.clone());
+    Ok(Json(acme_manager.get_account_info()))
+}
+
+/// Request body for ACME account registration
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RegisterAcmeRequest {
+    /// Contact email for Let's Encrypt notifications
+    email: String,
+}
+
+/// Register an ACME account with Let's Encrypt
+async fn register_acme_account(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<RegisterAcmeRequest>,
+) -> Result<Json<AcmeAccountInfo>, (StatusCode, Json<ApiError>)> {
+    info!(email = %request.email, "Registering ACME account");
+    
+    let acme_manager = AcmeManager::new(state.tls_config.clone());
+    
+    match acme_manager.register_account(&request.email).await {
+        Ok(()) => {
+            info!("ACME account registered successfully");
+            Ok(Json(acme_manager.get_account_info()))
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to register ACME account");
+            Err((
+                StatusCode::BAD_REQUEST,
+                Json(ApiError::new("acme_registration_failed", &e.to_string())),
+            ))
+        }
+    }
+}
+
+/// Request body for ACME certificate issuance
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct IssueAcmeCertificateRequest {
+    /// List of domains to request certificate for
+    domains: Vec<String>,
+}
+
+/// Issue a certificate via ACME (Let's Encrypt)
+async fn issue_acme_certificate(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<IssueAcmeCertificateRequest>,
+) -> Result<Json<AcmeChallengeStatus>, (StatusCode, Json<ApiError>)> {
+    info!(domains = ?request.domains, "Initiating ACME certificate issuance");
+    
+    if request.domains.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ApiError::new("no_domains", "At least one domain is required")),
+        ));
+    }
+    
+    let acme_manager = AcmeManager::new(state.tls_config.clone());
+    
+    match acme_manager.issue_certificate(&request.domains).await {
+        Ok(status) => {
+            info!(domain = %status.domain, "ACME challenge initiated");
+            Ok(Json(status))
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to issue ACME certificate");
+            Err((
+                StatusCode::BAD_REQUEST,
+                Json(ApiError::new("acme_issue_failed", &e.to_string())),
+            ))
+        }
+    }
 }
 
 // ============================================================================

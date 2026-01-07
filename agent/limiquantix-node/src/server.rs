@@ -122,38 +122,93 @@ pub async fn run(config: Config) -> Result<()> {
         info!("Control plane registration disabled");
     }
     
-    // Clone service for HTTP server
+    // Clone service for HTTP/HTTPS servers
     let http_service = service.clone();
+    let https_service = service.clone();
     
-    // Start HTTP server for Web UI (if enabled)
-    let http_handle = if config.server.http.enabled {
+    let webui_path = PathBuf::from(&config.server.http.webui_path);
+    let tls_config = config.server.http.tls.clone();
+    let host = if management_ip == "0.0.0.0" { "localhost" } else { &management_ip };
+    
+    // Track server handles for cleanup
+    let mut server_handles = Vec::new();
+    
+    // Start HTTP server on port 8080 (if enabled - default)
+    if config.server.http.enabled {
         let http_addr: std::net::SocketAddr = config.server.http.listen_address.parse()
             .map_err(|e| anyhow::anyhow!("Invalid HTTP listen address: {}", e))?;
         
-        let webui_path = PathBuf::from(&config.server.http.webui_path);
+        let webui_path_http = webui_path.clone();
+        let tls_config_http = tls_config.clone();
         
         info!(
-            http_address = %http_addr,
-            webui_path = %webui_path.display(),
+            address = %http_addr,
+            webui_path = %webui_path_http.display(),
             "Starting HTTP server for Web UI"
         );
         
-        // Print the management URL
         info!(
-            "🌐 Management URL: https://{}:{}",
-            if management_ip == "0.0.0.0" { "localhost" } else { &management_ip },
-            http_addr.port()
+            "🌐 HTTP URL: http://{}:{}",
+            host, http_addr.port()
         );
         
-        Some(tokio::spawn(async move {
-            if let Err(e) = http_server::run_http_server(http_addr, http_service, webui_path).await {
+        server_handles.push(tokio::spawn(async move {
+            if let Err(e) = http_server::run_http_server(http_addr, http_service, webui_path_http, tls_config_http).await {
                 error!(error = %e, "HTTP server failed");
             }
-        }))
+        }));
     } else {
-        info!("HTTP server (Web UI) disabled");
-        None
-    };
+        info!("HTTP server (port 8080) disabled");
+    }
+    
+    // Start HTTPS server on port 8443 (if TLS enabled)
+    if tls_config.enabled {
+        let https_addr: std::net::SocketAddr = tls_config.listen_address.parse()
+            .map_err(|e| anyhow::anyhow!("Invalid HTTPS listen address: {}", e))?;
+        
+        let webui_path_https = webui_path.clone();
+        let tls_config_https = tls_config.clone();
+        
+        info!(
+            address = %https_addr,
+            cert = %tls_config.cert_path,
+            "Starting HTTPS server for Web UI"
+        );
+        
+        info!(
+            "🔒 HTTPS URL: https://{}:{}",
+            host, https_addr.port()
+        );
+        
+        // Start HTTP→HTTPS redirect server if enabled
+        if tls_config.redirect_http {
+            let redirect_addr = std::net::SocketAddr::from(([0, 0, 0, 0], tls_config.redirect_port));
+            let https_port = https_addr.port();
+            
+            info!(
+                "↪️  HTTP redirect: http://{}:{} → https://{}:{}",
+                host, tls_config.redirect_port,
+                host, https_port
+            );
+            
+            server_handles.push(tokio::spawn(async move {
+                http_server::run_redirect_server(redirect_addr, https_port).await;
+            }));
+        }
+        
+        server_handles.push(tokio::spawn(async move {
+            if let Err(e) = http_server::run_https_server(https_addr, https_service, webui_path_https, tls_config_https).await {
+                error!(error = %e, "HTTPS server failed");
+            }
+        }));
+    } else {
+        info!("HTTPS server (port 8443) disabled - use --enable-https to enable");
+    }
+    
+    // Ensure at least one server is running
+    if server_handles.is_empty() && !config.server.http.enabled && !tls_config.enabled {
+        warn!("Both HTTP and HTTPS servers are disabled - Web UI will not be accessible");
+    }
     
     // Start gRPC server (this blocks)
     let grpc_result = Server::builder()
@@ -161,8 +216,8 @@ pub async fn run(config: Config) -> Result<()> {
         .serve(grpc_addr)
         .await;
     
-    // If gRPC server exits, also stop HTTP server
-    if let Some(handle) = http_handle {
+    // If gRPC server exits, stop all HTTP/HTTPS servers
+    for handle in server_handles {
         handle.abort();
     }
     

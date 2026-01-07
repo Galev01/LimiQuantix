@@ -8,7 +8,7 @@
 name="Quantix Node Daemon"
 description="Quantix-OS hypervisor management daemon"
 command="/usr/bin/qx-node"
-command_args="--webui-path /usr/share/quantix-host-ui"
+command_args="--webui-path /usr/share/quantix-host-ui --enable-https"
 command_background="yes"
 pidfile="/run/quantix-node.pid"
 output_log="/var/log/quantix-node.log"
@@ -31,6 +31,11 @@ start_pre() {
     
     # Ensure config directory exists
     mkdir -p /quantix
+    mkdir -p /etc/limiquantix
+    
+    # Ensure certificates directory exists (for HTTPS)
+    mkdir -p /etc/limiquantix/certs
+    chmod 700 /etc/limiquantix/certs
     
     # Check if binary exists
     if [ ! -x "$command" ]; then
