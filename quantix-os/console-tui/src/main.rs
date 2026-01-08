@@ -1658,6 +1658,27 @@ fn generate_registration_token(app: &mut App) {
     
     app.set_status("Generating registration token...");
     
+    // First check if curl is available
+    let curl_check = std::process::Command::new("which")
+        .arg("curl")
+        .output();
+    
+    if curl_check.is_err() || !curl_check.unwrap().status.success() {
+        // Try wget as fallback
+        app.error_message = Some("curl not found. Please ensure curl is installed.".to_string());
+        return;
+    }
+    
+    // Check if node daemon is running
+    let daemon_check = std::process::Command::new("pgrep")
+        .args(["-x", "qx-node"])
+        .output();
+    
+    if daemon_check.is_err() || !daemon_check.unwrap().status.success() {
+        app.error_message = Some("Node daemon (qx-node) is not running. Try: rc-service quantix-node start".to_string());
+        return;
+    }
+    
     // Call the local node daemon API to generate a token
     let result = std::process::Command::new("curl")
         .args([
@@ -1666,7 +1687,7 @@ fn generate_registration_token(app: &mut App) {
             "https://127.0.0.1:8443/api/v1/registration/token"
         ])
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .output();
     
     match result {
@@ -1682,16 +1703,30 @@ fn generate_registration_token(app: &mut App) {
                     });
                     app.success_message = Some(format!("Token generated: {}", token));
                 } else if stdout.contains("\"error\"") {
-                    app.error_message = Some("Failed to generate token - check node daemon logs".to_string());
+                    let error_msg = extract_json_field(&stdout, "message")
+                        .unwrap_or_else(|| "Unknown error".to_string());
+                    app.error_message = Some(format!("API error: {}", error_msg));
+                } else if stdout.is_empty() {
+                    app.error_message = Some("Empty response from node daemon - is it running?".to_string());
                 } else {
-                    app.error_message = Some("Unexpected response from node daemon".to_string());
+                    app.error_message = Some(format!("Unexpected response: {}", stdout.chars().take(100).collect::<String>()));
                 }
             } else {
-                app.error_message = Some("Node daemon API request failed".to_string());
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if stderr.contains("Connection refused") {
+                    app.error_message = Some("Connection refused - node daemon not listening on port 8443".to_string());
+                } else {
+                    app.error_message = Some(format!("API request failed: {}", stderr.chars().take(100).collect::<String>()));
+                }
             }
         }
         Err(e) => {
-            app.error_message = Some(format!("Failed to connect to node daemon: {}", e));
+            let error_str = e.to_string();
+            if error_str.contains("No such file") {
+                app.error_message = Some("curl command not found. Install with: apk add curl".to_string());
+            } else {
+                app.error_message = Some(format!("Failed to execute curl: {}", error_str));
+            }
         }
     }
 }

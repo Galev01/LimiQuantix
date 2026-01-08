@@ -116,6 +116,8 @@ func (dm *DownloadManager) ListJobs() []*DownloadJob {
 }
 
 // StartDownload starts a download job for a catalog image.
+// Note: ctx is used only for validation, not for the download goroutine.
+// The download runs independently of the request lifecycle.
 func (dm *DownloadManager) StartDownload(ctx context.Context, jobID, imageID, catalogID, nodeID, targetDir string) error {
 	// Find catalog entry
 	var entry *CatalogEntry
@@ -151,8 +153,11 @@ func (dm *DownloadManager) StartDownload(ctx context.Context, jobID, imageID, ca
 	dm.jobs[jobID] = job
 	dm.mu.Unlock()
 
-	// Start download in background
-	go dm.runDownload(ctx, job)
+	// Start download in background with a fresh context
+	// IMPORTANT: We use context.Background() here because the download must
+	// continue after the HTTP request returns. Using the request context
+	// would cancel the download immediately when the response is sent.
+	go dm.runDownload(context.Background(), job)
 
 	dm.logger.Info("Started download job",
 		zap.String("job_id", jobID),
