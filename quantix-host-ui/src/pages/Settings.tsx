@@ -1,5 +1,5 @@
 import { useState, useEffect, type ChangeEvent } from 'react';
-import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, Lock, Upload, Key, Globe, Terminal, Unplug, Link2, Clock, AlertTriangle, CheckCircle2, Copy, Check, KeyRound, Plug } from 'lucide-react';
+import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, Lock, Upload, Key, Globe, Terminal, Unplug, Link2, Clock, AlertTriangle, CheckCircle2, Copy, Check, KeyRound, Plug, RotateCcw } from 'lucide-react';
 import { Header } from '@/components/layout';
 import { Card, Badge, Button, Input, Label } from '@/components/ui';
 import { useSettings, useUpdateSettings, useServices, useRestartService, useCertificateInfo, useGenerateSelfSigned, useResetCertificate, useSshStatus, useEnableSsh, useDisableSsh } from '@/hooks/useSettings';

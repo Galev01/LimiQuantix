@@ -81,3 +81,17 @@ export function useLeaveCluster() {
     },
   });
 }
+
+// Join cluster (legacy - now hosts generate tokens instead)
+// This is kept for backward compatibility but should show a message directing users to use token generation
+export function useJoinCluster() {
+  return useMutation({
+    mutationFn: async (_data: { control_plane_address: string; registration_token: string }) => {
+      // The new flow is: host generates token, vDC uses it to add the host
+      throw new Error('Direct cluster join is no longer supported. Generate a registration token instead and add this host from the vDC console.');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}

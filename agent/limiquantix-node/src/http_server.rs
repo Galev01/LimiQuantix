@@ -3563,7 +3563,7 @@ async fn collect_iscsi_targets() -> Vec<IscsiTarget> {
 }
 
 /// Find the block device associated with an iSCSI session
-async fn find_iscsi_device(session_path: &std::path::Path) -> String {
+async fn find_iscsi_device(_session_path: &std::path::Path) -> String {
     // This is a simplified implementation
     // In production, we'd traverse /sys/class/iscsi_session/sessionN/device/target*/*/block/*
     String::new()

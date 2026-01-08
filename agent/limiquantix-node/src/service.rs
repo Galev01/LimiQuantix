@@ -133,6 +133,16 @@ impl NodeDaemonServiceImpl {
         &self.node_id
     }
     
+    /// Get the hostname
+    pub fn get_hostname(&self) -> &str {
+        &self.hostname
+    }
+    
+    /// Get the management IP address
+    pub fn get_management_ip(&self) -> String {
+        self.management_ip.clone()
+    }
+    
     /// Get current telemetry data
     pub fn get_telemetry(&self) -> limiquantix_telemetry::NodeTelemetry {
         self.telemetry.collect()
