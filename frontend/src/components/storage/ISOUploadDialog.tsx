@@ -314,16 +314,14 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
                           Drag and drop your ISO file here
                         </p>
                         <p className="text-sm text-text-muted">or</p>
-                        <label>
+                        <label className="cursor-pointer inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 bg-bg-elevated hover:bg-bg-hover text-text-primary border border-border hover:border-border-hover px-3 py-1.5 text-xs">
                           <input
                             type="file"
                             accept=".iso"
                             onChange={(e) => handleFileSelect(e.target.files)}
                             className="hidden"
                           />
-                          <Button variant="secondary" size="sm" asChild>
-                            <span>Browse Files</span>
-                          </Button>
+                          Browse Files
                         </label>
                       </div>
                     )}
