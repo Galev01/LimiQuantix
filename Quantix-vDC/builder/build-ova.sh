@@ -70,48 +70,105 @@ echo "✅ Disk image created"
 # -----------------------------------------------------------------------------
 echo "📦 Step 3: Formatting partitions..."
 
+# Function to ensure loop device nodes exist
+ensure_loop_devices() {
+    # Create /dev/loop* nodes if they don't exist (needed in some Docker environments)
+    for i in $(seq 0 31); do
+        if [ ! -e "/dev/loop$i" ]; then
+            mknod -m 0660 "/dev/loop$i" b 7 "$i" 2>/dev/null || true
+        fi
+    done
+}
+
+ensure_loop_devices
+
 # Setup loop device with partition scanning
-LOOP_DEV=$(losetup -f --show -P "$RAW_DISK")
+LOOP_DEV=$(losetup -f --show -P "$RAW_DISK" 2>/dev/null) || {
+    # If -P is not supported, try without it
+    LOOP_DEV=$(losetup -f --show "$RAW_DISK")
+}
 echo "   Using loop device: $LOOP_DEV"
 
 # Force kernel to re-read partition table
 partprobe "$LOOP_DEV" 2>/dev/null || true
 
 # Wait for partitions to appear and trigger udev
-sleep 3
+sleep 2
 
-# Check if partitions exist, if not use kpartx
+# Check if partitions exist, if not use partx
 if [ ! -b "${LOOP_DEV}p1" ]; then
-    echo "   Partitions not auto-detected, using partx..."
+    echo "   Partitions not auto-detected, trying partx..."
     partx -a "$LOOP_DEV" 2>/dev/null || true
     sleep 2
 fi
 
-# Still no partitions? Try direct offset mounting later
+# Still no partitions? Use offset-based approach
+USE_OFFSET_LOOPS=0
 if [ ! -b "${LOOP_DEV}p1" ]; then
     echo "   Using offset-based partition access..."
+    
     # Get partition offsets from parted
     PART1_START=$(parted -s "$RAW_DISK" unit B print | grep "^ 1" | awk '{print $2}' | tr -d 'B')
     PART2_START=$(parted -s "$RAW_DISK" unit B print | grep "^ 2" | awk '{print $2}' | tr -d 'B')
     PART3_START=$(parted -s "$RAW_DISK" unit B print | grep "^ 3" | awk '{print $2}' | tr -d 'B')
     
-    # Create loop devices for each partition
-    LOOP_P1=$(losetup -f --show -o "$PART1_START" --sizelimit $((256*1024*1024)) "$RAW_DISK")
-    LOOP_P2=$(losetup -f --show -o "$PART2_START" --sizelimit $((10240*1024*1024)) "$RAW_DISK")
-    LOOP_P3=$(losetup -f --show -o "$PART3_START" "$RAW_DISK")
+    PART1_SIZE=$(parted -s "$RAW_DISK" unit B print | grep "^ 1" | awk '{print $4}' | tr -d 'B')
+    PART2_SIZE=$(parted -s "$RAW_DISK" unit B print | grep "^ 2" | awk '{print $4}' | tr -d 'B')
+    PART3_SIZE=$(parted -s "$RAW_DISK" unit B print | grep "^ 3" | awk '{print $4}' | tr -d 'B')
+    
+    echo "   Partition 1: offset=$PART1_START size=$PART1_SIZE"
+    echo "   Partition 2: offset=$PART2_START size=$PART2_SIZE"
+    echo "   Partition 3: offset=$PART3_START size=$PART3_SIZE"
+    
+    # Find available loop device numbers
+    LOOP_NUM_P1=""
+    LOOP_NUM_P2=""
+    LOOP_NUM_P3=""
+    
+    for i in $(seq 0 31); do
+        if [ -z "$LOOP_NUM_P1" ] && ! losetup "/dev/loop$i" >/dev/null 2>&1; then
+            LOOP_NUM_P1=$i
+        elif [ -z "$LOOP_NUM_P2" ] && ! losetup "/dev/loop$i" >/dev/null 2>&1; then
+            LOOP_NUM_P2=$i
+        elif [ -z "$LOOP_NUM_P3" ] && ! losetup "/dev/loop$i" >/dev/null 2>&1; then
+            LOOP_NUM_P3=$i
+            break
+        fi
+    done
+    
+    if [ -z "$LOOP_NUM_P1" ] || [ -z "$LOOP_NUM_P2" ] || [ -z "$LOOP_NUM_P3" ]; then
+        echo "❌ Could not find enough free loop devices"
+        losetup -d "$LOOP_DEV" 2>/dev/null || true
+        exit 1
+    fi
+    
+    LOOP_P1="/dev/loop$LOOP_NUM_P1"
+    LOOP_P2="/dev/loop$LOOP_NUM_P2"
+    LOOP_P3="/dev/loop$LOOP_NUM_P3"
+    
+    # Ensure device nodes exist
+    [ -e "$LOOP_P1" ] || mknod -m 0660 "$LOOP_P1" b 7 "$LOOP_NUM_P1"
+    [ -e "$LOOP_P2" ] || mknod -m 0660 "$LOOP_P2" b 7 "$LOOP_NUM_P2"
+    [ -e "$LOOP_P3" ] || mknod -m 0660 "$LOOP_P3" b 7 "$LOOP_NUM_P3"
+    
+    # Setup loop devices with offset
+    losetup -o "$PART1_START" --sizelimit "$PART1_SIZE" "$LOOP_P1" "$RAW_DISK"
+    losetup -o "$PART2_START" --sizelimit "$PART2_SIZE" "$LOOP_P2" "$RAW_DISK"
+    losetup -o "$PART3_START" --sizelimit "$PART3_SIZE" "$LOOP_P3" "$RAW_DISK"
+    
+    echo "   Created partition loops: $LOOP_P1, $LOOP_P2, $LOOP_P3"
     
     mkfs.vfat -F 32 -n QUANTIX-EFI "$LOOP_P1"
     mkfs.ext4 -L QUANTIX-ROOT -F "$LOOP_P2"
     mkfs.ext4 -L QUANTIX-DATA -F "$LOOP_P3"
     
-    # Store for later use
     USE_OFFSET_LOOPS=1
 else
     # Format partitions normally
+    echo "   Using standard partition devices: ${LOOP_DEV}p1, ${LOOP_DEV}p2, ${LOOP_DEV}p3"
     mkfs.vfat -F 32 -n QUANTIX-EFI "${LOOP_DEV}p1"
     mkfs.ext4 -L QUANTIX-ROOT -F "${LOOP_DEV}p2"
     mkfs.ext4 -L QUANTIX-DATA -F "${LOOP_DEV}p3"
-    USE_OFFSET_LOOPS=0
 fi
 
 echo "✅ Partitions formatted"
@@ -141,11 +198,52 @@ fi
 
 # Extract squashfs
 echo "   Extracting system image..."
-mkdir -p /tmp/sqfs
-mount -t squashfs -o loop "$SQUASHFS" /tmp/sqfs
-cp -a /tmp/sqfs/* "$TARGET_MOUNT/"
-umount /tmp/sqfs
-rmdir /tmp/sqfs
+SQFS_MOUNT="/tmp/sqfs"
+mkdir -p "$SQFS_MOUNT"
+
+# Try multiple methods to extract squashfs (Docker can be tricky)
+SQFS_EXTRACTED=0
+
+# Method 1: Direct loop mount
+if [ $SQFS_EXTRACTED -eq 0 ]; then
+    if mount -t squashfs -o loop "$SQUASHFS" "$SQFS_MOUNT" 2>/dev/null; then
+        echo "   Using loop mount for squashfs..."
+        cp -a "$SQFS_MOUNT"/* "$TARGET_MOUNT/"
+        umount "$SQFS_MOUNT"
+        SQFS_EXTRACTED=1
+    fi
+fi
+
+# Method 2: Explicit losetup + mount
+if [ $SQFS_EXTRACTED -eq 0 ]; then
+    SQFS_LOOP=$(losetup -f --show "$SQUASHFS" 2>/dev/null) && {
+        if mount -t squashfs "$SQFS_LOOP" "$SQFS_MOUNT" 2>/dev/null; then
+            echo "   Using explicit loop device for squashfs..."
+            cp -a "$SQFS_MOUNT"/* "$TARGET_MOUNT/"
+            umount "$SQFS_MOUNT"
+            SQFS_EXTRACTED=1
+        fi
+        losetup -d "$SQFS_LOOP" 2>/dev/null || true
+    }
+fi
+
+# Method 3: unsquashfs (works without loop devices)
+if [ $SQFS_EXTRACTED -eq 0 ]; then
+    if command -v unsquashfs >/dev/null 2>&1; then
+        echo "   Using unsquashfs to extract..."
+        unsquashfs -d "$SQFS_MOUNT/extracted" -f "$SQUASHFS"
+        cp -a "$SQFS_MOUNT/extracted"/* "$TARGET_MOUNT/"
+        rm -rf "$SQFS_MOUNT/extracted"
+        SQFS_EXTRACTED=1
+    fi
+fi
+
+if [ $SQFS_EXTRACTED -eq 0 ]; then
+    echo "❌ Failed to extract squashfs - no working method found"
+    exit 1
+fi
+
+rmdir "$SQFS_MOUNT" 2>/dev/null || true
 
 echo "✅ System installed"
 
