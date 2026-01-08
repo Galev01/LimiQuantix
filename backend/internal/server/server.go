@@ -75,6 +75,7 @@ type Server struct {
 	networkService       *networkservice.NetworkService
 	securityGroupService *networkservice.SecurityGroupService
 	imageService         *storageservice.ImageService
+	ovaService           *storageservice.OVAService
 
 	// Registration service
 	registrationService *registration.Service
@@ -166,15 +167,8 @@ func (s *Server) initRepositories() {
 	} else {
 		// Use in-memory repositories (development mode)
 		s.logger.Info("Initializing in-memory repositories")
-		memVMRepo := memory.NewVMRepository()
-		memNodeRepo := memory.NewNodeRepository()
-
-		// Seed with demo data
-		memVMRepo.SeedDemoData()
-		memNodeRepo.SeedDemoData()
-
-		s.vmRepo = memVMRepo
-		s.nodeRepo = memNodeRepo
+		s.vmRepo = memory.NewVMRepository()
+		s.nodeRepo = memory.NewNodeRepository()
 
 		// Admin repositories require PostgreSQL - log warning
 		s.logger.Warn("Admin panel requires PostgreSQL - admin features disabled in development mode")
@@ -239,6 +233,7 @@ func (s *Server) initServices() {
 
 	// Storage services
 	s.imageService = storageservice.NewImageService(s.imageRepo, s.logger)
+	s.ovaService = storageservice.NewOVAService(s.imageRepo, s.logger)
 
 	// Registration token service (always available)
 	s.registrationService = registration.NewService(s.registrationTokenRepo, s.logger)
@@ -341,6 +336,16 @@ func (s *Server) registerRoutes() {
 	imagePath, imageHandler := storagev1connect.NewImageServiceHandler(s.imageService)
 	s.mux.Handle(imagePath, imageHandler)
 	s.logger.Info("Registered Image service", zap.String("path", imagePath))
+
+	// OVA Service (Connect-RPC)
+	ovaPath, ovaHandler := storagev1connect.NewOVAServiceHandler(s.ovaService)
+	s.mux.Handle(ovaPath, ovaHandler)
+	s.logger.Info("Registered OVA service", zap.String("path", ovaPath))
+
+	// OVA Upload Handler (HTTP multipart - Connect-RPC doesn't support file uploads)
+	ovaUploadHandler := NewOVAUploadHandler(s.ovaService, s.logger)
+	ovaUploadHandler.RegisterRoutes(s.mux)
+	s.logger.Info("Registered OVA upload handler", zap.String("path", "/api/v1/ova/"))
 
 	// =========================================================================
 	// Registration Token REST API (always available)

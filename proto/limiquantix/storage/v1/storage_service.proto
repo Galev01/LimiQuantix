@@ -133,6 +133,25 @@ service ImageService {
 }
 
 // =============================================================================
+// OVA SERVICE
+// =============================================================================
+
+// OVAService manages OVA/OVF template uploads and processing.
+service OVAService {
+  // GetOVAUploadStatus checks the status of an OVA upload/processing job.
+  rpc GetOVAUploadStatus(GetOVAUploadStatusRequest) returns (OVAUploadStatus);
+  
+  // ListOVATemplates returns all available OVA templates.
+  rpc ListOVATemplates(ListOVATemplatesRequest) returns (ListOVATemplatesResponse);
+  
+  // GetOVATemplate retrieves a specific OVA template by ID.
+  rpc GetOVATemplate(GetOVATemplateRequest) returns (Image);
+  
+  // DeleteOVATemplate removes an OVA template.
+  rpc DeleteOVATemplate(DeleteOVATemplateRequest) returns (google.protobuf.Empty);
+}
+
+// =============================================================================
 // STORAGE POOL REQUEST/RESPONSE
 // =============================================================================
 
@@ -548,4 +567,86 @@ message GetImageCatalogRequest {
 message GetImageCatalogResponse {
   // List of available images in the catalog
   repeated ImageCatalogEntry images = 1;
+}
+
+// =============================================================================
+// OVA REQUEST/RESPONSE
+// =============================================================================
+
+// OVAUploadStatus represents the current state of an OVA upload/processing job.
+message OVAUploadStatus {
+  // Job ID
+  string job_id = 1;
+  
+  // Image ID (set once image record is created)
+  string image_id = 2;
+  
+  // Current status
+  enum Status {
+    UNKNOWN = 0;
+    UPLOADING = 1;      // File upload in progress
+    EXTRACTING = 2;     // Extracting OVA tar archive
+    PARSING = 3;        // Parsing OVF descriptor
+    CONVERTING = 4;     // Converting VMDK to QCOW2
+    COMPLETED = 5;      // Processing complete
+    FAILED = 6;         // Processing failed
+  }
+  Status status = 3;
+  
+  // Progress percentage (0-100)
+  uint32 progress_percent = 4;
+  
+  // Current step description
+  string current_step = 5;
+  
+  // Bytes uploaded (during upload phase)
+  uint64 bytes_uploaded = 6;
+  
+  // Total file size
+  uint64 bytes_total = 7;
+  
+  // Error message if failed
+  string error_message = 8;
+  
+  // Extracted OVA metadata (available after parsing)
+  OvaMetadata metadata = 9;
+  
+  // Created image (available after completion)
+  Image image = 10;
+}
+
+message GetOVAUploadStatusRequest {
+  // Job ID from upload response
+  string job_id = 1;
+}
+
+message ListOVATemplatesRequest {
+  // Optional project filter
+  string project_id = 1;
+  
+  // Pagination
+  int32 page_size = 10;
+  string page_token = 11;
+}
+
+message ListOVATemplatesResponse {
+  // OVA templates (images with format = OVA)
+  repeated Image templates = 1;
+  
+  // Pagination
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message GetOVATemplateRequest {
+  // Template/Image ID
+  string id = 1;
+}
+
+message DeleteOVATemplateRequest {
+  // Template/Image ID
+  string id = 1;
+  
+  // Force delete even if in use
+  bool force = 2;
 }

@@ -40,6 +40,7 @@ import { useNodes, type ApiNode } from '@/hooks/useNodes';
 import { useNetworks, type ApiVirtualNetwork } from '@/hooks/useNetworks';
 import { useAvailableImages, useISOs, formatImageSize, getDefaultUser, type CloudImage, type ISOImage, ISO_CATALOG } from '@/hooks/useImages';
 import { useStoragePools, type StoragePoolUI } from '@/hooks/useStorage';
+import { useOVATemplates, type OVATemplate, formatOVASize } from '@/hooks/useOVA';
 
 interface VMCreationWizardProps {
   onClose: () => void;
@@ -75,10 +76,11 @@ interface VMCreationData {
   memoryMib: number;
   nics: NetworkInterface[];
 
-  // Step 6: Boot Media (ISO or Cloud Image)
-  bootMediaType: 'none' | 'iso' | 'cloud-image';
+  // Step 6: Boot Media (ISO, Cloud Image, or OVA Template)
+  bootMediaType: 'none' | 'iso' | 'cloud-image' | 'ova-template';
   isoId: string;
   cloudImageId: string;
+  ovaTemplateId: string;
   
   // Cloud-Init Configuration
   cloudInit: {
@@ -185,6 +187,7 @@ const initialFormData: VMCreationData = {
   bootMediaType: 'cloud-image',  // Default to cloud image for quick provisioning
   isoId: '',
   cloudImageId: 'cloud-ubuntu22', // Default to Ubuntu 22.04 cloud image
+  ovaTemplateId: '',
   cloudInit: {
     enabled: true,
     sshKeys: [],
@@ -216,6 +219,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
   const { images: cloudImages, isLoading: imagesLoading, isUsingCatalog } = useAvailableImages();
   const { isos, isLoading: isosLoading, isUsingCatalog: isUsingIsoCatalog } = useISOs();
   const { data: storagePools, isLoading: storageLoading } = useStoragePools();
+  const { data: ovaTemplates, isLoading: ovaLoading } = useOVATemplates();
 
   // Process nodes into a format usable by the wizard
   const nodes = useMemo(() => {
@@ -1556,11 +1560,11 @@ function StepISO({
 
       {/* Boot Media Type Selection */}
       <FormField label="Provisioning Method">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 gap-3">
           {/* Cloud Image (Recommended) */}
           <label
             className={cn(
-              'flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-all text-center',
+              'flex flex-col items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all text-center',
               formData.bootMediaType === 'cloud-image'
                 ? 'bg-accent/10 border-accent ring-2 ring-accent/20'
                 : 'bg-bg-base border-border hover:border-accent/50',
@@ -1573,18 +1577,46 @@ function StepISO({
               onChange={() => updateFormData({ bootMediaType: 'cloud-image' })}
               className="sr-only"
             />
-            <Cloud className="w-8 h-8 text-accent" />
+            <Cloud className="w-7 h-7 text-accent" />
             <div>
               <p className="text-sm font-medium text-text-primary">Cloud Image</p>
-              <p className="text-xs text-text-muted">Automated setup</p>
+              <p className="text-xs text-text-muted">Automated</p>
             </div>
             <Badge variant="success" size="sm">Recommended</Badge>
+          </label>
+
+          {/* OVA Template */}
+          <label
+            className={cn(
+              'flex flex-col items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all text-center',
+              formData.bootMediaType === 'ova-template'
+                ? 'bg-accent/10 border-accent ring-2 ring-accent/20'
+                : 'bg-bg-base border-border hover:border-accent/50',
+              (!ovaTemplates || ovaTemplates.length === 0) && 'opacity-50',
+            )}
+          >
+            <input
+              type="radio"
+              name="bootMediaType"
+              checked={formData.bootMediaType === 'ova-template'}
+              onChange={() => updateFormData({ bootMediaType: 'ova-template' })}
+              className="sr-only"
+              disabled={!ovaTemplates || ovaTemplates.length === 0}
+            />
+            <Folder className="w-7 h-7 text-info" />
+            <div>
+              <p className="text-sm font-medium text-text-primary">OVA Template</p>
+              <p className="text-xs text-text-muted">Pre-built VM</p>
+            </div>
+            {ovaTemplates && ovaTemplates.length > 0 && (
+              <Badge variant="info" size="sm">{ovaTemplates.length} available</Badge>
+            )}
           </label>
 
           {/* ISO Installation */}
           <label
             className={cn(
-              'flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-all text-center',
+              'flex flex-col items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all text-center',
               formData.bootMediaType === 'iso'
                 ? 'bg-accent/10 border-accent ring-2 ring-accent/20'
                 : 'bg-bg-base border-border hover:border-accent/50',
@@ -1597,7 +1629,7 @@ function StepISO({
               onChange={() => updateFormData({ bootMediaType: 'iso' })}
               className="sr-only"
             />
-            <Disc className="w-8 h-8 text-text-muted" />
+            <Disc className="w-7 h-7 text-text-muted" />
             <div>
               <p className="text-sm font-medium text-text-primary">ISO Image</p>
               <p className="text-xs text-text-muted">Manual install</p>
@@ -1607,7 +1639,7 @@ function StepISO({
           {/* No Boot Media */}
           <label
             className={cn(
-              'flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-all text-center',
+              'flex flex-col items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all text-center',
               formData.bootMediaType === 'none'
                 ? 'bg-accent/10 border-accent ring-2 ring-accent/20'
                 : 'bg-bg-base border-border hover:border-accent/50',
@@ -1620,7 +1652,7 @@ function StepISO({
               onChange={() => updateFormData({ bootMediaType: 'none' })}
               className="sr-only"
             />
-            <HardDrive className="w-8 h-8 text-text-muted" />
+            <HardDrive className="w-7 h-7 text-text-muted" />
             <div>
               <p className="text-sm font-medium text-text-primary">None</p>
               <p className="text-xs text-text-muted">Configure later</p>
@@ -1918,6 +1950,83 @@ packages:
             )}
           </div>
         </>
+      )}
+
+      {/* OVA Template Selection */}
+      {formData.bootMediaType === 'ova-template' && (
+        <FormField label="OVA Template" description="Deploy from a pre-configured OVA template">
+          {ovaLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-5 h-5 animate-spin text-accent" />
+              <span className="ml-2 text-text-muted">Loading templates...</span>
+            </div>
+          ) : ovaTemplates && ovaTemplates.length > 0 ? (
+            <div className="grid gap-2 max-h-64 overflow-y-auto">
+              {ovaTemplates.map((template) => (
+                <label
+                  key={template.id}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
+                    formData.ovaTemplateId === template.id
+                      ? 'bg-accent/10 border-accent'
+                      : 'bg-bg-base border-border hover:border-accent/50',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="ovaTemplateId"
+                    checked={formData.ovaTemplateId === template.id}
+                    onChange={() => {
+                      updateFormData({ ovaTemplateId: template.id });
+                      // Auto-populate hardware specs from OVA metadata
+                      const meta = template.spec?.ovaMetadata;
+                      if (meta?.hardware) {
+                        updateFormData({
+                          cpuCores: meta.hardware.cpuCount || formData.cpuCores,
+                          memoryMib: meta.hardware.memoryMib || formData.memoryMib,
+                        });
+                      }
+                    }}
+                    className="form-radio"
+                  />
+                  <Folder className="w-5 h-5 text-info" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-text-primary">{template.name}</p>
+                    {template.description && (
+                      <p className="text-xs text-text-muted">{template.description}</p>
+                    )}
+                    {template.spec?.ovaMetadata?.hardware && (
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-xs text-accent">
+                          {template.spec.ovaMetadata.hardware.cpuCount} vCPU
+                        </span>
+                        <span className="text-xs text-accent">
+                          {template.spec.ovaMetadata.hardware.memoryMib} MiB RAM
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-xs text-text-muted">
+                    {formatOVASize(template.status?.virtualSizeBytes || 0)}
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Folder className="w-12 h-12 text-text-muted mx-auto mb-3" />
+              <p className="text-text-secondary">No OVA templates available</p>
+              <p className="text-xs text-text-muted mt-1">Upload OVA files in Storage → Image Library</p>
+            </div>
+          )}
+          <a 
+            href="/storage/images" 
+            className="mt-3 flex items-center gap-2 text-sm text-accent hover:text-accent-hover"
+          >
+            <Plus className="w-4 h-4" />
+            Upload OVA Template
+          </a>
+        </FormField>
       )}
 
       {/* ISO Selection */}

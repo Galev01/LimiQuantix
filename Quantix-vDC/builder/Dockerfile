@@ -31,6 +31,7 @@ RUN apk add --no-cache \
     xfsprogs \
     parted \
     util-linux \
+    multipath-tools \
     # Bootloader
     grub \
     grub-efi \

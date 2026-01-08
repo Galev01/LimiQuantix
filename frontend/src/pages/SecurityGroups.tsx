@@ -115,10 +115,6 @@ export function SecurityGroups() {
   // Handle delete
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this security group?')) return;
-    if (useMockData) {
-      showInfo('Demo mode: Security group delete simulated');
-      return;
-    }
     await deleteSG.mutateAsync(id);
   };
 

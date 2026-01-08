@@ -1528,3 +1528,229 @@ var ImageService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "limiquantix/storage/v1/storage_service.proto",
 }
+
+const (
+	OVAService_GetOVAUploadStatus_FullMethodName = "/limiquantix.storage.v1.OVAService/GetOVAUploadStatus"
+	OVAService_ListOVATemplates_FullMethodName   = "/limiquantix.storage.v1.OVAService/ListOVATemplates"
+	OVAService_GetOVATemplate_FullMethodName     = "/limiquantix.storage.v1.OVAService/GetOVATemplate"
+	OVAService_DeleteOVATemplate_FullMethodName  = "/limiquantix.storage.v1.OVAService/DeleteOVATemplate"
+)
+
+// OVAServiceClient is the client API for OVAService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// OVAService manages OVA/OVF template uploads and processing.
+type OVAServiceClient interface {
+	// GetOVAUploadStatus checks the status of an OVA upload/processing job.
+	GetOVAUploadStatus(ctx context.Context, in *GetOVAUploadStatusRequest, opts ...grpc.CallOption) (*OVAUploadStatus, error)
+	// ListOVATemplates returns all available OVA templates.
+	ListOVATemplates(ctx context.Context, in *ListOVATemplatesRequest, opts ...grpc.CallOption) (*ListOVATemplatesResponse, error)
+	// GetOVATemplate retrieves a specific OVA template by ID.
+	GetOVATemplate(ctx context.Context, in *GetOVATemplateRequest, opts ...grpc.CallOption) (*Image, error)
+	// DeleteOVATemplate removes an OVA template.
+	DeleteOVATemplate(ctx context.Context, in *DeleteOVATemplateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type oVAServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewOVAServiceClient(cc grpc.ClientConnInterface) OVAServiceClient {
+	return &oVAServiceClient{cc}
+}
+
+func (c *oVAServiceClient) GetOVAUploadStatus(ctx context.Context, in *GetOVAUploadStatusRequest, opts ...grpc.CallOption) (*OVAUploadStatus, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OVAUploadStatus)
+	err := c.cc.Invoke(ctx, OVAService_GetOVAUploadStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *oVAServiceClient) ListOVATemplates(ctx context.Context, in *ListOVATemplatesRequest, opts ...grpc.CallOption) (*ListOVATemplatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListOVATemplatesResponse)
+	err := c.cc.Invoke(ctx, OVAService_ListOVATemplates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *oVAServiceClient) GetOVATemplate(ctx context.Context, in *GetOVATemplateRequest, opts ...grpc.CallOption) (*Image, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Image)
+	err := c.cc.Invoke(ctx, OVAService_GetOVATemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *oVAServiceClient) DeleteOVATemplate(ctx context.Context, in *DeleteOVATemplateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, OVAService_DeleteOVATemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// OVAServiceServer is the server API for OVAService service.
+// All implementations should embed UnimplementedOVAServiceServer
+// for forward compatibility.
+//
+// OVAService manages OVA/OVF template uploads and processing.
+type OVAServiceServer interface {
+	// GetOVAUploadStatus checks the status of an OVA upload/processing job.
+	GetOVAUploadStatus(context.Context, *GetOVAUploadStatusRequest) (*OVAUploadStatus, error)
+	// ListOVATemplates returns all available OVA templates.
+	ListOVATemplates(context.Context, *ListOVATemplatesRequest) (*ListOVATemplatesResponse, error)
+	// GetOVATemplate retrieves a specific OVA template by ID.
+	GetOVATemplate(context.Context, *GetOVATemplateRequest) (*Image, error)
+	// DeleteOVATemplate removes an OVA template.
+	DeleteOVATemplate(context.Context, *DeleteOVATemplateRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedOVAServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedOVAServiceServer struct{}
+
+func (UnimplementedOVAServiceServer) GetOVAUploadStatus(context.Context, *GetOVAUploadStatusRequest) (*OVAUploadStatus, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetOVAUploadStatus not implemented")
+}
+func (UnimplementedOVAServiceServer) ListOVATemplates(context.Context, *ListOVATemplatesRequest) (*ListOVATemplatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListOVATemplates not implemented")
+}
+func (UnimplementedOVAServiceServer) GetOVATemplate(context.Context, *GetOVATemplateRequest) (*Image, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetOVATemplate not implemented")
+}
+func (UnimplementedOVAServiceServer) DeleteOVATemplate(context.Context, *DeleteOVATemplateRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteOVATemplate not implemented")
+}
+func (UnimplementedOVAServiceServer) testEmbeddedByValue() {}
+
+// UnsafeOVAServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to OVAServiceServer will
+// result in compilation errors.
+type UnsafeOVAServiceServer interface {
+	mustEmbedUnimplementedOVAServiceServer()
+}
+
+func RegisterOVAServiceServer(s grpc.ServiceRegistrar, srv OVAServiceServer) {
+	// If the following call panics, it indicates UnimplementedOVAServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&OVAService_ServiceDesc, srv)
+}
+
+func _OVAService_GetOVAUploadStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetOVAUploadStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OVAServiceServer).GetOVAUploadStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OVAService_GetOVAUploadStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OVAServiceServer).GetOVAUploadStatus(ctx, req.(*GetOVAUploadStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OVAService_ListOVATemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListOVATemplatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OVAServiceServer).ListOVATemplates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OVAService_ListOVATemplates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OVAServiceServer).ListOVATemplates(ctx, req.(*ListOVATemplatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OVAService_GetOVATemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetOVATemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OVAServiceServer).GetOVATemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OVAService_GetOVATemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OVAServiceServer).GetOVATemplate(ctx, req.(*GetOVATemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OVAService_DeleteOVATemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteOVATemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OVAServiceServer).DeleteOVATemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OVAService_DeleteOVATemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OVAServiceServer).DeleteOVATemplate(ctx, req.(*DeleteOVATemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// OVAService_ServiceDesc is the grpc.ServiceDesc for OVAService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var OVAService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "limiquantix.storage.v1.OVAService",
+	HandlerType: (*OVAServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetOVAUploadStatus",
+			Handler:    _OVAService_GetOVAUploadStatus_Handler,
+		},
+		{
+			MethodName: "ListOVATemplates",
+			Handler:    _OVAService_ListOVATemplates_Handler,
+		},
+		{
+			MethodName: "GetOVATemplate",
+			Handler:    _OVAService_GetOVATemplate_Handler,
+		},
+		{
+			MethodName: "DeleteOVATemplate",
+			Handler:    _OVAService_DeleteOVATemplate_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "limiquantix/storage/v1/storage_service.proto",
+}

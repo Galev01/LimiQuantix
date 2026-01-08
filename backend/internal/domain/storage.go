@@ -367,6 +367,8 @@ const (
 	ImagePhaseReady       ImagePhase = "READY"
 	ImagePhaseError       ImagePhase = "ERROR"
 	ImagePhaseDeleting    ImagePhase = "DELETING"
+	ImagePhaseExtracting  ImagePhase = "EXTRACTING" // OVA extraction in progress
+	ImagePhaseParsing     ImagePhase = "PARSING"    // OVF parsing in progress
 )
 
 // ImageFormat represents the image file format.
@@ -378,6 +380,7 @@ const (
 	ImageFormatVMDK  ImageFormat = "VMDK"
 	ImageFormatVHD   ImageFormat = "VHD"
 	ImageFormatISO   ImageFormat = "ISO"
+	ImageFormatOVA   ImageFormat = "OVA" // Open Virtual Appliance (contains OVF + VMDK)
 )
 
 // ImageVisibility represents who can access the image.
@@ -421,6 +424,7 @@ type ImageSpec struct {
 	Visibility   ImageVisibility   `json:"visibility"`
 	OS           OSInfo            `json:"os"`
 	Requirements ImageRequirements `json:"requirements"`
+	OvaMetadata  *OvaMetadata      `json:"ova_metadata,omitempty"` // Only set when Format = OVA
 }
 
 // OSInfo holds operating system information.
@@ -475,4 +479,103 @@ type ImageStatus struct {
 // IsReady returns true if the image is ready to use.
 func (i *Image) IsReady() bool {
 	return i.Status.Phase == ImagePhaseReady
+}
+
+// IsOVATemplate returns true if the image is an OVA template.
+func (i *Image) IsOVATemplate() bool {
+	return i.Spec.Format == ImageFormatOVA
+}
+
+// =============================================================================
+// OVA METADATA - Extracted from OVF descriptor
+// =============================================================================
+
+// OvaMetadata contains hardware and configuration information extracted from
+// the OVF descriptor within an OVA file.
+type OvaMetadata struct {
+	VMName      string            `json:"vm_name"`
+	Description string            `json:"description"`
+	OsInfo      OvaOsInfo         `json:"os_info"`
+	Hardware    OvaHardwareConfig `json:"hardware"`
+	Disks       []OvaDiskInfo     `json:"disks"`
+	Networks    []OvaNetworkInfo  `json:"networks"`
+	Product     OvaProductInfo    `json:"product"`
+	OvfContent  string            `json:"ovf_content,omitempty"`
+}
+
+// OvaOsInfo contains OS information extracted from OperatingSystemSection.
+type OvaOsInfo struct {
+	OsID          uint32   `json:"os_id"`
+	OsDescription string   `json:"os_description"`
+	OsFamily      OSFamily `json:"os_family"`
+}
+
+// OvaHardwareConfig contains the recommended hardware configuration.
+type OvaHardwareConfig struct {
+	CPUCount  uint32 `json:"cpu_count"`
+	MemoryMiB uint64 `json:"memory_mib"`
+	Firmware  string `json:"firmware"`
+}
+
+// OvaDiskInfo contains information about a virtual disk in the OVA.
+type OvaDiskInfo struct {
+	DiskID             string `json:"disk_id"`
+	FileRef            string `json:"file_ref"`
+	CapacityBytes      uint64 `json:"capacity_bytes"`
+	PopulatedSizeBytes uint64 `json:"populated_size_bytes"`
+	Format             string `json:"format"`
+	ControllerType     string `json:"controller_type"`
+	AddressOnParent    uint32 `json:"address_on_parent"`
+	ConvertedPath      string `json:"converted_path,omitempty"`
+}
+
+// OvaNetworkInfo contains information about a network adapter in the OVA.
+type OvaNetworkInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	AdapterType string `json:"adapter_type"`
+	InstanceID  uint32 `json:"instance_id"`
+}
+
+// OvaProductInfo contains product/vendor information from OVF ProductSection.
+type OvaProductInfo struct {
+	Product     string `json:"product"`
+	Vendor      string `json:"vendor"`
+	Version     string `json:"version"`
+	FullVersion string `json:"full_version"`
+	ProductURL  string `json:"product_url"`
+	VendorURL   string `json:"vendor_url"`
+}
+
+// =============================================================================
+// OVA UPLOAD JOB
+// =============================================================================
+
+// OvaUploadStatus represents the status of an OVA upload/processing job.
+type OvaUploadStatus string
+
+const (
+	OvaUploadStatusUnknown    OvaUploadStatus = "UNKNOWN"
+	OvaUploadStatusUploading  OvaUploadStatus = "UPLOADING"
+	OvaUploadStatusExtracting OvaUploadStatus = "EXTRACTING"
+	OvaUploadStatusParsing    OvaUploadStatus = "PARSING"
+	OvaUploadStatusConverting OvaUploadStatus = "CONVERTING"
+	OvaUploadStatusCompleted  OvaUploadStatus = "COMPLETED"
+	OvaUploadStatusFailed     OvaUploadStatus = "FAILED"
+)
+
+// OvaUploadJob represents an OVA upload and processing job.
+type OvaUploadJob struct {
+	JobID           string          `json:"job_id"`
+	ImageID         string          `json:"image_id,omitempty"`
+	Status          OvaUploadStatus `json:"status"`
+	ProgressPercent uint32          `json:"progress_percent"`
+	CurrentStep     string          `json:"current_step"`
+	BytesUploaded   uint64          `json:"bytes_uploaded"`
+	BytesTotal      uint64          `json:"bytes_total"`
+	ErrorMessage    string          `json:"error_message,omitempty"`
+	Metadata        *OvaMetadata    `json:"metadata,omitempty"`
+	TempFilePath    string          `json:"temp_file_path,omitempty"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
 }

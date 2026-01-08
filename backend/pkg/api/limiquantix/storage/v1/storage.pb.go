@@ -565,6 +565,7 @@ const (
 	ImageSpec_VMDK  ImageSpec_Format = 2
 	ImageSpec_VHD   ImageSpec_Format = 3
 	ImageSpec_ISO   ImageSpec_Format = 4
+	ImageSpec_OVA   ImageSpec_Format = 5 // Open Virtual Appliance (contains OVF + VMDK)
 )
 
 // Enum value maps for ImageSpec_Format.
@@ -575,6 +576,7 @@ var (
 		2: "VMDK",
 		3: "VHD",
 		4: "ISO",
+		5: "OVA",
 	}
 	ImageSpec_Format_value = map[string]int32{
 		"RAW":   0,
@@ -582,6 +584,7 @@ var (
 		"VMDK":  2,
 		"VHD":   3,
 		"ISO":   4,
+		"OVA":   5,
 	}
 )
 
@@ -3658,8 +3661,10 @@ type ImageSpec struct {
 	// OS information
 	Os *OsInfo `protobuf:"bytes,2,opt,name=os,proto3" json:"os,omitempty"`
 	// Minimum requirements
-	Requirements  *ImageRequirements   `protobuf:"bytes,3,opt,name=requirements,proto3" json:"requirements,omitempty"`
-	Format        ImageSpec_Format     `protobuf:"varint,4,opt,name=format,proto3,enum=limiquantix.storage.v1.ImageSpec_Format" json:"format,omitempty"`
+	Requirements *ImageRequirements `protobuf:"bytes,3,opt,name=requirements,proto3" json:"requirements,omitempty"`
+	Format       ImageSpec_Format   `protobuf:"varint,4,opt,name=format,proto3,enum=limiquantix.storage.v1.ImageSpec_Format" json:"format,omitempty"`
+	// OVA-specific metadata (only set when format = OVA)
+	OvaMetadata   *OvaMetadata         `protobuf:"bytes,6,opt,name=ova_metadata,json=ovaMetadata,proto3" json:"ova_metadata,omitempty"`
 	Visibility    ImageSpec_Visibility `protobuf:"varint,5,opt,name=visibility,proto3,enum=limiquantix.storage.v1.ImageSpec_Visibility" json:"visibility,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3721,6 +3726,13 @@ func (x *ImageSpec) GetFormat() ImageSpec_Format {
 		return x.Format
 	}
 	return ImageSpec_RAW
+}
+
+func (x *ImageSpec) GetOvaMetadata() *OvaMetadata {
+	if x != nil {
+		return x.OvaMetadata
+	}
+	return nil
 }
 
 func (x *ImageSpec) GetVisibility() ImageSpec_Visibility {
@@ -4150,6 +4162,517 @@ func (x *ImageStatus) GetStoragePoolId() string {
 	return ""
 }
 
+// OvaMetadata contains hardware and configuration information extracted from
+// the OVF descriptor within an OVA file.
+type OvaMetadata struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Original VM name from OVF
+	VmName string `protobuf:"bytes,1,opt,name=vm_name,json=vmName,proto3" json:"vm_name,omitempty"`
+	// Description/annotation from OVF
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// Operating system information from OVF
+	OsInfo *OvaOsInfo `protobuf:"bytes,3,opt,name=os_info,json=osInfo,proto3" json:"os_info,omitempty"`
+	// Hardware configuration from OVF
+	Hardware *OvaHardwareConfig `protobuf:"bytes,4,opt,name=hardware,proto3" json:"hardware,omitempty"`
+	// Disk information from OVF
+	Disks []*OvaDiskInfo `protobuf:"bytes,5,rep,name=disks,proto3" json:"disks,omitempty"`
+	// Network adapter information from OVF
+	Networks []*OvaNetworkInfo `protobuf:"bytes,6,rep,name=networks,proto3" json:"networks,omitempty"`
+	// Product information (vendor, version, etc.)
+	Product *OvaProductInfo `protobuf:"bytes,7,opt,name=product,proto3" json:"product,omitempty"`
+	// Original OVF file content (for reference)
+	OvfContent    string `protobuf:"bytes,8,opt,name=ovf_content,json=ovfContent,proto3" json:"ovf_content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OvaMetadata) Reset() {
+	*x = OvaMetadata{}
+	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OvaMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OvaMetadata) ProtoMessage() {}
+
+func (x *OvaMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OvaMetadata.ProtoReflect.Descriptor instead.
+func (*OvaMetadata) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *OvaMetadata) GetVmName() string {
+	if x != nil {
+		return x.VmName
+	}
+	return ""
+}
+
+func (x *OvaMetadata) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *OvaMetadata) GetOsInfo() *OvaOsInfo {
+	if x != nil {
+		return x.OsInfo
+	}
+	return nil
+}
+
+func (x *OvaMetadata) GetHardware() *OvaHardwareConfig {
+	if x != nil {
+		return x.Hardware
+	}
+	return nil
+}
+
+func (x *OvaMetadata) GetDisks() []*OvaDiskInfo {
+	if x != nil {
+		return x.Disks
+	}
+	return nil
+}
+
+func (x *OvaMetadata) GetNetworks() []*OvaNetworkInfo {
+	if x != nil {
+		return x.Networks
+	}
+	return nil
+}
+
+func (x *OvaMetadata) GetProduct() *OvaProductInfo {
+	if x != nil {
+		return x.Product
+	}
+	return nil
+}
+
+func (x *OvaMetadata) GetOvfContent() string {
+	if x != nil {
+		return x.OvfContent
+	}
+	return ""
+}
+
+// OvaOsInfo contains OS information extracted from OperatingSystemSection
+type OvaOsInfo struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// OS ID from OVF (e.g., 101 for Linux 64-bit)
+	OsId uint32 `protobuf:"varint,1,opt,name=os_id,json=osId,proto3" json:"os_id,omitempty"`
+	// OS description (e.g., "Linux (64-bit)")
+	OsDescription string `protobuf:"bytes,2,opt,name=os_description,json=osDescription,proto3" json:"os_description,omitempty"`
+	// Detected OS family
+	OsFamily      OsInfo_OsFamily `protobuf:"varint,3,opt,name=os_family,json=osFamily,proto3,enum=limiquantix.storage.v1.OsInfo_OsFamily" json:"os_family,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OvaOsInfo) Reset() {
+	*x = OvaOsInfo{}
+	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OvaOsInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OvaOsInfo) ProtoMessage() {}
+
+func (x *OvaOsInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OvaOsInfo.ProtoReflect.Descriptor instead.
+func (*OvaOsInfo) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *OvaOsInfo) GetOsId() uint32 {
+	if x != nil {
+		return x.OsId
+	}
+	return 0
+}
+
+func (x *OvaOsInfo) GetOsDescription() string {
+	if x != nil {
+		return x.OsDescription
+	}
+	return ""
+}
+
+func (x *OvaOsInfo) GetOsFamily() OsInfo_OsFamily {
+	if x != nil {
+		return x.OsFamily
+	}
+	return OsInfo_UNKNOWN
+}
+
+// OvaHardwareConfig contains the recommended hardware configuration
+type OvaHardwareConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Number of virtual CPUs
+	CpuCount uint32 `protobuf:"varint,1,opt,name=cpu_count,json=cpuCount,proto3" json:"cpu_count,omitempty"`
+	// Memory in MiB
+	MemoryMib uint64 `protobuf:"varint,2,opt,name=memory_mib,json=memoryMib,proto3" json:"memory_mib,omitempty"`
+	// Firmware type (bios/uefi)
+	Firmware      string `protobuf:"bytes,3,opt,name=firmware,proto3" json:"firmware,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OvaHardwareConfig) Reset() {
+	*x = OvaHardwareConfig{}
+	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OvaHardwareConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OvaHardwareConfig) ProtoMessage() {}
+
+func (x *OvaHardwareConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OvaHardwareConfig.ProtoReflect.Descriptor instead.
+func (*OvaHardwareConfig) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *OvaHardwareConfig) GetCpuCount() uint32 {
+	if x != nil {
+		return x.CpuCount
+	}
+	return 0
+}
+
+func (x *OvaHardwareConfig) GetMemoryMib() uint64 {
+	if x != nil {
+		return x.MemoryMib
+	}
+	return 0
+}
+
+func (x *OvaHardwareConfig) GetFirmware() string {
+	if x != nil {
+		return x.Firmware
+	}
+	return ""
+}
+
+// OvaDiskInfo contains information about a virtual disk in the OVA
+type OvaDiskInfo struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Disk ID from OVF
+	DiskId string `protobuf:"bytes,1,opt,name=disk_id,json=diskId,proto3" json:"disk_id,omitempty"`
+	// File reference (VMDK filename within OVA)
+	FileRef string `protobuf:"bytes,2,opt,name=file_ref,json=fileRef,proto3" json:"file_ref,omitempty"`
+	// Capacity in bytes
+	CapacityBytes uint64 `protobuf:"varint,3,opt,name=capacity_bytes,json=capacityBytes,proto3" json:"capacity_bytes,omitempty"`
+	// Populated size (actual data size)
+	PopulatedSizeBytes uint64 `protobuf:"varint,4,opt,name=populated_size_bytes,json=populatedSizeBytes,proto3" json:"populated_size_bytes,omitempty"`
+	// Disk format (vmdk, etc.)
+	Format string `protobuf:"bytes,5,opt,name=format,proto3" json:"format,omitempty"`
+	// Controller type (scsi, ide, sata)
+	ControllerType string `protobuf:"bytes,6,opt,name=controller_type,json=controllerType,proto3" json:"controller_type,omitempty"`
+	// Address on parent controller
+	AddressOnParent uint32 `protobuf:"varint,7,opt,name=address_on_parent,json=addressOnParent,proto3" json:"address_on_parent,omitempty"`
+	// Path to converted QCOW2 file (set after conversion)
+	ConvertedPath string `protobuf:"bytes,8,opt,name=converted_path,json=convertedPath,proto3" json:"converted_path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OvaDiskInfo) Reset() {
+	*x = OvaDiskInfo{}
+	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OvaDiskInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OvaDiskInfo) ProtoMessage() {}
+
+func (x *OvaDiskInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OvaDiskInfo.ProtoReflect.Descriptor instead.
+func (*OvaDiskInfo) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *OvaDiskInfo) GetDiskId() string {
+	if x != nil {
+		return x.DiskId
+	}
+	return ""
+}
+
+func (x *OvaDiskInfo) GetFileRef() string {
+	if x != nil {
+		return x.FileRef
+	}
+	return ""
+}
+
+func (x *OvaDiskInfo) GetCapacityBytes() uint64 {
+	if x != nil {
+		return x.CapacityBytes
+	}
+	return 0
+}
+
+func (x *OvaDiskInfo) GetPopulatedSizeBytes() uint64 {
+	if x != nil {
+		return x.PopulatedSizeBytes
+	}
+	return 0
+}
+
+func (x *OvaDiskInfo) GetFormat() string {
+	if x != nil {
+		return x.Format
+	}
+	return ""
+}
+
+func (x *OvaDiskInfo) GetControllerType() string {
+	if x != nil {
+		return x.ControllerType
+	}
+	return ""
+}
+
+func (x *OvaDiskInfo) GetAddressOnParent() uint32 {
+	if x != nil {
+		return x.AddressOnParent
+	}
+	return 0
+}
+
+func (x *OvaDiskInfo) GetConvertedPath() string {
+	if x != nil {
+		return x.ConvertedPath
+	}
+	return ""
+}
+
+// OvaNetworkInfo contains information about a network adapter in the OVA
+type OvaNetworkInfo struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Network name from OVF
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Network description
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// Adapter type (e.g., E1000, VMXNET3)
+	AdapterType string `protobuf:"bytes,3,opt,name=adapter_type,json=adapterType,proto3" json:"adapter_type,omitempty"`
+	// Instance ID
+	InstanceId    uint32 `protobuf:"varint,4,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OvaNetworkInfo) Reset() {
+	*x = OvaNetworkInfo{}
+	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OvaNetworkInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OvaNetworkInfo) ProtoMessage() {}
+
+func (x *OvaNetworkInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OvaNetworkInfo.ProtoReflect.Descriptor instead.
+func (*OvaNetworkInfo) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *OvaNetworkInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *OvaNetworkInfo) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *OvaNetworkInfo) GetAdapterType() string {
+	if x != nil {
+		return x.AdapterType
+	}
+	return ""
+}
+
+func (x *OvaNetworkInfo) GetInstanceId() uint32 {
+	if x != nil {
+		return x.InstanceId
+	}
+	return 0
+}
+
+// OvaProductInfo contains product/vendor information from OVF ProductSection
+type OvaProductInfo struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Product name
+	Product string `protobuf:"bytes,1,opt,name=product,proto3" json:"product,omitempty"`
+	// Vendor name
+	Vendor string `protobuf:"bytes,2,opt,name=vendor,proto3" json:"vendor,omitempty"`
+	// Product version
+	Version string `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
+	// Full version string
+	FullVersion string `protobuf:"bytes,4,opt,name=full_version,json=fullVersion,proto3" json:"full_version,omitempty"`
+	// Product URL
+	ProductUrl string `protobuf:"bytes,5,opt,name=product_url,json=productUrl,proto3" json:"product_url,omitempty"`
+	// Vendor URL
+	VendorUrl     string `protobuf:"bytes,6,opt,name=vendor_url,json=vendorUrl,proto3" json:"vendor_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OvaProductInfo) Reset() {
+	*x = OvaProductInfo{}
+	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OvaProductInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OvaProductInfo) ProtoMessage() {}
+
+func (x *OvaProductInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OvaProductInfo.ProtoReflect.Descriptor instead.
+func (*OvaProductInfo) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *OvaProductInfo) GetProduct() string {
+	if x != nil {
+		return x.Product
+	}
+	return ""
+}
+
+func (x *OvaProductInfo) GetVendor() string {
+	if x != nil {
+		return x.Vendor
+	}
+	return ""
+}
+
+func (x *OvaProductInfo) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *OvaProductInfo) GetFullVersion() string {
+	if x != nil {
+		return x.FullVersion
+	}
+	return ""
+}
+
+func (x *OvaProductInfo) GetProductUrl() string {
+	if x != nil {
+		return x.ProductUrl
+	}
+	return ""
+}
+
+func (x *OvaProductInfo) GetVendorUrl() string {
+	if x != nil {
+		return x.VendorUrl
+	}
+	return ""
+}
+
 var File_limiquantix_storage_v1_storage_proto protoreflect.FileDescriptor
 
 const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
@@ -4466,21 +4989,23 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc5\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x96\x04\n" +
 	"\tImageSpec\x12;\n" +
 	"\x06source\x18\x01 \x01(\v2#.limiquantix.storage.v1.ImageSourceR\x06source\x12.\n" +
 	"\x02os\x18\x02 \x01(\v2\x1e.limiquantix.storage.v1.OsInfoR\x02os\x12M\n" +
 	"\frequirements\x18\x03 \x01(\v2).limiquantix.storage.v1.ImageRequirementsR\frequirements\x12@\n" +
-	"\x06format\x18\x04 \x01(\x0e2(.limiquantix.storage.v1.ImageSpec.FormatR\x06format\x12L\n" +
+	"\x06format\x18\x04 \x01(\x0e2(.limiquantix.storage.v1.ImageSpec.FormatR\x06format\x12F\n" +
+	"\fova_metadata\x18\x06 \x01(\v2#.limiquantix.storage.v1.OvaMetadataR\vovaMetadata\x12L\n" +
 	"\n" +
 	"visibility\x18\x05 \x01(\x0e2,.limiquantix.storage.v1.ImageSpec.VisibilityR\n" +
-	"visibility\"8\n" +
+	"visibility\"A\n" +
 	"\x06Format\x12\a\n" +
 	"\x03RAW\x10\x00\x12\t\n" +
 	"\x05QCOW2\x10\x01\x12\b\n" +
 	"\x04VMDK\x10\x02\x12\a\n" +
 	"\x03VHD\x10\x03\x12\a\n" +
-	"\x03ISO\x10\x04\"2\n" +
+	"\x03ISO\x10\x04\x12\a\n" +
+	"\x03OVA\x10\x05\"2\n" +
 	"\n" +
 	"Visibility\x12\v\n" +
 	"\aPRIVATE\x10\x00\x12\v\n" +
@@ -4543,7 +5068,50 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"CONVERTING\x10\x03\x12\t\n" +
 	"\x05READY\x10\x04\x12\t\n" +
 	"\x05ERROR\x10\x05\x12\f\n" +
-	"\bDELETING\x10\x06B\xf1\x01\n" +
+	"\bDELETING\x10\x06\"\xad\x03\n" +
+	"\vOvaMetadata\x12\x17\n" +
+	"\avm_name\x18\x01 \x01(\tR\x06vmName\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12:\n" +
+	"\aos_info\x18\x03 \x01(\v2!.limiquantix.storage.v1.OvaOsInfoR\x06osInfo\x12E\n" +
+	"\bhardware\x18\x04 \x01(\v2).limiquantix.storage.v1.OvaHardwareConfigR\bhardware\x129\n" +
+	"\x05disks\x18\x05 \x03(\v2#.limiquantix.storage.v1.OvaDiskInfoR\x05disks\x12B\n" +
+	"\bnetworks\x18\x06 \x03(\v2&.limiquantix.storage.v1.OvaNetworkInfoR\bnetworks\x12@\n" +
+	"\aproduct\x18\a \x01(\v2&.limiquantix.storage.v1.OvaProductInfoR\aproduct\x12\x1f\n" +
+	"\vovf_content\x18\b \x01(\tR\n" +
+	"ovfContent\"\x8d\x01\n" +
+	"\tOvaOsInfo\x12\x13\n" +
+	"\x05os_id\x18\x01 \x01(\rR\x04osId\x12%\n" +
+	"\x0eos_description\x18\x02 \x01(\tR\rosDescription\x12D\n" +
+	"\tos_family\x18\x03 \x01(\x0e2'.limiquantix.storage.v1.OsInfo.OsFamilyR\bosFamily\"k\n" +
+	"\x11OvaHardwareConfig\x12\x1b\n" +
+	"\tcpu_count\x18\x01 \x01(\rR\bcpuCount\x12\x1d\n" +
+	"\n" +
+	"memory_mib\x18\x02 \x01(\x04R\tmemoryMib\x12\x1a\n" +
+	"\bfirmware\x18\x03 \x01(\tR\bfirmware\"\xae\x02\n" +
+	"\vOvaDiskInfo\x12\x17\n" +
+	"\adisk_id\x18\x01 \x01(\tR\x06diskId\x12\x19\n" +
+	"\bfile_ref\x18\x02 \x01(\tR\afileRef\x12%\n" +
+	"\x0ecapacity_bytes\x18\x03 \x01(\x04R\rcapacityBytes\x120\n" +
+	"\x14populated_size_bytes\x18\x04 \x01(\x04R\x12populatedSizeBytes\x12\x16\n" +
+	"\x06format\x18\x05 \x01(\tR\x06format\x12'\n" +
+	"\x0fcontroller_type\x18\x06 \x01(\tR\x0econtrollerType\x12*\n" +
+	"\x11address_on_parent\x18\a \x01(\rR\x0faddressOnParent\x12%\n" +
+	"\x0econverted_path\x18\b \x01(\tR\rconvertedPath\"\x8a\x01\n" +
+	"\x0eOvaNetworkInfo\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12!\n" +
+	"\fadapter_type\x18\x03 \x01(\tR\vadapterType\x12\x1f\n" +
+	"\vinstance_id\x18\x04 \x01(\rR\n" +
+	"instanceId\"\xbf\x01\n" +
+	"\x0eOvaProductInfo\x12\x18\n" +
+	"\aproduct\x18\x01 \x01(\tR\aproduct\x12\x16\n" +
+	"\x06vendor\x18\x02 \x01(\tR\x06vendor\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\x12!\n" +
+	"\ffull_version\x18\x04 \x01(\tR\vfullVersion\x12\x1f\n" +
+	"\vproduct_url\x18\x05 \x01(\tR\n" +
+	"productUrl\x12\x1d\n" +
+	"\n" +
+	"vendor_url\x18\x06 \x01(\tR\tvendorUrlB\xf1\x01\n" +
 	"\x1acom.limiquantix.storage.v1B\fStorageProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1;storagev1\xa2\x02\x03LSX\xaa\x02\x16Limiquantix.Storage.V1\xca\x02\x16Limiquantix\\Storage\\V1\xe2\x02\"Limiquantix\\Storage\\V1\\GPBMetadata\xea\x02\x18Limiquantix::Storage::V1b\x06proto3"
 
 var (
@@ -4559,7 +5127,7 @@ func file_limiquantix_storage_v1_storage_proto_rawDescGZIP() []byte {
 }
 
 var file_limiquantix_storage_v1_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 15)
-var file_limiquantix_storage_v1_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
+var file_limiquantix_storage_v1_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
 var file_limiquantix_storage_v1_storage_proto_goTypes = []any{
 	(StorageBackend_BackendType)(0),      // 0: limiquantix.storage.v1.StorageBackend.BackendType
 	(VolumeDefaults_ProvisioningType)(0), // 1: limiquantix.storage.v1.VolumeDefaults.ProvisioningType
@@ -4616,18 +5184,24 @@ var file_limiquantix_storage_v1_storage_proto_goTypes = []any{
 	(*OsInfo)(nil),                       // 52: limiquantix.storage.v1.OsInfo
 	(*ImageRequirements)(nil),            // 53: limiquantix.storage.v1.ImageRequirements
 	(*ImageStatus)(nil),                  // 54: limiquantix.storage.v1.ImageStatus
-	nil,                                  // 55: limiquantix.storage.v1.StoragePool.LabelsEntry
-	nil,                                  // 56: limiquantix.storage.v1.Volume.LabelsEntry
-	nil,                                  // 57: limiquantix.storage.v1.VolumeSnapshot.LabelsEntry
-	nil,                                  // 58: limiquantix.storage.v1.Image.LabelsEntry
-	(*timestamppb.Timestamp)(nil),        // 59: google.protobuf.Timestamp
+	(*OvaMetadata)(nil),                  // 55: limiquantix.storage.v1.OvaMetadata
+	(*OvaOsInfo)(nil),                    // 56: limiquantix.storage.v1.OvaOsInfo
+	(*OvaHardwareConfig)(nil),            // 57: limiquantix.storage.v1.OvaHardwareConfig
+	(*OvaDiskInfo)(nil),                  // 58: limiquantix.storage.v1.OvaDiskInfo
+	(*OvaNetworkInfo)(nil),               // 59: limiquantix.storage.v1.OvaNetworkInfo
+	(*OvaProductInfo)(nil),               // 60: limiquantix.storage.v1.OvaProductInfo
+	nil,                                  // 61: limiquantix.storage.v1.StoragePool.LabelsEntry
+	nil,                                  // 62: limiquantix.storage.v1.Volume.LabelsEntry
+	nil,                                  // 63: limiquantix.storage.v1.VolumeSnapshot.LabelsEntry
+	nil,                                  // 64: limiquantix.storage.v1.Image.LabelsEntry
+	(*timestamppb.Timestamp)(nil),        // 65: google.protobuf.Timestamp
 }
 var file_limiquantix_storage_v1_storage_proto_depIdxs = []int32{
-	55, // 0: limiquantix.storage.v1.StoragePool.labels:type_name -> limiquantix.storage.v1.StoragePool.LabelsEntry
+	61, // 0: limiquantix.storage.v1.StoragePool.labels:type_name -> limiquantix.storage.v1.StoragePool.LabelsEntry
 	16, // 1: limiquantix.storage.v1.StoragePool.spec:type_name -> limiquantix.storage.v1.StoragePoolSpec
 	29, // 2: limiquantix.storage.v1.StoragePool.status:type_name -> limiquantix.storage.v1.StoragePoolStatus
-	59, // 3: limiquantix.storage.v1.StoragePool.created_at:type_name -> google.protobuf.Timestamp
-	59, // 4: limiquantix.storage.v1.StoragePool.updated_at:type_name -> google.protobuf.Timestamp
+	65, // 3: limiquantix.storage.v1.StoragePool.created_at:type_name -> google.protobuf.Timestamp
+	65, // 4: limiquantix.storage.v1.StoragePool.updated_at:type_name -> google.protobuf.Timestamp
 	17, // 5: limiquantix.storage.v1.StoragePoolSpec.backend:type_name -> limiquantix.storage.v1.StorageBackend
 	23, // 6: limiquantix.storage.v1.StoragePoolSpec.defaults:type_name -> limiquantix.storage.v1.VolumeDefaults
 	24, // 7: limiquantix.storage.v1.StoragePoolSpec.qos:type_name -> limiquantix.storage.v1.StorageQos
@@ -4650,11 +5224,11 @@ var file_limiquantix_storage_v1_storage_proto_depIdxs = []int32{
 	32, // 24: limiquantix.storage.v1.StoragePoolStatus.health:type_name -> limiquantix.storage.v1.StorageHealth
 	5,  // 25: limiquantix.storage.v1.StorageHealth.status:type_name -> limiquantix.storage.v1.StorageHealth.Status
 	33, // 26: limiquantix.storage.v1.StorageHealth.checks:type_name -> limiquantix.storage.v1.HealthCheck
-	56, // 27: limiquantix.storage.v1.Volume.labels:type_name -> limiquantix.storage.v1.Volume.LabelsEntry
+	62, // 27: limiquantix.storage.v1.Volume.labels:type_name -> limiquantix.storage.v1.Volume.LabelsEntry
 	35, // 28: limiquantix.storage.v1.Volume.spec:type_name -> limiquantix.storage.v1.VolumeSpec
 	43, // 29: limiquantix.storage.v1.Volume.status:type_name -> limiquantix.storage.v1.VolumeStatus
-	59, // 30: limiquantix.storage.v1.Volume.created_at:type_name -> google.protobuf.Timestamp
-	59, // 31: limiquantix.storage.v1.Volume.updated_at:type_name -> google.protobuf.Timestamp
+	65, // 30: limiquantix.storage.v1.Volume.created_at:type_name -> google.protobuf.Timestamp
+	65, // 31: limiquantix.storage.v1.Volume.updated_at:type_name -> google.protobuf.Timestamp
 	6,  // 32: limiquantix.storage.v1.VolumeSpec.provisioning:type_name -> limiquantix.storage.v1.VolumeSpec.ProvisioningType
 	36, // 33: limiquantix.storage.v1.VolumeSpec.source:type_name -> limiquantix.storage.v1.VolumeSource
 	42, // 34: limiquantix.storage.v1.VolumeSpec.qos:type_name -> limiquantix.storage.v1.VolumeQos
@@ -4667,31 +5241,38 @@ var file_limiquantix_storage_v1_storage_proto_depIdxs = []int32{
 	41, // 41: limiquantix.storage.v1.VolumeSource.url:type_name -> limiquantix.storage.v1.UrlSource
 	8,  // 42: limiquantix.storage.v1.VolumeStatus.phase:type_name -> limiquantix.storage.v1.VolumeStatus.Phase
 	44, // 43: limiquantix.storage.v1.VolumeStatus.usage:type_name -> limiquantix.storage.v1.VolumeUsage
-	57, // 44: limiquantix.storage.v1.VolumeSnapshot.labels:type_name -> limiquantix.storage.v1.VolumeSnapshot.LabelsEntry
+	63, // 44: limiquantix.storage.v1.VolumeSnapshot.labels:type_name -> limiquantix.storage.v1.VolumeSnapshot.LabelsEntry
 	46, // 45: limiquantix.storage.v1.VolumeSnapshot.spec:type_name -> limiquantix.storage.v1.VolumeSnapshotSpec
 	48, // 46: limiquantix.storage.v1.VolumeSnapshot.status:type_name -> limiquantix.storage.v1.VolumeSnapshotStatus
-	59, // 47: limiquantix.storage.v1.VolumeSnapshot.created_at:type_name -> google.protobuf.Timestamp
+	65, // 47: limiquantix.storage.v1.VolumeSnapshot.created_at:type_name -> google.protobuf.Timestamp
 	47, // 48: limiquantix.storage.v1.VolumeSnapshotSpec.retention:type_name -> limiquantix.storage.v1.RetentionPolicy
-	59, // 49: limiquantix.storage.v1.RetentionPolicy.expires_at:type_name -> google.protobuf.Timestamp
+	65, // 49: limiquantix.storage.v1.RetentionPolicy.expires_at:type_name -> google.protobuf.Timestamp
 	9,  // 50: limiquantix.storage.v1.VolumeSnapshotStatus.phase:type_name -> limiquantix.storage.v1.VolumeSnapshotStatus.Phase
-	58, // 51: limiquantix.storage.v1.Image.labels:type_name -> limiquantix.storage.v1.Image.LabelsEntry
+	64, // 51: limiquantix.storage.v1.Image.labels:type_name -> limiquantix.storage.v1.Image.LabelsEntry
 	50, // 52: limiquantix.storage.v1.Image.spec:type_name -> limiquantix.storage.v1.ImageSpec
 	54, // 53: limiquantix.storage.v1.Image.status:type_name -> limiquantix.storage.v1.ImageStatus
-	59, // 54: limiquantix.storage.v1.Image.created_at:type_name -> google.protobuf.Timestamp
-	59, // 55: limiquantix.storage.v1.Image.updated_at:type_name -> google.protobuf.Timestamp
+	65, // 54: limiquantix.storage.v1.Image.created_at:type_name -> google.protobuf.Timestamp
+	65, // 55: limiquantix.storage.v1.Image.updated_at:type_name -> google.protobuf.Timestamp
 	40, // 56: limiquantix.storage.v1.ImageSpec.source:type_name -> limiquantix.storage.v1.ImageSource
 	52, // 57: limiquantix.storage.v1.ImageSpec.os:type_name -> limiquantix.storage.v1.OsInfo
 	53, // 58: limiquantix.storage.v1.ImageSpec.requirements:type_name -> limiquantix.storage.v1.ImageRequirements
 	10, // 59: limiquantix.storage.v1.ImageSpec.format:type_name -> limiquantix.storage.v1.ImageSpec.Format
-	11, // 60: limiquantix.storage.v1.ImageSpec.visibility:type_name -> limiquantix.storage.v1.ImageSpec.Visibility
-	12, // 61: limiquantix.storage.v1.OsInfo.family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
-	13, // 62: limiquantix.storage.v1.OsInfo.provisioning_method:type_name -> limiquantix.storage.v1.OsInfo.ProvisioningMethod
-	14, // 63: limiquantix.storage.v1.ImageStatus.phase:type_name -> limiquantix.storage.v1.ImageStatus.Phase
-	64, // [64:64] is the sub-list for method output_type
-	64, // [64:64] is the sub-list for method input_type
-	64, // [64:64] is the sub-list for extension type_name
-	64, // [64:64] is the sub-list for extension extendee
-	0,  // [0:64] is the sub-list for field type_name
+	55, // 60: limiquantix.storage.v1.ImageSpec.ova_metadata:type_name -> limiquantix.storage.v1.OvaMetadata
+	11, // 61: limiquantix.storage.v1.ImageSpec.visibility:type_name -> limiquantix.storage.v1.ImageSpec.Visibility
+	12, // 62: limiquantix.storage.v1.OsInfo.family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
+	13, // 63: limiquantix.storage.v1.OsInfo.provisioning_method:type_name -> limiquantix.storage.v1.OsInfo.ProvisioningMethod
+	14, // 64: limiquantix.storage.v1.ImageStatus.phase:type_name -> limiquantix.storage.v1.ImageStatus.Phase
+	56, // 65: limiquantix.storage.v1.OvaMetadata.os_info:type_name -> limiquantix.storage.v1.OvaOsInfo
+	57, // 66: limiquantix.storage.v1.OvaMetadata.hardware:type_name -> limiquantix.storage.v1.OvaHardwareConfig
+	58, // 67: limiquantix.storage.v1.OvaMetadata.disks:type_name -> limiquantix.storage.v1.OvaDiskInfo
+	59, // 68: limiquantix.storage.v1.OvaMetadata.networks:type_name -> limiquantix.storage.v1.OvaNetworkInfo
+	60, // 69: limiquantix.storage.v1.OvaMetadata.product:type_name -> limiquantix.storage.v1.OvaProductInfo
+	12, // 70: limiquantix.storage.v1.OvaOsInfo.os_family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
+	71, // [71:71] is the sub-list for method output_type
+	71, // [71:71] is the sub-list for method input_type
+	71, // [71:71] is the sub-list for extension type_name
+	71, // [71:71] is the sub-list for extension extendee
+	0,  // [0:71] is the sub-list for field type_name
 }
 
 func init() { file_limiquantix_storage_v1_storage_proto_init() }
@@ -4725,7 +5306,7 @@ func file_limiquantix_storage_v1_storage_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_storage_v1_storage_proto_rawDesc), len(file_limiquantix_storage_v1_storage_proto_rawDesc)),
 			NumEnums:      15,
-			NumMessages:   44,
+			NumMessages:   50,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

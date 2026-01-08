@@ -30,6 +30,8 @@ const (
 	SnapshotServiceName = "limiquantix.storage.v1.SnapshotService"
 	// ImageServiceName is the fully-qualified name of the ImageService service.
 	ImageServiceName = "limiquantix.storage.v1.ImageService"
+	// OVAServiceName is the fully-qualified name of the OVAService service.
+	OVAServiceName = "limiquantix.storage.v1.OVAService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -130,6 +132,18 @@ const (
 	// ImageServiceGetImageCatalogProcedure is the fully-qualified name of the ImageService's
 	// GetImageCatalog RPC.
 	ImageServiceGetImageCatalogProcedure = "/limiquantix.storage.v1.ImageService/GetImageCatalog"
+	// OVAServiceGetOVAUploadStatusProcedure is the fully-qualified name of the OVAService's
+	// GetOVAUploadStatus RPC.
+	OVAServiceGetOVAUploadStatusProcedure = "/limiquantix.storage.v1.OVAService/GetOVAUploadStatus"
+	// OVAServiceListOVATemplatesProcedure is the fully-qualified name of the OVAService's
+	// ListOVATemplates RPC.
+	OVAServiceListOVATemplatesProcedure = "/limiquantix.storage.v1.OVAService/ListOVATemplates"
+	// OVAServiceGetOVATemplateProcedure is the fully-qualified name of the OVAService's GetOVATemplate
+	// RPC.
+	OVAServiceGetOVATemplateProcedure = "/limiquantix.storage.v1.OVAService/GetOVATemplate"
+	// OVAServiceDeleteOVATemplateProcedure is the fully-qualified name of the OVAService's
+	// DeleteOVATemplate RPC.
+	OVAServiceDeleteOVATemplateProcedure = "/limiquantix.storage.v1.OVAService/DeleteOVATemplate"
 )
 
 // StoragePoolServiceClient is a client for the limiquantix.storage.v1.StoragePoolService service.
@@ -1182,4 +1196,160 @@ func (UnimplementedImageServiceHandler) DownloadImage(context.Context, *connect.
 
 func (UnimplementedImageServiceHandler) GetImageCatalog(context.Context, *connect.Request[v1.GetImageCatalogRequest]) (*connect.Response[v1.GetImageCatalogResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.ImageService.GetImageCatalog is not implemented"))
+}
+
+// OVAServiceClient is a client for the limiquantix.storage.v1.OVAService service.
+type OVAServiceClient interface {
+	// GetOVAUploadStatus checks the status of an OVA upload/processing job.
+	GetOVAUploadStatus(context.Context, *connect.Request[v1.GetOVAUploadStatusRequest]) (*connect.Response[v1.OVAUploadStatus], error)
+	// ListOVATemplates returns all available OVA templates.
+	ListOVATemplates(context.Context, *connect.Request[v1.ListOVATemplatesRequest]) (*connect.Response[v1.ListOVATemplatesResponse], error)
+	// GetOVATemplate retrieves a specific OVA template by ID.
+	GetOVATemplate(context.Context, *connect.Request[v1.GetOVATemplateRequest]) (*connect.Response[v1.Image], error)
+	// DeleteOVATemplate removes an OVA template.
+	DeleteOVATemplate(context.Context, *connect.Request[v1.DeleteOVATemplateRequest]) (*connect.Response[emptypb.Empty], error)
+}
+
+// NewOVAServiceClient constructs a client for the limiquantix.storage.v1.OVAService service. By
+// default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
+// and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
+// connect.WithGRPC() or connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewOVAServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) OVAServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	oVAServiceMethods := v1.File_limiquantix_storage_v1_storage_service_proto.Services().ByName("OVAService").Methods()
+	return &oVAServiceClient{
+		getOVAUploadStatus: connect.NewClient[v1.GetOVAUploadStatusRequest, v1.OVAUploadStatus](
+			httpClient,
+			baseURL+OVAServiceGetOVAUploadStatusProcedure,
+			connect.WithSchema(oVAServiceMethods.ByName("GetOVAUploadStatus")),
+			connect.WithClientOptions(opts...),
+		),
+		listOVATemplates: connect.NewClient[v1.ListOVATemplatesRequest, v1.ListOVATemplatesResponse](
+			httpClient,
+			baseURL+OVAServiceListOVATemplatesProcedure,
+			connect.WithSchema(oVAServiceMethods.ByName("ListOVATemplates")),
+			connect.WithClientOptions(opts...),
+		),
+		getOVATemplate: connect.NewClient[v1.GetOVATemplateRequest, v1.Image](
+			httpClient,
+			baseURL+OVAServiceGetOVATemplateProcedure,
+			connect.WithSchema(oVAServiceMethods.ByName("GetOVATemplate")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteOVATemplate: connect.NewClient[v1.DeleteOVATemplateRequest, emptypb.Empty](
+			httpClient,
+			baseURL+OVAServiceDeleteOVATemplateProcedure,
+			connect.WithSchema(oVAServiceMethods.ByName("DeleteOVATemplate")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// oVAServiceClient implements OVAServiceClient.
+type oVAServiceClient struct {
+	getOVAUploadStatus *connect.Client[v1.GetOVAUploadStatusRequest, v1.OVAUploadStatus]
+	listOVATemplates   *connect.Client[v1.ListOVATemplatesRequest, v1.ListOVATemplatesResponse]
+	getOVATemplate     *connect.Client[v1.GetOVATemplateRequest, v1.Image]
+	deleteOVATemplate  *connect.Client[v1.DeleteOVATemplateRequest, emptypb.Empty]
+}
+
+// GetOVAUploadStatus calls limiquantix.storage.v1.OVAService.GetOVAUploadStatus.
+func (c *oVAServiceClient) GetOVAUploadStatus(ctx context.Context, req *connect.Request[v1.GetOVAUploadStatusRequest]) (*connect.Response[v1.OVAUploadStatus], error) {
+	return c.getOVAUploadStatus.CallUnary(ctx, req)
+}
+
+// ListOVATemplates calls limiquantix.storage.v1.OVAService.ListOVATemplates.
+func (c *oVAServiceClient) ListOVATemplates(ctx context.Context, req *connect.Request[v1.ListOVATemplatesRequest]) (*connect.Response[v1.ListOVATemplatesResponse], error) {
+	return c.listOVATemplates.CallUnary(ctx, req)
+}
+
+// GetOVATemplate calls limiquantix.storage.v1.OVAService.GetOVATemplate.
+func (c *oVAServiceClient) GetOVATemplate(ctx context.Context, req *connect.Request[v1.GetOVATemplateRequest]) (*connect.Response[v1.Image], error) {
+	return c.getOVATemplate.CallUnary(ctx, req)
+}
+
+// DeleteOVATemplate calls limiquantix.storage.v1.OVAService.DeleteOVATemplate.
+func (c *oVAServiceClient) DeleteOVATemplate(ctx context.Context, req *connect.Request[v1.DeleteOVATemplateRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.deleteOVATemplate.CallUnary(ctx, req)
+}
+
+// OVAServiceHandler is an implementation of the limiquantix.storage.v1.OVAService service.
+type OVAServiceHandler interface {
+	// GetOVAUploadStatus checks the status of an OVA upload/processing job.
+	GetOVAUploadStatus(context.Context, *connect.Request[v1.GetOVAUploadStatusRequest]) (*connect.Response[v1.OVAUploadStatus], error)
+	// ListOVATemplates returns all available OVA templates.
+	ListOVATemplates(context.Context, *connect.Request[v1.ListOVATemplatesRequest]) (*connect.Response[v1.ListOVATemplatesResponse], error)
+	// GetOVATemplate retrieves a specific OVA template by ID.
+	GetOVATemplate(context.Context, *connect.Request[v1.GetOVATemplateRequest]) (*connect.Response[v1.Image], error)
+	// DeleteOVATemplate removes an OVA template.
+	DeleteOVATemplate(context.Context, *connect.Request[v1.DeleteOVATemplateRequest]) (*connect.Response[emptypb.Empty], error)
+}
+
+// NewOVAServiceHandler builds an HTTP handler from the service implementation. It returns the path
+// on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewOVAServiceHandler(svc OVAServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	oVAServiceMethods := v1.File_limiquantix_storage_v1_storage_service_proto.Services().ByName("OVAService").Methods()
+	oVAServiceGetOVAUploadStatusHandler := connect.NewUnaryHandler(
+		OVAServiceGetOVAUploadStatusProcedure,
+		svc.GetOVAUploadStatus,
+		connect.WithSchema(oVAServiceMethods.ByName("GetOVAUploadStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	oVAServiceListOVATemplatesHandler := connect.NewUnaryHandler(
+		OVAServiceListOVATemplatesProcedure,
+		svc.ListOVATemplates,
+		connect.WithSchema(oVAServiceMethods.ByName("ListOVATemplates")),
+		connect.WithHandlerOptions(opts...),
+	)
+	oVAServiceGetOVATemplateHandler := connect.NewUnaryHandler(
+		OVAServiceGetOVATemplateProcedure,
+		svc.GetOVATemplate,
+		connect.WithSchema(oVAServiceMethods.ByName("GetOVATemplate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	oVAServiceDeleteOVATemplateHandler := connect.NewUnaryHandler(
+		OVAServiceDeleteOVATemplateProcedure,
+		svc.DeleteOVATemplate,
+		connect.WithSchema(oVAServiceMethods.ByName("DeleteOVATemplate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/limiquantix.storage.v1.OVAService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case OVAServiceGetOVAUploadStatusProcedure:
+			oVAServiceGetOVAUploadStatusHandler.ServeHTTP(w, r)
+		case OVAServiceListOVATemplatesProcedure:
+			oVAServiceListOVATemplatesHandler.ServeHTTP(w, r)
+		case OVAServiceGetOVATemplateProcedure:
+			oVAServiceGetOVATemplateHandler.ServeHTTP(w, r)
+		case OVAServiceDeleteOVATemplateProcedure:
+			oVAServiceDeleteOVATemplateHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedOVAServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedOVAServiceHandler struct{}
+
+func (UnimplementedOVAServiceHandler) GetOVAUploadStatus(context.Context, *connect.Request[v1.GetOVAUploadStatusRequest]) (*connect.Response[v1.OVAUploadStatus], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.OVAService.GetOVAUploadStatus is not implemented"))
+}
+
+func (UnimplementedOVAServiceHandler) ListOVATemplates(context.Context, *connect.Request[v1.ListOVATemplatesRequest]) (*connect.Response[v1.ListOVATemplatesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.OVAService.ListOVATemplates is not implemented"))
+}
+
+func (UnimplementedOVAServiceHandler) GetOVATemplate(context.Context, *connect.Request[v1.GetOVATemplateRequest]) (*connect.Response[v1.Image], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.OVAService.GetOVATemplate is not implemented"))
+}
+
+func (UnimplementedOVAServiceHandler) DeleteOVATemplate(context.Context, *connect.Request[v1.DeleteOVATemplateRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.OVAService.DeleteOVATemplate is not implemented"))
 }

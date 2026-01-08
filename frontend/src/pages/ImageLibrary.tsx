@@ -16,7 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { ISOUploadDialog } from '@/components/storage';
+import { ISOUploadDialog, OVAUploadModal } from '@/components/storage';
 import {
   useImages,
   useDeleteImage,
@@ -29,7 +29,9 @@ import {
   type ISOImage,
   type DownloadProgress,
 } from '@/hooks/useImages';
+import { useOVATemplates, useDeleteOVATemplate, formatOVASize, type OVATemplate } from '@/hooks/useOVA';
 import { toast } from 'sonner';
+import { Package, Cpu, MemoryStick, Folder } from 'lucide-react';
 
 // Track download jobs by image ID
 interface DownloadJob {
@@ -74,7 +76,7 @@ function DownloadJobTracker({
   return null; // This is a headless component
 }
 
-type TabType = 'cloud-images' | 'isos';
+type TabType = 'cloud-images' | 'isos' | 'ova-templates';
 type FilterStatus = 'all' | 'ready' | 'downloading' | 'pending' | 'error';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'success' | 'warning' | 'error' | 'default'; icon: typeof CheckCircle }> = {
@@ -90,6 +92,7 @@ export default function ImageLibrary() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [isOVAUploadOpen, setIsOVAUploadOpen] = useState(false);
   const [downloadingImages, setDownloadingImages] = useState<Set<string>>(new Set());
   const [downloadJobs, setDownloadJobs] = useState<DownloadJob[]>([]);
   const [downloadProgress, setDownloadProgress] = useState<Map<string, DownloadProgress>>(new Map());
@@ -98,6 +101,10 @@ export default function ImageLibrary() {
   const { data: apiImages, isLoading, error, refetch } = useImages();
   const deleteImage = useDeleteImage();
   const downloadImage = useDownloadImage();
+  
+  // Fetch OVA templates
+  const { data: ovaTemplates, isLoading: ovaLoading, refetch: refetchOVA } = useOVATemplates();
+  const deleteOVATemplate = useDeleteOVATemplate();
 
   // Callbacks for download progress updates
   const handleProgress = useCallback((imageId: string, progress: DownloadProgress) => {
@@ -228,9 +235,13 @@ export default function ImageLibrary() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary" onClick={() => refetch()}>
+          <Button variant="secondary" onClick={() => { refetch(); refetchOVA(); }}>
             <RefreshCw className="w-4 h-4" />
             Refresh
+          </Button>
+          <Button variant="secondary" onClick={() => setIsOVAUploadOpen(true)}>
+            <Package className="w-4 h-4" />
+            Upload OVA
           </Button>
           <Button onClick={() => setIsUploadDialogOpen(true)}>
             <Upload className="w-4 h-4" />
@@ -281,6 +292,19 @@ export default function ImageLibrary() {
             <Disc className="w-4 h-4" />
             ISO Images
             <Badge variant="default" size="sm">{filteredISOs.length}</Badge>
+          </button>
+          <button
+            onClick={() => setActiveTab('ova-templates')}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
+              activeTab === 'ova-templates'
+                ? 'bg-accent text-white'
+                : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+            )}
+          >
+            <Package className="w-4 h-4" />
+            OVA Templates
+            <Badge variant="default" size="sm">{ovaTemplates?.length || 0}</Badge>
           </button>
         </div>
 
@@ -474,23 +498,168 @@ export default function ImageLibrary() {
         </AnimatePresence>
       </div>
 
+      {/* OVA Templates Grid */}
+      {activeTab === 'ova-templates' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <AnimatePresence mode="popLayout">
+            {ovaLoading ? (
+              [...Array(3)].map((_, i) => (
+                <div
+                  key={`ova-skeleton-${i}`}
+                  className="p-4 rounded-xl bg-bg-surface border border-border animate-pulse"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-bg-elevated" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-3/4 bg-bg-elevated rounded" />
+                      <div className="h-3 w-1/2 bg-bg-elevated rounded" />
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : !ovaTemplates || ovaTemplates.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <Package className="w-12 h-12 text-text-muted mx-auto mb-4" />
+                <p className="text-text-muted">No OVA templates found</p>
+                <p className="text-sm text-text-muted mt-1">
+                  Upload an OVA file to create a template
+                </p>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setIsOVAUploadOpen(true)}
+                  className="mt-4"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload OVA
+                </Button>
+              </div>
+            ) : (
+              ovaTemplates.map((template) => {
+                const meta = template.spec?.ovaMetadata;
+                return (
+                  <motion.div
+                    key={template.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="p-4 rounded-xl bg-bg-surface border border-border hover:border-accent/50 transition-colors"
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Icon */}
+                      <div className="w-12 h-12 rounded-lg bg-info/10 flex items-center justify-center">
+                        <Package className="w-6 h-6 text-info" />
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-text-primary truncate">
+                            {template.name}
+                          </h3>
+                          <Badge variant="info" size="sm">OVA</Badge>
+                        </div>
+                        {template.description && (
+                          <p className="text-xs text-text-muted mt-0.5 line-clamp-1">
+                            {template.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-3 mt-2 text-xs text-text-muted">
+                          <span>{formatOVASize(template.status?.virtualSizeBytes || 0)}</span>
+                          {template.spec?.os?.distribution && (
+                            <>
+                              <span>•</span>
+                              <span className="capitalize">{template.spec.os.distribution}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm(`Delete template "${template.name}"?`)) {
+                              deleteOVATemplate.mutate(template.id, {
+                                onSuccess: () => {
+                                  toast.success('Template deleted');
+                                  refetchOVA();
+                                },
+                                onError: (err) => {
+                                  toast.error(err instanceof Error ? err.message : 'Failed to delete');
+                                },
+                              });
+                            }
+                          }}
+                          disabled={deleteOVATemplate.isPending}
+                          title="Delete template"
+                        >
+                          <Trash2 className="w-4 h-4 text-error" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Hardware specs */}
+                    {meta?.hardware && (
+                      <div className="mt-3 pt-3 border-t border-border flex items-center gap-4 text-xs">
+                        <span className="flex items-center gap-1 text-text-muted">
+                          <Cpu className="w-3 h-3" />
+                          {meta.hardware.cpuCount} vCPU
+                        </span>
+                        <span className="flex items-center gap-1 text-text-muted">
+                          <MemoryStick className="w-3 h-3" />
+                          {meta.hardware.memoryMib} MiB
+                        </span>
+                        {meta.disks && meta.disks.length > 0 && (
+                          <span className="flex items-center gap-1 text-text-muted">
+                            <HardDrive className="w-3 h-3" />
+                            {meta.disks.length} disk{meta.disks.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
       {/* Summary */}
       <div className="flex items-center justify-between pt-4 border-t border-border">
         <p className="text-sm text-text-muted">
-          Showing {currentImages.length} {activeTab === 'cloud-images' ? 'cloud images' : 'ISO images'}
+          {activeTab === 'ova-templates' 
+            ? `Showing ${ovaTemplates?.length || 0} OVA templates`
+            : `Showing ${currentImages.length} ${activeTab === 'cloud-images' ? 'cloud images' : 'ISO images'}`
+          }
         </p>
-        {isUsingCatalog && (
+        {isUsingCatalog && activeTab !== 'ova-templates' && (
           <p className="text-xs text-text-muted">
             Using built-in catalog. Upload or download images to populate your library.
           </p>
         )}
       </div>
 
-      {/* Upload Dialog */}
+      {/* Upload Dialogs */}
       {isUploadDialogOpen && (
         <ISOUploadDialog
           isOpen={isUploadDialogOpen}
           onClose={() => setIsUploadDialogOpen(false)}
+        />
+      )}
+      
+      {isOVAUploadOpen && (
+        <OVAUploadModal
+          isOpen={isOVAUploadOpen}
+          onClose={() => setIsOVAUploadOpen(false)}
+          onSuccess={() => {
+            refetchOVA();
+            setActiveTab('ova-templates');
+          }}
         />
       )}
     </div>

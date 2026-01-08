@@ -739,6 +739,9 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/storage/pools/:pool_id/volumes", post(create_volume))
         .route("/storage/pools/:pool_id/volumes/:volume_id", axum::routing::delete(delete_volume))
         .route("/storage/images", get(list_images))
+        // Disk conversion endpoint (VMDK to QCOW2)
+        .route("/storage/convert", post(convert_disk_format))
+        .route("/storage/convert/:job_id", get(get_conversion_status))
         // Network endpoints
         .route("/network/interfaces", get(list_network_interfaces))
         .route("/network/interfaces/:name", get(get_network_interface))
@@ -2484,6 +2487,252 @@ async fn list_images(
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiError::new("list_images_failed", &e.message())),
+            ))
+        }
+    }
+}
+
+// ============================================================================
+// Disk Conversion Handlers (VMDK to QCOW2)
+// ============================================================================
+
+/// Request body for disk format conversion
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ConvertDiskRequest {
+    /// Source file path (VMDK)
+    source_path: String,
+    /// Destination file path (QCOW2)
+    dest_path: String,
+    /// Source format (e.g., "vmdk", "raw")
+    source_format: Option<String>,
+    /// Destination format (e.g., "qcow2", "raw")
+    dest_format: Option<String>,
+}
+
+/// Response for disk conversion job
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ConvertDiskResponse {
+    /// Job ID for tracking progress
+    job_id: String,
+    /// Status message
+    message: String,
+    /// Source path
+    source_path: String,
+    /// Destination path
+    dest_path: String,
+}
+
+/// Status of a disk conversion job
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ConversionStatusResponse {
+    /// Job ID
+    job_id: String,
+    /// Current status: "pending", "running", "completed", "failed"
+    status: String,
+    /// Progress percentage (0-100)
+    progress_percent: u32,
+    /// Source path
+    source_path: String,
+    /// Destination path
+    dest_path: String,
+    /// Error message if failed
+    error_message: Option<String>,
+    /// Completion time if finished
+    completed_at: Option<String>,
+}
+
+/// Thread-safe storage for conversion jobs
+static CONVERSION_JOBS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, ConversionJob>>> = std::sync::OnceLock::new();
+
+fn get_conversion_jobs() -> &'static std::sync::Mutex<std::collections::HashMap<String, ConversionJob>> {
+    CONVERSION_JOBS.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
+}
+
+#[derive(Debug, Clone)]
+struct ConversionJob {
+    job_id: String,
+    source_path: String,
+    dest_path: String,
+    source_format: String,
+    dest_format: String,
+    status: String,
+    progress_percent: u32,
+    error_message: Option<String>,
+    started_at: std::time::Instant,
+    completed_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// POST /api/v1/storage/convert - Start disk format conversion
+async fn convert_disk_format(
+    State(_state): State<Arc<AppState>>,
+    Json(request): Json<ConvertDiskRequest>,
+) -> Result<Json<ConvertDiskResponse>, (StatusCode, Json<ApiError>)> {
+    use std::process::Command;
+    use uuid::Uuid;
+    
+    info!(
+        source = %request.source_path,
+        dest = %request.dest_path,
+        "Starting disk format conversion"
+    );
+    
+    // Validate source file exists
+    if !std::path::Path::new(&request.source_path).exists() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ApiError::new("source_not_found", "Source file does not exist")),
+        ));
+    }
+    
+    // Determine formats
+    let source_format = request.source_format.unwrap_or_else(|| {
+        if request.source_path.ends_with(".vmdk") {
+            "vmdk".to_string()
+        } else if request.source_path.ends_with(".raw") {
+            "raw".to_string()
+        } else if request.source_path.ends_with(".qcow2") {
+            "qcow2".to_string()
+        } else {
+            "vmdk".to_string() // Default assumption for OVA
+        }
+    });
+    
+    let dest_format = request.dest_format.unwrap_or_else(|| "qcow2".to_string());
+    
+    // Create job
+    let job_id = Uuid::new_v4().to_string();
+    let job = ConversionJob {
+        job_id: job_id.clone(),
+        source_path: request.source_path.clone(),
+        dest_path: request.dest_path.clone(),
+        source_format: source_format.clone(),
+        dest_format: dest_format.clone(),
+        status: "pending".to_string(),
+        progress_percent: 0,
+        error_message: None,
+        started_at: std::time::Instant::now(),
+        completed_at: None,
+    };
+    
+    // Store job
+    {
+        let mut jobs = get_conversion_jobs().lock().unwrap();
+        jobs.insert(job_id.clone(), job);
+    }
+    
+    // Spawn async conversion task
+    let job_id_clone = job_id.clone();
+    let source_path = request.source_path.clone();
+    let dest_path = request.dest_path.clone();
+    
+    tokio::spawn(async move {
+        // Update status to running
+        {
+            let mut jobs = get_conversion_jobs().lock().unwrap();
+            if let Some(job) = jobs.get_mut(&job_id_clone) {
+                job.status = "running".to_string();
+                job.progress_percent = 10;
+            }
+        }
+        
+        // Ensure destination directory exists
+        if let Some(parent) = std::path::Path::new(&dest_path).parent() {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                error!(error = %e, "Failed to create destination directory");
+                let mut jobs = get_conversion_jobs().lock().unwrap();
+                if let Some(job) = jobs.get_mut(&job_id_clone) {
+                    job.status = "failed".to_string();
+                    job.error_message = Some(format!("Failed to create directory: {}", e));
+                    job.completed_at = Some(chrono::Utc::now());
+                }
+                return;
+            }
+        }
+        
+        // Run qemu-img convert
+        info!(
+            job_id = %job_id_clone,
+            source = %source_path,
+            dest = %dest_path,
+            source_format = %source_format,
+            dest_format = %dest_format,
+            "Running qemu-img convert"
+        );
+        
+        let output = Command::new("qemu-img")
+            .args(&[
+                "convert",
+                "-f", &source_format,
+                "-O", &dest_format,
+                "-p",  // Show progress (though we can't capture it easily)
+                &source_path,
+                &dest_path,
+            ])
+            .output();
+        
+        match output {
+            Ok(result) => {
+                let mut jobs = get_conversion_jobs().lock().unwrap();
+                if let Some(job) = jobs.get_mut(&job_id_clone) {
+                    if result.status.success() {
+                        info!(job_id = %job_id_clone, "Disk conversion completed successfully");
+                        job.status = "completed".to_string();
+                        job.progress_percent = 100;
+                        job.completed_at = Some(chrono::Utc::now());
+                    } else {
+                        let stderr = String::from_utf8_lossy(&result.stderr);
+                        error!(job_id = %job_id_clone, error = %stderr, "Disk conversion failed");
+                        job.status = "failed".to_string();
+                        job.error_message = Some(stderr.to_string());
+                        job.completed_at = Some(chrono::Utc::now());
+                    }
+                }
+            }
+            Err(e) => {
+                error!(job_id = %job_id_clone, error = %e, "Failed to execute qemu-img");
+                let mut jobs = get_conversion_jobs().lock().unwrap();
+                if let Some(job) = jobs.get_mut(&job_id_clone) {
+                    job.status = "failed".to_string();
+                    job.error_message = Some(format!("Failed to execute qemu-img: {}", e));
+                    job.completed_at = Some(chrono::Utc::now());
+                }
+            }
+        }
+    });
+    
+    Ok(Json(ConvertDiskResponse {
+        job_id,
+        message: "Conversion started".to_string(),
+        source_path: request.source_path,
+        dest_path: request.dest_path,
+    }))
+}
+
+/// GET /api/v1/storage/convert/:job_id - Get conversion job status
+async fn get_conversion_status(
+    Path(job_id): Path<String>,
+) -> Result<Json<ConversionStatusResponse>, (StatusCode, Json<ApiError>)> {
+    let jobs = get_conversion_jobs().lock().unwrap();
+    
+    match jobs.get(&job_id) {
+        Some(job) => {
+            Ok(Json(ConversionStatusResponse {
+                job_id: job.job_id.clone(),
+                status: job.status.clone(),
+                progress_percent: job.progress_percent,
+                source_path: job.source_path.clone(),
+                dest_path: job.dest_path.clone(),
+                error_message: job.error_message.clone(),
+                completed_at: job.completed_at.map(|t| t.to_rfc3339()),
+            }))
+        }
+        None => {
+            Err((
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("job_not_found", "Conversion job not found")),
             ))
         }
     }

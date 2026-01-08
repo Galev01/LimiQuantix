@@ -70,17 +70,49 @@ echo "✅ Disk image created"
 # -----------------------------------------------------------------------------
 echo "📦 Step 3: Formatting partitions..."
 
-# Setup loop device
+# Setup loop device with partition scanning
 LOOP_DEV=$(losetup -f --show -P "$RAW_DISK")
 echo "   Using loop device: $LOOP_DEV"
 
-# Wait for partitions to appear
-sleep 2
+# Force kernel to re-read partition table
+partprobe "$LOOP_DEV" 2>/dev/null || true
 
-# Format partitions
-mkfs.vfat -F 32 -n QUANTIX-EFI "${LOOP_DEV}p1"
-mkfs.ext4 -L QUANTIX-ROOT -F "${LOOP_DEV}p2"
-mkfs.ext4 -L QUANTIX-DATA -F "${LOOP_DEV}p3"
+# Wait for partitions to appear and trigger udev
+sleep 3
+
+# Check if partitions exist, if not use kpartx
+if [ ! -b "${LOOP_DEV}p1" ]; then
+    echo "   Partitions not auto-detected, using partx..."
+    partx -a "$LOOP_DEV" 2>/dev/null || true
+    sleep 2
+fi
+
+# Still no partitions? Try direct offset mounting later
+if [ ! -b "${LOOP_DEV}p1" ]; then
+    echo "   Using offset-based partition access..."
+    # Get partition offsets from parted
+    PART1_START=$(parted -s "$RAW_DISK" unit B print | grep "^ 1" | awk '{print $2}' | tr -d 'B')
+    PART2_START=$(parted -s "$RAW_DISK" unit B print | grep "^ 2" | awk '{print $2}' | tr -d 'B')
+    PART3_START=$(parted -s "$RAW_DISK" unit B print | grep "^ 3" | awk '{print $2}' | tr -d 'B')
+    
+    # Create loop devices for each partition
+    LOOP_P1=$(losetup -f --show -o "$PART1_START" --sizelimit $((256*1024*1024)) "$RAW_DISK")
+    LOOP_P2=$(losetup -f --show -o "$PART2_START" --sizelimit $((10240*1024*1024)) "$RAW_DISK")
+    LOOP_P3=$(losetup -f --show -o "$PART3_START" "$RAW_DISK")
+    
+    mkfs.vfat -F 32 -n QUANTIX-EFI "$LOOP_P1"
+    mkfs.ext4 -L QUANTIX-ROOT -F "$LOOP_P2"
+    mkfs.ext4 -L QUANTIX-DATA -F "$LOOP_P3"
+    
+    # Store for later use
+    USE_OFFSET_LOOPS=1
+else
+    # Format partitions normally
+    mkfs.vfat -F 32 -n QUANTIX-EFI "${LOOP_DEV}p1"
+    mkfs.ext4 -L QUANTIX-ROOT -F "${LOOP_DEV}p2"
+    mkfs.ext4 -L QUANTIX-DATA -F "${LOOP_DEV}p3"
+    USE_OFFSET_LOOPS=0
+fi
 
 echo "✅ Partitions formatted"
 
@@ -92,14 +124,20 @@ echo "📦 Step 4: Installing system to disk..."
 TARGET_MOUNT="${OVA_DIR}/target"
 mkdir -p "$TARGET_MOUNT"
 
-# Mount root partition
-mount "${LOOP_DEV}p2" "$TARGET_MOUNT"
-
-# Create mount points and mount other partitions
-mkdir -p "$TARGET_MOUNT/boot/efi"
-mkdir -p "$TARGET_MOUNT/var/lib"
-mount "${LOOP_DEV}p1" "$TARGET_MOUNT/boot/efi"
-mount "${LOOP_DEV}p3" "$TARGET_MOUNT/var/lib"
+# Mount partitions based on method used
+if [ "$USE_OFFSET_LOOPS" -eq 1 ]; then
+    mount "$LOOP_P2" "$TARGET_MOUNT"
+    mkdir -p "$TARGET_MOUNT/boot/efi"
+    mkdir -p "$TARGET_MOUNT/var/lib"
+    mount "$LOOP_P1" "$TARGET_MOUNT/boot/efi"
+    mount "$LOOP_P3" "$TARGET_MOUNT/var/lib"
+else
+    mount "${LOOP_DEV}p2" "$TARGET_MOUNT"
+    mkdir -p "$TARGET_MOUNT/boot/efi"
+    mkdir -p "$TARGET_MOUNT/var/lib"
+    mount "${LOOP_DEV}p1" "$TARGET_MOUNT/boot/efi"
+    mount "${LOOP_DEV}p3" "$TARGET_MOUNT/var/lib"
+fi
 
 # Extract squashfs
 echo "   Extracting system image..."
@@ -116,10 +154,16 @@ echo "✅ System installed"
 # -----------------------------------------------------------------------------
 echo "📦 Step 5: Configuring fstab..."
 
-# Get UUIDs
-UUID_EFI=$(blkid -s UUID -o value "${LOOP_DEV}p1")
-UUID_ROOT=$(blkid -s UUID -o value "${LOOP_DEV}p2")
-UUID_DATA=$(blkid -s UUID -o value "${LOOP_DEV}p3")
+# Get UUIDs based on method used
+if [ "$USE_OFFSET_LOOPS" -eq 1 ]; then
+    UUID_EFI=$(blkid -s UUID -o value "$LOOP_P1")
+    UUID_ROOT=$(blkid -s UUID -o value "$LOOP_P2")
+    UUID_DATA=$(blkid -s UUID -o value "$LOOP_P3")
+else
+    UUID_EFI=$(blkid -s UUID -o value "${LOOP_DEV}p1")
+    UUID_ROOT=$(blkid -s UUID -o value "${LOOP_DEV}p2")
+    UUID_DATA=$(blkid -s UUID -o value "${LOOP_DEV}p3")
+fi
 
 cat > "$TARGET_MOUNT/etc/fstab" << EOF
 # Quantix-vDC Filesystem Table
@@ -198,13 +242,18 @@ echo "📦 Step 7: Finalizing disk image..."
 
 # Sync and unmount
 sync
-umount "$TARGET_MOUNT/var/lib"
-umount "$TARGET_MOUNT/boot/efi"
-umount "$TARGET_MOUNT"
-rmdir "$TARGET_MOUNT"
+umount "$TARGET_MOUNT/var/lib" 2>/dev/null || true
+umount "$TARGET_MOUNT/boot/efi" 2>/dev/null || true
+umount "$TARGET_MOUNT" 2>/dev/null || true
+rmdir "$TARGET_MOUNT" 2>/dev/null || true
 
-# Detach loop device
-losetup -d "$LOOP_DEV"
+# Detach loop devices
+if [ "$USE_OFFSET_LOOPS" -eq 1 ]; then
+    losetup -d "$LOOP_P1" 2>/dev/null || true
+    losetup -d "$LOOP_P2" 2>/dev/null || true
+    losetup -d "$LOOP_P3" 2>/dev/null || true
+fi
+losetup -d "$LOOP_DEV" 2>/dev/null || true
 
 echo "✅ Disk image finalized"
 

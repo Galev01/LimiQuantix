@@ -627,8 +627,12 @@ message ImageSpec {
     VMDK = 2;
     VHD = 3;
     ISO = 4;
+    OVA = 5;    // Open Virtual Appliance (contains OVF + VMDK)
   }
   Format format = 4;
+  
+  // OVA-specific metadata (only set when format = OVA)
+  OvaMetadata ova_metadata = 6;
   
   // Visibility
   enum Visibility {
@@ -727,6 +731,8 @@ message ImageStatus {
     READY = 4;
     ERROR = 5;
     DELETING = 6;
+    EXTRACTING = 7;   // OVA extraction in progress
+    PARSING = 8;      // OVF parsing in progress
   }
   Phase phase = 1;
   
@@ -749,3 +755,100 @@ message ImageStatus {
   string storage_pool_id = 7;
 }
 
+// =============================================================================
+// OVA METADATA - Extracted from OVF descriptor
+// =============================================================================
+
+// OvaMetadata contains hardware and configuration information extracted from
+// the OVF descriptor within an OVA file.
+message OvaMetadata {
+  // Original VM name from OVF
+  string vm_name = 1;
+  
+  // Description/annotation from OVF
+  string description = 2;
+  
+  // Operating system information from OVF
+  OvaOsInfo os_info = 3;
+  
+  // Hardware configuration from OVF
+  OvaHardwareConfig hardware = 4;
+  
+  // Disk information from OVF
+  repeated OvaDiskInfo disks = 5;
+  
+  // Network adapter information from OVF
+  repeated OvaNetworkInfo networks = 6;
+  
+  // Product information (vendor, version, etc.)
+  OvaProductInfo product = 7;
+  
+  // Original OVF file content (for reference)
+  string ovf_content = 8;
+}
+
+// OvaOsInfo contains OS information extracted from OperatingSystemSection
+message OvaOsInfo {
+  // OS ID from OVF (e.g., 101 for Linux 64-bit)
+  uint32 os_id = 1;
+  
+  // OS description (e.g., "Linux (64-bit)")
+  string os_description = 2;
+  
+  // Detected OS family
+  OsInfo.OsFamily os_family = 3;
+}
+
+// OvaHardwareConfig contains the recommended hardware configuration
+message OvaHardwareConfig {
+  // Number of virtual CPUs
+  uint32 cpu_count = 1;
+  
+  // Memory in MiB
+  uint64 memory_mib = 2;
+  
+  // Firmware type (bios/uefi)
+  string firmware = 3;
+}
+
+// OvaDiskInfo contains information about a virtual disk in the OVA
+message OvaDiskInfo {
+  // Disk ID from OVF
+  string disk_id = 1;
+  
+  // File reference (VMDK filename within OVA)
+  string file_ref = 2;
+  
+  // Capacity in bytes
+  uint64 capacity_bytes = 3;
+  
+  // Populated size (actual data size)
+  uint64 populated_size_bytes = 4;
+  
+  // Disk format (vmdk, etc.)
+  string format = 5;
+  
+  // Controller type (scsi, ide, sata)
+  string controller_type = 6;
+  
+  // Address on parent controller
+  uint32 address_on_parent = 7;
+  
+  // Path to converted QCOW2 file (set after conversion)
+  string converted_path = 8;
+}
+
+// OvaNetworkInfo contains information about a network adapter in the OVA
+message OvaNetworkInfo {
+  // Network name from OVF
+  string name = 1;
+  
+  // Network description
+  string description = 2;
+  
+  // Adapter type (e.g., E1000, VMXNET3)
+  string adapter_type = 3;
+  
+  // Instance ID
+  uint32 instance_id = 4;
+}

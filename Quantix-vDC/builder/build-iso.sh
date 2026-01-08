@@ -57,10 +57,38 @@ cp "$SQUASHFS" "${ISO_DIR}/quantix-vdc/system.squashfs"
 # Extract kernel from squashfs
 echo "   Extracting kernel from squashfs..."
 mkdir -p /tmp/sqmount
-mount -t squashfs -o loop "$SQUASHFS" /tmp/sqmount || {
-    echo "❌ Failed to mount squashfs"
+
+# Try different mount methods
+MOUNT_SUCCESS=0
+
+# Method 1: Direct mount with loop
+if mount -t squashfs -o loop "$SQUASHFS" /tmp/sqmount 2>/dev/null; then
+    MOUNT_SUCCESS=1
+fi
+
+# Method 2: Explicit loop device
+if [ "$MOUNT_SUCCESS" -eq 0 ]; then
+    LOOP_DEV=$(losetup -f --show "$SQUASHFS" 2>/dev/null)
+    if [ -n "$LOOP_DEV" ] && mount -t squashfs "$LOOP_DEV" /tmp/sqmount 2>/dev/null; then
+        MOUNT_SUCCESS=1
+    fi
+fi
+
+# Method 3: Use unsquashfs to extract directly
+if [ "$MOUNT_SUCCESS" -eq 0 ]; then
+    echo "   Mount failed, extracting with unsquashfs..."
+    rm -rf /tmp/sqmount
+    unsquashfs -d /tmp/sqmount "$SQUASHFS" || {
+        echo "❌ Failed to extract squashfs"
+        exit 1
+    }
+    MOUNT_SUCCESS=2  # Extracted, not mounted
+fi
+
+if [ "$MOUNT_SUCCESS" -eq 0 ]; then
+    echo "❌ Failed to access squashfs"
     exit 1
-}
+fi
 
 # Find and copy kernel
 KERNEL_FOUND=false
@@ -84,8 +112,12 @@ if [ -d "/tmp/sqmount/lib/modules" ]; then
     echo "   ✅ Extracted ${MODULE_COUNT} kernel modules"
 fi
 
-umount /tmp/sqmount
-rmdir /tmp/sqmount
+# Cleanup squashfs mount/extraction
+if [ "$MOUNT_SUCCESS" -eq 1 ]; then
+    umount /tmp/sqmount 2>/dev/null || true
+    [ -n "$LOOP_DEV" ] && losetup -d "$LOOP_DEV" 2>/dev/null || true
+fi
+rm -rf /tmp/sqmount
 
 # Download kernel if not found
 if [ "$KERNEL_FOUND" = "false" ]; then

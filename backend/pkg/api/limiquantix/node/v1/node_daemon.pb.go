@@ -4556,8 +4556,10 @@ type StoragePoolInfoResponse struct {
 	TotalBytes     uint64 `protobuf:"varint,6,opt,name=total_bytes,json=totalBytes,proto3" json:"total_bytes,omitempty"`
 	AvailableBytes uint64 `protobuf:"varint,7,opt,name=available_bytes,json=availableBytes,proto3" json:"available_bytes,omitempty"`
 	UsedBytes      uint64 `protobuf:"varint,8,opt,name=used_bytes,json=usedBytes,proto3" json:"used_bytes,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Volume count
+	VolumeCount   uint32 `protobuf:"varint,9,opt,name=volume_count,json=volumeCount,proto3" json:"volume_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StoragePoolInfoResponse) Reset() {
@@ -4642,6 +4644,13 @@ func (x *StoragePoolInfoResponse) GetAvailableBytes() uint64 {
 func (x *StoragePoolInfoResponse) GetUsedBytes() uint64 {
 	if x != nil {
 		return x.UsedBytes
+	}
+	return 0
+}
+
+func (x *StoragePoolInfoResponse) GetVolumeCount() uint32 {
+	if x != nil {
+		return x.VolumeCount
 	}
 	return 0
 }
@@ -5988,7 +5997,7 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\x03lun\x18\x06 \x01(\rR\x03lun\x12!\n" +
 	"\fvolume_group\x18\a \x01(\tR\vvolumeGroup\"/\n" +
 	"\x14StoragePoolIdRequest\x12\x17\n" +
-	"\apool_id\x18\x01 \x01(\tR\x06poolId\"\xb0\x02\n" +
+	"\apool_id\x18\x01 \x01(\tR\x06poolId\"\xd3\x02\n" +
 	"\x17StoragePoolInfoResponse\x12\x17\n" +
 	"\apool_id\x18\x01 \x01(\tR\x06poolId\x128\n" +
 	"\x04type\x18\x02 \x01(\x0e2$.limiquantix.node.v1.StoragePoolTypeR\x04type\x12\x1d\n" +
@@ -6001,7 +6010,8 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"totalBytes\x12'\n" +
 	"\x0favailable_bytes\x18\a \x01(\x04R\x0eavailableBytes\x12\x1d\n" +
 	"\n" +
-	"used_bytes\x18\b \x01(\x04R\tusedBytes\"^\n" +
+	"used_bytes\x18\b \x01(\x04R\tusedBytes\x12!\n" +
+	"\fvolume_count\x18\t \x01(\rR\vvolumeCount\"^\n" +
 	"\x18ListStoragePoolsResponse\x12B\n" +
 	"\x05pools\x18\x01 \x03(\v2,.limiquantix.node.v1.StoragePoolInfoResponseR\x05pools\"G\n" +
 	"\x0fVolumeIdRequest\x12\x17\n" +

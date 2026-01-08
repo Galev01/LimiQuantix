@@ -81,6 +81,68 @@ func (ImportStatus_Status) EnumDescriptor() ([]byte, []int) {
 	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{35, 0}
 }
 
+// Current status
+type OVAUploadStatus_Status int32
+
+const (
+	OVAUploadStatus_UNKNOWN    OVAUploadStatus_Status = 0
+	OVAUploadStatus_UPLOADING  OVAUploadStatus_Status = 1 // File upload in progress
+	OVAUploadStatus_EXTRACTING OVAUploadStatus_Status = 2 // Extracting OVA tar archive
+	OVAUploadStatus_PARSING    OVAUploadStatus_Status = 3 // Parsing OVF descriptor
+	OVAUploadStatus_CONVERTING OVAUploadStatus_Status = 4 // Converting VMDK to QCOW2
+	OVAUploadStatus_COMPLETED  OVAUploadStatus_Status = 5 // Processing complete
+	OVAUploadStatus_FAILED     OVAUploadStatus_Status = 6 // Processing failed
+)
+
+// Enum value maps for OVAUploadStatus_Status.
+var (
+	OVAUploadStatus_Status_name = map[int32]string{
+		0: "UNKNOWN",
+		1: "UPLOADING",
+		2: "EXTRACTING",
+		3: "PARSING",
+		4: "CONVERTING",
+		5: "COMPLETED",
+		6: "FAILED",
+	}
+	OVAUploadStatus_Status_value = map[string]int32{
+		"UNKNOWN":    0,
+		"UPLOADING":  1,
+		"EXTRACTING": 2,
+		"PARSING":    3,
+		"CONVERTING": 4,
+		"COMPLETED":  5,
+		"FAILED":     6,
+	}
+)
+
+func (x OVAUploadStatus_Status) Enum() *OVAUploadStatus_Status {
+	p := new(OVAUploadStatus_Status)
+	*p = x
+	return p
+}
+
+func (x OVAUploadStatus_Status) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OVAUploadStatus_Status) Descriptor() protoreflect.EnumDescriptor {
+	return file_limiquantix_storage_v1_storage_service_proto_enumTypes[1].Descriptor()
+}
+
+func (OVAUploadStatus_Status) Type() protoreflect.EnumType {
+	return &file_limiquantix_storage_v1_storage_service_proto_enumTypes[1]
+}
+
+func (x OVAUploadStatus_Status) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use OVAUploadStatus_Status.Descriptor instead.
+func (OVAUploadStatus_Status) EnumDescriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{44, 0}
+}
+
 type CreatePoolRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -3024,6 +3086,400 @@ func (x *GetImageCatalogResponse) GetImages() []*ImageCatalogEntry {
 	return nil
 }
 
+// OVAUploadStatus represents the current state of an OVA upload/processing job.
+type OVAUploadStatus struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Job ID
+	JobId string `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	// Image ID (set once image record is created)
+	ImageId string                 `protobuf:"bytes,2,opt,name=image_id,json=imageId,proto3" json:"image_id,omitempty"`
+	Status  OVAUploadStatus_Status `protobuf:"varint,3,opt,name=status,proto3,enum=limiquantix.storage.v1.OVAUploadStatus_Status" json:"status,omitempty"`
+	// Progress percentage (0-100)
+	ProgressPercent uint32 `protobuf:"varint,4,opt,name=progress_percent,json=progressPercent,proto3" json:"progress_percent,omitempty"`
+	// Current step description
+	CurrentStep string `protobuf:"bytes,5,opt,name=current_step,json=currentStep,proto3" json:"current_step,omitempty"`
+	// Bytes uploaded (during upload phase)
+	BytesUploaded uint64 `protobuf:"varint,6,opt,name=bytes_uploaded,json=bytesUploaded,proto3" json:"bytes_uploaded,omitempty"`
+	// Total file size
+	BytesTotal uint64 `protobuf:"varint,7,opt,name=bytes_total,json=bytesTotal,proto3" json:"bytes_total,omitempty"`
+	// Error message if failed
+	ErrorMessage string `protobuf:"bytes,8,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	// Extracted OVA metadata (available after parsing)
+	Metadata *OvaMetadata `protobuf:"bytes,9,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	// Created image (available after completion)
+	Image         *Image `protobuf:"bytes,10,opt,name=image,proto3" json:"image,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OVAUploadStatus) Reset() {
+	*x = OVAUploadStatus{}
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OVAUploadStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OVAUploadStatus) ProtoMessage() {}
+
+func (x *OVAUploadStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OVAUploadStatus.ProtoReflect.Descriptor instead.
+func (*OVAUploadStatus) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *OVAUploadStatus) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *OVAUploadStatus) GetImageId() string {
+	if x != nil {
+		return x.ImageId
+	}
+	return ""
+}
+
+func (x *OVAUploadStatus) GetStatus() OVAUploadStatus_Status {
+	if x != nil {
+		return x.Status
+	}
+	return OVAUploadStatus_UNKNOWN
+}
+
+func (x *OVAUploadStatus) GetProgressPercent() uint32 {
+	if x != nil {
+		return x.ProgressPercent
+	}
+	return 0
+}
+
+func (x *OVAUploadStatus) GetCurrentStep() string {
+	if x != nil {
+		return x.CurrentStep
+	}
+	return ""
+}
+
+func (x *OVAUploadStatus) GetBytesUploaded() uint64 {
+	if x != nil {
+		return x.BytesUploaded
+	}
+	return 0
+}
+
+func (x *OVAUploadStatus) GetBytesTotal() uint64 {
+	if x != nil {
+		return x.BytesTotal
+	}
+	return 0
+}
+
+func (x *OVAUploadStatus) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *OVAUploadStatus) GetMetadata() *OvaMetadata {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *OVAUploadStatus) GetImage() *Image {
+	if x != nil {
+		return x.Image
+	}
+	return nil
+}
+
+type GetOVAUploadStatusRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Job ID from upload response
+	JobId         string `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetOVAUploadStatusRequest) Reset() {
+	*x = GetOVAUploadStatusRequest{}
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetOVAUploadStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetOVAUploadStatusRequest) ProtoMessage() {}
+
+func (x *GetOVAUploadStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetOVAUploadStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetOVAUploadStatusRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *GetOVAUploadStatusRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+type ListOVATemplatesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Optional project filter
+	ProjectId string `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	// Pagination
+	PageSize      int32  `protobuf:"varint,10,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken     string `protobuf:"bytes,11,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListOVATemplatesRequest) Reset() {
+	*x = ListOVATemplatesRequest{}
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListOVATemplatesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListOVATemplatesRequest) ProtoMessage() {}
+
+func (x *ListOVATemplatesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListOVATemplatesRequest.ProtoReflect.Descriptor instead.
+func (*ListOVATemplatesRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *ListOVATemplatesRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *ListOVATemplatesRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListOVATemplatesRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+type ListOVATemplatesResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// OVA templates (images with format = OVA)
+	Templates []*Image `protobuf:"bytes,1,rep,name=templates,proto3" json:"templates,omitempty"`
+	// Pagination
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	TotalCount    int32  `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListOVATemplatesResponse) Reset() {
+	*x = ListOVATemplatesResponse{}
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListOVATemplatesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListOVATemplatesResponse) ProtoMessage() {}
+
+func (x *ListOVATemplatesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListOVATemplatesResponse.ProtoReflect.Descriptor instead.
+func (*ListOVATemplatesResponse) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *ListOVATemplatesResponse) GetTemplates() []*Image {
+	if x != nil {
+		return x.Templates
+	}
+	return nil
+}
+
+func (x *ListOVATemplatesResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *ListOVATemplatesResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+type GetOVATemplateRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Template/Image ID
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetOVATemplateRequest) Reset() {
+	*x = GetOVATemplateRequest{}
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetOVATemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetOVATemplateRequest) ProtoMessage() {}
+
+func (x *GetOVATemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetOVATemplateRequest.ProtoReflect.Descriptor instead.
+func (*GetOVATemplateRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *GetOVATemplateRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteOVATemplateRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Template/Image ID
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Force delete even if in use
+	Force         bool `protobuf:"varint,2,opt,name=force,proto3" json:"force,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteOVATemplateRequest) Reset() {
+	*x = DeleteOVATemplateRequest{}
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteOVATemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteOVATemplateRequest) ProtoMessage() {}
+
+func (x *DeleteOVATemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteOVATemplateRequest.ProtoReflect.Descriptor instead.
+func (*DeleteOVATemplateRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *DeleteOVATemplateRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DeleteOVATemplateRequest) GetForce() bool {
+	if x != nil {
+		return x.Force
+	}
+	return false
+}
+
 var File_limiquantix_storage_v1_storage_service_proto protoreflect.FileDescriptor
 
 const file_limiquantix_storage_v1_storage_service_proto_rawDesc = "" +
@@ -3317,7 +3773,50 @@ const file_limiquantix_storage_v1_storage_service_proto_rawDesc = "" +
 	"\x16GetImageCatalogRequest\x12D\n" +
 	"\tos_family\x18\x01 \x01(\x0e2'.limiquantix.storage.v1.OsInfo.OsFamilyR\bosFamily\"\\\n" +
 	"\x17GetImageCatalogResponse\x12A\n" +
-	"\x06images\x18\x01 \x03(\v2).limiquantix.storage.v1.ImageCatalogEntryR\x06images2\xc1\x04\n" +
+	"\x06images\x18\x01 \x03(\v2).limiquantix.storage.v1.ImageCatalogEntryR\x06images\"\xaa\x04\n" +
+	"\x0fOVAUploadStatus\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x19\n" +
+	"\bimage_id\x18\x02 \x01(\tR\aimageId\x12F\n" +
+	"\x06status\x18\x03 \x01(\x0e2..limiquantix.storage.v1.OVAUploadStatus.StatusR\x06status\x12)\n" +
+	"\x10progress_percent\x18\x04 \x01(\rR\x0fprogressPercent\x12!\n" +
+	"\fcurrent_step\x18\x05 \x01(\tR\vcurrentStep\x12%\n" +
+	"\x0ebytes_uploaded\x18\x06 \x01(\x04R\rbytesUploaded\x12\x1f\n" +
+	"\vbytes_total\x18\a \x01(\x04R\n" +
+	"bytesTotal\x12#\n" +
+	"\rerror_message\x18\b \x01(\tR\ferrorMessage\x12?\n" +
+	"\bmetadata\x18\t \x01(\v2#.limiquantix.storage.v1.OvaMetadataR\bmetadata\x123\n" +
+	"\x05image\x18\n" +
+	" \x01(\v2\x1d.limiquantix.storage.v1.ImageR\x05image\"l\n" +
+	"\x06Status\x12\v\n" +
+	"\aUNKNOWN\x10\x00\x12\r\n" +
+	"\tUPLOADING\x10\x01\x12\x0e\n" +
+	"\n" +
+	"EXTRACTING\x10\x02\x12\v\n" +
+	"\aPARSING\x10\x03\x12\x0e\n" +
+	"\n" +
+	"CONVERTING\x10\x04\x12\r\n" +
+	"\tCOMPLETED\x10\x05\x12\n" +
+	"\n" +
+	"\x06FAILED\x10\x06\"2\n" +
+	"\x19GetOVAUploadStatusRequest\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"t\n" +
+	"\x17ListOVATemplatesRequest\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x01 \x01(\tR\tprojectId\x12\x1b\n" +
+	"\tpage_size\x18\n" +
+	" \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\v \x01(\tR\tpageToken\"\xa0\x01\n" +
+	"\x18ListOVATemplatesResponse\x12;\n" +
+	"\ttemplates\x18\x01 \x03(\v2\x1d.limiquantix.storage.v1.ImageR\ttemplates\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
+	"\vtotal_count\x18\x03 \x01(\x05R\n" +
+	"totalCount\"'\n" +
+	"\x15GetOVATemplateRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"@\n" +
+	"\x18DeleteOVATemplateRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05force\x18\x02 \x01(\bR\x05force2\xc1\x04\n" +
 	"\x12StoragePoolService\x12\\\n" +
 	"\n" +
 	"CreatePool\x12).limiquantix.storage.v1.CreatePoolRequest\x1a#.limiquantix.storage.v1.StoragePool\x12V\n" +
@@ -3356,7 +3855,13 @@ const file_limiquantix_storage_v1_storage_service_proto_rawDesc = "" +
 	"\x0fGetImportStatus\x12..limiquantix.storage.v1.GetImportStatusRequest\x1a$.limiquantix.storage.v1.ImportStatus\x12r\n" +
 	"\x0fScanLocalImages\x12..limiquantix.storage.v1.ScanLocalImagesRequest\x1a/.limiquantix.storage.v1.ScanLocalImagesResponse\x12l\n" +
 	"\rDownloadImage\x12,.limiquantix.storage.v1.DownloadImageRequest\x1a-.limiquantix.storage.v1.DownloadImageResponse\x12r\n" +
-	"\x0fGetImageCatalog\x12..limiquantix.storage.v1.GetImageCatalogRequest\x1a/.limiquantix.storage.v1.GetImageCatalogResponseB\xf8\x01\n" +
+	"\x0fGetImageCatalog\x12..limiquantix.storage.v1.GetImageCatalogRequest\x1a/.limiquantix.storage.v1.GetImageCatalogResponse2\xb4\x03\n" +
+	"\n" +
+	"OVAService\x12p\n" +
+	"\x12GetOVAUploadStatus\x121.limiquantix.storage.v1.GetOVAUploadStatusRequest\x1a'.limiquantix.storage.v1.OVAUploadStatus\x12u\n" +
+	"\x10ListOVATemplates\x12/.limiquantix.storage.v1.ListOVATemplatesRequest\x1a0.limiquantix.storage.v1.ListOVATemplatesResponse\x12^\n" +
+	"\x0eGetOVATemplate\x12-.limiquantix.storage.v1.GetOVATemplateRequest\x1a\x1d.limiquantix.storage.v1.Image\x12]\n" +
+	"\x11DeleteOVATemplate\x120.limiquantix.storage.v1.DeleteOVATemplateRequest\x1a\x16.google.protobuf.EmptyB\xf8\x01\n" +
 	"\x1acom.limiquantix.storage.v1B\x13StorageServiceProtoP\x01ZKgithub.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1;storagev1\xa2\x02\x03LSX\xaa\x02\x16Limiquantix.Storage.V1\xca\x02\x16Limiquantix\\Storage\\V1\xe2\x02\"Limiquantix\\Storage\\V1\\GPBMetadata\xea\x02\x18Limiquantix::Storage::V1b\x06proto3"
 
 var (
@@ -3371,186 +3876,206 @@ func file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP() []byte {
 	return file_limiquantix_storage_v1_storage_service_proto_rawDescData
 }
 
-var file_limiquantix_storage_v1_storage_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_limiquantix_storage_v1_storage_service_proto_msgTypes = make([]protoimpl.MessageInfo, 54)
+var file_limiquantix_storage_v1_storage_service_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_limiquantix_storage_v1_storage_service_proto_msgTypes = make([]protoimpl.MessageInfo, 60)
 var file_limiquantix_storage_v1_storage_service_proto_goTypes = []any{
-	(ImportStatus_Status)(0),        // 0: limiquantix.storage.v1.ImportStatus.Status
-	(*CreatePoolRequest)(nil),       // 1: limiquantix.storage.v1.CreatePoolRequest
-	(*GetPoolRequest)(nil),          // 2: limiquantix.storage.v1.GetPoolRequest
-	(*ListPoolsRequest)(nil),        // 3: limiquantix.storage.v1.ListPoolsRequest
-	(*ListPoolsResponse)(nil),       // 4: limiquantix.storage.v1.ListPoolsResponse
-	(*UpdatePoolRequest)(nil),       // 5: limiquantix.storage.v1.UpdatePoolRequest
-	(*DeletePoolRequest)(nil),       // 6: limiquantix.storage.v1.DeletePoolRequest
-	(*GetPoolMetricsRequest)(nil),   // 7: limiquantix.storage.v1.GetPoolMetricsRequest
-	(*PoolMetrics)(nil),             // 8: limiquantix.storage.v1.PoolMetrics
-	(*CreateVolumeRequest)(nil),     // 9: limiquantix.storage.v1.CreateVolumeRequest
-	(*GetVolumeRequest)(nil),        // 10: limiquantix.storage.v1.GetVolumeRequest
-	(*ListVolumesRequest)(nil),      // 11: limiquantix.storage.v1.ListVolumesRequest
-	(*ListVolumesResponse)(nil),     // 12: limiquantix.storage.v1.ListVolumesResponse
-	(*UpdateVolumeRequest)(nil),     // 13: limiquantix.storage.v1.UpdateVolumeRequest
-	(*DeleteVolumeRequest)(nil),     // 14: limiquantix.storage.v1.DeleteVolumeRequest
-	(*ResizeVolumeRequest)(nil),     // 15: limiquantix.storage.v1.ResizeVolumeRequest
-	(*AttachVolumeRequest)(nil),     // 16: limiquantix.storage.v1.AttachVolumeRequest
-	(*DetachVolumeRequest)(nil),     // 17: limiquantix.storage.v1.DetachVolumeRequest
-	(*CloneVolumeRequest)(nil),      // 18: limiquantix.storage.v1.CloneVolumeRequest
-	(*GetVolumeMetricsRequest)(nil), // 19: limiquantix.storage.v1.GetVolumeMetricsRequest
-	(*VolumeMetrics)(nil),           // 20: limiquantix.storage.v1.VolumeMetrics
-	(*CreateSnapshotRequest)(nil),   // 21: limiquantix.storage.v1.CreateSnapshotRequest
-	(*GetSnapshotRequest)(nil),      // 22: limiquantix.storage.v1.GetSnapshotRequest
-	(*ListSnapshotsRequest)(nil),    // 23: limiquantix.storage.v1.ListSnapshotsRequest
-	(*ListSnapshotsResponse)(nil),   // 24: limiquantix.storage.v1.ListSnapshotsResponse
-	(*DeleteSnapshotRequest)(nil),   // 25: limiquantix.storage.v1.DeleteSnapshotRequest
-	(*RestoreSnapshotRequest)(nil),  // 26: limiquantix.storage.v1.RestoreSnapshotRequest
-	(*CreateImageRequest)(nil),      // 27: limiquantix.storage.v1.CreateImageRequest
-	(*GetImageRequest)(nil),         // 28: limiquantix.storage.v1.GetImageRequest
-	(*ListImagesRequest)(nil),       // 29: limiquantix.storage.v1.ListImagesRequest
-	(*ListImagesResponse)(nil),      // 30: limiquantix.storage.v1.ListImagesResponse
-	(*UpdateImageRequest)(nil),      // 31: limiquantix.storage.v1.UpdateImageRequest
-	(*DeleteImageRequest)(nil),      // 32: limiquantix.storage.v1.DeleteImageRequest
-	(*ImportImageRequest)(nil),      // 33: limiquantix.storage.v1.ImportImageRequest
-	(*ImportImageResponse)(nil),     // 34: limiquantix.storage.v1.ImportImageResponse
-	(*GetImportStatusRequest)(nil),  // 35: limiquantix.storage.v1.GetImportStatusRequest
-	(*ImportStatus)(nil),            // 36: limiquantix.storage.v1.ImportStatus
-	(*ScanLocalImagesRequest)(nil),  // 37: limiquantix.storage.v1.ScanLocalImagesRequest
-	(*LocalImageInfo)(nil),          // 38: limiquantix.storage.v1.LocalImageInfo
-	(*ScanLocalImagesResponse)(nil), // 39: limiquantix.storage.v1.ScanLocalImagesResponse
-	(*DownloadImageRequest)(nil),    // 40: limiquantix.storage.v1.DownloadImageRequest
-	(*DownloadImageResponse)(nil),   // 41: limiquantix.storage.v1.DownloadImageResponse
-	(*ImageCatalogEntry)(nil),       // 42: limiquantix.storage.v1.ImageCatalogEntry
-	(*GetImageCatalogRequest)(nil),  // 43: limiquantix.storage.v1.GetImageCatalogRequest
-	(*GetImageCatalogResponse)(nil), // 44: limiquantix.storage.v1.GetImageCatalogResponse
-	nil,                             // 45: limiquantix.storage.v1.CreatePoolRequest.LabelsEntry
-	nil,                             // 46: limiquantix.storage.v1.ListPoolsRequest.LabelsEntry
-	nil,                             // 47: limiquantix.storage.v1.UpdatePoolRequest.LabelsEntry
-	nil,                             // 48: limiquantix.storage.v1.CreateVolumeRequest.LabelsEntry
-	nil,                             // 49: limiquantix.storage.v1.ListVolumesRequest.LabelsEntry
-	nil,                             // 50: limiquantix.storage.v1.UpdateVolumeRequest.LabelsEntry
-	nil,                             // 51: limiquantix.storage.v1.CreateSnapshotRequest.LabelsEntry
-	nil,                             // 52: limiquantix.storage.v1.CreateImageRequest.LabelsEntry
-	nil,                             // 53: limiquantix.storage.v1.ListImagesRequest.LabelsEntry
-	nil,                             // 54: limiquantix.storage.v1.UpdateImageRequest.LabelsEntry
-	(*StoragePoolSpec)(nil),         // 55: limiquantix.storage.v1.StoragePoolSpec
-	(StorageBackend_BackendType)(0), // 56: limiquantix.storage.v1.StorageBackend.BackendType
-	(*StoragePool)(nil),             // 57: limiquantix.storage.v1.StoragePool
-	(*fieldmaskpb.FieldMask)(nil),   // 58: google.protobuf.FieldMask
-	(*VolumeSpec)(nil),              // 59: limiquantix.storage.v1.VolumeSpec
-	(VolumeStatus_Phase)(0),         // 60: limiquantix.storage.v1.VolumeStatus.Phase
-	(*Volume)(nil),                  // 61: limiquantix.storage.v1.Volume
-	(*RetentionPolicy)(nil),         // 62: limiquantix.storage.v1.RetentionPolicy
-	(*VolumeSnapshot)(nil),          // 63: limiquantix.storage.v1.VolumeSnapshot
-	(*ImageSpec)(nil),               // 64: limiquantix.storage.v1.ImageSpec
-	(OsInfo_OsFamily)(0),            // 65: limiquantix.storage.v1.OsInfo.OsFamily
-	(ImageSpec_Visibility)(0),       // 66: limiquantix.storage.v1.ImageSpec.Visibility
-	(*Image)(nil),                   // 67: limiquantix.storage.v1.Image
-	(*OsInfo)(nil),                  // 68: limiquantix.storage.v1.OsInfo
-	(*ImageRequirements)(nil),       // 69: limiquantix.storage.v1.ImageRequirements
-	(*emptypb.Empty)(nil),           // 70: google.protobuf.Empty
+	(ImportStatus_Status)(0),          // 0: limiquantix.storage.v1.ImportStatus.Status
+	(OVAUploadStatus_Status)(0),       // 1: limiquantix.storage.v1.OVAUploadStatus.Status
+	(*CreatePoolRequest)(nil),         // 2: limiquantix.storage.v1.CreatePoolRequest
+	(*GetPoolRequest)(nil),            // 3: limiquantix.storage.v1.GetPoolRequest
+	(*ListPoolsRequest)(nil),          // 4: limiquantix.storage.v1.ListPoolsRequest
+	(*ListPoolsResponse)(nil),         // 5: limiquantix.storage.v1.ListPoolsResponse
+	(*UpdatePoolRequest)(nil),         // 6: limiquantix.storage.v1.UpdatePoolRequest
+	(*DeletePoolRequest)(nil),         // 7: limiquantix.storage.v1.DeletePoolRequest
+	(*GetPoolMetricsRequest)(nil),     // 8: limiquantix.storage.v1.GetPoolMetricsRequest
+	(*PoolMetrics)(nil),               // 9: limiquantix.storage.v1.PoolMetrics
+	(*CreateVolumeRequest)(nil),       // 10: limiquantix.storage.v1.CreateVolumeRequest
+	(*GetVolumeRequest)(nil),          // 11: limiquantix.storage.v1.GetVolumeRequest
+	(*ListVolumesRequest)(nil),        // 12: limiquantix.storage.v1.ListVolumesRequest
+	(*ListVolumesResponse)(nil),       // 13: limiquantix.storage.v1.ListVolumesResponse
+	(*UpdateVolumeRequest)(nil),       // 14: limiquantix.storage.v1.UpdateVolumeRequest
+	(*DeleteVolumeRequest)(nil),       // 15: limiquantix.storage.v1.DeleteVolumeRequest
+	(*ResizeVolumeRequest)(nil),       // 16: limiquantix.storage.v1.ResizeVolumeRequest
+	(*AttachVolumeRequest)(nil),       // 17: limiquantix.storage.v1.AttachVolumeRequest
+	(*DetachVolumeRequest)(nil),       // 18: limiquantix.storage.v1.DetachVolumeRequest
+	(*CloneVolumeRequest)(nil),        // 19: limiquantix.storage.v1.CloneVolumeRequest
+	(*GetVolumeMetricsRequest)(nil),   // 20: limiquantix.storage.v1.GetVolumeMetricsRequest
+	(*VolumeMetrics)(nil),             // 21: limiquantix.storage.v1.VolumeMetrics
+	(*CreateSnapshotRequest)(nil),     // 22: limiquantix.storage.v1.CreateSnapshotRequest
+	(*GetSnapshotRequest)(nil),        // 23: limiquantix.storage.v1.GetSnapshotRequest
+	(*ListSnapshotsRequest)(nil),      // 24: limiquantix.storage.v1.ListSnapshotsRequest
+	(*ListSnapshotsResponse)(nil),     // 25: limiquantix.storage.v1.ListSnapshotsResponse
+	(*DeleteSnapshotRequest)(nil),     // 26: limiquantix.storage.v1.DeleteSnapshotRequest
+	(*RestoreSnapshotRequest)(nil),    // 27: limiquantix.storage.v1.RestoreSnapshotRequest
+	(*CreateImageRequest)(nil),        // 28: limiquantix.storage.v1.CreateImageRequest
+	(*GetImageRequest)(nil),           // 29: limiquantix.storage.v1.GetImageRequest
+	(*ListImagesRequest)(nil),         // 30: limiquantix.storage.v1.ListImagesRequest
+	(*ListImagesResponse)(nil),        // 31: limiquantix.storage.v1.ListImagesResponse
+	(*UpdateImageRequest)(nil),        // 32: limiquantix.storage.v1.UpdateImageRequest
+	(*DeleteImageRequest)(nil),        // 33: limiquantix.storage.v1.DeleteImageRequest
+	(*ImportImageRequest)(nil),        // 34: limiquantix.storage.v1.ImportImageRequest
+	(*ImportImageResponse)(nil),       // 35: limiquantix.storage.v1.ImportImageResponse
+	(*GetImportStatusRequest)(nil),    // 36: limiquantix.storage.v1.GetImportStatusRequest
+	(*ImportStatus)(nil),              // 37: limiquantix.storage.v1.ImportStatus
+	(*ScanLocalImagesRequest)(nil),    // 38: limiquantix.storage.v1.ScanLocalImagesRequest
+	(*LocalImageInfo)(nil),            // 39: limiquantix.storage.v1.LocalImageInfo
+	(*ScanLocalImagesResponse)(nil),   // 40: limiquantix.storage.v1.ScanLocalImagesResponse
+	(*DownloadImageRequest)(nil),      // 41: limiquantix.storage.v1.DownloadImageRequest
+	(*DownloadImageResponse)(nil),     // 42: limiquantix.storage.v1.DownloadImageResponse
+	(*ImageCatalogEntry)(nil),         // 43: limiquantix.storage.v1.ImageCatalogEntry
+	(*GetImageCatalogRequest)(nil),    // 44: limiquantix.storage.v1.GetImageCatalogRequest
+	(*GetImageCatalogResponse)(nil),   // 45: limiquantix.storage.v1.GetImageCatalogResponse
+	(*OVAUploadStatus)(nil),           // 46: limiquantix.storage.v1.OVAUploadStatus
+	(*GetOVAUploadStatusRequest)(nil), // 47: limiquantix.storage.v1.GetOVAUploadStatusRequest
+	(*ListOVATemplatesRequest)(nil),   // 48: limiquantix.storage.v1.ListOVATemplatesRequest
+	(*ListOVATemplatesResponse)(nil),  // 49: limiquantix.storage.v1.ListOVATemplatesResponse
+	(*GetOVATemplateRequest)(nil),     // 50: limiquantix.storage.v1.GetOVATemplateRequest
+	(*DeleteOVATemplateRequest)(nil),  // 51: limiquantix.storage.v1.DeleteOVATemplateRequest
+	nil,                               // 52: limiquantix.storage.v1.CreatePoolRequest.LabelsEntry
+	nil,                               // 53: limiquantix.storage.v1.ListPoolsRequest.LabelsEntry
+	nil,                               // 54: limiquantix.storage.v1.UpdatePoolRequest.LabelsEntry
+	nil,                               // 55: limiquantix.storage.v1.CreateVolumeRequest.LabelsEntry
+	nil,                               // 56: limiquantix.storage.v1.ListVolumesRequest.LabelsEntry
+	nil,                               // 57: limiquantix.storage.v1.UpdateVolumeRequest.LabelsEntry
+	nil,                               // 58: limiquantix.storage.v1.CreateSnapshotRequest.LabelsEntry
+	nil,                               // 59: limiquantix.storage.v1.CreateImageRequest.LabelsEntry
+	nil,                               // 60: limiquantix.storage.v1.ListImagesRequest.LabelsEntry
+	nil,                               // 61: limiquantix.storage.v1.UpdateImageRequest.LabelsEntry
+	(*StoragePoolSpec)(nil),           // 62: limiquantix.storage.v1.StoragePoolSpec
+	(StorageBackend_BackendType)(0),   // 63: limiquantix.storage.v1.StorageBackend.BackendType
+	(*StoragePool)(nil),               // 64: limiquantix.storage.v1.StoragePool
+	(*fieldmaskpb.FieldMask)(nil),     // 65: google.protobuf.FieldMask
+	(*VolumeSpec)(nil),                // 66: limiquantix.storage.v1.VolumeSpec
+	(VolumeStatus_Phase)(0),           // 67: limiquantix.storage.v1.VolumeStatus.Phase
+	(*Volume)(nil),                    // 68: limiquantix.storage.v1.Volume
+	(*RetentionPolicy)(nil),           // 69: limiquantix.storage.v1.RetentionPolicy
+	(*VolumeSnapshot)(nil),            // 70: limiquantix.storage.v1.VolumeSnapshot
+	(*ImageSpec)(nil),                 // 71: limiquantix.storage.v1.ImageSpec
+	(OsInfo_OsFamily)(0),              // 72: limiquantix.storage.v1.OsInfo.OsFamily
+	(ImageSpec_Visibility)(0),         // 73: limiquantix.storage.v1.ImageSpec.Visibility
+	(*Image)(nil),                     // 74: limiquantix.storage.v1.Image
+	(*OsInfo)(nil),                    // 75: limiquantix.storage.v1.OsInfo
+	(*ImageRequirements)(nil),         // 76: limiquantix.storage.v1.ImageRequirements
+	(*OvaMetadata)(nil),               // 77: limiquantix.storage.v1.OvaMetadata
+	(*emptypb.Empty)(nil),             // 78: google.protobuf.Empty
 }
 var file_limiquantix_storage_v1_storage_service_proto_depIdxs = []int32{
-	45, // 0: limiquantix.storage.v1.CreatePoolRequest.labels:type_name -> limiquantix.storage.v1.CreatePoolRequest.LabelsEntry
-	55, // 1: limiquantix.storage.v1.CreatePoolRequest.spec:type_name -> limiquantix.storage.v1.StoragePoolSpec
-	46, // 2: limiquantix.storage.v1.ListPoolsRequest.labels:type_name -> limiquantix.storage.v1.ListPoolsRequest.LabelsEntry
-	56, // 3: limiquantix.storage.v1.ListPoolsRequest.backend_type:type_name -> limiquantix.storage.v1.StorageBackend.BackendType
-	57, // 4: limiquantix.storage.v1.ListPoolsResponse.pools:type_name -> limiquantix.storage.v1.StoragePool
-	55, // 5: limiquantix.storage.v1.UpdatePoolRequest.spec:type_name -> limiquantix.storage.v1.StoragePoolSpec
-	58, // 6: limiquantix.storage.v1.UpdatePoolRequest.update_mask:type_name -> google.protobuf.FieldMask
-	47, // 7: limiquantix.storage.v1.UpdatePoolRequest.labels:type_name -> limiquantix.storage.v1.UpdatePoolRequest.LabelsEntry
-	48, // 8: limiquantix.storage.v1.CreateVolumeRequest.labels:type_name -> limiquantix.storage.v1.CreateVolumeRequest.LabelsEntry
-	59, // 9: limiquantix.storage.v1.CreateVolumeRequest.spec:type_name -> limiquantix.storage.v1.VolumeSpec
-	49, // 10: limiquantix.storage.v1.ListVolumesRequest.labels:type_name -> limiquantix.storage.v1.ListVolumesRequest.LabelsEntry
-	60, // 11: limiquantix.storage.v1.ListVolumesRequest.phase:type_name -> limiquantix.storage.v1.VolumeStatus.Phase
-	61, // 12: limiquantix.storage.v1.ListVolumesResponse.volumes:type_name -> limiquantix.storage.v1.Volume
-	59, // 13: limiquantix.storage.v1.UpdateVolumeRequest.spec:type_name -> limiquantix.storage.v1.VolumeSpec
-	58, // 14: limiquantix.storage.v1.UpdateVolumeRequest.update_mask:type_name -> google.protobuf.FieldMask
-	50, // 15: limiquantix.storage.v1.UpdateVolumeRequest.labels:type_name -> limiquantix.storage.v1.UpdateVolumeRequest.LabelsEntry
-	51, // 16: limiquantix.storage.v1.CreateSnapshotRequest.labels:type_name -> limiquantix.storage.v1.CreateSnapshotRequest.LabelsEntry
-	62, // 17: limiquantix.storage.v1.CreateSnapshotRequest.retention:type_name -> limiquantix.storage.v1.RetentionPolicy
-	63, // 18: limiquantix.storage.v1.ListSnapshotsResponse.snapshots:type_name -> limiquantix.storage.v1.VolumeSnapshot
-	52, // 19: limiquantix.storage.v1.CreateImageRequest.labels:type_name -> limiquantix.storage.v1.CreateImageRequest.LabelsEntry
-	64, // 20: limiquantix.storage.v1.CreateImageRequest.spec:type_name -> limiquantix.storage.v1.ImageSpec
-	53, // 21: limiquantix.storage.v1.ListImagesRequest.labels:type_name -> limiquantix.storage.v1.ListImagesRequest.LabelsEntry
-	65, // 22: limiquantix.storage.v1.ListImagesRequest.os_family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
-	66, // 23: limiquantix.storage.v1.ListImagesRequest.visibility:type_name -> limiquantix.storage.v1.ImageSpec.Visibility
-	67, // 24: limiquantix.storage.v1.ListImagesResponse.images:type_name -> limiquantix.storage.v1.Image
-	54, // 25: limiquantix.storage.v1.UpdateImageRequest.labels:type_name -> limiquantix.storage.v1.UpdateImageRequest.LabelsEntry
-	66, // 26: limiquantix.storage.v1.UpdateImageRequest.visibility:type_name -> limiquantix.storage.v1.ImageSpec.Visibility
-	68, // 27: limiquantix.storage.v1.ImportImageRequest.os_info:type_name -> limiquantix.storage.v1.OsInfo
-	67, // 28: limiquantix.storage.v1.ImportImageResponse.image:type_name -> limiquantix.storage.v1.Image
+	52, // 0: limiquantix.storage.v1.CreatePoolRequest.labels:type_name -> limiquantix.storage.v1.CreatePoolRequest.LabelsEntry
+	62, // 1: limiquantix.storage.v1.CreatePoolRequest.spec:type_name -> limiquantix.storage.v1.StoragePoolSpec
+	53, // 2: limiquantix.storage.v1.ListPoolsRequest.labels:type_name -> limiquantix.storage.v1.ListPoolsRequest.LabelsEntry
+	63, // 3: limiquantix.storage.v1.ListPoolsRequest.backend_type:type_name -> limiquantix.storage.v1.StorageBackend.BackendType
+	64, // 4: limiquantix.storage.v1.ListPoolsResponse.pools:type_name -> limiquantix.storage.v1.StoragePool
+	62, // 5: limiquantix.storage.v1.UpdatePoolRequest.spec:type_name -> limiquantix.storage.v1.StoragePoolSpec
+	65, // 6: limiquantix.storage.v1.UpdatePoolRequest.update_mask:type_name -> google.protobuf.FieldMask
+	54, // 7: limiquantix.storage.v1.UpdatePoolRequest.labels:type_name -> limiquantix.storage.v1.UpdatePoolRequest.LabelsEntry
+	55, // 8: limiquantix.storage.v1.CreateVolumeRequest.labels:type_name -> limiquantix.storage.v1.CreateVolumeRequest.LabelsEntry
+	66, // 9: limiquantix.storage.v1.CreateVolumeRequest.spec:type_name -> limiquantix.storage.v1.VolumeSpec
+	56, // 10: limiquantix.storage.v1.ListVolumesRequest.labels:type_name -> limiquantix.storage.v1.ListVolumesRequest.LabelsEntry
+	67, // 11: limiquantix.storage.v1.ListVolumesRequest.phase:type_name -> limiquantix.storage.v1.VolumeStatus.Phase
+	68, // 12: limiquantix.storage.v1.ListVolumesResponse.volumes:type_name -> limiquantix.storage.v1.Volume
+	66, // 13: limiquantix.storage.v1.UpdateVolumeRequest.spec:type_name -> limiquantix.storage.v1.VolumeSpec
+	65, // 14: limiquantix.storage.v1.UpdateVolumeRequest.update_mask:type_name -> google.protobuf.FieldMask
+	57, // 15: limiquantix.storage.v1.UpdateVolumeRequest.labels:type_name -> limiquantix.storage.v1.UpdateVolumeRequest.LabelsEntry
+	58, // 16: limiquantix.storage.v1.CreateSnapshotRequest.labels:type_name -> limiquantix.storage.v1.CreateSnapshotRequest.LabelsEntry
+	69, // 17: limiquantix.storage.v1.CreateSnapshotRequest.retention:type_name -> limiquantix.storage.v1.RetentionPolicy
+	70, // 18: limiquantix.storage.v1.ListSnapshotsResponse.snapshots:type_name -> limiquantix.storage.v1.VolumeSnapshot
+	59, // 19: limiquantix.storage.v1.CreateImageRequest.labels:type_name -> limiquantix.storage.v1.CreateImageRequest.LabelsEntry
+	71, // 20: limiquantix.storage.v1.CreateImageRequest.spec:type_name -> limiquantix.storage.v1.ImageSpec
+	60, // 21: limiquantix.storage.v1.ListImagesRequest.labels:type_name -> limiquantix.storage.v1.ListImagesRequest.LabelsEntry
+	72, // 22: limiquantix.storage.v1.ListImagesRequest.os_family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
+	73, // 23: limiquantix.storage.v1.ListImagesRequest.visibility:type_name -> limiquantix.storage.v1.ImageSpec.Visibility
+	74, // 24: limiquantix.storage.v1.ListImagesResponse.images:type_name -> limiquantix.storage.v1.Image
+	61, // 25: limiquantix.storage.v1.UpdateImageRequest.labels:type_name -> limiquantix.storage.v1.UpdateImageRequest.LabelsEntry
+	73, // 26: limiquantix.storage.v1.UpdateImageRequest.visibility:type_name -> limiquantix.storage.v1.ImageSpec.Visibility
+	75, // 27: limiquantix.storage.v1.ImportImageRequest.os_info:type_name -> limiquantix.storage.v1.OsInfo
+	74, // 28: limiquantix.storage.v1.ImportImageResponse.image:type_name -> limiquantix.storage.v1.Image
 	0,  // 29: limiquantix.storage.v1.ImportStatus.status:type_name -> limiquantix.storage.v1.ImportStatus.Status
-	38, // 30: limiquantix.storage.v1.ScanLocalImagesRequest.images:type_name -> limiquantix.storage.v1.LocalImageInfo
-	68, // 31: limiquantix.storage.v1.LocalImageInfo.detected_os:type_name -> limiquantix.storage.v1.OsInfo
-	67, // 32: limiquantix.storage.v1.DownloadImageResponse.image:type_name -> limiquantix.storage.v1.Image
-	68, // 33: limiquantix.storage.v1.ImageCatalogEntry.os:type_name -> limiquantix.storage.v1.OsInfo
-	69, // 34: limiquantix.storage.v1.ImageCatalogEntry.requirements:type_name -> limiquantix.storage.v1.ImageRequirements
-	65, // 35: limiquantix.storage.v1.GetImageCatalogRequest.os_family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
-	42, // 36: limiquantix.storage.v1.GetImageCatalogResponse.images:type_name -> limiquantix.storage.v1.ImageCatalogEntry
-	1,  // 37: limiquantix.storage.v1.StoragePoolService.CreatePool:input_type -> limiquantix.storage.v1.CreatePoolRequest
-	2,  // 38: limiquantix.storage.v1.StoragePoolService.GetPool:input_type -> limiquantix.storage.v1.GetPoolRequest
-	3,  // 39: limiquantix.storage.v1.StoragePoolService.ListPools:input_type -> limiquantix.storage.v1.ListPoolsRequest
-	5,  // 40: limiquantix.storage.v1.StoragePoolService.UpdatePool:input_type -> limiquantix.storage.v1.UpdatePoolRequest
-	6,  // 41: limiquantix.storage.v1.StoragePoolService.DeletePool:input_type -> limiquantix.storage.v1.DeletePoolRequest
-	7,  // 42: limiquantix.storage.v1.StoragePoolService.GetPoolMetrics:input_type -> limiquantix.storage.v1.GetPoolMetricsRequest
-	9,  // 43: limiquantix.storage.v1.VolumeService.CreateVolume:input_type -> limiquantix.storage.v1.CreateVolumeRequest
-	10, // 44: limiquantix.storage.v1.VolumeService.GetVolume:input_type -> limiquantix.storage.v1.GetVolumeRequest
-	11, // 45: limiquantix.storage.v1.VolumeService.ListVolumes:input_type -> limiquantix.storage.v1.ListVolumesRequest
-	13, // 46: limiquantix.storage.v1.VolumeService.UpdateVolume:input_type -> limiquantix.storage.v1.UpdateVolumeRequest
-	14, // 47: limiquantix.storage.v1.VolumeService.DeleteVolume:input_type -> limiquantix.storage.v1.DeleteVolumeRequest
-	15, // 48: limiquantix.storage.v1.VolumeService.ResizeVolume:input_type -> limiquantix.storage.v1.ResizeVolumeRequest
-	16, // 49: limiquantix.storage.v1.VolumeService.AttachVolume:input_type -> limiquantix.storage.v1.AttachVolumeRequest
-	17, // 50: limiquantix.storage.v1.VolumeService.DetachVolume:input_type -> limiquantix.storage.v1.DetachVolumeRequest
-	18, // 51: limiquantix.storage.v1.VolumeService.CloneVolume:input_type -> limiquantix.storage.v1.CloneVolumeRequest
-	19, // 52: limiquantix.storage.v1.VolumeService.GetVolumeMetrics:input_type -> limiquantix.storage.v1.GetVolumeMetricsRequest
-	21, // 53: limiquantix.storage.v1.SnapshotService.CreateSnapshot:input_type -> limiquantix.storage.v1.CreateSnapshotRequest
-	22, // 54: limiquantix.storage.v1.SnapshotService.GetSnapshot:input_type -> limiquantix.storage.v1.GetSnapshotRequest
-	23, // 55: limiquantix.storage.v1.SnapshotService.ListSnapshots:input_type -> limiquantix.storage.v1.ListSnapshotsRequest
-	25, // 56: limiquantix.storage.v1.SnapshotService.DeleteSnapshot:input_type -> limiquantix.storage.v1.DeleteSnapshotRequest
-	26, // 57: limiquantix.storage.v1.SnapshotService.RestoreSnapshot:input_type -> limiquantix.storage.v1.RestoreSnapshotRequest
-	27, // 58: limiquantix.storage.v1.ImageService.CreateImage:input_type -> limiquantix.storage.v1.CreateImageRequest
-	28, // 59: limiquantix.storage.v1.ImageService.GetImage:input_type -> limiquantix.storage.v1.GetImageRequest
-	29, // 60: limiquantix.storage.v1.ImageService.ListImages:input_type -> limiquantix.storage.v1.ListImagesRequest
-	31, // 61: limiquantix.storage.v1.ImageService.UpdateImage:input_type -> limiquantix.storage.v1.UpdateImageRequest
-	32, // 62: limiquantix.storage.v1.ImageService.DeleteImage:input_type -> limiquantix.storage.v1.DeleteImageRequest
-	33, // 63: limiquantix.storage.v1.ImageService.ImportImage:input_type -> limiquantix.storage.v1.ImportImageRequest
-	35, // 64: limiquantix.storage.v1.ImageService.GetImportStatus:input_type -> limiquantix.storage.v1.GetImportStatusRequest
-	37, // 65: limiquantix.storage.v1.ImageService.ScanLocalImages:input_type -> limiquantix.storage.v1.ScanLocalImagesRequest
-	40, // 66: limiquantix.storage.v1.ImageService.DownloadImage:input_type -> limiquantix.storage.v1.DownloadImageRequest
-	43, // 67: limiquantix.storage.v1.ImageService.GetImageCatalog:input_type -> limiquantix.storage.v1.GetImageCatalogRequest
-	57, // 68: limiquantix.storage.v1.StoragePoolService.CreatePool:output_type -> limiquantix.storage.v1.StoragePool
-	57, // 69: limiquantix.storage.v1.StoragePoolService.GetPool:output_type -> limiquantix.storage.v1.StoragePool
-	4,  // 70: limiquantix.storage.v1.StoragePoolService.ListPools:output_type -> limiquantix.storage.v1.ListPoolsResponse
-	57, // 71: limiquantix.storage.v1.StoragePoolService.UpdatePool:output_type -> limiquantix.storage.v1.StoragePool
-	70, // 72: limiquantix.storage.v1.StoragePoolService.DeletePool:output_type -> google.protobuf.Empty
-	8,  // 73: limiquantix.storage.v1.StoragePoolService.GetPoolMetrics:output_type -> limiquantix.storage.v1.PoolMetrics
-	61, // 74: limiquantix.storage.v1.VolumeService.CreateVolume:output_type -> limiquantix.storage.v1.Volume
-	61, // 75: limiquantix.storage.v1.VolumeService.GetVolume:output_type -> limiquantix.storage.v1.Volume
-	12, // 76: limiquantix.storage.v1.VolumeService.ListVolumes:output_type -> limiquantix.storage.v1.ListVolumesResponse
-	61, // 77: limiquantix.storage.v1.VolumeService.UpdateVolume:output_type -> limiquantix.storage.v1.Volume
-	70, // 78: limiquantix.storage.v1.VolumeService.DeleteVolume:output_type -> google.protobuf.Empty
-	61, // 79: limiquantix.storage.v1.VolumeService.ResizeVolume:output_type -> limiquantix.storage.v1.Volume
-	61, // 80: limiquantix.storage.v1.VolumeService.AttachVolume:output_type -> limiquantix.storage.v1.Volume
-	61, // 81: limiquantix.storage.v1.VolumeService.DetachVolume:output_type -> limiquantix.storage.v1.Volume
-	61, // 82: limiquantix.storage.v1.VolumeService.CloneVolume:output_type -> limiquantix.storage.v1.Volume
-	20, // 83: limiquantix.storage.v1.VolumeService.GetVolumeMetrics:output_type -> limiquantix.storage.v1.VolumeMetrics
-	63, // 84: limiquantix.storage.v1.SnapshotService.CreateSnapshot:output_type -> limiquantix.storage.v1.VolumeSnapshot
-	63, // 85: limiquantix.storage.v1.SnapshotService.GetSnapshot:output_type -> limiquantix.storage.v1.VolumeSnapshot
-	24, // 86: limiquantix.storage.v1.SnapshotService.ListSnapshots:output_type -> limiquantix.storage.v1.ListSnapshotsResponse
-	70, // 87: limiquantix.storage.v1.SnapshotService.DeleteSnapshot:output_type -> google.protobuf.Empty
-	61, // 88: limiquantix.storage.v1.SnapshotService.RestoreSnapshot:output_type -> limiquantix.storage.v1.Volume
-	67, // 89: limiquantix.storage.v1.ImageService.CreateImage:output_type -> limiquantix.storage.v1.Image
-	67, // 90: limiquantix.storage.v1.ImageService.GetImage:output_type -> limiquantix.storage.v1.Image
-	30, // 91: limiquantix.storage.v1.ImageService.ListImages:output_type -> limiquantix.storage.v1.ListImagesResponse
-	67, // 92: limiquantix.storage.v1.ImageService.UpdateImage:output_type -> limiquantix.storage.v1.Image
-	70, // 93: limiquantix.storage.v1.ImageService.DeleteImage:output_type -> google.protobuf.Empty
-	34, // 94: limiquantix.storage.v1.ImageService.ImportImage:output_type -> limiquantix.storage.v1.ImportImageResponse
-	36, // 95: limiquantix.storage.v1.ImageService.GetImportStatus:output_type -> limiquantix.storage.v1.ImportStatus
-	39, // 96: limiquantix.storage.v1.ImageService.ScanLocalImages:output_type -> limiquantix.storage.v1.ScanLocalImagesResponse
-	41, // 97: limiquantix.storage.v1.ImageService.DownloadImage:output_type -> limiquantix.storage.v1.DownloadImageResponse
-	44, // 98: limiquantix.storage.v1.ImageService.GetImageCatalog:output_type -> limiquantix.storage.v1.GetImageCatalogResponse
-	68, // [68:99] is the sub-list for method output_type
-	37, // [37:68] is the sub-list for method input_type
-	37, // [37:37] is the sub-list for extension type_name
-	37, // [37:37] is the sub-list for extension extendee
-	0,  // [0:37] is the sub-list for field type_name
+	39, // 30: limiquantix.storage.v1.ScanLocalImagesRequest.images:type_name -> limiquantix.storage.v1.LocalImageInfo
+	75, // 31: limiquantix.storage.v1.LocalImageInfo.detected_os:type_name -> limiquantix.storage.v1.OsInfo
+	74, // 32: limiquantix.storage.v1.DownloadImageResponse.image:type_name -> limiquantix.storage.v1.Image
+	75, // 33: limiquantix.storage.v1.ImageCatalogEntry.os:type_name -> limiquantix.storage.v1.OsInfo
+	76, // 34: limiquantix.storage.v1.ImageCatalogEntry.requirements:type_name -> limiquantix.storage.v1.ImageRequirements
+	72, // 35: limiquantix.storage.v1.GetImageCatalogRequest.os_family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
+	43, // 36: limiquantix.storage.v1.GetImageCatalogResponse.images:type_name -> limiquantix.storage.v1.ImageCatalogEntry
+	1,  // 37: limiquantix.storage.v1.OVAUploadStatus.status:type_name -> limiquantix.storage.v1.OVAUploadStatus.Status
+	77, // 38: limiquantix.storage.v1.OVAUploadStatus.metadata:type_name -> limiquantix.storage.v1.OvaMetadata
+	74, // 39: limiquantix.storage.v1.OVAUploadStatus.image:type_name -> limiquantix.storage.v1.Image
+	74, // 40: limiquantix.storage.v1.ListOVATemplatesResponse.templates:type_name -> limiquantix.storage.v1.Image
+	2,  // 41: limiquantix.storage.v1.StoragePoolService.CreatePool:input_type -> limiquantix.storage.v1.CreatePoolRequest
+	3,  // 42: limiquantix.storage.v1.StoragePoolService.GetPool:input_type -> limiquantix.storage.v1.GetPoolRequest
+	4,  // 43: limiquantix.storage.v1.StoragePoolService.ListPools:input_type -> limiquantix.storage.v1.ListPoolsRequest
+	6,  // 44: limiquantix.storage.v1.StoragePoolService.UpdatePool:input_type -> limiquantix.storage.v1.UpdatePoolRequest
+	7,  // 45: limiquantix.storage.v1.StoragePoolService.DeletePool:input_type -> limiquantix.storage.v1.DeletePoolRequest
+	8,  // 46: limiquantix.storage.v1.StoragePoolService.GetPoolMetrics:input_type -> limiquantix.storage.v1.GetPoolMetricsRequest
+	10, // 47: limiquantix.storage.v1.VolumeService.CreateVolume:input_type -> limiquantix.storage.v1.CreateVolumeRequest
+	11, // 48: limiquantix.storage.v1.VolumeService.GetVolume:input_type -> limiquantix.storage.v1.GetVolumeRequest
+	12, // 49: limiquantix.storage.v1.VolumeService.ListVolumes:input_type -> limiquantix.storage.v1.ListVolumesRequest
+	14, // 50: limiquantix.storage.v1.VolumeService.UpdateVolume:input_type -> limiquantix.storage.v1.UpdateVolumeRequest
+	15, // 51: limiquantix.storage.v1.VolumeService.DeleteVolume:input_type -> limiquantix.storage.v1.DeleteVolumeRequest
+	16, // 52: limiquantix.storage.v1.VolumeService.ResizeVolume:input_type -> limiquantix.storage.v1.ResizeVolumeRequest
+	17, // 53: limiquantix.storage.v1.VolumeService.AttachVolume:input_type -> limiquantix.storage.v1.AttachVolumeRequest
+	18, // 54: limiquantix.storage.v1.VolumeService.DetachVolume:input_type -> limiquantix.storage.v1.DetachVolumeRequest
+	19, // 55: limiquantix.storage.v1.VolumeService.CloneVolume:input_type -> limiquantix.storage.v1.CloneVolumeRequest
+	20, // 56: limiquantix.storage.v1.VolumeService.GetVolumeMetrics:input_type -> limiquantix.storage.v1.GetVolumeMetricsRequest
+	22, // 57: limiquantix.storage.v1.SnapshotService.CreateSnapshot:input_type -> limiquantix.storage.v1.CreateSnapshotRequest
+	23, // 58: limiquantix.storage.v1.SnapshotService.GetSnapshot:input_type -> limiquantix.storage.v1.GetSnapshotRequest
+	24, // 59: limiquantix.storage.v1.SnapshotService.ListSnapshots:input_type -> limiquantix.storage.v1.ListSnapshotsRequest
+	26, // 60: limiquantix.storage.v1.SnapshotService.DeleteSnapshot:input_type -> limiquantix.storage.v1.DeleteSnapshotRequest
+	27, // 61: limiquantix.storage.v1.SnapshotService.RestoreSnapshot:input_type -> limiquantix.storage.v1.RestoreSnapshotRequest
+	28, // 62: limiquantix.storage.v1.ImageService.CreateImage:input_type -> limiquantix.storage.v1.CreateImageRequest
+	29, // 63: limiquantix.storage.v1.ImageService.GetImage:input_type -> limiquantix.storage.v1.GetImageRequest
+	30, // 64: limiquantix.storage.v1.ImageService.ListImages:input_type -> limiquantix.storage.v1.ListImagesRequest
+	32, // 65: limiquantix.storage.v1.ImageService.UpdateImage:input_type -> limiquantix.storage.v1.UpdateImageRequest
+	33, // 66: limiquantix.storage.v1.ImageService.DeleteImage:input_type -> limiquantix.storage.v1.DeleteImageRequest
+	34, // 67: limiquantix.storage.v1.ImageService.ImportImage:input_type -> limiquantix.storage.v1.ImportImageRequest
+	36, // 68: limiquantix.storage.v1.ImageService.GetImportStatus:input_type -> limiquantix.storage.v1.GetImportStatusRequest
+	38, // 69: limiquantix.storage.v1.ImageService.ScanLocalImages:input_type -> limiquantix.storage.v1.ScanLocalImagesRequest
+	41, // 70: limiquantix.storage.v1.ImageService.DownloadImage:input_type -> limiquantix.storage.v1.DownloadImageRequest
+	44, // 71: limiquantix.storage.v1.ImageService.GetImageCatalog:input_type -> limiquantix.storage.v1.GetImageCatalogRequest
+	47, // 72: limiquantix.storage.v1.OVAService.GetOVAUploadStatus:input_type -> limiquantix.storage.v1.GetOVAUploadStatusRequest
+	48, // 73: limiquantix.storage.v1.OVAService.ListOVATemplates:input_type -> limiquantix.storage.v1.ListOVATemplatesRequest
+	50, // 74: limiquantix.storage.v1.OVAService.GetOVATemplate:input_type -> limiquantix.storage.v1.GetOVATemplateRequest
+	51, // 75: limiquantix.storage.v1.OVAService.DeleteOVATemplate:input_type -> limiquantix.storage.v1.DeleteOVATemplateRequest
+	64, // 76: limiquantix.storage.v1.StoragePoolService.CreatePool:output_type -> limiquantix.storage.v1.StoragePool
+	64, // 77: limiquantix.storage.v1.StoragePoolService.GetPool:output_type -> limiquantix.storage.v1.StoragePool
+	5,  // 78: limiquantix.storage.v1.StoragePoolService.ListPools:output_type -> limiquantix.storage.v1.ListPoolsResponse
+	64, // 79: limiquantix.storage.v1.StoragePoolService.UpdatePool:output_type -> limiquantix.storage.v1.StoragePool
+	78, // 80: limiquantix.storage.v1.StoragePoolService.DeletePool:output_type -> google.protobuf.Empty
+	9,  // 81: limiquantix.storage.v1.StoragePoolService.GetPoolMetrics:output_type -> limiquantix.storage.v1.PoolMetrics
+	68, // 82: limiquantix.storage.v1.VolumeService.CreateVolume:output_type -> limiquantix.storage.v1.Volume
+	68, // 83: limiquantix.storage.v1.VolumeService.GetVolume:output_type -> limiquantix.storage.v1.Volume
+	13, // 84: limiquantix.storage.v1.VolumeService.ListVolumes:output_type -> limiquantix.storage.v1.ListVolumesResponse
+	68, // 85: limiquantix.storage.v1.VolumeService.UpdateVolume:output_type -> limiquantix.storage.v1.Volume
+	78, // 86: limiquantix.storage.v1.VolumeService.DeleteVolume:output_type -> google.protobuf.Empty
+	68, // 87: limiquantix.storage.v1.VolumeService.ResizeVolume:output_type -> limiquantix.storage.v1.Volume
+	68, // 88: limiquantix.storage.v1.VolumeService.AttachVolume:output_type -> limiquantix.storage.v1.Volume
+	68, // 89: limiquantix.storage.v1.VolumeService.DetachVolume:output_type -> limiquantix.storage.v1.Volume
+	68, // 90: limiquantix.storage.v1.VolumeService.CloneVolume:output_type -> limiquantix.storage.v1.Volume
+	21, // 91: limiquantix.storage.v1.VolumeService.GetVolumeMetrics:output_type -> limiquantix.storage.v1.VolumeMetrics
+	70, // 92: limiquantix.storage.v1.SnapshotService.CreateSnapshot:output_type -> limiquantix.storage.v1.VolumeSnapshot
+	70, // 93: limiquantix.storage.v1.SnapshotService.GetSnapshot:output_type -> limiquantix.storage.v1.VolumeSnapshot
+	25, // 94: limiquantix.storage.v1.SnapshotService.ListSnapshots:output_type -> limiquantix.storage.v1.ListSnapshotsResponse
+	78, // 95: limiquantix.storage.v1.SnapshotService.DeleteSnapshot:output_type -> google.protobuf.Empty
+	68, // 96: limiquantix.storage.v1.SnapshotService.RestoreSnapshot:output_type -> limiquantix.storage.v1.Volume
+	74, // 97: limiquantix.storage.v1.ImageService.CreateImage:output_type -> limiquantix.storage.v1.Image
+	74, // 98: limiquantix.storage.v1.ImageService.GetImage:output_type -> limiquantix.storage.v1.Image
+	31, // 99: limiquantix.storage.v1.ImageService.ListImages:output_type -> limiquantix.storage.v1.ListImagesResponse
+	74, // 100: limiquantix.storage.v1.ImageService.UpdateImage:output_type -> limiquantix.storage.v1.Image
+	78, // 101: limiquantix.storage.v1.ImageService.DeleteImage:output_type -> google.protobuf.Empty
+	35, // 102: limiquantix.storage.v1.ImageService.ImportImage:output_type -> limiquantix.storage.v1.ImportImageResponse
+	37, // 103: limiquantix.storage.v1.ImageService.GetImportStatus:output_type -> limiquantix.storage.v1.ImportStatus
+	40, // 104: limiquantix.storage.v1.ImageService.ScanLocalImages:output_type -> limiquantix.storage.v1.ScanLocalImagesResponse
+	42, // 105: limiquantix.storage.v1.ImageService.DownloadImage:output_type -> limiquantix.storage.v1.DownloadImageResponse
+	45, // 106: limiquantix.storage.v1.ImageService.GetImageCatalog:output_type -> limiquantix.storage.v1.GetImageCatalogResponse
+	46, // 107: limiquantix.storage.v1.OVAService.GetOVAUploadStatus:output_type -> limiquantix.storage.v1.OVAUploadStatus
+	49, // 108: limiquantix.storage.v1.OVAService.ListOVATemplates:output_type -> limiquantix.storage.v1.ListOVATemplatesResponse
+	74, // 109: limiquantix.storage.v1.OVAService.GetOVATemplate:output_type -> limiquantix.storage.v1.Image
+	78, // 110: limiquantix.storage.v1.OVAService.DeleteOVATemplate:output_type -> google.protobuf.Empty
+	76, // [76:111] is the sub-list for method output_type
+	41, // [41:76] is the sub-list for method input_type
+	41, // [41:41] is the sub-list for extension type_name
+	41, // [41:41] is the sub-list for extension extendee
+	0,  // [0:41] is the sub-list for field type_name
 }
 
 func init() { file_limiquantix_storage_v1_storage_service_proto_init() }
@@ -3564,10 +4089,10 @@ func file_limiquantix_storage_v1_storage_service_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_storage_v1_storage_service_proto_rawDesc), len(file_limiquantix_storage_v1_storage_service_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   54,
+			NumEnums:      2,
+			NumMessages:   60,
 			NumExtensions: 0,
-			NumServices:   4,
+			NumServices:   5,
 		},
 		GoTypes:           file_limiquantix_storage_v1_storage_service_proto_goTypes,
 		DependencyIndexes: file_limiquantix_storage_v1_storage_service_proto_depIdxs,
