@@ -7,4 +7,5 @@
   \___\_\\__,_|\__,_|_| |_|\__|_/_/\_\
                                       
          Quantix-OS v1.0.0
-       The VMware Killer
+              QHMI
+   Qantix Host Management Interface

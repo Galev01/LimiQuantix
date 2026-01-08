@@ -1,0 +1,30 @@
+# Quantix-vDC etcd Configuration
+# Single-node mode for appliance
+
+name: 'quantix-vdc'
+
+# Data directory
+data-dir: /var/lib/etcd
+
+# Client connections
+listen-client-urls: http://127.0.0.1:2379
+advertise-client-urls: http://127.0.0.1:2379
+
+# Peer connections (single-node, localhost only)
+listen-peer-urls: http://127.0.0.1:2380
+initial-advertise-peer-urls: http://127.0.0.1:2380
+
+# Cluster configuration
+initial-cluster: 'quantix-vdc=http://127.0.0.1:2380'
+initial-cluster-token: 'quantix-vdc-cluster'
+initial-cluster-state: 'new'
+
+# Logging
+log-level: info
+
+# Auto compaction
+auto-compaction-mode: periodic
+auto-compaction-retention: "1"
+
+# Quota
+quota-backend-bytes: 2147483648  # 2GB

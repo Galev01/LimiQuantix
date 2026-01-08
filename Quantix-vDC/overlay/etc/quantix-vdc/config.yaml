@@ -1,0 +1,80 @@
+# =============================================================================
+# Quantix-vDC Control Plane Configuration
+# =============================================================================
+# This is the default configuration for the Quantix-vDC control plane.
+# Edit this file to customize your deployment.
+# =============================================================================
+
+# Server settings
+server:
+  # HTTP API port (nginx proxies to this)
+  port: 8080
+  # Bind address (localhost for security, nginx handles external)
+  bind: "127.0.0.1"
+  # Enable debug mode
+  debug: false
+
+# Database configuration (PostgreSQL)
+database:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: ""
+  database: "quantix_vdc"
+  ssl_mode: "disable"
+  max_connections: 50
+  max_idle_connections: 10
+
+# etcd configuration
+etcd:
+  endpoints:
+    - "localhost:2379"
+  dial_timeout: 5s
+  request_timeout: 10s
+
+# Redis configuration
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  database: 0
+
+# TLS settings
+tls:
+  enabled: true
+  cert_file: "/var/lib/quantix-vdc/certs/server.crt"
+  key_file: "/var/lib/quantix-vdc/certs/server.key"
+
+# Logging
+logging:
+  level: "info"
+  format: "json"
+  output: "/var/log/quantix-controlplane.log"
+
+# Authentication
+auth:
+  # JWT secret (generated on first boot)
+  jwt_secret_file: "/var/lib/quantix-vdc/jwt.secret"
+  # Token expiration
+  token_expiry: 24h
+  # Enable local authentication
+  local_auth: true
+
+# Cluster settings
+cluster:
+  # Name of this control plane instance
+  name: "quantix-vdc-primary"
+  # Node registration token file
+  registration_token_file: "/var/lib/quantix-vdc/registration.token"
+
+# API settings
+api:
+  # API version prefix
+  prefix: "/api/v1"
+  # Enable CORS (handled by nginx, disabled here)
+  cors_enabled: false
+  # Rate limiting
+  rate_limit:
+    enabled: true
+    requests_per_second: 100
+    burst: 200

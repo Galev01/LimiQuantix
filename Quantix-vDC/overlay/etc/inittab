@@ -1,0 +1,22 @@
+# Quantix-vDC inittab
+
+# Default runlevel
+::sysinit:/sbin/openrc sysinit
+::sysinit:/sbin/openrc boot
+::wait:/sbin/openrc default
+
+# Console on tty1
+tty1::respawn:/sbin/getty 38400 tty1
+
+# Additional terminals
+tty2::respawn:/sbin/getty 38400 tty2
+tty3::respawn:/sbin/getty 38400 tty3
+
+# Serial console (for headless/VM)
+ttyS0::respawn:/sbin/getty -L 115200 ttyS0 vt100
+
+# Ctrl-Alt-Delete
+::ctrlaltdel:/sbin/reboot
+
+# Shutdown
+::shutdown:/sbin/openrc shutdown

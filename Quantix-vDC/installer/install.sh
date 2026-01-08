@@ -1,0 +1,389 @@
+#!/bin/sh
+# =============================================================================
+# Quantix-vDC Installer
+# =============================================================================
+# Main installation script for Quantix-vDC appliance.
+# Called by the TUI or can be run directly with parameters.
+#
+# Usage:
+#   ./install.sh                    # Interactive TUI mode
+#   ./install.sh --disk /dev/sda    # Non-interactive mode
+#
+# Environment Variables:
+#   TARGET_DISK     - Target disk device (e.g., /dev/sda)
+#   HOSTNAME        - Hostname for the appliance
+#   IP_MODE         - Network mode: dhcp or static
+#   IP_ADDRESS      - Static IP address (if IP_MODE=static)
+#   IP_NETMASK      - Netmask (if IP_MODE=static)
+#   IP_GATEWAY      - Gateway (if IP_MODE=static)
+#   IP_DNS          - DNS server (if IP_MODE=static)
+#   ADMIN_PASSWORD  - Admin password
+# =============================================================================
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Paths
+SQUASHFS_PATH="${SQUASHFS_PATH:-/mnt/cdrom/quantix-vdc/system.squashfs}"
+TARGET_MOUNT="/mnt/target"
+
+# Functions
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_step() {
+    echo -e "${BLUE}[STEP]${NC} $1"
+}
+
+# Cleanup function
+cleanup() {
+    log_info "Cleaning up..."
+    umount "${TARGET_MOUNT}/boot/efi" 2>/dev/null || true
+    umount "${TARGET_MOUNT}/proc" 2>/dev/null || true
+    umount "${TARGET_MOUNT}/sys" 2>/dev/null || true
+    umount "${TARGET_MOUNT}/dev" 2>/dev/null || true
+    umount "${TARGET_MOUNT}" 2>/dev/null || true
+}
+
+trap cleanup EXIT
+
+# Check if running as root
+if [ "$(id -u)" -ne 0 ]; then
+    log_error "This script must be run as root"
+    exit 1
+fi
+
+# Parse command line arguments
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --disk)
+            TARGET_DISK="$2"
+            shift 2
+            ;;
+        --hostname)
+            HOSTNAME="$2"
+            shift 2
+            ;;
+        --dhcp)
+            IP_MODE="dhcp"
+            shift
+            ;;
+        --static)
+            IP_MODE="static"
+            shift
+            ;;
+        --ip)
+            IP_ADDRESS="$2"
+            shift 2
+            ;;
+        --netmask)
+            IP_NETMASK="$2"
+            shift 2
+            ;;
+        --gateway)
+            IP_GATEWAY="$2"
+            shift 2
+            ;;
+        --dns)
+            IP_DNS="$2"
+            shift 2
+            ;;
+        --password)
+            ADMIN_PASSWORD="$2"
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+# Verify required parameters
+if [ -z "$TARGET_DISK" ]; then
+    log_error "TARGET_DISK is required"
+    exit 1
+fi
+
+if [ ! -b "$TARGET_DISK" ]; then
+    log_error "Target disk not found: $TARGET_DISK"
+    exit 1
+fi
+
+if [ ! -f "$SQUASHFS_PATH" ]; then
+    log_error "System image not found: $SQUASHFS_PATH"
+    exit 1
+fi
+
+# Defaults
+HOSTNAME="${HOSTNAME:-quantix-vdc}"
+IP_MODE="${IP_MODE:-dhcp}"
+
+echo ""
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║              Quantix-vDC Installation Starting                ║"
+echo "╚═══════════════════════════════════════════════════════════════╝"
+echo ""
+
+log_info "Installation Parameters:"
+log_info "  Target Disk:  $TARGET_DISK"
+log_info "  Hostname:     $HOSTNAME"
+log_info "  Network:      $IP_MODE"
+if [ "$IP_MODE" = "static" ]; then
+    log_info "  IP Address:   $IP_ADDRESS"
+    log_info "  Netmask:      $IP_NETMASK"
+    log_info "  Gateway:      $IP_GATEWAY"
+    log_info "  DNS:          $IP_DNS"
+fi
+echo ""
+
+# =============================================================================
+# Step 1: Partition the disk
+# =============================================================================
+log_step "Step 1: Partitioning disk..."
+
+# Wipe existing partition table
+dd if=/dev/zero of="$TARGET_DISK" bs=512 count=34 2>/dev/null
+dd if=/dev/zero of="$TARGET_DISK" bs=512 seek=$(($(blockdev --getsz "$TARGET_DISK") - 34)) count=34 2>/dev/null
+
+# Create GPT partition table
+parted -s "$TARGET_DISK" mklabel gpt
+
+# Partition layout:
+# 1: EFI System Partition (256MB)
+# 2: Root partition (10GB)
+# 3: Data partition (rest)
+
+parted -s "$TARGET_DISK" \
+    mkpart ESP fat32 1MiB 257MiB \
+    set 1 esp on \
+    mkpart root ext4 257MiB 10497MiB \
+    mkpart data ext4 10497MiB 100%
+
+# Determine partition naming (nvme vs sd vs vd)
+case "$TARGET_DISK" in
+    /dev/nvme*)
+        PART1="${TARGET_DISK}p1"
+        PART2="${TARGET_DISK}p2"
+        PART3="${TARGET_DISK}p3"
+        ;;
+    *)
+        PART1="${TARGET_DISK}1"
+        PART2="${TARGET_DISK}2"
+        PART3="${TARGET_DISK}3"
+        ;;
+esac
+
+# Wait for partitions to appear
+sleep 2
+
+log_info "Partitions created: $PART1, $PART2, $PART3"
+
+# =============================================================================
+# Step 2: Format partitions
+# =============================================================================
+log_step "Step 2: Formatting partitions..."
+
+mkfs.vfat -F 32 -n QUANTIX-EFI "$PART1"
+mkfs.ext4 -L QUANTIX-ROOT -F "$PART2"
+mkfs.ext4 -L QUANTIX-DATA -F "$PART3"
+
+log_info "Partitions formatted"
+
+# =============================================================================
+# Step 3: Mount partitions
+# =============================================================================
+log_step "Step 3: Mounting partitions..."
+
+mkdir -p "${TARGET_MOUNT}"
+mount "$PART2" "${TARGET_MOUNT}"
+
+mkdir -p "${TARGET_MOUNT}/boot/efi"
+mount "$PART1" "${TARGET_MOUNT}/boot/efi"
+
+mkdir -p "${TARGET_MOUNT}/var/lib"
+
+log_info "Partitions mounted"
+
+# =============================================================================
+# Step 4: Extract system
+# =============================================================================
+log_step "Step 4: Extracting system image..."
+
+# Mount squashfs and copy contents
+mkdir -p /tmp/sqfs
+mount -t squashfs -o loop "$SQUASHFS_PATH" /tmp/sqfs
+
+# Copy system files
+cp -a /tmp/sqfs/* "${TARGET_MOUNT}/"
+
+umount /tmp/sqfs
+rmdir /tmp/sqfs
+
+log_info "System extracted"
+
+# =============================================================================
+# Step 5: Configure fstab
+# =============================================================================
+log_step "Step 5: Configuring fstab..."
+
+# Get UUIDs
+UUID_EFI=$(blkid -s UUID -o value "$PART1")
+UUID_ROOT=$(blkid -s UUID -o value "$PART2")
+UUID_DATA=$(blkid -s UUID -o value "$PART3")
+
+cat > "${TARGET_MOUNT}/etc/fstab" << EOF
+# Quantix-vDC Filesystem Table
+# <device>                                  <mount>         <type>  <options>           <dump> <pass>
+UUID=${UUID_ROOT}   /               ext4    defaults,noatime    0      1
+UUID=${UUID_EFI}    /boot/efi       vfat    defaults,umask=0077 0      2
+UUID=${UUID_DATA}   /var/lib        ext4    defaults,noatime    0      2
+EOF
+
+log_info "fstab configured"
+
+# =============================================================================
+# Step 6: Configure hostname and network
+# =============================================================================
+log_step "Step 6: Configuring system..."
+
+# Hostname
+echo "$HOSTNAME" > "${TARGET_MOUNT}/etc/hostname"
+
+# Hosts
+cat > "${TARGET_MOUNT}/etc/hosts" << EOF
+127.0.0.1       localhost
+127.0.1.1       $HOSTNAME
+::1             localhost ip6-localhost ip6-loopback
+ff02::1         ip6-allnodes
+ff02::2         ip6-allrouters
+EOF
+
+# Network configuration
+if [ "$IP_MODE" = "static" ]; then
+    cat > "${TARGET_MOUNT}/etc/network/interfaces" << EOF
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    address $IP_ADDRESS
+    netmask $IP_NETMASK
+    gateway $IP_GATEWAY
+EOF
+
+    # DNS
+    echo "nameserver $IP_DNS" > "${TARGET_MOUNT}/etc/resolv.conf"
+else
+    cat > "${TARGET_MOUNT}/etc/network/interfaces" << EOF
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+EOF
+fi
+
+log_info "System configured"
+
+# =============================================================================
+# Step 7: Set admin password
+# =============================================================================
+log_step "Step 7: Setting admin password..."
+
+if [ -n "$ADMIN_PASSWORD" ]; then
+    # Generate password hash
+    PASS_HASH=$(echo "$ADMIN_PASSWORD" | openssl passwd -6 -stdin)
+    
+    # Update root password
+    sed -i "s|^root:[^:]*:|root:${PASS_HASH}:|" "${TARGET_MOUNT}/etc/shadow"
+    
+    log_info "Admin password set"
+else
+    log_warn "No admin password set, root login disabled"
+fi
+
+# =============================================================================
+# Step 8: Install bootloader
+# =============================================================================
+log_step "Step 8: Installing bootloader..."
+
+# Mount virtual filesystems for chroot
+mount --bind /dev "${TARGET_MOUNT}/dev"
+mount --bind /proc "${TARGET_MOUNT}/proc"
+mount --bind /sys "${TARGET_MOUNT}/sys"
+
+# Install GRUB for UEFI
+chroot "${TARGET_MOUNT}" grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=QUANTIX-VDC --removable 2>/dev/null || {
+    log_warn "GRUB EFI install failed, trying fallback..."
+    mkdir -p "${TARGET_MOUNT}/boot/efi/EFI/BOOT"
+    if [ -f "${TARGET_MOUNT}/usr/lib/grub/x86_64-efi/grub.efi" ]; then
+        cp "${TARGET_MOUNT}/usr/lib/grub/x86_64-efi/grub.efi" "${TARGET_MOUNT}/boot/efi/EFI/BOOT/BOOTX64.EFI"
+    fi
+}
+
+# Create GRUB configuration
+cat > "${TARGET_MOUNT}/boot/grub/grub.cfg" << EOF
+set timeout=5
+set default=0
+
+menuentry "Quantix-vDC" {
+    linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro quiet
+    initrd /boot/initramfs-lts
+}
+
+menuentry "Quantix-vDC (Recovery)" {
+    linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro single
+    initrd /boot/initramfs-lts
+}
+EOF
+
+# Unmount virtual filesystems
+umount "${TARGET_MOUNT}/dev" 2>/dev/null || true
+umount "${TARGET_MOUNT}/proc" 2>/dev/null || true
+umount "${TARGET_MOUNT}/sys" 2>/dev/null || true
+
+log_info "Bootloader installed"
+
+# =============================================================================
+# Step 9: Finalize
+# =============================================================================
+log_step "Step 9: Finalizing installation..."
+
+# Sync filesystem
+sync
+
+# Unmount partitions
+umount "${TARGET_MOUNT}/boot/efi"
+umount "${TARGET_MOUNT}"
+
+echo ""
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║              Installation Complete!                           ║"
+echo "╠═══════════════════════════════════════════════════════════════╣"
+echo "║                                                               ║"
+echo "║  Quantix-vDC has been installed successfully.                 ║"
+echo "║                                                               ║"
+echo "║  Next Steps:                                                  ║"
+echo "║  1. Remove the installation media                             ║"
+echo "║  2. Reboot the system                                         ║"
+echo "║  3. Access the web console at https://<ip-address>/           ║"
+echo "║                                                               ║"
+echo "╚═══════════════════════════════════════════════════════════════╝"
+echo ""
+
+exit 0

@@ -1,0 +1,4 @@
+# Build output directory
+# Contains:
+#   - quantix-vdc-1.0.0.iso (installation ISO)
+#   - quantix-vdc-1.0.0.ova (OVA appliance)

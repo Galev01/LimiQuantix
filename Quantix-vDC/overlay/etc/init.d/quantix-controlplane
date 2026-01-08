@@ -1,0 +1,95 @@
+#!/sbin/openrc-run
+# =============================================================================
+# Quantix-vDC Control Plane Service
+# =============================================================================
+# Manages the Quantix control plane backend (Go).
+# =============================================================================
+
+name="Quantix Control Plane"
+description="Quantix-vDC centralized control plane"
+command="/usr/bin/qx-controlplane"
+command_args="--config /etc/quantix-vdc/config.yaml"
+command_background="yes"
+pidfile="/run/quantix-controlplane.pid"
+output_log="/var/log/quantix-controlplane.log"
+error_log="/var/log/quantix-controlplane.err.log"
+
+depend() {
+    need net localmount
+    after postgresql redis etcd quantix-firstboot
+    before nginx
+    provide quantix-controlplane
+}
+
+start_pre() {
+    # Ensure log directory exists
+    mkdir -p /var/log
+    
+    # Ensure runtime directory exists
+    mkdir -p /run/quantix-vdc
+    
+    # Ensure config directory exists
+    mkdir -p /etc/quantix-vdc
+    
+    # Ensure data directories exist
+    mkdir -p /var/lib/quantix-vdc
+    mkdir -p /var/lib/quantix-vdc/certs
+    chmod 700 /var/lib/quantix-vdc/certs
+    
+    # Check if binary exists
+    if [ ! -x "$command" ]; then
+        eerror "Control plane binary not found: $command"
+        eerror "The control plane may not be installed properly."
+        return 1
+    fi
+    
+    # Wait for PostgreSQL to be ready
+    if command -v pg_isready >/dev/null 2>&1; then
+        einfo "Waiting for PostgreSQL..."
+        for i in $(seq 1 30); do
+            if pg_isready -q; then
+                break
+            fi
+            sleep 1
+        done
+    fi
+    
+    return 0
+}
+
+start() {
+    ebegin "Starting $name"
+    
+    start-stop-daemon --start \
+        --background \
+        --make-pidfile \
+        --pidfile "$pidfile" \
+        --stdout "$output_log" \
+        --stderr "$error_log" \
+        --exec "$command" \
+        -- $command_args
+    
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping $name"
+    
+    start-stop-daemon --stop \
+        --pidfile "$pidfile" \
+        --retry TERM/30/KILL/5
+    
+    eend $?
+}
+
+status() {
+    if [ -f "$pidfile" ]; then
+        if kill -0 $(cat "$pidfile") 2>/dev/null; then
+            einfo "$name is running (PID: $(cat $pidfile))"
+            return 0
+        fi
+    fi
+    
+    einfo "$name is not running"
+    return 3
+}

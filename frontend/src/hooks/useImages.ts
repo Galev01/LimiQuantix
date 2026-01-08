@@ -279,7 +279,10 @@ export function useImportImage() {
         defaultUser: string;
       };
       storagePoolId?: string;
+      nodeId?: string; // Target node for local storage
     }) => {
+      // Note: nodeId is passed for UI context but backend currently uses storagePoolId
+      // When nodeId is specified, backend should route to node's local ISO storage
       const response = await imageClient.importImage({
         name: params.name,
         description: params.description,
@@ -292,10 +295,13 @@ export function useImportImage() {
           defaultUser: params.osInfo.defaultUser,
         } : undefined,
         storagePoolId: params.storagePoolId,
+        // TODO: Add nodeId to proto when backend supports direct node targeting
+        // nodeId: params.nodeId,
       });
       return {
         jobId: response.jobId,
         image: response.image ? toCloudImage(response.image) : null,
+        nodeId: params.nodeId, // Return for UI feedback
       };
     },
     onSuccess: () => {

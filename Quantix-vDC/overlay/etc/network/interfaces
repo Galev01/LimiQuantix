@@ -1,0 +1,8 @@
+# Quantix-vDC Network Configuration
+# This file is overwritten during installation
+
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp

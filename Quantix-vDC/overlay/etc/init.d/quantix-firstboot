@@ -1,0 +1,119 @@
+#!/sbin/openrc-run
+# =============================================================================
+# Quantix-vDC First Boot Service
+# =============================================================================
+# Runs on first boot to perform initial system configuration.
+# Initializes PostgreSQL, generates TLS certificates, creates admin user.
+# =============================================================================
+
+name="Quantix-vDC First Boot"
+description="One-time first boot configuration"
+
+depend() {
+    need localmount
+    before postgresql redis etcd quantix-controlplane nginx
+}
+
+start() {
+    # Check if first boot
+    if [ -f /var/lib/quantix-vdc/.setup_complete ]; then
+        einfo "First boot already completed"
+        return 0
+    fi
+
+    ebegin "Running first boot configuration"
+
+    # Generate SSH host keys
+    if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+        einfo "Generating SSH host keys..."
+        ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q 2>/dev/null || true
+        ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q 2>/dev/null || true
+        ssh-keygen -t ecdsa -b 521 -f /etc/ssh/ssh_host_ecdsa_key -N "" -q 2>/dev/null || true
+    fi
+
+    # Generate TLS certificates
+    CERT_DIR="/var/lib/quantix-vdc/certs"
+    if [ ! -f "$CERT_DIR/server.key" ]; then
+        einfo "Generating TLS certificates..."
+        mkdir -p "$CERT_DIR"
+        chmod 700 "$CERT_DIR"
+        
+        HOSTNAME=$(hostname)
+        
+        # Get primary IP for SAN
+        PRIMARY_IP=$(ip -4 addr show scope global | grep inet | head -1 | awk '{print $2}' | cut -d/ -f1)
+        PRIMARY_IP=${PRIMARY_IP:-"127.0.0.1"}
+        
+        openssl genrsa -out "$CERT_DIR/server.key" 4096 2>/dev/null
+        openssl req -new -x509 \
+            -key "$CERT_DIR/server.key" \
+            -out "$CERT_DIR/server.crt" \
+            -days 3650 \
+            -subj "/CN=${HOSTNAME}/O=Quantix-KVM/OU=Control-Plane" \
+            -addext "subjectAltName=DNS:${HOSTNAME},DNS:localhost,IP:127.0.0.1,IP:${PRIMARY_IP}" 2>/dev/null
+        
+        chmod 600 "$CERT_DIR/server.key"
+        chmod 644 "$CERT_DIR/server.crt"
+        
+        einfo "TLS certificate generated for ${HOSTNAME} (${PRIMARY_IP})"
+    fi
+
+    # Initialize PostgreSQL
+    PG_DATA="/var/lib/postgresql/16/data"
+    if [ ! -d "$PG_DATA/base" ]; then
+        einfo "Initializing PostgreSQL database..."
+        mkdir -p "$PG_DATA"
+        chown -R postgres:postgres /var/lib/postgresql
+        chmod 700 "$PG_DATA"
+        
+        su -s /bin/sh postgres -c "initdb -D $PG_DATA --encoding=UTF8 --locale=C" 2>/dev/null || {
+            ewarn "Failed to initialize PostgreSQL"
+        }
+        
+        # Configure PostgreSQL for local connections
+        if [ -f "$PG_DATA/pg_hba.conf" ]; then
+            cat > "$PG_DATA/pg_hba.conf" << 'EOF'
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+local   all             all                                     trust
+host    all             all             127.0.0.1/32            trust
+host    all             all             ::1/128                 trust
+EOF
+        fi
+        
+        # Configure PostgreSQL settings
+        if [ -f "$PG_DATA/postgresql.conf" ]; then
+            sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '127.0.0.1'/" "$PG_DATA/postgresql.conf"
+            sed -i "s/#port = 5432/port = 5432/" "$PG_DATA/postgresql.conf"
+        fi
+    fi
+
+    # Initialize etcd data directory
+    if [ ! -d /var/lib/etcd/default.etcd ]; then
+        einfo "Creating etcd data directory..."
+        mkdir -p /var/lib/etcd
+        chown -R root:root /var/lib/etcd
+        chmod 700 /var/lib/etcd
+    fi
+
+    # Initialize Redis data directory
+    if [ ! -d /var/lib/redis ]; then
+        einfo "Creating Redis data directory..."
+        mkdir -p /var/lib/redis
+        chown -R redis:redis /var/lib/redis 2>/dev/null || chown -R root:root /var/lib/redis
+        chmod 700 /var/lib/redis
+    fi
+
+    # Create log directories
+    mkdir -p /var/log/quantix-vdc
+    chmod 755 /var/log/quantix-vdc
+
+    # Mark first boot complete
+    mkdir -p /var/lib/quantix-vdc
+    touch /var/lib/quantix-vdc/.setup_complete
+
+    eend 0
+}
+
+stop() {
+    return 0
+}

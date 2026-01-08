@@ -1,0 +1,78 @@
+#!/sbin/openrc-run
+# =============================================================================
+# Quantix-vDC Console Service
+# =============================================================================
+# Displays system status and management URL on the console.
+# =============================================================================
+
+name="Quantix-vDC Console"
+description="Console status display"
+
+depend() {
+    need localmount net
+    after quantix-controlplane nginx
+}
+
+start() {
+    ebegin "Starting $name"
+    
+    # Get network information
+    PRIMARY_IP=$(ip -4 addr show scope global | grep inet | head -1 | awk '{print $2}' | cut -d/ -f1)
+    HOSTNAME=$(hostname)
+    
+    # Display access information
+    clear
+    cat << EOF
+
+  ██████╗ ██╗   ██╗ █████╗ ███╗   ██╗████████╗██╗██╗  ██╗      ██╗   ██╗██████╗  ██████╗
+ ██╔═══██╗██║   ██║██╔══██╗████╗  ██║╚══██╔══╝██║╚██╗██╔╝      ██║   ██║██╔══██╗██╔════╝
+ ██║   ██║██║   ██║███████║██╔██╗ ██║   ██║   ██║ ╚███╔╝ █████╗██║   ██║██║  ██║██║     
+ ██║▄▄ ██║██║   ██║██╔══██║██║╚██╗██║   ██║   ██║ ██╔██╗ ╚════╝╚██╗ ██╔╝██║  ██║██║     
+ ╚██████╔╝╚██████╔╝██║  ██║██║ ╚████║   ██║   ██║██╔╝ ██╗       ╚████╔╝ ██████╔╝╚██████╗
+  ╚══▀▀═╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═╝        ╚═══╝  ╚═════╝  ╚═════╝
+
+                      Quantix-vDC Control Plane Appliance
+  ─────────────────────────────────────────────────────────────────────────────
+
+  Hostname:    ${HOSTNAME}
+  IP Address:  ${PRIMARY_IP:-"No network connection"}
+
+  ─────────────────────────────────────────────────────────────────────────────
+
+  Web Management Console:
+
+      https://${PRIMARY_IP:-localhost}/
+
+  ─────────────────────────────────────────────────────────────────────────────
+
+  API Endpoint:
+
+      https://${PRIMARY_IP:-localhost}/api/v1/
+
+  ─────────────────────────────────────────────────────────────────────────────
+
+  SSH Access (if enabled):
+
+      ssh root@${PRIMARY_IP:-localhost}
+
+  ─────────────────────────────────────────────────────────────────────────────
+
+  Services:
+    • Control Plane: $(rc-service quantix-controlplane status 2>/dev/null | grep -q "started" && echo "Running" || echo "Stopped")
+    • PostgreSQL:    $(rc-service postgresql status 2>/dev/null | grep -q "started" && echo "Running" || echo "Stopped")
+    • Redis:         $(rc-service redis status 2>/dev/null | grep -q "started" && echo "Running" || echo "Stopped")
+    • etcd:          $(rc-service etcd status 2>/dev/null | grep -q "started" && echo "Running" || echo "Stopped")
+    • nginx:         $(rc-service nginx status 2>/dev/null | grep -q "started" && echo "Running" || echo "Stopped")
+
+  ─────────────────────────────────────────────────────────────────────────────
+  
+  Press Ctrl+Alt+F2 for login shell
+  
+EOF
+
+    eend 0
+}
+
+stop() {
+    return 0
+}
