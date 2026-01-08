@@ -484,24 +484,38 @@ EOF
 echo "✅ OVF descriptor created"
 
 # -----------------------------------------------------------------------------
-# Step 10: Create OVA manifest
+# Step 10: Create OVA manifest and archive
 # -----------------------------------------------------------------------------
-echo "📦 Step 10: Creating OVA manifest..."
+echo "📦 Step 10: Creating OVA package..."
 
 cd "${OVA_DIR}"
 
-# VMware uses SHA1 checksums (SHA256 is also supported but SHA1 is more compatible)
-# The format must be exactly: SHA1(filename)= <hash>
-VMDK_SHA1=$(sha1sum "${VMDK_NAME}" | awk '{print $1}')
+# VMware uses SHA1 checksums - format must be exactly: SHA1(filename)= <hash>
+# Calculate checksums BEFORE creating the archive
 OVF_SHA1=$(sha1sum "quantix-vdc.ovf" | awk '{print $1}')
+VMDK_SHA1=$(sha1sum "${VMDK_NAME}" | awk '{print $1}')
 
-echo "   VMDK SHA1: ${VMDK_SHA1}"
 echo "   OVF SHA1:  ${OVF_SHA1}"
+echo "   VMDK SHA1: ${VMDK_SHA1}"
 
+# Create manifest file - OVF first, then VMDK
 cat > "quantix-vdc.mf" << EOF
 SHA1(quantix-vdc.ovf)= ${OVF_SHA1}
 SHA1(${VMDK_NAME})= ${VMDK_SHA1}
 EOF
+
+# Verify checksums match what we wrote
+echo "   Verifying manifest checksums..."
+echo "   Manifest contents:"
+cat "quantix-vdc.mf"
+
+# Double-check the VMDK checksum
+VMDK_VERIFY=$(sha1sum "${VMDK_NAME}" | awk '{print $1}')
+if [ "$VMDK_SHA1" != "$VMDK_VERIFY" ]; then
+    echo "❌ VMDK checksum changed unexpectedly!"
+    exit 1
+fi
+echo "   ✓ Checksums verified"
 
 echo "✅ Manifest created"
 
@@ -510,13 +524,20 @@ echo "✅ Manifest created"
 # -----------------------------------------------------------------------------
 echo "📦 Step 11: Creating OVA archive..."
 
+# Remove any existing OVA
+rm -f "${OUTPUT_DIR}/${OVA_NAME}"
+
 # OVA is a tar archive with specific ordering:
 # 1. OVF descriptor (must be first)
-# 2. Manifest file
+# 2. Manifest file  
 # 3. Disk files
-# Using POSIX format for maximum compatibility
-tar -cvf "${OUTPUT_DIR}/${OVA_NAME}" \
+# 
+# CRITICAL: Use POSIX tar format without any modifications
+# The --no-auto-compress and explicit format prevent any file modifications
+tar --create \
+    --file="${OUTPUT_DIR}/${OVA_NAME}" \
     --format=ustar \
+    --no-auto-compress \
     quantix-vdc.ovf \
     quantix-vdc.mf \
     "${VMDK_NAME}"
@@ -524,6 +545,27 @@ tar -cvf "${OUTPUT_DIR}/${OVA_NAME}" \
 # Verify the archive was created correctly
 echo "   Verifying OVA contents..."
 tar -tvf "${OUTPUT_DIR}/${OVA_NAME}"
+
+# Extract and verify the VMDK checksum matches
+echo "   Extracting VMDK to verify integrity..."
+VERIFY_DIR="/tmp/ova-verify"
+rm -rf "$VERIFY_DIR"
+mkdir -p "$VERIFY_DIR"
+tar -xf "${OUTPUT_DIR}/${OVA_NAME}" -C "$VERIFY_DIR" "${VMDK_NAME}"
+EXTRACTED_SHA1=$(sha1sum "$VERIFY_DIR/${VMDK_NAME}" | awk '{print $1}')
+
+echo "   Original VMDK SHA1:  ${VMDK_SHA1}"
+echo "   Extracted VMDK SHA1: ${EXTRACTED_SHA1}"
+
+if [ "$VMDK_SHA1" != "$EXTRACTED_SHA1" ]; then
+    echo "❌ VMDK checksum mismatch after tar extraction!"
+    echo "   This indicates the tar archive is corrupting the file."
+    rm -rf "$VERIFY_DIR"
+    exit 1
+fi
+
+echo "   ✓ OVA integrity verified"
+rm -rf "$VERIFY_DIR"
 
 # Calculate final size
 OVA_SIZE=$(du -h "${OUTPUT_DIR}/${OVA_NAME}" | cut -f1)
