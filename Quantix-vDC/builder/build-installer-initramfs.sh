@@ -29,33 +29,80 @@ mkdir -p "${INITRAMFS_DIR}/installer"
 mkdir -p "${INITRAMFS_DIR}/lib/modules"
 
 # =============================================================================
-# Copy busybox (CRITICAL - provides all basic commands)
+# Install STATIC Busybox (CRITICAL - must be statically linked!)
 # =============================================================================
-echo "   Copying busybox..."
-if [ -f /bin/busybox ]; then
-    cp /bin/busybox "${INITRAMFS_DIR}/bin/"
-    chmod +x "${INITRAMFS_DIR}/bin/busybox"
-    
-    # Create symlinks for ALL essential commands
-    for cmd in sh ash ls cat cp mv rm mkdir rmdir mount umount mknod grep sed awk \
-               sleep echo ln chmod chown chroot switch_root pivot_root \
-               modprobe insmod lsmod depmod \
-               fdisk sfdisk blkid lsblk dd clear dmesg \
-               ip ifconfig route ping hostname uname date \
-               mdev find xargs head tail sort uniq wc cut tr \
-               tar gzip gunzip zcat cpio vi ps kill killall \
-               sync reboot poweroff halt true false test [ expr; do
-        ln -sf busybox "${INITRAMFS_DIR}/bin/$cmd" 2>/dev/null || true
-    done
-    
-    # Also create in /sbin for compatibility
-    for cmd in modprobe insmod lsmod depmod mdev blkid switch_root pivot_root reboot poweroff halt; do
-        ln -sf ../bin/busybox "${INITRAMFS_DIR}/sbin/$cmd" 2>/dev/null || true
-    done
+echo "   Installing STATIC busybox..."
+
+BUSYBOX_PATH="${INITRAMFS_DIR}/bin/busybox"
+
+# Method 1: Install busybox-static from Alpine (most reliable)
+echo "   Trying to install busybox-static from Alpine..."
+apk add --no-cache busybox-static >/dev/null 2>&1 || true
+
+if [ -f /bin/busybox.static ]; then
+    echo "   Using Alpine busybox-static from /bin"
+    cp /bin/busybox.static "${BUSYBOX_PATH}"
+elif [ -f /usr/bin/busybox.static ]; then
+    echo "   Using Alpine busybox-static from /usr/bin"
+    cp /usr/bin/busybox.static "${BUSYBOX_PATH}"
 else
-    echo "❌ ERROR: busybox not found!"
+    # Method 2: Download static busybox
+    echo "   busybox-static not found, downloading..."
+    BUSYBOX_URL="https://www.busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox"
+    
+    if command -v curl >/dev/null 2>&1; then
+        curl -L -f --connect-timeout 10 "${BUSYBOX_URL}" -o "${BUSYBOX_PATH}" 2>/dev/null || true
+    fi
+    
+    if [ ! -f "${BUSYBOX_PATH}" ] || [ ! -s "${BUSYBOX_PATH}" ]; then
+        if command -v wget >/dev/null 2>&1; then
+            wget -q --timeout=10 "${BUSYBOX_URL}" -O "${BUSYBOX_PATH}" 2>/dev/null || true
+        fi
+    fi
+fi
+
+# Verify we have busybox
+if [ ! -f "${BUSYBOX_PATH}" ] || [ ! -s "${BUSYBOX_PATH}" ]; then
+    echo "❌ ERROR: Failed to get static busybox!"
     exit 1
 fi
+
+chmod +x "${BUSYBOX_PATH}"
+
+# Verify it's actually static
+if file "${BUSYBOX_PATH}" 2>/dev/null | grep -q "dynamically linked"; then
+    echo "⚠️  WARNING: busybox appears to be dynamically linked!"
+    echo "   This will cause kernel panic! Trying to find static version..."
+    
+    # Last resort: try downloading again
+    rm -f "${BUSYBOX_PATH}"
+    BUSYBOX_URL="https://www.busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox"
+    curl -L -f "${BUSYBOX_URL}" -o "${BUSYBOX_PATH}" 2>/dev/null || \
+    wget -q "${BUSYBOX_URL}" -O "${BUSYBOX_PATH}" 2>/dev/null || {
+        echo "❌ ERROR: Cannot get static busybox!"
+        exit 1
+    }
+    chmod +x "${BUSYBOX_PATH}"
+fi
+
+echo "   ✅ Static busybox installed"
+
+# Create symlinks for ALL essential commands
+for cmd in sh ash ls cat cp mv rm mkdir rmdir mount umount mknod grep sed awk \
+           sleep echo ln chmod chown chroot switch_root pivot_root \
+           modprobe insmod lsmod depmod \
+           fdisk sfdisk blkid lsblk dd clear dmesg \
+           ip ifconfig route ping hostname uname date \
+           mdev find xargs head tail sort uniq wc cut tr \
+           tar gzip gunzip zcat cpio vi ps kill killall \
+           sync reboot poweroff halt true false test [ expr; do
+    ln -sf busybox "${INITRAMFS_DIR}/bin/$cmd" 2>/dev/null || true
+done
+
+# Also create in /sbin for compatibility
+for cmd in modprobe insmod lsmod depmod mdev blkid switch_root pivot_root reboot poweroff halt init; do
+    ln -sf ../bin/busybox "${INITRAMFS_DIR}/sbin/$cmd" 2>/dev/null || true
+done
 
 # =============================================================================
 # Copy kernel modules (CRITICAL for device detection)
@@ -190,24 +237,29 @@ EOF
 # Create init script (CRITICAL - this is what runs at boot)
 # =============================================================================
 cat > "${INITRAMFS_DIR}/init" << 'INITEOF'
-#!/bin/busybox sh
+#!/bin/sh
 # =============================================================================
 # Quantix-vDC Installer Init Script
 # =============================================================================
 # This script runs from initramfs and launches the installer.
 # Based on the proven Quantix-OS init architecture.
+#
+# IMPORTANT: /bin/sh is a symlink to busybox which is STATICALLY linked.
 # =============================================================================
 
-# CRITICAL: Ensure we don't exit - kernel panics if init exits
-trap "exec /bin/busybox sh" EXIT
-
-# Use busybox directly for maximum reliability
+# Use busybox applets explicitly to avoid any path issues
 BB=/bin/busybox
 
-# Mount essential filesystems FIRST
-$BB mount -t proc none /proc 2>/dev/null
-$BB mount -t sysfs none /sys 2>/dev/null
-$BB mount -t devtmpfs none /dev 2>/dev/null
+# Mount essential filesystems FIRST - these must succeed
+$BB mount -t proc proc /proc
+$BB mount -t sysfs sysfs /sys
+$BB mount -t devtmpfs devtmpfs /dev 2>/dev/null || {
+    # Fallback: create minimal /dev manually
+    $BB mkdir -p /dev
+    $BB mknod -m 622 /dev/console c 5 1
+    $BB mknod -m 666 /dev/null c 1 3
+    $BB mknod -m 666 /dev/tty c 5 0
+}
 
 # Enable kernel messages to console
 $BB echo 8 > /proc/sys/kernel/printk 2>/dev/null
