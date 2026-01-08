@@ -28,6 +28,10 @@ mkdir -p "${INITRAMFS_DIR}/mnt"/{cdrom,target,rootfs,usb}
 mkdir -p "${INITRAMFS_DIR}/installer"
 mkdir -p "${INITRAMFS_DIR}/lib/modules"
 
+# Create library symlinks for compatibility (Fix C from Gemini)
+ln -sf lib "${INITRAMFS_DIR}/lib64" 2>/dev/null || true
+ln -sf ../lib "${INITRAMFS_DIR}/usr/lib" 2>/dev/null || true
+
 # =============================================================================
 # Install STATIC Busybox (CRITICAL - must be statically linked!)
 # =============================================================================
@@ -364,9 +368,13 @@ if [ -n "$KVER" ] && [ -d "/lib/modules/$KVER" ]; then
         $BB modprobe $mod 2>/dev/null && $BB echo "[INIT]   + $mod" || true
     done
     
+    # Loop device support (CRITICAL for squashfs mounting)
+    $BB echo "[INIT] Loading loop device driver..."
+    $BB modprobe loop 2>/dev/null && $BB echo "[INIT]   + loop" || true
+    
     # Filesystem drivers
     $BB echo "[INIT] Loading filesystem drivers..."
-    for mod in loop squashfs overlay isofs iso9660 vfat fat ext4 xfs; do
+    for mod in squashfs overlay isofs iso9660 vfat fat ext4 xfs; do
         $BB modprobe $mod 2>/dev/null && $BB echo "[INIT]   + $mod" || true
     done
     
@@ -378,19 +386,46 @@ else
 fi
 
 # =============================================================================
+# CRITICAL: Create loop device nodes (needed for squashfs mounting)
+# =============================================================================
+$BB echo "[INIT] Creating loop device nodes..."
+for i in 0 1 2 3 4 5 6 7; do
+    if [ ! -b /dev/loop$i ]; then
+        $BB mknod /dev/loop$i b 7 $i 2>/dev/null && $BB echo "[INIT]   + /dev/loop$i" || true
+    fi
+done
+# Create loop-control if it doesn't exist
+if [ ! -c /dev/loop-control ]; then
+    $BB mknod /dev/loop-control c 10 237 2>/dev/null || true
+fi
+
+# =============================================================================
 # Scan for devices using mdev
 # =============================================================================
 $BB echo ""
 $BB echo "[INIT] Scanning for devices..."
 
-# Run mdev to populate /dev
-$BB mdev -s 2>/dev/null || true
-$BB sleep 2
-$BB mdev -s 2>/dev/null || true
+# Run mdev multiple times to catch slow devices
+for scan in 1 2 3 4 5; do
+    $BB echo "[INIT] Device scan $scan/5..."
+    $BB mdev -s 2>/dev/null || true
+    
+    # Check if we found any block devices
+    if $BB ls /dev/sr* /dev/sd* /dev/vd* /dev/nvme* 2>/dev/null | $BB grep -q .; then
+        $BB echo "[INIT] Block devices detected!"
+        break
+    fi
+    $BB sleep 1
+done
 
 # Show what we found
 $BB echo "[INIT] Block devices found:"
 $BB ls -la /dev/sd* /dev/sr* /dev/vd* /dev/nvme* /dev/loop* 2>/dev/null || $BB echo "  (none detected)"
+$BB echo ""
+
+# Debug: Show kernel messages about block devices
+$BB echo "[DEBUG] Recent kernel messages about devices:"
+$BB dmesg 2>/dev/null | $BB grep -iE "(sr0|cdrom|scsi|ata|usb|virtio|block)" | $BB tail -15 || true
 $BB echo ""
 
 # =============================================================================
@@ -431,20 +466,44 @@ $BB echo "[INIT] Searching for installation media..."
 CDROM_DEV=""
 SQUASHFS_PATH=""
 
+# Debug: Show all block devices before searching
+$BB echo "[DEBUG] All block devices in /dev:"
+$BB ls -la /dev/sd* /dev/sr* /dev/vd* /dev/nvme* /dev/hd* 2>/dev/null || $BB echo "  (none found)"
+$BB echo ""
+
 # Try CD-ROM devices first
-for dev in /dev/sr0 /dev/sr1 /dev/cdrom; do
+for dev in /dev/sr0 /dev/sr1 /dev/cdrom /dev/hdc /dev/hdd; do
     if [ -b "$dev" ]; then
         $BB echo "[INIT] Trying CD-ROM: $dev"
         $BB mkdir -p /mnt/cdrom
-        if $BB mount -t iso9660 -o ro "$dev" /mnt/cdrom 2>/dev/null; then
+        
+        # Debug: try to read first sector to see if device is accessible
+        $BB dd if="$dev" of=/dev/null bs=512 count=1 2>/dev/null && \
+            $BB echo "[DEBUG]   Device is readable" || \
+            $BB echo "[DEBUG]   Device may not be ready"
+        
+        $BB echo "[DEBUG]   Attempting iso9660 mount..."
+        if $BB mount -t iso9660 -o ro "$dev" /mnt/cdrom 2>&1; then
+            $BB echo "[DEBUG]   Mount succeeded! Checking contents..."
+            $BB echo "[DEBUG]   /mnt/cdrom contents:"
+            $BB ls -la /mnt/cdrom/ 2>/dev/null | $BB head -10
+            
             if [ -f "/mnt/cdrom/quantix-vdc/system.squashfs" ]; then
                 CDROM_DEV="$dev"
                 SQUASHFS_PATH="/mnt/cdrom/quantix-vdc/system.squashfs"
-                $BB echo "[INIT] + Found installation media on CD-ROM: $dev"
+                $BB echo "[INIT] ✓ Found installation media on CD-ROM: $dev"
                 break
+            else
+                $BB echo "[DEBUG]   quantix-vdc/system.squashfs NOT found"
+                $BB echo "[DEBUG]   Looking for squashfs files:"
+                $BB find /mnt/cdrom -name "*.squashfs" 2>/dev/null || $BB echo "    (none found)"
             fi
             $BB umount /mnt/cdrom 2>/dev/null
+        else
+            $BB echo "[DEBUG]   Mount failed"
         fi
+    else
+        $BB echo "[DEBUG] Device $dev does not exist or is not a block device"
     fi
 done
 
@@ -507,14 +566,54 @@ fi
 $BB echo ""
 $BB echo "[INIT] Mounting system image: $SQUASHFS_PATH"
 
-$BB mkdir -p /mnt/rootfs
-if ! $BB mount -t squashfs -o ro "$SQUASHFS_PATH" /mnt/rootfs; then
-    $BB echo "[ERROR] Failed to mount squashfs!"
-    trap - EXIT
-    exec $BB sh
+# Debug: Check if squashfs file exists and is readable
+$BB echo "[DEBUG] Checking squashfs file..."
+if [ -f "$SQUASHFS_PATH" ]; then
+    SQFS_SIZE=$($BB ls -lh "$SQUASHFS_PATH" 2>/dev/null | $BB awk '{print $5}')
+    $BB echo "[DEBUG]   File exists, size: $SQFS_SIZE"
+else
+    $BB echo "[ERROR]   Squashfs file NOT found at $SQUASHFS_PATH!"
+    $BB echo "[DEBUG]   Contents of /mnt/cdrom:"
+    $BB ls -la /mnt/cdrom/ 2>/dev/null || $BB echo "    (cannot list)"
+    $BB echo "[DEBUG]   Contents of /mnt/cdrom/quantix-vdc:"
+    $BB ls -la /mnt/cdrom/quantix-vdc/ 2>/dev/null || $BB echo "    (cannot list)"
 fi
 
-$BB echo "[INIT] + System image mounted"
+# Debug: Check loop devices
+$BB echo "[DEBUG] Loop devices:"
+$BB ls -la /dev/loop* 2>/dev/null || $BB echo "  (none)"
+
+$BB mkdir -p /mnt/rootfs
+
+# Try mounting with explicit loop option
+$BB echo "[DEBUG] Attempting mount with -o loop,ro..."
+if $BB mount -t squashfs -o loop,ro "$SQUASHFS_PATH" /mnt/rootfs 2>&1; then
+    $BB echo "[INIT] + System image mounted successfully"
+else
+    $BB echo "[ERROR] Mount failed! Trying alternative methods..."
+    
+    # Try without explicit loop option
+    $BB echo "[DEBUG] Trying mount without loop option..."
+    if $BB mount -t squashfs -o ro "$SQUASHFS_PATH" /mnt/rootfs 2>&1; then
+        $BB echo "[INIT] + System image mounted (no loop)"
+    else
+        $BB echo "[ERROR] All mount attempts failed!"
+        $BB echo "[DEBUG] dmesg tail:"
+        $BB dmesg 2>/dev/null | $BB tail -20
+        $BB echo ""
+        $BB echo "Dropping to rescue shell..."
+        # Don't exec, fall through to infinite loop
+    fi
+fi
+
+# Verify mount succeeded
+if $BB mountpoint -q /mnt/rootfs 2>/dev/null || [ -d /mnt/rootfs/bin ]; then
+    $BB echo "[INIT] + System image verified"
+else
+    $BB echo "[ERROR] /mnt/rootfs does not appear to be mounted!"
+    $BB echo "[DEBUG] Contents of /mnt/rootfs:"
+    $BB ls -la /mnt/rootfs/ 2>/dev/null || $BB echo "  (empty or not mounted)"
+fi
 
 # =============================================================================
 # Launch installer
@@ -553,11 +652,23 @@ else
     $BB echo "  4. Copy system: cp -a /mnt/rootfs/* /mnt/target/"
     $BB echo ""
     $BB echo "Dropping to shell..."
-    exec $BB sh
 fi
 
-# This should never be reached, but just in case
-exec $BB sh
+# =============================================================================
+# CRITICAL: Never let init exit! Use infinite loop as safety net.
+# If we reach here, something went wrong. Keep PID 1 alive!
+# =============================================================================
+while true; do
+    $BB echo ""
+    $BB echo "============================================================"
+    $BB echo "  Init process ended unexpectedly."
+    $BB echo "  Dropping to rescue shell to keep system alive."
+    $BB echo "  Type 'reboot' to restart, or debug the issue."
+    $BB echo "============================================================"
+    $BB echo ""
+    $BB sh
+    $BB sleep 1
+done
 INITEOF
 
 chmod +x "${INITRAMFS_DIR}/init"

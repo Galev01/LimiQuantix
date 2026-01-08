@@ -1,0 +1,16 @@
+---
+trigger: always_on
+---
+
+---
+alwaysApply: true
+---
+
+# DOCUMENTATION RULES
+1. **Readme Driven Development:** Before writing code for a new feature, write the module's `README.md` explaining the "Why" and "How".
+2. **Code Comments:**
+   - **Public Interfaces:** Every public struct, function, or API endpoint MUST have a GoDoc/RustDoc comment explaining arguments and return values.
+   - **Complex Logic:** Explain the *algorithm*, not the syntax. (e.g., "Using Token Bucket algorithm for IO throttling" vs "Loop through tokens").
+3. **Architecture Decision Records (ADR):** If you make a significant architectural choice (e.g., "Using Etcd over Consul"), create a short markdown file in `/docs/adr/` explaining the decision.
+4. **Always Write/edit a .md file** - Search for whats available in the `/docs/` folder, search for relavent files and update them if they are there, it they are not, create a new one, mark it on top with a good description about what it does and what it docuemtns, always try to reference the documentation. 
+5. **numbering** - Each document should be numbered with a 6 digit number: 000001, 0000002, based on the last number with a +1 approach.

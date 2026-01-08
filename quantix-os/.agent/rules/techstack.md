@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+trigger: always_on
 ---
 
 # TECH STACK GUIDELINES
@@ -11,7 +11,7 @@ alwaysApply: true
 - **Error Handling:** Use `thiserror` for libraries and `anyhow` for binaries.
 
 ## Go (Control Plane)
-- **Version:** 1.25.5
+- **Version:** 1.22+
 - **Frameworks:** `Gin` or `Chi` for HTTP, `gRPC-Go` for internal comms, `etcd/clientv3`.
 - **Style:** Follow `uber-go/guide`.
 - **Concurrency:** Never start a goroutine without a way to stop it (Context or Done channel).
