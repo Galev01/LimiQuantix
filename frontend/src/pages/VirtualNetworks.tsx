@@ -29,119 +29,7 @@ import { useNetworks, useCreateNetwork, useUpdateNetwork, useDeleteNetwork, type
 import { useApiConnection } from '@/hooks/useDashboard';
 import { showInfo } from '@/lib/toast';
 
-interface VirtualNetwork {
-  id: string;
-  name: string;
-  description: string;
-  type: 'OVERLAY' | 'VLAN' | 'EXTERNAL';
-  status: 'ACTIVE' | 'PENDING' | 'ERROR';
-  vlanId?: number;
-  cidr: string;
-  gateway: string;
-  dhcpEnabled: boolean;
-  connectedVMs: number;
-  connectedPorts: number;
-  quantrixSwitch: string;
-  mtu: number;
-  createdAt: string;
-}
-
-const mockNetworks: VirtualNetwork[] = [
-  {
-    id: 'net-prod',
-    name: 'Production VLAN 100',
-    description: 'Main production network for web servers and applications',
-    type: 'VLAN',
-    status: 'ACTIVE',
-    vlanId: 100,
-    cidr: '10.100.0.0/16',
-    gateway: '10.100.0.1',
-    dhcpEnabled: true,
-    connectedVMs: 28,
-    connectedPorts: 35,
-    quantrixSwitch: 'qs-prod-01',
-    mtu: 1500,
-    createdAt: '2024-01-15',
-  },
-  {
-    id: 'net-dev',
-    name: 'Development VLAN 200',
-    description: 'Development and testing environment network',
-    type: 'VLAN',
-    status: 'ACTIVE',
-    vlanId: 200,
-    cidr: '10.200.0.0/16',
-    gateway: '10.200.0.1',
-    dhcpEnabled: true,
-    connectedVMs: 15,
-    connectedPorts: 18,
-    quantrixSwitch: 'qs-dev-01',
-    mtu: 1500,
-    createdAt: '2024-02-01',
-  },
-  {
-    id: 'net-storage',
-    name: 'Storage Network',
-    description: 'Dedicated network for storage traffic (iSCSI/NFS)',
-    type: 'VLAN',
-    status: 'ACTIVE',
-    vlanId: 300,
-    cidr: '10.30.0.0/24',
-    gateway: '10.30.0.1',
-    dhcpEnabled: false,
-    connectedVMs: 12,
-    connectedPorts: 12,
-    quantrixSwitch: 'qs-storage-01',
-    mtu: 9000,
-    createdAt: '2024-01-20',
-  },
-  {
-    id: 'net-mgmt',
-    name: 'Management Network',
-    description: 'Out-of-band management for hypervisors and infrastructure',
-    type: 'VLAN',
-    status: 'ACTIVE',
-    vlanId: 10,
-    cidr: '192.168.1.0/24',
-    gateway: '192.168.1.1',
-    dhcpEnabled: false,
-    connectedVMs: 0,
-    connectedPorts: 8,
-    quantrixSwitch: 'qs-mgmt-01',
-    mtu: 1500,
-    createdAt: '2024-01-10',
-  },
-  {
-    id: 'net-overlay',
-    name: 'Tenant Overlay',
-    description: 'OVN overlay network for multi-tenant isolation',
-    type: 'OVERLAY',
-    status: 'ACTIVE',
-    cidr: '172.16.0.0/12',
-    gateway: '172.16.0.1',
-    dhcpEnabled: true,
-    connectedVMs: 8,
-    connectedPorts: 10,
-    quantrixSwitch: 'qs-overlay-01',
-    mtu: 1400,
-    createdAt: '2024-03-01',
-  },
-  {
-    id: 'net-external',
-    name: 'External / Internet',
-    description: 'External network for public-facing services',
-    type: 'EXTERNAL',
-    status: 'ACTIVE',
-    cidr: '203.0.113.0/24',
-    gateway: '203.0.113.1',
-    dhcpEnabled: false,
-    connectedVMs: 5,
-    connectedPorts: 5,
-    quantrixSwitch: 'qs-border-01',
-    mtu: 1500,
-    createdAt: '2024-01-12',
-  },
-];
+import { type VirtualNetwork } from '@/types/models';
 
 const typeConfig = {
   OVERLAY: { color: 'purple', icon: WifiIcon, label: 'Overlay' },
@@ -190,10 +78,9 @@ export function VirtualNetworks() {
   const updateNetwork = useUpdateNetwork();
   const deleteNetwork = useDeleteNetwork();
 
-  // Determine data source
+  // Use only API data (no mock fallback)
   const apiNetworks = apiResponse?.networks || [];
-  const useMockData = !isConnected || apiNetworks.length === 0;
-  const allNetworks: VirtualNetwork[] = useMockData ? mockNetworks : apiNetworks.map(apiToDisplayNetwork);
+  const allNetworks: VirtualNetwork[] = apiNetworks.map(apiToDisplayNetwork);
 
   const filteredNetworks = allNetworks.filter((net) => {
     const matchesSearch =

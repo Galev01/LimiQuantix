@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { showInfo } from '@/lib/toast';
+import { useApiConnection } from '@/hooks/useDashboard';
 
 interface LoadBalancer {
   id: string;
@@ -174,20 +175,27 @@ export function LoadBalancers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLB, setSelectedLB] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  
+  // API connection
+  const { data: isConnected = false } = useApiConnection();
+  
+  // TODO: Replace with real API hook when load balancer service is implemented
+  // For now, show empty state (no mock data)
+  const loadBalancers: LoadBalancer[] = [];
 
-  const filteredLBs = mockLoadBalancers.filter((lb) =>
+  const filteredLBs = loadBalancers.filter((lb) =>
     lb.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     lb.vip.includes(searchQuery)
   );
 
   const totals = {
-    loadBalancers: mockLoadBalancers.length,
-    activeConnections: mockLoadBalancers.reduce((sum, lb) => sum + lb.stats.activeConnections, 0),
-    healthyMembers: mockLoadBalancers.reduce(
+    loadBalancers: loadBalancers.length,
+    activeConnections: loadBalancers.reduce((sum, lb) => sum + lb.stats.activeConnections, 0),
+    healthyMembers: loadBalancers.reduce(
       (sum, lb) => sum + lb.members.filter((m) => m.healthy).length,
       0
     ),
-    totalMembers: mockLoadBalancers.reduce((sum, lb) => sum + lb.members.length, 0),
+    totalMembers: loadBalancers.reduce((sum, lb) => sum + lb.members.length, 0),
   };
 
   return (
@@ -232,7 +240,7 @@ export function LoadBalancers() {
         />
         <SummaryCard
           title="Total RPS"
-          value={mockLoadBalancers.reduce((sum, lb) => sum + lb.stats.requestsPerSecond, 0)}
+          value={loadBalancers.reduce((sum, lb) => sum + lb.stats.requestsPerSecond, 0)}
           icon={<Activity className="w-5 h-5" />}
           color="orange"
           suffix="/s"
@@ -267,7 +275,7 @@ export function LoadBalancers() {
       {/* Detail Panel */}
       {selectedLB && (
         <LBDetailPanel
-          lb={mockLoadBalancers.find((l) => l.id === selectedLB)!}
+          lb={loadBalancers.find((l) => l.id === selectedLB)!}
           onClose={() => setSelectedLB(null)}
         />
       )}

@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { showInfo } from '@/lib/toast';
+import { useApiConnection } from '@/hooks/useDashboard';
 
 interface BGPSpeaker {
   id: string;
@@ -166,21 +167,28 @@ export function BGPSpeakers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  
+  // API connection
+  const { data: isConnected = false } = useApiConnection();
+  
+  // TODO: Replace with real API hook when BGP service is implemented
+  // For now, show empty state (no mock data)
+  const bgpSpeakers: BGPSpeaker[] = [];
 
-  const filteredSpeakers = mockBGPSpeakers.filter((speaker) =>
+  const filteredSpeakers = bgpSpeakers.filter((speaker) =>
     speaker.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     speaker.routerId.includes(searchQuery) ||
     speaker.localAsn.toString().includes(searchQuery)
   );
 
   const totals = {
-    speakers: mockBGPSpeakers.length,
-    peers: mockBGPSpeakers.reduce((sum, s) => sum + s.peers.length, 0),
-    establishedPeers: mockBGPSpeakers.reduce(
+    speakers: bgpSpeakers.length,
+    peers: bgpSpeakers.reduce((sum, s) => sum + s.peers.length, 0),
+    establishedPeers: bgpSpeakers.reduce(
       (sum, s) => sum + s.peers.filter((p) => p.state === 'ESTABLISHED').length,
       0
     ),
-    advertisedPrefixes: mockBGPSpeakers.reduce((sum, s) => sum + s.advertisements.length, 0),
+    advertisedPrefixes: bgpSpeakers.reduce((sum, s) => sum + s.advertisements.length, 0),
   };
 
   return (
@@ -259,7 +267,7 @@ export function BGPSpeakers() {
       {/* Detail Panel */}
       {selectedSpeaker && (
         <BGPDetailPanel
-          speaker={mockBGPSpeakers.find((s) => s.id === selectedSpeaker)!}
+          speaker={bgpSpeakers.find((s) => s.id === selectedSpeaker)!}
           onClose={() => setSelectedSpeaker(null)}
         />
       )}

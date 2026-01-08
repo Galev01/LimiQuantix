@@ -22,113 +22,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
-
-// Alert severity types
-type AlertSeverity = 'critical' | 'warning' | 'info' | 'resolved';
-
-interface Alert {
-  id: string;
-  severity: AlertSeverity;
-  title: string;
-  message: string;
-  source: string;
-  sourceType: 'host' | 'vm' | 'storage' | 'network' | 'cluster';
-  timestamp: Date;
-  acknowledged: boolean;
-  resolved: boolean;
-}
-
-// Mock alerts data
-const mockAlerts: Alert[] = [
-  {
-    id: 'alert-1',
-    severity: 'critical',
-    title: 'High CPU Usage on node-gpu-01',
-    message: 'CPU usage has exceeded 90% for more than 15 minutes. Consider migrating VMs or scaling resources.',
-    source: 'node-gpu-01',
-    sourceType: 'host',
-    timestamp: new Date(Date.now() - 5 * 60 * 1000),
-    acknowledged: false,
-    resolved: false,
-  },
-  {
-    id: 'alert-2',
-    severity: 'warning',
-    title: 'Memory Usage High on node-prod-03',
-    message: 'Memory usage is at 82%. DRS recommendation available to rebalance workloads.',
-    source: 'node-prod-03',
-    sourceType: 'host',
-    timestamp: new Date(Date.now() - 23 * 60 * 1000),
-    acknowledged: true,
-    resolved: false,
-  },
-  {
-    id: 'alert-3',
-    severity: 'warning',
-    title: 'Storage Pool ceph-prod-01 Near Capacity',
-    message: 'Storage pool is at 85% capacity. Consider expanding or migrating volumes.',
-    source: 'ceph-prod-01',
-    sourceType: 'storage',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    acknowledged: false,
-    resolved: false,
-  },
-  {
-    id: 'alert-4',
-    severity: 'info',
-    title: 'VM web-server-01 Snapshot Created',
-    message: 'Automatic snapshot created as part of scheduled backup policy.',
-    source: 'web-server-01',
-    sourceType: 'vm',
-    timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-    acknowledged: true,
-    resolved: false,
-  },
-  {
-    id: 'alert-5',
-    severity: 'resolved',
-    title: 'Network Latency Resolved',
-    message: 'High latency on VLAN 100 has returned to normal levels.',
-    source: 'Production VLAN 100',
-    sourceType: 'network',
-    timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000),
-    acknowledged: true,
-    resolved: true,
-  },
-  {
-    id: 'alert-6',
-    severity: 'critical',
-    title: 'VM db-master-01 Not Responding',
-    message: 'Guest agent has not reported in 5 minutes. VM may be unresponsive.',
-    source: 'db-master-01',
-    sourceType: 'vm',
-    timestamp: new Date(Date.now() - 10 * 60 * 1000),
-    acknowledged: false,
-    resolved: false,
-  },
-  {
-    id: 'alert-7',
-    severity: 'info',
-    title: 'Cluster DRS Rebalance Completed',
-    message: 'Production Cluster has been rebalanced. 3 VMs migrated.',
-    source: 'Production Cluster',
-    sourceType: 'cluster',
-    timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000),
-    acknowledged: true,
-    resolved: true,
-  },
-  {
-    id: 'alert-8',
-    severity: 'warning',
-    title: 'Certificate Expiring Soon',
-    message: 'SSL certificate for api.limiquantix.local expires in 14 days.',
-    source: 'Control Plane',
-    sourceType: 'cluster',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    acknowledged: false,
-    resolved: false,
-  },
-];
+import { type Alert, type AlertSeverity } from '@/types/models';
+import { useApiConnection } from '@/hooks/useDashboard';
 
 // Severity config
 const severityConfig = {
@@ -318,7 +213,12 @@ function SummaryCard({
 }
 
 export function Alerts() {
-  const [alerts, setAlerts] = useState(mockAlerts);
+  // API connection
+  const { data: isConnected = false } = useApiConnection();
+  
+  // TODO: Replace with real API hook when alert service is implemented
+  // For now, show empty state (no mock data)
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState<AlertSeverity | 'all'>('all');
   const [showResolved, setShowResolved] = useState(false);

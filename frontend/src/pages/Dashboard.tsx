@@ -7,7 +7,6 @@ import {
   Activity,
   WifiOff,
   RefreshCw,
-  AlertCircle,
   Wifi,
   ServerOff,
 } from 'lucide-react';
@@ -15,16 +14,15 @@ import { MetricCard } from '@/components/dashboard/MetricCard';
 import { ResourceCard } from '@/components/dashboard/ResourceCard';
 import { NodeCard } from '@/components/dashboard/NodeCard';
 import { VMTable } from '@/components/vm/VMTable';
-import { type VirtualMachine, type Node, type PowerState } from '@/data/mock-data';
+import { type VirtualMachine, type Node, type PowerState } from '@/types/models';
 import { useDashboard } from '@/hooks/useDashboard';
 import type { ApiVM } from '@/hooks/useVMs';
 import type { ApiNode } from '@/hooks/useNodes';
 
 /**
- * Convert API VM to mock VM format for the VMTable component
+ * Convert API VM to display format for the VMTable component
  */
-function apiVMToMock(vm: ApiVM): VirtualMachine {
-  // Map API power state to mock PowerState
+function apiVMToDisplay(vm: ApiVM): VirtualMachine {
   const stateMap: Record<string, PowerState> = {
     'RUNNING': 'RUNNING',
     'POWER_STATE_RUNNING': 'RUNNING',
@@ -32,13 +30,14 @@ function apiVMToMock(vm: ApiVM): VirtualMachine {
     'POWER_STATE_STOPPED': 'STOPPED',
     'PAUSED': 'PAUSED',
     'POWER_STATE_PAUSED': 'PAUSED',
-    'STARTING': 'RUNNING', // Map to closest valid state
+    'STARTING': 'STARTING',
     'PROVISIONING': 'STOPPED',
-    'STOPPING': 'RUNNING',
+    'STOPPING': 'STOPPING',
     'MIGRATING': 'MIGRATING',
-    'ERROR': 'CRASHED',
-    'POWER_STATE_ERROR': 'CRASHED',
+    'ERROR': 'ERROR',
+    'POWER_STATE_ERROR': 'ERROR',
     'SUSPENDED': 'SUSPENDED',
+    'CRASHED': 'CRASHED',
   };
 
   const apiState = vm.status?.state || vm.status?.powerState || 'STOPPED';
@@ -85,9 +84,9 @@ function apiVMToMock(vm: ApiVM): VirtualMachine {
 }
 
 /**
- * Convert API Node to mock Node format for the NodeCard component
+ * Convert API Node to display format for the NodeCard component
  */
-function apiNodeToMock(node: ApiNode): Node {
+function apiNodeToDisplay(node: ApiNode): Node {
   const phaseMap: Record<string, 'READY' | 'NOT_READY' | 'MAINTENANCE' | 'DRAINING'> = {
     'READY': 'READY',
     'NODE_PHASE_READY': 'READY',
@@ -118,6 +117,9 @@ function apiNodeToMock(node: ApiNode): Node {
         totalBytes: memoryBytes,
         allocatableBytes: memoryBytes,
       },
+      storage: [],
+      networks: [],
+      role: { compute: true, storage: false, controlPlane: false },
     },
     status: {
       phase,
@@ -136,9 +138,9 @@ export function Dashboard() {
   // Fetch real data from the API
   const { vms, nodes, metrics, isLoading, isConnected, refetch } = useDashboard();
   
-  // Get data from API (no mock data fallback)
-  const displayVMs = vms.map(apiVMToMock);
-  const displayNodes = nodes.map(apiNodeToMock);
+  // Convert API data to display format
+  const displayVMs = vms.map(apiVMToDisplay);
+  const displayNodes = nodes.map(apiNodeToDisplay);
   
   // Normalize stats from metrics
   const stats = {

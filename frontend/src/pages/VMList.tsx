@@ -23,7 +23,7 @@ import { VMStatusBadge } from '@/components/vm/VMStatusBadge';
 import { VMCreationWizard } from '@/components/vm/VMCreationWizard';
 import { useVMs, useStartVM, useStopVM, useDeleteVM, isVMRunning, isVMStopped, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
-import { type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
+import { type VirtualMachine, type PowerState } from '@/types/models';
 import { showInfo } from '@/lib/toast';
 import { useConsoleStore, useDefaultConsoleType } from '@/hooks/useConsoleStore';
 import { openDefaultConsole } from '@/components/vm/ConsoleAccessModal';
@@ -32,7 +32,7 @@ import { API_CONFIG } from '@/lib/api-client';
 type FilterTab = 'all' | 'running' | 'stopped' | 'other';
 
 // Convert API VM to display format
-function apiToDisplayVM(vm: ApiVM): MockVM {
+function apiToDisplayVM(vm: ApiVM): VirtualMachine {
   const state = (vm.status?.state || 'STOPPED') as PowerState;
   return {
     id: vm.id,
@@ -94,9 +94,9 @@ export function VMList() {
   const stopVM = useStopVM();
   const deleteVM = useDeleteVM();
 
-  // Get data from API (no mock data fallback)
+  // Get data from API
   const apiVMs = apiResponse?.vms || [];
-  const allVMs: MockVM[] = apiVMs.map(apiToDisplayVM);
+  const allVMs: VirtualMachine[] = apiVMs.map(apiToDisplayVM);
 
   // Filter VMs based on search and tab
   const filteredVMs = allVMs.filter((vm) => {
@@ -141,7 +141,7 @@ export function VMList() {
     }
   };
 
-  const handleVMClick = (vm: MockVM) => {
+  const handleVMClick = (vm: VirtualMachine) => {
     navigate(`/vms/${vm.id}`);
   };
 
@@ -190,7 +190,7 @@ export function VMList() {
   };
 
   // Quick console access - uses default console preference
-  const handleOpenConsole = (vm: MockVM, e: React.MouseEvent) => {
+  const handleOpenConsole = (vm: VirtualMachine, e: React.MouseEvent) => {
     e.stopPropagation();
     if (vm.status.state !== 'RUNNING') {
       showInfo('VM must be running to open console');
@@ -263,7 +263,7 @@ export function VMList() {
             ) : (
               <>
                 <WifiOff className="w-3 h-3" />
-                Using Mock Data
+                Not Connected
               </>
             )}
           </div>

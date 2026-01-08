@@ -26,37 +26,33 @@ import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
-import { mockNodes, mockVMs } from '@/data/mock-data';
+import { useApiConnection } from '@/hooks/useDashboard';
 
-// Mock cluster detail
-const mockClusterDetail = {
-  id: 'cluster-prod',
-  name: 'Production Cluster',
-  description: 'Main production workloads - mission critical',
-  status: 'HEALTHY' as const,
-  haEnabled: true,
-  drsEnabled: true,
-  drsAutomationLevel: 'Fully Automated',
-  haAdmissionControl: true,
-  hostFailoverCapacity: 1,
-  hosts: { total: 8, online: 8, maintenance: 0 },
-  vms: { total: 45, running: 42, stopped: 3 },
+// Cluster detail type (will come from API)
+interface ClusterDetail {
+  id: string;
+  name: string;
+  description: string;
+  status: 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'MAINTENANCE';
+  haEnabled: boolean;
+  drsEnabled: boolean;
+  drsAutomationLevel: string;
+  haAdmissionControl: boolean;
+  hostFailoverCapacity: number;
+  hosts: { total: number; online: number; maintenance: number };
+  vms: { total: number; running: number; stopped: number };
   resources: {
-    cpuTotalGHz: 512,
-    cpuUsedGHz: 284,
-    memoryTotalBytes: 2199023255552,
-    memoryUsedBytes: 1319413953331,
-    storageTotalBytes: 107374182400000,
-    storageUsedBytes: 64424509440000,
-  },
-  createdAt: '2024-01-15',
-  createdBy: 'admin@limiquantix.local',
-  labels: {
-    environment: 'production',
-    tier: 'critical',
-    region: 'us-east-1',
-  },
-};
+    cpuTotalGHz: number;
+    cpuUsedGHz: number;
+    memoryTotalBytes: number;
+    memoryUsedBytes: number;
+    storageTotalBytes: number;
+    storageUsedBytes: number;
+  };
+  createdAt: string;
+  createdBy: string;
+  labels: Record<string, string>;
+}
 
 const statusConfig = {
   HEALTHY: { color: 'success', icon: CheckCircle, label: 'Healthy' },
@@ -67,7 +63,33 @@ const statusConfig = {
 
 export function ClusterDetail() {
   const { id } = useParams<{ id: string }>();
-  const cluster = mockClusterDetail; // In real app, fetch by id
+  
+  // API connection
+  const { data: isConnected = false } = useApiConnection();
+  
+  // TODO: Replace with real API hook when cluster service is implemented
+  // For now, show placeholder when no data
+  const cluster: ClusterDetail | null = null;
+
+  if (!cluster) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96">
+        <Boxes className="w-16 h-16 text-text-muted mb-4" />
+        <h2 className="text-xl font-semibold text-text-primary mb-2">Cluster Not Found</h2>
+        <p className="text-text-muted mb-4">
+          {!isConnected 
+            ? 'Connect to the backend to view cluster details.'
+            : 'The cluster you are looking for does not exist.'}
+        </p>
+        <Link to="/clusters">
+          <Button>
+            <ArrowLeft className="w-4 h-4" />
+            Back to Clusters
+          </Button>
+        </Link>
+      </div>
+    );
+  }
 
   const status = statusConfig[cluster.status];
   const StatusIcon = status.icon;
@@ -274,7 +296,7 @@ function SummaryTab({
   memPercent,
   storagePercent,
 }: {
-  cluster: typeof mockClusterDetail;
+  cluster: ClusterDetail;
   cpuPercent: number;
   memPercent: number;
   storagePercent: number;
@@ -362,6 +384,9 @@ function SummaryTab({
 }
 
 function HostsTab() {
+  // TODO: Get hosts from cluster API when available
+  const hosts: any[] = [];
+  
   return (
     <div className="p-5 rounded-xl bg-bg-surface border border-border">
       <div className="flex items-center justify-between mb-4">
@@ -371,33 +396,44 @@ function HostsTab() {
           Add Host
         </Button>
       </div>
-      <div className="space-y-3">
-        {mockNodes.slice(0, 4).map((node) => (
-          <Link
-            key={node.id}
-            to={`/hosts/${node.id}`}
-            className="flex items-center gap-4 p-4 rounded-lg bg-bg-base hover:bg-bg-hover transition-colors"
-          >
-            <Server className="w-5 h-5 text-text-muted" />
-            <div className="flex-1">
-              <p className="font-medium text-text-primary">{node.hostname}</p>
-              <p className="text-sm text-text-muted">{node.managementIp}</p>
-            </div>
-            <Badge variant={node.status.phase === 'READY' ? 'success' : 'warning'}>
-              {node.status.phase}
-            </Badge>
-            <div className="text-right text-sm">
-              <p className="text-text-secondary">{node.status.vmIds.length} VMs</p>
-              <p className="text-text-muted">{node.status.resources.cpuUsagePercent}% CPU</p>
-            </div>
-          </Link>
-        ))}
-      </div>
+      {hosts.length > 0 ? (
+        <div className="space-y-3">
+          {hosts.map((node) => (
+            <Link
+              key={node.id}
+              to={`/hosts/${node.id}`}
+              className="flex items-center gap-4 p-4 rounded-lg bg-bg-base hover:bg-bg-hover transition-colors"
+            >
+              <Server className="w-5 h-5 text-text-muted" />
+              <div className="flex-1">
+                <p className="font-medium text-text-primary">{node.hostname}</p>
+                <p className="text-sm text-text-muted">{node.managementIp}</p>
+              </div>
+              <Badge variant={node.status?.phase === 'READY' ? 'success' : 'warning'}>
+                {node.status?.phase || 'UNKNOWN'}
+              </Badge>
+              <div className="text-right text-sm">
+                <p className="text-text-secondary">{node.status?.vmIds?.length ?? 0} VMs</p>
+                <p className="text-text-muted">{node.status?.resources?.cpuUsagePercent ?? 0}% CPU</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="py-8 text-center">
+          <Server className="w-10 h-10 mx-auto text-text-muted mb-3 opacity-50" />
+          <p className="text-text-muted">No hosts in this cluster</p>
+          <p className="text-text-muted text-sm mt-1">Add hosts to enable compute resources.</p>
+        </div>
+      )}
     </div>
   );
 }
 
 function VMsTab() {
+  // TODO: Get VMs from cluster API when available
+  const vms: any[] = [];
+  
   return (
     <div className="p-5 rounded-xl bg-bg-surface border border-border">
       <div className="flex items-center justify-between mb-4">
@@ -407,32 +443,40 @@ function VMsTab() {
           New VM
         </Button>
       </div>
-      <div className="space-y-2">
-        {mockVMs.map((vm) => (
-          <Link
-            key={vm.id}
-            to={`/vms/${vm.id}`}
-            className="flex items-center gap-4 p-3 rounded-lg bg-bg-base hover:bg-bg-hover transition-colors"
-          >
-            <MonitorCog className="w-4 h-4 text-text-muted" />
-            <span className="flex-1 font-medium text-text-primary">{vm.name}</span>
-            <Badge
-              variant={
-                vm.status.state === 'RUNNING'
-                  ? 'success'
-                  : vm.status.state === 'STOPPED'
-                  ? 'default'
-                  : 'warning'
-              }
+      {vms.length > 0 ? (
+        <div className="space-y-2">
+          {vms.map((vm) => (
+            <Link
+              key={vm.id}
+              to={`/vms/${vm.id}`}
+              className="flex items-center gap-4 p-3 rounded-lg bg-bg-base hover:bg-bg-hover transition-colors"
             >
-              {vm.status.state}
-            </Badge>
-            <span className="text-sm text-text-muted">
-              {vm.spec.cpu.cores} vCPU, {vm.spec.memory.sizeMib / 1024} GB
-            </span>
-          </Link>
-        ))}
-      </div>
+              <MonitorCog className="w-4 h-4 text-text-muted" />
+              <span className="flex-1 font-medium text-text-primary">{vm.name}</span>
+              <Badge
+                variant={
+                  vm.status?.state === 'RUNNING'
+                    ? 'success'
+                    : vm.status?.state === 'STOPPED'
+                    ? 'default'
+                    : 'warning'
+                }
+              >
+                {vm.status?.state || 'UNKNOWN'}
+              </Badge>
+              <span className="text-sm text-text-muted">
+                {vm.spec?.cpu?.cores ?? 0} vCPU, {(vm.spec?.memory?.sizeMib ?? 0) / 1024} GB
+              </span>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="py-8 text-center">
+          <MonitorCog className="w-10 h-10 mx-auto text-text-muted mb-3 opacity-50" />
+          <p className="text-text-muted">No VMs in this cluster</p>
+          <p className="text-text-muted text-sm mt-1">Create a VM to get started.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -481,7 +525,7 @@ function ResourcePoolItem({
   );
 }
 
-function SettingsTab({ cluster }: { cluster: typeof mockClusterDetail }) {
+function SettingsTab({ cluster }: { cluster: ClusterDetail }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="p-5 rounded-xl bg-bg-surface border border-border">

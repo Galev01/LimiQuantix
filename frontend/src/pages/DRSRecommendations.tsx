@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { useApiConnection } from '@/hooks/useDashboard';
 
 // DRS Recommendation types
 type RecommendationPriority = 'critical' | 'high' | 'medium' | 'low';
@@ -55,75 +56,6 @@ interface DRSRecommendation {
   createdAt: Date;
   estimatedDuration: string;
 }
-
-// Mock recommendations
-const mockRecommendations: DRSRecommendation[] = [
-  {
-    id: 'rec-1',
-    priority: 'critical',
-    status: 'pending',
-    type: 'migrate',
-    reason: 'Source host CPU at critical levels (92%). Migration will balance load.',
-    impact: { cpuImprovement: 15, memoryImprovement: 8 },
-    vm: { id: 'vm-1', name: 'db-master-01', currentCpu: 45, currentMemory: 32 },
-    sourceHost: { id: 'host-1', name: 'node-gpu-01', cpuUsage: 92, memoryUsage: 88 },
-    targetHost: { id: 'host-2', name: 'node-prod-04', cpuUsage: 45, memoryUsage: 52 },
-    createdAt: new Date(Date.now() - 5 * 60 * 1000),
-    estimatedDuration: '2-3 minutes',
-  },
-  {
-    id: 'rec-2',
-    priority: 'high',
-    status: 'pending',
-    type: 'migrate',
-    reason: 'Memory imbalance detected. Recommend moving VM to optimize cluster memory distribution.',
-    impact: { cpuImprovement: 5, memoryImprovement: 12 },
-    vm: { id: 'vm-2', name: 'app-server-03', currentCpu: 28, currentMemory: 48 },
-    sourceHost: { id: 'host-3', name: 'node-prod-03', cpuUsage: 85, memoryUsage: 82 },
-    targetHost: { id: 'host-4', name: 'node-dev-01', cpuUsage: 32, memoryUsage: 41 },
-    createdAt: new Date(Date.now() - 15 * 60 * 1000),
-    estimatedDuration: '1-2 minutes',
-  },
-  {
-    id: 'rec-3',
-    priority: 'medium',
-    status: 'approved',
-    type: 'migrate',
-    reason: 'Affinity rule optimization. Moving VM closer to related workloads.',
-    impact: { cpuImprovement: 3, memoryImprovement: 2 },
-    vm: { id: 'vm-3', name: 'cache-server-01', currentCpu: 15, currentMemory: 22 },
-    sourceHost: { id: 'host-5', name: 'node-dev-02', cpuUsage: 28, memoryUsage: 35 },
-    targetHost: { id: 'host-6', name: 'node-prod-01', cpuUsage: 72, memoryUsage: 68 },
-    createdAt: new Date(Date.now() - 30 * 60 * 1000),
-    estimatedDuration: '1 minute',
-  },
-  {
-    id: 'rec-4',
-    priority: 'low',
-    status: 'applied',
-    type: 'migrate',
-    reason: 'Routine load balancing to optimize resource distribution.',
-    impact: { cpuImprovement: 2, memoryImprovement: 3 },
-    vm: { id: 'vm-4', name: 'web-frontend-02', currentCpu: 12, currentMemory: 18 },
-    sourceHost: { id: 'host-7', name: 'node-prod-02', cpuUsage: 58, memoryUsage: 71 },
-    targetHost: { id: 'host-8', name: 'node-dr-01', cpuUsage: 15, memoryUsage: 22 },
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    estimatedDuration: '1 minute',
-  },
-  {
-    id: 'rec-5',
-    priority: 'medium',
-    status: 'rejected',
-    type: 'migrate',
-    reason: 'Power-saving mode recommendation. Consolidate VMs to reduce active hosts.',
-    impact: { cpuImprovement: 0, memoryImprovement: 5 },
-    vm: { id: 'vm-5', name: 'test-vm-01', currentCpu: 5, currentMemory: 8 },
-    sourceHost: { id: 'host-9', name: 'node-dev-01', cpuUsage: 32, memoryUsage: 41 },
-    targetHost: { id: 'host-10', name: 'node-dev-02', cpuUsage: 28, memoryUsage: 35 },
-    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
-    estimatedDuration: '30 seconds',
-  },
-];
 
 // Priority config
 const priorityConfig = {
@@ -361,7 +293,11 @@ function RecommendationCard({
 }
 
 export function DRSRecommendations() {
-  const [recommendations, setRecommendations] = useState(mockRecommendations);
+  // API connection status
+  const { data: isConnected = false } = useApiConnection();
+  
+  // TODO: Replace with real API hook when DRS service is implemented
+  const [recommendations, setRecommendations] = useState<DRSRecommendation[]>([]);
   const [filterStatus, setFilterStatus] = useState<RecommendationStatus | 'all'>('all');
   const [drsEnabled, setDrsEnabled] = useState(true);
   const [automationLevel] = useState<'manual' | 'partial' | 'full'>('partial');
@@ -417,11 +353,13 @@ export function DRSRecommendations() {
               Distributed Resource Scheduler optimization suggestions
             </p>
           </div>
-          {/* DRS service not yet exposed via HTTP - using mock data */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-warning/20 text-warning border border-warning/30">
-            <WifiOff className="w-3 h-3" />
-            Mock Data
-          </div>
+          {/* Connection status */}
+          {!isConnected && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-warning/20 text-warning border border-warning/30">
+              <WifiOff className="w-3 h-3" />
+              Disconnected
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <Button variant="secondary">
@@ -513,10 +451,14 @@ export function DRSRecommendations() {
               animate={{ opacity: 1 }}
               className="text-center py-12 bg-bg-surface rounded-xl border border-border"
             >
-              <CheckCircle className="w-12 h-12 text-success mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-text-primary">No recommendations</h3>
-              <p className="text-text-muted mt-1">
-                Your cluster is optimally balanced
+              <Zap className="w-12 h-12 text-text-muted mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-text-primary">No DRS Recommendations</h3>
+              <p className="text-text-muted mt-1 max-w-md mx-auto">
+                {!isConnected 
+                  ? 'Connect to the backend to view DRS recommendations.'
+                  : filterStatus !== 'all'
+                    ? 'No recommendations match the selected filter.'
+                    : 'Your cluster is optimally balanced, or DRS is not yet configured.'}
               </p>
             </motion.div>
           ) : (

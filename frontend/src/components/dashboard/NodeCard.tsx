@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Server, Cpu, MemoryStick, HardDrive } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
-import type { Node } from '@/data/mock-data';
+import type { Node } from '@/types/models';
 
 interface NodeCardProps {
   node: Node;
@@ -16,9 +16,10 @@ const phaseColors = {
 };
 
 export function NodeCard({ node, delay = 0 }: NodeCardProps) {
-  const memoryPercent = Math.round(
-    (node.status.resources.memoryUsedBytes / node.status.resources.memoryAllocatableBytes) * 100
-  );
+  // Calculate memory percent - use allocatableBytes from spec if available
+  const memoryTotal = node.spec?.memory?.allocatableBytes ?? node.spec?.memory?.totalBytes ?? 1;
+  const memoryUsed = node.status?.resources?.memoryUsedBytes ?? 0;
+  const memoryPercent = Math.round((memoryUsed / memoryTotal) * 100);
 
   return (
     <motion.div
@@ -46,8 +47,8 @@ export function NodeCard({ node, delay = 0 }: NodeCardProps) {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className={cn('w-2 h-2 rounded-full', phaseColors[node.status.phase])} />
-          <span className="text-xs text-text-muted">{node.status.phase}</span>
+          <span className={cn('w-2 h-2 rounded-full', phaseColors[node.status?.phase ?? 'NOT_READY'])} />
+          <span className="text-xs text-text-muted">{node.status?.phase ?? 'UNKNOWN'}</span>
         </div>
       </div>
 
@@ -58,17 +59,17 @@ export function NodeCard({ node, delay = 0 }: NodeCardProps) {
           <div className="flex-1">
             <div className="flex justify-between text-xs mb-1">
               <span className="text-text-muted">CPU</span>
-              <span className="text-text-secondary">{node.status.resources.cpuUsagePercent}%</span>
+              <span className="text-text-secondary">{node.status?.resources?.cpuUsagePercent ?? 0}%</span>
             </div>
             <div className="h-1.5 bg-bg-hover rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${node.status.resources.cpuUsagePercent}%` }}
+                animate={{ width: `${node.status?.resources?.cpuUsagePercent ?? 0}%` }}
                 transition={{ duration: 0.5, delay: delay + 0.1 }}
                 className={cn(
                   'h-full rounded-full',
-                  node.status.resources.cpuUsagePercent >= 80 ? 'bg-error' :
-                  node.status.resources.cpuUsagePercent >= 60 ? 'bg-warning' : 'bg-accent',
+                  (node.status?.resources?.cpuUsagePercent ?? 0) >= 80 ? 'bg-error' :
+                  (node.status?.resources?.cpuUsagePercent ?? 0) >= 60 ? 'bg-warning' : 'bg-accent',
                 )}
               />
             </div>
@@ -102,7 +103,7 @@ export function NodeCard({ node, delay = 0 }: NodeCardProps) {
         <div className="flex items-center justify-between pt-2 border-t border-border">
           <span className="text-xs text-text-muted">Virtual Machines</span>
           <span className="text-sm font-medium text-text-primary">
-            {node.status.vmIds.length}
+            {node.status?.vmIds?.length ?? 0}
           </span>
         </div>
       </div>

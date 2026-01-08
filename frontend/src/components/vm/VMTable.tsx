@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
 import { VMStatusBadge } from './VMStatusBadge';
-import type { VirtualMachine } from '@/data/mock-data';
+import type { VirtualMachine } from '@/types/models';
 
 interface VMTableProps {
   vms: VirtualMachine[];

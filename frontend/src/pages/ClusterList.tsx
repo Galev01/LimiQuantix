@@ -22,114 +22,8 @@ import {
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-
-// Mock cluster data
-interface Cluster {
-  id: string;
-  name: string;
-  description: string;
-  status: 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'MAINTENANCE';
-  haEnabled: boolean;
-  drsEnabled: boolean;
-  hosts: {
-    total: number;
-    online: number;
-    maintenance: number;
-  };
-  vms: {
-    total: number;
-    running: number;
-    stopped: number;
-  };
-  resources: {
-    cpuTotalGHz: number;
-    cpuUsedGHz: number;
-    memoryTotalBytes: number;
-    memoryUsedBytes: number;
-    storageTotalBytes: number;
-    storageUsedBytes: number;
-  };
-  createdAt: string;
-}
-
-const mockClusters: Cluster[] = [
-  {
-    id: 'cluster-prod',
-    name: 'Production Cluster',
-    description: 'Main production workloads - mission critical',
-    status: 'HEALTHY',
-    haEnabled: true,
-    drsEnabled: true,
-    hosts: { total: 8, online: 8, maintenance: 0 },
-    vms: { total: 45, running: 42, stopped: 3 },
-    resources: {
-      cpuTotalGHz: 512,
-      cpuUsedGHz: 284,
-      memoryTotalBytes: 2199023255552, // 2 TB
-      memoryUsedBytes: 1319413953331, // 1.2 TB
-      storageTotalBytes: 107374182400000, // 100 TB
-      storageUsedBytes: 64424509440000, // 60 TB
-    },
-    createdAt: '2024-01-15',
-  },
-  {
-    id: 'cluster-dev',
-    name: 'Development Cluster',
-    description: 'Development and testing environments',
-    status: 'HEALTHY',
-    haEnabled: true,
-    drsEnabled: false,
-    hosts: { total: 4, online: 4, maintenance: 0 },
-    vms: { total: 28, running: 18, stopped: 10 },
-    resources: {
-      cpuTotalGHz: 256,
-      cpuUsedGHz: 89,
-      memoryTotalBytes: 549755813888, // 512 GB
-      memoryUsedBytes: 214748364800, // 200 GB
-      storageTotalBytes: 21474836480000, // 20 TB
-      storageUsedBytes: 10737418240000, // 10 TB
-    },
-    createdAt: '2024-02-20',
-  },
-  {
-    id: 'cluster-gpu',
-    name: 'GPU Cluster',
-    description: 'AI/ML workloads with NVIDIA GPUs',
-    status: 'WARNING',
-    haEnabled: true,
-    drsEnabled: true,
-    hosts: { total: 3, online: 2, maintenance: 1 },
-    vms: { total: 12, running: 10, stopped: 2 },
-    resources: {
-      cpuTotalGHz: 192,
-      cpuUsedGHz: 156,
-      memoryTotalBytes: 824633720832, // 768 GB
-      memoryUsedBytes: 618475290624, // 576 GB
-      storageTotalBytes: 32212254720000, // 30 TB
-      storageUsedBytes: 24159191040000, // 22.5 TB
-    },
-    createdAt: '2024-03-10',
-  },
-  {
-    id: 'cluster-dr',
-    name: 'Disaster Recovery',
-    description: 'DR site for production failover',
-    status: 'HEALTHY',
-    haEnabled: true,
-    drsEnabled: true,
-    hosts: { total: 4, online: 4, maintenance: 0 },
-    vms: { total: 8, running: 2, stopped: 6 },
-    resources: {
-      cpuTotalGHz: 256,
-      cpuUsedGHz: 32,
-      memoryTotalBytes: 549755813888,
-      memoryUsedBytes: 68719476736,
-      storageTotalBytes: 53687091200000,
-      storageUsedBytes: 21474836480000,
-    },
-    createdAt: '2024-01-20',
-  },
-];
+import { type Cluster } from '@/types/models';
+import { useApiConnection } from '@/hooks/useDashboard';
 
 const statusConfig = {
   HEALTHY: { color: 'success', icon: CheckCircle, label: 'Healthy' },
@@ -140,9 +34,16 @@ const statusConfig = {
 
 export function ClusterList() {
   const [selectedCluster, setSelectedCluster] = useState<string | null>(null);
+  
+  // API connection
+  const { data: isConnected = false } = useApiConnection();
+  
+  // TODO: Replace with real API hook when cluster service is implemented
+  // For now, show empty state when connected (no mock data)
+  const clusters: Cluster[] = [];
 
   // Calculate totals
-  const totals = mockClusters.reduce(
+  const totals = clusters.reduce(
     (acc, c) => ({
       clusters: acc.clusters + 1,
       hosts: acc.hosts + c.hosts.total,
@@ -203,7 +104,7 @@ export function ClusterList() {
 
       {/* Cluster Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {mockClusters.map((cluster, index) => (
+        {clusters.map((cluster, index) => (
           <ClusterCard
             key={cluster.id}
             cluster={cluster}
@@ -213,6 +114,27 @@ export function ClusterList() {
           />
         ))}
       </div>
+
+      {/* Empty State */}
+      {clusters.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-12 bg-bg-surface rounded-xl border border-border"
+        >
+          <Boxes className="w-12 h-12 mx-auto text-text-muted mb-4" />
+          <h3 className="text-lg font-medium text-text-primary mb-2">No Clusters Found</h3>
+          <p className="text-text-muted mb-4 max-w-md mx-auto">
+            {!isConnected 
+              ? 'Connect to the backend to view clusters.'
+              : 'Create your first cluster to organize hosts and enable HA/DRS features.'}
+          </p>
+          <Button size="sm">
+            <Plus className="w-4 h-4" />
+            Create Cluster
+          </Button>
+        </motion.div>
+      )}
     </div>
   );
 }

@@ -25,58 +25,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useStoragePools, useDeleteStoragePool, type StoragePoolUI } from '@/hooks/useStorage';
 import { CreatePoolDialog } from '@/components/storage/CreatePoolDialog';
 import { toast } from 'sonner';
-
-// Fallback mock data when API is unavailable
-const mockStoragePools: StoragePoolUI[] = [
-  {
-    id: 'pool-1',
-    name: 'ceph-ssd',
-    description: 'High-performance SSD-backed Ceph pool',
-    projectId: 'default',
-    type: 'CEPH_RBD',
-    status: { phase: 'READY', volumeCount: 12 },
-    capacity: {
-      totalBytes: 10 * 1024 * 1024 * 1024 * 1024,
-      usedBytes: 3.5 * 1024 * 1024 * 1024 * 1024,
-      availableBytes: 6.5 * 1024 * 1024 * 1024 * 1024,
-      provisionedBytes: 5 * 1024 * 1024 * 1024 * 1024,
-    },
-    createdAt: new Date(),
-    labels: {},
-  },
-  {
-    id: 'pool-2',
-    name: 'nfs-archive',
-    description: 'NFS storage for archives',
-    projectId: 'default',
-    type: 'NFS',
-    status: { phase: 'READY', volumeCount: 5 },
-    capacity: {
-      totalBytes: 50 * 1024 * 1024 * 1024 * 1024,
-      usedBytes: 30 * 1024 * 1024 * 1024 * 1024,
-      availableBytes: 20 * 1024 * 1024 * 1024 * 1024,
-      provisionedBytes: 35 * 1024 * 1024 * 1024 * 1024,
-    },
-    createdAt: new Date(),
-    labels: {},
-  },
-  {
-    id: 'pool-3',
-    name: 'iscsi-san',
-    description: 'Enterprise SAN storage',
-    projectId: 'default',
-    type: 'ISCSI',
-    status: { phase: 'DEGRADED', volumeCount: 8, errorMessage: 'One path unavailable' },
-    capacity: {
-      totalBytes: 20 * 1024 * 1024 * 1024 * 1024,
-      usedBytes: 18 * 1024 * 1024 * 1024 * 1024,
-      availableBytes: 2 * 1024 * 1024 * 1024 * 1024,
-      provisionedBytes: 19 * 1024 * 1024 * 1024 * 1024,
-    },
-    createdAt: new Date(),
-    labels: {},
-  },
-];
+import { useApiConnection } from '@/hooks/useDashboard';
 
 type FilterTab = 'all' | 'ready' | 'degraded' | 'error';
 
@@ -102,13 +51,13 @@ export function StoragePools() {
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-  // Fetch pools from API
+  // API connection and data
+  const { data: isConnected = false } = useApiConnection();
   const { data: apiPools, isLoading, error, refetch } = useStoragePools();
   const deletePool = useDeleteStoragePool();
   
-  // Use API data or fallback to mock
-  const pools = apiPools && apiPools.length > 0 ? apiPools : mockStoragePools;
-  const isUsingMock = !apiPools || apiPools.length === 0;
+  // Use only API data (no mock fallback)
+  const pools = apiPools || [];
 
   const filteredPools = pools.filter((pool) => {
     const matchesSearch = pool.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -159,12 +108,12 @@ export function StoragePools() {
           {/* Connection status */}
           <div className={cn(
             'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border',
-            isUsingMock
-              ? 'bg-warning/20 text-warning border-warning/30'
-              : 'bg-success/20 text-success border-success/30'
+            isConnected
+              ? 'bg-success/20 text-success border-success/30'
+              : 'bg-error/20 text-error border-error/30'
           )}>
-            {isUsingMock ? <WifiOff className="w-3 h-3" /> : <Wifi className="w-3 h-3" />}
-            {isUsingMock ? 'Mock Data' : 'Connected'}
+            {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+            {isConnected ? 'Connected' : 'Not Connected'}
           </div>
         </div>
         <div className="flex items-center gap-3">

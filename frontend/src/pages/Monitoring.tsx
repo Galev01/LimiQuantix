@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Activity,
@@ -14,6 +14,7 @@ import {
   Zap,
   Thermometer,
   Server,
+  WifiOff,
 } from 'lucide-react';
 import {
   LineChart,
@@ -29,44 +30,27 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
+import { useApiConnection, useDashboard } from '@/hooks/useDashboard';
 
-// Generate mock time-series data
-function generateTimeSeriesData(hours: number, baseValue: number, variance: number) {
-  const now = new Date();
-  const data = [];
-  for (let i = hours; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 60 * 60 * 1000);
-    const value = baseValue + (Math.random() - 0.5) * variance * 2;
-    data.push({
-      time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      value: Math.max(0, Math.min(100, value)),
-    });
-  }
-  return data;
+// Empty metrics structure
+interface TimeSeriesPoint {
+  time: string;
+  value: number;
 }
 
-// Generate cluster metrics
-function generateClusterMetrics() {
-  return {
-    cpu: generateTimeSeriesData(24, 55, 15),
-    memory: generateTimeSeriesData(24, 62, 10),
-    storage: generateTimeSeriesData(24, 58, 5),
-    network: generateTimeSeriesData(24, 35, 20),
-  };
+interface ClusterMetrics {
+  cpu: TimeSeriesPoint[];
+  memory: TimeSeriesPoint[];
+  storage: TimeSeriesPoint[];
+  network: TimeSeriesPoint[];
 }
 
-// Generate per-host metrics
-function generateHostMetrics() {
-  return [
-    { name: 'node-prod-01', cpu: 72, memory: 68, vms: 12, status: 'healthy' },
-    { name: 'node-prod-02', cpu: 58, memory: 71, vms: 14, status: 'healthy' },
-    { name: 'node-prod-03', cpu: 85, memory: 82, vms: 16, status: 'warning' },
-    { name: 'node-prod-04', cpu: 45, memory: 52, vms: 8, status: 'healthy' },
-    { name: 'node-dev-01', cpu: 32, memory: 41, vms: 6, status: 'healthy' },
-    { name: 'node-dev-02', cpu: 28, memory: 35, vms: 4, status: 'healthy' },
-    { name: 'node-gpu-01', cpu: 92, memory: 88, vms: 3, status: 'critical' },
-    { name: 'node-dr-01', cpu: 15, memory: 22, vms: 2, status: 'healthy' },
-  ];
+interface HostMetric {
+  name: string;
+  cpu: number;
+  memory: number;
+  vms: number;
+  status: 'healthy' | 'warning' | 'critical';
 }
 
 // Time range options
@@ -215,48 +199,72 @@ function HostMetricRow({ host, index }: { host: any; index: number }) {
 
 export function Monitoring() {
   const [timeRange, setTimeRange] = useState('24h');
-  const [metrics, setMetrics] = useState(generateClusterMetrics());
-  const [hostMetrics] = useState(generateHostMetrics());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // API connection and data
+  const { data: isConnected = false } = useApiConnection();
+  const { nodes, metrics: dashboardMetrics, isLoading, refetch } = useDashboard();
+  
+  // TODO: Replace with real metrics API when available
+  // For now, derive what we can from the dashboard data
+  const emptyMetrics: ClusterMetrics = {
+    cpu: [],
+    memory: [],
+    storage: [],
+    network: [],
+  };
+  
+  // Convert nodes to host metrics format
+  const hostMetrics: HostMetric[] = nodes.map(node => {
+    const cpuUsage = node.status?.resources?.cpuUsagePercent ?? 0;
+    const memUsage = node.status?.resources?.memoryUsedBytes && node.spec?.memory?.totalBytes
+      ? Math.round((node.status.resources.memoryUsedBytes / node.spec.memory.totalBytes) * 100)
+      : 0;
+    
+    let status: 'healthy' | 'warning' | 'critical' = 'healthy';
+    if (cpuUsage >= 90 || memUsage >= 90) status = 'critical';
+    else if (cpuUsage >= 75 || memUsage >= 75) status = 'warning';
+    
+    return {
+      name: node.hostname,
+      cpu: cpuUsage,
+      memory: memUsage,
+      vms: node.status?.vmIds?.length ?? 0,
+      status,
+    };
+  });
 
-  // Simulate real-time updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setMetrics(generateClusterMetrics());
-    }, 30000); // Update every 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      setMetrics(generateClusterMetrics());
-      setIsRefreshing(false);
-    }, 500);
+    await refetch();
+    setIsRefreshing(false);
   };
 
-  // Calculate current values
-  const currentCpu = metrics.cpu[metrics.cpu.length - 1]?.value ?? 0;
-  const currentMemory = metrics.memory[metrics.memory.length - 1]?.value ?? 0;
-  const currentStorage = metrics.storage[metrics.storage.length - 1]?.value ?? 0;
-  const currentNetwork = metrics.network[metrics.network.length - 1]?.value ?? 0;
+  // Calculate current values from dashboard metrics
+  const currentCpu = dashboardMetrics?.cpuUsagePercent ?? 0;
+  const currentMemory = dashboardMetrics?.memoryUsagePercent ?? 0;
+  const currentStorage = dashboardMetrics?.storageUsagePercent ?? 0;
+  const currentNetwork = 0; // Not available from current API
 
-  // Combine data for multi-line chart
-  const combinedData = metrics.cpu.map((item, index) => ({
-    time: item.time,
-    CPU: item.value,
-    Memory: metrics.memory[index]?.value ?? 0,
-    Storage: metrics.storage[index]?.value ?? 0,
-  }));
+  // Empty combined data - will be populated when metrics API is available
+  const combinedData: { time: string; CPU: number; Memory: number; Storage: number }[] = [];
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Monitoring</h1>
-          <p className="text-text-muted mt-1">Real-time infrastructure metrics and performance</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">Monitoring</h1>
+            <p className="text-text-muted mt-1">Real-time infrastructure metrics and performance</p>
+          </div>
+          {/* Connection status */}
+          {!isConnected && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-warning/20 text-warning border border-warning/30">
+              <WifiOff className="w-3 h-3" />
+              Disconnected
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {/* Time Range Selector */}
@@ -276,8 +284,8 @@ export function Monitoring() {
               </button>
             ))}
           </div>
-          <Button variant="secondary" onClick={handleRefresh} disabled={isRefreshing}>
-            <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
+          <Button variant="secondary" onClick={handleRefresh} disabled={isRefreshing || isLoading}>
+            <RefreshCw className={cn('w-4 h-4', (isRefreshing || isLoading) && 'animate-spin')} />
             Refresh
           </Button>
         </div>
@@ -342,50 +350,58 @@ export function Monitoring() {
             </div>
           </div>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={combinedData}>
-                <defs>
-                  <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorMemory" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorStorage" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#6b7280" tick={{ fontSize: 12 }} domain={[0, 100]} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Area
-                  type="monotone"
-                  dataKey="CPU"
-                  stroke="#3b82f6"
-                  fill="url(#colorCpu)"
-                  strokeWidth={2}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="Memory"
-                  stroke="#a855f7"
-                  fill="url(#colorMemory)"
-                  strokeWidth={2}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="Storage"
-                  stroke="#22c55e"
-                  fill="url(#colorStorage)"
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {combinedData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={combinedData}>
+                  <defs>
+                    <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorMemory" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorStorage" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 12 }} />
+                  <YAxis stroke="#6b7280" tick={{ fontSize: 12 }} domain={[0, 100]} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                  <Area
+                    type="monotone"
+                    dataKey="CPU"
+                    stroke="#3b82f6"
+                    fill="url(#colorCpu)"
+                    strokeWidth={2}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="Memory"
+                    stroke="#a855f7"
+                    fill="url(#colorMemory)"
+                    strokeWidth={2}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="Storage"
+                    stroke="#22c55e"
+                    fill="url(#colorStorage)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-text-muted">
+                <Activity className="w-10 h-10 mb-3 opacity-50" />
+                <p className="text-sm">No time-series data available</p>
+                <p className="text-xs mt-1">Metrics API not yet implemented</p>
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -412,37 +428,10 @@ export function Monitoring() {
               </div>
             </div>
           </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={metrics.network.map((item) => ({
-                  time: item.time,
-                  inbound: item.value,
-                  outbound: item.value * 0.7 + Math.random() * 10,
-                }))}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#6b7280" tick={{ fontSize: 12 }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Line
-                  type="monotone"
-                  dataKey="inbound"
-                  stroke="#22d3ee"
-                  strokeWidth={2}
-                  dot={false}
-                  name="Inbound"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="outbound"
-                  stroke="#f97316"
-                  strokeWidth={2}
-                  dot={false}
-                  name="Outbound"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="h-64 flex flex-col items-center justify-center text-text-muted">
+            <Network className="w-10 h-10 mb-3 opacity-50" />
+            <p className="text-sm">No network data available</p>
+            <p className="text-xs mt-1">Network metrics API not yet implemented</p>
           </div>
         </motion.div>
       </div>
@@ -456,7 +445,9 @@ export function Monitoring() {
             </div>
             <div>
               <p className="text-text-muted text-sm">Active Hosts</p>
-              <p className="text-xl font-bold text-text-primary">8 / 8</p>
+              <p className="text-xl font-bold text-text-primary">
+                {nodes.filter(n => n.status?.phase === 'READY').length} / {nodes.length}
+              </p>
             </div>
           </div>
         </div>
@@ -467,7 +458,9 @@ export function Monitoring() {
             </div>
             <div>
               <p className="text-text-muted text-sm">Running VMs</p>
-              <p className="text-xl font-bold text-text-primary">65 / 93</p>
+              <p className="text-xl font-bold text-text-primary">
+                {dashboardMetrics?.runningVms ?? 0} / {dashboardMetrics?.totalVms ?? 0}
+              </p>
             </div>
           </div>
         </div>
@@ -478,7 +471,9 @@ export function Monitoring() {
             </div>
             <div>
               <p className="text-text-muted text-sm">Active Alerts</p>
-              <p className="text-xl font-bold text-text-primary">3</p>
+              <p className="text-xl font-bold text-text-primary">
+                {hostMetrics.filter(h => h.status !== 'healthy').length}
+              </p>
             </div>
           </div>
         </div>
@@ -488,8 +483,12 @@ export function Monitoring() {
               <Thermometer className="w-5 h-5 text-green-400" />
             </div>
             <div>
-              <p className="text-text-muted text-sm">Avg Temperature</p>
-              <p className="text-xl font-bold text-text-primary">42°C</p>
+              <p className="text-text-muted text-sm">Avg CPU Load</p>
+              <p className="text-xl font-bold text-text-primary">
+                {hostMetrics.length > 0 
+                  ? Math.round(hostMetrics.reduce((sum, h) => sum + h.cpu, 0) / hostMetrics.length)
+                  : 0}%
+              </p>
             </div>
           </div>
         </div>
@@ -506,24 +505,34 @@ export function Monitoring() {
           <h3 className="text-lg font-semibold text-text-primary">Host Performance</h3>
           <p className="text-text-muted text-sm mt-1">Current resource usage per host</p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-bg-base text-text-muted text-sm">
-                <th className="py-3 px-4 text-left font-medium">Host</th>
-                <th className="py-3 px-4 text-left font-medium">CPU</th>
-                <th className="py-3 px-4 text-left font-medium">Memory</th>
-                <th className="py-3 px-4 text-center font-medium">VMs</th>
-                <th className="py-3 px-4 text-right font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {hostMetrics.map((host, index) => (
-                <HostMetricRow key={host.name} host={host} index={index} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {hostMetrics.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-bg-base text-text-muted text-sm">
+                  <th className="py-3 px-4 text-left font-medium">Host</th>
+                  <th className="py-3 px-4 text-left font-medium">CPU</th>
+                  <th className="py-3 px-4 text-left font-medium">Memory</th>
+                  <th className="py-3 px-4 text-center font-medium">VMs</th>
+                  <th className="py-3 px-4 text-right font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hostMetrics.map((host, index) => (
+                  <HostMetricRow key={host.name} host={host} index={index} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="py-12 text-center">
+            <Server className="w-10 h-10 mx-auto text-text-muted mb-3 opacity-50" />
+            <p className="text-text-muted">No hosts found</p>
+            <p className="text-text-muted text-sm mt-1">
+              {!isConnected ? 'Connect to the backend to view host metrics.' : 'Add hosts to see performance data.'}
+            </p>
+          </div>
+        )}
       </motion.div>
     </div>
   );

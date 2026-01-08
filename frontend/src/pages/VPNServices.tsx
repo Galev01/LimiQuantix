@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { showInfo } from '@/lib/toast';
+import { useApiConnection } from '@/hooks/useDashboard';
 
 interface VPNService {
   id: string;
@@ -175,17 +176,24 @@ export function VPNServices() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVPN, setSelectedVPN] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  
+  // API connection
+  const { data: isConnected = false } = useApiConnection();
+  
+  // TODO: Replace with real API hook when VPN service is implemented
+  // For now, show empty state (no mock data)
+  const vpnServices: VPNService[] = [];
 
-  const filteredVPNs = mockVPNServices.filter((vpn) =>
+  const filteredVPNs = vpnServices.filter((vpn) =>
     vpn.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     vpn.endpoint.includes(searchQuery)
   );
 
   const totals = {
-    vpnServices: mockVPNServices.length,
-    activeConnections: mockVPNServices.reduce((sum, vpn) => sum + vpn.stats.activeConnections, 0),
-    totalConnections: mockVPNServices.reduce((sum, vpn) => sum + vpn.stats.totalConnections, 0),
-    totalTraffic: mockVPNServices.reduce(
+    vpnServices: vpnServices.length,
+    activeConnections: vpnServices.reduce((sum, vpn) => sum + vpn.stats.activeConnections, 0),
+    totalConnections: vpnServices.reduce((sum, vpn) => sum + vpn.stats.totalConnections, 0),
+    totalTraffic: vpnServices.reduce(
       (sum, vpn) => sum + vpn.stats.bytesIn + vpn.stats.bytesOut,
       0
     ),
@@ -267,7 +275,7 @@ export function VPNServices() {
       {/* Detail Panel */}
       {selectedVPN && (
         <VPNDetailPanel
-          vpn={mockVPNServices.find((v) => v.id === selectedVPN)!}
+          vpn={vpnServices.find((v) => v.id === selectedVPN)!}
           onClose={() => setSelectedVPN(null)}
         />
       )}

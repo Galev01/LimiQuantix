@@ -48,14 +48,14 @@ import { EditSettingsModal } from '@/components/vm/EditSettingsModal';
 import { EditResourcesModal } from '@/components/vm/EditResourcesModal';
 import { QuantixAgentStatus } from '@/components/vm/QuantixAgentStatus';
 import { FileBrowser } from '@/components/vm/FileBrowser';
-import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
+import { type VirtualMachine, type PowerState } from '@/types/models';
 import { useVM, useStartVM, useStopVM, useDeleteVM, useUpdateVM, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { useSnapshots, useCreateSnapshot, useRevertToSnapshot, useDeleteSnapshot, formatSnapshotSize, type ApiSnapshot } from '@/hooks/useSnapshots';
 import { showInfo, showWarning } from '@/lib/toast';
 
 // Convert API VM to display format
-function apiToDisplayVM(apiVm: ApiVM): MockVM {
+function apiToDisplayVM(apiVm: ApiVM): VirtualMachine {
   const state = (apiVm.status?.state || 'STOPPED') as PowerState;
   return {
     id: apiVm.id,
@@ -132,26 +132,24 @@ export function VMDetail() {
   const revertToSnapshot = useRevertToSnapshot();
   const deleteSnapshot = useDeleteSnapshot();
 
-  // Determine data source
-  const mockVm = mockVMs.find((v) => v.id === id);
-  const useMockData = !isConnected || !apiVm;
-  const vm: MockVM | undefined = useMockData ? mockVm : apiToDisplayVM(apiVm);
+  // Convert API data to display format (no mock fallback)
+  const vm: VirtualMachine | undefined = apiVm ? apiToDisplayVM(apiVm) : undefined;
 
   const isActionPending = startVM.isPending || stopVM.isPending || deleteVM.isPending || updateVM.isPending;
   const isSnapshotActionPending = createSnapshot.isPending || revertToSnapshot.isPending || deleteSnapshot.isPending;
 
   // Action handlers
   const handleStart = async () => {
-    if (useMockData || !id) {
-      showInfo('Demo mode: VM start simulated');
+    if (!isConnected || !id) {
+      showInfo('Not connected to backend');
       return;
     }
     await startVM.mutateAsync(id);
   };
 
   const handleStop = async (force = false) => {
-    if (useMockData || !id) {
-      showInfo('Demo mode: VM stop simulated');
+    if (!isConnected || !id) {
+      showInfo('Not connected to backend');
       return;
     }
     await stopVM.mutateAsync({ id, force });
@@ -166,9 +164,8 @@ export function VMDetail() {
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this VM?')) return;
-    if (useMockData || !id) {
-      showInfo('Demo mode: VM delete simulated');
-      navigate('/vms');
+    if (!isConnected || !id) {
+      showInfo('Not connected to backend');
       return;
     }
     await deleteVM.mutateAsync({ id });
@@ -176,9 +173,8 @@ export function VMDetail() {
   };
 
   const handleSaveSettings = async (settings: { name: string; description: string; labels: Record<string, string> }) => {
-    if (!id) return;
-    if (useMockData) {
-      showInfo('Demo mode: Settings update simulated');
+    if (!id || !isConnected) {
+      showInfo('Not connected to backend');
       return;
     }
     await updateVM.mutateAsync({
@@ -190,9 +186,8 @@ export function VMDetail() {
   };
 
   const handleSaveResources = async (resources: { cores: number; memoryMib: number }) => {
-    if (!id) return;
-    if (useMockData) {
-      showInfo('Demo mode: Resources update simulated');
+    if (!id || !isConnected) {
+      showInfo('Not connected to backend');
       return;
     }
     await updateVM.mutateAsync({

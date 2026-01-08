@@ -28,7 +28,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { ProgressRing } from '@/components/dashboard/ProgressRing';
-import { mockNodes, type NodePhase, type Node as MockNode } from '@/data/mock-data';
+import { type NodePhase, type Node } from '@/types/models';
 import { useNode, type ApiNode } from '@/hooks/useNodes';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { useVMs } from '@/hooks/useVMs';
@@ -41,7 +41,7 @@ const phaseConfig: Record<NodePhase, { label: string; variant: 'success' | 'erro
 };
 
 // Convert API Node to display format
-function apiToDisplayNode(apiNode: ApiNode): MockNode {
+function apiToDisplayNode(apiNode: ApiNode): Node {
   const phase = (apiNode.status?.phase as NodePhase) || 'READY';
   return {
     id: apiNode.id,
@@ -115,12 +115,10 @@ export function HostDetail() {
     enabled: !!isConnected && !!id 
   });
 
-  // Determine data source
-  const mockNode = mockNodes.find((n) => n.id === id);
-  const useMockData = !isConnected || !apiNode;
-  const node: MockNode | undefined = useMockData ? mockNode : apiToDisplayNode(apiNode);
+  // Convert API data to display format (no mock fallback)
+  const node: Node | undefined = apiNode ? apiToDisplayNode(apiNode) : undefined;
 
-  if (isLoading && !useMockData) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="w-8 h-8 animate-spin text-accent" />

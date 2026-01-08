@@ -34,70 +34,7 @@ import {
 } from '@/hooks/useStorage';
 import { CreateVolumeDialog } from '@/components/storage/CreateVolumeDialog';
 import { toast } from 'sonner';
-
-// Mock volumes data for fallback
-const mockVolumes: VolumeUI[] = [
-  {
-    id: 'vol-001',
-    name: 'prod-web-01-boot',
-    poolId: 'pool-ceph-01',
-    projectId: 'default',
-    sizeBytes: 107_374_182_400,
-    actualSizeBytes: 85_000_000_000,
-    status: {
-      phase: 'IN_USE',
-      attachedVmId: 'vm-001',
-      devicePath: '/dev/vda',
-      snapshotCount: 2,
-    },
-    createdAt: new Date('2024-01-15T10:00:00Z'),
-    labels: { 'vm': 'prod-web-01' },
-  },
-  {
-    id: 'vol-002',
-    name: 'prod-web-01-data',
-    poolId: 'pool-ceph-01',
-    projectId: 'default',
-    sizeBytes: 536_870_912_000,
-    actualSizeBytes: 320_000_000_000,
-    status: {
-      phase: 'IN_USE',
-      attachedVmId: 'vm-001',
-      devicePath: '/dev/vdb',
-      snapshotCount: 0,
-    },
-    createdAt: new Date('2024-01-15T10:05:00Z'),
-    labels: {},
-  },
-  {
-    id: 'vol-003',
-    name: 'backup-staging',
-    poolId: 'pool-nfs-01',
-    projectId: 'default',
-    sizeBytes: 1_099_511_627_776,
-    actualSizeBytes: 750_000_000_000,
-    status: {
-      phase: 'READY',
-      snapshotCount: 5,
-    },
-    createdAt: new Date('2024-01-20T09:00:00Z'),
-    labels: {},
-  },
-  {
-    id: 'vol-004',
-    name: 'temp-migration',
-    poolId: 'pool-ceph-01',
-    projectId: 'default',
-    sizeBytes: 214_748_364_800,
-    actualSizeBytes: 0,
-    status: {
-      phase: 'CREATING',
-      snapshotCount: 0,
-    },
-    createdAt: new Date('2024-01-25T16:00:00Z'),
-    labels: {},
-  },
-];
+import { useApiConnection } from '@/hooks/useDashboard';
 
 type FilterTab = 'all' | 'in_use' | 'available' | 'creating';
 
@@ -119,16 +56,16 @@ export function Volumes() {
   const [resizingVolume, setResizingVolume] = useState<string | null>(null);
   const [resizeSize, setResizeSize] = useState('');
 
-  // Fetch volumes from API
+  // API connection and data
+  const { data: isConnected = false } = useApiConnection();
   const { data: apiVolumes, isLoading, refetch } = useVolumes();
   const deleteVolume = useDeleteVolume();
   const attachVolume = useAttachVolume();
   const detachVolume = useDetachVolume();
   const resizeVolume = useResizeVolume();
   
-  // Use API data or fallback to mock
-  const volumes = apiVolumes && apiVolumes.length > 0 ? apiVolumes : mockVolumes;
-  const isUsingMock = !apiVolumes || apiVolumes.length === 0;
+  // Use only API data (no mock fallback)
+  const volumes = apiVolumes || [];
 
   const filteredVolumes = volumes.filter((vol) => {
     const matchesSearch =
@@ -215,12 +152,12 @@ export function Volumes() {
           {/* Connection status */}
           <div className={cn(
             'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border',
-            isUsingMock
-              ? 'bg-warning/20 text-warning border-warning/30'
-              : 'bg-success/20 text-success border-success/30'
+            isConnected
+              ? 'bg-success/20 text-success border-success/30'
+              : 'bg-error/20 text-error border-error/30'
           )}>
-            {isUsingMock ? <WifiOff className="w-3 h-3" /> : <Wifi className="w-3 h-3" />}
-            {isUsingMock ? 'Mock Data' : 'Connected'}
+            {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+            {isConnected ? 'Connected' : 'Not Connected'}
           </div>
         </div>
         <div className="flex items-center gap-3">

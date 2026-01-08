@@ -49,14 +49,6 @@ interface SecurityGroup {
   rules: SecurityRule[];
   createdAt: string;
 }
-
-const mockSecurityGroups: SecurityGroup[] = [
-  {
-    id: 'sg-default',
-    name: 'default',
-    description: 'Default security group - allows all outbound, denies all inbound',
-    isDefault: true,
-    attachedVMs: 12,
     rules: [
       {
         id: 'rule-1',
@@ -235,10 +227,9 @@ export function SecurityGroups() {
   const { data: apiResponse, isLoading, refetch, isRefetching } = useSecurityGroups({ enabled: !!isConnected });
   const deleteSG = useDeleteSecurityGroup();
 
-  // Determine data source
+  // Use only API data (no mock fallback)
   const apiGroups = apiResponse?.securityGroups || [];
-  const useMockData = !isConnected || apiGroups.length === 0;
-  const allGroups: SecurityGroup[] = useMockData ? mockSecurityGroups : apiGroups.map(apiToDisplaySecurityGroup);
+  const allGroups: SecurityGroup[] = apiGroups.map(apiToDisplaySecurityGroup);
 
   const toggleGroup = (id: string) => {
     setExpandedGroups((prev) => {

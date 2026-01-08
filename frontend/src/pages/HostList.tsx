@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
-import { type NodePhase } from '@/data/mock-data';
+import { type NodePhase } from '@/types/models';
 import { useNodes, type ApiNode } from '@/hooks/useNodes';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { showInfo, showWarning } from '@/lib/toast';

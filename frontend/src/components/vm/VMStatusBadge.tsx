@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import { Play, Square, Pause, Moon, ArrowRightLeft, AlertTriangle } from 'lucide-react';
-import type { PowerState } from '@/data/mock-data';
+import type { PowerState } from '@/types/models';
 
 interface VMStatusBadgeProps {
   status: PowerState;
