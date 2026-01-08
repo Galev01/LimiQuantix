@@ -93,14 +93,20 @@ backend:
 			-e CGO_ENABLED=0 \
 			-e GOOS=linux \
 			-e GOARCH=amd64 \
-			golang:1.22-alpine \
-			sh -c "apk add --no-cache git && go build -ldflags='-s -w' -o /app/qx-controlplane ./cmd/controlplane"; \
-		cp $(PROJECT_ROOT)/backend/qx-controlplane $(OVERLAY_DIR)/usr/bin/; \
-		rm -f $(PROJECT_ROOT)/backend/qx-controlplane; \
-		chmod +x $(OVERLAY_DIR)/usr/bin/qx-controlplane; \
-		echo "✅ Backend built"; \
+			golang:alpine \
+			sh -c "apk add --no-cache git && go build -ldflags='-s -w' -o /app/qx-controlplane ./cmd/controlplane" || { echo "❌ Backend build failed!"; exit 1; }; \
+		if [ -f "$(PROJECT_ROOT)/backend/qx-controlplane" ]; then \
+			cp $(PROJECT_ROOT)/backend/qx-controlplane $(OVERLAY_DIR)/usr/bin/; \
+			rm -f $(PROJECT_ROOT)/backend/qx-controlplane; \
+			chmod +x $(OVERLAY_DIR)/usr/bin/qx-controlplane; \
+			echo "✅ Backend built successfully"; \
+		else \
+			echo "❌ Backend binary not found after build!"; \
+			exit 1; \
+		fi; \
 	else \
-		echo "⚠️  Backend not found at $(PROJECT_ROOT)/backend, skipping..."; \
+		echo "❌ Backend not found at $(PROJECT_ROOT)/backend!"; \
+		exit 1; \
 	fi
 
 # Build React frontend dashboard
