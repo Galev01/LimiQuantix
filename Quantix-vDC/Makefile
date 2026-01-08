@@ -15,7 +15,7 @@
 
 .PHONY: all iso ova rootfs test-qemu test-qemu-install test-qemu-uefi \
         clean clean-all help docker-builder docker-node scripts-executable \
-        backend frontend
+        backend frontend deploy-usb
 
 # Version
 VERSION ?= 1.0.0
@@ -241,6 +241,23 @@ test-qemu-install:
 		-device virtio-net-pci,netdev=net0 \
 		-netdev user,id=net0,hostfwd=tcp::18080-:8080,hostfwd=tcp::18443-:443
 
+# Deploy ISO to USB drive
+# Usage: make deploy-usb DEVICE=/dev/sdb
+deploy-usb:
+	@echo "💾 Deploying ISO to USB drive..."
+	@if [ -z "$(DEVICE)" ]; then \
+		echo "❌ No device specified. Usage: make deploy-usb DEVICE=/dev/sdX"; \
+		echo ""; \
+		echo "Available devices:"; \
+		lsblk -d -o NAME,SIZE,TYPE,MODEL | grep -E "disk|NAME"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(OUTPUT_DIR)/$(ISO_NAME)" ]; then \
+		echo "❌ ISO not found. Run 'make iso' first."; \
+		exit 1; \
+	fi
+	sudo $(BUILD_DIR)/builder/deploy-usb.sh $(DEVICE) -v $(VERSION)
+
 # =============================================================================
 # Cleanup
 # =============================================================================
@@ -283,6 +300,10 @@ help:
 	@echo "║    make test-qemu     - Test ISO in QEMU (BIOS)                  ║"
 	@echo "║    make test-qemu-uefi- Test ISO in QEMU (UEFI)                  ║"
 	@echo "║    make test-qemu-install - Test installer with virtual disk     ║"
+	@echo "║                                                                  ║"
+	@echo "║  Deployment Commands:                                            ║"
+	@echo "║    make deploy-usb DEVICE=/dev/sdX - Write ISO to USB drive      ║"
+	@echo "║    sudo ./builder/deploy-usb.sh /dev/sdX - Direct USB deploy     ║"
 	@echo "║                                                                  ║"
 	@echo "║  Docker Commands:                                                ║"
 	@echo "║    make docker-builder    - Build base builder image             ║"
