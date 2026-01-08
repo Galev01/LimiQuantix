@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Disc,
@@ -7,16 +7,13 @@ import {
   Download,
   Trash2,
   Search,
-  Filter,
-  MoreVertical,
   CheckCircle,
   AlertCircle,
   Loader2,
   RefreshCw,
   HardDrive,
-  ExternalLink,
 } from 'lucide-react';
-import { cn, formatBytes } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ISOUploadDialog } from '@/components/storage';
@@ -30,8 +27,52 @@ import {
   formatImageSize,
   type CloudImage,
   type ISOImage,
+  type DownloadProgress,
 } from '@/hooks/useImages';
 import { toast } from 'sonner';
+
+// Track download jobs by image ID
+interface DownloadJob {
+  jobId: string;
+  imageId: string;
+  catalogId: string;
+}
+
+// Component to poll a single download job's progress (uses hook)
+function DownloadJobTracker({
+  job,
+  onProgress,
+  onComplete,
+  onError,
+}: {
+  job: DownloadJob;
+  onProgress: (catalogId: string, progress: DownloadProgress) => void;
+  onComplete: (catalogId: string) => void;
+  onError: (catalogId: string, message: string) => void;
+}) {
+  const { data } = useImportStatus(job.jobId, true);
+
+  useEffect(() => {
+    if (!data) return;
+
+    // Update progress
+    onProgress(job.catalogId, {
+      progressPercent: data.progressPercent,
+      bytesDownloaded: data.bytesDownloaded,
+      bytesTotal: data.bytesTotal,
+    });
+
+    // Check completion status
+    // status: 1=pending, 2=downloading, 3=converting, 4=completed, 5=failed
+    if (data.status === 4) {
+      onComplete(job.catalogId);
+    } else if (data.status === 5) {
+      onError(job.catalogId, data.errorMessage || 'Download failed');
+    }
+  }, [job.catalogId, data, onProgress, onComplete, onError]);
+
+  return null; // This is a headless component
+}
 
 type TabType = 'cloud-images' | 'isos';
 type FilterStatus = 'all' | 'ready' | 'downloading' | 'pending' | 'error';
@@ -50,11 +91,54 @@ export default function ImageLibrary() {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [downloadingImages, setDownloadingImages] = useState<Set<string>>(new Set());
+  const [downloadJobs, setDownloadJobs] = useState<DownloadJob[]>([]);
+  const [downloadProgress, setDownloadProgress] = useState<Map<string, DownloadProgress>>(new Map());
 
   // Fetch images from API
   const { data: apiImages, isLoading, error, refetch } = useImages();
   const deleteImage = useDeleteImage();
   const downloadImage = useDownloadImage();
+
+  // Callbacks for download progress updates
+  const handleProgress = useCallback((imageId: string, progress: DownloadProgress) => {
+    setDownloadProgress(prev => {
+      const next = new Map(prev);
+      next.set(imageId, progress);
+      return next;
+    });
+  }, []);
+
+  const handleComplete = useCallback((imageId: string) => {
+    // Remove from tracking
+    setDownloadJobs(prev => prev.filter(j => j.catalogId !== imageId && j.imageId !== imageId));
+    setDownloadingImages(prev => {
+      const next = new Set(prev);
+      next.delete(imageId);
+      return next;
+    });
+    setDownloadProgress(prev => {
+      const next = new Map(prev);
+      next.delete(imageId);
+      return next;
+    });
+    toast.success('Download complete!');
+    refetch(); // Refresh image list
+  }, [refetch]);
+
+  const handleError = useCallback((imageId: string, message: string) => {
+    setDownloadJobs(prev => prev.filter(j => j.catalogId !== imageId && j.imageId !== imageId));
+    setDownloadingImages(prev => {
+      const next = new Set(prev);
+      next.delete(imageId);
+      return next;
+    });
+    setDownloadProgress(prev => {
+      const next = new Map(prev);
+      next.delete(imageId);
+      return next;
+    });
+    toast.error(`Download failed: ${message}`);
+  }, []);
 
   // Combine API images with catalog (fallback)
   const cloudImages: CloudImage[] = apiImages && apiImages.length > 0 
@@ -85,11 +169,24 @@ export default function ImageLibrary() {
   const handleDownloadFromCatalog = async (catalogId: string) => {
     setDownloadingImages(prev => new Set(prev).add(catalogId));
     try {
-      await downloadImage.mutateAsync({ catalogId });
-      toast.success('Download started! Check back for progress.');
+      const result = await downloadImage.mutateAsync({ catalogId });
+      if (result.jobId) {
+        // Track this download job
+        setDownloadJobs(prev => [...prev, { 
+          jobId: result.jobId, 
+          imageId: result.imageId || catalogId,
+          catalogId 
+        }]);
+        // Initialize progress
+        setDownloadProgress(prev => {
+          const next = new Map(prev);
+          next.set(catalogId, { progressPercent: 0, bytesDownloaded: 0, bytesTotal: 0 });
+          return next;
+        });
+        toast.success('Download started!');
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to start download');
-    } finally {
       setDownloadingImages(prev => {
         const next = new Set(prev);
         next.delete(catalogId);
@@ -111,6 +208,17 @@ export default function ImageLibrary() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Download job trackers (headless - just poll for progress) */}
+      {downloadJobs.map(job => (
+        <DownloadJobTracker
+          key={job.jobId}
+          job={job}
+          onProgress={handleProgress}
+          onComplete={handleComplete}
+          onError={handleError}
+        />
+      ))}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -237,6 +345,9 @@ export default function ImageLibrary() {
               const status = STATUS_CONFIG[image.status] || STATUS_CONFIG.pending;
               const StatusIcon = status.icon;
               const isDownloading = downloadingImages.has(image.id);
+              // Use progress from local tracking first, then fall back to API progress
+              const progress = downloadProgress.get(image.id) || ('downloadProgress' in image ? image.downloadProgress : undefined);
+              const isActivelyDownloading = image.status === 'downloading' || isDownloading;
 
               return (
                 <motion.div
@@ -266,11 +377,15 @@ export default function ImageLibrary() {
                         <h3 className="font-medium text-text-primary truncate">
                           {image.name}
                         </h3>
-                        <Badge variant={status.variant} size="sm">
-                          {image.status === 'downloading' ? (
-                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                          ) : null}
-                          {status.label}
+                        <Badge variant={isActivelyDownloading ? 'warning' : status.variant} size="sm">
+                          {isActivelyDownloading ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                              {progress ? `${progress.progressPercent}%` : 'Starting...'}
+                            </>
+                          ) : (
+                            status.label
+                          )}
                         </Badge>
                       </div>
                       {'description' in image && image.description && (
@@ -320,8 +435,29 @@ export default function ImageLibrary() {
                     </div>
                   </div>
 
+                  {/* Download Progress Bar */}
+                  {isActivelyDownloading && progress && (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <div className="flex items-center justify-between text-xs text-text-muted mb-1.5">
+                        <span>Downloading...</span>
+                        <span>
+                          {progress.bytesTotal > 0 
+                            ? `${formatImageSize(progress.bytesDownloaded)} / ${formatImageSize(progress.bytesTotal)}`
+                            : `${progress.progressPercent}%`
+                          }
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 bg-bg-base rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-warning rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${progress.progressPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Cloud Image specific info */}
-                  {activeTab === 'cloud-images' && 'os' in image && (
+                  {activeTab === 'cloud-images' && 'os' in image && !isActivelyDownloading && (
                     <div className="mt-3 pt-3 border-t border-border flex items-center gap-4 text-xs">
                       <span className="text-text-muted">
                         Default user: <span className="text-text-secondary">{image.os.defaultUser}</span>

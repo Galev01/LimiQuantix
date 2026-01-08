@@ -1,11 +1,12 @@
 import { useState, useEffect, type ChangeEvent } from 'react';
-import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, RotateCcw, Lock, Upload, Key, Globe, Terminal, Unplug, Link2, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, Lock, Upload, Key, Globe, Terminal, Unplug, Link2, Clock, AlertTriangle, CheckCircle2, Copy, Check, KeyRound, Plug } from 'lucide-react';
 import { Header } from '@/components/layout';
 import { Card, Badge, Button, Input, Label } from '@/components/ui';
 import { useSettings, useUpdateSettings, useServices, useRestartService, useCertificateInfo, useGenerateSelfSigned, useResetCertificate, useSshStatus, useEnableSsh, useDisableSsh } from '@/hooks/useSettings';
 import { useHostInfo } from '@/hooks/useHost';
-import { useClusterStatus, useJoinCluster, useLeaveCluster } from '@/hooks/useCluster';
+import { useClusterStatus, useTestConnection, useGenerateToken, useLeaveCluster } from '@/hooks/useCluster';
 import { cn } from '@/lib/utils';
+import { toast } from '@/lib/toast';
 
 type Tab = 'general' | 'storage' | 'network' | 'security' | 'services' | 'about';
 
@@ -20,7 +21,8 @@ export function Settings() {
   const restartServiceMutation = useRestartService();
   const generateSelfSignedMutation = useGenerateSelfSigned();
   const resetCertMutation = useResetCertificate();
-  const joinClusterMutation = useJoinCluster();
+  const testConnectionMutation = useTestConnection();
+  const generateTokenMutation = useGenerateToken();
   const leaveClusterMutation = useLeaveCluster();
   const enableSshMutation = useEnableSsh();
   const disableSshMutation = useDisableSsh();
@@ -30,10 +32,19 @@ export function Settings() {
   const [nodeName, setNodeName] = useState(settings?.node_name || '');
   const [logLevel, setLogLevel] = useState(settings?.log_level || 'info');
 
-  // Cluster join form state
-  const [showJoinForm, setShowJoinForm] = useState(false);
-  const [clusterAddress, setClusterAddress] = useState('');
-  const [registrationToken, setRegistrationToken] = useState('');
+  // Cluster test form state
+  const [showTestForm, setShowTestForm] = useState(false);
+  const [testUrl, setTestUrl] = useState('');
+  
+  // Generated token state
+  const [generatedToken, setGeneratedToken] = useState<{
+    token: string;
+    nodeId: string;
+    hostName: string;
+    managementIp: string;
+    expiresAt: string;
+  } | null>(null);
+  const [tokenCopied, setTokenCopied] = useState(false);
 
   // SSH form state
   const [sshDuration, setSshDuration] = useState(30);
@@ -223,77 +234,153 @@ export function Settings() {
                       </div>
                     </div>
                   ) : (
-                    /* Standalone mode - show join form */
+                    /* Standalone mode - show token generation and test connection */
                     <div className="space-y-4">
                       <div className="p-4 bg-bg-base rounded-lg">
                         <p className="text-text-muted text-sm">
-                          This host is running in standalone mode. Connect to a Quantix-vDC control plane
-                          to enable centralized management, live migration, and cluster features.
+                          This host is running in standalone mode. To add this host to a Quantix-vDC cluster:
                         </p>
+                        <ol className="text-text-muted text-sm mt-2 list-decimal list-inside space-y-1">
+                          <li>Generate a registration token below</li>
+                          <li>Copy the token and host information</li>
+                          <li>In the Quantix-vDC console, add this host using the token</li>
+                        </ol>
                       </div>
 
-                      {!showJoinForm ? (
-                        <Button onClick={() => setShowJoinForm(true)}>
-                          <Link2 className="w-4 h-4" />
-                          Join Quantix-vDC Cluster
+                      {/* Generated Token Display */}
+                      {generatedToken && (
+                        <div className="p-4 border border-accent/30 rounded-lg bg-accent/5 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium text-text-primary flex items-center gap-2">
+                              <Key className="w-4 h-4 text-accent" />
+                              Registration Token
+                            </h4>
+                            <button
+                              onClick={() => setGeneratedToken(null)}
+                              className="text-text-muted hover:text-text-primary text-sm"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          
+                          <div className="relative">
+                            <code className="block p-3 bg-bg-base rounded-lg font-mono text-sm text-text-primary break-all border border-border">
+                              {generatedToken.token}
+                            </code>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute top-1 right-1"
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(generatedToken.token);
+                                setTokenCopied(true);
+                                toast.success('Token copied to clipboard');
+                                setTimeout(() => setTokenCopied(false), 2000);
+                              }}
+                            >
+                              {tokenCopied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
+                            </Button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="p-2 bg-bg-base rounded">
+                              <span className="text-text-muted">Node ID:</span>
+                              <span className="text-text-primary ml-2 font-mono">{generatedToken.nodeId.slice(0, 12)}...</span>
+                            </div>
+                            <div className="p-2 bg-bg-base rounded">
+                              <span className="text-text-muted">Hostname:</span>
+                              <span className="text-text-primary ml-2">{generatedToken.hostName}</span>
+                            </div>
+                            <div className="p-2 bg-bg-base rounded">
+                              <span className="text-text-muted">IP:</span>
+                              <span className="text-text-primary ml-2 font-mono">{generatedToken.managementIp}</span>
+                            </div>
+                            <div className="p-2 bg-bg-base rounded">
+                              <span className="text-text-muted">Expires:</span>
+                              <span className="text-text-primary ml-2">{new Date(generatedToken.expiresAt).toLocaleString()}</span>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-text-muted">
+                            Use this token in the Quantix-vDC console to add this host to your cluster.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => {
+                            generateTokenMutation.mutate(undefined, {
+                              onSuccess: (data) => {
+                                setGeneratedToken(data);
+                              }
+                            });
+                          }}
+                          disabled={generateTokenMutation.isPending}
+                        >
+                          <KeyRound className="w-4 h-4" />
+                          {generateTokenMutation.isPending ? 'Generating...' : 'Generate Registration Token'}
                         </Button>
-                      ) : (
+                        <Button
+                          variant="secondary"
+                          onClick={() => setShowTestForm(!showTestForm)}
+                        >
+                          <Plug className="w-4 h-4" />
+                          Test Connection
+                        </Button>
+                      </div>
+
+                      {/* Test Connection Form */}
+                      {showTestForm && (
                         <div className="space-y-4 p-4 border border-border rounded-lg">
-                          <h4 className="font-medium text-text-primary">Connect to Control Plane</h4>
+                          <h4 className="font-medium text-text-primary">Test vDC Connection</h4>
                           <div>
-                            <Label htmlFor="clusterAddress">Control Plane Address</Label>
+                            <Label htmlFor="testUrl">Control Plane URL</Label>
                             <Input
-                              id="clusterAddress"
-                              value={clusterAddress}
-                              onChange={(e: ChangeEvent<HTMLInputElement>) => setClusterAddress(e.target.value)}
+                              id="testUrl"
+                              value={testUrl}
+                              onChange={(e: ChangeEvent<HTMLInputElement>) => setTestUrl(e.target.value)}
                               placeholder="https://vdc.example.com:8443"
                             />
                             <p className="text-xs text-text-muted mt-1">
-                              The URL of your Quantix-vDC control plane
-                            </p>
-                          </div>
-                          <div>
-                            <Label htmlFor="registrationToken">Registration Token</Label>
-                            <Input
-                              id="registrationToken"
-                              type="password"
-                              value={registrationToken}
-                              onChange={(e: ChangeEvent<HTMLInputElement>) => setRegistrationToken(e.target.value)}
-                              placeholder="Enter registration token"
-                            />
-                            <p className="text-xs text-text-muted mt-1">
-                              Obtain this token from your Quantix-vDC admin console
+                              Test connectivity to your Quantix-vDC control plane
                             </p>
                           </div>
                           <div className="flex gap-2">
                             <Button
                               onClick={() => {
-                                joinClusterMutation.mutate({
-                                  control_plane_address: clusterAddress,
-                                  registration_token: registrationToken,
-                                }, {
-                                  onSuccess: () => {
-                                    setShowJoinForm(false);
-                                    setClusterAddress('');
-                                    setRegistrationToken('');
-                                  }
-                                });
+                                testConnectionMutation.mutate({ controlPlaneUrl: testUrl });
                               }}
-                              disabled={joinClusterMutation.isPending || !clusterAddress || !registrationToken}
+                              disabled={testConnectionMutation.isPending || !testUrl}
                             >
-                              {joinClusterMutation.isPending ? 'Connecting...' : 'Connect'}
+                              {testConnectionMutation.isPending ? 'Testing...' : 'Test Connection'}
                             </Button>
                             <Button
                               variant="ghost"
                               onClick={() => {
-                                setShowJoinForm(false);
-                                setClusterAddress('');
-                                setRegistrationToken('');
+                                setShowTestForm(false);
+                                setTestUrl('');
                               }}
                             >
                               Cancel
                             </Button>
                           </div>
+                          {testConnectionMutation.isSuccess && (
+                            <div className={cn(
+                              'p-3 rounded-lg flex items-center gap-2',
+                              testConnectionMutation.data?.success 
+                                ? 'bg-success/10 text-success' 
+                                : 'bg-error/10 text-error'
+                            )}>
+                              {testConnectionMutation.data?.success ? (
+                                <CheckCircle2 className="w-4 h-4" />
+                              ) : (
+                                <AlertTriangle className="w-4 h-4" />
+                              )}
+                              <span className="text-sm">{testConnectionMutation.data?.message}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

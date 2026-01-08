@@ -78,6 +78,8 @@ time.workspace = true
 
 # System information
 sysinfo = "0.32"
+gethostname = "0.4"
+libc = "0.2"
 
 # Internal crates
 limiquantix-hypervisor.workspace = true

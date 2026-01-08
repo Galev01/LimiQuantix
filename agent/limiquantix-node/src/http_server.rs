@@ -484,6 +484,91 @@ struct ClusterStatus {
     status: String,  // "connected", "disconnected", "standalone"
 }
 
+/// Request to test connection to vDC control plane
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TestConnectionRequest {
+    control_plane_url: String,
+}
+
+/// Response from testing connection to vDC
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TestConnectionResponse {
+    success: bool,
+    message: String,
+    cluster_name: Option<String>,
+    cluster_version: Option<String>,
+}
+
+/// Response containing generated token for vDC registration
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GenerateTokenResponse {
+    token: String,
+    node_id: String,
+    host_name: String,
+    management_ip: String,
+    expires_at: String,
+}
+
+/// Registration token for vDC to add this host
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RegistrationToken {
+    token: String,
+    created_at: String,
+    expires_at: String,
+    expires_in_seconds: u64,
+    hostname: String,
+    management_ip: String,
+}
+
+/// Full hardware inventory for host discovery
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HostDiscoveryResponse {
+    hostname: String,
+    management_ip: String,
+    cpu: CpuInfo,
+    memory: MemoryInfo,
+    storage: StorageInventory,
+    network: Vec<NicInfo>,
+    gpus: Vec<GpuInfo>,
+}
+
+/// Storage inventory including local, NFS, and iSCSI storage
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StorageInventory {
+    local: Vec<DiskInfo>,
+    nfs: Vec<NfsMount>,
+    iscsi: Vec<IscsiTarget>,
+}
+
+/// NFS mount information
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NfsMount {
+    mount_point: String,
+    server: String,
+    export_path: String,
+    size_bytes: u64,
+    used_bytes: u64,
+    available_bytes: u64,
+}
+
+/// iSCSI target information
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct IscsiTarget {
+    target_iqn: String,
+    portal: String,
+    device_path: String,
+    size_bytes: u64,
+    lun: u32,
+}
+
 // ============================================================================
 // Network Types
 // ============================================================================
@@ -665,9 +750,15 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/network/hostname", post(set_hostname))
         // Cluster endpoints
         .route("/cluster/status", get(get_cluster_status))
-        .route("/cluster/join", post(join_cluster))
         .route("/cluster/leave", post(leave_cluster))
         .route("/cluster/config", get(get_cluster_config))
+        // Token-based cluster connection (Host UI generates token, vDC uses it to add host)
+        .route("/cluster/test-connection", post(test_vdc_connection))
+        .route("/cluster/generate-token", post(generate_cluster_registration_token))
+        // Registration endpoints (for vDC to discover and add this host)
+        .route("/registration/token", post(generate_registration_token))
+        .route("/registration/token", get(get_current_registration_token))
+        .route("/registration/discovery", get(get_host_discovery))
         // Settings endpoints
         .route("/settings", get(get_settings))
         .route("/settings", post(update_settings))
@@ -875,7 +966,7 @@ async fn get_host_health(
 async fn get_hardware_inventory(
     State(_state): State<Arc<AppState>>,
 ) -> Result<Json<HardwareInventory>, (StatusCode, Json<ApiError>)> {
-    use sysinfo::{System, Disks, Networks, Cpu};
+    use sysinfo::{System, Networks, Cpu};
     
     let mut sys = System::new_all();
     sys.refresh_all();
@@ -904,42 +995,8 @@ async fn get_hardware_inventory(
         dimm_count: 0,      // Would need dmidecode to detect
     };
     
-    // Storage Info
-    let disks = Disks::new_with_refreshed_list();
-    let mut storage: Vec<DiskInfo> = Vec::new();
-    
-    for disk in disks.list() {
-        let disk_name = disk.name().to_string_lossy().to_string();
-        let mount_point = disk.mount_point().to_string_lossy().to_string();
-        
-        // Try to determine disk type
-        let disk_type = if disk_name.contains("nvme") {
-            "NVMe"
-        } else if disk_name.contains("sd") {
-            // Could be SSD or HDD - would need to check /sys/block/*/queue/rotational
-            "SSD/HDD"
-        } else {
-            "Unknown"
-        }.to_string();
-        
-        storage.push(DiskInfo {
-            name: disk_name.clone(),
-            model: String::new(), // Would need lsblk -o MODEL
-            serial: String::new(),
-            size_bytes: disk.total_space(),
-            disk_type,
-            interface: if disk_name.contains("nvme") { "NVMe" } else { "SATA" }.to_string(),
-            is_removable: disk.is_removable(),
-            smart_status: "Unknown".to_string(),
-            partitions: vec![PartitionInfo {
-                name: disk_name.clone(),
-                mount_point: Some(mount_point),
-                size_bytes: disk.total_space(),
-                used_bytes: disk.total_space() - disk.available_space(),
-                filesystem: disk.file_system().to_string_lossy().to_string(),
-            }],
-        });
-    }
+    // Storage Info - Use lsblk to get physical block devices
+    let storage = get_physical_storage_devices();
     
     // Network Info
     let networks = Networks::new_with_refreshed_list();
@@ -1013,6 +1070,213 @@ fn get_cpu_features() -> Vec<String> {
         }
     }
     Vec::new()
+}
+
+/// Get physical storage devices using lsblk for accurate disk detection
+fn get_physical_storage_devices() -> Vec<DiskInfo> {
+    use std::process::Command;
+    
+    let mut devices: Vec<DiskInfo> = Vec::new();
+    
+    // Use lsblk JSON output for structured data
+    // -d = no partitions (disk only), -b = bytes, -o = output fields
+    let output = Command::new("lsblk")
+        .args(&["-J", "-b", "-o", "NAME,SIZE,MODEL,SERIAL,TYPE,TRAN,RM,ROTA,HOTPLUG"])
+        .output();
+    
+    if let Ok(output) = output {
+        if output.status.success() {
+            let json_str = String::from_utf8_lossy(&output.stdout);
+            
+            if let Ok(lsblk_data) = serde_json::from_str::<serde_json::Value>(&json_str) {
+                if let Some(blockdevices) = lsblk_data.get("blockdevices").and_then(|v| v.as_array()) {
+                    for dev in blockdevices {
+                        let name = dev.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                        let dev_type = dev.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                        
+                        // Only process disk devices (not partitions, loop devices, rom, etc.)
+                        if dev_type != "disk" {
+                            continue;
+                        }
+                        
+                        // Skip loop devices and ram disks
+                        if name.starts_with("loop") || name.starts_with("ram") || name.starts_with("zram") {
+                            continue;
+                        }
+                        
+                        let size_bytes = dev.get("size")
+                            .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                            .unwrap_or(0);
+                        
+                        let model = dev.get("model")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .trim()
+                            .to_string();
+                        
+                        let serial = dev.get("serial")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .trim()
+                            .to_string();
+                        
+                        let transport = dev.get("tran")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+                        
+                        let is_removable = dev.get("rm")
+                            .and_then(|v| v.as_bool().or_else(|| v.as_str().map(|s| s == "1")))
+                            .unwrap_or(false);
+                        
+                        let is_rotational = dev.get("rota")
+                            .and_then(|v| v.as_bool().or_else(|| v.as_str().map(|s| s == "1")))
+                            .unwrap_or(false);
+                        
+                        let is_hotplug = dev.get("hotplug")
+                            .and_then(|v| v.as_bool().or_else(|| v.as_str().map(|s| s == "1")))
+                            .unwrap_or(false);
+                        
+                        // Determine disk type
+                        let disk_type = if name.starts_with("nvme") {
+                            "NVMe"
+                        } else if is_rotational {
+                            "HDD"
+                        } else {
+                            "SSD"
+                        }.to_string();
+                        
+                        // Determine interface
+                        let interface = match transport {
+                            "nvme" => "NVMe",
+                            "sata" => "SATA",
+                            "usb" => "USB",
+                            "sas" => "SAS",
+                            "ata" => "SATA",
+                            "" => if name.starts_with("nvme") { "NVMe" } else { "SATA" },
+                            other => other,
+                        }.to_string();
+                        
+                        // Get SMART status (simplified - would need smartctl for real status)
+                        let smart_status = "Unknown".to_string();
+                        
+                        // Get partitions for this disk
+                        let partitions = get_disk_partitions(name);
+                        
+                        devices.push(DiskInfo {
+                            name: format!("/dev/{}", name),
+                            model,
+                            serial,
+                            size_bytes,
+                            disk_type,
+                            interface,
+                            is_removable: is_removable || is_hotplug,
+                            smart_status,
+                            partitions,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    
+    // Sort: internal disks first, then external/removable
+    devices.sort_by(|a, b| {
+        let a_removable = a.is_removable as u8;
+        let b_removable = b.is_removable as u8;
+        a_removable.cmp(&b_removable).then(a.name.cmp(&b.name))
+    });
+    
+    devices
+}
+
+/// Get partitions for a specific disk
+fn get_disk_partitions(disk_name: &str) -> Vec<PartitionInfo> {
+    use std::process::Command;
+    
+    let mut partitions = Vec::new();
+    
+    // Use lsblk to get partitions with mount info
+    let output = Command::new("lsblk")
+        .args(&["-J", "-b", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE", &format!("/dev/{}", disk_name)])
+        .output();
+    
+    if let Ok(output) = output {
+        if output.status.success() {
+            let json_str = String::from_utf8_lossy(&output.stdout);
+            
+            if let Ok(lsblk_data) = serde_json::from_str::<serde_json::Value>(&json_str) {
+                if let Some(blockdevices) = lsblk_data.get("blockdevices").and_then(|v| v.as_array()) {
+                    for dev in blockdevices {
+                        // Process children (partitions)
+                        if let Some(children) = dev.get("children").and_then(|v| v.as_array()) {
+                            for part in children {
+                                let name = part.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                                let part_type = part.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                                
+                                if part_type != "part" {
+                                    continue;
+                                }
+                                
+                                let size_bytes = part.get("size")
+                                    .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                                    .unwrap_or(0);
+                                
+                                let mount_point = part.get("mountpoint")
+                                    .and_then(|v| v.as_str())
+                                    .filter(|s| !s.is_empty())
+                                    .map(|s| s.to_string());
+                                
+                                let filesystem = part.get("fstype")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string();
+                                
+                                // Calculate used bytes if mounted
+                                let used_bytes = if let Some(ref mp) = mount_point {
+                                    get_mount_usage(mp)
+                                } else {
+                                    0
+                                };
+                                
+                                partitions.push(PartitionInfo {
+                                    name: format!("/dev/{}", name),
+                                    mount_point,
+                                    size_bytes,
+                                    used_bytes,
+                                    filesystem,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    partitions
+}
+
+/// Get used bytes for a mounted filesystem
+fn get_mount_usage(mount_point: &str) -> u64 {
+    use std::process::Command;
+    
+    let output = Command::new("df")
+        .args(&["-B1", "--output=used", mount_point])
+        .output();
+    
+    if let Ok(output) = output {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            // Skip header line, get the used value
+            if let Some(line) = stdout.lines().nth(1) {
+                if let Ok(used) = line.trim().parse::<u64>() {
+                    return used;
+                }
+            }
+        }
+    }
+    
+    0
 }
 
 fn get_gpu_info() -> Vec<GpuInfo> {
@@ -2805,6 +3069,557 @@ async fn get_cluster_config(
         registration_token: None,
         heartbeat_interval_secs: 30,
     }))
+}
+
+/// Test connectivity to a vDC control plane
+/// This allows the host UI to verify the control plane is reachable
+async fn test_vdc_connection(
+    Json(request): Json<TestConnectionRequest>,
+) -> Result<Json<TestConnectionResponse>, (StatusCode, Json<ApiError>)> {
+    info!(url = %request.control_plane_url, "Testing connection to vDC control plane");
+    
+    // Validate URL format
+    if request.control_plane_url.is_empty() {
+        return Ok(Json(TestConnectionResponse {
+            success: false,
+            message: "Control plane URL is required".to_string(),
+            cluster_name: None,
+            cluster_version: None,
+        }));
+    }
+    
+    // Try to connect to the control plane's health endpoint
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true) // Allow self-signed certs for testing
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("client_error", &e.to_string())),
+            )
+        })?;
+    
+    let health_url = format!("{}/api/v1/health", request.control_plane_url.trim_end_matches('/'));
+    
+    match client.get(&health_url).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                // Try to parse the response for cluster info
+                if let Ok(data) = response.json::<serde_json::Value>().await {
+                    let cluster_name = data.get("clusterName")
+                        .or_else(|| data.get("cluster_name"))
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    let cluster_version = data.get("version")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    
+                    info!(url = %request.control_plane_url, "Connection to vDC successful");
+                    Ok(Json(TestConnectionResponse {
+                        success: true,
+                        message: "Connection successful".to_string(),
+                        cluster_name,
+                        cluster_version,
+                    }))
+                } else {
+                    Ok(Json(TestConnectionResponse {
+                        success: true,
+                        message: "Connection successful (no cluster info available)".to_string(),
+                        cluster_name: None,
+                        cluster_version: None,
+                    }))
+                }
+            } else {
+                Ok(Json(TestConnectionResponse {
+                    success: false,
+                    message: format!("Server responded with status: {}", response.status()),
+                    cluster_name: None,
+                    cluster_version: None,
+                }))
+            }
+        }
+        Err(e) => {
+            warn!(url = %request.control_plane_url, error = %e, "Failed to connect to vDC");
+            Ok(Json(TestConnectionResponse {
+                success: false,
+                message: format!("Connection failed: {}", e),
+                cluster_name: None,
+                cluster_version: None,
+            }))
+        }
+    }
+}
+
+/// Generate a registration token for vDC to use when adding this host
+/// This is the Host UI's endpoint - the token is then used in vDC to complete registration
+async fn generate_cluster_registration_token(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<GenerateTokenResponse>, (StatusCode, Json<ApiError>)> {
+    use rand::Rng;
+    
+    info!("Generating cluster registration token for vDC");
+    
+    // Generate a cryptographically secure token
+    let mut rng = rand::thread_rng();
+    let bytes: [u8; 16] = rng.gen();
+    
+    // Encode as base32 for human-readable format
+    let encoded: String = bytes.iter()
+        .map(|b| {
+            let alphabet = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+            alphabet[(b % 32) as usize] as char
+        })
+        .collect();
+    
+    // Format as QUANTIX-XXXX-XXXX-XXXX-XXXX
+    let token = format!(
+        "QUANTIX-{}-{}-{}-{}",
+        &encoded[0..4],
+        &encoded[4..8],
+        &encoded[8..12],
+        &encoded[12..16]
+    );
+    
+    // Store the token with its creation time
+    let now = std::time::Instant::now();
+    {
+        let mut storage = get_token_storage().lock().unwrap();
+        *storage = Some((token.clone(), now));
+    }
+    
+    // Get node info
+    let hostname = gethostname::gethostname()
+        .to_string_lossy()
+        .to_string();
+    
+    let management_ip = state.service.get_management_ip();
+    let node_id = state.service.get_node_id().to_string();
+    
+    let expires_at = chrono::Utc::now() + chrono::Duration::hours(1);
+    
+    info!(
+        token = %token,
+        node_id = %node_id,
+        expires_at = %expires_at,
+        "Cluster registration token generated (valid for 1 hour)"
+    );
+    
+    Ok(Json(GenerateTokenResponse {
+        token,
+        node_id,
+        host_name: hostname,
+        management_ip,
+        expires_at: expires_at.to_rfc3339(),
+    }))
+}
+
+// ============================================================================
+// Registration Token Handlers
+// ============================================================================
+
+/// Thread-safe storage for the current registration token
+static CURRENT_TOKEN: std::sync::OnceLock<std::sync::Mutex<Option<(String, std::time::Instant)>>> = std::sync::OnceLock::new();
+
+fn get_token_storage() -> &'static std::sync::Mutex<Option<(String, std::time::Instant)>> {
+    CURRENT_TOKEN.get_or_init(|| std::sync::Mutex::new(None))
+}
+
+/// Generate a new registration token (valid for 1 hour)
+async fn generate_registration_token(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<RegistrationToken>, (StatusCode, Json<ApiError>)> {
+    use rand::Rng;
+    
+    info!("Generating new registration token");
+    
+    // Generate a cryptographically secure token
+    let mut rng = rand::thread_rng();
+    let bytes: [u8; 12] = rng.gen();
+    
+    // Encode as base32 for human-readable format
+    let encoded: String = bytes.iter()
+        .map(|b| {
+            let alphabet = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+            alphabet[(b % 32) as usize] as char
+        })
+        .collect();
+    
+    // Format as QUANTIX-XXXX-XXXX-XXXX
+    let token = format!(
+        "QUANTIX-{}-{}-{}",
+        &encoded[0..4],
+        &encoded[4..8],
+        &encoded[8..12]
+    );
+    
+    // Store the token with its creation time
+    let now = std::time::Instant::now();
+    {
+        let mut storage = get_token_storage().lock().unwrap();
+        *storage = Some((token.clone(), now));
+    }
+    
+    // Get hostname and IP for the response
+    let hostname = gethostname::gethostname()
+        .to_string_lossy()
+        .to_string();
+    
+    let management_ip = state.service.get_management_ip();
+    
+    let created_at = chrono::Utc::now();
+    let expires_at = created_at + chrono::Duration::hours(1);
+    
+    info!(
+        token = %token,
+        expires_at = %expires_at,
+        "Registration token generated (valid for 1 hour)"
+    );
+    
+    Ok(Json(RegistrationToken {
+        token,
+        created_at: created_at.to_rfc3339(),
+        expires_at: expires_at.to_rfc3339(),
+        expires_in_seconds: 3600,
+        hostname,
+        management_ip,
+    }))
+}
+
+/// Get the current registration token (if still valid)
+async fn get_current_registration_token(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<RegistrationToken>, (StatusCode, Json<ApiError>)> {
+    let storage = get_token_storage().lock().unwrap();
+    
+    match &*storage {
+        Some((token, created_at)) => {
+            let elapsed = created_at.elapsed();
+            let expiry_duration = std::time::Duration::from_secs(3600); // 1 hour
+            
+            if elapsed >= expiry_duration {
+                return Err((
+                    StatusCode::NOT_FOUND,
+                    Json(ApiError::new("token_expired", "Registration token has expired. Generate a new one.")),
+                ));
+            }
+            
+            let remaining_secs = (expiry_duration - elapsed).as_secs();
+            let hostname = gethostname::gethostname().to_string_lossy().to_string();
+            let management_ip = state.service.get_management_ip();
+            
+            let created_chrono = chrono::Utc::now() - chrono::Duration::seconds(elapsed.as_secs() as i64);
+            let expires_chrono = created_chrono + chrono::Duration::hours(1);
+            
+            Ok(Json(RegistrationToken {
+                token: token.clone(),
+                created_at: created_chrono.to_rfc3339(),
+                expires_at: expires_chrono.to_rfc3339(),
+                expires_in_seconds: remaining_secs,
+                hostname,
+                management_ip,
+            }))
+        }
+        None => {
+            Err((
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("no_token", "No registration token exists. Generate one first.")),
+            ))
+        }
+    }
+}
+
+/// Validate a registration token (called by vDC)
+pub fn validate_registration_token(token: &str) -> bool {
+    let storage = get_token_storage().lock().unwrap();
+    
+    match &*storage {
+        Some((stored_token, created_at)) => {
+            let elapsed = created_at.elapsed();
+            let expiry_duration = std::time::Duration::from_secs(3600);
+            
+            if elapsed >= expiry_duration {
+                false
+            } else {
+                stored_token == token
+            }
+        }
+        None => false,
+    }
+}
+
+/// Get full host discovery information for vDC to display resources
+async fn get_host_discovery(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<HostDiscoveryResponse>, (StatusCode, Json<ApiError>)> {
+    info!("Host discovery request received");
+    
+    let hostname = gethostname::gethostname().to_string_lossy().to_string();
+    let management_ip = state.service.get_management_ip();
+    
+    // Get CPU info
+    let cpu = collect_cpu_info();
+    
+    // Get memory info
+    let memory = collect_memory_info();
+    
+    // Get storage inventory (local + NFS + iSCSI)
+    let storage = collect_storage_inventory().await;
+    
+    // Get network interfaces
+    let network = collect_network_info();
+    
+    // Get GPUs
+    let gpus = collect_gpu_info();
+    
+    Ok(Json(HostDiscoveryResponse {
+        hostname,
+        management_ip,
+        cpu,
+        memory,
+        storage,
+        network,
+        gpus,
+    }))
+}
+
+/// Collect CPU information
+fn collect_cpu_info() -> CpuInfo {
+    use sysinfo::System;
+    let mut sys = System::new_all();
+    sys.refresh_cpu_all();
+    
+    let cpu_count = sys.cpus().len() as u32;
+    let cpu_model = sys.cpus().first()
+        .map(|c| c.brand().to_string())
+        .unwrap_or_else(|| "Unknown".to_string());
+    
+    CpuInfo {
+        model: cpu_model,
+        vendor: "Unknown".to_string(),
+        cores: cpu_count,
+        threads: cpu_count,
+        sockets: 1,
+        frequency_mhz: 0,
+        features: vec![],
+        architecture: std::env::consts::ARCH.to_string(),
+    }
+}
+
+/// Collect memory information
+fn collect_memory_info() -> MemoryInfo {
+    use sysinfo::System;
+    let mut sys = System::new_all();
+    sys.refresh_memory();
+    
+    MemoryInfo {
+        total_bytes: sys.total_memory(),
+        available_bytes: sys.available_memory(),
+        used_bytes: sys.used_memory(),
+        swap_total_bytes: sys.total_swap(),
+        swap_used_bytes: sys.used_swap(),
+        ecc_enabled: false,
+        dimm_count: 0,
+    }
+}
+
+/// Collect storage inventory including local disks, NFS mounts, and iSCSI targets
+async fn collect_storage_inventory() -> StorageInventory {
+    let local = collect_local_disks();
+    let nfs = collect_nfs_mounts().await;
+    let iscsi = collect_iscsi_targets().await;
+    
+    StorageInventory { local, nfs, iscsi }
+}
+
+/// Collect local disk information
+fn collect_local_disks() -> Vec<DiskInfo> {
+    use sysinfo::Disks;
+    let disks = Disks::new_with_refreshed_list();
+    
+    let mut result = Vec::new();
+    
+    for disk in disks.iter() {
+        let name = disk.name().to_string_lossy().to_string();
+        let mount_point = disk.mount_point().to_string_lossy().to_string();
+        let total = disk.total_space();
+        let available = disk.available_space();
+        let used = total.saturating_sub(available);
+        let fs = disk.file_system().to_string_lossy().to_string();
+        
+        // Determine disk type based on name
+        let disk_type = if name.contains("nvme") {
+            "NVMe"
+        } else if name.contains("sd") {
+            "SATA"
+        } else {
+            "Unknown"
+        };
+        
+        result.push(DiskInfo {
+            name: name.clone(),
+            model: "".to_string(),
+            serial: "".to_string(),
+            size_bytes: total,
+            disk_type: disk_type.to_string(),
+            interface: disk_type.to_string(),
+            is_removable: disk.is_removable(),
+            smart_status: "OK".to_string(),
+            partitions: vec![PartitionInfo {
+                name: name,
+                mount_point: Some(mount_point),
+                size_bytes: total,
+                used_bytes: used,
+                filesystem: fs,
+            }],
+        });
+    }
+    
+    result
+}
+
+/// Collect NFS mount information
+async fn collect_nfs_mounts() -> Vec<NfsMount> {
+    use tokio::fs;
+    
+    let mut mounts = Vec::new();
+    
+    // Read /proc/mounts to find NFS mounts
+    if let Ok(content) = fs::read_to_string("/proc/mounts").await {
+        for line in content.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 && (parts[2] == "nfs" || parts[2] == "nfs4") {
+                let source = parts[0];
+                let mount_point = parts[1];
+                
+                // Parse server:export format
+                let (server, export_path) = if let Some(colon_pos) = source.find(':') {
+                    (source[..colon_pos].to_string(), source[colon_pos+1..].to_string())
+                } else {
+                    (source.to_string(), "/".to_string())
+                };
+                
+                // Get size info using statvfs
+                let (size, used, available) = get_mount_stats(mount_point);
+                
+                mounts.push(NfsMount {
+                    mount_point: mount_point.to_string(),
+                    server,
+                    export_path,
+                    size_bytes: size,
+                    used_bytes: used,
+                    available_bytes: available,
+                });
+            }
+        }
+    }
+    
+    mounts
+}
+
+/// Collect iSCSI target information
+async fn collect_iscsi_targets() -> Vec<IscsiTarget> {
+    use tokio::fs;
+    use std::path::Path;
+    
+    let mut targets = Vec::new();
+    
+    // Read from /sys/class/iscsi_session/
+    let iscsi_path = Path::new("/sys/class/iscsi_session");
+    if !iscsi_path.exists() {
+        return targets;
+    }
+    
+    if let Ok(mut entries) = tokio::fs::read_dir(iscsi_path).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let session_path = entry.path();
+            
+            // Read target IQN
+            let target_iqn = if let Ok(iqn) = fs::read_to_string(session_path.join("targetname")).await {
+                iqn.trim().to_string()
+            } else {
+                continue;
+            };
+            
+            // Try to find the associated block device
+            let device_path = find_iscsi_device(&session_path).await;
+            let size_bytes = if !device_path.is_empty() {
+                get_block_device_size(&device_path).await
+            } else {
+                0
+            };
+            
+            targets.push(IscsiTarget {
+                target_iqn,
+                portal: "".to_string(),
+                device_path,
+                size_bytes,
+                lun: 0,
+            });
+        }
+    }
+    
+    targets
+}
+
+/// Find the block device associated with an iSCSI session
+async fn find_iscsi_device(session_path: &std::path::Path) -> String {
+    // This is a simplified implementation
+    // In production, we'd traverse /sys/class/iscsi_session/sessionN/device/target*/*/block/*
+    String::new()
+}
+
+/// Get block device size from /sys/block/{device}/size
+async fn get_block_device_size(device_path: &str) -> u64 {
+    use tokio::fs;
+    
+    // Extract device name (e.g., "sdb" from "/dev/sdb")
+    let device_name = device_path.trim_start_matches("/dev/");
+    let size_path = format!("/sys/block/{}/size", device_name);
+    
+    if let Ok(content) = fs::read_to_string(&size_path).await {
+        if let Ok(sectors) = content.trim().parse::<u64>() {
+            // Size in /sys/block is in 512-byte sectors
+            return sectors * 512;
+        }
+    }
+    
+    0
+}
+
+/// Get mount point statistics using libc statvfs
+fn get_mount_stats(mount_point: &str) -> (u64, u64, u64) {
+    use std::ffi::CString;
+    
+    let path = match CString::new(mount_point) {
+        Ok(p) => p,
+        Err(_) => return (0, 0, 0),
+    };
+    
+    unsafe {
+        let mut stat: libc::statvfs = std::mem::zeroed();
+        if libc::statvfs(path.as_ptr(), &mut stat) == 0 {
+            let block_size = stat.f_frsize as u64;
+            let total = stat.f_blocks * block_size;
+            let available = stat.f_bavail * block_size;
+            let used = total.saturating_sub(stat.f_bfree * block_size);
+            (total, used, available)
+        } else {
+            (0, 0, 0)
+        }
+    }
+}
+
+/// Collect network interface information
+fn collect_network_info() -> Vec<NicInfo> {
+    // Simplified implementation - in production use netlink or similar
+    vec![]
+}
+
+/// Collect GPU information
+fn collect_gpu_info() -> Vec<GpuInfo> {
+    // Simplified implementation - in production parse lspci or sysfs
+    vec![]
 }
 
 // ============================================================================

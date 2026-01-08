@@ -15,8 +15,9 @@ interface InterfaceConfigModalProps {
 export function InterfaceConfigModal({ interface: iface, onClose }: InterfaceConfigModalProps) {
   const configureInterface = useConfigureInterface();
   
-  const [useDhcp, setUseDhcp] = useState(iface.ip_addresses.length === 0);
-  const [ipAddress, setIpAddress] = useState(iface.ip_addresses[0] || '');
+  const ipAddresses = iface.ipAddresses || [];
+  const [useDhcp, setUseDhcp] = useState(ipAddresses.length === 0);
+  const [ipAddress, setIpAddress] = useState(ipAddresses[0] || '');
   const [netmask, setNetmask] = useState('255.255.255.0');
   const [gateway, setGateway] = useState('');
 
@@ -25,7 +26,7 @@ export function InterfaceConfigModal({ interface: iface, onClose }: InterfaceCon
     
     const config: ConfigureInterfaceRequest = {
       dhcp: useDhcp,
-      ip_address: useDhcp ? undefined : ipAddress,
+      ipAddress: useDhcp ? undefined : ipAddress,
       netmask: useDhcp ? undefined : netmask,
       gateway: useDhcp || !gateway ? undefined : gateway,
     };

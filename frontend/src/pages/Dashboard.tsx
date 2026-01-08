@@ -9,12 +9,13 @@ import {
   RefreshCw,
   AlertCircle,
   Wifi,
+  ServerOff,
 } from 'lucide-react';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { ResourceCard } from '@/components/dashboard/ResourceCard';
 import { NodeCard } from '@/components/dashboard/NodeCard';
 import { VMTable } from '@/components/vm/VMTable';
-import { mockVMs, mockNodes, getClusterStats, type VirtualMachine, type Node, type PowerState } from '@/data/mock-data';
+import { type VirtualMachine, type Node, type PowerState } from '@/data/mock-data';
 import { useDashboard } from '@/hooks/useDashboard';
 import type { ApiVM } from '@/hooks/useVMs';
 import type { ApiNode } from '@/hooks/useNodes';
@@ -135,28 +136,12 @@ export function Dashboard() {
   // Fetch real data from the API
   const { vms, nodes, metrics, isLoading, isConnected, refetch } = useDashboard();
   
-  // Decide whether to use mock or real data
-  const useMockData = !isConnected || vms.length === 0;
+  // Get data from API (no mock data fallback)
+  const displayVMs = vms.map(apiVMToMock);
+  const displayNodes = nodes.map(apiNodeToMock);
   
-  // Get data source
-  const displayVMs = useMockData ? mockVMs : vms.map(apiVMToMock);
-  const displayNodes = useMockData ? mockNodes : nodes.map(apiNodeToMock);
-  
-  // Normalize stats to a common format
-  const mockStats = getClusterStats();
-  const stats = useMockData ? {
-    totalVMs: mockStats.vms.total,
-    runningVMs: mockStats.vms.running,
-    totalHosts: mockStats.nodes.total,
-    healthyHosts: mockStats.nodes.ready,
-    totalCPU: mockStats.cpu.allocated,
-    usedCPU: Math.round(mockStats.cpu.avgUsage),
-    totalMemory: Math.round(mockStats.memory.allocated / (1024 * 1024 * 1024)), // bytes to GB
-    usedMemory: Math.round(mockStats.memory.used / (1024 * 1024 * 1024)),
-    totalStorage: Math.round(mockStats.storage.total / (1024 * 1024 * 1024)),
-    usedStorage: Math.round(mockStats.storage.used / (1024 * 1024 * 1024)),
-    alerts: { critical: 0, warning: 0 },
-  } : {
+  // Normalize stats from metrics
+  const stats = {
     totalVMs: metrics.totalVMs,
     runningVMs: metrics.runningVMs,
     totalHosts: metrics.totalHosts,
@@ -185,17 +170,17 @@ export function Dashboard() {
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
             isConnected 
               ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-              : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+              : 'bg-red-500/20 text-red-400 border border-red-500/30'
           }`}>
             {isConnected ? (
               <>
                 <Wifi className="w-4 h-4" />
-                <span>Connected to Backend</span>
+                <span>Connected</span>
               </>
             ) : (
               <>
                 <WifiOff className="w-4 h-4" />
-                <span>Using Mock Data</span>
+                <span>Disconnected</span>
               </>
             )}
           </div>
@@ -212,20 +197,20 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Mock Data Banner */}
-      {useMockData && (
+      {/* Not Connected Banner */}
+      {!isConnected && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl p-4 flex items-center gap-4"
+          className="bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 rounded-xl p-4 flex items-center gap-4"
         >
-          <div className="p-2 bg-amber-500/30 rounded-lg">
-            <AlertCircle className="w-6 h-6 text-amber-400" />
+          <div className="p-2 bg-red-500/30 rounded-lg">
+            <ServerOff className="w-6 h-6 text-red-400" />
           </div>
           <div>
-            <h3 className="text-amber-200 font-medium">Demo Mode - Mock Data</h3>
-            <p className="text-amber-300/70 text-sm">
-              Backend not connected. Start the backend server with <code className="bg-black/30 px-1 rounded">go run ./cmd/server</code> to see real data.
+            <h3 className="text-red-200 font-medium">Backend Not Connected</h3>
+            <p className="text-red-300/70 text-sm">
+              Start the control plane server with <code className="bg-black/30 px-1 rounded">go run ./cmd/controlplane</code> to view cluster data.
             </p>
           </div>
         </motion.div>

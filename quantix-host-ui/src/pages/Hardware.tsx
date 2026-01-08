@@ -120,7 +120,7 @@ export function Hardware() {
                     </div>
                     <div className="p-4 bg-bg-base rounded-lg">
                       <div className="text-2xl font-bold text-text-primary">
-                        {(hardware.cpu.frequency_mhz / 1000).toFixed(2)} GHz
+                        {((hardware.cpu.frequencyMhz || 0) / 1000).toFixed(2)} GHz
                       </div>
                       <div className="text-sm text-text-muted">Base Frequency</div>
                     </div>
@@ -157,7 +157,7 @@ export function Hardware() {
                         System Memory
                       </h3>
                       <p className="text-text-muted">
-                        {formatBytes(hardware.memory.total_bytes)} Total
+                        {formatBytes(hardware.memory.totalBytes)} Total
                       </p>
                     </div>
                   </div>
@@ -168,33 +168,33 @@ export function Hardware() {
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-text-muted">Memory Usage</span>
                         <span className="text-text-secondary">
-                          {formatBytes(hardware.memory.used_bytes)} / {formatBytes(hardware.memory.total_bytes)}
+                          {formatBytes(hardware.memory.usedBytes)} / {formatBytes(hardware.memory.totalBytes)}
                         </span>
                       </div>
                       <div className="h-3 bg-bg-base rounded-full overflow-hidden">
                         <div
                           className="h-full bg-info rounded-full transition-all"
                           style={{
-                            width: `${(hardware.memory.used_bytes / hardware.memory.total_bytes) * 100}%`,
+                            width: `${(hardware.memory.usedBytes / hardware.memory.totalBytes) * 100}%`,
                           }}
                         />
                       </div>
                     </div>
 
                     {/* Swap Usage Bar */}
-                    {hardware.memory.swap_total_bytes > 0 && (
+                    {hardware.memory.swapTotalBytes > 0 && (
                       <div>
                         <div className="flex justify-between text-sm mb-2">
                           <span className="text-text-muted">Swap Usage</span>
                           <span className="text-text-secondary">
-                            {formatBytes(hardware.memory.swap_used_bytes)} / {formatBytes(hardware.memory.swap_total_bytes)}
+                            {formatBytes(hardware.memory.swapUsedBytes)} / {formatBytes(hardware.memory.swapTotalBytes)}
                           </span>
                         </div>
                         <div className="h-3 bg-bg-base rounded-full overflow-hidden">
                           <div
                             className="h-full bg-warning rounded-full transition-all"
                             style={{
-                              width: `${(hardware.memory.swap_used_bytes / hardware.memory.swap_total_bytes) * 100}%`,
+                              width: `${(hardware.memory.swapUsedBytes / hardware.memory.swapTotalBytes) * 100}%`,
                             }}
                           />
                         </div>
@@ -205,19 +205,19 @@ export function Hardware() {
                   <div className="grid grid-cols-2 gap-4 mt-6">
                     <div className="p-4 bg-bg-base rounded-lg">
                       <div className="text-xl font-bold text-text-primary">
-                        {formatBytes(hardware.memory.available_bytes)}
+                        {formatBytes(hardware.memory.availableBytes)}
                       </div>
                       <div className="text-sm text-text-muted">Available</div>
                     </div>
                     <div className="p-4 bg-bg-base rounded-lg flex items-center gap-2">
-                      {hardware.memory.ecc_enabled ? (
+                      {hardware.memory.eccEnabled ? (
                         <CheckCircle className="w-5 h-5 text-success" />
                       ) : (
                         <AlertCircle className="w-5 h-5 text-text-muted" />
                       )}
                       <div>
                         <div className="text-sm font-medium text-text-primary">
-                          {hardware.memory.ecc_enabled ? 'ECC Enabled' : 'Non-ECC'}
+                          {hardware.memory.eccEnabled ? 'ECC Enabled' : 'Non-ECC'}
                         </div>
                         <div className="text-xs text-text-muted">Error Correction</div>
                       </div>
@@ -240,17 +240,17 @@ export function Hardware() {
                         <div>
                           <h3 className="font-medium text-text-primary">{disk.name}</h3>
                           <p className="text-sm text-text-muted">
-                            {disk.disk_type} • {disk.interface}
+                            {disk.diskType} • {disk.interface}
                           </p>
                         </div>
                       </div>
-                      <Badge variant={disk.smart_status === 'healthy' ? 'success' : 'default'}>
-                        {disk.smart_status}
+                      <Badge variant={disk.smartStatus === 'healthy' ? 'success' : 'default'}>
+                        {disk.smartStatus}
                       </Badge>
                     </div>
 
                     <div className="text-sm text-text-secondary mb-4">
-                      Total: {formatBytes(disk.size_bytes)}
+                      Total: {formatBytes(disk.sizeBytes)}
                     </div>
 
                     {disk.partitions.length > 0 && (
@@ -258,20 +258,20 @@ export function Hardware() {
                         {disk.partitions.map((part, pidx) => (
                           <div key={pidx} className="p-3 bg-bg-base rounded-lg">
                             <div className="flex justify-between text-sm mb-1">
-                              <span className="text-text-primary">{part.mount_point || part.name}</span>
+                              <span className="text-text-primary">{part.mountPoint || part.name}</span>
                               <span className="text-text-muted">{part.filesystem}</span>
                             </div>
                             <div className="h-2 bg-bg-hover rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-warning rounded-full"
                                 style={{
-                                  width: `${(part.used_bytes / part.size_bytes) * 100}%`,
+                                  width: `${(part.usedBytes / part.sizeBytes) * 100}%`,
                                 }}
                               />
                             </div>
                             <div className="flex justify-between text-xs text-text-muted mt-1">
-                              <span>{formatBytes(part.used_bytes)} used</span>
-                              <span>{formatBytes(part.size_bytes)} total</span>
+                              <span>{formatBytes(part.usedBytes)} used</span>
+                              <span>{formatBytes(part.sizeBytes)} total</span>
                             </div>
                           </div>
                         ))}
@@ -300,12 +300,12 @@ export function Hardware() {
                         <div>
                           <h3 className="font-medium text-text-primary">{nic.name}</h3>
                           <p className="text-sm text-text-muted font-mono">
-                            {nic.mac_address}
+                            {nic.macAddress}
                           </p>
                         </div>
                       </div>
-                      <Badge variant={nic.link_state === 'up' ? 'success' : 'default'}>
-                        {nic.link_state}
+                      <Badge variant={nic.linkState === 'up' ? 'success' : 'default'}>
+                        {nic.linkState}
                       </Badge>
                     </div>
 
@@ -317,14 +317,14 @@ export function Hardware() {
                       <div>
                         <div className="text-xs text-text-muted">Speed</div>
                         <div className="text-sm text-text-secondary">
-                          {nic.speed_mbps ? `${nic.speed_mbps} Mbps` : '-'}
+                          {nic.speedMbps ? `${nic.speedMbps} Mbps` : '-'}
                         </div>
                       </div>
                       <div>
                         <div className="text-xs text-text-muted">SR-IOV</div>
                         <div className="text-sm text-text-secondary">
-                          {nic.sriov_capable ? (
-                            <span className="text-success">Capable ({nic.sriov_vfs} VFs)</span>
+                          {nic.sriovCapable ? (
+                            <span className="text-success">Capable ({nic.sriovVfs} VFs)</span>
                           ) : (
                             'Not supported'
                           )}
@@ -333,7 +333,7 @@ export function Hardware() {
                       <div>
                         <div className="text-xs text-text-muted">PCI Address</div>
                         <div className="text-sm text-text-secondary font-mono">
-                          {nic.pci_address || '-'}
+                          {nic.pciAddress || '-'}
                         </div>
                       </div>
                     </div>
@@ -362,24 +362,24 @@ export function Hardware() {
                           <p className="text-sm text-text-muted">{gpu.vendor}</p>
                         </div>
                       </div>
-                      <Badge variant={gpu.passthrough_capable ? 'success' : 'default'}>
-                        {gpu.passthrough_capable ? 'Passthrough Ready' : 'No Passthrough'}
+                      <Badge variant={gpu.passthroughCapable ? 'success' : 'default'}>
+                        {gpu.passthroughCapable ? 'Passthrough Ready' : 'No Passthrough'}
                       </Badge>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 mt-4">
                       <div>
                         <div className="text-xs text-text-muted">PCI Address</div>
-                        <div className="text-sm text-text-secondary font-mono">{gpu.pci_address}</div>
+                        <div className="text-sm text-text-secondary font-mono">{gpu.pciAddress}</div>
                       </div>
                       <div>
                         <div className="text-xs text-text-muted">Driver</div>
                         <div className="text-sm text-text-secondary">{gpu.driver || '-'}</div>
                       </div>
-                      {gpu.memory_bytes && (
+                      {gpu.memoryBytes && (
                         <div>
                           <div className="text-xs text-text-muted">Memory</div>
-                          <div className="text-sm text-text-secondary">{formatBytes(gpu.memory_bytes)}</div>
+                          <div className="text-sm text-text-secondary">{formatBytes(gpu.memoryBytes)}</div>
                         </div>
                       )}
                     </div>
@@ -407,7 +407,7 @@ export function Hardware() {
                     </tr>
                   </thead>
                   <tbody>
-                    {hardware.pci_devices.map((device, idx) => (
+                    {(hardware.pciDevices || []).map((device, idx) => (
                       <tr key={idx} className="border-b border-border/50 hover:bg-bg-hover/50">
                         <td className="p-4 font-mono text-sm text-text-secondary">
                           {device.address}
@@ -416,15 +416,15 @@ export function Hardware() {
                         <td className="p-4 text-text-primary">{device.device}</td>
                         <td className="p-4 text-text-secondary">{device.driver || '-'}</td>
                         <td className="p-4">
-                          {device.iommu_group !== undefined ? (
-                            <Badge variant="success">Group {device.iommu_group}</Badge>
+                          {device.iommuGroup !== undefined ? (
+                            <Badge variant="success">Group {device.iommuGroup}</Badge>
                           ) : (
                             <span className="text-text-muted">-</span>
                           )}
                         </td>
                       </tr>
                     ))}
-                    {hardware.pci_devices.length === 0 && (
+                    {(hardware.pciDevices || []).length === 0 && (
                       <tr>
                         <td colSpan={5} className="p-8 text-center text-text-muted">
                           No PCI devices found

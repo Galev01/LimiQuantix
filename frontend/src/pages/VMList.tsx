@@ -23,7 +23,7 @@ import { VMStatusBadge } from '@/components/vm/VMStatusBadge';
 import { VMCreationWizard } from '@/components/vm/VMCreationWizard';
 import { useVMs, useStartVM, useStopVM, useDeleteVM, isVMRunning, isVMStopped, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
-import { mockVMs, type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
+import { type VirtualMachine as MockVM, type PowerState } from '@/data/mock-data';
 import { showInfo } from '@/lib/toast';
 import { useConsoleStore, useDefaultConsoleType } from '@/hooks/useConsoleStore';
 import { openDefaultConsole } from '@/components/vm/ConsoleAccessModal';
@@ -94,10 +94,9 @@ export function VMList() {
   const stopVM = useStopVM();
   const deleteVM = useDeleteVM();
 
-  // Determine data source: API or mock
+  // Get data from API (no mock data fallback)
   const apiVMs = apiResponse?.vms || [];
-  const useMockData = !isConnected || apiVMs.length === 0;
-  const allVMs: MockVM[] = useMockData ? mockVMs : apiVMs.map(apiToDisplayVM);
+  const allVMs: MockVM[] = apiVMs.map(apiToDisplayVM);
 
   // Filter VMs based on search and tab
   const filteredVMs = allVMs.filter((vm) => {
@@ -149,8 +148,8 @@ export function VMList() {
   // Action handlers
   const handleStartVM = async (vmId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (useMockData) {
-      showInfo('Demo mode: VM start simulated');
+    if (!isConnected) {
+      showInfo('Not connected to backend');
       return;
     }
     setActionInProgress(vmId);
@@ -163,8 +162,8 @@ export function VMList() {
 
   const handleStopVM = async (vmId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (useMockData) {
-      showInfo('Demo mode: VM stop simulated');
+    if (!isConnected) {
+      showInfo('Not connected to backend');
       return;
     }
     setActionInProgress(vmId);
@@ -178,8 +177,8 @@ export function VMList() {
   const handleDeleteVM = async (vmId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!confirm('Are you sure you want to delete this VM?')) return;
-    if (useMockData) {
-      showInfo('Demo mode: VM delete simulated');
+    if (!isConnected) {
+      showInfo('Not connected to backend');
       return;
     }
     setActionInProgress(vmId);
@@ -360,14 +359,34 @@ export function VMList() {
       )}
 
       {/* Loading State */}
-      {isLoadingVMs && !useMockData && (
+      {isLoadingVMs && isConnected && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-accent" />
         </div>
       )}
 
+      {/* Not Connected State */}
+      {!isConnected && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-bg-surface border border-border rounded-xl p-8 text-center"
+        >
+          <MonitorCog className="w-12 h-12 mx-auto text-text-muted mb-4" />
+          <h3 className="text-lg font-medium text-text-primary mb-2">Not Connected to Backend</h3>
+          <p className="text-text-muted mb-4 max-w-md mx-auto">
+            Start the control plane server to view and manage VMs. 
+            Run <code className="bg-bg-base px-2 py-0.5 rounded text-sm">go run ./cmd/controlplane</code> in the backend directory.
+          </p>
+          <Button variant="secondary" onClick={() => refetch()}>
+            <RefreshCw className="w-4 h-4" />
+            Retry Connection
+          </Button>
+        </motion.div>
+      )}
+
       {/* VM Table */}
-      {(!isLoadingVMs || useMockData) && (
+      {isConnected && !isLoadingVMs && (
         <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
           {/* Table Header */}
           <div className="px-5 py-3 border-b border-border bg-bg-elevated/50">

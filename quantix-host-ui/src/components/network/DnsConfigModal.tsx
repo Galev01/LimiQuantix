@@ -16,13 +16,13 @@ export function DnsConfigModal({ config, onClose }: DnsConfigModalProps) {
   const setDnsConfig = useSetDnsConfig();
   
   const [nameservers, setNameservers] = useState<string[]>(config?.nameservers || ['8.8.8.8']);
-  const [searchDomains, setSearchDomains] = useState<string[]>(config?.search_domains || []);
+  const [searchDomains, setSearchDomains] = useState<string[]>(config?.searchDomains || []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     setDnsConfig.mutate(
-      { nameservers, search_domains: searchDomains },
+      { nameservers, searchDomains },
       { onSuccess: () => onClose() }
     );
   };

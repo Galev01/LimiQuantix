@@ -723,6 +723,125 @@ export const alertApi = {
   },
 };
 
+// =============================================================================
+// Registration Token API
+// =============================================================================
+
+export interface ApiRegistrationToken {
+  id: string;
+  token: string;
+  description?: string;
+  expiresAt: string;
+  maxUses: number;
+  useCount: number;
+  usedByNodes?: string[];
+  isValid: boolean;
+  createdAt: string;
+  createdBy?: string;
+  revokedAt?: string | null;
+}
+
+export interface RegistrationTokenListResponse {
+  tokens: ApiRegistrationToken[];
+  totalCount: number;
+}
+
+export interface CreateTokenRequest {
+  description?: string;
+  expiresInHours?: number;
+  maxUses?: number;
+}
+
+export const registrationTokenApi = {
+  async list(includeExpired = false): Promise<RegistrationTokenListResponse> {
+    const url = `${API_CONFIG.baseUrl}/api/admin/registration-tokens${includeExpired ? '?include_expired=true' : ''}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to list registration tokens: ${response.status}`);
+    }
+    
+    return response.json();
+  },
+  
+  async create(data: CreateTokenRequest = {}): Promise<ApiRegistrationToken> {
+    const url = `${API_CONFIG.baseUrl}/api/admin/registration-tokens`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify({
+        description: data.description,
+        expires_in_hours: data.expiresInHours,
+        max_uses: data.maxUses,
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to create registration token: ${response.status}`);
+    }
+    
+    return response.json();
+  },
+  
+  async get(id: string): Promise<ApiRegistrationToken> {
+    const url = `${API_CONFIG.baseUrl}/api/admin/registration-tokens/${id}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to get registration token: ${response.status}`);
+    }
+    
+    return response.json();
+  },
+  
+  async revoke(id: string): Promise<ApiRegistrationToken> {
+    const url = `${API_CONFIG.baseUrl}/api/admin/registration-tokens/${id}/revoke`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to revoke registration token: ${response.status}`);
+    }
+    
+    return response.json();
+  },
+  
+  async delete(id: string): Promise<void> {
+    const url = `${API_CONFIG.baseUrl}/api/admin/registration-tokens/${id}`;
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to delete registration token: ${response.status}`);
+    }
+  },
+};
+
 // Export for backwards compatibility
 export function getTransport() {
   // This is a stub for code that imports getTransport

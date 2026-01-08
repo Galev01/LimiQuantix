@@ -2,72 +2,84 @@
 
 ## Current Status: COMPLETED
 
-## Active Workflow: Console TUI Fixes
+## Active Workflow: Image Library Download Progress Display
 
 **Date:** January 8, 2026
 
-### Latest Fix: DHCP/Network and Factory Reset
+### Summary
 
-Fixed Console TUI network functions and implemented factory reset:
+Changed the Image Library to show download percentage instead of just "Downloading" status badge.
 
-1. **DHCP Refresh (D key in Network screen)**
-   - Moved execution to background thread to prevent TUI blocking
-   - Changed `udhcpc` flags from `-n -q` to `-b` (background mode)
-   - Added `-T 3` timeout and `-S` syslog flag
-   - Skips virtual interfaces (vir*, br-*)
+---
 
-2. **Network Restart (R key in Network screen)**
-   - Moved execution to background thread
-   - Tries `quantix-network` service first, falls back to `networking`
+## Changes Made
 
-3. **Factory Reset (F9 from main screen)**
-   - Added new `Screen::FactoryReset` variant
-   - Created `render_factory_reset_screen()` with detailed warning
-   - Created `perform_factory_reset()` function that deletes:
-     - Network configuration (interfaces, wpa_supplicant, resolv.conf)
-     - TLS certificates
-     - SSH host keys and authorized_keys
-     - Node daemon and cluster configuration
-     - Hostname (regenerates on boot)
-     - First boot marker (triggers firstboot script)
-   - System reboots automatically after reset
-   - Virtual machines and storage data are preserved
+### Frontend - Image Library (`frontend/src/pages/ImageLibrary.tsx`)
 
-### Files Modified
+**Before:**
+- Download status showed just "Downloading" with a spinner
 
-- `Quantix-OS/console-tui/src/main.rs`
-  - Added `Screen::FactoryReset` enum variant
-  - Fixed `run_dhcp_all()` to use background thread
-  - Fixed `restart_network()` to use background thread
-  - Added `render_factory_reset_screen()`
-  - Added `perform_factory_reset()`
-  - Added input handler for FactoryReset screen (Y/N/Esc)
+**After:**
+- Badge shows percentage: "0%", "45%", "100%"
+- Progress bar appears below image card showing download progress
+- Progress bar displays "Downloading... X%" with byte counts when available
+- Auto-polls when downloads are active to refresh progress
 
-### Build Instructions
+**Technical Changes:**
+1. Added `DownloadJobTracker` component to poll download job status
+2. Added state for tracking download jobs and progress (`downloadJobs`, `downloadProgress`)
+3. Added callbacks for progress updates, completion, and errors
+4. Updated badge to show percentage instead of "Downloading"
+5. Added progress bar UI below downloading images
 
-Rebuild the Console TUI and ISO:
-```bash
-cd ~/LimiQuantix/quantix-os
-sudo ./build.sh --clean
-```
+### Frontend - useImages Hook (`frontend/src/hooks/useImages.ts`)
 
-Or just rebuild the TUI:
-```bash
-cd ~/LimiQuantix/quantix-os
-make tui
-```
+1. Added `DownloadProgress` interface export
+2. Updated `CloudImage` interface to include `downloadProgress` field
+3. Modified `toCloudImage()` to include progress from `ImageStatus.progress_percent`
+4. Added `refetchInterval` to auto-poll every 2 seconds when images are downloading
 
-### Testing
+---
 
-1. Boot the ISO in QEMU
-2. Press F2 to go to Network screen
-3. Press D to refresh DHCP - should return immediately with message "Running DHCP on all interfaces..."
-4. Press R to restart network - should return immediately with message "Restarting network service..."
-5. Press Esc to return to main, then press F9 for Factory Reset
-6. Verify confirmation screen appears with red border and clear instructions
-7. Press N or Esc to cancel, verify "Factory reset cancelled" message
-8. To test actual reset: Press Y (will delete configs and reboot)
+## Files Modified
 
-### Previous Workflows
+- `frontend/src/pages/ImageLibrary.tsx` - Added progress tracking and display
+- `frontend/src/hooks/useImages.ts` - Added progress data from API, auto-polling
 
-Archived to `completed_workflow.md`.
+---
+
+## How It Works
+
+1. **API Progress**: Images from backend include `progress_percent` in their status
+2. **Auto-Polling**: When any image has `downloading` status, the list auto-refreshes every 2 seconds
+3. **Local Tracking**: Downloads started from this page are tracked via job ID for more frequent updates
+4. **Progress Display**: 
+   - Badge shows "X%" with spinning loader
+   - Progress bar shows bytes downloaded/total when available
+   - Progress bar animates smoothly with CSS transitions
+
+---
+
+## Testing
+
+1. Navigate to Storage > Image Library
+2. If an image is downloading, it should show:
+   - "X%" in the badge (e.g., "0%", "45%")
+   - A progress bar below the image card
+3. Progress should update automatically every 2 seconds
+
+---
+
+## Previous Workflow (Archived)
+
+<details>
+<summary>Host UI Improvements - Cluster, Console & VM Detail (January 8, 2026)</summary>
+
+Implemented three major improvements to the Quantix-OS Host Management UI:
+
+1. **Cluster Registration Workflow (Token-Based)**
+2. **Console Access (Web Console + QVMRC)**
+3. **Enhanced VM Details UI**
+
+See `completed_workflow.md` for full details.
+</details>

@@ -69,7 +69,7 @@ export interface HardwareInventory {
   storage: StorageDevice[];
   network: NetworkDevice[];
   gpus: GpuInfo[];
-  pci_devices: PciDevice[];
+  pciDevices: PciDevice[];
 }
 
 export interface CpuInfo {
@@ -78,59 +78,59 @@ export interface CpuInfo {
   cores: number;
   threads: number;
   sockets: number;
-  frequency_mhz: number;
+  frequencyMhz: number;
   features: string[];
   architecture: string;
 }
 
 export interface MemoryInfo {
-  total_bytes: number;
-  available_bytes: number;
-  used_bytes: number;
-  swap_total_bytes: number;
-  swap_used_bytes: number;
-  ecc_enabled: boolean;
-  dimm_count: number;
+  totalBytes: number;
+  availableBytes: number;
+  usedBytes: number;
+  swapTotalBytes: number;
+  swapUsedBytes: number;
+  eccEnabled: boolean;
+  dimmCount: number;
 }
 
 export interface StorageDevice {
   name: string;
   model: string;
   serial: string;
-  size_bytes: number;
-  disk_type: string;
+  sizeBytes: number;
+  diskType: string;
   interface: string;
-  is_removable: boolean;
-  smart_status: string;
+  isRemovable: boolean;
+  smartStatus: string;
   partitions: PartitionInfo[];
 }
 
 export interface PartitionInfo {
   name: string;
-  mount_point?: string;
-  size_bytes: number;
-  used_bytes: number;
+  mountPoint?: string;
+  sizeBytes: number;
+  usedBytes: number;
   filesystem: string;
 }
 
 export interface NetworkDevice {
   name: string;
-  mac_address: string;
+  macAddress: string;
   driver: string;
-  speed_mbps?: number;
-  link_state: string;
-  pci_address?: string;
-  sriov_capable: boolean;
-  sriov_vfs: number;
+  speedMbps?: number;
+  linkState: string;
+  pciAddress?: string;
+  sriovCapable: boolean;
+  sriovVfs: number;
 }
 
 export interface GpuInfo {
   name: string;
   vendor: string;
-  pci_address: string;
+  pciAddress: string;
   driver: string;
-  memory_bytes?: number;
-  passthrough_capable: boolean;
+  memoryBytes?: number;
+  passthroughCapable: boolean;
 }
 
 export interface PciDevice {
@@ -139,7 +139,7 @@ export interface PciDevice {
   device: string;
   class: string;
   driver?: string;
-  iommu_group?: number;
+  iommuGroup?: number;
 }
 
 export async function getHardwareInventory(): Promise<HardwareInventory> {

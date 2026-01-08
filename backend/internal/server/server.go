@@ -22,6 +22,7 @@ import (
 	networkservice "github.com/limiquantix/limiquantix/internal/services/network"
 	"github.com/limiquantix/limiquantix/internal/services/node"
 	nodeservice "github.com/limiquantix/limiquantix/internal/services/node"
+	"github.com/limiquantix/limiquantix/internal/services/registration"
 	storageservice "github.com/limiquantix/limiquantix/internal/services/storage"
 	"github.com/limiquantix/limiquantix/internal/services/vm"
 	vmservice "github.com/limiquantix/limiquantix/internal/services/vm"
@@ -47,19 +48,20 @@ type Server struct {
 	nodeRepo node.Repository
 
 	// Memory-only repositories (no PostgreSQL equivalent yet)
-	storagePoolRepo   *memory.StoragePoolRepository
-	volumeRepo        *memory.VolumeRepository
-	imageRepo         *storageservice.MemoryImageRepository
-	networkRepo       *memory.NetworkRepository
-	securityGroupRepo *memory.SecurityGroupRepository
+	storagePoolRepo       *memory.StoragePoolRepository
+	volumeRepo            *memory.VolumeRepository
+	imageRepo             *storageservice.MemoryImageRepository
+	networkRepo           *memory.NetworkRepository
+	securityGroupRepo     *memory.SecurityGroupRepository
+	registrationTokenRepo *memory.RegistrationTokenRepository
 
 	// Admin repositories (PostgreSQL)
-	roleRepo    *postgres.RoleRepository
-	apiKeyRepo  *postgres.APIKeyRepository
-	auditRepo   *postgres.AuditRepository
-	orgRepo     *postgres.OrganizationRepository
-	emailRepo   *postgres.AdminEmailRepository
-	ruleRepo    *postgres.GlobalRuleRepository
+	roleRepo   *postgres.RoleRepository
+	apiKeyRepo *postgres.APIKeyRepository
+	auditRepo  *postgres.AuditRepository
+	orgRepo    *postgres.OrganizationRepository
+	emailRepo  *postgres.AdminEmailRepository
+	ruleRepo   *postgres.GlobalRuleRepository
 
 	// Scheduler
 	scheduler *scheduler.Scheduler
@@ -73,6 +75,10 @@ type Server struct {
 	networkService       *networkservice.NetworkService
 	securityGroupService *networkservice.SecurityGroupService
 	imageService         *storageservice.ImageService
+
+	// Registration service
+	registrationService *registration.Service
+	registrationHandler *RegistrationHandler
 
 	// Admin services
 	adminHandler *AdminHandler
@@ -180,6 +186,7 @@ func (s *Server) initRepositories() {
 	s.imageRepo = storageservice.NewMemoryImageRepository()
 	s.networkRepo = memory.NewNetworkRepository()
 	s.securityGroupRepo = memory.NewSecurityGroupRepository()
+	s.registrationTokenRepo = memory.NewRegistrationTokenRepository()
 
 	s.logger.Info("Repositories initialized",
 		zap.Bool("postgres", s.db != nil),
@@ -232,6 +239,10 @@ func (s *Server) initServices() {
 
 	// Storage services
 	s.imageService = storageservice.NewImageService(s.imageRepo, s.logger)
+
+	// Registration token service (always available)
+	s.registrationService = registration.NewService(s.registrationTokenRepo, s.logger)
+	s.registrationHandler = NewRegistrationHandler(s.registrationService, s.logger)
 
 	// Initialize admin services if PostgreSQL is available
 	if s.db != nil && s.roleRepo != nil {
@@ -330,6 +341,19 @@ func (s *Server) registerRoutes() {
 	imagePath, imageHandler := storagev1connect.NewImageServiceHandler(s.imageService)
 	s.mux.Handle(imagePath, imageHandler)
 	s.logger.Info("Registered Image service", zap.String("path", imagePath))
+
+	// =========================================================================
+	// Registration Token REST API (always available)
+	// =========================================================================
+	s.registrationHandler.RegisterRoutes(s.mux)
+	s.logger.Info("Registered Registration Token API routes", zap.String("path", "/api/admin/registration-tokens"))
+
+	// =========================================================================
+	// Host Registration REST API (for vDC UI to add hosts)
+	// =========================================================================
+	hostRegHandler := NewHostRegistrationHandler(s)
+	hostRegHandler.RegisterRoutes(s.mux)
+	s.logger.Info("Registered Host Registration API routes", zap.String("path", "/api/nodes/{register,discover}"))
 
 	// =========================================================================
 	// Admin REST API (requires PostgreSQL)
@@ -521,6 +545,11 @@ func (s *Server) GetCache() *redis.Cache {
 // GetEtcd returns the etcd client for use by other services.
 func (s *Server) GetEtcd() *etcd.Client {
 	return s.etcd
+}
+
+// GetRegistrationService returns the registration service for use by other components.
+func (s *Server) GetRegistrationService() *registration.Service {
+	return s.registrationService
 }
 
 // Run starts the HTTP server and blocks until shutdown.

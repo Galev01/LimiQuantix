@@ -6,12 +6,12 @@ import { get, post } from './client';
 
 export interface NetworkInterface {
   name: string;
-  mac_address: string;
+  macAddress: string;
   type: 'ethernet' | 'bridge' | 'bond' | 'vlan';
   state: 'up' | 'down';
-  ip_addresses: string[];
+  ipAddresses: string[];
   mtu: number;
-  speed_mbps?: number;
+  speedMbps?: number;
 }
 
 export interface NetworkInterfaceList {
@@ -20,7 +20,7 @@ export interface NetworkInterfaceList {
 
 export interface ConfigureInterfaceRequest {
   dhcp: boolean;
-  ip_address?: string;
+  ipAddress?: string;
   netmask?: string;
   gateway?: string;
 }
@@ -32,7 +32,7 @@ export interface CreateBridgeRequest {
 
 export interface DnsConfig {
   nameservers: string[];
-  search_domains: string[];
+  searchDomains: string[];
 }
 
 export interface HostnameConfig {

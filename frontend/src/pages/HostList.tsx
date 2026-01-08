@@ -20,21 +20,63 @@ import {
   Wifi,
   WifiOff,
   Loader2,
+  ServerOff,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
-import { mockNodes, type Node as MockNode, type NodePhase } from '@/data/mock-data';
-import { useNodes, type ApiNode, isNodeReady } from '@/hooks/useNodes';
+import { type NodePhase } from '@/data/mock-data';
+import { useNodes, type ApiNode } from '@/hooks/useNodes';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { showInfo, showWarning } from '@/lib/toast';
+import { AddHostModal } from '@/components/host/AddHostModal';
 
 type FilterTab = 'all' | 'ready' | 'not_ready' | 'maintenance';
+
+// Display node type derived from API node
+interface DisplayNode {
+  id: string;
+  hostname: string;
+  managementIp: string;
+  labels: Record<string, string>;
+  spec: {
+    cpu: {
+      model: string;
+      sockets?: number;
+      coresPerSocket?: number;
+      threadsPerCore?: number;
+      totalCores: number;
+      threads?: number;
+      features?: string[];
+    };
+    memory: {
+      totalBytes: number;
+      allocatableBytes: number;
+    };
+    storage: Array<{ name: string; type: string; sizeBytes: number; path?: string }>;
+    networks: Array<{ name: string; macAddress?: string; speedMbps?: number }>;
+    role: { compute: boolean; storage: boolean; controlPlane: boolean };
+  };
+  status: {
+    phase: NodePhase;
+    vmIds: string[];
+    resources: {
+      cpuAllocatedCores: number;
+      cpuUsagePercent: number;
+      memoryAllocatedBytes: number;
+      memoryUsedBytes: number;
+      storageUsedBytes?: number;
+    };
+    conditions?: Array<{ type: string; status: boolean; message: string; lastTransitionTime?: string }>;
+    systemInfo?: { osName: string; kernelVersion: string; hypervisorVersion: string; agentVersion: string };
+  };
+  createdAt?: string;
+}
 
 interface ContextMenuState {
   visible: boolean;
   x: number;
   y: number;
-  node: MockNode | null;
+  node: DisplayNode | null;
 }
 
 const phaseConfig: Record<NodePhase, { label: string; variant: 'success' | 'error' | 'warning' | 'info'; icon: typeof CheckCircle }> = {
@@ -52,7 +94,7 @@ const variantColors = {
 };
 
 // Convert API Node to display format
-function apiToDisplayNode(node: ApiNode): MockNode {
+function apiToDisplayNode(node: ApiNode): DisplayNode {
   const phase = (node.status?.phase as NodePhase) || 'READY';
   return {
     id: node.id,
@@ -86,7 +128,7 @@ function apiToDisplayNode(node: ApiNode): MockNode {
       })),
       resources: {
         cpuAllocatedCores: node.status?.allocation?.cpuAllocated || 0,
-        cpuUsedPercent: 0,
+        cpuUsagePercent: 0,
         memoryAllocatedBytes: (node.status?.allocation?.memoryAllocatedMib || 0) * 1024 * 1024,
         memoryUsedBytes: 0,
         storageUsedBytes: 0,
@@ -107,6 +149,7 @@ export function HostList() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [showAddHostModal, setShowAddHostModal] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     visible: false,
     x: 0,
@@ -119,10 +162,9 @@ export function HostList() {
   const { data: isConnected = false } = useApiConnection();
   const { data: apiResponse, isLoading, refetch, isRefetching } = useNodes({ enabled: !!isConnected });
 
-  // Determine data source
+  // Get hosts from API (no mock data fallback)
   const apiNodes = apiResponse?.nodes || [];
-  const useMockData = !isConnected || apiNodes.length === 0;
-  const allHosts: MockNode[] = useMockData ? mockNodes : apiNodes.map(apiToDisplayNode);
+  const allHosts: DisplayNode[] = apiNodes.map(apiToDisplayNode);
 
   // Close context menu when clicking outside
   useEffect(() => {
@@ -170,7 +212,7 @@ export function HostList() {
     maintenance: allHosts.filter((n) => n.status.phase === 'MAINTENANCE').length,
   };
 
-  const handleContextMenu = (e: React.MouseEvent, node: MockNode) => {
+  const handleContextMenu = (e: React.MouseEvent, node: DisplayNode) => {
     e.preventDefault();
     setContextMenu({
       visible: true,
@@ -226,7 +268,7 @@ export function HostList() {
               'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium',
               isConnected
                 ? 'bg-success/20 text-success border border-success/30'
-                : 'bg-warning/20 text-warning border border-warning/30',
+                : 'bg-error/20 text-error border border-error/30',
             )}
           >
             {isConnected ? (
@@ -237,7 +279,7 @@ export function HostList() {
             ) : (
               <>
                 <WifiOff className="w-3 h-3" />
-                Mock Data
+                Disconnected
               </>
             )}
           </div>
@@ -247,12 +289,12 @@ export function HostList() {
             variant="secondary"
             size="sm"
             onClick={() => refetch()}
-            disabled={isRefetching || isLoading}
+            disabled={isRefetching || isLoading || !isConnected}
           >
             <RefreshCw className={cn('w-4 h-4', (isRefetching || isLoading) && 'animate-spin')} />
             Refresh
           </Button>
-          <Button size="sm">
+          <Button size="sm" onClick={() => setShowAddHostModal(true)}>
             <Plus className="w-4 h-4" />
             Add Host
           </Button>
@@ -302,15 +344,35 @@ export function HostList() {
         </div>
       </div>
 
+      {/* Not Connected State */}
+      {!isConnected && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-bg-surface border border-border rounded-xl p-8 text-center"
+        >
+          <ServerOff className="w-12 h-12 mx-auto text-text-muted mb-4" />
+          <h3 className="text-lg font-medium text-text-primary mb-2">Not Connected to Backend</h3>
+          <p className="text-text-muted mb-4 max-w-md mx-auto">
+            Start the control plane server to view and manage hosts. 
+            Run <code className="bg-bg-base px-2 py-0.5 rounded text-sm">go run ./cmd/controlplane</code> in the backend directory.
+          </p>
+          <Button variant="secondary" onClick={() => refetch()}>
+            <RefreshCw className="w-4 h-4" />
+            Retry Connection
+          </Button>
+        </motion.div>
+      )}
+
       {/* Loading State */}
-      {isLoading && !useMockData && (
+      {isConnected && isLoading && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-accent" />
         </div>
       )}
 
       {/* Hosts Table */}
-      {(!isLoading || useMockData) && (
+      {isConnected && !isLoading && (
         <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
           {/* Table Header */}
           <div className="px-5 py-3 border-b border-border bg-bg-elevated/50">
@@ -507,13 +569,13 @@ export function HostList() {
             <div className="py-16 text-center">
               <Server className="w-12 h-12 mx-auto text-text-muted mb-4" />
               <h3 className="text-lg font-medium text-text-primary mb-2">No Hosts Found</h3>
-              <p className="text-text-muted mb-4">
+              <p className="text-text-muted mb-4 max-w-md mx-auto">
                 {searchQuery
                   ? 'No hosts match your search criteria'
-                  : 'Add your first host to get started'}
+                  : 'No hosts have registered with the cluster yet. Generate a registration token to add your first host.'}
               </p>
               {!searchQuery && (
-                <Button size="sm">
+                <Button size="sm" onClick={() => setShowAddHostModal(true)}>
                   <Plus className="w-4 h-4" />
                   Add Host
                 </Button>
@@ -522,6 +584,12 @@ export function HostList() {
           )}
         </div>
       )}
+
+      {/* Add Host Modal */}
+      <AddHostModal 
+        isOpen={showAddHostModal} 
+        onClose={() => setShowAddHostModal(false)} 
+      />
 
       {/* Context Menu */}
       <AnimatePresence>

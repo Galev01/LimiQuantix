@@ -1,5 +1,10 @@
 /**
  * React hooks for cluster operations
+ * 
+ * The Host UI does NOT join clusters directly.
+ * Instead, it:
+ * 1. Tests connectivity to the vDC control plane
+ * 2. Generates a registration token that the vDC can use to add this host
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -30,19 +35,32 @@ export function useClusterConfig() {
   });
 }
 
-// Join cluster
-export function useJoinCluster() {
-  const queryClient = useQueryClient();
-
+// Test connection to vDC control plane
+export function useTestConnection() {
   return useMutation({
-    mutationFn: clusterApi.joinCluster,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CLUSTER_KEYS.status() });
-      queryClient.invalidateQueries({ queryKey: CLUSTER_KEYS.config() });
-      toast.success('Successfully joined Quantix-vDC cluster. Please restart the node daemon for changes to take effect.');
+    mutationFn: clusterApi.testConnection,
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(`Connection successful! Cluster: ${data.clusterName || 'Unknown'}`);
+      } else {
+        toast.error(`Connection failed: ${data.message}`);
+      }
     },
     onError: (error: Error) => {
-      toast.error(`Failed to join cluster: ${error.message}`);
+      toast.error(`Connection test failed: ${error.message}`);
+    },
+  });
+}
+
+// Generate registration token for vDC to use
+export function useGenerateToken() {
+  return useMutation({
+    mutationFn: clusterApi.generateRegistrationToken,
+    onSuccess: () => {
+      toast.success('Registration token generated. Copy it and add this host from the vDC console.');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to generate token: ${error.message}`);
     },
   });
 }

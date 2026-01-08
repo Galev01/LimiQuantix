@@ -1,5 +1,10 @@
 /**
  * Cluster API client
+ * 
+ * The Host UI does NOT join clusters directly.
+ * Instead, it:
+ * 1. Tests connectivity to the vDC control plane
+ * 2. Generates a registration token that the vDC can use to add this host
  */
 
 import { get, post } from './client';
@@ -23,9 +28,23 @@ export interface ClusterConfig {
   heartbeat_interval_secs: number;
 }
 
-export interface JoinClusterRequest {
-  control_plane_address: string;
-  registration_token: string;
+export interface TestConnectionRequest {
+  controlPlaneUrl: string;
+}
+
+export interface TestConnectionResponse {
+  success: boolean;
+  message: string;
+  clusterName?: string;
+  clusterVersion?: string;
+}
+
+export interface GenerateTokenResponse {
+  token: string;
+  nodeId: string;
+  hostName: string;
+  managementIp: string;
+  expiresAt: string;
 }
 
 // Cluster operations
@@ -33,10 +52,24 @@ export async function getClusterStatus(): Promise<ClusterStatus> {
   return get<ClusterStatus>('/cluster/status');
 }
 
-export async function joinCluster(request: JoinClusterRequest): Promise<ClusterStatus> {
-  return post<ClusterStatus>('/cluster/join', request);
+/**
+ * Test connectivity to a vDC control plane
+ */
+export async function testConnection(request: TestConnectionRequest): Promise<TestConnectionResponse> {
+  return post<TestConnectionResponse>('/cluster/test-connection', request);
 }
 
+/**
+ * Generate a registration token that vDC can use to add this host
+ * This does NOT join the cluster - the vDC will initiate the actual join
+ */
+export async function generateRegistrationToken(): Promise<GenerateTokenResponse> {
+  return post<GenerateTokenResponse>('/cluster/generate-token');
+}
+
+/**
+ * Leave the cluster and return to standalone mode
+ */
 export async function leaveCluster(): Promise<ClusterStatus> {
   return post<ClusterStatus>('/cluster/leave');
 }

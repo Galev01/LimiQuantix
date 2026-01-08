@@ -30,6 +30,13 @@ export interface ListImagesFilters {
   nodeId?: string;
 }
 
+// Download progress tracking
+export interface DownloadProgress {
+  progressPercent: number;
+  bytesDownloaded: number;
+  bytesTotal: number;
+}
+
 // Simplified image type for UI
 export interface CloudImage {
   id: string;
@@ -54,6 +61,8 @@ export interface CloudImage {
   };
   status: 'pending' | 'downloading' | 'ready' | 'error';
   nodeId?: string;
+  // Download progress (only present when status is 'downloading')
+  downloadProgress?: DownloadProgress;
 }
 
 // Construct cloud image path from OS info
@@ -79,6 +88,9 @@ function toCloudImage(img: Image): CloudImage {
     provisioningMethod: img.spec?.os?.provisioningMethod?.toString() || 'NONE',
   };
 
+  const phase = mapPhase(img.status?.phase);
+  const progressPercent = img.status?.progressPercent ?? 0;
+
   return {
     id: img.id,
     name: img.name,
@@ -93,8 +105,14 @@ function toCloudImage(img: Image): CloudImage {
       minDiskGib: Number(img.spec?.requirements?.minDiskGib || 10),
       supportedFirmware: img.spec?.requirements?.supportedFirmware || ['bios', 'uefi'],
     },
-    status: mapPhase(img.status?.phase),
+    status: phase,
     nodeId: undefined, // Would need to be added to proto
+    // Include download progress from API when downloading
+    downloadProgress: phase === 'downloading' ? {
+      progressPercent,
+      bytesDownloaded: 0, // Not available in ImageStatus proto
+      bytesTotal: Number(img.status?.sizeBytes || 0),
+    } : undefined,
   };
 }
 
@@ -124,6 +142,14 @@ export function useImages(filters: ListImagesFilters = {}) {
     staleTime: 30_000, // 30 seconds
     retry: false, // Don't retry - fallback to catalog
     retryOnMount: false,
+    // Poll every 2 seconds when there are downloading images
+    refetchInterval: (query) => {
+      const images = query.state.data;
+      if (images?.some(img => img.status === 'downloading')) {
+        return 2000; // Poll every 2 seconds when downloading
+      }
+      return false;
+    },
   });
 }
 
@@ -297,6 +323,7 @@ export function useDownloadImage() {
       });
       return {
         jobId: response.jobId,
+        imageId: response.image?.id,
         image: response.image ? toCloudImage(response.image) : null,
       };
     },

@@ -35,13 +35,13 @@ export interface CreatePoolRequest {
 }
 
 export async function createStoragePool(request: CreatePoolRequest): Promise<StoragePool> {
-  // Convert to backend expected format
+  // Convert to backend expected format (camelCase)
   const backendRequest = {
-    pool_id: request.poolId,
+    poolId: request.poolId,
     type: request.type,
     path: request.config.local?.path,
-    nfs_server: request.config.nfs?.server,
-    nfs_export: request.config.nfs?.export,
+    nfsServer: request.config.nfs?.server,
+    nfsExport: request.config.nfs?.export,
   };
   return post<StoragePool>('/storage/pools', backendRequest);
 }

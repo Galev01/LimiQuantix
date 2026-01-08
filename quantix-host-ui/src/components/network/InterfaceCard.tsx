@@ -16,7 +16,8 @@ export function InterfaceCard({ interface: iface }: InterfaceCardProps) {
   const [showConfigModal, setShowConfigModal] = useState(false);
   
   const isUp = iface.state === 'up';
-  const hasIp = iface.ip_addresses.length > 0;
+  const ipAddresses = iface.ipAddresses || [];
+  const hasIp = ipAddresses.length > 0;
 
   return (
     <>
@@ -58,7 +59,7 @@ export function InterfaceCard({ interface: iface }: InterfaceCardProps) {
           <div className="flex items-center justify-between">
             <span className="text-sm text-text-muted">IP Address</span>
             <span className="text-sm font-mono text-text-primary">
-              {hasIp ? iface.ip_addresses[0] : 'Not configured'}
+              {hasIp ? ipAddresses[0] : 'Not configured'}
             </span>
           </div>
 
@@ -66,24 +67,24 @@ export function InterfaceCard({ interface: iface }: InterfaceCardProps) {
           <div className="flex items-center justify-between">
             <span className="text-sm text-text-muted">MAC Address</span>
             <span className="text-sm font-mono text-text-primary">
-              {iface.mac_address}
+              {iface.macAddress || '00:00:00:00:00:00'}
             </span>
           </div>
 
           {/* MTU */}
           <div className="flex items-center justify-between">
             <span className="text-sm text-text-muted">MTU</span>
-            <span className="text-sm text-text-primary">{iface.mtu}</span>
+            <span className="text-sm text-text-primary">{iface.mtu || 1500}</span>
           </div>
 
           {/* Speed */}
-          {iface.speed_mbps && (
+          {iface.speedMbps && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-text-muted flex items-center gap-1">
                 <Activity className="w-3 h-3" />
                 Speed
               </span>
-              <span className="text-sm text-text-primary">{iface.speed_mbps} Mbps</span>
+              <span className="text-sm text-text-primary">{iface.speedMbps} Mbps</span>
             </div>
           )}
         </div>
