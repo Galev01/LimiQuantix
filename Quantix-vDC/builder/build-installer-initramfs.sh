@@ -249,39 +249,58 @@ cat > "${INITRAMFS_DIR}/init" << 'INITEOF'
 # Based on the proven Quantix-OS init architecture.
 #
 # IMPORTANT: /bin/sh is a symlink to busybox which is STATICALLY linked.
+# CRITICAL: This script must NEVER exit or the kernel will panic!
 # =============================================================================
+
+# CRITICAL: Define rescue function FIRST before anything else
+rescue_shell() {
+    echo ""
+    echo "============================================================"
+    echo "  RESCUE SHELL - Init encountered an error"
+    echo "  The system will stay alive for debugging."
+    echo "  Type 'reboot' to restart."
+    echo "============================================================"
+    echo ""
+    # Infinite loop to keep PID 1 alive
+    while true; do
+        /bin/busybox sh || /bin/sh || sleep 9999
+    done
+}
+
+# CRITICAL: Trap ALL signals and errors to prevent exit
+trap rescue_shell EXIT INT TERM HUP
 
 # Use busybox applets explicitly to avoid any path issues
 BB=/bin/busybox
 
-# Mount essential filesystems FIRST - these must succeed
-$BB mount -t proc proc /proc
-$BB mount -t sysfs sysfs /sys
+# Mount essential filesystems FIRST
+$BB mount -t proc proc /proc 2>/dev/null || true
+$BB mount -t sysfs sysfs /sys 2>/dev/null || true
 $BB mount -t devtmpfs devtmpfs /dev 2>/dev/null || {
     # Fallback: create minimal /dev manually
     $BB mkdir -p /dev
-    $BB mknod -m 622 /dev/console c 5 1
-    $BB mknod -m 666 /dev/null c 1 3
-    $BB mknod -m 666 /dev/tty c 5 0
+    $BB mknod -m 622 /dev/console c 5 1 2>/dev/null || true
+    $BB mknod -m 666 /dev/null c 1 3 2>/dev/null || true
+    $BB mknod -m 666 /dev/tty c 5 0 2>/dev/null || true
 }
 
 # Enable kernel messages to console
-$BB echo 8 > /proc/sys/kernel/printk 2>/dev/null
+$BB echo 8 > /proc/sys/kernel/printk 2>/dev/null || true
 
 # Create essential device nodes if devtmpfs didn't
-[ -c /dev/console ] || $BB mknod -m 622 /dev/console c 5 1 2>/dev/null
-[ -c /dev/null ] || $BB mknod -m 666 /dev/null c 1 3 2>/dev/null
-[ -c /dev/tty ] || $BB mknod -m 666 /dev/tty c 5 0 2>/dev/null
-[ -c /dev/tty0 ] || $BB mknod -m 666 /dev/tty0 c 4 0 2>/dev/null
-[ -c /dev/tty1 ] || $BB mknod -m 666 /dev/tty1 c 4 1 2>/dev/null
+[ -c /dev/console ] || $BB mknod -m 622 /dev/console c 5 1 2>/dev/null || true
+[ -c /dev/null ] || $BB mknod -m 666 /dev/null c 1 3 2>/dev/null || true
+[ -c /dev/tty ] || $BB mknod -m 666 /dev/tty c 5 0 2>/dev/null || true
+[ -c /dev/tty0 ] || $BB mknod -m 666 /dev/tty0 c 4 0 2>/dev/null || true
+[ -c /dev/tty1 ] || $BB mknod -m 666 /dev/tty1 c 4 1 2>/dev/null || true
 
-# Redirect output to console
-exec 0</dev/console
-exec 1>/dev/console
-exec 2>/dev/console
+# Redirect output to console (with fallback)
+exec 0</dev/console 2>/dev/null || true
+exec 1>/dev/console 2>/dev/null || true
+exec 2>/dev/console 2>/dev/null || true
 
 # Create additional mount points
-$BB mkdir -p /dev/pts /dev/shm /run /tmp
+$BB mkdir -p /dev/pts /dev/shm /run /tmp 2>/dev/null || true
 $BB mount -t devpts devpts /dev/pts 2>/dev/null || true
 $BB mount -t tmpfs tmpfs /dev/shm 2>/dev/null || true
 $BB mount -t tmpfs tmpfs /run 2>/dev/null || true
@@ -634,16 +653,18 @@ export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 # Clear screen and run installer
 $BB clear 2>/dev/null || true
 
-# Disable exit trap before exec
-trap - EXIT
-
-# Run installer TUI
+# Check if installer scripts exist
 if [ -f /installer/tui.sh ]; then
+    $BB echo "[INIT] Found TUI installer, launching..."
+    # Disable trap and exec into installer
+    trap - EXIT INT TERM HUP
     exec $BB sh /installer/tui.sh
 elif [ -f /installer/install.sh ]; then
+    $BB echo "[INIT] Found install script, launching..."
+    trap - EXIT INT TERM HUP
     exec $BB sh /installer/install.sh
 else
-    $BB echo "No installer scripts found!"
+    $BB echo "[INIT] No installer scripts found!"
     $BB echo ""
     $BB echo "You can manually install by:"
     $BB echo "  1. Partition target disk with fdisk"
@@ -651,24 +672,33 @@ else
     $BB echo "  3. Mount target at /mnt/target"
     $BB echo "  4. Copy system: cp -a /mnt/rootfs/* /mnt/target/"
     $BB echo ""
-    $BB echo "Dropping to shell..."
 fi
 
 # =============================================================================
 # CRITICAL: Never let init exit! Use infinite loop as safety net.
 # If we reach here, something went wrong. Keep PID 1 alive!
 # =============================================================================
-while true; do
-    $BB echo ""
-    $BB echo "============================================================"
-    $BB echo "  Init process ended unexpectedly."
-    $BB echo "  Dropping to rescue shell to keep system alive."
-    $BB echo "  Type 'reboot' to restart, or debug the issue."
-    $BB echo "============================================================"
-    $BB echo ""
-    $BB sh
-    $BB sleep 1
+$BB echo ""
+$BB echo "============================================================"
+$BB echo "  Dropping to interactive shell."
+$BB echo "  Type 'reboot' to restart."
+$BB echo "============================================================"
+$BB echo ""
+
+# Disable trap before entering shell loop
+trap - EXIT INT TERM HUP
+
+# Infinite loop - NEVER let this script exit
+while :; do
+    $BB sh -i 2>/dev/null || $BB sh || {
+        $BB echo "Shell failed, sleeping..."
+        $BB sleep 5
+    }
 done
+
+# This line should NEVER be reached
+$BB echo "FATAL: Reached end of init script!"
+exec $BB sh
 INITEOF
 
 chmod +x "${INITRAMFS_DIR}/init"

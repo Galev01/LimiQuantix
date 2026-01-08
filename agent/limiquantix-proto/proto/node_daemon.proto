@@ -361,6 +361,9 @@ message VMStatusResponse {
   
   // Guest agent information (populated when agent is running)
   GuestAgentInfo guest_agent = 8;
+  
+  // Storage information
+  repeated DiskSpec disks = 9;
 }
 
 // Information reported by the guest agent

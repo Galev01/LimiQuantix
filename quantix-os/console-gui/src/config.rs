@@ -118,14 +118,6 @@ pub fn save_config(config: &NodeConfig) -> Result<()> {
     if let Err(e) = fs::write("/etc/hostname", &config.hostname) {
         error!("❌ Failed to write hostname: {}", e);
     }
-    
-    // Apply hostname immediately
-    if let Err(e) = std::process::Command::new("hostname")
-        .arg(&config.hostname)
-        .output() 
-    {
-        error!("❌ Failed to set system hostname: {}", e);
-    }
 
     info!("✅ Configuration saved");
     Ok(())

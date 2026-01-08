@@ -483,6 +483,8 @@ pub struct VmStatus {
     pub memory_rss_bytes: u64,
     /// Maximum memory (bytes)
     pub memory_max_bytes: u64,
+    /// Disks attached to the VM
+    pub disks: Vec<DiskConfig>,
 }
 
 /// Console connection information.

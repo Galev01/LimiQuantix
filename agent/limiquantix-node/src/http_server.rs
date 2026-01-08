@@ -1454,12 +1454,10 @@ async fn shutdown_host(
 async fn get_host_metrics(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<HostMetricsResponse>, (StatusCode, Json<ApiError>)> {
-    use sysinfo::System;
     use tonic::Request;
-    use limiquantix_proto::NodeDaemonService;
     
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    // Use cached telemetry from the service (much faster and has history)
+    let telemetry = state.service.get_telemetry();
     
     // Get VM count
     let (vm_count, vm_running_count) = match state.service.list_v_ms(Request::new(())).await {
@@ -1472,27 +1470,27 @@ async fn get_host_metrics(
         Err(_) => (0, 0),
     };
     
-    // Calculate CPU usage
-    let cpu_usage = sys.global_cpu_usage() as f64;
+    // Get metrics from telemetry
+    let cpu_usage = telemetry.cpu.usage_percent as f64;
     
-    // Memory
-    let memory_total = sys.total_memory();
-    let memory_used = sys.used_memory();
+    let memory_total = telemetry.memory.total_bytes;
+    let memory_used = telemetry.memory.used_bytes;
     let memory_usage_percent = if memory_total > 0 {
         (memory_used as f64 / memory_total as f64) * 100.0
     } else {
         0.0
     };
     
-    // Load average (Linux only)
-    let load_avg = System::load_average();
+    // Use load average from telemetry
+    // Note: Telemetry might need to expose load average if it captures it
+    // For now we can fallback to System::load_average() which is cheap (reads /proc/loadavg)
+    let load_avg = sysinfo::System::load_average();
     
-    // Disk I/O (we'd need to track this over time for rates, for now return 0)
-    // In a real implementation, we'd keep a history and calculate deltas
+    // Get disk/net I/O from storage/network managers if possible, or partial telemetry
+    // Telemetry struct has per-VM I/O but maybe not total host I/O yet
+    // return 0 for now as previously done
     let disk_read_bytes_per_sec = 0u64;
     let disk_write_bytes_per_sec = 0u64;
-    
-    // Network I/O (same as disk)
     let network_rx_bytes_per_sec = 0u64;
     let network_tx_bytes_per_sec = 0u64;
     
@@ -1565,15 +1563,47 @@ async fn update_settings(
     State(_state): State<Arc<AppState>>,
     Json(req): Json<UpdateSettingsRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
-    // In a real implementation, this would update the config file
+    use std::process::Command;
+    use tokio::fs;
+
     info!(
         node_name = ?req.node_name,
         log_level = ?req.log_level,
         "Settings update requested"
     );
     
+    let mut messages = Vec::new();
+
+    // Handle Hostname update
+    if let Some(hostname) = req.node_name {
+        if !hostname.trim().is_empty() {
+            // Write to /etc/hostname
+            if let Err(e) = fs::write("/etc/hostname", format!("{}\n", hostname.trim())).await {
+                error!(error = %e, "Failed to write hostname");
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ApiError::new("write_hostname_failed", &e.to_string())),
+                ));
+            }
+
+            // Set running hostname
+            let output = Command::new("hostname")
+                .arg(hostname.trim())
+                .output();
+                
+            match output {
+                Ok(_) => messages.push("Hostname updated"),
+                Err(e) => error!(error = %e, "Failed to set running hostname"),
+            }
+        }
+    }
+    
     Ok(Json(serde_json::json!({
-        "message": "Settings updated. Some changes may require a restart."
+        "message": if messages.is_empty() { 
+            "Settings updated" 
+        } else { 
+            &messages.join(", ") 
+        }
     })))
 }
 
@@ -2176,7 +2206,7 @@ async fn revert_snapshot(
         vm_id: vm_id.clone(), 
         snapshot_id: snapshot_id.clone() 
     })).await {
-        Ok(_) => Ok(StatusCode::OK),
+        Ok(_) => Ok(StatusCode::NO_CONTENT),
         Err(e) => {
             error!(error = %e, vm_id = %vm_id, snapshot_id = %snapshot_id, "Failed to revert snapshot");
             let status = if e.code() == tonic::Code::NotFound {

@@ -266,6 +266,7 @@ impl Hypervisor for LibvirtBackend {
             cpu_time_ns: info.cpu_time,
             memory_rss_bytes: info.memory * 1024, // KiB to bytes
             memory_max_bytes: info.max_mem * 1024,
+            disks: Vec::new(), // TODO: Parse from XML
         })
     }
     
