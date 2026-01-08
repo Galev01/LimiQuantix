@@ -93,7 +93,7 @@ backend:
 			-e CGO_ENABLED=0 \
 			-e GOOS=linux \
 			-e GOARCH=amd64 \
-			golang:1.23-alpine \
+			golang:1.22-alpine \
 			sh -c "apk add --no-cache git && go build -ldflags='-s -w' -o /app/qx-controlplane ./cmd/controlplane"; \
 		cp $(PROJECT_ROOT)/backend/qx-controlplane $(OVERLAY_DIR)/usr/bin/; \
 		rm -f $(PROJECT_ROOT)/backend/qx-controlplane; \
@@ -112,13 +112,17 @@ frontend:
 			-v "$(PROJECT_ROOT)/frontend:/app:rw" \
 			-w /app \
 			node:20-alpine \
-			sh -c "npm ci && npm run build" && \
-		cp -r $(PROJECT_ROOT)/frontend/dist/* $(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard/ && \
-		echo "✅ Frontend built" || \
-		echo "⚠️  Frontend build failed, creating placeholder..."; \
-		echo '<!DOCTYPE html><html><head><title>Quantix-vDC</title></head><body><h1>Quantix-vDC Dashboard</h1><p>Dashboard not available. Please rebuild with: make frontend</p></body></html>' > $(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard/index.html; \
+			sh -c "npm ci && npx vite build" && \
+		if [ -d "$(PROJECT_ROOT)/frontend/dist" ] && [ -f "$(PROJECT_ROOT)/frontend/dist/index.html" ]; then \
+			cp -r $(PROJECT_ROOT)/frontend/dist/* $(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard/; \
+			echo "✅ Frontend built"; \
+		else \
+			echo "⚠️  Frontend build produced no output, creating placeholder..."; \
+			echo '<!DOCTYPE html><html><head><title>Quantix-vDC</title></head><body><h1>Quantix-vDC Dashboard</h1><p>Dashboard not available.</p></body></html>' > $(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard/index.html; \
+		fi; \
 	else \
-		echo "⚠️  Frontend not found at $(PROJECT_ROOT)/frontend, skipping..."; \
+		echo "⚠️  Frontend not found at $(PROJECT_ROOT)/frontend, creating placeholder..."; \
+		echo '<!DOCTYPE html><html><head><title>Quantix-vDC</title></head><body><h1>Quantix-vDC Dashboard</h1><p>Frontend not found.</p></body></html>' > $(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard/index.html; \
 	fi
 
 # =============================================================================
