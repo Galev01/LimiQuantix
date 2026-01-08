@@ -1,30 +1,31 @@
 # Workflow State
 
-## Current Status: IN PROGRESS - Quantix-vDC Build Fixes
+## Current Status: IN PROGRESS - Quantix-vDC OVA Build Fix
 
-## Active Workflow: Fix Quantix-vDC Backend/Frontend Build
+## Active Workflow: Fix Quantix-vDC OVA Build Loop Device Issues
 
 **Date:** January 8, 2026
 
 ### Current Issue
-The Quantix-vDC appliance build was failing due to:
-1. `go.mod` specifying Go 1.24.0 (doesn't exist) - Fixed to 1.22.0
-2. Frontend TypeScript errors - Added `build:nocheck` script to skip type checking
-3. Makefile using wrong Go version - Fixed to golang:1.22-alpine
+The `make ova` command was failing with:
+```
+losetup: /tmp/ova/disk.raw: failed to set up loop device: No such file or directory
+losetup: device node /dev/loop28 (7:28) is lost.
+```
 
-### Fixes Applied
-- `backend/go.mod` - Changed `go 1.24.0` to `go 1.22.0`
-- `frontend/package.json` - Added `build:nocheck` script
-- `Quantix-vDC/Makefile` - Use `golang:1.22-alpine` and `npm run build:nocheck`
+This happens because inside Docker containers, loop device nodes may not exist and partition detection doesn't work reliably.
 
-### To Test
+### Fixes Applied (build-ova.sh)
+1. **Loop device node creation**: Added `ensure_loop_devices()` function to create `/dev/loop*` nodes using `mknod` if they don't exist
+2. **Improved partition detection**: Better fallback logic for offset-based partition access
+3. **Explicit loop device setup**: When auto-detection fails, manually find free loop device numbers and create them with proper offsets
+4. **Multiple squashfs extraction methods**: Try loop mount, explicit losetup, then unsquashfs as fallback
+
+### To Test (on Linux machine)
 ```bash
 cd Quantix-vDC
 make clean
-make docker-builder
-make backend
-make frontend
-make iso
+make ova
 ```
 
 ---

@@ -490,13 +490,17 @@ echo "📦 Step 10: Creating OVA manifest..."
 
 cd "${OVA_DIR}"
 
-# Calculate SHA256 checksums
-VMDK_SHA256=$(sha256sum "${VMDK_NAME}" | awk '{print $1}')
-OVF_SHA256=$(sha256sum "quantix-vdc.ovf" | awk '{print $1}')
+# VMware uses SHA1 checksums (SHA256 is also supported but SHA1 is more compatible)
+# The format must be exactly: SHA1(filename)= <hash>
+VMDK_SHA1=$(sha1sum "${VMDK_NAME}" | awk '{print $1}')
+OVF_SHA1=$(sha1sum "quantix-vdc.ovf" | awk '{print $1}')
+
+echo "   VMDK SHA1: ${VMDK_SHA1}"
+echo "   OVF SHA1:  ${OVF_SHA1}"
 
 cat > "quantix-vdc.mf" << EOF
-SHA256(${VMDK_NAME})= ${VMDK_SHA256}
-SHA256(quantix-vdc.ovf)= ${OVF_SHA256}
+SHA1(quantix-vdc.ovf)= ${OVF_SHA1}
+SHA1(${VMDK_NAME})= ${VMDK_SHA1}
 EOF
 
 echo "✅ Manifest created"
@@ -506,12 +510,20 @@ echo "✅ Manifest created"
 # -----------------------------------------------------------------------------
 echo "📦 Step 11: Creating OVA archive..."
 
-# OVA is just a tar archive with specific ordering
+# OVA is a tar archive with specific ordering:
+# 1. OVF descriptor (must be first)
+# 2. Manifest file
+# 3. Disk files
+# Using POSIX format for maximum compatibility
 tar -cvf "${OUTPUT_DIR}/${OVA_NAME}" \
     --format=ustar \
     quantix-vdc.ovf \
     quantix-vdc.mf \
     "${VMDK_NAME}"
+
+# Verify the archive was created correctly
+echo "   Verifying OVA contents..."
+tar -tvf "${OUTPUT_DIR}/${OVA_NAME}"
 
 # Calculate final size
 OVA_SIZE=$(du -h "${OUTPUT_DIR}/${OVA_NAME}" | cut -f1)
