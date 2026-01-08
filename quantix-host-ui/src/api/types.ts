@@ -57,6 +57,7 @@ export interface VirtualMachine {
   memoryTotalBytes: number;
   startedAt?: string;
   guestAgent?: GuestAgentInfo;
+  disks?: DiskSpec[];
 }
 
 export interface GuestAgentInfo {

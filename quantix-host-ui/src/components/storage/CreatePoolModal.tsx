@@ -13,20 +13,24 @@ export function CreatePoolModal({ onClose }: CreatePoolModalProps) {
   const [poolId, setPoolId] = useState('');
   const [poolType, setPoolType] = useState<StoragePoolType>('LOCAL_DIR');
   const [localPath, setLocalPath] = useState('/var/lib/limiquantix/pools/');
+  const [localSize, setLocalSize] = useState('');
   const [nfsServer, setNfsServer] = useState('');
   const [nfsExport, setNfsExport] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const config: Record<string, any> = {};
-    
+
     if (poolType === 'LOCAL_DIR') {
-      config.local = { path: localPath };
+      config.local = {
+        path: localPath,
+        capacity_gib: localSize ? parseInt(localSize) : undefined
+      };
     } else if (poolType === 'NFS') {
       config.nfs = { server: nfsServer, export: nfsExport };
     }
-    
+
     createPool.mutate(
       {
         poolId,
@@ -109,11 +113,10 @@ export function CreatePoolModal({ onClose }: CreatePoolModalProps) {
                   type="button"
                   onClick={() => setPoolType(type)}
                   disabled={type === 'CEPH_RBD' || type === 'ISCSI'}
-                  className={`p-3 rounded-lg border text-left transition-all ${
-                    poolType === type
-                      ? 'border-accent bg-accent/10'
-                      : 'border-border hover:border-border-hover'
-                  } ${(type === 'CEPH_RBD' || type === 'ISCSI') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`p-3 rounded-lg border text-left transition-all ${poolType === type
+                    ? 'border-accent bg-accent/10'
+                    : 'border-border hover:border-border-hover'
+                    } ${(type === 'CEPH_RBD' || type === 'ISCSI') ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     {icon}
@@ -128,6 +131,7 @@ export function CreatePoolModal({ onClose }: CreatePoolModalProps) {
           {/* Type-specific Configuration */}
           {poolType === 'LOCAL_DIR' && (
             <div>
+
               <label className="block text-sm font-medium text-text-secondary mb-2">
                 Directory Path
               </label>
@@ -142,11 +146,34 @@ export function CreatePoolModal({ onClose }: CreatePoolModalProps) {
               <p className="text-xs text-text-muted mt-1">
                 Directory will be created if it doesn't exist
               </p>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-text-secondary mb-2">
+                  Capacity (GB)
+                </label>
+                <input
+                  type="number"
+                  value={localSize}
+                  onChange={(e) => setLocalSize(e.target.value)}
+                  placeholder="Unlimited"
+                  className="w-full px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  min="1"
+                />
+                <p className="text-xs text-text-muted mt-1">
+                  Optional limit for this storage pool
+                </p>
+              </div>
             </div>
           )}
 
           {poolType === 'NFS' && (
             <>
+              <div className="p-3 bg-info/10 border border-info/20 rounded-lg mb-4">
+                <p className="text-sm text-info flex items-center gap-2">
+                  <Network className="w-4 h-4" />
+                  NFS pool capacity is automatically aligned with the remote share.
+                </p>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-2">
                   NFS Server
@@ -186,7 +213,7 @@ export function CreatePoolModal({ onClose }: CreatePoolModalProps) {
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

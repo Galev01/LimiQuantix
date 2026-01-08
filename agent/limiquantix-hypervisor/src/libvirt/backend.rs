@@ -266,7 +266,10 @@ impl Hypervisor for LibvirtBackend {
             cpu_time_ns: info.cpu_time,
             memory_rss_bytes: info.memory * 1024, // KiB to bytes
             memory_max_bytes: info.max_mem * 1024,
-            disks: Vec::new(), // TODO: Parse from XML
+            disks: self.get_domain(vm_id)
+                .and_then(|d| d.get_xml_desc(0).map_err(|e| HypervisorError::Internal(e.to_string())))
+                .map(|xml| parse_disks_from_xml(&xml))
+                .unwrap_or_default(),
         })
     }
     
@@ -632,5 +635,93 @@ fn generate_mac_address() -> String {
         bytes[1],
         bytes[2]
     )
+}
+
+fn parse_disks_from_xml(xml: &str) -> Vec<DiskConfig> {
+    let mut disks = Vec::new();
+    
+    // Very basic XML parsing - strictly purely for the specific format we generate
+    // In production this should use a proper XML parser
+    let parts: Vec<&str> = xml.split("<disk ").collect();
+    
+    for part in parts.iter().skip(1) {
+        // Only care about actual disks, not cdroms
+        if !part.starts_with("type='file' device='disk'") {
+            continue;
+        }
+        
+        // Extract path
+        let path = if let Some(start) = part.find("source file='") {
+            let rest = &part[start + 13..];
+            if let Some(end) = rest.find('\'') {
+                rest[..end].to_string()
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+        
+        // Extract dev
+        let dev = if let Some(start) = part.find("target dev='") {
+            let rest = &part[start + 12..];
+            if let Some(end) = rest.find('\'') {
+                rest[..end].to_string()
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+        
+        // Extract bus
+        let bus = if let Some(start) = part.find("bus='") {
+            let rest = &part[start + 5..];
+            if let Some(end) = rest.find('\'') {
+                match &rest[..end] {
+                    "scsi" => DiskBus::Scsi,
+                    "sata" => DiskBus::Sata,
+                    "ide" => DiskBus::Ide,
+                    _ => DiskBus::Virtio,
+                }
+            } else {
+                DiskBus::Virtio
+            }
+        } else {
+            DiskBus::Virtio
+        };
+        
+        // Extract format
+        let format = if let Some(start) = part.find("driver name='qemu' type='") {
+            let rest = &part[start + 25..];
+            if let Some(end) = rest.find('\'') {
+                match &rest[..end] {
+                    "raw" => DiskFormat::Raw,
+                    "vmdk" => DiskFormat::Vmdk,
+                    _ => DiskFormat::Qcow2,
+                }
+            } else {
+                DiskFormat::Qcow2
+            }
+        } else {
+            DiskFormat::Qcow2
+        };
+        
+        if !path.is_empty() {
+            disks.push(DiskConfig {
+                id: dev.clone(), // Use device name as ID (e.g., vda)
+                path,
+                size_gib: 0, // We can't easily get size from XML, would need block stats or file check
+                bus,
+                format,
+                readonly: part.contains("<readonly/>"),
+                bootable: false, // Hard to tell from just disk block
+                cache: crate::types::CacheMode::None, // Default
+                io_mode: crate::types::IoMode::Native, // Default
+            });
+        }
+    }
+    
+    disks
 }
 

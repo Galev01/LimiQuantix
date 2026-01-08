@@ -278,6 +278,19 @@ struct VmResponse {
     memory_used_bytes: u64,
     memory_total_bytes: u64,
     guest_agent: Option<GuestAgentInfo>,
+    disks: Vec<DiskSpecResponse>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DiskSpecResponse {
+    id: String,
+    path: String,
+    size_gib: u64,
+    bus: String,
+    format: String,
+    readonly: bool,
+    bootable: bool,
 }
 
 #[derive(Serialize)]
@@ -1732,6 +1745,15 @@ async fn list_vms(
                         hostname: ga.hostname,
                         ip_addresses: ga.ip_addresses,
                     }),
+                    disks: vm.disks.into_iter().map(|d| DiskSpecResponse {
+                        id: d.id,
+                        path: d.path,
+                        size_gib: d.size_gib,
+                        bus: disk_bus_to_string(d.bus),
+                        format: disk_format_to_string(d.format),
+                        readonly: d.readonly,
+                        bootable: d.bootable,
+                    }).collect(),
                 }
             }).collect();
             
@@ -1772,6 +1794,15 @@ async fn get_vm(
                     hostname: ga.hostname,
                     ip_addresses: ga.ip_addresses,
                 }),
+                disks: vm.disks.into_iter().map(|d| DiskSpecResponse {
+                    id: d.id,
+                    path: d.path,
+                    size_gib: d.size_gib,
+                    bus: disk_bus_to_string(d.bus),
+                    format: disk_format_to_string(d.format),
+                    readonly: d.readonly,
+                    bootable: d.bootable,
+                }).collect(),
             }))
         }
         Err(e) => {
@@ -2055,6 +2086,15 @@ async fn create_vm(
                 memory_used_bytes: 0,
                 memory_total_bytes: request.memory_mib * 1024 * 1024,
                 guest_agent: None,
+                disks: request.disks.iter().map(|d| DiskSpecResponse {
+                    id: d.id.clone(),
+                    path: String::new(), // Path unknown until started/inspected, but usually auto-generated
+                    size_gib: d.size_gib,
+                    bus: d.bus.clone().unwrap_or_else(|| "virtio".to_string()),
+                    format: d.format.clone().unwrap_or_else(|| "qcow2".to_string()),
+                    readonly: false,
+                    bootable: d.bootable.unwrap_or(false),
+                }).collect(),
             }))
         }
         Err(e) => {
@@ -4115,5 +4155,25 @@ fn pool_type_to_string(pool_type: i32) -> String {
         3 => "CEPH_RBD".to_string(),
         4 => "ISCSI".to_string(),
         _ => "UNKNOWN".to_string(),
+    }
+}
+
+// Helper functions for Enum conversion
+fn disk_bus_to_string(bus: i32) -> String {
+    match bus {
+        0 => "virtio".to_string(), // DISK_BUS_VIRTIO
+        1 => "scsi".to_string(),   // DISK_BUS_SCSI
+        2 => "sata".to_string(),   // DISK_BUS_SATA
+        3 => "ide".to_string(),    // DISK_BUS_IDE
+        _ => "unknown".to_string(),
+    }
+}
+
+fn disk_format_to_string(fmt: i32) -> String {
+    match fmt {
+        0 => "qcow2".to_string(), // DISK_FORMAT_QCOW2
+        1 => "raw".to_string(),   // DISK_FORMAT_RAW
+        2 => "vmdk".to_string(),  // DISK_FORMAT_VMDK
+        _ => "unknown".to_string(),
     }
 }

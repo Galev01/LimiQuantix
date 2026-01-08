@@ -156,9 +156,18 @@ echo ""
 # =============================================================================
 log_step "Step 1: Partitioning disk..."
 
-# Wipe existing partition table
-dd if=/dev/zero of="$TARGET_DISK" bs=512 count=34 2>/dev/null
-dd if=/dev/zero of="$TARGET_DISK" bs=512 seek=$(($(blockdev --getsz "$TARGET_DISK") - 34)) count=34 2>/dev/null
+# Wipe existing partition table (beginning)
+dd if=/dev/zero of="$TARGET_DISK" bs=512 count=34 2>/dev/null || true
+
+# Wipe GPT backup at end of disk (if blockdev is available)
+if command -v blockdev >/dev/null 2>&1; then
+    DISK_SECTORS=$(blockdev --getsz "$TARGET_DISK" 2>/dev/null)
+    if [ -n "$DISK_SECTORS" ] && [ "$DISK_SECTORS" -gt 34 ]; then
+        dd if=/dev/zero of="$TARGET_DISK" bs=512 seek=$((DISK_SECTORS - 34)) count=34 2>/dev/null || true
+    fi
+else
+    log_warn "blockdev not found, skipping GPT backup wipe"
+fi
 
 # Create GPT partition table
 parted -s "$TARGET_DISK" mklabel gpt

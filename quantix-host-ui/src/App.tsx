@@ -37,30 +37,30 @@ export function App() {
           <Route element={<Layout />}>
             {/* Dashboard */}
             <Route path="/" element={<Dashboard />} />
-            
+
             {/* Virtual Machines */}
             <Route path="/vms" element={<VirtualMachines />} />
             <Route path="/vms/:vmId" element={<VMDetail />} />
-            
+
             {/* Storage */}
             <Route path="/storage/pools" element={<StoragePools />} />
-            <Route path="/storage/pools/:poolId/volumes" element={<Volumes />} />
-            
+            <Route path="/storage/volumes" element={<Volumes />} />
+
             {/* Networking */}
             <Route path="/networking" element={<Network />} />
-            
+
             {/* Hardware */}
             <Route path="/hardware" element={<Hardware />} />
-            
+
             {/* Performance Monitor */}
             <Route path="/monitor" element={<Performance />} />
-            
+
             {/* Events */}
             <Route path="/events" element={<Events />} />
-            
+
             {/* Configuration */}
             <Route path="/settings" element={<Settings />} />
-            
+
             {/* 404 */}
             <Route path="*" element={<PlaceholderPage title="Page Not Found" />} />
           </Route>
