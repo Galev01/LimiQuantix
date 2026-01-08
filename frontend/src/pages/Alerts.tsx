@@ -272,7 +272,7 @@ export function Alerts() {
             <h1 className="text-2xl font-bold text-text-primary">Alerts</h1>
             <p className="text-text-muted mt-1">Monitor and manage system alerts</p>
           </div>
-          {/* Alert service not yet exposed via HTTP - using mock data */}
+          {/* Alert service not yet exposed via HTTP */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-warning/20 text-warning border border-warning/30">
             <WifiOff className="w-3 h-3" />
             Mock Data

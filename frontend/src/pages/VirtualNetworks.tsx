@@ -342,9 +342,9 @@ export function VirtualNetworks() {
       </div>
 
       {/* Network Details Panel (when selected) */}
-      {selectedNetwork && (
+      {selectedNetwork && allNetworks.find((n) => n.id === selectedNetwork) && (
         <NetworkDetailPanel
-          network={mockNetworks.find((n) => n.id === selectedNetwork)!}
+          network={allNetworks.find((n) => n.id === selectedNetwork)!}
           onClose={() => setSelectedNetwork(null)}
         />
       )}

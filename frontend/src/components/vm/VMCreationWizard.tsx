@@ -1992,26 +1992,6 @@ packages:
   );
 }
 
-// Fallback mock storage pools when API is unavailable
-const mockStoragePoolsFallback: StoragePoolUI[] = [
-  {
-    id: 'pool-local-1',
-    name: 'local-storage',
-    description: 'Local storage for development',
-    projectId: 'default',
-    type: 'LOCAL_DIR',
-    status: { phase: 'READY', volumeCount: 0 },
-    capacity: {
-      totalBytes: 500 * 1024 * 1024 * 1024,
-      usedBytes: 50 * 1024 * 1024 * 1024,
-      availableBytes: 450 * 1024 * 1024 * 1024,
-      provisionedBytes: 100 * 1024 * 1024 * 1024,
-    },
-    createdAt: new Date(),
-    labels: {},
-  },
-];
-
 function StepStorage({
   formData,
   updateFormData,
@@ -2023,9 +2003,8 @@ function StepStorage({
   storagePools: StoragePoolUI[];
   isLoading: boolean;
 }) {
-  // Use API data or fallback to mock
-  const pools = storagePools.length > 0 ? storagePools : mockStoragePoolsFallback;
-  const isUsingMock = storagePools.length === 0;
+  // Use only API data (no mock fallback)
+  const pools = storagePools;
 
   const addDisk = () => {
     const newDisk: DiskConfig = {
@@ -2313,9 +2292,8 @@ function StepReview({
   const selectedCluster = clusters.find((c) => c.id === formData.clusterId);
   const selectedHost = nodes.find((n) => n.id === formData.hostId);
   const selectedFolder = staticFolders.find((f) => f.id === formData.folderId);
-  // Use API storage pools with fallback
-  const allPools = storagePools.length > 0 ? storagePools : mockStoragePoolsFallback;
-  const selectedPool = allPools.find((p) => p.id === formData.storagePoolId);
+  // Use only API storage pools (no mock fallback)
+  const selectedPool = storagePools.find((p) => p.id === formData.storagePoolId);
   // Use API ISOs with fallback to catalog
   const allISOs = isos.length > 0 ? isos : ISO_CATALOG;
   const selectedISO = allISOs.find((i) => i.id === formData.isoId);
