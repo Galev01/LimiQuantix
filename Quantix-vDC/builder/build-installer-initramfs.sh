@@ -480,27 +480,52 @@ export ROOTFS_PATH="/mnt/rootfs"
 export TERM=linux
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
-# Check if installer scripts exist and run them
-if [ -f /installer/tui.sh ]; then
-    echo "[INIT] Launching TUI installer..."
-    exec /bin/sh /installer/tui.sh
-elif [ -f /installer/install.sh ]; then
-    echo "[INIT] Launching install script..."
-    exec /bin/sh /installer/install.sh
-else
-    echo "[INIT] No installer scripts found!"
-    echo ""
-    echo "You can manually install by:"
-    echo "  1. Partition target disk with fdisk"
-    echo "  2. Format partitions"  
-    echo "  3. Mount target at /mnt/target"
-    echo "  4. Copy system: cp -a /mnt/rootfs/* /mnt/target/"
-    echo ""
-fi
+# Function to run installer loop
+run_installer() {
+    while true; do
+        if [ -f /installer/tui.sh ]; then
+            echo "[INIT] Launching TUI installer..."
+            /bin/sh /installer/tui.sh
+        elif [ -f /installer/install.sh ]; then
+            echo "[INIT] Launching install script..."
+            /bin/sh /installer/install.sh
+        else
+            echo "[INIT] No installer scripts found!"
+            break
+        fi
+        
+        EXIT_CODE=$?
+        echo "[INIT] Installer exited with code $EXIT_CODE"
+        
+        if [ $EXIT_CODE -eq 0 ]; then
+            echo "[INIT] Installation complete. Rebooting in 5 seconds..."
+            sleep 5
+            reboot -f
+        else
+            echo "[INIT] Installer failed or was cancelled."
+            echo "[INIT] Dropping to shell in 3 seconds..."
+            echo "[INIT] (Press Enter to restart installer)"
+            read -t 3 TMP || break
+        fi
+    done
+}
 
-# Fallback to shell
-echo "[INIT] Dropping to shell..."
-exec /bin/sh
+# Run the installer loop
+run_installer
+
+# Fallback to interactive shell if installer exits/fails
+echo ""
+echo "============================================================"
+echo "  Installer exited. Dropping to interactive shell."
+echo "  Type 'reboot' to restart system."
+echo "============================================================"
+echo ""
+
+# Infinite loop to prevent PID 1 exit (Kernel Panic)
+while true; do
+    /bin/sh
+    sleep 1
+done
 INITEOF
 
 chmod +x "${INITRAMFS_DIR}/init"
