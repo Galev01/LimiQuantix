@@ -1,101 +1,96 @@
 # Workflow State
 
-## Current Status: COMPLETED - Remote Node Connection Feature
+## Current Status: IN PROGRESS - vDC and Quantix-OS Integration Testing
 
-## Latest Workflow: Remote Node Connection in Host UI
+## Latest Workflow: Local Network Testing Setup
 
 **Date:** January 9, 2026
 
-### Summary
+### Architecture Clarification
 
-Added a feature to the Host UI that allows connecting to a remote node daemon from the UI itself, instead of requiring vite proxy configuration changes.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Quantix-vDC (Control Plane) - Windows                         │
+│  ├── Go Backend (localhost:8080) - manages cluster             │
+│  ├── Frontend (localhost:5173) - shows ALL hosts/VMs           │
+│  ├── PostgreSQL, etcd, Redis (Docker)                          │
+│  └── Nodes register HERE                                       │
+└─────────────────────────────────────────────────────────────────┘
+                              ▲
+                              │ Node Registration (REST/gRPC)
+                              │
+┌─────────────────────────────────────────────────────────────────┐
+│  Quantix-OS (Hypervisor Host) - Ubuntu 192.168.0.53            │
+│  ├── Node Daemon (Rust) - registers with vDC                   │
+│  ├── Host UI (quantix-host-ui) - LOCAL management only         │
+│  └── Runs VMs via libvirt/QEMU                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-### Changes Made
+### Steps Completed
 
-| File | Change |
+| Step | Status |
 |------|--------|
-| `quantix-host-ui/src/api/client.ts` | Added configurable API base URL with localStorage persistence |
-| `quantix-host-ui/src/components/ConnectionSetup.tsx` | New component for entering remote node URL |
-| `quantix-host-ui/src/components/layout/Layout.tsx` | Added connection banner and disconnect button |
-| `quantix-host-ui/src/App.tsx` | Show ConnectionSetup when in dev mode without connection |
+| 1. Run database migrations | ✅ Done |
+| 2. Start Go backend with PostgreSQL | ✅ Running on :8080 |
+| 3. Start vDC Frontend | ⏳ User to start |
+| 4. Restart node daemon with --control-plane | ⏳ User to do on Ubuntu |
+| 5. Verify node appears in vDC UI | ⏳ Pending |
 
-### How to Use
+### Commands Run on Windows
 
-1. **Start the Host UI** on your Windows machine:
-   ```powershell
-   cd quantix-host-ui
-   npm run dev
-   ```
+```powershell
+# 1. Ran migrations
+cd backend
+docker exec -i limiquantix-postgres psql -U limiquantix -d limiquantix -f - < migrations/000001_init.up.sql
+docker exec -i limiquantix-postgres psql -U limiquantix -d limiquantix -f - < migrations/000002_admin_tables.up.sql
 
-2. **Open http://localhost:3001** - You'll see the "Connect to Node Daemon" page
+# 2. Started backend (with PostgreSQL, NOT --dev mode)
+go run ./cmd/controlplane
+```
 
-3. **Enter your Ubuntu node daemon URL**: `https://192.168.1.101:8443`
-   - Replace with your actual Ubuntu IP address
-   - Give it a friendly name (optional)
+### Commands to Run on Ubuntu
 
-4. **Click "Test Connection"** to verify connectivity
+```bash
+# Restart node daemon with control plane URL
+sudo ./target/release/limiquantix-node \
+    --http-listen 0.0.0.0:8080 \
+    --grpc-listen 0.0.0.0:9090 \
+    --control-plane http://192.168.0.148:8080
+```
 
-5. **Click "Connect"** to save and start using the UI
+### Commands to Run on Windows (Frontend)
 
-6. Once connected, a banner shows at the top with a "Disconnect" option
+```powershell
+cd frontend
+npm run dev
+# Open http://localhost:5173 - should show the Ubuntu host
+```
 
-### Features
-- Connection URL stored in localStorage (persists across browser refreshes)
-- Recent connections remembered for quick switching
-- Test connection before committing
-- Visual indicator showing which node you're connected to
-- One-click disconnect to switch nodes
+### Key Points
+
+1. **quantix-host-ui** is for managing a SINGLE host locally (embedded in Quantix-OS)
+2. **frontend/** is the vDC dashboard that shows ALL hosts in the cluster
+3. Node daemon must register with vDC backend for hosts to appear
+4. Database migrations must be run for PostgreSQL to work
 
 ---
 
 ## Previous Workflow: Node Daemon Build Fixed
 
-Fixed the node daemon build issues by:
-
-1. **Downloaded protoc** for Windows to enable proto regeneration
-2. **Regenerated proto files** from the updated `node_daemon.proto`
-3. **Fixed axum WebSocket feature** - Added `ws` and `query` features to axum
-4. **Fixed rcgen API** - Added `pem` feature to rcgen for PEM output methods
-5. **Fixed platform-specific code** - Made `libc::statvfs` Linux-only with `#[cfg]`
+Fixed the node daemon build issues:
+- Downloaded protoc for Windows
+- Regenerated proto files
+- Fixed axum WebSocket feature
+- Fixed rcgen API (pem feature)
+- Fixed platform-specific code (statvfs)
+- Fixed libvirt backend types (DiskCache, DiskIoMode, backing_file)
 
 ### Build Status
 
 ```
-[OK] limiquantix-proto - Builds successfully
-[OK] limiquantix-hypervisor - Builds successfully (warnings only)
-[OK] limiquantix-telemetry - Builds successfully
-[OK] limiquantix-node - Builds successfully (warnings only)
-```
-
-### Architecture
-
-```
-Windows Machine (Development)
-+------------------------------------------------------------+
-|  Host UI (localhost:3001)                                  |
-|  - Connects to remote node daemon via HTTPS                |
-|  - Connection URL configured in UI                         |
-+------------------------------------------------------------+
-             |
-             | HTTPS (direct, no proxy)
-             v
-Ubuntu Machine (Hypervisor)
-+------------------------------------------------------------+
-|  Quantix-OS Node Daemon                                    |
-|  - HTTPS API on port 8443                                  |
-|  - gRPC on port 9443                                       |
-|  - Runs VMs via libvirt/QEMU                               |
-+------------------------------------------------------------+
-```
-
-### Running the Node Daemon on Ubuntu
-
-```bash
-# Build with libvirt support
-cd ~/LimiQuantix/agent
-cargo build --release -p limiquantix-node --features libvirt
-
-# Run (listen on all interfaces)
-# Note: Use --http-listen and --grpc-listen with address:port format
-./target/release/limiquantix-node --http-listen 0.0.0.0:8443 --grpc-listen 0.0.0.0:9443
+[OK] limiquantix-proto
+[OK] limiquantix-hypervisor
+[OK] limiquantix-telemetry
+[OK] limiquantix-node
 ```

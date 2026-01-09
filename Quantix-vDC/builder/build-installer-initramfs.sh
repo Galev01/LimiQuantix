@@ -590,24 +590,32 @@ if [ -f "${INSTALL_ROOT}/installer/tui.sh" ]; then
     # Run the TUI with proper terminal access
     log "Launching chroot with console: ${CONSOLE_DEV}"
     
-    # Use setsid with cttyhack for proper controlling terminal
-    # cttyhack is a busybox applet that sets up a controlling TTY
-    setsid cttyhack chroot "${INSTALL_ROOT}" /bin/sh -c "
-        export TERM=linux
-        export HOME=/root
-        export TERMINFO=/usr/share/terminfo
-        export PATH=/bin:/sbin:/usr/bin:/usr/sbin
-        
-        # Test dialog before running TUI
-        if command -v dialog >/dev/null 2>&1; then
-            /installer/tui.sh
-        else
-            echo 'ERROR: dialog command not found!'
-            echo 'Falling back to text installer...'
-            sleep 3
-            /installer/install.sh --help
-        fi
-    " < ${CONSOLE_DEV} > ${CONSOLE_DEV} 2>&1
+    # Create a wrapper script that sets up the controlling terminal
+    # This replaces cttyhack which isn't available in Alpine busybox
+    cat > /tmp/run-tui.sh << 'TUISCRIPT'
+#!/bin/sh
+export TERM=linux
+export HOME=/root
+export TERMINFO=/usr/share/terminfo
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+# Test dialog before running TUI
+if command -v dialog >/dev/null 2>&1; then
+    exec /installer/tui.sh
+else
+    echo 'ERROR: dialog command not found!'
+    echo 'Available in /usr/bin:'
+    ls /usr/bin/ | head -20
+    echo 'Falling back to shell...'
+    exec /bin/sh
+fi
+TUISCRIPT
+    chmod +x /tmp/run-tui.sh
+    cp /tmp/run-tui.sh "${INSTALL_ROOT}/tmp/run-tui.sh"
+    
+    # Use setsid to create new session, and run chroot with explicit I/O
+    # The key is opening the tty for stdin/stdout/stderr
+    setsid sh -c "exec chroot ${INSTALL_ROOT} /tmp/run-tui.sh <${CONSOLE_DEV} >${CONSOLE_DEV} 2>&1"
     
     INSTALL_EXIT=$?
     log "Installer exited with ${INSTALL_EXIT}"
