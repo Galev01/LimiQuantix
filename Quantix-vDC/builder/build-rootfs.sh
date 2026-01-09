@@ -227,9 +227,26 @@ EOF
 echo "✅ Defaults configured"
 
 # -----------------------------------------------------------------------------
-# Step 7: Write version info
+# Step 7: Copy installer scripts
 # -----------------------------------------------------------------------------
-echo "📦 Step 7: Writing version info..."
+echo "📦 Step 7: Copying installer scripts..."
+
+mkdir -p "${ROOTFS_DIR}/installer"
+if [ -d "/work/installer" ]; then
+    cp -v /work/installer/*.sh "${ROOTFS_DIR}/installer/" 2>/dev/null || true
+    chmod +x "${ROOTFS_DIR}/installer/"*.sh 2>/dev/null || true
+    echo "   Installer scripts:"
+    ls -la "${ROOTFS_DIR}/installer/"
+else
+    echo "   ⚠️  No installer directory found at /work/installer"
+fi
+
+echo "✅ Installer scripts copied"
+
+# -----------------------------------------------------------------------------
+# Step 8: Write version info
+# -----------------------------------------------------------------------------
+echo "📦 Step 8: Writing version info..."
 
 cat > "${ROOTFS_DIR}/etc/quantix-vdc-release" << EOF
 QUANTIX_VDC_VERSION="${VERSION}"
@@ -241,9 +258,9 @@ EOF
 echo "✅ Version info written"
 
 # -----------------------------------------------------------------------------
-# Step 8: Clean up
+# Step 9: Clean up
 # -----------------------------------------------------------------------------
-echo "📦 Step 8: Cleaning up..."
+echo "📦 Step 9: Cleaning up..."
 
 # Remove APK cache
 rm -rf "${ROOTFS_DIR}/var/cache/apk/"*
@@ -259,9 +276,9 @@ rm -rf "${ROOTFS_DIR}/var/log/"*
 echo "✅ Cleanup complete"
 
 # -----------------------------------------------------------------------------
-# Step 9: Create squashfs
+# Step 10: Create squashfs
 # -----------------------------------------------------------------------------
-echo "📦 Step 9: Creating squashfs..."
+echo "📦 Step 10: Creating squashfs..."
 
 # Debug: Show mount information
 echo "   Debug: Checking mount points..."

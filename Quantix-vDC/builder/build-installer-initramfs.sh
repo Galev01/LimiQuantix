@@ -427,11 +427,24 @@ log "System mounted successfully!"
 
 # 8. OverlayFS Setup (Required for writable root)
 log "Setting up OverlayFS..."
-mkdir -p /mnt/overlay/upper
-mkdir -p /mnt/overlay/work
+
+# Create base overlay mount point
+mkdir -p /mnt/overlay
+
+# Mount tmpfs FIRST - this will be used for the writable layer
 mount -t tmpfs tmpfs /mnt/overlay
-mkdir -p /mnt/overlay/max
-mount -t overlay overlay -o lowerdir=/mnt/rootfs,upperdir=/mnt/overlay/upper,workdir=/mnt/overlay/work /mnt/overlay/max
+
+# NOW create the directories inside the mounted tmpfs
+mkdir -p /mnt/overlay/upper
+mkdir -p /mnt/overlay/work 
+mkdir -p /mnt/overlay/merged
+
+# Mount overlay filesystem
+if mount -t overlay overlay -o lowerdir=/mnt/rootfs,upperdir=/mnt/overlay/upper,workdir=/mnt/overlay/work /mnt/overlay/merged; then
+    log "OverlayFS mounted successfully"
+else
+    log "OverlayFS mount failed, continuing without overlay..."
+fi
 
 # 9. Handover to Installer
 log "Launching installer..."
