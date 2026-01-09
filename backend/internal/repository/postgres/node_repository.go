@@ -110,7 +110,7 @@ func (r *NodeRepository) Create(ctx context.Context, n *domain.Node) (*domain.No
 // Get retrieves a node by ID.
 func (r *NodeRepository) Get(ctx context.Context, id string) (*domain.Node, error) {
 	query := `
-		SELECT id, hostname, management_ip, cluster_id, labels, spec,
+		SELECT id, hostname, management_ip::text, cluster_id, labels, spec,
 		       phase, conditions, allocatable, allocated, vm_ids, system_info,
 		       created_at, updated_at, last_heartbeat
 		FROM nodes
@@ -123,7 +123,7 @@ func (r *NodeRepository) Get(ctx context.Context, id string) (*domain.Node, erro
 // GetByHostname retrieves a node by hostname.
 func (r *NodeRepository) GetByHostname(ctx context.Context, hostname string) (*domain.Node, error) {
 	query := `
-		SELECT id, hostname, management_ip, cluster_id, labels, spec,
+		SELECT id, hostname, management_ip::text, cluster_id, labels, spec,
 		       phase, conditions, allocatable, allocated, vm_ids, system_info,
 		       created_at, updated_at, last_heartbeat
 		FROM nodes
@@ -201,7 +201,7 @@ func (r *NodeRepository) scanNode(ctx context.Context, query string, arg interfa
 // List returns all nodes matching the filter.
 func (r *NodeRepository) List(ctx context.Context, filter node.NodeFilter) ([]*domain.Node, error) {
 	query := `
-		SELECT id, hostname, management_ip, cluster_id, labels, spec,
+		SELECT id, hostname, management_ip::text, cluster_id, labels, spec,
 		       phase, conditions, allocatable, allocated, vm_ids, system_info,
 		       created_at, updated_at, last_heartbeat
 		FROM nodes

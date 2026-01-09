@@ -31,7 +31,7 @@ interface ConsoleState {
   // Grid layout when in grid mode
   gridLayout: GridLayout;
   // User's default console preference
-  defaultConsoleType: 'web' | 'qvmrc';
+  defaultConsoleType: 'web' | 'qvmc';
   // Whether the VM sidebar is collapsed
   sidebarCollapsed: boolean;
   
@@ -42,7 +42,7 @@ interface ConsoleState {
   setActiveSession: (sessionId: string) => void;
   setViewMode: (mode: ViewMode) => void;
   setGridLayout: (layout: GridLayout) => void;
-  setDefaultConsoleType: (type: 'web' | 'qvmrc') => void;
+  setDefaultConsoleType: (type: 'web' | 'qvmc') => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   reorderSessions: (fromIndex: number, toIndex: number) => void;
   getSessionByVmId: (vmId: string) => ConsoleSession | undefined;
@@ -122,7 +122,7 @@ export const useConsoleStore = create<ConsoleState>()(
         set({ gridLayout: layout });
       },
 
-      setDefaultConsoleType: (type: 'web' | 'qvmrc') => {
+      setDefaultConsoleType: (type: 'web' | 'qvmc') => {
         set({ defaultConsoleType: type });
       },
 

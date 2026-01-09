@@ -67,7 +67,7 @@ The Quantix Host UI is a React-based web application that provides a comprehensi
 - **VM List Page** (`/vms`)
   - List all VMs with power state
   - Power operations (start, stop, reboot, pause, resume)
-  - Console access via QVMRC
+  - Console access via qvmc
   - Quick actions menu
 
 - **VM Detail Page** (`/vms/:vmId`)

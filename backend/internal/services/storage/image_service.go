@@ -281,6 +281,11 @@ func (s *ImageService) GetDownloadManager() *DownloadManager {
 	return s.downloadManager
 }
 
+// GetRepository returns the image repository for external access.
+func (s *ImageService) GetRepository() ImageRepository {
+	return s.repo
+}
+
 // GetImageCatalog returns the list of available cloud images for download.
 func (s *ImageService) GetImageCatalog(
 	ctx context.Context,

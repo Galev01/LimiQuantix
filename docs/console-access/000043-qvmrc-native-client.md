@@ -1,4 +1,4 @@
-# QVMRC - Quantix Virtual Machine Remote Console
+# qvmc - Quantix Virtual Machine Remote Console
 
 **Document ID:** 000043  
 **Date:** January 3, 2026 (Updated: UI Redesign & Protocol Handler Fix)  
@@ -9,11 +9,11 @@
 
 ## Overview
 
-QVMRC (Quantix Virtual Machine Remote Console) is a native desktop application built with Tauri (Rust + React) that provides high-performance VNC console access to virtual machines managed by the LimiQuantix platform.
+qvmc (Quantix Virtual Machine Remote Console) is a native desktop application built with Tauri (Rust + React) that provides high-performance VNC console access to virtual machines managed by the LimiQuantix platform.
 
 ### UI Design Philosophy
 
-QVMRC follows a modern, layer-based UI design with:
+qvmc follows a modern, layer-based UI design with:
 
 - **Deep color hierarchy**: Base → Surface → Elevated layers for visual depth
 - **Smooth animations**: Spring-based transitions, scale/fade effects
@@ -22,7 +22,7 @@ QVMRC follows a modern, layer-based UI design with:
 
 ### Why a Native Client?
 
-| Feature | Web Console (noVNC) | QVMRC Native |
+| Feature | Web Console (noVNC) | qvmc Native |
 |---------|---------------------|--------------|
 | Installation | None | Requires install |
 | Performance | Good | Excellent (native rendering) |
@@ -39,7 +39,7 @@ QVMRC follows a modern, layer-based UI design with:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        QVMRC (Tauri App)                             │
+│                        qvmc (Tauri App)                             │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │              React Frontend (TypeScript)                      │   │
@@ -88,7 +88,7 @@ QVMRC follows a modern, layer-based UI design with:
 ## Project Structure
 
 ```
-qvmrc/
+qvmc/
 ├── index.html              # HTML entry point
 ├── package.json            # NPM dependencies
 ├── vite.config.ts          # Vite bundler config
@@ -251,7 +251,7 @@ const codeMap: Record<string, number> = {
 ### Development
 
 ```bash
-cd qvmrc
+cd qvmc
 
 # Install dependencies
 npm install
@@ -271,9 +271,9 @@ npm run tauri build
 
 | Platform | Binary | Installer |
 |----------|--------|-----------|
-| Windows | `target/release/QVMRC.exe` | `target/release/bundle/msi/*.msi` |
-| macOS | `target/release/bundle/macos/QVMRC.app` | `target/release/bundle/dmg/*.dmg` |
-| Linux | `target/release/qvmrc` | `target/release/bundle/appimage/*.AppImage` |
+| Windows | `target/release/qvmc.exe` | `target/release/bundle/msi/*.msi` |
+| macOS | `target/release/bundle/macos/qvmc.app` | `target/release/bundle/dmg/*.dmg` |
+| Linux | `target/release/qvmc` | `target/release/bundle/appimage/*.AppImage` |
 
 ---
 
@@ -283,9 +283,9 @@ npm run tauri build
 
 | Platform | Path |
 |----------|------|
-| Windows | `%APPDATA%\limiquantix\qvmrc\config.toml` |
-| macOS | `~/Library/Application Support/com.limiquantix.qvmrc/config.toml` |
-| Linux | `~/.config/qvmrc/config.toml` |
+| Windows | `%APPDATA%\limiquantix\qvmc\config.toml` |
+| macOS | `~/Library/Application Support/com.limiquantix.qvmc/config.toml` |
+| Linux | `~/.config/qvmc/config.toml` |
 
 ### Config Structure
 
@@ -336,24 +336,24 @@ window_maximized = false
 
 ## Deep Link Integration
 
-QVMRC supports deep link URLs to automatically open and connect to VMs directly from the web UI.
+qvmc supports deep link URLs to automatically open and connect to VMs directly from the web UI.
 
 ### URL Format
 
 ```
-qvmrc://connect?url=<control_plane_url>&vmId=<vm_id>&vmName=<vm_name>
+qvmc://connect?url=<control_plane_url>&vmId=<vm_id>&vmName=<vm_name>
 ```
 
 **Example:**
 ```
-qvmrc://connect?url=http%3A%2F%2Flocalhost%3A8080&vmId=vm-abc123&vmName=My%20Web%20Server
+qvmc://connect?url=http%3A%2F%2Flocalhost%3A8080&vmId=vm-abc123&vmName=My%20Web%20Server
 ```
 
 ### How It Works
 
-1. **User clicks "Open in QVMRC"** in the web UI
-2. Browser launches QVMRC with the deep link URL
-3. QVMRC parses the URL and:
+1. **User clicks "Open in qvmc"** in the web UI
+2. Browser launches qvmc with the deep link URL
+3. qvmc parses the URL and:
    - Saves the connection to config
    - Immediately connects to the VM's VNC console
 4. Connection is saved for future access
@@ -363,14 +363,14 @@ qvmrc://connect?url=http%3A%2F%2Flocalhost%3A8080&vmId=vm-abc123&vmName=My%20Web
 The web UI `ConsoleAccessModal` component generates the deep link:
 
 ```typescript
-const qvmrcConnectionUrl = `qvmrc://connect?url=${encodeURIComponent(controlPlaneUrl)}&vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}`;
+const qvmcConnectionUrl = `qvmc://connect?url=${encodeURIComponent(controlPlaneUrl)}&vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}`;
 ```
 
 ### Protocol Handler Registration
 
-The protocol handler is registered when QVMRC is installed:
+The protocol handler is registered when qvmc is installed:
 
-- **Windows:** Registry entries created by NSIS installer (HKCU\SOFTWARE\Classes\qvmrc)
+- **Windows:** Registry entries created by NSIS installer (HKCU\SOFTWARE\Classes\qvmc)
 - **macOS:** `Info.plist` URL scheme registration
 - **Linux:** `.desktop` file with `x-scheme-handler`
 
@@ -380,23 +380,23 @@ If the protocol handler isn't working after installation, run the registration s
 
 ```powershell
 # Option 1: Use the provided script
-cd qvmrc/scripts
+cd qvmc/scripts
 .\register-protocol.ps1
 
 # Option 2: Manual PowerShell command
-$ExePath = "$env:LOCALAPPDATA\QVMRC\QVMRC.exe"
-New-Item -Path "HKCU:\SOFTWARE\Classes\qvmrc" -Force | Out-Null
-Set-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmrc" -Name "(Default)" -Value "URL:QVMRC Protocol"
-New-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmrc" -Name "URL Protocol" -Value "" -Force | Out-Null
-New-Item -Path "HKCU:\SOFTWARE\Classes\qvmrc\shell\open\command" -Force | Out-Null
-Set-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmrc\shell\open\command" -Name "(Default)" -Value "`"$ExePath`" `"%1`""
+$ExePath = "$env:LOCALAPPDATA\qvmc\qvmc.exe"
+New-Item -Path "HKCU:\SOFTWARE\Classes\qvmc" -Force | Out-Null
+Set-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmc" -Name "(Default)" -Value "URL:qvmc Protocol"
+New-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmc" -Name "URL Protocol" -Value "" -Force | Out-Null
+New-Item -Path "HKCU:\SOFTWARE\Classes\qvmc\shell\open\command" -Force | Out-Null
+Set-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmc\shell\open\command" -Name "(Default)" -Value "`"$ExePath`" `"%1`""
 ```
 
 #### Verifying Registration
 
 ```powershell
 # Check if protocol is registered
-Get-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmrc\shell\open\command"
+Get-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmc\shell\open\command"
 ```
 
 ---
@@ -427,10 +427,10 @@ Get-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmrc\shell\open\command"
 
 ### "Scheme does not have a registered handler" Error
 
-This means the `qvmrc://` protocol handler isn't registered:
+This means the `qvmc://` protocol handler isn't registered:
 
-1. **Reinstall QVMRC** using the NSIS installer (not MSI)
-2. **Or manually register** using the PowerShell script in `qvmrc/scripts/register-protocol.ps1`
+1. **Reinstall qvmc** using the NSIS installer (not MSI)
+2. **Or manually register** using the PowerShell script in `qvmc/scripts/register-protocol.ps1`
 3. **Or run the registration command** shown in the "Protocol Handler Registration" section
 
 ### "Failed to connect" Error

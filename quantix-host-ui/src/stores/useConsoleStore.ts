@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-type ConsoleType = 'web' | 'qvmrc';
+type ConsoleType = 'web' | 'qvmc';
 
 interface ConsoleStoreState {
   // Default console type preference

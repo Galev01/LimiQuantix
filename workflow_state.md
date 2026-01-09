@@ -1,96 +1,82 @@
 # Workflow State
 
-## Current Status: IN PROGRESS - vDC and Quantix-OS Integration Testing
+## Current Status: COMPLETED - Node Re-registration Fix
 
-## Latest Workflow: Local Network Testing Setup
+## Latest Workflow: vDC ↔ Quantix-OS Integration
 
 **Date:** January 9, 2026
 
-### Architecture Clarification
+### Problem Solved
+
+When a Quantix-OS node daemon restarts, it should reconnect seamlessly to the vDC, not fail with "already exists" errors or appear as a new node.
+
+### Fixes Applied
+
+| Component | Fix |
+|-----------|-----|
+| Backend `node/service.go` | Improved re-registration logic to properly detect and update existing nodes |
+| Backend `postgres/node_repository.go` | Fixed INET→TEXT casting for PostgreSQL queries |
+| Backend | Added race condition handling for concurrent registrations |
+
+### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Quantix-vDC (Control Plane) - Windows                         │
-│  ├── Go Backend (localhost:8080) - manages cluster             │
-│  ├── Frontend (localhost:5173) - shows ALL hosts/VMs           │
-│  ├── PostgreSQL, etcd, Redis (Docker)                          │
-│  └── Nodes register HERE                                       │
+│  Quantix-vDC (Control Plane) - Windows localhost:8080          │
+│  ├── Stores node registry in PostgreSQL                        │
+│  ├── Accepts re-registration from known nodes                  │
+│  └── Returns existing node_id on reconnect                     │
 └─────────────────────────────────────────────────────────────────┘
                               ▲
-                              │ Node Registration (REST/gRPC)
+                              │ RegisterNode (hostname-based identity)
+                              │ UpdateHeartbeat (every 30s)
                               │
 ┌─────────────────────────────────────────────────────────────────┐
 │  Quantix-OS (Hypervisor Host) - Ubuntu 192.168.0.53            │
-│  ├── Node Daemon (Rust) - registers with vDC                   │
-│  ├── Host UI (quantix-host-ui) - LOCAL management only         │
-│  └── Runs VMs via libvirt/QEMU                                 │
+│  ├── Identifies itself by hostname (unique per node)           │
+│  ├── Receives node_id from vDC on registration                 │
+│  └── Uses received node_id for heartbeats                      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Steps Completed
+### Re-registration Flow
 
-| Step | Status |
-|------|--------|
-| 1. Run database migrations | ✅ Done |
-| 2. Start Go backend with PostgreSQL | ✅ Running on :8080 |
-| 3. Start vDC Frontend | ⏳ User to start |
-| 4. Restart node daemon with --control-plane | ⏳ User to do on Ubuntu |
-| 5. Verify node appears in vDC UI | ⏳ Pending |
+1. Node daemon starts and sends `RegisterNode` with hostname
+2. vDC checks if hostname exists in database
+3. **If exists**: Update node info, return existing node_id → "Node re-registered"
+4. **If new**: Create new node, return new node_id → "Node registered successfully"
+5. Node daemon stores received node_id and uses it for heartbeats
 
-### Commands Run on Windows
+### Test Commands
 
-```powershell
-# 1. Ran migrations
-cd backend
-docker exec -i limiquantix-postgres psql -U limiquantix -d limiquantix -f - < migrations/000001_init.up.sql
-docker exec -i limiquantix-postgres psql -U limiquantix -d limiquantix -f - < migrations/000002_admin_tables.up.sql
-
-# 2. Started backend (with PostgreSQL, NOT --dev mode)
-go run ./cmd/controlplane
-```
-
-### Commands to Run on Ubuntu
-
+**On Ubuntu:**
 ```bash
-# Restart node daemon with control plane URL
 sudo ./target/release/limiquantix-node \
     --http-listen 0.0.0.0:8080 \
-    --grpc-listen 0.0.0.0:9090 \
-    --control-plane http://192.168.0.148:8080
+    --listen 0.0.0.0:9090 \
+    --control-plane http://192.168.0.148:8080 \
+    --register
 ```
 
-### Commands to Run on Windows (Frontend)
+**Expected behavior:**
+- First run: "Node registered successfully (first time)"
+- Restart: "Node re-registered (reconnected after restart)"
+- Same node_id returned each time
 
-```powershell
-cd frontend
-npm run dev
-# Open http://localhost:5173 - should show the Ubuntu host
+### Verification
+
+Check vDC logs for:
+```
+Node re-registered (reconnected after restart) node_id=xxx hostname=Gal-Laptop-UB
 ```
 
-### Key Points
-
-1. **quantix-host-ui** is for managing a SINGLE host locally (embedded in Quantix-OS)
-2. **frontend/** is the vDC dashboard that shows ALL hosts in the cluster
-3. Node daemon must register with vDC backend for hosts to appear
-4. Database migrations must be run for PostgreSQL to work
+Check vDC frontend (localhost:5173) → Hosts section should show the node.
 
 ---
 
-## Previous Workflow: Node Daemon Build Fixed
+## Previous Issues Fixed
 
-Fixed the node daemon build issues:
-- Downloaded protoc for Windows
-- Regenerated proto files
-- Fixed axum WebSocket feature
-- Fixed rcgen API (pem feature)
-- Fixed platform-specific code (statvfs)
-- Fixed libvirt backend types (DiskCache, DiskIoMode, backing_file)
-
-### Build Status
-
-```
-[OK] limiquantix-proto
-[OK] limiquantix-hypervisor
-[OK] limiquantix-telemetry
-[OK] limiquantix-node
-```
+1. **INET type scanning** - PostgreSQL INET couldn't scan into Go string → Added `::text` cast
+2. **Port in management_ip** - Node sent "192.168.0.53:9090" but INET only accepts IP → Strip port in backend
+3. **GetByHostname failing** - Caused code to skip update path → Proper error handling
+4. **Race condition** - Concurrent registrations could fail → Retry with update on conflict

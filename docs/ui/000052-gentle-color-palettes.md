@@ -2,7 +2,7 @@
 
 **Document ID:** 000052  
 **Date:** January 9, 2026  
-**Scope:** All web interfaces (frontend, quantix-host-ui, qvmrc)
+**Scope:** All web interfaces (frontend, quantix-host-ui, qvmc)
 
 ## Overview
 

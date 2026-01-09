@@ -4,6 +4,7 @@
  * Provides React hooks for uploading and managing OVA templates.
  */
 
+import { useState, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 // =============================================================================
@@ -106,23 +107,57 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 // =============================================================================
 
 /**
- * Upload an OVA file to the server.
+ * Upload an OVA file to the server with progress tracking.
  */
-async function uploadOVAFile(file: File): Promise<OVAUploadResponse> {
+async function uploadOVAFile(
+  file: File,
+  onProgress?: (progress: { loaded: number; total: number; percent: number }) => void
+): Promise<OVAUploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch(`${API_BASE_URL}/api/v1/ova/upload`, {
-    method: 'POST',
-    body: formData,
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress({
+          loaded: event.loaded,
+          total: event.total,
+          percent: Math.round((event.loaded / event.total) * 100),
+        });
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const response = JSON.parse(xhr.responseText);
+          resolve(response);
+        } catch {
+          reject(new Error('Invalid response from server'));
+        }
+      } else {
+        try {
+          const error = JSON.parse(xhr.responseText);
+          reject(new Error(error.message || `Upload failed: ${xhr.statusText}`));
+        } catch {
+          reject(new Error(`Upload failed: ${xhr.statusText}`));
+        }
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      reject(new Error('Network error during upload'));
+    });
+
+    xhr.addEventListener('abort', () => {
+      reject(new Error('Upload aborted'));
+    });
+
+    xhr.open('POST', `${API_BASE_URL}/api/v1/ova/upload`);
+    xhr.send(formData);
   });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Upload failed' }));
-    throw new Error(error.message || `Upload failed: ${response.statusText}`);
-  }
-
-  return response.json();
 }
 
 /**
@@ -204,7 +239,77 @@ async function deleteOVATemplate(id: string): Promise<void> {
 // =============================================================================
 
 /**
- * Hook to upload an OVA file.
+ * Upload progress state
+ */
+export interface OVAUploadProgress {
+  loaded: number;
+  total: number;
+  percent: number;
+}
+
+/**
+ * Hook to upload an OVA file with progress tracking.
+ * 
+ * @example
+ * ```tsx
+ * const { uploadOVA, progress, isUploading, reset } = useUploadOVAWithProgress();
+ * 
+ * const handleUpload = async (file: File) => {
+ *   try {
+ *     const result = await uploadOVA(file);
+ *     console.log('Job ID:', result.jobId);
+ *   } catch (error) {
+ *     console.error('Upload failed:', error);
+ *   }
+ * };
+ * 
+ * // Display progress
+ * if (isUploading) {
+ *   console.log(`${progress?.percent}% uploaded`);
+ * }
+ * ```
+ */
+export function useUploadOVAWithProgress() {
+  const queryClient = useQueryClient();
+  const [progress, setProgress] = useState<OVAUploadProgress | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const uploadOVA = useCallback(async (file: File): Promise<OVAUploadResponse> => {
+    setIsUploading(true);
+    setError(null);
+    setProgress({ loaded: 0, total: file.size, percent: 0 });
+
+    try {
+      const result = await uploadOVAFile(file, (prog) => {
+        setProgress(prog);
+      });
+      
+      // Invalidate queries on success
+      queryClient.invalidateQueries({ queryKey: ['ova-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['images'] });
+      
+      return result;
+    } catch (err) {
+      const uploadError = err instanceof Error ? err : new Error('Upload failed');
+      setError(uploadError);
+      throw uploadError;
+    } finally {
+      setIsUploading(false);
+    }
+  }, [queryClient]);
+
+  const reset = useCallback(() => {
+    setProgress(null);
+    setIsUploading(false);
+    setError(null);
+  }, []);
+
+  return { uploadOVA, progress, isUploading, error, reset };
+}
+
+/**
+ * Hook to upload an OVA file (legacy, without progress tracking).
  * 
  * @example
  * ```tsx
@@ -224,7 +329,7 @@ export function useUploadOVA() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: uploadOVAFile,
+    mutationFn: (file: File) => uploadOVAFile(file),
     onSuccess: () => {
       // Invalidate templates list when upload completes
       queryClient.invalidateQueries({ queryKey: ['ova-templates'] });

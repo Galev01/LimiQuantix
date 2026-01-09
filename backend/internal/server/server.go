@@ -19,6 +19,7 @@ import (
 	"github.com/limiquantix/limiquantix/internal/repository/redis"
 	"github.com/limiquantix/limiquantix/internal/scheduler"
 	"github.com/limiquantix/limiquantix/internal/services/admin"
+	clusterservice "github.com/limiquantix/limiquantix/internal/services/cluster"
 	networkservice "github.com/limiquantix/limiquantix/internal/services/network"
 	"github.com/limiquantix/limiquantix/internal/services/node"
 	nodeservice "github.com/limiquantix/limiquantix/internal/services/node"
@@ -54,6 +55,7 @@ type Server struct {
 	networkRepo           *memory.NetworkRepository
 	securityGroupRepo     *memory.SecurityGroupRepository
 	registrationTokenRepo *memory.RegistrationTokenRepository
+	clusterRepo           *memory.ClusterRepository
 
 	// Admin repositories (PostgreSQL)
 	roleRepo   *postgres.RoleRepository
@@ -72,6 +74,7 @@ type Server struct {
 	// Services
 	vmService            *vmservice.Service
 	nodeService          *nodeservice.Service
+	clusterService       *clusterservice.Service
 	networkService       *networkservice.NetworkService
 	securityGroupService *networkservice.SecurityGroupService
 	imageService         *storageservice.ImageService
@@ -186,6 +189,7 @@ func (s *Server) initRepositories() {
 	s.networkRepo = memory.NewNetworkRepository()
 	s.securityGroupRepo = memory.NewSecurityGroupRepository()
 	s.registrationTokenRepo = memory.NewRegistrationTokenRepository()
+	s.clusterRepo = memory.NewClusterRepository()
 
 	s.logger.Info("Repositories initialized",
 		zap.Bool("postgres", s.db != nil),
@@ -231,6 +235,14 @@ func (s *Server) initServices() {
 		s.logger,
 	)
 	s.nodeService = nodeservice.NewServiceWithVMRepo(s.nodeRepo, s.vmRepo, s.logger)
+
+	// Cluster service
+	s.clusterService = clusterservice.NewService(
+		s.clusterRepo,
+		s.nodeRepo,
+		s.vmRepo,
+		s.logger,
+	)
 
 	// Network services
 	s.networkService = networkservice.NewNetworkService(s.networkRepo, s.logger)
@@ -376,6 +388,20 @@ func (s *Server) registerRoutes() {
 	hostRegHandler := NewHostRegistrationHandler(s)
 	hostRegHandler.RegisterRoutes(s.mux)
 	s.logger.Info("Registered Host Registration API routes", zap.String("path", "/api/nodes/{register,discover}"))
+
+	// =========================================================================
+	// Cluster REST API
+	// =========================================================================
+	clusterHandler := NewClusterHandler(s.clusterService, s.logger)
+	clusterHandler.RegisterRoutes(s.mux)
+	s.logger.Info("Registered Cluster API routes", zap.String("path", "/api/clusters"))
+
+	// =========================================================================
+	// Image Upload REST API (for ISO uploads with progress)
+	// =========================================================================
+	imageUploadHandler := NewImageUploadHandler(s.imageService, s.logger)
+	imageUploadHandler.RegisterRoutes(s.mux)
+	s.logger.Info("Registered Image Upload API routes", zap.String("path", "/api/v1/images/upload"))
 
 	// =========================================================================
 	// System Logs REST API

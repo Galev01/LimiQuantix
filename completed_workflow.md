@@ -110,7 +110,7 @@ Implemented light mode theme support across all Quantix-KVM UIs.
 Implemented complete VM console access with two options:
 
 1. **Web Console (noVNC)** - Browser-based VNC via WebSocket proxy
-2. **QVMRC Native Client** - Tauri desktop app with native VNC
+2. **qvmc Native Client** - Tauri desktop app with native VNC
 
 ### What Was Done
 
@@ -121,7 +121,7 @@ Implemented complete VM console access with two options:
 - Implemented `console.go` WebSocket proxy in Control Plane
 - Fixed daemon address parsing bugs (double port, http:// prefix)
 
-#### QVMRC Native Client
+#### qvmc Native Client
 - Set up Tauri project structure
 - Implemented RFB protocol in Rust (`rfb.rs`)
 - Added DES encryption for VNC Auth
@@ -146,7 +146,7 @@ backend/
 └── internal/server/
     └── console.go                      # WebSocket proxy
 
-qvmrc/
+qvmc/
 ├── src/
 │   ├── App.tsx
 │   └── components/
@@ -166,7 +166,7 @@ qvmrc/
 
 docs/
 ├── 000042-console-access-implementation.md
-└── 000043-qvmrc-native-client.md
+└── 000043-qvmc-native-client.md
 ```
 
 ---

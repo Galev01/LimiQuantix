@@ -77,8 +77,114 @@ Instead, we follow **Google, AWS, and Nutanix**: Wrap standard Linux subsystems 
 - The automation (one-click everything)
 
 
-**Semantics** (!!!!IMPORTANT!!!!):
-1. **QvDC** - Quantix Virtual Data Center (VMware vCenter Equivilent) - 
-- ISO and Build for the OS --> /Quantix-vDC
-- Frontend development --> /frontend
-- 
+---
+
+## Project Semantics (!!!CRITICAL!!!)
+
+This section defines the official terminology and directory mappings. **All agents MUST use these exact terms.**
+
+### 1. Quantix-vDC (VMware vCenter Equivalent)
+
+**Quantix Virtual Data Center** - The centralized management platform for multi-host clusters.
+
+| Component | Directory | Tech Stack | Description |
+|-----------|-----------|------------|-------------|
+| **Appliance ISO/OVA** | `/Quantix-vDC` | Alpine Linux 3.20 | Pre-built VM appliance with all services |
+| **Dashboard (Frontend)** | `/frontend` | React 19, Vite, TypeScript, Tailwind v4, Zustand, TanStack Query, Framer Motion, Lucide | Web UI for cluster management |
+| **Control Plane (Backend)** | `/backend` | Go 1.25, Gin, gRPC-Go, etcd, PostgreSQL, Redis | API server, scheduler, HA, DRS |
+| **API Definitions** | `/proto` | Protocol Buffers, buf | gRPC/Connect-RPC service definitions |
+
+**Ports:** Dashboard: 5174 (dev) | Control Plane API: 8080
+
+---
+
+### 2. Quantix-OS (VMware ESXi Equivalent)
+
+**Quantix Hypervisor OS** - The immutable, purpose-built hypervisor operating system that runs on bare-metal hosts.
+
+| Component | Directory | Tech Stack | Description |
+|-----------|-----------|------------|-------------|
+| **Host OS ISO** | `/Quantix-OS` | Alpine Linux, squashfs, A/B partitions | Minimal hypervisor OS (~150MB) |
+| **Console GUI (DCUI)** | `/Quantix-OS/console-gui` | Rust, Slint | Local physical console (TTY1) |
+| **Console TUI (fallback)** | `/Quantix-OS/console-tui` | Rust, ratatui | Terminal fallback UI |
+| **Host UI (Web)** | `/quantix-host-ui` | React 19, Vite, TypeScript, Tailwind v4, Zustand, TanStack Query, Recharts | Browser-based host management |
+| **Node Daemon (Backend)** | `/agent/limiquantix-node` | Rust, Tokio, Axum, gRPC (tonic) | Serves Host UI + REST/gRPC API |
+
+**Ports:** Host UI: 3001 (dev), 8443 (production) | gRPC: 9443
+
+---
+
+### 3. Agent (Node Daemon + Guest Agent)
+
+**Rust workspace** containing all host-side and guest-side agents.
+
+| Crate | Directory | Description |
+|-------|-----------|-------------|
+| **limiquantix-node** | `/agent/limiquantix-node` | Node Daemon - runs on each hypervisor host, manages VMs via libvirt |
+| **limiquantix-guest-agent** | `/agent/limiquantix-guest-agent` | Guest Agent - runs inside VMs (Linux/Windows), telemetry, scripts, file ops |
+| **limiquantix-hypervisor** | `/agent/limiquantix-hypervisor` | Hypervisor abstraction (libvirt, mock, storage, OVS network) |
+| **limiquantix-telemetry** | `/agent/limiquantix-telemetry` | System metrics collection (CPU, memory, disk, network) |
+| **limiquantix-proto** | `/agent/limiquantix-proto` | Generated Rust protobuf/gRPC code |
+| **limiquantix-common** | `/agent/limiquantix-common` | Shared utilities (logging, config) |
+
+**Tech Stack:** Rust 2021, Tokio, tonic (gRPC), tracing, serde, thiserror/anyhow
+
+---
+
+### 4. QVMC (VMware VMRC Equivalent)
+
+**Quantix Virtual Machine Console** - Native desktop app for remote VM console access.
+
+| Component | Directory | Tech Stack | Description |
+|-----------|-----------|------------|-------------|
+| **Desktop App** | `/qvmc` | Tauri (Rust + React 18), TypeScript, Tailwind v4, Lucide | VNC/SPICE client with native performance |
+| **Rust Backend** | `/qvmc/src-tauri` | Rust, VNC RFB protocol | Native VNC client implementation |
+| **React Frontend** | `/qvmc/src` | React 18, TypeScript | Connection management UI |
+
+**Builds:** Windows (.exe/.msi), macOS (.dmg), Linux (.AppImage/.deb)
+
+---
+
+### Quick Reference
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         QUANTIX-KVM ARCHITECTURE                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  MANAGEMENT LAYER (Quantix-vDC)                                          │
+│  ┌────────────────────────────────────────────────────────────────────┐  │
+│  │  /frontend (React)  ←HTTP→  /backend (Go)  ←gRPC→  /agent (Rust)   │  │
+│  │  Dashboard UI              Control Plane           Node Daemon      │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+│                                     │                                    │
+│  HOST LAYER (Quantix-OS)            │                                    │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │  /Quantix-OS        /quantix-host-ui    /agent/limiquantix-node     │ │
+│  │  Host OS ISO        Host Web UI         Node Daemon (serves UI)      │ │
+│  │  + console-gui      (React)             (Rust + Axum)               │ │
+│  │  + console-tui                                                       │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│                                     │                                    │
+│  GUEST LAYER                        │                                    │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │  /agent/limiquantix-guest-agent    /qvmc                            │ │
+│  │  Guest Agent (inside VMs)          VM Console Client                │ │
+│  │  (Rust, virtio-serial)             (Tauri desktop app)              │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### VMware → Quantix Mapping
+
+| VMware Component | Quantix Equivalent | Directory |
+|------------------|-------------------|-----------|
+| vCenter Server Appliance | Quantix-vDC | `/Quantix-vDC` |
+| vSphere Web Client | Dashboard | `/frontend` |
+| vCenter API | Control Plane | `/backend` |
+| ESXi | Quantix-OS | `/Quantix-OS` |
+| ESXi Host Client | Host UI | `/quantix-host-ui` |
+| ESXi hostd | Node Daemon | `/agent/limiquantix-node` |
+| VMware Tools | Guest Agent | `/agent/limiquantix-guest-agent` |
+| VMRC | QVMC | `/qvmc` |

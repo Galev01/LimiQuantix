@@ -20,7 +20,7 @@ This is the web-based management interface that runs on every Quantix-OS node, p
 │  │  - Network config      │   │   │  - VM management       │   │
 │  │  - SSH enable/disable  │   │   │  - Storage pools       │   │
 │  │  - Emergency shell     │   │   │  - Performance charts  │   │
-│  │  - Cluster join        │   │   │  - QVMRC console       │   │
+│  │  - Cluster join        │   │   │  - qvmc console       │   │
 │  └────────────────────────┘   │   └────────────────────────┘   │
 │            │                  │              │                  │
 │            └──────────────────┼──────────────┘                  │
@@ -60,7 +60,7 @@ This UI is baked into the Quantix-OS ISO during build time:
 | VM Management | ❌ Not available | ✅ Full CRUD |
 | Storage Pools | ❌ Status only | ✅ Full management |
 | Performance | ❌ Basic stats | ✅ Charts + history |
-| Console Access | ❌ N/A | ✅ QVMRC deep link |
+| Console Access | ❌ N/A | ✅ qvmc deep link |
 
 ## Features
 
@@ -70,7 +70,7 @@ This UI is baked into the Quantix-OS ISO during build time:
 - **Networking**: View network configuration
 - **Performance**: Real-time metrics with Recharts
 - **Events**: System event log with filtering
-- **QVMRC Integration**: One-click console access via native app
+- **qvmc Integration**: One-click console access via native app
 
 ## Technology Stack
 
@@ -191,19 +191,19 @@ The webui uses the same admin credentials created during the Slint console's fir
 3. **Session**: JWT token stored in browser localStorage
 4. **TLS**: All connections over HTTPS (self-signed cert by default)
 
-## Console Access (QVMRC)
+## Console Access (qvmc)
 
-Clicking "Console" on a running VM launches QVMRC:
+Clicking "Console" on a running VM launches qvmc:
 
 ```typescript
-import { launchQVMRC } from '@/lib/qvmrc';
+import { launchqvmc } from '@/lib/qvmc';
 
-launchQVMRC({
+launchqvmc({
   hostUrl: window.location.origin,  // https://192.168.1.100:8443
   vmId: 'vm-abc123',
   vmName: 'Ubuntu Server',
 });
-// Opens: qvmrc://connect?url=https://...&vm=vm-abc123&name=Ubuntu%20Server
+// Opens: qvmc://connect?url=https://...&vm=vm-abc123&name=Ubuntu%20Server
 ```
 
 ## Configuration

@@ -291,7 +291,7 @@ The **Host UI** is a React web application that runs on every Quantix-OS node, p
 | **VM Management** | ❌ Not available | ✅ Full CRUD |
 | **Storage Pools** | ❌ Status only | ✅ Full management |
 | **Performance** | ❌ Basic stats | ✅ Charts + history |
-| **Console Access** | ❌ N/A | ✅ QVMRC deep link |
+| **Console Access** | ❌ N/A | ✅ qvmc deep link |
 
 ### Architecture
 
@@ -309,7 +309,7 @@ The **Host UI** is a React web application that runs on every Quantix-OS node, p
 │  │  - SSH enable/disable  │   │   │  - VM management       │   │
 │  │  - Emergency shell     │   │   │  - Storage pools       │   │
 │  │  - Cluster join        │   │   │  - Performance charts  │   │
-│  └────────────────────────┘   │   │  - QVMRC console       │   │
+│  └────────────────────────┘   │   │  - qvmc console       │   │
 │            │                  │   └────────────────────────┘   │
 │            └──────────────────┼──────────────┘                  │
 │                               │                                 │
@@ -781,7 +781,7 @@ sudo dd if=output/quantix-os-1.0.0.iso of=/dev/sdX bs=4M status=progress
 | Enable SSH for troubleshooting | ✅ Toggle with timer | ❌ |
 | Create a new VM | ❌ | ✅ Full wizard |
 | Monitor performance | ❌ Basic stats | ✅ Charts |
-| Access VM console | ❌ | ✅ QVMRC |
+| Access VM console | ❌ | ✅ qvmc |
 | Emergency shell access | ✅ F12 | ❌ |
 
 ### Why This Architecture Wins

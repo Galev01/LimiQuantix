@@ -44,10 +44,10 @@ export function openDefaultConsole(
     ? JSON.parse(localStorage.getItem('limiquantix-console-store') || '{}').state?.defaultConsoleType
     : 'web';
 
-  if (defaultType === 'qvmrc') {
-    const qvmrcUrl = `qvmrc://connect?url=${encodeURIComponent(controlPlaneUrl)}&vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}`;
-    window.location.href = qvmrcUrl;
-    showInfo('Opening QVMRC...');
+  if (defaultType === 'qvmc') {
+    const qvmcUrl = `qvmc://connect?url=${encodeURIComponent(controlPlaneUrl)}&vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}`;
+    window.location.href = qvmcUrl;
+    showInfo('Opening qvmc...');
   } else {
     onOpenWebConsole();
   }
@@ -77,9 +77,9 @@ const GITHUB_RELEASES_URL = 'https://github.com/Galev01/LimiQuantix/releases/lat
 
 // Download URLs for each platform
 const DOWNLOAD_URLS: Record<Platform, string> = {
-  windows: `${GITHUB_RELEASES_URL}/download/QVMRC_0.1.0_x64-setup.exe`,
-  macos: `${GITHUB_RELEASES_URL}/download/QVMRC_0.1.0_x64.dmg`,
-  linux: `${GITHUB_RELEASES_URL}/download/QVMRC_0.1.0_amd64.AppImage`,
+  windows: `${GITHUB_RELEASES_URL}/download/qvmc_0.1.0_x64-setup.exe`,
+  macos: `${GITHUB_RELEASES_URL}/download/qvmc_0.1.0_x64.dmg`,
+  linux: `${GITHUB_RELEASES_URL}/download/qvmc_0.1.0_amd64.AppImage`,
   unknown: GITHUB_RELEASES_URL,
 };
 
@@ -101,7 +101,7 @@ export function ConsoleAccessModal({
 }: ConsoleAccessModalProps) {
   const [platform, setPlatform] = useState<Platform>('unknown');
   const [copied, setCopied] = useState(false);
-  const [isLaunchingQVMRC, setIsLaunchingQVMRC] = useState(false);
+  const [isLaunchingqvmc, setIsLaunchingqvmc] = useState(false);
   const defaultConsoleType = useDefaultConsoleType();
   const setDefaultConsoleType = useConsoleStore((state) => state.setDefaultConsoleType);
 
@@ -110,31 +110,31 @@ export function ConsoleAccessModal({
   }, []);
 
   // Set default console type
-  const handleSetDefault = (type: 'web' | 'qvmrc') => {
+  const handleSetDefault = (type: 'web' | 'qvmc') => {
     setDefaultConsoleType(type);
-    showSuccess(`Default console set to ${type === 'web' ? 'Web Console' : 'QVMRC'}`);
+    showSuccess(`Default console set to ${type === 'web' ? 'Web Console' : 'qvmc'}`);
   };
 
-  // Generate QVMRC connection URL (custom protocol)
-  const qvmrcConnectionUrl = `qvmrc://connect?url=${encodeURIComponent(controlPlaneUrl)}&vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}`;
+  // Generate qvmc connection URL (custom protocol)
+  const qvmcConnectionUrl = `qvmc://connect?url=${encodeURIComponent(controlPlaneUrl)}&vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}`;
 
-  // Handle launching QVMRC with automatic connection
-  const handleLaunchQVMRC = () => {
-    setIsLaunchingQVMRC(true);
+  // Handle launching qvmc with automatic connection
+  const handleLaunchqvmc = () => {
+    setIsLaunchingqvmc(true);
     
     // Try to open the custom protocol URL
-    window.location.href = qvmrcConnectionUrl;
+    window.location.href = qvmcConnectionUrl;
     
     // Reset state after a delay (in case it fails silently)
     setTimeout(() => {
-      setIsLaunchingQVMRC(false);
+      setIsLaunchingqvmc(false);
     }, 2000);
   };
 
   // Copy connection URL to clipboard
   const handleCopyConnectionUrl = async () => {
     try {
-      await navigator.clipboard.writeText(qvmrcConnectionUrl);
+      await navigator.clipboard.writeText(qvmcConnectionUrl);
       setCopied(true);
       showSuccess('Connection URL copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
@@ -281,19 +281,19 @@ export function ConsoleAccessModal({
                   )}
                 </div>
 
-                {/* QVMRC Native Option - Enhanced card */}
+                {/* qvmc Native Option - Enhanced card */}
                 <div
                   className={cn(
                     'relative w-full p-5 rounded-xl border-2 transition-all',
                     'bg-bg-base border-border',
                     'shadow-[0_2px_8px_rgba(0,0,0,0.1)]',
-                    defaultConsoleType === 'qvmrc' && 'border-purple-500/50 ring-1 ring-purple-500/20'
+                    defaultConsoleType === 'qvmc' && 'border-purple-500/50 ring-1 ring-purple-500/20'
                   )}
                 >
                   {/* Set as default button */}
-                  {defaultConsoleType !== 'qvmrc' && (
+                  {defaultConsoleType !== 'qvmc' && (
                     <button
-                      onClick={() => handleSetDefault('qvmrc')}
+                      onClick={() => handleSetDefault('qvmc')}
                       className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-bg-hover text-text-muted hover:text-purple-400 transition-colors"
                       title="Set as default"
                     >
@@ -307,8 +307,8 @@ export function ConsoleAccessModal({
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-text-primary">QVMRC Native Client</h4>
-                        {defaultConsoleType === 'qvmrc' && (
+                        <h4 className="font-semibold text-text-primary">qvmc Native Client</h4>
+                        {defaultConsoleType === 'qvmc' && (
                           <span className="text-[10px] px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded font-medium">Default</span>
                         )}
                       </div>
@@ -318,25 +318,25 @@ export function ConsoleAccessModal({
                     </div>
                   </div>
 
-                  {/* QVMRC Actions */}
+                  {/* qvmc Actions */}
                   <div className="mt-5 pt-5 border-t border-border space-y-4">
                     {/* Launch Button */}
                     <Button
                       variant="primary"
                       size="sm"
                       className="w-full h-11 shadow-[0_2px_8px_rgba(139,92,246,0.3)]"
-                      onClick={handleLaunchQVMRC}
-                      disabled={isLaunchingQVMRC}
+                      onClick={handleLaunchqvmc}
+                      disabled={isLaunchingqvmc}
                     >
-                      {isLaunchingQVMRC ? (
+                      {isLaunchingqvmc ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Launching QVMRC...
+                          Launching qvmc...
                         </>
                       ) : (
                         <>
                           <ExternalLink className="w-4 h-4" />
-                          Open in QVMRC
+                          Open in qvmc
                         </>
                       )}
                     </Button>

@@ -187,15 +187,25 @@ func (s *Service) RegisterNode(
 	}
 
 	// Check if node already exists (re-registration)
+	// This is the normal case when a node daemon restarts - it should reconnect seamlessly
 	existing, err := s.repo.GetByHostname(ctx, req.Msg.Hostname)
-	if err == nil && existing != nil {
-		// Update existing node with new info
+	if err != nil && !errors.Is(err, domain.ErrNotFound) {
+		// Unexpected error reading from database
+		logger.Error("Failed to check for existing node", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to check existing node: %w", err))
+	}
+
+	if existing != nil {
+		// Node exists - update it with fresh info (re-registration after restart)
 		existing.ManagementIP = managementIP
-		existing.Labels = req.Msg.Labels
+		if req.Msg.Labels != nil {
+			existing.Labels = req.Msg.Labels
+		}
 		existing.Spec = spec
 		existing.Status.Phase = domain.NodePhaseReady
 		existing.Status.Allocatable = allocatable
 		existing.LastHeartbeat = &now
+		existing.UpdatedAt = now
 
 		updated, err := s.repo.Update(ctx, existing)
 		if err != nil {
@@ -203,8 +213,9 @@ func (s *Service) RegisterNode(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		logger.Info("Node re-registered",
+		logger.Info("Node re-registered (reconnected after restart)",
 			zap.String("node_id", updated.ID),
+			zap.String("hostname", updated.Hostname),
 			zap.Int32("cpu_cores", spec.CPU.TotalCores()),
 			zap.Int64("memory_mib", spec.Memory.TotalMiB),
 		)
@@ -212,7 +223,7 @@ func (s *Service) RegisterNode(
 		return connect.NewResponse(ToProto(updated)), nil
 	}
 
-	// Create new node
+	// Create new node (first time registration)
 	node := &domain.Node{
 		Hostname:     req.Msg.Hostname,
 		ManagementIP: managementIP,
@@ -230,15 +241,36 @@ func (s *Service) RegisterNode(
 
 	created, err := s.repo.Create(ctx, node)
 	if err != nil {
+		// Handle race condition: another instance might have created the node
 		if errors.Is(err, domain.ErrAlreadyExists) {
+			// Try to fetch and update instead
+			logger.Info("Node created by another process, attempting re-registration")
+			existing, getErr := s.repo.GetByHostname(ctx, req.Msg.Hostname)
+			if getErr == nil && existing != nil {
+				existing.ManagementIP = managementIP
+				existing.Spec = spec
+				existing.Status.Phase = domain.NodePhaseReady
+				existing.Status.Allocatable = allocatable
+				existing.LastHeartbeat = &now
+				existing.UpdatedAt = now
+
+				updated, updateErr := s.repo.Update(ctx, existing)
+				if updateErr == nil {
+					logger.Info("Node re-registered after race condition",
+						zap.String("node_id", updated.ID),
+					)
+					return connect.NewResponse(ToProto(updated)), nil
+				}
+			}
 			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("node with hostname '%s' already exists", req.Msg.Hostname))
 		}
 		logger.Error("Failed to create node", zap.Error(err))
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	logger.Info("Node registered successfully",
+	logger.Info("Node registered successfully (first time)",
 		zap.String("node_id", created.ID),
+		zap.String("hostname", created.Hostname),
 		zap.Int32("cpu_cores", spec.CPU.TotalCores()),
 		zap.Int64("memory_mib", spec.Memory.TotalMiB),
 	)

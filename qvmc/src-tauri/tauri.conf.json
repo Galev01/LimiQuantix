@@ -1,0 +1,115 @@
+{
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "qvmc",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "open": true
+      },
+      "window": {
+        "all": true
+      },
+      "clipboard": {
+        "all": true
+      },
+      "dialog": {
+        "all": true,
+        "ask": true,
+        "confirm": true,
+        "message": true,
+        "open": true,
+        "save": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "category": "Utility",
+      "copyright": "© 2026 LimiQuantix",
+      "deb": {
+        "depends": []
+      },
+      "externalBin": [],
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "identifier": "com.limiquantix.qvmc",
+      "longDescription": "Quantix Virtual Machine Remote Console - A native desktop application for remote VM access with VNC/SPICE support. Works on Windows, macOS, and Linux.",
+      "macOS": {
+        "entitlements": null,
+        "exceptionDomain": "",
+        "frameworks": [],
+        "providerShortName": null,
+        "signingIdentity": null,
+        "minimumSystemVersion": "10.13"
+      },
+      "dmg": {
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 },
+        "background": null,
+        "windowSize": { "width": 660, "height": 400 }
+      },
+      "resources": [],
+      "shortDescription": "VM Remote Console",
+      "targets": "all",
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": "",
+        "wix": null,
+        "nsis": {
+          "license": null,
+          "installerIcon": "icons/icon.ico",
+          "headerImage": null,
+          "sidebarImage": null,
+          "installMode": "currentUser",
+          "languages": ["English"],
+          "displayLanguageSelector": false
+        }
+      }
+    },
+    "security": {
+      "csp": null
+    },
+    "updater": {
+      "active": false
+    },
+    "cli": {
+      "description": "qvmc - Quantix Virtual Machine Remote Console",
+      "args": [
+        {
+          "name": "url",
+          "short": "u",
+          "takesValue": true,
+          "description": "Connection URL (qvmc://connect?...)"
+        }
+      ]
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "height": 768,
+        "width": 1024,
+        "minHeight": 480,
+        "minWidth": 640,
+        "resizable": true,
+        "title": "qvmc",
+        "center": true,
+        "decorations": true,
+        "visible": true
+      }
+    ]
+  }
+}

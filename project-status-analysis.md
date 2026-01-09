@@ -18,7 +18,7 @@
 | **Control Plane ↔ Node Daemon** | ✅ **98%** | Full VM lifecycle, cloud-init provisioning, storage operations |
 | **Hypervisor Integration** | ✅ **80%** | Mock + Libvirt + Cloud Image Support |
 | **Web Console (noVNC)** | ✅ **100%** | Browser-based VNC via WebSocket proxy |
-| **QVMRC Native Client** | ✅ **100%** | Tauri desktop app with VNC + deep linking |
+| **qvmc Native Client** | ✅ **100%** | Tauri desktop app with VNC + deep linking |
 | **Guest Agent** | ✅ **85%** | Linux/Windows support, telemetry, scripts, file browser, quiescing |
 | **Storage Backend** | ✅ **80%** | Local, NFS, Ceph RBD, iSCSI with LVM thin provisioning |
 | **Network Backend (QuantumNet)** | ⏳ **85%** | OVN/OVS full implementation (LB, VPN, BGP) |
@@ -469,7 +469,7 @@ cd frontend && npm run dev
 ### Console Access ✅
 ```
 ✅ Web Console (noVNC) - Browser-based VNC via WebSocket proxy
-✅ QVMRC Native Client - Tauri desktop app with deep linking
+✅ qvmc Native Client - Tauri desktop app with deep linking
 ✅ WebSocket Proxy - Control Plane proxies VNC traffic
 ✅ Ctrl+Alt+Del, Fullscreen, Clipboard support
 ```
@@ -529,7 +529,7 @@ cd frontend && npm run dev
 - Frontend VM wizard with cloud image selector and SSH key management
 - **Web Console (noVNC)** - Browser-based VNC access ✅
 - **WebSocket VNC Proxy** - Control Plane proxies browser → VNC ✅
-- **QVMRC Native Client** - Tauri desktop app with deep linking ✅
+- **qvmc Native Client** - Tauri desktop app with deep linking ✅
 - **Quantix Guest Agent** - Linux/Windows with telemetry, scripts, file browser ✅ NEW
 - **Storage Backends** - Local, NFS, Ceph RBD, iSCSI ✅
 - **VM Actions Dropdown** - Edit settings, resources, run scripts, clone, delete ✅

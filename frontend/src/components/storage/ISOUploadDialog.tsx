@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useImportImage, useCreateImage, formatImageSize } from '@/hooks/useImages';
+import { useISOUpload } from '@/hooks/useISOUpload';
 import { useStoragePools, type StoragePoolUI } from '@/hooks/useStorage';
 import { useNodes, isNodeReady } from '@/hooks/useNodes';
 import { toast } from 'sonner';
@@ -73,6 +74,7 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
 
   const importImage = useImportImage();
   const createImage = useCreateImage();
+  const isoUpload = useISOUpload();
   const { data: storagePools, isLoading: poolsLoading } = useStoragePools();
   const { data: nodesData, isLoading: nodesLoading } = useNodes({ pageSize: 100 });
 
@@ -197,27 +199,24 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
           destinationMsg = node ? ` to ${node.hostname || node.id}` : '';
         }
         toast.success(`ISO import started${destinationMsg}! Check the Image Library for progress.`);
-      } else {
-        // Create image record (file upload would need backend support)
-        await createImage.mutateAsync({
+      } else if (formData.file) {
+        // Upload file with progress tracking
+        await isoUpload.upload({
+          file: formData.file,
           name: formData.name,
           description: formData.description,
-          spec: {
-            format: 'ISO',
-            visibility: 'PROJECT',
-            osInfo: {
-              family: formData.osFamily,
-              distribution: formData.distribution.toLowerCase().replace(' ', '-'),
-              version: formData.version,
-              provisioningMethod: 'NONE',
-            },
-          },
+          osFamily: formData.osFamily,
+          distribution: formData.distribution.toLowerCase().replace(' ', '-'),
+          version: formData.version,
+          storagePoolId: formData.storageDestination === 'pool' ? formData.storagePoolId : undefined,
+          nodeId: formData.storageDestination === 'node' ? formData.nodeId : undefined,
         });
-        toast.success('ISO registered successfully!');
+        toast.success('ISO uploaded successfully!');
       }
       onClose();
       setFormData(initialFormData);
       setStep(1);
+      isoUpload.reset();
     } catch (err) {
       setStep(2);
       toast.error(err instanceof Error ? err.message : 'Failed to upload ISO');
@@ -660,13 +659,69 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
                 animate={{ opacity: 1, scale: 1 }}
                 className="flex flex-col items-center justify-center py-8 space-y-4"
               >
-                <Loader2 className="w-12 h-12 text-accent animate-spin" />
-                <p className="text-text-primary font-medium">
-                  {formData.method === 'url' ? 'Starting download...' : 'Uploading ISO...'}
-                </p>
-                <p className="text-sm text-text-muted">
-                  This may take a few minutes depending on the file size
-                </p>
+                {formData.method === 'file' && isoUpload.progress ? (
+                  <>
+                    {/* Progress Circle */}
+                    <div className="relative w-24 h-24">
+                      <svg className="w-24 h-24 transform -rotate-90">
+                        <circle
+                          cx="48"
+                          cy="48"
+                          r="40"
+                          stroke="currentColor"
+                          strokeWidth="8"
+                          fill="none"
+                          className="text-bg-elevated"
+                        />
+                        <circle
+                          cx="48"
+                          cy="48"
+                          r="40"
+                          stroke="currentColor"
+                          strokeWidth="8"
+                          fill="none"
+                          strokeLinecap="round"
+                          className="text-accent transition-all duration-300"
+                          strokeDasharray={251.2}
+                          strokeDashoffset={251.2 - (251.2 * isoUpload.progress.progressPercent) / 100}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-xl font-bold text-text-primary">
+                          {isoUpload.progress.progressPercent}%
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-text-primary font-medium">
+                      {isoUpload.progress.status === 'uploading' && 'Uploading ISO...'}
+                      {isoUpload.progress.status === 'processing' && 'Processing...'}
+                      {isoUpload.progress.status === 'completed' && 'Upload Complete!'}
+                      {isoUpload.progress.status === 'failed' && 'Upload Failed'}
+                    </p>
+                    <p className="text-sm text-text-muted">
+                      {formatImageSize(isoUpload.progress.bytesUploaded)} / {formatImageSize(isoUpload.progress.bytesTotal)}
+                    </p>
+                    {/* Linear progress bar */}
+                    <div className="w-full max-w-xs">
+                      <div className="w-full h-2 bg-bg-elevated rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-accent rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${isoUpload.progress.progressPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Loader2 className="w-12 h-12 text-accent animate-spin" />
+                    <p className="text-text-primary font-medium">
+                      {formData.method === 'url' ? 'Starting download...' : 'Preparing upload...'}
+                    </p>
+                    <p className="text-sm text-text-muted">
+                      This may take a few minutes depending on the file size
+                    </p>
+                  </>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

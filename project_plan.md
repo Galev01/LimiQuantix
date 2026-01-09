@@ -67,7 +67,7 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 | Cloud Image Support | ✅ Done | QCOW2 backing file overlays |
 | VM Creation (real) | ✅ Done | Full stack: UI → Backend → Node Daemon → Libvirt |
 | SSH Key Injection | ✅ Done | Via cloud-init user-data |
-| Console Access | ✅ 100% | Web Console (noVNC) + QVMRC Native Client |
+| Console Access | ✅ 100% | Web Console (noVNC) + qvmc Native Client |
 | Snapshots | ⏳ API ready | Test with libvirt |
 
 ### ✅ Phase 3: Guest Agent (COMPLETE)
@@ -470,7 +470,7 @@ curl http://127.0.0.1:8080/health
 **Completed (January 3, 2026):**
 1. ✅ Web Console (noVNC) - Browser-based VNC access
 2. ✅ WebSocket VNC Proxy - Control Plane proxies browser → VNC
-3. ✅ QVMRC Tauri app with full VNC protocol + deep linking
+3. ✅ qvmc Tauri app with full VNC protocol + deep linking
 4. ✅ Guest Agent - Full Linux/Windows support with telemetry, scripts, file browser
 5. ✅ Storage Backends - Local, NFS, Ceph RBD, iSCSI with LVM thin provisioning
 6. ✅ VM Actions Dropdown - Edit settings, resources, run scripts, clone, delete

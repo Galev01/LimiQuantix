@@ -611,7 +611,7 @@ export function VMDetail() {
                   <MonitorPlay className="w-16 h-16 mx-auto text-accent mb-4" />
                   <h3 className="text-lg font-medium text-text-primary mb-2">Console Available</h3>
                   <p className="text-text-muted mb-6 max-w-md">
-                    Access the VM console using VNC. Choose between web console or QVMRC native client.
+                    Access the VM console using VNC. Choose between web console or qvmc native client.
                   </p>
                   <div className="flex flex-col items-center gap-4">
                     <div className="flex items-center gap-3">
@@ -621,13 +621,13 @@ export function VMDetail() {
                       </Button>
                       <Button variant="secondary" onClick={() => setIsConsoleModalOpen(true)}>
                         <Download className="w-4 h-4" />
-                        QVMRC Native
+                        qvmc Native
                       </Button>
                     </div>
                     <p className="text-xs text-text-muted max-w-sm">
                       <strong>Web Console:</strong> Opens in browser, no installation needed.
                       <br />
-                      <strong>QVMRC:</strong> Better performance, USB passthrough, lower latency.
+                      <strong>qvmc:</strong> Better performance, USB passthrough, lower latency.
                     </p>
                   </div>
                 </div>
@@ -1182,7 +1182,7 @@ export function VMDetail() {
         onClose={() => setIsConsoleOpen(false)}
       />
 
-      {/* Console Access Modal (Web vs QVMRC choice) */}
+      {/* Console Access Modal (Web vs qvmc choice) */}
       <ConsoleAccessModal
         isOpen={isConsoleModalOpen}
         onClose={() => setIsConsoleModalOpen(false)}

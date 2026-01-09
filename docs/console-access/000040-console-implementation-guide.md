@@ -8,7 +8,7 @@
 
 LimiQuantix needs two console access methods:
 1. **Web Console (noVNC)** - Zero-install, browser-based access
-2. **QVMRC (Quantix VM Remote Console)** - Native desktop client for power users
+2. **qvmc (Quantix VM Remote Console)** - Native desktop client for power users
 
 ---
 
@@ -210,9 +210,9 @@ export function WebConsole({ vmId, onClose }: WebConsoleProps) {
 
 ---
 
-## Option 2: QVMRC (Quantix VM Remote Console) - Native Client
+## Option 2: qvmc (Quantix VM Remote Console) - Native Client
 
-### What is QVMRC?
+### What is qvmc?
 
 A native desktop application (Windows/macOS/Linux) that provides:
 - **GPU-accelerated rendering** (OpenGL/Vulkan)
@@ -227,7 +227,7 @@ A native desktop application (Windows/macOS/Linux) that provides:
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│                    QVMRC Desktop App                           │
+│                    qvmc Desktop App                           │
 │  ┌─────────────────────────────────────────────────────────┐ │
 │  │  GUI Framework (Tauri/Electron or native Qt/GTK)        │ │
 │  ├─────────────────────────────────────────────────────────┤ │
@@ -268,7 +268,7 @@ A native desktop application (Windows/macOS/Linux) that provides:
 - **Effort:** 2-3 weeks for MVP
 
 ```
-QVMRC/
+qvmc/
 ├── src-tauri/       # Rust backend
 │   ├── src/
 │   │   ├── main.rs
@@ -323,7 +323,7 @@ QVMRC/
 - **Value:** Immediate console access for all users
 - **No installation required**
 
-### Phase 2: QVMRC Native Client - Future Enhancement
+### Phase 2: qvmc Native Client - Future Enhancement
 - **Timeline:** 4-6 weeks
 - **Value:** Power users, advanced features
 - **Can be branded and distributed**

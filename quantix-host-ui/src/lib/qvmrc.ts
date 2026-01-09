@@ -1,11 +1,11 @@
 /**
- * QVMRC Deep Link Launcher
+ * qvmc Deep Link Launcher
  * 
- * Launches the QVMRC native console application via the qvmrc:// protocol.
- * The QVMRC app must be installed and registered on the user's system.
+ * Launches the qvmc native console application via the qvmc:// protocol.
+ * The qvmc app must be installed and registered on the user's system.
  */
 
-export interface QVMRCLaunchOptions {
+export interface qvmcLaunchOptions {
   /** Host URL (e.g., https://192.168.1.100:8443) */
   hostUrl: string;
   /** VM ID */
@@ -19,9 +19,9 @@ export interface QVMRCLaunchOptions {
 }
 
 /**
- * Launch QVMRC to connect to a VM console
+ * Launch qvmc to connect to a VM console
  */
-export function launchQVMRC(options: QVMRCLaunchOptions): void {
+export function launchqvmc(options: qvmcLaunchOptions): void {
   const params = new URLSearchParams({
     url: options.hostUrl,
     vm: options.vmId,
@@ -36,20 +36,20 @@ export function launchQVMRC(options: QVMRCLaunchOptions): void {
     params.set('fullscreen', 'true');
   }
 
-  const deepLink = `qvmrc://connect?${params.toString()}`;
+  const deepLink = `qvmc://connect?${params.toString()}`;
   
   // Log for debugging
-  console.info('Launching QVMRC:', deepLink);
+  console.info('Launching qvmc:', deepLink);
   
   // Trigger the deep link
   window.location.href = deepLink;
 }
 
 /**
- * Check if QVMRC protocol is likely registered
+ * Check if qvmc protocol is likely registered
  * Note: This is a best-effort check, as browsers don't expose protocol handlers
  */
-export function checkQVMRCAvailable(): Promise<boolean> {
+export function checkqvmcAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
     // Try to detect if the protocol handler exists
     // This is limited by browser security, so we assume it's available
@@ -57,7 +57,7 @@ export function checkQVMRCAvailable(): Promise<boolean> {
     const isElectron = navigator.userAgent.includes('Electron');
     const isTauri = '__TAURI__' in window;
     
-    // If we're in a native context, QVMRC is likely available
+    // If we're in a native context, qvmc is likely available
     if (isElectron || isTauri) {
       resolve(true);
       return;
@@ -69,16 +69,16 @@ export function checkQVMRCAvailable(): Promise<boolean> {
 }
 
 /**
- * Get the download URL for QVMRC installer
+ * Get the download URL for qvmc installer
  */
-export function getQVMRCDownloadUrl(): string {
+export function getqvmcDownloadUrl(): string {
   const platform = navigator.platform.toLowerCase();
   
   if (platform.includes('win')) {
-    return '/downloads/qvmrc-setup.exe';
+    return '/downloads/qvmc-setup.exe';
   } else if (platform.includes('mac')) {
-    return '/downloads/qvmrc.dmg';
+    return '/downloads/qvmc.dmg';
   } else {
-    return '/downloads/qvmrc.AppImage';
+    return '/downloads/qvmc.AppImage';
   }
 }

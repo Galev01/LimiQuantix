@@ -23,7 +23,7 @@ The `quantix-host-ui` is a lightweight React application that runs on every Quan
 | **VM Management** | ❌ Not available | ✅ Full CRUD |
 | **Storage Pools** | ❌ Status only | ✅ Full management |
 | **Performance** | ❌ Basic stats | ✅ Charts + history |
-| **Console Access** | ❌ N/A | ✅ QVMRC deep link |
+| **Console Access** | ❌ N/A | ✅ qvmc deep link |
 
 ## Architecture
 
@@ -41,7 +41,7 @@ The `quantix-host-ui` is a lightweight React application that runs on every Quan
 │  │  - Network config      │   │   │  - VM management       │   │
 │  │  - SSH enable/disable  │   │   │  - Storage pools       │   │
 │  │  - Emergency shell     │   │   │  - Performance charts  │   │
-│  │  - Cluster join        │   │   │  - QVMRC console       │   │
+│  │  - Cluster join        │   │   │  - qvmc console       │   │
 │  └────────────────────────┘   │   └────────────────────────┘   │
 │            │                  │              │                  │
 │            └──────────────────┼──────────────┘                  │
@@ -160,7 +160,7 @@ quantix-host-ui/
 │   │
 │   └── lib/                    # Utilities
 │       ├── utils.ts            # cn(), formatBytes(), etc.
-│       ├── qvmrc.ts            # QVMRC deep link launcher
+│       ├── qvmc.ts            # qvmc deep link launcher
 │       └── toast.ts            # Toast helpers
 │
 ├── index.html
@@ -184,7 +184,7 @@ quantix-host-ui/
 - Sortable/filterable VM table
 - Power state badges with color coding
 - One-click power operations (start, stop, reboot, pause)
-- Console button (launches QVMRC)
+- Console button (launches qvmc)
 - VM details link
 
 ### Planned Pages
@@ -219,19 +219,19 @@ GET  /api/v1/storage/images    # ISO library
 WS   /api/v1/ws                # Real-time updates
 ```
 
-## QVMRC Integration
+## qvmc Integration
 
-The UI can launch QVMRC (native console app) via deep links:
+The UI can launch qvmc (native console app) via deep links:
 
 ```typescript
-import { launchQVMRC } from '@/lib/qvmrc';
+import { launchqvmc } from '@/lib/qvmc';
 
-launchQVMRC({
+launchqvmc({
   hostUrl: 'https://192.168.1.100:8443',
   vmId: 'vm-abc123',
   vmName: 'Ubuntu Server',
 });
-// Opens: qvmrc://connect?url=https://...&vm=vm-abc123&name=Ubuntu%20Server
+// Opens: qvmc://connect?url=https://...&vm=vm-abc123&name=Ubuntu%20Server
 ```
 
 ## Design System
@@ -334,5 +334,5 @@ The webui target:
 
 - [Node Daemon Implementation](../node-daemon/000031-node-daemon-implementation-plan.md)
 - [Console Access](../console-access/000042-console-access-implementation.md)
-- [QVMRC Native Client](../console-access/000043-qvmrc-native-client.md)
+- [qvmc Native Client](../console-access/000043-qvmc-native-client.md)
 - [UI Design System](000007-dashboard-ui-guide.md)

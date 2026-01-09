@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
-import { useUploadOVA, useOVAUploadStatus, type OVAMetadata } from '@/hooks/useOVA';
+import { useUploadOVAWithProgress, useOVAUploadStatus, type OVAMetadata, type OVAUploadProgress } from '@/hooks/useOVA';
 
 interface OVAUploadModalProps {
   isOpen: boolean;
@@ -36,8 +36,9 @@ export function OVAUploadModal({ isOpen, onClose, onSuccess }: OVAUploadModalPro
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const uploadOVA = useUploadOVA();
-  const { data: uploadStatus, isLoading: statusLoading } = useOVAUploadStatus(jobId || '', {
+  // Use the progress-tracking upload hook
+  const { uploadOVA, progress: uploadProgress, isUploading, reset: resetUpload } = useUploadOVAWithProgress();
+  const { data: uploadStatus } = useOVAUploadStatus(jobId || '', {
     enabled: !!jobId && (step === 'uploading' || step === 'processing'),
     refetchInterval: step === 'uploading' || step === 'processing' ? 1000 : false,
   });
@@ -90,7 +91,7 @@ export function OVAUploadModal({ isOpen, onClose, onSuccess }: OVAUploadModalPro
     setError(null);
 
     try {
-      const result = await uploadOVA.mutateAsync(file);
+      const result = await uploadOVA(file);
       setJobId(result.jobId);
     } catch (err) {
       setStep('error');
@@ -106,6 +107,7 @@ export function OVAUploadModal({ isOpen, onClose, onSuccess }: OVAUploadModalPro
     setStep('select');
     setJobId(null);
     setError(null);
+    resetUpload();
     onClose();
   };
 
@@ -260,51 +262,71 @@ export function OVAUploadModal({ isOpen, onClose, onSuccess }: OVAUploadModalPro
                 exit={{ opacity: 0, scale: 0.95 }}
                 className="space-y-6"
               >
-                {/* Progress Circle */}
-                <div className="flex flex-col items-center justify-center py-4">
-                  <div className="relative w-24 h-24">
-                    <svg className="w-24 h-24 transform -rotate-90">
-                      <circle
-                        cx="48"
-                        cy="48"
-                        r="40"
-                        stroke="currentColor"
-                        strokeWidth="8"
-                        fill="none"
-                        className="text-bg-elevated"
-                      />
-                      <circle
-                        cx="48"
-                        cy="48"
-                        r="40"
-                        stroke="currentColor"
-                        strokeWidth="8"
-                        fill="none"
-                        strokeLinecap="round"
-                        className="text-accent transition-all duration-300"
-                        strokeDasharray={251.2}
-                        strokeDashoffset={251.2 - (251.2 * (uploadStatus?.progressPercent || 0)) / 100}
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-xl font-bold text-text-primary">
-                        {uploadStatus?.progressPercent || 0}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                {/* Progress Circle - use local upload progress during upload, then server status */}
+                {(() => {
+                  // Use local progress during initial upload, then switch to server status
+                  const displayProgress = isUploading && uploadProgress 
+                    ? uploadProgress.percent 
+                    : (uploadStatus?.progressPercent || 0);
+                  const displayLoaded = isUploading && uploadProgress 
+                    ? uploadProgress.loaded 
+                    : (uploadStatus?.bytesUploaded || 0);
+                  const displayTotal = isUploading && uploadProgress 
+                    ? uploadProgress.total 
+                    : (uploadStatus?.bytesTotal || 0);
+                  const displayStep = isUploading 
+                    ? 'Uploading file...' 
+                    : (uploadStatus?.currentStep || 'Processing...');
 
-                {/* Status Info */}
-                <div className="text-center space-y-2">
-                  <p className="font-medium text-text-primary">
-                    {uploadStatus?.currentStep || 'Starting upload...'}
-                  </p>
-                  {uploadStatus?.bytesTotal && uploadStatus.bytesTotal > 0 && (
-                    <p className="text-sm text-text-muted">
-                      {formatBytes(uploadStatus.bytesUploaded || 0)} / {formatBytes(uploadStatus.bytesTotal)}
-                    </p>
-                  )}
-                </div>
+                  return (
+                    <>
+                      <div className="flex flex-col items-center justify-center py-4">
+                        <div className="relative w-24 h-24">
+                          <svg className="w-24 h-24 transform -rotate-90">
+                            <circle
+                              cx="48"
+                              cy="48"
+                              r="40"
+                              stroke="currentColor"
+                              strokeWidth="8"
+                              fill="none"
+                              className="text-bg-elevated"
+                            />
+                            <circle
+                              cx="48"
+                              cy="48"
+                              r="40"
+                              stroke="currentColor"
+                              strokeWidth="8"
+                              fill="none"
+                              strokeLinecap="round"
+                              className="text-accent transition-all duration-300"
+                              strokeDasharray={251.2}
+                              strokeDashoffset={251.2 - (251.2 * displayProgress) / 100}
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-xl font-bold text-text-primary">
+                              {displayProgress}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Status Info */}
+                      <div className="text-center space-y-2">
+                        <p className="font-medium text-text-primary">
+                          {displayStep}
+                        </p>
+                        {displayTotal > 0 && (
+                          <p className="text-sm text-text-muted">
+                            {formatBytes(displayLoaded)} / {formatBytes(displayTotal)}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
 
                 {/* Processing Steps */}
                 {step === 'processing' && (
@@ -384,8 +406,8 @@ export function OVAUploadModal({ isOpen, onClose, onSuccess }: OVAUploadModalPro
               <Button variant="ghost" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button onClick={handleUpload} disabled={!file || uploadOVA.isPending}>
-                {uploadOVA.isPending ? (
+              <Button onClick={handleUpload} disabled={!file || isUploading}>
+                {isUploading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Uploading...

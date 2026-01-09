@@ -31,7 +31,7 @@ import { Card, Badge, Button } from '@/components/ui';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { useVM, useVMPowerOps, useVMSnapshots, useVMSnapshotOps, useDeleteVM, useVMConsole } from '@/hooks/useVMs';
 import { formatBytes, formatPercent, cn } from '@/lib/utils';
-import { launchQVMRC } from '@/lib/qvmrc';
+import { launchqvmc } from '@/lib/qvmc';
 import { toast } from '@/lib/toast';
 import { useAppStore } from '@/stores/useAppStore';
 import { ConsoleAccessModal } from '@/components/vm/ConsoleAccessModal';
@@ -70,9 +70,9 @@ export function VMDetail() {
     }
   };
 
-  const handleLaunchQVMRC = () => {
+  const handleLaunchqvmc = () => {
     if (vm) {
-      launchQVMRC({
+      launchqvmc({
         hostUrl,
         vmId: vm.vmId,
         vmName: vm.name,
@@ -411,9 +411,9 @@ export function VMDetail() {
                       </div>
                     </button>
 
-                    {/* QVMRC Native */}
+                    {/* qvmc Native */}
                     <button
-                      onClick={handleLaunchQVMRC}
+                      onClick={handleLaunchqvmc}
                       className="p-6 bg-bg-base rounded-xl border border-border hover:border-purple-500/50 transition-colors text-left group"
                     >
                       <div className="flex items-center gap-4">
@@ -421,7 +421,7 @@ export function VMDetail() {
                           <Monitor className="w-6 h-6 text-purple-400" />
                         </div>
                         <div>
-                          <h4 className="font-semibold text-text-primary">QVMRC Native</h4>
+                          <h4 className="font-semibold text-text-primary">qvmc Native</h4>
                           <p className="text-sm text-text-muted mt-0.5">
                             Better performance, USB passthrough
                           </p>
@@ -469,7 +469,7 @@ export function VMDetail() {
                     <Info className="w-5 h-5 text-accent mt-0.5" />
                     <div className="text-sm text-text-muted">
                       <strong className="text-text-secondary">Tip:</strong> Web Console works in any browser without installation. 
-                      QVMRC provides better performance and features like USB passthrough but requires the desktop app.
+                      qvmc provides better performance and features like USB passthrough but requires the desktop app.
                     </div>
                   </div>
                 </div>

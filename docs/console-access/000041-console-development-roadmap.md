@@ -2,7 +2,7 @@
 
 **Purpose:** Comprehensive development plan for LimiQuantix console access solutions.
 
-**Scope:** Web-based browser console (noVNC) and native QVMRC desktop client.
+**Scope:** Web-based browser console (noVNC) and native qvmc desktop client.
 
 **Last Updated:** January 3, 2026
 
@@ -15,7 +15,7 @@ LimiQuantix provides two console access methods to match and exceed VMware's cap
 | Solution | Target Users | Status | Comparable To |
 |----------|--------------|--------|---------------|
 | **Web Console** | All users | ✅ **IMPLEMENTED** | Proxmox noVNC, OpenStack Horizon |
-| **QVMRC Native** | Power users | ✅ **IMPLEMENTED** | VMware VMRC, virt-viewer |
+| **qvmc Native** | Power users | ✅ **IMPLEMENTED** | VMware VMRC, virt-viewer |
 
 ---
 
@@ -27,9 +27,9 @@ LimiQuantix provides two console access methods to match and exceed VMware's cap
 - Enhanced UI with depth, shadows, and animations
 - Copy address, download .vnc file, quick connect commands
 
-### ✅ QVMRC Native Client - Complete
-- Full VNC client in Rust (`qvmrc/src-tauri/`)
-- React frontend with Tauri (`qvmrc/src/`)
+### ✅ qvmc Native Client - Complete
+- Full VNC client in Rust (`qvmc/src-tauri/`)
+- React frontend with Tauri (`qvmc/src/`)
 - Features implemented:
   - VNC connection and framebuffer rendering
   - Keyboard/mouse input handling
@@ -37,7 +37,7 @@ LimiQuantix provides two console access methods to match and exceed VMware's cap
   - Ctrl+Alt+Del support
   - VM power actions (start, stop, reboot, shutdown)
   - Local ISO mounting with HTTP server
-  - Deep linking (`qvmrc://connect?...`)
+  - Deep linking (`qvmc://connect?...`)
   - Connection persistence
   - Modern UI with depth and visual hierarchy
 
@@ -414,13 +414,13 @@ The WebSocket proxy at `/api/console/{vmId}/ws` is already implemented in `backe
 
 ---
 
-## Part 2: QVMRC (Quantix Virtual Machine Remote Console)
+## Part 2: qvmc (Quantix Virtual Machine Remote Console)
 
 ### 2.1 Overview
 
-QVMRC is a native desktop application that provides premium console access with features beyond what a browser can offer:
+qvmc is a native desktop application that provides premium console access with features beyond what a browser can offer:
 
-| Feature | Web Console | QVMRC |
+| Feature | Web Console | qvmc |
 |---------|-------------|-------|
 | Display | ✅ VNC | ✅ VNC + SPICE |
 | USB Passthrough | ❌ | ✅ |
@@ -436,7 +436,7 @@ QVMRC is a native desktop application that provides premium console access with 
 #### Framework: Tauri (Recommended)
 
 ```
-QVMRC/
+qvmc/
 ├── src-tauri/              # Rust backend
 │   ├── src/
 │   │   ├── main.rs         # Entry point
@@ -477,7 +477,7 @@ QVMRC/
 For maximum performance and smallest binary:
 
 ```
-QVMRC/
+qvmc/
 ├── src/
 │   ├── main.rs
 │   ├── app.rs              # egui application
@@ -748,7 +748,7 @@ export function ConnectionList() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold">QVMRC</h1>
+        <h1 className="text-xl font-bold">qvmc</h1>
         <button className="p-2 hover:bg-gray-100 rounded">
           <Settings className="w-5 h-5" />
         </button>
@@ -889,7 +889,7 @@ export function ConsoleView({ vmId, onDisconnect }: ConsoleViewProps) {
 }
 ```
 
-### 2.5 QVMRC Development Tasks
+### 2.5 qvmc Development Tasks
 
 | Phase | Task | Effort | Priority | Status |
 |-------|------|--------|----------|--------|
@@ -919,16 +919,16 @@ export function ConsoleView({ vmId, onDisconnect }: ConsoleViewProps) {
 |---------|-------------|-------|
 | **Local ISO Mounting** | Stream ISO from client via HTTP | `iso_server.rs`, `api.rs` |
 | **VM Power Actions** | Start/stop/reboot/shutdown from console | `api.rs`, `ConsoleView.tsx` |
-| **Deep Linking** | `qvmrc://connect?...` URL scheme | `main.rs` |
+| **Deep Linking** | `qvmc://connect?...` URL scheme | `main.rs` |
 | **Enhanced Toolbar** | Gradient, status badges, button groups | `index.css` |
 | **Modal UI Depth** | Layered shadows, segmented controls | `index.css`, `*.tsx` |
 | **Toast Notifications** | Animated success/error/info toasts | `ConsoleView.tsx` |
 
-### 2.6 QVMRC Cargo.toml
+### 2.6 qvmc Cargo.toml
 
 ```toml
 [package]
-name = "qvmrc"
+name = "qvmc"
 version = "0.1.0"
 edition = "2021"
 description = "Quantix Virtual Machine Remote Console"
@@ -978,7 +978,7 @@ vnc = []
 spice = []  # Optional SPICE support
 
 [[bin]]
-name = "qvmrc"
+name = "qvmc"
 path = "src/main.rs"
 ```
 
@@ -1004,7 +1004,7 @@ Week 2:
 ├── Fri: Documentation, deployment
 ```
 
-### 3.2 Phase 2: QVMRC MVP (Weeks 3-6)
+### 3.2 Phase 2: qvmc MVP (Weeks 3-6)
 
 ```
 Week 3:
@@ -1027,7 +1027,7 @@ Week 6:
 ├── Fri: Linux packages, testing
 ```
 
-### 3.3 Phase 3: QVMRC Advanced (Weeks 7-10)
+### 3.3 Phase 3: qvmc Advanced (Weeks 7-10)
 
 ```
 Week 7-8: USB passthrough
@@ -1038,7 +1038,7 @@ Week 9-10: SPICE protocol (optional)
 
 ## Part 4: Success Metrics
 
-| Metric | Web Console Target | QVMRC Target | Current Status |
+| Metric | Web Console Target | qvmc Target | Current Status |
 |--------|-------------------|--------------|----------------|
 | Time to connect | < 2 seconds | < 1 second | ✅ Met |
 | Input latency | < 50ms | < 20ms | ✅ Met |

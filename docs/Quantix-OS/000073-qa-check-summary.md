@@ -150,7 +150,7 @@ shutdown:
 - [ ] Dashboard loads with host info
 - [ ] Create VM wizard works
 - [ ] VM power operations work
-- [ ] Console button launches QVMRC
+- [ ] Console button launches qvmc
 - [ ] Storage pool creation works
 - [ ] Network configuration works
 - [ ] Settings > Security shows certs

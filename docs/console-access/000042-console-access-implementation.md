@@ -1,8 +1,8 @@
 # 000042 - Console Access Implementation
 
-**Purpose:** Document the complete implementation of VM console access in LimiQuantix, including the browser-based Web Console (noVNC) and the native desktop client (QVMRC).
+**Purpose:** Document the complete implementation of VM console access in LimiQuantix, including the browser-based Web Console (noVNC) and the native desktop client (qvmc).
 
-**Status:** Web Console ✅ Complete | QVMRC ✅ Production Ready
+**Status:** Web Console ✅ Complete | qvmc ✅ Production Ready
 
 **Last Updated:** January 3, 2026
 
@@ -15,15 +15,15 @@ LimiQuantix provides two methods for VM console access:
 | Solution | Status | Target Users | Use Case |
 |----------|--------|--------------|----------|
 | **Web Console (noVNC)** | ✅ Complete | All users | Quick access, no installation required |
-| **QVMRC Native Client** | ✅ Complete | Power users | Better performance, deep links, offline support |
+| **qvmc Native Client** | ✅ Complete | Power users | Better performance, deep links, offline support |
 
 ### Console Access Flow
 
 Users can access VM consoles via the "Console" button on the VM Detail page:
 
 1. **Web Console** - Opens immediately in a modal, no installation required
-2. **QVMRC Native** - Opens the ConsoleAccessModal with:
-   - Option to launch QVMRC via deep link (`qvmrc://connect?...`)
+2. **qvmc Native** - Opens the ConsoleAccessModal with:
+   - Option to launch qvmc via deep link (`qvmc://connect?...`)
    - OS-specific download buttons (EXE for Windows, DMG for macOS)
    - URL copy button for manual connection
 
@@ -190,17 +190,17 @@ If WebSocket is unavailable, the `WebConsole.tsx` component shows:
 
 ---
 
-## Part 2: QVMRC (Quantix Virtual Machine Remote Console)
+## Part 2: qvmc (Quantix Virtual Machine Remote Console)
 
 ### 2.1 Overview
 
-QVMRC is a native desktop application built with **Tauri** (Rust + React) that provides premium console access with features beyond browser capabilities.
+qvmc is a native desktop application built with **Tauri** (Rust + React) that provides premium console access with features beyond browser capabilities.
 
 ### 2.2 Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                             QVMRC                                        │
+│                             qvmc                                        │
 │  ┌───────────────────────────────────────────────────────────────────┐  │
 │  │                    React UI Layer                                  │  │
 │  │   ConnectionList.tsx │ ConsoleView.tsx │ Settings.tsx              │  │
@@ -252,7 +252,7 @@ Low latency, raw pixel streaming for real-time interaction.
 ### 2.4 Project Structure
 
 ```
-qvmrc/
+qvmc/
 ├── src-tauri/                    # Rust Native Layer
 │   ├── Cargo.toml                # Dependencies
 │   ├── tauri.conf.json           # Tauri configuration
@@ -321,9 +321,9 @@ last_connected = "2026-01-03T12:00:00Z"
 ```
 
 Config locations:
-- **Windows:** `%APPDATA%\limiquantix\qvmrc\config.toml`
-- **macOS:** `~/Library/Application Support/com.limiquantix.qvmrc/config.toml`
-- **Linux:** `~/.config/qvmrc/config.toml`
+- **Windows:** `%APPDATA%\limiquantix\qvmc\config.toml`
+- **macOS:** `~/Library/Application Support/com.limiquantix.qvmc/config.toml`
+- **Linux:** `~/.config/qvmc/config.toml`
 
 #### `api.rs` - Control Plane Client
 
@@ -502,7 +502,7 @@ rusb = "0.9"
 #### Development
 
 ```bash
-cd qvmrc
+cd qvmc
 npm install
 npm run tauri dev
 ```
@@ -514,15 +514,15 @@ npm run tauri build
 ```
 
 Output locations:
-- **Windows:** `src-tauri/target/release/bundle/msi/QVMRC_0.1.0_x64_en-US.msi`
-- **macOS:** `src-tauri/target/release/bundle/macos/QVMRC.app`
-- **Linux:** `src-tauri/target/release/bundle/deb/qvmrc_0.1.0_amd64.deb`
+- **Windows:** `src-tauri/target/release/bundle/msi/qvmc_0.1.0_x64_en-US.msi`
+- **macOS:** `src-tauri/target/release/bundle/macos/qvmc.app`
+- **Linux:** `src-tauri/target/release/bundle/deb/qvmc_0.1.0_amd64.deb`
 
 ---
 
 ## Part 3: Feature Comparison
 
-| Feature | Web Console | QVMRC |
+| Feature | Web Console | qvmc |
 |---------|-------------|-------|
 | **Installation** | None (browser) | Desktop app (10-15 MB) |
 | **Startup Time** | Instant | < 1 second |
@@ -545,12 +545,12 @@ Output locations:
 ### Authentication
 
 - **Web Console:** Relies on dashboard session
-- **QVMRC:** Stores API token securely (OS keychain planned)
+- **qvmc:** Stores API token securely (OS keychain planned)
 
 ### Transport Security
 
 - **Web Console:** WSS (WebSocket Secure) when HTTPS
-- **QVMRC:** TLS for API, VNC TLS extension (planned)
+- **qvmc:** TLS for API, VNC TLS extension (planned)
 
 ### VNC Authentication
 
@@ -566,22 +566,22 @@ Output locations:
 | Task | Status |
 |------|--------|
 | Web console with real VM | ✅ Working |
-| QVMRC VNC DES authentication | ✅ Implemented |
+| qvmc VNC DES authentication | ✅ Implemented |
 | LimiQuantix-styled noVNC page | ✅ Complete |
-| QVMRC connection persistence | ✅ Complete |
-| QVMRC Deep Link support (`qvmrc://`) | ✅ Complete |
+| qvmc connection persistence | ✅ Complete |
+| qvmc Deep Link support (`qvmc://`) | ✅ Complete |
 | Console Access Modal (Web/Native choice) | ✅ Complete |
 | OS-specific download buttons | ✅ Complete |
 | Protocol handler registration (Windows) | ✅ Complete |
-| QVMRC Modern UI with animations | ✅ Complete |
+| qvmc Modern UI with animations | ✅ Complete |
 
 ### Future (P2)
 
 | Task | Effort | Status |
 |------|--------|--------|
-| USB passthrough (QVMRC) | 1 week | Planned |
-| Clipboard sync (QVMRC) | 3 days | Planned |
-| SPICE protocol (QVMRC) | 2 weeks | Planned |
+| USB passthrough (qvmc) | 1 week | Planned |
+| Clipboard sync (qvmc) | 3 days | Planned |
+| SPICE protocol (qvmc) | 2 weeks | Planned |
 | Audio forwarding | 1 week | Planned |
 
 ---
@@ -601,7 +601,7 @@ Output locations:
 2. Click inside console to focus
 3. Press a key to trigger update
 
-### QVMRC Issues
+### qvmc Issues
 
 **"cargo: command not found":**
 ```bash
