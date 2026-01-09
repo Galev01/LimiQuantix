@@ -1440,7 +1440,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         &self,
         request: Request<InitStoragePoolRequest>,
     ) -> Result<Response<StoragePoolInfoResponse>, Status> {
-        use limiquantix_hypervisor::{NfsConfig, CephConfig, IscsiConfig};
+        use limiquantix_hypervisor::storage::{NfsConfig, CephConfig, IscsiConfig};
         
         let req = request.into_inner();
         info!(pool_id = %req.pool_id, pool_type = ?req.r#type, "Initializing storage pool");
