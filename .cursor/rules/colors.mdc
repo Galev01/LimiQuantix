@@ -1,0 +1,52 @@
+---
+alwaysApply: true
+---
+
+# Gentle Color Palettes for Quantix-KVM UI APPLIES TO ALL QUANTIX RELATED PRODUCTS
+
+**Document ID:** 000052  
+**Date:** January 9, 2026  
+**Scope:** All web interfaces (frontend, quantix-host-ui, qvmrc)
+
+## Overview
+
+The Quantix-KVM UI uses carefully designed color palettes optimized for extended viewing sessions. Both light and dark modes feature gentle, eye-friendly tones rather than harsh extremes.
+
+## Dark Mode
+
+The dark theme uses **warm slate tones** instead of pure black, reducing eye strain during extended use:
+
+| Element | Color | Description |
+|---------|-------|-------------|
+| Base Background | `#1a1d24` | Warm dark slate with subtle blue undertones |
+| Surface | `#21252e` | Slightly elevated panels and cards |
+| Elevated | `#282d38` | Modals, dropdowns, floating elements |
+| Hover | `#323842` | Interactive hover states |
+| Text Primary | `#e4e8ed` | Off-white text, not harsh pure white |
+| Text Secondary | `#a0a8b4` | Subdued labels and descriptions |
+| Accent | `#5c9cf5` | Softer blue for actions and highlights |
+
+## Light Mode
+
+The light theme uses **warm cream/stone tones** instead of bright white, preventing eye fatigue:
+
+| Element | Color | Description |
+|---------|-------|-------------|
+| Base Background | `#e8e6e3` | Warm cream with subtle warmth |
+| Surface | `#f0eeeb` | Slightly brighter content areas |
+| Elevated | `#f7f5f2` | Cards and modals |
+| Hover | `#dfdcd8` | Interactive hover states |
+| Text Primary | `#2d3138` | Soft charcoal, not pure black |
+| Text Secondary | `#4a5058` | Muted descriptive text |
+| Accent | `#4a7fd4` | Softer blue that works on light backgrounds |
+
+## Design Principles
+
+1. **No Pure Extremes**: Avoid `#000000` and `#ffffff` to reduce contrast harshness
+2. **Warm Undertones**: Both modes have subtle warm shifts for visual comfort
+3. **Muted Status Colors**: Success, warning, and error states use less saturated variants
+4. **Consistent Accent**: Blue accent adapts brightness per mode while maintaining identity
+
+## Implementation
+
+All color values are defined as CSS variables in `:root` selectors, with `[data-theme="light"]` overriding for light mode. Components use semantic variable names (`--text-primary`, `--bg-surface`) rather than hardcoded colors, ensuring automatic theme switching.
