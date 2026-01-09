@@ -313,6 +313,30 @@ modprobe isofs
 modprobe squashfs
 modprobe overlay
 modprobe loop
+
+# Load Hardware Drivers (CRITICAL for QEMU/Hardware detection)
+log "Loading hardware drivers..."
+
+# SATA/AHCI
+for mod in libata ahci ata_piix ata_generic; do
+    modprobe $mod >/dev/null 2>&1
+done
+
+# NVMe
+for mod in nvme nvme_core; do
+    modprobe $mod >/dev/null 2>&1
+done
+
+# VirtIO (QEMU)
+for mod in virtio virtio_ring virtio_pci virtio_blk virtio_scsi virtio_net; do
+    modprobe $mod >/dev/null 2>&1
+done
+
+# USB
+for mod in usbcore usb_common xhci_hcd xhci_pci ehci_hcd ehci_pci uhci_hcd usb_storage uas; do
+    modprobe $mod >/dev/null 2>&1
+done
+
 mdev -s
 sleep 2
 
