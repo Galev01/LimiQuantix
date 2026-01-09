@@ -127,7 +127,7 @@ echo "   ✅ Busybox is statically linked (verified)"
 # Create symlinks for ALL essential commands
 for cmd in sh ash ls cat cp mv rm mkdir rmdir mount umount mknod grep sed awk \
            sleep echo ln chmod chown chroot switch_root pivot_root \
-           modprobe insmod lsmod depmod losetup \
+           modprobe insmod lsmod depmod losetup setsid cttyhack \
            fdisk sfdisk blkid lsblk dd clear dmesg \
            ip ifconfig route ping hostname uname date \
            mdev find xargs head tail sort uniq wc cut tr \
@@ -339,6 +339,17 @@ mount -t devtmpfs none /dev
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
 
+# Create essential TTY devices if not present
+# These are needed for dialog and the TUI to work properly
+[ -c /dev/tty ] || mknod /dev/tty c 5 0
+[ -c /dev/tty0 ] || mknod /dev/tty0 c 4 0
+[ -c /dev/tty1 ] || mknod /dev/tty1 c 4 1
+[ -c /dev/console ] || mknod /dev/console c 5 1
+[ -c /dev/null ] || mknod /dev/null c 1 3
+
+# Set proper permissions
+chmod 666 /dev/tty /dev/tty0 /dev/tty1 /dev/console /dev/null 2>/dev/null || true
+
 # 4. Enable console output
 echo 8 > /proc/sys/kernel/printk
 
@@ -537,21 +548,66 @@ fi
 if [ -f "${INSTALL_ROOT}/installer/tui.sh" ]; then
     log "Running TUI in chroot..."
     
+    # Diagnostics: Check if dialog and terminfo exist
+    log "Checking dialog..."
+    if [ -f "${INSTALL_ROOT}/usr/bin/dialog" ]; then
+        log "  dialog found at /usr/bin/dialog"
+    else
+        log "  ERROR: dialog NOT found!"
+        ls -la "${INSTALL_ROOT}/usr/bin/" > /dev/kmsg 2>&1 || true
+    fi
+    
+    log "Checking terminfo..."
+    if [ -d "${INSTALL_ROOT}/usr/share/terminfo/l" ]; then
+        ls -la "${INSTALL_ROOT}/usr/share/terminfo/l/" > /dev/kmsg 2>&1 || true
+    else
+        log "  Terminfo directory not found, checking alternatives..."
+        ls -la "${INSTALL_ROOT}/etc/terminfo/" > /dev/kmsg 2>&1 || true
+    fi
+    
+    # Determine which console device to use
+    # QEMU may use tty1 or console depending on configuration
+    CONSOLE_DEV="/dev/console"
+    if [ -c /dev/tty1 ]; then
+        CONSOLE_DEV="/dev/tty1"
+        log "Using /dev/tty1 as console"
+    elif [ -c /dev/tty0 ]; then
+        CONSOLE_DEV="/dev/tty0"
+        log "Using /dev/tty0 as console"
+    else
+        log "Using /dev/console"
+    fi
+    
+    # Clear the screen before launching TUI
+    clear > ${CONSOLE_DEV} 2>&1 || true
+    
     # Set terminal environment variables
     export TERM=linux
     export HOME=/root
     export SHELL=/bin/sh
     export TERMINFO=/usr/share/terminfo
     
-    # Run the TUI with proper console access and terminfo path
-    # The < /dev/console > /dev/console 2>&1 ensures dialog can use the console
-    chroot "${INSTALL_ROOT}" /bin/sh -c "
+    # Run the TUI with proper terminal access
+    log "Launching chroot with console: ${CONSOLE_DEV}"
+    
+    # Use setsid with cttyhack for proper controlling terminal
+    # cttyhack is a busybox applet that sets up a controlling TTY
+    setsid cttyhack chroot "${INSTALL_ROOT}" /bin/sh -c "
         export TERM=linux
         export HOME=/root
         export TERMINFO=/usr/share/terminfo
         export PATH=/bin:/sbin:/usr/bin:/usr/sbin
-        /installer/tui.sh
-    " < /dev/console > /dev/console 2>&1
+        
+        # Test dialog before running TUI
+        if command -v dialog >/dev/null 2>&1; then
+            /installer/tui.sh
+        else
+            echo 'ERROR: dialog command not found!'
+            echo 'Falling back to text installer...'
+            sleep 3
+            /installer/install.sh --help
+        fi
+    " < ${CONSOLE_DEV} > ${CONSOLE_DEV} 2>&1
     
     INSTALL_EXIT=$?
     log "Installer exited with ${INSTALL_EXIT}"

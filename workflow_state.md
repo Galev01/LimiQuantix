@@ -87,3 +87,15 @@ Ubuntu Machine (Hypervisor)
 |  - Runs VMs via libvirt/QEMU                               |
 +------------------------------------------------------------+
 ```
+
+### Running the Node Daemon on Ubuntu
+
+```bash
+# Build with libvirt support
+cd ~/LimiQuantix/agent
+cargo build --release -p limiquantix-node --features libvirt
+
+# Run (listen on all interfaces)
+# Note: Use --http-listen and --grpc-listen with address:port format
+./target/release/limiquantix-node --http-listen 0.0.0.0:8443 --grpc-listen 0.0.0.0:9443
+```

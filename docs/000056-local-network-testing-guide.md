@@ -138,19 +138,17 @@ sudo mkdir -p /var/lib/libvirt/images/iso
 
 ```bash
 # Run with explicit bind to all interfaces (0.0.0.0)
-# Replace WINDOWS_IP with your Windows machine's IP
 cd ~/LimiQuantix/agent
 
+# The --http-listen and --grpc-listen flags take address:port format
 sudo ./target/release/limiquantix-node \
-    --http-port 8443 \
-    --grpc-port 9443 \
-    --bind-address 0.0.0.0
+    --http-listen 0.0.0.0:8443 \
+    --grpc-listen 0.0.0.0:9443
 
 # Or run in background with logging
 sudo ./target/release/limiquantix-node \
-    --http-port 8443 \
-    --grpc-port 9443 \
-    --bind-address 0.0.0.0 \
+    --http-listen 0.0.0.0:8443 \
+    --grpc-listen 0.0.0.0:9443 \
     2>&1 | tee /tmp/node-daemon.log &
 ```
 
@@ -203,32 +201,28 @@ ping 192.168.1.101
 curl -k https://192.168.1.101:8443/api/v1/health
 ```
 
-### 5.3 Update Host UI to Point to Ubuntu
+### 5.3 Connect Host UI to Ubuntu Node
 
-Edit `quantix-host-ui/vite.config.ts` to proxy to your Ubuntu host:
+The Host UI now has a built-in connection setup page. No need to edit config files!
 
-```typescript
-export default defineConfig({
-  // ...
-  server: {
-    port: 3001,
-    proxy: {
-      '/api': {
-        // Change localhost to your Ubuntu IP
-        target: 'https://192.168.1.101:8443',
-        changeOrigin: true,
-        secure: false, // Accept self-signed certs
-      },
-    },
-  },
-})
-```
+1. **Start the Host UI:**
+   ```powershell
+   cd quantix-host-ui
+   npm run dev
+   ```
 
-Then restart the Host UI:
-```powershell
-cd quantix-host-ui
-npm run dev
-```
+2. **Open http://localhost:3001** in your browser
+
+3. **You'll see the "Connect to Node Daemon" page:**
+   - Enter your Ubuntu IP: `https://192.168.1.101:8443`
+   - Optionally give it a name (e.g., "Ubuntu Dev Server")
+   - Click "Test Connection" to verify
+   - Click "Connect" to save and use
+
+4. **Once connected:**
+   - A banner shows at the top indicating the remote connection
+   - Click "Disconnect" anytime to switch nodes
+   - Recent connections are remembered for quick switching
 
 ---
 
@@ -239,9 +233,8 @@ If you want the node to register with the vDC control plane:
 ```bash
 # On Ubuntu, run with control plane URL
 sudo ./target/release/limiquantix-node \
-    --http-port 8443 \
-    --grpc-port 9443 \
-    --bind-address 0.0.0.0 \
+    --http-listen 0.0.0.0:8443 \
+    --grpc-listen 0.0.0.0:9443 \
     --control-plane http://192.168.1.100:8080 \
     --register
 ```
