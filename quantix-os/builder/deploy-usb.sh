@@ -405,7 +405,7 @@ validate_device() {
     if [ $found -eq 0 ]; then
         log_error "Device $device does not exist or is not a block device"
         echo ""
-        echo -e "  ${CYAN}Available block devices:${NC}"
+        echo -e "  ${CYAN}These are the available block devices:${NC}"
         lsblk -dno NAME,SIZE,MODEL 2>/dev/null | grep -v "loop\|sr\|rom" | while read line; do
             echo -e "    /dev/$line"
         done
