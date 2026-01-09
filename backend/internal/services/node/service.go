@@ -582,6 +582,32 @@ func (s *Service) UpdateHeartbeat(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Check if node was disconnected and is now reconnecting
+	wasDisconnected := node.Status.Phase == domain.NodePhaseDisconnected
+	if wasDisconnected {
+		logger.Info("Disconnected node is reconnecting",
+			zap.String("hostname", node.Hostname),
+			zap.String("cluster_id", node.ClusterID),
+		)
+
+		// Add reconnection condition
+		node.Status.Conditions = append(node.Status.Conditions, domain.NodeCondition{
+			Type:       "Reconnected",
+			Status:     "True",
+			Reason:     "HeartbeatRestored",
+			Message:    "Node reconnected to control plane",
+			LastUpdate: time.Now(),
+		})
+
+		// Log reconnection event
+		s.logger.Info("SYSTEM_EVENT: Host reconnected to cluster",
+			zap.String("event_type", "HOST_RECONNECTED"),
+			zap.String("node_id", node.ID),
+			zap.String("hostname", node.Hostname),
+			zap.String("cluster_id", node.ClusterID),
+		)
+	}
+
 	// Update node status with heartbeat data
 	now := time.Now()
 	node.LastHeartbeat = &now
@@ -652,6 +678,160 @@ func (s *Service) GetNodeMetrics(
 		MemoryTotalBytes:     uint64(node.Status.Allocatable.MemoryMiB) * 1024 * 1024,
 		MemoryAllocatedBytes: uint64(node.Status.Allocated.MemoryMiB) * 1024 * 1024,
 	}), nil
+}
+
+// ============================================================================
+// Heartbeat Monitoring
+// ============================================================================
+
+// HeartbeatTimeout is the duration after which a node is considered disconnected.
+const HeartbeatTimeout = 90 * time.Second // 3 missed heartbeats (30s interval)
+
+// StartHeartbeatMonitor starts a background goroutine that monitors node heartbeats
+// and marks nodes as DISCONNECTED if they haven't sent a heartbeat recently.
+// This should be called once when the server starts.
+func (s *Service) StartHeartbeatMonitor(ctx context.Context) {
+	s.logger.Info("Starting heartbeat monitor",
+		zap.Duration("timeout", HeartbeatTimeout),
+		zap.Duration("check_interval", 30*time.Second),
+	)
+
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				s.logger.Info("Heartbeat monitor stopped")
+				return
+			case <-ticker.C:
+				s.checkStaleNodes(ctx)
+			}
+		}
+	}()
+}
+
+// checkStaleNodes checks for nodes that have missed heartbeats and marks them as disconnected.
+func (s *Service) checkStaleNodes(ctx context.Context) {
+	nodes, err := s.repo.List(ctx, NodeFilter{})
+	if err != nil {
+		s.logger.Error("Failed to list nodes for heartbeat check", zap.Error(err))
+		return
+	}
+
+	now := time.Now()
+	for _, node := range nodes {
+		// Skip nodes that are already in a terminal/non-active state
+		if node.Status.Phase == domain.NodePhaseMaintenance ||
+			node.Status.Phase == domain.NodePhaseDraining ||
+			node.Status.Phase == domain.NodePhaseDisconnected {
+			continue
+		}
+
+		// Check if heartbeat is stale
+		if node.LastHeartbeat == nil {
+			// Node never sent a heartbeat - if it's been pending for too long, mark as disconnected
+			if node.Status.Phase == domain.NodePhasePending && time.Since(node.CreatedAt) > HeartbeatTimeout {
+				s.markNodeDisconnected(ctx, node, "Node never established connection")
+			}
+			continue
+		}
+
+		timeSinceHeartbeat := now.Sub(*node.LastHeartbeat)
+		if timeSinceHeartbeat > HeartbeatTimeout {
+			s.markNodeDisconnected(ctx, node, fmt.Sprintf("No heartbeat for %s", timeSinceHeartbeat.Round(time.Second)))
+		}
+	}
+}
+
+// markNodeDisconnected marks a node as disconnected and logs the event.
+func (s *Service) markNodeDisconnected(ctx context.Context, node *domain.Node, reason string) {
+	logger := s.logger.With(
+		zap.String("node_id", node.ID),
+		zap.String("hostname", node.Hostname),
+		zap.String("cluster_id", node.ClusterID),
+		zap.String("previous_phase", string(node.Status.Phase)),
+	)
+
+	logger.Warn("Node disconnected - marking as DISCONNECTED",
+		zap.String("reason", reason),
+	)
+
+	// Update node status
+	node.Status.Phase = domain.NodePhaseDisconnected
+	node.Status.Conditions = append(node.Status.Conditions, domain.NodeCondition{
+		Type:       "Disconnected",
+		Status:     "True",
+		Reason:     "HeartbeatTimeout",
+		Message:    reason,
+		LastUpdate: time.Now(),
+	})
+	node.UpdatedAt = time.Now()
+
+	if err := s.repo.UpdateStatus(ctx, node.ID, node.Status); err != nil {
+		logger.Error("Failed to update node status to disconnected", zap.Error(err))
+		return
+	}
+
+	// Log to system logs (this will be visible in the cluster events)
+	logger.Error("SYSTEM_EVENT: Host disconnected from cluster",
+		zap.String("event_type", "HOST_DISCONNECTED"),
+		zap.String("node_id", node.ID),
+		zap.String("hostname", node.Hostname),
+		zap.String("management_ip", node.ManagementIP),
+		zap.String("cluster_id", node.ClusterID),
+		zap.String("reason", reason),
+		zap.Int("running_vms", len(node.Status.VMIDs)),
+		zap.Strings("affected_vm_ids", node.Status.VMIDs),
+	)
+}
+
+// ReconnectNode is called when a previously disconnected node sends a heartbeat.
+// It transitions the node back to READY state.
+func (s *Service) ReconnectNode(ctx context.Context, nodeID string) error {
+	node, err := s.repo.Get(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+
+	if node.Status.Phase != domain.NodePhaseDisconnected {
+		return nil // Not disconnected, nothing to do
+	}
+
+	s.logger.Info("Node reconnected after disconnect",
+		zap.String("node_id", node.ID),
+		zap.String("hostname", node.Hostname),
+		zap.String("cluster_id", node.ClusterID),
+	)
+
+	// Update status back to ready
+	node.Status.Phase = domain.NodePhaseReady
+	node.Status.Conditions = append(node.Status.Conditions, domain.NodeCondition{
+		Type:       "Reconnected",
+		Status:     "True",
+		Reason:     "HeartbeatRestored",
+		Message:    "Node reconnected to control plane",
+		LastUpdate: time.Now(),
+	})
+
+	now := time.Now()
+	node.LastHeartbeat = &now
+	node.UpdatedAt = now
+
+	if err := s.repo.UpdateStatus(ctx, node.ID, node.Status); err != nil {
+		return fmt.Errorf("failed to update node status: %w", err)
+	}
+
+	// Log reconnection event
+	s.logger.Info("SYSTEM_EVENT: Host reconnected to cluster",
+		zap.String("event_type", "HOST_RECONNECTED"),
+		zap.String("node_id", node.ID),
+		zap.String("hostname", node.Hostname),
+		zap.String("cluster_id", node.ClusterID),
+	)
+
+	return nil
 }
 
 // ============================================================================

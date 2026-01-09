@@ -124,6 +124,133 @@ impl NodeDaemonServiceImpl {
         }
     }
     
+    /// Initialize the service by auto-detecting storage pools (NFS mounts, local storage).
+    /// This should be called after creating the service to register existing storage.
+    pub async fn init_storage_auto_detect(&self) {
+        tracing::info!("Auto-detecting storage pools...");
+        
+        // Auto-detect NFS mounts
+        if let Err(e) = self.detect_nfs_mounts().await {
+            tracing::warn!(error = %e, "Failed to auto-detect NFS mounts");
+        }
+        
+        // Auto-detect default local storage path
+        if let Err(e) = self.detect_local_storage().await {
+            tracing::warn!(error = %e, "Failed to auto-detect local storage");
+        }
+        
+        tracing::info!("Storage auto-detection complete");
+    }
+    
+    /// Detect and register NFS mounts as storage pools.
+    async fn detect_nfs_mounts(&self) -> anyhow::Result<()> {
+        use tokio::fs;
+        
+        // Read /proc/mounts to find NFS mounts
+        let content = match fs::read_to_string("/proc/mounts").await {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::debug!(error = %e, "Could not read /proc/mounts (may not be on Linux)");
+                return Ok(());
+            }
+        };
+        
+        for line in content.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 && (parts[2] == "nfs" || parts[2] == "nfs4") {
+                let source = parts[0];
+                let mount_point = parts[1];
+                
+                // Parse server:export format
+                let (server, export_path) = if let Some(colon_pos) = source.find(':') {
+                    (source[..colon_pos].to_string(), source[colon_pos+1..].to_string())
+                } else {
+                    continue; // Invalid NFS mount format
+                };
+                
+                // Generate a pool ID from the mount point
+                let pool_id = format!("nfs-{}", mount_point.replace('/', "-").trim_matches('-'));
+                
+                // Check if pool already exists
+                let pools = self.storage.list_pools().await;
+                if pools.iter().any(|p| p.pool_id == pool_id) {
+                    tracing::debug!(pool_id = %pool_id, "NFS pool already registered");
+                    continue;
+                }
+                
+                tracing::info!(
+                    pool_id = %pool_id,
+                    server = %server,
+                    export = %export_path,
+                    mount_point = %mount_point,
+                    "Auto-registering NFS mount as storage pool"
+                );
+                
+                // Create pool config
+                let config = limiquantix_hypervisor::storage::PoolConfig {
+                    nfs: Some(limiquantix_hypervisor::storage::NfsConfig {
+                        server,
+                        export_path,
+                        version: "4.1".to_string(),
+                        options: String::new(),
+                        mount_point: Some(mount_point.to_string()),
+                    }),
+                    ..Default::default()
+                };
+                
+                // Initialize the pool
+                if let Err(e) = self.storage.init_pool(&pool_id, limiquantix_hypervisor::storage::PoolType::Nfs, config).await {
+                    tracing::warn!(pool_id = %pool_id, error = %e, "Failed to register NFS pool");
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Detect and register default local storage path.
+    async fn detect_local_storage(&self) -> anyhow::Result<()> {
+        use tokio::fs;
+        
+        // Default local storage paths to check
+        let local_paths = [
+            "/var/lib/limiquantix/storage",
+            "/var/lib/libvirt/images",
+        ];
+        
+        for path in &local_paths {
+            if fs::metadata(path).await.is_ok() {
+                let pool_id = format!("local-{}", path.replace('/', "-").trim_matches('-'));
+                
+                // Check if pool already exists
+                let pools = self.storage.list_pools().await;
+                if pools.iter().any(|p| p.pool_id == pool_id || p.mount_path.as_deref() == Some(*path)) {
+                    tracing::debug!(pool_id = %pool_id, "Local pool already registered");
+                    continue;
+                }
+                
+                tracing::info!(
+                    pool_id = %pool_id,
+                    path = %path,
+                    "Auto-registering local storage pool"
+                );
+                
+                let config = limiquantix_hypervisor::storage::PoolConfig {
+                    local: Some(limiquantix_hypervisor::storage::LocalConfig {
+                        path: path.to_string(),
+                    }),
+                    ..Default::default()
+                };
+                
+                if let Err(e) = self.storage.init_pool(&pool_id, limiquantix_hypervisor::storage::PoolType::LocalDir, config).await {
+                    tracing::warn!(pool_id = %pool_id, error = %e, "Failed to register local pool");
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
     // =========================================================================
     // Accessors
     // =========================================================================
@@ -1764,30 +1891,85 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         &self,
         _request: Request<()>,
     ) -> Result<Response<ListImagesResponse>, Status> {
-        debug!("Listing ISO images");
+        info!("Listing storage images (ISO, QCOW2, OVA, IMG)");
         
-        // Look for ISO files in the images directory
-        let images_path = std::path::Path::new("/var/lib/limiquantix/cloud-images");
-        let iso_path = std::path::Path::new("/var/lib/limiquantix/isos");
+        // Directories to scan for images
+        let image_dirs = [
+            "/var/lib/limiquantix/cloud-images",
+            "/var/lib/limiquantix/isos",
+            "/var/lib/limiquantix/images",
+            "/var/lib/limiquantix/templates",
+            // Also check common locations
+            "/var/lib/libvirt/images",
+        ];
         
         let mut images = Vec::new();
+        let mut scanned_paths = std::collections::HashSet::new();
         
-        // Helper to scan a directory for images
-        async fn scan_dir(path: &std::path::Path, images: &mut Vec<ImageInfo>) {
-            if let Ok(mut entries) = tokio::fs::read_dir(path).await {
-                while let Ok(Some(entry)) = entries.next_entry().await {
-                    let file_path = entry.path();
-                    if let Some(ext) = file_path.extension() {
-                        let ext_str = ext.to_string_lossy().to_lowercase();
-                        if ext_str == "iso" || ext_str == "qcow2" || ext_str == "img" {
-                            if let Ok(metadata) = entry.metadata().await {
+        // Supported image formats
+        let supported_formats = ["iso", "qcow2", "img", "ova", "vmdk", "raw"];
+        
+        // Helper to scan a directory for images (including subdirectories)
+        async fn scan_dir(
+            path: &std::path::Path, 
+            images: &mut Vec<ImageInfo>,
+            scanned: &mut std::collections::HashSet<String>,
+            formats: &[&str],
+            depth: usize,
+        ) {
+            // Limit recursion depth
+            if depth > 3 {
+                return;
+            }
+            
+            let dir_result = tokio::fs::read_dir(path).await;
+            let mut entries = match dir_result {
+                Ok(e) => e,
+                Err(e) => {
+                    // Only log at debug level - directories may not exist
+                    tracing::debug!(path = %path.display(), error = %e, "Could not read directory");
+                    return;
+                }
+            };
+            
+            while let Ok(Some(entry)) = entries.next_entry().await {
+                let file_path = entry.path();
+                
+                // Skip if already scanned
+                let path_str = file_path.to_string_lossy().to_string();
+                if scanned.contains(&path_str) {
+                    continue;
+                }
+                
+                if let Ok(metadata) = entry.metadata().await {
+                    if metadata.is_dir() {
+                        // Recursively scan subdirectories
+                        Box::pin(scan_dir(&file_path, images, scanned, formats, depth + 1)).await;
+                    } else if metadata.is_file() {
+                        if let Some(ext) = file_path.extension() {
+                            let ext_str = ext.to_string_lossy().to_lowercase();
+                            if formats.contains(&ext_str.as_str()) {
                                 let name = file_path.file_name()
                                     .map(|n| n.to_string_lossy().to_string())
                                     .unwrap_or_default();
+                                
+                                // Generate a stable ID from the path
+                                let image_id = format!("{:x}", md5::compute(&path_str));
+                                
+                                scanned.insert(path_str.clone());
+                                
+                                tracing::debug!(
+                                    name = %name,
+                                    path = %path_str,
+                                    size = metadata.len(),
+                                    format = %ext_str,
+                                    "Found image"
+                                );
+                                
                                 images.push(ImageInfo {
-                                    image_id: name.clone(),
+                                    image_id,
                                     name,
-                                    path: file_path.to_string_lossy().to_string(),
+                                    path: path_str,
                                     size_bytes: metadata.len(),
                                     format: ext_str,
                                 });
@@ -1798,8 +1980,16 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             }
         }
         
-        scan_dir(images_path, &mut images).await;
-        scan_dir(iso_path, &mut images).await;
+        // Scan all image directories
+        for dir in &image_dirs {
+            let path = std::path::Path::new(dir);
+            scan_dir(path, &mut images, &mut scanned_paths, &supported_formats, 0).await;
+        }
+        
+        // Sort by name
+        images.sort_by(|a, b| a.name.cmp(&b.name));
+        
+        info!(count = images.len(), "Found storage images");
         
         Ok(Response::new(ListImagesResponse { images }))
     }

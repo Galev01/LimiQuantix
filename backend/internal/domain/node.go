@@ -8,13 +8,14 @@ import (
 type NodePhase string
 
 const (
-	NodePhaseUnknown     NodePhase = "UNKNOWN"
-	NodePhasePending     NodePhase = "PENDING"
-	NodePhaseReady       NodePhase = "READY"
-	NodePhaseNotReady    NodePhase = "NOT_READY"
-	NodePhaseMaintenance NodePhase = "MAINTENANCE"
-	NodePhaseDraining    NodePhase = "DRAINING"
-	NodePhaseError       NodePhase = "ERROR"
+	NodePhaseUnknown      NodePhase = "UNKNOWN"
+	NodePhasePending      NodePhase = "PENDING"
+	NodePhaseReady        NodePhase = "READY"
+	NodePhaseNotReady     NodePhase = "NOT_READY"
+	NodePhaseMaintenance  NodePhase = "MAINTENANCE"
+	NodePhaseDraining     NodePhase = "DRAINING"
+	NodePhaseError        NodePhase = "ERROR"
+	NodePhaseDisconnected NodePhase = "DISCONNECTED" // Host lost heartbeat but remains in cluster
 )
 
 // Node represents a physical hypervisor host.

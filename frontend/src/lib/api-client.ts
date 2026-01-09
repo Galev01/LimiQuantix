@@ -435,6 +435,7 @@ export interface ApiNode {
   id: string;
   hostname: string;
   managementIp: string;
+  clusterId?: string; // ID of the cluster this node belongs to (if any)
   labels?: Record<string, string>;
   spec?: {
     cpu?: {

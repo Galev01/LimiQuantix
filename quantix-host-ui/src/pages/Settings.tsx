@@ -1,11 +1,12 @@
 import { useState, useEffect, type ChangeEvent } from 'react';
-import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, Lock, Upload, Key, Globe, Terminal, Unplug, Link2, Clock, AlertTriangle, CheckCircle2, Copy, Check, KeyRound, Plug, RotateCcw } from 'lucide-react';
+import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, Lock, Upload, Key, Globe, Terminal, Unplug, Link2, Clock, AlertTriangle, CheckCircle2, Copy, Check, KeyRound, Plug, RotateCcw, Database, Disc, Share2, Loader2 } from 'lucide-react';
 import { Header } from '@/components/layout';
 import { Card, Badge, Button, Input, Label } from '@/components/ui';
 import { useSettings, useUpdateSettings, useServices, useRestartService, useCertificateInfo, useGenerateSelfSigned, useResetCertificate, useSshStatus, useEnableSsh, useDisableSsh } from '@/hooks/useSettings';
-import { useHostInfo } from '@/hooks/useHost';
+import { useHostInfo, useHardwareInventory } from '@/hooks/useHost';
 import { useClusterStatus, useTestConnection, useGenerateToken, useLeaveCluster } from '@/hooks/useCluster';
-import { cn } from '@/lib/utils';
+import { useStoragePools, useLocalDevices, useInitializeDevice } from '@/hooks/useStorage';
+import { cn, formatBytes } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 
 type Tab = 'general' | 'storage' | 'network' | 'security' | 'services' | 'about';
@@ -391,74 +392,12 @@ export function Settings() {
 
             {/* Storage Tab */}
             {activeTab === 'storage' && (
-              <div className="space-y-6">
-                <Card>
-                  <h3 className="text-lg font-semibold text-text-primary mb-4">Storage Defaults</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="defaultPool">Default Storage Pool</Label>
-                      <Input
-                        id="defaultPool"
-                        value={settings?.storage_default_pool || ''}
-                        placeholder="default"
-                      />
-                      <p className="text-xs text-text-muted mt-1">New VMs will use this pool by default</p>
-                    </div>
-                  </div>
-                </Card>
-              </div>
+              <StorageSettingsTab settings={settings} hostInfo={hostInfo} />
             )}
 
             {/* Network Tab */}
             {activeTab === 'network' && (
-              <div className="space-y-6">
-                <Card>
-                  <h3 className="text-lg font-semibold text-text-primary mb-4">Network Defaults</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="defaultBridge">Default Bridge</Label>
-                      <Input
-                        id="defaultBridge"
-                        value={settings?.network_default_bridge || ''}
-                        placeholder="br0"
-                      />
-                      <p className="text-xs text-text-muted mt-1">New VMs will connect to this bridge by default</p>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card>
-                  <h3 className="text-lg font-semibold text-text-primary mb-4">VNC Configuration</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="vncListen">VNC Listen Address</Label>
-                      <Input
-                        id="vncListen"
-                        value={settings?.vnc_listen_address || '0.0.0.0'}
-                        placeholder="0.0.0.0"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="vncPortStart">VNC Port Range Start</Label>
-                        <Input
-                          id="vncPortStart"
-                          type="number"
-                          value={settings?.vnc_port_range_start || 5900}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="vncPortEnd">VNC Port Range End</Label>
-                        <Input
-                          id="vncPortEnd"
-                          type="number"
-                          value={settings?.vnc_port_range_end || 5999}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </div>
+              <NetworkSettingsTab settings={settings} hostInfo={hostInfo} />
             )}
 
             {/* Security Tab */}
@@ -691,6 +630,58 @@ export function Settings() {
                     </div>
                   )}
                 </Card>
+
+                {/* Password Reset Placeholder */}
+                <Card>
+                  <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+                    <KeyRound className="w-5 h-5 text-warning" />
+                    Password Management
+                  </h3>
+                  <div className="p-4 bg-bg-base rounded-lg border border-border/50">
+                    <div className="flex items-center gap-2 text-text-muted mb-2">
+                      <Clock className="w-5 h-5" />
+                      <span className="font-medium">Coming Soon</span>
+                    </div>
+                    <p className="text-sm text-text-muted">
+                      Password reset functionality will be available in a future release.
+                      This will allow you to change the root password for console and SSH access.
+                    </p>
+                  </div>
+                  <div className="mt-4">
+                    <Button variant="secondary" disabled>
+                      <KeyRound className="w-4 h-4" />
+                      Reset Password
+                    </Button>
+                  </div>
+                </Card>
+
+                {/* MFA Placeholder */}
+                <Card>
+                  <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-info" />
+                    Multi-Factor Authentication (MFA)
+                  </h3>
+                  <div className="p-4 bg-bg-base rounded-lg border border-border/50">
+                    <div className="flex items-center gap-2 text-text-muted mb-2">
+                      <Clock className="w-5 h-5" />
+                      <span className="font-medium">Coming Soon</span>
+                    </div>
+                    <p className="text-sm text-text-muted">
+                      Multi-factor authentication will add an extra layer of security to your host.
+                      Support for TOTP (Time-based One-Time Password) apps like Google Authenticator 
+                      and hardware keys will be available in a future release.
+                    </p>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <Button variant="secondary" disabled>
+                      <Shield className="w-4 h-4" />
+                      Configure MFA
+                    </Button>
+                    <Button variant="ghost" disabled>
+                      Reset MFA
+                    </Button>
+                  </div>
+                </Card>
               </div>
             )}
 
@@ -782,7 +773,7 @@ export function Settings() {
                 </Card>
 
                 <Card>
-                  <h3 className="text-lg font-semibold text-text-primary mb-4">Quantix-KVM</h3>
+                  <h3 className="text-lg font-semibold text-text-primary mb-4">QHMI (Quantix Host Management Interface)</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-text-muted">Version</span>
@@ -793,14 +784,19 @@ export function Settings() {
                       <span className="text-text-primary font-mono text-sm">dev</span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-text-muted">Build Date</span>
+                      <span className="text-text-primary font-mono text-sm">{new Date().toISOString().split('T')[0]}</span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-text-muted">License</span>
                       <span className="text-text-primary">Apache 2.0</span>
                     </div>
                   </div>
                   <div className="mt-4 pt-4 border-t border-border">
                     <p className="text-sm text-text-muted">
-                      Quantix-KVM is an open-source virtualization platform designed to be a modern,
-                      fast, and easy-to-use alternative to traditional hypervisor management solutions.
+                      QHMI is the host management interface for Quantix-OS, providing a modern web-based 
+                      console for managing individual hypervisor hosts. Part of the Quantix-KVM open-source 
+                      virtualization platform.
                     </p>
                   </div>
                 </Card>
@@ -809,6 +805,486 @@ export function Settings() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// Storage Settings Tab Component
+interface StorageSettingsTabProps {
+  settings: ReturnType<typeof useSettings>['data'];
+  hostInfo: ReturnType<typeof useHostInfo>['data'];
+}
+
+function StorageSettingsTab({ settings: _settings, hostInfo: _hostInfo }: StorageSettingsTabProps) {
+  const { data: pools, isLoading: poolsLoading } = useStoragePools();
+  const { data: localDevices, isLoading: devicesLoading, refetch: refetchDevices } = useLocalDevices();
+  const initializeDeviceMutation = useInitializeDevice();
+  
+  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
+  const [poolName, setPoolName] = useState('');
+  const [confirmWipe, setConfirmWipe] = useState(false);
+
+  const isLoading = poolsLoading || devicesLoading;
+
+  // Separate pools by type
+  const localPools = pools?.filter(p => p.type === 'LOCAL_DIR') || [];
+  const sharedPools = pools?.filter(p => p.type !== 'LOCAL_DIR') || [];
+
+  const handleInitializeDevice = async (devicePath: string) => {
+    if (!poolName.trim()) {
+      toast.error('Please enter a pool name');
+      return;
+    }
+    if (!confirmWipe) {
+      toast.error('You must confirm data wipe');
+      return;
+    }
+
+    try {
+      await initializeDeviceMutation.mutateAsync({
+        device: devicePath,
+        poolName: poolName.trim(),
+        filesystem: 'xfs',
+        confirmWipe: true,
+      });
+      setSelectedDevice(null);
+      setPoolName('');
+      setConfirmWipe(false);
+      refetchDevices();
+    } catch (error) {
+      // Error is handled by mutation
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-accent" />
+        <span className="ml-2 text-text-muted">Loading storage information...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Physical Disks Section */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+            <Disc className="w-5 h-5 text-accent" />
+            Physical Disks
+          </h3>
+          <Button variant="ghost" size="sm" onClick={() => refetchDevices()}>
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+        </div>
+        
+        {localDevices && localDevices.length > 0 ? (
+          <div className="space-y-3">
+            {localDevices.map((device) => (
+              <div 
+                key={device.device}
+                className={cn(
+                  "p-4 rounded-lg border transition-colors",
+                  device.canInitialize 
+                    ? "border-border hover:border-accent/50 cursor-pointer" 
+                    : "border-border/50 bg-bg-base/50"
+                )}
+                onClick={() => device.canInitialize && setSelectedDevice(device.device)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "p-2 rounded-lg",
+                      device.deviceType === 'nvme' ? 'bg-accent/10 text-accent' :
+                      device.deviceType === 'ssd' ? 'bg-success/10 text-success' :
+                      'bg-warning/10 text-warning'
+                    )}>
+                      <HardDrive className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-text-primary">{device.name}</div>
+                      <div className="text-sm text-text-muted font-mono">{device.device}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-medium text-text-primary">{formatBytes(device.totalBytes)}</div>
+                    <Badge variant={device.inUse ? 'warning' : 'success'} className="mt-1">
+                      {device.inUse ? 'In Use' : 'Available'}
+                    </Badge>
+                  </div>
+                </div>
+                
+                {/* Partitions */}
+                {device.partitions.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border/50">
+                    <div className="text-xs text-text-muted mb-2">Partitions:</div>
+                    <div className="grid gap-2">
+                      {device.partitions.map((part) => (
+                        <div key={part.device} className="flex items-center justify-between text-sm p-2 bg-bg-base rounded">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-text-secondary">{part.device.split('/').pop()}</span>
+                            {part.filesystem && (
+                              <Badge variant="default" className="text-xs">{part.filesystem}</Badge>
+                            )}
+                          </div>
+                          <div className="text-text-muted">
+                            {part.mountPoint ? (
+                              <span className="text-text-secondary">{part.mountPoint}</span>
+                            ) : (
+                              formatBytes(part.sizeBytes)
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Initialize Dialog */}
+                {selectedDevice === device.device && device.canInitialize && (
+                  <div className="mt-4 pt-4 border-t border-border space-y-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
+                      <div className="flex items-center gap-2 text-warning mb-1">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="font-medium">Warning</span>
+                      </div>
+                      <p className="text-sm text-text-muted">
+                        Initializing this device will erase ALL data on it. This cannot be undone.
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="poolName">Storage Pool Name</Label>
+                      <Input
+                        id="poolName"
+                        value={poolName}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setPoolName(e.target.value)}
+                        placeholder="e.g., local-nvme-1"
+                      />
+                    </div>
+                    
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={confirmWipe}
+                        onChange={(e) => setConfirmWipe(e.target.checked)}
+                        className="w-4 h-4 rounded border-border"
+                      />
+                      <span className="text-sm text-text-secondary">
+                        I understand this will permanently erase all data on this device
+                      </span>
+                    </label>
+                    
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleInitializeDevice(device.device)}
+                        disabled={!poolName.trim() || !confirmWipe || initializeDeviceMutation.isPending}
+                      >
+                        {initializeDeviceMutation.isPending ? 'Initializing...' : 'Initialize as qDV'}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedDevice(null);
+                          setPoolName('');
+                          setConfirmWipe(false);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-text-muted">
+            <HardDrive className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p>No available physical disks found</p>
+            <p className="text-sm">All disks are either in use or too small</p>
+          </div>
+        )}
+      </Card>
+
+      {/* Local Storage Pools */}
+      <Card>
+        <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <Database className="w-5 h-5 text-success" />
+          Local Storage Pools (qDV)
+        </h3>
+        
+        {localPools.length > 0 ? (
+          <div className="space-y-3">
+            {localPools.map((pool) => {
+              const usedPercent = pool.totalBytes > 0 
+                ? (pool.usedBytes / pool.totalBytes) * 100 
+                : 0;
+              return (
+                <div key={pool.poolId} className="p-4 bg-bg-base rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <div className="font-medium text-text-primary">{pool.poolId}</div>
+                      <div className="text-sm text-text-muted font-mono">{pool.mountPath}</div>
+                    </div>
+                    <Badge variant="success">{pool.volumeCount} volumes</Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-text-muted">
+                        {formatBytes(pool.usedBytes)} / {formatBytes(pool.totalBytes)}
+                      </span>
+                      <span className={cn(
+                        usedPercent > 90 ? 'text-error' :
+                        usedPercent > 75 ? 'text-warning' :
+                        'text-text-secondary'
+                      )}>
+                        {usedPercent.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="h-2 bg-bg-surface rounded-full overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-full transition-all",
+                          usedPercent > 90 ? 'bg-error' :
+                          usedPercent > 75 ? 'bg-warning' :
+                          'bg-success'
+                        )}
+                        style={{ width: `${Math.min(usedPercent, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-text-muted">
+            <Database className="w-10 h-10 mx-auto mb-2 opacity-50" />
+            <p>No local storage pools configured</p>
+            <p className="text-sm">Initialize a physical disk above to create one</p>
+          </div>
+        )}
+      </Card>
+
+      {/* Shared Storage */}
+      <Card>
+        <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <Share2 className="w-5 h-5 text-info" />
+          Shared Storage (from vDC)
+        </h3>
+        
+        {sharedPools.length > 0 ? (
+          <div className="space-y-3">
+            {sharedPools.map((pool) => {
+              const usedPercent = pool.totalBytes > 0 
+                ? (pool.usedBytes / pool.totalBytes) * 100 
+                : 0;
+              return (
+                <div key={pool.poolId} className="p-4 bg-bg-base rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="info">{pool.type}</Badge>
+                      <span className="font-medium text-text-primary">{pool.poolId}</span>
+                    </div>
+                    <span className="text-sm text-text-muted">{pool.volumeCount} volumes</span>
+                  </div>
+                  <div className="text-sm text-text-muted font-mono mb-2">{pool.mountPath}</div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-text-muted">
+                        {formatBytes(pool.usedBytes)} / {formatBytes(pool.totalBytes)}
+                      </span>
+                      <span className="text-text-secondary">{usedPercent.toFixed(1)}%</span>
+                    </div>
+                    <div className="h-2 bg-bg-surface rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-info transition-all"
+                        style={{ width: `${Math.min(usedPercent, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-text-muted">
+            <Share2 className="w-10 h-10 mx-auto mb-2 opacity-50" />
+            <p>No shared storage connected</p>
+            <p className="text-sm">Connect this host to a Quantix-vDC to access shared storage</p>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// Network Settings Tab Component
+interface NetworkSettingsTabProps {
+  settings: ReturnType<typeof useSettings>['data'];
+  hostInfo: ReturnType<typeof useHostInfo>['data'];
+}
+
+function NetworkSettingsTab({ settings, hostInfo: _hostInfo }: NetworkSettingsTabProps) {
+  const { data: hardware, isLoading } = useHardwareInventory();
+  
+  // Get physical NICs from hardware inventory
+  const physicalNics = hardware?.network?.filter(nic => 
+    !nic.name.startsWith('vir') && 
+    !nic.name.startsWith('docker') && 
+    !nic.name.startsWith('br-') &&
+    !nic.name.startsWith('veth') &&
+    nic.name !== 'lo'
+  ) || [];
+  
+  // Virtual bridges
+  const bridges = hardware?.network?.filter(nic => 
+    nic.name.startsWith('br') || nic.name.startsWith('virbr')
+  ) || [];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-accent" />
+        <span className="ml-2 text-text-muted">Loading network information...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Physical Uplinks */}
+      <Card>
+        <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <Network className="w-5 h-5 text-accent" />
+          Physical Uplinks
+        </h3>
+        
+        {physicalNics.length > 0 ? (
+          <div className="space-y-3">
+            {physicalNics.map((nic) => (
+              <div key={nic.name} className="p-4 bg-bg-base rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-3 h-3 rounded-full",
+                      nic.linkState === 'up' ? 'bg-success' : 'bg-text-muted'
+                    )} />
+                    <div>
+                      <div className="font-medium text-text-primary">{nic.name}</div>
+                      <div className="text-sm text-text-muted font-mono">{nic.macAddress || 'No MAC'}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <Badge variant={nic.linkState === 'up' ? 'success' : 'default'}>
+                      {nic.linkState || 'unknown'}
+                    </Badge>
+                    {nic.speedMbps && (
+                      <div className="text-sm text-text-muted mt-1">{nic.speedMbps} Mbps</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-text-muted">
+            <Network className="w-10 h-10 mx-auto mb-2 opacity-50" />
+            <p>No physical network interfaces found</p>
+          </div>
+        )}
+      </Card>
+
+      {/* Virtual Switches (Bridges) */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+            <Share2 className="w-5 h-5 text-info" />
+            vSwitches (Local Bridges)
+          </h3>
+          <Button variant="secondary" size="sm" disabled>
+            Create vSwitch
+          </Button>
+        </div>
+        
+        {bridges.length > 0 ? (
+          <div className="space-y-3">
+            {bridges.map((bridge) => (
+              <div key={bridge.name} className="p-4 bg-bg-base rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-3 h-3 rounded-full",
+                      bridge.linkState === 'up' ? 'bg-success' : 'bg-text-muted'
+                    )} />
+                    <div>
+                      <div className="font-medium text-text-primary">{bridge.name}</div>
+                      <div className="text-sm text-text-muted">
+                        {bridge.name.startsWith('virbr') ? 'NAT Bridge (libvirt)' : 'Bridge'}
+                      </div>
+                    </div>
+                  </div>
+                  <Badge variant={bridge.linkState === 'up' ? 'success' : 'default'}>
+                    {bridge.linkState || 'unknown'}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-text-muted">
+            <Share2 className="w-10 h-10 mx-auto mb-2 opacity-50" />
+            <p>No virtual switches configured</p>
+            <p className="text-sm">Create a vSwitch to connect VMs to the network</p>
+          </div>
+        )}
+        
+        <div className="mt-4 p-3 bg-bg-base rounded-lg border border-border/50">
+          <p className="text-sm text-text-muted">
+            <strong>Note:</strong> For distributed virtual switches (dvSwitch), manage them from the 
+            Quantix-vDC console. Local vSwitches created here are only available on this host.
+          </p>
+        </div>
+      </Card>
+
+      {/* VNC Configuration */}
+      <Card>
+        <h3 className="text-lg font-semibold text-text-primary mb-4">VNC Configuration</h3>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="vncListen">VNC Listen Address</Label>
+            <Input
+              id="vncListen"
+              value={settings?.vnc_listen_address || '0.0.0.0'}
+              placeholder="0.0.0.0"
+              disabled
+            />
+            <p className="text-xs text-text-muted mt-1">Address VNC consoles listen on</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="vncPortStart">VNC Port Range Start</Label>
+              <Input
+                id="vncPortStart"
+                type="number"
+                value={settings?.vnc_port_range_start || 5900}
+                disabled
+              />
+            </div>
+            <div>
+              <Label htmlFor="vncPortEnd">VNC Port Range End</Label>
+              <Input
+                id="vncPortEnd"
+                type="number"
+                value={settings?.vnc_port_range_end || 5999}
+                disabled
+              />
+            </div>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

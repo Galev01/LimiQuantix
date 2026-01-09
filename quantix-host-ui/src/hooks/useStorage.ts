@@ -9,8 +9,10 @@ import {
   deleteVolume,
   resizeVolume,
   listImages,
+  listLocalDevices,
+  initializeLocalDevice,
 } from '@/api/storage';
-import type { CreatePoolRequest, CreateVolumeRequest } from '@/api/storage';
+import type { CreatePoolRequest, CreateVolumeRequest, InitializeDeviceRequest } from '@/api/storage';
 import { toast } from '@/lib/toast';
 
 /**
@@ -142,4 +144,43 @@ export function useVolumeOps(poolId: string) {
   });
 
   return { create, remove, resize };
+}
+
+// ============================================================================
+// Local Device Discovery
+// ============================================================================
+
+/**
+ * Hook to list local block devices
+ */
+export function useLocalDevices() {
+  return useQuery({
+    queryKey: ['storage', 'local-devices'],
+    queryFn: listLocalDevices,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Hook to initialize a local device as a qDV
+ */
+export function useInitializeDevice() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ device, ...request }: InitializeDeviceRequest & { device: string }) =>
+      initializeLocalDevice(device, request),
+    onSuccess: (data) => {
+      if (data.success) {
+        queryClient.invalidateQueries({ queryKey: ['storage', 'pools'] });
+        queryClient.invalidateQueries({ queryKey: ['storage', 'local-devices'] });
+        toast.success(data.message);
+      } else {
+        toast.error(data.message);
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to initialize device: ${error.message}`);
+    },
+  });
 }

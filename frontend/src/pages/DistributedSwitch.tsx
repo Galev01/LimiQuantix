@@ -27,7 +27,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
-import { useNodes, type NodeUI } from '@/hooks/useNodes';
+import { useNodes, type ApiNode } from '@/hooks/useNodes';
 import { useNetworks, type ApiVirtualNetwork } from '@/hooks/useNetworks';
 
 // Types for distributed switch configuration
@@ -573,13 +573,14 @@ function PortGroupCard({
   );
 }
 
-function HostCard({ node, isConnected }: { node: NodeUI; isConnected: boolean }) {
+function HostCard({ node, isConnected }: { node: ApiNode; isConnected: boolean }) {
+  const isReady = node.status?.phase === 'READY' || node.status?.phase === 'NODE_PHASE_READY';
   return (
     <div className="p-3 rounded-lg bg-bg-base border border-border flex items-center justify-between">
       <div className="flex items-center gap-3">
         <div className={cn(
           'p-2 rounded-lg',
-          node.status === 'READY' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
+          isReady ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
         )}>
           <Server className="w-4 h-4" />
         </div>

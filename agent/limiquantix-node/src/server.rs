@@ -11,12 +11,24 @@ use limiquantix_proto::NodeDaemonServiceServer;
 use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::{Config, HypervisorBackend};
+use crate::event_store::{init_event_store, emit_event, Event, EventLevel, EventCategory};
 use crate::http_server;
 use crate::registration::{RegistrationClient, detect_management_ip};
 use crate::service::NodeDaemonServiceImpl;
 
 /// Run the gRPC server.
 pub async fn run(config: Config) -> Result<()> {
+    // Initialize event store with optional persistence
+    let event_persistence_path = std::path::PathBuf::from("/var/lib/limiquantix/events.json");
+    init_event_store(Some(event_persistence_path));
+    
+    emit_event(Event::new(
+        EventLevel::Info,
+        EventCategory::System,
+        format!("Node daemon starting (version {})", env!("CARGO_PKG_VERSION")),
+        "qx-node"
+    ));
+    
     // Initialize hypervisor backend
     let hypervisor: Arc<dyn Hypervisor> = match config.hypervisor.backend {
         HypervisorBackend::Mock => {
@@ -61,6 +73,10 @@ pub async fn run(config: Config) -> Result<()> {
     // Initialize telemetry collector
     let telemetry = Arc::new(TelemetryCollector::new());
     
+    // Start background telemetry refresh task (every 2 seconds for accurate CPU metrics)
+    let _telemetry_handle = telemetry.start_background_refresh(std::time::Duration::from_secs(2));
+    info!("Started background telemetry refresh task (2s interval)");
+    
     // Collect initial telemetry
     let node_info = telemetry.collect();
     info!(
@@ -68,6 +84,7 @@ pub async fn run(config: Config) -> Result<()> {
         os = %node_info.system.os_name,
         cpus = %node_info.cpu.logical_cores,
         memory_gb = %(node_info.memory.total_bytes / 1024 / 1024 / 1024),
+        cpu_usage = %node_info.cpu.usage_percent,
         "Node telemetry collected"
     );
     
@@ -88,6 +105,9 @@ pub async fn run(config: Config) -> Result<()> {
         hypervisor,
         telemetry.clone(),
     ));
+    
+    // Auto-detect storage pools (NFS mounts, local storage)
+    service.init_storage_auto_detect().await;
     
     // Parse gRPC listen address
     let grpc_addr: std::net::SocketAddr = config.server.listen_address.parse()
@@ -140,6 +160,7 @@ pub async fn run(config: Config) -> Result<()> {
         
         let webui_path_http = webui_path.clone();
         let tls_config_http = tls_config.clone();
+        let telemetry_http = telemetry.clone();
         
         info!(
             address = %http_addr,
@@ -153,7 +174,7 @@ pub async fn run(config: Config) -> Result<()> {
         );
         
         server_handles.push(tokio::spawn(async move {
-            if let Err(e) = http_server::run_http_server(http_addr, http_service, webui_path_http, tls_config_http).await {
+            if let Err(e) = http_server::run_http_server(http_addr, http_service, webui_path_http, tls_config_http, telemetry_http).await {
                 error!(error = %e, "HTTP server failed");
             }
         }));
@@ -168,6 +189,7 @@ pub async fn run(config: Config) -> Result<()> {
         
         let webui_path_https = webui_path.clone();
         let tls_config_https = tls_config.clone();
+        let telemetry_https = telemetry.clone();
         
         info!(
             address = %https_addr,
@@ -197,7 +219,7 @@ pub async fn run(config: Config) -> Result<()> {
         }
         
         server_handles.push(tokio::spawn(async move {
-            if let Err(e) = http_server::run_https_server(https_addr, https_service, webui_path_https, tls_config_https).await {
+            if let Err(e) = http_server::run_https_server(https_addr, https_service, webui_path_https, tls_config_https, telemetry_https).await {
                 error!(error = %e, "HTTPS server failed");
             }
         }));

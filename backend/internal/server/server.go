@@ -650,6 +650,10 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	// Start heartbeat monitor for node health tracking
+	s.nodeService.StartHeartbeatMonitor(ctx)
+	s.logger.Info("Started node heartbeat monitor")
+
 	// Start server in goroutine
 	errCh := make(chan error, 1)
 	go func() {

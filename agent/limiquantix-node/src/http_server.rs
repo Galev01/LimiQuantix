@@ -35,6 +35,8 @@ use crate::config::TlsConfig;
 use crate::service::NodeDaemonServiceImpl;
 use crate::tls::{TlsManager, AcmeManager, CertificateInfo, AcmeAccountInfo, AcmeChallengeStatus};
 
+use limiquantix_telemetry::TelemetryCollector;
+
 /// Shared state for HTTP handlers
 pub struct AppState {
     /// Reference to the node daemon service
@@ -45,6 +47,8 @@ pub struct AppState {
     pub tls_manager: Arc<TlsManager>,
     /// TLS configuration
     pub tls_config: TlsConfig,
+    /// Direct access to telemetry collector for disk I/O rates
+    pub telemetry: Arc<TelemetryCollector>,
 }
 
 // ============================================================================
@@ -228,6 +232,18 @@ struct EventListResponse {
     total_count: u32,
 }
 
+/// Query parameters for event filtering
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EventQueryParams {
+    /// Filter by level: debug, info, warning, error
+    level: Option<String>,
+    /// Filter by category: system, vm, storage, network, cluster, security
+    category: Option<String>,
+    /// Maximum number of events to return
+    limit: Option<usize>,
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SettingsResponse {
@@ -336,6 +352,74 @@ struct StoragePoolResponse {
 #[serde(rename_all = "camelCase")]
 struct StoragePoolListResponse {
     pools: Vec<StoragePoolResponse>,
+}
+
+/// Local block device information for storage discovery
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalDeviceInfo {
+    /// Device path (e.g., /dev/nvme0n1, /dev/sda)
+    device: String,
+    /// Device name/model
+    name: String,
+    /// Device type (nvme, ssd, hdd)
+    device_type: String,
+    /// Total size in bytes
+    total_bytes: u64,
+    /// Whether the device is already in use (has partitions or is mounted)
+    in_use: bool,
+    /// Partitions on this device
+    partitions: Vec<LocalPartitionInfo>,
+    /// Whether this device can be initialized as a qDV
+    can_initialize: bool,
+    /// Serial number if available
+    serial: Option<String>,
+    /// Model name
+    model: Option<String>,
+}
+
+/// Partition information for local device discovery
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalPartitionInfo {
+    /// Partition device path (e.g., /dev/nvme0n1p1)
+    device: String,
+    /// Filesystem type (ext4, xfs, ntfs, etc.)
+    filesystem: Option<String>,
+    /// Mount point if mounted
+    mount_point: Option<String>,
+    /// Partition size in bytes
+    size_bytes: u64,
+    /// Used space in bytes
+    used_bytes: u64,
+    /// Partition label
+    label: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalDeviceListResponse {
+    devices: Vec<LocalDeviceInfo>,
+}
+
+/// Request to initialize a local device as a qDV storage pool
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct InitializeDeviceRequest {
+    /// Name for the new storage pool
+    pool_name: String,
+    /// Filesystem to use (ext4, xfs)
+    filesystem: Option<String>,
+    /// Whether to wipe existing data (required for safety)
+    confirm_wipe: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InitializeDeviceResponse {
+    success: bool,
+    pool_id: Option<String>,
+    message: String,
 }
 
 #[derive(Deserialize)]
@@ -686,6 +770,7 @@ pub async fn run_http_server(
     service: Arc<NodeDaemonServiceImpl>,
     webui_path: PathBuf,
     tls_config: TlsConfig,
+    telemetry: Arc<TelemetryCollector>,
 ) -> anyhow::Result<()> {
     // Initialize TLS manager (needed for certificate management API even if HTTPS is disabled)
     let tls_manager = Arc::new(TlsManager::new(tls_config.clone()));
@@ -695,6 +780,7 @@ pub async fn run_http_server(
         webui_path: webui_path.clone(),
         tls_manager: tls_manager.clone(),
         tls_config: tls_config.clone(),
+        telemetry,
     });
 
     // Build the application router
@@ -714,6 +800,7 @@ pub async fn run_https_server(
     service: Arc<NodeDaemonServiceImpl>,
     webui_path: PathBuf,
     tls_config: TlsConfig,
+    telemetry: Arc<TelemetryCollector>,
 ) -> anyhow::Result<()> {
     // Initialize TLS manager and certificates
     let tls_manager = Arc::new(TlsManager::new(tls_config.clone()));
@@ -724,6 +811,7 @@ pub async fn run_https_server(
         webui_path: webui_path.clone(),
         tls_manager: tls_manager.clone(),
         tls_config: tls_config.clone(),
+        telemetry,
     });
 
     // Build the application router
@@ -795,6 +883,9 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/storage/pools/:pool_id/volumes", post(create_volume))
         .route("/storage/pools/:pool_id/volumes/:volume_id", axum::routing::delete(delete_volume))
         .route("/storage/images", get(list_images))
+        // Local storage device discovery
+        .route("/storage/local-devices", get(list_local_devices))
+        .route("/storage/local-devices/:device/initialize", post(initialize_local_device))
         // Disk conversion endpoint (VMDK to QCOW2)
         .route("/storage/convert", post(convert_disk_format))
         .route("/storage/convert/:job_id", get(get_conversion_status))
@@ -818,6 +909,7 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/registration/token", post(generate_registration_token))
         .route("/registration/token", get(get_current_registration_token))
         .route("/registration/discovery", get(get_host_discovery))
+        .route("/registration/complete", post(complete_registration))
         // System logs endpoints
         .route("/logs", get(get_logs))
         .route("/logs/sources", get(get_log_sources))
@@ -1545,18 +1637,10 @@ async fn get_host_metrics(
     // Use load average from telemetry or fallback
     let load_avg = sysinfo::System::load_average();
     
-    // Log telemetry for debugging
-    tracing::info!(
-        cpu_usage = cpu_usage,
-        memory_total = memory_total,
-        memory_used = memory_used,
-        "Host Metrics Telemetry"
-    );
-
-    // Get disk/net I/O from telemetry
-    let disk_read_bytes_per_sec = 0u64; // Disk I/O not yet available in telemetry
-    let disk_write_bytes_per_sec = 0u64;
+    // Get disk I/O rates from telemetry collector
+    let (disk_read_bytes_per_sec, disk_write_bytes_per_sec) = state.telemetry.get_disk_io_rates();
     
+    // Get network I/O from telemetry
     let network_rx_bytes_per_sec = telemetry.networks.iter()
         .map(|n| n.rx_rate)
         .sum::<u64>();
@@ -1564,6 +1648,18 @@ async fn get_host_metrics(
     let network_tx_bytes_per_sec = telemetry.networks.iter()
         .map(|n| n.tx_rate)
         .sum::<u64>();
+    
+    // Log telemetry for debugging (only at debug level to avoid spam)
+    tracing::debug!(
+        cpu_usage = cpu_usage,
+        memory_total = memory_total,
+        memory_used = memory_used,
+        disk_read = disk_read_bytes_per_sec,
+        disk_write = disk_write_bytes_per_sec,
+        net_rx = network_rx_bytes_per_sec,
+        net_tx = network_tx_bytes_per_sec,
+        "Host Metrics Telemetry"
+    );
     
     Ok(Json(HostMetricsResponse {
         timestamp: chrono::Utc::now().to_rfc3339(),
@@ -1586,24 +1682,37 @@ async fn get_host_metrics(
 /// GET /api/v1/events - List events
 async fn list_events(
     State(_state): State<Arc<AppState>>,
+    Query(params): Query<EventQueryParams>,
 ) -> Result<Json<EventListResponse>, (StatusCode, Json<ApiError>)> {
-    // For now, return a placeholder list of events
-    // In a real implementation, this would query an event store
-    let events = vec![
+    use crate::event_store::{get_event_store, EventLevel, EventCategory};
+    
+    let store = get_event_store();
+    
+    // Parse optional filters
+    let level = params.level.as_ref().map(|l| EventLevel::from(l.as_str()));
+    let category = params.category.as_ref().map(|c| EventCategory::from(c.as_str()));
+    let limit = params.limit;
+    
+    // Query events with filters
+    let stored_events = store.query(level, category, limit);
+    let total_count = store.len();
+    
+    // Convert to response format
+    let events: Vec<EventResponse> = stored_events.into_iter().map(|e| {
         EventResponse {
-            event_id: uuid::Uuid::new_v4().to_string(),
-            timestamp: chrono::Utc::now().to_rfc3339(),
-            level: "info".to_string(),
-            category: "system".to_string(),
-            message: "Node daemon started".to_string(),
-            source: "qx-node".to_string(),
-            details: None,
-        },
-    ];
+            event_id: e.id,
+            timestamp: e.timestamp.to_rfc3339(),
+            level: e.level.to_string(),
+            category: e.category.to_string(),
+            message: e.message,
+            source: e.source,
+            details: e.details,
+        }
+    }).collect();
     
     Ok(Json(EventListResponse {
         events,
-        total_count: 1,
+        total_count: total_count as u32,
     }))
 }
 
@@ -1684,29 +1793,100 @@ async fn update_settings(
 async fn list_services(
     State(_state): State<Arc<AppState>>,
 ) -> Result<Json<ServiceListResponse>, (StatusCode, Json<ApiError>)> {
-    // Try to get service status using systemctl or rc-service
+    // Core services for Quantix-OS
     let services = vec![
         ServiceInfo {
             name: "qx-node".to_string(),
             status: "running".to_string(),
             enabled: true,
-            description: "Quantix Node Daemon".to_string(),
+            description: "Quantix Node Daemon - Host management service".to_string(),
         },
         ServiceInfo {
             name: "libvirtd".to_string(),
             status: get_service_status("libvirtd"),
             enabled: true,
-            description: "Libvirt Virtualization Daemon".to_string(),
+            description: "Libvirt Virtualization Daemon - VM management".to_string(),
         },
         ServiceInfo {
             name: "sshd".to_string(),
             status: get_service_status("sshd"),
             enabled: true,
-            description: "OpenSSH Server".to_string(),
+            description: "OpenSSH Server - Remote access".to_string(),
+        },
+        ServiceInfo {
+            name: "nfs-client".to_string(),
+            status: get_service_status("nfs-common").or_else(|| get_service_status("nfsclient")),
+            enabled: is_service_enabled("nfs-common"),
+            description: "NFS Client - Shared storage access".to_string(),
+        },
+        ServiceInfo {
+            name: "firewalld".to_string(),
+            status: get_service_status("firewalld").or_else(|| get_service_status("iptables")),
+            enabled: is_service_enabled("firewalld"),
+            description: "Firewall - Network security".to_string(),
+        },
+        ServiceInfo {
+            name: "chronyd".to_string(),
+            status: get_service_status("chronyd").or_else(|| get_service_status("ntpd")),
+            enabled: is_service_enabled("chronyd"),
+            description: "NTP Client - Time synchronization".to_string(),
+        },
+        ServiceInfo {
+            name: "snmpd".to_string(),
+            status: get_service_status("snmpd"),
+            enabled: is_service_enabled("snmpd"),
+            description: "SNMP Agent - Monitoring integration".to_string(),
+        },
+        ServiceInfo {
+            name: "ovs-vswitchd".to_string(),
+            status: get_service_status("openvswitch-switch").or_else(|| get_service_status("ovs-vswitchd")),
+            enabled: is_service_enabled("openvswitch-switch"),
+            description: "Open vSwitch - Software-defined networking".to_string(),
+        },
+        ServiceInfo {
+            name: "iscsid".to_string(),
+            status: get_service_status("iscsid"),
+            enabled: is_service_enabled("iscsid"),
+            description: "iSCSI Initiator - Block storage access".to_string(),
         },
     ];
     
     Ok(Json(ServiceListResponse { services }))
+}
+
+/// Helper trait extension for Option<String>
+trait OptionExt {
+    fn or_else<F: FnOnce() -> String>(self, f: F) -> String;
+}
+
+impl OptionExt for String {
+    fn or_else<F: FnOnce() -> String>(self, f: F) -> String {
+        if self == "unknown" { f() } else { self }
+    }
+}
+
+fn is_service_enabled(name: &str) -> bool {
+    use std::process::Command;
+    
+    // Try systemctl
+    if let Ok(output) = Command::new("systemctl")
+        .args(["is-enabled", name])
+        .output()
+    {
+        let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        return status == "enabled";
+    }
+    
+    // Try rc-update (Alpine/OpenRC)
+    if let Ok(output) = Command::new("rc-update")
+        .args(["show", "default"])
+        .output()
+    {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        return output_str.contains(name);
+    }
+    
+    false
 }
 
 fn get_service_status(name: &str) -> String {
@@ -2621,6 +2801,398 @@ async fn list_images(
                 Json(ApiError::new("list_images_failed", &e.message())),
             ))
         }
+    }
+}
+
+// ============================================================================
+// Local Storage Device Discovery
+// ============================================================================
+
+/// GET /api/v1/storage/local-devices - List available local block devices
+async fn list_local_devices(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<LocalDeviceListResponse>, (StatusCode, Json<ApiError>)> {
+    info!("Listing local storage devices");
+    
+    let mut devices = Vec::new();
+    
+    // Get disk info from telemetry for mounted filesystems
+    let telemetry = state.service.get_telemetry();
+    let mounted_devices: std::collections::HashSet<String> = telemetry.disks.iter()
+        .map(|d| d.device.clone())
+        .collect();
+    
+    // On Linux, read block devices from /sys/block
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(entries) = std::fs::read_dir("/sys/block") {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                
+                // Skip loop, ram, and dm devices
+                if name.starts_with("loop") || name.starts_with("ram") || name.starts_with("dm-") {
+                    continue;
+                }
+                
+                let device_path = format!("/dev/{}", name);
+                
+                // Read device size
+                let size_path = entry.path().join("size");
+                let size_bytes = std::fs::read_to_string(&size_path)
+                    .ok()
+                    .and_then(|s| s.trim().parse::<u64>().ok())
+                    .map(|sectors| sectors * 512)
+                    .unwrap_or(0);
+                
+                // Skip very small devices (< 1GB)
+                if size_bytes < 1_000_000_000 {
+                    continue;
+                }
+                
+                // Determine device type
+                let device_type = if name.starts_with("nvme") {
+                    "nvme"
+                } else if name.starts_with("sd") {
+                    // Check if it's SSD or HDD by reading rotational flag
+                    let rotational_path = entry.path().join("queue/rotational");
+                    let is_rotational = std::fs::read_to_string(&rotational_path)
+                        .ok()
+                        .and_then(|s| s.trim().parse::<u8>().ok())
+                        .unwrap_or(1) == 1;
+                    if is_rotational { "hdd" } else { "ssd" }
+                } else if name.starts_with("vd") {
+                    "virtio"
+                } else {
+                    "unknown"
+                }.to_string();
+                
+                // Read model name
+                let model_path = entry.path().join("device/model");
+                let model = std::fs::read_to_string(&model_path)
+                    .ok()
+                    .map(|s| s.trim().to_string());
+                
+                // Read serial number
+                let serial_path = entry.path().join("device/serial");
+                let serial = std::fs::read_to_string(&serial_path)
+                    .ok()
+                    .map(|s| s.trim().to_string());
+                
+                // Get partitions
+                let mut partitions = Vec::new();
+                let mut has_partitions = false;
+                
+                // List partition entries (e.g., nvme0n1p1, sda1)
+                for part_entry in std::fs::read_dir(&entry.path()).into_iter().flatten().flatten() {
+                    let part_name = part_entry.file_name().to_string_lossy().to_string();
+                    if part_name.starts_with(&name) && part_name != name {
+                        has_partitions = true;
+                        let part_device = format!("/dev/{}", part_name);
+                        
+                        // Read partition size
+                        let part_size_path = part_entry.path().join("size");
+                        let part_size = std::fs::read_to_string(&part_size_path)
+                            .ok()
+                            .and_then(|s| s.trim().parse::<u64>().ok())
+                            .map(|sectors| sectors * 512)
+                            .unwrap_or(0);
+                        
+                        // Find mount info from telemetry
+                        let mount_info = telemetry.disks.iter()
+                            .find(|d| d.device.contains(&part_name));
+                        
+                        let filesystem = mount_info.map(|d| d.filesystem.clone())
+                            .or_else(|| get_filesystem_type(&part_device));
+                        
+                        let mount_point = mount_info.map(|d| d.mount_point.clone());
+                        let used_bytes = mount_info.map(|d| d.used_bytes).unwrap_or(0);
+                        
+                        partitions.push(LocalPartitionInfo {
+                            device: part_device,
+                            filesystem,
+                            mount_point,
+                            size_bytes: part_size,
+                            used_bytes,
+                            label: None,
+                        });
+                    }
+                }
+                
+                // Check if device is in use
+                let in_use = has_partitions || mounted_devices.contains(&device_path);
+                
+                // Can only initialize if not in use
+                let can_initialize = !in_use;
+                
+                let display_name = model.clone()
+                    .unwrap_or_else(|| format!("{} {}", device_type.to_uppercase(), name));
+                
+                devices.push(LocalDeviceInfo {
+                    device: device_path,
+                    name: display_name,
+                    device_type,
+                    total_bytes: size_bytes,
+                    in_use,
+                    partitions,
+                    can_initialize,
+                    serial,
+                    model,
+                });
+            }
+        }
+    }
+    
+    // On non-Linux, return empty list (or could use other methods)
+    #[cfg(not(target_os = "linux"))]
+    {
+        warn!("Local device discovery not supported on this platform");
+    }
+    
+    // Sort by device path
+    devices.sort_by(|a: &LocalDeviceInfo, b: &LocalDeviceInfo| a.device.cmp(&b.device));
+    
+    info!(count = devices.len(), "Found local storage devices");
+    
+    Ok(Json(LocalDeviceListResponse { devices }))
+}
+
+/// Get filesystem type for a device using blkid
+#[cfg(target_os = "linux")]
+fn get_filesystem_type(device: &str) -> Option<String> {
+    std::process::Command::new("blkid")
+        .args(["-o", "value", "-s", "TYPE", device])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn get_filesystem_type(_device: &str) -> Option<String> {
+    None
+}
+
+/// POST /api/v1/storage/local-devices/:device/initialize - Initialize a device as a qDV
+async fn initialize_local_device(
+    State(state): State<Arc<AppState>>,
+    Path(device): Path<String>,
+    Json(request): Json<InitializeDeviceRequest>,
+) -> Result<Json<InitializeDeviceResponse>, (StatusCode, Json<ApiError>)> {
+    use crate::event_store::{emit_event, Event, EventLevel, EventCategory};
+    
+    // URL decode the device path (e.g., %2Fdev%2Fnvme0n1 -> /dev/nvme0n1)
+    let device_path = urlencoding::decode(&device)
+        .map(|s| s.to_string())
+        .unwrap_or(device);
+    
+    info!(
+        device = %device_path,
+        pool_name = %request.pool_name,
+        filesystem = ?request.filesystem,
+        "Initializing local device as qDV"
+    );
+    
+    // Safety check
+    if !request.confirm_wipe {
+        return Ok(Json(InitializeDeviceResponse {
+            success: false,
+            pool_id: None,
+            message: "Must confirm data wipe by setting confirmWipe to true".to_string(),
+        }));
+    }
+    
+    // Validate device exists
+    #[cfg(target_os = "linux")]
+    {
+        if !std::path::Path::new(&device_path).exists() {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("device_not_found", &format!("Device {} not found", device_path))),
+            ));
+        }
+    }
+    
+    // Check if device is in use (mounted)
+    let telemetry = state.service.get_telemetry();
+    let is_mounted = telemetry.disks.iter()
+        .any(|d| d.device.contains(&device_path) || device_path.contains(&d.device));
+    
+    if is_mounted {
+        return Ok(Json(InitializeDeviceResponse {
+            success: false,
+            pool_id: None,
+            message: "Device is currently mounted. Unmount all partitions first.".to_string(),
+        }));
+    }
+    
+    // Emit event
+    emit_event(Event::storage_event(
+        EventLevel::Info,
+        &device_path,
+        format!("Initializing device {} as storage pool '{}'", device_path, request.pool_name),
+    ));
+    
+    // Create filesystem and storage pool
+    #[cfg(target_os = "linux")]
+    {
+        let fs_type = request.filesystem.as_deref().unwrap_or("xfs");
+        
+        // Create partition table and single partition
+        let parted_result = tokio::process::Command::new("parted")
+            .args(["-s", &device_path, "mklabel", "gpt", "mkpart", "primary", fs_type, "0%", "100%"])
+            .output()
+            .await;
+        
+        if let Err(e) = parted_result {
+            error!(error = %e, "Failed to create partition");
+            emit_event(Event::storage_event(
+                EventLevel::Error,
+                &device_path,
+                format!("Failed to create partition on {}: {}", device_path, e),
+            ));
+            return Ok(Json(InitializeDeviceResponse {
+                success: false,
+                pool_id: None,
+                message: format!("Failed to create partition: {}", e),
+            }));
+        }
+        
+        // Wait for partition to appear
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        
+        // Determine partition device name
+        let partition_device = if device_path.contains("nvme") {
+            format!("{}p1", device_path)
+        } else {
+            format!("{}1", device_path)
+        };
+        
+        // Format the partition
+        let mkfs_cmd = match fs_type {
+            "ext4" => "mkfs.ext4",
+            "xfs" => "mkfs.xfs",
+            _ => "mkfs.xfs",
+        };
+        
+        let mkfs_result = tokio::process::Command::new(mkfs_cmd)
+            .args(["-f", &partition_device])
+            .output()
+            .await;
+        
+        if let Err(e) = mkfs_result {
+            error!(error = %e, "Failed to format partition");
+            emit_event(Event::storage_event(
+                EventLevel::Error,
+                &device_path,
+                format!("Failed to format {}: {}", partition_device, e),
+            ));
+            return Ok(Json(InitializeDeviceResponse {
+                success: false,
+                pool_id: None,
+                message: format!("Failed to format partition: {}", e),
+            }));
+        }
+        
+        // Create mount point
+        let mount_point = format!("/var/lib/limiquantix/storage/{}", request.pool_name);
+        if let Err(e) = std::fs::create_dir_all(&mount_point) {
+            error!(error = %e, "Failed to create mount point");
+            return Ok(Json(InitializeDeviceResponse {
+                success: false,
+                pool_id: None,
+                message: format!("Failed to create mount point: {}", e),
+            }));
+        }
+        
+        // Mount the filesystem
+        let mount_result = tokio::process::Command::new("mount")
+            .args([&partition_device, &mount_point])
+            .output()
+            .await;
+        
+        if let Err(e) = mount_result {
+            error!(error = %e, "Failed to mount filesystem");
+            return Ok(Json(InitializeDeviceResponse {
+                success: false,
+                pool_id: None,
+                message: format!("Failed to mount filesystem: {}", e),
+            }));
+        }
+        
+        // Add to fstab for persistence
+        let fstab_entry = format!("{} {} {} defaults 0 2\n", partition_device, mount_point, fs_type);
+        if let Err(e) = std::fs::OpenOptions::new()
+            .append(true)
+            .open("/etc/fstab")
+            .and_then(|mut f| std::io::Write::write_all(&mut f, fstab_entry.as_bytes()))
+        {
+            warn!(error = %e, "Failed to add fstab entry (mount will not persist across reboots)");
+        }
+        
+        // Create storage pool in limiquantix
+        let pool_id = format!("local-{}", uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("pool"));
+        
+        use tonic::Request;
+        use limiquantix_proto::{NodeDaemonService, InitStoragePoolRequest, StoragePoolType, PoolConfigProto, LocalDirConfigProto};
+        
+        let init_request = InitStoragePoolRequest {
+            pool_id: pool_id.clone(),
+            r#type: StoragePoolType::LocalDir as i32,
+            config: Some(PoolConfigProto {
+                local: Some(LocalDirConfigProto {
+                    path: mount_point.clone(),
+                }),
+                nfs: None,
+                ceph: None,
+                iscsi: None,
+            }),
+        };
+        
+        match state.service.init_storage_pool(Request::new(init_request)).await {
+            Ok(_) => {
+                emit_event(Event::storage_event(
+                    EventLevel::Info,
+                    &pool_id,
+                    format!("Storage pool '{}' created successfully from {}", request.pool_name, device_path),
+                ));
+                
+                info!(
+                    pool_id = %pool_id,
+                    device = %device_path,
+                    mount_point = %mount_point,
+                    "Local device initialized as qDV"
+                );
+                
+                Ok(Json(InitializeDeviceResponse {
+                    success: true,
+                    pool_id: Some(pool_id),
+                    message: format!("Device {} initialized as storage pool '{}'", device_path, request.pool_name),
+                }))
+            }
+            Err(e) => {
+                error!(error = %e, "Failed to create storage pool");
+                emit_event(Event::storage_event(
+                    EventLevel::Error,
+                    &device_path,
+                    format!("Failed to create storage pool: {}", e.message()),
+                ));
+                Ok(Json(InitializeDeviceResponse {
+                    success: false,
+                    pool_id: None,
+                    message: format!("Failed to create storage pool: {}", e.message()),
+                }))
+            }
+        }
+    }
+    
+    #[cfg(not(target_os = "linux"))]
+    {
+        Ok(Json(InitializeDeviceResponse {
+            success: false,
+            pool_id: None,
+            message: "Device initialization not supported on this platform".to_string(),
+        }))
     }
 }
 
@@ -3799,6 +4371,131 @@ pub fn validate_registration_token(token: &str) -> bool {
     }
 }
 
+/// Request from vDC to complete registration
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CompleteRegistrationRequest {
+    token: String,
+    control_plane_address: String,
+    node_id: String,
+    cluster_name: Option<String>,
+}
+
+/// Response after registration is completed
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CompleteRegistrationResponse {
+    success: bool,
+    message: String,
+    node_id: String,
+    hostname: String,
+}
+
+/// Complete registration (called by vDC after validating token)
+/// This endpoint is called by the vDC control plane to finalize adding this host to the cluster.
+async fn complete_registration(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<CompleteRegistrationRequest>,
+) -> Result<Json<CompleteRegistrationResponse>, (StatusCode, Json<ApiError>)> {
+    info!(
+        control_plane = %request.control_plane_address,
+        node_id = %request.node_id,
+        "Received registration completion from vDC"
+    );
+    
+    // Validate the token
+    if !validate_registration_token(&request.token) {
+        error!("Invalid or expired registration token provided");
+        crate::event_store::emit_event(crate::event_store::Event::new(
+            crate::event_store::EventLevel::Error,
+            crate::event_store::EventCategory::Cluster,
+            "Registration failed: Invalid or expired token".to_string(),
+            "registration",
+        ));
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(ApiError::new("invalid_token", "Invalid or expired registration token")),
+        ));
+    }
+    
+    // Write the cluster configuration to the config file
+    let config_path = std::path::Path::new("/etc/limiquantix/node.yaml");
+    let hostname = gethostname::gethostname().to_string_lossy().to_string();
+    
+    // Read existing config or create new one
+    let mut config_content = if config_path.exists() {
+        match tokio::fs::read_to_string(config_path).await {
+            Ok(content) => content,
+            Err(e) => {
+                error!(error = %e, "Failed to read config file");
+                String::new()
+            }
+        }
+    } else {
+        String::new()
+    };
+    
+    // Update or add control_plane section
+    // This is a simple approach - in production, use proper YAML parsing
+    if config_content.contains("control_plane:") {
+        // Update existing control_plane section
+        let updated = config_content
+            .lines()
+            .map(|line| {
+                if line.trim().starts_with("address:") && config_content.contains("control_plane:") {
+                    format!("  address: \"{}\"", request.control_plane_address)
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        config_content = updated;
+    } else {
+        // Add control_plane section
+        config_content.push_str(&format!(
+            "\ncontrol_plane:\n  address: \"{}\"\n  heartbeat_interval_secs: 30\n",
+            request.control_plane_address
+        ));
+    }
+    
+    // Try to write the config file
+    if let Err(e) = tokio::fs::write(config_path, &config_content).await {
+        warn!(error = %e, "Failed to write config file (may need restart with manual config)");
+        // Don't fail - the registration is still valid, just needs manual config
+    }
+    
+    // Clear the registration token (it's now used)
+    {
+        let mut storage = get_token_storage().lock().unwrap();
+        *storage = None;
+    }
+    
+    // Emit success event
+    crate::event_store::emit_event(crate::event_store::Event::new(
+        crate::event_store::EventLevel::Info,
+        crate::event_store::EventCategory::Cluster,
+        format!(
+            "Successfully registered with vDC cluster{}",
+            request.cluster_name.as_ref().map(|n| format!(" '{}'", n)).unwrap_or_default()
+        ),
+        "registration",
+    ));
+    
+    info!(
+        node_id = %request.node_id,
+        control_plane = %request.control_plane_address,
+        "Registration completed successfully"
+    );
+    
+    Ok(Json(CompleteRegistrationResponse {
+        success: true,
+        message: "Registration completed. The node will begin heartbeat communication with the control plane.".to_string(),
+        node_id: request.node_id,
+        hostname,
+    }))
+}
+
 /// Get full host discovery information for vDC to display resources
 async fn get_host_discovery(
     State(state): State<Arc<AppState>>,
@@ -3965,12 +4662,56 @@ async fn collect_system_logs(
     // Try to read from journald first (Linux)
     #[cfg(target_os = "linux")]
     {
+        // Build journalctl command with filters for relevant services
+        let mut args = vec![
+            "-o".to_string(), 
+            "json".to_string(),
+            "-n".to_string(), 
+            limit.to_string(),
+            "--no-pager".to_string(),
+            // Only show recent logs (last 24 hours by default)
+            "--since".to_string(),
+            "24 hours ago".to_string(),
+        ];
+        
+        // Filter by source/unit if specified
+        if let Some(src) = source {
+            // Map source names to journald unit patterns
+            let unit_pattern = match src {
+                "limiquantix-node" | "qx-node" => "_SYSTEMD_UNIT=limiquantix-node.service",
+                "libvirtd" => "_SYSTEMD_UNIT=libvirtd.service",
+                "qemu" => "SYSLOG_IDENTIFIER=qemu-system-x86_64",
+                "kernel" => "_TRANSPORT=kernel",
+                "network" => "SYSLOG_IDENTIFIER=NetworkManager",
+                "storage" => "_SYSTEMD_UNIT=iscsid.service",
+                _ => &format!("SYSLOG_IDENTIFIER={}", src),
+            };
+            args.push(unit_pattern.to_string());
+        }
+        
+        // Filter by priority/level
+        if let Some(lvl) = level {
+            let priority = match lvl.to_lowercase().as_str() {
+                "error" => "0..3",
+                "warn" | "warning" => "0..4",
+                "info" => "0..6",
+                "debug" => "0..7",
+                _ => "0..6",
+            };
+            args.push("-p".to_string());
+            args.push(priority.to_string());
+        }
+        
+        // Add since filter if provided
+        if let Some(since_ts) = since {
+            // Override the default since with user-provided value
+            args[5] = since_ts.to_string();
+        }
+        
+        debug!(args = ?args, "Running journalctl");
+        
         if let Ok(output) = tokio::process::Command::new("journalctl")
-            .args([
-                "-o", "json",
-                "-n", &limit.to_string(),
-                "--no-pager",
-            ])
+            .args(&args)
             .output()
             .await
         {
@@ -3978,28 +4719,77 @@ async fn collect_system_logs(
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 for line in stdout.lines() {
                     if let Ok(entry) = parse_journald_entry(line) {
-                        // Apply filters
-                        if let Some(lvl) = level {
-                            if entry.level.to_lowercase() != lvl.to_lowercase() {
-                                continue;
-                            }
-                        }
-                        if let Some(src) = source {
-                            if !entry.source.as_ref().map_or(false, |s| s.contains(src)) {
-                                continue;
-                            }
-                        }
+                        // Apply search filter
                         if let Some(q) = search {
                             let q_lower = q.to_lowercase();
                             if !entry.message.to_lowercase().contains(&q_lower) {
                                 continue;
                             }
                         }
-                        if let Some(since_ts) = since {
-                            if entry.timestamp < since_ts.to_string() {
-                                continue;
-                            }
+                        logs.push(entry);
+                        
+                        if logs.len() >= limit {
+                            break;
                         }
+                    }
+                }
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                warn!(stderr = %stderr, "journalctl failed");
+            }
+        }
+        
+        // Also try to read from log files if journald returned few results
+        if logs.len() < limit / 2 {
+            // Read from common log files
+            let log_files = [
+                "/var/log/limiquantix/node.log",
+                "/var/log/messages",
+                "/var/log/syslog",
+            ];
+            
+            for log_file in &log_files {
+                if let Ok(content) = tokio::fs::read_to_string(log_file).await {
+                    for line in content.lines().rev().take(limit - logs.len()) {
+                        if let Some(entry) = parse_syslog_line(line) {
+                            // Apply filters
+                            if let Some(lvl) = level {
+                                if entry.level.to_lowercase() != lvl.to_lowercase() {
+                                    continue;
+                                }
+                            }
+                            if let Some(src) = source {
+                                if !entry.source.as_ref().map_or(false, |s| s.contains(src)) {
+                                    continue;
+                                }
+                            }
+                            if let Some(q) = search {
+                                let q_lower = q.to_lowercase();
+                                if !entry.message.to_lowercase().contains(&q_lower) {
+                                    continue;
+                                }
+                            }
+                            logs.push(entry);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // If no logs from journald or not on Linux, try reading log files
+    #[cfg(not(target_os = "linux"))]
+    {
+        // Try to read from log files on non-Linux systems
+        let log_files = [
+            "/var/log/limiquantix/node.log",
+            "C:\\ProgramData\\limiquantix\\logs\\node.log",
+        ];
+        
+        for log_file in &log_files {
+            if let Ok(content) = tokio::fs::read_to_string(log_file).await {
+                for line in content.lines().rev().take(limit) {
+                    if let Some(entry) = parse_syslog_line(line) {
                         logs.push(entry);
                     }
                 }
@@ -4007,12 +4797,93 @@ async fn collect_system_logs(
         }
     }
     
-    // If no logs from journald or not on Linux, generate sample logs
+    // If still no logs, generate sample logs for development
     if logs.is_empty() {
         logs = generate_sample_logs(limit, level, source, search);
     }
     
     logs
+}
+
+/// Parse a syslog-format log line
+fn parse_syslog_line(line: &str) -> Option<LogEntry> {
+    // Common syslog format: "Jan  9 10:30:45 hostname service[pid]: message"
+    // Or JSON format: {"timestamp": "...", "level": "...", "message": "..."}
+    
+    // Try JSON first
+    if line.starts_with('{') {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+            let timestamp = v.get("timestamp")
+                .or_else(|| v.get("ts"))
+                .and_then(|t| t.as_str())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+            
+            let level = v.get("level")
+                .or_else(|| v.get("lvl"))
+                .and_then(|l| l.as_str())
+                .unwrap_or("info")
+                .to_string();
+            
+            let message = v.get("message")
+                .or_else(|| v.get("msg"))
+                .and_then(|m| m.as_str())
+                .unwrap_or("")
+                .to_string();
+            
+            let source = v.get("source")
+                .or_else(|| v.get("logger"))
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string());
+            
+            return Some(LogEntry {
+                timestamp,
+                level,
+                message,
+                source,
+                fields: None,
+                stack_trace: None,
+                request_id: None,
+                vm_id: None,
+                node_id: None,
+                duration_ms: None,
+            });
+        }
+    }
+    
+    // Try syslog format
+    // Very basic parsing - just extract the message after the first ]: or :
+    let parts: Vec<&str> = line.splitn(4, ' ').collect();
+    if parts.len() >= 4 {
+        let message = parts[3..].join(" ");
+        let source = parts.get(2).map(|s| s.trim_end_matches(':').to_string());
+        
+        // Determine level from message content
+        let level = if message.to_lowercase().contains("error") || message.to_lowercase().contains("fail") {
+            "error"
+        } else if message.to_lowercase().contains("warn") {
+            "warn"
+        } else if message.to_lowercase().contains("debug") {
+            "debug"
+        } else {
+            "info"
+        }.to_string();
+        
+        return Some(LogEntry {
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            level,
+            message,
+            source,
+            fields: None,
+            stack_trace: None,
+            request_id: None,
+            vm_id: None,
+            node_id: None,
+            duration_ms: None,
+        });
+    }
+    
+    None
 }
 
 /// Parse a journald JSON entry

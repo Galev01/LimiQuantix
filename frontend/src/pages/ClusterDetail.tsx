@@ -53,13 +53,15 @@ const statusConfig = {
   MAINTENANCE: { color: 'info', icon: Settings, label: 'Maintenance' },
 } as const;
 
-const nodePhaseConfig: Record<string, { color: string; label: string }> = {
+const nodePhaseConfig: Record<string, { color: string; label: string; icon?: typeof XCircle }> = {
   READY: { color: 'success', label: 'Ready' },
   NODE_PHASE_READY: { color: 'success', label: 'Ready' },
   NOT_READY: { color: 'error', label: 'Not Ready' },
   MAINTENANCE: { color: 'info', label: 'Maintenance' },
   DRAINING: { color: 'warning', label: 'Draining' },
   PENDING: { color: 'warning', label: 'Pending' },
+  DISCONNECTED: { color: 'error', label: 'Disconnected', icon: XCircle },
+  ERROR: { color: 'error', label: 'Error' },
 };
 
 type TabId = 'overview' | 'hosts' | 'vms' | 'settings';
@@ -213,7 +215,7 @@ export function ClusterDetail() {
             <Settings className="w-4 h-4" />
             Settings
           </Button>
-          <Button variant="error" onClick={handleDeleteCluster}>
+          <Button variant="danger" onClick={handleDeleteCluster}>
             <Trash2 className="w-4 h-4" />
             Delete
           </Button>
@@ -409,30 +411,61 @@ export function ClusterDetail() {
                       const cpuCores = host.spec?.cpu?.sockets * host.spec?.cpu?.coresPerSocket || 0;
                       const memoryGiB = Math.round((host.spec?.memory?.totalMib || 0) / 1024);
                       const vmCount = host.status?.vmIds?.length || 0;
+                      const isDisconnected = phase === 'DISCONNECTED';
+                      const lastHeartbeat = host.lastHeartbeat ? new Date(host.lastHeartbeat) : null;
 
                       return (
                         <tr
                           key={host.id}
-                          className="border-b border-border last:border-0 hover:bg-bg-hover transition-colors"
+                          className={cn(
+                            "border-b border-border last:border-0 hover:bg-bg-hover transition-colors",
+                            isDisconnected && "bg-error/5"
+                          )}
                         >
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                                <Server className="w-4 h-4 text-accent" />
+                              <div className={cn(
+                                "relative w-8 h-8 rounded-lg flex items-center justify-center",
+                                isDisconnected ? "bg-error/10" : "bg-accent/10"
+                              )}>
+                                <Server className={cn(
+                                  "w-4 h-4",
+                                  isDisconnected ? "text-error" : "text-accent"
+                                )} />
+                                {isDisconnected && (
+                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-error rounded-full flex items-center justify-center">
+                                    <X className="w-3 h-3 text-white" />
+                                  </div>
+                                )}
                               </div>
                               <div>
                                 <Link
                                   to={`/hosts/${host.id}`}
-                                  className="font-medium text-text-primary hover:text-accent transition-colors"
+                                  className={cn(
+                                    "font-medium hover:text-accent transition-colors",
+                                    isDisconnected ? "text-error" : "text-text-primary"
+                                  )}
                                 >
                                   {host.hostname || host.id}
                                 </Link>
                                 <p className="text-xs text-text-muted">{host.managementIp}</p>
+                                {isDisconnected && lastHeartbeat && (
+                                  <p className="text-xs text-error mt-0.5">
+                                    Last seen: {lastHeartbeat.toLocaleString()}
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </td>
                           <td className="py-3 px-4">
-                            <Badge variant={phaseConfig.color as any}>{phaseConfig.label}</Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={phaseConfig.color as any}>{phaseConfig.label}</Badge>
+                              {isDisconnected && vmCount > 0 && (
+                                <span className="text-xs text-error font-medium">
+                                  {vmCount} VM{vmCount !== 1 ? 's' : ''} affected
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-4">
                             <span className="text-sm text-text-secondary">{cpuCores} cores</span>

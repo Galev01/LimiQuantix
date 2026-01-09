@@ -125,3 +125,60 @@ export async function listImages(): Promise<ImageInfo[]> {
   const response = await get<{ images: ImageInfo[] }>('/storage/images');
   return response.images || [];
 }
+
+// ============================================================================
+// Local Devices (Physical Disk Discovery)
+// ============================================================================
+
+export interface LocalPartitionInfo {
+  device: string;
+  filesystem?: string;
+  mountPoint?: string;
+  sizeBytes: number;
+  usedBytes: number;
+  label?: string;
+}
+
+export interface LocalDeviceInfo {
+  device: string;
+  name: string;
+  deviceType: string;
+  totalBytes: number;
+  inUse: boolean;
+  partitions: LocalPartitionInfo[];
+  canInitialize: boolean;
+  serial?: string;
+  model?: string;
+}
+
+/**
+ * List local block devices available for storage
+ */
+export async function listLocalDevices(): Promise<LocalDeviceInfo[]> {
+  const response = await get<{ devices: LocalDeviceInfo[] }>('/storage/local-devices');
+  return response.devices || [];
+}
+
+/**
+ * Initialize a local device as a qDV storage pool
+ */
+export interface InitializeDeviceRequest {
+  poolName: string;
+  filesystem?: string;
+  confirmWipe: boolean;
+}
+
+export interface InitializeDeviceResponse {
+  success: boolean;
+  poolId?: string;
+  message: string;
+}
+
+export async function initializeLocalDevice(
+  device: string,
+  request: InitializeDeviceRequest
+): Promise<InitializeDeviceResponse> {
+  // URL encode the device path
+  const encodedDevice = encodeURIComponent(device);
+  return post<InitializeDeviceResponse>(`/storage/local-devices/${encodedDevice}/initialize`, request);
+}

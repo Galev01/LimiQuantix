@@ -469,13 +469,13 @@ function CreateClusterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                               {node.spec?.cpu && (
                                 <span className="flex items-center gap-1">
                                   <Cpu className="w-3 h-3" />
-                                  {node.spec.cpu.sockets * node.spec.cpu.coresPerSocket} cores
+                                  {(node.spec.cpu.sockets ?? 0) * (node.spec.cpu.coresPerSocket ?? 0)} cores
                                 </span>
                               )}
                               {node.spec?.memory && (
                                 <span className="flex items-center gap-1">
                                   <MemoryStick className="w-3 h-3" />
-                                  {Math.round((node.spec.memory.totalMib || 0) / 1024)} GB
+                                  {Math.round((node.spec.memory.totalBytes || 0) / 1024 / 1024 / 1024)} GB
                                 </span>
                               )}
                             </div>
