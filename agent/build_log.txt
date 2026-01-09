@@ -1,0 +1,9 @@
+    Checking limiquantix-hypervisor v0.1.0 (C:\Users\GalLe\Cursor projects\Quantix-KVM\LimiQuantix\agent\limiquantix-hypervisor)
+error[E0063]: missing field `disks` in initializer of `types::VmStatus`
+   --> limiquantix-hypervisor\src\mock.rs:256:12
+    |
+256 |         Ok(VmStatus {
+    |            ^^^^^^^^ missing `disks`
+
+For more information about this error, try `rustc --explain E0063`.
+error: could not compile `limiquantix-hypervisor` (lib) due to 1 previous error

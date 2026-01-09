@@ -152,6 +152,7 @@ enum Screen {
     Power,
     Auth,
     FactoryReset,
+    Shell,
 }
 
 impl App {
@@ -217,6 +218,7 @@ impl App {
 
     fn menu_items(&self) -> Vec<(&str, &str)> {
         vec![
+            ("Open Local Shell", "F1"),
             ("Configure Management Network", "F2"),
             ("Configure SSH Access", "F3"),
             ("Generate Registration Token", "F4"),
@@ -294,6 +296,17 @@ fn run_app<B: ratatui::backend::Backend>(
     terminal.draw(|f| ui(f, app))?;
 
     loop {
+        // Check if we need to drop to shell
+        if app.screen == Screen::Shell {
+            // Drop to shell - temporarily restore terminal
+            drop_to_shell(terminal)?;
+            app.screen = Screen::Main;
+            app.success_message = Some("Returned from shell".to_string());
+            // Redraw immediately after returning
+            terminal.draw(|f| ui(f, app))?;
+            continue;
+        }
+        
         // Use poll with timeout to check SSH timer periodically
         // Poll every 5 seconds to check if SSH timer expired
         if event::poll(Duration::from_secs(5))? {
@@ -347,15 +360,16 @@ fn handle_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) {
             KeyCode::Enter => {
                 handle_menu_action(app, app.selected_menu);
             }
-            KeyCode::F(2) => handle_menu_action(app, 0),  // Network
-            KeyCode::F(3) => handle_menu_action(app, 1),  // SSH Config
-            KeyCode::F(4) => handle_menu_action(app, 2),  // Cluster
-            KeyCode::F(5) => handle_menu_action(app, 3),  // Refresh
-            KeyCode::F(6) => handle_menu_action(app, 4),  // Restart Services
-            KeyCode::F(7) => handle_menu_action(app, 5),  // Logs
-            KeyCode::F(9) => handle_menu_action(app, 6),  // Factory Reset
-            KeyCode::F(10) => handle_menu_action(app, 7), // Shutdown
-            KeyCode::F(12) => handle_menu_action(app, 8), // Exit to Web
+            KeyCode::F(1) => handle_menu_action(app, 0),  // Local Shell
+            KeyCode::F(2) => handle_menu_action(app, 1),  // Network
+            KeyCode::F(3) => handle_menu_action(app, 2),  // SSH Config
+            KeyCode::F(4) => handle_menu_action(app, 3),  // Cluster
+            KeyCode::F(5) => handle_menu_action(app, 4),  // Refresh
+            KeyCode::F(6) => handle_menu_action(app, 5),  // Restart Services
+            KeyCode::F(7) => handle_menu_action(app, 6),  // Logs
+            KeyCode::F(9) => handle_menu_action(app, 7),  // Factory Reset
+            KeyCode::F(10) => handle_menu_action(app, 8), // Shutdown
+            KeyCode::F(12) => handle_menu_action(app, 9), // Exit to Web
             _ => {}
         },
         Screen::Network => match key {
@@ -438,38 +452,43 @@ fn handle_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) {
 
 fn handle_menu_action(app: &mut App, index: usize) {
     match index {
-        0 => app.screen = Screen::Network,
-        1 => {
+        0 => {
+            // Open local shell - special handling needed
+            // Set a flag that will be handled in the main loop
+            app.screen = Screen::Shell;
+        }
+        1 => app.screen = Screen::Network,
+        2 => {
             // Go to SSH configuration screen
             app.input_field_index = 0;
             app.ssh_config.enabled = is_ssh_enabled();
             app.screen = Screen::Ssh;
         }
-        2 => {
+        3 => {
             // Go to Cluster configuration screen
             app.input_field_index = 0;
             app.cluster_config.status = get_cluster_status();
             app.screen = Screen::Cluster;
         }
-        3 => {
+        4 => {
             // Refresh display
             app.set_status("Refreshing system information...");
             app.refresh();
             app.success_message = Some("Display refreshed".to_string());
         }
-        4 => {
+        5 => {
             // Restart management services
             app.set_status("⏳ Restarting management services...");
             restart_management_services();
             app.success_message = Some("Management services restarting...".to_string());
         }
-        5 => app.screen = Screen::Diagnostics,
-        6 => {
+        6 => app.screen = Screen::Diagnostics,
+        7 => {
             // Go to Factory Reset confirmation screen
             app.screen = Screen::FactoryReset;
         }
-        7 => app.screen = Screen::Power,
-        8 => {
+        8 => app.screen = Screen::Power,
+        9 => {
             // Exit to web console (quit TUI so launcher can restart web kiosk)
             app.should_quit = true;
         }
@@ -487,6 +506,57 @@ fn restart_management_services() {
         .stderr(Stdio::null())
         .stdin(Stdio::null())
         .spawn();
+}
+
+/// Drop to an interactive shell, temporarily suspending the TUI
+fn drop_to_shell<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>) -> Result<()> {
+    // Leave alternate screen and disable raw mode to give shell a normal terminal
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
+    
+    // Clear screen and print banner
+    print!("\x1B[2J\x1B[H"); // Clear screen and move cursor to top-left
+    println!("\x1B[1;36m╔══════════════════════════════════════════════════════════════════╗\x1B[0m");
+    println!("\x1B[1;36m║\x1B[0m  \x1B[1;33mQuantix-OS Local Shell\x1B[0m                                         \x1B[1;36m║\x1B[0m");
+    println!("\x1B[1;36m║\x1B[0m                                                                    \x1B[1;36m║\x1B[0m");
+    println!("\x1B[1;36m║\x1B[0m  You are now in a local shell session.                           \x1B[1;36m║\x1B[0m");
+    println!("\x1B[1;36m║\x1B[0m  Type '\x1B[1;32mexit\x1B[0m' to return to the console TUI.                        \x1B[1;36m║\x1B[0m");
+    println!("\x1B[1;36m╚══════════════════════════════════════════════════════════════════╝\x1B[0m");
+    println!();
+    
+    // Spawn the shell and wait for it to exit
+    // Try /bin/ash first (Alpine's default), then /bin/sh
+    let shell = if std::path::Path::new("/bin/ash").exists() {
+        "/bin/ash"
+    } else {
+        "/bin/sh"
+    };
+    
+    let mut child = std::process::Command::new(shell)
+        .stdin(std::process::Stdio::inherit())
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .spawn()?;
+    
+    // Wait for the shell to exit
+    let _ = child.wait();
+    
+    // Restore terminal state for TUI
+    enable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        EnterAlternateScreen,
+        EnableMouseCapture
+    )?;
+    terminal.hide_cursor()?;
+    terminal.clear()?;
+    
+    Ok(())
 }
 
 fn handle_static_ip_input(app: &mut App, key: KeyCode) {

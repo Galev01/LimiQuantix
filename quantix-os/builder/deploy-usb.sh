@@ -491,18 +491,18 @@ unmount_device() {
     local unmounted=0
     
     if [ -n "$partitions" ]; then
-        for part in $partitions; do
-            local part_dev="/dev/$part"
+    for part in $partitions; do
+        local part_dev="/dev/$part"
             log_info "Checking $part_dev..."
             
             # Check if mounted via /proc/mounts (faster than mount command)
             if grep -q "^$part_dev " /proc/mounts 2>/dev/null; then
-                log_info "Unmounting $part_dev..."
+            log_info "Unmounting $part_dev..."
                 # Try normal unmount first, then lazy unmount as fallback
                 umount "$part_dev" 2>/dev/null || umount -f "$part_dev" 2>/dev/null || umount -l "$part_dev" 2>/dev/null || true
-                unmounted=$((unmounted + 1))
-            fi
-        done
+            unmounted=$((unmounted + 1))
+        fi
+    done
     fi
     
     # Also try to unmount the main device (in case it's mounted directly)
@@ -516,10 +516,10 @@ unmount_device() {
     # Use timeout to prevent hanging on D-Bus issues
     if command -v udisksctl &> /dev/null && command -v timeout &> /dev/null; then
         if [ -n "$partitions" ]; then
-            for part in $partitions; do
+        for part in $partitions; do
                 log_debug "Trying udisksctl unmount for /dev/$part..."
                 timeout 3 udisksctl unmount -b "/dev/$part" 2>/dev/null || true
-            done
+        done
         fi
         # Don't power off - we need the device!
     fi

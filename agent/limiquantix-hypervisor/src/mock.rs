@@ -260,6 +260,7 @@ impl Hypervisor for MockBackend {
             cpu_time_ns: vm.cpu_time_ns,
             memory_rss_bytes: vm.memory_rss_bytes,
             memory_max_bytes: vm.config.memory.size_mib * 1024 * 1024,
+            disks: vm.config.disks.clone(),
         })
     }
     
