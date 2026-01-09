@@ -42,17 +42,18 @@ PROJECT_ROOT := $(shell cd .. && pwd)
 
 all: iso
 
-# Build complete installation ISO
-iso: rootfs scripts-executable
-	@echo "🔨 Building installation ISO..."
+# Build complete installation ISO (runs rootfs + iso in single container to avoid sync issues)
+iso: docker-builder backend frontend scripts-executable
+	@echo "🔨 Building installation ISO (combined build)..."
 	@mkdir -p $(OUTPUT_DIR)
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
 		-v "$(OUTPUT_DIR):/output" \
 		-w /work \
 		$(BUILDER_IMAGE) \
-		/bin/bash ./builder/build-iso.sh $(VERSION)
+		/bin/bash -c "./builder/build-rootfs.sh $(VERSION) && ./builder/build-iso.sh $(VERSION)"
 	@echo "✅ ISO built: $(OUTPUT_DIR)/$(ISO_NAME)"
+
 
 # Build OVA virtual appliance
 ova: rootfs scripts-executable

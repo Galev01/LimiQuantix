@@ -31,10 +31,23 @@ SQUASHFS="${OUTPUT_DIR}/system-${VERSION}.squashfs"
 if [ ! -f "$SQUASHFS" ]; then
     echo "❌ Squashfs not found: ${SQUASHFS}"
     echo "   Run 'make rootfs' first"
+    echo ""
+    echo "   Contents of ${OUTPUT_DIR}:"
+    ls -la "${OUTPUT_DIR}/" || echo "   (cannot list directory)"
     exit 1
 fi
 
-echo "✅ Files verified"
+# Verify squashfs is not empty/corrupted
+SQUASH_SIZE=$(stat -c%s "$SQUASHFS" 2>/dev/null || echo "0")
+if [ "$SQUASH_SIZE" -lt 1000000 ]; then
+    echo "❌ Squashfs file is too small (${SQUASH_SIZE} bytes)"
+    echo "   Expected at least 600MB. File may be corrupted."
+    echo "   Please run 'make clean && make rootfs' to rebuild."
+    ls -la "$SQUASHFS"
+    exit 1
+fi
+
+echo "✅ Files verified (squashfs: $(du -h "$SQUASHFS" | cut -f1))"
 
 # -----------------------------------------------------------------------------
 # Step 2: Create ISO structure
@@ -51,8 +64,19 @@ echo "✅ ISO structure created"
 # -----------------------------------------------------------------------------
 echo "📦 Step 3: Copying boot files..."
 
-# Copy squashfs
-cp "$SQUASHFS" "${ISO_DIR}/quantix-vdc/system.squashfs"
+# Copy squashfs with verification
+echo "   Copying squashfs ($(du -h "$SQUASHFS" | cut -f1))..."
+cp -v "$SQUASHFS" "${ISO_DIR}/quantix-vdc/system.squashfs"
+
+# Verify the copy
+COPIED_SIZE=$(stat -c%s "${ISO_DIR}/quantix-vdc/system.squashfs" 2>/dev/null || echo "0")
+if [ "$COPIED_SIZE" != "$SQUASH_SIZE" ]; then
+    echo "❌ Squashfs copy verification failed!"
+    echo "   Source: ${SQUASH_SIZE} bytes"
+    echo "   Copied: ${COPIED_SIZE} bytes"
+    exit 1
+fi
+echo "   ✅ Squashfs copied and verified"
 
 # Extract kernel from squashfs
 echo "   Extracting kernel from squashfs..."
