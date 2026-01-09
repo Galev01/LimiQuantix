@@ -26,7 +26,7 @@ use limiquantix_proto::{
     NodeInfoResponse, VmIdRequest, 
     // VM types - note: proto uses CreateVmOnNodeRequest/Response naming
     CreateVmOnNodeRequest, CreateVmOnNodeResponse,
-    StopVmRequest, VmStatusResponse, ListVMsOnNodeResponse, ConsoleInfoResponse,
+    StopVmRequest, VmStatusResponse, ListVMsOnNodeResponse, ConsoleInfoResponse, DiskSpec,
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
@@ -947,6 +947,27 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             memory_total_bytes: status.memory_max_bytes,
             started_at: None,
             guest_agent,
+            disks: status.disks.into_iter().map(|d| DiskSpec {
+                id: d.id,
+                path: d.path,
+                size_gib: d.size_gib,
+                bus: match d.bus {
+                    limiquantix_hypervisor::DiskBus::Virtio => limiquantix_proto::DiskBus::Virtio.into(),
+                    limiquantix_hypervisor::DiskBus::Scsi => limiquantix_proto::DiskBus::Scsi.into(),
+                    limiquantix_hypervisor::DiskBus::Sata => limiquantix_proto::DiskBus::Sata.into(),
+                    limiquantix_hypervisor::DiskBus::Ide => limiquantix_proto::DiskBus::Ide.into(),
+                },
+                format: match d.format {
+                    limiquantix_hypervisor::DiskFormat::Qcow2 => limiquantix_proto::DiskFormat::Qcow2.into(),
+                    limiquantix_hypervisor::DiskFormat::Raw => limiquantix_proto::DiskFormat::Raw.into(),
+                    limiquantix_hypervisor::DiskFormat::Vmdk => limiquantix_proto::DiskFormat::Qcow2.into(),
+                },
+                readonly: d.readonly,
+                bootable: d.bootable,
+                iops_limit: 0,
+                throughput_mbps: 0,
+                backing_file: d.backing_file.unwrap_or_default(),
+            }).collect(),
         }))
     }
     
@@ -968,6 +989,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 memory_total_bytes: 0,
                 started_at: None,
                 guest_agent: None,
+                disks: vec![],
             }
         }).collect();
         

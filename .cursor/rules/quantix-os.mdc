@@ -229,6 +229,87 @@ server:
 
 ---
 
+## ⚠️ CRITICAL: Proto File Architecture
+
+### Two Separate Proto File Locations
+
+The project has **TWO DIFFERENT** proto file locations that serve different purposes:
+
+| Location | Purpose | Used By |
+|----------|---------|---------|
+| `proto/limiquantix/` | Control Plane API definitions | Backend (Go), Frontend |
+| `agent/limiquantix-proto/proto/` | Node Daemon API definitions | Node Daemon (Rust) |
+
+### Why This Matters
+
+**The Docker build regenerates proto files from `agent/limiquantix-proto/proto/`**, NOT from `proto/limiquantix/`. This means:
+
+1. **Local generated code** in `agent/limiquantix-proto/src/generated/` may be **stale**
+2. **Docker build** regenerates fresh code from the agent's proto files
+3. **Compilation errors** will occur if Rust code doesn't match the agent's proto definitions
+
+### Common Pitfall
+
+If you see errors like:
+```
+error[E0063]: missing field `disks` in initializer of `VmStatusResponse`
+```
+
+**DO NOT** look at `proto/limiquantix/node/v1/node_daemon.proto` - it may have a different structure!
+
+**ALWAYS** check `agent/limiquantix-proto/proto/node_daemon.proto` for the actual definitions used by the Node Daemon.
+
+### Proto File Comparison Example
+
+The same message can have **different fields** in each location:
+
+**`proto/limiquantix/node/v1/node_daemon.proto`** (Control Plane):
+```protobuf
+message VMStatusResponse {
+  string vm_id = 1;
+  string name = 2;
+  PowerState state = 3;
+  ResourceUsage resource_usage = 4;  // Nested message
+  google.protobuf.Timestamp started_at = 5;
+}
+```
+
+**`agent/limiquantix-proto/proto/node_daemon.proto`** (Node Daemon):
+```protobuf
+message VMStatusResponse {
+  string vm_id = 1;
+  string name = 2;
+  PowerState state = 3;
+  double cpu_usage_percent = 4;      // Flat fields
+  uint64 memory_used_bytes = 5;
+  uint64 memory_total_bytes = 6;
+  google.protobuf.Timestamp started_at = 7;
+  GuestAgentInfo guest_agent = 8;
+  repeated DiskSpec disks = 9;       // Has disks field!
+}
+```
+
+### Rules for Proto Changes
+
+1. **Node Daemon changes**: Edit `agent/limiquantix-proto/proto/*.proto`
+2. **Control Plane changes**: Edit `proto/limiquantix/**/*.proto`
+3. **After editing agent protos**: Delete `agent/limiquantix-proto/src/generated/*.rs` and rebuild
+4. **Sync if needed**: If both need the same structure, update BOTH locations
+
+### Enum Naming Convention
+
+Prost converts proto enum values to Rust PascalCase by stripping the common prefix:
+
+| Proto Definition | Rust Enum Variant |
+|-----------------|-------------------|
+| `DISK_BUS_VIRTIO` | `DiskBus::Virtio` |
+| `DISK_FORMAT_QCOW2` | `DiskFormat::Qcow2` |
+| `NIC_MODEL_E1000` | `NicModel::E1000` |
+
+**NOT** `DiskBus::DiskBusVirtio` - the prefix is stripped!
+
+---
+
 ## OpenRC Service Rules
 
 ### Services Enabled at Boot

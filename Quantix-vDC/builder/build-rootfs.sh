@@ -261,9 +261,25 @@ echo "✅ Cleanup complete"
 # -----------------------------------------------------------------------------
 # Step 9: Create squashfs
 # -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Step 9: Create squashfs
+# -----------------------------------------------------------------------------
 echo "📦 Step 9: Creating squashfs..."
 
-mkdir -p "${OUTPUT_DIR}"
+# Verify output directory
+if [ ! -d "${OUTPUT_DIR}" ]; then
+    echo "⚠️  Output directory ${OUTPUT_DIR} does not exist, creating..."
+    mkdir -p "${OUTPUT_DIR}"
+fi
+
+# Debug: Check write permissions
+touch "${OUTPUT_DIR}/.write_test" || { echo "❌ Cannot write to ${OUTPUT_DIR}"; exit 1; }
+rm "${OUTPUT_DIR}/.write_test"
+
+# Enable pipefail to catch du errors
+set -o pipefail
+
+echo "   Writing to: ${OUTPUT_DIR}/${SQUASHFS_NAME}"
 
 mksquashfs "${ROOTFS_DIR}" "${OUTPUT_DIR}/${SQUASHFS_NAME}" \
     -comp xz \
@@ -272,8 +288,20 @@ mksquashfs "${ROOTFS_DIR}" "${OUTPUT_DIR}/${SQUASHFS_NAME}" \
     -no-xattrs \
     -noappend
 
-# Calculate size
-SQUASHFS_SIZE=$(du -h "${OUTPUT_DIR}/${SQUASHFS_NAME}" | cut -f1)
+# Ensure disk sync
+sync
+
+# Debug: List output directory
+echo "   Checking output directory content:"
+ls -la "${OUTPUT_DIR}/"
+
+# Calculate size (with error checking)
+if [ -f "${OUTPUT_DIR}/${SQUASHFS_NAME}" ]; then
+    SQUASHFS_SIZE=$(du -h "${OUTPUT_DIR}/${SQUASHFS_NAME}" | cut -f1)
+else
+    echo "❌ ERROR: Squashfs file was NOT created!"
+    exit 1
+fi
 
 echo ""
 echo "╔═══════════════════════════════════════════════════════════════╗"
@@ -282,3 +310,4 @@ echo "╠═══════════════════════�
 echo "║  Output: ${OUTPUT_DIR}/${SQUASHFS_NAME}"
 echo "║  Size:   ${SQUASHFS_SIZE}"
 echo "╚═══════════════════════════════════════════════════════════════╝"
+
