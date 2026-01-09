@@ -2019,14 +2019,14 @@ async fn create_vm(
     // Convert disk specs
     let disks: Vec<DiskSpec> = request.disks.iter().map(|d| {
         let bus = match d.bus.as_deref() {
-            Some("scsi") => DiskBus::Scsi as i32,
-            Some("sata") => DiskBus::Sata as i32,
-            Some("ide") => DiskBus::Ide as i32,
-            _ => DiskBus::Virtio as i32,
+            Some("scsi") => DiskBus::Scsi.into(),
+            Some("sata") => DiskBus::Sata.into(),
+            Some("ide") => DiskBus::Ide.into(),
+            _ => DiskBus::Virtio.into(),
         };
         let format = match d.format.as_deref() {
-            Some("raw") => DiskFormat::Raw as i32,
-            _ => DiskFormat::Qcow2 as i32,
+            Some("raw") => DiskFormat::Raw.into(),
+            _ => DiskFormat::Qcow2.into(),
         };
         DiskSpec {
             id: d.id.clone(),
@@ -2045,9 +2045,9 @@ async fn create_vm(
     // Convert NIC specs
     let nics: Vec<NicSpec> = request.nics.iter().map(|n| {
         let model = match n.model.as_deref() {
-            Some("e1000") => NicModel::E1000 as i32,
-            Some("rtl8139") => NicModel::Rtl8139 as i32,
-            _ => NicModel::Virtio as i32,
+            Some("e1000") => NicModel::E1000.into(),
+            Some("rtl8139") => NicModel::Rtl8139.into(),
+            _ => NicModel::Virtio.into(),
         };
         NicSpec {
             id: n.id.clone(),

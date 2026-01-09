@@ -947,27 +947,6 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             memory_total_bytes: status.memory_max_bytes,
             started_at: None,
             guest_agent,
-            disks: status.disks.into_iter().map(|d| limiquantix_proto::DiskSpec {
-                id: d.id,
-                path: d.path,
-                size_gib: d.size_gib,
-                bus: match d.bus {
-                    limiquantix_hypervisor::DiskBus::Virtio => limiquantix_proto::DiskBus::DiskBusVirtio as i32,
-                    limiquantix_hypervisor::DiskBus::Scsi => limiquantix_proto::DiskBus::DiskBusScsi as i32,
-                    limiquantix_hypervisor::DiskBus::Sata => limiquantix_proto::DiskBus::DiskBusSata as i32,
-                    limiquantix_hypervisor::DiskBus::Ide => limiquantix_proto::DiskBus::DiskBusIde as i32,
-                },
-                format: match d.format {
-                    limiquantix_hypervisor::DiskFormat::Qcow2 => limiquantix_proto::DiskFormat::DiskFormatQcow2 as i32,
-                    limiquantix_hypervisor::DiskFormat::Raw => limiquantix_proto::DiskFormat::DiskFormatRaw as i32,
-                    limiquantix_hypervisor::DiskFormat::Vmdk => limiquantix_proto::DiskFormat::DiskFormatQcow2 as i32,
-                },
-                readonly: d.readonly,
-                bootable: d.bootable,
-                iops_limit: 0,
-                throughput_mbps: 0,
-                backing_file: d.backing_file.unwrap_or_default(),
-            }).collect(),
         }))
     }
     
