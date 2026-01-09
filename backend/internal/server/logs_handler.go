@@ -4,9 +4,9 @@ package server
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,6 +14,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // LogEntry represents a single log entry
@@ -41,12 +42,12 @@ type LogsResponse struct {
 type LogsHandler struct {
 	logger   *zap.Logger
 	upgrader websocket.Upgrader
-	
+
 	// In-memory log buffer for recent logs
 	logBuffer []LogEntry
 	bufferMu  sync.RWMutex
 	maxBuffer int
-	
+
 	// WebSocket clients for streaming
 	clients   map[*websocket.Conn]bool
 	clientsMu sync.RWMutex
@@ -65,10 +66,24 @@ func NewLogsHandler(logger *zap.Logger) *LogsHandler {
 		maxBuffer: 1000,
 		clients:   make(map[*websocket.Conn]bool),
 	}
-	
-	// Start background log collection
-	go h.collectLogs()
-	
+
+	// Add initial startup log
+	h.addLog(LogEntry{
+		Timestamp: time.Now().Format(time.RFC3339),
+		Level:     "info",
+		Source:    "controlplane",
+		Message:   "Log collection started",
+		Fields: map[string]interface{}{
+			"os":   runtime.GOOS,
+			"arch": runtime.GOARCH,
+		},
+	})
+
+	// Start background log collection (only on Linux)
+	if runtime.GOOS == "linux" {
+		go h.collectJournaldLogs()
+	}
+
 	return h
 }
 
@@ -235,6 +250,12 @@ func (h *LogsHandler) broadcastLog(log LogEntry) {
 	}
 }
 
+// AddLog adds a log entry to the buffer and broadcasts it.
+// This is exported so other parts of the application can log to this handler.
+func (h *LogsHandler) AddLog(log LogEntry) {
+	h.addLog(log)
+}
+
 // addLog adds a log entry to the buffer and broadcasts it
 func (h *LogsHandler) addLog(log LogEntry) {
 	h.bufferMu.Lock()
@@ -249,20 +270,18 @@ func (h *LogsHandler) addLog(log LogEntry) {
 	h.broadcastLog(log)
 }
 
-// collectLogs collects logs from the system
-func (h *LogsHandler) collectLogs() {
+// collectJournaldLogs collects logs from journald (Linux only)
+func (h *LogsHandler) collectJournaldLogs() {
 	// Try to read from journald on Linux
-	cmd := exec.Command("journalctl", "-f", "-o", "json", "-n", "0")
+	cmd := exec.Command("journalctl", "-f", "-o", "json", "-n", "100")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		h.logger.Warn("Failed to start journalctl, using sample logs", zap.Error(err))
-		h.generateSampleLogs()
+		h.logger.Warn("Failed to start journalctl", zap.Error(err))
 		return
 	}
 
 	if err := cmd.Start(); err != nil {
-		h.logger.Warn("Failed to start journalctl, using sample logs", zap.Error(err))
-		h.generateSampleLogs()
+		h.logger.Warn("Failed to start journalctl", zap.Error(err))
 		return
 	}
 
@@ -338,52 +357,91 @@ func (h *LogsHandler) parseJournaldEntry(line string) *LogEntry {
 	}
 }
 
-// generateSampleLogs generates sample logs for development/testing
-func (h *LogsHandler) generateSampleLogs() {
-	sampleLogs := []struct {
-		level   string
-		source  string
-		message string
-	}{
-		{"info", "controlplane", "Control plane server started on 0.0.0.0:8080"},
-		{"info", "api", "HTTP request: GET /healthz"},
-		{"debug", "scheduler", "Evaluating placement for new VM request"},
-		{"info", "vm-service", "VM 'test-vm' created successfully"},
-		{"warn", "node-service", "Node 'node-1' memory usage at 85%"},
-		{"info", "storage-service", "Storage pool 'default' initialized"},
-		{"debug", "grpc", "gRPC request: VMService.CreateVM"},
-		{"error", "network-service", "Failed to create virtual network: VLAN already exists"},
-		{"info", "scheduler", "VM scheduled to node 'node-2'"},
-		{"info", "api", "HTTP request: POST /api/vms"},
+// ZapLogHook is a zap core that forwards logs to the LogsHandler
+type ZapLogHook struct {
+	handler *LogsHandler
+	core    zapcore.Core
+}
+
+// NewZapLogHook creates a zap core that forwards logs to the LogsHandler
+func NewZapLogHook(handler *LogsHandler, core zapcore.Core) zapcore.Core {
+	return &ZapLogHook{
+		handler: handler,
+		core:    core,
+	}
+}
+
+func (h *ZapLogHook) Enabled(level zapcore.Level) bool {
+	return h.core.Enabled(level)
+}
+
+func (h *ZapLogHook) With(fields []zapcore.Field) zapcore.Core {
+	return &ZapLogHook{
+		handler: h.handler,
+		core:    h.core.With(fields),
+	}
+}
+
+func (h *ZapLogHook) Check(entry zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	if h.core.Enabled(entry.Level) {
+		return ce.AddCore(entry, h)
+	}
+	return ce
+}
+
+func (h *ZapLogHook) Write(entry zapcore.Entry, fields []zapcore.Field) error {
+	// Forward to the underlying core
+	if err := h.core.Write(entry, fields); err != nil {
+		return err
 	}
 
-	// Add initial sample logs
-	for i, sample := range sampleLogs {
-		h.addLog(LogEntry{
-			Timestamp: time.Now().Add(-time.Duration(len(sampleLogs)-i) * time.Minute).Format(time.RFC3339),
-			Level:     sample.level,
-			Source:    sample.source,
-			Message:   sample.message,
-			Fields: map[string]interface{}{
-				"request_id": fmt.Sprintf("req-%08x", time.Now().UnixNano()),
-			},
-		})
+	// Convert zap level to string
+	level := "info"
+	switch entry.Level {
+	case zapcore.DebugLevel:
+		level = "debug"
+	case zapcore.InfoLevel:
+		level = "info"
+	case zapcore.WarnLevel:
+		level = "warn"
+	case zapcore.ErrorLevel, zapcore.DPanicLevel, zapcore.PanicLevel, zapcore.FatalLevel:
+		level = "error"
 	}
 
-	// Generate new logs periodically
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		sample := sampleLogs[time.Now().Unix()%int64(len(sampleLogs))]
-		h.addLog(LogEntry{
-			Timestamp: time.Now().Format(time.RFC3339),
-			Level:     sample.level,
-			Source:    sample.source,
-			Message:   sample.message,
-			Fields: map[string]interface{}{
-				"request_id": fmt.Sprintf("req-%08x", time.Now().UnixNano()),
-			},
-		})
+	// Extract fields
+	fieldsMap := make(map[string]interface{})
+	for _, f := range fields {
+		switch f.Type {
+		case zapcore.StringType:
+			fieldsMap[f.Key] = f.String
+		case zapcore.Int64Type, zapcore.Int32Type, zapcore.Int16Type, zapcore.Int8Type:
+			fieldsMap[f.Key] = f.Integer
+		case zapcore.Float64Type:
+			fieldsMap[f.Key] = f.Integer // This is actually the float bits
+		case zapcore.BoolType:
+			fieldsMap[f.Key] = f.Integer == 1
+		case zapcore.DurationType:
+			fieldsMap[f.Key] = time.Duration(f.Integer).String()
+		default:
+			if f.Interface != nil {
+				fieldsMap[f.Key] = f.Interface
+			}
+		}
 	}
+
+	// Add to logs handler
+	h.handler.addLog(LogEntry{
+		Timestamp:  entry.Time.Format(time.RFC3339),
+		Level:      level,
+		Message:    entry.Message,
+		Source:     entry.LoggerName,
+		Fields:     fieldsMap,
+		StackTrace: entry.Stack,
+	})
+
+	return nil
+}
+
+func (h *ZapLogHook) Sync() error {
+	return h.core.Sync()
 }

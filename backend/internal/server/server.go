@@ -86,6 +86,9 @@ type Server struct {
 	// Admin services
 	adminHandler *AdminHandler
 
+	// Logs handler (for capturing application logs)
+	logsHandler *LogsHandler
+
 	// Leader election (for HA)
 	leader *etcd.Leader
 }
@@ -377,8 +380,8 @@ func (s *Server) registerRoutes() {
 	// =========================================================================
 	// System Logs REST API
 	// =========================================================================
-	logsHandler := NewLogsHandler(s.logger)
-	logsHandler.RegisterRoutes(s.mux)
+	s.logsHandler = NewLogsHandler(s.logger)
+	s.logsHandler.RegisterRoutes(s.mux)
 	s.logger.Info("Registered Logs API routes", zap.String("path", "/api/logs"))
 
 	// =========================================================================
@@ -390,6 +393,16 @@ func (s *Server) registerRoutes() {
 	}
 
 	s.logger.Info("All routes registered")
+
+	// Log that the server is ready
+	if s.logsHandler != nil {
+		s.logsHandler.AddLog(LogEntry{
+			Timestamp: time.Now().Format(time.RFC3339),
+			Level:     "info",
+			Source:    "controlplane",
+			Message:   "All routes registered, server ready",
+		})
+	}
 }
 
 // setupMiddleware configures middleware chain.
