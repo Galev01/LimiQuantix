@@ -227,7 +227,6 @@ impl App {
             ("View System Logs", "F7"),
             ("Reset to Factory Defaults", "F9"),
             ("Shutdown / Reboot", "F10"),
-            ("Exit to Web Console", "F12"),
         ]
     }
     
@@ -369,7 +368,6 @@ fn handle_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) {
             KeyCode::F(7) => handle_menu_action(app, 6),  // Logs
             KeyCode::F(9) => handle_menu_action(app, 7),  // Factory Reset
             KeyCode::F(10) => handle_menu_action(app, 8), // Shutdown
-            KeyCode::F(12) => handle_menu_action(app, 9), // Exit to Web
             _ => {}
         },
         Screen::Network => match key {
@@ -488,10 +486,6 @@ fn handle_menu_action(app: &mut App, index: usize) {
             app.screen = Screen::FactoryReset;
         }
         8 => app.screen = Screen::Power,
-        9 => {
-            // Exit to web console (quit TUI so launcher can restart web kiosk)
-            app.should_quit = true;
-        }
         _ => {}
     }
 }

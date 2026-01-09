@@ -205,6 +205,15 @@ mkdir -p "${ROOTFS_DIR}/var/lib/quantix"
 mkdir -p "${ROOTFS_DIR}/run/user/0"
 mkdir -p "${ROOTFS_DIR}/run/libvirt"
 mkdir -p "${ROOTFS_DIR}/run/openvswitch"
+mkdir -p "${ROOTFS_DIR}/etc/openvswitch"
+mkdir -p "${ROOTFS_DIR}/var/lib/openvswitch"
+
+# Initialize Open vSwitch database (required for ovs-vswitchd to start)
+if [ -f "${ROOTFS_DIR}/usr/share/openvswitch/vswitch.ovsschema" ]; then
+    echo "📦 Initializing Open vSwitch database..."
+    chroot "${ROOTFS_DIR}" ovsdb-tool create /etc/openvswitch/conf.db /usr/share/openvswitch/vswitch.ovsschema 2>/dev/null || true
+    echo "✅ OVS database initialized"
+fi
 
 # Set permissions
 chmod 700 "${ROOTFS_DIR}/quantix"
