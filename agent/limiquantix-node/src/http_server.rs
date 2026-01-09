@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    routing::{get, post, put},
+    routing::{get, post},
     extract::{Path, State, Multipart},
     http::{StatusCode, header, Method, Uri},
     response::{IntoResponse, Response, Json, Redirect},
@@ -31,9 +31,9 @@ use tokio::fs;
 use tracing::{info, warn, error, debug};
 use serde::{Deserialize, Serialize};
 
-use crate::config::{HttpServerConfig, TlsConfig};
+use crate::config::TlsConfig;
 use crate::service::NodeDaemonServiceImpl;
-use crate::tls::{TlsManager, AcmeManager, CertificateInfo, CertificateMode, AcmeAccountInfo, AcmeChallengeStatus};
+use crate::tls::{TlsManager, AcmeManager, CertificateInfo, AcmeAccountInfo, AcmeChallengeStatus};
 
 /// Shared state for HTTP handlers
 pub struct AppState {
