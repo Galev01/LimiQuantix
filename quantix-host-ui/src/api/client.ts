@@ -162,29 +162,68 @@ export async function del<T = void>(endpoint: string): Promise<T> {
  */
 export async function testNodeConnection(url: string): Promise<{ success: boolean; message: string; info?: unknown }> {
   try {
+    // Validate URL format
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return {
+        success: false,
+        message: 'URL must start with http:// or https://',
+      };
+    }
+    
     const baseUrl = url.replace(/\/$/, '');
-    const response = await fetch(`${baseUrl}/api/v1/health`, {
+    
+    // Try the root endpoint first (returns API info)
+    const response = await fetch(`${baseUrl}/`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
+      // Don't follow redirects, don't send credentials
+      mode: 'cors',
     });
     
     if (response.ok) {
       const data = await response.json();
+      // Check if this looks like a node daemon response
+      if (data.api_docs || data.version) {
+        return {
+          success: true,
+          message: `Connected to Quantix Node Daemon v${data.version || 'unknown'}`,
+          info: data,
+        };
+      }
+    }
+    
+    // Try the host health endpoint as fallback
+    const healthResponse = await fetch(`${baseUrl}/api/v1/host/health`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      mode: 'cors',
+    });
+    
+    if (healthResponse.ok) {
+      const data = await healthResponse.json();
       return {
         success: true,
-        message: `Connected to ${data.hostname || 'node'}`,
+        message: `Connected to ${data.hypervisor || 'node'}`,
         info: data,
       };
     } else {
       return {
         success: false,
-        message: `HTTP ${response.status}: ${response.statusText}`,
+        message: `HTTP ${healthResponse.status}: ${healthResponse.statusText}`,
       };
     }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Connection failed';
+    // Provide more helpful error messages
+    if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+      return {
+        success: false,
+        message: 'Network error - check if the node daemon is running and accessible. For HTTPS, you may need to accept the self-signed certificate first by visiting the URL directly in your browser.',
+      };
+    }
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Connection failed',
+      message: errorMessage,
     };
   }
 }

@@ -229,7 +229,8 @@ export function ConnectionSetup({ onConnected }: ConnectionSetupProps) {
             <li>• Make sure the node daemon is running on your Quantix-OS host</li>
             <li>• Check that port 8443 is accessible (firewall settings)</li>
             <li>• Verify both machines are on the same network</li>
-            <li>• The node daemon uses HTTPS with a self-signed certificate</li>
+            <li>• For HTTPS with self-signed certs, visit the URL directly first to accept the certificate</li>
+            <li>• Try HTTP first: <code className="bg-bg-base px-1 rounded">http://192.168.x.x:8080</code></li>
           </ul>
         </div>
       </div>
