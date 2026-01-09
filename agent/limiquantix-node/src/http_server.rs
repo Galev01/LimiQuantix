@@ -1623,12 +1623,14 @@ async fn update_settings(
         }
     }
     
+    let message = if messages.is_empty() { 
+        "Settings updated".to_string()
+    } else { 
+        messages.join(", ")
+    };
+    
     Ok(Json(serde_json::json!({
-        "message": if messages.is_empty() { 
-            "Settings updated" 
-        } else { 
-            &messages.join(", ") 
-        }
+        "message": message
     })))
 }
 

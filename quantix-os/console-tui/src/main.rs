@@ -507,11 +507,11 @@ fn drop_to_shell<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>) -> Re
     // Leave alternate screen and disable raw mode to give shell a normal terminal
     disable_raw_mode()?;
     execute!(
-        terminal.backend_mut(),
+        std::io::stdout(),
         LeaveAlternateScreen,
         DisableMouseCapture
     )?;
-    terminal.show_cursor()?;
+    let _ = terminal.show_cursor();
     
     // Clear screen and print banner
     print!("\x1B[2J\x1B[H"); // Clear screen and move cursor to top-left
@@ -543,12 +543,12 @@ fn drop_to_shell<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>) -> Re
     // Restore terminal state for TUI
     enable_raw_mode()?;
     execute!(
-        terminal.backend_mut(),
+        std::io::stdout(),
         EnterAlternateScreen,
         EnableMouseCapture
     )?;
-    terminal.hide_cursor()?;
-    terminal.clear()?;
+    let _ = terminal.hide_cursor();
+    let _ = terminal.clear();
     
     Ok(())
 }
