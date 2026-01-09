@@ -355,6 +355,19 @@ function PoolCard({ pool, index, onDelete }: { pool: StoragePoolUI; index: numbe
         <p className="text-xs text-text-muted mb-3 line-clamp-1">{pool.description}</p>
       )}
 
+      {/* Error Message */}
+      {pool.status.errorMessage && (pool.status.phase === 'ERROR' || pool.status.phase === 'PENDING') && (
+        <div className="mb-4 p-3 rounded-lg bg-error/10 border border-error/30">
+          <div className="flex items-start gap-2">
+            <XCircle className="w-4 h-4 text-error shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-error">Initialization Failed</p>
+              <p className="text-xs text-error/80 mt-0.5 line-clamp-3">{pool.status.errorMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Usage Bar */}
       <div className="mb-4">
         <div className="flex items-center justify-between text-xs mb-1.5">

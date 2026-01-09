@@ -1440,6 +1440,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         &self,
         request: Request<InitStoragePoolRequest>,
     ) -> Result<Response<StoragePoolInfoResponse>, Status> {
+        use limiquantix_hypervisor::{NfsConfig, CephConfig, IscsiConfig};
+        
         let req = request.into_inner();
         info!(pool_id = %req.pool_id, pool_type = ?req.r#type, "Initializing storage pool");
         
@@ -1451,19 +1453,83 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             _ => return Err(Status::invalid_argument("Invalid pool type")),
         };
         
-        // Build pool config from proto
+        // Build pool config from proto - handle ALL storage backend types
         let config = if let Some(cfg) = req.config {
             let mut pool_config = PoolConfig::default();
+            
+            // Local directory config
             if let Some(local) = cfg.local {
+                info!(pool_id = %req.pool_id, path = %local.path, "Using local directory config");
                 pool_config.local = Some(LocalConfig { path: local.path });
             }
+            
+            // NFS config
+            if let Some(nfs) = cfg.nfs {
+                info!(
+                    pool_id = %req.pool_id,
+                    server = %nfs.server,
+                    export_path = %nfs.export_path,
+                    version = %nfs.version,
+                    "Using NFS config"
+                );
+                pool_config.nfs = Some(NfsConfig {
+                    server: nfs.server,
+                    export_path: nfs.export_path,
+                    version: if nfs.version.is_empty() { "4.1".to_string() } else { nfs.version },
+                    options: nfs.options,
+                    mount_point: if nfs.mount_point.is_empty() { None } else { Some(nfs.mount_point) },
+                });
+            }
+            
+            // Ceph RBD config
+            if let Some(ceph) = cfg.ceph {
+                info!(
+                    pool_id = %req.pool_id,
+                    ceph_pool = %ceph.pool_name,
+                    monitors = ?ceph.monitors,
+                    "Using Ceph RBD config"
+                );
+                pool_config.ceph = Some(CephConfig {
+                    cluster_id: ceph.cluster_id,
+                    pool_name: ceph.pool_name,
+                    monitors: ceph.monitors,
+                    user: if ceph.user.is_empty() { "admin".to_string() } else { ceph.user },
+                    keyring_path: if ceph.keyring_path.is_empty() { "/etc/ceph/ceph.client.admin.keyring".to_string() } else { ceph.keyring_path },
+                    namespace: ceph.namespace,
+                    secret_uuid: if ceph.secret_uuid.is_empty() { None } else { Some(ceph.secret_uuid) },
+                });
+            }
+            
+            // iSCSI config
+            if let Some(iscsi) = cfg.iscsi {
+                info!(
+                    pool_id = %req.pool_id,
+                    portal = %iscsi.portal,
+                    target = %iscsi.target,
+                    "Using iSCSI config"
+                );
+                pool_config.iscsi = Some(IscsiConfig {
+                    portal: iscsi.portal,
+                    target: iscsi.target,
+                    chap_enabled: iscsi.chap_enabled,
+                    chap_user: iscsi.chap_user,
+                    chap_password: iscsi.chap_password,
+                    lun: iscsi.lun,
+                    volume_group: if iscsi.volume_group.is_empty() { None } else { Some(iscsi.volume_group) },
+                });
+            }
+            
             pool_config
         } else {
+            warn!(pool_id = %req.pool_id, "No config provided for storage pool");
             PoolConfig::default()
         };
         
         let pool_info = self.storage.init_pool(&req.pool_id, pool_type, config).await
-            .map_err(|e| Status::internal(format!("Failed to init pool: {}", e)))?;
+            .map_err(|e| {
+                error!(pool_id = %req.pool_id, error = %e, "Failed to init storage pool");
+                Status::internal(format!("Failed to init pool: {}", e))
+            })?;
         
         Ok(Response::new(StoragePoolInfoResponse {
             pool_id: req.pool_id.clone(),

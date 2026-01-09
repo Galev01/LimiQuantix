@@ -66,11 +66,11 @@ func (s *PoolService) CreatePool(
 
 	// Initialize pool on all applicable nodes
 	if s.daemonPool != nil {
-		poolInfo, err := s.initPoolOnNodes(ctx, createdPool, logger)
-		if err != nil {
-			logger.Error("Failed to initialize pool on nodes", zap.Error(err))
+		poolInfo, initErr := s.initPoolOnNodes(ctx, createdPool, logger)
+		if initErr != nil {
+			logger.Error("Failed to initialize pool on nodes", zap.Error(initErr))
 			createdPool.Status.Phase = domain.StoragePoolPhaseError
-			createdPool.Status.ErrorMessage = err.Error()
+			createdPool.Status.ErrorMessage = initErr.Error()
 		} else if poolInfo != nil {
 			createdPool.Status.Phase = domain.StoragePoolPhaseReady
 			createdPool.Status.Capacity = domain.StorageCapacity{
@@ -78,9 +78,32 @@ func (s *PoolService) CreatePool(
 				AvailableBytes: poolInfo.AvailableBytes,
 				UsedBytes:      poolInfo.UsedBytes,
 			}
+			logger.Info("Pool initialized successfully",
+				zap.Uint64("total_bytes", poolInfo.TotalBytes),
+				zap.Uint64("available_bytes", poolInfo.AvailableBytes),
+			)
+		} else {
+			// poolInfo is nil and no error - means no nodes were available to initialize
+			connectedCount := len(s.daemonPool.ConnectedNodes())
+			if connectedCount == 0 {
+				createdPool.Status.Phase = domain.StoragePoolPhaseError
+				createdPool.Status.ErrorMessage = "No connected nodes available to initialize pool. Ensure at least one Quantix-OS node is registered and connected."
+				logger.Warn("No connected nodes to initialize pool",
+					zap.String("pool_id", createdPool.ID),
+				)
+			} else {
+				// Nodes were connected but all failed to initialize
+				createdPool.Status.Phase = domain.StoragePoolPhaseError
+				createdPool.Status.ErrorMessage = fmt.Sprintf("Pool initialization failed on all %d connected nodes. Check node logs for details.", connectedCount)
+				logger.Error("Pool initialization failed on all nodes",
+					zap.String("pool_id", createdPool.ID),
+					zap.Int("connected_nodes", connectedCount),
+				)
+			}
 		}
 	} else {
 		// Fallback for dev mode without node daemons
+		logger.Warn("No daemon pool available - using mock storage capacity (dev mode)")
 		createdPool.Status.Phase = domain.StoragePoolPhaseReady
 		createdPool.Status.Capacity = domain.StorageCapacity{
 			TotalBytes:     100 * 1024 * 1024 * 1024, // 100 GiB
@@ -92,11 +115,16 @@ func (s *PoolService) CreatePool(
 		logger.Warn("Failed to update pool status", zap.Error(err))
 	}
 
-	logger.Info("Storage pool created successfully", zap.String("pool_id", createdPool.ID))
+	logger.Info("Storage pool created",
+		zap.String("pool_id", createdPool.ID),
+		zap.String("phase", string(createdPool.Status.Phase)),
+		zap.String("error_message", createdPool.Status.ErrorMessage),
+	)
 	return connect.NewResponse(convertPoolToProto(createdPool)), nil
 }
 
 // initPoolOnNodes initializes the storage pool on applicable nodes.
+// Returns (poolInfo, nil) on success, (nil, error) on failure, or (nil, nil) if no nodes available.
 func (s *PoolService) initPoolOnNodes(ctx context.Context, pool *domain.StoragePool, logger *zap.Logger) (*nodev1.StoragePoolInfoResponse, error) {
 	// Get all connected nodes
 	connectedNodes := s.daemonPool.ConnectedNodes()
@@ -105,22 +133,50 @@ func (s *PoolService) initPoolOnNodes(ctx context.Context, pool *domain.StorageP
 		return nil, nil
 	}
 
+	logger.Info("Initializing pool on connected nodes",
+		zap.String("pool_id", pool.ID),
+		zap.Int("connected_nodes", len(connectedNodes)),
+		zap.Strings("node_ids", connectedNodes),
+	)
+
 	// Convert pool config to node daemon request
 	req := s.convertPoolToNodeRequest(pool)
+
+	// Log the request details for debugging
+	logger.Debug("Pool init request details",
+		zap.String("pool_id", req.PoolId),
+		zap.Int32("pool_type", int32(req.Type)),
+		zap.Bool("has_config", req.Config != nil),
+	)
+	if req.Config != nil && req.Config.Nfs != nil {
+		logger.Debug("NFS config",
+			zap.String("server", req.Config.Nfs.Server),
+			zap.String("export_path", req.Config.Nfs.ExportPath),
+			zap.String("version", req.Config.Nfs.Version),
+		)
+	}
 
 	// Initialize on first connected node (for shared storage like NFS/Ceph,
 	// all nodes can access the same pool)
 	var lastInfo *nodev1.StoragePoolInfoResponse
+	var lastError error
+	var errors []string
+
 	for _, nodeID := range connectedNodes {
 		client, err := s.daemonPool.GetOrError(nodeID)
 		if err != nil {
+			errMsg := fmt.Sprintf("node %s: client error: %v", nodeID, err)
+			errors = append(errors, errMsg)
 			logger.Warn("Could not get client for node", zap.String("node_id", nodeID), zap.Error(err))
 			continue
 		}
 
 		info, err := client.InitStoragePool(ctx, req)
 		if err != nil {
-			logger.Warn("Failed to initialize pool on node",
+			errMsg := fmt.Sprintf("node %s: %v", nodeID, err)
+			errors = append(errors, errMsg)
+			lastError = err
+			logger.Error("Failed to initialize pool on node",
 				zap.String("node_id", nodeID),
 				zap.String("pool_id", pool.ID),
 				zap.Error(err),
@@ -129,14 +185,29 @@ func (s *PoolService) initPoolOnNodes(ctx context.Context, pool *domain.StorageP
 		}
 
 		lastInfo = info
-		logger.Info("Pool initialized on node",
+		logger.Info("Pool initialized successfully on node",
 			zap.String("node_id", nodeID),
 			zap.String("pool_id", pool.ID),
 			zap.Uint64("total_bytes", info.TotalBytes),
+			zap.Uint64("available_bytes", info.AvailableBytes),
 		)
+		// Success on one node is enough for shared storage
+		break
 	}
 
-	return lastInfo, nil
+	// If we got info from at least one node, consider it success
+	if lastInfo != nil {
+		return lastInfo, nil
+	}
+
+	// All nodes failed - return the collected errors
+	if len(errors) > 0 {
+		combinedError := fmt.Errorf("pool initialization failed: %s", errors[len(errors)-1])
+		return nil, combinedError
+	}
+
+	// No errors but also no success (shouldn't happen)
+	return nil, lastError
 }
 
 // convertPoolToNodeRequest converts a domain pool to a node daemon init request.

@@ -55,7 +55,9 @@ type Server struct {
 	networkRepo           *memory.NetworkRepository
 	securityGroupRepo     *memory.SecurityGroupRepository
 	registrationTokenRepo *memory.RegistrationTokenRepository
-	clusterRepo           *memory.ClusterRepository
+
+	// Cluster repository (PostgreSQL - required for FK constraint with nodes)
+	clusterRepo *postgres.ClusterRepository
 
 	// Admin repositories (PostgreSQL)
 	roleRepo   *postgres.RoleRepository
@@ -189,7 +191,14 @@ func (s *Server) initRepositories() {
 	s.networkRepo = memory.NewNetworkRepository()
 	s.securityGroupRepo = memory.NewSecurityGroupRepository()
 	s.registrationTokenRepo = memory.NewRegistrationTokenRepository()
-	s.clusterRepo = memory.NewClusterRepository()
+
+	// Cluster repository - requires PostgreSQL for FK constraint with nodes table
+	if s.db != nil {
+		s.clusterRepo = postgres.NewClusterRepository(s.db, s.logger)
+		s.logger.Info("Using PostgreSQL cluster repository")
+	} else {
+		s.logger.Warn("PostgreSQL not available - cluster management will not work correctly due to FK constraints")
+	}
 
 	s.logger.Info("Repositories initialized",
 		zap.Bool("postgres", s.db != nil),
