@@ -793,6 +793,8 @@ const (
 	ImageStatus_READY       ImageStatus_Phase = 4
 	ImageStatus_ERROR       ImageStatus_Phase = 5
 	ImageStatus_DELETING    ImageStatus_Phase = 6
+	ImageStatus_EXTRACTING  ImageStatus_Phase = 7 // OVA extraction in progress
+	ImageStatus_PARSING     ImageStatus_Phase = 8 // OVF parsing in progress
 )
 
 // Enum value maps for ImageStatus_Phase.
@@ -805,6 +807,8 @@ var (
 		4: "READY",
 		5: "ERROR",
 		6: "DELETING",
+		7: "EXTRACTING",
+		8: "PARSING",
 	}
 	ImageStatus_Phase_value = map[string]int32{
 		"UNKNOWN":     0,
@@ -814,6 +818,8 @@ var (
 		"READY":       4,
 		"ERROR":       5,
 		"DELETING":    6,
+		"EXTRACTING":  7,
+		"PARSING":     8,
 	}
 )
 
@@ -4589,7 +4595,7 @@ type OvaProductInfo struct {
 	Product string `protobuf:"bytes,1,opt,name=product,proto3" json:"product,omitempty"`
 	// Vendor name
 	Vendor string `protobuf:"bytes,2,opt,name=vendor,proto3" json:"vendor,omitempty"`
-	// Product version
+	// Version string
 	Version string `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
 	// Full version string
 	FullVersion string `protobuf:"bytes,4,opt,name=full_version,json=fullVersion,proto3" json:"full_version,omitempty"`
@@ -5050,7 +5056,7 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"minDiskGib\x12-\n" +
 	"\x12supported_firmware\x18\x04 \x03(\tR\x11supportedFirmware\x120\n" +
 	"\x14requires_secure_boot\x18\x05 \x01(\bR\x12requiresSecureBoot\x12!\n" +
-	"\frequires_tpm\x18\x06 \x01(\bR\vrequiresTpm\"\x97\x03\n" +
+	"\frequires_tpm\x18\x06 \x01(\bR\vrequiresTpm\"\xb5\x03\n" +
 	"\vImageStatus\x12?\n" +
 	"\x05phase\x18\x01 \x01(\x0e2).limiquantix.storage.v1.ImageStatus.PhaseR\x05phase\x12\x1d\n" +
 	"\n" +
@@ -5059,7 +5065,7 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x10progress_percent\x18\x04 \x01(\rR\x0fprogressPercent\x12\x1a\n" +
 	"\bchecksum\x18\x05 \x01(\tR\bchecksum\x12#\n" +
 	"\rerror_message\x18\x06 \x01(\tR\ferrorMessage\x12&\n" +
-	"\x0fstorage_pool_id\x18\a \x01(\tR\rstoragePoolId\"f\n" +
+	"\x0fstorage_pool_id\x18\a \x01(\tR\rstoragePoolId\"\x83\x01\n" +
 	"\x05Phase\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\v\n" +
 	"\aPENDING\x10\x01\x12\x0f\n" +
@@ -5068,7 +5074,10 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"CONVERTING\x10\x03\x12\t\n" +
 	"\x05READY\x10\x04\x12\t\n" +
 	"\x05ERROR\x10\x05\x12\f\n" +
-	"\bDELETING\x10\x06\"\xad\x03\n" +
+	"\bDELETING\x10\x06\x12\x0e\n" +
+	"\n" +
+	"EXTRACTING\x10\a\x12\v\n" +
+	"\aPARSING\x10\b\"\xad\x03\n" +
 	"\vOvaMetadata\x12\x17\n" +
 	"\avm_name\x18\x01 \x01(\tR\x06vmName\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12:\n" +

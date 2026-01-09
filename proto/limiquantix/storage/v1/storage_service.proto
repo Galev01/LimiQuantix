@@ -32,6 +32,10 @@ service StoragePoolService {
   
   // GetPoolMetrics returns current pool metrics.
   rpc GetPoolMetrics(GetPoolMetricsRequest) returns (PoolMetrics);
+  
+  // ReconnectPool retries initialization of a pool on connected nodes.
+  // Used when pool is in ERROR state due to no connected nodes.
+  rpc ReconnectPool(ReconnectPoolRequest) returns (StoragePool);
 }
 
 // =============================================================================
@@ -195,6 +199,10 @@ message DeletePoolRequest {
 }
 
 message GetPoolMetricsRequest {
+  string id = 1;
+}
+
+message ReconnectPoolRequest {
   string id = 1;
 }
 

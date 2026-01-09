@@ -60,6 +60,9 @@ const (
 	// StoragePoolServiceGetPoolMetricsProcedure is the fully-qualified name of the StoragePoolService's
 	// GetPoolMetrics RPC.
 	StoragePoolServiceGetPoolMetricsProcedure = "/limiquantix.storage.v1.StoragePoolService/GetPoolMetrics"
+	// StoragePoolServiceReconnectPoolProcedure is the fully-qualified name of the StoragePoolService's
+	// ReconnectPool RPC.
+	StoragePoolServiceReconnectPoolProcedure = "/limiquantix.storage.v1.StoragePoolService/ReconnectPool"
 	// VolumeServiceCreateVolumeProcedure is the fully-qualified name of the VolumeService's
 	// CreateVolume RPC.
 	VolumeServiceCreateVolumeProcedure = "/limiquantix.storage.v1.VolumeService/CreateVolume"
@@ -161,6 +164,9 @@ type StoragePoolServiceClient interface {
 	DeletePool(context.Context, *connect.Request[v1.DeletePoolRequest]) (*connect.Response[emptypb.Empty], error)
 	// GetPoolMetrics returns current pool metrics.
 	GetPoolMetrics(context.Context, *connect.Request[v1.GetPoolMetricsRequest]) (*connect.Response[v1.PoolMetrics], error)
+	// ReconnectPool retries initialization of a pool on connected nodes.
+	// Used when pool is in ERROR state due to no connected nodes.
+	ReconnectPool(context.Context, *connect.Request[v1.ReconnectPoolRequest]) (*connect.Response[v1.StoragePool], error)
 }
 
 // NewStoragePoolServiceClient constructs a client for the limiquantix.storage.v1.StoragePoolService
@@ -210,6 +216,12 @@ func NewStoragePoolServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithSchema(storagePoolServiceMethods.ByName("GetPoolMetrics")),
 			connect.WithClientOptions(opts...),
 		),
+		reconnectPool: connect.NewClient[v1.ReconnectPoolRequest, v1.StoragePool](
+			httpClient,
+			baseURL+StoragePoolServiceReconnectPoolProcedure,
+			connect.WithSchema(storagePoolServiceMethods.ByName("ReconnectPool")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -221,6 +233,7 @@ type storagePoolServiceClient struct {
 	updatePool     *connect.Client[v1.UpdatePoolRequest, v1.StoragePool]
 	deletePool     *connect.Client[v1.DeletePoolRequest, emptypb.Empty]
 	getPoolMetrics *connect.Client[v1.GetPoolMetricsRequest, v1.PoolMetrics]
+	reconnectPool  *connect.Client[v1.ReconnectPoolRequest, v1.StoragePool]
 }
 
 // CreatePool calls limiquantix.storage.v1.StoragePoolService.CreatePool.
@@ -253,6 +266,11 @@ func (c *storagePoolServiceClient) GetPoolMetrics(ctx context.Context, req *conn
 	return c.getPoolMetrics.CallUnary(ctx, req)
 }
 
+// ReconnectPool calls limiquantix.storage.v1.StoragePoolService.ReconnectPool.
+func (c *storagePoolServiceClient) ReconnectPool(ctx context.Context, req *connect.Request[v1.ReconnectPoolRequest]) (*connect.Response[v1.StoragePool], error) {
+	return c.reconnectPool.CallUnary(ctx, req)
+}
+
 // StoragePoolServiceHandler is an implementation of the limiquantix.storage.v1.StoragePoolService
 // service.
 type StoragePoolServiceHandler interface {
@@ -269,6 +287,9 @@ type StoragePoolServiceHandler interface {
 	DeletePool(context.Context, *connect.Request[v1.DeletePoolRequest]) (*connect.Response[emptypb.Empty], error)
 	// GetPoolMetrics returns current pool metrics.
 	GetPoolMetrics(context.Context, *connect.Request[v1.GetPoolMetricsRequest]) (*connect.Response[v1.PoolMetrics], error)
+	// ReconnectPool retries initialization of a pool on connected nodes.
+	// Used when pool is in ERROR state due to no connected nodes.
+	ReconnectPool(context.Context, *connect.Request[v1.ReconnectPoolRequest]) (*connect.Response[v1.StoragePool], error)
 }
 
 // NewStoragePoolServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -314,6 +335,12 @@ func NewStoragePoolServiceHandler(svc StoragePoolServiceHandler, opts ...connect
 		connect.WithSchema(storagePoolServiceMethods.ByName("GetPoolMetrics")),
 		connect.WithHandlerOptions(opts...),
 	)
+	storagePoolServiceReconnectPoolHandler := connect.NewUnaryHandler(
+		StoragePoolServiceReconnectPoolProcedure,
+		svc.ReconnectPool,
+		connect.WithSchema(storagePoolServiceMethods.ByName("ReconnectPool")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/limiquantix.storage.v1.StoragePoolService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case StoragePoolServiceCreatePoolProcedure:
@@ -328,6 +355,8 @@ func NewStoragePoolServiceHandler(svc StoragePoolServiceHandler, opts ...connect
 			storagePoolServiceDeletePoolHandler.ServeHTTP(w, r)
 		case StoragePoolServiceGetPoolMetricsProcedure:
 			storagePoolServiceGetPoolMetricsHandler.ServeHTTP(w, r)
+		case StoragePoolServiceReconnectPoolProcedure:
+			storagePoolServiceReconnectPoolHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -359,6 +388,10 @@ func (UnimplementedStoragePoolServiceHandler) DeletePool(context.Context, *conne
 
 func (UnimplementedStoragePoolServiceHandler) GetPoolMetrics(context.Context, *connect.Request[v1.GetPoolMetricsRequest]) (*connect.Response[v1.PoolMetrics], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.StoragePoolService.GetPoolMetrics is not implemented"))
+}
+
+func (UnimplementedStoragePoolServiceHandler) ReconnectPool(context.Context, *connect.Request[v1.ReconnectPoolRequest]) (*connect.Response[v1.StoragePool], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.StoragePoolService.ReconnectPool is not implemented"))
 }
 
 // VolumeServiceClient is a client for the limiquantix.storage.v1.VolumeService service.

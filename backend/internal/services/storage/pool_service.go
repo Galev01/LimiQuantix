@@ -429,3 +429,72 @@ func (s *PoolService) GetPoolMetrics(
 
 	return connect.NewResponse(metrics), nil
 }
+
+// ReconnectPool retries initialization of a pool on connected nodes.
+// Used when pool is in ERROR state due to no connected nodes.
+func (s *PoolService) ReconnectPool(
+	ctx context.Context,
+	req *connect.Request[storagev1.ReconnectPoolRequest],
+) (*connect.Response[storagev1.StoragePool], error) {
+	logger := s.logger.With(
+		zap.String("method", "ReconnectPool"),
+		zap.String("pool_id", req.Msg.Id),
+	)
+	logger.Info("Reconnecting storage pool")
+
+	// Get existing pool
+	pool, err := s.repo.Get(ctx, req.Msg.Id)
+	if err != nil {
+		logger.Error("Failed to get storage pool", zap.Error(err))
+		if err == domain.ErrNotFound {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Check if there are connected nodes
+	if s.daemonPool == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("no daemon pool available"))
+	}
+
+	connectedNodes := s.daemonPool.ConnectedNodes()
+	if len(connectedNodes) == 0 {
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("no connected nodes available to initialize pool"))
+	}
+
+	// Retry initialization
+	poolInfo, initErr := s.initPoolOnNodes(ctx, pool, logger)
+	if initErr != nil {
+		logger.Error("Failed to reinitialize pool on nodes", zap.Error(initErr))
+		pool.Status.Phase = domain.StoragePoolPhaseError
+		pool.Status.ErrorMessage = initErr.Error()
+	} else if poolInfo != nil {
+		pool.Status.Phase = domain.StoragePoolPhaseReady
+		pool.Status.ErrorMessage = ""
+		pool.Status.Capacity = domain.StorageCapacity{
+			TotalBytes:     poolInfo.TotalBytes,
+			AvailableBytes: poolInfo.AvailableBytes,
+			UsedBytes:      poolInfo.UsedBytes,
+		}
+		logger.Info("Pool reconnected successfully",
+			zap.Uint64("total_bytes", poolInfo.TotalBytes),
+			zap.Uint64("available_bytes", poolInfo.AvailableBytes),
+		)
+	} else {
+		pool.Status.Phase = domain.StoragePoolPhaseError
+		pool.Status.ErrorMessage = fmt.Sprintf("Pool reconnection failed on all %d connected nodes", len(connectedNodes))
+	}
+
+	// Update pool status in repository
+	if err := s.repo.UpdateStatus(ctx, pool.ID, pool.Status); err != nil {
+		logger.Warn("Failed to update pool status", zap.Error(err))
+	}
+
+	logger.Info("Pool reconnection completed",
+		zap.String("pool_id", pool.ID),
+		zap.String("phase", string(pool.Status.Phase)),
+	)
+	return connect.NewResponse(convertPoolToProto(pool)), nil
+}

@@ -78,7 +78,7 @@ func (x ImportStatus_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ImportStatus_Status.Descriptor instead.
 func (ImportStatus_Status) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{35, 0}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{36, 0}
 }
 
 // Current status
@@ -140,7 +140,7 @@ func (x OVAUploadStatus_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use OVAUploadStatus_Status.Descriptor instead.
 func (OVAUploadStatus_Status) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{44, 0}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{45, 0}
 }
 
 type CreatePoolRequest struct {
@@ -571,6 +571,50 @@ func (x *GetPoolMetricsRequest) GetId() string {
 	return ""
 }
 
+type ReconnectPoolRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReconnectPoolRequest) Reset() {
+	*x = ReconnectPoolRequest{}
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReconnectPoolRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReconnectPoolRequest) ProtoMessage() {}
+
+func (x *ReconnectPoolRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReconnectPoolRequest.ProtoReflect.Descriptor instead.
+func (*ReconnectPoolRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ReconnectPoolRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 type PoolMetrics struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	PoolId string                 `protobuf:"bytes,1,opt,name=pool_id,json=poolId,proto3" json:"pool_id,omitempty"`
@@ -595,7 +639,7 @@ type PoolMetrics struct {
 
 func (x *PoolMetrics) Reset() {
 	*x = PoolMetrics{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[7]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -607,7 +651,7 @@ func (x *PoolMetrics) String() string {
 func (*PoolMetrics) ProtoMessage() {}
 
 func (x *PoolMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[7]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -620,7 +664,7 @@ func (x *PoolMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PoolMetrics.ProtoReflect.Descriptor instead.
 func (*PoolMetrics) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{7}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *PoolMetrics) GetPoolId() string {
@@ -727,7 +771,7 @@ type CreateVolumeRequest struct {
 
 func (x *CreateVolumeRequest) Reset() {
 	*x = CreateVolumeRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[8]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -739,7 +783,7 @@ func (x *CreateVolumeRequest) String() string {
 func (*CreateVolumeRequest) ProtoMessage() {}
 
 func (x *CreateVolumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[8]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -752,7 +796,7 @@ func (x *CreateVolumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateVolumeRequest.ProtoReflect.Descriptor instead.
 func (*CreateVolumeRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{8}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CreateVolumeRequest) GetName() string {
@@ -799,7 +843,7 @@ type GetVolumeRequest struct {
 
 func (x *GetVolumeRequest) Reset() {
 	*x = GetVolumeRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[9]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -811,7 +855,7 @@ func (x *GetVolumeRequest) String() string {
 func (*GetVolumeRequest) ProtoMessage() {}
 
 func (x *GetVolumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[9]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -824,7 +868,7 @@ func (x *GetVolumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVolumeRequest.ProtoReflect.Descriptor instead.
 func (*GetVolumeRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{9}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetVolumeRequest) GetId() string {
@@ -849,7 +893,7 @@ type ListVolumesRequest struct {
 
 func (x *ListVolumesRequest) Reset() {
 	*x = ListVolumesRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[10]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -861,7 +905,7 @@ func (x *ListVolumesRequest) String() string {
 func (*ListVolumesRequest) ProtoMessage() {}
 
 func (x *ListVolumesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[10]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -874,7 +918,7 @@ func (x *ListVolumesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVolumesRequest.ProtoReflect.Descriptor instead.
 func (*ListVolumesRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{10}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListVolumesRequest) GetProjectId() string {
@@ -937,7 +981,7 @@ type ListVolumesResponse struct {
 
 func (x *ListVolumesResponse) Reset() {
 	*x = ListVolumesResponse{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[11]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -949,7 +993,7 @@ func (x *ListVolumesResponse) String() string {
 func (*ListVolumesResponse) ProtoMessage() {}
 
 func (x *ListVolumesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[11]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -962,7 +1006,7 @@ func (x *ListVolumesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVolumesResponse.ProtoReflect.Descriptor instead.
 func (*ListVolumesResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{11}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListVolumesResponse) GetVolumes() []*Volume {
@@ -998,7 +1042,7 @@ type UpdateVolumeRequest struct {
 
 func (x *UpdateVolumeRequest) Reset() {
 	*x = UpdateVolumeRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[12]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1010,7 +1054,7 @@ func (x *UpdateVolumeRequest) String() string {
 func (*UpdateVolumeRequest) ProtoMessage() {}
 
 func (x *UpdateVolumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[12]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1023,7 +1067,7 @@ func (x *UpdateVolumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateVolumeRequest.ProtoReflect.Descriptor instead.
 func (*UpdateVolumeRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{12}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UpdateVolumeRequest) GetId() string {
@@ -1064,7 +1108,7 @@ type DeleteVolumeRequest struct {
 
 func (x *DeleteVolumeRequest) Reset() {
 	*x = DeleteVolumeRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[13]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1076,7 +1120,7 @@ func (x *DeleteVolumeRequest) String() string {
 func (*DeleteVolumeRequest) ProtoMessage() {}
 
 func (x *DeleteVolumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[13]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1089,7 +1133,7 @@ func (x *DeleteVolumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteVolumeRequest.ProtoReflect.Descriptor instead.
 func (*DeleteVolumeRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{13}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DeleteVolumeRequest) GetId() string {
@@ -1117,7 +1161,7 @@ type ResizeVolumeRequest struct {
 
 func (x *ResizeVolumeRequest) Reset() {
 	*x = ResizeVolumeRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[14]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1129,7 +1173,7 @@ func (x *ResizeVolumeRequest) String() string {
 func (*ResizeVolumeRequest) ProtoMessage() {}
 
 func (x *ResizeVolumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[14]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1142,7 +1186,7 @@ func (x *ResizeVolumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResizeVolumeRequest.ProtoReflect.Descriptor instead.
 func (*ResizeVolumeRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{14}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ResizeVolumeRequest) GetId() string {
@@ -1177,7 +1221,7 @@ type AttachVolumeRequest struct {
 
 func (x *AttachVolumeRequest) Reset() {
 	*x = AttachVolumeRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[15]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1189,7 +1233,7 @@ func (x *AttachVolumeRequest) String() string {
 func (*AttachVolumeRequest) ProtoMessage() {}
 
 func (x *AttachVolumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[15]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1202,7 +1246,7 @@ func (x *AttachVolumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttachVolumeRequest.ProtoReflect.Descriptor instead.
 func (*AttachVolumeRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{15}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *AttachVolumeRequest) GetVolumeId() string {
@@ -1236,7 +1280,7 @@ type DetachVolumeRequest struct {
 
 func (x *DetachVolumeRequest) Reset() {
 	*x = DetachVolumeRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[16]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1248,7 +1292,7 @@ func (x *DetachVolumeRequest) String() string {
 func (*DetachVolumeRequest) ProtoMessage() {}
 
 func (x *DetachVolumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[16]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1261,7 +1305,7 @@ func (x *DetachVolumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DetachVolumeRequest.ProtoReflect.Descriptor instead.
 func (*DetachVolumeRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{16}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DetachVolumeRequest) GetVolumeId() string {
@@ -1289,7 +1333,7 @@ type CloneVolumeRequest struct {
 
 func (x *CloneVolumeRequest) Reset() {
 	*x = CloneVolumeRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[17]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1301,7 +1345,7 @@ func (x *CloneVolumeRequest) String() string {
 func (*CloneVolumeRequest) ProtoMessage() {}
 
 func (x *CloneVolumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[17]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1314,7 +1358,7 @@ func (x *CloneVolumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloneVolumeRequest.ProtoReflect.Descriptor instead.
 func (*CloneVolumeRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{17}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CloneVolumeRequest) GetSourceVolumeId() string {
@@ -1347,7 +1391,7 @@ type GetVolumeMetricsRequest struct {
 
 func (x *GetVolumeMetricsRequest) Reset() {
 	*x = GetVolumeMetricsRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[18]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1359,7 +1403,7 @@ func (x *GetVolumeMetricsRequest) String() string {
 func (*GetVolumeMetricsRequest) ProtoMessage() {}
 
 func (x *GetVolumeMetricsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[18]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1372,7 +1416,7 @@ func (x *GetVolumeMetricsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVolumeMetricsRequest.ProtoReflect.Descriptor instead.
 func (*GetVolumeMetricsRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{18}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetVolumeMetricsRequest) GetId() string {
@@ -1401,7 +1445,7 @@ type VolumeMetrics struct {
 
 func (x *VolumeMetrics) Reset() {
 	*x = VolumeMetrics{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[19]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1413,7 +1457,7 @@ func (x *VolumeMetrics) String() string {
 func (*VolumeMetrics) ProtoMessage() {}
 
 func (x *VolumeMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[19]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1426,7 +1470,7 @@ func (x *VolumeMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolumeMetrics.ProtoReflect.Descriptor instead.
 func (*VolumeMetrics) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{19}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *VolumeMetrics) GetVolumeId() string {
@@ -1505,7 +1549,7 @@ type CreateSnapshotRequest struct {
 
 func (x *CreateSnapshotRequest) Reset() {
 	*x = CreateSnapshotRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[20]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1517,7 +1561,7 @@ func (x *CreateSnapshotRequest) String() string {
 func (*CreateSnapshotRequest) ProtoMessage() {}
 
 func (x *CreateSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[20]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1530,7 +1574,7 @@ func (x *CreateSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*CreateSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{20}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CreateSnapshotRequest) GetVolumeId() string {
@@ -1577,7 +1621,7 @@ type GetSnapshotRequest struct {
 
 func (x *GetSnapshotRequest) Reset() {
 	*x = GetSnapshotRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[21]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1589,7 +1633,7 @@ func (x *GetSnapshotRequest) String() string {
 func (*GetSnapshotRequest) ProtoMessage() {}
 
 func (x *GetSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[21]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1602,7 +1646,7 @@ func (x *GetSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*GetSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{21}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GetSnapshotRequest) GetId() string {
@@ -1623,7 +1667,7 @@ type ListSnapshotsRequest struct {
 
 func (x *ListSnapshotsRequest) Reset() {
 	*x = ListSnapshotsRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[22]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1635,7 +1679,7 @@ func (x *ListSnapshotsRequest) String() string {
 func (*ListSnapshotsRequest) ProtoMessage() {}
 
 func (x *ListSnapshotsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[22]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1648,7 +1692,7 @@ func (x *ListSnapshotsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSnapshotsRequest.ProtoReflect.Descriptor instead.
 func (*ListSnapshotsRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{22}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListSnapshotsRequest) GetVolumeId() string {
@@ -1683,7 +1727,7 @@ type ListSnapshotsResponse struct {
 
 func (x *ListSnapshotsResponse) Reset() {
 	*x = ListSnapshotsResponse{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[23]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1695,7 +1739,7 @@ func (x *ListSnapshotsResponse) String() string {
 func (*ListSnapshotsResponse) ProtoMessage() {}
 
 func (x *ListSnapshotsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[23]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1708,7 +1752,7 @@ func (x *ListSnapshotsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSnapshotsResponse.ProtoReflect.Descriptor instead.
 func (*ListSnapshotsResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{23}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListSnapshotsResponse) GetSnapshots() []*VolumeSnapshot {
@@ -1741,7 +1785,7 @@ type DeleteSnapshotRequest struct {
 
 func (x *DeleteSnapshotRequest) Reset() {
 	*x = DeleteSnapshotRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[24]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1753,7 +1797,7 @@ func (x *DeleteSnapshotRequest) String() string {
 func (*DeleteSnapshotRequest) ProtoMessage() {}
 
 func (x *DeleteSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[24]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1766,7 +1810,7 @@ func (x *DeleteSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{24}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *DeleteSnapshotRequest) GetId() string {
@@ -1789,7 +1833,7 @@ type RestoreSnapshotRequest struct {
 
 func (x *RestoreSnapshotRequest) Reset() {
 	*x = RestoreSnapshotRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[25]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1801,7 +1845,7 @@ func (x *RestoreSnapshotRequest) String() string {
 func (*RestoreSnapshotRequest) ProtoMessage() {}
 
 func (x *RestoreSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[25]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1814,7 +1858,7 @@ func (x *RestoreSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*RestoreSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{25}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *RestoreSnapshotRequest) GetSnapshotId() string {
@@ -1851,7 +1895,7 @@ type CreateImageRequest struct {
 
 func (x *CreateImageRequest) Reset() {
 	*x = CreateImageRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[26]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1863,7 +1907,7 @@ func (x *CreateImageRequest) String() string {
 func (*CreateImageRequest) ProtoMessage() {}
 
 func (x *CreateImageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[26]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1876,7 +1920,7 @@ func (x *CreateImageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateImageRequest.ProtoReflect.Descriptor instead.
 func (*CreateImageRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{26}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *CreateImageRequest) GetName() string {
@@ -1923,7 +1967,7 @@ type GetImageRequest struct {
 
 func (x *GetImageRequest) Reset() {
 	*x = GetImageRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[27]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1935,7 +1979,7 @@ func (x *GetImageRequest) String() string {
 func (*GetImageRequest) ProtoMessage() {}
 
 func (x *GetImageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[27]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1948,7 +1992,7 @@ func (x *GetImageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetImageRequest.ProtoReflect.Descriptor instead.
 func (*GetImageRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{27}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GetImageRequest) GetId() string {
@@ -1972,7 +2016,7 @@ type ListImagesRequest struct {
 
 func (x *ListImagesRequest) Reset() {
 	*x = ListImagesRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[28]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1984,7 +2028,7 @@ func (x *ListImagesRequest) String() string {
 func (*ListImagesRequest) ProtoMessage() {}
 
 func (x *ListImagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[28]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1997,7 +2041,7 @@ func (x *ListImagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListImagesRequest.ProtoReflect.Descriptor instead.
 func (*ListImagesRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{28}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListImagesRequest) GetProjectId() string {
@@ -2053,7 +2097,7 @@ type ListImagesResponse struct {
 
 func (x *ListImagesResponse) Reset() {
 	*x = ListImagesResponse{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[29]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2065,7 +2109,7 @@ func (x *ListImagesResponse) String() string {
 func (*ListImagesResponse) ProtoMessage() {}
 
 func (x *ListImagesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[29]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2078,7 +2122,7 @@ func (x *ListImagesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListImagesResponse.ProtoReflect.Descriptor instead.
 func (*ListImagesResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{29}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ListImagesResponse) GetImages() []*Image {
@@ -2114,7 +2158,7 @@ type UpdateImageRequest struct {
 
 func (x *UpdateImageRequest) Reset() {
 	*x = UpdateImageRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[30]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2126,7 +2170,7 @@ func (x *UpdateImageRequest) String() string {
 func (*UpdateImageRequest) ProtoMessage() {}
 
 func (x *UpdateImageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[30]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2139,7 +2183,7 @@ func (x *UpdateImageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateImageRequest.ProtoReflect.Descriptor instead.
 func (*UpdateImageRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{30}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *UpdateImageRequest) GetId() string {
@@ -2179,7 +2223,7 @@ type DeleteImageRequest struct {
 
 func (x *DeleteImageRequest) Reset() {
 	*x = DeleteImageRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[31]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2191,7 +2235,7 @@ func (x *DeleteImageRequest) String() string {
 func (*DeleteImageRequest) ProtoMessage() {}
 
 func (x *DeleteImageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[31]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2204,7 +2248,7 @@ func (x *DeleteImageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteImageRequest.ProtoReflect.Descriptor instead.
 func (*DeleteImageRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{31}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *DeleteImageRequest) GetId() string {
@@ -2234,7 +2278,7 @@ type ImportImageRequest struct {
 
 func (x *ImportImageRequest) Reset() {
 	*x = ImportImageRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[32]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2246,7 +2290,7 @@ func (x *ImportImageRequest) String() string {
 func (*ImportImageRequest) ProtoMessage() {}
 
 func (x *ImportImageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[32]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2259,7 +2303,7 @@ func (x *ImportImageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportImageRequest.ProtoReflect.Descriptor instead.
 func (*ImportImageRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{32}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ImportImageRequest) GetName() string {
@@ -2330,7 +2374,7 @@ type ImportImageResponse struct {
 
 func (x *ImportImageResponse) Reset() {
 	*x = ImportImageResponse{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[33]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2342,7 +2386,7 @@ func (x *ImportImageResponse) String() string {
 func (*ImportImageResponse) ProtoMessage() {}
 
 func (x *ImportImageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[33]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2355,7 +2399,7 @@ func (x *ImportImageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportImageResponse.ProtoReflect.Descriptor instead.
 func (*ImportImageResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{33}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ImportImageResponse) GetJobId() string {
@@ -2381,7 +2425,7 @@ type GetImportStatusRequest struct {
 
 func (x *GetImportStatusRequest) Reset() {
 	*x = GetImportStatusRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[34]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2393,7 +2437,7 @@ func (x *GetImportStatusRequest) String() string {
 func (*GetImportStatusRequest) ProtoMessage() {}
 
 func (x *GetImportStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[34]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2406,7 +2450,7 @@ func (x *GetImportStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetImportStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetImportStatusRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{34}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *GetImportStatusRequest) GetJobId() string {
@@ -2434,7 +2478,7 @@ type ImportStatus struct {
 
 func (x *ImportStatus) Reset() {
 	*x = ImportStatus{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[35]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2446,7 +2490,7 @@ func (x *ImportStatus) String() string {
 func (*ImportStatus) ProtoMessage() {}
 
 func (x *ImportStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[35]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2459,7 +2503,7 @@ func (x *ImportStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportStatus.ProtoReflect.Descriptor instead.
 func (*ImportStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{35}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ImportStatus) GetJobId() string {
@@ -2523,7 +2567,7 @@ type ScanLocalImagesRequest struct {
 
 func (x *ScanLocalImagesRequest) Reset() {
 	*x = ScanLocalImagesRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[36]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2535,7 +2579,7 @@ func (x *ScanLocalImagesRequest) String() string {
 func (*ScanLocalImagesRequest) ProtoMessage() {}
 
 func (x *ScanLocalImagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[36]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2548,7 +2592,7 @@ func (x *ScanLocalImagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanLocalImagesRequest.ProtoReflect.Descriptor instead.
 func (*ScanLocalImagesRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{36}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ScanLocalImagesRequest) GetNodeId() string {
@@ -2589,7 +2633,7 @@ type LocalImageInfo struct {
 
 func (x *LocalImageInfo) Reset() {
 	*x = LocalImageInfo{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[37]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2601,7 +2645,7 @@ func (x *LocalImageInfo) String() string {
 func (*LocalImageInfo) ProtoMessage() {}
 
 func (x *LocalImageInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[37]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2614,7 +2658,7 @@ func (x *LocalImageInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalImageInfo.ProtoReflect.Descriptor instead.
 func (*LocalImageInfo) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{37}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *LocalImageInfo) GetPath() string {
@@ -2687,7 +2731,7 @@ type ScanLocalImagesResponse struct {
 
 func (x *ScanLocalImagesResponse) Reset() {
 	*x = ScanLocalImagesResponse{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[38]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2699,7 +2743,7 @@ func (x *ScanLocalImagesResponse) String() string {
 func (*ScanLocalImagesResponse) ProtoMessage() {}
 
 func (x *ScanLocalImagesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[38]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2712,7 +2756,7 @@ func (x *ScanLocalImagesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanLocalImagesResponse.ProtoReflect.Descriptor instead.
 func (*ScanLocalImagesResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{38}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ScanLocalImagesResponse) GetRegisteredCount() uint32 {
@@ -2752,7 +2796,7 @@ type DownloadImageRequest struct {
 
 func (x *DownloadImageRequest) Reset() {
 	*x = DownloadImageRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[39]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2764,7 +2808,7 @@ func (x *DownloadImageRequest) String() string {
 func (*DownloadImageRequest) ProtoMessage() {}
 
 func (x *DownloadImageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[39]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2777,7 +2821,7 @@ func (x *DownloadImageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadImageRequest.ProtoReflect.Descriptor instead.
 func (*DownloadImageRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{39}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *DownloadImageRequest) GetCatalogId() string {
@@ -2820,7 +2864,7 @@ type DownloadImageResponse struct {
 
 func (x *DownloadImageResponse) Reset() {
 	*x = DownloadImageResponse{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[40]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2832,7 +2876,7 @@ func (x *DownloadImageResponse) String() string {
 func (*DownloadImageResponse) ProtoMessage() {}
 
 func (x *DownloadImageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[40]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2845,7 +2889,7 @@ func (x *DownloadImageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadImageResponse.ProtoReflect.Descriptor instead.
 func (*DownloadImageResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{40}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *DownloadImageResponse) GetJobId() string {
@@ -2891,7 +2935,7 @@ type ImageCatalogEntry struct {
 
 func (x *ImageCatalogEntry) Reset() {
 	*x = ImageCatalogEntry{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[41]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2903,7 +2947,7 @@ func (x *ImageCatalogEntry) String() string {
 func (*ImageCatalogEntry) ProtoMessage() {}
 
 func (x *ImageCatalogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[41]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2916,7 +2960,7 @@ func (x *ImageCatalogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImageCatalogEntry.ProtoReflect.Descriptor instead.
 func (*ImageCatalogEntry) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{41}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ImageCatalogEntry) GetId() string {
@@ -3006,7 +3050,7 @@ type GetImageCatalogRequest struct {
 
 func (x *GetImageCatalogRequest) Reset() {
 	*x = GetImageCatalogRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[42]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3018,7 +3062,7 @@ func (x *GetImageCatalogRequest) String() string {
 func (*GetImageCatalogRequest) ProtoMessage() {}
 
 func (x *GetImageCatalogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[42]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3031,7 +3075,7 @@ func (x *GetImageCatalogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetImageCatalogRequest.ProtoReflect.Descriptor instead.
 func (*GetImageCatalogRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{42}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *GetImageCatalogRequest) GetOsFamily() OsInfo_OsFamily {
@@ -3051,7 +3095,7 @@ type GetImageCatalogResponse struct {
 
 func (x *GetImageCatalogResponse) Reset() {
 	*x = GetImageCatalogResponse{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[43]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3063,7 +3107,7 @@ func (x *GetImageCatalogResponse) String() string {
 func (*GetImageCatalogResponse) ProtoMessage() {}
 
 func (x *GetImageCatalogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[43]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3076,7 +3120,7 @@ func (x *GetImageCatalogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetImageCatalogResponse.ProtoReflect.Descriptor instead.
 func (*GetImageCatalogResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{43}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *GetImageCatalogResponse) GetImages() []*ImageCatalogEntry {
@@ -3114,7 +3158,7 @@ type OVAUploadStatus struct {
 
 func (x *OVAUploadStatus) Reset() {
 	*x = OVAUploadStatus{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[44]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3126,7 +3170,7 @@ func (x *OVAUploadStatus) String() string {
 func (*OVAUploadStatus) ProtoMessage() {}
 
 func (x *OVAUploadStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[44]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3139,7 +3183,7 @@ func (x *OVAUploadStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OVAUploadStatus.ProtoReflect.Descriptor instead.
 func (*OVAUploadStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{44}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *OVAUploadStatus) GetJobId() string {
@@ -3222,7 +3266,7 @@ type GetOVAUploadStatusRequest struct {
 
 func (x *GetOVAUploadStatusRequest) Reset() {
 	*x = GetOVAUploadStatusRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[45]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3234,7 +3278,7 @@ func (x *GetOVAUploadStatusRequest) String() string {
 func (*GetOVAUploadStatusRequest) ProtoMessage() {}
 
 func (x *GetOVAUploadStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[45]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3247,7 +3291,7 @@ func (x *GetOVAUploadStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOVAUploadStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetOVAUploadStatusRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{45}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *GetOVAUploadStatusRequest) GetJobId() string {
@@ -3270,7 +3314,7 @@ type ListOVATemplatesRequest struct {
 
 func (x *ListOVATemplatesRequest) Reset() {
 	*x = ListOVATemplatesRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[46]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3282,7 +3326,7 @@ func (x *ListOVATemplatesRequest) String() string {
 func (*ListOVATemplatesRequest) ProtoMessage() {}
 
 func (x *ListOVATemplatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[46]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3295,7 +3339,7 @@ func (x *ListOVATemplatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOVATemplatesRequest.ProtoReflect.Descriptor instead.
 func (*ListOVATemplatesRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{46}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListOVATemplatesRequest) GetProjectId() string {
@@ -3332,7 +3376,7 @@ type ListOVATemplatesResponse struct {
 
 func (x *ListOVATemplatesResponse) Reset() {
 	*x = ListOVATemplatesResponse{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[47]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3344,7 +3388,7 @@ func (x *ListOVATemplatesResponse) String() string {
 func (*ListOVATemplatesResponse) ProtoMessage() {}
 
 func (x *ListOVATemplatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[47]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3357,7 +3401,7 @@ func (x *ListOVATemplatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOVATemplatesResponse.ProtoReflect.Descriptor instead.
 func (*ListOVATemplatesResponse) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{47}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ListOVATemplatesResponse) GetTemplates() []*Image {
@@ -3391,7 +3435,7 @@ type GetOVATemplateRequest struct {
 
 func (x *GetOVATemplateRequest) Reset() {
 	*x = GetOVATemplateRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[48]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3403,7 +3447,7 @@ func (x *GetOVATemplateRequest) String() string {
 func (*GetOVATemplateRequest) ProtoMessage() {}
 
 func (x *GetOVATemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[48]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3416,7 +3460,7 @@ func (x *GetOVATemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOVATemplateRequest.ProtoReflect.Descriptor instead.
 func (*GetOVATemplateRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{48}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *GetOVATemplateRequest) GetId() string {
@@ -3438,7 +3482,7 @@ type DeleteOVATemplateRequest struct {
 
 func (x *DeleteOVATemplateRequest) Reset() {
 	*x = DeleteOVATemplateRequest{}
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[49]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3450,7 +3494,7 @@ func (x *DeleteOVATemplateRequest) String() string {
 func (*DeleteOVATemplateRequest) ProtoMessage() {}
 
 func (x *DeleteOVATemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[49]
+	mi := &file_limiquantix_storage_v1_storage_service_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3463,7 +3507,7 @@ func (x *DeleteOVATemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteOVATemplateRequest.ProtoReflect.Descriptor instead.
 func (*DeleteOVATemplateRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{49}
+	return file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *DeleteOVATemplateRequest) GetId() string {
@@ -3528,6 +3572,8 @@ const file_limiquantix_storage_v1_storage_service_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05force\x18\x02 \x01(\bR\x05force\"'\n" +
 	"\x15GetPoolMetricsRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"&\n" +
+	"\x14ReconnectPoolRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\xfe\x03\n" +
 	"\vPoolMetrics\x12\x17\n" +
 	"\apool_id\x18\x01 \x01(\tR\x06poolId\x12\x1f\n" +
@@ -3816,7 +3862,7 @@ const file_limiquantix_storage_v1_storage_service_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"@\n" +
 	"\x18DeleteOVATemplateRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
-	"\x05force\x18\x02 \x01(\bR\x05force2\xc1\x04\n" +
+	"\x05force\x18\x02 \x01(\bR\x05force2\xa5\x05\n" +
 	"\x12StoragePoolService\x12\\\n" +
 	"\n" +
 	"CreatePool\x12).limiquantix.storage.v1.CreatePoolRequest\x1a#.limiquantix.storage.v1.StoragePool\x12V\n" +
@@ -3826,7 +3872,8 @@ const file_limiquantix_storage_v1_storage_service_proto_rawDesc = "" +
 	"UpdatePool\x12).limiquantix.storage.v1.UpdatePoolRequest\x1a#.limiquantix.storage.v1.StoragePool\x12O\n" +
 	"\n" +
 	"DeletePool\x12).limiquantix.storage.v1.DeletePoolRequest\x1a\x16.google.protobuf.Empty\x12d\n" +
-	"\x0eGetPoolMetrics\x12-.limiquantix.storage.v1.GetPoolMetricsRequest\x1a#.limiquantix.storage.v1.PoolMetrics2\xbb\a\n" +
+	"\x0eGetPoolMetrics\x12-.limiquantix.storage.v1.GetPoolMetricsRequest\x1a#.limiquantix.storage.v1.PoolMetrics\x12b\n" +
+	"\rReconnectPool\x12,.limiquantix.storage.v1.ReconnectPoolRequest\x1a#.limiquantix.storage.v1.StoragePool2\xbb\a\n" +
 	"\rVolumeService\x12[\n" +
 	"\fCreateVolume\x12+.limiquantix.storage.v1.CreateVolumeRequest\x1a\x1e.limiquantix.storage.v1.Volume\x12U\n" +
 	"\tGetVolume\x12(.limiquantix.storage.v1.GetVolumeRequest\x1a\x1e.limiquantix.storage.v1.Volume\x12f\n" +
@@ -3877,7 +3924,7 @@ func file_limiquantix_storage_v1_storage_service_proto_rawDescGZIP() []byte {
 }
 
 var file_limiquantix_storage_v1_storage_service_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_limiquantix_storage_v1_storage_service_proto_msgTypes = make([]protoimpl.MessageInfo, 60)
+var file_limiquantix_storage_v1_storage_service_proto_msgTypes = make([]protoimpl.MessageInfo, 61)
 var file_limiquantix_storage_v1_storage_service_proto_goTypes = []any{
 	(ImportStatus_Status)(0),          // 0: limiquantix.storage.v1.ImportStatus.Status
 	(OVAUploadStatus_Status)(0),       // 1: limiquantix.storage.v1.OVAUploadStatus.Status
@@ -3888,191 +3935,194 @@ var file_limiquantix_storage_v1_storage_service_proto_goTypes = []any{
 	(*UpdatePoolRequest)(nil),         // 6: limiquantix.storage.v1.UpdatePoolRequest
 	(*DeletePoolRequest)(nil),         // 7: limiquantix.storage.v1.DeletePoolRequest
 	(*GetPoolMetricsRequest)(nil),     // 8: limiquantix.storage.v1.GetPoolMetricsRequest
-	(*PoolMetrics)(nil),               // 9: limiquantix.storage.v1.PoolMetrics
-	(*CreateVolumeRequest)(nil),       // 10: limiquantix.storage.v1.CreateVolumeRequest
-	(*GetVolumeRequest)(nil),          // 11: limiquantix.storage.v1.GetVolumeRequest
-	(*ListVolumesRequest)(nil),        // 12: limiquantix.storage.v1.ListVolumesRequest
-	(*ListVolumesResponse)(nil),       // 13: limiquantix.storage.v1.ListVolumesResponse
-	(*UpdateVolumeRequest)(nil),       // 14: limiquantix.storage.v1.UpdateVolumeRequest
-	(*DeleteVolumeRequest)(nil),       // 15: limiquantix.storage.v1.DeleteVolumeRequest
-	(*ResizeVolumeRequest)(nil),       // 16: limiquantix.storage.v1.ResizeVolumeRequest
-	(*AttachVolumeRequest)(nil),       // 17: limiquantix.storage.v1.AttachVolumeRequest
-	(*DetachVolumeRequest)(nil),       // 18: limiquantix.storage.v1.DetachVolumeRequest
-	(*CloneVolumeRequest)(nil),        // 19: limiquantix.storage.v1.CloneVolumeRequest
-	(*GetVolumeMetricsRequest)(nil),   // 20: limiquantix.storage.v1.GetVolumeMetricsRequest
-	(*VolumeMetrics)(nil),             // 21: limiquantix.storage.v1.VolumeMetrics
-	(*CreateSnapshotRequest)(nil),     // 22: limiquantix.storage.v1.CreateSnapshotRequest
-	(*GetSnapshotRequest)(nil),        // 23: limiquantix.storage.v1.GetSnapshotRequest
-	(*ListSnapshotsRequest)(nil),      // 24: limiquantix.storage.v1.ListSnapshotsRequest
-	(*ListSnapshotsResponse)(nil),     // 25: limiquantix.storage.v1.ListSnapshotsResponse
-	(*DeleteSnapshotRequest)(nil),     // 26: limiquantix.storage.v1.DeleteSnapshotRequest
-	(*RestoreSnapshotRequest)(nil),    // 27: limiquantix.storage.v1.RestoreSnapshotRequest
-	(*CreateImageRequest)(nil),        // 28: limiquantix.storage.v1.CreateImageRequest
-	(*GetImageRequest)(nil),           // 29: limiquantix.storage.v1.GetImageRequest
-	(*ListImagesRequest)(nil),         // 30: limiquantix.storage.v1.ListImagesRequest
-	(*ListImagesResponse)(nil),        // 31: limiquantix.storage.v1.ListImagesResponse
-	(*UpdateImageRequest)(nil),        // 32: limiquantix.storage.v1.UpdateImageRequest
-	(*DeleteImageRequest)(nil),        // 33: limiquantix.storage.v1.DeleteImageRequest
-	(*ImportImageRequest)(nil),        // 34: limiquantix.storage.v1.ImportImageRequest
-	(*ImportImageResponse)(nil),       // 35: limiquantix.storage.v1.ImportImageResponse
-	(*GetImportStatusRequest)(nil),    // 36: limiquantix.storage.v1.GetImportStatusRequest
-	(*ImportStatus)(nil),              // 37: limiquantix.storage.v1.ImportStatus
-	(*ScanLocalImagesRequest)(nil),    // 38: limiquantix.storage.v1.ScanLocalImagesRequest
-	(*LocalImageInfo)(nil),            // 39: limiquantix.storage.v1.LocalImageInfo
-	(*ScanLocalImagesResponse)(nil),   // 40: limiquantix.storage.v1.ScanLocalImagesResponse
-	(*DownloadImageRequest)(nil),      // 41: limiquantix.storage.v1.DownloadImageRequest
-	(*DownloadImageResponse)(nil),     // 42: limiquantix.storage.v1.DownloadImageResponse
-	(*ImageCatalogEntry)(nil),         // 43: limiquantix.storage.v1.ImageCatalogEntry
-	(*GetImageCatalogRequest)(nil),    // 44: limiquantix.storage.v1.GetImageCatalogRequest
-	(*GetImageCatalogResponse)(nil),   // 45: limiquantix.storage.v1.GetImageCatalogResponse
-	(*OVAUploadStatus)(nil),           // 46: limiquantix.storage.v1.OVAUploadStatus
-	(*GetOVAUploadStatusRequest)(nil), // 47: limiquantix.storage.v1.GetOVAUploadStatusRequest
-	(*ListOVATemplatesRequest)(nil),   // 48: limiquantix.storage.v1.ListOVATemplatesRequest
-	(*ListOVATemplatesResponse)(nil),  // 49: limiquantix.storage.v1.ListOVATemplatesResponse
-	(*GetOVATemplateRequest)(nil),     // 50: limiquantix.storage.v1.GetOVATemplateRequest
-	(*DeleteOVATemplateRequest)(nil),  // 51: limiquantix.storage.v1.DeleteOVATemplateRequest
-	nil,                               // 52: limiquantix.storage.v1.CreatePoolRequest.LabelsEntry
-	nil,                               // 53: limiquantix.storage.v1.ListPoolsRequest.LabelsEntry
-	nil,                               // 54: limiquantix.storage.v1.UpdatePoolRequest.LabelsEntry
-	nil,                               // 55: limiquantix.storage.v1.CreateVolumeRequest.LabelsEntry
-	nil,                               // 56: limiquantix.storage.v1.ListVolumesRequest.LabelsEntry
-	nil,                               // 57: limiquantix.storage.v1.UpdateVolumeRequest.LabelsEntry
-	nil,                               // 58: limiquantix.storage.v1.CreateSnapshotRequest.LabelsEntry
-	nil,                               // 59: limiquantix.storage.v1.CreateImageRequest.LabelsEntry
-	nil,                               // 60: limiquantix.storage.v1.ListImagesRequest.LabelsEntry
-	nil,                               // 61: limiquantix.storage.v1.UpdateImageRequest.LabelsEntry
-	(*StoragePoolSpec)(nil),           // 62: limiquantix.storage.v1.StoragePoolSpec
-	(StorageBackend_BackendType)(0),   // 63: limiquantix.storage.v1.StorageBackend.BackendType
-	(*StoragePool)(nil),               // 64: limiquantix.storage.v1.StoragePool
-	(*fieldmaskpb.FieldMask)(nil),     // 65: google.protobuf.FieldMask
-	(*VolumeSpec)(nil),                // 66: limiquantix.storage.v1.VolumeSpec
-	(VolumeStatus_Phase)(0),           // 67: limiquantix.storage.v1.VolumeStatus.Phase
-	(*Volume)(nil),                    // 68: limiquantix.storage.v1.Volume
-	(*RetentionPolicy)(nil),           // 69: limiquantix.storage.v1.RetentionPolicy
-	(*VolumeSnapshot)(nil),            // 70: limiquantix.storage.v1.VolumeSnapshot
-	(*ImageSpec)(nil),                 // 71: limiquantix.storage.v1.ImageSpec
-	(OsInfo_OsFamily)(0),              // 72: limiquantix.storage.v1.OsInfo.OsFamily
-	(ImageSpec_Visibility)(0),         // 73: limiquantix.storage.v1.ImageSpec.Visibility
-	(*Image)(nil),                     // 74: limiquantix.storage.v1.Image
-	(*OsInfo)(nil),                    // 75: limiquantix.storage.v1.OsInfo
-	(*ImageRequirements)(nil),         // 76: limiquantix.storage.v1.ImageRequirements
-	(*OvaMetadata)(nil),               // 77: limiquantix.storage.v1.OvaMetadata
-	(*emptypb.Empty)(nil),             // 78: google.protobuf.Empty
+	(*ReconnectPoolRequest)(nil),      // 9: limiquantix.storage.v1.ReconnectPoolRequest
+	(*PoolMetrics)(nil),               // 10: limiquantix.storage.v1.PoolMetrics
+	(*CreateVolumeRequest)(nil),       // 11: limiquantix.storage.v1.CreateVolumeRequest
+	(*GetVolumeRequest)(nil),          // 12: limiquantix.storage.v1.GetVolumeRequest
+	(*ListVolumesRequest)(nil),        // 13: limiquantix.storage.v1.ListVolumesRequest
+	(*ListVolumesResponse)(nil),       // 14: limiquantix.storage.v1.ListVolumesResponse
+	(*UpdateVolumeRequest)(nil),       // 15: limiquantix.storage.v1.UpdateVolumeRequest
+	(*DeleteVolumeRequest)(nil),       // 16: limiquantix.storage.v1.DeleteVolumeRequest
+	(*ResizeVolumeRequest)(nil),       // 17: limiquantix.storage.v1.ResizeVolumeRequest
+	(*AttachVolumeRequest)(nil),       // 18: limiquantix.storage.v1.AttachVolumeRequest
+	(*DetachVolumeRequest)(nil),       // 19: limiquantix.storage.v1.DetachVolumeRequest
+	(*CloneVolumeRequest)(nil),        // 20: limiquantix.storage.v1.CloneVolumeRequest
+	(*GetVolumeMetricsRequest)(nil),   // 21: limiquantix.storage.v1.GetVolumeMetricsRequest
+	(*VolumeMetrics)(nil),             // 22: limiquantix.storage.v1.VolumeMetrics
+	(*CreateSnapshotRequest)(nil),     // 23: limiquantix.storage.v1.CreateSnapshotRequest
+	(*GetSnapshotRequest)(nil),        // 24: limiquantix.storage.v1.GetSnapshotRequest
+	(*ListSnapshotsRequest)(nil),      // 25: limiquantix.storage.v1.ListSnapshotsRequest
+	(*ListSnapshotsResponse)(nil),     // 26: limiquantix.storage.v1.ListSnapshotsResponse
+	(*DeleteSnapshotRequest)(nil),     // 27: limiquantix.storage.v1.DeleteSnapshotRequest
+	(*RestoreSnapshotRequest)(nil),    // 28: limiquantix.storage.v1.RestoreSnapshotRequest
+	(*CreateImageRequest)(nil),        // 29: limiquantix.storage.v1.CreateImageRequest
+	(*GetImageRequest)(nil),           // 30: limiquantix.storage.v1.GetImageRequest
+	(*ListImagesRequest)(nil),         // 31: limiquantix.storage.v1.ListImagesRequest
+	(*ListImagesResponse)(nil),        // 32: limiquantix.storage.v1.ListImagesResponse
+	(*UpdateImageRequest)(nil),        // 33: limiquantix.storage.v1.UpdateImageRequest
+	(*DeleteImageRequest)(nil),        // 34: limiquantix.storage.v1.DeleteImageRequest
+	(*ImportImageRequest)(nil),        // 35: limiquantix.storage.v1.ImportImageRequest
+	(*ImportImageResponse)(nil),       // 36: limiquantix.storage.v1.ImportImageResponse
+	(*GetImportStatusRequest)(nil),    // 37: limiquantix.storage.v1.GetImportStatusRequest
+	(*ImportStatus)(nil),              // 38: limiquantix.storage.v1.ImportStatus
+	(*ScanLocalImagesRequest)(nil),    // 39: limiquantix.storage.v1.ScanLocalImagesRequest
+	(*LocalImageInfo)(nil),            // 40: limiquantix.storage.v1.LocalImageInfo
+	(*ScanLocalImagesResponse)(nil),   // 41: limiquantix.storage.v1.ScanLocalImagesResponse
+	(*DownloadImageRequest)(nil),      // 42: limiquantix.storage.v1.DownloadImageRequest
+	(*DownloadImageResponse)(nil),     // 43: limiquantix.storage.v1.DownloadImageResponse
+	(*ImageCatalogEntry)(nil),         // 44: limiquantix.storage.v1.ImageCatalogEntry
+	(*GetImageCatalogRequest)(nil),    // 45: limiquantix.storage.v1.GetImageCatalogRequest
+	(*GetImageCatalogResponse)(nil),   // 46: limiquantix.storage.v1.GetImageCatalogResponse
+	(*OVAUploadStatus)(nil),           // 47: limiquantix.storage.v1.OVAUploadStatus
+	(*GetOVAUploadStatusRequest)(nil), // 48: limiquantix.storage.v1.GetOVAUploadStatusRequest
+	(*ListOVATemplatesRequest)(nil),   // 49: limiquantix.storage.v1.ListOVATemplatesRequest
+	(*ListOVATemplatesResponse)(nil),  // 50: limiquantix.storage.v1.ListOVATemplatesResponse
+	(*GetOVATemplateRequest)(nil),     // 51: limiquantix.storage.v1.GetOVATemplateRequest
+	(*DeleteOVATemplateRequest)(nil),  // 52: limiquantix.storage.v1.DeleteOVATemplateRequest
+	nil,                               // 53: limiquantix.storage.v1.CreatePoolRequest.LabelsEntry
+	nil,                               // 54: limiquantix.storage.v1.ListPoolsRequest.LabelsEntry
+	nil,                               // 55: limiquantix.storage.v1.UpdatePoolRequest.LabelsEntry
+	nil,                               // 56: limiquantix.storage.v1.CreateVolumeRequest.LabelsEntry
+	nil,                               // 57: limiquantix.storage.v1.ListVolumesRequest.LabelsEntry
+	nil,                               // 58: limiquantix.storage.v1.UpdateVolumeRequest.LabelsEntry
+	nil,                               // 59: limiquantix.storage.v1.CreateSnapshotRequest.LabelsEntry
+	nil,                               // 60: limiquantix.storage.v1.CreateImageRequest.LabelsEntry
+	nil,                               // 61: limiquantix.storage.v1.ListImagesRequest.LabelsEntry
+	nil,                               // 62: limiquantix.storage.v1.UpdateImageRequest.LabelsEntry
+	(*StoragePoolSpec)(nil),           // 63: limiquantix.storage.v1.StoragePoolSpec
+	(StorageBackend_BackendType)(0),   // 64: limiquantix.storage.v1.StorageBackend.BackendType
+	(*StoragePool)(nil),               // 65: limiquantix.storage.v1.StoragePool
+	(*fieldmaskpb.FieldMask)(nil),     // 66: google.protobuf.FieldMask
+	(*VolumeSpec)(nil),                // 67: limiquantix.storage.v1.VolumeSpec
+	(VolumeStatus_Phase)(0),           // 68: limiquantix.storage.v1.VolumeStatus.Phase
+	(*Volume)(nil),                    // 69: limiquantix.storage.v1.Volume
+	(*RetentionPolicy)(nil),           // 70: limiquantix.storage.v1.RetentionPolicy
+	(*VolumeSnapshot)(nil),            // 71: limiquantix.storage.v1.VolumeSnapshot
+	(*ImageSpec)(nil),                 // 72: limiquantix.storage.v1.ImageSpec
+	(OsInfo_OsFamily)(0),              // 73: limiquantix.storage.v1.OsInfo.OsFamily
+	(ImageSpec_Visibility)(0),         // 74: limiquantix.storage.v1.ImageSpec.Visibility
+	(*Image)(nil),                     // 75: limiquantix.storage.v1.Image
+	(*OsInfo)(nil),                    // 76: limiquantix.storage.v1.OsInfo
+	(*ImageRequirements)(nil),         // 77: limiquantix.storage.v1.ImageRequirements
+	(*OvaMetadata)(nil),               // 78: limiquantix.storage.v1.OvaMetadata
+	(*emptypb.Empty)(nil),             // 79: google.protobuf.Empty
 }
 var file_limiquantix_storage_v1_storage_service_proto_depIdxs = []int32{
-	52, // 0: limiquantix.storage.v1.CreatePoolRequest.labels:type_name -> limiquantix.storage.v1.CreatePoolRequest.LabelsEntry
-	62, // 1: limiquantix.storage.v1.CreatePoolRequest.spec:type_name -> limiquantix.storage.v1.StoragePoolSpec
-	53, // 2: limiquantix.storage.v1.ListPoolsRequest.labels:type_name -> limiquantix.storage.v1.ListPoolsRequest.LabelsEntry
-	63, // 3: limiquantix.storage.v1.ListPoolsRequest.backend_type:type_name -> limiquantix.storage.v1.StorageBackend.BackendType
-	64, // 4: limiquantix.storage.v1.ListPoolsResponse.pools:type_name -> limiquantix.storage.v1.StoragePool
-	62, // 5: limiquantix.storage.v1.UpdatePoolRequest.spec:type_name -> limiquantix.storage.v1.StoragePoolSpec
-	65, // 6: limiquantix.storage.v1.UpdatePoolRequest.update_mask:type_name -> google.protobuf.FieldMask
-	54, // 7: limiquantix.storage.v1.UpdatePoolRequest.labels:type_name -> limiquantix.storage.v1.UpdatePoolRequest.LabelsEntry
-	55, // 8: limiquantix.storage.v1.CreateVolumeRequest.labels:type_name -> limiquantix.storage.v1.CreateVolumeRequest.LabelsEntry
-	66, // 9: limiquantix.storage.v1.CreateVolumeRequest.spec:type_name -> limiquantix.storage.v1.VolumeSpec
-	56, // 10: limiquantix.storage.v1.ListVolumesRequest.labels:type_name -> limiquantix.storage.v1.ListVolumesRequest.LabelsEntry
-	67, // 11: limiquantix.storage.v1.ListVolumesRequest.phase:type_name -> limiquantix.storage.v1.VolumeStatus.Phase
-	68, // 12: limiquantix.storage.v1.ListVolumesResponse.volumes:type_name -> limiquantix.storage.v1.Volume
-	66, // 13: limiquantix.storage.v1.UpdateVolumeRequest.spec:type_name -> limiquantix.storage.v1.VolumeSpec
-	65, // 14: limiquantix.storage.v1.UpdateVolumeRequest.update_mask:type_name -> google.protobuf.FieldMask
-	57, // 15: limiquantix.storage.v1.UpdateVolumeRequest.labels:type_name -> limiquantix.storage.v1.UpdateVolumeRequest.LabelsEntry
-	58, // 16: limiquantix.storage.v1.CreateSnapshotRequest.labels:type_name -> limiquantix.storage.v1.CreateSnapshotRequest.LabelsEntry
-	69, // 17: limiquantix.storage.v1.CreateSnapshotRequest.retention:type_name -> limiquantix.storage.v1.RetentionPolicy
-	70, // 18: limiquantix.storage.v1.ListSnapshotsResponse.snapshots:type_name -> limiquantix.storage.v1.VolumeSnapshot
-	59, // 19: limiquantix.storage.v1.CreateImageRequest.labels:type_name -> limiquantix.storage.v1.CreateImageRequest.LabelsEntry
-	71, // 20: limiquantix.storage.v1.CreateImageRequest.spec:type_name -> limiquantix.storage.v1.ImageSpec
-	60, // 21: limiquantix.storage.v1.ListImagesRequest.labels:type_name -> limiquantix.storage.v1.ListImagesRequest.LabelsEntry
-	72, // 22: limiquantix.storage.v1.ListImagesRequest.os_family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
-	73, // 23: limiquantix.storage.v1.ListImagesRequest.visibility:type_name -> limiquantix.storage.v1.ImageSpec.Visibility
-	74, // 24: limiquantix.storage.v1.ListImagesResponse.images:type_name -> limiquantix.storage.v1.Image
-	61, // 25: limiquantix.storage.v1.UpdateImageRequest.labels:type_name -> limiquantix.storage.v1.UpdateImageRequest.LabelsEntry
-	73, // 26: limiquantix.storage.v1.UpdateImageRequest.visibility:type_name -> limiquantix.storage.v1.ImageSpec.Visibility
-	75, // 27: limiquantix.storage.v1.ImportImageRequest.os_info:type_name -> limiquantix.storage.v1.OsInfo
-	74, // 28: limiquantix.storage.v1.ImportImageResponse.image:type_name -> limiquantix.storage.v1.Image
+	53, // 0: limiquantix.storage.v1.CreatePoolRequest.labels:type_name -> limiquantix.storage.v1.CreatePoolRequest.LabelsEntry
+	63, // 1: limiquantix.storage.v1.CreatePoolRequest.spec:type_name -> limiquantix.storage.v1.StoragePoolSpec
+	54, // 2: limiquantix.storage.v1.ListPoolsRequest.labels:type_name -> limiquantix.storage.v1.ListPoolsRequest.LabelsEntry
+	64, // 3: limiquantix.storage.v1.ListPoolsRequest.backend_type:type_name -> limiquantix.storage.v1.StorageBackend.BackendType
+	65, // 4: limiquantix.storage.v1.ListPoolsResponse.pools:type_name -> limiquantix.storage.v1.StoragePool
+	63, // 5: limiquantix.storage.v1.UpdatePoolRequest.spec:type_name -> limiquantix.storage.v1.StoragePoolSpec
+	66, // 6: limiquantix.storage.v1.UpdatePoolRequest.update_mask:type_name -> google.protobuf.FieldMask
+	55, // 7: limiquantix.storage.v1.UpdatePoolRequest.labels:type_name -> limiquantix.storage.v1.UpdatePoolRequest.LabelsEntry
+	56, // 8: limiquantix.storage.v1.CreateVolumeRequest.labels:type_name -> limiquantix.storage.v1.CreateVolumeRequest.LabelsEntry
+	67, // 9: limiquantix.storage.v1.CreateVolumeRequest.spec:type_name -> limiquantix.storage.v1.VolumeSpec
+	57, // 10: limiquantix.storage.v1.ListVolumesRequest.labels:type_name -> limiquantix.storage.v1.ListVolumesRequest.LabelsEntry
+	68, // 11: limiquantix.storage.v1.ListVolumesRequest.phase:type_name -> limiquantix.storage.v1.VolumeStatus.Phase
+	69, // 12: limiquantix.storage.v1.ListVolumesResponse.volumes:type_name -> limiquantix.storage.v1.Volume
+	67, // 13: limiquantix.storage.v1.UpdateVolumeRequest.spec:type_name -> limiquantix.storage.v1.VolumeSpec
+	66, // 14: limiquantix.storage.v1.UpdateVolumeRequest.update_mask:type_name -> google.protobuf.FieldMask
+	58, // 15: limiquantix.storage.v1.UpdateVolumeRequest.labels:type_name -> limiquantix.storage.v1.UpdateVolumeRequest.LabelsEntry
+	59, // 16: limiquantix.storage.v1.CreateSnapshotRequest.labels:type_name -> limiquantix.storage.v1.CreateSnapshotRequest.LabelsEntry
+	70, // 17: limiquantix.storage.v1.CreateSnapshotRequest.retention:type_name -> limiquantix.storage.v1.RetentionPolicy
+	71, // 18: limiquantix.storage.v1.ListSnapshotsResponse.snapshots:type_name -> limiquantix.storage.v1.VolumeSnapshot
+	60, // 19: limiquantix.storage.v1.CreateImageRequest.labels:type_name -> limiquantix.storage.v1.CreateImageRequest.LabelsEntry
+	72, // 20: limiquantix.storage.v1.CreateImageRequest.spec:type_name -> limiquantix.storage.v1.ImageSpec
+	61, // 21: limiquantix.storage.v1.ListImagesRequest.labels:type_name -> limiquantix.storage.v1.ListImagesRequest.LabelsEntry
+	73, // 22: limiquantix.storage.v1.ListImagesRequest.os_family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
+	74, // 23: limiquantix.storage.v1.ListImagesRequest.visibility:type_name -> limiquantix.storage.v1.ImageSpec.Visibility
+	75, // 24: limiquantix.storage.v1.ListImagesResponse.images:type_name -> limiquantix.storage.v1.Image
+	62, // 25: limiquantix.storage.v1.UpdateImageRequest.labels:type_name -> limiquantix.storage.v1.UpdateImageRequest.LabelsEntry
+	74, // 26: limiquantix.storage.v1.UpdateImageRequest.visibility:type_name -> limiquantix.storage.v1.ImageSpec.Visibility
+	76, // 27: limiquantix.storage.v1.ImportImageRequest.os_info:type_name -> limiquantix.storage.v1.OsInfo
+	75, // 28: limiquantix.storage.v1.ImportImageResponse.image:type_name -> limiquantix.storage.v1.Image
 	0,  // 29: limiquantix.storage.v1.ImportStatus.status:type_name -> limiquantix.storage.v1.ImportStatus.Status
-	39, // 30: limiquantix.storage.v1.ScanLocalImagesRequest.images:type_name -> limiquantix.storage.v1.LocalImageInfo
-	75, // 31: limiquantix.storage.v1.LocalImageInfo.detected_os:type_name -> limiquantix.storage.v1.OsInfo
-	74, // 32: limiquantix.storage.v1.DownloadImageResponse.image:type_name -> limiquantix.storage.v1.Image
-	75, // 33: limiquantix.storage.v1.ImageCatalogEntry.os:type_name -> limiquantix.storage.v1.OsInfo
-	76, // 34: limiquantix.storage.v1.ImageCatalogEntry.requirements:type_name -> limiquantix.storage.v1.ImageRequirements
-	72, // 35: limiquantix.storage.v1.GetImageCatalogRequest.os_family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
-	43, // 36: limiquantix.storage.v1.GetImageCatalogResponse.images:type_name -> limiquantix.storage.v1.ImageCatalogEntry
+	40, // 30: limiquantix.storage.v1.ScanLocalImagesRequest.images:type_name -> limiquantix.storage.v1.LocalImageInfo
+	76, // 31: limiquantix.storage.v1.LocalImageInfo.detected_os:type_name -> limiquantix.storage.v1.OsInfo
+	75, // 32: limiquantix.storage.v1.DownloadImageResponse.image:type_name -> limiquantix.storage.v1.Image
+	76, // 33: limiquantix.storage.v1.ImageCatalogEntry.os:type_name -> limiquantix.storage.v1.OsInfo
+	77, // 34: limiquantix.storage.v1.ImageCatalogEntry.requirements:type_name -> limiquantix.storage.v1.ImageRequirements
+	73, // 35: limiquantix.storage.v1.GetImageCatalogRequest.os_family:type_name -> limiquantix.storage.v1.OsInfo.OsFamily
+	44, // 36: limiquantix.storage.v1.GetImageCatalogResponse.images:type_name -> limiquantix.storage.v1.ImageCatalogEntry
 	1,  // 37: limiquantix.storage.v1.OVAUploadStatus.status:type_name -> limiquantix.storage.v1.OVAUploadStatus.Status
-	77, // 38: limiquantix.storage.v1.OVAUploadStatus.metadata:type_name -> limiquantix.storage.v1.OvaMetadata
-	74, // 39: limiquantix.storage.v1.OVAUploadStatus.image:type_name -> limiquantix.storage.v1.Image
-	74, // 40: limiquantix.storage.v1.ListOVATemplatesResponse.templates:type_name -> limiquantix.storage.v1.Image
+	78, // 38: limiquantix.storage.v1.OVAUploadStatus.metadata:type_name -> limiquantix.storage.v1.OvaMetadata
+	75, // 39: limiquantix.storage.v1.OVAUploadStatus.image:type_name -> limiquantix.storage.v1.Image
+	75, // 40: limiquantix.storage.v1.ListOVATemplatesResponse.templates:type_name -> limiquantix.storage.v1.Image
 	2,  // 41: limiquantix.storage.v1.StoragePoolService.CreatePool:input_type -> limiquantix.storage.v1.CreatePoolRequest
 	3,  // 42: limiquantix.storage.v1.StoragePoolService.GetPool:input_type -> limiquantix.storage.v1.GetPoolRequest
 	4,  // 43: limiquantix.storage.v1.StoragePoolService.ListPools:input_type -> limiquantix.storage.v1.ListPoolsRequest
 	6,  // 44: limiquantix.storage.v1.StoragePoolService.UpdatePool:input_type -> limiquantix.storage.v1.UpdatePoolRequest
 	7,  // 45: limiquantix.storage.v1.StoragePoolService.DeletePool:input_type -> limiquantix.storage.v1.DeletePoolRequest
 	8,  // 46: limiquantix.storage.v1.StoragePoolService.GetPoolMetrics:input_type -> limiquantix.storage.v1.GetPoolMetricsRequest
-	10, // 47: limiquantix.storage.v1.VolumeService.CreateVolume:input_type -> limiquantix.storage.v1.CreateVolumeRequest
-	11, // 48: limiquantix.storage.v1.VolumeService.GetVolume:input_type -> limiquantix.storage.v1.GetVolumeRequest
-	12, // 49: limiquantix.storage.v1.VolumeService.ListVolumes:input_type -> limiquantix.storage.v1.ListVolumesRequest
-	14, // 50: limiquantix.storage.v1.VolumeService.UpdateVolume:input_type -> limiquantix.storage.v1.UpdateVolumeRequest
-	15, // 51: limiquantix.storage.v1.VolumeService.DeleteVolume:input_type -> limiquantix.storage.v1.DeleteVolumeRequest
-	16, // 52: limiquantix.storage.v1.VolumeService.ResizeVolume:input_type -> limiquantix.storage.v1.ResizeVolumeRequest
-	17, // 53: limiquantix.storage.v1.VolumeService.AttachVolume:input_type -> limiquantix.storage.v1.AttachVolumeRequest
-	18, // 54: limiquantix.storage.v1.VolumeService.DetachVolume:input_type -> limiquantix.storage.v1.DetachVolumeRequest
-	19, // 55: limiquantix.storage.v1.VolumeService.CloneVolume:input_type -> limiquantix.storage.v1.CloneVolumeRequest
-	20, // 56: limiquantix.storage.v1.VolumeService.GetVolumeMetrics:input_type -> limiquantix.storage.v1.GetVolumeMetricsRequest
-	22, // 57: limiquantix.storage.v1.SnapshotService.CreateSnapshot:input_type -> limiquantix.storage.v1.CreateSnapshotRequest
-	23, // 58: limiquantix.storage.v1.SnapshotService.GetSnapshot:input_type -> limiquantix.storage.v1.GetSnapshotRequest
-	24, // 59: limiquantix.storage.v1.SnapshotService.ListSnapshots:input_type -> limiquantix.storage.v1.ListSnapshotsRequest
-	26, // 60: limiquantix.storage.v1.SnapshotService.DeleteSnapshot:input_type -> limiquantix.storage.v1.DeleteSnapshotRequest
-	27, // 61: limiquantix.storage.v1.SnapshotService.RestoreSnapshot:input_type -> limiquantix.storage.v1.RestoreSnapshotRequest
-	28, // 62: limiquantix.storage.v1.ImageService.CreateImage:input_type -> limiquantix.storage.v1.CreateImageRequest
-	29, // 63: limiquantix.storage.v1.ImageService.GetImage:input_type -> limiquantix.storage.v1.GetImageRequest
-	30, // 64: limiquantix.storage.v1.ImageService.ListImages:input_type -> limiquantix.storage.v1.ListImagesRequest
-	32, // 65: limiquantix.storage.v1.ImageService.UpdateImage:input_type -> limiquantix.storage.v1.UpdateImageRequest
-	33, // 66: limiquantix.storage.v1.ImageService.DeleteImage:input_type -> limiquantix.storage.v1.DeleteImageRequest
-	34, // 67: limiquantix.storage.v1.ImageService.ImportImage:input_type -> limiquantix.storage.v1.ImportImageRequest
-	36, // 68: limiquantix.storage.v1.ImageService.GetImportStatus:input_type -> limiquantix.storage.v1.GetImportStatusRequest
-	38, // 69: limiquantix.storage.v1.ImageService.ScanLocalImages:input_type -> limiquantix.storage.v1.ScanLocalImagesRequest
-	41, // 70: limiquantix.storage.v1.ImageService.DownloadImage:input_type -> limiquantix.storage.v1.DownloadImageRequest
-	44, // 71: limiquantix.storage.v1.ImageService.GetImageCatalog:input_type -> limiquantix.storage.v1.GetImageCatalogRequest
-	47, // 72: limiquantix.storage.v1.OVAService.GetOVAUploadStatus:input_type -> limiquantix.storage.v1.GetOVAUploadStatusRequest
-	48, // 73: limiquantix.storage.v1.OVAService.ListOVATemplates:input_type -> limiquantix.storage.v1.ListOVATemplatesRequest
-	50, // 74: limiquantix.storage.v1.OVAService.GetOVATemplate:input_type -> limiquantix.storage.v1.GetOVATemplateRequest
-	51, // 75: limiquantix.storage.v1.OVAService.DeleteOVATemplate:input_type -> limiquantix.storage.v1.DeleteOVATemplateRequest
-	64, // 76: limiquantix.storage.v1.StoragePoolService.CreatePool:output_type -> limiquantix.storage.v1.StoragePool
-	64, // 77: limiquantix.storage.v1.StoragePoolService.GetPool:output_type -> limiquantix.storage.v1.StoragePool
-	5,  // 78: limiquantix.storage.v1.StoragePoolService.ListPools:output_type -> limiquantix.storage.v1.ListPoolsResponse
-	64, // 79: limiquantix.storage.v1.StoragePoolService.UpdatePool:output_type -> limiquantix.storage.v1.StoragePool
-	78, // 80: limiquantix.storage.v1.StoragePoolService.DeletePool:output_type -> google.protobuf.Empty
-	9,  // 81: limiquantix.storage.v1.StoragePoolService.GetPoolMetrics:output_type -> limiquantix.storage.v1.PoolMetrics
-	68, // 82: limiquantix.storage.v1.VolumeService.CreateVolume:output_type -> limiquantix.storage.v1.Volume
-	68, // 83: limiquantix.storage.v1.VolumeService.GetVolume:output_type -> limiquantix.storage.v1.Volume
-	13, // 84: limiquantix.storage.v1.VolumeService.ListVolumes:output_type -> limiquantix.storage.v1.ListVolumesResponse
-	68, // 85: limiquantix.storage.v1.VolumeService.UpdateVolume:output_type -> limiquantix.storage.v1.Volume
-	78, // 86: limiquantix.storage.v1.VolumeService.DeleteVolume:output_type -> google.protobuf.Empty
-	68, // 87: limiquantix.storage.v1.VolumeService.ResizeVolume:output_type -> limiquantix.storage.v1.Volume
-	68, // 88: limiquantix.storage.v1.VolumeService.AttachVolume:output_type -> limiquantix.storage.v1.Volume
-	68, // 89: limiquantix.storage.v1.VolumeService.DetachVolume:output_type -> limiquantix.storage.v1.Volume
-	68, // 90: limiquantix.storage.v1.VolumeService.CloneVolume:output_type -> limiquantix.storage.v1.Volume
-	21, // 91: limiquantix.storage.v1.VolumeService.GetVolumeMetrics:output_type -> limiquantix.storage.v1.VolumeMetrics
-	70, // 92: limiquantix.storage.v1.SnapshotService.CreateSnapshot:output_type -> limiquantix.storage.v1.VolumeSnapshot
-	70, // 93: limiquantix.storage.v1.SnapshotService.GetSnapshot:output_type -> limiquantix.storage.v1.VolumeSnapshot
-	25, // 94: limiquantix.storage.v1.SnapshotService.ListSnapshots:output_type -> limiquantix.storage.v1.ListSnapshotsResponse
-	78, // 95: limiquantix.storage.v1.SnapshotService.DeleteSnapshot:output_type -> google.protobuf.Empty
-	68, // 96: limiquantix.storage.v1.SnapshotService.RestoreSnapshot:output_type -> limiquantix.storage.v1.Volume
-	74, // 97: limiquantix.storage.v1.ImageService.CreateImage:output_type -> limiquantix.storage.v1.Image
-	74, // 98: limiquantix.storage.v1.ImageService.GetImage:output_type -> limiquantix.storage.v1.Image
-	31, // 99: limiquantix.storage.v1.ImageService.ListImages:output_type -> limiquantix.storage.v1.ListImagesResponse
-	74, // 100: limiquantix.storage.v1.ImageService.UpdateImage:output_type -> limiquantix.storage.v1.Image
-	78, // 101: limiquantix.storage.v1.ImageService.DeleteImage:output_type -> google.protobuf.Empty
-	35, // 102: limiquantix.storage.v1.ImageService.ImportImage:output_type -> limiquantix.storage.v1.ImportImageResponse
-	37, // 103: limiquantix.storage.v1.ImageService.GetImportStatus:output_type -> limiquantix.storage.v1.ImportStatus
-	40, // 104: limiquantix.storage.v1.ImageService.ScanLocalImages:output_type -> limiquantix.storage.v1.ScanLocalImagesResponse
-	42, // 105: limiquantix.storage.v1.ImageService.DownloadImage:output_type -> limiquantix.storage.v1.DownloadImageResponse
-	45, // 106: limiquantix.storage.v1.ImageService.GetImageCatalog:output_type -> limiquantix.storage.v1.GetImageCatalogResponse
-	46, // 107: limiquantix.storage.v1.OVAService.GetOVAUploadStatus:output_type -> limiquantix.storage.v1.OVAUploadStatus
-	49, // 108: limiquantix.storage.v1.OVAService.ListOVATemplates:output_type -> limiquantix.storage.v1.ListOVATemplatesResponse
-	74, // 109: limiquantix.storage.v1.OVAService.GetOVATemplate:output_type -> limiquantix.storage.v1.Image
-	78, // 110: limiquantix.storage.v1.OVAService.DeleteOVATemplate:output_type -> google.protobuf.Empty
-	76, // [76:111] is the sub-list for method output_type
-	41, // [41:76] is the sub-list for method input_type
+	9,  // 47: limiquantix.storage.v1.StoragePoolService.ReconnectPool:input_type -> limiquantix.storage.v1.ReconnectPoolRequest
+	11, // 48: limiquantix.storage.v1.VolumeService.CreateVolume:input_type -> limiquantix.storage.v1.CreateVolumeRequest
+	12, // 49: limiquantix.storage.v1.VolumeService.GetVolume:input_type -> limiquantix.storage.v1.GetVolumeRequest
+	13, // 50: limiquantix.storage.v1.VolumeService.ListVolumes:input_type -> limiquantix.storage.v1.ListVolumesRequest
+	15, // 51: limiquantix.storage.v1.VolumeService.UpdateVolume:input_type -> limiquantix.storage.v1.UpdateVolumeRequest
+	16, // 52: limiquantix.storage.v1.VolumeService.DeleteVolume:input_type -> limiquantix.storage.v1.DeleteVolumeRequest
+	17, // 53: limiquantix.storage.v1.VolumeService.ResizeVolume:input_type -> limiquantix.storage.v1.ResizeVolumeRequest
+	18, // 54: limiquantix.storage.v1.VolumeService.AttachVolume:input_type -> limiquantix.storage.v1.AttachVolumeRequest
+	19, // 55: limiquantix.storage.v1.VolumeService.DetachVolume:input_type -> limiquantix.storage.v1.DetachVolumeRequest
+	20, // 56: limiquantix.storage.v1.VolumeService.CloneVolume:input_type -> limiquantix.storage.v1.CloneVolumeRequest
+	21, // 57: limiquantix.storage.v1.VolumeService.GetVolumeMetrics:input_type -> limiquantix.storage.v1.GetVolumeMetricsRequest
+	23, // 58: limiquantix.storage.v1.SnapshotService.CreateSnapshot:input_type -> limiquantix.storage.v1.CreateSnapshotRequest
+	24, // 59: limiquantix.storage.v1.SnapshotService.GetSnapshot:input_type -> limiquantix.storage.v1.GetSnapshotRequest
+	25, // 60: limiquantix.storage.v1.SnapshotService.ListSnapshots:input_type -> limiquantix.storage.v1.ListSnapshotsRequest
+	27, // 61: limiquantix.storage.v1.SnapshotService.DeleteSnapshot:input_type -> limiquantix.storage.v1.DeleteSnapshotRequest
+	28, // 62: limiquantix.storage.v1.SnapshotService.RestoreSnapshot:input_type -> limiquantix.storage.v1.RestoreSnapshotRequest
+	29, // 63: limiquantix.storage.v1.ImageService.CreateImage:input_type -> limiquantix.storage.v1.CreateImageRequest
+	30, // 64: limiquantix.storage.v1.ImageService.GetImage:input_type -> limiquantix.storage.v1.GetImageRequest
+	31, // 65: limiquantix.storage.v1.ImageService.ListImages:input_type -> limiquantix.storage.v1.ListImagesRequest
+	33, // 66: limiquantix.storage.v1.ImageService.UpdateImage:input_type -> limiquantix.storage.v1.UpdateImageRequest
+	34, // 67: limiquantix.storage.v1.ImageService.DeleteImage:input_type -> limiquantix.storage.v1.DeleteImageRequest
+	35, // 68: limiquantix.storage.v1.ImageService.ImportImage:input_type -> limiquantix.storage.v1.ImportImageRequest
+	37, // 69: limiquantix.storage.v1.ImageService.GetImportStatus:input_type -> limiquantix.storage.v1.GetImportStatusRequest
+	39, // 70: limiquantix.storage.v1.ImageService.ScanLocalImages:input_type -> limiquantix.storage.v1.ScanLocalImagesRequest
+	42, // 71: limiquantix.storage.v1.ImageService.DownloadImage:input_type -> limiquantix.storage.v1.DownloadImageRequest
+	45, // 72: limiquantix.storage.v1.ImageService.GetImageCatalog:input_type -> limiquantix.storage.v1.GetImageCatalogRequest
+	48, // 73: limiquantix.storage.v1.OVAService.GetOVAUploadStatus:input_type -> limiquantix.storage.v1.GetOVAUploadStatusRequest
+	49, // 74: limiquantix.storage.v1.OVAService.ListOVATemplates:input_type -> limiquantix.storage.v1.ListOVATemplatesRequest
+	51, // 75: limiquantix.storage.v1.OVAService.GetOVATemplate:input_type -> limiquantix.storage.v1.GetOVATemplateRequest
+	52, // 76: limiquantix.storage.v1.OVAService.DeleteOVATemplate:input_type -> limiquantix.storage.v1.DeleteOVATemplateRequest
+	65, // 77: limiquantix.storage.v1.StoragePoolService.CreatePool:output_type -> limiquantix.storage.v1.StoragePool
+	65, // 78: limiquantix.storage.v1.StoragePoolService.GetPool:output_type -> limiquantix.storage.v1.StoragePool
+	5,  // 79: limiquantix.storage.v1.StoragePoolService.ListPools:output_type -> limiquantix.storage.v1.ListPoolsResponse
+	65, // 80: limiquantix.storage.v1.StoragePoolService.UpdatePool:output_type -> limiquantix.storage.v1.StoragePool
+	79, // 81: limiquantix.storage.v1.StoragePoolService.DeletePool:output_type -> google.protobuf.Empty
+	10, // 82: limiquantix.storage.v1.StoragePoolService.GetPoolMetrics:output_type -> limiquantix.storage.v1.PoolMetrics
+	65, // 83: limiquantix.storage.v1.StoragePoolService.ReconnectPool:output_type -> limiquantix.storage.v1.StoragePool
+	69, // 84: limiquantix.storage.v1.VolumeService.CreateVolume:output_type -> limiquantix.storage.v1.Volume
+	69, // 85: limiquantix.storage.v1.VolumeService.GetVolume:output_type -> limiquantix.storage.v1.Volume
+	14, // 86: limiquantix.storage.v1.VolumeService.ListVolumes:output_type -> limiquantix.storage.v1.ListVolumesResponse
+	69, // 87: limiquantix.storage.v1.VolumeService.UpdateVolume:output_type -> limiquantix.storage.v1.Volume
+	79, // 88: limiquantix.storage.v1.VolumeService.DeleteVolume:output_type -> google.protobuf.Empty
+	69, // 89: limiquantix.storage.v1.VolumeService.ResizeVolume:output_type -> limiquantix.storage.v1.Volume
+	69, // 90: limiquantix.storage.v1.VolumeService.AttachVolume:output_type -> limiquantix.storage.v1.Volume
+	69, // 91: limiquantix.storage.v1.VolumeService.DetachVolume:output_type -> limiquantix.storage.v1.Volume
+	69, // 92: limiquantix.storage.v1.VolumeService.CloneVolume:output_type -> limiquantix.storage.v1.Volume
+	22, // 93: limiquantix.storage.v1.VolumeService.GetVolumeMetrics:output_type -> limiquantix.storage.v1.VolumeMetrics
+	71, // 94: limiquantix.storage.v1.SnapshotService.CreateSnapshot:output_type -> limiquantix.storage.v1.VolumeSnapshot
+	71, // 95: limiquantix.storage.v1.SnapshotService.GetSnapshot:output_type -> limiquantix.storage.v1.VolumeSnapshot
+	26, // 96: limiquantix.storage.v1.SnapshotService.ListSnapshots:output_type -> limiquantix.storage.v1.ListSnapshotsResponse
+	79, // 97: limiquantix.storage.v1.SnapshotService.DeleteSnapshot:output_type -> google.protobuf.Empty
+	69, // 98: limiquantix.storage.v1.SnapshotService.RestoreSnapshot:output_type -> limiquantix.storage.v1.Volume
+	75, // 99: limiquantix.storage.v1.ImageService.CreateImage:output_type -> limiquantix.storage.v1.Image
+	75, // 100: limiquantix.storage.v1.ImageService.GetImage:output_type -> limiquantix.storage.v1.Image
+	32, // 101: limiquantix.storage.v1.ImageService.ListImages:output_type -> limiquantix.storage.v1.ListImagesResponse
+	75, // 102: limiquantix.storage.v1.ImageService.UpdateImage:output_type -> limiquantix.storage.v1.Image
+	79, // 103: limiquantix.storage.v1.ImageService.DeleteImage:output_type -> google.protobuf.Empty
+	36, // 104: limiquantix.storage.v1.ImageService.ImportImage:output_type -> limiquantix.storage.v1.ImportImageResponse
+	38, // 105: limiquantix.storage.v1.ImageService.GetImportStatus:output_type -> limiquantix.storage.v1.ImportStatus
+	41, // 106: limiquantix.storage.v1.ImageService.ScanLocalImages:output_type -> limiquantix.storage.v1.ScanLocalImagesResponse
+	43, // 107: limiquantix.storage.v1.ImageService.DownloadImage:output_type -> limiquantix.storage.v1.DownloadImageResponse
+	46, // 108: limiquantix.storage.v1.ImageService.GetImageCatalog:output_type -> limiquantix.storage.v1.GetImageCatalogResponse
+	47, // 109: limiquantix.storage.v1.OVAService.GetOVAUploadStatus:output_type -> limiquantix.storage.v1.OVAUploadStatus
+	50, // 110: limiquantix.storage.v1.OVAService.ListOVATemplates:output_type -> limiquantix.storage.v1.ListOVATemplatesResponse
+	75, // 111: limiquantix.storage.v1.OVAService.GetOVATemplate:output_type -> limiquantix.storage.v1.Image
+	79, // 112: limiquantix.storage.v1.OVAService.DeleteOVATemplate:output_type -> google.protobuf.Empty
+	77, // [77:113] is the sub-list for method output_type
+	41, // [41:77] is the sub-list for method input_type
 	41, // [41:41] is the sub-list for extension type_name
 	41, // [41:41] is the sub-list for extension extendee
 	0,  // [0:41] is the sub-list for field type_name
@@ -4090,7 +4140,7 @@ func file_limiquantix_storage_v1_storage_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_storage_v1_storage_service_proto_rawDesc), len(file_limiquantix_storage_v1_storage_service_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   60,
+			NumMessages:   61,
 			NumExtensions: 0,
 			NumServices:   5,
 		},

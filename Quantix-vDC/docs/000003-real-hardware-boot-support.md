@@ -205,3 +205,76 @@ modprobe hpsa            # HP Smart Array
 linux-firmware-mellanox  # Mellanox NICs
 linux-firmware-other     # Misc hardware
 ```
+
+---
+
+## Post-Installation Boot Fix
+
+### Problem: "Mounting root failed" After Installation
+
+After successful installation and reboot, the system may fail with:
+
+```
+mount: mounting /dev/nvme0n1p2 on /sysroot failed: No such file or directory
+Mounting root failed.
+initramfs emergency recovery shell launched.
+```
+
+### Cause
+
+Alpine's stock `initramfs-lts` may not include NVMe drivers by default. The installation process must regenerate the initramfs with proper hardware support.
+
+### Solution
+
+The installer now:
+
+1. **Creates `/etc/mkinitfs/mkinitfs.conf`** with required features:
+   ```
+   features="ata base cdrom ext4 keymap kms mmc nvme scsi usb virtio"
+   ```
+
+2. **Runs `mkinitfs`** to regenerate the initramfs with these modules
+
+3. **Requires `mkinitfs` package** in the rootfs (added to `packages.conf`)
+
+### Features Explained
+
+| Feature  | Purpose                        |
+| -------- | ------------------------------ |
+| `ata`    | SATA/AHCI disk drivers         |
+| `base`   | Core initramfs functionality   |
+| `cdrom`  | CD/DVD boot support            |
+| `ext4`   | ext4 filesystem support        |
+| `keymap` | Keyboard layout support        |
+| `kms`    | Kernel Mode Setting (graphics) |
+| `mmc`    | SD card/eMMC support           |
+| `nvme`   | NVMe SSD drivers               |
+| `scsi`   | SCSI disk drivers              |
+| `usb`    | USB device support             |
+| `virtio` | VirtIO drivers (QEMU/KVM)      |
+
+### Manual Fix (If Already Installed)
+
+If you have an installed system that won't boot:
+
+1. Boot from the installation ISO
+2. Select "Rescue Shell (Emergency)"
+3. Mount the installed system:
+   ```bash
+   mount /dev/nvme0n1p2 /mnt
+   mount --bind /dev /mnt/dev
+   mount --bind /proc /mnt/proc
+   mount --bind /sys /mnt/sys
+   ```
+4. Regenerate initramfs:
+   ```bash
+   chroot /mnt
+   echo 'features="ata base cdrom ext4 keymap kms mmc nvme scsi usb virtio"' > /etc/mkinitfs/mkinitfs.conf
+   mkinitfs $(ls /lib/modules | head -1)
+   exit
+   ```
+5. Reboot:
+   ```bash
+   umount -R /mnt
+   reboot
+   ```

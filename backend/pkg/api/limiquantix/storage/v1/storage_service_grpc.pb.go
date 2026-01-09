@@ -26,6 +26,7 @@ const (
 	StoragePoolService_UpdatePool_FullMethodName     = "/limiquantix.storage.v1.StoragePoolService/UpdatePool"
 	StoragePoolService_DeletePool_FullMethodName     = "/limiquantix.storage.v1.StoragePoolService/DeletePool"
 	StoragePoolService_GetPoolMetrics_FullMethodName = "/limiquantix.storage.v1.StoragePoolService/GetPoolMetrics"
+	StoragePoolService_ReconnectPool_FullMethodName  = "/limiquantix.storage.v1.StoragePoolService/ReconnectPool"
 )
 
 // StoragePoolServiceClient is the client API for StoragePoolService service.
@@ -47,6 +48,9 @@ type StoragePoolServiceClient interface {
 	DeletePool(ctx context.Context, in *DeletePoolRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// GetPoolMetrics returns current pool metrics.
 	GetPoolMetrics(ctx context.Context, in *GetPoolMetricsRequest, opts ...grpc.CallOption) (*PoolMetrics, error)
+	// ReconnectPool retries initialization of a pool on connected nodes.
+	// Used when pool is in ERROR state due to no connected nodes.
+	ReconnectPool(ctx context.Context, in *ReconnectPoolRequest, opts ...grpc.CallOption) (*StoragePool, error)
 }
 
 type storagePoolServiceClient struct {
@@ -117,6 +121,16 @@ func (c *storagePoolServiceClient) GetPoolMetrics(ctx context.Context, in *GetPo
 	return out, nil
 }
 
+func (c *storagePoolServiceClient) ReconnectPool(ctx context.Context, in *ReconnectPoolRequest, opts ...grpc.CallOption) (*StoragePool, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StoragePool)
+	err := c.cc.Invoke(ctx, StoragePoolService_ReconnectPool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // StoragePoolServiceServer is the server API for StoragePoolService service.
 // All implementations should embed UnimplementedStoragePoolServiceServer
 // for forward compatibility.
@@ -136,6 +150,9 @@ type StoragePoolServiceServer interface {
 	DeletePool(context.Context, *DeletePoolRequest) (*emptypb.Empty, error)
 	// GetPoolMetrics returns current pool metrics.
 	GetPoolMetrics(context.Context, *GetPoolMetricsRequest) (*PoolMetrics, error)
+	// ReconnectPool retries initialization of a pool on connected nodes.
+	// Used when pool is in ERROR state due to no connected nodes.
+	ReconnectPool(context.Context, *ReconnectPoolRequest) (*StoragePool, error)
 }
 
 // UnimplementedStoragePoolServiceServer should be embedded to have
@@ -162,6 +179,9 @@ func (UnimplementedStoragePoolServiceServer) DeletePool(context.Context, *Delete
 }
 func (UnimplementedStoragePoolServiceServer) GetPoolMetrics(context.Context, *GetPoolMetricsRequest) (*PoolMetrics, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetPoolMetrics not implemented")
+}
+func (UnimplementedStoragePoolServiceServer) ReconnectPool(context.Context, *ReconnectPoolRequest) (*StoragePool, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReconnectPool not implemented")
 }
 func (UnimplementedStoragePoolServiceServer) testEmbeddedByValue() {}
 
@@ -291,6 +311,24 @@ func _StoragePoolService_GetPoolMetrics_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _StoragePoolService_ReconnectPool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReconnectPoolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoragePoolServiceServer).ReconnectPool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StoragePoolService_ReconnectPool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoragePoolServiceServer).ReconnectPool(ctx, req.(*ReconnectPoolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // StoragePoolService_ServiceDesc is the grpc.ServiceDesc for StoragePoolService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -321,6 +359,10 @@ var StoragePoolService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPoolMetrics",
 			Handler:    _StoragePoolService_GetPoolMetrics_Handler,
+		},
+		{
+			MethodName: "ReconnectPool",
+			Handler:    _StoragePoolService_ReconnectPool_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

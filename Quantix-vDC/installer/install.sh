@@ -336,6 +336,27 @@ mount --bind /dev "${TARGET_MOUNT}/dev"
 mount --bind /proc "${TARGET_MOUNT}/proc"
 mount --bind /sys "${TARGET_MOUNT}/sys"
 
+# Configure mkinitfs to include necessary modules for boot
+log_info "Configuring initramfs modules..."
+cat > "${TARGET_MOUNT}/etc/mkinitfs/mkinitfs.conf" << 'MKINITCONF'
+# Quantix-vDC initramfs configuration
+# Include essential modules for boot on various hardware
+
+features="ata base cdrom ext4 keymap kms mmc nvme scsi usb virtio"
+MKINITCONF
+
+# Regenerate initramfs with proper modules
+log_info "Regenerating initramfs..."
+KERNEL_VERSION=$(ls "${TARGET_MOUNT}/lib/modules" 2>/dev/null | head -1)
+if [ -n "$KERNEL_VERSION" ]; then
+    chroot "${TARGET_MOUNT}" mkinitfs -c /etc/mkinitfs/mkinitfs.conf "$KERNEL_VERSION" 2>/dev/null || {
+        log_warn "mkinitfs failed, initramfs may be incomplete"
+    }
+    log_info "Initramfs regenerated for kernel $KERNEL_VERSION"
+else
+    log_warn "Could not determine kernel version for initramfs"
+fi
+
 # Install GRUB for UEFI
 chroot "${TARGET_MOUNT}" grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=QUANTIX-VDC --removable 2>/dev/null || {
     log_warn "GRUB EFI install failed, trying fallback..."
@@ -355,8 +376,18 @@ menuentry "Quantix-vDC" {
     initrd /boot/initramfs-lts
 }
 
+menuentry "Quantix-vDC (Safe Graphics)" {
+    linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro quiet nomodeset
+    initrd /boot/initramfs-lts
+}
+
 menuentry "Quantix-vDC (Recovery)" {
     linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro single
+    initrd /boot/initramfs-lts
+}
+
+menuentry "Quantix-vDC (Debug)" {
+    linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro debug console=tty0 loglevel=7
     initrd /boot/initramfs-lts
 }
 EOF

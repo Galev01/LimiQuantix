@@ -852,3 +852,24 @@ message OvaNetworkInfo {
   // Instance ID
   uint32 instance_id = 4;
 }
+
+// OvaProductInfo contains product/vendor information from OVF ProductSection
+message OvaProductInfo {
+  // Product name
+  string product = 1;
+  
+  // Vendor name
+  string vendor = 2;
+  
+  // Version string
+  string version = 3;
+  
+  // Full version string
+  string full_version = 4;
+  
+  // Product URL
+  string product_url = 5;
+  
+  // Vendor URL
+  string vendor_url = 6;
+}

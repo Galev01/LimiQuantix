@@ -396,6 +396,29 @@ export function useDeleteStoragePool() {
   });
 }
 
+// Reconnect storage pool (retry initialization)
+export function useReconnectStoragePool() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await poolClient.reconnectPool({ id });
+      return toStoragePoolUI(response);
+    },
+    onSuccess: (pool) => {
+      if (pool.status.phase === 'READY') {
+        showSuccess(`Storage pool "${pool.name}" connected successfully`);
+      } else {
+        showError(new Error(pool.status.errorMessage || 'Unknown error'), 'Pool reconnection failed');
+      }
+      queryClient.invalidateQueries({ queryKey: storageKeys.pools.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to reconnect storage pool');
+    },
+  });
+}
+
 // =============================================================================
 // VOLUME HOOKS
 // =============================================================================

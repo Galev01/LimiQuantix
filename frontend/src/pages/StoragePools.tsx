@@ -22,7 +22,7 @@ import {
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { useStoragePools, useDeleteStoragePool, type StoragePoolUI } from '@/hooks/useStorage';
+import { useStoragePools, useDeleteStoragePool, useReconnectStoragePool, type StoragePoolUI } from '@/hooks/useStorage';
 import { CreatePoolDialog } from '@/components/storage/CreatePoolDialog';
 import { toast } from 'sonner';
 import { useApiConnection } from '@/hooks/useDashboard';
@@ -55,6 +55,7 @@ export function StoragePools() {
   const { data: isConnected = false } = useApiConnection();
   const { data: apiPools, isLoading, error, refetch } = useStoragePools();
   const deletePool = useDeleteStoragePool();
+  const reconnectPool = useReconnectStoragePool();
   
   // Use only API data (no mock fallback)
   const pools = apiPools || [];
@@ -89,6 +90,16 @@ export function StoragePools() {
       toast.success(`Pool "${pool.name}" deleted`);
     } catch (err) {
       toast.error(`Failed to delete pool: ${(err as Error).message}`);
+    }
+  };
+
+  const handleReconnect = async (pool: StoragePoolUI) => {
+    toast.loading(`Reconnecting pool "${pool.name}"...`, { id: `reconnect-${pool.id}` });
+    try {
+      await reconnectPool.mutateAsync(pool.id);
+      toast.dismiss(`reconnect-${pool.id}`);
+    } catch (err) {
+      toast.dismiss(`reconnect-${pool.id}`);
     }
   };
 
@@ -249,6 +260,8 @@ export function StoragePools() {
               pool={pool} 
               index={index} 
               onDelete={() => handleDelete(pool)}
+              onReconnect={() => handleReconnect(pool)}
+              isReconnecting={reconnectPool.isPending}
             />
           ))}
         </div>
@@ -282,7 +295,13 @@ export function StoragePools() {
   );
 }
 
-function PoolCard({ pool, index, onDelete }: { pool: StoragePoolUI; index: number; onDelete: () => void }) {
+function PoolCard({ pool, index, onDelete, onReconnect, isReconnecting }: { 
+  pool: StoragePoolUI; 
+  index: number; 
+  onDelete: () => void;
+  onReconnect: () => void;
+  isReconnecting: boolean;
+}) {
   const [showMenu, setShowMenu] = useState(false);
   const statusInfo = statusConfig[pool.status.phase];
   const typeInfo = typeConfig[pool.type];
@@ -332,7 +351,21 @@ function PoolCard({ pool, index, onDelete }: { pool: StoragePoolUI; index: numbe
               <MoreHorizontal className="w-4 h-4" />
             </button>
             {showMenu && (
-              <div className="absolute right-0 top-8 z-10 w-40 bg-bg-surface rounded-lg border border-border shadow-lg py-1">
+              <div className="absolute right-0 top-8 z-10 w-44 bg-bg-surface rounded-lg border border-border shadow-lg py-1">
+                {(pool.status.phase === 'ERROR' || pool.status.phase === 'PENDING') && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      onReconnect();
+                    }}
+                    disabled={isReconnecting}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-accent hover:bg-bg-hover disabled:opacity-50"
+                  >
+                    <RefreshCw className={cn('w-4 h-4', isReconnecting && 'animate-spin')} />
+                    Reconnect
+                  </button>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
