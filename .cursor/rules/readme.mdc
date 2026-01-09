@@ -75,3 +75,10 @@ Instead, we follow **Google, AWS, and Nutanix**: Wrap standard Linux subsystems 
 - The agent (deep guest integration)
 - The UX (making complexity invisible)
 - The automation (one-click everything)
+
+
+**Semantics** (!!!!IMPORTANT!!!!):
+1. **QvDC** - Quantix Virtual Data Center (VMware vCenter Equivilent) - 
+- ISO and Build for the OS --> /Quantix-vDC
+- Frontend development --> /frontend
+- 

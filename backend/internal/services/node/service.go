@@ -80,6 +80,19 @@ func (s *Service) RegisterNode(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("management_ip is required"))
 	}
 
+	// Extract just the IP address (strip port if present)
+	// The node daemon sends "192.168.0.53:9090" but PostgreSQL INET type only accepts IP
+	managementIP := req.Msg.ManagementIp
+	if idx := strings.LastIndex(managementIP, ":"); idx != -1 {
+		// Check if this looks like an IPv6 address (contains multiple colons)
+		if strings.Count(managementIP, ":") == 1 {
+			// IPv4 with port - strip the port
+			managementIP = managementIP[:idx]
+		}
+		// For IPv6, we'd need more complex parsing, but for now assume IPv4
+	}
+	logger.Debug("Parsed management IP", zap.String("original", req.Msg.ManagementIp), zap.String("parsed", managementIP))
+
 	now := time.Now()
 
 	// Build node spec from request
@@ -177,7 +190,7 @@ func (s *Service) RegisterNode(
 	existing, err := s.repo.GetByHostname(ctx, req.Msg.Hostname)
 	if err == nil && existing != nil {
 		// Update existing node with new info
-		existing.ManagementIP = req.Msg.ManagementIp
+		existing.ManagementIP = managementIP
 		existing.Labels = req.Msg.Labels
 		existing.Spec = spec
 		existing.Status.Phase = domain.NodePhaseReady
@@ -202,7 +215,7 @@ func (s *Service) RegisterNode(
 	// Create new node
 	node := &domain.Node{
 		Hostname:     req.Msg.Hostname,
-		ManagementIP: req.Msg.ManagementIp,
+		ManagementIP: managementIP,
 		Labels:       req.Msg.Labels,
 		Spec:         spec,
 		Status: domain.NodeStatus{
