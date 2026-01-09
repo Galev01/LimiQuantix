@@ -261,34 +261,39 @@ echo "✅ Cleanup complete"
 # -----------------------------------------------------------------------------
 # Step 9: Create squashfs
 # -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# Step 9: Create squashfs
-# -----------------------------------------------------------------------------
 echo "📦 Step 9: Creating squashfs..."
 
-# Verify output directory
-if [ ! -d "${OUTPUT_DIR}" ]; then
-    echo "⚠️  Output directory ${OUTPUT_DIR} does not exist, creating..."
-    mkdir -p "${OUTPUT_DIR}"
-fi
+# Debug: Show mount information
+echo "   Debug: Checking mount points..."
+mount | grep -E "output|work" || echo "   No relevant mounts found"
+echo "   Debug: OUTPUT_DIR=${OUTPUT_DIR}"
+df -h "${OUTPUT_DIR}" 2>/dev/null || echo "   df failed for ${OUTPUT_DIR}"
 
-# Debug: Check write permissions
-touch "${OUTPUT_DIR}/.write_test" || { echo "❌ Cannot write to ${OUTPUT_DIR}"; exit 1; }
-rm "${OUTPUT_DIR}/.write_test"
+# Use /tmp as intermediate storage to avoid Docker overlayfs issues
+TEMP_SQUASHFS="/tmp/${SQUASHFS_NAME}"
 
-# Enable pipefail to catch du errors
-set -o pipefail
+echo "   Creating squashfs at: ${TEMP_SQUASHFS}"
 
-echo "   Writing to: ${OUTPUT_DIR}/${SQUASHFS_NAME}"
-
-mksquashfs "${ROOTFS_DIR}" "${OUTPUT_DIR}/${SQUASHFS_NAME}" \
+mksquashfs "${ROOTFS_DIR}" "${TEMP_SQUASHFS}" \
     -comp xz \
     -b 1M \
     -Xbcj x86 \
     -no-xattrs \
     -noappend
 
-# Ensure disk sync
+# Verify temp file exists
+if [ ! -f "${TEMP_SQUASHFS}" ]; then
+    echo "❌ ERROR: mksquashfs did not create temp file!"
+    exit 1
+fi
+
+echo "   Temp squashfs created: $(ls -lh ${TEMP_SQUASHFS})"
+
+# Now copy to output directory
+echo "   Copying to output directory: ${OUTPUT_DIR}/${SQUASHFS_NAME}"
+cp -v "${TEMP_SQUASHFS}" "${OUTPUT_DIR}/${SQUASHFS_NAME}"
+
+# Sync and verify
 sync
 
 # Debug: List output directory
@@ -298,8 +303,11 @@ ls -la "${OUTPUT_DIR}/"
 # Calculate size (with error checking)
 if [ -f "${OUTPUT_DIR}/${SQUASHFS_NAME}" ]; then
     SQUASHFS_SIZE=$(du -h "${OUTPUT_DIR}/${SQUASHFS_NAME}" | cut -f1)
+    # Clean up temp file
+    rm -f "${TEMP_SQUASHFS}"
 else
-    echo "❌ ERROR: Squashfs file was NOT created!"
+    echo "❌ ERROR: Squashfs file was NOT copied to output!"
+    echo "   Temp file exists: $(ls -la ${TEMP_SQUASHFS} 2>/dev/null || echo 'NO')"
     exit 1
 fi
 

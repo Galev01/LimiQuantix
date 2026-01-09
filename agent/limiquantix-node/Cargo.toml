@@ -74,7 +74,7 @@ tokio-rustls.workspace = true
 rcgen.workspace = true
 # instant-acme.workspace = true  # Disabled - ACME is placeholder, aws-lc-sys has complex build requirements
 base64.workspace = true
-base64ct = "1"
+base64ct = "1.6"  # Pin to 1.6.x to avoid edition2024 requirement
 time.workspace = true
 
 # System information
