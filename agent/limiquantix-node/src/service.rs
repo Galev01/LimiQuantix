@@ -1570,7 +1570,14 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         use limiquantix_hypervisor::storage::{NfsConfig, CephConfig, IscsiConfig};
         
         let req = request.into_inner();
-        info!(pool_id = %req.pool_id, pool_type = ?req.r#type, "Initializing storage pool");
+        info!(
+            pool_id = %req.pool_id, 
+            pool_type = ?req.r#type, 
+            has_config = req.config.is_some(),
+            has_nfs = req.config.as_ref().map(|c| c.nfs.is_some()).unwrap_or(false),
+            has_local = req.config.as_ref().map(|c| c.local.is_some()).unwrap_or(false),
+            "Initializing storage pool - request details"
+        );
         
         let pool_type = match StoragePoolType::try_from(req.r#type) {
             Ok(StoragePoolType::LocalDir) => PoolType::LocalDir,
@@ -1651,6 +1658,16 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             warn!(pool_id = %req.pool_id, "No config provided for storage pool");
             PoolConfig::default()
         };
+        
+        // Debug: log final config state before init
+        info!(
+            pool_id = %req.pool_id,
+            has_nfs_config = config.nfs.is_some(),
+            has_local_config = config.local.is_some(),
+            has_ceph_config = config.ceph.is_some(),
+            has_iscsi_config = config.iscsi.is_some(),
+            "Final pool config before init"
+        );
         
         let pool_info = self.storage.init_pool(&req.pool_id, pool_type, config).await
             .map_err(|e| {

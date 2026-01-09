@@ -2585,6 +2585,16 @@ async fn create_storage_pool(
         LocalDirPoolConfig, NfsPoolConfig,
     };
 
+    // Debug logging for troubleshooting
+    info!(
+        pool_id = %request.pool_id,
+        pool_type = %request.pool_type,
+        path = ?request.path,
+        nfs_server = ?request.nfs_server,
+        nfs_export = ?request.nfs_export,
+        "Creating storage pool"
+    );
+
     let pool_type = match request.pool_type.to_uppercase().as_str() {
         "LOCAL_DIR" => StoragePoolType::LocalDir,
         "NFS" => StoragePoolType::Nfs,
