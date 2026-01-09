@@ -466,17 +466,45 @@ fi
 
 # Set up chroot environment
 log "Preparing chroot environment..."
+
+# Create necessary directories in chroot
+mkdir -p "${INSTALL_ROOT}/dev"
+mkdir -p "${INSTALL_ROOT}/dev/pts"
+mkdir -p "${INSTALL_ROOT}/sys"
+mkdir -p "${INSTALL_ROOT}/proc"
+mkdir -p "${INSTALL_ROOT}/tmp"
+
+# Mount essential filesystems
 mount --bind /dev "${INSTALL_ROOT}/dev"
+mount -t devpts devpts "${INSTALL_ROOT}/dev/pts" 2>/dev/null || true
 mount --bind /sys "${INSTALL_ROOT}/sys"
 mount --bind /proc "${INSTALL_ROOT}/proc"
+mount -t tmpfs tmpfs "${INSTALL_ROOT}/tmp"
 
 # Keep CD-ROM mounted for potential use during installation
 mkdir -p "${INSTALL_ROOT}/mnt/cdrom"
 mount --bind /mnt/cdrom "${INSTALL_ROOT}/mnt/cdrom"
 
+# Ensure console is accessible in chroot
+if [ ! -e "${INSTALL_ROOT}/dev/console" ]; then
+    mknod "${INSTALL_ROOT}/dev/console" c 5 1 2>/dev/null || true
+fi
+if [ ! -e "${INSTALL_ROOT}/dev/tty" ]; then
+    mknod "${INSTALL_ROOT}/dev/tty" c 5 0 2>/dev/null || true
+fi
+
 if [ -f "${INSTALL_ROOT}/installer/tui.sh" ]; then
     log "Running TUI in chroot..."
-    chroot "${INSTALL_ROOT}" /bin/sh /installer/tui.sh
+    
+    # Set terminal environment and run with proper console
+    export TERM=linux
+    export HOME=/root
+    export SHELL=/bin/sh
+    
+    # Use exec to replace shell and give the TUI direct console access
+    # The </dev/console >/dev/console 2>&1 ensures dialog can use the console
+    chroot "${INSTALL_ROOT}" /bin/sh -c "export TERM=linux; export HOME=/root; /installer/tui.sh" </dev/console >/dev/console 2>&1
+    
     INSTALL_EXIT=$?
     log "Installer exited with ${INSTALL_EXIT}"
 else
@@ -486,8 +514,10 @@ fi
 
 # Cleanup mounts
 umount "${INSTALL_ROOT}/mnt/cdrom" 2>/dev/null || true
+umount "${INSTALL_ROOT}/tmp" 2>/dev/null || true
 umount "${INSTALL_ROOT}/proc" 2>/dev/null || true
 umount "${INSTALL_ROOT}/sys" 2>/dev/null || true
+umount "${INSTALL_ROOT}/dev/pts" 2>/dev/null || true
 umount "${INSTALL_ROOT}/dev" 2>/dev/null || true
 
 # Fallback
