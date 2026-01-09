@@ -127,7 +127,7 @@ echo "   ✅ Busybox is statically linked (verified)"
 # Create symlinks for ALL essential commands
 for cmd in sh ash ls cat cp mv rm mkdir rmdir mount umount mknod grep sed awk \
            sleep echo ln chmod chown chroot switch_root pivot_root \
-           modprobe insmod lsmod depmod \
+           modprobe insmod lsmod depmod losetup \
            fdisk sfdisk blkid lsblk dd clear dmesg \
            ip ifconfig route ping hostname uname date \
            mdev find xargs head tail sort uniq wc cut tr \
@@ -137,7 +137,7 @@ for cmd in sh ash ls cat cp mv rm mkdir rmdir mount umount mknod grep sed awk \
 done
 
 # Also create in /sbin for compatibility
-for cmd in modprobe insmod lsmod depmod mdev blkid switch_root pivot_root reboot poweroff halt init; do
+for cmd in modprobe insmod lsmod depmod mdev blkid losetup switch_root pivot_root reboot poweroff halt init; do
     ln -sf ../bin/busybox "${INITRAMFS_DIR}/sbin/$cmd" 2>/dev/null || true
 done
 
