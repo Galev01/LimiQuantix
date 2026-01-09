@@ -241,6 +241,47 @@ cp "${WORK_DIR}/installer/firstboot.sh" "${INITRAMFS_DIR}/installer/" 2>/dev/nul
 chmod +x "${INITRAMFS_DIR}/installer/"* 2>/dev/null || true
 
 # =============================================================================
+# Copy terminal definitions (REQUIRED for dialog to render)
+# =============================================================================
+echo "   Copying terminal definitions..."
+mkdir -p "${INITRAMFS_DIR}/usr/share/terminfo/l"
+mkdir -p "${INITRAMFS_DIR}/usr/share/terminfo/v"
+mkdir -p "${INITRAMFS_DIR}/usr/share/terminfo/x"
+mkdir -p "${INITRAMFS_DIR}/etc/terminfo/l"
+
+# Copy the 'linux' terminfo used by the kernel console
+# Alpine can have terminfo in different locations
+for terminfo_base in /usr/share/terminfo /lib/terminfo /etc/terminfo; do
+    if [ -f "${terminfo_base}/l/linux" ]; then
+        cp "${terminfo_base}/l/linux" "${INITRAMFS_DIR}/usr/share/terminfo/l/"
+        cp "${terminfo_base}/l/linux" "${INITRAMFS_DIR}/etc/terminfo/l/"
+        echo "      Found linux terminfo in ${terminfo_base}"
+        break
+    fi
+done
+
+# Also copy vt100 and xterm as fallbacks
+for term in vt100 vt102 vt220; do
+    for terminfo_base in /usr/share/terminfo /lib/terminfo /etc/terminfo; do
+        if [ -f "${terminfo_base}/v/${term}" ]; then
+            cp "${terminfo_base}/v/${term}" "${INITRAMFS_DIR}/usr/share/terminfo/v/" 2>/dev/null || true
+            break
+        fi
+    done
+done
+
+for term in xterm xterm-256color; do
+    for terminfo_base in /usr/share/terminfo /lib/terminfo /etc/terminfo; do
+        if [ -f "${terminfo_base}/x/${term}" ]; then
+            cp "${terminfo_base}/x/${term}" "${INITRAMFS_DIR}/usr/share/terminfo/x/" 2>/dev/null || true
+            break
+        fi
+    done
+done
+
+echo "   ✅ Terminal definitions copied"
+
+# =============================================================================
 # Create /etc files
 # =============================================================================
 cat > "${INITRAMFS_DIR}/etc/passwd" << 'EOF'
@@ -496,14 +537,21 @@ fi
 if [ -f "${INSTALL_ROOT}/installer/tui.sh" ]; then
     log "Running TUI in chroot..."
     
-    # Set terminal environment and run with proper console
+    # Set terminal environment variables
     export TERM=linux
     export HOME=/root
     export SHELL=/bin/sh
+    export TERMINFO=/usr/share/terminfo
     
-    # Use exec to replace shell and give the TUI direct console access
-    # The </dev/console >/dev/console 2>&1 ensures dialog can use the console
-    chroot "${INSTALL_ROOT}" /bin/sh -c "export TERM=linux; export HOME=/root; /installer/tui.sh" </dev/console >/dev/console 2>&1
+    # Run the TUI with proper console access and terminfo path
+    # The < /dev/console > /dev/console 2>&1 ensures dialog can use the console
+    chroot "${INSTALL_ROOT}" /bin/sh -c "
+        export TERM=linux
+        export HOME=/root
+        export TERMINFO=/usr/share/terminfo
+        export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+        /installer/tui.sh
+    " < /dev/console > /dev/console 2>&1
     
     INSTALL_EXIT=$?
     log "Installer exited with ${INSTALL_EXIT}"
