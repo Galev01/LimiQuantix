@@ -17,10 +17,13 @@ import {
   Database,
   ArrowRight,
   RefreshCw,
+  Boxes,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
+import { useClusters, toDisplayCluster } from '@/hooks/useClusters';
 
 interface AddHostModalProps {
   isOpen: boolean;
@@ -99,10 +102,14 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
   const [step, setStep] = useState<Step>('input');
   const [hostUrl, setHostUrl] = useState('');
   const [registrationToken, setRegistrationToken] = useState('');
-  const [selectedCluster, setSelectedCluster] = useState('default');
+  const [selectedCluster, setSelectedCluster] = useState(''); // Empty = no selection
   const [discoveryData, setDiscoveryData] = useState<HostDiscovery | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch clusters from API
+  const { data: clustersResponse, isLoading: clustersLoading } = useClusters();
+  const clusters = (clustersResponse?.clusters || []).map(toDisplayCluster);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -110,7 +117,7 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
       setStep('input');
       setHostUrl('');
       setRegistrationToken('');
-      setSelectedCluster('default');
+      setSelectedCluster(''); // Reset to no selection
       setDiscoveryData(null);
       setError(null);
     }
@@ -129,6 +136,10 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
   const handleConnect = async () => {
     if (!hostUrl.trim() || !registrationToken.trim()) {
       setError('Please enter both host URL and registration token');
+      return;
+    }
+    if (!selectedCluster) {
+      setError('Please select a cluster for this host');
       return;
     }
 
@@ -362,30 +373,73 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
                   </p>
                 </div>
 
-                {/* Cluster Selection */}
+                {/* Cluster Selection - REQUIRED */}
                 <div>
                   <label className="block text-sm font-medium text-text-secondary mb-2">
-                    <FolderTree className="w-4 h-4 inline mr-1" />
-                    Target Cluster
+                    <Boxes className="w-4 h-4 inline mr-1" />
+                    Target Cluster <span className="text-error">*</span>
                   </label>
-                  <select
-                    value={selectedCluster}
-                    onChange={(e) => setSelectedCluster(e.target.value)}
+                  {clustersLoading ? (
+                    <div className="flex items-center gap-2 px-4 py-3 bg-bg-base border border-border rounded-lg">
+                      <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                      <span className="text-text-muted">Loading clusters...</span>
+                    </div>
+                  ) : clusters.length === 0 ? (
+                    <div className="p-4 bg-warning/10 border border-warning/30 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="w-4 h-4 text-warning" />
+                        <span className="font-medium text-warning">No Clusters Available</span>
+                      </div>
+                      <p className="text-sm text-text-muted">
+                        You must create a cluster before adding hosts. Go to the Clusters page to create one.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                        {clusters.map((cluster) => {
+                          const isSelected = selectedCluster === cluster.id;
+                          return (
+                            <button
+                              key={cluster.id}
+                              type="button"
+                              onClick={() => setSelectedCluster(cluster.id)}
                     className={cn(
-                      'w-full px-4 py-3 rounded-lg',
-                      'bg-bg-base border border-border',
-                      'text-text-primary',
-                      'focus:outline-none focus:border-accent',
-                    )}
-                  >
-                    <option value="default">Default Cluster</option>
-                    <option value="production">Production</option>
-                    <option value="development">Development</option>
-                    <option value="edge">Edge / Remote</option>
-                  </select>
-                  <p className="text-xs text-text-muted mt-1">
-                    The host will join this cluster and share its resources
+                                'w-full p-3 rounded-lg border-2 text-left transition-all flex items-center gap-3',
+                                isSelected
+                                  ? 'border-accent bg-accent/5'
+                                  : 'border-border hover:border-accent/50 hover:bg-bg-hover'
+                              )}
+                            >
+                              <div className={cn(
+                                'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
+                                isSelected ? 'bg-accent text-white' : 'bg-bg-elevated text-text-muted'
+                              )}>
+                                <Boxes className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-text-primary truncate">{cluster.name}</span>
+                                  <Badge variant={cluster.status === 'HEALTHY' ? 'success' : 'warning'} className="text-xs">
+                                    {cluster.status}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-text-muted mt-0.5">
+                                  <span>{cluster.hosts.total} hosts</span>
+                                  <span>{cluster.vms.total} VMs</span>
+                                  {cluster.haEnabled && <span className="text-success">HA</span>}
+                                  {cluster.drsEnabled && <span className="text-accent">DRS</span>}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-text-muted mt-2">
+                        Select the cluster this host will join. This is required.
                   </p>
+                    </>
+                  )}
                 </div>
 
                 {error && (
@@ -397,7 +451,7 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
 
                 <Button
                   onClick={handleConnect}
-                  disabled={!hostUrl.trim() || !registrationToken.trim()}
+                  disabled={!hostUrl.trim() || !registrationToken.trim() || !selectedCluster || clusters.length === 0}
                   className="w-full"
                 >
                   <ArrowRight className="w-4 h-4 mr-2" />
@@ -566,7 +620,7 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
                 {/* Cluster Selection Confirmation */}
                 <div className="p-4 bg-accent/10 border border-accent/30 rounded-xl">
                   <p className="text-sm text-text-secondary">
-                    This host will join the <strong className="text-accent">{selectedCluster}</strong> cluster and share all discovered resources.
+                    This host will join the <strong className="text-accent">{clusters.find(c => c.id === selectedCluster)?.name || selectedCluster}</strong> cluster and share all discovered resources.
                   </p>
                 </div>
 
@@ -604,7 +658,7 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
                 </div>
                 <h3 className="text-lg font-medium text-text-primary mb-2">Host Added Successfully!</h3>
                 <p className="text-sm text-text-muted mb-6">
-                  {discoveryData?.hostname} is now part of the {selectedCluster} cluster.
+                  {discoveryData?.hostname} is now part of the <strong>{clusters.find(c => c.id === selectedCluster)?.name || selectedCluster}</strong> cluster.
                 </p>
                 <Button onClick={onClose}>
                   Close

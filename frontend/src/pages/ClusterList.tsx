@@ -21,6 +21,8 @@ import {
   X,
   Loader2,
   Trash2,
+  Check,
+  Network,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -34,6 +36,7 @@ import {
   type CreateClusterRequest,
   type DRSMode,
 } from '@/hooks/useClusters';
+import { useNodes, type ApiNode } from '@/hooks/useNodes';
 import { toast } from 'sonner';
 
 const statusConfig = {
@@ -286,9 +289,13 @@ function ResourceBar({ label, used, icon }: { label: string; used: number; icon:
   );
 }
 
+interface CreateClusterFormData extends CreateClusterRequest {
+  selectedHostIds: string[];
+}
+
 function CreateClusterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState<CreateClusterRequest>({
+  const [formData, setFormData] = useState<CreateClusterFormData>({
     name: '',
     description: '',
     ha_enabled: false,
@@ -298,9 +305,39 @@ function CreateClusterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () 
     drs_mode: 'manual',
     drs_migration_threshold: 3,
     shared_storage_required: false,
+    selectedHostIds: [],
   });
 
   const createCluster = useCreateCluster();
+  const { data: nodesResponse, isLoading: nodesLoading } = useNodes({ pageSize: 100 });
+  
+  // Get nodes that are not already in a cluster
+  const availableNodes = (nodesResponse?.nodes || []).filter(
+    (node) => !node.clusterId || node.clusterId === ''
+  );
+
+  const toggleHostSelection = (hostId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      selectedHostIds: prev.selectedHostIds.includes(hostId)
+        ? prev.selectedHostIds.filter((id) => id !== hostId)
+        : [...prev.selectedHostIds, hostId],
+    }));
+  };
+
+  const selectAllHosts = () => {
+    setFormData((prev) => ({
+      ...prev,
+      selectedHostIds: availableNodes.map((n) => n.id),
+    }));
+  };
+
+  const deselectAllHosts = () => {
+    setFormData((prev) => ({
+      ...prev,
+      selectedHostIds: [],
+    }));
+  };
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
@@ -308,11 +345,15 @@ function CreateClusterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () 
       return;
     }
     try {
-      await createCluster.mutateAsync(formData);
-      toast.success('Cluster created successfully');
+      const { selectedHostIds, ...clusterData } = formData;
+      await createCluster.mutateAsync({
+        ...clusterData,
+        initial_host_ids: selectedHostIds,
+      });
+      toast.success(`Cluster created successfully${selectedHostIds.length > 0 ? ` with ${selectedHostIds.length} host(s)` : ''}`);
       onClose();
       setStep(1);
-      setFormData({ name: '', description: '', ha_enabled: false, ha_admission_control: true, ha_failover_capacity: 1, drs_enabled: false, drs_mode: 'manual', drs_migration_threshold: 3, shared_storage_required: false });
+      setFormData({ name: '', description: '', ha_enabled: false, ha_admission_control: true, ha_failover_capacity: 1, drs_enabled: false, drs_mode: 'manual', drs_migration_threshold: 3, shared_storage_required: false, selectedHostIds: [] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create cluster');
     }
@@ -320,26 +361,31 @@ function CreateClusterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () 
 
   if (!isOpen) return null;
 
+  const TOTAL_STEPS = 4;
+  const stepDescriptions = ['Basic information', 'Select hosts', 'High Availability settings', 'DRS settings'];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative z-10 w-full max-w-lg bg-bg-surface rounded-2xl shadow-2xl border border-border flex flex-col overflow-hidden">
+      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative z-10 w-full max-w-2xl bg-bg-surface rounded-2xl shadow-2xl border border-border flex flex-col overflow-hidden max-h-[90vh]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center"><Boxes className="w-5 h-5 text-accent" /></div>
             <div>
               <h2 className="text-lg font-semibold text-text-primary">Create Cluster</h2>
-              <p className="text-sm text-text-muted">{step === 1 && 'Basic information'}{step === 2 && 'High Availability settings'}{step === 3 && 'DRS settings'}</p>
+              <p className="text-sm text-text-muted">{stepDescriptions[step - 1]}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="flex items-center gap-2 px-6 py-3 bg-bg-base">
-          {[1, 2, 3].map((s) => (<div key={s} className={cn('flex-1 h-1 rounded-full transition-colors', s <= step ? 'bg-accent' : 'bg-bg-elevated')} />))}
+          {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((s) => (
+            <div key={s} className={cn('flex-1 h-1 rounded-full transition-colors', s <= step ? 'bg-accent' : 'bg-bg-elevated')} />
+          ))}
         </div>
 
-        <div className="p-6 min-h-[300px]">
+        <div className="p-6 min-h-[350px] overflow-y-auto">
           <AnimatePresence mode="wait">
             {step === 1 && (
               <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
@@ -363,6 +409,94 @@ function CreateClusterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () 
 
             {step === 2 && (
               <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="text-sm font-medium text-text-primary">Select Hosts for Cluster</h3>
+                    <p className="text-xs text-text-muted">Choose which hosts will be part of this cluster</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={selectAllHosts} className="text-xs text-accent hover:underline">Select All</button>
+                    <span className="text-text-muted">|</span>
+                    <button onClick={deselectAllHosts} className="text-xs text-text-muted hover:text-text-primary">Clear</button>
+                  </div>
+                </div>
+
+                {nodesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                  </div>
+                ) : availableNodes.length === 0 ? (
+                  <div className="text-center py-8 bg-bg-base rounded-lg border border-border">
+                    <Server className="w-10 h-10 text-text-muted mx-auto mb-3" />
+                    <p className="text-text-primary font-medium">No Available Hosts</p>
+                    <p className="text-sm text-text-muted mt-1">All hosts are already assigned to clusters, or no hosts are registered.</p>
+                    <p className="text-xs text-text-muted mt-2">You can add hosts to this cluster later from the cluster details page.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[280px] overflow-y-auto pr-2">
+                    {availableNodes.map((node) => {
+                      const isSelected = formData.selectedHostIds.includes(node.id);
+                      const isReady = node.status?.phase === 'READY' || node.status?.phase === 'NODE_PHASE_READY';
+                      return (
+                        <button
+                          key={node.id}
+                          onClick={() => toggleHostSelection(node.id)}
+                          className={cn(
+                            'w-full p-3 rounded-lg border-2 text-left transition-all flex items-center gap-3',
+                            isSelected
+                              ? 'border-accent bg-accent/5'
+                              : 'border-border hover:border-accent/50 hover:bg-bg-hover'
+                          )}
+                        >
+                          <div className={cn(
+                            'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
+                            isSelected ? 'bg-accent text-white' : 'bg-bg-elevated text-text-muted'
+                          )}>
+                            {isSelected ? <Check className="w-4 h-4" /> : <Server className="w-4 h-4" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-text-primary truncate">{node.hostname || node.id}</p>
+                              <Badge variant={isReady ? 'success' : 'warning'} className="text-xs">
+                                {isReady ? 'Ready' : node.status?.phase || 'Unknown'}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-text-muted mt-1">
+                              <span className="flex items-center gap-1">
+                                <Network className="w-3 h-3" />
+                                {node.managementIp || 'No IP'}
+                              </span>
+                              {node.spec?.cpu && (
+                                <span className="flex items-center gap-1">
+                                  <Cpu className="w-3 h-3" />
+                                  {node.spec.cpu.sockets * node.spec.cpu.coresPerSocket} cores
+                                </span>
+                              )}
+                              {node.spec?.memory && (
+                                <span className="flex items-center gap-1">
+                                  <MemoryStick className="w-3 h-3" />
+                                  {Math.round((node.spec.memory.totalMib || 0) / 1024)} GB
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="p-3 rounded-lg bg-bg-base border border-border">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-text-muted">Selected hosts:</span>
+                    <span className="font-medium text-text-primary">{formData.selectedHostIds.length} of {availableNodes.length}</span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 3 && (
+              <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                 <div className="flex items-center justify-between p-4 rounded-lg bg-bg-base border border-border">
                   <div className="flex items-center gap-3">
                     <Shield className="w-5 h-5 text-success" />
@@ -399,8 +533,8 @@ function CreateClusterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () 
               </motion.div>
             )}
 
-            {step === 3 && (
-              <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+            {step === 4 && (
+              <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                 <div className="flex items-center justify-between p-4 rounded-lg bg-bg-base border border-border">
                   <div className="flex items-center gap-3">
                     <Zap className="w-5 h-5 text-accent" />
@@ -431,6 +565,7 @@ function CreateClusterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                   <p className="text-sm font-medium text-text-secondary mb-2">Summary</p>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between"><span className="text-text-muted">Name:</span><span className="text-text-primary">{formData.name || '(not set)'}</span></div>
+                    <div className="flex justify-between"><span className="text-text-muted">Hosts:</span><span className="text-text-primary">{formData.selectedHostIds.length} selected</span></div>
                     <div className="flex justify-between"><span className="text-text-muted">HA:</span><span className={formData.ha_enabled ? 'text-success' : 'text-text-muted'}>{formData.ha_enabled ? 'Enabled' : 'Disabled'}</span></div>
                     <div className="flex justify-between"><span className="text-text-muted">DRS:</span><span className={formData.drs_enabled ? 'text-accent' : 'text-text-muted'}>{formData.drs_enabled ? `Enabled (${formData.drs_mode})` : 'Disabled'}</span></div>
                   </div>
@@ -442,8 +577,8 @@ function CreateClusterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () 
 
         <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-bg-elevated/50">
           <Button variant="ghost" onClick={() => { if (step === 1) onClose(); else setStep(step - 1); }}>{step === 1 ? 'Cancel' : 'Back'}</Button>
-          <Button onClick={() => { if (step < 3) setStep(step + 1); else handleSubmit(); }} disabled={step === 1 && !formData.name.trim()}>
-            {createCluster.isPending ? (<><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating...</>) : step < 3 ? 'Next' : 'Create Cluster'}
+          <Button onClick={() => { if (step < TOTAL_STEPS) setStep(step + 1); else handleSubmit(); }} disabled={step === 1 && !formData.name.trim()}>
+            {createCluster.isPending ? (<><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating...</>) : step < TOTAL_STEPS ? 'Next' : 'Create Cluster'}
           </Button>
         </div>
       </motion.div>

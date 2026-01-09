@@ -58,6 +58,9 @@ type CreateClusterRequest struct {
 	SharedStorageRequired bool   `json:"shared_storage_required"`
 	DefaultStoragePoolID  string `json:"default_storage_pool_id,omitempty"`
 	DefaultNetworkID      string `json:"default_network_id,omitempty"`
+
+	// Initial hosts to add to the cluster
+	InitialHostIDs []string `json:"initial_host_ids,omitempty"`
 }
 
 // Create creates a new cluster.
@@ -133,11 +136,26 @@ func (s *Service) Create(ctx context.Context, req *CreateClusterRequest) (*domai
 		zap.String("name", cluster.Name),
 	)
 
-	// Return with empty stats (no hosts yet)
-	return &domain.ClusterWithStats{
-		Cluster: *cluster,
-		Stats:   domain.ClusterStats{},
-	}, nil
+	// Add initial hosts to the cluster
+	if len(req.InitialHostIDs) > 0 {
+		s.logger.Info("Adding initial hosts to cluster",
+			zap.String("cluster_id", cluster.ID),
+			zap.Int("host_count", len(req.InitialHostIDs)),
+		)
+		for _, hostID := range req.InitialHostIDs {
+			if err := s.AddHost(ctx, cluster.ID, hostID); err != nil {
+				s.logger.Warn("Failed to add initial host to cluster",
+					zap.String("cluster_id", cluster.ID),
+					zap.String("host_id", hostID),
+					zap.Error(err),
+				)
+				// Continue with other hosts even if one fails
+			}
+		}
+	}
+
+	// Return with computed stats (now includes any added hosts)
+	return s.Get(ctx, cluster.ID)
 }
 
 // Get retrieves a cluster by ID with computed statistics.

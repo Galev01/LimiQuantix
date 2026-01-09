@@ -16,6 +16,7 @@ import { SecurityGroups } from '@/pages/SecurityGroups';
 import { LoadBalancers } from '@/pages/LoadBalancers';
 import { VPNServices } from '@/pages/VPNServices';
 import { BGPSpeakers } from '@/pages/BGPSpeakers';
+import { DistributedSwitch } from '@/pages/DistributedSwitch';
 import { Settings } from '@/pages/Settings';
 import { Monitoring } from '@/pages/Monitoring';
 import { Alerts } from '@/pages/Alerts';
@@ -78,6 +79,7 @@ function AppRoutes() {
         
         {/* Networking */}
         <Route path="/networks" element={<VirtualNetworks />} />
+        <Route path="/networks/distributed-switch" element={<DistributedSwitch />} />
         <Route path="/networks/load-balancers" element={<LoadBalancers />} />
         <Route path="/networks/vpn" element={<VPNServices />} />
         <Route path="/networks/bgp" element={<BGPSpeakers />} />

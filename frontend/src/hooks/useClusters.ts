@@ -73,6 +73,8 @@ export interface CreateClusterRequest {
   shared_storage_required?: boolean;
   default_storage_pool_id?: string;
   default_network_id?: string;
+  // Initial hosts to add to the cluster
+  initial_host_ids?: string[];
 }
 
 export interface UpdateClusterRequest {
@@ -193,6 +195,15 @@ async function removeHostFromCluster(clusterId: string, hostId: string): Promise
   }
 }
 
+// Fetch cluster hosts
+async function fetchClusterHosts(clusterId: string): Promise<{ hosts: any[]; total: number }> {
+  const response = await fetch(`${API_BASE}/api/clusters/${clusterId}/hosts`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch cluster hosts');
+  }
+  return response.json();
+}
+
 // Hooks
 
 export function useClusters(projectId?: string) {
@@ -271,7 +282,18 @@ export function useRemoveHostFromCluster() {
       queryClient.invalidateQueries({ queryKey: clusterKeys.detail(clusterId) });
       queryClient.invalidateQueries({ queryKey: clusterKeys.hosts(clusterId) });
       queryClient.invalidateQueries({ queryKey: clusterKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ['nodes'] }); // Refresh nodes list
     },
+  });
+}
+
+export function useClusterHosts(clusterId: string, enabled = true) {
+  return useQuery({
+    queryKey: clusterKeys.hosts(clusterId),
+    queryFn: () => fetchClusterHosts(clusterId),
+    enabled: enabled && !!clusterId,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
   });
 }
 

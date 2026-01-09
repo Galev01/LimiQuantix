@@ -28,6 +28,8 @@ import { Badge } from '@/components/ui/Badge';
 import { useNetworks, useCreateNetwork, useUpdateNetwork, useDeleteNetwork, type ApiVirtualNetwork } from '@/hooks/useNetworks';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { showInfo } from '@/lib/toast';
+import { CreateNetworkWizard } from '@/components/network/CreateNetworkWizard';
+import { toast } from 'sonner';
 
 import { type VirtualNetwork } from '@/types/models';
 
@@ -104,22 +106,28 @@ export function VirtualNetworks() {
     await deleteNetwork.mutateAsync(id);
   };
 
-  // Handle create network
+  // Handle create network (from wizard)
   const handleCreateNetwork = async (data: Partial<VirtualNetwork>) => {
     if (!data.name) return;
-    await createNetwork.mutateAsync({
-      name: data.name,
-      projectId: 'default',
-      description: data.description,
-      spec: {
-        type: data.type || 'VLAN',
-        cidr: data.cidr || '',
-        gateway: data.gateway,
-        vlanId: data.vlanId,
-        dhcpEnabled: data.dhcpEnabled,
-      },
-    });
-    setIsCreateModalOpen(false);
+    try {
+      await createNetwork.mutateAsync({
+        name: data.name,
+        projectId: 'default',
+        description: data.description,
+        spec: {
+          type: data.type || 'VLAN',
+          cidr: data.cidr || '',
+          gateway: data.gateway,
+          vlanId: data.vlanId,
+          dhcpEnabled: data.dhcpEnabled,
+        },
+      });
+      toast.success(`Network "${data.name}" created successfully`);
+      setIsCreateModalOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create network');
+      throw err; // Re-throw so wizard knows about the error
+    }
   };
 
   // Handle update network
@@ -336,8 +344,8 @@ export function VirtualNetworks() {
         />
       )}
 
-      {/* Create Network Modal */}
-      <CreateNetworkModal
+      {/* Create Network Wizard */}
+      <CreateNetworkWizard
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateNetwork}

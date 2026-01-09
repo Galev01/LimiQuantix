@@ -70,6 +70,7 @@ const navigation: NavItem[] = [
     icon: Network,
     children: [
       { id: 'networks', label: 'Virtual Networks', icon: Network, href: '/networks' },
+      { id: 'distributed-switch', label: 'Distributed Switch', icon: Layers, href: '/networks/distributed-switch' },
       { id: 'load-balancers', label: 'Load Balancers', icon: Scale, href: '/networks/load-balancers' },
       { id: 'vpn', label: 'VPN Services', icon: KeyRound, href: '/networks/vpn' },
       { id: 'bgp', label: 'BGP Speakers', icon: Radio, href: '/networks/bgp' },

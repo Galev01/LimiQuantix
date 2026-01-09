@@ -389,6 +389,12 @@ for mod in usbcore usb_common xhci_hcd xhci_pci ehci_hcd ehci_pci uhci_hcd usb_s
     modprobe $mod >/dev/null 2>&1
 done
 
+# Graphics/Framebuffer (CRITICAL for real hardware display)
+log "Loading graphics drivers..."
+for mod in efifb vesafb simplefb drm drm_kms_helper i915 nouveau amdgpu radeon; do
+    modprobe $mod >/dev/null 2>&1 || true
+done
+
 mdev -s
 sleep 2
 

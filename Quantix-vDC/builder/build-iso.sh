@@ -193,6 +193,11 @@ menuentry "Install Quantix-vDC" {
     initrd /boot/initramfs
 }
 
+menuentry "Install Quantix-vDC (Safe Graphics)" {
+    linux /boot/vmlinuz boot=installer nomodeset console=tty0 console=ttyS0,115200
+    initrd /boot/initramfs
+}
+
 menuentry "Install Quantix-vDC (Debug Mode)" {
     linux /boot/vmlinuz boot=installer debug console=tty0 console=ttyS0,115200 loglevel=7
     initrd /boot/initramfs
