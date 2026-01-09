@@ -17,7 +17,7 @@ use axum::{
     Router,
     routing::{get, post},
     extract::{Path, State, Multipart, Query, ws::{Message, WebSocket, WebSocketUpgrade}},
-    http::{StatusCode, header, Method, Uri},
+    http::{StatusCode, header, Method, Uri, HeaderMap},
     response::{IntoResponse, Response, Json, Redirect},
     body::Body,
 };
@@ -4310,9 +4310,14 @@ async fn generate_registration_token(
 }
 
 /// Get the current registration token (if still valid)
+/// Requires valid Authorization: Bearer <token> header
 async fn get_current_registration_token(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
 ) -> Result<Json<RegistrationToken>, (StatusCode, Json<ApiError>)> {
+    // Validate the Authorization header token
+    validate_auth_header(&headers)?;
+    
     let storage = get_token_storage().lock().unwrap();
     
     match &*storage {
@@ -4369,6 +4374,41 @@ pub fn validate_registration_token(token: &str) -> bool {
         }
         None => false,
     }
+}
+
+/// Extract and validate token from Authorization header
+/// Returns the token if valid, or an error response if invalid
+fn validate_auth_header(headers: &HeaderMap) -> Result<(), (StatusCode, Json<ApiError>)> {
+    // Get Authorization header
+    let auth_header = headers
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(ApiError::new("missing_auth", "Authorization header is required")),
+            )
+        })?;
+
+    // Check Bearer format
+    if !auth_header.starts_with("Bearer ") {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(ApiError::new("invalid_auth", "Authorization header must use Bearer scheme")),
+        ));
+    }
+
+    let token = &auth_header[7..]; // Skip "Bearer "
+
+    // Validate the token
+    if !validate_registration_token(token) {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(ApiError::new("invalid_token", "Invalid or expired registration token")),
+        ));
+    }
+
+    Ok(())
 }
 
 /// Request from vDC to complete registration
@@ -4497,10 +4537,15 @@ async fn complete_registration(
 }
 
 /// Get full host discovery information for vDC to display resources
+/// Requires valid Authorization: Bearer <token> header
 async fn get_host_discovery(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
 ) -> Result<Json<HostDiscoveryResponse>, (StatusCode, Json<ApiError>)> {
     info!("Host discovery request received");
+    
+    // Validate the Authorization header token
+    validate_auth_header(&headers)?;
     
     let hostname = gethostname::gethostname().to_string_lossy().to_string();
     let management_ip = state.service.get_management_ip();
@@ -4519,6 +4564,8 @@ async fn get_host_discovery(
     
     // Get GPUs
     let gpus = collect_gpu_info();
+    
+    info!("Host discovery completed for {}", hostname);
     
     Ok(Json(HostDiscoveryResponse {
         hostname,
