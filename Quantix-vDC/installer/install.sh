@@ -243,6 +243,29 @@ cp -a /tmp/sqfs/* "${TARGET_MOUNT}/"
 umount /tmp/sqfs
 rmdir /tmp/sqfs
 
+# Copy kernel and initramfs from ISO
+log_info "Copying boot files from ISO..."
+mkdir -p "${TARGET_MOUNT}/boot"
+
+# Copy kernel
+if [ -f "/mnt/cdrom/boot/vmlinuz" ]; then
+    cp /mnt/cdrom/boot/vmlinuz "${TARGET_MOUNT}/boot/vmlinuz-lts"
+    log_info "Kernel copied to /boot/vmlinuz-lts"
+else
+    log_warn "Kernel not found on ISO, using squashfs version"
+fi
+
+# Copy initramfs - prefer boot-initramfs (designed for installed system)
+if [ -f "/mnt/cdrom/boot/boot-initramfs" ]; then
+    cp /mnt/cdrom/boot/boot-initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
+    log_info "Boot initramfs copied to /boot/initramfs-lts"
+elif [ -f "/mnt/cdrom/boot/initramfs" ]; then
+    cp /mnt/cdrom/boot/initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
+    log_info "Installer initramfs copied to /boot/initramfs-lts (may need regeneration)"
+else
+    log_warn "No initramfs found on ISO!"
+fi
+
 log_info "System extracted"
 
 # =============================================================================
@@ -338,23 +361,67 @@ mount --bind /sys "${TARGET_MOUNT}/sys"
 
 # Configure mkinitfs to include necessary modules for boot
 log_info "Configuring initramfs modules..."
+
+# Ensure mkinitfs directories exist
+mkdir -p "${TARGET_MOUNT}/etc/mkinitfs"
+
+# Create mkinitfs.conf with all essential features
 cat > "${TARGET_MOUNT}/etc/mkinitfs/mkinitfs.conf" << 'MKINITCONF'
 # Quantix-vDC initramfs configuration
-# Include essential modules for boot on various hardware
+# Include all essential modules for boot on various hardware
 
+# Core features
 features="ata base cdrom ext4 keymap kms mmc nvme scsi usb virtio"
+
+# Enable compression
+disable_trigger=1
 MKINITCONF
+
+log_info "mkinitfs.conf created"
 
 # Regenerate initramfs with proper modules
 log_info "Regenerating initramfs..."
 KERNEL_VERSION=$(ls "${TARGET_MOUNT}/lib/modules" 2>/dev/null | head -1)
 if [ -n "$KERNEL_VERSION" ]; then
-    chroot "${TARGET_MOUNT}" mkinitfs -c /etc/mkinitfs/mkinitfs.conf "$KERNEL_VERSION" 2>/dev/null || {
-        log_warn "mkinitfs failed, initramfs may be incomplete"
-    }
-    log_info "Initramfs regenerated for kernel $KERNEL_VERSION"
+    log_info "Kernel version: $KERNEL_VERSION"
+    
+    # Check if mkinitfs is available
+    if chroot "${TARGET_MOUNT}" which mkinitfs >/dev/null 2>&1; then
+        log_info "Running mkinitfs..."
+        
+        # Run mkinitfs with verbose output
+        if chroot "${TARGET_MOUNT}" mkinitfs -c /etc/mkinitfs/mkinitfs.conf "$KERNEL_VERSION"; then
+            log_info "✅ Initramfs regenerated successfully"
+            
+            # Verify initramfs was created
+            if [ -f "${TARGET_MOUNT}/boot/initramfs-lts" ]; then
+                INITRAMFS_SIZE=$(du -h "${TARGET_MOUNT}/boot/initramfs-lts" | cut -f1)
+                log_info "Initramfs size: ${INITRAMFS_SIZE}"
+            fi
+        else
+            log_error "mkinitfs failed!"
+            log_warn "Attempting manual initramfs copy..."
+            
+            # Try copying the ISO's initramfs as fallback
+            if [ -f "/mnt/cdrom/boot/initramfs" ]; then
+                cp /mnt/cdrom/boot/initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
+                log_warn "Copied installer initramfs as fallback"
+            fi
+        fi
+    else
+        log_error "mkinitfs not found in installed system!"
+        log_warn "Alpine initramfs tools may not be installed."
+        
+        # Try copying the ISO's initramfs as fallback
+        if [ -f "/mnt/cdrom/boot/initramfs" ]; then
+            cp /mnt/cdrom/boot/initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
+            log_warn "Copied installer initramfs as fallback"
+        fi
+    fi
 else
-    log_warn "Could not determine kernel version for initramfs"
+    log_error "Could not determine kernel version!"
+    log_warn "Listing /lib/modules:"
+    ls -la "${TARGET_MOUNT}/lib/modules/" || true
 fi
 
 # Install GRUB for UEFI

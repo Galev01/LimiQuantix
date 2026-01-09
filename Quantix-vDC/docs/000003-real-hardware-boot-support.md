@@ -278,3 +278,41 @@ If you have an installed system that won't boot:
    umount -R /mnt
    reboot
    ```
+
+---
+
+## Two Types of Initramfs
+
+Quantix-vDC uses **two different initramfs images** for different purposes:
+
+### 1. Installer Initramfs (`installer-initramfs.img`)
+
+- **Built by:** `build-installer-initramfs.sh`
+- **Purpose:** Boot from ISO, mount squashfs, run TUI installer
+- **Used:** During installation from ISO/USB
+- **Features:**
+  - Mounts CD-ROM/USB
+  - Mounts squashfs read-only
+  - Sets up OverlayFS
+  - Launches TUI installer in chroot
+  - Handles reboot after installation
+
+### 2. Boot Initramfs (`boot-initramfs-*.cpio.gz`)
+
+- **Built by:** `build-boot-initramfs.sh`
+- **Purpose:** Boot the installed system from disk
+- **Used:** After installation, for normal system boot
+- **Features:**
+  - Parses `root=UUID=xxx` from kernel command line
+  - Loads NVMe, AHCI, ext4 drivers
+  - Mounts root filesystem
+  - Runs `switch_root` to real init (/sbin/init)
+
+### Why Two Initramfs?
+
+The installer initramfs includes TUI dialog, squashfs handling, and installer scripts - which are not needed (and would fail) when booting an installed system.
+
+The boot initramfs is minimal and only handles:
+1. Loading drivers for the root disk
+2. Resolving UUID to device path
+3. Mounting root and switching to it

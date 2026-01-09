@@ -164,6 +164,16 @@ else
     exit 1
 fi
 
+# Build boot initramfs (for installed system)
+echo "   Building boot initramfs..."
+"${SCRIPT_DIR}/build-boot-initramfs.sh" "${VERSION}" || true
+if [ -f "${OUTPUT_DIR}/boot-initramfs-${VERSION}.cpio.gz" ]; then
+    cp "${OUTPUT_DIR}/boot-initramfs-${VERSION}.cpio.gz" "${ISO_DIR}/boot/boot-initramfs"
+    echo "   ✅ Boot initramfs created"
+else
+    echo "   ⚠️  Boot initramfs not created (will rely on mkinitfs)"
+fi
+
 # Copy installer scripts
 cp "${WORK_DIR}/installer/"*.sh "${ISO_DIR}/installer/" 2>/dev/null || true
 chmod +x "${ISO_DIR}/installer/"* 2>/dev/null || true
