@@ -10,4 +10,18 @@ export default defineConfig({
       '@': '/src',
     },
   },
+  server: {
+    proxy: {
+      // Proxy all /api calls to the Go backend
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      // Proxy Connect-RPC services (gRPC-Web)
+      '/limiquantix.': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
+  },
 })

@@ -20,18 +20,12 @@ import (
 type PoolService struct {
 	repo       PoolRepository
 	daemonPool *node.DaemonPool
-	nodeRepo   NodeRepository
+	nodeRepo   node.Repository
 	logger     *zap.Logger
 }
 
-// NodeRepository provides access to node information.
-type NodeRepository interface {
-	Get(ctx context.Context, id string) (*domain.Node, error)
-	List(ctx context.Context, limit, offset int) ([]*domain.Node, int, error)
-}
-
 // NewPoolService creates a new PoolService.
-func NewPoolService(repo PoolRepository, daemonPool *node.DaemonPool, nodeRepo NodeRepository, logger *zap.Logger) *PoolService {
+func NewPoolService(repo PoolRepository, daemonPool *node.DaemonPool, nodeRepo node.Repository, logger *zap.Logger) *PoolService {
 	return &PoolService{
 		repo:       repo,
 		daemonPool: daemonPool,

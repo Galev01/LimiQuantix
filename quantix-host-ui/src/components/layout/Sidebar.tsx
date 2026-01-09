@@ -81,9 +81,10 @@ function NavItemComponent({ item, collapsed, level = 0 }: NavItemProps) {
         )}
       />
 
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {!collapsed && (
           <motion.span
+            key={`label-${item.id}`}
             initial={{ opacity: 0, width: 0 }}
             animate={{ opacity: 1, width: 'auto' }}
             exit={{ opacity: 0, width: 0 }}
@@ -130,9 +131,10 @@ function NavItemComponent({ item, collapsed, level = 0 }: NavItemProps) {
         </button>
       )}
 
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {hasChildren && expanded && !collapsed && (
           <motion.div
+            key={`children-${item.id}`}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -174,9 +176,10 @@ export function Sidebar() {
       <div className="h-16 flex items-center px-4 border-b border-border">
         <Link to="/" className="flex items-center gap-3">
           <Server className="w-8 h-8 text-accent" />
-          <AnimatePresence>
+          <AnimatePresence mode="wait">
             {!sidebarCollapsed && (
               <motion.div
+                key="logo-text"
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
@@ -220,9 +223,10 @@ export function Sidebar() {
           >
             <ChevronRight className="w-4 h-4" />
           </motion.div>
-          <AnimatePresence>
+          <AnimatePresence mode="wait">
             {!sidebarCollapsed && (
               <motion.span
+                key="collapse-text"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}

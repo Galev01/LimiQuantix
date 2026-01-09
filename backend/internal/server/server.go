@@ -76,6 +76,8 @@ type Server struct {
 	securityGroupService *networkservice.SecurityGroupService
 	imageService         *storageservice.ImageService
 	ovaService           *storageservice.OVAService
+	poolService          *storageservice.PoolService
+	volumeService        *storageservice.VolumeService
 
 	// Registration service
 	registrationService *registration.Service
@@ -234,6 +236,8 @@ func (s *Server) initServices() {
 	// Storage services
 	s.imageService = storageservice.NewImageService(s.imageRepo, s.logger)
 	s.ovaService = storageservice.NewOVAService(s.imageRepo, s.logger)
+	s.poolService = storageservice.NewPoolService(s.storagePoolRepo, s.daemonPool, s.nodeRepo, s.logger)
+	s.volumeService = storageservice.NewVolumeService(s.volumeRepo, s.storagePoolRepo, s.logger)
 
 	// Registration token service (always available)
 	s.registrationService = registration.NewService(s.registrationTokenRepo, s.logger)
@@ -341,6 +345,16 @@ func (s *Server) registerRoutes() {
 	ovaPath, ovaHandler := storagev1connect.NewOVAServiceHandler(s.ovaService)
 	s.mux.Handle(ovaPath, ovaHandler)
 	s.logger.Info("Registered OVA service", zap.String("path", ovaPath))
+
+	// StoragePool Service
+	poolPath, poolHandler := storagev1connect.NewStoragePoolServiceHandler(s.poolService)
+	s.mux.Handle(poolPath, poolHandler)
+	s.logger.Info("Registered StoragePool service", zap.String("path", poolPath))
+
+	// Volume Service
+	volumePath, volumeHandler := storagev1connect.NewVolumeServiceHandler(s.volumeService)
+	s.mux.Handle(volumePath, volumeHandler)
+	s.logger.Info("Registered Volume service", zap.String("path", volumePath))
 
 	// OVA Upload Handler (HTTP multipart - Connect-RPC doesn't support file uploads)
 	ovaUploadHandler := NewOVAUploadHandler(s.ovaService, s.logger)
