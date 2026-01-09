@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
+import { StorageImages } from '@/pages/StorageImages';
 import { Dashboard, VirtualMachines, VMDetail, Network, StoragePools, Volumes, Hardware, Performance, Events, Settings } from '@/pages';
 
 // Create a query client
@@ -45,6 +46,7 @@ export function App() {
             {/* Storage */}
             <Route path="/storage/pools" element={<StoragePools />} />
             <Route path="/storage/volumes" element={<Volumes />} />
+            <Route path="storage/images" element={<StorageImages />} />
 
             {/* Networking */}
             <Route path="/networking" element={<Network />} />

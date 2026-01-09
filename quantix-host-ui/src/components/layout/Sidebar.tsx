@@ -15,6 +15,7 @@ import {
   Activity,
   List,
   Cpu,
+  Box,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/useAppStore';
@@ -38,6 +39,7 @@ const navigation: NavItem[] = [
     children: [
       { id: 'pools', label: 'Storage Pools', icon: Layers, href: '/storage/pools' },
       { id: 'volumes', label: 'Volumes', icon: HardDrive, href: '/storage/volumes' },
+      { id: 'images', label: 'Images (ISO/OVA)', icon: Box, href: '/storage/images' },
     ],
   },
   { id: 'networking', label: 'Networking', icon: Network, href: '/networking' },

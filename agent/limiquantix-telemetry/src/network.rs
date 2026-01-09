@@ -22,6 +22,10 @@ pub struct NetworkInfo {
     pub rx_errors: u64,
     /// Transmit errors
     pub tx_errors: u64,
+    /// Receive rate (bytes/interval)
+    pub rx_rate: u64,
+    /// Transmit rate (bytes/interval)
+    pub tx_rate: u64,
 }
 
 /// Collect network interface information from the system.
@@ -36,6 +40,8 @@ pub fn collect_network_info(networks: &Networks) -> Vec<NetworkInfo> {
             tx_packets: data.total_packets_transmitted(),
             rx_errors: data.total_errors_on_received(),
             tx_errors: data.total_errors_on_transmitted(),
+            rx_rate: data.received(),
+            tx_rate: data.transmitted(),
         }
     }).collect()
 }

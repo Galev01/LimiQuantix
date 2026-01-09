@@ -347,6 +347,7 @@ struct CreateStoragePoolRequest {
     path: Option<String>,
     nfs_server: Option<String>,
     nfs_export: Option<String>,
+    capacity_gib: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -746,6 +747,7 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         // Storage endpoints
         .route("/storage/pools", get(list_storage_pools))
         .route("/storage/pools", post(create_storage_pool))
+        .route("/storage/upload", post(upload_image))
         .route("/storage/pools/:pool_id", get(get_storage_pool))
         .route("/storage/pools/:pool_id", axum::routing::delete(delete_storage_pool))
         .route("/storage/pools/:pool_id/volumes", get(list_volumes))
@@ -1494,18 +1496,28 @@ async fn get_host_metrics(
         0.0
     };
     
-    // Use load average from telemetry
-    // Note: Telemetry might need to expose load average if it captures it
-    // For now we can fallback to System::load_average() which is cheap (reads /proc/loadavg)
+    // Use load average from telemetry or fallback
     let load_avg = sysinfo::System::load_average();
     
-    // Get disk/net I/O from storage/network managers if possible, or partial telemetry
-    // Telemetry struct has per-VM I/O but maybe not total host I/O yet
-    // return 0 for now as previously done
-    let disk_read_bytes_per_sec = 0u64;
+    // Log telemetry for debugging
+    tracing::info!(
+        cpu_usage = cpu_usage,
+        memory_total = memory_total,
+        memory_used = memory_used,
+        "Host Metrics Telemetry"
+    );
+
+    // Get disk/net I/O from telemetry
+    let disk_read_bytes_per_sec = 0u64; // Disk I/O not yet available in telemetry
     let disk_write_bytes_per_sec = 0u64;
-    let network_rx_bytes_per_sec = 0u64;
-    let network_tx_bytes_per_sec = 0u64;
+    
+    let network_rx_bytes_per_sec = telemetry.networks.iter()
+        .map(|n| n.rx_rate)
+        .sum::<u64>();
+        
+    let network_tx_bytes_per_sec = telemetry.networks.iter()
+        .map(|n| n.tx_rate)
+        .sum::<u64>();
     
     Ok(Json(HostMetricsResponse {
         timestamp: chrono::Utc::now().to_rfc3339(),
@@ -2363,6 +2375,8 @@ async fn create_storage_pool(
         StoragePoolType::LocalDir => Some(StoragePoolConfig {
             local: Some(LocalDirPoolConfig {
                 path: request.path.unwrap_or_else(|| format!("/var/lib/limiquantix/pools/{}", request.pool_id)),
+                // TODO: Add capacity_gib to Proto definition to support limit enforcement
+                // capacity_gib: request.capacity_gib, 
             }),
             nfs: None,
             ceph: None,
@@ -2633,6 +2647,76 @@ struct ConversionJob {
     error_message: Option<String>,
     started_at: std::time::Instant,
     completed_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// POST /api/v1/storage/upload - Upload a disk image or ISO
+async fn upload_image(
+    State(_state): State<Arc<AppState>>,
+    mut multipart: Multipart,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    use tokio::fs;
+    use tokio::io::AsyncWriteExt;
+    
+    let upload_dir = std::path::Path::new("/var/lib/limiquantix/images");
+    if let Err(e) = fs::create_dir_all(upload_dir).await {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("create_dir_failed", &e.to_string())),
+        ));
+    }
+    
+    let mut saved_file = String::new();
+    
+    while let Ok(Some(field)) = multipart.next_field().await {
+        let file_name = if let Some(name) = field.file_name() {
+            name.to_string()
+        } else {
+            continue;
+        };
+        
+        let dest_path = upload_dir.join(&file_name);
+        saved_file = file_name.clone();
+        
+        // Stream the file to disk
+        // Note: For large files, this needs careful memory management, 
+        // but simple streaming copy is generally okay.
+        
+        // We need to create the file...
+        let mut file = match fs::File::create(&dest_path).await {
+            Ok(f) => f,
+            Err(e) => return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("file_create_failed", &e.to_string())),
+            )),
+        };
+        
+        // Read chunks and write
+        // field is a stream
+        let mut field = field; // rebind mut
+        while let Ok(Some(chunk)) = field.chunk().await {
+            if let Err(e) = file.write_all(&chunk).await {
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ApiError::new("write_failed", &e.to_string())),
+                ));
+            }
+        }
+        
+        info!(file = %file_name, "Image uploaded successfully");
+    }
+    
+    if saved_file.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ApiError::new("no_file", "No file provided in request")),
+        ));
+    }
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Image uploaded successfully",
+        "filename": saved_file
+    })))
 }
 
 /// POST /api/v1/storage/convert - Start disk format conversion
