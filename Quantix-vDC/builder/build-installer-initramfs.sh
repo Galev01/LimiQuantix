@@ -504,7 +504,7 @@ INITRAMFS_SIZE=$(du -h "${OUTPUT_DIR}/${INITRAMFS_NAME}" | cut -f1)
 MODULE_COUNT=$(find "${INITRAMFS_DIR}/lib/modules" -name "*.ko*" 2>/dev/null | wc -l)
 
 echo ""
-echo "✅ Installer initramfs created:"
+echo "✅ The Installer initramfs created:"
 echo "   File: ${OUTPUT_DIR}/${INITRAMFS_NAME}"
 echo "   Size: ${INITRAMFS_SIZE}"
 echo "   Modules: ${MODULE_COUNT}"
