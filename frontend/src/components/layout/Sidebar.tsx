@@ -48,8 +48,8 @@ const navigation: NavItem[] = [
     label: 'Inventory',
     icon: FolderTree,
     children: [
-      { id: 'vms', label: 'Virtual Machines', icon: MonitorCog, href: '/vms', badge: 6, contextMenu: true },
-      { id: 'hosts', label: 'Hosts', icon: Server, href: '/hosts', badge: 4 },
+      { id: 'vms', label: 'Virtual Machines', icon: MonitorCog, href: '/vms', contextMenu: true },
+      { id: 'hosts', label: 'Hosts', icon: Server, href: '/hosts' },
       { id: 'clusters', label: 'Clusters', icon: Boxes, href: '/clusters' },
     ],
   },
@@ -81,7 +81,7 @@ const navigation: NavItem[] = [
     icon: Activity,
     children: [
       { id: 'monitoring', label: 'Monitoring', icon: Activity, href: '/monitoring' },
-      { id: 'alerts', label: 'Alerts', icon: Bell, href: '/alerts', badge: 3 },
+      { id: 'alerts', label: 'Alerts', icon: Bell, href: '/alerts' },
       { id: 'drs', label: 'DRS Recommendations', icon: Zap, href: '/drs' },
     ],
   },

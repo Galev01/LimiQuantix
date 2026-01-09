@@ -1,55 +1,178 @@
 @import "tailwindcss";
 
 /* =============================================================================
-   limiquantix Theme - vCenter-Inspired Dark Theme
+   LimiQuantix Theme - vCenter-Inspired Theme
    Following UI Expert Rules for Visual Hierarchy
+   Supports Light and Dark Mode
    ============================================================================= */
 
-@theme {
-  /* Background Layers (Darkest → Lightest) */
-  --color-bg-base: #0f1117;
-  --color-bg-surface: #161922;
-  --color-bg-elevated: #1e222d;
-  --color-bg-hover: #262b38;
-  --color-bg-active: #2d3344;
+/* =============================================================================
+   Theme Variables - Dark Mode (Default)
+   Gentle, warmer dark tones - easier on the eyes
+   ============================================================================= */
+:root {
+  color-scheme: dark;
+  
+  /* Background Layers - Warmer, softer dark (not pure black) */
+  --bg-base: #1a1d24;
+  --bg-surface: #21252e;
+  --bg-elevated: #282d38;
+  --bg-hover: #323842;
+  --bg-active: #3a424e;
   
   /* Sidebar specific */
-  --color-sidebar: #12151c;
-  --color-sidebar-hover: #1a1e28;
-  --color-sidebar-active: #232833;
+  --sidebar-bg: #1e2128;
+  --sidebar-hover: #272b34;
+  --sidebar-active: #2f3540;
   
-  /* Text Colors */
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-text-disabled: #475569;
+  /* Text Colors - Softer off-white, not harsh */
+  --text-primary: #e4e8ed;
+  --text-secondary: #a0a8b4;
+  --text-muted: #717a88;
+  --text-disabled: #525a66;
   
   /* Brand Colors - VMware-inspired blue with modern twist */
-  --color-accent: #3b82f6;
-  --color-accent-hover: #2563eb;
-  --color-accent-muted: #1d4ed8;
-  --color-accent-glow: rgba(59, 130, 246, 0.15);
+  --accent: #5c9cf5;
+  --accent-hover: #4a8ae8;
+  --accent-muted: #3a78d8;
+  --accent-glow: rgba(92, 156, 245, 0.18);
   
-  /* Status Colors */
-  --color-success: #22c55e;
-  --color-success-muted: rgba(34, 197, 94, 0.15);
-  --color-warning: #f59e0b;
-  --color-warning-muted: rgba(245, 158, 11, 0.15);
-  --color-error: #ef4444;
-  --color-error-muted: rgba(239, 68, 68, 0.15);
-  --color-info: #06b6d4;
-  --color-info-muted: rgba(6, 182, 212, 0.15);
+  /* Status Colors - Slightly muted for comfort */
+  --success: #4ade80;
+  --success-muted: rgba(74, 222, 128, 0.15);
+  --warning: #fbbf24;
+  --warning-muted: rgba(251, 191, 36, 0.15);
+  --error: #f87171;
+  --error-muted: rgba(248, 113, 113, 0.15);
+  --info: #22d3ee;
+  --info-muted: rgba(34, 211, 238, 0.15);
   
   /* Border Colors */
-  --color-border: rgba(255, 255, 255, 0.06);
-  --color-border-hover: rgba(255, 255, 255, 0.1);
-  --color-border-active: rgba(59, 130, 246, 0.5);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.12);
+  --border-active: rgba(92, 156, 245, 0.5);
   
   /* Shadows */
-  --shadow-floating: 0 -1px 2px rgba(255, 255, 255, 0.03), 0 4px 16px rgba(0, 0, 0, 0.25);
-  --shadow-elevated: inset 0 1px 1px rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0, 0, 0, 0.2);
-  --shadow-recessed: inset 0 2px 4px rgba(0, 0, 0, 0.3);
-  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --shadow-floating: 0 -1px 2px rgba(255, 255, 255, 0.02), 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-elevated: inset 0 1px 1px rgba(255, 255, 255, 0.04), 0 4px 12px rgba(0, 0, 0, 0.16);
+  --shadow-recessed: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-glow: 0 0 20px rgba(92, 156, 245, 0.15);
+  
+  /* Scrollbar */
+  --scrollbar-thumb: var(--bg-hover);
+  --scrollbar-thumb-hover: var(--bg-active);
+}
+
+/* =============================================================================
+   Theme Variables - Light Mode
+   Warm cream/gray tones - gentle on the eyes, not bright white
+   ============================================================================= */
+:root[data-theme="light"] {
+  color-scheme: light;
+  
+  /* Background Layers - Warm cream/stone tones (not bright white) */
+  --bg-base: #e8e6e3;
+  --bg-surface: #f0eeeb;
+  --bg-elevated: #f7f5f2;
+  --bg-hover: #dfdcd8;
+  --bg-active: #d4d1cc;
+  
+  /* Sidebar specific */
+  --sidebar-bg: #e8e6e3;
+  --sidebar-hover: #dfdcd8;
+  --sidebar-active: #d4d1cc;
+  
+  /* Text Colors - Soft dark, not pure black */
+  --text-primary: #2d3138;
+  --text-secondary: #4a5058;
+  --text-muted: #6b727c;
+  --text-disabled: rgba(45, 49, 56, 0.4);
+  
+  /* Brand Colors - Slightly softer blue */
+  --accent: #4a7fd4;
+  --accent-hover: #3a6fc4;
+  --accent-muted: #2a5fb4;
+  --accent-glow: rgba(74, 127, 212, 0.15);
+  
+  /* Status Colors - Softer, less saturated */
+  --success: #3d9960;
+  --success-muted: rgba(61, 153, 96, 0.12);
+  --warning: #c88a2e;
+  --warning-muted: rgba(200, 138, 46, 0.12);
+  --error: #c45454;
+  --error-muted: rgba(196, 84, 84, 0.12);
+  --info: #3a99a8;
+  --info-muted: rgba(58, 153, 168, 0.12);
+  
+  /* Border Colors */
+  --border-default: rgba(0, 0, 0, 0.08);
+  --border-hover: rgba(0, 0, 0, 0.12);
+  --border-active: rgba(74, 127, 212, 0.5);
+  
+  /* Shadows - Subtle, warm */
+  --shadow-floating: 
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+  --shadow-elevated: 
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-recessed: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 20px rgba(74, 127, 212, 0.12);
+  
+  /* Scrollbar */
+  --scrollbar-thumb: #c8c4c0;
+  --scrollbar-thumb-hover: #b0aca8;
+}
+
+/* =============================================================================
+   Tailwind Theme Integration
+   ============================================================================= */
+@theme {
+  /* Background Layers */
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-hover: var(--bg-hover);
+  --color-bg-active: var(--bg-active);
+  
+  /* Sidebar specific */
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active: var(--sidebar-active);
+  
+  /* Text Colors */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+  
+  /* Brand Colors */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-glow: var(--accent-glow);
+  
+  /* Status Colors */
+  --color-success: var(--success);
+  --color-success-muted: var(--success-muted);
+  --color-warning: var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-error: var(--error);
+  --color-error-muted: var(--error-muted);
+  --color-info: var(--info);
+  --color-info-muted: var(--info-muted);
+  
+  /* Border Colors */
+  --color-border: var(--border-default);
+  --color-border-hover: var(--border-hover);
+  --color-border-active: var(--border-active);
+  
+  /* Shadows */
+  --shadow-floating: var(--shadow-floating);
+  --shadow-elevated: var(--shadow-elevated);
+  --shadow-recessed: var(--shadow-recessed);
+  --shadow-glow: var(--shadow-glow);
   
   /* Font Family */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
@@ -103,12 +226,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-bg-hover);
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-bg-active);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* =============================================================================
@@ -263,6 +386,11 @@ body {
   box-shadow: 0 0 0 3px var(--color-accent-glow);
 }
 
+/* Light mode select arrow fix */
+:root[data-theme="light"] .form-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23666666' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+}
+
 .form-checkbox,
 .form-radio {
   width: 1.125rem;
@@ -351,4 +479,13 @@ input[type="range"]::-moz-range-thumb {
   background: var(--color-accent);
   border: 2px solid white;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Light mode range slider thumb border */
+:root[data-theme="light"] input[type="range"]::-webkit-slider-thumb {
+  border-color: var(--color-bg-base);
+}
+
+:root[data-theme="light"] input[type="range"]::-moz-range-thumb {
+  border-color: var(--color-bg-base);
 }

@@ -21,6 +21,7 @@ import {
   Network,
   Upload,
 } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 
 interface SavedConnection {
   id: string;
@@ -279,13 +280,16 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
             <p>Quantix VM Remote Console</p>
           </div>
         </div>
-        <button
-          onClick={onOpenSettings}
-          className="icon-btn"
-          title="Settings"
-        >
-          <Settings className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            onClick={onOpenSettings}
+            className="icon-btn"
+            title="Settings"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+        </div>
       </header>
 
       {/* Content */}

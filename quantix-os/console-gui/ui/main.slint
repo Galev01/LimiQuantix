@@ -8,33 +8,38 @@
 import { Button, LineEdit, CheckBox, ComboBox, ProgressIndicator, Spinner } from "std-widgets.slint";
 
 // =============================================================================
-// Theme - Dark color scheme optimized for server consoles
+// Theme - Supports both Light and Dark color schemes
+// Gentle, eye-friendly tones for both modes
 // =============================================================================
 global Theme {
-    // Background layers (dark to light)
-    out property <color> bg-dark: #0a0e14;
-    out property <color> bg-panel: #141a22;
-    out property <color> bg-card: #1a222c;
-    out property <color> bg-hover: #242d3a;
-    out property <color> bg-selected: #2a3645;
-    out property <color> bg-input: #0d1117;
+    // Theme toggle - set to true for light mode
+    in-out property <bool> is-light: false;
     
-    // Text colors
-    out property <color> text-primary: #e6edf3;
-    out property <color> text-secondary: #8b949e;
-    out property <color> text-muted: #6e7681;
-    out property <color> text-inverse: #0a0e14;
+    // Background layers - Warm, gentle tones
+    // Dark: Warmer slate (not pure black), Light: Warm cream/stone (not bright white)
+    out property <color> bg-dark: is-light ? #e6e4e1 : #1a1d24;
+    out property <color> bg-panel: is-light ? #eeecea : #21252e;
+    out property <color> bg-card: is-light ? #f5f3f1 : #282d38;
+    out property <color> bg-hover: is-light ? #dddad6 : #323842;
+    out property <color> bg-selected: is-light ? #d2cfcb : #3a424e;
+    out property <color> bg-input: is-light ? #e6e4e1 : #1e2128;
     
-    // Brand colors
-    out property <color> accent-blue: #58a6ff;
-    out property <color> accent-green: #3fb950;
-    out property <color> accent-yellow: #d29922;
-    out property <color> accent-red: #f85149;
-    out property <color> accent-purple: #a371f7;
+    // Text colors - Softer contrasts
+    out property <color> text-primary: is-light ? #2d3138 : #e4e8ed;
+    out property <color> text-secondary: is-light ? #4a5058 : #a0a8b4;
+    out property <color> text-muted: is-light ? #6b727c : #717a88;
+    out property <color> text-inverse: is-light ? #e4e8ed : #2d3138;
+    
+    // Brand colors - Softer, less saturated
+    out property <color> accent-blue: is-light ? #4a7fd4 : #6eb0f5;
+    out property <color> accent-green: is-light ? #3d9960 : #5ee89c;
+    out property <color> accent-yellow: is-light ? #c88a2e : #f0c54a;
+    out property <color> accent-red: is-light ? #c45454 : #f88888;
+    out property <color> accent-purple: is-light ? #7c5cd6 : #b8a0f8;
     
     // Border colors
-    out property <color> border-default: #30363d;
-    out property <color> border-hover: #484f58;
+    out property <color> border-default: is-light ? #c8c4c0 : #3a424e;
+    out property <color> border-hover: is-light ? #b0aca8 : #4a5260;
     
     // Font sizes
     out property <length> font-xs: 11px;
@@ -1140,6 +1145,17 @@ component MainScreen inherits Rectangle {
                     label: "Emergency Shell";
                     shortcut: "F12";
                     clicked => { root.menu-action("shell"); }
+                }
+                
+                Rectangle { height: Theme.spacing-sm; }
+                
+                // Theme Toggle
+                Toggle {
+                    label: Theme.is-light ? "Light Mode" : "Dark Mode";
+                    checked: Theme.is-light;
+                    toggled(value) => {
+                        Theme.is-light = value;
+                    }
                 }
                 
                 Rectangle { }

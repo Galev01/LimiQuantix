@@ -1,6 +1,7 @@
 import { Bell, Search, User, Plus, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/app-store';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 export function Header() {
   const { openVmWizard } = useAppStore();
@@ -62,6 +63,9 @@ export function Header() {
           <Plus className="w-4 h-4" />
           <span>New VM</span>
         </button>
+
+        {/* Theme Toggle */}
+        <ThemeToggle />
 
         {/* Notifications */}
         <button
