@@ -551,6 +551,15 @@ if [ ! -e "${INSTALL_ROOT}/dev/tty" ]; then
     mknod "${INSTALL_ROOT}/dev/tty" c 5 0 2>/dev/null || true
 fi
 
+# Determine which console device to use (needed for TUI and fallback shell)
+CONSOLE_DEV="/dev/console"
+if [ -c /dev/tty1 ]; then
+    CONSOLE_DEV="/dev/tty1"
+elif [ -c /dev/tty0 ]; then
+    CONSOLE_DEV="/dev/tty0"
+fi
+log "Console device: ${CONSOLE_DEV}"
+
 if [ -f "${INSTALL_ROOT}/installer/tui.sh" ]; then
     log "Running TUI in chroot..."
     
@@ -569,19 +578,6 @@ if [ -f "${INSTALL_ROOT}/installer/tui.sh" ]; then
     else
         log "  Terminfo directory not found, checking alternatives..."
         ls -la "${INSTALL_ROOT}/etc/terminfo/" > /dev/kmsg 2>&1 || true
-    fi
-    
-    # Determine which console device to use
-    # QEMU may use tty1 or console depending on configuration
-    CONSOLE_DEV="/dev/console"
-    if [ -c /dev/tty1 ]; then
-        CONSOLE_DEV="/dev/tty1"
-        log "Using /dev/tty1 as console"
-    elif [ -c /dev/tty0 ]; then
-        CONSOLE_DEV="/dev/tty0"
-        log "Using /dev/tty0 as console"
-    else
-        log "Using /dev/console"
     fi
     
     # Clear the screen before launching TUI
@@ -638,9 +634,38 @@ umount "${INSTALL_ROOT}/sys" 2>/dev/null || true
 umount "${INSTALL_ROOT}/dev/pts" 2>/dev/null || true
 umount "${INSTALL_ROOT}/dev" 2>/dev/null || true
 
-# Fallback
-log "Init process finished. Dropping to shell."
-exec /bin/sh
+# Handle post-installation
+log "Installer finished with exit code: ${INSTALL_EXIT}"
+
+# Check if a reboot was requested (installer creates this file)
+if [ -f "/tmp/reboot_requested" ] || [ "${INSTALL_EXIT}" = "0" ]; then
+    log "Installation complete. Rebooting in 5 seconds..."
+    log "Remove installation media now!"
+    sleep 5
+    
+    # Sync filesystems
+    sync
+    
+    # Unmount everything
+    umount -a 2>/dev/null || true
+    
+    # Force reboot
+    log "Rebooting now..."
+    reboot -f
+    
+    # If reboot fails, try alternative
+    echo 1 > /proc/sys/kernel/sysrq
+    echo b > /proc/sysrq-trigger
+fi
+
+# If we get here, installation failed or user chose not to reboot
+# Drop to shell - but keep it running as PID 1
+log "Dropping to interactive shell..."
+log "Type 'reboot -f' to restart or 'poweroff -f' to shutdown."
+
+# Use exec to replace init with sh, keeping PID 1
+# The -l flag makes it a login shell
+exec setsid sh -c "exec sh -l <${CONSOLE_DEV} >${CONSOLE_DEV} 2>&1"
 INITEOF
 
 

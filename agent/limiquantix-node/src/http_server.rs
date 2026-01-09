@@ -3134,13 +3134,13 @@ async fn initialize_local_device(
         let pool_id = format!("local-{}", uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("pool"));
         
         use tonic::Request;
-        use limiquantix_proto::{NodeDaemonService, InitStoragePoolRequest, StoragePoolType, PoolConfigProto, LocalDirConfigProto};
+        use limiquantix_proto::{NodeDaemonService, InitStoragePoolRequest, StoragePoolType, StoragePoolConfig, LocalDirPoolConfig};
         
         let init_request = InitStoragePoolRequest {
             pool_id: pool_id.clone(),
             r#type: StoragePoolType::LocalDir as i32,
-            config: Some(PoolConfigProto {
-                local: Some(LocalDirConfigProto {
+            config: Some(StoragePoolConfig {
+                local: Some(LocalDirPoolConfig {
                     path: mount_point.clone(),
                 }),
                 nfs: None,
