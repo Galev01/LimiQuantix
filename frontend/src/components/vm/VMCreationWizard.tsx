@@ -43,8 +43,27 @@ import { useStoragePools, type StoragePoolUI } from '@/hooks/useStorage';
 import { useOVATemplates, type OVATemplate, formatOVASize } from '@/hooks/useOVA';
 
 interface VMCreationWizardProps {
+  isOpen?: boolean; // For AnimatePresence compatibility, component is always rendered when open
   onClose: () => void;
   onSuccess?: () => void;
+  onSubmit?: (data: {
+    name: string;
+    description?: string;
+    projectId?: string;
+    nodeId?: string;
+    spec?: {
+      cpu?: { cores?: number };
+      memory?: { sizeMib?: number };
+      disks?: Array<{ sizeGib?: number; backingFile?: string }>;
+      nics?: Array<{ networkId?: string }>;
+      provisioning?: {
+        cloudInit?: {
+          userData?: string;
+          metaData?: string;
+        };
+      };
+    };
+  }) => void;
 }
 
 interface VMCreationData {
@@ -635,6 +654,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                   isos={isos}
                   isosLoading={isosLoading}
                   isUsingIsoCatalog={isUsingIsoCatalog}
+                  ovaTemplates={ovaTemplates || []}
+                  ovaLoading={ovaLoading}
                 />
               )}
               {currentStep === 6 && (
@@ -1470,6 +1491,8 @@ function StepISO({
   isos = [],
   isosLoading = false,
   isUsingIsoCatalog = false,
+  ovaTemplates = [],
+  ovaLoading = false,
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
@@ -1479,6 +1502,8 @@ function StepISO({
   isos?: (CloudImage | ISOImage)[];
   isosLoading?: boolean;
   isUsingIsoCatalog?: boolean;
+  ovaTemplates?: OVATemplate[];
+  ovaLoading?: boolean;
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [newSshKey, setNewSshKey] = useState('');
@@ -1962,7 +1987,7 @@ packages:
             </div>
           ) : ovaTemplates && ovaTemplates.length > 0 ? (
             <div className="grid gap-2 max-h-64 overflow-y-auto">
-              {ovaTemplates.map((template) => (
+              {ovaTemplates.map((template: OVATemplate) => (
                 <label
                   key={template.id}
                   className={cn(
@@ -2160,12 +2185,12 @@ function StepStorage({
         </div>
       )}
 
-      {/* Mock data indicator */}
-      {!isLoading && isUsingMock && (
+      {/* Empty storage pools indicator */}
+      {!isLoading && storagePools && storagePools.length === 0 && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30 mb-4">
           <WifiOff className="w-4 h-4 text-warning" />
           <p className="text-xs text-warning">
-            Using fallback storage. Create storage pools in Storage → Pools for production use.
+            No storage pools available. Create storage pools in Storage → Pools first.
           </p>
         </div>
       )}

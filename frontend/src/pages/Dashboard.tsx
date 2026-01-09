@@ -54,7 +54,7 @@ function apiVMToDisplay(vm: ApiVM): VirtualMachine {
       memory: { sizeMib: vm.spec?.memory?.sizeMib || 4096 },
       disks: (vm.spec?.disks || []).map((d, i) => ({ 
         id: `disk-${i}`, 
-        sizeGib: (d.sizeMib || 0) / 1024, 
+        sizeGib: d.sizeGib || 0, 
         bus: 'VIRTIO_BLK' 
       })),
       nics: [{ id: 'nic-1', networkId: 'default', macAddress: '00:00:00:00:00:00' }],
@@ -100,7 +100,7 @@ function apiNodeToDisplay(node: ApiNode): Node {
 
   const phase = phaseMap[node.status?.phase || 'NOT_READY'] || 'NOT_READY';
   const cpuCores = (node.spec?.cpu?.sockets || 1) * (node.spec?.cpu?.coresPerSocket || 1);
-  const memoryBytes = (node.spec?.memory?.totalMib || 0) * 1024 * 1024;
+  const memoryBytes = node.spec?.memory?.totalBytes || 0;
   
   return {
     id: node.id,
@@ -125,9 +125,9 @@ function apiNodeToDisplay(node: ApiNode): Node {
       phase,
       vmIds: node.status?.vmIds || [],
       resources: {
-        cpuAllocatedCores: node.status?.allocation?.cpuAllocated || 0,
+        cpuAllocatedCores: node.status?.resources?.cpu?.allocatedVcpus || 0,
         cpuUsagePercent: 0,
-        memoryAllocatedBytes: (node.status?.allocation?.memoryAllocatedMib || 0) * 1024 * 1024,
+        memoryAllocatedBytes: node.status?.resources?.memory?.allocatedBytes || 0,
         memoryUsedBytes: 0,
       },
     },

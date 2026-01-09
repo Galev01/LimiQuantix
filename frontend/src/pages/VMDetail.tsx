@@ -68,7 +68,7 @@ function apiToDisplayVM(apiVm: ApiVM): VirtualMachine {
       memory: { sizeMib: apiVm.spec?.memory?.sizeMib || 1024 },
       disks: (apiVm.spec?.disks || []).map((d, i) => ({
         id: `disk-${i}`,
-        sizeGib: (d.sizeMib || 0) / 1024,
+        sizeGib: d.sizeGib || 0,
         bus: 'virtio',
       })),
       nics: [{ id: 'nic-0', networkId: 'default', macAddress: '00:00:00:00:00:00' }],
@@ -291,7 +291,7 @@ export function VMDetail() {
     ];
   };
 
-  if (isLoading && !useMockData) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="w-8 h-8 animate-spin text-accent" />

@@ -10,7 +10,7 @@ description="One-time first boot configuration"
 
 depend() {
     need localmount
-    before quantix-node quantix-console
+    before quantix-node quantix-console ovsdb-server ovs-vswitchd
 }
 
 start() {
@@ -77,13 +77,31 @@ start() {
         fi
     fi
 
-    # Initialize OVS
+    # Initialize OVS database if needed
+    if command -v ovsdb-tool >/dev/null 2>&1; then
+        if [ ! -f /etc/openvswitch/conf.db ]; then
+            einfo "Initializing Open vSwitch database..."
+            mkdir -p /etc/openvswitch /var/lib/openvswitch /run/openvswitch
+            ovsdb-tool create /etc/openvswitch/conf.db /usr/share/openvswitch/vswitch.ovsschema 2>/dev/null || true
+            # Restart OVS services after database creation
+            rc-service ovsdb-server restart 2>/dev/null || true
+            sleep 1
+            rc-service ovs-vswitchd restart 2>/dev/null || true
+            sleep 1
+        fi
+    fi
+    
+    # Initialize OVS bridge
     if command -v ovs-vsctl >/dev/null 2>&1; then
         if ! ovs-vsctl br-exists br-int 2>/dev/null; then
             einfo "Creating OVS integration bridge..."
             ovs-vsctl add-br br-int 2>/dev/null || true
         fi
     fi
+
+    # Mark first boot complete
+    touch /quantix/.setup_complete
+    einfo "First boot configuration complete"
 
     eend 0
 }

@@ -61,6 +61,7 @@ const statusConfig = {
   ACTIVE: { color: 'success', icon: CheckCircle },
   PENDING: { color: 'warning', icon: AlertTriangle },
   ERROR: { color: 'error', icon: AlertTriangle },
+  DELETING: { color: 'warning', icon: AlertTriangle },
 } as const;
 
 export function VirtualNetworks() {
@@ -100,27 +101,19 @@ export function VirtualNetworks() {
   // Handle delete
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this network?')) return;
-    if (useMockData) {
-      showInfo('Demo mode: Network delete simulated');
-      return;
-    }
     await deleteNetwork.mutateAsync(id);
   };
 
   // Handle create network
-  const handleCreateNetwork = async (data: { name: string; description?: string; type: string; cidr: string; gateway?: string; vlanId?: number; dhcpEnabled?: boolean }) => {
-    if (useMockData) {
-      showInfo('Demo mode: Network create simulated');
-      setIsCreateModalOpen(false);
-      return;
-    }
+  const handleCreateNetwork = async (data: Partial<VirtualNetwork>) => {
+    if (!data.name) return;
     await createNetwork.mutateAsync({
       name: data.name,
       projectId: 'default',
       description: data.description,
       spec: {
-        type: data.type,
-        cidr: data.cidr,
+        type: data.type || 'VLAN',
+        cidr: data.cidr || '',
         gateway: data.gateway,
         vlanId: data.vlanId,
         dhcpEnabled: data.dhcpEnabled,
@@ -130,14 +123,8 @@ export function VirtualNetworks() {
   };
 
   // Handle update network
-  const handleUpdateNetwork = async (data: { name: string; description?: string }) => {
-    if (!editingNetwork) return;
-    if (useMockData) {
-      showInfo('Demo mode: Network update simulated');
-      setIsEditModalOpen(false);
-      setEditingNetwork(null);
-      return;
-    }
+  const handleUpdateNetwork = async (data: Partial<VirtualNetwork>) => {
+    if (!editingNetwork || !data.name) return;
     await updateNetwork.mutateAsync({
       id: editingNetwork.id,
       name: data.name,
@@ -443,7 +430,7 @@ function NetworkDetailPanel({
         <DetailItem label="Gateway" value={network.gateway} />
         <DetailItem label="VLAN ID" value={network.vlanId?.toString() || 'N/A'} />
         <DetailItem label="MTU" value={`${network.mtu}`} />
-        <DetailItem label="QuantrixSwitch" value={network.quantrixSwitch} />
+        <DetailItem label="QuantrixSwitch" value={network.quantrixSwitch ?? 'Auto'} />
         <DetailItem label="Connected VMs" value={network.connectedVMs.toString()} />
         <DetailItem label="Active Ports" value={network.connectedPorts.toString()} />
       </div>

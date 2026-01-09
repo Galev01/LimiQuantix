@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { Play, Square, Pause, Moon, ArrowRightLeft, AlertTriangle } from 'lucide-react';
+import { Play, Square, Pause, Moon, ArrowRightLeft, AlertTriangle, Loader2, PowerOff, XCircle } from 'lucide-react';
 import type { PowerState } from '@/types/models';
 
 interface VMStatusBadgeProps {
@@ -37,6 +37,21 @@ const statusConfig: Record<PowerState, { label: string; icon: React.ElementType;
     label: 'Crashed',
     icon: AlertTriangle,
     classes: 'bg-error/15 text-error border-error/30',
+  },
+  ERROR: {
+    label: 'Error',
+    icon: XCircle,
+    classes: 'bg-error/15 text-error border-error/30',
+  },
+  STARTING: {
+    label: 'Starting',
+    icon: Loader2,
+    classes: 'bg-accent/15 text-accent border-accent/30',
+  },
+  STOPPING: {
+    label: 'Stopping',
+    icon: PowerOff,
+    classes: 'bg-warning/15 text-warning border-warning/30',
   },
 };
 

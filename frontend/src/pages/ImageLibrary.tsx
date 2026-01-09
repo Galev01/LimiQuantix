@@ -158,8 +158,11 @@ export default function ImageLibrary() {
 
   const isUsingCatalog = !apiImages || apiImages.length === 0;
 
+  // Image type that works with both CloudImage and ISOImage
+  type AnyImage = CloudImage | ISOImage;
+
   // Filter images based on search and status
-  const filterImages = <T extends { name: string; status: string }>(images: T[]): T[] => {
+  const filterImages = <T extends AnyImage>(images: T[]): T[] => {
     return images.filter(img => {
       const matchesSearch = img.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'all' || img.status === statusFilter;
@@ -168,9 +171,9 @@ export default function ImageLibrary() {
   };
 
   const filteredCloudImages = filterImages(cloudImages);
-  const filteredISOs = filterImages(isoImages as any);
+  const filteredISOs = filterImages(isoImages);
 
-  const currentImages = activeTab === 'cloud-images' ? filteredCloudImages : filteredISOs;
+  const currentImages: AnyImage[] = activeTab === 'cloud-images' ? filteredCloudImages : filteredISOs;
 
   // Handle download from catalog
   const handleDownloadFromCatalog = async (catalogId: string) => {
@@ -370,7 +373,8 @@ export default function ImageLibrary() {
               const StatusIcon = status.icon;
               const isDownloading = downloadingImages.has(image.id);
               // Use progress from local tracking first, then fall back to API progress
-              const progress = downloadProgress.get(image.id) || ('downloadProgress' in image ? image.downloadProgress : undefined);
+              const progress: DownloadProgress | undefined = downloadProgress.get(image.id) || 
+                ('downloadProgress' in image ? (image as { downloadProgress?: DownloadProgress }).downloadProgress : undefined);
               const isActivelyDownloading = image.status === 'downloading' || isDownloading;
 
               return (
@@ -481,12 +485,12 @@ export default function ImageLibrary() {
                   )}
 
                   {/* Cloud Image specific info */}
-                  {activeTab === 'cloud-images' && 'os' in image && !isActivelyDownloading && (
+                  {activeTab === 'cloud-images' && 'os' in image && 'defaultUser' in image.os && !isActivelyDownloading && (
                     <div className="mt-3 pt-3 border-t border-border flex items-center gap-4 text-xs">
                       <span className="text-text-muted">
-                        Default user: <span className="text-text-secondary">{image.os.defaultUser}</span>
+                        Default user: <span className="text-text-secondary">{(image as CloudImage).os.defaultUser}</span>
                       </span>
-                      {image.os.cloudInitEnabled && (
+                      {(image as CloudImage).os.cloudInitEnabled && (
                         <Badge variant="info" size="sm">cloud-init</Badge>
                       )}
                     </div>

@@ -66,21 +66,47 @@ export function getApiBase(): string {
 }
 
 // Connection status
-interface ConnectionState {
+export interface ConnectionState {
+  state: 'connected' | 'connecting' | 'error' | 'disconnected';
   isConnected: boolean;
   lastCheck: number;
+  lastError?: string;
   error?: string;
 }
 
+// Type alias for backwards compatibility
+export type ConnectionStatus = ConnectionState;
+
 let connectionState: ConnectionState = {
+  state: 'disconnected',
   isConnected: false,
   lastCheck: 0,
 };
+
+// Subscribers for connection status changes
+const connectionSubscribers: Set<(status: ConnectionState) => void> = new Set();
+
+/**
+ * Subscribe to connection status changes
+ */
+export function subscribeToConnectionStatus(callback: (status: ConnectionState) => void): () => void {
+  connectionSubscribers.add(callback);
+  // Call immediately with current state
+  callback(connectionState);
+  return () => connectionSubscribers.delete(callback);
+}
+
+function notifyConnectionSubscribers() {
+  connectionSubscribers.forEach(callback => callback(connectionState));
+}
 
 /**
  * Check if the backend is reachable
  */
 export async function checkConnection(): Promise<boolean> {
+  connectionState = { ...connectionState, state: 'connecting' };
+  notifyConnectionSubscribers();
+  
   try {
     const response = await fetch(`${API_CONFIG.baseUrl}/healthz`, {
       method: 'GET',
@@ -88,18 +114,25 @@ export async function checkConnection(): Promise<boolean> {
     });
     
     connectionState = {
+      state: response.ok ? 'connected' : 'error',
       isConnected: response.ok,
       lastCheck: Date.now(),
       error: response.ok ? undefined : `Status: ${response.status}`,
+      lastError: response.ok ? undefined : `Status: ${response.status}`,
     };
+    notifyConnectionSubscribers();
     
     return response.ok;
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     connectionState = {
+      state: 'error',
       isConnected: false,
       lastCheck: Date.now(),
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorMsg,
+      lastError: errorMsg,
     };
+    notifyConnectionSubscribers();
     return false;
   }
 }
@@ -157,6 +190,7 @@ async function apiCall<T>(
       
       // Update connection state on success
       connectionState = {
+        state: 'connected',
         isConnected: true,
         lastCheck: Date.now(),
       };
@@ -181,9 +215,11 @@ async function apiCall<T>(
   
   // Update connection state on failure
   connectionState = {
+    state: 'error',
     isConnected: false,
     lastCheck: Date.now(),
     error: lastError?.message,
+    lastError: lastError?.message,
   };
   
   throw lastError;

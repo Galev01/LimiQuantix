@@ -1,8 +1,88 @@
 # Workflow State
 
-## Current Status: COMPLETED - Light Mode UI Implementation
+## Current Status: COMPLETED - Host Registration & Frontend Build Fixes
 
-## Active Workflow: Add Light Mode UI Across All Interfaces
+## Active Workflow: Fix Quantix-OS to Quantix-vDC Host Registration + Frontend TypeScript Errors
+
+**Date:** January 9, 2026
+
+### Issue
+When trying to add a host from Quantix-OS to Quantix-vDC, users encountered:
+1. `ERR_CONNECTION_REFUSED` - URL normalization bug
+2. `L.nodeName.toLowerCase is not a function` - React DOM error
+3. **108 TypeScript errors** in frontend build after initial fixes
+
+### Root Causes
+1. **URL normalization bug**: After adding `https://`, the check `if (!url.includes(':'))` failed because `https://` contains `:`
+2. **TLS certificate issue**: Browsers cannot make fetch requests to self-signed HTTPS servers
+3. **AnimatePresence bug**: The modal component returned `null` before `AnimatePresence` could handle exit animations
+4. **Type mismatches**: Various property naming inconsistencies, missing interface properties, and incorrect type usages
+
+### Fixes Applied
+
+#### 1. URL Normalization (frontend/src/components/host/AddHostModal.tsx)
+- Changed port detection to use `URL` class to properly parse the URL
+- Now correctly adds `:8443` when no port is specified
+
+#### 2. Backend Proxy (frontend/src/components/host/AddHostModal.tsx)
+- Frontend now uses `POST /api/nodes/discover` backend proxy instead of direct fetch
+- Backend handles self-signed certificates and CORS
+
+#### 3. TLS Skip Verification (backend/internal/server/host_registration_handler.go)
+- Fixed `TLSClientConfig: nil` to `TLSClientConfig: &tls.Config{InsecureSkipVerify: true}`
+- Added `crypto/tls` import
+
+#### 4. AnimatePresence Pattern (frontend/src/components/host/AddHostModal.tsx)
+- Moved `if (!isOpen) return null` inside the `AnimatePresence` wrapper
+- Added `key` props to motion.div elements for proper tracking
+
+#### 5. Frontend TypeScript Fixes (108 errors resolved)
+- **api-client.ts**: Added `state` and `lastError` to `ConnectionState`
+- **Badge.tsx**: Added `danger` variant
+- **VMStatusBadge.tsx**: Added `ERROR`, `STARTING`, `STOPPING` states
+- **useDashboard.ts**: Fixed `disk.sizeGib` vs `sizeMib`, proper API connection typing
+- **VMDetail.tsx, Dashboard.tsx, VMList.tsx**: Fixed disk size calculations
+- **Dashboard.tsx, HostList.tsx**: Fixed `totalBytes` vs `totalMib` property names
+- **VMCreationWizard.tsx**: Fixed OVA props, removed mock data checks, updated interface
+- **useStorage.ts**: Handled optional timestamps, fixed `StorageBackend_BackendType`
+- **ExecuteScriptModal.tsx**: Renamed `setTimeout` to `scriptTimeout` (avoid shadowing)
+- **Layout.tsx**: Fixed VMCreationWizard props
+- **Monitoring.tsx**: Fixed `runningVMs`/`totalVMs` casing
+- **VirtualNetworks.tsx**: Added missing properties, updated modal types
+- **ClusterDetail.tsx**: Simplified to placeholder (API not implemented)
+- **Button.tsx**: Added `danger` variant
+- **useImages.ts**: Fixed status enum comparisons
+- **toast.ts**: Fixed `promiseToast` return type
+- **ImageLibrary.tsx**: Added type guards for CloudImage vs ISOImage
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `frontend/src/components/host/AddHostModal.tsx` | Fixed URL normalization, use backend proxy, fix AnimatePresence |
+| `backend/internal/server/host_registration_handler.go` | Fixed TLS skip verification |
+| `frontend/src/lib/api-client.ts` | Added state/lastError to ConnectionState |
+| `frontend/src/components/ui/Badge.tsx` | Added danger variant |
+| `frontend/src/components/vm/VMStatusBadge.tsx` | Added ERROR, STARTING, STOPPING states |
+| `frontend/src/hooks/useDashboard.ts` | Fixed disk size and connection state types |
+| `frontend/src/pages/VMDetail.tsx` | Fixed disk size calculation |
+| `frontend/src/pages/Dashboard.tsx` | Fixed disk/memory property names |
+| `frontend/src/pages/VMList.tsx` | Fixed disk size calculation |
+| `frontend/src/pages/HostList.tsx` | Fixed memory property names |
+| `frontend/src/components/vm/VMCreationWizard.tsx` | Fixed OVA props, interface updates |
+| `frontend/src/hooks/useStorage.ts` | Fixed timestamp handling, backend type enum |
+| `frontend/src/components/vm/ExecuteScriptModal.tsx` | Renamed setTimeout variable |
+| `frontend/src/components/layout/Layout.tsx` | Fixed wizard props |
+| `frontend/src/pages/Monitoring.tsx` | Fixed VM count casing |
+| `frontend/src/pages/VirtualNetworks.tsx` | Added missing props, modal types |
+| `frontend/src/pages/ClusterDetail.tsx` | Simplified to placeholder |
+| `frontend/src/components/ui/Button.tsx` | Added danger variant |
+| `frontend/src/hooks/useImages.ts` | Fixed status enum check |
+| `frontend/src/lib/toast.ts` | Fixed promiseToast return type |
+| `frontend/src/pages/ImageLibrary.tsx` | Added CloudImage type guards |
+
+---
+
+## Previous Workflow: Light Mode UI Implementation
 
 **Date:** January 9, 2026
 

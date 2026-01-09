@@ -10,6 +10,15 @@ import type {
 } from '@/api/limiquantix/storage/v1/storage_pb';
 import { showSuccess, showError } from '@/lib/toast';
 
+// Helper to convert protobuf Timestamp to Date
+// Timestamp has seconds (bigint) and nanos (number) fields
+function timestampToDate(ts?: { seconds?: bigint; nanos?: number } | null): Date {
+  if (!ts) return new Date();
+  const seconds = Number(ts.seconds ?? 0n);
+  const nanos = Number(ts.nanos ?? 0);
+  return new Date(seconds * 1000 + Math.floor(nanos / 1000000));
+}
+
 // Create transport for Connect-RPC
 const transport = createConnectTransport({
   baseUrl: 'http://localhost:8080',
@@ -130,7 +139,7 @@ function toStoragePoolUI(pool: StoragePool): StoragePoolUI {
       availableBytes: Number(pool.status?.capacity?.availableBytes ?? 0),
       provisionedBytes: Number(pool.status?.capacity?.provisionedBytes ?? 0),
     },
-    createdAt: pool.createdAt?.toDate() ?? new Date(),
+    createdAt: timestampToDate(pool.createdAt),
     labels: pool.labels,
   };
 }
@@ -161,7 +170,7 @@ function toVolumeUI(vol: Volume): VolumeUI {
       errorMessage: vol.status?.errorMessage,
       snapshotCount: vol.status?.snapshotCount ?? 0,
     },
-    createdAt: vol.createdAt?.toDate() ?? new Date(),
+    createdAt: timestampToDate(vol.createdAt),
     labels: vol.labels,
   };
 }
@@ -278,59 +287,76 @@ export function useCreateStoragePool() {
         'LOCAL_LVM': 2,
       };
 
-      const spec: Partial<StoragePoolSpec> = {
-        backend: {
-          type: backendTypeMap[params.backendType] as StorageBackend_BackendType,
-        },
+      // Build backend config based on type
+      // Using 'as any' to bypass proto message type requirements (the API will validate)
+      let backendConfig: Record<string, unknown> = {
+        type: backendTypeMap[params.backendType],
       };
 
       // Add backend-specific config
       if (params.nfs && params.backendType === 'NFS') {
-        spec.backend = {
-          ...spec.backend,
-          nfs: {
-            server: params.nfs.server,
-            exportPath: params.nfs.exportPath,
-            version: params.nfs.version || '4.1',
-            options: params.nfs.options || '',
-            mountPoint: '',
+        backendConfig = {
+          ...backendConfig,
+          config: {
+            case: 'nfs',
+            value: {
+              server: params.nfs.server,
+              exportPath: params.nfs.exportPath,
+              version: params.nfs.version || '4.1',
+              options: params.nfs.options || '',
+              mountPoint: '',
+            },
           },
         };
       } else if (params.ceph && params.backendType === 'CEPH_RBD') {
-        spec.backend = {
-          ...spec.backend,
-          ceph: {
-            clusterId: '',
-            poolName: params.ceph.poolName,
-            monitors: params.ceph.monitors,
-            user: params.ceph.user || 'admin',
-            keyringPath: params.ceph.keyringPath || '/etc/ceph/ceph.client.admin.keyring',
-            namespace: params.ceph.namespace || '',
-            secretUuid: '',
+        backendConfig = {
+          ...backendConfig,
+          config: {
+            case: 'ceph',
+            value: {
+              clusterId: '',
+              poolName: params.ceph.poolName,
+              monitors: params.ceph.monitors,
+              user: params.ceph.user || 'admin',
+              keyringPath: params.ceph.keyringPath || '/etc/ceph/ceph.client.admin.keyring',
+              namespace: params.ceph.namespace || '',
+              secretUuid: '',
+            },
           },
         };
       } else if (params.iscsi && params.backendType === 'ISCSI') {
-        spec.backend = {
-          ...spec.backend,
-          iscsi: {
-            portal: params.iscsi.portal,
-            target: params.iscsi.target,
-            chapEnabled: params.iscsi.chapEnabled || false,
-            chapUser: params.iscsi.chapUser || '',
-            chapPassword: params.iscsi.chapPassword || '',
-            lun: params.iscsi.lun || 0,
-            volumeGroup: '',
+        backendConfig = {
+          ...backendConfig,
+          config: {
+            case: 'iscsi',
+            value: {
+              portal: params.iscsi.portal,
+              target: params.iscsi.target,
+              chapEnabled: params.iscsi.chapEnabled || false,
+              chapUser: params.iscsi.chapUser || '',
+              chapPassword: params.iscsi.chapPassword || '',
+              lun: params.iscsi.lun || 0,
+              volumeGroup: '',
+            },
           },
         };
       } else if (params.local && params.backendType === 'LOCAL_DIR') {
-        spec.backend = {
-          ...spec.backend,
-          localDir: {
-            path: params.local.path,
-            nodeId: '',
+        backendConfig = {
+          ...backendConfig,
+          config: {
+            case: 'localDir',
+            value: {
+              path: params.local.path,
+              nodeId: '',
+            },
           },
         };
       }
+
+      const spec: Partial<StoragePoolSpec> = {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        backend: backendConfig as any,
+      };
 
       const response = await poolClient.createPool({
         name: params.name,

@@ -111,8 +111,8 @@ function apiToDisplayNode(node: ApiNode): DisplayNode {
         features: [],
       },
       memory: {
-        totalBytes: (node.spec?.memory?.totalMib || 0) * 1024 * 1024,
-        allocatableBytes: (node.spec?.memory?.totalMib || 0) * 1024 * 1024 * 0.9,
+        totalBytes: node.spec?.memory?.totalBytes || 0,
+        allocatableBytes: node.spec?.memory?.allocatableBytes || (node.spec?.memory?.totalBytes || 0) * 0.9,
       },
       storage: [],
       networks: [],
@@ -127,9 +127,9 @@ function apiToDisplayNode(node: ApiNode): DisplayNode {
         lastTransitionTime: '',
       })),
       resources: {
-        cpuAllocatedCores: node.status?.allocation?.cpuAllocated || 0,
+        cpuAllocatedCores: node.status?.resources?.cpu?.allocatedVcpus || 0,
         cpuUsagePercent: 0,
-        memoryAllocatedBytes: (node.status?.allocation?.memoryAllocatedMib || 0) * 1024 * 1024,
+        memoryAllocatedBytes: node.status?.resources?.memory?.allocatedBytes || 0,
         memoryUsedBytes: 0,
         storageUsedBytes: 0,
       },

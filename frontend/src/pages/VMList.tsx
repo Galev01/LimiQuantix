@@ -45,7 +45,7 @@ function apiToDisplayVM(vm: ApiVM): VirtualMachine {
       memory: { sizeMib: vm.spec?.memory?.sizeMib || 1024 },
       disks: (vm.spec?.disks || []).map((d, i) => ({
         id: `disk-${i}`,
-        sizeGib: (d.sizeMib || 0) / 1024,
+        sizeGib: d.sizeGib || 0,
         bus: 'virtio',
       })),
       nics: [{ id: 'nic-0', networkId: 'default', macAddress: '00:00:00:00:00:00' }],

@@ -346,7 +346,7 @@ BOOT_DEVICE=""
 SQUASHFS_FILE=""
 
 # List devices for debug
-ls -la /dev/sr* /dev/sd* > /dev/kmsg
+ls -la /dev/sr* /dev/sd* > /dev/kmsg 2>&1 || true
 
 for dev in /dev/sr0 /dev/sr1 /dev/cdrom /dev/sda /dev/sdb; do
     if [ -b "$dev" ]; then
@@ -356,10 +356,11 @@ for dev in /dev/sr0 /dev/sr1 /dev/cdrom /dev/sda /dev/sdb; do
              if [ -f "/mnt/check/quantix-vdc/system.squashfs" ]; then
                  log "Found media on $dev"
                  BOOT_DEVICE="$dev"
-                 SQUASHFS_FILE="/mnt/check/quantix-vdc/system.squashfs"
                  # Keep mounted at /mnt/cdrom
                  mkdir -p /mnt/cdrom
                  mount --move /mnt/check /mnt/cdrom
+                 # IMPORTANT: Update path to the new mount point!
+                 SQUASHFS_FILE="/mnt/cdrom/quantix-vdc/system.squashfs"
                  break
              fi
              umount /mnt/check
@@ -373,24 +374,53 @@ if [ -z "$SQUASHFS_FILE" ]; then
     exec /bin/sh
 fi
 
+# Verify the squashfs file is accessible
+if [ ! -f "$SQUASHFS_FILE" ]; then
+    log "ERROR: Squashfs file not accessible at $SQUASHFS_FILE"
+    log "Listing /mnt/cdrom:"
+    ls -la /mnt/cdrom/ > /dev/kmsg 2>&1 || true
+    ls -la /mnt/cdrom/quantix-vdc/ > /dev/kmsg 2>&1 || true
+    exec /bin/sh
+fi
+
+# Show file info for debugging
+log "Squashfs file: $(ls -lh $SQUASHFS_FILE 2>&1)"
+
 log "Mounting system image: $SQUASHFS_FILE"
 mkdir -p /mnt/rootfs
 
-# 7. Mount SquashFS (Debug this part specifically)
+# 7. Mount SquashFS 
 log "Attempting mount..."
-mount -t squashfs -o ro,loop "$SQUASHFS_FILE" /mnt/rootfs
+
+# First, ensure loop devices exist
+if [ ! -e /dev/loop0 ]; then
+    mknod /dev/loop0 b 7 0
+    mknod /dev/loop1 b 7 1
+    mknod /dev/loop2 b 7 2
+fi
+
+# Try mounting with explicit losetup first (more reliable)
+log "Setting up loop device..."
+losetup /dev/loop0 "$SQUASHFS_FILE"
+LOSETUP_RES=$?
+
+if [ $LOSETUP_RES -ne 0 ]; then
+    log "losetup failed with code $LOSETUP_RES"
+    log "Trying direct mount -o loop..."
+    mount -t squashfs -o ro,loop "$SQUASHFS_FILE" /mnt/rootfs
+else
+    log "Loop device ready, mounting..."
+    mount -t squashfs -o ro /dev/loop0 /mnt/rootfs
+fi
+
 MOUNT_RES=$?
 
 if [ $MOUNT_RES -ne 0 ]; then
     log "Mount failed with code $MOUNT_RES"
-    log "Trying alternative loop setup..."
-    # Manual loop setup
-    losetup /dev/loop0 "$SQUASHFS_FILE"
-    mount -t squashfs -o ro /dev/loop0 /mnt/rootfs
-    if [ $? -ne 0 ]; then
-         log "Fallback mount failed. Dropping to shell."
-         exec /bin/sh
-    fi
+    log "Loop device status:"
+    losetup -a > /dev/kmsg 2>&1 || true
+    log "Dropping to shell for debugging..."
+    exec /bin/sh
 fi
 
 log "System mounted successfully!"

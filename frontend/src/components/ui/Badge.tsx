@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 interface BadgeProps {
   children: ReactNode;
-  variant?: 'default' | 'success' | 'warning' | 'error' | 'info';
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'info' | 'danger';
   size?: 'sm' | 'md';
   className?: string;
 }
@@ -13,6 +13,7 @@ const variantStyles = {
   success: 'bg-success/15 text-success border-success/30',
   warning: 'bg-warning/15 text-warning border-warning/30',
   error: 'bg-error/15 text-error border-error/30',
+  danger: 'bg-error/15 text-error border-error/30', // Alias for error
   info: 'bg-info/15 text-info border-info/30',
 };
 

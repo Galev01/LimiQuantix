@@ -36,7 +36,7 @@ export function ExecuteScriptModal({
   vmName,
 }: ExecuteScriptModalProps) {
   const [command, setCommand] = useState('');
-  const [timeout, setTimeout] = useState(60);
+  const [executionTimeout, setExecutionTimeout] = useState(60);
   const [isExecuting, setIsExecuting] = useState(false);
   const [result, setResult] = useState<ExecutionResult | null>(null);
   const [copied, setCopied] = useState<'stdout' | 'stderr' | null>(null);
@@ -53,7 +53,7 @@ export function ExecuteScriptModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           command: command.trim(),
-          timeoutSeconds: timeout,
+          timeoutSeconds: executionTimeout,
           waitForExit: true,
         }),
       });
@@ -170,8 +170,8 @@ export function ExecuteScriptModal({
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  value={timeout}
-                  onChange={(e) => setTimeout(Math.max(1, parseInt(e.target.value) || 60))}
+                  value={executionTimeout}
+                  onChange={(e) => setExecutionTimeout(Math.max(1, parseInt(e.target.value) || 60))}
                   className="w-20 px-3 py-2 bg-bg-base rounded-lg border border-border
                     text-text-primary text-sm text-center
                     focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"

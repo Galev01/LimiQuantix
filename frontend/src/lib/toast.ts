@@ -178,11 +178,11 @@ export async function withToast<T>(
     error?: string | ((error: unknown) => string);
   }
 ): Promise<T> {
-  return toast.promise(promise, {
+  toast.promise(promise, {
     loading: messages.loading,
     success: (data) => 
       typeof messages.success === 'function' 
-        ? messages.success(data) 
+        ? messages.success(data as T) 
         : messages.success,
     error: (error) => 
       messages.error
@@ -191,6 +191,7 @@ export async function withToast<T>(
           : messages.error
         : extractErrorMessage(error),
   });
+  return promise;
 }
 
 // Re-export the raw toast for advanced use cases

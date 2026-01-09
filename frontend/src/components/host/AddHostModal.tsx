@@ -139,34 +139,51 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
     try {
       // Normalize the host URL
       let url = hostUrl.trim();
+      
+      // Add https:// if no protocol specified
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
         url = `https://${url}`;
       }
-      if (!url.includes(':')) {
-        url = `${url}:8443`; // Default port for node daemon
+      
+      // Parse URL to check if port is present
+      try {
+        const parsedUrl = new URL(url);
+        // If no port specified (and not standard HTTP/HTTPS ports), add default port
+        if (!parsedUrl.port && parsedUrl.protocol === 'https:') {
+          // Only add port if URL doesn't already have one embedded
+          const hostPart = url.replace(/^https?:\/\//, '');
+          if (!hostPart.includes(':')) {
+            url = `${parsedUrl.protocol}//${parsedUrl.hostname}:8443${parsedUrl.pathname}`;
+          }
+        }
+      } catch {
+        // If URL parsing fails, try simple port addition
+        const hostPart = url.replace(/^https?:\/\//, '');
+        if (!hostPart.includes(':')) {
+          const protocol = url.startsWith('http://') ? 'http://' : 'https://';
+          url = `${protocol}${hostPart}:8443`;
+        }
       }
 
-      // First, validate the token with the host
-      const tokenResponse = await fetch(`${url}/api/v1/registration/token`, {
-        method: 'GET',
+      // Use the backend proxy to connect to the host
+      // This is necessary because:
+      // 1. The browser cannot make direct requests to hosts with self-signed certificates
+      // 2. CORS restrictions prevent direct cross-origin requests
+      // The backend will connect to the host, validate the token, and return discovery data
+      const discoveryResponse = await fetch('/api/nodes/discover', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${registrationToken.trim()}`,
+          'Content-Type': 'application/json',
         },
-      });
-
-      if (!tokenResponse.ok) {
-        throw new Error('Invalid or expired registration token');
-      }
-
-      // Token is valid, now get full discovery data
-      const discoveryResponse = await fetch(`${url}/api/v1/registration/discovery`, {
-        headers: {
-          'Authorization': `Bearer ${registrationToken.trim()}`,
-        },
+        body: JSON.stringify({
+          hostUrl: url,
+          registrationToken: registrationToken.trim(),
+        }),
       });
 
       if (!discoveryResponse.ok) {
-        throw new Error('Failed to discover host resources');
+        const errorData = await discoveryResponse.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Failed to connect to host');
       }
 
       const discovery: HostDiscovery = await discoveryResponse.json();
@@ -232,18 +249,19 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
     setError(null);
   };
 
-  if (!isOpen) return null;
-
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      >
+      {isOpen && (
         <motion.div
+          key="add-host-modal-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={onClose}
+        >
+        <motion.div
+          key="add-host-modal-content"
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -618,6 +636,7 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
           </div>
         </motion.div>
       </motion.div>
+      )}
     </AnimatePresence>
   );
 }

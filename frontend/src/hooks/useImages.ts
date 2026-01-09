@@ -356,9 +356,9 @@ export function useImportStatus(jobId: string, enabled = true) {
       };
     },
     enabled: enabled && !!jobId,
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Poll while downloading
-      const status = data?.status;
+      const status = query.state.data?.status;
       if (status === 1 || status === 2 || status === 3) { // pending, downloading, converting
         return 1000; // 1 second
       }

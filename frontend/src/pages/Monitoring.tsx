@@ -216,10 +216,14 @@ export function Monitoring() {
   
   // Convert nodes to host metrics format
   const hostMetrics: HostMetric[] = nodes.map(node => {
-    const cpuUsage = node.status?.resources?.cpuUsagePercent ?? 0;
-    const memUsage = node.status?.resources?.memoryUsedBytes && node.spec?.memory?.totalBytes
-      ? Math.round((node.status.resources.memoryUsedBytes / node.spec.memory.totalBytes) * 100)
-      : 0;
+    // Calculate usage based on allocated vs total resources
+    const allocatedCpu = node.status?.resources?.cpu?.allocatedVcpus ?? 0;
+    const totalCpu = (node.spec?.cpu?.sockets ?? 1) * (node.spec?.cpu?.coresPerSocket ?? 1);
+    const cpuUsage = totalCpu > 0 ? Math.round((allocatedCpu / totalCpu) * 100) : 0;
+    
+    const allocatedMem = node.status?.resources?.memory?.allocatedBytes ?? 0;
+    const totalMem = node.spec?.memory?.totalBytes ?? 0;
+    const memUsage = totalMem > 0 ? Math.round((allocatedMem / totalMem) * 100) : 0;
     
     let status: 'healthy' | 'warning' | 'critical' = 'healthy';
     if (cpuUsage >= 90 || memUsage >= 90) status = 'critical';
@@ -241,9 +245,11 @@ export function Monitoring() {
   };
 
   // Calculate current values from dashboard metrics
-  const currentCpu = dashboardMetrics?.cpuUsagePercent ?? 0;
-  const currentMemory = dashboardMetrics?.memoryUsagePercent ?? 0;
-  const currentStorage = dashboardMetrics?.storageUsagePercent ?? 0;
+  const currentCpu = dashboardMetrics?.avgCpuUsage ?? 0;
+  const currentMemory = dashboardMetrics?.avgMemoryUsage ?? 0;
+  const currentStorage = dashboardMetrics?.totalStorageGB > 0 
+    ? Math.round((dashboardMetrics.usedStorageGB / dashboardMetrics.totalStorageGB) * 100) 
+    : 0;
   const currentNetwork = 0; // Not available from current API
 
   // Empty combined data - will be populated when metrics API is available
@@ -459,7 +465,7 @@ export function Monitoring() {
             <div>
               <p className="text-text-muted text-sm">Running VMs</p>
               <p className="text-xl font-bold text-text-primary">
-                {dashboardMetrics?.runningVms ?? 0} / {dashboardMetrics?.totalVms ?? 0}
+                {dashboardMetrics?.runningVMs ?? 0} / {dashboardMetrics?.totalVMs ?? 0}
               </p>
             </div>
           </div>

@@ -42,10 +42,11 @@ export function useApiConnection(options?: { enabled?: boolean; refetchInterval?
   return useQuery({
     queryKey: ['api', 'connection'],
     queryFn: async () => {
-      const isConnected = await checkConnection();
+      const connected = await checkConnection();
+      const status = getConnectionStatus();
       return {
-        isConnected,
-        ...getConnectionStatus(),
+        ...status,
+        isConnected: connected,
       };
     },
     enabled: options?.enabled ?? true,
@@ -119,7 +120,7 @@ function calculateMetrics(vms: ApiVM[], nodes: ApiNode[]): DashboardMetrics {
     totalVCPUs += vm.spec?.cpu?.cores || 0;
     totalMemoryMB += vm.spec?.memory?.sizeMib || 0;
     for (const disk of vm.spec?.disks || []) {
-      totalDiskGB += (disk.sizeMib || 0) / 1024;
+      totalDiskGB += disk.sizeGib || 0;
     }
   }
   

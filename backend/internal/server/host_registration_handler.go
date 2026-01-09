@@ -2,6 +2,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -42,13 +43,13 @@ type HostDiscoveryRequest struct {
 
 // HostDiscoveryResponse contains discovered host information.
 type HostDiscoveryResponse struct {
-	Hostname     string         `json:"hostname"`
-	ManagementIP string         `json:"managementIp"`
-	CPU          CPUInfo        `json:"cpu"`
-	Memory       MemoryInfo     `json:"memory"`
-	Storage      StorageInfo    `json:"storage"`
-	Network      []NetworkInfo  `json:"network"`
-	GPUs         []GPUInfo      `json:"gpus"`
+	Hostname     string        `json:"hostname"`
+	ManagementIP string        `json:"managementIp"`
+	CPU          CPUInfo       `json:"cpu"`
+	Memory       MemoryInfo    `json:"memory"`
+	Storage      StorageInfo   `json:"storage"`
+	Network      []NetworkInfo `json:"network"`
+	GPUs         []GPUInfo     `json:"gpus"`
 }
 
 // CPUInfo represents CPU information from the host.
@@ -115,21 +116,21 @@ type GPUInfo struct {
 
 // HostRegistrationRequest contains data for registering a new host.
 type HostRegistrationRequest struct {
-	Hostname          string         `json:"hostname"`
-	ManagementIP      string         `json:"managementIp"`
-	HostURL           string         `json:"hostUrl"`
-	RegistrationToken string         `json:"registrationToken"`
-	ClusterID         string         `json:"clusterId"`
-	Resources         ResourceInfo   `json:"resources"`
+	Hostname          string       `json:"hostname"`
+	ManagementIP      string       `json:"managementIp"`
+	HostURL           string       `json:"hostUrl"`
+	RegistrationToken string       `json:"registrationToken"`
+	ClusterID         string       `json:"clusterId"`
+	Resources         ResourceInfo `json:"resources"`
 }
 
 // ResourceInfo contains all resources from the host.
 type ResourceInfo struct {
-	CPU     CPUInfo     `json:"cpu"`
-	Memory  MemoryInfo  `json:"memory"`
-	Storage StorageInfo `json:"storage"`
+	CPU     CPUInfo       `json:"cpu"`
+	Memory  MemoryInfo    `json:"memory"`
+	Storage StorageInfo   `json:"storage"`
 	Network []NetworkInfo `json:"network"`
-	GPUs    []GPUInfo   `json:"gpus"`
+	GPUs    []GPUInfo     `json:"gpus"`
 }
 
 // handleDiscoverHost handles POST /api/nodes/discover
@@ -156,11 +157,13 @@ func (h *HostRegistrationHandler) handleDiscoverHost(w http.ResponseWriter, r *h
 	)
 
 	// Create HTTP client with timeout
+	// Skip TLS verification for self-signed certs (production would use proper CA)
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
-			// Skip TLS verification for self-signed certs (production would use proper CA)
-			TLSClientConfig: nil,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, // Allow self-signed certificates
+			},
 		},
 	}
 
@@ -261,17 +264,17 @@ func (h *HostRegistrationHandler) handleRegisterHost(w http.ResponseWriter, r *h
 
 	// Create node in repository
 	now := time.Now()
-	
+
 	// Convert bytes to MiB
 	totalMemoryMiB := int64(req.Resources.Memory.TotalBytes / (1024 * 1024))
 	availableMemoryMiB := int64(req.Resources.Memory.AvailableBytes / (1024 * 1024))
-	
+
 	// Calculate threads per core (default to 1 if not available)
 	threadsPerCore := int32(1)
 	if req.Resources.CPU.Threads > req.Resources.CPU.Cores && req.Resources.CPU.Cores > 0 {
 		threadsPerCore = int32(req.Resources.CPU.Threads / req.Resources.CPU.Cores)
 	}
-	
+
 	// Calculate total storage in GiB
 	var totalStorageGiB int64
 	for _, disk := range req.Resources.Storage.Local {
