@@ -149,17 +149,17 @@ function GeneralSettings() {
 }
 
 function AppearanceSettings() {
-  const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
+  const { theme, setTheme } = useThemeStore();
   const [accentColor, setAccentColor] = useState('blue');
   const [compactMode, setCompactMode] = useState(false);
 
   const accentColors = [
-    { id: 'blue', color: '#3b82f6' },
-    { id: 'purple', color: '#8b5cf6' },
-    { id: 'green', color: '#22c55e' },
-    { id: 'orange', color: '#f97316' },
-    { id: 'pink', color: '#ec4899' },
-    { id: 'cyan', color: '#06b6d4' },
+    { id: 'blue', color: '#5c9cf5' },
+    { id: 'purple', color: '#a78bfa' },
+    { id: 'green', color: '#4ade80' },
+    { id: 'orange', color: '#fb923c' },
+    { id: 'pink', color: '#f472b6' },
+    { id: 'cyan', color: '#22d3ee' },
   ];
 
   return (
@@ -168,13 +168,12 @@ function AppearanceSettings() {
         <SettingField label="Theme" description="Choose your preferred color scheme">
           <div className="flex gap-3">
             {[
-              { id: 'dark', icon: Moon, label: 'Dark' },
-              { id: 'light', icon: Sun, label: 'Light' },
-              { id: 'system', icon: SettingsIcon, label: 'System' },
+              { id: 'dark' as const, icon: Moon, label: 'Dark' },
+              { id: 'light' as const, icon: Sun, label: 'Light' },
             ].map((t) => (
               <button
                 key={t.id}
-                onClick={() => setTheme(t.id as any)}
+                onClick={() => setTheme(t.id)}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2 rounded-lg border transition-all',
                   theme === t.id
@@ -199,7 +198,7 @@ function AppearanceSettings() {
                   'w-10 h-10 rounded-lg transition-all',
                   accentColor === c.id && 'ring-2 ring-offset-2 ring-offset-bg-surface'
                 )}
-                style={{ backgroundColor: c.color, ringColor: c.color }}
+                style={{ backgroundColor: c.color, '--tw-ring-color': c.color } as React.CSSProperties}
               >
                 {accentColor === c.id && <Check className="w-5 h-5 text-white mx-auto" />}
               </button>
