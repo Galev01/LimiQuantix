@@ -14,12 +14,8 @@ FROM alpine:3.20
 LABEL maintainer="Quantix-KVM Team"
 LABEL description="Rust build environment for Quantix-OS Console TUI"
 
-# Install Rust and build dependencies
-# Use Alpine's stable repos - edge has compatibility issues with proc-macros
+# Install build dependencies (NOT Alpine's old Rust package)
 RUN apk add --no-cache \
-    # Rust toolchain (stable Alpine version)
-    rust \
-    cargo \
     # Build essentials
     build-base \
     musl-dev \
@@ -32,7 +28,15 @@ RUN apk add --no-cache \
     # Protobuf compiler for gRPC
     protobuf \
     protobuf-dev \
+    # For rustup download
+    curl \
     && rm -rf /var/cache/apk/*
+
+# Install Rust via rustup (gets latest stable version - required for 2024 edition crates)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+
+# Add Rust to PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Set environment for static linking with musl
 # Build natively on Alpine (already musl-based) - no cross-compile needed
@@ -40,6 +44,9 @@ ENV RUSTFLAGS="-C target-feature=+crt-static -C link-self-contained=yes"
 ENV OPENSSL_STATIC=1
 ENV OPENSSL_LIB_DIR=/usr/lib
 ENV OPENSSL_INCLUDE_DIR=/usr/include
+
+# Verify Rust installation
+RUN rustc --version && cargo --version
 
 # Create build directory
 WORKDIR /build
