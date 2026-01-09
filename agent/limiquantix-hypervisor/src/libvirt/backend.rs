@@ -716,8 +716,9 @@ fn parse_disks_from_xml(xml: &str) -> Vec<DiskConfig> {
                 format,
                 readonly: part.contains("<readonly/>"),
                 bootable: false, // Hard to tell from just disk block
-                cache: crate::types::CacheMode::None, // Default
-                io_mode: crate::types::IoMode::Native, // Default
+                cache: DiskCache::None, // Default
+                io_mode: DiskIoMode::Native, // Default
+                backing_file: None, // Would need to parse backing store from XML
             });
         }
     }

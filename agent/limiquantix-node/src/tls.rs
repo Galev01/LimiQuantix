@@ -245,7 +245,7 @@ impl TlsManager {
         let cert = params.self_signed(&key_pair)
             .context("Failed to generate certificate")?;
         
-        // Get PEM encoded certificate and key
+        // Get PEM encoded certificate and key (requires rcgen "pem" feature)
         let cert_pem = cert.pem();
         let key_pem = key_pair.serialize_pem();
         

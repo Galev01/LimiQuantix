@@ -1,8 +1,11 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
+import { ConnectionSetup } from '@/components/ConnectionSetup';
 import { StorageImages } from '@/pages/StorageImages';
 import { Dashboard, VirtualMachines, VMDetail, Network, StoragePools, Volumes, Hardware, Performance, Events, Logs, Settings } from '@/pages';
+import { getNodeConnection, isRemoteConnection } from '@/api/client';
 
 // Create a query client
 const queryClient = new QueryClient({
@@ -30,12 +33,54 @@ function PlaceholderPage({ title }: { title: string }) {
   );
 }
 
+// Check if we should show connection setup
+// In development mode (vite dev server), we need to connect to a remote node
+// In production (embedded in Quantix-OS), the proxy handles it
+function shouldShowConnectionSetup(): boolean {
+  // If we're in development and no connection is configured, show setup
+  // Check if we're running on localhost (development)
+  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
+  // If in dev mode and no remote connection configured, show setup
+  if (isDev && !isRemoteConnection()) {
+    return true;
+  }
+  
+  return false;
+}
+
 export function App() {
+  const [showSetup, setShowSetup] = useState(shouldShowConnectionSetup);
+  const [connectionInfo, setConnectionInfo] = useState(getNodeConnection);
+
+  // Listen for connection changes
+  useEffect(() => {
+    const handleConnectionChange = () => {
+      setConnectionInfo(getNodeConnection());
+      setShowSetup(shouldShowConnectionSetup());
+    };
+
+    window.addEventListener('node-connection-changed', handleConnectionChange);
+    return () => window.removeEventListener('node-connection-changed', handleConnectionChange);
+  }, []);
+
+  // Show connection setup if needed
+  if (showSetup) {
+    return (
+      <ConnectionSetup 
+        onConnected={() => {
+          setShowSetup(false);
+          setConnectionInfo(getNodeConnection());
+        }} 
+      />
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          <Route element={<Layout />}>
+          <Route element={<Layout connectionInfo={connectionInfo} />}>
             {/* Dashboard */}
             <Route path="/" element={<Dashboard />} />
 

@@ -28,33 +28,26 @@ type LogLevel = 'all' | 'trace' | 'debug' | 'info' | 'warn' | 'error';
 
 const LOG_LEVELS: LogLevel[] = ['all', 'trace', 'debug', 'info', 'warn', 'error'];
 
-const levelConfig: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
-  trace: {
-    icon: <Terminal className="w-3.5 h-3.5" />,
-    color: 'text-text-muted',
-    bg: 'bg-bg-base',
-  },
-  debug: {
-    icon: <Bug className="w-3.5 h-3.5" />,
-    color: 'text-text-secondary',
-    bg: 'bg-bg-surface',
-  },
-  info: {
-    icon: <Info className="w-3.5 h-3.5" />,
-    color: 'text-info',
-    bg: 'bg-info/5',
-  },
-  warn: {
-    icon: <AlertTriangle className="w-3.5 h-3.5" />,
-    color: 'text-warning',
-    bg: 'bg-warning/5',
-  },
-  error: {
-    icon: <AlertCircle className="w-3.5 h-3.5" />,
-    color: 'text-error',
-    bg: 'bg-error/5',
-  },
+// Level configuration without JSX - icons are rendered inline
+const levelStyles: Record<string, { color: string; bg: string }> = {
+  trace: { color: 'text-text-muted', bg: 'bg-bg-base' },
+  debug: { color: 'text-text-secondary', bg: 'bg-bg-surface' },
+  info: { color: 'text-info', bg: 'bg-info/5' },
+  warn: { color: 'text-warning', bg: 'bg-warning/5' },
+  error: { color: 'text-error', bg: 'bg-error/5' },
 };
+
+// Get icon for log level
+function getLevelIcon(level: string) {
+  switch (level) {
+    case 'trace': return <Terminal className="w-3.5 h-3.5" />;
+    case 'debug': return <Bug className="w-3.5 h-3.5" />;
+    case 'info': return <Info className="w-3.5 h-3.5" />;
+    case 'warn': return <AlertTriangle className="w-3.5 h-3.5" />;
+    case 'error': return <AlertCircle className="w-3.5 h-3.5" />;
+    default: return <Info className="w-3.5 h-3.5" />;
+  }
+}
 
 export function Logs() {
   const [levelFilter, setLevelFilter] = useState<LogLevel>('all');
@@ -294,7 +287,7 @@ interface LogRowProps {
 }
 
 function LogRow({ log, isSelected, onClick }: LogRowProps) {
-  const config = levelConfig[log.level] || levelConfig.info;
+  const styles = levelStyles[log.level] || levelStyles.info;
   const date = new Date(log.timestamp);
   const timestamp = date.toLocaleTimeString('en-US', {
     hour12: false,
@@ -310,7 +303,7 @@ function LogRow({ log, isSelected, onClick }: LogRowProps) {
         'flex items-start gap-2 px-3 py-1.5 border-b border-border/50 cursor-pointer transition-colors',
         'hover:bg-bg-hover/50',
         isSelected && 'bg-accent/10 border-l-2 border-l-accent',
-        config.bg
+        styles.bg
       )}
     >
       {/* Expand indicator */}
@@ -328,8 +321,8 @@ function LogRow({ log, isSelected, onClick }: LogRowProps) {
       <span className="text-text-muted shrink-0 w-24">{timestamp}</span>
 
       {/* Level */}
-      <span className={cn('shrink-0 w-12 flex items-center gap-1', config.color)}>
-        {config.icon}
+      <span className={cn('shrink-0 w-12 flex items-center gap-1', styles.color)}>
+        {getLevelIcon(log.level)}
         <span className="uppercase text-[10px] font-bold">{log.level}</span>
       </span>
 
@@ -366,7 +359,7 @@ function LogDetailsPanel({ log, onClose }: LogDetailsPanelProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const config = levelConfig[log.level] || levelConfig.info;
+  const styles = levelStyles[log.level] || levelStyles.info;
 
   return (
     <div className="w-96 bg-bg-surface rounded-lg border border-border overflow-hidden flex flex-col">
@@ -391,8 +384,8 @@ function LogDetailsPanel({ log, onClose }: LogDetailsPanelProps) {
           <DetailRow 
             label="Level" 
             value={
-              <span className={cn('flex items-center gap-1', config.color)}>
-                {config.icon}
+              <span className={cn('flex items-center gap-1', styles.color)}>
+                {getLevelIcon(log.level)}
                 {log.level.toUpperCase()}
               </span>
             } 

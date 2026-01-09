@@ -53,7 +53,8 @@ async-trait.workspace = true
 futures.workspace = true
 
 # HTTP client for control plane communication
-reqwest = { version = "0.12", features = ["json"] }
+# Use rustls-tls-native-roots to avoid aws-lc-rs build issues on Windows
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls-native-roots"] }
 local-ip-address = "0.6"
 
 # Random number generation
@@ -72,6 +73,7 @@ rustls.workspace = true
 rustls-pemfile.workspace = true
 tokio-rustls.workspace = true
 rcgen.workspace = true
+pem.workspace = true
 # instant-acme.workspace = true  # Disabled - ACME is placeholder, aws-lc-sys has complex build requirements
 base64.workspace = true
 base64ct = "1.6"  # Pin to 1.6.x to avoid edition2024 requirement

@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
  * Log entry from the system
@@ -53,13 +52,25 @@ async function getLogs(params?: LogsParams): Promise<LogsResponse> {
   if (params?.until) searchParams.set('until', params.until);
   
   const query = searchParams.toString();
-  const response = await fetch(`/api/logs${query ? `?${query}` : ''}`);
   
-  if (!response.ok) {
-    throw new Error('Failed to fetch logs');
+  try {
+    const response = await fetch(`/api/logs${query ? `?${query}` : ''}`);
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        // Backend might not be running - return empty logs
+        console.warn('Logs API not available. Is the backend running on port 8080?');
+        return { logs: [], total: 0, hasMore: false };
+      }
+      throw new Error(`Failed to fetch logs: ${response.status}`);
+    }
+    
+    return response.json();
+  } catch (error) {
+    // Network error - backend probably not running
+    console.warn('Failed to connect to logs API. Ensure backend is running on port 8080.');
+    return { logs: [], total: 0, hasMore: false };
   }
-  
-  return response.json();
 }
 
 /**
@@ -69,102 +80,23 @@ export function useLogs(params?: LogsParams) {
   return useQuery({
     queryKey: ['logs', params],
     queryFn: () => getLogs(params),
-    refetchInterval: params ? false : 5000, // Auto-refresh if no filters
-    staleTime: 2000,
+    refetchInterval: 3000, // Poll every 3 seconds for live updates
+    staleTime: 1000,
   });
 }
 
 /**
  * Hook to stream logs in real-time via WebSocket
+ * NOTE: WebSocket streaming is disabled until the backend endpoint is implemented.
+ * For now, we use polling via useLogs instead.
  */
-export function useLogStream(enabled: boolean = true) {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const cleanupRef = useRef<(() => void) | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const maxLogs = 1000; // Keep last 1000 streamed logs in memory
-  
-  const connect = useCallback(() => {
-    if (!enabled) return;
-    
-    // Clear any existing reconnect timeout
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/api/logs/stream`);
-    
-    ws.onopen = () => {
-      console.log('Log stream connected');
-      setIsConnected(true);
-      setError(null);
-    };
-    
-    ws.onmessage = (event) => {
-      try {
-        const log = JSON.parse(event.data) as LogEntry;
-        setLogs((prev) => {
-          const newLogs = [...prev, log];
-          // Keep only the last maxLogs entries
-          if (newLogs.length > maxLogs) {
-            return newLogs.slice(-maxLogs);
-          }
-          return newLogs;
-        });
-      } catch (e) {
-        console.error('Failed to parse log entry:', e);
-      }
-    };
-    
-    ws.onerror = () => {
-      setError('Connection error');
-      setIsConnected(false);
-    };
-    
-    ws.onclose = () => {
-      console.log('Log stream disconnected');
-      setIsConnected(false);
-      // Attempt to reconnect after 3 seconds
-      if (enabled) {
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, 3000);
-      }
-    };
-    
-    cleanupRef.current = () => {
-      ws.close();
-    };
-  }, [enabled]);
-  
-  useEffect(() => {
-    if (enabled) {
-      connect();
-    }
-    
-    return () => {
-      if (cleanupRef.current) {
-        cleanupRef.current();
-        cleanupRef.current = null;
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-    };
-  }, [enabled, connect]);
-  
-  const clearLogs = useCallback(() => {
-    setLogs([]);
-  }, []);
-  
+export function useLogStream(_enabled: boolean = true) {
+  // WebSocket streaming disabled - endpoint not yet implemented
+  // Return stub values to prevent connection errors
   return {
-    logs,
-    isConnected,
-    error,
-    clearLogs,
+    logs: [] as LogEntry[],
+    isConnected: false,
+    error: null as string | null,
+    clearLogs: () => {},
   };
 }

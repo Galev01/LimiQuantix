@@ -13,7 +13,9 @@
 # =============================================================================
 
 .PHONY: all proto proto-lint proto-breaking proto-format proto-clean setup \
-        setup-go setup-node setup-buf help
+        setup-go setup-node setup-buf help \
+        dev dev-docker dev-backend dev-node dev-frontend dev-hostui dev-stop dev-status \
+        test build
 
 # Default target
 all: help
@@ -122,10 +124,59 @@ setup-node:
 # DEVELOPMENT
 # =============================================================================
 
-# Start development environment
+# Start full development environment (all components)
 dev:
 	@echo "🚀 Starting development environment..."
-	@echo "TODO: Implement dev environment startup"
+ifeq ($(OS),Windows_NT)
+	@powershell -ExecutionPolicy Bypass -File scripts/dev-start.ps1
+else
+	@./scripts/dev-start.sh
+endif
+
+# Start only Docker services (PostgreSQL, etcd, Redis)
+dev-docker:
+	@echo "🐳 Starting Docker services..."
+	@cd backend && docker compose up -d
+
+# Start only Go backend
+dev-backend:
+	@echo "🔧 Starting Go backend..."
+	@cd backend && go run ./cmd/controlplane --dev
+
+# Start only Rust node daemon
+dev-node:
+	@echo "🦀 Starting Rust node daemon..."
+	@cd agent && cargo run --package limiquantix-node -- --http-port 8443 --grpc-port 9443
+
+# Start only React frontend (vDC Dashboard)
+dev-frontend:
+	@echo "⚛️  Starting React frontend..."
+	@cd frontend && npm run dev
+
+# Start only React host UI (Quantix-OS UI)
+dev-hostui:
+	@echo "🖥️  Starting React host UI..."
+	@cd quantix-host-ui && npm run dev
+
+# Stop development environment
+dev-stop:
+	@echo "🛑 Stopping development environment..."
+ifeq ($(OS),Windows_NT)
+	@powershell -ExecutionPolicy Bypass -File scripts/dev-start.ps1 -Stop
+else
+	@./scripts/dev-start.sh stop
+endif
+	@cd backend && docker compose down 2>/dev/null || true
+
+# Show development environment status
+dev-status:
+	@echo "📊 Development environment status..."
+ifeq ($(OS),Windows_NT)
+	@powershell -Command "Get-Job"
+else
+	@./scripts/dev-start.sh status
+endif
+	@cd backend && docker compose ps
 
 # Run tests
 test:
@@ -164,11 +215,23 @@ help:
 	@echo "║    make setup-go       - Install Go protobuf plugins            ║"
 	@echo "║    make setup-node     - Install Node.js protobuf plugins       ║"
 	@echo "║                                                                  ║"
-	@echo "║  Development Commands:                                          ║"
-	@echo "║    make dev            - Start development environment          ║"
+	@echo "║  Development Commands (Local Testing):                          ║"
+	@echo "║    make dev            - Start ALL components locally           ║"
+	@echo "║    make dev-docker     - Start Docker services only             ║"
+	@echo "║    make dev-backend    - Start Go backend only                  ║"
+	@echo "║    make dev-node       - Start Rust node daemon only            ║"
+	@echo "║    make dev-frontend   - Start React frontend only              ║"
+	@echo "║    make dev-hostui     - Start Quantix-OS UI only               ║"
+	@echo "║    make dev-stop       - Stop all development services          ║"
+	@echo "║    make dev-status     - Show status of dev services            ║"
+	@echo "║                                                                  ║"
+	@echo "║  Build & Test:                                                  ║"
 	@echo "║    make test           - Run all tests                          ║"
 	@echo "║    make build          - Build all components                   ║"
 	@echo "║                                                                  ║"
 	@echo "╚══════════════════════════════════════════════════════════════════╝"
+	@echo ""
+	@echo "  💡 Tip: Use 'make dev' to test Quantix-OS ↔ Quantix-vDC locally"
+	@echo "     without building ISOs. See docs/000054-local-development-guide.md"
 	@echo ""
 

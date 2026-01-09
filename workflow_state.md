@@ -1,224 +1,89 @@
 # Workflow State
 
-## Current Status: COMPLETED - System Logs Feature
+## Current Status: COMPLETED - Remote Node Connection Feature
 
-## Active Workflow: System Logs Feature for Quantix-OS and Quantix-vDC
-
-**Date:** January 9, 2026
-
-### Summary
-Implemented a comprehensive system logs viewing feature in both Quantix-OS Host UI and Quantix-vDC Frontend, allowing users to view, filter, search, and stream real-time structured logs.
-
-### Features Implemented
-
-1. **Logs Page UI (Both UIs)**
-   - Real-time log streaming via WebSocket
-   - Filter by log level (trace, debug, info, warn, error)
-   - Filter by source (service/component)
-   - Full-text search across messages and fields
-   - Auto-scroll with manual override
-   - Expandable log details panel showing structured fields
-   - JSON export/download functionality
-   - Copy to clipboard support
-
-2. **Quantix-OS Node Daemon (Rust)**
-   - `GET /api/v1/logs` - Fetch logs with filtering
-   - `GET /api/v1/logs/sources` - Get available log sources
-   - `WS /api/v1/logs/stream` - WebSocket log streaming
-   - Linux journald integration (falls back to sample logs on other platforms)
-
-3. **Quantix-vDC Backend (Go)**
-   - `GET /api/logs` - Fetch logs with filtering
-   - `GET /api/logs/sources` - Get available log sources
-   - `WS /api/logs/stream` - WebSocket log streaming
-   - In-memory log buffer with broadcast to WebSocket clients
-   - Linux journald integration (falls back to sample logs)
-
-### Files Created/Modified
-
-| File | Action | Description |
-|------|--------|-------------|
-| `quantix-host-ui/src/pages/Logs.tsx` | Created | Logs page component |
-| `quantix-host-ui/src/api/logs.ts` | Created | Logs API client |
-| `quantix-host-ui/src/hooks/useLogs.ts` | Created | Logs hooks (fetch + stream) |
-| `quantix-host-ui/src/pages/index.ts` | Modified | Export Logs page |
-| `quantix-host-ui/src/App.tsx` | Modified | Add /logs route |
-| `quantix-host-ui/src/components/layout/Sidebar.tsx` | Modified | Add System Logs nav item |
-| `frontend/src/pages/Logs.tsx` | Created | Logs page component |
-| `frontend/src/hooks/useLogs.ts` | Created | Logs hooks (fetch + stream) |
-| `frontend/src/App.tsx` | Modified | Add /logs route |
-| `frontend/src/components/layout/Sidebar.tsx` | Modified | Add System Logs nav item |
-| `agent/limiquantix-node/src/http_server.rs` | Modified | Add logs API endpoints |
-| `backend/internal/server/logs_handler.go` | Created | Logs HTTP handler |
-| `backend/internal/server/server.go` | Modified | Register logs routes |
-
-### Navigation
-- **Quantix-OS**: Dashboard → Events → **System Logs** → Configuration
-- **Quantix-vDC**: Operations → Monitoring → Alerts → DRS → **System Logs**
-
----
-
-## Previous Workflow: Host Registration & Frontend Build Fixes
-
-## Previous Workflow: Fix Quantix-OS to Quantix-vDC Host Registration + Frontend TypeScript Errors
-
-**Date:** January 9, 2026
-
-### Issue
-When trying to add a host from Quantix-OS to Quantix-vDC, users encountered:
-1. `ERR_CONNECTION_REFUSED` - URL normalization bug
-2. `L.nodeName.toLowerCase is not a function` - React DOM error
-3. **108 TypeScript errors** in frontend build after initial fixes
-
-### Root Causes
-1. **URL normalization bug**: After adding `https://`, the check `if (!url.includes(':'))` failed because `https://` contains `:`
-2. **TLS certificate issue**: Browsers cannot make fetch requests to self-signed HTTPS servers
-3. **AnimatePresence bug**: The modal component returned `null` before `AnimatePresence` could handle exit animations
-4. **Type mismatches**: Various property naming inconsistencies, missing interface properties, and incorrect type usages
-
-### Fixes Applied
-
-#### 1. URL Normalization (frontend/src/components/host/AddHostModal.tsx)
-- Changed port detection to use `URL` class to properly parse the URL
-- Now correctly adds `:8443` when no port is specified
-
-#### 2. Backend Proxy (frontend/src/components/host/AddHostModal.tsx)
-- Frontend now uses `POST /api/nodes/discover` backend proxy instead of direct fetch
-- Backend handles self-signed certificates and CORS
-
-#### 3. TLS Skip Verification (backend/internal/server/host_registration_handler.go)
-- Fixed `TLSClientConfig: nil` to `TLSClientConfig: &tls.Config{InsecureSkipVerify: true}`
-- Added `crypto/tls` import
-
-#### 4. AnimatePresence Pattern (frontend/src/components/host/AddHostModal.tsx)
-- Moved `if (!isOpen) return null` inside the `AnimatePresence` wrapper
-- Added `key` props to motion.div elements for proper tracking
-
-#### 5. Frontend TypeScript Fixes (108 errors resolved)
-- **api-client.ts**: Added `state` and `lastError` to `ConnectionState`
-- **Badge.tsx**: Added `danger` variant
-- **VMStatusBadge.tsx**: Added `ERROR`, `STARTING`, `STOPPING` states
-- **useDashboard.ts**: Fixed `disk.sizeGib` vs `sizeMib`, proper API connection typing
-- **VMDetail.tsx, Dashboard.tsx, VMList.tsx**: Fixed disk size calculations
-- **Dashboard.tsx, HostList.tsx**: Fixed `totalBytes` vs `totalMib` property names
-- **VMCreationWizard.tsx**: Fixed OVA props, removed mock data checks, updated interface
-- **useStorage.ts**: Handled optional timestamps, fixed `StorageBackend_BackendType`
-- **ExecuteScriptModal.tsx**: Renamed `setTimeout` to `scriptTimeout` (avoid shadowing)
-- **Layout.tsx**: Fixed VMCreationWizard props
-- **Monitoring.tsx**: Fixed `runningVMs`/`totalVMs` casing
-- **VirtualNetworks.tsx**: Added missing properties, updated modal types
-- **ClusterDetail.tsx**: Simplified to placeholder (API not implemented)
-- **Button.tsx**: Added `danger` variant
-- **useImages.ts**: Fixed status enum comparisons
-- **toast.ts**: Fixed `promiseToast` return type
-- **ImageLibrary.tsx**: Added type guards for CloudImage vs ISOImage
-
-### Files Modified
-| File | Changes |
-|------|---------|
-| `frontend/src/components/host/AddHostModal.tsx` | Fixed URL normalization, use backend proxy, fix AnimatePresence |
-| `backend/internal/server/host_registration_handler.go` | Fixed TLS skip verification |
-| `frontend/src/lib/api-client.ts` | Added state/lastError to ConnectionState |
-| `frontend/src/components/ui/Badge.tsx` | Added danger variant |
-| `frontend/src/components/vm/VMStatusBadge.tsx` | Added ERROR, STARTING, STOPPING states |
-| `frontend/src/hooks/useDashboard.ts` | Fixed disk size and connection state types |
-| `frontend/src/pages/VMDetail.tsx` | Fixed disk size calculation |
-| `frontend/src/pages/Dashboard.tsx` | Fixed disk/memory property names |
-| `frontend/src/pages/VMList.tsx` | Fixed disk size calculation |
-| `frontend/src/pages/HostList.tsx` | Fixed memory property names |
-| `frontend/src/components/vm/VMCreationWizard.tsx` | Fixed OVA props, interface updates |
-| `frontend/src/hooks/useStorage.ts` | Fixed timestamp handling, backend type enum |
-| `frontend/src/components/vm/ExecuteScriptModal.tsx` | Renamed setTimeout variable |
-| `frontend/src/components/layout/Layout.tsx` | Fixed wizard props |
-| `frontend/src/pages/Monitoring.tsx` | Fixed VM count casing |
-| `frontend/src/pages/VirtualNetworks.tsx` | Added missing props, modal types |
-| `frontend/src/pages/ClusterDetail.tsx` | Simplified to placeholder |
-| `frontend/src/components/ui/Button.tsx` | Added danger variant |
-| `frontend/src/hooks/useImages.ts` | Fixed status enum check |
-| `frontend/src/lib/toast.ts` | Fixed promiseToast return type |
-| `frontend/src/pages/ImageLibrary.tsx` | Added CloudImage type guards |
-
----
-
-## Previous Workflow: Light Mode UI Implementation
+## Latest Workflow: Remote Node Connection in Host UI
 
 **Date:** January 9, 2026
 
 ### Summary
-Implemented light mode (white mode) theme support across all Quantix-KVM user interfaces, allowing users to toggle between dark and light color schemes.
+
+Added a feature to the Host UI that allows connecting to a remote node daemon from the UI itself, instead of requiring vite proxy configuration changes.
 
 ### Changes Made
 
-#### 1. Quantix Host UI (quantix-host-ui)
-- **CSS Refactoring**: Moved color definitions to `:root` CSS variables with `[data-theme="light"]` overrides
-- **Theme Store**: Created `useThemeStore.ts` with Zustand for persistent theme state
-- **Theme Toggle**: Created `ThemeToggle.tsx` component with Sun/Moon icons
-- **Integration**: Added toggle to header, initialized theme in `main.tsx`
+| File | Change |
+|------|--------|
+| `quantix-host-ui/src/api/client.ts` | Added configurable API base URL with localStorage persistence |
+| `quantix-host-ui/src/components/ConnectionSetup.tsx` | New component for entering remote node URL |
+| `quantix-host-ui/src/components/layout/Layout.tsx` | Added connection banner and disconnect button |
+| `quantix-host-ui/src/App.tsx` | Show ConnectionSetup when in dev mode without connection |
 
-#### 2. Frontend (vDC Dashboard)
-- **CSS Refactoring**: Same pattern as Host UI with CSS variables and light mode overrides
-- **Theme Store**: Created `theme-store.ts` with Zustand persistence
-- **Theme Toggle**: Created `ThemeToggle.tsx` component
-- **Integration**: Added toggle to header, initialized theme in `main.tsx`
+### How to Use
 
-#### 3. QVMRC (Tauri Desktop App)
-- **CSS Overrides**: Added `[data-theme="light"]` section to `index.css` with full light palette
-- **Theme Store**: Created `lib/theme-store.ts` with localStorage persistence
-- **Theme Toggle**: Created `ThemeToggle.tsx` component using existing icon button styles
-- **Integration**: Added toggle to ConnectionList header, initialized in `main.tsx`
+1. **Start the Host UI** on your Windows machine:
+   ```powershell
+   cd quantix-host-ui
+   npm run dev
+   ```
 
-#### 4. Quantix-OS Console GUI (Slint)
-- **Theme Global**: Added `in-out property <bool> is-light` to the Theme global
-- **Dynamic Colors**: All color properties now use ternary operators based on `is-light`
-- **Toggle Component**: Added theme toggle switch to the Management Menu
+2. **Open http://localhost:3001** - You'll see the "Connect to Node Daemon" page
 
-### Files Modified/Created
+3. **Enter your Ubuntu node daemon URL**: `https://192.168.1.101:8443`
+   - Replace with your actual Ubuntu IP address
+   - Give it a friendly name (optional)
 
-| Project | File | Action |
-|---------|------|--------|
-| quantix-host-ui | `src/index.css` | Modified - added light mode variables |
-| quantix-host-ui | `src/stores/useThemeStore.ts` | Created |
-| quantix-host-ui | `src/components/ui/ThemeToggle.tsx` | Created |
-| quantix-host-ui | `src/main.tsx` | Modified - initialize theme |
-| quantix-host-ui | `src/components/layout/Header.tsx` | Modified - added toggle |
-| frontend | `src/index.css` | Modified - added light mode variables |
-| frontend | `src/stores/theme-store.ts` | Created |
-| frontend | `src/components/ui/ThemeToggle.tsx` | Created |
-| frontend | `src/main.tsx` | Modified - initialize theme |
-| frontend | `src/components/layout/Header.tsx` | Modified - added toggle |
-| qvmrc | `src/index.css` | Modified - added light mode section |
-| qvmrc | `src/lib/theme-store.ts` | Created |
-| qvmrc | `src/components/ThemeToggle.tsx` | Created |
-| qvmrc | `src/main.tsx` | Modified - initialize theme |
-| qvmrc | `src/components/ConnectionList.tsx` | Modified - added toggle |
-| Quantix-OS | `console-gui/ui/main.slint` | Modified - added is-light toggle |
+4. **Click "Test Connection"** to verify connectivity
 
-### Light Mode Color Palette
+5. **Click "Connect"** to save and start using the UI
 
-All interfaces use a consistent Motion-inspired light palette:
-- **Background**: `#f0f0f8` (base) → `#ffffff` (elevated)
-- **Text**: `#000000` (primary) → `#666666` (muted)
-- **Accent**: Blue remains `#3b82f6` for consistency
-- **Shadows**: Subtle, soft shadows with low opacity
+6. Once connected, a banner shows at the top with a "Disconnect" option
 
-### Usage
-- Click the Sun/Moon icon in the header to toggle between themes
-- Theme preference is persisted to localStorage (React apps) or app state (Slint)
+### Features
+- Connection URL stored in localStorage (persists across browser refreshes)
+- Recent connections remembered for quick switching
+- Test connection before committing
+- Visual indicator showing which node you're connected to
+- One-click disconnect to switch nodes
 
 ---
 
-## Previous Workflow: Console TUI Local Shell Feature
+## Previous Workflow: Node Daemon Build Fixed
 
-**Date:** January 9, 2026
+Fixed the node daemon build issues by:
 
-### Summary
-Added the ability to drop from the Console TUI to an interactive local shell using F1.
+1. **Downloaded protoc** for Windows to enable proto regeneration
+2. **Regenerated proto files** from the updated `node_daemon.proto`
+3. **Fixed axum WebSocket feature** - Added `ws` and `query` features to axum
+4. **Fixed rcgen API** - Added `pem` feature to rcgen for PEM output methods
+5. **Fixed platform-specific code** - Made `libc::statvfs` Linux-only with `#[cfg]`
 
----
+### Build Status
 
-## Log
+```
+[OK] limiquantix-proto - Builds successfully
+[OK] limiquantix-hypervisor - Builds successfully (warnings only)
+[OK] limiquantix-telemetry - Builds successfully
+[OK] limiquantix-node - Builds successfully (warnings only)
+```
 
-- Completed light mode UI implementation across all interfaces
-- Completed Console TUI local shell feature
-- Completed OVA/OVF template support implementation
-- Fixed Quantix-vDC build issues (loop device partitions, squashfs mount, port conflicts)
+### Architecture
+
+```
+Windows Machine (Development)
++------------------------------------------------------------+
+|  Host UI (localhost:3001)                                  |
+|  - Connects to remote node daemon via HTTPS                |
+|  - Connection URL configured in UI                         |
++------------------------------------------------------------+
+             |
+             | HTTPS (direct, no proxy)
+             v
+Ubuntu Machine (Hypervisor)
++------------------------------------------------------------+
+|  Quantix-OS Node Daemon                                    |
+|  - HTTPS API on port 8443                                  |
+|  - gRPC on port 9443                                       |
+|  - Runs VMs via libvirt/QEMU                               |
++------------------------------------------------------------+
+```

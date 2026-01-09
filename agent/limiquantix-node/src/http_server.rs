@@ -16,7 +16,7 @@ use std::sync::Arc;
 use axum::{
     Router,
     routing::{get, post},
-    extract::{Path, State, Multipart},
+    extract::{Path, State, Multipart, Query, ws::{Message, WebSocket, WebSocketUpgrade}},
     http::{StatusCode, header, Method, Uri},
     response::{IntoResponse, Response, Json, Redirect},
     body::Body,
@@ -3898,10 +3898,9 @@ async fn stream_logs_ws(
 
 /// Handle WebSocket log streaming
 async fn handle_log_stream(
-    mut socket: axum::extract::ws::WebSocket,
+    mut socket: WebSocket,
     _state: Arc<AppState>,
 ) {
-    use axum::extract::ws::Message;
     use tokio::time::{interval, Duration};
     
     info!("Log stream WebSocket connected");
@@ -4343,7 +4342,8 @@ async fn get_block_device_size(device_path: &str) -> u64 {
     0
 }
 
-/// Get mount point statistics using libc statvfs
+/// Get mount point statistics using libc statvfs (Linux only)
+#[cfg(target_os = "linux")]
 fn get_mount_stats(mount_point: &str) -> (u64, u64, u64) {
     use std::ffi::CString;
     
@@ -4364,6 +4364,14 @@ fn get_mount_stats(mount_point: &str) -> (u64, u64, u64) {
             (0, 0, 0)
         }
     }
+}
+
+/// Get mount point statistics (non-Linux stub)
+#[cfg(not(target_os = "linux"))]
+fn get_mount_stats(_mount_point: &str) -> (u64, u64, u64) {
+    // statvfs is not available on Windows - return zeros
+    // This is only used for disk statistics in the API
+    (0, 0, 0)
 }
 
 /// Collect network interface information
