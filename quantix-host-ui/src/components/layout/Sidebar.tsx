@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   Server,
@@ -16,6 +15,7 @@ import {
   List,
   Cpu,
   Box,
+  ScrollText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/useAppStore';
@@ -46,6 +46,7 @@ const navigation: NavItem[] = [
   { id: 'hardware', label: 'Hardware', icon: Cpu, href: '/hardware' },
   { id: 'monitor', label: 'Performance', icon: Activity, href: '/monitor' },
   { id: 'events', label: 'Events', icon: List, href: '/events' },
+  { id: 'logs', label: 'System Logs', icon: ScrollText, href: '/logs' },
   { id: 'settings', label: 'Configuration', icon: Settings, href: '/settings' },
 ];
 
@@ -81,19 +82,11 @@ function NavItemComponent({ item, collapsed, level = 0 }: NavItemProps) {
         )}
       />
 
-      <AnimatePresence mode="wait">
-        {!collapsed && (
-          <motion.span
-            key={`label-${item.id}`}
-            initial={{ opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: 'auto' }}
-            exit={{ opacity: 0, width: 0 }}
-            className="flex-1 text-left truncate"
-          >
-            {item.label}
-          </motion.span>
-        )}
-      </AnimatePresence>
+      {!collapsed && (
+        <span className="flex-1 text-left truncate transition-opacity duration-200">
+          {item.label}
+        </span>
+      )}
 
       {!collapsed && item.badge !== undefined && (
         <span className="px-1.5 py-0.5 text-xs rounded-md bg-accent/20 text-accent">
@@ -102,9 +95,12 @@ function NavItemComponent({ item, collapsed, level = 0 }: NavItemProps) {
       )}
 
       {!collapsed && hasChildren && (
-        <motion.div animate={{ rotate: expanded ? 0 : -90 }} transition={{ duration: 0.15 }}>
+        <div 
+          className="transition-transform duration-150" 
+          style={{ transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+        >
           <ChevronDown className="w-4 h-4 text-text-muted" />
-        </motion.div>
+        </div>
       )}
     </>
   );
@@ -131,29 +127,25 @@ function NavItemComponent({ item, collapsed, level = 0 }: NavItemProps) {
         </button>
       )}
 
-      <AnimatePresence mode="wait">
-        {hasChildren && expanded && !collapsed && (
-          <motion.div
-            key={`children-${item.id}`}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="mt-1 space-y-0.5 border-l border-border ml-5 pl-2">
-              {item.children!.map((child) => (
-                <NavItemComponent
-                  key={child.id}
-                  item={child}
-                  collapsed={collapsed}
-                  level={level + 1}
-                />
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {hasChildren && !collapsed && (
+        <div
+          className={cn(
+            'overflow-hidden transition-all duration-200',
+            expanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          )}
+        >
+          <div className="mt-1 space-y-0.5 border-l border-border ml-5 pl-2">
+            {item.children!.map((child) => (
+              <NavItemComponent
+                key={child.id}
+                item={child}
+                collapsed={collapsed}
+                level={level + 1}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -162,36 +154,27 @@ export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useAppStore();
 
   return (
-    <motion.aside
-      initial={false}
-      animate={{ width: sidebarCollapsed ? 64 : 240 }}
-      transition={{ duration: 0.2, ease: 'easeInOut' }}
+    <aside
+      style={{ width: sidebarCollapsed ? 64 : 240 }}
       className={cn(
         'h-screen bg-sidebar border-r border-border',
         'flex flex-col shrink-0',
         'overflow-hidden',
+        'transition-[width] duration-200 ease-in-out',
       )}
     >
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-border">
         <Link to="/" className="flex items-center gap-3">
           <Server className="w-8 h-8 text-accent" />
-          <AnimatePresence mode="wait">
-            {!sidebarCollapsed && (
-              <motion.div
-                key="logo-text"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                className="flex flex-col"
-              >
-                <span className="font-bold text-text-primary tracking-tight text-lg">Quantix</span>
-                <span className="text-[10px] text-text-muted uppercase tracking-widest">
-                  Host Manager
-                </span>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {!sidebarCollapsed && (
+            <div className="flex flex-col transition-opacity duration-200">
+              <span className="font-bold text-text-primary tracking-tight text-lg">Quantix</span>
+              <span className="text-[10px] text-text-muted uppercase tracking-widest">
+                Host Manager
+              </span>
+            </div>
+          )}
         </Link>
       </div>
 
@@ -217,27 +200,19 @@ export function Sidebar() {
             'transition-all duration-150',
           )}
         >
-          <motion.div
-            animate={{ rotate: sidebarCollapsed ? 0 : 180 }}
-            transition={{ duration: 0.2 }}
+          <div 
+            className="transition-transform duration-200" 
+            style={{ transform: sidebarCollapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}
           >
             <ChevronRight className="w-4 h-4" />
-          </motion.div>
-          <AnimatePresence mode="wait">
-            {!sidebarCollapsed && (
-              <motion.span
-                key="collapse-text"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-sm"
-              >
-                Collapse
-              </motion.span>
-            )}
-          </AnimatePresence>
+          </div>
+          {!sidebarCollapsed && (
+            <span className="text-sm transition-opacity duration-200">
+              Collapse
+            </span>
+          )}
         </button>
       </div>
-    </motion.aside>
+    </aside>
   );
 }

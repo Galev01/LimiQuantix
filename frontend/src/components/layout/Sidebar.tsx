@@ -26,6 +26,7 @@ import {
   KeyRound,
   Radio,
   ShieldCheck,
+  ScrollText,
 } from 'lucide-react';
 import QuantixLogo from '@/assets/Logo.png';
 import { cn } from '@/lib/utils';
@@ -83,6 +84,7 @@ const navigation: NavItem[] = [
       { id: 'monitoring', label: 'Monitoring', icon: Activity, href: '/monitoring' },
       { id: 'alerts', label: 'Alerts', icon: Bell, href: '/alerts' },
       { id: 'drs', label: 'DRS Recommendations', icon: Zap, href: '/drs' },
+      { id: 'logs', label: 'System Logs', icon: ScrollText, href: '/logs' },
     ],
   },
   { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },

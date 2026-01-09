@@ -20,6 +20,7 @@ import { Settings } from '@/pages/Settings';
 import { Monitoring } from '@/pages/Monitoring';
 import { Alerts } from '@/pages/Alerts';
 import { DRSRecommendations } from '@/pages/DRSRecommendations';
+import { Logs } from '@/pages/Logs';
 import ImageLibrary from '@/pages/ImageLibrary';
 import { ConsoleDock } from '@/pages/ConsoleDock';
 import { AdminPanel } from '@/pages/admin';
@@ -86,6 +87,7 @@ function AppRoutes() {
         <Route path="/monitoring" element={<Monitoring />} />
         <Route path="/alerts" element={<Alerts />} />
         <Route path="/drs" element={<DRSRecommendations />} />
+        <Route path="/logs" element={<Logs />} />
         
         {/* Settings */}
         <Route path="/settings" element={<Settings />} />

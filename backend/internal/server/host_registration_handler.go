@@ -54,16 +54,25 @@ type HostDiscoveryResponse struct {
 
 // CPUInfo represents CPU information from the host.
 type CPUInfo struct {
-	Model   string `json:"model"`
-	Cores   int    `json:"cores"`
-	Threads int    `json:"threads"`
-	Sockets int    `json:"sockets"`
+	Model        string   `json:"model"`
+	Vendor       string   `json:"vendor,omitempty"`
+	Cores        int      `json:"cores"`
+	Threads      int      `json:"threads"`
+	Sockets      int      `json:"sockets"`
+	FrequencyMHz uint64   `json:"frequencyMhz,omitempty"`
+	Features     []string `json:"features,omitempty"`
+	Architecture string   `json:"architecture,omitempty"`
 }
 
 // MemoryInfo represents memory information.
 type MemoryInfo struct {
 	TotalBytes     uint64 `json:"totalBytes"`
 	AvailableBytes uint64 `json:"availableBytes"`
+	UsedBytes      uint64 `json:"usedBytes,omitempty"`
+	SwapTotalBytes uint64 `json:"swapTotalBytes,omitempty"`
+	SwapUsedBytes  uint64 `json:"swapUsedBytes,omitempty"`
+	EccEnabled     bool   `json:"eccEnabled,omitempty"`
+	DimmCount      uint32 `json:"dimmCount,omitempty"`
 }
 
 // StorageInfo represents storage inventory.
@@ -75,11 +84,24 @@ type StorageInfo struct {
 
 // LocalDisk represents a local disk.
 type LocalDisk struct {
-	Name      string `json:"name"`
-	Model     string `json:"model"`
-	SizeBytes uint64 `json:"sizeBytes"`
-	DiskType  string `json:"diskType"`
-	Interface string `json:"interface"`
+	Name        string          `json:"name"`
+	Model       string          `json:"model"`
+	Serial      string          `json:"serial,omitempty"`
+	SizeBytes   uint64          `json:"sizeBytes"`
+	DiskType    string          `json:"diskType"`
+	Interface   string          `json:"interface"`
+	IsRemovable bool            `json:"isRemovable,omitempty"`
+	SmartStatus string          `json:"smartStatus,omitempty"`
+	Partitions  []PartitionInfo `json:"partitions,omitempty"`
+}
+
+// PartitionInfo represents a disk partition.
+type PartitionInfo struct {
+	Name       string `json:"name"`
+	MountPoint string `json:"mountPoint,omitempty"`
+	Filesystem string `json:"filesystem,omitempty"`
+	SizeBytes  uint64 `json:"sizeBytes"`
+	UsedBytes  uint64 `json:"usedBytes,omitempty"`
 }
 
 // NFSMount represents an NFS mount.
@@ -103,15 +125,23 @@ type ISCSITarget struct {
 
 // NetworkInfo represents a network interface.
 type NetworkInfo struct {
-	Name       string `json:"name"`
-	MACAddress string `json:"macAddress"`
-	SpeedMbps  int    `json:"speedMbps"`
+	Name         string  `json:"name"`
+	MACAddress   string  `json:"macAddress"`
+	Driver       string  `json:"driver,omitempty"`
+	SpeedMbps    *uint64 `json:"speedMbps,omitempty"`
+	LinkState    string  `json:"linkState,omitempty"`
+	PciAddress   *string `json:"pciAddress,omitempty"`
+	SriovCapable bool    `json:"sriovCapable,omitempty"`
+	SriovVfs     uint32  `json:"sriovVfs,omitempty"`
 }
 
 // GPUInfo represents a GPU.
 type GPUInfo struct {
-	Name   string `json:"name"`
-	Vendor string `json:"vendor"`
+	Name         string `json:"name"`
+	Vendor       string `json:"vendor"`
+	PciAddress   string `json:"pciAddress,omitempty"`
+	MemoryBytes  uint64 `json:"memoryBytes,omitempty"`
+	VgpuProfiles string `json:"vgpuProfiles,omitempty"`
 }
 
 // HostRegistrationRequest contains data for registering a new host.
@@ -214,9 +244,23 @@ func (h *HostRegistrationHandler) handleDiscoverHost(w http.ResponseWriter, r *h
 
 	// Parse discovery response and return
 	var discovery HostDiscoveryResponse
-	if err := json.NewDecoder(discoveryResp.Body).Decode(&discovery); err != nil {
-		h.logger.Error("Failed to parse discovery response", zap.Error(err))
-		h.writeError(w, "Failed to parse host resources", http.StatusInternalServerError)
+	bodyBytes, err := io.ReadAll(discoveryResp.Body)
+	if err != nil {
+		h.logger.Error("Failed to read discovery response body", zap.Error(err))
+		h.writeError(w, "Failed to read host resources", http.StatusInternalServerError)
+		return
+	}
+
+	h.logger.Debug("Discovery response received",
+		zap.String("body", string(bodyBytes)),
+	)
+
+	if err := json.Unmarshal(bodyBytes, &discovery); err != nil {
+		h.logger.Error("Failed to parse discovery response",
+			zap.Error(err),
+			zap.String("body", string(bodyBytes)),
+		)
+		h.writeError(w, "Failed to parse host resources: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 

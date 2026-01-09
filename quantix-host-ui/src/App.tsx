@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
 import { StorageImages } from '@/pages/StorageImages';
-import { Dashboard, VirtualMachines, VMDetail, Network, StoragePools, Volumes, Hardware, Performance, Events, Settings } from '@/pages';
+import { Dashboard, VirtualMachines, VMDetail, Network, StoragePools, Volumes, Hardware, Performance, Events, Logs, Settings } from '@/pages';
 
 // Create a query client
 const queryClient = new QueryClient({
@@ -59,6 +59,9 @@ export function App() {
 
             {/* Events */}
             <Route path="/events" element={<Events />} />
+
+            {/* System Logs */}
+            <Route path="/logs" element={<Logs />} />
 
             {/* Configuration */}
             <Route path="/settings" element={<Settings />} />

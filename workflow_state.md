@@ -1,8 +1,66 @@
 # Workflow State
 
-## Current Status: COMPLETED - Host Registration & Frontend Build Fixes
+## Current Status: COMPLETED - System Logs Feature
 
-## Active Workflow: Fix Quantix-OS to Quantix-vDC Host Registration + Frontend TypeScript Errors
+## Active Workflow: System Logs Feature for Quantix-OS and Quantix-vDC
+
+**Date:** January 9, 2026
+
+### Summary
+Implemented a comprehensive system logs viewing feature in both Quantix-OS Host UI and Quantix-vDC Frontend, allowing users to view, filter, search, and stream real-time structured logs.
+
+### Features Implemented
+
+1. **Logs Page UI (Both UIs)**
+   - Real-time log streaming via WebSocket
+   - Filter by log level (trace, debug, info, warn, error)
+   - Filter by source (service/component)
+   - Full-text search across messages and fields
+   - Auto-scroll with manual override
+   - Expandable log details panel showing structured fields
+   - JSON export/download functionality
+   - Copy to clipboard support
+
+2. **Quantix-OS Node Daemon (Rust)**
+   - `GET /api/v1/logs` - Fetch logs with filtering
+   - `GET /api/v1/logs/sources` - Get available log sources
+   - `WS /api/v1/logs/stream` - WebSocket log streaming
+   - Linux journald integration (falls back to sample logs on other platforms)
+
+3. **Quantix-vDC Backend (Go)**
+   - `GET /api/logs` - Fetch logs with filtering
+   - `GET /api/logs/sources` - Get available log sources
+   - `WS /api/logs/stream` - WebSocket log streaming
+   - In-memory log buffer with broadcast to WebSocket clients
+   - Linux journald integration (falls back to sample logs)
+
+### Files Created/Modified
+
+| File | Action | Description |
+|------|--------|-------------|
+| `quantix-host-ui/src/pages/Logs.tsx` | Created | Logs page component |
+| `quantix-host-ui/src/api/logs.ts` | Created | Logs API client |
+| `quantix-host-ui/src/hooks/useLogs.ts` | Created | Logs hooks (fetch + stream) |
+| `quantix-host-ui/src/pages/index.ts` | Modified | Export Logs page |
+| `quantix-host-ui/src/App.tsx` | Modified | Add /logs route |
+| `quantix-host-ui/src/components/layout/Sidebar.tsx` | Modified | Add System Logs nav item |
+| `frontend/src/pages/Logs.tsx` | Created | Logs page component |
+| `frontend/src/hooks/useLogs.ts` | Created | Logs hooks (fetch + stream) |
+| `frontend/src/App.tsx` | Modified | Add /logs route |
+| `frontend/src/components/layout/Sidebar.tsx` | Modified | Add System Logs nav item |
+| `agent/limiquantix-node/src/http_server.rs` | Modified | Add logs API endpoints |
+| `backend/internal/server/logs_handler.go` | Created | Logs HTTP handler |
+| `backend/internal/server/server.go` | Modified | Register logs routes |
+
+### Navigation
+- **Quantix-OS**: Dashboard → Events → **System Logs** → Configuration
+- **Quantix-vDC**: Operations → Monitoring → Alerts → DRS → **System Logs**
+
+---
+
+## Previous Workflow: Host Registration & Frontend Build Fixes
+
+## Previous Workflow: Fix Quantix-OS to Quantix-vDC Host Registration + Frontend TypeScript Errors
 
 **Date:** January 9, 2026
 

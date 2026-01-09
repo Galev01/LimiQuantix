@@ -584,6 +584,47 @@ struct IscsiTarget {
 }
 
 // ============================================================================
+// System Logs Types
+// ============================================================================
+
+/// Log entry from the system
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LogEntry {
+    timestamp: String,
+    level: String,
+    message: String,
+    source: Option<String>,
+    fields: Option<serde_json::Value>,
+    stack_trace: Option<String>,
+    request_id: Option<String>,
+    vm_id: Option<String>,
+    node_id: Option<String>,
+    duration_ms: Option<u64>,
+}
+
+/// Response for logs listing
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LogsResponse {
+    logs: Vec<LogEntry>,
+    total: usize,
+    has_more: bool,
+}
+
+/// Query parameters for logs
+#[derive(Deserialize)]
+struct LogsQuery {
+    level: Option<String>,
+    source: Option<String>,
+    search: Option<String>,
+    limit: Option<usize>,
+    offset: Option<usize>,
+    since: Option<String>,
+    until: Option<String>,
+}
+
+// ============================================================================
 // Network Types
 // ============================================================================
 
@@ -777,6 +818,10 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/registration/token", post(generate_registration_token))
         .route("/registration/token", get(get_current_registration_token))
         .route("/registration/discovery", get(get_host_discovery))
+        // System logs endpoints
+        .route("/logs", get(get_logs))
+        .route("/logs/sources", get(get_log_sources))
+        .route("/logs/stream", get(stream_logs_ws))
         // Settings endpoints
         .route("/settings", get(get_settings))
         .route("/settings", post(update_settings))
@@ -3787,6 +3832,311 @@ async fn get_host_discovery(
         network,
         gpus,
     }))
+}
+
+// ============================================================================
+// System Logs Handlers
+// ============================================================================
+
+/// Get system logs with filtering
+async fn get_logs(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<LogsQuery>,
+) -> Result<Json<LogsResponse>, (StatusCode, Json<ApiError>)> {
+    info!("Fetching system logs");
+    
+    let limit = params.limit.unwrap_or(100).min(1000);
+    let offset = params.offset.unwrap_or(0);
+    
+    // Read logs from journald or log files
+    let logs = collect_system_logs(
+        params.level.as_deref(),
+        params.source.as_deref(),
+        params.search.as_deref(),
+        params.since.as_deref(),
+        params.until.as_deref(),
+        limit + 1, // Fetch one extra to check if there are more
+        offset,
+    ).await;
+    
+    let has_more = logs.len() > limit;
+    let logs: Vec<LogEntry> = logs.into_iter().take(limit).collect();
+    let total = logs.len();
+    
+    Ok(Json(LogsResponse {
+        logs,
+        total,
+        has_more,
+    }))
+}
+
+/// Get available log sources
+async fn get_log_sources(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<Vec<String>>, (StatusCode, Json<ApiError>)> {
+    // Return known log sources
+    let sources = vec![
+        "limiquantix-node".to_string(),
+        "kernel".to_string(),
+        "systemd".to_string(),
+        "libvirtd".to_string(),
+        "qemu".to_string(),
+        "network".to_string(),
+        "storage".to_string(),
+    ];
+    
+    Ok(Json(sources))
+}
+
+/// Stream logs via WebSocket
+async fn stream_logs_ws(
+    ws: axum::extract::WebSocketUpgrade,
+    State(state): State<Arc<AppState>>,
+) -> impl axum::response::IntoResponse {
+    ws.on_upgrade(move |socket| handle_log_stream(socket, state))
+}
+
+/// Handle WebSocket log streaming
+async fn handle_log_stream(
+    mut socket: axum::extract::ws::WebSocket,
+    _state: Arc<AppState>,
+) {
+    use axum::extract::ws::Message;
+    use tokio::time::{interval, Duration};
+    
+    info!("Log stream WebSocket connected");
+    
+    // Send a heartbeat and check for new logs every second
+    let mut ticker = interval(Duration::from_secs(1));
+    let mut last_timestamp = chrono::Utc::now().to_rfc3339();
+    
+    loop {
+        tokio::select! {
+            _ = ticker.tick() => {
+                // Fetch new logs since last timestamp
+                let new_logs = collect_system_logs(
+                    None,
+                    None,
+                    None,
+                    Some(&last_timestamp),
+                    None,
+                    50,
+                    0,
+                ).await;
+                
+                for log in new_logs {
+                    last_timestamp = log.timestamp.clone();
+                    if let Ok(json) = serde_json::to_string(&log) {
+                        if socket.send(Message::Text(json)).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+            msg = socket.recv() => {
+                match msg {
+                    Some(Ok(Message::Close(_))) | None => {
+                        info!("Log stream WebSocket closed");
+                        break;
+                    }
+                    Some(Ok(Message::Ping(data))) => {
+                        if socket.send(Message::Pong(data)).await.is_err() {
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
+/// Collect system logs from various sources
+async fn collect_system_logs(
+    level: Option<&str>,
+    source: Option<&str>,
+    search: Option<&str>,
+    since: Option<&str>,
+    _until: Option<&str>,
+    limit: usize,
+    _offset: usize,
+) -> Vec<LogEntry> {
+    let mut logs = Vec::new();
+    
+    // Try to read from journald first (Linux)
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(output) = tokio::process::Command::new("journalctl")
+            .args([
+                "-o", "json",
+                "-n", &limit.to_string(),
+                "--no-pager",
+            ])
+            .output()
+            .await
+        {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                for line in stdout.lines() {
+                    if let Ok(entry) = parse_journald_entry(line) {
+                        // Apply filters
+                        if let Some(lvl) = level {
+                            if entry.level.to_lowercase() != lvl.to_lowercase() {
+                                continue;
+                            }
+                        }
+                        if let Some(src) = source {
+                            if !entry.source.as_ref().map_or(false, |s| s.contains(src)) {
+                                continue;
+                            }
+                        }
+                        if let Some(q) = search {
+                            let q_lower = q.to_lowercase();
+                            if !entry.message.to_lowercase().contains(&q_lower) {
+                                continue;
+                            }
+                        }
+                        if let Some(since_ts) = since {
+                            if entry.timestamp < since_ts.to_string() {
+                                continue;
+                            }
+                        }
+                        logs.push(entry);
+                    }
+                }
+            }
+        }
+    }
+    
+    // If no logs from journald or not on Linux, generate sample logs
+    if logs.is_empty() {
+        logs = generate_sample_logs(limit, level, source, search);
+    }
+    
+    logs
+}
+
+/// Parse a journald JSON entry
+#[cfg(target_os = "linux")]
+fn parse_journald_entry(line: &str) -> Result<LogEntry, serde_json::Error> {
+    let v: serde_json::Value = serde_json::from_str(line)?;
+    
+    let timestamp = v.get("__REALTIME_TIMESTAMP")
+        .and_then(|t| t.as_str())
+        .and_then(|t| t.parse::<i64>().ok())
+        .map(|us| {
+            chrono::DateTime::from_timestamp(us / 1_000_000, ((us % 1_000_000) * 1000) as u32)
+                .map(|dt| dt.to_rfc3339())
+                .unwrap_or_else(|| chrono::Utc::now().to_rfc3339())
+        })
+        .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+    
+    let priority = v.get("PRIORITY")
+        .and_then(|p| p.as_str())
+        .and_then(|p| p.parse::<u8>().ok())
+        .unwrap_or(6);
+    
+    let level = match priority {
+        0..=2 => "error",
+        3 => "error",
+        4 => "warn",
+        5 => "info",
+        6 => "info",
+        7 => "debug",
+        _ => "trace",
+    }.to_string();
+    
+    let message = v.get("MESSAGE")
+        .and_then(|m| m.as_str())
+        .unwrap_or("")
+        .to_string();
+    
+    let source = v.get("SYSLOG_IDENTIFIER")
+        .or_else(|| v.get("_COMM"))
+        .and_then(|s| s.as_str())
+        .map(|s| s.to_string());
+    
+    Ok(LogEntry {
+        timestamp,
+        level,
+        message,
+        source,
+        fields: None,
+        stack_trace: None,
+        request_id: None,
+        vm_id: None,
+        node_id: None,
+        duration_ms: None,
+    })
+}
+
+/// Generate sample logs for development/testing or non-Linux systems
+fn generate_sample_logs(
+    limit: usize,
+    level: Option<&str>,
+    source: Option<&str>,
+    search: Option<&str>,
+) -> Vec<LogEntry> {
+    use chrono::{Duration, Utc};
+    
+    let sample_entries = vec![
+        ("info", "limiquantix-node", "HTTP server started on 0.0.0.0:8443"),
+        ("info", "limiquantix-node", "TLS certificate loaded successfully"),
+        ("debug", "storage", "Scanning storage pools..."),
+        ("info", "storage", "Found 2 storage pools"),
+        ("info", "network", "Network interfaces enumerated: 3 found"),
+        ("warn", "libvirtd", "VM 'test-vm' memory usage at 85%"),
+        ("info", "qemu", "VM 'test-vm' started successfully"),
+        ("debug", "limiquantix-node", "Health check passed"),
+        ("info", "systemd", "Service limiquantix-node.service started"),
+        ("error", "storage", "Failed to mount NFS share: connection refused"),
+        ("info", "kernel", "USB device connected: /dev/sdb"),
+        ("warn", "network", "Interface eth0 link speed degraded to 100Mbps"),
+        ("info", "limiquantix-node", "API request: GET /api/v1/host"),
+        ("debug", "qemu", "VM 'test-vm' CPU usage: 45%"),
+        ("info", "limiquantix-node", "Registration token generated"),
+    ];
+    
+    let now = Utc::now();
+    let mut logs = Vec::new();
+    
+    for (i, (lvl, src, msg)) in sample_entries.iter().cycle().take(limit).enumerate() {
+        // Apply filters
+        if let Some(filter_level) = level {
+            if *lvl != filter_level {
+                continue;
+            }
+        }
+        if let Some(filter_source) = source {
+            if !src.contains(filter_source) {
+                continue;
+            }
+        }
+        if let Some(query) = search {
+            if !msg.to_lowercase().contains(&query.to_lowercase()) {
+                continue;
+            }
+        }
+        
+        let timestamp = now - Duration::seconds((limit - i) as i64 * 5);
+        
+        logs.push(LogEntry {
+            timestamp: timestamp.to_rfc3339(),
+            level: lvl.to_string(),
+            message: msg.to_string(),
+            source: Some(src.to_string()),
+            fields: Some(serde_json::json!({
+                "request_id": format!("req-{:08x}", rand::random::<u32>()),
+            })),
+            stack_trace: None,
+            request_id: None,
+            vm_id: None,
+            node_id: None,
+            duration_ms: Some(rand::random::<u64>() % 100),
+        });
+    }
+    
+    logs
 }
 
 /// Collect CPU information

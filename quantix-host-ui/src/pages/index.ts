@@ -7,4 +7,5 @@ export { Volumes } from './Volumes';
 export { Hardware } from './Hardware';
 export { Performance } from './Performance';
 export { Events } from './Events';
+export { Logs } from './Logs';
 export { Settings } from './Settings';

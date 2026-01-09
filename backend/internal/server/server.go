@@ -375,6 +375,13 @@ func (s *Server) registerRoutes() {
 	s.logger.Info("Registered Host Registration API routes", zap.String("path", "/api/nodes/{register,discover}"))
 
 	// =========================================================================
+	// System Logs REST API
+	// =========================================================================
+	logsHandler := NewLogsHandler(s.logger)
+	logsHandler.RegisterRoutes(s.mux)
+	s.logger.Info("Registered Logs API routes", zap.String("path", "/api/logs"))
+
+	// =========================================================================
 	// Admin REST API (requires PostgreSQL)
 	// =========================================================================
 	if s.adminHandler != nil {

@@ -451,14 +451,44 @@ log "Launching installer..."
 export TERM=linux
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
-if [ -f "/mnt/rootfs/installer/tui.sh" ]; then
-    log "Running TUI..."
-    /bin/sh /mnt/rootfs/installer/tui.sh
-    log "Installer exited with $?"
+# Determine the root to use - prefer overlay merged, fallback to direct rootfs
+if [ -d "/mnt/overlay/merged/installer" ]; then
+    INSTALL_ROOT="/mnt/overlay/merged"
+    log "Using overlay merged root"
+elif [ -d "/mnt/rootfs/installer" ]; then
+    INSTALL_ROOT="/mnt/rootfs"
+    log "Using direct rootfs (read-only)"
 else
-    log "Installer script not found inside squashfs!"
-    ls -la /mnt/rootfs/installer/ > /dev/kmsg
+    log "No installer found in rootfs!"
+    ls -la /mnt/rootfs/ > /dev/kmsg 2>&1 || true
+    exec /bin/sh
 fi
+
+# Set up chroot environment
+log "Preparing chroot environment..."
+mount --bind /dev "${INSTALL_ROOT}/dev"
+mount --bind /sys "${INSTALL_ROOT}/sys"
+mount --bind /proc "${INSTALL_ROOT}/proc"
+
+# Keep CD-ROM mounted for potential use during installation
+mkdir -p "${INSTALL_ROOT}/mnt/cdrom"
+mount --bind /mnt/cdrom "${INSTALL_ROOT}/mnt/cdrom"
+
+if [ -f "${INSTALL_ROOT}/installer/tui.sh" ]; then
+    log "Running TUI in chroot..."
+    chroot "${INSTALL_ROOT}" /bin/sh /installer/tui.sh
+    INSTALL_EXIT=$?
+    log "Installer exited with ${INSTALL_EXIT}"
+else
+    log "Installer script not found inside rootfs!"
+    ls -la "${INSTALL_ROOT}/installer/" > /dev/kmsg 2>&1 || true
+fi
+
+# Cleanup mounts
+umount "${INSTALL_ROOT}/mnt/cdrom" 2>/dev/null || true
+umount "${INSTALL_ROOT}/proc" 2>/dev/null || true
+umount "${INSTALL_ROOT}/sys" 2>/dev/null || true
+umount "${INSTALL_ROOT}/dev" 2>/dev/null || true
 
 # Fallback
 log "Init process finished. Dropping to shell."
