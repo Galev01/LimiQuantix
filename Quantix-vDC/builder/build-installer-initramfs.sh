@@ -274,307 +274,130 @@ EOF
 # Create init script (CRITICAL - this is what runs at boot)
 # =============================================================================
 # Using the EXACT same structure as the working Quantix-OS init script
+# =============================================================================
+# Quantix-vDC Installer Init Script (Debug Version)
+# =============================================================================
 cat > "${INITRAMFS_DIR}/init" << 'INITEOF'
 #!/bin/sh
-# =============================================================================
-# Quantix-vDC Installer Init Script
-# =============================================================================
-# Based on the proven Quantix-OS init architecture.
-# Simple, linear, no complex traps or functions.
-# =============================================================================
 
-# Mount essential filesystems
-/bin/busybox mount -t proc none /proc 2>/dev/null || mount -t proc none /proc
-/bin/busybox mount -t sysfs none /sys 2>/dev/null || mount -t sysfs none /sys
-/bin/busybox mount -t devtmpfs none /dev 2>/dev/null || mount -t devtmpfs none /dev
+# 1. Enable shell tracing (prints every command executed)
+set -x
 
-# Enable ALL kernel messages to console
-echo 8 > /proc/sys/kernel/printk 2>/dev/null
+# 2. Define logger function to write to Kernel Log (always visible)
+log() {
+    echo "[INIT] $@" > /dev/kmsg
+    echo "[INIT] $@" > /dev/console
+}
 
-# Create essential device nodes if devtmpfs didn't
-[ -c /dev/console ] || mknod -m 622 /dev/console c 5 1 2>/dev/null
-[ -c /dev/null ] || mknod -m 666 /dev/null c 1 3 2>/dev/null
-[ -c /dev/tty ] || mknod -m 666 /dev/tty c 5 0 2>/dev/null
-[ -c /dev/tty0 ] || mknod -m 666 /dev/tty0 c 4 0 2>/dev/null
-[ -c /dev/tty1 ] || mknod -m 666 /dev/tty1 c 4 1 2>/dev/null
+log "Starting init script..."
 
-# Redirect output to console
-exec 0</dev/console
-exec 1>/dev/console
-exec 2>/dev/console
+# 3. Mount essential filesystems
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs none /dev
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts
 
-echo ""
-echo "============================================================"
-echo "     QUANTIX-VDC INSTALLER STARTING"
-echo "============================================================"
-echo ""
-echo "[INIT] Script is running!"
-echo "[INIT] Date: $(date 2>/dev/null || echo 'unknown')"
-echo "[INIT] Shell: $0"
-echo "[INIT] PID: $$"
-echo ""
+# 4. Enable console output
+echo 8 > /proc/sys/kernel/printk
 
-# =============================================================================
-# Load kernel modules for block devices
-# =============================================================================
-echo "[INIT] Loading kernel modules..."
+log "Filesystems mounted. PID: $$"
 
-KVER=""
-if [ -d /lib/modules ]; then
-    KVER=$(ls /lib/modules 2>/dev/null | head -1)
-    echo "[INIT] Kernel modules directory: /lib/modules/$KVER"
-fi
-
-if [ -n "$KVER" ] && [ -d "/lib/modules/$KVER" ]; then
-    # SCSI subsystem (MUST load first)
-    echo "[INIT] Loading SCSI subsystem..."
-    for mod in scsi_mod sd_mod sr_mod; do
-        modprobe $mod 2>/dev/null && echo "[INIT]   + $mod" || true
-    done
-    
-    # USB drivers
-    echo "[INIT] Loading USB drivers..."
-    for mod in usbcore usb_common xhci_hcd xhci_pci ehci_hcd ehci_pci uhci_hcd usb_storage uas; do
-        modprobe $mod 2>/dev/null && echo "[INIT]   + $mod" || true
-    done
-    
-    # SATA/AHCI drivers
-    echo "[INIT] Loading SATA/AHCI drivers..."
-    for mod in libata ahci ata_piix ata_generic; do
-        modprobe $mod 2>/dev/null && echo "[INIT]   + $mod" || true
-    done
-    
-    # NVMe drivers
-    echo "[INIT] Loading NVMe drivers..."
-    for mod in nvme nvme_core; do
-        modprobe $mod 2>/dev/null && echo "[INIT]   + $mod" || true
-    done
-    
-    # VirtIO drivers (for QEMU/KVM)
-    echo "[INIT] Loading VirtIO drivers..."
-    for mod in virtio virtio_ring virtio_pci virtio_blk virtio_scsi virtio_net; do
-        modprobe $mod 2>/dev/null && echo "[INIT]   + $mod" || true
-    done
-    
-    # Filesystem drivers
-    echo "[INIT] Loading filesystem drivers..."
-    for mod in loop squashfs overlay isofs iso9660 vfat fat ext4 xfs; do
-        modprobe $mod 2>/dev/null && echo "[INIT]   + $mod" || true
-    done
-    
-    # CD-ROM driver
-    modprobe cdrom 2>/dev/null && echo "[INIT]   + cdrom" || true
-else
-    echo "[INIT] WARNING: No kernel modules available!"
-fi
-
-# Rescan devices
-echo "[INIT] Rescanning devices..."
-mdev -s 2>/dev/null || true
-sleep 1
-mdev -s 2>/dev/null || true
-
-echo "[INIT] Module loading complete"
-
-# Parse kernel command line
-echo "[INIT] Parsing kernel command line..."
-echo "[INIT] cmdline: $(cat /proc/cmdline)"
-
-BOOT_MODE=""
-DEBUG_MODE=""
-BREAK_POINT=""
-
-for param in $(cat /proc/cmdline); do
-    case $param in
-        boot=*)
-            BOOT_MODE="${param#boot=}"
-            echo "[INIT]   Found: boot=$BOOT_MODE"
-            ;;
-        debug)
-            DEBUG_MODE="1"
-            echo "[INIT]   Found: debug mode"
-            ;;
-        break=*)
-            BREAK_POINT="${param#break=}"
-            echo "[INIT]   Found: break=$BREAK_POINT"
-            ;;
-    esac
-done
-
-# Debug breakpoint
-if [ "$BREAK_POINT" = "premount" ]; then
-    echo ""
-    echo "============================================================"
-    echo "  DEBUG BREAKPOINT: premount"
-    echo "  Dropping to shell for manual debugging."
-    echo "  Type 'exit' to continue boot process."
-    echo "============================================================"
-    echo ""
-    /bin/sh
-    echo "[INIT] Continuing boot after debug shell..."
-fi
-
-# Wait for devices to settle
-echo "[INIT] Waiting for devices..."
+# 5. Load Modules
+log "Loading modules..."
+modprobe scsi_mod
+modprobe sd_mod
+modprobe sr_mod
+modprobe cdrom
+modprobe isofs
+modprobe squashfs
+modprobe overlay
+modprobe loop
+mdev -s
 sleep 2
 
-# Scan for block devices multiple times with longer delays
-echo "[INIT] Scanning for block devices..."
-for i in 1 2 3 4 5; do
-    echo "[INIT]   Scan attempt $i..."
-    mdev -s 2>/dev/null || true
-    sleep 2
-done
+# 6. Find Boot Media
+log "Searching for boot media..."
+BOOT_DEVICE=""
+SQUASHFS_FILE=""
 
-# Force rescan of SCSI bus (helps detect CD-ROM)
-echo "[INIT] Forcing SCSI bus rescan..."
-for host in /sys/class/scsi_host/host*; do
-    if [ -f "$host/scan" ]; then
-        echo "- - -" > "$host/scan" 2>/dev/null || true
-    fi
-done
-sleep 2
-mdev -s 2>/dev/null || true
+# List devices for debug
+ls -la /dev/sr* /dev/sd* > /dev/kmsg
 
-# List detected devices for debugging
-echo "[INIT] Detected block devices:"
-ls -la /dev/sd* /dev/sr* /dev/vd* /dev/nvme* 2>/dev/null || echo "  (none found)"
-
-# =============================================================================
-# Find and mount the installation media
-# =============================================================================
-echo ""
-echo "[INIT] Searching for installation media..."
-
-BOOT_MEDIA=""
-SQUASHFS_PATH=""
-
-# Try CD-ROM devices first
-for dev in /dev/sr0 /dev/sr1 /dev/cdrom; do
+for dev in /dev/sr0 /dev/sr1 /dev/cdrom /dev/sda /dev/sdb; do
     if [ -b "$dev" ]; then
-        echo "[INIT] Trying CD-ROM: $dev"
-        mkdir -p /mnt/cdrom
-        if mount -t iso9660 -o ro "$dev" /mnt/cdrom 2>/dev/null; then
-            if [ -f "/mnt/cdrom/quantix-vdc/system.squashfs" ]; then
-                BOOT_MEDIA="$dev"
-                SQUASHFS_PATH="/mnt/cdrom/quantix-vdc/system.squashfs"
-                echo "[INIT] Found squashfs on CD-ROM: $dev"
-                break
-            fi
-            umount /mnt/cdrom 2>/dev/null
+        log "Checking device: $dev"
+        mkdir -p /mnt/check
+        if mount -o ro "$dev" /mnt/check 2>/dev/null; then
+             if [ -f "/mnt/check/quantix-vdc/system.squashfs" ]; then
+                 log "Found media on $dev"
+                 BOOT_DEVICE="$dev"
+                 SQUASHFS_FILE="/mnt/check/quantix-vdc/system.squashfs"
+                 # Keep mounted at /mnt/cdrom
+                 mkdir -p /mnt/cdrom
+                 mount --move /mnt/check /mnt/cdrom
+                 break
+             fi
+             umount /mnt/check
         fi
     fi
 done
 
-# Try USB/disk devices if CD-ROM not found
-if [ -z "$SQUASHFS_PATH" ]; then
-    for dev in /dev/sd[a-z] /dev/sd[a-z][0-9] /dev/nvme[0-9]n[0-9]p[0-9]; do
-        if [ -b "$dev" ]; then
-            echo "[INIT] Trying device: $dev"
-            mkdir -p /mnt/usb
-            if mount -t iso9660 -o ro "$dev" /mnt/usb 2>/dev/null || \
-               mount -t vfat -o ro "$dev" /mnt/usb 2>/dev/null || \
-               mount -t ext4 -o ro "$dev" /mnt/usb 2>/dev/null; then
-                if [ -f "/mnt/usb/quantix-vdc/system.squashfs" ]; then
-                    BOOT_MEDIA="$dev"
-                    SQUASHFS_PATH="/mnt/usb/quantix-vdc/system.squashfs"
-                    umount /mnt/usb
-                    mount -o ro "$dev" /mnt/cdrom 2>/dev/null
-                    SQUASHFS_PATH="/mnt/cdrom/quantix-vdc/system.squashfs"
-                    echo "[INIT] Found squashfs on USB: $dev"
-                    break
-                fi
-                umount /mnt/usb 2>/dev/null
-            fi
-        fi
-    done
-fi
-
-if [ -z "$SQUASHFS_PATH" ]; then
-    echo "[ERROR] Could not find Quantix-vDC boot media!"
-    echo "[ERROR] Available block devices:"
-    ls -la /dev/sd* /dev/sr* /dev/nvme* 2>/dev/null || echo "  (none found)"
-    echo ""
-    echo "[ERROR] Dropping to emergency shell..."
+if [ -z "$SQUASHFS_FILE" ]; then
+    log "CRITICAL: No boot media found!"
+    log "Dropping to emergency shell..."
     exec /bin/sh
 fi
 
-echo "[INIT] Using squashfs: $SQUASHFS_PATH"
-
-# Mount squashfs
-echo "[INIT] Mounting system image..."
+log "Mounting system image: $SQUASHFS_FILE"
 mkdir -p /mnt/rootfs
-mount -t squashfs -o ro "$SQUASHFS_PATH" /mnt/rootfs
-if [ $? -ne 0 ]; then
-    echo "[ERROR] Failed to mount squashfs: $SQUASHFS_PATH"
-    exec /bin/sh
+
+# 7. Mount SquashFS (Debug this part specifically)
+log "Attempting mount..."
+mount -t squashfs -o ro,loop "$SQUASHFS_FILE" /mnt/rootfs
+MOUNT_RES=$?
+
+if [ $MOUNT_RES -ne 0 ]; then
+    log "Mount failed with code $MOUNT_RES"
+    log "Trying alternative loop setup..."
+    # Manual loop setup
+    losetup /dev/loop0 "$SQUASHFS_FILE"
+    mount -t squashfs -o ro /dev/loop0 /mnt/rootfs
+    if [ $? -ne 0 ]; then
+         log "Fallback mount failed. Dropping to shell."
+         exec /bin/sh
+    fi
 fi
 
-echo "[INIT] System image mounted"
+log "System mounted successfully!"
 
-# =============================================================================
-# Launch installer
-# =============================================================================
-echo ""
-echo "============================================================"
-echo "         Quantix-vDC Installer Starting..."
-echo "============================================================"
-echo ""
+# 8. OverlayFS Setup (Required for writable root)
+log "Setting up OverlayFS..."
+mkdir -p /mnt/overlay/upper
+mkdir -p /mnt/overlay/work
+mount -t tmpfs tmpfs /mnt/overlay
+mkdir -p /mnt/overlay/max
+mount -t overlay overlay -o lowerdir=/mnt/rootfs,upperdir=/mnt/overlay/upper,workdir=/mnt/overlay/work /mnt/overlay/max
 
-# Export environment for installer
-export BOOT_MEDIA
-export SQUASHFS_PATH
-export ROOTFS_PATH="/mnt/rootfs"
+# 9. Handover to Installer
+log "Launching installer..."
 export TERM=linux
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
-# Function to run installer loop
-run_installer() {
-    while true; do
-        if [ -f /installer/tui.sh ]; then
-            echo "[INIT] Launching TUI installer..."
-            /bin/sh /installer/tui.sh
-        elif [ -f /installer/install.sh ]; then
-            echo "[INIT] Launching install script..."
-            /bin/sh /installer/install.sh
-        else
-            echo "[INIT] No installer scripts found!"
-            break
-        fi
-        
-        EXIT_CODE=$?
-        echo "[INIT] Installer exited with code $EXIT_CODE"
-        
-        if [ $EXIT_CODE -eq 0 ]; then
-            echo "[INIT] Installation complete. Rebooting in 5 seconds..."
-            sleep 5
-            reboot -f
-        else
-            echo "[INIT] Installer failed or was cancelled."
-            echo "[INIT] Dropping to shell in 3 seconds..."
-            echo "[INIT] (Press Enter to restart installer)"
-            read -t 3 TMP || break
-        fi
-    done
-}
+if [ -f "/mnt/rootfs/installer/tui.sh" ]; then
+    log "Running TUI..."
+    /bin/sh /mnt/rootfs/installer/tui.sh
+    log "Installer exited with $?"
+else
+    log "Installer script not found inside squashfs!"
+    ls -la /mnt/rootfs/installer/ > /dev/kmsg
+fi
 
-# Run the installer loop
-run_installer
-
-# Fallback to interactive shell if installer exits/fails
-echo ""
-echo "============================================================"
-echo "  Installer exited. Dropping to interactive shell."
-echo "  Type 'reboot' to restart system."
-echo "============================================================"
-echo ""
-
-# Infinite loop to prevent PID 1 exit (Kernel Panic)
-while true; do
-    /bin/sh
-    sleep 1
-done
+# Fallback
+log "Init process finished. Dropping to shell."
+exec /bin/sh
 INITEOF
+
 
 chmod +x "${INITRAMFS_DIR}/init"
 
