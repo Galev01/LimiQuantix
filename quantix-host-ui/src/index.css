@@ -1,55 +1,176 @@
 @import "tailwindcss";
 
 /* =============================================================================
-   Quantix Host UI Theme - ESXi Host Client-Inspired Dark Theme
+   Quantix Host UI Theme - ESXi Host Client-Inspired Theme
    Following UI Expert Rules for Visual Hierarchy
+   Supports Light and Dark Mode
    ============================================================================= */
 
-@theme {
+/* =============================================================================
+   Theme Variables - Dark Mode (Default)
+   ============================================================================= */
+:root {
+  color-scheme: dark;
+  
   /* Background Layers (Darkest → Lightest) */
-  --color-bg-base: #0f1117;
-  --color-bg-surface: #161922;
-  --color-bg-elevated: #1e222d;
-  --color-bg-hover: #262b38;
-  --color-bg-active: #2d3344;
+  --bg-base: #0f1117;
+  --bg-surface: #161922;
+  --bg-elevated: #1e222d;
+  --bg-hover: #262b38;
+  --bg-active: #2d3344;
   
   /* Sidebar specific */
-  --color-sidebar: #12151c;
-  --color-sidebar-hover: #1a1e28;
-  --color-sidebar-active: #232833;
+  --sidebar-bg: #12151c;
+  --sidebar-hover: #1a1e28;
+  --sidebar-active: #232833;
   
   /* Text Colors */
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-text-disabled: #475569;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-disabled: #475569;
   
   /* Brand Colors - VMware-inspired blue with modern twist */
-  --color-accent: #3b82f6;
-  --color-accent-hover: #2563eb;
-  --color-accent-muted: #1d4ed8;
-  --color-accent-glow: rgba(59, 130, 246, 0.15);
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-muted: #1d4ed8;
+  --accent-glow: rgba(59, 130, 246, 0.15);
   
   /* Status Colors */
-  --color-success: #22c55e;
-  --color-success-muted: rgba(34, 197, 94, 0.15);
-  --color-warning: #f59e0b;
-  --color-warning-muted: rgba(245, 158, 11, 0.15);
-  --color-error: #ef4444;
-  --color-error-muted: rgba(239, 68, 68, 0.15);
-  --color-info: #06b6d4;
-  --color-info-muted: rgba(6, 182, 212, 0.15);
+  --success: #22c55e;
+  --success-muted: rgba(34, 197, 94, 0.15);
+  --warning: #f59e0b;
+  --warning-muted: rgba(245, 158, 11, 0.15);
+  --error: #ef4444;
+  --error-muted: rgba(239, 68, 68, 0.15);
+  --info: #06b6d4;
+  --info-muted: rgba(6, 182, 212, 0.15);
   
   /* Border Colors */
-  --color-border: rgba(255, 255, 255, 0.06);
-  --color-border-hover: rgba(255, 255, 255, 0.1);
-  --color-border-active: rgba(59, 130, 246, 0.5);
+  --border-default: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.1);
+  --border-active: rgba(59, 130, 246, 0.5);
   
   /* Shadows */
   --shadow-floating: 0 -1px 2px rgba(255, 255, 255, 0.03), 0 4px 16px rgba(0, 0, 0, 0.25);
   --shadow-elevated: inset 0 1px 1px rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0, 0, 0, 0.2);
   --shadow-recessed: inset 0 2px 4px rgba(0, 0, 0, 0.3);
   --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  
+  /* Scrollbar */
+  --scrollbar-thumb: var(--bg-hover);
+  --scrollbar-thumb-hover: var(--bg-active);
+}
+
+/* =============================================================================
+   Theme Variables - Light Mode
+   ============================================================================= */
+:root[data-theme="light"] {
+  color-scheme: light;
+  
+  /* Background Layers - Soft lavender tint (Motion-inspired) */
+  --bg-base: #f0f0f8;
+  --bg-surface: #f8f8fc;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e8e8f0;
+  --bg-active: #dcdce8;
+  
+  /* Sidebar specific */
+  --sidebar-bg: #f0f0f8;
+  --sidebar-hover: #e8e8f0;
+  --sidebar-active: #dcdce8;
+  
+  /* Text Colors - Black for readability */
+  --text-primary: #000000;
+  --text-secondary: #1a1a1a;
+  --text-muted: #666666;
+  --text-disabled: rgba(0, 0, 0, 0.4);
+  
+  /* Brand Colors - Same blue, but vibrant */
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-muted: #1d4ed8;
+  --accent-glow: rgba(59, 130, 246, 0.12);
+  
+  /* Status Colors - Keep vibrant for light mode */
+  --success: #16a34a;
+  --success-muted: rgba(22, 163, 74, 0.12);
+  --warning: #d97706;
+  --warning-muted: rgba(217, 119, 6, 0.12);
+  --error: #dc2626;
+  --error-muted: rgba(220, 38, 38, 0.12);
+  --info: #0891b2;
+  --info-muted: rgba(8, 145, 178, 0.12);
+  
+  /* Border Colors */
+  --border-default: rgba(0, 0, 0, 0.06);
+  --border-hover: rgba(0, 0, 0, 0.1);
+  --border-active: rgba(59, 130, 246, 0.5);
+  
+  /* Shadows - Subtle, soft */
+  --shadow-floating: 
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.03);
+  --shadow-elevated: 
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 2px 8px rgba(0, 0, 0, 0.03);
+  --shadow-recessed: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.1);
+  
+  /* Scrollbar */
+  --scrollbar-thumb: #d1d5db;
+  --scrollbar-thumb-hover: #9ca3af;
+}
+
+/* =============================================================================
+   Tailwind Theme Integration
+   ============================================================================= */
+@theme {
+  /* Background Layers */
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-hover: var(--bg-hover);
+  --color-bg-active: var(--bg-active);
+  
+  /* Sidebar specific */
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active: var(--sidebar-active);
+  
+  /* Text Colors */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+  
+  /* Brand Colors */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-glow: var(--accent-glow);
+  
+  /* Status Colors */
+  --color-success: var(--success);
+  --color-success-muted: var(--success-muted);
+  --color-warning: var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-error: var(--error);
+  --color-error-muted: var(--error-muted);
+  --color-info: var(--info);
+  --color-info-muted: var(--info-muted);
+  
+  /* Border Colors */
+  --color-border: var(--border-default);
+  --color-border-hover: var(--border-hover);
+  --color-border-active: var(--border-active);
+  
+  /* Shadows */
+  --shadow-floating: var(--shadow-floating);
+  --shadow-elevated: var(--shadow-elevated);
+  --shadow-recessed: var(--shadow-recessed);
+  --shadow-glow: var(--shadow-glow);
   
   /* Font Family */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
@@ -103,12 +224,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-bg-hover);
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-bg-active);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* =============================================================================
@@ -261,4 +382,11 @@ body {
   outline: none;
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+/* =============================================================================
+   Light Mode Select Arrow Fix
+   ============================================================================= */
+:root[data-theme="light"] .form-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23666666' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
 }

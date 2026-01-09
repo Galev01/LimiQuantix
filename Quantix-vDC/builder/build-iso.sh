@@ -165,17 +165,17 @@ set menu_color_normal=white/black
 set menu_color_highlight=black/light-gray
 
 menuentry "Install Quantix-vDC" {
-    linux /boot/vmlinuz boot=installer quiet
+    linux /boot/vmlinuz boot=installer console=tty0 console=ttyS0,115200
     initrd /boot/initramfs
 }
 
-menuentry "Install Quantix-vDC (Verbose)" {
-    linux /boot/vmlinuz boot=installer debug
+menuentry "Install Quantix-vDC (Debug Mode)" {
+    linux /boot/vmlinuz boot=installer debug console=tty0 console=ttyS0,115200 loglevel=7
     initrd /boot/initramfs
 }
 
-menuentry "Rescue Shell" {
-    linux /boot/vmlinuz boot=installer break=premount
+menuentry "Rescue Shell (Emergency)" {
+    linux /boot/vmlinuz boot=installer break=premount console=tty0 console=ttyS0,115200 loglevel=7
     initrd /boot/initramfs
 }
 

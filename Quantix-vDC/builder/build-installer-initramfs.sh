@@ -89,7 +89,40 @@ if file "${BUSYBOX_PATH}" 2>/dev/null | grep -q "dynamically linked"; then
     chmod +x "${BUSYBOX_PATH}"
 fi
 
-echo "   ✅ Static busybox installed"
+# =============================================================================
+# CRITICAL: Verify busybox is truly static
+# =============================================================================
+echo "   Verifying busybox linkage..."
+BUSYBOX_IS_STATIC=0
+
+# Method 1: Check with ldd
+if ldd "${BUSYBOX_PATH}" 2>&1 | grep -q "not a dynamic executable"; then
+    BUSYBOX_IS_STATIC=1
+elif ldd "${BUSYBOX_PATH}" 2>&1 | grep -q "statically linked"; then
+    BUSYBOX_IS_STATIC=1
+fi
+
+# Method 2: Check with file command
+if file "${BUSYBOX_PATH}" 2>/dev/null | grep -q "statically linked"; then
+    BUSYBOX_IS_STATIC=1
+fi
+
+if [ $BUSYBOX_IS_STATIC -eq 0 ]; then
+    echo "   ❌ ERROR: Busybox is DYNAMICALLY linked!"
+    echo "   This WILL cause kernel panic!"
+    echo ""
+    echo "   File info:"
+    file "${BUSYBOX_PATH}"
+    echo ""
+    echo "   Library dependencies:"
+    ldd "${BUSYBOX_PATH}" 2>&1 || true
+    echo ""
+    echo "   Please install busybox-static or download static binary"
+    exit 1
+fi
+
+echo "   ✅ Busybox is statically linked (verified)"
+
 
 # Create symlinks for ALL essential commands
 for cmd in sh ash ls cat cp mv rm mkdir rmdir mount umount mknod grep sed awk \
@@ -383,14 +416,29 @@ fi
 
 # Wait for devices to settle
 echo "[INIT] Waiting for devices..."
-sleep 3
+sleep 2
 
-# Scan for block devices
+# Scan for block devices multiple times with longer delays
 echo "[INIT] Scanning for block devices..."
-for i in 1 2 3; do
+for i in 1 2 3 4 5; do
+    echo "[INIT]   Scan attempt $i..."
     mdev -s 2>/dev/null || true
-    sleep 1
+    sleep 2
 done
+
+# Force rescan of SCSI bus (helps detect CD-ROM)
+echo "[INIT] Forcing SCSI bus rescan..."
+for host in /sys/class/scsi_host/host*; do
+    if [ -f "$host/scan" ]; then
+        echo "- - -" > "$host/scan" 2>/dev/null || true
+    fi
+done
+sleep 2
+mdev -s 2>/dev/null || true
+
+# List detected devices for debugging
+echo "[INIT] Detected block devices:"
+ls -la /dev/sd* /dev/sr* /dev/vd* /dev/nvme* 2>/dev/null || echo "  (none found)"
 
 # =============================================================================
 # Find and mount the installation media
@@ -529,6 +577,73 @@ done
 INITEOF
 
 chmod +x "${INITRAMFS_DIR}/init"
+
+# =============================================================================
+# Validate initramfs before packing (CRITICAL)
+# =============================================================================
+echo "   Validating initramfs structure..."
+
+VALIDATION_FAILED=0
+
+# Check /init exists and is executable
+if [ ! -f "${INITRAMFS_DIR}/init" ]; then
+    echo "   ❌ ERROR: /init is missing!"
+    VALIDATION_FAILED=1
+elif [ ! -x "${INITRAMFS_DIR}/init" ]; then
+    echo "   ❌ ERROR: /init is not executable!"
+    VALIDATION_FAILED=1
+else
+    echo "   ✅ /init exists and is executable"
+fi
+
+# Check /bin/busybox exists and is executable
+if [ ! -f "${INITRAMFS_DIR}/bin/busybox" ]; then
+    echo "   ❌ ERROR: /bin/busybox is missing!"
+    VALIDATION_FAILED=1
+elif [ ! -x "${INITRAMFS_DIR}/bin/busybox" ]; then
+    echo "   ❌ ERROR: /bin/busybox is not executable!"
+    VALIDATION_FAILED=1
+else
+    echo "   ✅ /bin/busybox exists and is executable"
+fi
+
+# Check /bin/sh exists (symlink or file)
+if [ ! -L "${INITRAMFS_DIR}/bin/sh" ] && [ ! -f "${INITRAMFS_DIR}/bin/sh" ]; then
+    echo "   ❌ ERROR: /bin/sh is missing!"
+    VALIDATION_FAILED=1
+else
+    echo "   ✅ /bin/sh exists"
+fi
+
+# Verify init shebang
+if [ -f "${INITRAMFS_DIR}/init" ]; then
+    SHEBANG=$(head -1 "${INITRAMFS_DIR}/init")
+    if [ "$SHEBANG" != "#!/bin/sh" ]; then
+        echo "   ⚠️  WARNING: /init shebang is '$SHEBANG' (expected '#!/bin/sh')"
+    else
+        echo "   ✅ /init has correct shebang"
+    fi
+fi
+
+# Check essential directories
+for dir in dev proc sys mnt bin sbin lib; do
+    if [ ! -d "${INITRAMFS_DIR}/$dir" ]; then
+        echo "   ⚠️  WARNING: /$dir directory is missing"
+    fi
+done
+
+if [ $VALIDATION_FAILED -eq 1 ]; then
+    echo ""
+    echo "   ❌ Initramfs validation FAILED!"
+    echo "   Listing initramfs root:"
+    ls -la "${INITRAMFS_DIR}/" || true
+    echo ""
+    echo "   Listing /bin:"
+    ls -la "${INITRAMFS_DIR}/bin/" || true
+    exit 1
+fi
+
+echo "   ✅ Initramfs validation passed"
 
 # =============================================================================
 # Create the initramfs image

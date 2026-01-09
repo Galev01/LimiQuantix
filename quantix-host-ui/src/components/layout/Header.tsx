@@ -1,5 +1,6 @@
 import { RefreshCw, Power, Settings, Activity } from 'lucide-react';
 import { Button } from '@/components/ui';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { cn } from '@/lib/utils';
 
 interface HeaderProps {
@@ -72,6 +73,8 @@ export function HostHeader({ hostname, status, onRefresh, refreshing }: HostHead
         <Button variant="ghost" size="sm">
           <Settings className="w-4 h-4" />
         </Button>
+        
+        <ThemeToggle />
         
         <Button variant="ghost" size="sm" className="text-warning hover:text-warning">
           <Power className="w-4 h-4" />
