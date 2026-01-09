@@ -1470,6 +1470,7 @@ async fn get_host_metrics(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<HostMetricsResponse>, (StatusCode, Json<ApiError>)> {
     use tonic::Request;
+    use limiquantix_proto::NodeDaemonService;
     
     // Use cached telemetry from the service (much faster and has history)
     let telemetry = state.service.get_telemetry();

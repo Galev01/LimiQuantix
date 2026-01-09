@@ -2155,46 +2155,46 @@ fn run_dhcp_all() {
     // Spawn a background thread to avoid blocking the TUI at all
     std::thread::spawn(|| {
         // Get all interfaces
-        if let Ok(output) = std::process::Command::new("ip")
-            .args(["-o", "link", "show"])
-            .output()
-        {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 2 {
-                    let iface = parts[1].trim_end_matches(':');
+    if let Ok(output) = std::process::Command::new("ip")
+        .args(["-o", "link", "show"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                let iface = parts[1].trim_end_matches(':');
                     // Skip loopback and virtual interfaces
                     if iface == "lo" || iface.starts_with("vir") || iface.starts_with("br-") {
-                        continue;
-                    }
-                    
+                    continue;
+                }
+                
                     // Bring interface up
-                    let _ = std::process::Command::new("ip")
-                        .args(["link", "set", iface, "up"])
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
+                let _ = std::process::Command::new("ip")
+                    .args(["link", "set", iface, "up"])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
                         .output(); // Use output() here - it's fast
-                    
+                
                     // Kill any existing udhcpc for this interface
-                    let _ = std::process::Command::new("pkill")
-                        .args(["-f", &format!("udhcpc.*{}", iface)])
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
+                let _ = std::process::Command::new("pkill")
+                    .args(["-f", &format!("udhcpc.*{}", iface)])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
                         .output();
-                    
+                
                     // Run udhcpc in background mode (-b) with timeout
                     // -b = background after getting IP
                     // -t 2 = 2 retries
                     // -T 3 = 3 second timeout per retry
-                    let _ = std::process::Command::new("udhcpc")
+                let _ = std::process::Command::new("udhcpc")
                         .args(["-i", iface, "-b", "-t", "2", "-T", "3", "-S"])
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
-                        .spawn();
-                }
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .spawn();
             }
         }
+    }
     });
 }
 
@@ -2212,10 +2212,10 @@ fn restart_network() {
         
         // If that fails, try the standard networking service
         if result.is_err() || !result.unwrap().status.success() {
-            let _ = std::process::Command::new("rc-service")
-                .args(["networking", "restart"])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
+    let _ = std::process::Command::new("rc-service")
+        .args(["networking", "restart"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
                 .output();
         }
     });
