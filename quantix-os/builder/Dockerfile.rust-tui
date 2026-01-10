@@ -5,6 +5,9 @@
 # Builds natively on Alpine (musl-based) WITHOUT specifying a musl target,
 # which allows proc-macro crates to compile correctly.
 #
+# The resulting binaries are dynamically linked against musl libc and libvirt,
+# which is fine because Quantix-OS includes these libraries.
+#
 # Usage:
 #   docker build -t quantix-rust-tui-builder -f builder/Dockerfile.rust-tui builder/
 #   docker run --rm -v $(pwd)/console-tui:/build quantix-rust-tui-builder
@@ -23,8 +26,9 @@ RUN apk add --no-cache \
     # SSL for network operations
     openssl-dev \
     openssl-libs-static \
-    # Libvirt for VM management
+    # Libvirt for VM management (dev headers + runtime lib)
     libvirt-dev \
+    libvirt \
     pkgconfig \
     # Protobuf compiler for gRPC
     protobuf \
@@ -41,13 +45,23 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
 # Add Rust to PATH
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Set environment for static OpenSSL linking
+# Set environment for static OpenSSL linking but dynamic libvirt
 # NOTE: We do NOT set a --target flag here. Alpine is already musl-based,
 # so building natively produces musl binaries that work on Alpine.
 # Setting --target=x86_64-unknown-linux-musl would break proc-macro compilation!
 ENV OPENSSL_STATIC=1
 ENV OPENSSL_LIB_DIR=/usr/lib
 ENV OPENSSL_INCLUDE_DIR=/usr/include
+
+# Tell the linker where to find libraries
+ENV LIBRARY_PATH=/usr/lib
+ENV LD_LIBRARY_PATH=/usr/lib
+
+# Build dynamically linked binaries (not statically linked)
+# The target Quantix-OS has all required libraries (musl libc, libvirt, etc.)
+# -C target-feature=-crt-static disables static libc linking
+# This is necessary because libvirt is only available as a shared library
+ENV RUSTFLAGS="-C target-feature=-crt-static"
 
 # Verify Rust installation
 RUN rustc --version && cargo --version
