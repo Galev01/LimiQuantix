@@ -362,6 +362,11 @@ modprobe sd_mod
 modprobe sr_mod
 modprobe cdrom
 modprobe isofs
+modprobe vfat
+modprobe fat
+modprobe nls_cp437
+modprobe nls_iso8859_1
+modprobe ext4
 modprobe squashfs
 modprobe overlay
 modprobe loop
@@ -404,24 +409,35 @@ BOOT_DEVICE=""
 SQUASHFS_FILE=""
 
 # List devices for debug
-ls -la /dev/sr* /dev/sd* > /dev/kmsg 2>&1 || true
+ls -la /dev/sr* /dev/sd* /dev/nvme* > /dev/kmsg 2>&1 || true
 
-for dev in /dev/sr0 /dev/sr1 /dev/cdrom /dev/sda /dev/sdb; do
+# Check CD-ROM first, then USB drives and their partitions
+for dev in /dev/sr0 /dev/sr1 /dev/cdrom /dev/sda1 /dev/sda2 /dev/sda /dev/sdb1 /dev/sdb2 /dev/sdb /dev/nvme0n1p1 /dev/nvme0n1p2; do
     if [ -b "$dev" ]; then
         log "Checking device: $dev"
         mkdir -p /mnt/check
-        if mount -o ro "$dev" /mnt/check 2>/dev/null; then
-             if [ -f "/mnt/check/quantix-vdc/system.squashfs" ]; then
-                 log "Found media on $dev"
-                 BOOT_DEVICE="$dev"
-                 # Keep mounted at /mnt/cdrom
-                 mkdir -p /mnt/cdrom
-                 mount --move /mnt/check /mnt/cdrom
-                 # IMPORTANT: Update path to the new mount point!
-                 SQUASHFS_FILE="/mnt/cdrom/quantix-vdc/system.squashfs"
-                 break
-             fi
-             umount /mnt/check
+        
+        # Try mounting (try iso9660 first for CDs, then auto-detect)
+        MOUNTED=0
+        for fstype in iso9660 vfat ext4 auto; do
+            if mount -t $fstype -o ro "$dev" /mnt/check 2>/dev/null; then
+                MOUNTED=1
+                break
+            fi
+        done
+        
+        if [ $MOUNTED -eq 1 ]; then
+            if [ -f "/mnt/check/quantix-vdc/system.squashfs" ]; then
+                log "Found media on $dev"
+                BOOT_DEVICE="$dev"
+                # Keep mounted at /mnt/cdrom
+                mkdir -p /mnt/cdrom
+                mount --move /mnt/check /mnt/cdrom
+                # IMPORTANT: Update path to the new mount point!
+                SQUASHFS_FILE="/mnt/cdrom/quantix-vdc/system.squashfs"
+                break
+            fi
+            umount /mnt/check
         fi
     fi
 done

@@ -247,25 +247,45 @@ rmdir /tmp/sqfs
 log_info "Copying boot files from ISO..."
 mkdir -p "${TARGET_MOUNT}/boot"
 
+# Determine the cdrom path (may vary based on how the installer mounts it)
+CDROM_PATH="/mnt/cdrom"
+if [ ! -d "$CDROM_PATH/boot" ]; then
+    # Try alternative paths
+    for alt_path in "/cdrom" "/media/cdrom" "/mnt/iso"; do
+        if [ -d "$alt_path/boot" ]; then
+            CDROM_PATH="$alt_path"
+            log_info "Found ISO at $CDROM_PATH"
+            break
+        fi
+    done
+fi
+
+# Debug: Show what's available
+log_info "Looking for boot files at ${CDROM_PATH}/boot/"
+ls -la "${CDROM_PATH}/boot/" 2>&1 | while read line; do log_info "  $line"; done || log_warn "Could not list ${CDROM_PATH}/boot/"
+
 # Copy kernel
-if [ -f "/mnt/cdrom/boot/vmlinuz" ]; then
-    cp /mnt/cdrom/boot/vmlinuz "${TARGET_MOUNT}/boot/vmlinuz-lts"
+if [ -f "${CDROM_PATH}/boot/vmlinuz" ]; then
+    cp "${CDROM_PATH}/boot/vmlinuz" "${TARGET_MOUNT}/boot/vmlinuz-lts"
     log_info "Kernel copied to /boot/vmlinuz-lts"
 else
-    log_warn "Kernel not found on ISO, using squashfs version"
+    log_warn "Kernel not found at ${CDROM_PATH}/boot/vmlinuz"
+    log_warn "Using kernel from squashfs (if available)"
 fi
 
 # Copy initramfs - prefer boot-initramfs (designed for installed system)
 BOOT_INITRAMFS_USED=0
-if [ -f "/mnt/cdrom/boot/boot-initramfs" ]; then
-    cp /mnt/cdrom/boot/boot-initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
-    log_info "Boot initramfs copied to /boot/initramfs-lts"
+if [ -f "${CDROM_PATH}/boot/boot-initramfs" ]; then
+    cp "${CDROM_PATH}/boot/boot-initramfs" "${TARGET_MOUNT}/boot/initramfs-lts"
+    log_info "✅ Boot initramfs copied to /boot/initramfs-lts"
     BOOT_INITRAMFS_USED=1
-elif [ -f "/mnt/cdrom/boot/initramfs" ]; then
-    cp /mnt/cdrom/boot/initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
+elif [ -f "${CDROM_PATH}/boot/initramfs" ]; then
+    cp "${CDROM_PATH}/boot/initramfs" "${TARGET_MOUNT}/boot/initramfs-lts"
     log_info "Installer initramfs copied to /boot/initramfs-lts (may need regeneration)"
 else
-    log_warn "No initramfs found on ISO!"
+    log_warn "No initramfs found at ${CDROM_PATH}/boot/"
+    log_warn "Available files:"
+    ls -la "${CDROM_PATH}/" 2>&1 | while read line; do log_warn "  $line"; done || true
 fi
 
 log_info "System extracted"
