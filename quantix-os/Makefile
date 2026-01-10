@@ -94,19 +94,21 @@ console-gui: docker-rust-gui
 		       echo 'Note: GUI binary will be built when source exists'"
 	@echo "✅ GUI console built"
 
-# Build ratatui TUI console
+# Build ratatui TUI console (optional - may not have source)
 console-tui: docker-rust-tui
 	@echo "🔨 Building TUI console..."
 	@mkdir -p $(OVERLAY_DIR)/usr/local/bin
-	docker run --rm --network=host \
-		-v "$(BUILD_DIR)/console-tui:/build:rw" \
-		-v "$(OVERLAY_DIR)/usr/local/bin:/output" \
-		-w /build \
-		$(RUST_TUI_IMAGE) \
-		sh -c "cargo build --release && \
-		       cp target/release/qx-console /output/ 2>/dev/null || \
-		       echo 'Note: TUI binary will be built when source exists'"
-	@echo "✅ TUI console built"
+	@if [ -f "$(BUILD_DIR)/console-tui/Cargo.toml" ]; then \
+		docker run --rm --network=host \
+			-v "$(BUILD_DIR)/console-tui:/build:rw" \
+			-v "$(OVERLAY_DIR)/usr/local/bin:/output" \
+			-w /build \
+			$(RUST_TUI_IMAGE) \
+			sh -c "set -e && cargo build --release && cp target/release/qx-console /output/" && \
+		echo "✅ TUI console built"; \
+	else \
+		echo "⚠️  Console TUI source not found, skipping (optional component)"; \
+	fi
 
 # =============================================================================
 # Host UI & Node Daemon
@@ -121,30 +123,62 @@ host-ui:
 			-v "$$(cd .. && pwd)/quantix-host-ui:/app:rw" \
 			-w /app \
 			node:20-alpine \
-			sh -c "npm install && npm run build"; \
-		cp -r ../quantix-host-ui/dist/* $(OVERLAY_DIR)/usr/share/quantix-host-ui/; \
+			sh -c "npm install && npm run build" && \
+		cp -r ../quantix-host-ui/dist/* $(OVERLAY_DIR)/usr/share/quantix-host-ui/ && \
+		echo "   Generating BUILD_INFO.json..." && \
+		NODE_VERSION=$$(grep -m1 '"version"' ../quantix-host-ui/package.json 2>/dev/null | sed 's/.*"\([^"]*\)".*/\1/' || echo "0.1.0") && \
+		DAEMON_VERSION=$$(grep -m1 '^version' ../agent/limiquantix-node/Cargo.toml 2>/dev/null | sed 's/.*"\(.*\)".*/\1/' || echo "0.1.0") && \
+		BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ") && \
+		BUILD_COMMIT=$$(cd .. && git rev-parse --short HEAD 2>/dev/null || echo "unknown") && \
+		BUILD_BRANCH=$$(cd .. && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown") && \
+		echo "{" > $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
+		echo "  \"product\": \"Quantix-OS\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
+		echo "  \"version\": \"$$DAEMON_VERSION\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
+		echo "  \"hostUiVersion\": \"$$NODE_VERSION\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
+		echo "  \"nodeDaemonVersion\": \"$$DAEMON_VERSION\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
+		echo "  \"buildDate\": \"$$BUILD_DATE\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
+		echo "  \"buildCommit\": \"$$BUILD_COMMIT\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
+		echo "  \"buildBranch\": \"$$BUILD_BRANCH\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
+		echo "  \"apiVersion\": \"v1\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
+		echo "  \"registrationApiSupported\": true" >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
+		echo "}" >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
+		cat $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
 		echo "✅ Host UI built"; \
 	else \
-		echo "⚠️  quantix-host-ui not found, skipping..."; \
+		echo "❌ quantix-host-ui not found!"; \
+		exit 1; \
 	fi
 
-# Build node daemon (uses Docker for musl cross-compilation)
+# Build node daemon (uses Docker for Alpine native compilation)
 node-daemon: docker-rust-tui
 	@echo "🔨 Building node daemon..."
 	@mkdir -p $(OVERLAY_DIR)/usr/bin
 	@if [ -d "../agent/limiquantix-node" ]; then \
+		echo "   Compiling node daemon (this may take several minutes)..."; \
 		docker run --rm --network=host \
 			-v "$$(cd .. && pwd)/agent:/build:rw" \
 			-w /build \
 			$(RUST_TUI_IMAGE) \
-			sh -c "cargo build --release -p limiquantix-node --features libvirt && \
-			       cp target/release/limiquantix-node /build/limiquantix-node-musl"; \
-		cp ../agent/limiquantix-node-musl $(OVERLAY_DIR)/usr/bin/qx-node; \
-		rm -f ../agent/limiquantix-node-musl; \
+			sh -c "set -e && \
+			       echo '   Building limiquantix-node...' && \
+			       cargo build --release -p limiquantix-node --features libvirt 2>&1 && \
+			       echo '   Copying binary...' && \
+			       cp target/release/limiquantix-node /build/limiquantix-node-alpine" || { \
+			echo "❌ Node daemon build FAILED! See errors above."; \
+			exit 1; \
+		}; \
+		if [ ! -f "../agent/limiquantix-node-alpine" ]; then \
+			echo "❌ Node daemon binary not found after build!"; \
+			exit 1; \
+		fi; \
+		cp ../agent/limiquantix-node-alpine $(OVERLAY_DIR)/usr/bin/qx-node; \
+		rm -f ../agent/limiquantix-node-alpine; \
 		chmod +x $(OVERLAY_DIR)/usr/bin/qx-node; \
-		echo "✅ Node daemon built (musl)"; \
+		ls -lh $(OVERLAY_DIR)/usr/bin/qx-node; \
+		echo "✅ Node daemon built successfully"; \
 	else \
-		echo "⚠️  limiquantix-node not found, skipping..."; \
+		echo "❌ limiquantix-node source not found at ../agent/limiquantix-node!"; \
+		exit 1; \
 	fi
 
 # =============================================================================

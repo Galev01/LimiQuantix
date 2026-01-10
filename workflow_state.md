@@ -84,6 +84,82 @@ To test:
 
 ---
 
+## Latest Workflow: Fix ISO Build - Node Daemon Compilation Failed
+
+**Date:** January 10, 2026
+
+### Problem
+
+The `make iso` command completes but the node daemon (qx-node) binary is NOT actually built. Build logs show:
+
+```
+error: cannot produce proc-macro for `async-stream-impl v0.3.6` as the target `x86_64-unknown-linux-musl` does not support these crate types
+cp: cannot stat '../agent/limiquantix-node-musl': No such file or directory
+✅ Node daemon built (musl)  <-- FALSE POSITIVE!
+```
+
+**Root Cause:** The Docker image was setting `RUSTFLAGS="-C target-feature=+crt-static -C link-self-contained=yes"` which forces a musl cross-compilation target. On musl targets, proc-macro crates (like `async-stream-impl`, `darling_macro`, `tokio-macros`, etc.) cannot be compiled because they need to run on the **host** compiler.
+
+### Fix Applied
+
+#### 1. Fixed Dockerfile.rust-tui
+
+Removed the problematic RUSTFLAGS that forced musl cross-compilation:
+
+```dockerfile
+# BEFORE (broken)
+ENV RUSTFLAGS="-C target-feature=+crt-static -C link-self-contained=yes"
+
+# AFTER (works)
+# No RUSTFLAGS - Alpine is already musl-based, builds native musl binaries
+ENV OPENSSL_STATIC=1
+ENV OPENSSL_LIB_DIR=/usr/lib
+ENV OPENSSL_INCLUDE_DIR=/usr/include
+```
+
+**Key insight:** Alpine Linux uses musl libc natively. When you `cargo build` on Alpine WITHOUT specifying a target, it produces musl binaries automatically. Explicitly setting `--target=x86_64-unknown-linux-musl` breaks proc-macro compilation.
+
+#### 2. Fixed Makefile Error Handling
+
+Added proper error detection so the build fails fast instead of silently continuing:
+
+```makefile
+# node-daemon target now:
+# - Uses set -e for early exit on errors
+# - Checks if binary exists after build
+# - Prints error message if build fails
+# - Uses exit 1 to fail the make target
+```
+
+#### 3. Added BUILD_INFO.json Generation
+
+The Makefile now generates `BUILD_INFO.json` during the host-ui build with:
+- Product version
+- Build date
+- Git commit
+- Registration API flag
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `Quantix-OS/builder/Dockerfile.rust-tui` | Removed RUSTFLAGS, added git package |
+| `Quantix-OS/Makefile` | Added error handling for node-daemon and console-tui builds, added BUILD_INFO.json generation |
+
+### Testing
+
+Rebuild the ISO:
+
+```bash
+cd Quantix-OS
+sudo make clean-all  # Clear Docker images
+sudo make iso
+```
+
+Watch for errors. The build should now FAIL if the node daemon doesn't compile correctly.
+
+---
+
 ## Previous Workflow: Quantix Host UI (QHMI) Complete Implementation
 
 **Date:** January 9, 2026
