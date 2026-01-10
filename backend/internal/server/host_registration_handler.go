@@ -4,6 +4,7 @@ package server
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -738,6 +739,15 @@ func (h *HostRegistrationHandler) handleRegisterHost(w http.ResponseWriter, r *h
 	createdNode, err := h.server.nodeRepo.Create(ctx, node)
 	if err != nil {
 		h.logger.Error("Failed to create node", zap.Error(err))
+
+		// Handle specific errors with appropriate status codes
+		if errors.Is(err, domain.ErrAlreadyExists) {
+			h.writeErrorWithCode(w, "HOST_ALREADY_EXISTS",
+				fmt.Sprintf("A host with hostname '%s' already exists in the cluster. Please remove the existing host first or use a different hostname.", req.Hostname),
+				http.StatusConflict)
+			return
+		}
+
 		h.writeError(w, "Failed to register host: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -789,5 +799,19 @@ func (h *HostRegistrationHandler) writeJSON(w http.ResponseWriter, data interfac
 func (h *HostRegistrationHandler) writeError(w http.ResponseWriter, message string, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": message,
+		"error":   message, // Keep for backwards compatibility
+	})
+}
+
+// writeErrorWithCode writes an error response with a specific error code.
+func (h *HostRegistrationHandler) writeErrorWithCode(w http.ResponseWriter, code, message string, status int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{
+		"code":    code,
+		"message": message,
+		"error":   message, // Keep for backwards compatibility
+	})
 }

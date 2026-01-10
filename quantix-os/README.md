@@ -27,11 +27,11 @@ make iso
 # Build only the squashfs rootfs
 make squashfs
 
-# Build console GUI (Slint)
-make console-gui
-
-# Build console TUI (ratatui fallback)
+# Build console TUI (ratatui)
 make console-tui
+
+# Build node daemon
+make node-daemon
 
 # Test in QEMU
 make test-qemu
@@ -43,12 +43,12 @@ make clean
 ## Directory Structure
 
 ```
-limiquantix-os/
+Quantix-OS/
 ├── Makefile                    # Build orchestration
 ├── README.md                   # This file
 ├── builder/
 │   ├── Dockerfile              # Alpine build environment
-│   ├── Dockerfile.rust-gui     # Slint GUI builder (Alpine + Rust)
+│   ├── Dockerfile.rust-tui     # TUI builder (Alpine + Rust)
 │   ├── build-iso.sh            # ISO generation script
 │   ├── build-squashfs.sh       # Rootfs builder
 │   └── build-initramfs.sh      # Custom initramfs
@@ -68,8 +68,7 @@ limiquantix-os/
 ├── installer/
 │   ├── install.sh              # Disk partitioner + installer
 │   └── firstboot.sh            # First-boot initialization
-├── console-gui/                # Slint GUI (Rust)
-├── console-tui/                # ratatui fallback TUI
+├── console-tui/                # ratatui TUI console (primary)
 ├── grub/                       # GRUB configuration
 ├── initramfs/                  # Custom init scripts
 ├── branding/
@@ -95,16 +94,30 @@ limiquantix-os/
 1. UEFI → GRUB → vmlinuz + initramfs
 2. initramfs mounts squashfs + overlayfs
 3. OpenRC starts services
-4. Console GUI appears on TTY1
+4. TUI Console appears on TTY1
 
 ## Components
 
-### Console GUI (Slint)
+### Console TUI (ratatui)
+
+The Quantix-OS console uses a **TUI-only approach** (no GUI, no Web Kiosk).
+
+See: [ADR-000010: TUI-Only Console](../docs/adr/000010-tui-only-console.md)
+
+Features:
 - First-boot installation wizard
 - System status dashboard
-- Network configuration
-- SSH management
+- Network configuration (IP, gateway, DNS, VLAN)
+- SSH enable/disable
+- Root password management
+- Cluster join/leave
 - Emergency shell access
+
+Benefits:
+- Works on all hardware (including serial-only servers)
+- Minimal resource usage
+- Fast startup
+- VMware ESXi DCUI-like experience
 
 ### Host UI (React)
 - Web-based management at https://ip:8443

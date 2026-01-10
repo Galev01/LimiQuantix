@@ -5,18 +5,23 @@
 # Usage:
 #   make iso           - Build complete bootable ISO
 #   make squashfs      - Build rootfs squashfs only
-#   make console-gui   - Build Slint GUI console
 #   make console-tui   - Build ratatui TUI console
 #   make host-ui       - Build Host UI web interface
+#   make node-daemon   - Build node daemon
 #   make test-qemu     - Test ISO in QEMU
 #   make clean         - Clean build artifacts
 #   make help          - Show this help
 #
+# Console Strategy: TUI-only (no GUI, no Web Kiosk)
+#   - qx-console runs on TTY1 as a terminal UI
+#   - Uses ratatui for rendering
+#   - Minimal resources, maximum reliability
+#
 # =============================================================================
 
-.PHONY: all iso squashfs initramfs console-gui console-tui host-ui \
+.PHONY: all iso squashfs initramfs console-tui host-ui \
         node-daemon test-qemu test-qemu-uefi clean help \
-        docker-builder docker-rust-gui docker-rust-tui scripts-executable
+        docker-builder docker-rust-tui scripts-executable
 
 # Version
 VERSION ?= 1.0.0
@@ -32,7 +37,6 @@ ISO_DIR := $(BUILD_DIR)/.iso
 
 # Docker images
 BUILDER_IMAGE := quantix-builder
-RUST_GUI_IMAGE := quantix-rust-gui-builder
 RUST_TUI_IMAGE := quantix-rust-tui-builder
 
 # =============================================================================
@@ -42,7 +46,7 @@ RUST_TUI_IMAGE := quantix-rust-tui-builder
 all: iso
 
 # Build complete bootable ISO
-iso: squashfs console-gui console-tui host-ui node-daemon scripts-executable
+iso: squashfs console-tui host-ui node-daemon scripts-executable
 	@echo "🔨 Building bootable ISO..."
 	@mkdir -p $(OUTPUT_DIR)
 	docker run --rm --privileged \
@@ -77,24 +81,11 @@ initramfs: docker-builder scripts-executable
 	@echo "✅ Initramfs built"
 
 # =============================================================================
-# Console Builds
+# Console Build (TUI-only)
 # =============================================================================
 
-# Build Slint GUI console (in Alpine container for musl compatibility)
-console-gui: docker-rust-gui
-	@echo "🔨 Building Slint GUI console..."
-	@mkdir -p $(OVERLAY_DIR)/usr/bin
-	docker run --rm \
-		-v "$(BUILD_DIR)/console-gui:/build:rw" \
-		-v "$(OVERLAY_DIR)/usr/bin:/output" \
-		-w /build \
-		$(RUST_GUI_IMAGE) \
-		sh -c "cargo build --release --no-default-features --features linuxkms && \
-		       cp target/release/qx-console-gui /output/ 2>/dev/null || \
-		       echo 'Note: GUI binary will be built when source exists'"
-	@echo "✅ GUI console built"
-
-# Build ratatui TUI console (optional - may not have source)
+# Build ratatui TUI console - the primary console for Quantix-OS
+# Runs on TTY1, provides VMware ESXi-style DCUI experience
 console-tui: docker-rust-tui
 	@echo "🔨 Building TUI console..."
 	@mkdir -p $(OVERLAY_DIR)/usr/local/bin
@@ -188,10 +179,6 @@ node-daemon: docker-rust-tui
 docker-builder:
 	@echo "🐳 Building Docker image: $(BUILDER_IMAGE)..."
 	docker build -t $(BUILDER_IMAGE) -f builder/Dockerfile builder/
-
-docker-rust-gui:
-	@echo "🐳 Building Docker image: $(RUST_GUI_IMAGE)..."
-	docker build -t $(RUST_GUI_IMAGE) -f builder/Dockerfile.rust-gui builder/
 
 docker-rust-tui:
 	@echo "🐳 Building Docker image: $(RUST_TUI_IMAGE)..."
@@ -313,7 +300,6 @@ clean:
 clean-all: clean
 	@echo "🧹 Cleaning Docker images..."
 	docker rmi $(BUILDER_IMAGE) 2>/dev/null || true
-	docker rmi $(RUST_GUI_IMAGE) 2>/dev/null || true
 	docker rmi $(RUST_TUI_IMAGE) 2>/dev/null || true
 	@echo "✅ Full clean complete"
 
@@ -330,7 +316,6 @@ help:
 	@echo "║  Build Commands:                                                 ║"
 	@echo "║    make iso           - Build complete bootable ISO              ║"
 	@echo "║    make squashfs      - Build rootfs squashfs only               ║"
-	@echo "║    make console-gui   - Build Slint GUI console                  ║"
 	@echo "║    make console-tui   - Build ratatui TUI console                ║"
 	@echo "║    make host-ui       - Build Host UI web interface              ║"
 	@echo "║    make node-daemon   - Build node daemon                        ║"
@@ -342,7 +327,6 @@ help:
 	@echo "║                                                                  ║"
 	@echo "║  Docker Commands:                                                ║"
 	@echo "║    make docker-builder    - Build base builder image             ║"
-	@echo "║    make docker-rust-gui   - Build Rust GUI builder image         ║"
 	@echo "║    make docker-rust-tui   - Build Rust TUI builder image         ║"
 	@echo "║                                                                  ║"
 	@echo "║  Cleanup Commands:                                               ║"

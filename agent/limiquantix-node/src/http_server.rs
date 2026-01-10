@@ -195,7 +195,6 @@ struct HealthResponse {
 }
 
 #[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct HostMetricsResponse {
     timestamp: String,
     cpu_usage_percent: f64,
@@ -579,7 +578,9 @@ struct ClusterStatus {
     control_plane_address: Option<String>,
     node_id: Option<String>,
     last_heartbeat: Option<String>,
-    status: String,  // "connected", "disconnected", "standalone"
+    status: String,       // "connected", "disconnected", "standalone", "pending_restart"
+    mode: String,         // "cluster" or "standalone"
+    cluster_name: Option<String>,
 }
 
 /// Request to test connection to vDC control plane
@@ -1725,8 +1726,22 @@ async fn list_events(
 async fn get_settings(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<SettingsResponse>, (StatusCode, Json<ApiError>)> {
+    use tokio::fs;
+    
+    // Read the actual hostname from /etc/hostname
+    let node_name = match fs::read_to_string("/etc/hostname").await {
+        Ok(content) => content.trim().to_string(),
+        Err(e) => {
+            warn!(error = %e, "Failed to read hostname from /etc/hostname, falling back to system hostname");
+            // Fallback: try gethostname
+            hostname::get()
+                .map(|h| h.to_string_lossy().to_string())
+                .unwrap_or_else(|_| "unknown".to_string())
+        }
+    };
+    
     Ok(Json(SettingsResponse {
-        node_name: state.service.get_node_id().to_string(),
+        node_name,
         node_id: state.service.get_node_id().to_string(),
         grpc_listen: "0.0.0.0:9443".to_string(),
         http_listen: "0.0.0.0:8443".to_string(),
@@ -4022,6 +4037,8 @@ async fn get_cluster_status(
                 node_id,
                 last_heartbeat: None, // TODO: Track heartbeats
                 status: "connected".to_string(),
+                mode: "cluster".to_string(),
+                cluster_name,
             }));
         }
     }
@@ -4065,7 +4082,9 @@ async fn get_cluster_status(
                 control_plane_address: address,
                 node_id: None,
                 last_heartbeat: None,
-                status: "connected".to_string(),
+                status: "pending_restart".to_string(),
+                mode: "cluster".to_string(),
+                cluster_name: None,
             }));
         }
     }
@@ -4077,6 +4096,8 @@ async fn get_cluster_status(
         node_id: None,
         last_heartbeat: None,
         status: "standalone".to_string(),
+        mode: "standalone".to_string(),
+        cluster_name: None,
     }))
 }
 
@@ -4138,6 +4159,8 @@ control_plane:
                 node_id: None,
                 last_heartbeat: None,
                 status: "pending_restart".to_string(),
+                mode: "cluster".to_string(),
+                cluster_name: None,
             }))
         }
         Err(e) => {
@@ -4174,7 +4197,7 @@ async fn leave_cluster(
             // Disable registration
             content = content.replace("registration_enabled: true", "registration_enabled: false");
             
-            match fs::write(config_path, content).await {
+                match fs::write(config_path, content).await {
                 Ok(_) => {
                     info!("Successfully left cluster. Restart required.");
                     Ok(Json(ClusterStatus {
@@ -4183,6 +4206,8 @@ async fn leave_cluster(
                         node_id: None,
                         last_heartbeat: None,
                         status: "standalone".to_string(),
+                        mode: "standalone".to_string(),
+                        cluster_name: None,
                     }))
                 }
                 Err(e) => {

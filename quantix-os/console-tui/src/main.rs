@@ -60,6 +60,16 @@ struct App {
     status_message: Option<(String, std::time::Instant)>,
     /// Cluster configuration state
     cluster_config: ClusterConfig,
+    /// Last auto-refresh time for resources
+    last_resource_refresh: std::time::Instant,
+    /// Cached CPU usage percentage
+    cpu_usage: f32,
+    /// Cached memory used bytes
+    memory_used: u64,
+    /// Cached memory total bytes
+    memory_total: u64,
+    /// Cached storage info (mount_point, used, total)
+    storage_info: Vec<(String, u64, u64)>,
 }
 
 /// Static IP configuration
@@ -206,14 +216,45 @@ impl App {
                 status: get_cluster_status(),
                 ..Default::default()
             },
+            last_resource_refresh: std::time::Instant::now(),
+            cpu_usage: 0.0,
+            memory_used: 0,
+            memory_total: 0,
+            storage_info: Vec::new(),
         }
     }
 
     fn refresh(&mut self) {
-        // Only refresh on explicit user request (F5 - Restart Services)
-        // CPU/Memory stats removed to eliminate flickering
+        // Refresh all dynamic values (called on F5 or auto-refresh)
         self.primary_ip = get_primary_ip();
         self.vm_count = get_vm_count();
+        self.cluster_config.status = get_cluster_status();
+        self.refresh_resources();
+        self.last_resource_refresh = std::time::Instant::now();
+    }
+    
+    fn refresh_resources(&mut self) {
+        // Refresh CPU and memory
+        self.system.refresh_all();
+        
+        // Calculate CPU usage (average across all CPUs)
+        let cpus = self.system.cpus();
+        if !cpus.is_empty() {
+            let total_usage: f32 = cpus.iter().map(|cpu| cpu.cpu_usage()).sum();
+            self.cpu_usage = total_usage / cpus.len() as f32;
+        }
+        
+        // Get memory usage
+        self.memory_total = self.system.total_memory();
+        self.memory_used = self.system.used_memory();
+        
+        // Get storage info for main partitions
+        self.storage_info = get_storage_info();
+    }
+    
+    fn should_auto_refresh(&self) -> bool {
+        // Auto-refresh resources every 10 seconds
+        self.last_resource_refresh.elapsed().as_secs() >= 10
     }
 
     fn menu_items(&self) -> Vec<(&str, &str)> {
@@ -266,6 +307,9 @@ fn main() -> Result<()> {
 
     // Create app state
     let mut app = App::new();
+    
+    // Initial resource refresh
+    app.refresh_resources();
 
     // Main loop
     let result = run_app(&mut terminal, &mut app);
@@ -306,9 +350,9 @@ fn run_app<B: ratatui::backend::Backend>(
             continue;
         }
         
-        // Use poll with timeout to check SSH timer periodically
-        // Poll every 5 seconds to check if SSH timer expired
-        if event::poll(Duration::from_secs(5))? {
+        // Use poll with timeout to check timers periodically
+        // Poll every 1 second to allow for smoother auto-refresh
+        if event::poll(Duration::from_secs(1))? {
             if let Event::Key(key) = event::read()? {
                 handle_input(app, key.code, key.modifiers);
             }
@@ -316,6 +360,12 @@ fn run_app<B: ratatui::backend::Backend>(
         
         // Check SSH timer on every loop iteration
         app.check_ssh_timer();
+        
+        // Auto-refresh resources every 10 seconds (only on main screen)
+        if app.screen == Screen::Main && app.should_auto_refresh() {
+            app.refresh_resources();
+            app.last_resource_refresh = std::time::Instant::now();
+        }
         
         // Clear status message after 5 seconds
         if let Some((_, start)) = &app.status_message {
@@ -1034,14 +1084,23 @@ fn render_main_screen(f: &mut Frame, app: &App, area: Rect) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(8),   // System info
-            Constraint::Length(6),   // CPU/Memory
-            Constraint::Min(0),      // Logs
+            Constraint::Length(8),   // CPU/Memory/Storage (needs more space)
+            Constraint::Min(4),      // Management URL
         ])
         .margin(1)
         .split(chunks[0]);
 
     // System info - use cached values from app state
     let uptime = format_uptime(System::uptime());
+
+    // Determine status display based on cluster status
+    let (status_text, status_color) = match &app.cluster_config.status {
+        ClusterStatus::Connected => ("Cluster Joined", Color::Green),
+        ClusterStatus::Joining => ("Joining...", Color::Cyan),
+        ClusterStatus::Disconnected => ("Disconnected", Color::Red),
+        ClusterStatus::Error(_) => ("Error", Color::Red),
+        ClusterStatus::Standalone => ("Standalone", Color::Yellow),
+    };
 
     let info_text = vec![
         Line::from(vec![
@@ -1054,7 +1113,7 @@ fn render_main_screen(f: &mut Frame, app: &App, area: Rect) {
         ]),
         Line::from(vec![
             Span::styled("Status:   ", Style::default().fg(Color::Gray)),
-            Span::styled("Standalone", Style::default().fg(Color::Yellow)),
+            Span::styled(status_text, Style::default().fg(status_color)),
         ]),
         Line::from(vec![
             Span::styled("Uptime:   ", Style::default().fg(Color::Gray)),
@@ -1070,15 +1129,64 @@ fn render_main_screen(f: &mut Frame, app: &App, area: Rect) {
         .block(Block::default().borders(Borders::ALL).title("System Information"));
     f.render_widget(info, left_chunks[0]);
 
-    // System resources (static display - no real-time updates to avoid flickering)
-    let resources_text = vec![
+    // System resources - CPU, Memory, Storage
+    let cpu_percent = app.cpu_usage as u16;
+    let cpu_bar = create_usage_bar(cpu_percent, 20);
+    
+    let mem_percent = if app.memory_total > 0 {
+        ((app.memory_used as f64 / app.memory_total as f64) * 100.0) as u16
+    } else {
+        0
+    };
+    let mem_bar = create_usage_bar(mem_percent, 20);
+    
+    let mut resources_text = vec![
         Line::from(vec![
-            Span::styled("Resources: ", Style::default().fg(Color::Gray)),
-            Span::styled("Press F5 to refresh", Style::default().fg(Color::DarkGray)),
+            Span::styled("CPU:  ", Style::default().fg(Color::Gray)),
+            Span::styled(cpu_bar, get_usage_color(cpu_percent)),
+            Span::styled(format!(" {:3}%", cpu_percent), get_usage_color(cpu_percent)),
+        ]),
+        Line::from(vec![
+            Span::styled("RAM:  ", Style::default().fg(Color::Gray)),
+            Span::styled(mem_bar, get_usage_color(mem_percent)),
+            Span::styled(
+                format!(" {:3}% ({}/{})", 
+                    mem_percent, 
+                    format_bytes(app.memory_used), 
+                    format_bytes(app.memory_total)
+                ), 
+                get_usage_color(mem_percent)
+            ),
         ]),
     ];
+    
+    // Add storage info
+    for (mount, used, total) in &app.storage_info {
+        if *total == 0 {
+            continue;
+        }
+        let storage_percent = ((*used as f64 / *total as f64) * 100.0) as u16;
+        let storage_bar = create_usage_bar(storage_percent, 20);
+        
+        // Truncate mount point if too long
+        let mount_display = if mount.len() > 6 {
+            format!("{}:", &mount[..6])
+        } else {
+            format!("{}:", mount)
+        };
+        
+        resources_text.push(Line::from(vec![
+            Span::styled(format!("{:<6}", mount_display), Style::default().fg(Color::Gray)),
+            Span::styled(storage_bar, get_usage_color(storage_percent)),
+            Span::styled(
+                format!(" {:3}% ({}/{})", storage_percent, format_bytes(*used), format_bytes(*total)), 
+                get_usage_color(storage_percent)
+            ),
+        ]));
+    }
+    
     let resources = Paragraph::new(resources_text)
-        .block(Block::default().borders(Borders::ALL).title("System Status"));
+        .block(Block::default().borders(Borders::ALL).title("System Resources (auto-refresh 10s)"));
     f.render_widget(resources, left_chunks[1]);
 
     // Management URL
@@ -1824,9 +1932,27 @@ fn attempt_leave_cluster(app: &mut App) {
     }
 }
 
-/// Get current cluster status by calling the local node daemon API
+/// Get current cluster status by checking the cluster marker file and calling the API
 fn get_cluster_status() -> ClusterStatus {
-    // Try to call the local node daemon API
+    // Method 1: Check the cluster marker file first (fastest, no network call needed)
+    if let Ok(content) = std::fs::read_to_string("/quantix/cluster.yaml") {
+        // If the cluster marker file exists, we are in a cluster
+        if content.contains("cluster:") && content.contains("name:") {
+            return ClusterStatus::Connected;
+        } else if !content.trim().is_empty() {
+            return ClusterStatus::Connected;
+        }
+    }
+    
+    // Method 2: Check the node config for control_plane settings
+    if let Ok(content) = std::fs::read_to_string("/etc/limiquantix/node.yaml") {
+        if content.contains("control_plane:") && content.contains("address:") {
+            // Control plane is configured, check if we can reach it
+            return ClusterStatus::Connected;
+        }
+    }
+    
+    // Method 3: Try to call the local node daemon API
     // The node daemon runs on localhost:8443
     match std::process::Command::new("curl")
         .args(["-s", "-k", "--max-time", "2", "https://127.0.0.1:8443/api/v1/cluster/status"])
@@ -1835,11 +1961,15 @@ fn get_cluster_status() -> ClusterStatus {
         Ok(output) => {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                // Simple JSON parsing - look for "status" field
-                if stdout.contains("\"status\":\"connected\"") {
+                // Parse JSON response - look for "status" or "joined" field
+                if stdout.contains("\"joined\":true") || 
+                   stdout.contains("\"status\":\"connected\"") || 
+                   stdout.contains("\"mode\":\"cluster\"") {
                     ClusterStatus::Connected
                 } else if stdout.contains("\"status\":\"disconnected\"") {
                     ClusterStatus::Disconnected
+                } else if stdout.contains("\"status\":\"pending_restart\"") {
+                    ClusterStatus::Joining
                 } else {
                     ClusterStatus::Standalone
                 }
@@ -2064,8 +2194,42 @@ iface lo inet loopback
 // Helper functions
 
 fn get_primary_ip() -> String {
-    // Try common interfaces
-    for iface in ["eth0", "ens3", "enp0s3"] {
+    // Method 1: Use `ip route get` to find the source IP for internet connectivity
+    if let Ok(output) = std::process::Command::new("ip")
+        .args(["route", "get", "8.8.8.8"])
+        .output()
+    {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            // Parse output like: "8.8.8.8 via 192.168.0.1 dev wlan0 src 192.168.0.32 uid 0"
+            for line in stdout.lines() {
+                if line.contains("src") {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    for (i, part) in parts.iter().enumerate() {
+                        if *part == "src" && i + 1 < parts.len() {
+                            let ip = parts[i + 1];
+                            if !ip.is_empty() && ip != "0.0.0.0" {
+                                return ip.to_string();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Method 2: Try common interfaces (expanded list including WiFi)
+    let interfaces = [
+        "eth0", "eth1", 
+        "ens3", "ens18", "ens33", "ens160", "ens192", "ens224",
+        "enp0s3", "enp0s8", "enp0s25", 
+        "eno1", "eno2", 
+        "em1", "em2",
+        "wlan0", "wlan1", "wlp2s0", "wlp3s0",  // WiFi interfaces
+        "bond0", "br0",
+    ];
+    
+    for iface in interfaces {
         if let Ok(content) = std::process::Command::new("ip")
             .args(["-4", "addr", "show", iface])
             .output()
@@ -2074,12 +2238,38 @@ fn get_primary_ip() -> String {
             for line in stdout.lines() {
                 if line.contains("inet ") {
                     if let Some(ip) = line.split_whitespace().nth(1) {
-                        return ip.split('/').next().unwrap_or("0.0.0.0").to_string();
+                        let ip = ip.split('/').next().unwrap_or("0.0.0.0");
+                        if !ip.is_empty() && ip != "0.0.0.0" && ip != "127.0.0.1" {
+                            return ip.to_string();
+                        }
                     }
                 }
             }
         }
     }
+    
+    // Method 3: Get any non-loopback interface with an IP
+    if let Ok(output) = std::process::Command::new("ip")
+        .args(["-4", "-o", "addr", "show"])
+        .output()
+    {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                if !line.contains("lo") && line.contains("inet ") {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    // Format: "2: eth0    inet 192.168.0.32/24 brd ..."
+                    if parts.len() >= 4 {
+                        let ip = parts[3].split('/').next().unwrap_or("");
+                        if !ip.is_empty() && ip != "127.0.0.1" {
+                            return ip.to_string();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     "0.0.0.0".to_string()
 }
 
@@ -2093,6 +2283,24 @@ fn format_uptime(seconds: u64) -> String {
     }
 }
 
+/// Create a text-based usage bar like [████████░░░░░░░░░░░░]
+fn create_usage_bar(percent: u16, width: usize) -> String {
+    let filled = ((percent as usize) * width / 100).min(width);
+    let empty = width - filled;
+    format!("[{}{}]", "█".repeat(filled), "░".repeat(empty))
+}
+
+/// Get color based on usage percentage (green < 70, yellow 70-90, red > 90)
+fn get_usage_color(percent: u16) -> Style {
+    if percent >= 90 {
+        Style::default().fg(Color::Red)
+    } else if percent >= 70 {
+        Style::default().fg(Color::Yellow)
+    } else {
+        Style::default().fg(Color::Green)
+    }
+}
+
 fn format_bytes(bytes: u64) -> String {
     const GB: u64 = 1024 * 1024 * 1024;
     const MB: u64 = 1024 * 1024;
@@ -2101,6 +2309,65 @@ fn format_bytes(bytes: u64) -> String {
     } else {
         format!("{:.1} MB", bytes as f64 / MB as f64)
     }
+}
+
+/// Get storage info for main partitions (mount_point, used_bytes, total_bytes)
+fn get_storage_info() -> Vec<(String, u64, u64)> {
+    use sysinfo::Disks;
+    
+    let disks = Disks::new_with_refreshed_list();
+    let mut storage: Vec<(String, u64, u64)> = Vec::new();
+    
+    for disk in disks.list() {
+        let mount_point = disk.mount_point().to_string_lossy().to_string();
+        
+        // Skip system/virtual partitions
+        if mount_point == "/" 
+            || mount_point == "/boot" 
+            || mount_point == "/boot/efi"
+            || mount_point.starts_with("/sys")
+            || mount_point.starts_with("/proc")
+            || mount_point.starts_with("/dev")
+            || mount_point.starts_with("/run")
+            || mount_point.starts_with("/snap")
+        {
+            // Include root only if no other storage is found
+            if mount_point == "/" {
+                let total = disk.total_space();
+                let available = disk.available_space();
+                let used = total.saturating_sub(available);
+                storage.push((mount_point, used, total));
+            }
+            continue;
+        }
+        
+        let total = disk.total_space();
+        let available = disk.available_space();
+        let used = total.saturating_sub(available);
+        
+        // Only include partitions > 1GB
+        if total > 1024 * 1024 * 1024 {
+            storage.push((mount_point, used, total));
+        }
+    }
+    
+    // Sort by mount point for consistent display
+    storage.sort_by(|a, b| a.0.cmp(&b.0));
+    
+    // If we found no partitions, include root
+    if storage.is_empty() {
+        for disk in disks.list() {
+            if disk.mount_point().to_string_lossy() == "/" {
+                let total = disk.total_space();
+                let available = disk.available_space();
+                let used = total.saturating_sub(available);
+                storage.push(("/".to_string(), used, total));
+                break;
+            }
+        }
+    }
+    
+    storage
 }
 
 fn get_vm_count() -> i32 {

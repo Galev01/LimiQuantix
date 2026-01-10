@@ -1,7 +1,7 @@
 # /etc/inittab - Quantix-OS init configuration
 #
-# This inittab is designed for a headless hypervisor with a graphical console.
-# TTY1 runs the Quantix Console (Slint GUI or TUI fallback).
+# This inittab is designed for a headless hypervisor with a TUI-based console.
+# TTY1 runs the Quantix Console (DCUI - TUI console).
 # Other TTYs are disabled for security.
 
 # Default runlevel
@@ -9,8 +9,8 @@
 ::sysinit:/sbin/openrc boot
 ::wait:/sbin/openrc default
 
-# TTY1: Quantix Console (GUI/TUI)
-# The launcher script tries GUI first, falls back to TUI, then getty
+# TTY1: Quantix Console (DCUI - TUI-based Direct Console User Interface)
+# Similar to VMware ESXi's DCUI for initial system configuration
 tty1::respawn:/usr/local/bin/qx-console-launcher
 
 # TTY2: Emergency shell (disabled by default, enabled via console menu)

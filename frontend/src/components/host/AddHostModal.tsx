@@ -282,8 +282,27 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to register host');
+        const errorData = await response.json().catch(() => ({ 
+          code: 'UNKNOWN_ERROR',
+          message: 'Failed to register host'
+        }));
+        
+        // Build a user-friendly error message based on error code
+        let errorMessage = errorData.message || 'Failed to register host';
+        
+        switch (errorData.code) {
+          case 'HOST_ALREADY_EXISTS':
+            errorMessage = `⚠️ Host Already Exists\n\nA host with this hostname is already registered in the system.\n\nTo re-add this host:\n1. Remove the existing host from the cluster\n2. Try registering again`;
+            break;
+          case 'CLUSTER_NOT_FOUND':
+            errorMessage = '❌ Cluster Not Found\n\nThe selected cluster no longer exists. Please refresh and try again.';
+            break;
+          case 'INVALID_HOST_DATA':
+            errorMessage = '❌ Invalid Host Data\n\nThe host returned invalid or incomplete information.';
+            break;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       setStep('success');
