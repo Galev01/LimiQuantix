@@ -1,36 +1,24 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/layout';
 import { Card, Button, Badge, Input } from '@/components/ui';
-import { Upload, Trash2, File, Disc, Box, HardDrive, RefreshCw } from 'lucide-react';
+import { Upload, Trash2, File, Disc, Box, HardDrive, RefreshCw, AlertCircle } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
-import { get } from '@/api/client';
-import axios from 'axios';
-
-interface ImageInfo {
-    imageId: string;
-    name: string;
-    path: string;
-    sizeBytes: number;
-    format: string;
-}
-
-interface ListImagesResponse {
-    images: ImageInfo[];
-}
+import { listImages, uploadImage } from '@/api/storage';
+import { toast } from 'sonner';
 
 export function StorageImages() {
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+    const queryClient = useQueryClient();
 
     // Fetch images
-    const { data: imagesResponse, isLoading, refetch } = useQuery({
+    const { data: images = [], isLoading, refetch } = useQuery({
         queryKey: ['storage', 'images'],
-        queryFn: () => get<ListImagesResponse>('/storage/images'),
+        queryFn: listImages,
     });
-
-    const images = imagesResponse?.images || [];
 
     // Upload handler
     const handleUpload = async () => {
@@ -38,37 +26,28 @@ export function StorageImages() {
 
         setUploading(true);
         setUploadProgress(0);
-
-        const formData = new FormData();
-        formData.append('file', selectedFile);
+        setUploadError(null);
 
         try {
-            // Use direct axios for upload progress since our client wrapper might not expose it easily
-            // Assuming GET /host returns management IP, we can build the URL or use a relative path if proxied
-            // Using relative path '/api/v1/storage/upload' which matches client base
+            const result = await uploadImage(selectedFile, (percent) => {
+                setUploadProgress(percent);
+            });
 
-            const config = {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-                onUploadProgress: (progressEvent: any) => {
-                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    setUploadProgress(percentCompleted);
-                },
-            };
-
-            // We need to bypass the custom client for multipart/form-data with progress
-            // But we can use the same base URL logic if needed. 
-            // For now, assume relative path works with Vite proxy.
-            await axios.post('/api/v1/storage/upload', formData, config);
-
-            setUploading(false);
-            setSelectedFile(null);
-            refetch();
+            if (result.success) {
+                toast.success(`Uploaded ${selectedFile.name} successfully`);
+                setSelectedFile(null);
+                // Invalidate and refetch images
+                queryClient.invalidateQueries({ queryKey: ['storage', 'images'] });
+            } else {
+                throw new Error(result.message || 'Upload failed');
+            }
         } catch (error) {
-            console.error('Upload failed', error);
+            const message = error instanceof Error ? error.message : 'Upload failed';
+            console.error('Upload failed:', error);
+            setUploadError(message);
+            toast.error(`Upload failed: ${message}`);
+        } finally {
             setUploading(false);
-            // TODO: Show toast error
         }
     };
 
@@ -128,6 +107,21 @@ export function StorageImages() {
                                     className="h-full bg-accent transition-all duration-300"
                                     style={{ width: `${uploadProgress}%` }}
                                 />
+                            </div>
+                        )}
+
+                        {uploadError && (
+                            <div className="flex items-center gap-2 mt-4 p-3 bg-error/10 border border-error/20 rounded-lg text-error max-w-md">
+                                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                <span className="text-sm">{uploadError}</span>
+                            </div>
+                        )}
+
+                        {selectedFile && !uploading && !uploadError && (
+                            <div className="flex items-center gap-2 mt-4 text-text-secondary text-sm">
+                                <File className="w-4 h-4" />
+                                <span>{selectedFile.name}</span>
+                                <span className="text-text-muted">({formatBytes(selectedFile.size)})</span>
                             </div>
                         )}
                     </div>

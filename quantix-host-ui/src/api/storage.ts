@@ -126,6 +126,85 @@ export async function listImages(): Promise<ImageInfo[]> {
   return response.images || [];
 }
 
+/**
+ * Upload an image (ISO, QCOW2, OVA)
+ */
+export interface UploadImageResponse {
+  success: boolean;
+  message: string;
+  filename: string;
+  size_bytes: number;
+  path: string;
+}
+
+export async function uploadImage(
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<UploadImageResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  // Get API base URL
+  const connection = localStorage.getItem('quantix-node-connection');
+  let baseUrl = '/api/v1';
+  if (connection) {
+    try {
+      const parsed = JSON.parse(connection);
+      if (parsed.url) {
+        baseUrl = `${parsed.url.replace(/\/$/, '')}/api/v1`;
+      }
+    } catch {
+      // Use default
+    }
+  }
+  
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && onProgress) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        onProgress(percent);
+      }
+    });
+    
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const response = JSON.parse(xhr.responseText);
+          resolve(response);
+        } catch {
+          resolve({
+            success: true,
+            message: 'Upload completed',
+            filename: file.name,
+            size_bytes: file.size,
+            path: '',
+          });
+        }
+      } else {
+        try {
+          const error = JSON.parse(xhr.responseText);
+          reject(new Error(error.message || error.error || `Upload failed: ${xhr.status}`));
+        } catch {
+          reject(new Error(`Upload failed with status ${xhr.status}`));
+        }
+      }
+    });
+    
+    xhr.addEventListener('error', () => {
+      reject(new Error('Network error during upload'));
+    });
+    
+    xhr.addEventListener('abort', () => {
+      reject(new Error('Upload aborted'));
+    });
+    
+    xhr.open('POST', `${baseUrl}/storage/upload`);
+    xhr.send(formData);
+  });
+}
+
 // ============================================================================
 // Local Devices (Physical Disk Discovery)
 // ============================================================================

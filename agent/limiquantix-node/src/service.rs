@@ -212,26 +212,44 @@ impl NodeDaemonServiceImpl {
     async fn detect_local_storage(&self) -> anyhow::Result<()> {
         use tokio::fs;
         
-        // Default local storage paths to check
+        // Priority-ordered list of local storage paths to check
+        // /data is the primary storage mount on Quantix-OS
         let local_paths = [
-            "/var/lib/limiquantix/storage",
-            "/var/lib/libvirt/images",
+            ("/data", "datastore"),                      // Primary Quantix-OS data partition
+            ("/data/vms", "datastore-vms"),              // VM storage subdirectory
+            ("/data/images", "datastore-images"),        // Image storage subdirectory  
+            ("/var/lib/limiquantix/storage", "local-storage"),
+            ("/var/lib/libvirt/images", "local-libvirt"),
         ];
         
-        for path in &local_paths {
+        let mut registered_paths: Vec<String> = Vec::new();
+        
+        for (path, pool_name) in &local_paths {
+            // Skip subdirectories of already registered paths
+            if registered_paths.iter().any(|p| path.starts_with(p)) {
+                tracing::debug!(path = %path, "Skipping subdirectory of already registered pool");
+                continue;
+            }
+            
             if fs::metadata(path).await.is_ok() {
-                let pool_id = format!("local-{}", path.replace('/', "-").trim_matches('-'));
+                let pool_id = pool_name.to_string();
                 
                 // Check if pool already exists
                 let pools = self.storage.list_pools().await;
                 if pools.iter().any(|p| p.pool_id == pool_id || p.mount_path.as_deref() == Some(*path)) {
                     tracing::debug!(pool_id = %pool_id, "Local pool already registered");
+                    registered_paths.push(path.to_string());
                     continue;
                 }
+                
+                // Get disk usage info for this path
+                let (total_bytes, available_bytes) = Self::get_mount_usage(path).await;
                 
                 tracing::info!(
                     pool_id = %pool_id,
                     path = %path,
+                    total_gb = total_bytes / (1024 * 1024 * 1024),
+                    available_gb = available_bytes / (1024 * 1024 * 1024),
                     "Auto-registering local storage pool"
                 );
                 
@@ -244,7 +262,116 @@ impl NodeDaemonServiceImpl {
                 
                 if let Err(e) = self.storage.init_pool(&pool_id, limiquantix_hypervisor::storage::PoolType::LocalDir, config).await {
                     tracing::warn!(pool_id = %pool_id, error = %e, "Failed to register local pool");
+                } else {
+                    registered_paths.push(path.to_string());
                 }
+            }
+        }
+        
+        // Also detect additional mounted filesystems that look like data storage
+        self.detect_additional_mounts(&registered_paths).await?;
+        
+        Ok(())
+    }
+    
+    /// Get mount point disk usage
+    async fn get_mount_usage(path: &str) -> (u64, u64) {
+        // Use statfs to get disk usage
+        #[cfg(target_os = "linux")]
+        {
+            use std::ffi::CString;
+            use std::mem::MaybeUninit;
+            
+            if let Ok(c_path) = CString::new(path) {
+                let mut stat: MaybeUninit<libc::statfs> = MaybeUninit::uninit();
+                unsafe {
+                    if libc::statfs(c_path.as_ptr(), stat.as_mut_ptr()) == 0 {
+                        let stat = stat.assume_init();
+                        let total = stat.f_blocks as u64 * stat.f_bsize as u64;
+                        let available = stat.f_bavail as u64 * stat.f_bsize as u64;
+                        return (total, available);
+                    }
+                }
+            }
+        }
+        (0, 0)
+    }
+    
+    /// Detect additional mounted filesystems (xfs, ext4 on dedicated partitions)
+    async fn detect_additional_mounts(&self, already_registered: &[String]) -> anyhow::Result<()> {
+        use tokio::fs;
+        
+        // Read /proc/mounts to find local mounts
+        let content = match fs::read_to_string("/proc/mounts").await {
+            Ok(c) => c,
+            Err(_) => return Ok(()),
+        };
+        
+        for line in content.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() < 4 {
+                continue;
+            }
+            
+            let device = parts[0];
+            let mount_point = parts[1];
+            let fs_type = parts[2];
+            
+            // Only consider xfs or ext4 on block devices with substantial storage
+            if !device.starts_with("/dev/") {
+                continue;
+            }
+            
+            // Skip system partitions
+            let skip_mounts = ["/", "/boot", "/boot/efi", "/home", "/tmp", "/var", "/usr", "/quantix", "/proc", "/sys", "/dev"];
+            if skip_mounts.contains(&mount_point) || mount_point.starts_with("/sys") || mount_point.starts_with("/proc") {
+                continue;
+            }
+            
+            // Only consider data-oriented filesystems
+            if !["xfs", "ext4", "btrfs"].contains(&fs_type) {
+                continue;
+            }
+            
+            // Skip if already registered
+            if already_registered.iter().any(|p| mount_point.starts_with(p) || p.starts_with(mount_point)) {
+                continue;
+            }
+            
+            // Check if already in pools
+            let pools = self.storage.list_pools().await;
+            if pools.iter().any(|p| p.mount_path.as_deref() == Some(mount_point)) {
+                continue;
+            }
+            
+            // Get size and skip small partitions (< 10GB)
+            let (total_bytes, _available) = Self::get_mount_usage(mount_point).await;
+            if total_bytes < 10 * 1024 * 1024 * 1024 {
+                tracing::debug!(mount_point = %mount_point, "Skipping small partition");
+                continue;
+            }
+            
+            // Generate pool ID from mount point
+            let pool_id = format!("local{}", mount_point.replace('/', "-"));
+            
+            tracing::info!(
+                pool_id = %pool_id,
+                mount_point = %mount_point,
+                device = %device,
+                fs_type = %fs_type,
+                total_gb = total_bytes / (1024 * 1024 * 1024),
+                "Auto-registering additional local storage pool"
+            );
+            
+            let config = limiquantix_hypervisor::storage::PoolConfig {
+                local: Some(limiquantix_hypervisor::storage::LocalConfig {
+                    path: mount_point.to_string(),
+                }),
+                ..Default::default()
+            };
+            
+            if let Err(e) = self.storage.init_pool(&pool_id, limiquantix_hypervisor::storage::PoolType::LocalDir, config).await {
+                tracing::warn!(pool_id = %pool_id, error = %e, "Failed to register additional local pool");
             }
         }
         
@@ -1912,11 +2039,16 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         // Directories to scan for images
         let image_dirs = [
+            // Primary Quantix-OS data partition locations
+            "/data/images",
+            "/data/isos",
+            "/data/templates",
+            // Legacy/fallback locations  
             "/var/lib/limiquantix/cloud-images",
             "/var/lib/limiquantix/isos",
             "/var/lib/limiquantix/images",
             "/var/lib/limiquantix/templates",
-            // Also check common locations
+            // Libvirt default location
             "/var/lib/libvirt/images",
         ];
         

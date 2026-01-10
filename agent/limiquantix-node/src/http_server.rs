@@ -3288,25 +3288,40 @@ async fn upload_image(
     use tokio::fs;
     use tokio::io::AsyncWriteExt;
     
-    let upload_dir = std::path::Path::new("/var/lib/limiquantix/images");
+    // Choose the best upload directory - prefer /data/images if available
+    let upload_dir = if std::path::Path::new("/data").exists() {
+        std::path::Path::new("/data/images")
+    } else {
+        std::path::Path::new("/var/lib/limiquantix/images")
+    };
+    
+    info!(upload_dir = %upload_dir.display(), "Image upload directory");
+    
     if let Err(e) = fs::create_dir_all(upload_dir).await {
+        error!(error = %e, path = %upload_dir.display(), "Failed to create upload directory");
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiError::new("create_dir_failed", &e.to_string())),
+            Json(ApiError::new("create_dir_failed", &format!("Failed to create upload directory {}: {}", upload_dir.display(), e))),
         ));
     }
     
     let mut saved_file = String::new();
+    let mut file_size: u64 = 0;
     
     while let Ok(Some(field)) = multipart.next_field().await {
         let file_name = if let Some(name) = field.file_name() {
             name.to_string()
         } else {
+            warn!("Multipart field without filename, skipping");
             continue;
         };
         
+        info!(file_name = %file_name, "Processing upload");
+        
         let dest_path = upload_dir.join(&file_name);
         saved_file = file_name.clone();
+        
+        info!(dest_path = %dest_path.display(), "Creating file for upload");
         
         // Stream the file to disk
         // Note: For large files, this needs careful memory management, 
@@ -3315,17 +3330,23 @@ async fn upload_image(
         // We need to create the file...
         let mut file = match fs::File::create(&dest_path).await {
             Ok(f) => f,
-            Err(e) => return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiError::new("file_create_failed", &e.to_string())),
-            )),
+            Err(e) => {
+                error!(error = %e, path = %dest_path.display(), "Failed to create destination file");
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ApiError::new("file_create_failed", &format!("Failed to create file {}: {}", dest_path.display(), e))),
+                ));
+            }
         };
         
         // Read chunks and write
         // field is a stream
         let mut field = field; // rebind mut
+        let mut bytes_written: u64 = 0;
         while let Ok(Some(chunk)) = field.chunk().await {
+            bytes_written += chunk.len() as u64;
             if let Err(e) = file.write_all(&chunk).await {
+                error!(error = %e, bytes_written = bytes_written, "Failed to write chunk");
                 return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ApiError::new("write_failed", &e.to_string())),
@@ -3333,20 +3354,38 @@ async fn upload_image(
             }
         }
         
-        info!(file = %file_name, "Image uploaded successfully");
+        file_size = bytes_written;
+        info!(
+            file = %file_name, 
+            size_bytes = bytes_written,
+            size_mb = bytes_written / (1024 * 1024),
+            path = %dest_path.display(),
+            "Image uploaded successfully"
+        );
+        
+        // Emit event for image upload
+        crate::event_store::emit_event(crate::event_store::Event::new(
+            crate::event_store::EventLevel::Info,
+            crate::event_store::EventCategory::Storage,
+            format!("Image '{}' uploaded ({:.2} MB)", file_name, bytes_written as f64 / (1024.0 * 1024.0)),
+            "storage",
+        ));
     }
     
     if saved_file.is_empty() {
+        warn!("Upload request completed but no file was saved");
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiError::new("no_file", "No file provided in request")),
+            Json(ApiError::new("no_file", "No file provided in request. Make sure to include a 'file' field in the multipart form.")),
         ));
     }
 
     Ok(Json(serde_json::json!({
         "success": true,
         "message": "Image uploaded successfully",
-        "filename": saved_file
+        "filename": saved_file,
+        "size_bytes": file_size,
+        "path": upload_dir.join(&saved_file).to_string_lossy()
     })))
 }
 
