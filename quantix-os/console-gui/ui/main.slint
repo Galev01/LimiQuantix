@@ -1122,8 +1122,14 @@ component MainScreen inherits Rectangle {
                 }
                 
                 MenuButton {
-                    label: "Restart Services";
+                    label: "Refresh Display";
                     shortcut: "F5";
+                    clicked => { root.menu-action("refresh"); }
+                }
+                
+                MenuButton {
+                    label: "Restart Services";
+                    shortcut: "F6";
                     clicked => { root.menu-action("services"); }
                 }
                 

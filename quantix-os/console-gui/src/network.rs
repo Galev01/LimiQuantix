@@ -221,20 +221,47 @@ fn restart_networking() -> Result<()> {
 
 /// Get the primary IP address of the system
 pub fn get_primary_ip() -> String {
-    // Try to get IP from common interfaces
-    for iface in ["eth0", "ens3", "enp0s3", "ens192"] {
+    // Method 1: Use `ip route` to find the default route interface
+    if let Ok(output) = Command::new("ip")
+        .args(["route", "get", "8.8.8.8"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Parse "... src X.X.X.X ..." from output
+        for part in stdout.split_whitespace().collect::<Vec<_>>().windows(2) {
+            if part[0] == "src" {
+                let ip = part[1].to_string();
+                if !ip.starts_with("127.") && ip != "0.0.0.0" {
+                    return ip;
+                }
+            }
+        }
+    }
+    
+    // Method 2: Try common interface names (expanded list)
+    let common_interfaces = [
+        "eth0", "eth1", "ens3", "ens18", "ens33", "ens160", "ens192", "ens224",
+        "enp0s3", "enp0s8", "enp0s25", "enp1s0", "enp2s0", "enp3s0",
+        "eno1", "eno2", "em1", "em2",
+        "wlan0", "wlp2s0", "wlp3s0",
+    ];
+    
+    for iface in common_interfaces {
         if let Some(ip) = get_ip_address(iface) {
-            return ip;
+            if !ip.starts_with("127.") && ip != "0.0.0.0" {
+                return ip;
+            }
         }
     }
 
-    // Fall back to any interface with an IP
+    // Method 3: Fall back to any interface with a valid IP
     for iface in get_interfaces() {
-        if !iface.ip.is_empty() && !iface.ip.starts_with("127.") {
+        if !iface.ip.is_empty() && !iface.ip.starts_with("127.") && iface.ip != "0.0.0.0" {
             return iface.ip;
         }
     }
 
+    // Last resort: return 0.0.0.0 if no IP found
     "0.0.0.0".to_string()
 }
 

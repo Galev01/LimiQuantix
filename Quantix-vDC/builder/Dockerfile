@@ -60,6 +60,8 @@ RUN apk add --no-cache \
     # Dialog for TUI
     dialog \
     ncurses \
+    # Static busybox for initramfs
+    busybox-static \
     # UUID generation
     libuuid \
     && rm -rf /var/cache/apk/*

@@ -748,6 +748,31 @@ func (h *HostRegistrationHandler) handleRegisterHost(w http.ResponseWriter, r *h
 		zap.String("cluster_id", createdNode.ClusterID),
 	)
 
+	// Establish gRPC connection to the node daemon for storage/VM operations
+	if h.server.daemonPool != nil {
+		// ManagementIP should include port (e.g., "192.168.0.191:9090")
+		// If no port, default to 9090 (gRPC port)
+		daemonAddr := createdNode.ManagementIP
+		if !strings.Contains(daemonAddr, ":") {
+			daemonAddr = daemonAddr + ":9090"
+		}
+
+		_, connectErr := h.server.daemonPool.Connect(createdNode.ID, daemonAddr)
+		if connectErr != nil {
+			// Log warning but don't fail registration - connection can be established later
+			h.logger.Warn("Failed to establish gRPC connection to node daemon",
+				zap.String("node_id", createdNode.ID),
+				zap.String("daemon_addr", daemonAddr),
+				zap.Error(connectErr),
+			)
+		} else {
+			h.logger.Info("Established gRPC connection to node daemon",
+				zap.String("node_id", createdNode.ID),
+				zap.String("daemon_addr", daemonAddr),
+			)
+		}
+	}
+
 	h.writeJSON(w, createdNode, http.StatusCreated)
 }
 

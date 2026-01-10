@@ -35,17 +35,31 @@ echo "📦 Creating boot initramfs structure..."
 mkdir -p "${INITRAMFS_DIR}"/{bin,sbin,lib,proc,sys,dev,mnt,newroot,etc,usr/bin,usr/sbin}
 
 # =============================================================================
-# Copy busybox (static)
+# Copy busybox (static) - CRITICAL: must be statically linked for initramfs
 # =============================================================================
-echo "   Copying busybox..."
-if [ -f /bin/busybox.static ]; then
-    cp /bin/busybox.static "${INITRAMFS_DIR}/bin/busybox"
-elif [ -f /bin/busybox ]; then
-    cp /bin/busybox "${INITRAMFS_DIR}/bin/busybox"
-else
-    echo "❌ ERROR: busybox not found!"
-    exit 1
+echo "   Copying busybox-static..."
+
+BUSYBOX_FOUND=0
+for bb_path in /bin/busybox.static /usr/bin/busybox.static /bin/busybox-static; do
+    if [ -f "$bb_path" ]; then
+        cp "$bb_path" "${INITRAMFS_DIR}/bin/busybox"
+        BUSYBOX_FOUND=1
+        echo "   Found static busybox at $bb_path"
+        break
+    fi
+done
+
+# Fallback to regular busybox (may fail in initramfs if not static)
+if [ $BUSYBOX_FOUND -eq 0 ]; then
+    if [ -f /bin/busybox ]; then
+        echo "   ⚠️  WARNING: Using non-static busybox (may not work in initramfs)"
+        cp /bin/busybox "${INITRAMFS_DIR}/bin/busybox"
+    else
+        echo "❌ ERROR: No busybox found! Install busybox-static package."
+        exit 1
+    fi
 fi
+
 chmod +x "${INITRAMFS_DIR}/bin/busybox"
 
 # Create essential symlinks

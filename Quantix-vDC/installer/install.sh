@@ -481,22 +481,22 @@ set timeout=5
 set default=0
 
 menuentry "Quantix-vDC" {
-    linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro quiet
+    linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro console=tty0 quiet
     initrd /boot/initramfs-lts
 }
 
 menuentry "Quantix-vDC (Safe Graphics)" {
-    linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro quiet nomodeset
+    linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro console=tty0 nomodeset
     initrd /boot/initramfs-lts
 }
 
 menuentry "Quantix-vDC (Recovery)" {
-    linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro single
+    linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro console=tty0 single
     initrd /boot/initramfs-lts
 }
 
 menuentry "Quantix-vDC (Debug)" {
-    linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro debug console=tty0 loglevel=7
+    linux /boot/vmlinuz-lts root=UUID=${UUID_ROOT} ro console=tty0 console=ttyS0,115200 debug loglevel=7 earlyprintk=vga
     initrd /boot/initramfs-lts
 }
 EOF

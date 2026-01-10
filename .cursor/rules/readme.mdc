@@ -107,7 +107,7 @@ This section defines the official terminology and directory mappings. **All agen
 | **Host OS ISO** | `/Quantix-OS` | Alpine Linux, squashfs, A/B partitions | Minimal hypervisor OS (~150MB) |
 | **Console GUI (DCUI)** | `/Quantix-OS/console-gui` | Rust, Slint | Local physical console (TTY1) |
 | **Console TUI (fallback)** | `/Quantix-OS/console-tui` | Rust, ratatui | Terminal fallback UI |
-| **Host UI (Web)** | `/quantix-host-ui` | React 19, Vite, TypeScript, Tailwind v4, Zustand, TanStack Query, Recharts | Browser-based host management |
+| **Host UI QHCI (Web)** | `/quantix-host-ui` | React 19, Vite, TypeScript, Tailwind v4, Zustand, TanStack Query, Recharts | Browser-based host management |
 | **Node Daemon (Backend)** | `/agent/limiquantix-node` | Rust, Tokio, Axum, gRPC (tonic) | Serves Host UI + REST/gRPC API |
 
 **Ports:** Host UI: 3001 (dev), 8443 (production) | gRPC: 9443
@@ -161,7 +161,7 @@ This section defines the official terminology and directory mappings. **All agen
 │  HOST LAYER (Quantix-OS)            │                                    │
 │  ┌─────────────────────────────────────────────────────────────────────┐ │
 │  │  /Quantix-OS        /quantix-host-ui    /agent/limiquantix-node     │ │
-│  │  Host OS ISO        Host Web UI         Node Daemon (serves UI)      │ │
+│  │  Host OS ISO        Host Web UI QHCI    Node Daemon (serves UI)     │ │
 │  │  + console-gui      (React)             (Rust + Axum)               │ │
 │  │  + console-tui                                                       │ │
 │  └─────────────────────────────────────────────────────────────────────┘ │

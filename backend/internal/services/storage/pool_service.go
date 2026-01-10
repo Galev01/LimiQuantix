@@ -4,6 +4,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -128,6 +129,49 @@ func (s *PoolService) CreatePool(
 func (s *PoolService) initPoolOnNodes(ctx context.Context, pool *domain.StoragePool, logger *zap.Logger) (*nodev1.StoragePoolInfoResponse, error) {
 	// Get all connected nodes
 	connectedNodes := s.daemonPool.ConnectedNodes()
+	
+	// If no connected nodes, try to connect to nodes from database
+	if len(connectedNodes) == 0 {
+		logger.Info("No connected nodes, attempting to connect to registered nodes from database")
+		
+		// List all ready nodes from repository
+		allNodes, err := s.nodeRepo.List(ctx, node.NodeFilter{
+			Phases: []domain.NodePhase{domain.NodePhaseReady},
+		})
+		if err != nil {
+			logger.Warn("Failed to list nodes from repository", zap.Error(err))
+		} else {
+			for _, n := range allNodes {
+			// Try to connect - ManagementIP should include port
+			daemonAddr := n.ManagementIP
+			if !strings.Contains(daemonAddr, ":") {
+				daemonAddr = daemonAddr + ":9090"
+			}
+			
+			logger.Info("Attempting to connect to node daemon",
+				zap.String("node_id", n.ID),
+				zap.String("daemon_addr", daemonAddr),
+			)
+			
+			_, connectErr := s.daemonPool.Connect(n.ID, daemonAddr)
+			if connectErr != nil {
+				logger.Warn("Failed to connect to node daemon",
+					zap.String("node_id", n.ID),
+					zap.String("daemon_addr", daemonAddr),
+					zap.Error(connectErr),
+				)
+			} else {
+				logger.Info("Successfully connected to node daemon",
+					zap.String("node_id", n.ID),
+					zap.String("daemon_addr", daemonAddr),
+				)
+			}
+		}
+			// Refresh connected nodes list
+			connectedNodes = s.daemonPool.ConnectedNodes()
+		}
+	}
+	
 	if len(connectedNodes) == 0 {
 		logger.Warn("No connected nodes to initialize pool on")
 		return nil, nil

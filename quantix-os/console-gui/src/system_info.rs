@@ -62,9 +62,39 @@ fn get_hostname() -> String {
 
 /// Get cluster status
 fn get_cluster_status() -> String {
-    // Check if we're part of a cluster
-    if fs::metadata("/quantix/cluster.yaml").is_ok() {
-        "Cluster Member".to_string()
+    // Check if we're part of a cluster by reading the cluster marker file
+    if let Ok(content) = fs::read_to_string("/quantix/cluster.yaml") {
+        // Parse cluster name from the file
+        for line in content.lines() {
+            if line.starts_with("cluster_name:") {
+                let name = line
+                    .trim_start_matches("cluster_name:")
+                    .trim()
+                    .trim_matches('"')
+                    .trim();
+                if !name.is_empty() {
+                    return format!("Cluster: {}", name);
+                }
+            }
+        }
+        // File exists but no cluster name - still joined
+        "Cluster Joined".to_string()
+    } else if fs::metadata("/etc/limiquantix/node.yaml").is_ok() {
+        // Check the config file for control_plane section
+        if let Ok(config) = fs::read_to_string("/etc/limiquantix/node.yaml") {
+            if config.contains("control_plane:") && config.contains("address:") {
+                // Check if address is not empty/localhost
+                for line in config.lines() {
+                    if line.trim().starts_with("address:") {
+                        let addr = line.split(':').skip(1).collect::<Vec<_>>().join(":").trim().trim_matches('"').to_string();
+                        if !addr.is_empty() && addr != "localhost" && addr != "http://localhost:8080" {
+                            return "Cluster Joined".to_string();
+                        }
+                    }
+                }
+            }
+        }
+        "Standalone".to_string()
     } else {
         "Standalone".to_string()
     }

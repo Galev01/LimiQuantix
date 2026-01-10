@@ -3939,32 +3939,106 @@ async fn get_cluster_status(
 ) -> Result<Json<ClusterStatus>, (StatusCode, Json<ApiError>)> {
     use tokio::fs;
     
-    // Read cluster config from /etc/limiquantix/config.yaml
-    let config_path = "/etc/limiquantix/config.yaml";
+    // First, check the cluster marker file (written when registration completes)
+    let cluster_marker_path = "/quantix/cluster.yaml";
     
-    match fs::read_to_string(config_path).await {
-        Ok(_content) => {
-            // Parse YAML to check if cluster is enabled
-            // For now, return a simple status
-            Ok(Json(ClusterStatus {
-                joined: false,
-                control_plane_address: None,
-                node_id: None,
-                last_heartbeat: None,
-                status: "standalone".to_string(),
-            }))
+    if let Ok(content) = fs::read_to_string(cluster_marker_path).await {
+        // Parse the cluster marker file
+        let mut control_plane = None;
+        let mut node_id = None;
+        let mut cluster_name = None;
+        
+        for line in content.lines() {
+            let line = line.trim();
+            if line.starts_with("control_plane:") {
+                control_plane = Some(
+                    line.trim_start_matches("control_plane:")
+                        .trim()
+                        .trim_matches('"')
+                        .to_string()
+                );
+            } else if line.starts_with("node_id:") {
+                node_id = Some(
+                    line.trim_start_matches("node_id:")
+                        .trim()
+                        .trim_matches('"')
+                        .to_string()
+                );
+            } else if line.starts_with("cluster_name:") {
+                let name = line.trim_start_matches("cluster_name:")
+                    .trim()
+                    .trim_matches('"')
+                    .to_string();
+                if !name.is_empty() {
+                    cluster_name = Some(name);
+                }
+            }
         }
-        Err(_) => {
-            // Config doesn't exist, standalone mode
-            Ok(Json(ClusterStatus {
-                joined: false,
-                control_plane_address: None,
-                node_id: None,
-                last_heartbeat: None,
-                status: "standalone".to_string(),
-            }))
+        
+        // If we have a control plane address, we're joined
+        if control_plane.is_some() {
+            return Ok(Json(ClusterStatus {
+                joined: true,
+                control_plane_address: control_plane,
+                node_id,
+                last_heartbeat: None, // TODO: Track heartbeats
+                status: "connected".to_string(),
+            }));
         }
     }
+    
+    // Fallback: check the node config file for control_plane section
+    let config_path = "/etc/limiquantix/node.yaml";
+    
+    if let Ok(content) = fs::read_to_string(config_path).await {
+        // Check for control_plane section with a valid address
+        let mut in_control_plane = false;
+        let mut has_valid_address = false;
+        let mut address = None;
+        
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed == "control_plane:" {
+                in_control_plane = true;
+            } else if in_control_plane && trimmed.starts_with("address:") {
+                let addr = trimmed.trim_start_matches("address:")
+                    .trim()
+                    .trim_matches('"')
+                    .to_string();
+                // Check if it's a valid (non-localhost, non-default) address
+                if !addr.is_empty() 
+                    && addr != "localhost" 
+                    && addr != "http://localhost:8080"
+                    && !addr.contains("localhost") 
+                {
+                    has_valid_address = true;
+                    address = Some(addr);
+                }
+            } else if !line.starts_with(' ') && !line.starts_with('\t') && !trimmed.is_empty() {
+                // New section started
+                in_control_plane = false;
+            }
+        }
+        
+        if has_valid_address {
+            return Ok(Json(ClusterStatus {
+                joined: true,
+                control_plane_address: address,
+                node_id: None,
+                last_heartbeat: None,
+                status: "connected".to_string(),
+            }));
+        }
+    }
+    
+    // Not joined to any cluster
+    Ok(Json(ClusterStatus {
+        joined: false,
+        control_plane_address: None,
+        node_id: None,
+        last_heartbeat: None,
+        status: "standalone".to_string(),
+    }))
 }
 
 /// Join a Quantix-vDC cluster
@@ -4542,6 +4616,30 @@ async fn complete_registration(
     if let Err(e) = tokio::fs::write(config_path, &config_content).await {
         warn!(error = %e, "Failed to write config file (may need restart with manual config)");
         // Don't fail - the registration is still valid, just needs manual config
+    }
+    
+    // Write cluster marker file for TUI/DCUI to detect cluster status
+    let cluster_marker = std::path::Path::new("/quantix/cluster.yaml");
+    if let Err(e) = tokio::fs::create_dir_all("/quantix").await {
+        warn!(error = %e, "Failed to create /quantix directory");
+    }
+    let cluster_info = format!(
+        "# Quantix Cluster Configuration\n\
+         # This file indicates the node is part of a cluster\n\
+         cluster_joined: true\n\
+         control_plane: \"{}\"\n\
+         node_id: \"{}\"\n\
+         cluster_name: \"{}\"\n\
+         joined_at: \"{}\"\n",
+        request.control_plane_address,
+        request.node_id,
+        request.cluster_name.as_deref().unwrap_or(""),
+        chrono::Utc::now().to_rfc3339()
+    );
+    if let Err(e) = tokio::fs::write(cluster_marker, &cluster_info).await {
+        warn!(error = %e, "Failed to write cluster marker file");
+    } else {
+        info!("Cluster marker file written to /quantix/cluster.yaml");
     }
     
     // Clear the registration token (it's now used)

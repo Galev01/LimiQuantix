@@ -316,6 +316,13 @@ fn setup_main_callbacks(app: &AppWindow, state: Arc<Mutex<AppState>>) {
 /// Handle menu actions
 async fn handle_action(action: &str, app_weak: &slint::Weak<AppWindow>) {
     match action {
+        "refresh" => {
+            info!("🔄 Refreshing display...");
+            if let Some(app) = app_weak.upgrade() {
+                update_system_status(&app);
+                load_network_interfaces(&app);
+            }
+        }
         "network" => {
             info!("🌐 Opening network configuration...");
             // TODO: Implement network configuration dialog
@@ -345,8 +352,47 @@ async fn handle_action(action: &str, app_weak: &slint::Weak<AppWindow>) {
             // TODO: Implement cluster join dialog
         }
         "services" => {
-            info!("🔄 Restarting services...");
-            // TODO: Implement service restart
+            info!("🔄 Restarting management services...");
+            // Restart only the management services, NOT networking
+            // This keeps the IP address intact
+            
+            // Restart qx-node (quantix-node daemon)
+            let result = std::process::Command::new("rc-service")
+                .args(["quantix-node", "restart"])
+                .output();
+            
+            match result {
+                Ok(o) if o.status.success() => {
+                    info!("✅ Quantix node daemon restarted");
+                }
+                Ok(o) => {
+                    let stderr = String::from_utf8_lossy(&o.stderr);
+                    warn!("⚠️ Failed to restart quantix-node: {}", stderr);
+                }
+                Err(e) => {
+                    error!("❌ Failed to execute rc-service: {}", e);
+                }
+            }
+            
+            // Restart libvirtd if needed
+            let result = std::process::Command::new("rc-service")
+                .args(["libvirtd", "restart"])
+                .output();
+            
+            match result {
+                Ok(o) if o.status.success() => {
+                    info!("✅ Libvirt daemon restarted");
+                }
+                _ => {
+                    warn!("⚠️ Failed to restart libvirtd (may not be installed)");
+                }
+            }
+            
+            if let Some(app) = app_weak.upgrade() {
+                // Wait a moment for services to restart then refresh
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                update_system_status(&app);
+            }
         }
         "diagnostics" => {
             info!("📊 Opening diagnostics...");
