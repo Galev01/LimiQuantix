@@ -193,8 +193,50 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
       });
 
       if (!discoveryResponse.ok) {
-        const errorData = await discoveryResponse.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || 'Failed to connect to host');
+        const errorData = await discoveryResponse.json().catch(() => ({ 
+          code: 'UNKNOWN_ERROR',
+          message: 'Failed to connect to host',
+          details: 'The server returned an unexpected response'
+        }));
+        
+        // Build a user-friendly error message
+        let errorMessage = errorData.message || 'Failed to connect to host';
+        
+        // Add specific guidance based on error code
+        switch (errorData.code) {
+          case 'HOST_FIRMWARE_OUTDATED':
+            errorMessage = '⚠️ Host firmware outdated\n\nThe host is running an older version of Quantix-OS that doesn\'t support token-based registration.\n\nPlease update the host to the latest Quantix-OS version.';
+            break;
+          case 'HOST_CONNECTION_FAILED':
+          case 'NETWORK_UNREACHABLE':
+            errorMessage = '🔌 Cannot connect to host\n\nVerify:\n• Host IP address is correct\n• Port 8443 is accessible\n• The host is powered on';
+            break;
+          case 'CONNECTION_TIMEOUT':
+            errorMessage = '⏱️ Connection timed out\n\nThe host is not responding. Check network connectivity and firewall rules.';
+            break;
+          case 'TOKEN_INVALID':
+            errorMessage = '🔑 Invalid token\n\nThe token you entered doesn\'t match the one on the host.\n\nPlease verify you copied it correctly.';
+            break;
+          case 'TOKEN_EXPIRED':
+            errorMessage = '⏰ Token expired\n\nTokens are valid for 1 hour.\n\nPlease generate a new token on the host.';
+            break;
+          case 'TOKEN_MISSING':
+            errorMessage = '🔑 No token on host\n\nThe host doesn\'t have an active registration token.\n\nGenerate one in the host\'s Settings → Registration page.';
+            break;
+          case 'HOST_API_NOT_AVAILABLE':
+            errorMessage = '⚙️ Host API unavailable\n\nThe host\'s registration API is not responding.\n\nTry restarting the node daemon on the host.';
+            break;
+          case 'TLS_ERROR':
+            errorMessage = '🔒 TLS certificate error\n\nThere was a problem with the host\'s SSL certificate.';
+            break;
+        }
+        
+        // Add technical details if available
+        if (errorData.details && errorData.code !== 'HOST_FIRMWARE_OUTDATED') {
+          errorMessage += `\n\nDetails: ${errorData.details}`;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const discovery: HostDiscovery = await discoveryResponse.json();
@@ -443,9 +485,13 @@ export function AddHostModal({ isOpen, onClose }: AddHostModalProps) {
                 </div>
 
                 {error && (
-                  <div className="p-3 bg-error/10 border border-error/30 rounded-lg flex items-center gap-2 text-error">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-sm">{error}</span>
+                  <div className="p-4 bg-error/10 border border-error/30 rounded-lg text-error">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{error}</pre>
+                      </div>
+                    </div>
                   </div>
                 )}
 

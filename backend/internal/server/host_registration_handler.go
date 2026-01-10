@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -163,8 +164,82 @@ type ResourceInfo struct {
 	GPUs    []GPUInfo     `json:"gpus"`
 }
 
+// HostDiscoveryError represents a structured error for host discovery operations
+type HostDiscoveryError struct {
+	Code       string `json:"code"`
+	Message    string `json:"message"`
+	Details    string `json:"details,omitempty"`
+	HostURL    string `json:"hostUrl,omitempty"`
+	StatusCode int    `json:"statusCode,omitempty"`
+	Phase      string `json:"phase"` // Which phase failed: "connection", "api_check", "token_validation", "discovery"
+}
+
+// Discovery phases for tracking progress
+const (
+	PhaseConnection      = "connection"
+	PhaseAPICheck        = "api_check"
+	PhaseTokenValidation = "token_validation"
+	PhaseDiscovery       = "discovery"
+)
+
+// Error codes for frontend to handle
+const (
+	ErrCodeConnectionFailed   = "HOST_CONNECTION_FAILED"
+	ErrCodeAPINotAvailable    = "HOST_API_NOT_AVAILABLE"
+	ErrCodeFirmwareOutdated   = "HOST_FIRMWARE_OUTDATED"
+	ErrCodeTokenInvalid       = "TOKEN_INVALID"
+	ErrCodeTokenExpired       = "TOKEN_EXPIRED"
+	ErrCodeTokenMissing       = "TOKEN_MISSING"
+	ErrCodeDiscoveryFailed    = "DISCOVERY_FAILED"
+	ErrCodeInvalidResponse    = "INVALID_RESPONSE"
+	ErrCodeNetworkUnreachable = "NETWORK_UNREACHABLE"
+	ErrCodeTLSError           = "TLS_ERROR"
+	ErrCodeTimeout            = "CONNECTION_TIMEOUT"
+)
+
+// writeDiscoveryError writes a structured discovery error response
+func (h *HostRegistrationHandler) writeDiscoveryError(w http.ResponseWriter, err HostDiscoveryError, httpStatus int) {
+	h.logger.Error("Host discovery failed",
+		zap.String("code", err.Code),
+		zap.String("message", err.Message),
+		zap.String("details", err.Details),
+		zap.String("host_url", err.HostURL),
+		zap.Int("remote_status", err.StatusCode),
+		zap.String("phase", err.Phase),
+	)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(httpStatus)
+	json.NewEncoder(w).Encode(err)
+}
+
+// classifyConnectionError determines the specific error code based on the error type
+func classifyConnectionError(err error) string {
+	errStr := err.Error()
+	switch {
+	case strings.Contains(errStr, "timeout"):
+		return ErrCodeTimeout
+	case strings.Contains(errStr, "no such host"):
+		return ErrCodeNetworkUnreachable
+	case strings.Contains(errStr, "connection refused"):
+		return ErrCodeConnectionFailed
+	case strings.Contains(errStr, "certificate"):
+		return ErrCodeTLSError
+	case strings.Contains(errStr, "network is unreachable"):
+		return ErrCodeNetworkUnreachable
+	default:
+		return ErrCodeConnectionFailed
+	}
+}
+
 // handleDiscoverHost handles POST /api/nodes/discover
 // This endpoint connects to a remote host and validates its token, returning discovered resources.
+//
+// Flow:
+// 1. Ping the host's registration API to verify it's available
+// 2. Validate the provided token with the host
+// 3. Fetch full discovery data (hardware resources)
+// 4. Return discovery data to frontend for confirmation
 func (h *HostRegistrationHandler) handleDiscoverHost(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -173,17 +248,40 @@ func (h *HostRegistrationHandler) handleDiscoverHost(w http.ResponseWriter, r *h
 
 	var req HostDiscoveryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.writeError(w, "Invalid request body", http.StatusBadRequest)
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:    "INVALID_REQUEST",
+			Message: "Invalid request body",
+			Details: err.Error(),
+			Phase:   "request_parsing",
+		}, http.StatusBadRequest)
 		return
 	}
 
-	if req.HostURL == "" || req.RegistrationToken == "" {
-		h.writeError(w, "Host URL and registration token are required", http.StatusBadRequest)
+	// Normalize host URL (remove trailing slash)
+	req.HostURL = strings.TrimSuffix(req.HostURL, "/")
+
+	if req.HostURL == "" {
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:    "MISSING_HOST_URL",
+			Message: "Host URL is required",
+			Phase:   "validation",
+		}, http.StatusBadRequest)
 		return
 	}
 
-	h.logger.Info("Host discovery request",
+	if req.RegistrationToken == "" {
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:    ErrCodeTokenMissing,
+			Message: "Registration token is required",
+			Details: "Enter the token displayed on the host's registration page",
+			Phase:   "validation",
+		}, http.StatusBadRequest)
+		return
+	}
+
+	h.logger.Info("Starting host discovery",
 		zap.String("host_url", req.HostURL),
+		zap.String("token_prefix", req.RegistrationToken[:min(12, len(req.RegistrationToken))]+"..."),
 	)
 
 	// Create HTTP client with timeout
@@ -197,76 +295,318 @@ func (h *HostRegistrationHandler) handleDiscoverHost(w http.ResponseWriter, r *h
 		},
 	}
 
-	// Validate token with the host
+	// =========================================================================
+	// PHASE 1: API Availability Check (Ping)
+	// =========================================================================
+	h.logger.Debug("Phase 1: Checking API availability")
+
+	pingURL := fmt.Sprintf("%s/api/v1/registration/ping", req.HostURL)
+	pingResp, err := client.Get(pingURL)
+	if err != nil {
+		errCode := classifyConnectionError(err)
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:    errCode,
+			Message: "Cannot connect to host",
+			Details: fmt.Sprintf("Failed to reach %s: %s", req.HostURL, err.Error()),
+			HostURL: req.HostURL,
+			Phase:   PhaseConnection,
+		}, http.StatusBadGateway)
+		return
+	}
+	defer pingResp.Body.Close()
+
+	pingBody, _ := io.ReadAll(pingResp.Body)
+	pingContentType := pingResp.Header.Get("Content-Type")
+
+	h.logger.Info("API ping response",
+		zap.String("url", pingURL),
+		zap.Int("status", pingResp.StatusCode),
+		zap.String("content_type", pingContentType),
+		zap.Int("body_length", len(pingBody)),
+	)
+
+	// Check if we got HTML instead of JSON (indicates old firmware without registration API)
+	isHTML := len(pingBody) > 0 && (pingBody[0] == '<' || strings.Contains(pingContentType, "text/html"))
+
+	if isHTML {
+		h.logger.Warn("Host returned HTML instead of JSON - firmware likely outdated",
+			zap.String("host_url", req.HostURL),
+			zap.String("content_type", pingContentType),
+		)
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:       ErrCodeFirmwareOutdated,
+			Message:    "Host firmware does not support registration API",
+			Details:    "The host at " + req.HostURL + " returned an HTML page instead of the registration API. This indicates the host is running an older version of Quantix-OS that doesn't support token-based registration. Please update the host to the latest Quantix-OS version.",
+			HostURL:    req.HostURL,
+			StatusCode: pingResp.StatusCode,
+			Phase:      PhaseAPICheck,
+		}, http.StatusBadGateway)
+		return
+	}
+
+	if pingResp.StatusCode != http.StatusOK {
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:       ErrCodeAPINotAvailable,
+			Message:    "Host registration API returned error",
+			Details:    fmt.Sprintf("Status %d: %s", pingResp.StatusCode, string(pingBody)),
+			HostURL:    req.HostURL,
+			StatusCode: pingResp.StatusCode,
+			Phase:      PhaseAPICheck,
+		}, http.StatusBadGateway)
+		return
+	}
+
+	// Parse ping response to get host version info
+	var pingData struct {
+		Status  string `json:"status"`
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(pingBody, &pingData); err != nil {
+		h.logger.Warn("Could not parse ping response", zap.Error(err))
+	} else {
+		h.logger.Info("Host API confirmed",
+			zap.String("status", pingData.Status),
+			zap.String("version", pingData.Version),
+		)
+	}
+
+	// =========================================================================
+	// PHASE 2: Token Validation
+	// =========================================================================
+	h.logger.Debug("Phase 2: Validating registration token")
+
 	tokenURL := fmt.Sprintf("%s/api/v1/registration/token", req.HostURL)
 	tokenReq, err := http.NewRequest(http.MethodGet, tokenURL, nil)
 	if err != nil {
-		h.writeError(w, "Failed to create request", http.StatusInternalServerError)
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:    "INTERNAL_ERROR",
+			Message: "Failed to create token validation request",
+			Details: err.Error(),
+			Phase:   PhaseTokenValidation,
+		}, http.StatusInternalServerError)
 		return
 	}
 	tokenReq.Header.Set("Authorization", "Bearer "+req.RegistrationToken)
 
 	tokenResp, err := client.Do(tokenReq)
 	if err != nil {
-		h.logger.Error("Failed to connect to host", zap.Error(err))
-		h.writeError(w, "Failed to connect to host: "+err.Error(), http.StatusBadGateway)
+		errCode := classifyConnectionError(err)
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:    errCode,
+			Message: "Connection lost during token validation",
+			Details: err.Error(),
+			HostURL: req.HostURL,
+			Phase:   PhaseTokenValidation,
+		}, http.StatusBadGateway)
 		return
 	}
 	defer tokenResp.Body.Close()
 
-	if tokenResp.StatusCode != http.StatusOK {
-		h.writeError(w, "Invalid or expired registration token", http.StatusUnauthorized)
+	tokenBody, _ := io.ReadAll(tokenResp.Body)
+	tokenContentType := tokenResp.Header.Get("Content-Type")
+
+	h.logger.Info("Token validation response",
+		zap.String("url", tokenURL),
+		zap.Int("status", tokenResp.StatusCode),
+		zap.String("content_type", tokenContentType),
+		zap.Int("body_length", len(tokenBody)),
+	)
+
+	// Check for HTML response (should not happen after ping succeeded, but be defensive)
+	if len(tokenBody) > 0 && tokenBody[0] == '<' {
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:       ErrCodeInvalidResponse,
+			Message:    "Unexpected HTML response during token validation",
+			Details:    "The host returned HTML instead of JSON. This is unexpected after the ping succeeded. Try again or restart the host's node daemon.",
+			HostURL:    req.HostURL,
+			StatusCode: tokenResp.StatusCode,
+			Phase:      PhaseTokenValidation,
+		}, http.StatusBadGateway)
 		return
 	}
 
-	// Token valid, now get discovery data
+	// Handle different HTTP status codes
+	switch tokenResp.StatusCode {
+	case http.StatusOK:
+		// Token valid, continue
+	case http.StatusUnauthorized:
+		// Parse error details
+		var tokenErr struct {
+			Error   string `json:"error"`
+			Message string `json:"message"`
+		}
+		if err := json.Unmarshal(tokenBody, &tokenErr); err == nil {
+			if tokenErr.Error == "token_expired" || strings.Contains(tokenErr.Message, "expired") {
+				h.writeDiscoveryError(w, HostDiscoveryError{
+					Code:       ErrCodeTokenExpired,
+					Message:    "Registration token has expired",
+					Details:    "The token is only valid for 1 hour. Please generate a new token on the host.",
+					HostURL:    req.HostURL,
+					StatusCode: tokenResp.StatusCode,
+					Phase:      PhaseTokenValidation,
+				}, http.StatusUnauthorized)
+				return
+			}
+		}
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:       ErrCodeTokenInvalid,
+			Message:    "Invalid registration token",
+			Details:    "The token you entered does not match the token on the host. Please verify you copied it correctly.",
+			HostURL:    req.HostURL,
+			StatusCode: tokenResp.StatusCode,
+			Phase:      PhaseTokenValidation,
+		}, http.StatusUnauthorized)
+		return
+	case http.StatusNotFound:
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:       ErrCodeTokenMissing,
+			Message:    "No registration token exists on the host",
+			Details:    "The host does not have an active registration token. Please generate one on the host first.",
+			HostURL:    req.HostURL,
+			StatusCode: tokenResp.StatusCode,
+			Phase:      PhaseTokenValidation,
+		}, http.StatusBadRequest)
+		return
+	default:
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:       ErrCodeTokenInvalid,
+			Message:    fmt.Sprintf("Token validation failed (HTTP %d)", tokenResp.StatusCode),
+			Details:    string(tokenBody),
+			HostURL:    req.HostURL,
+			StatusCode: tokenResp.StatusCode,
+			Phase:      PhaseTokenValidation,
+		}, http.StatusUnauthorized)
+		return
+	}
+
+	// Parse token response
+	var tokenData struct {
+		Token     string `json:"token"`
+		ExpiresAt string `json:"expiresAt"`
+		Hostname  string `json:"hostname"`
+	}
+	if err := json.Unmarshal(tokenBody, &tokenData); err != nil {
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:    ErrCodeInvalidResponse,
+			Message: "Failed to parse token validation response",
+			Details: err.Error(),
+			HostURL: req.HostURL,
+			Phase:   PhaseTokenValidation,
+		}, http.StatusBadGateway)
+		return
+	}
+
+	h.logger.Info("Token validated successfully",
+		zap.String("host_token", tokenData.Token[:min(12, len(tokenData.Token))]+"..."),
+		zap.String("hostname", tokenData.Hostname),
+		zap.String("expires_at", tokenData.ExpiresAt),
+	)
+
+	// =========================================================================
+	// PHASE 3: Fetch Discovery Data
+	// =========================================================================
+	h.logger.Debug("Phase 3: Fetching host discovery data")
+
 	discoveryURL := fmt.Sprintf("%s/api/v1/registration/discovery", req.HostURL)
 	discoveryReq, err := http.NewRequest(http.MethodGet, discoveryURL, nil)
 	if err != nil {
-		h.writeError(w, "Failed to create request", http.StatusInternalServerError)
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:    "INTERNAL_ERROR",
+			Message: "Failed to create discovery request",
+			Details: err.Error(),
+			Phase:   PhaseDiscovery,
+		}, http.StatusInternalServerError)
 		return
 	}
 	discoveryReq.Header.Set("Authorization", "Bearer "+req.RegistrationToken)
 
 	discoveryResp, err := client.Do(discoveryReq)
 	if err != nil {
-		h.logger.Error("Failed to fetch host resources", zap.Error(err))
-		h.writeError(w, "Failed to fetch host resources: "+err.Error(), http.StatusBadGateway)
+		errCode := classifyConnectionError(err)
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:    errCode,
+			Message: "Connection lost during discovery",
+			Details: err.Error(),
+			HostURL: req.HostURL,
+			Phase:   PhaseDiscovery,
+		}, http.StatusBadGateway)
 		return
 	}
 	defer discoveryResp.Body.Close()
 
-	if discoveryResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(discoveryResp.Body)
-		h.writeError(w, "Failed to get host resources: "+string(body), http.StatusBadGateway)
-		return
-	}
-
-	// Parse discovery response and return
-	var discovery HostDiscoveryResponse
-	bodyBytes, err := io.ReadAll(discoveryResp.Body)
+	discoveryBody, err := io.ReadAll(discoveryResp.Body)
 	if err != nil {
-		h.logger.Error("Failed to read discovery response body", zap.Error(err))
-		h.writeError(w, "Failed to read host resources", http.StatusInternalServerError)
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:    "READ_ERROR",
+			Message: "Failed to read discovery response",
+			Details: err.Error(),
+			Phase:   PhaseDiscovery,
+		}, http.StatusInternalServerError)
 		return
 	}
 
-	h.logger.Debug("Discovery response received",
-		zap.String("body", string(bodyBytes)),
+	discoveryContentType := discoveryResp.Header.Get("Content-Type")
+
+	h.logger.Info("Discovery response received",
+		zap.String("url", discoveryURL),
+		zap.Int("status", discoveryResp.StatusCode),
+		zap.String("content_type", discoveryContentType),
+		zap.Int("body_length", len(discoveryBody)),
 	)
 
-	if err := json.Unmarshal(bodyBytes, &discovery); err != nil {
-		h.logger.Error("Failed to parse discovery response",
-			zap.Error(err),
-			zap.String("body", string(bodyBytes)),
-		)
-		h.writeError(w, "Failed to parse host resources: "+err.Error(), http.StatusInternalServerError)
+	// Check if response looks like HTML (SPA fallback issue)
+	if len(discoveryBody) > 0 && discoveryBody[0] == '<' {
+		previewLen := min(200, len(discoveryBody))
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:       ErrCodeInvalidResponse,
+			Message:    "Host returned HTML instead of discovery data",
+			Details:    "The discovery endpoint returned an HTML page. This indicates a routing issue on the host. Preview: " + string(discoveryBody[:previewLen]),
+			HostURL:    req.HostURL,
+			StatusCode: discoveryResp.StatusCode,
+			Phase:      PhaseDiscovery,
+		}, http.StatusBadGateway)
 		return
 	}
 
-	h.logger.Info("Host discovery successful",
+	if discoveryResp.StatusCode != http.StatusOK {
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:       ErrCodeDiscoveryFailed,
+			Message:    fmt.Sprintf("Discovery failed (HTTP %d)", discoveryResp.StatusCode),
+			Details:    string(discoveryBody),
+			HostURL:    req.HostURL,
+			StatusCode: discoveryResp.StatusCode,
+			Phase:      PhaseDiscovery,
+		}, http.StatusBadGateway)
+		return
+	}
+
+	// Parse discovery response
+	var discovery HostDiscoveryResponse
+	if err := json.Unmarshal(discoveryBody, &discovery); err != nil {
+		h.writeDiscoveryError(w, HostDiscoveryError{
+			Code:    ErrCodeInvalidResponse,
+			Message: "Failed to parse host discovery data",
+			Details: fmt.Sprintf("JSON parse error: %s. Body: %s", err.Error(), string(discoveryBody[:min(200, len(discoveryBody))])),
+			HostURL: req.HostURL,
+			Phase:   PhaseDiscovery,
+		}, http.StatusBadGateway)
+		return
+	}
+
+	// =========================================================================
+	// SUCCESS: All phases completed
+	// =========================================================================
+	h.logger.Info("Host discovery completed successfully",
 		zap.String("hostname", discovery.Hostname),
-		zap.String("ip", discovery.ManagementIP),
+		zap.String("management_ip", discovery.ManagementIP),
+		zap.String("host_url", req.HostURL),
+		zap.Int("cpu_cores", discovery.CPU.Cores),
+		zap.Uint64("memory_bytes", discovery.Memory.TotalBytes),
+		zap.Int("local_disks", len(discovery.Storage.Local)),
+		zap.Int("nfs_mounts", len(discovery.Storage.NFS)),
+		zap.Int("iscsi_targets", len(discovery.Storage.ISCSI)),
+		zap.Int("network_interfaces", len(discovery.Network)),
+		zap.Int("gpus", len(discovery.GPUs)),
 	)
 
 	h.writeJSON(w, discovery, http.StatusOK)

@@ -906,6 +906,7 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/cluster/test-connection", post(test_vdc_connection))
         .route("/cluster/generate-token", post(generate_cluster_registration_token))
         // Registration endpoints (for vDC to discover and add this host)
+        .route("/registration/ping", get(registration_ping))  // Diagnostic endpoint (no auth)
         .route("/registration/token", post(generate_registration_token))
         .route("/registration/token", get(get_current_registration_token))
         .route("/registration/discovery", get(get_host_discovery))
@@ -4256,6 +4257,18 @@ static CURRENT_TOKEN: std::sync::OnceLock<std::sync::Mutex<Option<(String, std::
 
 fn get_token_storage() -> &'static std::sync::Mutex<Option<(String, std::time::Instant)>> {
     CURRENT_TOKEN.get_or_init(|| std::sync::Mutex::new(None))
+}
+
+/// Diagnostic ping endpoint for registration API (no auth required)
+/// Used by vDC to verify the API is reachable before attempting token validation
+async fn registration_ping() -> Json<serde_json::Value> {
+    info!("Registration ping received");
+    Json(serde_json::json!({
+        "status": "ok",
+        "message": "Registration API is reachable",
+        "version": env!("CARGO_PKG_VERSION"),
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    }))
 }
 
 /// Generate a new registration token (valid for 1 hour)
