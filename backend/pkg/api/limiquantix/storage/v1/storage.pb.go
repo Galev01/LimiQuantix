@@ -981,9 +981,13 @@ type StoragePoolSpec struct {
 	// Replication settings (for distributed storage)
 	Replication *ReplicationConfig `protobuf:"bytes,5,opt,name=replication,proto3" json:"replication,omitempty"`
 	// Tiering configuration
-	Tiering       *TieringConfig `protobuf:"bytes,6,opt,name=tiering,proto3" json:"tiering,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Tiering *TieringConfig `protobuf:"bytes,6,opt,name=tiering,proto3" json:"tiering,omitempty"`
+	// Assigned node IDs - nodes that have access to this storage pool.
+	// For shared storage (NFS, Ceph), multiple nodes can be assigned.
+	// For local storage (LocalDir, LVM), typically only one node is assigned.
+	AssignedNodeIds []string `protobuf:"bytes,7,rep,name=assigned_node_ids,json=assignedNodeIds,proto3" json:"assigned_node_ids,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *StoragePoolSpec) Reset() {
@@ -1054,6 +1058,13 @@ func (x *StoragePoolSpec) GetReplication() *ReplicationConfig {
 func (x *StoragePoolSpec) GetTiering() *TieringConfig {
 	if x != nil {
 		return x.Tiering
+	}
+	return nil
+}
+
+func (x *StoragePoolSpec) GetAssignedNodeIds() []string {
+	if x != nil {
+		return x.AssignedNodeIds
 	}
 	return nil
 }
@@ -4699,7 +4710,7 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa5\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd1\x03\n" +
 	"\x0fStoragePoolSpec\x12@\n" +
 	"\abackend\x18\x01 \x01(\v2&.limiquantix.storage.v1.StorageBackendR\abackend\x12B\n" +
 	"\bdefaults\x18\x02 \x01(\v2&.limiquantix.storage.v1.VolumeDefaultsR\bdefaults\x124\n" +
@@ -4708,7 +4719,8 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"encryption\x18\x04 \x01(\v2(.limiquantix.storage.v1.EncryptionConfigR\n" +
 	"encryption\x12K\n" +
 	"\vreplication\x18\x05 \x01(\v2).limiquantix.storage.v1.ReplicationConfigR\vreplication\x12?\n" +
-	"\atiering\x18\x06 \x01(\v2%.limiquantix.storage.v1.TieringConfigR\atiering\"\xfe\x03\n" +
+	"\atiering\x18\x06 \x01(\v2%.limiquantix.storage.v1.TieringConfigR\atiering\x12*\n" +
+	"\x11assigned_node_ids\x18\a \x03(\tR\x0fassignedNodeIds\"\xfe\x03\n" +
 	"\x0eStorageBackend\x12F\n" +
 	"\x04type\x18\x01 \x01(\x0e22.limiquantix.storage.v1.StorageBackend.BackendTypeR\x04type\x128\n" +
 	"\x04ceph\x18\x02 \x01(\v2\".limiquantix.storage.v1.CephConfigH\x00R\x04ceph\x12E\n" +

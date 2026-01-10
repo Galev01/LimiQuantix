@@ -61,6 +61,11 @@ message StoragePoolSpec {
   
   // Tiering configuration
   TieringConfig tiering = 6;
+
+  // Assigned node IDs - nodes that have access to this storage pool.
+  // For shared storage (NFS, Ceph), multiple nodes can be assigned.
+  // For local storage (LocalDir, LVM), typically only one node is assigned.
+  repeated string assigned_node_ids = 7;
 }
 
 message StorageBackend {

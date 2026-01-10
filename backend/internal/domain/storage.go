@@ -54,6 +54,11 @@ type StoragePoolSpec struct {
 	QoS         StorageQoS        `json:"qos"`
 	Encryption  EncryptionConfig  `json:"encryption"`
 	Replication ReplicationConfig `json:"replication"`
+
+	// AssignedNodeIDs lists the nodes that have access to this storage pool.
+	// For shared storage (NFS, Ceph), multiple nodes can be assigned.
+	// For local storage (LocalDir, LVM), typically only one node is assigned.
+	AssignedNodeIDs []string `json:"assigned_node_ids,omitempty"`
 }
 
 // StorageBackend defines the storage backend configuration.
@@ -195,6 +200,57 @@ type HealthCheck struct {
 // IsReady returns true if the storage pool is ready to use.
 func (p *StoragePool) IsReady() bool {
 	return p.Status.Phase == StoragePoolPhaseReady
+}
+
+// IsAssignedToNode returns true if the storage pool is assigned to the given node.
+func (p *StoragePool) IsAssignedToNode(nodeID string) bool {
+	for _, id := range p.Spec.AssignedNodeIDs {
+		if id == nodeID {
+			return true
+		}
+	}
+	return false
+}
+
+// AssignToNode adds a node to the assigned nodes list if not already present.
+func (p *StoragePool) AssignToNode(nodeID string) bool {
+	if p.IsAssignedToNode(nodeID) {
+		return false // Already assigned
+	}
+	p.Spec.AssignedNodeIDs = append(p.Spec.AssignedNodeIDs, nodeID)
+	return true
+}
+
+// UnassignFromNode removes a node from the assigned nodes list.
+func (p *StoragePool) UnassignFromNode(nodeID string) bool {
+	for i, id := range p.Spec.AssignedNodeIDs {
+		if id == nodeID {
+			p.Spec.AssignedNodeIDs = append(p.Spec.AssignedNodeIDs[:i], p.Spec.AssignedNodeIDs[i+1:]...)
+			return true
+		}
+	}
+	return false // Not assigned
+}
+
+// GetAssignedNodeIDs returns the list of assigned node IDs.
+func (p *StoragePool) GetAssignedNodeIDs() []string {
+	if p.Spec.AssignedNodeIDs == nil {
+		return []string{}
+	}
+	return p.Spec.AssignedNodeIDs
+}
+
+// IsSharedStorage returns true if the storage backend is shared (NFS, Ceph).
+func (p *StoragePool) IsSharedStorage() bool {
+	if p.Spec.Backend == nil {
+		return false
+	}
+	switch p.Spec.Backend.Type {
+	case BackendTypeNFS, BackendTypeCephRBD, BackendTypeCephFS:
+		return true
+	default:
+		return false
+	}
 }
 
 // =============================================================================

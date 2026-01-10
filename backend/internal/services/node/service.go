@@ -294,6 +294,10 @@ func (s *Service) RegisterNode(
 	if s.daemonPool != nil {
 		// ManagementIP should include port (e.g., "192.168.0.53:9090")
 		daemonAddr := created.ManagementIP
+		// Strip CIDR notation if present (e.g., "192.168.0.53/32" -> "192.168.0.53")
+		if idx := strings.Index(daemonAddr, "/"); idx != -1 {
+			daemonAddr = daemonAddr[:idx]
+		}
 		if !strings.Contains(daemonAddr, ":") {
 			daemonAddr = daemonAddr + ":9090"
 		}
@@ -649,6 +653,10 @@ func (s *Service) UpdateHeartbeat(
 		// Establish gRPC connection on reconnection
 		if s.daemonPool != nil {
 			daemonAddr := node.ManagementIP
+			// Strip CIDR notation if present (e.g., "192.168.0.53/32" -> "192.168.0.53")
+			if idx := strings.Index(daemonAddr, "/"); idx != -1 {
+				daemonAddr = daemonAddr[:idx]
+			}
 			if !strings.Contains(daemonAddr, ":") {
 				daemonAddr = daemonAddr + ":9090"
 			}
@@ -669,6 +677,10 @@ func (s *Service) UpdateHeartbeat(
 	// Ensure daemon pool connection exists for ready nodes (lazy connection)
 	if s.daemonPool != nil && s.daemonPool.Get(node.ID) == nil {
 		daemonAddr := node.ManagementIP
+		// Strip CIDR notation if present (e.g., "192.168.0.53/32" -> "192.168.0.53")
+		if idx := strings.Index(daemonAddr, "/"); idx != -1 {
+			daemonAddr = daemonAddr[:idx]
+		}
 		if !strings.Contains(daemonAddr, ":") {
 			daemonAddr = daemonAddr + ":9090"
 		}

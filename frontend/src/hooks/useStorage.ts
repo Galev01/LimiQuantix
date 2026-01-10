@@ -89,6 +89,18 @@ export interface StoragePoolUI {
   };
   createdAt: Date;
   labels: Record<string, string>;
+  assignedNodeIds: string[];
+}
+
+// File entry type for storage pool file browser
+export interface PoolFileEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  sizeBytes: number;
+  modifiedAt: string;
+  fileType: string;
+  permissions: string;
 }
 
 export interface VolumeUI {
@@ -151,6 +163,7 @@ function toStoragePoolUI(pool: StoragePool): StoragePoolUI {
     },
     createdAt: timestampToDate(pool.createdAt),
     labels: pool.labels,
+    assignedNodeIds: pool.spec?.assignedNodeIds ?? [],
   };
 }
 
@@ -405,6 +418,67 @@ export function useReconnectStoragePool() {
     onError: (error) => {
       showError(error, 'Failed to reconnect storage pool');
     },
+  });
+}
+
+// Assign storage pool to a node
+export function useAssignPoolToNode() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ poolId, nodeId }: { poolId: string; nodeId: string }) => {
+      const response = await poolClient.assignPoolToNode({ poolId, nodeId });
+      return toStoragePoolUI(response);
+    },
+    onSuccess: (pool) => {
+      showSuccess(`Storage pool "${pool.name}" assigned to node`);
+      queryClient.invalidateQueries({ queryKey: storageKeys.pools.lists() });
+      queryClient.invalidateQueries({ queryKey: storageKeys.pools.detail(pool.id) });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to assign storage pool to node');
+    },
+  });
+}
+
+// Unassign storage pool from a node
+export function useUnassignPoolFromNode() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ poolId, nodeId }: { poolId: string; nodeId: string }) => {
+      const response = await poolClient.unassignPoolFromNode({ poolId, nodeId });
+      return toStoragePoolUI(response);
+    },
+    onSuccess: (pool) => {
+      showSuccess(`Storage pool "${pool.name}" unassigned from node`);
+      queryClient.invalidateQueries({ queryKey: storageKeys.pools.lists() });
+      queryClient.invalidateQueries({ queryKey: storageKeys.pools.detail(pool.id) });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to unassign storage pool from node');
+    },
+  });
+}
+
+// List files in a storage pool
+export function usePoolFiles(poolId: string, path = '', enabled = true) {
+  return useQuery({
+    queryKey: [...storageKeys.pools.detail(poolId), 'files', path],
+    queryFn: async (): Promise<PoolFileEntry[]> => {
+      const response = await poolClient.listPoolFiles({ poolId, path });
+      return response.entries.map(entry => ({
+        name: entry.name,
+        path: entry.path,
+        isDirectory: entry.isDirectory,
+        sizeBytes: Number(entry.sizeBytes),
+        modifiedAt: entry.modifiedAt,
+        fileType: entry.fileType,
+        permissions: entry.permissions,
+      }));
+    },
+    enabled: enabled && !!poolId,
+    staleTime: 10_000,
   });
 }
 

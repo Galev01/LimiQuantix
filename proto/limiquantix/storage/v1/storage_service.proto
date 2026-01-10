@@ -36,6 +36,15 @@ service StoragePoolService {
   // ReconnectPool retries initialization of a pool on connected nodes.
   // Used when pool is in ERROR state due to no connected nodes.
   rpc ReconnectPool(ReconnectPoolRequest) returns (StoragePool);
+
+  // AssignPoolToNode assigns a storage pool to a node, making it available for VMs on that node.
+  rpc AssignPoolToNode(AssignPoolToNodeRequest) returns (StoragePool);
+
+  // UnassignPoolFromNode removes a storage pool assignment from a node.
+  rpc UnassignPoolFromNode(UnassignPoolFromNodeRequest) returns (StoragePool);
+
+  // ListPoolFiles lists files and directories inside a storage pool's mount path.
+  rpc ListPoolFiles(ListPoolFilesRequest) returns (ListPoolFilesResponse);
 }
 
 // =============================================================================
@@ -204,6 +213,41 @@ message GetPoolMetricsRequest {
 
 message ReconnectPoolRequest {
   string id = 1;
+}
+
+// AssignPoolToNodeRequest assigns a storage pool to a specific node.
+message AssignPoolToNodeRequest {
+  string pool_id = 1;
+  string node_id = 2;
+}
+
+// UnassignPoolFromNodeRequest removes a storage pool assignment from a node.
+message UnassignPoolFromNodeRequest {
+  string pool_id = 1;
+  string node_id = 2;
+}
+
+// ListPoolFilesRequest lists files inside a storage pool.
+message ListPoolFilesRequest {
+  string pool_id = 1;
+  string path = 2;  // Relative path within the pool (empty for root)
+}
+
+// ListPoolFilesResponse contains the file listing.
+message ListPoolFilesResponse {
+  repeated PoolFileEntry entries = 1;
+  string current_path = 2;
+}
+
+// PoolFileEntry represents a file or directory in the storage pool.
+message PoolFileEntry {
+  string name = 1;
+  string path = 2;  // Full path relative to pool root
+  bool is_directory = 3;
+  uint64 size_bytes = 4;
+  string modified_at = 5;  // ISO 8601 timestamp
+  string file_type = 6;    // "qcow2", "iso", "vmdk", "directory", etc.
+  string permissions = 7;  // Unix-style permissions string
 }
 
 message PoolMetrics {

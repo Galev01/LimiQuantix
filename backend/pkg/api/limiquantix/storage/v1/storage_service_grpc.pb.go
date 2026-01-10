@@ -20,13 +20,16 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	StoragePoolService_CreatePool_FullMethodName     = "/limiquantix.storage.v1.StoragePoolService/CreatePool"
-	StoragePoolService_GetPool_FullMethodName        = "/limiquantix.storage.v1.StoragePoolService/GetPool"
-	StoragePoolService_ListPools_FullMethodName      = "/limiquantix.storage.v1.StoragePoolService/ListPools"
-	StoragePoolService_UpdatePool_FullMethodName     = "/limiquantix.storage.v1.StoragePoolService/UpdatePool"
-	StoragePoolService_DeletePool_FullMethodName     = "/limiquantix.storage.v1.StoragePoolService/DeletePool"
-	StoragePoolService_GetPoolMetrics_FullMethodName = "/limiquantix.storage.v1.StoragePoolService/GetPoolMetrics"
-	StoragePoolService_ReconnectPool_FullMethodName  = "/limiquantix.storage.v1.StoragePoolService/ReconnectPool"
+	StoragePoolService_CreatePool_FullMethodName           = "/limiquantix.storage.v1.StoragePoolService/CreatePool"
+	StoragePoolService_GetPool_FullMethodName              = "/limiquantix.storage.v1.StoragePoolService/GetPool"
+	StoragePoolService_ListPools_FullMethodName            = "/limiquantix.storage.v1.StoragePoolService/ListPools"
+	StoragePoolService_UpdatePool_FullMethodName           = "/limiquantix.storage.v1.StoragePoolService/UpdatePool"
+	StoragePoolService_DeletePool_FullMethodName           = "/limiquantix.storage.v1.StoragePoolService/DeletePool"
+	StoragePoolService_GetPoolMetrics_FullMethodName       = "/limiquantix.storage.v1.StoragePoolService/GetPoolMetrics"
+	StoragePoolService_ReconnectPool_FullMethodName        = "/limiquantix.storage.v1.StoragePoolService/ReconnectPool"
+	StoragePoolService_AssignPoolToNode_FullMethodName     = "/limiquantix.storage.v1.StoragePoolService/AssignPoolToNode"
+	StoragePoolService_UnassignPoolFromNode_FullMethodName = "/limiquantix.storage.v1.StoragePoolService/UnassignPoolFromNode"
+	StoragePoolService_ListPoolFiles_FullMethodName        = "/limiquantix.storage.v1.StoragePoolService/ListPoolFiles"
 )
 
 // StoragePoolServiceClient is the client API for StoragePoolService service.
@@ -51,6 +54,12 @@ type StoragePoolServiceClient interface {
 	// ReconnectPool retries initialization of a pool on connected nodes.
 	// Used when pool is in ERROR state due to no connected nodes.
 	ReconnectPool(ctx context.Context, in *ReconnectPoolRequest, opts ...grpc.CallOption) (*StoragePool, error)
+	// AssignPoolToNode assigns a storage pool to a node, making it available for VMs on that node.
+	AssignPoolToNode(ctx context.Context, in *AssignPoolToNodeRequest, opts ...grpc.CallOption) (*StoragePool, error)
+	// UnassignPoolFromNode removes a storage pool assignment from a node.
+	UnassignPoolFromNode(ctx context.Context, in *UnassignPoolFromNodeRequest, opts ...grpc.CallOption) (*StoragePool, error)
+	// ListPoolFiles lists files and directories inside a storage pool's mount path.
+	ListPoolFiles(ctx context.Context, in *ListPoolFilesRequest, opts ...grpc.CallOption) (*ListPoolFilesResponse, error)
 }
 
 type storagePoolServiceClient struct {
@@ -131,6 +140,36 @@ func (c *storagePoolServiceClient) ReconnectPool(ctx context.Context, in *Reconn
 	return out, nil
 }
 
+func (c *storagePoolServiceClient) AssignPoolToNode(ctx context.Context, in *AssignPoolToNodeRequest, opts ...grpc.CallOption) (*StoragePool, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StoragePool)
+	err := c.cc.Invoke(ctx, StoragePoolService_AssignPoolToNode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storagePoolServiceClient) UnassignPoolFromNode(ctx context.Context, in *UnassignPoolFromNodeRequest, opts ...grpc.CallOption) (*StoragePool, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StoragePool)
+	err := c.cc.Invoke(ctx, StoragePoolService_UnassignPoolFromNode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storagePoolServiceClient) ListPoolFiles(ctx context.Context, in *ListPoolFilesRequest, opts ...grpc.CallOption) (*ListPoolFilesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPoolFilesResponse)
+	err := c.cc.Invoke(ctx, StoragePoolService_ListPoolFiles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // StoragePoolServiceServer is the server API for StoragePoolService service.
 // All implementations should embed UnimplementedStoragePoolServiceServer
 // for forward compatibility.
@@ -153,6 +192,12 @@ type StoragePoolServiceServer interface {
 	// ReconnectPool retries initialization of a pool on connected nodes.
 	// Used when pool is in ERROR state due to no connected nodes.
 	ReconnectPool(context.Context, *ReconnectPoolRequest) (*StoragePool, error)
+	// AssignPoolToNode assigns a storage pool to a node, making it available for VMs on that node.
+	AssignPoolToNode(context.Context, *AssignPoolToNodeRequest) (*StoragePool, error)
+	// UnassignPoolFromNode removes a storage pool assignment from a node.
+	UnassignPoolFromNode(context.Context, *UnassignPoolFromNodeRequest) (*StoragePool, error)
+	// ListPoolFiles lists files and directories inside a storage pool's mount path.
+	ListPoolFiles(context.Context, *ListPoolFilesRequest) (*ListPoolFilesResponse, error)
 }
 
 // UnimplementedStoragePoolServiceServer should be embedded to have
@@ -182,6 +227,15 @@ func (UnimplementedStoragePoolServiceServer) GetPoolMetrics(context.Context, *Ge
 }
 func (UnimplementedStoragePoolServiceServer) ReconnectPool(context.Context, *ReconnectPoolRequest) (*StoragePool, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReconnectPool not implemented")
+}
+func (UnimplementedStoragePoolServiceServer) AssignPoolToNode(context.Context, *AssignPoolToNodeRequest) (*StoragePool, error) {
+	return nil, status.Error(codes.Unimplemented, "method AssignPoolToNode not implemented")
+}
+func (UnimplementedStoragePoolServiceServer) UnassignPoolFromNode(context.Context, *UnassignPoolFromNodeRequest) (*StoragePool, error) {
+	return nil, status.Error(codes.Unimplemented, "method UnassignPoolFromNode not implemented")
+}
+func (UnimplementedStoragePoolServiceServer) ListPoolFiles(context.Context, *ListPoolFilesRequest) (*ListPoolFilesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPoolFiles not implemented")
 }
 func (UnimplementedStoragePoolServiceServer) testEmbeddedByValue() {}
 
@@ -329,6 +383,60 @@ func _StoragePoolService_ReconnectPool_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _StoragePoolService_AssignPoolToNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignPoolToNodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoragePoolServiceServer).AssignPoolToNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StoragePoolService_AssignPoolToNode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoragePoolServiceServer).AssignPoolToNode(ctx, req.(*AssignPoolToNodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _StoragePoolService_UnassignPoolFromNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnassignPoolFromNodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoragePoolServiceServer).UnassignPoolFromNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StoragePoolService_UnassignPoolFromNode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoragePoolServiceServer).UnassignPoolFromNode(ctx, req.(*UnassignPoolFromNodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _StoragePoolService_ListPoolFiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPoolFilesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoragePoolServiceServer).ListPoolFiles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StoragePoolService_ListPoolFiles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoragePoolServiceServer).ListPoolFiles(ctx, req.(*ListPoolFilesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // StoragePoolService_ServiceDesc is the grpc.ServiceDesc for StoragePoolService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -363,6 +471,18 @@ var StoragePoolService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReconnectPool",
 			Handler:    _StoragePoolService_ReconnectPool_Handler,
+		},
+		{
+			MethodName: "AssignPoolToNode",
+			Handler:    _StoragePoolService_AssignPoolToNode_Handler,
+		},
+		{
+			MethodName: "UnassignPoolFromNode",
+			Handler:    _StoragePoolService_UnassignPoolFromNode_Handler,
+		},
+		{
+			MethodName: "ListPoolFiles",
+			Handler:    _StoragePoolService_ListPoolFiles_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

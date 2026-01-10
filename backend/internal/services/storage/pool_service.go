@@ -183,6 +183,10 @@ func (s *PoolService) initPoolOnNodes(ctx context.Context, pool *domain.StorageP
 			for _, n := range allNodes {
 			// Try to connect - ManagementIP should include port
 			daemonAddr := n.ManagementIP
+			// Strip CIDR notation if present (e.g., "192.168.0.53/32" -> "192.168.0.53")
+			if idx := strings.Index(daemonAddr, "/"); idx != -1 {
+				daemonAddr = daemonAddr[:idx]
+			}
 			if !strings.Contains(daemonAddr, ":") {
 				daemonAddr = daemonAddr + ":9090"
 			}
@@ -580,4 +584,183 @@ func (s *PoolService) ReconnectPool(
 		zap.String("phase", string(pool.Status.Phase)),
 	)
 	return connect.NewResponse(convertPoolToProto(pool)), nil
+}
+
+// AssignPoolToNode assigns a storage pool to a specific node.
+func (s *PoolService) AssignPoolToNode(
+	ctx context.Context,
+	req *connect.Request[storagev1.AssignPoolToNodeRequest],
+) (*connect.Response[storagev1.StoragePool], error) {
+	logger := s.logger.With(
+		zap.String("method", "AssignPoolToNode"),
+		zap.String("pool_id", req.Msg.PoolId),
+		zap.String("node_id", req.Msg.NodeId),
+	)
+	logger.Info("Assigning storage pool to node")
+
+	// Validate inputs
+	if req.Msg.PoolId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("pool_id is required"))
+	}
+	if req.Msg.NodeId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
+	}
+
+	// Get existing pool
+	pool, err := s.repo.Get(ctx, req.Msg.PoolId)
+	if err != nil {
+		logger.Error("Failed to get storage pool", zap.Error(err))
+		if err == domain.ErrNotFound {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("pool not found: %s", req.Msg.PoolId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Verify node exists
+	if s.nodeRepo != nil {
+		_, err := s.nodeRepo.Get(ctx, req.Msg.NodeId)
+		if err != nil {
+			logger.Error("Node not found", zap.Error(err))
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
+		}
+	}
+
+	// Assign node to pool
+	if pool.AssignToNode(req.Msg.NodeId) {
+		pool.UpdatedAt = time.Now()
+		if _, err := s.repo.Update(ctx, pool); err != nil {
+			logger.Error("Failed to update pool", zap.Error(err))
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		logger.Info("Pool assigned to node successfully")
+	} else {
+		logger.Info("Pool already assigned to node")
+	}
+
+	return connect.NewResponse(convertPoolToProto(pool)), nil
+}
+
+// UnassignPoolFromNode removes a storage pool assignment from a node.
+func (s *PoolService) UnassignPoolFromNode(
+	ctx context.Context,
+	req *connect.Request[storagev1.UnassignPoolFromNodeRequest],
+) (*connect.Response[storagev1.StoragePool], error) {
+	logger := s.logger.With(
+		zap.String("method", "UnassignPoolFromNode"),
+		zap.String("pool_id", req.Msg.PoolId),
+		zap.String("node_id", req.Msg.NodeId),
+	)
+	logger.Info("Unassigning storage pool from node")
+
+	// Validate inputs
+	if req.Msg.PoolId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("pool_id is required"))
+	}
+	if req.Msg.NodeId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
+	}
+
+	// Get existing pool
+	pool, err := s.repo.Get(ctx, req.Msg.PoolId)
+	if err != nil {
+		logger.Error("Failed to get storage pool", zap.Error(err))
+		if err == domain.ErrNotFound {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("pool not found: %s", req.Msg.PoolId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Unassign node from pool
+	if pool.UnassignFromNode(req.Msg.NodeId) {
+		pool.UpdatedAt = time.Now()
+		if _, err := s.repo.Update(ctx, pool); err != nil {
+			logger.Error("Failed to update pool", zap.Error(err))
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		logger.Info("Pool unassigned from node successfully")
+	} else {
+		logger.Info("Pool was not assigned to node")
+	}
+
+	return connect.NewResponse(convertPoolToProto(pool)), nil
+}
+
+// ListPoolFiles lists files inside a storage pool's mount path.
+func (s *PoolService) ListPoolFiles(
+	ctx context.Context,
+	req *connect.Request[storagev1.ListPoolFilesRequest],
+) (*connect.Response[storagev1.ListPoolFilesResponse], error) {
+	logger := s.logger.With(
+		zap.String("method", "ListPoolFiles"),
+		zap.String("pool_id", req.Msg.PoolId),
+		zap.String("path", req.Msg.Path),
+	)
+	logger.Info("Listing storage pool files")
+
+	// Get pool
+	pool, err := s.repo.Get(ctx, req.Msg.PoolId)
+	if err != nil {
+		logger.Error("Failed to get storage pool", zap.Error(err))
+		if err == domain.ErrNotFound {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("pool not found: %s", req.Msg.PoolId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Check if pool has any assigned nodes
+	assignedNodes := pool.GetAssignedNodeIDs()
+	if len(assignedNodes) == 0 {
+		// If no assigned nodes, try to use any connected node
+		if s.daemonPool != nil {
+			assignedNodes = s.daemonPool.ConnectedNodes()
+		}
+	}
+
+	if len(assignedNodes) == 0 {
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("no nodes available to list files for this pool"))
+	}
+
+	// Try to list files from the first available node
+	var entries []*storagev1.PoolFileEntry
+	var lastErr error
+
+	for _, nodeID := range assignedNodes {
+		client := s.daemonPool.Get(nodeID)
+		if client == nil {
+			continue
+		}
+
+		// Call node daemon to list files
+		resp, err := client.ListStoragePoolFiles(ctx, req.Msg.PoolId, req.Msg.Path)
+		if err != nil {
+			lastErr = err
+			logger.Warn("Failed to list files from node", zap.String("node_id", nodeID), zap.Error(err))
+			continue
+		}
+
+		// Convert response
+		for _, entry := range resp.Entries {
+			entries = append(entries, &storagev1.PoolFileEntry{
+				Name:        entry.Name,
+				Path:        entry.Path,
+				IsDirectory: entry.IsDirectory,
+				SizeBytes:   entry.SizeBytes,
+				ModifiedAt:  entry.ModifiedAt,
+				FileType:    entry.FileType,
+				Permissions: entry.Permissions,
+			})
+		}
+
+		return connect.NewResponse(&storagev1.ListPoolFilesResponse{
+			Entries:     entries,
+			CurrentPath: req.Msg.Path,
+		}), nil
+	}
+
+	if lastErr != nil {
+		return nil, connect.NewError(connect.CodeInternal, lastErr)
+	}
+
+	return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("could not list files from any node"))
 }

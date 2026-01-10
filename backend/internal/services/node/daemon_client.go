@@ -534,6 +534,29 @@ func (c *DaemonClient) ListStoragePools(ctx context.Context) (*nodev1.ListStorag
 	return resp, nil
 }
 
+// ListStoragePoolFiles lists files in a storage pool on the node.
+func (c *DaemonClient) ListStoragePoolFiles(ctx context.Context, poolID, path string) (*nodev1.ListStoragePoolFilesResponse, error) {
+	c.logger.Info("Listing storage pool files on node",
+		zap.String("addr", c.addr),
+		zap.String("pool_id", poolID),
+		zap.String("path", path),
+	)
+
+	resp, err := c.client.ListStoragePoolFiles(ctx, &nodev1.ListStoragePoolFilesRequest{
+		PoolId: poolID,
+		Path:   path,
+	})
+	if err != nil {
+		c.logger.Error("List storage pool files failed",
+			zap.String("addr", c.addr),
+			zap.String("pool_id", poolID),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	return resp, nil
+}
+
 // =============================================================================
 // Storage Volume Operations
 // =============================================================================

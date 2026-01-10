@@ -70,6 +70,9 @@ func convertPoolSpecToProto(spec *domain.StoragePoolSpec) *storagev1.StoragePool
 		}
 	}
 
+	// Add assigned node IDs
+	protoSpec.AssignedNodeIds = spec.AssignedNodeIDs
+
 	return protoSpec
 }
 
@@ -212,6 +215,9 @@ func convertPoolSpecFromProto(spec *storagev1.StoragePoolSpec) *domain.StoragePo
 			FailureDomain: spec.Replication.FailureDomain,
 		}
 	}
+
+	// Copy assigned node IDs
+	domainSpec.AssignedNodeIDs = spec.AssignedNodeIds
 
 	return domainSpec
 }

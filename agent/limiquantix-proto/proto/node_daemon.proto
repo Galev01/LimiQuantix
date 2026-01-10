@@ -136,6 +136,9 @@ service NodeDaemonService {
   
   // List all storage pools on this node
   rpc ListStoragePools(google.protobuf.Empty) returns (ListStoragePoolsResponse);
+
+  // List files in a storage pool
+  rpc ListStoragePoolFiles(ListStoragePoolFilesRequest) returns (ListStoragePoolFilesResponse);
   
   // =========================================================================
   // Storage Volume Operations
@@ -790,6 +793,27 @@ message StoragePoolInfoResponse {
 // List storage pools response
 message ListStoragePoolsResponse {
   repeated StoragePoolInfoResponse pools = 1;
+}
+
+// List files in a storage pool
+message ListStoragePoolFilesRequest {
+  string pool_id = 1;
+  string path = 2;  // Relative path within the pool (empty for root)
+}
+
+message ListStoragePoolFilesResponse {
+  repeated StoragePoolFileEntry entries = 1;
+  string current_path = 2;
+}
+
+message StoragePoolFileEntry {
+  string name = 1;
+  string path = 2;  // Full path relative to pool root
+  bool is_directory = 3;
+  uint64 size_bytes = 4;
+  string modified_at = 5;  // ISO 8601 timestamp
+  string file_type = 6;    // "qcow2", "iso", "vmdk", "directory", etc.
+  string permissions = 7;  // Unix-style permissions string
 }
 
 // =============================================================================

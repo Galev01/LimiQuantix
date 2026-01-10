@@ -53,6 +53,7 @@ const (
 	NodeDaemonService_DestroyStoragePool_FullMethodName   = "/limiquantix.node.v1.NodeDaemonService/DestroyStoragePool"
 	NodeDaemonService_GetStoragePoolInfo_FullMethodName   = "/limiquantix.node.v1.NodeDaemonService/GetStoragePoolInfo"
 	NodeDaemonService_ListStoragePools_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/ListStoragePools"
+	NodeDaemonService_ListStoragePoolFiles_FullMethodName = "/limiquantix.node.v1.NodeDaemonService/ListStoragePoolFiles"
 	NodeDaemonService_CreateVolume_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/CreateVolume"
 	NodeDaemonService_DeleteVolume_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/DeleteVolume"
 	NodeDaemonService_ResizeVolume_FullMethodName         = "/limiquantix.node.v1.NodeDaemonService/ResizeVolume"
@@ -136,6 +137,8 @@ type NodeDaemonServiceClient interface {
 	GetStoragePoolInfo(ctx context.Context, in *StoragePoolIdRequest, opts ...grpc.CallOption) (*StoragePoolInfoResponse, error)
 	// List all storage pools on this node
 	ListStoragePools(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListStoragePoolsResponse, error)
+	// List files in a storage pool
+	ListStoragePoolFiles(ctx context.Context, in *ListStoragePoolFilesRequest, opts ...grpc.CallOption) (*ListStoragePoolFilesResponse, error)
 	// Create a volume in a storage pool
 	CreateVolume(ctx context.Context, in *CreateVolumeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Delete a volume
@@ -534,6 +537,16 @@ func (c *nodeDaemonServiceClient) ListStoragePools(ctx context.Context, in *empt
 	return out, nil
 }
 
+func (c *nodeDaemonServiceClient) ListStoragePoolFiles(ctx context.Context, in *ListStoragePoolFilesRequest, opts ...grpc.CallOption) (*ListStoragePoolFilesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListStoragePoolFilesResponse)
+	err := c.cc.Invoke(ctx, NodeDaemonService_ListStoragePoolFiles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *nodeDaemonServiceClient) CreateVolume(ctx context.Context, in *CreateVolumeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
@@ -714,6 +727,8 @@ type NodeDaemonServiceServer interface {
 	GetStoragePoolInfo(context.Context, *StoragePoolIdRequest) (*StoragePoolInfoResponse, error)
 	// List all storage pools on this node
 	ListStoragePools(context.Context, *emptypb.Empty) (*ListStoragePoolsResponse, error)
+	// List files in a storage pool
+	ListStoragePoolFiles(context.Context, *ListStoragePoolFilesRequest) (*ListStoragePoolFilesResponse, error)
 	// Create a volume in a storage pool
 	CreateVolume(context.Context, *CreateVolumeRequest) (*emptypb.Empty, error)
 	// Delete a volume
@@ -843,6 +858,9 @@ func (UnimplementedNodeDaemonServiceServer) GetStoragePoolInfo(context.Context, 
 }
 func (UnimplementedNodeDaemonServiceServer) ListStoragePools(context.Context, *emptypb.Empty) (*ListStoragePoolsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListStoragePools not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) ListStoragePoolFiles(context.Context, *ListStoragePoolFilesRequest) (*ListStoragePoolFilesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListStoragePoolFiles not implemented")
 }
 func (UnimplementedNodeDaemonServiceServer) CreateVolume(context.Context, *CreateVolumeRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateVolume not implemented")
@@ -1463,6 +1481,24 @@ func _NodeDaemonService_ListStoragePools_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeDaemonService_ListStoragePoolFiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListStoragePoolFilesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).ListStoragePoolFiles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_ListStoragePoolFiles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).ListStoragePoolFiles(ctx, req.(*ListStoragePoolFilesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _NodeDaemonService_CreateVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateVolumeRequest)
 	if err := dec(in); err != nil {
@@ -1783,6 +1819,10 @@ var NodeDaemonService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListStoragePools",
 			Handler:    _NodeDaemonService_ListStoragePools_Handler,
+		},
+		{
+			MethodName: "ListStoragePoolFiles",
+			Handler:    _NodeDaemonService_ListStoragePoolFiles_Handler,
 		},
 		{
 			MethodName: "CreateVolume",

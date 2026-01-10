@@ -63,6 +63,15 @@ const (
 	// StoragePoolServiceReconnectPoolProcedure is the fully-qualified name of the StoragePoolService's
 	// ReconnectPool RPC.
 	StoragePoolServiceReconnectPoolProcedure = "/limiquantix.storage.v1.StoragePoolService/ReconnectPool"
+	// StoragePoolServiceAssignPoolToNodeProcedure is the fully-qualified name of the
+	// StoragePoolService's AssignPoolToNode RPC.
+	StoragePoolServiceAssignPoolToNodeProcedure = "/limiquantix.storage.v1.StoragePoolService/AssignPoolToNode"
+	// StoragePoolServiceUnassignPoolFromNodeProcedure is the fully-qualified name of the
+	// StoragePoolService's UnassignPoolFromNode RPC.
+	StoragePoolServiceUnassignPoolFromNodeProcedure = "/limiquantix.storage.v1.StoragePoolService/UnassignPoolFromNode"
+	// StoragePoolServiceListPoolFilesProcedure is the fully-qualified name of the StoragePoolService's
+	// ListPoolFiles RPC.
+	StoragePoolServiceListPoolFilesProcedure = "/limiquantix.storage.v1.StoragePoolService/ListPoolFiles"
 	// VolumeServiceCreateVolumeProcedure is the fully-qualified name of the VolumeService's
 	// CreateVolume RPC.
 	VolumeServiceCreateVolumeProcedure = "/limiquantix.storage.v1.VolumeService/CreateVolume"
@@ -167,6 +176,12 @@ type StoragePoolServiceClient interface {
 	// ReconnectPool retries initialization of a pool on connected nodes.
 	// Used when pool is in ERROR state due to no connected nodes.
 	ReconnectPool(context.Context, *connect.Request[v1.ReconnectPoolRequest]) (*connect.Response[v1.StoragePool], error)
+	// AssignPoolToNode assigns a storage pool to a node, making it available for VMs on that node.
+	AssignPoolToNode(context.Context, *connect.Request[v1.AssignPoolToNodeRequest]) (*connect.Response[v1.StoragePool], error)
+	// UnassignPoolFromNode removes a storage pool assignment from a node.
+	UnassignPoolFromNode(context.Context, *connect.Request[v1.UnassignPoolFromNodeRequest]) (*connect.Response[v1.StoragePool], error)
+	// ListPoolFiles lists files and directories inside a storage pool's mount path.
+	ListPoolFiles(context.Context, *connect.Request[v1.ListPoolFilesRequest]) (*connect.Response[v1.ListPoolFilesResponse], error)
 }
 
 // NewStoragePoolServiceClient constructs a client for the limiquantix.storage.v1.StoragePoolService
@@ -222,18 +237,39 @@ func NewStoragePoolServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithSchema(storagePoolServiceMethods.ByName("ReconnectPool")),
 			connect.WithClientOptions(opts...),
 		),
+		assignPoolToNode: connect.NewClient[v1.AssignPoolToNodeRequest, v1.StoragePool](
+			httpClient,
+			baseURL+StoragePoolServiceAssignPoolToNodeProcedure,
+			connect.WithSchema(storagePoolServiceMethods.ByName("AssignPoolToNode")),
+			connect.WithClientOptions(opts...),
+		),
+		unassignPoolFromNode: connect.NewClient[v1.UnassignPoolFromNodeRequest, v1.StoragePool](
+			httpClient,
+			baseURL+StoragePoolServiceUnassignPoolFromNodeProcedure,
+			connect.WithSchema(storagePoolServiceMethods.ByName("UnassignPoolFromNode")),
+			connect.WithClientOptions(opts...),
+		),
+		listPoolFiles: connect.NewClient[v1.ListPoolFilesRequest, v1.ListPoolFilesResponse](
+			httpClient,
+			baseURL+StoragePoolServiceListPoolFilesProcedure,
+			connect.WithSchema(storagePoolServiceMethods.ByName("ListPoolFiles")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // storagePoolServiceClient implements StoragePoolServiceClient.
 type storagePoolServiceClient struct {
-	createPool     *connect.Client[v1.CreatePoolRequest, v1.StoragePool]
-	getPool        *connect.Client[v1.GetPoolRequest, v1.StoragePool]
-	listPools      *connect.Client[v1.ListPoolsRequest, v1.ListPoolsResponse]
-	updatePool     *connect.Client[v1.UpdatePoolRequest, v1.StoragePool]
-	deletePool     *connect.Client[v1.DeletePoolRequest, emptypb.Empty]
-	getPoolMetrics *connect.Client[v1.GetPoolMetricsRequest, v1.PoolMetrics]
-	reconnectPool  *connect.Client[v1.ReconnectPoolRequest, v1.StoragePool]
+	createPool           *connect.Client[v1.CreatePoolRequest, v1.StoragePool]
+	getPool              *connect.Client[v1.GetPoolRequest, v1.StoragePool]
+	listPools            *connect.Client[v1.ListPoolsRequest, v1.ListPoolsResponse]
+	updatePool           *connect.Client[v1.UpdatePoolRequest, v1.StoragePool]
+	deletePool           *connect.Client[v1.DeletePoolRequest, emptypb.Empty]
+	getPoolMetrics       *connect.Client[v1.GetPoolMetricsRequest, v1.PoolMetrics]
+	reconnectPool        *connect.Client[v1.ReconnectPoolRequest, v1.StoragePool]
+	assignPoolToNode     *connect.Client[v1.AssignPoolToNodeRequest, v1.StoragePool]
+	unassignPoolFromNode *connect.Client[v1.UnassignPoolFromNodeRequest, v1.StoragePool]
+	listPoolFiles        *connect.Client[v1.ListPoolFilesRequest, v1.ListPoolFilesResponse]
 }
 
 // CreatePool calls limiquantix.storage.v1.StoragePoolService.CreatePool.
@@ -271,6 +307,21 @@ func (c *storagePoolServiceClient) ReconnectPool(ctx context.Context, req *conne
 	return c.reconnectPool.CallUnary(ctx, req)
 }
 
+// AssignPoolToNode calls limiquantix.storage.v1.StoragePoolService.AssignPoolToNode.
+func (c *storagePoolServiceClient) AssignPoolToNode(ctx context.Context, req *connect.Request[v1.AssignPoolToNodeRequest]) (*connect.Response[v1.StoragePool], error) {
+	return c.assignPoolToNode.CallUnary(ctx, req)
+}
+
+// UnassignPoolFromNode calls limiquantix.storage.v1.StoragePoolService.UnassignPoolFromNode.
+func (c *storagePoolServiceClient) UnassignPoolFromNode(ctx context.Context, req *connect.Request[v1.UnassignPoolFromNodeRequest]) (*connect.Response[v1.StoragePool], error) {
+	return c.unassignPoolFromNode.CallUnary(ctx, req)
+}
+
+// ListPoolFiles calls limiquantix.storage.v1.StoragePoolService.ListPoolFiles.
+func (c *storagePoolServiceClient) ListPoolFiles(ctx context.Context, req *connect.Request[v1.ListPoolFilesRequest]) (*connect.Response[v1.ListPoolFilesResponse], error) {
+	return c.listPoolFiles.CallUnary(ctx, req)
+}
+
 // StoragePoolServiceHandler is an implementation of the limiquantix.storage.v1.StoragePoolService
 // service.
 type StoragePoolServiceHandler interface {
@@ -290,6 +341,12 @@ type StoragePoolServiceHandler interface {
 	// ReconnectPool retries initialization of a pool on connected nodes.
 	// Used when pool is in ERROR state due to no connected nodes.
 	ReconnectPool(context.Context, *connect.Request[v1.ReconnectPoolRequest]) (*connect.Response[v1.StoragePool], error)
+	// AssignPoolToNode assigns a storage pool to a node, making it available for VMs on that node.
+	AssignPoolToNode(context.Context, *connect.Request[v1.AssignPoolToNodeRequest]) (*connect.Response[v1.StoragePool], error)
+	// UnassignPoolFromNode removes a storage pool assignment from a node.
+	UnassignPoolFromNode(context.Context, *connect.Request[v1.UnassignPoolFromNodeRequest]) (*connect.Response[v1.StoragePool], error)
+	// ListPoolFiles lists files and directories inside a storage pool's mount path.
+	ListPoolFiles(context.Context, *connect.Request[v1.ListPoolFilesRequest]) (*connect.Response[v1.ListPoolFilesResponse], error)
 }
 
 // NewStoragePoolServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -341,6 +398,24 @@ func NewStoragePoolServiceHandler(svc StoragePoolServiceHandler, opts ...connect
 		connect.WithSchema(storagePoolServiceMethods.ByName("ReconnectPool")),
 		connect.WithHandlerOptions(opts...),
 	)
+	storagePoolServiceAssignPoolToNodeHandler := connect.NewUnaryHandler(
+		StoragePoolServiceAssignPoolToNodeProcedure,
+		svc.AssignPoolToNode,
+		connect.WithSchema(storagePoolServiceMethods.ByName("AssignPoolToNode")),
+		connect.WithHandlerOptions(opts...),
+	)
+	storagePoolServiceUnassignPoolFromNodeHandler := connect.NewUnaryHandler(
+		StoragePoolServiceUnassignPoolFromNodeProcedure,
+		svc.UnassignPoolFromNode,
+		connect.WithSchema(storagePoolServiceMethods.ByName("UnassignPoolFromNode")),
+		connect.WithHandlerOptions(opts...),
+	)
+	storagePoolServiceListPoolFilesHandler := connect.NewUnaryHandler(
+		StoragePoolServiceListPoolFilesProcedure,
+		svc.ListPoolFiles,
+		connect.WithSchema(storagePoolServiceMethods.ByName("ListPoolFiles")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/limiquantix.storage.v1.StoragePoolService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case StoragePoolServiceCreatePoolProcedure:
@@ -357,6 +432,12 @@ func NewStoragePoolServiceHandler(svc StoragePoolServiceHandler, opts ...connect
 			storagePoolServiceGetPoolMetricsHandler.ServeHTTP(w, r)
 		case StoragePoolServiceReconnectPoolProcedure:
 			storagePoolServiceReconnectPoolHandler.ServeHTTP(w, r)
+		case StoragePoolServiceAssignPoolToNodeProcedure:
+			storagePoolServiceAssignPoolToNodeHandler.ServeHTTP(w, r)
+		case StoragePoolServiceUnassignPoolFromNodeProcedure:
+			storagePoolServiceUnassignPoolFromNodeHandler.ServeHTTP(w, r)
+		case StoragePoolServiceListPoolFilesProcedure:
+			storagePoolServiceListPoolFilesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -392,6 +473,18 @@ func (UnimplementedStoragePoolServiceHandler) GetPoolMetrics(context.Context, *c
 
 func (UnimplementedStoragePoolServiceHandler) ReconnectPool(context.Context, *connect.Request[v1.ReconnectPoolRequest]) (*connect.Response[v1.StoragePool], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.StoragePoolService.ReconnectPool is not implemented"))
+}
+
+func (UnimplementedStoragePoolServiceHandler) AssignPoolToNode(context.Context, *connect.Request[v1.AssignPoolToNodeRequest]) (*connect.Response[v1.StoragePool], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.StoragePoolService.AssignPoolToNode is not implemented"))
+}
+
+func (UnimplementedStoragePoolServiceHandler) UnassignPoolFromNode(context.Context, *connect.Request[v1.UnassignPoolFromNodeRequest]) (*connect.Response[v1.StoragePool], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.StoragePoolService.UnassignPoolFromNode is not implemented"))
+}
+
+func (UnimplementedStoragePoolServiceHandler) ListPoolFiles(context.Context, *connect.Request[v1.ListPoolFilesRequest]) (*connect.Response[v1.ListPoolFilesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.StoragePoolService.ListPoolFiles is not implemented"))
 }
 
 // VolumeServiceClient is a client for the limiquantix.storage.v1.VolumeService service.

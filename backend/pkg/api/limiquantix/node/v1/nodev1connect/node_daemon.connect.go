@@ -133,6 +133,9 @@ const (
 	// NodeDaemonServiceListStoragePoolsProcedure is the fully-qualified name of the NodeDaemonService's
 	// ListStoragePools RPC.
 	NodeDaemonServiceListStoragePoolsProcedure = "/limiquantix.node.v1.NodeDaemonService/ListStoragePools"
+	// NodeDaemonServiceListStoragePoolFilesProcedure is the fully-qualified name of the
+	// NodeDaemonService's ListStoragePoolFiles RPC.
+	NodeDaemonServiceListStoragePoolFilesProcedure = "/limiquantix.node.v1.NodeDaemonService/ListStoragePoolFiles"
 	// NodeDaemonServiceCreateVolumeProcedure is the fully-qualified name of the NodeDaemonService's
 	// CreateVolume RPC.
 	NodeDaemonServiceCreateVolumeProcedure = "/limiquantix.node.v1.NodeDaemonService/CreateVolume"
@@ -236,6 +239,8 @@ type NodeDaemonServiceClient interface {
 	GetStoragePoolInfo(context.Context, *connect.Request[v1.StoragePoolIdRequest]) (*connect.Response[v1.StoragePoolInfoResponse], error)
 	// List all storage pools on this node
 	ListStoragePools(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListStoragePoolsResponse], error)
+	// List files in a storage pool
+	ListStoragePoolFiles(context.Context, *connect.Request[v1.ListStoragePoolFilesRequest]) (*connect.Response[v1.ListStoragePoolFilesResponse], error)
 	// Create a volume in a storage pool
 	CreateVolume(context.Context, *connect.Request[v1.CreateVolumeRequest]) (*connect.Response[emptypb.Empty], error)
 	// Delete a volume
@@ -469,6 +474,12 @@ func NewNodeDaemonServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(nodeDaemonServiceMethods.ByName("ListStoragePools")),
 			connect.WithClientOptions(opts...),
 		),
+		listStoragePoolFiles: connect.NewClient[v1.ListStoragePoolFilesRequest, v1.ListStoragePoolFilesResponse](
+			httpClient,
+			baseURL+NodeDaemonServiceListStoragePoolFilesProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("ListStoragePoolFiles")),
+			connect.WithClientOptions(opts...),
+		),
 		createVolume: connect.NewClient[v1.CreateVolumeRequest, emptypb.Empty](
 			httpClient,
 			baseURL+NodeDaemonServiceCreateVolumeProcedure,
@@ -573,6 +584,7 @@ type nodeDaemonServiceClient struct {
 	destroyStoragePool   *connect.Client[v1.StoragePoolIdRequest, emptypb.Empty]
 	getStoragePoolInfo   *connect.Client[v1.StoragePoolIdRequest, v1.StoragePoolInfoResponse]
 	listStoragePools     *connect.Client[emptypb.Empty, v1.ListStoragePoolsResponse]
+	listStoragePoolFiles *connect.Client[v1.ListStoragePoolFilesRequest, v1.ListStoragePoolFilesResponse]
 	createVolume         *connect.Client[v1.CreateVolumeRequest, emptypb.Empty]
 	deleteVolume         *connect.Client[v1.VolumeIdRequest, emptypb.Empty]
 	resizeVolume         *connect.Client[v1.ResizeVolumeRequest, emptypb.Empty]
@@ -751,6 +763,11 @@ func (c *nodeDaemonServiceClient) ListStoragePools(ctx context.Context, req *con
 	return c.listStoragePools.CallUnary(ctx, req)
 }
 
+// ListStoragePoolFiles calls limiquantix.node.v1.NodeDaemonService.ListStoragePoolFiles.
+func (c *nodeDaemonServiceClient) ListStoragePoolFiles(ctx context.Context, req *connect.Request[v1.ListStoragePoolFilesRequest]) (*connect.Response[v1.ListStoragePoolFilesResponse], error) {
+	return c.listStoragePoolFiles.CallUnary(ctx, req)
+}
+
 // CreateVolume calls limiquantix.node.v1.NodeDaemonService.CreateVolume.
 func (c *nodeDaemonServiceClient) CreateVolume(ctx context.Context, req *connect.Request[v1.CreateVolumeRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.createVolume.CallUnary(ctx, req)
@@ -875,6 +892,8 @@ type NodeDaemonServiceHandler interface {
 	GetStoragePoolInfo(context.Context, *connect.Request[v1.StoragePoolIdRequest]) (*connect.Response[v1.StoragePoolInfoResponse], error)
 	// List all storage pools on this node
 	ListStoragePools(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListStoragePoolsResponse], error)
+	// List files in a storage pool
+	ListStoragePoolFiles(context.Context, *connect.Request[v1.ListStoragePoolFilesRequest]) (*connect.Response[v1.ListStoragePoolFilesResponse], error)
 	// Create a volume in a storage pool
 	CreateVolume(context.Context, *connect.Request[v1.CreateVolumeRequest]) (*connect.Response[emptypb.Empty], error)
 	// Delete a volume
@@ -1104,6 +1123,12 @@ func NewNodeDaemonServiceHandler(svc NodeDaemonServiceHandler, opts ...connect.H
 		connect.WithSchema(nodeDaemonServiceMethods.ByName("ListStoragePools")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeDaemonServiceListStoragePoolFilesHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceListStoragePoolFilesProcedure,
+		svc.ListStoragePoolFiles,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("ListStoragePoolFiles")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeDaemonServiceCreateVolumeHandler := connect.NewUnaryHandler(
 		NodeDaemonServiceCreateVolumeProcedure,
 		svc.CreateVolume,
@@ -1238,6 +1263,8 @@ func NewNodeDaemonServiceHandler(svc NodeDaemonServiceHandler, opts ...connect.H
 			nodeDaemonServiceGetStoragePoolInfoHandler.ServeHTTP(w, r)
 		case NodeDaemonServiceListStoragePoolsProcedure:
 			nodeDaemonServiceListStoragePoolsHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceListStoragePoolFilesProcedure:
+			nodeDaemonServiceListStoragePoolFilesHandler.ServeHTTP(w, r)
 		case NodeDaemonServiceCreateVolumeProcedure:
 			nodeDaemonServiceCreateVolumeHandler.ServeHTTP(w, r)
 		case NodeDaemonServiceDeleteVolumeProcedure:
@@ -1399,6 +1426,10 @@ func (UnimplementedNodeDaemonServiceHandler) GetStoragePoolInfo(context.Context,
 
 func (UnimplementedNodeDaemonServiceHandler) ListStoragePools(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListStoragePoolsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.ListStoragePools is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) ListStoragePoolFiles(context.Context, *connect.Request[v1.ListStoragePoolFilesRequest]) (*connect.Response[v1.ListStoragePoolFilesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.ListStoragePoolFiles is not implemented"))
 }
 
 func (UnimplementedNodeDaemonServiceHandler) CreateVolume(context.Context, *connect.Request[v1.CreateVolumeRequest]) (*connect.Response[emptypb.Empty], error) {

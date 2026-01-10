@@ -763,6 +763,10 @@ func (h *HostRegistrationHandler) handleRegisterHost(w http.ResponseWriter, r *h
 		// ManagementIP should include port (e.g., "192.168.0.191:9090")
 		// If no port, default to 9090 (gRPC port)
 		daemonAddr := createdNode.ManagementIP
+		// Strip CIDR notation if present (e.g., "192.168.0.53/32" -> "192.168.0.53")
+		if idx := strings.Index(daemonAddr, "/"); idx != -1 {
+			daemonAddr = daemonAddr[:idx]
+		}
 		if !strings.Contains(daemonAddr, ":") {
 			daemonAddr = daemonAddr + ":9090"
 		}
