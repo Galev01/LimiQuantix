@@ -66,9 +66,40 @@ show_welcome() {
 # Disk Selection
 # =============================================================================
 select_disk() {
+    # Load storage drivers to ensure all disks are visible
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Scanning Hardware" \
+        --infobox "\nLoading storage drivers and scanning for disks...\n\nPlease wait..." 8 50
+    
+    # Load NVMe drivers
+    modprobe nvme 2>/dev/null || true
+    modprobe nvme_core 2>/dev/null || true
+    
+    # Load AHCI/SATA drivers
+    modprobe ahci 2>/dev/null || true
+    modprobe libata 2>/dev/null || true
+    modprobe ata_piix 2>/dev/null || true
+    modprobe ata_generic 2>/dev/null || true
+    
+    # Load SCSI drivers (for some SSDs)
+    modprobe sd_mod 2>/dev/null || true
+    modprobe scsi_mod 2>/dev/null || true
+    
+    # Load USB storage (for external drives)
+    modprobe usb_storage 2>/dev/null || true
+    modprobe uas 2>/dev/null || true
+    
+    # Trigger udev/mdev to detect devices
+    if command -v mdev >/dev/null 2>&1; then
+        mdev -s 2>/dev/null || true
+    fi
+    
+    # Wait for devices to settle
+    sleep 3
+    
     # Get list of available disks
     DISK_LIST=""
-    for disk in $(lsblk -dpno NAME,SIZE,TYPE | grep disk | awk '{print $1}'); do
+    for disk in $(lsblk -dpno NAME,SIZE,TYPE 2>/dev/null | grep disk | awk '{print $1}'); do
         SIZE=$(lsblk -dpno SIZE "$disk" 2>/dev/null | head -1)
         DISK_LIST="$DISK_LIST $disk \"$SIZE\" off"
     done
@@ -76,7 +107,7 @@ select_disk() {
     if [ -z "$DISK_LIST" ]; then
         $DIALOG --backtitle "$BACKTITLE" \
             --title "Error" \
-            --msgbox "No suitable disks found!\n\nPlease check your hardware configuration." 10 50
+            --msgbox "No suitable disks found!\n\nPossible causes:\n- NVMe/SATA drivers not loaded\n- Disk not connected properly\n\nPlease check your hardware configuration.\n\nDetected devices:\n$(ls -la /dev/nvme* /dev/sd* 2>&1)" 16 60
         return 1
     fi
 

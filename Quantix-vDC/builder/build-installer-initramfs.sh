@@ -400,8 +400,18 @@ for mod in efifb vesafb simplefb drm drm_kms_helper i915 nouveau amdgpu radeon; 
     modprobe $mod >/dev/null 2>&1 || true
 done
 
+# Let all devices settle
+log "Waiting for devices to settle..."
 mdev -s
-sleep 2
+sleep 3
+
+# Re-run mdev to catch any late-detected devices (NVMe can be slow)
+mdev -s
+sleep 1
+
+# Log detected storage devices
+log "Detected storage devices:"
+ls -la /dev/nvme* /dev/sd* /dev/sr* > /dev/kmsg 2>&1 || true
 
 # 6. Find Boot Media
 log "Searching for boot media..."
