@@ -61,7 +61,9 @@ const nodePhaseConfig: Record<string, { color: string; label: string; icon?: typ
   DRAINING: { color: 'warning', label: 'Draining' },
   PENDING: { color: 'warning', label: 'Pending' },
   DISCONNECTED: { color: 'error', label: 'Disconnected', icon: XCircle },
+  OFFLINE: { color: 'error', label: 'Disconnected', icon: XCircle }, // Proto uses OFFLINE for disconnected hosts
   ERROR: { color: 'error', label: 'Error' },
+  UNKNOWN: { color: 'warning', label: 'Unknown' },
 };
 
 type TabId = 'overview' | 'hosts' | 'vms' | 'settings';
@@ -76,8 +78,8 @@ export function ClusterDetail() {
 
   // Fetch cluster data
   const { data: cluster, isLoading, refetch, isRefetching } = useCluster(id || '', !!id);
-  const { data: hostsResponse, isLoading: hostsLoading } = useClusterHosts(id || '', !!id);
-  const { data: nodesResponse } = useNodes({ pageSize: 100 });
+  const { data: hostsResponse, isLoading: hostsLoading, refetch: refetchHosts, isRefetching: hostsRefetching } = useClusterHosts(id || '', !!id);
+  const { data: nodesResponse, refetch: refetchNodes } = useNodes({ pageSize: 100 });
 
   // Mutations
   const updateCluster = useUpdateCluster();
@@ -370,10 +372,24 @@ export function ClusterDetail() {
                   {clusterHosts.length} host{clusterHosts.length !== 1 ? 's' : ''} in this cluster
                 </p>
               </div>
-              <Button onClick={() => setIsAddHostModalOpen(true)}>
-                <Plus className="w-4 h-4" />
-                Add Host
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  onClick={() => {
+                    refetchHosts();
+                    refetchNodes();
+                  }} 
+                  disabled={hostsRefetching}
+                >
+                  <RefreshCw className={cn('w-4 h-4', hostsRefetching && 'animate-spin')} />
+                  Refresh
+                </Button>
+                <Button onClick={() => setIsAddHostModalOpen(true)}>
+                  <Plus className="w-4 h-4" />
+                  Add Host
+                </Button>
+              </div>
             </div>
 
             {/* Hosts List */}
@@ -392,7 +408,7 @@ export function ClusterDetail() {
                 </Button>
               </div>
             ) : (
-              <div className="rounded-xl bg-bg-surface border border-border overflow-hidden">
+              <div className="rounded-xl bg-bg-surface border border-border overflow-visible">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-bg-base">
@@ -406,7 +422,11 @@ export function ClusterDetail() {
                   </thead>
                   <tbody>
                     {clusterHosts.map((host: any, index: number) => {
-                      const phase = host.status?.phase || 'PENDING';
+                      // Normalize phase - OFFLINE from proto means DISCONNECTED
+                      let phase = host.status?.phase || 'PENDING';
+                      if (phase === 'OFFLINE') {
+                        phase = 'DISCONNECTED';
+                      }
                       const phaseConfig = nodePhaseConfig[phase] || { color: 'default', label: phase };
                       const cpuCores = host.spec?.cpu?.sockets * host.spec?.cpu?.coresPerSocket || 0;
                       const memoryGiB = Math.round((host.spec?.memory?.totalMib || 0) / 1024);
@@ -491,13 +511,74 @@ export function ClusterDetail() {
                                   <MoreVertical className="w-4 h-4" />
                                 </button>
                                 {hostMenuOpen === host.id && (
-                                  <div className="absolute right-0 top-full mt-1 w-40 bg-bg-elevated border border-border rounded-lg shadow-lg z-10">
+                                  <div className="absolute right-0 top-full mt-1 w-48 bg-bg-elevated border border-border rounded-lg shadow-lg z-50 py-1">
+                                    {/* Refresh Status */}
+                                    <button
+                                      onClick={async () => {
+                                        setHostMenuOpen(null);
+                                        toast.promise(
+                                          Promise.all([refetchHosts(), refetchNodes()]),
+                                          {
+                                            loading: 'Refreshing host status...',
+                                            success: 'Host status refreshed',
+                                            error: 'Failed to refresh status',
+                                          }
+                                        );
+                                      }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+                                    >
+                                      <RefreshCw className="w-4 h-4" />
+                                      Refresh Status
+                                    </button>
+                                    
+                                    {/* View Details */}
+                                    <Link to={`/hosts/${host.id}`} className="block">
+                                      <button
+                                        onClick={() => setHostMenuOpen(null)}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+                                      >
+                                        <Settings className="w-4 h-4" />
+                                        View Details
+                                      </button>
+                                    </Link>
+
+                                    <div className="my-1 border-t border-border" />
+
+                                    {/* Enter Maintenance */}
+                                    <button
+                                      onClick={() => {
+                                        setHostMenuOpen(null);
+                                        toast.info(`Maintenance mode for "${host.hostname || host.id}" coming soon`);
+                                      }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+                                    >
+                                      <Wrench className="w-4 h-4" />
+                                      Enter Maintenance
+                                    </button>
+
+                                    {/* Migrate VMs (only if has VMs) */}
+                                    {vmCount > 0 && (
+                                      <button
+                                        onClick={() => {
+                                          setHostMenuOpen(null);
+                                          toast.info(`Migrate VMs from "${host.hostname || host.id}" coming soon`);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+                                      >
+                                        <Activity className="w-4 h-4" />
+                                        Migrate VMs
+                                      </button>
+                                    )}
+
+                                    <div className="my-1 border-t border-border" />
+
+                                    {/* Remove from Cluster */}
                                     <button
                                       onClick={() => {
                                         handleRemoveHost(host.id, host.hostname || host.id);
                                         setHostMenuOpen(null);
                                       }}
-                                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-error hover:bg-error/10 rounded-lg"
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-error hover:bg-error/10"
                                     >
                                       <Trash2 className="w-4 h-4" />
                                       Remove from Cluster

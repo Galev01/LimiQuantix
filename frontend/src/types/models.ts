@@ -9,7 +9,7 @@
 
 export type PowerState = 'RUNNING' | 'STOPPED' | 'PAUSED' | 'SUSPENDED' | 'MIGRATING' | 'CRASHED' | 'STARTING' | 'STOPPING' | 'ERROR';
 
-export type NodePhase = 'READY' | 'NOT_READY' | 'MAINTENANCE' | 'DRAINING' | 'DISCONNECTED' | 'PENDING' | 'ERROR' | 'UNKNOWN';
+export type NodePhase = 'READY' | 'NOT_READY' | 'MAINTENANCE' | 'DRAINING' | 'DISCONNECTED' | 'PENDING' | 'ERROR' | 'UNKNOWN' | 'OFFLINE';
 
 export type StoragePoolPhase = 'PENDING' | 'READY' | 'DEGRADED' | 'ERROR' | 'DELETING';
 

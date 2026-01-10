@@ -540,3 +540,8 @@ curl http://127.0.0.1:8080/health
 | P0 | Critical priority |
 | P1 | High priority |
 | P2 | Medium priority |
+
+
+
+
+## SCIM Operations - google workspaces/Okta/LDAP

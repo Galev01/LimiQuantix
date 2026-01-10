@@ -85,6 +85,7 @@ const phaseConfig: Record<NodePhase, { label: string; variant: 'success' | 'erro
   MAINTENANCE: { label: 'Maintenance', variant: 'warning', icon: Wrench },
   DRAINING: { label: 'Draining', variant: 'info', icon: Settings },
   DISCONNECTED: { label: 'Disconnected', variant: 'error', icon: WifiOff },
+  OFFLINE: { label: 'Disconnected', variant: 'error', icon: WifiOff }, // Proto uses OFFLINE for disconnected hosts
   PENDING: { label: 'Pending', variant: 'warning', icon: Settings },
   ERROR: { label: 'Error', variant: 'error', icon: AlertCircle },
   UNKNOWN: { label: 'Unknown', variant: 'warning', icon: AlertCircle },
@@ -99,7 +100,12 @@ const variantColors = {
 
 // Convert API Node to display format
 function apiToDisplayNode(node: ApiNode): DisplayNode {
-  const phase = (node.status?.phase as NodePhase) || 'READY';
+  // Handle phase - OFFLINE from proto means DISCONNECTED
+  let phase = (node.status?.phase as NodePhase) || 'READY';
+  // Normalize OFFLINE to DISCONNECTED for consistency in the UI
+  if (phase === 'OFFLINE') {
+    phase = 'DISCONNECTED';
+  }
   return {
     id: node.id,
     hostname: node.hostname,

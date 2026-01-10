@@ -133,6 +133,50 @@ func convertPoolSpecFromProto(spec *storagev1.StoragePoolSpec) *domain.StoragePo
 		domainSpec.Backend = &domain.StorageBackend{
 			Type: domain.BackendType(spec.Backend.Type.String()),
 		}
+
+		// Extract backend-specific config from oneof field
+		if nfs := spec.Backend.GetNfs(); nfs != nil {
+			domainSpec.Backend.NFSConfig = &domain.NFSConfig{
+				Server:     nfs.Server,
+				ExportPath: nfs.ExportPath,
+				Version:    nfs.Version,
+				Options:    nfs.Options,
+				MountPoint: nfs.MountPoint,
+			}
+		}
+		if ceph := spec.Backend.GetCeph(); ceph != nil {
+			domainSpec.Backend.CephConfig = &domain.CephConfig{
+				ClusterID:   ceph.ClusterId,
+				PoolName:    ceph.PoolName,
+				Monitors:    ceph.Monitors,
+				User:        ceph.User,
+				KeyringPath: ceph.KeyringPath,
+				Namespace:   ceph.Namespace,
+				SecretUUID:  ceph.SecretUuid,
+			}
+		}
+		if localDir := spec.Backend.GetLocalDir(); localDir != nil {
+			domainSpec.Backend.LocalDirConfig = &domain.DirConfig{
+				Path: localDir.Path,
+			}
+		}
+		if iscsi := spec.Backend.GetIscsi(); iscsi != nil {
+			domainSpec.Backend.ISCSIConfig = &domain.ISCSIConfig{
+				Portal:       iscsi.Portal,
+				Target:       iscsi.Target,
+				CHAPEnabled:  iscsi.ChapEnabled,
+				CHAPUser:     iscsi.ChapUser,
+				CHAPPassword: iscsi.ChapPassword,
+				LUN:          iscsi.Lun,
+				VolumeGroup:  iscsi.VolumeGroup,
+			}
+		}
+		if localLvm := spec.Backend.GetLocalLvm(); localLvm != nil {
+			domainSpec.Backend.LocalLVMConfig = &domain.LVMConfig{
+				VolumeGroup: localLvm.VolumeGroup,
+				ThinPool:    localLvm.ThinPool,
+			}
+		}
 	}
 
 	if spec.Defaults != nil {

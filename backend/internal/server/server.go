@@ -244,6 +244,8 @@ func (s *Server) initServices() {
 		s.logger,
 	)
 	s.nodeService = nodeservice.NewServiceWithVMRepo(s.nodeRepo, s.vmRepo, s.logger)
+	// Set daemon pool for gRPC connections to node daemons
+	s.nodeService.SetDaemonPool(s.daemonPool)
 
 	// Cluster service
 	s.clusterService = clusterservice.NewService(

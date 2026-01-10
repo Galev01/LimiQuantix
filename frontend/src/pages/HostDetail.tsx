@@ -38,11 +38,21 @@ const phaseConfig: Record<NodePhase, { label: string; variant: 'success' | 'erro
   NOT_READY: { label: 'Not Ready', variant: 'error', icon: AlertCircle },
   MAINTENANCE: { label: 'Maintenance', variant: 'warning', icon: Wrench },
   DRAINING: { label: 'Draining', variant: 'info', icon: Settings },
+  DISCONNECTED: { label: 'Disconnected', variant: 'error', icon: WifiOff },
+  OFFLINE: { label: 'Disconnected', variant: 'error', icon: WifiOff }, // Proto uses OFFLINE for disconnected hosts
+  PENDING: { label: 'Pending', variant: 'warning', icon: Settings },
+  ERROR: { label: 'Error', variant: 'error', icon: AlertCircle },
+  UNKNOWN: { label: 'Unknown', variant: 'warning', icon: AlertCircle },
 };
 
 // Convert API Node to display format
 function apiToDisplayNode(apiNode: ApiNode): Node {
-  const phase = (apiNode.status?.phase as NodePhase) || 'READY';
+  // Handle phase - OFFLINE from proto means DISCONNECTED
+  let phase = (apiNode.status?.phase as NodePhase) || 'READY';
+  // Normalize OFFLINE to DISCONNECTED for consistency in the UI
+  if (phase === 'OFFLINE') {
+    phase = 'DISCONNECTED';
+  }
   return {
     id: apiNode.id,
     hostname: apiNode.hostname,
@@ -208,19 +218,25 @@ export function HostDetail() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Connection Status */}
-            <div
-              className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium',
-                isConnected
-                  ? 'bg-success/20 text-success border border-success/30'
-                  : 'bg-warning/20 text-warning border border-warning/30',
-              )}
-            >
-              {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-              {isConnected ? 'Connected' : 'Mock Data'}
-            </div>
-            <Button variant="secondary" size="sm">
+            {/* Host Status - shows actual host phase, not API connection */}
+            {(() => {
+              const isHostOnline = node.status.phase === 'READY';
+              const isHostDisconnected = node.status.phase === 'DISCONNECTED';
+              return (
+                <div
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium',
+                    isHostOnline && 'bg-success/20 text-success border border-success/30',
+                    isHostDisconnected && 'bg-error/20 text-error border border-error/30',
+                    !isHostOnline && !isHostDisconnected && 'bg-warning/20 text-warning border border-warning/30',
+                  )}
+                >
+                  {isHostOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                  {isHostOnline ? 'Online' : isHostDisconnected ? 'Disconnected' : phaseInfo.label}
+                </div>
+              );
+            })()}
+            <Button variant="secondary" size="sm" disabled={node.status.phase === 'DISCONNECTED'}>
               <ArrowRightLeft className="w-4 h-4" />
               Migrate VMs
             </Button>

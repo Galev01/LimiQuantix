@@ -46,6 +46,29 @@ func (s *PoolService) CreatePool(
 	)
 	logger.Info("Creating storage pool")
 
+	// Debug: Log what we received from frontend
+	if req.Msg.Spec != nil && req.Msg.Spec.Backend != nil {
+		logger.Info("Received backend config from frontend",
+			zap.String("backend_type", req.Msg.Spec.Backend.Type.String()),
+			zap.Bool("has_nfs", req.Msg.Spec.Backend.GetNfs() != nil),
+			zap.Bool("has_ceph", req.Msg.Spec.Backend.GetCeph() != nil),
+			zap.Bool("has_local_dir", req.Msg.Spec.Backend.GetLocalDir() != nil),
+			zap.Bool("has_iscsi", req.Msg.Spec.Backend.GetIscsi() != nil),
+		)
+		if nfs := req.Msg.Spec.Backend.GetNfs(); nfs != nil {
+			logger.Info("NFS config received",
+				zap.String("server", nfs.Server),
+				zap.String("export_path", nfs.ExportPath),
+				zap.String("version", nfs.Version),
+			)
+		}
+	} else {
+		logger.Warn("No backend config received from frontend",
+			zap.Bool("has_spec", req.Msg.Spec != nil),
+			zap.Bool("has_backend", req.Msg.Spec != nil && req.Msg.Spec.Backend != nil),
+		)
+	}
+
 	// Validate request
 	if req.Msg.Name == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("name is required"))
@@ -54,6 +77,22 @@ func (s *PoolService) CreatePool(
 	// Convert to domain model
 	pool := convertCreatePoolRequestToDomain(req.Msg)
 	pool.Status.Phase = domain.StoragePoolPhasePending
+
+	// Debug: Log the converted domain model
+	if pool.Spec.Backend != nil {
+		logger.Info("Domain model backend after conversion",
+			zap.String("backend_type", string(pool.Spec.Backend.Type)),
+			zap.Bool("has_nfs_config", pool.Spec.Backend.NFSConfig != nil),
+			zap.Bool("has_ceph_config", pool.Spec.Backend.CephConfig != nil),
+			zap.Bool("has_local_dir_config", pool.Spec.Backend.LocalDirConfig != nil),
+		)
+		if pool.Spec.Backend.NFSConfig != nil {
+			logger.Info("Domain NFS config",
+				zap.String("server", pool.Spec.Backend.NFSConfig.Server),
+				zap.String("export_path", pool.Spec.Backend.NFSConfig.ExportPath),
+			)
+		}
+	}
 
 	// Create in repository
 	createdPool, err := s.repo.Create(ctx, pool)

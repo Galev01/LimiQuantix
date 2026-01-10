@@ -32,9 +32,10 @@ type VMRepository interface {
 type Service struct {
 	computev1connect.UnimplementedNodeServiceHandler
 
-	repo   Repository
-	vmRepo VMRepository
-	logger *zap.Logger
+	repo       Repository
+	vmRepo     VMRepository
+	daemonPool *DaemonPool
+	logger     *zap.Logger
 }
 
 // NewService creates a new Node service.
@@ -52,6 +53,20 @@ func NewServiceWithVMRepo(repo Repository, vmRepo VMRepository, logger *zap.Logg
 		vmRepo: vmRepo,
 		logger: logger.Named("node-service"),
 	}
+}
+
+// NewServiceWithDaemonPool creates a new Node service with DaemonPool for gRPC connections.
+func NewServiceWithDaemonPool(repo Repository, daemonPool *DaemonPool, logger *zap.Logger) *Service {
+	return &Service{
+		repo:       repo,
+		daemonPool: daemonPool,
+		logger:     logger.Named("node-service"),
+	}
+}
+
+// SetDaemonPool sets the daemon pool for gRPC connections (used for late binding).
+func (s *Service) SetDaemonPool(pool *DaemonPool) {
+	s.daemonPool = pool
 }
 
 // ============================================================================
@@ -274,6 +289,30 @@ func (s *Service) RegisterNode(
 		zap.Int32("cpu_cores", spec.CPU.TotalCores()),
 		zap.Int64("memory_mib", spec.Memory.TotalMiB),
 	)
+
+	// Establish gRPC connection to the node daemon for storage/VM operations
+	if s.daemonPool != nil {
+		// ManagementIP should include port (e.g., "192.168.0.53:9090")
+		daemonAddr := created.ManagementIP
+		if !strings.Contains(daemonAddr, ":") {
+			daemonAddr = daemonAddr + ":9090"
+		}
+
+		_, connectErr := s.daemonPool.Connect(created.ID, daemonAddr)
+		if connectErr != nil {
+			// Log warning but don't fail registration - connection can be established later
+			logger.Warn("Failed to establish gRPC connection to node daemon",
+				zap.String("node_id", created.ID),
+				zap.String("daemon_addr", daemonAddr),
+				zap.Error(connectErr),
+			)
+		} else {
+			logger.Info("Established gRPC connection to node daemon",
+				zap.String("node_id", created.ID),
+				zap.String("daemon_addr", daemonAddr),
+			)
+		}
+	}
 
 	return connect.NewResponse(ToProto(created)), nil
 }
@@ -606,6 +645,44 @@ func (s *Service) UpdateHeartbeat(
 			zap.String("hostname", node.Hostname),
 			zap.String("cluster_id", node.ClusterID),
 		)
+
+		// Establish gRPC connection on reconnection
+		if s.daemonPool != nil {
+			daemonAddr := node.ManagementIP
+			if !strings.Contains(daemonAddr, ":") {
+				daemonAddr = daemonAddr + ":9090"
+			}
+			_, connectErr := s.daemonPool.Connect(node.ID, daemonAddr)
+			if connectErr != nil {
+				logger.Warn("Failed to establish gRPC connection on reconnection",
+					zap.String("daemon_addr", daemonAddr),
+					zap.Error(connectErr),
+				)
+			} else {
+				logger.Info("Established gRPC connection to node daemon on reconnection",
+					zap.String("daemon_addr", daemonAddr),
+				)
+			}
+		}
+	}
+
+	// Ensure daemon pool connection exists for ready nodes (lazy connection)
+	if s.daemonPool != nil && s.daemonPool.Get(node.ID) == nil {
+		daemonAddr := node.ManagementIP
+		if !strings.Contains(daemonAddr, ":") {
+			daemonAddr = daemonAddr + ":9090"
+		}
+		_, connectErr := s.daemonPool.Connect(node.ID, daemonAddr)
+		if connectErr != nil {
+			logger.Debug("Failed to establish lazy gRPC connection",
+				zap.String("daemon_addr", daemonAddr),
+				zap.Error(connectErr),
+			)
+		} else {
+			logger.Info("Established lazy gRPC connection to node daemon",
+				zap.String("daemon_addr", daemonAddr),
+			)
+		}
 	}
 
 	// Update node status with heartbeat data

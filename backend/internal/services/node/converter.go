@@ -236,7 +236,8 @@ func convertPhaseToProto(phase domain.NodePhase) computev1.NodeStatus_Phase {
 		return computev1.NodeStatus_MAINTENANCE
 	case domain.NodePhaseDraining:
 		return computev1.NodeStatus_DRAINING
-	case domain.NodePhaseError:
+	case domain.NodePhaseError, domain.NodePhaseDisconnected:
+		// Both ERROR and DISCONNECTED map to OFFLINE in proto
 		return computev1.NodeStatus_OFFLINE
 	default:
 		return computev1.NodeStatus_UNKNOWN
@@ -257,7 +258,8 @@ func convertPhaseFromProto(phase computev1.NodeStatus_Phase) domain.NodePhase {
 	case computev1.NodeStatus_DRAINING:
 		return domain.NodePhaseDraining
 	case computev1.NodeStatus_OFFLINE:
-		return domain.NodePhaseError
+		// OFFLINE could be DISCONNECTED or ERROR - we'll use DISCONNECTED as the more common case
+		return domain.NodePhaseDisconnected
 	default:
 		return domain.NodePhaseUnknown
 	}

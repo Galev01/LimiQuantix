@@ -1,12 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
+import { create } from '@bufbuild/protobuf';
 import { StoragePoolService, VolumeService } from '@/api/limiquantix/storage/v1/storage_service_pb';
 import type { 
   StoragePool, 
   Volume,
   StoragePoolSpec,
   StorageBackend_BackendType,
+} from '@/api/limiquantix/storage/v1/storage_pb';
+import { 
+  StorageBackendSchema, 
+  StorageBackend_BackendType as BackendType,
+  NfsConfigSchema,
+  CephConfigSchema,
+  LocalDirConfigSchema,
+  IscsiConfigSchema,
+  StoragePoolSpecSchema,
 } from '@/api/limiquantix/storage/v1/storage_pb';
 import { showSuccess, showError } from '@/lib/toast';
 
@@ -278,92 +288,71 @@ export function useCreateStoragePool() {
 
   return useMutation({
     mutationFn: async (params: CreatePoolParams) => {
-      // Build spec based on backend type
-      const backendTypeMap: Record<string, number> = {
-        'CEPH_RBD': 0,
-        'NFS': 4,
-        'ISCSI': 5,
-        'LOCAL_DIR': 3,
-        'LOCAL_LVM': 2,
+      // Map backend type string to enum
+      const backendTypeMap: Record<string, BackendType> = {
+        'CEPH_RBD': BackendType.CEPH_RBD,
+        'NFS': BackendType.NFS,
+        'ISCSI': BackendType.ISCSI,
+        'LOCAL_DIR': BackendType.LOCAL_DIR,
+        'LOCAL_LVM': BackendType.LOCAL_LVM,
       };
 
-      // Build backend config based on type
-      // Using 'as any' to bypass proto message type requirements (the API will validate)
-      let backendConfig: Record<string, unknown> = {
+      // Create backend message with proper protobuf structure
+      const backend = create(StorageBackendSchema, {
         type: backendTypeMap[params.backendType],
-      };
+      });
 
-      // Add backend-specific config
+      // Add backend-specific config using proper oneof structure
       if (params.nfs && params.backendType === 'NFS') {
-        backendConfig = {
-          ...backendConfig,
-          config: {
-            case: 'nfs',
-            value: {
-              server: params.nfs.server,
-              exportPath: params.nfs.exportPath,
-              version: params.nfs.version || '4.1',
-              options: params.nfs.options || '',
-              mountPoint: '',
-            },
-          },
-        };
+        const nfsConfig = create(NfsConfigSchema, {
+          server: params.nfs.server,
+          exportPath: params.nfs.exportPath,
+          version: params.nfs.version || '4.1',
+          options: params.nfs.options || '',
+          mountPoint: '',
+        });
+        backend.config = { case: 'nfs', value: nfsConfig };
       } else if (params.ceph && params.backendType === 'CEPH_RBD') {
-        backendConfig = {
-          ...backendConfig,
-          config: {
-            case: 'ceph',
-            value: {
-              clusterId: '',
-              poolName: params.ceph.poolName,
-              monitors: params.ceph.monitors,
-              user: params.ceph.user || 'admin',
-              keyringPath: params.ceph.keyringPath || '/etc/ceph/ceph.client.admin.keyring',
-              namespace: params.ceph.namespace || '',
-              secretUuid: '',
-            },
-          },
-        };
+        const cephConfig = create(CephConfigSchema, {
+          clusterId: '',
+          poolName: params.ceph.poolName,
+          monitors: params.ceph.monitors,
+          user: params.ceph.user || 'admin',
+          keyringPath: params.ceph.keyringPath || '/etc/ceph/ceph.client.admin.keyring',
+          namespace: params.ceph.namespace || '',
+          secretUuid: '',
+        });
+        backend.config = { case: 'ceph', value: cephConfig };
       } else if (params.iscsi && params.backendType === 'ISCSI') {
-        backendConfig = {
-          ...backendConfig,
-          config: {
-            case: 'iscsi',
-            value: {
-              portal: params.iscsi.portal,
-              target: params.iscsi.target,
-              chapEnabled: params.iscsi.chapEnabled || false,
-              chapUser: params.iscsi.chapUser || '',
-              chapPassword: params.iscsi.chapPassword || '',
-              lun: params.iscsi.lun || 0,
-              volumeGroup: '',
-            },
-          },
-        };
+        const iscsiConfig = create(IscsiConfigSchema, {
+          portal: params.iscsi.portal,
+          target: params.iscsi.target,
+          chapEnabled: params.iscsi.chapEnabled || false,
+          chapUser: params.iscsi.chapUser || '',
+          chapPassword: params.iscsi.chapPassword || '',
+          lun: params.iscsi.lun || 0,
+          volumeGroup: '',
+        });
+        backend.config = { case: 'iscsi', value: iscsiConfig };
       } else if (params.local && params.backendType === 'LOCAL_DIR') {
-        backendConfig = {
-          ...backendConfig,
-          config: {
-            case: 'localDir',
-            value: {
-              path: params.local.path,
-              nodeId: '',
-            },
-          },
-        };
+        const localConfig = create(LocalDirConfigSchema, {
+          path: params.local.path,
+          nodeId: '',
+        });
+        backend.config = { case: 'localDir', value: localConfig };
       }
 
-      const spec: Partial<StoragePoolSpec> = {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        backend: backendConfig as any,
-      };
+      // Create the spec with the backend
+      const spec = create(StoragePoolSpecSchema, {
+        backend: backend,
+      });
 
       const response = await poolClient.createPool({
         name: params.name,
         description: params.description,
         projectId: params.projectId || 'default',
         labels: params.labels || {},
-        spec: spec as StoragePoolSpec,
+        spec: spec,
       });
 
       return toStoragePoolUI(response);
