@@ -881,9 +881,9 @@ function StorageSettingsTab({ settings: _settings, hostInfo: _hostInfo }: Storag
         
         {localDevices && localDevices.length > 0 ? (
           <div className="space-y-3">
-            {localDevices.map((device) => (
+            {localDevices.map((device, deviceIdx) => (
               <div 
-                key={device.device}
+                key={device.device || `device-${deviceIdx}`}
                 className={cn(
                   "p-4 rounded-lg border transition-colors",
                   device.canInitialize 
@@ -903,8 +903,8 @@ function StorageSettingsTab({ settings: _settings, hostInfo: _hostInfo }: Storag
                       <HardDrive className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="font-medium text-text-primary">{device.name}</div>
-                      <div className="text-sm text-text-muted font-mono">{device.device}</div>
+                      <div className="font-medium text-text-primary">{device.name || 'Unknown Device'}</div>
+                      <div className="text-sm text-text-muted font-mono">{device.device || ''}</div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -916,14 +916,14 @@ function StorageSettingsTab({ settings: _settings, hostInfo: _hostInfo }: Storag
                 </div>
                 
                 {/* Partitions */}
-                {device.partitions.length > 0 && (
+                {device.partitions && device.partitions.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-border/50">
                     <div className="text-xs text-text-muted mb-2">Partitions:</div>
                     <div className="grid gap-2">
-                      {device.partitions.map((part) => (
-                        <div key={part.device} className="flex items-center justify-between text-sm p-2 bg-bg-base rounded">
+                      {device.partitions.map((part, idx) => (
+                        <div key={part.device || `part-${idx}`} className="flex items-center justify-between text-sm p-2 bg-bg-base rounded">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-text-secondary">{part.device.split('/').pop()}</span>
+                            <span className="font-mono text-text-secondary">{part.device?.split('/').pop() || 'unknown'}</span>
                             {part.filesystem && (
                               <Badge variant="default" className="text-xs">{part.filesystem}</Badge>
                             )}
@@ -1017,18 +1017,18 @@ function StorageSettingsTab({ settings: _settings, hostInfo: _hostInfo }: Storag
         
         {localPools.length > 0 ? (
           <div className="space-y-3">
-            {localPools.map((pool) => {
-              const usedPercent = pool.totalBytes > 0 
-                ? (pool.usedBytes / pool.totalBytes) * 100 
+            {localPools.map((pool, idx) => {
+              const usedPercent = pool.totalBytes && pool.totalBytes > 0 
+                ? ((pool.usedBytes || 0) / pool.totalBytes) * 100 
                 : 0;
               return (
-                <div key={pool.poolId} className="p-4 bg-bg-base rounded-lg">
+                <div key={pool.poolId || `pool-${idx}`} className="p-4 bg-bg-base rounded-lg">
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <div className="font-medium text-text-primary">{pool.poolId}</div>
-                      <div className="text-sm text-text-muted font-mono">{pool.mountPath}</div>
+                      <div className="font-medium text-text-primary">{pool.poolId || 'Unknown Pool'}</div>
+                      <div className="text-sm text-text-muted font-mono">{pool.mountPath || ''}</div>
                     </div>
-                    <Badge variant="success">{pool.volumeCount} volumes</Badge>
+                    <Badge variant="success">{pool.volumeCount ?? 0} volumes</Badge>
                   </div>
                   <div className="space-y-1">
                     <div className="flex justify-between text-sm">
@@ -1077,20 +1077,20 @@ function StorageSettingsTab({ settings: _settings, hostInfo: _hostInfo }: Storag
         
         {sharedPools.length > 0 ? (
           <div className="space-y-3">
-            {sharedPools.map((pool) => {
-              const usedPercent = pool.totalBytes > 0 
-                ? (pool.usedBytes / pool.totalBytes) * 100 
+            {sharedPools.map((pool, idx) => {
+              const usedPercent = pool.totalBytes && pool.totalBytes > 0 
+                ? ((pool.usedBytes || 0) / pool.totalBytes) * 100 
                 : 0;
               return (
-                <div key={pool.poolId} className="p-4 bg-bg-base rounded-lg">
+                <div key={pool.poolId || `shared-${idx}`} className="p-4 bg-bg-base rounded-lg">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <Badge variant="info">{pool.type}</Badge>
-                      <span className="font-medium text-text-primary">{pool.poolId}</span>
+                      <Badge variant="info">{pool.type || 'UNKNOWN'}</Badge>
+                      <span className="font-medium text-text-primary">{pool.poolId || 'Unknown Pool'}</span>
                     </div>
-                    <span className="text-sm text-text-muted">{pool.volumeCount} volumes</span>
+                    <span className="text-sm text-text-muted">{pool.volumeCount ?? 0} volumes</span>
                   </div>
-                  <div className="text-sm text-text-muted font-mono mb-2">{pool.mountPath}</div>
+                  <div className="text-sm text-text-muted font-mono mb-2">{pool.mountPath || ''}</div>
                   <div className="space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-text-muted">
@@ -1164,8 +1164,8 @@ function NetworkSettingsTab({ settings, hostInfo: _hostInfo }: NetworkSettingsTa
         
         {physicalNics.length > 0 ? (
           <div className="space-y-3">
-            {physicalNics.map((nic) => (
-              <div key={nic.name} className="p-4 bg-bg-base rounded-lg">
+            {physicalNics.map((nic, idx) => (
+              <div key={nic.name || `nic-${idx}`} className="p-4 bg-bg-base rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={cn(
@@ -1173,7 +1173,7 @@ function NetworkSettingsTab({ settings, hostInfo: _hostInfo }: NetworkSettingsTa
                       nic.linkState === 'up' ? 'bg-success' : 'bg-text-muted'
                     )} />
                     <div>
-                      <div className="font-medium text-text-primary">{nic.name}</div>
+                      <div className="font-medium text-text-primary">{nic.name || 'Unknown'}</div>
                       <div className="text-sm text-text-muted font-mono">{nic.macAddress || 'No MAC'}</div>
                     </div>
                   </div>
@@ -1211,8 +1211,8 @@ function NetworkSettingsTab({ settings, hostInfo: _hostInfo }: NetworkSettingsTa
         
         {bridges.length > 0 ? (
           <div className="space-y-3">
-            {bridges.map((bridge) => (
-              <div key={bridge.name} className="p-4 bg-bg-base rounded-lg">
+            {bridges.map((bridge, idx) => (
+              <div key={bridge.name || `bridge-${idx}`} className="p-4 bg-bg-base rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={cn(

@@ -167,6 +167,50 @@ ln -sf ../quantix-host-ui "${OVERLAY_DIR}/usr/share/quantix/webui"
 echo "   ✅ /usr/share/quantix/webui -> ../quantix-host-ui"
 
 # -----------------------------------------------------------------------------
+# Generate Build Info
+# -----------------------------------------------------------------------------
+echo ""
+echo "📦 Generating build info..."
+
+BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+BUILD_COMMIT=$(cd "${REPO_ROOT}" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_BRANCH=$(cd "${REPO_ROOT}" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+
+# Get node daemon version from Cargo.toml
+NODE_DAEMON_VERSION="unknown"
+if [ -f "${REPO_ROOT}/agent/limiquantix-node/Cargo.toml" ]; then
+    NODE_DAEMON_VERSION=$(grep -m1 '^version' "${REPO_ROOT}/agent/limiquantix-node/Cargo.toml" | sed 's/.*"\(.*\)".*/\1/')
+fi
+
+# Get Host UI version from package.json
+HOST_UI_VERSION="unknown"
+if [ -f "${REPO_ROOT}/quantix-host-ui/package.json" ]; then
+    HOST_UI_VERSION=$(grep -m1 '"version"' "${REPO_ROOT}/quantix-host-ui/package.json" | sed 's/.*"\([^"]*\)".*/\1/')
+fi
+
+# Write BUILD_INFO.json
+cat > "${OVERLAY_DIR}/usr/share/quantix-host-ui/BUILD_INFO.json" << EOF
+{
+  "product": "Quantix-OS",
+  "version": "${NODE_DAEMON_VERSION}",
+  "hostUiVersion": "${HOST_UI_VERSION}",
+  "nodeDaemonVersion": "${NODE_DAEMON_VERSION}",
+  "buildDate": "${BUILD_DATE}",
+  "buildCommit": "${BUILD_COMMIT}",
+  "buildBranch": "${BUILD_BRANCH}",
+  "apiVersion": "v1",
+  "registrationApiSupported": true
+}
+EOF
+
+echo "   ✅ BUILD_INFO.json created"
+cat "${OVERLAY_DIR}/usr/share/quantix-host-ui/BUILD_INFO.json"
+
+# Also create a VERSION file at the root
+echo "${NODE_DAEMON_VERSION}-${BUILD_COMMIT}" > "${OVERLAY_DIR}/etc/quantix-version"
+echo "   ✅ /etc/quantix-version: $(cat ${OVERLAY_DIR}/etc/quantix-version)"
+
+# -----------------------------------------------------------------------------
 # Summary
 # -----------------------------------------------------------------------------
 echo ""
@@ -174,8 +218,14 @@ echo "╔═══════════════════════�
 echo "║                 Component Build Complete                      ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo ""
+echo "Build Info:"
+echo "  Date:    ${BUILD_DATE}"
+echo "  Commit:  ${BUILD_COMMIT} (${BUILD_BRANCH})"
+echo "  Version: ${NODE_DAEMON_VERSION}"
+echo ""
 echo "Built components:"
 [ -f "${OVERLAY_DIR}/usr/bin/qx-node" ] && echo "  ✅ /usr/bin/qx-node"
 [ -f "${OVERLAY_DIR}/usr/share/quantix-host-ui/index.html" ] && echo "  ✅ /usr/share/quantix-host-ui/"
 [ -f "${OVERLAY_DIR}/usr/local/bin/qx-console" ] && echo "  ✅ /usr/local/bin/qx-console"
+[ -f "${OVERLAY_DIR}/etc/quantix-version" ] && echo "  ✅ /etc/quantix-version"
 echo ""

@@ -1,0 +1,8 @@
+{
+  "product": "Quantix-OS Host UI",
+  "version": "0.1.0-dev",
+  "build_date": "PLACEHOLDER",
+  "build_commit": "PLACEHOLDER",
+  "node_daemon_version": "PLACEHOLDER",
+  "note": "This file is regenerated during each ISO build"
+}

@@ -572,28 +572,122 @@ impl RegistrationClient {
 }
 
 /// Detect the management IP address.
+/// 
+/// Priority order:
+/// 1. Real physical interfaces (eth*, enp*, ens*, wlan*, wlp*)
+/// 2. Bonded/team interfaces (bond*, team*)
+/// 3. Any other non-virtual interface
+/// 4. Fallback to any non-loopback IP
 pub fn detect_management_ip() -> Option<String> {
-    // Try to get the default network interface IP
-    // This is a simple implementation - a production version would be smarter
     if let Ok(interfaces) = local_ip_address::list_afinet_netifas() {
-        for (_, ip) in interfaces {
-            // Skip loopback and link-local
+        // Collect all valid (non-loopback, non-link-local) IPv4 addresses with interface names
+        let mut candidates: Vec<(String, std::net::Ipv4Addr, i32)> = Vec::new();
+        
+        for (name, ip) in interfaces {
+            // Skip loopback
             if ip.is_loopback() {
                 continue;
             }
+            
             if let std::net::IpAddr::V4(ipv4) = ip {
+                // Skip link-local (169.254.x.x)
                 if ipv4.is_link_local() {
                     continue;
                 }
-                return Some(ipv4.to_string());
+                
+                // Skip private addresses that are commonly used for VMs (192.168.122.x = libvirt default)
+                // But still allow other 192.168.x.x networks
+                let octets = ipv4.octets();
+                if octets[0] == 192 && octets[1] == 168 && octets[2] == 122 {
+                    // This is the libvirt default bridge, skip it
+                    debug!(interface = %name, ip = %ipv4, "Skipping libvirt default bridge network");
+                    continue;
+                }
+                
+                // Calculate priority based on interface name
+                let priority = get_interface_priority(&name);
+                
+                debug!(
+                    interface = %name,
+                    ip = %ipv4,
+                    priority = priority,
+                    "Found network interface candidate"
+                );
+                
+                candidates.push((name, ipv4, priority));
             }
+        }
+        
+        // Sort by priority (higher is better)
+        candidates.sort_by(|a, b| b.2.cmp(&a.2));
+        
+        if let Some((name, ip, _)) = candidates.first() {
+            info!(
+                interface = %name,
+                ip = %ip,
+                "Selected management IP"
+            );
+            return Some(ip.to_string());
         }
     }
     
-    // Fallback: try local_ip_address crate
+    // Fallback: try local_ip_address crate's default detection
     local_ip_address::local_ip()
         .ok()
         .map(|ip| ip.to_string())
+}
+
+/// Get priority for an interface based on its name.
+/// Higher priority = more likely to be the management interface.
+fn get_interface_priority(name: &str) -> i32 {
+    let name_lower = name.to_lowercase();
+    
+    // Virtual bridges and VM-related interfaces (lowest priority)
+    if name_lower.starts_with("virbr") 
+        || name_lower.starts_with("vnet")
+        || name_lower.starts_with("tap")
+        || name_lower.starts_with("veth")
+        || name_lower.starts_with("docker")
+        || name_lower.starts_with("br-")
+        || name_lower.starts_with("cni")
+        || name_lower.starts_with("flannel")
+        || name_lower.starts_with("calico")
+    {
+        return -10;
+    }
+    
+    // Generic bridges (might be user-configured management bridges)
+    if name_lower.starts_with("br") {
+        return 20; // User-configured bridges get medium priority
+    }
+    
+    // Wireless interfaces (good priority - often the active connection)
+    if name_lower.starts_with("wlan") || name_lower.starts_with("wlp") {
+        return 80;
+    }
+    
+    // Physical ethernet interfaces (highest priority)
+    if name_lower.starts_with("eth") 
+        || name_lower.starts_with("enp")
+        || name_lower.starts_with("ens")
+        || name_lower.starts_with("eno")
+        || name_lower.starts_with("em")
+    {
+        return 100;
+    }
+    
+    // Bonded/team interfaces (very high priority - usually management)
+    if name_lower.starts_with("bond") || name_lower.starts_with("team") {
+        return 90;
+    }
+    
+    // Infiniband
+    if name_lower.starts_with("ib") {
+        return 70;
+    }
+    
+    // Everything else gets medium priority
+    50
 }
 
 /// Detected OS information from filename.

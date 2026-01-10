@@ -4261,12 +4261,28 @@ fn get_token_storage() -> &'static std::sync::Mutex<Option<(String, std::time::I
 
 /// Diagnostic ping endpoint for registration API (no auth required)
 /// Used by vDC to verify the API is reachable before attempting token validation
-async fn registration_ping() -> Json<serde_json::Value> {
+async fn registration_ping(
+    State(state): State<Arc<AppState>>,
+) -> Json<serde_json::Value> {
     info!("Registration ping received");
+    
+    let hostname = gethostname::gethostname().to_string_lossy().to_string();
+    let management_ip = state.service.get_management_ip();
+    
     Json(serde_json::json!({
         "status": "ok",
         "message": "Registration API is reachable",
         "version": env!("CARGO_PKG_VERSION"),
+        "apiVersion": "v1",
+        "hostname": hostname,
+        "managementIp": management_ip,
+        "registrationApiSupported": true,
+        "buildInfo": {
+            "package": env!("CARGO_PKG_NAME"),
+            "version": env!("CARGO_PKG_VERSION"),
+            "target": std::env::consts::ARCH,
+            "os": std::env::consts::OS
+        },
         "timestamp": chrono::Utc::now().to_rfc3339()
     }))
 }
