@@ -513,6 +513,14 @@ export const nodeApi = {
       { nodeId }
     );
   },
+
+  async delete(id: string, force = false): Promise<void> {
+    return apiCall(
+      'limiquantix.compute.v1.NodeService',
+      'DecommissionNode',
+      { id, force }
+    );
+  },
 };
 
 // =============================================================================

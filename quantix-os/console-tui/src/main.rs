@@ -2299,11 +2299,11 @@ fn get_primary_ip() -> String {
                         let ip = ip.split('/').next().unwrap_or("0.0.0.0");
                         if !ip.is_empty() && ip != "0.0.0.0" && ip != "127.0.0.1" {
                             return ip.to_string();
-                        }
                     }
                 }
             }
         }
+    }
     }
     
     // Method 3: Get any non-loopback interface with an IP

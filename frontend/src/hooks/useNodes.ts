@@ -4,7 +4,7 @@
  * These hooks connect the frontend to the limiquantix backend API.
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { nodeApi, type ApiNode, type NodeListRequest, type NodeListResponse } from '../lib/api-client';
 
 // Query keys for cache invalidation
@@ -59,6 +59,22 @@ export function useNodeMetrics(nodeId: string, enabled = true) {
     enabled: enabled && !!nodeId,
     staleTime: 5000,
     refetchInterval: 10000, // Refresh every 10 seconds
+  });
+}
+
+/**
+ * Hook to delete/decommission a node
+ */
+export function useDeleteNode() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, force = false }: { id: string; force?: boolean }) =>
+      nodeApi.delete(id, force),
+    onSuccess: () => {
+      // Invalidate node lists to refresh the UI
+      queryClient.invalidateQueries({ queryKey: nodeKeys.all });
+    },
   });
 }
 

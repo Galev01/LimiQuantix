@@ -239,51 +239,51 @@ fi
 # Installation
 # -----------------------------------------------------------------------------
 
-echo ""
+    echo ""
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║              Installing Quantix-OS v${VERSION}                      ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-
+    echo ""
+    
 log_info "Target Disk:  $TARGET_DISK"
 log_info "Hostname:     $HOSTNAME"
 log_info "Version:      $VERSION"
-echo ""
+    echo ""
 
 # =============================================================================
 # Step 1: Create Partitions
 # =============================================================================
 log_step "Step 1/8: Creating partition table..."
-
-# Unmount any existing partitions
-umount ${TARGET_DISK}* 2>/dev/null || true
+    
+    # Unmount any existing partitions
+    umount ${TARGET_DISK}* 2>/dev/null || true
 
 # Wipe existing partition table
 dd if=/dev/zero of="$TARGET_DISK" bs=512 count=34 2>/dev/null || true
-
-# Create GPT partition table
-parted -s "${TARGET_DISK}" mklabel gpt
-
-# Calculate partition positions
-# Layout: EFI(256M) + SysA(1.5G) + SysB(1.5G) + Cfg(256M) + Data(rest)
+    
+    # Create GPT partition table
+    parted -s "${TARGET_DISK}" mklabel gpt
+    
+    # Calculate partition positions
+    # Layout: EFI(256M) + SysA(1.5G) + SysB(1.5G) + Cfg(256M) + Data(rest)
 EFI_END="256M"
 SYS_A_END="1756M"   # 256M + 1500M
 SYS_B_END="3256M"   # 1756M + 1500M
 CFG_END="3512M"     # 3256M + 256M
-
-# Create partitions
+    
+    # Create partitions
 parted -s "${TARGET_DISK}" mkpart "EFI" fat32 1MiB ${EFI_END}
-parted -s "${TARGET_DISK}" set 1 esp on
-
+    parted -s "${TARGET_DISK}" set 1 esp on
+    
 parted -s "${TARGET_DISK}" mkpart "QUANTIX-A" ext4 ${EFI_END} ${SYS_A_END}
 parted -s "${TARGET_DISK}" mkpart "QUANTIX-B" ext4 ${SYS_A_END} ${SYS_B_END}
 parted -s "${TARGET_DISK}" mkpart "QUANTIX-CFG" ext4 ${SYS_B_END} ${CFG_END}
 parted -s "${TARGET_DISK}" mkpart "QUANTIX-DATA" xfs ${CFG_END} 100%
-
-# Wait for kernel to recognize partitions
+    
+    # Wait for kernel to recognize partitions
 partprobe "${TARGET_DISK}" 2>/dev/null || true
-sleep 2
-
+    sleep 2
+    
 # Determine partition naming
 case "$TARGET_DISK" in
     /dev/nvme*|/dev/mmcblk*)
@@ -312,7 +312,7 @@ mkfs.ext4 -L "QUANTIX-A" -F "${PART_SYS_A}"
 mkfs.ext4 -L "QUANTIX-B" -F "${PART_SYS_B}"
 mkfs.ext4 -L "QUANTIX-CFG" -F "${PART_CFG}"
 mkfs.xfs -L "QUANTIX-DATA" -f "${PART_DATA}"
-
+    
 log_info "Partitions formatted"
 
 # =============================================================================
@@ -321,7 +321,7 @@ log_info "Partitions formatted"
 log_step "Step 3/8: Mounting partitions..."
 
 mkdir -p "${TARGET_MOUNT}"/{efi,system,config,data}
-
+    
 mount "${PART_SYS_A}" "${TARGET_MOUNT}/system"
 mount "${PART_EFI}" "${TARGET_MOUNT}/efi"
 mount "${PART_CFG}" "${TARGET_MOUNT}/config"
@@ -335,39 +335,39 @@ log_info "Partitions mounted"
 log_step "Step 4/8: Installing system image..."
 
 mkdir -p "${TARGET_MOUNT}/system"/{boot,quantix}
-
+    
 # Copy squashfs to system partition
 log_info "Copying system image (this may take a few minutes)..."
 cp "${SQUASHFS_PATH}" "${TARGET_MOUNT}/system/quantix/system.squashfs"
-
+    
 # Write version file
 echo "${VERSION}" > "${TARGET_MOUNT}/system/quantix/VERSION"
 
 # Extract boot files from squashfs
-log_info "Extracting boot files..."
-mkdir -p /tmp/sqmount
-mount -t squashfs "${SQUASHFS_PATH}" /tmp/sqmount
-
-if [ -f /tmp/sqmount/boot/vmlinuz-lts ]; then
+    log_info "Extracting boot files..."
+    mkdir -p /tmp/sqmount
+    mount -t squashfs "${SQUASHFS_PATH}" /tmp/sqmount
+    
+    if [ -f /tmp/sqmount/boot/vmlinuz-lts ]; then
     cp /tmp/sqmount/boot/vmlinuz-lts "${TARGET_MOUNT}/system/boot/vmlinuz"
-elif [ -f /tmp/sqmount/boot/vmlinuz ]; then
+    elif [ -f /tmp/sqmount/boot/vmlinuz ]; then
     cp /tmp/sqmount/boot/vmlinuz "${TARGET_MOUNT}/system/boot/vmlinuz"
 else
     log_error "Kernel not found in system image!"
     exit 1
-fi
-
-if [ -f /tmp/sqmount/boot/initramfs-lts ]; then
+    fi
+    
+    if [ -f /tmp/sqmount/boot/initramfs-lts ]; then
     cp /tmp/sqmount/boot/initramfs-lts "${TARGET_MOUNT}/system/boot/initramfs"
-elif [ -f /tmp/sqmount/boot/initramfs ]; then
+    elif [ -f /tmp/sqmount/boot/initramfs ]; then
     cp /tmp/sqmount/boot/initramfs "${TARGET_MOUNT}/system/boot/initramfs"
 else
     log_error "Initramfs not found in system image!"
     exit 1
-fi
-
-umount /tmp/sqmount
-rmdir /tmp/sqmount
+    fi
+    
+    umount /tmp/sqmount
+    rmdir /tmp/sqmount
 
 log_info "System image installed"
 
@@ -375,8 +375,8 @@ log_info "System image installed"
 # Step 5: Configure System
 # =============================================================================
 log_step "Step 5/8: Configuring system..."
-
-# Create config directory structure
+    
+    # Create config directory structure
 mkdir -p "${TARGET_MOUNT}/config"/{certificates,network,limiquantix}
 chmod 700 "${TARGET_MOUNT}/config/certificates"
 
@@ -406,8 +406,8 @@ storage:
 logging:
   level: info
 EOF
-
-# Create data directory structure
+    
+    # Create data directory structure
 mkdir -p "${TARGET_MOUNT}/data"/{vms,images,isos,backups,storage}
 
 log_info "System configured"
@@ -443,38 +443,38 @@ fi
 # Step 7: Install Bootloader
 # =============================================================================
 log_step "Step 7/8: Installing bootloader..."
-
+    
 # Get partition UUIDs
 UUID_SYS_A=$(blkid -s UUID -o value "${PART_SYS_A}")
 UUID_CFG=$(blkid -s UUID -o value "${PART_CFG}")
 UUID_DATA=$(blkid -s UUID -o value "${PART_DATA}")
-
-# Mount system for chroot
+    
+    # Mount system for chroot
 mkdir -p "${TARGET_MOUNT}/root"
 mount -t squashfs "${TARGET_MOUNT}/system/quantix/system.squashfs" "${TARGET_MOUNT}/root"
-
-# Bind mount EFI
+    
+    # Bind mount EFI
 mkdir -p "${TARGET_MOUNT}/root/boot/efi"
 mount --bind "${TARGET_MOUNT}/efi" "${TARGET_MOUNT}/root/boot/efi"
-
-# Bind mount required filesystems
+    
+    # Bind mount required filesystems
 mount --bind /dev "${TARGET_MOUNT}/root/dev"
 mount --bind /proc "${TARGET_MOUNT}/root/proc"
 mount --bind /sys "${TARGET_MOUNT}/root/sys"
-
-# Install GRUB for UEFI
-log_info "Installing GRUB for UEFI..."
+    
+    # Install GRUB for UEFI
+    log_info "Installing GRUB for UEFI..."
 chroot "${TARGET_MOUNT}/root" grub-install \
-    --target=x86_64-efi \
-    --efi-directory=/boot/efi \
-    --bootloader-id=quantix \
+        --target=x86_64-efi \
+        --efi-directory=/boot/efi \
+        --bootloader-id=quantix \
     --removable \
-    --recheck \
+        --recheck \
     "${TARGET_DISK}" 2>/dev/null || log_warn "UEFI GRUB failed (may be BIOS system)"
-
-# Create GRUB configuration
-log_info "Creating GRUB configuration..."
-
+    
+    # Create GRUB configuration
+    log_info "Creating GRUB configuration..."
+    
 cat > "${TARGET_MOUNT}/root/boot/grub/grub.cfg" << EOF
 # Quantix-OS GRUB Configuration
 # Version: ${VERSION}
@@ -518,19 +518,19 @@ menuentry "Quantix-OS v${VERSION} (Recovery Shell)" --id recovery {
     initrd /boot/initramfs
 }
 EOF
-
-# Copy GRUB config to EFI partition
+    
+    # Copy GRUB config to EFI partition
 mkdir -p "${TARGET_MOUNT}/efi/EFI/quantix"
 cp "${TARGET_MOUNT}/root/boot/grub/grub.cfg" "${TARGET_MOUNT}/efi/EFI/quantix/"
-
-# Cleanup mounts
+    
+    # Cleanup mounts
 umount "${TARGET_MOUNT}/root/sys" 2>/dev/null || true
 umount "${TARGET_MOUNT}/root/proc" 2>/dev/null || true
 umount "${TARGET_MOUNT}/root/dev" 2>/dev/null || true
 umount "${TARGET_MOUNT}/root/boot/efi" 2>/dev/null || true
 umount "${TARGET_MOUNT}/root" 2>/dev/null || true
-
-log_info "Bootloader installed"
+    
+    log_info "Bootloader installed"
 
 # =============================================================================
 # Step 8: Finalize
@@ -539,27 +539,27 @@ log_step "Step 8/8: Finalizing installation..."
 
 # Sync filesystems
 sync
-
-# Unmount all partitions
+    
+    # Unmount all partitions
 umount "${TARGET_MOUNT}/data" 2>/dev/null || true
 umount "${TARGET_MOUNT}/config" 2>/dev/null || true
 umount "${TARGET_MOUNT}/efi" 2>/dev/null || true
 umount "${TARGET_MOUNT}/system" 2>/dev/null || true
-
-echo ""
-echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║              Installation Complete!                           ║${NC}"
-echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${GREEN}║                                                               ║${NC}"
+    
+    echo ""
+    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║              Installation Complete!                           ║${NC}"
+    echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${GREEN}║                                                               ║${NC}"
 echo -e "${GREEN}║  Quantix-OS v${VERSION} has been installed successfully.          ║${NC}"
-echo -e "${GREEN}║                                                               ║${NC}"
+    echo -e "${GREEN}║                                                               ║${NC}"
 echo -e "${GREEN}║  Next Steps:                                                  ║${NC}"
-echo -e "${GREEN}║  1. Remove the installation media                             ║${NC}"
-echo -e "${GREEN}║  2. Reboot the system                                         ║${NC}"
+    echo -e "${GREEN}║  1. Remove the installation media                             ║${NC}"
+    echo -e "${GREEN}║  2. Reboot the system                                         ║${NC}"
 echo -e "${GREEN}║  3. Access the console TUI on the local display               ║${NC}"
 echo -e "${GREEN}║  4. Access web management at https://<ip>:8443/               ║${NC}"
-echo -e "${GREEN}║                                                               ║${NC}"
-echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-
+    echo -e "${GREEN}║                                                               ║${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    
 exit 0

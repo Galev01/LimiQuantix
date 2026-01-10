@@ -99,12 +99,47 @@ cat > "${INITRAMFS_DIR}/init" << 'INITEOF'
 # Quantix-vDC Boot Init Script
 # This mounts the root filesystem and switches to it
 
+# Critical: Setup console FIRST before anything else
+# Create dev directory and console device manually before devtmpfs
+mkdir -p /dev
+mknod -m 622 /dev/console c 5 1 2>/dev/null || true
+mknod -m 666 /dev/null c 1 3 2>/dev/null || true
+mknod -m 666 /dev/tty c 5 0 2>/dev/null || true
+mknod -m 666 /dev/tty0 c 4 0 2>/dev/null || true
+mknod -m 666 /dev/tty1 c 4 1 2>/dev/null || true
+
+# Redirect stdout/stderr to console for visibility
+exec 0</dev/console
+exec 1>/dev/console
+exec 2>/dev/console
+
+echo "[BOOT] Quantix-vDC Boot Initramfs Starting..."
+echo "[BOOT] $(date 2>/dev/null || echo 'Boot time')"
+
 # Mount essential filesystems
+echo "[BOOT] Mounting proc..."
 mount -t proc none /proc
+echo "[BOOT] Mounting sysfs..."
 mount -t sysfs none /sys
-mount -t devtmpfs none /dev
+echo "[BOOT] Mounting devtmpfs..."
+mount -t devtmpfs none /dev 2>/dev/null || mount -t tmpfs none /dev
+
+# Recreate console after devtmpfs mount
+mknod -m 622 /dev/console c 5 1 2>/dev/null || true
+mknod -m 666 /dev/null c 1 3 2>/dev/null || true
+mknod -m 666 /dev/tty c 5 0 2>/dev/null || true
+mknod -m 666 /dev/tty0 c 4 0 2>/dev/null || true
+
 mkdir -p /dev/pts
-mount -t devpts devpts /dev/pts
+mount -t devpts devpts /dev/pts 2>/dev/null || true
+
+echo "[BOOT] Filesystems mounted"
+
+# Load framebuffer/graphics drivers EARLY for console visibility
+echo "[BOOT] Loading graphics drivers..."
+for mod in efifb vesafb simplefb drm drm_kms_helper i915 nouveau amdgpu radeon; do
+    modprobe $mod 2>/dev/null || true
+done
 
 # Parse kernel command line
 ROOT=""
@@ -120,52 +155,61 @@ for param in $(cat /proc/cmdline); do
     esac
 done
 
-echo "[INIT] Root device: $ROOT"
+echo "[BOOT] Root device from cmdline: $ROOT"
 
-# Load essential modules
-for mod in loop squashfs overlay ext4 nvme nvme_core ahci sd_mod sr_mod usb_storage xhci_hcd xhci_pci virtio_blk virtio_pci; do
+# Load essential storage modules
+echo "[BOOT] Loading storage drivers..."
+for mod in loop squashfs overlay ext4 nvme nvme_core ahci libata sd_mod sr_mod usb_storage xhci_hcd xhci_pci virtio_blk virtio_pci; do
     modprobe $mod 2>/dev/null || true
 done
 
 # Wait for devices
+echo "[BOOT] Waiting for devices to settle..."
 sleep 2
 mdev -s 2>/dev/null || true
+sleep 1
+mdev -s 2>/dev/null || true
+
+echo "[BOOT] Available block devices:"
+ls -la /dev/nvme* /dev/sd* /dev/vd* 2>/dev/null || echo "[BOOT] No block devices found yet"
 
 # Resolve UUID/LABEL to device
 REAL_ROOT="$ROOT"
 case "$ROOT" in
     UUID=*)
         UUID="${ROOT#UUID=}"
-        echo "[INIT] Looking for UUID: $UUID"
+        echo "[BOOT] Looking for UUID: $UUID"
         sleep 1
         REAL_ROOT=$(blkid -U "$UUID" 2>/dev/null)
         ;;
     LABEL=*)
         LABEL="${ROOT#LABEL=}"
-        echo "[INIT] Looking for LABEL: $LABEL"
+        echo "[BOOT] Looking for LABEL: $LABEL"
         REAL_ROOT=$(blkid -L "$LABEL" 2>/dev/null)
         ;;
 esac
 
 if [ -z "$REAL_ROOT" ]; then
-    echo "[INIT] ERROR: Could not resolve root device: $ROOT"
-    echo "[INIT] Available devices:"
+    echo "[BOOT] ERROR: Could not resolve root device: $ROOT"
+    echo "[BOOT] Running blkid to show available devices:"
     blkid
-    echo "[INIT] Dropping to shell..."
-    exec /bin/sh
+    echo "[BOOT] Dropping to emergency shell..."
+    echo "[BOOT] Type 'exit' to continue boot attempt"
+    /bin/sh
+    # After shell exit, try again
+    REAL_ROOT=$(blkid -U "$UUID" 2>/dev/null || echo "")
 fi
 
-echo "[INIT] Resolved root to: $REAL_ROOT"
+echo "[BOOT] Resolved root to: $REAL_ROOT"
 
 # Create mount point and mount root
 mkdir -p /newroot
-echo "[INIT] Mounting $REAL_ROOT..."
+echo "[BOOT] Mounting $REAL_ROOT as $ROOTFSTYPE..."
 if ! mount -t "$ROOTFSTYPE" -o ro "$REAL_ROOT" /newroot; then
-    echo "[INIT] ERROR: Failed to mount root filesystem!"
-    echo "[INIT] Trying other filesystem types..."
+    echo "[BOOT] Failed with $ROOTFSTYPE, trying other filesystem types..."
     for fs in ext4 ext3 ext2 xfs btrfs; do
         if mount -t "$fs" -o ro "$REAL_ROOT" /newroot 2>/dev/null; then
-            echo "[INIT] Mounted with $fs"
+            echo "[BOOT] Mounted with $fs"
             break
         fi
     done
@@ -173,39 +217,44 @@ fi
 
 # Verify mount
 if ! mountpoint -q /newroot; then
-    echo "[INIT] ERROR: Root not mounted!"
-    echo "[INIT] Dropping to shell..."
-    exec /bin/sh
+    echo "[BOOT] ERROR: Root not mounted!"
+    echo "[BOOT] Dropping to emergency shell..."
+    /bin/sh
 fi
 
-echo "[INIT] Root mounted successfully"
+echo "[BOOT] Root mounted successfully"
+echo "[BOOT] Checking for init system..."
 
 # Check for init in new root
 if [ -x /newroot/sbin/init ]; then
     INIT=/sbin/init
+    echo "[BOOT] Found /sbin/init"
 elif [ -x /newroot/sbin/openrc-init ]; then
     INIT=/sbin/openrc-init
+    echo "[BOOT] Found OpenRC init"
 elif [ -x /newroot/lib/systemd/systemd ]; then
     INIT=/lib/systemd/systemd
+    echo "[BOOT] Found systemd"
 else
-    echo "[INIT] WARNING: No init found, trying /sbin/init anyway"
+    echo "[BOOT] WARNING: No init found, trying /sbin/init anyway"
     INIT=/sbin/init
 fi
 
-echo "[INIT] Switching to real root with init: $INIT"
+echo "[BOOT] =================================================="
+echo "[BOOT] Switching to real root filesystem"
+echo "[BOOT] Init: $INIT"
+echo "[BOOT] =================================================="
 
-# Clean up
+# Clean up - only unmount what we can
 umount /dev/pts 2>/dev/null || true
-umount /proc 2>/dev/null || true
-umount /sys 2>/dev/null || true
-umount /dev 2>/dev/null || true
 
 # Switch to real root
 exec switch_root /newroot "$INIT"
 
 # If switch_root fails
-echo "[INIT] ERROR: switch_root failed!"
-exec /bin/sh
+echo "[BOOT] FATAL: switch_root failed!"
+echo "[BOOT] Dropping to emergency shell..."
+/bin/sh
 INITEOF
 
 chmod +x "${INITRAMFS_DIR}/init"

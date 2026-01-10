@@ -25,9 +25,9 @@ import {
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { type NodePhase } from '@/types/models';
-import { useNodes, type ApiNode } from '@/hooks/useNodes';
+import { useNodes, useDeleteNode, type ApiNode } from '@/hooks/useNodes';
 import { useApiConnection } from '@/hooks/useDashboard';
-import { showInfo, showWarning } from '@/lib/toast';
+import { showInfo, showWarning, showSuccess, showError } from '@/lib/toast';
 import { AddHostModal } from '@/components/host/AddHostModal';
 
 type FilterTab = 'all' | 'ready' | 'not_ready' | 'maintenance';
@@ -84,6 +84,10 @@ const phaseConfig: Record<NodePhase, { label: string; variant: 'success' | 'erro
   NOT_READY: { label: 'Not Ready', variant: 'error', icon: AlertCircle },
   MAINTENANCE: { label: 'Maintenance', variant: 'warning', icon: Wrench },
   DRAINING: { label: 'Draining', variant: 'info', icon: Settings },
+  DISCONNECTED: { label: 'Disconnected', variant: 'error', icon: WifiOff },
+  PENDING: { label: 'Pending', variant: 'warning', icon: Settings },
+  ERROR: { label: 'Error', variant: 'error', icon: AlertCircle },
+  UNKNOWN: { label: 'Unknown', variant: 'warning', icon: AlertCircle },
 };
 
 const variantColors = {
@@ -161,6 +165,7 @@ export function HostList() {
   // API connection and data
   const { data: isConnected = false } = useApiConnection();
   const { data: apiResponse, isLoading, refetch, isRefetching } = useNodes({ enabled: !!isConnected });
+  const deleteNode = useDeleteNode();
 
   // Get hosts from API (no mock data fallback)
   const apiNodes = apiResponse?.nodes || [];
@@ -222,31 +227,45 @@ export function HostList() {
     });
   };
 
-  const handleContextAction = (action: string) => {
+  const handleContextAction = async (action: string) => {
     if (!contextMenu.node) return;
-    
-    // These actions are placeholders for future node management API
-    switch (action) {
-      case 'maintenance':
-        showWarning(`Maintenance mode for "${contextMenu.node.hostname}" coming soon`);
-        break;
-      case 'migrate_vms':
-        showWarning(`Migrate VMs from "${contextMenu.node.hostname}" coming soon`);
-        break;
-      case 'reboot':
-        showWarning(`Reboot "${contextMenu.node.hostname}" coming soon`);
-        break;
-      case 'shutdown':
-        showWarning(`Shutdown "${contextMenu.node.hostname}" coming soon`);
-        break;
-      case 'remove':
-        showWarning(`Remove "${contextMenu.node.hostname}" from cluster coming soon`);
-        break;
-      default:
-        showInfo(`Action "${action}" on host "${contextMenu.node.hostname}"`);
-    }
+    const node = contextMenu.node;
     
     setContextMenu((prev) => ({ ...prev, visible: false }));
+    
+    // Handle actions
+    switch (action) {
+      case 'maintenance':
+        showWarning(`Maintenance mode for "${node.hostname}" coming soon`);
+        break;
+      case 'migrate_vms':
+        showWarning(`Migrate VMs from "${node.hostname}" coming soon`);
+        break;
+      case 'reboot':
+        showWarning(`Reboot "${node.hostname}" coming soon`);
+        break;
+      case 'shutdown':
+        showWarning(`Shutdown "${node.hostname}" coming soon`);
+        break;
+      case 'remove':
+        // Confirm deletion
+        const vmCount = node.status.vmIds.length;
+        const confirmMessage = vmCount > 0
+          ? `Are you sure you want to remove "${node.hostname}" from the cluster?\n\nThis host has ${vmCount} VM(s) running. They will need to be migrated or will become unavailable.`
+          : `Are you sure you want to remove "${node.hostname}" from the cluster?`;
+        
+        if (!confirm(confirmMessage)) return;
+        
+        try {
+          await deleteNode.mutateAsync({ id: node.id, force: vmCount > 0 });
+          showSuccess(`Host "${node.hostname}" removed from cluster`);
+        } catch (err) {
+          showError(err instanceof Error ? err.message : 'Failed to remove host');
+        }
+        break;
+      default:
+        showInfo(`Action "${action}" on host "${node.hostname}"`);
+    }
   };
 
   return (
@@ -396,8 +415,9 @@ export function HostList() {
               const memPercent = node.spec.memory.totalBytes > 0
                 ? Math.round((node.status.resources.memoryAllocatedBytes / node.spec.memory.totalBytes) * 100)
                 : 0;
-              const phaseInfo = phaseConfig[node.status.phase];
+              const phaseInfo = phaseConfig[node.status.phase] || { label: node.status.phase, variant: 'warning' as const, icon: AlertCircle };
               const PhaseIcon = phaseInfo.icon;
+              const isDisconnected = node.status.phase === 'DISCONNECTED';
 
               return (
                 <motion.div
@@ -412,6 +432,7 @@ export function HostList() {
                     'hover:bg-bg-hover cursor-pointer',
                     'transition-colors duration-150',
                     'group select-none',
+                    isDisconnected && 'bg-error/5',
                   )}
                 >
                   {/* Hostname */}

@@ -2081,8 +2081,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 }
             };
             
-            while let Ok(Some(entry)) = entries.next_entry().await {
-                let file_path = entry.path();
+                while let Ok(Some(entry)) = entries.next_entry().await {
+                    let file_path = entry.path();
                 
                 // Skip if already scanned
                 let path_str = file_path.to_string_lossy().to_string();
@@ -2095,8 +2095,8 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                         // Recursively scan subdirectories
                         Box::pin(scan_dir(&file_path, images, scanned, formats, depth + 1)).await;
                     } else if metadata.is_file() {
-                        if let Some(ext) = file_path.extension() {
-                            let ext_str = ext.to_string_lossy().to_lowercase();
+                    if let Some(ext) = file_path.extension() {
+                        let ext_str = ext.to_string_lossy().to_lowercase();
                             if formats.contains(&ext_str.as_str()) {
                                 let name = file_path.file_name()
                                     .map(|n| n.to_string_lossy().to_string())

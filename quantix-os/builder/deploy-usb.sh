@@ -901,7 +901,7 @@ if [ -z "$ISO_PATH" ]; then
             ISO_PATH="$SELECTED_ISO"
         else
             # Only one or default exists - use it
-            ISO_PATH="$DEFAULT_ISO"
+    ISO_PATH="$DEFAULT_ISO"
         fi
     else
         # Default doesn't exist - check if any ISOs exist
