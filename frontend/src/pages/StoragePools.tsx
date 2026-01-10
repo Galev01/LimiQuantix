@@ -262,6 +262,7 @@ export function StoragePools() {
               onDelete={() => handleDelete(pool)}
               onReconnect={() => handleReconnect(pool)}
               isReconnecting={reconnectPool.isPending}
+              onClick={() => navigate(`/storage/pools/${pool.id}`)}
             />
           ))}
         </div>
@@ -295,12 +296,13 @@ export function StoragePools() {
   );
 }
 
-function PoolCard({ pool, index, onDelete, onReconnect, isReconnecting }: { 
+function PoolCard({ pool, index, onDelete, onReconnect, isReconnecting, onClick }: { 
   pool: StoragePoolUI; 
   index: number; 
   onDelete: () => void;
   onReconnect: () => void;
   isReconnecting: boolean;
+  onClick: () => void;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const statusInfo = statusConfig[pool.status.phase];
@@ -316,6 +318,7 @@ function PoolCard({ pool, index, onDelete, onReconnect, isReconnecting }: {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: 0.3 + index * 0.05 }}
+      onClick={onClick}
       className={cn(
         'bg-bg-surface rounded-xl border border-border p-5',
         'shadow-floating hover:shadow-elevated',

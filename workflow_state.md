@@ -1,8 +1,68 @@
 # Workflow State
 
-## Current Status: IN PROGRESS - Host Registration Fix
+## Current Status: COMPLETED - Storage Pool Host Assignment
 
-## Latest Workflow: Fix Host Registration API Communication
+## Latest Workflow: Storage Pool Host Assignment and File Browser
+
+**Date:** January 11, 2026
+
+### Objective
+
+Implement storage pool host assignment feature and storage pool file browser:
+1. Allow assigning/unassigning storage pools to specific hosts
+2. When creating a VM, filter hosts based on storage pool availability
+3. Create a StoragePoolDetail page with file explorer
+
+### Completed Tasks
+
+| Task | Description | Status |
+|------|-------------|--------|
+| Domain Model | Added `AssignedNodeIDs` field to `StoragePoolSpec` | ✅ |
+| Domain Methods | Added `IsAssignedToNode`, `AssignToNode`, `UnassignFromNode` methods | ✅ |
+| Proto Updates | Added `assigned_node_ids` to `StoragePoolSpec` | ✅ |
+| Proto RPCs | Added `AssignPoolToNode`, `UnassignPoolFromNode`, `ListPoolFiles` RPCs | ✅ |
+| Backend Service | Implemented assign/unassign and file listing in `pool_service.go` | ✅ |
+| Node Daemon | Implemented `list_storage_pool_files` RPC in Rust | ✅ |
+| Frontend Hooks | Added `useAssignPoolToNode`, `useUnassignPoolFromNode`, `usePoolFiles` | ✅ |
+| StoragePoolDetail Page | Created new page with tabs for Files, Nodes, Settings | ✅ |
+| VM Wizard Update | Added host/pool compatibility warnings and filtering | ✅ |
+| Documentation | Created `000057-storage-pool-host-assignment.md` | ✅ |
+
+### Key Changes
+
+**Backend:**
+- `backend/internal/domain/storage.go` - Added `AssignedNodeIDs` and helper methods
+- `backend/internal/services/storage/pool_service.go` - New RPCs
+- `backend/internal/services/storage/pool_converter.go` - Proto conversion
+- `backend/internal/services/node/daemon_client.go` - `ListStoragePoolFiles` client method
+
+**Proto:**
+- `proto/limiquantix/storage/v1/storage.proto` - `assigned_node_ids` field
+- `proto/limiquantix/storage/v1/storage_service.proto` - New RPCs and messages
+- `proto/limiquantix/node/v1/node_daemon.proto` - File listing RPC
+
+**Node Daemon:**
+- `agent/limiquantix-node/src/service.rs` - `list_storage_pool_files` implementation
+
+**Frontend:**
+- `frontend/src/pages/StoragePoolDetail.tsx` - New detail page with file browser
+- `frontend/src/pages/StoragePools.tsx` - Added onClick navigation
+- `frontend/src/hooks/useStorage.ts` - New hooks and types
+- `frontend/src/components/vm/VMCreationWizard.tsx` - Host/pool compatibility UI
+- `frontend/src/App.tsx` - Added route for `/storage/pools/:id`
+
+### VMware Equivalence
+
+| VMware Concept | Quantix Equivalent |
+|----------------|-------------------|
+| Datastore | Storage Pool |
+| VMDK | Volume (first-class API object) |
+| Datastore mounting on host | Storage pool assignment to node |
+| Browse Datastore | Pool file browser |
+
+---
+
+## Previous Workflow: Fix Host Registration API Communication
 
 **Date:** January 10, 2026
 

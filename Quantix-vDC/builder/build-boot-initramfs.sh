@@ -173,19 +173,55 @@ mdev -s 2>/dev/null || true
 echo "[BOOT] Available block devices:"
 ls -la /dev/nvme* /dev/sd* /dev/vd* 2>/dev/null || echo "[BOOT] No block devices found yet"
 
+# Function to find device by UUID (busybox compatible)
+find_by_uuid() {
+    local target_uuid="$1"
+    for dev in /dev/nvme*p* /dev/sd[a-z]* /dev/vd[a-z]*; do
+        [ -b "$dev" ] || continue
+        dev_uuid=$(blkid "$dev" 2>/dev/null | grep -o 'UUID="[^"]*"' | cut -d'"' -f2)
+        if [ "$dev_uuid" = "$target_uuid" ]; then
+            echo "$dev"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Function to find device by LABEL (busybox compatible)
+find_by_label() {
+    local target_label="$1"
+    for dev in /dev/nvme*p* /dev/sd[a-z]* /dev/vd[a-z]*; do
+        [ -b "$dev" ] || continue
+        dev_label=$(blkid "$dev" 2>/dev/null | grep -o 'LABEL="[^"]*"' | cut -d'"' -f2)
+        if [ "$dev_label" = "$target_label" ]; then
+            echo "$dev"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Resolve UUID/LABEL to device
 REAL_ROOT="$ROOT"
 case "$ROOT" in
     UUID=*)
         UUID="${ROOT#UUID=}"
         echo "[BOOT] Looking for UUID: $UUID"
-        sleep 1
+        # Try blkid -U first (works on full blkid)
         REAL_ROOT=$(blkid -U "$UUID" 2>/dev/null)
+        # If that fails, parse blkid output (busybox compatible)
+        if [ -z "$REAL_ROOT" ]; then
+            echo "[BOOT] blkid -U failed, trying manual parse..."
+            REAL_ROOT=$(find_by_uuid "$UUID")
+        fi
         ;;
     LABEL=*)
         LABEL="${ROOT#LABEL=}"
         echo "[BOOT] Looking for LABEL: $LABEL"
         REAL_ROOT=$(blkid -L "$LABEL" 2>/dev/null)
+        if [ -z "$REAL_ROOT" ]; then
+            REAL_ROOT=$(find_by_label "$LABEL")
+        fi
         ;;
 esac
 
@@ -194,10 +230,15 @@ if [ -z "$REAL_ROOT" ]; then
     echo "[BOOT] Running blkid to show available devices:"
     blkid
     echo "[BOOT] Dropping to emergency shell..."
+    echo "[BOOT] You can try: mount /dev/nvme0n1p2 /newroot"
     echo "[BOOT] Type 'exit' to continue boot attempt"
     /bin/sh
-    # After shell exit, try again
-    REAL_ROOT=$(blkid -U "$UUID" 2>/dev/null || echo "")
+    # After shell exit, try again with manual method
+    if [ -n "$UUID" ]; then
+        REAL_ROOT=$(find_by_uuid "$UUID")
+    elif [ -n "$LABEL" ]; then
+        REAL_ROOT=$(find_by_label "$LABEL")
+    fi
 fi
 
 echo "[BOOT] Resolved root to: $REAL_ROOT"

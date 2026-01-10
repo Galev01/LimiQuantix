@@ -40,6 +40,8 @@ use limiquantix_proto::{
     ListStoragePoolsResponse, CreateVolumeRequest, VolumeIdRequest,
     ResizeVolumeRequest, CloneVolumeRequest, VolumeAttachInfoResponse,
     CreateVolumeSnapshotRequest, StoragePoolType,
+    // Storage pool file listing types
+    ListStoragePoolFilesRequest, ListStoragePoolFilesResponse, StoragePoolFileEntry,
     // Volume listing types
     ListVolumesRequest, ListVolumesResponse, VolumeInfoResponse,
     ListImagesResponse, ImageInfo,
@@ -1893,6 +1895,119 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         }
         
         Ok(Response::new(ListStoragePoolsResponse { pools: pool_responses }))
+    }
+
+    #[instrument(skip(self, request), fields(pool_id = %request.get_ref().pool_id))]
+    async fn list_storage_pool_files(
+        &self,
+        request: Request<ListStoragePoolFilesRequest>,
+    ) -> Result<Response<ListStoragePoolFilesResponse>, Status> {
+        let req = request.into_inner();
+        info!(pool_id = %req.pool_id, path = %req.path, "Listing storage pool files");
+        
+        // Get the pool to find its mount path
+        let pools = self.storage.list_pools().await;
+        let pool = pools.into_iter().find(|p| p.pool_id == req.pool_id)
+            .ok_or_else(|| Status::not_found(format!("Pool not found: {}", req.pool_id)))?;
+        
+        let mount_path = pool.mount_path
+            .ok_or_else(|| Status::failed_precondition("Pool has no mount path"))?;
+        
+        // Build the full path
+        let base_path = std::path::PathBuf::from(&mount_path);
+        let target_path = if req.path.is_empty() {
+            base_path.clone()
+        } else {
+            // Sanitize path to prevent directory traversal
+            let clean_path = req.path.trim_start_matches('/');
+            if clean_path.contains("..") {
+                return Err(Status::invalid_argument("Invalid path: contains '..'"));
+            }
+            base_path.join(clean_path)
+        };
+        
+        // Verify the target path is within the mount path
+        let canonical_base = base_path.canonicalize()
+            .map_err(|e| Status::internal(format!("Failed to resolve base path: {}", e)))?;
+        let canonical_target = target_path.canonicalize()
+            .map_err(|e| Status::not_found(format!("Path not found: {}", e)))?;
+        
+        if !canonical_target.starts_with(&canonical_base) {
+            return Err(Status::invalid_argument("Path is outside pool mount"));
+        }
+        
+        // Read directory contents
+        let mut entries = Vec::new();
+        let mut dir = tokio::fs::read_dir(&canonical_target).await
+            .map_err(|e| Status::internal(format!("Failed to read directory: {}", e)))?;
+        
+        while let Some(entry) = dir.next_entry().await
+            .map_err(|e| Status::internal(format!("Failed to read entry: {}", e)))? 
+        {
+            let metadata = entry.metadata().await
+                .map_err(|e| Status::internal(format!("Failed to get metadata: {}", e)))?;
+            
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            let file_path = entry.path();
+            
+            // Calculate relative path from pool root
+            let relative_path = file_path.strip_prefix(&canonical_base)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| file_name.clone());
+            
+            let is_directory = metadata.is_dir();
+            let size_bytes = if is_directory { 0 } else { metadata.len() };
+            
+            // Get modification time
+            let modified_at = metadata.modified()
+                .map(|t| {
+                    let datetime: chrono::DateTime<chrono::Utc> = t.into();
+                    datetime.to_rfc3339()
+                })
+                .unwrap_or_default();
+            
+            // Determine file type
+            let file_type = if is_directory {
+                "directory".to_string()
+            } else {
+                file_name.rsplit('.').next()
+                    .map(|ext| ext.to_lowercase())
+                    .unwrap_or_else(|| "unknown".to_string())
+            };
+            
+            // Get permissions (Unix-specific, fallback for Windows)
+            #[cfg(unix)]
+            let permissions = {
+                use std::os::unix::fs::PermissionsExt;
+                format!("{:o}", metadata.permissions().mode() & 0o777)
+            };
+            #[cfg(not(unix))]
+            let permissions = if metadata.permissions().readonly() { "444" } else { "644" }.to_string();
+            
+            entries.push(StoragePoolFileEntry {
+                name: file_name,
+                path: relative_path,
+                is_directory,
+                size_bytes,
+                modified_at,
+                file_type,
+                permissions,
+            });
+        }
+        
+        // Sort: directories first, then by name
+        entries.sort_by(|a, b| {
+            match (a.is_directory, b.is_directory) {
+                (true, false) => std::cmp::Ordering::Less,
+                (false, true) => std::cmp::Ordering::Greater,
+                _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+            }
+        });
+        
+        Ok(Response::new(ListStoragePoolFilesResponse {
+            entries,
+            current_path: req.path,
+        }))
     }
     
     // =========================================================================

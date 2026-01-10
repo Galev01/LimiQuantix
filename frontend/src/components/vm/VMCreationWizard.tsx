@@ -2195,12 +2195,45 @@ function StepStorage({
         </div>
       )}
 
+      {/* Host/Pool compatibility warning */}
+      {formData.hostId && formData.storagePoolId && (() => {
+        const selectedPool = pools.find(p => p.id === formData.storagePoolId);
+        const selectedHostName = nodes.find(n => n.id === formData.hostId)?.hostname;
+        if (selectedPool && selectedPool.assignedNodeIds.length > 0 && !selectedPool.assignedNodeIds.includes(formData.hostId)) {
+          return (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-error/10 border border-error/30 mb-4">
+              <AlertCircle className="w-4 h-4 text-error shrink-0" />
+              <div className="text-xs text-error">
+                <p className="font-medium">Host not compatible with selected storage pool</p>
+                <p className="mt-0.5">
+                  Host "{selectedHostName}" does not have access to pool "{selectedPool.name}". 
+                  Either go back and select "Auto Placement" or choose a different host/pool combination.
+                </p>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
       <FormField label="Storage Pool" required>
         <div className="grid gap-3">
           {pools.filter(p => p.status.phase === 'READY').map((pool) => {
             const usagePercent = pool.capacity.totalBytes > 0
               ? Math.round((pool.capacity.usedBytes / pool.capacity.totalBytes) * 100)
               : 0;
+            
+            // Check if selected host has access to this pool
+            const selectedHost = nodes.find(n => n.id === formData.hostId);
+            const hasHostAccess = !formData.hostId || 
+              !selectedHost || 
+              pool.assignedNodeIds.length === 0 || 
+              pool.assignedNodeIds.includes(formData.hostId);
+            
+            // Get node names that have access
+            const assignedNodeNames = pool.assignedNodeIds
+              .map(id => nodes.find(n => n.id === id)?.hostname)
+              .filter(Boolean);
 
             return (
               <label
@@ -2210,6 +2243,7 @@ function StepStorage({
                   formData.storagePoolId === pool.id
                     ? 'bg-accent/10 border-accent'
                     : 'bg-bg-base border-border hover:border-accent/50',
+                  !hasHostAccess && 'opacity-50',
                 )}
               >
                 <input
@@ -2224,10 +2258,21 @@ function StepStorage({
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-text-primary">{pool.name}</p>
                     <Badge variant="default" size="sm">{pool.type}</Badge>
+                    {!hasHostAccess && (
+                      <Badge variant="warning" size="sm">
+                        Not available on selected host
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-xs text-text-muted">
                     {formatBytes(pool.capacity.availableBytes)} available of{' '}
                     {formatBytes(pool.capacity.totalBytes)}
+                    {assignedNodeNames.length > 0 && (
+                      <span className="ml-2">
+                        • Available on: {assignedNodeNames.slice(0, 2).join(', ')}
+                        {assignedNodeNames.length > 2 && ` +${assignedNodeNames.length - 2} more`}
+                      </span>
+                    )}
                   </p>
                 </div>
                 <div className="w-24">

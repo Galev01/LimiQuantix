@@ -32,6 +32,8 @@ import { type NodePhase, type Node } from '@/types/models';
 import { useNode, type ApiNode } from '@/hooks/useNodes';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { useVMs } from '@/hooks/useVMs';
+import { useStoragePools, useAssignPoolToNode, useUnassignPoolFromNode, type StoragePoolUI } from '@/hooks/useStorage';
+import { toast } from 'sonner';
 
 const phaseConfig: Record<NodePhase, { label: string; variant: 'success' | 'error' | 'warning' | 'info'; icon: typeof CheckCircle }> = {
   READY: { label: 'Ready', variant: 'success', icon: CheckCircle },
@@ -125,8 +127,42 @@ export function HostDetail() {
     enabled: !!isConnected && !!id 
   });
 
+  // Fetch storage pools for assignment
+  const { data: storagePools = [], refetch: refetchPools } = useStoragePools();
+  const assignToNode = useAssignPoolToNode();
+  const unassignFromNode = useUnassignPoolFromNode();
+
   // Convert API data to display format (no mock fallback)
   const node: Node | undefined = apiNode ? apiToDisplayNode(apiNode) : undefined;
+
+  // Get pools assigned to this host
+  const assignedPools = storagePools.filter(pool => 
+    pool.assignedNodeIds?.includes(id || '')
+  );
+  const unassignedPools = storagePools.filter(pool => 
+    !pool.assignedNodeIds?.includes(id || '') && pool.status.phase === 'READY'
+  );
+
+  // Handle pool assignment
+  const handleAssignPool = async (poolId: string) => {
+    if (!id) return;
+    try {
+      await assignToNode.mutateAsync({ poolId, nodeId: id });
+      refetchPools();
+    } catch (err) {
+      toast.error(`Failed to assign pool: ${(err as Error).message}`);
+    }
+  };
+
+  const handleUnassignPool = async (poolId: string) => {
+    if (!id) return;
+    try {
+      await unassignFromNode.mutateAsync({ poolId, nodeId: id });
+      refetchPools();
+    } catch (err) {
+      toast.error(`Failed to unassign pool: ${(err as Error).message}`);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -557,33 +593,100 @@ export function HostDetail() {
 
         {/* Storage Tab */}
         <TabsContent value="storage">
-          <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
-            <div className="px-6 py-4 border-b border-border">
-              <h3 className="text-lg font-semibold text-text-primary">Storage Configuration</h3>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-6">
+            {/* Assigned Storage Pools */}
+            <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-medium text-text-muted mb-3">Ceph OSD Status</h4>
-                  <div className="space-y-2">
-                    {['osd.12', 'osd.13', 'osd.14', 'osd.15'].map((osd) => (
-                      <div key={osd} className="flex items-center justify-between p-3 bg-bg-base rounded-lg">
-                        <span className="text-sm font-mono text-text-primary">{osd}</span>
-                        <Badge variant="success">Up</Badge>
-                      </div>
-                    ))}
-                  </div>
+                  <h3 className="text-lg font-semibold text-text-primary">Assigned Storage Pools</h3>
+                  <p className="text-sm text-text-muted mt-1">
+                    VMs on this host can use these storage pools
+                  </p>
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium text-text-muted mb-3">Local Volumes</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 bg-bg-base rounded-lg">
-                      <span className="text-sm text-text-primary">Boot Volume</span>
-                      <span className="text-sm text-text-secondary">480 GB</span>
+                <Badge variant="default">{assignedPools.length} pools</Badge>
+              </div>
+              <div className="divide-y divide-border">
+                {assignedPools.length > 0 ? (
+                  assignedPools.map((pool) => (
+                    <StoragePoolRow 
+                      key={pool.id} 
+                      pool={pool} 
+                      isAssigned={true}
+                      onToggle={() => handleUnassignPool(pool.id)}
+                      isLoading={unassignFromNode.isPending}
+                    />
+                  ))
+                ) : (
+                  <div className="py-8 text-center">
+                    <HardDrive className="w-10 h-10 mx-auto text-text-muted mb-3" />
+                    <p className="text-text-muted">No storage pools assigned to this host</p>
+                    <p className="text-xs text-text-muted mt-1">
+                      Assign a pool below to enable VM creation on this host
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Available Storage Pools */}
+            {unassignedPools.length > 0 && (
+              <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
+                <div className="px-6 py-4 border-b border-border">
+                  <h3 className="text-lg font-semibold text-text-primary">Available Storage Pools</h3>
+                  <p className="text-sm text-text-muted mt-1">
+                    Ready pools that can be assigned to this host
+                  </p>
+                </div>
+                <div className="divide-y divide-border">
+                  {unassignedPools.map((pool) => (
+                    <StoragePoolRow 
+                      key={pool.id} 
+                      pool={pool} 
+                      isAssigned={false}
+                      onToggle={() => handleAssignPool(pool.id)}
+                      isLoading={assignToNode.isPending}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Local Storage */}
+            <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
+              <div className="px-6 py-4 border-b border-border">
+                <h3 className="text-lg font-semibold text-text-primary">Local Storage Devices</h3>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="text-sm font-medium text-text-muted mb-3">Physical Disks</h4>
+                    <div className="space-y-2">
+                      {node?.spec.storage && node.spec.storage.length > 0 ? (
+                        node.spec.storage.map((disk, idx) => (
+                          <div key={disk.path || idx} className="flex items-center justify-between p-3 bg-bg-base rounded-lg">
+                            <div>
+                              <span className="text-sm font-mono text-text-primary">{disk.path || disk.name}</span>
+                              <p className="text-xs text-text-muted">{disk.type}</p>
+                            </div>
+                            <span className="text-sm text-text-secondary">{formatBytes(disk.sizeBytes)}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-text-muted p-3">No local disks reported</p>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-bg-base rounded-lg">
-                      <span className="text-sm text-text-primary">Local Cache</span>
-                      <span className="text-sm text-text-secondary">1.8 TB</span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-text-muted mb-3">System Volumes</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-3 bg-bg-base rounded-lg">
+                        <span className="text-sm text-text-primary">Boot Volume</span>
+                        <Badge variant="success">Healthy</Badge>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-bg-base rounded-lg">
+                        <span className="text-sm text-text-primary">VM Image Cache</span>
+                        <Badge variant="success">Active</Badge>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -975,3 +1078,64 @@ function ConfigRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function StoragePoolRow({
+  pool,
+  isAssigned,
+  onToggle,
+  isLoading,
+}: {
+  pool: StoragePoolUI;
+  isAssigned: boolean;
+  onToggle: () => void;
+  isLoading: boolean;
+}) {
+  const usagePercent = pool.capacity.totalBytes > 0 
+    ? Math.round((pool.capacity.usedBytes / pool.capacity.totalBytes) * 100) 
+    : 0;
+
+  const typeLabels: Record<string, string> = {
+    CEPH_RBD: 'Ceph RBD',
+    NFS: 'NFS',
+    ISCSI: 'iSCSI',
+    LOCAL_DIR: 'Local',
+    LOCAL_LVM: 'LVM',
+  };
+
+  return (
+    <div className="flex items-center justify-between px-6 py-4 hover:bg-bg-hover transition-colors">
+      <div className="flex items-center gap-4">
+        <div className={cn(
+          "p-2 rounded-lg",
+          isAssigned ? "bg-success/10" : "bg-bg-base"
+        )}>
+          <HardDrive className={cn(
+            "w-5 h-5",
+            isAssigned ? "text-success" : "text-text-muted"
+          )} />
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-text-primary">{pool.name}</p>
+            <Badge variant="default" size="sm">{typeLabels[pool.type] || pool.type}</Badge>
+            {isAssigned && <Badge variant="success" size="sm">Assigned</Badge>}
+          </div>
+          <p className="text-xs text-text-muted mt-0.5">
+            {formatBytes(pool.capacity.availableBytes)} available of {formatBytes(pool.capacity.totalBytes)}
+            <span className="mx-2">•</span>
+            {usagePercent}% used
+            <span className="mx-2">•</span>
+            {pool.status.volumeCount} volumes
+          </p>
+        </div>
+      </div>
+      <Button
+        variant={isAssigned ? "destructive" : "secondary"}
+        size="sm"
+        onClick={onToggle}
+        disabled={isLoading}
+      >
+        {isAssigned ? 'Unassign' : 'Assign'}
+      </Button>
+    </div>
+  );
+}

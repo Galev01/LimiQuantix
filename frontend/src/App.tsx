@@ -8,6 +8,7 @@ import { VMDetail } from '@/pages/VMDetail';
 import { HostList } from '@/pages/HostList';
 import { HostDetail } from '@/pages/HostDetail';
 import { StoragePools } from '@/pages/StoragePools';
+import { StoragePoolDetail } from '@/pages/StoragePoolDetail';
 import { Volumes } from '@/pages/Volumes';
 import { ClusterList } from '@/pages/ClusterList';
 import { ClusterDetail } from '@/pages/ClusterDetail';
@@ -74,6 +75,7 @@ function AppRoutes() {
         
         {/* Storage */}
         <Route path="/storage/pools" element={<StoragePools />} />
+        <Route path="/storage/pools/:id" element={<StoragePoolDetail />} />
         <Route path="/storage/volumes" element={<Volumes />} />
         <Route path="/storage/images" element={<ImageLibrary />} />
         
