@@ -99,11 +99,11 @@ console-tui: docker-rust-tui
 	@echo "🔨 Building TUI console..."
 	@mkdir -p $(OVERLAY_DIR)/usr/local/bin
 	@if [ -f "$(BUILD_DIR)/console-tui/Cargo.toml" ]; then \
-		docker run --rm --network=host \
-			-v "$(BUILD_DIR)/console-tui:/build:rw" \
-			-v "$(OVERLAY_DIR)/usr/local/bin:/output" \
-			-w /build \
-			$(RUST_TUI_IMAGE) \
+	docker run --rm --network=host \
+		-v "$(BUILD_DIR)/console-tui:/build:rw" \
+		-v "$(OVERLAY_DIR)/usr/local/bin:/output" \
+		-w /build \
+		$(RUST_TUI_IMAGE) \
 			sh -c "set -e && cargo build --release && cp target/release/qx-console /output/" && \
 		echo "✅ TUI console built"; \
 	else \
