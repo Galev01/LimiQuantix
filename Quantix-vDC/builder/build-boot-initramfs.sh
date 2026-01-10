@@ -62,12 +62,18 @@ fi
 
 chmod +x "${INITRAMFS_DIR}/bin/busybox"
 
-# Create essential symlinks
-for cmd in sh ash mount umount switch_root pivot_root mkdir mknod cat echo ls sleep modprobe insmod blkid; do
+# Create essential symlinks for busybox applets
+# Core utilities
+for cmd in sh ash mount umount switch_root pivot_root mkdir mknod cat echo ls sleep \
+           modprobe insmod blkid grep cut sed awk tr head tail find xargs test \
+           cp mv rm ln chmod chown df du ps kill killall dmesg \
+           true false expr seq wc sort uniq \
+           mountpoint readlink basename dirname pwd date; do
     ln -sf busybox "${INITRAMFS_DIR}/bin/$cmd"
 done
 
-for cmd in modprobe insmod switch_root; do
+# Sbin commands
+for cmd in modprobe insmod switch_root pivot_root mdev; do
     ln -sf ../bin/busybox "${INITRAMFS_DIR}/sbin/$cmd"
 done
 

@@ -1,249 +1,119 @@
 # Workflow State
 
-## Current Status: COMPLETED - Storage Pool Host Assignment
+## Current Status: COMPLETED - Architecture Validation
 
-## Latest Workflow: Storage Pool Host Assignment and File Browser
+## Latest Workflow: QvDC-Orchestrated, Host-Executed Architecture
 
 **Date:** January 11, 2026
 
 ### Objective
 
-Implement storage pool host assignment feature and storage pool file browser:
-1. Allow assigning/unassigning storage pools to specific hosts
-2. When creating a VM, filter hosts based on storage pool availability
-3. Create a StoragePoolDetail page with file explorer
+Validate and document the architecture pattern for Quantix-KVM.
+
+### Confirmed Architecture: QvDC-Orchestrated, Host-Executed
+
+The architecture follows a **"QvDC orchestrates, hosts execute and own state"** model:
+
+1. **QvDC defines** what should exist (storage pools, networks, VMs)
+2. **QvDC pushes** commands to assigned hosts
+3. **Hosts execute** the commands (mount NFS, create VM, configure network)
+4. **Hosts are source of truth** for actual state (capacity, usage, health)
+5. **Hosts report back** actual state to QvDC
+
+### Architecture Analysis (Revised)
+
+| Data Type | Current Flow | Status |
+|-----------|-------------|--------|
+| **Nodes/Hosts** | Host → QvDC (registration push) | ✅ CORRECT |
+| **VMs (existing)** | Host → QvDC (sync) | ✅ CORRECT |
+| **VMs (create)** | QvDC → Host (command) → Host reports state | ✅ CORRECT |
+| **Storage Pools** | QvDC → Host (push mount) → Host reports state | ✅ CORRECT |
+| **Volumes** | QvDC → Host (create) → Host reports state | ✅ CORRECT |
+| **Networks** | QvDC → Host (push config) → Host reports state | ✅ CORRECT |
+
+### Storage Flow (Confirmed Correct)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     STORAGE POOL FLOW                                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  1. DEFINE (QvDC)                                                        │
+│     Admin creates NFS pool in QvDC Dashboard                             │
+│     - Server: 192.168.1.100                                              │
+│     - Export: /exports/vm-storage                                        │
+│     - Assigned Hosts: [host-1, host-2, host-3]                           │
+│                                                                          │
+│  2. PUSH (QvDC → Hosts)                                                  │
+│     QvDC sends InitStoragePool to each assigned host                     │
+│                                                                          │
+│  3. EXECUTE (Hosts)                                                      │
+│     Each host mounts the NFS share                                       │
+│     Host OWNS the mount - source of truth for capacity/health            │
+│                                                                          │
+│  4. REPORT (Hosts → QvDC)                                                │
+│     Hosts report actual state via response/heartbeat:                    │
+│     - "I have 2TB total, 500GB used"                                     │
+│     - "Mount is healthy/degraded/failed"                                 │
+│                                                                          │
+│  5. AGGREGATE (QvDC)                                                     │
+│     QvDC displays unified view of pool across all hosts                  │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Principle
+
+| Aspect | QvDC Responsibility | Host Responsibility |
+|--------|--------------------|--------------------|
+| **Storage Definition** | Define pool config (NFS/iSCSI/local) | N/A |
+| **Host Assignment** | Track which hosts should have access | N/A |
+| **Mount Execution** | Send mount command | Execute mount, report result |
+| **Capacity/Usage** | Display aggregated view | **Source of truth** |
+| **Health Status** | Display, alert | **Source of truth** |
+| **Volume Operations** | Send create/delete commands | Execute, manage files |
+
+### Current Implementation Status
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Host Registration | ✅ Correct | Host pushes hardware info |
+| VM Sync (existing) | ✅ Correct | Host syncs VMs to QvDC |
+| VM Create | ✅ Correct | QvDC → Host command |
+| VM Operations | ✅ Correct | QvDC → Host command |
+| Storage Pool Create | ✅ Correct | QvDC defines, pushes to hosts |
+| Storage Pool Assignment | ✅ Correct | AssignedNodeIDs tracked |
+| Storage Host Execution | ✅ Correct | Hosts mount and report back |
+| Storage Heartbeat Reporting | ⚠️ Enhancement | Add pool state to heartbeat |
+| Network Config | ⚠️ Enhancement | Apply same orchestrated pattern |
+
+### Enhancements Identified (Future Work)
+
+1. **Add storage pool state to heartbeat** - Hosts should continuously report pool health/capacity
+2. **Per-host pool status tracking** - QvDC should track which hosts have healthy mounts
+3. **Network orchestration** - Apply same pattern to vSwitch/network configs
+
+### Documentation Created
+
+- `docs/adr/000011-host-centric-data-architecture.md` - Full ADR with details
+
+---
+
+## Previous Workflow: Storage Pool Host Assignment
+
+**Date:** January 11, 2026
 
 ### Completed Tasks
 
-| Task | Description | Status |
-|------|-------------|--------|
-| Domain Model | Added `AssignedNodeIDs` field to `StoragePoolSpec` | ✅ |
-| Domain Methods | Added `IsAssignedToNode`, `AssignToNode`, `UnassignFromNode` methods | ✅ |
-| Proto Updates | Added `assigned_node_ids` to `StoragePoolSpec` | ✅ |
-| Proto RPCs | Added `AssignPoolToNode`, `UnassignPoolFromNode`, `ListPoolFiles` RPCs | ✅ |
-| Backend Service | Implemented assign/unassign and file listing in `pool_service.go` | ✅ |
-| Node Daemon | Implemented `list_storage_pool_files` RPC in Rust | ✅ |
-| Frontend Hooks | Added `useAssignPoolToNode`, `useUnassignPoolFromNode`, `usePoolFiles` | ✅ |
-| StoragePoolDetail Page | Created new page with tabs for Files, Nodes, Settings | ✅ |
-| VM Wizard Update | Added host/pool compatibility warnings and filtering | ✅ |
-| Documentation | Created `000057-storage-pool-host-assignment.md` | ✅ |
-
-### Key Changes
-
-**Backend:**
-- `backend/internal/domain/storage.go` - Added `AssignedNodeIDs` and helper methods
-- `backend/internal/services/storage/pool_service.go` - New RPCs
-- `backend/internal/services/storage/pool_converter.go` - Proto conversion
-- `backend/internal/services/node/daemon_client.go` - `ListStoragePoolFiles` client method
-
-**Proto:**
-- `proto/limiquantix/storage/v1/storage.proto` - `assigned_node_ids` field
-- `proto/limiquantix/storage/v1/storage_service.proto` - New RPCs and messages
-- `proto/limiquantix/node/v1/node_daemon.proto` - File listing RPC
-
-**Node Daemon:**
-- `agent/limiquantix-node/src/service.rs` - `list_storage_pool_files` implementation
-
-**Frontend:**
-- `frontend/src/pages/StoragePoolDetail.tsx` - New detail page with file browser
-- `frontend/src/pages/StoragePools.tsx` - Added onClick navigation
-- `frontend/src/hooks/useStorage.ts` - New hooks and types
-- `frontend/src/components/vm/VMCreationWizard.tsx` - Host/pool compatibility UI
-- `frontend/src/App.tsx` - Added route for `/storage/pools/:id`
-
-### VMware Equivalence
-
-| VMware Concept | Quantix Equivalent |
-|----------------|-------------------|
-| Datastore | Storage Pool |
-| VMDK | Volume (first-class API object) |
-| Datastore mounting on host | Storage pool assignment to node |
-| Browse Datastore | Pool file browser |
-
----
-
-## Previous Workflow: Fix Host Registration API Communication
-
-**Date:** January 10, 2026
-
-### Problem
-
-When trying to add a Quantix-OS host to QvDC via token-based registration, the control plane receives HTML instead of JSON from the host API. Error: `Failed to parse host resources: invalid character '<' looking for beginning of value`
-
-**Root Cause:** The Quantix-OS host running an older ISO does not have the registration API endpoints. The SPA fallback serves `index.html` for any unrecognized routes.
-
-### Fix Applied
-
-#### 1. Enhanced Error Handling in Go Backend (`host_registration_handler.go`)
-
-Added enterprise-grade error handling with structured errors:
-
-| Error Code | Description |
-|------------|-------------|
-| `HOST_FIRMWARE_OUTDATED` | Host running old Quantix-OS without registration API |
-| `HOST_CONNECTION_FAILED` | Cannot connect to host (wrong IP, port, network issue) |
-| `CONNECTION_TIMEOUT` | Host not responding within timeout |
-| `TOKEN_INVALID` | Token doesn't match the one on the host |
-| `TOKEN_EXPIRED` | Token has expired (valid for 1 hour) |
-| `TOKEN_MISSING` | No token generated on the host yet |
-| `HOST_API_NOT_AVAILABLE` | Host API endpoint returning errors |
-| `NETWORK_UNREACHABLE` | Network/routing issue |
-| `TLS_ERROR` | SSL certificate problem |
-| `INVALID_RESPONSE` | Host returned HTML or unparseable data |
-
-**Discovery Flow Phases:**
-1. **Phase 1: API Check (Ping)** - Verify `/api/v1/registration/ping` is reachable
-2. **Phase 2: Token Validation** - Validate the token with the host
-3. **Phase 3: Discovery** - Fetch full hardware resources
-
-Each phase has detailed logging with:
-- URL being called
-- HTTP status code
-- Content-Type header
-- Response body (for debugging)
-
-#### 2. Added Diagnostic Ping Endpoint (`http_server.rs`)
-
-New `/api/v1/registration/ping` endpoint that:
-- Requires **no authentication**
-- Returns JSON with status, version, and timestamp
-- Helps diagnose if API is reachable vs firmware outdated
-
-#### 3. Frontend Error Display (`AddHostModal.tsx`)
-
-- User-friendly error messages with emojis and guidance
-- Multi-line error display with proper formatting
-- Specific advice for each error type
-
-### Files Modified
-
-| File | Changes |
-|------|---------|
-| `backend/internal/server/host_registration_handler.go` | Complete rewrite with phases, structured errors, detailed logging |
-| `agent/limiquantix-node/src/http_server.rs` | Added `/api/v1/registration/ping` diagnostic endpoint |
-| `frontend/src/components/host/AddHostModal.tsx` | Enhanced error handling and display |
-
-### Testing
-
-To test:
-1. Rebuild the Go backend: `cd backend && go build -o controlplane.exe ./cmd/controlplane`
-2. Rebuild the ISO with latest Rust code (must be built on Linux for x86_64-linux target)
-3. Start the backend and observe detailed logs
-
-**Logs to look for:**
-- `Registration API ping response` - Shows if ping worked
-- `Host API confirmed` - Shows version if ping succeeded
-- `Token validated successfully` - Token accepted
-- `Host discovery completed successfully` - All phases passed
-
-### Build Status
-
-- ✅ Go backend compiles successfully
-- ✅ Rust node daemon compiles successfully (Windows build)
-- ⚠️ ISO needs to be rebuilt with latest Rust code on Linux
-
----
-
-## Latest Workflow: Fix ISO Build - Node Daemon Compilation Failed
-
-**Date:** January 10, 2026
-
-### Problem
-
-The `make iso` command completes but the node daemon (qx-node) binary is NOT actually built. Build logs show:
-
-```
-error: cannot produce proc-macro for `async-stream-impl v0.3.6` as the target `x86_64-unknown-linux-musl` does not support these crate types
-cp: cannot stat '../agent/limiquantix-node-musl': No such file or directory
-✅ Node daemon built (musl)  <-- FALSE POSITIVE!
-```
-
-**Root Cause:** The Docker image was setting `RUSTFLAGS="-C target-feature=+crt-static -C link-self-contained=yes"` which forces a musl cross-compilation target. On musl targets, proc-macro crates (like `async-stream-impl`, `darling_macro`, `tokio-macros`, etc.) cannot be compiled because they need to run on the **host** compiler.
-
-### Fix Applied
-
-#### 1. Fixed Dockerfile.rust-tui
-
-Removed the problematic RUSTFLAGS that forced musl cross-compilation:
-
-```dockerfile
-# BEFORE (broken)
-ENV RUSTFLAGS="-C target-feature=+crt-static -C link-self-contained=yes"
-
-# AFTER (works)
-# No RUSTFLAGS - Alpine is already musl-based, builds native musl binaries
-ENV OPENSSL_STATIC=1
-ENV OPENSSL_LIB_DIR=/usr/lib
-ENV OPENSSL_INCLUDE_DIR=/usr/include
-```
-
-**Key insight:** Alpine Linux uses musl libc natively. When you `cargo build` on Alpine WITHOUT specifying a target, it produces musl binaries automatically. Explicitly setting `--target=x86_64-unknown-linux-musl` breaks proc-macro compilation.
-
-#### 2. Fixed Makefile Error Handling
-
-Added proper error detection so the build fails fast instead of silently continuing:
-
-```makefile
-# node-daemon target now:
-# - Uses set -e for early exit on errors
-# - Checks if binary exists after build
-# - Prints error message if build fails
-# - Uses exit 1 to fail the make target
-```
-
-#### 3. Added BUILD_INFO.json Generation
-
-The Makefile now generates `BUILD_INFO.json` during the host-ui build with:
-- Product version
-- Build date
-- Git commit
-- Registration API flag
-
-### Files Modified
-
-| File | Changes |
-|------|---------|
-| `Quantix-OS/builder/Dockerfile.rust-tui` | Removed RUSTFLAGS, added git package |
-| `Quantix-OS/Makefile` | Added error handling for node-daemon and console-tui builds, added BUILD_INFO.json generation |
-
-### Testing
-
-Rebuild the ISO:
-
-```bash
-cd Quantix-OS
-sudo make clean-all  # Clear Docker images
-sudo make iso
-```
-
-Watch for errors. The build should now FAIL if the node daemon doesn't compile correctly.
-
----
-
-## Previous Workflow: Quantix Host UI (QHMI) Complete Implementation
-
-**Date:** January 9, 2026
-
-### Objective
-
-Configure and make the `quantix-host-ui` work correctly within the Quantix-OS ISO, enabling full host management capabilities after installation.
-
-### Completed Tasks
-
-| Task | Description | Status |
-|------|-------------|--------|
-| Fix Telemetry | Fixed CPU/memory/disk/network metrics collection (sysinfo double-refresh) | ✅ |
-| Event Store | Implemented ring buffer event store with emit/list functionality | ✅ |
-| Log Collection | Connected log endpoint to journald/syslog with file fallbacks | ✅ |
-| Local Storage Discovery | Added endpoint to list physical disks and initialize as qDV | ✅ |
-| Image Scanning | Fixed image scanning to include /var/lib/limiquantix/images/ | ✅ |
-| Settings Storage Tab | Redesigned to show physical disks and shared storage pools | ✅ |
-| Settings Network Tab | Added vSwitch management with physical uplinks display | ✅ |
-| Settings Services | Added NFS client, firewall, NTP, SNMP to services list | ✅ |
-| vDC Registration | Added complete_registration callback endpoint for vDC | ✅ |
-| QHMI Branding | Updated About section from "Quantix-KVM" to "QHMI" | ✅ |
-| Security Placeholders | Added password reset and MFA configuration placeholders | ✅ |
-| Auto-detect Storage | Added automatic NFS mount and local storage detection on startup | ✅ |
+| Task | Status |
+|------|--------|
+| Domain Model - `AssignedNodeIDs` field | ✅ |
+| Proto Updates - `assigned_node_ids` | ✅ |
+| Backend Service - assign/unassign RPCs | ✅ |
+| Node Daemon - file listing RPC | ✅ |
+| Frontend - StoragePoolDetail page | ✅ |
+| VM Wizard - host/pool compatibility | ✅ |
+| Documentation | ✅ |
 
 ---
 
@@ -263,40 +133,6 @@ Configure and make the `quantix-host-ui` work correctly within the Quantix-OS IS
 │  Quantix-OS (Hypervisor Host)                                   │
 │  ├── Rust Node Daemon (limiquantix-node)                        │
 │  ├── libvirt/QEMU for VM management                             │
-│  └── QHMI - Host UI (quantix-host-ui)                           │
+│  └── QHCI - Host UI (quantix-host-ui)                           │
 └─────────────────────────────────────────────────────────────────┘
-```
-
-## Host Registration Flow
-
-```
-┌──────────────────┐    ┌───────────────────┐    ┌──────────────────┐
-│   QvDC Frontend  │    │    Go Backend     │    │   Quantix-OS     │
-│   (localhost)    │    │   (localhost)     │    │  (192.168.x.x)   │
-└────────┬─────────┘    └─────────┬─────────┘    └────────┬─────────┘
-         │                        │                       │
-         │ POST /api/nodes/discover                       │
-         │ { hostUrl, token }     │                       │
-         ├───────────────────────>│                       │
-         │                        │                       │
-         │                        │ GET /api/v1/registration/ping
-         │                        ├──────────────────────>│
-         │                        │<──────────────────────┤
-         │                        │ { status: "ok" }      │
-         │                        │                       │
-         │                        │ GET /api/v1/registration/token
-         │                        │ Authorization: Bearer <token>
-         │                        ├──────────────────────>│
-         │                        │<──────────────────────┤
-         │                        │ { token, hostname }   │
-         │                        │                       │
-         │                        │ GET /api/v1/registration/discovery
-         │                        │ Authorization: Bearer <token>
-         │                        ├──────────────────────>│
-         │                        │<──────────────────────┤
-         │                        │ { cpu, memory, ... }  │
-         │                        │                       │
-         │<───────────────────────┤                       │
-         │ Discovery data         │                       │
-         │                        │                       │
 ```

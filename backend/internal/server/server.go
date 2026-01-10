@@ -45,12 +45,12 @@ type Server struct {
 	etcd  *etcd.Client
 
 	// Repository interfaces (abstracted for swappable backends)
-	vmRepo   vm.Repository
-	nodeRepo node.Repository
+	vmRepo          vm.Repository
+	nodeRepo        node.Repository
+	storagePoolRepo storageservice.PoolRepository
+	volumeRepo      storageservice.VolumeRepository
 
 	// Memory-only repositories (no PostgreSQL equivalent yet)
-	storagePoolRepo       *memory.StoragePoolRepository
-	volumeRepo            *memory.VolumeRepository
 	imageRepo             *storageservice.MemoryImageRepository
 	networkRepo           *memory.NetworkRepository
 	securityGroupRepo     *memory.SecurityGroupRepository
@@ -184,9 +184,25 @@ func (s *Server) initRepositories() {
 		s.logger.Warn("Admin panel requires PostgreSQL - admin features disabled in development mode")
 	}
 
+	// Storage pool repository - use PostgreSQL for persistence
+	if s.db != nil {
+		s.storagePoolRepo = postgres.NewStoragePoolRepository(s.db, s.logger)
+		s.logger.Info("Using PostgreSQL storage pool repository (persistent)")
+	} else {
+		s.storagePoolRepo = memory.NewStoragePoolRepository()
+		s.logger.Warn("Using in-memory storage pool repository (data will be lost on restart)")
+	}
+
+	// Volume repository - use PostgreSQL for persistence
+	if s.db != nil {
+		s.volumeRepo = postgres.NewVolumeRepository(s.db, s.logger)
+		s.logger.Info("Using PostgreSQL volume repository (persistent)")
+	} else {
+		s.volumeRepo = memory.NewVolumeRepository()
+		s.logger.Warn("Using in-memory volume repository (data will be lost on restart)")
+	}
+
 	// These remain in-memory for now (PostgreSQL implementations can be added later)
-	s.storagePoolRepo = memory.NewStoragePoolRepository()
-	s.volumeRepo = memory.NewVolumeRepository()
 	s.imageRepo = storageservice.NewMemoryImageRepository()
 	s.networkRepo = memory.NewNetworkRepository()
 	s.securityGroupRepo = memory.NewSecurityGroupRepository()

@@ -21,6 +21,9 @@ type PoolRepository interface {
 	// List retrieves storage pools based on filter criteria.
 	List(ctx context.Context, filter PoolFilter, limit int, offset int) ([]*domain.StoragePool, int, error)
 
+	// ListAssignedToNode retrieves all storage pools assigned to a specific node.
+	ListAssignedToNode(ctx context.Context, nodeID string) ([]*domain.StoragePool, error)
+
 	// Update modifies an existing storage pool.
 	Update(ctx context.Context, pool *domain.StoragePool) (*domain.StoragePool, error)
 

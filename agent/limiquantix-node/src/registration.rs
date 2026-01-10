@@ -6,6 +6,7 @@
 //! - Re-registration on connection loss
 //! - VM sync to report existing VMs to the control plane
 //! - Image scanning and sync to report available cloud images
+//! - Storage pool status reporting (host is source of truth)
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -14,7 +15,7 @@ use tokio::sync::RwLock;
 use tokio::time::interval;
 use tracing::{debug, error, info, warn};
 
-use limiquantix_hypervisor::Hypervisor;
+use limiquantix_hypervisor::{Hypervisor, StorageManager};
 use limiquantix_telemetry::TelemetryCollector;
 
 use crate::config::Config;
@@ -28,6 +29,7 @@ pub struct RegistrationClient {
     heartbeat_interval: Duration,
     telemetry: Arc<TelemetryCollector>,
     hypervisor: Arc<dyn Hypervisor>,
+    storage: Arc<StorageManager>,
     http_client: reqwest::Client,
     /// Path to cloud images directory
     images_path: PathBuf,
@@ -41,6 +43,7 @@ impl RegistrationClient {
         config: &Config,
         telemetry: Arc<TelemetryCollector>,
         hypervisor: Arc<dyn Hypervisor>,
+        storage: Arc<StorageManager>,
     ) -> Self {
         let hostname = config.node.get_hostname();
         
@@ -56,6 +59,7 @@ impl RegistrationClient {
             heartbeat_interval: Duration::from_secs(config.control_plane.heartbeat_interval_secs),
             telemetry,
             hypervisor,
+            storage,
             http_client: reqwest::Client::new(),
             images_path: PathBuf::from(&config.hypervisor.images_path),
             registered_node_id: RwLock::new(None),
@@ -466,12 +470,16 @@ impl RegistrationClient {
         
         let telemetry = self.telemetry.collect();
         
-        // Build heartbeat request
+        // Collect storage pool status (host is source of truth)
+        let storage_pools = self.collect_storage_pool_status().await;
+        
+        // Build heartbeat request with storage pool status
         let request = serde_json::json!({
             "nodeId": node_id,
             "cpuUsagePercent": telemetry.cpu.usage_percent,
             "memoryUsedMib": telemetry.memory.used_bytes / 1024 / 1024,
-            "memoryTotalMib": telemetry.memory.total_bytes / 1024 / 1024
+            "memoryTotalMib": telemetry.memory.total_bytes / 1024 / 1024,
+            "storagePools": storage_pools
         });
         
         let url = format!(
@@ -488,6 +496,19 @@ impl RegistrationClient {
         
         match response {
             Ok(resp) if resp.status().is_success() => {
+                // Parse response to check for assigned pools we should mount
+                if let Ok(body) = resp.text().await {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                        if let Some(assigned_ids) = json.get("assignedPoolIds").and_then(|v| v.as_array()) {
+                            debug!(
+                                node_id = %node_id,
+                                assigned_pools = assigned_ids.len(),
+                                "Heartbeat acknowledged with assigned pool list"
+                            );
+                            // TODO: Check if any assigned pools are not mounted and mount them
+                        }
+                    }
+                }
                 debug!(node_id = %node_id, "Heartbeat acknowledged");
                 Ok(())
             }
@@ -509,6 +530,33 @@ impl RegistrationClient {
                 Err(anyhow::anyhow!("Heartbeat connection failed: {}", e))
             }
         }
+    }
+    
+    /// Collect storage pool status for heartbeat (host is source of truth).
+    async fn collect_storage_pool_status(&self) -> Vec<serde_json::Value> {
+        let pools = self.storage.list_pools().await;
+        
+        pools.iter().map(|pool| {
+            // Determine health based on pool availability
+            let health = if pool.available_bytes > 0 {
+                1 // HEALTH_HEALTHY
+            } else if pool.total_bytes > 0 {
+                2 // HEALTH_DEGRADED
+            } else {
+                3 // HEALTH_ERROR
+            };
+            
+            serde_json::json!({
+                "poolId": pool.pool_id,
+                "health": health,
+                "totalBytes": pool.total_bytes,
+                "usedBytes": pool.total_bytes.saturating_sub(pool.available_bytes),
+                "availableBytes": pool.available_bytes,
+                "mountPath": pool.mount_path,
+                "volumeCount": pool.volume_count,
+                "errorMessage": ""
+            })
+        }).collect()
     }
     
     /// Start the registration and heartbeat loop.

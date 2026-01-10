@@ -144,6 +144,11 @@ impl NodeDaemonServiceImpl {
         tracing::info!("Storage auto-detection complete");
     }
     
+    /// Get the storage manager (for heartbeat reporting).
+    pub fn get_storage_manager(&self) -> Arc<StorageManager> {
+        self.storage.clone()
+    }
+    
     /// Detect and register NFS mounts as storage pools.
     async fn detect_nfs_mounts(&self) -> anyhow::Result<()> {
         use tokio::fs;

@@ -148,10 +148,14 @@ pub async fn run(config: Config) -> Result<()> {
     
     // Start control plane registration in the background (if enabled)
     if config.control_plane.registration_enabled {
+        // Get storage manager from service for heartbeat reporting
+        let storage_for_registration = service.get_storage_manager();
+        
         let registration_client = RegistrationClient::new(
             &config, 
             telemetry.clone(),
             hypervisor_for_registration,
+            storage_for_registration,
         );
         
         info!(

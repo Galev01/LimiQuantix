@@ -143,3 +143,18 @@ func (r *StoragePoolRepository) UpdateStatus(ctx context.Context, id string, sta
 	}
 	return domain.ErrNotFound
 }
+
+// ListAssignedToNode retrieves all storage pools assigned to a specific node.
+func (r *StoragePoolRepository) ListAssignedToNode(ctx context.Context, nodeID string) ([]*domain.StoragePool, error) {
+	var result []*domain.StoragePool
+
+	r.store.Range(func(key, value interface{}) bool {
+		pool := value.(*domain.StoragePool)
+		if pool.IsAssignedToNode(nodeID) {
+			result = append(result, pool)
+		}
+		return true
+	})
+
+	return result, nil
+}

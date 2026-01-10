@@ -164,6 +164,36 @@ type StoragePoolStatus struct {
 	Health       StorageHealth    `json:"health"`
 	VolumeCount  uint32           `json:"volume_count"`
 	ErrorMessage string           `json:"error_message"`
+
+	// HostStatuses contains per-host status reports.
+	// Key is the node ID, value is the host's status report.
+	// This is the source of truth for capacity/health on each host.
+	HostStatuses map[string]PoolHostStatus `json:"host_statuses,omitempty"`
+}
+
+// PoolHostHealth represents the health status of a pool on a specific host.
+type PoolHostHealth string
+
+const (
+	PoolHostHealthUnknown   PoolHostHealth = "UNKNOWN"
+	PoolHostHealthHealthy   PoolHostHealth = "HEALTHY"
+	PoolHostHealthDegraded  PoolHostHealth = "DEGRADED"
+	PoolHostHealthError     PoolHostHealth = "ERROR"
+	PoolHostHealthUnmounted PoolHostHealth = "UNMOUNTED"
+)
+
+// PoolHostStatus represents the status of a storage pool on a specific host.
+// Hosts are the source of truth for this data.
+type PoolHostStatus struct {
+	NodeID       string         `json:"node_id"`
+	Health       PoolHostHealth `json:"health"`
+	MountPath    string         `json:"mount_path"`
+	TotalBytes   uint64         `json:"total_bytes"`
+	UsedBytes    uint64         `json:"used_bytes"`
+	AvailBytes   uint64         `json:"available_bytes"`
+	VolumeCount  uint32         `json:"volume_count"`
+	ErrorMessage string         `json:"error_message,omitempty"`
+	LastUpdated  time.Time      `json:"last_updated"`
 }
 
 // StorageCapacity holds capacity information.
@@ -238,6 +268,117 @@ func (p *StoragePool) GetAssignedNodeIDs() []string {
 		return []string{}
 	}
 	return p.Spec.AssignedNodeIDs
+}
+
+// UpdateHostStatus updates the status for a specific host.
+// Returns true if the status was updated, false if it's a new entry.
+func (p *StoragePool) UpdateHostStatus(nodeID string, status PoolHostStatus) bool {
+	if p.Status.HostStatuses == nil {
+		p.Status.HostStatuses = make(map[string]PoolHostStatus)
+	}
+	_, exists := p.Status.HostStatuses[nodeID]
+	status.NodeID = nodeID
+	status.LastUpdated = time.Now()
+	p.Status.HostStatuses[nodeID] = status
+	return exists
+}
+
+// GetHostStatus returns the status for a specific host.
+func (p *StoragePool) GetHostStatus(nodeID string) (PoolHostStatus, bool) {
+	if p.Status.HostStatuses == nil {
+		return PoolHostStatus{}, false
+	}
+	status, ok := p.Status.HostStatuses[nodeID]
+	return status, ok
+}
+
+// GetHealthyHosts returns a list of node IDs with healthy status.
+func (p *StoragePool) GetHealthyHosts() []string {
+	var healthy []string
+	for nodeID, status := range p.Status.HostStatuses {
+		if status.Health == PoolHostHealthHealthy {
+			healthy = append(healthy, nodeID)
+		}
+	}
+	return healthy
+}
+
+// GetUnhealthyHosts returns a list of node IDs with non-healthy status.
+func (p *StoragePool) GetUnhealthyHosts() []string {
+	var unhealthy []string
+	for nodeID, status := range p.Status.HostStatuses {
+		if status.Health != PoolHostHealthHealthy && status.Health != PoolHostHealthUnknown {
+			unhealthy = append(unhealthy, nodeID)
+		}
+	}
+	return unhealthy
+}
+
+// AggregateCapacity aggregates capacity from all healthy hosts.
+// For shared storage (NFS, Ceph), takes the first healthy host's capacity.
+// For local storage, sums capacity from all healthy hosts.
+func (p *StoragePool) AggregateCapacity() StorageCapacity {
+	if len(p.Status.HostStatuses) == 0 {
+		return p.Status.Capacity // Fall back to existing capacity
+	}
+
+	isShared := p.IsSharedStorage()
+
+	if isShared {
+		// Shared storage: all hosts see the same capacity, use first healthy
+		for _, status := range p.Status.HostStatuses {
+			if status.Health == PoolHostHealthHealthy {
+				return StorageCapacity{
+					TotalBytes:     status.TotalBytes,
+					UsedBytes:      status.UsedBytes,
+					AvailableBytes: status.AvailBytes,
+				}
+			}
+		}
+	} else {
+		// Local storage: sum capacities (though typically only one host)
+		var total StorageCapacity
+		for _, status := range p.Status.HostStatuses {
+			if status.Health == PoolHostHealthHealthy {
+				total.TotalBytes += status.TotalBytes
+				total.UsedBytes += status.UsedBytes
+				total.AvailableBytes += status.AvailBytes
+			}
+		}
+		if total.TotalBytes > 0 {
+			return total
+		}
+	}
+
+	return p.Status.Capacity // Fall back
+}
+
+// DetermineOverallPhase determines the overall pool phase based on host statuses.
+func (p *StoragePool) DetermineOverallPhase() StoragePoolPhase {
+	if len(p.Status.HostStatuses) == 0 {
+		return StoragePoolPhasePending
+	}
+
+	healthyCount := 0
+	errorCount := 0
+	totalAssigned := len(p.Spec.AssignedNodeIDs)
+
+	for _, status := range p.Status.HostStatuses {
+		switch status.Health {
+		case PoolHostHealthHealthy:
+			healthyCount++
+		case PoolHostHealthError, PoolHostHealthUnmounted:
+			errorCount++
+		}
+	}
+
+	if healthyCount == 0 {
+		return StoragePoolPhaseError
+	}
+	if errorCount > 0 && healthyCount < totalAssigned {
+		return StoragePoolPhaseDegraded
+	}
+	return StoragePoolPhaseReady
 }
 
 // IsSharedStorage returns true if the storage backend is shared (NFS, Ceph).

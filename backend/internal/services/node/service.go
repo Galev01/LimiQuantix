@@ -27,15 +27,24 @@ type VMRepository interface {
 	Create(ctx context.Context, vm *domain.VirtualMachine) (*domain.VirtualMachine, error)
 }
 
+// StoragePoolRepository is the interface for storage pool persistence.
+type StoragePoolRepository interface {
+	Get(ctx context.Context, id string) (*domain.StoragePool, error)
+	Update(ctx context.Context, pool *domain.StoragePool) (*domain.StoragePool, error)
+	UpdateStatus(ctx context.Context, id string, status domain.StoragePoolStatus) error
+	ListAssignedToNode(ctx context.Context, nodeID string) ([]*domain.StoragePool, error)
+}
+
 // Service implements the NodeService Connect-RPC handler.
 // It manages hypervisor node registration, health monitoring, and lifecycle.
 type Service struct {
 	computev1connect.UnimplementedNodeServiceHandler
 
-	repo       Repository
-	vmRepo     VMRepository
-	daemonPool *DaemonPool
-	logger     *zap.Logger
+	repo            Repository
+	vmRepo          VMRepository
+	storagePoolRepo StoragePoolRepository
+	daemonPool      *DaemonPool
+	logger          *zap.Logger
 }
 
 // NewService creates a new Node service.
@@ -64,9 +73,31 @@ func NewServiceWithDaemonPool(repo Repository, daemonPool *DaemonPool, logger *z
 	}
 }
 
+// NewServiceFull creates a Node service with all dependencies.
+func NewServiceFull(
+	repo Repository,
+	vmRepo VMRepository,
+	storagePoolRepo StoragePoolRepository,
+	daemonPool *DaemonPool,
+	logger *zap.Logger,
+) *Service {
+	return &Service{
+		repo:            repo,
+		vmRepo:          vmRepo,
+		storagePoolRepo: storagePoolRepo,
+		daemonPool:      daemonPool,
+		logger:          logger.Named("node-service"),
+	}
+}
+
 // SetDaemonPool sets the daemon pool for gRPC connections (used for late binding).
 func (s *Service) SetDaemonPool(pool *DaemonPool) {
 	s.daemonPool = pool
+}
+
+// SetStoragePoolRepo sets the storage pool repository (used for late binding).
+func (s *Service) SetStoragePoolRepo(repo StoragePoolRepository) {
+	s.storagePoolRepo = repo
 }
 
 // ============================================================================
@@ -720,15 +751,99 @@ func (s *Service) UpdateHeartbeat(
 		// Don't fail the request, just log it
 	}
 
+	// Process storage pool status reports (host is source of truth)
+	var assignedPoolIDs []string
+	if s.storagePoolRepo != nil && len(req.Msg.StoragePools) > 0 {
+		logger.Debug("Processing storage pool status reports",
+			zap.Int("pool_count", len(req.Msg.StoragePools)),
+		)
+
+		for _, poolReport := range req.Msg.StoragePools {
+			if poolReport.PoolId == "" {
+				continue
+			}
+
+			pool, err := s.storagePoolRepo.Get(ctx, poolReport.PoolId)
+			if err != nil {
+				logger.Warn("Failed to get storage pool for heartbeat update",
+					zap.String("pool_id", poolReport.PoolId),
+					zap.Error(err),
+				)
+				continue
+			}
+
+			// Convert proto health to domain health
+			health := domain.PoolHostHealthUnknown
+			switch poolReport.Health {
+			case computev1.StoragePoolStatusReport_HEALTH_HEALTHY:
+				health = domain.PoolHostHealthHealthy
+			case computev1.StoragePoolStatusReport_HEALTH_DEGRADED:
+				health = domain.PoolHostHealthDegraded
+			case computev1.StoragePoolStatusReport_HEALTH_ERROR:
+				health = domain.PoolHostHealthError
+			case computev1.StoragePoolStatusReport_HEALTH_UNMOUNTED:
+				health = domain.PoolHostHealthUnmounted
+			}
+
+			// Update host status (host is source of truth)
+			hostStatus := domain.PoolHostStatus{
+				NodeID:       node.ID,
+				Health:       health,
+				MountPath:    poolReport.MountPath,
+				TotalBytes:   poolReport.TotalBytes,
+				UsedBytes:    poolReport.UsedBytes,
+				AvailBytes:   poolReport.AvailableBytes,
+				VolumeCount:  poolReport.VolumeCount,
+				ErrorMessage: poolReport.ErrorMessage,
+			}
+			pool.UpdateHostStatus(node.ID, hostStatus)
+
+			// Recalculate aggregate status
+			pool.Status.Capacity = pool.AggregateCapacity()
+			pool.Status.Phase = pool.DetermineOverallPhase()
+
+			// Persist the updated pool status
+			if err := s.storagePoolRepo.UpdateStatus(ctx, pool.ID, pool.Status); err != nil {
+				logger.Warn("Failed to persist pool status from heartbeat",
+					zap.String("pool_id", pool.ID),
+					zap.Error(err),
+				)
+			} else {
+				logger.Debug("Updated pool status from host",
+					zap.String("pool_id", pool.ID),
+					zap.String("health", string(health)),
+					zap.Uint64("total_bytes", poolReport.TotalBytes),
+					zap.Uint64("used_bytes", poolReport.UsedBytes),
+				)
+			}
+		}
+	}
+
+	// Get list of pools assigned to this node (for desired state response)
+	if s.storagePoolRepo != nil {
+		assignedPools, err := s.storagePoolRepo.ListAssignedToNode(ctx, node.ID)
+		if err != nil {
+			logger.Warn("Failed to get assigned pools for heartbeat response",
+				zap.Error(err),
+			)
+		} else {
+			for _, pool := range assignedPools {
+				assignedPoolIDs = append(assignedPoolIDs, pool.ID)
+			}
+		}
+	}
+
 	logger.Debug("Heartbeat received",
 		zap.Float64("cpu_usage", req.Msg.CpuUsagePercent),
 		zap.Uint64("memory_used_mib", req.Msg.MemoryUsedMib),
+		zap.Int("storage_pool_reports", len(req.Msg.StoragePools)),
 	)
 
 	return connect.NewResponse(&computev1.UpdateHeartbeatResponse{
 		Acknowledged:          true,
 		ServerTimeUnix:        now.Unix(),
 		HeartbeatIntervalSecs: 30, // Standard interval
+		AssignedPoolIds:       assignedPoolIDs,
 	}), nil
 }
 

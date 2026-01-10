@@ -295,6 +295,43 @@ message UpdateHeartbeatRequest {
   double load_1m = 8;
   double load_5m = 9;
   double load_15m = 10;
+  
+  // Storage pool status reports (host is source of truth)
+  repeated StoragePoolStatusReport storage_pools = 11;
+}
+
+// StoragePoolStatusReport - Host reports actual state of mounted storage pools
+// This is the source of truth for capacity, usage, and health.
+message StoragePoolStatusReport {
+  // Pool ID (assigned by QvDC when pool was pushed to this host)
+  string pool_id = 1;
+  
+  // Health status
+  enum HealthStatus {
+    HEALTH_UNKNOWN = 0;
+    HEALTH_HEALTHY = 1;
+    HEALTH_DEGRADED = 2;
+    HEALTH_ERROR = 3;
+    HEALTH_UNMOUNTED = 4;
+  }
+  HealthStatus health = 2;
+  
+  // Capacity (source of truth from host)
+  uint64 total_bytes = 3;
+  uint64 used_bytes = 4;
+  uint64 available_bytes = 5;
+  
+  // Mount path on this host
+  string mount_path = 6;
+  
+  // Number of volumes in this pool on this host
+  uint32 volume_count = 7;
+  
+  // Error message if health is ERROR
+  string error_message = 8;
+  
+  // Last successful mount time
+  int64 last_mount_unix = 9;
 }
 
 message UpdateHeartbeatResponse {
@@ -306,6 +343,10 @@ message UpdateHeartbeatResponse {
   
   // Heartbeat interval in seconds (server can adjust)
   uint32 heartbeat_interval_secs = 3;
+  
+  // Storage pools that should be mounted on this host (desired state from QvDC)
+  // Host should mount any pools in this list that are not yet mounted
+  repeated string assigned_pool_ids = 4;
 }
 
 // Metrics
