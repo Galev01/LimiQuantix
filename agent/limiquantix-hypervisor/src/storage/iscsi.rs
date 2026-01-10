@@ -438,6 +438,7 @@ impl StorageBackend for IscsiBackend {
             rbd_pool: None,
             total_bytes,
             available_bytes,
+            volume_count: 0, // Will be updated by list_volumes
         })
     }
     
@@ -475,6 +476,7 @@ impl StorageBackend for IscsiBackend {
             rbd_pool: None,
             total_bytes,
             available_bytes,
+            volume_count: 0, // Will be updated by list_volumes
         })
     }
     

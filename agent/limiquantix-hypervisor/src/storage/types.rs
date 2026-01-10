@@ -173,6 +173,8 @@ pub struct PoolInfo {
     pub total_bytes: u64,
     /// Available capacity in bytes
     pub available_bytes: u64,
+    /// Number of volumes in this pool
+    pub volume_count: u32,
 }
 
 /// Information needed to attach a volume to a VM.

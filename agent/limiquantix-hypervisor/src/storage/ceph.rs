@@ -469,6 +469,7 @@ impl StorageBackend for CephBackend {
             rbd_pool: Some(state.pool_name),
             total_bytes,
             available_bytes,
+            volume_count: 0, // Will be updated by list_volumes
         })
     }
     
@@ -495,6 +496,7 @@ impl StorageBackend for CephBackend {
             rbd_pool: Some(state.pool_name),
             total_bytes,
             available_bytes,
+            volume_count: 0, // Will be updated by list_volumes
         })
     }
     

@@ -546,13 +546,19 @@ impl RegistrationClient {
                 3 // HEALTH_ERROR
             };
             
+            // Get mount path or device path
+            let mount_path = pool.mount_path.as_ref()
+                .or(pool.device_path.as_ref())
+                .cloned()
+                .unwrap_or_default();
+            
             serde_json::json!({
                 "poolId": pool.pool_id,
                 "health": health,
                 "totalBytes": pool.total_bytes,
                 "usedBytes": pool.total_bytes.saturating_sub(pool.available_bytes),
                 "availableBytes": pool.available_bytes,
-                "mountPath": pool.mount_path,
+                "mountPath": mount_path,
                 "volumeCount": pool.volume_count,
                 "errorMessage": ""
             })
