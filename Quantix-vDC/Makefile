@@ -3,22 +3,26 @@
 # =============================================================================
 #
 # Usage:
-#   make iso           - Build complete installation ISO
+#   make iso           - Build complete installation ISO (auto-increments version)
+#   make iso-no-bump   - Build ISO without incrementing version
 #   make ova           - Build OVA virtual appliance
 #   make rootfs        - Build rootfs only
 #   make test-qemu     - Test ISO in QEMU
 #   make test-qemu-install - Test installer with virtual disk
 #   make clean         - Clean build artifacts
+#   make version       - Show current version
+#   make version-bump  - Increment patch version
+#   make version-set V=X.Y.Z - Set specific version
 #   make help          - Show this help
 #
 # =============================================================================
 
-.PHONY: all iso ova rootfs test-qemu test-qemu-install test-qemu-uefi \
+.PHONY: all iso iso-no-bump ova rootfs test-qemu test-qemu-install test-qemu-uefi \
         clean clean-all help docker-builder docker-node scripts-executable \
-        backend frontend deploy-usb
+        backend frontend deploy-usb version version-bump version-set
 
-# Version
-VERSION ?= 1.0.0
+# Version - read from VERSION file
+VERSION := $(shell cat VERSION 2>/dev/null || echo "0.0.1")
 ISO_NAME := quantix-vdc-$(VERSION).iso
 OVA_NAME := quantix-vdc-$(VERSION).ova
 
@@ -37,14 +41,51 @@ NODE_BUILDER_IMAGE := quantix-rust-tui-builder
 PROJECT_ROOT := $(shell cd .. && pwd)
 
 # =============================================================================
+# Version Management
+# =============================================================================
+
+# Show current version
+version:
+	@echo "Quantix-vDC v$(VERSION)"
+
+# Increment patch version
+version-bump:
+	@chmod +x builder/version.sh 2>/dev/null || true
+	@NEW_VER=$$(./builder/version.sh increment) && \
+		echo "Version bumped: $(VERSION) → $$NEW_VER"
+
+# Set specific version
+version-set:
+ifndef V
+	$(error Usage: make version-set V=X.Y.Z)
+endif
+	@chmod +x builder/version.sh 2>/dev/null || true
+	@./builder/version.sh set $(V)
+	@echo "Version set to: $(V)"
+
+# =============================================================================
 # Main Targets
 # =============================================================================
 
 all: iso
 
-# Build complete installation ISO (runs rootfs + iso in single container to avoid sync issues)
-iso: docker-builder backend frontend scripts-executable
-	@echo "🔨 Building installation ISO (combined build)..."
+# Build complete installation ISO (auto-increment version)
+iso: version-bump docker-builder backend frontend scripts-executable
+	$(eval VERSION := $(shell cat VERSION))
+	$(eval ISO_NAME := quantix-vdc-$(VERSION).iso)
+	@echo "🔨 Building installation ISO v$(VERSION)..."
+	@mkdir -p $(OUTPUT_DIR)
+	docker run --rm --privileged \
+		-v "$(BUILD_DIR):/work" \
+		-v "$(OUTPUT_DIR):/output" \
+		-w /work \
+		$(BUILDER_IMAGE) \
+		/bin/bash -c "./builder/build-rootfs.sh $(VERSION) && ./builder/build-iso.sh $(VERSION)"
+	@echo "✅ ISO built: $(OUTPUT_DIR)/$(ISO_NAME)"
+
+# Build ISO without incrementing version
+iso-no-bump: docker-builder backend frontend scripts-executable
+	@echo "🔨 Building installation ISO v$(VERSION) (no version bump)..."
 	@mkdir -p $(OUTPUT_DIR)
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \

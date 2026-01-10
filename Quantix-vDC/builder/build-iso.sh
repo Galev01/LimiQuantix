@@ -57,6 +57,10 @@ echo "📦 Step 2: Creating ISO structure..."
 rm -rf "${ISO_DIR}"
 mkdir -p "${ISO_DIR}"/{boot/grub,EFI/BOOT,quantix-vdc,installer}
 
+# Copy VERSION file to ISO
+echo "${VERSION}" > "${ISO_DIR}/quantix-vdc/VERSION"
+echo "   Version file created: ${VERSION}"
+
 echo "✅ ISO structure created"
 
 # -----------------------------------------------------------------------------

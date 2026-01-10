@@ -37,6 +37,18 @@ if ! command -v dialog >/dev/null 2>&1; then
     exec /installer/install.sh
 fi
 
+# Get version from ISO or default
+VERSION="unknown"
+for ver_file in /mnt/cdrom/quantix-vdc/VERSION /VERSION /etc/quantix-version; do
+    if [ -f "$ver_file" ]; then
+        VERSION=$(cat "$ver_file" | tr -d '[:space:]')
+        break
+    fi
+done
+
+# Update backtitle with version
+BACKTITLE="Quantix-vDC Installer v${VERSION}"
+
 # =============================================================================
 # Welcome Screen
 # =============================================================================

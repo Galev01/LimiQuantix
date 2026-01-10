@@ -318,6 +318,14 @@ log_step "Step 6: Configuring system..."
 # Hostname
 echo "$HOSTNAME" > "${TARGET_MOUNT}/etc/hostname"
 
+# Copy version file to installed system
+if [ -f "${CDROM_PATH}/quantix-vdc/VERSION" ]; then
+    cp "${CDROM_PATH}/quantix-vdc/VERSION" "${TARGET_MOUNT}/etc/quantix-version"
+    log_info "Version file installed: $(cat ${TARGET_MOUNT}/etc/quantix-version)"
+else
+    echo "unknown" > "${TARGET_MOUNT}/etc/quantix-version"
+fi
+
 # Hosts
 cat > "${TARGET_MOUNT}/etc/hosts" << EOF
 127.0.0.1       localhost

@@ -22,7 +22,7 @@
 #
 # =============================================================================
 
-.PHONY: all iso iso-no-bump squashfs initramfs console-tui host-ui \
+.PHONY: all iso iso-no-bump squashfs squashfs-internal initramfs console-tui host-ui \
         node-daemon test-qemu test-qemu-uefi clean help \
         docker-builder docker-rust-tui scripts-executable \
         version version-bump version-set
@@ -75,25 +75,30 @@ version-set:
 all: iso
 
 # Build complete bootable ISO (with version bump)
-iso: version-bump squashfs console-tui host-ui node-daemon scripts-executable
+# Note: We bump version first, then build squashfs with the new version
+iso: version-bump
+	@$(MAKE) squashfs-internal
+	@$(MAKE) console-tui host-ui node-daemon scripts-executable
 	@echo "🔨 Building bootable ISO v$$(cat $(VERSION_FILE))..."
 	@mkdir -p $(OUTPUT_DIR)
-	@# Copy VERSION file to be included in ISO
-	@mkdir -p $(BUILD_DIR)/.iso-staging/quantix
-	@cp $(VERSION_FILE) $(BUILD_DIR)/.iso-staging/quantix/VERSION
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
 		-v "$(OUTPUT_DIR):/output" \
 		-w /work \
 		$(BUILDER_IMAGE) \
 		/bin/bash ./builder/build-iso.sh $$(cat $(VERSION_FILE))
-	@rm -rf $(BUILD_DIR)/.iso-staging
 	@echo "✅ ISO built: $(OUTPUT_DIR)/quantix-os-$$(cat $(VERSION_FILE)).iso"
 
-# Build ISO without incrementing version
+# Build ISO without incrementing version (uses VERSION at Makefile load time)
 iso-no-bump: squashfs console-tui host-ui node-daemon scripts-executable
 	@echo "🔨 Building bootable ISO v$(VERSION) (no version bump)..."
 	@mkdir -p $(OUTPUT_DIR)
+	@# Verify squashfs exists
+	@if [ ! -f "$(OUTPUT_DIR)/system-$(VERSION).squashfs" ]; then \
+		echo "❌ Squashfs not found: $(OUTPUT_DIR)/system-$(VERSION).squashfs"; \
+		echo "   Building squashfs first..."; \
+		$(MAKE) squashfs; \
+	fi
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
 		-v "$(OUTPUT_DIR):/output" \
@@ -102,7 +107,7 @@ iso-no-bump: squashfs console-tui host-ui node-daemon scripts-executable
 		/bin/bash ./builder/build-iso.sh $(VERSION)
 	@echo "✅ ISO built: $(OUTPUT_DIR)/$(ISO_NAME)"
 
-# Build rootfs squashfs
+# Build rootfs squashfs (public target - uses VERSION at Makefile load time)
 squashfs: docker-builder scripts-executable
 	@echo "🔨 Building rootfs squashfs..."
 	@mkdir -p $(OUTPUT_DIR)
@@ -113,6 +118,18 @@ squashfs: docker-builder scripts-executable
 		$(BUILDER_IMAGE) \
 		/bin/bash ./builder/build-squashfs.sh $(VERSION)
 	@echo "✅ Squashfs built: $(OUTPUT_DIR)/$(SQUASHFS_NAME)"
+
+# Internal squashfs target - reads VERSION dynamically (after version-bump)
+squashfs-internal: docker-builder scripts-executable
+	@echo "🔨 Building rootfs squashfs v$$(cat $(VERSION_FILE))..."
+	@mkdir -p $(OUTPUT_DIR)
+	docker run --rm --privileged \
+		-v "$(BUILD_DIR):/work" \
+		-v "$(OUTPUT_DIR):/output" \
+		-w /work \
+		$(BUILDER_IMAGE) \
+		/bin/bash ./builder/build-squashfs.sh $$(cat $(VERSION_FILE))
+	@echo "✅ Squashfs built: $(OUTPUT_DIR)/system-$$(cat $(VERSION_FILE)).squashfs"
 
 # Build initramfs
 initramfs: docker-builder scripts-executable
