@@ -195,7 +195,7 @@ docker-rust-gui:
 
 docker-rust-tui:
 	@echo "🐳 Building Docker image: $(RUST_TUI_IMAGE)..."
-	docker build -t $(RUST_TUI_IMAGE) -f builder/Dockerfile.rust-tui builder/
+	docker build --network=host -t $(RUST_TUI_IMAGE) -f builder/Dockerfile.rust-tui builder/
 
 # =============================================================================
 # Utility Targets
