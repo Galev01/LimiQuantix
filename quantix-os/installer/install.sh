@@ -25,9 +25,9 @@ NC='\033[0m' # No Color
 
 # Configuration
 TARGET_DISK="${1:-}"
-EFI_SIZE="100M"
-SYSTEM_SIZE="300M"
-CONFIG_SIZE="100M"
+EFI_SIZE="256M"
+SYSTEM_SIZE="1500M"  # 1.5GB - squashfs is ~700MB, room for growth
+CONFIG_SIZE="256M"
 
 # Paths
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -182,10 +182,11 @@ create_partitions() {
     log_info "Creating partitions..."
     
     # Calculate partition positions
-    local efi_end="${EFI_SIZE}"
-    local sys_a_end="400M"   # 100M + 300M
-    local sys_b_end="700M"   # 400M + 300M
-    local cfg_end="800M"     # 700M + 100M
+    # Layout: EFI(256M) + SysA(1.5G) + SysB(1.5G) + Cfg(256M) + Data(rest)
+    local efi_end="256M"
+    local sys_a_end="1756M"   # 256M + 1500M
+    local sys_b_end="3256M"   # 1756M + 1500M  
+    local cfg_end="3512M"     # 3256M + 256M
     
     # Create partitions
     parted -s "${TARGET_DISK}" mkpart "EFI" fat32 1MiB ${efi_end}

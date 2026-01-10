@@ -41,7 +41,33 @@ pub async fn run(config: Config) -> Result<()> {
                 let uri = config.hypervisor.libvirt_uri.as_deref()
                     .unwrap_or("qemu:///system");
                 info!(uri = %uri, "Connecting to libvirt");
-                Arc::new(limiquantix_hypervisor::LibvirtBackend::new(uri).await?)
+                
+                // Try to connect to libvirt, but don't crash if it fails
+                // The web UI should still work even without hypervisor connectivity
+                match limiquantix_hypervisor::LibvirtBackend::new(uri).await {
+                    Ok(backend) => {
+                        info!("Successfully connected to libvirt");
+                        emit_event(Event::new(
+                            EventLevel::Info,
+                            EventCategory::System,
+                            "Connected to libvirt hypervisor".to_string(),
+                            "qx-node"
+                        ));
+                        Arc::new(backend) as Arc<dyn Hypervisor>
+                    }
+                    Err(e) => {
+                        // Log error but don't crash - fall back to mock backend
+                        error!(error = %e, "Failed to connect to libvirt - web UI will still work but VM operations will fail");
+                        emit_event(Event::new(
+                            EventLevel::Warning,
+                            EventCategory::System,
+                            format!("Failed to connect to libvirt: {}. VM operations unavailable.", e),
+                            "qx-node"
+                        ));
+                        warn!("Falling back to mock hypervisor backend");
+                        Arc::new(MockBackend::new()) as Arc<dyn Hypervisor>
+                    }
+                }
             }
             #[cfg(not(feature = "libvirt"))]
             {
