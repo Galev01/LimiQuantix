@@ -1,8 +1,9 @@
 #!/bin/sh
 # =============================================================================
-# Quantix-vDC Installer TUI
+# Quantix-OS Installer TUI
 # =============================================================================
-# Dialog-based text user interface for Quantix-vDC installation.
+# Dialog-based text user interface for Quantix-OS installation.
+# Similar to VMware ESXi installer - simple, clean, and effective.
 # =============================================================================
 
 # Dialog settings
@@ -10,20 +11,24 @@ DIALOG=${DIALOG:-dialog}
 DIALOG_OK=0
 DIALOG_CANCEL=1
 DIALOG_ESC=255
-BACKTITLE="Quantix-vDC Installer"
+
+# Get version from VERSION file or embedded
+VERSION_FILE="/mnt/cdrom/quantix/VERSION"
+if [ -f "$VERSION_FILE" ]; then
+    VERSION=$(cat "$VERSION_FILE" | tr -d '\n\r ')
+else
+    VERSION="0.0.1"
+fi
+
+BACKTITLE="Quantix-OS Installer v${VERSION}"
 
 # Temp files for dialog output
 DIALOG_TEMP="/tmp/dialog.$$"
 
 # Installation parameters
 TARGET_DISK=""
-HOSTNAME="quantix-vdc"
-IP_MODE="dhcp"
-IP_ADDRESS=""
-IP_NETMASK="255.255.255.0"
-IP_GATEWAY=""
-IP_DNS="8.8.8.8"
-ADMIN_PASSWORD=""
+HOSTNAME="quantix"
+ROOT_PASSWORD=""
 
 # Cleanup on exit
 cleanup() {
@@ -42,22 +47,28 @@ fi
 # =============================================================================
 show_welcome() {
     $DIALOG --backtitle "$BACKTITLE" \
-        --title "Welcome to Quantix-vDC Installer" \
+        --title "Welcome to Quantix-OS Installer" \
         --msgbox "\n\
  ╔═══════════════════════════════════════════════════════════╗\n\
- ║            QUANTIX-vDC CONTROL PLANE APPLIANCE            ║\n\
+ ║          QUANTIX-OS HYPERVISOR INSTALLER                  ║\n\
+ ║                    Version ${VERSION}                           ║\n\
  ╚═══════════════════════════════════════════════════════════╝\n\
 \n\
- This wizard will guide you through the installation of\n\
- Quantix-vDC, the centralized control plane for managing\n\
- your Quantix-KVM virtualization cluster.\n\
+ This wizard will install Quantix-OS, a high-performance\n\
+ KVM-based hypervisor operating system.\n\
+\n\
+ Quantix-OS provides:\n\
+   • Enterprise-grade virtualization\n\
+   • Modern web-based management (QHMI)\n\
+   • Simple cluster integration\n\
+   • A/B partition for safe upgrades\n\
 \n\
  Requirements:\n\
-   • 4 GB RAM minimum (8 GB recommended)\n\
-   • 20 GB disk space minimum\n\
-   • Network connectivity\n\
+   • 4 GB RAM minimum (16 GB recommended)\n\
+   • 50 GB disk space minimum\n\
+   • VT-x/AMD-V enabled CPU\n\
 \n\
- Press ENTER to continue or ESC to cancel." 20 65
+ Press ENTER to continue or ESC to cancel." 24 65
 
     return $?
 }
@@ -66,10 +77,10 @@ show_welcome() {
 # Disk Selection
 # =============================================================================
 select_disk() {
-    # Load storage drivers to ensure all disks are visible
+    # Load storage drivers
     $DIALOG --backtitle "$BACKTITLE" \
         --title "Scanning Hardware" \
-        --infobox "\nLoading storage drivers and scanning for disks...\n\nPlease wait..." 8 50
+        --infobox "\nLoading storage drivers and scanning for disks...\n\nPlease wait..." 8 55
     
     # Load NVMe drivers
     modprobe nvme 2>/dev/null || true
@@ -81,50 +92,66 @@ select_disk() {
     modprobe ata_piix 2>/dev/null || true
     modprobe ata_generic 2>/dev/null || true
     
-    # Load SCSI drivers (for some SSDs)
+    # Load SCSI drivers
     modprobe sd_mod 2>/dev/null || true
     modprobe scsi_mod 2>/dev/null || true
     
-    # Load USB storage (for external drives)
+    # Load USB storage
     modprobe usb_storage 2>/dev/null || true
     modprobe uas 2>/dev/null || true
     
-    # Trigger udev/mdev to detect devices
+    # Load VirtIO
+    modprobe virtio_blk 2>/dev/null || true
+    modprobe virtio_scsi 2>/dev/null || true
+    
+    # Trigger device detection
     if command -v mdev >/dev/null 2>&1; then
         mdev -s 2>/dev/null || true
     fi
     
-    # Wait for devices to settle
+    # Wait for devices
     sleep 3
     
-    # Get list of available disks
+    # Get list of available disks (exclude USB boot media)
     DISK_LIST=""
+    BOOT_DEVICE=""
+    
+    # Try to identify the boot device
+    if [ -f /proc/cmdline ]; then
+        BOOT_DEVICE=$(cat /proc/cmdline | grep -oP 'root=\K[^ ]+' || true)
+    fi
+    
     for disk in $(lsblk -dpno NAME,SIZE,TYPE 2>/dev/null | grep disk | awk '{print $1}'); do
         SIZE=$(lsblk -dpno SIZE "$disk" 2>/dev/null | head -1)
-        DISK_LIST="$DISK_LIST $disk \"$SIZE\" off"
+        MODEL=$(lsblk -dno MODEL "$disk" 2>/dev/null | head -1 | tr -d '[:space:]' || echo "Unknown")
+        
+        # Skip if this is likely the boot USB
+        if [ -n "$BOOT_DEVICE" ] && echo "$BOOT_DEVICE" | grep -q "$disk"; then
+            continue
+        fi
+        
+        # Get size in bytes for comparison
+        SIZE_BYTES=$(lsblk -dpnbo SIZE "$disk" 2>/dev/null | head -1 || echo "0")
+        
+        # Skip very small disks (< 10GB) - likely USB drives
+        if [ "$SIZE_BYTES" -lt 10737418240 ] 2>/dev/null; then
+            continue
+        fi
+        
+        DISK_LIST="$DISK_LIST $disk \"$SIZE - $MODEL\" off"
     done
 
     if [ -z "$DISK_LIST" ]; then
         $DIALOG --backtitle "$BACKTITLE" \
-            --title "No Disks Found" \
-            --msgbox "\nNo suitable disks found!\n\n\
-COMMON FIX FOR NVME DRIVES:\n\
-If your system has an NVMe SSD, you may need to\n\
-change BIOS settings:\n\n\
-  1. Enter BIOS/UEFI Setup\n\
-  2. Find 'SATA Operation' or 'Storage Mode'\n\
-  3. Change from 'RAID' to 'AHCI'\n\
-  4. Save and restart\n\n\
-This is required for Dell, HP, Lenovo laptops\n\
-with Intel RST/VMD enabled.\n\n\
-Detected devices: $(ls /dev/nvme* /dev/sd* 2>/dev/null | tr '\n' ' ' || echo 'none')" 22 60
+            --title "Error" \
+            --msgbox "No suitable disks found!\n\nPossible causes:\n- NVMe/SATA drivers not loaded\n- Disk not connected properly\n- All disks < 10GB\n\nAvailable block devices:\n$(ls -la /dev/sd* /dev/nvme* /dev/vd* 2>&1 | head -10)" 18 65
         return 1
     fi
 
     eval $DIALOG --backtitle "\"$BACKTITLE\"" \
         --title "\"Select Target Disk\"" \
-        --radiolist "\"\\nSelect the disk to install Quantix-vDC.\\n\\nWARNING: All data on the selected disk will be erased!\\n\"" \
-        18 60 6 \
+        --radiolist "\"\\nSelect the disk to install Quantix-OS.\\n\\n⚠️  WARNING: ALL DATA ON THE SELECTED DISK WILL BE ERASED!\\n\"" \
+        20 70 8 \
         $DISK_LIST 2>"$DIALOG_TEMP"
 
     if [ $? -ne 0 ]; then
@@ -147,17 +174,26 @@ Detected devices: $(ls /dev/nvme* /dev/sd* 2>/dev/null | tr '\n' ' ' || echo 'no
 # Confirm Disk Selection
 # =============================================================================
 confirm_disk() {
-    DISK_INFO=$(lsblk -dno SIZE,MODEL "$TARGET_DISK" 2>/dev/null)
+    DISK_SIZE=$(lsblk -dno SIZE "$TARGET_DISK" 2>/dev/null)
+    DISK_MODEL=$(lsblk -dno MODEL "$TARGET_DISK" 2>/dev/null || echo "Unknown")
     
     $DIALOG --backtitle "$BACKTITLE" \
         --title "Confirm Disk Selection" \
         --yesno "\n\
-Target Disk: $TARGET_DISK\n\
-Details: $DISK_INFO\n\
+Target Disk:  $TARGET_DISK\n\
+Size:         $DISK_SIZE\n\
+Model:        $DISK_MODEL\n\
 \n\
-⚠️  WARNING: ALL DATA ON THIS DISK WILL BE PERMANENTLY ERASED!\n\
+Partition Layout:\n\
+  ├─ EFI System    (256 MB)\n\
+  ├─ QUANTIX-A     (1.5 GB) - Active system\n\
+  ├─ QUANTIX-B     (1.5 GB) - Upgrade slot\n\
+  ├─ QUANTIX-CFG   (256 MB) - Configuration\n\
+  └─ QUANTIX-DATA  (rest)   - VM storage\n\
 \n\
-Are you sure you want to continue?" 14 60
+⚠️  ALL DATA ON THIS DISK WILL BE PERMANENTLY ERASED!\n\
+\n\
+Are you sure you want to continue?" 22 65
 
     return $?
 }
@@ -168,93 +204,42 @@ Are you sure you want to continue?" 14 60
 configure_hostname() {
     $DIALOG --backtitle "$BACKTITLE" \
         --title "Hostname Configuration" \
-        --inputbox "\nEnter a hostname for this appliance:\n" 10 50 "$HOSTNAME" 2>"$DIALOG_TEMP"
+        --inputbox "\nEnter a hostname for this hypervisor:\n\n(e.g., quantix-node-01)" 12 50 "$HOSTNAME" 2>"$DIALOG_TEMP"
 
     if [ $? -ne 0 ]; then
         return 1
     fi
 
     HOSTNAME=$(cat "$DIALOG_TEMP")
-    [ -z "$HOSTNAME" ] && HOSTNAME="quantix-vdc"
+    [ -z "$HOSTNAME" ] && HOSTNAME="quantix"
 
-    return 0
-}
-
-# =============================================================================
-# Network Configuration
-# =============================================================================
-configure_network() {
-    $DIALOG --backtitle "$BACKTITLE" \
-        --title "Network Configuration" \
-        --menu "\nSelect network configuration method:\n" 12 50 2 \
-        "dhcp"   "Automatic (DHCP)" \
-        "static" "Static IP Address" 2>"$DIALOG_TEMP"
-
-    if [ $? -ne 0 ]; then
+    # Validate hostname
+    if ! echo "$HOSTNAME" | grep -qE '^[a-zA-Z][a-zA-Z0-9-]*$'; then
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "Invalid Hostname" \
+            --msgbox "Hostname must start with a letter and contain\nonly letters, numbers, and hyphens." 8 50
         return 1
     fi
 
-    IP_MODE=$(cat "$DIALOG_TEMP")
-
-    if [ "$IP_MODE" = "static" ]; then
-        configure_static_ip
-        return $?
-    fi
-
     return 0
 }
 
 # =============================================================================
-# Static IP Configuration
-# =============================================================================
-configure_static_ip() {
-    # IP Address
-    $DIALOG --backtitle "$BACKTITLE" \
-        --title "Static IP Configuration" \
-        --inputbox "\nEnter IP address (e.g., 192.168.1.100):\n" 10 50 "$IP_ADDRESS" 2>"$DIALOG_TEMP"
-    [ $? -ne 0 ] && return 1
-    IP_ADDRESS=$(cat "$DIALOG_TEMP")
-
-    # Netmask
-    $DIALOG --backtitle "$BACKTITLE" \
-        --title "Static IP Configuration" \
-        --inputbox "\nEnter netmask (e.g., 255.255.255.0):\n" 10 50 "$IP_NETMASK" 2>"$DIALOG_TEMP"
-    [ $? -ne 0 ] && return 1
-    IP_NETMASK=$(cat "$DIALOG_TEMP")
-
-    # Gateway
-    $DIALOG --backtitle "$BACKTITLE" \
-        --title "Static IP Configuration" \
-        --inputbox "\nEnter gateway IP:\n" 10 50 "$IP_GATEWAY" 2>"$DIALOG_TEMP"
-    [ $? -ne 0 ] && return 1
-    IP_GATEWAY=$(cat "$DIALOG_TEMP")
-
-    # DNS
-    $DIALOG --backtitle "$BACKTITLE" \
-        --title "Static IP Configuration" \
-        --inputbox "\nEnter DNS server:\n" 10 50 "$IP_DNS" 2>"$DIALOG_TEMP"
-    [ $? -ne 0 ] && return 1
-    IP_DNS=$(cat "$DIALOG_TEMP")
-
-    return 0
-}
-
-# =============================================================================
-# Admin Password
+# Root Password Configuration
 # =============================================================================
 configure_password() {
     while true; do
         $DIALOG --backtitle "$BACKTITLE" \
-            --title "Admin Password" \
+            --title "Root Password" \
             --insecure \
-            --passwordbox "\nEnter admin (root) password:\n" 10 50 2>"$DIALOG_TEMP"
+            --passwordbox "\nEnter root password:\n\n(Minimum 6 characters)" 12 50 2>"$DIALOG_TEMP"
         [ $? -ne 0 ] && return 1
         PASS1=$(cat "$DIALOG_TEMP")
 
         $DIALOG --backtitle "$BACKTITLE" \
-            --title "Admin Password" \
+            --title "Root Password" \
             --insecure \
-            --passwordbox "\nConfirm admin password:\n" 10 50 2>"$DIALOG_TEMP"
+            --passwordbox "\nConfirm root password:" 10 50 2>"$DIALOG_TEMP"
         [ $? -ne 0 ] && return 1
         PASS2=$(cat "$DIALOG_TEMP")
 
@@ -264,7 +249,7 @@ configure_password() {
                     --title "Error" \
                     --msgbox "Password must be at least 6 characters." 8 50
             else
-                ADMIN_PASSWORD="$PASS1"
+                ROOT_PASSWORD="$PASS1"
                 break
             fi
         else
@@ -281,24 +266,21 @@ configure_password() {
 # Installation Summary
 # =============================================================================
 show_summary() {
-    NETWORK_INFO="$IP_MODE"
-    if [ "$IP_MODE" = "static" ]; then
-        NETWORK_INFO="Static: $IP_ADDRESS / $IP_NETMASK"
-    fi
-
+    DISK_SIZE=$(lsblk -dno SIZE "$TARGET_DISK" 2>/dev/null)
+    
     $DIALOG --backtitle "$BACKTITLE" \
         --title "Installation Summary" \
         --yesno "\n\
 Please review your installation settings:\n\
 \n\
-  Target Disk:    $TARGET_DISK\n\
-  Hostname:       $HOSTNAME\n\
-  Network:        $NETWORK_INFO\n\
-  Admin Password: ********\n\
+  Quantix-OS Version:  ${VERSION}\n\
+  Target Disk:         ${TARGET_DISK} (${DISK_SIZE})\n\
+  Hostname:            ${HOSTNAME}\n\
+  Root Password:       ********\n\
 \n\
-⚠️  All data on $TARGET_DISK will be erased!\n\
+⚠️  ALL DATA ON ${TARGET_DISK} WILL BE ERASED!\n\
 \n\
-Begin installation?" 16 60
+Begin installation?" 18 60
 
     return $?
 }
@@ -311,24 +293,15 @@ run_installation() {
     INSTALL_CMD="/installer/install.sh"
     INSTALL_CMD="$INSTALL_CMD --disk $TARGET_DISK"
     INSTALL_CMD="$INSTALL_CMD --hostname $HOSTNAME"
-    
-    if [ "$IP_MODE" = "static" ]; then
-        INSTALL_CMD="$INSTALL_CMD --static"
-        INSTALL_CMD="$INSTALL_CMD --ip $IP_ADDRESS"
-        INSTALL_CMD="$INSTALL_CMD --netmask $IP_NETMASK"
-        INSTALL_CMD="$INSTALL_CMD --gateway $IP_GATEWAY"
-        INSTALL_CMD="$INSTALL_CMD --dns $IP_DNS"
-    else
-        INSTALL_CMD="$INSTALL_CMD --dhcp"
-    fi
-    
-    INSTALL_CMD="$INSTALL_CMD --password $ADMIN_PASSWORD"
+    INSTALL_CMD="$INSTALL_CMD --password $ROOT_PASSWORD"
+    INSTALL_CMD="$INSTALL_CMD --version $VERSION"
+    INSTALL_CMD="$INSTALL_CMD --auto"
 
-    # Run installation with progress
+    # Run installation with progress display
     clear
     echo ""
     echo "╔═══════════════════════════════════════════════════════════════╗"
-    echo "║              Installing Quantix-vDC...                        ║"
+    echo "║              Installing Quantix-OS v${VERSION}                      ║"
     echo "╚═══════════════════════════════════════════════════════════════╝"
     echo ""
 
@@ -337,16 +310,21 @@ run_installation() {
         $DIALOG --backtitle "$BACKTITLE" \
             --title "Installation Complete" \
             --msgbox "\n\
- ✅ Quantix-vDC has been installed successfully!\n\
+ ✅ Quantix-OS v${VERSION} has been installed successfully!\n\
 \n\
  Next Steps:\n\
-   1. Remove the installation media\n\
+   1. Remove the installation media (USB/ISO)\n\
    2. Reboot the system\n\
-   3. Access the web console at:\n\
+   3. Access the console TUI on the local display\n\
+   4. Access web management at:\n\
 \n\
-      https://<ip-address>/\n\
+      https://<ip-address>:8443/\n\
 \n\
- Press ENTER to reboot now." 16 60
+ Default Credentials:\n\
+   Username: root\n\
+   Password: (as configured)\n\
+\n\
+ Press ENTER to reboot now." 20 60
 
         $DIALOG --backtitle "$BACKTITLE" \
             --title "Reboot" \
@@ -362,7 +340,7 @@ run_installation() {
  ❌ Installation failed!\n\
 \n\
  Please check the console output for errors.\n\
- Press ENTER to drop to a shell." 12 50
+ Press ENTER to drop to a shell for troubleshooting." 12 55
 
         exec /bin/sh
     fi
@@ -376,7 +354,6 @@ main() {
     select_disk || exit 0
     confirm_disk || exit 0
     configure_hostname || exit 0
-    configure_network || exit 0
     configure_password || exit 0
     show_summary || exit 0
     run_installation

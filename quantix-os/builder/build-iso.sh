@@ -64,6 +64,10 @@ echo "📦 Step 3: Copying boot files..."
 # Copy squashfs
 cp "$SQUASHFS" "${ISO_DIR}/quantix/system.squashfs"
 
+# Copy VERSION file to ISO
+echo "${VERSION}" > "${ISO_DIR}/quantix/VERSION"
+echo "   Version file created: ${VERSION}"
+
 # Extract kernel AND modules from squashfs
 echo "   Extracting kernel and modules from squashfs..."
     mkdir -p /tmp/sqmount

@@ -70,6 +70,8 @@ struct App {
     memory_total: u64,
     /// Cached storage info (mount_point, used, total)
     storage_info: Vec<(String, u64, u64)>,
+    /// Quantix-OS version (read from VERSION file)
+    os_version: String,
 }
 
 /// Static IP configuration
@@ -181,6 +183,9 @@ impl App {
         // Check current SSH status
         let ssh_enabled = is_ssh_enabled();
         
+        // Read OS version from various locations
+        let os_version = get_os_version();
+        
         Self {
             screen: Screen::Main,
             selected_menu: 0,
@@ -221,6 +226,7 @@ impl App {
             memory_used: 0,
             memory_total: 0,
             storage_info: Vec::new(),
+            os_version,
         }
     }
 
@@ -1083,8 +1089,8 @@ fn render_main_screen(f: &mut Frame, app: &App, area: Rect) {
     let left_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(8),   // System info
-            Constraint::Length(8),   // CPU/Memory/Storage (needs more space)
+            Constraint::Length(9),   // System info (includes version)
+            Constraint::Length(8),   // CPU/Memory/Storage
             Constraint::Min(4),      // Management URL
         ])
         .margin(1)
@@ -1103,6 +1109,10 @@ fn render_main_screen(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let info_text = vec![
+        Line::from(vec![
+            Span::styled("Version:  ", Style::default().fg(Color::Gray)),
+            Span::styled(format!("Quantix-OS v{}", &app.os_version), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        ]),
         Line::from(vec![
             Span::styled("Hostname: ", Style::default().fg(Color::Gray)),
             Span::styled(&app.hostname, Style::default().fg(Color::White)),
@@ -2192,6 +2202,54 @@ iface lo inet loopback
 }
 
 // Helper functions
+
+/// Read the Quantix-OS version from VERSION file
+/// Checks multiple locations in order of priority
+fn get_os_version() -> String {
+    // Priority order of version file locations
+    let version_paths = [
+        "/quantix/VERSION",           // Installed system (on QUANTIX-A/B partition)
+        "/mnt/cdrom/quantix/VERSION", // Boot from ISO
+        "/cdrom/quantix/VERSION",     // Alternative ISO mount
+        "/etc/quantix-version",       // Legacy location
+        "/usr/share/quantix/VERSION", // Distribution package location
+    ];
+    
+    for path in &version_paths {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            let version = content.trim().to_string();
+            if !version.is_empty() {
+                return version;
+            }
+        }
+    }
+    
+    // Try to get version from BUILD_INFO.json in Host UI
+    if let Ok(content) = std::fs::read_to_string("/usr/share/quantix-host-ui/BUILD_INFO.json") {
+        // Simple JSON parsing - look for "version": "X.Y.Z"
+        if let Some(start) = content.find("\"version\"") {
+            let rest = &content[start..];
+            if let Some(colon) = rest.find(':') {
+                let after_colon = &rest[colon + 1..];
+                // Find the quoted value
+                if let Some(quote1) = after_colon.find('"') {
+                    let after_quote1 = &after_colon[quote1 + 1..];
+                    if let Some(quote2) = after_quote1.find('"') {
+                        return after_quote1[..quote2].to_string();
+                    }
+                }
+            }
+        }
+    }
+    
+    // Fallback to environment variable (set during build)
+    if let Ok(version) = std::env::var("QUANTIX_VERSION") {
+        return version;
+    }
+    
+    // Default fallback
+    "0.0.1".to_string()
+}
 
 fn get_primary_ip() -> String {
     // Method 1: Use `ip route get` to find the source IP for internet connectivity

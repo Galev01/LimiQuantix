@@ -3,12 +3,15 @@
 # =============================================================================
 #
 # Usage:
-#   make iso           - Build complete bootable ISO
+#   make iso           - Build complete bootable ISO (increments version)
+#   make iso-no-bump   - Build ISO without incrementing version
 #   make squashfs      - Build rootfs squashfs only
 #   make console-tui   - Build ratatui TUI console
 #   make host-ui       - Build Host UI web interface
 #   make node-daemon   - Build node daemon
 #   make test-qemu     - Test ISO in QEMU
+#   make version       - Show current version
+#   make version-bump  - Manually increment version
 #   make clean         - Clean build artifacts
 #   make help          - Show this help
 #
@@ -19,12 +22,14 @@
 #
 # =============================================================================
 
-.PHONY: all iso squashfs initramfs console-tui host-ui \
+.PHONY: all iso iso-no-bump squashfs initramfs console-tui host-ui \
         node-daemon test-qemu test-qemu-uefi clean help \
-        docker-builder docker-rust-tui scripts-executable
+        docker-builder docker-rust-tui scripts-executable \
+        version version-bump version-set
 
-# Version
-VERSION ?= 1.0.0
+# Version management
+VERSION_FILE := $(CURDIR)/VERSION
+VERSION := $(shell cat $(VERSION_FILE) 2>/dev/null || echo "0.0.1")
 ISO_NAME := quantix-os-$(VERSION).iso
 SQUASHFS_NAME := system-$(VERSION).squashfs
 
@@ -40,14 +45,54 @@ BUILDER_IMAGE := quantix-builder
 RUST_TUI_IMAGE := quantix-rust-tui-builder
 
 # =============================================================================
+# Version Targets
+# =============================================================================
+
+# Show current version
+version:
+	@echo "Current version: $(VERSION)"
+
+# Increment version
+version-bump:
+	@chmod +x builder/version.sh
+	@NEW_VERSION=$$(./builder/version.sh increment); \
+	echo "Version bumped to: $$NEW_VERSION"
+
+# Set specific version
+version-set:
+	@if [ -z "$(V)" ]; then \
+		echo "Usage: make version-set V=X.Y.Z"; \
+		exit 1; \
+	fi
+	@chmod +x builder/version.sh
+	@./builder/version.sh set $(V)
+	@echo "Version set to: $(V)"
+
+# =============================================================================
 # Main Targets
 # =============================================================================
 
 all: iso
 
-# Build complete bootable ISO
-iso: squashfs console-tui host-ui node-daemon scripts-executable
-	@echo "🔨 Building bootable ISO..."
+# Build complete bootable ISO (with version bump)
+iso: version-bump squashfs console-tui host-ui node-daemon scripts-executable
+	@echo "🔨 Building bootable ISO v$$(cat $(VERSION_FILE))..."
+	@mkdir -p $(OUTPUT_DIR)
+	@# Copy VERSION file to be included in ISO
+	@mkdir -p $(BUILD_DIR)/.iso-staging/quantix
+	@cp $(VERSION_FILE) $(BUILD_DIR)/.iso-staging/quantix/VERSION
+	docker run --rm --privileged \
+		-v "$(BUILD_DIR):/work" \
+		-v "$(OUTPUT_DIR):/output" \
+		-w /work \
+		$(BUILDER_IMAGE) \
+		/bin/bash ./builder/build-iso.sh $$(cat $(VERSION_FILE))
+	@rm -rf $(BUILD_DIR)/.iso-staging
+	@echo "✅ ISO built: $(OUTPUT_DIR)/quantix-os-$$(cat $(VERSION_FILE)).iso"
+
+# Build ISO without incrementing version
+iso-no-bump: squashfs console-tui host-ui node-daemon scripts-executable
+	@echo "🔨 Building bootable ISO v$(VERSION) (no version bump)..."
 	@mkdir -p $(OUTPUT_DIR)
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
@@ -93,6 +138,7 @@ console-tui: docker-rust-tui
 	docker run --rm --network=host \
 		-v "$(BUILD_DIR)/console-tui:/build:rw" \
 		-v "$(OVERLAY_DIR)/usr/local/bin:/output" \
+		-e "QUANTIX_VERSION=$(VERSION)" \
 		-w /build \
 		$(RUST_TUI_IMAGE) \
 			sh -c "set -e && cargo build --release && cp target/release/qx-console /output/" && \
@@ -124,7 +170,7 @@ host-ui:
 		BUILD_BRANCH=$$(cd .. && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown") && \
 		echo "{" > $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
 		echo "  \"product\": \"Quantix-OS\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
-		echo "  \"version\": \"$$DAEMON_VERSION\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
+		echo "  \"version\": \"$(VERSION)\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
 		echo "  \"hostUiVersion\": \"$$NODE_VERSION\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
 		echo "  \"nodeDaemonVersion\": \"$$DAEMON_VERSION\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
 		echo "  \"buildDate\": \"$$BUILD_DATE\"," >> $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json && \
@@ -205,16 +251,18 @@ scripts-executable:
 # Test ISO in QEMU (BIOS mode)
 test-qemu:
 	@echo "🧪 Testing ISO in QEMU (BIOS)..."
-	@if [ ! -f "$(OUTPUT_DIR)/$(ISO_NAME)" ]; then \
-		echo "❌ ISO not found. Run 'make iso' first."; \
+	@LATEST_ISO=$$(ls -t $(OUTPUT_DIR)/quantix-os-*.iso 2>/dev/null | head -1); \
+	if [ -z "$$LATEST_ISO" ]; then \
+		echo "❌ No ISO found. Run 'make iso' first."; \
 		exit 1; \
-	fi
+	fi; \
+	echo "   Using: $$LATEST_ISO"; \
 	qemu-system-x86_64 \
 		-enable-kvm \
 		-m 4G \
 		-cpu host \
 		-smp 2 \
-		-cdrom $(OUTPUT_DIR)/$(ISO_NAME) \
+		-cdrom "$$LATEST_ISO" \
 		-boot d \
 		-display gtk \
 		-vga virtio \
@@ -224,11 +272,12 @@ test-qemu:
 # Test ISO in QEMU (UEFI mode)
 test-qemu-uefi:
 	@echo "🧪 Testing ISO in QEMU (UEFI)..."
-	@if [ ! -f "$(OUTPUT_DIR)/$(ISO_NAME)" ]; then \
-		echo "❌ ISO not found. Run 'make iso' first."; \
+	@LATEST_ISO=$$(ls -t $(OUTPUT_DIR)/quantix-os-*.iso 2>/dev/null | head -1); \
+	if [ -z "$$LATEST_ISO" ]; then \
+		echo "❌ No ISO found. Run 'make iso' first."; \
 		exit 1; \
-	fi
-	@OVMF_CODE=""; \
+	fi; \
+	OVMF_CODE=""; \
 	for path in \
 		/usr/share/OVMF/OVMF_CODE.fd \
 		/usr/share/OVMF/OVMF_CODE_4M.fd \
@@ -242,17 +291,17 @@ test-qemu-uefi:
 	done; \
 	if [ -z "$$OVMF_CODE" ]; then \
 		echo "❌ OVMF not found. Install ovmf package."; \
-		echo "   Searched: /usr/share/OVMF/, /usr/share/edk2/ovmf/, /usr/share/qemu/"; \
 		exit 1; \
 	fi; \
-	echo "   Using OVMF: $$OVMF_CODE"; \
+	echo "   Using: $$LATEST_ISO"; \
+	echo "   OVMF: $$OVMF_CODE"; \
 	qemu-system-x86_64 \
 		-enable-kvm \
 		-m 4G \
 		-cpu host \
 		-smp 2 \
 		-drive if=pflash,format=raw,readonly=on,file="$$OVMF_CODE" \
-		-cdrom $(OUTPUT_DIR)/$(ISO_NAME) \
+		-cdrom "$$LATEST_ISO" \
 		-boot d \
 		-display gtk \
 		-vga virtio \
@@ -262,19 +311,21 @@ test-qemu-uefi:
 # Test with virtual disk (for installer testing)
 test-qemu-install:
 	@echo "🧪 Testing installer in QEMU..."
-	@if [ ! -f "$(OUTPUT_DIR)/$(ISO_NAME)" ]; then \
-		echo "❌ ISO not found. Run 'make iso' first."; \
+	@LATEST_ISO=$$(ls -t $(OUTPUT_DIR)/quantix-os-*.iso 2>/dev/null | head -1); \
+	if [ -z "$$LATEST_ISO" ]; then \
+		echo "❌ No ISO found. Run 'make iso' first."; \
 		exit 1; \
-	fi
-	@if [ ! -f "$(OUTPUT_DIR)/test-disk.qcow2" ]; then \
+	fi; \
+	if [ ! -f "$(OUTPUT_DIR)/test-disk.qcow2" ]; then \
 		qemu-img create -f qcow2 $(OUTPUT_DIR)/test-disk.qcow2 50G; \
-	fi
+	fi; \
+	echo "   Using: $$LATEST_ISO"; \
 	qemu-system-x86_64 \
 		-enable-kvm \
 		-m 4G \
 		-cpu host \
 		-smp 2 \
-		-cdrom $(OUTPUT_DIR)/$(ISO_NAME) \
+		-cdrom "$$LATEST_ISO" \
 		-drive file=$(OUTPUT_DIR)/test-disk.qcow2,format=qcow2,if=virtio \
 		-boot d \
 		-display gtk \
@@ -293,7 +344,7 @@ clean:
 	rm -rf $(OUTPUT_DIR)/test-disk.qcow2
 	rm -rf $(ROOTFS_DIR)
 	rm -rf $(ISO_DIR)
-	rm -rf console-gui/target
+	rm -rf $(BUILD_DIR)/.iso-staging
 	rm -rf console-tui/target
 	@echo "✅ Clean complete"
 
@@ -311,14 +362,21 @@ help:
 	@echo ""
 	@echo "╔══════════════════════════════════════════════════════════════════╗"
 	@echo "║                   Quantix-OS Build System                        ║"
+	@echo "║                   Current Version: $(VERSION)                         ║"
 	@echo "╠══════════════════════════════════════════════════════════════════╣"
 	@echo "║                                                                  ║"
 	@echo "║  Build Commands:                                                 ║"
-	@echo "║    make iso           - Build complete bootable ISO              ║"
+	@echo "║    make iso           - Build ISO (auto-increments version)      ║"
+	@echo "║    make iso-no-bump   - Build ISO without version bump           ║"
 	@echo "║    make squashfs      - Build rootfs squashfs only               ║"
 	@echo "║    make console-tui   - Build ratatui TUI console                ║"
 	@echo "║    make host-ui       - Build Host UI web interface              ║"
 	@echo "║    make node-daemon   - Build node daemon                        ║"
+	@echo "║                                                                  ║"
+	@echo "║  Version Commands:                                               ║"
+	@echo "║    make version       - Show current version                     ║"
+	@echo "║    make version-bump  - Manually increment version               ║"
+	@echo "║    make version-set V=X.Y.Z - Set specific version               ║"
 	@echo "║                                                                  ║"
 	@echo "║  Test Commands:                                                  ║"
 	@echo "║    make test-qemu     - Test ISO in QEMU (BIOS)                  ║"
