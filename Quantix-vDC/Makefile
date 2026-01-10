@@ -284,7 +284,7 @@ test-qemu-install:
 		-netdev user,id=net0,hostfwd=tcp::18080-:8080,hostfwd=tcp::18443-:443
 
 # Deploy ISO to USB drive
-# Usage: make deploy-usb DEVICE=/dev/sdb
+# Usage: make deploy-usb DEVICE=/dev/sdb [ISO_VERSION=x.y.z]
 deploy-usb:
 	@echo "💾 Deploying ISO to USB drive..."
 	@if [ -z "$(DEVICE)" ]; then \
@@ -294,11 +294,46 @@ deploy-usb:
 		lsblk -d -o NAME,SIZE,TYPE,MODEL | grep -E "disk|NAME"; \
 		exit 1; \
 	fi
-	@if [ ! -f "$(OUTPUT_DIR)/$(ISO_NAME)" ]; then \
-		echo "❌ ISO not found. Run 'make iso' first."; \
-		exit 1; \
+	@echo ""
+	@echo "📀 Available ISO versions in $(OUTPUT_DIR):"
+	@echo "─────────────────────────────────────────────"
+	@ls -1 $(OUTPUT_DIR)/quantix-vdc-*.iso 2>/dev/null | while read iso; do \
+		ver=$$(basename "$$iso" | sed 's/quantix-vdc-\(.*\)\.iso/\1/'); \
+		size=$$(du -h "$$iso" | cut -f1); \
+		date=$$(stat -c '%y' "$$iso" 2>/dev/null | cut -d' ' -f1 || stat -f '%Sm' "$$iso" 2>/dev/null | cut -d' ' -f1-3); \
+		echo "  v$$ver  ($$size, $$date)"; \
+	done || echo "  No ISOs found. Run 'make iso' first."
+	@echo "─────────────────────────────────────────────"
+	@if [ -z "$(ISO_VERSION)" ]; then \
+		echo ""; \
+		echo "💡 Specify version with: make deploy-usb DEVICE=$(DEVICE) ISO_VERSION=x.y.z"; \
+		echo "   Or use 'latest' for most recent: make deploy-usb DEVICE=$(DEVICE) ISO_VERSION=latest"; \
+		echo ""; \
+		read -p "Enter version to deploy (or 'latest'): " VER; \
+		if [ "$$VER" = "latest" ]; then \
+			SELECTED_ISO=$$(ls -t $(OUTPUT_DIR)/quantix-vdc-*.iso 2>/dev/null | head -1); \
+		else \
+			SELECTED_ISO="$(OUTPUT_DIR)/quantix-vdc-$$VER.iso"; \
+		fi; \
+		if [ ! -f "$$SELECTED_ISO" ]; then \
+			echo "❌ ISO not found: $$SELECTED_ISO"; \
+			exit 1; \
+		fi; \
+		echo "📀 Selected: $$SELECTED_ISO"; \
+		sudo $(BUILD_DIR)/builder/deploy-usb.sh $(DEVICE) "$$SELECTED_ISO"; \
+	else \
+		if [ "$(ISO_VERSION)" = "latest" ]; then \
+			SELECTED_ISO=$$(ls -t $(OUTPUT_DIR)/quantix-vdc-*.iso 2>/dev/null | head -1); \
+		else \
+			SELECTED_ISO="$(OUTPUT_DIR)/quantix-vdc-$(ISO_VERSION).iso"; \
+		fi; \
+		if [ ! -f "$$SELECTED_ISO" ]; then \
+			echo "❌ ISO not found: $$SELECTED_ISO"; \
+			exit 1; \
+		fi; \
+		echo "📀 Selected: $$SELECTED_ISO"; \
+		sudo $(BUILD_DIR)/builder/deploy-usb.sh $(DEVICE) "$$SELECTED_ISO"; \
 	fi
-	sudo $(BUILD_DIR)/builder/deploy-usb.sh $(DEVICE) -v $(VERSION)
 
 # =============================================================================
 # Cleanup

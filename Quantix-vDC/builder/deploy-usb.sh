@@ -5,8 +5,9 @@
 # Writes the Quantix-vDC installation ISO to a USB drive for bare-metal
 # deployment.
 #
-# Usage: sudo ./deploy-usb.sh <device>
+# Usage: sudo ./deploy-usb.sh <device> [iso-path]
 # Example: sudo ./deploy-usb.sh /dev/sdb
+#          sudo ./deploy-usb.sh /dev/sdb ./output/quantix-vdc-0.0.2.iso
 #
 # WARNING: This will DESTROY all data on the target device!
 # =============================================================================
@@ -27,6 +28,9 @@ WORK_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${WORK_DIR}/output"
 ISO_NAME="quantix-vdc-${VERSION}.iso"
 ISO_PATH="${OUTPUT_DIR}/${ISO_NAME}"
+
+# Will be potentially overwritten by direct ISO path argument
+CUSTOM_ISO_PATH=""
 
 # -----------------------------------------------------------------------------
 # Functions

@@ -23,9 +23,10 @@
 # =============================================================================
 
 .PHONY: all iso iso-no-bump squashfs squashfs-internal initramfs console-tui host-ui \
-        node-daemon test-qemu test-qemu-uefi clean help \
+        node-daemon test-qemu test-qemu-uefi test-qemu-install clean help \
         docker-builder docker-rust-tui scripts-executable \
-        version version-bump version-set
+        version version-bump version-set \
+        deploy-usb deploy-usb-version list-versions
 
 # Version management
 VERSION_FILE := $(CURDIR)/VERSION
@@ -262,6 +263,52 @@ scripts-executable:
 	@chmod +x initramfs/init 2>/dev/null || true
 
 # =============================================================================
+# Deployment
+# =============================================================================
+
+# Deploy to USB drive (interactive version selection)
+deploy-usb: scripts-executable
+	@echo "💾 Deploying Quantix-OS to USB..."
+	@if [ ! -d "$(OUTPUT_DIR)" ] || [ -z "$$(ls -A $(OUTPUT_DIR)/quantix-os-*.iso 2>/dev/null)" ]; then \
+		echo "❌ No ISO files found. Run 'make iso' first."; \
+		exit 1; \
+	fi
+	@sudo ./builder/deploy-usb.sh
+
+# Deploy specific version to USB (use V=x.y.z)
+deploy-usb-version: scripts-executable
+	@if [ -z "$(V)" ]; then \
+		echo "Usage: make deploy-usb-version V=x.y.z"; \
+		echo ""; \
+		echo "Available versions:"; \
+		ls -1 $(OUTPUT_DIR)/quantix-os-*.iso 2>/dev/null | sed 's/.*quantix-os-\(.*\)\.iso/  \1/' || echo "  (none)"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(OUTPUT_DIR)/quantix-os-$(V).iso" ]; then \
+		echo "❌ ISO not found: $(OUTPUT_DIR)/quantix-os-$(V).iso"; \
+		echo ""; \
+		echo "Available versions:"; \
+		ls -1 $(OUTPUT_DIR)/quantix-os-*.iso 2>/dev/null | sed 's/.*quantix-os-\(.*\)\.iso/  \1/' || echo "  (none)"; \
+		exit 1; \
+	fi
+	@echo "💾 Deploying Quantix-OS v$(V) to USB..."
+	@sudo ./builder/deploy-usb.sh --force "$(OUTPUT_DIR)/quantix-os-$(V).iso"
+
+# List available ISO versions
+list-versions:
+	@echo ""
+	@echo "Available Quantix-OS versions:"
+	@echo ""
+	@ls -lht $(OUTPUT_DIR)/quantix-os-*.iso 2>/dev/null | while read line; do \
+		file=$$(echo "$$line" | awk '{print $$NF}'); \
+		size=$$(echo "$$line" | awk '{print $$5}'); \
+		date=$$(echo "$$line" | awk '{print $$6, $$7, $$8}'); \
+		version=$$(basename "$$file" | sed 's/quantix-os-\(.*\)\.iso/\1/'); \
+		echo "  v$$version  ($$size, $$date)"; \
+	done || echo "  (no ISOs found - run 'make iso' first)"
+	@echo ""
+
+# =============================================================================
 # Testing
 # =============================================================================
 
@@ -394,6 +441,11 @@ help:
 	@echo "║    make version       - Show current version                     ║"
 	@echo "║    make version-bump  - Manually increment version               ║"
 	@echo "║    make version-set V=X.Y.Z - Set specific version               ║"
+	@echo "║                                                                  ║"
+	@echo "║  Deployment Commands:                                            ║"
+	@echo "║    make deploy-usb    - Deploy to USB (interactive version)      ║"
+	@echo "║    make deploy-usb-version V=X.Y.Z - Deploy specific version     ║"
+	@echo "║    make list-versions - List available ISO versions              ║"
 	@echo "║                                                                  ║"
 	@echo "║  Test Commands:                                                  ║"
 	@echo "║    make test-qemu     - Test ISO in QEMU (BIOS)                  ║"

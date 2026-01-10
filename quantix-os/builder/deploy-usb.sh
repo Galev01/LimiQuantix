@@ -46,7 +46,15 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 QUANTIX_OS_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${QUANTIX_OS_DIR}/output"
-VERSION="${VERSION:-1.0.0}"
+VERSION_FILE="${QUANTIX_OS_DIR}/VERSION"
+
+# Read current version from VERSION file if not provided
+if [ -f "$VERSION_FILE" ]; then
+    CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '\n\r ')
+else
+    CURRENT_VERSION="1.0.0"
+fi
+VERSION="${VERSION:-$CURRENT_VERSION}"
 DEFAULT_ISO="${OUTPUT_DIR}/quantix-os-${VERSION}.iso"
 
 # Block size for dd (4MB is optimal for most USB controllers)
@@ -76,6 +84,92 @@ print_banner() {
 ╚═══════════════════════════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
+}
+
+# List available ISO versions
+list_available_isos() {
+    local isos=()
+    
+    while IFS= read -r iso; do
+        [ -f "$iso" ] && isos+=("$iso")
+    done < <(ls -t "${OUTPUT_DIR}"/quantix-os-*.iso 2>/dev/null)
+    
+    echo "${isos[@]}"
+}
+
+# Interactive ISO/version selector
+select_iso_version() {
+    log_step "Select Quantix-OS Version to Deploy"
+    echo ""
+    
+    # Find all available ISOs
+    local isos=()
+    local index=1
+    
+    while IFS= read -r iso; do
+        [ ! -f "$iso" ] && continue
+        isos+=("$iso")
+        
+        local filename=$(basename "$iso")
+        local version=$(echo "$filename" | sed 's/quantix-os-\(.*\)\.iso/\1/')
+        local size=$(stat -c%s "$iso" 2>/dev/null || echo "0")
+        local size_human=$(format_bytes "$size")
+        local mod_time=$(stat -c%y "$iso" 2>/dev/null | cut -d'.' -f1 || echo "Unknown")
+        
+        echo -e "  ${GREEN}[$index]${NC} ${BOLD}v$version${NC}"
+        echo -e "      File: ${CYAN}$filename${NC}"
+        echo -e "      Size: ${CYAN}$size_human${NC}"
+        echo -e "      Built: ${DIM}$mod_time${NC}"
+        echo ""
+        
+        index=$((index + 1))
+    done < <(ls -t "${OUTPUT_DIR}"/quantix-os-*.iso 2>/dev/null)
+    
+    local num_isos=${#isos[@]}
+    
+    if [ $num_isos -eq 0 ]; then
+        log_error "No Quantix-OS ISOs found in ${OUTPUT_DIR}/"
+        echo ""
+        echo -e "  ${CYAN}Tip:${NC} Run ${BOLD}make iso${NC} to build an ISO first."
+        exit 1
+    fi
+    
+    # If only one ISO, auto-select with confirmation
+    if [ $num_isos -eq 1 ]; then
+        echo -e "  ${CYAN}Only one ISO available.${NC}"
+        echo ""
+        read -p "  Use $(basename "${isos[0]}")? (y/n): " confirm
+        if [[ "$confirm" =~ ^[Yy] ]]; then
+            SELECTED_ISO="${isos[0]}"
+            return 0
+        else
+            log_info "Aborted by user"
+            exit 0
+        fi
+    fi
+    
+    # Multiple ISOs - let user choose
+    echo -e "  ${CYAN}Enter version number [1-$num_isos] or 'q' to quit:${NC}"
+    echo ""
+    
+    while true; do
+        read -p "  Selection: " choice
+        
+        if [ "$choice" = "q" ] || [ "$choice" = "Q" ]; then
+            log_info "Aborted by user"
+            exit 0
+        fi
+        
+        # Validate input
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le $num_isos ]; then
+            SELECTED_ISO="${isos[$((choice - 1))]}"
+            local selected_version=$(basename "$SELECTED_ISO" | sed 's/quantix-os-\(.*\)\.iso/\1/')
+            log_success "Selected: v$selected_version"
+            return 0
+        else
+            echo -e "  ${RED}Invalid selection. Enter 1-$num_isos or 'q' to quit.${NC}"
+        fi
+    done
 }
 
 log_step() {
@@ -724,6 +818,7 @@ DO_WIPE=1
 DO_FORCE=0
 DO_LIST=0
 SELECTED_DEVICE=""
+SELECTED_ISO=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -796,13 +891,37 @@ validate_device "$DEVICE"
 
 # Set default ISO if not specified
 if [ -z "$ISO_PATH" ]; then
-    ISO_PATH="$DEFAULT_ISO"
+    # Check if default ISO exists
+    if [ -f "$DEFAULT_ISO" ]; then
+        # Multiple ISOs might exist - offer selection
+        iso_count=$(ls -1 "${OUTPUT_DIR}"/quantix-os-*.iso 2>/dev/null | wc -l)
+        if [ "$iso_count" -gt 1 ]; then
+            # Multiple ISOs available - let user choose
+            select_iso_version
+            ISO_PATH="$SELECTED_ISO"
+        else
+            # Only one or default exists - use it
+            ISO_PATH="$DEFAULT_ISO"
+        fi
+    else
+        # Default doesn't exist - check if any ISOs exist
+        iso_count=$(ls -1 "${OUTPUT_DIR}"/quantix-os-*.iso 2>/dev/null | wc -l)
+        if [ "$iso_count" -gt 0 ]; then
+            # Some ISOs exist - let user choose
+            select_iso_version
+            ISO_PATH="$SELECTED_ISO"
+        else
+            log_error "No ISO files found in ${OUTPUT_DIR}/"
+            log_info "Run 'make iso' to build an ISO first"
+            exit 1
+        fi
+    fi
 fi
 
 # Check ISO exists
 if [ ! -f "$ISO_PATH" ]; then
     log_error "ISO file not found: $ISO_PATH"
-    log_info "Run 'make iso' or './build.sh' to build the ISO first"
+    log_info "Run 'make iso' to build the ISO first"
     exit 1
 fi
 
