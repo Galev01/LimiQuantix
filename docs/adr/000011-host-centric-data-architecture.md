@@ -243,8 +243,24 @@ func (s *PoolService) GetAggregatedPoolStatus(poolID string) *AggregatedStatus {
 - Current implementation is mostly correct
 
 ### Neutral
-- Need to enhance heartbeat with storage state
-- Need per-host pool status tracking
+- ~~Need to enhance heartbeat with storage state~~ ✅ IMPLEMENTED
+- ~~Need per-host pool status tracking~~ ✅ IMPLEMENTED
+
+## Implementation Status (Updated January 11, 2026)
+
+The following enhancements have been implemented:
+
+### Completed:
+1. **Proto Updates**: Added `StoragePoolStatusReport` message with health, capacity, mount path, volume count
+2. **Rust Node Daemon**: Heartbeat now includes storage pool status via `collect_storage_pool_status()`
+3. **Go Backend**: `UpdateHeartbeat` handler processes pool reports, updates `HostStatuses` map
+4. **Domain Model**: Added `PoolHostStatus`, `PoolHostHealth`, helper methods (`AggregateCapacity`, `DetermineOverallPhase`)
+5. **Repository**: Added `ListAssignedToNode` for efficient per-node pool lookup
+6. **Database Migration**: Added `host_statuses` JSONB column to `storage_pools` table
+
+### Remaining:
+- Frontend: Display per-host pool health in Storage Pool detail page
+- Network: Apply same orchestrated pattern to vSwitch/network configurations
 
 ## Related Documents
 

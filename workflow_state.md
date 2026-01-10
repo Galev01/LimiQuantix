@@ -1,119 +1,97 @@
 # Workflow State
 
-## Current Status: COMPLETED - Architecture Validation
+## Current Status: COMPLETED - Host-Centric Architecture Implementation
 
-## Latest Workflow: QvDC-Orchestrated, Host-Executed Architecture
+## Latest Workflow: Storage Pool Heartbeat Reporting
 
 **Date:** January 11, 2026
 
 ### Objective
 
-Validate and document the architecture pattern for Quantix-KVM.
+Implement the host-centric data architecture for storage pools, where hosts report their actual state (capacity, health) back to QvDC via heartbeats.
 
-### Confirmed Architecture: QvDC-Orchestrated, Host-Executed
+### Completed Implementation
 
-The architecture follows a **"QvDC orchestrates, hosts execute and own state"** model:
+| Task | Status | Details |
+|------|--------|---------|
+| Proto Updates | ✅ | Added `StoragePoolStatusReport` and `assigned_pool_ids` to heartbeat |
+| Rust Heartbeat | ✅ | Node daemon now includes storage pool status in heartbeats |
+| Go Backend | ✅ | UpdateHeartbeat handler processes pool status reports |
+| Domain Model | ✅ | Added `PoolHostStatus` and `HostStatuses` map to StoragePool |
+| Repository | ✅ | Added `ListAssignedToNode` and updated `UpdateStatus` for host statuses |
+| Database Migration | ✅ | Added `host_statuses` JSONB column to storage_pools |
+| Build Verification | ✅ | Both Go backend and Rust agent compile successfully |
 
-1. **QvDC defines** what should exist (storage pools, networks, VMs)
-2. **QvDC pushes** commands to assigned hosts
-3. **Hosts execute** the commands (mount NFS, create VM, configure network)
-4. **Hosts are source of truth** for actual state (capacity, usage, health)
-5. **Hosts report back** actual state to QvDC
-
-### Architecture Analysis (Revised)
-
-| Data Type | Current Flow | Status |
-|-----------|-------------|--------|
-| **Nodes/Hosts** | Host → QvDC (registration push) | ✅ CORRECT |
-| **VMs (existing)** | Host → QvDC (sync) | ✅ CORRECT |
-| **VMs (create)** | QvDC → Host (command) → Host reports state | ✅ CORRECT |
-| **Storage Pools** | QvDC → Host (push mount) → Host reports state | ✅ CORRECT |
-| **Volumes** | QvDC → Host (create) → Host reports state | ✅ CORRECT |
-| **Networks** | QvDC → Host (push config) → Host reports state | ✅ CORRECT |
-
-### Storage Flow (Confirmed Correct)
+### Architecture Flow (Now Implemented)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                     STORAGE POOL FLOW                                    │
+│                     STORAGE POOL HEARTBEAT FLOW                          │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│  1. DEFINE (QvDC)                                                        │
-│     Admin creates NFS pool in QvDC Dashboard                             │
-│     - Server: 192.168.1.100                                              │
-│     - Export: /exports/vm-storage                                        │
-│     - Assigned Hosts: [host-1, host-2, host-3]                           │
+│  1. HOST COLLECTS (Node Daemon)                                          │
+│     Every heartbeat interval (30s), host collects:                       │
+│     - Pool ID                                                            │
+│     - Health (HEALTHY/DEGRADED/ERROR/UNMOUNTED)                          │
+│     - Capacity (total, used, available bytes)                            │
+│     - Mount path                                                         │
+│     - Volume count                                                       │
 │                                                                          │
-│  2. PUSH (QvDC → Hosts)                                                  │
-│     QvDC sends InitStoragePool to each assigned host                     │
+│  2. HOST REPORTS (Heartbeat Request)                                     │
+│     Heartbeat now includes `storagePools` array                          │
 │                                                                          │
-│  3. EXECUTE (Hosts)                                                      │
-│     Each host mounts the NFS share                                       │
-│     Host OWNS the mount - source of truth for capacity/health            │
+│  3. QVDC PROCESSES (UpdateHeartbeat Handler)                             │
+│     For each pool report:                                                │
+│     - Look up pool by ID                                                 │
+│     - Update HostStatuses[nodeId] with reported status                   │
+│     - Recalculate aggregate capacity (AggregateCapacity())               │
+│     - Recalculate overall phase (DetermineOverallPhase())                │
+│     - Persist updated pool status                                        │
 │                                                                          │
-│  4. REPORT (Hosts → QvDC)                                                │
-│     Hosts report actual state via response/heartbeat:                    │
-│     - "I have 2TB total, 500GB used"                                     │
-│     - "Mount is healthy/degraded/failed"                                 │
-│                                                                          │
-│  5. AGGREGATE (QvDC)                                                     │
-│     QvDC displays unified view of pool across all hosts                  │
+│  4. QVDC RESPONDS (Heartbeat Response)                                   │
+│     Response includes `assignedPoolIds` - list of pools this host        │
+│     should have mounted. Host can use this to detect missing mounts.     │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Principle
+### Key Files Changed
 
-| Aspect | QvDC Responsibility | Host Responsibility |
-|--------|--------------------|--------------------|
-| **Storage Definition** | Define pool config (NFS/iSCSI/local) | N/A |
-| **Host Assignment** | Track which hosts should have access | N/A |
-| **Mount Execution** | Send mount command | Execute mount, report result |
-| **Capacity/Usage** | Display aggregated view | **Source of truth** |
-| **Health Status** | Display, alert | **Source of truth** |
-| **Volume Operations** | Send create/delete commands | Execute, manage files |
+**Proto:**
+- `proto/limiquantix/compute/v1/node_service.proto` - Added StoragePoolStatusReport, updated heartbeat messages
 
-### Current Implementation Status
+**Go Backend:**
+- `backend/internal/domain/storage.go` - Added PoolHostStatus, PoolHostHealth, helper methods
+- `backend/internal/services/node/service.go` - Added StoragePoolRepository, updated UpdateHeartbeat
+- `backend/internal/services/storage/pool_repository.go` - Added ListAssignedToNode interface
+- `backend/internal/repository/postgres/storage_pool_repository.go` - Implemented ListAssignedToNode
+- `backend/internal/repository/memory/storage_pool_repository.go` - Implemented ListAssignedToNode
+- `backend/migrations/000005_pool_host_statuses.up.sql` - Added host_statuses column
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Host Registration | ✅ Correct | Host pushes hardware info |
-| VM Sync (existing) | ✅ Correct | Host syncs VMs to QvDC |
-| VM Create | ✅ Correct | QvDC → Host command |
-| VM Operations | ✅ Correct | QvDC → Host command |
-| Storage Pool Create | ✅ Correct | QvDC defines, pushes to hosts |
-| Storage Pool Assignment | ✅ Correct | AssignedNodeIDs tracked |
-| Storage Host Execution | ✅ Correct | Hosts mount and report back |
-| Storage Heartbeat Reporting | ⚠️ Enhancement | Add pool state to heartbeat |
-| Network Config | ⚠️ Enhancement | Apply same orchestrated pattern |
+**Rust Agent:**
+- `agent/limiquantix-node/src/registration.rs` - Added storage manager, collect_storage_pool_status
+- `agent/limiquantix-node/src/server.rs` - Pass storage manager to registration client
+- `agent/limiquantix-node/src/service.rs` - Added get_storage_manager method
+- `agent/limiquantix-hypervisor/src/storage/types.rs` - Added volume_count to PoolInfo
+- All storage backends (nfs.rs, local.rs, ceph.rs, iscsi.rs) - Updated PoolInfo construction
 
-### Enhancements Identified (Future Work)
+### Remaining Work (Future)
 
-1. **Add storage pool state to heartbeat** - Hosts should continuously report pool health/capacity
-2. **Per-host pool status tracking** - QvDC should track which hosts have healthy mounts
-3. **Network orchestration** - Apply same pattern to vSwitch/network configs
-
-### Documentation Created
-
-- `docs/adr/000011-host-centric-data-architecture.md` - Full ADR with details
+| Task | Priority | Notes |
+|------|----------|-------|
+| Frontend per-host status display | Medium | Show which hosts have healthy/unhealthy mounts |
+| Auto-mount missing pools | Low | When heartbeat response includes unassigned pools, mount them |
+| Network config orchestration | Medium | Apply same host-centric pattern to vSwitches |
 
 ---
 
-## Previous Workflow: Storage Pool Host Assignment
+## Previous Workflow: Architecture Validation
 
 **Date:** January 11, 2026
 
-### Completed Tasks
+Confirmed the **"QvDC orchestrates, hosts execute and own state"** architecture pattern.
 
-| Task | Status |
-|------|--------|
-| Domain Model - `AssignedNodeIDs` field | ✅ |
-| Proto Updates - `assigned_node_ids` | ✅ |
-| Backend Service - assign/unassign RPCs | ✅ |
-| Node Daemon - file listing RPC | ✅ |
-| Frontend - StoragePoolDetail page | ✅ |
-| VM Wizard - host/pool compatibility | ✅ |
-| Documentation | ✅ |
+See: `docs/adr/000011-host-centric-data-architecture.md`
 
 ---
 
@@ -132,6 +110,7 @@ The architecture follows a **"QvDC orchestrates, hosts execute and own state"** 
 ┌─────────────────────────────────────────────────────────────────┐
 │  Quantix-OS (Hypervisor Host)                                   │
 │  ├── Rust Node Daemon (limiquantix-node)                        │
+│  │   └── Now reports storage pool status in heartbeats          │
 │  ├── libvirt/QEMU for VM management                             │
 │  └── QHCI - Host UI (quantix-host-ui)                           │
 └─────────────────────────────────────────────────────────────────┘

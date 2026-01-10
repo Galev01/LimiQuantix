@@ -262,6 +262,8 @@ func (s *Server) initServices() {
 	s.nodeService = nodeservice.NewServiceWithVMRepo(s.nodeRepo, s.vmRepo, s.logger)
 	// Set daemon pool for gRPC connections to node daemons
 	s.nodeService.SetDaemonPool(s.daemonPool)
+	// Set storage pool repository for heartbeat processing (hosts report pool status)
+	s.nodeService.SetStoragePoolRepo(s.storagePoolRepo)
 
 	// Cluster service
 	s.clusterService = clusterservice.NewService(
