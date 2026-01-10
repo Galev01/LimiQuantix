@@ -287,6 +287,9 @@ main() {
             *)
                 if [ -z "$device" ]; then
                     device="$1"
+                elif [ -z "$CUSTOM_ISO_PATH" ]; then
+                    # Second positional argument is ISO path
+                    CUSTOM_ISO_PATH="$1"
                 else
                     print_error "Unexpected argument: $1"
                     show_usage
@@ -296,6 +299,12 @@ main() {
                 ;;
         esac
     done
+    
+    # Use custom ISO path if provided
+    if [ -n "$CUSTOM_ISO_PATH" ]; then
+        ISO_PATH="$CUSTOM_ISO_PATH"
+        print_info "Using specified ISO: $ISO_PATH"
+    fi
     
     # Validate arguments
     if [ -z "$device" ]; then
