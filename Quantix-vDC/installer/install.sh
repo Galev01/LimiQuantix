@@ -256,9 +256,11 @@ else
 fi
 
 # Copy initramfs - prefer boot-initramfs (designed for installed system)
+BOOT_INITRAMFS_USED=0
 if [ -f "/mnt/cdrom/boot/boot-initramfs" ]; then
     cp /mnt/cdrom/boot/boot-initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
     log_info "Boot initramfs copied to /boot/initramfs-lts"
+    BOOT_INITRAMFS_USED=1
 elif [ -f "/mnt/cdrom/boot/initramfs" ]; then
     cp /mnt/cdrom/boot/initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
     log_info "Installer initramfs copied to /boot/initramfs-lts (may need regeneration)"
@@ -359,13 +361,13 @@ mount --bind /dev "${TARGET_MOUNT}/dev"
 mount --bind /proc "${TARGET_MOUNT}/proc"
 mount --bind /sys "${TARGET_MOUNT}/sys"
 
-# Configure mkinitfs to include necessary modules for boot
+# Configure mkinitfs to include necessary modules for boot (for future use)
 log_info "Configuring initramfs modules..."
 
 # Ensure mkinitfs directories exist
 mkdir -p "${TARGET_MOUNT}/etc/mkinitfs"
 
-# Create mkinitfs.conf with all essential features
+# Create mkinitfs.conf with all essential features (for future kernel upgrades)
 cat > "${TARGET_MOUNT}/etc/mkinitfs/mkinitfs.conf" << 'MKINITCONF'
 # Quantix-vDC initramfs configuration
 # Include all essential modules for boot on various hardware
@@ -379,49 +381,69 @@ MKINITCONF
 
 log_info "mkinitfs.conf created"
 
-# Regenerate initramfs with proper modules
-log_info "Regenerating initramfs..."
-KERNEL_VERSION=$(ls "${TARGET_MOUNT}/lib/modules" 2>/dev/null | head -1)
-if [ -n "$KERNEL_VERSION" ]; then
-    log_info "Kernel version: $KERNEL_VERSION"
+# Only regenerate initramfs if we didn't copy boot-initramfs
+# (boot-initramfs is our custom initramfs designed for the installed system)
+if [ "$BOOT_INITRAMFS_USED" = "1" ]; then
+    log_info "Using pre-built boot-initramfs (skipping mkinitfs)"
     
-    # Check if mkinitfs is available
-    if chroot "${TARGET_MOUNT}" which mkinitfs >/dev/null 2>&1; then
-        log_info "Running mkinitfs..."
+    # Verify the initramfs exists
+    if [ -f "${TARGET_MOUNT}/boot/initramfs-lts" ]; then
+        INITRAMFS_SIZE=$(du -h "${TARGET_MOUNT}/boot/initramfs-lts" | cut -f1)
+        log_info "✅ Boot initramfs ready: ${INITRAMFS_SIZE}"
+    else
+        log_error "Boot initramfs missing after copy!"
+    fi
+else
+    # Try mkinitfs as fallback
+    log_info "Regenerating initramfs with mkinitfs..."
+    KERNEL_VERSION=$(ls "${TARGET_MOUNT}/lib/modules" 2>/dev/null | head -1)
+    if [ -n "$KERNEL_VERSION" ]; then
+        log_info "Kernel version: $KERNEL_VERSION"
         
-        # Run mkinitfs with verbose output
-        if chroot "${TARGET_MOUNT}" mkinitfs -c /etc/mkinitfs/mkinitfs.conf "$KERNEL_VERSION"; then
-            log_info "✅ Initramfs regenerated successfully"
+        # Check if mkinitfs is available
+        if chroot "${TARGET_MOUNT}" which mkinitfs >/dev/null 2>&1; then
+            log_info "Running mkinitfs..."
             
-            # Verify initramfs was created
-            if [ -f "${TARGET_MOUNT}/boot/initramfs-lts" ]; then
-                INITRAMFS_SIZE=$(du -h "${TARGET_MOUNT}/boot/initramfs-lts" | cut -f1)
-                log_info "Initramfs size: ${INITRAMFS_SIZE}"
+            # Run mkinitfs with verbose output
+            if chroot "${TARGET_MOUNT}" mkinitfs -c /etc/mkinitfs/mkinitfs.conf "$KERNEL_VERSION"; then
+                log_info "✅ Initramfs regenerated successfully"
+                
+                # Verify initramfs was created
+                if [ -f "${TARGET_MOUNT}/boot/initramfs-lts" ]; then
+                    INITRAMFS_SIZE=$(du -h "${TARGET_MOUNT}/boot/initramfs-lts" | cut -f1)
+                    log_info "Initramfs size: ${INITRAMFS_SIZE}"
+                fi
+            else
+                log_error "mkinitfs failed!"
+                log_warn "Attempting manual initramfs copy..."
+                
+                # Try copying the ISO's boot-initramfs as fallback
+                if [ -f "/mnt/cdrom/boot/boot-initramfs" ]; then
+                    cp /mnt/cdrom/boot/boot-initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
+                    log_warn "Copied boot-initramfs as fallback"
+                elif [ -f "/mnt/cdrom/boot/initramfs" ]; then
+                    cp /mnt/cdrom/boot/initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
+                    log_warn "Copied installer initramfs as fallback"
+                fi
             fi
         else
-            log_error "mkinitfs failed!"
-            log_warn "Attempting manual initramfs copy..."
+            log_error "mkinitfs not found in installed system!"
+            log_warn "Alpine initramfs tools may not be installed."
             
-            # Try copying the ISO's initramfs as fallback
-            if [ -f "/mnt/cdrom/boot/initramfs" ]; then
+            # Try copying the ISO's boot-initramfs as fallback
+            if [ -f "/mnt/cdrom/boot/boot-initramfs" ]; then
+                cp /mnt/cdrom/boot/boot-initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
+                log_warn "Copied boot-initramfs as fallback"
+            elif [ -f "/mnt/cdrom/boot/initramfs" ]; then
                 cp /mnt/cdrom/boot/initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
                 log_warn "Copied installer initramfs as fallback"
             fi
         fi
     else
-        log_error "mkinitfs not found in installed system!"
-        log_warn "Alpine initramfs tools may not be installed."
-        
-        # Try copying the ISO's initramfs as fallback
-        if [ -f "/mnt/cdrom/boot/initramfs" ]; then
-            cp /mnt/cdrom/boot/initramfs "${TARGET_MOUNT}/boot/initramfs-lts"
-            log_warn "Copied installer initramfs as fallback"
-        fi
+        log_error "Could not determine kernel version!"
+        log_warn "Listing /lib/modules:"
+        ls -la "${TARGET_MOUNT}/lib/modules/" || true
     fi
-else
-    log_error "Could not determine kernel version!"
-    log_warn "Listing /lib/modules:"
-    ls -la "${TARGET_MOUNT}/lib/modules/" || true
 fi
 
 # Install GRUB for UEFI
