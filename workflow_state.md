@@ -1,102 +1,116 @@
 # Workflow State
 
-## VM Creation Wizard Error Handling Implementation
+## qvmc UI Redesign - Collapsible Sidebar + Tab-Based Console
 
 ### Status: COMPLETED ✅
 
 ### Overview
-Implemented comprehensive error handling and validation for the VM Creation Wizard, addressing the issue where users could select cloud images that may not exist on the target hypervisor node.
+Redesigned the qvmc (Quantix Virtual Machine Console) application UI from a grid-based connection list to a modern sidebar + tab-based layout, enabling multi-console sessions.
 
-### Changes Made
+### Key Changes
 
-#### 1. Created Validation Utilities (`frontend/src/components/vm/wizard-validation.ts`)
+#### 1. New App Layout (`App.tsx`)
+- CSS Grid layout with two columns: sidebar and main content
+- Sidebar can collapse from 280px to 56px
+- Tab-based console management supporting multiple open VMs
 
-New utility file with validators for:
-- **VM Name**: 3-63 chars, alphanumeric + dashes, no leading/trailing dashes
-- **Hostname**: Valid hostname format
-- **Password**: Minimum 8 chars, confirmation match
-- **SSH Key**: Valid format detection
-- **CPU/Memory**: Range validation
-- **Disk Size**: Capacity validation against pool
-- **Storage Pool**: Node accessibility and capacity checks
-- **Access Method**: Password or SSH key required for cloud images
-- **Preflight Checks**: Comprehensive pre-creation validation
+#### 2. VM Sidebar (`VMSidebar.tsx`)
+New collapsible sidebar component with:
+- Expandable/collapsible VM list
+- Search functionality
+- Status indicators for active connections
+- Context menu with power actions and ISO mounting
+- Add VM button
+- Theme toggle and settings access
 
-#### 2. Enhanced useImages Hook (`frontend/src/hooks/useImages.ts`)
+#### 3. Console Tabs (`ConsoleTabs.tsx`)
+Horizontal tab bar for managing open consoles:
+- Tab per open VM console
+- Status indicators (connecting, connected, disconnected)
+- Close button on each tab
+- Add tab button to open sidebar
 
-Added new `useImageAvailability` hook that:
-- Checks download status for cloud images
-- Returns availability status per image (READY, DOWNLOADING, NOT_DOWNLOADED, ERROR)
-- Includes download progress percentage
-- Provides helper functions: `isAvailable()`, `getAvailability()`, `isAnyDownloading`
+#### 4. Console Tab Pane (`ConsoleTabPane.tsx`)
+Individual console instance extracted from ConsoleView:
+- VNC canvas rendering
+- Compact toolbar (no back button - navigation via tabs)
+- Scale mode, fullscreen, power controls
+- ISO mounting dialog
 
-#### 3. Updated StepISO Component with Availability Indicators
+#### 5. CSS Styling Updates (`index.css`)
+Added new styles for:
+- `.app-layout` - Grid layout with collapse transition
+- `.vm-sidebar` - Sidebar with header, search, list, footer
+- `.console-tabs` - Tab bar styling
+- `.console-tab` - Individual tab with status indicators
+- `.console-tab-pane` - Full-height console container
 
-Enhanced cloud image selection to show:
-- **Green "Ready" badge**: Image is downloaded and available
-- **Blue progress badge**: Image is currently downloading with progress %
-- **Yellow "Download required" badge**: Image needs to be downloaded
-- **Download button**: Click to download unavailable images
-- **Warning message**: When selecting an unavailable image
+#### 6. Settings Modal
+Converted Settings from full-screen view to modal dialog format.
 
-#### 4. Enhanced Step Validation (`isStepValid` function)
+#### 7. Documentation Updates
+Updated:
+- `docs/console-access/000043-qvmrc-native-client.md` - Full UI architecture docs
+- `qvmc/README.md` - Updated project structure and features
 
-Updated validation for each wizard step:
-- **Step 0 (Basic Info)**: Uses `validateVMName()` for proper format checking
-- **Step 4 (Hardware)**: CPU 1-128, Memory 512 MiB - 1 TiB
-- **Step 5 (Boot Media)**: Access method validation (password or SSH key required)
-- **Step 6 (Storage)**: Pool accessibility check, capacity validation
+### Files Created
 
-#### 5. Added Inline Field Errors
+| File | Description |
+|------|-------------|
+| `qvmc/src/components/VMSidebar.tsx` | Collapsible VM list sidebar |
+| `qvmc/src/components/ConsoleTabs.tsx` | Horizontal tab bar |
+| `qvmc/src/components/ConsoleTabPane.tsx` | Individual console pane |
 
-New `FieldError` component for inline error display:
-- Used in StepBasicInfo for VM name validation
-- Description character counter (500 char limit)
-- Real-time validation feedback
+### Files Modified
 
-#### 6. Enhanced StepStorage Validation
+| File | Changes |
+|------|---------|
+| `qvmc/src/App.tsx` | Complete rewrite with grid layout |
+| `qvmc/src/components/Settings.tsx` | Converted to modal content |
+| `qvmc/src/index.css` | Added 400+ lines of new styles |
+| `docs/console-access/000043-qvmrc-native-client.md` | Updated architecture docs |
+| `qvmc/README.md` | Updated features and structure |
 
-Added to StepStorage component:
-- Host/pool compatibility warning (already existed)
-- Disk capacity validation against available pool space
-- Visual indicator when total disk size exceeds pool capacity
+### New UI Layout
 
-### Files Changed
+```
++------------------+----------------------------------------+
+| VM List (toggle) |  [VM1 Tab] [VM2 Tab] [VM3 Tab]  [+]   |
+|                  |----------------------------------------|
+| - vm-1 ●         |                                        |
+| - vm-2 ●         |         Active Console Canvas          |
+| - vm-3 ○         |                                        |
+|                  |                                        |
+| [+ Add]          |                                        |
++------------------+----------------------------------------+
+```
 
-| File | Action | Description |
-|------|--------|-------------|
-| `frontend/src/components/vm/wizard-validation.ts` | Created | Validation utilities |
-| `frontend/src/hooks/useImages.ts` | Modified | Added `useImageAvailability` hook |
-| `frontend/src/components/vm/VMCreationWizard.tsx` | Modified | Enhanced StepISO, StepBasicInfo, StepStorage, isStepValid |
+### State Management
 
-### Validation Coverage
+```typescript
+interface AppState {
+  sidebarCollapsed: boolean;      // Toggle sidebar visibility
+  tabs: TabConnection[];          // Array of open console tabs
+  activeTabId: string | null;     // Currently focused tab
+  showSettings: boolean;          // Settings modal visibility
+}
 
-| Step | Field | Validation | Visual Indicator |
-|------|-------|------------|------------------|
-| Basic Info | VM Name | 3-63 chars, format | ✅ Inline error + success |
-| Basic Info | Description | Max 500 chars | ✅ Character counter |
-| Placement | Node | Offline check | ❓ (auto-placement fallback) |
-| Hardware | CPU | 1-128 cores | ✅ Next button disabled |
-| Hardware | Memory | 512 MiB - 1 TiB | ✅ Next button disabled |
-| Boot Media | Cloud Image | Download status | ✅ Status badge + warning |
-| Boot Media | Password | Min 8 chars, match | ✅ Inline error |
-| Boot Media | SSH Key | Format validation | ✅ Inline error |
-| Boot Media | Access Method | Password OR SSH key | ✅ Warning message |
-| Storage | Pool | Node accessibility | ✅ Error banner + disabled |
-| Storage | Disks | Capacity check | ✅ Inline error + color |
-
-### Testing Notes
-
-To test the new validation:
-1. Open VM Creation Wizard
-2. **VM Name**: Try invalid names (too short, special chars, leading dash)
-3. **Boot Media**: Observe availability badges on cloud images
-4. **Storage**: Select a pool and add disks exceeding available capacity
-5. Verify Next button is disabled when validation fails
+interface TabConnection {
+  id: string;                     // Tab unique ID
+  connectionId: string;           // VNC connection ID
+  vmId: string;
+  vmName: string;
+  controlPlaneUrl: string;
+  status: 'connecting' | 'connected' | 'disconnected';
+}
+```
 
 ---
 
 ## Previous Completed Tasks
+
+### VM Creation Wizard Error Handling ✅
+Implemented comprehensive error handling and validation for the VM Creation Wizard.
 
 ### Quantix-OS Host UI Redesign ✅
 Transformed the Quantix-OS Host UI from a sidebar-based layout to a modern top-navigation layout.

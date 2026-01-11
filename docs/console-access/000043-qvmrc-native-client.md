@@ -1,7 +1,7 @@
-# qvmc - Quantix Virtual Machine Remote Console
+# qvmc - Quantix Virtual Machine Console
 
 **Document ID:** 000043  
-**Date:** January 3, 2026 (Updated: UI Redesign & Protocol Handler Fix)  
+**Date:** January 3, 2026 (Updated: January 11, 2026 - Sidebar + Tab UI Redesign)  
 **Status:** Production Ready  
 **Purpose:** Native desktop VNC client for VM console access
 
@@ -9,7 +9,7 @@
 
 ## Overview
 
-qvmc (Quantix Virtual Machine Remote Console) is a native desktop application built with Tauri (Rust + React) that provides high-performance VNC console access to virtual machines managed by the LimiQuantix platform.
+qvmc (Quantix Virtual Machine Console) is a native desktop application built with Tauri (Rust + React) that provides high-performance VNC console access to virtual machines managed by the LimiQuantix platform.
 
 ### UI Design Philosophy
 
@@ -19,6 +19,28 @@ qvmc follows a modern, layer-based UI design with:
 - **Smooth animations**: Spring-based transitions, scale/fade effects
 - **Proper spacing**: Consistent 24px page margins, 16px component gaps
 - **Accessibility**: High contrast text, visible focus states, WCAG compliant
+
+### New UI Layout (v0.2.0)
+
+The redesigned UI features a collapsible sidebar and tab-based console management:
+
+```
++------------------+----------------------------------------+
+| VM List (toggle) |  [VM1 Tab] [VM2 Tab] [VM3 Tab]  [+]   |
+|                  |----------------------------------------|
+| - vm-1 ●         |                                        |
+| - vm-2 ●         |         Active Console Canvas          |
+| - vm-3 ○         |                                        |
+|                  |                                        |
+| [+ Add]          |                                        |
++------------------+----------------------------------------+
+```
+
+**Key Features:**
+- **Collapsible Sidebar**: Toggle the VM list to maximize console space
+- **Tab-Based Consoles**: Open multiple VMs simultaneously, switch between them
+- **Persistent Connections**: Tabs maintain their VNC sessions when switching
+- **Quick Actions**: Power controls and ISO mounting from sidebar context menu
 
 ### Why a Native Client?
 
@@ -31,7 +53,7 @@ qvmc follows a modern, layer-based UI design with:
 | Audio Forwarding | Limited | ✅ Planned |
 | Clipboard | Limited | ✅ Full |
 | Offline Saved Connections | ❌ No | ✅ Yes |
-| Multi-Window | ❌ Tabs only | ✅ Yes |
+| Multi-Console Tabs | ❌ No | ✅ Yes |
 
 ---
 
@@ -45,12 +67,12 @@ qvmc follows a modern, layer-based UI design with:
 │  │              React Frontend (TypeScript)                      │   │
 │  │                                                               │   │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │   │
-│  │  │ Connection  │  │  Console    │  │  Settings   │          │   │
-│  │  │    List     │  │    View     │  │    Page     │          │   │
-│  │  └─────────────┘  └──────┬──────┘  └─────────────┘          │   │
-│  │                          │                                    │   │
-│  │                    Canvas Rendering                           │   │
-│  │                    Mouse/Keyboard Events                      │   │
+│  │  │ VM Sidebar  │  │ Console     │  │  Console    │          │   │
+│  │  │ (List)      │  │   Tabs      │  │  Tab Pane   │          │   │
+│  │  └─────────────┘  └─────────────┘  └──────┬──────┘          │   │
+│  │                                           │                    │   │
+│  │                    Canvas Rendering / Multi-Tab State          │   │
+│  │                    Mouse/Keyboard Events                       │   │
 │  └──────────────────────────┼───────────────────────────────────┘   │
 │                             │ Tauri IPC (invoke)                     │
 │  ┌──────────────────────────┼───────────────────────────────────┐   │
@@ -62,7 +84,7 @@ qvmc follows a modern, layer-based UI design with:
 │  │  └─────────────┘  └──────┬──────┘  └─────────────┘          │   │
 │  │                          │                                    │   │
 │  │              ┌───────────┴───────────┐                       │   │
-│  │              │    VNC Connection     │                       │   │
+│  │              │    VNC Connection(s)  │                       │   │
 │  │              │    (tokio TCP)        │                       │   │
 │  │              └───────────┬───────────┘                       │   │
 │  └──────────────────────────┼───────────────────────────────────┘   │
@@ -96,14 +118,20 @@ qvmc/
 │
 ├── src/                    # React Frontend
 │   ├── main.tsx            # React entry
-│   ├── App.tsx             # Main app component
-│   ├── index.css           # Global styles
+│   ├── App.tsx             # Main app layout (sidebar + tabs + console)
+│   ├── index.css           # Global styles + CSS variables
 │   ├── components/
-│   │   ├── ConnectionList.tsx   # Saved connections
-│   │   ├── ConsoleView.tsx      # VNC canvas + toolbar
-│   │   └── Settings.tsx         # App settings
+│   │   ├── VMSidebar.tsx       # Collapsible VM list sidebar
+│   │   ├── ConsoleTabs.tsx     # Horizontal tab bar for open consoles
+│   │   ├── ConsoleTabPane.tsx  # Individual console instance (VNC canvas)
+│   │   ├── ConsoleView.tsx     # Legacy single-console view
+│   │   ├── ConnectionList.tsx  # Legacy grid connection view
+│   │   ├── Settings.tsx        # App settings modal
+│   │   ├── ThemeToggle.tsx     # Light/dark mode toggle
+│   │   └── DebugPanel.tsx      # VNC debug logging panel
 │   └── lib/
-│       └── tauri-api.ts    # Tauri command bindings
+│       ├── tauri-api.ts        # Tauri command bindings
+│       └── debug-logger.ts     # Logging utilities
 │
 └── src-tauri/              # Rust Backend
     ├── Cargo.toml          # Rust dependencies
@@ -120,6 +148,81 @@ qvmc/
             ├── keysym.rs   # X11 keysym mappings
             └── encodings.rs # VNC encoding decoders
 ```
+
+---
+
+## UI Components
+
+### App Layout (`App.tsx`)
+
+The main application uses a CSS Grid layout with two columns:
+
+```typescript
+interface AppState {
+  sidebarCollapsed: boolean;      // Toggle sidebar visibility
+  tabs: TabConnection[];          // Array of open console tabs
+  activeTabId: string | null;     // Currently focused tab
+  showSettings: boolean;          // Settings modal visibility
+}
+```
+
+**Layout CSS:**
+```css
+.app-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;  /* Sidebar | Main */
+  transition: grid-template-columns 0.3s ease;
+}
+
+.app-layout.sidebar-collapsed {
+  grid-template-columns: 56px 1fr;   /* Collapsed sidebar */
+}
+```
+
+### VM Sidebar (`VMSidebar.tsx`)
+
+Collapsible sidebar displaying saved VM connections:
+
+- **Expanded Mode**: Shows VM name, ID, search bar, and action menu
+- **Collapsed Mode**: Shows only VM icons with tooltips
+- **Features**:
+  - Add new connections
+  - Power actions (start, stop, reboot, shutdown)
+  - Mount ISO
+  - Delete connections
+  - Theme toggle
+
+### Console Tabs (`ConsoleTabs.tsx`)
+
+Horizontal tab bar for managing multiple console sessions:
+
+```typescript
+interface TabConnection {
+  id: string;                       // Tab unique ID
+  connectionId: string;             // VNC connection ID
+  vmId: string;
+  vmName: string;
+  controlPlaneUrl: string;
+  status: 'connecting' | 'connected' | 'disconnected';
+}
+```
+
+**Features**:
+- Click tab to switch consoles
+- Close button on each tab
+- Status indicator (connecting/connected/disconnected)
+- Add button to open sidebar
+
+### Console Tab Pane (`ConsoleTabPane.tsx`)
+
+Individual console instance with VNC canvas:
+
+- VNC framebuffer rendering
+- Mouse and keyboard input handling
+- Power controls and ISO mounting
+- Scale mode (fit, fill, 1:1)
+- Fullscreen toggle
+- Debug panel access
 
 ---
 
@@ -142,7 +245,27 @@ await invoke('save_connection', {
 const { connections } = await invoke('get_saved_connections');
 ```
 
-### 2. VNC Connection
+### 2. Multi-Tab Console Sessions
+
+```typescript
+// Open a new tab
+const handleSelectVM = async (connection: SavedConnection) => {
+  // Check if already open
+  const existingTab = tabs.find(t => t.vmId === connection.vm_id);
+  if (existingTab) {
+    setActiveTabId(existingTab.id);
+    return;
+  }
+  
+  // Connect and create new tab
+  const vncConnectionId = await invoke('connect_vnc', { ... });
+  const newTab = { id: crypto.randomUUID(), connectionId: vncConnectionId, ... };
+  setTabs([...tabs, newTab]);
+  setActiveTabId(newTab.id);
+};
+```
+
+### 3. VNC Connection
 
 ```typescript
 // Connect to VM's VNC console
@@ -159,7 +282,7 @@ listen('vnc:framebuffer', (event) => {
 });
 ```
 
-### 3. Input Events
+### 4. Input Events
 
 ```typescript
 // Send key event (X11 keysym)
@@ -355,6 +478,7 @@ qvmc://connect?url=http%3A%2F%2Flocalhost%3A8080&vmId=vm-abc123&vmName=My%20Web%
 2. Browser launches qvmc with the deep link URL
 3. qvmc parses the URL and:
    - Saves the connection to config
+   - Creates a new tab with the connection
    - Immediately connects to the VM's VNC console
 4. Connection is saved for future access
 

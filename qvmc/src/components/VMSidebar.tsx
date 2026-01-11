@@ -89,12 +89,6 @@ export function VMSidebar({
     }
   };
 
-  // Expose refresh method for external use (called via effects if needed)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _refreshConnections = () => {
-    loadConnections();
-  };
-
   // Filter connections based on search query
   const filteredConnections = useMemo(() => {
     if (!searchQuery.trim()) return connections;

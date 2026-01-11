@@ -1,4 +1,4 @@
-# qvmc - Quantix Virtual Machine Remote Console
+# qvmc - Quantix Virtual Machine Console
 
 A native desktop application for remote VM console access with VNC/SPICE support.
 
@@ -9,6 +9,28 @@ qvmc is a hybrid Management UI and Direct Hypervisor Client, similar to VMware V
 - **Management Channel (Blue)**: VM operations (restart, shutdown, snapshots) via the LimiQuantix Control Plane
 - **Console Channel (Red)**: Screen, keyboard, mouse, USB passthrough via VNC/SPICE
 
+## New UI Layout (v0.2.0)
+
+The redesigned UI features a **collapsible sidebar** and **tab-based console management**:
+
+```
++------------------+----------------------------------------+
+| VM List (toggle) |  [VM1 Tab] [VM2 Tab] [VM3 Tab]  [+]   |
+|                  |----------------------------------------|
+| - vm-1 ●         |                                        |
+| - vm-2 ●         |         Active Console Canvas          |
+| - vm-3 ○         |                                        |
+|                  |                                        |
+| [+ Add]          |                                        |
++------------------+----------------------------------------+
+```
+
+**Key Features:**
+- **Collapsible Sidebar**: Toggle to maximize console space
+- **Tab-Based Consoles**: Open multiple VMs simultaneously
+- **Quick Actions**: Power controls and ISO mounting from context menu
+- **Deep Link Support**: Open VMs directly from web UI via `qvmc://` protocol
+
 ## Architecture
 
 ```
@@ -16,7 +38,7 @@ qvmc is a hybrid Management UI and Direct Hypervisor Client, similar to VMware V
 │                         qvmc                                    │
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │                    React UI Layer                            │ │
-│  │   ConnectionList.tsx | ConsoleView.tsx | Settings.tsx        │ │
+│  │   VMSidebar | ConsoleTabs | ConsoleTabPane | Settings        │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │                              │                                    │
 │  ┌─────────────────────────────────────────────────────────────┐ │
@@ -39,7 +61,9 @@ qvmc is a hybrid Management UI and Direct Hypervisor Client, similar to VMware V
 
 ## Features
 
-### Current (v0.1.0)
+### Current (v0.2.0)
+- [x] **Multi-tab console sessions** - Open multiple VMs at once
+- [x] **Collapsible sidebar** - Maximize console space
 - [x] VNC connection via Control Plane
 - [x] VNC Authentication (DES encryption)
 - [x] Full RFB protocol implementation
@@ -50,6 +74,8 @@ qvmc is a hybrid Management UI and Direct Hypervisor Client, similar to VMware V
 - [x] Saved connections with persistence
 - [x] Display settings (quality, compression)
 - [x] Cross-platform builds (Windows, macOS, Linux)
+- [x] Deep link integration (`qvmc://connect?...`)
+- [x] Light and dark theme support
 
 ### Planned
 - [ ] USB device passthrough
@@ -126,13 +152,20 @@ qvmc/
 │   └── tauri.conf.json
 ├── src/                    # React frontend
 │   ├── components/
-│   │   ├── ConnectionList.tsx
-│   │   ├── ConsoleView.tsx
-│   │   └── Settings.tsx
+│   │   ├── VMSidebar.tsx       # Collapsible VM list sidebar
+│   │   ├── ConsoleTabs.tsx     # Horizontal tab bar
+│   │   ├── ConsoleTabPane.tsx  # VNC console instance
+│   │   ├── ConsoleView.tsx     # Legacy single console
+│   │   ├── ConnectionList.tsx  # Legacy grid view
+│   │   ├── Settings.tsx        # Settings modal
+│   │   ├── ThemeToggle.tsx     # Light/dark toggle
+│   │   └── DebugPanel.tsx      # Debug logs
 │   ├── lib/
-│   │   └── tauri-api.ts    # Tauri API wrapper
-│   ├── App.tsx
-│   └── main.tsx
+│   │   ├── tauri-api.ts        # Tauri API wrapper
+│   │   └── debug-logger.ts     # Logging utilities
+│   ├── App.tsx                 # Main layout
+│   ├── main.tsx
+│   └── index.css               # Global styles
 ├── package.json
 └── vite.config.ts
 ```
@@ -151,8 +184,8 @@ npm run generate-icons
 npm run tauri:build
 # Output:
 #   src-tauri/target/release/qvmc.exe                           (standalone)
-#   src-tauri/target/release/bundle/nsis/qvmc_0.1.0_x64-setup.exe  (NSIS installer)
-#   src-tauri/target/release/bundle/msi/qvmc_0.1.0_x64_en-US.msi   (MSI installer)
+#   src-tauri/target/release/bundle/nsis/qvmc_0.2.0_x64-setup.exe  (NSIS installer)
+#   src-tauri/target/release/bundle/msi/qvmc_0.2.0_x64_en-US.msi   (MSI installer)
 ```
 
 #### macOS (.dmg Installer)
@@ -160,15 +193,15 @@ npm run tauri:build
 npm run tauri:build
 # Output:
 #   src-tauri/target/release/bundle/macos/qvmc.app              (app bundle)
-#   src-tauri/target/release/bundle/dmg/qvmc_0.1.0_x64.dmg      (DMG installer)
+#   src-tauri/target/release/bundle/dmg/qvmc_0.2.0_x64.dmg      (DMG installer)
 ```
 
 #### Linux (.AppImage / .deb)
 ```bash
 npm run tauri:build
 # Output:
-#   src-tauri/target/release/bundle/deb/qvmc_0.1.0_amd64.deb
-#   src-tauri/target/release/bundle/appimage/qvmc_0.1.0_amd64.AppImage
+#   src-tauri/target/release/bundle/deb/qvmc_0.2.0_amd64.deb
+#   src-tauri/target/release/bundle/appimage/qvmc_0.2.0_amd64.AppImage
 ```
 
 ### Quick Build Commands
@@ -182,6 +215,21 @@ npm run tauri:build:macos
 # Linux (on Linux)
 npm run tauri:build:linux
 ```
+
+## Deep Link Integration
+
+qvmc supports the `qvmc://` protocol for launching directly from the web UI:
+
+```
+qvmc://connect?url=<control_plane_url>&vmId=<vm_id>&vmName=<vm_name>
+```
+
+**Example:**
+```
+qvmc://connect?url=http%3A%2F%2Flocalhost%3A8080&vmId=vm-abc123&vmName=My%20Web%20Server
+```
+
+See the full [documentation](../docs/console-access/000043-qvmrc-native-client.md) for protocol handler setup.
 
 ## Configuration
 
