@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -77,15 +76,14 @@ func main() {
 		logger.Fatal("Failed to create database driver", zap.Error(err))
 	}
 
-	// Get migrations path
-	migrationsPath, err := filepath.Abs("migrations")
-	if err != nil {
-		logger.Fatal("Failed to get migrations path", zap.Error(err))
-	}
+	// Use relative path for migrations - simpler and works cross-platform
+	migrationsURL := "file://migrations"
+
+	logger.Debug("Migrations path", zap.String("path", migrationsURL))
 
 	// Create migrator
 	m, err := migrate.NewWithDatabaseInstance(
-		fmt.Sprintf("file://%s", migrationsPath),
+		migrationsURL,
 		"postgres",
 		driver,
 	)

@@ -1013,9 +1013,11 @@ type VirtualMachine struct {
 	// Current runtime state (The "Status")
 	Status *VmStatus `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`
 	// Audit trail
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	CreatedBy     string                 `protobuf:"bytes,11,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"` // User/service that created this VM
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	CreatedBy string                 `protobuf:"bytes,11,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"` // User/service that created this VM
+	// Optional: Folder ID for hierarchical organization (like vSphere folders)
+	FolderId      string `protobuf:"bytes,12,opt,name=folder_id,json=folderId,proto3" json:"folder_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1123,6 +1125,13 @@ func (x *VirtualMachine) GetUpdatedAt() *timestamppb.Timestamp {
 func (x *VirtualMachine) GetCreatedBy() string {
 	if x != nil {
 		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *VirtualMachine) GetFolderId() string {
+	if x != nil {
+		return x.FolderId
 	}
 	return ""
 }
@@ -4663,7 +4672,7 @@ var File_limiquantix_compute_v1_vm_proto protoreflect.FileDescriptor
 
 const file_limiquantix_compute_v1_vm_proto_rawDesc = "" +
 	"\n" +
-	"\x1flimiquantix/compute/v1/vm.proto\x12\x16limiquantix.compute.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xaa\x04\n" +
+	"\x1flimiquantix/compute/v1/vm.proto\x12\x16limiquantix.compute.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc7\x04\n" +
 	"\x0eVirtualMachine\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
@@ -4680,7 +4689,8 @@ const file_limiquantix_compute_v1_vm_proto_rawDesc = "" +
 	"updated_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\v \x01(\tR\tcreatedBy\x1a9\n" +
+	"created_by\x18\v \x01(\tR\tcreatedBy\x12\x1b\n" +
+	"\tfolder_id\x18\f \x01(\tR\bfolderId\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x91\v\n" +
