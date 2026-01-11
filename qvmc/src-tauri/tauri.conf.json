@@ -6,7 +6,7 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "qvmc",
+    "productName": "QvMC",
     "version": "0.1.0"
   },
   "tauri": {
@@ -87,7 +87,7 @@
       "active": false
     },
     "cli": {
-      "description": "qvmc - Quantix Virtual Machine Remote Console",
+      "description": "QvMC - Quantix Virtual Machine Console",
       "args": [
         {
           "name": "url",
@@ -105,7 +105,7 @@
         "minHeight": 480,
         "minWidth": 640,
         "resizable": true,
-        "title": "qvmc",
+        "title": "QvMC",
         "center": true,
         "decorations": true,
         "visible": true

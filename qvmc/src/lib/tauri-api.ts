@@ -1,5 +1,5 @@
 /**
- * Tauri API utilities for qvmc
+ * Tauri API utilities for QvMC
  */
 
 import { invoke } from '@tauri-apps/api/tauri';

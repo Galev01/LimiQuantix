@@ -7,7 +7,7 @@ interface ThemeToggleProps {
 }
 
 /**
- * Theme toggle button component for qvmc.
+ * Theme toggle button component for QvMC.
  * Switches between light and dark modes.
  */
 export function ThemeToggle({ className = '' }: ThemeToggleProps) {

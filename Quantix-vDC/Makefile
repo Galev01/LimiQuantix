@@ -19,7 +19,7 @@
 
 .PHONY: all iso iso-no-bump ova rootfs test-qemu test-qemu-install test-qemu-uefi \
         clean clean-all help docker-builder docker-node scripts-executable \
-        backend frontend deploy-usb version version-bump version-set
+        backend frontend deploy-usb version version-bump version-set fix-perms
 
 # Version - read from VERSION file
 VERSION := $(shell cat VERSION 2>/dev/null || echo "0.0.1")
@@ -136,11 +136,13 @@ backend:
 			-e GOOS=linux \
 			-e GOARCH=amd64 \
 			golang:alpine \
-			sh -c "apk add --no-cache git && go build -ldflags='-s -w' -o /app/qx-controlplane ./cmd/controlplane" || { echo "❌ Backend build failed!"; exit 1; }; \
+			sh -c "apk add --no-cache git && go build -ldflags='-s -w' -o /app/qx-controlplane ./cmd/controlplane && chmod 755 /app/qx-controlplane" || { echo "❌ Backend build failed!"; exit 1; }; \
 		if [ -f "$(PROJECT_ROOT)/backend/qx-controlplane" ]; then \
-			cp $(PROJECT_ROOT)/backend/qx-controlplane $(OVERLAY_DIR)/usr/bin/; \
+			cp $(PROJECT_ROOT)/backend/qx-controlplane $(OVERLAY_DIR)/usr/bin/ 2>/dev/null || \
+				sudo cp $(PROJECT_ROOT)/backend/qx-controlplane $(OVERLAY_DIR)/usr/bin/; \
 			rm -f $(PROJECT_ROOT)/backend/qx-controlplane; \
-			chmod +x $(OVERLAY_DIR)/usr/bin/qx-controlplane; \
+			chmod +x $(OVERLAY_DIR)/usr/bin/qx-controlplane 2>/dev/null || \
+				sudo chmod +x $(OVERLAY_DIR)/usr/bin/qx-controlplane; \
 			echo "✅ Backend built successfully"; \
 		else \
 			echo "❌ Backend binary not found after build!"; \
@@ -199,6 +201,13 @@ scripts-executable:
 	@chmod +x builder/*.sh 2>/dev/null || true
 	@chmod +x installer/*.sh 2>/dev/null || true
 	@chmod +x overlay/etc/init.d/* 2>/dev/null || true
+
+# Fix permissions on overlay directory (for Docker volume mounts)
+fix-perms:
+	@echo "🔧 Fixing overlay permissions..."
+	@mkdir -p $(OVERLAY_DIR)/usr/bin
+	@chmod -R 755 $(OVERLAY_DIR) 2>/dev/null || sudo chmod -R 755 $(OVERLAY_DIR)
+	@chmod +x builder/*.sh installer/*.sh 2>/dev/null || true
 
 # =============================================================================
 # Testing

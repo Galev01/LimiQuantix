@@ -1,5 +1,5 @@
 /**
- * Debug Logger for qvmc
+ * Debug Logger for QvMC
  * Captures console logs and allows exporting them for troubleshooting
  */
 

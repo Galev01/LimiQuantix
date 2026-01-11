@@ -201,7 +201,7 @@ export function VMSidebar({
               <div className="vm-sidebar-logo">
                 <Monitor className="w-5 h-5" />
               </div>
-              <span className="vm-sidebar-title">qvmc</span>
+              <span className="vm-sidebar-title">QvMC</span>
             </div>
           )}
           <button

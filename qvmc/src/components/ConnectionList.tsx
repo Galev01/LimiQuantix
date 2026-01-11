@@ -276,7 +276,7 @@ export function ConnectionList({ onConnect, onOpenSettings }: ConnectionListProp
             <Monitor />
           </div>
           <div className="app-brand-text">
-            <h1>qvmc</h1>
+            <h1>QvMC</h1>
             <p>Quantix VM Remote Console</p>
           </div>
         </div>

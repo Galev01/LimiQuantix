@@ -214,7 +214,7 @@ export function Settings({ onClose }: SettingsProps) {
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <p className="font-bold text-[var(--text-primary)] text-lg">qvmc</p>
+                <p className="font-bold text-[var(--text-primary)] text-lg">QvMC</p>
                 <span className="text-xs font-medium text-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Sparkles className="w-3 h-3" />
                   v0.1.0

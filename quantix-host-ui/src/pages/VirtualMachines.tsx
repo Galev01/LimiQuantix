@@ -13,7 +13,7 @@ import { Header } from '@/components/layout';
 import { Card, Badge, Button } from '@/components/ui';
 import { useVMs, useVMPowerOps } from '@/hooks/useVMs';
 import { formatBytes, formatPercent, cn } from '@/lib/utils';
-import { launchqvmc } from '@/lib/qvmc';
+import { launchQvMC } from '@/lib/qvmc';
 import { useAppStore } from '@/stores/useAppStore';
 import type { VirtualMachine, PowerState } from '@/api/types';
 
@@ -47,7 +47,7 @@ export function VirtualMachines() {
   };
 
   const handleOpenConsole = (vm: VirtualMachine) => {
-    launchqvmc({
+    launchQvMC({
       hostUrl,
       vmId: vm.vmId,
       vmName: vm.name,

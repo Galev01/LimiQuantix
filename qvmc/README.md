@@ -1,10 +1,10 @@
-# qvmc - Quantix Virtual Machine Console
+# QvMC - Quantix Virtual Machine Console
 
 A native desktop application for remote VM console access with VNC/SPICE support.
 
 ## Overview
 
-qvmc is a hybrid Management UI and Direct Hypervisor Client, similar to VMware VMRC. It provides:
+QvMC is a hybrid Management UI and Direct Hypervisor Client, similar to VMware VMRC. It provides:
 
 - **Management Channel (Blue)**: VM operations (restart, shutdown, snapshots) via the LimiQuantix Control Plane
 - **Console Channel (Red)**: Screen, keyboard, mouse, USB passthrough via VNC/SPICE
@@ -35,7 +35,7 @@ The redesigned UI features a **collapsible sidebar** and **tab-based console man
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         qvmc                                    │
+│                         QvMC                                    │
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │                    React UI Layer                            │ │
 │  │   VMSidebar | ConsoleTabs | ConsoleTabPane | Settings        │ │
@@ -218,7 +218,7 @@ npm run tauri:build:linux
 
 ## Deep Link Integration
 
-qvmc supports the `qvmc://` protocol for launching directly from the web UI:
+QvMC supports the `qvmc://` protocol for launching directly from the web UI:
 
 ```
 qvmc://connect?url=<control_plane_url>&vmId=<vm_id>&vmName=<vm_name>

@@ -1,4 +1,4 @@
-# qvmc - Quantix Virtual Machine Console
+# QvMC - Quantix Virtual Machine Console
 
 **Document ID:** 000043  
 **Date:** January 3, 2026 (Updated: January 11, 2026 - Sidebar + Tab UI Redesign)  
@@ -9,11 +9,11 @@
 
 ## Overview
 
-qvmc (Quantix Virtual Machine Console) is a native desktop application built with Tauri (Rust + React) that provides high-performance VNC console access to virtual machines managed by the LimiQuantix platform.
+QvMC (Quantix Virtual Machine Console) is a native desktop application built with Tauri (Rust + React) that provides high-performance VNC console access to virtual machines managed by the LimiQuantix platform.
 
 ### UI Design Philosophy
 
-qvmc follows a modern, layer-based UI design with:
+QvMC follows a modern, layer-based UI design with:
 
 - **Deep color hierarchy**: Base → Surface → Elevated layers for visual depth
 - **Smooth animations**: Spring-based transitions, scale/fade effects
@@ -44,7 +44,7 @@ The redesigned UI features a collapsible sidebar and tab-based console managemen
 
 ### Why a Native Client?
 
-| Feature | Web Console (noVNC) | qvmc Native |
+| Feature | Web Console (noVNC) | QvMC Native |
 |---------|---------------------|--------------|
 | Installation | None | Requires install |
 | Performance | Good | Excellent (native rendering) |
@@ -61,7 +61,7 @@ The redesigned UI features a collapsible sidebar and tab-based console managemen
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        qvmc (Tauri App)                             │
+│                        QvMC (Tauri App)                             │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │              React Frontend (TypeScript)                      │   │
@@ -459,7 +459,7 @@ window_maximized = false
 
 ## Deep Link Integration
 
-qvmc supports deep link URLs to automatically open and connect to VMs directly from the web UI.
+QvMC supports deep link URLs to automatically open and connect to VMs directly from the web UI.
 
 ### URL Format
 
@@ -474,9 +474,9 @@ qvmc://connect?url=http%3A%2F%2Flocalhost%3A8080&vmId=vm-abc123&vmName=My%20Web%
 
 ### How It Works
 
-1. **User clicks "Open in qvmc"** in the web UI
-2. Browser launches qvmc with the deep link URL
-3. qvmc parses the URL and:
+1. **User clicks "Open in QvMC"** in the web UI
+2. Browser launches QvMC with the deep link URL
+3. QvMC parses the URL and:
    - Saves the connection to config
    - Creates a new tab with the connection
    - Immediately connects to the VM's VNC console
@@ -492,7 +492,7 @@ const qvmcConnectionUrl = `qvmc://connect?url=${encodeURIComponent(controlPlaneU
 
 ### Protocol Handler Registration
 
-The protocol handler is registered when qvmc is installed:
+The protocol handler is registered when QvMC is installed:
 
 - **Windows:** Registry entries created by NSIS installer (HKCU\SOFTWARE\Classes\qvmc)
 - **macOS:** `Info.plist` URL scheme registration
@@ -553,7 +553,7 @@ Get-ItemProperty -Path "HKCU:\SOFTWARE\Classes\qvmc\shell\open\command"
 
 This means the `qvmc://` protocol handler isn't registered:
 
-1. **Reinstall qvmc** using the NSIS installer (not MSI)
+1. **Reinstall QvMC** using the NSIS installer (not MSI)
 2. **Or manually register** using the PowerShell script in `qvmc/scripts/register-protocol.ps1`
 3. **Or run the registration command** shown in the "Protocol Handler Registration" section
 

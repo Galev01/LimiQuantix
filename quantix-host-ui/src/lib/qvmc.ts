@@ -1,8 +1,8 @@
 /**
- * qvmc Deep Link Launcher
+ * QvMC Deep Link Launcher
  * 
- * Launches the qvmc native console application via the qvmc:// protocol.
- * The qvmc app must be installed and registered on the user's system.
+ * Launches the QvMC native console application via the qvmc:// protocol.
+ * The QvMC app must be installed and registered on the user's system.
  */
 
 export interface qvmcLaunchOptions {
@@ -19,9 +19,9 @@ export interface qvmcLaunchOptions {
 }
 
 /**
- * Launch qvmc to connect to a VM console
+ * Launch QvMC to connect to a VM console
  */
-export function launchqvmc(options: qvmcLaunchOptions): void {
+export function launchQvMC(options: qvmcLaunchOptions): void {
   const params = new URLSearchParams({
     url: options.hostUrl,
     vm: options.vmId,
@@ -39,17 +39,17 @@ export function launchqvmc(options: qvmcLaunchOptions): void {
   const deepLink = `qvmc://connect?${params.toString()}`;
   
   // Log for debugging
-  console.info('Launching qvmc:', deepLink);
+  console.info('Launching QvMC:', deepLink);
   
   // Trigger the deep link
   window.location.href = deepLink;
 }
 
 /**
- * Check if qvmc protocol is likely registered
+ * Check if QvMC protocol is likely registered
  * Note: This is a best-effort check, as browsers don't expose protocol handlers
  */
-export function checkqvmcAvailable(): Promise<boolean> {
+export function checkQvMCAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
     // Try to detect if the protocol handler exists
     // This is limited by browser security, so we assume it's available
@@ -57,7 +57,7 @@ export function checkqvmcAvailable(): Promise<boolean> {
     const isElectron = navigator.userAgent.includes('Electron');
     const isTauri = '__TAURI__' in window;
     
-    // If we're in a native context, qvmc is likely available
+    // If we're in a native context, QvMC is likely available
     if (isElectron || isTauri) {
       resolve(true);
       return;
@@ -69,9 +69,9 @@ export function checkqvmcAvailable(): Promise<boolean> {
 }
 
 /**
- * Get the download URL for qvmc installer
+ * Get the download URL for QvMC installer
  */
-export function getqvmcDownloadUrl(): string {
+export function getQvMCDownloadUrl(): string {
   const platform = navigator.platform.toLowerCase();
   
   if (platform.includes('win')) {

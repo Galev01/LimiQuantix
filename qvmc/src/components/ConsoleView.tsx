@@ -795,7 +795,7 @@ export function ConsoleView({
               {isoMode === 'local' ? (
                 <>
                   <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                    Select an ISO from your computer. qvmc will serve it over HTTP so the hypervisor can access it.
+                    Select an ISO from your computer. QvMC will serve it over HTTP so the hypervisor can access it.
                   </p>
                   
                   {/* File browser input */}
@@ -827,7 +827,7 @@ export function ConsoleView({
                   {/* Info box */}
                   <div className="modal-info-box">
                     <p>
-                      <strong>How it works:</strong> qvmc starts a temporary HTTP server on your machine. 
+                      <strong>How it works:</strong> QvMC starts a temporary HTTP server on your machine. 
                       The hypervisor downloads the ISO from your computer over the network.
                     </p>
                   </div>

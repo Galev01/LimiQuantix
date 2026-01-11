@@ -1,11 +1,37 @@
 # Workflow State
 
-## qvmc UI Redesign - Collapsible Sidebar + Tab-Based Console
+## QvMC Branding Update
 
 ### Status: COMPLETED ✅
 
 ### Overview
-Redesigned the qvmc (Quantix Virtual Machine Console) application UI from a grid-based connection list to a modern sidebar + tab-based layout, enabling multi-console sessions.
+Updated the display name from "qvmc" to "QvMC" across all UI-facing text and documentation. The internal protocol URL (`qvmc://`) and file names remain unchanged.
+
+### Files Updated
+
+| Component | Files Modified |
+|-----------|----------------|
+| Frontend Dashboard | `frontend/src/pages/VMDetail.tsx`, `frontend/src/components/vm/ConsoleAccessModal.tsx` |
+| Host UI (QHCI) | `quantix-host-ui/src/lib/qvmc.ts`, `quantix-host-ui/src/pages/VMDetail.tsx`, `quantix-host-ui/src/pages/VirtualMachines.tsx`, `quantix-host-ui/src/components/vm/ConsoleAccessModal.tsx` |
+| QvMC App | `qvmc/src/App.tsx`, `qvmc/src/components/VMSidebar.tsx`, `qvmc/src/components/Settings.tsx`, `qvmc/src/components/ConnectionList.tsx`, `qvmc/src/components/ConsoleView.tsx`, `qvmc/src/components/ConsoleTabPane.tsx`, `qvmc/src/components/ThemeToggle.tsx`, `qvmc/src/components/DebugPanel.tsx`, `qvmc/src/lib/tauri-api.ts`, `qvmc/src/lib/debug-logger.ts`, `qvmc/src/lib/theme-store.ts` |
+| Tauri Config | `qvmc/src-tauri/tauri.conf.json` |
+| Documentation | `docs/console-access/000043-qvmrc-native-client.md`, `qvmc/README.md` |
+
+### Key Changes
+- **UI Display Name**: Changed from "qvmc" to "QvMC" in titles, buttons, messages
+- **Function Names**: Renamed `launchqvmc` → `launchQvMC`, `handleLaunchqvmc` → `handleLaunchQvMC`, etc.
+- **Window Title**: Changed from "qvmc" to "QvMC" in Tauri config
+- **Product Name**: Changed from "qvmc" to "QvMC" in Tauri config
+- **Documentation**: Updated all references in docs and README files
+
+---
+
+## QvMC UI Redesign - Collapsible Sidebar + Tab-Based Console
+
+### Status: COMPLETED ✅
+
+### Overview
+Redesigned the QvMC (Quantix Virtual Machine Console) application UI from a grid-based connection list to a modern sidebar + tab-based layout, enabling multi-console sessions.
 
 ### Key Changes
 

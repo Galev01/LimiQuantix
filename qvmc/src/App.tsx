@@ -36,18 +36,18 @@ function App() {
     hasCheckedPending.current = true;
 
     const checkPendingConnection = async () => {
-      console.log('[qvmc] Checking for pending connection...');
+      console.log('[QvMC] Checking for pending connection...');
       
       try {
         const pending = await invoke<PendingConnection | null>('get_pending_connection');
         
         if (pending) {
-          console.log('[qvmc] Found pending connection:', pending);
+          console.log('[QvMC] Found pending connection:', pending);
           setIsAutoConnecting(true);
           
           try {
             // Save connection to config
-            console.log('[qvmc] Saving connection...');
+            console.log('[QvMC] Saving connection...');
             await invoke<string>('add_and_connect', {
               controlPlaneUrl: pending.control_plane_url,
               vmId: pending.vm_id,
@@ -55,14 +55,14 @@ function App() {
             });
             
             // Start VNC connection
-            console.log('[qvmc] Starting VNC connection...');
+            console.log('[QvMC] Starting VNC connection...');
             const vncConnectionId = await invoke<string>('connect_vnc', {
               controlPlaneUrl: pending.control_plane_url,
               vmId: pending.vm_id,
               password: null,
             });
             
-            console.log('[qvmc] VNC connected:', vncConnectionId);
+            console.log('[QvMC] VNC connected:', vncConnectionId);
             
             // Create new tab
             const newTab: TabConnection = {
@@ -77,15 +77,15 @@ function App() {
             setTabs([newTab]);
             setActiveTabId(newTab.id);
           } catch (err) {
-            console.error('[qvmc] Auto-connect failed:', err);
+            console.error('[QvMC] Auto-connect failed:', err);
           } finally {
             setIsAutoConnecting(false);
           }
         } else {
-          console.log('[qvmc] No pending connection found');
+          console.log('[QvMC] No pending connection found');
         }
       } catch (err) {
-        console.error('[qvmc] Failed to check pending connection:', err);
+        console.error('[QvMC] Failed to check pending connection:', err);
       }
     };
     

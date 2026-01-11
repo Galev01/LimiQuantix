@@ -44,7 +44,7 @@ export function openDefaultConsole(
   if (defaultType === 'qvmc') {
     const qvmcUrl = `qvmc://connect?url=${encodeURIComponent(hostUrl)}&vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}`;
     window.location.href = qvmcUrl;
-    toast.info('Opening qvmc...');
+    toast.info('Opening QvMC...');
   } else {
     onOpenWebConsole();
   }
@@ -109,14 +109,14 @@ export function ConsoleAccessModal({
   // Set default console type
   const handleSetDefault = (type: 'web' | 'qvmc') => {
     setDefaultConsoleType(type);
-    toast.success(`Default console set to ${type === 'web' ? 'Web Console' : 'qvmc'}`);
+    toast.success(`Default console set to ${type === 'web' ? 'Web Console' : 'QvMC'}`);
   };
 
-  // Generate qvmc connection URL (custom protocol)
+  // Generate QvMC connection URL (custom protocol)
   const qvmcConnectionUrl = `qvmc://connect?url=${encodeURIComponent(hostUrl)}&vmId=${encodeURIComponent(vmId)}&vmName=${encodeURIComponent(vmName)}`;
 
-  // Handle launching qvmc with automatic connection
-  const handleLaunchqvmc = () => {
+  // Handle launching QvMC with automatic connection
+  const handleLaunchQvMC = () => {
     setIsLaunchingqvmc(true);
     
     // Try to open the custom protocol URL
@@ -254,7 +254,7 @@ export function ConsoleAccessModal({
               )}
             </div>
 
-            {/* qvmc Native Option */}
+            {/* QvMC Native Option */}
             <div
               className={cn(
                 'relative w-full p-5 rounded-xl border-2 transition-all',
@@ -279,7 +279,7 @@ export function ConsoleAccessModal({
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <h4 className="font-semibold text-text-primary">qvmc Native Client</h4>
+                    <h4 className="font-semibold text-text-primary">QvMC Native Client</h4>
                     {defaultConsoleType === 'qvmc' && (
                       <span className="text-[10px] px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded font-medium">Default</span>
                     )}
@@ -290,23 +290,23 @@ export function ConsoleAccessModal({
                 </div>
               </div>
 
-              {/* qvmc Actions */}
+              {/* QvMC Actions */}
               <div className="mt-5 pt-5 border-t border-border space-y-4">
                 {/* Launch Button */}
                 <Button
                   className="w-full h-11"
-                  onClick={handleLaunchqvmc}
+                  onClick={handleLaunchQvMC}
                   disabled={isLaunchingqvmc}
                 >
                   {isLaunchingqvmc ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Launching qvmc...
+                      Launching QvMC...
                     </>
                   ) : (
                     <>
                       <ExternalLink className="w-4 h-4" />
-                      Open in qvmc
+                      Open in QvMC
                     </>
                   )}
                 </Button>

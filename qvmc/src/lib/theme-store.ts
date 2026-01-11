@@ -1,5 +1,5 @@
 /**
- * Theme store for qvmc with localStorage persistence.
+ * Theme store for QvMC with localStorage persistence.
  * Manages light/dark mode and applies data-theme attribute to document root.
  */
 

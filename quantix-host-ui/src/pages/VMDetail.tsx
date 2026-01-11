@@ -31,7 +31,7 @@ import { Card, Badge, Button } from '@/components/ui';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { useVM, useVMPowerOps, useVMSnapshots, useVMSnapshotOps, useDeleteVM, useVMConsole } from '@/hooks/useVMs';
 import { formatBytes, formatPercent, cn } from '@/lib/utils';
-import { launchqvmc } from '@/lib/qvmc';
+import { launchQvMC } from '@/lib/qvmc';
 import { toast } from '@/lib/toast';
 import { useAppStore } from '@/stores/useAppStore';
 import { ConsoleAccessModal } from '@/components/vm/ConsoleAccessModal';
@@ -70,9 +70,9 @@ export function VMDetail() {
     }
   };
 
-  const handleLaunchqvmc = () => {
+  const handleLaunchQvMC = () => {
     if (vm) {
-      launchqvmc({
+      launchQvMC({
         hostUrl,
         vmId: vm.vmId,
         vmName: vm.name,
@@ -411,9 +411,9 @@ export function VMDetail() {
                       </div>
                     </button>
 
-                    {/* qvmc Native */}
+                    {/* QvMC Native */}
                     <button
-                      onClick={handleLaunchqvmc}
+                      onClick={handleLaunchQvMC}
                       className="p-6 bg-bg-base rounded-xl border border-border hover:border-purple-500/50 transition-colors text-left group"
                     >
                       <div className="flex items-center gap-4">
@@ -421,7 +421,7 @@ export function VMDetail() {
                           <Monitor className="w-6 h-6 text-purple-400" />
                         </div>
                         <div>
-                          <h4 className="font-semibold text-text-primary">qvmc Native</h4>
+                          <h4 className="font-semibold text-text-primary">QvMC Native</h4>
                           <p className="text-sm text-text-muted mt-0.5">
                             Better performance, USB passthrough
                           </p>
