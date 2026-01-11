@@ -138,6 +138,8 @@ chroot "${ROOTFS_DIR}" /sbin/rc-update add urandom boot || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add dbus default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add rsyslog default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add chronyd default || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add local default || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add networking default || true
 
 # Quantix-vDC services (enabled on first boot)
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-firstboot boot || true
@@ -176,6 +178,7 @@ mkdir -p "${ROOTFS_DIR}/var/lib/quantix-vdc/logs"
 # Runtime directories
 mkdir -p "${ROOTFS_DIR}/var/log"
 mkdir -p "${ROOTFS_DIR}/run"
+mkdir -p "${ROOTFS_DIR}/etc/local.d"
 
 # Set permissions
 chmod 700 "${ROOTFS_DIR}/var/lib/postgresql"
@@ -201,14 +204,43 @@ ff02::1         ip6-allnodes
 ff02::2         ip6-allrouters
 EOF
 
-# Default network config (DHCP on eth0)
+# Default network config (DHCP on first ethernet interface)
+# Uses a script that finds the correct interface at boot time
 cat > "${ROOTFS_DIR}/etc/network/interfaces" << 'EOF'
 auto lo
 iface lo inet loopback
 
+# Will be configured by installer or DCUI
+# Default: DHCP on first ethernet interface
 auto eth0
 iface eth0 inet dhcp
 EOF
+
+# Create a startup script to configure the correct interface
+cat > "${ROOTFS_DIR}/etc/local.d/10-network-init.start" << 'NETSCRIPT'
+#!/bin/sh
+# Auto-detect and configure first ethernet interface
+
+# Find first ethernet interface
+IFACE=$(ip link show | grep -E "^[0-9]+: (eth|enp|ens)[^:]*:" | head -1 | awk -F: '{print $2}' | tr -d ' ')
+
+if [ -n "$IFACE" ] && [ "$IFACE" != "eth0" ]; then
+    # Interface name differs from default config
+    if ! grep -q "auto $IFACE" /etc/network/interfaces; then
+        # Append the correct interface config
+        cat >> /etc/network/interfaces << EOF
+
+# Auto-detected interface
+auto $IFACE
+iface $IFACE inet dhcp
+EOF
+        # Start the interface
+        ip link set "$IFACE" up
+        udhcpc -i "$IFACE" -b -q 2>/dev/null &
+    fi
+fi
+NETSCRIPT
+chmod +x "${ROOTFS_DIR}/etc/local.d/10-network-init.start"
 
 # Issue banner
 cat > "${ROOTFS_DIR}/etc/issue" << 'EOF'

@@ -1,0 +1,505 @@
+#!/bin/sh
+# =============================================================================
+# Quantix-vDC DCUI (Direct Console User Interface)
+# =============================================================================
+# Interactive console interface for Quantix-vDC appliance management.
+# Similar to VMware ESXi DCUI.
+# =============================================================================
+
+# Configuration
+DIALOG=${DIALOG:-dialog}
+BACKTITLE="Quantix-vDC DCUI"
+VERSION=$(cat /etc/quantix-version 2>/dev/null || echo "unknown")
+TEMP_FILE="/tmp/dcui.$$"
+
+# Cleanup on exit
+cleanup() {
+    rm -f "$TEMP_FILE"
+    clear
+}
+trap cleanup EXIT
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+get_primary_ip() {
+    ip -4 addr show scope global 2>/dev/null | grep inet | head -1 | awk '{print $2}' | cut -d/ -f1
+}
+
+get_hostname() {
+    hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || echo "unknown"
+}
+
+get_service_status() {
+    local service="$1"
+    if rc-service "$service" status 2>/dev/null | grep -q "started"; then
+        echo "Running"
+    else
+        echo "Stopped"
+    fi
+}
+
+is_ssh_enabled() {
+    if rc-update show default 2>/dev/null | grep -q sshd; then
+        echo "Enabled"
+    else
+        echo "Disabled"
+    fi
+}
+
+# =============================================================================
+# Display System Info
+# =============================================================================
+
+show_system_info() {
+    local PRIMARY_IP=$(get_primary_ip)
+    local HOSTNAME=$(get_hostname)
+    
+    $DIALOG --backtitle "$BACKTITLE v$VERSION" \
+        --title "System Information" \
+        --msgbox "\n\
+Hostname:     $HOSTNAME\n\
+IP Address:   ${PRIMARY_IP:-No network connection}\n\
+\n\
+Web Console:  https://${PRIMARY_IP:-localhost}/\n\
+API Endpoint: https://${PRIMARY_IP:-localhost}/api/v1/\n\
+SSH:          $(is_ssh_enabled)\n\
+\n\
+Services:\n\
+  Control Plane: $(get_service_status quantix-controlplane)\n\
+  PostgreSQL:    $(get_service_status postgresql)\n\
+  Redis:         $(get_service_status redis)\n\
+  etcd:          $(get_service_status etcd)\n\
+  nginx:         $(get_service_status nginx)\n\
+" 20 60
+}
+
+# =============================================================================
+# Network Configuration
+# =============================================================================
+
+configure_network() {
+    # Get current network interface
+    local IFACE=$(ip link show | grep -E "^[0-9]+: (eth|ens|enp)" | head -1 | awk -F: '{print $2}' | tr -d ' ')
+    IFACE=${IFACE:-eth0}
+    
+    # Current config
+    local CURRENT_IP=$(ip -4 addr show "$IFACE" 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1)
+    local CURRENT_MASK=$(ip -4 addr show "$IFACE" 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f2)
+    local CURRENT_GW=$(ip route | grep default | awk '{print $3}' | head -1)
+    local CURRENT_DNS=$(grep nameserver /etc/resolv.conf 2>/dev/null | head -1 | awk '{print $2}')
+    
+    # Ask DHCP or Static
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Network Configuration" \
+        --menu "\nInterface: $IFACE\nCurrent IP: ${CURRENT_IP:-None}\n\nSelect IP configuration mode:" 15 60 2 \
+        "dhcp" "Automatic (DHCP)" \
+        "static" "Manual (Static IP)" \
+        2>"$TEMP_FILE"
+    
+    [ $? -ne 0 ] && return
+    
+    local MODE=$(cat "$TEMP_FILE")
+    
+    if [ "$MODE" = "dhcp" ]; then
+        configure_network_dhcp "$IFACE"
+    else
+        configure_network_static "$IFACE" "$CURRENT_IP" "$CURRENT_MASK" "$CURRENT_GW" "$CURRENT_DNS"
+    fi
+}
+
+configure_network_dhcp() {
+    local IFACE="$1"
+    
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Confirm DHCP" \
+        --yesno "\nConfigure $IFACE for DHCP?\n\nThis will restart networking." 10 50
+    
+    [ $? -ne 0 ] && return
+    
+    # Write interface config
+    cat > /etc/network/interfaces << EOF
+auto lo
+iface lo inet loopback
+
+auto $IFACE
+iface $IFACE inet dhcp
+EOF
+    
+    # Restart networking
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Applying Configuration" \
+        --infobox "\nRestarting network...\n" 6 40
+    
+    rc-service networking restart >/dev/null 2>&1
+    sleep 3
+    
+    local NEW_IP=$(get_primary_ip)
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Network Configured" \
+        --msgbox "\nNetwork configured for DHCP.\n\nNew IP: ${NEW_IP:-Waiting for DHCP...}" 10 50
+}
+
+configure_network_static() {
+    local IFACE="$1"
+    local DEF_IP="${2:-192.168.1.100}"
+    local DEF_MASK="${3:-24}"
+    local DEF_GW="${4:-192.168.1.1}"
+    local DEF_DNS="${5:-8.8.8.8}"
+    
+    # Get IP Address
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Static IP Configuration" \
+        --inputbox "Enter IP Address:" 10 50 "$DEF_IP" 2>"$TEMP_FILE"
+    [ $? -ne 0 ] && return
+    local IP=$(cat "$TEMP_FILE")
+    
+    # Get Netmask
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Static IP Configuration" \
+        --inputbox "Enter Netmask (CIDR, e.g., 24):" 10 50 "$DEF_MASK" 2>"$TEMP_FILE"
+    [ $? -ne 0 ] && return
+    local MASK=$(cat "$TEMP_FILE")
+    
+    # Get Gateway
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Static IP Configuration" \
+        --inputbox "Enter Gateway:" 10 50 "$DEF_GW" 2>"$TEMP_FILE"
+    [ $? -ne 0 ] && return
+    local GW=$(cat "$TEMP_FILE")
+    
+    # Get DNS
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Static IP Configuration" \
+        --inputbox "Enter DNS Server:" 10 50 "$DEF_DNS" 2>"$TEMP_FILE"
+    [ $? -ne 0 ] && return
+    local DNS=$(cat "$TEMP_FILE")
+    
+    # Confirm
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Confirm Configuration" \
+        --yesno "\nApply the following configuration?\n\nInterface: $IFACE\nIP Address: $IP/$MASK\nGateway: $GW\nDNS: $DNS" 14 50
+    
+    [ $? -ne 0 ] && return
+    
+    # Write interface config
+    cat > /etc/network/interfaces << EOF
+auto lo
+iface lo inet loopback
+
+auto $IFACE
+iface $IFACE inet static
+    address $IP/$MASK
+    gateway $GW
+EOF
+    
+    # Write DNS config
+    echo "nameserver $DNS" > /etc/resolv.conf
+    
+    # Restart networking
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Applying Configuration" \
+        --infobox "\nRestarting network...\n" 6 40
+    
+    rc-service networking restart >/dev/null 2>&1
+    sleep 2
+    
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Network Configured" \
+        --msgbox "\nStatic IP configuration applied.\n\nIP: $IP/$MASK\nGateway: $GW\nDNS: $DNS" 12 50
+}
+
+# =============================================================================
+# SSH Configuration
+# =============================================================================
+
+configure_ssh() {
+    local SSH_STATUS=$(is_ssh_enabled)
+    local SSH_RUNNING=$(get_service_status sshd)
+    
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "SSH Configuration" \
+        --menu "\nSSH Status: $SSH_STATUS\nSSH Service: $SSH_RUNNING\n\nSelect action:" 15 60 4 \
+        "enable" "Enable SSH (start at boot)" \
+        "disable" "Disable SSH" \
+        "start" "Start SSH now" \
+        "stop" "Stop SSH now" \
+        2>"$TEMP_FILE"
+    
+    [ $? -ne 0 ] && return
+    
+    local ACTION=$(cat "$TEMP_FILE")
+    
+    case "$ACTION" in
+        enable)
+            rc-update add sshd default >/dev/null 2>&1
+            rc-service sshd start >/dev/null 2>&1
+            $DIALOG --msgbox "\nSSH enabled and started." 8 40
+            ;;
+        disable)
+            rc-update del sshd default >/dev/null 2>&1
+            rc-service sshd stop >/dev/null 2>&1
+            $DIALOG --msgbox "\nSSH disabled and stopped." 8 40
+            ;;
+        start)
+            rc-service sshd start >/dev/null 2>&1
+            $DIALOG --msgbox "\nSSH started." 8 40
+            ;;
+        stop)
+            rc-service sshd stop >/dev/null 2>&1
+            $DIALOG --msgbox "\nSSH stopped." 8 40
+            ;;
+    esac
+}
+
+# =============================================================================
+# Service Management
+# =============================================================================
+
+manage_services() {
+    while true; do
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "Service Management" \
+            --menu "\nSelect service to manage:\n" 18 60 8 \
+            "controlplane" "Control Plane: $(get_service_status quantix-controlplane)" \
+            "postgresql" "PostgreSQL: $(get_service_status postgresql)" \
+            "redis" "Redis: $(get_service_status redis)" \
+            "etcd" "etcd: $(get_service_status etcd)" \
+            "nginx" "nginx: $(get_service_status nginx)" \
+            "sshd" "SSH: $(get_service_status sshd)" \
+            "restart_all" "Restart All Services" \
+            "back" "Back to Main Menu" \
+            2>"$TEMP_FILE"
+        
+        [ $? -ne 0 ] && return
+        
+        local SERVICE=$(cat "$TEMP_FILE")
+        
+        [ "$SERVICE" = "back" ] && return
+        
+        if [ "$SERVICE" = "restart_all" ]; then
+            restart_all_services
+            continue
+        fi
+        
+        # Map service names
+        local REAL_SERVICE="$SERVICE"
+        [ "$SERVICE" = "controlplane" ] && REAL_SERVICE="quantix-controlplane"
+        
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "Manage $SERVICE" \
+            --menu "\nCurrent Status: $(get_service_status $REAL_SERVICE)\n\nSelect action:" 14 50 3 \
+            "start" "Start Service" \
+            "stop" "Stop Service" \
+            "restart" "Restart Service" \
+            2>"$TEMP_FILE"
+        
+        [ $? -ne 0 ] && continue
+        
+        local ACTION=$(cat "$TEMP_FILE")
+        
+        $DIALOG --infobox "\n${ACTION}ing $SERVICE..." 5 40
+        rc-service "$REAL_SERVICE" "$ACTION" >/dev/null 2>&1
+        sleep 2
+    done
+}
+
+restart_all_services() {
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Restart All Services" \
+        --yesno "\nRestart all Quantix-vDC services?\n\nThis will restart:\n- PostgreSQL\n- Redis\n- etcd\n- Control Plane\n- nginx" 14 50
+    
+    [ $? -ne 0 ] && return
+    
+    $DIALOG --infobox "\nRestarting services...\n" 5 40
+    
+    for svc in postgresql redis etcd quantix-controlplane nginx; do
+        rc-service "$svc" restart >/dev/null 2>&1
+    done
+    
+    sleep 3
+    
+    $DIALOG --msgbox "\nAll services restarted." 8 40
+}
+
+# =============================================================================
+# Root Password Change
+# =============================================================================
+
+change_root_password() {
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Change Root Password" \
+        --insecure \
+        --passwordbox "Enter new root password:" 10 50 2>"$TEMP_FILE"
+    
+    [ $? -ne 0 ] && return
+    
+    local PASS1=$(cat "$TEMP_FILE")
+    
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Change Root Password" \
+        --insecure \
+        --passwordbox "Confirm new password:" 10 50 2>"$TEMP_FILE"
+    
+    [ $? -ne 0 ] && return
+    
+    local PASS2=$(cat "$TEMP_FILE")
+    
+    if [ "$PASS1" != "$PASS2" ]; then
+        $DIALOG --msgbox "\nPasswords do not match!" 8 40
+        return
+    fi
+    
+    if [ -z "$PASS1" ]; then
+        $DIALOG --msgbox "\nPassword cannot be empty!" 8 40
+        return
+    fi
+    
+    echo "root:$PASS1" | chpasswd
+    
+    $DIALOG --msgbox "\nRoot password changed successfully." 8 40
+}
+
+# =============================================================================
+# Troubleshooting
+# =============================================================================
+
+troubleshooting_menu() {
+    while true; do
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "Troubleshooting" \
+            --menu "\nSelect option:" 15 60 5 \
+            "logs" "View Control Plane Logs" \
+            "network" "Test Network Connectivity" \
+            "restart_net" "Restart Networking" \
+            "shell" "Drop to Shell" \
+            "back" "Back to Main Menu" \
+            2>"$TEMP_FILE"
+        
+        [ $? -ne 0 ] && return
+        
+        local CHOICE=$(cat "$TEMP_FILE")
+        
+        case "$CHOICE" in
+            logs)
+                if [ -f /var/log/quantix-controlplane.log ]; then
+                    $DIALOG --backtitle "$BACKTITLE" \
+                        --title "Control Plane Logs (last 30 lines)" \
+                        --textbox /var/log/quantix-controlplane.log 20 80
+                else
+                    $DIALOG --msgbox "\nNo control plane logs found." 8 50
+                fi
+                ;;
+            network)
+                local OUTPUT=$(ping -c 3 8.8.8.8 2>&1)
+                $DIALOG --backtitle "$BACKTITLE" \
+                    --title "Network Test" \
+                    --msgbox "$OUTPUT" 15 60
+                ;;
+            restart_net)
+                $DIALOG --infobox "\nRestarting network..." 5 40
+                rc-service networking restart >/dev/null 2>&1
+                sleep 3
+                $DIALOG --msgbox "\nNetwork restarted.\nNew IP: $(get_primary_ip)" 10 50
+                ;;
+            shell)
+                clear
+                echo ""
+                echo "Type 'exit' to return to DCUI"
+                echo ""
+                /bin/sh
+                ;;
+            back)
+                return
+                ;;
+        esac
+    done
+}
+
+# =============================================================================
+# Reboot / Shutdown
+# =============================================================================
+
+power_menu() {
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Power Options" \
+        --menu "\nSelect action:" 12 50 3 \
+        "reboot" "Reboot System" \
+        "shutdown" "Shutdown System" \
+        "back" "Back to Main Menu" \
+        2>"$TEMP_FILE"
+    
+    [ $? -ne 0 ] && return
+    
+    local CHOICE=$(cat "$TEMP_FILE")
+    
+    case "$CHOICE" in
+        reboot)
+            $DIALOG --yesno "\nReboot the system now?" 8 40
+            [ $? -eq 0 ] && reboot
+            ;;
+        shutdown)
+            $DIALOG --yesno "\nShutdown the system now?" 8 40
+            [ $? -eq 0 ] && poweroff
+            ;;
+    esac
+}
+
+# =============================================================================
+# Main Menu
+# =============================================================================
+
+main_menu() {
+    while true; do
+        local PRIMARY_IP=$(get_primary_ip)
+        local HOSTNAME=$(get_hostname)
+        
+        $DIALOG --backtitle "$BACKTITLE v$VERSION" \
+            --title "Main Menu" \
+            --menu "\n   Hostname: $HOSTNAME\n   IP Address: ${PRIMARY_IP:-No network}\n   Web: https://${PRIMARY_IP:-localhost}/\n" 20 70 9 \
+            "1" "System Information" \
+            "2" "Configure Network" \
+            "3" "Configure SSH" \
+            "4" "Manage Services" \
+            "5" "Change Root Password" \
+            "6" "Troubleshooting" \
+            "7" "Power Options" \
+            "8" "Exit to Login Prompt" \
+            2>"$TEMP_FILE"
+        
+        [ $? -ne 0 ] && continue
+        
+        local CHOICE=$(cat "$TEMP_FILE")
+        
+        case "$CHOICE" in
+            1) show_system_info ;;
+            2) configure_network ;;
+            3) configure_ssh ;;
+            4) manage_services ;;
+            5) change_root_password ;;
+            6) troubleshooting_menu ;;
+            7) power_menu ;;
+            8) 
+                clear
+                echo ""
+                echo "Quantix-vDC Control Plane Appliance"
+                echo "Press Enter to return to DCUI..."
+                read
+                ;;
+        esac
+    done
+}
+
+# =============================================================================
+# Entry Point
+# =============================================================================
+
+# Check for dialog
+if ! command -v dialog >/dev/null 2>&1; then
+    echo "ERROR: dialog not installed"
+    exec /bin/sh
+fi
+
+# Run main menu
+main_menu

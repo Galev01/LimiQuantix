@@ -2,77 +2,80 @@
 # =============================================================================
 # Quantix-vDC Console Service
 # =============================================================================
-# Displays system status and management URL on the console.
+# Launches the interactive DCUI on tty1.
 # =============================================================================
 
 name="Quantix-vDC Console"
-description="Console status display"
+description="Interactive console DCUI"
 
 depend() {
-    need localmount net
-    after quantix-controlplane nginx
+    need localmount
+    after net networking quantix-firstboot quantix-controlplane nginx
+    use logger
 }
 
 start() {
     ebegin "Starting $name"
     
-    # Get network information
-    PRIMARY_IP=$(ip -4 addr show scope global | grep inet | head -1 | awk '{print $2}' | cut -d/ -f1)
-    HOSTNAME=$(hostname)
+    # Ensure the DCUI script exists and is executable
+    if [ ! -x /usr/bin/qx-dcui ]; then
+        ewarn "DCUI not found, showing static info"
+        display_static_info
+        eend 0
+        return
+    fi
     
-    # Display access information
-    clear
-    cat << EOF
-
-  ██████╗ ██╗   ██╗ █████╗ ███╗   ██╗████████╗██╗██╗  ██╗      ██╗   ██╗██████╗  ██████╗
- ██╔═══██╗██║   ██║██╔══██╗████╗  ██║╚══██╔══╝██║╚██╗██╔╝      ██║   ██║██╔══██╗██╔════╝
- ██║   ██║██║   ██║███████║██╔██╗ ██║   ██║   ██║ ╚███╔╝ █████╗██║   ██║██║  ██║██║     
- ██║▄▄ ██║██║   ██║██╔══██║██║╚██╗██║   ██║   ██║ ██╔██╗ ╚════╝╚██╗ ██╔╝██║  ██║██║     
- ╚██████╔╝╚██████╔╝██║  ██║██║ ╚████║   ██║   ██║██╔╝ ██╗       ╚████╔╝ ██████╔╝╚██████╗
-  ╚══▀▀═╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═╝        ╚═══╝  ╚═════╝  ╚═════╝
-
-                      Quantix-vDC Control Plane Appliance
-  ─────────────────────────────────────────────────────────────────────────────
-
-  Hostname:    ${HOSTNAME}
-  IP Address:  ${PRIMARY_IP:-"No network connection"}
-
-  ─────────────────────────────────────────────────────────────────────────────
-
-  Web Management Console:
-
-      https://${PRIMARY_IP:-localhost}/
-
-  ─────────────────────────────────────────────────────────────────────────────
-
-  API Endpoint:
-
-      https://${PRIMARY_IP:-localhost}/api/v1/
-
-  ─────────────────────────────────────────────────────────────────────────────
-
-  SSH Access (if enabled):
-
-      ssh root@${PRIMARY_IP:-localhost}
-
-  ─────────────────────────────────────────────────────────────────────────────
-
-  Services:
-    • Control Plane: $(rc-service quantix-controlplane status 2>/dev/null | grep -q "started" && echo "Running" || echo "Stopped")
-    • PostgreSQL:    $(rc-service postgresql status 2>/dev/null | grep -q "started" && echo "Running" || echo "Stopped")
-    • Redis:         $(rc-service redis status 2>/dev/null | grep -q "started" && echo "Running" || echo "Stopped")
-    • etcd:          $(rc-service etcd status 2>/dev/null | grep -q "started" && echo "Running" || echo "Stopped")
-    • nginx:         $(rc-service nginx status 2>/dev/null | grep -q "started" && echo "Running" || echo "Stopped")
-
-  ─────────────────────────────────────────────────────────────────────────────
-  
-  Press Ctrl+Alt+F2 for login shell
-  
-EOF
-
+    # Create a wrapper script that respawns DCUI
+    cat > /tmp/dcui-wrapper.sh << 'WRAPPER'
+#!/bin/sh
+while true; do
+    /usr/bin/qx-dcui
+    # If DCUI exits, wait a moment and restart
+    sleep 2
+done
+WRAPPER
+    chmod +x /tmp/dcui-wrapper.sh
+    
+    # Launch DCUI on tty1
+    # Use setsid to create a new session
+    setsid sh -c 'exec /tmp/dcui-wrapper.sh < /dev/tty1 > /dev/tty1 2>&1' &
+    
     eend 0
 }
 
 stop() {
-    return 0
+    ebegin "Stopping $name"
+    # Kill DCUI and wrapper
+    pkill -f "qx-dcui" 2>/dev/null || true
+    pkill -f "dcui-wrapper" 2>/dev/null || true
+    eend 0
+}
+
+display_static_info() {
+    # Fallback static display when DCUI is unavailable
+    PRIMARY_IP=$(ip -4 addr show scope global 2>/dev/null | grep inet | head -1 | awk '{print $2}' | cut -d/ -f1)
+    HOSTNAME=$(hostname 2>/dev/null || cat /etc/hostname)
+    
+    cat << EOF > /dev/tty1
+
+  ██████╗ ██╗   ██╗ █████╗ ███╗   ██╗████████╗██╗██╗  ██╗
+ ██╔═══██╗██║   ██║██╔══██╗████╗  ██║╚══██╔══╝██║╚██╗██╔╝
+ ██║   ██║██║   ██║███████║██╔██╗ ██║   ██║   ██║ ╚███╔╝ 
+ ██║▄▄ ██║██║   ██║██╔══██║██║╚██╗██║   ██║   ██║ ██╔██╗ 
+ ╚██████╔╝╚██████╔╝██║  ██║██║ ╚████║   ██║   ██║██╔╝ ██╗
+  ╚══▀▀═╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═╝
+
+            Quantix-vDC Control Plane Appliance
+  ─────────────────────────────────────────────────────────
+
+  Hostname:    ${HOSTNAME}
+  IP Address:  ${PRIMARY_IP:-"No network connection"}
+
+  Web Console: https://${PRIMARY_IP:-localhost}/
+
+  ─────────────────────────────────────────────────────────
+
+  Press Ctrl+Alt+F2 for login shell
+  
+EOF
 }

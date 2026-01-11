@@ -320,12 +320,6 @@ func (r *StoragePoolRepository) Delete(ctx context.Context, id string) error {
 
 // UpdateStatus updates the status of a storage pool.
 func (r *StoragePoolRepository) UpdateStatus(ctx context.Context, id string, status domain.StoragePoolStatus) error {
-	// Serialize host statuses to JSON
-	hostStatusesJSON, err := json.Marshal(status.HostStatuses)
-	if err != nil {
-		return fmt.Errorf("failed to marshal host_statuses: %w", err)
-	}
-
 	query := `
 		UPDATE storage_pools SET
 			phase = $2,
@@ -334,7 +328,6 @@ func (r *StoragePoolRepository) UpdateStatus(ctx context.Context, id string, sta
 			available_bytes = $5,
 			error_message = $6,
 			volume_count = $7,
-			host_statuses = $8,
 			updated_at = NOW()
 		WHERE id = $1
 	`
@@ -347,7 +340,6 @@ func (r *StoragePoolRepository) UpdateStatus(ctx context.Context, id string, sta
 		status.Capacity.AvailableBytes,
 		status.ErrorMessage,
 		status.VolumeCount,
-		hostStatusesJSON,
 	)
 
 	if err != nil {
