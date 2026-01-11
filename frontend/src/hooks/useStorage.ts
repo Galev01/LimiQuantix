@@ -265,6 +265,8 @@ export interface CreatePoolParams {
   projectId?: string;
   labels?: Record<string, string>;
   backendType: 'CEPH_RBD' | 'NFS' | 'ISCSI' | 'LOCAL_DIR' | 'LOCAL_LVM';
+  // Assigned hosts - nodes that will have access to this storage pool
+  assignedNodeIds?: string[];
   // NFS config
   nfs?: {
     server: string;
@@ -355,9 +357,10 @@ export function useCreateStoragePool() {
         backend.config = { case: 'localDir', value: localConfig };
       }
 
-      // Create the spec with the backend
+      // Create the spec with the backend and assigned nodes
       const spec = create(StoragePoolSpecSchema, {
         backend: backend,
+        assignedNodeIds: params.assignedNodeIds || [],
       });
 
       const response = await poolClient.createPool({

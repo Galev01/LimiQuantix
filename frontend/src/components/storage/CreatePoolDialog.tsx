@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -10,10 +10,16 @@ import {
   AlertCircle,
   Loader2,
   Check,
+  Monitor,
+  CheckCircle,
+  Circle,
+  Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { useCreateStoragePool, type CreatePoolParams } from '@/hooks/useStorage';
+import { useNodes } from '@/hooks/useNodes';
 import { toast } from 'sonner';
 
 interface CreatePoolDialogProps {
@@ -51,8 +57,9 @@ const backendOptions: { type: BackendType; label: string; description: string; i
 ];
 
 export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
-  const [step, setStep] = useState<'type' | 'config' | 'review'>('type');
+  const [step, setStep] = useState<'type' | 'config' | 'hosts' | 'review'>('type');
   const [selectedType, setSelectedType] = useState<BackendType | null>(null);
+  const [selectedHostIds, setSelectedHostIds] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -76,10 +83,48 @@ export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
   });
   
   const createPool = useCreateStoragePool();
+  const { data: nodesResponse, isLoading: nodesLoading } = useNodes();
+  
+  // Extract nodes array from response
+  const nodes = nodesResponse?.nodes ?? [];
+  
+  // Get only ready nodes
+  const readyNodes = useMemo(() => 
+    nodes.filter(node => node.status?.phase === 'READY' || node.status?.phase === 'NODE_PHASE_READY'),
+    [nodes]
+  );
+  
+  // Helper to check if storage type supports multi-host
+  const isSharedStorage = selectedType === 'NFS' || selectedType === 'CEPH_RBD';
+  
+  // Toggle host selection
+  const toggleHost = (nodeId: string) => {
+    if (selectedHostIds.includes(nodeId)) {
+      setSelectedHostIds(selectedHostIds.filter(id => id !== nodeId));
+    } else {
+      // For local storage, only allow one host
+      if (selectedType === 'LOCAL_DIR' || selectedType === 'LOCAL_LVM') {
+        setSelectedHostIds([nodeId]);
+      } else {
+        setSelectedHostIds([...selectedHostIds, nodeId]);
+      }
+    }
+  };
+  
+  // Select all hosts (for shared storage)
+  const selectAllHosts = () => {
+    setSelectedHostIds(readyNodes.map(n => n.id));
+  };
+  
+  // Clear selection
+  const clearHostSelection = () => {
+    setSelectedHostIds([]);
+  };
   
   const resetForm = () => {
     setStep('type');
     setSelectedType(null);
+    setSelectedHostIds([]);
     setFormData({
       name: '',
       description: '',
@@ -111,6 +156,7 @@ export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
       name: formData.name,
       description: formData.description,
       backendType: selectedType,
+      assignedNodeIds: selectedHostIds,
     };
     
     switch (selectedType) {
@@ -172,11 +218,26 @@ export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
           default:
             return false;
         }
+      case 'hosts':
+        // Host selection is optional for shared storage, required for local
+        if (selectedType === 'LOCAL_DIR' || selectedType === 'LOCAL_LVM') {
+          return selectedHostIds.length === 1;
+        }
+        return true; // Optional for shared storage
       case 'review':
         return true;
       default:
         return false;
     }
+  };
+  
+  // Step labels and count
+  const steps = ['type', 'config', 'hosts', 'review'] as const;
+  const stepLabels = {
+    type: 'Select Type',
+    config: 'Configure',
+    hosts: 'Assign Hosts',
+    review: 'Review',
   };
   
   if (!isOpen) return null;
@@ -220,6 +281,7 @@ export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
                 <p className="text-sm text-text-muted">
                   {step === 'type' && 'Select storage backend type'}
                   {step === 'config' && 'Configure pool settings'}
+                  {step === 'hosts' && 'Select hosts to assign'}
                   {step === 'review' && 'Review and create'}
                 </p>
               </div>
@@ -235,29 +297,29 @@ export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
           {/* Progress Steps */}
           <div className="px-6 py-4 border-b border-border bg-bg-base/50">
             <div className="flex items-center justify-between">
-              {['type', 'config', 'review'].map((s, i) => (
+              {steps.map((s, i) => (
                 <div key={s} className="flex items-center">
                   <div
                     className={cn(
                       'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium',
                       step === s
                         ? 'bg-accent text-white'
-                        : ['type', 'config', 'review'].indexOf(step) > i
+                        : steps.indexOf(step) > i
                         ? 'bg-success text-white'
                         : 'bg-bg-elevated text-text-muted',
                     )}
                   >
-                    {['type', 'config', 'review'].indexOf(step) > i ? (
+                    {steps.indexOf(step) > i ? (
                       <Check className="w-4 h-4" />
                     ) : (
                       i + 1
                     )}
                   </div>
-                  {i < 2 && (
+                  {i < steps.length - 1 && (
                     <div
                       className={cn(
-                        'w-24 h-0.5 mx-2',
-                        ['type', 'config', 'review'].indexOf(step) > i
+                        'w-16 h-0.5 mx-2',
+                        steps.indexOf(step) > i
                           ? 'bg-success'
                           : 'bg-bg-elevated',
                       )}
@@ -657,6 +719,138 @@ export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
                 </motion.div>
               )}
               
+              {step === 'hosts' && (
+                <motion.div
+                  key="hosts"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-4"
+                >
+                  {/* Info banner */}
+                  <div className={cn(
+                    'flex items-start gap-3 p-4 rounded-lg',
+                    isSharedStorage ? 'bg-info/10 border border-info/30' : 'bg-warning/10 border border-warning/30'
+                  )}>
+                    <Info className={cn('w-5 h-5 shrink-0', isSharedStorage ? 'text-info' : 'text-warning')} />
+                    <div>
+                      <p className={cn('text-sm font-medium', isSharedStorage ? 'text-info' : 'text-warning')}>
+                        {isSharedStorage ? 'Shared Storage' : 'Local Storage'}
+                      </p>
+                      <p className={cn('text-xs mt-1', isSharedStorage ? 'text-info/80' : 'text-warning/80')}>
+                        {isSharedStorage 
+                          ? 'This pool can be accessed by multiple hosts simultaneously. Select all hosts that should have access.'
+                          : 'Local storage can only be accessed by a single host. Select exactly one host.'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Quick actions for shared storage */}
+                  {isSharedStorage && (
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="secondary" 
+                        size="sm" 
+                        onClick={selectAllHosts}
+                        disabled={readyNodes.length === 0}
+                      >
+                        Select All ({readyNodes.length})
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={clearHostSelection}
+                        disabled={selectedHostIds.length === 0}
+                      >
+                        Clear Selection
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Loading state */}
+                  {nodesLoading && (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-accent mr-2" />
+                      <span className="text-text-muted">Loading hosts...</span>
+                    </div>
+                  )}
+                  
+                  {/* No hosts warning */}
+                  {!nodesLoading && readyNodes.length === 0 && (
+                    <div className="flex items-center gap-2 p-4 rounded-lg bg-warning/10 border border-warning/30">
+                      <AlertCircle className="w-5 h-5 text-warning shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-warning">No Hosts Available</p>
+                        <p className="text-xs text-warning/80 mt-1">
+                          Register Quantix-OS hosts first to assign storage pools.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Host list */}
+                  {!nodesLoading && readyNodes.length > 0 && (
+                    <div className="space-y-2">
+                      {readyNodes.map((node) => {
+                        const isSelected = selectedHostIds.includes(node.id);
+                        return (
+                          <button
+                            key={node.id}
+                            onClick={() => toggleHost(node.id)}
+                            className={cn(
+                              'w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left',
+                              isSelected
+                                ? 'border-accent bg-accent/10 shadow-lg'
+                                : 'border-border bg-bg-base hover:border-text-muted hover:bg-bg-hover',
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                'w-10 h-10 rounded-lg flex items-center justify-center',
+                                isSelected ? 'bg-accent/20' : 'bg-bg-elevated',
+                              )}
+                            >
+                              {isSelected ? (
+                                <CheckCircle className="w-5 h-5 text-accent" />
+                              ) : (
+                                <Monitor className="w-5 h-5 text-text-muted" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h3 className={cn('font-medium truncate', isSelected ? 'text-accent' : 'text-text-primary')}>
+                                  {node.hostname}
+                                </h3>
+                                <Badge variant="success" className="shrink-0">
+                                  Ready
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-text-muted truncate">
+                                {node.managementIp}
+                              </p>
+                            </div>
+                            <div className="text-right text-xs text-text-muted shrink-0">
+                              <p>{node.cpuCores} vCPUs</p>
+                              <p>{Math.round(node.memoryMib / 1024)} GB RAM</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  {/* Selection summary */}
+                  {selectedHostIds.length > 0 && (
+                    <div className="pt-4 border-t border-border">
+                      <p className="text-sm text-text-muted">
+                        <span className="font-medium text-accent">{selectedHostIds.length}</span>
+                        {' '}host{selectedHostIds.length !== 1 ? 's' : ''} selected
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+              
               {step === 'review' && (
                 <motion.div
                   key="review"
@@ -754,6 +948,28 @@ export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
                           <p className="text-sm text-text-primary font-mono">{formData.localPath}</p>
                         </div>
                       )}
+                      
+                      {/* Assigned Hosts */}
+                      <div className="col-span-2 pt-4 border-t border-border">
+                        <p className="text-xs text-text-muted mb-2">Assigned Hosts</p>
+                        {selectedHostIds.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {selectedHostIds.map((nodeId) => {
+                              const node = nodes.find(n => n.id === nodeId);
+                              return (
+                                <Badge key={nodeId} variant="default" className="flex items-center gap-1.5">
+                                  <Monitor className="w-3 h-3" />
+                                  {node?.hostname || nodeId.slice(0, 8)}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-text-muted italic">
+                            No hosts assigned - will initialize on first available node
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -770,8 +986,10 @@ export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
                   handleClose();
                 } else if (step === 'config') {
                   setStep('type');
-                } else {
+                } else if (step === 'hosts') {
                   setStep('config');
+                } else if (step === 'review') {
+                  setStep('hosts');
                 }
               }}
             >
@@ -782,6 +1000,8 @@ export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
                 if (step === 'type') {
                   setStep('config');
                 } else if (step === 'config') {
+                  setStep('hosts');
+                } else if (step === 'hosts') {
                   setStep('review');
                 } else {
                   handleSubmit();

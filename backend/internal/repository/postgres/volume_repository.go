@@ -32,6 +32,9 @@ func NewVolumeRepository(db *DB, logger *zap.Logger) *VolumeRepository {
 	}
 }
 
+// defaultProjectID is the UUID used for volumes without a specific project.
+const defaultProjectIDVolume = "00000000-0000-0000-0000-000000000001"
+
 // Create adds a new volume.
 func (r *VolumeRepository) Create(ctx context.Context, vol *domain.Volume) (*domain.Volume, error) {
 	if vol.ID == "" {
@@ -52,6 +55,12 @@ func (r *VolumeRepository) Create(ctx context.Context, vol *domain.Volume) (*dom
 		return nil, fmt.Errorf("failed to marshal labels: %w", err)
 	}
 
+	// Normalize project ID - use default if empty or "default"
+	projectID := vol.ProjectID
+	if projectID == "" || projectID == "default" {
+		projectID = defaultProjectIDVolume
+	}
+
 	query := `
 		INSERT INTO volumes (
 			id, name, pool_id, project_id, size_bytes, provisioning,
@@ -66,7 +75,7 @@ func (r *VolumeRepository) Create(ctx context.Context, vol *domain.Volume) (*dom
 		vol.ID,
 		vol.Name,
 		vol.PoolID,
-		nullString(vol.ProjectID),
+		projectID,
 		vol.Spec.SizeBytes,
 		string(vol.Spec.Provisioning),
 		labelsJSON,
@@ -228,6 +237,12 @@ func (r *VolumeRepository) Update(ctx context.Context, vol *domain.Volume) (*dom
 		return nil, fmt.Errorf("failed to marshal labels: %w", err)
 	}
 
+	// Normalize project ID - use default if empty or "default"
+	projectID := vol.ProjectID
+	if projectID == "" || projectID == "default" {
+		projectID = defaultProjectIDVolume
+	}
+
 	query := `
 		UPDATE volumes SET
 			name = $2,
@@ -253,7 +268,7 @@ func (r *VolumeRepository) Update(ctx context.Context, vol *domain.Volume) (*dom
 		vol.ID,
 		vol.Name,
 		vol.PoolID,
-		nullString(vol.ProjectID),
+		projectID,
 		vol.Spec.SizeBytes,
 		string(vol.Spec.Provisioning),
 		labelsJSON,

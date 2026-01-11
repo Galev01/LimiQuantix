@@ -32,6 +32,9 @@ func NewStoragePoolRepository(db *DB, logger *zap.Logger) *StoragePoolRepository
 	}
 }
 
+// defaultProjectID is the UUID used for pools without a specific project.
+const defaultProjectID = "00000000-0000-0000-0000-000000000001"
+
 // Create adds a new storage pool.
 func (r *StoragePoolRepository) Create(ctx context.Context, pool *domain.StoragePool) (*domain.StoragePool, error) {
 	if pool.ID == "" {
@@ -63,6 +66,12 @@ func (r *StoragePoolRepository) Create(ctx context.Context, pool *domain.Storage
 		poolType = string(pool.Spec.Backend.Type)
 	}
 
+	// Normalize project ID - use default if empty or "default"
+	projectID := pool.ProjectID
+	if projectID == "" || projectID == "default" {
+		projectID = defaultProjectID
+	}
+
 	query := `
 		INSERT INTO storage_pools (
 			id, name, project_id, description, pool_type, spec, labels, assigned_node_ids,
@@ -75,7 +84,7 @@ func (r *StoragePoolRepository) Create(ctx context.Context, pool *domain.Storage
 	err = r.db.pool.QueryRow(ctx, query,
 		pool.ID,
 		pool.Name,
-		nullString(pool.ProjectID),
+		projectID,
 		pool.Description,
 		poolType,
 		specJSON,
@@ -234,6 +243,12 @@ func (r *StoragePoolRepository) Update(ctx context.Context, pool *domain.Storage
 		poolType = string(pool.Spec.Backend.Type)
 	}
 
+	// Normalize project ID - use default if empty or "default"
+	projectID := pool.ProjectID
+	if projectID == "" || projectID == "default" {
+		projectID = defaultProjectID
+	}
+
 	query := `
 		UPDATE storage_pools SET
 			name = $2,
@@ -256,7 +271,7 @@ func (r *StoragePoolRepository) Update(ctx context.Context, pool *domain.Storage
 	result, err := r.db.pool.Exec(ctx, query,
 		pool.ID,
 		pool.Name,
-		nullString(pool.ProjectID),
+		projectID,
 		pool.Description,
 		poolType,
 		specJSON,
