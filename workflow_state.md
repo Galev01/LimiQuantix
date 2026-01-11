@@ -1,153 +1,73 @@
 # Workflow State
 
-## Current Status: COMPLETED - VM Creation Wizard Implementation
+## VMFolderView UI Enhancement - Visual Depth & 95% Screen Usage
 
-## Latest Workflow: VM Creation Wizard Complete Implementation
+### Status: COMPLETED ✅
 
-**Date:** January 11, 2026
-**Plan Reference:** `vm_creation_wizard_implementation_2d0083d6.plan.md`
+### Problem
+1. The layout was using only half of the screen, wasting space
+2. The UI looked "colorless and lifeless" with flat styling
 
-### Phase Overview - ALL COMPLETED ✅
+### Solution
+Applied the UI-Expert principles to add visual depth, animations, and gradient styling:
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| Phase 1 | Bug Fix - UUID "default" error | ✅ Completed |
-| Phase 2.1 | Backend - Folder support | ✅ Completed |
-| Phase 2.2 | Backend - Customization specs | ✅ Completed |
-| Phase 2.3 | Backend - Scheduling support | ✅ Completed |
-| Phase 3 | Scheduler enhancement | ✅ Completed |
-| Phase 4.1 | QvDC - Folder selection | ✅ Completed |
-| Phase 4.2 | QvDC - Timezone selector | ✅ Completed |
-| Phase 4.3 | QvDC - Customization specs | ✅ Completed |
-| Phase 5 | QHCI - Cloud image support | ✅ Completed |
-| Phase 6 | Agent installation via cloud-init | ✅ Completed |
+#### Layout Changes (95% Screen Usage)
+- **Main Container**: Changed from `fixed inset-0` to `w-[95vw] h-[95vh]` with `items-center justify-center`
+- **Rounded Corners**: Added `rounded-2xl` to the main container for a floating card effect
+- **Left Sidebar**: Increased width from `w-72` to `w-80` for better content display
+- **Background**: Changed from flat `bg-[var(--bg-base)]` to `bg-gradient-to-br from-[#1e2230] via-[var(--bg-base)] to-[#1a1d28]`
 
----
+#### Visual Depth Enhancements
+1. **Shadows with Light Top Glow**
+   - `shadow-[0_-1px_2px_rgba(255,255,255,0.05),0_4px_12px_rgba(0,0,0,0.2)]` for cards
+   - `shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_20px_50px_-10px_rgba(0,0,0,0.5)]` for main container
 
-## Summary of Changes
+2. **Gradient Backgrounds**
+   - `bg-gradient-to-br from-[var(--bg-elevated)] to-[var(--bg-surface)]` for cards
+   - `bg-gradient-to-r from-[var(--bg-surface)] via-[var(--bg-elevated)]/50 to-[var(--bg-surface)]` for headers
 
-### Backend Changes
+3. **Border Accents**
+   - Changed from `border-[var(--border-default)]` to `border-white/10` and `border-white/5`
+   - Added glow borders for selected/active states
 
-1. **VM Service Bug Fix** (`backend/internal/services/vm/service.go`)
-   - Fixed UUID normalization for "default" project ID
+4. **Icon Containers**
+   - Added background containers for icons with accent colors
+   - e.g., `bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]`
 
-2. **Folder Support** (NEW)
-   - `backend/internal/domain/folder.go` - Folder domain model
-   - `backend/migrations/000006_vm_folders.up.sql` - Database schema with default folders
-   - `backend/internal/repository/postgres/folder_repository.go` - CRUD operations
-   - `backend/internal/services/folder/service.go` - Connect-RPC service
-   - Proto files: `proto/limiquantix/compute/v1/folder.proto`, `folder_service.proto`
+#### Animation Enhancements
+1. **Entry Animations**
+   - Main container: `initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}`
+   - VM panel: `initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}`
+   - Cards: Staggered `animation-delay` with `initial={{ opacity: 0, y: 10 }}`
 
-3. **Customization Specifications** (NEW)
-   - `backend/internal/domain/customization_spec.go` - Spec domain model with Linux/Windows support
-   - `backend/migrations/000007_customization_specs.up.sql` - Database schema with defaults
+2. **Hover Effects**
+   - `whileHover={{ scale: 1.02, y: -2 }}` for hardware stat cards
+   - `whileHover={{ x: 2 }}` for sidebar items
+   - `whileTap={{ scale: 0.98 }}` for buttons
 
-4. **Scheduler Enhancement** (`backend/internal/scheduler/scheduler.go`)
-   - Added `StoragePoolRepository` interface
-   - Added `NewWithStoragePools()` constructor
-   - Added `checkStoragePoolAffinity()` for hard constraints
-   - Added `scoreStoragePoolAffinity()` for soft preferences
+3. **Status Indicators**
+   - Running VMs: Glowing dot with `shadow-[0_0_6px_rgba(74,222,128,0.5)]` and `animate-pulse`
+   - Connection status: Pulsing indicator with `ring-2` around status dot
 
-5. **VM Domain Model** (`backend/internal/domain/vm.go`)
-   - Added `FolderID` field
-   - Added `ScheduledAt` field for scheduled creation
-   - Added `CustomizationSpecID` field
+#### Component Updates
+1. **HardwareCard**: Added gradient, shadow, hover glow effect, icon container with accent background
+2. **InfoRow**: Added hover highlight, better padding, mono styling for technical values
+3. **VMSidebarItem**: Icon container with status color, hover gradient, selected glow border
+4. **FolderNode**: Animated chevron, hover gradient, folder icon container
+5. **Empty State**: Large centered icon with gradient container and blue glow
 
-6. **VM Repository** (`backend/internal/repository/postgres/vm_repository.go`)
-   - Updated Create/Get/List to handle folder_id column
-
-### Frontend Changes (QvDC)
-
-1. **Folder Hook** (NEW): `frontend/src/hooks/useFolders.ts`
-   - Fetch folders from API with fallback to static data
-   - Create, update, delete folder mutations
-   - Folder tree support
-
-2. **Customization Specs Hook** (NEW): `frontend/src/hooks/useCustomizationSpecs.ts`
-   - Fetch specs from API with fallback catalog
-   - Linux and Windows spec types
-
-3. **VM Creation Wizard** (`frontend/src/components/vm/VMCreationWizard.tsx`)
-   - Integrated `useFolders` hook for dynamic folder selection
-   - Integrated `useCustomizationSpecs` hook for specs
-   - Enhanced timezone selector with 50+ timezones grouped by region
-   - Updated StepFolder and StepCustomization components
-
-### Frontend Changes (QHCI)
-
-1. **Images Hook** (NEW): `quantix-host-ui/src/hooks/useImages.ts`
-   - Cloud image catalog with 6 common images
-   - Fetch images from node daemon API
-
-2. **Create VM Wizard** (`quantix-host-ui/src/components/vm/CreateVMWizard.tsx`)
-   - Added new "Boot Media" step
-   - Cloud image selection with visual picker
-   - ISO path input option
-   - Empty disk option for PXE boot
-   - Auto-enable cloud-init when cloud image selected
-   - Backing file passed to disk spec
-
-### Agent Changes
-
-1. **Cloud-Init Generator** (`agent/limiquantix-hypervisor/src/cloudinit.rs`)
-   - Added `install_agent` flag
-   - Added `control_plane_url` for agent download
-   - Added `timezone` support
-   - Enhanced `generate_default_user_data()` to include agent installation
-   - New builder methods: `with_agent_install()`, `with_timezone()`
+### Files Changed
+- **`frontend/src/pages/VMFolderView.tsx`** - Comprehensive UI styling updates
 
 ---
 
-## Key Files Changed
+## Previous Completed Tasks
 
-| Area | Files |
-|------|-------|
-| Backend Domain | `domain/folder.go`, `domain/customization_spec.go`, `domain/vm.go` |
-| Backend Migrations | `000006_vm_folders.up.sql`, `000007_customization_specs.up.sql` |
-| Backend Repository | `folder_repository.go`, `vm_repository.go` |
-| Backend Services | `folder/service.go`, `vm/service.go` |
-| Backend Scheduler | `scheduler.go`, `repository.go` |
-| Proto | `folder.proto`, `folder_service.proto`, `vm.proto` |
-| QvDC Frontend | `VMCreationWizard.tsx`, `useFolders.ts`, `useCustomizationSpecs.ts` |
-| QHCI Frontend | `CreateVMWizard.tsx`, `useImages.ts` |
-| Agent | `cloudinit.rs` |
+### Folder Context Menu - Right-Click Actions ✅
+Added right-click context menu for folders with Create, Folder, Permissions, and Delete operations.
 
----
+### VM Context Menu - Right-Click Actions ✅
+Added right-click context menu for VMs with Power, Management, Template, Tags, and Delete operations.
 
-## Next Steps
-
-1. **Run Migrations**: Apply new database migrations
-   ```bash
-   cd backend && make migrate-up
-   ```
-
-2. **Regenerate Proto**: Generate code from new proto files
-   ```bash
-   make proto
-   ```
-
-3. **Test End-to-End**: Create a VM using cloud image with agent installation
-
----
-
-## Architecture Reference
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Quantix-vDC (Control Plane) - localhost:8080                           │
-│  ├── Go backend with Connect-RPC + REST APIs                            │
-│  ├── PostgreSQL, etcd, Redis (Docker)                                   │
-│  └── React frontend (localhost:5173)                                    │
-└─────────────────────────────────────────────────────────────────────────┘
-                              ▲
-                              │ gRPC / REST
-                              │
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Quantix-OS (Hypervisor Host)                                           │
-│  ├── Rust Node Daemon (limiquantix-node)                                │
-│  │   ├── Cloud-init ISO generation with agent install                   │
-│  │   └── VM creation with backing files for cloud images                │
-│  ├── libvirt/QEMU for VM management                                     │
-│  └── QHCI - Host UI (quantix-host-ui)                                   │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+### VMFolderView Redesign - vCenter Style Interface ✅
+Full-screen dedicated layout with folder tree, VM details, instant switching, and keyboard navigation.

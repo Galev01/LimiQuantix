@@ -655,6 +655,42 @@ func (s *ImageService) DownloadImage(
 			fmt.Errorf("catalog entry not found: %s", req.Msg.CatalogId))
 	}
 
+	// Check if this catalog image is already downloaded
+	existingImages, err := s.repo.FindByCatalogIDs(ctx, []string{req.Msg.CatalogId})
+	if err != nil {
+		logger.Warn("Failed to check for existing catalog image", zap.Error(err))
+		// Continue with download - non-fatal error
+	} else if existing, found := existingImages[req.Msg.CatalogId]; found {
+		// Image already exists - check its status
+		switch existing.Status.Phase {
+		case domain.ImagePhaseReady:
+			logger.Info("Catalog image already downloaded",
+				zap.String("existing_id", existing.ID),
+				zap.String("storage_pool", existing.Status.StoragePoolID),
+			)
+			return nil, connect.NewError(connect.CodeAlreadyExists,
+				fmt.Errorf("image '%s' is already downloaded (ID: %s, Pool: %s)",
+					entry.Name, existing.ID, existing.Status.StoragePoolID))
+
+		case domain.ImagePhaseDownloading:
+			logger.Info("Catalog image is currently downloading",
+				zap.String("existing_id", existing.ID),
+			)
+			return nil, connect.NewError(connect.CodeAlreadyExists,
+				fmt.Errorf("image '%s' is already being downloaded (ID: %s)", entry.Name, existing.ID))
+
+		case domain.ImagePhaseError:
+			// Previous download failed - allow re-download by deleting the failed record
+			logger.Info("Previous download failed, allowing re-download",
+				zap.String("existing_id", existing.ID),
+				zap.String("error", existing.Status.ErrorMessage),
+			)
+			if err := s.repo.Delete(ctx, existing.ID); err != nil {
+				logger.Warn("Failed to delete failed image record", zap.Error(err))
+			}
+		}
+	}
+
 	// Create image record
 	now := time.Now()
 	name := req.Msg.Name
@@ -671,6 +707,7 @@ func (s *ImageService) DownloadImage(
 			Visibility:   domain.ImageVisibilityPublic,
 			OS:           entry.OS,
 			Requirements: entry.Requirements,
+			CatalogID:    req.Msg.CatalogId, // Track which catalog entry this was downloaded from
 		},
 		Status: domain.ImageStatus{
 			Phase:         domain.ImagePhaseDownloading,
@@ -708,6 +745,66 @@ func (s *ImageService) DownloadImage(
 	return connect.NewResponse(&storagev1.DownloadImageResponse{
 		JobId: jobID,
 		Image: convertImageToProto(created),
+	}), nil
+}
+
+// GetCatalogDownloadStatus checks which catalog images are already downloaded.
+func (s *ImageService) GetCatalogDownloadStatus(
+	ctx context.Context,
+	req *connect.Request[storagev1.GetCatalogDownloadStatusRequest],
+) (*connect.Response[storagev1.GetCatalogDownloadStatusResponse], error) {
+	logger := s.logger.With(
+		zap.String("method", "GetCatalogDownloadStatus"),
+		zap.Int("catalog_ids_count", len(req.Msg.CatalogIds)),
+	)
+	logger.Debug("Checking catalog download status")
+
+	if len(req.Msg.CatalogIds) == 0 {
+		return connect.NewResponse(&storagev1.GetCatalogDownloadStatusResponse{
+			Statuses: []*storagev1.CatalogDownloadStatus{},
+		}), nil
+	}
+
+	// Find all images matching the catalog IDs
+	existingImages, err := s.repo.FindByCatalogIDs(ctx, req.Msg.CatalogIds)
+	if err != nil {
+		logger.Error("Failed to query images by catalog IDs", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Build response
+	statuses := make([]*storagev1.CatalogDownloadStatus, 0, len(req.Msg.CatalogIds))
+	for _, catalogID := range req.Msg.CatalogIds {
+		status := &storagev1.CatalogDownloadStatus{
+			CatalogId: catalogID,
+		}
+
+		if img, found := existingImages[catalogID]; found {
+			status.ImageId = img.ID
+			status.StoragePoolId = img.Status.StoragePoolID
+			status.ProgressPercent = img.Status.ProgressPercent
+
+			// Map phase to status
+			switch img.Status.Phase {
+			case domain.ImagePhaseReady:
+				status.Status = storagev1.CatalogDownloadStatus_READY
+			case domain.ImagePhaseDownloading, domain.ImagePhaseConverting:
+				status.Status = storagev1.CatalogDownloadStatus_DOWNLOADING
+			case domain.ImagePhaseError:
+				status.Status = storagev1.CatalogDownloadStatus_ERROR
+				status.ErrorMessage = img.Status.ErrorMessage
+			default:
+				status.Status = storagev1.CatalogDownloadStatus_DOWNLOADING
+			}
+		} else {
+			status.Status = storagev1.CatalogDownloadStatus_NOT_DOWNLOADED
+		}
+
+		statuses = append(statuses, status)
+	}
+
+	return connect.NewResponse(&storagev1.GetCatalogDownloadStatusResponse{
+		Statuses: statuses,
 	}), nil
 }
 
@@ -892,6 +989,7 @@ func convertImageToProto(img *domain.Image) *storagev1.Image {
 				RequiresSecureBoot: img.Spec.Requirements.RequiresSecureBoot,
 				RequiresTpm:       img.Spec.Requirements.RequiresTPM,
 			},
+			CatalogId: img.Spec.CatalogID, // Track which catalog entry this was downloaded from
 		},
 		Status: &storagev1.ImageStatus{
 			Phase:            convertImagePhaseToProto(img.Status.Phase),

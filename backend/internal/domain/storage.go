@@ -622,6 +622,7 @@ type ImageSpec struct {
 	OS           OSInfo            `json:"os"`
 	Requirements ImageRequirements `json:"requirements"`
 	OvaMetadata  *OvaMetadata      `json:"ova_metadata,omitempty"` // Only set when Format = OVA
+	CatalogID    string            `json:"catalog_id,omitempty"`   // Tracks which catalog entry this was downloaded from
 }
 
 // OSInfo holds operating system information.

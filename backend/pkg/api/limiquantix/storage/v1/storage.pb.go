@@ -3681,8 +3681,12 @@ type ImageSpec struct {
 	Requirements *ImageRequirements `protobuf:"bytes,3,opt,name=requirements,proto3" json:"requirements,omitempty"`
 	Format       ImageSpec_Format   `protobuf:"varint,4,opt,name=format,proto3,enum=limiquantix.storage.v1.ImageSpec_Format" json:"format,omitempty"`
 	// OVA-specific metadata (only set when format = OVA)
-	OvaMetadata   *OvaMetadata         `protobuf:"bytes,6,opt,name=ova_metadata,json=ovaMetadata,proto3" json:"ova_metadata,omitempty"`
-	Visibility    ImageSpec_Visibility `protobuf:"varint,5,opt,name=visibility,proto3,enum=limiquantix.storage.v1.ImageSpec_Visibility" json:"visibility,omitempty"`
+	OvaMetadata *OvaMetadata         `protobuf:"bytes,6,opt,name=ova_metadata,json=ovaMetadata,proto3" json:"ova_metadata,omitempty"`
+	Visibility  ImageSpec_Visibility `protobuf:"varint,5,opt,name=visibility,proto3,enum=limiquantix.storage.v1.ImageSpec_Visibility" json:"visibility,omitempty"`
+	// Catalog ID - tracks which catalog entry this image was downloaded from.
+	// Used to prevent duplicate downloads and show "Already Downloaded" status.
+	// Empty for user-uploaded images (ISOs, custom images).
+	CatalogId     string `protobuf:"bytes,7,opt,name=catalog_id,json=catalogId,proto3" json:"catalog_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3757,6 +3761,13 @@ func (x *ImageSpec) GetVisibility() ImageSpec_Visibility {
 		return x.Visibility
 	}
 	return ImageSpec_PRIVATE
+}
+
+func (x *ImageSpec) GetCatalogId() string {
+	if x != nil {
+		return x.CatalogId
+	}
+	return ""
 }
 
 type ImageSourceSpec struct {
@@ -5007,7 +5018,7 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x96\x04\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb5\x04\n" +
 	"\tImageSpec\x12;\n" +
 	"\x06source\x18\x01 \x01(\v2#.limiquantix.storage.v1.ImageSourceR\x06source\x12.\n" +
 	"\x02os\x18\x02 \x01(\v2\x1e.limiquantix.storage.v1.OsInfoR\x02os\x12M\n" +
@@ -5016,7 +5027,9 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\fova_metadata\x18\x06 \x01(\v2#.limiquantix.storage.v1.OvaMetadataR\vovaMetadata\x12L\n" +
 	"\n" +
 	"visibility\x18\x05 \x01(\x0e2,.limiquantix.storage.v1.ImageSpec.VisibilityR\n" +
-	"visibility\"A\n" +
+	"visibility\x12\x1d\n" +
+	"\n" +
+	"catalog_id\x18\a \x01(\tR\tcatalogId\"A\n" +
 	"\x06Format\x12\a\n" +
 	"\x03RAW\x10\x00\x12\t\n" +
 	"\x05QCOW2\x10\x01\x12\b\n" +

@@ -20,6 +20,7 @@ import (
 	"github.com/limiquantix/limiquantix/internal/scheduler"
 	"github.com/limiquantix/limiquantix/internal/services/admin"
 	clusterservice "github.com/limiquantix/limiquantix/internal/services/cluster"
+	folderservice "github.com/limiquantix/limiquantix/internal/services/folder"
 	networkservice "github.com/limiquantix/limiquantix/internal/services/network"
 	"github.com/limiquantix/limiquantix/internal/services/node"
 	nodeservice "github.com/limiquantix/limiquantix/internal/services/node"
@@ -59,6 +60,9 @@ type Server struct {
 	// Cluster repository (PostgreSQL - required for FK constraint with nodes)
 	clusterRepo *postgres.ClusterRepository
 
+	// Folder repository (PostgreSQL)
+	folderRepo *postgres.FolderRepository
+
 	// Admin repositories (PostgreSQL)
 	roleRepo   *postgres.RoleRepository
 	apiKeyRepo *postgres.APIKeyRepository
@@ -83,6 +87,7 @@ type Server struct {
 	ovaService           *storageservice.OVAService
 	poolService          *storageservice.PoolService
 	volumeService        *storageservice.VolumeService
+	folderService        *folderservice.Service
 
 	// Registration service
 	registrationService *registration.Service
@@ -216,6 +221,18 @@ func (s *Server) initRepositories() {
 		s.logger.Warn("PostgreSQL not available - cluster management will not work correctly due to FK constraints")
 	}
 
+	// Folder repository - requires PostgreSQL for hierarchical folder structure
+	if s.db != nil {
+		s.folderRepo = postgres.NewFolderRepository(s.db, s.logger)
+		// Seed default folders if they don't exist
+		if err := s.folderRepo.SeedDefaultFolders(context.Background()); err != nil {
+			s.logger.Warn("Failed to seed default folders", zap.Error(err))
+		}
+		s.logger.Info("Using PostgreSQL folder repository")
+	} else {
+		s.logger.Warn("PostgreSQL not available - folder management disabled")
+	}
+
 	s.logger.Info("Repositories initialized",
 		zap.Bool("postgres", s.db != nil),
 		zap.Bool("redis", s.cache != nil),
@@ -282,6 +299,12 @@ func (s *Server) initServices() {
 	s.ovaService = storageservice.NewOVAService(s.imageRepo, s.logger)
 	s.poolService = storageservice.NewPoolService(s.storagePoolRepo, s.daemonPool, s.nodeRepo, s.logger)
 	s.volumeService = storageservice.NewVolumeService(s.volumeRepo, s.storagePoolRepo, s.logger)
+
+	// Folder service (requires PostgreSQL)
+	if s.folderRepo != nil {
+		s.folderService = folderservice.NewService(s.folderRepo, s.logger)
+		s.logger.Info("Folder service initialized")
+	}
 
 	// Registration token service (always available)
 	s.registrationService = registration.NewService(s.registrationTokenRepo, s.logger)
@@ -361,6 +384,13 @@ func (s *Server) registerRoutes() {
 	nodePath, nodeHandler := computev1connect.NewNodeServiceHandler(s.nodeService)
 	s.mux.Handle(nodePath, nodeHandler)
 	s.logger.Info("Registered Node service", zap.String("path", nodePath))
+
+	// Folder Service (requires PostgreSQL)
+	if s.folderService != nil {
+		folderPath, folderHandler := computev1connect.NewFolderServiceHandler(s.folderService)
+		s.mux.Handle(folderPath, folderHandler)
+		s.logger.Info("Registered Folder service", zap.String("path", folderPath))
+	}
 
 	// =========================================================================
 	// Connect-RPC Services - Network

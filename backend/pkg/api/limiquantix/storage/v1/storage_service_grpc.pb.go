@@ -1224,16 +1224,17 @@ var SnapshotService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ImageService_CreateImage_FullMethodName     = "/limiquantix.storage.v1.ImageService/CreateImage"
-	ImageService_GetImage_FullMethodName        = "/limiquantix.storage.v1.ImageService/GetImage"
-	ImageService_ListImages_FullMethodName      = "/limiquantix.storage.v1.ImageService/ListImages"
-	ImageService_UpdateImage_FullMethodName     = "/limiquantix.storage.v1.ImageService/UpdateImage"
-	ImageService_DeleteImage_FullMethodName     = "/limiquantix.storage.v1.ImageService/DeleteImage"
-	ImageService_ImportImage_FullMethodName     = "/limiquantix.storage.v1.ImageService/ImportImage"
-	ImageService_GetImportStatus_FullMethodName = "/limiquantix.storage.v1.ImageService/GetImportStatus"
-	ImageService_ScanLocalImages_FullMethodName = "/limiquantix.storage.v1.ImageService/ScanLocalImages"
-	ImageService_DownloadImage_FullMethodName   = "/limiquantix.storage.v1.ImageService/DownloadImage"
-	ImageService_GetImageCatalog_FullMethodName = "/limiquantix.storage.v1.ImageService/GetImageCatalog"
+	ImageService_CreateImage_FullMethodName              = "/limiquantix.storage.v1.ImageService/CreateImage"
+	ImageService_GetImage_FullMethodName                 = "/limiquantix.storage.v1.ImageService/GetImage"
+	ImageService_ListImages_FullMethodName               = "/limiquantix.storage.v1.ImageService/ListImages"
+	ImageService_UpdateImage_FullMethodName              = "/limiquantix.storage.v1.ImageService/UpdateImage"
+	ImageService_DeleteImage_FullMethodName              = "/limiquantix.storage.v1.ImageService/DeleteImage"
+	ImageService_ImportImage_FullMethodName              = "/limiquantix.storage.v1.ImageService/ImportImage"
+	ImageService_GetImportStatus_FullMethodName          = "/limiquantix.storage.v1.ImageService/GetImportStatus"
+	ImageService_ScanLocalImages_FullMethodName          = "/limiquantix.storage.v1.ImageService/ScanLocalImages"
+	ImageService_DownloadImage_FullMethodName            = "/limiquantix.storage.v1.ImageService/DownloadImage"
+	ImageService_GetImageCatalog_FullMethodName          = "/limiquantix.storage.v1.ImageService/GetImageCatalog"
+	ImageService_GetCatalogDownloadStatus_FullMethodName = "/limiquantix.storage.v1.ImageService/GetCatalogDownloadStatus"
 )
 
 // ImageServiceClient is the client API for ImageService service.
@@ -1263,6 +1264,9 @@ type ImageServiceClient interface {
 	DownloadImage(ctx context.Context, in *DownloadImageRequest, opts ...grpc.CallOption) (*DownloadImageResponse, error)
 	// GetImageCatalog returns the list of available cloud images for download.
 	GetImageCatalog(ctx context.Context, in *GetImageCatalogRequest, opts ...grpc.CallOption) (*GetImageCatalogResponse, error)
+	// GetCatalogDownloadStatus checks which catalog images are already downloaded.
+	// Returns the download status for each requested catalog ID.
+	GetCatalogDownloadStatus(ctx context.Context, in *GetCatalogDownloadStatusRequest, opts ...grpc.CallOption) (*GetCatalogDownloadStatusResponse, error)
 }
 
 type imageServiceClient struct {
@@ -1373,6 +1377,16 @@ func (c *imageServiceClient) GetImageCatalog(ctx context.Context, in *GetImageCa
 	return out, nil
 }
 
+func (c *imageServiceClient) GetCatalogDownloadStatus(ctx context.Context, in *GetCatalogDownloadStatusRequest, opts ...grpc.CallOption) (*GetCatalogDownloadStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCatalogDownloadStatusResponse)
+	err := c.cc.Invoke(ctx, ImageService_GetCatalogDownloadStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ImageServiceServer is the server API for ImageService service.
 // All implementations should embed UnimplementedImageServiceServer
 // for forward compatibility.
@@ -1400,6 +1414,9 @@ type ImageServiceServer interface {
 	DownloadImage(context.Context, *DownloadImageRequest) (*DownloadImageResponse, error)
 	// GetImageCatalog returns the list of available cloud images for download.
 	GetImageCatalog(context.Context, *GetImageCatalogRequest) (*GetImageCatalogResponse, error)
+	// GetCatalogDownloadStatus checks which catalog images are already downloaded.
+	// Returns the download status for each requested catalog ID.
+	GetCatalogDownloadStatus(context.Context, *GetCatalogDownloadStatusRequest) (*GetCatalogDownloadStatusResponse, error)
 }
 
 // UnimplementedImageServiceServer should be embedded to have
@@ -1438,6 +1455,9 @@ func (UnimplementedImageServiceServer) DownloadImage(context.Context, *DownloadI
 }
 func (UnimplementedImageServiceServer) GetImageCatalog(context.Context, *GetImageCatalogRequest) (*GetImageCatalogResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetImageCatalog not implemented")
+}
+func (UnimplementedImageServiceServer) GetCatalogDownloadStatus(context.Context, *GetCatalogDownloadStatusRequest) (*GetCatalogDownloadStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCatalogDownloadStatus not implemented")
 }
 func (UnimplementedImageServiceServer) testEmbeddedByValue() {}
 
@@ -1639,6 +1659,24 @@ func _ImageService_GetImageCatalog_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ImageService_GetCatalogDownloadStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCatalogDownloadStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImageServiceServer).GetCatalogDownloadStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ImageService_GetCatalogDownloadStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImageServiceServer).GetCatalogDownloadStatus(ctx, req.(*GetCatalogDownloadStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ImageService_ServiceDesc is the grpc.ServiceDesc for ImageService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1685,6 +1723,10 @@ var ImageService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetImageCatalog",
 			Handler:    _ImageService_GetImageCatalog_Handler,
+		},
+		{
+			MethodName: "GetCatalogDownloadStatus",
+			Handler:    _ImageService_GetCatalogDownloadStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -90,6 +90,7 @@ func (r *FolderRepository) Get(ctx context.Context, id string) (*domain.Folder, 
 
 	folder := &domain.Folder{}
 	var parentID *string
+	var createdBy *string
 	var labelsJSON []byte
 	var folderType string
 
@@ -103,7 +104,7 @@ func (r *FolderRepository) Get(ctx context.Context, id string) (*domain.Folder, 
 		&labelsJSON,
 		&folder.CreatedAt,
 		&folder.UpdatedAt,
-		&folder.CreatedBy,
+		&createdBy,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -115,6 +116,9 @@ func (r *FolderRepository) Get(ctx context.Context, id string) (*domain.Folder, 
 
 	if parentID != nil {
 		folder.ParentID = *parentID
+	}
+	if createdBy != nil {
+		folder.CreatedBy = *createdBy
 	}
 	folder.Type = domain.FolderType(folderType)
 
@@ -181,6 +185,7 @@ func (r *FolderRepository) List(ctx context.Context, filter domain.FolderFilter)
 	for rows.Next() {
 		folder := &domain.Folder{}
 		var parentID *string
+		var createdBy *string
 		var labelsJSON []byte
 		var folderType string
 
@@ -194,7 +199,7 @@ func (r *FolderRepository) List(ctx context.Context, filter domain.FolderFilter)
 			&labelsJSON,
 			&folder.CreatedAt,
 			&folder.UpdatedAt,
-			&folder.CreatedBy,
+			&createdBy,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan folder: %w", err)
@@ -202,6 +207,9 @@ func (r *FolderRepository) List(ctx context.Context, filter domain.FolderFilter)
 
 		if parentID != nil {
 			folder.ParentID = *parentID
+		}
+		if createdBy != nil {
+			folder.CreatedBy = *createdBy
 		}
 		folder.Type = domain.FolderType(folderType)
 
@@ -234,6 +242,7 @@ func (r *FolderRepository) ListChildren(ctx context.Context, parentID string) ([
 	for rows.Next() {
 		folder := &domain.Folder{}
 		var pid *string
+		var createdBy *string
 		var labelsJSON []byte
 		var folderType string
 
@@ -247,7 +256,7 @@ func (r *FolderRepository) ListChildren(ctx context.Context, parentID string) ([
 			&labelsJSON,
 			&folder.CreatedAt,
 			&folder.UpdatedAt,
-			&folder.CreatedBy,
+			&createdBy,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan folder: %w", err)
@@ -255,6 +264,9 @@ func (r *FolderRepository) ListChildren(ctx context.Context, parentID string) ([
 
 		if pid != nil {
 			folder.ParentID = *pid
+		}
+		if createdBy != nil {
+			folder.CreatedBy = *createdBy
 		}
 		folder.Type = domain.FolderType(folderType)
 

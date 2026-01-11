@@ -646,6 +646,11 @@ message ImageSpec {
     PUBLIC = 2;    // Anyone can use
   }
   Visibility visibility = 5;
+  
+  // Catalog ID - tracks which catalog entry this image was downloaded from.
+  // Used to prevent duplicate downloads and show "Already Downloaded" status.
+  // Empty for user-uploaded images (ISOs, custom images).
+  string catalog_id = 7;
 }
 
 message ImageSourceSpec {

@@ -143,6 +143,10 @@ service ImageService {
   
   // GetImageCatalog returns the list of available cloud images for download.
   rpc GetImageCatalog(GetImageCatalogRequest) returns (GetImageCatalogResponse);
+  
+  // GetCatalogDownloadStatus checks which catalog images are already downloaded.
+  // Returns the download status for each requested catalog ID.
+  rpc GetCatalogDownloadStatus(GetCatalogDownloadStatusRequest) returns (GetCatalogDownloadStatusResponse);
 }
 
 // =============================================================================
@@ -619,6 +623,47 @@ message GetImageCatalogRequest {
 message GetImageCatalogResponse {
   // List of available images in the catalog
   repeated ImageCatalogEntry images = 1;
+}
+
+// =============================================================================
+// CATALOG DOWNLOAD STATUS (check which catalog images are already downloaded)
+// =============================================================================
+
+message GetCatalogDownloadStatusRequest {
+  // List of catalog IDs to check
+  repeated string catalog_ids = 1;
+}
+
+message GetCatalogDownloadStatusResponse {
+  // Status for each catalog ID
+  repeated CatalogDownloadStatus statuses = 1;
+}
+
+// CatalogDownloadStatus represents the download status of a catalog image.
+message CatalogDownloadStatus {
+  // Catalog ID being checked
+  string catalog_id = 1;
+  
+  // Download status
+  enum Status {
+    NOT_DOWNLOADED = 0;  // Not downloaded yet
+    DOWNLOADING = 1;     // Currently downloading
+    READY = 2;           // Downloaded and ready to use
+    ERROR = 3;           // Download failed
+  }
+  Status status = 2;
+  
+  // Downloaded image ID (if status is READY or DOWNLOADING)
+  string image_id = 3;
+  
+  // Storage pool where image is stored (if READY)
+  string storage_pool_id = 4;
+  
+  // Download progress (if DOWNLOADING)
+  uint32 progress_percent = 5;
+  
+  // Error message (if ERROR)
+  string error_message = 6;
 }
 
 // =============================================================================

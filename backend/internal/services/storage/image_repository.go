@@ -16,6 +16,9 @@ type ImageRepository interface {
 	Update(ctx context.Context, image *domain.Image) (*domain.Image, error)
 	Delete(ctx context.Context, id string) error
 	GetByPath(ctx context.Context, nodeID, path string) (*domain.Image, error)
+	// FindByCatalogIDs returns images that were downloaded from the given catalog IDs.
+	// Returns a map of catalogID -> Image for found images.
+	FindByCatalogIDs(ctx context.Context, catalogIDs []string) (map[string]*domain.Image, error)
 }
 
 // ImageFilter defines filter criteria for listing images.
@@ -130,4 +133,26 @@ func (r *MemoryImageRepository) GetByPath(ctx context.Context, nodeID, path stri
 		}
 	}
 	return nil, domain.ErrNotFound
+}
+
+// FindByCatalogIDs returns images that were downloaded from the given catalog IDs.
+func (r *MemoryImageRepository) FindByCatalogIDs(ctx context.Context, catalogIDs []string) (map[string]*domain.Image, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	// Build a set for O(1) lookup
+	catalogSet := make(map[string]struct{}, len(catalogIDs))
+	for _, id := range catalogIDs {
+		catalogSet[id] = struct{}{}
+	}
+
+	result := make(map[string]*domain.Image)
+	for _, img := range r.images {
+		if img.Spec.CatalogID != "" {
+			if _, exists := catalogSet[img.Spec.CatalogID]; exists {
+				result[img.Spec.CatalogID] = img
+			}
+		}
+	}
+	return result, nil
 }

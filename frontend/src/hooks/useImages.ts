@@ -403,6 +403,76 @@ export function useImageCatalog() {
   });
 }
 
+// =============================================================================
+// CATALOG DOWNLOAD STATUS - Check which catalog images are already downloaded
+// =============================================================================
+
+// CatalogDownloadStatus represents the download status of a catalog image
+export type CatalogDownloadStatusType = 'NOT_DOWNLOADED' | 'DOWNLOADING' | 'READY' | 'ERROR';
+
+export interface CatalogDownloadStatus {
+  catalogId: string;
+  status: CatalogDownloadStatusType;
+  imageId?: string;
+  storagePoolId?: string;
+  progressPercent?: number;
+  errorMessage?: string;
+}
+
+// Map proto status enum to our type
+function mapCatalogStatus(status: number): CatalogDownloadStatusType {
+  switch (status) {
+    case 0: return 'NOT_DOWNLOADED';
+    case 1: return 'DOWNLOADING';
+    case 2: return 'READY';
+    case 3: return 'ERROR';
+    default: return 'NOT_DOWNLOADED';
+  }
+}
+
+// Hook to check download status for multiple catalog IDs
+export function useCatalogDownloadStatus(catalogIds: string[], enabled = true) {
+  return useQuery({
+    queryKey: [...imageKeys.all, 'catalog-status', catalogIds.join(',')],
+    queryFn: async () => {
+      if (catalogIds.length === 0) {
+        return new Map<string, CatalogDownloadStatus>();
+      }
+
+      const response = await imageClient.getCatalogDownloadStatus({
+        catalogIds,
+      });
+
+      const statusMap = new Map<string, CatalogDownloadStatus>();
+      for (const s of response.statuses) {
+        statusMap.set(s.catalogId, {
+          catalogId: s.catalogId,
+          status: mapCatalogStatus(s.status),
+          imageId: s.imageId || undefined,
+          storagePoolId: s.storagePoolId || undefined,
+          progressPercent: s.progressPercent || 0,
+          errorMessage: s.errorMessage || undefined,
+        });
+      }
+      return statusMap;
+    },
+    enabled: enabled && catalogIds.length > 0,
+    staleTime: 5_000, // 5 seconds - check frequently for download progress
+    refetchInterval: (query) => {
+      // Poll while any image is downloading
+      const statusMap = query.state.data;
+      if (statusMap) {
+        for (const status of statusMap.values()) {
+          if (status.status === 'DOWNLOADING') {
+            return 2000; // Poll every 2 seconds when downloading
+          }
+        }
+      }
+      return false;
+    },
+  });
+}
+
 // Catalog entry type
 export interface CatalogImage {
   id: string;

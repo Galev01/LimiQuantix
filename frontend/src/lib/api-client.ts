@@ -246,6 +246,7 @@ export interface ApiVM {
   id: string;
   name: string;
   projectId: string;
+  folderId?: string;  // ID of the folder this VM belongs to
   description?: string;
   labels?: Record<string, string>;
   spec?: {
