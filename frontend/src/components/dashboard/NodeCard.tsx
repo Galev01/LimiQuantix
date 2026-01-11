@@ -8,11 +8,16 @@ interface NodeCardProps {
   delay?: number;
 }
 
-const phaseColors = {
+const phaseColors: Record<string, string> = {
   READY: 'bg-success',
   NOT_READY: 'bg-error',
   MAINTENANCE: 'bg-warning',
   DRAINING: 'bg-info',
+  DISCONNECTED: 'bg-error',
+  PENDING: 'bg-warning',
+  ERROR: 'bg-error',
+  UNKNOWN: 'bg-text-muted',
+  OFFLINE: 'bg-error',
 };
 
 export function NodeCard({ node, delay = 0 }: NodeCardProps) {

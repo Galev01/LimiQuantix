@@ -103,7 +103,7 @@ export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
       setSelectedHostIds(selectedHostIds.filter(id => id !== nodeId));
     } else {
       // For local storage, only allow one host
-      if (selectedType === 'LOCAL_DIR' || selectedType === 'LOCAL_LVM') {
+      if (selectedType === 'LOCAL_DIR') {
         setSelectedHostIds([nodeId]);
       } else {
         setSelectedHostIds([...selectedHostIds, nodeId]);
@@ -220,7 +220,7 @@ export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
         }
       case 'hosts':
         // Host selection is optional for shared storage, required for local
-        if (selectedType === 'LOCAL_DIR' || selectedType === 'LOCAL_LVM') {
+        if (selectedType === 'LOCAL_DIR') {
           return selectedHostIds.length === 1;
         }
         return true; // Optional for shared storage
@@ -830,8 +830,8 @@ export function CreatePoolDialog({ isOpen, onClose }: CreatePoolDialogProps) {
                               </p>
                             </div>
                             <div className="text-right text-xs text-text-muted shrink-0">
-                              <p>{node.cpuCores} vCPUs</p>
-                              <p>{Math.round(node.memoryMib / 1024)} GB RAM</p>
+                              <p>{(node.spec?.cpu?.coresPerSocket ?? 0) * (node.spec?.cpu?.sockets ?? 1)} vCPUs</p>
+                              <p>{Math.round((node.spec?.memory?.totalBytes ?? 0) / (1024 * 1024 * 1024))} GB RAM</p>
                             </div>
                           </button>
                         );

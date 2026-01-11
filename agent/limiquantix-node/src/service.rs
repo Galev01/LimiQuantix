@@ -1910,13 +1910,15 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         let req = request.into_inner();
         info!(pool_id = %req.pool_id, path = %req.path, "Listing storage pool files");
         
-        // Get the pool to find its mount path
-        let pools = self.storage.list_pools().await;
-        let pool = pools.into_iter().find(|p| p.pool_id == req.pool_id)
-            .ok_or_else(|| Status::not_found(format!("Pool not found: {}", req.pool_id)))?;
+        // Get the pool to find its mount path (with fallback to discovery)
+        let pool = self.storage.get_pool_info_or_discover(&req.pool_id).await
+            .map_err(|e| Status::not_found(format!("Pool not found: {}. Error: {}", req.pool_id, e)))?;
         
         let mount_path = pool.mount_path
-            .ok_or_else(|| Status::failed_precondition("Pool has no mount path"))?;
+            .ok_or_else(|| Status::failed_precondition(format!(
+                "Pool {} has no mount path. Pool type: {:?}. This storage type may not support file browsing.",
+                req.pool_id, pool.pool_type
+            )))?;
         
         // Build the full path
         let base_path = std::path::PathBuf::from(&mount_path);

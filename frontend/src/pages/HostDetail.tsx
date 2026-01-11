@@ -1129,7 +1129,7 @@ function StoragePoolRow({
         </div>
       </div>
       <Button
-        variant={isAssigned ? "destructive" : "secondary"}
+        variant={isAssigned ? "danger" : "secondary"}
         size="sm"
         onClick={onToggle}
         disabled={isLoading}

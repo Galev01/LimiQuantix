@@ -218,7 +218,7 @@ export function StoragePoolDetail() {
               Reconnect
             </Button>
           )}
-          <Button variant="destructive" size="sm" onClick={handleDelete}>
+          <Button variant="danger" size="sm" onClick={handleDelete}>
             <Trash2 className="w-4 h-4 mr-1" />
             Delete
           </Button>
@@ -450,7 +450,7 @@ export function StoragePoolDetail() {
                       </div>
 
                       <Button
-                        variant={isAssigned ? "destructive" : "secondary"}
+                        variant={isAssigned ? "danger" : "secondary"}
                         size="sm"
                         onClick={() => isAssigned 
                           ? handleUnassignNode(node.id) 

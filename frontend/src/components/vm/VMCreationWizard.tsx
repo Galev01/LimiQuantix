@@ -664,6 +664,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                   updateFormData={updateFormData}
                   storagePools={storagePools || []}
                   isLoading={storageLoading}
+                  nodes={nodes}
                 />
               )}
               {currentStep === 7 && (
@@ -2131,11 +2132,13 @@ function StepStorage({
   updateFormData,
   storagePools,
   isLoading,
+  nodes,
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
   storagePools: StoragePoolUI[];
   isLoading: boolean;
+  nodes: ProcessedNode[];
 }) {
   // Use only API data (no mock fallback)
   const pools = storagePools;

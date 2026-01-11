@@ -306,6 +306,136 @@ impl StorageManager {
         pools.values().cloned().collect()
     }
     
+    /// Register an existing pool without initializing it.
+    /// 
+    /// This is useful when a pool mount already exists (e.g., after daemon restart)
+    /// and we want to add it to the cache.
+    pub async fn register_pool(&self, pool_info: PoolInfo) {
+        let mut pools = self.pools.write().await;
+        pools.insert(pool_info.pool_id.clone(), pool_info);
+    }
+    
+    /// Try to discover a pool by checking if its mount path exists.
+    /// 
+    /// This is useful when a pool is not in cache but might be mounted.
+    /// Returns None if the pool cannot be discovered.
+    pub async fn try_discover_pool(&self, pool_id: &str) -> Option<PoolInfo> {
+        use std::path::Path;
+        use std::process::Command;
+        
+        // Check common mount paths for NFS and local pools
+        let nfs_mount_base = "/var/lib/limiquantix/pools";
+        let local_base = "/var/lib/limiquantix/local";
+        
+        // Check NFS mount path
+        let nfs_path = format!("{}/{}", nfs_mount_base, pool_id);
+        if let Some(pool_info) = self.try_discover_at_path(pool_id, &nfs_path, PoolType::Nfs).await {
+            // Register and return
+            self.register_pool(pool_info.clone()).await;
+            return Some(pool_info);
+        }
+        
+        // Check local directory path
+        let local_path = format!("{}/{}", local_base, pool_id);
+        if let Some(pool_info) = self.try_discover_at_path(pool_id, &local_path, PoolType::LocalDir).await {
+            self.register_pool(pool_info.clone()).await;
+            return Some(pool_info);
+        }
+        
+        None
+    }
+    
+    /// Helper to try discovering a pool at a specific path.
+    async fn try_discover_at_path(&self, pool_id: &str, path: &str, pool_type: PoolType) -> Option<PoolInfo> {
+        use std::path::Path;
+        use std::process::Command;
+        
+        let path_buf = Path::new(path);
+        
+        // Check if path exists and is a directory
+        if !path_buf.exists() || !path_buf.is_dir() {
+            return None;
+        }
+        
+        // For NFS, verify it's a mount point
+        if pool_type == PoolType::Nfs {
+            let status = Command::new("mountpoint")
+                .arg("-q")
+                .arg(path)
+                .status()
+                .ok()?;
+            
+            if !status.success() {
+                return None;
+            }
+        }
+        
+        // Get filesystem stats
+        let output = Command::new("df")
+            .arg("--output=size,avail")
+            .arg("-B1")
+            .arg(path)
+            .output()
+            .ok()?;
+        
+        if !output.status.success() {
+            return None;
+        }
+        
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let lines: Vec<&str> = stdout.lines().collect();
+        if lines.len() < 2 {
+            return None;
+        }
+        
+        let parts: Vec<&str> = lines[1].split_whitespace().collect();
+        if parts.len() < 2 {
+            return None;
+        }
+        
+        let total_bytes: u64 = parts[0].parse().unwrap_or(0);
+        let available_bytes: u64 = parts[1].parse().unwrap_or(0);
+        
+        info!(
+            pool_id = %pool_id,
+            path = %path,
+            pool_type = ?pool_type,
+            total_bytes = total_bytes,
+            "Discovered existing pool mount"
+        );
+        
+        Some(PoolInfo {
+            pool_id: pool_id.to_string(),
+            pool_type,
+            mount_path: Some(path.to_string()),
+            device_path: None,
+            rbd_pool: None,
+            total_bytes,
+            available_bytes,
+            volume_count: 0,
+        })
+    }
+    
+    /// Get pool info, with fallback to discovery if not in cache.
+    /// 
+    /// This method first checks the cache, then tries to discover the pool
+    /// from existing mounts.
+    pub async fn get_pool_info_or_discover(&self, pool_id: &str) -> Result<PoolInfo> {
+        // First, try the cache
+        if let Ok(pool) = self.get_pool_info(pool_id).await {
+            return Ok(pool);
+        }
+        
+        // Try to discover from existing mounts
+        if let Some(pool) = self.try_discover_pool(pool_id).await {
+            return Ok(pool);
+        }
+        
+        Err(HypervisorError::Internal(
+            format!("Pool {} not found in cache or mounts", pool_id)
+        ))
+    }
+    
     /// List all volumes in a pool.
     #[instrument(skip(self), fields(pool_id = %pool_id))]
     pub async fn list_volumes(&self, pool_id: &str) -> Result<Vec<VolumeInfo>> {
