@@ -2,9 +2,11 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface AppState {
-  // Sidebar state
-  sidebarCollapsed: boolean;
-  toggleSidebar: () => void;
+  // Search state
+  searchOpen: boolean;
+  searchQuery: string;
+  toggleSearch: () => void;
+  setSearchQuery: (query: string) => void;
   
   // Theme (future use)
   theme: 'dark' | 'light';
@@ -23,9 +25,14 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
-      // Sidebar
-      sidebarCollapsed: false,
-      toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+      // Search
+      searchOpen: false,
+      searchQuery: '',
+      toggleSearch: () => set((state) => ({ 
+        searchOpen: !state.searchOpen,
+        searchQuery: state.searchOpen ? '' : state.searchQuery, // Clear on close
+      })),
+      setSearchQuery: (query) => set({ searchQuery: query }),
       
       // Theme
       theme: 'dark',
@@ -43,7 +50,6 @@ export const useAppStore = create<AppState>()(
     {
       name: 'quantix-host-ui-storage',
       partialize: (state) => ({
-        sidebarCollapsed: state.sidebarCollapsed,
         theme: state.theme,
       }),
     }

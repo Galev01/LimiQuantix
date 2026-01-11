@@ -31,11 +31,11 @@
   --text-muted: #717a88;
   --text-disabled: #525a66;
   
-  /* Brand Colors - VMware-inspired blue with modern twist */
-  --accent: #5c9cf5;
-  --accent-hover: #4a8ae8;
-  --accent-muted: #3a78d8;
-  --accent-glow: rgba(92, 156, 245, 0.18);
+  /* Brand Colors - Softer, gentler blue for extended viewing */
+  --accent: #6ba3f7;
+  --accent-hover: #5a94e8;
+  --accent-muted: #4a84d8;
+  --accent-glow: rgba(107, 163, 247, 0.16);
   
   /* Status Colors - Slightly muted for comfort */
   --success: #4ade80;
@@ -88,11 +88,11 @@
   --text-muted: #6b727c;
   --text-disabled: rgba(45, 49, 56, 0.4);
   
-  /* Brand Colors - Slightly softer blue */
-  --accent: #4a7fd4;
-  --accent-hover: #3a6fc4;
-  --accent-muted: #2a5fb4;
-  --accent-glow: rgba(74, 127, 212, 0.15);
+  /* Brand Colors - Softer, gentler blue for light backgrounds */
+  --accent: #4a85d8;
+  --accent-hover: #3a75c8;
+  --accent-muted: #2a65b8;
+  --accent-glow: rgba(74, 133, 216, 0.14);
   
   /* Status Colors - Softer, less saturated */
   --success: #3d9960;
