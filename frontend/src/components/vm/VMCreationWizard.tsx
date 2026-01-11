@@ -1287,7 +1287,7 @@ function StepCustomization({
             <option value="Europe/London">Europe/London (GMT/BST)</option>
             <option value="Europe/Berlin">Europe/Berlin (CET/CEST)</option>
             <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
-            <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+          <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
             <option value="Asia/Shanghai">Asia/Shanghai (CST)</option>
           </optgroup>
           <optgroup label="Americas">
