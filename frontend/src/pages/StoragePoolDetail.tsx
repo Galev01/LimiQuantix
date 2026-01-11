@@ -81,7 +81,8 @@ export function StoragePoolDetail() {
   // Fetch data
   const { data: pool, isLoading: poolLoading, refetch: refetchPool } = useStoragePool(id || '');
   const { data: files = [], isLoading: filesLoading, refetch: refetchFiles } = usePoolFiles(id || '', currentPath);
-  const { data: allNodes = [] } = useNodes();
+  const { data: nodesData } = useNodes();
+  const allNodes = nodesData?.nodes ?? [];
 
   // Mutations
   const assignToNode = useAssignPoolToNode();
