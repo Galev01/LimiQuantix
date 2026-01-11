@@ -61,6 +61,15 @@ pub struct CloudInitConfig {
     
     /// Password for default user (optional, prefer SSH keys)
     pub default_password: Option<String>,
+    
+    /// Whether to install the Quantix guest agent
+    pub install_agent: bool,
+    
+    /// Control plane URL for agent download (e.g., "http://192.168.1.10:8080")
+    pub control_plane_url: Option<String>,
+    
+    /// Timezone for the guest (e.g., "America/New_York")
+    pub timezone: Option<String>,
 }
 
 impl CloudInitConfig {
@@ -94,6 +103,19 @@ impl CloudInitConfig {
     /// Set network configuration (Netplan v2 format).
     pub fn with_network_config(mut self, config: impl Into<String>) -> Self {
         self.network_config = Some(config.into());
+        self
+    }
+    
+    /// Enable Quantix agent installation.
+    pub fn with_agent_install(mut self, control_plane_url: Option<String>) -> Self {
+        self.install_agent = true;
+        self.control_plane_url = control_plane_url;
+        self
+    }
+    
+    /// Set the timezone (e.g., "America/New_York").
+    pub fn with_timezone(mut self, tz: impl Into<String>) -> Self {
+        self.timezone = Some(tz.into());
         self
     }
     
@@ -136,15 +158,41 @@ impl CloudInitConfig {
             lines.push("ssh_pwauth: true".to_string());
         }
         
+        // Set timezone if specified
+        if let Some(ref tz) = self.timezone {
+            lines.push(format!("timezone: {}", tz));
+        }
+        
         // Common packages
         lines.push("package_update: true".to_string());
         lines.push("packages:".to_string());
         lines.push("  - qemu-guest-agent".to_string());
+        if self.install_agent {
+            lines.push("  - curl".to_string());
+        }
         
         // Start qemu-guest-agent
         lines.push("runcmd:".to_string());
         lines.push("  - systemctl enable qemu-guest-agent".to_string());
         lines.push("  - systemctl start qemu-guest-agent".to_string());
+        
+        // Install Quantix Guest Agent (if enabled)
+        if self.install_agent {
+            let control_plane = self.control_plane_url.as_deref()
+                .unwrap_or("http://localhost:8080");
+            
+            lines.push("  - |".to_string());
+            lines.push("    # Install Quantix Guest Agent".to_string());
+            lines.push(format!("    AGENT_URL=\"{}/api/agent/linux-amd64\"", control_plane));
+            lines.push("    echo \"Downloading Quantix agent from $AGENT_URL\"".to_string());
+            lines.push("    if curl -sf -o /tmp/quantix-agent \"$AGENT_URL\"; then".to_string());
+            lines.push("      chmod +x /tmp/quantix-agent".to_string());
+            lines.push("      echo \"Installing Quantix agent...\"".to_string());
+            lines.push(format!("      /tmp/quantix-agent install --control-plane {} || echo 'Agent install failed'", control_plane));
+            lines.push("    else".to_string());
+            lines.push("      echo \"Could not download Quantix agent (control plane may be unreachable)\"".to_string());
+            lines.push("    fi".to_string());
+        }
         
         lines.join("\n")
     }

@@ -64,6 +64,9 @@ RUN apk add --no-cache \
     busybox-static \
     # UUID generation
     libuuid \
+    # WiFi tools for installer
+    wpa_supplicant \
+    wireless-tools \
     && rm -rf /var/cache/apk/*
 
 # Create working directories

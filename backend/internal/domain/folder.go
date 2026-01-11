@@ -65,13 +65,13 @@ func (f *Folder) IsRoot() bool {
 // Validate checks if the folder has valid data.
 func (f *Folder) Validate() error {
 	if f.Name == "" {
-		return ErrInvalidInput
+		return ErrInvalidArgument
 	}
 	if f.ProjectID == "" {
-		return ErrInvalidInput
+		return ErrInvalidArgument
 	}
 	if f.Type == "" {
-		return ErrInvalidInput
+		return ErrInvalidArgument
 	}
 	return nil
 }

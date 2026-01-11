@@ -12,6 +12,10 @@
 # Environment Variables:
 #   TARGET_DISK     - Target disk device (e.g., /dev/sda)
 #   HOSTNAME        - Hostname for the appliance
+#   NET_INTERFACE   - Network interface (e.g., eth0, wlan0)
+#   NET_TYPE        - Network type: ethernet or wifi
+#   WIFI_SSID       - WiFi network name (if NET_TYPE=wifi)
+#   WIFI_PASSWORD   - WiFi password (if NET_TYPE=wifi)
 #   IP_MODE         - Network mode: dhcp or static
 #   IP_ADDRESS      - Static IP address (if IP_MODE=static)
 #   IP_NETMASK      - Netmask (if IP_MODE=static)
@@ -77,6 +81,22 @@ while [ $# -gt 0 ]; do
             ;;
         --hostname)
             HOSTNAME="$2"
+            shift 2
+            ;;
+        --interface)
+            NET_INTERFACE="$2"
+            shift 2
+            ;;
+        --wifi)
+            NET_TYPE="wifi"
+            shift
+            ;;
+        --ssid)
+            WIFI_SSID="$2"
+            shift 2
+            ;;
+        --wifi-password)
+            WIFI_PASSWORD="$2"
             shift 2
             ;;
         --dhcp)
@@ -336,28 +356,93 @@ ff02::2         ip6-allrouters
 EOF
 
 # Network configuration
-if [ "$IP_MODE" = "static" ]; then
-    cat > "${TARGET_MOUNT}/etc/network/interfaces" << EOF
+# Use NET_INTERFACE if set, otherwise default to eth0
+IFACE="${NET_INTERFACE:-eth0}"
+
+if [ "$NET_TYPE" = "wifi" ] && [ -n "$WIFI_SSID" ]; then
+    # WiFi configuration
+    log_info "Configuring WiFi for $WIFI_SSID on $IFACE"
+    
+    # Create wpa_supplicant configuration
+    mkdir -p "${TARGET_MOUNT}/etc/wpa_supplicant"
+    if [ -n "$WIFI_PASSWORD" ]; then
+        cat > "${TARGET_MOUNT}/etc/wpa_supplicant/wpa_supplicant.conf" << EOF
+ctrl_interface=/var/run/wpa_supplicant
+update_config=1
+
+network={
+    ssid="$WIFI_SSID"
+    psk="$WIFI_PASSWORD"
+    key_mgmt=WPA-PSK
+}
+EOF
+    else
+        cat > "${TARGET_MOUNT}/etc/wpa_supplicant/wpa_supplicant.conf" << EOF
+ctrl_interface=/var/run/wpa_supplicant
+update_config=1
+
+network={
+    ssid="$WIFI_SSID"
+    key_mgmt=NONE
+}
+EOF
+    fi
+    chmod 600 "${TARGET_MOUNT}/etc/wpa_supplicant/wpa_supplicant.conf"
+    
+    # Enable wpa_supplicant service
+    chroot "${TARGET_MOUNT}" /sbin/rc-update add wpa_supplicant default 2>/dev/null || true
+    
+    # Network interfaces for WiFi
+    if [ "$IP_MODE" = "static" ]; then
+        cat > "${TARGET_MOUNT}/etc/network/interfaces" << EOF
 auto lo
 iface lo inet loopback
 
-auto eth0
-iface eth0 inet static
+auto $IFACE
+iface $IFACE inet static
+    address $IP_ADDRESS
+    netmask $IP_NETMASK
+    gateway $IP_GATEWAY
+    pre-up wpa_supplicant -B -i $IFACE -c /etc/wpa_supplicant/wpa_supplicant.conf
+    post-down killall wpa_supplicant
+EOF
+        echo "nameserver $IP_DNS" > "${TARGET_MOUNT}/etc/resolv.conf"
+    else
+        cat > "${TARGET_MOUNT}/etc/network/interfaces" << EOF
+auto lo
+iface lo inet loopback
+
+auto $IFACE
+iface $IFACE inet dhcp
+    pre-up wpa_supplicant -B -i $IFACE -c /etc/wpa_supplicant/wpa_supplicant.conf
+    post-down killall wpa_supplicant
+EOF
+    fi
+else
+    # Ethernet configuration
+    if [ "$IP_MODE" = "static" ]; then
+        cat > "${TARGET_MOUNT}/etc/network/interfaces" << EOF
+auto lo
+iface lo inet loopback
+
+auto $IFACE
+iface $IFACE inet static
     address $IP_ADDRESS
     netmask $IP_NETMASK
     gateway $IP_GATEWAY
 EOF
 
-    # DNS
-    echo "nameserver $IP_DNS" > "${TARGET_MOUNT}/etc/resolv.conf"
-else
-    cat > "${TARGET_MOUNT}/etc/network/interfaces" << EOF
+        # DNS
+        echo "nameserver $IP_DNS" > "${TARGET_MOUNT}/etc/resolv.conf"
+    else
+        cat > "${TARGET_MOUNT}/etc/network/interfaces" << EOF
 auto lo
 iface lo inet loopback
 
-auto eth0
-iface eth0 inet dhcp
+auto $IFACE
+iface $IFACE inet dhcp
 EOF
+    fi
 fi
 
 log_info "System configured"

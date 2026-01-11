@@ -241,6 +241,37 @@ cp "${WORK_DIR}/installer/firstboot.sh" "${INITRAMFS_DIR}/installer/" 2>/dev/nul
 chmod +x "${INITRAMFS_DIR}/installer/"* 2>/dev/null || true
 
 # =============================================================================
+# Copy WiFi tools for wireless network configuration during install
+# =============================================================================
+echo "   Copying WiFi tools..."
+for tool in wpa_supplicant wpa_cli iwlist iwconfig; do
+    for path in /sbin /usr/sbin /bin /usr/bin; do
+        if [ -f "${path}/${tool}" ]; then
+            cp "${path}/${tool}" "${INITRAMFS_DIR}/sbin/"
+            chmod +x "${INITRAMFS_DIR}/sbin/${tool}"
+            
+            # Copy tool dependencies
+            for lib in $(ldd "${path}/${tool}" 2>/dev/null | grep "=>" | awk '{print $3}' | grep -v "not found"); do
+                if [ -f "$lib" ]; then
+                    cp "$lib" "${INITRAMFS_DIR}/lib/" 2>/dev/null || true
+                fi
+            done
+            break
+        fi
+    done
+done
+
+# Copy wpa_supplicant support files
+mkdir -p "${INITRAMFS_DIR}/etc/wpa_supplicant"
+mkdir -p "${INITRAMFS_DIR}/var/run/wpa_supplicant"
+
+# Copy wireless libraries
+for lib in libnl*.so* libssl*.so* libcrypto*.so*; do
+    find /lib /usr/lib -name "$lib" -exec cp {} "${INITRAMFS_DIR}/lib/" \; 2>/dev/null || true
+done
+echo "   ✅ WiFi tools copied"
+
+# =============================================================================
 # Copy terminal definitions (REQUIRED for dialog to render)
 # =============================================================================
 echo "   Copying terminal definitions..."

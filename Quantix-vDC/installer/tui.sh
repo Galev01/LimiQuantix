@@ -195,10 +195,39 @@ configure_hostname() {
 # =============================================================================
 # Network Configuration
 # =============================================================================
+
+# Variables for network config
+NET_INTERFACE=""
+NET_TYPE="ethernet"  # ethernet or wifi
+WIFI_SSID=""
+WIFI_PASSWORD=""
+
 configure_network() {
+    # First, let user select interface type
     $DIALOG --backtitle "$BACKTITLE" \
         --title "Network Configuration" \
-        --menu "\nSelect network configuration method:\n" 12 50 2 \
+        --menu "\nSelect network connection type:\n" 12 55 2 \
+        "ethernet" "Ethernet (wired connection)" \
+        "wifi"     "WiFi (wireless connection)" 2>"$DIALOG_TEMP"
+    
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    
+    NET_TYPE=$(cat "$DIALOG_TEMP")
+    
+    if [ "$NET_TYPE" = "wifi" ]; then
+        configure_wifi_network
+        [ $? -ne 0 ] && return 1
+    else
+        configure_ethernet_interface
+        [ $? -ne 0 ] && return 1
+    fi
+    
+    # Now configure IP (DHCP or static)
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "IP Configuration" \
+        --menu "\nSelect IP configuration method:\n" 12 50 2 \
         "dhcp"   "Automatic (DHCP)" \
         "static" "Static IP Address" 2>"$DIALOG_TEMP"
 
@@ -213,6 +242,198 @@ configure_network() {
         return $?
     fi
 
+    return 0
+}
+
+configure_ethernet_interface() {
+    # Find ethernet interfaces
+    IFACE_LIST=""
+    for iface in $(ip link show | grep -E "^[0-9]+: (eth|enp|ens)" | awk -F: '{print $2}' | tr -d ' '); do
+        STATUS="down"
+        ip link show "$iface" 2>/dev/null | grep -q "state UP" && STATUS="up"
+        IFACE_LIST="$IFACE_LIST \"$iface\" \"Ethernet ($STATUS)\" off"
+    done
+    
+    if [ -z "$IFACE_LIST" ]; then
+        # Default to eth0 if nothing found
+        NET_INTERFACE="eth0"
+        return 0
+    fi
+    
+    eval $DIALOG --backtitle "\"$BACKTITLE\"" \
+        --title "\"Select Ethernet Interface\"" \
+        --radiolist "\"\\nSelect the network interface:\\n\"" \
+        14 50 4 \
+        $IFACE_LIST 2>"$DIALOG_TEMP"
+    
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    
+    NET_INTERFACE=$(cat "$DIALOG_TEMP")
+    [ -z "$NET_INTERFACE" ] && NET_INTERFACE="eth0"
+    
+    return 0
+}
+
+configure_wifi_network() {
+    # Find wireless interfaces
+    WIFI_IFACE=$(ip link show | grep -E "^[0-9]+: (wlan|wlp)" | head -1 | awk -F: '{print $2}' | tr -d ' ')
+    
+    if [ -z "$WIFI_IFACE" ]; then
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "WiFi Error" \
+            --msgbox "\nNo wireless interface detected!\n\nPlease check:\n- WiFi hardware is present\n- Drivers are loaded\n\nProceeding with ethernet configuration." 14 55
+        NET_TYPE="ethernet"
+        configure_ethernet_interface
+        return $?
+    fi
+    
+    NET_INTERFACE="$WIFI_IFACE"
+    
+    # Ask if user wants to scan or enter manually
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "WiFi Configuration" \
+        --menu "\nWiFi Interface: $WIFI_IFACE\n\nSelect option:\n" 14 50 2 \
+        "scan"   "Scan for networks" \
+        "manual" "Enter network name manually" 2>"$DIALOG_TEMP"
+    
+    [ $? -ne 0 ] && return 1
+    
+    local WIFI_METHOD=$(cat "$DIALOG_TEMP")
+    
+    if [ "$WIFI_METHOD" = "scan" ]; then
+        scan_wifi_installer
+    else
+        enter_wifi_manual
+    fi
+    
+    return $?
+}
+
+scan_wifi_installer() {
+    $DIALOG --backtitle "$BACKTITLE" \
+        --infobox "\nScanning for WiFi networks...\n\nThis may take a few seconds." 8 45
+    
+    # Bring interface up
+    ip link set "$NET_INTERFACE" up 2>/dev/null
+    sleep 2
+    
+    # Scan and build list
+    WIFI_LIST=""
+    if command -v iwlist >/dev/null 2>&1; then
+        for network in $(iwlist "$NET_INTERFACE" scan 2>/dev/null | grep "ESSID:" | sed 's/.*ESSID:"\([^"]*\)".*/\1/' | sort -u | head -10); do
+            [ -n "$network" ] && WIFI_LIST="$WIFI_LIST \"$network\" \"\" off"
+        done
+    fi
+    
+    if [ -z "$WIFI_LIST" ]; then
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "Scan Results" \
+            --msgbox "\nNo networks found.\n\nPlease enter network name manually." 10 45
+        enter_wifi_manual
+        return $?
+    fi
+    
+    eval $DIALOG --backtitle "\"$BACKTITLE\"" \
+        --title "\"Select WiFi Network\"" \
+        --radiolist "\"\\nSelect your WiFi network:\\n\"" \
+        18 55 8 \
+        $WIFI_LIST 2>"$DIALOG_TEMP"
+    
+    [ $? -ne 0 ] && return 1
+    
+    WIFI_SSID=$(cat "$DIALOG_TEMP")
+    
+    if [ -z "$WIFI_SSID" ]; then
+        enter_wifi_manual
+        return $?
+    fi
+    
+    # Get password
+    get_wifi_password
+    return $?
+}
+
+enter_wifi_manual() {
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "WiFi Network" \
+        --inputbox "\nEnter WiFi network name (SSID):\n" 10 50 2>"$DIALOG_TEMP"
+    
+    [ $? -ne 0 ] && return 1
+    
+    WIFI_SSID=$(cat "$DIALOG_TEMP")
+    
+    if [ -z "$WIFI_SSID" ]; then
+        $DIALOG --msgbox "\nNetwork name cannot be empty!" 8 40
+        return 1
+    fi
+    
+    get_wifi_password
+    return $?
+}
+
+get_wifi_password() {
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "WiFi Password" \
+        --insecure \
+        --passwordbox "\nEnter WiFi password for '$WIFI_SSID':\n\n(Leave empty for open network)" 12 55 2>"$DIALOG_TEMP"
+    
+    [ $? -ne 0 ] && return 1
+    
+    WIFI_PASSWORD=$(cat "$DIALOG_TEMP")
+    
+    # Test connection
+    $DIALOG --backtitle "$BACKTITLE" \
+        --infobox "\nTesting WiFi connection to '$WIFI_SSID'..." 6 50
+    
+    # Try to connect
+    killall wpa_supplicant 2>/dev/null
+    sleep 1
+    
+    if [ -n "$WIFI_PASSWORD" ]; then
+        # WPA/WPA2
+        cat > /tmp/wpa_test.conf << EOF
+ctrl_interface=/var/run/wpa_supplicant
+network={
+    ssid="$WIFI_SSID"
+    psk="$WIFI_PASSWORD"
+    key_mgmt=WPA-PSK
+}
+EOF
+    else
+        # Open network
+        cat > /tmp/wpa_test.conf << EOF
+ctrl_interface=/var/run/wpa_supplicant
+network={
+    ssid="$WIFI_SSID"
+    key_mgmt=NONE
+}
+EOF
+    fi
+    
+    ip link set "$NET_INTERFACE" up 2>/dev/null
+    wpa_supplicant -B -i "$NET_INTERFACE" -c /tmp/wpa_test.conf 2>/dev/null
+    sleep 4
+    
+    # Check if associated
+    if iwconfig "$NET_INTERFACE" 2>/dev/null | grep -q "Access Point: Not-Associated"; then
+        killall wpa_supplicant 2>/dev/null
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "Connection Failed" \
+            --yesno "\nFailed to connect to '$WIFI_SSID'.\n\nCheck your password and try again?" 10 50
+        
+        if [ $? -eq 0 ]; then
+            get_wifi_password
+            return $?
+        fi
+        return 1
+    fi
+    
+    # Keep wpa_supplicant running for now
+    $DIALOG --backtitle "$BACKTITLE" \
+        --msgbox "\nWiFi connected to '$WIFI_SSID'!" 8 45
+    
     return 0
 }
 
@@ -316,14 +537,27 @@ Begin installation?" 16 60
 }
 
 # =============================================================================
-# Run Installation
-# =============================================================================
 run_installation() {
     # Build install command
     INSTALL_CMD="/installer/install.sh"
     INSTALL_CMD="$INSTALL_CMD --disk $TARGET_DISK"
     INSTALL_CMD="$INSTALL_CMD --hostname $HOSTNAME"
     
+    # Network interface
+    if [ -n "$NET_INTERFACE" ]; then
+        INSTALL_CMD="$INSTALL_CMD --interface $NET_INTERFACE"
+    fi
+    
+    # WiFi configuration
+    if [ "$NET_TYPE" = "wifi" ] && [ -n "$WIFI_SSID" ]; then
+        INSTALL_CMD="$INSTALL_CMD --wifi"
+        INSTALL_CMD="$INSTALL_CMD --ssid '$WIFI_SSID'"
+        if [ -n "$WIFI_PASSWORD" ]; then
+            INSTALL_CMD="$INSTALL_CMD --wifi-password '$WIFI_PASSWORD'"
+        fi
+    fi
+    
+    # IP configuration
     if [ "$IP_MODE" = "static" ]; then
         INSTALL_CMD="$INSTALL_CMD --static"
         INSTALL_CMD="$INSTALL_CMD --ip $IP_ADDRESS"

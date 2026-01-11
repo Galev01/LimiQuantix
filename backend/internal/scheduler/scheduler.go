@@ -16,6 +16,7 @@ import (
 type Scheduler struct {
 	nodeRepo NodeRepository
 	vmRepo   VMRepository
+	poolRepo StoragePoolRepository
 	config   Config
 	logger   *zap.Logger
 }
@@ -25,6 +26,17 @@ func New(nodeRepo NodeRepository, vmRepo VMRepository, config Config, logger *za
 	return &Scheduler{
 		nodeRepo: nodeRepo,
 		vmRepo:   vmRepo,
+		config:   config,
+		logger:   logger.With(zap.String("component", "scheduler")),
+	}
+}
+
+// NewWithStoragePools creates a Scheduler with storage pool awareness.
+func NewWithStoragePools(nodeRepo NodeRepository, vmRepo VMRepository, poolRepo StoragePoolRepository, config Config, logger *zap.Logger) *Scheduler {
+	return &Scheduler{
+		nodeRepo: nodeRepo,
+		vmRepo:   vmRepo,
+		poolRepo: poolRepo,
 		config:   config,
 		logger:   logger.With(zap.String("component", "scheduler")),
 	}
@@ -154,6 +166,11 @@ func (s *Scheduler) checkPredicates(ctx context.Context, node *domain.Node, spec
 		return false
 	}
 
+	// Check storage pool affinity (node must have access to required storage pools)
+	if !s.checkStoragePoolAffinity(ctx, node, spec) {
+		return false
+	}
+
 	return true
 }
 
@@ -204,6 +221,9 @@ func (s *Scheduler) scoreNode(ctx context.Context, node *domain.Node, spec *comp
 	if s.isPreferredNode(node, spec) {
 		score += 20.0
 	}
+
+	// Apply bonus for storage pool affinity
+	score += s.scoreStoragePoolAffinity(ctx, node, spec)
 
 	return score
 }
@@ -337,6 +357,90 @@ func (s *Scheduler) checkAffinity(ctx context.Context, node *domain.Node, spec *
 	}
 
 	return true
+}
+
+// checkStoragePoolAffinity verifies the node has access to required storage pools.
+func (s *Scheduler) checkStoragePoolAffinity(ctx context.Context, node *domain.Node, spec *computev1.VmSpec) bool {
+	if s.poolRepo == nil {
+		return true // No pool repository, skip check
+	}
+
+	// Get all storage pool IDs from VM disks
+	requiredPools := make(map[string]bool)
+	for _, disk := range spec.GetDisks() {
+		if poolID := disk.GetStoragePoolId(); poolID != "" {
+			requiredPools[poolID] = true
+		}
+	}
+
+	if len(requiredPools) == 0 {
+		return true // No specific pool requirements
+	}
+
+	// Check if node is assigned to all required pools
+	nodePools, err := s.poolRepo.GetNodePools(ctx, node.ID)
+	if err != nil {
+		s.logger.Warn("Failed to get node pools", zap.String("node_id", node.ID), zap.Error(err))
+		return true // Can't check, assume OK
+	}
+
+	nodePoolSet := make(map[string]bool)
+	for _, poolID := range nodePools {
+		nodePoolSet[poolID] = true
+	}
+
+	for poolID := range requiredPools {
+		if !nodePoolSet[poolID] {
+			s.logger.Debug("Node missing required storage pool",
+				zap.String("node_id", node.ID),
+				zap.String("pool_id", poolID),
+			)
+			return false
+		}
+	}
+
+	return true
+}
+
+// scoreStoragePoolAffinity adds score for nodes with more of the required storage pools.
+func (s *Scheduler) scoreStoragePoolAffinity(ctx context.Context, node *domain.Node, spec *computev1.VmSpec) float64 {
+	if s.poolRepo == nil {
+		return 0.0
+	}
+
+	// Get required pools from VM spec
+	requiredPools := make(map[string]bool)
+	for _, disk := range spec.GetDisks() {
+		if poolID := disk.GetStoragePoolId(); poolID != "" {
+			requiredPools[poolID] = true
+		}
+	}
+
+	if len(requiredPools) == 0 {
+		return 0.0
+	}
+
+	// Get pools this node has access to
+	nodePools, err := s.poolRepo.GetNodePools(ctx, node.ID)
+	if err != nil {
+		return 0.0
+	}
+
+	// Calculate match score
+	matches := 0
+	for _, poolID := range nodePools {
+		if requiredPools[poolID] {
+			matches++
+		}
+	}
+
+	// Score: 10 points per matching pool (up to 30)
+	score := float64(matches) * 10.0
+	if score > 30.0 {
+		score = 30.0
+	}
+
+	return score
 }
 
 // isPreferredNode checks if the node is a preferred node based on soft affinity.

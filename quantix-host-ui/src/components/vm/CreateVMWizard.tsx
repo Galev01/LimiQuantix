@@ -10,9 +10,12 @@ import {
   HardDrive,
   Network,
   Cloud,
+  Disc,
+  Loader2,
 } from 'lucide-react';
 import { Card, Button, Input, Label, Badge } from '@/components/ui';
 import { useCreateVM } from '@/hooks/useVMs';
+import { useImages, formatImageSize, getDefaultUser, type CloudImage } from '@/hooks/useImages';
 import { cn, formatBytes } from '@/lib/utils';
 import type { CreateVmRequest, DiskSpec, NicSpec, CloudInitSpec } from '@/api/types';
 
@@ -21,10 +24,11 @@ interface CreateVMWizardProps {
   onClose: () => void;
 }
 
-type Step = 'basics' | 'compute' | 'storage' | 'network' | 'cloud-init' | 'review';
+type Step = 'basics' | 'boot-media' | 'compute' | 'storage' | 'network' | 'cloud-init' | 'review';
 
 const steps: { id: Step; title: string; icon: React.ReactNode }[] = [
   { id: 'basics', title: 'Basics', icon: <Server className="w-4 h-4" /> },
+  { id: 'boot-media', title: 'Boot Media', icon: <Disc className="w-4 h-4" /> },
   { id: 'compute', title: 'Compute', icon: <Cpu className="w-4 h-4" /> },
   { id: 'storage', title: 'Storage', icon: <HardDrive className="w-4 h-4" /> },
   { id: 'network', title: 'Network', icon: <Network className="w-4 h-4" /> },
@@ -35,6 +39,7 @@ const steps: { id: Step; title: string; icon: React.ReactNode }[] = [
 export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
   const navigate = useNavigate();
   const createVMMutation = useCreateVM();
+  const { images: cloudImages, isLoading: imagesLoading, isUsingCatalog } = useImages();
   const [currentStep, setCurrentStep] = useState<Step>('basics');
 
   // Form state
@@ -53,6 +58,14 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
     networkConfig: '',
   });
   const [useCloudInit, setUseCloudInit] = useState(false);
+
+  // Boot media state
+  const [bootMediaType, setBootMediaType] = useState<'none' | 'cloud-image' | 'iso'>('cloud-image');
+  const [selectedCloudImageId, setSelectedCloudImageId] = useState<string>('');
+  const [selectedIsoPath, setSelectedIsoPath] = useState<string>('');
+
+  // Get selected cloud image details
+  const selectedCloudImage = cloudImages.find((img: CloudImage) => img.id === selectedCloudImageId);
 
   const currentStepIndex = steps.findIndex(s => s.id === currentStep);
 
@@ -74,6 +87,9 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
     switch (currentStep) {
       case 'basics':
         return vmName.trim().length >= 1;
+      case 'boot-media':
+        // Boot media is optional (can use 'none' for blank VM)
+        return true;
       case 'compute':
         return cpuCores >= 1 && memoryMib >= 256;
       case 'storage':
@@ -90,11 +106,23 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
   };
 
   const handleCreate = async () => {
+    // Prepare disks with backing file if cloud image selected
+    const preparedDisks = disks.map((disk, index) => {
+      // First disk gets the cloud image backing file
+      if (index === 0 && bootMediaType === 'cloud-image' && selectedCloudImage) {
+        return {
+          ...disk,
+          backingFile: selectedCloudImage.path,
+        };
+      }
+      return disk;
+    });
+
     const request: CreateVmRequest = {
       name: vmName,
       cpuCores,
       memoryMib,
-      disks,
+      disks: preparedDisks,
       nics,
       cloudInit: useCloudInit ? cloudInit : undefined,
     };
@@ -205,6 +233,126 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                 <p className="text-xs text-text-muted mt-2">
                   Choose a descriptive name for your virtual machine
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Boot Media Step */}
+          {currentStep === 'boot-media' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-text-primary mb-4">Boot Media</h3>
+                <p className="text-sm text-text-muted mb-6">
+                  Select how to provision your virtual machine
+                </p>
+
+                {/* Boot Media Type Selection */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  {[
+                    { id: 'cloud-image', label: 'Cloud Image', desc: 'Pre-built OS image with cloud-init', icon: <Cloud className="w-5 h-5" /> },
+                    { id: 'iso', label: 'ISO Image', desc: 'Boot from CD/DVD installer', icon: <Disc className="w-5 h-5" /> },
+                    { id: 'none', label: 'Empty', desc: 'Blank disk (PXE boot)', icon: <HardDrive className="w-5 h-5" /> },
+                  ].map(option => (
+                    <button
+                      key={option.id}
+                      onClick={() => setBootMediaType(option.id as 'none' | 'cloud-image' | 'iso')}
+                      className={cn(
+                        'flex flex-col items-center p-4 rounded-lg border-2 transition-all',
+                        bootMediaType === option.id
+                          ? 'border-accent bg-accent/10'
+                          : 'border-border hover:border-accent/50'
+                      )}
+                    >
+                      <div className={cn(
+                        'p-3 rounded-full mb-2',
+                        bootMediaType === option.id ? 'bg-accent text-white' : 'bg-bg-base text-text-muted'
+                      )}>
+                        {option.icon}
+                      </div>
+                      <span className="font-medium text-text-primary">{option.label}</span>
+                      <span className="text-xs text-text-muted text-center mt-1">{option.desc}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Cloud Image Selection */}
+                {bootMediaType === 'cloud-image' && (
+                  <div className="space-y-4">
+                    <Label>Select Cloud Image</Label>
+                    {imagesLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                        <span className="ml-2 text-text-muted">Loading images...</span>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 max-h-64 overflow-y-auto">
+                        {cloudImages.map((image: CloudImage) => (
+                          <button
+                            key={image.id}
+                            onClick={() => {
+                              setSelectedCloudImageId(image.id);
+                              // Auto-enable cloud-init and set default user
+                              setUseCloudInit(true);
+                            }}
+                            className={cn(
+                              'flex items-center gap-4 p-3 rounded-lg border transition-all text-left',
+                              selectedCloudImageId === image.id
+                                ? 'border-accent bg-accent/10'
+                                : 'border-border hover:border-accent/50'
+                            )}
+                          >
+                            <div className={cn(
+                              'p-2 rounded-lg',
+                              selectedCloudImageId === image.id ? 'bg-accent text-white' : 'bg-bg-base text-text-muted'
+                            )}>
+                              <Cloud className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-text-primary">{image.name}</p>
+                              <p className="text-xs text-text-muted">
+                                {formatImageSize(image.size)} • Default user: {image.defaultUser || getDefaultUser(image.os)}
+                              </p>
+                            </div>
+                            {selectedCloudImageId === image.id && (
+                              <Check className="w-5 h-5 text-accent" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {isUsingCatalog && (
+                      <p className="text-xs text-warning mt-2">
+                        Using image catalog. Some images may not be available on this host.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* ISO Selection */}
+                {bootMediaType === 'iso' && (
+                  <div className="space-y-4">
+                    <Label htmlFor="isoPath">ISO Image Path</Label>
+                    <Input
+                      id="isoPath"
+                      value={selectedIsoPath}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setSelectedIsoPath(e.target.value)}
+                      placeholder="/var/lib/libvirt/images/ubuntu-22.04-server.iso"
+                      className="font-mono"
+                    />
+                    <p className="text-xs text-text-muted">
+                      Enter the full path to the ISO file on this host
+                    </p>
+                  </div>
+                )}
+
+                {/* Empty Disk Info */}
+                {bootMediaType === 'none' && (
+                  <div className="p-4 bg-bg-base rounded-lg border border-border">
+                    <p className="text-sm text-text-secondary">
+                      The VM will be created with an empty disk. You can use PXE boot or attach an ISO later to install an operating system.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

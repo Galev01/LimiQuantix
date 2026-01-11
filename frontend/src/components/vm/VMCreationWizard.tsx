@@ -41,6 +41,8 @@ import { useNetworks, type ApiVirtualNetwork } from '@/hooks/useNetworks';
 import { useAvailableImages, useISOs, formatImageSize, getDefaultUser, type CloudImage, type ISOImage, ISO_CATALOG } from '@/hooks/useImages';
 import { useStoragePools, type StoragePoolUI } from '@/hooks/useStorage';
 import { useOVATemplates, type OVATemplate, formatOVASize } from '@/hooks/useOVA';
+import { useFolders, type Folder as FolderType } from '@/hooks/useFolders';
+import { useCustomizationSpecs, type CustomizationSpec } from '@/hooks/useCustomizationSpecs';
 
 interface VMCreationWizardProps {
   isOpen?: boolean; // For AnimatePresence compatibility, component is always rendered when open
@@ -239,6 +241,36 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
   const { isos, isLoading: isosLoading, isUsingCatalog: isUsingIsoCatalog } = useISOs();
   const { data: storagePools, isLoading: storageLoading } = useStoragePools();
   const { data: ovaTemplates, isLoading: ovaLoading } = useOVATemplates();
+  const { data: foldersData, isLoading: foldersLoading } = useFolders({ type: 'VM' });
+  const { data: customizationSpecsData, isLoading: specsLoading } = useCustomizationSpecs();
+
+  // Process folders for the UI
+  const folders = useMemo(() => {
+    if (foldersData?.folders?.length) {
+      return foldersData.folders.map((f: FolderType) => ({
+        id: f.id,
+        name: f.name,
+        path: f.path || `/${f.name}`,
+      }));
+    }
+    // Fallback to static folders if API fails
+    return staticFolders;
+  }, [foldersData]);
+
+  // Process customization specs for the UI
+  const customizationSpecs = useMemo(() => {
+    if (customizationSpecsData?.specs?.length) {
+      return customizationSpecsData.specs.map((s: CustomizationSpec) => ({
+        id: s.id,
+        name: s.name,
+        os: s.type === 'LINUX' ? 'Linux' : 'Windows',
+        description: s.description,
+        installAgent: s.installAgent,
+      }));
+    }
+    // Fallback to static specs if API fails
+    return staticCustomSpecs;
+  }, [customizationSpecsData]);
 
   // Process nodes into a format usable by the wizard
   const nodes = useMemo(() => {
@@ -630,10 +662,10 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                 />
               )}
               {currentStep === 2 && (
-                <StepFolder formData={formData} updateFormData={updateFormData} />
+                <StepFolder formData={formData} updateFormData={updateFormData} folders={folders} foldersLoading={foldersLoading} />
               )}
               {currentStep === 3 && (
-                <StepCustomization formData={formData} updateFormData={updateFormData} />
+                <StepCustomization formData={formData} updateFormData={updateFormData} customizationSpecs={customizationSpecs} specsLoading={specsLoading} />
               )}
               {currentStep === 4 && (
                 <StepHardware
@@ -678,6 +710,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                   cloudImages={cloudImages}
                   storagePools={storagePools || []}
                   isos={isos}
+                  folders={folders}
                 />
               )}
             </motion.div>
@@ -1077,9 +1110,13 @@ function StepPlacement({
 function StepFolder({
   formData,
   updateFormData,
+  folders,
+  foldersLoading,
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
+  folders: Array<{ id: string; name: string; path: string }>;
+  foldersLoading: boolean;
 }) {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -1090,7 +1127,12 @@ function StepFolder({
 
       <FormField label="Folder" required>
         <div className="grid gap-2">
-          {staticFolders.map((folder) => (
+          {foldersLoading ? (
+            <div className="flex items-center gap-2 text-[var(--text-secondary)] py-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Loading folders...</span>
+            </div>
+          ) : folders.map((folder) => (
             <label
               key={folder.id}
               className={cn(
@@ -1113,7 +1155,8 @@ function StepFolder({
                 <p className="text-xs text-text-muted font-mono">{folder.path}</p>
               </div>
             </label>
-          ))}
+          ))
+          }
         </div>
       </FormField>
 
@@ -1128,9 +1171,13 @@ function StepFolder({
 function StepCustomization({
   formData,
   updateFormData,
+  customizationSpecs,
+  specsLoading,
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
+  customizationSpecs: Array<{ id: string; name: string; os: string; description?: string; installAgent?: boolean }>;
+  specsLoading: boolean;
 }) {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -1198,9 +1245,10 @@ function StepCustomization({
           value={formData.customSpec}
           onChange={(e) => updateFormData({ customSpec: e.target.value })}
           className="form-select"
+          disabled={specsLoading}
         >
           <option value="">None - Configure manually after creation</option>
-          {staticCustomSpecs.map((spec) => (
+          {customizationSpecs.map((spec) => (
             <option key={spec.id} value={spec.id}>
               {spec.name} ({spec.os})
             </option>
@@ -1230,12 +1278,56 @@ function StepCustomization({
           onChange={(e) => updateFormData({ timezone: e.target.value })}
           className="form-select"
         >
-          <option value="UTC">UTC</option>
-          <option value="America/New_York">America/New_York (EST)</option>
-          <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
-          <option value="Europe/London">Europe/London (GMT)</option>
-          <option value="Europe/Berlin">Europe/Berlin (CET)</option>
-          <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+          <optgroup label="Common">
+            <option value="UTC">UTC (Coordinated Universal Time)</option>
+            <option value="America/New_York">America/New_York (EST/EDT)</option>
+            <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+            <option value="America/Denver">America/Denver (MST/MDT)</option>
+            <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+            <option value="Europe/London">Europe/London (GMT/BST)</option>
+            <option value="Europe/Berlin">Europe/Berlin (CET/CEST)</option>
+            <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+            <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+            <option value="Asia/Shanghai">Asia/Shanghai (CST)</option>
+          </optgroup>
+          <optgroup label="Americas">
+            <option value="America/Anchorage">America/Anchorage (AKST)</option>
+            <option value="America/Phoenix">America/Phoenix (MST)</option>
+            <option value="America/Toronto">America/Toronto (EST)</option>
+            <option value="America/Vancouver">America/Vancouver (PST)</option>
+            <option value="America/Sao_Paulo">America/Sao_Paulo (BRT)</option>
+            <option value="America/Mexico_City">America/Mexico_City (CST)</option>
+            <option value="America/Argentina/Buenos_Aires">America/Buenos_Aires (ART)</option>
+          </optgroup>
+          <optgroup label="Europe">
+            <option value="Europe/Amsterdam">Europe/Amsterdam (CET)</option>
+            <option value="Europe/Dublin">Europe/Dublin (GMT)</option>
+            <option value="Europe/Madrid">Europe/Madrid (CET)</option>
+            <option value="Europe/Moscow">Europe/Moscow (MSK)</option>
+            <option value="Europe/Rome">Europe/Rome (CET)</option>
+            <option value="Europe/Stockholm">Europe/Stockholm (CET)</option>
+            <option value="Europe/Warsaw">Europe/Warsaw (CET)</option>
+            <option value="Europe/Zurich">Europe/Zurich (CET)</option>
+          </optgroup>
+          <optgroup label="Asia & Pacific">
+            <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+            <option value="Asia/Hong_Kong">Asia/Hong_Kong (HKT)</option>
+            <option value="Asia/Seoul">Asia/Seoul (KST)</option>
+            <option value="Asia/Taipei">Asia/Taipei (CST)</option>
+            <option value="Asia/Bangkok">Asia/Bangkok (ICT)</option>
+            <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+            <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+            <option value="Australia/Sydney">Australia/Sydney (AEST)</option>
+            <option value="Australia/Melbourne">Australia/Melbourne (AEST)</option>
+            <option value="Pacific/Auckland">Pacific/Auckland (NZST)</option>
+            <option value="Pacific/Honolulu">Pacific/Honolulu (HST)</option>
+          </optgroup>
+          <optgroup label="Africa & Middle East">
+            <option value="Africa/Cairo">Africa/Cairo (EET)</option>
+            <option value="Africa/Johannesburg">Africa/Johannesburg (SAST)</option>
+            <option value="Asia/Jerusalem">Asia/Jerusalem (IST)</option>
+            <option value="Asia/Riyadh">Asia/Riyadh (AST)</option>
+          </optgroup>
         </select>
       </FormField>
     </div>
@@ -2463,6 +2555,7 @@ function StepReview({
   cloudImages,
   storagePools,
   isos,
+  folders,
 }: {
   formData: VMCreationData;
   clusters: ProcessedCluster[];
@@ -2470,10 +2563,11 @@ function StepReview({
   cloudImages: CloudImage[];
   storagePools: StoragePoolUI[];
   isos: (CloudImage | ISOImage)[];
+  folders: Array<{ id: string; name: string; path: string }>;
 }) {
   const selectedCluster = clusters.find((c) => c.id === formData.clusterId);
   const selectedHost = nodes.find((n) => n.id === formData.hostId);
-  const selectedFolder = staticFolders.find((f) => f.id === formData.folderId);
+  const selectedFolder = folders.find((f) => f.id === formData.folderId);
   // Use only API storage pools (no mock fallback)
   const selectedPool = storagePools.find((p) => p.id === formData.storagePoolId);
   // Use API ISOs with fallback to catalog

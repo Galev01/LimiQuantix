@@ -35,6 +35,12 @@ type VirtualMachine struct {
 	Spec   VMSpec   `json:"spec"`
 	Status VMStatus `json:"status"`
 
+	// ScheduledAt is for scheduled VM creation (create the VM later).
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+
+	// CustomizationSpecID references a reusable customization specification.
+	CustomizationSpecID string `json:"customization_spec_id,omitempty"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	CreatedBy string    `json:"created_by"`

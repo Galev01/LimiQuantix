@@ -24,3 +24,12 @@ type VMRepository interface {
 	// CountByNodeID returns the number of VMs running on a specific node.
 	CountByNodeID(ctx context.Context, nodeID string) (int, error)
 }
+
+// StoragePoolRepository defines the interface for storage pool data access needed by the scheduler.
+type StoragePoolRepository interface {
+	// GetAssignedNodeIDs returns the list of node IDs assigned to a storage pool.
+	GetAssignedNodeIDs(ctx context.Context, poolID string) ([]string, error)
+
+	// GetNodePools returns the list of storage pool IDs assigned to a node.
+	GetNodePools(ctx context.Context, nodeID string) ([]string, error)
+}
