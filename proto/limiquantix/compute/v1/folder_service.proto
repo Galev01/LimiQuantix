@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+package limiquantix.compute.v1;
+
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;computev1";
+
+import "google/protobuf/empty.proto";
+import "limiquantix/compute/v1/folder.proto";
+
+// =============================================================================
+// FOLDER SERVICE - Folder Management API
+// =============================================================================
+
+// FolderService provides CRUD operations for organizing VMs into folders.
+service FolderService {
+  // CreateFolder creates a new folder.
+  rpc CreateFolder(CreateFolderRequest) returns (Folder);
+
+  // GetFolder retrieves a folder by ID.
+  rpc GetFolder(GetFolderRequest) returns (Folder);
+
+  // ListFolders returns folders matching the filter.
+  rpc ListFolders(ListFoldersRequest) returns (ListFoldersResponse);
+
+  // UpdateFolder updates an existing folder.
+  rpc UpdateFolder(UpdateFolderRequest) returns (Folder);
+
+  // DeleteFolder removes a folder.
+  // Fails if folder contains VMs unless force=true.
+  rpc DeleteFolder(DeleteFolderRequest) returns (google.protobuf.Empty);
+
+  // GetFolderTree returns the folder tree starting from a root.
+  rpc GetFolderTree(GetFolderTreeRequest) returns (FolderTree);
+}
+
+// =============================================================================
+// REQUEST/RESPONSE MESSAGES
+// =============================================================================
+
+message CreateFolderRequest {
+  // Required: Display name
+  string name = 1;
+
+  // Optional: Parent folder ID (empty = root folder)
+  string parent_id = 2;
+
+  // Optional: Project ID (default = default project)
+  string project_id = 3;
+
+  // Optional: Folder type (default = VM)
+  string type = 4;
+
+  // Optional: Description
+  string description = 5;
+
+  // Optional: Labels
+  map<string, string> labels = 6;
+}
+
+message GetFolderRequest {
+  // Required: Folder ID
+  string id = 1;
+}
+
+message ListFoldersRequest {
+  // Optional: Filter by project
+  string project_id = 1;
+
+  // Optional: Filter by parent (empty = root folders)
+  string parent_id = 2;
+
+  // Optional: Filter by type
+  string type = 3;
+
+  // Optional: Page size
+  int32 page_size = 4;
+
+  // Optional: Page token for pagination
+  string page_token = 5;
+}
+
+message ListFoldersResponse {
+  // List of folders
+  repeated Folder folders = 1;
+
+  // Next page token
+  string next_page_token = 2;
+
+  // Total count (if requested)
+  int32 total_count = 3;
+}
+
+message UpdateFolderRequest {
+  // Required: Folder ID
+  string id = 1;
+
+  // Optional: New name
+  string name = 2;
+
+  // Optional: New parent ID (move folder)
+  string parent_id = 3;
+
+  // Optional: New description
+  string description = 4;
+
+  // Optional: Labels to set
+  map<string, string> labels = 5;
+}
+
+message DeleteFolderRequest {
+  // Required: Folder ID
+  string id = 1;
+
+  // Optional: Force delete even if folder contains VMs
+  bool force = 2;
+
+  // Optional: Move VMs to this folder instead of orphaning
+  string move_vms_to = 3;
+}
+
+message GetFolderTreeRequest {
+  // Optional: Root folder ID (empty = all root folders)
+  string root_id = 1;
+
+  // Optional: Project ID
+  string project_id = 2;
+
+  // Optional: Folder type filter
+  string type = 3;
+
+  // Optional: Max depth to traverse (0 = unlimited)
+  int32 depth = 4;
+}

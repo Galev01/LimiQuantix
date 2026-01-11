@@ -85,9 +85,9 @@ func (s *Service) CreateVM(
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	// 2. Use default project if not specified
+	// 2. Use default project if not specified or if "default" placeholder
 	projectID := req.Msg.ProjectId
-	if projectID == "" {
+	if projectID == "" || projectID == "default" {
 		projectID = "00000000-0000-0000-0000-000000000001" // Default project
 	}
 

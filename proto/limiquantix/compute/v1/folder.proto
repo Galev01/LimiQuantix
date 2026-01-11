@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package limiquantix.compute.v1;
+
+option go_package = "github.com/limiquantix/limiquantix/pkg/api/compute/v1;computev1";
+
+import "google/protobuf/timestamp.proto";
+
+// =============================================================================
+// FOLDER - Hierarchical Organization (vSphere-like)
+// =============================================================================
+
+// Folder represents a hierarchical folder for organizing resources.
+// Similar to VMware vSphere's folder structure.
+message Folder {
+  // Unique identifier (UUIDv4)
+  string id = 1;
+
+  // Display name of the folder
+  string name = 2;
+
+  // Parent folder ID (empty for root folders)
+  string parent_id = 3;
+
+  // Project/tenant this folder belongs to
+  string project_id = 4;
+
+  // Type of objects this folder contains: VM, DATASTORE, NETWORK, HOST
+  string type = 5;
+
+  // Optional description
+  string description = 6;
+
+  // Full path from root (e.g., "/Production/Web Servers")
+  string path = 7;
+
+  // Number of immediate children (folders + objects)
+  int32 child_count = 8;
+
+  // Labels for additional metadata
+  map<string, string> labels = 9;
+
+  // Timestamps
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  string created_by = 12;
+}
+
+// FolderTree represents a folder with its children for tree views.
+message FolderTree {
+  // The folder at this level
+  Folder folder = 1;
+
+  // Child folders
+  repeated FolderTree children = 2;
+}

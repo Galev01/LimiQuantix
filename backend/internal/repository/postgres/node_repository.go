@@ -421,7 +421,8 @@ func (r *NodeRepository) UpdateStatus(ctx context.Context, id string, status dom
 	return nil
 }
 
-// UpdateHeartbeat updates the last heartbeat time and resources.
+// UpdateHeartbeat updates the last heartbeat time, resources, and sets phase to READY.
+// When a node sends a heartbeat, it's alive and should be marked as READY.
 func (r *NodeRepository) UpdateHeartbeat(ctx context.Context, id string, resources domain.Resources) error {
 	allocatedJSON, err := json.Marshal(resources)
 	if err != nil {
@@ -430,11 +431,11 @@ func (r *NodeRepository) UpdateHeartbeat(ctx context.Context, id string, resourc
 
 	query := `
 		UPDATE nodes
-		SET last_heartbeat = NOW(), allocated = $2
+		SET last_heartbeat = NOW(), allocated = $2, phase = $3
 		WHERE id = $1
 	`
 
-	result, err := r.db.pool.Exec(ctx, query, id, allocatedJSON)
+	result, err := r.db.pool.Exec(ctx, query, id, allocatedJSON, string(domain.NodePhaseReady))
 	if err != nil {
 		return fmt.Errorf("failed to update heartbeat: %w", err)
 	}

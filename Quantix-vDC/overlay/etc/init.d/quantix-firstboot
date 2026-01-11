@@ -87,8 +87,55 @@ EOF
         fi
     fi
 
+    # Install and initialize etcd (not in Alpine repos)
+    if [ ! -f /usr/bin/etcd ]; then
+        einfo "Installing etcd..."
+        ETCD_VERSION="v3.5.17"
+        ETCD_ARCH="amd64"
+        
+        # Download etcd
+        cd /tmp
+        wget -q "https://github.com/etcd-io/etcd/releases/download/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-${ETCD_ARCH}.tar.gz" -O etcd.tar.gz 2>/dev/null || {
+            ewarn "Failed to download etcd, will run without distributed coordination"
+        }
+        
+        if [ -f /tmp/etcd.tar.gz ]; then
+            tar -xzf etcd.tar.gz
+            cp etcd-${ETCD_VERSION}-linux-${ETCD_ARCH}/etcd /usr/bin/
+            cp etcd-${ETCD_VERSION}-linux-${ETCD_ARCH}/etcdctl /usr/bin/
+            chmod +x /usr/bin/etcd /usr/bin/etcdctl
+            rm -rf etcd.tar.gz etcd-${ETCD_VERSION}-linux-${ETCD_ARCH}
+            einfo "etcd installed successfully"
+            
+            # Create etcd OpenRC init script
+            cat > /etc/init.d/etcd << 'ETCDINIT'
+#!/sbin/openrc-run
+name="etcd"
+description="etcd distributed key-value store"
+command="/usr/bin/etcd"
+command_args="--data-dir=/var/lib/etcd --listen-client-urls=http://127.0.0.1:2379 --advertise-client-urls=http://127.0.0.1:2379"
+command_background="yes"
+pidfile="/run/etcd.pid"
+output_log="/var/log/etcd.log"
+error_log="/var/log/etcd.err"
+
+depend() {
+    need net localmount
+    after quantix-firstboot
+}
+
+start_pre() {
+    mkdir -p /var/lib/etcd
+    chmod 700 /var/lib/etcd
+}
+ETCDINIT
+            chmod +x /etc/init.d/etcd
+            rc-update add etcd default 2>/dev/null || true
+        fi
+    fi
+
     # Initialize etcd data directory
-    if [ ! -d /var/lib/etcd/default.etcd ]; then
+    if [ ! -d /var/lib/etcd ]; then
         einfo "Creating etcd data directory..."
         mkdir -p /var/lib/etcd
         chown -R root:root /var/lib/etcd

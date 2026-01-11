@@ -56,6 +56,23 @@ show_system_info() {
     local PRIMARY_IP=$(get_primary_ip)
     local HOSTNAME=$(get_hostname)
     
+    # Get more detailed service status
+    local CP_STATUS=$(get_service_status quantix-controlplane)
+    local PG_STATUS=$(get_service_status postgresql)
+    local REDIS_STATUS=$(get_service_status redis)
+    local ETCD_STATUS=$(get_service_status etcd)
+    local NGINX_STATUS=$(get_service_status nginx)
+    
+    # Check if binaries exist
+    local CP_NOTE=""
+    local ETCD_NOTE=""
+    if [ ! -x /usr/bin/qx-controlplane ]; then
+        CP_NOTE=" (not installed)"
+    fi
+    if [ ! -x /usr/bin/etcd ]; then
+        ETCD_NOTE=" (installing on first boot)"
+    fi
+    
     $DIALOG --backtitle "$BACKTITLE v$VERSION" \
         --title "System Information" \
         --msgbox "\n\
@@ -67,12 +84,12 @@ API Endpoint: https://${PRIMARY_IP:-localhost}/api/v1/\n\
 SSH:          $(is_ssh_enabled)\n\
 \n\
 Services:\n\
-  Control Plane: $(get_service_status quantix-controlplane)\n\
-  PostgreSQL:    $(get_service_status postgresql)\n\
-  Redis:         $(get_service_status redis)\n\
-  etcd:          $(get_service_status etcd)\n\
-  nginx:         $(get_service_status nginx)\n\
-" 20 60
+  Control Plane: ${CP_STATUS}${CP_NOTE}\n\
+  PostgreSQL:    ${PG_STATUS}\n\
+  Redis:         ${REDIS_STATUS}\n\
+  etcd:          ${ETCD_STATUS}${ETCD_NOTE}\n\
+  nginx:         ${NGINX_STATUS}\n\
+" 24 65
 }
 
 # =============================================================================
@@ -208,6 +225,162 @@ EOF
     $DIALOG --backtitle "$BACKTITLE" \
         --title "Network Configured" \
         --msgbox "\nStatic IP configuration applied.\n\nIP: $IP/$MASK\nGateway: $GW\nDNS: $DNS" 12 50
+}
+
+# =============================================================================
+# WiFi Configuration
+# =============================================================================
+
+configure_wifi() {
+    # Check if wireless interface exists
+    local WIFI_IFACE=$(ip link show | grep -E "^[0-9]+: (wlan|wlp)" | head -1 | awk -F: '{print $2}' | tr -d ' ')
+    
+    if [ -z "$WIFI_IFACE" ]; then
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "WiFi Configuration" \
+            --msgbox "\nNo wireless interface detected.\n\nMake sure WiFi hardware is present and drivers are loaded." 10 60
+        return
+    fi
+    
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "WiFi Configuration" \
+        --menu "\nWiFi Interface: $WIFI_IFACE\n\nSelect action:" 14 60 4 \
+        "scan" "Scan for networks" \
+        "connect" "Connect to network" \
+        "disconnect" "Disconnect WiFi" \
+        "status" "Show WiFi status" \
+        2>"$TEMP_FILE"
+    
+    [ $? -ne 0 ] && return
+    
+    local ACTION=$(cat "$TEMP_FILE")
+    
+    case "$ACTION" in
+        scan)
+            scan_wifi_networks "$WIFI_IFACE"
+            ;;
+        connect)
+            connect_wifi "$WIFI_IFACE"
+            ;;
+        disconnect)
+            disconnect_wifi "$WIFI_IFACE"
+            ;;
+        status)
+            show_wifi_status "$WIFI_IFACE"
+            ;;
+    esac
+}
+
+scan_wifi_networks() {
+    local IFACE="$1"
+    
+    $DIALOG --infobox "\nScanning for WiFi networks..." 5 40
+    
+    # Bring interface up
+    ip link set "$IFACE" up 2>/dev/null
+    sleep 1
+    
+    # Scan networks
+    if command -v iwlist >/dev/null 2>&1; then
+        local NETWORKS=$(iwlist "$IFACE" scan 2>/dev/null | grep -E "ESSID:|Quality=" | paste - - | \
+            sed 's/.*ESSID:"\([^"]*\)".*Quality=\([0-9]*\).*/\2% \1/' | sort -rn | head -15)
+    else
+        local NETWORKS="Scanning not available\n(iwlist not installed)"
+    fi
+    
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Available Networks" \
+        --msgbox "\nFound networks:\n\n$NETWORKS" 20 60
+}
+
+connect_wifi() {
+    local IFACE="$1"
+    
+    # Get SSID
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Connect to WiFi" \
+        --inputbox "Enter WiFi network name (SSID):" 10 50 2>"$TEMP_FILE"
+    [ $? -ne 0 ] && return
+    local SSID=$(cat "$TEMP_FILE")
+    
+    if [ -z "$SSID" ]; then
+        $DIALOG --msgbox "\nSSID cannot be empty!" 8 40
+        return
+    fi
+    
+    # Get password
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Connect to WiFi" \
+        --insecure \
+        --passwordbox "Enter WiFi password:" 10 50 2>"$TEMP_FILE"
+    [ $? -ne 0 ] && return
+    local PASSWORD=$(cat "$TEMP_FILE")
+    
+    $DIALOG --infobox "\nConnecting to $SSID..." 5 40
+    
+    # Create wpa_supplicant config
+    mkdir -p /etc/wpa_supplicant
+    cat > /etc/wpa_supplicant/wpa_supplicant.conf << EOF
+ctrl_interface=/var/run/wpa_supplicant
+update_config=1
+
+network={
+    ssid="$SSID"
+    psk="$PASSWORD"
+    key_mgmt=WPA-PSK
+}
+EOF
+    chmod 600 /etc/wpa_supplicant/wpa_supplicant.conf
+    
+    # Stop any existing wpa_supplicant
+    killall wpa_supplicant 2>/dev/null
+    sleep 1
+    
+    # Start wpa_supplicant
+    ip link set "$IFACE" up
+    wpa_supplicant -B -i "$IFACE" -c /etc/wpa_supplicant/wpa_supplicant.conf 2>/dev/null
+    sleep 3
+    
+    # Get IP via DHCP
+    udhcpc -i "$IFACE" -b -q 2>/dev/null &
+    sleep 3
+    
+    # Check connection
+    local WIFI_IP=$(ip -4 addr show "$IFACE" 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1)
+    
+    if [ -n "$WIFI_IP" ]; then
+        $DIALOG --msgbox "\nConnected to $SSID\n\nIP Address: $WIFI_IP" 10 50
+        
+        # Enable wpa_supplicant at boot
+        rc-update add wpa_supplicant default 2>/dev/null || true
+    else
+        $DIALOG --msgbox "\nFailed to connect to $SSID\n\nCheck password and try again." 10 50
+    fi
+}
+
+disconnect_wifi() {
+    local IFACE="$1"
+    
+    killall wpa_supplicant 2>/dev/null
+    ip link set "$IFACE" down 2>/dev/null
+    
+    $DIALOG --msgbox "\nWiFi disconnected." 8 40
+}
+
+show_wifi_status() {
+    local IFACE="$1"
+    
+    local STATUS=""
+    
+    if command -v iwconfig >/dev/null 2>&1; then
+        STATUS=$(iwconfig "$IFACE" 2>/dev/null)
+    fi
+    
+    local WIFI_IP=$(ip -4 addr show "$IFACE" 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1)
+    
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "WiFi Status" \
+        --msgbox "\nInterface: $IFACE\nIP Address: ${WIFI_IP:-Not connected}\n\n$STATUS" 18 70
 }
 
 # =============================================================================
@@ -457,15 +630,16 @@ main_menu() {
         
         $DIALOG --backtitle "$BACKTITLE v$VERSION" \
             --title "Main Menu" \
-            --menu "\n   Hostname: $HOSTNAME\n   IP Address: ${PRIMARY_IP:-No network}\n   Web: https://${PRIMARY_IP:-localhost}/\n" 20 70 9 \
+            --menu "\n   Hostname: $HOSTNAME\n   IP Address: ${PRIMARY_IP:-No network}\n   Web: https://${PRIMARY_IP:-localhost}/\n" 22 70 10 \
             "1" "System Information" \
-            "2" "Configure Network" \
-            "3" "Configure SSH" \
-            "4" "Manage Services" \
-            "5" "Change Root Password" \
-            "6" "Troubleshooting" \
-            "7" "Power Options" \
-            "8" "Exit to Login Prompt" \
+            "2" "Configure Network (Ethernet)" \
+            "3" "Configure WiFi" \
+            "4" "Configure SSH" \
+            "5" "Manage Services" \
+            "6" "Change Root Password" \
+            "7" "Troubleshooting" \
+            "8" "Power Options" \
+            "9" "Exit to Login Prompt" \
             2>"$TEMP_FILE"
         
         [ $? -ne 0 ] && continue
@@ -475,12 +649,13 @@ main_menu() {
         case "$CHOICE" in
             1) show_system_info ;;
             2) configure_network ;;
-            3) configure_ssh ;;
-            4) manage_services ;;
-            5) change_root_password ;;
-            6) troubleshooting_menu ;;
-            7) power_menu ;;
-            8) 
+            3) configure_wifi ;;
+            4) configure_ssh ;;
+            5) manage_services ;;
+            6) change_root_password ;;
+            7) troubleshooting_menu ;;
+            8) power_menu ;;
+            9) 
                 clear
                 echo ""
                 echo "Quantix-vDC Control Plane Appliance"

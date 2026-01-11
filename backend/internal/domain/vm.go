@@ -27,6 +27,7 @@ type VirtualMachine struct {
 	ID              string            `json:"id"`
 	Name            string            `json:"name"`
 	ProjectID       string            `json:"project_id"`
+	FolderID        string            `json:"folder_id,omitempty"`
 	Description     string            `json:"description"`
 	Labels          map[string]string `json:"labels"`
 	HardwareVersion string            `json:"hardware_version"`

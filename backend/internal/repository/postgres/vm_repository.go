@@ -60,9 +60,9 @@ func (r *VMRepository) Create(ctx context.Context, vmObj *domain.VirtualMachine)
 
 	query := `
 		INSERT INTO virtual_machines (
-			id, name, project_id, description, labels, hardware_version, spec,
+			id, name, project_id, folder_id, description, labels, hardware_version, spec,
 			power_state, node_id, ip_addresses, resources, status_message, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING created_at, updated_at
 	`
 
@@ -70,6 +70,7 @@ func (r *VMRepository) Create(ctx context.Context, vmObj *domain.VirtualMachine)
 		vmObj.ID,
 		vmObj.Name,
 		vmObj.ProjectID,
+		nullString(vmObj.FolderID),
 		vmObj.Description,
 		labelsJSON,
 		vmObj.HardwareVersion,
@@ -97,7 +98,7 @@ func (r *VMRepository) Create(ctx context.Context, vmObj *domain.VirtualMachine)
 // Get retrieves a virtual machine by ID.
 func (r *VMRepository) Get(ctx context.Context, id string) (*domain.VirtualMachine, error) {
 	query := `
-		SELECT id, name, project_id, description, labels, hardware_version, spec,
+		SELECT id, name, project_id, folder_id, description, labels, hardware_version, spec,
 		       power_state, node_id, ip_addresses, resources, status_message,
 		       created_at, updated_at, created_by
 		FROM virtual_machines
@@ -106,13 +107,14 @@ func (r *VMRepository) Get(ctx context.Context, id string) (*domain.VirtualMachi
 
 	vmObj := &domain.VirtualMachine{}
 	var labelsJSON, specJSON, ipAddressesJSON, resourcesJSON []byte
-	var nodeID *string
+	var nodeID, folderID *string
 	var powerState string
 
 	err := r.db.pool.QueryRow(ctx, query, id).Scan(
 		&vmObj.ID,
 		&vmObj.Name,
 		&vmObj.ProjectID,
+		&folderID,
 		&vmObj.Description,
 		&labelsJSON,
 		&vmObj.HardwareVersion,
@@ -160,6 +162,9 @@ func (r *VMRepository) Get(ctx context.Context, id string) (*domain.VirtualMachi
 	if nodeID != nil {
 		vmObj.Status.NodeID = *nodeID
 	}
+	if folderID != nil {
+		vmObj.FolderID = *folderID
+	}
 
 	return vmObj, nil
 }
@@ -168,7 +173,7 @@ func (r *VMRepository) Get(ctx context.Context, id string) (*domain.VirtualMachi
 func (r *VMRepository) List(ctx context.Context, filter vm.VMFilter, limit int, cursor string) ([]*domain.VirtualMachine, int64, error) {
 	// Build dynamic query
 	query := `
-		SELECT id, name, project_id, description, labels, hardware_version, spec,
+		SELECT id, name, project_id, folder_id, description, labels, hardware_version, spec,
 		       power_state, node_id, ip_addresses, resources, status_message,
 		       created_at, updated_at, created_by
 		FROM virtual_machines
@@ -242,13 +247,14 @@ func (r *VMRepository) List(ctx context.Context, filter vm.VMFilter, limit int, 
 	for rows.Next() {
 		vmObj := &domain.VirtualMachine{}
 		var labelsJSON, specJSON, ipAddressesJSON, resourcesJSON []byte
-		var nodeID *string
+		var nodeID, folderID *string
 		var powerState string
 
 		err := rows.Scan(
 			&vmObj.ID,
 			&vmObj.Name,
 			&vmObj.ProjectID,
+			&folderID,
 			&vmObj.Description,
 			&labelsJSON,
 			&vmObj.HardwareVersion,
@@ -283,6 +289,9 @@ func (r *VMRepository) List(ctx context.Context, filter vm.VMFilter, limit int, 
 		vmObj.Status.State = domain.VMState(powerState)
 		if nodeID != nil {
 			vmObj.Status.NodeID = *nodeID
+		}
+		if folderID != nil {
+			vmObj.FolderID = *folderID
 		}
 
 		vms = append(vms, vmObj)

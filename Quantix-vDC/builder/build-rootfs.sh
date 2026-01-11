@@ -145,10 +145,11 @@ chroot "${ROOTFS_DIR}" /sbin/rc-update add networking default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-firstboot boot || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add postgresql default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add redis default || true
-chroot "${ROOTFS_DIR}" /sbin/rc-update add etcd default || true
+# Note: etcd is not available in Alpine 3.20 repos, will be added separately if needed
+# chroot "${ROOTFS_DIR}" /sbin/rc-update add etcd default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add nginx default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-controlplane default || true
-chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-console default || true
+# Note: quantix-console is now run from /etc/inittab on tty1
 
 # Shutdown services
 chroot "${ROOTFS_DIR}" /sbin/rc-update add mount-ro shutdown || true

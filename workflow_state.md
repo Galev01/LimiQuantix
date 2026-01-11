@@ -1,111 +1,61 @@
 # Workflow State
 
-## Current Status: IN PROGRESS - Storage Pool File Browser Implementation
+## Current Status: IN PROGRESS - VM Creation Wizard Implementation
 
-## Latest Workflow: File Browser for NFS/iSCSI Pools
+## Latest Workflow: VM Creation Wizard Complete Implementation
 
 **Date:** January 11, 2026
+**Plan Reference:** `vm_creation_wizard_implementation_2d0083d6.plan.md`
 
-### Objective
+### Phase Overview
 
-Implement the ability to browse files in NFS and iSCSI storage pools from the Quantix-vDC UI.
-
-### Implementation Summary
-
-The file browser feature allows users to navigate through files and directories stored in storage pools. This is essential for:
-- Browsing uploaded ISOs
-- Viewing disk images (QCOW2, VMDK)
-- Managing pool contents
-
-### Completed Implementation
-
-| Task | Status | Details |
-|------|--------|---------|
-| Proto Definition | ✅ | `ListPoolFiles` RPC in storage_service.proto |
-| Node Daemon Proto | ✅ | `ListStoragePoolFiles` RPC in node_daemon.proto |
-| Node Daemon Implementation | ✅ | Rust service with path sanitization, file type detection |
-| Backend Proxy | ✅ | Go `ListPoolFiles` calls node daemon |
-| Pool Discovery | ✅ | Added `try_discover_pool` for cache miss recovery |
-| Frontend Hook | ✅ | `usePoolFiles` hook with React Query |
-| Frontend UI | ✅ | File browser in StoragePoolDetail.tsx |
-
-### Technical Details
-
-**Node Daemon (Rust):**
-- `list_storage_pool_files` in `service.rs`
-- Uses `get_pool_info_or_discover` to find pools even after daemon restart
-- Path sanitization to prevent directory traversal attacks
-- Returns file metadata: name, size, type, permissions, modified date
-
-**Storage Manager Enhancements:**
-- `register_pool(pool_info)` - Add pool to cache without initializing
-- `try_discover_pool(pool_id)` - Check if mount exists at standard paths
-- `get_pool_info_or_discover(pool_id)` - Cache lookup with discovery fallback
-
-**Backend (Go):**
-- `ListPoolFiles` in `pool_service.go`
-- Routes to appropriate connected node
-- Converts node daemon response to proto response
-
-**Frontend (React):**
-- `usePoolFiles(poolId, path)` hook in `useStorage.ts`
-- File browser UI with breadcrumb navigation
-- Icons for different file types (qcow2, iso, vmdk, etc.)
-
-### Next Steps
-
-1. **Deploy to Node**: Copy built `limiquantix-node` binary to Ubuntu host
-2. **Restart Daemon**: `sudo systemctl restart limiquantix-node`
-3. **Test in UI**: Navigate to Storage Pool Detail page and browse files
-
-### Key Files Changed
-
-**Rust Agent:**
-- `agent/limiquantix-hypervisor/src/storage/mod.rs` - Added pool discovery methods
-- `agent/limiquantix-node/src/service.rs` - Improved `list_storage_pool_files` with discovery fallback
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 1 | Bug Fix - UUID "default" error | ✅ Completed |
+| Phase 2.1 | Backend - Folder support | 🔄 In Progress |
+| Phase 2.2 | Backend - Customization specs | ⏳ Pending |
+| Phase 2.3 | Backend - Scheduling support | ⏳ Pending |
+| Phase 3 | Scheduler enhancement | ⏳ Pending |
+| Phase 4 | QvDC Frontend enhancements | ⏳ Pending |
+| Phase 5 | QHCI Frontend enhancements | ⏳ Pending |
+| Phase 6 | Agent installation via cloud-init | ⏳ Pending |
+| Phase 7 | End-to-End testing | ⏳ Pending |
 
 ---
 
-## Previous Workflow: Storage Pool Heartbeat Reporting
+### Phase 1: Bug Fix - UUID "default" Error ✅
 
-**Date:** January 11, 2026
+**Issue:** The VM service only checked for empty projectID, but not for the string "default" which the frontend may send.
 
-### Objective
+**Fix Applied:**
+```go
+// Before
+if projectID == "" {
+    projectID = "00000000-0000-0000-0000-000000000001"
+}
 
-Implement the host-centric data architecture for storage pools, where hosts report their actual state (capacity, health) back to QvDC via heartbeats.
-
-### Architecture Flow (Implemented)
-
+// After
+if projectID == "" || projectID == "default" {
+    projectID = "00000000-0000-0000-0000-000000000001"
+}
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     STORAGE POOL HEARTBEAT FLOW                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  1. HOST COLLECTS (Node Daemon)                                          │
-│     Every heartbeat interval (30s), host collects:                       │
-│     - Pool ID                                                            │
-│     - Health (HEALTHY/DEGRADED/ERROR/UNMOUNTED)                          │
-│     - Capacity (total, used, available bytes)                            │
-│     - Mount path                                                         │
-│     - Volume count                                                       │
-│                                                                          │
-│  2. HOST REPORTS (Heartbeat Request)                                     │
-│     Heartbeat now includes `storagePools` array                          │
-│                                                                          │
-│  3. QVDC PROCESSES (UpdateHeartbeat Handler)                             │
-│     For each pool report:                                                │
-│     - Look up pool by ID                                                 │
-│     - Update HostStatuses[nodeId] with reported status                   │
-│     - Recalculate aggregate capacity (AggregateCapacity())               │
-│     - Recalculate overall phase (DetermineOverallPhase())                │
-│     - Persist updated pool status                                        │
-│                                                                          │
-│  4. QVDC RESPONDS (Heartbeat Response)                                   │
-│     Response includes `assignedPoolIds` - list of pools this host        │
-│     should have mounted. Host can use this to detect missing mounts.     │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+
+**File:** `backend/internal/services/vm/service.go`
+
+---
+
+### Phase 2.1: Folder Support (In Progress)
+
+**Objective:** Add folder hierarchy for organizing VMs (like vSphere folders).
+
+**Files to create/modify:**
+1. `backend/internal/domain/folder.go` - Folder domain model
+2. `backend/migrations/000006_vm_folders.up.sql` - Database schema
+3. `backend/migrations/000006_vm_folders.down.sql` - Rollback
+4. `backend/internal/repository/postgres/folder_repository.go` - Repository
+5. `backend/internal/services/folder/service.go` - CRUD service
+6. `backend/internal/domain/vm.go` - Add FolderID field
+7. `proto/limiquantix/compute/v1/vm.proto` - Add folder_id to proto
 
 ---
 

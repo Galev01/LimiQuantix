@@ -43,6 +43,9 @@ message VirtualMachine {
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
   string created_by = 11;  // User/service that created this VM
+
+  // Optional: Folder ID for hierarchical organization (like vSphere folders)
+  string folder_id = 12;
 }
 
 // =============================================================================
