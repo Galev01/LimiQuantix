@@ -38,7 +38,8 @@ import { Badge } from '@/components/ui/Badge';
 import { useCreateVM } from '@/hooks/useVMs';
 import { useNodes, type ApiNode } from '@/hooks/useNodes';
 import { useNetworks, type ApiVirtualNetwork } from '@/hooks/useNetworks';
-import { useAvailableImages, useISOs, formatImageSize, getDefaultUser, type CloudImage, type ISOImage, ISO_CATALOG } from '@/hooks/useImages';
+import { useAvailableImages, useISOs, formatImageSize, getDefaultUser, useImageAvailability, useDownloadImage, type CloudImage, type ISOImage, ISO_CATALOG } from '@/hooks/useImages';
+import { validateVMName, validatePassword, validateAccessMethod } from '@/components/vm/wizard-validation';
 import { useStoragePools, type StoragePoolUI } from '@/hooks/useStorage';
 import { useOVATemplates, type OVATemplate, formatOVASize } from '@/hooks/useOVA';
 import { useFolders, type Folder as FolderType } from '@/hooks/useFolders';
@@ -488,8 +489,10 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
 
   const isStepValid = (step: number): boolean => {
     switch (step) {
-      case 0: // Basic Info
-        return formData.name.trim().length > 0;
+      case 0: { // Basic Info
+        const nameValidation = validateVMName(formData.name);
+        return nameValidation.valid;
+      }
       case 1: // Placement
         // If no nodes available, allow skipping (will use auto-placement)
         if (nodes.length === 0) return true;
@@ -499,19 +502,56 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
       case 3: // Customization
         return true; // Optional
       case 4: // Hardware
-        return formData.cpuCores > 0 && formData.memoryMib >= 512;
-      case 5: // Boot Media
+        return formData.cpuCores > 0 && formData.cpuCores <= 128 && 
+               formData.memoryMib >= 512 && formData.memoryMib <= 1048576;
+      case 5: { // Boot Media
         // For cloud images, require either password or SSH key for access
         if (formData.bootMediaType === 'cloud-image') {
-          const hasPassword = formData.cloudInit.password.length > 0 && 
+          const hasPassword = formData.cloudInit.password.length >= 8 && 
                              formData.cloudInit.password === formData.cloudInit.confirmPassword;
           const hasSSHKeys = formData.cloudInit.sshKeys.length > 0;
-          // At least one access method required
-          return hasPassword || hasSSHKeys;
+          const accessValidation = validateAccessMethod(
+            hasPassword,
+            hasSSHKeys,
+            cloudImages.find(img => img.id === formData.cloudImageId)
+          );
+          if (!accessValidation.valid) return false;
+          
+          // Password validation if password is set
+          if (formData.cloudInit.password) {
+            const passwordValidation = validatePassword(
+              formData.cloudInit.password,
+              formData.cloudInit.confirmPassword
+            );
+            if (!passwordValidation.valid) return false;
+          }
+          
+          return true;
         }
         return true; // ISO/None - can configure access manually
-      case 6: // Storage
-        return formData.storagePoolId !== '' && formData.disks.length > 0;
+      }
+      case 6: { // Storage
+        if (!formData.storagePoolId || formData.disks.length === 0) return false;
+        
+        // Validate storage pool is accessible from selected node
+        const selectedPool = storagePools?.find(p => p.id === formData.storagePoolId);
+        if (!selectedPool) return false;
+        
+        // Check pool is accessible from node (if specific node selected)
+        if (formData.hostId && !formData.autoPlacement) {
+          if (selectedPool.assignedNodeIds?.length > 0 && 
+              !selectedPool.assignedNodeIds.includes(formData.hostId)) {
+            return false;
+          }
+        }
+        
+        // Validate disk sizes
+        const totalDiskSize = formData.disks.reduce((sum, d) => sum + d.sizeGib, 0);
+        const availableGib = selectedPool.capacity.availableBytes / (1024 * 1024 * 1024);
+        if (totalDiskSize > availableGib) return false;
+        
+        return true;
+      }
       case 7: // User Info
         return true; // Optional
       default:
@@ -688,6 +728,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                   isUsingIsoCatalog={isUsingIsoCatalog}
                   ovaTemplates={ovaTemplates || []}
                   ovaLoading={ovaLoading}
+                  selectedNodeId={formData.autoPlacement ? undefined : formData.hostId}
+                  selectedNodeHostname={nodes.find(n => n.id === formData.hostId)?.hostname}
                 />
               )}
               {currentStep === 6 && (
@@ -765,6 +807,17 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
 
 // Step Components
 
+// Inline field error component
+function FieldError({ error }: { error?: string }) {
+  if (!error) return null;
+  return (
+    <div className="flex items-center gap-1 mt-1 text-error text-xs">
+      <AlertCircle className="w-3 h-3" />
+      {error}
+    </div>
+  );
+}
+
 function StepBasicInfo({
   formData,
   updateFormData,
@@ -772,6 +825,14 @@ function StepBasicInfo({
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
 }) {
+  // Real-time validation
+  const nameValidation = useMemo(() => {
+    if (!formData.name) return { valid: true }; // Don't show error when empty (required indicator handles this)
+    return validateVMName(formData.name);
+  }, [formData.name]);
+
+  const descriptionTooLong = formData.description.length > 500;
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div className="text-center mb-8">
@@ -786,9 +847,19 @@ function StepBasicInfo({
             value={formData.name}
             onChange={(e) => updateFormData({ name: e.target.value })}
             placeholder="e.g., prod-web-server-01"
-            className="form-input"
+            className={cn(
+              "form-input",
+              !nameValidation.valid && "border-error focus:border-error"
+            )}
             autoFocus
           />
+          <FieldError error={nameValidation.error} />
+          {nameValidation.valid && formData.name && (
+            <p className="text-xs text-success mt-1 flex items-center gap-1">
+              <CheckCircle className="w-3 h-3" />
+              Valid VM name
+            </p>
+          )}
         </FormField>
 
         <FormField label="Description">
@@ -797,8 +868,20 @@ function StepBasicInfo({
             onChange={(e) => updateFormData({ description: e.target.value })}
             placeholder="Optional description of this VM's purpose..."
             rows={3}
-            className="form-input resize-none"
+            className={cn(
+              "form-input resize-none",
+              descriptionTooLong && "border-error focus:border-error"
+            )}
           />
+          <div className="flex justify-between mt-1">
+            <FieldError error={descriptionTooLong ? "Description cannot exceed 500 characters" : undefined} />
+            <span className={cn(
+              "text-xs",
+              descriptionTooLong ? "text-error" : "text-text-muted"
+            )}>
+              {formData.description.length}/500
+            </span>
+          </div>
         </FormField>
 
         <FormField label="Owner">
@@ -1586,6 +1669,8 @@ function StepISO({
   isUsingIsoCatalog = false,
   ovaTemplates = [],
   ovaLoading = false,
+  selectedNodeId,
+  selectedNodeHostname,
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
@@ -1597,9 +1682,26 @@ function StepISO({
   isUsingIsoCatalog?: boolean;
   ovaTemplates?: OVATemplate[];
   ovaLoading?: boolean;
+  selectedNodeId?: string;
+  selectedNodeHostname?: string;
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [newSshKey, setNewSshKey] = useState('');
+  const [downloadingImage, setDownloadingImage] = useState<string | null>(null);
+
+  // Get catalog IDs for availability checking
+  const catalogIds = useMemo(() => cloudImages.map(img => img.id), [cloudImages]);
+  
+  // Check image availability for the selected node
+  const { 
+    availabilityMap, 
+    isAvailable, 
+    getAvailability,
+    isAnyDownloading 
+  } = useImageAvailability(catalogIds, selectedNodeId, catalogIds.length > 0);
+
+  // Download image mutation
+  const downloadImage = useDownloadImage();
   
   // Ensure cloudImages and isos are always arrays
   const images = cloudImages || [];
@@ -1790,44 +1892,127 @@ function StepISO({
               </div>
             ) : (
               <div className="grid gap-2 max-h-48 overflow-y-auto">
-                {images.map((image) => (
-                  <label
-                    key={image.id}
-                    className={cn(
-                      'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                      formData.cloudImageId === image.id
-                        ? 'bg-accent/10 border-accent'
-                        : 'bg-bg-base border-border hover:border-accent/50',
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name="cloudImageId"
-                      checked={formData.cloudImageId === image.id}
-                      onChange={() => {
-                        // Update cloud image and set default user based on OS
-                        updateFormData({ 
-                          cloudImageId: image.id,
-                          cloudInit: {
-                            ...formData.cloudInit,
-                            defaultUser: image.os.defaultUser || getDefaultUser(image.os.distribution),
-                          }
-                        });
-                      }}
-                      className="form-radio"
-                    />
-                    <Cloud className="w-5 h-5 text-accent" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-text-primary">{image.name}</p>
-                      <p className="text-xs text-text-muted">{image.description}</p>
-                      <p className="text-xs text-accent mt-0.5">Default user: {image.os.defaultUser}</p>
-                    </div>
-                    <span className="text-xs text-text-muted">{formatImageSize(image.sizeBytes)}</span>
-                  </label>
-                ))}
+                {images.map((image) => {
+                  const availability = getAvailability(image.id);
+                  const imageAvailable = availability?.status === 'READY';
+                  const imageDownloading = availability?.status === 'DOWNLOADING';
+                  const downloadProgress = availability?.progress || 0;
+                  
+                  return (
+                    <label
+                      key={image.id}
+                      className={cn(
+                        'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
+                        formData.cloudImageId === image.id
+                          ? 'bg-accent/10 border-accent'
+                          : 'bg-bg-base border-border hover:border-accent/50',
+                        !imageAvailable && !imageDownloading && 'opacity-75',
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="cloudImageId"
+                        checked={formData.cloudImageId === image.id}
+                        onChange={() => {
+                          // Update cloud image and set default user based on OS
+                          updateFormData({ 
+                            cloudImageId: image.id,
+                            cloudInit: {
+                              ...formData.cloudInit,
+                              defaultUser: image.os.defaultUser || getDefaultUser(image.os.distribution),
+                            }
+                          });
+                        }}
+                        className="form-radio"
+                      />
+                      <Cloud className={cn(
+                        'w-5 h-5',
+                        imageAvailable ? 'text-success' : imageDownloading ? 'text-info' : 'text-warning'
+                      )} />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-text-primary">{image.name}</p>
+                          {/* Availability Status Badge */}
+                          {imageAvailable ? (
+                            <Badge variant="success" size="sm" className="flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              Ready
+                            </Badge>
+                          ) : imageDownloading ? (
+                            <Badge variant="info" size="sm" className="flex items-center gap-1">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              {downloadProgress}%
+                            </Badge>
+                          ) : (
+                            <Badge variant="warning" size="sm" className="flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              Download required
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-text-muted">{image.description}</p>
+                        <p className="text-xs text-accent mt-0.5">Default user: {image.os.defaultUser}</p>
+                        {/* Download progress bar */}
+                        {imageDownloading && (
+                          <div className="mt-2 h-1.5 bg-bg-surface rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-info transition-all duration-300"
+                              style={{ width: `${downloadProgress}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-xs text-text-muted">{formatImageSize(image.sizeBytes)}</span>
+                        {/* Download button for unavailable images */}
+                        {!imageAvailable && !imageDownloading && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDownloadingImage(image.id);
+                              downloadImage.mutate({
+                                catalogId: image.id,
+                                nodeId: selectedNodeId,
+                              }, {
+                                onSettled: () => setDownloadingImage(null),
+                              });
+                            }}
+                            disabled={downloadingImage === image.id || downloadImage.isPending}
+                            className="text-xs"
+                          >
+                            {downloadingImage === image.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                            ) : (
+                              <Cloud className="w-3 h-3 mr-1" />
+                            )}
+                            Download
+                          </Button>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             )}
-            {isUsingCatalog && (
+            {/* Warning for selected unavailable image */}
+            {formData.cloudImageId && !isAvailable(formData.cloudImageId) && (
+              <div className="mt-3 p-3 rounded-lg bg-warning/10 border border-warning/30 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-warning">Image not downloaded</p>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    {selectedNodeHostname 
+                      ? `This image needs to be downloaded to "${selectedNodeHostname}" before VM creation.`
+                      : 'This image needs to be downloaded before VM creation.'}
+                    {' '}Click the Download button or select a different image.
+                  </p>
+                </div>
+              </div>
+            )}
+            {isUsingCatalog && !formData.cloudImageId && (
               <p className="text-xs text-warning mt-2">
                 ⚠️ Using built-in catalog. Download images to nodes for best performance.
               </p>
@@ -2410,22 +2595,22 @@ function StepStorage({
               key={disk.id}
               className="flex items-center gap-4 p-3 rounded-lg bg-bg-surface border border-border"
             >
-              <HardDrive className="w-4 h-4 text-text-muted" />
-              <span className="text-sm font-medium text-text-secondary w-24">{disk.name}</span>
-              <div className="flex items-center gap-2 flex-1">
+              <HardDrive className="w-4 h-4 text-text-muted shrink-0" />
+              <span className="text-sm font-medium text-text-secondary shrink-0">{disk.name}</span>
+              <div className="flex items-center gap-2">
                 <input
                   type="number"
                   min="1"
                   value={disk.sizeGib}
                   onChange={(e) => updateDisk(disk.id, { sizeGib: parseInt(e.target.value) || 1 })}
-                  className="form-input w-24"
+                  className="form-input !w-20 text-center"
                 />
-                <span className="text-sm text-text-muted">GiB</span>
+                <span className="text-sm text-text-muted shrink-0">GiB</span>
               </div>
               <select
                 value={disk.provisioning}
                 onChange={(e) => updateDisk(disk.id, { provisioning: e.target.value as 'thin' | 'thick' })}
-                className="form-select w-32"
+                className="form-select !w-28"
               >
                 <option value="thin">Thin</option>
                 <option value="thick">Thick</option>
@@ -2433,7 +2618,7 @@ function StepStorage({
               {formData.disks.length > 1 && (
                 <button
                   onClick={() => removeDisk(disk.id)}
-                  className="p-1.5 rounded-md text-text-muted hover:text-error hover:bg-error/10 transition-colors"
+                  className="p-1.5 rounded-md text-text-muted hover:text-error hover:bg-error/10 transition-colors shrink-0"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -2442,12 +2627,40 @@ function StepStorage({
           ))}
         </div>
 
-        <p className="text-xs text-text-muted mt-3">
-          Total disk space:{' '}
-          <span className="text-text-primary font-medium">
-            {formData.disks.reduce((sum, d) => sum + d.sizeGib, 0)} GiB
-          </span>
-        </p>
+        {/* Disk capacity validation */}
+        {(() => {
+          const selectedPool = pools.find(p => p.id === formData.storagePoolId);
+          const totalDiskSizeGib = formData.disks.reduce((sum, d) => sum + d.sizeGib, 0);
+          const availableGib = selectedPool 
+            ? selectedPool.capacity.availableBytes / (1024 * 1024 * 1024)
+            : 0;
+          const exceedsCapacity = selectedPool && totalDiskSizeGib > availableGib;
+
+          return (
+            <div className="mt-3 space-y-1">
+              <p className="text-xs text-text-muted">
+                Total disk space:{' '}
+                <span className={cn(
+                  "font-medium",
+                  exceedsCapacity ? "text-error" : "text-text-primary"
+                )}>
+                  {totalDiskSizeGib} GiB
+                </span>
+                {selectedPool && (
+                  <span className="text-text-muted">
+                    {' '}/ {Math.floor(availableGib)} GiB available
+                  </span>
+                )}
+              </p>
+              {exceedsCapacity && (
+                <div className="flex items-center gap-1 text-error text-xs">
+                  <AlertCircle className="w-3 h-3" />
+                  Total disk size exceeds available pool capacity
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

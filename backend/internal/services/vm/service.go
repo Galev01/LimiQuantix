@@ -169,8 +169,15 @@ func (s *Service) CreateVM(
 
 	// 6. Create VM on the Node Daemon (if available)
 	if s.daemonPool != nil && targetNode != nil {
-		// ManagementIP already includes port (e.g., "192.168.0.53:9090")
+		// Strip CIDR notation if present (e.g., "192.168.0.53/32" -> "192.168.0.53")
 		daemonAddr := targetNode.ManagementIP
+		if idx := strings.Index(daemonAddr, "/"); idx != -1 {
+			daemonAddr = daemonAddr[:idx]
+		}
+		// Ensure port is included
+		if !strings.Contains(daemonAddr, ":") {
+			daemonAddr = daemonAddr + ":9090"
+		}
 		client, err := s.daemonPool.Connect(targetNodeID, daemonAddr)
 		if err != nil {
 			logger.Warn("Failed to connect to node daemon, VM created in control plane only",
@@ -468,6 +475,15 @@ func (s *Service) StartVM(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// #region agent log
+	logger.Info("DEBUG H1: VM state before CanStart check",
+		zap.String("vm_id", vm.ID),
+		zap.String("current_state", string(vm.Status.State)),
+		zap.String("node_id", vm.Status.NodeID),
+		zap.Bool("can_start", vm.CanStart()),
+	)
+	// #endregion
+
 	// Check if VM can be started
 	if !vm.CanStart() {
 		return nil, connect.NewError(connect.CodeFailedPrecondition,
@@ -486,8 +502,21 @@ func (s *Service) StartVM(
 
 	// Start VM on Node Daemon
 	if vm.Status.NodeID != "" {
+		// #region agent log
+		logger.Info("DEBUG H2/H4: Attempting to get node daemon client",
+			zap.String("node_id", vm.Status.NodeID),
+			zap.Bool("daemon_pool_exists", s.daemonPool != nil),
+		)
+		// #endregion
+
 		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
 		if err != nil {
+			// #region agent log
+			logger.Error("DEBUG H2: Node daemon client lookup failed",
+				zap.String("node_id", vm.Status.NodeID),
+				zap.Error(err),
+			)
+			// #endregion
 			logger.Warn("Failed to connect to node daemon for start",
 				zap.String("node_id", vm.Status.NodeID),
 				zap.Error(err),
@@ -498,6 +527,12 @@ func (s *Service) StartVM(
 			_ = s.repo.UpdateStatus(ctx, vm.ID, vm.Status)
 			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node daemon: %w", err))
 		}
+
+		// #region agent log
+		logger.Info("DEBUG H2: Node daemon client obtained successfully",
+			zap.String("node_id", vm.Status.NodeID),
+		)
+		// #endregion
 
 		err = client.StartVM(ctx, vm.ID)
 		if err != nil {
@@ -513,6 +548,10 @@ func (s *Service) StartVM(
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to start VM on node: %w", err))
 		}
 		logger.Info("VM started on node daemon")
+	} else {
+		// #region agent log
+		logger.Warn("DEBUG H4: VM has no NodeID assigned, cannot start on node daemon")
+		// #endregion
 	}
 
 	// Update to running state
@@ -1005,12 +1044,26 @@ func (s *Service) GetConsole(
 // getNodeDaemonClient gets or creates a connection to the node daemon for a given node.
 // It first tries to get an existing client, then attempts to connect if not found.
 func (s *Service) getNodeDaemonClient(ctx context.Context, nodeID string) (*node.DaemonClient, error) {
+	// #region agent log
+	s.logger.Info("DEBUG H5: getNodeDaemonClient called",
+		zap.String("node_id", nodeID),
+		zap.Bool("daemon_pool_nil", s.daemonPool == nil),
+	)
+	// #endregion
+
 	if s.daemonPool == nil {
 		return nil, fmt.Errorf("daemon pool not available")
 	}
 
 	// Try to get existing client first
 	client := s.daemonPool.Get(nodeID)
+	// #region agent log
+	s.logger.Info("DEBUG H5: DaemonPool.Get result",
+		zap.String("node_id", nodeID),
+		zap.Bool("client_found", client != nil),
+		zap.Strings("connected_nodes", s.daemonPool.ConnectedNodes()),
+	)
+	// #endregion
 	if client != nil {
 		return client, nil
 	}
@@ -1018,13 +1071,44 @@ func (s *Service) getNodeDaemonClient(ctx context.Context, nodeID string) (*node
 	// Need to connect - get node info for the address
 	nodeInfo, err := s.nodeRepo.Get(ctx, nodeID)
 	if err != nil {
+		// #region agent log
+		s.logger.Error("DEBUG H5: Failed to get node info for daemon connection",
+			zap.String("node_id", nodeID),
+			zap.Error(err),
+		)
+		// #endregion
 		return nil, fmt.Errorf("failed to get node info: %w", err)
 	}
 
-	// Connect to the node daemon (ManagementIP includes port)
-	client, err = s.daemonPool.Connect(nodeID, nodeInfo.ManagementIP)
+	// Strip CIDR notation if present (e.g., "192.168.0.53/32" -> "192.168.0.53")
+	daemonAddr := nodeInfo.ManagementIP
+	if idx := strings.Index(daemonAddr, "/"); idx != -1 {
+		daemonAddr = daemonAddr[:idx]
+	}
+	// Ensure port is included
+	if !strings.Contains(daemonAddr, ":") {
+		daemonAddr = daemonAddr + ":9090"
+	}
+
+	// #region agent log
+	s.logger.Info("DEBUG H5: Attempting to connect to node daemon",
+		zap.String("node_id", nodeID),
+		zap.String("management_ip", nodeInfo.ManagementIP),
+		zap.String("daemon_addr", daemonAddr),
+	)
+	// #endregion
+
+	// Connect to the node daemon
+	client, err = s.daemonPool.Connect(nodeID, daemonAddr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to node daemon at %s: %w", nodeInfo.ManagementIP, err)
+		// #region agent log
+		s.logger.Error("DEBUG H5: Failed to connect to node daemon",
+			zap.String("node_id", nodeID),
+			zap.String("management_ip", nodeInfo.ManagementIP),
+			zap.Error(err),
+		)
+		// #endregion
+		return nil, fmt.Errorf("failed to connect to node daemon at %s: %w", daemonAddr, err)
 	}
 
 	return client, nil

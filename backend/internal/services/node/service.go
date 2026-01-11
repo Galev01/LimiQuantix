@@ -30,6 +30,7 @@ type VMRepository interface {
 // StoragePoolRepository is the interface for storage pool persistence.
 type StoragePoolRepository interface {
 	Get(ctx context.Context, id string) (*domain.StoragePool, error)
+	GetByName(ctx context.Context, projectID, name string) (*domain.StoragePool, error)
 	Update(ctx context.Context, pool *domain.StoragePool) (*domain.StoragePool, error)
 	UpdateStatus(ctx context.Context, id string, status domain.StoragePoolStatus) error
 	ListAssignedToNode(ctx context.Context, nodeID string) ([]*domain.StoragePool, error)
@@ -763,13 +764,19 @@ func (s *Service) UpdateHeartbeat(
 				continue
 			}
 
+			// Try to get pool by ID first (UUID), then by name (for auto-discovered pools)
 			pool, err := s.storagePoolRepo.Get(ctx, poolReport.PoolId)
 			if err != nil {
-				logger.Warn("Failed to get storage pool for heartbeat update",
-					zap.String("pool_id", poolReport.PoolId),
-					zap.Error(err),
-				)
-				continue
+				// Node daemon may report pools using generated names (e.g., "local-srv-nfs-qVDS01")
+				// instead of UUIDs. Try to look up by name as a fallback.
+				pool, err = s.storagePoolRepo.GetByName(ctx, "", poolReport.PoolId)
+				if err != nil {
+					// This is expected for auto-discovered pools not yet registered in control plane
+					logger.Debug("Storage pool not found in control plane (may be auto-discovered)",
+						zap.String("pool_id", poolReport.PoolId),
+					)
+					continue
+				}
 			}
 
 			// Convert proto health to domain health

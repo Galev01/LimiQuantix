@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { ArrowLeft, Monitor, Sliders, Info, Loader2, Sparkles, Check } from 'lucide-react';
+import { Monitor, Sliders, Info, Loader2, Sparkles, Check, X, Settings as SettingsIcon } from 'lucide-react';
 
 interface DisplaySettings {
   scale_viewport: boolean;
@@ -67,29 +67,48 @@ export function Settings({ onClose }: SettingsProps) {
 
   if (!config) {
     return (
-      <div className="h-full flex items-center justify-center bg-[var(--bg-base)]">
-        <Loader2 className="w-10 h-10 text-[var(--accent)] spinner" />
+      <div className="flex flex-col h-full max-h-[80vh]">
+        <div className="modal-header">
+          <div className="flex items-center gap-4">
+            <div className="modal-header-icon">
+              <SettingsIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="modal-title">Settings</h2>
+              <p className="modal-subtitle">Configure display & quality</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="icon-btn">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center py-20">
+          <Loader2 className="w-10 h-10 text-[var(--accent)] spinner" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-[var(--bg-base)]">
+    <div className="flex flex-col max-h-[80vh]">
       {/* Header */}
-      <header className="app-header">
+      <div className="modal-header">
         <div className="flex items-center gap-4">
-          <button onClick={onClose} className="icon-btn">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+          <div className="modal-header-icon">
+            <SettingsIcon className="w-5 h-5" />
+          </div>
           <div>
-            <h1 className="text-lg font-bold text-[var(--text-primary)]">Settings</h1>
-            <p className="text-sm text-[var(--text-muted)]">Configure display & quality</p>
+            <h2 className="modal-title">Settings</h2>
+            <p className="modal-subtitle">Configure display & quality</p>
           </div>
         </div>
-      </header>
+        <button onClick={onClose} className="icon-btn">
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
       {/* Content */}
-      <main className="flex-1 overflow-auto page-content space-y-6">
+      <div className="modal-body overflow-y-auto flex-1 space-y-6">
         {/* Display Settings */}
         <section className="section">
           <div className="section-title">
@@ -202,7 +221,7 @@ export function Settings({ onClose }: SettingsProps) {
                 </span>
               </div>
               <p className="text-sm text-[var(--text-muted)]">
-                Quantix Virtual Machine Remote Console
+                Quantix Virtual Machine Console
               </p>
               <p className="text-xs text-[var(--text-muted)] mt-2 opacity-60">
                 © 2026 LimiQuantix. All rights reserved.
@@ -210,10 +229,10 @@ export function Settings({ onClose }: SettingsProps) {
             </div>
           </div>
         </section>
-      </main>
+      </div>
 
       {/* Footer */}
-      <footer className="footer-bar flex gap-3">
+      <div className="modal-footer">
         <button onClick={onClose} className="btn btn-secondary flex-1">
           Cancel
         </button>
@@ -236,7 +255,7 @@ export function Settings({ onClose }: SettingsProps) {
             'Save Settings'
           )}
         </button>
-      </footer>
+      </div>
     </div>
   );
 }

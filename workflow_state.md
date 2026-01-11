@@ -1,78 +1,108 @@
 # Workflow State
 
-## Quantix-OS Host UI Redesign
+## VM Creation Wizard Error Handling Implementation
 
 ### Status: COMPLETED ✅
 
 ### Overview
-Transformed the Quantix-OS Host UI from a sidebar-based layout to a modern top-navigation layout that better utilizes screen space and improves visual comfort.
+Implemented comprehensive error handling and validation for the VM Creation Wizard, addressing the issue where users could select cloud images that may not exist on the target hypervisor node.
 
 ### Changes Made
 
-#### 1. Created `TopNavBar.tsx` - New top navigation component
-- Horizontal navigation with Dashboard, VMs, Storage (dropdown), Networking, Hardware, Performance, Events, Logs, Settings
-- Storage dropdown with Storage Pools, Volumes, Images options
-- Search bar with Ctrl+K shortcut
-- Connection indicator showing connected/disconnected status with disconnect option
-- Theme toggle button
-- "Quantix Host Manager" branding with gradient logo
+#### 1. Created Validation Utilities (`frontend/src/components/vm/wizard-validation.ts`)
 
-#### 2. Updated `Layout.tsx`
-- Removed Sidebar component
-- Added TopNavBar component
-- Main content now uses 90% width with max 1800px, centered
-- Clean vertical layout: TopNavBar → Main Content
+New utility file with validators for:
+- **VM Name**: 3-63 chars, alphanumeric + dashes, no leading/trailing dashes
+- **Hostname**: Valid hostname format
+- **Password**: Minimum 8 chars, confirmation match
+- **SSH Key**: Valid format detection
+- **CPU/Memory**: Range validation
+- **Disk Size**: Capacity validation against pool
+- **Storage Pool**: Node accessibility and capacity checks
+- **Access Method**: Password or SSH key required for cloud images
+- **Preflight Checks**: Comprehensive pre-creation validation
 
-#### 3. Updated `useAppStore.ts`
-- Removed sidebar state (`sidebarCollapsed`, `toggleSidebar`)
-- Added search state (`searchOpen`, `searchQuery`, `toggleSearch`, `setSearchQuery`)
-- Updated persist config to only store theme
+#### 2. Enhanced useImages Hook (`frontend/src/hooks/useImages.ts`)
 
-#### 4. Updated `index.ts` exports
-- Removed Sidebar export
-- Added TopNavBar export
+Added new `useImageAvailability` hook that:
+- Checks download status for cloud images
+- Returns availability status per image (READY, DOWNLOADING, NOT_DOWNLOADED, ERROR)
+- Includes download progress percentage
+- Provides helper functions: `isAvailable()`, `getAvailability()`, `isAnyDownloading`
 
-#### 5. Deleted `Sidebar.tsx`
-- No longer needed with top navigation layout
+#### 3. Updated StepISO Component with Availability Indicators
 
-#### 6. Updated `index.css` color palette
-- Softened accent blue from `#5c9cf5` to `#6ba3f7` (dark mode)
-- Softened light mode accent from `#4a7fd4` to `#4a85d8`
-- More gentle, eye-friendly tones for extended viewing
+Enhanced cloud image selection to show:
+- **Green "Ready" badge**: Image is downloaded and available
+- **Blue progress badge**: Image is currently downloading with progress %
+- **Yellow "Download required" badge**: Image needs to be downloaded
+- **Download button**: Click to download unavailable images
+- **Warning message**: When selecting an unavailable image
 
-### Visual Comparison
+#### 4. Enhanced Step Validation (`isStepValid` function)
 
-| Aspect | Before | After |
-|--------|--------|-------|
-| Navigation | Left sidebar (240px) | Top bar (56px) |
-| Content Width | ~50% of screen | 90% of screen (max 1800px) |
-| Content Gaps | Large side gaps | Balanced 5% gaps each side |
-| Brand Position | Top-left in sidebar | Top-left in nav bar |
-| Color Intensity | Standard blue accent | Gentler, warmer tones |
+Updated validation for each wizard step:
+- **Step 0 (Basic Info)**: Uses `validateVMName()` for proper format checking
+- **Step 4 (Hardware)**: CPU 1-128, Memory 512 MiB - 1 TiB
+- **Step 5 (Boot Media)**: Access method validation (password or SSH key required)
+- **Step 6 (Storage)**: Pool accessibility check, capacity validation
+
+#### 5. Added Inline Field Errors
+
+New `FieldError` component for inline error display:
+- Used in StepBasicInfo for VM name validation
+- Description character counter (500 char limit)
+- Real-time validation feedback
+
+#### 6. Enhanced StepStorage Validation
+
+Added to StepStorage component:
+- Host/pool compatibility warning (already existed)
+- Disk capacity validation against available pool space
+- Visual indicator when total disk size exceeds pool capacity
 
 ### Files Changed
-- `quantix-host-ui/src/components/layout/TopNavBar.tsx` (created)
-- `quantix-host-ui/src/components/layout/Layout.tsx` (modified)
-- `quantix-host-ui/src/components/layout/index.ts` (modified)
-- `quantix-host-ui/src/stores/useAppStore.ts` (modified)
-- `quantix-host-ui/src/index.css` (modified)
-- `quantix-host-ui/src/components/layout/Sidebar.tsx` (deleted)
+
+| File | Action | Description |
+|------|--------|-------------|
+| `frontend/src/components/vm/wizard-validation.ts` | Created | Validation utilities |
+| `frontend/src/hooks/useImages.ts` | Modified | Added `useImageAvailability` hook |
+| `frontend/src/components/vm/VMCreationWizard.tsx` | Modified | Enhanced StepISO, StepBasicInfo, StepStorage, isStepValid |
+
+### Validation Coverage
+
+| Step | Field | Validation | Visual Indicator |
+|------|-------|------------|------------------|
+| Basic Info | VM Name | 3-63 chars, format | ✅ Inline error + success |
+| Basic Info | Description | Max 500 chars | ✅ Character counter |
+| Placement | Node | Offline check | ❓ (auto-placement fallback) |
+| Hardware | CPU | 1-128 cores | ✅ Next button disabled |
+| Hardware | Memory | 512 MiB - 1 TiB | ✅ Next button disabled |
+| Boot Media | Cloud Image | Download status | ✅ Status badge + warning |
+| Boot Media | Password | Min 8 chars, match | ✅ Inline error |
+| Boot Media | SSH Key | Format validation | ✅ Inline error |
+| Boot Media | Access Method | Password OR SSH key | ✅ Warning message |
+| Storage | Pool | Node accessibility | ✅ Error banner + disabled |
+| Storage | Disks | Capacity check | ✅ Inline error + color |
+
+### Testing Notes
+
+To test the new validation:
+1. Open VM Creation Wizard
+2. **VM Name**: Try invalid names (too short, special chars, leading dash)
+3. **Boot Media**: Observe availability badges on cloud images
+4. **Storage**: Select a pool and add disks exceeding available capacity
+5. Verify Next button is disabled when validation fails
 
 ---
 
 ## Previous Completed Tasks
 
-### Quantix-OS Makefile Build Order Fix ✅
-Fixed build order to compile binaries BEFORE squashfs creation.
+### Quantix-OS Host UI Redesign ✅
+Transformed the Quantix-OS Host UI from a sidebar-based layout to a modern top-navigation layout.
 
 ### VMFolderView UI Enhancement ✅
 Applied UI-Expert principles for visual depth, animations, and 95% screen usage.
 
-### Folder Context Menu ✅
-Added right-click context menu for folders.
-
-### VM Context Menu ✅
-Added right-click context menu for VMs with power, management, template operations.
-
-### VMFolderView Redesign ✅
-Full-screen vCenter-style interface with folder tree and instant VM switching.
+### Folder and VM Context Menus ✅
+Added right-click context menus for folders and VMs.

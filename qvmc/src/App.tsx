@@ -1,15 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { ConnectionList } from './components/ConnectionList';
-import { ConsoleView } from './components/ConsoleView';
+import { VMSidebar, SavedConnection } from './components/VMSidebar';
+import { ConsoleTabs, TabConnection } from './components/ConsoleTabs';
+import { ConsoleTabPane } from './components/ConsoleTabPane';
 import { Settings } from './components/Settings';
-
-interface ActiveConnection {
-  connectionId: string;
-  vmId: string;
-  vmName: string;
-  controlPlaneUrl: string;
-}
+import { Monitor } from 'lucide-react';
 
 interface PendingConnection {
   control_plane_url: string;
@@ -18,16 +13,25 @@ interface PendingConnection {
 }
 
 function App() {
-  const [view, setView] = useState<'list' | 'console' | 'settings'>('list');
-  const [activeConnection, setActiveConnection] = useState<ActiveConnection | null>(null);
+  // Sidebar state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Tab state
+  const [tabs, setTabs] = useState<TabConnection[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  
+  // Loading states
   const [isAutoConnecting, setIsAutoConnecting] = useState(false);
-  const [connectionListKey, setConnectionListKey] = useState(0);
-  const [autoConnectError, setAutoConnectError] = useState<string | null>(null);
+  const [connectingVmId, setConnectingVmId] = useState<string | null>(null);
+  
+  // Settings modal
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // Deep link check
   const hasCheckedPending = useRef(false);
 
   // Check for pending connection on startup (from deep link)
   useEffect(() => {
-    // Only run once
     if (hasCheckedPending.current) return;
     hasCheckedPending.current = true;
 
@@ -40,20 +44,15 @@ function App() {
         if (pending) {
           console.log('[qvmc] Found pending connection:', pending);
           setIsAutoConnecting(true);
-          setAutoConnectError(null);
           
           try {
             // Save connection to config
             console.log('[qvmc] Saving connection...');
-            const savedId = await invoke<string>('add_and_connect', {
+            await invoke<string>('add_and_connect', {
               controlPlaneUrl: pending.control_plane_url,
               vmId: pending.vm_id,
               vmName: pending.vm_name,
             });
-            console.log('[qvmc] Connection saved with id:', savedId);
-            
-            // Refresh the connection list
-            setConnectionListKey(k => k + 1);
             
             // Start VNC connection
             console.log('[qvmc] Starting VNC connection...');
@@ -65,18 +64,20 @@ function App() {
             
             console.log('[qvmc] VNC connected:', vncConnectionId);
             
-            setActiveConnection({
+            // Create new tab
+            const newTab: TabConnection = {
+              id: crypto.randomUUID(),
               connectionId: vncConnectionId,
               vmId: pending.vm_id,
               vmName: pending.vm_name,
               controlPlaneUrl: pending.control_plane_url,
-            });
-            setView('console');
+              status: 'connecting',
+            };
+            
+            setTabs([newTab]);
+            setActiveTabId(newTab.id);
           } catch (err) {
             console.error('[qvmc] Auto-connect failed:', err);
-            setAutoConnectError(String(err));
-            // Still refresh connection list even on VNC failure - connection was saved
-            setConnectionListKey(k => k + 1);
           } finally {
             setIsAutoConnecting(false);
           }
@@ -88,29 +89,95 @@ function App() {
       }
     };
     
-    // Small delay to ensure Tauri backend is ready
     setTimeout(checkPendingConnection, 100);
   }, []);
 
-  const handleConnect = useCallback((connection: ActiveConnection) => {
-    setActiveConnection(connection);
-    setView('console');
+  // Handle selecting a VM from sidebar
+  const handleSelectVM = useCallback(async (connection: SavedConnection) => {
+    // Check if this VM already has an open tab
+    const existingTab = tabs.find(t => t.vmId === connection.vm_id);
+    if (existingTab) {
+      setActiveTabId(existingTab.id);
+      return;
+    }
+    
+    // Start connecting
+    setConnectingVmId(connection.vm_id);
+    
+    try {
+      const vncConnectionId = await invoke<string>('connect_vnc', {
+        controlPlaneUrl: connection.control_plane_url,
+        vmId: connection.vm_id,
+        password: null,
+      });
+      
+      // Create new tab
+      const newTab: TabConnection = {
+        id: crypto.randomUUID(),
+        connectionId: vncConnectionId,
+        vmId: connection.vm_id,
+        vmName: connection.name,
+        controlPlaneUrl: connection.control_plane_url,
+        status: 'connecting',
+      };
+      
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabId(newTab.id);
+    } catch (err) {
+      console.error('Connection failed:', err);
+    } finally {
+      setConnectingVmId(null);
+    }
+  }, [tabs]);
+
+  // Handle tab selection
+  const handleSelectTab = useCallback((tabId: string) => {
+    setActiveTabId(tabId);
   }, []);
 
-  const handleDisconnect = useCallback(() => {
-    setActiveConnection(null);
-    setView('list');
+  // Handle closing a tab
+  const handleCloseTab = useCallback(async (tabId: string) => {
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab) {
+      try {
+        await invoke('disconnect_vnc', { connectionId: tab.connectionId });
+      } catch (err) {
+        console.error('Disconnect error:', err);
+      }
+    }
+    
+    setTabs(prev => {
+      const newTabs = prev.filter(t => t.id !== tabId);
+      
+      // If we closed the active tab, switch to another
+      if (activeTabId === tabId && newTabs.length > 0) {
+        setActiveTabId(newTabs[newTabs.length - 1].id);
+      } else if (newTabs.length === 0) {
+        setActiveTabId(null);
+      }
+      
+      return newTabs;
+    });
+  }, [tabs, activeTabId]);
+
+  // Handle add tab button (opens sidebar if collapsed)
+  const handleAddTab = useCallback(() => {
+    if (sidebarCollapsed) {
+      setSidebarCollapsed(false);
+    }
+  }, [sidebarCollapsed]);
+
+  // Handle tab status change
+  const handleTabStatusChange = useCallback((tabId: string, status: 'connecting' | 'connected' | 'disconnected') => {
+    setTabs(prev => prev.map(t => 
+      t.id === tabId ? { ...t, status } : t
+    ));
   }, []);
 
-  const handleOpenSettings = useCallback(() => {
-    setView('settings');
-  }, []);
+  // Get active VM IDs for sidebar highlighting
+  const activeVmIds = tabs.map(t => t.vmId);
 
-  const handleCloseSettings = useCallback(() => {
-    setView('list');
-  }, []);
-
-  // Show loading screen while auto-connecting
+  // Show loading screen while auto-connecting from deep link
   if (isAutoConnecting) {
     return (
       <div className="h-full w-full flex flex-col items-center justify-center bg-[var(--bg-base)]">
@@ -121,33 +188,68 @@ function App() {
     );
   }
 
-  // Show error if auto-connect failed but don't block
-  if (autoConnectError && view === 'list') {
-    // Error will be shown in connection list
-  }
-
   return (
-    <div className="h-full w-full flex flex-col bg-[var(--bg-base)]">
-      {view === 'list' && (
-        <ConnectionList
-          key={connectionListKey}
-          onConnect={handleConnect}
-          onOpenSettings={handleOpenSettings}
-        />
-      )}
+    <div className={`app-layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      {/* Sidebar */}
+      <VMSidebar
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onSelectVM={handleSelectVM}
+        onOpenSettings={() => setShowSettings(true)}
+        activeVmIds={activeVmIds}
+        connectingVmId={connectingVmId}
+      />
 
-      {view === 'console' && activeConnection && (
-        <ConsoleView
-          connectionId={activeConnection.connectionId}
-          vmId={activeConnection.vmId}
-          vmName={activeConnection.vmName}
-          controlPlaneUrl={activeConnection.controlPlaneUrl}
-          onDisconnect={handleDisconnect}
-        />
-      )}
+      {/* Main content area */}
+      <div className="app-main">
+        {/* Tab bar (only shown when tabs exist) */}
+        {tabs.length > 0 && (
+          <ConsoleTabs
+            tabs={tabs}
+            activeTabId={activeTabId}
+            onSelectTab={handleSelectTab}
+            onCloseTab={handleCloseTab}
+            onAddTab={handleAddTab}
+          />
+        )}
 
-      {view === 'settings' && (
-        <Settings onClose={handleCloseSettings} />
+        {/* Console panes */}
+        <div className="app-console-area">
+          {tabs.length === 0 ? (
+            // Empty state
+            <div className="app-empty-state">
+              <div className="app-empty-icon">
+                <Monitor className="w-12 h-12" />
+              </div>
+              <h2 className="app-empty-title">No Active Consoles</h2>
+              <p className="app-empty-description">
+                Select a VM from the sidebar to open a console session
+              </p>
+            </div>
+          ) : (
+            // Render all tab panes (only active one is visible)
+            tabs.map(tab => (
+              <ConsoleTabPane
+                key={tab.id}
+                connectionId={tab.connectionId}
+                vmId={tab.vmId}
+                vmName={tab.vmName}
+                controlPlaneUrl={tab.controlPlaneUrl}
+                isActive={tab.id === activeTabId}
+                onStatusChange={(status) => handleTabStatusChange(tab.id, status)}
+              />
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+            <Settings onClose={() => setShowSettings(false)} />
+          </div>
+        </div>
       )}
     </div>
   );

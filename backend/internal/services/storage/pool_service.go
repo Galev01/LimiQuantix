@@ -697,9 +697,22 @@ func (s *PoolService) ListPoolFiles(
 	)
 	logger.Info("Listing storage pool files")
 
+	// #region agent log
+	logger.Info("DEBUG H3: ListPoolFiles called with pool_id",
+		zap.String("pool_id", req.Msg.PoolId),
+		zap.Int("pool_id_len", len(req.Msg.PoolId)),
+	)
+	// #endregion
+
 	// Get pool
 	pool, err := s.repo.Get(ctx, req.Msg.PoolId)
 	if err != nil {
+		// #region agent log
+		logger.Error("DEBUG H3: Failed to get storage pool from repository",
+			zap.String("pool_id", req.Msg.PoolId),
+			zap.Error(err),
+		)
+		// #endregion
 		logger.Error("Failed to get storage pool", zap.Error(err))
 		if err == domain.ErrNotFound {
 			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("pool not found: %s", req.Msg.PoolId))

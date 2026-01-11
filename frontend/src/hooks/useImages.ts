@@ -473,6 +473,83 @@ export function useCatalogDownloadStatus(catalogIds: string[], enabled = true) {
   });
 }
 
+// =============================================================================
+// IMAGE AVAILABILITY - Check if images are available for a specific node
+// =============================================================================
+
+export interface ImageAvailabilityResult {
+  catalogId: string;
+  available: boolean;
+  status: CatalogDownloadStatusType;
+  progress?: number;
+  errorMessage?: string;
+  sizeBytes?: number;
+}
+
+/**
+ * Hook to check image availability for VM creation wizard.
+ * This combines catalog download status with node accessibility.
+ * 
+ * @param catalogIds - Array of catalog IDs to check
+ * @param nodeId - Optional node ID to check accessibility (if empty, checks global availability)
+ * @param enabled - Whether to enable the query
+ */
+export function useImageAvailability(
+  catalogIds: string[],
+  nodeId?: string,
+  enabled = true
+) {
+  const { data: downloadStatus, isLoading, error, refetch } = useCatalogDownloadStatus(catalogIds, enabled);
+  const { data: catalog } = useImageCatalog();
+
+  // Build availability map from download status
+  const availabilityMap = new Map<string, ImageAvailabilityResult>();
+  
+  if (downloadStatus && catalog) {
+    for (const catalogId of catalogIds) {
+      const status = downloadStatus.get(catalogId);
+      const catalogEntry = catalog.find(c => c.id === catalogId);
+      
+      if (status) {
+        availabilityMap.set(catalogId, {
+          catalogId,
+          available: status.status === 'READY',
+          status: status.status,
+          progress: status.progressPercent,
+          errorMessage: status.errorMessage,
+          sizeBytes: catalogEntry?.sizeBytes,
+        });
+      } else {
+        // Not in download status means not downloaded
+        availabilityMap.set(catalogId, {
+          catalogId,
+          available: false,
+          status: 'NOT_DOWNLOADED',
+          sizeBytes: catalogEntry?.sizeBytes,
+        });
+      }
+    }
+  }
+
+  return {
+    availabilityMap,
+    isLoading,
+    error,
+    refetch,
+    // Helper function to check single image
+    getAvailability: (catalogId: string): ImageAvailabilityResult | undefined => {
+      return availabilityMap.get(catalogId);
+    },
+    // Check if specific image is available
+    isAvailable: (catalogId: string): boolean => {
+      const result = availabilityMap.get(catalogId);
+      return result?.available ?? false;
+    },
+    // Check if any image is currently downloading
+    isAnyDownloading: Array.from(availabilityMap.values()).some(r => r.status === 'DOWNLOADING'),
+  };
+}
+
 // Catalog entry type
 export interface CatalogImage {
   id: string;
