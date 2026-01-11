@@ -55,8 +55,15 @@ const statusConfig: Record<PowerState, { label: string; icon: React.ElementType;
   },
 };
 
+// Fallback config for unknown/undefined status values
+const unknownConfig = {
+  label: 'Unknown',
+  icon: AlertTriangle,
+  classes: 'bg-text-muted/15 text-text-muted border-text-muted/30',
+};
+
 export function VMStatusBadge({ status, size = 'md' }: VMStatusBadgeProps) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] ?? unknownConfig;
   const Icon = config.icon;
 
   return (

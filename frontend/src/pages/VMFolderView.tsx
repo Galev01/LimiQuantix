@@ -1160,92 +1160,92 @@ export function VMFolderView() {
             'bg-gradient-to-b from-[var(--bg-surface)] to-[var(--bg-base)]',
             'border-r border-white/10'
           )}>
-          {/* Search with glow effect */}
-          <div className="p-4 border-b border-white/5">
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)] group-focus-within:text-[var(--accent-blue)] transition-colors" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search VMs..."
-                className={cn(
-                  'w-full pl-10 pr-4 py-2.5 rounded-xl text-sm',
-                  'bg-[var(--bg-base)]/80 border border-white/10',
-                  'text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]',
-                  'focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]/30 focus:border-[var(--accent-blue)]/50',
-                  'shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]',
-                  'transition-all duration-200'
-                )}
-              />
+            {/* Search with glow effect */}
+            <div className="p-4 border-b border-white/5">
+              <div className="relative group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)] group-focus-within:text-[var(--accent-blue)] transition-colors" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search VMs..."
+                  className={cn(
+                    'w-full pl-10 pr-4 py-2.5 rounded-xl text-sm',
+                    'bg-[var(--bg-base)]/80 border border-white/10',
+                    'text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]',
+                    'focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]/30 focus:border-[var(--accent-blue)]/50',
+                    'shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]',
+                    'transition-all duration-200'
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Folder Tree */}
+            <div className="flex-1 overflow-y-auto py-2">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-[var(--accent-blue)]" />
+                </div>
+              ) : searchQuery ? (
+                // Search results
+                <div className="space-y-0.5">
+                  <div className="px-3 py-1.5 text-xs text-[var(--text-tertiary)]">
+                    {filteredVMs.length} results
+                  </div>
+                  {filteredVMs.map((vm) => (
+                    <VMSidebarItem
+                      key={vm.id}
+                      vm={vm}
+                      isSelected={selectedVmId === vm.id}
+                      onClick={() => handleSelectVM(vm.id)}
+                      onHover={() => handleHoverVM(vm.id)}
+                      onContextMenu={handleContextMenu}
+                    />
+                  ))}
+                </div>
+              ) : (
+                // Folder tree
+                folderTree.map((tree) => (
+                  <FolderNode
+                    key={tree.folder.id}
+                    folder={tree.folder}
+                    children={tree.children}
+                    level={0}
+                    expandedFolders={expandedFolders}
+                    selectedVmId={selectedVmId}
+                    vmsByFolder={vmsByFolder}
+                    onToggleExpand={handleToggleExpand}
+                    onSelectVM={handleSelectVM}
+                    onHoverVM={handleHoverVM}
+                    onContextMenu={handleContextMenu}
+                    onFolderContextMenu={handleFolderContextMenu}
+                  />
+                ))
+              )}
+            </div>
+
+            {/* Sidebar Footer */}
+            <div className="p-3 border-t border-white/5 bg-[var(--bg-surface)]/50">
+              <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    'w-full justify-start',
+                    'bg-gradient-to-r from-amber-500/10 to-transparent',
+                    'border border-amber-500/20',
+                    'hover:from-amber-500/20 hover:border-amber-500/30',
+                    'rounded-xl py-2.5'
+                  )}
+                  onClick={() => setShowCreateFolderDialog(true)}
+                >
+                  <FolderPlus className="w-4 h-4 mr-2 text-amber-400" />
+                  <span className="text-[var(--text-secondary)]">New Folder</span>
+                </Button>
+              </motion.div>
             </div>
           </div>
-
-          {/* Folder Tree */}
-          <div className="flex-1 overflow-y-auto py-2">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin text-[var(--accent-blue)]" />
-              </div>
-            ) : searchQuery ? (
-              // Search results
-              <div className="space-y-0.5">
-                <div className="px-3 py-1.5 text-xs text-[var(--text-tertiary)]">
-                  {filteredVMs.length} results
-                </div>
-                {filteredVMs.map((vm) => (
-                  <VMSidebarItem
-                    key={vm.id}
-                    vm={vm}
-                    isSelected={selectedVmId === vm.id}
-                    onClick={() => handleSelectVM(vm.id)}
-                    onHover={() => handleHoverVM(vm.id)}
-                    onContextMenu={handleContextMenu}
-                  />
-                ))}
-              </div>
-            ) : (
-              // Folder tree
-              folderTree.map((tree) => (
-                <FolderNode
-                  key={tree.folder.id}
-                  folder={tree.folder}
-                  children={tree.children}
-                  level={0}
-                  expandedFolders={expandedFolders}
-                  selectedVmId={selectedVmId}
-                  vmsByFolder={vmsByFolder}
-                  onToggleExpand={handleToggleExpand}
-                  onSelectVM={handleSelectVM}
-                  onHoverVM={handleHoverVM}
-                  onContextMenu={handleContextMenu}
-                  onFolderContextMenu={handleFolderContextMenu}
-                />
-              ))
-            )}
-          </div>
-
-          {/* Sidebar Footer */}
-          <div className="p-3 border-t border-white/5 bg-[var(--bg-surface)]/50">
-            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  'w-full justify-start',
-                  'bg-gradient-to-r from-amber-500/10 to-transparent',
-                  'border border-amber-500/20',
-                  'hover:from-amber-500/20 hover:border-amber-500/30',
-                  'rounded-xl py-2.5'
-                )}
-                onClick={() => setShowCreateFolderDialog(true)}
-              >
-                <FolderPlus className="w-4 h-4 mr-2 text-amber-400" />
-                <span className="text-[var(--text-secondary)]">New Folder</span>
-              </Button>
-            </motion.div>
-          </div>
-        </div>
 
         {/* Right Panel - VM Details */}
         <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-[var(--bg-base)] via-[#1c2030] to-[var(--bg-base)]">
@@ -1634,8 +1634,10 @@ export function VMFolderView() {
             </motion.div>
           )}
         </div>
+        {/* End of Right Panel */}
+      </div>
+      {/* End of Main Content */}
       </motion.div>
-    </div>
 
       {/* Modals */}
       {selectedVm && (

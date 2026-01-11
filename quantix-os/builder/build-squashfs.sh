@@ -132,6 +132,33 @@ echo "📦 Step 3: Applying overlay files..."
 
 # Copy overlay files
 if [ -d "${WORK_DIR}/overlay" ]; then
+    # Verify critical binaries exist in overlay before copying
+    echo "   Checking for required binaries in overlay..."
+    
+    if [ -f "${WORK_DIR}/overlay/usr/bin/qx-node" ]; then
+        echo "   ✅ qx-node found ($(ls -lh ${WORK_DIR}/overlay/usr/bin/qx-node | awk '{print $5}'))"
+    else
+        echo "   ❌ CRITICAL: qx-node NOT found in overlay/usr/bin/"
+        echo "   Run 'make node-daemon' first, or the built ISO won't work!"
+        echo ""
+        echo "   Contents of overlay/usr/bin/:"
+        ls -la "${WORK_DIR}/overlay/usr/bin/" 2>/dev/null || echo "      (directory empty or missing)"
+        exit 1
+    fi
+    
+    if [ -f "${WORK_DIR}/overlay/usr/share/quantix-host-ui/index.html" ]; then
+        echo "   ✅ Host UI found"
+    else
+        echo "   ⚠️  Host UI not found - web interface won't work"
+    fi
+    
+    if [ -f "${WORK_DIR}/overlay/usr/local/bin/qx-console" ]; then
+        echo "   ✅ Console TUI found"
+    else
+        echo "   ⚠️  Console TUI not found (optional)"
+    fi
+    
+    # Copy all overlay files
     cp -a "${WORK_DIR}/overlay/"* "${ROOTFS_DIR}/"
     echo "✅ Overlay files applied"
 else

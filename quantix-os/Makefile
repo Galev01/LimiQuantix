@@ -76,11 +76,32 @@ version-set:
 all: iso
 
 # Build complete bootable ISO (with version bump)
-# Note: We bump version first, then build squashfs with the new version
+# IMPORTANT: Build order matters!
+#   1. Build binaries first (they go into overlay/)
+#   2. Build squashfs (includes overlay with binaries)
+#   3. Build ISO (packages squashfs + boot files)
 iso: version-bump
+	@echo ""
+	@echo "═══════════════════════════════════════════════════════════════"
+	@echo "  Building Quantix-OS v$$(cat $(VERSION_FILE))"
+	@echo "═══════════════════════════════════════════════════════════════"
+	@echo ""
+	@echo "📦 Step 1/4: Building components (node-daemon, host-ui, console-tui)..."
+	@$(MAKE) node-daemon host-ui console-tui scripts-executable
+	@echo ""
+	@echo "📦 Step 2/4: Verifying binaries in overlay..."
+	@if [ ! -f "$(OVERLAY_DIR)/usr/bin/qx-node" ]; then \
+		echo "❌ CRITICAL: qx-node binary not found in overlay!"; \
+		echo "   The node-daemon build may have failed."; \
+		exit 1; \
+	fi
+	@ls -lh $(OVERLAY_DIR)/usr/bin/qx-node
+	@ls -lh $(OVERLAY_DIR)/usr/share/quantix-host-ui/index.html 2>/dev/null || echo "⚠️  Host UI index.html not found"
+	@echo ""
+	@echo "📦 Step 3/4: Building squashfs (includes overlay with binaries)..."
 	@$(MAKE) squashfs-internal
-	@$(MAKE) console-tui host-ui node-daemon scripts-executable
-	@echo "🔨 Building bootable ISO v$$(cat $(VERSION_FILE))..."
+	@echo ""
+	@echo "📦 Step 4/4: Building bootable ISO..."
 	@mkdir -p $(OUTPUT_DIR)
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
@@ -88,18 +109,33 @@ iso: version-bump
 		-w /work \
 		$(BUILDER_IMAGE) \
 		/bin/bash ./builder/build-iso.sh $$(cat $(VERSION_FILE))
+	@echo ""
 	@echo "✅ ISO built: $(OUTPUT_DIR)/quantix-os-$$(cat $(VERSION_FILE)).iso"
 
 # Build ISO without incrementing version (uses VERSION at Makefile load time)
-iso-no-bump: squashfs console-tui host-ui node-daemon scripts-executable
-	@echo "🔨 Building bootable ISO v$(VERSION) (no version bump)..."
-	@mkdir -p $(OUTPUT_DIR)
-	@# Verify squashfs exists
-	@if [ ! -f "$(OUTPUT_DIR)/system-$(VERSION).squashfs" ]; then \
-		echo "❌ Squashfs not found: $(OUTPUT_DIR)/system-$(VERSION).squashfs"; \
-		echo "   Building squashfs first..."; \
-		$(MAKE) squashfs; \
+# IMPORTANT: Build binaries BEFORE squashfs!
+iso-no-bump: docker-builder
+	@echo ""
+	@echo "═══════════════════════════════════════════════════════════════"
+	@echo "  Building Quantix-OS v$(VERSION) (no version bump)"
+	@echo "═══════════════════════════════════════════════════════════════"
+	@echo ""
+	@echo "📦 Step 1/4: Building components (node-daemon, host-ui, console-tui)..."
+	@$(MAKE) node-daemon host-ui console-tui scripts-executable
+	@echo ""
+	@echo "📦 Step 2/4: Verifying binaries in overlay..."
+	@if [ ! -f "$(OVERLAY_DIR)/usr/bin/qx-node" ]; then \
+		echo "❌ CRITICAL: qx-node binary not found in overlay!"; \
+		echo "   The node-daemon build may have failed."; \
+		exit 1; \
 	fi
+	@ls -lh $(OVERLAY_DIR)/usr/bin/qx-node
+	@echo ""
+	@echo "📦 Step 3/4: Building squashfs (includes overlay with binaries)..."
+	@$(MAKE) squashfs
+	@echo ""
+	@echo "📦 Step 4/4: Building bootable ISO..."
+	@mkdir -p $(OUTPUT_DIR)
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
 		-v "$(OUTPUT_DIR):/output" \
@@ -215,8 +251,13 @@ node-daemon: docker-rust-tui
 			-w /build \
 			$(RUST_TUI_IMAGE) \
 			sh -c "set -e && \
-			       echo '   Building limiquantix-node...' && \
+			       echo '   Regenerating proto files...' && \
+			       rm -rf limiquantix-proto/src/generated/*.rs 2>/dev/null || true && \
+			       echo '   Building limiquantix-node with libvirt support...' && \
 			       cargo build --release -p limiquantix-node --features libvirt 2>&1 && \
+			       echo '   Verifying binary...' && \
+			       file target/release/limiquantix-node && \
+			       ldd target/release/limiquantix-node 2>/dev/null || echo '(static or no ldd)' && \
 			       echo '   Copying binary...' && \
 			       cp target/release/limiquantix-node /build/limiquantix-node-alpine" || { \
 			echo "❌ Node daemon build FAILED! See errors above."; \
@@ -226,9 +267,11 @@ node-daemon: docker-rust-tui
 			echo "❌ Node daemon binary not found after build!"; \
 			exit 1; \
 		fi; \
+		echo "   Installing to overlay..."; \
 		cp ../agent/limiquantix-node-alpine $(OVERLAY_DIR)/usr/bin/qx-node; \
 		rm -f ../agent/limiquantix-node-alpine; \
 		chmod +x $(OVERLAY_DIR)/usr/bin/qx-node; \
+		echo "   ✅ Binary installed:"; \
 		ls -lh $(OVERLAY_DIR)/usr/bin/qx-node; \
 		echo "✅ Node daemon built successfully"; \
 	else \
