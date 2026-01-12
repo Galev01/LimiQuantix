@@ -175,6 +175,50 @@ else
 fi
 
 # =============================================================================
+# Copy WiFi firmware (CRITICAL for WiFi during install)
+# =============================================================================
+echo "   Copying WiFi firmware..."
+mkdir -p "${INITRAMFS_DIR}/lib/firmware"
+
+# Get firmware from rootfs squashfs if available
+if [ -f "${OUTPUT_DIR}/system-"*".squashfs" ]; then
+    SQUASHFS_FILE=$(ls ${OUTPUT_DIR}/system-*.squashfs 2>/dev/null | head -1)
+    if [ -n "$SQUASHFS_FILE" ]; then
+        mkdir -p /tmp/squashfs_mount
+        if mount -t squashfs -o ro "$SQUASHFS_FILE" /tmp/squashfs_mount 2>/dev/null; then
+            if [ -d /tmp/squashfs_mount/lib/firmware ]; then
+                # Copy essential WiFi firmware (being selective to keep size reasonable)
+                for fw_dir in iwlwifi ath9k_htc ath10k ath11k brcm rtlwifi rtw88 rtw89 mediatek mrvl intel; do
+                    if [ -d "/tmp/squashfs_mount/lib/firmware/${fw_dir}" ]; then
+                        cp -a "/tmp/squashfs_mount/lib/firmware/${fw_dir}" "${INITRAMFS_DIR}/lib/firmware/" 2>/dev/null || true
+                    fi
+                done
+                # Also copy regulatory database (needed for WiFi)
+                cp /tmp/squashfs_mount/lib/firmware/regulatory.db* "${INITRAMFS_DIR}/lib/firmware/" 2>/dev/null || true
+                
+                FW_COUNT=$(find "${INITRAMFS_DIR}/lib/firmware" -type f 2>/dev/null | wc -l)
+                echo "   ✅ Copied ${FW_COUNT} firmware files from squashfs"
+            fi
+            umount /tmp/squashfs_mount 2>/dev/null || true
+        fi
+        rmdir /tmp/squashfs_mount 2>/dev/null || true
+    fi
+fi
+
+# Fallback: copy from host system if squashfs mount failed
+if [ "$(find "${INITRAMFS_DIR}/lib/firmware" -type f 2>/dev/null | wc -l)" -lt 10 ]; then
+    echo "   Trying host firmware as fallback..."
+    for fw_dir in iwlwifi ath9k_htc ath10k ath11k brcm rtlwifi rtw88 rtw89 mediatek mrvl intel; do
+        if [ -d "/lib/firmware/${fw_dir}" ]; then
+            cp -a "/lib/firmware/${fw_dir}" "${INITRAMFS_DIR}/lib/firmware/" 2>/dev/null || true
+        fi
+    done
+    cp /lib/firmware/regulatory.db* "${INITRAMFS_DIR}/lib/firmware/" 2>/dev/null || true
+    FW_COUNT=$(find "${INITRAMFS_DIR}/lib/firmware" -type f 2>/dev/null | wc -l)
+    echo "   ✅ Copied ${FW_COUNT} firmware files from host"
+fi
+
+# =============================================================================
 # Copy dialog for TUI installer
 # =============================================================================
 echo "   Copying dialog..."
@@ -428,6 +472,37 @@ done
 # Graphics/Framebuffer (CRITICAL for real hardware display)
 log "Loading graphics drivers..."
 for mod in efifb vesafb simplefb drm drm_kms_helper i915 nouveau amdgpu radeon; do
+    modprobe $mod >/dev/null 2>&1 || true
+done
+
+# WiFi/Wireless (CRITICAL for network during install)
+log "Loading WiFi drivers..."
+# Core wireless stack
+for mod in cfg80211 mac80211 rfkill; do
+    modprobe $mod >/dev/null 2>&1 || true
+done
+# Intel WiFi
+for mod in iwlwifi iwlmvm iwldvm; do
+    modprobe $mod >/dev/null 2>&1 || true
+done
+# Atheros WiFi
+for mod in ath ath9k ath9k_htc ath10k_core ath10k_pci ath11k ath11k_pci ath12k; do
+    modprobe $mod >/dev/null 2>&1 || true
+done
+# Realtek WiFi
+for mod in rtlwifi rtl8192ce rtl8192cu rtl8192de rtl8192se rtl8723ae rtl8723be rtl8188ee rtl8821ae rtw88_core rtw88_pci rtw88_usb rtw89_core rtw89_pci; do
+    modprobe $mod >/dev/null 2>&1 || true
+done
+# Broadcom WiFi
+for mod in brcmfmac brcmsmac b43 b43legacy; do
+    modprobe $mod >/dev/null 2>&1 || true
+done
+# Mediatek WiFi
+for mod in mt76 mt7601u mt7603e mt7615e mt7663s mt7663u mt7915e mt7921e mt7921s mt7921u; do
+    modprobe $mod >/dev/null 2>&1 || true
+done
+# Marvell WiFi
+for mod in mwifiex mwifiex_pcie mwifiex_sdio mwifiex_usb; do
     modprobe $mod >/dev/null 2>&1 || true
 done
 

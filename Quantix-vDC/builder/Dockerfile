@@ -64,9 +64,16 @@ RUN apk add --no-cache \
     busybox-static \
     # UUID generation
     libuuid \
-    # WiFi tools for installer
+    # WiFi tools and firmware for installer
     wpa_supplicant \
     wireless-tools \
+    linux-firmware-intel \
+    linux-firmware-ath9k_htc \
+    linux-firmware-ath10k \
+    linux-firmware-brcm \
+    linux-firmware-rtlwifi \
+    linux-firmware-rtw88 \
+    linux-firmware-mediatek \
     && rm -rf /var/cache/apk/*
 
 # Create working directories
