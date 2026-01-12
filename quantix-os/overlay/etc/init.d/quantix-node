@@ -16,7 +16,7 @@ error_log="/var/log/quantix-node.err.log"
 
 depend() {
     need net localmount
-    after libvirtd ovsdb-server ovs-vswitchd quantix-firstboot
+    after libvirtd virtqemud ovsdb-server ovs-vswitchd quantix-firstboot
     provide quantix-node
 }
 

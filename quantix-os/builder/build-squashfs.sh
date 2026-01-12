@@ -197,6 +197,7 @@ chroot "${ROOTFS_DIR}" /sbin/rc-update add syslog boot || true
 
 chroot "${ROOTFS_DIR}" /sbin/rc-update add dbus default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add libvirtd default || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add virtqemud default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add ovsdb-server default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add ovs-vswitchd default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add seatd default || true
