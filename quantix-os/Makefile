@@ -251,7 +251,9 @@ node-daemon: docker-rust-tui
 			-w /build \
 			$(RUST_TUI_IMAGE) \
 			sh -c "set -e && \
-			       echo '   Building limiquantix-node with libvirt support...' && \
+			       echo '   Step 1: Generating proto files...' && \
+			       cargo build --release -p limiquantix-proto 2>&1 && \
+			       echo '   Step 2: Building limiquantix-node with libvirt support...' && \
 			       cargo build --release -p limiquantix-node --features libvirt 2>&1 && \
 			       echo '   Verifying binary...' && \
 			       file target/release/limiquantix-node && \
