@@ -33,10 +33,27 @@ get_hostname() {
 
 get_service_status() {
     local service="$1"
+    
+    # Handle PostgreSQL naming (Alpine 3.20 uses postgresql16)
+    if [ "$service" = "postgresql" ]; then
+        if [ -f /etc/init.d/postgresql16 ]; then
+            service="postgresql16"
+        fi
+    fi
+    
     if rc-service "$service" status 2>/dev/null | grep -q "started"; then
         echo "Running"
     else
         echo "Stopped"
+    fi
+}
+
+# Get actual PostgreSQL service name
+get_pg_service() {
+    if [ -f /etc/init.d/postgresql16 ]; then
+        echo "postgresql16"
+    else
+        echo "postgresql"
     fi
 }
 
@@ -459,6 +476,7 @@ manage_services() {
         # Map service names
         local REAL_SERVICE="$SERVICE"
         [ "$SERVICE" = "controlplane" ] && REAL_SERVICE="quantix-controlplane"
+        [ "$SERVICE" = "postgresql" ] && REAL_SERVICE="$(get_pg_service)"
         
         $DIALOG --backtitle "$BACKTITLE" \
             --title "Manage $SERVICE" \
@@ -487,7 +505,10 @@ restart_all_services() {
     
     $DIALOG --infobox "\nRestarting services...\n" 5 40
     
-    for svc in postgresql redis etcd quantix-controlplane nginx; do
+    # Get actual PostgreSQL service name
+    local PG_SVC=$(get_pg_service)
+    
+    for svc in $PG_SVC redis etcd quantix-controlplane nginx; do
         rc-service "$svc" restart >/dev/null 2>&1
     done
     
@@ -542,8 +563,12 @@ troubleshooting_menu() {
     while true; do
         $DIALOG --backtitle "$BACKTITLE" \
             --title "Troubleshooting" \
-            --menu "\nSelect option:" 15 60 5 \
-            "logs" "View Control Plane Logs" \
+            --menu "\nSelect option:" 18 65 9 \
+            "logs_cp" "View Control Plane Logs" \
+            "logs_err" "View Control Plane Errors" \
+            "logs_startup" "View Startup Log" \
+            "logs_pg" "View PostgreSQL Logs" \
+            "start_all" "Force Start All Services" \
             "network" "Test Network Connectivity" \
             "restart_net" "Restart Networking" \
             "shell" "Drop to Shell" \
@@ -555,13 +580,79 @@ troubleshooting_menu() {
         local CHOICE=$(cat "$TEMP_FILE")
         
         case "$CHOICE" in
-            logs)
+            logs_cp)
                 if [ -f /var/log/quantix-controlplane.log ]; then
+                    tail -50 /var/log/quantix-controlplane.log > /tmp/logs_view.txt
                     $DIALOG --backtitle "$BACKTITLE" \
-                        --title "Control Plane Logs (last 30 lines)" \
-                        --textbox /var/log/quantix-controlplane.log 20 80
+                        --title "Control Plane Logs (last 50 lines)" \
+                        --textbox /tmp/logs_view.txt 22 80
                 else
-                    $DIALOG --msgbox "\nNo control plane logs found." 8 50
+                    $DIALOG --msgbox "\nNo control plane logs found.\n\nThe service may not have started." 10 50
+                fi
+                ;;
+            logs_err)
+                if [ -f /var/log/quantix-controlplane.err.log ]; then
+                    tail -50 /var/log/quantix-controlplane.err.log > /tmp/logs_view.txt
+                    $DIALOG --backtitle "$BACKTITLE" \
+                        --title "Control Plane Error Log (last 50 lines)" \
+                        --textbox /tmp/logs_view.txt 22 80
+                else
+                    $DIALOG --msgbox "\nNo error logs found (this is good!)." 8 50
+                fi
+                ;;
+            logs_startup)
+                if [ -f /var/log/quantix-startup.log ]; then
+                    $DIALOG --backtitle "$BACKTITLE" \
+                        --title "Startup Log" \
+                        --textbox /var/log/quantix-startup.log 22 80
+                else
+                    $DIALOG --msgbox "\nNo startup log found.\n\nThe service startup helper may not have run." 10 55
+                fi
+                ;;
+            logs_pg)
+                local PG_LOG=$(ls -t /var/lib/postgresql/16/data/log/*.log 2>/dev/null | head -1)
+                if [ -n "$PG_LOG" ] && [ -f "$PG_LOG" ]; then
+                    tail -50 "$PG_LOG" > /tmp/logs_view.txt
+                    $DIALOG --backtitle "$BACKTITLE" \
+                        --title "PostgreSQL Logs" \
+                        --textbox /tmp/logs_view.txt 22 80
+                else
+                    $DIALOG --msgbox "\nNo PostgreSQL logs found.\n\nPostgreSQL may not be initialized." 10 50
+                fi
+                ;;
+            start_all)
+                $DIALOG --backtitle "$BACKTITLE" \
+                    --title "Force Start Services" \
+                    --yesno "\nThis will attempt to start all services.\n\nContinue?" 10 50
+                
+                if [ $? -eq 0 ]; then
+                    $DIALOG --infobox "\nStarting services...\n\nThis may take 30-60 seconds." 8 50
+                    
+                    # Run the startup script
+                    if [ -x /etc/local.d/99-start-services.start ]; then
+                        /etc/local.d/99-start-services.start >/dev/null 2>&1
+                    else
+                        # Manual startup
+                        rc-service postgresql start 2>/dev/null
+                        rc-service redis start 2>/dev/null
+                        rc-service etcd start 2>/dev/null
+                        sleep 5
+                        rc-service quantix-controlplane start 2>/dev/null
+                        rc-service nginx start 2>/dev/null
+                    fi
+                    
+                    sleep 3
+                    
+                    local STATUS="Service Status:\n\n"
+                    STATUS="${STATUS}PostgreSQL: $(get_service_status postgresql)\n"
+                    STATUS="${STATUS}Redis: $(get_service_status redis)\n"
+                    STATUS="${STATUS}etcd: $(get_service_status etcd)\n"
+                    STATUS="${STATUS}Control Plane: $(get_service_status quantix-controlplane)\n"
+                    STATUS="${STATUS}nginx: $(get_service_status nginx)\n"
+                    
+                    $DIALOG --backtitle "$BACKTITLE" \
+                        --title "Service Status" \
+                        --msgbox "$STATUS" 14 50
                 fi
                 ;;
             network)

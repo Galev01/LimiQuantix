@@ -91,6 +91,58 @@ fi
 echo "✅ Packages installed"
 
 # -----------------------------------------------------------------------------
+# Step 2b: Download and bundle etcd (not in Alpine repos)
+# -----------------------------------------------------------------------------
+echo "📦 Step 2b: Downloading and bundling etcd..."
+
+ETCD_VERSION="v3.5.17"
+ETCD_ARCH="amd64"
+ETCD_URL="https://github.com/etcd-io/etcd/releases/download/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-${ETCD_ARCH}.tar.gz"
+
+# Download etcd during build (so no network needed at first boot)
+if ! wget -q "${ETCD_URL}" -O /tmp/etcd.tar.gz; then
+    echo "⚠️  Warning: Failed to download etcd from GitHub"
+    echo "   The appliance will attempt to download it on first boot"
+else
+    cd /tmp
+    tar -xzf etcd.tar.gz
+    
+    # Copy etcd binaries to rootfs
+    cp "etcd-${ETCD_VERSION}-linux-${ETCD_ARCH}/etcd" "${ROOTFS_DIR}/usr/bin/"
+    cp "etcd-${ETCD_VERSION}-linux-${ETCD_ARCH}/etcdctl" "${ROOTFS_DIR}/usr/bin/"
+    chmod +x "${ROOTFS_DIR}/usr/bin/etcd" "${ROOTFS_DIR}/usr/bin/etcdctl"
+    
+    # Create etcd OpenRC init script
+    cat > "${ROOTFS_DIR}/etc/init.d/etcd" << 'ETCDINIT'
+#!/sbin/openrc-run
+name="etcd"
+description="etcd distributed key-value store"
+command="/usr/bin/etcd"
+command_args="--data-dir=/var/lib/etcd --listen-client-urls=http://127.0.0.1:2379 --advertise-client-urls=http://127.0.0.1:2379"
+command_background="yes"
+pidfile="/run/etcd.pid"
+output_log="/var/log/etcd.log"
+error_log="/var/log/etcd.err"
+
+depend() {
+    need net localmount
+    after quantix-firstboot
+}
+
+start_pre() {
+    mkdir -p /var/lib/etcd
+    chmod 700 /var/lib/etcd
+}
+ETCDINIT
+    chmod +x "${ROOTFS_DIR}/etc/init.d/etcd"
+    
+    # Clean up
+    rm -rf /tmp/etcd.tar.gz /tmp/etcd-${ETCD_VERSION}-linux-${ETCD_ARCH}
+    
+    echo "✅ etcd ${ETCD_VERSION} bundled into ISO"
+fi
+
+# -----------------------------------------------------------------------------
 # Step 3: Apply overlay files
 # -----------------------------------------------------------------------------
 echo "📦 Step 3: Applying overlay files..."
@@ -143,12 +195,27 @@ chroot "${ROOTFS_DIR}" /sbin/rc-update add networking default || true
 
 # Quantix-vDC services (enabled on first boot)
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-firstboot boot || true
-chroot "${ROOTFS_DIR}" /sbin/rc-update add postgresql default || true
+
+# PostgreSQL - try both service names (Alpine 3.20 uses postgresql16)
+chroot "${ROOTFS_DIR}" /sbin/rc-update add postgresql16 default 2>/dev/null || \
+    chroot "${ROOTFS_DIR}" /sbin/rc-update add postgresql default 2>/dev/null || true
+
+# Create symlink for postgresql service name compatibility
+if [ -f "${ROOTFS_DIR}/etc/init.d/postgresql16" ] && [ ! -f "${ROOTFS_DIR}/etc/init.d/postgresql" ]; then
+    ln -sf postgresql16 "${ROOTFS_DIR}/etc/init.d/postgresql"
+fi
+
 chroot "${ROOTFS_DIR}" /sbin/rc-update add redis default || true
-# Note: etcd is not available in Alpine 3.20 repos, will be added separately if needed
-# chroot "${ROOTFS_DIR}" /sbin/rc-update add etcd default || true
+
+# etcd is pre-bundled during ISO build
+chroot "${ROOTFS_DIR}" /sbin/rc-update add etcd default 2>/dev/null || true
+
 chroot "${ROOTFS_DIR}" /sbin/rc-update add nginx default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add quantix-controlplane default || true
+
+# SSH - enabled by default for remote management
+chroot "${ROOTFS_DIR}" /sbin/rc-update add sshd default || true
+
 # Note: quantix-console is now run from /etc/inittab on tty1
 
 # Shutdown services

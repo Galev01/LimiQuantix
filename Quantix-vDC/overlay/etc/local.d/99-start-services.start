@@ -1,0 +1,129 @@
+#!/bin/sh
+# =============================================================================
+# Quantix-vDC Service Startup Helper
+# =============================================================================
+# Ensures all services are started after boot completes.
+# This is a fallback in case OpenRC service dependencies don't resolve properly.
+# =============================================================================
+
+LOG_FILE="/var/log/quantix-startup.log"
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> "$LOG_FILE"
+    echo "$1"
+}
+
+log "=== Quantix-vDC Service Startup ==="
+
+# Wait for network
+for i in $(seq 1 30); do
+    if ip -4 addr show scope global | grep -q "inet"; then
+        log "Network is up"
+        break
+    fi
+    sleep 1
+done
+
+# Determine PostgreSQL service name (Alpine 3.20 uses postgresql16)
+PG_SVC="postgresql"
+if [ -f /etc/init.d/postgresql16 ]; then
+    PG_SVC="postgresql16"
+fi
+
+# Start PostgreSQL if not running
+if ! rc-service $PG_SVC status 2>/dev/null | grep -q started; then
+    log "Starting PostgreSQL ($PG_SVC)..."
+    # Initialize if needed
+    PG_DATA="/var/lib/postgresql/16/data"
+    if [ ! -f "$PG_DATA/PG_VERSION" ]; then
+        log "PostgreSQL not initialized, running initialization..."
+        mkdir -p "$PG_DATA"
+        chown -R postgres:postgres /var/lib/postgresql
+        chmod 700 "$PG_DATA"
+        
+        # Find initdb
+        INITDB=$(which initdb 2>/dev/null || echo "/usr/libexec/postgresql16/initdb")
+        
+        su -s /bin/sh postgres -c "$INITDB -D $PG_DATA --encoding=UTF8 --locale=C" 2>/dev/null || {
+            log "PostgreSQL initialization failed"
+        }
+        
+        # Configure for local connections
+        if [ -f "$PG_DATA/pg_hba.conf" ]; then
+            cat > "$PG_DATA/pg_hba.conf" << 'EOF'
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+local   all             all                                     trust
+host    all             all             127.0.0.1/32            trust
+host    all             all             ::1/128                 trust
+EOF
+        fi
+        
+        # Configure PostgreSQL
+        if [ -f "$PG_DATA/postgresql.conf" ]; then
+            sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '127.0.0.1'/" "$PG_DATA/postgresql.conf" 2>/dev/null || true
+        fi
+    fi
+    rc-service $PG_SVC start 2>/dev/null && log "PostgreSQL started" || log "PostgreSQL start failed"
+fi
+
+# Start Redis if not running
+if ! rc-service redis status 2>/dev/null | grep -q started; then
+    log "Starting Redis..."
+    rc-service redis start 2>/dev/null && log "Redis started" || log "Redis start failed"
+fi
+
+# Start etcd if available and not running
+if [ -x /usr/bin/etcd ]; then
+    if ! rc-service etcd status 2>/dev/null | grep -q started; then
+        log "Starting etcd..."
+        mkdir -p /var/lib/etcd
+        chmod 700 /var/lib/etcd
+        rc-service etcd start 2>/dev/null && log "etcd started" || log "etcd start failed"
+    fi
+else
+    log "etcd not installed (optional)"
+fi
+
+# Wait for PostgreSQL to be ready
+log "Waiting for PostgreSQL to be ready..."
+for i in $(seq 1 30); do
+    if command -v pg_isready >/dev/null 2>&1 && pg_isready -q 2>/dev/null; then
+        log "PostgreSQL is ready"
+        break
+    fi
+    sleep 1
+done
+
+# Create control plane database if it doesn't exist
+if command -v psql >/dev/null 2>&1; then
+    su -s /bin/sh postgres -c "psql -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw quantix_vdc" || {
+        log "Creating quantix_vdc database..."
+        su -s /bin/sh postgres -c "createdb quantix_vdc" 2>/dev/null && log "Database created" || log "Database creation failed (may already exist)"
+    }
+fi
+
+# Start Control Plane if not running
+if [ -x /usr/bin/qx-controlplane ]; then
+    if ! rc-service quantix-controlplane status 2>/dev/null | grep -q started; then
+        log "Starting Control Plane..."
+        rc-service quantix-controlplane start 2>/dev/null && log "Control Plane started" || log "Control Plane start failed"
+    fi
+else
+    log "Control Plane binary not found at /usr/bin/qx-controlplane!"
+fi
+
+# Start nginx if not running
+if ! rc-service nginx status 2>/dev/null | grep -q started; then
+    log "Starting nginx..."
+    rc-service nginx start 2>/dev/null && log "nginx started" || log "nginx start failed"
+fi
+
+log "=== Service startup complete ==="
+
+# Show final status
+log "Service Status:"
+log "  PostgreSQL: $(rc-service $PG_SVC status 2>/dev/null | grep -q started && echo 'Running' || echo 'Stopped')"
+log "  Redis: $(rc-service redis status 2>/dev/null | grep -q started && echo 'Running' || echo 'Stopped')"
+log "  etcd: $(rc-service etcd status 2>/dev/null | grep -q started && echo 'Running' || echo 'N/A')"
+log "  Control Plane: $(rc-service quantix-controlplane status 2>/dev/null | grep -q started && echo 'Running' || echo 'Stopped')"
+log "  nginx: $(rc-service nginx status 2>/dev/null | grep -q started && echo 'Running' || echo 'Stopped')"

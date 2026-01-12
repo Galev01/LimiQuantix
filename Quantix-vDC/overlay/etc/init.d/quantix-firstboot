@@ -87,11 +87,50 @@ EOF
         fi
     fi
 
-    # Install and initialize etcd (not in Alpine repos)
-    if [ ! -f /usr/bin/etcd ]; then
-        einfo "Installing etcd..."
+    # Check if etcd is already bundled (from ISO build)
+    if [ -f /usr/bin/etcd ]; then
+        einfo "etcd already bundled in image"
+        # Ensure init script exists
+        if [ ! -f /etc/init.d/etcd ]; then
+            cat > /etc/init.d/etcd << 'ETCDINIT'
+#!/sbin/openrc-run
+name="etcd"
+description="etcd distributed key-value store"
+command="/usr/bin/etcd"
+command_args="--data-dir=/var/lib/etcd --listen-client-urls=http://127.0.0.1:2379 --advertise-client-urls=http://127.0.0.1:2379"
+command_background="yes"
+pidfile="/run/etcd.pid"
+output_log="/var/log/etcd.log"
+error_log="/var/log/etcd.err"
+
+depend() {
+    need net localmount
+    after quantix-firstboot
+}
+
+start_pre() {
+    mkdir -p /var/lib/etcd
+    chmod 700 /var/lib/etcd
+}
+ETCDINIT
+            chmod +x /etc/init.d/etcd
+        fi
+        rc-update add etcd default 2>/dev/null || true
+    else
+        # Fallback: Try to download etcd if not bundled (requires network)
+        einfo "etcd not bundled, attempting download..."
         ETCD_VERSION="v3.5.17"
         ETCD_ARCH="amd64"
+        
+        # Wait for network to be available (WiFi might take time)
+        for i in 1 2 3 4 5; do
+            if ping -c 1 -W 2 github.com >/dev/null 2>&1; then
+                einfo "Network available, downloading etcd..."
+                break
+            fi
+            ewarn "Waiting for network... ($i/5)"
+            sleep 5
+        done
         
         # Download etcd
         cd /tmp
