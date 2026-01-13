@@ -1944,25 +1944,7 @@ fn attempt_leave_cluster(app: &mut App) {
 
 /// Get current cluster status by checking the cluster marker file and calling the API
 fn get_cluster_status() -> ClusterStatus {
-    // Method 1: Check the cluster marker file first (fastest, no network call needed)
-    if let Ok(content) = std::fs::read_to_string("/quantix/cluster.yaml") {
-        // If the cluster marker file exists, we are in a cluster
-        if content.contains("cluster:") && content.contains("name:") {
-            return ClusterStatus::Connected;
-        } else if !content.trim().is_empty() {
-            return ClusterStatus::Connected;
-        }
-    }
-    
-    // Method 2: Check the node config for control_plane settings
-    if let Ok(content) = std::fs::read_to_string("/etc/limiquantix/node.yaml") {
-        if content.contains("control_plane:") && content.contains("address:") {
-            // Control plane is configured, check if we can reach it
-            return ClusterStatus::Connected;
-        }
-    }
-    
-    // Method 3: Try to call the local node daemon API
+    // Method 1: Try to call the local node daemon API first (most accurate)
     // The node daemon runs on localhost:8443
     match std::process::Command::new("curl")
         .args(["-s", "-k", "--max-time", "2", "https://127.0.0.1:8443/api/v1/cluster/status"])
@@ -1971,24 +1953,65 @@ fn get_cluster_status() -> ClusterStatus {
         Ok(output) => {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                // Parse JSON response - look for "status" or "joined" field
-                if stdout.contains("\"joined\":true") || 
-                   stdout.contains("\"status\":\"connected\"") || 
-                   stdout.contains("\"mode\":\"cluster\"") {
-                    ClusterStatus::Connected
-                } else if stdout.contains("\"status\":\"disconnected\"") {
-                    ClusterStatus::Disconnected
-                } else if stdout.contains("\"status\":\"pending_restart\"") {
-                    ClusterStatus::Joining
-                } else {
-                    ClusterStatus::Standalone
+                // Parse JSON response - look for "joined":true (must be exactly true, not just present)
+                if stdout.contains("\"joined\":true") {
+                    // Also check if status is connected vs pending
+                    if stdout.contains("\"status\":\"pending_restart\"") {
+                        return ClusterStatus::Joining;
+                    } else if stdout.contains("\"status\":\"disconnected\"") {
+                        return ClusterStatus::Disconnected;
+                    }
+                    return ClusterStatus::Connected;
+                } else if stdout.contains("\"joined\":false") {
+                    return ClusterStatus::Standalone;
                 }
-            } else {
-                ClusterStatus::Standalone
             }
         }
-        Err(_) => ClusterStatus::Standalone,
+        Err(_) => {
+            // Node daemon not running, fall through to file-based check
+        }
     }
+    
+    // Method 2: Check the cluster marker file (fallback if API unavailable)
+    if let Ok(content) = std::fs::read_to_string("/quantix/cluster.yaml") {
+        // Must have a valid control_plane address to be considered joined
+        let has_control_plane = content.lines().any(|line| {
+            let trimmed = line.trim();
+            if trimmed.starts_with("control_plane:") {
+                let value = trimmed.trim_start_matches("control_plane:").trim().trim_matches('"');
+                !value.is_empty() && value != "null" && !value.contains("localhost")
+            } else {
+                false
+            }
+        });
+        
+        if has_control_plane {
+            return ClusterStatus::Connected;
+        }
+    }
+    
+    // Method 3: Check the node config for control_plane settings (legacy)
+    if let Ok(content) = std::fs::read_to_string("/etc/limiquantix/node.yaml") {
+        // Must have both control_plane: section AND a valid address
+        let mut in_control_plane = false;
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed == "control_plane:" {
+                in_control_plane = true;
+            } else if in_control_plane && trimmed.starts_with("address:") {
+                let addr = trimmed.trim_start_matches("address:").trim().trim_matches('"');
+                // Must be a real address, not localhost or empty
+                if !addr.is_empty() && !addr.contains("localhost") && addr != "http://localhost:8080" {
+                    return ClusterStatus::Connected;
+                }
+            } else if !line.starts_with(' ') && !line.starts_with('\t') && !trimmed.is_empty() && trimmed != "control_plane:" {
+                in_control_plane = false;
+            }
+        }
+    }
+    
+    // Default: standalone mode
+    ClusterStatus::Standalone
 }
 
 /// Call the node daemon API to leave a cluster
