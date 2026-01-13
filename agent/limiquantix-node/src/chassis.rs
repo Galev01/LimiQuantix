@@ -22,9 +22,10 @@
 
 use std::collections::HashMap;
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use anyhow::{Context, Result, bail};
-use tracing::{info, warn, debug, error, instrument};
+use chrono::{DateTime, Utc};
+use tracing::{info, warn, debug, instrument};
 use serde::{Deserialize, Serialize};
 
 /// OVN encapsulation type.
@@ -141,7 +142,7 @@ pub struct ChassisHealth {
     pub bridge_mappings: Vec<String>,
     
     /// Last health check time
-    pub last_check: Instant,
+    pub last_check: DateTime<Utc>,
 }
 
 impl Default for ChassisHealth {
@@ -156,7 +157,7 @@ impl Default for ChassisHealth {
             encap_ip: String::new(),
             chassis_id: String::new(),
             bridge_mappings: Vec::new(),
-            last_check: Instant::now(),
+            last_check: Utc::now(),
         }
     }
 }
@@ -451,7 +452,7 @@ impl ChassisManager {
     #[instrument(skip(self))]
     pub fn health_check(&mut self) -> Result<ChassisHealth> {
         let mut health = ChassisHealth::default();
-        health.last_check = Instant::now();
+        health.last_check = Utc::now();
 
         // Check OVS version
         if let Ok(output) = Command::new("ovs-vsctl").arg("--version").output() {
