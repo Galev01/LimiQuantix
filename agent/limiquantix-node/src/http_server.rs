@@ -1842,32 +1842,35 @@ async fn list_services(
         },
         ServiceInfo {
             name: "nfs-client".to_string(),
-            status: get_service_status("nfs-common").or_else(|| get_service_status("nfsclient")),
-            enabled: is_service_enabled("nfs-common"),
+            // Alpine uses nfsclient or nfs, Debian/Ubuntu uses nfs-common
+            status: get_service_status("nfsclient").or_else(|| get_service_status("nfs-common")),
+            enabled: is_service_enabled("nfsclient") || is_service_enabled("nfs-common"),
             description: "NFS Client - Shared storage access".to_string(),
         },
         ServiceInfo {
-            name: "firewalld".to_string(),
-            status: get_service_status("firewalld").or_else(|| get_service_status("iptables")),
-            enabled: is_service_enabled("firewalld"),
+            name: "firewall".to_string(),
+            // Alpine uses iptables, systemd distros may use firewalld
+            status: get_service_status("iptables").or_else(|| get_service_status("firewalld")),
+            enabled: is_service_enabled("iptables") || is_service_enabled("firewalld"),
             description: "Firewall - Network security".to_string(),
         },
         ServiceInfo {
             name: "chronyd".to_string(),
             status: get_service_status("chronyd").or_else(|| get_service_status("ntpd")),
-            enabled: is_service_enabled("chronyd"),
+            enabled: is_service_enabled("chronyd") || is_service_enabled("ntpd"),
             description: "NTP Client - Time synchronization".to_string(),
         },
         ServiceInfo {
             name: "snmpd".to_string(),
             status: get_service_status("snmpd"),
             enabled: is_service_enabled("snmpd"),
-            description: "SNMP Agent - Monitoring integration".to_string(),
+            description: "SNMP Agent - Monitoring integration (optional)".to_string(),
         },
         ServiceInfo {
             name: "ovs-vswitchd".to_string(),
-            status: get_service_status("openvswitch-switch").or_else(|| get_service_status("ovs-vswitchd")),
-            enabled: is_service_enabled("openvswitch-switch"),
+            // Alpine uses ovs-vswitchd directly, Debian/Ubuntu uses openvswitch-switch
+            status: get_service_status("ovs-vswitchd").or_else(|| get_service_status("openvswitch-switch")),
+            enabled: is_service_enabled("ovs-vswitchd") || is_service_enabled("ovsdb-server"),
             description: "Open vSwitch - Software-defined networking".to_string(),
         },
         ServiceInfo {
@@ -1894,23 +1897,28 @@ impl OptionExt for String {
 
 fn is_service_enabled(name: &str) -> bool {
     use std::process::Command;
+    use std::process::Stdio;
     
-    // Try systemctl
+    // Try rc-update first (Alpine/OpenRC) - suppress stderr
+    if let Ok(output) = Command::new("rc-update")
+        .args(["show", "default"])
+        .stderr(Stdio::null())
+        .output()
+    {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        if output_str.contains(name) {
+            return true;
+        }
+    }
+    
+    // Try systemctl (for systemd-based systems) - suppress stderr
     if let Ok(output) = Command::new("systemctl")
         .args(["is-enabled", name])
+        .stderr(Stdio::null())
         .output()
     {
         let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
         return status == "enabled";
-    }
-    
-    // Try rc-update (Alpine/OpenRC)
-    if let Ok(output) = Command::new("rc-update")
-        .args(["show", "default"])
-        .output()
-    {
-        let output_str = String::from_utf8_lossy(&output.stdout);
-        return output_str.contains(name);
     }
     
     false
@@ -1918,24 +1926,32 @@ fn is_service_enabled(name: &str) -> bool {
 
 fn get_service_status(name: &str) -> String {
     use std::process::Command;
+    use std::process::Stdio;
     
-    // Try systemctl first
-    if let Ok(output) = Command::new("systemctl")
-        .args(&["is-active", name])
-        .output()
-    {
-        if output.status.success() {
-            return String::from_utf8_lossy(&output.stdout).trim().to_string();
-        }
-    }
-    
-    // Try rc-service (Alpine/OpenRC)
+    // Try rc-service first (Alpine/OpenRC) - suppress stderr to avoid log spam
     if let Ok(output) = Command::new("rc-service")
-        .args(&[name, "status"])
+        .args([name, "status"])
+        .stderr(Stdio::null())
         .output()
     {
         if output.status.success() {
             return "running".to_string();
+        }
+        // Service exists but not running
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.contains("stopped") || stdout.contains("crashed") {
+            return "stopped".to_string();
+        }
+    }
+    
+    // Try systemctl (for systemd-based systems) - suppress stderr
+    if let Ok(output) = Command::new("systemctl")
+        .args(["is-active", name])
+        .stderr(Stdio::null())
+        .output()
+    {
+        if output.status.success() {
+            return String::from_utf8_lossy(&output.stdout).trim().to_string();
         }
     }
     
@@ -2849,6 +2865,8 @@ async fn list_images(
 async fn list_local_devices(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<LocalDeviceListResponse>, (StatusCode, Json<ApiError>)> {
+    use std::process::Command;
+    
     info!("Listing local storage devices");
     
     let mut devices = Vec::new();
@@ -2859,15 +2877,173 @@ async fn list_local_devices(
         .map(|d| d.device.clone())
         .collect();
     
-    // On Linux, read block devices from /sys/block
-    #[cfg(target_os = "linux")]
-    {
+    // Use lsblk for reliable disk detection (same as hardware inventory)
+    // -J = JSON output, -b = bytes, -o = specific fields
+    let lsblk_result = Command::new("lsblk")
+        .args(&["-J", "-b", "-o", "NAME,SIZE,TYPE,TRAN,MODEL,SERIAL,ROTA,RM,MOUNTPOINT,FSTYPE"])
+        .output();
+    
+    match lsblk_result {
+        Ok(output) if output.status.success() => {
+            let json_str = String::from_utf8_lossy(&output.stdout);
+            debug!(output = %json_str, "lsblk output for local devices");
+            
+            if let Ok(lsblk_data) = serde_json::from_str::<serde_json::Value>(&json_str) {
+                if let Some(blockdevices) = lsblk_data.get("blockdevices").and_then(|v| v.as_array()) {
+                    for dev in blockdevices {
+                        let name = dev.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                        let dev_type = dev.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                        
+                        // Only process disk devices (not partitions, loop devices, rom, etc.)
+                        if dev_type != "disk" {
+                            continue;
+                        }
+                        
+                        // Skip loop, ram, dm, zram, sr (cdrom) devices
+                        if name.starts_with("loop") || name.starts_with("ram") || 
+                           name.starts_with("dm-") || name.starts_with("zram") ||
+                           name.starts_with("sr") {
+                            continue;
+                        }
+                        
+                        let device_path = format!("/dev/{}", name);
+                        
+                        let size_bytes = dev.get("size")
+                            .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                            .unwrap_or(0);
+                        
+                        // Skip very small devices (< 1GB)
+                        if size_bytes < 1_000_000_000 {
+                            debug!(device = %name, size = %size_bytes, "Skipping small device");
+                            continue;
+                        }
+                        
+                        // Determine device type from transport and rotational flag
+                        let transport = dev.get("tran").and_then(|v| v.as_str()).unwrap_or("");
+                        let is_rotational = dev.get("rota")
+                            .and_then(|v| v.as_bool().or_else(|| v.as_str().map(|s| s == "1")))
+                            .unwrap_or(false);
+                        
+                        let device_type = if name.starts_with("nvme") || transport == "nvme" {
+                            "nvme"
+                        } else if name.starts_with("vd") {
+                            "virtio"
+                        } else if transport == "sata" || transport == "ata" || name.starts_with("sd") {
+                            if is_rotational { "hdd" } else { "ssd" }
+                        } else if transport == "usb" {
+                            "usb"
+                        } else {
+                            if is_rotational { "hdd" } else { "ssd" }
+                        }.to_string();
+                        
+                        let model = dev.get("model")
+                            .and_then(|v| v.as_str())
+                            .filter(|s| !s.is_empty())
+                            .map(|s| s.trim().to_string());
+                        
+                        let serial = dev.get("serial")
+                            .and_then(|v| v.as_str())
+                            .filter(|s| !s.is_empty())
+                            .map(|s| s.trim().to_string());
+                        
+                        // Get partitions from children
+                        let mut partitions = Vec::new();
+                        let mut has_partitions = false;
+                        
+                        if let Some(children) = dev.get("children").and_then(|v| v.as_array()) {
+                            for child in children {
+                                let child_name = child.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                                let child_type = child.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                                
+                                if child_type == "part" {
+                                    has_partitions = true;
+                                    let part_device = format!("/dev/{}", child_name);
+                                    
+                                    let part_size = child.get("size")
+                                        .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                                        .unwrap_or(0);
+                                    
+                                    let mount_point = child.get("mountpoint")
+                                        .and_then(|v| v.as_str())
+                                        .filter(|s| !s.is_empty())
+                                        .map(|s| s.to_string());
+                                    
+                                    let filesystem = child.get("fstype")
+                                        .and_then(|v| v.as_str())
+                                        .filter(|s| !s.is_empty())
+                                        .map(|s| s.to_string());
+                                    
+                                    // Get used bytes from telemetry if mounted
+                                    let used_bytes = telemetry.disks.iter()
+                                        .find(|d| d.device.contains(child_name))
+                                        .map(|d| d.used_bytes)
+                                        .unwrap_or(0);
+                                    
+                                    partitions.push(LocalPartitionInfo {
+                                        device: part_device,
+                                        filesystem,
+                                        mount_point,
+                                        size_bytes: part_size,
+                                        used_bytes,
+                                        label: None,
+                                    });
+                                }
+                            }
+                        }
+                        
+                        // Check if device is in use
+                        let in_use = has_partitions || mounted_devices.contains(&device_path);
+                        
+                        // Can only initialize if not in use
+                        let can_initialize = !in_use;
+                        
+                        info!(
+                            device = %name,
+                            size_gb = size_bytes / 1_000_000_000,
+                            device_type = %device_type,
+                            in_use = %in_use,
+                            partitions = partitions.len(),
+                            "Found local storage device"
+                        );
+                        
+                        devices.push(LocalDeviceInfo {
+                            device: device_path,
+                            name: name.to_string(),
+                            device_type,
+                            total_bytes: size_bytes,
+                            in_use,
+                            partitions,
+                            can_initialize,
+                            serial,
+                            model,
+                        });
+                    }
+                }
+            } else {
+                warn!("Failed to parse lsblk JSON output");
+            }
+        }
+        Ok(output) => {
+            warn!(stderr = %String::from_utf8_lossy(&output.stderr), "lsblk command failed");
+        }
+        Err(e) => {
+            warn!(error = %e, "Failed to execute lsblk");
+        }
+    }
+    
+    // Fallback: if lsblk failed or returned empty, try /sys/block
+    if devices.is_empty() {
+        warn!("lsblk returned no devices, falling back to /sys/block");
+        
+        #[cfg(target_os = "linux")]
         if let Ok(entries) = std::fs::read_dir("/sys/block") {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().to_string();
                 
-                // Skip loop, ram, and dm devices
-                if name.starts_with("loop") || name.starts_with("ram") || name.starts_with("dm-") {
+                // Skip loop, ram, dm, zram, sr devices
+                if name.starts_with("loop") || name.starts_with("ram") || 
+                   name.starts_with("dm-") || name.starts_with("zram") ||
+                   name.starts_with("sr") {
                     continue;
                 }
                 
@@ -2889,80 +3065,79 @@ async fn list_local_devices(
                 // Determine device type
                 let device_type = if name.starts_with("nvme") {
                     "nvme"
+                } else if name.starts_with("vd") {
+                    "virtio"
                 } else if name.starts_with("sd") {
-                    // Check if it's SSD or HDD by reading rotational flag
                     let rotational_path = entry.path().join("queue/rotational");
                     let is_rotational = std::fs::read_to_string(&rotational_path)
                         .ok()
                         .and_then(|s| s.trim().parse::<u8>().ok())
                         .unwrap_or(1) == 1;
                     if is_rotational { "hdd" } else { "ssd" }
-                } else if name.starts_with("vd") {
-                    "virtio"
                 } else {
                     "unknown"
                 }.to_string();
                 
-                // Read model name
-                let model_path = entry.path().join("device/model");
-                let model = std::fs::read_to_string(&model_path)
-                    .ok()
-                    .map(|s| s.trim().to_string());
+                // Read model name (NVMe uses different path)
+                let model = if name.starts_with("nvme") {
+                    // NVMe model is in /sys/block/nvme0n1/device/model
+                    std::fs::read_to_string(entry.path().join("device/model"))
+                        .ok()
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                } else {
+                    std::fs::read_to_string(entry.path().join("device/model"))
+                        .ok()
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                };
                 
                 // Read serial number
-                let serial_path = entry.path().join("device/serial");
-                let serial = std::fs::read_to_string(&serial_path)
+                let serial = std::fs::read_to_string(entry.path().join("device/serial"))
                     .ok()
-                    .map(|s| s.trim().to_string());
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty());
                 
-                // Get partitions
+                // Check for partitions in /sys/block/{name}/{name}*
                 let mut partitions = Vec::new();
-                let mut has_partitions = false;
-                
-                // List partition entries (e.g., nvme0n1p1, sda1)
-                for part_entry in std::fs::read_dir(&entry.path()).into_iter().flatten().flatten() {
-                    let part_name = part_entry.file_name().to_string_lossy().to_string();
-                    if part_name.starts_with(&name) && part_name != name {
-                        has_partitions = true;
-                        let part_device = format!("/dev/{}", part_name);
-                        
-                        // Read partition size
-                        let part_size_path = part_entry.path().join("size");
-                        let part_size = std::fs::read_to_string(&part_size_path)
-                            .ok()
-                            .and_then(|s| s.trim().parse::<u64>().ok())
-                            .map(|sectors| sectors * 512)
-                            .unwrap_or(0);
-                        
-                        // Find mount info from telemetry
-                        let mount_info = telemetry.disks.iter()
-                            .find(|d| d.device.contains(&part_name));
-                        
-                        let filesystem = mount_info.map(|d| d.filesystem.clone())
-                            .or_else(|| get_filesystem_type(&part_device));
-                        
-                        let mount_point = mount_info.map(|d| d.mount_point.clone());
-                        let used_bytes = mount_info.map(|d| d.used_bytes).unwrap_or(0);
-                        
-                        partitions.push(LocalPartitionInfo {
-                            device: part_device,
-                            filesystem,
-                            mount_point,
-                            size_bytes: part_size,
-                            used_bytes,
-                            label: None,
-                        });
+                if let Ok(children) = std::fs::read_dir(&entry.path()) {
+                    for child in children.flatten() {
+                        let child_name = child.file_name().to_string_lossy().to_string();
+                        if child_name.starts_with(&name) && child_name != name {
+                            let part_device = format!("/dev/{}", child_name);
+                            let part_size_path = child.path().join("size");
+                            let part_size = std::fs::read_to_string(&part_size_path)
+                                .ok()
+                                .and_then(|s| s.trim().parse::<u64>().ok())
+                                .map(|sectors| sectors * 512)
+                                .unwrap_or(0);
+                            
+                            partitions.push(LocalPartitionInfo {
+                                device: part_device,
+                                filesystem: None,
+                                mount_point: None,
+                                size_bytes: part_size,
+                                used_bytes: 0,
+                                label: None,
+                            });
+                        }
                     }
                 }
                 
-                // Check if device is in use
+                let has_partitions = !partitions.is_empty();
                 let in_use = has_partitions || mounted_devices.contains(&device_path);
-                
-                // Can only initialize if not in use
                 let can_initialize = !in_use;
                 
                 let display_name = model.clone()
                     .unwrap_or_else(|| format!("{} {}", device_type.to_uppercase(), name));
+                
+                info!(
+                    device = %name,
+                    size_gb = size_bytes / 1_000_000_000,
+                    device_type = %device_type,
+                    in_use = %in_use,
+                    "Found device via /sys/block fallback"
+                );
                 
                 devices.push(LocalDeviceInfo {
                     device: device_path,
