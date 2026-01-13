@@ -320,9 +320,6 @@ impl StorageManager {
     /// This is useful when a pool is not in cache but might be mounted.
     /// Returns None if the pool cannot be discovered.
     pub async fn try_discover_pool(&self, pool_id: &str) -> Option<PoolInfo> {
-        use std::path::Path;
-        use std::process::Command;
-        
         // Check common mount paths for NFS and local pools
         let nfs_mount_base = "/var/lib/limiquantix/pools";
         let local_base = "/var/lib/limiquantix/local";

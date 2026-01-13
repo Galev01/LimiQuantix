@@ -6,6 +6,9 @@
 //! - ACME (Let's Encrypt) certificate provisioning
 //! - Certificate information retrieval
 
+// ACME methods are prepared for Let's Encrypt integration
+#![allow(dead_code)]
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::fs;

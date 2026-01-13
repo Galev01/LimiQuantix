@@ -16,7 +16,7 @@ use std::sync::Arc;
 use axum::{
     Router,
     routing::{get, post},
-    extract::{Path, State, Multipart, Query, DefaultBodyLimit, ws::{Message, WebSocket, WebSocketUpgrade}},
+    extract::{Path, State, Multipart, Query, DefaultBodyLimit, ws::{Message, WebSocket}},
     http::{StatusCode, header, Method, Uri, HeaderMap},
     response::{IntoResponse, Response, Json, Redirect},
     body::Body,
@@ -265,8 +265,11 @@ struct SettingsResponse {
 struct UpdateSettingsRequest {
     node_name: Option<String>,
     log_level: Option<String>,
+    #[allow(dead_code)] // Will be used when storage settings are implemented
     storage_default_pool: Option<String>,
+    #[allow(dead_code)] // Will be used when network defaults are implemented
     network_default_bridge: Option<String>,
+    #[allow(dead_code)] // Will be used when VNC settings are implemented
     vnc_listen_address: Option<String>,
 }
 
@@ -432,6 +435,7 @@ struct CreateStoragePoolRequest {
     path: Option<String>,
     nfs_server: Option<String>,
     nfs_export: Option<String>,
+    #[allow(dead_code)] // Reserved for capacity-limited pools
     capacity_gib: Option<u64>,
 }
 
@@ -457,6 +461,7 @@ struct VolumeListResponse {
 struct CreateVolumeRequest {
     volume_id: String,
     size_bytes: u64,
+    #[allow(dead_code)] // Format selection will be implemented
     format: Option<String>,  // "qcow2", "raw"
 }
 
@@ -568,6 +573,7 @@ struct ClusterConfig {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)] // Reserved for future cluster join flow
 struct JoinClusterRequest {
     control_plane_address: String,
     registration_token: String,
@@ -3170,6 +3176,7 @@ async fn list_local_devices(
 
 /// Get filesystem type for a device using blkid
 #[cfg(target_os = "linux")]
+#[allow(dead_code)] // May be useful for future storage operations
 fn get_filesystem_type(device: &str) -> Option<String> {
     std::process::Command::new("blkid")
         .args(["-o", "value", "-s", "TYPE", device])
@@ -3191,7 +3198,7 @@ async fn initialize_local_device(
     Path(device): Path<String>,
     Json(request): Json<InitializeDeviceRequest>,
 ) -> Result<Json<InitializeDeviceResponse>, (StatusCode, Json<ApiError>)> {
-    use crate::event_store::{emit_event, Event, EventLevel, EventCategory};
+    use crate::event_store::{emit_event, Event, EventLevel};
     
     // URL decode the device path (e.g., %2Fdev%2Fnvme0n1 -> /dev/nvme0n1)
     let device_path = urlencoding::decode(&device)
@@ -3468,6 +3475,7 @@ fn get_conversion_jobs() -> &'static std::sync::Mutex<std::collections::HashMap<
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Fields used for job tracking
 struct ConversionJob {
     job_id: String,
     source_path: String,
@@ -4345,6 +4353,7 @@ async fn get_cluster_status(
 }
 
 /// Join a Quantix-vDC cluster
+#[allow(dead_code)] // Reserved for alternative cluster join flow
 async fn join_cluster(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<JoinClusterRequest>,
@@ -4854,7 +4863,7 @@ struct CompleteRegistrationResponse {
 /// Complete registration (called by vDC after validating token)
 /// This endpoint is called by the vDC control plane to finalize adding this host to the cluster.
 async fn complete_registration(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     Json(request): Json<CompleteRegistrationRequest>,
 ) -> Result<Json<CompleteRegistrationResponse>, (StatusCode, Json<ApiError>)> {
     info!(
@@ -5028,7 +5037,7 @@ async fn get_host_discovery(
 
 /// Get system logs with filtering
 async fn get_logs(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     Query(params): Query<LogsQuery>,
 ) -> Result<Json<LogsResponse>, (StatusCode, Json<ApiError>)> {
     info!("Fetching system logs");

@@ -1,5 +1,8 @@
 //! XML generation utilities for libvirt domain definitions.
 
+// Alternative XML builder (current implementation uses direct string generation)
+#![allow(dead_code)]
+
 use crate::types::*;
 
 /// Builder for libvirt domain XML.

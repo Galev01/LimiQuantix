@@ -1,5 +1,8 @@
 //! Node Daemon gRPC service implementation.
 
+// Many OVS and network port methods are prepared for future SDN features
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;

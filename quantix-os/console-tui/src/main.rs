@@ -2,6 +2,9 @@
 //!
 //! Terminal-based fallback console for systems without GPU/KMS support.
 
+// Some screens and features are placeholders for future implementation
+#![allow(dead_code)]
+
 use anyhow::Result;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},

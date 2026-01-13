@@ -17,6 +17,7 @@ use crate::xml::DomainXmlBuilder;
 /// This is the primary hypervisor backend for limiquantix, providing
 /// full VM lifecycle management through libvirt.
 pub struct LibvirtBackend {
+    #[allow(dead_code)] // Stored for debugging/introspection
     uri: String,
     connection: Connect,
 }

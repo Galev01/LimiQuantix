@@ -1,5 +1,8 @@
 //! Authentication module for Quantix-OS Console TUI
 
+// Authentication will be used when admin login screen is activated
+#![allow(dead_code)]
+
 use anyhow::Result;
 use argon2::{
     password_hash::{PasswordHash, PasswordVerifier},

@@ -1,5 +1,8 @@
 //! Configuration module for Quantix-OS Console TUI
 
+// Admin config will be used when admin login screen is activated
+#![allow(dead_code)]
+
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

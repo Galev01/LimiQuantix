@@ -9,6 +9,9 @@
 //! The `TelemetryCollector` handles this by maintaining state and
 //! providing a background refresh task that should be started on init.
 
+// Network/disk rate calculation fields reserved for future use
+#![allow(dead_code)]
+
 pub mod cpu;
 pub mod memory;
 pub mod disk;

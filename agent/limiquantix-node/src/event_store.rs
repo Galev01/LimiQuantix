@@ -12,9 +12,12 @@
 //! - System events (startup, shutdown, errors)
 //! - Network changes
 
+// Many helper methods are prepared for future features
+#![allow(dead_code)]
+
 use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
-use std::time::SystemTime;
+// SystemTime reserved for future event timestamp features
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn, error, debug};
