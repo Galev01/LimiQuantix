@@ -200,6 +200,23 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
         }
         toast.success(`ISO import started${destinationMsg}! Check the Image Library for progress.`);
       } else if (formData.file) {
+        // Determine node ID for upload
+        // For pool destination: use first available ready node (for shared storage like NFS)
+        // For node destination: use the selected node
+        let targetNodeId: string | undefined;
+        let targetPoolId: string | undefined;
+        
+        if (formData.storageDestination === 'pool' && formData.storagePoolId) {
+          targetPoolId = formData.storagePoolId;
+          // For shared storage, pick first ready node to handle the upload
+          const firstReadyNode = readyNodes[0];
+          if (firstReadyNode) {
+            targetNodeId = firstReadyNode.id;
+          }
+        } else if (formData.storageDestination === 'node' && formData.nodeId) {
+          targetNodeId = formData.nodeId;
+        }
+        
         // Upload file with progress tracking
         await isoUpload.upload({
           file: formData.file,
@@ -208,8 +225,8 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
           osFamily: formData.osFamily,
           distribution: formData.distribution.toLowerCase().replace(' ', '-'),
           version: formData.version,
-          storagePoolId: formData.storageDestination === 'pool' ? formData.storagePoolId : undefined,
-          nodeId: formData.storageDestination === 'node' ? formData.nodeId : undefined,
+          storagePoolId: targetPoolId,
+          nodeId: targetNodeId,
         });
         toast.success('ISO uploaded successfully!');
       }

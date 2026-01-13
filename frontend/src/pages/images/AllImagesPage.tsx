@@ -249,7 +249,7 @@ export function AllImagesPage() {
               </p>
             </div>
           ) : (
-            <>
+            <div className="contents">
               {/* Cloud Images */}
               {filteredItems.cloud.map((image) => {
                 const status = STATUS_CONFIG[image.status] || STATUS_CONFIG.pending;
@@ -291,10 +291,10 @@ export function AllImagesPage() {
                         </Button>
                       )}
                     </div>
-                    {'os' in image && image.os.cloudInitEnabled && (
+                    {'os' in image && 'cloudInitEnabled' in image.os && image.os.cloudInitEnabled && (
                       <div className="mt-3 pt-3 border-t border-border flex items-center gap-4 text-xs">
                         <span className="text-text-muted">
-                          Default user: <span className="text-text-secondary">{image.os.defaultUser}</span>
+                          Default user: <span className="text-text-secondary">{'defaultUser' in image.os ? image.os.defaultUser : 'root'}</span>
                         </span>
                         <Badge variant="info" size="sm">cloud-init</Badge>
                       </div>
@@ -412,7 +412,7 @@ export function AllImagesPage() {
                   </motion.div>
                 );
               })}
-            </>
+            </div>
           )}
         </AnimatePresence>
       </div>
