@@ -3373,7 +3373,7 @@ async fn upload_image(
     
     info!(upload_dir = %upload_dir.display(), pool_id = ?params.pool_id, "Image upload directory");
     
-    if let Err(e) = fs::create_dir_all(upload_dir).await {
+    if let Err(e) = fs::create_dir_all(&upload_dir).await {
         error!(error = %e, path = %upload_dir.display(), "Failed to create upload directory");
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
