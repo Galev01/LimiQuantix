@@ -254,6 +254,19 @@ chmod 700 "${ROOTFS_DIR}/var/lib/etcd"
 chmod 700 "${ROOTFS_DIR}/var/lib/redis"
 chmod 700 "${ROOTFS_DIR}/var/lib/quantix-vdc"
 
+# Set ownership for PostgreSQL (user postgres is created by the package)
+# The postgres user typically has UID 70 in Alpine
+chroot "${ROOTFS_DIR}" chown -R postgres:postgres /var/lib/postgresql 2>/dev/null || true
+
+# Create PostgreSQL log directory
+mkdir -p "${ROOTFS_DIR}/var/log/postgresql"
+chroot "${ROOTFS_DIR}" chown -R postgres:postgres /var/log/postgresql 2>/dev/null || true
+
+# Create PostgreSQL run directory
+mkdir -p "${ROOTFS_DIR}/run/postgresql"
+chroot "${ROOTFS_DIR}" chown -R postgres:postgres /run/postgresql 2>/dev/null || true
+chmod 755 "${ROOTFS_DIR}/run/postgresql"
+
 echo "✅ Directories created"
 
 # -----------------------------------------------------------------------------

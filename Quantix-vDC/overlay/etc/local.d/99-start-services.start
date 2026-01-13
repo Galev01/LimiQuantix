@@ -24,55 +24,111 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
-# Determine PostgreSQL service name (Alpine 3.20 uses postgresql16)
-PG_SVC="postgresql"
+# =============================================================================
+# PostgreSQL Setup (Alpine 3.20 uses postgresql16)
+# =============================================================================
+PG_VERSION="16"
+PG_DATA="/var/lib/postgresql/${PG_VERSION}/data"
+PG_LOG_DIR="/var/log/postgresql"
+PG_RUN_DIR="/run/postgresql"
+
+# Determine service name - Alpine 3.20 uses "postgresql" which links to postgresql16
 if [ -f /etc/init.d/postgresql16 ]; then
     PG_SVC="postgresql16"
+elif [ -f /etc/init.d/postgresql ]; then
+    PG_SVC="postgresql"
+else
+    log "ERROR: No PostgreSQL service found!"
+    PG_SVC=""
 fi
 
-# Start PostgreSQL if not running
-if ! rc-service $PG_SVC status 2>/dev/null | grep -q started; then
-    log "Starting PostgreSQL ($PG_SVC)..."
-    # Initialize if needed
-    PG_DATA="/var/lib/postgresql/16/data"
+if [ -n "$PG_SVC" ]; then
+    log "Using PostgreSQL service: $PG_SVC"
+    
+    # Ensure directories exist with correct permissions
+    mkdir -p "$PG_DATA" "$PG_LOG_DIR" "$PG_RUN_DIR"
+    chown -R postgres:postgres /var/lib/postgresql "$PG_LOG_DIR" "$PG_RUN_DIR"
+    chmod 700 "$PG_DATA"
+    chmod 755 "$PG_RUN_DIR"
+    
+    # Initialize PostgreSQL if not already done
     if [ ! -f "$PG_DATA/PG_VERSION" ]; then
-        log "PostgreSQL not initialized, running initialization..."
-        mkdir -p "$PG_DATA"
-        chown -R postgres:postgres /var/lib/postgresql
-        chmod 700 "$PG_DATA"
+        log "PostgreSQL data directory not initialized. Initializing..."
         
-        # Find initdb
-        INITDB=$(which initdb 2>/dev/null || echo "/usr/libexec/postgresql16/initdb")
+        # Find initdb binary
+        INITDB=""
+        for path in /usr/bin/initdb /usr/libexec/postgresql16/initdb /usr/lib/postgresql16/bin/initdb; do
+            if [ -x "$path" ]; then
+                INITDB="$path"
+                break
+            fi
+        done
         
-        su -s /bin/sh postgres -c "$INITDB -D $PG_DATA --encoding=UTF8 --locale=C" 2>/dev/null || {
-            log "PostgreSQL initialization failed"
-        }
+        if [ -z "$INITDB" ]; then
+            # Try to find it in PATH
+            INITDB=$(which initdb 2>/dev/null)
+        fi
         
-        # Configure for local connections
-        if [ -f "$PG_DATA/pg_hba.conf" ]; then
-            cat > "$PG_DATA/pg_hba.conf" << 'EOF'
+        if [ -n "$INITDB" ]; then
+            log "Using initdb: $INITDB"
+            su -s /bin/sh postgres -c "$INITDB -D $PG_DATA --encoding=UTF8 --locale=C" >> "$LOG_FILE" 2>&1
+            
+            if [ $? -eq 0 ]; then
+                log "PostgreSQL initialized successfully"
+                
+                # Configure pg_hba.conf for local trust
+                cat > "$PG_DATA/pg_hba.conf" << 'PGHBA'
 # TYPE  DATABASE        USER            ADDRESS                 METHOD
 local   all             all                                     trust
 host    all             all             127.0.0.1/32            trust
 host    all             all             ::1/128                 trust
-EOF
+PGHBA
+                chown postgres:postgres "$PG_DATA/pg_hba.conf"
+                
+                # Configure postgresql.conf
+                if [ -f "$PG_DATA/postgresql.conf" ]; then
+                    sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '127.0.0.1'/" "$PG_DATA/postgresql.conf"
+                    sed -i "s/#port = 5432/port = 5432/" "$PG_DATA/postgresql.conf"
+                    sed -i "s|#unix_socket_directories = '/run/postgresql'|unix_socket_directories = '/run/postgresql'|" "$PG_DATA/postgresql.conf"
+                fi
+            else
+                log "ERROR: PostgreSQL initialization failed!"
+            fi
+        else
+            log "ERROR: initdb not found!"
         fi
+    else
+        log "PostgreSQL already initialized"
+    fi
+    
+    # Start PostgreSQL
+    if ! rc-service $PG_SVC status 2>/dev/null | grep -q started; then
+        log "Starting PostgreSQL..."
+        rc-service $PG_SVC start >> "$LOG_FILE" 2>&1
+        sleep 2
         
-        # Configure PostgreSQL
-        if [ -f "$PG_DATA/postgresql.conf" ]; then
-            sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '127.0.0.1'/" "$PG_DATA/postgresql.conf" 2>/dev/null || true
+        if rc-service $PG_SVC status 2>/dev/null | grep -q started; then
+            log "PostgreSQL started successfully"
+        else
+            log "PostgreSQL start via rc-service failed, trying direct start..."
+            # Try direct start as fallback
+            su -s /bin/sh postgres -c "pg_ctl -D $PG_DATA -l $PG_LOG_DIR/postmaster.log start" >> "$LOG_FILE" 2>&1
+            sleep 2
         fi
     fi
-    rc-service $PG_SVC start 2>/dev/null && log "PostgreSQL started" || log "PostgreSQL start failed"
 fi
 
-# Start Redis if not running
+# =============================================================================
+# Redis
+# =============================================================================
 if ! rc-service redis status 2>/dev/null | grep -q started; then
     log "Starting Redis..."
     rc-service redis start 2>/dev/null && log "Redis started" || log "Redis start failed"
 fi
 
-# Start etcd if available and not running
+# =============================================================================
+# etcd
+# =============================================================================
 if [ -x /usr/bin/etcd ]; then
     if ! rc-service etcd status 2>/dev/null | grep -q started; then
         log "Starting etcd..."
@@ -84,45 +140,135 @@ else
     log "etcd not installed (optional)"
 fi
 
+# =============================================================================
 # Wait for PostgreSQL to be ready
+# =============================================================================
 log "Waiting for PostgreSQL to be ready..."
+PG_READY=0
 for i in $(seq 1 30); do
-    if command -v pg_isready >/dev/null 2>&1 && pg_isready -q 2>/dev/null; then
+    if pg_isready -q 2>/dev/null; then
         log "PostgreSQL is ready"
+        PG_READY=1
         break
     fi
     sleep 1
 done
 
-# Create control plane database if it doesn't exist
-if command -v psql >/dev/null 2>&1; then
-    su -s /bin/sh postgres -c "psql -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw quantix_vdc" || {
-        log "Creating quantix_vdc database..."
-        su -s /bin/sh postgres -c "createdb quantix_vdc" 2>/dev/null && log "Database created" || log "Database creation failed (may already exist)"
-    }
+if [ "$PG_READY" = "0" ]; then
+    log "WARNING: PostgreSQL not ready after 30 seconds"
 fi
 
-# Start Control Plane if not running
+# =============================================================================
+# Create Database
+# =============================================================================
+if [ "$PG_READY" = "1" ]; then
+    # Create limiquantix database
+    if ! su -s /bin/sh postgres -c "psql -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw limiquantix"; then
+        log "Creating limiquantix database..."
+        su -s /bin/sh postgres -c "createdb limiquantix" 2>/dev/null && log "Database 'limiquantix' created" || log "Database creation failed"
+    else
+        log "Database 'limiquantix' already exists"
+    fi
+fi
+
+# =============================================================================
+# Control Plane
+# =============================================================================
 if [ -x /usr/bin/qx-controlplane ]; then
     if ! rc-service quantix-controlplane status 2>/dev/null | grep -q started; then
         log "Starting Control Plane..."
         rc-service quantix-controlplane start 2>/dev/null && log "Control Plane started" || log "Control Plane start failed"
     fi
 else
-    log "Control Plane binary not found at /usr/bin/qx-controlplane!"
+    log "ERROR: Control Plane binary not found at /usr/bin/qx-controlplane!"
 fi
 
-# Start nginx if not running
-if ! rc-service nginx status 2>/dev/null | grep -q started; then
-    log "Starting nginx..."
-    rc-service nginx start 2>/dev/null && log "nginx started" || log "nginx start failed"
+# =============================================================================
+# nginx
+# =============================================================================
+if [ -x /usr/sbin/nginx ]; then
+    # Ensure SSL certificates exist
+    CERT_DIR="/var/lib/quantix-vdc/certs"
+    if [ ! -f "$CERT_DIR/server.crt" ] || [ ! -f "$CERT_DIR/server.key" ]; then
+        log "Generating self-signed SSL certificates..."
+        mkdir -p "$CERT_DIR"
+        
+        # Get hostname for certificate
+        HOSTNAME=$(hostname -f 2>/dev/null || hostname || echo "quantix-vdc")
+        
+        # Generate self-signed certificate
+        openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+            -keyout "$CERT_DIR/server.key" \
+            -out "$CERT_DIR/server.crt" \
+            -subj "/CN=$HOSTNAME/O=Quantix-vDC/C=US" \
+            -addext "subjectAltName=DNS:$HOSTNAME,DNS:localhost,IP:127.0.0.1" \
+            >> "$LOG_FILE" 2>&1
+        
+        if [ $? -eq 0 ]; then
+            log "SSL certificates generated successfully"
+            chmod 600 "$CERT_DIR/server.key"
+            chmod 644 "$CERT_DIR/server.crt"
+        else
+            log "ERROR: Failed to generate SSL certificates"
+        fi
+    fi
+    
+    # Ensure frontend directory exists
+    DASHBOARD_DIR="/usr/share/quantix-vdc/dashboard"
+    if [ ! -f "$DASHBOARD_DIR/index.html" ]; then
+        log "Frontend files not found, creating placeholder..."
+        mkdir -p "$DASHBOARD_DIR"
+        cat > "$DASHBOARD_DIR/index.html" << 'HTMLEOF'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quantix-vDC</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+               display: flex; justify-content: center; align-items: center; height: 100vh; 
+               margin: 0; background: #1a1d24; color: #e4e8ed; }
+        .container { text-align: center; }
+        h1 { color: #5c9cf5; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Quantix-vDC</h1>
+        <p>Dashboard not installed. Please rebuild the ISO with frontend.</p>
+    </div>
+</body>
+</html>
+HTMLEOF
+    fi
+    
+    # Test nginx configuration
+    nginx -t >> "$LOG_FILE" 2>&1
+    if [ $? -ne 0 ]; then
+        log "WARNING: nginx configuration test failed"
+        cat /var/log/nginx/error.log >> "$LOG_FILE" 2>/dev/null
+    fi
+    
+    if ! rc-service nginx status 2>/dev/null | grep -q started; then
+        log "Starting nginx..."
+        rc-service nginx start >> "$LOG_FILE" 2>&1
+        sleep 1
+        if rc-service nginx status 2>/dev/null | grep -q started; then
+            log "nginx started"
+        else
+            log "nginx start failed - check /var/log/nginx/error.log"
+            # Show last few lines of error log
+            tail -5 /var/log/nginx/error.log >> "$LOG_FILE" 2>/dev/null
+        fi
+    fi
 fi
 
 log "=== Service startup complete ==="
 
-# Show final status
+# =============================================================================
+# Final Status
+# =============================================================================
 log "Service Status:"
-log "  PostgreSQL: $(rc-service $PG_SVC status 2>/dev/null | grep -q started && echo 'Running' || echo 'Stopped')"
+[ -n "$PG_SVC" ] && log "  PostgreSQL: $(rc-service $PG_SVC status 2>/dev/null | grep -q started && echo 'Running' || echo 'Stopped')"
 log "  Redis: $(rc-service redis status 2>/dev/null | grep -q started && echo 'Running' || echo 'Stopped')"
 log "  etcd: $(rc-service etcd status 2>/dev/null | grep -q started && echo 'Running' || echo 'N/A')"
 log "  Control Plane: $(rc-service quantix-controlplane status 2>/dev/null | grep -q started && echo 'Running' || echo 'Stopped')"
