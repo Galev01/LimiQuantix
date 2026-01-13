@@ -85,6 +85,28 @@ func (p *DaemonPool) GetOrError(nodeID string) (*DaemonClient, error) {
 	return client, nil
 }
 
+// GetNodeAddr returns the address of a connected node.
+// The address is in format "host:port" (gRPC port).
+// For HTTP uploads, the caller should replace port 9090 with 8443.
+func (p *DaemonPool) GetNodeAddr(nodeID string) (string, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	
+	client, ok := p.clients[nodeID]
+	if !ok {
+		return "", fmt.Errorf("no connection to node %s", nodeID)
+	}
+	
+	// Convert gRPC port (9090) to HTTP port (8443)
+	addr := client.Addr()
+	// Replace :9090 with :8443 for HTTP API
+	if len(addr) > 5 && addr[len(addr)-5:] == ":9090" {
+		addr = addr[:len(addr)-5] + ":8443"
+	}
+	
+	return addr, nil
+}
+
 // Disconnect closes the connection to a node daemon.
 func (p *DaemonPool) Disconnect(nodeID string) error {
 	p.mu.Lock()

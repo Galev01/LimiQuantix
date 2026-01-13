@@ -55,6 +55,11 @@ func NewDaemonClient(addr string, logger *zap.Logger) (*DaemonClient, error) {
 	}, nil
 }
 
+// Addr returns the address of the node daemon.
+func (c *DaemonClient) Addr() string {
+	return c.addr
+}
+
 // Close closes the gRPC connection.
 func (c *DaemonClient) Close() error {
 	if c.conn != nil {

@@ -1,5 +1,46 @@
 # Workflow State
 
+## Console Error Handling Improvements
+
+### Status: COMPLETED ✅
+
+### Overview
+Improved error handling for VM console connections to provide better error messages when VMs are not found on the expected hypervisor node.
+
+### Changes Made
+
+#### 1. Backend Console Handler (`backend/internal/server/console.go`)
+- Added structured error codes for different failure scenarios:
+  - `VM_NOT_FOUND` - VM doesn't exist in database
+  - `VM_NOT_RUNNING` - VM exists but is stopped
+  - `NODE_NOT_ASSIGNED` - VM has no node assignment
+  - `NODE_NOT_FOUND` - Assigned node doesn't exist
+  - `NODE_UNREACHABLE` - Cannot connect to node daemon
+  - `VM_NOT_ON_NODE` - VM not found on the assigned node (orphan record)
+  - `VNC_UNAVAILABLE` - VNC server not available
+- Returns JSON error responses with code, message, details, vm_id, node_id
+- Added preflight check support via `X-Console-Preflight` header
+
+#### 2. noVNC Console (`frontend/public/novnc/limiquantix.html`)
+- Added pre-flight check before WebSocket connection
+- Maps error codes to user-friendly messages and actions
+- Shows specific error messages like "VM Sync Issue" when VM is not on expected host
+- Improved disconnect handling with specific error detection
+
+### Error Code to User Message Mapping
+
+| Error Code | Title | User Action |
+|---|---|---|
+| `VM_NOT_FOUND` | VM Not Found | Close console, refresh VM list |
+| `VM_NOT_RUNNING` | VM Not Running | Start the VM first |
+| `NODE_NOT_ASSIGNED` | No Host Available | Check cluster status |
+| `NODE_NOT_FOUND` | Host Not Found | VM record may be stale |
+| `NODE_UNREACHABLE` | Host Unreachable | Check host status |
+| `VM_NOT_ON_NODE` | VM Sync Issue | Refresh page or power cycle VM |
+| `VNC_UNAVAILABLE` | Console Unavailable | Check VM display configuration |
+
+---
+
 ## QvMC Branding Update
 
 ### Status: COMPLETED ✅

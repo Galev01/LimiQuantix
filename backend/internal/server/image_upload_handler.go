@@ -3,9 +3,11 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,6 +41,8 @@ type ImageUploadHandler struct {
 	mu           sync.RWMutex
 	jobs         map[string]*ImageUploadJob
 	imageService *storageservice.ImageService
+	poolRepo     storageservice.PoolRepository
+	daemonPool   interface{ GetNodeAddr(nodeID string) (string, error) }
 	uploadDir    string
 	logger       *zap.Logger
 }
@@ -51,6 +55,16 @@ func NewImageUploadHandler(imageService *storageservice.ImageService, logger *za
 		uploadDir:    "/var/lib/limiquantix/iso-images",
 		logger:       logger.Named("image-upload-handler"),
 	}
+}
+
+// SetPoolRepository sets the pool repository for looking up pool info.
+func (h *ImageUploadHandler) SetPoolRepository(repo storageservice.PoolRepository) {
+	h.poolRepo = repo
+}
+
+// SetDaemonPool sets the daemon pool for forwarding uploads to nodes.
+func (h *ImageUploadHandler) SetDaemonPool(dp interface{ GetNodeAddr(nodeID string) (string, error) }) {
+	h.daemonPool = dp
 }
 
 // RegisterRoutes registers the upload routes.
@@ -153,66 +167,171 @@ func (h *ImageUploadHandler) processUpload(
 	logger := h.logger.With(
 		zap.String("job_id", job.ID),
 		zap.String("filename", job.Filename),
+		zap.String("storage_pool_id", storagePoolID),
+		zap.String("node_id", nodeID),
 	)
 
-	// Ensure upload directory exists
-	if err := os.MkdirAll(h.uploadDir, 0755); err != nil {
-		h.updateJobStatus(job.ID, "failed", 0, 0, fmt.Sprintf("Failed to create upload directory: %v", err))
-		logger.Error("Failed to create upload directory", zap.Error(err))
-		return
-	}
-
-	// Create target file
-	targetPath := filepath.Join(h.uploadDir, fmt.Sprintf("%s-%s", job.ImageID, job.Filename))
-	outFile, err := os.Create(targetPath)
-	if err != nil {
-		h.updateJobStatus(job.ID, "failed", 0, 0, fmt.Sprintf("Failed to create file: %v", err))
-		logger.Error("Failed to create target file", zap.Error(err))
-		return
-	}
-	defer outFile.Close()
-
-	// Copy with progress tracking
-	buffer := make([]byte, 256*1024) // 256KB buffer
+	var targetPath string
 	var uploaded int64
-	lastUpdate := time.Now()
 
-	for {
-		n, readErr := file.Read(buffer)
-		if n > 0 {
-			if _, writeErr := outFile.Write(buffer[:n]); writeErr != nil {
-				os.Remove(targetPath)
-				h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Write error: %v", writeErr))
-				logger.Error("Failed to write to file", zap.Error(writeErr))
+	// If we have a storage pool and node, forward to the node's upload endpoint
+	if storagePoolID != "" && nodeID != "" && h.daemonPool != nil {
+		logger.Info("Forwarding ISO upload to host node")
+
+		nodeAddr, err := h.daemonPool.GetNodeAddr(nodeID)
+		if err != nil {
+			h.updateJobStatus(job.ID, "failed", 0, 0, fmt.Sprintf("Failed to get node address: %v", err))
+			logger.Error("Failed to get node address", zap.Error(err))
+			return
+		}
+
+		// Forward to node's upload endpoint with pool_id parameter
+		uploadURL := fmt.Sprintf("https://%s/api/v1/storage/upload?pool_id=%s&subdir=iso", nodeAddr, storagePoolID)
+		logger.Info("Forwarding to node", zap.String("url", uploadURL))
+
+		// Create multipart writer
+		bodyReader, bodyWriter := io.Pipe()
+		multiWriter := multipart.NewWriter(bodyWriter)
+
+		// Write multipart in goroutine
+		go func() {
+			defer bodyWriter.Close()
+			defer multiWriter.Close()
+
+			part, err := multiWriter.CreateFormFile("file", job.Filename)
+			if err != nil {
+				logger.Error("Failed to create form file", zap.Error(err))
 				return
 			}
-			uploaded += int64(n)
 
-			// Update progress every 500ms
-			if time.Since(lastUpdate) > 500*time.Millisecond {
-				var percent uint32
-				if totalSize > 0 {
-					percent = uint32(uploaded * 100 / totalSize)
+			buffer := make([]byte, 256*1024)
+			for {
+				n, readErr := file.Read(buffer)
+				if n > 0 {
+					if _, writeErr := part.Write(buffer[:n]); writeErr != nil {
+						logger.Error("Failed to write to multipart", zap.Error(writeErr))
+						return
+					}
+					uploaded += int64(n)
+
+					// Update progress
+					if totalSize > 0 {
+						percent := uint32(uploaded * 100 / totalSize)
+						h.updateJobStatus(job.ID, "uploading", percent, uploaded, "")
+					}
 				}
-				h.updateJobStatus(job.ID, "uploading", percent, uploaded, "")
-				lastUpdate = time.Now()
+				if readErr != nil {
+					if readErr == io.EOF {
+						break
+					}
+					logger.Error("Failed to read file", zap.Error(readErr))
+					return
+				}
+			}
+		}()
 
-				logger.Debug("Upload progress",
-					zap.Int64("uploaded", uploaded),
-					zap.Int64("total", totalSize),
-					zap.Uint32("percent", percent),
-				)
+		// Make HTTP request to node (skip TLS verification for self-signed certs)
+		httpClient := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+			Timeout: 30 * time.Minute, // Allow long uploads
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", uploadURL, bodyReader)
+		if err != nil {
+			h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Failed to create request: %v", err))
+			logger.Error("Failed to create HTTP request", zap.Error(err))
+			return
+		}
+		req.Header.Set("Content-Type", multiWriter.FormDataContentType())
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Failed to upload to node: %v", err))
+			logger.Error("Failed to upload to node", zap.Error(err))
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			body, _ := io.ReadAll(resp.Body)
+			h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Node upload failed: %s", string(body)))
+			logger.Error("Node upload failed", zap.Int("status", resp.StatusCode), zap.String("body", string(body)))
+			return
+		}
+
+		// Parse response to get the path
+		var nodeResp map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&nodeResp); err == nil {
+			if path, ok := nodeResp["path"].(string); ok {
+				targetPath = path
 			}
 		}
 
-		if readErr != nil {
-			if readErr == io.EOF {
-				break
-			}
-			os.Remove(targetPath)
-			h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Read error: %v", readErr))
-			logger.Error("Failed to read from upload", zap.Error(readErr))
+		logger.Info("ISO uploaded to node successfully", zap.String("path", targetPath))
+	} else {
+		// Local upload (no node specified) - save to control plane
+		logger.Info("Saving ISO locally (no node specified)")
+
+		// Ensure upload directory exists
+		if err := os.MkdirAll(h.uploadDir, 0755); err != nil {
+			h.updateJobStatus(job.ID, "failed", 0, 0, fmt.Sprintf("Failed to create upload directory: %v", err))
+			logger.Error("Failed to create upload directory", zap.Error(err))
 			return
+		}
+
+		// Create target file
+		targetPath = filepath.Join(h.uploadDir, fmt.Sprintf("%s-%s", job.ImageID, job.Filename))
+		outFile, err := os.Create(targetPath)
+		if err != nil {
+			h.updateJobStatus(job.ID, "failed", 0, 0, fmt.Sprintf("Failed to create file: %v", err))
+			logger.Error("Failed to create target file", zap.Error(err))
+			return
+		}
+		defer outFile.Close()
+
+		// Copy with progress tracking
+		buffer := make([]byte, 256*1024) // 256KB buffer
+		lastUpdate := time.Now()
+
+		for {
+			n, readErr := file.Read(buffer)
+			if n > 0 {
+				if _, writeErr := outFile.Write(buffer[:n]); writeErr != nil {
+					os.Remove(targetPath)
+					h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Write error: %v", writeErr))
+					logger.Error("Failed to write to file", zap.Error(writeErr))
+					return
+				}
+				uploaded += int64(n)
+
+				// Update progress every 500ms
+				if time.Since(lastUpdate) > 500*time.Millisecond {
+					var percent uint32
+					if totalSize > 0 {
+						percent = uint32(uploaded * 100 / totalSize)
+					}
+					h.updateJobStatus(job.ID, "uploading", percent, uploaded, "")
+					lastUpdate = time.Now()
+
+					logger.Debug("Upload progress",
+						zap.Int64("uploaded", uploaded),
+						zap.Int64("total", totalSize),
+						zap.Uint32("percent", percent),
+					)
+				}
+			}
+
+			if readErr != nil {
+				if readErr == io.EOF {
+					break
+				}
+				os.Remove(targetPath)
+				h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Read error: %v", readErr))
+				logger.Error("Failed to read from upload", zap.Error(readErr))
+				return
+			}
 		}
 	}
 

@@ -982,17 +982,117 @@
             elStatusText.textContent = text;
         }
 
-        // Show error
-        function showError(title, message) {
+        // Error code to user-friendly message mapping
+        const errorMessages = {
+            VM_NOT_FOUND: {
+                title: 'VM Not Found',
+                icon: 'search',
+                action: 'The virtual machine may have been deleted. Close this console and refresh the VM list.'
+            },
+            VM_NOT_RUNNING: {
+                title: 'VM Not Running',
+                icon: 'power',
+                action: 'Start the virtual machine first, then try connecting again.'
+            },
+            NODE_NOT_ASSIGNED: {
+                title: 'No Host Available',
+                icon: 'server',
+                action: 'The VM is not scheduled on any hypervisor. Check cluster status.'
+            },
+            NODE_NOT_FOUND: {
+                title: 'Host Not Found',
+                icon: 'server',
+                action: 'The hypervisor host no longer exists. The VM record may be stale.'
+            },
+            NODE_UNREACHABLE: {
+                title: 'Host Unreachable',
+                icon: 'wifi-off',
+                action: 'The hypervisor is offline or network connection failed. Check host status.'
+            },
+            VM_NOT_ON_NODE: {
+                title: 'VM Sync Issue',
+                icon: 'alert-triangle',
+                action: 'The VM is not on the expected host. It may have been moved, stopped, or deleted. Try refreshing the page or power cycling the VM.'
+            },
+            VNC_UNAVAILABLE: {
+                title: 'Console Unavailable',
+                icon: 'monitor-x',
+                action: 'VNC is not available for this VM. Check VM display configuration.'
+            },
+            INTERNAL_ERROR: {
+                title: 'Connection Error',
+                icon: 'alert-circle',
+                action: 'An unexpected error occurred. Try again or contact support.'
+            }
+        };
+
+        // Show error with structured error support
+        function showError(title, message, errorCode = null) {
             elOverlayLoading.classList.add('hidden');
             elOverlayError.classList.remove('hidden');
-            elErrorTitle.textContent = title;
-            elErrorMessage.textContent = message;
+            
+            // Use error code mapping if available
+            if (errorCode && errorMessages[errorCode]) {
+                const errInfo = errorMessages[errorCode];
+                elErrorTitle.textContent = errInfo.title;
+                elErrorMessage.textContent = message || errInfo.action;
+            } else {
+                elErrorTitle.textContent = title;
+                elErrorMessage.textContent = message;
+            }
+            
             setStatus('disconnected', 'Disconnected');
         }
 
+        // Pre-flight check - verify console is accessible before WebSocket connection
+        async function checkConsoleAccess() {
+            try {
+                // Make a HEAD request to the console endpoint to check availability
+                // The backend will return a structured JSON error if there's a problem
+                const response = await fetch(`${API_BASE}/console/${vmId}/ws`, {
+                    method: 'GET',
+                    headers: { 
+                        'Accept': 'application/json',
+                        // Signal we want error info, not WebSocket upgrade
+                        'X-Console-Preflight': 'true'
+                    }
+                });
+
+                // If we get a non-OK response, parse the error
+                if (!response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const error = await response.json();
+                        return {
+                            ok: false,
+                            code: error.code || 'INTERNAL_ERROR',
+                            message: error.message || 'Unknown error',
+                            details: error.details || ''
+                        };
+                    } else {
+                        const text = await response.text();
+                        return {
+                            ok: false,
+                            code: 'INTERNAL_ERROR',
+                            message: text || `HTTP ${response.status}`,
+                            details: ''
+                        };
+                    }
+                }
+
+                // If we get 101 Switching Protocols or similar, that's actually fine
+                // (means WebSocket upgrade would work)
+                return { ok: true };
+            } catch (err) {
+                // Network error - backend might be unreachable
+                console.warn('Pre-flight check failed:', err);
+                // Don't block on preflight failure, let WebSocket try
+                return { ok: true, warning: 'Preflight check failed, proceeding anyway' };
+            }
+        }
+
         // Connect to VNC
-        function connect(reconnect = false) {
+        async function connect(reconnect = false) {
             // Track reconnection state for toast timing
             isReconnecting = reconnect;
             
@@ -1002,7 +1102,7 @@
                 elLoadingSubtitle.textContent = 'Re-establishing connection...';
             } else {
                 elLoadingTitle.textContent = 'Connecting to VM Console';
-                elLoadingSubtitle.textContent = 'Establishing secure connection...';
+                elLoadingSubtitle.textContent = 'Checking VM status...';
             }
             
             // Reset UI - show loading overlay
@@ -1018,6 +1118,21 @@
 
             // Clear screen
             elScreen.innerHTML = '';
+
+            // Pre-flight check for better error messages
+            const preflight = await checkConsoleAccess();
+            if (!preflight.ok) {
+                console.error('Console pre-flight check failed:', preflight);
+                showError(
+                    errorMessages[preflight.code]?.title || 'Connection Failed',
+                    preflight.details || preflight.message,
+                    preflight.code
+                );
+                return;
+            }
+
+            // Update status after preflight passes
+            elLoadingSubtitle.textContent = 'Establishing VNC connection...';
 
             try {
                 const wsUrl = getWebSocketUrl();
@@ -1069,7 +1184,18 @@
                     stopClipboardSync();
                     stopThumbnailCapture();
                     if (!e.detail.clean) {
-                        showError('Connection Lost', 'The connection to the VM was interrupted.');
+                        // Try to get more specific error info
+                        checkConsoleAccess().then(result => {
+                            if (!result.ok) {
+                                showError(
+                                    errorMessages[result.code]?.title || 'Connection Lost',
+                                    result.details || result.message,
+                                    result.code
+                                );
+                            } else {
+                                showError('Connection Lost', 'The connection to the VM was interrupted. The VM may have been powered off or migrated.');
+                            }
+                        });
                     } else {
                         showError('Disconnected', 'The console session has ended.');
                     }

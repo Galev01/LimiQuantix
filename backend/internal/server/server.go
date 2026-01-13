@@ -459,6 +459,7 @@ func (s *Server) registerRoutes() {
 	// Image Upload REST API (for ISO uploads with progress)
 	// =========================================================================
 	imageUploadHandler := NewImageUploadHandler(s.imageService, s.logger)
+	imageUploadHandler.SetDaemonPool(s.daemonPool) // Enable forwarding uploads to host nodes
 	imageUploadHandler.RegisterRoutes(s.mux)
 	s.logger.Info("Registered Image Upload API routes", zap.String("path", "/api/v1/images/upload"))
 

@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -14,6 +15,37 @@ import (
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )
+
+// ConsoleErrorCode defines specific error codes for console connection failures.
+type ConsoleErrorCode string
+
+const (
+	// ConsoleErrorVMNotFound - VM doesn't exist in the control plane database
+	ConsoleErrorVMNotFound ConsoleErrorCode = "VM_NOT_FOUND"
+	// ConsoleErrorVMNotRunning - VM exists but is not running
+	ConsoleErrorVMNotRunning ConsoleErrorCode = "VM_NOT_RUNNING"
+	// ConsoleErrorNodeNotAssigned - VM has no node assignment
+	ConsoleErrorNodeNotAssigned ConsoleErrorCode = "NODE_NOT_ASSIGNED"
+	// ConsoleErrorNodeNotFound - The assigned node doesn't exist
+	ConsoleErrorNodeNotFound ConsoleErrorCode = "NODE_NOT_FOUND"
+	// ConsoleErrorNodeUnreachable - Cannot connect to the node daemon
+	ConsoleErrorNodeUnreachable ConsoleErrorCode = "NODE_UNREACHABLE"
+	// ConsoleErrorVMNotOnNode - VM is not found on the assigned node (orphan/stale record)
+	ConsoleErrorVMNotOnNode ConsoleErrorCode = "VM_NOT_ON_NODE"
+	// ConsoleErrorVNCUnavailable - VNC server is not available on the node
+	ConsoleErrorVNCUnavailable ConsoleErrorCode = "VNC_UNAVAILABLE"
+	// ConsoleErrorInternal - Generic internal error
+	ConsoleErrorInternal ConsoleErrorCode = "INTERNAL_ERROR"
+)
+
+// ConsoleErrorResponse is the JSON response for console errors.
+type ConsoleErrorResponse struct {
+	Code    ConsoleErrorCode `json:"code"`
+	Message string           `json:"message"`
+	Details string           `json:"details,omitempty"`
+	VMID    string           `json:"vm_id,omitempty"`
+	NodeID  string           `json:"node_id,omitempty"`
+}
 
 // ConsoleHandler handles WebSocket console connections.
 type ConsoleHandler struct {
@@ -39,47 +71,124 @@ func NewConsoleHandler(s *Server) *ConsoleHandler {
 	}
 }
 
+// writeConsoleError writes a structured JSON error response.
+func (h *ConsoleHandler) writeConsoleError(w http.ResponseWriter, statusCode int, errResp ConsoleErrorResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(errResp)
+}
+
 // ServeHTTP handles console WebSocket upgrade requests.
 // Expected path: /api/console/{vmId}/ws
+// Also supports preflight checks via X-Console-Preflight header for better error messages.
 func (h *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Extract VM ID from path
 	// Path format: /api/console/{vmId}/ws
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(parts) < 4 || parts[0] != "api" || parts[1] != "console" || parts[3] != "ws" {
-		http.Error(w, "Invalid console path", http.StatusBadRequest)
+		h.writeConsoleError(w, http.StatusBadRequest, ConsoleErrorResponse{
+			Code:    ConsoleErrorInternal,
+			Message: "Invalid console path format",
+		})
 		return
 	}
 	vmID := parts[2]
 
-	h.logger.Info("Console WebSocket request",
-		zap.String("vm_id", vmID),
-		zap.String("remote_addr", r.RemoteAddr),
-	)
+	// Check if this is a preflight check (for better error messages in the web UI)
+	isPreflight := r.Header.Get("X-Console-Preflight") == "true"
+
+	if isPreflight {
+		h.logger.Debug("Console preflight check",
+			zap.String("vm_id", vmID),
+			zap.String("remote_addr", r.RemoteAddr),
+		)
+	} else {
+		h.logger.Info("Console WebSocket request",
+			zap.String("vm_id", vmID),
+			zap.String("remote_addr", r.RemoteAddr),
+		)
+	}
 
 	// Get VM info to find which node it's on
 	ctx := r.Context()
 	vm, err := h.server.vmRepo.Get(ctx, vmID)
 	if err != nil {
 		h.logger.Error("VM not found", zap.String("vm_id", vmID), zap.Error(err))
-		http.Error(w, fmt.Sprintf("VM not found: %s", vmID), http.StatusNotFound)
+		h.writeConsoleError(w, http.StatusNotFound, ConsoleErrorResponse{
+			Code:    ConsoleErrorVMNotFound,
+			Message: "Virtual machine not found",
+			Details: fmt.Sprintf("No VM exists with ID '%s'. It may have been deleted.", vmID),
+			VMID:    vmID,
+		})
+		return
+	}
+
+	// Check if VM is running
+	if vm.Status.State != "RUNNING" {
+		h.logger.Warn("VM is not running",
+			zap.String("vm_id", vmID),
+			zap.String("state", string(vm.Status.State)),
+		)
+		h.writeConsoleError(w, http.StatusPreconditionFailed, ConsoleErrorResponse{
+			Code:    ConsoleErrorVMNotRunning,
+			Message: "Virtual machine is not running",
+			Details: fmt.Sprintf("VM '%s' is currently in state '%s'. Start the VM to access the console.", vm.Name, vm.Status.State),
+			VMID:    vmID,
+		})
 		return
 	}
 
 	if vm.Status.NodeID == "" {
 		h.logger.Error("VM has no node assignment", zap.String("vm_id", vmID))
-		http.Error(w, "VM is not running on any node", http.StatusBadRequest)
+		h.writeConsoleError(w, http.StatusPreconditionFailed, ConsoleErrorResponse{
+			Code:    ConsoleErrorNodeNotAssigned,
+			Message: "VM is not assigned to any node",
+			Details: "The VM exists but is not scheduled on any hypervisor node. This may indicate a scheduling issue.",
+			VMID:    vmID,
+		})
 		return
 	}
 
 	// Get console info from the node daemon
-	consoleInfo, err := h.getConsoleInfoFromNode(ctx, vm.Status.NodeID, vmID)
-	if err != nil {
+	consoleInfo, consoleErr := h.getConsoleInfoFromNode(ctx, vm.Status.NodeID, vmID)
+	if consoleErr != nil {
 		h.logger.Error("Failed to get console info",
 			zap.String("vm_id", vmID),
 			zap.String("node_id", vm.Status.NodeID),
-			zap.Error(err),
+			zap.Error(consoleErr),
 		)
-		http.Error(w, fmt.Sprintf("Failed to get console info: %v", err), http.StatusInternalServerError)
+
+		// Parse the error to provide specific feedback
+		errMsg := consoleErr.Error()
+		var errResp ConsoleErrorResponse
+		errResp.VMID = vmID
+		errResp.NodeID = vm.Status.NodeID
+
+		switch {
+		case strings.Contains(errMsg, "node not found"):
+			errResp.Code = ConsoleErrorNodeNotFound
+			errResp.Message = "Hypervisor node not found"
+			errResp.Details = fmt.Sprintf("The node '%s' assigned to this VM no longer exists in the cluster.", vm.Status.NodeID)
+			h.writeConsoleError(w, http.StatusNotFound, errResp)
+
+		case strings.Contains(errMsg, "failed to connect to node daemon"):
+			errResp.Code = ConsoleErrorNodeUnreachable
+			errResp.Message = "Cannot reach hypervisor node"
+			errResp.Details = "The node daemon is not responding. The hypervisor may be offline or the network connection may be interrupted."
+			h.writeConsoleError(w, http.StatusServiceUnavailable, errResp)
+
+		case strings.Contains(errMsg, "Domain not found") || strings.Contains(errMsg, "VM not found"):
+			errResp.Code = ConsoleErrorVMNotOnNode
+			errResp.Message = "VM not found on hypervisor"
+			errResp.Details = fmt.Sprintf("The VM '%s' is not running on node '%s'. The VM may have been migrated, stopped, or deleted outside of the control plane. Try refreshing the VM list or restarting the VM.", vm.Name, vm.Status.NodeID)
+			h.writeConsoleError(w, http.StatusConflict, errResp)
+
+		default:
+			errResp.Code = ConsoleErrorInternal
+			errResp.Message = "Failed to get console information"
+			errResp.Details = errMsg
+			h.writeConsoleError(w, http.StatusInternalServerError, errResp)
+		}
 		return
 	}
 
@@ -88,6 +197,19 @@ func (h *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		zap.String("host", consoleInfo.Host),
 		zap.Uint32("port", consoleInfo.Port),
 	)
+
+	// For preflight checks, return success without WebSocket upgrade
+	if isPreflight {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok":      true,
+			"vm_id":   vmID,
+			"vm_name": vm.Name,
+			"node_id": vm.Status.NodeID,
+		})
+		return
+	}
 
 	// Upgrade to WebSocket
 	clientConn, err := h.upgrader.Upgrade(w, r, nil)

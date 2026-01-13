@@ -1958,7 +1958,7 @@ fn get_cluster_status() -> ClusterStatus {
                     // Also check if status is connected vs pending
                     if stdout.contains("\"status\":\"pending_restart\"") {
                         return ClusterStatus::Joining;
-                    } else if stdout.contains("\"status\":\"disconnected\"") {
+                } else if stdout.contains("\"status\":\"disconnected\"") {
                         return ClusterStatus::Disconnected;
                     }
                     return ClusterStatus::Connected;

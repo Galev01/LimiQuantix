@@ -49,6 +49,8 @@ pub struct AppState {
     pub tls_config: TlsConfig,
     /// Direct access to telemetry collector for disk I/O rates
     pub telemetry: Arc<TelemetryCollector>,
+    /// Storage manager for pool operations (e.g., ISO uploads to pools)
+    pub storage: Arc<limiquantix_hypervisor::storage::StorageManager>,
 }
 
 // ============================================================================
@@ -776,12 +778,16 @@ pub async fn run_http_server(
     // Initialize TLS manager (needed for certificate management API even if HTTPS is disabled)
     let tls_manager = Arc::new(TlsManager::new(tls_config.clone()));
     
+    // Get storage manager from service for ISO uploads to pools
+    let storage = service.get_storage_manager();
+    
     let state = Arc::new(AppState {
         service,
         webui_path: webui_path.clone(),
         tls_manager: tls_manager.clone(),
         tls_config: tls_config.clone(),
         telemetry,
+        storage,
     });
 
     // Build the application router
@@ -807,12 +813,16 @@ pub async fn run_https_server(
     let tls_manager = Arc::new(TlsManager::new(tls_config.clone()));
     tls_manager.initialize().await?;
     
+    // Get storage manager from service for ISO uploads to pools
+    let storage = service.get_storage_manager();
+    
     let state = Arc::new(AppState {
         service,
         webui_path: webui_path.clone(),
         tls_manager: tls_manager.clone(),
         tls_config: tls_config.clone(),
         telemetry,
+        storage,
     });
 
     // Build the application router
@@ -3295,22 +3305,73 @@ struct ConversionJob {
     completed_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
+/// Query parameters for image upload
+#[derive(Debug, Deserialize, Default)]
+struct UploadImageParams {
+    /// Storage pool ID - if provided, uploads to the pool's mount path
+    pool_id: Option<String>,
+    /// Subdirectory within the pool (default: "iso")
+    subdir: Option<String>,
+}
+
 /// POST /api/v1/storage/upload - Upload a disk image or ISO
+/// 
+/// Query parameters:
+/// - pool_id: Optional storage pool ID to upload to (uses pool's mount path)
+/// - subdir: Optional subdirectory within the pool (e.g., "iso" or "images")
 async fn upload_image(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<UploadImageParams>,
     mut multipart: Multipart,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
     use tokio::fs;
     use tokio::io::AsyncWriteExt;
     
-    // Choose the best upload directory - prefer /data/images if available
-    let upload_dir = if std::path::Path::new("/data").exists() {
-        std::path::Path::new("/data/images")
+    // Determine upload directory based on pool_id
+    let upload_dir: std::path::PathBuf = if let Some(pool_id) = &params.pool_id {
+        // Look up the pool's mount path (try cache first, then discover from mounts)
+        match state.storage.get_pool_info_or_discover(pool_id).await {
+            Ok(pool_info) => {
+                if let Some(mount_path) = &pool_info.mount_path {
+                    let base_path = std::path::PathBuf::from(mount_path);
+                    // Optionally add subdirectory (e.g., "iso")
+                    let subdir = params.subdir.as_deref().unwrap_or("iso");
+                    info!(
+                        pool_id = %pool_id,
+                        mount_path = %mount_path,
+                        subdir = %subdir,
+                        "Using storage pool for upload"
+                    );
+                    base_path.join(subdir)
+                } else {
+                    warn!(pool_id = %pool_id, "Pool has no mount path, using default directory");
+                    if std::path::Path::new("/data").exists() {
+                        std::path::PathBuf::from("/data/images")
+                    } else {
+                        std::path::PathBuf::from("/var/lib/limiquantix/images")
+                    }
+                }
+            }
+            Err(e) => {
+                warn!(pool_id = %pool_id, error = %e, "Pool not found, falling back to default directory");
+                // Fall back to default if pool not found
+                if std::path::Path::new("/data").exists() {
+                    std::path::PathBuf::from("/data/images")
+                } else {
+                    std::path::PathBuf::from("/var/lib/limiquantix/images")
+                }
+            }
+        }
     } else {
-        std::path::Path::new("/var/lib/limiquantix/images")
+        // No pool_id specified - use default directory
+        if std::path::Path::new("/data").exists() {
+            std::path::PathBuf::from("/data/images")
+        } else {
+            std::path::PathBuf::from("/var/lib/limiquantix/images")
+        }
     };
     
-    info!(upload_dir = %upload_dir.display(), "Image upload directory");
+    info!(upload_dir = %upload_dir.display(), pool_id = ?params.pool_id, "Image upload directory");
     
     if let Err(e) = fs::create_dir_all(upload_dir).await {
         error!(error = %e, path = %upload_dir.display(), "Failed to create upload directory");
