@@ -344,6 +344,23 @@ This fills the market gap created by Broadcom's VMware acquisition, targeting en
 | Templates | VM templates and cloning |
 | Resource pools | Nested resource allocation |
 
+### Phase 8: Platform Hardening 📋 PLANNED
+*Duration: 4-6 weeks*
+
+Code foundation exists (prepared for future features):
+
+| Task | Status | Description |
+|------|--------|-------------|
+| **TLS/ACME Certificates** | 🔧 Code Ready | Let's Encrypt integration for HTTPS |
+| **Enhanced Event Logging** | 🔧 Code Ready | Helper methods for VM/Network/Storage events |
+| **Admin Authentication (TUI)** | 🔧 Code Ready | Login screen for console access |
+| **Settings Expansion** | 🔧 Code Ready | Storage defaults, network defaults, VNC settings |
+| **Disk Format Conversion** | 🔧 Code Ready | VMDK to QCOW2 job tracking |
+| **Alternative Cluster Join** | 🔧 Code Ready | Token-based cluster registration flow |
+| **OVS Port Management** | 🔧 Code Ready | SDN port config/status/delete/list |
+
+**Legend:** 🔧 = Code structure exists, needs wiring/testing
+
 ---
 
 ## 6. Priority Matrix

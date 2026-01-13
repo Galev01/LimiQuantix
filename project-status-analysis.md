@@ -2,7 +2,7 @@
 
 **Document ID:** 000025  
 **Date:** January 2026  
-**Last Updated:** January 3, 2026  
+**Last Updated:** January 14, 2026  
 **Purpose:** Track progress toward a complete VMware vSphere replacement
 
 ---
@@ -22,7 +22,8 @@
 | **Guest Agent** | ✅ **85%** | Linux/Windows support, telemetry, scripts, file browser, quiescing |
 | **Storage Backend** | ✅ **80%** | Local, NFS, Ceph RBD, iSCSI with LVM thin provisioning |
 | **Network Backend (QuantumNet)** | ⏳ **85%** | OVN/OVS full implementation (LB, VPN, BGP) |
-| **Host OS (limiquantix OS)** | ❌ **0%** | Not started |
+| **Host OS (Quantix-OS)** | ✅ **75%** | Alpine-based ISO, TUI console, Host UI, Node Daemon |
+| **Platform Hardening** | 🔧 **Code Ready** | ACME, Events, TUI Auth, Settings, Disk Conversion |
 
 ---
 
@@ -260,6 +261,27 @@ VM A → TAP → br-int → OVS Geneve Tunnel → Node 2 br-int → TAP → VM B
 |-----------|-------------------|--------|----------|
 | **Host OS** | ESXi | 8-12 weeks | P1 |
 | **Backup Engine** | VADP | 4 weeks | P2 |
+
+### 10. Code Ready - Needs Wiring 🔧
+
+Features with code structure in place, awaiting integration/testing:
+
+| Feature | Module | Status | Description |
+|---------|--------|--------|-------------|
+| **ACME/Let's Encrypt** | `tls.rs` | 🔧 Ready | Auto-provision HTTPS certificates |
+| **Event Helpers** | `event_store.rs` | 🔧 Ready | `vm_event()`, `network_event()`, `storage_event()` |
+| **TUI Admin Auth** | `console-tui` | 🔧 Ready | Login screen with Argon2 password verification |
+| **Settings Expansion** | `http_server.rs` | 🔧 Ready | Storage/network defaults, VNC listen address |
+| **Disk Conversion** | `http_server.rs` | 🔧 Ready | VMDK→QCOW2 job tracking with progress |
+| **Cluster Join Flow** | `http_server.rs` | 🔧 Ready | Alternative token-based cluster registration |
+| **OVS Port Manager** | `service.rs` | 🔧 Ready | Port config, status, delete, list operations |
+| **Network Rate Calc** | `telemetry` | 🔧 Ready | Network I/O rate calculation |
+
+**What "Code Ready" means:**
+- Function signatures and data structures exist
+- Business logic is implemented
+- Not yet wired to UI or tested end-to-end
+- Marked with `#[allow(dead_code)]` to suppress warnings
 
 ---
 
@@ -551,10 +573,17 @@ cd frontend && npm run dev
 - **WireGuard Bastion** - Direct overlay access from laptops
 - **BGP ToR Integration** - Enterprise bare-metal integration
 
+**Code Ready - Needs Wiring (🔧):**
+- **ACME/Let's Encrypt** - Auto HTTPS certificate provisioning
+- **TUI Admin Login** - Console authentication with Argon2
+- **Enhanced Event Logging** - VM/Network/Storage event helpers
+- **Disk Conversion Jobs** - VMDK to QCOW2 with progress tracking
+- **Settings Expansion** - Storage/network defaults, VNC config
+
 **Medium-term:**
 - Live migration testing
 - Backup/restore engine
 
 **Long-term:**
-- limiquantix OS (custom hypervisor host)
+- Quantix-OS (custom hypervisor host)
 - Enterprise features (HA, DRS, vMotion)
