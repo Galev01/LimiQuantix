@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { API_CONFIG } from '@/lib/api-client';
 
 // =============================================================================
 // TYPES
@@ -97,7 +98,7 @@ export function usePortStatusStream(
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = API_CONFIG.baseUrl;
       const response = await fetch(`${apiUrl}/api/v1/networks/${networkId}/ports/watch`, {
         method: 'GET',
         headers: {
@@ -273,7 +274,7 @@ export function useNetworkEvents(
       setState(prev => ({ ...prev, isConnecting: true }));
 
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+        const apiUrl = API_CONFIG.baseUrl;
         const response = await fetch(`${apiUrl}/api/v1/projects/${projectId}/networks/events`, {
           method: 'GET',
           headers: {
@@ -386,7 +387,7 @@ export function usePortStatusPolling(
     if (!networkId) return;
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = API_CONFIG.baseUrl;
       const response = await fetch(`${apiUrl}/api/v1/networks/${networkId}/ports`);
 
       if (!response.ok) {

@@ -29,9 +29,11 @@ function timestampToDate(ts?: { seconds?: bigint; nanos?: number } | null): Date
   return new Date(seconds * 1000 + Math.floor(nanos / 1000000));
 }
 
+import { API_CONFIG } from '@/lib/api-client';
+
 // Create transport for Connect-RPC
 const transport = createConnectTransport({
-  baseUrl: 'http://localhost:8080',
+  baseUrl: API_CONFIG.baseUrl,
 });
 
 // Create service clients

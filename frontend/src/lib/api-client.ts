@@ -11,8 +11,23 @@
  */
 
 // Configuration
+// In production, use relative URLs (same origin as the frontend)
+// In development, use VITE_API_URL or localhost:8080
+function getDefaultBaseUrl(): string {
+  // If explicitly set, use that
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // In production (served by nginx), use same origin
+  if (import.meta.env.PROD || window.location.hostname !== 'localhost') {
+    return window.location.origin;
+  }
+  // Development fallback
+  return 'http://localhost:8080';
+}
+
 export const API_CONFIG = {
-  baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:8080',
+  baseUrl: getDefaultBaseUrl(),
   timeout: 30000, // 30 seconds
   retryAttempts: 3,
   retryDelay: 1000, // 1 second

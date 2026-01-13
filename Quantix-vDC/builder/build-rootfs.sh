@@ -267,6 +267,15 @@ mkdir -p "${ROOTFS_DIR}/run/postgresql"
 chroot "${ROOTFS_DIR}" chown -R postgres:postgres /run/postgresql 2>/dev/null || true
 chmod 755 "${ROOTFS_DIR}/run/postgresql"
 
+# Create nginx directories
+mkdir -p "${ROOTFS_DIR}/var/lib/nginx/logs"
+mkdir -p "${ROOTFS_DIR}/var/lib/nginx/tmp/client_body"
+mkdir -p "${ROOTFS_DIR}/var/lib/nginx/tmp/proxy"
+mkdir -p "${ROOTFS_DIR}/var/lib/nginx/tmp/fastcgi"
+mkdir -p "${ROOTFS_DIR}/var/log/nginx"
+chroot "${ROOTFS_DIR}" chown -R nginx:nginx /var/lib/nginx 2>/dev/null || true
+chroot "${ROOTFS_DIR}" chown -R nginx:nginx /var/log/nginx 2>/dev/null || true
+
 echo "✅ Directories created"
 
 # -----------------------------------------------------------------------------

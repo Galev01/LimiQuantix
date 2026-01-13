@@ -4,9 +4,11 @@ import { createConnectTransport } from '@connectrpc/connect-web';
 import { ImageService } from '@/api/limiquantix/storage/v1/storage_service_pb';
 import type { Image, OsInfo_OsFamily, ImageSpec_Visibility } from '@/api/limiquantix/storage/v1/storage_pb';
 
+import { API_CONFIG } from '@/lib/api-client';
+
 // Create transport for Connect-RPC
 const transport = createConnectTransport({
-  baseUrl: 'http://localhost:8080',
+  baseUrl: API_CONFIG.baseUrl,
 });
 
 // Create the ImageService client
