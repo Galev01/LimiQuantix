@@ -42,9 +42,11 @@ type ImageUploadHandler struct {
 	jobs         map[string]*ImageUploadJob
 	imageService *storageservice.ImageService
 	poolRepo     storageservice.PoolRepository
-	daemonPool   interface{ GetNodeAddr(nodeID string) (string, error) }
-	uploadDir    string
-	logger       *zap.Logger
+	daemonPool   interface {
+		GetNodeAddr(nodeID string) (string, error)
+	}
+	uploadDir string
+	logger    *zap.Logger
 }
 
 // NewImageUploadHandler creates a new image upload handler.
@@ -63,7 +65,9 @@ func (h *ImageUploadHandler) SetPoolRepository(repo storageservice.PoolRepositor
 }
 
 // SetDaemonPool sets the daemon pool for forwarding uploads to nodes.
-func (h *ImageUploadHandler) SetDaemonPool(dp interface{ GetNodeAddr(nodeID string) (string, error) }) {
+func (h *ImageUploadHandler) SetDaemonPool(dp interface {
+	GetNodeAddr(nodeID string) (string, error)
+}) {
 	h.daemonPool = dp
 }
 
@@ -186,21 +190,38 @@ func (h *ImageUploadHandler) processUpload(
 		}
 
 		// Forward to node's upload endpoint with pool_id parameter
-		uploadURL := fmt.Sprintf("https://%s/api/v1/storage/upload?pool_id=%s&subdir=iso", nodeAddr, storagePoolID)
+		// Note: Using HTTP since HTTPS is disabled by default on the node daemon
+		uploadURL := fmt.Sprintf("http://%s/api/v1/storage/upload?pool_id=%s&subdir=iso", nodeAddr, storagePoolID)
 		logger.Info("Forwarding to node", zap.String("url", uploadURL))
 
 		// Create multipart writer
 		bodyReader, bodyWriter := io.Pipe()
 		multiWriter := multipart.NewWriter(bodyWriter)
 
+		// Channel to signal goroutine errors
+		errChan := make(chan error, 1)
+
 		// Write multipart in goroutine
 		go func() {
-			defer bodyWriter.Close()
-			defer multiWriter.Close()
+			var writeErr error
+			defer func() {
+				// IMPORTANT: Close multipart writer FIRST to write final boundary
+				if closeErr := multiWriter.Close(); closeErr != nil && writeErr == nil {
+					writeErr = closeErr
+				}
+				// Then close the pipe
+				if writeErr != nil {
+					bodyWriter.CloseWithError(writeErr)
+				} else {
+					bodyWriter.Close()
+				}
+				errChan <- writeErr
+			}()
 
 			part, err := multiWriter.CreateFormFile("file", job.Filename)
 			if err != nil {
 				logger.Error("Failed to create form file", zap.Error(err))
+				writeErr = err
 				return
 			}
 
@@ -208,8 +229,9 @@ func (h *ImageUploadHandler) processUpload(
 			for {
 				n, readErr := file.Read(buffer)
 				if n > 0 {
-					if _, writeErr := part.Write(buffer[:n]); writeErr != nil {
-						logger.Error("Failed to write to multipart", zap.Error(writeErr))
+					if _, err := part.Write(buffer[:n]); err != nil {
+						logger.Error("Failed to write to multipart", zap.Error(err))
+						writeErr = err
 						return
 					}
 					uploaded += int64(n)
@@ -225,6 +247,7 @@ func (h *ImageUploadHandler) processUpload(
 						break
 					}
 					logger.Error("Failed to read file", zap.Error(readErr))
+					writeErr = readErr
 					return
 				}
 			}
@@ -247,12 +270,22 @@ func (h *ImageUploadHandler) processUpload(
 		req.Header.Set("Content-Type", multiWriter.FormDataContentType())
 
 		resp, err := httpClient.Do(req)
+		
+		// Wait for the writer goroutine to finish
+		writerErr := <-errChan
+		
 		if err != nil {
 			h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Failed to upload to node: %v", err))
 			logger.Error("Failed to upload to node", zap.Error(err))
 			return
 		}
 		defer resp.Body.Close()
+
+		if writerErr != nil {
+			h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Failed writing multipart data: %v", writerErr))
+			logger.Error("Failed writing multipart data", zap.Error(writerErr))
+			return
+		}
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			body, _ := io.ReadAll(resp.Body)

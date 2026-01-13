@@ -16,7 +16,7 @@ use std::sync::Arc;
 use axum::{
     Router,
     routing::{get, post},
-    extract::{Path, State, Multipart, Query, ws::{Message, WebSocket, WebSocketUpgrade}},
+    extract::{Path, State, Multipart, Query, DefaultBodyLimit, ws::{Message, WebSocket, WebSocketUpgrade}},
     http::{StatusCode, header, Method, Uri, HeaderMap},
     response::{IntoResponse, Response, Json, Redirect},
     body::Body,
@@ -887,7 +887,8 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         // Storage endpoints
         .route("/storage/pools", get(list_storage_pools))
         .route("/storage/pools", post(create_storage_pool))
-        .route("/storage/upload", post(upload_image))
+        // Upload endpoint with disabled body limit for large ISO files
+        .route("/storage/upload", post(upload_image).layer(DefaultBodyLimit::disable()))
         .route("/storage/pools/:pool_id", get(get_storage_pool))
         .route("/storage/pools/:pool_id", axum::routing::delete(delete_storage_pool))
         .route("/storage/pools/:pool_id/volumes", get(list_volumes))
@@ -3327,6 +3328,12 @@ async fn upload_image(
     use tokio::fs;
     use tokio::io::AsyncWriteExt;
     
+    info!(
+        pool_id = ?params.pool_id,
+        subdir = ?params.subdir,
+        "🔼 Upload request received"
+    );
+    
     // Determine upload directory based on pool_id
     let upload_dir: std::path::PathBuf = if let Some(pool_id) = &params.pool_id {
         // Look up the pool's mount path (try cache first, then discover from mounts)
@@ -3343,7 +3350,7 @@ async fn upload_image(
                         "Using storage pool for upload"
                     );
                     base_path.join(subdir)
-                } else {
+    } else {
                     warn!(pool_id = %pool_id, "Pool has no mount path, using default directory");
                     if std::path::Path::new("/data").exists() {
                         std::path::PathBuf::from("/data/images")

@@ -77,7 +77,7 @@ func (p *DaemonPool) Get(nodeID string) *DaemonClient {
 func (p *DaemonPool) GetOrError(nodeID string) (*DaemonClient, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	
+
 	client, ok := p.clients[nodeID]
 	if !ok {
 		return nil, fmt.Errorf("no connection to node %s", nodeID)
@@ -85,25 +85,26 @@ func (p *DaemonPool) GetOrError(nodeID string) (*DaemonClient, error) {
 	return client, nil
 }
 
-// GetNodeAddr returns the address of a connected node.
-// The address is in format "host:port" (gRPC port).
-// For HTTP uploads, the caller should replace port 9090 with 8443.
+// GetNodeAddr returns the HTTP address of a connected node.
+// The address is returned in format "host:8080" for HTTP API access.
+// Note: The Node Daemon runs HTTP on 8080 by default. HTTPS on 8443 is optional.
 func (p *DaemonPool) GetNodeAddr(nodeID string) (string, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	
+
 	client, ok := p.clients[nodeID]
 	if !ok {
 		return "", fmt.Errorf("no connection to node %s", nodeID)
 	}
-	
-	// Convert gRPC port (9090) to HTTP port (8443)
+
+	// Convert gRPC port (9090) to HTTP port (8080)
+	// Note: HTTPS on 8443 is disabled by default on the node daemon
 	addr := client.Addr()
-	// Replace :9090 with :8443 for HTTP API
+	// Replace :9090 with :8080 for HTTP API
 	if len(addr) > 5 && addr[len(addr)-5:] == ":9090" {
-		addr = addr[:len(addr)-5] + ":8443"
+		addr = addr[:len(addr)-5] + ":8080"
 	}
-	
+
 	return addr, nil
 }
 
@@ -119,11 +120,11 @@ func (p *DaemonPool) Disconnect(nodeID string) error {
 
 	err := client.Close()
 	delete(p.clients, nodeID)
-	
+
 	p.logger.Info("Disconnected from node daemon",
 		zap.String("node_id", nodeID),
 	)
-	
+
 	return err
 }
 
@@ -193,4 +194,3 @@ func (p *DaemonPool) HealthCheckAll(ctx context.Context) map[string]bool {
 	wg.Wait()
 	return results
 }
-
