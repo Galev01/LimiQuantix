@@ -563,12 +563,13 @@ troubleshooting_menu() {
     while true; do
         $DIALOG --backtitle "$BACKTITLE" \
             --title "Troubleshooting" \
-            --menu "\nSelect option:" 18 65 9 \
+            --menu "\nSelect option:" 20 65 11 \
+            "diagnose" "Diagnose Service Issues" \
+            "start_all" "Force Start All Services" \
             "logs_cp" "View Control Plane Logs" \
             "logs_err" "View Control Plane Errors" \
             "logs_startup" "View Startup Log" \
             "logs_pg" "View PostgreSQL Logs" \
-            "start_all" "Force Start All Services" \
             "network" "Test Network Connectivity" \
             "restart_net" "Restart Networking" \
             "shell" "Drop to Shell" \
@@ -580,6 +581,102 @@ troubleshooting_menu() {
         local CHOICE=$(cat "$TEMP_FILE")
         
         case "$CHOICE" in
+            diagnose)
+                local DIAG_LOG="/tmp/diagnose.log"
+                {
+                    echo "=== Quantix-vDC Service Diagnostics ==="
+                    echo "Date: $(date)"
+                    echo ""
+                    
+                    echo "=== System Info ==="
+                    echo "Hostname: $(hostname)"
+                    echo "IP: $(get_primary_ip)"
+                    echo ""
+                    
+                    echo "=== PostgreSQL ==="
+                    PG_SVC=$(get_pg_service)
+                    echo "Service name: $PG_SVC"
+                    PG_DATA="/var/lib/postgresql/16/data"
+                    if [ -d "$PG_DATA" ]; then
+                        echo "Data dir exists: YES"
+                        if [ -f "$PG_DATA/PG_VERSION" ]; then
+                            echo "Initialized: YES (version: $(cat $PG_DATA/PG_VERSION))"
+                        else
+                            echo "Initialized: NO - needs initdb!"
+                        fi
+                        echo "Permissions: $(ls -ld $PG_DATA)"
+                        echo "Owner: $(stat -c '%U:%G' $PG_DATA 2>/dev/null || echo 'unknown')"
+                    else
+                        echo "Data dir exists: NO - needs creation!"
+                    fi
+                    
+                    # Check for initdb
+                    echo ""
+                    echo "initdb locations:"
+                    for path in /usr/bin/initdb /usr/libexec/postgresql16/initdb /usr/lib/postgresql16/bin/initdb; do
+                        if [ -x "$path" ]; then
+                            echo "  FOUND: $path"
+                        fi
+                    done
+                    
+                    echo ""
+                    echo "Service status: $(rc-service $PG_SVC status 2>&1)"
+                    
+                    echo ""
+                    echo "=== etcd ==="
+                    if [ -x /usr/bin/etcd ]; then
+                        echo "Binary: FOUND"
+                        echo "Service status: $(rc-service etcd status 2>&1)"
+                    else
+                        echo "Binary: NOT FOUND!"
+                    fi
+                    
+                    echo ""
+                    echo "=== Control Plane ==="
+                    if [ -x /usr/bin/qx-controlplane ]; then
+                        echo "Binary: FOUND"
+                        ls -l /usr/bin/qx-controlplane
+                        echo "Service status: $(rc-service quantix-controlplane status 2>&1)"
+                        if [ -f /var/log/quantix-controlplane.err.log ]; then
+                            echo ""
+                            echo "Last 5 error lines:"
+                            tail -5 /var/log/quantix-controlplane.err.log
+                        fi
+                    else
+                        echo "Binary: NOT FOUND at /usr/bin/qx-controlplane!"
+                        echo ""
+                        echo "Contents of /usr/bin/:"
+                        ls -la /usr/bin/ | grep -E "qx|quantix" || echo "  (no quantix binaries found)"
+                    fi
+                    
+                    echo ""
+                    echo "=== nginx ==="
+                    echo "Service status: $(rc-service nginx status 2>&1)"
+                    if [ -f /etc/nginx/nginx.conf ]; then
+                        echo "Config test:"
+                        nginx -t 2>&1
+                    fi
+                    
+                    echo ""
+                    echo "=== Redis ==="
+                    echo "Service status: $(rc-service redis status 2>&1)"
+                    
+                    echo ""
+                    echo "=== Disk Space ==="
+                    df -h / /var 2>/dev/null || df -h
+                    
+                    echo ""
+                    echo "=== Memory ==="
+                    free -m 2>/dev/null || cat /proc/meminfo | head -5
+                    
+                } > "$DIAG_LOG" 2>&1
+                
+                $DIALOG --backtitle "$BACKTITLE" \
+                    --title "Service Diagnostics" \
+                    --textbox "$DIAG_LOG" 24 78
+                
+                rm -f "$DIAG_LOG"
+                ;;
             logs_cp)
                 if [ -f /var/log/quantix-controlplane.log ]; then
                     tail -50 /var/log/quantix-controlplane.log > /tmp/logs_view.txt
@@ -623,36 +720,128 @@ troubleshooting_menu() {
             start_all)
                 $DIALOG --backtitle "$BACKTITLE" \
                     --title "Force Start Services" \
-                    --yesno "\nThis will attempt to start all services.\n\nContinue?" 10 50
+                    --yesno "\nThis will attempt to start all services with verbose output.\n\nContinue?" 10 50
                 
                 if [ $? -eq 0 ]; then
-                    $DIALOG --infobox "\nStarting services...\n\nThis may take 30-60 seconds." 8 50
+                    # Run with verbose output to a temp file
+                    local START_LOG="/tmp/start_services.log"
                     
-                    # Run the startup script
-                    if [ -x /etc/local.d/99-start-services.start ]; then
-                        /etc/local.d/99-start-services.start >/dev/null 2>&1
-                    else
-                        # Manual startup
-                        rc-service postgresql start 2>/dev/null
-                        rc-service redis start 2>/dev/null
-                        rc-service etcd start 2>/dev/null
-                        sleep 5
-                        rc-service quantix-controlplane start 2>/dev/null
-                        rc-service nginx start 2>/dev/null
-                    fi
+                    {
+                        echo "=== Force Starting All Services ==="
+                        echo ""
+                        
+                        # Get correct PostgreSQL service name
+                        PG_SVC=$(get_pg_service)
+                        echo "PostgreSQL service: $PG_SVC"
+                        
+                        # Initialize PostgreSQL if needed
+                        PG_DATA="/var/lib/postgresql/16/data"
+                        if [ ! -f "$PG_DATA/PG_VERSION" ]; then
+                            echo ""
+                            echo ">>> PostgreSQL not initialized, initializing..."
+                            mkdir -p "$PG_DATA"
+                            chown -R postgres:postgres /var/lib/postgresql
+                            chmod 700 "$PG_DATA"
+                            
+                            # Find initdb
+                            INITDB=""
+                            for path in /usr/bin/initdb /usr/libexec/postgresql16/initdb /usr/lib/postgresql16/bin/initdb; do
+                                if [ -x "$path" ]; then
+                                    INITDB="$path"
+                                    break
+                                fi
+                            done
+                            
+                            if [ -n "$INITDB" ]; then
+                                echo "Using initdb: $INITDB"
+                                su -s /bin/sh postgres -c "$INITDB -D $PG_DATA --encoding=UTF8 --locale=C" 2>&1
+                                
+                                # Configure for local trust
+                                if [ -f "$PG_DATA/pg_hba.conf" ]; then
+                                    cat > "$PG_DATA/pg_hba.conf" << 'PGCONF'
+local   all             all                                     trust
+host    all             all             127.0.0.1/32            trust
+host    all             all             ::1/128                 trust
+PGCONF
+                                fi
+                            else
+                                echo "ERROR: initdb not found!"
+                            fi
+                        else
+                            echo "PostgreSQL already initialized"
+                        fi
+                        
+                        echo ""
+                        echo ">>> Starting PostgreSQL..."
+                        rc-service $PG_SVC start 2>&1
+                        sleep 2
+                        
+                        echo ""
+                        echo ">>> Starting Redis..."
+                        rc-service redis start 2>&1
+                        sleep 1
+                        
+                        echo ""
+                        echo ">>> Starting etcd..."
+                        if [ -x /usr/bin/etcd ]; then
+                            mkdir -p /var/lib/etcd
+                            chmod 700 /var/lib/etcd
+                            rc-service etcd start 2>&1
+                        else
+                            echo "etcd binary not found"
+                        fi
+                        sleep 1
+                        
+                        # Wait for PostgreSQL
+                        echo ""
+                        echo ">>> Waiting for PostgreSQL to be ready..."
+                        for i in 1 2 3 4 5 6 7 8 9 10; do
+                            if pg_isready -q 2>/dev/null; then
+                                echo "PostgreSQL is ready!"
+                                break
+                            fi
+                            echo "  Waiting... ($i/10)"
+                            sleep 1
+                        done
+                        
+                        # Create database if needed
+                        echo ""
+                        echo ">>> Checking/creating quantix_vdc database..."
+                        su -s /bin/sh postgres -c "psql -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw quantix_vdc" || {
+                            echo "Creating database..."
+                            su -s /bin/sh postgres -c "createdb quantix_vdc" 2>&1
+                        }
+                        
+                        echo ""
+                        echo ">>> Starting Control Plane..."
+                        if [ -x /usr/bin/qx-controlplane ]; then
+                            rc-service quantix-controlplane start 2>&1
+                        else
+                            echo "ERROR: /usr/bin/qx-controlplane not found!"
+                        fi
+                        sleep 2
+                        
+                        echo ""
+                        echo ">>> Starting nginx..."
+                        rc-service nginx start 2>&1
+                        sleep 1
+                        
+                        echo ""
+                        echo "=== Final Status ==="
+                        echo "PostgreSQL: $(get_service_status postgresql)"
+                        echo "Redis: $(get_service_status redis)"
+                        echo "etcd: $(get_service_status etcd)"
+                        echo "Control Plane: $(get_service_status quantix-controlplane)"
+                        echo "nginx: $(get_service_status nginx)"
+                        
+                    } > "$START_LOG" 2>&1
                     
-                    sleep 3
-                    
-                    local STATUS="Service Status:\n\n"
-                    STATUS="${STATUS}PostgreSQL: $(get_service_status postgresql)\n"
-                    STATUS="${STATUS}Redis: $(get_service_status redis)\n"
-                    STATUS="${STATUS}etcd: $(get_service_status etcd)\n"
-                    STATUS="${STATUS}Control Plane: $(get_service_status quantix-controlplane)\n"
-                    STATUS="${STATUS}nginx: $(get_service_status nginx)\n"
-                    
+                    # Show the log
                     $DIALOG --backtitle "$BACKTITLE" \
-                        --title "Service Status" \
-                        --msgbox "$STATUS" 14 50
+                        --title "Service Startup Results" \
+                        --textbox "$START_LOG" 22 75
+                    
+                    rm -f "$START_LOG"
                 fi
                 ;;
             network)
