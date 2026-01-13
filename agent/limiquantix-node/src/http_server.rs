@@ -2257,8 +2257,8 @@ async fn create_vm(
         DiskBus, DiskFormat, NicModel, CloudInitConfig,
     };
     
-    // Generate VM ID
-    let vm_id = format!("vm-{}", uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("unknown"));
+    // Generate VM ID - must be a valid UUID for libvirt
+    let vm_id = uuid::Uuid::new_v4().to_string();
     
     // Convert disk specs
     let disks: Vec<DiskSpec> = request.disks.iter().map(|d| {
@@ -5315,16 +5315,16 @@ fn collect_local_disks() -> Vec<DiskInfo> {
     
     // If lsblk failed or returned empty, fall back to sysinfo for mounted disks
     if devices.is_empty() {
-        use sysinfo::Disks;
-        let disks = Disks::new_with_refreshed_list();
-        
-        for disk in disks.iter() {
-            let name = disk.name().to_string_lossy().to_string();
-            let mount_point = disk.mount_point().to_string_lossy().to_string();
-            let total = disk.total_space();
-            let available = disk.available_space();
-            let used = total.saturating_sub(available);
-            let fs = disk.file_system().to_string_lossy().to_string();
+    use sysinfo::Disks;
+    let disks = Disks::new_with_refreshed_list();
+    
+    for disk in disks.iter() {
+        let name = disk.name().to_string_lossy().to_string();
+        let mount_point = disk.mount_point().to_string_lossy().to_string();
+        let total = disk.total_space();
+        let available = disk.available_space();
+        let used = total.saturating_sub(available);
+        let fs = disk.file_system().to_string_lossy().to_string();
             
             // Skip virtual/system mounts
             if mount_point.starts_with("/sys") 
@@ -5336,33 +5336,33 @@ fn collect_local_disks() -> Vec<DiskInfo> {
             {
                 continue;
             }
-            
-            // Determine disk type based on name
-            let disk_type = if name.contains("nvme") {
-                "NVMe"
-            } else if name.contains("sd") {
-                "SATA"
-            } else {
-                "Unknown"
-            };
-            
+        
+        // Determine disk type based on name
+        let disk_type = if name.contains("nvme") {
+            "NVMe"
+        } else if name.contains("sd") {
+            "SATA"
+        } else {
+            "Unknown"
+        };
+        
             devices.push(DiskInfo {
-                name: name.clone(),
-                model: "".to_string(),
-                serial: "".to_string(),
+            name: name.clone(),
+            model: "".to_string(),
+            serial: "".to_string(),
+            size_bytes: total,
+            disk_type: disk_type.to_string(),
+            interface: disk_type.to_string(),
+            is_removable: disk.is_removable(),
+            smart_status: "OK".to_string(),
+            partitions: vec![PartitionInfo {
+                name: name,
+                mount_point: Some(mount_point),
                 size_bytes: total,
-                disk_type: disk_type.to_string(),
-                interface: disk_type.to_string(),
-                is_removable: disk.is_removable(),
-                smart_status: "OK".to_string(),
-                partitions: vec![PartitionInfo {
-                    name: name,
-                    mount_point: Some(mount_point),
-                    size_bytes: total,
-                    used_bytes: used,
-                    filesystem: fs,
-                }],
-            });
+                used_bytes: used,
+                filesystem: fs,
+            }],
+        });
         }
     }
     

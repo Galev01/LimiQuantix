@@ -37,9 +37,13 @@ export function useUpdateSettings() {
 
   return useMutation({
     mutationFn: (request: UpdateSettingsRequest) => updateSettings(request),
-    onSuccess: () => {
+    onSuccess: (_, request) => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
-      toast.success('Settings updated');
+      // If node name (hostname) was updated, also refresh host info since it displays the hostname
+      if (request.node_name) {
+        queryClient.invalidateQueries({ queryKey: ['host'] });
+      }
+      toast.success('Settings updated. Hostname changed.');
     },
     onError: (error: Error) => {
       toast.error(`Failed to update settings: ${error.message}`);

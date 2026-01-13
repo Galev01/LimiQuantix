@@ -122,13 +122,14 @@ export function Settings() {
                   <h3 className="text-lg font-semibold text-text-primary mb-4">Node Configuration</h3>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="nodeName">Node Name</Label>
+                      <Label htmlFor="nodeName">Node Name (Hostname)</Label>
                       <Input
                         id="nodeName"
                         value={nodeName}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setNodeName(e.target.value)}
                         placeholder="Enter node name"
                       />
+                      <p className="text-xs text-text-muted mt-1">This will change the system hostname. It may take a moment to propagate.</p>
                     </div>
                     <div>
                       <Label htmlFor="nodeId">Node ID</Label>

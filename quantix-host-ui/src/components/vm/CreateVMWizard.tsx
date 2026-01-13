@@ -182,32 +182,33 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
           </button>
         </div>
 
-        {/* Progress Steps */}
+        {/* Progress Steps - Aligned with vDC wizard style */}
         <div className="px-6 py-4 border-b border-border bg-bg-base/50">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-center gap-2">
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-center">
                 <button
-                  onClick={() => setCurrentStep(step.id)}
+                  onClick={() => index <= currentStepIndex && setCurrentStep(step.id)}
+                  disabled={index > currentStepIndex}
                   className={cn(
-                    'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border-2',
                     currentStep === step.id
-                      ? 'bg-accent text-white'
+                      ? 'bg-success/20 border-success text-success'
                       : index < currentStepIndex
-                      ? 'bg-success/20 text-success'
-                      : 'bg-bg-surface text-text-muted'
+                      ? 'bg-success/10 border-success/50 text-success'
+                      : 'bg-bg-surface border-border text-text-muted cursor-not-allowed opacity-60'
                   )}
                 >
-                  {index < currentStepIndex ? (
+                  {index < currentStepIndex || currentStep === step.id ? (
                     <Check className="w-4 h-4" />
                   ) : (
                     step.icon
                   )}
-                  <span className="hidden sm:inline">{step.title}</span>
+                  <span className="hidden md:inline whitespace-nowrap">{step.title}</span>
                 </button>
                 {index < steps.length - 1 && (
                   <div className={cn(
-                    'w-8 h-0.5 mx-2',
+                    'w-6 h-0.5 mx-1',
                     index < currentStepIndex ? 'bg-success' : 'bg-border'
                   )} />
                 )}

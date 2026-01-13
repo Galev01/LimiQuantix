@@ -742,12 +742,25 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         let req = request.into_inner();
         
+        // Validate that vm_id is a proper UUID (required by libvirt)
+        let vm_uuid = if req.vm_id.is_empty() {
+            // Generate a new UUID if not provided
+            uuid::Uuid::new_v4().to_string()
+        } else {
+            // Validate the provided ID is a proper UUID
+            uuid::Uuid::parse_str(&req.vm_id)
+                .map_err(|_| Status::invalid_argument(format!(
+                    "VM ID must be a valid UUID, got: {}", req.vm_id
+                )))?
+                .to_string()
+        };
+        
         // Extract spec from request (required field)
         let spec = req.spec.ok_or_else(|| Status::invalid_argument("VM spec is required"))?;
         
         // Build VM configuration from the nested spec structure
         let mut config = VmConfig::new(&req.name)
-            .with_id(&req.vm_id);
+            .with_id(&vm_uuid);
         
         // Set CPU configuration from spec
         config.cpu.cores = spec.cpu_cores;
@@ -781,7 +794,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             };
             
             info!(
-                vm_id = %req.vm_id,
+                vm_id = %vm_uuid,
                 disk_index = disk_index,
                 disk_id = %disk_id,
                 disk_path = %disk_spec.path,
@@ -807,7 +820,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             let needs_disk_creation = disk_spec.path.is_empty() && (disk_spec.size_gib > 0 || has_backing_file);
             
             info!(
-                vm_id = %req.vm_id,
+                vm_id = %vm_uuid,
                 disk_id = %disk_id,
                 needs_creation = needs_disk_creation,
                 path_empty = disk_spec.path.is_empty(),
@@ -818,9 +831,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             
             if needs_disk_creation {
                 // Create disk image in default VM storage path
-                let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
+                let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&vm_uuid);
                 if let Err(e) = std::fs::create_dir_all(&vm_dir) {
-                    error!(vm_id = %req.vm_id, error = %e, "Failed to create VM directory");
+                    error!(vm_id = %vm_uuid, error = %e, "Failed to create VM directory");
                     return Err(Status::internal(format!("Failed to create VM directory: {}", e)));
                 }
                 
@@ -837,7 +850,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                     let backing_path = std::path::Path::new(bf);
                     if !backing_path.exists() {
                         error!(
-                            vm_id = %req.vm_id,
+                            vm_id = %vm_uuid,
                             backing_file = %bf,
                             "Backing file (cloud image) does not exist"
                         );
@@ -848,7 +861,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                     }
                     
                     info!(
-                        vm_id = %req.vm_id,
+                        vm_id = %vm_uuid,
                         disk_id = %disk_id,
                         backing_file = %bf,
                         "Creating disk with backing file (cloud image)"
@@ -857,7 +870,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                     cmd.arg("-F").arg("qcow2"); // Backing file format
                 } else {
                     info!(
-                        vm_id = %req.vm_id,
+                        vm_id = %vm_uuid,
                         disk_id = %disk_id,
                         size_gib = disk_spec.size_gib,
                         "Creating empty disk image"
@@ -873,7 +886,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 
                 // Log the full command for debugging
                 debug!(
-                    vm_id = %req.vm_id,
+                    vm_id = %vm_uuid,
                     command = ?cmd,
                     "Executing qemu-img command"
                 );
@@ -881,7 +894,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 match cmd.output() {
                     Ok(output) if output.status.success() => {
                         info!(
-                            vm_id = %req.vm_id,
+                            vm_id = %vm_uuid,
                             disk_id = %disk_id,
                             path = %disk_path.display(),
                             has_backing_file = has_backing_file,
@@ -891,7 +904,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                     Ok(output) => {
                         let stderr = String::from_utf8_lossy(&output.stderr);
                         error!(
-                            vm_id = %req.vm_id,
+                            vm_id = %vm_uuid,
                             disk_id = %disk_id,
                             error = %stderr,
                             "Failed to create disk image"
@@ -900,7 +913,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                     }
                     Err(e) => {
                         error!(
-                            vm_id = %req.vm_id,
+                            vm_id = %vm_uuid,
                             disk_id = %disk_id,
                             error = %e,
                             "Failed to run qemu-img"
@@ -976,20 +989,20 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         if has_cloud_image {
             info!(
-                vm_id = %req.vm_id,
+                vm_id = %vm_uuid,
                 "Generating default cloud-init ISO for cloud image"
             );
             
             // Generate default cloud-init config
-            let ci_config = CloudInitConfig::new(&req.vm_id, &req.name);
+            let ci_config = CloudInitConfig::new(&vm_uuid, &req.name);
             
-            let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&req.vm_id);
+            let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&vm_uuid);
             let generator = CloudInitGenerator::new();
             
             match generator.generate_iso(&ci_config, &vm_dir) {
                 Ok(iso_path) => {
                     info!(
-                        vm_id = %req.vm_id,
+                        vm_id = %vm_uuid,
                         iso_path = %iso_path.display(),
                         "Default cloud-init ISO generated"
                     );
@@ -1002,7 +1015,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 }
                 Err(e) => {
                     warn!(
-                        vm_id = %req.vm_id,
+                        vm_id = %vm_uuid,
                         error = %e,
                         "Failed to generate default cloud-init ISO (continuing without it)"
                     );
@@ -1022,7 +1035,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         debug!(path = %socket_dir.display(), "Ensured agent socket directory exists");
         
         info!(
-            vm_id = %req.vm_id,
+            vm_id = %vm_uuid,
             vm_name = %req.name,
             cpu_cores = config.cpu.total_vcpus(),
             memory_mib = config.memory.size_mib,
@@ -1043,7 +1056,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 }))
             }
             Err(e) => {
-                error!(vm_id = %req.vm_id, error = %e, "Failed to create VM in hypervisor");
+                error!(vm_id = %vm_uuid, error = %e, "Failed to create VM in hypervisor");
                 Err(Status::internal(format!("Failed to create VM: {}", e)))
             }
         }
