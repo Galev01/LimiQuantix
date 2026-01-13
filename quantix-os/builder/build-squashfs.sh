@@ -197,7 +197,9 @@ chroot "${ROOTFS_DIR}" /sbin/rc-update add syslog boot || true
 
 chroot "${ROOTFS_DIR}" /sbin/rc-update add dbus default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add libvirtd default || true
-chroot "${ROOTFS_DIR}" /sbin/rc-update add virtqemud default || true
+# Note: We use monolithic libvirtd, NOT modular virtqemud
+# The modular daemons (virtqemud, virtlogd) are for split-daemon setups
+# libvirtd handles QEMU/KVM via the built-in driver
 chroot "${ROOTFS_DIR}" /sbin/rc-update add ovsdb-server default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add ovs-vswitchd default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add seatd default || true
