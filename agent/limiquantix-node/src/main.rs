@@ -20,6 +20,7 @@ use clap::Parser;
 use tracing::{info, error};
 
 mod agent_client;
+mod chassis;
 mod cli;
 mod config;
 mod event_store;
@@ -28,6 +29,8 @@ mod registration;
 mod server;
 mod service;
 mod tls;
+
+pub use chassis::{ChassisConfig, ChassisHealth, ChassisManager};
 
 pub use agent_client::{AgentClient, AgentManager};
 

@@ -3,13 +3,12 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -161,6 +160,8 @@ func (h *ImageUploadHandler) handleUpload(w http.ResponseWriter, r *http.Request
 }
 
 // processUpload handles the actual file upload with progress tracking.
+// For shared storage (NFS), it writes directly to the share from QvDC.
+// For local storage, it falls back to the control plane's local directory.
 func (h *ImageUploadHandler) processUpload(
 	ctx context.Context,
 	job *ImageUploadJob,
@@ -177,66 +178,70 @@ func (h *ImageUploadHandler) processUpload(
 
 	var targetPath string
 	var uploaded int64
+	var useLocalStorage = true
 
-	// If we have a storage pool and node, forward to the node's upload endpoint
-	if storagePoolID != "" && nodeID != "" && h.daemonPool != nil {
-		logger.Info("Forwarding ISO upload to host node")
-
-		nodeAddr, err := h.daemonPool.GetNodeAddr(nodeID)
+	// Determine where to write the ISO based on storage pool type
+	if storagePoolID != "" && h.poolRepo != nil {
+		// Look up the storage pool to determine write strategy
+		pool, err := h.poolRepo.Get(ctx, storagePoolID)
 		if err != nil {
-			h.updateJobStatus(job.ID, "failed", 0, 0, fmt.Sprintf("Failed to get node address: %v", err))
-			logger.Error("Failed to get node address", zap.Error(err))
+			h.updateJobStatus(job.ID, "failed", 0, 0, fmt.Sprintf("Failed to get storage pool: %v", err))
+			logger.Error("Failed to get storage pool", zap.Error(err))
 			return
 		}
 
-		// Forward to node's upload endpoint with pool_id parameter
-		// Note: Using HTTP since HTTPS is disabled by default on the node daemon
-		uploadURL := fmt.Sprintf("http://%s/api/v1/storage/upload?pool_id=%s&subdir=iso", nodeAddr, storagePoolID)
-		logger.Info("Forwarding to node", zap.String("url", uploadURL))
+		// For NFS pools, write directly to the NFS share from QvDC
+		if pool.Spec.Backend != nil && pool.Spec.Backend.NFSConfig != nil {
+			useLocalStorage = false
+			nfsConfig := pool.Spec.Backend.NFSConfig
+			logger.Info("Writing ISO directly to NFS share",
+				zap.String("server", nfsConfig.Server),
+				zap.String("export", nfsConfig.ExportPath),
+			)
 
-		// Create multipart writer
-		bodyReader, bodyWriter := io.Pipe()
-		multiWriter := multipart.NewWriter(bodyWriter)
+			// Determine mount point - use custom mount point or generate one
+			mountPoint := nfsConfig.MountPoint
+			if mountPoint == "" {
+				mountPoint = fmt.Sprintf("/var/lib/limiquantix/mnt/nfs-%s", pool.ID)
+			}
 
-		// Channel to signal goroutine errors
-		errChan := make(chan error, 1)
-
-		// Write multipart in goroutine
-		go func() {
-			var writeErr error
-			defer func() {
-				// IMPORTANT: Close multipart writer FIRST to write final boundary
-				if closeErr := multiWriter.Close(); closeErr != nil && writeErr == nil {
-					writeErr = closeErr
-				}
-				// Then close the pipe
-				if writeErr != nil {
-					bodyWriter.CloseWithError(writeErr)
-				} else {
-					bodyWriter.Close()
-				}
-				errChan <- writeErr
-			}()
-
-			part, err := multiWriter.CreateFormFile("file", job.Filename)
-			if err != nil {
-				logger.Error("Failed to create form file", zap.Error(err))
-				writeErr = err
+			// Ensure NFS is mounted on QvDC
+			if err := h.ensureNFSMounted(nfsConfig.Server, nfsConfig.ExportPath, mountPoint, nfsConfig.Options); err != nil {
+				h.updateJobStatus(job.ID, "failed", 0, 0, fmt.Sprintf("Failed to mount NFS: %v", err))
+				logger.Error("Failed to mount NFS share", zap.Error(err))
 				return
 			}
 
+			// Create iso subdirectory
+			isoDir := filepath.Join(mountPoint, "iso")
+			if err := os.MkdirAll(isoDir, 0755); err != nil {
+				h.updateJobStatus(job.ID, "failed", 0, 0, fmt.Sprintf("Failed to create ISO directory: %v", err))
+				logger.Error("Failed to create ISO directory", zap.Error(err))
+				return
+			}
+
+			// Write directly to NFS
+			targetPath = filepath.Join(isoDir, job.Filename)
+			outFile, err := os.Create(targetPath)
+			if err != nil {
+				h.updateJobStatus(job.ID, "failed", 0, 0, fmt.Sprintf("Failed to create file: %v", err))
+				logger.Error("Failed to create file on NFS", zap.Error(err))
+				return
+			}
+			defer outFile.Close()
+
+			// Stream with progress updates
 			buffer := make([]byte, 256*1024)
 			for {
 				n, readErr := file.Read(buffer)
 				if n > 0 {
-					if _, err := part.Write(buffer[:n]); err != nil {
-						logger.Error("Failed to write to multipart", zap.Error(err))
-						writeErr = err
+					if _, writeErr := outFile.Write(buffer[:n]); writeErr != nil {
+						h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Write error: %v", writeErr))
+						logger.Error("Failed to write to NFS", zap.Error(writeErr))
 						return
 					}
 					uploaded += int64(n)
 
-					// Update progress
 					if totalSize > 0 {
 						percent := uint32(uploaded * 100 / totalSize)
 						h.updateJobStatus(job.ID, "uploading", percent, uploaded, "")
@@ -246,66 +251,22 @@ func (h *ImageUploadHandler) processUpload(
 					if readErr == io.EOF {
 						break
 					}
-					logger.Error("Failed to read file", zap.Error(readErr))
-					writeErr = readErr
+					h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Read error: %v", readErr))
+					logger.Error("Failed to read upload", zap.Error(readErr))
 					return
 				}
 			}
-		}()
 
-		// Make HTTP request to node (skip TLS verification for self-signed certs)
-		httpClient := &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
-			Timeout: 30 * time.Minute, // Allow long uploads
+			logger.Info("ISO uploaded directly to NFS share", zap.String("path", targetPath))
+		} else {
+			// For local/other storage types, fall back to control plane local storage
+			logger.Info("Storage pool is not NFS, saving to control plane local storage")
 		}
+	}
 
-		req, err := http.NewRequestWithContext(ctx, "POST", uploadURL, bodyReader)
-		if err != nil {
-			h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Failed to create request: %v", err))
-			logger.Error("Failed to create HTTP request", zap.Error(err))
-			return
-		}
-		req.Header.Set("Content-Type", multiWriter.FormDataContentType())
-
-		resp, err := httpClient.Do(req)
-		
-		// Wait for the writer goroutine to finish
-		writerErr := <-errChan
-		
-		if err != nil {
-			h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Failed to upload to node: %v", err))
-			logger.Error("Failed to upload to node", zap.Error(err))
-			return
-		}
-		defer resp.Body.Close()
-
-		if writerErr != nil {
-			h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Failed writing multipart data: %v", writerErr))
-			logger.Error("Failed writing multipart data", zap.Error(writerErr))
-			return
-		}
-
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			body, _ := io.ReadAll(resp.Body)
-			h.updateJobStatus(job.ID, "failed", 0, uploaded, fmt.Sprintf("Node upload failed: %s", string(body)))
-			logger.Error("Node upload failed", zap.Int("status", resp.StatusCode), zap.String("body", string(body)))
-			return
-		}
-
-		// Parse response to get the path
-		var nodeResp map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&nodeResp); err == nil {
-			if path, ok := nodeResp["path"].(string); ok {
-				targetPath = path
-			}
-		}
-
-		logger.Info("ISO uploaded to node successfully", zap.String("path", targetPath))
-	} else {
-		// Local upload (no node specified) - save to control plane
-		logger.Info("Saving ISO locally (no node specified)")
+	if useLocalStorage {
+		// Local upload (no shared storage) - save to control plane
+		logger.Info("Saving ISO locally on control plane")
 
 		// Ensure upload directory exists
 		if err := os.MkdirAll(h.uploadDir, 0755); err != nil {
@@ -520,4 +481,60 @@ func (h *ImageUploadHandler) CleanupOldJobs(maxAge time.Duration) {
 			h.logger.Debug("Cleaned up old upload job", zap.String("job_id", id))
 		}
 	}
+}
+
+// ensureNFSMounted ensures an NFS share is mounted at the specified mount point.
+// If already mounted, it returns nil. If not mounted, it mounts the NFS share.
+func (h *ImageUploadHandler) ensureNFSMounted(server, exportPath, mountPoint, options string) error {
+	// Check if already mounted by looking at /proc/mounts
+	mountsData, err := os.ReadFile("/proc/mounts")
+	if err != nil {
+		// On non-Linux systems (e.g., Windows dev), just ensure directory exists
+		h.logger.Warn("Cannot read /proc/mounts, assuming non-Linux system", zap.Error(err))
+		return os.MkdirAll(mountPoint, 0755)
+	}
+
+	nfsSource := fmt.Sprintf("%s:%s", server, exportPath)
+	mounts := string(mountsData)
+
+	// Check if this NFS share is already mounted at the mount point
+	for _, line := range strings.Split(mounts, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 {
+			if fields[0] == nfsSource && fields[1] == mountPoint {
+				h.logger.Debug("NFS already mounted", zap.String("source", nfsSource), zap.String("mount", mountPoint))
+				return nil
+			}
+		}
+	}
+
+	// Create mount point directory
+	if err := os.MkdirAll(mountPoint, 0755); err != nil {
+		return fmt.Errorf("failed to create mount point %s: %w", mountPoint, err)
+	}
+
+	// Build mount command
+	args := []string{"-t", "nfs"}
+	if options != "" {
+		args = append(args, "-o", options)
+	} else {
+		// Default options for reliability
+		args = append(args, "-o", "rw,soft,intr,timeo=30")
+	}
+	args = append(args, nfsSource, mountPoint)
+
+	h.logger.Info("Mounting NFS share",
+		zap.String("source", nfsSource),
+		zap.String("mount", mountPoint),
+		zap.Strings("args", args),
+	)
+
+	cmd := exec.Command("mount", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("mount failed: %s: %w", string(output), err)
+	}
+
+	h.logger.Info("NFS share mounted successfully", zap.String("mount", mountPoint))
+	return nil
 }

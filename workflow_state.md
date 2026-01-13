@@ -1,189 +1,179 @@
 # Workflow State
 
-## Console Error Handling Improvements
+## QuantumNet SDN Implementation
 
 ### Status: COMPLETED ✅
 
 ### Overview
-Improved error handling for VM console connections to provide better error messages when VMs are not found on the expected hypervisor node.
+Implemented the QuantumNet software-defined networking subsystem for Quantix-vDC. This is the OVN/OVS-based SDN backend that provides distributed virtual networking.
 
-### Changes Made
+**Full Implementation Plan:** `docs/Networking/000070-quantumnet-implementation-plan.md`
+**Architecture Document:** `docs/adr/000009-quantumnet-architecture.md`
 
-#### 1. Backend Console Handler (`backend/internal/server/console.go`)
-- Added structured error codes for different failure scenarios:
-  - `VM_NOT_FOUND` - VM doesn't exist in database
-  - `VM_NOT_RUNNING` - VM exists but is stopped
-  - `NODE_NOT_ASSIGNED` - VM has no node assignment
-  - `NODE_NOT_FOUND` - Assigned node doesn't exist
-  - `NODE_UNREACHABLE` - Cannot connect to node daemon
-  - `VM_NOT_ON_NODE` - VM not found on the assigned node (orphan record)
-  - `VNC_UNAVAILABLE` - VNC server not available
-- Returns JSON error responses with code, message, details, vm_id, node_id
-- Added preflight check support via `X-Console-Preflight` header
+### All Phases Completed
 
-#### 2. noVNC Console (`frontend/public/novnc/limiquantix.html`)
-- Added pre-flight check before WebSocket connection
-- Maps error codes to user-friendly messages and actions
-- Shows specific error messages like "VM Sync Issue" when VM is not on expected host
-- Improved disconnect handling with specific error detection
+#### Phase 1: IPAM Foundation ✅
+**Files Created:**
+- `backend/migrations/000008_ipam.up.sql` - Database schema for IP allocation
+- `backend/migrations/000008_ipam.down.sql` - Rollback migration
+- `backend/internal/services/network/ipam_repository.go` - PostgreSQL persistence
+- `backend/internal/services/network/ipam_service.go` - IP allocation service
 
-### Error Code to User Message Mapping
+**Features:**
+- Subnet pool management with CIDR validation
+- Thread-safe IP allocation using per-network locks
+- MAC address generation and registry
+- Static DHCP bindings support
+- Gateway and broadcast IP reservation
 
-| Error Code | Title | User Action |
-|---|---|---|
-| `VM_NOT_FOUND` | VM Not Found | Close console, refresh VM list |
-| `VM_NOT_RUNNING` | VM Not Running | Start the VM first |
-| `NODE_NOT_ASSIGNED` | No Host Available | Check cluster status |
-| `NODE_NOT_FOUND` | Host Not Found | VM record may be stale |
-| `NODE_UNREACHABLE` | Host Unreachable | Check host status |
-| `VM_NOT_ON_NODE` | VM Sync Issue | Refresh page or power cycle VM |
-| `VNC_UNAVAILABLE` | Console Unavailable | Check VM display configuration |
+#### Phase 1.3: Port Service Integration ✅
+**Files Created:**
+- `backend/internal/services/network/port_service.go` - Full port lifecycle management
 
----
+**Features:**
+- Automatic IP/MAC allocation on port creation
+- Port binding/unbinding for VMs
+- IPAM integration for cleanup on port deletion
 
-## QvMC Branding Update
+#### Phase 2.3: Security Group → OVN ACL Translator ✅
+**Files Created:**
+- `backend/internal/network/ovn/acl_translator.go` - Rule translation engine
 
-### Status: COMPLETED ✅
+**Features:**
+- Priority scheme (stateful > admin > user > default)
+- Protocol match builder (TCP, UDP, ICMP, etc.)
+- Remote IP/security group matching
+- Preset security groups (SSH, Web, RDP, Database, Internal)
 
-### Overview
-Updated the display name from "qvmc" to "QvMC" across all UI-facing text and documentation. The internal protocol URL (`qvmc://`) and file names remain unchanged.
+#### Phase 3: Node Daemon Chassis Manager ✅
+**Files Created:**
+- `agent/limiquantix-node/src/chassis.rs` - OVN chassis management
 
-### Files Updated
+**Files Modified:**
+- `agent/limiquantix-node/src/main.rs` - Added chassis module
 
-| Component | Files Modified |
-|-----------|----------------|
-| Frontend Dashboard | `frontend/src/pages/VMDetail.tsx`, `frontend/src/components/vm/ConsoleAccessModal.tsx` |
-| Host UI (QHCI) | `quantix-host-ui/src/lib/qvmc.ts`, `quantix-host-ui/src/pages/VMDetail.tsx`, `quantix-host-ui/src/pages/VirtualMachines.tsx`, `quantix-host-ui/src/components/vm/ConsoleAccessModal.tsx` |
-| QvMC App | `qvmc/src/App.tsx`, `qvmc/src/components/VMSidebar.tsx`, `qvmc/src/components/Settings.tsx`, `qvmc/src/components/ConnectionList.tsx`, `qvmc/src/components/ConsoleView.tsx`, `qvmc/src/components/ConsoleTabPane.tsx`, `qvmc/src/components/ThemeToggle.tsx`, `qvmc/src/components/DebugPanel.tsx`, `qvmc/src/lib/tauri-api.ts`, `qvmc/src/lib/debug-logger.ts`, `qvmc/src/lib/theme-store.ts` |
-| Tauri Config | `qvmc/src-tauri/tauri.conf.json` |
-| Documentation | `docs/console-access/000043-qvmrc-native-client.md`, `qvmc/README.md` |
+**Features:**
+- Chassis registration with OVN Southbound DB
+- Encapsulation configuration (Geneve/VXLAN)
+- Bridge mappings for external networks
+- Health checks for OVN controller
 
-### Key Changes
-- **UI Display Name**: Changed from "qvmc" to "QvMC" in titles, buttons, messages
-- **Function Names**: Renamed `launchqvmc` → `launchQvMC`, `handleLaunchqvmc` → `handleLaunchQvMC`, etc.
-- **Window Title**: Changed from "qvmc" to "QvMC" in Tauri config
-- **Product Name**: Changed from "qvmc" to "QvMC" in Tauri config
-- **Documentation**: Updated all references in docs and README files
+#### Phase 4: Network Topology Visualization ✅
+**Files Created:**
+- `frontend/src/components/network/NetworkTopology.tsx` - Interactive canvas
+- `frontend/src/pages/NetworkTopology.tsx` - Full page with filters
 
----
+**Features:**
+- Hierarchical SVG layout (external → routers → networks → VMs)
+- Custom node types with status indicators
+- Detail panel on selection
+- Zoom controls and legend
 
-## QvMC UI Redesign - Collapsible Sidebar + Tab-Based Console
+#### Phase 5: Security Group Editor ✅
+**Files Created:**
+- `frontend/src/components/network/SecurityGroupEditor.tsx` - Rule editor
 
-### Status: COMPLETED ✅
+**Features:**
+- Quick-add presets (Web, SSH, RDP, Database, ICMP, Internal)
+- Custom rule form with validation
+- Inline rule editing
+- Visual rule representation with badges
 
-### Overview
-Redesigned the QvMC (Quantix Virtual Machine Console) application UI from a grid-based connection list to a modern sidebar + tab-based layout, enabling multi-console sessions.
+#### Phase 6: Real-time Port Status Streaming ✅
+**Files Created:**
+- `backend/internal/services/network/port_streaming.go` - Hub and notifier
+- `frontend/src/hooks/useNetworkStreaming.ts` - React hooks
 
-### Key Changes
+**Features:**
+- PortStatusHub for publish/subscribe
+- WatchPorts streaming RPC
+- PortStatusNotifier for event broadcasting
+- Frontend hooks with auto-reconnect
+- Polling fallback when streaming unavailable
 
-#### 1. New App Layout (`App.tsx`)
-- CSS Grid layout with two columns: sidebar and main content
-- Sidebar can collapse from 280px to 56px
-- Tab-based console management supporting multiple open VMs
+#### Phase 2.1-2.2: libovsdb Client ✅
+**Files Created:**
+- `backend/internal/network/ovn/nbdb/schema.go` - OVN Northbound DB schema models
+- `backend/internal/network/ovn/libovsdb_client.go` - Real libovsdb client
 
-#### 2. VM Sidebar (`VMSidebar.tsx`)
-New collapsible sidebar component with:
-- Expandable/collapsible VM list
-- Search functionality
-- Status indicators for active connections
-- Context menu with power actions and ISO mounting
-- Add VM button
-- Theme toggle and settings access
+**Features:**
+- Complete OVN NB schema models (LogicalSwitch, LogicalSwitchPort, LogicalRouter, ACL, NAT, DHCP, LoadBalancer, etc.)
+- Connection management with TLS support
+- Caching layer for frequently accessed data
+- Mock fallback for development mode
+- All table types with OVSDB tags
 
-#### 3. Console Tabs (`ConsoleTabs.tsx`)
-Horizontal tab bar for managing open consoles:
-- Tab per open VM console
-- Status indicators (connecting, connected, disconnected)
-- Close button on each tab
-- Add tab button to open sidebar
+#### Phase 7: DHCP & DNS Integration ✅
+**Files Created:**
+- `backend/internal/services/network/dhcp_manager.go` - OVN DHCP Manager
+- `backend/internal/services/network/dns_service.go` - Magic DNS Service
 
-#### 4. Console Tab Pane (`ConsoleTabPane.tsx`)
-Individual console instance extracted from ConsoleView:
-- VNC canvas rendering
-- Compact toolbar (no back button - navigation via tabs)
-- Scale mode, fullscreen, power controls
-- ISO mounting dialog
+**Features:**
+- Native OVN DHCP configuration (no external DHCP server needed)
+- DHCP options: router, DNS, lease time, MTU, NTP, static routes
+- DHCPv6 support
+- Automatic gateway IP calculation
+- Server MAC generation per network
+- Magic DNS for VM name resolution (`<vm-name>.quantix.local`)
+- Reverse DNS lookup
+- SRV record support for service discovery
+- CoreDNS integration (optional etcd backend)
+- Real-time DNS record sync
 
-#### 5. CSS Styling Updates (`index.css`)
-Added new styles for:
-- `.app-layout` - Grid layout with collapse transition
-- `.vm-sidebar` - Sidebar with header, search, list, footer
-- `.console-tabs` - Tab bar styling
-- `.console-tab` - Individual tab with status indicators
-- `.console-tab-pane` - Full-height console container
+#### Phase 8: Advanced Features ✅
+**Files Created:**
+- `backend/internal/services/network/floating_ip_service.go` - Floating IP NAT
+- `backend/internal/services/network/load_balancer_service.go` - L4 Load Balancer
+- `backend/internal/services/network/migration_handler.go` - Live Migration Support
 
-#### 6. Settings Modal
-Converted Settings from full-screen view to modal dialog format.
+**Floating IP Features:**
+- External IP pool management
+- IP allocation from pools
+- Associate/disassociate with ports
+- OVN DNAT/SNAT rule generation
+- Port migration support (maintain connectivity during VM migration)
 
-#### 7. Documentation Updates
-Updated:
-- `docs/console-access/000043-qvmrc-native-client.md` - Full UI architecture docs
-- `qvmc/README.md` - Updated project structure and features
+**Load Balancer Features:**
+- OVN native L4 load balancing
+- Listener and pool management
+- Member weight and status control
+- VIP management
+- Health check configuration
 
-### Files Created
+**Live Migration Features:**
+- Pre-migration port setup on destination
+- Atomic port switchover
+- Floating IP migration
+- DNS record maintenance
+- Gratuitous ARP support
+- Rollback on failure
 
-| File | Description |
-|------|-------------|
-| `qvmc/src/components/VMSidebar.tsx` | Collapsible VM list sidebar |
-| `qvmc/src/components/ConsoleTabs.tsx` | Horizontal tab bar |
-| `qvmc/src/components/ConsoleTabPane.tsx` | Individual console pane |
-
-### Files Modified
-
-| File | Changes |
-|------|---------|
-| `qvmc/src/App.tsx` | Complete rewrite with grid layout |
-| `qvmc/src/components/Settings.tsx` | Converted to modal content |
-| `qvmc/src/index.css` | Added 400+ lines of new styles |
-| `docs/console-access/000043-qvmrc-native-client.md` | Updated architecture docs |
-| `qvmc/README.md` | Updated features and structure |
-
-### New UI Layout
-
-```
-+------------------+----------------------------------------+
-| VM List (toggle) |  [VM1 Tab] [VM2 Tab] [VM3 Tab]  [+]   |
-|                  |----------------------------------------|
-| - vm-1 ●         |                                        |
-| - vm-2 ●         |         Active Console Canvas          |
-| - vm-3 ○         |                                        |
-|                  |                                        |
-| [+ Add]          |                                        |
-+------------------+----------------------------------------+
-```
-
-### State Management
-
-```typescript
-interface AppState {
-  sidebarCollapsed: boolean;      // Toggle sidebar visibility
-  tabs: TabConnection[];          // Array of open console tabs
-  activeTabId: string | null;     // Currently focused tab
-  showSettings: boolean;          // Settings modal visibility
-}
-
-interface TabConnection {
-  id: string;                     // Tab unique ID
-  connectionId: string;           // VNC connection ID
-  vmId: string;
-  vmName: string;
-  controlPlaneUrl: string;
-  status: 'connecting' | 'connected' | 'disconnected';
-}
-```
+### Remaining Work
+- [ ] WireGuard Bastion integration
+- [ ] BGP ToR integration  
+- [ ] End-to-end integration testing
 
 ---
 
 ## Previous Completed Tasks
 
+### Console Error Handling Improvements ✅
+Improved error handling for VM console connections with structured error codes.
+
+### QvMC Branding Update ✅
+Updated display name from "qvmc" to "QvMC" across all UI components.
+
+### QvMC UI Redesign ✅
+Redesigned to sidebar + tab-based layout for multi-console sessions.
+
 ### VM Creation Wizard Error Handling ✅
-Implemented comprehensive error handling and validation for the VM Creation Wizard.
+Implemented comprehensive error handling and validation.
 
 ### Quantix-OS Host UI Redesign ✅
-Transformed the Quantix-OS Host UI from a sidebar-based layout to a modern top-navigation layout.
+Transformed from sidebar to modern top-navigation layout.
 
 ### VMFolderView UI Enhancement ✅
-Applied UI-Expert principles for visual depth, animations, and 95% screen usage.
+Applied UI-Expert principles for visual depth and animations.
 
 ### Folder and VM Context Menus ✅
 Added right-click context menus for folders and VMs.
