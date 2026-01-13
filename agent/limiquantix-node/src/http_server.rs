@@ -5306,50 +5306,67 @@ async fn collect_storage_inventory() -> StorageInventory {
     StorageInventory { local, nfs, iscsi }
 }
 
-/// Collect local disk information
+/// Collect local disk information using lsblk to detect all physical disks
+/// This includes unmounted disks that sysinfo::Disks would miss
 fn collect_local_disks() -> Vec<DiskInfo> {
-    use sysinfo::Disks;
-    let disks = Disks::new_with_refreshed_list();
+    // Use get_physical_storage_devices() which uses lsblk for accurate detection
+    // This will show ALL physical disks including unmounted NVMe drives
+    let mut devices = get_physical_storage_devices();
     
-    let mut result = Vec::new();
-    
-    for disk in disks.iter() {
-        let name = disk.name().to_string_lossy().to_string();
-        let mount_point = disk.mount_point().to_string_lossy().to_string();
-        let total = disk.total_space();
-        let available = disk.available_space();
-        let used = total.saturating_sub(available);
-        let fs = disk.file_system().to_string_lossy().to_string();
+    // If lsblk failed or returned empty, fall back to sysinfo for mounted disks
+    if devices.is_empty() {
+        use sysinfo::Disks;
+        let disks = Disks::new_with_refreshed_list();
         
-        // Determine disk type based on name
-        let disk_type = if name.contains("nvme") {
-            "NVMe"
-        } else if name.contains("sd") {
-            "SATA"
-        } else {
-            "Unknown"
-        };
-        
-        result.push(DiskInfo {
-            name: name.clone(),
-            model: "".to_string(),
-            serial: "".to_string(),
-            size_bytes: total,
-            disk_type: disk_type.to_string(),
-            interface: disk_type.to_string(),
-            is_removable: disk.is_removable(),
-            smart_status: "OK".to_string(),
-            partitions: vec![PartitionInfo {
-                name: name,
-                mount_point: Some(mount_point),
+        for disk in disks.iter() {
+            let name = disk.name().to_string_lossy().to_string();
+            let mount_point = disk.mount_point().to_string_lossy().to_string();
+            let total = disk.total_space();
+            let available = disk.available_space();
+            let used = total.saturating_sub(available);
+            let fs = disk.file_system().to_string_lossy().to_string();
+            
+            // Skip virtual/system mounts
+            if mount_point.starts_with("/sys") 
+                || mount_point.starts_with("/proc")
+                || mount_point.starts_with("/dev")
+                || mount_point.starts_with("/run")
+                || name.starts_with("loop")
+                || name.starts_with("tmpfs")
+            {
+                continue;
+            }
+            
+            // Determine disk type based on name
+            let disk_type = if name.contains("nvme") {
+                "NVMe"
+            } else if name.contains("sd") {
+                "SATA"
+            } else {
+                "Unknown"
+            };
+            
+            devices.push(DiskInfo {
+                name: name.clone(),
+                model: "".to_string(),
+                serial: "".to_string(),
                 size_bytes: total,
-                used_bytes: used,
-                filesystem: fs,
-            }],
-        });
+                disk_type: disk_type.to_string(),
+                interface: disk_type.to_string(),
+                is_removable: disk.is_removable(),
+                smart_status: "OK".to_string(),
+                partitions: vec![PartitionInfo {
+                    name: name,
+                    mount_point: Some(mount_point),
+                    size_bytes: total,
+                    used_bytes: used,
+                    filesystem: fs,
+                }],
+            });
+        }
     }
     
-    result
+    devices
 }
 
 /// Collect NFS mount information
