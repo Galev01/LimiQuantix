@@ -13,7 +13,7 @@
  * 6. Review - Configuration summary
  */
 
-import { useState, useEffect, useMemo, Fragment, type ChangeEvent } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   X,
@@ -42,13 +42,13 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, Button, Input, Label, Badge } from '@/components/ui';
+import { Button, Badge } from '@/components/ui';
 import { useCreateVM } from '@/hooks/useVMs';
-import { useImages, formatImageSize, getDefaultUser, type CloudImage, CLOUD_IMAGE_CATALOG } from '@/hooks/useImages';
+import { useImages, formatImageSize, getDefaultUser, type CloudImage } from '@/hooks/useImages';
 import { useStoragePools } from '@/hooks/useStorage';
 import { useNetworks } from '@/hooks/useNetwork';
 import { cn, formatBytes } from '@/lib/utils';
-import type { CreateVmRequest, DiskSpec, NicSpec, CloudInitSpec } from '@/api/types';
+import type { CreateVmRequest, DiskSpec, NicSpec, StoragePool } from '@/api/types';
 
 // ============================================================================
 // Types
@@ -243,11 +243,9 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
   
   // Auto-select first storage pool
   useEffect(() => {
-    if (storagePools?.pools?.length > 0 && !formData.storagePoolId) {
-      const readyPools = storagePools.pools.filter((p: { state: string }) => p.state === 'running' || p.state === 'ready');
-      if (readyPools.length > 0) {
-        setFormData(prev => ({ ...prev, storagePoolId: readyPools[0].name }));
-      }
+    if (storagePools && storagePools.length > 0 && !formData.storagePoolId) {
+      // Select first available pool
+      setFormData(prev => ({ ...prev, storagePoolId: storagePools[0].poolId }));
     }
   }, [storagePools, formData.storagePoolId]);
   
@@ -574,7 +572,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                 <StepStorage
                   formData={formData}
                   updateFormData={updateFormData}
-                  storagePools={storagePools?.pools || []}
+                  storagePools={storagePools || []}
                   isLoading={storageLoading}
                 />
               )}
@@ -585,7 +583,7 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
                 <StepReview
                   formData={formData}
                   cloudImages={cloudImages}
-                  storagePools={storagePools?.pools || []}
+                  storagePools={storagePools || []}
                 />
               )}
             </motion.div>
@@ -1403,7 +1401,7 @@ function StepStorage({
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
-  storagePools: Array<{ name: string; state: string; capacity: number; allocation: number; available: number; path: string }>;
+  storagePools: StoragePool[];
   isLoading: boolean;
 }) {
   const addDisk = () => {
@@ -1429,10 +1427,7 @@ function StepStorage({
   // Auto-select first pool
   useEffect(() => {
     if (storagePools.length > 0 && !formData.storagePoolId) {
-      const readyPools = storagePools.filter(p => p.state === 'running' || p.state === 'ready');
-      if (readyPools.length > 0) {
-        updateFormData({ storagePoolId: readyPools[0].name });
-      }
+      updateFormData({ storagePoolId: storagePools[0].poolId });
     }
   }, [storagePools, formData.storagePoolId, updateFormData]);
   
@@ -1455,17 +1450,17 @@ function StepStorage({
       {!isLoading && (
         <FormField label="Storage Pool">
           <div className="grid gap-3">
-            {storagePools.filter(p => p.state === 'running' || p.state === 'ready').map(pool => {
-              const usagePercent = pool.capacity > 0
-                ? Math.round((pool.allocation / pool.capacity) * 100)
+            {storagePools.map(pool => {
+              const usagePercent = pool.totalBytes > 0
+                ? Math.round((pool.usedBytes / pool.totalBytes) * 100)
                 : 0;
               
               return (
                 <label
-                  key={pool.name}
+                  key={pool.poolId}
                   className={cn(
                     'flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-all',
-                    formData.storagePoolId === pool.name
+                    formData.storagePoolId === pool.poolId
                       ? 'bg-accent/10 border-accent'
                       : 'bg-bg-base border-border hover:border-accent/50',
                   )}
@@ -1473,15 +1468,18 @@ function StepStorage({
                   <input
                     type="radio"
                     name="storagePoolId"
-                    checked={formData.storagePoolId === pool.name}
-                    onChange={() => updateFormData({ storagePoolId: pool.name })}
+                    checked={formData.storagePoolId === pool.poolId}
+                    onChange={() => updateFormData({ storagePoolId: pool.poolId })}
                     className="form-radio"
                   />
                   <HardDrive className="w-5 h-5 text-text-muted" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-text-primary">{pool.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-text-primary">{pool.poolId}</p>
+                      <Badge variant="default" size="sm">{pool.type}</Badge>
+                    </div>
                     <p className="text-xs text-text-muted">
-                      {formatBytes(pool.available)} available of {formatBytes(pool.capacity)}
+                      {formatBytes(pool.availableBytes)} available of {formatBytes(pool.totalBytes)}
                     </p>
                   </div>
                   <div className="w-24">
@@ -1499,7 +1497,7 @@ function StepStorage({
                 </label>
               );
             })}
-            {storagePools.filter(p => p.state === 'running' || p.state === 'ready').length === 0 && (
+            {storagePools.length === 0 && (
               <div className="p-4 text-center text-text-muted">
                 <p>No storage pools available.</p>
                 <p className="text-xs mt-1">Create a storage pool first in Storage → Pools.</p>
@@ -1694,10 +1692,10 @@ function StepReview({
 }: {
   formData: VMCreationData;
   cloudImages: CloudImage[];
-  storagePools: Array<{ name: string; state: string; capacity: number; allocation: number; available: number; path: string }>;
+  storagePools: StoragePool[];
 }) {
   const selectedCloudImage = cloudImages.find(i => i.id === formData.cloudImageId);
-  const selectedPool = storagePools.find(p => p.name === formData.storagePoolId);
+  const selectedPool = storagePools.find(p => p.poolId === formData.storagePoolId);
   
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -1731,7 +1729,7 @@ function StepReview({
         
         {/* Storage */}
         <ReviewSection title="Storage">
-          <ReviewRow label="Pool" value={selectedPool?.name || '—'} />
+          <ReviewRow label="Pool" value={selectedPool?.poolId || '—'} />
           <ReviewRow
             label="Disks"
             value={formData.disks.map(d => `${d.sizeGib} GB (${d.provisioning})`).join(', ')}
