@@ -3041,7 +3041,7 @@ async fn list_local_devices(
     if devices.is_empty() {
         warn!("lsblk returned no devices, falling back to /sys/block");
         
-        #[cfg(target_os = "linux")]
+    #[cfg(target_os = "linux")]
         if let Ok(entries) = std::fs::read_dir("/sys/block") {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().to_string();
@@ -3088,7 +3088,7 @@ async fn list_local_devices(
                 let model = if name.starts_with("nvme") {
                     // NVMe model is in /sys/block/nvme0n1/device/model
                     std::fs::read_to_string(entry.path().join("device/model"))
-                        .ok()
+                    .ok()
                         .map(|s| s.trim().to_string())
                         .filter(|s| !s.is_empty())
                 } else {
@@ -3112,20 +3112,20 @@ async fn list_local_devices(
                         if child_name.starts_with(&name) && child_name != name {
                             let part_device = format!("/dev/{}", child_name);
                             let part_size_path = child.path().join("size");
-                            let part_size = std::fs::read_to_string(&part_size_path)
-                                .ok()
-                                .and_then(|s| s.trim().parse::<u64>().ok())
-                                .map(|sectors| sectors * 512)
-                                .unwrap_or(0);
-                            
-                            partitions.push(LocalPartitionInfo {
-                                device: part_device,
+                        let part_size = std::fs::read_to_string(&part_size_path)
+                            .ok()
+                            .and_then(|s| s.trim().parse::<u64>().ok())
+                            .map(|sectors| sectors * 512)
+                            .unwrap_or(0);
+                        
+                        partitions.push(LocalPartitionInfo {
+                            device: part_device,
                                 filesystem: None,
                                 mount_point: None,
-                                size_bytes: part_size,
+                            size_bytes: part_size,
                                 used_bytes: 0,
-                                label: None,
-                            });
+                            label: None,
+                        });
                         }
                     }
                 }
