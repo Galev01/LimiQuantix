@@ -76,6 +76,51 @@ generate_tls_certs() {
 }
 
 # -----------------------------------------------------------------------------
+# Mount installer-configured storage pools
+# -----------------------------------------------------------------------------
+mount_storage_pools() {
+    log "Mounting installer-configured storage pools..."
+    
+    POOLS_FSTAB="/quantix/fstab.pools"
+    if [ -f "$POOLS_FSTAB" ]; then
+        log "Found storage pools fstab: $POOLS_FSTAB"
+        
+        # Read each line and mount
+        while IFS= read -r line || [ -n "$line" ]; do
+            # Skip empty lines and comments
+            [ -z "$line" ] && continue
+            echo "$line" | grep -q "^#" && continue
+            
+            # Extract mount point
+            MOUNT_POINT=$(echo "$line" | awk '{print $2}')
+            
+            if [ -n "$MOUNT_POINT" ]; then
+                log "Creating mount point: $MOUNT_POINT"
+                mkdir -p "$MOUNT_POINT"
+                
+                # Try to mount
+                if mount -a -T "$POOLS_FSTAB" 2>/dev/null; then
+                    log "Mounted storage pools from fstab"
+                else
+                    # Fallback: mount individually
+                    log "Fallback: mounting $MOUNT_POINT"
+                    mount $(echo "$line" | awk '{print "UUID="$1}' | sed 's/UUID=UUID=/UUID=/') "$MOUNT_POINT" 2>/dev/null || true
+                fi
+            fi
+        done < "$POOLS_FSTAB"
+        
+        # Append to system fstab if not already there
+        if ! grep -q "# Quantix storage pools" /etc/fstab 2>/dev/null; then
+            echo "" >> /etc/fstab
+            echo "# Quantix storage pools (installer-configured)" >> /etc/fstab
+            cat "$POOLS_FSTAB" >> /etc/fstab
+        fi
+    fi
+    
+    log "Storage pools mounted"
+}
+
+# -----------------------------------------------------------------------------
 # Initialize libvirt
 # -----------------------------------------------------------------------------
 init_libvirt() {
@@ -113,6 +158,68 @@ EOF
     fi
     
     log "Libvirt initialized"
+}
+
+# -----------------------------------------------------------------------------
+# Register installer-configured storage pools with libvirt
+# -----------------------------------------------------------------------------
+register_storage_pools() {
+    log "Registering installer-configured storage pools with libvirt..."
+    
+    POOLS_CONFIG="/quantix/limiquantix/storage-pools.yaml"
+    if [ ! -f "$POOLS_CONFIG" ]; then
+        log "No installer-configured storage pools found"
+        return 0
+    fi
+    
+    # Parse YAML and create libvirt pools
+    # Extract pool names and mount points using simple shell parsing
+    # Format in YAML:
+    #   - name: pool-name
+    #     mount_point: /data/pools/pool-name
+    
+    POOL_NAME=""
+    MOUNT_POINT=""
+    
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Check for name field
+        if echo "$line" | grep -q "name:"; then
+            POOL_NAME=$(echo "$line" | sed 's/.*name:[[:space:]]*//' | tr -d ' ')
+        fi
+        
+        # Check for mount_point field
+        if echo "$line" | grep -q "mount_point:"; then
+            MOUNT_POINT=$(echo "$line" | sed 's/.*mount_point:[[:space:]]*//' | tr -d ' ')
+            
+            # If we have both name and mount_point, create the pool
+            if [ -n "$POOL_NAME" ] && [ -n "$MOUNT_POINT" ]; then
+                log "Registering storage pool: $POOL_NAME at $MOUNT_POINT"
+                
+                # Check if pool already exists
+                if virsh pool-info "$POOL_NAME" &>/dev/null; then
+                    log "Pool $POOL_NAME already exists, skipping"
+                else
+                    # Create directory structure
+                    mkdir -p "${MOUNT_POINT}/vms"
+                    mkdir -p "${MOUNT_POINT}/images"
+                    mkdir -p "${MOUNT_POINT}/isos"
+                    
+                    # Define and start the pool
+                    virsh pool-define-as "$POOL_NAME" dir --target "$MOUNT_POINT"
+                    virsh pool-autostart "$POOL_NAME"
+                    virsh pool-start "$POOL_NAME" || log "Warning: Could not start pool $POOL_NAME (disk may not be mounted)"
+                    
+                    log "Storage pool $POOL_NAME registered"
+                fi
+                
+                # Reset for next pool
+                POOL_NAME=""
+                MOUNT_POINT=""
+            fi
+        fi
+    done < "$POOLS_CONFIG"
+    
+    log "Storage pools registered"
 }
 
 # -----------------------------------------------------------------------------
@@ -179,7 +286,9 @@ main() {
     
     generate_ssh_keys
     generate_tls_certs
+    mount_storage_pools  # Mount installer-configured pools first
     init_libvirt
+    register_storage_pools  # Register pools with libvirt after init
     init_ovs
     create_default_config
     

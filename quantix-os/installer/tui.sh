@@ -30,6 +30,9 @@ TARGET_DISK=""
 HOSTNAME="quantix"
 ROOT_PASSWORD=""
 
+# Storage pool configuration (disk:name pairs, space separated)
+STORAGE_POOLS=""
+
 # Cleanup on exit
 cleanup() {
     rm -f "$DIALOG_TEMP"
@@ -199,6 +202,160 @@ Are you sure you want to continue?" 22 65
 }
 
 # =============================================================================
+# Storage Pool Configuration (Optional)
+# =============================================================================
+configure_storage_pools() {
+    # Get list of available disks EXCLUDING the target disk
+    AVAILABLE_DISKS=""
+    DISK_COUNT=0
+    
+    for disk in $(lsblk -dpno NAME,SIZE,TYPE 2>/dev/null | grep disk | awk '{print $1}'); do
+        # Skip the target (boot) disk
+        if [ "$disk" = "$TARGET_DISK" ]; then
+            continue
+        fi
+        
+        SIZE=$(lsblk -dpno SIZE "$disk" 2>/dev/null | head -1)
+        MODEL=$(lsblk -dno MODEL "$disk" 2>/dev/null | head -1 | tr -d '[:space:]' || echo "Unknown")
+        
+        # Get size in bytes for comparison
+        SIZE_BYTES=$(lsblk -dpnbo SIZE "$disk" 2>/dev/null | head -1 || echo "0")
+        
+        # Skip very small disks (< 10GB) - likely USB drives
+        if [ "$SIZE_BYTES" -lt 10737418240 ] 2>/dev/null; then
+            continue
+        fi
+        
+        # Format: /dev/nvme0n1 "500G - Samsung_SSD" off
+        AVAILABLE_DISKS="$AVAILABLE_DISKS $disk \"$SIZE - $MODEL\" off"
+        DISK_COUNT=$((DISK_COUNT + 1))
+    done
+    
+    # If no additional disks available, skip this step
+    if [ $DISK_COUNT -eq 0 ]; then
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "Storage Pools" \
+            --msgbox "\n\
+No additional disks found for storage pools.\n\
+\n\
+The OS DATA partition on $TARGET_DISK will be used\n\
+as the default storage location for VMs.\n\
+\n\
+You can configure additional storage pools later\n\
+through the web management interface (QHMI)." 14 60
+        return 0
+    fi
+    
+    # Ask if user wants to configure additional storage pools
+    $DIALOG --backtitle "$BACKTITLE" \
+        --title "Configure Storage Pools?" \
+        --yesno "\n\
+Found $DISK_COUNT additional disk(s) that can be configured\n\
+as storage pools for VM storage.\n\
+\n\
+Storage pools are where your VMs, ISOs, and disk images\n\
+will be stored. Using dedicated disks for storage:\n\
+\n\
+  • Improves performance (separate from OS)\n\
+  • Provides more space for VMs and images\n\
+  • Recommended for production use\n\
+\n\
+Would you like to configure storage pools now?\n\
+\n\
+(You can always configure this later via QHMI)" 20 65
+    
+    if [ $? -ne 0 ]; then
+        return 0  # User chose not to configure - that's OK
+    fi
+    
+    # Show disk selection for storage pools
+    eval $DIALOG --backtitle "\"$BACKTITLE\"" \
+        --title "\"Select Storage Disks\"" \
+        --checklist "\"\\nSelect disks to initialize as storage pools.\\n\\n⚠️  WARNING: SELECTED DISKS WILL BE FORMATTED!\\n   All existing data will be erased.\\n\\nBoot disk: $TARGET_DISK (excluded)\\n\"" \
+        22 70 8 \
+        $AVAILABLE_DISKS 2>"$DIALOG_TEMP"
+    
+    if [ $? -ne 0 ]; then
+        return 0  # User cancelled - that's OK
+    fi
+    
+    SELECTED_DISKS=$(cat "$DIALOG_TEMP")
+    
+    if [ -z "$SELECTED_DISKS" ]; then
+        return 0  # No disks selected - that's OK
+    fi
+    
+    # Configure each selected disk
+    for disk in $SELECTED_DISKS; do
+        # Remove quotes if present
+        disk=$(echo "$disk" | tr -d '"')
+        
+        # Get disk info
+        DISK_SIZE=$(lsblk -dno SIZE "$disk" 2>/dev/null)
+        DISK_MODEL=$(lsblk -dno MODEL "$disk" 2>/dev/null | head -1 | tr -d '[:space:]' || echo "Unknown")
+        DISK_NAME=$(basename "$disk")
+        
+        # Suggest a pool name based on disk name
+        DEFAULT_POOL_NAME="local-${DISK_NAME}"
+        
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "Configure Storage Pool: $disk" \
+            --inputbox "\n\
+Disk: $disk ($DISK_SIZE)\n\
+Model: $DISK_MODEL\n\
+\n\
+Enter a name for this storage pool:\n\
+(Alphanumeric and hyphens only)" 14 55 "$DEFAULT_POOL_NAME" 2>"$DIALOG_TEMP"
+        
+        if [ $? -ne 0 ]; then
+            continue  # User cancelled this disk
+        fi
+        
+        POOL_NAME=$(cat "$DIALOG_TEMP")
+        [ -z "$POOL_NAME" ] && POOL_NAME="$DEFAULT_POOL_NAME"
+        
+        # Validate pool name
+        if ! echo "$POOL_NAME" | grep -qE '^[a-zA-Z][a-zA-Z0-9-]*$'; then
+            $DIALOG --backtitle "$BACKTITLE" \
+                --title "Invalid Pool Name" \
+                --msgbox "Pool name must start with a letter and contain\nonly letters, numbers, and hyphens.\n\nUsing default: $DEFAULT_POOL_NAME" 10 55
+            POOL_NAME="$DEFAULT_POOL_NAME"
+        fi
+        
+        # Add to storage pools list (disk:name format)
+        if [ -z "$STORAGE_POOLS" ]; then
+            STORAGE_POOLS="${disk}:${POOL_NAME}"
+        else
+            STORAGE_POOLS="${STORAGE_POOLS} ${disk}:${POOL_NAME}"
+        fi
+    done
+    
+    # Show summary of storage pool configuration
+    if [ -n "$STORAGE_POOLS" ]; then
+        POOL_SUMMARY=""
+        for pool in $STORAGE_POOLS; do
+            POOL_DISK=$(echo "$pool" | cut -d: -f1)
+            POOL_NAME=$(echo "$pool" | cut -d: -f2)
+            POOL_SIZE=$(lsblk -dno SIZE "$POOL_DISK" 2>/dev/null)
+            POOL_SUMMARY="${POOL_SUMMARY}  • ${POOL_NAME} on ${POOL_DISK} (${POOL_SIZE})\n"
+        done
+        
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "Storage Pool Summary" \
+            --msgbox "\n\
+The following storage pools will be created:\n\
+\n\
+${POOL_SUMMARY}\n\
+These disks will be formatted with XFS filesystem\n\
+and configured as libvirt storage pools.\n\
+\n\
+⚠️  ALL DATA ON THESE DISKS WILL BE ERASED!" 16 60
+    fi
+    
+    return 0
+}
+
+# =============================================================================
 # Hostname Configuration
 # =============================================================================
 configure_hostname() {
@@ -268,19 +425,40 @@ configure_password() {
 show_summary() {
     DISK_SIZE=$(lsblk -dno SIZE "$TARGET_DISK" 2>/dev/null)
     
+    # Build storage pool summary
+    POOL_SUMMARY="  Storage Pools:       (none - using OS DATA partition)\n"
+    if [ -n "$STORAGE_POOLS" ]; then
+        POOL_SUMMARY="  Storage Pools:\n"
+        for pool in $STORAGE_POOLS; do
+            POOL_DISK=$(echo "$pool" | cut -d: -f1)
+            POOL_NAME=$(echo "$pool" | cut -d: -f2)
+            POOL_SIZE=$(lsblk -dno SIZE "$POOL_DISK" 2>/dev/null)
+            POOL_SUMMARY="${POOL_SUMMARY}    • ${POOL_NAME} on ${POOL_DISK} (${POOL_SIZE})\n"
+        done
+    fi
+    
+    # List disks to be formatted
+    DISKS_TO_FORMAT="${TARGET_DISK}"
+    for pool in $STORAGE_POOLS; do
+        POOL_DISK=$(echo "$pool" | cut -d: -f1)
+        DISKS_TO_FORMAT="${DISKS_TO_FORMAT}, ${POOL_DISK}"
+    done
+    
     $DIALOG --backtitle "$BACKTITLE" \
         --title "Installation Summary" \
         --yesno "\n\
 Please review your installation settings:\n\
 \n\
   Quantix-OS Version:  ${VERSION}\n\
-  Target Disk:         ${TARGET_DISK} (${DISK_SIZE})\n\
+  Boot Disk:           ${TARGET_DISK} (${DISK_SIZE})\n\
   Hostname:            ${HOSTNAME}\n\
   Root Password:       ********\n\
 \n\
-⚠️  ALL DATA ON ${TARGET_DISK} WILL BE ERASED!\n\
+${POOL_SUMMARY}\n\
+⚠️  ALL DATA ON THESE DISKS WILL BE ERASED:\n\
+   ${DISKS_TO_FORMAT}\n\
 \n\
-Begin installation?" 18 60
+Begin installation?" 22 65
 
     return $?
 }
@@ -296,6 +474,11 @@ run_installation() {
     INSTALL_CMD="$INSTALL_CMD --password $ROOT_PASSWORD"
     INSTALL_CMD="$INSTALL_CMD --version $VERSION"
     INSTALL_CMD="$INSTALL_CMD --auto"
+    
+    # Pass storage pools if configured
+    if [ -n "$STORAGE_POOLS" ]; then
+        INSTALL_CMD="$INSTALL_CMD --storage-pools \"$STORAGE_POOLS\""
+    fi
 
     # Run installation with progress display
     clear
@@ -307,11 +490,21 @@ run_installation() {
 
     # Execute installation
     if $INSTALL_CMD; then
+        # Build storage pool info for success message
+        POOL_INFO=""
+        if [ -n "$STORAGE_POOLS" ]; then
+            POOL_INFO="\n Storage Pools Configured:\n"
+            for pool in $STORAGE_POOLS; do
+                POOL_NAME=$(echo "$pool" | cut -d: -f2)
+                POOL_INFO="${POOL_INFO}   • ${POOL_NAME}\n"
+            done
+        fi
+
         $DIALOG --backtitle "$BACKTITLE" \
             --title "Installation Complete" \
             --msgbox "\n\
  ✅ Quantix-OS v${VERSION} has been installed successfully!\n\
-\n\
+${POOL_INFO}\n\
  Next Steps:\n\
    1. Remove the installation media (USB/ISO)\n\
    2. Reboot the system\n\
@@ -324,7 +517,7 @@ run_installation() {
    Username: root\n\
    Password: (as configured)\n\
 \n\
- Press ENTER to reboot now." 20 60
+ Press ENTER to reboot now." 24 60
 
         $DIALOG --backtitle "$BACKTITLE" \
             --title "Reboot" \
@@ -353,6 +546,7 @@ main() {
     show_welcome || exit 0
     select_disk || exit 0
     confirm_disk || exit 0
+    configure_storage_pools  # Optional - user can skip
     configure_hostname || exit 0
     configure_password || exit 0
     show_summary || exit 0
