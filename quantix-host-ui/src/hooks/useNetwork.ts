@@ -112,3 +112,22 @@ export function useSetHostname() {
     },
   });
 }
+
+/**
+ * Hook to list available virtual networks for VM creation
+ * Returns libvirt networks available on the host
+ */
+export function useNetworks() {
+  return useQuery({
+    queryKey: ['networks', 'virtual'],
+    queryFn: async () => {
+      // Fetch virtual networks from the node daemon
+      const response = await fetch('/api/v1/networks');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch networks: ${response.statusText}`);
+      }
+      return response.json();
+    },
+    staleTime: 30000,
+  });
+}
