@@ -36,8 +36,8 @@ pub struct Args {
     #[arg(long)]
     pub control_plane: Option<String>,
     
-    /// Libvirt connection URI (e.g., qemu:///system)
-    #[arg(long, default_value = "qemu:///system")]
+    /// Libvirt connection URI (e.g., qemu+unix:///system?socket=/var/run/libvirt/libvirt-sock)
+    #[arg(long, default_value = "qemu+unix:///system?socket=/var/run/libvirt/libvirt-sock")]
     pub libvirt_uri: String,
     
     /// Node ID (auto-generated if not provided)

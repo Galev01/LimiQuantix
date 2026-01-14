@@ -39,7 +39,7 @@ pub async fn run(config: Config) -> Result<()> {
             #[cfg(feature = "libvirt")]
             {
                 let uri = config.hypervisor.libvirt_uri.as_deref()
-                    .unwrap_or("qemu:///system");
+                    .unwrap_or("qemu+unix:///system?socket=/var/run/libvirt/libvirt-sock");
                 info!(uri = %uri, "Connecting to libvirt");
                 
                 // Try to connect to libvirt, but don't crash if it fails

@@ -310,7 +310,9 @@ impl Default for HypervisorConfig {
     fn default() -> Self {
         Self {
             backend: HypervisorBackend::Mock,
-            libvirt_uri: Some("qemu:///system".to_string()),
+            // Use explicit socket path to connect to monolithic libvirtd
+            // Alpine's libvirt tries modular virtqemud first by default
+            libvirt_uri: Some("qemu+unix:///system?socket=/var/run/libvirt/libvirt-sock".to_string()),
             storage_path: "/var/lib/limiquantix/vms".to_string(),
             images_path: "/var/lib/limiquantix/cloud-images".to_string(),
         }
