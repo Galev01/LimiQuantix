@@ -155,6 +155,25 @@ When the host joins a Quantix-vDC cluster:
 
 ## Troubleshooting
 
+### Installer TUI Not Found
+
+If the boot screen shows **"Installer not found"**, it means the installer
+scripts were not accessible in the live root.
+
+**Checklist:**
+
+1. Rebuild the ISO so installer scripts are included:
+   - The ISO must contain `/installer/tui.sh`
+2. Ensure you're booting the latest ISO
+3. If booting with `toram`, the initramfs will copy installer scripts into
+   `/installer` before pivoting to the live root
+
+**Quick verification after boot:**
+
+```bash
+ls -la /installer
+```
+
 ### Storage Pool Not Mounted
 
 Check firstboot logs:

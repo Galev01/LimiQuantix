@@ -322,6 +322,16 @@ if [ -n "$LIVE_BOOT" ]; then
     if [ -n "$INSTALL_MODE" ]; then
         echo "[INIT] Installer mode - will launch installer after boot"
         touch /mnt/merged/tmp/.quantix_install_mode
+
+        # Ensure installer scripts are available after pivot_root
+        if [ -d "/mnt/cdrom/installer" ]; then
+            echo "[INIT] Copying installer to live root..."
+            mkdir -p /mnt/merged/installer
+            cp -r /mnt/cdrom/installer/* /mnt/merged/installer/ 2>/dev/null || true
+            chmod +x /mnt/merged/installer/*.sh 2>/dev/null || true
+        else
+            echo "[WARN] Installer directory not found on boot media"
+        fi
     fi
     
     # Switch to new root
