@@ -2,10 +2,16 @@
 # =============================================================================
 # Quantix-OS Console Launcher
 # =============================================================================
-# Launches the Direct Console User Interface (DCUI) - a TUI-based console
-# for initial system configuration, similar to VMware ESXi's DCUI.
+# Launches either:
+#   - The Installer TUI (when booted with quantix.install=1)
+#   - The Direct Console User Interface (DCUI) - for configured systems
 #
-# The TUI provides:
+# The installer provides:
+# - Disk selection and partitioning
+# - Storage pool configuration
+# - Hostname and password setup
+#
+# The DCUI provides:
 # - Network configuration (DHCP, static IP, WiFi)
 # - SSH access management with security timer
 # - Cluster join/leave functionality
@@ -16,9 +22,75 @@
 set -e
 
 LOG_FILE="/var/log/quantix-console.log"
+INSTALL_MODE_MARKER="/tmp/.quantix_install_mode"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+# Check if we're in install mode
+is_install_mode() {
+    # Check for marker file created by initramfs
+    if [ -f "$INSTALL_MODE_MARKER" ]; then
+        return 0
+    fi
+    
+    # Also check kernel command line directly
+    if grep -q "quantix.install" /proc/cmdline 2>/dev/null; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# Start the installer TUI
+start_installer() {
+    log "Starting Quantix-OS Installer..."
+    
+    # Wait a moment for boot messages to finish
+    sleep 2
+    
+    # Reset terminal to sane state
+    stty sane 2>/dev/null || true
+    
+    # Clear screen and scrollback
+    printf '\033[2J\033[H\033[3J'
+    
+    # Check for installer scripts in various locations
+    INSTALLER=""
+    for path in \
+        /mnt/cdrom/installer/tui.sh \
+        /installer/tui.sh \
+        /mnt/cdrom/installer/install.sh \
+        /installer/install.sh; do
+        if [ -x "$path" ]; then
+            INSTALLER="$path"
+            break
+        fi
+    done
+    
+    if [ -n "$INSTALLER" ]; then
+        log "Found installer at: $INSTALLER"
+        exec "$INSTALLER"
+    else
+        log "ERROR: Installer not found!"
+        echo ""
+        echo "╔════════════════════════════════════════════════════════════════╗"
+        echo "║             QUANTIX-OS INSTALLER - ERROR                       ║"
+        echo "╚════════════════════════════════════════════════════════════════╝"
+        echo ""
+        echo "  The installer scripts were not found on the boot media."
+        echo ""
+        echo "  Expected locations:"
+        echo "    - /mnt/cdrom/installer/tui.sh"
+        echo "    - /installer/tui.sh"
+        echo ""
+        echo "  Please check that you're booting from a valid Quantix-OS ISO."
+        echo ""
+        echo "  Dropping to emergency shell..."
+        echo ""
+        exec /bin/sh
+    fi
 }
 
 # Start DCUI (TUI) as the main console
@@ -62,7 +134,8 @@ main() {
         --help|-h)
             echo "Usage: $0"
             echo ""
-            echo "Starts the Quantix-OS Direct Console User Interface (DCUI)."
+            echo "Starts the Quantix-OS Direct Console User Interface (DCUI)"
+            echo "or the Installer TUI if booted in install mode."
             echo ""
             echo "The DCUI provides:"
             echo "  - Network configuration (F2)"
@@ -80,8 +153,14 @@ main() {
             ;;
     esac
     
-    log "Starting DCUI console..."
-    start_dcui
+    # Check for install mode
+    if is_install_mode; then
+        log "Install mode detected - launching installer"
+        start_installer
+    else
+        log "Normal mode - starting DCUI console"
+        start_dcui
+    fi
 }
 
 main "$@"

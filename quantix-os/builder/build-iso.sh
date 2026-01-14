@@ -162,7 +162,9 @@ echo "✅ Boot files copied"
 echo "📦 Step 4: Creating GRUB configuration..."
 
 cat > "${ISO_DIR}/boot/grub/grub.cfg" << 'GRUBEOF'
-# Quantix-OS GRUB Configuration
+# =============================================================================
+# Quantix-OS ISO Boot Menu
+# =============================================================================
 
 set timeout=10
 set default=0
@@ -172,57 +174,31 @@ terminal_output console
 
 # Set colors
 set menu_color_normal=white/black
-set menu_color_highlight=black/light-gray
+set menu_color_highlight=black/light-cyan
 
-# Boot menu - Live mode boots from ISO/USB squashfs
-menuentry "Quantix-OS Live" {
-    # i915.modeset=1: Enable Intel GPU kernel mode setting
-    # drm.modeset=1: Enable DRM modesetting for all GPUs
+# =============================================================================
+# Main Options (Installer first for fresh installs)
+# =============================================================================
+
+menuentry ">>> Install Quantix-OS <<<" --class installer {
+    echo "Starting Quantix-OS Installer..."
+    echo ""
+    echo "The installer will guide you through:"
+    echo "  - Disk selection and partitioning"
+    echo "  - Storage pool configuration"
+    echo "  - Hostname and password setup"
+    echo ""
+    linux /boot/vmlinuz boot=live toram quantix.install=1 quiet
+    initrd /boot/initramfs
+}
+
+menuentry "Quantix-OS Live (Try without installing)" {
     linux /boot/vmlinuz boot=live toram quiet i915.modeset=1 drm.modeset=1
     initrd /boot/initramfs
 }
 
-menuentry "Quantix-OS Live (Safe Graphics)" {
-    # nomodeset: Use simple EFI framebuffer, don't load GPU drivers
-    # This is the SAFEST option for new/unknown hardware
-    linux /boot/vmlinuz boot=live toram nomodeset video=efifb
-    initrd /boot/initramfs
-}
-
-menuentry "Quantix-OS Live (Verbose)" {
-    linux /boot/vmlinuz boot=live toram i915.modeset=1 drm.modeset=1
-    initrd /boot/initramfs
-}
-
-menuentry ">>> FULL DEBUG MODE <<<" {
-    # Maximum kernel verbosity - shows ALL boot messages
-    # earlyprintk: show messages before console is ready
-    # debug: enable kernel debug messages
-    # ignore_loglevel: show ALL messages regardless of level
-    # initcall_debug: show every init function call
-    # no_console_suspend: keep console active
-    # console=tty0: output to main screen
-    # console=ttyS0: also output to serial (for QEMU)
-    linux /boot/vmlinuz boot=live debug earlyprintk=vga ignore_loglevel initcall_debug no_console_suspend console=tty0 console=ttyS0,115200 loglevel=7 printk.time=1
-    initrd /boot/initramfs
-}
-
-menuentry ">>> DEBUG: Drop to initramfs shell <<<" {
-    # This will boot and immediately drop to shell in initramfs
-    # Allows manual inspection of what's available
-    linux /boot/vmlinuz boot=live debug break=premount console=tty0 console=ttyS0,115200
-    initrd /boot/initramfs
-}
-
-menuentry ">>> DEBUG: Alpine init (bypass our init) <<<" {
-    # Try booting with Alpine's standard init parameters
-    # This tests if the kernel/initramfs work at all
-    linux /boot/vmlinuz modules=loop,squashfs,sd-mod,usb-storage quiet console=tty0
-    initrd /boot/initramfs
-}
-
-menuentry "Quantix-OS Installer" {
-    linux /boot/vmlinuz boot=live toram quantix.install=1
+menuentry "Quantix-OS Live (Safe Graphics - for display issues)" {
+    linux /boot/vmlinuz boot=live toram nomodeset video=efifb quiet
     initrd /boot/initramfs
 }
 
@@ -230,6 +206,36 @@ menuentry "Boot from installed system" {
     linux /boot/vmlinuz root=LABEL=QUANTIX-A ro quiet
     initrd /boot/initramfs
 }
+
+# =============================================================================
+# Advanced Options
+# =============================================================================
+
+submenu "Advanced Options" {
+    menuentry "Quantix-OS Live (Verbose boot)" {
+        linux /boot/vmlinuz boot=live toram i915.modeset=1 drm.modeset=1
+        initrd /boot/initramfs
+    }
+
+    menuentry "Debug Mode (Full kernel output)" {
+        linux /boot/vmlinuz boot=live debug earlyprintk=vga ignore_loglevel initcall_debug no_console_suspend console=tty0 console=ttyS0,115200 loglevel=7 printk.time=1
+        initrd /boot/initramfs
+    }
+
+    menuentry "Debug: Drop to initramfs shell" {
+        linux /boot/vmlinuz boot=live debug break=premount console=tty0 console=ttyS0,115200
+        initrd /boot/initramfs
+    }
+
+    menuentry "Boot from System B (alternate slot)" {
+        linux /boot/vmlinuz root=LABEL=QUANTIX-B ro quiet
+        initrd /boot/initramfs
+    }
+}
+
+# =============================================================================
+# System
+# =============================================================================
 
 menuentry "Reboot" {
     reboot
@@ -335,11 +341,16 @@ echo "✅ BIOS boot image created"
 # -----------------------------------------------------------------------------
 echo "📦 Step 7: Copying installer..."
 
-if [ -f "${WORK_DIR}/installer/install.sh" ]; then
-    mkdir -p "${ISO_DIR}/installer"
-    cp "${WORK_DIR}/installer/install.sh" "${ISO_DIR}/installer/"
-    chmod +x "${ISO_DIR}/installer/install.sh"
-fi
+mkdir -p "${ISO_DIR}/installer"
+
+# Copy all installer scripts
+for script in install.sh tui.sh firstboot.sh upgrade.sh; do
+    if [ -f "${WORK_DIR}/installer/${script}" ]; then
+        cp "${WORK_DIR}/installer/${script}" "${ISO_DIR}/installer/"
+        chmod +x "${ISO_DIR}/installer/${script}"
+        echo "   Copied: ${script}"
+    fi
+done
 
 # Copy branding
 if [ -d "${WORK_DIR}/branding" ]; then
