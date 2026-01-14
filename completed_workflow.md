@@ -43,6 +43,24 @@ after boot and documented troubleshooting steps.
 
 ---
 
+## Quantix-vDC gRPC/Connect Proxy Fix ✅
+
+**Completed:** January 14, 2026
+
+### Summary
+Added nginx proxy routing for Connect RPC service paths to prevent 405 errors
+from the web UI.
+
+### What Was Done
+- Proxied `/limiquantix.*` POST requests to the control plane.
+- Documented 405 troubleshooting in the appliance guide.
+
+### References
+- `Quantix-vDC/overlay/etc/nginx/conf.d/quantix-vdc.conf`
+- `docs/000051-quantix-vdc-appliance.md`
+
+---
+
 ## QuantumNet SDN Implementation ✅
 
 **Completed:** January 14, 2026

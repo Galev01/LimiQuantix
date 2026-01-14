@@ -1,23 +1,22 @@
 # Workflow State
 
-## Quantix-OS Installer TUI Boot Fix
+## Quantix-vDC ISO Kernel Missing Fix
 
 ### Status: IN PROGRESS
 
 ### Goal
-Eliminate the "Installer not found" error when booting the ISO by ensuring
-installer scripts are available in the live root, even with `toram`.
+Prevent ISO boots from failing with "file '/boot/vmlinuz' not found" by
+verifying the kernel is present and adding fallback extraction paths.
 
 ### Plan
-1. Cache installer scripts before unmounting boot media in initramfs.
-2. Copy cached installer scripts into `/installer` in the live root.
-3. Update installer troubleshooting documentation.
-4. Rebuild ISO and validate installer TUI shows on boot.
+1. Add kernel fallback from `/rootfs/boot` and verify `/boot/vmlinuz` exists.
+2. Document the boot error and rebuild guidance in the appliance guide.
+3. Rebuild the ISO and validate boot in QEMU/host.
 
 ### Log
-- Cached installer scripts during initramfs for toram boots.
-- Updated installer troubleshooting guidance.
+- Added kernel fallback and explicit verification in ISO build.
+- Documented boot error troubleshooting in appliance guide.
 
 ### References
-- `Quantix-OS/initramfs/init`
-- `docs/Quantix-OS/000057-installer-storage-pool-configuration.md`
+- `Quantix-vDC/builder/build-iso.sh`
+- `docs/000051-quantix-vdc-appliance.md`

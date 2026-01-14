@@ -283,6 +283,18 @@ location ~ ^/limiquantix\..+ {
 }
 ```
 
+### Boot Error: "file '/boot/vmlinuz' not found"
+
+This indicates the ISO is missing the kernel at `/boot/vmlinuz`.
+
+Fix:
+1. Rebuild the ISO (the build now verifies kernel presence):
+   ```bash
+   make iso
+   ```
+2. If rebuilding still fails, check the build logs for missing `/boot/vmlinuz-lts`
+   inside the squashfs or rootfs and ensure `linux-lts` installs successfully.
+
 ### Regenerate TLS Certificate
 ```bash
 rm -f /var/lib/quantix-vdc/certs/server.*

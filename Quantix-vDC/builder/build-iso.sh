@@ -147,14 +147,36 @@ if [ "$MOUNT_SUCCESS" -eq 1 ]; then
 fi
 rm -rf /tmp/sqmount
 
-# Download kernel if not found
+# Fallback to rootfs kernel if not found in squashfs
 if [ "$KERNEL_FOUND" = "false" ]; then
-    echo "⚠️  No kernel found in squashfs, downloading..."
+    for kfile in /rootfs/boot/vmlinuz-lts /rootfs/boot/vmlinuz*; do
+        if [ -f "$kfile" ]; then
+            cp "$kfile" "${ISO_DIR}/boot/vmlinuz"
+            echo "   Found kernel in rootfs: $(basename $kfile)"
+            KERNEL_FOUND=true
+            break
+        fi
+    done
+fi
+
+# Download kernel if still not found
+if [ "$KERNEL_FOUND" = "false" ]; then
+    echo "⚠️  No kernel found in squashfs/rootfs, downloading..."
     ALPINE_MIRROR="https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64"
     curl -sL "${ALPINE_MIRROR}/netboot/vmlinuz-lts" -o "${ISO_DIR}/boot/vmlinuz" || {
         echo "❌ Failed to download kernel"
         exit 1
     }
+fi
+
+# Final verification
+if [ ! -s "${ISO_DIR}/boot/vmlinuz" ]; then
+    echo "❌ Kernel missing from ISO: ${ISO_DIR}/boot/vmlinuz"
+    echo "   squashfs /boot contents:"
+    ls -la /tmp/sqmount/boot 2>/dev/null || echo "   (not available)"
+    echo "   rootfs /boot contents:"
+    ls -la /rootfs/boot 2>/dev/null || echo "   (not available)"
+    exit 1
 fi
 
 # Build installer initramfs
