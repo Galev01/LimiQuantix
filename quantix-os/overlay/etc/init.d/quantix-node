@@ -29,6 +29,9 @@ start_pre() {
     mkdir -p /run/user/0
     chmod 700 /run/user/0
     
+    # Ensure libvirt runtime directory exists
+    mkdir -p /var/run/libvirt
+    
     # Ensure config directory exists
     mkdir -p /quantix
     mkdir -p /etc/limiquantix
@@ -41,6 +44,22 @@ start_pre() {
     if [ ! -x "$command" ]; then
         eerror "Node daemon binary not found: $command"
         return 1
+    fi
+    
+    # Wait for libvirtd to be ready
+    local retries=10
+    while [ $retries -gt 0 ]; do
+        if [ -S /var/run/libvirt/libvirt-sock ]; then
+            einfo "libvirtd socket is ready"
+            break
+        fi
+        ewarn "Waiting for libvirtd socket..."
+        sleep 1
+        retries=$((retries - 1))
+    done
+    
+    if [ ! -S /var/run/libvirt/libvirt-sock ]; then
+        ewarn "libvirtd socket not found, node may fail to connect"
     fi
     
     return 0
