@@ -1,21 +1,23 @@
 # Workflow State
 
-## Quantix-vDC gRPC/Connect Proxy Fix
+## Quantix-OS Installer TUI Boot Fix
 
 ### Status: IN PROGRESS
 
 ### Goal
-Resolve HTTP 405 errors from the web UI by proxying Connect RPC endpoints
-(`/limiquantix.*`) through nginx to the control plane.
+Eliminate the "Installer not found" error when booting the ISO by ensuring
+installer scripts are available in the live root, even with `toram`.
 
 ### Plan
-1. Add nginx proxy route for `/limiquantix.*` Connect endpoints.
-2. Document the 405 symptom and fix in the appliance guide.
-3. Rebuild the ISO and verify UI API calls succeed.
+1. Cache installer scripts before unmounting boot media in initramfs.
+2. Copy cached installer scripts into `/installer` in the live root.
+3. Update installer troubleshooting documentation.
+4. Rebuild ISO and validate installer TUI shows on boot.
 
 ### Log
-- Added nginx proxy route for direct Connect service paths.
+- Cached installer scripts during initramfs for toram boots.
+- Updated installer troubleshooting guidance.
 
 ### References
-- `Quantix-vDC/overlay/etc/nginx/conf.d/quantix-vdc.conf`
-- `docs/000051-quantix-vdc-appliance.md`
+- `Quantix-OS/initramfs/init`
+- `docs/Quantix-OS/000057-installer-storage-pool-configuration.md`

@@ -165,8 +165,8 @@ scripts were not accessible in the live root.
 1. Rebuild the ISO so installer scripts are included:
    - The ISO must contain `/installer/tui.sh`
 2. Ensure you're booting the latest ISO
-3. If booting with `toram`, the initramfs will copy installer scripts into
-   `/installer` before pivoting to the live root
+3. If booting with `toram`, initramfs now caches installer scripts before
+   unmounting the boot media and copies them into `/installer`
 
 **Quick verification after boot:**
 
