@@ -83,7 +83,9 @@ hypervisor:
   backend: "libvirt"
   
   # Libvirt connection URI
-  libvirt_uri: "qemu:///system"
+  # Use explicit socket path to connect to monolithic libvirtd
+  # (Alpine's libvirt tries modular virtqemud first by default)
+  libvirt_uri: "qemu+unix:///system?socket=/var/run/libvirt/libvirt-sock"
   
   # VM storage paths
   storage_path: "/var/lib/limiquantix/vms"
