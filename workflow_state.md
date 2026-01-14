@@ -1,25 +1,21 @@
 # Workflow State
 
-## Quantix-vDC Service Startup Diagnostics
+## Quantix-vDC gRPC/Connect Proxy Fix
 
 ### Status: IN PROGRESS
 
 ### Goal
-Make Quantix-vDC boot reliably with PostgreSQL and nginx running so the control
-plane can use persistent storage and the web UI is accessible.
+Resolve HTTP 405 errors from the web UI by proxying Connect RPC endpoints
+(`/limiquantix.*`) through nginx to the control plane.
 
 ### Plan
-1. Harden `99-start-services.start` to create nginx log/tmp dirs before `nginx -t`.
-2. Improve PostgreSQL startup fallback by locating `pg_ctl`/`pg_isready` paths.
-3. Update Quantix-vDC appliance docs with troubleshooting steps.
+1. Add nginx proxy route for `/limiquantix.*` Connect endpoints.
+2. Document the 405 symptom and fix in the appliance guide.
+3. Rebuild the ISO and verify UI API calls succeed.
 
 ### Log
-- Plan created for vDC service startup fixes based on logs.
-- Hardened nginx startup to ensure runtime dirs exist before config test.
-- Improved PostgreSQL readiness and direct start fallback with explicit paths.
-- Updated vDC appliance troubleshooting docs.
+- Added nginx proxy route for direct Connect service paths.
 
 ### References
-- `Quantix-vDC/overlay/etc/local.d/99-start-services.start`
-- `Quantix-vDC/builder/build-rootfs.sh`
+- `Quantix-vDC/overlay/etc/nginx/conf.d/quantix-vdc.conf`
 - `docs/000051-quantix-vdc-appliance.md`

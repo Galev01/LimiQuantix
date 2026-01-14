@@ -264,6 +264,25 @@ nginx -t
 ls -la /var/lib/nginx/tmp /var/lib/nginx/logs /var/log/nginx
 ```
 
+### UI API Calls Return 405 (Method Not Allowed)
+
+If the browser console shows POST requests to `/limiquantix.*` returning 405,
+nginx is serving the SPA instead of proxying Connect RPC calls.
+
+Fix by ensuring nginx proxies direct service paths:
+
+```nginx
+location ~ ^/limiquantix\..+ {
+    proxy_pass http://controlplane;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Connection "";
+}
+```
+
 ### Regenerate TLS Certificate
 ```bash
 rm -f /var/lib/quantix-vdc/certs/server.*

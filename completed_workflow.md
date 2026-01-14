@@ -24,6 +24,25 @@ documented installer troubleshooting guidance.
 
 ---
 
+## Quantix-vDC Service Startup Diagnostics ✅
+
+**Completed:** January 14, 2026
+
+### Summary
+Hardened Quantix-vDC startup to ensure PostgreSQL and nginx can start reliably
+after boot and documented troubleshooting steps.
+
+### What Was Done
+- Ensured nginx runtime directories are created before `nginx -t`.
+- Added explicit `pg_ctl` and `pg_isready` path fallbacks.
+- Expanded appliance troubleshooting documentation.
+
+### References
+- `Quantix-vDC/overlay/etc/local.d/99-start-services.start`
+- `docs/000051-quantix-vdc-appliance.md`
+
+---
+
 ## QuantumNet SDN Implementation ✅
 
 **Completed:** January 14, 2026
