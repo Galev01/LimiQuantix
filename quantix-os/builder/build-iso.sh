@@ -344,13 +344,28 @@ echo "📦 Step 7: Copying installer..."
 mkdir -p "${ISO_DIR}/installer"
 
 # Copy all installer scripts
+INSTALLER_FOUND=0
 for script in install.sh tui.sh firstboot.sh upgrade.sh; do
     if [ -f "${WORK_DIR}/installer/${script}" ]; then
         cp "${WORK_DIR}/installer/${script}" "${ISO_DIR}/installer/"
         chmod +x "${ISO_DIR}/installer/${script}"
-        echo "   Copied: ${script}"
+        echo "   ✅ Copied: ${script}"
+        INSTALLER_FOUND=1
+    else
+        echo "   ⚠️  Not found: ${WORK_DIR}/installer/${script}"
     fi
 done
+
+if [ "$INSTALLER_FOUND" -eq 0 ]; then
+    echo "❌ ERROR: No installer scripts found!"
+    echo "   Looking in: ${WORK_DIR}/installer/"
+    ls -la "${WORK_DIR}/installer/" 2>/dev/null || echo "   (directory does not exist)"
+    exit 1
+fi
+
+# Verify installer directory on ISO
+echo "   ISO installer directory contents:"
+ls -la "${ISO_DIR}/installer/"
 
 # Copy branding
 if [ -d "${WORK_DIR}/branding" ]; then

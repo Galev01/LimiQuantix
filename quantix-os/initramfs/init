@@ -273,10 +273,22 @@ if [ -n "$LIVE_BOOT" ]; then
     echo "[INIT] Using squashfs: $SQUASHFS_PATH"
     
     # Cache installer scripts before unmounting boot media (toram mode)
-    if [ -n "$INSTALL_MODE" ] && [ -d "/mnt/cdrom/installer" ]; then
-        echo "[INIT] Caching installer scripts..."
-        mkdir -p /mnt/installer-cache
-        cp -r /mnt/cdrom/installer/* /mnt/installer-cache/ 2>/dev/null || true
+    echo "[INIT] Checking for installer on boot media..."
+    echo "[INIT] Contents of /mnt/cdrom:"
+    ls -la /mnt/cdrom/ 2>/dev/null || echo "[INIT]   (empty or not mounted)"
+    echo "[INIT] Contents of /mnt/cdrom/installer:"
+    ls -la /mnt/cdrom/installer/ 2>/dev/null || echo "[INIT]   (not found)"
+    
+    if [ -n "$INSTALL_MODE" ]; then
+        if [ -d "/mnt/cdrom/installer" ]; then
+            echo "[INIT] Caching installer scripts for install mode..."
+            mkdir -p /mnt/installer-cache
+            cp -rv /mnt/cdrom/installer/* /mnt/installer-cache/ 2>&1 || echo "[INIT] WARNING: Copy failed"
+            echo "[INIT] Cached installer contents:"
+            ls -la /mnt/installer-cache/ 2>/dev/null || echo "[INIT]   (empty)"
+        else
+            echo "[INIT] WARNING: Install mode but /mnt/cdrom/installer not found!"
+        fi
     fi
 
     # Copy squashfs to RAM if requested
@@ -331,19 +343,27 @@ if [ -n "$LIVE_BOOT" ]; then
         touch /mnt/merged/tmp/.quantix_install_mode
 
         # Ensure installer scripts are available after pivot_root
-        if [ -d "/mnt/installer-cache" ]; then
-            echo "[INIT] Copying installer to live root..."
-            mkdir -p /mnt/merged/installer
-            cp -r /mnt/installer-cache/* /mnt/merged/installer/ 2>/dev/null || true
-            chmod +x /mnt/merged/installer/*.sh 2>/dev/null || true
-        elif [ -d "/mnt/cdrom/installer" ]; then
-            echo "[INIT] Copying installer from boot media..."
-            mkdir -p /mnt/merged/installer
-            cp -r /mnt/cdrom/installer/* /mnt/merged/installer/ 2>/dev/null || true
-            chmod +x /mnt/merged/installer/*.sh 2>/dev/null || true
+        mkdir -p /mnt/merged/installer
+        
+        if [ -d "/mnt/installer-cache" ] && [ "$(ls -A /mnt/installer-cache 2>/dev/null)" ]; then
+            echo "[INIT] Copying installer from cache to live root..."
+            cp -rv /mnt/installer-cache/* /mnt/merged/installer/ 2>&1 || echo "[INIT] WARNING: Copy from cache failed"
+        elif [ -d "/mnt/cdrom/installer" ] && [ "$(ls -A /mnt/cdrom/installer 2>/dev/null)" ]; then
+            echo "[INIT] Copying installer from boot media to live root..."
+            cp -rv /mnt/cdrom/installer/* /mnt/merged/installer/ 2>&1 || echo "[INIT] WARNING: Copy from cdrom failed"
+        elif [ -d "/mnt/merged/mnt/cdrom/installer" ] && [ "$(ls -A /mnt/merged/mnt/cdrom/installer 2>/dev/null)" ]; then
+            echo "[INIT] Copying installer from moved cdrom mount..."
+            cp -rv /mnt/merged/mnt/cdrom/installer/* /mnt/merged/installer/ 2>&1 || echo "[INIT] WARNING: Copy from moved cdrom failed"
         else
-            echo "[WARN] Installer directory not found on boot media or cache"
+            echo "[WARN] Installer directory not found anywhere!"
+            echo "[WARN] Checked: /mnt/installer-cache, /mnt/cdrom/installer, /mnt/merged/mnt/cdrom/installer"
         fi
+        
+        # Make scripts executable
+        chmod +x /mnt/merged/installer/*.sh 2>/dev/null || true
+        
+        echo "[INIT] Final installer contents in live root:"
+        ls -la /mnt/merged/installer/ 2>/dev/null || echo "[INIT]   (empty)"
     fi
     
     # Switch to new root

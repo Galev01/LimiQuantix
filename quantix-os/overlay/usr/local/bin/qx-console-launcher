@@ -56,22 +56,34 @@ start_installer() {
     # Clear screen and scrollback
     printf '\033[2J\033[H\033[3J'
     
+    # Debug: Show what we're looking for
+    log "Searching for installer scripts..."
+    log "Checking /mnt/cdrom/installer/:"
+    ls -la /mnt/cdrom/installer/ 2>&1 | while read line; do log "  $line"; done
+    log "Checking /installer/:"
+    ls -la /installer/ 2>&1 | while read line; do log "  $line"; done
+    
     # Check for installer scripts in various locations
+    # First try tui.sh, then fall back to install.sh
     INSTALLER=""
     for path in \
         /mnt/cdrom/installer/tui.sh \
         /installer/tui.sh \
         /mnt/cdrom/installer/install.sh \
         /installer/install.sh; do
-        if [ -x "$path" ]; then
+        log "Checking: $path"
+        if [ -f "$path" ]; then
+            log "  Found file: $path"
+            # Make sure it's executable
+            chmod +x "$path" 2>/dev/null || true
             INSTALLER="$path"
             break
         fi
     done
     
     if [ -n "$INSTALLER" ]; then
-        log "Found installer at: $INSTALLER"
-        exec "$INSTALLER"
+        log "Launching installer: $INSTALLER"
+        exec /bin/sh "$INSTALLER"
     else
         log "ERROR: Installer not found!"
         echo ""
