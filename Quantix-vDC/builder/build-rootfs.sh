@@ -358,13 +358,28 @@ echo "📦 Step 7: Copying installer scripts..."
 
 mkdir -p "${ROOTFS_DIR}/installer"
 
-# Debug: Show what's in /work/installer
+# Try multiple source locations (Docker volume issues workaround)
+INSTALLER_SRC=""
+
+# First try /work/installer (direct mount)
+if [ -d "/work/installer" ] && [ -n "$(ls -A /work/installer/*.sh 2>/dev/null)" ]; then
+    INSTALLER_SRC="/work/installer"
+    echo "   Using installer scripts from /work/installer"
+# Then try /output/installer-scripts (workaround copy)
+elif [ -d "/output/installer-scripts" ] && [ -n "$(ls -A /output/installer-scripts/*.sh 2>/dev/null)" ]; then
+    INSTALLER_SRC="/output/installer-scripts"
+    echo "   Using installer scripts from /output/installer-scripts (workaround)"
+fi
+
+# Debug: Show what's available
 echo "   Debug: Contents of /work/installer:"
 ls -la /work/installer/ 2>&1 || echo "   Directory not found or empty"
+echo "   Debug: Contents of /output/installer-scripts:"
+ls -la /output/installer-scripts/ 2>&1 || echo "   Directory not found or empty"
 
-if [ -d "/work/installer" ]; then
+if [ -n "$INSTALLER_SRC" ]; then
     # Copy each script explicitly and show errors
-    for script in /work/installer/*.sh; do
+    for script in ${INSTALLER_SRC}/*.sh; do
         if [ -f "$script" ]; then
             echo "   Copying: $script"
             # Remove Windows line endings and copy
@@ -379,12 +394,13 @@ if [ -d "/work/installer" ]; then
     # Verify at least one script exists
     if [ ! -f "${ROOTFS_DIR}/installer/tui.sh" ]; then
         echo "   ❌ ERROR: tui.sh not found in installer directory!"
-        echo "   Source directory contents:"
-        find /work/installer -type f 2>&1
+        echo "   Available sources:"
+        find /work/installer /output/installer-scripts -type f 2>&1 || true
         exit 1
     fi
 else
-    echo "   ❌ ERROR: No installer directory found at /work/installer"
+    echo "   ❌ ERROR: No installer scripts found in any location!"
+    echo "   Checked: /work/installer, /output/installer-scripts"
     exit 1
 fi
 

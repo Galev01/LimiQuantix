@@ -75,6 +75,10 @@ iso: version-bump docker-builder backend frontend scripts-executable
 	$(eval ISO_NAME := quantix-vdc-$(VERSION).iso)
 	@echo "🔨 Building installation ISO v$(VERSION)..."
 	@mkdir -p $(OUTPUT_DIR)
+	@# Copy installer scripts to output directory to work around Docker volume issues
+	@mkdir -p $(OUTPUT_DIR)/installer-scripts
+	@cp -v $(BUILD_DIR)/installer/*.sh $(OUTPUT_DIR)/installer-scripts/ 2>/dev/null || true
+	@chmod +x $(OUTPUT_DIR)/installer-scripts/*.sh 2>/dev/null || true
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
 		-v "$(OUTPUT_DIR):/output" \
