@@ -365,6 +365,10 @@ INSTALLER_SRC=""
 if [ -d "/work/installer" ] && [ -n "$(ls -A /work/installer/*.sh 2>/dev/null)" ]; then
     INSTALLER_SRC="/work/installer"
     echo "   Using installer scripts from /work/installer"
+# Then try /work/overlay/installer (embedded in overlay)
+elif [ -d "/work/overlay/installer" ] && [ -n "$(ls -A /work/overlay/installer/*.sh 2>/dev/null)" ]; then
+    INSTALLER_SRC="/work/overlay/installer"
+    echo "   Using installer scripts from /work/overlay/installer"
 # Then try /output/installer-scripts (workaround copy)
 elif [ -d "/output/installer-scripts" ] && [ -n "$(ls -A /output/installer-scripts/*.sh 2>/dev/null)" ]; then
     INSTALLER_SRC="/output/installer-scripts"
@@ -374,6 +378,8 @@ fi
 # Debug: Show what's available
 echo "   Debug: Contents of /work/installer:"
 ls -la /work/installer/ 2>&1 || echo "   Directory not found or empty"
+echo "   Debug: Contents of /work/overlay/installer:"
+ls -la /work/overlay/installer/ 2>&1 || echo "   Directory not found or empty"
 echo "   Debug: Contents of /output/installer-scripts:"
 ls -la /output/installer-scripts/ 2>&1 || echo "   Directory not found or empty"
 
@@ -400,7 +406,7 @@ if [ -n "$INSTALLER_SRC" ]; then
     fi
 else
     echo "   ❌ ERROR: No installer scripts found in any location!"
-    echo "   Checked: /work/installer, /output/installer-scripts"
+    echo "   Checked: /work/installer, /work/overlay/installer, /output/installer-scripts"
     exit 1
 fi
 
