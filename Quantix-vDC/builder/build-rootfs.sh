@@ -357,13 +357,35 @@ echo "✅ Defaults configured"
 echo "📦 Step 7: Copying installer scripts..."
 
 mkdir -p "${ROOTFS_DIR}/installer"
+
+# Debug: Show what's in /work/installer
+echo "   Debug: Contents of /work/installer:"
+ls -la /work/installer/ 2>&1 || echo "   Directory not found or empty"
+
 if [ -d "/work/installer" ]; then
-    cp -v /work/installer/*.sh "${ROOTFS_DIR}/installer/" 2>/dev/null || true
-    chmod +x "${ROOTFS_DIR}/installer/"*.sh 2>/dev/null || true
-    echo "   Installer scripts:"
+    # Copy each script explicitly and show errors
+    for script in /work/installer/*.sh; do
+        if [ -f "$script" ]; then
+            echo "   Copying: $script"
+            # Remove Windows line endings and copy
+            sed 's/\r$//' "$script" > "${ROOTFS_DIR}/installer/$(basename "$script")"
+            chmod +x "${ROOTFS_DIR}/installer/$(basename "$script")"
+        fi
+    done
+    
+    echo "   Installer scripts in rootfs:"
     ls -la "${ROOTFS_DIR}/installer/"
+    
+    # Verify at least one script exists
+    if [ ! -f "${ROOTFS_DIR}/installer/tui.sh" ]; then
+        echo "   ❌ ERROR: tui.sh not found in installer directory!"
+        echo "   Source directory contents:"
+        find /work/installer -type f 2>&1
+        exit 1
+    fi
 else
-    echo "   ⚠️  No installer directory found at /work/installer"
+    echo "   ❌ ERROR: No installer directory found at /work/installer"
+    exit 1
 fi
 
 echo "✅ Installer scripts copied"
