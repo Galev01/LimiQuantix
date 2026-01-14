@@ -224,22 +224,29 @@ terminal_output console
 set menu_color_normal=white/black
 set menu_color_highlight=black/light-gray
 
+# Find the boot device (critical for ISO boot)
+search --no-floppy --set=root --file /boot/vmlinuz
+
 menuentry "Install Quantix-vDC" {
+    search --no-floppy --set=root --file /boot/vmlinuz
     linux /boot/vmlinuz boot=installer console=tty0 console=ttyS0,115200
     initrd /boot/initramfs
 }
 
 menuentry "Install Quantix-vDC (Safe Graphics)" {
+    search --no-floppy --set=root --file /boot/vmlinuz
     linux /boot/vmlinuz boot=installer nomodeset console=tty0 console=ttyS0,115200
     initrd /boot/initramfs
 }
 
 menuentry "Install Quantix-vDC (Debug Mode)" {
+    search --no-floppy --set=root --file /boot/vmlinuz
     linux /boot/vmlinuz boot=installer debug console=tty0 console=ttyS0,115200 loglevel=7
     initrd /boot/initramfs
 }
 
 menuentry "Rescue Shell (Emergency)" {
+    search --no-floppy --set=root --file /boot/vmlinuz
     linux /boot/vmlinuz boot=installer break=premount console=tty0 console=ttyS0,115200 loglevel=7
     initrd /boot/initramfs
 }
