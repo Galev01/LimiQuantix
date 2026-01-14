@@ -4,6 +4,26 @@ This file archives completed workflows from `workflow_state.md`.
 
 ---
 
+## Quantix-OS Installer TUI Boot Fix ✅
+
+**Completed:** January 14, 2026
+
+### Summary
+Ensured installer scripts are reliably available during initramfs boot and
+documented installer troubleshooting guidance.
+
+### What Was Done
+- Copied installer scripts into `/installer` during initramfs boot.
+- Added troubleshooting guidance to installer docs.
+
+### References
+- `Quantix-OS/initramfs/init`
+- `Quantix-OS/overlay/usr/local/bin/qx-console-launcher`
+- `Quantix-OS/builder/build-iso.sh`
+- `docs/Quantix-OS/000057-installer-storage-pool-configuration.md`
+
+---
+
 ## QuantumNet SDN Implementation ✅
 
 **Completed:** January 14, 2026

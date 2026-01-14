@@ -62,6 +62,33 @@ start() {
     ln -sf "$CERT_DIR/server.key" /quantix/certificates/server.key 2>/dev/null || true
     ln -sf "$CERT_DIR/server.crt" /quantix/certificates/server.crt 2>/dev/null || true
 
+    # Ensure Quantix boot entry is first when UEFI is present (avoid PXE stalls)
+    if command -v efibootmgr >/dev/null 2>&1 && [ -d /sys/firmware/efi/efivars ]; then
+        einfo "Ensuring Quantix boot entry is first in UEFI BootOrder..."
+        BOOT_ENTRY=$(efibootmgr | awk 'tolower($0) ~ /quantix/ && $1 ~ /^Boot[0-9A-F]{4}/ {gsub(/^Boot/,"",$1); gsub(/\*/,"",$1); print $1; exit}')
+        if [ -n "$BOOT_ENTRY" ]; then
+            CURRENT_ORDER=$(efibootmgr | awk -F'BootOrder: ' 'NF==2 {print $2}' | tr -d '\r')
+            if [ -n "$CURRENT_ORDER" ]; then
+                REST_ORDER=$(printf '%s' "$CURRENT_ORDER" | awk -v entry="$BOOT_ENTRY" 'BEGIN{RS=","; ORS=","} toupper($0)!=toupper(entry) && length($0)>0 {print $0}' | sed 's/,$//')
+                if [ -n "$REST_ORDER" ]; then
+                    NEW_ORDER="${BOOT_ENTRY},${REST_ORDER}"
+                else
+                    NEW_ORDER="${BOOT_ENTRY}"
+                fi
+            else
+                NEW_ORDER="${BOOT_ENTRY}"
+            fi
+
+            efibootmgr -o "$NEW_ORDER" >/dev/null 2>&1 || ewarn "Failed to update UEFI BootOrder"
+            efibootmgr -n "$BOOT_ENTRY" >/dev/null 2>&1 || ewarn "Failed to set UEFI BootNext"
+            einfo "UEFI BootOrder updated: ${NEW_ORDER}"
+        else
+            ewarn "Quantix UEFI boot entry not found; PXE may remain first"
+        fi
+    else
+        einfo "UEFI boot manager not available; skipping boot order update"
+    fi
+
     # Create default storage directories
     einfo "Creating storage directories..."
     mkdir -p /data/vms /data/isos /data/images /data/backups

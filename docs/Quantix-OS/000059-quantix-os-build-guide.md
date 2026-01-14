@@ -352,6 +352,16 @@ rustup update stable
 2. Add `nomodeset` to kernel command line
 3. Check if UEFI/BIOS mode matches your hardware
 
+### Post-Install Boot Stalls at "Start PXE over IPv4"
+
+If the system stalls at PXE when Ethernet is connected, the firmware is
+prioritizing network boot over the installed disk.
+
+**Mitigation:**
+1. Boot once with Ethernet disconnected (or disable PXE in BIOS/UEFI).
+2. The first boot now promotes the Quantix boot entry to the front of UEFI
+   `BootOrder` and sets `BootNext`, so future boots work with Ethernet connected.
+
 ### ISO Boots but "No block devices found"
 
 This indicates missing kernel modules in initramfs. Verify:

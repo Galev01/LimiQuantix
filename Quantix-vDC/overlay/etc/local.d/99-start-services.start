@@ -112,7 +112,20 @@ PGHBA
         else
             log "PostgreSQL start via rc-service failed, trying direct start..."
             # Try direct start as fallback
-            su -s /bin/sh postgres -c "pg_ctl -D $PG_DATA -l $PG_LOG_DIR/postmaster.log start" >> "$LOG_FILE" 2>&1
+            PG_CTL=""
+            for path in /usr/bin/pg_ctl /usr/libexec/postgresql16/pg_ctl /usr/lib/postgresql16/bin/pg_ctl; do
+                if [ -x "$path" ]; then
+                    PG_CTL="$path"
+                    break
+                fi
+            done
+            [ -z "$PG_CTL" ] && PG_CTL="$(which pg_ctl 2>/dev/null)"
+            
+            if [ -n "$PG_CTL" ]; then
+                su -s /bin/sh postgres -c "$PG_CTL -D $PG_DATA -l $PG_LOG_DIR/postmaster.log start" >> "$LOG_FILE" 2>&1
+            else
+                log "ERROR: pg_ctl not found!"
+            fi
             sleep 2
         fi
     fi
@@ -146,7 +159,17 @@ fi
 log "Waiting for PostgreSQL to be ready..."
 PG_READY=0
 for i in $(seq 1 30); do
-    if pg_isready -q 2>/dev/null; then
+    if [ -z "$PG_ISREADY" ]; then
+        for path in /usr/bin/pg_isready /usr/libexec/postgresql16/pg_isready /usr/lib/postgresql16/bin/pg_isready; do
+            if [ -x "$path" ]; then
+                PG_ISREADY="$path"
+                break
+            fi
+        done
+        [ -z "$PG_ISREADY" ] && PG_ISREADY="$(which pg_isready 2>/dev/null)"
+    fi
+
+    if [ -n "$PG_ISREADY" ] && "$PG_ISREADY" -q 2>/dev/null; then
         log "PostgreSQL is ready"
         PG_READY=1
         break
@@ -187,6 +210,11 @@ fi
 # nginx
 # =============================================================================
 if [ -x /usr/sbin/nginx ]; then
+    # Ensure nginx runtime directories exist
+    mkdir -p /var/lib/nginx/logs /var/log/nginx
+    mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi
+    chown -R nginx:nginx /var/lib/nginx /var/log/nginx 2>/dev/null || true
+
     # Ensure SSL certificates exist
     CERT_DIR="/var/lib/quantix-vdc/certs"
     if [ ! -f "$CERT_DIR/server.crt" ] || [ ! -f "$CERT_DIR/server.key" ]; then

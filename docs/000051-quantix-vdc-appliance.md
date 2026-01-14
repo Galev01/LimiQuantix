@@ -246,6 +246,24 @@ tail -f /var/log/quantix-controlplane.log
 tail -f /var/log/nginx/error.log
 ```
 
+### Startup Helper Log
+```bash
+cat /var/log/quantix-startup.log
+```
+
+### PostgreSQL Connection Refused (127.0.0.1:5432)
+```bash
+rc-service postgresql status
+cat /var/log/postgresql/postmaster.log
+ls -la /run/postgresql /var/log/postgresql
+```
+
+### nginx Missing Runtime Directories
+```bash
+nginx -t
+ls -la /var/lib/nginx/tmp /var/lib/nginx/logs /var/log/nginx
+```
+
 ### Regenerate TLS Certificate
 ```bash
 rm -f /var/lib/quantix-vdc/certs/server.*
