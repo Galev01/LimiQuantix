@@ -1,124 +1,252 @@
-2026-01-13T23:14:06.610064+00:00 quantix-vdc chronyd[2534]: chronyd version 4.5 starting (+CMDMON +NTP +REFCLOCK +RTC +PRIVDROP +SCFILTER +SIGND +ASYNCDNS +NTS +SECHASH +IPV6 -DEBUG)
-2026-01-13T23:14:07.580008+00:00 quantix-vdc : $WorkDirectory: /var/lib/rsyslog can not be accessed, probably does not exist - directive ignored [v8.2404.0 try https://www.rsyslog.com/e/2181 ]
-2026-01-13T23:14:07.580029+00:00 quantix-vdc : [origin software="rsyslogd" swVersion="8.2404.0" x-pid="2501" x-info="https://www.rsyslog.com"] start
-2026-01-13T23:14:11.615533+00:00 quantix-vdc chronyd[2534]: Could not resolve address of initstepslew server pool.ntp.org
-2026-01-13T23:14:11.815185+00:00 quantix-vdc /etc/init.d/postgresql[2634]: start-stop-daemon: failed to start `/usr/bin/pg_ctl'
-2026-01-13T23:14:11.819522+00:00 quantix-vdc /etc/init.d/postgresql[2644]: Check the log for a possible explanation of the above error:
-2026-01-13T23:14:11.821463+00:00 quantix-vdc /etc/init.d/postgresql[2645]:     /var/log/postgresql/postmaster.log
-2026-01-13T23:14:11.823151+00:00 quantix-vdc /etc/init.d/postgresql[2599]: ERROR: postgresql failed to start
-2026-01-13T23:14:42.087083+00:00 quantix-vdc /etc/init.d/nginx[2781]: ERROR: nginx failed to start
-2026-01-13T23:14:42.126012+00:00 quantix-vdc sshd[2841]: Server listening on 0.0.0.0 port 22.
-2026-01-13T23:14:42.126037+00:00 quantix-vdc sshd[2841]: Server listening on :: port 22.
-2026-01-13T23:14:42.152735+00:00 quantix-vdc init: starting pid 2881, tty '/dev/tty1': '/usr/bin/qx-dcui'
-2026-01-13T23:14:42.153020+00:00 quantix-vdc init: starting pid 2882, tty '/dev/tty2': '/sbin/getty 38400 tty2'
-2026-01-13T23:14:42.153189+00:00 quantix-vdc init: starting pid 2883, tty '/dev/tty3': '/sbin/getty 38400 tty3'
-2026-01-13T23:14:42.153306+00:00 quantix-vdc init: starting pid 2887, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:14:42.153622+00:00 quantix-vdc getty[2887]: tcgetattr: I/O error#015
-2026-01-13T23:14:52.154195+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 2887) exited. Scheduling for restart.
-2026-01-13T23:14:53.154701+00:00 quantix-vdc init: starting pid 2913, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:14:53.155419+00:00 quantix-vdc getty[2913]: tcgetattr: I/O error#015
-2026-01-13T23:15:03.155897+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 2913) exited. Scheduling for restart.
-2026-01-13T23:15:04.156369+00:00 quantix-vdc init: starting pid 2945, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:15:04.156966+00:00 quantix-vdc getty[2945]: tcgetattr: I/O error#015
-2026-01-13T23:15:15.116675+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 2945) exited. Scheduling for restart.
-2026-01-13T23:15:16.117206+00:00 quantix-vdc init: starting pid 2998, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:15:16.117821+00:00 quantix-vdc getty[2998]: tcgetattr: I/O error#015
-2026-01-13T23:15:26.118347+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 2998) exited. Scheduling for restart.
-2026-01-13T23:15:27.118810+00:00 quantix-vdc init: starting pid 3033, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:15:27.119376+00:00 quantix-vdc getty[3033]: tcgetattr: I/O error#015
-2026-01-13T23:15:37.119919+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3033) exited. Scheduling for restart.
-2026-01-13T23:15:37.763083+00:00 quantix-vdc /etc/init.d/quantix-controlplan[3213]: WARNING: quantix-controlplane has already been started
-2026-01-13T23:15:38.120437+00:00 quantix-vdc init: starting pid 3215, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:15:38.121065+00:00 quantix-vdc getty[3215]: tcgetattr: I/O error#015
-2026-01-13T23:15:42.737956+00:00 quantix-vdc /etc/init.d/nginx[3351]: ERROR: nginx failed to start
-2026-01-13T23:15:48.121608+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3215) exited. Scheduling for restart.
-2026-01-13T23:15:49.122128+00:00 quantix-vdc init: starting pid 3599, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:15:49.122756+00:00 quantix-vdc getty[3599]: tcgetattr: I/O error#015
-2026-01-13T23:15:50.631394+00:00 quantix-vdc chronyd[2534]: Selected source 129.159.140.221 (pool.ntp.org)
-2026-01-13T23:15:59.123334+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3599) exited. Scheduling for restart.
-2026-01-13T23:16:00.123741+00:00 quantix-vdc init: starting pid 3605, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:16:00.124320+00:00 quantix-vdc getty[3605]: tcgetattr: I/O error#015
-2026-01-13T23:16:00.744830+00:00 quantix-vdc sshd[3603]: Failed password for root from 192.168.0.148 port 3478 ssh2
-2026-01-13T23:16:00.761336+00:00 quantix-vdc sshd[3603]: Failed password for root from 192.168.0.148 port 3478 ssh2
-2026-01-13T23:16:02.854450+00:00 quantix-vdc sshd[3603]: Failed password for root from 192.168.0.148 port 3478 ssh2
-2026-01-13T23:16:02.862408+00:00 quantix-vdc sshd[3603]: Received disconnect from 192.168.0.148 port 3478:11: Normal Shutdown [preauth]
-2026-01-13T23:16:02.862428+00:00 quantix-vdc sshd[3603]: Disconnected from authenticating user root 192.168.0.148 port 3478 [preauth]
-2026-01-13T23:16:10.124733+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3605) exited. Scheduling for restart.
-2026-01-13T23:16:11.125147+00:00 quantix-vdc init: starting pid 3609, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:16:11.125794+00:00 quantix-vdc getty[3609]: tcgetattr: I/O error#015
-2026-01-13T23:16:21.126318+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3609) exited. Scheduling for restart.
-2026-01-13T23:16:22.126687+00:00 quantix-vdc init: starting pid 3611, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:16:22.127218+00:00 quantix-vdc getty[3611]: tcgetattr: I/O error#015
-2026-01-13T23:16:32.127623+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3611) exited. Scheduling for restart.
-2026-01-13T23:16:33.128060+00:00 quantix-vdc init: starting pid 3613, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:16:33.128761+00:00 quantix-vdc getty[3613]: tcgetattr: I/O error#015
-2026-01-13T23:16:43.129108+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3613) exited. Scheduling for restart.
-2026-01-13T23:16:44.129404+00:00 quantix-vdc init: starting pid 3740, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:16:44.129938+00:00 quantix-vdc getty[3740]: tcgetattr: I/O error#015
-2026-01-13T23:16:45.762878+00:00 quantix-vdc sshd[2841]: Received signal 15; terminating.
-2026-01-13T23:16:45.821061+00:00 quantix-vdc sshd[3831]: Server listening on 0.0.0.0 port 22.
-2026-01-13T23:16:45.821082+00:00 quantix-vdc sshd[3831]: Server listening on :: port 22.
-2026-01-13T23:16:49.141031+00:00 quantix-vdc sshd[3953]: rexec line 86: Unsupported option UsePAM
-2026-01-13T23:16:49.184565+00:00 quantix-vdc sshd[3953]: Accepted password for root from 192.168.0.148 port 3511 ssh2
-2026-01-13T23:16:54.130410+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3740) exited. Scheduling for restart.
-2026-01-13T23:16:55.130908+00:00 quantix-vdc init: starting pid 3958, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:16:55.131509+00:00 quantix-vdc getty[3958]: tcgetattr: I/O error#015
-2026-01-13T23:16:56.497958+00:00 quantix-vdc chronyd[2534]: Selected source 51.17.20.53 (pool.ntp.org)
-2026-01-13T23:17:05.132099+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3958) exited. Scheduling for restart.
-2026-01-13T23:17:06.132564+00:00 quantix-vdc init: starting pid 3962, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:17:06.133207+00:00 quantix-vdc getty[3962]: tcgetattr: I/O error#015
-2026-01-13T23:17:16.133834+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3962) exited. Scheduling for restart.
-2026-01-13T23:17:17.134334+00:00 quantix-vdc init: starting pid 3963, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:17:17.134921+00:00 quantix-vdc getty[3963]: tcgetattr: I/O error#015
-2026-01-13T23:17:27.135451+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3963) exited. Scheduling for restart.
-2026-01-13T23:17:28.135925+00:00 quantix-vdc init: starting pid 3964, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:17:28.136538+00:00 quantix-vdc getty[3964]: tcgetattr: I/O error#015
-2026-01-13T23:17:35.730325+00:00 quantix-vdc sshd[3965]: rexec line 86: Unsupported option UsePAM
-2026-01-13T23:17:35.786758+00:00 quantix-vdc sshd[3965]: Accepted password for root from 192.168.0.148 port 3910 ssh2
-2026-01-13T23:17:38.137118+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3964) exited. Scheduling for restart.
-2026-01-13T23:17:39.137595+00:00 quantix-vdc init: starting pid 3969, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:17:39.138174+00:00 quantix-vdc getty[3969]: tcgetattr: I/O error#015
-2026-01-13T23:17:49.138728+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3969) exited. Scheduling for restart.
-2026-01-13T23:17:50.139222+00:00 quantix-vdc init: starting pid 3970, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:17:50.139816+00:00 quantix-vdc getty[3970]: tcgetattr: I/O error#015
-2026-01-13T23:18:00.140416+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3970) exited. Scheduling for restart.
-2026-01-13T23:18:01.140999+00:00 quantix-vdc init: starting pid 3971, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:18:01.141794+00:00 quantix-vdc getty[3971]: tcgetattr: I/O error#015
-2026-01-13T23:18:11.142346+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3971) exited. Scheduling for restart.
-2026-01-13T23:18:12.142837+00:00 quantix-vdc init: starting pid 3972, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:18:12.143414+00:00 quantix-vdc getty[3972]: tcgetattr: I/O error#015
-2026-01-13T23:18:13.985286+00:00 quantix-vdc /etc/init.d/postgresql[4008]: start-stop-daemon: failed to start `/usr/bin/pg_ctl'
-2026-01-13T23:18:13.987348+00:00 quantix-vdc /etc/init.d/postgresql[4013]: Check the log for a possible explanation of the above error:
-2026-01-13T23:18:13.988256+00:00 quantix-vdc /etc/init.d/postgresql[4014]:     /var/log/postgresql/postmaster.log
-2026-01-13T23:18:13.988749+00:00 quantix-vdc /etc/init.d/postgresql[3978]: ERROR: postgresql failed to start
-2026-01-13T23:18:22.143936+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3972) exited. Scheduling for restart.
-2026-01-13T23:18:23.144361+00:00 quantix-vdc init: starting pid 4197, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:18:23.144958+00:00 quantix-vdc getty[4197]: tcgetattr: I/O error#015
-2026-01-13T23:18:33.145582+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4197) exited. Scheduling for restart.
-2026-01-13T23:18:34.146095+00:00 quantix-vdc init: starting pid 4218, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:18:34.146713+00:00 quantix-vdc getty[4218]: tcgetattr: I/O error#015
-2026-01-13T23:18:44.147234+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4218) exited. Scheduling for restart.
-2026-01-13T23:18:45.147600+00:00 quantix-vdc init: starting pid 4241, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:18:45.148219+00:00 quantix-vdc getty[4241]: tcgetattr: I/O error#015
-2026-01-13T23:18:46.279971+00:00 quantix-vdc /etc/init.d/nginx[4255]: ERROR: nginx failed to start
-2026-01-13T23:18:55.148727+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4241) exited. Scheduling for restart.
-2026-01-13T23:18:56.149224+00:00 quantix-vdc init: starting pid 4284, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:18:56.149837+00:00 quantix-vdc getty[4284]: tcgetattr: I/O error#015
-2026-01-13T23:19:06.150422+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4284) exited. Scheduling for restart.
-2026-01-13T23:19:07.150800+00:00 quantix-vdc init: starting pid 4286, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:19:07.151440+00:00 quantix-vdc getty[4286]: tcgetattr: I/O error#015
-2026-01-13T23:19:17.152025+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4286) exited. Scheduling for restart.
-2026-01-13T23:19:18.152553+00:00 quantix-vdc init: starting pid 4287, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:19:18.153141+00:00 quantix-vdc getty[4287]: tcgetattr: I/O error#015
-2026-01-13T23:19:28.153791+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4287) exited. Scheduling for restart.
-2026-01-13T23:19:29.154303+00:00 quantix-vdc init: starting pid 4290, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:19:29.154916+00:00 quantix-vdc getty[4290]: tcgetattr: I/O error#015
-2026-01-13T23:19:39.155505+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4290) exited. Scheduling for restart.
-2026-01-13T23:19:40.156024+00:00 quantix-vdc init: starting pid 4291, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:19:40.156648+00:00 quantix-vdc getty[4291]: tcgetattr: I/O error#015
-2026-01-13T23:19:50.157186+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4291) exited. Scheduling for restart.
-2026-01-13T23:19:51.157666+00:00 quantix-vdc init: starting pid 4293, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:19:51.158284+00:00 quantix-vdc getty[4293]: tcgetattr: I/O error#015
-2026-01-13T23:20:01.158839+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4293) exited. Scheduling for restart.
-2026-01-13T23:20:02.159298+00:00 quantix-vdc init: starting pid 4296, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
-2026-01-13T23:20:02.159901+00:00 quantix-vdc getty[4296]: tcgetattr: I/O error#015
+2026-01-14T22:53:29.091150+00:00 quantix-vdc chronyd[2535]: chronyd version 4.5 starting (+CMDMON +NTP +REFCLOCK +RTC +PRIVDROP +SCFILTER +SIGND +ASYNCDNS +NTS +SECHASH +IPV6 -DEBUG)
+2026-01-14T22:53:30.059751+00:00 quantix-vdc : $WorkDirectory: /var/lib/rsyslog can not be accessed, probably does not exist - directive ignored [v8.2404.0 try https://www.rsyslog.com/e/2181 ]
+2026-01-14T22:53:30.059772+00:00 quantix-vdc : [origin software="rsyslogd" swVersion="8.2404.0" x-pid="2501" x-info="https://www.rsyslog.com"] start
+2026-01-14T22:53:34.095284+00:00 quantix-vdc chronyd[2535]: Could not resolve address of initstepslew server pool.ntp.org
+2026-01-14T22:53:34.298334+00:00 quantix-vdc /etc/init.d/postgresql[2634]: start-stop-daemon: failed to start `/usr/bin/pg_ctl'
+2026-01-14T22:53:34.302587+00:00 quantix-vdc /etc/init.d/postgresql[2644]: Check the log for a possible explanation of the above error:
+2026-01-14T22:53:34.304565+00:00 quantix-vdc /etc/init.d/postgresql[2645]:     /var/log/postgresql/postmaster.log
+2026-01-14T22:53:34.306144+00:00 quantix-vdc /etc/init.d/postgresql[2599]: ERROR: postgresql failed to start
+2026-01-14T22:54:04.573396+00:00 quantix-vdc /etc/init.d/nginx[2781]: ERROR: nginx failed to start
+2026-01-14T22:54:04.610659+00:00 quantix-vdc sshd[2843]: Server listening on 0.0.0.0 port 22.
+2026-01-14T22:54:04.610686+00:00 quantix-vdc sshd[2843]: Server listening on :: port 22.
+2026-01-14T22:54:04.632737+00:00 quantix-vdc init: starting pid 2883, tty '/dev/tty1': '/usr/bin/qx-dcui'
+2026-01-14T22:54:04.633266+00:00 quantix-vdc init: starting pid 2884, tty '/dev/tty2': '/sbin/getty 38400 tty2'
+2026-01-14T22:54:04.633453+00:00 quantix-vdc init: starting pid 2888, tty '/dev/tty3': '/sbin/getty 38400 tty3'
+2026-01-14T22:54:04.633570+00:00 quantix-vdc init: starting pid 2890, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:54:04.633816+00:00 quantix-vdc getty[2890]: tcgetattr: I/O error#015
+2026-01-14T22:54:14.107600+00:00 quantix-vdc /etc/init.d/networking[2934]: WARNING: you are stopping a boot service
+2026-01-14T22:54:15.123332+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 2890) exited. Scheduling for restart.
+2026-01-14T22:54:15.161565+00:00 quantix-vdc chronyd[2535]: chronyd exiting
+2026-01-14T22:54:15.161742+00:00 quantix-vdc chronyd[2535]: Could not open /var/lib/chrony/chrony.drift.tmp : No such file or directory
+2026-01-14T22:54:16.123809+00:00 quantix-vdc init: starting pid 3000, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:54:16.124378+00:00 quantix-vdc getty[3000]: tcgetattr: I/O error#015
+2026-01-14T22:54:26.124992+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3000) exited. Scheduling for restart.
+2026-01-14T22:54:27.125493+00:00 quantix-vdc init: starting pid 3146, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:54:27.126135+00:00 quantix-vdc getty[3146]: tcgetattr: I/O error#015
+2026-01-14T22:54:31.833136+00:00 quantix-vdc chronyd[3209]: chronyd version 4.5 starting (+CMDMON +NTP +REFCLOCK +RTC +PRIVDROP +SCFILTER +SIGND +ASYNCDNS +NTS +SECHASH +IPV6 -DEBUG)
+2026-01-14T22:54:36.838662+00:00 quantix-vdc chronyd[3209]: Could not resolve address of initstepslew server pool.ntp.org
+2026-01-14T22:54:37.846757+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3146) exited. Scheduling for restart.
+2026-01-14T22:54:38.847274+00:00 quantix-vdc init: starting pid 3285, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:54:38.847917+00:00 quantix-vdc getty[3285]: tcgetattr: I/O error#015
+2026-01-14T22:54:48.848470+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3285) exited. Scheduling for restart.
+2026-01-14T22:54:49.848966+00:00 quantix-vdc init: starting pid 3337, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:54:49.849642+00:00 quantix-vdc getty[3337]: tcgetattr: I/O error#015
+2026-01-14T22:54:50.196262+00:00 quantix-vdc /etc/init.d/networking[3342]: WARNING: you are stopping a boot service
+2026-01-14T22:54:50.256292+00:00 quantix-vdc chronyd[3209]: chronyd exiting
+2026-01-14T22:54:50.256469+00:00 quantix-vdc chronyd[3209]: Could not open /var/lib/chrony/chrony.drift.tmp : No such file or directory
+2026-01-14T22:54:59.850197+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3337) exited. Scheduling for restart.
+2026-01-14T22:55:00.342652+00:00 quantix-vdc /etc/init.d/networking[3342]: networking: waiting for quantix-controlplane (50 seconds)
+2026-01-14T22:55:00.850684+00:00 quantix-vdc init: starting pid 3413, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:55:00.851298+00:00 quantix-vdc getty[3413]: tcgetattr: I/O error#015
+2026-01-14T22:55:10.851907+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3413) exited. Scheduling for restart.
+2026-01-14T22:55:11.852445+00:00 quantix-vdc init: starting pid 3574, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:55:11.853073+00:00 quantix-vdc getty[3574]: tcgetattr: I/O error#015
+2026-01-14T22:55:17.729367+00:00 quantix-vdc chronyd[3637]: chronyd version 4.5 starting (+CMDMON +NTP +REFCLOCK +RTC +PRIVDROP +SCFILTER +SIGND +ASYNCDNS +NTS +SECHASH +IPV6 -DEBUG)
+2026-01-14T22:55:21.853662+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3574) exited. Scheduling for restart.
+2026-01-14T22:55:22.734871+00:00 quantix-vdc chronyd[3637]: Could not resolve address of initstepslew server pool.ntp.org
+2026-01-14T22:55:22.854177+00:00 quantix-vdc init: starting pid 3667, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:55:22.854812+00:00 quantix-vdc getty[3667]: tcgetattr: I/O error#015
+2026-01-14T22:55:32.855354+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3667) exited. Scheduling for restart.
+2026-01-14T22:55:33.855853+00:00 quantix-vdc init: starting pid 3677, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:55:33.856442+00:00 quantix-vdc getty[3677]: tcgetattr: I/O error#015
+2026-01-14T22:55:43.857051+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3677) exited. Scheduling for restart.
+2026-01-14T22:55:44.857538+00:00 quantix-vdc init: starting pid 3805, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:55:44.858133+00:00 quantix-vdc getty[3805]: tcgetattr: I/O error#015
+2026-01-14T22:55:54.858617+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3805) exited. Scheduling for restart.
+2026-01-14T22:55:55.859142+00:00 quantix-vdc init: starting pid 3812, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:55:55.859870+00:00 quantix-vdc getty[3812]: tcgetattr: I/O error#015
+2026-01-14T22:56:05.860274+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3812) exited. Scheduling for restart.
+2026-01-14T22:56:06.860608+00:00 quantix-vdc init: starting pid 3815, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:56:06.860934+00:00 quantix-vdc getty[3815]: tcgetattr: I/O error#015
+2026-01-14T22:56:16.861378+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3815) exited. Scheduling for restart.
+2026-01-14T22:56:17.861727+00:00 quantix-vdc init: starting pid 3816, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:56:17.862316+00:00 quantix-vdc getty[3816]: tcgetattr: I/O error#015
+2026-01-14T22:56:27.862839+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3816) exited. Scheduling for restart.
+2026-01-14T22:56:28.863306+00:00 quantix-vdc init: starting pid 3819, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:56:28.863974+00:00 quantix-vdc getty[3819]: tcgetattr: I/O error#015
+2026-01-14T22:56:37.195561+00:00 quantix-vdc sshd[2843]: Received signal 15; terminating.
+2026-01-14T22:56:37.275529+00:00 quantix-vdc sshd[4035]: Server listening on 0.0.0.0 port 22.
+2026-01-14T22:56:37.275550+00:00 quantix-vdc sshd[4035]: Server listening on :: port 22.
+2026-01-14T22:56:39.197220+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 3819) exited. Scheduling for restart.
+2026-01-14T22:56:40.197686+00:00 quantix-vdc init: starting pid 4157, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:56:40.198340+00:00 quantix-vdc getty[4157]: tcgetattr: I/O error#015
+2026-01-14T22:56:50.198932+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4157) exited. Scheduling for restart.
+2026-01-14T22:56:51.199394+00:00 quantix-vdc init: starting pid 4158, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:56:51.199987+00:00 quantix-vdc getty[4158]: tcgetattr: I/O error#015
+2026-01-14T22:57:01.200563+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4158) exited. Scheduling for restart.
+2026-01-14T22:57:02.201071+00:00 quantix-vdc init: starting pid 4243, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:57:02.201637+00:00 quantix-vdc getty[4243]: tcgetattr: I/O error#015
+2026-01-14T22:57:12.202204+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4243) exited. Scheduling for restart.
+2026-01-14T22:57:13.202698+00:00 quantix-vdc init: starting pid 4272, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:57:13.203287+00:00 quantix-vdc getty[4272]: tcgetattr: I/O error#015
+2026-01-14T22:57:23.203852+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4272) exited. Scheduling for restart.
+2026-01-14T22:57:24.204325+00:00 quantix-vdc init: starting pid 4305, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:57:24.204914+00:00 quantix-vdc getty[4305]: tcgetattr: I/O error#015
+2026-01-14T22:57:34.205520+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4305) exited. Scheduling for restart.
+2026-01-14T22:57:35.205913+00:00 quantix-vdc init: starting pid 4363, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:57:35.206552+00:00 quantix-vdc getty[4363]: tcgetattr: I/O error#015
+2026-01-14T22:57:45.207102+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4363) exited. Scheduling for restart.
+2026-01-14T22:57:46.207582+00:00 quantix-vdc init: starting pid 4409, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:57:46.208226+00:00 quantix-vdc getty[4409]: tcgetattr: I/O error#015
+2026-01-14T22:57:56.208769+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4409) exited. Scheduling for restart.
+2026-01-14T22:57:57.209240+00:00 quantix-vdc init: starting pid 4410, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:57:57.209833+00:00 quantix-vdc getty[4410]: tcgetattr: I/O error#015
+2026-01-14T22:58:07.210427+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4410) exited. Scheduling for restart.
+2026-01-14T22:58:08.210924+00:00 quantix-vdc init: starting pid 4411, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:58:08.211566+00:00 quantix-vdc getty[4411]: tcgetattr: I/O error#015
+2026-01-14T22:58:18.212145+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4411) exited. Scheduling for restart.
+2026-01-14T22:58:19.212609+00:00 quantix-vdc init: starting pid 4413, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:58:19.213282+00:00 quantix-vdc getty[4413]: tcgetattr: I/O error#015
+2026-01-14T22:58:29.213746+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4413) exited. Scheduling for restart.
+2026-01-14T22:58:30.214238+00:00 quantix-vdc init: starting pid 4414, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:58:30.214835+00:00 quantix-vdc getty[4414]: tcgetattr: I/O error#015
+2026-01-14T22:58:40.215451+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4414) exited. Scheduling for restart.
+2026-01-14T22:58:41.216030+00:00 quantix-vdc init: starting pid 4416, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:58:41.216684+00:00 quantix-vdc getty[4416]: tcgetattr: I/O error#015
+2026-01-14T22:58:51.217280+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4416) exited. Scheduling for restart.
+2026-01-14T22:58:52.217790+00:00 quantix-vdc init: starting pid 4418, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:58:52.218401+00:00 quantix-vdc getty[4418]: tcgetattr: I/O error#015
+2026-01-14T22:59:00.155053+00:00 quantix-vdc chronyd[3637]: Selected source 51.17.20.53 (pool.ntp.org)
+2026-01-14T22:59:02.225030+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4418) exited. Scheduling for restart.
+2026-01-14T22:59:03.227124+00:00 quantix-vdc init: starting pid 4420, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:59:03.227759+00:00 quantix-vdc getty[4420]: tcgetattr: I/O error#015
+2026-01-14T22:59:13.228359+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4420) exited. Scheduling for restart.
+2026-01-14T22:59:14.228898+00:00 quantix-vdc init: starting pid 4421, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:59:14.229566+00:00 quantix-vdc getty[4421]: tcgetattr: I/O error#015
+2026-01-14T22:59:24.230170+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4421) exited. Scheduling for restart.
+2026-01-14T22:59:25.230682+00:00 quantix-vdc init: starting pid 4423, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:59:25.231309+00:00 quantix-vdc getty[4423]: tcgetattr: I/O error#015
+2026-01-14T22:59:35.231861+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4423) exited. Scheduling for restart.
+2026-01-14T22:59:36.232335+00:00 quantix-vdc init: starting pid 4424, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:59:36.232931+00:00 quantix-vdc getty[4424]: tcgetattr: I/O error#015
+2026-01-14T22:59:46.233525+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4424) exited. Scheduling for restart.
+2026-01-14T22:59:47.234035+00:00 quantix-vdc init: starting pid 4425, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:59:47.234622+00:00 quantix-vdc getty[4425]: tcgetattr: I/O error#015
+2026-01-14T22:59:57.235223+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4425) exited. Scheduling for restart.
+2026-01-14T22:59:58.235767+00:00 quantix-vdc init: starting pid 4426, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T22:59:58.236396+00:00 quantix-vdc getty[4426]: tcgetattr: I/O error#015
+2026-01-14T23:00:08.236937+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4426) exited. Scheduling for restart.
+2026-01-14T23:00:09.237319+00:00 quantix-vdc init: starting pid 4428, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:00:09.237933+00:00 quantix-vdc getty[4428]: tcgetattr: I/O error#015
+2026-01-14T23:00:19.238531+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4428) exited. Scheduling for restart.
+2026-01-14T23:00:20.239073+00:00 quantix-vdc init: starting pid 4429, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:00:20.239676+00:00 quantix-vdc getty[4429]: tcgetattr: I/O error#015
+2026-01-14T23:00:30.240159+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4429) exited. Scheduling for restart.
+2026-01-14T23:00:31.240662+00:00 quantix-vdc init: starting pid 4430, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:00:31.241279+00:00 quantix-vdc getty[4430]: tcgetattr: I/O error#015
+2026-01-14T23:00:41.241823+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4430) exited. Scheduling for restart.
+2026-01-14T23:00:42.242330+00:00 quantix-vdc init: starting pid 4432, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:00:42.242962+00:00 quantix-vdc getty[4432]: tcgetattr: I/O error#015
+2026-01-14T23:00:52.243540+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4432) exited. Scheduling for restart.
+2026-01-14T23:00:53.244083+00:00 quantix-vdc init: starting pid 4433, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:00:53.244721+00:00 quantix-vdc getty[4433]: tcgetattr: I/O error#015
+2026-01-14T23:01:03.245279+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4433) exited. Scheduling for restart.
+2026-01-14T23:01:04.245820+00:00 quantix-vdc init: starting pid 4434, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:01:04.246430+00:00 quantix-vdc getty[4434]: tcgetattr: I/O error#015
+2026-01-14T23:01:14.247000+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4434) exited. Scheduling for restart.
+2026-01-14T23:01:15.247371+00:00 quantix-vdc init: starting pid 4436, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:01:15.247976+00:00 quantix-vdc getty[4436]: tcgetattr: I/O error#015
+2026-01-14T23:01:25.248571+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4436) exited. Scheduling for restart.
+2026-01-14T23:01:26.249079+00:00 quantix-vdc init: starting pid 4437, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:01:26.249696+00:00 quantix-vdc getty[4437]: tcgetattr: I/O error#015
+2026-01-14T23:01:36.250173+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4437) exited. Scheduling for restart.
+2026-01-14T23:01:37.250663+00:00 quantix-vdc init: starting pid 4438, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:01:37.251276+00:00 quantix-vdc getty[4438]: tcgetattr: I/O error#015
+2026-01-14T23:01:47.251856+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4438) exited. Scheduling for restart.
+2026-01-14T23:01:48.252370+00:00 quantix-vdc init: starting pid 4440, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:01:48.253012+00:00 quantix-vdc getty[4440]: tcgetattr: I/O error#015
+2026-01-14T23:01:58.253563+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4440) exited. Scheduling for restart.
+2026-01-14T23:01:59.254062+00:00 quantix-vdc init: starting pid 4441, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:01:59.254645+00:00 quantix-vdc getty[4441]: tcgetattr: I/O error#015
+2026-01-14T23:02:09.255277+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4441) exited. Scheduling for restart.
+2026-01-14T23:02:10.255792+00:00 quantix-vdc init: starting pid 4442, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:02:10.256421+00:00 quantix-vdc getty[4442]: tcgetattr: I/O error#015
+2026-01-14T23:02:20.257037+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4442) exited. Scheduling for restart.
+2026-01-14T23:02:21.257535+00:00 quantix-vdc init: starting pid 4444, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:02:21.258114+00:00 quantix-vdc getty[4444]: tcgetattr: I/O error#015
+2026-01-14T23:02:31.258722+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4444) exited. Scheduling for restart.
+2026-01-14T23:02:32.259235+00:00 quantix-vdc init: starting pid 4445, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:02:32.259843+00:00 quantix-vdc getty[4445]: tcgetattr: I/O error#015
+2026-01-14T23:02:42.260309+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4445) exited. Scheduling for restart.
+2026-01-14T23:02:43.260789+00:00 quantix-vdc init: starting pid 4446, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:02:43.261409+00:00 quantix-vdc getty[4446]: tcgetattr: I/O error#015
+2026-01-14T23:02:53.261982+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4446) exited. Scheduling for restart.
+2026-01-14T23:02:54.262508+00:00 quantix-vdc init: starting pid 4447, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:02:54.263117+00:00 quantix-vdc getty[4447]: tcgetattr: I/O error#015
+2026-01-14T23:03:04.263675+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4447) exited. Scheduling for restart.
+2026-01-14T23:03:05.264175+00:00 quantix-vdc init: starting pid 4449, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:03:05.264762+00:00 quantix-vdc getty[4449]: tcgetattr: I/O error#015
+2026-01-14T23:03:15.265295+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4449) exited. Scheduling for restart.
+2026-01-14T23:03:16.265792+00:00 quantix-vdc init: starting pid 4450, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:03:16.266415+00:00 quantix-vdc getty[4450]: tcgetattr: I/O error#015
+2026-01-14T23:03:26.267017+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4450) exited. Scheduling for restart.
+2026-01-14T23:03:27.267542+00:00 quantix-vdc init: starting pid 4451, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:03:27.268157+00:00 quantix-vdc getty[4451]: tcgetattr: I/O error#015
+2026-01-14T23:03:37.268729+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4451) exited. Scheduling for restart.
+2026-01-14T23:03:38.269222+00:00 quantix-vdc init: starting pid 4453, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:03:38.269835+00:00 quantix-vdc getty[4453]: tcgetattr: I/O error#015
+2026-01-14T23:03:48.270374+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4453) exited. Scheduling for restart.
+2026-01-14T23:03:49.270811+00:00 quantix-vdc init: starting pid 4454, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:03:49.271396+00:00 quantix-vdc getty[4454]: tcgetattr: I/O error#015
+2026-01-14T23:03:59.271989+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4454) exited. Scheduling for restart.
+2026-01-14T23:04:00.272492+00:00 quantix-vdc init: starting pid 4455, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:04:00.273097+00:00 quantix-vdc getty[4455]: tcgetattr: I/O error#015
+2026-01-14T23:04:10.273673+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4455) exited. Scheduling for restart.
+2026-01-14T23:04:11.274200+00:00 quantix-vdc init: starting pid 4457, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:04:11.274851+00:00 quantix-vdc getty[4457]: tcgetattr: I/O error#015
+2026-01-14T23:04:21.275448+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4457) exited. Scheduling for restart.
+2026-01-14T23:04:22.275911+00:00 quantix-vdc init: starting pid 4464, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:04:22.276526+00:00 quantix-vdc getty[4464]: tcgetattr: I/O error#015
+2026-01-14T23:04:32.277123+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4464) exited. Scheduling for restart.
+2026-01-14T23:04:33.277632+00:00 quantix-vdc init: starting pid 4466, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:04:33.278277+00:00 quantix-vdc getty[4466]: tcgetattr: I/O error#015
+2026-01-14T23:04:43.278764+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4466) exited. Scheduling for restart.
+2026-01-14T23:04:44.279153+00:00 quantix-vdc init: starting pid 4468, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:04:44.279622+00:00 quantix-vdc getty[4468]: tcgetattr: I/O error#015
+2026-01-14T23:04:54.280208+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4468) exited. Scheduling for restart.
+2026-01-14T23:04:55.280705+00:00 quantix-vdc init: starting pid 4470, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:04:55.281320+00:00 quantix-vdc getty[4470]: tcgetattr: I/O error#015
+2026-01-14T23:05:05.281937+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4470) exited. Scheduling for restart.
+2026-01-14T23:05:06.282438+00:00 quantix-vdc init: starting pid 4471, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:05:06.283017+00:00 quantix-vdc getty[4471]: tcgetattr: I/O error#015
+2026-01-14T23:05:16.283570+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4471) exited. Scheduling for restart.
+2026-01-14T23:05:17.284049+00:00 quantix-vdc init: starting pid 4473, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:05:17.284639+00:00 quantix-vdc getty[4473]: tcgetattr: I/O error#015
+2026-01-14T23:05:27.285207+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4473) exited. Scheduling for restart.
+2026-01-14T23:05:28.285769+00:00 quantix-vdc init: starting pid 4474, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:05:28.286390+00:00 quantix-vdc getty[4474]: tcgetattr: I/O error#015
+2026-01-14T23:05:38.286934+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4474) exited. Scheduling for restart.
+2026-01-14T23:05:39.287454+00:00 quantix-vdc init: starting pid 4475, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:05:39.288060+00:00 quantix-vdc getty[4475]: tcgetattr: I/O error#015
+2026-01-14T23:05:39.342488+00:00 quantix-vdc sshd[4476]: rexec line 86: Unsupported option UsePAM
+2026-01-14T23:05:40.695239+00:00 quantix-vdc sshd[4476]: Accepted password for root from 192.168.0.148 port 49620 ssh2
+2026-01-14T23:05:49.288611+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4475) exited. Scheduling for restart.
+2026-01-14T23:05:49.787415+00:00 quantix-vdc sshd[4482]: rexec line 86: Unsupported option UsePAM
+2026-01-14T23:05:49.827333+00:00 quantix-vdc sshd[4482]: Accepted password for root from 192.168.0.148 port 49627 ssh2
+2026-01-14T23:05:50.289159+00:00 quantix-vdc init: starting pid 4487, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:05:50.289800+00:00 quantix-vdc getty[4487]: tcgetattr: I/O error#015
+2026-01-14T23:05:53.898577+00:00 quantix-vdc sshd[4482]: Received disconnect from 192.168.0.148 port 49627:11: Normal Shutdown
+2026-01-14T23:05:53.898882+00:00 quantix-vdc sshd[4482]: Disconnected from user root 192.168.0.148 port 49627
+2026-01-14T23:05:57.263868+00:00 quantix-vdc sshd[4489]: rexec line 86: Unsupported option UsePAM
+2026-01-14T23:05:57.310676+00:00 quantix-vdc sshd[4489]: Accepted password for root from 192.168.0.148 port 49634 ssh2
+2026-01-14T23:06:00.290360+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4487) exited. Scheduling for restart.
+2026-01-14T23:06:01.290869+00:00 quantix-vdc init: starting pid 4492, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:06:01.291490+00:00 quantix-vdc getty[4492]: tcgetattr: I/O error#015
+2026-01-14T23:06:11.292106+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4492) exited. Scheduling for restart.
+2026-01-14T23:06:12.292620+00:00 quantix-vdc init: starting pid 4493, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:06:12.293246+00:00 quantix-vdc getty[4493]: tcgetattr: I/O error#015
+2026-01-14T23:06:22.293806+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4493) exited. Scheduling for restart.
+2026-01-14T23:06:23.294277+00:00 quantix-vdc init: starting pid 4494, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:06:23.294887+00:00 quantix-vdc getty[4494]: tcgetattr: I/O error#015
+2026-01-14T23:06:33.295481+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4494) exited. Scheduling for restart.
+2026-01-14T23:06:34.295987+00:00 quantix-vdc init: starting pid 4496, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:06:34.296649+00:00 quantix-vdc getty[4496]: tcgetattr: I/O error#015
+2026-01-14T23:06:44.297207+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4496) exited. Scheduling for restart.
+2026-01-14T23:06:45.297682+00:00 quantix-vdc init: starting pid 4497, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:06:45.298250+00:00 quantix-vdc getty[4497]: tcgetattr: I/O error#015
+2026-01-14T23:06:55.298823+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4497) exited. Scheduling for restart.
+2026-01-14T23:06:56.299295+00:00 quantix-vdc init: starting pid 4498, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:06:56.299923+00:00 quantix-vdc getty[4498]: tcgetattr: I/O error#015
+2026-01-14T23:07:06.300528+00:00 quantix-vdc init: process '/sbin/getty -L 115200 ttyS0 vt100' (pid 4498) exited. Scheduling for restart.
+2026-01-14T23:07:07.301030+00:00 quantix-vdc init: starting pid 4501, tty '/dev/ttyS0': '/sbin/getty -L 115200 ttyS0 vt100'
+2026-01-14T23:07:07.301642+00:00 quantix-vdc getty[4501]: tcgetattr: I/O error#015

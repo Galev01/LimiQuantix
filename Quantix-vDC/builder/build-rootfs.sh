@@ -279,6 +279,28 @@ mkdir -p "${ROOTFS_DIR}/var/log/nginx"
 chroot "${ROOTFS_DIR}" chown -R nginx:nginx /var/lib/nginx 2>/dev/null || true
 chroot "${ROOTFS_DIR}" chown -R nginx:nginx /var/log/nginx 2>/dev/null || true
 
+# Create PostgreSQL symlinks (postgresql16 installs to /usr/libexec/postgresql16/)
+# The init script expects /usr/bin/pg_ctl
+echo "   Creating PostgreSQL binary symlinks..."
+PG_BIN=""
+for dir in /usr/libexec/postgresql16 /usr/lib/postgresql16/bin /usr/lib/postgresql/16/bin; do
+    if [ -d "${ROOTFS_DIR}${dir}" ]; then
+        PG_BIN="${dir}"
+        break
+    fi
+done
+
+if [ -n "$PG_BIN" ]; then
+    for bin in pg_ctl pg_isready initdb postgres psql pg_dump pg_restore; do
+        if [ -f "${ROOTFS_DIR}${PG_BIN}/${bin}" ] && [ ! -e "${ROOTFS_DIR}/usr/bin/${bin}" ]; then
+            ln -sf "${PG_BIN}/${bin}" "${ROOTFS_DIR}/usr/bin/${bin}"
+            echo "   Linked: ${bin} -> ${PG_BIN}/${bin}"
+        fi
+    done
+else
+    echo "   ⚠️  PostgreSQL binary directory not found, init script may fail"
+fi
+
 echo "✅ Directories created"
 
 # -----------------------------------------------------------------------------
