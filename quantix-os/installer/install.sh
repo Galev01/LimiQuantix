@@ -266,50 +266,117 @@ fi
 # Step 1: Create Partitions
 # =============================================================================
 log_step "Step 1/${TOTAL_STEPS}: Creating partition table..."
-    
-    # Unmount any existing partitions
-    umount ${TARGET_DISK}* 2>/dev/null || true
 
-    # Stop any LVM/RAID using this disk
-    vgchange -an 2>/dev/null || true
-    
-    # Wipe ALL filesystem signatures from the disk
-    # This prevents "Invalid superblock" errors from old filesystems
-    log_info "Wiping existing filesystem signatures..."
-    wipefs -a "${TARGET_DISK}" 2>/dev/null || true
-    
-    # Also wipe the first and last 1MB to clear GPT/MBR
-    dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=1 2>/dev/null || true
-    dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=1 seek=$(($(blockdev --getsz "${TARGET_DISK}") / 2048 - 1)) 2>/dev/null || true
-    
-    # Inform kernel of partition changes
+# Log all operations for debugging
+INSTALL_LOG="/tmp/install.log"
+log_info "Detailed install log: ${INSTALL_LOG}"
+exec > >(tee -a "${INSTALL_LOG}") 2>&1
+
+log_info "Target disk: ${TARGET_DISK}"
+log_info "Current partition table:"
+parted -s "${TARGET_DISK}" print 2>&1 || echo "(no existing partition table)"
+log_info "Current blkid output:"
+blkid 2>&1 || true
+
+# Unmount any existing partitions
+log_info "Unmounting any existing partitions..."
+for part in ${TARGET_DISK}* ${TARGET_DISK}p*; do
+    [ -b "$part" ] && umount "$part" 2>/dev/null || true
+done
+
+# Stop any LVM/RAID using this disk
+log_info "Deactivating LVM/RAID..."
+vgchange -an 2>/dev/null || true
+mdadm --stop --scan 2>/dev/null || true
+
+# =============================================================================
+# AGGRESSIVE DISK WIPE - Prevents "Invalid superblock" errors
+# =============================================================================
+log_info "Performing aggressive disk wipe..."
+
+# Method 1: sgdisk --zap-all (recommended by Gemini)
+if command -v sgdisk >/dev/null 2>&1; then
+    log_info "Using sgdisk to zap all partition data..."
+    sgdisk --zap-all "${TARGET_DISK}" 2>&1 || log_warn "sgdisk zap failed (continuing)"
+fi
+
+# Method 2: wipefs on disk
+log_info "Wiping filesystem signatures..."
+wipefs -a --force "${TARGET_DISK}" 2>/dev/null || true
+
+# Method 3: Zero critical areas where XFS/ext4 superblocks are stored
+# XFS primary superblock is at 512 bytes, secondary at 512KB, 1GB, etc.
+# ext4 superblock is at 1024 bytes
+log_info "Zeroing first 10MB to clear all superblocks..."
+dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=10 conv=notrunc 2>/dev/null || true
+
+# Zero end of disk to clear backup GPT
+log_info "Zeroing last 10MB to clear backup GPT..."
+DISK_SIZE_SECTORS=$(blockdev --getsz "${TARGET_DISK}" 2>/dev/null || echo "0")
+if [ "$DISK_SIZE_SECTORS" -gt 20480 ]; then
+    SEEK_POS=$(( (DISK_SIZE_SECTORS / 2048) - 10 ))
+    dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=10 seek=$SEEK_POS conv=notrunc 2>/dev/null || true
+fi
+
+# Force kernel to drop all partition info
+log_info "Forcing kernel partition table re-read..."
+blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
+partprobe "${TARGET_DISK}" 2>/dev/null || true
+udevadm settle 2>/dev/null || true
+sleep 2
+
+# Verify disk is clean
+log_info "Verifying disk is clean..."
+if blkid "${TARGET_DISK}" 2>/dev/null | grep -q TYPE; then
+    log_warn "Disk still has filesystem signatures - attempting deeper wipe"
+    dd if=/dev/zero of="${TARGET_DISK}" bs=4M count=25 conv=notrunc 2>/dev/null || true
+    blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
     partprobe "${TARGET_DISK}" 2>/dev/null || true
     udevadm settle 2>/dev/null || true
     sleep 1
+fi
     
-    # Create GPT partition table
-    parted -s "${TARGET_DISK}" mklabel gpt
-    
-    # Calculate partition positions
-    # Layout: EFI(256M) + SysA(1.5G) + SysB(1.5G) + Cfg(256M) + Data(rest)
+# Create GPT partition table
+log_info "Creating GPT partition table..."
+parted -s "${TARGET_DISK}" mklabel gpt
+
+# Calculate partition positions
+# Layout: EFI(256M) + SysA(1.5G) + SysB(1.5G) + Cfg(256M) + Data(rest)
 EFI_END="256M"
 SYS_A_END="1756M"   # 256M + 1500M
 SYS_B_END="3256M"   # 1756M + 1500M
 CFG_END="3512M"     # 3256M + 256M
-    
-    # Create partitions
+
+# Create partitions
+log_info "Creating partitions..."
 parted -s "${TARGET_DISK}" mkpart "EFI" fat32 1MiB ${EFI_END}
-    parted -s "${TARGET_DISK}" set 1 esp on
-    
+parted -s "${TARGET_DISK}" set 1 esp on
+
 parted -s "${TARGET_DISK}" mkpart "QUANTIX-A" ext4 ${EFI_END} ${SYS_A_END}
 parted -s "${TARGET_DISK}" mkpart "QUANTIX-B" ext4 ${SYS_A_END} ${SYS_B_END}
 parted -s "${TARGET_DISK}" mkpart "QUANTIX-CFG" ext4 ${SYS_B_END} ${CFG_END}
 parted -s "${TARGET_DISK}" mkpart "QUANTIX-DATA" xfs ${CFG_END} 100%
-    
-    # Wait for kernel to recognize partitions
+
+# CRITICAL: Force kernel to re-read partition table multiple times
+log_info "Synchronizing kernel partition table..."
+sync
+blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
 partprobe "${TARGET_DISK}" 2>/dev/null || true
-    udevadm settle 2>/dev/null || true
-    sleep 2
+udevadm settle 2>/dev/null || true
+sleep 2
+
+# Re-trigger device detection
+if command -v mdev >/dev/null 2>&1; then
+    mdev -s 2>/dev/null || true
+fi
+
+# Second sync to ensure stability
+blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
+partprobe "${TARGET_DISK}" 2>/dev/null || true
+sleep 1
+
+log_info "New partition table:"
+parted -s "${TARGET_DISK}" print 2>&1 || true
     
 # Determine partition naming
 case "$TARGET_DISK" in
@@ -350,44 +417,95 @@ fi
 # =============================================================================
 log_step "Step 2/${TOTAL_STEPS}: Formatting partitions..."
 
-# Wipe partition signatures before formatting (prevents stale superblock errors)
+# CRITICAL: Wipe each partition thoroughly before formatting
+# This prevents "Invalid superblock magic number" errors from old filesystems
+log_info "Wiping partition signatures..."
 for part in "${PART_EFI}" "${PART_SYS_A}" "${PART_SYS_B}" "${PART_CFG}" "${PART_DATA}"; do
-    wipefs -a "$part" 2>/dev/null || true
+    if [ -b "$part" ]; then
+        log_info "  Wiping $part..."
+        # Remove any filesystem signatures
+        wipefs -a --force "$part" 2>/dev/null || true
+        # Zero first 10MB of partition to clear all possible superblock locations
+        # XFS superblocks: 0, 512, 32K, 64K, etc.
+        # ext4 superblocks: 1K, 32K+1K, etc.
+        dd if=/dev/zero of="$part" bs=1M count=10 conv=notrunc 2>/dev/null || true
+    else
+        log_warn "  Partition $part not found - waiting..."
+        sleep 2
+        if [ ! -b "$part" ]; then
+            log_error "Partition $part still not found!"
+            log_error "Available devices:"
+            ls -la /dev/nvme* /dev/sd* 2>/dev/null || true
+            exit 1
+        fi
+    fi
 done
 
-log_info "Formatting EFI partition..."
-mkfs.vfat -F 32 -n "EFI" "${PART_EFI}"
+# Sync before formatting
+sync
+sleep 1
 
-log_info "Formatting System A partition..."
-mkfs.ext4 -L "QUANTIX-A" -F "${PART_SYS_A}"
+log_info "Formatting EFI partition (${PART_EFI})..."
+mkfs.vfat -F 32 -n "EFI" "${PART_EFI}" || {
+    log_error "Failed to format EFI partition"
+    exit 1
+}
 
-log_info "Formatting System B partition..."
-mkfs.ext4 -L "QUANTIX-B" -F "${PART_SYS_B}"
+log_info "Formatting System A partition (${PART_SYS_A})..."
+mkfs.ext4 -L "QUANTIX-A" -F "${PART_SYS_A}" || {
+    log_error "Failed to format System A partition"
+    exit 1
+}
 
-log_info "Formatting Config partition..."
-mkfs.ext4 -L "QUANTIX-CFG" -F "${PART_CFG}"
+log_info "Formatting System B partition (${PART_SYS_B})..."
+mkfs.ext4 -L "QUANTIX-B" -F "${PART_SYS_B}" || {
+    log_error "Failed to format System B partition"
+    exit 1
+}
 
-log_info "Formatting Data partition (XFS)..."
-mkfs.xfs -L "QUANTIX-DATA" -f "${PART_DATA}"
+log_info "Formatting Config partition (${PART_CFG})..."
+mkfs.ext4 -L "QUANTIX-CFG" -F "${PART_CFG}" || {
+    log_error "Failed to format Config partition"
+    exit 1
+}
+
+log_info "Formatting Data partition (${PART_DATA}) with XFS..."
+mkfs.xfs -L "QUANTIX-DATA" -f "${PART_DATA}" || {
+    log_error "Failed to format Data partition"
+    exit 1
+}
 
 # Sync to ensure all writes are flushed
 sync
 sleep 1
+
+# Force kernel to update partition info after formatting
+partprobe "${TARGET_DISK}" 2>/dev/null || true
+udevadm settle 2>/dev/null || true
+sleep 1
     
-log_info "Partitions formatted"
+log_info "Partitions formatted successfully"
 
 # Verify filesystem labels and types
 log_info "Verifying filesystem labels..."
-if [ "$(blkid -o value -s LABEL "${PART_DATA}" 2>/dev/null)" != "QUANTIX-DATA" ]; then
-    log_error "Data partition label not set correctly"
-    blkid "${PART_DATA}" 2>/dev/null || true
+log_info "blkid output:"
+blkid 2>&1 | tee -a "${INSTALL_LOG}" || true
+
+DATA_LABEL=$(blkid -o value -s LABEL "${PART_DATA}" 2>/dev/null)
+DATA_TYPE=$(blkid -o value -s TYPE "${PART_DATA}" 2>/dev/null)
+
+log_info "Data partition: LABEL=$DATA_LABEL TYPE=$DATA_TYPE"
+
+if [ "$DATA_LABEL" != "QUANTIX-DATA" ]; then
+    log_error "Data partition label not set correctly (expected QUANTIX-DATA, got $DATA_LABEL)"
     exit 1
 fi
-if [ "$(blkid -o value -s TYPE "${PART_DATA}" 2>/dev/null)" != "xfs" ]; then
-    log_error "Data partition is not XFS"
-    blkid "${PART_DATA}" 2>/dev/null || true
+if [ "$DATA_TYPE" != "xfs" ]; then
+    log_error "Data partition is not XFS (expected xfs, got $DATA_TYPE)"
     exit 1
 fi
+
+log_info "All partitions verified successfully"
 
 # =============================================================================
 # Step 3: Mount Partitions
