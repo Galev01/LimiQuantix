@@ -1,22 +1,26 @@
 # Workflow State
 
-## Quantix-vDC ISO Kernel Missing Fix
+## Quantix-OS Installer XFS Superblock Fix
 
 ### Status: IN PROGRESS
 
 ### Goal
-Prevent ISO boots from failing with "file '/boot/vmlinuz' not found" by
-verifying the kernel is present and adding fallback extraction paths.
+Eliminate `XFS ... Invalid superblock magic number` after installation by
+ensuring stale filesystem signatures are wiped and the correct data partition
+is created and verified.
 
 ### Plan
-1. Add kernel fallback from `/rootfs/boot` and verify `/boot/vmlinuz` exists.
-2. Document the boot error and rebuild guidance in the appliance guide.
-3. Rebuild the ISO and validate boot in QEMU/host.
+1. Wipe existing filesystem signatures and GPT/MBR headers before partitioning.
+2. Wait for partition devices to appear and validate data partition presence.
+3. Verify data partition label/type after formatting.
+4. Update installer documentation with troubleshooting guidance.
+5. Rebuild ISO and re-run installation on target disk.
 
 ### Log
-- Added kernel fallback and explicit verification in ISO build.
-- Documented boot error troubleshooting in appliance guide.
+- Added wipefs + GPT header wipe before partitioning.
+- Added partition device wait/validation and XFS label checks.
+- Documented XFS superblock troubleshooting.
 
 ### References
-- `Quantix-vDC/builder/build-iso.sh`
-- `docs/000051-quantix-vdc-appliance.md`
+- `Quantix-OS/installer/install.sh`
+- `docs/Quantix-OS/000057-installer-storage-pool-configuration.md`

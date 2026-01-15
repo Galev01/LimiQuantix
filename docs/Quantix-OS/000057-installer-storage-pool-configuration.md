@@ -207,6 +207,27 @@ If you selected the wrong disk during installation:
 
 ⚠️ **Note**: Selecting a disk as a storage pool will **erase all data** on that disk.
 
+### XFS Invalid Superblock After Install
+
+If you see:
+
+```
+XFS (nvme0n1p3): Invalid superblock magic number
+```
+
+It usually means **old filesystem signatures** were still present on the disk
+and the kernel is trying to mount the wrong partition as XFS.
+
+**Fix:**
+1. Rebuild the ISO (installer now wipes stale signatures before formatting).
+2. Reinstall to the target disk.
+
+**Sanity check after boot:**
+
+```bash
+blkid | grep QUANTIX
+```
+
 ## Future Enhancements
 
 - [ ] RAID configuration support
