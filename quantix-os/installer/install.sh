@@ -269,9 +269,22 @@ log_step "Step 1/${TOTAL_STEPS}: Creating partition table..."
     
     # Unmount any existing partitions
     umount ${TARGET_DISK}* 2>/dev/null || true
-
-# Wipe existing partition table
-dd if=/dev/zero of="$TARGET_DISK" bs=512 count=34 2>/dev/null || true
+    
+    # Stop any LVM/RAID using this disk
+    vgchange -an 2>/dev/null || true
+    
+    # Wipe ALL filesystem signatures from the disk
+    # This prevents "Invalid superblock" errors from old filesystems
+    log_info "Wiping existing filesystem signatures..."
+    wipefs -a "${TARGET_DISK}" 2>/dev/null || true
+    
+    # Also wipe the first and last 1MB to clear GPT/MBR
+    dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=1 2>/dev/null || true
+    dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=1 seek=$(($(blockdev --getsz "${TARGET_DISK}") / 2048 - 1)) 2>/dev/null || true
+    
+    # Inform kernel of partition changes
+    partprobe "${TARGET_DISK}" 2>/dev/null || true
+    sleep 1
     
     # Create GPT partition table
     parted -s "${TARGET_DISK}" mklabel gpt
@@ -319,11 +332,29 @@ log_info "Partitions created"
 # =============================================================================
 log_step "Step 2/${TOTAL_STEPS}: Formatting partitions..."
 
+# Wipe partition signatures before formatting (prevents stale superblock errors)
+for part in "${PART_EFI}" "${PART_SYS_A}" "${PART_SYS_B}" "${PART_CFG}" "${PART_DATA}"; do
+    wipefs -a "$part" 2>/dev/null || true
+done
+
+log_info "Formatting EFI partition..."
 mkfs.vfat -F 32 -n "EFI" "${PART_EFI}"
+
+log_info "Formatting System A partition..."
 mkfs.ext4 -L "QUANTIX-A" -F "${PART_SYS_A}"
+
+log_info "Formatting System B partition..."
 mkfs.ext4 -L "QUANTIX-B" -F "${PART_SYS_B}"
+
+log_info "Formatting Config partition..."
 mkfs.ext4 -L "QUANTIX-CFG" -F "${PART_CFG}"
+
+log_info "Formatting Data partition (XFS)..."
 mkfs.xfs -L "QUANTIX-DATA" -f "${PART_DATA}"
+
+# Sync to ensure all writes are flushed
+sync
+sleep 1
     
 log_info "Partitions formatted"
 
