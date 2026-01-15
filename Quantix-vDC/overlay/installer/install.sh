@@ -177,66 +177,20 @@ echo ""
 # =============================================================================
 log_step "Step 1: Partitioning disk..."
 
-# -----------------------------------------------------------------------------
-# CRITICAL: Aggressive disk wiping to remove ALL old filesystem signatures
-# This prevents "Invalid superblock magic number" errors from leftover XFS/ext4/etc
-# -----------------------------------------------------------------------------
+# Wipe existing partition table (beginning)
+dd if=/dev/zero of="$TARGET_DISK" bs=512 count=34 2>/dev/null || true
 
-log_info "Wiping disk signatures and metadata..."
-
-# Method 1: Use sgdisk --zap-all if available (most thorough)
-if command -v sgdisk >/dev/null 2>&1; then
-    log_info "Using sgdisk to zap all partition data..."
-    sgdisk --zap-all "$TARGET_DISK" 2>/dev/null || true
-fi
-
-# Method 2: Wipe first 10MB to clear any filesystem superblocks
-# XFS superblock is at sector 0 of partition, ext4 at 1024 bytes, etc.
-log_info "Zeroing first 10MB of disk..."
-dd if=/dev/zero of="$TARGET_DISK" bs=1M count=10 conv=notrunc 2>/dev/null || true
-
-# Method 3: Wipe end of disk (GPT backup, some filesystems store metadata at end)
+# Wipe GPT backup at end of disk (if blockdev is available)
 if command -v blockdev >/dev/null 2>&1; then
-    DISK_SIZE=$(blockdev --getsize64 "$TARGET_DISK" 2>/dev/null)
-    if [ -n "$DISK_SIZE" ] && [ "$DISK_SIZE" -gt 10485760 ]; then
-        # Wipe last 10MB
-        SEEK_POS=$(( (DISK_SIZE / 1048576) - 10 ))
-        log_info "Zeroing last 10MB of disk (offset ${SEEK_POS}MB)..."
-        dd if=/dev/zero of="$TARGET_DISK" bs=1M seek=$SEEK_POS count=10 conv=notrunc 2>/dev/null || true
-    fi
-else
-    log_warn "blockdev not found, using fallback for end wipe"
-    # Fallback: wipe last 34 sectors
-    DISK_SECTORS=$(cat /sys/block/$(basename "$TARGET_DISK")/size 2>/dev/null)
+    DISK_SECTORS=$(blockdev --getsz "$TARGET_DISK" 2>/dev/null)
     if [ -n "$DISK_SECTORS" ] && [ "$DISK_SECTORS" -gt 34 ]; then
         dd if=/dev/zero of="$TARGET_DISK" bs=512 seek=$((DISK_SECTORS - 34)) count=34 2>/dev/null || true
     fi
+else
+    log_warn "blockdev not found, skipping GPT backup wipe"
 fi
 
-# Method 4: Use wipefs if available (removes filesystem signatures specifically)
-if command -v wipefs >/dev/null 2>&1; then
-    log_info "Running wipefs to remove filesystem signatures..."
-    wipefs -a -f "$TARGET_DISK" 2>/dev/null || true
-fi
-
-# Sync and let kernel know about changes
-sync
-sleep 1
-
-# Force kernel to re-read disk (important for NVMe)
-if command -v blockdev >/dev/null 2>&1; then
-    blockdev --rereadpt "$TARGET_DISK" 2>/dev/null || true
-fi
-if command -v partprobe >/dev/null 2>&1; then
-    partprobe "$TARGET_DISK" 2>/dev/null || true
-fi
-
-log_info "Disk wiped successfully"
-
-# -----------------------------------------------------------------------------
 # Create GPT partition table
-# -----------------------------------------------------------------------------
-log_info "Creating GPT partition table..."
 parted -s "$TARGET_DISK" mklabel gpt
 
 # Partition layout:
@@ -244,7 +198,6 @@ parted -s "$TARGET_DISK" mklabel gpt
 # 2: Root partition (10GB)
 # 3: Data partition (rest)
 
-log_info "Creating partitions..."
 parted -s "$TARGET_DISK" \
     mkpart ESP fat32 1MiB 257MiB \
     set 1 esp on \
@@ -258,11 +211,6 @@ case "$TARGET_DISK" in
         PART2="${TARGET_DISK}p2"
         PART3="${TARGET_DISK}p3"
         ;;
-    /dev/mmcblk*)
-        PART1="${TARGET_DISK}p1"
-        PART2="${TARGET_DISK}p2"
-        PART3="${TARGET_DISK}p3"
-        ;;
     *)
         PART1="${TARGET_DISK}1"
         PART2="${TARGET_DISK}2"
@@ -270,112 +218,21 @@ case "$TARGET_DISK" in
         ;;
 esac
 
-# -----------------------------------------------------------------------------
-# CRITICAL: Force kernel to re-read partition table
-# NVMe drives especially need this to recognize new partitions
-# -----------------------------------------------------------------------------
-log_info "Syncing partition table to kernel..."
-sync
-
-# Multiple methods to ensure kernel sees new partitions
-if command -v blockdev >/dev/null 2>&1; then
-    blockdev --rereadpt "$TARGET_DISK" 2>/dev/null || true
-fi
-if command -v partprobe >/dev/null 2>&1; then
-    partprobe "$TARGET_DISK" 2>/dev/null || true
-fi
-if command -v partx >/dev/null 2>&1; then
-    partx -u "$TARGET_DISK" 2>/dev/null || true
-fi
-
-# Wait for partitions to appear (NVMe can be slow)
-log_info "Waiting for partitions to appear..."
-WAIT_COUNT=0
-while [ ! -b "$PART1" ] || [ ! -b "$PART2" ] || [ ! -b "$PART3" ]; do
-    sleep 1
-    WAIT_COUNT=$((WAIT_COUNT + 1))
-    if [ $WAIT_COUNT -ge 10 ]; then
-        log_error "Partitions did not appear after 10 seconds!"
-        log_error "Expected: $PART1, $PART2, $PART3"
-        log_error "Available block devices:"
-        ls -la /dev/nvme* /dev/sd* /dev/vd* /dev/mmcblk* 2>/dev/null || true
-        exit 1
-    fi
-    # Trigger udev/mdev
-    mdev -s 2>/dev/null || true
-done
+# Wait for partitions to appear
+sleep 2
 
 log_info "Partitions created: $PART1, $PART2, $PART3"
-
-# -----------------------------------------------------------------------------
-# CRITICAL: Wipe partition signatures AFTER partitions are created
-# This removes any lingering XFS/ext4/etc superblocks from previous OS
-# -----------------------------------------------------------------------------
-log_info "Wiping filesystem signatures from new partitions..."
-for part in "$PART1" "$PART2" "$PART3"; do
-    if [ -b "$part" ]; then
-        # Use wipefs first (cleanest method)
-        if command -v wipefs >/dev/null 2>&1; then
-            wipefs -a -f "$part" 2>/dev/null || true
-        fi
-        # Also zero first 1MB of each partition to be sure
-        dd if=/dev/zero of="$part" bs=1M count=1 conv=notrunc 2>/dev/null || true
-    fi
-done
-sync
-sleep 1
 
 # =============================================================================
 # Step 2: Format partitions
 # =============================================================================
 log_step "Step 2: Formatting partitions..."
 
-# Log partition info before formatting for debugging
-log_info "Partition information before formatting:"
-for part in "$PART1" "$PART2" "$PART3"; do
-    if [ -b "$part" ]; then
-        SIZE=$(blockdev --getsize64 "$part" 2>/dev/null || echo "unknown")
-        log_info "  $part: ${SIZE} bytes"
-    else
-        log_warn "  $part: NOT FOUND!"
-    fi
-done
+mkfs.vfat -F 32 -n QUANTIX-EFI "$PART1"
+mkfs.ext4 -L QUANTIX-ROOT -F "$PART2"
+mkfs.ext4 -L QUANTIX-DATA -F "$PART3"
 
-# Format EFI partition
-log_info "Formatting EFI partition ($PART1) as FAT32..."
-if ! mkfs.vfat -F 32 -n QUANTIX-EFI "$PART1"; then
-    log_error "Failed to format EFI partition!"
-    exit 1
-fi
-
-# Format root partition
-log_info "Formatting root partition ($PART2) as ext4..."
-if ! mkfs.ext4 -L QUANTIX-ROOT -F "$PART2"; then
-    log_error "Failed to format root partition!"
-    exit 1
-fi
-
-# Format data partition
-log_info "Formatting data partition ($PART3) as ext4..."
-if ! mkfs.ext4 -L QUANTIX-DATA -F "$PART3"; then
-    log_error "Failed to format data partition!"
-    exit 1
-fi
-
-# Sync and verify
-sync
-sleep 1
-
-# Verify filesystems were created correctly
-log_info "Verifying partition filesystems:"
-for part in "$PART1" "$PART2" "$PART3"; do
-    if [ -b "$part" ]; then
-        FS_INFO=$(blkid "$part" 2>/dev/null || echo "no blkid info")
-        log_info "  $part: $FS_INFO"
-    fi
-done
-
-log_info "Partitions formatted successfully"
+log_info "Partitions formatted"
 
 # =============================================================================
 # Step 3: Mount partitions

@@ -79,6 +79,8 @@ iso: version-bump docker-builder backend frontend scripts-executable
 	@mkdir -p $(OUTPUT_DIR)/installer-scripts
 	@cp -v $(BUILD_DIR)/installer/*.sh $(OUTPUT_DIR)/installer-scripts/ 2>/dev/null || true
 	@chmod +x $(OUTPUT_DIR)/installer-scripts/*.sh 2>/dev/null || true
+	@# Convert CRLF to LF in case scripts have Windows line endings
+	@for f in $(OUTPUT_DIR)/installer-scripts/*.sh; do sed -i 's/\r$$//' "$$f" 2>/dev/null || true; done
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
 		-v "$(OUTPUT_DIR):/output" \
@@ -91,6 +93,12 @@ iso: version-bump docker-builder backend frontend scripts-executable
 iso-no-bump: docker-builder backend frontend scripts-executable
 	@echo "🔨 Building installation ISO v$(VERSION) (no version bump)..."
 	@mkdir -p $(OUTPUT_DIR)
+	@# Copy installer scripts to output directory (workaround for Docker volume issues)
+	@mkdir -p $(OUTPUT_DIR)/installer-scripts
+	@cp -v $(BUILD_DIR)/installer/*.sh $(OUTPUT_DIR)/installer-scripts/ 2>/dev/null || true
+	@chmod +x $(OUTPUT_DIR)/installer-scripts/*.sh 2>/dev/null || true
+	@# Convert CRLF to LF in case scripts have Windows line endings
+	@for f in $(OUTPUT_DIR)/installer-scripts/*.sh; do sed -i 's/\r$$//' "$$f" 2>/dev/null || true; done
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
 		-v "$(OUTPUT_DIR):/output" \

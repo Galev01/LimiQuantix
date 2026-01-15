@@ -279,10 +279,53 @@ done
 # Copy installer scripts
 # =============================================================================
 echo "   Copying installer scripts..."
-cp "${WORK_DIR}/installer/install.sh" "${INITRAMFS_DIR}/installer/" 2>/dev/null || true
-cp "${WORK_DIR}/installer/tui.sh" "${INITRAMFS_DIR}/installer/" 2>/dev/null || true
-cp "${WORK_DIR}/installer/firstboot.sh" "${INITRAMFS_DIR}/installer/" 2>/dev/null || true
-chmod +x "${INITRAMFS_DIR}/installer/"* 2>/dev/null || true
+
+# Try multiple source locations (Docker volume issues workaround)
+INSTALLER_SRC=""
+if [ -d "${WORK_DIR}/installer" ] && [ -n "$(ls -A ${WORK_DIR}/installer/*.sh 2>/dev/null)" ]; then
+    INSTALLER_SRC="${WORK_DIR}/installer"
+    echo "   Using installer scripts from ${WORK_DIR}/installer"
+elif [ -d "/work/overlay/installer" ] && [ -n "$(ls -A /work/overlay/installer/*.sh 2>/dev/null)" ]; then
+    INSTALLER_SRC="/work/overlay/installer"
+    echo "   Using installer scripts from /work/overlay/installer"
+elif [ -d "/output/installer-scripts" ] && [ -n "$(ls -A /output/installer-scripts/*.sh 2>/dev/null)" ]; then
+    INSTALLER_SRC="/output/installer-scripts"
+    echo "   Using installer scripts from /output/installer-scripts"
+fi
+
+if [ -n "$INSTALLER_SRC" ]; then
+    for script in ${INSTALLER_SRC}/*.sh; do
+        if [ -f "$script" ]; then
+            SCRIPT_NAME=$(basename "$script")
+            echo "   Copying: $SCRIPT_NAME"
+            # Remove Windows CRLF line endings and copy
+            sed 's/\r$//' "$script" > "${INITRAMFS_DIR}/installer/${SCRIPT_NAME}"
+            chmod +x "${INITRAMFS_DIR}/installer/${SCRIPT_NAME}"
+        fi
+    done
+else
+    echo "   WARNING: No installer scripts found!"
+    echo "   Checked: ${WORK_DIR}/installer, /work/overlay/installer, /output/installer-scripts"
+fi
+
+# Verify tui.sh exists and is executable
+if [ -f "${INITRAMFS_DIR}/installer/tui.sh" ]; then
+    chmod +x "${INITRAMFS_DIR}/installer/tui.sh"
+    echo "   ✅ tui.sh ready: $(ls -la ${INITRAMFS_DIR}/installer/tui.sh)"
+else
+    echo "   ❌ ERROR: tui.sh not found in initramfs!"
+fi
+
+# Verify install.sh exists and is executable
+if [ -f "${INITRAMFS_DIR}/installer/install.sh" ]; then
+    chmod +x "${INITRAMFS_DIR}/installer/install.sh"
+    echo "   ✅ install.sh ready"
+else
+    echo "   ❌ ERROR: install.sh not found in initramfs!"
+fi
+
+echo "   Installer scripts in initramfs:"
+ls -la "${INITRAMFS_DIR}/installer/" 2>/dev/null || echo "   (directory empty or missing)"
 
 # =============================================================================
 # Copy WiFi tools for wireless network configuration during install
@@ -733,9 +776,26 @@ export HOME=/root
 export TERMINFO=/usr/share/terminfo
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
+# Ensure installer scripts are executable (fixes permission denied errors)
+chmod +x /installer/*.sh 2>/dev/null || true
+
+# Convert any CRLF line endings that might have snuck in
+for script in /installer/*.sh; do
+    if [ -f "$script" ]; then
+        sed -i 's/\r$//' "$script" 2>/dev/null || true
+    fi
+done
+
 # Test dialog before running TUI
 if command -v dialog >/dev/null 2>&1; then
-    exec /installer/tui.sh
+    if [ -x /installer/tui.sh ]; then
+        exec /installer/tui.sh
+    else
+        echo 'ERROR: /installer/tui.sh not executable!'
+        echo 'Attempting to fix...'
+        chmod +x /installer/tui.sh
+        exec /installer/tui.sh
+    fi
 else
     echo 'ERROR: dialog command not found!'
     echo 'Available in /usr/bin:'
