@@ -281,26 +281,46 @@ done
 echo "   Copying installer scripts..."
 
 # Try multiple source locations (Docker volume issues workaround)
+# PRIORITY: /output/installer-scripts (copied by Makefile, avoids Docker volume issues)
 INSTALLER_SRC=""
-if [ -d "${WORK_DIR}/installer" ] && [ -n "$(ls -A ${WORK_DIR}/installer/*.sh 2>/dev/null)" ]; then
+if [ -d "/output/installer-scripts" ] && [ -f "/output/installer-scripts/tui.sh" ]; then
+    INSTALLER_SRC="/output/installer-scripts"
+    echo "   Using installer scripts from /output/installer-scripts (preferred)"
+elif [ -d "${WORK_DIR}/installer" ] && [ -f "${WORK_DIR}/installer/tui.sh" ]; then
     INSTALLER_SRC="${WORK_DIR}/installer"
     echo "   Using installer scripts from ${WORK_DIR}/installer"
-elif [ -d "/work/overlay/installer" ] && [ -n "$(ls -A /work/overlay/installer/*.sh 2>/dev/null)" ]; then
+elif [ -d "/work/overlay/installer" ] && [ -f "/work/overlay/installer/tui.sh" ]; then
     INSTALLER_SRC="/work/overlay/installer"
     echo "   Using installer scripts from /work/overlay/installer"
-elif [ -d "/output/installer-scripts" ] && [ -n "$(ls -A /output/installer-scripts/*.sh 2>/dev/null)" ]; then
-    INSTALLER_SRC="/output/installer-scripts"
-    echo "   Using installer scripts from /output/installer-scripts"
 fi
 
 if [ -n "$INSTALLER_SRC" ]; then
+    # Debug: Show what's in the source directory
+    echo "   Source directory contents:"
+    ls -la "${INSTALLER_SRC}/" 2>&1 | head -20
+    
+    # Copy each script explicitly to handle potential glob issues
+    for script_name in install.sh tui.sh firstboot.sh; do
+        script="${INSTALLER_SRC}/${script_name}"
+        if [ -f "$script" ]; then
+            echo "   Copying: $script_name"
+            # Remove Windows CRLF line endings and copy
+            sed 's/\r$//' "$script" > "${INITRAMFS_DIR}/installer/${script_name}"
+            chmod +x "${INITRAMFS_DIR}/installer/${script_name}"
+        else
+            echo "   ⚠️  Not found: $script"
+        fi
+    done
+    
+    # Also try glob pattern as fallback
     for script in ${INSTALLER_SRC}/*.sh; do
         if [ -f "$script" ]; then
             SCRIPT_NAME=$(basename "$script")
-            echo "   Copying: $SCRIPT_NAME"
-            # Remove Windows CRLF line endings and copy
-            sed 's/\r$//' "$script" > "${INITRAMFS_DIR}/installer/${SCRIPT_NAME}"
-            chmod +x "${INITRAMFS_DIR}/installer/${SCRIPT_NAME}"
+            if [ ! -f "${INITRAMFS_DIR}/installer/${SCRIPT_NAME}" ]; then
+                echo "   Copying (glob): $SCRIPT_NAME"
+                sed 's/\r$//' "$script" > "${INITRAMFS_DIR}/installer/${SCRIPT_NAME}"
+                chmod +x "${INITRAMFS_DIR}/installer/${SCRIPT_NAME}"
+            fi
         fi
     done
 else

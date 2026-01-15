@@ -77,10 +77,15 @@ iso: version-bump docker-builder backend frontend scripts-executable
 	@mkdir -p $(OUTPUT_DIR)
 	@# Copy installer scripts to output directory to work around Docker volume issues
 	@mkdir -p $(OUTPUT_DIR)/installer-scripts
-	@cp -v $(BUILD_DIR)/installer/*.sh $(OUTPUT_DIR)/installer-scripts/ 2>/dev/null || true
+	@echo "Copying installer scripts..."
+	@cp -v $(BUILD_DIR)/installer/install.sh $(OUTPUT_DIR)/installer-scripts/ || echo "Failed to copy install.sh"
+	@cp -v $(BUILD_DIR)/installer/tui.sh $(OUTPUT_DIR)/installer-scripts/ || echo "Failed to copy tui.sh"
+	@cp -v $(BUILD_DIR)/installer/firstboot.sh $(OUTPUT_DIR)/installer-scripts/ || echo "Failed to copy firstboot.sh"
 	@chmod +x $(OUTPUT_DIR)/installer-scripts/*.sh 2>/dev/null || true
 	@# Convert CRLF to LF in case scripts have Windows line endings
-	@for f in $(OUTPUT_DIR)/installer-scripts/*.sh; do sed -i 's/\r$$//' "$$f" 2>/dev/null || true; done
+	@sed -i 's/\r$$//' $(OUTPUT_DIR)/installer-scripts/*.sh 2>/dev/null || true
+	@echo "Installer scripts in output:"
+	@ls -la $(OUTPUT_DIR)/installer-scripts/
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
 		-v "$(OUTPUT_DIR):/output" \
@@ -95,10 +100,15 @@ iso-no-bump: docker-builder backend frontend scripts-executable
 	@mkdir -p $(OUTPUT_DIR)
 	@# Copy installer scripts to output directory (workaround for Docker volume issues)
 	@mkdir -p $(OUTPUT_DIR)/installer-scripts
-	@cp -v $(BUILD_DIR)/installer/*.sh $(OUTPUT_DIR)/installer-scripts/ 2>/dev/null || true
+	@echo "Copying installer scripts..."
+	@cp -v $(BUILD_DIR)/installer/install.sh $(OUTPUT_DIR)/installer-scripts/ || echo "Failed to copy install.sh"
+	@cp -v $(BUILD_DIR)/installer/tui.sh $(OUTPUT_DIR)/installer-scripts/ || echo "Failed to copy tui.sh"
+	@cp -v $(BUILD_DIR)/installer/firstboot.sh $(OUTPUT_DIR)/installer-scripts/ || echo "Failed to copy firstboot.sh"
 	@chmod +x $(OUTPUT_DIR)/installer-scripts/*.sh 2>/dev/null || true
 	@# Convert CRLF to LF in case scripts have Windows line endings
-	@for f in $(OUTPUT_DIR)/installer-scripts/*.sh; do sed -i 's/\r$$//' "$$f" 2>/dev/null || true; done
+	@sed -i 's/\r$$//' $(OUTPUT_DIR)/installer-scripts/*.sh 2>/dev/null || true
+	@echo "Installer scripts in output:"
+	@ls -la $(OUTPUT_DIR)/installer-scripts/
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
 		-v "$(OUTPUT_DIR):/output" \

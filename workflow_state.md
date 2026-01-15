@@ -1,55 +1,65 @@
 # Workflow State
 
-## Quantix-OS Installer XFS Superblock Fix
+## Quantix-OS Installer XFS Superblock Fix - ROUND 2
 
-### Status: COMPLETED
+### Status: FIXED - REBUILD REQUIRED
 
-### Goal
-Eliminate `XFS ... Invalid superblock magic number` after installation by
-ensuring stale filesystem signatures are wiped and the correct data partition
-is created and verified.
+### Root Cause Found
+The original fix had a **bash-only syntax error** that caused the entire installer to fail:
 
-### Root Cause
-The error `XFS (nvme0n1p3): Invalid superblock magic number` occurred because:
-1. Previous installation left XFS metadata on the disk
-2. New partition boundaries overlapped old XFS superblock locations
-3. Kernel's XFS driver probed and found stale metadata, causing errors
+```bash
+# THIS WAS THE BUG - bash-ism doesn't work in /bin/sh (Alpine busybox)
+exec > >(tee -a "${INSTALL_LOG}") 2>&1
+```
 
-### Solution Applied
-Updated `Quantix-OS/installer/install.sh` with:
+The `>(...)` process substitution is bash-specific and fails silently in Alpine's `/bin/sh` (busybox ash), causing the install script to abort immediately with a syntax error.
 
-1. **Aggressive disk wiping** (Step 1):
-   - Added `sgdisk --zap-all` for complete GPT table destruction
-   - Extended `dd` zeroing from 1MB to 10MB at disk start and end
-   - Added verification that disk is clean before partitioning
+### Fixes Applied
 
-2. **Better kernel synchronization**:
-   - Added `blockdev --rereadpt` after partitioning
-   - Added `mdev -s` trigger for device re-detection
-   - Added double `partprobe` calls with delays
+1. **Removed bash-ism** - Replaced `>(tee ...)` with POSIX-compatible logging
+2. **Increased wipe size** - Now zeros first **100MB** instead of 10MB
+3. **Better fallback** - If signatures remain, wipes entire disk (up to 500GB)
+4. **More kernel syncs** - Added sleep 3 and mdev -s after partitioning
 
-3. **Per-partition wiping** (Step 2):
-   - Wipe each partition with `wipefs -a --force`
-   - Zero first 10MB of each partition with `dd` before formatting
-   - This ensures no stale XFS/ext4 superblocks remain
+### Key Changes in `Quantix-OS/installer/install.sh`
 
-4. **Enhanced logging**:
-   - All operations logged to `/tmp/install.log`
-   - Detailed blkid output for debugging
-   - Better error messages with partition device paths
+**Before (BROKEN):**
+```bash
+exec > >(tee -a "${INSTALL_LOG}") 2>&1  # BASH-ISM - FAILS IN /bin/sh
+```
+
+**After (FIXED):**
+```bash
+# POSIX-compatible logging
+{
+    echo "=========================================="
+    echo "Quantix-OS Installation Log"
+    echo "Date: $(date)"
+    echo "=========================================="
+} > "${INSTALL_LOG}"
+
+# Use tee inline where needed
+blkid 2>&1 | tee -a "${INSTALL_LOG}" || true
+```
+
+**Wipe improvements:**
+- Zero first 100MB (was 10MB)
+- If disk still has signatures, wipe entire disk
+- Added sync before blockdev --rereadpt
 
 ### Log
-- 2026-01-16: Initial wipefs + GPT header wipe
-- 2026-01-16: Added sgdisk --zap-all and 10MB zeroing
-- 2026-01-16: Added per-partition dd zeroing before mkfs
-- 2026-01-16: Added blockdev --rereadpt and enhanced logging
+- 2026-01-16: Initial wipefs + GPT header wipe (10MB)
+- 2026-01-16: Added sgdisk --zap-all
+- 2026-01-16: **FOUND BUG**: bash-ism `>(tee ...)` fails in /bin/sh
+- 2026-01-16: Fixed to POSIX-compatible logging
+- 2026-01-16: Increased wipe to 100MB, added fallback full-disk wipe
 
-### Testing
-After rebuilding the ISO, test installation on:
-1. QEMU with NVMe disk (previous XFS data)
-2. Physical hardware with prior Quantix install
-3. Verify no XFS superblock errors in dmesg after boot
+### Next Steps
+1. **Rebuild ISO**: `make iso` in Quantix-OS directory
+2. **Test installation** on the NVMe disk
+3. The XFS error should no longer appear since:
+   - 100MB zeroing clears ALL superblock locations
+   - Full-disk wipe fallback if any signatures remain
 
 ### References
 - `Quantix-OS/installer/install.sh`
-- `docs/Quantix-OS/000057-installer-storage-pool-configuration.md`

@@ -267,16 +267,24 @@ fi
 # =============================================================================
 log_step "Step 1/${TOTAL_STEPS}: Creating partition table..."
 
-# Log all operations for debugging
+# Log all operations for debugging (POSIX-compatible)
 INSTALL_LOG="/tmp/install.log"
 log_info "Detailed install log: ${INSTALL_LOG}"
-exec > >(tee -a "${INSTALL_LOG}") 2>&1
+
+# Start logging (append to log file while keeping console output)
+{
+    echo "=========================================="
+    echo "Quantix-OS Installation Log"
+    echo "Date: $(date)"
+    echo "Target: ${TARGET_DISK}"
+    echo "=========================================="
+} > "${INSTALL_LOG}"
 
 log_info "Target disk: ${TARGET_DISK}"
 log_info "Current partition table:"
-parted -s "${TARGET_DISK}" print 2>&1 || echo "(no existing partition table)"
+parted -s "${TARGET_DISK}" print 2>&1 | tee -a "${INSTALL_LOG}" || echo "(no existing partition table)"
 log_info "Current blkid output:"
-blkid 2>&1 || true
+blkid 2>&1 | tee -a "${INSTALL_LOG}" || true
 
 # Unmount any existing partitions
 log_info "Unmounting any existing partitions..."
@@ -291,50 +299,79 @@ mdadm --stop --scan 2>/dev/null || true
 
 # =============================================================================
 # AGGRESSIVE DISK WIPE - Prevents "Invalid superblock" errors
+# This is CRITICAL to prevent "XFS Invalid superblock magic number" errors
 # =============================================================================
 log_info "Performing aggressive disk wipe..."
+echo "[WIPE] Starting aggressive disk wipe..." >> "${INSTALL_LOG}"
 
-# Method 1: sgdisk --zap-all (recommended by Gemini)
+# Method 1: sgdisk --zap-all (destroys GPT and MBR completely)
 if command -v sgdisk >/dev/null 2>&1; then
     log_info "Using sgdisk to zap all partition data..."
-    sgdisk --zap-all "${TARGET_DISK}" 2>&1 || log_warn "sgdisk zap failed (continuing)"
+    sgdisk --zap-all "${TARGET_DISK}" >> "${INSTALL_LOG}" 2>&1 || log_warn "sgdisk zap failed (continuing)"
+else
+    log_warn "sgdisk not available, using alternative wipe methods"
 fi
 
-# Method 2: wipefs on disk
-log_info "Wiping filesystem signatures..."
-wipefs -a --force "${TARGET_DISK}" 2>/dev/null || true
+# Method 2: wipefs to remove ALL filesystem signatures
+log_info "Wiping all filesystem signatures..."
+wipefs -a "${TARGET_DISK}" >> "${INSTALL_LOG}" 2>&1 || true
 
-# Method 3: Zero critical areas where XFS/ext4 superblocks are stored
-# XFS primary superblock is at 512 bytes, secondary at 512KB, 1GB, etc.
-# ext4 superblock is at 1024 bytes
-log_info "Zeroing first 10MB to clear all superblocks..."
-dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=10 conv=notrunc 2>/dev/null || true
+# Method 3: Zero first 100MB to clear ALL possible superblock locations
+# XFS superblocks can be at: 0, 512, 32K, 64K, 128K, 1GB, etc.
+# ext4 superblocks at: 1K, 32K+1K, etc.
+# Being aggressive here prevents "Invalid superblock" errors
+log_info "Zeroing first 100MB to clear all superblocks..."
+dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=100 conv=notrunc 2>/dev/null || true
+echo "[WIPE] Zeroed first 100MB" >> "${INSTALL_LOG}"
 
 # Zero end of disk to clear backup GPT
 log_info "Zeroing last 10MB to clear backup GPT..."
 DISK_SIZE_SECTORS=$(blockdev --getsz "${TARGET_DISK}" 2>/dev/null || echo "0")
 if [ "$DISK_SIZE_SECTORS" -gt 20480 ]; then
-    SEEK_POS=$(( (DISK_SIZE_SECTORS / 2048) - 10 ))
-    dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=10 seek=$SEEK_POS conv=notrunc 2>/dev/null || true
+    # Calculate seek position for last 10MB
+    DISK_SIZE_MB=$((DISK_SIZE_SECTORS / 2048))
+    SEEK_POS=$((DISK_SIZE_MB - 10))
+    if [ "$SEEK_POS" -gt 0 ]; then
+        dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=10 seek=$SEEK_POS conv=notrunc 2>/dev/null || true
+        echo "[WIPE] Zeroed last 10MB at offset ${SEEK_POS}MB" >> "${INSTALL_LOG}"
+    fi
 fi
 
 # Force kernel to drop all partition info
 log_info "Forcing kernel partition table re-read..."
+sync
 blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
 partprobe "${TARGET_DISK}" 2>/dev/null || true
 udevadm settle 2>/dev/null || true
-sleep 2
+sleep 3
 
-# Verify disk is clean
+# Re-trigger device detection
+if command -v mdev >/dev/null 2>&1; then
+    mdev -s 2>/dev/null || true
+fi
+
+# Verify disk is clean - if signatures remain, wipe ENTIRE disk
 log_info "Verifying disk is clean..."
 if blkid "${TARGET_DISK}" 2>/dev/null | grep -q TYPE; then
-    log_warn "Disk still has filesystem signatures - attempting deeper wipe"
-    dd if=/dev/zero of="${TARGET_DISK}" bs=4M count=25 conv=notrunc 2>/dev/null || true
+    log_warn "Disk still has filesystem signatures - wiping entire disk..."
+    echo "[WIPE] Signatures detected, wiping entire disk..." >> "${INSTALL_LOG}"
+    
+    # Get disk size and wipe everything (up to 500GB to avoid timeout on huge disks)
+    DISK_SIZE_MB=$(($(blockdev --getsz "${TARGET_DISK}" 2>/dev/null || echo "0") / 2048))
+    WIPE_SIZE=$DISK_SIZE_MB
+    [ "$WIPE_SIZE" -gt 500000 ] && WIPE_SIZE=500000  # Cap at 500GB
+    
+    log_info "Wiping ${WIPE_SIZE}MB..."
+    dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=${WIPE_SIZE} conv=notrunc 2>/dev/null || true
+    
     blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
     partprobe "${TARGET_DISK}" 2>/dev/null || true
     udevadm settle 2>/dev/null || true
-    sleep 1
+    sleep 2
 fi
+
+echo "[WIPE] Disk wipe complete" >> "${INSTALL_LOG}"
+log_info "Disk wipe complete"
     
 # Create GPT partition table
 log_info "Creating GPT partition table..."
