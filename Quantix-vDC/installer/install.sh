@@ -58,6 +58,7 @@ log_step() {
 cleanup() {
     log_info "Cleaning up..."
     umount "${TARGET_MOUNT}/boot/efi" 2>/dev/null || true
+    umount "${TARGET_MOUNT}/var/lib" 2>/dev/null || true
     umount "${TARGET_MOUNT}/proc" 2>/dev/null || true
     umount "${TARGET_MOUNT}/sys" 2>/dev/null || true
     umount "${TARGET_MOUNT}/dev" 2>/dev/null || true
@@ -244,7 +245,8 @@ mount "$PART2" "${TARGET_MOUNT}"
 mkdir -p "${TARGET_MOUNT}/boot/efi"
 mount "$PART1" "${TARGET_MOUNT}/boot/efi"
 
-mkdir -p "${TARGET_MOUNT}/var/lib"
+# Mount data partition at /var/lib AFTER extracting system
+# This will be done after Step 4
 
 log_info "Partitions mounted"
 
@@ -309,6 +311,59 @@ else
 fi
 
 log_info "System extracted"
+
+# =============================================================================
+# Step 4b: Mount data partition and create essential directories
+# =============================================================================
+log_step "Step 4b: Setting up data partition and services..."
+
+# Mount the data partition at /var/lib
+# This MUST happen after extracting squashfs so the /var/lib directory exists
+mkdir -p "${TARGET_MOUNT}/var/lib"
+mount "$PART3" "${TARGET_MOUNT}/var/lib"
+log_info "Data partition mounted at /var/lib"
+
+# Create PostgreSQL binary symlinks (postgresql16 installs to /usr/libexec/postgresql16/)
+# These go on the ROOT partition (/usr/bin)
+PG_BIN_DIR=""
+for dir in /usr/libexec/postgresql16 /usr/lib/postgresql16/bin /usr/lib/postgresql/16/bin; do
+    if [ -d "${TARGET_MOUNT}${dir}" ]; then
+        PG_BIN_DIR="$dir"
+        break
+    fi
+done
+
+if [ -n "$PG_BIN_DIR" ]; then
+    log_info "Creating PostgreSQL symlinks from $PG_BIN_DIR..."
+    for bin in pg_ctl pg_isready initdb postgres psql pg_dump pg_restore createdb dropdb; do
+        if [ -f "${TARGET_MOUNT}${PG_BIN_DIR}/${bin}" ] && [ ! -e "${TARGET_MOUNT}/usr/bin/${bin}" ]; then
+            ln -sf "${PG_BIN_DIR}/${bin}" "${TARGET_MOUNT}/usr/bin/${bin}"
+            log_info "  Linked: ${bin}"
+        fi
+    done
+else
+    log_warn "PostgreSQL binary directory not found"
+fi
+
+# Create nginx runtime directories (these must exist before nginx starts)
+log_info "Creating nginx runtime directories..."
+mkdir -p "${TARGET_MOUNT}/var/lib/nginx/logs"
+mkdir -p "${TARGET_MOUNT}/var/lib/nginx/tmp/client_body"
+mkdir -p "${TARGET_MOUNT}/var/lib/nginx/tmp/proxy"
+mkdir -p "${TARGET_MOUNT}/var/lib/nginx/tmp/fastcgi"
+mkdir -p "${TARGET_MOUNT}/var/log/nginx"
+chroot "${TARGET_MOUNT}" chown -R nginx:nginx /var/lib/nginx /var/log/nginx 2>/dev/null || true
+
+# Create PostgreSQL directories
+log_info "Creating PostgreSQL directories..."
+mkdir -p "${TARGET_MOUNT}/var/lib/postgresql/16/data"
+mkdir -p "${TARGET_MOUNT}/var/log/postgresql"
+mkdir -p "${TARGET_MOUNT}/run/postgresql"
+chroot "${TARGET_MOUNT}" chown -R postgres:postgres /var/lib/postgresql /var/log/postgresql /run/postgresql 2>/dev/null || true
+chmod 700 "${TARGET_MOUNT}/var/lib/postgresql/16/data"
+chmod 755 "${TARGET_MOUNT}/run/postgresql"
+
+log_info "Essential directories and symlinks created"
 
 # =============================================================================
 # Step 5: Configure fstab
@@ -611,6 +666,7 @@ sync
 
 # Unmount partitions
 umount "${TARGET_MOUNT}/boot/efi"
+umount "${TARGET_MOUNT}/var/lib"
 umount "${TARGET_MOUNT}"
 
 echo ""

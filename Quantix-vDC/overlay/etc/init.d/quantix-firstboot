@@ -60,15 +60,54 @@ start() {
 
     # Initialize PostgreSQL
     PG_DATA="/var/lib/postgresql/16/data"
+    PG_LOG_DIR="/var/log/postgresql"
+    PG_RUN_DIR="/run/postgresql"
+    
+    # Create PostgreSQL symlinks if needed (postgresql16 installs to /usr/libexec/postgresql16/)
+    PG_BIN_DIR=""
+    for dir in /usr/libexec/postgresql16 /usr/lib/postgresql16/bin /usr/lib/postgresql/16/bin; do
+        if [ -d "$dir" ]; then
+            PG_BIN_DIR="$dir"
+            break
+        fi
+    done
+    
+    if [ -n "$PG_BIN_DIR" ]; then
+        einfo "Creating PostgreSQL symlinks from $PG_BIN_DIR..."
+        for bin in pg_ctl pg_isready initdb postgres psql pg_dump pg_restore createdb dropdb; do
+            if [ -f "$PG_BIN_DIR/$bin" ] && [ ! -e "/usr/bin/$bin" ]; then
+                ln -sf "$PG_BIN_DIR/$bin" "/usr/bin/$bin"
+            fi
+        done
+    fi
+    
+    # Create required directories
+    mkdir -p "$PG_DATA" "$PG_LOG_DIR" "$PG_RUN_DIR"
+    chown -R postgres:postgres /var/lib/postgresql "$PG_LOG_DIR" "$PG_RUN_DIR"
+    chmod 700 "$PG_DATA"
+    chmod 755 "$PG_RUN_DIR"
+    
     if [ ! -d "$PG_DATA/base" ]; then
         einfo "Initializing PostgreSQL database..."
-        mkdir -p "$PG_DATA"
-        chown -R postgres:postgres /var/lib/postgresql
-        chmod 700 "$PG_DATA"
         
-        su -s /bin/sh postgres -c "initdb -D $PG_DATA --encoding=UTF8 --locale=C" 2>/dev/null || {
-            ewarn "Failed to initialize PostgreSQL"
-        }
+        # Find initdb binary
+        INITDB=""
+        for path in /usr/bin/initdb /usr/libexec/postgresql16/initdb /usr/lib/postgresql16/bin/initdb; do
+            if [ -x "$path" ]; then
+                INITDB="$path"
+                break
+            fi
+        done
+        [ -z "$INITDB" ] && INITDB="$(which initdb 2>/dev/null)"
+        
+        if [ -n "$INITDB" ]; then
+            einfo "Using initdb: $INITDB"
+            su -s /bin/sh postgres -c "$INITDB -D $PG_DATA --encoding=UTF8 --locale=C" 2>/dev/null || {
+                ewarn "Failed to initialize PostgreSQL"
+            }
+        else
+            eerror "initdb not found! PostgreSQL cannot be initialized."
+        fi
         
         # Configure PostgreSQL for local connections
         if [ -f "$PG_DATA/pg_hba.conf" ]; then
@@ -192,6 +231,40 @@ ETCDINIT
     # Create log directories
     mkdir -p /var/log/quantix-vdc
     chmod 755 /var/log/quantix-vdc
+
+    # Create nginx runtime directories
+    einfo "Creating nginx runtime directories..."
+    rm -rf /var/lib/nginx/logs /var/lib/nginx/tmp /var/log/nginx 2>/dev/null || true
+    mkdir -p /var/lib/nginx/logs
+    mkdir -p /var/lib/nginx/tmp/client_body
+    mkdir -p /var/lib/nginx/tmp/proxy
+    mkdir -p /var/lib/nginx/tmp/fastcgi
+    mkdir -p /var/log/nginx
+    chown -R nginx:nginx /var/lib/nginx /var/log/nginx 2>/dev/null || true
+
+    # Ensure Quantix boot entry is first in UEFI BootOrder (avoid PXE stalls)
+    if command -v efibootmgr >/dev/null 2>&1 && [ -d /sys/firmware/efi/efivars ]; then
+        einfo "Checking UEFI boot order..."
+        BOOT_ENTRY=$(efibootmgr | awk 'tolower($0) ~ /quantix/ && $1 ~ /^Boot[0-9A-F]{4}/ {gsub(/^Boot/,"",$1); gsub(/\*/,"",$1); print $1; exit}')
+        if [ -n "$BOOT_ENTRY" ]; then
+            CURRENT_ORDER=$(efibootmgr | awk -F'BootOrder: ' 'NF==2 {print $2}' | tr -d '\r')
+            if [ -n "$CURRENT_ORDER" ]; then
+                # Check if Quantix is already first
+                FIRST_ENTRY=$(echo "$CURRENT_ORDER" | cut -d',' -f1)
+                if [ "$FIRST_ENTRY" != "$BOOT_ENTRY" ]; then
+                    einfo "Moving Quantix to first boot entry..."
+                    REST_ORDER=$(printf '%s' "$CURRENT_ORDER" | awk -v entry="$BOOT_ENTRY" 'BEGIN{RS=","; ORS=","} toupper($0)!=toupper(entry) && length($0)>0 {print $0}' | sed 's/,$//')
+                    if [ -n "$REST_ORDER" ]; then
+                        NEW_ORDER="${BOOT_ENTRY},${REST_ORDER}"
+                    else
+                        NEW_ORDER="${BOOT_ENTRY}"
+                    fi
+                    efibootmgr -o "$NEW_ORDER" >/dev/null 2>&1 || ewarn "Failed to update UEFI BootOrder"
+                    efibootmgr -n "$BOOT_ENTRY" >/dev/null 2>&1 || true
+                fi
+            fi
+        fi
+    fi
 
     # Mark first boot complete
     mkdir -p /var/lib/quantix-vdc
