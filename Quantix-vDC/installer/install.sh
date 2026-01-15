@@ -495,16 +495,36 @@ mkdir -p "${TARGET_MOUNT}/var/lib/nginx/tmp/client_body"
 mkdir -p "${TARGET_MOUNT}/var/lib/nginx/tmp/proxy"
 mkdir -p "${TARGET_MOUNT}/var/lib/nginx/tmp/fastcgi"
 mkdir -p "${TARGET_MOUNT}/var/log/nginx"
-chroot "${TARGET_MOUNT}" chown -R nginx:nginx /var/lib/nginx /var/log/nginx 2>/dev/null || true
+# Use numeric UIDs to avoid chroot user resolution issues
+# Alpine nginx UID is typically 100, GID is 101
+# Try chroot first, fallback to numeric
+if ! chroot "${TARGET_MOUNT}" chown -R nginx:nginx /var/lib/nginx /var/log/nginx 2>/dev/null; then
+    log_warn "chroot chown failed, using numeric UIDs (100:101)"
+    chown -R 100:101 "${TARGET_MOUNT}/var/lib/nginx" "${TARGET_MOUNT}/var/log/nginx" 2>/dev/null || true
+fi
+chmod -R 755 "${TARGET_MOUNT}/var/lib/nginx"
 
 # Create PostgreSQL directories
 log_info "Creating PostgreSQL directories..."
 mkdir -p "${TARGET_MOUNT}/var/lib/postgresql/16/data"
 mkdir -p "${TARGET_MOUNT}/var/log/postgresql"
 mkdir -p "${TARGET_MOUNT}/run/postgresql"
-chroot "${TARGET_MOUNT}" chown -R postgres:postgres /var/lib/postgresql /var/log/postgresql /run/postgresql 2>/dev/null || true
+# Alpine postgres UID is typically 70
+if ! chroot "${TARGET_MOUNT}" chown -R postgres:postgres /var/lib/postgresql /var/log/postgresql /run/postgresql 2>/dev/null; then
+    log_warn "chroot chown failed, using numeric UID (70:70)"
+    chown -R 70:70 "${TARGET_MOUNT}/var/lib/postgresql" "${TARGET_MOUNT}/var/log/postgresql" "${TARGET_MOUNT}/run/postgresql" 2>/dev/null || true
+fi
 chmod 700 "${TARGET_MOUNT}/var/lib/postgresql/16/data"
 chmod 755 "${TARGET_MOUNT}/run/postgresql"
+
+# Create etcd and redis directories
+log_info "Creating etcd and redis directories..."
+mkdir -p "${TARGET_MOUNT}/var/lib/etcd"
+mkdir -p "${TARGET_MOUNT}/var/lib/redis"
+chmod 700 "${TARGET_MOUNT}/var/lib/etcd"
+chmod 700 "${TARGET_MOUNT}/var/lib/redis"
+# Redis UID is typically 100 in Alpine
+chroot "${TARGET_MOUNT}" chown -R redis:redis /var/lib/redis 2>/dev/null || chown -R 100:100 "${TARGET_MOUNT}/var/lib/redis" 2>/dev/null || true
 
 log_info "Essential directories and symlinks created"
 
@@ -791,6 +811,37 @@ menuentry "Quantix-vDC (Debug)" {
     initrd /boot/initramfs-lts
 }
 EOF
+
+# =============================================================================
+# Step 8b: Configure services for default runlevel
+# =============================================================================
+log_step "Step 8b: Configuring services..."
+
+# Explicitly add services to default runlevel (safety net)
+log_info "Ensuring services are enabled in default runlevel..."
+
+# Core services
+chroot "${TARGET_MOUNT}" rc-update add postgresql16 default 2>/dev/null || \
+    chroot "${TARGET_MOUNT}" rc-update add postgresql default 2>/dev/null || \
+    log_warn "Could not enable PostgreSQL"
+
+chroot "${TARGET_MOUNT}" rc-update add redis default 2>/dev/null || log_warn "Could not enable Redis"
+chroot "${TARGET_MOUNT}" rc-update add etcd default 2>/dev/null || log_warn "Could not enable etcd"
+chroot "${TARGET_MOUNT}" rc-update add nginx default 2>/dev/null || log_warn "Could not enable nginx"
+chroot "${TARGET_MOUNT}" rc-update add quantix-controlplane default 2>/dev/null || log_warn "Could not enable Control Plane"
+chroot "${TARGET_MOUNT}" rc-update add sshd default 2>/dev/null || log_warn "Could not enable SSH"
+
+# First boot service (must run before others)
+chroot "${TARGET_MOUNT}" rc-update add quantix-firstboot boot 2>/dev/null || log_warn "Could not enable firstboot"
+
+# Enable OpenRC logging for debugging first boot issues
+log_info "Enabling OpenRC logging..."
+if [ -f "${TARGET_MOUNT}/etc/rc.conf" ]; then
+    sed -i 's/#rc_logger="NO"/rc_logger="YES"/' "${TARGET_MOUNT}/etc/rc.conf" 2>/dev/null || true
+    sed -i 's/rc_logger="NO"/rc_logger="YES"/' "${TARGET_MOUNT}/etc/rc.conf" 2>/dev/null || true
+fi
+
+log_info "Services configured"
 
 # Unmount virtual filesystems
 umount "${TARGET_MOUNT}/dev" 2>/dev/null || true

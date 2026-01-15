@@ -81,9 +81,13 @@ start() {
         done
     fi
     
-    # Create required directories
+    # Create required directories with fallback to numeric UIDs
     mkdir -p "$PG_DATA" "$PG_LOG_DIR" "$PG_RUN_DIR"
-    chown -R postgres:postgres /var/lib/postgresql "$PG_LOG_DIR" "$PG_RUN_DIR"
+    # Try username first, fallback to UID 70 (Alpine postgres)
+    if ! chown -R postgres:postgres /var/lib/postgresql "$PG_LOG_DIR" "$PG_RUN_DIR" 2>/dev/null; then
+        ewarn "chown postgres failed, using numeric UID 70"
+        chown -R 70:70 /var/lib/postgresql "$PG_LOG_DIR" "$PG_RUN_DIR" 2>/dev/null || true
+    fi
     chmod 700 "$PG_DATA"
     chmod 755 "$PG_RUN_DIR"
     
@@ -240,7 +244,12 @@ ETCDINIT
     mkdir -p /var/lib/nginx/tmp/proxy
     mkdir -p /var/lib/nginx/tmp/fastcgi
     mkdir -p /var/log/nginx
-    chown -R nginx:nginx /var/lib/nginx /var/log/nginx 2>/dev/null || true
+    # Try username first, fallback to UID 100:101 (Alpine nginx)
+    if ! chown -R nginx:nginx /var/lib/nginx /var/log/nginx 2>/dev/null; then
+        ewarn "chown nginx failed, using numeric UID 100:101"
+        chown -R 100:101 /var/lib/nginx /var/log/nginx 2>/dev/null || true
+    fi
+    chmod -R 755 /var/lib/nginx
 
     # Ensure Quantix boot entry is first in UEFI BootOrder (avoid PXE stalls)
     if command -v efibootmgr >/dev/null 2>&1 && [ -d /sys/firmware/efi/efivars ]; then
