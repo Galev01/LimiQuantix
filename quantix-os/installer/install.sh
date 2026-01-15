@@ -284,6 +284,7 @@ log_step "Step 1/${TOTAL_STEPS}: Creating partition table..."
     
     # Inform kernel of partition changes
     partprobe "${TARGET_DISK}" 2>/dev/null || true
+    udevadm settle 2>/dev/null || true
     sleep 1
     
     # Create GPT partition table
@@ -307,6 +308,7 @@ parted -s "${TARGET_DISK}" mkpart "QUANTIX-DATA" xfs ${CFG_END} 100%
     
     # Wait for kernel to recognize partitions
 partprobe "${TARGET_DISK}" 2>/dev/null || true
+    udevadm settle 2>/dev/null || true
     sleep 2
     
 # Determine partition naming
@@ -326,6 +328,22 @@ PART_CFG="${TARGET_DISK}${P}4"
 PART_DATA="${TARGET_DISK}${P}5"
 
 log_info "Partitions created"
+
+# Wait for all partition devices to appear
+log_info "Waiting for partition devices..."
+for i in 1 2 3 4 5; do
+    if [ -b "${TARGET_DISK}${P}5" ]; then
+        break
+    fi
+    sleep 1
+done
+
+if [ ! -b "${PART_DATA}" ]; then
+    log_error "Data partition not found: ${PART_DATA}"
+    log_error "Available partitions:"
+    ls -la "${TARGET_DISK}"* 2>/dev/null || true
+    exit 1
+fi
 
 # =============================================================================
 # Step 2: Format Partitions
@@ -357,6 +375,19 @@ sync
 sleep 1
     
 log_info "Partitions formatted"
+
+# Verify filesystem labels and types
+log_info "Verifying filesystem labels..."
+if [ "$(blkid -o value -s LABEL "${PART_DATA}" 2>/dev/null)" != "QUANTIX-DATA" ]; then
+    log_error "Data partition label not set correctly"
+    blkid "${PART_DATA}" 2>/dev/null || true
+    exit 1
+fi
+if [ "$(blkid -o value -s TYPE "${PART_DATA}" 2>/dev/null)" != "xfs" ]; then
+    log_error "Data partition is not XFS"
+    blkid "${PART_DATA}" 2>/dev/null || true
+    exit 1
+fi
 
 # =============================================================================
 # Step 3: Mount Partitions
