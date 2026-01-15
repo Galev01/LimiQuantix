@@ -341,7 +341,7 @@ echo "✅ BIOS boot image created"
 # -----------------------------------------------------------------------------
 echo "📦 Step 7: Copying installer..."
 
-mkdir -p "${ISO_DIR}/installer"
+    mkdir -p "${ISO_DIR}/installer"
 
 # Copy all installer scripts
 INSTALLER_FOUND=0

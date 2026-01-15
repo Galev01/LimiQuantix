@@ -171,7 +171,7 @@ main() {
         start_installer
     else
         log "Normal mode - starting DCUI console"
-        start_dcui
+    start_dcui
     fi
 }
 

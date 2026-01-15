@@ -269,7 +269,7 @@ log_step "Step 1/${TOTAL_STEPS}: Creating partition table..."
     
     # Unmount any existing partitions
     umount ${TARGET_DISK}* 2>/dev/null || true
-    
+
     # Stop any LVM/RAID using this disk
     vgchange -an 2>/dev/null || true
     
