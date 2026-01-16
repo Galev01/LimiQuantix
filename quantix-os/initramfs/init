@@ -298,9 +298,14 @@ if [ -n "$LIVE_BOOT" ]; then
         mount -t tmpfs -o size=80% tmpfs /mnt/toram
         cp "$SQUASHFS_PATH" /mnt/toram/system.squashfs
         SQUASHFS_PATH="/mnt/toram/system.squashfs"
-        # Unmount boot media - no longer needed
-        umount /mnt/cdrom 2>/dev/null || true
-        echo "[INIT] System loaded to RAM"
+        # In install mode, keep boot media mounted (installer needs it)
+        # In normal live mode, unmount to free resources
+        if [ -z "$INSTALL_MODE" ]; then
+            umount /mnt/cdrom 2>/dev/null || true
+            echo "[INIT] System loaded to RAM, boot media unmounted"
+        else
+            echo "[INIT] System loaded to RAM, keeping boot media for installer"
+        fi
     fi
     
     # Mount squashfs
@@ -334,6 +339,19 @@ if [ -n "$LIVE_BOOT" ]; then
     
     # Keep boot media mounted if not using toram
     if [ -z "$TORAM" ] && [ -d "/mnt/cdrom" ]; then
+        mount --move /mnt/cdrom /mnt/merged/mnt/cdrom 2>/dev/null || true
+    fi
+    
+    # In toram mode, move the RAM copy into the new root so installer can access it
+    if [ -n "$TORAM" ] && [ -d "/mnt/toram" ]; then
+        mkdir -p /mnt/merged/mnt/toram
+        mount --move /mnt/toram /mnt/merged/mnt/toram 2>/dev/null || true
+        echo "[INIT] Moved /mnt/toram to /mnt/merged/mnt/toram for installer access"
+    fi
+    
+    # Also keep /mnt/cdrom available in install+toram mode (we kept it mounted)
+    if [ -n "$TORAM" ] && [ -n "$INSTALL_MODE" ] && [ -d "/mnt/cdrom" ]; then
+        mkdir -p /mnt/merged/mnt/cdrom
         mount --move /mnt/cdrom /mnt/merged/mnt/cdrom 2>/dev/null || true
     fi
     

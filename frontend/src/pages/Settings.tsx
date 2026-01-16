@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings as SettingsIcon,
@@ -187,6 +187,16 @@ function UpdateSettings() {
   const updateConfigMutation = useUpdateConfigMutation();
 
   const [selectedChannel, setSelectedChannel] = useState<UpdateChannel>(config?.channel || 'dev');
+  const [serverUrl, setServerUrl] = useState(config?.server_url || '');
+  const [isEditingServerUrl, setIsEditingServerUrl] = useState(false);
+
+  // Sync state when config loads
+  useEffect(() => {
+    if (config) {
+      setSelectedChannel(config.channel || 'dev');
+      setServerUrl(config.server_url || '');
+    }
+  }, [config]);
 
   const hosts = hostsData?.hosts || [];
   const hostsWithUpdates = hosts.filter(h => h.status === 'available');
@@ -194,6 +204,13 @@ function UpdateSettings() {
   const handleChannelChange = (channel: UpdateChannel) => {
     setSelectedChannel(channel);
     updateConfigMutation.mutate({ channel });
+  };
+
+  const handleServerUrlSave = () => {
+    if (serverUrl.trim()) {
+      updateConfigMutation.mutate({ server_url: serverUrl.trim() });
+      setIsEditingServerUrl(false);
+    }
   };
 
   return (
@@ -370,12 +387,45 @@ function UpdateSettings() {
           </SettingField>
 
           <SettingField label="Update Server" description="URL of the update server">
-            <input
-              type="text"
-              className="form-input max-w-md font-mono"
-              defaultValue={config?.server_url || 'http://localhost:9000'}
-              readOnly
-            />
+            <div className="flex gap-2 items-center max-w-lg">
+              <input
+                type="text"
+                className={cn(
+                  'form-input flex-1 font-mono text-sm',
+                  isEditingServerUrl ? 'bg-bg-base' : 'bg-bg-elevated'
+                )}
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+                onFocus={() => setIsEditingServerUrl(true)}
+                placeholder="http://update-server:9000"
+              />
+              {isEditingServerUrl && (
+                <>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleServerUrlSave}
+                    disabled={updateConfigMutation.isPending || !serverUrl.trim()}
+                  >
+                    {updateConfigMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      'Save'
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setServerUrl(config?.server_url || '');
+                      setIsEditingServerUrl(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              )}
+            </div>
           </SettingField>
 
           <SettingField label="Auto Check" description="Automatically check for updates periodically">

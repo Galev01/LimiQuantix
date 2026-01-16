@@ -379,6 +379,10 @@ fi
 $BB mkdir -p /newroot/mnt/iso
 $BB mount --move /mnt/iso /newroot/mnt/iso 2>/dev/null || true
 
+# Create symlink for installer compatibility (installer looks for /mnt/cdrom)
+$BB mkdir -p /newroot/mnt
+$BB ln -sf /mnt/iso /newroot/mnt/cdrom 2>/dev/null || true
+
 # Prepare for switch
 $BB echo ""
 $BB echo "Switching to main system..."

@@ -261,6 +261,8 @@ find_squashfs() {
     
     for path in \
         "/mnt/cdrom/quantix/system.squashfs" \
+        "/mnt/iso/quantix/system.squashfs" \
+        "/mnt/toram/system.squashfs" \
         "/cdrom/quantix/system.squashfs" \
         "/media/cdrom/quantix/system.squashfs" \
         "/run/media/cdrom/quantix/system.squashfs" \
@@ -274,9 +276,15 @@ find_squashfs() {
         fi
     done
     
-    # Search for any squashfs
+    # Search for any squashfs (include /mnt/toram for toram mode)
     echo "[SQUASHFS] Searching with find command..." >> "$INSTALL_LOG"
     SQUASHFS_PATH=$(find /mnt /media /run/media /cdrom -name "system*.squashfs" 2>/dev/null | head -1)
+    
+    # Also check /mnt/toram directly (toram mode puts it there)
+    if [ -z "$SQUASHFS_PATH" ] && [ -f "/mnt/toram/system.squashfs" ]; then
+        SQUASHFS_PATH="/mnt/toram/system.squashfs"
+        echo "[SQUASHFS] Found in toram location" >> "$INSTALL_LOG"
+    fi
     echo "[SQUASHFS] find result: '$SQUASHFS_PATH'" >> "$INSTALL_LOG"
     
     if [ -z "$SQUASHFS_PATH" ] || [ ! -f "$SQUASHFS_PATH" ]; then

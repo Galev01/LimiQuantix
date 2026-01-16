@@ -227,15 +227,44 @@ func (h *UpdateHandler) handleConfig(w http.ResponseWriter, r *http.Request) {
 		h.writeJSON(w, config)
 
 	case http.MethodPut, http.MethodPost:
-		var config update.Config
-		if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
+		// Get current config as base
+		currentConfig := h.service.GetConfig()
+
+		// Parse the incoming partial config
+		var partialConfig struct {
+			ServerURL     *string `json:"server_url"`
+			Channel       *string `json:"channel"`
+			AutoCheck     *bool   `json:"auto_check"`
+			AutoApply     *bool   `json:"auto_apply"`
+			CheckInterval *string `json:"check_interval"`
+			DataDir       *string `json:"data_dir"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&partialConfig); err != nil {
 			h.writeError(w, http.StatusBadRequest, "Invalid JSON: "+err.Error())
 			return
 		}
-		h.service.UpdateConfig(config)
+
+		// Merge: only update fields that were provided
+		if partialConfig.ServerURL != nil {
+			currentConfig.ServerURL = *partialConfig.ServerURL
+		}
+		if partialConfig.Channel != nil {
+			currentConfig.Channel = update.UpdateChannel(*partialConfig.Channel)
+		}
+		if partialConfig.AutoCheck != nil {
+			currentConfig.AutoCheck = *partialConfig.AutoCheck
+		}
+		if partialConfig.AutoApply != nil {
+			currentConfig.AutoApply = *partialConfig.AutoApply
+		}
+		if partialConfig.DataDir != nil {
+			currentConfig.DataDir = *partialConfig.DataDir
+		}
+
+		h.service.UpdateConfig(currentConfig)
 		h.writeJSON(w, map[string]interface{}{
-			"status":  "updated",
-			"config":  config,
+			"status": "updated",
+			"config": currentConfig,
 		})
 
 	default:
