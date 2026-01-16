@@ -20,7 +20,7 @@ server:
 database:
   host: "localhost"
   port: 5432
-  name: "limiquantix"
+  name: "quantix_vdc"
   user: "postgres"
   password: ""
   sslmode: "disable"

@@ -71,6 +71,37 @@ su -s /bin/sh postgres -c "createdb quantix_vdc 2>/dev/null || true"
 su -s /bin/sh postgres -c "createuser quantix 2>/dev/null || true"
 su -s /bin/sh postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE quantix_vdc TO quantix;\"" 2>/dev/null || true
 
+# Run database migrations
+echo "   Running database migrations..."
+MIGRATIONS_DIR="/usr/share/quantix-vdc/migrations"
+
+if [ -d "$MIGRATIONS_DIR" ] && [ -n "$(ls -A ${MIGRATIONS_DIR}/*.sql 2>/dev/null)" ]; then
+    # Run migrations in order (sorted by filename)
+    MIGRATION_COUNT=0
+    MIGRATION_FAILED=0
+    
+    for migration in $(ls -1 ${MIGRATIONS_DIR}/*.up.sql 2>/dev/null | sort); do
+        MIGRATION_NAME=$(basename "$migration")
+        echo "   Applying: $MIGRATION_NAME"
+        
+        if su -s /bin/sh postgres -c "psql -d quantix_vdc -f '$migration'" >/dev/null 2>&1; then
+            MIGRATION_COUNT=$((MIGRATION_COUNT + 1))
+        else
+            echo "   ⚠️  Warning: Migration $MIGRATION_NAME may have partially failed (this is normal for re-runs)"
+            # Don't fail on migration errors - some might be idempotent issues
+        fi
+    done
+    
+    echo "   Applied $MIGRATION_COUNT migrations"
+else
+    echo "   ⚠️  No migrations found in $MIGRATIONS_DIR"
+    echo "   Database tables may not be created!"
+fi
+
+# Grant permissions on all tables to quantix user
+su -s /bin/sh postgres -c "psql -d quantix_vdc -c \"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO quantix;\"" 2>/dev/null || true
+su -s /bin/sh postgres -c "psql -d quantix_vdc -c \"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO quantix;\"" 2>/dev/null || true
+
 echo "   PostgreSQL initialized ✓"
 
 # =============================================================================

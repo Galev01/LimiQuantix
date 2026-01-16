@@ -435,6 +435,52 @@ fi
 echo "✅ Installer scripts copied"
 
 # -----------------------------------------------------------------------------
+# Step 7b: Copy database migrations
+# -----------------------------------------------------------------------------
+echo "📦 Step 7b: Copying database migrations..."
+
+MIGRATIONS_DIR="${ROOTFS_DIR}/usr/share/quantix-vdc/migrations"
+mkdir -p "${MIGRATIONS_DIR}"
+
+# Try multiple source locations for migrations
+MIGRATIONS_SRC=""
+
+# First try /work/backend/migrations (direct mount from repo)
+if [ -d "/work/backend/migrations" ] && [ -n "$(ls -A /work/backend/migrations/*.sql 2>/dev/null)" ]; then
+    MIGRATIONS_SRC="/work/backend/migrations"
+    echo "   Using migrations from /work/backend/migrations"
+# Then try /output/migrations (workaround copy)
+elif [ -d "/output/migrations" ] && [ -n "$(ls -A /output/migrations/*.sql 2>/dev/null)" ]; then
+    MIGRATIONS_SRC="/output/migrations"
+    echo "   Using migrations from /output/migrations (workaround)"
+fi
+
+if [ -n "$MIGRATIONS_SRC" ]; then
+    # Copy all .up.sql migration files (we only need the up migrations for install)
+    for migration in ${MIGRATIONS_SRC}/*.up.sql; do
+        if [ -f "$migration" ]; then
+            echo "   Copying: $(basename $migration)"
+            cp "$migration" "${MIGRATIONS_DIR}/"
+        fi
+    done
+    
+    MIGRATION_COUNT=$(ls -1 "${MIGRATIONS_DIR}/"*.sql 2>/dev/null | wc -l)
+    echo "   ✅ Copied ${MIGRATION_COUNT} migration files"
+    
+    # Verify migrations exist
+    if [ "$MIGRATION_COUNT" -eq 0 ]; then
+        echo "   ⚠️  WARNING: No migration files copied!"
+        echo "   Database tables will NOT be created on first boot!"
+    fi
+else
+    echo "   ⚠️  WARNING: No migrations found in any location!"
+    echo "   Checked: /work/backend/migrations, /output/migrations"
+    echo "   Database tables will NOT be created on first boot!"
+fi
+
+echo "✅ Database migrations copied"
+
+# -----------------------------------------------------------------------------
 # Step 8: Write version info
 # -----------------------------------------------------------------------------
 echo "📦 Step 8: Writing version info..."

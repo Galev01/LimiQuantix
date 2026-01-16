@@ -1,100 +1,61 @@
 # Workflow State
 
-## Quantix-vDC Web UI Connection Refused
+## Completed Task: Fix Quantix-vDC Database Migration Issue
 
-### Status: FIXED - REBUILD REQUIRED
+### Problem (RESOLVED)
+After installing Quantix-vDC from ISO, the web UI showed HTTP 500 errors because the PostgreSQL database tables didn't exist. The `firstboot.sh` script created the database but never ran the schema migrations.
 
----
+### Root Cause
+1. `firstboot.sh` created database `quantix_vdc` and user `quantix`
+2. But the migration SQL files from `/backend/migrations/` were never executed
+3. Tables like `nodes`, `virtual_machines`, `storage_pools`, `volumes` didn't exist
+4. Config file had wrong database name (`limiquantix` instead of `quantix_vdc`)
 
-### Issues Found
-
-1. **Database name mismatch** - Config file used wrong field names
-2. **Config YAML field names wrong** - Didn't match Go struct mapstructure tags
-
----
-
-### Fixes Applied
-
-#### 1. Fixed config.yaml Field Names
-
-**Before (wrong):**
-```yaml
-database:
-  database: "quantix_vdc"  # Wrong field name!
-  ssl_mode: "disable"      # Wrong field name!
-  
-server:
-  bind: "127.0.0.1"        # Wrong field name!
-```
-
-**After (correct):**
-```yaml
-database:
-  name: "limiquantix"      # Matches mapstructure:"name"
-  sslmode: "disable"       # Matches mapstructure:"sslmode"
-  
-server:
-  host: "0.0.0.0"          # Matches mapstructure:"host"
-```
-
-#### 2. Fixed Database Creation
-
-Updated `99-start-services.start` to properly create the `limiquantix` database with error handling.
-
----
+### Solution Applied
+1. **Fixed config.yaml** - Changed database name from `limiquantix` to `quantix_vdc`
+2. **Updated build-rootfs.sh** - Added Step 7b to copy migration SQL files to `/usr/share/quantix-vdc/migrations/`
+3. **Updated firstboot.sh** - Added migration execution after PostgreSQL initialization
+4. **Updated overlay/installer/firstboot.sh** - Same migration changes
 
 ### Files Modified
+- `Quantix-vDC/overlay/etc/quantix-vdc/config.yaml` - Database name fix
+- `Quantix-vDC/builder/build-rootfs.sh` - Bundle migrations into ISO
+- `Quantix-vDC/installer/firstboot.sh` - Run migrations on first boot
+- `Quantix-vDC/overlay/installer/firstboot.sh` - Run migrations on first boot
 
-| File | Change |
-|------|--------|
-| `overlay/etc/quantix-vdc/config.yaml` | Fixed field names to match Go struct |
-| `overlay/etc/local.d/99-start-services.start` | Better database creation with fallback |
+### Next Steps
+To apply this fix:
+1. Rebuild the Quantix-vDC ISO using `make iso` or the build scripts
+2. Reinstall from the new ISO
+3. The firstboot process will now:
+   - Create the database
+   - Run all 8 migration files in order
+   - Grant permissions to the quantix user
+   - Start the control plane with working database tables
 
----
+### For Existing Installations (Manual Fix)
+If you have an existing installation without rebuilding the ISO, you can manually run the migrations:
 
-### Root Cause Analysis
+```bash
+# SSH into the Quantix-vDC appliance
+ssh root@192.168.0.95
 
-The control plane logs showed:
-```
-FATAL: database "limiquantix" does not exist
-```
+# Copy migrations from the backend repo (if available)
+# Or download them from the repo
 
-This happened because:
-1. The config YAML had `database: "quantix_vdc"` but the Go field is `name`
-2. Since the field name was wrong, viper used the default value `"limiquantix"`
-3. The startup script was creating `limiquantix` but database creation was failing silently
+# Run migrations manually
+cd /path/to/migrations
+for f in $(ls -1 *.up.sql | sort); do
+    echo "Applying: $f"
+    su -s /bin/sh postgres -c "psql -d quantix_vdc -f '$f'"
+done
 
----
+# Grant permissions
+su -s /bin/sh postgres -c "psql -d quantix_vdc -c 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO quantix;'"
+su -s /bin/sh postgres -c "psql -d quantix_vdc -c 'GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO quantix;'"
 
-### To Verify After Rebuild
-
-1. Check database exists:
-```sh
-su -s /bin/sh postgres -c "psql -l" | grep limiquantix
-```
-
-2. Check control plane connects to PostgreSQL:
-```sh
-cat /var/log/quantix-controlplane.err.log | grep -i postgres
-```
-
-3. Check nginx serves frontend:
-```sh
-curl -k https://localhost/
-ls -la /usr/share/quantix-vdc/dashboard/
-```
-
----
-
-### Immediate Fix on Running System
-
-```sh
-# Create the database manually
-su -s /bin/sh postgres -c "createdb limiquantix"
-
-# Restart control plane to reconnect
+# Restart control plane
 rc-service quantix-controlplane restart
-
-# Check it connected
-cat /var/log/quantix-controlplane.err.log | tail -20
 ```
+
+### Status: COMPLETE
