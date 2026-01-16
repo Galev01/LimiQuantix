@@ -363,16 +363,37 @@ parted -s "${TARGET_DISK}" print 2>&1 | tee -a "${INSTALL_LOG}" || echo "(no exi
 log_info "Current blkid output:"
 blkid 2>&1 | tee -a "${INSTALL_LOG}" || true
 
-# Unmount any existing partitions
+# Unmount any existing partitions - be very aggressive
 log_info "Unmounting any existing partitions..."
 for part in ${TARGET_DISK}* ${TARGET_DISK}p*; do
-    [ -b "$part" ] && umount "$part" 2>/dev/null || true
+    if [ -b "$part" ] && [ "$part" != "$TARGET_DISK" ]; then
+        # Try lazy unmount if normal unmount fails
+        umount "$part" 2>/dev/null || umount -l "$part" 2>/dev/null || true
+        # Kill any processes using this partition
+        fuser -km "$part" 2>/dev/null || true
+    fi
 done
 
 # Stop any LVM/RAID using this disk
 log_info "Deactivating LVM/RAID..."
 vgchange -an 2>/dev/null || true
 mdadm --stop --scan 2>/dev/null || true
+
+# Remove device-mapper entries that might hold the disk
+log_info "Removing device-mapper entries..."
+if command -v dmsetup >/dev/null 2>&1; then
+    dmsetup remove_all 2>/dev/null || true
+fi
+
+# CRITICAL: Remove partition entries from kernel BEFORE wiping
+# This prevents "partitions in use" errors
+log_info "Removing kernel partition entries..."
+if command -v partx >/dev/null 2>&1; then
+    partx -d "${TARGET_DISK}" 2>/dev/null || true
+fi
+# Alternative method using blockdev
+blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
+sleep 1
 
 # =============================================================================
 # STEP 0: WIPE ALL EXISTING PARTITION SIGNATURES FIRST
@@ -438,15 +459,20 @@ echo "[WIPE] Zeroed first 100MB" >> "${INSTALL_LOG}"
 
 # Zero end of disk to clear backup GPT
 log_info "Zeroing last 10MB to clear backup GPT..."
-DISK_SIZE_SECTORS=$(blockdev --getsz "${TARGET_DISK}" 2>/dev/null || echo "0")
-if [ "$DISK_SIZE_SECTORS" -gt 20480 ]; then
-    # Calculate seek position for last 10MB
-    DISK_SIZE_MB=$((DISK_SIZE_SECTORS / 2048))
-    SEEK_POS=$((DISK_SIZE_MB - 10))
-    if [ "$SEEK_POS" -gt 0 ]; then
-        dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=10 seek=$SEEK_POS conv=notrunc 2>/dev/null || true
-        echo "[WIPE] Zeroed last 10MB at offset ${SEEK_POS}MB" >> "${INSTALL_LOG}"
+DISK_SIZE_SECTORS=$(blockdev --getsz "${TARGET_DISK}" 2>/dev/null)
+# Validate we got a number
+if [ -n "$DISK_SIZE_SECTORS" ] && [ "$DISK_SIZE_SECTORS" -gt 0 ] 2>/dev/null; then
+    if [ "$DISK_SIZE_SECTORS" -gt 20480 ]; then
+        # Calculate seek position for last 10MB
+        DISK_SIZE_MB=$((DISK_SIZE_SECTORS / 2048))
+        SEEK_POS=$((DISK_SIZE_MB - 10))
+        if [ "$SEEK_POS" -gt 0 ]; then
+            dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=10 seek=$SEEK_POS conv=notrunc 2>/dev/null || true
+            echo "[WIPE] Zeroed last 10MB at offset ${SEEK_POS}MB" >> "${INSTALL_LOG}"
+        fi
     fi
+else
+    log_warn "Could not determine disk size, skipping end-of-disk wipe"
 fi
 
 # Force kernel to drop all partition info
@@ -464,21 +490,28 @@ fi
 
 # Verify disk is clean
 log_info "Verifying disk is clean..."
-REMAINING_SIGS=$(blkid "${TARGET_DISK}"* 2>/dev/null | grep -c TYPE || echo "0")
-if [ "$REMAINING_SIGS" -gt 0 ]; then
+REMAINING_SIGS=$(blkid "${TARGET_DISK}"* 2>/dev/null | grep -c TYPE || true)
+REMAINING_SIGS=${REMAINING_SIGS:-0}
+if [ "$REMAINING_SIGS" -gt 0 ] 2>/dev/null; then
     log_warn "Found ${REMAINING_SIGS} remaining signatures - performing deep wipe..."
     echo "[WIPE] ${REMAINING_SIGS} signatures remain, deep wiping..." >> "${INSTALL_LOG}"
     
     # Get disk size and wipe a significant portion
-    DISK_SIZE_MB=$(($(blockdev --getsz "${TARGET_DISK}" 2>/dev/null || echo "0") / 2048))
-    
-    # Wipe at least 1GB or 10% of disk, whichever is larger (cap at 10GB)
-    WIPE_SIZE=$((DISK_SIZE_MB / 10))
-    [ "$WIPE_SIZE" -lt 1024 ] && WIPE_SIZE=1024
-    [ "$WIPE_SIZE" -gt 10240 ] && WIPE_SIZE=10240
-    
-    log_info "Deep wiping first ${WIPE_SIZE}MB..."
-    dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=${WIPE_SIZE} conv=notrunc 2>/dev/null || true
+    DISK_SIZE_SECTORS=$(blockdev --getsz "${TARGET_DISK}" 2>/dev/null)
+    if [ -n "$DISK_SIZE_SECTORS" ] && [ "$DISK_SIZE_SECTORS" -gt 0 ] 2>/dev/null; then
+        DISK_SIZE_MB=$((DISK_SIZE_SECTORS / 2048))
+        
+        # Wipe at least 1GB or 10% of disk, whichever is larger (cap at 10GB)
+        WIPE_SIZE=$((DISK_SIZE_MB / 10))
+        [ "$WIPE_SIZE" -lt 1024 ] && WIPE_SIZE=1024
+        [ "$WIPE_SIZE" -gt 10240 ] && WIPE_SIZE=10240
+        
+        log_info "Deep wiping first ${WIPE_SIZE}MB..."
+        dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=${WIPE_SIZE} conv=notrunc 2>/dev/null || true
+    else
+        log_warn "Could not get disk size for deep wipe, using 1GB"
+        dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=1024 conv=notrunc 2>/dev/null || true
+    fi
     
     blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
     partprobe "${TARGET_DISK}" 2>/dev/null || true
@@ -488,10 +521,79 @@ fi
 
 echo "[WIPE] Disk wipe complete" >> "${INSTALL_LOG}"
 log_info "Disk wipe complete"
+
+# =============================================================================
+# FINAL CLEANUP: Force kernel to completely forget about old partitions
+# This is CRITICAL to prevent "partitions in use" errors
+# =============================================================================
+log_info "Final kernel partition cleanup..."
+
+# Remove all partition entries using partx
+if command -v partx >/dev/null 2>&1; then
+    partx -d "${TARGET_DISK}" 2>/dev/null || true
+    # Also try removing numbered partitions explicitly
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        partx -d --nr $i "${TARGET_DISK}" 2>/dev/null || true
+    done
+fi
+
+# Force kernel re-read with multiple methods
+sync
+blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
+sleep 1
+partprobe "${TARGET_DISK}" 2>/dev/null || true
+sleep 1
+
+# Trigger udev to update device nodes
+udevadm trigger 2>/dev/null || true
+udevadm settle --timeout=5 2>/dev/null || true
+
+# Final check - partition devices should not exist
+for i in 1 2 3 4 5; do
+    PART="${PART_PATTERN}${i}"
+    if [ -b "$PART" ]; then
+        log_warn "Partition $PART still exists after cleanup, attempting removal..."
+        # Try dmsetup if it's a dm device
+        dmsetup remove "$PART" 2>/dev/null || true
+        # Force umount again
+        umount -l "$PART" 2>/dev/null || true
+    fi
+done
+
+blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
+sleep 2
     
-# Create GPT partition table
+# Create GPT partition table (with retry)
 log_info "Creating GPT partition table..."
-parted -s "${TARGET_DISK}" mklabel gpt
+PARTED_SUCCESS=0
+for attempt in 1 2 3; do
+    if parted -s "${TARGET_DISK}" mklabel gpt 2>&1; then
+        PARTED_SUCCESS=1
+        break
+    else
+        log_warn "parted mklabel failed (attempt $attempt/3), retrying..."
+        # Additional cleanup before retry
+        sync
+        blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
+        partprobe "${TARGET_DISK}" 2>/dev/null || true
+        sleep 2
+        
+        # Try partx again
+        if command -v partx >/dev/null 2>&1; then
+            partx -d "${TARGET_DISK}" 2>/dev/null || true
+        fi
+        sleep 1
+    fi
+done
+
+if [ "$PARTED_SUCCESS" -eq 0 ]; then
+    log_error "Failed to create GPT partition table after 3 attempts"
+    log_error "The disk may still be in use. Check:"
+    log_error "  - Is any partition mounted? (mount | grep ${TARGET_DISK})"
+    log_error "  - Any processes using it? (fuser -m ${TARGET_DISK}*)"
+    log_error "  - Any device-mapper entries? (dmsetup ls)"
+    exit 1
+fi
 
 # Calculate partition positions
 # Layout: EFI(256M) + SysA(1.5G) + SysB(1.5G) + Cfg(256M) + Data(rest)
