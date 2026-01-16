@@ -7,6 +7,7 @@ use std::path::Path;
 
 use crate::cli::Args;
 use crate::tls::CertificateMode;
+use crate::update::UpdateConfig;
 
 /// Main configuration structure.
 #[derive(Debug, Clone, Deserialize)]
@@ -20,6 +21,8 @@ pub struct Config {
     pub hypervisor: HypervisorConfig,
     /// Control plane connection configuration
     pub control_plane: ControlPlaneConfig,
+    /// OTA update configuration
+    pub updates: UpdateConfig,
 }
 
 impl Default for Config {
@@ -29,6 +32,7 @@ impl Default for Config {
             server: ServerConfig::default(),
             hypervisor: HypervisorConfig::default(),
             control_plane: ControlPlaneConfig::default(),
+            updates: UpdateConfig::default(),
         }
     }
 }

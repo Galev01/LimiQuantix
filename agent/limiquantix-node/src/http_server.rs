@@ -34,6 +34,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::TlsConfig;
 use crate::service::NodeDaemonServiceImpl;
 use crate::tls::{TlsManager, AcmeManager, CertificateInfo, AcmeAccountInfo, AcmeChallengeStatus};
+use crate::update::{UpdateManager, UpdateConfig, UpdateStatus, UpdateProgress};
 
 use limiquantix_telemetry::TelemetryCollector;
 
@@ -51,6 +52,8 @@ pub struct AppState {
     pub telemetry: Arc<TelemetryCollector>,
     /// Storage manager for pool operations (e.g., ISO uploads to pools)
     pub storage: Arc<limiquantix_hypervisor::storage::StorageManager>,
+    /// OTA Update manager for checking and applying updates
+    pub update_manager: Arc<UpdateManager>,
 }
 
 // ============================================================================
@@ -780,6 +783,7 @@ pub async fn run_http_server(
     webui_path: PathBuf,
     tls_config: TlsConfig,
     telemetry: Arc<TelemetryCollector>,
+    update_manager: Arc<UpdateManager>,
 ) -> anyhow::Result<()> {
     // Initialize TLS manager (needed for certificate management API even if HTTPS is disabled)
     let tls_manager = Arc::new(TlsManager::new(tls_config.clone()));
@@ -794,6 +798,7 @@ pub async fn run_http_server(
         tls_config: tls_config.clone(),
         telemetry,
         storage,
+        update_manager,
     });
 
     // Build the application router
@@ -814,6 +819,7 @@ pub async fn run_https_server(
     webui_path: PathBuf,
     tls_config: TlsConfig,
     telemetry: Arc<TelemetryCollector>,
+    update_manager: Arc<UpdateManager>,
 ) -> anyhow::Result<()> {
     // Initialize TLS manager and certificates
     let tls_manager = Arc::new(TlsManager::new(tls_config.clone()));
@@ -829,6 +835,7 @@ pub async fn run_https_server(
         tls_config: tls_config.clone(),
         telemetry,
         storage,
+        update_manager,
     });
 
     // Build the application router
@@ -1102,21 +1109,10 @@ struct UpdateConfigResponse {
 
 /// GET /api/v1/updates/check - Check for available updates
 async fn check_for_updates(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<Json<UpdateCheckResponse>, (StatusCode, Json<ApiError>)> {
-    use crate::update::{UpdateManager, UpdateConfig};
-    
-    // Create update manager with default config
-    let config = UpdateConfig::default();
-    let manager = UpdateManager::new(config);
-    
-    // Initialize to detect current versions
-    if let Err(e) = manager.init().await {
-        warn!(error = %e, "Failed to initialize update manager");
-    }
-    
-    // Check for updates
-    match manager.check_for_updates().await {
+    // Check for updates using the shared UpdateManager
+    match state.update_manager.check_for_updates().await {
         Ok(info) => {
             Ok(Json(UpdateCheckResponse {
                 available: info.available,
@@ -1146,18 +1142,9 @@ async fn check_for_updates(
 
 /// GET /api/v1/updates/current - Get currently installed versions
 async fn get_current_versions(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<Json<CurrentVersionsResponse>, (StatusCode, Json<ApiError>)> {
-    use crate::update::{UpdateManager, UpdateConfig};
-    
-    let config = UpdateConfig::default();
-    let manager = UpdateManager::new(config);
-    
-    if let Err(e) = manager.init().await {
-        warn!(error = %e, "Failed to initialize update manager");
-    }
-    
-    let versions = manager.get_installed_versions().await;
+    let versions = state.update_manager.get_installed_versions().await;
     
     Ok(Json(CurrentVersionsResponse {
         os_version: versions.os_version,
@@ -1169,14 +1156,9 @@ async fn get_current_versions(
 
 /// GET /api/v1/updates/status - Get current update status
 async fn get_update_status(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<Json<UpdateStatusResponse>, (StatusCode, Json<ApiError>)> {
-    use crate::update::{UpdateManager, UpdateConfig, UpdateStatus};
-    
-    let config = UpdateConfig::default();
-    let manager = UpdateManager::new(config);
-    
-    let status = manager.get_status().await;
+    let status = state.update_manager.get_status().await;
     
     let (status_str, message, progress) = match status {
         UpdateStatus::Idle => ("idle", None, None),
@@ -1203,53 +1185,52 @@ async fn get_update_status(
 }
 
 /// POST /api/v1/updates/apply - Apply available updates
+/// 
+/// Starts the update process in the background and returns immediately.
+/// Poll GET /api/v1/updates/status to check progress.
 async fn apply_updates(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
-    use crate::update::{UpdateManager, UpdateConfig};
-    
-    let config = UpdateConfig::default();
-    let manager = UpdateManager::new(config);
-    
-    // Initialize
-    if let Err(e) = manager.init().await {
-        return Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiError::new("init_failed", &format!("Failed to initialize update manager: {}", e))),
-        ));
+    // Check if already updating
+    let current_status = state.update_manager.get_status().await;
+    match current_status {
+        UpdateStatus::Downloading(_) | UpdateStatus::Applying(_) => {
+            return Err((
+                StatusCode::CONFLICT,
+                Json(ApiError::new("update_in_progress", "An update is already in progress")),
+            ));
+        }
+        _ => {}
     }
     
-    // Apply updates
-    match manager.apply_updates().await {
-        Ok(()) => {
-            Ok(Json(serde_json::json!({
-                "status": "success",
-                "message": "Updates applied successfully"
-            })))
+    // Clone the manager for the background task
+    let manager = state.update_manager.clone();
+    
+    // Start update in background task
+    tokio::spawn(async move {
+        info!("Starting background update application");
+        if let Err(e) = manager.apply_updates().await {
+            error!(error = %e, "Background update application failed");
         }
-        Err(e) => {
-            error!(error = %e, "Failed to apply updates");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiError::new("apply_failed", &format!("Failed to apply updates: {}", e))),
-            ))
-        }
-    }
+    });
+    
+    Ok(Json(serde_json::json!({
+        "status": "started",
+        "message": "Update process started. Poll /api/v1/updates/status for progress."
+    })))
 }
 
 /// GET /api/v1/updates/config - Get update configuration
 async fn get_update_config(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<Json<UpdateConfigResponse>, (StatusCode, Json<ApiError>)> {
-    use crate::update::UpdateConfig;
-    
-    let config = UpdateConfig::default();
+    let config = state.update_manager.get_config();
     
     Ok(Json(UpdateConfigResponse {
         enabled: config.enabled,
-        server_url: config.server_url,
-        channel: config.channel,
-        check_interval: config.check_interval,
+        server_url: config.server_url.clone(),
+        channel: config.channel.clone(),
+        check_interval: config.check_interval.clone(),
         auto_apply: config.auto_apply,
     }))
 }

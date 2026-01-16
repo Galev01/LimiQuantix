@@ -22,3 +22,11 @@ alwaysApply: true
 - **Styling:** Tailwind CSS v4.
 - **Icons:** Lucide-React.
 - **Comms:** gRPC-Web or Connect-ES for talking to the backend.
+
+## Update Server (OTA Infrastructure)
+- **Backend:** Go 1.22 + Fiber (lightweight HTTP framework).
+- **Frontend:** React 19 + Vite + TypeScript + Tailwind v4 (Admin UI).
+- **Deployment:** Docker + docker-compose.
+- **Port:** 9000 (API + Admin UI).
+- **Features:** Git pull, build triggers, release publishing, A/B updates.
+- **Storage:** File-based artifact storage with SHA256 verification.

@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -73,6 +74,23 @@ type Config struct {
 	ReleaseDir   string
 	ListenAddr   string
 	PublishToken string
+	GitRepoPath  string
+	UIPath       string
+}
+
+// GitPullResponse is the response for git pull operations
+type GitPullResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Branch  string `json:"branch,omitempty"`
+	Commit  string `json:"commit,omitempty"`
+}
+
+// BuildRequest is the request for build operations
+type BuildRequest struct {
+	Product string `json:"product"`
+	Version string `json:"version"`
+	Channel string `json:"channel"`
 }
 
 var (
@@ -94,6 +112,8 @@ func main() {
 		ReleaseDir:   getEnv("RELEASE_DIR", "/data/releases"),
 		ListenAddr:   getEnv("LISTEN_ADDR", "0.0.0.0:9000"),
 		PublishToken: getEnv("PUBLISH_TOKEN", "dev-token"),
+		GitRepoPath:  getEnv("GIT_REPO_PATH", "/workspace/LimiQuantix"),
+		UIPath:       getEnv("UI_PATH", "./ui/dist"),
 	}
 
 	// Create release directories if they don't exist
@@ -108,9 +128,20 @@ func main() {
 		}
 	}
 
+	// Initialize signing subsystem
+	if err := InitSigning(); err != nil {
+		log.Fatal("Failed to initialize signing", zap.Error(err))
+	}
+
+	// Initialize migrations subsystem
+	if err := InitMigrations(); err != nil {
+		log.Warn("Failed to initialize migrations", zap.Error(err))
+	}
+
 	log.Info("Starting Quantix Update Server",
 		zap.String("release_dir", config.ReleaseDir),
 		zap.String("listen_addr", config.ListenAddr),
+		zap.Bool("signing_enabled", IsSigningEnabled()),
 	)
 
 	// Create Fiber app
@@ -149,6 +180,50 @@ func main() {
 
 	// Publish endpoint (authenticated)
 	api.Post("/:product/publish", authMiddleware, handlePublish)
+
+	// Delete release endpoint (authenticated)
+	api.Delete("/:product/releases/:version", authMiddleware, handleDeleteRelease)
+
+	// Admin endpoints
+	admin := api.Group("/admin")
+	admin.Post("/git-pull", authMiddleware, handleGitPull)
+	admin.Post("/build", authMiddleware, handleBuild)
+	admin.Get("/status", handleAdminStatus)
+	admin.Post("/generate-keys", authMiddleware, handleGenerateKeys)
+	admin.Get("/public-key", handleGetPublicKey)
+
+	// Maintenance mode endpoints (Node Draining)
+	RegisterMaintenanceRoutes(api)
+
+	// Migration lifecycle endpoints (vDC Database)
+	RegisterMigrationRoutes(api)
+
+	// Signed manifest endpoint
+	api.Get("/:product/manifest/signed", handleGetSignedManifest)
+
+	// Admin config endpoint
+	admin.Get("/config", handleGetConfig)
+
+	// Serve static UI files (if they exist)
+	// IMPORTANT: This must come AFTER all API routes
+	if _, err := os.Stat(config.UIPath); err == nil {
+		// Serve static assets
+		app.Static("/assets", filepath.Join(config.UIPath, "assets"))
+		app.Static("/quantix.svg", filepath.Join(config.UIPath, "quantix.svg"))
+		
+		// SPA fallback - only for non-API routes
+		app.Get("/*", func(c *fiber.Ctx) error {
+			path := c.Path()
+			// Don't serve index.html for API routes
+			if strings.HasPrefix(path, "/api/") || path == "/health" {
+				return c.Next()
+			}
+			return c.SendFile(filepath.Join(config.UIPath, "index.html"))
+		})
+		log.Info("Serving UI from", zap.String("path", config.UIPath))
+	} else {
+		log.Info("UI not found, running in API-only mode", zap.String("path", config.UIPath))
+	}
 
 	// Start server
 	if err := app.Listen(config.ListenAddr); err != nil {
@@ -267,6 +342,10 @@ func handleListReleases(c *fiber.Ctx) error {
 		}
 	}
 
+	// Return empty array instead of null
+	if releases == nil {
+		releases = []ReleaseInfo{}
+	}
 	return c.JSON(releases)
 }
 
@@ -515,6 +594,345 @@ func handlePublish(c *fiber.Ctx) error {
 		"version":   manifest.Version,
 		"channel":   manifest.Channel,
 		"artifacts": savedArtifacts,
+	})
+}
+
+// handleDeleteRelease deletes a release
+func handleDeleteRelease(c *fiber.Ctx) error {
+	product := c.Params("product")
+	version := c.Params("version")
+	channel := c.Query("channel", "dev")
+
+	if !isValidProduct(product) {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid product",
+		})
+	}
+
+	releaseDir := filepath.Join(config.ReleaseDir, product, channel, version)
+
+	// Check if release exists
+	if _, err := os.Stat(releaseDir); os.IsNotExist(err) {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error": "Release not found",
+		})
+	}
+
+	// Delete the release directory
+	if err := os.RemoveAll(releaseDir); err != nil {
+		log.Error("Failed to delete release", zap.Error(err))
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to delete release",
+		})
+	}
+
+	log.Info("Deleted release",
+		zap.String("product", product),
+		zap.String("version", version),
+		zap.String("channel", channel),
+	)
+
+	return c.JSON(fiber.Map{
+		"status":  "deleted",
+		"product": product,
+		"version": version,
+		"channel": channel,
+	})
+}
+
+// handleGitPull pulls the latest code from git
+func handleGitPull(c *fiber.Ctx) error {
+	if config.GitRepoPath == "" {
+		return c.Status(http.StatusBadRequest).JSON(GitPullResponse{
+			Success: false,
+			Message: "Git repository path not configured",
+		})
+	}
+
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(GitPullResponse{
+			Success: false,
+			Message: "Git is not installed",
+		})
+	}
+
+	// Execute git pull
+	cmd := exec.Command("git", "pull")
+	cmd.Dir = config.GitRepoPath
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Error("Git pull failed", zap.Error(err), zap.String("output", string(output)))
+		return c.Status(http.StatusInternalServerError).JSON(GitPullResponse{
+			Success: false,
+			Message: fmt.Sprintf("Git pull failed: %s", string(output)),
+		})
+	}
+
+	// Get current branch
+	branchCmd := exec.Command("git", "branch", "--show-current")
+	branchCmd.Dir = config.GitRepoPath
+	branchOutput, _ := branchCmd.Output()
+	branch := strings.TrimSpace(string(branchOutput))
+
+	// Get current commit
+	commitCmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+	commitCmd.Dir = config.GitRepoPath
+	commitOutput, _ := commitCmd.Output()
+	commit := strings.TrimSpace(string(commitOutput))
+
+	log.Info("Git pull successful",
+		zap.String("branch", branch),
+		zap.String("commit", commit),
+		zap.String("output", string(output)),
+	)
+
+	return c.JSON(GitPullResponse{
+		Success: true,
+		Message: strings.TrimSpace(string(output)),
+		Branch:  branch,
+		Commit:  commit,
+	})
+}
+
+// handleBuild triggers a build and publish
+func handleBuild(c *fiber.Ctx) error {
+	var req BuildRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	if req.Product == "" || req.Version == "" || req.Channel == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "product, version, and channel are required",
+		})
+	}
+
+	if !isValidProduct(req.Product) {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid product",
+		})
+	}
+
+	// Check if publish script exists
+	publishScript := filepath.Join(config.GitRepoPath, "scripts", "publish-update.sh")
+	if _, err := os.Stat(publishScript); os.IsNotExist(err) {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error":  "Publish script not found",
+			"script": publishScript,
+		})
+	}
+
+	// Execute the publish script
+	cmd := exec.Command("bash", publishScript,
+		"--channel", req.Channel,
+		"--version", req.Version,
+	)
+	cmd.Dir = config.GitRepoPath
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("UPDATE_SERVER=http://localhost:%s", strings.Split(config.ListenAddr, ":")[1]),
+		fmt.Sprintf("PUBLISH_TOKEN=%s", config.PublishToken),
+	)
+
+	// Run in background
+	go func() {
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Error("Build failed",
+				zap.Error(err),
+				zap.String("output", string(output)),
+			)
+		} else {
+			log.Info("Build completed",
+				zap.String("product", req.Product),
+				zap.String("version", req.Version),
+				zap.String("channel", req.Channel),
+			)
+		}
+	}()
+
+	return c.JSON(fiber.Map{
+		"status":  "building",
+		"product": req.Product,
+		"version": req.Version,
+		"channel": req.Channel,
+		"message": "Build started in background",
+	})
+}
+
+// handleGetSignedManifest returns a cryptographically signed manifest
+func handleGetSignedManifest(c *fiber.Ctx) error {
+	if !IsSigningEnabled() {
+		return c.Status(http.StatusNotImplemented).JSON(fiber.Map{
+			"error": "Signing is not enabled on this server",
+		})
+	}
+
+	product := c.Params("product")
+	channel := c.Query("channel", "dev")
+
+	if !isValidProduct(product) {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid product",
+		})
+	}
+
+	// Find latest version
+	channelDir := filepath.Join(config.ReleaseDir, product, channel)
+	versions, err := listVersions(channelDir)
+	if err != nil || len(versions) == 0 {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error": "No releases found",
+		})
+	}
+
+	// Load manifest
+	manifestPath := filepath.Join(channelDir, versions[0], "manifest.json")
+	manifest, err := loadManifest(manifestPath)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to load manifest",
+		})
+	}
+
+	// Sign the manifest
+	signedManifest, err := SignManifest(manifest)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to sign manifest",
+		})
+	}
+
+	return c.JSON(signedManifest)
+}
+
+// handleGenerateKeys generates a new signing keypair
+func handleGenerateKeys(c *fiber.Ctx) error {
+	outputDir := c.Query("output_dir", config.ReleaseDir)
+
+	if err := GenerateSigningKeyPair(outputDir); err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"status":      "generated",
+		"private_key": filepath.Join(outputDir, "signing-private.key"),
+		"public_key":  filepath.Join(outputDir, "signing-public.key"),
+		"note":        "Keep the private key secret! Embed the public key in your update agents.",
+	})
+}
+
+// handleGetPublicKey returns the public signing key
+func handleGetPublicKey(c *fiber.Ctx) error {
+	if !IsSigningEnabled() {
+		return c.Status(http.StatusNotImplemented).JSON(fiber.Map{
+			"error": "Signing is not enabled",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"public_key": GetPublicKey(),
+		"key_id":     signingKeyID,
+		"algorithm":  "ed25519",
+	})
+}
+
+// handleGetConfig returns the server configuration
+func handleGetConfig(c *fiber.Ctx) error {
+	// Get git info
+	var gitBranch, gitCommit, gitStatus string
+	if config.GitRepoPath != "" {
+		branchCmd := exec.Command("git", "branch", "--show-current")
+		branchCmd.Dir = config.GitRepoPath
+		if output, err := branchCmd.Output(); err == nil {
+			gitBranch = strings.TrimSpace(string(output))
+		}
+
+		commitCmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+		commitCmd.Dir = config.GitRepoPath
+		if output, err := commitCmd.Output(); err == nil {
+			gitCommit = strings.TrimSpace(string(output))
+		}
+
+		statusCmd := exec.Command("git", "status", "--porcelain")
+		statusCmd.Dir = config.GitRepoPath
+		if output, err := statusCmd.Output(); err == nil {
+			if len(output) == 0 {
+				gitStatus = "clean"
+			} else {
+				gitStatus = "modified"
+			}
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"server": fiber.Map{
+			"listen_addr":   config.ListenAddr,
+			"release_dir":   config.ReleaseDir,
+			"git_repo_path": config.GitRepoPath,
+			"ui_path":       config.UIPath,
+		},
+		"signing": fiber.Map{
+			"enabled":    IsSigningEnabled(),
+			"key_id":     signingKeyID,
+			"public_key": GetPublicKey(),
+		},
+		"git": fiber.Map{
+			"branch": gitBranch,
+			"commit": gitCommit,
+			"status": gitStatus,
+		},
+	})
+}
+
+// handleAdminStatus returns admin status information
+func handleAdminStatus(c *fiber.Ctx) error {
+	// Get git status if available
+	var gitStatus string
+	var gitBranch string
+	var gitCommit string
+
+	if config.GitRepoPath != "" {
+		branchCmd := exec.Command("git", "branch", "--show-current")
+		branchCmd.Dir = config.GitRepoPath
+		if output, err := branchCmd.Output(); err == nil {
+			gitBranch = strings.TrimSpace(string(output))
+		}
+
+		commitCmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+		commitCmd.Dir = config.GitRepoPath
+		if output, err := commitCmd.Output(); err == nil {
+			gitCommit = strings.TrimSpace(string(output))
+		}
+
+		statusCmd := exec.Command("git", "status", "--porcelain")
+		statusCmd.Dir = config.GitRepoPath
+		if output, err := statusCmd.Output(); err == nil {
+			if len(output) == 0 {
+				gitStatus = "clean"
+			} else {
+				gitStatus = "modified"
+			}
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"server": fiber.Map{
+			"release_dir": config.ReleaseDir,
+			"listen_addr": config.ListenAddr,
+			"git_repo":    config.GitRepoPath,
+			"ui_path":     config.UIPath,
+		},
+		"git": fiber.Map{
+			"branch": gitBranch,
+			"commit": gitCommit,
+			"status": gitStatus,
+		},
 	})
 }
 

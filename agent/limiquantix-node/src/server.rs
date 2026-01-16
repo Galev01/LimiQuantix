@@ -15,6 +15,7 @@ use crate::event_store::{init_event_store, emit_event, Event, EventLevel, EventC
 use crate::http_server;
 use crate::registration::{RegistrationClient, detect_management_ip};
 use crate::service::NodeDaemonServiceImpl;
+use crate::update::UpdateManager;
 
 /// Run the gRPC server.
 pub async fn run(config: Config) -> Result<()> {
@@ -102,6 +103,19 @@ pub async fn run(config: Config) -> Result<()> {
     // Start background telemetry refresh task (every 2 seconds for accurate CPU metrics)
     let _telemetry_handle = telemetry.start_background_refresh(std::time::Duration::from_secs(2));
     info!("Started background telemetry refresh task (2s interval)");
+    
+    // Initialize OTA update manager
+    let update_manager = Arc::new(UpdateManager::new(config.updates.clone()));
+    if let Err(e) = update_manager.init().await {
+        warn!(error = %e, "Failed to initialize update manager - updates may not work correctly");
+    } else {
+        let versions = update_manager.get_installed_versions().await;
+        info!(
+            os_version = %versions.os_version,
+            qx_node = ?versions.qx_node,
+            "Update manager initialized"
+        );
+    }
     
     // Collect initial telemetry
     let node_info = telemetry.collect();
@@ -191,6 +205,7 @@ pub async fn run(config: Config) -> Result<()> {
         let webui_path_http = webui_path.clone();
         let tls_config_http = tls_config.clone();
         let telemetry_http = telemetry.clone();
+        let update_manager_http = update_manager.clone();
         
         info!(
             address = %http_addr,
@@ -204,7 +219,7 @@ pub async fn run(config: Config) -> Result<()> {
         );
         
         server_handles.push(tokio::spawn(async move {
-            if let Err(e) = http_server::run_http_server(http_addr, http_service, webui_path_http, tls_config_http, telemetry_http).await {
+            if let Err(e) = http_server::run_http_server(http_addr, http_service, webui_path_http, tls_config_http, telemetry_http, update_manager_http).await {
                 error!(error = %e, "HTTP server failed");
             }
         }));
@@ -220,6 +235,7 @@ pub async fn run(config: Config) -> Result<()> {
         let webui_path_https = webui_path.clone();
         let tls_config_https = tls_config.clone();
         let telemetry_https = telemetry.clone();
+        let update_manager_https = update_manager.clone();
         
         info!(
             address = %https_addr,
@@ -249,7 +265,7 @@ pub async fn run(config: Config) -> Result<()> {
         }
         
         server_handles.push(tokio::spawn(async move {
-            if let Err(e) = http_server::run_https_server(https_addr, https_service, webui_path_https, tls_config_https, telemetry_https).await {
+            if let Err(e) = http_server::run_https_server(https_addr, https_service, webui_path_https, tls_config_https, telemetry_https, update_manager_https).await {
                 error!(error = %e, "HTTPS server failed");
             }
         }));

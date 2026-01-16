@@ -22,12 +22,34 @@ import {
   Clock,
   HardDrive,
   Zap,
+  Download,
+  Server,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Package,
+  ArrowDownToLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { useThemeStore } from '@/stores/theme-store';
+import {
+  useVDCUpdateStatus,
+  useCheckVDCUpdate,
+  useApplyVDCUpdate,
+  useHostsUpdateStatus,
+  useCheckAllHostUpdates,
+  useApplyHostUpdate,
+  useUpdateConfig,
+  useUpdateConfigMutation,
+  getStatusColor,
+  getStatusLabel,
+  formatBytes,
+  type HostUpdateInfo,
+  type UpdateChannel,
+} from '@/hooks/useUpdates';
 
 export function Settings() {
   return (
@@ -48,6 +70,7 @@ export function Settings() {
       <Tabs defaultValue="general">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="updates">Updates</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
@@ -58,6 +81,10 @@ export function Settings() {
 
         <TabsContent value="general">
           <GeneralSettings />
+        </TabsContent>
+
+        <TabsContent value="updates">
+          <UpdateSettings />
         </TabsContent>
 
         <TabsContent value="appearance">
@@ -145,6 +172,289 @@ function GeneralSettings() {
         </SettingField>
       </div>
     </SettingsSection>
+  );
+}
+
+function UpdateSettings() {
+  const { data: vdcStatus, isLoading: vdcLoading } = useVDCUpdateStatus();
+  const { data: hostsData, isLoading: hostsLoading } = useHostsUpdateStatus();
+  const { data: config } = useUpdateConfig();
+  
+  const checkVDC = useCheckVDCUpdate();
+  const applyVDC = useApplyVDCUpdate();
+  const checkAllHosts = useCheckAllHostUpdates();
+  const applyHost = useApplyHostUpdate();
+  const updateConfigMutation = useUpdateConfigMutation();
+
+  const [selectedChannel, setSelectedChannel] = useState<UpdateChannel>(config?.channel || 'dev');
+
+  const hosts = hostsData?.hosts || [];
+  const hostsWithUpdates = hosts.filter(h => h.status === 'available');
+
+  const handleChannelChange = (channel: UpdateChannel) => {
+    setSelectedChannel(channel);
+    updateConfigMutation.mutate({ channel });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* vDC Update Section */}
+      <SettingsSection title="Quantix-vDC Updates" description="Manage updates for the vDC control plane">
+        <div className="space-y-6">
+          {/* Current Version */}
+          <div className="flex items-center justify-between p-4 rounded-lg bg-bg-base border border-border">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-lg bg-accent/10">
+                <Package className="w-6 h-6 text-accent" />
+              </div>
+              <div>
+                <p className="font-medium text-text-primary">Quantix-vDC</p>
+                <p className="text-sm text-text-muted">
+                  Current version: <span className="font-mono">{vdcStatus?.current_version || 'Unknown'}</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {vdcLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+              ) : vdcStatus?.status === 'available' ? (
+                <Badge variant="success">
+                  <ArrowDownToLine className="w-3 h-3 mr-1" />
+                  v{vdcStatus.available_version} available
+                </Badge>
+              ) : (
+                <Badge variant="default">
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  Up to date
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Update Actions */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => checkVDC.mutate()}
+              disabled={checkVDC.isPending}
+            >
+              {checkVDC.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              Check for Updates
+            </Button>
+            {vdcStatus?.status === 'available' && (
+              <Button
+                onClick={() => applyVDC.mutate()}
+                disabled={applyVDC.isPending}
+              >
+                {applyVDC.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                Apply Update
+              </Button>
+            )}
+          </div>
+
+          {/* Release Notes */}
+          {vdcStatus?.manifest?.release_notes && (
+            <div className="p-4 rounded-lg bg-bg-base border border-border">
+              <h4 className="font-medium text-text-primary mb-2">Release Notes</h4>
+              <p className="text-sm text-text-secondary whitespace-pre-wrap">
+                {vdcStatus.manifest.release_notes}
+              </p>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {vdcStatus?.error && (
+            <div className="p-4 rounded-lg bg-error/10 border border-error/30">
+              <div className="flex items-start gap-3">
+                <XCircle className="w-5 h-5 text-error shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-error">Update Error</p>
+                  <p className="text-sm text-text-secondary">{vdcStatus.error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </SettingsSection>
+
+      {/* Host Updates Section */}
+      <SettingsSection title="QHCI Host Updates" description="Manage updates for connected Quantix-OS hosts">
+        <div className="space-y-6">
+          {/* Summary */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-text-muted">
+                {hosts.length} host(s) connected
+                {hostsWithUpdates.length > 0 && (
+                  <span className="text-success ml-2">
+                    • {hostsWithUpdates.length} update(s) available
+                  </span>
+                )}
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => checkAllHosts.mutate()}
+              disabled={checkAllHosts.isPending}
+            >
+              {checkAllHosts.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              Check All Hosts
+            </Button>
+          </div>
+
+          {/* Host List */}
+          <div className="space-y-2">
+            {hostsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
+              </div>
+            ) : hosts.length === 0 ? (
+              <div className="py-8 text-center">
+                <Server className="w-8 h-8 mx-auto text-text-muted mb-2" />
+                <p className="text-sm text-text-muted">No hosts connected</p>
+                <p className="text-xs text-text-muted mt-1">
+                  Add hosts to manage their updates
+                </p>
+              </div>
+            ) : (
+              hosts.map((host) => (
+                <HostUpdateCard
+                  key={host.node_id}
+                  host={host}
+                  onApply={() => applyHost.mutate(host.node_id)}
+                  isApplying={applyHost.isPending}
+                />
+              ))
+            )}
+          </div>
+        </div>
+      </SettingsSection>
+
+      {/* Update Configuration */}
+      <SettingsSection title="Update Configuration" description="Configure automatic update behavior">
+        <div className="space-y-6">
+          <SettingField label="Update Channel" description="Choose which release channel to follow">
+            <div className="flex gap-3">
+              {(['stable', 'beta', 'dev'] as UpdateChannel[]).map((channel) => (
+                <button
+                  key={channel}
+                  onClick={() => handleChannelChange(channel)}
+                  className={cn(
+                    'px-4 py-2 rounded-lg border transition-all capitalize',
+                    selectedChannel === channel
+                      ? 'bg-accent/10 border-accent text-accent'
+                      : 'bg-bg-base border-border text-text-secondary hover:text-text-primary hover:border-border-hover'
+                  )}
+                >
+                  {channel}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-text-muted mt-2">
+              {selectedChannel === 'stable' && 'Production-ready releases. Recommended for most users.'}
+              {selectedChannel === 'beta' && 'Feature-complete releases in testing phase.'}
+              {selectedChannel === 'dev' && 'Latest development builds. May be unstable.'}
+            </p>
+          </SettingField>
+
+          <SettingField label="Update Server" description="URL of the update server">
+            <input
+              type="text"
+              className="form-input max-w-md font-mono"
+              defaultValue={config?.server_url || 'http://localhost:9000'}
+              readOnly
+            />
+          </SettingField>
+
+          <SettingField label="Auto Check" description="Automatically check for updates periodically">
+            <ToggleSwitch 
+              checked={config?.auto_check ?? true} 
+              onChange={(checked) => updateConfigMutation.mutate({ auto_check: checked })} 
+            />
+          </SettingField>
+
+          <SettingField label="Auto Apply" description="Automatically apply component updates (no reboot required)">
+            <ToggleSwitch 
+              checked={config?.auto_apply ?? false} 
+              onChange={(checked) => updateConfigMutation.mutate({ auto_apply: checked })} 
+            />
+          </SettingField>
+        </div>
+      </SettingsSection>
+    </div>
+  );
+}
+
+function HostUpdateCard({
+  host,
+  onApply,
+  isApplying,
+}: {
+  host: HostUpdateInfo;
+  onApply: () => void;
+  isApplying: boolean;
+}) {
+  const statusIcon = {
+    idle: <CheckCircle2 className="w-4 h-4 text-success" />,
+    checking: <Loader2 className="w-4 h-4 animate-spin text-info" />,
+    available: <ArrowDownToLine className="w-4 h-4 text-success" />,
+    downloading: <Loader2 className="w-4 h-4 animate-spin text-info" />,
+    applying: <Loader2 className="w-4 h-4 animate-spin text-info" />,
+    reboot_required: <AlertTriangle className="w-4 h-4 text-warning" />,
+    error: <XCircle className="w-4 h-4 text-error" />,
+  };
+
+  return (
+    <div className="flex items-center justify-between p-4 rounded-lg bg-bg-base border border-border">
+      <div className="flex items-center gap-4">
+        <div className="p-2 rounded-lg bg-bg-elevated">
+          <Server className="w-5 h-5 text-text-muted" />
+        </div>
+        <div>
+          <p className="font-medium text-text-primary">{host.hostname}</p>
+          <p className="text-xs text-text-muted">
+            {host.management_ip} • v{host.current_version}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {statusIcon[host.status]}
+          <span className={cn('text-sm', getStatusColor(host.status))}>
+            {host.status === 'available' && host.available_version
+              ? `v${host.available_version} available`
+              : getStatusLabel(host.status)}
+          </span>
+        </div>
+        {host.status === 'available' && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onApply}
+            disabled={isApplying}
+          >
+            {isApplying ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Download className="w-3 h-3" />
+            )}
+            Update
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
 

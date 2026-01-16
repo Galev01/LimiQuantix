@@ -21,6 +21,15 @@ type Config struct {
 	HA        HAConfig        `mapstructure:"ha"`
 	Logging   LoggingConfig   `mapstructure:"logging"`
 	CORS      CORSConfig      `mapstructure:"cors"`
+	Updates   *UpdatesConfig  `mapstructure:"updates"`
+}
+
+// UpdatesConfig holds OTA update configuration.
+type UpdatesConfig struct {
+	ServerURL string `mapstructure:"server_url"`
+	Channel   string `mapstructure:"channel"`
+	AutoCheck bool   `mapstructure:"auto_check"`
+	AutoApply bool   `mapstructure:"auto_apply"`
 }
 
 // ServerConfig holds HTTP server configuration.

@@ -145,6 +145,28 @@ This section defines the official terminology and directory mappings. **All agen
 
 ---
 
+### 5. Update Server (OTA Update Infrastructure)
+
+**Quantix Update Server** - OTA update distribution system for Quantix-OS and Quantix-vDC.
+
+| Component | Directory | Tech Stack | Description |
+|-----------|-----------|------------|-------------|
+| **Update Server** | `/update-server` | Go 1.22, Fiber, Docker | REST API for serving manifests and artifacts |
+| **Admin UI** | `/update-server/ui` | React 19, Vite, TypeScript, Tailwind v4, TanStack Query | Web UI for managing releases |
+| **Update Client** | `/agent/limiquantix-node/src/update` | Rust, Tokio, reqwest | OTA update client in qx-node |
+| **Publish Scripts** | `/scripts/publish-update.sh` | Bash | Build and publish automation |
+
+**Ports:** Update Server: 9000 (API + Admin UI)
+
+**Features:**
+- Component updates (no reboot required)
+- A/B partition full system updates with automatic rollback
+- Multiple channels: dev, beta, stable
+- Git integration for pull and build
+- SHA256 verification of all artifacts
+
+---
+
 ### Quick Reference
 
 ```
@@ -188,3 +210,4 @@ This section defines the official terminology and directory mappings. **All agen
 | ESXi hostd | Node Daemon | `/agent/limiquantix-node` |
 | VMware Tools | Guest Agent | `/agent/limiquantix-guest-agent` |
 | VMRC | QVMC | `/qvmc` |
+| vSphere Update Manager | Update Server | `/update-server` |

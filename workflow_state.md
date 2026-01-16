@@ -1,117 +1,128 @@
 # Workflow State
 
-## Completed Task: OTA Update System Implementation
+## Completed Task: Quantix-OS Update Client Implementation
 
 **Date:** January 16, 2026
 
 ### Summary
-Implemented a comprehensive Over-The-Air (OTA) update system for Quantix-OS and Quantix-vDC, enabling development iteration without manual ISO rebuilds.
+Implemented the full OTA update client for Quantix-OS as specified in [000083 - Quantix-OS Update Client Plan](docs/updates/000083-quantix-os-update-client-plan.md).
 
-### Components Created
+---
 
-#### 1. Update Server (Go + Docker)
-- **Location:** `/update-server/`
-- **Files Created:**
-  - `main.go` - Go Fiber REST API server
-  - `go.mod` - Go module definition
-  - `Dockerfile` - Multi-stage Docker build
-  - `docker-compose.yml` - Local development setup
-  - `README.md` - Usage documentation
-  - `schema/manifest.schema.json` - JSON schema for manifests
-  - `examples/*.json` - Example manifests
+## Changes Made
 
-**API Endpoints:**
-- `GET /health` - Health check
-- `GET /api/v1/channels` - List channels (dev, beta, stable)
-- `GET /api/v1/{product}/manifest` - Get latest manifest
-- `POST /api/v1/{product}/publish` - Upload new release
+### Backend (Rust - agent/limiquantix-node)
 
-#### 2. Update Client (Rust)
-- **Location:** `/agent/limiquantix-node/src/update/`
-- **Files Created:**
-  - `mod.rs` - Main UpdateManager coordinator
-  - `manifest.rs` - Manifest data structures
-  - `downloader.rs` - HTTP download with resume and SHA256 verification
-  - `applier.rs` - Extract, install, and service restart logic
-  - `config.rs` - Update configuration
-  - `status.rs` - Status tracking types
-  - `ab_update.rs` - A/B partition update logic
+#### 1. Added UpdateConfig to main Config struct
+**File:** `src/config.rs`
+- Added `use crate::update::UpdateConfig;`
+- Added `pub updates: UpdateConfig` to `Config` struct
+- Added `updates: UpdateConfig::default()` to `Default` impl
 
-#### 3. REST API Endpoints (qx-node)
-- **Location:** `/agent/limiquantix-node/src/http_server.rs`
-- **Endpoints Added:**
-  - `GET /api/v1/updates/check` - Check for available updates
-  - `GET /api/v1/updates/current` - Get installed versions
-  - `GET /api/v1/updates/status` - Get update status
-  - `POST /api/v1/updates/apply` - Apply available updates
-  - `GET /api/v1/updates/config` - Get update configuration
+#### 2. Added UpdateManager to AppState
+**File:** `src/http_server.rs`
+- Added `use crate::update::{UpdateManager, UpdateConfig, UpdateStatus, UpdateProgress};`
+- Added `pub update_manager: Arc<UpdateManager>` to `AppState` struct
+- Updated `run_http_server()` and `run_https_server()` signatures to accept `update_manager`
+- Updated handlers to use shared `state.update_manager` instead of creating new instances
 
-#### 4. Overlay Mount System
-- **Location:** `/Quantix-OS/overlay/etc/local.d/`
-- **Files Created:**
-  - `05-overlay-mounts.start` - Sets up /data/bin, /data/share for OTA updates
-  - `03-ab-update-check.start` - A/B rollback check on boot
-  - `99-ab-update-verify.start` - A/B success verification
+#### 3. Fixed apply_updates to run in background
+**File:** `src/http_server.rs`
+- Changed `apply_updates` handler to spawn background task
+- Returns immediately with "started" status
+- Prevents duplicate updates with conflict check
 
-#### 5. Publish Scripts
-- **Location:** `/scripts/`
-- **Files Created:**
-  - `publish-update.sh` - Build and upload component updates
-  - `generate-manifest.sh` - Generate manifest from artifacts
+#### 4. Initialize UpdateManager in server startup
+**File:** `src/server.rs`
+- Added `use crate::update::UpdateManager;`
+- Created and initialized `UpdateManager` from `config.updates`
+- Passes `update_manager` to both HTTP and HTTPS servers
 
-#### 6. Documentation
-- **Location:** `/docs/updates/000081-ota-update-system.md`
-- Comprehensive documentation covering architecture, usage, and troubleshooting
+### Frontend (React - quantix-host-ui)
 
-### Key Features
+#### 1. Created API client
+**File:** `src/api/updates.ts`
+- Types: `UpdateCheckResponse`, `ComponentUpdateInfo`, `InstalledVersions`, `UpdateStatusResponse`, `UpdateConfig`
+- API functions: `checkForUpdates()`, `getCurrentVersions()`, `getUpdateStatus()`, `applyUpdates()`, `getUpdateConfig()`
+- Utilities: `formatBytes()`, `getStatusLabel()`, `getStatusVariant()`, `isUpdateInProgress()`
 
-1. **Component Updates (No Reboot)**
-   - Update qx-node, qx-console, host-ui individually
-   - Automatic service restart via OpenRC
-   - Backup before update with rollback capability
+#### 2. Created React Query hooks
+**File:** `src/hooks/useUpdates.ts`
+- Query keys for cache management
+- `useInstalledVersions()` - Get installed component versions
+- `useUpdateStatus()` - Poll update status with auto-refresh during updates
+- `useUpdateConfig()` - Get update settings
+- `useCheckForUpdates()` - Mutation to check for updates
+- `useApplyUpdates()` - Mutation to apply updates
+- `useUpdatesTab()` - Composite hook for the Updates tab
 
-2. **A/B Full System Updates**
-   - QUANTIX-A/QUANTIX-B partition scheme
-   - Automatic rollback after 3 failed boot attempts
-   - GRUB integration for slot switching
+#### 3. Added Updates tab to Settings page
+**File:** `src/pages/Settings.tsx`
+- Added 'updates' to Tab type
+- Added "Updates" tab with Download icon
+- Created `UpdatesSettingsTab` component with:
+  - Current versions display (OS, qx-node, Host UI)
+  - Update status badges
+  - Progress bar during downloads
+  - Reboot required warning
+  - Error display
+  - Available update info with component list
+  - Check for Updates / Apply Update buttons
+  - Update configuration display (server, channel, interval)
 
-3. **Security**
-   - SHA256 verification of all artifacts
-   - Token authentication for publishing
-   - Backup before replacement
+---
 
-### Modified Files
+## API Endpoints
 
-- `/agent/limiquantix-node/Cargo.toml` - Added sha2, hex dependencies
-- `/agent/limiquantix-node/src/main.rs` - Added update module
-- `/Quantix-OS/overlay/etc/init.d/quantix-node` - Updated paths for OTA binaries
-- `/Quantix-OS/overlay/usr/local/bin/qx-console-launcher` - OTA binary detection
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/updates/check` | GET | Check for available updates |
+| `/api/v1/updates/current` | GET | Get installed component versions |
+| `/api/v1/updates/status` | GET | Get current update status |
+| `/api/v1/updates/apply` | POST | Start update in background |
+| `/api/v1/updates/config` | GET | Get update configuration |
 
-### Usage
+---
 
-**Start Update Server:**
-```bash
-cd update-server
-docker-compose up -d
+## Configuration
+
+Updates can be configured in `/etc/limiquantix/node.yaml`:
+
+```yaml
+updates:
+  enabled: true
+  server_url: "http://192.168.0.95:9000"
+  channel: "dev"  # dev, beta, stable
+  check_interval: "1h"
+  auto_apply: false
+  auto_reboot: false
+  staging_dir: "/data/updates/staging"
+  backup_dir: "/data/updates/backup"
+  max_backups: 3
 ```
 
-**Publish Update:**
-```bash
-./scripts/publish-update.sh --channel dev
-```
+---
 
-**Check for Updates (on host):**
-```bash
-curl -k https://localhost:8443/api/v1/updates/check
-```
+## Testing
 
-**Apply Updates:**
-```bash
-curl -k -X POST https://localhost:8443/api/v1/updates/apply
-```
+To test the implementation:
 
-### Next Steps (Future)
-- Delta updates for smaller downloads
-- GPG signature verification
-- Scheduled update windows
-- Multi-region CDN support
+1. **Build the backend:**
+   ```bash
+   cd agent && cargo build --release
+   ```
+
+2. **Build the frontend:**
+   ```bash
+   cd quantix-host-ui && npm run build
+   ```
+
+3. **Access the Updates tab:**
+   - Navigate to Settings → Updates
+   - Click "Check for Updates"
+   - If an update is available, click "Apply Update"
+   - Monitor progress via the status polling
+
+---
+
+## Status: COMPLETE

@@ -26,6 +26,7 @@ import (
 	nodeservice "github.com/limiquantix/limiquantix/internal/services/node"
 	"github.com/limiquantix/limiquantix/internal/services/registration"
 	storageservice "github.com/limiquantix/limiquantix/internal/services/storage"
+	updateservice "github.com/limiquantix/limiquantix/internal/services/update"
 	"github.com/limiquantix/limiquantix/internal/services/vm"
 	vmservice "github.com/limiquantix/limiquantix/internal/services/vm"
 	"github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1/computev1connect"
@@ -95,6 +96,10 @@ type Server struct {
 
 	// Admin services
 	adminHandler *AdminHandler
+
+	// Update service
+	updateService *updateservice.Service
+	updateHandler *UpdateHandler
 
 	// Logs handler (for capturing application logs)
 	logsHandler *LogsHandler
@@ -331,6 +336,19 @@ func (s *Server) initServices() {
 		s.logger.Info("Admin services initialized")
 	}
 
+	// Initialize update service (always available)
+	updateConfig := updateservice.DefaultConfig()
+	// Try to get update server URL from config
+	if s.config.Updates != nil && s.config.Updates.ServerURL != "" {
+		updateConfig.ServerURL = s.config.Updates.ServerURL
+	}
+	if s.config.Updates != nil && s.config.Updates.Channel != "" {
+		updateConfig.Channel = updateservice.UpdateChannel(s.config.Updates.Channel)
+	}
+	s.updateService = updateservice.NewService(updateConfig, s.logger)
+	s.updateHandler = NewUpdateHandler(s.updateService, s.logger)
+	s.logger.Info("Update service initialized", zap.String("server_url", updateConfig.ServerURL))
+
 	s.logger.Info("Services initialized",
 		zap.String("scheduler_strategy", schedulerConfig.PlacementStrategy),
 		zap.Float64("cpu_overcommit", schedulerConfig.OvercommitCPU),
@@ -476,6 +494,14 @@ func (s *Server) registerRoutes() {
 	if s.adminHandler != nil {
 		s.adminHandler.RegisterRoutes(s.mux)
 		s.logger.Info("Registered Admin API routes", zap.String("path", "/api/admin/*"))
+	}
+
+	// =========================================================================
+	// Update REST API (always available)
+	// =========================================================================
+	if s.updateHandler != nil {
+		s.updateHandler.RegisterRoutes(s.mux)
+		s.logger.Info("Registered Update API routes", zap.String("path", "/api/v1/updates/*"))
 	}
 
 	s.logger.Info("All routes registered")

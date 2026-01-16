@@ -1,0 +1,29 @@
+# Dependencies
+ui/node_modules
+node_modules
+
+# Build outputs (will be rebuilt in container)
+ui/dist
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Releases (mounted as volume)
+releases/
+
+# Logs
+*.log
+
+# Test files
+*_test.go

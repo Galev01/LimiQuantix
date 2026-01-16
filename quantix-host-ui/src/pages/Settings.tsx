@@ -1,15 +1,17 @@
 import { useState, useEffect, type ChangeEvent } from 'react';
-import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, Lock, Upload, Key, Globe, Terminal, Unplug, Link2, Clock, AlertTriangle, CheckCircle2, Copy, Check, KeyRound, Plug, RotateCcw, Database, Disc, Share2, Loader2 } from 'lucide-react';
+import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, Lock, Upload, Key, Globe, Terminal, Unplug, Link2, Clock, AlertTriangle, CheckCircle2, Copy, Check, KeyRound, Plug, RotateCcw, Database, Disc, Share2, Loader2, Download, Package, ArrowDownToLine, XCircle } from 'lucide-react';
 import { Header } from '@/components/layout';
 import { Card, Badge, Button, Input, Label } from '@/components/ui';
 import { useSettings, useUpdateSettings, useServices, useRestartService, useCertificateInfo, useGenerateSelfSigned, useResetCertificate, useSshStatus, useEnableSsh, useDisableSsh } from '@/hooks/useSettings';
 import { useHostInfo, useHardwareInventory } from '@/hooks/useHost';
 import { useClusterStatus, useTestConnection, useGenerateToken, useLeaveCluster } from '@/hooks/useCluster';
 import { useStoragePools, useLocalDevices, useInitializeDevice } from '@/hooks/useStorage';
+import { useUpdatesTab } from '@/hooks/useUpdates';
+import { formatBytes as formatUpdateBytes, getStatusLabel, getStatusVariant, isUpdateInProgress } from '@/api/updates';
 import { cn, formatBytes } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 
-type Tab = 'general' | 'storage' | 'network' | 'security' | 'services' | 'about';
+type Tab = 'general' | 'updates' | 'storage' | 'network' | 'security' | 'services' | 'about';
 
 export function Settings() {
   const { data: settings, isLoading, refetch, isFetching } = useSettings();
@@ -60,6 +62,7 @@ export function Settings() {
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'general', label: 'General', icon: <SettingsIcon className="w-4 h-4" /> },
+    { id: 'updates', label: 'Updates', icon: <Download className="w-4 h-4" /> },
     { id: 'storage', label: 'Storage', icon: <HardDrive className="w-4 h-4" /> },
     { id: 'network', label: 'Network', icon: <Network className="w-4 h-4" /> },
     { id: 'security', label: 'Security', icon: <Lock className="w-4 h-4" /> },
@@ -389,6 +392,11 @@ export function Settings() {
                   )}
                 </Card>
               </div>
+            )}
+
+            {/* Updates Tab */}
+            {activeTab === 'updates' && (
+              <UpdatesSettingsTab />
             )}
 
             {/* Storage Tab */}
@@ -810,7 +818,239 @@ export function Settings() {
   );
 }
 
+// =============================================================================
+// Updates Settings Tab Component
+// =============================================================================
+
+function UpdatesSettingsTab() {
+  const {
+    versions,
+    versionsLoading,
+    status,
+    statusLoading,
+    config,
+    checkResult,
+    isUpdating,
+    isChecking,
+    isApplying,
+    checkForUpdates,
+    applyUpdates,
+  } = useUpdatesTab();
+
+  const statusVariant = status ? getStatusVariant(status.status) : 'default';
+
+  return (
+    <div className="space-y-6">
+      {/* Current Version Card */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+            <Package className="w-5 h-5 text-accent" />
+            Quantix-OS Version
+          </h3>
+          <Badge variant={statusVariant}>
+            {status ? getStatusLabel(status.status) : 'Unknown'}
+          </Badge>
+        </div>
+
+        {versionsLoading ? (
+          <div className="flex items-center gap-2 text-text-muted">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Loading version info...
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+              <span className="text-text-muted">OS Version</span>
+              <span className="text-text-primary font-mono">{versions?.osVersion || 'Unknown'}</span>
+            </div>
+            <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+              <span className="text-text-muted">qx-node</span>
+              <span className="text-text-primary font-mono">{versions?.qxNode || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+              <span className="text-text-muted">Host UI</span>
+              <span className="text-text-primary font-mono">{versions?.hostUi || 'N/A'}</span>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Update Actions */}
+      <Card>
+        <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <Download className="w-5 h-5 text-info" />
+          Update Actions
+        </h3>
+
+        <div className="space-y-4">
+          {/* Status display when updating */}
+          {isUpdating && status && (
+            <div className="p-4 bg-info/10 border border-info/20 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Loader2 className="w-5 h-5 animate-spin text-info" />
+                <span className="font-medium text-info">
+                  {status.status === 'downloading' ? 'Downloading update...' : 
+                   status.status === 'applying' ? 'Applying update...' :
+                   status.status === 'checking' ? 'Checking for updates...' :
+                   'Updating...'}
+                </span>
+              </div>
+              {status.message && (
+                <p className="text-sm text-text-muted">{status.message}</p>
+              )}
+              {status.progress && (
+                <div className="mt-2">
+                  <div className="h-2 bg-bg-surface rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-info transition-all"
+                      style={{ width: `${status.progress.percentage}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <p className="text-xs text-text-muted">{status.progress.currentComponent}</p>
+                    <p className="text-xs text-text-muted">{status.progress.percentage}%</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Reboot required */}
+          {status?.status === 'reboot_required' && (
+            <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
+              <div className="flex items-center gap-2 text-warning">
+                <AlertTriangle className="w-5 h-5" />
+                <span className="font-medium">Reboot Required</span>
+              </div>
+              <p className="text-sm text-text-muted mt-1">
+                A system reboot is required to complete the update.
+              </p>
+            </div>
+          )}
+
+          {/* Error display */}
+          {status?.status === 'error' && status.message && (
+            <div className="p-4 bg-error/10 border border-error/20 rounded-lg">
+              <div className="flex items-center gap-2 text-error">
+                <XCircle className="w-5 h-5" />
+                <span className="font-medium">Update Error</span>
+              </div>
+              <p className="text-sm text-text-muted mt-1">{status.message}</p>
+            </div>
+          )}
+
+          {/* Update available info */}
+          {checkResult?.available && !isUpdating && (
+            <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
+              <div className="flex items-center gap-2 text-success mb-2">
+                <ArrowDownToLine className="w-5 h-5" />
+                <span className="font-medium">
+                  Version {checkResult.latestVersion} Available
+                </span>
+              </div>
+              <div className="text-sm text-text-muted space-y-1">
+                <p>Download size: {formatUpdateBytes(checkResult.totalDownloadSize)}</p>
+                <p>{checkResult.components.length} component(s) to update</p>
+                {checkResult.components.map((comp) => (
+                  <div key={comp.name} className="pl-4 text-xs">
+                    • {comp.name}: {comp.currentVersion || 'not installed'} → {comp.newVersion}
+                  </div>
+                ))}
+              </div>
+              {checkResult.releaseNotes && (
+                <div className="mt-3 pt-3 border-t border-border/50">
+                  <p className="text-xs text-text-muted mb-1">Release Notes:</p>
+                  <p className="text-sm text-text-secondary">{checkResult.releaseNotes}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Up to date message */}
+          {status?.status === 'up_to_date' && !checkResult?.available && (
+            <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
+              <div className="flex items-center gap-2 text-success">
+                <CheckCircle2 className="w-5 h-5" />
+                <span className="font-medium">System is up to date</span>
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex gap-3">
+            <Button
+              variant="secondary"
+              onClick={checkForUpdates}
+              disabled={isChecking || isUpdating}
+            >
+              {isChecking ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              Check for Updates
+            </Button>
+
+            {checkResult?.available && !isUpdating && (
+              <Button
+                onClick={applyUpdates}
+                disabled={isApplying || isUpdating}
+              >
+                {isApplying || isUpdating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                Apply Update
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* Update Configuration */}
+      <Card>
+        <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <SettingsIcon className="w-5 h-5 text-accent" />
+          Update Settings
+        </h3>
+
+        <div className="space-y-4">
+          <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+            <span className="text-text-muted">Update Server</span>
+            <span className="text-text-primary font-mono text-sm">
+              {config?.serverUrl || 'Not configured'}
+            </span>
+          </div>
+          <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+            <span className="text-text-muted">Channel</span>
+            <Badge variant="default">{config?.channel || 'dev'}</Badge>
+          </div>
+          <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+            <span className="text-text-muted">Check Interval</span>
+            <span className="text-text-primary">{config?.checkInterval || '1h'}</span>
+          </div>
+          <div className="flex justify-between p-3 bg-bg-base rounded-lg">
+            <span className="text-text-muted">Auto Apply</span>
+            <Badge variant={config?.autoApply ? 'success' : 'default'}>
+              {config?.autoApply ? 'Enabled' : 'Disabled'}
+            </Badge>
+          </div>
+        </div>
+
+        <p className="text-xs text-text-muted mt-4">
+          Update settings are configured in the node configuration file.
+          Contact your administrator to change update policies.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+// =============================================================================
 // Storage Settings Tab Component
+// =============================================================================
 interface StorageSettingsTabProps {
   settings: ReturnType<typeof useSettings>['data'];
   hostInfo: ReturnType<typeof useHostInfo>['data'];

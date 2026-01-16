@@ -1,7 +1,7 @@
 # =============================================================================
 # Quantix Update Server - Docker Compose
 # =============================================================================
-# Local development deployment for the OTA update server.
+# Local development deployment for the OTA update server with Admin UI.
 #
 # Usage:
 #   docker-compose up -d        # Start server
@@ -9,9 +9,8 @@
 #   docker-compose down         # Stop server
 #
 # The server will be available at: http://localhost:9000
+# Admin UI is accessible at the same URL.
 # =============================================================================
-
-version: '3.8'
 
 services:
   update-server:
@@ -24,13 +23,17 @@ services:
     volumes:
       # Persist releases directory
       - ./releases:/data/releases
-      # Optional: mount config file
-      # - ./config.yaml:/etc/update-server/config.yaml:ro
+      # Mount the workspace for git operations and builds
+      - ..:/workspace:rw
     environment:
       - RELEASE_DIR=/data/releases
       - LISTEN_ADDR=0.0.0.0:9000
       # Change this token for production!
       - PUBLISH_TOKEN=${PUBLISH_TOKEN:-dev-token}
+      # Git repo path inside container
+      - GIT_REPO_PATH=/workspace
+      # UI path (built into container)
+      - UI_PATH=/app/ui/dist
       - TZ=UTC
     restart: unless-stopped
     healthcheck:
@@ -46,18 +49,30 @@ services:
         max-file: "3"
 
 # =============================================================================
-# Development Notes
+# Usage Notes
 # =============================================================================
 # 
-# To publish an update:
+# Admin UI:
+#   Open http://localhost:9000 in your browser to access the admin interface.
+#   You can:
+#   - View all releases
+#   - Pull latest code from git
+#   - Build and publish new releases
+#   - Delete old releases
+#
+# API Endpoints:
+#   GET  /api/v1/health                     - Health check
+#   GET  /api/v1/channels                   - List channels
+#   GET  /api/v1/{product}/manifest         - Latest manifest
+#   GET  /api/v1/{product}/releases         - List releases
+#   POST /api/v1/{product}/publish          - Publish release (auth required)
+#   POST /api/v1/admin/git-pull             - Pull latest code (auth required)
+#   POST /api/v1/admin/build                - Trigger build (auth required)
+#
+# To publish an update manually:
 #   curl -X POST http://localhost:9000/api/v1/quantix-os/publish \
 #     -H "Authorization: Bearer dev-token" \
 #     -F "manifest=@manifest.json" \
 #     -F "qx-node=@qx-node.tar.zst"
 #
-# To check for updates:
-#   curl http://localhost:9000/api/v1/quantix-os/manifest?channel=dev
-#
-# To download an artifact:
-#   curl -O http://localhost:9000/api/v1/quantix-os/releases/0.0.5/qx-node.tar.zst?channel=dev
 # =============================================================================
