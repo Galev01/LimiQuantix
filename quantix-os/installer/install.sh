@@ -16,6 +16,17 @@
 #   5. QUANTIX-DATA (rest) - XFS, VM storage
 # =============================================================================
 
+# DIAGNOSTIC: Confirm script is starting
+echo ""
+echo "========================================================"
+echo "  QUANTIX-OS INSTALLER STARTING"
+echo "  Script: $0"
+echo "  Args: $*"
+echo "  Date: $(date 2>/dev/null || echo 'unknown')"
+echo "  Shell: $(readlink /proc/$$/exe 2>/dev/null || echo $SHELL)"
+echo "========================================================"
+echo ""
+
 set -e
 
 # Colors
@@ -298,6 +309,42 @@ vgchange -an 2>/dev/null || true
 mdadm --stop --scan 2>/dev/null || true
 
 # =============================================================================
+# STEP 0: WIPE ALL EXISTING PARTITION SIGNATURES FIRST
+# This is CRITICAL - removes old labels like QUANTIX-DATA that confuse findfs
+# =============================================================================
+log_info "Wiping filesystem signatures from ALL existing partitions..."
+echo "[WIPE] Wiping individual partition signatures..." >> "${INSTALL_LOG}"
+
+# Determine partition naming pattern for this disk
+case "$TARGET_DISK" in
+    /dev/nvme*|/dev/mmcblk*)
+        PART_PATTERN="${TARGET_DISK}p"
+        ;;
+    *)
+        PART_PATTERN="${TARGET_DISK}"
+        ;;
+esac
+
+# Wipe each existing partition's filesystem signature
+for i in 1 2 3 4 5 6 7 8 9; do
+    PART="${PART_PATTERN}${i}"
+    if [ -b "$PART" ]; then
+        OLD_LABEL=$(blkid -o value -s LABEL "$PART" 2>/dev/null || echo "none")
+        OLD_TYPE=$(blkid -o value -s TYPE "$PART" 2>/dev/null || echo "none")
+        log_info "  Wiping ${PART} (was: LABEL=${OLD_LABEL} TYPE=${OLD_TYPE})"
+        echo "[WIPE]   ${PART}: LABEL=${OLD_LABEL} TYPE=${OLD_TYPE}" >> "${INSTALL_LOG}"
+        
+        # Remove filesystem signature (clears label, UUID, magic bytes)
+        wipefs -a "$PART" >> "${INSTALL_LOG}" 2>&1 || true
+        
+        # Zero first 10MB of partition to clear superblocks
+        dd if=/dev/zero of="$PART" bs=1M count=10 conv=notrunc 2>/dev/null || true
+    fi
+done
+
+log_info "Individual partition signatures wiped"
+
+# =============================================================================
 # AGGRESSIVE DISK WIPE - Prevents "Invalid superblock" errors
 # This is CRITICAL to prevent "XFS Invalid superblock magic number" errors
 # =============================================================================
@@ -312,14 +359,13 @@ else
     log_warn "sgdisk not available, using alternative wipe methods"
 fi
 
-# Method 2: wipefs to remove ALL filesystem signatures
-log_info "Wiping all filesystem signatures..."
+# Method 2: wipefs on the whole disk
+log_info "Wiping disk-level filesystem signatures..."
 wipefs -a "${TARGET_DISK}" >> "${INSTALL_LOG}" 2>&1 || true
 
 # Method 3: Zero first 100MB to clear ALL possible superblock locations
 # XFS superblocks can be at: 0, 512, 32K, 64K, 128K, 1GB, etc.
 # ext4 superblocks at: 1K, 32K+1K, etc.
-# Being aggressive here prevents "Invalid superblock" errors
 log_info "Zeroing first 100MB to clear all superblocks..."
 dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=100 conv=notrunc 2>/dev/null || true
 echo "[WIPE] Zeroed first 100MB" >> "${INSTALL_LOG}"
@@ -350,18 +396,22 @@ if command -v mdev >/dev/null 2>&1; then
     mdev -s 2>/dev/null || true
 fi
 
-# Verify disk is clean - if signatures remain, wipe ENTIRE disk
+# Verify disk is clean
 log_info "Verifying disk is clean..."
-if blkid "${TARGET_DISK}" 2>/dev/null | grep -q TYPE; then
-    log_warn "Disk still has filesystem signatures - wiping entire disk..."
-    echo "[WIPE] Signatures detected, wiping entire disk..." >> "${INSTALL_LOG}"
+REMAINING_SIGS=$(blkid "${TARGET_DISK}"* 2>/dev/null | grep -c TYPE || echo "0")
+if [ "$REMAINING_SIGS" -gt 0 ]; then
+    log_warn "Found ${REMAINING_SIGS} remaining signatures - performing deep wipe..."
+    echo "[WIPE] ${REMAINING_SIGS} signatures remain, deep wiping..." >> "${INSTALL_LOG}"
     
-    # Get disk size and wipe everything (up to 500GB to avoid timeout on huge disks)
+    # Get disk size and wipe a significant portion
     DISK_SIZE_MB=$(($(blockdev --getsz "${TARGET_DISK}" 2>/dev/null || echo "0") / 2048))
-    WIPE_SIZE=$DISK_SIZE_MB
-    [ "$WIPE_SIZE" -gt 500000 ] && WIPE_SIZE=500000  # Cap at 500GB
     
-    log_info "Wiping ${WIPE_SIZE}MB..."
+    # Wipe at least 1GB or 10% of disk, whichever is larger (cap at 10GB)
+    WIPE_SIZE=$((DISK_SIZE_MB / 10))
+    [ "$WIPE_SIZE" -lt 1024 ] && WIPE_SIZE=1024
+    [ "$WIPE_SIZE" -gt 10240 ] && WIPE_SIZE=10240
+    
+    log_info "Deep wiping first ${WIPE_SIZE}MB..."
     dd if=/dev/zero of="${TARGET_DISK}" bs=1M count=${WIPE_SIZE} conv=notrunc 2>/dev/null || true
     
     blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true

@@ -402,8 +402,27 @@ echo "       System: ${SYSTEM_LABEL}"
 echo "       Config: ${CONFIG_LABEL}"
 echo "       Data:   ${DATA_LABEL}"
 
+# =============================================================================
+# DIAGNOSTIC: Show partition layout and filesystem types
+# =============================================================================
+echo ""
+echo "[DIAG] =============================================="
+echo "[DIAG] PARTITION AND FILESYSTEM DIAGNOSTIC"
+echo "[DIAG] =============================================="
+echo "[DIAG] blkid output (shows all detected filesystems):"
+blkid 2>&1 | while read line; do echo "[DIAG]   $line"; done
+echo ""
+echo "[DIAG] Block devices:"
+ls -la /dev/nvme* /dev/sd* /dev/vd* 2>/dev/null | while read line; do echo "[DIAG]   $line"; done
+echo ""
+echo "[DIAG] Checking for XFS-related kernel messages:"
+dmesg 2>/dev/null | grep -i xfs | tail -5 | while read line; do echo "[DIAG]   $line"; done
+echo "[DIAG] =============================================="
+echo ""
+
 # Find and mount system partition
 echo "[INIT] Mounting system partition..."
+echo "[INIT] Looking for LABEL=${SYSTEM_LABEL}..."
 SYSTEM_DEV=$(findfs LABEL="${SYSTEM_LABEL}" 2>/dev/null)
 
 if [ -z "$SYSTEM_DEV" ]; then
@@ -475,12 +494,52 @@ fi
 
 # Mount config partition
 echo "[INIT] Mounting config partition..."
-CONFIG_DEV=$(findfs LABEL="${CONFIG_LABEL}" 2>/dev/null)
+
+# =============================================================================
+# SMART CONFIG PARTITION DISCOVERY
+# Config partition should be partition 4 on the same disk as system
+# =============================================================================
+
+# Determine expected config partition based on system device
+case "$SYSTEM_DEV" in
+    /dev/nvme*p*)
+        BASE_DISK=$(echo "$SYSTEM_DEV" | sed 's/p[0-9]*$//')
+        CONFIG_PART="${BASE_DISK}p4"
+        ;;
+    /dev/sd*|/dev/vd*|/dev/hd*)
+        BASE_DISK=$(echo "$SYSTEM_DEV" | sed 's/[0-9]*$//')
+        CONFIG_PART="${BASE_DISK}4"
+        ;;
+    /dev/mmcblk*p*)
+        BASE_DISK=$(echo "$SYSTEM_DEV" | sed 's/p[0-9]*$//')
+        CONFIG_PART="${BASE_DISK}p4"
+        ;;
+    *)
+        CONFIG_PART=""
+        ;;
+esac
+
+CONFIG_DEV=""
+
+# Method 1: Use expected partition on same disk
+if [ -n "$CONFIG_PART" ] && [ -b "$CONFIG_PART" ]; then
+    CFG_LABEL=$(blkid -o value -s LABEL "$CONFIG_PART" 2>/dev/null)
+    if [ "$CFG_LABEL" = "QUANTIX-CFG" ]; then
+        CONFIG_DEV="$CONFIG_PART"
+        echo "[INIT] ✓ Found config partition at expected location: ${CONFIG_DEV}"
+    fi
+fi
+
+# Method 2: Fallback to findfs
+if [ -z "$CONFIG_DEV" ]; then
+    CONFIG_DEV=$(findfs LABEL="${CONFIG_LABEL}" 2>/dev/null)
+fi
+
 if [ -n "$CONFIG_DEV" ]; then
+    echo "[INIT] Config device: ${CONFIG_DEV}"
     mkdir -p /mnt/merged/quantix
-    mount -t ext4 -o noatime "$CONFIG_DEV" /mnt/merged/quantix
-    if [ $? -eq 0 ]; then
-        echo "[INIT] Config partition mounted"
+    if mount -t ext4 -o noatime "$CONFIG_DEV" /mnt/merged/quantix; then
+        echo "[INIT] ✓ Config partition mounted"
     else
         echo "[WARN] Failed to mount config partition"
     fi
@@ -490,18 +549,131 @@ fi
 
 # Mount data partition
 echo "[INIT] Mounting data partition..."
-DATA_DEV=$(findfs LABEL="${DATA_LABEL}" 2>/dev/null)
-if [ -n "$DATA_DEV" ]; then
-    mkdir -p /mnt/merged/data
-    mount -t xfs -o noatime "$DATA_DEV" /mnt/merged/data 2>/dev/null || \
-    mount -t ext4 -o noatime "$DATA_DEV" /mnt/merged/data 2>/dev/null
-    if [ $? -eq 0 ]; then
-        echo "[INIT] Data partition mounted"
+
+# =============================================================================
+# SMART PARTITION DISCOVERY
+# The data partition should be on the SAME DISK as the system partition
+# For Quantix-OS: System=p2, Data=p5 (both on same disk)
+# =============================================================================
+
+# Extract the base disk from the system device
+# e.g., /dev/nvme0n1p2 -> /dev/nvme0n1
+#       /dev/sda2 -> /dev/sda
+case "$SYSTEM_DEV" in
+    /dev/nvme*p*)
+        # NVMe: /dev/nvme0n1p2 -> /dev/nvme0n1
+        BASE_DISK=$(echo "$SYSTEM_DEV" | sed 's/p[0-9]*$//')
+        DATA_PART="${BASE_DISK}p5"
+        ;;
+    /dev/sd*|/dev/vd*|/dev/hd*)
+        # SATA/VirtIO: /dev/sda2 -> /dev/sda
+        BASE_DISK=$(echo "$SYSTEM_DEV" | sed 's/[0-9]*$//')
+        DATA_PART="${BASE_DISK}5"
+        ;;
+    /dev/mmcblk*p*)
+        # MMC: /dev/mmcblk0p2 -> /dev/mmcblk0
+        BASE_DISK=$(echo "$SYSTEM_DEV" | sed 's/p[0-9]*$//')
+        DATA_PART="${BASE_DISK}p5"
+        ;;
+    *)
+        BASE_DISK=""
+        DATA_PART=""
+        ;;
+esac
+
+echo "[INIT] System device: ${SYSTEM_DEV}"
+echo "[INIT] Base disk: ${BASE_DISK}"
+echo "[INIT] Expected data partition: ${DATA_PART}"
+
+# Try to find data partition in order of preference:
+# 1. Partition 5 on the same disk (most reliable)
+# 2. Partition with label QUANTIX-DATA AND type XFS on same disk
+# 3. Any partition with label QUANTIX-DATA
+
+DATA_DEV=""
+
+# Method 1: Use expected partition number on same disk
+if [ -n "$DATA_PART" ] && [ -b "$DATA_PART" ]; then
+    DATA_DEV_LABEL=$(blkid -o value -s LABEL "$DATA_PART" 2>/dev/null)
+    DATA_DEV_TYPE=$(blkid -o value -s TYPE "$DATA_PART" 2>/dev/null)
+    echo "[INIT] Partition 5 check: LABEL='${DATA_DEV_LABEL}' TYPE='${DATA_DEV_TYPE}'"
+    
+    if [ "$DATA_DEV_LABEL" = "QUANTIX-DATA" ]; then
+        DATA_DEV="$DATA_PART"
+        echo "[INIT] ✓ Found data partition at expected location: ${DATA_DEV}"
     else
-        echo "[WARN] Failed to mount data partition"
+        echo "[INIT] Partition 5 exists but has wrong label (expected QUANTIX-DATA, got '${DATA_DEV_LABEL}')"
+    fi
+fi
+
+# Method 2: Search all partitions on same disk for correct label AND XFS type
+if [ -z "$DATA_DEV" ] && [ -n "$BASE_DISK" ]; then
+    echo "[INIT] Searching ${BASE_DISK}* for QUANTIX-DATA with XFS..."
+    for part in ${BASE_DISK}p* ${BASE_DISK}[0-9]*; do
+        [ -b "$part" ] || continue
+        PART_LABEL=$(blkid -o value -s LABEL "$part" 2>/dev/null)
+        PART_TYPE=$(blkid -o value -s TYPE "$part" 2>/dev/null)
+        if [ "$PART_LABEL" = "QUANTIX-DATA" ] && [ "$PART_TYPE" = "xfs" ]; then
+            DATA_DEV="$part"
+            echo "[INIT] ✓ Found XFS data partition: ${DATA_DEV}"
+            break
+        fi
+    done
+fi
+
+# Method 3: Fallback to findfs (may find wrong partition on multi-disk systems)
+if [ -z "$DATA_DEV" ]; then
+    echo "[INIT] Falling back to findfs LABEL=${DATA_LABEL}..."
+    DATA_DEV=$(findfs LABEL="${DATA_LABEL}" 2>/dev/null)
+    if [ -n "$DATA_DEV" ]; then
+        echo "[INIT] findfs returned: ${DATA_DEV}"
+        echo "[WARN] This may be from a different disk/installation!"
+    fi
+fi
+
+echo "[INIT] Final data device: DATA_DEV='${DATA_DEV}'"
+
+if [ -n "$DATA_DEV" ]; then
+    # Show what we're about to mount
+    echo "[INIT] Data device details:"
+    blkid "$DATA_DEV" 2>&1 | while read line; do echo "[INIT]   $line"; done
+    
+    # Check filesystem type before mounting
+    DATA_FSTYPE=$(blkid -o value -s TYPE "$DATA_DEV" 2>/dev/null)
+    echo "[INIT] Detected filesystem type: ${DATA_FSTYPE}"
+    
+    mkdir -p /mnt/merged/data
+    
+    # Mount with detected filesystem type
+    if [ "$DATA_FSTYPE" = "xfs" ]; then
+        echo "[INIT] Mounting ${DATA_DEV} as XFS..."
+        if mount -t xfs -o noatime "$DATA_DEV" /mnt/merged/data; then
+            echo "[INIT] ✓ Data partition mounted successfully as XFS"
+        else
+            echo "[WARN] ✗ Failed to mount data partition as XFS"
+        fi
+    elif [ "$DATA_FSTYPE" = "ext4" ]; then
+        echo "[INIT] Mounting ${DATA_DEV} as ext4..."
+        if mount -t ext4 -o noatime "$DATA_DEV" /mnt/merged/data; then
+            echo "[INIT] ✓ Data partition mounted successfully as ext4"
+        else
+            echo "[WARN] ✗ Failed to mount data partition as ext4"
+        fi
+    else
+        echo "[WARN] Unknown or missing filesystem type: ${DATA_FSTYPE}"
+        # Try common types
+        if mount -t xfs -o noatime "$DATA_DEV" /mnt/merged/data 2>/dev/null; then
+            echo "[INIT] ✓ Mounted as XFS"
+        elif mount -t ext4 -o noatime "$DATA_DEV" /mnt/merged/data 2>/dev/null; then
+            echo "[INIT] ✓ Mounted as ext4"
+        else
+            echo "[WARN] ✗ Failed to mount data partition"
+        fi
     fi
 else
-    echo "[WARN] Data partition not found"
+    echo "[WARN] Data partition not found!"
+    echo "[WARN] Available partitions:"
+    blkid 2>&1 | while read line; do echo "[WARN]   $line"; done
 fi
 
 # Move system mount for later access

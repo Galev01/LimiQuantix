@@ -527,14 +527,52 @@ ${POOL_INFO}\n\
             reboot
         fi
     else
+        # Show diagnostic info before dropping to shell
         $DIALOG --backtitle "$BACKTITLE" \
             --title "Installation Failed" \
             --msgbox "\n\
  ❌ Installation failed!\n\
 \n\
- Please check the console output for errors.\n\
- Press ENTER to drop to a shell for troubleshooting." 12 55
+ Diagnostic information will be shown.\n\
+ Check /tmp/install.log for detailed errors.\n\
+\n\
+ Press ENTER to see diagnostics..." 14 55
 
+        # Clear screen and show diagnostics
+        clear
+        echo ""
+        echo "╔═══════════════════════════════════════════════════════════════╗"
+        echo "║              INSTALLATION DIAGNOSTIC                          ║"
+        echo "╚═══════════════════════════════════════════════════════════════╝"
+        echo ""
+        
+        echo "=== Install Log (last 50 lines) ==="
+        if [ -f /tmp/install.log ]; then
+            tail -50 /tmp/install.log
+        else
+            echo "(no install log found)"
+        fi
+        echo ""
+        
+        echo "=== Partition Table on ${TARGET_DISK} ==="
+        parted -s "${TARGET_DISK}" print 2>&1 || echo "(failed to read)"
+        echo ""
+        
+        echo "=== blkid (filesystem signatures) ==="
+        blkid 2>&1 || echo "(blkid failed)"
+        echo ""
+        
+        echo "=== dmesg XFS errors ==="
+        dmesg 2>/dev/null | grep -i "xfs\|superblock" | tail -10 || echo "(no XFS messages)"
+        echo ""
+        
+        echo "=== dmesg last 20 lines ==="
+        dmesg 2>/dev/null | tail -20 || echo "(dmesg failed)"
+        echo ""
+        
+        echo "Press ENTER to drop to shell for manual troubleshooting..."
+        read dummy
+        
         exec /bin/sh
     fi
 }
