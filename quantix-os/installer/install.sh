@@ -40,8 +40,32 @@ echo "  Args: $*"
 echo "  Date: $(date 2>/dev/null || echo 'unknown')"
 echo "  Shell: $(readlink /proc/$$/exe 2>/dev/null || echo $SHELL)"
 echo "  Log file: $INSTALL_LOG"
+echo ""
+echo "  Press Ctrl+C at any time to abort and drop to shell"
 echo "========================================================"
 echo ""
+
+# Handle Ctrl+C gracefully
+abort_install() {
+    echo ""
+    echo "Installation aborted by user."
+    echo "Dropping to shell for troubleshooting..."
+    echo ""
+    echo "Useful commands:"
+    echo "  cat /tmp/install.log   - View install log"
+    echo "  reboot                 - Reboot system"
+    echo ""
+    # Increment fail counter so we don't loop
+    FAIL_MARKER="/tmp/.quantix_install_failed"
+    if [ -f "$FAIL_MARKER" ]; then
+        FAIL_COUNT=$(cat "$FAIL_MARKER" 2>/dev/null || echo "0")
+    else
+        FAIL_COUNT=0
+    fi
+    echo "$((FAIL_COUNT + 1))" > "$FAIL_MARKER"
+    exec /bin/sh
+}
+trap abort_install INT TERM
 
 # NOTE: We use set -e later, after argument parsing
 # This ensures we can capture errors and log them
@@ -1099,5 +1123,9 @@ echo -e "${GREEN}║  4. Access web management at https://<ip>:8443/            
     echo -e "${GREEN}║                                                               ║${NC}"
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
+
+# Clear fail marker on success
+rm -f /tmp/.quantix_install_failed 2>/dev/null || true
+rm -f /tmp/.quantix_install_mode 2>/dev/null || true
     
 exit 0

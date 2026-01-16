@@ -47,6 +47,51 @@ is_install_mode() {
 start_installer() {
     log "Starting Quantix-OS Installer..."
     
+    # Check if we've already failed (prevent infinite loop)
+    FAIL_MARKER="/tmp/.quantix_install_failed"
+    FAIL_COUNT=0
+    if [ -f "$FAIL_MARKER" ]; then
+        FAIL_COUNT=$(cat "$FAIL_MARKER" 2>/dev/null || echo "0")
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+    fi
+    echo "$FAIL_COUNT" > "$FAIL_MARKER"
+    
+    # After 2 failures, offer shell access
+    if [ "$FAIL_COUNT" -ge 2 ]; then
+        echo ""
+        echo "╔════════════════════════════════════════════════════════════════╗"
+        echo "║         INSTALLER HAS FAILED MULTIPLE TIMES                    ║"
+        echo "╚════════════════════════════════════════════════════════════════╝"
+        echo ""
+        echo "  The installer has failed $FAIL_COUNT times."
+        echo ""
+        echo "  Options:"
+        echo "    1) Press ENTER to drop to a shell for troubleshooting"
+        echo "    2) Type 'retry' to try the installer again"
+        echo "    3) Reboot and select 'Troubleshoot Shell' from the menu"
+        echo ""
+        printf "  Your choice: "
+        read -t 30 choice || choice="shell"
+        
+        case "$choice" in
+            retry|RETRY|r|R)
+                echo "0" > "$FAIL_MARKER"
+                log "User requested installer retry"
+                ;;
+            *)
+                log "Dropping to troubleshooting shell after $FAIL_COUNT failures"
+                echo ""
+                echo "  Dropping to shell. Useful commands:"
+                echo "    cat /tmp/install.log     - View install log"
+                echo "    /installer/install.sh    - Run installer manually"
+                echo "    blkid                    - List disk partitions"
+                echo "    reboot                   - Reboot system"
+                echo ""
+                exec /bin/sh
+                ;;
+        esac
+    fi
+    
     # Wait a moment for boot messages to finish
     sleep 2
     

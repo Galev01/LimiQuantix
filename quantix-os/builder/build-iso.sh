@@ -166,7 +166,7 @@ cat > "${ISO_DIR}/boot/grub/grub.cfg" << 'GRUBEOF'
 # Quantix-OS ISO Boot Menu
 # =============================================================================
 
-set timeout=10
+set timeout=15
 set default=0
 
 # Text mode for maximum compatibility
@@ -204,6 +204,14 @@ menuentry "Quantix-OS Live (Safe Graphics - for display issues)" {
 
 menuentry "Boot from installed system" {
     linux /boot/vmlinuz root=LABEL=QUANTIX-A ro quiet
+    initrd /boot/initramfs
+}
+
+menuentry ">>> Troubleshoot Shell (no installer) <<<" {
+    echo "Booting to shell for troubleshooting..."
+    echo "The installer will NOT auto-start."
+    echo ""
+    linux /boot/vmlinuz boot=live toram quiet
     initrd /boot/initramfs
 }
 
