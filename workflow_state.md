@@ -1,77 +1,100 @@
 # Workflow State
 
-## Quantix-OS Installer Debug Session
+## Quantix-vDC Web UI Connection Refused
 
-### Status: MORE LOGGING ADDED - REBUILD REQUIRED
-
----
-
-### Current Issue (from screenshots)
-- **Exit code: 1** - Script ran but failed
-- **Syntax check: OK** - No syntax errors
-- **Install log shows only header** - Script exits early
-- **Partition table unchanged** - Disk wipe never ran
-
-The log shows:
-```
-QUANTIX-OS INSTALLER LOG
-Started: Fri Jan 16 01:31:54 UTC 2026
-Script: /installer/install.sh
-Args: --disk /dev/nvme1n1 --hostname QHCI01 --password 123456 --version 0.0.1 
-      --storage-pools /dev/nvme0n1:local-nvme0n1 --auto
-Shell: /bin/busybox
-PWD: /
-```
-
-And then... nothing. Script crashes somewhere after log creation.
+### Status: FIXED - REBUILD REQUIRED
 
 ---
 
-### Latest Fixes - Enhanced Logging
+### Issues Found
 
-Added detailed logging at every step to identify where it fails:
-
-1. **Removed early `set -e`** - Was causing silent exits
-2. **Added SCRIPT_DIR defensive handling**
-3. **Added [VALIDATION] logging** - Shows parsed arguments
-4. **Added [SQUASHFS] logging** - Shows each path checked
-5. **Added [INSTALL] logging** - Shows progress through steps
-6. **`set -e` now only after squashfs found**
+1. **Database name mismatch** - Config file used wrong field names
+2. **Config YAML field names wrong** - Didn't match Go struct mapstructure tags
 
 ---
 
-### Expected New Log Output
+### Fixes Applied
 
-After rebuild, the log should show:
-```
-[INIT] Script directory: /installer
-[VALIDATION] Starting validation...
-[VALIDATION] TARGET_DISK='/dev/nvme1n1'
-[VALIDATION] HOSTNAME='QHCI01'
-[VALIDATION] Checking if /dev/nvme1n1 is block device...
-[VALIDATION] /dev/nvme1n1 is valid block device
-[INSTALL] Calling find_squashfs...
-[SQUASHFS] Searching for system image...
-[SQUASHFS] Checking: /mnt/cdrom/quantix/system.squashfs
-[SQUASHFS] Checking: /cdrom/quantix/system.squashfs
-...
+#### 1. Fixed config.yaml Field Names
+
+**Before (wrong):**
+```yaml
+database:
+  database: "quantix_vdc"  # Wrong field name!
+  ssl_mode: "disable"      # Wrong field name!
+  
+server:
+  bind: "127.0.0.1"        # Wrong field name!
 ```
 
-This will show exactly which step fails.
+**After (correct):**
+```yaml
+database:
+  name: "limiquantix"      # Matches mapstructure:"name"
+  sslmode: "disable"       # Matches mapstructure:"sslmode"
+  
+server:
+  host: "0.0.0.0"          # Matches mapstructure:"host"
+```
+
+#### 2. Fixed Database Creation
+
+Updated `99-start-services.start` to properly create the `limiquantix` database with error handling.
 
 ---
 
-### Likely Failure Points
+### Files Modified
 
-1. **SQUASHFS not found** - The system image path might be wrong
-2. **Block device check** - Target disk might not exist
-3. **Permissions** - Script may not have access to something
+| File | Change |
+|------|--------|
+| `overlay/etc/quantix-vdc/config.yaml` | Fixed field names to match Go struct |
+| `overlay/etc/local.d/99-start-services.start` | Better database creation with fallback |
 
 ---
 
-### Next Steps
+### Root Cause Analysis
 
-1. **Rebuild ISO**
-2. **Run installation**
-3. **Check /tmp/install.log** - Will now have detailed step-by-step logging
-4. **Look for the LAST line in the log** - That's where it failed
+The control plane logs showed:
+```
+FATAL: database "limiquantix" does not exist
+```
+
+This happened because:
+1. The config YAML had `database: "quantix_vdc"` but the Go field is `name`
+2. Since the field name was wrong, viper used the default value `"limiquantix"`
+3. The startup script was creating `limiquantix` but database creation was failing silently
+
+---
+
+### To Verify After Rebuild
+
+1. Check database exists:
+```sh
+su -s /bin/sh postgres -c "psql -l" | grep limiquantix
+```
+
+2. Check control plane connects to PostgreSQL:
+```sh
+cat /var/log/quantix-controlplane.err.log | grep -i postgres
+```
+
+3. Check nginx serves frontend:
+```sh
+curl -k https://localhost/
+ls -la /usr/share/quantix-vdc/dashboard/
+```
+
+---
+
+### Immediate Fix on Running System
+
+```sh
+# Create the database manually
+su -s /bin/sh postgres -c "createdb limiquantix"
+
+# Restart control plane to reconnect
+rc-service quantix-controlplane restart
+
+# Check it connected
+cat /var/log/quantix-controlplane.err.log | tail -20
+```

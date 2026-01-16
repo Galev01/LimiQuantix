@@ -7,23 +7,25 @@
 
 # Server settings
 server:
-  # HTTP API port (nginx proxies to this)
+  # Bind address (0.0.0.0 = all interfaces, nginx proxies to this)
+  host: "0.0.0.0"
+  # HTTP API port
   port: 8080
-  # Bind address (localhost for security, nginx handles external)
-  bind: "127.0.0.1"
-  # Enable debug mode
-  debug: false
+  # Timeouts
+  read_timeout: "30s"
+  write_timeout: "30s"
+  shutdown_timeout: "10s"
 
 # Database configuration (PostgreSQL)
 database:
   host: "localhost"
   port: 5432
+  name: "limiquantix"
   user: "postgres"
   password: ""
-  database: "quantix_vdc"
-  ssl_mode: "disable"
-  max_connections: 50
-  max_idle_connections: 10
+  sslmode: "disable"
+  max_open_conns: 50
+  max_idle_conns: 10
 
 # etcd configuration
 etcd:

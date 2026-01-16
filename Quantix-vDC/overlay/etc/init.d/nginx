@@ -2,8 +2,7 @@
 # =============================================================================
 # Quantix-vDC nginx Service
 # =============================================================================
-# Custom nginx init script that cleans up stale processes before starting.
-# This prevents "Address already in use" errors after unclean shutdowns.
+# Based on Alpine's nginx init script with additional directory setup.
 # =============================================================================
 
 name="nginx"
@@ -12,9 +11,7 @@ extra_commands="checkconfig"
 extra_started_commands="reload reopen upgrade"
 
 command="/usr/sbin/nginx"
-command_args="-g 'daemon on; master_process on;'"
 pidfile="/run/nginx.pid"
-command_args_foreground="-g 'daemon off; master_process on;'"
 
 depend() {
     need net
@@ -24,9 +21,7 @@ depend() {
 
 checkconfig() {
     ebegin "Checking nginx configuration"
-    if ! nginx -t -q >/dev/null 2>&1; then
-        nginx -t
-    fi
+    $command -t -q
     eend $?
 }
 
@@ -37,47 +32,10 @@ start_pre() {
     mkdir -p /var/lib/nginx/tmp/proxy
     mkdir -p /var/lib/nginx/tmp/fastcgi
     mkdir -p /var/log/nginx
-    mkdir -p /run/nginx
     
     # Set permissions (try username, fallback to UID)
     chown -R nginx:nginx /var/lib/nginx /var/log/nginx 2>/dev/null || \
         chown -R 100:101 /var/lib/nginx /var/log/nginx 2>/dev/null || true
-    
-    # =========================================================================
-    # CRITICAL: Handle nginx already running (started outside OpenRC)
-    # =========================================================================
-    # Check if nginx is already running by looking for master process
-    RUNNING_PID=$(pgrep -o -x nginx 2>/dev/null)
-    
-    if [ -n "$RUNNING_PID" ]; then
-        # nginx is running - check if it's the one we know about
-        if [ -f "$pidfile" ]; then
-            KNOWN_PID=$(cat "$pidfile" 2>/dev/null)
-            if [ "$RUNNING_PID" = "$KNOWN_PID" ]; then
-                # PID matches - nginx is properly tracked, nothing to do
-                einfo "nginx is already running (PID $RUNNING_PID)"
-                return 0
-            fi
-        fi
-        
-        # nginx is running but PID file is missing or wrong
-        # This means nginx was started outside of OpenRC or PID file got lost
-        einfo "Found running nginx (PID $RUNNING_PID) - updating PID file"
-        echo "$RUNNING_PID" > "$pidfile"
-        
-        # Mark the service as started in OpenRC
-        mark_service_started 2>/dev/null || true
-        
-        # Return special code to skip the actual start
-        # We set a flag that start() will check
-        NGINX_ALREADY_RUNNING=1
-        export NGINX_ALREADY_RUNNING
-        return 0
-    fi
-    
-    # =========================================================================
-    # nginx is not running - clean up any stale files
-    # =========================================================================
     
     # Remove stale PID file if process doesn't exist
     if [ -f "$pidfile" ]; then
@@ -88,49 +46,18 @@ start_pre() {
         fi
     fi
     
-    # Verify ports 80 and 443 are available (shouldn't be if nginx isn't running)
-    for port in 80 443; do
-        if command -v ss >/dev/null 2>&1; then
-            HOLDER=$(ss -tlnp 2>/dev/null | grep ":${port} " | head -1)
-        elif command -v netstat >/dev/null 2>&1; then
-            HOLDER=$(netstat -tlnp 2>/dev/null | grep ":${port} " | head -1)
-        else
-            HOLDER=""
-        fi
-        
-        if [ -n "$HOLDER" ]; then
-            ewarn "Port $port is in use by something else:"
-            ewarn "  $HOLDER"
-            
-            # Try to free the port
-            if command -v fuser >/dev/null 2>&1; then
-                ewarn "Attempting to free port $port..."
-                fuser -k ${port}/tcp 2>/dev/null || true
-                sleep 1
-            fi
-        fi
-    done
-    
-    # Validate nginx configuration
+    # Validate configuration
     checkconfig || return 1
-    
-    return 0
 }
 
 start() {
-    # Check if start_pre detected nginx already running
-    if [ "${NGINX_ALREADY_RUNNING:-0}" = "1" ]; then
-        einfo "nginx already running - skipping start"
-        # Return success since nginx is running
-        return 0
-    fi
-    
     ebegin "Starting $name"
     
+    # nginx daemonizes itself, so we don't use --background
     start-stop-daemon --start \
+        --exec $command \
         --pidfile "$pidfile" \
-        --exec "$command" \
-        -- $command_args
+        -- -g "daemon on;"
     
     eend $?
 }
@@ -138,28 +65,21 @@ start() {
 stop() {
     ebegin "Stopping $name"
     
-    if [ -f "$pidfile" ]; then
-        start-stop-daemon --stop \
-            --pidfile "$pidfile" \
-            --retry QUIT/5/TERM/5/KILL/5
-    else
-        # No PID file, try to stop any nginx processes
-        pkill -QUIT nginx 2>/dev/null || true
-        sleep 2
-        pkill -TERM nginx 2>/dev/null || true
-        sleep 1
-        pkill -KILL nginx 2>/dev/null || true
-    fi
+    start-stop-daemon --stop \
+        --pidfile "$pidfile" \
+        --exec $command \
+        --retry QUIT/5/TERM/5/KILL/5
     
+    # Clean up PID file
     rm -f "$pidfile"
     
     eend $?
 }
 
 reload() {
-    ebegin "Reloading $name configuration"
-    
     checkconfig || return 1
+    
+    ebegin "Reloading $name configuration"
     
     start-stop-daemon --signal HUP \
         --pidfile "$pidfile"
@@ -190,11 +110,3 @@ upgrade() {
     
     eend $?
 }
-
-# Note: We do NOT override status() here.
-# OpenRC's default status function checks the pidfile and outputs "started" or "stopped"
-# which is exactly what the DCUI's get_service_status() function expects.
-# Custom status() functions that output different text break the TUI detection.
-#
-# However, we do need to ensure the PID file is correct. This is handled in start_pre()
-# which detects running nginx and creates/updates the PID file as needed.

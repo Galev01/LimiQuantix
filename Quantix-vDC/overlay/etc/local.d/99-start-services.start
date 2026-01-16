@@ -185,13 +185,22 @@ fi
 # Create Database
 # =============================================================================
 if [ "$PG_READY" = "1" ]; then
-    # Create limiquantix database
+    # Create limiquantix database (used by control plane)
     if ! su -s /bin/sh postgres -c "psql -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw limiquantix"; then
         log "Creating limiquantix database..."
-        su -s /bin/sh postgres -c "createdb limiquantix" 2>/dev/null && log "Database 'limiquantix' created" || log "Database creation failed"
+        su -s /bin/sh postgres -c "createdb limiquantix" >> "$LOG_FILE" 2>&1
+        if [ $? -eq 0 ]; then
+            log "Database 'limiquantix' created successfully"
+        else
+            log "Database creation failed - trying alternative method..."
+            su -s /bin/sh postgres -c "psql -c 'CREATE DATABASE limiquantix;'" >> "$LOG_FILE" 2>&1 || log "Alternative method also failed"
+        fi
     else
         log "Database 'limiquantix' already exists"
     fi
+    
+    # Grant permissions
+    su -s /bin/sh postgres -c "psql -c 'GRANT ALL PRIVILEGES ON DATABASE limiquantix TO postgres;'" >> "$LOG_FILE" 2>&1 || true
 fi
 
 # =============================================================================
