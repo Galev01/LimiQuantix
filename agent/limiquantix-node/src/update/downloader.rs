@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use sha2::{Sha256, Digest};
 use tokio::fs::{self, File};
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
-use tracing::{info, warn, error, instrument};
+use tracing::{info, error, instrument};
 use anyhow::{Result, Context, bail};
 
 use super::manifest::{Manifest, Component};

@@ -179,14 +179,21 @@ for component in "${COMPONENTS[@]}"; do
     case "$component" in
         qx-node)
             log_info "Building qx-node (Rust)..."
-            cd "$PROJECT_ROOT/Quantix-OS"
             
-            # Use the existing build system
-            if [ -f "Makefile" ]; then
-                make node-daemon VERSION="$VERSION" 2>&1 | tail -20
+            # Check if cargo is available
+            if ! command -v cargo &> /dev/null; then
+                log_error "Cargo is not installed. Please install Rust."
+                continue
+            fi
+            
+            cd "$PROJECT_ROOT/agent"
+            
+            # Try to use musl for static linking if available
+            if rustup target list --installed 2>/dev/null | grep -q "x86_64-unknown-linux-musl"; then
+                log_info "Building with musl for static linking..."
+                cargo build --release -p limiquantix-node --target x86_64-unknown-linux-musl 2>&1 | tail -10
             else
-                # Fallback to direct cargo build if needed
-                cd "$PROJECT_ROOT/agent"
+                log_info "Building with default target..."
                 cargo build --release -p limiquantix-node 2>&1 | tail -10
             fi
             
@@ -207,22 +214,36 @@ for component in "${COMPONENTS[@]}"; do
                 exit 1
             fi
             
-            # Package with zstd compression
+            # Package with compression (zstd preferred, fallback to gzip)
             log_info "Packaging qx-node..."
-            tar -C "$(dirname "$BINARY")" -c "$(basename "$BINARY")" | zstd -19 > "$STAGING_DIR/qx-node.tar.zst"
-            ARTIFACTS["qx-node"]="$STAGING_DIR/qx-node.tar.zst"
-            log_info "  Created: qx-node.tar.zst ($(du -h "$STAGING_DIR/qx-node.tar.zst" | cut -f1))"
+            if command -v zstd &> /dev/null; then
+                tar -C "$(dirname "$BINARY")" -c "$(basename "$BINARY")" | zstd -19 > "$STAGING_DIR/qx-node.tar.zst"
+                ARTIFACTS["qx-node"]="$STAGING_DIR/qx-node.tar.zst"
+                log_info "  Created: qx-node.tar.zst ($(du -h "$STAGING_DIR/qx-node.tar.zst" | cut -f1))"
+            else
+                tar -C "$(dirname "$BINARY")" -czf "$STAGING_DIR/qx-node.tar.gz" "$(basename "$BINARY")"
+                ARTIFACTS["qx-node"]="$STAGING_DIR/qx-node.tar.gz"
+                log_info "  Created: qx-node.tar.gz ($(du -h "$STAGING_DIR/qx-node.tar.gz" | cut -f1))"
+            fi
             ;;
             
         qx-console)
             log_info "Building qx-console (Rust TUI)..."
-            cd "$PROJECT_ROOT/Quantix-OS"
             
-            # Use the existing build system
-            if [ -f "Makefile" ]; then
-                make tui VERSION="$VERSION" 2>&1 | tail -20
+            # Check if cargo is available
+            if ! command -v cargo &> /dev/null; then
+                log_error "Cargo is not installed. Please install Rust."
+                continue
+            fi
+            
+            cd "$PROJECT_ROOT/Quantix-OS/console-tui"
+            
+            # Try to use musl for static linking if available
+            if rustup target list --installed 2>/dev/null | grep -q "x86_64-unknown-linux-musl"; then
+                log_info "Building with musl for static linking..."
+                cargo build --release --target x86_64-unknown-linux-musl 2>&1 | tail -10
             else
-                cd "$PROJECT_ROOT/Quantix-OS/console-tui"
+                log_info "Building with default target..."
                 cargo build --release 2>&1 | tail -10
             fi
             
@@ -243,11 +264,17 @@ for component in "${COMPONENTS[@]}"; do
                 continue
             fi
             
-            # Package with zstd compression
+            # Package with compression (zstd preferred, fallback to gzip)
             log_info "Packaging qx-console..."
-            tar -C "$(dirname "$BINARY")" -c "$(basename "$BINARY")" | zstd -19 > "$STAGING_DIR/qx-console.tar.zst"
-            ARTIFACTS["qx-console"]="$STAGING_DIR/qx-console.tar.zst"
-            log_info "  Created: qx-console.tar.zst ($(du -h "$STAGING_DIR/qx-console.tar.zst" | cut -f1))"
+            if command -v zstd &> /dev/null; then
+                tar -C "$(dirname "$BINARY")" -c "$(basename "$BINARY")" | zstd -19 > "$STAGING_DIR/qx-console.tar.zst"
+                ARTIFACTS["qx-console"]="$STAGING_DIR/qx-console.tar.zst"
+                log_info "  Created: qx-console.tar.zst ($(du -h "$STAGING_DIR/qx-console.tar.zst" | cut -f1))"
+            else
+                tar -C "$(dirname "$BINARY")" -czf "$STAGING_DIR/qx-console.tar.gz" "$(basename "$BINARY")"
+                ARTIFACTS["qx-console"]="$STAGING_DIR/qx-console.tar.gz"
+                log_info "  Created: qx-console.tar.gz ($(du -h "$STAGING_DIR/qx-console.tar.gz" | cut -f1))"
+            fi
             ;;
             
         host-ui)
@@ -263,11 +290,17 @@ for component in "${COMPONENTS[@]}"; do
                 exit 1
             fi
             
-            # Package the entire dist directory
+            # Package the entire dist directory (zstd preferred, fallback to gzip)
             log_info "Packaging host-ui..."
-            tar -C dist -c . | zstd -19 > "$STAGING_DIR/host-ui.tar.zst"
-            ARTIFACTS["host-ui"]="$STAGING_DIR/host-ui.tar.zst"
-            log_info "  Created: host-ui.tar.zst ($(du -h "$STAGING_DIR/host-ui.tar.zst" | cut -f1))"
+            if command -v zstd &> /dev/null; then
+                tar -C dist -c . | zstd -19 > "$STAGING_DIR/host-ui.tar.zst"
+                ARTIFACTS["host-ui"]="$STAGING_DIR/host-ui.tar.zst"
+                log_info "  Created: host-ui.tar.zst ($(du -h "$STAGING_DIR/host-ui.tar.zst" | cut -f1))"
+            else
+                tar -C dist -czf "$STAGING_DIR/host-ui.tar.gz" .
+                ARTIFACTS["host-ui"]="$STAGING_DIR/host-ui.tar.gz"
+                log_info "  Created: host-ui.tar.gz ($(du -h "$STAGING_DIR/host-ui.tar.gz" | cut -f1))"
+            fi
             ;;
             
         *)
@@ -301,8 +334,18 @@ FIRST=true
 for component in "${!ARTIFACTS[@]}"; do
     artifact_path="${ARTIFACTS[$component]}"
     artifact_name="$(basename "$artifact_path")"
-    artifact_size=$(stat -c%s "$artifact_path" 2>/dev/null || stat -f%z "$artifact_path" 2>/dev/null)
-    artifact_sha256=$(sha256sum "$artifact_path" | cut -d' ' -f1)
+    
+    # Get file size (cross-platform)
+    if stat --version &> /dev/null 2>&1; then
+        # GNU stat
+        artifact_size=$(stat -c%s "$artifact_path")
+    else
+        # BSD stat (macOS)
+        artifact_size=$(stat -f%z "$artifact_path")
+    fi
+    
+    # Get SHA256 (cross-platform)
+    artifact_sha256=$(sha256sum "$artifact_path" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$artifact_path" | cut -d' ' -f1)
     
     # Determine install path
     case "$component" in

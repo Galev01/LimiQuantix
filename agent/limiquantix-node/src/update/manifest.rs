@@ -81,7 +81,7 @@ impl Manifest {
 }
 
 /// Individual updatable component
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Component {
     /// Component identifier (e.g., qx-node, qx-console, host-ui)
     pub name: String,

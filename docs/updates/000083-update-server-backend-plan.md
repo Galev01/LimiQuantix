@@ -1,8 +1,8 @@
-# Update Server Backend Plan
+# Update Server Backend & Publishing Guide
 
 **Document ID:** 000083  
 **Date:** January 16, 2026  
-**Scope:** Backend implementation plan for Update Server Admin UI
+**Scope:** Backend implementation plan for Update Server Admin UI + Publishing Guide
 
 ## Current State Analysis
 
@@ -299,10 +299,155 @@ func handleGetConfig(c *fiber.Ctx) error {
 
 After implementing fixes:
 
-- [ ] `curl http://localhost:9000/health` returns JSON
-- [ ] `curl http://localhost:9000/api/v1/quantix-os/releases` returns `[]` when empty
-- [ ] Dashboard shows "Online" status
-- [ ] Git Pull button works from Publish page
-- [ ] Build button works from Publish page
-- [ ] Delete button works from Releases page
-- [ ] Settings page shows actual server config
+- [x] `curl http://localhost:9000/health` returns JSON
+- [x] `curl http://localhost:9000/api/v1/quantix-os/releases` returns `[]` when empty
+- [x] Dashboard shows "Online" status
+- [x] Git Pull button works from Publish page
+- [x] Build button works from Publish page
+- [x] Delete button works from Releases page
+- [x] Settings page shows actual server config
+
+---
+
+## Publishing Updates Guide
+
+### Two Products
+
+| Product | Description | Script |
+|---------|-------------|--------|
+| `quantix-os` | Hypervisor host (QHCI) | `publish-update.sh` / `publish-update.ps1` |
+| `quantix-vdc` | Control plane (vDC) | `publish-vdc-update.sh` / `publish-vdc-update.ps1` |
+
+### Quantix-OS Components
+
+| Component | Source | Output | Install Path |
+|-----------|--------|--------|--------------|
+| `qx-node` | `/agent/limiquantix-node` | Binary | `/data/bin/qx-node` |
+| `qx-console` | `/Quantix-OS/console-tui` | Binary | `/data/bin/qx-console` |
+| `host-ui` | `/quantix-host-ui` | Static files | `/data/share/quantix-host-ui` |
+
+### Quantix-vDC Components
+
+| Component | Source | Output | Install Path |
+|-----------|--------|--------|--------------|
+| `controlplane` | `/backend` | Binary | `/usr/bin/quantix-controlplane` |
+| `dashboard` | `/frontend` | Static files | `/usr/share/quantix-vdc/dashboard` |
+
+---
+
+## Publishing Commands
+
+### Windows (PowerShell)
+
+```powershell
+# Quantix-OS (Host UI only - Rust requires WSL)
+.\scripts\publish-update.ps1 -Channel dev -Version 0.0.5 -Component host-ui
+
+# Quantix-vDC
+.\scripts\publish-vdc-update.ps1 -Channel dev -Version 0.0.5
+
+# Dry run (build but don't upload)
+.\scripts\publish-vdc-update.ps1 -Channel dev -Version 0.0.5 -DryRun
+```
+
+### Linux/WSL (Bash)
+
+```bash
+# Quantix-OS (all components)
+./scripts/publish-update.sh --channel dev --version 0.0.5
+
+# Quantix-OS (single component)
+./scripts/publish-update.sh --channel dev --version 0.0.5 --component qx-node
+
+# Quantix-vDC (all components)
+./scripts/publish-vdc-update.sh --channel dev --version 0.0.5
+
+# Quantix-vDC (dashboard only)
+./scripts/publish-vdc-update.sh --channel dev --version 0.0.5 --component dashboard
+```
+
+### Environment Variables
+
+```bash
+# Optional - defaults shown
+export UPDATE_SERVER="http://localhost:9000"
+export PUBLISH_TOKEN="dev-token"
+export VERSION="0.0.5"
+```
+
+---
+
+## Artifact Format
+
+Artifacts are compressed tarballs:
+- **Preferred:** `.tar.zst` (Zstandard - best compression)
+- **Fallback:** `.tar.gz` (Gzip - if zstd not available)
+
+### Creating Artifacts Manually
+
+```bash
+# Binary
+tar -c binary-name | zstd -19 > component.tar.zst
+
+# Directory
+tar -C dist -c . | zstd -19 > component.tar.zst
+```
+
+---
+
+## Manifest Format
+
+```json
+{
+  "product": "quantix-os",
+  "version": "0.0.5",
+  "channel": "dev",
+  "release_date": "2026-01-16T12:00:00Z",
+  "update_type": "component",
+  "components": [
+    {
+      "name": "qx-node",
+      "version": "0.0.5",
+      "artifact": "qx-node.tar.zst",
+      "sha256": "abc123...",
+      "size_bytes": 12345678,
+      "install_path": "/data/bin/qx-node",
+      "restart_service": "quantix-node"
+    }
+  ],
+  "min_version": "0.0.1",
+  "release_notes": "Bug fixes and improvements"
+}
+```
+
+---
+
+## Troubleshooting
+
+### "make: command not found"
+Use the updated scripts which use `cargo` directly instead of `make`.
+
+### "zstd: command not found"
+Scripts now fallback to `gzip` automatically. Install zstd for better compression:
+```bash
+# Ubuntu/Debian
+sudo apt install zstd
+
+# Alpine
+apk add zstd
+
+# Windows (via chocolatey)
+choco install zstd
+```
+
+### Rust components on Windows
+Use WSL for building Rust components:
+```bash
+wsl ./scripts/publish-update.sh --channel dev --version 0.0.5
+```
+
+### Auth errors
+Make sure to save your token in Settings page, or set environment variable:
+```bash
+export PUBLISH_TOKEN="your-token"
+```

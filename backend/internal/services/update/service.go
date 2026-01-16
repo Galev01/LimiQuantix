@@ -5,6 +5,7 @@ package update
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -132,16 +133,19 @@ type Service struct {
 	logger *zap.Logger
 
 	// Current vDC state
-	vdcState     UpdateState
-	vdcStateMu   sync.RWMutex
-	vdcVersion   string
+	vdcState   UpdateState
+	vdcStateMu sync.RWMutex
+	vdcVersion string
 
 	// Host update states
 	hostStates   map[string]*HostUpdateInfo
 	hostStatesMu sync.RWMutex
 
-	// HTTP client for update server
+	// HTTP client for update server (no TLS skip)
 	httpClient *http.Client
+
+	// HTTP client for host communication (skips TLS verification for self-signed certs)
+	hostClient *http.Client
 
 	// Node service interface for communicating with hosts
 	nodeGetter NodeGetter
@@ -170,6 +174,13 @@ func NewService(config Config, logger *zap.Logger) *Service {
 	os.MkdirAll(filepath.Join(config.DataDir, "staging"), 0755)
 	os.MkdirAll(filepath.Join(config.DataDir, "backup"), 0755)
 
+	// Create TLS-skipping transport for host communication (hosts use self-signed certs)
+	hostTransport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true, // Skip verification for self-signed certs
+		},
+	}
+
 	return &Service{
 		config: config,
 		logger: logger.Named("update-service"),
@@ -181,6 +192,10 @@ func NewService(config Config, logger *zap.Logger) *Service {
 		hostStates: make(map[string]*HostUpdateInfo),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
+		},
+		hostClient: &http.Client{
+			Timeout:   30 * time.Second,
+			Transport: hostTransport,
 		},
 	}
 }
@@ -327,15 +342,7 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 		return info, err
 	}
 
-	// TODO: Add proper TLS config for host communication
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: nil, // Will need proper TLS config
-		},
-	}
-
-	resp, err := client.Do(req)
+	resp, err := s.hostClient.Do(req)
 	if err != nil {
 		info.Status = StatusError
 		info.Error = fmt.Sprintf("Failed to contact host: %v", err)
@@ -426,14 +433,17 @@ func (s *Service) ApplyHostUpdate(ctx context.Context, nodeID string) error {
 		return err
 	}
 
-	client := &http.Client{
-		Timeout: 5 * time.Minute, // Updates can take a while
+	// Use a longer timeout for apply requests since they may take a while
+	applyClient := &http.Client{
+		Timeout: 5 * time.Minute,
 		Transport: &http.Transport{
-			TLSClientConfig: nil, // Will need proper TLS config
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, // Skip verification for self-signed certs
+			},
 		},
 	}
 
-	resp, err := client.Do(req)
+	resp, err := applyClient.Do(req)
 	if err != nil {
 		info.Status = StatusError
 		info.Error = fmt.Sprintf("Failed to apply update: %v", err)
@@ -705,4 +715,60 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(destFile, sourceFile)
 	return err
+}
+
+// ========================================================================
+// Node Getter Adapter
+// ========================================================================
+
+// DomainNode represents a node from the domain layer
+type DomainNode struct {
+	ID           string
+	Hostname     string
+	ManagementIP string
+}
+
+// NodeRepository is a minimal interface for getting nodes from the database
+type NodeRepository interface {
+	Get(ctx context.Context, id string) (*DomainNode, error)
+	List(ctx context.Context) ([]*DomainNode, error)
+}
+
+// NodeGetterAdapter adapts a NodeRepository to implement NodeGetter
+type NodeGetterAdapter struct {
+	repo interface {
+		Get(ctx context.Context, id string) (interface{}, error)
+		List(ctx context.Context, filter interface{}) ([]interface{}, error)
+	}
+	// Direct getters for simple integration
+	getByIDFn func(ctx context.Context, id string) (*NodeInfo, error)
+	listFn    func(ctx context.Context) ([]*NodeInfo, error)
+}
+
+// NewNodeGetterFromFuncs creates a NodeGetter from function callbacks
+// This allows flexible integration without requiring exact type matching
+func NewNodeGetterFromFuncs(
+	getByID func(ctx context.Context, id string) (*NodeInfo, error),
+	list func(ctx context.Context) ([]*NodeInfo, error),
+) NodeGetter {
+	return &NodeGetterAdapter{
+		getByIDFn: getByID,
+		listFn:    list,
+	}
+}
+
+// GetNodeByID implements NodeGetter
+func (a *NodeGetterAdapter) GetNodeByID(ctx context.Context, id string) (*NodeInfo, error) {
+	if a.getByIDFn != nil {
+		return a.getByIDFn(ctx, id)
+	}
+	return nil, fmt.Errorf("node getter not configured")
+}
+
+// ListNodes implements NodeGetter
+func (a *NodeGetterAdapter) ListNodes(ctx context.Context) ([]*NodeInfo, error) {
+	if a.listFn != nil {
+		return a.listFn(ctx)
+	}
+	return nil, fmt.Errorf("node getter not configured")
 }

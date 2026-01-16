@@ -347,6 +347,40 @@ func (s *Server) initServices() {
 	}
 	s.updateService = updateservice.NewService(updateConfig, s.logger)
 	s.updateHandler = NewUpdateHandler(s.updateService, s.logger)
+
+	// Wire up the NodeGetter so the update service can communicate with hosts
+	nodeGetter := updateservice.NewNodeGetterFromFuncs(
+		// GetNodeByID function
+		func(ctx context.Context, id string) (*updateservice.NodeInfo, error) {
+			node, err := s.nodeRepo.Get(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			return &updateservice.NodeInfo{
+				ID:           node.ID,
+				Hostname:     node.Hostname,
+				ManagementIP: node.ManagementIP,
+			}, nil
+		},
+		// ListNodes function
+		func(ctx context.Context) ([]*updateservice.NodeInfo, error) {
+			nodes, err := s.nodeRepo.List(ctx, nodeservice.NodeFilter{})
+			if err != nil {
+				return nil, err
+			}
+			result := make([]*updateservice.NodeInfo, 0, len(nodes))
+			for _, n := range nodes {
+				result = append(result, &updateservice.NodeInfo{
+					ID:           n.ID,
+					Hostname:     n.Hostname,
+					ManagementIP: n.ManagementIP,
+				})
+			}
+			return result, nil
+		},
+	)
+	s.updateService.SetNodeGetter(nodeGetter)
+
 	s.logger.Info("Update service initialized", zap.String("server_url", updateConfig.ServerURL))
 
 	s.logger.Info("Services initialized",

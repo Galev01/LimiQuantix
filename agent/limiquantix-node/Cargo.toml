@@ -54,7 +54,8 @@ futures.workspace = true
 
 # HTTP client for control plane communication
 # Use rustls-tls-native-roots to avoid aws-lc-rs build issues on Windows
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls-native-roots"] }
+# stream feature is required for bytes_stream() in update downloads
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls-native-roots", "stream"] }
 local-ip-address = "0.6"
 
 # Random number generation

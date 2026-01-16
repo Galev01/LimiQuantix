@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::TlsConfig;
 use crate::service::NodeDaemonServiceImpl;
 use crate::tls::{TlsManager, AcmeManager, CertificateInfo, AcmeAccountInfo, AcmeChallengeStatus};
-use crate::update::{UpdateManager, UpdateConfig, UpdateStatus, UpdateProgress};
+use crate::update::{UpdateManager, UpdateStatus};
 
 use limiquantix_telemetry::TelemetryCollector;
 

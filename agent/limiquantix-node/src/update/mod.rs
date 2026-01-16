@@ -42,7 +42,7 @@ pub use ab_update::{ABUpdateManager, ABUpdateState, Slot};
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn, error, instrument};
+use tracing::{info, instrument};
 use anyhow::{Result, Context};
 
 /// Current versions of installed components

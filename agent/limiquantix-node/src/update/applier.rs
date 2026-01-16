@@ -10,7 +10,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tokio::fs;
-use tracing::{info, warn, error, instrument};
+use tracing::{info, warn, instrument};
 use anyhow::{Result, Context, bail};
 
 use super::manifest::Component;

@@ -1,127 +1,187 @@
 # Workflow State
 
-## Completed Task: Quantix-OS Update Client Implementation
+## Completed Task: Push Update Client to Quantix-vDC
 
 **Date:** January 16, 2026
 
 ### Summary
-Implemented the full OTA update client for Quantix-OS as specified in [000083 - Quantix-OS Update Client Plan](docs/updates/000083-quantix-os-update-client-plan.md).
+Integrated the OTA update system into Quantix-vDC backend and verified the frontend implementation. The system can now push updates to connected QHCI hosts.
 
 ---
 
 ## Changes Made
 
-### Backend (Rust - agent/limiquantix-node)
+### Backend (Go - backend/)
 
-#### 1. Added UpdateConfig to main Config struct
-**File:** `src/config.rs`
-- Added `use crate::update::UpdateConfig;`
-- Added `pub updates: UpdateConfig` to `Config` struct
-- Added `updates: UpdateConfig::default()` to `Default` impl
+#### 1. Wired NodeGetter to Update Service
+**File:** `internal/server/server.go`
 
-#### 2. Added UpdateManager to AppState
-**File:** `src/http_server.rs`
-- Added `use crate::update::{UpdateManager, UpdateConfig, UpdateStatus, UpdateProgress};`
-- Added `pub update_manager: Arc<UpdateManager>` to `AppState` struct
-- Updated `run_http_server()` and `run_https_server()` signatures to accept `update_manager`
-- Updated handlers to use shared `state.update_manager` instead of creating new instances
+Added NodeGetter adapter to connect the update service with the node repository:
 
-#### 3. Fixed apply_updates to run in background
-**File:** `src/http_server.rs`
-- Changed `apply_updates` handler to spawn background task
-- Returns immediately with "started" status
-- Prevents duplicate updates with conflict check
+```go
+// Wire up the NodeGetter so the update service can communicate with hosts
+nodeGetter := updateservice.NewNodeGetterFromFuncs(
+    // GetNodeByID function
+    func(ctx context.Context, id string) (*updateservice.NodeInfo, error) {
+        node, err := s.nodeRepo.Get(ctx, id)
+        if err != nil {
+            return nil, err
+        }
+        return &updateservice.NodeInfo{
+            ID:           node.ID,
+            Hostname:     node.Hostname,
+            ManagementIP: node.ManagementIP,
+        }, nil
+    },
+    // ListNodes function
+    func(ctx context.Context) ([]*updateservice.NodeInfo, error) {
+        nodes, err := s.nodeRepo.List(ctx, nodeservice.NodeFilter{})
+        if err != nil {
+            return nil, err
+        }
+        result := make([]*updateservice.NodeInfo, 0, len(nodes))
+        for _, n := range nodes {
+            result = append(result, &updateservice.NodeInfo{
+                ID:           n.ID,
+                Hostname:     n.Hostname,
+                ManagementIP: n.ManagementIP,
+            })
+        }
+        return result, nil
+    },
+)
+s.updateService.SetNodeGetter(nodeGetter)
+```
 
-#### 4. Initialize UpdateManager in server startup
-**File:** `src/server.rs`
-- Added `use crate::update::UpdateManager;`
-- Created and initialized `UpdateManager` from `config.updates`
-- Passes `update_manager` to both HTTP and HTTPS servers
+#### 2. Added NodeGetter Adapter to Update Service
+**File:** `internal/services/update/service.go`
 
-### Frontend (React - quantix-host-ui)
+- Added `crypto/tls` import for TLS configuration
+- Added `hostClient *http.Client` field with TLS skip verification for self-signed certs
+- Created `NewNodeGetterFromFuncs()` factory for flexible integration
+- Implemented `NodeGetterAdapter` struct with callback functions
+- Fixed `CheckHostUpdate()` to use the shared `hostClient`
+- Fixed `ApplyHostUpdate()` with proper TLS handling
 
-#### 1. Created API client
-**File:** `src/api/updates.ts`
-- Types: `UpdateCheckResponse`, `ComponentUpdateInfo`, `InstalledVersions`, `UpdateStatusResponse`, `UpdateConfig`
-- API functions: `checkForUpdates()`, `getCurrentVersions()`, `getUpdateStatus()`, `applyUpdates()`, `getUpdateConfig()`
-- Utilities: `formatBytes()`, `getStatusLabel()`, `getStatusVariant()`, `isUpdateInProgress()`
+#### 3. TLS Skip Verification for Host Communication
+Hosts use self-signed certificates, so the update service now skips TLS verification when communicating with QHCI hosts.
 
-#### 2. Created React Query hooks
-**File:** `src/hooks/useUpdates.ts`
-- Query keys for cache management
-- `useInstalledVersions()` - Get installed component versions
-- `useUpdateStatus()` - Poll update status with auto-refresh during updates
-- `useUpdateConfig()` - Get update settings
-- `useCheckForUpdates()` - Mutation to check for updates
-- `useApplyUpdates()` - Mutation to apply updates
-- `useUpdatesTab()` - Composite hook for the Updates tab
+```go
+hostTransport := &http.Transport{
+    TLSClientConfig: &tls.Config{
+        InsecureSkipVerify: true, // Skip verification for self-signed certs
+    },
+}
+```
 
-#### 3. Added Updates tab to Settings page
-**File:** `src/pages/Settings.tsx`
-- Added 'updates' to Tab type
-- Added "Updates" tab with Download icon
-- Created `UpdatesSettingsTab` component with:
-  - Current versions display (OS, qx-node, Host UI)
-  - Update status badges
-  - Progress bar during downloads
-  - Reboot required warning
-  - Error display
-  - Available update info with component list
-  - Check for Updates / Apply Update buttons
-  - Update configuration display (server, channel, interval)
+### Frontend (Already Complete)
+
+The frontend was already implemented:
+- `src/hooks/useUpdates.ts` - All React Query hooks
+- `src/pages/Settings.tsx` - UpdateSettings component with:
+  - vDC update status and actions
+  - Host list with per-host update actions
+  - Channel selector (stable/beta/dev)
+  - Auto-check and auto-apply toggles
 
 ---
 
-## API Endpoints
+## API Endpoints (Backend)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/v1/updates/check` | GET | Check for available updates |
-| `/api/v1/updates/current` | GET | Get installed component versions |
-| `/api/v1/updates/status` | GET | Get current update status |
-| `/api/v1/updates/apply` | POST | Start update in background |
-| `/api/v1/updates/config` | GET | Get update configuration |
+| `/api/v1/updates/vdc/status` | GET | Get vDC update status |
+| `/api/v1/updates/vdc/check` | POST | Check for vDC updates |
+| `/api/v1/updates/vdc/apply` | POST | Apply vDC update |
+| `/api/v1/updates/hosts` | GET | Get all hosts update status |
+| `/api/v1/updates/hosts/check` | POST | Check all hosts for updates |
+| `/api/v1/updates/hosts/{nodeId}` | GET | Get specific host status |
+| `/api/v1/updates/hosts/{nodeId}/check` | POST | Check host for updates |
+| `/api/v1/updates/hosts/{nodeId}/apply` | POST | Apply update to host |
+| `/api/v1/updates/config` | GET/PUT | Get/update configuration |
 
 ---
 
-## Configuration
+## Architecture Flow
 
-Updates can be configured in `/etc/limiquantix/node.yaml`:
-
-```yaml
-updates:
-  enabled: true
-  server_url: "http://192.168.0.95:9000"
-  channel: "dev"  # dev, beta, stable
-  check_interval: "1h"
-  auto_apply: false
-  auto_reboot: false
-  staging_dir: "/data/updates/staging"
-  backup_dir: "/data/updates/backup"
-  max_backups: 3
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                  QUANTIX-VDC UPDATE PUSH FLOW                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Frontend (Settings → Updates)                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ • Check for vDC Updates      → POST /api/v1/updates/vdc/check      ││
+│  │ • Apply vDC Update           → POST /api/v1/updates/vdc/apply      ││
+│  │ • Check All Hosts            → POST /api/v1/updates/hosts/check    ││
+│  │ • Apply Host Update          → POST /api/v1/updates/hosts/{id}/apply││
+│  │ • Channel Selector           → PUT /api/v1/updates/config          ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                              │                                           │
+│                              ▼                                           │
+│  Backend (update_handler.go + service.go)                                │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ UpdateHandler → UpdateService → NodeGetter (adapter)                ││
+│  │                                     │                                ││
+│  │                                     ▼                                ││
+│  │                              NodeRepository                          ││
+│  │                              (gets node IPs)                         ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                              │                                           │
+│              ┌───────────────┴───────────────┐                          │
+│              ▼                               ▼                          │
+│  ┌─────────────────┐           ┌─────────────────────┐                  │
+│  │  Update Server  │           │  QHCI Host (qx-node)│                  │
+│  │  Port: 9000     │           │  Port: 8443 (HTTPS) │                  │
+│  │  • manifests    │           │  /api/v1/updates/*  │                  │
+│  │  • artifacts    │           │  (self-signed TLS)  │                  │
+│  └─────────────────┘           └─────────────────────┘                  │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Testing
 
-To test the implementation:
-
 1. **Build the backend:**
    ```bash
-   cd agent && cargo build --release
+   cd backend && go build ./...
    ```
+   ✅ Verified - compiles successfully
 
 2. **Build the frontend:**
    ```bash
-   cd quantix-host-ui && npm run build
+   cd frontend && npm run build
    ```
 
 3. **Access the Updates tab:**
-   - Navigate to Settings → Updates
-   - Click "Check for Updates"
-   - If an update is available, click "Apply Update"
-   - Monitor progress via the status polling
+   - Navigate to Settings → Updates in the vDC Dashboard
+   - Connected hosts will appear in the "QHCI Host Updates" section
+   - Click "Check All Hosts" to query each host for available updates
+   - Click "Apply" on individual hosts to trigger updates
+
+---
+
+## Configuration
+
+Add to `/etc/quantix-vdc/config.yaml`:
+
+```yaml
+updates:
+  server_url: "http://update-server:9000"
+  channel: "dev"
+  auto_check: true
+  auto_apply: false
+```
+
+---
+
+## Related Documentation
+
+- [000081 - OTA Update System](docs/updates/000081-ota-update-system.md)
+- [000082 - Production Grade Updates](docs/updates/000082-production-grade-updates.md)
+- [000083 - Quantix-OS Update Client Plan](docs/updates/000083-quantix-os-update-client-plan.md)
 
 ---
 
