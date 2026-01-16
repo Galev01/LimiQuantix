@@ -1,0 +1,33 @@
+{
+  "product": "quantix-vdc",
+  "version": "0.0.5",
+  "channel": "dev",
+  "release_date": "2026-01-16T12:00:00Z",
+  "update_type": "component",
+  "components": [
+    {
+      "name": "controlplane",
+      "version": "0.0.5",
+      "artifact": "controlplane.tar.zst",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 15728640,
+      "install_path": "/usr/bin/quantix-controlplane",
+      "restart_service": "quantix-controlplane",
+      "backup_before_update": true,
+      "permissions": "0755"
+    },
+    {
+      "name": "dashboard",
+      "version": "0.0.5",
+      "artifact": "dashboard.tar.zst",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 8388608,
+      "install_path": "/usr/share/quantix-vdc/dashboard",
+      "restart_service": "nginx",
+      "backup_before_update": false,
+      "permissions": "0644"
+    }
+  ],
+  "min_version": "0.0.1",
+  "release_notes": "- Added folder management API\n- Fixed cluster registration flow\n- Improved dashboard performance"
+}

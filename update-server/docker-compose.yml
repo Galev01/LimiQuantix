@@ -1,0 +1,63 @@
+# =============================================================================
+# Quantix Update Server - Docker Compose
+# =============================================================================
+# Local development deployment for the OTA update server.
+#
+# Usage:
+#   docker-compose up -d        # Start server
+#   docker-compose logs -f      # View logs
+#   docker-compose down         # Stop server
+#
+# The server will be available at: http://localhost:9000
+# =============================================================================
+
+version: '3.8'
+
+services:
+  update-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: quantix-update-server
+    ports:
+      - "9000:9000"
+    volumes:
+      # Persist releases directory
+      - ./releases:/data/releases
+      # Optional: mount config file
+      # - ./config.yaml:/etc/update-server/config.yaml:ro
+    environment:
+      - RELEASE_DIR=/data/releases
+      - LISTEN_ADDR=0.0.0.0:9000
+      # Change this token for production!
+      - PUBLISH_TOKEN=${PUBLISH_TOKEN:-dev-token}
+      - TZ=UTC
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# =============================================================================
+# Development Notes
+# =============================================================================
+# 
+# To publish an update:
+#   curl -X POST http://localhost:9000/api/v1/quantix-os/publish \
+#     -H "Authorization: Bearer dev-token" \
+#     -F "manifest=@manifest.json" \
+#     -F "qx-node=@qx-node.tar.zst"
+#
+# To check for updates:
+#   curl http://localhost:9000/api/v1/quantix-os/manifest?channel=dev
+#
+# To download an artifact:
+#   curl -O http://localhost:9000/api/v1/quantix-os/releases/0.0.5/qx-node.tar.zst?channel=dev
+# =============================================================================

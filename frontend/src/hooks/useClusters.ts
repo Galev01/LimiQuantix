@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getApiBase } from '@/lib/api-client';
 
 // Types matching backend domain model
 export interface ClusterStats {
@@ -97,7 +98,7 @@ interface ListClustersResponse {
   total: number;
 }
 
-const API_BASE = 'http://localhost:8080';
+const getApiBaseUrl = () => getApiBase();
 
 // Query keys
 export const clusterKeys = {
@@ -111,7 +112,7 @@ export const clusterKeys = {
 
 // Fetch clusters
 async function fetchClusters(projectId?: string): Promise<ListClustersResponse> {
-  const url = new URL(`${API_BASE}/api/clusters`);
+  const url = new URL(`${getApiBaseUrl()}/api/clusters`);
   if (projectId) {
     url.searchParams.set('project_id', projectId);
   }
@@ -125,7 +126,7 @@ async function fetchClusters(projectId?: string): Promise<ListClustersResponse> 
 
 // Fetch single cluster
 async function fetchCluster(id: string): Promise<Cluster> {
-  const response = await fetch(`${API_BASE}/api/clusters/${id}`);
+  const response = await fetch(`${getApiBaseUrl()}/api/clusters/${id}`);
   if (!response.ok) {
     throw new Error('Failed to fetch cluster');
   }
@@ -134,7 +135,7 @@ async function fetchCluster(id: string): Promise<Cluster> {
 
 // Create cluster
 async function createCluster(data: CreateClusterRequest): Promise<Cluster> {
-  const response = await fetch(`${API_BASE}/api/clusters`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/clusters`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -148,7 +149,7 @@ async function createCluster(data: CreateClusterRequest): Promise<Cluster> {
 
 // Update cluster
 async function updateCluster(data: UpdateClusterRequest): Promise<Cluster> {
-  const response = await fetch(`${API_BASE}/api/clusters/${data.id}`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/clusters/${data.id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -162,7 +163,7 @@ async function updateCluster(data: UpdateClusterRequest): Promise<Cluster> {
 
 // Delete cluster
 async function deleteCluster(id: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/clusters/${id}`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/clusters/${id}`, {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -173,7 +174,7 @@ async function deleteCluster(id: string): Promise<void> {
 
 // Add host to cluster
 async function addHostToCluster(clusterId: string, hostId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/clusters/${clusterId}/hosts`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/clusters/${clusterId}/hosts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ host_id: hostId }),
@@ -186,7 +187,7 @@ async function addHostToCluster(clusterId: string, hostId: string): Promise<void
 
 // Remove host from cluster
 async function removeHostFromCluster(clusterId: string, hostId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/clusters/${clusterId}/hosts/${hostId}`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/clusters/${clusterId}/hosts/${hostId}`, {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -197,7 +198,7 @@ async function removeHostFromCluster(clusterId: string, hostId: string): Promise
 
 // Fetch cluster hosts
 async function fetchClusterHosts(clusterId: string): Promise<{ hosts: any[]; total: number }> {
-  const response = await fetch(`${API_BASE}/api/clusters/${clusterId}/hosts`);
+  const response = await fetch(`${getApiBaseUrl()}/api/clusters/${clusterId}/hosts`);
   if (!response.ok) {
     throw new Error('Failed to fetch cluster hosts');
   }

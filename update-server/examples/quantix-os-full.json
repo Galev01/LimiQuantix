@@ -1,0 +1,51 @@
+{
+  "product": "quantix-os",
+  "version": "1.0.0",
+  "channel": "stable",
+  "release_date": "2026-02-01T00:00:00Z",
+  "update_type": "full",
+  "components": [
+    {
+      "name": "qx-node",
+      "version": "1.0.0",
+      "artifact": "qx-node.tar.zst",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 5500000,
+      "install_path": "/data/bin/qx-node",
+      "restart_service": "quantix-node",
+      "backup_before_update": true,
+      "permissions": "0755"
+    },
+    {
+      "name": "qx-console",
+      "version": "1.0.0",
+      "artifact": "qx-console.tar.zst",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 2200000,
+      "install_path": "/data/bin/qx-console",
+      "restart_service": "quantix-console",
+      "backup_before_update": true,
+      "permissions": "0755"
+    },
+    {
+      "name": "host-ui",
+      "version": "1.0.0",
+      "artifact": "host-ui.tar.zst",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 2000000,
+      "install_path": "/data/share/quantix-host-ui",
+      "restart_service": null,
+      "backup_before_update": false,
+      "permissions": "0644"
+    }
+  ],
+  "full_image": {
+    "artifact": "system.squashfs",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "size_bytes": 524288000,
+    "requires_reboot": true,
+    "target_slot": "auto"
+  },
+  "min_version": "0.0.1",
+  "release_notes": "# Quantix-OS 1.0.0 Stable Release\n\n## New Features\n- Production-ready hypervisor management\n- Full A/B update support\n- Enhanced security with TLS everywhere\n\n## Bug Fixes\n- Fixed memory leak in VM monitoring\n- Improved storage pool reliability\n\n## Breaking Changes\n- Configuration format updated (automatic migration on first boot)"
+}

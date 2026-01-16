@@ -566,18 +566,3 @@ mod tests {
     }
 }
 ```
-
----
-
-## Summary Checklist
-
-For every function/handler you write:
-
-- [ ] Uses structured logging (`tracing`, `zap`, `pino`)
-- [ ] Includes context fields (IDs, durations)
-- [ ] Wraps errors with context (`context()`, `fmt.Errorf(...%w)`)
-- [ ] Logs at appropriate level (ERROR/WARN/INFO/DEBUG)
-- [ ] No silent failures (all errors logged or handled)
-- [ ] Performance metrics for slow operations
-- [ ] No sensitive data in logs
-- [ ] Error types are defined and documented

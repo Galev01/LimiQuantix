@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { imageKeys } from './useImages';
+import { getApiBase } from '@/lib/api-client';
 
-const API_BASE = 'http://localhost:8080';
+const getApiBaseUrl = () => getApiBase();
 
 export interface ISOUploadProgress {
   jobId: string;
@@ -96,7 +97,7 @@ export function useISOUpload() {
           reject(new Error('Upload aborted'));
         });
 
-        xhr.open('POST', `${API_BASE}/api/v1/images/upload`);
+        xhr.open('POST', `${getApiBaseUrl()}/api/v1/images/upload`);
         xhr.send(formData);
       });
 
@@ -166,7 +167,7 @@ async function pollUploadStatus(
   let attempts = 0;
 
   while (attempts < maxAttempts) {
-    const response = await fetch(`${API_BASE}/api/v1/images/upload/status/${jobId}`);
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/images/upload/status/${jobId}`);
     if (!response.ok) {
       throw new Error('Failed to get upload status');
     }

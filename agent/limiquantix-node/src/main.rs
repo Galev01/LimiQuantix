@@ -29,6 +29,7 @@ mod registration;
 mod server;
 mod service;
 mod tls;
+pub mod update;
 
 pub use chassis::{ChassisConfig, ChassisHealth, ChassisManager};
 

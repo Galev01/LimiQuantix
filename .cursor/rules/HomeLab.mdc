@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+# My Home Lab Infrastracture:
+
+1. QvDC - 192.168.0.95 - Laptop Dell Latitude 5420
+2. QHCI01 - Quantix OS installed host - 192.168.0.32 - Laptop Thinkpad pro
+3. QHCI02 - Quantix OS Installed Host - IP NOT DEFINED YET - TO UPDATE - Laptop ThinkPad Pro

@@ -1,0 +1,44 @@
+{
+  "product": "quantix-os",
+  "version": "0.0.5",
+  "channel": "dev",
+  "release_date": "2026-01-16T12:00:00Z",
+  "update_type": "component",
+  "components": [
+    {
+      "name": "qx-node",
+      "version": "0.0.5",
+      "artifact": "qx-node.tar.zst",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 5242880,
+      "install_path": "/data/bin/qx-node",
+      "restart_service": "quantix-node",
+      "backup_before_update": true,
+      "permissions": "0755"
+    },
+    {
+      "name": "qx-console",
+      "version": "0.0.5",
+      "artifact": "qx-console.tar.zst",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 2097152,
+      "install_path": "/data/bin/qx-console",
+      "restart_service": "quantix-console",
+      "backup_before_update": true,
+      "permissions": "0755"
+    },
+    {
+      "name": "host-ui",
+      "version": "0.0.5",
+      "artifact": "host-ui.tar.zst",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 1887436,
+      "install_path": "/data/share/quantix-host-ui",
+      "restart_service": null,
+      "backup_before_update": false,
+      "permissions": "0644"
+    }
+  ],
+  "min_version": "0.0.1",
+  "release_notes": "- Fixed network configuration persistence\n- Improved TUI responsiveness\n- Updated Host UI with new monitoring charts"
+}

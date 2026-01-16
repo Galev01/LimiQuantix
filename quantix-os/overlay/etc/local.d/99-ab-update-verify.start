@@ -1,0 +1,56 @@
+#!/bin/sh
+# =============================================================================
+# Quantix-OS A/B Update Verification - Success
+# =============================================================================
+# Marks the current boot as successful after all services are up.
+# This clears the A/B update pending state.
+# =============================================================================
+
+STATE_FILE="/quantix/ab-update-state.json"
+LOG_TAG="[ab-update]"
+
+log() {
+    echo "$LOG_TAG $1"
+}
+
+# Check if there's a pending update
+if [ ! -f "$STATE_FILE" ]; then
+    exit 0
+fi
+
+# Parse state file
+PENDING=$(grep -o '"pending":[^,}]*' "$STATE_FILE" | cut -d: -f2 | tr -d ' ')
+TARGET_VERSION=$(grep -o '"target_version":"[^"]*' "$STATE_FILE" | cut -d'"' -f4)
+
+if [ "$PENDING" != "true" ]; then
+    exit 0
+fi
+
+# Basic health checks before marking as successful
+log "Verifying system health..."
+
+# Check that critical services are running
+SERVICES_OK=true
+
+# Check quantix-node
+if ! rc-service quantix-node status >/dev/null 2>&1; then
+    log "WARNING: quantix-node not running"
+    SERVICES_OK=false
+fi
+
+# Check networking
+if ! ip route get 8.8.8.8 >/dev/null 2>&1; then
+    log "WARNING: Network not reachable"
+    # Don't fail on network - might be expected in some environments
+fi
+
+if [ "$SERVICES_OK" = "true" ]; then
+    log "System health verified. Marking update to version $TARGET_VERSION as successful."
+    
+    # Clear the state file
+    rm -f "$STATE_FILE"
+    
+    log "A/B update completed successfully!"
+else
+    log "System health check failed. Will retry on next boot."
+fi

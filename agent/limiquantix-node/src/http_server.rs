@@ -946,6 +946,12 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/settings/certificates/acme", get(get_acme_info))
         .route("/settings/certificates/acme/register", post(register_acme_account))
         .route("/settings/certificates/acme/issue", post(issue_acme_certificate))
+        // OTA Update endpoints
+        .route("/updates/check", get(check_for_updates))
+        .route("/updates/current", get(get_current_versions))
+        .route("/updates/status", get(get_update_status))
+        .route("/updates/apply", post(apply_updates))
+        .route("/updates/config", get(get_update_config))
         .with_state(state.clone());
 
     // Check if webui directory exists
@@ -1026,6 +1032,226 @@ pub async fn run_redirect_server(redirect_addr: SocketAddr, https_port: u16) {
             );
         }
     }
+}
+
+// ============================================================================
+// OTA Update API Handlers
+// ============================================================================
+
+/// Response type for update check
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateCheckResponse {
+    available: bool,
+    current_version: String,
+    latest_version: Option<String>,
+    channel: String,
+    components: Vec<ComponentUpdateEntry>,
+    full_image_available: bool,
+    total_download_size: u64,
+    release_notes: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ComponentUpdateEntry {
+    name: String,
+    current_version: Option<String>,
+    new_version: String,
+    size_bytes: u64,
+}
+
+/// Response type for current versions
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CurrentVersionsResponse {
+    os_version: String,
+    qx_node: Option<String>,
+    qx_console: Option<String>,
+    host_ui: Option<String>,
+}
+
+/// Response type for update status
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateStatusResponse {
+    status: String,
+    message: Option<String>,
+    progress: Option<UpdateProgressInfo>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateProgressInfo {
+    current_component: String,
+    downloaded_bytes: u64,
+    total_bytes: u64,
+    percentage: u8,
+}
+
+/// Response type for update config
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateConfigResponse {
+    enabled: bool,
+    server_url: String,
+    channel: String,
+    check_interval: String,
+    auto_apply: bool,
+}
+
+/// GET /api/v1/updates/check - Check for available updates
+async fn check_for_updates(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<UpdateCheckResponse>, (StatusCode, Json<ApiError>)> {
+    use crate::update::{UpdateManager, UpdateConfig};
+    
+    // Create update manager with default config
+    let config = UpdateConfig::default();
+    let manager = UpdateManager::new(config);
+    
+    // Initialize to detect current versions
+    if let Err(e) = manager.init().await {
+        warn!(error = %e, "Failed to initialize update manager");
+    }
+    
+    // Check for updates
+    match manager.check_for_updates().await {
+        Ok(info) => {
+            Ok(Json(UpdateCheckResponse {
+                available: info.available,
+                current_version: info.current_version,
+                latest_version: info.latest_version,
+                channel: info.channel,
+                components: info.components.into_iter().map(|c| ComponentUpdateEntry {
+                    name: c.name,
+                    current_version: c.current_version,
+                    new_version: c.new_version,
+                    size_bytes: c.size_bytes,
+                }).collect(),
+                full_image_available: info.full_image_available,
+                total_download_size: info.total_download_size,
+                release_notes: info.release_notes,
+            }))
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to check for updates");
+            Err((
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ApiError::new("update_check_failed", &format!("Failed to check for updates: {}", e))),
+            ))
+        }
+    }
+}
+
+/// GET /api/v1/updates/current - Get currently installed versions
+async fn get_current_versions(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<CurrentVersionsResponse>, (StatusCode, Json<ApiError>)> {
+    use crate::update::{UpdateManager, UpdateConfig};
+    
+    let config = UpdateConfig::default();
+    let manager = UpdateManager::new(config);
+    
+    if let Err(e) = manager.init().await {
+        warn!(error = %e, "Failed to initialize update manager");
+    }
+    
+    let versions = manager.get_installed_versions().await;
+    
+    Ok(Json(CurrentVersionsResponse {
+        os_version: versions.os_version,
+        qx_node: versions.qx_node,
+        qx_console: versions.qx_console,
+        host_ui: versions.host_ui,
+    }))
+}
+
+/// GET /api/v1/updates/status - Get current update status
+async fn get_update_status(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<UpdateStatusResponse>, (StatusCode, Json<ApiError>)> {
+    use crate::update::{UpdateManager, UpdateConfig, UpdateStatus};
+    
+    let config = UpdateConfig::default();
+    let manager = UpdateManager::new(config);
+    
+    let status = manager.get_status().await;
+    
+    let (status_str, message, progress) = match status {
+        UpdateStatus::Idle => ("idle", None, None),
+        UpdateStatus::Checking => ("checking", None, None),
+        UpdateStatus::UpToDate => ("up_to_date", None, None),
+        UpdateStatus::Available(ver) => ("available", Some(format!("Version {} available", ver)), None),
+        UpdateStatus::Downloading(prog) => ("downloading", None, Some(UpdateProgressInfo {
+            current_component: prog.current_component,
+            downloaded_bytes: prog.downloaded_bytes,
+            total_bytes: prog.total_bytes,
+            percentage: prog.percentage,
+        })),
+        UpdateStatus::Applying(msg) => ("applying", Some(msg), None),
+        UpdateStatus::Complete(ver) => ("complete", Some(format!("Updated to version {}", ver)), None),
+        UpdateStatus::Error(err) => ("error", Some(err), None),
+        UpdateStatus::RebootRequired => ("reboot_required", Some("Please reboot to complete the update".to_string()), None),
+    };
+    
+    Ok(Json(UpdateStatusResponse {
+        status: status_str.to_string(),
+        message,
+        progress,
+    }))
+}
+
+/// POST /api/v1/updates/apply - Apply available updates
+async fn apply_updates(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    use crate::update::{UpdateManager, UpdateConfig};
+    
+    let config = UpdateConfig::default();
+    let manager = UpdateManager::new(config);
+    
+    // Initialize
+    if let Err(e) = manager.init().await {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("init_failed", &format!("Failed to initialize update manager: {}", e))),
+        ));
+    }
+    
+    // Apply updates
+    match manager.apply_updates().await {
+        Ok(()) => {
+            Ok(Json(serde_json::json!({
+                "status": "success",
+                "message": "Updates applied successfully"
+            })))
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to apply updates");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("apply_failed", &format!("Failed to apply updates: {}", e))),
+            ))
+        }
+    }
+}
+
+/// GET /api/v1/updates/config - Get update configuration
+async fn get_update_config(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<UpdateConfigResponse>, (StatusCode, Json<ApiError>)> {
+    use crate::update::UpdateConfig;
+    
+    let config = UpdateConfig::default();
+    
+    Ok(Json(UpdateConfigResponse {
+        enabled: config.enabled,
+        server_url: config.server_url,
+        channel: config.channel,
+        check_interval: config.check_interval,
+        auto_apply: config.auto_apply,
+    }))
 }
 
 // ============================================================================

@@ -9,9 +9,10 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { getApiBase } from '@/lib/api-client';
 
-// API Configuration
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// API Configuration - use centralized API base URL
+const getApiBaseUrl = () => getApiBase();
 
 // Types
 export interface LinuxCustomization {
@@ -132,7 +133,7 @@ const FALLBACK_SPECS: CustomizationSpec[] = [
  * Fetch customization specs from the API
  */
 async function fetchCustomizationSpecs(projectId?: string, type?: string): Promise<CustomizationSpec[]> {
-  const response = await fetch(`${API_BASE}/api/customization-specs`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/customization-specs`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -151,7 +152,7 @@ async function fetchCustomizationSpecs(projectId?: string, type?: string): Promi
  * Create a new customization spec
  */
 async function createCustomizationSpec(request: CreateCustomizationSpecRequest): Promise<CustomizationSpec> {
-  const response = await fetch(`${API_BASE}/api/customization-specs`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/customization-specs`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

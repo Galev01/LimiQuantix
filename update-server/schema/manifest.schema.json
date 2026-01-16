@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://quantix-kvm.io/schemas/update-manifest.json",
+  "title": "Quantix Update Manifest",
+  "description": "Schema for Quantix-OS and Quantix-vDC OTA update manifests",
+  "type": "object",
+  "required": ["product", "version", "channel", "release_date", "update_type", "components"],
+  "properties": {
+    "product": {
+      "type": "string",
+      "enum": ["quantix-os", "quantix-vdc"],
+      "description": "The product this manifest applies to"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?$",
+      "description": "Semantic version string (e.g., 0.0.5, 1.0.0-beta)"
+    },
+    "channel": {
+      "type": "string",
+      "enum": ["dev", "beta", "stable"],
+      "description": "Release channel"
+    },
+    "release_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 release timestamp"
+    },
+    "update_type": {
+      "type": "string",
+      "enum": ["component", "full"],
+      "description": "Type of update: 'component' for individual updates, 'full' for complete system image"
+    },
+    "components": {
+      "type": "array",
+      "description": "List of updatable components",
+      "items": {
+        "$ref": "#/definitions/component"
+      }
+    },
+    "full_image": {
+      "$ref": "#/definitions/full_image",
+      "description": "Full system image for A/B updates (optional)"
+    },
+    "min_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Minimum version required to apply this update"
+    },
+    "release_notes": {
+      "type": "string",
+      "description": "Human-readable release notes"
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "List of required dependency versions",
+      "items": {
+        "$ref": "#/definitions/dependency"
+      }
+    }
+  },
+  "definitions": {
+    "component": {
+      "type": "object",
+      "required": ["name", "version", "artifact", "sha256", "size_bytes", "install_path"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Component identifier (e.g., qx-node, qx-console, host-ui)"
+        },
+        "version": {
+          "type": "string",
+          "description": "Component version"
+        },
+        "artifact": {
+          "type": "string",
+          "description": "Artifact filename (e.g., qx-node.tar.zst)"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA256 checksum of the artifact"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Size of the artifact in bytes"
+        },
+        "install_path": {
+          "type": "string",
+          "description": "Target installation path on the system"
+        },
+        "restart_service": {
+          "type": ["string", "null"],
+          "description": "OpenRC service to restart after update (null if no restart needed)"
+        },
+        "backup_before_update": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to backup the existing file before update"
+        },
+        "permissions": {
+          "type": "string",
+          "pattern": "^[0-7]{3,4}$",
+          "default": "0755",
+          "description": "File permissions in octal format"
+        }
+      }
+    },
+    "full_image": {
+      "type": "object",
+      "required": ["artifact", "sha256", "size_bytes", "requires_reboot"],
+      "properties": {
+        "artifact": {
+          "type": "string",
+          "description": "Full image filename (e.g., system.squashfs)"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA256 checksum of the image"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Size of the image in bytes"
+        },
+        "requires_reboot": {
+          "type": "boolean",
+          "description": "Whether a reboot is required after applying"
+        },
+        "target_slot": {
+          "type": "string",
+          "enum": ["auto", "A", "B"],
+          "default": "auto",
+          "description": "Target partition slot for A/B update"
+        }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "required": ["name", "min_version"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Dependency name"
+        },
+        "min_version": {
+          "type": "string",
+          "description": "Minimum required version"
+        }
+      }
+    }
+  }
+}

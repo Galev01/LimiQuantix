@@ -9,9 +9,10 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { getApiBase } from '@/lib/api-client';
 
-// API Configuration
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// API Configuration - use the centralized API base URL
+const getApiBaseUrl = () => getApiBase();
 
 // Types
 export interface Folder {
@@ -106,7 +107,7 @@ async function fetchFolders(projectId?: string, parentId?: string, type?: string
   if (parentId) params.append('parentId', parentId);
   if (type) params.append('type', type);
 
-  const response = await fetch(`${API_BASE}/limiquantix.compute.v1.FolderService/ListFolders`, {
+  const response = await fetch(`${getApiBaseUrl()}/limiquantix.compute.v1.FolderService/ListFolders`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -130,7 +131,7 @@ async function fetchFolders(projectId?: string, parentId?: string, type?: string
  * Fetch folder tree from the API
  */
 async function fetchFolderTree(rootId?: string, projectId?: string, type?: string, depth?: number): Promise<FolderTree | null> {
-  const response = await fetch(`${API_BASE}/limiquantix.compute.v1.FolderService/GetFolderTree`, {
+  const response = await fetch(`${getApiBaseUrl()}/limiquantix.compute.v1.FolderService/GetFolderTree`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -154,7 +155,7 @@ async function fetchFolderTree(rootId?: string, projectId?: string, type?: strin
  * Create a new folder
  */
 async function createFolder(request: CreateFolderRequest): Promise<Folder> {
-  const response = await fetch(`${API_BASE}/limiquantix.compute.v1.FolderService/CreateFolder`, {
+  const response = await fetch(`${getApiBaseUrl()}/limiquantix.compute.v1.FolderService/CreateFolder`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -174,7 +175,7 @@ async function createFolder(request: CreateFolderRequest): Promise<Folder> {
  * Delete a folder
  */
 async function deleteFolder(id: string, force?: boolean): Promise<void> {
-  const response = await fetch(`${API_BASE}/limiquantix.compute.v1.FolderService/DeleteFolder`, {
+  const response = await fetch(`${getApiBaseUrl()}/limiquantix.compute.v1.FolderService/DeleteFolder`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -118,10 +118,20 @@ start_dcui() {
     # Clear screen and scrollback
     printf '\033[2J\033[H\033[3J'
     
-    if [ -x /usr/local/bin/qx-console ]; then
-        exec /usr/local/bin/qx-console
+    # Check for OTA-updatable binary first, then fall back to squashfs version
+    CONSOLE_BIN=""
+    if [ -x /data/bin/qx-console ]; then
+        CONSOLE_BIN="/data/bin/qx-console"
+        log "Using OTA binary: $CONSOLE_BIN"
+    elif [ -x /usr/local/bin/qx-console ]; then
+        CONSOLE_BIN="/usr/local/bin/qx-console"
+        log "Using squashfs binary: $CONSOLE_BIN"
+    fi
+    
+    if [ -n "$CONSOLE_BIN" ]; then
+        exec "$CONSOLE_BIN"
     else
-        log "ERROR: TUI binary not found at /usr/local/bin/qx-console"
+        log "ERROR: TUI binary not found"
         echo ""
         echo "=========================================="
         echo "  QUANTIX-OS Direct Console (DCUI)"

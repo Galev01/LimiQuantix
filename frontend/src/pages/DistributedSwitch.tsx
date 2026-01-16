@@ -63,30 +63,9 @@ interface DistributedSwitch {
   status: 'healthy' | 'warning' | 'error';
 }
 
-// Mock data for demonstration
-const MOCK_SWITCHES: DistributedSwitch[] = [
-  {
-    id: 'dvs-1',
-    name: 'QuantrixSwitch-Production',
-    description: 'Main distributed switch for production workloads',
-    mtu: 9000,
-    version: '7.0.0',
-    uplinks: [
-      { id: 'uplink-1', name: 'Uplink 1', physicalNic: 'eth0', speed: '25 Gbps', status: 'active', mtu: 9000 },
-      { id: 'uplink-2', name: 'Uplink 2', physicalNic: 'eth1', speed: '25 Gbps', status: 'active', mtu: 9000 },
-      { id: 'uplink-3', name: 'Uplink 3', physicalNic: 'eth2', speed: '25 Gbps', status: 'standby', mtu: 9000 },
-      { id: 'uplink-4', name: 'Uplink 4', physicalNic: 'eth3', speed: '25 Gbps', status: 'standby', mtu: 9000 },
-    ],
-    portGroups: [
-      { id: 'pg-1', name: 'Production-VLAN-100', vlanId: 100, type: 'vm', activeUplinks: ['uplink-1', 'uplink-2'], standbyUplinks: ['uplink-3', 'uplink-4'], connectedVMs: 45 },
-      { id: 'pg-2', name: 'Management', vlanId: 10, type: 'management', activeUplinks: ['uplink-1'], standbyUplinks: ['uplink-2'], connectedVMs: 0 },
-      { id: 'pg-3', name: 'vMotion', vlanId: 20, type: 'vmotion', activeUplinks: ['uplink-3', 'uplink-4'], standbyUplinks: [], connectedVMs: 0 },
-      { id: 'pg-4', name: 'Storage-iSCSI', vlanId: 30, type: 'storage', activeUplinks: ['uplink-1', 'uplink-2'], standbyUplinks: [], connectedVMs: 0 },
-    ],
-    connectedHosts: ['host-1', 'host-2', 'host-3'],
-    status: 'healthy',
-  },
-];
+// Distributed switches will be populated from backend when the feature is fully implemented
+// TODO: Replace with real API calls when DVS management is added to the backend
+const MOCK_SWITCHES: DistributedSwitch[] = [];
 
 const PORT_GROUP_TYPES = {
   vm: { label: 'Virtual Machine', icon: Server, color: 'blue' },

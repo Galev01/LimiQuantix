@@ -1,0 +1,408 @@
+#!/bin/bash
+# =============================================================================
+# Quantix-OS Update Publisher
+# =============================================================================
+# Builds and publishes component updates to the update server.
+#
+# Usage:
+#   ./publish-update.sh                    # Build all components and publish to dev
+#   ./publish-update.sh --channel beta     # Publish to beta channel
+#   ./publish-update.sh --component qx-node # Build and publish only qx-node
+#   ./publish-update.sh --dry-run          # Build but don't upload
+#
+# Environment:
+#   UPDATE_SERVER  - URL of update server (default: http://192.168.0.95:9000)
+#   PUBLISH_TOKEN  - Authentication token (default: dev-token)
+#   VERSION        - Version to publish (default: read from VERSION file)
+# =============================================================================
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Configuration
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+CHANNEL="${CHANNEL:-dev}"
+UPDATE_SERVER="${UPDATE_SERVER:-http://192.168.0.95:9000}"
+PUBLISH_TOKEN="${PUBLISH_TOKEN:-dev-token}"
+DRY_RUN=false
+COMPONENTS=()
+BUILD_ALL=true
+
+# Read version from VERSION file or use provided
+if [ -f "$PROJECT_ROOT/Quantix-OS/VERSION" ]; then
+    VERSION="${VERSION:-$(cat "$PROJECT_ROOT/Quantix-OS/VERSION" | tr -d '\n\r ')}"
+else
+    VERSION="${VERSION:-0.0.1}"
+fi
+
+# Staging directory for build artifacts
+STAGING_DIR="/tmp/quantix-update-staging"
+
+# =============================================================================
+# Helper functions
+# =============================================================================
+
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_step() {
+    echo -e "${CYAN}[STEP]${NC} $1"
+}
+
+show_usage() {
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Options:
+  --channel CHANNEL     Release channel (dev, beta, stable). Default: dev
+  --component NAME      Build and publish only specified component
+                        Can be specified multiple times
+  --server URL          Update server URL. Default: $UPDATE_SERVER
+  --token TOKEN         Authentication token. Default: dev-token
+  --version VERSION     Version to publish. Default: read from VERSION file
+  --dry-run             Build artifacts but don't upload
+  --help                Show this help
+
+Components:
+  qx-node              Node daemon (Rust)
+  qx-console           Console TUI (Rust)
+  host-ui              Host UI (React)
+
+Examples:
+  $(basename "$0")                                    # Build and publish all to dev
+  $(basename "$0") --channel beta                    # Publish to beta channel
+  $(basename "$0") --component qx-node --dry-run    # Build qx-node without upload
+EOF
+}
+
+# =============================================================================
+# Parse arguments
+# =============================================================================
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --channel)
+            CHANNEL="$2"
+            shift 2
+            ;;
+        --component)
+            COMPONENTS+=("$2")
+            BUILD_ALL=false
+            shift 2
+            ;;
+        --server)
+            UPDATE_SERVER="$2"
+            shift 2
+            ;;
+        --token)
+            PUBLISH_TOKEN="$2"
+            shift 2
+            ;;
+        --version)
+            VERSION="$2"
+            shift 2
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --help|-h)
+            show_usage
+            exit 0
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            show_usage
+            exit 1
+            ;;
+    esac
+done
+
+# If no components specified, build all
+if [ "$BUILD_ALL" = true ]; then
+    COMPONENTS=("qx-node" "qx-console" "host-ui")
+fi
+
+# Validate channel
+if [[ ! "$CHANNEL" =~ ^(dev|beta|stable)$ ]]; then
+    log_error "Invalid channel: $CHANNEL. Must be dev, beta, or stable."
+    exit 1
+fi
+
+# =============================================================================
+# Main
+# =============================================================================
+
+echo ""
+echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║              Quantix-OS Update Publisher                      ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+log_info "Version:     $VERSION"
+log_info "Channel:     $CHANNEL"
+log_info "Server:      $UPDATE_SERVER"
+log_info "Components:  ${COMPONENTS[*]}"
+log_info "Dry run:     $DRY_RUN"
+echo ""
+
+# Create staging directory
+rm -rf "$STAGING_DIR"
+mkdir -p "$STAGING_DIR"
+
+# Track built artifacts for manifest
+declare -A ARTIFACTS
+
+# =============================================================================
+# Build Components
+# =============================================================================
+
+log_step "Building components..."
+
+for component in "${COMPONENTS[@]}"; do
+    case "$component" in
+        qx-node)
+            log_info "Building qx-node (Rust)..."
+            cd "$PROJECT_ROOT/Quantix-OS"
+            
+            # Use the existing build system
+            if [ -f "Makefile" ]; then
+                make node-daemon VERSION="$VERSION" 2>&1 | tail -20
+            else
+                # Fallback to direct cargo build if needed
+                cd "$PROJECT_ROOT/agent"
+                cargo build --release -p limiquantix-node 2>&1 | tail -10
+            fi
+            
+            # Find the built binary
+            BINARY=""
+            for path in \
+                "$PROJECT_ROOT/Quantix-OS/overlay/usr/bin/qx-node" \
+                "$PROJECT_ROOT/agent/target/release/limiquantix-node" \
+                "$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/limiquantix-node"; do
+                if [ -f "$path" ]; then
+                    BINARY="$path"
+                    break
+                fi
+            done
+            
+            if [ -z "$BINARY" ]; then
+                log_error "qx-node binary not found after build!"
+                exit 1
+            fi
+            
+            # Package with zstd compression
+            log_info "Packaging qx-node..."
+            tar -C "$(dirname "$BINARY")" -c "$(basename "$BINARY")" | zstd -19 > "$STAGING_DIR/qx-node.tar.zst"
+            ARTIFACTS["qx-node"]="$STAGING_DIR/qx-node.tar.zst"
+            log_info "  Created: qx-node.tar.zst ($(du -h "$STAGING_DIR/qx-node.tar.zst" | cut -f1))"
+            ;;
+            
+        qx-console)
+            log_info "Building qx-console (Rust TUI)..."
+            cd "$PROJECT_ROOT/Quantix-OS"
+            
+            # Use the existing build system
+            if [ -f "Makefile" ]; then
+                make tui VERSION="$VERSION" 2>&1 | tail -20
+            else
+                cd "$PROJECT_ROOT/Quantix-OS/console-tui"
+                cargo build --release 2>&1 | tail -10
+            fi
+            
+            # Find the built binary
+            BINARY=""
+            for path in \
+                "$PROJECT_ROOT/Quantix-OS/overlay/usr/local/bin/qx-console" \
+                "$PROJECT_ROOT/Quantix-OS/console-tui/target/release/qx-console" \
+                "$PROJECT_ROOT/Quantix-OS/console-tui/target/x86_64-unknown-linux-musl/release/qx-console"; do
+                if [ -f "$path" ]; then
+                    BINARY="$path"
+                    break
+                fi
+            done
+            
+            if [ -z "$BINARY" ]; then
+                log_warn "qx-console binary not found, skipping..."
+                continue
+            fi
+            
+            # Package with zstd compression
+            log_info "Packaging qx-console..."
+            tar -C "$(dirname "$BINARY")" -c "$(basename "$BINARY")" | zstd -19 > "$STAGING_DIR/qx-console.tar.zst"
+            ARTIFACTS["qx-console"]="$STAGING_DIR/qx-console.tar.zst"
+            log_info "  Created: qx-console.tar.zst ($(du -h "$STAGING_DIR/qx-console.tar.zst" | cut -f1))"
+            ;;
+            
+        host-ui)
+            log_info "Building host-ui (React)..."
+            cd "$PROJECT_ROOT/quantix-host-ui"
+            
+            # Build the React app
+            npm install 2>&1 | tail -5
+            npm run build 2>&1 | tail -10
+            
+            if [ ! -d "dist" ]; then
+                log_error "Host UI build failed - dist directory not found!"
+                exit 1
+            fi
+            
+            # Package the entire dist directory
+            log_info "Packaging host-ui..."
+            tar -C dist -c . | zstd -19 > "$STAGING_DIR/host-ui.tar.zst"
+            ARTIFACTS["host-ui"]="$STAGING_DIR/host-ui.tar.zst"
+            log_info "  Created: host-ui.tar.zst ($(du -h "$STAGING_DIR/host-ui.tar.zst" | cut -f1))"
+            ;;
+            
+        *)
+            log_warn "Unknown component: $component, skipping..."
+            ;;
+    esac
+done
+
+# =============================================================================
+# Generate Manifest
+# =============================================================================
+
+log_step "Generating manifest..."
+
+RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+MANIFEST="$STAGING_DIR/manifest.json"
+
+# Start building JSON
+cat > "$MANIFEST" << EOF
+{
+  "product": "quantix-os",
+  "version": "$VERSION",
+  "channel": "$CHANNEL",
+  "release_date": "$RELEASE_DATE",
+  "update_type": "component",
+  "components": [
+EOF
+
+# Add each component to manifest
+FIRST=true
+for component in "${!ARTIFACTS[@]}"; do
+    artifact_path="${ARTIFACTS[$component]}"
+    artifact_name="$(basename "$artifact_path")"
+    artifact_size=$(stat -c%s "$artifact_path" 2>/dev/null || stat -f%z "$artifact_path" 2>/dev/null)
+    artifact_sha256=$(sha256sum "$artifact_path" | cut -d' ' -f1)
+    
+    # Determine install path
+    case "$component" in
+        qx-node)
+            install_path="/data/bin/qx-node"
+            restart_service="quantix-node"
+            ;;
+        qx-console)
+            install_path="/data/bin/qx-console"
+            restart_service="quantix-console"
+            ;;
+        host-ui)
+            install_path="/data/share/quantix-host-ui"
+            restart_service=""
+            ;;
+    esac
+    
+    if [ "$FIRST" = true ]; then
+        FIRST=false
+    else
+        echo "," >> "$MANIFEST"
+    fi
+    
+    cat >> "$MANIFEST" << EOF
+    {
+      "name": "$component",
+      "version": "$VERSION",
+      "artifact": "$artifact_name",
+      "sha256": "$artifact_sha256",
+      "size_bytes": $artifact_size,
+      "install_path": "$install_path",
+      "restart_service": $([ -n "$restart_service" ] && echo "\"$restart_service\"" || echo "null"),
+      "backup_before_update": true,
+      "permissions": "0755"
+    }
+EOF
+done
+
+# Close the manifest
+cat >> "$MANIFEST" << EOF
+
+  ],
+  "min_version": "0.0.1",
+  "release_notes": "Quantix-OS $VERSION update"
+}
+EOF
+
+log_info "Manifest generated: $MANIFEST"
+
+# =============================================================================
+# Publish to Server
+# =============================================================================
+
+if [ "$DRY_RUN" = true ]; then
+    log_warn "Dry run - skipping upload"
+    log_info "Artifacts staged in: $STAGING_DIR"
+    echo ""
+    echo "Manifest contents:"
+    cat "$MANIFEST"
+    exit 0
+fi
+
+log_step "Publishing to $UPDATE_SERVER..."
+
+# Build curl command with all artifacts
+CURL_ARGS=(
+    "-X" "POST"
+    "-H" "Authorization: Bearer $PUBLISH_TOKEN"
+    "-F" "manifest=@$MANIFEST"
+)
+
+for component in "${!ARTIFACTS[@]}"; do
+    artifact_path="${ARTIFACTS[$component]}"
+    artifact_name="$(basename "$artifact_path")"
+    CURL_ARGS+=("-F" "$artifact_name=@$artifact_path")
+done
+
+# Execute upload
+RESPONSE=$(curl -s -w "\n%{http_code}" "${CURL_ARGS[@]}" "$UPDATE_SERVER/api/v1/quantix-os/publish")
+HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+
+if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
+    log_info "Upload successful!"
+    echo ""
+    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║                    Publish Complete!                          ║${NC}"
+    echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${GREEN}║  Version: $VERSION${NC}"
+    echo -e "${GREEN}║  Channel: $CHANNEL${NC}"
+    echo -e "${GREEN}║  Server:  $UPDATE_SERVER${NC}"
+    echo -e "${GREEN}║                                                               ║${NC}"
+    echo -e "${GREEN}║  Hosts can now update via:                                    ║${NC}"
+    echo -e "${GREEN}║    curl -X POST https://<host>:8443/api/v1/updates/apply      ║${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+else
+    log_error "Upload failed with HTTP $HTTP_CODE"
+    echo "$BODY"
+    exit 1
+fi
+
+# Cleanup
+rm -rf "$STAGING_DIR"

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
+import { getApiBase } from '@/lib/api-client';
 
 interface WebConsoleProps {
   vmId: string;
@@ -47,7 +48,7 @@ export function WebConsole({ vmId, vmName, isOpen, onClose }: WebConsoleProps) {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8080/limiquantix.compute.v1.VMService/GetConsole', {
+      const response = await fetch(`${getApiBase()}/limiquantix.compute.v1.VMService/GetConsole`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ vmId }),

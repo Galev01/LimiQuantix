@@ -102,28 +102,26 @@ function ActivityItem({ action, user, target, time, type }: ActivityItemProps) {
 }
 
 export function AdminOverview() {
-  // Mock data for admin overview
+  // Initial stats - will be populated from API when available
+  // TODO: Replace with real API calls when admin stats endpoint is implemented
   const stats = {
-    totalUsers: 156,
-    activeRoles: 8,
-    validCerts: 12,
-    auditEvents: 2847,
+    totalUsers: 1,      // Admin user created during first boot
+    activeRoles: 1,     // Default admin role
+    validCerts: 1,      // Self-signed cert generated during first boot
+    auditEvents: 0,     // No events yet
   };
 
+  // System health will be populated from node metrics
+  // TODO: Aggregate from all registered nodes
   const systemHealth = {
-    cpu: 34,
-    memory: 62,
-    storage: 48,
-    network: 89,
+    cpu: 0,
+    memory: 0,
+    storage: 0,
+    network: 0,
   };
 
-  const recentActivity: ActivityItemProps[] = [
-    { action: 'created role', user: 'admin@company.com', target: 'DevOps Engineer', time: '2 minutes ago', type: 'success' },
-    { action: 'updated SSO config', user: 'admin@company.com', target: 'OIDC Provider', time: '15 minutes ago', type: 'info' },
-    { action: 'revoked API key', user: 'security@company.com', target: 'prod-api-key-3', time: '1 hour ago', type: 'warning' },
-    { action: 'added admin email', user: 'admin@company.com', target: 'ops@company.com', time: '2 hours ago', type: 'success' },
-    { action: 'renewed certificate', user: 'admin@company.com', target: '*.company.com', time: '3 hours ago', type: 'success' },
-  ];
+  // Recent activity - empty until audit logging is implemented
+  const recentActivity: ActivityItemProps[] = [];
 
   return (
     <div className="space-y-8">
@@ -267,9 +265,19 @@ export function AdminOverview() {
           </div>
 
           <div className="space-y-1">
-            {recentActivity.map((item, index) => (
-              <ActivityItem key={index} {...item} />
-            ))}
+            {recentActivity.length > 0 ? (
+              recentActivity.map((item, index) => (
+                <ActivityItem key={index} {...item} />
+              ))
+            ) : (
+              <div className="py-8 text-center">
+                <Activity className="w-8 h-8 mx-auto text-text-muted mb-2" />
+                <p className="text-sm text-text-muted">No recent activity</p>
+                <p className="text-xs text-text-muted mt-1">
+                  Activity will appear here as you use the platform
+                </p>
+              </div>
+            )}
           </div>
         </motion.div>
       </div>

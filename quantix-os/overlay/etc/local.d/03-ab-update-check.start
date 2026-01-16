@@ -1,0 +1,68 @@
+#!/bin/sh
+# =============================================================================
+# Quantix-OS A/B Update Verification
+# =============================================================================
+# Checks for pending A/B updates and handles rollback if needed.
+# This runs early in boot to catch failed updates.
+# =============================================================================
+
+set -e
+
+STATE_FILE="/quantix/ab-update-state.json"
+LOG_TAG="[ab-update]"
+
+log() {
+    echo "$LOG_TAG $1"
+}
+
+# Check if there's a pending update
+if [ ! -f "$STATE_FILE" ]; then
+    exit 0
+fi
+
+log "Found pending A/B update state"
+
+# Parse state file (simple JSON parsing)
+PENDING=$(grep -o '"pending":[^,}]*' "$STATE_FILE" | cut -d: -f2 | tr -d ' ')
+BOOT_ATTEMPTS=$(grep -o '"boot_attempts":[^,}]*' "$STATE_FILE" | cut -d: -f2 | tr -d ' ')
+MAX_ATTEMPTS=$(grep -o '"max_attempts":[^,}]*' "$STATE_FILE" | cut -d: -f2 | tr -d ' ')
+PREVIOUS_SLOT=$(grep -o '"previous_slot":"[^"]*' "$STATE_FILE" | cut -d'"' -f4)
+TARGET_VERSION=$(grep -o '"target_version":"[^"]*' "$STATE_FILE" | cut -d'"' -f4)
+
+if [ "$PENDING" != "true" ]; then
+    log "No pending update"
+    exit 0
+fi
+
+# Increment boot attempts
+BOOT_ATTEMPTS=$((BOOT_ATTEMPTS + 1))
+log "Boot attempt $BOOT_ATTEMPTS of $MAX_ATTEMPTS for version $TARGET_VERSION"
+
+# Update the state file with new attempt count
+sed -i "s/\"boot_attempts\":[ ]*[0-9]*/\"boot_attempts\":$BOOT_ATTEMPTS/" "$STATE_FILE"
+
+# Check if we need to rollback
+if [ "$BOOT_ATTEMPTS" -ge "$MAX_ATTEMPTS" ]; then
+    log "WARNING: Maximum boot attempts reached! Rolling back to slot $PREVIOUS_SLOT"
+    
+    # Determine rollback slot GRUB entry
+    if [ "$PREVIOUS_SLOT" = "A" ]; then
+        GRUB_ENTRY="quantix"
+    else
+        GRUB_ENTRY="quantix-b"
+    fi
+    
+    # Update GRUB default
+    if [ -f /boot/grub/grubenv ]; then
+        grub-editenv /boot/grub/grubenv set default="$GRUB_ENTRY" 2>/dev/null || true
+    fi
+    
+    # Clear the state file
+    rm -f "$STATE_FILE"
+    
+    log "Rollback configured. Rebooting in 5 seconds..."
+    sleep 5
+    reboot
+fi
+
+log "Update pending verification. System will verify after services start."

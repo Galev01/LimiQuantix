@@ -6,6 +6,7 @@
 
 import { useState, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getApiBase } from '@/lib/api-client';
 
 // =============================================================================
 // Types
@@ -100,7 +101,7 @@ export interface OVATemplate {
 // API Configuration
 // =============================================================================
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const getApiBaseUrl = () => getApiBase();
 
 // =============================================================================
 // API Functions
@@ -155,7 +156,7 @@ async function uploadOVAFile(
       reject(new Error('Upload aborted'));
     });
 
-    xhr.open('POST', `${API_BASE_URL}/api/v1/ova/upload`);
+    xhr.open('POST', `${getApiBaseUrl()}/api/v1/ova/upload`);
     xhr.send(formData);
   });
 }
@@ -164,7 +165,7 @@ async function uploadOVAFile(
  * Get the status of an OVA upload job.
  */
 async function getOVAUploadStatus(jobId: string): Promise<OVAUploadStatus> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/ova/status/${jobId}`);
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/ova/status/${jobId}`);
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Failed to get status' }));
@@ -179,7 +180,7 @@ async function getOVAUploadStatus(jobId: string): Promise<OVAUploadStatus> {
  */
 async function listOVATemplates(): Promise<OVATemplate[]> {
   // Use the Connect-RPC endpoint for listing OVA templates
-  const response = await fetch(`${API_BASE_URL}/limiquantix.storage.v1.OVAService/ListOVATemplates`, {
+  const response = await fetch(`${getApiBaseUrl()}/limiquantix.storage.v1.OVAService/ListOVATemplates`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -200,7 +201,7 @@ async function listOVATemplates(): Promise<OVATemplate[]> {
  * Get a specific OVA template by ID.
  */
 async function getOVATemplate(id: string): Promise<OVATemplate> {
-  const response = await fetch(`${API_BASE_URL}/limiquantix.storage.v1.OVAService/GetOVATemplate`, {
+  const response = await fetch(`${getApiBaseUrl()}/limiquantix.storage.v1.OVAService/GetOVATemplate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -220,7 +221,7 @@ async function getOVATemplate(id: string): Promise<OVATemplate> {
  * Delete an OVA template.
  */
 async function deleteOVATemplate(id: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/limiquantix.storage.v1.OVAService/DeleteOVATemplate`, {
+  const response = await fetch(`${getApiBaseUrl()}/limiquantix.storage.v1.OVAService/DeleteOVATemplate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

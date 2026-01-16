@@ -1,0 +1,132 @@
+#!/bin/sh
+# =============================================================================
+# Quantix-OS Overlay Mounts for OTA Updates
+# =============================================================================
+# Sets up overlay mounts to allow updating binaries on a read-only squashfs.
+#
+# Strategy:
+# - /data/bin/ contains updatable binaries (qx-node, qx-console)
+# - /data/share/quantix-host-ui/ contains the web UI
+# - Symlinks in squashfs point to these locations
+#
+# This script ensures the directories exist and creates initial copies
+# from squashfs if needed (first boot after fresh install).
+# =============================================================================
+
+set -e
+
+log() {
+    echo "[overlay-mounts] $1"
+}
+
+# Ensure /data is mounted
+if ! mountpoint -q /data 2>/dev/null; then
+    log "ERROR: /data not mounted, cannot set up overlay mounts"
+    exit 1
+fi
+
+# Create updatable directories
+log "Creating updatable directories..."
+mkdir -p /data/bin
+mkdir -p /data/share/quantix-host-ui
+mkdir -p /data/updates/staging
+mkdir -p /data/updates/backup
+mkdir -p /data/versions
+
+# =============================================================================
+# Initialize binaries from squashfs if not present
+# This handles first boot after fresh install
+# =============================================================================
+
+# qx-node
+if [ ! -f /data/bin/qx-node ]; then
+    if [ -f /usr/bin/qx-node.orig ]; then
+        log "Initializing qx-node from squashfs..."
+        cp /usr/bin/qx-node.orig /data/bin/qx-node
+        chmod 755 /data/bin/qx-node
+    elif [ -x /usr/bin/qx-node ] && [ ! -L /usr/bin/qx-node ]; then
+        # First install - binary is in squashfs, copy it
+        log "First boot: copying qx-node to /data/bin..."
+        cp /usr/bin/qx-node /data/bin/qx-node
+        chmod 755 /data/bin/qx-node
+    fi
+fi
+
+# qx-console
+if [ ! -f /data/bin/qx-console ]; then
+    if [ -f /usr/local/bin/qx-console.orig ]; then
+        log "Initializing qx-console from squashfs..."
+        cp /usr/local/bin/qx-console.orig /data/bin/qx-console
+        chmod 755 /data/bin/qx-console
+    elif [ -x /usr/local/bin/qx-console ] && [ ! -L /usr/local/bin/qx-console ]; then
+        log "First boot: copying qx-console to /data/bin..."
+        cp /usr/local/bin/qx-console /data/bin/qx-console
+        chmod 755 /data/bin/qx-console
+    fi
+fi
+
+# Host UI
+if [ ! -f /data/share/quantix-host-ui/index.html ]; then
+    if [ -d /usr/share/quantix-host-ui.orig ]; then
+        log "Initializing Host UI from squashfs..."
+        cp -r /usr/share/quantix-host-ui.orig/* /data/share/quantix-host-ui/
+    elif [ -d /usr/share/quantix-host-ui ] && [ -f /usr/share/quantix-host-ui/index.html ]; then
+        log "First boot: copying Host UI to /data/share..."
+        cp -r /usr/share/quantix-host-ui/* /data/share/quantix-host-ui/ 2>/dev/null || true
+    fi
+fi
+
+# =============================================================================
+# Set up symlinks if not already done
+# The ISO build process should create .orig files and symlinks,
+# but this handles upgrades and edge cases.
+# =============================================================================
+
+# Note: We use bind mounts instead of symlinks for better compatibility
+# with service scripts that may check file existence.
+
+# Create wrapper scripts that redirect to /data/bin versions
+# This is more compatible than modifying the squashfs
+
+# qx-node wrapper (if /usr/bin is writable, e.g., tmpfs overlay)
+if [ -w /usr/bin ] && [ -f /data/bin/qx-node ]; then
+    log "Creating qx-node wrapper..."
+    cat > /usr/bin/qx-node << 'WRAPPER'
+#!/bin/sh
+exec /data/bin/qx-node "$@"
+WRAPPER
+    chmod 755 /usr/bin/qx-node
+fi
+
+# qx-console wrapper
+if [ -w /usr/local/bin ] && [ -f /data/bin/qx-console ]; then
+    log "Creating qx-console wrapper..."
+    cat > /usr/local/bin/qx-console << 'WRAPPER'
+#!/bin/sh
+exec /data/bin/qx-console "$@"
+WRAPPER
+    chmod 755 /usr/local/bin/qx-console
+fi
+
+# =============================================================================
+# Write initial version files if not present
+# =============================================================================
+
+# Read OS version
+OS_VERSION="0.0.1"
+for vfile in /quantix/VERSION /mnt/cdrom/quantix/VERSION /etc/quantix-version; do
+    if [ -f "$vfile" ]; then
+        OS_VERSION=$(cat "$vfile" | tr -d '\n\r ')
+        break
+    fi
+done
+
+# Write version files for components if not present
+for component in qx-node qx-console host-ui; do
+    if [ ! -f "/data/versions/${component}.version" ]; then
+        echo "$OS_VERSION" > "/data/versions/${component}.version"
+        log "Initialized ${component} version: $OS_VERSION"
+    fi
+done
+
+log "Overlay mounts configured successfully"
