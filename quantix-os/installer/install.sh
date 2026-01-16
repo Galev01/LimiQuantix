@@ -43,9 +43,10 @@ echo "  Log file: $INSTALL_LOG"
 echo "========================================================"
 echo ""
 
-set -e
+# NOTE: We use set -e later, after argument parsing
+# This ensures we can capture errors and log them
 
-# Colors
+# Colors (may not work in all terminals, but harmless)
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -66,10 +67,16 @@ EFI_SIZE="256M"
 SYSTEM_SIZE="1500M"  # 1.5GB per system slot
 CONFIG_SIZE="256M"
 
-# Paths
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Paths - use defensive approach
+SCRIPT_DIR="$(dirname "$0" 2>/dev/null || echo '/installer')"
+# Try to get absolute path, but don't fail if it doesn't work
+if [ -d "$SCRIPT_DIR" ]; then
+    SCRIPT_DIR="$(cd "$SCRIPT_DIR" 2>/dev/null && pwd)" || SCRIPT_DIR="/installer"
+fi
 SQUASHFS_PATH=""
 TARGET_MOUNT="/mnt/install"
+
+echo "[INIT] Script directory: $SCRIPT_DIR" >> "$INSTALL_LOG"
 
 # -----------------------------------------------------------------------------
 # Helper Functions
@@ -218,15 +225,31 @@ fi
 # Validation
 # -----------------------------------------------------------------------------
 
+echo "[VALIDATION] Starting validation..." >> "$INSTALL_LOG"
+echo "[VALIDATION] TARGET_DISK='$TARGET_DISK'" >> "$INSTALL_LOG"
+echo "[VALIDATION] HOSTNAME='$HOSTNAME'" >> "$INSTALL_LOG"
+echo "[VALIDATION] VERSION='$VERSION'" >> "$INSTALL_LOG"
+echo "[VALIDATION] AUTO_MODE='$AUTO_MODE'" >> "$INSTALL_LOG"
+echo "[VALIDATION] STORAGE_POOLS='$STORAGE_POOLS'" >> "$INSTALL_LOG"
+
 if [ -z "$TARGET_DISK" ]; then
     log_error "TARGET_DISK is required"
+    echo "[VALIDATION] FAILED: TARGET_DISK is empty" >> "$INSTALL_LOG"
     exit 1
 fi
 
+echo "[VALIDATION] Checking if $TARGET_DISK is block device..." >> "$INSTALL_LOG"
+ls -la "$TARGET_DISK" >> "$INSTALL_LOG" 2>&1 || echo "[VALIDATION] ls failed for $TARGET_DISK" >> "$INSTALL_LOG"
+
 if [ ! -b "$TARGET_DISK" ]; then
     log_error "Target disk not found: $TARGET_DISK"
+    echo "[VALIDATION] FAILED: $TARGET_DISK is not a block device" >> "$INSTALL_LOG"
+    echo "[VALIDATION] Available block devices:" >> "$INSTALL_LOG"
+    ls -la /dev/nvme* /dev/sd* /dev/vd* >> "$INSTALL_LOG" 2>&1 || true
     exit 1
 fi
+
+echo "[VALIDATION] $TARGET_DISK is valid block device" >> "$INSTALL_LOG"
 
 # -----------------------------------------------------------------------------
 # Find System Image
@@ -234,6 +257,7 @@ fi
 
 find_squashfs() {
     log_info "Locating system image..."
+    echo "[SQUASHFS] Searching for system image..." >> "$INSTALL_LOG"
     
     for path in \
         "/mnt/cdrom/quantix/system.squashfs" \
@@ -241,25 +265,37 @@ find_squashfs() {
         "/media/cdrom/quantix/system.squashfs" \
         "/run/media/cdrom/quantix/system.squashfs" \
         "${SCRIPT_DIR}/../quantix/system.squashfs"; do
+        echo "[SQUASHFS] Checking: $path" >> "$INSTALL_LOG"
         if [ -f "$path" ]; then
             SQUASHFS_PATH="$path"
             log_info "Found system image: ${SQUASHFS_PATH}"
+            echo "[SQUASHFS] FOUND: $SQUASHFS_PATH" >> "$INSTALL_LOG"
             return 0
         fi
     done
     
     # Search for any squashfs
+    echo "[SQUASHFS] Searching with find command..." >> "$INSTALL_LOG"
     SQUASHFS_PATH=$(find /mnt /media /run/media /cdrom -name "system*.squashfs" 2>/dev/null | head -1)
+    echo "[SQUASHFS] find result: '$SQUASHFS_PATH'" >> "$INSTALL_LOG"
     
     if [ -z "$SQUASHFS_PATH" ] || [ ! -f "$SQUASHFS_PATH" ]; then
         log_error "System image not found!"
+        echo "[SQUASHFS] FAILED: System image not found!" >> "$INSTALL_LOG"
+        echo "[SQUASHFS] Contents of /mnt/cdrom:" >> "$INSTALL_LOG"
+        ls -laR /mnt/cdrom/ >> "$INSTALL_LOG" 2>&1 || echo "(no /mnt/cdrom)" >> "$INSTALL_LOG"
+        echo "[SQUASHFS] Contents of /cdrom:" >> "$INSTALL_LOG"
+        ls -laR /cdrom/ >> "$INSTALL_LOG" 2>&1 || echo "(no /cdrom)" >> "$INSTALL_LOG"
         exit 1
     fi
     
     log_info "Found system image: ${SQUASHFS_PATH}"
+    echo "[SQUASHFS] Using: $SQUASHFS_PATH" >> "$INSTALL_LOG"
 }
 
+echo "[INSTALL] Calling find_squashfs..." >> "$INSTALL_LOG"
 find_squashfs
+echo "[INSTALL] find_squashfs completed, SQUASHFS_PATH='$SQUASHFS_PATH'" >> "$INSTALL_LOG"
 
 # Also try to get version from ISO
 VERSION_FILE="${SQUASHFS_PATH%/*}/VERSION"
@@ -272,16 +308,22 @@ fi
 # Installation
 # -----------------------------------------------------------------------------
 
-    echo ""
+# Now enable strict error handling
+echo "[INSTALL] Enabling set -e (strict mode)" >> "$INSTALL_LOG"
+set -e
+
+echo ""
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║              Installing Quantix-OS v${VERSION}                      ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
+echo ""
     
 log_info "Target Disk:  $TARGET_DISK"
 log_info "Hostname:     $HOSTNAME"
 log_info "Version:      $VERSION"
-    echo ""
+echo ""
+
+echo "[INSTALL] Starting installation steps..." >> "$INSTALL_LOG"
 
 # Calculate total steps (base 8 + storage pools if configured)
 TOTAL_STEPS=8
