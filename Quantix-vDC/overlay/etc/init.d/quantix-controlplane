@@ -82,14 +82,7 @@ stop() {
     eend $?
 }
 
-status() {
-    if [ -f "$pidfile" ]; then
-        if kill -0 $(cat "$pidfile") 2>/dev/null; then
-            einfo "$name is running (PID: $(cat $pidfile))"
-            return 0
-        fi
-    fi
-    
-    einfo "$name is not running"
-    return 3
-}
+# Note: We intentionally do NOT override status() here.
+# OpenRC's default status function outputs "started" or "stopped" which is
+# what our DCUI's get_service_status() function expects to see.
+# Custom status() functions that output different text break the TUI detection.

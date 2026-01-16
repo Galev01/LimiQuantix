@@ -210,6 +210,28 @@ fi
 # nginx
 # =============================================================================
 if [ -x /usr/sbin/nginx ]; then
+    # Kill any stale nginx processes that might be holding ports
+    # This can happen if nginx wasn't shut down cleanly on previous boot
+    if [ -f /run/nginx.pid ]; then
+        OLD_PID=$(cat /run/nginx.pid 2>/dev/null)
+        if [ -n "$OLD_PID" ] && ! kill -0 "$OLD_PID" 2>/dev/null; then
+            log "Removing stale nginx pid file"
+            rm -f /run/nginx.pid
+        fi
+    fi
+    
+    # Check if any nginx processes are running but service shows stopped
+    if ! rc-service nginx status 2>/dev/null | grep -q started; then
+        # Service not started, but nginx might still be running
+        NGINX_PIDS=$(pgrep -x nginx 2>/dev/null)
+        if [ -n "$NGINX_PIDS" ]; then
+            log "Found stale nginx processes: $NGINX_PIDS - killing them"
+            pkill -9 -x nginx 2>/dev/null || true
+            sleep 1
+            rm -f /run/nginx.pid
+        fi
+    fi
+
     # Ensure nginx runtime directories exist
     mkdir -p /var/lib/nginx/logs /var/log/nginx
     mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi

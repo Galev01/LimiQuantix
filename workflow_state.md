@@ -1,90 +1,78 @@
 # Workflow State
 
-## Quantix-OS Installer - Complete Fix
+## Quantix-vDC Post-Install Issues
 
 ### Status: FIXED - REBUILD REQUIRED
 
-### Root Cause
-Multiple partitions on the disk had the same label `QUANTIX-DATA` from previous installations:
-- `/dev/nvme0n1p3: LABEL="QUANTIX-DATA" TYPE="ext4"` (from Quantix-vDC)
-- `/dev/nvme0n1p5` should have been the correct one
+---
 
-The `findfs` command was returning the wrong partition, and old filesystem metadata caused "Invalid superblock" errors.
+### Issue 1: TUI shows Control Plane as "Stopped" (but it's running)
 
-### Fixes Applied
+**Root Cause:** The `get_service_status()` function in `qx-dcui` looks for the word "started" in `rc-service status` output:
 
-#### 1. Installer: Comprehensive Disk Wipe (`install.sh`)
-
-**NEW: Wipe each partition individually BEFORE destroying partition table**
 ```sh
-# Wipe each existing partition's filesystem signature
-for i in 1 2 3 4 5 6 7 8 9; do
-    PART="${PART_PATTERN}${i}"
-    if [ -b "$PART" ]; then
-        wipefs -a "$PART"                    # Remove fs signature/label
-        dd if=/dev/zero of="$PART" bs=1M count=10  # Zero superblocks
-    fi
-done
+if rc-service "$service" status 2>/dev/null | grep -q "started"; then
 ```
 
-**Full wipe sequence:**
-1. Unmount all partitions
-2. **NEW: wipefs + zero each existing partition** ← Removes old labels!
-3. sgdisk --zap-all (destroy GPT/MBR)
-4. wipefs on whole disk
-5. Zero first 100MB
-6. Zero last 10MB
-7. Verify clean, deep wipe if needed
+But the custom `status()` function in `/etc/init.d/quantix-controlplane` outputted `"$name is running (PID: xxx)"` which doesn't contain "started".
 
-#### 2. Init Script: Smart Partition Discovery (`init`)
+**Fix Applied:** Removed the custom `status()` function from `/etc/init.d/quantix-controlplane` and added a comment explaining why. OpenRC's default status handler outputs "started" when the service is running, which is what the TUI expects.
 
-**Find partitions on the SAME DISK as system, not just by label**
-```sh
-# Extract base disk from system partition
-# /dev/nvme0n1p2 -> /dev/nvme0n1
-BASE_DISK=$(echo "$SYSTEM_DEV" | sed 's/p[0-9]*$//')
+**File Changed:** `Quantix-vDC/overlay/etc/init.d/quantix-controlplane`
 
-# Look for partition 5 on same disk first
-DATA_PART="${BASE_DISK}p5"
+---
 
-# Method 1: Check expected partition number
-if [ -b "$DATA_PART" ]; then
-    if blkid shows LABEL="QUANTIX-DATA"; then
-        DATA_DEV="$DATA_PART"  # Use it
-    fi
-fi
+### Issue 2: nginx fails - `bind() to 0.0.0.0:80 failed (98: Address in use)`
 
-# Method 2: Search same disk for XFS with correct label
-# Method 3: Fallback to findfs (may get wrong disk)
-```
+**Root Cause:** Stale nginx processes from a previous boot (that didn't shut down cleanly) were still holding ports 80 and 443.
 
-**Supports all disk types:**
-- NVMe: `/dev/nvme0n1p5`
-- SATA: `/dev/sda5`
-- VirtIO: `/dev/vda5`
-- MMC: `/dev/mmcblk0p5`
+**Fix Applied:** Added stale process cleanup in `99-start-services.start` before starting nginx:
 
-### Summary of Changes
+1. Check for stale PID file and remove if process doesn't exist
+2. If service shows stopped but nginx processes exist, kill them
+3. Wait and remove stale PID file
+
+**File Changed:** `Quantix-vDC/overlay/etc/local.d/99-start-services.start`
+
+---
+
+### Files Modified
 
 | File | Change |
 |------|--------|
-| `install.sh` | Wipe each partition individually before disk wipe |
-| `install.sh` | Log old labels being removed |
-| `init` | Smart discovery: same disk, expected partition number |
-| `init` | Config partition: look for p4 on same disk |
-| `init` | Data partition: look for p5 on same disk |
-| `init` | Verify both label AND filesystem type |
+| `overlay/etc/init.d/quantix-controlplane` | Removed custom `status()` function |
+| `overlay/etc/local.d/99-start-services.start` | Added stale nginx process cleanup |
 
-### Why This Fixes Everything
-
-1. **Old labels removed** - Installer wipes each partition's signature
-2. **Correct partition found** - Init script looks on same disk first
-3. **Type verified** - Won't mount ext4 partition as XFS
-4. **Kernel probe errors ignored** - They're just scanning, not mounting
+---
 
 ### Next Steps
-1. Rebuild ISO: `make iso`
-2. Boot and install on the NVMe disk
-3. Old `QUANTIX-DATA` labels will be wiped
-4. New partitions will be created with correct labels
-5. Boot will find correct partitions on same disk
+
+1. Rebuild the ISO: `cd Quantix-vDC && make iso`
+2. Reinstall or update the appliance
+3. Verify:
+   - TUI shows Control Plane as "Running"
+   - nginx starts successfully on ports 80/443
+   - Web UI is accessible at `https://<ip>/`
+
+---
+
+### Immediate Workaround (without rebuild)
+
+If you want to fix the running appliance without rebuilding:
+
+```sh
+# Fix 1: TUI detection issue
+# SSH into appliance and edit the init script:
+vi /etc/init.d/quantix-controlplane
+# Remove the status() function (lines 86-95)
+
+# Fix 2: nginx port conflict
+# Kill stale nginx and restart:
+pkill -9 nginx
+rm -f /run/nginx.pid
+rc-service nginx start
+
+# Verify
+rc-service nginx status
+curl -k https://localhost/
+```
