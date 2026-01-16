@@ -16,7 +16,22 @@
 #   5. QUANTIX-DATA (rest) - XFS, VM storage
 # =============================================================================
 
-# DIAGNOSTIC: Confirm script is starting
+# =============================================================================
+# IMMEDIATE LOG CREATION - Create log file FIRST for diagnostics
+# =============================================================================
+INSTALL_LOG="/tmp/install.log"
+{
+    echo "========================================================"
+    echo "  QUANTIX-OS INSTALLER LOG"
+    echo "  Started: $(date 2>/dev/null || echo 'unknown')"
+    echo "  Script: $0"
+    echo "  Args: $*"
+    echo "  Shell: $(readlink /proc/$$/exe 2>/dev/null || echo $SHELL)"
+    echo "  PWD: $(pwd)"
+    echo "========================================================"
+} > "$INSTALL_LOG" 2>&1
+
+# DIAGNOSTIC: Confirm script is starting (also show on console)
 echo ""
 echo "========================================================"
 echo "  QUANTIX-OS INSTALLER STARTING"
@@ -24,6 +39,7 @@ echo "  Script: $0"
 echo "  Args: $*"
 echo "  Date: $(date 2>/dev/null || echo 'unknown')"
 echo "  Shell: $(readlink /proc/$$/exe 2>/dev/null || echo $SHELL)"
+echo "  Log file: $INSTALL_LOG"
 echo "========================================================"
 echo ""
 

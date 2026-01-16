@@ -467,8 +467,38 @@ Begin installation?" 22 65
 # Run Installation
 # =============================================================================
 run_installation() {
+    # Find install.sh in various locations
+    INSTALL_SCRIPT=""
+    for path in \
+        "/installer/install.sh" \
+        "/mnt/cdrom/installer/install.sh" \
+        "$(dirname "$0")/install.sh"; do
+        if [ -f "$path" ]; then
+            INSTALL_SCRIPT="$path"
+            break
+        fi
+    done
+    
+    if [ -z "$INSTALL_SCRIPT" ]; then
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "Error" \
+            --msgbox "\n\
+ ❌ install.sh not found!\n\
+\n\
+ Checked locations:\n\
+   - /installer/install.sh\n\
+   - /mnt/cdrom/installer/install.sh\n\
+   - $(dirname "$0")/install.sh\n\
+\n\
+ The installation media may be corrupt.\n" 16 55
+        exec /bin/sh
+    fi
+    
+    # Make sure it's executable
+    chmod +x "$INSTALL_SCRIPT" 2>/dev/null || true
+    
     # Build install command
-    INSTALL_CMD="/installer/install.sh"
+    INSTALL_CMD="$INSTALL_SCRIPT"
     INSTALL_CMD="$INSTALL_CMD --disk $TARGET_DISK"
     INSTALL_CMD="$INSTALL_CMD --hostname $HOSTNAME"
     INSTALL_CMD="$INSTALL_CMD --password $ROOT_PASSWORD"
@@ -487,9 +517,53 @@ run_installation() {
     echo "║              Installing Quantix-OS v${VERSION}                      ║"
     echo "╚═══════════════════════════════════════════════════════════════╝"
     echo ""
+    
+    # Debug: Show what we're about to run
+    echo "[DEBUG] Install script: $INSTALL_SCRIPT"
+    echo "[DEBUG] Target disk: $TARGET_DISK"
+    echo "[DEBUG] Hostname: $HOSTNAME"
+    echo "[DEBUG] Version: $VERSION"
+    echo ""
+    
+    # Test that install script is readable and executable
+    if [ ! -f "$INSTALL_SCRIPT" ]; then
+        echo "[ERROR] Install script not found: $INSTALL_SCRIPT"
+        sleep 5
+    elif [ ! -x "$INSTALL_SCRIPT" ]; then
+        echo "[WARN] Install script not executable, fixing..."
+        chmod +x "$INSTALL_SCRIPT"
+    fi
+    
+    # Show first few lines of install script to verify it's valid
+    echo "[DEBUG] First 5 lines of install script:"
+    head -5 "$INSTALL_SCRIPT" 2>&1 || echo "(failed to read)"
+    echo ""
+    
+    echo "Starting installation in 3 seconds..."
+    sleep 3
 
-    # Execute installation
-    if $INSTALL_CMD; then
+    # Execute installation directly with explicit shell
+    # This avoids issues with command string parsing
+    # Build args array
+    INSTALL_RESULT=0
+    if [ -n "$STORAGE_POOLS" ]; then
+        /bin/sh "$INSTALL_SCRIPT" \
+            --disk "$TARGET_DISK" \
+            --hostname "$HOSTNAME" \
+            --password "$ROOT_PASSWORD" \
+            --version "$VERSION" \
+            --storage-pools "$STORAGE_POOLS" \
+            --auto || INSTALL_RESULT=$?
+    else
+        /bin/sh "$INSTALL_SCRIPT" \
+            --disk "$TARGET_DISK" \
+            --hostname "$HOSTNAME" \
+            --password "$ROOT_PASSWORD" \
+            --version "$VERSION" \
+            --auto || INSTALL_RESULT=$?
+    fi
+    
+    if [ "$INSTALL_RESULT" -eq 0 ]; then
         # Build storage pool info for success message
         POOL_INFO=""
         if [ -n "$STORAGE_POOLS" ]; then
@@ -546,11 +620,33 @@ ${POOL_INFO}\n\
         echo "╚═══════════════════════════════════════════════════════════════╝"
         echo ""
         
+        echo "=== Install Exit Code ==="
+        echo "Exit code: $INSTALL_RESULT"
+        echo ""
+        
+        echo "=== Install Script Location ==="
+        echo "Script: $INSTALL_SCRIPT"
+        ls -la "$INSTALL_SCRIPT" 2>&1 || echo "(not found)"
+        echo ""
+        
+        echo "=== Install Script Shebang ==="
+        head -1 "$INSTALL_SCRIPT" 2>&1 || echo "(cannot read)"
+        echo ""
+        
+        echo "=== Syntax Check ==="
+        /bin/sh -n "$INSTALL_SCRIPT" 2>&1 && echo "OK - no syntax errors" || echo "SYNTAX ERROR DETECTED!"
+        echo ""
+        
         echo "=== Install Log (last 50 lines) ==="
         if [ -f /tmp/install.log ]; then
             tail -50 /tmp/install.log
         else
-            echo "(no install log found)"
+            echo "(no install log found - script never started!)"
+            echo ""
+            echo "Possible causes:"
+            echo "  1. Script has syntax errors (check above)"
+            echo "  2. /bin/sh not available"
+            echo "  3. Script permissions issue"
         fi
         echo ""
         
