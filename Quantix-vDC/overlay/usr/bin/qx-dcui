@@ -41,11 +41,47 @@ get_service_status() {
         fi
     fi
     
+    # First try OpenRC status
     if rc-service "$service" status 2>/dev/null | grep -q "started"; then
         echo "Running"
-    else
-        echo "Stopped"
+        return
     fi
+    
+    # Fallback: Check if process is actually running (for services with PID file issues)
+    case "$service" in
+        nginx)
+            if pgrep -x nginx >/dev/null 2>&1; then
+                echo "Running*"  # Asterisk indicates running but OpenRC out of sync
+                return
+            fi
+            ;;
+        quantix-controlplane)
+            if pgrep -f qx-controlplane >/dev/null 2>&1; then
+                echo "Running*"
+                return
+            fi
+            ;;
+        redis)
+            if pgrep -x redis-server >/dev/null 2>&1; then
+                echo "Running*"
+                return
+            fi
+            ;;
+        etcd)
+            if pgrep -x etcd >/dev/null 2>&1; then
+                echo "Running*"
+                return
+            fi
+            ;;
+        postgresql|postgresql16)
+            if pgrep -x postgres >/dev/null 2>&1; then
+                echo "Running*"
+                return
+            fi
+            ;;
+    esac
+    
+    echo "Stopped"
 }
 
 # Get actual PostgreSQL service name
@@ -491,9 +527,93 @@ manage_services() {
         local ACTION=$(cat "$TEMP_FILE")
         
         $DIALOG --infobox "\n${ACTION}ing $SERVICE..." 5 40
-        rc-service "$REAL_SERVICE" "$ACTION" >/dev/null 2>&1
+        
+        # Special handling for nginx - force kill and free ports
+        if [ "$SERVICE" = "nginx" ]; then
+            nginx_service_action "$ACTION"
+        else
+            rc-service "$REAL_SERVICE" "$ACTION" >/dev/null 2>&1
+        fi
         sleep 2
     done
+}
+
+# =============================================================================
+# nginx Special Handling
+# =============================================================================
+# nginx often has issues with stale processes and port conflicts.
+# This function ensures a clean start/stop/restart.
+
+nginx_service_action() {
+    local ACTION="$1"
+    
+    case "$ACTION" in
+        stop|restart)
+            # Force stop nginx - kill all processes and free ports
+            
+            # 1. Try graceful stop first
+            rc-service nginx stop >/dev/null 2>&1
+            sleep 1
+            
+            # 2. Kill any remaining nginx processes
+            if pgrep -x nginx >/dev/null 2>&1; then
+                pkill -QUIT nginx 2>/dev/null
+                sleep 1
+            fi
+            
+            if pgrep -x nginx >/dev/null 2>&1; then
+                pkill -TERM nginx 2>/dev/null
+                sleep 1
+            fi
+            
+            if pgrep -x nginx >/dev/null 2>&1; then
+                pkill -9 nginx 2>/dev/null
+                sleep 1
+            fi
+            
+            # 3. Free ports 80 and 443 if still in use
+            if command -v fuser >/dev/null 2>&1; then
+                fuser -k 80/tcp 2>/dev/null || true
+                fuser -k 443/tcp 2>/dev/null || true
+            fi
+            
+            # 4. Clean up PID file
+            rm -f /run/nginx.pid
+            
+            # If this was just a stop, we're done
+            [ "$ACTION" = "stop" ] && return 0
+            
+            # Fall through to start for restart
+            sleep 1
+            ;;
+    esac
+    
+    # Start nginx
+    if [ "$ACTION" = "start" ] || [ "$ACTION" = "restart" ]; then
+        # Ensure directories exist
+        mkdir -p /var/lib/nginx/logs /var/log/nginx
+        mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy
+        chown -R nginx:nginx /var/lib/nginx /var/log/nginx 2>/dev/null || true
+        
+        # Test config first
+        if ! nginx -t >/dev/null 2>&1; then
+            return 1
+        fi
+        
+        # Start via OpenRC
+        rc-service nginx start >/dev/null 2>&1
+        
+        # Verify it started
+        sleep 1
+        if pgrep -x nginx >/dev/null 2>&1; then
+            # Update PID file if needed
+            NGINX_PID=$(pgrep -o -x nginx)
+            echo "$NGINX_PID" > /run/nginx.pid
+            return 0
+        else
+            return 1
+        fi
+    fi
 }
 
 restart_all_services() {
@@ -508,11 +628,15 @@ restart_all_services() {
     # Get actual PostgreSQL service name
     local PG_SVC=$(get_pg_service)
     
-    for svc in $PG_SVC redis etcd quantix-controlplane nginx; do
+    # Restart backend services first
+    for svc in $PG_SVC redis etcd quantix-controlplane; do
         rc-service "$svc" restart >/dev/null 2>&1
     done
     
-    sleep 3
+    # Special handling for nginx (force kill and free ports)
+    nginx_service_action "restart"
+    
+    sleep 2
     
     $DIALOG --msgbox "\nAll services restarted." 8 40
 }

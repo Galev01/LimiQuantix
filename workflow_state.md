@@ -2,37 +2,37 @@
 
 ## Quantix-vDC Post-Install Issues
 
-### Status: FIXED - REBUILD REQUIRED
+### Status: FIXED (v4) - REBUILD REQUIRED
 
 ---
 
-### Issue 1: TUI shows Control Plane as "Stopped" (but it's running)
+### Summary of All Fixes
 
-**Root Cause:** The `get_service_status()` function in `qx-dcui` looks for the word "started" in `rc-service status` output:
+#### 1. TUI Service Status Detection ✅ FIXED
 
-```sh
-if rc-service "$service" status 2>/dev/null | grep -q "started"; then
-```
+**Problem:** TUI showed "Stopped" for services that were actually running.
 
-But the custom `status()` function in `/etc/init.d/quantix-controlplane` outputted `"$name is running (PID: xxx)"` which doesn't contain "started".
+**Fix:** Updated `get_service_status()` in `qx-dcui` to:
+- First check OpenRC status (normal path)
+- Fallback to checking actual processes (`pgrep`)
+- Shows "Running*" if process is running but OpenRC is out of sync
 
-**Fix Applied:** Removed the custom `status()` function from `/etc/init.d/quantix-controlplane` and added a comment explaining why. OpenRC's default status handler outputs "started" when the service is running, which is what the TUI expects.
+#### 2. nginx Restart Handling ✅ FIXED
 
-**File Changed:** `Quantix-vDC/overlay/etc/init.d/quantix-controlplane`
+**Problem:** Restarting nginx failed because stale processes held ports 80/443.
 
----
+**Fix:** Added `nginx_service_action()` function in `qx-dcui` that:
+- Gracefully stops nginx first
+- Kills any remaining nginx processes (QUIT → TERM → KILL)
+- Uses `fuser -k` to force-free ports 80 and 443
+- Cleans up stale PID file
+- Starts nginx fresh and updates PID file
 
-### Issue 2: nginx fails - `bind() to 0.0.0.0:80 failed (98: Address in use)`
+#### 3. Init Script Fixes ✅ FIXED
 
-**Root Cause:** Stale nginx processes from a previous boot (that didn't shut down cleanly) were still holding ports 80 and 443.
-
-**Fix Applied:** Added stale process cleanup in `99-start-services.start` before starting nginx:
-
-1. Check for stale PID file and remove if process doesn't exist
-2. If service shows stopped but nginx processes exist, kill them
-3. Wait and remove stale PID file
-
-**File Changed:** `Quantix-vDC/overlay/etc/local.d/99-start-services.start`
+**Files modified:**
+- `overlay/etc/init.d/quantix-controlplane` - Removed custom `status()` function
+- `overlay/etc/init.d/nginx` - NEW custom init script with PID sync
 
 ---
 
@@ -40,39 +40,44 @@ But the custom `status()` function in `/etc/init.d/quantix-controlplane` outputt
 
 | File | Change |
 |------|--------|
+| `overlay/usr/bin/qx-dcui` | Smart service status detection + nginx force restart |
 | `overlay/etc/init.d/quantix-controlplane` | Removed custom `status()` function |
-| `overlay/etc/local.d/99-start-services.start` | Added stale nginx process cleanup |
+| `overlay/etc/init.d/nginx` | NEW - Custom init with PID file sync |
+| `overlay/etc/local.d/99-start-services.start` | Added stale process cleanup |
+
+---
+
+### How nginx Restart Works Now
+
+When you select "Restart" for nginx in the TUI:
+
+```
+1. rc-service nginx stop       # Graceful stop
+2. pkill -QUIT nginx           # Ask nginx to quit
+3. pkill -TERM nginx           # Force terminate
+4. pkill -9 nginx              # Force kill
+5. fuser -k 80/tcp             # Free port 80
+6. fuser -k 443/tcp            # Free port 443
+7. rm -f /run/nginx.pid        # Clean PID file
+8. nginx -t                    # Test config
+9. rc-service nginx start      # Start fresh
+10. Update /run/nginx.pid      # Sync PID file
+```
 
 ---
 
 ### Next Steps
 
 1. Rebuild the ISO: `cd Quantix-vDC && make iso`
-2. Reinstall or update the appliance
-3. Verify:
-   - TUI shows Control Plane as "Running"
-   - nginx starts successfully on ports 80/443
-   - Web UI is accessible at `https://<ip>/`
+2. Reinstall the appliance
+3. In TUI: Services menu → nginx → Restart
+4. nginx should now restart cleanly
 
 ---
 
-### Immediate Workaround (without rebuild)
+### Status Display
 
-If you want to fix the running appliance without rebuilding:
-
-```sh
-# Fix 1: TUI detection issue
-# SSH into appliance and edit the init script:
-vi /etc/init.d/quantix-controlplane
-# Remove the status() function (lines 86-95)
-
-# Fix 2: nginx port conflict
-# Kill stale nginx and restart:
-pkill -9 nginx
-rm -f /run/nginx.pid
-rc-service nginx start
-
-# Verify
-rc-service nginx status
-curl -k https://localhost/
-```
+The TUI now shows:
+- `Running` - Service running and OpenRC tracking correctly
+- `Running*` - Service running but OpenRC out of sync (asterisk)
+- `Stopped` - Service not running
