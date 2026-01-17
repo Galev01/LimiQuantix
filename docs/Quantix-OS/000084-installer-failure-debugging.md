@@ -35,6 +35,7 @@ clear error output, compounded by incorrect partition resolution on some devices
   - `dmesg`
 - **Bootloader hardening** to ensure a valid EFI binary and GRUB config are
   always written to the ESP (`EFI/BOOT/BOOTX64.EFI` + `EFI/BOOT/grub.cfg`).
+- **Post-install shell prompt** so logs can be reviewed before reboot.
 
 ### Troubleshooting Steps
 1. Drop to shell when prompted after failure.

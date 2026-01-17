@@ -1324,8 +1324,22 @@ echo -e "${GREEN}║  4. Access web management at https://<ip>:8443/            
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
-# Clear fail marker on success
-rm -f /tmp/.quantix_install_failed 2>/dev/null || true
-rm -f /tmp/.quantix_install_mode 2>/dev/null || true
-    
-exit 0
+echo "Logs:"
+echo "  ${INSTALL_LOG}"
+if [ -f "${INSTALL_LOG}.grub" ]; then
+    echo "  ${INSTALL_LOG}.grub"
+fi
+echo ""
+echo "Press ENTER to drop to a shell for verification,"
+echo "or type 'reboot' to restart now."
+read -r user_action
+
+if [ "$user_action" = "reboot" ]; then
+    # Clear fail marker on success
+    rm -f /tmp/.quantix_install_failed 2>/dev/null || true
+    rm -f /tmp/.quantix_install_mode 2>/dev/null || true
+    reboot -f
+fi
+
+# Drop to shell by default for inspection
+exec /bin/sh

@@ -20,3 +20,4 @@
 - Documented troubleshooting in `docs/Quantix-OS/000084-installer-failure-debugging.md`.
 - Hardened storage pool partition detection with forced device node creation.
 - Hardened bootloader install to always write EFI binaries and grub.cfg to ESP.
+- Added post-install prompt to open a shell and review logs before reboot.
