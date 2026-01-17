@@ -1150,39 +1150,37 @@ CURRENT_STEP=$((CURRENT_STEP + 1))
 # Step: Install Bootloader
 # =============================================================================
 log_step "Step ${CURRENT_STEP}/${TOTAL_STEPS}: Installing bootloader..."
-    
-# Get partition UUIDs
+
+# Get partition UUIDs for reference
 UUID_SYS_A=$(blkid -s UUID -o value "${PART_SYS_A}")
 UUID_CFG=$(blkid -s UUID -o value "${PART_CFG}")
 UUID_DATA=$(blkid -s UUID -o value "${PART_DATA}")
-    
-    # Mount system for chroot
-mkdir -p "${TARGET_MOUNT}/root"
-mount -t squashfs "${TARGET_MOUNT}/system/quantix/system.squashfs" "${TARGET_MOUNT}/root"
-    
-    # Bind mount EFI
-mkdir -p "${TARGET_MOUNT}/root/boot/efi"
-mount --bind "${TARGET_MOUNT}/efi" "${TARGET_MOUNT}/root/boot/efi"
-    
-    # Bind mount required filesystems
-mount --bind /dev "${TARGET_MOUNT}/root/dev"
-mount --bind /proc "${TARGET_MOUNT}/root/proc"
-mount --bind /sys "${TARGET_MOUNT}/root/sys"
-    
-    # Install GRUB for UEFI
-    log_info "Installing GRUB for UEFI..."
-chroot "${TARGET_MOUNT}/root" grub-install \
-        --target=x86_64-efi \
-        --efi-directory=/boot/efi \
-        --bootloader-id=quantix \
+
+# Install GRUB for UEFI directly from live system (no chroot needed)
+log_info "Installing GRUB for UEFI..."
+
+# Create EFI directory structure
+mkdir -p "${TARGET_MOUNT}/efi/EFI/BOOT"
+mkdir -p "${TARGET_MOUNT}/efi/EFI/quantix"
+mkdir -p "${TARGET_MOUNT}/efi/grub"
+
+# Install GRUB to EFI partition
+# --boot-directory points to where grub modules go
+# --efi-directory points to the EFI System Partition
+grub-install \
+    --target=x86_64-efi \
+    --efi-directory="${TARGET_MOUNT}/efi" \
+    --boot-directory="${TARGET_MOUNT}/efi" \
+    --bootloader-id=quantix \
     --removable \
-        --recheck \
-    "${TARGET_DISK}" 2>/dev/null || log_warn "UEFI GRUB failed (may be BIOS system)"
-    
-    # Create GRUB configuration
-    log_info "Creating GRUB configuration..."
-    
-cat > "${TARGET_MOUNT}/root/boot/grub/grub.cfg" << EOF
+    --recheck \
+    --no-nvram \
+    2>&1 || log_warn "UEFI GRUB install returned non-zero (may still work)"
+
+# Create GRUB configuration
+log_info "Creating GRUB configuration..."
+
+cat > "${TARGET_MOUNT}/efi/grub/grub.cfg" << EOF
 # Quantix-OS GRUB Configuration
 # Version: ${VERSION}
 
@@ -1191,6 +1189,10 @@ set default=0
 
 insmod all_video
 insmod gfxterm
+insmod part_gpt
+insmod ext2
+insmod xfs
+
 set gfxmode=auto
 terminal_output gfxterm
 
@@ -1225,19 +1227,18 @@ menuentry "Quantix-OS v${VERSION} (Recovery Shell)" --id recovery {
     initrd /boot/initramfs
 }
 EOF
-    
-    # Copy GRUB config to EFI partition
-mkdir -p "${TARGET_MOUNT}/efi/EFI/quantix"
-cp "${TARGET_MOUNT}/root/boot/grub/grub.cfg" "${TARGET_MOUNT}/efi/EFI/quantix/"
-    
-    # Cleanup mounts
-umount "${TARGET_MOUNT}/root/sys" 2>/dev/null || true
-umount "${TARGET_MOUNT}/root/proc" 2>/dev/null || true
-umount "${TARGET_MOUNT}/root/dev" 2>/dev/null || true
-umount "${TARGET_MOUNT}/root/boot/efi" 2>/dev/null || true
-umount "${TARGET_MOUNT}/root" 2>/dev/null || true
-    
-    log_info "Bootloader installed"
+
+# Also copy to EFI/quantix for redundancy
+cp "${TARGET_MOUNT}/efi/grub/grub.cfg" "${TARGET_MOUNT}/efi/EFI/quantix/" 2>/dev/null || true
+
+# Copy GRUB EFI binary to standard fallback location
+if [ -f "${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi" ]; then
+    cp "${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi" "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI"
+elif [ -f "${TARGET_MOUNT}/efi/EFI/BOOT/grubx64.efi" ]; then
+    cp "${TARGET_MOUNT}/efi/EFI/BOOT/grubx64.efi" "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" 2>/dev/null || true
+fi
+
+log_info "Bootloader installed"
 
 # Increment step counter
 CURRENT_STEP=$((CURRENT_STEP + 1))
