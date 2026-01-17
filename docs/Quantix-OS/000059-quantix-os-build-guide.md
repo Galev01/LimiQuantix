@@ -66,6 +66,18 @@ make test-qemu-uefi # Test ISO in QEMU with UEFI
 make clean          # Remove build artifacts
 ```
 
+## Installer EFI Verification
+When testing on real hardware, validate the EFI System Partition before
+rebooting after install:
+
+```sh
+mount | grep /mnt/install/efi
+ls -la /mnt/install/efi/EFI/BOOT
+```
+
+Expected:
+- `EFI/BOOT/BOOTX64.EFI` exists on the ESP.
+
 ## Build Output
 
 After a successful build:

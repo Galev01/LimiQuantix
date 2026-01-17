@@ -6,6 +6,8 @@ This document describes the complete implementation of the Quantix Host UI, a st
 
 The Quantix Host UI is a React-based web application that provides a comprehensive management interface for a single hypervisor host. It runs directly on the Quantix-OS node and communicates with the `qx-node` daemon via REST APIs over HTTPS.
 
+**Boot dependency:** The Host UI is available only after the node successfully boots. The installer now validates ESP mount/writability and ensures `EFI/BOOT/BOOTX64.EFI` exists to avoid "no bootable device" loops that prevent the Host UI from starting.
+
 ## Architecture
 
 ```

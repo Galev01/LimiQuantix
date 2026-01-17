@@ -692,6 +692,12 @@ make host-ui      # Build React Host UI
 make squashfs     # Build root filesystem
 ```
 
+### Installer EFI Validation
+The installer now validates that the EFI System Partition (ESP) is mounted and
+writable before installing the bootloader. A successful install should leave
+`EFI/BOOT/BOOTX64.EFI` on the ESP. If firmware reports "no bootable device",
+verify the ESP contents in the installer shell before rebooting.
+
 ### Build Process
 
 ```

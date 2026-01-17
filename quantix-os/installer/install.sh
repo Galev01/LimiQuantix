@@ -122,6 +122,33 @@ log_step() {
     echo -e "${CYAN}[STEP]${NC} $1"
 }
 
+ensure_mountpoint() {
+    mount_path="$1"
+    expected_fstype="$2"
+    description="$3"
+    actual_fstype=$(awk "\$2==\"${mount_path}\" {print \$3}" /proc/mounts | head -n 1)
+
+    if [ -z "$actual_fstype" ]; then
+        log_error "${description} is not mounted at ${mount_path}"
+        echo "[ERROR] ${description} missing mount at ${mount_path}" >> "$INSTALL_LOG"
+        mount >> "$INSTALL_LOG" 2>&1 || true
+        return 1
+    fi
+
+    if [ -n "$expected_fstype" ] && [ "$actual_fstype" != "$expected_fstype" ]; then
+        log_warn "${description} mounted as ${actual_fstype} (expected ${expected_fstype})"
+        echo "[WARN] ${description} mounted as ${actual_fstype} (expected ${expected_fstype})" >> "$INSTALL_LOG"
+    fi
+
+    if ! touch "${mount_path}/.rw_test" 2>/dev/null; then
+        log_error "${description} mount is not writable at ${mount_path}"
+        echo "[ERROR] ${description} mount not writable at ${mount_path}" >> "$INSTALL_LOG"
+        return 1
+    fi
+    rm -f "${mount_path}/.rw_test" 2>/dev/null || true
+    return 0
+}
+
 # Cleanup function
 cleanup() {
     log_info "Cleaning up mount points..."
@@ -945,6 +972,11 @@ mount -t vfat "${PART_EFI}" "${TARGET_MOUNT}/efi"
 mount -t ext4 "${PART_CFG}" "${TARGET_MOUNT}/config"
 mount -t xfs "${PART_DATA}" "${TARGET_MOUNT}/data"
 
+ensure_mountpoint "${TARGET_MOUNT}/system" "ext4" "System partition" || exit 1
+ensure_mountpoint "${TARGET_MOUNT}/efi" "vfat" "EFI system partition" || exit 1
+ensure_mountpoint "${TARGET_MOUNT}/config" "ext4" "Config partition" || exit 1
+ensure_mountpoint "${TARGET_MOUNT}/data" "xfs" "Data partition" || exit 1
+
 log_info "Partitions mounted"
 
 # =============================================================================
@@ -1188,10 +1220,20 @@ UUID_DATA=$(blkid -s UUID -o value "${PART_DATA}")
 # Install GRUB for UEFI directly from live system (no chroot needed)
 log_info "Installing GRUB for UEFI..."
 
+# Ensure EFI partition is mounted and writable before proceeding
+ensure_mountpoint "${TARGET_MOUNT}/efi" "vfat" "EFI system partition" || exit 1
+
 # Create EFI directory structure
-mkdir -p "${TARGET_MOUNT}/efi/EFI/BOOT"
-mkdir -p "${TARGET_MOUNT}/efi/EFI/quantix"
-mkdir -p "${TARGET_MOUNT}/efi/grub"
+mkdir -p "${TARGET_MOUNT}/efi/EFI/BOOT" || { log_error "Failed to create EFI/BOOT directory"; exit 1; }
+mkdir -p "${TARGET_MOUNT}/efi/EFI/quantix" || { log_error "Failed to create EFI/quantix directory"; exit 1; }
+mkdir -p "${TARGET_MOUNT}/efi/grub" || { log_error "Failed to create EFI grub directory"; exit 1; }
+
+if [ ! -d "${TARGET_MOUNT}/efi/EFI" ]; then
+    log_error "EFI directory missing on ESP after creation"
+    echo "[ERROR] ESP contents:" >> "$INSTALL_LOG"
+    ls -la "${TARGET_MOUNT}/efi" >> "$INSTALL_LOG" 2>&1 || true
+    exit 1
+fi
 
 # Install GRUB to EFI partition
 # --boot-directory points to where grub modules go
@@ -1301,8 +1343,61 @@ log_step "Step ${CURRENT_STEP}/${TOTAL_STEPS}: Finalizing installation..."
 
 # Sync filesystems
 sync
+
+# DIAGNOSTICS: Check if bootloader files exist before unmounting
+if [ ! -f "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" ]; then
+    log_error "CRITICAL: BOOTX64.EFI missing from ESP!"
     
-    # Unmount all partitions
+    # Try last-ditch effort with grub-mkimage if available
+    if command -v grub-mkimage >/dev/null 2>&1; then
+        log_info "Attempting to generate BOOTX64.EFI with grub-mkimage..."
+        grub-mkimage -O x86_64-efi \
+            -o "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" \
+            -p "/EFI/quantix" \
+            part_gpt fat ext2 xfs normal configfile linux boot chain echo search search_label \
+            > "${INSTALL_LOG}.mkimage" 2>&1 || true
+            
+        if [ -f "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" ]; then
+            log_info "Successfully generated BOOTX64.EFI"
+            # Copy to quantix dir too
+            cp "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" "${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi" 2>/dev/null || true
+        fi
+    fi
+
+    if [ ! -f "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" ]; then
+        log_error "EFI bootloader still missing after recovery attempts"
+        echo "[ERROR] ESP contents:" >> "$INSTALL_LOG"
+        ls -la "${TARGET_MOUNT}/efi" >> "$INSTALL_LOG" 2>&1 || true
+        exit 1
+    fi
+fi
+
+# Show final shell prompt BEFORE unmounting so user can check files
+echo ""
+echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║              Installation Complete!                           ║${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+if [ -f "${INSTALL_LOG}.grub" ]; then
+    grep -q "error" "${INSTALL_LOG}.grub" && echo -e "${YELLOW}Warning: GRUB errors detected. Check logs.${NC}"
+fi
+
+echo "Partitions are currently mounted at ${TARGET_MOUNT}"
+echo "Press ENTER to drop to a shell for verification,"
+echo "or type 'reboot' to restart now."
+read -r user_action
+
+if [ "$user_action" != "reboot" ]; then
+    # Drop to shell by default for inspection
+    echo "Dropping to shell. Type 'exit' to continue with unmount and reboot."
+    /bin/sh
+fi
+
+# Resume finalization
+log_info "Unmounting filesystems..."
+
+# Unmount all partitions
 umount "${TARGET_MOUNT}/data" 2>/dev/null || true
 umount "${TARGET_MOUNT}/config" 2>/dev/null || true
 umount "${TARGET_MOUNT}/efi" 2>/dev/null || true
@@ -1318,28 +1413,18 @@ echo -e "${GREEN}║  Quantix-OS v${VERSION} has been installed successfully.   
 echo -e "${GREEN}║  Next Steps:                                                  ║${NC}"
     echo -e "${GREEN}║  1. Remove the installation media                             ║${NC}"
     echo -e "${GREEN}║  2. Reboot the system                                         ║${NC}"
-echo -e "${GREEN}║  3. Access the console TUI on the local display               ║${NC}"
-echo -e "${GREEN}║  4. Access web management at https://<ip>:8443/               ║${NC}"
+    echo -e "${GREEN}║  3. Access the console TUI on the local display               ║${NC}"
+    echo -e "${GREEN}║  4. Access web management at https://<ip>:8443/               ║${NC}"
     echo -e "${GREEN}║                                                               ║${NC}"
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
-echo "Logs:"
-echo "  ${INSTALL_LOG}"
-if [ -f "${INSTALL_LOG}.grub" ]; then
-    echo "  ${INSTALL_LOG}.grub"
-fi
-echo ""
-echo "Press ENTER to drop to a shell for verification,"
-echo "or type 'reboot' to restart now."
-read -r user_action
+# Clear fail marker on success
+rm -f /tmp/.quantix_install_failed 2>/dev/null || true
+rm -f /tmp/.quantix_install_mode 2>/dev/null || true
 
 if [ "$user_action" = "reboot" ]; then
-    # Clear fail marker on success
-    rm -f /tmp/.quantix_install_failed 2>/dev/null || true
-    rm -f /tmp/.quantix_install_mode 2>/dev/null || true
     reboot -f
 fi
-
-# Drop to shell by default for inspection
-exec /bin/sh
+    
+exit 0

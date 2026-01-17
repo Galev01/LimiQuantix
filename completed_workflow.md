@@ -306,6 +306,28 @@ implementation. The system can now push updates to connected QHCI hosts.
 
 ---
 
+## Quantix-OS Installer Failure Debugging ✅
+
+**Completed:** January 18, 2026
+
+### Summary
+Hardened Quantix-OS installer diagnostics and storage/boot handling to make
+install failures observable and reduce partition-related errors.
+
+### What Was Done
+- Added error trap with diagnostics in `Quantix-OS/installer/install.sh`.
+- Resolved partitions by label and mounted with explicit filesystem types.
+- Documented troubleshooting in `docs/Quantix-OS/000084-installer-failure-debugging.md`.
+- Hardened storage pool partition detection with forced device node creation.
+- Hardened bootloader install to always write EFI binaries and grub.cfg to ESP.
+- Added post-install prompt to open a shell and review logs before reboot.
+
+### References
+- `Quantix-OS/installer/install.sh`
+- `docs/Quantix-OS/000084-installer-failure-debugging.md`
+
+---
+
 ## Node Registration & Heartbeat ✅
 
 **Completed:** January 2, 2026
