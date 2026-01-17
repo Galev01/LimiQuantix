@@ -666,26 +666,31 @@ parted -s "${TARGET_DISK}" mkpart "QUANTIX-DATA" xfs ${CFG_END} 100%
 log_info "Synchronizing kernel partition table..."
 sync
 
-# Determine partition naming convention for this disk
-case "$TARGET_DISK" in
-    /dev/nvme*|/dev/mmcblk*)
-        P="p"
-        ;;
-    *)
-        P=""
-        ;;
-esac
-
-# Function to force partition device node creation
+# Function to force partition device node creation for a disk
 force_partition_nodes() {
-    log_info "Forcing partition device node creation..."
+    disk="$1"
+    if [ -z "$disk" ]; then
+        return
+    fi
+
+    # Determine partition naming convention for this disk
+    case "$disk" in
+        /dev/nvme*|/dev/mmcblk*)
+            disk_p="p"
+            ;;
+        *)
+            disk_p=""
+            ;;
+    esac
+
+    log_info "Forcing partition device node creation for ${disk}..."
     
     # Method 1: blockdev --rereadpt
-    blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
+    blockdev --rereadpt "${disk}" 2>/dev/null || true
     
     # Method 2: partprobe (if available)
     if command -v partprobe >/dev/null 2>&1; then
-        partprobe "${TARGET_DISK}" 2>/dev/null || true
+        partprobe "${disk}" 2>/dev/null || true
     fi
     
     # Method 3: mdev -s (Alpine/BusyBox device manager)
@@ -694,7 +699,7 @@ force_partition_nodes() {
     fi
     
     # Method 4: Trigger uevents manually via sysfs
-    DISK_NAME=$(basename "${TARGET_DISK}")
+    DISK_NAME=$(basename "${disk}")
     if [ -d "/sys/block/${DISK_NAME}" ]; then
         # Trigger uevent on the disk itself
         echo "change" > "/sys/block/${DISK_NAME}/uevent" 2>/dev/null || true
@@ -716,8 +721,8 @@ force_partition_nodes() {
     # Method 6: Manually create device nodes if they still don't exist
     # Get major:minor from sysfs
     for i in 1 2 3 4 5; do
-        PART_DEV="${TARGET_DISK}${P}${i}"
-        PART_NAME="${DISK_NAME}${P}${i}"
+        PART_DEV="${disk}${disk_p}${i}"
+        PART_NAME="${DISK_NAME}${disk_p}${i}"
         
         if [ ! -b "$PART_DEV" ] && [ -f "/sys/block/${DISK_NAME}/${PART_NAME}/dev" ]; then
             DEV_NUMS=$(cat "/sys/block/${DISK_NAME}/${PART_NAME}/dev" 2>/dev/null)
@@ -731,9 +736,19 @@ force_partition_nodes() {
     done
 }
 
+# Determine partition naming convention for this disk (TARGET_DISK)
+case "$TARGET_DISK" in
+    /dev/nvme*|/dev/mmcblk*)
+        P="p"
+        ;;
+    *)
+        P=""
+        ;;
+esac
+
 # Try multiple times with increasing delays
 for attempt in 1 2 3 4 5; do
-    force_partition_nodes
+    force_partition_nodes "${TARGET_DISK}"
     sleep 1
     
     # Check if partition 5 exists
@@ -1077,11 +1092,25 @@ EOF
         parted -s "$POOL_DISK" mklabel gpt
         parted -s "$POOL_DISK" mkpart "${POOL_NAME}" xfs 1MiB 100%
         
-        # Wait for partition to appear
-        partprobe "$POOL_DISK" 2>/dev/null || true
-        sleep 2
+        # Wait for partition to appear (force device nodes like main disk)
+        for attempt in 1 2 3 4 5; do
+            force_partition_nodes "$POOL_DISK"
+            sleep 1
+            if [ -b "${POOL_DISK}${POOL_P}1" ]; then
+                break
+            fi
+            log_warn "Storage pool partition not yet visible (attempt $attempt/5), waiting..."
+            sleep 2
+        done
         
         POOL_PART="${POOL_DISK}${POOL_P}1"
+
+        if [ ! -b "$POOL_PART" ]; then
+            log_error "Storage pool partition not found: $POOL_PART"
+            log_error "Available devices:"
+            ls -la "${POOL_DISK}"* 2>/dev/null || true
+            continue
+        fi
         
         # Format with XFS (optimal for VM storage)
         log_info "Formatting $POOL_PART with XFS..."

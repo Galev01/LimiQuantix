@@ -18,3 +18,4 @@
 - Added error trap with diagnostics in `Quantix-OS/installer/install.sh`.
 - Resolved partitions by label and mounted with explicit filesystem types.
 - Documented troubleshooting in `docs/Quantix-OS/000084-installer-failure-debugging.md`.
+- Hardened storage pool partition detection with forced device node creation.
