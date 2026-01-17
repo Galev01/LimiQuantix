@@ -662,23 +662,97 @@ parted -s "${TARGET_DISK}" mkpart "QUANTIX-B" ext4 ${SYS_A_END} ${SYS_B_END}
 parted -s "${TARGET_DISK}" mkpart "QUANTIX-CFG" ext4 ${SYS_B_END} ${CFG_END}
 parted -s "${TARGET_DISK}" mkpart "QUANTIX-DATA" xfs ${CFG_END} 100%
 
-# CRITICAL: Force kernel to re-read partition table multiple times
+# CRITICAL: Force kernel to re-read partition table and create device nodes
 log_info "Synchronizing kernel partition table..."
 sync
-blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
-partprobe "${TARGET_DISK}" 2>/dev/null || true
-udevadm settle 2>/dev/null || true
-sleep 2
 
-# Re-trigger device detection
-if command -v mdev >/dev/null 2>&1; then
-    mdev -s 2>/dev/null || true
-fi
+# Determine partition naming convention for this disk
+case "$TARGET_DISK" in
+    /dev/nvme*|/dev/mmcblk*)
+        P="p"
+        ;;
+    *)
+        P=""
+        ;;
+esac
 
-# Second sync to ensure stability
-blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
-partprobe "${TARGET_DISK}" 2>/dev/null || true
-sleep 1
+# Function to force partition device node creation
+force_partition_nodes() {
+    log_info "Forcing partition device node creation..."
+    
+    # Method 1: blockdev --rereadpt
+    blockdev --rereadpt "${TARGET_DISK}" 2>/dev/null || true
+    
+    # Method 2: partprobe (if available)
+    if command -v partprobe >/dev/null 2>&1; then
+        partprobe "${TARGET_DISK}" 2>/dev/null || true
+    fi
+    
+    # Method 3: mdev -s (Alpine/BusyBox device manager)
+    if command -v mdev >/dev/null 2>&1; then
+        mdev -s 2>/dev/null || true
+    fi
+    
+    # Method 4: Trigger uevents manually via sysfs
+    DISK_NAME=$(basename "${TARGET_DISK}")
+    if [ -d "/sys/block/${DISK_NAME}" ]; then
+        # Trigger uevent on the disk itself
+        echo "change" > "/sys/block/${DISK_NAME}/uevent" 2>/dev/null || true
+        
+        # Trigger uevent on each partition
+        for part_dir in /sys/block/${DISK_NAME}/${DISK_NAME}*; do
+            if [ -d "$part_dir" ]; then
+                echo "add" > "${part_dir}/uevent" 2>/dev/null || true
+            fi
+        done
+    fi
+    
+    # Method 5: udevadm (if available)
+    if command -v udevadm >/dev/null 2>&1; then
+        udevadm trigger --subsystem-match=block 2>/dev/null || true
+        udevadm settle --timeout=5 2>/dev/null || true
+    fi
+    
+    # Method 6: Manually create device nodes if they still don't exist
+    # Get major:minor from sysfs
+    for i in 1 2 3 4 5; do
+        PART_DEV="${TARGET_DISK}${P}${i}"
+        PART_NAME="${DISK_NAME}${P}${i}"
+        
+        if [ ! -b "$PART_DEV" ] && [ -f "/sys/block/${DISK_NAME}/${PART_NAME}/dev" ]; then
+            DEV_NUMS=$(cat "/sys/block/${DISK_NAME}/${PART_NAME}/dev" 2>/dev/null)
+            if [ -n "$DEV_NUMS" ]; then
+                MAJOR=$(echo "$DEV_NUMS" | cut -d: -f1)
+                MINOR=$(echo "$DEV_NUMS" | cut -d: -f2)
+                log_info "  Manually creating ${PART_DEV} (${MAJOR}:${MINOR})"
+                mknod "${PART_DEV}" b "$MAJOR" "$MINOR" 2>/dev/null || true
+            fi
+        fi
+    done
+}
+
+# Try multiple times with increasing delays
+for attempt in 1 2 3 4 5; do
+    force_partition_nodes
+    sleep 1
+    
+    # Check if partition 5 exists
+    if [ -b "${TARGET_DISK}${P}5" ]; then
+        log_info "All partition devices created successfully (attempt $attempt)"
+        break
+    fi
+    
+    log_warn "Partition devices not yet visible (attempt $attempt/5), waiting..."
+    sleep 2
+done
+
+# Final check - list what's in sysfs vs /dev
+DISK_NAME=$(basename "${TARGET_DISK}")
+log_info "Sysfs partitions:"
+ls -la /sys/block/${DISK_NAME}/ 2>&1 | grep -E "^d.*${DISK_NAME}" || echo "  (none found)"
+
+log_info "Device nodes:"
+ls -la "${TARGET_DISK}"* 2>&1 || echo "  (none found)"
 
 log_info "New partition table:"
 parted -s "${TARGET_DISK}" print 2>&1 || true
