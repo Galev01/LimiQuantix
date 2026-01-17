@@ -1196,6 +1196,7 @@ mkdir -p "${TARGET_MOUNT}/efi/grub"
 # Install GRUB to EFI partition
 # --boot-directory points to where grub modules go
 # --efi-directory points to the EFI System Partition
+GRUB_INSTALL_LOG="${INSTALL_LOG}.grub"
 grub-install \
     --target=x86_64-efi \
     --efi-directory="${TARGET_MOUNT}/efi" \
@@ -1204,7 +1205,27 @@ grub-install \
     --removable \
     --recheck \
     --no-nvram \
-    2>&1 || log_warn "UEFI GRUB install returned non-zero (may still work)"
+    > "${GRUB_INSTALL_LOG}" 2>&1 || {
+        log_warn "UEFI GRUB install returned non-zero. See ${GRUB_INSTALL_LOG}"
+    }
+
+# Ensure a valid EFI binary exists
+EFI_BOOT="${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI"
+EFI_QUANTIX="${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi"
+
+if [ ! -f "${EFI_BOOT}" ] && [ ! -f "${EFI_QUANTIX}" ]; then
+    log_warn "GRUB EFI binary not found on ESP, attempting fallback copy..."
+    for candidate in \
+        /usr/lib/grub/x86_64-efi/grubx64.efi \
+        /usr/lib/grub/x86_64-efi/monolithic/grubx64.efi \
+        /boot/grub/x86_64-efi/grubx64.efi; do
+        if [ -f "$candidate" ]; then
+            cp "$candidate" "${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi" 2>/dev/null || true
+            cp "$candidate" "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" 2>/dev/null || true
+            break
+        fi
+    done
+fi
 
 # Create GRUB configuration
 log_info "Creating GRUB configuration..."
@@ -1257,12 +1278,13 @@ menuentry "Quantix-OS v${VERSION} (Recovery Shell)" --id recovery {
 }
 EOF
 
-# Also copy to EFI/quantix for redundancy
-cp "${TARGET_MOUNT}/efi/grub/grub.cfg" "${TARGET_MOUNT}/efi/EFI/quantix/" 2>/dev/null || true
+# Copy GRUB config to common locations for maximum compatibility
+cp "${TARGET_MOUNT}/efi/grub/grub.cfg" "${TARGET_MOUNT}/efi/EFI/quantix/grub.cfg" 2>/dev/null || true
+cp "${TARGET_MOUNT}/efi/grub/grub.cfg" "${TARGET_MOUNT}/efi/EFI/BOOT/grub.cfg" 2>/dev/null || true
 
-# Copy GRUB EFI binary to standard fallback location
+# Ensure BOOTX64.EFI exists (fallback to quantix binary if present)
 if [ -f "${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi" ]; then
-    cp "${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi" "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI"
+    cp "${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi" "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" 2>/dev/null || true
 elif [ -f "${TARGET_MOUNT}/efi/EFI/BOOT/grubx64.efi" ]; then
     cp "${TARGET_MOUNT}/efi/EFI/BOOT/grubx64.efi" "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" 2>/dev/null || true
 fi
