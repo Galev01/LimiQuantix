@@ -387,14 +387,13 @@ parted -s "${TARGET_DISK}" print 2>&1 | tee -a "${INSTALL_LOG}" || echo "(no exi
 log_info "Current blkid output:"
 blkid 2>&1 | tee -a "${INSTALL_LOG}" || true
 
-# Unmount any existing partitions - be very aggressive
+# Unmount any existing partitions
 log_info "Unmounting any existing partitions..."
 for part in ${TARGET_DISK}* ${TARGET_DISK}p*; do
     if [ -b "$part" ] && [ "$part" != "$TARGET_DISK" ]; then
-        # Try lazy unmount if normal unmount fails
+        # Try normal unmount first, then lazy unmount
         umount "$part" 2>/dev/null || umount -l "$part" 2>/dev/null || true
-        # Kill any processes using this partition
-        fuser -km "$part" 2>/dev/null || true
+        # NOTE: Do NOT use fuser -km here - it can kill init (PID 1) and crash the system
     fi
 done
 
