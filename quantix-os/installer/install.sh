@@ -919,7 +919,11 @@ log_info "All partitions verified successfully"
 # =============================================================================
 log_step "Step 3/${TOTAL_STEPS}: Mounting partitions..."
 
-mkdir -p "${TARGET_MOUNT}"/{efi,system,config,data}
+# Create mount directories (POSIX-compatible, no brace expansion)
+mkdir -p "${TARGET_MOUNT}/efi"
+mkdir -p "${TARGET_MOUNT}/system"
+mkdir -p "${TARGET_MOUNT}/config"
+mkdir -p "${TARGET_MOUNT}/data"
     
 mount -t ext4 "${PART_SYS_A}" "${TARGET_MOUNT}/system"
 mount -t vfat "${PART_EFI}" "${TARGET_MOUNT}/efi"
@@ -933,7 +937,9 @@ log_info "Partitions mounted"
 # =============================================================================
 log_step "Step 4/${TOTAL_STEPS}: Installing system image..."
 
-mkdir -p "${TARGET_MOUNT}/system"/{boot,quantix}
+# Create system subdirectories (POSIX-compatible, no brace expansion)
+mkdir -p "${TARGET_MOUNT}/system/boot"
+mkdir -p "${TARGET_MOUNT}/system/quantix"
     
 # Copy squashfs to system partition
 log_info "Copying system image (this may take a few minutes)..."
@@ -976,7 +982,10 @@ log_info "System image installed"
 log_step "Step 5/${TOTAL_STEPS}: Configuring system..."
     
     # Create config directory structure
-mkdir -p "${TARGET_MOUNT}/config"/{certificates,network,limiquantix}
+# Create config subdirectories (POSIX-compatible)
+mkdir -p "${TARGET_MOUNT}/config/certificates"
+mkdir -p "${TARGET_MOUNT}/config/network"
+mkdir -p "${TARGET_MOUNT}/config/limiquantix"
 chmod 700 "${TARGET_MOUNT}/config/certificates"
 
 # Write hostname
@@ -1007,7 +1016,12 @@ logging:
 EOF
     
     # Create data directory structure
-mkdir -p "${TARGET_MOUNT}/data"/{vms,images,isos,backups,storage}
+# Create data subdirectories (POSIX-compatible)
+mkdir -p "${TARGET_MOUNT}/data/vms"
+mkdir -p "${TARGET_MOUNT}/data/images"
+mkdir -p "${TARGET_MOUNT}/data/isos"
+mkdir -p "${TARGET_MOUNT}/data/backups"
+mkdir -p "${TARGET_MOUNT}/data/storage"
 
 log_info "System configured"
 
