@@ -344,6 +344,33 @@ fi
 echo "[INSTALL] Enabling set -e (strict mode)" >> "$INSTALL_LOG"
 set -e
 
+# Capture errors with context and drop to shell
+error_trap() {
+    exit_code="$1"
+    log_error "Installer failed at line ${LINENO} (exit code: ${exit_code})"
+    echo "[ERROR] Installer failed at line ${LINENO} (exit code: ${exit_code})" >> "$INSTALL_LOG"
+    echo "[ERROR] Capturing diagnostics..." >> "$INSTALL_LOG"
+    blkid >> "$INSTALL_LOG" 2>&1 || true
+    lsblk -o NAME,PATH,SIZE,TYPE,PARTLABEL,FSTYPE,MOUNTPOINT >> "$INSTALL_LOG" 2>&1 || true
+    dmesg | tail -n 120 >> "$INSTALL_LOG" 2>&1 || true
+
+    # Increment fail counter so we don't loop
+    FAIL_MARKER="/tmp/.quantix_install_failed"
+    if [ -f "$FAIL_MARKER" ]; then
+        FAIL_COUNT=$(cat "$FAIL_MARKER" 2>/dev/null || echo "0")
+    else
+        FAIL_COUNT=0
+    fi
+    echo "$((FAIL_COUNT + 1))" > "$FAIL_MARKER"
+
+    echo ""
+    echo "Installer failed. Diagnostics saved to: ${INSTALL_LOG}"
+    echo "Dropping to shell for troubleshooting..."
+    echo ""
+    exec /bin/sh
+}
+trap 'error_trap $?' ERR
+
 echo ""
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║              Installing Quantix-OS v${VERSION}                      ║${NC}"
@@ -656,7 +683,7 @@ sleep 1
 log_info "New partition table:"
 parted -s "${TARGET_DISK}" print 2>&1 || true
     
-# Determine partition naming
+# Determine partition naming (fallback)
 case "$TARGET_DISK" in
     /dev/nvme*|/dev/mmcblk*)
         P="p"
@@ -671,6 +698,34 @@ PART_SYS_A="${TARGET_DISK}${P}2"
 PART_SYS_B="${TARGET_DISK}${P}3"
 PART_CFG="${TARGET_DISK}${P}4"
 PART_DATA="${TARGET_DISK}${P}5"
+
+# Prefer resolving partitions by PARTLABEL to avoid numbering mismatches
+resolve_partitions_by_label() {
+    PART_EFI_RESOLVED=$(lsblk -rno PATH,PARTLABEL "${TARGET_DISK}" | awk '$2=="EFI"{print $1}')
+    PART_SYS_A_RESOLVED=$(lsblk -rno PATH,PARTLABEL "${TARGET_DISK}" | awk '$2=="QUANTIX-A"{print $1}')
+    PART_SYS_B_RESOLVED=$(lsblk -rno PATH,PARTLABEL "${TARGET_DISK}" | awk '$2=="QUANTIX-B"{print $1}')
+    PART_CFG_RESOLVED=$(lsblk -rno PATH,PARTLABEL "${TARGET_DISK}" | awk '$2=="QUANTIX-CFG"{print $1}')
+    PART_DATA_RESOLVED=$(lsblk -rno PATH,PARTLABEL "${TARGET_DISK}" | awk '$2=="QUANTIX-DATA"{print $1}')
+
+    if [ -b "$PART_EFI_RESOLVED" ] && [ -b "$PART_SYS_A_RESOLVED" ] && \
+       [ -b "$PART_SYS_B_RESOLVED" ] && [ -b "$PART_CFG_RESOLVED" ] && \
+       [ -b "$PART_DATA_RESOLVED" ]; then
+        PART_EFI="$PART_EFI_RESOLVED"
+        PART_SYS_A="$PART_SYS_A_RESOLVED"
+        PART_SYS_B="$PART_SYS_B_RESOLVED"
+        PART_CFG="$PART_CFG_RESOLVED"
+        PART_DATA="$PART_DATA_RESOLVED"
+    fi
+}
+
+resolve_partitions_by_label
+
+log_info "Resolved partitions:"
+log_info "  EFI:        ${PART_EFI}"
+log_info "  QUANTIX-A:  ${PART_SYS_A}"
+log_info "  QUANTIX-B:  ${PART_SYS_B}"
+log_info "  QUANTIX-CFG:${PART_CFG}"
+log_info "  QUANTIX-DATA:${PART_DATA}"
 
 log_info "Partitions created"
 
@@ -792,10 +847,10 @@ log_step "Step 3/${TOTAL_STEPS}: Mounting partitions..."
 
 mkdir -p "${TARGET_MOUNT}"/{efi,system,config,data}
     
-mount "${PART_SYS_A}" "${TARGET_MOUNT}/system"
-mount "${PART_EFI}" "${TARGET_MOUNT}/efi"
-mount "${PART_CFG}" "${TARGET_MOUNT}/config"
-mount "${PART_DATA}" "${TARGET_MOUNT}/data"
+mount -t ext4 "${PART_SYS_A}" "${TARGET_MOUNT}/system"
+mount -t vfat "${PART_EFI}" "${TARGET_MOUNT}/efi"
+mount -t ext4 "${PART_CFG}" "${TARGET_MOUNT}/config"
+mount -t xfs "${PART_DATA}" "${TARGET_MOUNT}/data"
 
 log_info "Partitions mounted"
 

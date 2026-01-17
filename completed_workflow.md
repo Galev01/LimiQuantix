@@ -283,6 +283,29 @@ Implemented end-to-end VM creation with libvirt.
 
 ---
 
+## Push Update Client to Quantix-vDC ✅
+
+**Completed:** January 16, 2026
+
+### Summary
+Integrated the OTA update system into Quantix-vDC backend and verified the frontend
+implementation. The system can now push updates to connected QHCI hosts.
+
+### What Was Done
+- Wired NodeGetter to UpdateService in `backend/internal/server/server.go`.
+- Added NodeGetter adapter, TLS handling, and host client reuse in
+  `backend/internal/services/update/service.go`.
+- Verified the frontend Updates tab and host update actions.
+
+### References
+- `backend/internal/server/server.go`
+- `backend/internal/services/update/service.go`
+- `docs/updates/000081-ota-update-system.md`
+- `docs/updates/000082-production-grade-updates.md`
+- `docs/updates/000083-quantix-os-update-client-plan.md`
+
+---
+
 ## Node Registration & Heartbeat ✅
 
 **Completed:** January 2, 2026
