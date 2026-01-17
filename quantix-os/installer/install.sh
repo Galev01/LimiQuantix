@@ -1052,6 +1052,12 @@ EOF
             continue
         fi
         
+        # CRITICAL: Skip the installation target disk - it's already partitioned!
+        if [ "$POOL_DISK" = "$TARGET_DISK" ]; then
+            log_warn "Storage pool disk $POOL_DISK is the installation target - skipping (use QUANTIX-DATA partition instead)"
+            continue
+        fi
+        
         log_info "Initializing storage pool: $POOL_NAME on $POOL_DISK"
         
         # Determine partition suffix for this disk
