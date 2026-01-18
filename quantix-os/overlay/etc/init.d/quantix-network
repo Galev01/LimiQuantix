@@ -116,7 +116,7 @@ EOF
         # -p: write PID file
         # -S: log to syslog
         # -b: background after obtaining lease (NOT immediately)
-        # -s: use our custom script
+        # Note: Using default udhcpc script (busybox built-in)
         if command -v udhcpc >/dev/null 2>&1; then
             einfo "Running DHCP on $iface"
             udhcpc -i "$iface" \
@@ -125,7 +125,6 @@ EOF
                 -A 10 \
                 -p "$DHCP_PID_DIR/udhcpc_$iface.pid" \
                 -S \
-                -s /usr/share/udhcpc/default.script \
                 -b 2>/dev/null &
             
             configured_count=$((configured_count + 1))
