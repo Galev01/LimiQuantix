@@ -2,15 +2,31 @@
 # =============================================================================
 # Quantix-OS Network Auto-Configuration Service
 # =============================================================================
-# Automatically configures all network interfaces via DHCP.
+# Configures network interfaces via DHCP or static IP.
 # Supports Ethernet and WiFi (if wpa_supplicant is configured).
+# 
+# Static IP Configuration:
+#   - Per-interface: /etc/quantix/network/<interface>.conf
+#   - Global static: /etc/quantix/network/static.conf (applies to active interface)
+#
+# Config file format:
+#   IP_ADDRESS=192.168.1.100
+#   NETMASK=255.255.255.0
+#   GATEWAY=192.168.1.1
+#   DNS=8.8.8.8
 # =============================================================================
 
 name="Quantix Network"
-description="Auto-configure network interfaces via DHCP"
+description="Auto-configure network interfaces (DHCP or static)"
 
 # PID directory for tracking DHCP clients
 DHCP_PID_DIR="/run/quantix-dhcp"
+
+# Static IP configuration directory (volatile - in overlay)
+STATIC_CONFIG_DIR="/etc/quantix/network"
+
+# Persistent config directory (survives reboots - on QUANTIX-CFG partition)
+PERSISTENT_CONFIG_DIR="/quantix/network"
 
 depend() {
     need localmount
@@ -31,11 +47,122 @@ get_interface_ip() {
     ip -4 addr show dev "$iface" scope global 2>/dev/null | grep "inet " | head -1 | awk '{print $2}' | cut -d/ -f1
 }
 
+# Check if interface has static IP configuration
+has_static_config() {
+    local iface="$1"
+    # Check for interface-specific config
+    [ -f "$STATIC_CONFIG_DIR/$iface.conf" ] && return 0
+    return 1
+}
+
+# Check if global static config exists (for any active interface)
+has_global_static_config() {
+    [ -f "$STATIC_CONFIG_DIR/static.conf" ] && return 0
+    return 1
+}
+
+# Convert netmask to CIDR prefix
+netmask_to_cidr() {
+    local netmask="$1"
+    local bits=0
+    for octet in $(echo "$netmask" | tr '.' ' '); do
+        case "$octet" in
+            255) bits=$((bits + 8)) ;;
+            254) bits=$((bits + 7)) ;;
+            252) bits=$((bits + 6)) ;;
+            248) bits=$((bits + 5)) ;;
+            240) bits=$((bits + 4)) ;;
+            224) bits=$((bits + 3)) ;;
+            192) bits=$((bits + 2)) ;;
+            128) bits=$((bits + 1)) ;;
+            0) ;;
+            *) bits=$((bits + 8)) ;;  # Default for invalid
+        esac
+    done
+    echo "$bits"
+}
+
+# Apply static IP configuration to interface
+apply_static_ip() {
+    local iface="$1"
+    local config_file="$2"
+    
+    # Read configuration
+    local IP_ADDRESS="" NETMASK="" GATEWAY="" DNS=""
+    . "$config_file"
+    
+    if [ -z "$IP_ADDRESS" ]; then
+        ewarn "No IP_ADDRESS in $config_file"
+        return 1
+    fi
+    
+    # Default netmask if not specified
+    [ -z "$NETMASK" ] && NETMASK="255.255.255.0"
+    
+    # Calculate CIDR
+    local cidr=$(netmask_to_cidr "$NETMASK")
+    
+    einfo "Applying static IP to $iface: $IP_ADDRESS/$cidr"
+    
+    # Kill any DHCP client on this interface
+    if [ -f "$DHCP_PID_DIR/udhcpc_$iface.pid" ]; then
+        local dhcp_pid=$(cat "$DHCP_PID_DIR/udhcpc_$iface.pid" 2>/dev/null)
+        if [ -n "$dhcp_pid" ] && kill -0 "$dhcp_pid" 2>/dev/null; then
+            kill "$dhcp_pid" 2>/dev/null
+            sleep 0.5
+        fi
+        rm -f "$DHCP_PID_DIR/udhcpc_$iface.pid"
+    fi
+    
+    # Flush existing IP
+    ip addr flush dev "$iface" 2>/dev/null
+    
+    # Bring interface up
+    ip link set "$iface" up
+    
+    # Add IP address
+    if ! ip addr add "$IP_ADDRESS/$cidr" dev "$iface" 2>/dev/null; then
+        ewarn "Failed to add IP $IP_ADDRESS/$cidr to $iface"
+        return 1
+    fi
+    
+    # Set default gateway
+    if [ -n "$GATEWAY" ]; then
+        ip route del default 2>/dev/null
+        ip route add default via "$GATEWAY" dev "$iface" 2>/dev/null
+    fi
+    
+    # Set DNS
+    if [ -n "$DNS" ]; then
+        echo "# Static DNS configuration for $iface" > /etc/resolv.conf
+        for dns_server in $(echo "$DNS" | tr ',' ' '); do
+            echo "nameserver $dns_server" >> /etc/resolv.conf
+        done
+    fi
+    
+    einfo "Static IP configured: $IP_ADDRESS (gateway: ${GATEWAY:-none})"
+    return 0
+}
+
 start() {
     ebegin "Starting $name"
     
-    # Create PID directory
+    # Create directories
     mkdir -p "$DHCP_PID_DIR"
+    mkdir -p "$STATIC_CONFIG_DIR"
+    
+    # Restore persistent config if available
+    # The /quantix partition is the persistent QUANTIX-CFG partition
+    if [ -d "$PERSISTENT_CONFIG_DIR" ]; then
+        for conf in "$PERSISTENT_CONFIG_DIR"/*.conf; do
+            [ -f "$conf" ] || continue
+            local name=$(basename "$conf")
+            if [ ! -f "$STATIC_CONFIG_DIR/$name" ]; then
+                einfo "Restoring persistent config: $name"
+                cp "$conf" "$STATIC_CONFIG_DIR/$name"
+            fi
+        done
+    fi
     
     # Ensure fallback resolv.conf exists
     if [ ! -f /etc/resolv.conf ]; then
@@ -54,8 +181,17 @@ EOF
     # Track configured interfaces
     local configured_count=0
     local skipped_count=0
+    local static_count=0
+    local global_static_applied=0
     
-    # Find and configure all ethernet interfaces
+    # Check for global static config (applies to first active interface)
+    local global_static_config=""
+    if has_global_static_config; then
+        global_static_config="$STATIC_CONFIG_DIR/static.conf"
+        einfo "Found global static IP configuration"
+    fi
+    
+    # Find and configure all physical interfaces
     for iface_path in /sys/class/net/*; do
         local iface=$(basename "$iface_path")
         
@@ -85,16 +221,55 @@ EOF
         ip link set "$iface" up
         
         # Check if it's a wireless interface
+        local is_wifi=0
         if [ -d "/sys/class/net/$iface/wireless" ]; then
+            is_wifi=1
             # WiFi interface - check for wpa_supplicant config
             if [ -f "/etc/wpa_supplicant/wpa_supplicant.conf" ] && command -v wpa_supplicant >/dev/null 2>&1; then
                 einfo "Starting WiFi on $iface"
                 wpa_supplicant -B -i "$iface" -c /etc/wpa_supplicant/wpa_supplicant.conf \
                     -P "$DHCP_PID_DIR/wpa_$iface.pid" 2>/dev/null
-                sleep 2
+                sleep 3  # Wait for WiFi association
             else
                 ewarn "WiFi interface $iface found but no wpa_supplicant config"
                 continue
+            fi
+        fi
+        
+        # Check for interface-specific static config
+        if has_static_config "$iface"; then
+            einfo "Found static config for $iface"
+            if apply_static_ip "$iface" "$STATIC_CONFIG_DIR/$iface.conf"; then
+                static_count=$((static_count + 1))
+                continue
+            else
+                ewarn "Static config failed for $iface, falling back to DHCP"
+            fi
+        fi
+        
+        # Check for global static config (apply to first interface that's up)
+        if [ -n "$global_static_config" ] && [ "$global_static_applied" -eq 0 ]; then
+            # For WiFi, check if associated before applying static
+            if [ "$is_wifi" -eq 1 ]; then
+                # Check if WiFi is associated
+                if iw dev "$iface" link 2>/dev/null | grep -q "Connected"; then
+                    einfo "WiFi associated, applying global static config to $iface"
+                    if apply_static_ip "$iface" "$global_static_config"; then
+                        static_count=$((static_count + 1))
+                        global_static_applied=1
+                        continue
+                    fi
+                fi
+            else
+                # For wired, check if link is up
+                if ip link show "$iface" 2>/dev/null | grep -q "state UP"; then
+                    einfo "Applying global static config to $iface"
+                    if apply_static_ip "$iface" "$global_static_config"; then
+                        static_count=$((static_count + 1))
+                        global_static_applied=1
+                        continue
+                    fi
+                fi
             fi
         fi
         
@@ -108,15 +283,7 @@ EOF
             rm -f "$DHCP_PID_DIR/udhcpc_$iface.pid"
         fi
         
-        # Run DHCP with proper options:
-        # -i: interface
-        # -t 4: max 4 discover attempts
-        # -T 3: 3 second timeout between attempts
-        # -A 10: wait 10 seconds before retrying after failure
-        # -p: write PID file
-        # -S: log to syslog
-        # -b: background after obtaining lease (NOT immediately)
-        # Note: Using default udhcpc script (busybox built-in)
+        # Run DHCP with proper options
         if command -v udhcpc >/dev/null 2>&1; then
             einfo "Running DHCP on $iface"
             udhcpc -i "$iface" \
@@ -136,10 +303,9 @@ EOF
         fi
     done
     
-    # Wait for DHCP to complete (max 10 seconds)
+    # Wait for network to be ready (max 10 seconds)
     local wait_count=0
     while [ $wait_count -lt 10 ]; do
-        # Check if any interface got an IP
         for iface_path in /sys/class/net/*; do
             local iface=$(basename "$iface_path")
             case "$iface" in
@@ -158,7 +324,8 @@ EOF
     
     # Log the result
     einfo "Network configuration complete:"
-    einfo "  Configured: $configured_count interfaces"
+    einfo "  Static IP: $static_count interfaces"
+    einfo "  DHCP: $configured_count interfaces"
     einfo "  Skipped: $skipped_count interfaces (already configured)"
     
     # Show IP addresses
@@ -205,6 +372,34 @@ status() {
     cat /etc/resolv.conf 2>/dev/null || einfo "  (no resolv.conf)"
     
     einfo ""
+    einfo "Static IP configurations:"
+    if [ -d "$STATIC_CONFIG_DIR" ]; then
+        for conf in "$STATIC_CONFIG_DIR"/*.conf; do
+            [ -f "$conf" ] || continue
+            local name=$(basename "$conf" .conf)
+            local ip=$(grep "^IP_ADDRESS=" "$conf" 2>/dev/null | cut -d= -f2)
+            # Check if also saved persistently
+            local persist=""
+            if [ -f "$PERSISTENT_CONFIG_DIR/$name.conf" ]; then
+                persist=" (persistent)"
+            else
+                persist=" (session only)"
+            fi
+            einfo "  $name: $ip$persist"
+        done
+    else
+        einfo "  (none configured)"
+    fi
+    
+    einfo ""
+    einfo "Persistent storage:"
+    if [ -d "/quantix" ]; then
+        einfo "  /quantix: mounted (config survives reboot)"
+    else
+        einfo "  /quantix: NOT mounted (config lost on reboot)"
+    fi
+    
+    einfo ""
     einfo "DHCP clients:"
     if [ -d "$DHCP_PID_DIR" ]; then
         for pidfile in "$DHCP_PID_DIR"/udhcpc_*.pid; do
@@ -221,5 +416,65 @@ status() {
         einfo "  (no tracked clients)"
     fi
     
+    return 0
+}
+
+# Helper: Set static IP for an interface
+# Usage: rc-service quantix-network set-static <interface> <ip> <netmask> <gateway> [dns]
+set_static() {
+    local iface="$1"
+    local ip="$2"
+    local netmask="$3"
+    local gateway="$4"
+    local dns="${5:-8.8.8.8}"
+    
+    if [ -z "$iface" ] || [ -z "$ip" ]; then
+        eerror "Usage: rc-service quantix-network set-static <interface> <ip> <netmask> <gateway> [dns]"
+        return 1
+    fi
+    
+    mkdir -p "$STATIC_CONFIG_DIR"
+    
+    cat > "$STATIC_CONFIG_DIR/$iface.conf" << EOF
+# Static IP configuration for $iface
+IP_ADDRESS=$ip
+NETMASK=${netmask:-255.255.255.0}
+GATEWAY=$gateway
+DNS=$dns
+EOF
+    
+    # Also update global static.conf
+    cp "$STATIC_CONFIG_DIR/$iface.conf" "$STATIC_CONFIG_DIR/static.conf"
+    
+    # Save to persistent storage (survives reboots)
+    if [ -d "/quantix" ]; then
+        mkdir -p "$PERSISTENT_CONFIG_DIR"
+        cp "$STATIC_CONFIG_DIR/$iface.conf" "$PERSISTENT_CONFIG_DIR/$iface.conf"
+        cp "$STATIC_CONFIG_DIR/static.conf" "$PERSISTENT_CONFIG_DIR/static.conf"
+        einfo "Static IP configuration saved (persistent)"
+    else
+        ewarn "Persistent storage not available - config will be lost on reboot"
+    fi
+    
+    einfo "Run 'rc-service quantix-network restart' to apply"
+    return 0
+}
+
+# Helper: Remove static IP config and switch to DHCP
+# Usage: rc-service quantix-network use-dhcp [interface]
+use_dhcp() {
+    local iface="$1"
+    
+    if [ -n "$iface" ]; then
+        rm -f "$STATIC_CONFIG_DIR/$iface.conf"
+        rm -f "$PERSISTENT_CONFIG_DIR/$iface.conf" 2>/dev/null
+        einfo "Removed static config for $iface"
+    else
+        rm -f "$STATIC_CONFIG_DIR"/*.conf
+        rm -f "$PERSISTENT_CONFIG_DIR"/*.conf 2>/dev/null
+        einfo "Removed all static IP configurations"
+    fi
+    
+    einfo "Run 'rc-service quantix-network restart' to switch to DHCP"
     return 0
 }

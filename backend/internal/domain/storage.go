@@ -31,6 +31,16 @@ const (
 	BackendTypeISCSI    BackendType = "ISCSI"
 )
 
+// StoragePoolOrigin indicates where the storage pool came from.
+type StoragePoolOrigin string
+
+const (
+	StoragePoolOriginUnknown        StoragePoolOrigin = ""
+	StoragePoolOriginControlPlane   StoragePoolOrigin = "control-plane"   // Created via QvDC Dashboard/API
+	StoragePoolOriginHostDiscovered StoragePoolOrigin = "host-discovered" // Discovered on host during sync
+	StoragePoolOriginImported       StoragePoolOrigin = "imported"        // Imported from another system
+)
+
 // StoragePool represents a logical pool of storage resources.
 // This abstracts Ceph pools, local LVM volume groups, or NFS shares.
 type StoragePool struct {
@@ -45,6 +55,20 @@ type StoragePool struct {
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// ==========================================================================
+	// State Reconciliation Fields
+	// ==========================================================================
+
+	// Origin indicates where the pool came from.
+	// - control-plane: Created via QvDC Dashboard/API
+	// - host-discovered: Discovered on a host during state sync
+	// - imported: Explicitly imported from another system
+	Origin StoragePoolOrigin `json:"origin,omitempty" db:"origin"`
+
+	// IsManaged indicates if QvDC controls this pool's lifecycle.
+	// false = discovered pool that user hasn't "adopted" yet
+	IsManaged bool `json:"is_managed" db:"is_managed"`
 }
 
 // StoragePoolSpec defines the desired configuration of a storage pool.

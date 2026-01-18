@@ -150,20 +150,67 @@ Services:\n\
 # =============================================================================
 
 configure_network() {
-    # Get current network interface
-    local IFACE=$(ip link show | grep -E "^[0-9]+: (eth|ens|enp)" | head -1 | awk -F: '{print $2}' | tr -d ' ')
-    IFACE=${IFACE:-eth0}
+    # Build list of available interfaces (both ethernet and WiFi)
+    local IFACE_LIST=""
+    local IFACE_COUNT=0
+    local DEFAULT_IFACE=""
     
-    # Current config
+    # Find all physical network interfaces
+    for iface in $(ip link show | grep -E "^[0-9]+: (eth|ens|enp|wlan|wlp)" | awk -F: '{print $2}' | tr -d ' '); do
+        local iface_ip=$(ip -4 addr show "$iface" 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1)
+        local iface_status="down"
+        ip link show "$iface" 2>/dev/null | grep -q "state UP" && iface_status="up"
+        
+        # Mark interface type
+        local iface_type="Ethernet"
+        echo "$iface" | grep -qE "^(wlan|wlp)" && iface_type="WiFi"
+        
+        # Build menu item
+        local desc="${iface_type}"
+        [ -n "$iface_ip" ] && desc="${desc} - ${iface_ip}"
+        [ "$iface_status" = "down" ] && desc="${desc} (down)"
+        
+        IFACE_LIST="$IFACE_LIST \"$iface\" \"$desc\""
+        IFACE_COUNT=$((IFACE_COUNT + 1))
+        
+        # Default to first interface with an IP, or first interface
+        if [ -z "$DEFAULT_IFACE" ]; then
+            DEFAULT_IFACE="$iface"
+        elif [ -n "$iface_ip" ] && [ -z "$(ip -4 addr show "$DEFAULT_IFACE" 2>/dev/null | grep inet)" ]; then
+            DEFAULT_IFACE="$iface"
+        fi
+    done
+    
+    # Fallback
+    [ -z "$DEFAULT_IFACE" ] && DEFAULT_IFACE="eth0"
+    
+    local IFACE="$DEFAULT_IFACE"
+    
+    # If multiple interfaces, let user choose
+    if [ "$IFACE_COUNT" -gt 1 ]; then
+        eval "$DIALOG --backtitle \"$BACKTITLE\" \
+            --title \"Select Interface\" \
+            --menu \"\nSelect the network interface to configure:\" 15 60 $IFACE_COUNT \
+            $IFACE_LIST" 2>"$TEMP_FILE"
+        
+        [ $? -ne 0 ] && return
+        IFACE=$(cat "$TEMP_FILE")
+    fi
+    
+    # Current config for selected interface
     local CURRENT_IP=$(ip -4 addr show "$IFACE" 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1)
     local CURRENT_MASK=$(ip -4 addr show "$IFACE" 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f2)
     local CURRENT_GW=$(ip route | grep default | awk '{print $3}' | head -1)
     local CURRENT_DNS=$(grep nameserver /etc/resolv.conf 2>/dev/null | head -1 | awk '{print $2}')
     
+    # Detect interface type
+    local IFACE_TYPE="Ethernet"
+    echo "$IFACE" | grep -qE "^(wlan|wlp)" && IFACE_TYPE="WiFi"
+    
     # Ask DHCP or Static
     $DIALOG --backtitle "$BACKTITLE" \
         --title "Network Configuration" \
-        --menu "\nInterface: $IFACE\nCurrent IP: ${CURRENT_IP:-None}\n\nSelect IP configuration mode:" 15 60 2 \
+        --menu "\nInterface: $IFACE ($IFACE_TYPE)\nCurrent IP: ${CURRENT_IP:-None}\n\nSelect IP configuration mode:" 15 60 2 \
         "dhcp" "Automatic (DHCP)" \
         "static" "Manual (Static IP)" \
         2>"$TEMP_FILE"
@@ -188,27 +235,54 @@ configure_network_dhcp() {
     
     [ $? -ne 0 ] && return
     
+    # Detect if this is a WiFi interface
+    local IS_WIFI=0
+    echo "$IFACE" | grep -qE "^(wlan|wlp)" && IS_WIFI=1
+    
     # Write interface config
-    cat > /etc/network/interfaces << EOF
+    if [ "$IS_WIFI" -eq 1 ]; then
+        # WiFi interface - need to include wpa_supplicant
+        cat > /etc/network/interfaces << EOF
+auto lo
+iface lo inet loopback
+
+auto $IFACE
+iface $IFACE inet dhcp
+    pre-up wpa_supplicant -B -i $IFACE -c /etc/wpa_supplicant/wpa_supplicant.conf 2>/dev/null || true
+    post-down killall wpa_supplicant 2>/dev/null || true
+EOF
+    else
+        # Ethernet interface
+        cat > /etc/network/interfaces << EOF
 auto lo
 iface lo inet loopback
 
 auto $IFACE
 iface $IFACE inet dhcp
 EOF
+    fi
     
-    # Restart networking
+    # Apply configuration
     $DIALOG --backtitle "$BACKTITLE" \
         --title "Applying Configuration" \
-        --infobox "\nRestarting network...\n" 6 40
+        --infobox "\nApplying network configuration...\n" 6 40
     
-    rc-service networking restart >/dev/null 2>&1
+    if [ "$IS_WIFI" -eq 1 ]; then
+        # For WiFi, run udhcpc directly
+        pkill -f "udhcpc.*$IFACE" 2>/dev/null || true
+        ip addr flush dev "$IFACE" 2>/dev/null
+        udhcpc -i "$IFACE" -b -q 2>/dev/null &
+    else
+        # For ethernet, restart networking service
+        rc-service networking restart >/dev/null 2>&1
+    fi
+    
     sleep 3
     
-    local NEW_IP=$(get_primary_ip)
+    local NEW_IP=$(ip -4 addr show "$IFACE" 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1)
     $DIALOG --backtitle "$BACKTITLE" \
         --title "Network Configured" \
-        --msgbox "\nNetwork configured for DHCP.\n\nNew IP: ${NEW_IP:-Waiting for DHCP...}" 10 50
+        --msgbox "\nNetwork configured for DHCP.\n\nInterface: $IFACE\nNew IP: ${NEW_IP:-Waiting for DHCP...}" 10 50
 }
 
 configure_network_static() {
@@ -253,8 +327,27 @@ configure_network_static() {
     
     [ $? -ne 0 ] && return
     
+    # Detect if this is a WiFi interface
+    local IS_WIFI=0
+    echo "$IFACE" | grep -qE "^(wlan|wlp)" && IS_WIFI=1
+    
     # Write interface config
-    cat > /etc/network/interfaces << EOF
+    if [ "$IS_WIFI" -eq 1 ]; then
+        # WiFi interface - need to include wpa_supplicant
+        cat > /etc/network/interfaces << EOF
+auto lo
+iface lo inet loopback
+
+auto $IFACE
+iface $IFACE inet static
+    address $IP/$MASK
+    gateway $GW
+    pre-up wpa_supplicant -B -i $IFACE -c /etc/wpa_supplicant/wpa_supplicant.conf 2>/dev/null || true
+    post-down killall wpa_supplicant 2>/dev/null || true
+EOF
+    else
+        # Ethernet interface
+        cat > /etc/network/interfaces << EOF
 auto lo
 iface lo inet loopback
 
@@ -263,21 +356,46 @@ iface $IFACE inet static
     address $IP/$MASK
     gateway $GW
 EOF
+    fi
     
     # Write DNS config
     echo "nameserver $DNS" > /etc/resolv.conf
     
-    # Restart networking
+    # Apply configuration
     $DIALOG --backtitle "$BACKTITLE" \
         --title "Applying Configuration" \
-        --infobox "\nRestarting network...\n" 6 40
+        --infobox "\nApplying network configuration...\n" 6 40
     
-    rc-service networking restart >/dev/null 2>&1
+    # For WiFi, we need to handle it differently
+    if [ "$IS_WIFI" -eq 1 ]; then
+        # Kill any existing DHCP client on this interface
+        pkill -f "udhcpc.*$IFACE" 2>/dev/null || true
+        pkill -f "dhclient.*$IFACE" 2>/dev/null || true
+        
+        # Flush existing IP and apply new one
+        ip addr flush dev "$IFACE" 2>/dev/null
+        ip addr add "$IP/$MASK" dev "$IFACE" 2>/dev/null
+        ip route del default 2>/dev/null
+        ip route add default via "$GW" 2>/dev/null
+    else
+        # For ethernet, restart networking service
+        rc-service networking restart >/dev/null 2>&1
+    fi
+    
     sleep 2
     
-    $DIALOG --backtitle "$BACKTITLE" \
-        --title "Network Configured" \
-        --msgbox "\nStatic IP configuration applied.\n\nIP: $IP/$MASK\nGateway: $GW\nDNS: $DNS" 12 50
+    # Verify the IP was applied
+    local NEW_IP=$(ip -4 addr show "$IFACE" 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1)
+    
+    if [ "$NEW_IP" = "$IP" ]; then
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "Network Configured" \
+            --msgbox "\nStatic IP configuration applied successfully!\n\nInterface: $IFACE\nIP: $IP/$MASK\nGateway: $GW\nDNS: $DNS" 14 50
+    else
+        $DIALOG --backtitle "$BACKTITLE" \
+            --title "Warning" \
+            --msgbox "\nConfiguration saved but IP may not have applied correctly.\n\nExpected: $IP\nCurrent: ${NEW_IP:-None}\n\nTry restarting the system." 14 50
+    fi
 }
 
 # =============================================================================
