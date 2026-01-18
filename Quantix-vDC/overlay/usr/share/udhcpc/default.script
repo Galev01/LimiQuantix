@@ -4,6 +4,15 @@
 # =============================================================================
 # This script is called by udhcpc when DHCP events occur.
 # It configures the network interface and DNS settings.
+#
+# udhcpc provides these environment variables:
+#   $interface - network interface name
+#   $ip        - IP address obtained
+#   $subnet    - subnet mask (e.g., 255.255.255.0)
+#   $router    - default gateway(s)
+#   $dns       - DNS server(s)
+#   $domain    - domain name
+#   $lease     - lease time in seconds
 # =============================================================================
 
 # Logging function
@@ -11,15 +20,71 @@ log() {
     logger -t "udhcpc[$interface]" "$1"
 }
 
+# Convert subnet mask to CIDR prefix length
+# e.g., 255.255.255.0 -> 24
+mask_to_cidr() {
+    local mask="$1"
+    local cidr=0
+    local octet
+    
+    # Handle common masks directly for speed
+    case "$mask" in
+        255.255.255.255) echo 32; return ;;
+        255.255.255.254) echo 31; return ;;
+        255.255.255.252) echo 30; return ;;
+        255.255.255.248) echo 29; return ;;
+        255.255.255.240) echo 28; return ;;
+        255.255.255.224) echo 27; return ;;
+        255.255.255.192) echo 26; return ;;
+        255.255.255.128) echo 25; return ;;
+        255.255.255.0)   echo 24; return ;;
+        255.255.254.0)   echo 23; return ;;
+        255.255.252.0)   echo 22; return ;;
+        255.255.248.0)   echo 21; return ;;
+        255.255.240.0)   echo 20; return ;;
+        255.255.224.0)   echo 19; return ;;
+        255.255.192.0)   echo 18; return ;;
+        255.255.128.0)   echo 17; return ;;
+        255.255.0.0)     echo 16; return ;;
+        255.0.0.0)       echo 8; return ;;
+        0.0.0.0)         echo 0; return ;;
+    esac
+    
+    # Fallback: count bits (slower but handles any mask)
+    for octet in $(echo "$mask" | tr '.' ' '); do
+        case "$octet" in
+            255) cidr=$((cidr + 8)) ;;
+            254) cidr=$((cidr + 7)) ;;
+            252) cidr=$((cidr + 6)) ;;
+            248) cidr=$((cidr + 5)) ;;
+            240) cidr=$((cidr + 4)) ;;
+            224) cidr=$((cidr + 3)) ;;
+            192) cidr=$((cidr + 2)) ;;
+            128) cidr=$((cidr + 1)) ;;
+            0)   ;;
+        esac
+    done
+    echo "$cidr"
+}
+
 # Setup interface with obtained IP
 setup_interface() {
-    log "Configuring $interface with IP $ip/$mask"
+    # Convert subnet mask to CIDR
+    local prefix
+    if [ -n "$subnet" ]; then
+        prefix=$(mask_to_cidr "$subnet")
+    else
+        # Default to /24 if no subnet provided
+        prefix=24
+    fi
+    
+    log "Configuring $interface with IP $ip/$prefix (mask: $subnet)"
     
     # Remove any existing IP on this interface
     ip addr flush dev "$interface" 2>/dev/null
     
     # Add the new IP
-    ip addr add "$ip/$mask" dev "$interface"
+    ip addr add "$ip/$prefix" dev "$interface"
     
     # Bring interface up
     ip link set "$interface" up
@@ -83,7 +148,7 @@ case "$1" in
         setup_dns
         
         # Log success
-        log "DHCP $1: $ip/$mask via $router (lease: ${lease}s)"
+        log "DHCP $1: $ip (subnet: $subnet) via $router (lease: ${lease}s)"
         ;;
     
     leasefail|nak)
