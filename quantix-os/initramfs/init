@@ -117,6 +117,35 @@ mdev -s 2>/dev/null || true
 
 echo "[INIT] Module loading complete"
 
+# =============================================================================
+# Helper function: Find partition by label
+# Uses multiple methods since findfs is unreliable in early boot
+# =============================================================================
+find_partition_by_label() {
+    local LABEL="$1"
+    local DEV=""
+    
+    # Method 1: findfs (standard)
+    DEV=$(findfs LABEL="${LABEL}" 2>/dev/null)
+    [ -n "$DEV" ] && echo "$DEV" && return 0
+    
+    # Method 2: blkid -L
+    DEV=$(blkid -L "${LABEL}" 2>/dev/null)
+    [ -n "$DEV" ] && echo "$DEV" && return 0
+    
+    # Method 3: Parse blkid output
+    DEV=$(blkid 2>/dev/null | grep "LABEL=\"${LABEL}\"" | cut -d: -f1)
+    [ -n "$DEV" ] && echo "$DEV" && return 0
+    
+    # Method 4: Check /dev/disk/by-label symlink
+    if [ -L "/dev/disk/by-label/${LABEL}" ]; then
+        DEV=$(readlink -f "/dev/disk/by-label/${LABEL}")
+        [ -n "$DEV" ] && echo "$DEV" && return 0
+    fi
+    
+    return 1
+}
+
 # Parse kernel command line
 echo "[INIT] Parsing kernel command line..."
 echo "[INIT] cmdline: $(cat /proc/cmdline)"
@@ -441,7 +470,26 @@ echo ""
 # Find and mount system partition
 echo "[INIT] Mounting system partition..."
 echo "[INIT] Looking for LABEL=${SYSTEM_LABEL}..."
-SYSTEM_DEV=$(findfs LABEL="${SYSTEM_LABEL}" 2>/dev/null)
+
+# Try to find the partition using our helper function
+SYSTEM_DEV=$(find_partition_by_label "${SYSTEM_LABEL}")
+
+# If not found, wait and retry (device nodes might not be ready on server hardware)
+if [ -z "$SYSTEM_DEV" ]; then
+    echo "[INIT] Partition not found immediately, waiting for devices..."
+    for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        sleep 2
+        # Trigger device rescans
+        echo "[INIT] Rescanning devices (attempt $attempt/10)..."
+        mdev -s 2>/dev/null || true
+        
+        SYSTEM_DEV=$(find_partition_by_label "${SYSTEM_LABEL}")
+        if [ -n "$SYSTEM_DEV" ]; then
+            echo "[INIT] Found partition on retry: $SYSTEM_DEV"
+            break
+        fi
+    done
+fi
 
 if [ -z "$SYSTEM_DEV" ]; then
     echo "[ERROR] System partition not found: ${SYSTEM_LABEL}"
@@ -449,8 +497,12 @@ if [ -z "$SYSTEM_DEV" ]; then
     blkid 2>/dev/null || ls -la /dev/sd* /dev/nvme* 2>/dev/null
     echo ""
     echo "[ERROR] Dropping to emergency shell..."
+    echo "[ERROR] Debug: Check partition labels with 'blkid' command"
+    echo "[ERROR] Manual mount: mount /dev/nvme0n1p2 /mnt/system"
     exec /bin/sh
 fi
+
+echo "[INIT] Found system partition: $SYSTEM_DEV"
 
 mkdir -p /mnt/system
 mount -t ext4 -o ro "$SYSTEM_DEV" /mnt/system
@@ -548,9 +600,9 @@ if [ -n "$CONFIG_PART" ] && [ -b "$CONFIG_PART" ]; then
     fi
 fi
 
-# Method 2: Fallback to findfs
+# Method 2: Fallback to robust partition finder
 if [ -z "$CONFIG_DEV" ]; then
-    CONFIG_DEV=$(findfs LABEL="${CONFIG_LABEL}" 2>/dev/null)
+    CONFIG_DEV=$(find_partition_by_label "${CONFIG_LABEL}")
 fi
 
 if [ -n "$CONFIG_DEV" ]; then
@@ -639,12 +691,12 @@ if [ -z "$DATA_DEV" ] && [ -n "$BASE_DISK" ]; then
     done
 fi
 
-# Method 3: Fallback to findfs (may find wrong partition on multi-disk systems)
+# Method 3: Fallback to robust partition finder (may find wrong partition on multi-disk systems)
 if [ -z "$DATA_DEV" ]; then
-    echo "[INIT] Falling back to findfs LABEL=${DATA_LABEL}..."
-    DATA_DEV=$(findfs LABEL="${DATA_LABEL}" 2>/dev/null)
+    echo "[INIT] Falling back to label search for ${DATA_LABEL}..."
+    DATA_DEV=$(find_partition_by_label "${DATA_LABEL}")
     if [ -n "$DATA_DEV" ]; then
-        echo "[INIT] findfs returned: ${DATA_DEV}"
+        echo "[INIT] Found via label search: ${DATA_DEV}"
         echo "[WARN] This may be from a different disk/installation!"
     fi
 fi

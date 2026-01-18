@@ -8,7 +8,8 @@
 1. ~~`grub-install: not found`~~ - Added grub packages
 2. ~~Wrong initramfs~~ - Now copies from live ISO instead of squashfs
 3. ~~XFS label too long~~ - Truncate to 12 chars, better default names
-4. ~~Inconsistent partition detection~~ - Increased retries, better error handling
+4. ~~Inconsistent partition detection in installer~~ - Increased retries, better error handling
+5. ~~`findfs` not finding partitions~~ - Added multi-method partition finder in initramfs
 
 ### Changes Made
 
@@ -25,12 +26,19 @@
 - TUI generates shorter default names: `SSD-local01` instead of `local-nvme0n1`
 - TUI warns user if name is too long
 
-#### 4. Partition Detection Robustness
+#### 4. Partition Detection Robustness (Installer)
 - Increased retry attempts from 5 to 10 for main disk
 - Increased retry attempts from 5 to 10 for storage pools
 - Added exponential backoff for server hardware
 - Added explicit verification of all partitions before proceeding
 - Storage pool failures no longer break the entire installation
+
+#### 5. Partition Detection Robustness (Initramfs)
+- Added `find_partition_by_label()` helper function
+- Uses 4 methods: findfs, blkid -L, blkid grep, /dev/disk/by-label
+- Retry loop with mdev rescan for server hardware
+- Increased retries from 5 to 10 for system partition
+- Applied to system, config, and data partition detection
 
 ### Next Steps
 Rebuild ISO and test:

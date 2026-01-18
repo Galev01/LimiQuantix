@@ -183,7 +183,7 @@ If you see `mount: mounting /dev/nvme0n1p2 on /sysroot failed: No such file or d
 3. TUI warns user if entered name exceeds 12 characters
 4. Full pool name is preserved for config files and mount points
 
-### Problem 4: Inconsistent Partition Detection
+### Problem 4: Inconsistent Partition Detection (Installer)
 
 **Symptom:** Installation sometimes fails, sometimes succeeds (race condition)
 
@@ -197,11 +197,31 @@ drives) may need more time for kernel to recognize new partitions.
 4. Added explicit verification of all 5 partitions before proceeding
 5. Storage pool failures no longer break the entire installation
 
+### Problem 5: `findfs` Not Finding Partitions (Initramfs)
+
+**Symptom:** Boot fails with "System partition not found: QUANTIX-A" even though
+`blkid` output shows the partition exists with the correct label.
+
+**Root Cause:** Busybox's `findfs` command is unreliable in early boot. It depends
+on `/dev/disk/by-label/` symlinks being created, which may not happen before the
+initramfs runs its partition detection.
+
+**Fixes Applied:**
+1. Added `find_partition_by_label()` helper function to initramfs
+2. Uses 4 detection methods in order:
+   - `findfs LABEL=...` (standard)
+   - `blkid -L ...` (more reliable)
+   - `blkid | grep LABEL=...` (parse output)
+   - `/dev/disk/by-label/...` symlink
+3. Added retry loop with `mdev -s` rescan (10 attempts)
+4. Applied robust detection to system, config, and data partitions
+
 ## Files Changed
 
 - `Quantix-OS/profiles/quantix/packages.conf` - Added grub packages
 - `Quantix-OS/installer/install.sh` - Fixed bootloader, initramfs, XFS labels, retries
 - `Quantix-OS/installer/tui.sh` - Shorter default pool names, length validation
+- `Quantix-OS/initramfs/init` - Robust partition detection with multiple fallback methods
 
 ## References
 
