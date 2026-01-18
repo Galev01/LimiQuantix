@@ -16,7 +16,6 @@ import {
   Copy,
   Check,
   X,
-  Server,
   MousePointer,
   FileJson,
   FileText as FileTextIcon,
@@ -28,7 +27,7 @@ import { useLogs, useLogStream } from '@/hooks/useLogs';
 import { useActionLogger } from '@/hooks/useActionLogger';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
-import { LogComponentBadge, getComponentStyle, getAllComponentStyles } from '@/components/ui/LogComponentBadge';
+import { LogComponentBadge, getAllComponentStyles } from '@/components/ui/LogComponentBadge';
 import type { LogEntry } from '@/api/logs';
 
 type LogLevel = 'all' | 'trace' | 'debug' | 'info' | 'warn' | 'error';
@@ -502,7 +501,9 @@ function LogRow({ log, isSelected, onClick }: LogRowProps) {
 
       {/* User action indicator */}
       {isUserAction && (
-        <MousePointer className="w-3 h-3 text-teal-400 shrink-0" title="User Action" />
+        <span title="User Action">
+          <MousePointer className="w-3 h-3 text-teal-400 shrink-0" />
+        </span>
       )}
 
       {/* Field count indicator */}
