@@ -697,6 +697,14 @@ struct LogEntry {
     vm_id: Option<String>,
     node_id: Option<String>,
     duration_ms: Option<u64>,
+    // UI-specific fields
+    action: Option<String>,
+    component: Option<String>,
+    target: Option<String>,
+    correlation_id: Option<String>,
+    user_id: Option<String>,
+    session_id: Option<String>,
+    user_action: Option<bool>,
 }
 
 /// Response for logs listing
@@ -718,6 +726,36 @@ struct LogsQuery {
     offset: Option<usize>,
     since: Option<String>,
     until: Option<String>,
+}
+
+/// UI log entry submitted from the frontend
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UILogEntry {
+    timestamp: String,
+    level: String,
+    action: String,
+    component: String,
+    target: String,
+    message: String,
+    metadata: Option<serde_json::Value>,
+    correlation_id: Option<String>,
+    user_id: Option<String>,
+    session_id: Option<String>,
+    user_action: bool,
+}
+
+/// Request body for submitting UI logs
+#[derive(Deserialize)]
+struct UILogsRequest {
+    logs: Vec<UILogEntry>,
+}
+
+/// Response for UI log submission
+#[derive(Serialize)]
+struct UILogsResponse {
+    accepted: usize,
+    message: String,
 }
 
 // ============================================================================
@@ -939,6 +977,7 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         // System logs endpoints
         .route("/logs", get(get_logs))
         .route("/logs/sources", get(get_log_sources))
+        .route("/logs/ui", post(submit_ui_logs))
         .route("/logs/stream", get(stream_logs_ws))
         // Settings endpoints
         .route("/settings", get(get_settings))
@@ -5278,7 +5317,7 @@ async fn get_logs(
 async fn get_log_sources(
     State(_state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<String>>, (StatusCode, Json<ApiError>)> {
-    // Return known log sources
+    // Return known log sources including UI components
     let sources = vec![
         "limiquantix-node".to_string(),
         "kernel".to_string(),
@@ -5287,9 +5326,51 @@ async fn get_log_sources(
         "qemu".to_string(),
         "network".to_string(),
         "storage".to_string(),
+        // UI components
+        "ui-vm".to_string(),
+        "ui-storage".to_string(),
+        "ui-network".to_string(),
+        "ui-host".to_string(),
+        "ui-settings".to_string(),
+        "ui-dashboard".to_string(),
+        "ui-console".to_string(),
+        "ui-auth".to_string(),
+        "ui-logs".to_string(),
+        "ui-updates".to_string(),
+        "ui-hardware".to_string(),
+        "ui-certificates".to_string(),
+        "ui-registration".to_string(),
     ];
     
     Ok(Json(sources))
+}
+
+/// Submit UI logs from the frontend
+async fn submit_ui_logs(
+    State(_state): State<Arc<AppState>>,
+    Json(request): Json<UILogsRequest>,
+) -> Result<Json<UILogsResponse>, (StatusCode, Json<ApiError>)> {
+    let mut accepted = 0;
+    
+    for ui_log in request.logs {
+        // Log each UI action using tracing
+        info!(
+            action = %ui_log.action,
+            component = %ui_log.component,
+            target = %ui_log.target,
+            message = %ui_log.message,
+            correlation_id = ?ui_log.correlation_id,
+            session_id = ?ui_log.session_id,
+            user_id = ?ui_log.user_id,
+            "UI action"
+        );
+        accepted += 1;
+    }
+    
+    Ok(Json(UILogsResponse {
+        accepted,
+        message: "Logs accepted".to_string(),
+    }))
 }
 
 /// Stream logs via WebSocket

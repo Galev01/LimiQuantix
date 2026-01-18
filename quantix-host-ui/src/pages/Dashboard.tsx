@@ -10,11 +10,13 @@ import { Card, CardHeader, Badge, Button, ProgressRing } from '@/components/ui';
 import { useHostInfo, useHostHealth } from '@/hooks/useHost';
 import { useVMs } from '@/hooks/useVMs';
 import { useStoragePools } from '@/hooks/useStorage';
+import { useActionLogger } from '@/hooks/useActionLogger';
 import { ClusterStatusCard } from '@/components/cluster/ClusterStatusCard';
 import { formatBytes, formatUptime, formatPercent } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 export function Dashboard() {
+  const logger = useActionLogger('dashboard');
   const { data: hostInfo } = useHostInfo();
   const { data: health, refetch: refetchHealth, isFetching } = useHostHealth();
   const { data: vms } = useVMs();
@@ -42,7 +44,10 @@ export function Dashboard() {
       <HostHeader
         hostname={hostInfo?.hostname || 'Loading...'}
         status={health?.healthy ? 'online' : 'offline'}
-        onRefresh={() => refetchHealth()}
+        onRefresh={() => {
+          logger.logClick('refresh-dashboard');
+          refetchHealth();
+        }}
         refreshing={isFetching}
       />
 

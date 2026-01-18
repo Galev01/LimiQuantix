@@ -16,13 +16,19 @@ import {
   Copy,
   Check,
   X,
-  Server
+  Server,
+  MousePointer,
+  FileJson,
+  FileText as FileTextIcon,
+  Layers,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { useLogs, useLogStream } from '@/hooks/useLogs';
+import { useActionLogger } from '@/hooks/useActionLogger';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
+import { LogComponentBadge, getComponentStyle, getAllComponentStyles } from '@/components/ui/LogComponentBadge';
 import type { LogEntry } from '@/hooks/useLogs';
 
 type LogLevel = 'all' | 'trace' | 'debug' | 'info' | 'warn' | 'error';
@@ -58,12 +64,15 @@ const levelConfig: Record<string, { icon: React.ReactNode; color: string; bg: st
 };
 
 export function Logs() {
+  const logger = useActionLogger('logs');
   const [levelFilter, setLevelFilter] = useState<LogLevel>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isStreaming, setIsStreaming] = useState(true);
   const [autoScroll, setAutoScroll] = useState(true);
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
+  const [showUserActionsOnly, setShowUserActionsOnly] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
   
   const logsEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
@@ -89,6 +98,7 @@ export function Logs() {
   const filteredLogs = allLogs.filter(log => {
     if (levelFilter !== 'all' && log.level !== levelFilter) return false;
     if (sourceFilter !== 'all' && log.source !== sourceFilter) return false;
+    if (showUserActionsOnly && !log.source?.startsWith('ui-')) return false;
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const matchesMessage = log.message.toLowerCase().includes(query);
@@ -115,15 +125,64 @@ export function Logs() {
   }, []);
   
   // Download logs as JSON
-  const handleDownload = () => {
-    const blob = new Blob([JSON.stringify(filteredLogs, null, 2)], { type: 'application/json' });
+  const handleDownload = (format: 'json' | 'csv' | 'txt') => {
+    logger.logClick('download-logs', { format, count: filteredLogs.length });
+    
+    let content: string;
+    let mimeType: string;
+    let extension: string;
+    
+    if (format === 'json') {
+      content = JSON.stringify(filteredLogs, null, 2);
+      mimeType = 'application/json';
+      extension = 'json';
+    } else if (format === 'csv') {
+      const headers = ['timestamp', 'level', 'source', 'message'];
+      const rows = filteredLogs.map(log => [
+        log.timestamp,
+        log.level,
+        log.source || '',
+        `"${log.message.replace(/"/g, '""')}"`,
+      ]);
+      content = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      mimeType = 'text/csv';
+      extension = 'csv';
+    } else {
+      content = filteredLogs.map(log => 
+        `[${log.timestamp}] [${log.level.toUpperCase()}] [${log.source || '-'}] ${log.message}`
+      ).join('\n');
+      mimeType = 'text/plain';
+      extension = 'txt';
+    }
+    
+    const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `quantix-vdc-logs-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+    a.download = `quantix-vdc-logs-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${extension}`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('Logs downloaded');
+    toast.success(`Logs downloaded as ${extension.toUpperCase()}`);
+  };
+
+  const handleToggleStreaming = () => {
+    logger.logToggle('log-streaming', !isStreaming);
+    setIsStreaming(!isStreaming);
+  };
+
+  const handleLevelFilterChange = (level: LogLevel) => {
+    logger.logFilterChange('log-level', level);
+    setLevelFilter(level);
+  };
+
+  const handleSourceFilterChange = (source: string) => {
+    logger.logFilterChange('log-source', source);
+    setSourceFilter(source);
+  };
+
+  const handleUserActionsToggle = () => {
+    logger.logToggle('user-actions-filter', !showUserActionsOnly);
+    setShowUserActionsOnly(!showUserActionsOnly);
   };
 
   return (
@@ -139,7 +198,15 @@ export function Logs() {
             <span className="text-text-muted">{filteredLogs.length} entries</span>
             {isStreaming && (
               <Badge variant={isConnected ? 'success' : 'warning'} size="sm">
-                {isConnected ? 'Live' : 'Connecting...'}
+                <span className={cn(isConnected && 'animate-pulse')}>
+                  {isConnected ? 'Live' : 'Connecting...'}
+                </span>
+              </Badge>
+            )}
+            {showUserActionsOnly && (
+              <Badge variant="info" size="sm">
+                <MousePointer className="w-3 h-3 mr-1" />
+                User Actions Only
               </Badge>
             )}
           </div>
@@ -148,23 +215,61 @@ export function Logs() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setIsStreaming(!isStreaming)}
+            onClick={() => setShowLegend(!showLegend)}
+            title="Show component legend"
+            logAction
+            logComponent="logs"
+            logTarget="toggle-legend"
+          >
+            <Layers className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleToggleStreaming}
             title={isStreaming ? 'Pause streaming' : 'Resume streaming'}
           >
             {isStreaming ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </Button>
+          <div className="relative group">
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Download logs"
+            >
+              <Download className="w-4 h-4" />
+            </Button>
+            <div className="absolute right-0 top-full mt-1 bg-bg-elevated border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+              <button
+                onClick={() => handleDownload('json')}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover w-full"
+              >
+                <FileJson className="w-4 h-4" />
+                JSON
+              </button>
+              <button
+                onClick={() => handleDownload('csv')}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover w-full"
+              >
+                <FileTextIcon className="w-4 h-4" />
+                CSV
+              </button>
+              <button
+                onClick={() => handleDownload('txt')}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover w-full"
+              >
+                <FileTextIcon className="w-4 h-4" />
+                Plain Text
+              </button>
+            </div>
+          </div>
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleDownload}
-            title="Download logs"
-          >
-            <Download className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => refetch()}
+            onClick={() => {
+              logger.logClick('refresh-logs');
+              refetch();
+            }}
             disabled={isFetching}
             title="Refresh"
           >
@@ -172,6 +277,34 @@ export function Logs() {
           </Button>
         </div>
       </div>
+
+      {/* Legend Panel */}
+      {showLegend && (
+        <div className="mb-4 p-4 bg-bg-surface rounded-lg border border-border">
+          <h3 className="text-sm font-medium text-text-primary mb-3">Component Legend</h3>
+          <div className="flex flex-wrap gap-2">
+            {getAllComponentStyles().slice(0, 16).map(({ key, style }) => (
+              <button
+                key={key}
+                onClick={() => {
+                  setSourceFilter(key);
+                  logger.logFilterChange('log-source-from-legend', key);
+                }}
+                className={cn(
+                  'flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors',
+                  style.bgColor,
+                  style.color,
+                  'hover:opacity-80',
+                  sourceFilter === key && 'ring-2 ring-accent'
+                )}
+              >
+                <style.icon className="w-3 h-3" />
+                {style.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters Bar */}
       <div className="mb-4 p-4 bg-bg-surface rounded-lg border border-border">
@@ -181,7 +314,12 @@ export function Logs() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <input
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (e.target.value) {
+                  logger.logSearch(e.target.value);
+                }
+              }}
               placeholder="Search logs..."
               className="w-full pl-10 pr-10 py-2 bg-bg-base border border-border rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50"
             />
@@ -202,7 +340,7 @@ export function Logs() {
               {LOG_LEVELS.map(level => (
                 <button
                   key={level}
-                  onClick={() => setLevelFilter(level)}
+                  onClick={() => handleLevelFilterChange(level)}
                   className={cn(
                     'px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
                     levelFilter === level
@@ -222,7 +360,7 @@ export function Logs() {
           {/* Source Filter */}
           <select
             value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
+            onChange={(e) => handleSourceFilterChange(e.target.value)}
             className="px-3 py-1.5 bg-bg-base border border-border rounded-md text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/50"
           >
             {sources.map(src => (
@@ -231,6 +369,20 @@ export function Logs() {
               </option>
             ))}
           </select>
+
+          {/* User Actions Toggle */}
+          <button
+            onClick={handleUserActionsToggle}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+              showUserActionsOnly
+                ? 'bg-accent text-white'
+                : 'bg-bg-base text-text-secondary hover:bg-bg-hover'
+            )}
+          >
+            <MousePointer className="w-3.5 h-3.5" />
+            User Actions
+          </button>
         </div>
       </div>
 
@@ -310,6 +462,7 @@ function LogRow({ log, isSelected, onClick }: LogRowProps) {
     minute: '2-digit',
     second: '2-digit',
   });
+  const isUserAction = log.source?.startsWith('ui-');
 
   return (
     <div
@@ -318,7 +471,8 @@ function LogRow({ log, isSelected, onClick }: LogRowProps) {
         'flex items-start gap-2 px-3 py-1.5 border-b border-border/50 cursor-pointer transition-colors',
         'hover:bg-bg-hover/50',
         isSelected && 'bg-accent/10 border-l-2 border-l-accent',
-        config.bg
+        config.bg,
+        isUserAction && 'border-l-2 border-l-teal-400/50'
       )}
     >
       {/* Expand indicator */}
@@ -341,13 +495,18 @@ function LogRow({ log, isSelected, onClick }: LogRowProps) {
         <span className="uppercase text-[10px] font-bold">{log.level}</span>
       </span>
 
-      {/* Source */}
-      <span className="text-accent shrink-0 w-32 truncate" title={log.source}>
-        {log.source || '-'}
-      </span>
+      {/* Source with Component Badge */}
+      <div className="shrink-0 w-36">
+        <LogComponentBadge source={log.source} showLabel size="sm" />
+      </div>
 
       {/* Message */}
       <span className="text-text-primary flex-1 break-all">{log.message}</span>
+
+      {/* User action indicator */}
+      {isUserAction && (
+        <MousePointer className="w-3 h-3 text-teal-400 shrink-0" title="User Action" />
+      )}
 
       {/* Field count indicator */}
       {log.fields && Object.keys(log.fields).length > 0 && (
@@ -375,12 +534,21 @@ function LogDetailsPanel({ log, onClose }: LogDetailsPanelProps) {
   };
 
   const config = levelConfig[log.level] || levelConfig.info;
+  const isUserAction = log.source?.startsWith('ui-');
 
   return (
     <div className="w-96 bg-bg-surface rounded-lg border border-border overflow-hidden flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-elevated">
-        <h3 className="font-semibold text-text-primary">Log Details</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-text-primary">Log Details</h3>
+          {isUserAction && (
+            <Badge variant="info" size="sm">
+              <MousePointer className="w-3 h-3 mr-1" />
+              User Action
+            </Badge>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={handleCopy}>
             {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
@@ -405,7 +573,10 @@ function LogDetailsPanel({ log, onClose }: LogDetailsPanelProps) {
               </span>
             } 
           />
-          <DetailRow label="Source" value={log.source || '-'} />
+          <DetailRow 
+            label="Source" 
+            value={<LogComponentBadge source={log.source} showLabel size="md" />} 
+          />
           <DetailRow label="Message" value={log.message} multiline />
         </div>
 

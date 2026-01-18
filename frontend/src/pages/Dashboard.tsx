@@ -16,6 +16,7 @@ import { NodeCard } from '@/components/dashboard/NodeCard';
 import { VMTable } from '@/components/vm/VMTable';
 import { type VirtualMachine, type Node, type PowerState } from '@/types/models';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useActionLogger } from '@/hooks/useActionLogger';
 import type { ApiVM } from '@/hooks/useVMs';
 import type { ApiNode } from '@/hooks/useNodes';
 
@@ -135,6 +136,8 @@ function apiNodeToDisplay(node: ApiNode): Node {
 }
 
 export function Dashboard() {
+  const logger = useActionLogger('dashboard');
+  
   // Fetch real data from the API
   const { vms, nodes, metrics, isLoading, isConnected, refetch } = useDashboard();
   
@@ -189,7 +192,10 @@ export function Dashboard() {
           
           {/* Refresh Button */}
           <button
-            onClick={() => refetch()}
+            onClick={() => {
+              logger.logClick('refresh-dashboard');
+              refetch();
+            }}
             disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors"
           >

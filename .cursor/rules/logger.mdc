@@ -566,3 +566,252 @@ mod tests {
     }
 }
 ```
+
+---
+
+## UI Action Logging (React/TypeScript)
+
+**MANDATORY**: Every interactive UI element (buttons, forms, toggles, navigation) MUST be logged.
+
+### UI Logger Utility
+
+Use the centralized `uiLogger` utility (`@/lib/uiLogger.ts`):
+
+```typescript
+import { uiLogger } from '@/lib/uiLogger';
+
+// Log a button click
+uiLogger.click('vm', 'start-vm', { vmId: 'vm-123' });
+
+// Log a form submission
+uiLogger.submit('storage', 'create-pool-form', { poolName: 'pool-1' });
+
+// Log navigation
+uiLogger.navigate('dashboard', '/vms', '/vms/vm-123');
+
+// Log errors
+uiLogger.error('vm', 'start-vm', new Error('Failed to start'), { vmId: 'vm-123' });
+
+// Log success
+uiLogger.success('vm', 'start-vm', 'VM started successfully', { vmId: 'vm-123' });
+```
+
+### useActionLogger Hook
+
+Use the `useActionLogger` hook for component-scoped logging:
+
+```typescript
+import { useActionLogger } from '@/hooks/useActionLogger';
+
+function VMList() {
+  const logger = useActionLogger('vm');
+  
+  const handleStart = (vmId: string) => {
+    logger.logClick('start-vm', { vmId });
+    // ... start VM logic
+    logger.logSuccess('start-vm', 'VM started', { vmId });
+  };
+  
+  const handleSearch = (query: string) => {
+    logger.logSearch(query);
+  };
+  
+  return (
+    <Button onClick={() => handleStart('vm-123')}>Start</Button>
+  );
+}
+```
+
+### LoggedButton Component
+
+Use `LoggedButton` for automatic click logging:
+
+```typescript
+import { LoggedButton } from '@/components/ui/Button';
+
+<LoggedButton
+  component="vm"
+  target="start-vm"
+  metadata={{ vmId: 'vm-123' }}
+  onClick={handleStart}
+>
+  Start VM
+</LoggedButton>
+```
+
+Or use the `logAction` props on regular `Button`:
+
+```typescript
+<Button
+  logAction
+  logComponent="vm"
+  logTarget="start-vm"
+  logMetadata={{ vmId: 'vm-123' }}
+  onClick={handleStart}
+>
+  Start VM
+</Button>
+```
+
+### UI Component Categories
+
+Always use these standard component categories:
+
+| Component | Description | Examples |
+|-----------|-------------|----------|
+| `vm` | Virtual machine operations | Start, stop, create, delete VM |
+| `storage` | Storage operations | Create pool, upload ISO, delete volume |
+| `network` | Network operations | Create network, configure firewall |
+| `cluster` | Cluster operations | Join cluster, add host |
+| `admin` | Admin panel operations | User management, roles |
+| `settings` | Settings changes | Theme, preferences |
+| `dashboard` | Dashboard interactions | Refresh, filter |
+| `console` | Console access | Open console, send keys |
+| `auth` | Authentication | Login, logout, password change |
+| `alerts` | Alert management | Acknowledge, dismiss |
+| `monitoring` | Monitoring features | View metrics, set thresholds |
+| `logs` | Log viewer | Filter, search, download |
+| `updates` | Update operations | Check updates, apply update |
+| `host` | Host-specific (QHCI only) | Hardware config, certificates |
+
+### UI Log Entry Structure
+
+Every UI log entry includes:
+
+```typescript
+interface UILogEntry {
+  timestamp: string;           // ISO 8601
+  level: 'trace' | 'debug' | 'info' | 'warn' | 'error';
+  action: string;              // 'button.click', 'form.submit', etc.
+  component: UIComponent;      // 'vm', 'storage', etc.
+  target: string;              // 'start-vm-btn', 'create-pool-form'
+  message: string;             // Human-readable description
+  metadata?: Record<string, unknown>;  // { vmId, poolName, etc. }
+  correlationId?: string;      // Links related actions
+  sessionId: string;           // Browser session
+  userId?: string;             // Logged-in user
+  userAction: true;            // Always true for UI logs
+}
+```
+
+### UI Action Types
+
+Use these standard action types:
+
+| Action | When to Use |
+|--------|-------------|
+| `button.click` | Any button click |
+| `form.submit` | Form submission |
+| `form.change` | Form field change (debounced) |
+| `modal.open` | Modal/dialog opened |
+| `modal.close` | Modal/dialog closed |
+| `navigation` | Page/route change |
+| `tab.switch` | Tab selection |
+| `filter.change` | Filter/sort change |
+| `search` | Search query |
+| `select` | Dropdown/list selection |
+| `toggle` | Toggle switch |
+| `error` | Error occurred |
+| `success` | Operation succeeded |
+| `warning` | Warning shown |
+
+### Correlation IDs
+
+Use correlation IDs to track multi-step operations:
+
+```typescript
+function CreateVMWizard() {
+  const logger = useActionLogger('vm');
+  
+  useEffect(() => {
+    // Generate correlation ID for the entire wizard flow
+    logger.generateCorrelationId();
+  }, []);
+  
+  const handleNext = () => {
+    // All logs in this wizard share the same correlation ID
+    logger.logClick('wizard-next', { step: currentStep });
+  };
+}
+```
+
+### Backend UI Log Endpoints
+
+UI logs are submitted to the backend:
+
+- **QvDC (Go)**: `POST /api/logs/ui`
+- **QHCI (Rust)**: `POST /api/v1/logs/ui`
+
+Logs are buffered and flushed every 5 seconds or when the buffer reaches 100 entries.
+
+### Log Sources in Logs Page
+
+UI logs appear with `ui-` prefix in the Logs page:
+
+- `ui-vm` - VM-related UI actions
+- `ui-storage` - Storage UI actions
+- `ui-network` - Network UI actions
+- etc.
+
+Use the "User Actions" filter button to show only UI logs.
+
+### UI Logging Anti-Patterns
+
+❌ **Don't**: Skip logging for important actions
+```typescript
+// BAD - no logging
+const handleDelete = () => deleteVM(vmId);
+```
+
+❌ **Don't**: Log sensitive data
+```typescript
+// BAD - logs password
+logger.logSubmit('login-form', { username, password });
+```
+
+❌ **Don't**: Use generic targets
+```typescript
+// BAD - not specific enough
+logger.logClick('button', {});
+```
+
+✅ **Do**: Log every important action
+```typescript
+// GOOD
+const handleDelete = () => {
+  logger.logClick('delete-vm', { vmId });
+  deleteVM(vmId);
+};
+```
+
+✅ **Do**: Redact sensitive data
+```typescript
+// GOOD - password not logged
+logger.logSubmit('login-form', { username });
+```
+
+✅ **Do**: Use specific, descriptive targets
+```typescript
+// GOOD
+logger.logClick('delete-vm-confirm', { vmId, vmName });
+```
+
+### Required UI Logging Points
+
+**MUST log these actions:**
+
+1. All button clicks that trigger API calls
+2. Form submissions
+3. Modal open/close
+4. Navigation between pages
+5. Filter/search changes
+6. Toggle/switch changes
+7. Errors shown to user
+8. Success confirmations
+
+**MAY skip logging:**
+
+1. Hover events
+2. Scroll events
+3. Focus/blur (unless significant)
+4. Rapid repeated actions (debounce)

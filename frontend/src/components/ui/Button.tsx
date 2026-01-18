@@ -1,16 +1,48 @@
-import { forwardRef, type ButtonHTMLAttributes } from 'react';
+import { forwardRef, type ButtonHTMLAttributes, type MouseEvent, useCallback } from 'react';
 import { cn } from '@/lib/utils';
+import { logClick, type UIComponent } from '@/lib/uiLogger';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'default';
   size?: 'sm' | 'md' | 'lg';
+  /** Enable logging for this button */
+  logAction?: boolean;
+  /** Component category for logging (required if logAction is true) */
+  logComponent?: UIComponent;
+  /** Target identifier for logging (defaults to button id or 'button') */
+  logTarget?: string;
+  /** Additional metadata to include in the log */
+  logMetadata?: Record<string, unknown>;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', children, ...props }, ref) => {
+  ({ 
+    className, 
+    variant = 'primary', 
+    size = 'md', 
+    children, 
+    onClick,
+    logAction,
+    logComponent,
+    logTarget,
+    logMetadata,
+    id,
+    ...props 
+  }, ref) => {
+    const handleClick = useCallback((e: MouseEvent<HTMLButtonElement>) => {
+      // Log the click if logging is enabled
+      if (logAction && logComponent) {
+        const target = logTarget || id || 'button';
+        logClick(logComponent, target, logMetadata);
+      }
+      // Call the original onClick handler
+      onClick?.(e);
+    }, [onClick, logAction, logComponent, logTarget, logMetadata, id]);
+
     return (
       <button
         ref={ref}
+        id={id}
         className={cn(
           'inline-flex items-center justify-center gap-2 font-medium rounded-lg',
           'transition-all duration-150',
@@ -41,6 +73,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           size === 'lg' && 'px-6 py-3 text-base',
           className,
         )}
+        onClick={handleClick}
         {...props}
       >
         {children}
@@ -50,4 +83,48 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 );
 
 Button.displayName = 'Button';
+
+/**
+ * LoggedButton - A button that automatically logs clicks
+ * 
+ * This is a convenience wrapper around Button that requires logging props.
+ * Use this when you want to ensure logging is always enabled for a button.
+ * 
+ * @example
+ * ```tsx
+ * <LoggedButton
+ *   component="vm"
+ *   target="start-vm"
+ *   metadata={{ vmId: 'vm-123' }}
+ *   onClick={handleStart}
+ * >
+ *   Start VM
+ * </LoggedButton>
+ * ```
+ */
+export interface LoggedButtonProps extends Omit<ButtonProps, 'logAction' | 'logComponent' | 'logTarget' | 'logMetadata'> {
+  /** Component category for logging (required) */
+  component: UIComponent;
+  /** Target identifier for logging (required) */
+  target: string;
+  /** Additional metadata to include in the log */
+  metadata?: Record<string, unknown>;
+}
+
+export const LoggedButton = forwardRef<HTMLButtonElement, LoggedButtonProps>(
+  ({ component, target, metadata, ...props }, ref) => {
+    return (
+      <Button
+        ref={ref}
+        logAction
+        logComponent={component}
+        logTarget={target}
+        logMetadata={metadata}
+        {...props}
+      />
+    );
+  }
+);
+
+LoggedButton.displayName = 'LoggedButton';
 

@@ -19,16 +19,50 @@ import (
 
 // LogEntry represents a single log entry
 type LogEntry struct {
-	Timestamp  string                 `json:"timestamp"`
-	Level      string                 `json:"level"`
-	Message    string                 `json:"message"`
-	Source     string                 `json:"source,omitempty"`
-	Fields     map[string]interface{} `json:"fields,omitempty"`
-	StackTrace string                 `json:"stackTrace,omitempty"`
-	RequestID  string                 `json:"requestId,omitempty"`
-	VMID       string                 `json:"vmId,omitempty"`
-	NodeID     string                 `json:"nodeId,omitempty"`
-	DurationMs int64                  `json:"durationMs,omitempty"`
+	Timestamp     string                 `json:"timestamp"`
+	Level         string                 `json:"level"`
+	Message       string                 `json:"message"`
+	Source        string                 `json:"source,omitempty"`
+	Fields        map[string]interface{} `json:"fields,omitempty"`
+	StackTrace    string                 `json:"stackTrace,omitempty"`
+	RequestID     string                 `json:"requestId,omitempty"`
+	VMID          string                 `json:"vmId,omitempty"`
+	NodeID        string                 `json:"nodeId,omitempty"`
+	DurationMs    int64                  `json:"durationMs,omitempty"`
+	// UI-specific fields
+	Action        string                 `json:"action,omitempty"`
+	Component     string                 `json:"component,omitempty"`
+	Target        string                 `json:"target,omitempty"`
+	CorrelationID string                 `json:"correlationId,omitempty"`
+	UserID        string                 `json:"userId,omitempty"`
+	SessionID     string                 `json:"sessionId,omitempty"`
+	UserAction    bool                   `json:"userAction,omitempty"`
+}
+
+// UILogEntry represents a log entry submitted from the UI
+type UILogEntry struct {
+	Timestamp     string                 `json:"timestamp"`
+	Level         string                 `json:"level"`
+	Action        string                 `json:"action"`
+	Component     string                 `json:"component"`
+	Target        string                 `json:"target"`
+	Message       string                 `json:"message"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	CorrelationID string                 `json:"correlationId,omitempty"`
+	UserID        string                 `json:"userId,omitempty"`
+	SessionID     string                 `json:"sessionId,omitempty"`
+	UserAction    bool                   `json:"userAction"`
+}
+
+// UILogsRequest is the request body for submitting UI logs
+type UILogsRequest struct {
+	Logs []UILogEntry `json:"logs"`
+}
+
+// UILogsResponse is the response for UI log submission
+type UILogsResponse struct {
+	Accepted int    `json:"accepted"`
+	Message  string `json:"message"`
 }
 
 // LogsResponse is the response for the logs endpoint
@@ -92,6 +126,7 @@ func (h *LogsHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/logs", h.handleGetLogs)
 	mux.HandleFunc("/api/logs/sources", h.handleGetSources)
 	mux.HandleFunc("/api/logs/stream", h.handleLogStream)
+	mux.HandleFunc("/api/logs/ui", h.handleSubmitUILogs)
 }
 
 // handleGetLogs handles GET /api/logs
@@ -183,7 +218,7 @@ func (h *LogsHandler) handleGetSources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return known log sources
+	// Return known log sources including UI components
 	sources := []string{
 		"controlplane",
 		"vm-service",
@@ -193,10 +228,83 @@ func (h *LogsHandler) handleGetSources(w http.ResponseWriter, r *http.Request) {
 		"scheduler",
 		"api",
 		"grpc",
+		// UI components
+		"ui-vm",
+		"ui-storage",
+		"ui-network",
+		"ui-cluster",
+		"ui-admin",
+		"ui-settings",
+		"ui-dashboard",
+		"ui-console",
+		"ui-auth",
+		"ui-alerts",
+		"ui-monitoring",
+		"ui-logs",
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(sources)
+}
+
+// handleSubmitUILogs handles POST /api/logs/ui - receives UI action logs from the frontend
+func (h *LogsHandler) handleSubmitUILogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse request body
+	var req UILogsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Warn("Failed to parse UI logs request", zap.Error(err))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	// Process each UI log entry
+	accepted := 0
+	for _, uiLog := range req.Logs {
+		// Convert UI log to standard log entry
+		logEntry := LogEntry{
+			Timestamp:     uiLog.Timestamp,
+			Level:         uiLog.Level,
+			Message:       uiLog.Message,
+			Source:        "ui-" + uiLog.Component, // Prefix with "ui-" for easy filtering
+			Fields:        uiLog.Metadata,
+			Action:        uiLog.Action,
+			Component:     uiLog.Component,
+			Target:        uiLog.Target,
+			CorrelationID: uiLog.CorrelationID,
+			UserID:        uiLog.UserID,
+			SessionID:     uiLog.SessionID,
+			UserAction:    true,
+		}
+
+		// Add to buffer and broadcast
+		h.addLog(logEntry)
+		accepted++
+
+		// Also log to zap for persistence
+		h.logger.Info("UI action",
+			zap.String("action", uiLog.Action),
+			zap.String("component", uiLog.Component),
+			zap.String("target", uiLog.Target),
+			zap.String("message", uiLog.Message),
+			zap.String("correlationId", uiLog.CorrelationID),
+			zap.String("sessionId", uiLog.SessionID),
+			zap.String("userId", uiLog.UserID),
+		)
+	}
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(UILogsResponse{
+		Accepted: accepted,
+		Message:  "Logs accepted",
+	})
 }
 
 // handleLogStream handles WebSocket connections for log streaming

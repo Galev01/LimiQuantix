@@ -12,18 +12,21 @@ import {
 import { Header } from '@/components/layout';
 import { Card, Badge, Button } from '@/components/ui';
 import { useVMs, useVMPowerOps } from '@/hooks/useVMs';
+import { useActionLogger } from '@/hooks/useActionLogger';
 import { formatBytes, formatPercent, cn } from '@/lib/utils';
 import { launchQvMC } from '@/lib/qvmc';
 import { useAppStore } from '@/stores/useAppStore';
 import type { VirtualMachine, PowerState } from '@/api/types';
 
 export function VirtualMachines() {
+  const logger = useActionLogger('vm');
   const { data: vms, isLoading, refetch, isFetching } = useVMs();
   const powerOps = useVMPowerOps();
   const { hostUrl, openVmWizard } = useAppStore();
   const [selectedVm, setSelectedVm] = useState<string | null>(null);
 
   const handlePowerAction = (vm: VirtualMachine, action: 'start' | 'stop' | 'reboot' | 'pause' | 'resume' | 'forceStop') => {
+    logger.logClick(`${action}-vm`, { vmId: vm.vmId, vmName: vm.name });
     switch (action) {
       case 'start':
         powerOps.start.mutate(vm.vmId);
@@ -47,11 +50,22 @@ export function VirtualMachines() {
   };
 
   const handleOpenConsole = (vm: VirtualMachine) => {
+    logger.logClick('open-console', { vmId: vm.vmId, vmName: vm.name });
     launchQvMC({
       hostUrl,
       vmId: vm.vmId,
       vmName: vm.name,
     });
+  };
+
+  const handleRefresh = () => {
+    logger.logClick('refresh-vms');
+    refetch();
+  };
+
+  const handleCreateVM = () => {
+    logger.logClick('create-vm');
+    openVmWizard();
   };
 
   return (
@@ -64,12 +78,12 @@ export function VirtualMachines() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => refetch()}
+              onClick={handleRefresh}
               disabled={isFetching}
             >
               <RefreshCw className={cn('w-4 h-4', isFetching && 'animate-spin')} />
             </Button>
-            <Button size="sm" onClick={openVmWizard}>
+            <Button size="sm" onClick={handleCreateVM}>
               <Plus className="w-4 h-4" />
               Create VM
             </Button>

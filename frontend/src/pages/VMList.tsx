@@ -23,6 +23,7 @@ import { VMStatusBadge } from '@/components/vm/VMStatusBadge';
 import { VMCreationWizard } from '@/components/vm/VMCreationWizard';
 import { useVMs, useStartVM, useStopVM, useDeleteVM, isVMRunning, isVMStopped, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
+import { useActionLogger } from '@/hooks/useActionLogger';
 import { type VirtualMachine, type PowerState } from '@/types/models';
 import { showInfo } from '@/lib/toast';
 import { useConsoleStore, useDefaultConsoleType } from '@/hooks/useConsoleStore';
@@ -76,6 +77,7 @@ function apiToDisplayVM(vm: ApiVM): VirtualMachine {
 
 export function VMList() {
   const navigate = useNavigate();
+  const logger = useActionLogger('vm');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [selectedVMs, setSelectedVMs] = useState<Set<string>>(new Set());
@@ -148,6 +150,7 @@ export function VMList() {
   // Action handlers
   const handleStartVM = async (vmId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
+    logger.logClick('start-vm', { vmId });
     if (!isConnected) {
       showInfo('Not connected to backend');
       return;
@@ -155,6 +158,9 @@ export function VMList() {
     setActionInProgress(vmId);
     try {
       await startVM.mutateAsync(vmId);
+      logger.logSuccess('start-vm', `VM ${vmId} started successfully`, { vmId });
+    } catch (error) {
+      logger.logError('start-vm', error instanceof Error ? error : 'Failed to start VM', { vmId });
     } finally {
       setActionInProgress(null);
     }
@@ -162,6 +168,7 @@ export function VMList() {
 
   const handleStopVM = async (vmId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
+    logger.logClick('stop-vm', { vmId });
     if (!isConnected) {
       showInfo('Not connected to backend');
       return;
@@ -169,6 +176,9 @@ export function VMList() {
     setActionInProgress(vmId);
     try {
       await stopVM.mutateAsync({ id: vmId });
+      logger.logSuccess('stop-vm', `VM ${vmId} stopped successfully`, { vmId });
+    } catch (error) {
+      logger.logError('stop-vm', error instanceof Error ? error : 'Failed to stop VM', { vmId });
     } finally {
       setActionInProgress(null);
     }
@@ -176,6 +186,7 @@ export function VMList() {
 
   const handleDeleteVM = async (vmId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
+    logger.logClick('delete-vm', { vmId });
     if (!confirm('Are you sure you want to delete this VM?')) return;
     if (!isConnected) {
       showInfo('Not connected to backend');
@@ -184,6 +195,9 @@ export function VMList() {
     setActionInProgress(vmId);
     try {
       await deleteVM.mutateAsync({ id: vmId });
+      logger.logSuccess('delete-vm', `VM ${vmId} deleted successfully`, { vmId });
+    } catch (error) {
+      logger.logError('delete-vm', error instanceof Error ? error : 'Failed to delete VM', { vmId });
     } finally {
       setActionInProgress(null);
     }
