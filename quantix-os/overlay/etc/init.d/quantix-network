@@ -9,6 +9,9 @@
 name="Quantix Network"
 description="Auto-configure network interfaces via DHCP"
 
+# PID directory for tracking DHCP clients
+DHCP_PID_DIR="/run/quantix-dhcp"
+
 depend() {
     need localmount
     before quantix-node
@@ -16,58 +19,153 @@ depend() {
     keyword -jail -prefix -vserver -docker -lxc -systemd-nspawn
 }
 
+# Check if interface already has a valid IP
+has_valid_ip() {
+    local iface="$1"
+    ip -4 addr show dev "$iface" scope global 2>/dev/null | grep -q "inet "
+}
+
+# Get current IP of interface
+get_interface_ip() {
+    local iface="$1"
+    ip -4 addr show dev "$iface" scope global 2>/dev/null | grep "inet " | head -1 | awk '{print $2}' | cut -d/ -f1
+}
+
 start() {
     ebegin "Starting $name"
+    
+    # Create PID directory
+    mkdir -p "$DHCP_PID_DIR"
+    
+    # Ensure fallback resolv.conf exists
+    if [ ! -f /etc/resolv.conf ]; then
+        einfo "Creating fallback DNS configuration"
+        cat > /etc/resolv.conf << 'EOF'
+# Quantix-OS fallback DNS
+nameserver 8.8.8.8
+nameserver 1.1.1.1
+EOF
+        chmod 644 /etc/resolv.conf
+    fi
     
     # Bring up loopback
     ip link set lo up 2>/dev/null
     
+    # Track configured interfaces
+    local configured_count=0
+    local skipped_count=0
+    
     # Find and configure all ethernet interfaces
-    for iface in /sys/class/net/*; do
-        iface=$(basename "$iface")
+    for iface_path in /sys/class/net/*; do
+        local iface=$(basename "$iface_path")
         
         # Skip loopback and virtual interfaces
         case "$iface" in
-            lo|bond*|br*|veth*|docker*|virbr*|ovs*)
+            lo|bond*|br*|veth*|docker*|virbr*|ovs*|vnet*|tap*)
                 continue
                 ;;
         esac
         
         # Check if it's a physical interface
-        if [ -d "/sys/class/net/$iface/device" ]; then
-            einfo "Configuring interface: $iface"
-            
-            # Bring up the interface
-            ip link set "$iface" up
-            
-            # Check if it's a wireless interface
-            if [ -d "/sys/class/net/$iface/wireless" ]; then
-                # WiFi interface - check for wpa_supplicant config
-                if [ -f "/etc/wpa_supplicant/wpa_supplicant.conf" ] && command -v wpa_supplicant >/dev/null 2>&1; then
-                    einfo "Starting WiFi on $iface"
-                    wpa_supplicant -B -i "$iface" -c /etc/wpa_supplicant/wpa_supplicant.conf
-                    sleep 2
-                else
-                    ewarn "WiFi interface $iface found but no wpa_supplicant config"
-                fi
+        if [ ! -d "/sys/class/net/$iface/device" ]; then
+            continue
+        fi
+        
+        # Check if interface already has an IP (skip if so)
+        if has_valid_ip "$iface"; then
+            local current_ip=$(get_interface_ip "$iface")
+            einfo "Interface $iface already configured: $current_ip (skipping)"
+            skipped_count=$((skipped_count + 1))
+            continue
+        fi
+        
+        einfo "Configuring interface: $iface"
+        
+        # Bring up the interface
+        ip link set "$iface" up
+        
+        # Check if it's a wireless interface
+        if [ -d "/sys/class/net/$iface/wireless" ]; then
+            # WiFi interface - check for wpa_supplicant config
+            if [ -f "/etc/wpa_supplicant/wpa_supplicant.conf" ] && command -v wpa_supplicant >/dev/null 2>&1; then
+                einfo "Starting WiFi on $iface"
+                wpa_supplicant -B -i "$iface" -c /etc/wpa_supplicant/wpa_supplicant.conf \
+                    -P "$DHCP_PID_DIR/wpa_$iface.pid" 2>/dev/null
+                sleep 2
+            else
+                ewarn "WiFi interface $iface found but no wpa_supplicant config"
+                continue
             fi
-            
-            # Try DHCP
-            if command -v udhcpc >/dev/null 2>&1; then
-                einfo "Running DHCP on $iface"
-                udhcpc -i "$iface" -t 5 -T 3 -A 5 -b -q 2>/dev/null &
-            elif command -v dhclient >/dev/null 2>&1; then
-                dhclient -1 "$iface" 2>/dev/null &
+        fi
+        
+        # Kill any existing udhcpc for this interface
+        if [ -f "$DHCP_PID_DIR/udhcpc_$iface.pid" ]; then
+            local old_pid=$(cat "$DHCP_PID_DIR/udhcpc_$iface.pid" 2>/dev/null)
+            if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+                kill "$old_pid" 2>/dev/null
+                sleep 0.5
             fi
+            rm -f "$DHCP_PID_DIR/udhcpc_$iface.pid"
+        fi
+        
+        # Run DHCP with proper options:
+        # -i: interface
+        # -t 4: max 4 discover attempts
+        # -T 3: 3 second timeout between attempts
+        # -A 10: wait 10 seconds before retrying after failure
+        # -p: write PID file
+        # -S: log to syslog
+        # -b: background after obtaining lease (NOT immediately)
+        # -s: use our custom script
+        if command -v udhcpc >/dev/null 2>&1; then
+            einfo "Running DHCP on $iface"
+            udhcpc -i "$iface" \
+                -t 4 \
+                -T 3 \
+                -A 10 \
+                -p "$DHCP_PID_DIR/udhcpc_$iface.pid" \
+                -S \
+                -s /usr/share/udhcpc/default.script \
+                -b 2>/dev/null &
+            
+            configured_count=$((configured_count + 1))
+        elif command -v dhclient >/dev/null 2>&1; then
+            dhclient -1 -pf "$DHCP_PID_DIR/dhclient_$iface.pid" "$iface" 2>/dev/null &
+            configured_count=$((configured_count + 1))
+        else
+            ewarn "No DHCP client available"
         fi
     done
     
-    # Wait a moment for DHCP
-    sleep 3
+    # Wait for DHCP to complete (max 10 seconds)
+    local wait_count=0
+    while [ $wait_count -lt 10 ]; do
+        # Check if any interface got an IP
+        for iface_path in /sys/class/net/*; do
+            local iface=$(basename "$iface_path")
+            case "$iface" in
+                lo|bond*|br*|veth*|docker*|virbr*|ovs*|vnet*|tap*)
+                    continue
+                    ;;
+            esac
+            if [ -d "/sys/class/net/$iface/device" ] && has_valid_ip "$iface"; then
+                einfo "Network ready on $iface: $(get_interface_ip $iface)"
+                break 2
+            fi
+        done
+        sleep 1
+        wait_count=$((wait_count + 1))
+    done
     
     # Log the result
-    einfo "Network configuration:"
-    ip -4 addr show | grep -E "inet |^[0-9]" | head -20
+    einfo "Network configuration complete:"
+    einfo "  Configured: $configured_count interfaces"
+    einfo "  Skipped: $skipped_count interfaces (already configured)"
+    
+    # Show IP addresses
+    ip -4 addr show scope global 2>/dev/null | grep -E "inet |^[0-9]" | head -10 | while read line; do
+        einfo "  $line"
+    done
     
     eend 0
 }
@@ -75,20 +173,54 @@ start() {
 stop() {
     ebegin "Stopping $name"
     
-    # Kill any DHCP clients
-    killall udhcpc 2>/dev/null
-    killall dhclient 2>/dev/null
-    killall wpa_supplicant 2>/dev/null
+    # Kill all tracked DHCP clients
+    if [ -d "$DHCP_PID_DIR" ]; then
+        for pidfile in "$DHCP_PID_DIR"/*.pid; do
+            [ -f "$pidfile" ] || continue
+            local pid=$(cat "$pidfile" 2>/dev/null)
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                kill "$pid" 2>/dev/null
+            fi
+            rm -f "$pidfile"
+        done
+    fi
+    
+    # Also kill any orphaned udhcpc processes
+    killall udhcpc 2>/dev/null || true
+    killall dhclient 2>/dev/null || true
+    killall wpa_supplicant 2>/dev/null || true
     
     eend 0
 }
 
 status() {
     einfo "Network interfaces:"
-    ip -4 addr show
+    ip -4 addr show scope global 2>/dev/null
     
+    einfo ""
     einfo "Default route:"
-    ip route show default
+    ip route show default 2>/dev/null
+    
+    einfo ""
+    einfo "DNS configuration:"
+    cat /etc/resolv.conf 2>/dev/null || einfo "  (no resolv.conf)"
+    
+    einfo ""
+    einfo "DHCP clients:"
+    if [ -d "$DHCP_PID_DIR" ]; then
+        for pidfile in "$DHCP_PID_DIR"/udhcpc_*.pid; do
+            [ -f "$pidfile" ] || continue
+            local iface=$(basename "$pidfile" | sed 's/udhcpc_//;s/\.pid//')
+            local pid=$(cat "$pidfile" 2>/dev/null)
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                einfo "  $iface: running (PID $pid)"
+            else
+                einfo "  $iface: not running"
+            fi
+        done
+    else
+        einfo "  (no tracked clients)"
+    fi
     
     return 0
 }

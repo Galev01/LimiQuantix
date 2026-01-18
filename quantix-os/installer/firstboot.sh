@@ -124,42 +124,90 @@ mount_storage_pools() {
     log "Mounting installer-configured storage pools..."
     
     POOLS_FSTAB="/quantix/fstab.pools"
-    if [ -f "$POOLS_FSTAB" ]; then
-        log "Found storage pools fstab: $POOLS_FSTAB"
-        
-        # Read each line and mount
-        while IFS= read -r line || [ -n "$line" ]; do
-            # Skip empty lines and comments
-            [ -z "$line" ] && continue
-            echo "$line" | grep -q "^#" && continue
-            
-            # Extract mount point
-            MOUNT_POINT=$(echo "$line" | awk '{print $2}')
-            
-            if [ -n "$MOUNT_POINT" ]; then
-                log "Creating mount point: $MOUNT_POINT"
-                mkdir -p "$MOUNT_POINT"
-                
-                # Try to mount
-                if mount -a -T "$POOLS_FSTAB" 2>/dev/null; then
-                    log "Mounted storage pools from fstab"
-                else
-                    # Fallback: mount individually
-                    log "Fallback: mounting $MOUNT_POINT"
-                    mount $(echo "$line" | awk '{print "UUID="$1}' | sed 's/UUID=UUID=/UUID=/') "$MOUNT_POINT" 2>/dev/null || true
-                fi
-            fi
-        done < "$POOLS_FSTAB"
-        
-        # Append to system fstab if not already there
-        if ! grep -q "# Quantix storage pools" /etc/fstab 2>/dev/null; then
-            echo "" >> /etc/fstab
-            echo "# Quantix storage pools (installer-configured)" >> /etc/fstab
-            cat "$POOLS_FSTAB" >> /etc/fstab
-        fi
+    if [ ! -f "$POOLS_FSTAB" ]; then
+        log "No storage pools fstab found at $POOLS_FSTAB"
+        return 0
     fi
     
-    log "Storage pools mounted"
+    log "Found storage pools fstab: $POOLS_FSTAB"
+    log "Contents:"
+    cat "$POOLS_FSTAB" | while read line; do log "  $line"; done
+    
+    # Append to system fstab first (so mount -a works)
+    if ! grep -q "# Quantix storage pools" /etc/fstab 2>/dev/null; then
+        log "Adding storage pools to /etc/fstab"
+        echo "" >> /etc/fstab
+        echo "# Quantix storage pools (installer-configured)" >> /etc/fstab
+        cat "$POOLS_FSTAB" >> /etc/fstab
+    fi
+    
+    # Parse and mount each pool
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Skip empty lines and comments
+        [ -z "$line" ] && continue
+        echo "$line" | grep -q "^#" && continue
+        
+        # Parse fstab line: UUID=xxx /mount/point fstype options dump pass
+        POOL_UUID=$(echo "$line" | awk '{print $1}')
+        MOUNT_POINT=$(echo "$line" | awk '{print $2}')
+        FS_TYPE=$(echo "$line" | awk '{print $3}')
+        
+        if [ -z "$MOUNT_POINT" ] || [ -z "$POOL_UUID" ]; then
+            log "WARN: Invalid fstab line: $line"
+            continue
+        fi
+        
+        log "Processing pool: $POOL_UUID -> $MOUNT_POINT ($FS_TYPE)"
+        
+        # Create mount point
+        mkdir -p "$MOUNT_POINT"
+        
+        # Check if already mounted
+        if mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
+            log "  Already mounted: $MOUNT_POINT"
+            continue
+        fi
+        
+        # Try to mount
+        log "  Mounting $POOL_UUID to $MOUNT_POINT..."
+        if mount "$MOUNT_POINT" 2>&1; then
+            log "  ✓ Mounted successfully"
+            # Verify size
+            POOL_SIZE=$(df -h "$MOUNT_POINT" 2>/dev/null | tail -1 | awk '{print $2}')
+            log "  Pool size: $POOL_SIZE"
+        else
+            log "  ERROR: Failed to mount $MOUNT_POINT"
+            log "  Trying direct mount with UUID..."
+            
+            # Try direct mount
+            if mount -t "$FS_TYPE" "$POOL_UUID" "$MOUNT_POINT" 2>&1; then
+                log "  ✓ Direct mount succeeded"
+            else
+                log "  ERROR: Direct mount also failed"
+                log "  Available block devices:"
+                blkid 2>/dev/null | while read dev; do log "    $dev"; done
+            fi
+        fi
+    done < "$POOLS_FSTAB"
+    
+    # Verify all mounts
+    log "Verifying storage pool mounts:"
+    while IFS= read -r line || [ -n "$line" ]; do
+        [ -z "$line" ] && continue
+        echo "$line" | grep -q "^#" && continue
+        
+        MOUNT_POINT=$(echo "$line" | awk '{print $2}')
+        if [ -n "$MOUNT_POINT" ]; then
+            if mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
+                SIZE=$(df -h "$MOUNT_POINT" 2>/dev/null | tail -1 | awk '{print $2}')
+                log "  ✓ $MOUNT_POINT mounted ($SIZE)"
+            else
+                log "  ✗ $MOUNT_POINT NOT mounted!"
+            fi
+        fi
+    done < "$POOLS_FSTAB"
+    
+    log "Storage pools processing complete"
 }
 
 # -----------------------------------------------------------------------------

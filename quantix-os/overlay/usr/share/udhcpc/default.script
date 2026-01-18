@@ -1,0 +1,109 @@
+#!/bin/sh
+# =============================================================================
+# Quantix-OS udhcpc Default Script
+# =============================================================================
+# This script is called by udhcpc when DHCP events occur.
+# It configures the network interface and DNS settings.
+# =============================================================================
+
+# Logging function
+log() {
+    logger -t "udhcpc[$interface]" "$1"
+}
+
+# Setup interface with obtained IP
+setup_interface() {
+    log "Configuring $interface with IP $ip/$mask"
+    
+    # Remove any existing IP on this interface
+    ip addr flush dev "$interface" 2>/dev/null
+    
+    # Add the new IP
+    ip addr add "$ip/$mask" dev "$interface"
+    
+    # Bring interface up
+    ip link set "$interface" up
+    
+    # Add default route if gateway provided
+    if [ -n "$router" ]; then
+        log "Setting default gateway: $router"
+        # Remove existing default routes via this interface
+        ip route del default dev "$interface" 2>/dev/null
+        # Add new default route
+        for gw in $router; do
+            ip route add default via "$gw" dev "$interface" metric 100
+            break  # Only use first gateway
+        done
+    fi
+}
+
+# Configure DNS
+setup_dns() {
+    # Create resolv.conf
+    log "Configuring DNS servers"
+    
+    # Start with search domain if provided
+    {
+        if [ -n "$domain" ]; then
+            echo "search $domain"
+        fi
+        
+        # Add DNS servers
+        if [ -n "$dns" ]; then
+            for ns in $dns; do
+                echo "nameserver $ns"
+            done
+        else
+            # Fallback DNS servers if none provided
+            log "No DNS servers from DHCP, using fallback"
+            echo "nameserver 8.8.8.8"
+            echo "nameserver 1.1.1.1"
+        fi
+    } > /etc/resolv.conf
+    
+    chmod 644 /etc/resolv.conf
+    log "DNS configuration complete"
+}
+
+# Deconfig interface (called when lease lost)
+deconfig_interface() {
+    log "Deconfiguring $interface"
+    ip addr flush dev "$interface" 2>/dev/null
+    ip link set "$interface" up
+}
+
+# Main handler
+case "$1" in
+    deconfig)
+        deconfig_interface
+        ;;
+    
+    bound|renew)
+        setup_interface
+        setup_dns
+        
+        # Log success
+        log "DHCP $1: $ip/$mask via $router (lease: ${lease}s)"
+        ;;
+    
+    leasefail|nak)
+        log "DHCP failed: $1"
+        
+        # Ensure we have at least fallback DNS
+        if [ ! -f /etc/resolv.conf ]; then
+            log "Creating fallback resolv.conf"
+            {
+                echo "# Fallback DNS (DHCP failed)"
+                echo "nameserver 8.8.8.8"
+                echo "nameserver 1.1.1.1"
+            } > /etc/resolv.conf
+            chmod 644 /etc/resolv.conf
+        fi
+        ;;
+    
+    *)
+        log "Unknown action: $1"
+        ;;
+esac
+
+exit 0

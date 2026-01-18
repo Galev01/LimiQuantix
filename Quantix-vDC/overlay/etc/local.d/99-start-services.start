@@ -15,6 +15,17 @@ log() {
 
 log "=== Quantix-vDC Service Startup ==="
 
+# Ensure resolv.conf exists (fallback DNS)
+if [ ! -f /etc/resolv.conf ]; then
+    log "Creating fallback DNS configuration"
+    cat > /etc/resolv.conf << 'DNSEOF'
+# Quantix-vDC fallback DNS
+nameserver 8.8.8.8
+nameserver 1.1.1.1
+DNSEOF
+    chmod 644 /etc/resolv.conf
+fi
+
 # Wait for network
 for i in $(seq 1 30); do
     if ip -4 addr show scope global | grep -q "inet"; then
@@ -182,25 +193,54 @@ if [ "$PG_READY" = "0" ]; then
 fi
 
 # =============================================================================
-# Create Database
+# Create Database and Run Migrations
 # =============================================================================
 if [ "$PG_READY" = "1" ]; then
-    # Create limiquantix database (used by control plane)
-    if ! su -s /bin/sh postgres -c "psql -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw limiquantix"; then
-        log "Creating limiquantix database..."
-        su -s /bin/sh postgres -c "createdb limiquantix" >> "$LOG_FILE" 2>&1
+    # Create quantix_vdc database (used by control plane - matches config.yaml)
+    if ! su -s /bin/sh postgres -c "psql -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw quantix_vdc"; then
+        log "Creating quantix_vdc database..."
+        su -s /bin/sh postgres -c "createdb quantix_vdc" >> "$LOG_FILE" 2>&1
         if [ $? -eq 0 ]; then
-            log "Database 'limiquantix' created successfully"
+            log "Database 'quantix_vdc' created successfully"
         else
             log "Database creation failed - trying alternative method..."
-            su -s /bin/sh postgres -c "psql -c 'CREATE DATABASE limiquantix;'" >> "$LOG_FILE" 2>&1 || log "Alternative method also failed"
+            su -s /bin/sh postgres -c "psql -c 'CREATE DATABASE quantix_vdc;'" >> "$LOG_FILE" 2>&1 || log "Alternative method also failed"
         fi
     else
-        log "Database 'limiquantix' already exists"
+        log "Database 'quantix_vdc' already exists"
     fi
     
     # Grant permissions
-    su -s /bin/sh postgres -c "psql -c 'GRANT ALL PRIVILEGES ON DATABASE limiquantix TO postgres;'" >> "$LOG_FILE" 2>&1 || true
+    su -s /bin/sh postgres -c "psql -c 'GRANT ALL PRIVILEGES ON DATABASE quantix_vdc TO postgres;'" >> "$LOG_FILE" 2>&1 || true
+    
+    # Run database migrations
+    MIGRATIONS_DIR="/usr/share/quantix-vdc/migrations"
+    if [ -d "$MIGRATIONS_DIR" ] && [ -n "$(ls -A ${MIGRATIONS_DIR}/*.sql 2>/dev/null)" ]; then
+        log "Running database migrations..."
+        MIGRATION_COUNT=0
+        
+        for migration in $(ls -1 ${MIGRATIONS_DIR}/*.up.sql 2>/dev/null | sort); do
+            MIGRATION_NAME=$(basename "$migration")
+            log "  Applying: $MIGRATION_NAME"
+            
+            if su -s /bin/sh postgres -c "psql -d quantix_vdc -f '$migration'" >> "$LOG_FILE" 2>&1; then
+                MIGRATION_COUNT=$((MIGRATION_COUNT + 1))
+            else
+                log "  Warning: Migration $MIGRATION_NAME may have partially failed (normal for re-runs)"
+            fi
+        done
+        
+        log "Applied $MIGRATION_COUNT migrations"
+        
+        # Grant permissions on all tables
+        su -s /bin/sh postgres -c "psql -d quantix_vdc -c 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres;'" >> "$LOG_FILE" 2>&1 || true
+        su -s /bin/sh postgres -c "psql -d quantix_vdc -c 'GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;'" >> "$LOG_FILE" 2>&1 || true
+    else
+        log "WARNING: No migrations found in $MIGRATIONS_DIR"
+        log "  Database tables may not be created!"
+        log "  Listing migrations directory:"
+        ls -la "$MIGRATIONS_DIR" >> "$LOG_FILE" 2>&1 || log "  Directory does not exist"
+    fi
 fi
 
 # =============================================================================

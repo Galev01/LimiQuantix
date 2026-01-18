@@ -94,6 +94,43 @@ start() {
     mkdir -p /data/vms /data/isos /data/images /data/backups
     chmod 755 /data
 
+    # Mount installer-configured storage pools
+    POOLS_FSTAB="/quantix/fstab.pools"
+    if [ -f "$POOLS_FSTAB" ]; then
+        einfo "Mounting installer-configured storage pools..."
+        
+        # Add to system fstab if not already there
+        if ! grep -q "# Quantix storage pools" /etc/fstab 2>/dev/null; then
+            echo "" >> /etc/fstab
+            echo "# Quantix storage pools (installer-configured)" >> /etc/fstab
+            cat "$POOLS_FSTAB" >> /etc/fstab
+        fi
+        
+        # Mount each pool
+        while IFS= read -r line || [ -n "$line" ]; do
+            [ -z "$line" ] && continue
+            echo "$line" | grep -q "^#" && continue
+            
+            MOUNT_POINT=$(echo "$line" | awk '{print $2}')
+            
+            if [ -n "$MOUNT_POINT" ]; then
+                mkdir -p "$MOUNT_POINT"
+                
+                if ! mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
+                    einfo "  Mounting $MOUNT_POINT..."
+                    if mount "$MOUNT_POINT" 2>/dev/null; then
+                        POOL_SIZE=$(df -h "$MOUNT_POINT" 2>/dev/null | tail -1 | awk '{print $2}')
+                        einfo "  ✓ Mounted ($POOL_SIZE)"
+                    else
+                        ewarn "  Failed to mount $MOUNT_POINT"
+                    fi
+                else
+                    einfo "  $MOUNT_POINT already mounted"
+                fi
+            fi
+        done < "$POOLS_FSTAB"
+    fi
+
     # Initialize libvirt default pool
     if command -v virsh >/dev/null 2>&1; then
         if ! virsh pool-info default >/dev/null 2>&1; then
@@ -101,6 +138,49 @@ start() {
             virsh pool-define-as default dir --target /data/vms 2>/dev/null || true
             virsh pool-autostart default 2>/dev/null || true
             virsh pool-start default 2>/dev/null || true
+        fi
+        
+        # Register installer-configured storage pools with libvirt
+        POOLS_CONFIG="/quantix/limiquantix/storage-pools.yaml"
+        if [ -f "$POOLS_CONFIG" ]; then
+            einfo "Registering installer-configured storage pools with libvirt..."
+            
+            # Simple YAML parsing for pool entries
+            POOL_NAME=""
+            MOUNT_POINT=""
+            
+            while IFS= read -r line || [ -n "$line" ]; do
+                line=$(echo "$line" | sed 's/^[[:space:]]*//')
+                
+                # Extract pool name
+                case "$line" in
+                    "- name:"*|"name:"*)
+                        POOL_NAME=$(echo "$line" | sed 's/.*name:[[:space:]]*//')
+                        ;;
+                    "mount_point:"*)
+                        MOUNT_POINT=$(echo "$line" | sed 's/mount_point:[[:space:]]*//')
+                        
+                        # If we have both name and mount_point, register the pool
+                        if [ -n "$POOL_NAME" ] && [ -n "$MOUNT_POINT" ]; then
+                            if ! virsh pool-info "$POOL_NAME" >/dev/null 2>&1; then
+                                if mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
+                                    einfo "  Registering pool: $POOL_NAME at $MOUNT_POINT"
+                                    virsh pool-define-as "$POOL_NAME" dir --target "$MOUNT_POINT" 2>/dev/null && \
+                                    virsh pool-autostart "$POOL_NAME" 2>/dev/null && \
+                                    virsh pool-start "$POOL_NAME" 2>/dev/null && \
+                                    einfo "  ✓ Pool $POOL_NAME registered"
+                                else
+                                    ewarn "  Skipping $POOL_NAME - mount point not mounted: $MOUNT_POINT"
+                                fi
+                            else
+                                einfo "  Pool $POOL_NAME already exists"
+                            fi
+                            POOL_NAME=""
+                            MOUNT_POINT=""
+                        fi
+                        ;;
+                esac
+            done < "$POOLS_CONFIG"
         fi
     fi
 
