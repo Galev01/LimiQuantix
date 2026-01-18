@@ -774,19 +774,42 @@ case "$TARGET_DISK" in
 esac
 
 # Try multiple times with increasing delays
-for attempt in 1 2 3 4 5; do
+# Server hardware (especially with RAID controllers or many NVMe drives) may need more time
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
     force_partition_nodes "${TARGET_DISK}"
     sleep 1
     
-    # Check if partition 5 exists
+    # Check if partition 5 exists (last partition)
     if [ -b "${TARGET_DISK}${P}5" ]; then
         log_info "All partition devices created successfully (attempt $attempt)"
         break
     fi
     
-    log_warn "Partition devices not yet visible (attempt $attempt/5), waiting..."
-    sleep 2
+    log_warn "Partition devices not yet visible (attempt $attempt/10), waiting..."
+    
+    # Exponential backoff for server hardware
+    if [ "$attempt" -lt 5 ]; then
+        sleep 2
+    else
+        sleep 3
+    fi
 done
+
+# Verify all partitions exist before proceeding
+PARTITIONS_OK=1
+for i in 1 2 3 4 5; do
+    if [ ! -b "${TARGET_DISK}${P}${i}" ]; then
+        PARTITIONS_OK=0
+        log_error "Partition ${TARGET_DISK}${P}${i} not found!"
+    fi
+done
+
+if [ "$PARTITIONS_OK" -eq 0 ]; then
+    log_error "Failed to create all required partitions."
+    log_error "This may be a kernel/hardware issue. Available devices:"
+    ls -la /dev/nvme* /dev/sd* 2>/dev/null || true
+    exit 1
+fi
 
 # Final check - list what's in sysfs vs /dev
 DISK_NAME=$(basename "${TARGET_DISK}")
@@ -995,31 +1018,97 @@ cp "${SQUASHFS_PATH}" "${TARGET_MOUNT}/system/quantix/system.squashfs"
 # Write version file
 echo "${VERSION}" > "${TARGET_MOUNT}/system/quantix/VERSION"
 
-# Extract boot files from squashfs
-    log_info "Extracting boot files..."
+# =============================================================================
+# Extract boot files
+# CRITICAL: The kernel comes from the squashfs, but the initramfs MUST come
+# from the live ISO (not the squashfs). The live ISO's initramfs knows how
+# to mount squashfs + overlay. The squashfs contains the Alpine initramfs
+# which does NOT know how to boot Quantix-OS.
+# =============================================================================
+log_info "Extracting boot files..."
+
+# First, get the kernel from the squashfs
+mkdir -p /tmp/sqmount
+mount -t squashfs "${SQUASHFS_PATH}" /tmp/sqmount
+
+if [ -f /tmp/sqmount/boot/vmlinuz-lts ]; then
+    cp /tmp/sqmount/boot/vmlinuz-lts "${TARGET_MOUNT}/system/boot/vmlinuz"
+    log_info "Copied kernel: vmlinuz-lts"
+elif [ -f /tmp/sqmount/boot/vmlinuz ]; then
+    cp /tmp/sqmount/boot/vmlinuz "${TARGET_MOUNT}/system/boot/vmlinuz"
+    log_info "Copied kernel: vmlinuz"
+else
+    log_error "Kernel not found in system image!"
+    umount /tmp/sqmount 2>/dev/null
+    exit 1
+fi
+
+umount /tmp/sqmount
+rmdir /tmp/sqmount
+
+# Now get the CUSTOM initramfs from the live ISO boot media
+# This is the Quantix-OS initramfs that knows how to mount squashfs + overlay
+log_info "Looking for Quantix-OS initramfs on boot media..."
+INITRAMFS_FOUND=0
+
+# Search in order of preference:
+# 1. /mnt/cdrom/boot/initramfs (boot media still mounted)
+# 2. /mnt/iso/boot/initramfs (alternative mount point)
+# 3. /mnt/toram is RAM copy, doesn't have boot files
+# 4. Fallback: extract from squashfs (will probably fail at boot)
+
+for initramfs_source in \
+    "/mnt/cdrom/boot/initramfs" \
+    "/mnt/iso/boot/initramfs" \
+    "/cdrom/boot/initramfs" \
+    "/boot/initramfs"; do
+    if [ -f "$initramfs_source" ]; then
+        log_info "Found Quantix-OS initramfs at: $initramfs_source"
+        cp "$initramfs_source" "${TARGET_MOUNT}/system/boot/initramfs"
+        INITRAMFS_FOUND=1
+        break
+    fi
+done
+
+# If not found on boot media, warn and try the squashfs (last resort)
+if [ "$INITRAMFS_FOUND" -eq 0 ]; then
+    log_warn "Quantix-OS initramfs not found on boot media!"
+    log_warn "Falling back to squashfs initramfs (may not boot correctly)"
+    
     mkdir -p /tmp/sqmount
     mount -t squashfs "${SQUASHFS_PATH}" /tmp/sqmount
     
-    if [ -f /tmp/sqmount/boot/vmlinuz-lts ]; then
-    cp /tmp/sqmount/boot/vmlinuz-lts "${TARGET_MOUNT}/system/boot/vmlinuz"
-    elif [ -f /tmp/sqmount/boot/vmlinuz ]; then
-    cp /tmp/sqmount/boot/vmlinuz "${TARGET_MOUNT}/system/boot/vmlinuz"
-else
-    log_error "Kernel not found in system image!"
-    exit 1
-    fi
-    
     if [ -f /tmp/sqmount/boot/initramfs-lts ]; then
-    cp /tmp/sqmount/boot/initramfs-lts "${TARGET_MOUNT}/system/boot/initramfs"
+        cp /tmp/sqmount/boot/initramfs-lts "${TARGET_MOUNT}/system/boot/initramfs"
+        log_warn "Using Alpine initramfs-lts (may not boot)"
     elif [ -f /tmp/sqmount/boot/initramfs ]; then
-    cp /tmp/sqmount/boot/initramfs "${TARGET_MOUNT}/system/boot/initramfs"
-else
-    log_error "Initramfs not found in system image!"
-    exit 1
+        cp /tmp/sqmount/boot/initramfs "${TARGET_MOUNT}/system/boot/initramfs"
+        log_warn "Using Alpine initramfs (may not boot)"
+    else
+        log_error "No initramfs found anywhere!"
+        umount /tmp/sqmount 2>/dev/null
+        exit 1
     fi
     
     umount /tmp/sqmount
     rmdir /tmp/sqmount
+fi
+
+# Verify boot files exist
+if [ ! -f "${TARGET_MOUNT}/system/boot/vmlinuz" ]; then
+    log_error "Kernel was not copied correctly!"
+    exit 1
+fi
+if [ ! -f "${TARGET_MOUNT}/system/boot/initramfs" ]; then
+    log_error "Initramfs was not copied correctly!"
+    exit 1
+fi
+
+KERNEL_SIZE=$(ls -lh "${TARGET_MOUNT}/system/boot/vmlinuz" 2>/dev/null | awk '{print $5}')
+INITRAMFS_SIZE=$(ls -lh "${TARGET_MOUNT}/system/boot/initramfs" 2>/dev/null | awk '{print $5}')
+log_info "Boot files installed:"
+log_info "  Kernel:    ${KERNEL_SIZE}"
+log_info "  Initramfs: ${INITRAMFS_SIZE}"
 
 log_info "System image installed"
 
@@ -1118,35 +1207,64 @@ EOF
         esac
         
         # Wipe existing partitions
+        log_info "Wiping existing partitions on $POOL_DISK..."
         dd if=/dev/zero of="$POOL_DISK" bs=512 count=34 2>/dev/null || true
+        sync
+        sleep 1
         
         # Create single partition spanning entire disk
-        parted -s "$POOL_DISK" mklabel gpt
-        parted -s "$POOL_DISK" mkpart "${POOL_NAME}" xfs 1MiB 100%
+        log_info "Creating GPT partition table on $POOL_DISK..."
+        if ! parted -s "$POOL_DISK" mklabel gpt 2>&1; then
+            log_error "Failed to create GPT label on $POOL_DISK - skipping this pool"
+            continue
+        fi
+        
+        # GPT partition names can be longer, but keep it reasonable
+        POOL_PARTNAME=$(echo "$POOL_NAME" | cut -c1-36)
+        if ! parted -s "$POOL_DISK" mkpart "${POOL_PARTNAME}" xfs 1MiB 100% 2>&1; then
+            log_error "Failed to create partition on $POOL_DISK - skipping this pool"
+            continue
+        fi
+        
+        # Sync and wait for kernel to update
+        sync
+        sleep 1
         
         # Wait for partition to appear (force device nodes like main disk)
-        for attempt in 1 2 3 4 5; do
+        POOL_PART="${POOL_DISK}${POOL_P}1"
+        PART_FOUND=0
+        for attempt in 1 2 3 4 5 6 7 8 9 10; do
             force_partition_nodes "$POOL_DISK"
             sleep 1
-            if [ -b "${POOL_DISK}${POOL_P}1" ]; then
+            if [ -b "$POOL_PART" ]; then
+                PART_FOUND=1
                 break
             fi
-            log_warn "Storage pool partition not yet visible (attempt $attempt/5), waiting..."
+            log_warn "Storage pool partition not yet visible (attempt $attempt/10), waiting..."
             sleep 2
         done
-        
-        POOL_PART="${POOL_DISK}${POOL_P}1"
 
-        if [ ! -b "$POOL_PART" ]; then
-            log_error "Storage pool partition not found: $POOL_PART"
+        if [ "$PART_FOUND" -eq 0 ]; then
+            log_error "Storage pool partition not found after 10 attempts: $POOL_PART"
             log_error "Available devices:"
             ls -la "${POOL_DISK}"* 2>/dev/null || true
+            log_error "Skipping this storage pool, continuing with installation..."
             continue
         fi
         
         # Format with XFS (optimal for VM storage)
-        log_info "Formatting $POOL_PART with XFS..."
-        mkfs.xfs -L "$POOL_NAME" -f "$POOL_PART"
+        # XFS labels have a 12-character maximum - truncate if needed
+        POOL_LABEL=$(echo "$POOL_NAME" | cut -c1-12)
+        if [ "$POOL_LABEL" != "$POOL_NAME" ]; then
+            log_warn "Pool name '$POOL_NAME' truncated to '$POOL_LABEL' for XFS label (12 char max)"
+        fi
+        
+        log_info "Formatting $POOL_PART with XFS (label: $POOL_LABEL)..."
+        if ! mkfs.xfs -L "$POOL_LABEL" -f "$POOL_PART"; then
+            log_error "Failed to format storage pool partition: $POOL_PART"
+            log_error "Skipping this storage pool, continuing with installation..."
+            continue
+        fi
         
         # Get UUID for the partition
         POOL_UUID=$(blkid -s UUID -o value "$POOL_PART")

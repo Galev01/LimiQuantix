@@ -1,30 +1,36 @@
 # Workflow State
 
-## Active Task: Quantix-OS Installer GRUB Package Fix
+## Active Task: Quantix-OS Installer Robustness
 
 **Date:** January 18, 2026
 
-### Problem
-Installation completes but system doesn't boot because `grub-install: not found`.
-The live Quantix-OS ISO was missing the `grub` and `grub-efi` packages.
+### Problems Fixed
+1. ~~`grub-install: not found`~~ - Added grub packages
+2. ~~Wrong initramfs~~ - Now copies from live ISO instead of squashfs
+3. ~~XFS label too long~~ - Truncate to 12 chars, better default names
+4. ~~Inconsistent partition detection~~ - Increased retries, better error handling
 
-### Plan
-1. Add `grub` and `grub-efi` to `profiles/quantix/packages.conf`
-2. Improve installer fallback mechanisms for GRUB installation
-3. Add better error messages when GRUB installation fails
+### Changes Made
 
-### Status
-- Step 1: Completed
-- Step 2: Completed
-- Step 3: Completed
+#### 1. GRUB Packages
+- Added `grub` and `grub-efi` to `profiles/quantix/packages.conf`
 
-### Log
-- Added `grub` and `grub-efi` packages to `Quantix-OS/profiles/quantix/packages.conf`
-- Updated installer to check if `grub-install` is available before using it
-- Added extended fallback locations for copying GRUB EFI binary
-- Added `grub-mkimage` fallback if `grub-install` fails
-- Added detailed error messages when BOOTX64.EFI creation fails
-- Added EFI partition content logging for debugging
+#### 2. Initramfs Fix
+- Installer now copies initramfs from `/mnt/cdrom/boot/initramfs` (live ISO)
+- Falls back to squashfs only as last resort (with warning)
+
+#### 3. XFS Label Fix
+- XFS labels have 12-character maximum
+- Pool names are now truncated for XFS label (full name kept for config/mount)
+- TUI generates shorter default names: `SSD-local01` instead of `local-nvme0n1`
+- TUI warns user if name is too long
+
+#### 4. Partition Detection Robustness
+- Increased retry attempts from 5 to 10 for main disk
+- Increased retry attempts from 5 to 10 for storage pools
+- Added exponential backoff for server hardware
+- Added explicit verification of all partitions before proceeding
+- Storage pool failures no longer break the entire installation
 
 ### Next Steps
 Rebuild ISO and test:

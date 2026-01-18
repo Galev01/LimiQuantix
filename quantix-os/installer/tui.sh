@@ -296,7 +296,24 @@ Would you like to configure storage pools now?\n\
         DISK_NAME=$(basename "$disk")
         
         # Suggest a pool name based on disk name
-        DEFAULT_POOL_NAME="local-${DISK_NAME}"
+        # XFS labels have a 12-character maximum, so keep names short
+        # Use abbreviated format: ssd01, nvme01, hdd01, etc.
+        case "$DISK_NAME" in
+            nvme*)
+                # nvme0n1 -> nvme01, nvme1n1 -> nvme11
+                DISK_NUM=$(echo "$DISK_NAME" | sed 's/nvme\([0-9]*\)n\([0-9]*\)/\1\2/')
+                DEFAULT_POOL_NAME="SSD-local${DISK_NUM}"
+                ;;
+            sd*)
+                # sda -> ssd-a, sdb -> ssd-b
+                DISK_LETTER=$(echo "$DISK_NAME" | sed 's/sd//')
+                DEFAULT_POOL_NAME="SSD-${DISK_LETTER}"
+                ;;
+            *)
+                # Fallback: truncate to fit XFS 12-char limit
+                DEFAULT_POOL_NAME=$(echo "pool-${DISK_NAME}" | cut -c1-12)
+                ;;
+        esac
         
         $DIALOG --backtitle "$BACKTITLE" \
             --title "Configure Storage Pool: $disk" \
@@ -314,12 +331,25 @@ Enter a name for this storage pool:\n\
         POOL_NAME=$(cat "$DIALOG_TEMP")
         [ -z "$POOL_NAME" ] && POOL_NAME="$DEFAULT_POOL_NAME"
         
-        # Validate pool name
+        # Validate pool name format
         if ! echo "$POOL_NAME" | grep -qE '^[a-zA-Z][a-zA-Z0-9-]*$'; then
             $DIALOG --backtitle "$BACKTITLE" \
                 --title "Invalid Pool Name" \
                 --msgbox "Pool name must start with a letter and contain\nonly letters, numbers, and hyphens.\n\nUsing default: $DEFAULT_POOL_NAME" 10 55
             POOL_NAME="$DEFAULT_POOL_NAME"
+        fi
+        
+        # Warn if pool name is too long for XFS (12 char max)
+        POOL_NAME_LEN=$(echo -n "$POOL_NAME" | wc -c)
+        if [ "$POOL_NAME_LEN" -gt 12 ]; then
+            TRUNCATED_NAME=$(echo "$POOL_NAME" | cut -c1-12)
+            $DIALOG --backtitle "$BACKTITLE" \
+                --title "Pool Name Too Long" \
+                --yesno "Pool name '$POOL_NAME' is ${POOL_NAME_LEN} characters.\n\nXFS labels have a 12-character maximum.\nThe filesystem label will be truncated to:\n\n  '$TRUNCATED_NAME'\n\nThe full name will be used for the mount point.\n\nContinue?" 14 55
+            
+            if [ $? -ne 0 ]; then
+                continue  # User cancelled, go back to disk selection
+            fi
         fi
         
         # Add to storage pools list (disk:name format)
