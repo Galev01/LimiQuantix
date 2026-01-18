@@ -89,6 +89,8 @@ pub struct NodeDaemonServiceImpl {
     agent_cache: Arc<RwLock<HashMap<String, CachedAgentInfo>>>,
     /// Network ports cache (port_id -> config)
     network_ports: Arc<RwLock<HashMap<String, NetworkPortConfig>>>,
+    /// Trigger for immediate state watcher poll (after mutations)
+    poll_trigger: Arc<RwLock<Option<mpsc::Sender<()>>>>,
 }
 
 impl NodeDaemonServiceImpl {
@@ -126,6 +128,25 @@ impl NodeDaemonServiceImpl {
             agent_manager: Arc::new(RwLock::new(HashMap::new())),
             agent_cache: Arc::new(RwLock::new(HashMap::new())),
             network_ports: Arc::new(RwLock::new(HashMap::new())),
+            poll_trigger: Arc::new(RwLock::new(None)),
+        }
+    }
+    
+    /// Set the poll trigger for immediate state watcher notifications after mutations.
+    pub fn set_poll_trigger(&self, trigger: mpsc::Sender<()>) {
+        // Use block_on for sync context, or tokio::spawn for async
+        let poll_trigger = self.poll_trigger.clone();
+        tokio::spawn(async move {
+            *poll_trigger.write().await = Some(trigger);
+        });
+    }
+    
+    /// Trigger an immediate state watcher poll (call after StartVM, StopVM, CreateVM, DeleteVM).
+    async fn trigger_immediate_poll(&self) {
+        if let Some(trigger) = self.poll_trigger.read().await.as_ref() {
+            if let Err(e) = trigger.send(()).await {
+                debug!(error = %e, "Failed to trigger immediate poll (watcher may not be running)");
+            }
         }
     }
     
@@ -278,8 +299,116 @@ impl NodeDaemonServiceImpl {
             }
         }
         
+        // Detect installer-configured storage pools (from /quantix/limiquantix/storage-pools.yaml)
+        self.detect_installer_pools(&mut registered_paths).await?;
+        
         // Also detect additional mounted filesystems that look like data storage
         self.detect_additional_mounts(&registered_paths).await?;
+        
+        Ok(())
+    }
+    
+    /// Detect installer-configured storage pools from Quantix-OS config
+    async fn detect_installer_pools(&self, registered_paths: &mut Vec<String>) -> anyhow::Result<()> {
+        use tokio::fs;
+        
+        // Installer saves pool config to /quantix/limiquantix/storage-pools.yaml
+        let config_path = "/quantix/limiquantix/storage-pools.yaml";
+        
+        let content = match fs::read_to_string(config_path).await {
+            Ok(c) => c,
+            Err(_) => {
+                tracing::debug!("No installer storage pools config found at {}", config_path);
+                return Ok(());
+            }
+        };
+        
+        tracing::info!("Found installer storage pools config: {}", config_path);
+        
+        // Simple YAML parsing for the storage pool format:
+        // storage_pools:
+        //   - name: SSD-local01
+        //     disk: /dev/nvme1n1
+        //     partition: /dev/nvme1n1p1
+        //     uuid: be0bc548-a45e-4b67-a991-7635f988aff4
+        //     filesystem: xfs
+        //     mount_point: /data/pools/SSD-local01
+        
+        let mut current_pool_name = String::new();
+        let mut current_mount_point = String::new();
+        
+        for line in content.lines() {
+            let trimmed = line.trim();
+            
+            // Parse name field
+            if trimmed.starts_with("- name:") || trimmed.starts_with("name:") {
+                current_pool_name = trimmed
+                    .trim_start_matches("- name:")
+                    .trim_start_matches("name:")
+                    .trim()
+                    .to_string();
+            }
+            
+            // Parse mount_point field
+            if trimmed.starts_with("mount_point:") {
+                current_mount_point = trimmed
+                    .trim_start_matches("mount_point:")
+                    .trim()
+                    .to_string();
+                
+                // If we have both name and mount_point, register the pool
+                if !current_pool_name.is_empty() && !current_mount_point.is_empty() {
+                    // Check if mount point exists and is mounted
+                    if fs::metadata(&current_mount_point).await.is_ok() {
+                        let pool_id = current_pool_name.clone();
+                        
+                        // Check if pool already exists
+                        let pools = self.storage.list_pools().await;
+                        if pools.iter().any(|p| p.pool_id == pool_id || p.mount_path.as_deref() == Some(&current_mount_point)) {
+                            tracing::debug!(pool_id = %pool_id, "Installer pool already registered");
+                            registered_paths.push(current_mount_point.clone());
+                            current_pool_name.clear();
+                            current_mount_point.clear();
+                            continue;
+                        }
+                        
+                        // Get disk usage info
+                        let (total_bytes, available_bytes) = Self::get_mount_usage(&current_mount_point).await;
+                        
+                        tracing::info!(
+                            pool_id = %pool_id,
+                            mount_point = %current_mount_point,
+                            total_gb = total_bytes / (1024 * 1024 * 1024),
+                            available_gb = available_bytes / (1024 * 1024 * 1024),
+                            "Registering installer-configured storage pool"
+                        );
+                        
+                        let config = limiquantix_hypervisor::storage::PoolConfig {
+                            local: Some(limiquantix_hypervisor::storage::LocalConfig {
+                                path: current_mount_point.clone(),
+                            }),
+                            ..Default::default()
+                        };
+                        
+                        if let Err(e) = self.storage.init_pool(&pool_id, limiquantix_hypervisor::storage::PoolType::LocalDir, config).await {
+                            tracing::warn!(pool_id = %pool_id, error = %e, "Failed to register installer pool");
+                        } else {
+                            registered_paths.push(current_mount_point.clone());
+                        }
+                    } else {
+                        tracing::warn!(
+                            pool_id = %current_pool_name,
+                            mount_point = %current_mount_point,
+                            "Installer pool mount point not found - pool may not be mounted"
+                        );
+                    }
+                    
+                    // Reset for next pool
+                    current_pool_name.clear();
+                    current_mount_point.clear();
+                }
+            }
+        }
         
         Ok(())
     }
@@ -717,7 +846,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         Ok(Response::new(NodeInfoResponse {
             node_id: self.node_id.clone(),
             hostname: self.hostname.clone(),
-            management_ip: String::new(), // TODO: Get from config
+            management_ip: self.management_ip.clone(),
             cpu_model: telemetry.cpu.model,
             cpu_cores: telemetry.cpu.logical_cores as u32,
             memory_total_bytes: telemetry.memory.total_bytes,
@@ -1052,6 +1181,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             Ok(created_id) => {
                 info!(vm_id = %created_id, "VM created successfully in libvirt");
                 
+                // Trigger immediate state watcher poll to push update to control plane
+                self.trigger_immediate_poll().await;
+                
                 Ok(Response::new(CreateVmOnNodeResponse {
                     vm_id: created_id,
                     created: true,
@@ -1085,6 +1217,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         self.hypervisor.start_vm(vm_id).await
             .map_err(|e| Status::internal(e.to_string()))?;
         
+        // Trigger immediate state watcher poll to push update to control plane
+        self.trigger_immediate_poll().await;
+        
         info!("VM started");
         Ok(Response::new(()))
     }
@@ -1102,6 +1237,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         self.hypervisor.stop_vm(&req.vm_id, timeout).await
             .map_err(|e| Status::internal(e.to_string()))?;
         
+        // Trigger immediate state watcher poll to push update to control plane
+        self.trigger_immediate_poll().await;
+        
         info!("VM stopped");
         Ok(Response::new(()))
     }
@@ -1116,6 +1254,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         let vm_id = &request.into_inner().vm_id;
         self.hypervisor.force_stop_vm(vm_id).await
             .map_err(|e| Status::internal(e.to_string()))?;
+        
+        // Trigger immediate state watcher poll to push update to control plane
+        self.trigger_immediate_poll().await;
         
         info!("VM force stopped");
         Ok(Response::new(()))
@@ -1186,6 +1327,9 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 warn!(vm_id = %vm_id, error = %e, "Failed to delete VM disk images");
             }
         }
+        
+        // Trigger immediate state watcher poll to push update to control plane
+        self.trigger_immediate_poll().await;
         
         info!("VM deleted");
         Ok(Response::new(()))

@@ -118,6 +118,9 @@ pub struct NodeConfig {
     pub id: Option<String>,
     /// Hostname (auto-detected if not set)
     pub hostname: Option<String>,
+    /// Management IP address (auto-detected if not set)
+    /// Set this manually if auto-detection picks the wrong interface
+    pub management_ip: Option<String>,
     /// Labels for node selection/affinity
     pub labels: HashMap<String, String>,
 }
@@ -127,6 +130,7 @@ impl Default for NodeConfig {
         Self {
             id: None,
             hostname: None,
+            management_ip: None,
             labels: HashMap::new(),
         }
     }
@@ -147,6 +151,12 @@ impl NodeConfig {
                 .map(|h| h.to_string_lossy().to_string())
                 .unwrap_or_else(|_| "unknown".to_string())
         })
+    }
+    
+    /// Get the management IP, returning the configured value if set.
+    /// Returns None if not configured (caller should use auto-detection).
+    pub fn get_management_ip(&self) -> Option<String> {
+        self.management_ip.clone()
     }
 }
 

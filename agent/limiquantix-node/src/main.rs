@@ -28,6 +28,7 @@ mod http_server;
 mod registration;
 mod server;
 mod service;
+mod state_watcher;
 mod tls;
 pub mod update;
 

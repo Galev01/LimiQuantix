@@ -20,6 +20,20 @@ const (
 	VMStateError     VMState = "ERROR"
 	VMStateFailed    VMState = "FAILED"
 	VMStateDeleting  VMState = "DELETING"
+	
+	// State reconciliation states (for deletion scenarios)
+	VMStateLost       VMState = "LOST"       // Managed VM was deleted outside control plane
+	VMStateTerminated VMState = "TERMINATED" // VM was properly deleted, kept for audit
+)
+
+// VMOrigin indicates where the VM came from (for state reconciliation).
+type VMOrigin string
+
+const (
+	VMOriginUnknown        VMOrigin = ""
+	VMOriginControlPlane   VMOrigin = "control-plane"    // Created via QvDC Dashboard/API
+	VMOriginHostDiscovered VMOrigin = "host-discovered"  // Discovered on host during sync
+	VMOriginImported       VMOrigin = "imported"         // Imported from another system
 )
 
 // VirtualMachine represents a virtual machine in the system.
@@ -44,6 +58,21 @@ type VirtualMachine struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	CreatedBy string    `json:"created_by"`
+	
+	// ==========================================================================
+	// State Reconciliation Fields
+	// ==========================================================================
+	
+	// Origin indicates where the VM came from.
+	// - control-plane: Created via QvDC Dashboard/API (managed lifecycle)
+	// - host-discovered: Discovered on a host during state sync (unmanaged)
+	// - imported: Explicitly imported from another system
+	Origin VMOrigin `json:"origin,omitempty" db:"origin"`
+	
+	// IsManaged indicates if QvDC controls this VM's lifecycle.
+	// false = discovered VM that user hasn't "adopted" yet
+	// Only managed VMs will trigger alerts if deleted outside control plane.
+	IsManaged bool `json:"is_managed" db:"is_managed"`
 }
 
 // VMSpec represents the desired configuration of a virtual machine.
@@ -155,6 +184,11 @@ type VMStatus struct {
 	GuestAgent  *GuestAgent   `json:"guest_agent,omitempty"`
 	Console     *ConsoleInfo  `json:"console,omitempty"`
 	Message     string        `json:"message,omitempty"`
+	
+	// State reconciliation fields
+	LastSeen   *time.Time `json:"last_seen,omitempty" db:"last_seen"`     // Last time VM was seen on a host
+	LostReason string     `json:"lost_reason,omitempty" db:"lost_reason"` // Why VM is in LOST state
+	LostAt     *time.Time `json:"lost_at,omitempty" db:"lost_at"`         // When VM was marked as LOST
 }
 
 // ResourceUsage represents current resource consumption.

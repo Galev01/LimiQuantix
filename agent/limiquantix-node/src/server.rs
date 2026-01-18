@@ -15,6 +15,7 @@ use crate::event_store::{init_event_store, emit_event, Event, EventLevel, EventC
 use crate::http_server;
 use crate::registration::{RegistrationClient, detect_management_ip};
 use crate::service::NodeDaemonServiceImpl;
+use crate::state_watcher::StateWatcher;
 use crate::update::UpdateManager;
 
 /// Run the gRPC server.
@@ -131,9 +132,17 @@ pub async fn run(config: Config) -> Result<()> {
     // Create service implementation
     let node_id = config.node.get_id();
     let hostname = config.node.get_hostname();
-    let management_ip = detect_management_ip().unwrap_or_else(|| "127.0.0.1".to_string());
     
-    info!(management_ip = %management_ip, "Detected management IP");
+    // Use configured management IP if set, otherwise auto-detect
+    let management_ip = config.node.get_management_ip()
+        .or_else(|| detect_management_ip())
+        .unwrap_or_else(|| {
+            warn!("Failed to detect management IP, falling back to 127.0.0.1");
+            warn!("Set node.management_ip in config to override");
+            "127.0.0.1".to_string()
+        });
+    
+    info!(management_ip = %management_ip, "Using management IP");
     
     // Clone hypervisor before moving into service (needed for registration)
     let hypervisor_for_registration = hypervisor.clone();
@@ -165,22 +174,40 @@ pub async fn run(config: Config) -> Result<()> {
         // Get storage manager from service for heartbeat reporting
         let storage_for_registration = service.get_storage_manager();
         
+        // Create state watcher for real-time state synchronization
+        let state_watcher = Arc::new(StateWatcher::new(
+            hypervisor_for_registration.clone(),
+            storage_for_registration.clone(),
+            config.control_plane.address.clone(),
+        ));
+        
+        // Give the service a trigger to request immediate state sync after mutations
+        let poll_trigger = state_watcher.get_poll_trigger();
+        service.set_poll_trigger(poll_trigger);
+        
         let registration_client = RegistrationClient::new(
             &config, 
             telemetry.clone(),
             hypervisor_for_registration,
             storage_for_registration,
+            state_watcher.clone(),
         );
         
         info!(
             control_plane = %config.control_plane.address,
             heartbeat_interval_secs = config.control_plane.heartbeat_interval_secs,
-            "Starting control plane registration"
+            "Starting control plane registration with state watcher"
         );
         
         // Spawn registration task in background
         tokio::spawn(async move {
             registration_client.run().await;
+        });
+        
+        // Spawn state watcher in background (starts after registration completes)
+        let state_watcher_for_loop = state_watcher.clone();
+        tokio::spawn(async move {
+            state_watcher_for_loop.run().await;
         });
     } else {
         info!("Control plane registration disabled");

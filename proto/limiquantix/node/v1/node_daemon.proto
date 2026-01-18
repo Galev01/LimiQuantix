@@ -736,6 +736,8 @@ message StoragePoolConfig {
 
 message LocalDirPoolConfig {
   string path = 1;
+  // Optional capacity limit in GiB (0 = unlimited, uses filesystem capacity)
+  optional uint64 capacity_gib = 2;
 }
 
 message NfsPoolConfig {

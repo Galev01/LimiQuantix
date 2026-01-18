@@ -46,6 +46,30 @@ message VirtualMachine {
 
   // Optional: Folder ID for hierarchical organization (like vSphere folders)
   string folder_id = 12;
+  
+  // ==========================================================================
+  // State Reconciliation Fields
+  // ==========================================================================
+  
+  // Origin indicates where the VM came from.
+  // Values: "control-plane", "host-discovered", "imported"
+  // - control-plane: Created via QvDC Dashboard/API (managed lifecycle)
+  // - host-discovered: Discovered on a host during state sync (unmanaged)
+  // - imported: Explicitly imported from another system
+  VMOrigin origin = 13;
+  
+  // IsManaged indicates if QvDC controls this VM's lifecycle.
+  // false = discovered VM that user hasn't "adopted" yet
+  // Only managed VMs will trigger alerts if deleted outside control plane.
+  bool is_managed = 14;
+}
+
+// VMOrigin - Where the VM came from (for state reconciliation)
+enum VMOrigin {
+  VM_ORIGIN_UNKNOWN = 0;
+  VM_ORIGIN_CONTROL_PLANE = 1;    // Created via QvDC Dashboard/API
+  VM_ORIGIN_HOST_DISCOVERED = 2;  // Discovered on host during sync
+  VM_ORIGIN_IMPORTED = 3;         // Imported from another system
 }
 
 // =============================================================================
@@ -691,6 +715,10 @@ message VmStatus {
     CRASHED = 5;
     MIGRATING = 6;   // Live Migration in progress
     PROVISIONING = 7; // Being created
+    
+    // State reconciliation states (for deletion scenarios)
+    LOST = 8;        // Managed VM was deleted outside control plane (unexpected)
+    TERMINATED = 9;  // VM was properly deleted, kept for audit trail
   }
   PowerState state = 1;
 
@@ -720,6 +748,12 @@ message VmStatus {
 
   // Last state change timestamp
   google.protobuf.Timestamp state_changed_at = 10;
+  
+  // Last seen timestamp (for LOST detection)
+  google.protobuf.Timestamp last_seen_at = 11;
+  
+  // Reason why VM is in LOST state (e.g., "Deleted outside control plane")
+  string lost_reason = 12;
 }
 
 message ResourceUsage {

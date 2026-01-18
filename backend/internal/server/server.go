@@ -442,6 +442,14 @@ func (s *Server) registerRoutes() {
 		folderPath, folderHandler := computev1connect.NewFolderServiceHandler(s.folderService)
 		s.mux.Handle(folderPath, folderHandler)
 		s.logger.Info("Registered Folder service", zap.String("path", folderPath))
+	} else {
+		// Register a fallback handler that returns a helpful error message
+		s.mux.HandleFunc("/limiquantix.compute.v1.FolderService/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprintf(w, `{"code":"unavailable","message":"Folder service requires PostgreSQL - database not configured"}`)
+		})
+		s.logger.Warn("Folder service not available - PostgreSQL required for folder management")
 	}
 
 	// =========================================================================
@@ -503,9 +511,24 @@ func (s *Server) registerRoutes() {
 	// =========================================================================
 	// Cluster REST API
 	// =========================================================================
-	clusterHandler := NewClusterHandler(s.clusterService, s.logger)
-	clusterHandler.RegisterRoutes(s.mux)
-	s.logger.Info("Registered Cluster API routes", zap.String("path", "/api/clusters"))
+	if s.clusterRepo != nil {
+		clusterHandler := NewClusterHandler(s.clusterService, s.logger)
+		clusterHandler.RegisterRoutes(s.mux)
+		s.logger.Info("Registered Cluster API routes", zap.String("path", "/api/clusters"))
+	} else {
+		// Register a handler that returns a helpful error message
+		s.mux.HandleFunc("/api/clusters", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprintf(w, `{"error":"Cluster management requires PostgreSQL - database not configured","clusters":[],"total":0}`)
+		})
+		s.mux.HandleFunc("/api/clusters/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprintf(w, `{"error":"Cluster management requires PostgreSQL - database not configured"}`)
+		})
+		s.logger.Warn("Cluster API routes registered with fallback handler - PostgreSQL required for full functionality")
+	}
 
 	// =========================================================================
 	// Image Upload REST API (for ISO uploads with progress)

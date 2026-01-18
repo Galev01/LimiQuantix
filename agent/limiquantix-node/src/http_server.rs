@@ -438,7 +438,7 @@ struct CreateStoragePoolRequest {
     path: Option<String>,
     nfs_server: Option<String>,
     nfs_export: Option<String>,
-    #[allow(dead_code)] // Reserved for capacity-limited pools
+    /// Optional capacity limit in GiB for local directory pools (None = use filesystem capacity)
     capacity_gib: Option<u64>,
 }
 
@@ -1293,9 +1293,9 @@ async fn get_host_info(
             Ok(Json(HostInfo {
                 node_id: state.service.get_node_id().to_string(),
                 hostname: telemetry.system.hostname.clone(),
-                management_ip: local_ip_address::local_ip()
-                    .map(|ip| ip.to_string())
-                    .unwrap_or_else(|_| "127.0.0.1".to_string()),
+                // Use the properly detected management IP from the service
+                // This uses detect_management_ip() which prioritizes physical interfaces
+                management_ip: state.service.get_management_ip(),
                 cpu_model: telemetry.cpu.model.clone(),
                 cpu_cores: telemetry.cpu.logical_cores as u32,
                 memory_total_bytes: telemetry.memory.total_bytes,
@@ -2869,8 +2869,7 @@ async fn create_storage_pool(
         StoragePoolType::LocalDir => Some(StoragePoolConfig {
             local: Some(LocalDirPoolConfig {
                 path: request.path.unwrap_or_else(|| format!("/var/lib/limiquantix/pools/{}", request.pool_id)),
-                // TODO: Add capacity_gib to Proto definition to support limit enforcement
-                // capacity_gib: request.capacity_gib, 
+                capacity_gib: request.capacity_gib,
             }),
             nfs: None,
             ceph: None,
@@ -3568,6 +3567,7 @@ async fn initialize_local_device(
             config: Some(StoragePoolConfig {
                 local: Some(LocalDirPoolConfig {
                     path: mount_point.clone(),
+                    capacity_gib: None, // Use full disk capacity
                 }),
                 nfs: None,
                 ceph: None,

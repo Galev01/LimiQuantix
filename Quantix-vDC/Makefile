@@ -86,6 +86,16 @@ iso: version-bump docker-builder backend frontend scripts-executable
 	@sed -i 's/\r$$//' $(OUTPUT_DIR)/installer-scripts/*.sh 2>/dev/null || true
 	@echo "Installer scripts in output:"
 	@ls -la $(OUTPUT_DIR)/installer-scripts/
+	@# Copy database migrations to output directory (Docker volume workaround)
+	@mkdir -p $(OUTPUT_DIR)/migrations
+	@echo "Copying database migrations..."
+	@if [ -d "$(PROJECT_ROOT)/backend/migrations" ]; then \
+		cp -v $(PROJECT_ROOT)/backend/migrations/*.up.sql $(OUTPUT_DIR)/migrations/ 2>/dev/null || echo "No .up.sql files found"; \
+		echo "Migrations copied:"; \
+		ls -la $(OUTPUT_DIR)/migrations/; \
+	else \
+		echo "⚠️  WARNING: Migrations directory not found at $(PROJECT_ROOT)/backend/migrations"; \
+	fi
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
 		-v "$(OUTPUT_DIR):/output" \
@@ -109,6 +119,16 @@ iso-no-bump: docker-builder backend frontend scripts-executable
 	@sed -i 's/\r$$//' $(OUTPUT_DIR)/installer-scripts/*.sh 2>/dev/null || true
 	@echo "Installer scripts in output:"
 	@ls -la $(OUTPUT_DIR)/installer-scripts/
+	@# Copy database migrations to output directory (Docker volume workaround)
+	@mkdir -p $(OUTPUT_DIR)/migrations
+	@echo "Copying database migrations..."
+	@if [ -d "$(PROJECT_ROOT)/backend/migrations" ]; then \
+		cp -v $(PROJECT_ROOT)/backend/migrations/*.up.sql $(OUTPUT_DIR)/migrations/ 2>/dev/null || echo "No .up.sql files found"; \
+		echo "Migrations copied:"; \
+		ls -la $(OUTPUT_DIR)/migrations/; \
+	else \
+		echo "⚠️  WARNING: Migrations directory not found at $(PROJECT_ROOT)/backend/migrations"; \
+	fi
 	docker run --rm --privileged \
 		-v "$(BUILD_DIR):/work" \
 		-v "$(OUTPUT_DIR):/output" \

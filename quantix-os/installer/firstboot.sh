@@ -24,6 +24,43 @@ fi
 log "Starting Quantix-OS first boot configuration..."
 
 # -----------------------------------------------------------------------------
+# Apply hostname from installer configuration
+# -----------------------------------------------------------------------------
+apply_hostname() {
+    log "Applying hostname configuration..."
+    
+    # Check for installer-configured hostname
+    HOSTNAME_FILE="/quantix/hostname"
+    
+    if [ -f "$HOSTNAME_FILE" ]; then
+        NEW_HOSTNAME=$(cat "$HOSTNAME_FILE" | tr -d '[:space:]')
+        
+        if [ -n "$NEW_HOSTNAME" ]; then
+            log "Setting hostname to: $NEW_HOSTNAME"
+            
+            # Set the running hostname
+            hostname "$NEW_HOSTNAME"
+            
+            # Persist to /etc/hostname
+            echo "$NEW_HOSTNAME" > /etc/hostname
+            
+            # Update /etc/hosts
+            if grep -q "127.0.1.1" /etc/hosts; then
+                sed -i "s/127.0.1.1.*/127.0.1.1\t$NEW_HOSTNAME/" /etc/hosts
+            else
+                echo "127.0.1.1	$NEW_HOSTNAME" >> /etc/hosts
+            fi
+            
+            log "Hostname set to: $NEW_HOSTNAME"
+        else
+            log "Hostname file is empty, keeping default"
+        fi
+    else
+        log "No installer hostname config found at $HOSTNAME_FILE"
+    fi
+}
+
+# -----------------------------------------------------------------------------
 # Generate SSH host keys
 # -----------------------------------------------------------------------------
 generate_ssh_keys() {
@@ -57,16 +94,21 @@ generate_tls_certs() {
         # Generate private key
         openssl genrsa -out "$CERT_DIR/server.key" 4096
         
-        # Get hostname
-        HOSTNAME=$(hostname)
+        # Get hostname - prefer installer config, fallback to system hostname
+        if [ -f "/quantix/hostname" ]; then
+            CERT_HOSTNAME=$(cat /quantix/hostname | tr -d '[:space:]')
+        fi
+        [ -z "$CERT_HOSTNAME" ] && CERT_HOSTNAME=$(hostname)
+        
+        log "Generating TLS certificate for hostname: $CERT_HOSTNAME"
         
         # Generate self-signed certificate
         openssl req -new -x509 \
             -key "$CERT_DIR/server.key" \
             -out "$CERT_DIR/server.crt" \
             -days 3650 \
-            -subj "/CN=${HOSTNAME}/O=Quantix-KVM/OU=Hypervisor" \
-            -addext "subjectAltName=DNS:${HOSTNAME},DNS:localhost,IP:127.0.0.1"
+            -subj "/CN=${CERT_HOSTNAME}/O=Quantix-KVM/OU=Hypervisor" \
+            -addext "subjectAltName=DNS:${CERT_HOSTNAME},DNS:localhost,IP:127.0.0.1"
         
         chmod 600 "$CERT_DIR/server.key"
         chmod 644 "$CERT_DIR/server.crt"
@@ -243,17 +285,31 @@ init_ovs() {
 create_default_config() {
     log "Creating default configuration..."
     
-    # Create node.yaml if not exists
+    # Get hostname - prefer installer config, fallback to system hostname
+    if [ -f "/quantix/hostname" ]; then
+        CONFIG_HOSTNAME=$(cat /quantix/hostname | tr -d '[:space:]')
+    fi
+    [ -z "$CONFIG_HOSTNAME" ] && CONFIG_HOSTNAME=$(hostname)
+    
+    # Check if installer already created node.yaml in limiquantix/
+    INSTALLER_CONFIG="/quantix/limiquantix/node.yaml"
+    
+    # Create node.yaml if not exists (don't overwrite installer config)
     if [ ! -f /quantix/node.yaml ]; then
-        cat > /quantix/node.yaml << EOF
+        if [ -f "$INSTALLER_CONFIG" ]; then
+            log "Using installer-created node config: $INSTALLER_CONFIG"
+            cp "$INSTALLER_CONFIG" /quantix/node.yaml
+        else
+            log "Creating new node.yaml with hostname: $CONFIG_HOSTNAME"
+            cat > /quantix/node.yaml << EOF
 # Quantix-OS Node Configuration
 # Generated on first boot: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 node:
   # Node identifier (generated on first boot)
   id: "$(cat /proc/sys/kernel/random/uuid)"
-  # Hostname (set via console wizard)
-  hostname: "$(hostname)"
+  # Hostname (from installer or system)
+  hostname: "${CONFIG_HOSTNAME}"
 
 # Network configuration
 network:
@@ -269,6 +325,7 @@ cluster:
   control_plane_address: ""
   registration_token: ""
 EOF
+        fi
         chmod 600 /quantix/node.yaml
     fi
     
@@ -284,6 +341,7 @@ main() {
     log "Quantix-OS First Boot Configuration"
     log "============================================"
     
+    apply_hostname       # Set hostname from installer config FIRST
     generate_ssh_keys
     generate_tls_certs
     mount_storage_pools  # Mount installer-configured pools first

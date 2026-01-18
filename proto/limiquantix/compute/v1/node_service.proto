@@ -75,7 +75,30 @@ service NodeService {
   
   // SyncNodeVMs reports VMs running on a node to the control plane.
   // Called by the Node Daemon after registration to reconcile state.
+  // DEPRECATED: Use SyncFullState instead for complete state reconciliation.
   rpc SyncNodeVMs(SyncNodeVMsRequest) returns (SyncNodeVMsResponse);
+  
+  // ==========================================================================
+  // State Reconciliation (Agent-Push Model)
+  // ==========================================================================
+  
+  // SyncFullState performs a complete state synchronization between the node and control plane.
+  // Called on:
+  //   - Startup (after registration)
+  //   - Reconnect (after network failure)
+  //   - Control plane request (anti-entropy drift detection)
+  // This replaces SyncNodeVMs with a more comprehensive approach.
+  rpc SyncFullState(SyncFullStateRequest) returns (SyncFullStateResponse);
+  
+  // NotifyVMChange sends a real-time notification when a VM state changes.
+  // Called by the State Watcher when it detects a VM was created, updated, or deleted.
+  // CRITICAL: The control plane must check if the VM exists before deciding
+  // whether this is a "new discovery" or an update to an existing VM.
+  rpc NotifyVMChange(VMChangeNotification) returns (VMChangeAck);
+  
+  // NotifyStorageChange sends a real-time notification when storage state changes.
+  // Called by the State Watcher when a storage pool is added, modified, or removed.
+  rpc NotifyStorageChange(StorageChangeNotification) returns (StorageChangeAck);
   
   // ==========================================================================
   // Monitoring
@@ -298,6 +321,12 @@ message UpdateHeartbeatRequest {
   
   // Storage pool status reports (host is source of truth)
   repeated StoragePoolStatusReport storage_pools = 11;
+  
+  // State hash for anti-entropy drift detection.
+  // SHA256 hash (first 16 hex chars) of current state: "{vm_id}:{state}:{change_count}\n" for each VM.
+  // Used by control plane to detect if agent and CP are in sync.
+  // If hashes don't match, control plane will request a full sync via response.
+  string state_hash = 12;
 }
 
 // StoragePoolStatusReport - Host reports actual state of mounted storage pools
@@ -347,6 +376,10 @@ message UpdateHeartbeatResponse {
   // Storage pools that should be mounted on this host (desired state from QvDC)
   // Host should mount any pools in this list that are not yet mounted
   repeated string assigned_pool_ids = 4;
+  
+  // If true, control plane detected state drift (hash mismatch).
+  // Agent should perform a full state sync via SyncFullState RPC.
+  bool request_full_sync = 5;
 }
 
 // Metrics
@@ -470,6 +503,178 @@ message SyncNodeVMsResponse {
   
   // Any errors encountered
   repeated string errors = 3;
+}
+
+// =============================================================================
+// STATE RECONCILIATION MESSAGES
+// =============================================================================
+
+// SyncFullState - Complete state synchronization from node to control plane
+
+message SyncFullStateRequest {
+  // Node ID (assigned by control plane during registration)
+  string node_id = 1;
+  
+  // Host information update
+  HostInfo host_info = 2;
+  
+  // All VMs currently on this node (STATUS only, not Spec)
+  repeated VMStatusReport vms = 3;
+  
+  // All storage pools currently mounted on this node
+  repeated StoragePoolStatusReport storage_pools = 4;
+  
+  // State hash of this sync (for verification)
+  string state_hash = 5;
+}
+
+// HostInfo - Basic host information for sync
+message HostInfo {
+  string hostname = 1;
+  string management_ip = 2;
+  uint64 memory_total_bytes = 3;
+  uint64 memory_available_bytes = 4;
+  uint32 cpu_cores = 5;
+  double cpu_usage_percent = 6;
+}
+
+// VMStatusReport - VM status as reported by the agent
+// CRITICAL: This contains STATUS only, never Spec. Agent does not dictate desired state.
+message VMStatusReport {
+  // VM UUID (from libvirt)
+  string id = 1;
+  
+  // VM name (display name from libvirt)
+  string name = 2;
+  
+  // Current power state
+  VMPowerState state = 3;
+  
+  // State change counter (increments on each state change, used for hash calculation)
+  uint64 state_change_count = 4;
+  
+  // Runtime metrics (optional, for real-time monitoring)
+  double cpu_usage_percent = 5;
+  uint64 memory_used_bytes = 6;
+  
+  // IP addresses reported by guest agent (if available)
+  repeated string ip_addresses = 7;
+  
+  // Last state change timestamp (unix seconds)
+  int64 state_changed_at_unix = 8;
+}
+
+// VMPowerState - Power states for VM status reporting
+enum VMPowerState {
+  VM_POWER_STATE_UNKNOWN = 0;
+  VM_POWER_STATE_RUNNING = 1;
+  VM_POWER_STATE_STOPPED = 2;
+  VM_POWER_STATE_PAUSED = 3;
+  VM_POWER_STATE_SUSPENDED = 4;
+  VM_POWER_STATE_CRASHED = 5;
+  VM_POWER_STATE_MIGRATING = 6;
+  VM_POWER_STATE_SHUTOFF = 7;
+}
+
+message SyncFullStateResponse {
+  // Sync acknowledged
+  bool acknowledged = 1;
+  
+  // Number of VMs reconciled
+  int32 vms_reconciled = 2;
+  
+  // Number of new VMs discovered (not in control plane DB)
+  int32 vms_discovered = 3;
+  
+  // Number of VMs marked as lost (in DB but not on node)
+  int32 vms_lost = 4;
+  
+  // Number of storage pools reconciled
+  int32 pools_reconciled = 5;
+  
+  // Any sync conflicts or errors
+  repeated SyncConflict conflicts = 6;
+}
+
+// SyncConflict - Reports a conflict during sync
+message SyncConflict {
+  string resource_type = 1;  // "vm" or "storage_pool"
+  string resource_id = 2;
+  string conflict_type = 3;  // "missing_on_node", "missing_in_db", "state_mismatch"
+  string message = 4;
+}
+
+// VMChangeNotification - Real-time VM change notification
+
+message VMChangeNotification {
+  // Node ID reporting the change
+  string node_id = 1;
+  
+  // The VM that changed
+  VMStatusReport vm = 2;
+  
+  // Type of change
+  VMChangeEventType event_type = 3;
+  
+  // Timestamp of the change (unix seconds)
+  int64 timestamp_unix = 4;
+  
+  // Previous state (for UPDATED events)
+  VMPowerState previous_state = 5;
+}
+
+// VMChangeEventType - Types of VM change events
+enum VMChangeEventType {
+  VM_CHANGE_UNKNOWN = 0;
+  VM_CHANGE_CREATED = 1;   // New VM appeared on node
+  VM_CHANGE_UPDATED = 2;   // VM state changed (e.g., started, stopped)
+  VM_CHANGE_DELETED = 3;   // VM was removed from node
+}
+
+message VMChangeAck {
+  // Acknowledged
+  bool acknowledged = 1;
+  
+  // Action taken by control plane
+  string action = 2;  // "created", "status_updated", "ignored", "marked_lost"
+  
+  // Error message if any
+  string error = 3;
+}
+
+// StorageChangeNotification - Real-time storage change notification
+
+message StorageChangeNotification {
+  // Node ID reporting the change
+  string node_id = 1;
+  
+  // The storage pool that changed
+  StoragePoolStatusReport pool = 2;
+  
+  // Type of change
+  StorageChangeEventType event_type = 3;
+  
+  // Timestamp of the change (unix seconds)
+  int64 timestamp_unix = 4;
+}
+
+// StorageChangeEventType - Types of storage change events
+enum StorageChangeEventType {
+  STORAGE_CHANGE_UNKNOWN = 0;
+  STORAGE_CHANGE_MOUNTED = 1;    // Pool was mounted
+  STORAGE_CHANGE_UNMOUNTED = 2;  // Pool was unmounted
+  STORAGE_CHANGE_UPDATED = 3;    // Pool capacity/health changed
+}
+
+message StorageChangeAck {
+  // Acknowledged
+  bool acknowledged = 1;
+  
+  // Action taken by control plane
+  string action = 2;
+  
+  // Error message if any
+  string error = 3;
 }
 
 // =============================================================================

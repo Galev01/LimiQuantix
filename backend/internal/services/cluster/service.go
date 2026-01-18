@@ -71,6 +71,11 @@ func (s *Service) Create(ctx context.Context, req *CreateClusterRequest) (*domai
 		zap.Bool("drs_enabled", req.DRSEnabled),
 	)
 
+	// Guard against nil repository (PostgreSQL not configured)
+	if s.clusterRepo == nil {
+		return nil, fmt.Errorf("cluster management requires PostgreSQL - database not configured")
+	}
+
 	// Validate name
 	if req.Name == "" {
 		return nil, fmt.Errorf("cluster name is required")
@@ -160,6 +165,11 @@ func (s *Service) Create(ctx context.Context, req *CreateClusterRequest) (*domai
 
 // Get retrieves a cluster by ID with computed statistics.
 func (s *Service) Get(ctx context.Context, id string) (*domain.ClusterWithStats, error) {
+	// Guard against nil repository (PostgreSQL not configured)
+	if s.clusterRepo == nil {
+		return nil, fmt.Errorf("cluster management requires PostgreSQL - database not configured")
+	}
+
 	cluster, err := s.clusterRepo.Get(id)
 	if err != nil {
 		return nil, err
@@ -189,6 +199,12 @@ func (s *Service) Get(ctx context.Context, id string) (*domain.ClusterWithStats,
 
 // List returns all clusters with statistics.
 func (s *Service) List(ctx context.Context, projectID string) ([]*domain.ClusterWithStats, error) {
+	// Guard against nil repository (PostgreSQL not configured)
+	if s.clusterRepo == nil {
+		s.logger.Warn("Cluster repository not available - PostgreSQL required for cluster management")
+		return []*domain.ClusterWithStats{}, nil
+	}
+
 	clusters, err := s.clusterRepo.List(projectID)
 	if err != nil {
 		return nil, err
@@ -241,6 +257,11 @@ type UpdateClusterRequest struct {
 // Update updates an existing cluster.
 func (s *Service) Update(ctx context.Context, req *UpdateClusterRequest) (*domain.ClusterWithStats, error) {
 	s.logger.Info("Updating cluster", zap.String("id", req.ID))
+
+	// Guard against nil repository (PostgreSQL not configured)
+	if s.clusterRepo == nil {
+		return nil, fmt.Errorf("cluster management requires PostgreSQL - database not configured")
+	}
 
 	cluster, err := s.clusterRepo.Get(req.ID)
 	if err != nil {
@@ -306,6 +327,11 @@ func (s *Service) Update(ctx context.Context, req *UpdateClusterRequest) (*domai
 func (s *Service) Delete(ctx context.Context, id string) error {
 	s.logger.Info("Deleting cluster", zap.String("id", id))
 
+	// Guard against nil repository (PostgreSQL not configured)
+	if s.clusterRepo == nil {
+		return fmt.Errorf("cluster management requires PostgreSQL - database not configured")
+	}
+
 	// Check if cluster has hosts
 	nodes, err := s.nodeRepo.ListByCluster(ctx, id)
 	if err != nil {
@@ -328,6 +354,11 @@ func (s *Service) AddHost(ctx context.Context, clusterID, hostID string) error {
 		zap.String("cluster_id", clusterID),
 		zap.String("host_id", hostID),
 	)
+
+	// Guard against nil repository (PostgreSQL not configured)
+	if s.clusterRepo == nil {
+		return fmt.Errorf("cluster management requires PostgreSQL - database not configured")
+	}
 
 	// Verify cluster exists
 	_, err := s.clusterRepo.Get(clusterID)
