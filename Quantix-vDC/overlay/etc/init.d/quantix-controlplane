@@ -48,10 +48,40 @@ start_pre() {
         einfo "Waiting for PostgreSQL..."
         for i in $(seq 1 30); do
             if pg_isready -q; then
+                einfo "PostgreSQL is ready"
                 break
             fi
             sleep 1
         done
+    fi
+    
+    # Create database if it doesn't exist
+    if command -v psql >/dev/null 2>&1 && pg_isready -q 2>/dev/null; then
+        if ! su -s /bin/sh postgres -c "psql -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw quantix_vdc"; then
+            einfo "Creating quantix_vdc database..."
+            su -s /bin/sh postgres -c "createdb quantix_vdc" 2>/dev/null || \
+                su -s /bin/sh postgres -c "psql -c 'CREATE DATABASE quantix_vdc;'" 2>/dev/null || \
+                ewarn "Failed to create database"
+        fi
+        
+        # Run migrations if database exists
+        MIGRATIONS_DIR="/usr/share/quantix-vdc/migrations"
+        if [ -d "$MIGRATIONS_DIR" ] && su -s /bin/sh postgres -c "psql -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw quantix_vdc"; then
+            # Check if migrations have been run by looking for a known table
+            if ! su -s /bin/sh postgres -c "psql -d quantix_vdc -c '\\dt' 2>/dev/null | grep -q 'virtual_machines'"; then
+                einfo "Running database migrations..."
+                for migration in $(ls -1 ${MIGRATIONS_DIR}/*.up.sql 2>/dev/null | sort); do
+                    MIGRATION_NAME=$(basename "$migration")
+                    einfo "  Applying: $MIGRATION_NAME"
+                    su -s /bin/sh postgres -c "psql -d quantix_vdc -f '$migration'" >/dev/null 2>&1 || true
+                done
+                
+                # Grant permissions
+                su -s /bin/sh postgres -c "psql -d quantix_vdc -c 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres;'" >/dev/null 2>&1 || true
+                su -s /bin/sh postgres -c "psql -d quantix_vdc -c 'GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;'" >/dev/null 2>&1 || true
+                einfo "Migrations complete"
+            fi
+        fi
     fi
     
     return 0
