@@ -5635,6 +5635,13 @@ fn parse_syslog_line(line: &str) -> Option<LogEntry> {
                 vm_id: None,
                 node_id: None,
                 duration_ms: None,
+                action: None,
+                component: None,
+                target: None,
+                correlation_id: None,
+                user_id: None,
+                session_id: None,
+                user_action: None,
             });
         }
     }
@@ -5668,6 +5675,13 @@ fn parse_syslog_line(line: &str) -> Option<LogEntry> {
             vm_id: None,
             node_id: None,
             duration_ms: None,
+            action: None,
+            component: None,
+            target: None,
+            correlation_id: None,
+            user_id: None,
+            session_id: None,
+            user_action: None,
         });
     }
     
@@ -5725,6 +5739,13 @@ fn parse_journald_entry(line: &str) -> Result<LogEntry, serde_json::Error> {
         vm_id: None,
         node_id: None,
         duration_ms: None,
+        action: None,
+        component: None,
+        target: None,
+        correlation_id: None,
+        user_id: None,
+        session_id: None,
+        user_action: None,
     })
 }
 
@@ -5791,6 +5812,13 @@ fn generate_sample_logs(
             vm_id: None,
             node_id: None,
             duration_ms: Some(rand::random::<u64>() % 100),
+            action: None,
+            component: None,
+            target: None,
+            correlation_id: None,
+            user_id: None,
+            session_id: None,
+            user_action: None,
         });
     }
     
