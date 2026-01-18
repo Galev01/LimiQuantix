@@ -104,15 +104,24 @@ apply_static_ip() {
     
     einfo "Applying static IP to $iface: $IP_ADDRESS/$cidr"
     
-    # Kill any DHCP client on this interface
+    # Kill any DHCP client on this interface (aggressive)
+    # Method 1: Kill by PID file
     if [ -f "$DHCP_PID_DIR/udhcpc_$iface.pid" ]; then
         local dhcp_pid=$(cat "$DHCP_PID_DIR/udhcpc_$iface.pid" 2>/dev/null)
         if [ -n "$dhcp_pid" ] && kill -0 "$dhcp_pid" 2>/dev/null; then
             kill "$dhcp_pid" 2>/dev/null
-            sleep 0.5
         fi
         rm -f "$DHCP_PID_DIR/udhcpc_$iface.pid"
     fi
+    
+    # Method 2: Kill by process name matching interface
+    pkill -f "udhcpc.*-i.*$iface" 2>/dev/null || true
+    pkill -f "dhclient.*$iface" 2>/dev/null || true
+    
+    # Method 3: Kill ALL udhcpc processes (nuclear option for static IP)
+    killall udhcpc 2>/dev/null || true
+    
+    sleep 1
     
     # Flush existing IP
     ip addr flush dev "$iface" 2>/dev/null

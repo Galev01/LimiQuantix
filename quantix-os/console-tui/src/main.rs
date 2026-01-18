@@ -783,7 +783,32 @@ fn is_valid_ip(ip: &str) -> bool {
 fn apply_static_ip(config: &StaticIpConfig) -> Result<()> {
     use std::process::Stdio;
     
-    // First, flush existing IP on interface
+    // CRITICAL: Kill any DHCP clients first, otherwise they will override our static IP
+    // Kill udhcpc for this specific interface
+    let _ = std::process::Command::new("pkill")
+        .args(["-f", &format!("udhcpc.*{}", config.interface)])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output();
+    
+    // Kill all udhcpc processes (nuclear option)
+    let _ = std::process::Command::new("killall")
+        .args(["udhcpc"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output();
+    
+    // Kill dhclient too
+    let _ = std::process::Command::new("pkill")
+        .args(["-f", &format!("dhclient.*{}", config.interface)])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output();
+    
+    // Wait for DHCP to die
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    
+    // Flush existing IP on interface
     let _ = std::process::Command::new("ip")
         .args(["addr", "flush", "dev", &config.interface])
         .stdout(Stdio::null())
@@ -814,24 +839,68 @@ fn apply_static_ip(config: &StaticIpConfig) -> Result<()> {
     
     // Set default gateway if provided
     if !config.gateway.is_empty() {
-        // Remove existing default route first
-        let _ = std::process::Command::new("ip")
-            .args(["route", "del", "default"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
+        // Remove ALL existing default routes first
+        loop {
+            let del_result = std::process::Command::new("ip")
+                .args(["route", "del", "default"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .output();
+            // Keep deleting until no more default routes
+            if del_result.is_err() || !del_result.unwrap().status.success() {
+                break;
+            }
+        }
+        
+        // Small delay to ensure route table is updated
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        
+        // Add new default route with device specified
+        let route_result = std::process::Command::new("ip")
+            .args(["route", "add", "default", "via", &config.gateway, "dev", &config.interface])
             .output();
         
-        let _ = std::process::Command::new("ip")
-            .args(["route", "add", "default", "via", &config.gateway])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .output();
+        if let Ok(output) = route_result {
+            if !output.status.success() {
+                // Log the error but continue - route might already exist
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                tracing::warn!("Failed to add default route: {}", stderr);
+            }
+        }
     }
     
     // Set DNS if provided
     if !config.dns.is_empty() {
         let resolv_content = format!("nameserver {}\n", config.dns);
         let _ = std::fs::write("/etc/resolv.conf", resolv_content);
+    }
+    
+    // Verify the configuration was applied
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    
+    // Check if IP was assigned
+    let verify_ip = std::process::Command::new("ip")
+        .args(["addr", "show", "dev", &config.interface])
+        .output();
+    
+    if let Ok(output) = verify_ip {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !stdout.contains(&config.ip_address) {
+            tracing::error!("IP address {} not found on interface {}", config.ip_address, config.interface);
+            return Err(anyhow::anyhow!("IP address was not applied correctly"));
+        }
+    }
+    
+    // Check if route was added
+    let verify_route = std::process::Command::new("ip")
+        .args(["route", "show", "default"])
+        .output();
+    
+    if let Ok(output) = verify_route {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !config.gateway.is_empty() && !stdout.contains(&config.gateway) {
+            tracing::warn!("Default route via {} not found, but continuing", config.gateway);
+        }
     }
     
     // Save to Quantix network config directory for current session

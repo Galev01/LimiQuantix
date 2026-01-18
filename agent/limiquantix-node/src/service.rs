@@ -531,9 +531,19 @@ impl NodeDaemonServiceImpl {
         &self.hostname
     }
     
-    /// Get the management IP address
+    /// Get the management IP address.
+    /// 
+    /// This dynamically re-detects the IP address to handle network changes
+    /// (e.g., switching from DHCP to static IP or vice versa).
+    /// Falls back to the initially detected IP if detection fails.
     pub fn get_management_ip(&self) -> String {
-        self.management_ip.clone()
+        // Try to detect current IP dynamically
+        if let Some(current_ip) = crate::registration::detect_management_ip() {
+            current_ip
+        } else {
+            // Fallback to initially detected IP
+            self.management_ip.clone()
+        }
     }
     
     /// Get current telemetry data

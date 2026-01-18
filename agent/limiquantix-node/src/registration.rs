@@ -138,9 +138,11 @@ impl RegistrationClient {
         
         // Build registration request matching the proto format
         // Note: Field names use camelCase for JSON, matching Connect-RPC conventions
+        // Always re-detect management IP to handle network changes (DHCP <-> static)
+        let current_ip = detect_management_ip().unwrap_or_else(|| self.management_ip.clone());
         let request = serde_json::json!({
             "hostname": self.hostname,
-            "managementIp": format!("{}:9090", self.management_ip),
+            "managementIp": format!("{}:9090", current_ip),
             "labels": self.labels,
             "role": {
                 "compute": true,

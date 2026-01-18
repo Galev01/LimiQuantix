@@ -366,21 +366,28 @@ EOF
         --title "Applying Configuration" \
         --infobox "\nApplying network configuration...\n" 6 40
     
-    # For WiFi, we need to handle it differently
-    if [ "$IS_WIFI" -eq 1 ]; then
-        # Kill any existing DHCP client on this interface
-        pkill -f "udhcpc.*$IFACE" 2>/dev/null || true
-        pkill -f "dhclient.*$IFACE" 2>/dev/null || true
-        
-        # Flush existing IP and apply new one
-        ip addr flush dev "$IFACE" 2>/dev/null
-        ip addr add "$IP/$MASK" dev "$IFACE" 2>/dev/null
-        ip route del default 2>/dev/null
-        ip route add default via "$GW" 2>/dev/null
-    else
-        # For ethernet, restart networking service
-        rc-service networking restart >/dev/null 2>&1
-    fi
+    # Kill any existing DHCP client on this interface
+    pkill -f "udhcpc.*$IFACE" 2>/dev/null || true
+    pkill -f "dhclient.*$IFACE" 2>/dev/null || true
+    killall udhcpc 2>/dev/null || true
+    sleep 1
+    
+    # Apply configuration directly (works for both WiFi and Ethernet)
+    # Flush existing IP
+    ip addr flush dev "$IFACE" 2>/dev/null
+    
+    # Bring interface up
+    ip link set "$IFACE" up
+    
+    # Add IP address
+    ip addr add "$IP/$MASK" dev "$IFACE" 2>/dev/null
+    
+    # Delete old default route and add new one
+    ip route del default 2>/dev/null
+    ip route add default via "$GW" dev "$IFACE" 2>/dev/null
+    
+    # Also try restarting networking service (for persistence on next boot)
+    rc-service networking restart >/dev/null 2>&1 || true
     
     sleep 2
     
