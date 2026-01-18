@@ -196,6 +196,7 @@ chroot "${ROOTFS_DIR}" /sbin/rc-update add bootmisc boot || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add syslog boot || true
 
 chroot "${ROOTFS_DIR}" /sbin/rc-update add dbus default || true
+chroot "${ROOTFS_DIR}" /sbin/rc-update add sshd default || true
 chroot "${ROOTFS_DIR}" /sbin/rc-update add libvirtd default || true
 # Note: We use monolithic libvirtd, NOT modular virtqemud
 # The modular daemons (virtqemud, virtlogd) are for split-daemon setups

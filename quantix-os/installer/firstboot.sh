@@ -366,7 +366,7 @@ network:
 
 # Security settings
 security:
-  ssh_enabled: false
+  ssh_enabled: true
 
 # Cluster settings
 cluster:

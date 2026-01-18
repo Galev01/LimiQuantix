@@ -1,0 +1,101 @@
+# =============================================================================
+# Quantix-vDC SSH Server Configuration
+# =============================================================================
+# This configuration enables root login and password authentication for
+# administrative access to the control plane appliance.
+#
+# WARNING: For production environments, consider:
+#   - Disabling PasswordAuthentication and using SSH keys only
+#   - Restricting root login to specific IP ranges
+#   - Using fail2ban or similar to prevent brute force attacks
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Network Settings
+# -----------------------------------------------------------------------------
+Port 22
+AddressFamily any
+ListenAddress 0.0.0.0
+ListenAddress ::
+
+# -----------------------------------------------------------------------------
+# Authentication
+# -----------------------------------------------------------------------------
+# Allow root login (required for appliance management)
+PermitRootLogin yes
+
+# Enable password authentication
+PasswordAuthentication yes
+PermitEmptyPasswords no
+
+# Enable PAM (Pluggable Authentication Modules)
+UsePAM yes
+
+# Public key authentication (recommended for production)
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+
+# Disable challenge-response (keyboard-interactive) if not needed
+ChallengeResponseAuthentication no
+
+# -----------------------------------------------------------------------------
+# Security Settings
+# -----------------------------------------------------------------------------
+# Disable unused authentication methods
+HostbasedAuthentication no
+IgnoreRhosts yes
+
+# Strict mode checks file permissions
+StrictModes yes
+
+# Maximum authentication attempts
+MaxAuthTries 6
+
+# Maximum sessions per connection
+MaxSessions 10
+
+# Login grace time (seconds)
+LoginGraceTime 120
+
+# -----------------------------------------------------------------------------
+# Session Settings
+# -----------------------------------------------------------------------------
+# Allow TCP forwarding (useful for tunneling)
+AllowTcpForwarding yes
+
+# Allow agent forwarding
+AllowAgentForwarding yes
+
+# X11 forwarding (disabled - no GUI on appliance)
+X11Forwarding no
+
+# Print MOTD on login
+PrintMotd yes
+
+# Print last login info
+PrintLastLog yes
+
+# Send TCP keepalive messages
+TCPKeepAlive yes
+
+# Client alive interval (seconds) - prevents idle disconnects
+ClientAliveInterval 60
+ClientAliveCountMax 3
+
+# -----------------------------------------------------------------------------
+# Subsystems
+# -----------------------------------------------------------------------------
+Subsystem sftp /usr/lib/ssh/sftp-server
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+SyslogFacility AUTH
+LogLevel INFO
+
+# -----------------------------------------------------------------------------
+# Host Keys
+# -----------------------------------------------------------------------------
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
