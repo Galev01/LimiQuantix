@@ -1239,17 +1239,26 @@ fi
 # --boot-directory points to where grub modules go
 # --efi-directory points to the EFI System Partition
 GRUB_INSTALL_LOG="${INSTALL_LOG}.grub"
-grub-install \
-    --target=x86_64-efi \
-    --efi-directory="${TARGET_MOUNT}/efi" \
-    --boot-directory="${TARGET_MOUNT}/efi" \
-    --bootloader-id=quantix \
-    --removable \
-    --recheck \
-    --no-nvram \
-    > "${GRUB_INSTALL_LOG}" 2>&1 || {
-        log_warn "UEFI GRUB install returned non-zero. See ${GRUB_INSTALL_LOG}"
-    }
+GRUB_INSTALLED=0
+
+# Check if grub-install is available
+if command -v grub-install >/dev/null 2>&1; then
+    log_info "Running grub-install..."
+    grub-install \
+        --target=x86_64-efi \
+        --efi-directory="${TARGET_MOUNT}/efi" \
+        --boot-directory="${TARGET_MOUNT}/efi" \
+        --bootloader-id=quantix \
+        --removable \
+        --recheck \
+        --no-nvram \
+        > "${GRUB_INSTALL_LOG}" 2>&1 && GRUB_INSTALLED=1 || {
+            log_warn "UEFI GRUB install returned non-zero. See ${GRUB_INSTALL_LOG}"
+        }
+else
+    log_warn "grub-install not found, will use fallback method..."
+    echo "grub-install: not found" > "${GRUB_INSTALL_LOG}"
+fi
 
 # Ensure a valid EFI binary exists
 EFI_BOOT="${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI"
@@ -1257,16 +1266,46 @@ EFI_QUANTIX="${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi"
 
 if [ ! -f "${EFI_BOOT}" ] && [ ! -f "${EFI_QUANTIX}" ]; then
     log_warn "GRUB EFI binary not found on ESP, attempting fallback copy..."
+    
+    # Extended list of fallback locations for GRUB EFI binary
     for candidate in \
         /usr/lib/grub/x86_64-efi/grubx64.efi \
         /usr/lib/grub/x86_64-efi/monolithic/grubx64.efi \
-        /boot/grub/x86_64-efi/grubx64.efi; do
+        /boot/grub/x86_64-efi/grubx64.efi \
+        /boot/efi/EFI/BOOT/BOOTX64.EFI \
+        /boot/efi/EFI/alpine/grubx64.efi \
+        /mnt/cdrom/EFI/BOOT/BOOTX64.EFI \
+        /mnt/cdrom/EFI/BOOT/grubx64.efi \
+        /mnt/iso/EFI/BOOT/BOOTX64.EFI \
+        /mnt/iso/EFI/BOOT/grubx64.efi; do
         if [ -f "$candidate" ]; then
+            log_info "Found EFI binary at: $candidate"
             cp "$candidate" "${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi" 2>/dev/null || true
             cp "$candidate" "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" 2>/dev/null || true
+            GRUB_INSTALLED=1
             break
         fi
     done
+fi
+
+# If still no EFI binary, try grub-mkimage as last resort
+if [ ! -f "${EFI_BOOT}" ] && [ ! -f "${EFI_QUANTIX}" ]; then
+    if command -v grub-mkimage >/dev/null 2>&1; then
+        log_info "Attempting to generate BOOTX64.EFI with grub-mkimage..."
+        grub-mkimage -O x86_64-efi \
+            -o "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" \
+            -p "/grub" \
+            part_gpt fat ext2 xfs normal configfile linux boot chain echo search search_label \
+            >> "${GRUB_INSTALL_LOG}" 2>&1 && {
+                log_info "Successfully generated BOOTX64.EFI with grub-mkimage"
+                cp "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" "${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi" 2>/dev/null || true
+                GRUB_INSTALLED=1
+            } || {
+                log_warn "grub-mkimage failed"
+            }
+    else
+        log_warn "grub-mkimage not available"
+    fi
 fi
 
 # Create GRUB configuration
@@ -1324,14 +1363,41 @@ EOF
 cp "${TARGET_MOUNT}/efi/grub/grub.cfg" "${TARGET_MOUNT}/efi/EFI/quantix/grub.cfg" 2>/dev/null || true
 cp "${TARGET_MOUNT}/efi/grub/grub.cfg" "${TARGET_MOUNT}/efi/EFI/BOOT/grub.cfg" 2>/dev/null || true
 
-# Ensure BOOTX64.EFI exists (fallback to quantix binary if present)
-if [ -f "${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi" ]; then
+# Final check: Ensure BOOTX64.EFI exists (fallback to quantix binary if present)
+if [ -f "${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi" ] && [ ! -f "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" ]; then
     cp "${TARGET_MOUNT}/efi/EFI/quantix/grubx64.efi" "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" 2>/dev/null || true
-elif [ -f "${TARGET_MOUNT}/efi/EFI/BOOT/grubx64.efi" ]; then
+elif [ -f "${TARGET_MOUNT}/efi/EFI/BOOT/grubx64.efi" ] && [ ! -f "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" ]; then
     cp "${TARGET_MOUNT}/efi/EFI/BOOT/grubx64.efi" "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" 2>/dev/null || true
 fi
 
-log_info "Bootloader installed"
+# Log the EFI partition contents for debugging
+log_info "EFI partition contents:"
+ls -laR "${TARGET_MOUNT}/efi/EFI" >> "$INSTALL_LOG" 2>&1 || true
+
+if [ -f "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" ]; then
+    log_info "Bootloader installed successfully"
+    EFI_SIZE=$(ls -lh "${TARGET_MOUNT}/efi/EFI/BOOT/BOOTX64.EFI" 2>/dev/null | awk '{print $5}')
+    log_info "  BOOTX64.EFI size: $EFI_SIZE"
+else
+    log_error "CRITICAL: BOOTX64.EFI was NOT created!"
+    log_error "The system will NOT boot from this disk."
+    log_error ""
+    log_error "Possible causes:"
+    log_error "  - grub and grub-efi packages not installed in live ISO"
+    log_error "  - grub-install or grub-mkimage failed"
+    log_error ""
+    log_error "Troubleshooting:"
+    log_error "  1. Check if grub-install exists: which grub-install"
+    log_error "  2. Check grub log: cat ${GRUB_INSTALL_LOG}"
+    log_error "  3. Check installed packages: apk info | grep grub"
+    log_error ""
+    log_error "You can manually copy an EFI binary:"
+    log_error "  cp /mnt/cdrom/EFI/BOOT/BOOTX64.EFI ${TARGET_MOUNT}/efi/EFI/BOOT/"
+    echo ""
+    echo "ESP contents:" >> "$INSTALL_LOG"
+    ls -laR "${TARGET_MOUNT}/efi" >> "$INSTALL_LOG" 2>&1 || true
+    # Don't exit - let user inspect
+fi
 
 # Increment step counter
 CURRENT_STEP=$((CURRENT_STEP + 1))
