@@ -65,12 +65,13 @@ type Server struct {
 	folderRepo *postgres.FolderRepository
 
 	// Admin repositories (PostgreSQL)
-	roleRepo   *postgres.RoleRepository
-	apiKeyRepo *postgres.APIKeyRepository
-	auditRepo  *postgres.AuditRepository
-	orgRepo    *postgres.OrganizationRepository
-	emailRepo  *postgres.AdminEmailRepository
-	ruleRepo   *postgres.GlobalRuleRepository
+	roleRepo              *postgres.RoleRepository
+	apiKeyRepo            *postgres.APIKeyRepository
+	auditRepo             *postgres.AuditRepository
+	orgRepo               *postgres.OrganizationRepository
+	emailRepo             *postgres.AdminEmailRepository
+	ruleRepo              *postgres.GlobalRuleRepository
+	customizationSpecRepo *postgres.CustomizationSpecRepository
 
 	// Scheduler
 	scheduler *scheduler.Scheduler
@@ -100,6 +101,9 @@ type Server struct {
 	// Update service
 	updateService *updateservice.Service
 	updateHandler *UpdateHandler
+
+	// Customization spec handler
+	customizationSpecHandler *CustomizationSpecHandler
 
 	// Logs handler (for capturing application logs)
 	logsHandler *LogsHandler
@@ -183,6 +187,7 @@ func (s *Server) initRepositories() {
 		s.orgRepo = postgres.NewOrganizationRepository(s.db, s.logger)
 		s.emailRepo = postgres.NewAdminEmailRepository(s.db, s.logger)
 		s.ruleRepo = postgres.NewGlobalRuleRepository(s.db, s.logger)
+		s.customizationSpecRepo = postgres.NewCustomizationSpecRepository(s.db, s.logger)
 		s.logger.Info("Admin repositories initialized (PostgreSQL)")
 	} else {
 		// Use in-memory repositories (development mode)
@@ -551,6 +556,23 @@ func (s *Server) registerRoutes() {
 	if s.adminHandler != nil {
 		s.adminHandler.RegisterRoutes(s.mux)
 		s.logger.Info("Registered Admin API routes", zap.String("path", "/api/admin/*"))
+	}
+
+	// =========================================================================
+	// Customization Specs REST API (requires PostgreSQL)
+	// =========================================================================
+	if s.customizationSpecRepo != nil {
+		s.customizationSpecHandler = NewCustomizationSpecHandler(s.customizationSpecRepo, s.logger)
+		s.customizationSpecHandler.RegisterRoutes(s.mux)
+		s.logger.Info("Registered Customization Specs API routes", zap.String("path", "/api/customization-specs"))
+	} else {
+		// Register a fallback handler that returns empty specs
+		s.mux.HandleFunc("/api/customization-specs", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintf(w, `{"specs":[],"total":0}`)
+		})
+		s.logger.Warn("Customization Specs API registered with fallback handler - PostgreSQL required for full functionality")
 	}
 
 	// =========================================================================

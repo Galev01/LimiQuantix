@@ -1,72 +1,87 @@
 # Workflow State
 
-## Active Task: VMDetail Page - Phases 9 & 10 Complete
+## Active Task: QvDC API Issues Fix
 
-**Date:** January 19, 2026
-**Status:** Complete
+**Date:** January 20, 2026
+**Status:** Fixes Applied - Ready for Testing
 
-### Summary
+### Issues Summary
 
-Implemented Phase 9 (Live Monitoring) and Phase 10 (Configuration Edit Modals) for the VMDetail page.
+| # | Issue | Type | Priority | Status |
+|---|-------|------|----------|--------|
+| 1 | Cloud image not found on QHCI02 | Operational | Low | ⏳ User action required |
+| 2 | `/api/customization-specs` 404 | Missing Backend Endpoint | High | ✅ Fixed |
+| 3 | `ListPoolFiles` 500 errors | Node connectivity/config | Medium | ⏳ Needs investigation |
+| 4 | `/api/v1/images/upload` 502 | Nginx/Backend issue | Medium | ⏳ Needs investigation |
+| 5 | `DownloadImage` 404 | Service registration | Medium | ⏳ Needs investigation |
+| 6 | `StartVM` 500 - virtio-gpu-pci | **CRITICAL** - Code Fix | Critical | ✅ Fixed |
+| 7 | `CreateVM` 500 | Same as #1 | Low | ⏳ User action required |
 
-### Phase 9: Live Monitoring
+### Fixes Applied
 
-Created `VMMonitoringCharts.tsx` component with:
-- Real-time CPU, Memory, Disk I/O, and Network I/O charts using Recharts
-- Time range selector (5m, 15m, 1h, 6h)
-- Pause/Resume live updates
-- Current resource usage summary
-- Simulated data generation (ready for backend StreamMetrics API integration)
-- Graceful handling when VM is not running
+#### Issue #6: virtio-gpu-pci Compatibility (CRITICAL)
 
-### Phase 10: Configuration Edit Modals
+**File:** `agent/limiquantix-hypervisor/src/xml.rs`
 
-Created three new modal components:
+**Change:** Changed video model from `virtio` to `qxl` for broader QEMU compatibility.
 
-1. **EditBootOptionsModal.tsx**
-   - Drag-and-drop boot order configuration
-   - Firmware selection (BIOS/UEFI)
-   - Secure Boot toggle
-   - Visual boot device cards
+```rust
+// Before (line 280-282):
+xml.push_str(r#"    <video>
+      <model type='virtio' heads='1' primary='yes'/>
+    </video>
 
-2. **EditDisplaySettingsModal.tsx**
-   - Display protocol selection (VNC/SPICE)
-   - Port configuration (auto or manual)
-   - Password management with generator
-   - Listen address selection
-   - SPICE-specific options (clipboard, audio)
+// After:
+xml.push_str(r#"    <video>
+      <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>
+    </video>
+```
 
-3. **EditHAPolicyModal.tsx**
-   - HA enable/disable toggle
-   - Restart priority selector (highest to lowest)
-   - Host isolation response options
-   - VM monitoring mode selection
-   - Restart limits configuration
-   - Informative HA cluster requirement notice
+**Why:** `virtio-gpu-pci` requires specific QEMU/kernel support that isn't available on all hosts. QXL is widely supported and works well with both VNC and SPICE.
 
-### VMDetail.tsx Updates
-- Added imports for all new components
-- Added state variables for modal visibility
-- Added handlers for saving configuration changes
-- Updated Monitoring tab to use VMMonitoringCharts
-- Updated Configuration tab cards to use real data and wire Edit buttons
-- Added modal components at end of file
+#### Issue #2: Customization Specs API
 
-### Files Created
-- `frontend/src/components/vm/VMMonitoringCharts.tsx`
-- `frontend/src/components/vm/EditBootOptionsModal.tsx`
-- `frontend/src/components/vm/EditDisplaySettingsModal.tsx`
-- `frontend/src/components/vm/EditHAPolicyModal.tsx`
+**Files Created:**
+1. `backend/internal/repository/postgres/customization_spec_repository.go` - PostgreSQL repository
+2. `backend/internal/server/customization_spec_handler.go` - REST API handler
 
-### Files Modified
-- `frontend/src/pages/VMDetail.tsx`
+**Files Modified:**
+1. `backend/internal/server/server.go` - Added repository and handler registration
+
+**Endpoints Added:**
+- `GET /api/customization-specs` - List all specs (with optional filters)
+- `POST /api/customization-specs` - Create new spec
+- `GET /api/customization-specs/{id}` - Get spec by ID
+- `PUT /api/customization-specs/{id}` - Update spec
+- `DELETE /api/customization-specs/{id}` - Delete spec
 
 ### Build Status
-- Frontend: ✅ No linter errors
+
+- ✅ Go Backend: Compiles successfully
+- ✅ Rust Hypervisor: Compiles successfully
+
+### Next Steps for User
+
+1. **Rebuild and deploy the agent** on QHCI01/QHCI02:
+   ```bash
+   cd agent && cargo build --release
+   # Copy limiquantix-node binary to hosts
+   ```
+
+2. **Restart the backend** on QvDC:
+   ```bash
+   # Restart the control plane service
+   ```
+
+3. **Test VM creation** - Should now work without virtio-gpu-pci errors
+
+4. **For cloud image issue (Issue #1 & #7):** Run on QHCI02:
+   ```bash
+   setup-cloud-images.sh ubuntu-22.04
+   ```
 
 ---
 
-## Previous Task: Backend Implementation
+## Previous Task: VMDetail Page - Phases 9 & 10
 
-Implemented backend services for disk, NIC, events, and agent operations.
-See completed_workflow.md for full details.
+**Status:** Complete (January 19, 2026)

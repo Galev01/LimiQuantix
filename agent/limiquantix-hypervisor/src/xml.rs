@@ -276,9 +276,9 @@ impl<'a> DomainXmlBuilder<'a> {
             ));
         }
         
-        // Video device
+        // Video device - use QXL for broad compatibility (virtio-gpu-pci not available on all QEMU versions)
         xml.push_str(r#"    <video>
-      <model type='virtio' heads='1' primary='yes'/>
+      <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>
     </video>
 "#);
         
