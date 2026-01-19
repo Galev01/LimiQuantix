@@ -100,6 +100,32 @@ service VMService {
   rpc ConvertToTemplate(ConvertToTemplateRequest) returns (VirtualMachine);
   
   // ==========================================================================
+  // Hot-Plug Operations (Disk/NIC)
+  // ==========================================================================
+  
+  // AttachDisk attaches a new disk to a VM (hot-plug if running).
+  rpc AttachDisk(AttachDiskRequest) returns (VirtualMachine);
+  
+  // DetachDisk removes a disk from a VM (hot-unplug if running).
+  rpc DetachDisk(DetachDiskRequest) returns (VirtualMachine);
+  
+  // ResizeDisk expands a disk attached to a VM.
+  rpc ResizeDisk(ResizeDiskRequest) returns (VirtualMachine);
+  
+  // AttachNIC attaches a new network interface to a VM (hot-plug if running).
+  rpc AttachNIC(AttachNICRequest) returns (VirtualMachine);
+  
+  // DetachNIC removes a network interface from a VM (hot-unplug if running).
+  rpc DetachNIC(DetachNICRequest) returns (VirtualMachine);
+  
+  // ==========================================================================
+  // Events
+  // ==========================================================================
+  
+  // ListVMEvents returns events for a VM.
+  rpc ListVMEvents(ListVMEventsRequest) returns (ListVMEventsResponse);
+  
+  // ==========================================================================
   // Streaming Operations
   // ==========================================================================
   
@@ -227,8 +253,13 @@ message DeleteVMRequest {
   // Force stop if running
   bool force = 2;
   
-  // Also delete attached volumes
+  // Also delete attached volumes/disk images (default: true for full deletion)
   bool delete_volumes = 3;
+  
+  // Remove from vDC inventory only - keep VM definition and disks on hypervisor
+  // When true: only removes from control plane database, skips node daemon deletion
+  // When false (default): full deletion including libvirt domain and optionally volumes
+  bool remove_from_inventory_only = 4;
 }
 
 // Power Operations
@@ -380,6 +411,99 @@ message CloneVMRequest {
 
 message ConvertToTemplateRequest {
   string vm_id = 1;
+}
+
+// Hot-Plug Operations
+
+message AttachDiskRequest {
+  // VM to attach disk to
+  string vm_id = 1;
+  
+  // Disk specification
+  DiskDevice disk = 2;
+}
+
+message DetachDiskRequest {
+  // VM to detach disk from
+  string vm_id = 1;
+  
+  // Disk ID to detach
+  string disk_id = 2;
+  
+  // Force detach even if VM is running (may cause data loss)
+  bool force = 3;
+}
+
+message ResizeDiskRequest {
+  // VM with the disk
+  string vm_id = 1;
+  
+  // Disk ID to resize
+  string disk_id = 2;
+  
+  // New size in GiB
+  uint64 new_size_gib = 3;
+}
+
+message AttachNICRequest {
+  // VM to attach NIC to
+  string vm_id = 1;
+  
+  // NIC specification
+  NetworkInterface nic = 2;
+}
+
+message DetachNICRequest {
+  // VM to detach NIC from
+  string vm_id = 1;
+  
+  // NIC ID to detach
+  string nic_id = 2;
+}
+
+// Events
+
+message VMEvent {
+  string id = 1;
+  string vm_id = 2;
+  
+  // Event type: power, config, snapshot, disk, network, error
+  string type = 3;
+  
+  // Human-readable message
+  string message = 4;
+  
+  // Who triggered this event
+  string user = 5;
+  
+  // Severity: info, warning, error
+  string severity = 6;
+  
+  // When this event occurred
+  string created_at = 7;
+  
+  // Additional metadata
+  map<string, string> metadata = 8;
+}
+
+message ListVMEventsRequest {
+  string vm_id = 1;
+  
+  // Filter by event type
+  string type = 2;
+  
+  // Filter by severity
+  string severity = 3;
+  
+  // Maximum number of events to return
+  int32 limit = 4;
+  
+  // Events after this timestamp (RFC3339)
+  string since = 5;
+}
+
+message ListVMEventsResponse {
+  repeated VMEvent events = 1;
 }
 
 // Watch/Stream Operations

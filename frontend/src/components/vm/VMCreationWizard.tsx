@@ -2966,12 +2966,13 @@ function PasswordInput({
   const [showPassword, setShowPassword] = useState(false);
   
   return (
-    <div className="relative">
+    <form onSubmit={(e) => e.preventDefault()} className="relative">
       <input
         type={showPassword ? 'text' : 'password'}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        autoComplete="new-password"
         className="w-full px-3 py-2 pr-10 bg-bg-surface border border-border rounded-lg text-text-primary focus:border-accent focus:outline-none"
       />
       <button
@@ -2981,7 +2982,7 @@ function PasswordInput({
       >
         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
       </button>
-    </div>
+    </form>
   );
 }
 

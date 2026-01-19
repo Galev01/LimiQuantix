@@ -64,6 +64,15 @@ const (
 	NodeServiceUpdateHeartbeatProcedure = "/limiquantix.compute.v1.NodeService/UpdateHeartbeat"
 	// NodeServiceSyncNodeVMsProcedure is the fully-qualified name of the NodeService's SyncNodeVMs RPC.
 	NodeServiceSyncNodeVMsProcedure = "/limiquantix.compute.v1.NodeService/SyncNodeVMs"
+	// NodeServiceSyncFullStateProcedure is the fully-qualified name of the NodeService's SyncFullState
+	// RPC.
+	NodeServiceSyncFullStateProcedure = "/limiquantix.compute.v1.NodeService/SyncFullState"
+	// NodeServiceNotifyVMChangeProcedure is the fully-qualified name of the NodeService's
+	// NotifyVMChange RPC.
+	NodeServiceNotifyVMChangeProcedure = "/limiquantix.compute.v1.NodeService/NotifyVMChange"
+	// NodeServiceNotifyStorageChangeProcedure is the fully-qualified name of the NodeService's
+	// NotifyStorageChange RPC.
+	NodeServiceNotifyStorageChangeProcedure = "/limiquantix.compute.v1.NodeService/NotifyStorageChange"
 	// NodeServiceGetNodeMetricsProcedure is the fully-qualified name of the NodeService's
 	// GetNodeMetrics RPC.
 	NodeServiceGetNodeMetricsProcedure = "/limiquantix.compute.v1.NodeService/GetNodeMetrics"
@@ -112,7 +121,24 @@ type NodeServiceClient interface {
 	UpdateHeartbeat(context.Context, *connect.Request[v1.UpdateHeartbeatRequest]) (*connect.Response[v1.UpdateHeartbeatResponse], error)
 	// SyncNodeVMs reports VMs running on a node to the control plane.
 	// Called by the Node Daemon after registration to reconcile state.
+	// DEPRECATED: Use SyncFullState instead for complete state reconciliation.
 	SyncNodeVMs(context.Context, *connect.Request[v1.SyncNodeVMsRequest]) (*connect.Response[v1.SyncNodeVMsResponse], error)
+	// SyncFullState performs a complete state synchronization between the node and control plane.
+	// Called on:
+	//   - Startup (after registration)
+	//   - Reconnect (after network failure)
+	//   - Control plane request (anti-entropy drift detection)
+	//
+	// This replaces SyncNodeVMs with a more comprehensive approach.
+	SyncFullState(context.Context, *connect.Request[v1.SyncFullStateRequest]) (*connect.Response[v1.SyncFullStateResponse], error)
+	// NotifyVMChange sends a real-time notification when a VM state changes.
+	// Called by the State Watcher when it detects a VM was created, updated, or deleted.
+	// CRITICAL: The control plane must check if the VM exists before deciding
+	// whether this is a "new discovery" or an update to an existing VM.
+	NotifyVMChange(context.Context, *connect.Request[v1.VMChangeNotification]) (*connect.Response[v1.VMChangeAck], error)
+	// NotifyStorageChange sends a real-time notification when storage state changes.
+	// Called by the State Watcher when a storage pool is added, modified, or removed.
+	NotifyStorageChange(context.Context, *connect.Request[v1.StorageChangeNotification]) (*connect.Response[v1.StorageChangeAck], error)
 	// GetNodeMetrics returns current resource usage.
 	GetNodeMetrics(context.Context, *connect.Request[v1.GetNodeMetricsRequest]) (*connect.Response[v1.NodeMetrics], error)
 	// ListNodeEvents returns recent events for a node.
@@ -218,6 +244,24 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("SyncNodeVMs")),
 			connect.WithClientOptions(opts...),
 		),
+		syncFullState: connect.NewClient[v1.SyncFullStateRequest, v1.SyncFullStateResponse](
+			httpClient,
+			baseURL+NodeServiceSyncFullStateProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("SyncFullState")),
+			connect.WithClientOptions(opts...),
+		),
+		notifyVMChange: connect.NewClient[v1.VMChangeNotification, v1.VMChangeAck](
+			httpClient,
+			baseURL+NodeServiceNotifyVMChangeProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("NotifyVMChange")),
+			connect.WithClientOptions(opts...),
+		),
+		notifyStorageChange: connect.NewClient[v1.StorageChangeNotification, v1.StorageChangeAck](
+			httpClient,
+			baseURL+NodeServiceNotifyStorageChangeProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("NotifyStorageChange")),
+			connect.WithClientOptions(opts...),
+		),
 		getNodeMetrics: connect.NewClient[v1.GetNodeMetricsRequest, v1.NodeMetrics](
 			httpClient,
 			baseURL+NodeServiceGetNodeMetricsProcedure,
@@ -259,25 +303,28 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // nodeServiceClient implements NodeServiceClient.
 type nodeServiceClient struct {
-	registerNode      *connect.Client[v1.RegisterNodeRequest, v1.Node]
-	getNode           *connect.Client[v1.GetNodeRequest, v1.Node]
-	listNodes         *connect.Client[v1.ListNodesRequest, v1.ListNodesResponse]
-	updateNode        *connect.Client[v1.UpdateNodeRequest, v1.Node]
-	decommissionNode  *connect.Client[v1.DecommissionNodeRequest, emptypb.Empty]
-	enableNode        *connect.Client[v1.EnableNodeRequest, v1.Node]
-	disableNode       *connect.Client[v1.DisableNodeRequest, v1.Node]
-	drainNode         *connect.Client[v1.DrainNodeRequest, v1.DrainNodeResponse]
-	addTaint          *connect.Client[v1.AddTaintRequest, v1.Node]
-	removeTaint       *connect.Client[v1.RemoveTaintRequest, v1.Node]
-	updateLabels      *connect.Client[v1.UpdateLabelsRequest, v1.Node]
-	updateHeartbeat   *connect.Client[v1.UpdateHeartbeatRequest, v1.UpdateHeartbeatResponse]
-	syncNodeVMs       *connect.Client[v1.SyncNodeVMsRequest, v1.SyncNodeVMsResponse]
-	getNodeMetrics    *connect.Client[v1.GetNodeMetricsRequest, v1.NodeMetrics]
-	listNodeEvents    *connect.Client[v1.ListNodeEventsRequest, v1.ListNodeEventsResponse]
-	watchNode         *connect.Client[v1.WatchNodeRequest, v1.Node]
-	watchNodes        *connect.Client[v1.WatchNodesRequest, v1.NodeUpdate]
-	streamNodeMetrics *connect.Client[v1.StreamNodeMetricsRequest, v1.NodeMetrics]
-	streamEvents      *connect.Client[v1.StreamEventsRequest, v1.SystemEvent]
+	registerNode        *connect.Client[v1.RegisterNodeRequest, v1.Node]
+	getNode             *connect.Client[v1.GetNodeRequest, v1.Node]
+	listNodes           *connect.Client[v1.ListNodesRequest, v1.ListNodesResponse]
+	updateNode          *connect.Client[v1.UpdateNodeRequest, v1.Node]
+	decommissionNode    *connect.Client[v1.DecommissionNodeRequest, emptypb.Empty]
+	enableNode          *connect.Client[v1.EnableNodeRequest, v1.Node]
+	disableNode         *connect.Client[v1.DisableNodeRequest, v1.Node]
+	drainNode           *connect.Client[v1.DrainNodeRequest, v1.DrainNodeResponse]
+	addTaint            *connect.Client[v1.AddTaintRequest, v1.Node]
+	removeTaint         *connect.Client[v1.RemoveTaintRequest, v1.Node]
+	updateLabels        *connect.Client[v1.UpdateLabelsRequest, v1.Node]
+	updateHeartbeat     *connect.Client[v1.UpdateHeartbeatRequest, v1.UpdateHeartbeatResponse]
+	syncNodeVMs         *connect.Client[v1.SyncNodeVMsRequest, v1.SyncNodeVMsResponse]
+	syncFullState       *connect.Client[v1.SyncFullStateRequest, v1.SyncFullStateResponse]
+	notifyVMChange      *connect.Client[v1.VMChangeNotification, v1.VMChangeAck]
+	notifyStorageChange *connect.Client[v1.StorageChangeNotification, v1.StorageChangeAck]
+	getNodeMetrics      *connect.Client[v1.GetNodeMetricsRequest, v1.NodeMetrics]
+	listNodeEvents      *connect.Client[v1.ListNodeEventsRequest, v1.ListNodeEventsResponse]
+	watchNode           *connect.Client[v1.WatchNodeRequest, v1.Node]
+	watchNodes          *connect.Client[v1.WatchNodesRequest, v1.NodeUpdate]
+	streamNodeMetrics   *connect.Client[v1.StreamNodeMetricsRequest, v1.NodeMetrics]
+	streamEvents        *connect.Client[v1.StreamEventsRequest, v1.SystemEvent]
 }
 
 // RegisterNode calls limiquantix.compute.v1.NodeService.RegisterNode.
@@ -345,6 +392,21 @@ func (c *nodeServiceClient) SyncNodeVMs(ctx context.Context, req *connect.Reques
 	return c.syncNodeVMs.CallUnary(ctx, req)
 }
 
+// SyncFullState calls limiquantix.compute.v1.NodeService.SyncFullState.
+func (c *nodeServiceClient) SyncFullState(ctx context.Context, req *connect.Request[v1.SyncFullStateRequest]) (*connect.Response[v1.SyncFullStateResponse], error) {
+	return c.syncFullState.CallUnary(ctx, req)
+}
+
+// NotifyVMChange calls limiquantix.compute.v1.NodeService.NotifyVMChange.
+func (c *nodeServiceClient) NotifyVMChange(ctx context.Context, req *connect.Request[v1.VMChangeNotification]) (*connect.Response[v1.VMChangeAck], error) {
+	return c.notifyVMChange.CallUnary(ctx, req)
+}
+
+// NotifyStorageChange calls limiquantix.compute.v1.NodeService.NotifyStorageChange.
+func (c *nodeServiceClient) NotifyStorageChange(ctx context.Context, req *connect.Request[v1.StorageChangeNotification]) (*connect.Response[v1.StorageChangeAck], error) {
+	return c.notifyStorageChange.CallUnary(ctx, req)
+}
+
 // GetNodeMetrics calls limiquantix.compute.v1.NodeService.GetNodeMetrics.
 func (c *nodeServiceClient) GetNodeMetrics(ctx context.Context, req *connect.Request[v1.GetNodeMetricsRequest]) (*connect.Response[v1.NodeMetrics], error) {
 	return c.getNodeMetrics.CallUnary(ctx, req)
@@ -405,7 +467,24 @@ type NodeServiceHandler interface {
 	UpdateHeartbeat(context.Context, *connect.Request[v1.UpdateHeartbeatRequest]) (*connect.Response[v1.UpdateHeartbeatResponse], error)
 	// SyncNodeVMs reports VMs running on a node to the control plane.
 	// Called by the Node Daemon after registration to reconcile state.
+	// DEPRECATED: Use SyncFullState instead for complete state reconciliation.
 	SyncNodeVMs(context.Context, *connect.Request[v1.SyncNodeVMsRequest]) (*connect.Response[v1.SyncNodeVMsResponse], error)
+	// SyncFullState performs a complete state synchronization between the node and control plane.
+	// Called on:
+	//   - Startup (after registration)
+	//   - Reconnect (after network failure)
+	//   - Control plane request (anti-entropy drift detection)
+	//
+	// This replaces SyncNodeVMs with a more comprehensive approach.
+	SyncFullState(context.Context, *connect.Request[v1.SyncFullStateRequest]) (*connect.Response[v1.SyncFullStateResponse], error)
+	// NotifyVMChange sends a real-time notification when a VM state changes.
+	// Called by the State Watcher when it detects a VM was created, updated, or deleted.
+	// CRITICAL: The control plane must check if the VM exists before deciding
+	// whether this is a "new discovery" or an update to an existing VM.
+	NotifyVMChange(context.Context, *connect.Request[v1.VMChangeNotification]) (*connect.Response[v1.VMChangeAck], error)
+	// NotifyStorageChange sends a real-time notification when storage state changes.
+	// Called by the State Watcher when a storage pool is added, modified, or removed.
+	NotifyStorageChange(context.Context, *connect.Request[v1.StorageChangeNotification]) (*connect.Response[v1.StorageChangeAck], error)
 	// GetNodeMetrics returns current resource usage.
 	GetNodeMetrics(context.Context, *connect.Request[v1.GetNodeMetricsRequest]) (*connect.Response[v1.NodeMetrics], error)
 	// ListNodeEvents returns recent events for a node.
@@ -507,6 +586,24 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("SyncNodeVMs")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceSyncFullStateHandler := connect.NewUnaryHandler(
+		NodeServiceSyncFullStateProcedure,
+		svc.SyncFullState,
+		connect.WithSchema(nodeServiceMethods.ByName("SyncFullState")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceNotifyVMChangeHandler := connect.NewUnaryHandler(
+		NodeServiceNotifyVMChangeProcedure,
+		svc.NotifyVMChange,
+		connect.WithSchema(nodeServiceMethods.ByName("NotifyVMChange")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceNotifyStorageChangeHandler := connect.NewUnaryHandler(
+		NodeServiceNotifyStorageChangeProcedure,
+		svc.NotifyStorageChange,
+		connect.WithSchema(nodeServiceMethods.ByName("NotifyStorageChange")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServiceGetNodeMetricsHandler := connect.NewUnaryHandler(
 		NodeServiceGetNodeMetricsProcedure,
 		svc.GetNodeMetrics,
@@ -571,6 +668,12 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceUpdateHeartbeatHandler.ServeHTTP(w, r)
 		case NodeServiceSyncNodeVMsProcedure:
 			nodeServiceSyncNodeVMsHandler.ServeHTTP(w, r)
+		case NodeServiceSyncFullStateProcedure:
+			nodeServiceSyncFullStateHandler.ServeHTTP(w, r)
+		case NodeServiceNotifyVMChangeProcedure:
+			nodeServiceNotifyVMChangeHandler.ServeHTTP(w, r)
+		case NodeServiceNotifyStorageChangeProcedure:
+			nodeServiceNotifyStorageChangeHandler.ServeHTTP(w, r)
 		case NodeServiceGetNodeMetricsProcedure:
 			nodeServiceGetNodeMetricsHandler.ServeHTTP(w, r)
 		case NodeServiceListNodeEventsProcedure:
@@ -642,6 +745,18 @@ func (UnimplementedNodeServiceHandler) UpdateHeartbeat(context.Context, *connect
 
 func (UnimplementedNodeServiceHandler) SyncNodeVMs(context.Context, *connect.Request[v1.SyncNodeVMsRequest]) (*connect.Response[v1.SyncNodeVMsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.NodeService.SyncNodeVMs is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) SyncFullState(context.Context, *connect.Request[v1.SyncFullStateRequest]) (*connect.Response[v1.SyncFullStateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.NodeService.SyncFullState is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) NotifyVMChange(context.Context, *connect.Request[v1.VMChangeNotification]) (*connect.Response[v1.VMChangeAck], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.NodeService.NotifyVMChange is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) NotifyStorageChange(context.Context, *connect.Request[v1.StorageChangeNotification]) (*connect.Response[v1.StorageChangeAck], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.NodeService.NotifyStorageChange is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) GetNodeMetrics(context.Context, *connect.Request[v1.GetNodeMetricsRequest]) (*connect.Response[v1.NodeMetrics], error) {

@@ -20,25 +20,28 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NodeService_RegisterNode_FullMethodName      = "/limiquantix.compute.v1.NodeService/RegisterNode"
-	NodeService_GetNode_FullMethodName           = "/limiquantix.compute.v1.NodeService/GetNode"
-	NodeService_ListNodes_FullMethodName         = "/limiquantix.compute.v1.NodeService/ListNodes"
-	NodeService_UpdateNode_FullMethodName        = "/limiquantix.compute.v1.NodeService/UpdateNode"
-	NodeService_DecommissionNode_FullMethodName  = "/limiquantix.compute.v1.NodeService/DecommissionNode"
-	NodeService_EnableNode_FullMethodName        = "/limiquantix.compute.v1.NodeService/EnableNode"
-	NodeService_DisableNode_FullMethodName       = "/limiquantix.compute.v1.NodeService/DisableNode"
-	NodeService_DrainNode_FullMethodName         = "/limiquantix.compute.v1.NodeService/DrainNode"
-	NodeService_AddTaint_FullMethodName          = "/limiquantix.compute.v1.NodeService/AddTaint"
-	NodeService_RemoveTaint_FullMethodName       = "/limiquantix.compute.v1.NodeService/RemoveTaint"
-	NodeService_UpdateLabels_FullMethodName      = "/limiquantix.compute.v1.NodeService/UpdateLabels"
-	NodeService_UpdateHeartbeat_FullMethodName   = "/limiquantix.compute.v1.NodeService/UpdateHeartbeat"
-	NodeService_SyncNodeVMs_FullMethodName       = "/limiquantix.compute.v1.NodeService/SyncNodeVMs"
-	NodeService_GetNodeMetrics_FullMethodName    = "/limiquantix.compute.v1.NodeService/GetNodeMetrics"
-	NodeService_ListNodeEvents_FullMethodName    = "/limiquantix.compute.v1.NodeService/ListNodeEvents"
-	NodeService_WatchNode_FullMethodName         = "/limiquantix.compute.v1.NodeService/WatchNode"
-	NodeService_WatchNodes_FullMethodName        = "/limiquantix.compute.v1.NodeService/WatchNodes"
-	NodeService_StreamNodeMetrics_FullMethodName = "/limiquantix.compute.v1.NodeService/StreamNodeMetrics"
-	NodeService_StreamEvents_FullMethodName      = "/limiquantix.compute.v1.NodeService/StreamEvents"
+	NodeService_RegisterNode_FullMethodName        = "/limiquantix.compute.v1.NodeService/RegisterNode"
+	NodeService_GetNode_FullMethodName             = "/limiquantix.compute.v1.NodeService/GetNode"
+	NodeService_ListNodes_FullMethodName           = "/limiquantix.compute.v1.NodeService/ListNodes"
+	NodeService_UpdateNode_FullMethodName          = "/limiquantix.compute.v1.NodeService/UpdateNode"
+	NodeService_DecommissionNode_FullMethodName    = "/limiquantix.compute.v1.NodeService/DecommissionNode"
+	NodeService_EnableNode_FullMethodName          = "/limiquantix.compute.v1.NodeService/EnableNode"
+	NodeService_DisableNode_FullMethodName         = "/limiquantix.compute.v1.NodeService/DisableNode"
+	NodeService_DrainNode_FullMethodName           = "/limiquantix.compute.v1.NodeService/DrainNode"
+	NodeService_AddTaint_FullMethodName            = "/limiquantix.compute.v1.NodeService/AddTaint"
+	NodeService_RemoveTaint_FullMethodName         = "/limiquantix.compute.v1.NodeService/RemoveTaint"
+	NodeService_UpdateLabels_FullMethodName        = "/limiquantix.compute.v1.NodeService/UpdateLabels"
+	NodeService_UpdateHeartbeat_FullMethodName     = "/limiquantix.compute.v1.NodeService/UpdateHeartbeat"
+	NodeService_SyncNodeVMs_FullMethodName         = "/limiquantix.compute.v1.NodeService/SyncNodeVMs"
+	NodeService_SyncFullState_FullMethodName       = "/limiquantix.compute.v1.NodeService/SyncFullState"
+	NodeService_NotifyVMChange_FullMethodName      = "/limiquantix.compute.v1.NodeService/NotifyVMChange"
+	NodeService_NotifyStorageChange_FullMethodName = "/limiquantix.compute.v1.NodeService/NotifyStorageChange"
+	NodeService_GetNodeMetrics_FullMethodName      = "/limiquantix.compute.v1.NodeService/GetNodeMetrics"
+	NodeService_ListNodeEvents_FullMethodName      = "/limiquantix.compute.v1.NodeService/ListNodeEvents"
+	NodeService_WatchNode_FullMethodName           = "/limiquantix.compute.v1.NodeService/WatchNode"
+	NodeService_WatchNodes_FullMethodName          = "/limiquantix.compute.v1.NodeService/WatchNodes"
+	NodeService_StreamNodeMetrics_FullMethodName   = "/limiquantix.compute.v1.NodeService/StreamNodeMetrics"
+	NodeService_StreamEvents_FullMethodName        = "/limiquantix.compute.v1.NodeService/StreamEvents"
 )
 
 // NodeServiceClient is the client API for NodeService service.
@@ -75,7 +78,23 @@ type NodeServiceClient interface {
 	UpdateHeartbeat(ctx context.Context, in *UpdateHeartbeatRequest, opts ...grpc.CallOption) (*UpdateHeartbeatResponse, error)
 	// SyncNodeVMs reports VMs running on a node to the control plane.
 	// Called by the Node Daemon after registration to reconcile state.
+	// DEPRECATED: Use SyncFullState instead for complete state reconciliation.
 	SyncNodeVMs(ctx context.Context, in *SyncNodeVMsRequest, opts ...grpc.CallOption) (*SyncNodeVMsResponse, error)
+	// SyncFullState performs a complete state synchronization between the node and control plane.
+	// Called on:
+	//   - Startup (after registration)
+	//   - Reconnect (after network failure)
+	//   - Control plane request (anti-entropy drift detection)
+	// This replaces SyncNodeVMs with a more comprehensive approach.
+	SyncFullState(ctx context.Context, in *SyncFullStateRequest, opts ...grpc.CallOption) (*SyncFullStateResponse, error)
+	// NotifyVMChange sends a real-time notification when a VM state changes.
+	// Called by the State Watcher when it detects a VM was created, updated, or deleted.
+	// CRITICAL: The control plane must check if the VM exists before deciding
+	// whether this is a "new discovery" or an update to an existing VM.
+	NotifyVMChange(ctx context.Context, in *VMChangeNotification, opts ...grpc.CallOption) (*VMChangeAck, error)
+	// NotifyStorageChange sends a real-time notification when storage state changes.
+	// Called by the State Watcher when a storage pool is added, modified, or removed.
+	NotifyStorageChange(ctx context.Context, in *StorageChangeNotification, opts ...grpc.CallOption) (*StorageChangeAck, error)
 	// GetNodeMetrics returns current resource usage.
 	GetNodeMetrics(ctx context.Context, in *GetNodeMetricsRequest, opts ...grpc.CallOption) (*NodeMetrics, error)
 	// ListNodeEvents returns recent events for a node.
@@ -230,6 +249,36 @@ func (c *nodeServiceClient) SyncNodeVMs(ctx context.Context, in *SyncNodeVMsRequ
 	return out, nil
 }
 
+func (c *nodeServiceClient) SyncFullState(ctx context.Context, in *SyncFullStateRequest, opts ...grpc.CallOption) (*SyncFullStateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SyncFullStateResponse)
+	err := c.cc.Invoke(ctx, NodeService_SyncFullState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeServiceClient) NotifyVMChange(ctx context.Context, in *VMChangeNotification, opts ...grpc.CallOption) (*VMChangeAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VMChangeAck)
+	err := c.cc.Invoke(ctx, NodeService_NotifyVMChange_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeServiceClient) NotifyStorageChange(ctx context.Context, in *StorageChangeNotification, opts ...grpc.CallOption) (*StorageChangeAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StorageChangeAck)
+	err := c.cc.Invoke(ctx, NodeService_NotifyStorageChange_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *nodeServiceClient) GetNodeMetrics(ctx context.Context, in *GetNodeMetricsRequest, opts ...grpc.CallOption) (*NodeMetrics, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(NodeMetrics)
@@ -360,7 +409,23 @@ type NodeServiceServer interface {
 	UpdateHeartbeat(context.Context, *UpdateHeartbeatRequest) (*UpdateHeartbeatResponse, error)
 	// SyncNodeVMs reports VMs running on a node to the control plane.
 	// Called by the Node Daemon after registration to reconcile state.
+	// DEPRECATED: Use SyncFullState instead for complete state reconciliation.
 	SyncNodeVMs(context.Context, *SyncNodeVMsRequest) (*SyncNodeVMsResponse, error)
+	// SyncFullState performs a complete state synchronization between the node and control plane.
+	// Called on:
+	//   - Startup (after registration)
+	//   - Reconnect (after network failure)
+	//   - Control plane request (anti-entropy drift detection)
+	// This replaces SyncNodeVMs with a more comprehensive approach.
+	SyncFullState(context.Context, *SyncFullStateRequest) (*SyncFullStateResponse, error)
+	// NotifyVMChange sends a real-time notification when a VM state changes.
+	// Called by the State Watcher when it detects a VM was created, updated, or deleted.
+	// CRITICAL: The control plane must check if the VM exists before deciding
+	// whether this is a "new discovery" or an update to an existing VM.
+	NotifyVMChange(context.Context, *VMChangeNotification) (*VMChangeAck, error)
+	// NotifyStorageChange sends a real-time notification when storage state changes.
+	// Called by the State Watcher when a storage pool is added, modified, or removed.
+	NotifyStorageChange(context.Context, *StorageChangeNotification) (*StorageChangeAck, error)
 	// GetNodeMetrics returns current resource usage.
 	GetNodeMetrics(context.Context, *GetNodeMetricsRequest) (*NodeMetrics, error)
 	// ListNodeEvents returns recent events for a node.
@@ -422,6 +487,15 @@ func (UnimplementedNodeServiceServer) UpdateHeartbeat(context.Context, *UpdateHe
 }
 func (UnimplementedNodeServiceServer) SyncNodeVMs(context.Context, *SyncNodeVMsRequest) (*SyncNodeVMsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SyncNodeVMs not implemented")
+}
+func (UnimplementedNodeServiceServer) SyncFullState(context.Context, *SyncFullStateRequest) (*SyncFullStateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SyncFullState not implemented")
+}
+func (UnimplementedNodeServiceServer) NotifyVMChange(context.Context, *VMChangeNotification) (*VMChangeAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method NotifyVMChange not implemented")
+}
+func (UnimplementedNodeServiceServer) NotifyStorageChange(context.Context, *StorageChangeNotification) (*StorageChangeAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method NotifyStorageChange not implemented")
 }
 func (UnimplementedNodeServiceServer) GetNodeMetrics(context.Context, *GetNodeMetricsRequest) (*NodeMetrics, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetNodeMetrics not implemented")
@@ -695,6 +769,60 @@ func _NodeService_SyncNodeVMs_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeService_SyncFullState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SyncFullStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServiceServer).SyncFullState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeService_SyncFullState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServiceServer).SyncFullState(ctx, req.(*SyncFullStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeService_NotifyVMChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VMChangeNotification)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServiceServer).NotifyVMChange(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeService_NotifyVMChange_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServiceServer).NotifyVMChange(ctx, req.(*VMChangeNotification))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeService_NotifyStorageChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StorageChangeNotification)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServiceServer).NotifyStorageChange(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeService_NotifyStorageChange_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServiceServer).NotifyStorageChange(ctx, req.(*StorageChangeNotification))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _NodeService_GetNodeMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetNodeMetricsRequest)
 	if err := dec(in); err != nil {
@@ -833,6 +961,18 @@ var NodeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SyncNodeVMs",
 			Handler:    _NodeService_SyncNodeVMs_Handler,
+		},
+		{
+			MethodName: "SyncFullState",
+			Handler:    _NodeService_SyncFullState_Handler,
+		},
+		{
+			MethodName: "NotifyVMChange",
+			Handler:    _NodeService_NotifyVMChange_Handler,
+		},
+		{
+			MethodName: "NotifyStorageChange",
+			Handler:    _NodeService_NotifyStorageChange_Handler,
 		},
 		{
 			MethodName: "GetNodeMetrics",

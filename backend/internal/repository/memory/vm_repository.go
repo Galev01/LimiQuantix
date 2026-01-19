@@ -20,14 +20,16 @@ var _ vm.Repository = (*VMRepository)(nil)
 // VMRepository is an in-memory implementation of the VM repository.
 // It's useful for development and testing without requiring a database.
 type VMRepository struct {
-	mu   sync.RWMutex
-	data map[string]*domain.VirtualMachine
+	mu     sync.RWMutex
+	data   map[string]*domain.VirtualMachine
+	events map[string][]*domain.VMEvent // vmID -> events
 }
 
 // NewVMRepository creates a new in-memory VM repository.
 func NewVMRepository() *VMRepository {
 	return &VMRepository{
-		data: make(map[string]*domain.VirtualMachine),
+		data:   make(map[string]*domain.VirtualMachine),
+		events: make(map[string][]*domain.VMEvent),
 	}
 }
 
@@ -317,5 +319,84 @@ func sortVMsByCreatedAt(vms []*domain.VirtualMachine) {
 			}
 		}
 	}
+}
+
+// =============================================================================
+// Event operations
+// =============================================================================
+
+// CreateEvent stores a new VM event.
+func (r *VMRepository) CreateEvent(ctx context.Context, event *domain.VMEvent) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if event.ID == "" {
+		event.ID = uuid.New().String()
+	}
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = time.Now()
+	}
+
+	// Clone event to avoid external modifications
+	eventCopy := *event
+	if event.Metadata != nil {
+		eventCopy.Metadata = make(map[string]string)
+		for k, v := range event.Metadata {
+			eventCopy.Metadata[k] = v
+		}
+	}
+
+	r.events[event.VMID] = append(r.events[event.VMID], &eventCopy)
+	return nil
+}
+
+// ListEvents returns events for a VM with optional filters.
+func (r *VMRepository) ListEvents(ctx context.Context, vmID, eventType, severity string, limit int, since string) ([]*domain.VMEvent, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	vmEvents := r.events[vmID]
+	if vmEvents == nil {
+		return []*domain.VMEvent{}, nil
+	}
+
+	// Parse since time if provided
+	var sinceTime time.Time
+	if since != "" {
+		var err error
+		sinceTime, err = time.Parse(time.RFC3339, since)
+		if err != nil {
+			sinceTime = time.Time{}
+		}
+	}
+
+	// Filter and collect events
+	var result []*domain.VMEvent
+	for i := len(vmEvents) - 1; i >= 0 && (limit <= 0 || len(result) < limit); i-- {
+		event := vmEvents[i]
+
+		// Apply filters
+		if eventType != "" && event.Type != eventType {
+			continue
+		}
+		if severity != "" && event.Severity != severity {
+			continue
+		}
+		if !sinceTime.IsZero() && !event.CreatedAt.After(sinceTime) {
+			continue
+		}
+
+		// Clone event
+		eventCopy := *event
+		if event.Metadata != nil {
+			eventCopy.Metadata = make(map[string]string)
+			for k, v := range event.Metadata {
+				eventCopy.Metadata[k] = v
+			}
+		}
+		result = append(result, &eventCopy)
+	}
+
+	return result, nil
 }
 

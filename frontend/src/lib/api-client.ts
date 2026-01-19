@@ -257,6 +257,17 @@ export interface VMListResponse {
   totalCount: number;
 }
 
+export interface ApiVMEvent {
+  id: string;
+  vmId: string;
+  type: string;       // power, config, snapshot, disk, network, error
+  message: string;
+  user?: string;
+  severity: string;   // info, warning, error
+  createdAt: string;
+  metadata?: Record<string, string>;
+}
+
 export interface ApiVM {
   id: string;
   name: string;
@@ -288,6 +299,30 @@ export interface ApiVM {
         vendorData?: string;  // vendor-specific data (optional)
       };
     };
+    // Boot configuration
+    boot?: {
+      order?: string[];      // Boot device order: 'disk', 'cdrom', 'network'
+      firmware?: string;     // 'BIOS' or 'UEFI'
+      secureBoot?: boolean;  // UEFI secure boot enabled
+    };
+    // Display/console settings
+    display?: {
+      type?: string;         // 'VNC' or 'SPICE'
+      port?: number;         // Console port (auto if not set)
+      password?: string;     // Console password
+      listen?: string;       // Listen address (e.g., '0.0.0.0')
+      clipboard?: boolean;   // Clipboard sharing (SPICE)
+      audio?: boolean;       // Audio passthrough (SPICE)
+    };
+    // High Availability policy
+    ha?: {
+      enabled?: boolean;
+      restartPriority?: string;      // 'highest', 'high', 'medium', 'low', 'lowest'
+      isolationResponse?: string;    // 'none', 'shutdown', 'powerOff'
+      vmMonitoring?: string;         // 'disabled', 'vmMonitoringOnly', 'vmAndAppMonitoring'
+      maxRestarts?: number;
+      restartPeriodMinutes?: number;
+    };
   };
   status?: {
     state?: string;
@@ -295,8 +330,15 @@ export interface ApiVM {
     nodeId?: string;
     ipAddresses?: string[];
     resourceUsage?: {
+      cpuPercent?: number;
       cpuUsagePercent?: number;
+      memoryPercent?: number;
       memoryUsedMib?: number;
+      memoryBytes?: number;
+      diskReadBytesPerSec?: number;
+      diskWriteBytesPerSec?: number;
+      networkRxBytesPerSec?: number;
+      networkTxBytesPerSec?: number;
     };
   };
   createdAt?: string;
@@ -351,11 +393,181 @@ export const vmApi = {
     );
   },
   
-  async delete(id: string, force?: boolean): Promise<void> {
+  async reboot(id: string, force?: boolean): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'RebootVM',
+      { id, force }
+    );
+  },
+  
+  async pause(id: string): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'PauseVM',
+      { id }
+    );
+  },
+  
+  async resume(id: string): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'ResumeVM',
+      { id }
+    );
+  },
+  
+  async suspend(id: string): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'SuspendVM',
+      { id }
+    );
+  },
+
+  async clone(data: {
+    sourceVmId: string;
+    name: string;
+    projectId?: string;
+    cloneType?: 'FULL' | 'LINKED';
+    startOnCreate?: boolean;
+  }): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'CloneVM',
+      {
+        sourceVmId: data.sourceVmId,
+        name: data.name,
+        projectId: data.projectId,
+        cloneType: data.cloneType === 'LINKED' ? 1 : 0, // FULL=0, LINKED=1 (proto enum)
+        startOnCreate: data.startOnCreate,
+      }
+    );
+  },
+
+  // Disk operations
+  async attachDisk(vmId: string, disk: {
+    sizeGib: number;
+    bus: string;
+    format?: string;
+  }): Promise<ApiVM> {
+    // Map bus string to proto enum
+    const busMap: Record<string, number> = {
+      'virtio': 0, 'VIRTIO': 0,
+      'scsi': 1, 'SCSI': 1,
+      'sata': 2, 'SATA': 2,
+      'ide': 3, 'IDE': 3,
+    };
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'AttachDisk',
+      {
+        vmId,
+        disk: {
+          sizeGib: disk.sizeGib,
+          bus: busMap[disk.bus] ?? 0,
+        },
+      }
+    );
+  },
+
+  async detachDisk(vmId: string, diskId: string, force?: boolean): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'DetachDisk',
+      { vmId, diskId, force: force ?? false }
+    );
+  },
+
+  async resizeDisk(vmId: string, diskId: string, newSizeGib: number): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'ResizeDisk',
+      { vmId, diskId, newSizeGib }
+    );
+  },
+
+  // NIC operations
+  async attachNIC(vmId: string, nic: {
+    networkId: string;
+    macAddress?: string;
+    model?: string;
+  }): Promise<ApiVM> {
+    // Map model string to proto enum
+    const modelMap: Record<string, number> = {
+      'virtio': 0, 'VIRTIO': 0,
+      'e1000': 1, 'E1000': 1,
+      'rtl8139': 2, 'RTL8139': 2,
+    };
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'AttachNIC',
+      {
+        vmId,
+        nic: {
+          networkId: nic.networkId,
+          macAddress: nic.macAddress,
+          model: modelMap[nic.model || 'virtio'] ?? 0,
+        },
+      }
+    );
+  },
+
+  async detachNIC(vmId: string, nicId: string): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'DetachNIC',
+      { vmId, nicId }
+    );
+  },
+
+  // Events
+  async listEvents(vmId: string, options?: {
+    type?: string;
+    severity?: string;
+    limit?: number;
+    since?: string;
+  }): Promise<{ events: ApiVMEvent[] }> {
+    return apiCall<{ events: ApiVMEvent[] }>(
+      'limiquantix.compute.v1.VMService',
+      'ListVMEvents',
+      { vmId, ...options }
+    );
+  },
+
+  // Agent operations
+  async pingAgent(vmId: string): Promise<{
+    connected: boolean;
+    version?: string;
+    uptimeSeconds?: number;
+    error?: string;
+  }> {
+    return apiCall<{
+      connected: boolean;
+      version?: string;
+      uptimeSeconds?: number;
+      error?: string;
+    }>(
+      'limiquantix.compute.v1.VMService',
+      'PingAgent',
+      { vmId }
+    );
+  },
+  
+  async delete(id: string, options?: { 
+    force?: boolean;
+    deleteVolumes?: boolean;
+    removeFromInventoryOnly?: boolean;
+  }): Promise<void> {
     await apiCall<void>(
       'limiquantix.compute.v1.VMService',
       'DeleteVM',
-      { id, force }
+      { 
+        id, 
+        force: options?.force,
+        deleteVolumes: options?.deleteVolumes ?? true, // Default to true for full deletion
+        removeFromInventoryOnly: options?.removeFromInventoryOnly ?? false,
+      }
     );
   },
   

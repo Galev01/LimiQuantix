@@ -76,6 +76,18 @@ const (
 	// VMServiceConvertToTemplateProcedure is the fully-qualified name of the VMService's
 	// ConvertToTemplate RPC.
 	VMServiceConvertToTemplateProcedure = "/limiquantix.compute.v1.VMService/ConvertToTemplate"
+	// VMServiceAttachDiskProcedure is the fully-qualified name of the VMService's AttachDisk RPC.
+	VMServiceAttachDiskProcedure = "/limiquantix.compute.v1.VMService/AttachDisk"
+	// VMServiceDetachDiskProcedure is the fully-qualified name of the VMService's DetachDisk RPC.
+	VMServiceDetachDiskProcedure = "/limiquantix.compute.v1.VMService/DetachDisk"
+	// VMServiceResizeDiskProcedure is the fully-qualified name of the VMService's ResizeDisk RPC.
+	VMServiceResizeDiskProcedure = "/limiquantix.compute.v1.VMService/ResizeDisk"
+	// VMServiceAttachNICProcedure is the fully-qualified name of the VMService's AttachNIC RPC.
+	VMServiceAttachNICProcedure = "/limiquantix.compute.v1.VMService/AttachNIC"
+	// VMServiceDetachNICProcedure is the fully-qualified name of the VMService's DetachNIC RPC.
+	VMServiceDetachNICProcedure = "/limiquantix.compute.v1.VMService/DetachNIC"
+	// VMServiceListVMEventsProcedure is the fully-qualified name of the VMService's ListVMEvents RPC.
+	VMServiceListVMEventsProcedure = "/limiquantix.compute.v1.VMService/ListVMEvents"
 	// VMServiceWatchVMProcedure is the fully-qualified name of the VMService's WatchVM RPC.
 	VMServiceWatchVMProcedure = "/limiquantix.compute.v1.VMService/WatchVM"
 	// VMServiceStreamMetricsProcedure is the fully-qualified name of the VMService's StreamMetrics RPC.
@@ -139,6 +151,18 @@ type VMServiceClient interface {
 	CloneVM(context.Context, *connect.Request[v1.CloneVMRequest]) (*connect.Response[v1.VirtualMachine], error)
 	// ConvertToTemplate marks a VM as a template.
 	ConvertToTemplate(context.Context, *connect.Request[v1.ConvertToTemplateRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// AttachDisk attaches a new disk to a VM (hot-plug if running).
+	AttachDisk(context.Context, *connect.Request[v1.AttachDiskRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// DetachDisk removes a disk from a VM (hot-unplug if running).
+	DetachDisk(context.Context, *connect.Request[v1.DetachDiskRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// ResizeDisk expands a disk attached to a VM.
+	ResizeDisk(context.Context, *connect.Request[v1.ResizeDiskRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// AttachNIC attaches a new network interface to a VM (hot-plug if running).
+	AttachNIC(context.Context, *connect.Request[v1.AttachNICRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// DetachNIC removes a network interface from a VM (hot-unplug if running).
+	DetachNIC(context.Context, *connect.Request[v1.DetachNICRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// ListVMEvents returns events for a VM.
+	ListVMEvents(context.Context, *connect.Request[v1.ListVMEventsRequest]) (*connect.Response[v1.ListVMEventsResponse], error)
 	// WatchVM streams real-time updates for a VM.
 	WatchVM(context.Context, *connect.Request[v1.WatchVMRequest]) (*connect.ServerStreamForClient[v1.VirtualMachine], error)
 	// StreamMetrics streams real-time performance metrics.
@@ -282,6 +306,42 @@ func NewVMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...c
 			connect.WithSchema(vMServiceMethods.ByName("ConvertToTemplate")),
 			connect.WithClientOptions(opts...),
 		),
+		attachDisk: connect.NewClient[v1.AttachDiskRequest, v1.VirtualMachine](
+			httpClient,
+			baseURL+VMServiceAttachDiskProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("AttachDisk")),
+			connect.WithClientOptions(opts...),
+		),
+		detachDisk: connect.NewClient[v1.DetachDiskRequest, v1.VirtualMachine](
+			httpClient,
+			baseURL+VMServiceDetachDiskProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("DetachDisk")),
+			connect.WithClientOptions(opts...),
+		),
+		resizeDisk: connect.NewClient[v1.ResizeDiskRequest, v1.VirtualMachine](
+			httpClient,
+			baseURL+VMServiceResizeDiskProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("ResizeDisk")),
+			connect.WithClientOptions(opts...),
+		),
+		attachNIC: connect.NewClient[v1.AttachNICRequest, v1.VirtualMachine](
+			httpClient,
+			baseURL+VMServiceAttachNICProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("AttachNIC")),
+			connect.WithClientOptions(opts...),
+		),
+		detachNIC: connect.NewClient[v1.DetachNICRequest, v1.VirtualMachine](
+			httpClient,
+			baseURL+VMServiceDetachNICProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("DetachNIC")),
+			connect.WithClientOptions(opts...),
+		),
+		listVMEvents: connect.NewClient[v1.ListVMEventsRequest, v1.ListVMEventsResponse](
+			httpClient,
+			baseURL+VMServiceListVMEventsProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("ListVMEvents")),
+			connect.WithClientOptions(opts...),
+		),
 		watchVM: connect.NewClient[v1.WatchVMRequest, v1.VirtualMachine](
 			httpClient,
 			baseURL+VMServiceWatchVMProcedure,
@@ -354,6 +414,12 @@ type vMServiceClient struct {
 	getConsole        *connect.Client[v1.GetConsoleRequest, v1.ConsoleInfo]
 	cloneVM           *connect.Client[v1.CloneVMRequest, v1.VirtualMachine]
 	convertToTemplate *connect.Client[v1.ConvertToTemplateRequest, v1.VirtualMachine]
+	attachDisk        *connect.Client[v1.AttachDiskRequest, v1.VirtualMachine]
+	detachDisk        *connect.Client[v1.DetachDiskRequest, v1.VirtualMachine]
+	resizeDisk        *connect.Client[v1.ResizeDiskRequest, v1.VirtualMachine]
+	attachNIC         *connect.Client[v1.AttachNICRequest, v1.VirtualMachine]
+	detachNIC         *connect.Client[v1.DetachNICRequest, v1.VirtualMachine]
+	listVMEvents      *connect.Client[v1.ListVMEventsRequest, v1.ListVMEventsResponse]
 	watchVM           *connect.Client[v1.WatchVMRequest, v1.VirtualMachine]
 	streamMetrics     *connect.Client[v1.StreamMetricsRequest, v1.ResourceUsage]
 	watchVMs          *connect.Client[v1.WatchVMsRequest, v1.VMUpdate]
@@ -459,6 +525,36 @@ func (c *vMServiceClient) ConvertToTemplate(ctx context.Context, req *connect.Re
 	return c.convertToTemplate.CallUnary(ctx, req)
 }
 
+// AttachDisk calls limiquantix.compute.v1.VMService.AttachDisk.
+func (c *vMServiceClient) AttachDisk(ctx context.Context, req *connect.Request[v1.AttachDiskRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return c.attachDisk.CallUnary(ctx, req)
+}
+
+// DetachDisk calls limiquantix.compute.v1.VMService.DetachDisk.
+func (c *vMServiceClient) DetachDisk(ctx context.Context, req *connect.Request[v1.DetachDiskRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return c.detachDisk.CallUnary(ctx, req)
+}
+
+// ResizeDisk calls limiquantix.compute.v1.VMService.ResizeDisk.
+func (c *vMServiceClient) ResizeDisk(ctx context.Context, req *connect.Request[v1.ResizeDiskRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return c.resizeDisk.CallUnary(ctx, req)
+}
+
+// AttachNIC calls limiquantix.compute.v1.VMService.AttachNIC.
+func (c *vMServiceClient) AttachNIC(ctx context.Context, req *connect.Request[v1.AttachNICRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return c.attachNIC.CallUnary(ctx, req)
+}
+
+// DetachNIC calls limiquantix.compute.v1.VMService.DetachNIC.
+func (c *vMServiceClient) DetachNIC(ctx context.Context, req *connect.Request[v1.DetachNICRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return c.detachNIC.CallUnary(ctx, req)
+}
+
+// ListVMEvents calls limiquantix.compute.v1.VMService.ListVMEvents.
+func (c *vMServiceClient) ListVMEvents(ctx context.Context, req *connect.Request[v1.ListVMEventsRequest]) (*connect.Response[v1.ListVMEventsResponse], error) {
+	return c.listVMEvents.CallUnary(ctx, req)
+}
+
 // WatchVM calls limiquantix.compute.v1.VMService.WatchVM.
 func (c *vMServiceClient) WatchVM(ctx context.Context, req *connect.Request[v1.WatchVMRequest]) (*connect.ServerStreamForClient[v1.VirtualMachine], error) {
 	return c.watchVM.CallServerStream(ctx, req)
@@ -543,6 +639,18 @@ type VMServiceHandler interface {
 	CloneVM(context.Context, *connect.Request[v1.CloneVMRequest]) (*connect.Response[v1.VirtualMachine], error)
 	// ConvertToTemplate marks a VM as a template.
 	ConvertToTemplate(context.Context, *connect.Request[v1.ConvertToTemplateRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// AttachDisk attaches a new disk to a VM (hot-plug if running).
+	AttachDisk(context.Context, *connect.Request[v1.AttachDiskRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// DetachDisk removes a disk from a VM (hot-unplug if running).
+	DetachDisk(context.Context, *connect.Request[v1.DetachDiskRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// ResizeDisk expands a disk attached to a VM.
+	ResizeDisk(context.Context, *connect.Request[v1.ResizeDiskRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// AttachNIC attaches a new network interface to a VM (hot-plug if running).
+	AttachNIC(context.Context, *connect.Request[v1.AttachNICRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// DetachNIC removes a network interface from a VM (hot-unplug if running).
+	DetachNIC(context.Context, *connect.Request[v1.DetachNICRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// ListVMEvents returns events for a VM.
+	ListVMEvents(context.Context, *connect.Request[v1.ListVMEventsRequest]) (*connect.Response[v1.ListVMEventsResponse], error)
 	// WatchVM streams real-time updates for a VM.
 	WatchVM(context.Context, *connect.Request[v1.WatchVMRequest], *connect.ServerStream[v1.VirtualMachine]) error
 	// StreamMetrics streams real-time performance metrics.
@@ -682,6 +790,42 @@ func NewVMServiceHandler(svc VMServiceHandler, opts ...connect.HandlerOption) (s
 		connect.WithSchema(vMServiceMethods.ByName("ConvertToTemplate")),
 		connect.WithHandlerOptions(opts...),
 	)
+	vMServiceAttachDiskHandler := connect.NewUnaryHandler(
+		VMServiceAttachDiskProcedure,
+		svc.AttachDisk,
+		connect.WithSchema(vMServiceMethods.ByName("AttachDisk")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vMServiceDetachDiskHandler := connect.NewUnaryHandler(
+		VMServiceDetachDiskProcedure,
+		svc.DetachDisk,
+		connect.WithSchema(vMServiceMethods.ByName("DetachDisk")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vMServiceResizeDiskHandler := connect.NewUnaryHandler(
+		VMServiceResizeDiskProcedure,
+		svc.ResizeDisk,
+		connect.WithSchema(vMServiceMethods.ByName("ResizeDisk")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vMServiceAttachNICHandler := connect.NewUnaryHandler(
+		VMServiceAttachNICProcedure,
+		svc.AttachNIC,
+		connect.WithSchema(vMServiceMethods.ByName("AttachNIC")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vMServiceDetachNICHandler := connect.NewUnaryHandler(
+		VMServiceDetachNICProcedure,
+		svc.DetachNIC,
+		connect.WithSchema(vMServiceMethods.ByName("DetachNIC")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vMServiceListVMEventsHandler := connect.NewUnaryHandler(
+		VMServiceListVMEventsProcedure,
+		svc.ListVMEvents,
+		connect.WithSchema(vMServiceMethods.ByName("ListVMEvents")),
+		connect.WithHandlerOptions(opts...),
+	)
 	vMServiceWatchVMHandler := connect.NewServerStreamHandler(
 		VMServiceWatchVMProcedure,
 		svc.WatchVM,
@@ -770,6 +914,18 @@ func NewVMServiceHandler(svc VMServiceHandler, opts ...connect.HandlerOption) (s
 			vMServiceCloneVMHandler.ServeHTTP(w, r)
 		case VMServiceConvertToTemplateProcedure:
 			vMServiceConvertToTemplateHandler.ServeHTTP(w, r)
+		case VMServiceAttachDiskProcedure:
+			vMServiceAttachDiskHandler.ServeHTTP(w, r)
+		case VMServiceDetachDiskProcedure:
+			vMServiceDetachDiskHandler.ServeHTTP(w, r)
+		case VMServiceResizeDiskProcedure:
+			vMServiceResizeDiskHandler.ServeHTTP(w, r)
+		case VMServiceAttachNICProcedure:
+			vMServiceAttachNICHandler.ServeHTTP(w, r)
+		case VMServiceDetachNICProcedure:
+			vMServiceDetachNICHandler.ServeHTTP(w, r)
+		case VMServiceListVMEventsProcedure:
+			vMServiceListVMEventsHandler.ServeHTTP(w, r)
 		case VMServiceWatchVMProcedure:
 			vMServiceWatchVMHandler.ServeHTTP(w, r)
 		case VMServiceStreamMetricsProcedure:
@@ -869,6 +1025,30 @@ func (UnimplementedVMServiceHandler) CloneVM(context.Context, *connect.Request[v
 
 func (UnimplementedVMServiceHandler) ConvertToTemplate(context.Context, *connect.Request[v1.ConvertToTemplateRequest]) (*connect.Response[v1.VirtualMachine], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.ConvertToTemplate is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) AttachDisk(context.Context, *connect.Request[v1.AttachDiskRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.AttachDisk is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) DetachDisk(context.Context, *connect.Request[v1.DetachDiskRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.DetachDisk is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) ResizeDisk(context.Context, *connect.Request[v1.ResizeDiskRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.ResizeDisk is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) AttachNIC(context.Context, *connect.Request[v1.AttachNICRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.AttachNIC is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) DetachNIC(context.Context, *connect.Request[v1.DetachNICRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.DetachNIC is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) ListVMEvents(context.Context, *connect.Request[v1.ListVMEventsRequest]) (*connect.Response[v1.ListVMEventsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.ListVMEvents is not implemented"))
 }
 
 func (UnimplementedVMServiceHandler) WatchVM(context.Context, *connect.Request[v1.WatchVMRequest], *connect.ServerStream[v1.VirtualMachine]) error {

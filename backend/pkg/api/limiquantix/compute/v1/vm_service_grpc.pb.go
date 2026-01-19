@@ -39,6 +39,12 @@ const (
 	VMService_GetConsole_FullMethodName        = "/limiquantix.compute.v1.VMService/GetConsole"
 	VMService_CloneVM_FullMethodName           = "/limiquantix.compute.v1.VMService/CloneVM"
 	VMService_ConvertToTemplate_FullMethodName = "/limiquantix.compute.v1.VMService/ConvertToTemplate"
+	VMService_AttachDisk_FullMethodName        = "/limiquantix.compute.v1.VMService/AttachDisk"
+	VMService_DetachDisk_FullMethodName        = "/limiquantix.compute.v1.VMService/DetachDisk"
+	VMService_ResizeDisk_FullMethodName        = "/limiquantix.compute.v1.VMService/ResizeDisk"
+	VMService_AttachNIC_FullMethodName         = "/limiquantix.compute.v1.VMService/AttachNIC"
+	VMService_DetachNIC_FullMethodName         = "/limiquantix.compute.v1.VMService/DetachNIC"
+	VMService_ListVMEvents_FullMethodName      = "/limiquantix.compute.v1.VMService/ListVMEvents"
 	VMService_WatchVM_FullMethodName           = "/limiquantix.compute.v1.VMService/WatchVM"
 	VMService_StreamMetrics_FullMethodName     = "/limiquantix.compute.v1.VMService/StreamMetrics"
 	VMService_WatchVMs_FullMethodName          = "/limiquantix.compute.v1.VMService/WatchVMs"
@@ -97,6 +103,18 @@ type VMServiceClient interface {
 	CloneVM(ctx context.Context, in *CloneVMRequest, opts ...grpc.CallOption) (*VirtualMachine, error)
 	// ConvertToTemplate marks a VM as a template.
 	ConvertToTemplate(ctx context.Context, in *ConvertToTemplateRequest, opts ...grpc.CallOption) (*VirtualMachine, error)
+	// AttachDisk attaches a new disk to a VM (hot-plug if running).
+	AttachDisk(ctx context.Context, in *AttachDiskRequest, opts ...grpc.CallOption) (*VirtualMachine, error)
+	// DetachDisk removes a disk from a VM (hot-unplug if running).
+	DetachDisk(ctx context.Context, in *DetachDiskRequest, opts ...grpc.CallOption) (*VirtualMachine, error)
+	// ResizeDisk expands a disk attached to a VM.
+	ResizeDisk(ctx context.Context, in *ResizeDiskRequest, opts ...grpc.CallOption) (*VirtualMachine, error)
+	// AttachNIC attaches a new network interface to a VM (hot-plug if running).
+	AttachNIC(ctx context.Context, in *AttachNICRequest, opts ...grpc.CallOption) (*VirtualMachine, error)
+	// DetachNIC removes a network interface from a VM (hot-unplug if running).
+	DetachNIC(ctx context.Context, in *DetachNICRequest, opts ...grpc.CallOption) (*VirtualMachine, error)
+	// ListVMEvents returns events for a VM.
+	ListVMEvents(ctx context.Context, in *ListVMEventsRequest, opts ...grpc.CallOption) (*ListVMEventsResponse, error)
 	// WatchVM streams real-time updates for a VM.
 	WatchVM(ctx context.Context, in *WatchVMRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[VirtualMachine], error)
 	// StreamMetrics streams real-time performance metrics.
@@ -313,6 +331,66 @@ func (c *vMServiceClient) ConvertToTemplate(ctx context.Context, in *ConvertToTe
 	return out, nil
 }
 
+func (c *vMServiceClient) AttachDisk(ctx context.Context, in *AttachDiskRequest, opts ...grpc.CallOption) (*VirtualMachine, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VirtualMachine)
+	err := c.cc.Invoke(ctx, VMService_AttachDisk_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) DetachDisk(ctx context.Context, in *DetachDiskRequest, opts ...grpc.CallOption) (*VirtualMachine, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VirtualMachine)
+	err := c.cc.Invoke(ctx, VMService_DetachDisk_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) ResizeDisk(ctx context.Context, in *ResizeDiskRequest, opts ...grpc.CallOption) (*VirtualMachine, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VirtualMachine)
+	err := c.cc.Invoke(ctx, VMService_ResizeDisk_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) AttachNIC(ctx context.Context, in *AttachNICRequest, opts ...grpc.CallOption) (*VirtualMachine, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VirtualMachine)
+	err := c.cc.Invoke(ctx, VMService_AttachNIC_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) DetachNIC(ctx context.Context, in *DetachNICRequest, opts ...grpc.CallOption) (*VirtualMachine, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VirtualMachine)
+	err := c.cc.Invoke(ctx, VMService_DetachNIC_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) ListVMEvents(ctx context.Context, in *ListVMEventsRequest, opts ...grpc.CallOption) (*ListVMEventsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListVMEventsResponse)
+	err := c.cc.Invoke(ctx, VMService_ListVMEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *vMServiceClient) WatchVM(ctx context.Context, in *WatchVMRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[VirtualMachine], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &VMService_ServiceDesc.Streams[0], VMService_WatchVM_FullMethodName, cOpts...)
@@ -468,6 +546,18 @@ type VMServiceServer interface {
 	CloneVM(context.Context, *CloneVMRequest) (*VirtualMachine, error)
 	// ConvertToTemplate marks a VM as a template.
 	ConvertToTemplate(context.Context, *ConvertToTemplateRequest) (*VirtualMachine, error)
+	// AttachDisk attaches a new disk to a VM (hot-plug if running).
+	AttachDisk(context.Context, *AttachDiskRequest) (*VirtualMachine, error)
+	// DetachDisk removes a disk from a VM (hot-unplug if running).
+	DetachDisk(context.Context, *DetachDiskRequest) (*VirtualMachine, error)
+	// ResizeDisk expands a disk attached to a VM.
+	ResizeDisk(context.Context, *ResizeDiskRequest) (*VirtualMachine, error)
+	// AttachNIC attaches a new network interface to a VM (hot-plug if running).
+	AttachNIC(context.Context, *AttachNICRequest) (*VirtualMachine, error)
+	// DetachNIC removes a network interface from a VM (hot-unplug if running).
+	DetachNIC(context.Context, *DetachNICRequest) (*VirtualMachine, error)
+	// ListVMEvents returns events for a VM.
+	ListVMEvents(context.Context, *ListVMEventsRequest) (*ListVMEventsResponse, error)
 	// WatchVM streams real-time updates for a VM.
 	WatchVM(*WatchVMRequest, grpc.ServerStreamingServer[VirtualMachine]) error
 	// StreamMetrics streams real-time performance metrics.
@@ -549,6 +639,24 @@ func (UnimplementedVMServiceServer) CloneVM(context.Context, *CloneVMRequest) (*
 }
 func (UnimplementedVMServiceServer) ConvertToTemplate(context.Context, *ConvertToTemplateRequest) (*VirtualMachine, error) {
 	return nil, status.Error(codes.Unimplemented, "method ConvertToTemplate not implemented")
+}
+func (UnimplementedVMServiceServer) AttachDisk(context.Context, *AttachDiskRequest) (*VirtualMachine, error) {
+	return nil, status.Error(codes.Unimplemented, "method AttachDisk not implemented")
+}
+func (UnimplementedVMServiceServer) DetachDisk(context.Context, *DetachDiskRequest) (*VirtualMachine, error) {
+	return nil, status.Error(codes.Unimplemented, "method DetachDisk not implemented")
+}
+func (UnimplementedVMServiceServer) ResizeDisk(context.Context, *ResizeDiskRequest) (*VirtualMachine, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResizeDisk not implemented")
+}
+func (UnimplementedVMServiceServer) AttachNIC(context.Context, *AttachNICRequest) (*VirtualMachine, error) {
+	return nil, status.Error(codes.Unimplemented, "method AttachNIC not implemented")
+}
+func (UnimplementedVMServiceServer) DetachNIC(context.Context, *DetachNICRequest) (*VirtualMachine, error) {
+	return nil, status.Error(codes.Unimplemented, "method DetachNIC not implemented")
+}
+func (UnimplementedVMServiceServer) ListVMEvents(context.Context, *ListVMEventsRequest) (*ListVMEventsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListVMEvents not implemented")
 }
 func (UnimplementedVMServiceServer) WatchVM(*WatchVMRequest, grpc.ServerStreamingServer[VirtualMachine]) error {
 	return status.Error(codes.Unimplemented, "method WatchVM not implemented")
@@ -936,6 +1044,114 @@ func _VMService_ConvertToTemplate_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VMService_AttachDisk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AttachDiskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).AttachDisk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_AttachDisk_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).AttachDisk(ctx, req.(*AttachDiskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_DetachDisk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DetachDiskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).DetachDisk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_DetachDisk_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).DetachDisk(ctx, req.(*DetachDiskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_ResizeDisk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResizeDiskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).ResizeDisk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_ResizeDisk_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).ResizeDisk(ctx, req.(*ResizeDiskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_AttachNIC_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AttachNICRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).AttachNIC(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_AttachNIC_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).AttachNIC(ctx, req.(*AttachNICRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_DetachNIC_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DetachNICRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).DetachNIC(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_DetachNIC_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).DetachNIC(ctx, req.(*DetachNICRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_ListVMEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListVMEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).ListVMEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_ListVMEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).ListVMEvents(ctx, req.(*ListVMEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _VMService_WatchVM_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(WatchVMRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -1141,6 +1357,30 @@ var VMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ConvertToTemplate",
 			Handler:    _VMService_ConvertToTemplate_Handler,
+		},
+		{
+			MethodName: "AttachDisk",
+			Handler:    _VMService_AttachDisk_Handler,
+		},
+		{
+			MethodName: "DetachDisk",
+			Handler:    _VMService_DetachDisk_Handler,
+		},
+		{
+			MethodName: "ResizeDisk",
+			Handler:    _VMService_ResizeDisk_Handler,
+		},
+		{
+			MethodName: "AttachNIC",
+			Handler:    _VMService_AttachNIC_Handler,
+		},
+		{
+			MethodName: "DetachNIC",
+			Handler:    _VMService_DetachNIC_Handler,
+		},
+		{
+			MethodName: "ListVMEvents",
+			Handler:    _VMService_ListVMEvents_Handler,
 		},
 		{
 			MethodName: "PingAgent",

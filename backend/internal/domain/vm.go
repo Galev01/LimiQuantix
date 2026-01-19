@@ -255,3 +255,19 @@ type Snapshot struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
+// ============================================================================
+// VM Events
+// ============================================================================
+
+// VMEvent represents an event that occurred on a virtual machine.
+type VMEvent struct {
+	ID        string            `json:"id"`
+	VMID      string            `json:"vm_id"`
+	Type      string            `json:"type"`      // power, config, snapshot, disk, network, error
+	Severity  string            `json:"severity"`  // info, warning, error
+	Message   string            `json:"message"`
+	User      string            `json:"user"`
+	CreatedAt time.Time         `json:"created_at"`
+	Metadata  map[string]string `json:"metadata,omitempty"`
+}
+

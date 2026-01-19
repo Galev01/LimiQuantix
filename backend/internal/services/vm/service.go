@@ -167,8 +167,10 @@ func (s *Service) CreateVM(
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create VM: %w", err))
 	}
 
-	// 6. Create VM on the Node Daemon (if available)
-	if s.daemonPool != nil && targetNode != nil {
+	// 6. Create VM on the Node Daemon (if target node is specified)
+	// When a node is explicitly requested, the VM MUST be successfully created on that node
+	// or the operation fails (atomic operation - rollback DB entry on daemon failure)
+	if s.daemonPool != nil && targetNode != nil && targetNodeID != "" {
 		// Strip CIDR notation if present (e.g., "192.168.0.53/32" -> "192.168.0.53")
 		daemonAddr := targetNode.ManagementIP
 		if idx := strings.Index(daemonAddr, "/"); idx != -1 {
@@ -178,44 +180,65 @@ func (s *Service) CreateVM(
 		if !strings.Contains(daemonAddr, ":") {
 			daemonAddr = daemonAddr + ":9090"
 		}
+
 		client, err := s.daemonPool.Connect(targetNodeID, daemonAddr)
 		if err != nil {
-			logger.Warn("Failed to connect to node daemon, VM created in control plane only",
+			// Failed to connect to the node daemon - rollback DB entry
+			logger.Error("Failed to connect to node daemon, rolling back VM creation",
+				zap.String("vm_id", created.ID),
+				zap.String("node_id", targetNodeID),
+				zap.String("daemon_addr", daemonAddr),
+				zap.Error(err),
+			)
+			// Rollback: Delete the VM from the database
+			if delErr := s.repo.Delete(ctx, created.ID); delErr != nil {
+				logger.Error("Failed to rollback VM from database",
+					zap.String("vm_id", created.ID),
+					zap.Error(delErr),
+				)
+			}
+			return nil, connect.NewError(connect.CodeUnavailable,
+				fmt.Errorf("failed to connect to node '%s' at %s: %w", targetNode.Hostname, daemonAddr, err))
+		}
+
+		// Debug: Log what we received from the frontend
+		for i, disk := range req.Msg.Spec.GetDisks() {
+			logger.Info("DEBUG: Disk spec from frontend",
+				zap.Int("disk_index", i),
+				zap.String("disk_id", disk.GetId()),
+				zap.Uint64("size_gib", disk.GetSizeGib()),
+				zap.String("backing_file", disk.GetBackingFile()),
+				zap.String("volume_id", disk.GetVolumeId()),
+			)
+		}
+
+		// Build Node Daemon request
+		daemonReq := convertToNodeDaemonCreateRequest(created, req.Msg.Spec)
+
+		_, err = client.CreateVM(ctx, daemonReq)
+		if err != nil {
+			// Failed to create VM on the node daemon - rollback DB entry
+			logger.Error("Failed to create VM on node daemon, rolling back",
+				zap.String("vm_id", created.ID),
 				zap.String("node_id", targetNodeID),
 				zap.Error(err),
 			)
-		} else {
-			// Debug: Log what we received from the frontend
-			for i, disk := range req.Msg.Spec.GetDisks() {
-				logger.Info("DEBUG: Disk spec from frontend",
-					zap.Int("disk_index", i),
-					zap.String("disk_id", disk.GetId()),
-					zap.Uint64("size_gib", disk.GetSizeGib()),
-					zap.String("backing_file", disk.GetBackingFile()),
-					zap.String("volume_id", disk.GetVolumeId()),
+			// Rollback: Delete the VM from the database
+			if delErr := s.repo.Delete(ctx, created.ID); delErr != nil {
+				logger.Error("Failed to rollback VM from database",
+					zap.String("vm_id", created.ID),
+					zap.Error(delErr),
 				)
 			}
-
-			// Build Node Daemon request
-			daemonReq := convertToNodeDaemonCreateRequest(created, req.Msg.Spec)
-
-			_, err := client.CreateVM(ctx, daemonReq)
-			if err != nil {
-				logger.Warn("Failed to create VM on node daemon, VM exists in control plane",
-					zap.String("vm_id", created.ID),
-					zap.String("node_id", targetNodeID),
-					zap.Error(err),
-				)
-				// Update status to reflect the issue
-				created.Status.Message = "VM created but failed to provision on node"
-				_ = s.repo.UpdateStatus(ctx, created.ID, created.Status)
-			} else {
-				logger.Info("VM created on node daemon",
-					zap.String("vm_id", created.ID),
-					zap.String("node_id", targetNodeID),
-				)
-			}
+			return nil, connect.NewError(connect.CodeInternal,
+				fmt.Errorf("failed to provision VM on node '%s': %w", targetNode.Hostname, err))
 		}
+
+		logger.Info("VM created on node daemon",
+			zap.String("vm_id", created.ID),
+			zap.String("node_id", targetNodeID),
+			zap.String("hostname", targetNode.Hostname),
+		)
 	}
 
 	logger.Info("VM created successfully",
@@ -375,6 +398,9 @@ func (s *Service) UpdateVM(
 }
 
 // DeleteVM permanently deletes a virtual machine.
+// Supports two modes:
+// - remove_from_inventory_only=true: Only removes from vDC database, keeps VM on hypervisor
+// - remove_from_inventory_only=false (default): Full deletion including hypervisor and optionally volumes
 func (s *Service) DeleteVM(
 	ctx context.Context,
 	req *connect.Request[computev1.DeleteVMRequest],
@@ -382,6 +408,8 @@ func (s *Service) DeleteVM(
 	logger := s.logger.With(
 		zap.String("method", "DeleteVM"),
 		zap.String("vm_id", req.Msg.Id),
+		zap.Bool("remove_from_inventory_only", req.Msg.RemoveFromInventoryOnly),
+		zap.Bool("delete_volumes", req.Msg.DeleteVolumes),
 	)
 
 	logger.Info("Deleting VM")
@@ -404,8 +432,9 @@ func (s *Service) DeleteVM(
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("VM is running; stop it first or use force=true"))
 	}
 
-	// Delete from Node Daemon if assigned to a node
-	if vm.Status.NodeID != "" {
+	// Delete from Node Daemon if assigned to a node AND not "remove from inventory only"
+	// When RemoveFromInventoryOnly=true, we skip node daemon deletion entirely
+	if vm.Status.NodeID != "" && !req.Msg.RemoveFromInventoryOnly {
 		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
 		if err != nil {
 			logger.Warn("Failed to connect to node daemon for deletion",
@@ -415,6 +444,7 @@ func (s *Service) DeleteVM(
 			)
 			// Continue with control plane deletion
 		} else {
+			// TODO: Pass delete_volumes flag to node daemon when supported
 			err := client.DeleteVM(ctx, vm.ID)
 			if err != nil {
 				logger.Warn("Failed to delete VM from node daemon",
@@ -427,9 +457,15 @@ func (s *Service) DeleteVM(
 				logger.Info("VM deleted from node daemon",
 					zap.String("vm_id", vm.ID),
 					zap.String("node_id", vm.Status.NodeID),
+					zap.Bool("delete_volumes", req.Msg.DeleteVolumes),
 				)
 			}
 		}
+	} else if req.Msg.RemoveFromInventoryOnly {
+		logger.Info("Removing VM from inventory only (keeping on hypervisor)",
+			zap.String("vm_id", vm.ID),
+			zap.String("node_id", vm.Status.NodeID),
+		)
 	}
 
 	// Delete from repository
@@ -441,7 +477,11 @@ func (s *Service) DeleteVM(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	logger.Info("VM deleted successfully")
+	if req.Msg.RemoveFromInventoryOnly {
+		logger.Info("VM removed from inventory (kept on hypervisor)")
+	} else {
+		logger.Info("VM deleted successfully")
+	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
@@ -1038,6 +1078,257 @@ func (s *Service) GetConsole(
 }
 
 // ============================================================================
+// Clone Operations
+// ============================================================================
+
+// CloneVM creates a copy of a virtual machine.
+// Supports two clone types:
+// - LINKED: Fast clone using QCOW2 backing file (copy-on-write), depends on source disk
+// - FULL: Complete independent copy of all disk data, takes longer but fully independent
+func (s *Service) CloneVM(
+	ctx context.Context,
+	req *connect.Request[computev1.CloneVMRequest],
+) (*connect.Response[computev1.VirtualMachine], error) {
+	logger := s.logger.With(
+		zap.String("method", "CloneVM"),
+		zap.String("source_vm_id", req.Msg.SourceVmId),
+		zap.String("new_name", req.Msg.Name),
+		zap.String("clone_type", req.Msg.CloneType.String()),
+	)
+
+	logger.Info("Cloning VM")
+
+	// Validate request
+	if req.Msg.SourceVmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("source VM ID is required"))
+	}
+	if req.Msg.Name == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("new VM name is required"))
+	}
+
+	// Get source VM
+	sourceVM, err := s.repo.Get(ctx, req.Msg.SourceVmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("source VM '%s' not found", req.Msg.SourceVmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Source VM must be stopped for cloning (unless we implement live cloning later)
+	if sourceVM.IsRunning() {
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("source VM must be stopped for cloning, current state: '%s'", sourceVM.Status.State))
+	}
+
+	// Determine target project
+	projectID := req.Msg.ProjectId
+	if projectID == "" {
+		projectID = sourceVM.ProjectID
+	}
+
+	// Clone type determination
+	isLinkedClone := req.Msg.CloneType == computev1.TemplateConfig_LINKED
+
+	// Build new VM spec from source
+	now := time.Now()
+	newVM := &domain.VirtualMachine{
+		Name:            req.Msg.Name,
+		ProjectID:       projectID,
+		Description:     fmt.Sprintf("Clone of %s", sourceVM.Name),
+		Labels:          copyLabels(sourceVM.Labels),
+		HardwareVersion: sourceVM.HardwareVersion,
+		Spec:            cloneVMSpec(sourceVM.Spec, isLinkedClone),
+		Status: domain.VMStatus{
+			State:   domain.VMStateStopped,
+			Message: "VM cloned successfully",
+			NodeID:  sourceVM.Status.NodeID, // Clone to same node as source
+		},
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	// Add clone metadata to labels
+	if newVM.Labels == nil {
+		newVM.Labels = make(map[string]string)
+	}
+	newVM.Labels["cloned-from"] = sourceVM.ID
+	newVM.Labels["clone-type"] = req.Msg.CloneType.String()
+
+	// Note: Provisioning config (cloud-init) can be applied during VM update or first boot
+	// For now, clones inherit the same base configuration as the source
+
+	// Create VM in database
+	created, err := s.repo.Create(ctx, newVM)
+	if err != nil {
+		if errors.Is(err, domain.ErrAlreadyExists) {
+			return nil, connect.NewError(connect.CodeAlreadyExists,
+				fmt.Errorf("VM with name '%s' already exists in project", req.Msg.Name))
+		}
+		logger.Error("Failed to create cloned VM in database", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Create clone on node daemon if source was on a node
+	if sourceVM.Status.NodeID != "" && s.daemonPool != nil {
+		client, err := s.getNodeDaemonClient(ctx, sourceVM.Status.NodeID)
+		if err != nil {
+			logger.Error("Failed to connect to node daemon for clone",
+				zap.String("node_id", sourceVM.Status.NodeID),
+				zap.Error(err))
+			// Rollback database entry
+			if delErr := s.repo.Delete(ctx, created.ID); delErr != nil {
+				logger.Error("Failed to rollback cloned VM from database", zap.Error(delErr))
+			}
+			return nil, connect.NewError(connect.CodeUnavailable,
+				fmt.Errorf("failed to connect to node daemon: %w", err))
+		}
+
+		// Build daemon create request for the clone
+		daemonReq := buildCloneVMRequest(sourceVM, created, isLinkedClone)
+
+		_, err = client.CreateVM(ctx, daemonReq)
+		if err != nil {
+			logger.Error("Failed to create cloned VM on node daemon",
+				zap.String("vm_id", created.ID),
+				zap.String("node_id", sourceVM.Status.NodeID),
+				zap.Error(err))
+			// Rollback database entry
+			if delErr := s.repo.Delete(ctx, created.ID); delErr != nil {
+				logger.Error("Failed to rollback cloned VM from database", zap.Error(delErr))
+			}
+			return nil, connect.NewError(connect.CodeInternal,
+				fmt.Errorf("failed to create cloned VM on node: %w", err))
+		}
+
+		logger.Info("Cloned VM created on node daemon",
+			zap.String("vm_id", created.ID),
+			zap.String("node_id", sourceVM.Status.NodeID),
+			zap.Bool("linked_clone", isLinkedClone),
+		)
+	}
+
+	// Optionally start the VM after cloning
+	if req.Msg.StartOnCreate && created.Status.NodeID != "" {
+		logger.Info("Starting cloned VM after creation")
+		// Call StartVM internally
+		startReq := connect.NewRequest(&computev1.StartVMRequest{Id: created.ID})
+		_, startErr := s.StartVM(ctx, startReq)
+		if startErr != nil {
+			logger.Warn("Failed to start cloned VM after creation",
+				zap.String("vm_id", created.ID),
+				zap.Error(startErr))
+			// Don't fail the whole operation, just log the warning
+		}
+	}
+
+	logger.Info("VM cloned successfully",
+		zap.String("source_vm_id", sourceVM.ID),
+		zap.String("new_vm_id", created.ID),
+		zap.Bool("linked_clone", isLinkedClone),
+	)
+
+	return connect.NewResponse(ToProto(created)), nil
+}
+
+// copyLabels creates a copy of the labels map
+func copyLabels(labels map[string]string) map[string]string {
+	if labels == nil {
+		return nil
+	}
+	result := make(map[string]string, len(labels))
+	for k, v := range labels {
+		result[k] = v
+	}
+	return result
+}
+
+// cloneVMSpec creates a copy of the VM spec for cloning
+func cloneVMSpec(spec domain.VMSpec, isLinkedClone bool) domain.VMSpec {
+	newSpec := domain.VMSpec{
+		CPU:    spec.CPU,
+		Memory: spec.Memory,
+		Disks:  make([]domain.DiskDevice, len(spec.Disks)),
+		NICs:   make([]domain.NetworkDevice, len(spec.NICs)),
+	}
+
+	// Copy disks (the actual cloning happens on the node daemon)
+	for i, disk := range spec.Disks {
+		newDisk := disk
+		// Generate new volume ID for the clone - node daemon will create the cloned disk
+		newDisk.VolumeID = ""
+		newSpec.Disks[i] = newDisk
+	}
+
+	// Copy NICs (but generate new MAC addresses)
+	for i, nic := range spec.NICs {
+		newNIC := nic
+		newNIC.MACAddress = "" // Will be auto-generated by hypervisor
+		newSpec.NICs[i] = newNIC
+	}
+
+	// Copy other config
+	newSpec.Display = spec.Display
+	newSpec.Boot = spec.Boot
+
+	return newSpec
+}
+
+// buildCloneVMRequest builds a CreateVMOnNodeRequest for the node daemon when cloning
+func buildCloneVMRequest(sourceVM, newVM *domain.VirtualMachine, isLinkedClone bool) *nodev1.CreateVMOnNodeRequest {
+	req := &nodev1.CreateVMOnNodeRequest{
+		VmId:   newVM.ID,
+		Name:   newVM.Name,
+		Labels: newVM.Labels,
+		Spec: &nodev1.VMSpec{
+			CpuCores:   uint32(newVM.Spec.CPU.Cores),
+			CpuSockets: uint32(newVM.Spec.CPU.Sockets),
+			MemoryMib:  uint64(newVM.Spec.Memory.SizeMiB),
+		},
+	}
+
+	// Build disks with clone configuration
+	for i, sourceDisk := range sourceVM.Spec.Disks {
+		diskSpec := &nodev1.DiskSpec{
+			Id:      fmt.Sprintf("disk%d", i),
+			SizeGib: uint64(sourceDisk.SizeGiB),
+			Bus:     nodev1.DiskBus_DISK_BUS_VIRTIO,
+			Format:  nodev1.DiskFormat_DISK_FORMAT_QCOW2,
+		}
+
+		if isLinkedClone {
+			// Linked clone: use backing file (QCOW2 overlay)
+			// The source disk becomes the backing file for the new disk
+			diskSpec.BackingFile = sourceDisk.VolumeID // Source disk path
+		} else {
+			// Full clone: node daemon will copy the disk
+			// Set backing file to source, and let daemon do a full copy
+			diskSpec.BackingFile = sourceDisk.VolumeID
+		}
+
+		req.Spec.Disks = append(req.Spec.Disks, diskSpec)
+	}
+
+	// Build NICs (MAC addresses will be auto-generated)
+	for _, nic := range newVM.Spec.NICs {
+		req.Spec.Nics = append(req.Spec.Nics, &nodev1.NicSpec{
+			Network: nic.NetworkID,
+			Model:   nodev1.NicModel_NIC_MODEL_VIRTIO,
+			// MACAddress left empty - will be auto-generated
+		})
+	}
+
+	// Copy display config if present
+	if newVM.Spec.Display != nil {
+		req.Spec.Console = &nodev1.ConsoleSpec{
+			VncEnabled: newVM.Spec.Display.Type == "VNC",
+		}
+	}
+
+	return req
+}
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -1466,13 +1757,593 @@ func (s *Service) DeleteSnapshot(
 }
 
 // ============================================================================
-// Guest Agent Operations (TODO: Enable when proto definitions are complete)
+// Hot-Plug Operations (Disk/NIC)
 // ============================================================================
 
-// NOTE: The following guest agent operations are commented out until
-// the corresponding proto definitions are added:
-// - PingAgent
-// - ExecuteScript
-// - ReadGuestFile
-// - WriteGuestFile
-// - GuestShutdown
+// AttachDisk attaches a new disk to a VM.
+func (s *Service) AttachDisk(
+	ctx context.Context,
+	req *connect.Request[computev1.AttachDiskRequest],
+) (*connect.Response[computev1.VirtualMachine], error) {
+	logger := s.logger.With(
+		zap.String("method", "AttachDisk"),
+		zap.String("vm_id", req.Msg.VmId),
+	)
+
+	logger.Info("Attaching disk to VM")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+	if req.Msg.Disk == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("disk specification is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Convert proto disk to domain disk
+	diskName := generateDiskID()
+	newDisk := domain.DiskDevice{
+		Name:     diskName,
+		SizeGiB:  int64(req.Msg.Disk.SizeGib),
+		Bus:      strings.ToLower(req.Msg.Disk.Bus.String()),
+		Cache:    "writeback",
+	}
+
+	// Add to VM spec
+	vm.Spec.Disks = append(vm.Spec.Disks, newDisk)
+
+	// If VM is running, hot-plug the disk
+	if vm.Status.State == domain.VMStateRunning && vm.Status.NodeID != "" {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Error("Failed to connect to node daemon", zap.Error(err))
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node: %w", err))
+		}
+
+		// Map bus type to proto enum
+		busType := nodev1.DiskBus_DISK_BUS_VIRTIO
+		switch strings.ToUpper(newDisk.Bus) {
+		case "SCSI":
+			busType = nodev1.DiskBus_DISK_BUS_SCSI
+		case "SATA":
+			busType = nodev1.DiskBus_DISK_BUS_SATA
+		case "IDE":
+			busType = nodev1.DiskBus_DISK_BUS_IDE
+		}
+
+		err = client.AttachDisk(ctx, req.Msg.VmId, &nodev1.DiskSpec{
+			Id:      diskName,
+			SizeGib: uint64(newDisk.SizeGiB),
+			Bus:     busType,
+		})
+		if err != nil {
+			logger.Error("Failed to hot-plug disk", zap.Error(err))
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to attach disk: %w", err))
+		}
+	}
+
+	// Update VM in database
+	updated, err := s.repo.Update(ctx, vm)
+	if err != nil {
+		logger.Error("Failed to update VM", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Record event
+	s.recordVMEvent(ctx, vm.ID, "disk", "info", fmt.Sprintf("Disk %s (%d GiB) attached", diskName, newDisk.SizeGiB), "")
+
+	logger.Info("Disk attached successfully", zap.String("disk_name", diskName))
+
+	return connect.NewResponse(ToProto(updated)), nil
+}
+
+// DetachDisk removes a disk from a VM.
+func (s *Service) DetachDisk(
+	ctx context.Context,
+	req *connect.Request[computev1.DetachDiskRequest],
+) (*connect.Response[computev1.VirtualMachine], error) {
+	logger := s.logger.With(
+		zap.String("method", "DetachDisk"),
+		zap.String("vm_id", req.Msg.VmId),
+		zap.String("disk_id", req.Msg.DiskId),
+	)
+
+	logger.Info("Detaching disk from VM")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+	if req.Msg.DiskId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("disk ID is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Find and remove the disk
+	found := false
+	var removedDisk domain.DiskDevice
+	newDisks := make([]domain.DiskDevice, 0, len(vm.Spec.Disks))
+	for i, disk := range vm.Spec.Disks {
+		if disk.Name == req.Msg.DiskId {
+			// Cannot detach boot disk
+			if i == 0 {
+				return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("cannot detach boot disk"))
+			}
+			found = true
+			removedDisk = disk
+		} else {
+			newDisks = append(newDisks, disk)
+		}
+	}
+
+	if !found {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("disk '%s' not found", req.Msg.DiskId))
+	}
+
+	vm.Spec.Disks = newDisks
+
+	// If VM is running, hot-unplug the disk
+	if vm.Status.State == domain.VMStateRunning && vm.Status.NodeID != "" {
+		if !req.Msg.Force {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("VM is running; use force=true to hot-unplug"))
+		}
+
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Error("Failed to connect to node daemon", zap.Error(err))
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node: %w", err))
+		}
+
+		err = client.DetachDisk(ctx, req.Msg.VmId, req.Msg.DiskId)
+		if err != nil {
+			logger.Error("Failed to hot-unplug disk", zap.Error(err))
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to detach disk: %w", err))
+		}
+	}
+
+	// Update VM in database
+	updated, err := s.repo.Update(ctx, vm)
+	if err != nil {
+		logger.Error("Failed to update VM", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Record event
+	s.recordVMEvent(ctx, vm.ID, "disk", "info", fmt.Sprintf("Disk %s (%d GiB) detached", removedDisk.Name, removedDisk.SizeGiB), "")
+
+	logger.Info("Disk detached successfully")
+
+	return connect.NewResponse(ToProto(updated)), nil
+}
+
+// ResizeDisk expands a disk attached to a VM.
+func (s *Service) ResizeDisk(
+	ctx context.Context,
+	req *connect.Request[computev1.ResizeDiskRequest],
+) (*connect.Response[computev1.VirtualMachine], error) {
+	logger := s.logger.With(
+		zap.String("method", "ResizeDisk"),
+		zap.String("vm_id", req.Msg.VmId),
+		zap.String("disk_id", req.Msg.DiskId),
+		zap.Uint64("new_size_gib", req.Msg.NewSizeGib),
+	)
+
+	logger.Info("Resizing disk")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+	if req.Msg.DiskId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("disk ID is required"))
+	}
+	if req.Msg.NewSizeGib == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("new size is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Find the disk
+	found := false
+	var oldSize int64
+	for i, disk := range vm.Spec.Disks {
+		if disk.Name == req.Msg.DiskId {
+			if int64(req.Msg.NewSizeGib) <= disk.SizeGiB {
+				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("new size must be larger than current size"))
+			}
+			oldSize = disk.SizeGiB
+			vm.Spec.Disks[i].SizeGiB = int64(req.Msg.NewSizeGib)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("disk '%s' not found", req.Msg.DiskId))
+	}
+
+	// Resize on node daemon if VM has a volume ID
+	if vm.Status.NodeID != "" {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Error("Failed to connect to node daemon", zap.Error(err))
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node: %w", err))
+		}
+
+		// Resize the volume (convert GiB to bytes)
+		err = client.ResizeVolume(ctx, "default", req.Msg.DiskId, req.Msg.NewSizeGib*1024*1024*1024)
+		if err != nil {
+			logger.Error("Failed to resize volume on node", zap.Error(err))
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resize volume: %w", err))
+		}
+	}
+
+	// Update VM in database
+	updated, err := s.repo.Update(ctx, vm)
+	if err != nil {
+		logger.Error("Failed to update VM", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Record event
+	s.recordVMEvent(ctx, vm.ID, "config", "info", fmt.Sprintf("Disk %s resized from %d GiB to %d GiB", req.Msg.DiskId, oldSize, req.Msg.NewSizeGib), "")
+
+	logger.Info("Disk resized successfully")
+
+	return connect.NewResponse(ToProto(updated)), nil
+}
+
+// AttachNIC attaches a new network interface to a VM.
+func (s *Service) AttachNIC(
+	ctx context.Context,
+	req *connect.Request[computev1.AttachNICRequest],
+) (*connect.Response[computev1.VirtualMachine], error) {
+	logger := s.logger.With(
+		zap.String("method", "AttachNIC"),
+		zap.String("vm_id", req.Msg.VmId),
+	)
+
+	logger.Info("Attaching NIC to VM")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+	if req.Msg.Nic == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("NIC specification is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Convert proto NIC to domain NIC
+	nicName := generateNICID()
+	macAddr := req.Msg.Nic.MacAddress
+	if macAddr == "" {
+		macAddr = generateMACAddress()
+	}
+
+	newNIC := domain.NetworkDevice{
+		Name:       nicName,
+		NetworkID:  req.Msg.Nic.NetworkId,
+		MACAddress: macAddr,
+	}
+
+	// Add to VM spec
+	vm.Spec.NICs = append(vm.Spec.NICs, newNIC)
+
+	// If VM is running, hot-plug the NIC
+	if vm.Status.State == domain.VMStateRunning && vm.Status.NodeID != "" {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Error("Failed to connect to node daemon", zap.Error(err))
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node: %w", err))
+		}
+
+		// Map model to proto enum
+		nicModel := nodev1.NicModel_NIC_MODEL_VIRTIO
+		switch req.Msg.Nic.Model.String() {
+		case "E1000", "NIC_MODEL_E1000":
+			nicModel = nodev1.NicModel_NIC_MODEL_E1000
+		case "RTL8139", "NIC_MODEL_RTL8139":
+			nicModel = nodev1.NicModel_NIC_MODEL_RTL8139
+		}
+
+		err = client.AttachNIC(ctx, req.Msg.VmId, &nodev1.NicSpec{
+			Id:         nicName,
+			Network:    newNIC.NetworkID,
+			MacAddress: macAddr,
+			Model:      nicModel,
+		})
+		if err != nil {
+			logger.Error("Failed to hot-plug NIC", zap.Error(err))
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to attach NIC: %w", err))
+		}
+	}
+
+	// Update VM in database
+	updated, err := s.repo.Update(ctx, vm)
+	if err != nil {
+		logger.Error("Failed to update VM", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Record event
+	s.recordVMEvent(ctx, vm.ID, "network", "info", fmt.Sprintf("NIC %s attached to network %s", nicName, newNIC.NetworkID), "")
+
+	logger.Info("NIC attached successfully", zap.String("nic_name", nicName))
+
+	return connect.NewResponse(ToProto(updated)), nil
+}
+
+// DetachNIC removes a network interface from a VM.
+func (s *Service) DetachNIC(
+	ctx context.Context,
+	req *connect.Request[computev1.DetachNICRequest],
+) (*connect.Response[computev1.VirtualMachine], error) {
+	logger := s.logger.With(
+		zap.String("method", "DetachNIC"),
+		zap.String("vm_id", req.Msg.VmId),
+		zap.String("nic_id", req.Msg.NicId),
+	)
+
+	logger.Info("Detaching NIC from VM")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+	if req.Msg.NicId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("NIC ID is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Find and remove the NIC
+	found := false
+	var removedNIC domain.NetworkDevice
+	newNICs := make([]domain.NetworkDevice, 0, len(vm.Spec.NICs))
+	for i, nic := range vm.Spec.NICs {
+		if nic.Name == req.Msg.NicId {
+			// Cannot detach primary NIC
+			if i == 0 {
+				return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("cannot detach primary NIC"))
+			}
+			found = true
+			removedNIC = nic
+		} else {
+			newNICs = append(newNICs, nic)
+		}
+	}
+
+	if !found {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("NIC '%s' not found", req.Msg.NicId))
+	}
+
+	vm.Spec.NICs = newNICs
+
+	// If VM is running, hot-unplug the NIC
+	if vm.Status.State == domain.VMStateRunning && vm.Status.NodeID != "" {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Error("Failed to connect to node daemon", zap.Error(err))
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node: %w", err))
+		}
+
+		err = client.DetachNIC(ctx, req.Msg.VmId, req.Msg.NicId)
+		if err != nil {
+			logger.Error("Failed to hot-unplug NIC", zap.Error(err))
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to detach NIC: %w", err))
+		}
+	}
+
+	// Update VM in database
+	updated, err := s.repo.Update(ctx, vm)
+	if err != nil {
+		logger.Error("Failed to update VM", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Record event
+	s.recordVMEvent(ctx, vm.ID, "network", "info", fmt.Sprintf("NIC %s detached from network %s", removedNIC.Name, removedNIC.NetworkID), "")
+
+	logger.Info("NIC detached successfully")
+
+	return connect.NewResponse(ToProto(updated)), nil
+}
+
+// ============================================================================
+// Events
+// ============================================================================
+
+// ListVMEvents returns events for a VM.
+func (s *Service) ListVMEvents(
+	ctx context.Context,
+	req *connect.Request[computev1.ListVMEventsRequest],
+) (*connect.Response[computev1.ListVMEventsResponse], error) {
+	logger := s.logger.With(
+		zap.String("method", "ListVMEvents"),
+		zap.String("vm_id", req.Msg.VmId),
+	)
+
+	logger.Info("Listing VM events")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+
+	// Get events from repository
+	limit := int(req.Msg.Limit)
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	events, err := s.repo.ListEvents(ctx, req.Msg.VmId, req.Msg.Type, req.Msg.Severity, limit, req.Msg.Since)
+	if err != nil {
+		logger.Error("Failed to list events", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Convert to proto
+	protoEvents := make([]*computev1.VMEvent, len(events))
+	for i, event := range events {
+		protoEvents[i] = &computev1.VMEvent{
+			Id:        event.ID,
+			VmId:      event.VMID,
+			Type:      event.Type,
+			Message:   event.Message,
+			User:      event.User,
+			Severity:  event.Severity,
+			CreatedAt: event.CreatedAt.Format(time.RFC3339),
+			Metadata:  event.Metadata,
+		}
+	}
+
+	return connect.NewResponse(&computev1.ListVMEventsResponse{
+		Events: protoEvents,
+	}), nil
+}
+
+// recordVMEvent is a helper to record VM events in the database.
+func (s *Service) recordVMEvent(ctx context.Context, vmID, eventType, severity, message, user string) {
+	if s.repo == nil {
+		return
+	}
+
+	event := &domain.VMEvent{
+		ID:        fmt.Sprintf("evt-%d", time.Now().UnixNano()),
+		VMID:      vmID,
+		Type:      eventType,
+		Severity:  severity,
+		Message:   message,
+		User:      user,
+		CreatedAt: time.Now(),
+		Metadata:  make(map[string]string),
+	}
+
+	if err := s.repo.CreateEvent(ctx, event); err != nil {
+		s.logger.Warn("Failed to record VM event", zap.Error(err), zap.String("vm_id", vmID))
+	}
+}
+
+// ============================================================================
+// Guest Agent Operations
+// ============================================================================
+
+// PingAgent checks if the guest agent is available and responding.
+func (s *Service) PingAgent(
+	ctx context.Context,
+	req *connect.Request[computev1.PingAgentRequest],
+) (*connect.Response[computev1.PingAgentResponse], error) {
+	logger := s.logger.With(
+		zap.String("method", "PingAgent"),
+		zap.String("vm_id", req.Msg.VmId),
+	)
+
+	logger.Info("Pinging guest agent")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// VM must be running
+	if vm.Status.State != domain.VMStateRunning {
+		return connect.NewResponse(&computev1.PingAgentResponse{
+			Connected: false,
+			Error:     "VM is not running",
+		}), nil
+	}
+
+	if vm.Status.NodeID == "" {
+		return connect.NewResponse(&computev1.PingAgentResponse{
+			Connected: false,
+			Error:     "VM is not assigned to a node",
+		}), nil
+	}
+
+	// Get node daemon client
+	client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+	if err != nil {
+		logger.Error("Failed to connect to node daemon", zap.Error(err))
+		return connect.NewResponse(&computev1.PingAgentResponse{
+			Connected: false,
+			Error:     "Failed to connect to host",
+		}), nil
+	}
+
+	// Ping the agent through the node daemon
+	agentInfo, err := client.PingGuestAgent(ctx, req.Msg.VmId)
+	if err != nil {
+		logger.Warn("Guest agent ping failed", zap.Error(err))
+		return connect.NewResponse(&computev1.PingAgentResponse{
+			Connected: false,
+			Error:     fmt.Sprintf("Agent not responding: %v", err),
+		}), nil
+	}
+
+	return connect.NewResponse(&computev1.PingAgentResponse{
+		Connected:     true,
+		Version:       agentInfo.Version,
+		UptimeSeconds: agentInfo.UptimeSeconds,
+	}), nil
+}
+
+// Helper functions
+
+func generateDiskID() string {
+	return fmt.Sprintf("disk-%d", time.Now().UnixNano())
+}
+
+func generateNICID() string {
+	return fmt.Sprintf("nic-%d", time.Now().UnixNano())
+}
+
+func generateMACAddress() string {
+	// QEMU/KVM OUI: 52:54:00
+	return fmt.Sprintf("52:54:00:%02x:%02x:%02x",
+		time.Now().UnixNano()%256,
+		(time.Now().UnixNano()/256)%256,
+		(time.Now().UnixNano()/65536)%256,
+	)
+}

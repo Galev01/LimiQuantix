@@ -34,6 +34,14 @@ type Repository interface {
 
 	// CountByProject returns the number of VMs in a project.
 	CountByProject(ctx context.Context, projectID string) (int64, error)
+
+	// Event operations
+	
+	// CreateEvent stores a new VM event.
+	CreateEvent(ctx context.Context, event *domain.VMEvent) error
+
+	// ListEvents returns events for a VM with optional filters.
+	ListEvents(ctx context.Context, vmID, eventType, severity string, limit int, since string) ([]*domain.VMEvent, error)
 }
 
 // VMFilter defines filtering options for listing VMs.

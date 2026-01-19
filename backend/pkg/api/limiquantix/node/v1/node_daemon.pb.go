@@ -4195,8 +4195,10 @@ func (x *StoragePoolConfig) GetIscsi() *IscsiPoolConfig {
 }
 
 type LocalDirPoolConfig struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Path  string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	// Optional capacity limit in GiB (0 = unlimited, uses filesystem capacity)
+	CapacityGib   *uint64 `protobuf:"varint,2,opt,name=capacity_gib,json=capacityGib,proto3,oneof" json:"capacity_gib,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4236,6 +4238,13 @@ func (x *LocalDirPoolConfig) GetPath() string {
 		return x.Path
 	}
 	return ""
+}
+
+func (x *LocalDirPoolConfig) GetCapacityGib() uint64 {
+	if x != nil && x.CapacityGib != nil {
+		return *x.CapacityGib
+	}
+	return 0
 }
 
 type NfsPoolConfig struct {
@@ -6164,9 +6173,11 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\x05local\x18\x01 \x01(\v2'.limiquantix.node.v1.LocalDirPoolConfigR\x05local\x124\n" +
 	"\x03nfs\x18\x02 \x01(\v2\".limiquantix.node.v1.NfsPoolConfigR\x03nfs\x127\n" +
 	"\x04ceph\x18\x03 \x01(\v2#.limiquantix.node.v1.CephPoolConfigR\x04ceph\x12:\n" +
-	"\x05iscsi\x18\x04 \x01(\v2$.limiquantix.node.v1.IscsiPoolConfigR\x05iscsi\"(\n" +
+	"\x05iscsi\x18\x04 \x01(\v2$.limiquantix.node.v1.IscsiPoolConfigR\x05iscsi\"a\n" +
 	"\x12LocalDirPoolConfig\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\"\x9d\x01\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12&\n" +
+	"\fcapacity_gib\x18\x02 \x01(\x04H\x00R\vcapacityGib\x88\x01\x01B\x0f\n" +
+	"\r_capacity_gib\"\x9d\x01\n" +
 	"\rNfsPoolConfig\x12\x16\n" +
 	"\x06server\x18\x01 \x01(\tR\x06server\x12\x1f\n" +
 	"\vexport_path\x18\x02 \x01(\tR\n" +
@@ -6699,6 +6710,7 @@ func file_limiquantix_node_v1_node_daemon_proto_init() {
 	if File_limiquantix_node_v1_node_daemon_proto != nil {
 		return
 	}
+	file_limiquantix_node_v1_node_daemon_proto_msgTypes[47].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

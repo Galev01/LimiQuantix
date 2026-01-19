@@ -24,6 +24,177 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// VMPowerState - Power states for VM status reporting
+type VMPowerState int32
+
+const (
+	VMPowerState_VM_POWER_STATE_UNKNOWN   VMPowerState = 0
+	VMPowerState_VM_POWER_STATE_RUNNING   VMPowerState = 1
+	VMPowerState_VM_POWER_STATE_STOPPED   VMPowerState = 2
+	VMPowerState_VM_POWER_STATE_PAUSED    VMPowerState = 3
+	VMPowerState_VM_POWER_STATE_SUSPENDED VMPowerState = 4
+	VMPowerState_VM_POWER_STATE_CRASHED   VMPowerState = 5
+	VMPowerState_VM_POWER_STATE_MIGRATING VMPowerState = 6
+	VMPowerState_VM_POWER_STATE_SHUTOFF   VMPowerState = 7
+)
+
+// Enum value maps for VMPowerState.
+var (
+	VMPowerState_name = map[int32]string{
+		0: "VM_POWER_STATE_UNKNOWN",
+		1: "VM_POWER_STATE_RUNNING",
+		2: "VM_POWER_STATE_STOPPED",
+		3: "VM_POWER_STATE_PAUSED",
+		4: "VM_POWER_STATE_SUSPENDED",
+		5: "VM_POWER_STATE_CRASHED",
+		6: "VM_POWER_STATE_MIGRATING",
+		7: "VM_POWER_STATE_SHUTOFF",
+	}
+	VMPowerState_value = map[string]int32{
+		"VM_POWER_STATE_UNKNOWN":   0,
+		"VM_POWER_STATE_RUNNING":   1,
+		"VM_POWER_STATE_STOPPED":   2,
+		"VM_POWER_STATE_PAUSED":    3,
+		"VM_POWER_STATE_SUSPENDED": 4,
+		"VM_POWER_STATE_CRASHED":   5,
+		"VM_POWER_STATE_MIGRATING": 6,
+		"VM_POWER_STATE_SHUTOFF":   7,
+	}
+)
+
+func (x VMPowerState) Enum() *VMPowerState {
+	p := new(VMPowerState)
+	*p = x
+	return p
+}
+
+func (x VMPowerState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (VMPowerState) Descriptor() protoreflect.EnumDescriptor {
+	return file_limiquantix_compute_v1_node_service_proto_enumTypes[0].Descriptor()
+}
+
+func (VMPowerState) Type() protoreflect.EnumType {
+	return &file_limiquantix_compute_v1_node_service_proto_enumTypes[0]
+}
+
+func (x VMPowerState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use VMPowerState.Descriptor instead.
+func (VMPowerState) EnumDescriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{0}
+}
+
+// VMChangeEventType - Types of VM change events
+type VMChangeEventType int32
+
+const (
+	VMChangeEventType_VM_CHANGE_UNKNOWN VMChangeEventType = 0
+	VMChangeEventType_VM_CHANGE_CREATED VMChangeEventType = 1 // New VM appeared on node
+	VMChangeEventType_VM_CHANGE_UPDATED VMChangeEventType = 2 // VM state changed (e.g., started, stopped)
+	VMChangeEventType_VM_CHANGE_DELETED VMChangeEventType = 3 // VM was removed from node
+)
+
+// Enum value maps for VMChangeEventType.
+var (
+	VMChangeEventType_name = map[int32]string{
+		0: "VM_CHANGE_UNKNOWN",
+		1: "VM_CHANGE_CREATED",
+		2: "VM_CHANGE_UPDATED",
+		3: "VM_CHANGE_DELETED",
+	}
+	VMChangeEventType_value = map[string]int32{
+		"VM_CHANGE_UNKNOWN": 0,
+		"VM_CHANGE_CREATED": 1,
+		"VM_CHANGE_UPDATED": 2,
+		"VM_CHANGE_DELETED": 3,
+	}
+)
+
+func (x VMChangeEventType) Enum() *VMChangeEventType {
+	p := new(VMChangeEventType)
+	*p = x
+	return p
+}
+
+func (x VMChangeEventType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (VMChangeEventType) Descriptor() protoreflect.EnumDescriptor {
+	return file_limiquantix_compute_v1_node_service_proto_enumTypes[1].Descriptor()
+}
+
+func (VMChangeEventType) Type() protoreflect.EnumType {
+	return &file_limiquantix_compute_v1_node_service_proto_enumTypes[1]
+}
+
+func (x VMChangeEventType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use VMChangeEventType.Descriptor instead.
+func (VMChangeEventType) EnumDescriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{1}
+}
+
+// StorageChangeEventType - Types of storage change events
+type StorageChangeEventType int32
+
+const (
+	StorageChangeEventType_STORAGE_CHANGE_UNKNOWN   StorageChangeEventType = 0
+	StorageChangeEventType_STORAGE_CHANGE_MOUNTED   StorageChangeEventType = 1 // Pool was mounted
+	StorageChangeEventType_STORAGE_CHANGE_UNMOUNTED StorageChangeEventType = 2 // Pool was unmounted
+	StorageChangeEventType_STORAGE_CHANGE_UPDATED   StorageChangeEventType = 3 // Pool capacity/health changed
+)
+
+// Enum value maps for StorageChangeEventType.
+var (
+	StorageChangeEventType_name = map[int32]string{
+		0: "STORAGE_CHANGE_UNKNOWN",
+		1: "STORAGE_CHANGE_MOUNTED",
+		2: "STORAGE_CHANGE_UNMOUNTED",
+		3: "STORAGE_CHANGE_UPDATED",
+	}
+	StorageChangeEventType_value = map[string]int32{
+		"STORAGE_CHANGE_UNKNOWN":   0,
+		"STORAGE_CHANGE_MOUNTED":   1,
+		"STORAGE_CHANGE_UNMOUNTED": 2,
+		"STORAGE_CHANGE_UPDATED":   3,
+	}
+)
+
+func (x StorageChangeEventType) Enum() *StorageChangeEventType {
+	p := new(StorageChangeEventType)
+	*p = x
+	return p
+}
+
+func (x StorageChangeEventType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (StorageChangeEventType) Descriptor() protoreflect.EnumDescriptor {
+	return file_limiquantix_compute_v1_node_service_proto_enumTypes[2].Descriptor()
+}
+
+func (StorageChangeEventType) Type() protoreflect.EnumType {
+	return &file_limiquantix_compute_v1_node_service_proto_enumTypes[2]
+}
+
+func (x StorageChangeEventType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use StorageChangeEventType.Descriptor instead.
+func (StorageChangeEventType) EnumDescriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{2}
+}
+
 // Health status
 type StoragePoolStatusReport_HealthStatus int32
 
@@ -64,11 +235,11 @@ func (x StoragePoolStatusReport_HealthStatus) String() string {
 }
 
 func (StoragePoolStatusReport_HealthStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_node_service_proto_enumTypes[0].Descriptor()
+	return file_limiquantix_compute_v1_node_service_proto_enumTypes[3].Descriptor()
 }
 
 func (StoragePoolStatusReport_HealthStatus) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_node_service_proto_enumTypes[0]
+	return &file_limiquantix_compute_v1_node_service_proto_enumTypes[3]
 }
 
 func (x StoragePoolStatusReport_HealthStatus) Number() protoreflect.EnumNumber {
@@ -113,11 +284,11 @@ func (x NodeUpdate_UpdateType) String() string {
 }
 
 func (NodeUpdate_UpdateType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_node_service_proto_enumTypes[1].Descriptor()
+	return file_limiquantix_compute_v1_node_service_proto_enumTypes[4].Descriptor()
 }
 
 func (NodeUpdate_UpdateType) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_node_service_proto_enumTypes[1]
+	return &file_limiquantix_compute_v1_node_service_proto_enumTypes[4]
 }
 
 func (x NodeUpdate_UpdateType) Number() protoreflect.EnumNumber {
@@ -245,11 +416,11 @@ func (x SystemEvent_EventType) String() string {
 }
 
 func (SystemEvent_EventType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_node_service_proto_enumTypes[2].Descriptor()
+	return file_limiquantix_compute_v1_node_service_proto_enumTypes[5].Descriptor()
 }
 
 func (SystemEvent_EventType) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_node_service_proto_enumTypes[2]
+	return &file_limiquantix_compute_v1_node_service_proto_enumTypes[5]
 }
 
 func (x SystemEvent_EventType) Number() protoreflect.EnumNumber {
@@ -258,7 +429,7 @@ func (x SystemEvent_EventType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SystemEvent_EventType.Descriptor instead.
 func (SystemEvent_EventType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{29, 0}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{38, 0}
 }
 
 // Severity
@@ -298,11 +469,11 @@ func (x SystemEvent_Severity) String() string {
 }
 
 func (SystemEvent_Severity) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_node_service_proto_enumTypes[3].Descriptor()
+	return file_limiquantix_compute_v1_node_service_proto_enumTypes[6].Descriptor()
 }
 
 func (SystemEvent_Severity) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_node_service_proto_enumTypes[3]
+	return &file_limiquantix_compute_v1_node_service_proto_enumTypes[6]
 }
 
 func (x SystemEvent_Severity) Number() protoreflect.EnumNumber {
@@ -311,7 +482,7 @@ func (x SystemEvent_Severity) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SystemEvent_Severity.Descriptor instead.
 func (SystemEvent_Severity) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{29, 1}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{38, 1}
 }
 
 type RegisterNodeRequest struct {
@@ -1241,7 +1412,12 @@ type UpdateHeartbeatRequest struct {
 	Load_5M  float64 `protobuf:"fixed64,9,opt,name=load_5m,json=load5m,proto3" json:"load_5m,omitempty"`
 	Load_15M float64 `protobuf:"fixed64,10,opt,name=load_15m,json=load15m,proto3" json:"load_15m,omitempty"`
 	// Storage pool status reports (host is source of truth)
-	StoragePools  []*StoragePoolStatusReport `protobuf:"bytes,11,rep,name=storage_pools,json=storagePools,proto3" json:"storage_pools,omitempty"`
+	StoragePools []*StoragePoolStatusReport `protobuf:"bytes,11,rep,name=storage_pools,json=storagePools,proto3" json:"storage_pools,omitempty"`
+	// State hash for anti-entropy drift detection.
+	// SHA256 hash (first 16 hex chars) of current state: "{vm_id}:{state}:{change_count}\n" for each VM.
+	// Used by control plane to detect if agent and CP are in sync.
+	// If hashes don't match, control plane will request a full sync via response.
+	StateHash     string `protobuf:"bytes,12,opt,name=state_hash,json=stateHash,proto3" json:"state_hash,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1351,6 +1527,13 @@ func (x *UpdateHeartbeatRequest) GetStoragePools() []*StoragePoolStatusReport {
 		return x.StoragePools
 	}
 	return nil
+}
+
+func (x *UpdateHeartbeatRequest) GetStateHash() string {
+	if x != nil {
+		return x.StateHash
+	}
+	return ""
 }
 
 // StoragePoolStatusReport - Host reports actual state of mounted storage pools
@@ -1480,6 +1663,9 @@ type UpdateHeartbeatResponse struct {
 	// Storage pools that should be mounted on this host (desired state from QvDC)
 	// Host should mount any pools in this list that are not yet mounted
 	AssignedPoolIds []string `protobuf:"bytes,4,rep,name=assigned_pool_ids,json=assignedPoolIds,proto3" json:"assigned_pool_ids,omitempty"`
+	// If true, control plane detected state drift (hash mismatch).
+	// Agent should perform a full state sync via SyncFullState RPC.
+	RequestFullSync bool `protobuf:"varint,5,opt,name=request_full_sync,json=requestFullSync,proto3" json:"request_full_sync,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1540,6 +1726,13 @@ func (x *UpdateHeartbeatResponse) GetAssignedPoolIds() []string {
 		return x.AssignedPoolIds
 	}
 	return nil
+}
+
+func (x *UpdateHeartbeatResponse) GetRequestFullSync() bool {
+	if x != nil {
+		return x.RequestFullSync
+	}
+	return false
 }
 
 type GetNodeMetricsRequest struct {
@@ -2235,6 +2428,719 @@ func (x *SyncNodeVMsResponse) GetErrors() []string {
 	return nil
 }
 
+type SyncFullStateRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Node ID (assigned by control plane during registration)
+	NodeId string `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// Host information update
+	HostInfo *HostInfo `protobuf:"bytes,2,opt,name=host_info,json=hostInfo,proto3" json:"host_info,omitempty"`
+	// All VMs currently on this node (STATUS only, not Spec)
+	Vms []*VMStatusReport `protobuf:"bytes,3,rep,name=vms,proto3" json:"vms,omitempty"`
+	// All storage pools currently mounted on this node
+	StoragePools []*StoragePoolStatusReport `protobuf:"bytes,4,rep,name=storage_pools,json=storagePools,proto3" json:"storage_pools,omitempty"`
+	// State hash of this sync (for verification)
+	StateHash     string `protobuf:"bytes,5,opt,name=state_hash,json=stateHash,proto3" json:"state_hash,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SyncFullStateRequest) Reset() {
+	*x = SyncFullStateRequest{}
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncFullStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncFullStateRequest) ProtoMessage() {}
+
+func (x *SyncFullStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncFullStateRequest.ProtoReflect.Descriptor instead.
+func (*SyncFullStateRequest) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *SyncFullStateRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *SyncFullStateRequest) GetHostInfo() *HostInfo {
+	if x != nil {
+		return x.HostInfo
+	}
+	return nil
+}
+
+func (x *SyncFullStateRequest) GetVms() []*VMStatusReport {
+	if x != nil {
+		return x.Vms
+	}
+	return nil
+}
+
+func (x *SyncFullStateRequest) GetStoragePools() []*StoragePoolStatusReport {
+	if x != nil {
+		return x.StoragePools
+	}
+	return nil
+}
+
+func (x *SyncFullStateRequest) GetStateHash() string {
+	if x != nil {
+		return x.StateHash
+	}
+	return ""
+}
+
+// HostInfo - Basic host information for sync
+type HostInfo struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Hostname             string                 `protobuf:"bytes,1,opt,name=hostname,proto3" json:"hostname,omitempty"`
+	ManagementIp         string                 `protobuf:"bytes,2,opt,name=management_ip,json=managementIp,proto3" json:"management_ip,omitempty"`
+	MemoryTotalBytes     uint64                 `protobuf:"varint,3,opt,name=memory_total_bytes,json=memoryTotalBytes,proto3" json:"memory_total_bytes,omitempty"`
+	MemoryAvailableBytes uint64                 `protobuf:"varint,4,opt,name=memory_available_bytes,json=memoryAvailableBytes,proto3" json:"memory_available_bytes,omitempty"`
+	CpuCores             uint32                 `protobuf:"varint,5,opt,name=cpu_cores,json=cpuCores,proto3" json:"cpu_cores,omitempty"`
+	CpuUsagePercent      float64                `protobuf:"fixed64,6,opt,name=cpu_usage_percent,json=cpuUsagePercent,proto3" json:"cpu_usage_percent,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *HostInfo) Reset() {
+	*x = HostInfo{}
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostInfo) ProtoMessage() {}
+
+func (x *HostInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HostInfo.ProtoReflect.Descriptor instead.
+func (*HostInfo) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *HostInfo) GetHostname() string {
+	if x != nil {
+		return x.Hostname
+	}
+	return ""
+}
+
+func (x *HostInfo) GetManagementIp() string {
+	if x != nil {
+		return x.ManagementIp
+	}
+	return ""
+}
+
+func (x *HostInfo) GetMemoryTotalBytes() uint64 {
+	if x != nil {
+		return x.MemoryTotalBytes
+	}
+	return 0
+}
+
+func (x *HostInfo) GetMemoryAvailableBytes() uint64 {
+	if x != nil {
+		return x.MemoryAvailableBytes
+	}
+	return 0
+}
+
+func (x *HostInfo) GetCpuCores() uint32 {
+	if x != nil {
+		return x.CpuCores
+	}
+	return 0
+}
+
+func (x *HostInfo) GetCpuUsagePercent() float64 {
+	if x != nil {
+		return x.CpuUsagePercent
+	}
+	return 0
+}
+
+// VMStatusReport - VM status as reported by the agent
+// CRITICAL: This contains STATUS only, never Spec. Agent does not dictate desired state.
+type VMStatusReport struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// VM UUID (from libvirt)
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// VM name (display name from libvirt)
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Current power state
+	State VMPowerState `protobuf:"varint,3,opt,name=state,proto3,enum=limiquantix.compute.v1.VMPowerState" json:"state,omitempty"`
+	// State change counter (increments on each state change, used for hash calculation)
+	StateChangeCount uint64 `protobuf:"varint,4,opt,name=state_change_count,json=stateChangeCount,proto3" json:"state_change_count,omitempty"`
+	// Runtime metrics (optional, for real-time monitoring)
+	CpuUsagePercent float64 `protobuf:"fixed64,5,opt,name=cpu_usage_percent,json=cpuUsagePercent,proto3" json:"cpu_usage_percent,omitempty"`
+	MemoryUsedBytes uint64  `protobuf:"varint,6,opt,name=memory_used_bytes,json=memoryUsedBytes,proto3" json:"memory_used_bytes,omitempty"`
+	// IP addresses reported by guest agent (if available)
+	IpAddresses []string `protobuf:"bytes,7,rep,name=ip_addresses,json=ipAddresses,proto3" json:"ip_addresses,omitempty"`
+	// Last state change timestamp (unix seconds)
+	StateChangedAtUnix int64 `protobuf:"varint,8,opt,name=state_changed_at_unix,json=stateChangedAtUnix,proto3" json:"state_changed_at_unix,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *VMStatusReport) Reset() {
+	*x = VMStatusReport{}
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VMStatusReport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VMStatusReport) ProtoMessage() {}
+
+func (x *VMStatusReport) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VMStatusReport.ProtoReflect.Descriptor instead.
+func (*VMStatusReport) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *VMStatusReport) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *VMStatusReport) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *VMStatusReport) GetState() VMPowerState {
+	if x != nil {
+		return x.State
+	}
+	return VMPowerState_VM_POWER_STATE_UNKNOWN
+}
+
+func (x *VMStatusReport) GetStateChangeCount() uint64 {
+	if x != nil {
+		return x.StateChangeCount
+	}
+	return 0
+}
+
+func (x *VMStatusReport) GetCpuUsagePercent() float64 {
+	if x != nil {
+		return x.CpuUsagePercent
+	}
+	return 0
+}
+
+func (x *VMStatusReport) GetMemoryUsedBytes() uint64 {
+	if x != nil {
+		return x.MemoryUsedBytes
+	}
+	return 0
+}
+
+func (x *VMStatusReport) GetIpAddresses() []string {
+	if x != nil {
+		return x.IpAddresses
+	}
+	return nil
+}
+
+func (x *VMStatusReport) GetStateChangedAtUnix() int64 {
+	if x != nil {
+		return x.StateChangedAtUnix
+	}
+	return 0
+}
+
+type SyncFullStateResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Sync acknowledged
+	Acknowledged bool `protobuf:"varint,1,opt,name=acknowledged,proto3" json:"acknowledged,omitempty"`
+	// Number of VMs reconciled
+	VmsReconciled int32 `protobuf:"varint,2,opt,name=vms_reconciled,json=vmsReconciled,proto3" json:"vms_reconciled,omitempty"`
+	// Number of new VMs discovered (not in control plane DB)
+	VmsDiscovered int32 `protobuf:"varint,3,opt,name=vms_discovered,json=vmsDiscovered,proto3" json:"vms_discovered,omitempty"`
+	// Number of VMs marked as lost (in DB but not on node)
+	VmsLost int32 `protobuf:"varint,4,opt,name=vms_lost,json=vmsLost,proto3" json:"vms_lost,omitempty"`
+	// Number of storage pools reconciled
+	PoolsReconciled int32 `protobuf:"varint,5,opt,name=pools_reconciled,json=poolsReconciled,proto3" json:"pools_reconciled,omitempty"`
+	// Any sync conflicts or errors
+	Conflicts     []*SyncConflict `protobuf:"bytes,6,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SyncFullStateResponse) Reset() {
+	*x = SyncFullStateResponse{}
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncFullStateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncFullStateResponse) ProtoMessage() {}
+
+func (x *SyncFullStateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncFullStateResponse.ProtoReflect.Descriptor instead.
+func (*SyncFullStateResponse) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *SyncFullStateResponse) GetAcknowledged() bool {
+	if x != nil {
+		return x.Acknowledged
+	}
+	return false
+}
+
+func (x *SyncFullStateResponse) GetVmsReconciled() int32 {
+	if x != nil {
+		return x.VmsReconciled
+	}
+	return 0
+}
+
+func (x *SyncFullStateResponse) GetVmsDiscovered() int32 {
+	if x != nil {
+		return x.VmsDiscovered
+	}
+	return 0
+}
+
+func (x *SyncFullStateResponse) GetVmsLost() int32 {
+	if x != nil {
+		return x.VmsLost
+	}
+	return 0
+}
+
+func (x *SyncFullStateResponse) GetPoolsReconciled() int32 {
+	if x != nil {
+		return x.PoolsReconciled
+	}
+	return 0
+}
+
+func (x *SyncFullStateResponse) GetConflicts() []*SyncConflict {
+	if x != nil {
+		return x.Conflicts
+	}
+	return nil
+}
+
+// SyncConflict - Reports a conflict during sync
+type SyncConflict struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ResourceType  string                 `protobuf:"bytes,1,opt,name=resource_type,json=resourceType,proto3" json:"resource_type,omitempty"` // "vm" or "storage_pool"
+	ResourceId    string                 `protobuf:"bytes,2,opt,name=resource_id,json=resourceId,proto3" json:"resource_id,omitempty"`
+	ConflictType  string                 `protobuf:"bytes,3,opt,name=conflict_type,json=conflictType,proto3" json:"conflict_type,omitempty"` // "missing_on_node", "missing_in_db", "state_mismatch"
+	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SyncConflict) Reset() {
+	*x = SyncConflict{}
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncConflict) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncConflict) ProtoMessage() {}
+
+func (x *SyncConflict) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncConflict.ProtoReflect.Descriptor instead.
+func (*SyncConflict) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *SyncConflict) GetResourceType() string {
+	if x != nil {
+		return x.ResourceType
+	}
+	return ""
+}
+
+func (x *SyncConflict) GetResourceId() string {
+	if x != nil {
+		return x.ResourceId
+	}
+	return ""
+}
+
+func (x *SyncConflict) GetConflictType() string {
+	if x != nil {
+		return x.ConflictType
+	}
+	return ""
+}
+
+func (x *SyncConflict) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type VMChangeNotification struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Node ID reporting the change
+	NodeId string `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// The VM that changed
+	Vm *VMStatusReport `protobuf:"bytes,2,opt,name=vm,proto3" json:"vm,omitempty"`
+	// Type of change
+	EventType VMChangeEventType `protobuf:"varint,3,opt,name=event_type,json=eventType,proto3,enum=limiquantix.compute.v1.VMChangeEventType" json:"event_type,omitempty"`
+	// Timestamp of the change (unix seconds)
+	TimestampUnix int64 `protobuf:"varint,4,opt,name=timestamp_unix,json=timestampUnix,proto3" json:"timestamp_unix,omitempty"`
+	// Previous state (for UPDATED events)
+	PreviousState VMPowerState `protobuf:"varint,5,opt,name=previous_state,json=previousState,proto3,enum=limiquantix.compute.v1.VMPowerState" json:"previous_state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VMChangeNotification) Reset() {
+	*x = VMChangeNotification{}
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VMChangeNotification) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VMChangeNotification) ProtoMessage() {}
+
+func (x *VMChangeNotification) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VMChangeNotification.ProtoReflect.Descriptor instead.
+func (*VMChangeNotification) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *VMChangeNotification) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *VMChangeNotification) GetVm() *VMStatusReport {
+	if x != nil {
+		return x.Vm
+	}
+	return nil
+}
+
+func (x *VMChangeNotification) GetEventType() VMChangeEventType {
+	if x != nil {
+		return x.EventType
+	}
+	return VMChangeEventType_VM_CHANGE_UNKNOWN
+}
+
+func (x *VMChangeNotification) GetTimestampUnix() int64 {
+	if x != nil {
+		return x.TimestampUnix
+	}
+	return 0
+}
+
+func (x *VMChangeNotification) GetPreviousState() VMPowerState {
+	if x != nil {
+		return x.PreviousState
+	}
+	return VMPowerState_VM_POWER_STATE_UNKNOWN
+}
+
+type VMChangeAck struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Acknowledged
+	Acknowledged bool `protobuf:"varint,1,opt,name=acknowledged,proto3" json:"acknowledged,omitempty"`
+	// Action taken by control plane
+	Action string `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"` // "created", "status_updated", "ignored", "marked_lost"
+	// Error message if any
+	Error         string `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VMChangeAck) Reset() {
+	*x = VMChangeAck{}
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VMChangeAck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VMChangeAck) ProtoMessage() {}
+
+func (x *VMChangeAck) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VMChangeAck.ProtoReflect.Descriptor instead.
+func (*VMChangeAck) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *VMChangeAck) GetAcknowledged() bool {
+	if x != nil {
+		return x.Acknowledged
+	}
+	return false
+}
+
+func (x *VMChangeAck) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *VMChangeAck) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type StorageChangeNotification struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Node ID reporting the change
+	NodeId string `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// The storage pool that changed
+	Pool *StoragePoolStatusReport `protobuf:"bytes,2,opt,name=pool,proto3" json:"pool,omitempty"`
+	// Type of change
+	EventType StorageChangeEventType `protobuf:"varint,3,opt,name=event_type,json=eventType,proto3,enum=limiquantix.compute.v1.StorageChangeEventType" json:"event_type,omitempty"`
+	// Timestamp of the change (unix seconds)
+	TimestampUnix int64 `protobuf:"varint,4,opt,name=timestamp_unix,json=timestampUnix,proto3" json:"timestamp_unix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StorageChangeNotification) Reset() {
+	*x = StorageChangeNotification{}
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StorageChangeNotification) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StorageChangeNotification) ProtoMessage() {}
+
+func (x *StorageChangeNotification) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StorageChangeNotification.ProtoReflect.Descriptor instead.
+func (*StorageChangeNotification) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *StorageChangeNotification) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *StorageChangeNotification) GetPool() *StoragePoolStatusReport {
+	if x != nil {
+		return x.Pool
+	}
+	return nil
+}
+
+func (x *StorageChangeNotification) GetEventType() StorageChangeEventType {
+	if x != nil {
+		return x.EventType
+	}
+	return StorageChangeEventType_STORAGE_CHANGE_UNKNOWN
+}
+
+func (x *StorageChangeNotification) GetTimestampUnix() int64 {
+	if x != nil {
+		return x.TimestampUnix
+	}
+	return 0
+}
+
+type StorageChangeAck struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Acknowledged
+	Acknowledged bool `protobuf:"varint,1,opt,name=acknowledged,proto3" json:"acknowledged,omitempty"`
+	// Action taken by control plane
+	Action string `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
+	// Error message if any
+	Error         string `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StorageChangeAck) Reset() {
+	*x = StorageChangeAck{}
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StorageChangeAck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StorageChangeAck) ProtoMessage() {}
+
+func (x *StorageChangeAck) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StorageChangeAck.ProtoReflect.Descriptor instead.
+func (*StorageChangeAck) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *StorageChangeAck) GetAcknowledged() bool {
+	if x != nil {
+		return x.Acknowledged
+	}
+	return false
+}
+
+func (x *StorageChangeAck) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *StorageChangeAck) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 type StreamNodeMetricsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Node ID (empty = current node for standalone mode)
@@ -2247,7 +3153,7 @@ type StreamNodeMetricsRequest struct {
 
 func (x *StreamNodeMetricsRequest) Reset() {
 	*x = StreamNodeMetricsRequest{}
-	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[27]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2259,7 +3165,7 @@ func (x *StreamNodeMetricsRequest) String() string {
 func (*StreamNodeMetricsRequest) ProtoMessage() {}
 
 func (x *StreamNodeMetricsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[27]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2272,7 +3178,7 @@ func (x *StreamNodeMetricsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamNodeMetricsRequest.ProtoReflect.Descriptor instead.
 func (*StreamNodeMetricsRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{27}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *StreamNodeMetricsRequest) GetNodeId() string {
@@ -2301,7 +3207,7 @@ type StreamEventsRequest struct {
 
 func (x *StreamEventsRequest) Reset() {
 	*x = StreamEventsRequest{}
-	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[28]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2313,7 +3219,7 @@ func (x *StreamEventsRequest) String() string {
 func (*StreamEventsRequest) ProtoMessage() {}
 
 func (x *StreamEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[28]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2326,7 +3232,7 @@ func (x *StreamEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEventsRequest.ProtoReflect.Descriptor instead.
 func (*StreamEventsRequest) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{28}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *StreamEventsRequest) GetNodeId() string {
@@ -2365,7 +3271,7 @@ type SystemEvent struct {
 
 func (x *SystemEvent) Reset() {
 	*x = SystemEvent{}
-	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[29]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2377,7 +3283,7 @@ func (x *SystemEvent) String() string {
 func (*SystemEvent) ProtoMessage() {}
 
 func (x *SystemEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[29]
+	mi := &file_limiquantix_compute_v1_node_service_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2390,7 +3296,7 @@ func (x *SystemEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemEvent.ProtoReflect.Descriptor instead.
 func (*SystemEvent) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{29}
+	return file_limiquantix_compute_v1_node_service_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *SystemEvent) GetId() string {
@@ -2532,7 +3438,7 @@ const file_limiquantix_compute_v1_node_service_proto_rawDesc = "" +
 	"\rremove_labels\x18\x03 \x03(\tR\fremoveLabels\x1a<\n" +
 	"\x0eAddLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xce\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xed\x03\n" +
 	"\x16UpdateHeartbeatRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12*\n" +
 	"\x11cpu_usage_percent\x18\x02 \x01(\x01R\x0fcpuUsagePercent\x12&\n" +
@@ -2545,7 +3451,9 @@ const file_limiquantix_compute_v1_node_service_proto_rawDesc = "" +
 	"\aload_5m\x18\t \x01(\x01R\x06load5m\x12\x19\n" +
 	"\bload_15m\x18\n" +
 	" \x01(\x01R\aload15m\x12T\n" +
-	"\rstorage_pools\x18\v \x03(\v2/.limiquantix.compute.v1.StoragePoolStatusReportR\fstoragePools\"\xf5\x03\n" +
+	"\rstorage_pools\x18\v \x03(\v2/.limiquantix.compute.v1.StoragePoolStatusReportR\fstoragePools\x12\x1d\n" +
+	"\n" +
+	"state_hash\x18\f \x01(\tR\tstateHash\"\xf5\x03\n" +
 	"\x17StoragePoolStatusReport\x12\x17\n" +
 	"\apool_id\x18\x01 \x01(\tR\x06poolId\x12T\n" +
 	"\x06health\x18\x02 \x01(\x0e2<.limiquantix.compute.v1.StoragePoolStatusReport.HealthStatusR\x06health\x12\x1f\n" +
@@ -2564,12 +3472,13 @@ const file_limiquantix_compute_v1_node_service_proto_rawDesc = "" +
 	"\x0eHEALTH_HEALTHY\x10\x01\x12\x13\n" +
 	"\x0fHEALTH_DEGRADED\x10\x02\x12\x10\n" +
 	"\fHEALTH_ERROR\x10\x03\x12\x14\n" +
-	"\x10HEALTH_UNMOUNTED\x10\x04\"\xcb\x01\n" +
+	"\x10HEALTH_UNMOUNTED\x10\x04\"\xf7\x01\n" +
 	"\x17UpdateHeartbeatResponse\x12\"\n" +
 	"\facknowledged\x18\x01 \x01(\bR\facknowledged\x12(\n" +
 	"\x10server_time_unix\x18\x02 \x01(\x03R\x0eserverTimeUnix\x126\n" +
 	"\x17heartbeat_interval_secs\x18\x03 \x01(\rR\x15heartbeatIntervalSecs\x12*\n" +
-	"\x11assigned_pool_ids\x18\x04 \x03(\tR\x0fassignedPoolIds\"'\n" +
+	"\x11assigned_pool_ids\x18\x04 \x03(\tR\x0fassignedPoolIds\x12*\n" +
+	"\x11request_full_sync\x18\x05 \x01(\bR\x0frequestFullSync\"'\n" +
 	"\x15GetNodeMetricsRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x8c\x06\n" +
 	"\vNodeMetrics\x12\x17\n" +
@@ -2631,7 +3540,64 @@ const file_limiquantix_compute_v1_node_service_proto_rawDesc = "" +
 	"\x13SyncNodeVMsResponse\x12%\n" +
 	"\x0eimported_count\x18\x01 \x01(\x05R\rimportedCount\x12%\n" +
 	"\x0eexisting_count\x18\x02 \x01(\x05R\rexistingCount\x12\x16\n" +
-	"\x06errors\x18\x03 \x03(\tR\x06errors\"V\n" +
+	"\x06errors\x18\x03 \x03(\tR\x06errors\"\x9d\x02\n" +
+	"\x14SyncFullStateRequest\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12=\n" +
+	"\thost_info\x18\x02 \x01(\v2 .limiquantix.compute.v1.HostInfoR\bhostInfo\x128\n" +
+	"\x03vms\x18\x03 \x03(\v2&.limiquantix.compute.v1.VMStatusReportR\x03vms\x12T\n" +
+	"\rstorage_pools\x18\x04 \x03(\v2/.limiquantix.compute.v1.StoragePoolStatusReportR\fstoragePools\x12\x1d\n" +
+	"\n" +
+	"state_hash\x18\x05 \x01(\tR\tstateHash\"\xf8\x01\n" +
+	"\bHostInfo\x12\x1a\n" +
+	"\bhostname\x18\x01 \x01(\tR\bhostname\x12#\n" +
+	"\rmanagement_ip\x18\x02 \x01(\tR\fmanagementIp\x12,\n" +
+	"\x12memory_total_bytes\x18\x03 \x01(\x04R\x10memoryTotalBytes\x124\n" +
+	"\x16memory_available_bytes\x18\x04 \x01(\x04R\x14memoryAvailableBytes\x12\x1b\n" +
+	"\tcpu_cores\x18\x05 \x01(\rR\bcpuCores\x12*\n" +
+	"\x11cpu_usage_percent\x18\x06 \x01(\x01R\x0fcpuUsagePercent\"\xcc\x02\n" +
+	"\x0eVMStatusReport\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12:\n" +
+	"\x05state\x18\x03 \x01(\x0e2$.limiquantix.compute.v1.VMPowerStateR\x05state\x12,\n" +
+	"\x12state_change_count\x18\x04 \x01(\x04R\x10stateChangeCount\x12*\n" +
+	"\x11cpu_usage_percent\x18\x05 \x01(\x01R\x0fcpuUsagePercent\x12*\n" +
+	"\x11memory_used_bytes\x18\x06 \x01(\x04R\x0fmemoryUsedBytes\x12!\n" +
+	"\fip_addresses\x18\a \x03(\tR\vipAddresses\x121\n" +
+	"\x15state_changed_at_unix\x18\b \x01(\x03R\x12stateChangedAtUnix\"\x93\x02\n" +
+	"\x15SyncFullStateResponse\x12\"\n" +
+	"\facknowledged\x18\x01 \x01(\bR\facknowledged\x12%\n" +
+	"\x0evms_reconciled\x18\x02 \x01(\x05R\rvmsReconciled\x12%\n" +
+	"\x0evms_discovered\x18\x03 \x01(\x05R\rvmsDiscovered\x12\x19\n" +
+	"\bvms_lost\x18\x04 \x01(\x05R\avmsLost\x12)\n" +
+	"\x10pools_reconciled\x18\x05 \x01(\x05R\x0fpoolsReconciled\x12B\n" +
+	"\tconflicts\x18\x06 \x03(\v2$.limiquantix.compute.v1.SyncConflictR\tconflicts\"\x93\x01\n" +
+	"\fSyncConflict\x12#\n" +
+	"\rresource_type\x18\x01 \x01(\tR\fresourceType\x12\x1f\n" +
+	"\vresource_id\x18\x02 \x01(\tR\n" +
+	"resourceId\x12#\n" +
+	"\rconflict_type\x18\x03 \x01(\tR\fconflictType\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\"\xa5\x02\n" +
+	"\x14VMChangeNotification\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x126\n" +
+	"\x02vm\x18\x02 \x01(\v2&.limiquantix.compute.v1.VMStatusReportR\x02vm\x12H\n" +
+	"\n" +
+	"event_type\x18\x03 \x01(\x0e2).limiquantix.compute.v1.VMChangeEventTypeR\teventType\x12%\n" +
+	"\x0etimestamp_unix\x18\x04 \x01(\x03R\rtimestampUnix\x12K\n" +
+	"\x0eprevious_state\x18\x05 \x01(\x0e2$.limiquantix.compute.v1.VMPowerStateR\rpreviousState\"_\n" +
+	"\vVMChangeAck\x12\"\n" +
+	"\facknowledged\x18\x01 \x01(\bR\facknowledged\x12\x16\n" +
+	"\x06action\x18\x02 \x01(\tR\x06action\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"\xef\x01\n" +
+	"\x19StorageChangeNotification\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12C\n" +
+	"\x04pool\x18\x02 \x01(\v2/.limiquantix.compute.v1.StoragePoolStatusReportR\x04pool\x12M\n" +
+	"\n" +
+	"event_type\x18\x03 \x01(\x0e2..limiquantix.compute.v1.StorageChangeEventTypeR\teventType\x12%\n" +
+	"\x0etimestamp_unix\x18\x04 \x01(\x03R\rtimestampUnix\"d\n" +
+	"\x10StorageChangeAck\x12\"\n" +
+	"\facknowledged\x18\x01 \x01(\bR\facknowledged\x12\x16\n" +
+	"\x06action\x18\x02 \x01(\tR\x06action\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"V\n" +
 	"\x18StreamNodeMetricsRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12!\n" +
 	"\finterval_sec\x18\x02 \x01(\rR\vintervalSec\"s\n" +
@@ -2690,7 +3656,26 @@ const file_limiquantix_compute_v1_node_service_proto_rawDesc = "" +
 	"\x04INFO\x10\x00\x12\v\n" +
 	"\aWARNING\x10\x01\x12\t\n" +
 	"\x05ERROR\x10\x02\x12\f\n" +
-	"\bCRITICAL\x10\x032\xa3\x0e\n" +
+	"\bCRITICAL\x10\x03*\xf1\x01\n" +
+	"\fVMPowerState\x12\x1a\n" +
+	"\x16VM_POWER_STATE_UNKNOWN\x10\x00\x12\x1a\n" +
+	"\x16VM_POWER_STATE_RUNNING\x10\x01\x12\x1a\n" +
+	"\x16VM_POWER_STATE_STOPPED\x10\x02\x12\x19\n" +
+	"\x15VM_POWER_STATE_PAUSED\x10\x03\x12\x1c\n" +
+	"\x18VM_POWER_STATE_SUSPENDED\x10\x04\x12\x1a\n" +
+	"\x16VM_POWER_STATE_CRASHED\x10\x05\x12\x1c\n" +
+	"\x18VM_POWER_STATE_MIGRATING\x10\x06\x12\x1a\n" +
+	"\x16VM_POWER_STATE_SHUTOFF\x10\a*o\n" +
+	"\x11VMChangeEventType\x12\x15\n" +
+	"\x11VM_CHANGE_UNKNOWN\x10\x00\x12\x15\n" +
+	"\x11VM_CHANGE_CREATED\x10\x01\x12\x15\n" +
+	"\x11VM_CHANGE_UPDATED\x10\x02\x12\x15\n" +
+	"\x11VM_CHANGE_DELETED\x10\x03*\x8a\x01\n" +
+	"\x16StorageChangeEventType\x12\x1a\n" +
+	"\x16STORAGE_CHANGE_UNKNOWN\x10\x00\x12\x1a\n" +
+	"\x16STORAGE_CHANGE_MOUNTED\x10\x01\x12\x1c\n" +
+	"\x18STORAGE_CHANGE_UNMOUNTED\x10\x02\x12\x1a\n" +
+	"\x16STORAGE_CHANGE_UPDATED\x10\x032\xea\x10\n" +
 	"\vNodeService\x12Y\n" +
 	"\fRegisterNode\x12+.limiquantix.compute.v1.RegisterNodeRequest\x1a\x1c.limiquantix.compute.v1.Node\x12O\n" +
 	"\aGetNode\x12&.limiquantix.compute.v1.GetNodeRequest\x1a\x1c.limiquantix.compute.v1.Node\x12`\n" +
@@ -2706,7 +3691,10 @@ const file_limiquantix_compute_v1_node_service_proto_rawDesc = "" +
 	"\vRemoveTaint\x12*.limiquantix.compute.v1.RemoveTaintRequest\x1a\x1c.limiquantix.compute.v1.Node\x12Y\n" +
 	"\fUpdateLabels\x12+.limiquantix.compute.v1.UpdateLabelsRequest\x1a\x1c.limiquantix.compute.v1.Node\x12r\n" +
 	"\x0fUpdateHeartbeat\x12..limiquantix.compute.v1.UpdateHeartbeatRequest\x1a/.limiquantix.compute.v1.UpdateHeartbeatResponse\x12f\n" +
-	"\vSyncNodeVMs\x12*.limiquantix.compute.v1.SyncNodeVMsRequest\x1a+.limiquantix.compute.v1.SyncNodeVMsResponse\x12d\n" +
+	"\vSyncNodeVMs\x12*.limiquantix.compute.v1.SyncNodeVMsRequest\x1a+.limiquantix.compute.v1.SyncNodeVMsResponse\x12l\n" +
+	"\rSyncFullState\x12,.limiquantix.compute.v1.SyncFullStateRequest\x1a-.limiquantix.compute.v1.SyncFullStateResponse\x12c\n" +
+	"\x0eNotifyVMChange\x12,.limiquantix.compute.v1.VMChangeNotification\x1a#.limiquantix.compute.v1.VMChangeAck\x12r\n" +
+	"\x13NotifyStorageChange\x121.limiquantix.compute.v1.StorageChangeNotification\x1a(.limiquantix.compute.v1.StorageChangeAck\x12d\n" +
 	"\x0eGetNodeMetrics\x12-.limiquantix.compute.v1.GetNodeMetricsRequest\x1a#.limiquantix.compute.v1.NodeMetrics\x12o\n" +
 	"\x0eListNodeEvents\x12-.limiquantix.compute.v1.ListNodeEventsRequest\x1a..limiquantix.compute.v1.ListNodeEventsResponse\x12U\n" +
 	"\tWatchNode\x12(.limiquantix.compute.v1.WatchNodeRequest\x1a\x1c.limiquantix.compute.v1.Node0\x01\x12]\n" +
@@ -2728,137 +3716,165 @@ func file_limiquantix_compute_v1_node_service_proto_rawDescGZIP() []byte {
 	return file_limiquantix_compute_v1_node_service_proto_rawDescData
 }
 
-var file_limiquantix_compute_v1_node_service_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_limiquantix_compute_v1_node_service_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_limiquantix_compute_v1_node_service_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_limiquantix_compute_v1_node_service_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_limiquantix_compute_v1_node_service_proto_goTypes = []any{
-	(StoragePoolStatusReport_HealthStatus)(0), // 0: limiquantix.compute.v1.StoragePoolStatusReport.HealthStatus
-	(NodeUpdate_UpdateType)(0),                // 1: limiquantix.compute.v1.NodeUpdate.UpdateType
-	(SystemEvent_EventType)(0),                // 2: limiquantix.compute.v1.SystemEvent.EventType
-	(SystemEvent_Severity)(0),                 // 3: limiquantix.compute.v1.SystemEvent.Severity
-	(*RegisterNodeRequest)(nil),               // 4: limiquantix.compute.v1.RegisterNodeRequest
-	(*GetNodeRequest)(nil),                    // 5: limiquantix.compute.v1.GetNodeRequest
-	(*ListNodesRequest)(nil),                  // 6: limiquantix.compute.v1.ListNodesRequest
-	(*ListNodesResponse)(nil),                 // 7: limiquantix.compute.v1.ListNodesResponse
-	(*UpdateNodeRequest)(nil),                 // 8: limiquantix.compute.v1.UpdateNodeRequest
-	(*DecommissionNodeRequest)(nil),           // 9: limiquantix.compute.v1.DecommissionNodeRequest
-	(*EnableNodeRequest)(nil),                 // 10: limiquantix.compute.v1.EnableNodeRequest
-	(*DisableNodeRequest)(nil),                // 11: limiquantix.compute.v1.DisableNodeRequest
-	(*DrainNodeRequest)(nil),                  // 12: limiquantix.compute.v1.DrainNodeRequest
-	(*DrainNodeResponse)(nil),                 // 13: limiquantix.compute.v1.DrainNodeResponse
-	(*DrainFailure)(nil),                      // 14: limiquantix.compute.v1.DrainFailure
-	(*AddTaintRequest)(nil),                   // 15: limiquantix.compute.v1.AddTaintRequest
-	(*RemoveTaintRequest)(nil),                // 16: limiquantix.compute.v1.RemoveTaintRequest
-	(*UpdateLabelsRequest)(nil),               // 17: limiquantix.compute.v1.UpdateLabelsRequest
-	(*UpdateHeartbeatRequest)(nil),            // 18: limiquantix.compute.v1.UpdateHeartbeatRequest
-	(*StoragePoolStatusReport)(nil),           // 19: limiquantix.compute.v1.StoragePoolStatusReport
-	(*UpdateHeartbeatResponse)(nil),           // 20: limiquantix.compute.v1.UpdateHeartbeatResponse
-	(*GetNodeMetricsRequest)(nil),             // 21: limiquantix.compute.v1.GetNodeMetricsRequest
-	(*NodeMetrics)(nil),                       // 22: limiquantix.compute.v1.NodeMetrics
-	(*ListNodeEventsRequest)(nil),             // 23: limiquantix.compute.v1.ListNodeEventsRequest
-	(*ListNodeEventsResponse)(nil),            // 24: limiquantix.compute.v1.ListNodeEventsResponse
-	(*WatchNodeRequest)(nil),                  // 25: limiquantix.compute.v1.WatchNodeRequest
-	(*WatchNodesRequest)(nil),                 // 26: limiquantix.compute.v1.WatchNodesRequest
-	(*NodeUpdate)(nil),                        // 27: limiquantix.compute.v1.NodeUpdate
-	(*SyncNodeVMsRequest)(nil),                // 28: limiquantix.compute.v1.SyncNodeVMsRequest
-	(*NodeVMInfo)(nil),                        // 29: limiquantix.compute.v1.NodeVMInfo
-	(*SyncNodeVMsResponse)(nil),               // 30: limiquantix.compute.v1.SyncNodeVMsResponse
-	(*StreamNodeMetricsRequest)(nil),          // 31: limiquantix.compute.v1.StreamNodeMetricsRequest
-	(*StreamEventsRequest)(nil),               // 32: limiquantix.compute.v1.StreamEventsRequest
-	(*SystemEvent)(nil),                       // 33: limiquantix.compute.v1.SystemEvent
-	nil,                                       // 34: limiquantix.compute.v1.RegisterNodeRequest.LabelsEntry
-	nil,                                       // 35: limiquantix.compute.v1.ListNodesRequest.LabelsEntry
-	nil,                                       // 36: limiquantix.compute.v1.UpdateLabelsRequest.AddLabelsEntry
-	nil,                                       // 37: limiquantix.compute.v1.WatchNodesRequest.LabelsEntry
-	nil,                                       // 38: limiquantix.compute.v1.SystemEvent.MetadataEntry
-	(*NodeRole)(nil),                          // 39: limiquantix.compute.v1.NodeRole
-	(*Taint)(nil),                             // 40: limiquantix.compute.v1.Taint
-	(*CpuInfo)(nil),                           // 41: limiquantix.compute.v1.CpuInfo
-	(*MemoryInfo)(nil),                        // 42: limiquantix.compute.v1.MemoryInfo
-	(*StorageDevice)(nil),                     // 43: limiquantix.compute.v1.StorageDevice
-	(*NetworkDevice)(nil),                     // 44: limiquantix.compute.v1.NetworkDevice
-	(NodeStatus_Phase)(0),                     // 45: limiquantix.compute.v1.NodeStatus.Phase
-	(*Node)(nil),                              // 46: limiquantix.compute.v1.Node
-	(*SchedulingConfig)(nil),                  // 47: limiquantix.compute.v1.SchedulingConfig
-	(*fieldmaskpb.FieldMask)(nil),             // 48: google.protobuf.FieldMask
-	(NodeEvent_EventType)(0),                  // 49: limiquantix.compute.v1.NodeEvent.EventType
-	(*NodeEvent)(nil),                         // 50: limiquantix.compute.v1.NodeEvent
-	(*timestamppb.Timestamp)(nil),             // 51: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),                     // 52: google.protobuf.Empty
+	(VMPowerState)(0),                         // 0: limiquantix.compute.v1.VMPowerState
+	(VMChangeEventType)(0),                    // 1: limiquantix.compute.v1.VMChangeEventType
+	(StorageChangeEventType)(0),               // 2: limiquantix.compute.v1.StorageChangeEventType
+	(StoragePoolStatusReport_HealthStatus)(0), // 3: limiquantix.compute.v1.StoragePoolStatusReport.HealthStatus
+	(NodeUpdate_UpdateType)(0),                // 4: limiquantix.compute.v1.NodeUpdate.UpdateType
+	(SystemEvent_EventType)(0),                // 5: limiquantix.compute.v1.SystemEvent.EventType
+	(SystemEvent_Severity)(0),                 // 6: limiquantix.compute.v1.SystemEvent.Severity
+	(*RegisterNodeRequest)(nil),               // 7: limiquantix.compute.v1.RegisterNodeRequest
+	(*GetNodeRequest)(nil),                    // 8: limiquantix.compute.v1.GetNodeRequest
+	(*ListNodesRequest)(nil),                  // 9: limiquantix.compute.v1.ListNodesRequest
+	(*ListNodesResponse)(nil),                 // 10: limiquantix.compute.v1.ListNodesResponse
+	(*UpdateNodeRequest)(nil),                 // 11: limiquantix.compute.v1.UpdateNodeRequest
+	(*DecommissionNodeRequest)(nil),           // 12: limiquantix.compute.v1.DecommissionNodeRequest
+	(*EnableNodeRequest)(nil),                 // 13: limiquantix.compute.v1.EnableNodeRequest
+	(*DisableNodeRequest)(nil),                // 14: limiquantix.compute.v1.DisableNodeRequest
+	(*DrainNodeRequest)(nil),                  // 15: limiquantix.compute.v1.DrainNodeRequest
+	(*DrainNodeResponse)(nil),                 // 16: limiquantix.compute.v1.DrainNodeResponse
+	(*DrainFailure)(nil),                      // 17: limiquantix.compute.v1.DrainFailure
+	(*AddTaintRequest)(nil),                   // 18: limiquantix.compute.v1.AddTaintRequest
+	(*RemoveTaintRequest)(nil),                // 19: limiquantix.compute.v1.RemoveTaintRequest
+	(*UpdateLabelsRequest)(nil),               // 20: limiquantix.compute.v1.UpdateLabelsRequest
+	(*UpdateHeartbeatRequest)(nil),            // 21: limiquantix.compute.v1.UpdateHeartbeatRequest
+	(*StoragePoolStatusReport)(nil),           // 22: limiquantix.compute.v1.StoragePoolStatusReport
+	(*UpdateHeartbeatResponse)(nil),           // 23: limiquantix.compute.v1.UpdateHeartbeatResponse
+	(*GetNodeMetricsRequest)(nil),             // 24: limiquantix.compute.v1.GetNodeMetricsRequest
+	(*NodeMetrics)(nil),                       // 25: limiquantix.compute.v1.NodeMetrics
+	(*ListNodeEventsRequest)(nil),             // 26: limiquantix.compute.v1.ListNodeEventsRequest
+	(*ListNodeEventsResponse)(nil),            // 27: limiquantix.compute.v1.ListNodeEventsResponse
+	(*WatchNodeRequest)(nil),                  // 28: limiquantix.compute.v1.WatchNodeRequest
+	(*WatchNodesRequest)(nil),                 // 29: limiquantix.compute.v1.WatchNodesRequest
+	(*NodeUpdate)(nil),                        // 30: limiquantix.compute.v1.NodeUpdate
+	(*SyncNodeVMsRequest)(nil),                // 31: limiquantix.compute.v1.SyncNodeVMsRequest
+	(*NodeVMInfo)(nil),                        // 32: limiquantix.compute.v1.NodeVMInfo
+	(*SyncNodeVMsResponse)(nil),               // 33: limiquantix.compute.v1.SyncNodeVMsResponse
+	(*SyncFullStateRequest)(nil),              // 34: limiquantix.compute.v1.SyncFullStateRequest
+	(*HostInfo)(nil),                          // 35: limiquantix.compute.v1.HostInfo
+	(*VMStatusReport)(nil),                    // 36: limiquantix.compute.v1.VMStatusReport
+	(*SyncFullStateResponse)(nil),             // 37: limiquantix.compute.v1.SyncFullStateResponse
+	(*SyncConflict)(nil),                      // 38: limiquantix.compute.v1.SyncConflict
+	(*VMChangeNotification)(nil),              // 39: limiquantix.compute.v1.VMChangeNotification
+	(*VMChangeAck)(nil),                       // 40: limiquantix.compute.v1.VMChangeAck
+	(*StorageChangeNotification)(nil),         // 41: limiquantix.compute.v1.StorageChangeNotification
+	(*StorageChangeAck)(nil),                  // 42: limiquantix.compute.v1.StorageChangeAck
+	(*StreamNodeMetricsRequest)(nil),          // 43: limiquantix.compute.v1.StreamNodeMetricsRequest
+	(*StreamEventsRequest)(nil),               // 44: limiquantix.compute.v1.StreamEventsRequest
+	(*SystemEvent)(nil),                       // 45: limiquantix.compute.v1.SystemEvent
+	nil,                                       // 46: limiquantix.compute.v1.RegisterNodeRequest.LabelsEntry
+	nil,                                       // 47: limiquantix.compute.v1.ListNodesRequest.LabelsEntry
+	nil,                                       // 48: limiquantix.compute.v1.UpdateLabelsRequest.AddLabelsEntry
+	nil,                                       // 49: limiquantix.compute.v1.WatchNodesRequest.LabelsEntry
+	nil,                                       // 50: limiquantix.compute.v1.SystemEvent.MetadataEntry
+	(*NodeRole)(nil),                          // 51: limiquantix.compute.v1.NodeRole
+	(*Taint)(nil),                             // 52: limiquantix.compute.v1.Taint
+	(*CpuInfo)(nil),                           // 53: limiquantix.compute.v1.CpuInfo
+	(*MemoryInfo)(nil),                        // 54: limiquantix.compute.v1.MemoryInfo
+	(*StorageDevice)(nil),                     // 55: limiquantix.compute.v1.StorageDevice
+	(*NetworkDevice)(nil),                     // 56: limiquantix.compute.v1.NetworkDevice
+	(NodeStatus_Phase)(0),                     // 57: limiquantix.compute.v1.NodeStatus.Phase
+	(*Node)(nil),                              // 58: limiquantix.compute.v1.Node
+	(*SchedulingConfig)(nil),                  // 59: limiquantix.compute.v1.SchedulingConfig
+	(*fieldmaskpb.FieldMask)(nil),             // 60: google.protobuf.FieldMask
+	(NodeEvent_EventType)(0),                  // 61: limiquantix.compute.v1.NodeEvent.EventType
+	(*NodeEvent)(nil),                         // 62: limiquantix.compute.v1.NodeEvent
+	(*timestamppb.Timestamp)(nil),             // 63: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                     // 64: google.protobuf.Empty
 }
 var file_limiquantix_compute_v1_node_service_proto_depIdxs = []int32{
-	34, // 0: limiquantix.compute.v1.RegisterNodeRequest.labels:type_name -> limiquantix.compute.v1.RegisterNodeRequest.LabelsEntry
-	39, // 1: limiquantix.compute.v1.RegisterNodeRequest.role:type_name -> limiquantix.compute.v1.NodeRole
-	40, // 2: limiquantix.compute.v1.RegisterNodeRequest.taints:type_name -> limiquantix.compute.v1.Taint
-	41, // 3: limiquantix.compute.v1.RegisterNodeRequest.cpu_info:type_name -> limiquantix.compute.v1.CpuInfo
-	42, // 4: limiquantix.compute.v1.RegisterNodeRequest.memory_info:type_name -> limiquantix.compute.v1.MemoryInfo
-	43, // 5: limiquantix.compute.v1.RegisterNodeRequest.storage_devices:type_name -> limiquantix.compute.v1.StorageDevice
-	44, // 6: limiquantix.compute.v1.RegisterNodeRequest.network_devices:type_name -> limiquantix.compute.v1.NetworkDevice
-	35, // 7: limiquantix.compute.v1.ListNodesRequest.labels:type_name -> limiquantix.compute.v1.ListNodesRequest.LabelsEntry
-	45, // 8: limiquantix.compute.v1.ListNodesRequest.phases:type_name -> limiquantix.compute.v1.NodeStatus.Phase
-	46, // 9: limiquantix.compute.v1.ListNodesResponse.nodes:type_name -> limiquantix.compute.v1.Node
-	47, // 10: limiquantix.compute.v1.UpdateNodeRequest.scheduling:type_name -> limiquantix.compute.v1.SchedulingConfig
-	39, // 11: limiquantix.compute.v1.UpdateNodeRequest.role:type_name -> limiquantix.compute.v1.NodeRole
-	48, // 12: limiquantix.compute.v1.UpdateNodeRequest.update_mask:type_name -> google.protobuf.FieldMask
-	46, // 13: limiquantix.compute.v1.DrainNodeResponse.node:type_name -> limiquantix.compute.v1.Node
-	14, // 14: limiquantix.compute.v1.DrainNodeResponse.failures:type_name -> limiquantix.compute.v1.DrainFailure
-	40, // 15: limiquantix.compute.v1.AddTaintRequest.taint:type_name -> limiquantix.compute.v1.Taint
-	36, // 16: limiquantix.compute.v1.UpdateLabelsRequest.add_labels:type_name -> limiquantix.compute.v1.UpdateLabelsRequest.AddLabelsEntry
-	19, // 17: limiquantix.compute.v1.UpdateHeartbeatRequest.storage_pools:type_name -> limiquantix.compute.v1.StoragePoolStatusReport
-	0,  // 18: limiquantix.compute.v1.StoragePoolStatusReport.health:type_name -> limiquantix.compute.v1.StoragePoolStatusReport.HealthStatus
-	49, // 19: limiquantix.compute.v1.ListNodeEventsRequest.types:type_name -> limiquantix.compute.v1.NodeEvent.EventType
-	50, // 20: limiquantix.compute.v1.ListNodeEventsResponse.events:type_name -> limiquantix.compute.v1.NodeEvent
-	37, // 21: limiquantix.compute.v1.WatchNodesRequest.labels:type_name -> limiquantix.compute.v1.WatchNodesRequest.LabelsEntry
-	1,  // 22: limiquantix.compute.v1.NodeUpdate.type:type_name -> limiquantix.compute.v1.NodeUpdate.UpdateType
-	46, // 23: limiquantix.compute.v1.NodeUpdate.node:type_name -> limiquantix.compute.v1.Node
-	29, // 24: limiquantix.compute.v1.SyncNodeVMsRequest.vms:type_name -> limiquantix.compute.v1.NodeVMInfo
-	2,  // 25: limiquantix.compute.v1.StreamEventsRequest.types:type_name -> limiquantix.compute.v1.SystemEvent.EventType
-	51, // 26: limiquantix.compute.v1.SystemEvent.timestamp:type_name -> google.protobuf.Timestamp
-	2,  // 27: limiquantix.compute.v1.SystemEvent.type:type_name -> limiquantix.compute.v1.SystemEvent.EventType
-	3,  // 28: limiquantix.compute.v1.SystemEvent.severity:type_name -> limiquantix.compute.v1.SystemEvent.Severity
-	38, // 29: limiquantix.compute.v1.SystemEvent.metadata:type_name -> limiquantix.compute.v1.SystemEvent.MetadataEntry
-	4,  // 30: limiquantix.compute.v1.NodeService.RegisterNode:input_type -> limiquantix.compute.v1.RegisterNodeRequest
-	5,  // 31: limiquantix.compute.v1.NodeService.GetNode:input_type -> limiquantix.compute.v1.GetNodeRequest
-	6,  // 32: limiquantix.compute.v1.NodeService.ListNodes:input_type -> limiquantix.compute.v1.ListNodesRequest
-	8,  // 33: limiquantix.compute.v1.NodeService.UpdateNode:input_type -> limiquantix.compute.v1.UpdateNodeRequest
-	9,  // 34: limiquantix.compute.v1.NodeService.DecommissionNode:input_type -> limiquantix.compute.v1.DecommissionNodeRequest
-	10, // 35: limiquantix.compute.v1.NodeService.EnableNode:input_type -> limiquantix.compute.v1.EnableNodeRequest
-	11, // 36: limiquantix.compute.v1.NodeService.DisableNode:input_type -> limiquantix.compute.v1.DisableNodeRequest
-	12, // 37: limiquantix.compute.v1.NodeService.DrainNode:input_type -> limiquantix.compute.v1.DrainNodeRequest
-	15, // 38: limiquantix.compute.v1.NodeService.AddTaint:input_type -> limiquantix.compute.v1.AddTaintRequest
-	16, // 39: limiquantix.compute.v1.NodeService.RemoveTaint:input_type -> limiquantix.compute.v1.RemoveTaintRequest
-	17, // 40: limiquantix.compute.v1.NodeService.UpdateLabels:input_type -> limiquantix.compute.v1.UpdateLabelsRequest
-	18, // 41: limiquantix.compute.v1.NodeService.UpdateHeartbeat:input_type -> limiquantix.compute.v1.UpdateHeartbeatRequest
-	28, // 42: limiquantix.compute.v1.NodeService.SyncNodeVMs:input_type -> limiquantix.compute.v1.SyncNodeVMsRequest
-	21, // 43: limiquantix.compute.v1.NodeService.GetNodeMetrics:input_type -> limiquantix.compute.v1.GetNodeMetricsRequest
-	23, // 44: limiquantix.compute.v1.NodeService.ListNodeEvents:input_type -> limiquantix.compute.v1.ListNodeEventsRequest
-	25, // 45: limiquantix.compute.v1.NodeService.WatchNode:input_type -> limiquantix.compute.v1.WatchNodeRequest
-	26, // 46: limiquantix.compute.v1.NodeService.WatchNodes:input_type -> limiquantix.compute.v1.WatchNodesRequest
-	31, // 47: limiquantix.compute.v1.NodeService.StreamNodeMetrics:input_type -> limiquantix.compute.v1.StreamNodeMetricsRequest
-	32, // 48: limiquantix.compute.v1.NodeService.StreamEvents:input_type -> limiquantix.compute.v1.StreamEventsRequest
-	46, // 49: limiquantix.compute.v1.NodeService.RegisterNode:output_type -> limiquantix.compute.v1.Node
-	46, // 50: limiquantix.compute.v1.NodeService.GetNode:output_type -> limiquantix.compute.v1.Node
-	7,  // 51: limiquantix.compute.v1.NodeService.ListNodes:output_type -> limiquantix.compute.v1.ListNodesResponse
-	46, // 52: limiquantix.compute.v1.NodeService.UpdateNode:output_type -> limiquantix.compute.v1.Node
-	52, // 53: limiquantix.compute.v1.NodeService.DecommissionNode:output_type -> google.protobuf.Empty
-	46, // 54: limiquantix.compute.v1.NodeService.EnableNode:output_type -> limiquantix.compute.v1.Node
-	46, // 55: limiquantix.compute.v1.NodeService.DisableNode:output_type -> limiquantix.compute.v1.Node
-	13, // 56: limiquantix.compute.v1.NodeService.DrainNode:output_type -> limiquantix.compute.v1.DrainNodeResponse
-	46, // 57: limiquantix.compute.v1.NodeService.AddTaint:output_type -> limiquantix.compute.v1.Node
-	46, // 58: limiquantix.compute.v1.NodeService.RemoveTaint:output_type -> limiquantix.compute.v1.Node
-	46, // 59: limiquantix.compute.v1.NodeService.UpdateLabels:output_type -> limiquantix.compute.v1.Node
-	20, // 60: limiquantix.compute.v1.NodeService.UpdateHeartbeat:output_type -> limiquantix.compute.v1.UpdateHeartbeatResponse
-	30, // 61: limiquantix.compute.v1.NodeService.SyncNodeVMs:output_type -> limiquantix.compute.v1.SyncNodeVMsResponse
-	22, // 62: limiquantix.compute.v1.NodeService.GetNodeMetrics:output_type -> limiquantix.compute.v1.NodeMetrics
-	24, // 63: limiquantix.compute.v1.NodeService.ListNodeEvents:output_type -> limiquantix.compute.v1.ListNodeEventsResponse
-	46, // 64: limiquantix.compute.v1.NodeService.WatchNode:output_type -> limiquantix.compute.v1.Node
-	27, // 65: limiquantix.compute.v1.NodeService.WatchNodes:output_type -> limiquantix.compute.v1.NodeUpdate
-	22, // 66: limiquantix.compute.v1.NodeService.StreamNodeMetrics:output_type -> limiquantix.compute.v1.NodeMetrics
-	33, // 67: limiquantix.compute.v1.NodeService.StreamEvents:output_type -> limiquantix.compute.v1.SystemEvent
-	49, // [49:68] is the sub-list for method output_type
-	30, // [30:49] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	46, // 0: limiquantix.compute.v1.RegisterNodeRequest.labels:type_name -> limiquantix.compute.v1.RegisterNodeRequest.LabelsEntry
+	51, // 1: limiquantix.compute.v1.RegisterNodeRequest.role:type_name -> limiquantix.compute.v1.NodeRole
+	52, // 2: limiquantix.compute.v1.RegisterNodeRequest.taints:type_name -> limiquantix.compute.v1.Taint
+	53, // 3: limiquantix.compute.v1.RegisterNodeRequest.cpu_info:type_name -> limiquantix.compute.v1.CpuInfo
+	54, // 4: limiquantix.compute.v1.RegisterNodeRequest.memory_info:type_name -> limiquantix.compute.v1.MemoryInfo
+	55, // 5: limiquantix.compute.v1.RegisterNodeRequest.storage_devices:type_name -> limiquantix.compute.v1.StorageDevice
+	56, // 6: limiquantix.compute.v1.RegisterNodeRequest.network_devices:type_name -> limiquantix.compute.v1.NetworkDevice
+	47, // 7: limiquantix.compute.v1.ListNodesRequest.labels:type_name -> limiquantix.compute.v1.ListNodesRequest.LabelsEntry
+	57, // 8: limiquantix.compute.v1.ListNodesRequest.phases:type_name -> limiquantix.compute.v1.NodeStatus.Phase
+	58, // 9: limiquantix.compute.v1.ListNodesResponse.nodes:type_name -> limiquantix.compute.v1.Node
+	59, // 10: limiquantix.compute.v1.UpdateNodeRequest.scheduling:type_name -> limiquantix.compute.v1.SchedulingConfig
+	51, // 11: limiquantix.compute.v1.UpdateNodeRequest.role:type_name -> limiquantix.compute.v1.NodeRole
+	60, // 12: limiquantix.compute.v1.UpdateNodeRequest.update_mask:type_name -> google.protobuf.FieldMask
+	58, // 13: limiquantix.compute.v1.DrainNodeResponse.node:type_name -> limiquantix.compute.v1.Node
+	17, // 14: limiquantix.compute.v1.DrainNodeResponse.failures:type_name -> limiquantix.compute.v1.DrainFailure
+	52, // 15: limiquantix.compute.v1.AddTaintRequest.taint:type_name -> limiquantix.compute.v1.Taint
+	48, // 16: limiquantix.compute.v1.UpdateLabelsRequest.add_labels:type_name -> limiquantix.compute.v1.UpdateLabelsRequest.AddLabelsEntry
+	22, // 17: limiquantix.compute.v1.UpdateHeartbeatRequest.storage_pools:type_name -> limiquantix.compute.v1.StoragePoolStatusReport
+	3,  // 18: limiquantix.compute.v1.StoragePoolStatusReport.health:type_name -> limiquantix.compute.v1.StoragePoolStatusReport.HealthStatus
+	61, // 19: limiquantix.compute.v1.ListNodeEventsRequest.types:type_name -> limiquantix.compute.v1.NodeEvent.EventType
+	62, // 20: limiquantix.compute.v1.ListNodeEventsResponse.events:type_name -> limiquantix.compute.v1.NodeEvent
+	49, // 21: limiquantix.compute.v1.WatchNodesRequest.labels:type_name -> limiquantix.compute.v1.WatchNodesRequest.LabelsEntry
+	4,  // 22: limiquantix.compute.v1.NodeUpdate.type:type_name -> limiquantix.compute.v1.NodeUpdate.UpdateType
+	58, // 23: limiquantix.compute.v1.NodeUpdate.node:type_name -> limiquantix.compute.v1.Node
+	32, // 24: limiquantix.compute.v1.SyncNodeVMsRequest.vms:type_name -> limiquantix.compute.v1.NodeVMInfo
+	35, // 25: limiquantix.compute.v1.SyncFullStateRequest.host_info:type_name -> limiquantix.compute.v1.HostInfo
+	36, // 26: limiquantix.compute.v1.SyncFullStateRequest.vms:type_name -> limiquantix.compute.v1.VMStatusReport
+	22, // 27: limiquantix.compute.v1.SyncFullStateRequest.storage_pools:type_name -> limiquantix.compute.v1.StoragePoolStatusReport
+	0,  // 28: limiquantix.compute.v1.VMStatusReport.state:type_name -> limiquantix.compute.v1.VMPowerState
+	38, // 29: limiquantix.compute.v1.SyncFullStateResponse.conflicts:type_name -> limiquantix.compute.v1.SyncConflict
+	36, // 30: limiquantix.compute.v1.VMChangeNotification.vm:type_name -> limiquantix.compute.v1.VMStatusReport
+	1,  // 31: limiquantix.compute.v1.VMChangeNotification.event_type:type_name -> limiquantix.compute.v1.VMChangeEventType
+	0,  // 32: limiquantix.compute.v1.VMChangeNotification.previous_state:type_name -> limiquantix.compute.v1.VMPowerState
+	22, // 33: limiquantix.compute.v1.StorageChangeNotification.pool:type_name -> limiquantix.compute.v1.StoragePoolStatusReport
+	2,  // 34: limiquantix.compute.v1.StorageChangeNotification.event_type:type_name -> limiquantix.compute.v1.StorageChangeEventType
+	5,  // 35: limiquantix.compute.v1.StreamEventsRequest.types:type_name -> limiquantix.compute.v1.SystemEvent.EventType
+	63, // 36: limiquantix.compute.v1.SystemEvent.timestamp:type_name -> google.protobuf.Timestamp
+	5,  // 37: limiquantix.compute.v1.SystemEvent.type:type_name -> limiquantix.compute.v1.SystemEvent.EventType
+	6,  // 38: limiquantix.compute.v1.SystemEvent.severity:type_name -> limiquantix.compute.v1.SystemEvent.Severity
+	50, // 39: limiquantix.compute.v1.SystemEvent.metadata:type_name -> limiquantix.compute.v1.SystemEvent.MetadataEntry
+	7,  // 40: limiquantix.compute.v1.NodeService.RegisterNode:input_type -> limiquantix.compute.v1.RegisterNodeRequest
+	8,  // 41: limiquantix.compute.v1.NodeService.GetNode:input_type -> limiquantix.compute.v1.GetNodeRequest
+	9,  // 42: limiquantix.compute.v1.NodeService.ListNodes:input_type -> limiquantix.compute.v1.ListNodesRequest
+	11, // 43: limiquantix.compute.v1.NodeService.UpdateNode:input_type -> limiquantix.compute.v1.UpdateNodeRequest
+	12, // 44: limiquantix.compute.v1.NodeService.DecommissionNode:input_type -> limiquantix.compute.v1.DecommissionNodeRequest
+	13, // 45: limiquantix.compute.v1.NodeService.EnableNode:input_type -> limiquantix.compute.v1.EnableNodeRequest
+	14, // 46: limiquantix.compute.v1.NodeService.DisableNode:input_type -> limiquantix.compute.v1.DisableNodeRequest
+	15, // 47: limiquantix.compute.v1.NodeService.DrainNode:input_type -> limiquantix.compute.v1.DrainNodeRequest
+	18, // 48: limiquantix.compute.v1.NodeService.AddTaint:input_type -> limiquantix.compute.v1.AddTaintRequest
+	19, // 49: limiquantix.compute.v1.NodeService.RemoveTaint:input_type -> limiquantix.compute.v1.RemoveTaintRequest
+	20, // 50: limiquantix.compute.v1.NodeService.UpdateLabels:input_type -> limiquantix.compute.v1.UpdateLabelsRequest
+	21, // 51: limiquantix.compute.v1.NodeService.UpdateHeartbeat:input_type -> limiquantix.compute.v1.UpdateHeartbeatRequest
+	31, // 52: limiquantix.compute.v1.NodeService.SyncNodeVMs:input_type -> limiquantix.compute.v1.SyncNodeVMsRequest
+	34, // 53: limiquantix.compute.v1.NodeService.SyncFullState:input_type -> limiquantix.compute.v1.SyncFullStateRequest
+	39, // 54: limiquantix.compute.v1.NodeService.NotifyVMChange:input_type -> limiquantix.compute.v1.VMChangeNotification
+	41, // 55: limiquantix.compute.v1.NodeService.NotifyStorageChange:input_type -> limiquantix.compute.v1.StorageChangeNotification
+	24, // 56: limiquantix.compute.v1.NodeService.GetNodeMetrics:input_type -> limiquantix.compute.v1.GetNodeMetricsRequest
+	26, // 57: limiquantix.compute.v1.NodeService.ListNodeEvents:input_type -> limiquantix.compute.v1.ListNodeEventsRequest
+	28, // 58: limiquantix.compute.v1.NodeService.WatchNode:input_type -> limiquantix.compute.v1.WatchNodeRequest
+	29, // 59: limiquantix.compute.v1.NodeService.WatchNodes:input_type -> limiquantix.compute.v1.WatchNodesRequest
+	43, // 60: limiquantix.compute.v1.NodeService.StreamNodeMetrics:input_type -> limiquantix.compute.v1.StreamNodeMetricsRequest
+	44, // 61: limiquantix.compute.v1.NodeService.StreamEvents:input_type -> limiquantix.compute.v1.StreamEventsRequest
+	58, // 62: limiquantix.compute.v1.NodeService.RegisterNode:output_type -> limiquantix.compute.v1.Node
+	58, // 63: limiquantix.compute.v1.NodeService.GetNode:output_type -> limiquantix.compute.v1.Node
+	10, // 64: limiquantix.compute.v1.NodeService.ListNodes:output_type -> limiquantix.compute.v1.ListNodesResponse
+	58, // 65: limiquantix.compute.v1.NodeService.UpdateNode:output_type -> limiquantix.compute.v1.Node
+	64, // 66: limiquantix.compute.v1.NodeService.DecommissionNode:output_type -> google.protobuf.Empty
+	58, // 67: limiquantix.compute.v1.NodeService.EnableNode:output_type -> limiquantix.compute.v1.Node
+	58, // 68: limiquantix.compute.v1.NodeService.DisableNode:output_type -> limiquantix.compute.v1.Node
+	16, // 69: limiquantix.compute.v1.NodeService.DrainNode:output_type -> limiquantix.compute.v1.DrainNodeResponse
+	58, // 70: limiquantix.compute.v1.NodeService.AddTaint:output_type -> limiquantix.compute.v1.Node
+	58, // 71: limiquantix.compute.v1.NodeService.RemoveTaint:output_type -> limiquantix.compute.v1.Node
+	58, // 72: limiquantix.compute.v1.NodeService.UpdateLabels:output_type -> limiquantix.compute.v1.Node
+	23, // 73: limiquantix.compute.v1.NodeService.UpdateHeartbeat:output_type -> limiquantix.compute.v1.UpdateHeartbeatResponse
+	33, // 74: limiquantix.compute.v1.NodeService.SyncNodeVMs:output_type -> limiquantix.compute.v1.SyncNodeVMsResponse
+	37, // 75: limiquantix.compute.v1.NodeService.SyncFullState:output_type -> limiquantix.compute.v1.SyncFullStateResponse
+	40, // 76: limiquantix.compute.v1.NodeService.NotifyVMChange:output_type -> limiquantix.compute.v1.VMChangeAck
+	42, // 77: limiquantix.compute.v1.NodeService.NotifyStorageChange:output_type -> limiquantix.compute.v1.StorageChangeAck
+	25, // 78: limiquantix.compute.v1.NodeService.GetNodeMetrics:output_type -> limiquantix.compute.v1.NodeMetrics
+	27, // 79: limiquantix.compute.v1.NodeService.ListNodeEvents:output_type -> limiquantix.compute.v1.ListNodeEventsResponse
+	58, // 80: limiquantix.compute.v1.NodeService.WatchNode:output_type -> limiquantix.compute.v1.Node
+	30, // 81: limiquantix.compute.v1.NodeService.WatchNodes:output_type -> limiquantix.compute.v1.NodeUpdate
+	25, // 82: limiquantix.compute.v1.NodeService.StreamNodeMetrics:output_type -> limiquantix.compute.v1.NodeMetrics
+	45, // 83: limiquantix.compute.v1.NodeService.StreamEvents:output_type -> limiquantix.compute.v1.SystemEvent
+	62, // [62:84] is the sub-list for method output_type
+	40, // [40:62] is the sub-list for method input_type
+	40, // [40:40] is the sub-list for extension type_name
+	40, // [40:40] is the sub-list for extension extendee
+	0,  // [0:40] is the sub-list for field type_name
 }
 
 func init() { file_limiquantix_compute_v1_node_service_proto_init() }
@@ -2872,8 +3888,8 @@ func file_limiquantix_compute_v1_node_service_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_compute_v1_node_service_proto_rawDesc), len(file_limiquantix_compute_v1_node_service_proto_rawDesc)),
-			NumEnums:      4,
-			NumMessages:   35,
+			NumEnums:      7,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

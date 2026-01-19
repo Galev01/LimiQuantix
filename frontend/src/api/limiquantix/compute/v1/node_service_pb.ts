@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file limiquantix/compute/v1/node_service.proto.
  */
 export const file_limiquantix_compute_v1_node_service: GenFile = /*@__PURE__*/
-  fileDesc("CilsaW1pcXVhbnRpeC9jb21wdXRlL3YxL25vZGVfc2VydmljZS5wcm90bxIWbGltaXF1YW50aXguY29tcHV0ZS52MSKZBAoTUmVnaXN0ZXJOb2RlUmVxdWVzdBIQCghob3N0bmFtZRgBIAEoCRIVCg1tYW5hZ2VtZW50X2lwGAIgASgJEkcKBmxhYmVscxgDIAMoCzI3LmxpbWlxdWFudGl4LmNvbXB1dGUudjEuUmVnaXN0ZXJOb2RlUmVxdWVzdC5MYWJlbHNFbnRyeRIuCgRyb2xlGAQgASgLMiAubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlUm9sZRItCgZ0YWludHMYBSADKAsyHS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlRhaW50EhYKDmFnZW50X2VuZHBvaW50GAYgASgJEjEKCGNwdV9pbmZvGAcgASgLMh8ubGltaXF1YW50aXguY29tcHV0ZS52MS5DcHVJbmZvEjcKC21lbW9yeV9pbmZvGAggASgLMiIubGltaXF1YW50aXguY29tcHV0ZS52MS5NZW1vcnlJbmZvEj4KD3N0b3JhZ2VfZGV2aWNlcxgJIAMoCzIlLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RvcmFnZURldmljZRI+Cg9uZXR3b3JrX2RldmljZXMYCiADKAsyJS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5ldHdvcmtEZXZpY2UaLQoLTGFiZWxzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASIcCg5HZXROb2RlUmVxdWVzdBIKCgJpZBgBIAEoCSKwAgoQTGlzdE5vZGVzUmVxdWVzdBJECgZsYWJlbHMYASADKAsyNC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkxpc3ROb2Rlc1JlcXVlc3QuTGFiZWxzRW50cnkSOAoGcGhhc2VzGAIgAygOMigubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlU3RhdHVzLlBoYXNlEhQKDGNvbXB1dGVfb25seRgDIAEoCBIUCgxzdG9yYWdlX29ubHkYBCABKAgSGgoSY29udHJvbF9wbGFuZV9vbmx5GAUgASgIEhEKCXBhZ2Vfc2l6ZRgKIAEoBRISCgpwYWdlX3Rva2VuGAsgASgJGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEibgoRTGlzdE5vZGVzUmVzcG9uc2USKwoFbm9kZXMYASADKAsyHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEhMKC3RvdGFsX2NvdW50GAMgASgFIr4BChFVcGRhdGVOb2RlUmVxdWVzdBIKCgJpZBgBIAEoCRI8CgpzY2hlZHVsaW5nGAIgASgLMigubGltaXF1YW50aXguY29tcHV0ZS52MS5TY2hlZHVsaW5nQ29uZmlnEi4KBHJvbGUYAyABKAsyIC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVSb2xlEi8KC3VwZGF0ZV9tYXNrGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLkZpZWxkTWFzayI0ChdEZWNvbW1pc3Npb25Ob2RlUmVxdWVzdBIKCgJpZBgBIAEoCRINCgVmb3JjZRgCIAEoCCIfChFFbmFibGVOb2RlUmVxdWVzdBIKCgJpZBgBIAEoCSIwChJEaXNhYmxlTm9kZVJlcXVlc3QSCgoCaWQYASABKAkSDgoGcmVhc29uGAIgASgJIl8KEERyYWluTm9kZVJlcXVlc3QSCgoCaWQYASABKAkSGAoQZ3JhY2VfcGVyaW9kX3NlYxgCIAEoBRINCgVmb3JjZRgDIAEoCBIWCg50YXJnZXRfbm9kZV9pZBgEIAEoCSKoAQoRRHJhaW5Ob2RlUmVzcG9uc2USKgoEbm9kZRgBIAEoCzIcLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRIXCg9taWdyYXRlZF92bV9pZHMYAiADKAkSFgoOc3RvcHBlZF92bV9pZHMYAyADKAkSNgoIZmFpbHVyZXMYBCADKAsyJC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRyYWluRmFpbHVyZSIsCgxEcmFpbkZhaWx1cmUSDQoFdm1faWQYASABKAkSDQoFZXJyb3IYAiABKAkiUAoPQWRkVGFpbnRSZXF1ZXN0Eg8KB25vZGVfaWQYASABKAkSLAoFdGFpbnQYAiABKAsyHS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlRhaW50IjgKElJlbW92ZVRhaW50UmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEhEKCXRhaW50X2tleRgCIAEoCSK/AQoTVXBkYXRlTGFiZWxzUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEk4KCmFkZF9sYWJlbHMYAiADKAsyOi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlVwZGF0ZUxhYmVsc1JlcXVlc3QuQWRkTGFiZWxzRW50cnkSFQoNcmVtb3ZlX2xhYmVscxgDIAMoCRowCg5BZGRMYWJlbHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIsACChZVcGRhdGVIZWFydGJlYXRSZXF1ZXN0Eg8KB25vZGVfaWQYASABKAkSGQoRY3B1X3VzYWdlX3BlcmNlbnQYAiABKAESFwoPbWVtb3J5X3VzZWRfbWliGAMgASgEEhgKEG1lbW9yeV90b3RhbF9taWIYBCABKAQSGAoQcnVubmluZ192bV9jb3VudBgFIAEoDRIXCg9kaXNrX3VzZWRfYnl0ZXMYBiABKAQSGAoQZGlza190b3RhbF9ieXRlcxgHIAEoBBIPCgdsb2FkXzFtGAggASgBEg8KB2xvYWRfNW0YCSABKAESEAoIbG9hZF8xNW0YCiABKAESRgoNc3RvcmFnZV9wb29scxgLIAMoCzIvLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RvcmFnZVBvb2xTdGF0dXNSZXBvcnQiiQMKF1N0b3JhZ2VQb29sU3RhdHVzUmVwb3J0Eg8KB3Bvb2xfaWQYASABKAkSTAoGaGVhbHRoGAIgASgOMjwubGltaXF1YW50aXguY29tcHV0ZS52MS5TdG9yYWdlUG9vbFN0YXR1c1JlcG9ydC5IZWFsdGhTdGF0dXMSEwoLdG90YWxfYnl0ZXMYAyABKAQSEgoKdXNlZF9ieXRlcxgEIAEoBBIXCg9hdmFpbGFibGVfYnl0ZXMYBSABKAQSEgoKbW91bnRfcGF0aBgGIAEoCRIUCgx2b2x1bWVfY291bnQYByABKA0SFQoNZXJyb3JfbWVzc2FnZRgIIAEoCRIXCg9sYXN0X21vdW50X3VuaXgYCSABKAMicwoMSGVhbHRoU3RhdHVzEhIKDkhFQUxUSF9VTktOT1dOEAASEgoOSEVBTFRIX0hFQUxUSFkQARITCg9IRUFMVEhfREVHUkFERUQQAhIQCgxIRUFMVEhfRVJST1IQAxIUChBIRUFMVEhfVU5NT1VOVEVEEAQihQEKF1VwZGF0ZUhlYXJ0YmVhdFJlc3BvbnNlEhQKDGFja25vd2xlZGdlZBgBIAEoCBIYChBzZXJ2ZXJfdGltZV91bml4GAIgASgDEh8KF2hlYXJ0YmVhdF9pbnRlcnZhbF9zZWNzGAMgASgNEhkKEWFzc2lnbmVkX3Bvb2xfaWRzGAQgAygJIiMKFUdldE5vZGVNZXRyaWNzUmVxdWVzdBIKCgJpZBgBIAEoCSLpAwoLTm9kZU1ldHJpY3MSDwoHbm9kZV9pZBgBIAEoCRIZChFjcHVfdXNhZ2VfcGVyY2VudBgCIAEoARIXCg9jcHVfY29yZXNfdG90YWwYAyABKA0SGwoTY3B1X2NvcmVzX2FsbG9jYXRlZBgEIAEoDRIaChJtZW1vcnlfdG90YWxfYnl0ZXMYBSABKAQSGQoRbWVtb3J5X3VzZWRfYnl0ZXMYBiABKAQSHgoWbWVtb3J5X2FsbG9jYXRlZF9ieXRlcxgHIAEoBBIeChZtZW1vcnlfYXZhaWxhYmxlX2J5dGVzGAggASgEEhsKE3N0b3JhZ2VfdG90YWxfYnl0ZXMYCSABKAQSGgoSc3RvcmFnZV91c2VkX2J5dGVzGAogASgEEhgKEG5ldHdvcmtfcnhfYnl0ZXMYCyABKAQSGAoQbmV0d29ya190eF9ieXRlcxgMIAEoBBIZChFuZXR3b3JrX3J4X2Vycm9ycxgNIAEoBBIZChFuZXR3b3JrX3R4X2Vycm9ycxgOIAEoBBIQCgh2bV9jb3VudBgPIAEoDRIYChB2bV9ydW5uaW5nX2NvdW50GBAgASgNEg8KB2xvYWRfMW0YESABKAESDwoHbG9hZF81bRgSIAEoARIQCghsb2FkXzE1bRgTIAEoASJzChVMaXN0Tm9kZUV2ZW50c1JlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCRI6CgV0eXBlcxgCIAMoDjIrLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZUV2ZW50LkV2ZW50VHlwZRINCgVsaW1pdBgDIAEoBSJLChZMaXN0Tm9kZUV2ZW50c1Jlc3BvbnNlEjEKBmV2ZW50cxgBIAMoCzIhLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZUV2ZW50IiMKEFdhdGNoTm9kZVJlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCSKJAQoRV2F0Y2hOb2Rlc1JlcXVlc3QSRQoGbGFiZWxzGAEgAygLMjUubGltaXF1YW50aXguY29tcHV0ZS52MS5XYXRjaE5vZGVzUmVxdWVzdC5MYWJlbHNFbnRyeRotCgtMYWJlbHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIqkBCgpOb2RlVXBkYXRlEjsKBHR5cGUYASABKA4yLS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVVcGRhdGUuVXBkYXRlVHlwZRIqCgRub2RlGAIgASgLMhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlIjIKClVwZGF0ZVR5cGUSCQoFQURERUQQABIMCghNT0RJRklFRBABEgsKB0RFTEVURUQQAiJWChJTeW5jTm9kZVZNc1JlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCRIvCgN2bXMYAiADKAsyIi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVWTUluZm8icAoKTm9kZVZNSW5mbxIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg0KBXN0YXRlGAMgASgJEhEKCWNwdV9jb3JlcxgEIAEoDRISCgptZW1vcnlfbWliGAUgASgEEhIKCmRpc2tfcGF0aHMYBiADKAkiVQoTU3luY05vZGVWTXNSZXNwb25zZRIWCg5pbXBvcnRlZF9jb3VudBgBIAEoBRIWCg5leGlzdGluZ19jb3VudBgCIAEoBRIOCgZlcnJvcnMYAyADKAkiQQoYU3RyZWFtTm9kZU1ldHJpY3NSZXF1ZXN0Eg8KB25vZGVfaWQYASABKAkSFAoMaW50ZXJ2YWxfc2VjGAIgASgNImQKE1N0cmVhbUV2ZW50c1JlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCRI8CgV0eXBlcxgCIAMoDjItLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3lzdGVtRXZlbnQuRXZlbnRUeXBlIvoHCgtTeXN0ZW1FdmVudBIKCgJpZBgBIAEoCRItCgl0aW1lc3RhbXAYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjsKBHR5cGUYAyABKA4yLS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlN5c3RlbUV2ZW50LkV2ZW50VHlwZRI+CghzZXZlcml0eRgEIAEoDjIsLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3lzdGVtRXZlbnQuU2V2ZXJpdHkSDgoGc291cmNlGAUgASgJEg8KB21lc3NhZ2UYBiABKAkSEwoLcmVzb3VyY2VfaWQYByABKAkSQwoIbWV0YWRhdGEYCCADKAsyMS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlN5c3RlbUV2ZW50Lk1ldGFkYXRhRW50cnkaLwoNTWV0YWRhdGFFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIsoECglFdmVudFR5cGUSCwoHVU5LTk9XThAAEhMKD1NFUlZJQ0VfU1RBUlRFRBABEhMKD1NFUlZJQ0VfU1RPUFBFRBACEhIKDlNFUlZJQ0VfRkFJTEVEEAMSFQoRU0VSVklDRV9SRVNUQVJURUQQBBIOCgpWTV9DUkVBVEVEEAoSDgoKVk1fU1RBUlRFRBALEg4KClZNX1NUT1BQRUQQDBIOCgpWTV9DUkFTSEVEEA0SDgoKVk1fREVMRVRFRBAOEhIKDkhBUkRXQVJFX0FEREVEEBQSFAoQSEFSRFdBUkVfUkVNT1ZFRBAVEhQKEEhBUkRXQVJFX0ZBSUxVUkUQFhIYChRORVRXT1JLX0lOVEVSRkFDRV9VUBAeEhoKFk5FVFdPUktfSU5URVJGQUNFX0RPV04QHxIWChJORVRXT1JLX0NPTkZJR1VSRUQQIBIYChRTVE9SQUdFX1BPT0xfQ1JFQVRFRBAoEhgKFFNUT1JBR0VfUE9PTF9ERUxFVEVEECkSFQoRU1RPUkFHRV9QT09MX0ZVTEwQKhISCg5WT0xVTUVfQ1JFQVRFRBArEhIKDlZPTFVNRV9ERUxFVEVEECwSDwoLU1lTVEVNX0JPT1QQMhITCg9TWVNURU1fU0hVVERPV04QMxIRCg1TWVNURU1fUkVCT09UEDQSEwoPU1lTVEVNX09WRVJMT0FEEDUSFAoQU1lTVEVNX1JFQ09WRVJFRBA2EhIKDkVSUk9SX09DQ1VSUkVEEDwSEgoOV0FSTklOR19JU1NVRUQQPSI6CghTZXZlcml0eRIICgRJTkZPEAASCwoHV0FSTklORxABEgkKBUVSUk9SEAISDAoIQ1JJVElDQUwQAzKjDgoLTm9kZVNlcnZpY2USWQoMUmVnaXN0ZXJOb2RlEisubGltaXF1YW50aXguY29tcHV0ZS52MS5SZWdpc3Rlck5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlEk8KB0dldE5vZGUSJi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkdldE5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlEmAKCUxpc3ROb2RlcxIoLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTGlzdE5vZGVzUmVxdWVzdBopLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTGlzdE5vZGVzUmVzcG9uc2USVQoKVXBkYXRlTm9kZRIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuVXBkYXRlTm9kZVJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSWwoQRGVjb21taXNzaW9uTm9kZRIvLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuRGVjb21taXNzaW9uTm9kZVJlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkSVQoKRW5hYmxlTm9kZRIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuRW5hYmxlTm9kZVJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSVwoLRGlzYWJsZU5vZGUSKi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRpc2FibGVOb2RlUmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJgCglEcmFpbk5vZGUSKC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRyYWluTm9kZVJlcXVlc3QaKS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRyYWluTm9kZVJlc3BvbnNlElEKCEFkZFRhaW50EicubGltaXF1YW50aXguY29tcHV0ZS52MS5BZGRUYWludFJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSVwoLUmVtb3ZlVGFpbnQSKi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlJlbW92ZVRhaW50UmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJZCgxVcGRhdGVMYWJlbHMSKy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlVwZGF0ZUxhYmVsc1JlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUScgoPVXBkYXRlSGVhcnRiZWF0Ei4ubGltaXF1YW50aXguY29tcHV0ZS52MS5VcGRhdGVIZWFydGJlYXRSZXF1ZXN0Gi8ubGltaXF1YW50aXguY29tcHV0ZS52MS5VcGRhdGVIZWFydGJlYXRSZXNwb25zZRJmCgtTeW5jTm9kZVZNcxIqLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3luY05vZGVWTXNSZXF1ZXN0GisubGltaXF1YW50aXguY29tcHV0ZS52MS5TeW5jTm9kZVZNc1Jlc3BvbnNlEmQKDkdldE5vZGVNZXRyaWNzEi0ubGltaXF1YW50aXguY29tcHV0ZS52MS5HZXROb2RlTWV0cmljc1JlcXVlc3QaIy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVNZXRyaWNzEm8KDkxpc3ROb2RlRXZlbnRzEi0ubGltaXF1YW50aXguY29tcHV0ZS52MS5MaXN0Tm9kZUV2ZW50c1JlcXVlc3QaLi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkxpc3ROb2RlRXZlbnRzUmVzcG9uc2USVQoJV2F0Y2hOb2RlEigubGltaXF1YW50aXguY29tcHV0ZS52MS5XYXRjaE5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlMAESXQoKV2F0Y2hOb2RlcxIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuV2F0Y2hOb2Rlc1JlcXVlc3QaIi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVVcGRhdGUwARJsChFTdHJlYW1Ob2RlTWV0cmljcxIwLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RyZWFtTm9kZU1ldHJpY3NSZXF1ZXN0GiMubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlTWV0cmljczABEmIKDFN0cmVhbUV2ZW50cxIrLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RyZWFtRXZlbnRzUmVxdWVzdBojLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3lzdGVtRXZlbnQwAUL1AQoaY29tLmxpbWlxdWFudGl4LmNvbXB1dGUudjFCEE5vZGVTZXJ2aWNlUHJvdG9QAVpLZ2l0aHViLmNvbS9saW1pcXVhbnRpeC9saW1pcXVhbnRpeC9wa2cvYXBpL2xpbWlxdWFudGl4L2NvbXB1dGUvdjE7Y29tcHV0ZXYxogIDTENYqgIWTGltaXF1YW50aXguQ29tcHV0ZS5WMcoCFkxpbWlxdWFudGl4XENvbXB1dGVcVjHiAiJMaW1pcXVhbnRpeFxDb21wdXRlXFYxXEdQQk1ldGFkYXRh6gIYTGltaXF1YW50aXg6OkNvbXB1dGU6OlYxYgZwcm90bzM", [file_google_protobuf_empty, file_google_protobuf_field_mask, file_google_protobuf_timestamp, file_limiquantix_compute_v1_node]);
+  fileDesc("CilsaW1pcXVhbnRpeC9jb21wdXRlL3YxL25vZGVfc2VydmljZS5wcm90bxIWbGltaXF1YW50aXguY29tcHV0ZS52MSKZBAoTUmVnaXN0ZXJOb2RlUmVxdWVzdBIQCghob3N0bmFtZRgBIAEoCRIVCg1tYW5hZ2VtZW50X2lwGAIgASgJEkcKBmxhYmVscxgDIAMoCzI3LmxpbWlxdWFudGl4LmNvbXB1dGUudjEuUmVnaXN0ZXJOb2RlUmVxdWVzdC5MYWJlbHNFbnRyeRIuCgRyb2xlGAQgASgLMiAubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlUm9sZRItCgZ0YWludHMYBSADKAsyHS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlRhaW50EhYKDmFnZW50X2VuZHBvaW50GAYgASgJEjEKCGNwdV9pbmZvGAcgASgLMh8ubGltaXF1YW50aXguY29tcHV0ZS52MS5DcHVJbmZvEjcKC21lbW9yeV9pbmZvGAggASgLMiIubGltaXF1YW50aXguY29tcHV0ZS52MS5NZW1vcnlJbmZvEj4KD3N0b3JhZ2VfZGV2aWNlcxgJIAMoCzIlLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RvcmFnZURldmljZRI+Cg9uZXR3b3JrX2RldmljZXMYCiADKAsyJS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5ldHdvcmtEZXZpY2UaLQoLTGFiZWxzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASIcCg5HZXROb2RlUmVxdWVzdBIKCgJpZBgBIAEoCSKwAgoQTGlzdE5vZGVzUmVxdWVzdBJECgZsYWJlbHMYASADKAsyNC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkxpc3ROb2Rlc1JlcXVlc3QuTGFiZWxzRW50cnkSOAoGcGhhc2VzGAIgAygOMigubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlU3RhdHVzLlBoYXNlEhQKDGNvbXB1dGVfb25seRgDIAEoCBIUCgxzdG9yYWdlX29ubHkYBCABKAgSGgoSY29udHJvbF9wbGFuZV9vbmx5GAUgASgIEhEKCXBhZ2Vfc2l6ZRgKIAEoBRISCgpwYWdlX3Rva2VuGAsgASgJGi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEibgoRTGlzdE5vZGVzUmVzcG9uc2USKwoFbm9kZXMYASADKAsyHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEhMKC3RvdGFsX2NvdW50GAMgASgFIr4BChFVcGRhdGVOb2RlUmVxdWVzdBIKCgJpZBgBIAEoCRI8CgpzY2hlZHVsaW5nGAIgASgLMigubGltaXF1YW50aXguY29tcHV0ZS52MS5TY2hlZHVsaW5nQ29uZmlnEi4KBHJvbGUYAyABKAsyIC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVSb2xlEi8KC3VwZGF0ZV9tYXNrGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLkZpZWxkTWFzayI0ChdEZWNvbW1pc3Npb25Ob2RlUmVxdWVzdBIKCgJpZBgBIAEoCRINCgVmb3JjZRgCIAEoCCIfChFFbmFibGVOb2RlUmVxdWVzdBIKCgJpZBgBIAEoCSIwChJEaXNhYmxlTm9kZVJlcXVlc3QSCgoCaWQYASABKAkSDgoGcmVhc29uGAIgASgJIl8KEERyYWluTm9kZVJlcXVlc3QSCgoCaWQYASABKAkSGAoQZ3JhY2VfcGVyaW9kX3NlYxgCIAEoBRINCgVmb3JjZRgDIAEoCBIWCg50YXJnZXRfbm9kZV9pZBgEIAEoCSKoAQoRRHJhaW5Ob2RlUmVzcG9uc2USKgoEbm9kZRgBIAEoCzIcLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRIXCg9taWdyYXRlZF92bV9pZHMYAiADKAkSFgoOc3RvcHBlZF92bV9pZHMYAyADKAkSNgoIZmFpbHVyZXMYBCADKAsyJC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRyYWluRmFpbHVyZSIsCgxEcmFpbkZhaWx1cmUSDQoFdm1faWQYASABKAkSDQoFZXJyb3IYAiABKAkiUAoPQWRkVGFpbnRSZXF1ZXN0Eg8KB25vZGVfaWQYASABKAkSLAoFdGFpbnQYAiABKAsyHS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlRhaW50IjgKElJlbW92ZVRhaW50UmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEhEKCXRhaW50X2tleRgCIAEoCSK/AQoTVXBkYXRlTGFiZWxzUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEk4KCmFkZF9sYWJlbHMYAiADKAsyOi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlVwZGF0ZUxhYmVsc1JlcXVlc3QuQWRkTGFiZWxzRW50cnkSFQoNcmVtb3ZlX2xhYmVscxgDIAMoCRowCg5BZGRMYWJlbHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBItQCChZVcGRhdGVIZWFydGJlYXRSZXF1ZXN0Eg8KB25vZGVfaWQYASABKAkSGQoRY3B1X3VzYWdlX3BlcmNlbnQYAiABKAESFwoPbWVtb3J5X3VzZWRfbWliGAMgASgEEhgKEG1lbW9yeV90b3RhbF9taWIYBCABKAQSGAoQcnVubmluZ192bV9jb3VudBgFIAEoDRIXCg9kaXNrX3VzZWRfYnl0ZXMYBiABKAQSGAoQZGlza190b3RhbF9ieXRlcxgHIAEoBBIPCgdsb2FkXzFtGAggASgBEg8KB2xvYWRfNW0YCSABKAESEAoIbG9hZF8xNW0YCiABKAESRgoNc3RvcmFnZV9wb29scxgLIAMoCzIvLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RvcmFnZVBvb2xTdGF0dXNSZXBvcnQSEgoKc3RhdGVfaGFzaBgMIAEoCSKJAwoXU3RvcmFnZVBvb2xTdGF0dXNSZXBvcnQSDwoHcG9vbF9pZBgBIAEoCRJMCgZoZWFsdGgYAiABKA4yPC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlN0b3JhZ2VQb29sU3RhdHVzUmVwb3J0LkhlYWx0aFN0YXR1cxITCgt0b3RhbF9ieXRlcxgDIAEoBBISCgp1c2VkX2J5dGVzGAQgASgEEhcKD2F2YWlsYWJsZV9ieXRlcxgFIAEoBBISCgptb3VudF9wYXRoGAYgASgJEhQKDHZvbHVtZV9jb3VudBgHIAEoDRIVCg1lcnJvcl9tZXNzYWdlGAggASgJEhcKD2xhc3RfbW91bnRfdW5peBgJIAEoAyJzCgxIZWFsdGhTdGF0dXMSEgoOSEVBTFRIX1VOS05PV04QABISCg5IRUFMVEhfSEVBTFRIWRABEhMKD0hFQUxUSF9ERUdSQURFRBACEhAKDEhFQUxUSF9FUlJPUhADEhQKEEhFQUxUSF9VTk1PVU5URUQQBCKgAQoXVXBkYXRlSGVhcnRiZWF0UmVzcG9uc2USFAoMYWNrbm93bGVkZ2VkGAEgASgIEhgKEHNlcnZlcl90aW1lX3VuaXgYAiABKAMSHwoXaGVhcnRiZWF0X2ludGVydmFsX3NlY3MYAyABKA0SGQoRYXNzaWduZWRfcG9vbF9pZHMYBCADKAkSGQoRcmVxdWVzdF9mdWxsX3N5bmMYBSABKAgiIwoVR2V0Tm9kZU1ldHJpY3NSZXF1ZXN0EgoKAmlkGAEgASgJIukDCgtOb2RlTWV0cmljcxIPCgdub2RlX2lkGAEgASgJEhkKEWNwdV91c2FnZV9wZXJjZW50GAIgASgBEhcKD2NwdV9jb3Jlc190b3RhbBgDIAEoDRIbChNjcHVfY29yZXNfYWxsb2NhdGVkGAQgASgNEhoKEm1lbW9yeV90b3RhbF9ieXRlcxgFIAEoBBIZChFtZW1vcnlfdXNlZF9ieXRlcxgGIAEoBBIeChZtZW1vcnlfYWxsb2NhdGVkX2J5dGVzGAcgASgEEh4KFm1lbW9yeV9hdmFpbGFibGVfYnl0ZXMYCCABKAQSGwoTc3RvcmFnZV90b3RhbF9ieXRlcxgJIAEoBBIaChJzdG9yYWdlX3VzZWRfYnl0ZXMYCiABKAQSGAoQbmV0d29ya19yeF9ieXRlcxgLIAEoBBIYChBuZXR3b3JrX3R4X2J5dGVzGAwgASgEEhkKEW5ldHdvcmtfcnhfZXJyb3JzGA0gASgEEhkKEW5ldHdvcmtfdHhfZXJyb3JzGA4gASgEEhAKCHZtX2NvdW50GA8gASgNEhgKEHZtX3J1bm5pbmdfY291bnQYECABKA0SDwoHbG9hZF8xbRgRIAEoARIPCgdsb2FkXzVtGBIgASgBEhAKCGxvYWRfMTVtGBMgASgBInMKFUxpc3ROb2RlRXZlbnRzUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEjoKBXR5cGVzGAIgAygOMisubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlRXZlbnQuRXZlbnRUeXBlEg0KBWxpbWl0GAMgASgFIksKFkxpc3ROb2RlRXZlbnRzUmVzcG9uc2USMQoGZXZlbnRzGAEgAygLMiEubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlRXZlbnQiIwoQV2F0Y2hOb2RlUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJIokBChFXYXRjaE5vZGVzUmVxdWVzdBJFCgZsYWJlbHMYASADKAsyNS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLldhdGNoTm9kZXNSZXF1ZXN0LkxhYmVsc0VudHJ5Gi0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiqQEKCk5vZGVVcGRhdGUSOwoEdHlwZRgBIAEoDjItLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZVVwZGF0ZS5VcGRhdGVUeXBlEioKBG5vZGUYAiABKAsyHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUiMgoKVXBkYXRlVHlwZRIJCgVBRERFRBAAEgwKCE1PRElGSUVEEAESCwoHREVMRVRFRBACIlYKElN5bmNOb2RlVk1zUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJEi8KA3ZtcxgCIAMoCzIiLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZVZNSW5mbyJwCgpOb2RlVk1JbmZvEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDQoFc3RhdGUYAyABKAkSEQoJY3B1X2NvcmVzGAQgASgNEhIKCm1lbW9yeV9taWIYBSABKAQSEgoKZGlza19wYXRocxgGIAMoCSJVChNTeW5jTm9kZVZNc1Jlc3BvbnNlEhYKDmltcG9ydGVkX2NvdW50GAEgASgFEhYKDmV4aXN0aW5nX2NvdW50GAIgASgFEg4KBmVycm9ycxgDIAMoCSLtAQoUU3luY0Z1bGxTdGF0ZVJlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCRIzCglob3N0X2luZm8YAiABKAsyIC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkhvc3RJbmZvEjMKA3ZtcxgDIAMoCzImLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuVk1TdGF0dXNSZXBvcnQSRgoNc3RvcmFnZV9wb29scxgEIAMoCzIvLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RvcmFnZVBvb2xTdGF0dXNSZXBvcnQSEgoKc3RhdGVfaGFzaBgFIAEoCSKdAQoISG9zdEluZm8SEAoIaG9zdG5hbWUYASABKAkSFQoNbWFuYWdlbWVudF9pcBgCIAEoCRIaChJtZW1vcnlfdG90YWxfYnl0ZXMYAyABKAQSHgoWbWVtb3J5X2F2YWlsYWJsZV9ieXRlcxgEIAEoBBIRCgljcHVfY29yZXMYBSABKA0SGQoRY3B1X3VzYWdlX3BlcmNlbnQYBiABKAEi5gEKDlZNU3RhdHVzUmVwb3J0EgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSMwoFc3RhdGUYAyABKA4yJC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlZNUG93ZXJTdGF0ZRIaChJzdGF0ZV9jaGFuZ2VfY291bnQYBCABKAQSGQoRY3B1X3VzYWdlX3BlcmNlbnQYBSABKAESGQoRbWVtb3J5X3VzZWRfYnl0ZXMYBiABKAQSFAoMaXBfYWRkcmVzc2VzGAcgAygJEh0KFXN0YXRlX2NoYW5nZWRfYXRfdW5peBgIIAEoAyLCAQoVU3luY0Z1bGxTdGF0ZVJlc3BvbnNlEhQKDGFja25vd2xlZGdlZBgBIAEoCBIWCg52bXNfcmVjb25jaWxlZBgCIAEoBRIWCg52bXNfZGlzY292ZXJlZBgDIAEoBRIQCgh2bXNfbG9zdBgEIAEoBRIYChBwb29sc19yZWNvbmNpbGVkGAUgASgFEjcKCWNvbmZsaWN0cxgGIAMoCzIkLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3luY0NvbmZsaWN0ImIKDFN5bmNDb25mbGljdBIVCg1yZXNvdXJjZV90eXBlGAEgASgJEhMKC3Jlc291cmNlX2lkGAIgASgJEhUKDWNvbmZsaWN0X3R5cGUYAyABKAkSDwoHbWVzc2FnZRgEIAEoCSLwAQoUVk1DaGFuZ2VOb3RpZmljYXRpb24SDwoHbm9kZV9pZBgBIAEoCRIyCgJ2bRgCIAEoCzImLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuVk1TdGF0dXNSZXBvcnQSPQoKZXZlbnRfdHlwZRgDIAEoDjIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuVk1DaGFuZ2VFdmVudFR5cGUSFgoOdGltZXN0YW1wX3VuaXgYBCABKAMSPAoOcHJldmlvdXNfc3RhdGUYBSABKA4yJC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlZNUG93ZXJTdGF0ZSJCCgtWTUNoYW5nZUFjaxIUCgxhY2tub3dsZWRnZWQYASABKAgSDgoGYWN0aW9uGAIgASgJEg0KBWVycm9yGAMgASgJIscBChlTdG9yYWdlQ2hhbmdlTm90aWZpY2F0aW9uEg8KB25vZGVfaWQYASABKAkSPQoEcG9vbBgCIAEoCzIvLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RvcmFnZVBvb2xTdGF0dXNSZXBvcnQSQgoKZXZlbnRfdHlwZRgDIAEoDjIuLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RvcmFnZUNoYW5nZUV2ZW50VHlwZRIWCg50aW1lc3RhbXBfdW5peBgEIAEoAyJHChBTdG9yYWdlQ2hhbmdlQWNrEhQKDGFja25vd2xlZGdlZBgBIAEoCBIOCgZhY3Rpb24YAiABKAkSDQoFZXJyb3IYAyABKAkiQQoYU3RyZWFtTm9kZU1ldHJpY3NSZXF1ZXN0Eg8KB25vZGVfaWQYASABKAkSFAoMaW50ZXJ2YWxfc2VjGAIgASgNImQKE1N0cmVhbUV2ZW50c1JlcXVlc3QSDwoHbm9kZV9pZBgBIAEoCRI8CgV0eXBlcxgCIAMoDjItLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3lzdGVtRXZlbnQuRXZlbnRUeXBlIvoHCgtTeXN0ZW1FdmVudBIKCgJpZBgBIAEoCRItCgl0aW1lc3RhbXAYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjsKBHR5cGUYAyABKA4yLS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlN5c3RlbUV2ZW50LkV2ZW50VHlwZRI+CghzZXZlcml0eRgEIAEoDjIsLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3lzdGVtRXZlbnQuU2V2ZXJpdHkSDgoGc291cmNlGAUgASgJEg8KB21lc3NhZ2UYBiABKAkSEwoLcmVzb3VyY2VfaWQYByABKAkSQwoIbWV0YWRhdGEYCCADKAsyMS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlN5c3RlbUV2ZW50Lk1ldGFkYXRhRW50cnkaLwoNTWV0YWRhdGFFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIsoECglFdmVudFR5cGUSCwoHVU5LTk9XThAAEhMKD1NFUlZJQ0VfU1RBUlRFRBABEhMKD1NFUlZJQ0VfU1RPUFBFRBACEhIKDlNFUlZJQ0VfRkFJTEVEEAMSFQoRU0VSVklDRV9SRVNUQVJURUQQBBIOCgpWTV9DUkVBVEVEEAoSDgoKVk1fU1RBUlRFRBALEg4KClZNX1NUT1BQRUQQDBIOCgpWTV9DUkFTSEVEEA0SDgoKVk1fREVMRVRFRBAOEhIKDkhBUkRXQVJFX0FEREVEEBQSFAoQSEFSRFdBUkVfUkVNT1ZFRBAVEhQKEEhBUkRXQVJFX0ZBSUxVUkUQFhIYChRORVRXT1JLX0lOVEVSRkFDRV9VUBAeEhoKFk5FVFdPUktfSU5URVJGQUNFX0RPV04QHxIWChJORVRXT1JLX0NPTkZJR1VSRUQQIBIYChRTVE9SQUdFX1BPT0xfQ1JFQVRFRBAoEhgKFFNUT1JBR0VfUE9PTF9ERUxFVEVEECkSFQoRU1RPUkFHRV9QT09MX0ZVTEwQKhISCg5WT0xVTUVfQ1JFQVRFRBArEhIKDlZPTFVNRV9ERUxFVEVEECwSDwoLU1lTVEVNX0JPT1QQMhITCg9TWVNURU1fU0hVVERPV04QMxIRCg1TWVNURU1fUkVCT09UEDQSEwoPU1lTVEVNX09WRVJMT0FEEDUSFAoQU1lTVEVNX1JFQ09WRVJFRBA2EhIKDkVSUk9SX09DQ1VSUkVEEDwSEgoOV0FSTklOR19JU1NVRUQQPSI6CghTZXZlcml0eRIICgRJTkZPEAASCwoHV0FSTklORxABEgkKBUVSUk9SEAISDAoIQ1JJVElDQUwQAyrxAQoMVk1Qb3dlclN0YXRlEhoKFlZNX1BPV0VSX1NUQVRFX1VOS05PV04QABIaChZWTV9QT1dFUl9TVEFURV9SVU5OSU5HEAESGgoWVk1fUE9XRVJfU1RBVEVfU1RPUFBFRBACEhkKFVZNX1BPV0VSX1NUQVRFX1BBVVNFRBADEhwKGFZNX1BPV0VSX1NUQVRFX1NVU1BFTkRFRBAEEhoKFlZNX1BPV0VSX1NUQVRFX0NSQVNIRUQQBRIcChhWTV9QT1dFUl9TVEFURV9NSUdSQVRJTkcQBhIaChZWTV9QT1dFUl9TVEFURV9TSFVUT0ZGEAcqbwoRVk1DaGFuZ2VFdmVudFR5cGUSFQoRVk1fQ0hBTkdFX1VOS05PV04QABIVChFWTV9DSEFOR0VfQ1JFQVRFRBABEhUKEVZNX0NIQU5HRV9VUERBVEVEEAISFQoRVk1fQ0hBTkdFX0RFTEVURUQQAyqKAQoWU3RvcmFnZUNoYW5nZUV2ZW50VHlwZRIaChZTVE9SQUdFX0NIQU5HRV9VTktOT1dOEAASGgoWU1RPUkFHRV9DSEFOR0VfTU9VTlRFRBABEhwKGFNUT1JBR0VfQ0hBTkdFX1VOTU9VTlRFRBACEhoKFlNUT1JBR0VfQ0hBTkdFX1VQREFURUQQAzLqEAoLTm9kZVNlcnZpY2USWQoMUmVnaXN0ZXJOb2RlEisubGltaXF1YW50aXguY29tcHV0ZS52MS5SZWdpc3Rlck5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlEk8KB0dldE5vZGUSJi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkdldE5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlEmAKCUxpc3ROb2RlcxIoLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTGlzdE5vZGVzUmVxdWVzdBopLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTGlzdE5vZGVzUmVzcG9uc2USVQoKVXBkYXRlTm9kZRIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuVXBkYXRlTm9kZVJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSWwoQRGVjb21taXNzaW9uTm9kZRIvLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuRGVjb21taXNzaW9uTm9kZVJlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkSVQoKRW5hYmxlTm9kZRIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuRW5hYmxlTm9kZVJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSVwoLRGlzYWJsZU5vZGUSKi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRpc2FibGVOb2RlUmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJgCglEcmFpbk5vZGUSKC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRyYWluTm9kZVJlcXVlc3QaKS5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkRyYWluTm9kZVJlc3BvbnNlElEKCEFkZFRhaW50EicubGltaXF1YW50aXguY29tcHV0ZS52MS5BZGRUYWludFJlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUSVwoLUmVtb3ZlVGFpbnQSKi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlJlbW92ZVRhaW50UmVxdWVzdBocLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuTm9kZRJZCgxVcGRhdGVMYWJlbHMSKy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlVwZGF0ZUxhYmVsc1JlcXVlc3QaHC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGUScgoPVXBkYXRlSGVhcnRiZWF0Ei4ubGltaXF1YW50aXguY29tcHV0ZS52MS5VcGRhdGVIZWFydGJlYXRSZXF1ZXN0Gi8ubGltaXF1YW50aXguY29tcHV0ZS52MS5VcGRhdGVIZWFydGJlYXRSZXNwb25zZRJmCgtTeW5jTm9kZVZNcxIqLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3luY05vZGVWTXNSZXF1ZXN0GisubGltaXF1YW50aXguY29tcHV0ZS52MS5TeW5jTm9kZVZNc1Jlc3BvbnNlEmwKDVN5bmNGdWxsU3RhdGUSLC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlN5bmNGdWxsU3RhdGVSZXF1ZXN0Gi0ubGltaXF1YW50aXguY29tcHV0ZS52MS5TeW5jRnVsbFN0YXRlUmVzcG9uc2USYwoOTm90aWZ5Vk1DaGFuZ2USLC5saW1pcXVhbnRpeC5jb21wdXRlLnYxLlZNQ2hhbmdlTm90aWZpY2F0aW9uGiMubGltaXF1YW50aXguY29tcHV0ZS52MS5WTUNoYW5nZUFjaxJyChNOb3RpZnlTdG9yYWdlQ2hhbmdlEjEubGltaXF1YW50aXguY29tcHV0ZS52MS5TdG9yYWdlQ2hhbmdlTm90aWZpY2F0aW9uGigubGltaXF1YW50aXguY29tcHV0ZS52MS5TdG9yYWdlQ2hhbmdlQWNrEmQKDkdldE5vZGVNZXRyaWNzEi0ubGltaXF1YW50aXguY29tcHV0ZS52MS5HZXROb2RlTWV0cmljc1JlcXVlc3QaIy5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVNZXRyaWNzEm8KDkxpc3ROb2RlRXZlbnRzEi0ubGltaXF1YW50aXguY29tcHV0ZS52MS5MaXN0Tm9kZUV2ZW50c1JlcXVlc3QaLi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLkxpc3ROb2RlRXZlbnRzUmVzcG9uc2USVQoJV2F0Y2hOb2RlEigubGltaXF1YW50aXguY29tcHV0ZS52MS5XYXRjaE5vZGVSZXF1ZXN0GhwubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlMAESXQoKV2F0Y2hOb2RlcxIpLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuV2F0Y2hOb2Rlc1JlcXVlc3QaIi5saW1pcXVhbnRpeC5jb21wdXRlLnYxLk5vZGVVcGRhdGUwARJsChFTdHJlYW1Ob2RlTWV0cmljcxIwLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RyZWFtTm9kZU1ldHJpY3NSZXF1ZXN0GiMubGltaXF1YW50aXguY29tcHV0ZS52MS5Ob2RlTWV0cmljczABEmIKDFN0cmVhbUV2ZW50cxIrLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3RyZWFtRXZlbnRzUmVxdWVzdBojLmxpbWlxdWFudGl4LmNvbXB1dGUudjEuU3lzdGVtRXZlbnQwAUL1AQoaY29tLmxpbWlxdWFudGl4LmNvbXB1dGUudjFCEE5vZGVTZXJ2aWNlUHJvdG9QAVpLZ2l0aHViLmNvbS9saW1pcXVhbnRpeC9saW1pcXVhbnRpeC9wa2cvYXBpL2xpbWlxdWFudGl4L2NvbXB1dGUvdjE7Y29tcHV0ZXYxogIDTENYqgIWTGltaXF1YW50aXguQ29tcHV0ZS5WMcoCFkxpbWlxdWFudGl4XENvbXB1dGVcVjHiAiJMaW1pcXVhbnRpeFxDb21wdXRlXFYxXEdQQk1ldGFkYXRh6gIYTGltaXF1YW50aXg6OkNvbXB1dGU6OlYxYgZwcm90bzM", [file_google_protobuf_empty, file_google_protobuf_field_mask, file_google_protobuf_timestamp, file_limiquantix_compute_v1_node]);
 
 /**
  * @generated from message limiquantix.compute.v1.RegisterNodeRequest
@@ -547,6 +547,16 @@ export type UpdateHeartbeatRequest = Message<"limiquantix.compute.v1.UpdateHeart
    * @generated from field: repeated limiquantix.compute.v1.StoragePoolStatusReport storage_pools = 11;
    */
   storagePools: StoragePoolStatusReport[];
+
+  /**
+   * State hash for anti-entropy drift detection.
+   * SHA256 hash (first 16 hex chars) of current state: "{vm_id}:{state}:{change_count}\n" for each VM.
+   * Used by control plane to detect if agent and CP are in sync.
+   * If hashes don't match, control plane will request a full sync via response.
+   *
+   * @generated from field: string state_hash = 12;
+   */
+  stateHash: string;
 };
 
 /**
@@ -698,6 +708,14 @@ export type UpdateHeartbeatResponse = Message<"limiquantix.compute.v1.UpdateHear
    * @generated from field: repeated string assigned_pool_ids = 4;
    */
   assignedPoolIds: string[];
+
+  /**
+   * If true, control plane detected state drift (hash mismatch).
+   * Agent should perform a full state sync via SyncFullState RPC.
+   *
+   * @generated from field: bool request_full_sync = 5;
+   */
+  requestFullSync: boolean;
 };
 
 /**
@@ -1091,6 +1109,413 @@ export const SyncNodeVMsResponseSchema: GenMessage<SyncNodeVMsResponse> = /*@__P
   messageDesc(file_limiquantix_compute_v1_node_service, 26);
 
 /**
+ * @generated from message limiquantix.compute.v1.SyncFullStateRequest
+ */
+export type SyncFullStateRequest = Message<"limiquantix.compute.v1.SyncFullStateRequest"> & {
+  /**
+   * Node ID (assigned by control plane during registration)
+   *
+   * @generated from field: string node_id = 1;
+   */
+  nodeId: string;
+
+  /**
+   * Host information update
+   *
+   * @generated from field: limiquantix.compute.v1.HostInfo host_info = 2;
+   */
+  hostInfo?: HostInfo;
+
+  /**
+   * All VMs currently on this node (STATUS only, not Spec)
+   *
+   * @generated from field: repeated limiquantix.compute.v1.VMStatusReport vms = 3;
+   */
+  vms: VMStatusReport[];
+
+  /**
+   * All storage pools currently mounted on this node
+   *
+   * @generated from field: repeated limiquantix.compute.v1.StoragePoolStatusReport storage_pools = 4;
+   */
+  storagePools: StoragePoolStatusReport[];
+
+  /**
+   * State hash of this sync (for verification)
+   *
+   * @generated from field: string state_hash = 5;
+   */
+  stateHash: string;
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.SyncFullStateRequest.
+ * Use `create(SyncFullStateRequestSchema)` to create a new message.
+ */
+export const SyncFullStateRequestSchema: GenMessage<SyncFullStateRequest> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 27);
+
+/**
+ * HostInfo - Basic host information for sync
+ *
+ * @generated from message limiquantix.compute.v1.HostInfo
+ */
+export type HostInfo = Message<"limiquantix.compute.v1.HostInfo"> & {
+  /**
+   * @generated from field: string hostname = 1;
+   */
+  hostname: string;
+
+  /**
+   * @generated from field: string management_ip = 2;
+   */
+  managementIp: string;
+
+  /**
+   * @generated from field: uint64 memory_total_bytes = 3;
+   */
+  memoryTotalBytes: bigint;
+
+  /**
+   * @generated from field: uint64 memory_available_bytes = 4;
+   */
+  memoryAvailableBytes: bigint;
+
+  /**
+   * @generated from field: uint32 cpu_cores = 5;
+   */
+  cpuCores: number;
+
+  /**
+   * @generated from field: double cpu_usage_percent = 6;
+   */
+  cpuUsagePercent: number;
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.HostInfo.
+ * Use `create(HostInfoSchema)` to create a new message.
+ */
+export const HostInfoSchema: GenMessage<HostInfo> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 28);
+
+/**
+ * VMStatusReport - VM status as reported by the agent
+ * CRITICAL: This contains STATUS only, never Spec. Agent does not dictate desired state.
+ *
+ * @generated from message limiquantix.compute.v1.VMStatusReport
+ */
+export type VMStatusReport = Message<"limiquantix.compute.v1.VMStatusReport"> & {
+  /**
+   * VM UUID (from libvirt)
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * VM name (display name from libvirt)
+   *
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * Current power state
+   *
+   * @generated from field: limiquantix.compute.v1.VMPowerState state = 3;
+   */
+  state: VMPowerState;
+
+  /**
+   * State change counter (increments on each state change, used for hash calculation)
+   *
+   * @generated from field: uint64 state_change_count = 4;
+   */
+  stateChangeCount: bigint;
+
+  /**
+   * Runtime metrics (optional, for real-time monitoring)
+   *
+   * @generated from field: double cpu_usage_percent = 5;
+   */
+  cpuUsagePercent: number;
+
+  /**
+   * @generated from field: uint64 memory_used_bytes = 6;
+   */
+  memoryUsedBytes: bigint;
+
+  /**
+   * IP addresses reported by guest agent (if available)
+   *
+   * @generated from field: repeated string ip_addresses = 7;
+   */
+  ipAddresses: string[];
+
+  /**
+   * Last state change timestamp (unix seconds)
+   *
+   * @generated from field: int64 state_changed_at_unix = 8;
+   */
+  stateChangedAtUnix: bigint;
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.VMStatusReport.
+ * Use `create(VMStatusReportSchema)` to create a new message.
+ */
+export const VMStatusReportSchema: GenMessage<VMStatusReport> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 29);
+
+/**
+ * @generated from message limiquantix.compute.v1.SyncFullStateResponse
+ */
+export type SyncFullStateResponse = Message<"limiquantix.compute.v1.SyncFullStateResponse"> & {
+  /**
+   * Sync acknowledged
+   *
+   * @generated from field: bool acknowledged = 1;
+   */
+  acknowledged: boolean;
+
+  /**
+   * Number of VMs reconciled
+   *
+   * @generated from field: int32 vms_reconciled = 2;
+   */
+  vmsReconciled: number;
+
+  /**
+   * Number of new VMs discovered (not in control plane DB)
+   *
+   * @generated from field: int32 vms_discovered = 3;
+   */
+  vmsDiscovered: number;
+
+  /**
+   * Number of VMs marked as lost (in DB but not on node)
+   *
+   * @generated from field: int32 vms_lost = 4;
+   */
+  vmsLost: number;
+
+  /**
+   * Number of storage pools reconciled
+   *
+   * @generated from field: int32 pools_reconciled = 5;
+   */
+  poolsReconciled: number;
+
+  /**
+   * Any sync conflicts or errors
+   *
+   * @generated from field: repeated limiquantix.compute.v1.SyncConflict conflicts = 6;
+   */
+  conflicts: SyncConflict[];
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.SyncFullStateResponse.
+ * Use `create(SyncFullStateResponseSchema)` to create a new message.
+ */
+export const SyncFullStateResponseSchema: GenMessage<SyncFullStateResponse> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 30);
+
+/**
+ * SyncConflict - Reports a conflict during sync
+ *
+ * @generated from message limiquantix.compute.v1.SyncConflict
+ */
+export type SyncConflict = Message<"limiquantix.compute.v1.SyncConflict"> & {
+  /**
+   * "vm" or "storage_pool"
+   *
+   * @generated from field: string resource_type = 1;
+   */
+  resourceType: string;
+
+  /**
+   * @generated from field: string resource_id = 2;
+   */
+  resourceId: string;
+
+  /**
+   * "missing_on_node", "missing_in_db", "state_mismatch"
+   *
+   * @generated from field: string conflict_type = 3;
+   */
+  conflictType: string;
+
+  /**
+   * @generated from field: string message = 4;
+   */
+  message: string;
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.SyncConflict.
+ * Use `create(SyncConflictSchema)` to create a new message.
+ */
+export const SyncConflictSchema: GenMessage<SyncConflict> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 31);
+
+/**
+ * @generated from message limiquantix.compute.v1.VMChangeNotification
+ */
+export type VMChangeNotification = Message<"limiquantix.compute.v1.VMChangeNotification"> & {
+  /**
+   * Node ID reporting the change
+   *
+   * @generated from field: string node_id = 1;
+   */
+  nodeId: string;
+
+  /**
+   * The VM that changed
+   *
+   * @generated from field: limiquantix.compute.v1.VMStatusReport vm = 2;
+   */
+  vm?: VMStatusReport;
+
+  /**
+   * Type of change
+   *
+   * @generated from field: limiquantix.compute.v1.VMChangeEventType event_type = 3;
+   */
+  eventType: VMChangeEventType;
+
+  /**
+   * Timestamp of the change (unix seconds)
+   *
+   * @generated from field: int64 timestamp_unix = 4;
+   */
+  timestampUnix: bigint;
+
+  /**
+   * Previous state (for UPDATED events)
+   *
+   * @generated from field: limiquantix.compute.v1.VMPowerState previous_state = 5;
+   */
+  previousState: VMPowerState;
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.VMChangeNotification.
+ * Use `create(VMChangeNotificationSchema)` to create a new message.
+ */
+export const VMChangeNotificationSchema: GenMessage<VMChangeNotification> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 32);
+
+/**
+ * @generated from message limiquantix.compute.v1.VMChangeAck
+ */
+export type VMChangeAck = Message<"limiquantix.compute.v1.VMChangeAck"> & {
+  /**
+   * Acknowledged
+   *
+   * @generated from field: bool acknowledged = 1;
+   */
+  acknowledged: boolean;
+
+  /**
+   * Action taken by control plane
+   *
+   * "created", "status_updated", "ignored", "marked_lost"
+   *
+   * @generated from field: string action = 2;
+   */
+  action: string;
+
+  /**
+   * Error message if any
+   *
+   * @generated from field: string error = 3;
+   */
+  error: string;
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.VMChangeAck.
+ * Use `create(VMChangeAckSchema)` to create a new message.
+ */
+export const VMChangeAckSchema: GenMessage<VMChangeAck> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 33);
+
+/**
+ * @generated from message limiquantix.compute.v1.StorageChangeNotification
+ */
+export type StorageChangeNotification = Message<"limiquantix.compute.v1.StorageChangeNotification"> & {
+  /**
+   * Node ID reporting the change
+   *
+   * @generated from field: string node_id = 1;
+   */
+  nodeId: string;
+
+  /**
+   * The storage pool that changed
+   *
+   * @generated from field: limiquantix.compute.v1.StoragePoolStatusReport pool = 2;
+   */
+  pool?: StoragePoolStatusReport;
+
+  /**
+   * Type of change
+   *
+   * @generated from field: limiquantix.compute.v1.StorageChangeEventType event_type = 3;
+   */
+  eventType: StorageChangeEventType;
+
+  /**
+   * Timestamp of the change (unix seconds)
+   *
+   * @generated from field: int64 timestamp_unix = 4;
+   */
+  timestampUnix: bigint;
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.StorageChangeNotification.
+ * Use `create(StorageChangeNotificationSchema)` to create a new message.
+ */
+export const StorageChangeNotificationSchema: GenMessage<StorageChangeNotification> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 34);
+
+/**
+ * @generated from message limiquantix.compute.v1.StorageChangeAck
+ */
+export type StorageChangeAck = Message<"limiquantix.compute.v1.StorageChangeAck"> & {
+  /**
+   * Acknowledged
+   *
+   * @generated from field: bool acknowledged = 1;
+   */
+  acknowledged: boolean;
+
+  /**
+   * Action taken by control plane
+   *
+   * @generated from field: string action = 2;
+   */
+  action: string;
+
+  /**
+   * Error message if any
+   *
+   * @generated from field: string error = 3;
+   */
+  error: string;
+};
+
+/**
+ * Describes the message limiquantix.compute.v1.StorageChangeAck.
+ * Use `create(StorageChangeAckSchema)` to create a new message.
+ */
+export const StorageChangeAckSchema: GenMessage<StorageChangeAck> = /*@__PURE__*/
+  messageDesc(file_limiquantix_compute_v1_node_service, 35);
+
+/**
  * @generated from message limiquantix.compute.v1.StreamNodeMetricsRequest
  */
 export type StreamNodeMetricsRequest = Message<"limiquantix.compute.v1.StreamNodeMetricsRequest"> & {
@@ -1114,7 +1539,7 @@ export type StreamNodeMetricsRequest = Message<"limiquantix.compute.v1.StreamNod
  * Use `create(StreamNodeMetricsRequestSchema)` to create a new message.
  */
 export const StreamNodeMetricsRequestSchema: GenMessage<StreamNodeMetricsRequest> = /*@__PURE__*/
-  messageDesc(file_limiquantix_compute_v1_node_service, 27);
+  messageDesc(file_limiquantix_compute_v1_node_service, 36);
 
 /**
  * @generated from message limiquantix.compute.v1.StreamEventsRequest
@@ -1140,7 +1565,7 @@ export type StreamEventsRequest = Message<"limiquantix.compute.v1.StreamEventsRe
  * Use `create(StreamEventsRequestSchema)` to create a new message.
  */
 export const StreamEventsRequestSchema: GenMessage<StreamEventsRequest> = /*@__PURE__*/
-  messageDesc(file_limiquantix_compute_v1_node_service, 28);
+  messageDesc(file_limiquantix_compute_v1_node_service, 37);
 
 /**
  * @generated from message limiquantix.compute.v1.SystemEvent
@@ -1204,7 +1629,7 @@ export type SystemEvent = Message<"limiquantix.compute.v1.SystemEvent"> & {
  * Use `create(SystemEventSchema)` to create a new message.
  */
 export const SystemEventSchema: GenMessage<SystemEvent> = /*@__PURE__*/
-  messageDesc(file_limiquantix_compute_v1_node_service, 29);
+  messageDesc(file_limiquantix_compute_v1_node_service, 38);
 
 /**
  * Event type
@@ -1371,7 +1796,7 @@ export enum SystemEvent_EventType {
  * Describes the enum limiquantix.compute.v1.SystemEvent.EventType.
  */
 export const SystemEvent_EventTypeSchema: GenEnum<SystemEvent_EventType> = /*@__PURE__*/
-  enumDesc(file_limiquantix_compute_v1_node_service, 29, 0);
+  enumDesc(file_limiquantix_compute_v1_node_service, 38, 0);
 
 /**
  * Severity
@@ -1404,7 +1829,138 @@ export enum SystemEvent_Severity {
  * Describes the enum limiquantix.compute.v1.SystemEvent.Severity.
  */
 export const SystemEvent_SeveritySchema: GenEnum<SystemEvent_Severity> = /*@__PURE__*/
-  enumDesc(file_limiquantix_compute_v1_node_service, 29, 1);
+  enumDesc(file_limiquantix_compute_v1_node_service, 38, 1);
+
+/**
+ * VMPowerState - Power states for VM status reporting
+ *
+ * @generated from enum limiquantix.compute.v1.VMPowerState
+ */
+export enum VMPowerState {
+  /**
+   * @generated from enum value: VM_POWER_STATE_UNKNOWN = 0;
+   */
+  VM_POWER_STATE_UNKNOWN = 0,
+
+  /**
+   * @generated from enum value: VM_POWER_STATE_RUNNING = 1;
+   */
+  VM_POWER_STATE_RUNNING = 1,
+
+  /**
+   * @generated from enum value: VM_POWER_STATE_STOPPED = 2;
+   */
+  VM_POWER_STATE_STOPPED = 2,
+
+  /**
+   * @generated from enum value: VM_POWER_STATE_PAUSED = 3;
+   */
+  VM_POWER_STATE_PAUSED = 3,
+
+  /**
+   * @generated from enum value: VM_POWER_STATE_SUSPENDED = 4;
+   */
+  VM_POWER_STATE_SUSPENDED = 4,
+
+  /**
+   * @generated from enum value: VM_POWER_STATE_CRASHED = 5;
+   */
+  VM_POWER_STATE_CRASHED = 5,
+
+  /**
+   * @generated from enum value: VM_POWER_STATE_MIGRATING = 6;
+   */
+  VM_POWER_STATE_MIGRATING = 6,
+
+  /**
+   * @generated from enum value: VM_POWER_STATE_SHUTOFF = 7;
+   */
+  VM_POWER_STATE_SHUTOFF = 7,
+}
+
+/**
+ * Describes the enum limiquantix.compute.v1.VMPowerState.
+ */
+export const VMPowerStateSchema: GenEnum<VMPowerState> = /*@__PURE__*/
+  enumDesc(file_limiquantix_compute_v1_node_service, 0);
+
+/**
+ * VMChangeEventType - Types of VM change events
+ *
+ * @generated from enum limiquantix.compute.v1.VMChangeEventType
+ */
+export enum VMChangeEventType {
+  /**
+   * @generated from enum value: VM_CHANGE_UNKNOWN = 0;
+   */
+  VM_CHANGE_UNKNOWN = 0,
+
+  /**
+   * New VM appeared on node
+   *
+   * @generated from enum value: VM_CHANGE_CREATED = 1;
+   */
+  VM_CHANGE_CREATED = 1,
+
+  /**
+   * VM state changed (e.g., started, stopped)
+   *
+   * @generated from enum value: VM_CHANGE_UPDATED = 2;
+   */
+  VM_CHANGE_UPDATED = 2,
+
+  /**
+   * VM was removed from node
+   *
+   * @generated from enum value: VM_CHANGE_DELETED = 3;
+   */
+  VM_CHANGE_DELETED = 3,
+}
+
+/**
+ * Describes the enum limiquantix.compute.v1.VMChangeEventType.
+ */
+export const VMChangeEventTypeSchema: GenEnum<VMChangeEventType> = /*@__PURE__*/
+  enumDesc(file_limiquantix_compute_v1_node_service, 1);
+
+/**
+ * StorageChangeEventType - Types of storage change events
+ *
+ * @generated from enum limiquantix.compute.v1.StorageChangeEventType
+ */
+export enum StorageChangeEventType {
+  /**
+   * @generated from enum value: STORAGE_CHANGE_UNKNOWN = 0;
+   */
+  STORAGE_CHANGE_UNKNOWN = 0,
+
+  /**
+   * Pool was mounted
+   *
+   * @generated from enum value: STORAGE_CHANGE_MOUNTED = 1;
+   */
+  STORAGE_CHANGE_MOUNTED = 1,
+
+  /**
+   * Pool was unmounted
+   *
+   * @generated from enum value: STORAGE_CHANGE_UNMOUNTED = 2;
+   */
+  STORAGE_CHANGE_UNMOUNTED = 2,
+
+  /**
+   * Pool capacity/health changed
+   *
+   * @generated from enum value: STORAGE_CHANGE_UPDATED = 3;
+   */
+  STORAGE_CHANGE_UPDATED = 3,
+}
+
+/**
+ * Describes the enum limiquantix.compute.v1.StorageChangeEventType.
+ */
+export const StorageChangeEventTypeSchema: GenEnum<StorageChangeEventType> = /*@__PURE__*/
+  enumDesc(file_limiquantix_compute_v1_node_service, 2);
 
 /**
  * NodeService provides management operations for physical compute nodes.
@@ -1541,6 +2097,7 @@ export const NodeService: GenService<{
   /**
    * SyncNodeVMs reports VMs running on a node to the control plane.
    * Called by the Node Daemon after registration to reconcile state.
+   * DEPRECATED: Use SyncFullState instead for complete state reconciliation.
    *
    * @generated from rpc limiquantix.compute.v1.NodeService.SyncNodeVMs
    */
@@ -1548,6 +2105,45 @@ export const NodeService: GenService<{
     methodKind: "unary";
     input: typeof SyncNodeVMsRequestSchema;
     output: typeof SyncNodeVMsResponseSchema;
+  },
+  /**
+   * SyncFullState performs a complete state synchronization between the node and control plane.
+   * Called on:
+   *   - Startup (after registration)
+   *   - Reconnect (after network failure)
+   *   - Control plane request (anti-entropy drift detection)
+   * This replaces SyncNodeVMs with a more comprehensive approach.
+   *
+   * @generated from rpc limiquantix.compute.v1.NodeService.SyncFullState
+   */
+  syncFullState: {
+    methodKind: "unary";
+    input: typeof SyncFullStateRequestSchema;
+    output: typeof SyncFullStateResponseSchema;
+  },
+  /**
+   * NotifyVMChange sends a real-time notification when a VM state changes.
+   * Called by the State Watcher when it detects a VM was created, updated, or deleted.
+   * CRITICAL: The control plane must check if the VM exists before deciding
+   * whether this is a "new discovery" or an update to an existing VM.
+   *
+   * @generated from rpc limiquantix.compute.v1.NodeService.NotifyVMChange
+   */
+  notifyVMChange: {
+    methodKind: "unary";
+    input: typeof VMChangeNotificationSchema;
+    output: typeof VMChangeAckSchema;
+  },
+  /**
+   * NotifyStorageChange sends a real-time notification when storage state changes.
+   * Called by the State Watcher when a storage pool is added, modified, or removed.
+   *
+   * @generated from rpc limiquantix.compute.v1.NodeService.NotifyStorageChange
+   */
+  notifyStorageChange: {
+    methodKind: "unary";
+    input: typeof StorageChangeNotificationSchema;
+    output: typeof StorageChangeAckSchema;
   },
   /**
    * GetNodeMetrics returns current resource usage.

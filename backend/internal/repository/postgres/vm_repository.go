@@ -442,6 +442,121 @@ func (r *VMRepository) SeedDemoData() {
 }
 
 // =============================================================================
+// Event operations
+// =============================================================================
+
+// CreateEvent stores a new VM event.
+func (r *VMRepository) CreateEvent(ctx context.Context, event *domain.VMEvent) error {
+	if event.ID == "" {
+		event.ID = uuid.New().String()
+	}
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = time.Now()
+	}
+
+	metadataJSON, err := json.Marshal(event.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	query := `
+		INSERT INTO vm_events (id, vm_id, type, severity, message, "user", metadata, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`
+
+	_, err = r.db.pool.Exec(ctx, query,
+		event.ID,
+		event.VMID,
+		event.Type,
+		event.Severity,
+		event.Message,
+		event.User,
+		metadataJSON,
+		event.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert event: %w", err)
+	}
+
+	return nil
+}
+
+// ListEvents returns events for a VM with optional filters.
+func (r *VMRepository) ListEvents(ctx context.Context, vmID, eventType, severity string, limit int, since string) ([]*domain.VMEvent, error) {
+	query := `
+		SELECT id, vm_id, type, severity, message, "user", metadata, created_at
+		FROM vm_events
+		WHERE vm_id = $1
+	`
+	args := []any{vmID}
+	argIdx := 2
+
+	if eventType != "" {
+		query += fmt.Sprintf(" AND type = $%d", argIdx)
+		args = append(args, eventType)
+		argIdx++
+	}
+
+	if severity != "" {
+		query += fmt.Sprintf(" AND severity = $%d", argIdx)
+		args = append(args, severity)
+		argIdx++
+	}
+
+	if since != "" {
+		sinceTime, err := time.Parse(time.RFC3339, since)
+		if err == nil {
+			query += fmt.Sprintf(" AND created_at > $%d", argIdx)
+			args = append(args, sinceTime)
+			argIdx++
+		}
+	}
+
+	query += " ORDER BY created_at DESC"
+
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, limit)
+	}
+
+	rows, err := r.db.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query events: %w", err)
+	}
+	defer rows.Close()
+
+	var events []*domain.VMEvent
+	for rows.Next() {
+		event := &domain.VMEvent{}
+		var metadataJSON []byte
+
+		err := rows.Scan(
+			&event.ID,
+			&event.VMID,
+			&event.Type,
+			&event.Severity,
+			&event.Message,
+			&event.User,
+			&metadataJSON,
+			&event.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan event: %w", err)
+		}
+
+		if len(metadataJSON) > 0 {
+			if err := json.Unmarshal(metadataJSON, &event.Metadata); err != nil {
+				r.logger.Warn("Failed to unmarshal event metadata", zap.Error(err))
+			}
+		}
+
+		events = append(events, event)
+	}
+
+	return events, nil
+}
+
+// =============================================================================
 // Helper functions
 // =============================================================================
 

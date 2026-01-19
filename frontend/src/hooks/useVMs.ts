@@ -124,16 +124,139 @@ export function useStopVM() {
 }
 
 /**
+ * Hook to reboot a VM
+ */
+export function useRebootVM() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, force = false }: { id: string; force?: boolean }) =>
+      vmApi.reboot(id, force),
+    onSuccess: (vm) => {
+      showSuccess(`VM "${vm.name}" is rebooting`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to reboot VM');
+    },
+  });
+}
+
+/**
+ * Hook to pause a VM (freeze in place)
+ */
+export function usePauseVM() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => vmApi.pause(id),
+    onSuccess: (vm) => {
+      showSuccess(`VM "${vm.name}" is paused`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to pause VM');
+    },
+  });
+}
+
+/**
+ * Hook to resume a paused VM
+ */
+export function useResumeVM() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => vmApi.resume(id),
+    onSuccess: (vm) => {
+      showSuccess(`VM "${vm.name}" is resuming`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to resume VM');
+    },
+  });
+}
+
+/**
+ * Hook to suspend a VM (save state to disk)
+ */
+export function useSuspendVM() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => vmApi.suspend(id),
+    onSuccess: (vm) => {
+      showSuccess(`VM "${vm.name}" is suspending to disk`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to suspend VM');
+    },
+  });
+}
+
+/**
+ * Hook to clone a VM
+ * Supports two clone types:
+ * - LINKED: Fast clone using QCOW2 overlay, depends on source disk
+ * - FULL: Complete copy of disk, fully independent
+ */
+export function useCloneVM() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      sourceVmId: string;
+      name: string;
+      projectId?: string;
+      cloneType?: 'FULL' | 'LINKED';
+      startOnCreate?: boolean;
+    }) => vmApi.clone(data),
+    onSuccess: (vm, variables) => {
+      const cloneType = variables.cloneType === 'LINKED' ? 'linked' : 'full';
+      showSuccess(`VM "${vm.name}" cloned successfully (${cloneType} clone)`);
+      // Invalidate lists to show new VM
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to clone VM');
+    },
+  });
+}
+
+/**
  * Hook to delete a VM
+ * Supports two modes:
+ * - removeFromInventoryOnly=true: Only removes from vDC, keeps VM on hypervisor
+ * - removeFromInventoryOnly=false (default): Full deletion including disk files
  */
 export function useDeleteVM() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, force = false }: { id: string; force?: boolean }) =>
-      vmApi.delete(id, force),
+    mutationFn: ({ 
+      id, 
+      force = false,
+      deleteVolumes = true,
+      removeFromInventoryOnly = false,
+    }: { 
+      id: string; 
+      force?: boolean;
+      deleteVolumes?: boolean;
+      removeFromInventoryOnly?: boolean;
+    }) =>
+      vmApi.delete(id, { force, deleteVolumes, removeFromInventoryOnly }),
     onSuccess: (_, variables) => {
-      showSuccess('VM deleted successfully');
+      if (variables.removeFromInventoryOnly) {
+        showSuccess('VM removed from inventory (kept on hypervisor)');
+      } else {
+        showSuccess('VM deleted successfully');
+      }
       // Remove from cache
       queryClient.removeQueries({ queryKey: vmKeys.detail(variables.id) });
       // Invalidate lists
@@ -186,6 +309,160 @@ export function isVMRunning(vm: ApiVM): boolean {
 export function isVMStopped(vm: ApiVM): boolean {
   const state = vm.status?.state || vm.status?.powerState || '';
   return state === 'STOPPED' || state === 'POWER_STATE_STOPPED';
+}
+
+// ============================================================================
+// Disk Operations
+// ============================================================================
+
+/**
+ * Hook to attach a new disk to a VM
+ */
+export function useAttachDisk() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      vmId: string;
+      disk: { sizeGib: number; bus: string; format?: string };
+    }) => vmApi.attachDisk(data.vmId, data.disk),
+    onSuccess: (vm) => {
+      showSuccess(`Disk attached to "${vm.name}"`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to attach disk');
+    },
+  });
+}
+
+/**
+ * Hook to detach a disk from a VM
+ */
+export function useDetachDisk() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { vmId: string; diskId: string; force?: boolean }) =>
+      vmApi.detachDisk(data.vmId, data.diskId, data.force),
+    onSuccess: (vm) => {
+      showSuccess(`Disk detached from "${vm.name}"`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to detach disk');
+    },
+  });
+}
+
+/**
+ * Hook to resize a disk attached to a VM
+ */
+export function useResizeDisk() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { vmId: string; diskId: string; newSizeGib: number }) =>
+      vmApi.resizeDisk(data.vmId, data.diskId, data.newSizeGib),
+    onSuccess: (vm) => {
+      showSuccess(`Disk resized on "${vm.name}"`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to resize disk');
+    },
+  });
+}
+
+// ============================================================================
+// NIC Operations
+// ============================================================================
+
+/**
+ * Hook to attach a new NIC to a VM
+ */
+export function useAttachNIC() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      vmId: string;
+      nic: { networkId: string; macAddress?: string; model?: string };
+    }) => vmApi.attachNIC(data.vmId, data.nic),
+    onSuccess: (vm) => {
+      showSuccess(`NIC attached to "${vm.name}"`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to attach NIC');
+    },
+  });
+}
+
+/**
+ * Hook to detach a NIC from a VM
+ */
+export function useDetachNIC() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { vmId: string; nicId: string }) =>
+      vmApi.detachNIC(data.vmId, data.nicId),
+    onSuccess: (vm) => {
+      showSuccess(`NIC detached from "${vm.name}"`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to detach NIC');
+    },
+  });
+}
+
+// ============================================================================
+// Events
+// ============================================================================
+
+/**
+ * Hook to list VM events
+ */
+export function useVMEvents(vmId: string, options?: {
+  type?: string;
+  severity?: string;
+  limit?: number;
+  enabled?: boolean;
+}) {
+  return useQuery({
+    queryKey: ['vm-events', vmId, options?.type, options?.severity],
+    queryFn: () => vmApi.listEvents(vmId, {
+      type: options?.type,
+      severity: options?.severity,
+      limit: options?.limit || 50,
+    }),
+    enabled: (options?.enabled ?? true) && !!vmId,
+    staleTime: 10000, // Refresh every 10 seconds
+  });
+}
+
+// ============================================================================
+// Agent
+// ============================================================================
+
+/**
+ * Hook to ping the guest agent
+ */
+export function usePingAgent(vmId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['vm-agent', vmId],
+    queryFn: () => vmApi.pingAgent(vmId),
+    enabled: enabled && !!vmId,
+    staleTime: 10000, // Refresh every 10 seconds
+    retry: 1,
+  });
 }
 
 // Re-export types

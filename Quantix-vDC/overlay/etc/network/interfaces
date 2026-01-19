@@ -1,8 +1,17 @@
 # Quantix-vDC Network Configuration
-# This file is overwritten during installation
+# This file may be overwritten by the DCUI when configuring static IP
 
 auto lo
 iface lo inet loopback
 
+# Primary ethernet interface - DHCP by default
+# The udhcpc script at /usr/share/udhcpc/default.script handles
+# IP assignment, gateway, and DNS configuration
 auto eth0
 iface eth0 inet dhcp
+
+# WiFi interface (if present) - configured via DCUI
+# auto wlan0
+# iface wlan0 inet dhcp
+#     pre-up wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf
+#     post-down killall wpa_supplicant

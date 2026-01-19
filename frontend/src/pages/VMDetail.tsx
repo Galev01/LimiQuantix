@@ -33,6 +33,8 @@ import {
   X,
   CheckCircle2,
   AlertTriangle,
+  GitBranch,
+  List,
 } from 'lucide-react';
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -46,13 +48,24 @@ import { ConsoleAccessModal } from '@/components/vm/ConsoleAccessModal';
 import { ExecuteScriptModal } from '@/components/vm/ExecuteScriptModal';
 import { EditSettingsModal } from '@/components/vm/EditSettingsModal';
 import { EditResourcesModal } from '@/components/vm/EditResourcesModal';
+import { DeleteVMModal } from '@/components/vm/DeleteVMModal';
+import { StartAndOpenConsoleModal } from '@/components/vm/StartAndOpenConsoleModal';
+import { CloneVMWizard } from '@/components/vm/CloneVMWizard';
+import { SnapshotTree, SnapshotList } from '@/components/vm/SnapshotTree';
+import { AddDiskModal } from '@/components/vm/AddDiskModal';
+import { ResizeDiskModal } from '@/components/vm/ResizeDiskModal';
+import { AddNICModal } from '@/components/vm/AddNICModal';
 import { QuantixAgentStatus } from '@/components/vm/QuantixAgentStatus';
 import { FileBrowser } from '@/components/vm/FileBrowser';
+import { VMMonitoringCharts } from '@/components/vm/VMMonitoringCharts';
+import { EditBootOptionsModal } from '@/components/vm/EditBootOptionsModal';
+import { EditDisplaySettingsModal } from '@/components/vm/EditDisplaySettingsModal';
+import { EditHAPolicyModal } from '@/components/vm/EditHAPolicyModal';
 import { type VirtualMachine, type PowerState } from '@/types/models';
-import { useVM, useStartVM, useStopVM, useDeleteVM, useUpdateVM, type ApiVM } from '@/hooks/useVMs';
+import { useVM, useStartVM, useStopVM, useRebootVM, usePauseVM, useResumeVM, useSuspendVM, useDeleteVM, useUpdateVM, useAttachDisk, useDetachDisk, useResizeDisk, useAttachNIC, useDetachNIC, useVMEvents, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { useSnapshots, useCreateSnapshot, useRevertToSnapshot, useDeleteSnapshot, formatSnapshotSize, type ApiSnapshot } from '@/hooks/useSnapshots';
-import { showInfo, showWarning } from '@/lib/toast';
+import { showInfo } from '@/lib/toast';
 
 // Convert API VM to display format
 function apiToDisplayVM(apiVm: ApiVM): VirtualMachine {
@@ -115,6 +128,30 @@ export function VMDetail() {
   const [snapshotDescription, setSnapshotDescription] = useState('');
   const [includeMemory, setIncludeMemory] = useState(false);
   const [quiesceFs, setQuiesceFs] = useState(false);
+  
+  // Delete VM modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  
+  // Start and Open Console modal state
+  const [isStartAndConsoleModalOpen, setIsStartAndConsoleModalOpen] = useState(false);
+  
+  // Clone VM wizard state
+  const [isCloneWizardOpen, setIsCloneWizardOpen] = useState(false);
+  
+  // Snapshot view mode: 'tree' or 'list'
+  const [snapshotViewMode, setSnapshotViewMode] = useState<'tree' | 'list'>('tree');
+  
+  // Disk modal state
+  const [isAddDiskModalOpen, setIsAddDiskModalOpen] = useState(false);
+  const [resizeDiskInfo, setResizeDiskInfo] = useState<{ diskId: string; diskName: string; currentSizeGib: number } | null>(null);
+  
+  // NIC modal state
+  const [isAddNICModalOpen, setIsAddNICModalOpen] = useState(false);
+  
+  // Configuration edit modals
+  const [isBootOptionsModalOpen, setIsBootOptionsModalOpen] = useState(false);
+  const [isDisplaySettingsModalOpen, setIsDisplaySettingsModalOpen] = useState(false);
+  const [isHAPolicyModalOpen, setIsHAPolicyModalOpen] = useState(false);
 
   // API connection and data
   const { data: isConnected = false } = useApiConnection();
@@ -123,6 +160,10 @@ export function VMDetail() {
   // Mutations
   const startVM = useStartVM();
   const stopVM = useStopVM();
+  const rebootVM = useRebootVM();
+  const pauseVM = usePauseVM();
+  const resumeVM = useResumeVM();
+  const suspendVM = useSuspendVM();
   const deleteVM = useDeleteVM();
   const updateVM = useUpdateVM();
   
@@ -131,12 +172,26 @@ export function VMDetail() {
   const createSnapshot = useCreateSnapshot();
   const revertToSnapshot = useRevertToSnapshot();
   const deleteSnapshot = useDeleteSnapshot();
+  
+  // Disk hooks
+  const attachDisk = useAttachDisk();
+  const detachDisk = useDetachDisk();
+  const resizeDisk = useResizeDisk();
+  
+  // NIC hooks
+  const attachNIC = useAttachNIC();
+  const detachNIC = useDetachNIC();
+  
+  // Events
+  const { data: eventsData } = useVMEvents(id || '', { enabled: !!isConnected && !!id, limit: 50 });
 
   // Convert API data to display format (no mock fallback)
   const vm: VirtualMachine | undefined = apiVm ? apiToDisplayVM(apiVm) : undefined;
 
-  const isActionPending = startVM.isPending || stopVM.isPending || deleteVM.isPending || updateVM.isPending;
+  const isActionPending = startVM.isPending || stopVM.isPending || rebootVM.isPending || pauseVM.isPending || resumeVM.isPending || suspendVM.isPending || deleteVM.isPending || updateVM.isPending;
   const isSnapshotActionPending = createSnapshot.isPending || revertToSnapshot.isPending || deleteSnapshot.isPending;
+  const isDiskActionPending = attachDisk.isPending || detachDisk.isPending || resizeDisk.isPending;
+  const isNICActionPending = attachNIC.isPending || detachNIC.isPending;
 
   // Action handlers
   const handleStart = async () => {
@@ -162,13 +217,57 @@ export function VMDetail() {
     await handleStop(true);
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this VM?')) return;
+  const handleReboot = async (force = false) => {
     if (!isConnected || !id) {
       showInfo('Not connected to backend');
       return;
     }
-    await deleteVM.mutateAsync({ id });
+    await rebootVM.mutateAsync({ id, force });
+  };
+
+  const handlePause = async () => {
+    if (!isConnected || !id) {
+      showInfo('Not connected to backend');
+      return;
+    }
+    await pauseVM.mutateAsync(id);
+  };
+
+  const handleResume = async () => {
+    if (!isConnected || !id) {
+      showInfo('Not connected to backend');
+      return;
+    }
+    await resumeVM.mutateAsync(id);
+  };
+
+  const handleSuspend = async () => {
+    if (!isConnected || !id) {
+      showInfo('Not connected to backend');
+      return;
+    }
+    await suspendVM.mutateAsync(id);
+  };
+
+  const handleDeleteClick = () => {
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async (options: {
+    deleteVolumes: boolean;
+    removeFromInventoryOnly: boolean;
+    force: boolean;
+  }) => {
+    if (!isConnected || !id) {
+      showInfo('Not connected to backend');
+      return;
+    }
+    await deleteVM.mutateAsync({ 
+      id, 
+      force: options.force,
+      deleteVolumes: options.deleteVolumes,
+      removeFromInventoryOnly: options.removeFromInventoryOnly,
+    });
     navigate('/vms');
   };
 
@@ -200,7 +299,18 @@ export function VMDetail() {
   };
 
   const handleCloneVM = () => {
-    showWarning('Clone VM feature coming soon');
+    setIsCloneWizardOpen(true);
+  };
+
+  // Smart console button - opens StartAndOpenConsoleModal for stopped VMs
+  const handleConsoleClick = () => {
+    if (vm?.status.state === 'RUNNING') {
+      // VM is running, open console directly
+      setIsConsoleModalOpen(true);
+    } else {
+      // VM is stopped, show Start & Open Console modal
+      setIsStartAndConsoleModalOpen(true);
+    }
   };
 
   // Snapshot handlers
@@ -240,9 +350,107 @@ export function VMDetail() {
     await deleteSnapshot.mutateAsync({ vmId: id, snapshotId });
   };
 
+  // Disk handlers
+  const handleAddDisk = async (disk: { sizeGib: number; bus: string; format: string }) => {
+    if (!id) return;
+    await attachDisk.mutateAsync({
+      vmId: id,
+      disk: { sizeGib: disk.sizeGib, bus: disk.bus, format: disk.format },
+    });
+  };
+
+  const handleResizeDisk = async (newSizeGib: number) => {
+    if (!id || !resizeDiskInfo) return;
+    await resizeDisk.mutateAsync({
+      vmId: id,
+      diskId: resizeDiskInfo.diskName,
+      newSizeGib,
+    });
+    setResizeDiskInfo(null);
+  };
+
+  const handleDetachDisk = async (diskId: string) => {
+    if (!id) return;
+    if (!confirm('Are you sure you want to detach this disk? The data will not be deleted.')) return;
+    const isRunning = vm?.status.state === 'RUNNING';
+    await detachDisk.mutateAsync({
+      vmId: id,
+      diskId,
+      force: isRunning,
+    });
+  };
+
+  // NIC handlers
+  const handleAddNIC = async (nic: { networkId: string; macAddress?: string; model: string }) => {
+    if (!id) return;
+    await attachNIC.mutateAsync({
+      vmId: id,
+      nic: { networkId: nic.networkId, macAddress: nic.macAddress, model: nic.model },
+    });
+  };
+
+  const handleRemoveNIC = async (nicId: string) => {
+    if (!id) return;
+    if (!confirm('Are you sure you want to remove this network interface?')) return;
+    await detachNIC.mutateAsync({ vmId: id, nicId });
+  };
+
+  // Configuration edit handlers
+  const handleSaveBootOptions = async (options: { bootOrder: string[]; firmware: string; secureBoot: boolean }) => {
+    if (!id || !apiVm) return;
+    await updateVM.mutateAsync({
+      id,
+      spec: {
+        ...apiVm.spec,
+        boot: {
+          order: options.bootOrder,
+          firmware: options.firmware,
+          secureBoot: options.secureBoot,
+        },
+      },
+    });
+  };
+
+  const handleSaveDisplaySettings = async (settings: { type: string; port: number | 'auto'; password: string; listen: string; enableClipboard: boolean; enableAudio: boolean }) => {
+    if (!id || !apiVm) return;
+    await updateVM.mutateAsync({
+      id,
+      spec: {
+        ...apiVm.spec,
+        display: {
+          type: settings.type,
+          port: settings.port === 'auto' ? undefined : settings.port,
+          password: settings.password || undefined,
+          listen: settings.listen,
+          clipboard: settings.enableClipboard,
+          audio: settings.enableAudio,
+        },
+      },
+    });
+  };
+
+  const handleSaveHAPolicy = async (policy: { enabled: boolean; restartPriority: string; isolationResponse: string; vmMonitoring: string; maxRestarts: number; restartPeriodMinutes: number }) => {
+    if (!id || !apiVm) return;
+    await updateVM.mutateAsync({
+      id,
+      spec: {
+        ...apiVm.spec,
+        ha: {
+          enabled: policy.enabled,
+          restartPriority: policy.restartPriority,
+          isolationResponse: policy.isolationResponse,
+          vmMonitoring: policy.vmMonitoring,
+          maxRestarts: policy.maxRestarts,
+          restartPeriodMinutes: policy.restartPeriodMinutes,
+        },
+      },
+    });
+  };
+
   // Generate dropdown menu items
   const getVMActions = (): DropdownMenuItem[] => {
     const isRunning = vm?.status.state === 'RUNNING';
+    const isPaused = vm?.status.state === 'PAUSED';
     
     return [
       {
@@ -273,18 +481,31 @@ export function VMDetail() {
         onClick: handleCloneVM,
         divider: true,
       },
+      // Power operations
+      {
+        label: isPaused ? 'Resume' : 'Pause',
+        icon: <Pause className="w-4 h-4" />,
+        onClick: isPaused ? handleResume : handlePause,
+        disabled: !isRunning && !isPaused,
+      },
+      {
+        label: 'Suspend to Disk',
+        icon: <Download className="w-4 h-4" />,
+        onClick: handleSuspend,
+        disabled: !isRunning,
+      },
       {
         label: 'Force Stop',
         icon: <Power className="w-4 h-4" />,
         onClick: handleForceStop,
-        disabled: !isRunning,
+        disabled: !isRunning && !isPaused,
         variant: 'danger',
         divider: true,
       },
       {
         label: 'Delete VM',
         icon: <Trash2 className="w-4 h-4" />,
-        onClick: handleDelete,
+        onClick: handleDeleteClick,
         variant: 'danger',
         divider: true,
       },
@@ -375,11 +596,16 @@ export function VMDetail() {
                   {stopVM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4" />}
                   Stop
                 </Button>
-                <Button variant="secondary" size="sm">
-                  <RefreshCw className="w-4 h-4" />
+                <Button variant="secondary" size="sm" onClick={() => handleReboot()} disabled={isActionPending}>
+                  {rebootVM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                   Restart
                 </Button>
               </>
+            ) : vm.status.state === 'PAUSED' ? (
+              <Button variant="primary" size="sm" onClick={handleResume} disabled={isActionPending}>
+                {resumeVM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                Resume
+              </Button>
             ) : (
               <Button variant="primary" size="sm" onClick={handleStart} disabled={isActionPending}>
                 {startVM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
@@ -389,9 +615,8 @@ export function VMDetail() {
             <Button 
               variant="secondary" 
               size="sm" 
-              onClick={() => setIsConsoleModalOpen(true)}
-              disabled={vm.status.state !== 'RUNNING'}
-              title={vm.status.state !== 'RUNNING' ? 'VM must be running to access console' : 'Open VM console'}
+              onClick={handleConsoleClick}
+              title="Open VM console"
             >
               <MonitorPlay className="w-4 h-4" />
               Console
@@ -820,12 +1045,43 @@ export function VMDetail() {
                     </span>
                   )}
                 </div>
-                {!isCreateSnapshotOpen && (
-                  <Button size="sm" onClick={() => setIsCreateSnapshotOpen(true)}>
-                    <Plus className="w-4 h-4" />
-                    Create Snapshot
-                  </Button>
-                )}
+                <div className="flex items-center gap-2">
+                  {/* View Mode Toggle */}
+                  {snapshots.length > 0 && (
+                    <div className="flex items-center gap-1 p-1 bg-bg-base rounded-lg border border-border">
+                      <button
+                        onClick={() => setSnapshotViewMode('tree')}
+                        className={cn(
+                          'p-1.5 rounded transition-colors',
+                          snapshotViewMode === 'tree'
+                            ? 'bg-bg-elevated text-accent shadow-sm'
+                            : 'text-text-muted hover:text-text-primary'
+                        )}
+                        title="Tree View"
+                      >
+                        <GitBranch className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setSnapshotViewMode('list')}
+                        className={cn(
+                          'p-1.5 rounded transition-colors',
+                          snapshotViewMode === 'list'
+                            ? 'bg-bg-elevated text-accent shadow-sm'
+                            : 'text-text-muted hover:text-text-primary'
+                        )}
+                        title="List View"
+                      >
+                        <List className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                  {!isCreateSnapshotOpen && (
+                    <Button size="sm" onClick={() => setIsCreateSnapshotOpen(true)}>
+                      <Plus className="w-4 h-4" />
+                      Create Snapshot
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {isLoadingSnapshots ? (
@@ -846,19 +1102,22 @@ export function VMDetail() {
                     </Button>
                   )}
                 </div>
+              ) : snapshotViewMode === 'tree' ? (
+                <SnapshotTree
+                  snapshots={snapshots}
+                  onRevert={handleRevertToSnapshot}
+                  onDelete={handleDeleteSnapshot}
+                  isActionPending={isSnapshotActionPending}
+                  vmState={vm?.status.state || 'STOPPED'}
+                />
               ) : (
-                <div className="divide-y divide-border">
-                  {snapshots.map((snapshot) => (
-                    <SnapshotRow
-                      key={snapshot.id}
-                      snapshot={snapshot}
-                      onRevert={() => handleRevertToSnapshot(snapshot.id)}
-                      onDelete={() => handleDeleteSnapshot(snapshot.id)}
-                      isActionPending={isSnapshotActionPending}
-                      vmState={vm?.status.state || 'STOPPED'}
-                    />
-                  ))}
-                </div>
+                <SnapshotList
+                  snapshots={snapshots}
+                  onRevert={handleRevertToSnapshot}
+                  onDelete={handleDeleteSnapshot}
+                  isActionPending={isSnapshotActionPending}
+                  vmState={vm?.status.state || 'STOPPED'}
+                />
               )}
             </div>
 
@@ -892,38 +1151,69 @@ export function VMDetail() {
           <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h3 className="text-lg font-semibold text-text-primary">Disks</h3>
-              <Button size="sm">
+              <Button size="sm" onClick={() => setIsAddDiskModalOpen(true)}>
                 <HardDrive className="w-4 h-4" />
                 Add Disk
               </Button>
             </div>
-            <table className="w-full">
-              <thead className="bg-bg-elevated/50">
-                <tr className="text-xs font-medium text-text-muted uppercase">
-                  <th className="px-6 py-3 text-left">Device</th>
-                  <th className="px-6 py-3 text-left">Size</th>
-                  <th className="px-6 py-3 text-left">Bus Type</th>
-                  <th className="px-6 py-3 text-left">Pool</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {vm.spec.disks.map((disk, index) => (
-                  <tr key={disk.id} className="hover:bg-bg-hover">
-                    <td className="px-6 py-4 text-sm text-text-primary font-mono">
-                      vd{String.fromCharCode(97 + index)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-text-secondary">{disk.sizeGib} GB</td>
-                    <td className="px-6 py-4 text-sm text-text-secondary">{disk.bus}</td>
-                    <td className="px-6 py-4 text-sm text-text-secondary">ceph-ssd</td>
-                    <td className="px-6 py-4 text-right">
-                      <Button variant="ghost" size="sm">Resize</Button>
-                      <Button variant="ghost" size="sm">Detach</Button>
-                    </td>
+            {vm.spec.disks.length === 0 ? (
+              <div className="text-center py-12">
+                <HardDrive className="w-12 h-12 mx-auto text-text-muted mb-4" />
+                <h4 className="text-lg font-medium text-text-primary mb-2">No Disks</h4>
+                <p className="text-text-muted mb-4">
+                  This VM has no disks attached
+                </p>
+                <Button size="sm" onClick={() => setIsAddDiskModalOpen(true)}>
+                  <HardDrive className="w-4 h-4" />
+                  Add First Disk
+                </Button>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-bg-elevated/50">
+                  <tr className="text-xs font-medium text-text-muted uppercase">
+                    <th className="px-6 py-3 text-left">Device</th>
+                    <th className="px-6 py-3 text-left">Size</th>
+                    <th className="px-6 py-3 text-left">Bus Type</th>
+                    <th className="px-6 py-3 text-left">Pool</th>
+                    <th className="px-6 py-3 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {vm.spec.disks.map((disk, index) => {
+                    const diskName = `vd${String.fromCharCode(97 + index)}`;
+                    return (
+                      <tr key={disk.id} className="hover:bg-bg-hover">
+                        <td className="px-6 py-4 text-sm text-text-primary font-mono">
+                          {diskName}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-secondary">{disk.sizeGib} GB</td>
+                        <td className="px-6 py-4 text-sm text-text-secondary">{disk.bus}</td>
+                        <td className="px-6 py-4 text-sm text-text-secondary">default</td>
+                        <td className="px-6 py-4 text-right space-x-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setResizeDiskInfo({ diskId: disk.id, diskName, currentSizeGib: disk.sizeGib })}
+                          >
+                            Resize
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDetachDisk(disk.id)}
+                            disabled={index === 0} // Can't detach boot disk
+                            title={index === 0 ? 'Cannot detach boot disk' : 'Detach disk'}
+                          >
+                            Detach
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </TabsContent>
 
@@ -932,40 +1222,61 @@ export function VMDetail() {
           <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h3 className="text-lg font-semibold text-text-primary">Network Interfaces</h3>
-              <Button size="sm">
+              <Button size="sm" onClick={() => setIsAddNICModalOpen(true)}>
                 <Network className="w-4 h-4" />
                 Add NIC
               </Button>
             </div>
-            <table className="w-full">
-              <thead className="bg-bg-elevated/50">
-                <tr className="text-xs font-medium text-text-muted uppercase">
-                  <th className="px-6 py-3 text-left">Device</th>
-                  <th className="px-6 py-3 text-left">Network</th>
-                  <th className="px-6 py-3 text-left">MAC Address</th>
-                  <th className="px-6 py-3 text-left">IP Address</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {vm.spec.nics.map((nic, index) => (
-                  <tr key={nic.id} className="hover:bg-bg-hover">
-                    <td className="px-6 py-4 text-sm text-text-primary font-mono">eth{index}</td>
-                    <td className="px-6 py-4 text-sm text-text-secondary">{nic.networkId}</td>
-                    <td className="px-6 py-4 text-sm text-text-secondary font-mono">
-                      {nic.macAddress}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-text-secondary font-mono">
-                      {vm.status.ipAddresses[index] || '—'}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <Button variant="ghost" size="sm">Edit</Button>
-                      <Button variant="ghost" size="sm">Remove</Button>
-                    </td>
+            {vm.spec.nics.length === 0 ? (
+              <div className="text-center py-12">
+                <Network className="w-12 h-12 mx-auto text-text-muted mb-4" />
+                <h4 className="text-lg font-medium text-text-primary mb-2">No Network Interfaces</h4>
+                <p className="text-text-muted mb-4">
+                  This VM has no network interfaces
+                </p>
+                <Button size="sm" onClick={() => setIsAddNICModalOpen(true)}>
+                  <Network className="w-4 h-4" />
+                  Add NIC
+                </Button>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-bg-elevated/50">
+                  <tr className="text-xs font-medium text-text-muted uppercase">
+                    <th className="px-6 py-3 text-left">Device</th>
+                    <th className="px-6 py-3 text-left">Network</th>
+                    <th className="px-6 py-3 text-left">MAC Address</th>
+                    <th className="px-6 py-3 text-left">IP Address</th>
+                    <th className="px-6 py-3 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {vm.spec.nics.map((nic, index) => (
+                    <tr key={nic.id} className="hover:bg-bg-hover">
+                      <td className="px-6 py-4 text-sm text-text-primary font-mono">eth{index}</td>
+                      <td className="px-6 py-4 text-sm text-text-secondary">{nic.networkId}</td>
+                      <td className="px-6 py-4 text-sm text-text-secondary font-mono">
+                        {nic.macAddress || '—'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-text-secondary font-mono">
+                        {vm.status.ipAddresses[index] || '—'}
+                      </td>
+                      <td className="px-6 py-4 text-right space-x-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleRemoveNIC(nic.id)}
+                          disabled={index === 0} // Can't remove primary NIC
+                          title={index === 0 ? 'Cannot remove primary NIC' : 'Remove NIC'}
+                        >
+                          Remove
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </TabsContent>
 
@@ -979,13 +1290,13 @@ export function VMDetail() {
                   <Power className="w-5 h-5 text-accent" />
                   Boot Options
                 </h3>
-                <Button variant="secondary" size="sm">Edit</Button>
+                <Button variant="secondary" size="sm" onClick={() => setIsBootOptionsModalOpen(true)}>Edit</Button>
               </div>
               <div className="space-y-3">
-                <ConfigRow label="Boot Device" value="Hard Disk" />
-                <ConfigRow label="Boot Order" value="disk, cdrom, network" />
-                <ConfigRow label="UEFI Firmware" value="Enabled" />
-                <ConfigRow label="Secure Boot" value="Disabled" />
+                <ConfigRow label="Boot Device" value={apiVm?.spec?.boot?.order?.[0] || 'disk'} />
+                <ConfigRow label="Boot Order" value={apiVm?.spec?.boot?.order?.join(', ') || 'disk, cdrom, network'} />
+                <ConfigRow label="Firmware" value={apiVm?.spec?.boot?.firmware || 'UEFI'} />
+                <ConfigRow label="Secure Boot" value={apiVm?.spec?.boot?.secureBoot ? 'Enabled' : 'Disabled'} />
                 <ConfigRow label="TPM" value="Not configured" />
               </div>
             </div>
@@ -1034,14 +1345,14 @@ export function VMDetail() {
                   <Terminal className="w-5 h-5 text-accent" />
                   Display & Console
                 </h3>
-                <Button variant="secondary" size="sm">Edit</Button>
+                <Button variant="secondary" size="sm" onClick={() => setIsDisplaySettingsModalOpen(true)}>Edit</Button>
               </div>
               <div className="space-y-3">
-                <ConfigRow label="Display Type" value="VNC" />
-                <ConfigRow label="VNC Port" value="Auto" />
-                <ConfigRow label="VNC Password" value="Enabled" />
-                <ConfigRow label="Video Memory" value="16 MB" />
-                <ConfigRow label="Serial Port" value="Disabled" />
+                <ConfigRow label="Display Type" value={apiVm?.spec?.display?.type?.toUpperCase() || 'VNC'} />
+                <ConfigRow label="Port" value={apiVm?.spec?.display?.port ? String(apiVm.spec.display.port) : 'Auto'} />
+                <ConfigRow label="Password" value={apiVm?.spec?.display?.password ? 'Enabled' : 'Disabled'} />
+                <ConfigRow label="Listen Address" value={apiVm?.spec?.display?.listen || '0.0.0.0'} />
+                <ConfigRow label="Clipboard Sharing" value={apiVm?.spec?.display?.clipboard !== false ? 'Enabled' : 'Disabled'} />
               </div>
             </div>
 
@@ -1088,14 +1399,14 @@ export function VMDetail() {
                   <RefreshCw className="w-5 h-5 text-accent" />
                   High Availability
                 </h3>
-                <Button variant="secondary" size="sm">Edit</Button>
+                <Button variant="secondary" size="sm" onClick={() => setIsHAPolicyModalOpen(true)}>Edit</Button>
               </div>
               <div className="space-y-3">
-                <ConfigRow label="HA Enabled" value="Yes" />
-                <ConfigRow label="HA Priority" value="Medium (100)" />
-                <ConfigRow label="Auto-Restart" value="Enabled" />
-                <ConfigRow label="Host Affinity" value="None" />
-                <ConfigRow label="Anti-Affinity Group" value="—" />
+                <ConfigRow label="HA Enabled" value={apiVm?.spec?.ha?.enabled !== false ? 'Yes' : 'No'} />
+                <ConfigRow label="Restart Priority" value={apiVm?.spec?.ha?.restartPriority || 'Medium'} />
+                <ConfigRow label="Isolation Response" value={apiVm?.spec?.ha?.isolationResponse || 'Shutdown'} />
+                <ConfigRow label="VM Monitoring" value={apiVm?.spec?.ha?.vmMonitoring || 'VM Monitoring'} />
+                <ConfigRow label="Max Restarts" value={String(apiVm?.spec?.ha?.maxRestarts || 3)} />
               </div>
             </div>
 
@@ -1121,54 +1432,69 @@ export function VMDetail() {
 
         {/* Monitoring Tab */}
         <TabsContent value="monitoring">
-          <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-text-primary">Performance Monitoring</h3>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm">1h</Button>
-                <Button variant="secondary" size="sm">6h</Button>
-                <Button variant="ghost" size="sm">24h</Button>
-                <Button variant="ghost" size="sm">7d</Button>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-6">
-              <div className="h-48 bg-bg-base rounded-lg flex items-center justify-center border border-border">
-                <p className="text-text-muted">CPU Usage Chart</p>
-              </div>
-              <div className="h-48 bg-bg-base rounded-lg flex items-center justify-center border border-border">
-                <p className="text-text-muted">Memory Usage Chart</p>
-              </div>
-              <div className="h-48 bg-bg-base rounded-lg flex items-center justify-center border border-border">
-                <p className="text-text-muted">Disk I/O Chart</p>
-              </div>
-              <div className="h-48 bg-bg-base rounded-lg flex items-center justify-center border border-border">
-                <p className="text-text-muted">Network I/O Chart</p>
-              </div>
-            </div>
-          </div>
+          {apiVm && <VMMonitoringCharts vm={apiVm} />}
         </TabsContent>
 
         {/* Events Tab */}
         <TabsContent value="events">
-          <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
-            <div className="px-6 py-4 border-b border-border">
-              <h3 className="text-lg font-semibold text-text-primary">Event Log</h3>
-            </div>
-            <div className="divide-y divide-border">
-              {[
-                { time: '10:30 AM', type: 'Power', message: 'VM started', user: 'admin' },
-                { time: '10:25 AM', type: 'Config', message: 'Memory increased to 8GB', user: 'admin' },
-                { time: '10:00 AM', type: 'Snapshot', message: 'Snapshot created', user: 'system' },
-              ].map((event, index) => (
-                <div key={index} className="px-6 py-4 hover:bg-bg-hover">
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-text-muted w-20">{event.time}</span>
-                    <Badge variant="default" size="sm">{event.type}</Badge>
-                    <span className="text-sm text-text-primary flex-1">{event.message}</span>
-                    <span className="text-sm text-text-muted">{event.user}</span>
-                  </div>
+          <div className="space-y-6">
+            <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+                <h3 className="text-lg font-semibold text-text-primary">Event Log</h3>
+                <div className="flex items-center gap-2">
+                  <select className="px-3 py-1.5 text-sm bg-bg-base border border-border rounded-lg text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent/50">
+                    <option value="all">All Events</option>
+                    <option value="power">Power</option>
+                    <option value="config">Configuration</option>
+                    <option value="snapshot">Snapshots</option>
+                    <option value="error">Errors</option>
+                  </select>
+                  <Button variant="ghost" size="sm">
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
                 </div>
-              ))}
+              </div>
+              <div className="divide-y divide-border">
+                {(eventsData?.events && eventsData.events.length > 0 ? eventsData.events : []).map((event) => (
+                  <div key={event.id} className="px-6 py-4 hover:bg-bg-hover transition-colors">
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs text-text-muted w-32 flex-shrink-0">
+                        {new Date(event.createdAt).toLocaleString([], { 
+                          month: 'short', 
+                          day: 'numeric',
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </span>
+                      <Badge 
+                        variant="default" 
+                        size="sm"
+                        className={cn(
+                          event.type === 'power' && 'bg-accent/20 text-accent border-accent/30',
+                          event.type === 'config' && 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+                          event.type === 'snapshot' && 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                          event.type === 'error' && 'bg-error/20 text-error border-error/30',
+                          event.type === 'network' && 'bg-green-500/20 text-green-400 border-green-500/30',
+                          event.type === 'disk' && 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+                        )}
+                      >
+                        {event.type}
+                      </Badge>
+                      <span className="text-sm text-text-primary flex-1">{event.message}</span>
+                      <span className="text-xs text-text-muted">{event.user || 'system'}</span>
+                    </div>
+                  </div>
+                ))}
+                {(!eventsData?.events || eventsData.events.length === 0) && (
+                  <div className="px-6 py-12 text-center">
+                    <Activity className="w-12 h-12 mx-auto text-text-muted mb-4" />
+                    <h4 className="text-lg font-medium text-text-primary mb-2">No Events</h4>
+                    <p className="text-text-muted">
+                      No events recorded for this VM yet. Events will appear here as you perform actions.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -1228,6 +1554,98 @@ export function VMDetail() {
         currentMemoryMib={vm.spec.memory.sizeMib}
         onSave={handleSaveResources}
       />
+
+      {/* Delete VM Modal */}
+      <DeleteVMModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        vmId={id || ''}
+        vmName={vm.name}
+        vmState={vm.status.state}
+        onDelete={handleDeleteConfirm}
+        isPending={deleteVM.isPending}
+      />
+
+      {/* Start and Open Console Modal (for stopped VMs) */}
+      <StartAndOpenConsoleModal
+        isOpen={isStartAndConsoleModalOpen}
+        onClose={() => setIsStartAndConsoleModalOpen(false)}
+        vmId={id || ''}
+        vmName={vm.name}
+        onStartVM={handleStart}
+        onOpenConsole={() => setIsConsoleOpen(true)}
+        isStarting={startVM.isPending}
+        vmState={vm.status.state}
+      />
+
+      {/* Clone VM Wizard */}
+      <CloneVMWizard
+        isOpen={isCloneWizardOpen}
+        onClose={() => setIsCloneWizardOpen(false)}
+        sourceVmId={id || ''}
+        sourceVmName={vm.name}
+        sourceVmProjectId={vm.projectId}
+      />
+
+      {/* Add Disk Modal */}
+      <AddDiskModal
+        isOpen={isAddDiskModalOpen}
+        onClose={() => setIsAddDiskModalOpen(false)}
+        vmId={id || ''}
+        vmName={vm.name}
+        onAddDisk={handleAddDisk}
+      />
+
+      {/* Resize Disk Modal */}
+      {resizeDiskInfo && (
+        <ResizeDiskModal
+          isOpen={!!resizeDiskInfo}
+          onClose={() => setResizeDiskInfo(null)}
+          vmId={id || ''}
+          vmName={vm.name}
+          diskId={resizeDiskInfo.diskId}
+          diskName={resizeDiskInfo.diskName}
+          currentSizeGib={resizeDiskInfo.currentSizeGib}
+          onResize={handleResizeDisk}
+        />
+      )}
+
+      {/* Add NIC Modal */}
+      <AddNICModal
+        isOpen={isAddNICModalOpen}
+        onClose={() => setIsAddNICModalOpen(false)}
+        vmId={id || ''}
+        vmName={vm.name}
+        availableNetworks={[
+          { id: 'default', name: 'Default Network', cidr: '192.168.0.0/24' },
+          { id: 'management', name: 'Management', cidr: '10.0.0.0/24' },
+        ]}
+        onAddNIC={handleAddNIC}
+      />
+
+      {/* Configuration Edit Modals */}
+      {apiVm && (
+        <>
+          <EditBootOptionsModal
+            isOpen={isBootOptionsModalOpen}
+            onClose={() => setIsBootOptionsModalOpen(false)}
+            vm={apiVm}
+            onSave={handleSaveBootOptions}
+          />
+          <EditDisplaySettingsModal
+            isOpen={isDisplaySettingsModalOpen}
+            onClose={() => setIsDisplaySettingsModalOpen(false)}
+            vm={apiVm}
+            onSave={handleSaveDisplaySettings}
+          />
+          <EditHAPolicyModal
+            isOpen={isHAPolicyModalOpen}
+            onClose={() => setIsHAPolicyModalOpen(false)}
+            vm={apiVm}
+            onSave={handleSaveHAPolicy}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -1273,78 +1691,6 @@ function StatRow({ icon, label, value }: { icon: React.ReactNode; label: string;
         <span className="text-sm">{label}</span>
       </div>
       <span className="text-sm font-medium text-text-primary">{value}</span>
-    </div>
-  );
-}
-
-function SnapshotRow({
-  snapshot,
-  onRevert,
-  onDelete,
-  isActionPending,
-  vmState,
-}: {
-  snapshot: ApiSnapshot;
-  onRevert: () => void;
-  onDelete: () => void;
-  isActionPending: boolean;
-  vmState: string;
-}) {
-  const createdDate = snapshot.createdAt ? new Date(snapshot.createdAt) : null;
-  
-  return (
-    <div className="px-6 py-4 hover:bg-bg-hover transition-colors">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 flex-1 min-w-0">
-          <div className="p-2 rounded-lg bg-bg-base border border-border">
-            <Camera className="w-5 h-5 text-accent" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h4 className="font-medium text-text-primary truncate">{snapshot.name}</h4>
-              {snapshot.memoryIncluded && (
-                <Badge variant="default" size="sm">Memory</Badge>
-              )}
-              {snapshot.quiesced && (
-                <Badge variant="default" size="sm">Quiesced</Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-4 mt-1 text-sm text-text-muted">
-              {snapshot.description && (
-                <span className="truncate max-w-xs">{snapshot.description}</span>
-              )}
-              {createdDate && (
-                <span className="flex items-center gap-1 whitespace-nowrap">
-                  <Clock className="w-3 h-3" />
-                  {createdDate.toLocaleDateString()} {createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              )}
-              <span className="whitespace-nowrap">{formatSnapshotSize(snapshot.sizeBytes)}</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 ml-4">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onRevert}
-            disabled={isActionPending || (vmState === 'RUNNING' && !snapshot.memoryIncluded)}
-            title={vmState === 'RUNNING' && !snapshot.memoryIncluded ? 'Stop VM to revert to disk-only snapshot' : 'Revert to this snapshot'}
-          >
-            <RotateCcw className="w-4 h-4" />
-            Revert
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDelete}
-            disabled={isActionPending}
-            className="text-error hover:text-error hover:bg-error/10"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

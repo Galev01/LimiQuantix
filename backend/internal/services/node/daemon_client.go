@@ -377,6 +377,25 @@ func (c *DaemonClient) DetachNIC(ctx context.Context, vmID, nicID string) error 
 	return err
 }
 
+// GuestAgentInfo contains information from the guest agent.
+type GuestAgentInfo struct {
+	Version       string
+	UptimeSeconds uint64
+	Connected     bool
+}
+
+// PingGuestAgent pings the guest agent in a VM.
+// TODO: Implement via virtio-serial channel when node daemon supports it.
+func (c *DaemonClient) PingGuestAgent(ctx context.Context, vmID string) (*GuestAgentInfo, error) {
+	c.logger.Debug("PingGuestAgent called",
+		zap.String("vm_id", vmID),
+	)
+
+	// TODO: The node daemon needs to implement guest agent communication
+	// via virtio-serial. For now, return an error indicating not supported.
+	return nil, fmt.Errorf("guest agent communication not yet implemented in node daemon")
+}
+
 // MigrateVM migrates a VM to another node.
 func (c *DaemonClient) MigrateVM(ctx context.Context, vmID, targetNodeURI string, live, storage bool) (<-chan *nodev1.MigrationProgress, error) {
 	stream, err := c.client.MigrateVM(ctx, &nodev1.MigrateVMRequest{

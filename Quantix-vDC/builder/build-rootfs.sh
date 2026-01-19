@@ -158,6 +158,8 @@ fi
 # Make scripts executable
 chmod +x "${ROOTFS_DIR}/usr/bin/"* 2>/dev/null || true
 chmod +x "${ROOTFS_DIR}/etc/init.d/"* 2>/dev/null || true
+chmod +x "${ROOTFS_DIR}/etc/local.d/"* 2>/dev/null || true
+chmod +x "${ROOTFS_DIR}/usr/share/udhcpc/"* 2>/dev/null || true
 
 # -----------------------------------------------------------------------------
 # Step 4: Configure system
@@ -334,24 +336,44 @@ EOF
 # Create a startup script to configure the correct interface
 cat > "${ROOTFS_DIR}/etc/local.d/10-network-init.start" << 'NETSCRIPT'
 #!/bin/sh
-# Auto-detect and configure first ethernet interface
+# Auto-detect and configure network interfaces
+# This script ensures proper DHCP configuration with gateway and DNS
+
+UDHCPC_SCRIPT="/usr/share/udhcpc/default.script"
 
 # Find first ethernet interface
 IFACE=$(ip link show | grep -E "^[0-9]+: (eth|enp|ens)[^:]*:" | head -1 | awk -F: '{print $2}' | tr -d ' ')
+[ -z "$IFACE" ] && IFACE="eth0"
 
-if [ -n "$IFACE" ] && [ "$IFACE" != "eth0" ]; then
-    # Interface name differs from default config
-    if ! grep -q "auto $IFACE" /etc/network/interfaces; then
-        # Append the correct interface config
-        cat >> /etc/network/interfaces << EOF
+# Check if interface already has an IP
+HAS_IP=$(ip -4 addr show "$IFACE" 2>/dev/null | grep -c "inet ")
 
-# Auto-detected interface
-auto $IFACE
-iface $IFACE inet dhcp
-EOF
-        # Start the interface
-        ip link set "$IFACE" up
-        udhcpc -i "$IFACE" -b -q 2>/dev/null &
+if [ "$HAS_IP" -eq 0 ]; then
+    # No IP yet, run DHCP
+    logger -t "network-init" "Configuring $IFACE via DHCP"
+    ip link set "$IFACE" up 2>/dev/null
+    
+    # Run udhcpc with our custom script that properly sets gateway
+    if [ -x "$UDHCPC_SCRIPT" ]; then
+        udhcpc -i "$IFACE" -s "$UDHCPC_SCRIPT" -t 5 -T 3 -b -q 2>/dev/null &
+    else
+        udhcpc -i "$IFACE" -t 5 -T 3 -b -q 2>/dev/null &
+    fi
+fi
+
+# Also check for WiFi interface
+WIFI_IFACE=$(ip link show | grep -E "^[0-9]+: (wlan|wlp)[^:]*:" | head -1 | awk -F: '{print $2}' | tr -d ' ')
+if [ -n "$WIFI_IFACE" ]; then
+    # WiFi found - check if wpa_supplicant config exists
+    if [ -f "/etc/wpa_supplicant/wpa_supplicant.conf" ]; then
+        logger -t "network-init" "Starting WiFi on $WIFI_IFACE"
+        wpa_supplicant -B -i "$WIFI_IFACE" -c /etc/wpa_supplicant/wpa_supplicant.conf 2>/dev/null
+        sleep 3
+        if [ -x "$UDHCPC_SCRIPT" ]; then
+            udhcpc -i "$WIFI_IFACE" -s "$UDHCPC_SCRIPT" -t 5 -T 3 -b -q 2>/dev/null &
+        else
+            udhcpc -i "$WIFI_IFACE" -t 5 -T 3 -b -q 2>/dev/null &
+        fi
     fi
 fi
 NETSCRIPT
