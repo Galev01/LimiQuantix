@@ -48,7 +48,7 @@ import { useImages, formatImageSize, getDefaultUser, type CloudImage } from '@/h
 import { useStoragePools, useVolumes } from '@/hooks/useStorage';
 import { useNetworks } from '@/hooks/useNetwork';
 import { cn, formatBytes } from '@/lib/utils';
-import type { CreateVmRequest, DiskSpec, NicSpec, StoragePool, Volume } from '@/api/types';
+import type { CreateVmRequest, DiskSpec, NicSpec, StoragePool } from '@/api/types';
 import type { VolumeInfo } from '@/api/storage';
 
 // ============================================================================
@@ -1509,7 +1509,7 @@ function StepStorage({
                       <p className="text-sm font-medium text-text-primary">{pool.poolId}</p>
                       <Badge variant="default" size="sm">{pool.type}</Badge>
                       {pool.volumeCount > 0 && (
-                        <Badge variant="secondary" size="sm">{pool.volumeCount} volumes</Badge>
+                        <Badge variant="info" size="sm">{pool.volumeCount} volumes</Badge>
                       )}
                     </div>
                     <p className="text-xs text-text-muted">
