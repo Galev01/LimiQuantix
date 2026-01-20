@@ -276,9 +276,11 @@ impl<'a> DomainXmlBuilder<'a> {
             ));
         }
         
-        // Video device - use QXL for broad compatibility (virtio-gpu-pci not available on all QEMU versions)
+        // Video device - use 'vga' for maximum compatibility across all QEMU builds
+        // 'vga' is the standard VGA adapter, universally supported
+        // Note: virtio-gpu-pci requires virtio-gpu kernel module, qxl requires qxl driver
         xml.push_str(r#"    <video>
-      <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>
+      <model type='vga' vram='16384' heads='1' primary='yes'/>
     </video>
 "#);
         

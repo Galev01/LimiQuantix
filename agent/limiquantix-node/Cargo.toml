@@ -6,7 +6,9 @@ authors.workspace = true
 license.workspace = true
 
 [features]
-default = []
+# libvirt is enabled by default for production use on Quantix-OS
+# The mock backend is only used for development/testing without libvirt
+default = ["libvirt"]
 # Enable libvirt backend (requires system libvirt)
 libvirt = ["limiquantix-hypervisor/libvirt"]
 

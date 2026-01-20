@@ -1,87 +1,132 @@
 # Workflow State
 
-## Active Task: QvDC API Issues Fix
+## Active Task: Volume Selection in VM Creation Wizard
 
 **Date:** January 20, 2026
-**Status:** Fixes Applied - Ready for Testing
+**Status:** ✅ Complete
 
-### Issues Summary
+### Overview
 
-| # | Issue | Type | Priority | Status |
-|---|-------|------|----------|--------|
-| 1 | Cloud image not found on QHCI02 | Operational | Low | ⏳ User action required |
-| 2 | `/api/customization-specs` 404 | Missing Backend Endpoint | High | ✅ Fixed |
-| 3 | `ListPoolFiles` 500 errors | Node connectivity/config | Medium | ⏳ Needs investigation |
-| 4 | `/api/v1/images/upload` 502 | Nginx/Backend issue | Medium | ⏳ Needs investigation |
-| 5 | `DownloadImage` 404 | Service registration | Medium | ⏳ Needs investigation |
-| 6 | `StartVM` 500 - virtio-gpu-pci | **CRITICAL** - Code Fix | Critical | ✅ Fixed |
-| 7 | `CreateVM` 500 | Same as #1 | Low | ⏳ User action required |
+Implemented volume selection in VM creation wizards for both Quantix-vDC (frontend) and Quantix-OS Host UI (quantix-host-ui). This is a key differentiator from VMware's datastore model.
 
-### Fixes Applied
+### Why Volumes Matter (vs VMware Datastores)
 
-#### Issue #6: virtio-gpu-pci Compatibility (CRITICAL)
+| Feature | VMware Datastore | Quantix Volumes |
+|---------|------------------|-----------------|
+| Granularity | Entire datastore | Individual volumes |
+| Lifecycle | Tied to datastore | Independent |
+| Snapshots | VM-level only | Volume-level |
+| Migration | Whole VM | Per-volume |
+| Sharing | Limited | Multi-attach capable |
+| Cloning | VM clone only | Volume clone |
+| Templates | OVF/OVA | Volume templates |
 
-**File:** `agent/limiquantix-hypervisor/src/xml.rs`
+### Implementation Summary
 
-**Change:** Changed video model from `virtio` to `qxl` for broader QEMU compatibility.
+#### Changes Made
 
-```rust
-// Before (line 280-282):
-xml.push_str(r#"    <video>
-      <model type='virtio' heads='1' primary='yes'/>
-    </video>
+**1. Host UI (quantix-host-ui)**
+- Updated `DiskConfig` interface with `sourceType`, `existingVolumeId`, `existingVolumePath` fields
+- Enhanced `StepStorage` component with:
+  - Volume fetching via `useVolumes(poolId)` hook
+  - Toggle between "Create New" and "Use Existing Volume" for each disk
+  - Volume selection dropdown showing available (unattached) volumes
+  - Visual indicators for existing volumes vs new disks
+  - Info panel explaining volume benefits
+- Updated `StepReview` to display volume information
 
-// After:
-xml.push_str(r#"    <video>
-      <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>
-    </video>
-```
+**2. vDC Dashboard (frontend)**
+- Same changes as Host UI
+- Adapted for vDC API structure (`VolumeUI` type from `useStorage` hook)
+- Added volume count badge to storage pool selection
 
-**Why:** `virtio-gpu-pci` requires specific QEMU/kernel support that isn't available on all hosts. QXL is widely supported and works well with both VNC and SPICE.
+### Files Modified
 
-#### Issue #2: Customization Specs API
+1. `quantix-host-ui/src/components/vm/CreateVMWizard.tsx`
+   - Added `useVolumes` import
+   - Extended `DiskConfig` interface
+   - Rewrote `StepStorage` with volume selection
+   - Updated `StepReview` storage section
 
-**Files Created:**
-1. `backend/internal/repository/postgres/customization_spec_repository.go` - PostgreSQL repository
-2. `backend/internal/server/customization_spec_handler.go` - REST API handler
+2. `frontend/src/components/vm/VMCreationWizard.tsx`
+   - Added `useVolumes`, `VolumeUI` imports
+   - Extended `DiskConfig` interface
+   - Rewrote `StepStorage` with volume selection
+   - Updated `StepReview` storage section
 
-**Files Modified:**
-1. `backend/internal/server/server.go` - Added repository and handler registration
+### UI Features
 
-**Endpoints Added:**
-- `GET /api/customization-specs` - List all specs (with optional filters)
-- `POST /api/customization-specs` - Create new spec
-- `GET /api/customization-specs/{id}` - Get spec by ID
-- `PUT /api/customization-specs/{id}` - Update spec
-- `DELETE /api/customization-specs/{id}` - Delete spec
+- **Source Type Toggle**: Each disk can be "Create New" or "Use Existing Volume"
+- **Volume List**: Shows available volumes in selected pool (filters out attached volumes)
+- **Volume Selection**: Click to select, shows confirmation with size
+- **Boot Disk Badge**: First disk marked as boot disk
+- **Existing Volume Badge**: Visual indicator for volumes vs new disks
+- **Summary**: Shows count of new disks vs existing volumes
+- **Capacity Validation**: Only validates capacity for new disks
+- **Info Panel**: Explains benefits of using existing volumes
 
-### Build Status
+### Next Steps (Optional Enhancements)
 
-- ✅ Go Backend: Compiles successfully
-- ✅ Rust Hypervisor: Compiles successfully
-
-### Next Steps for User
-
-1. **Rebuild and deploy the agent** on QHCI01/QHCI02:
-   ```bash
-   cd agent && cargo build --release
-   # Copy limiquantix-node binary to hosts
-   ```
-
-2. **Restart the backend** on QvDC:
-   ```bash
-   # Restart the control plane service
-   ```
-
-3. **Test VM creation** - Should now work without virtio-gpu-pci errors
-
-4. **For cloud image issue (Issue #1 & #7):** Run on QHCI02:
-   ```bash
-   setup-cloud-images.sh ubuntu-22.04
-   ```
+1. Backend verification that CreateVM API supports existing volume attachment
+2. Add volume creation inline (create volume without leaving wizard)
+3. Add volume cloning option (clone existing volume for new VM)
+4. Add volume template support
 
 ---
 
-## Previous Task: VMDetail Page - Phases 9 & 10
+## Current Task: QvDC API Issues Fix
 
-**Status:** Complete (January 19, 2026)
+**Date:** January 20, 2026
+**Status:** ISO Rebuild in Progress - Fixes Applied, Awaiting Deployment
+
+### Summary
+
+Multiple issues discovered during VM creation testing. Code fixes applied, ISO being rebuilt.
+
+### Issues Tracker
+
+| # | Issue | Status | Notes |
+|---|-------|--------|-------|
+| 1 | Cloud image not found on QHCI02 | ⏳ Pending | Run `setup-cloud-images.sh ubuntu-22.04` |
+| 2 | `/api/customization-specs` 404 | ✅ Code Fixed | Backend needs rebuild/restart |
+| 3 | `ListPoolFiles` 500 errors | ⏳ Needs investigation | Check backend logs |
+| 4 | `/api/v1/images/upload` 502 | ⏳ Needs investigation | Check Nginx + backend |
+| 5 | `DownloadImage` 404 | ⏳ Needs investigation | Check ImageService routes |
+| 6 | Video model errors (virtio→qxl→vga) | ✅ Code Fixed | Changed to `vga` for max compatibility |
+| 7 | `CreateVM` 500 | Same as #1 | Cloud image issue |
+
+### Code Fixes Applied
+
+1. **Video Model Fix** (`agent/limiquantix-hypervisor/src/xml.rs`):
+   - Changed from `virtio-gpu-pci` → `qxl` → `vga`
+   - `vga` is universally supported across all QEMU builds
+
+2. **Customization Specs API** (Backend):
+   - `backend/internal/repository/postgres/customization_spec_repository.go` - New
+   - `backend/internal/server/customization_spec_handler.go` - New
+   - `backend/internal/server/server.go` - Updated routes
+
+3. **Build System** (`Quantix-OS/builder/build-node-daemon.sh`):
+   - Enforces musl target for Alpine compatibility
+   - `libvirt` feature now default in `agent/limiquantix-node/Cargo.toml`
+
+### Critical Discovery: Binary Compatibility
+
+**Problem:** Ubuntu-built binaries (glibc) don't run on Quantix-OS (Alpine/musl).
+
+**Solution:** Always use Docker-based build or cross-compile with musl target:
+```bash
+# Option 1: Docker build (recommended)
+cd Quantix-OS && ./build.sh --skip-pull
+
+# Option 2: Manual cross-compile
+rustup target add x86_64-unknown-linux-musl
+cargo build --release -p limiquantix-node --target x86_64-unknown-linux-musl --features libvirt
+```
+
+### Next Steps After ISO Rebuild
+
+1. Install new ISO on QHCI02
+2. Rebuild and restart backend on QvDC for customization-specs fix
+3. Test VM creation with new `vga` video model
+4. Investigate remaining issues (#3, #4, #5)

@@ -45,10 +45,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button, Badge } from '@/components/ui';
 import { useCreateVM } from '@/hooks/useVMs';
 import { useImages, formatImageSize, getDefaultUser, type CloudImage } from '@/hooks/useImages';
-import { useStoragePools } from '@/hooks/useStorage';
+import { useStoragePools, useVolumes } from '@/hooks/useStorage';
 import { useNetworks } from '@/hooks/useNetwork';
 import { cn, formatBytes } from '@/lib/utils';
-import type { CreateVmRequest, DiskSpec, NicSpec, StoragePool } from '@/api/types';
+import type { CreateVmRequest, DiskSpec, NicSpec, StoragePool, Volume } from '@/api/types';
+import type { VolumeInfo } from '@/api/storage';
 
 // ============================================================================
 // Types
@@ -64,6 +65,10 @@ interface DiskConfig {
   name: string;
   sizeGib: number;
   provisioning: 'thin' | 'thick';
+  // Volume selection support
+  sourceType: 'new' | 'existing';
+  existingVolumeId?: string;
+  existingVolumePath?: string;
 }
 
 interface NetworkInterface {
@@ -138,7 +143,7 @@ const initialFormData: VMCreationData = {
   cloudImageId: '',
   isoId: '',
   storagePoolId: '',
-  disks: [{ id: 'disk-1', name: 'Hard disk 1', sizeGib: 50, provisioning: 'thin' }],
+  disks: [{ id: 'disk-1', name: 'Hard disk 1', sizeGib: 50, provisioning: 'thin', sourceType: 'new' }],
   installAgent: true,
   hostname: '',
   timezone: 'UTC',
@@ -1404,12 +1409,29 @@ function StepStorage({
   storagePools: StoragePool[];
   isLoading: boolean;
 }) {
-  const addDisk = () => {
+  // Fetch volumes for the selected pool
+  const { data: volumes, isLoading: volumesLoading } = useVolumes(formData.storagePoolId);
+  
+  // Filter available volumes (not attached to any VM)
+  const availableVolumes = useMemo(() => {
+    if (!volumes) return [];
+    return volumes.filter(v => !v.attachedTo);
+  }, [volumes]);
+  
+  // Get volumes already selected in this wizard
+  const selectedVolumeIds = useMemo(() => {
+    return formData.disks
+      .filter(d => d.sourceType === 'existing' && d.existingVolumeId)
+      .map(d => d.existingVolumeId!);
+  }, [formData.disks]);
+  
+  const addDisk = (sourceType: 'new' | 'existing' = 'new') => {
     const newDisk: DiskConfig = {
       id: `disk-${Date.now()}`,
       name: `Hard disk ${formData.disks.length + 1}`,
       sizeGib: 50,
       provisioning: 'thin',
+      sourceType,
     };
     updateFormData({ disks: [...formData.disks, newDisk] });
   };
@@ -1421,6 +1443,15 @@ function StepStorage({
   const updateDisk = (id: string, updates: Partial<DiskConfig>) => {
     updateFormData({
       disks: formData.disks.map(d => (d.id === id ? { ...d, ...updates } : d)),
+    });
+  };
+  
+  const selectExistingVolume = (diskId: string, volume: VolumeInfo) => {
+    updateDisk(diskId, {
+      existingVolumeId: volume.volumeId,
+      existingVolumePath: volume.path,
+      sizeGib: Math.ceil(volume.sizeBytes / (1024 * 1024 * 1024)),
+      name: volume.volumeId,
     });
   };
   
@@ -1448,7 +1479,7 @@ function StepStorage({
       
       {/* Storage Pool Selection */}
       {!isLoading && (
-        <FormField label="Storage Pool">
+        <FormField label="Storage Pool" required>
           <div className="grid gap-3">
             {storagePools.map(pool => {
               const usagePercent = pool.totalBytes > 0
@@ -1477,6 +1508,9 @@ function StepStorage({
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-text-primary">{pool.poolId}</p>
                       <Badge variant="default" size="sm">{pool.type}</Badge>
+                      {pool.volumeCount > 0 && (
+                        <Badge variant="secondary" size="sm">{pool.volumeCount} volumes</Badge>
+                      )}
                     </div>
                     <p className="text-xs text-text-muted">
                       {formatBytes(pool.availableBytes)} available of {formatBytes(pool.totalBytes)}
@@ -1511,58 +1545,202 @@ function StepStorage({
       <div className="p-5 rounded-xl bg-bg-base border border-border">
         <div className="flex items-center justify-between mb-4">
           <h4 className="font-medium text-text-primary">Virtual Disks</h4>
-          <Button variant="ghost" size="sm" onClick={addDisk}>
-            <Plus className="w-4 h-4" />
-            Add Disk
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => addDisk('existing')} disabled={!formData.storagePoolId}>
+              <HardDrive className="w-4 h-4" />
+              Attach Volume
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => addDisk('new')}>
+              <Plus className="w-4 h-4" />
+              New Disk
+            </Button>
+          </div>
         </div>
         
         <div className="space-y-3">
-          {formData.disks.map(disk => (
+          {formData.disks.map((disk, index) => (
             <div
               key={disk.id}
-              className="flex items-center gap-4 p-3 rounded-lg bg-bg-surface border border-border"
+              className="p-3 rounded-lg bg-bg-surface border border-border"
             >
-              <HardDrive className="w-4 h-4 text-text-muted shrink-0" />
-              <span className="text-sm font-medium text-text-secondary shrink-0">{disk.name}</span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min="1"
-                  value={disk.sizeGib}
-                  onChange={(e) => updateDisk(disk.id, { sizeGib: parseInt(e.target.value) || 1 })}
-                  className="w-20 px-2 py-1 bg-bg-base border border-border rounded text-center text-text-primary focus:border-accent focus:outline-none"
-                />
-                <span className="text-sm text-text-muted shrink-0">GiB</span>
+              {/* Disk Header */}
+              <div className="flex items-center gap-3 mb-3">
+                <HardDrive className="w-4 h-4 text-text-muted shrink-0" />
+                <span className="text-sm font-medium text-text-secondary">{disk.name}</span>
+                {index === 0 && (
+                  <Badge variant="info" size="sm">Boot Disk</Badge>
+                )}
+                {disk.sourceType === 'existing' && (
+                  <Badge variant="success" size="sm">Existing Volume</Badge>
+                )}
+                <div className="flex-1" />
+                {formData.disks.length > 1 && (
+                  <button
+                    onClick={() => removeDisk(disk.id)}
+                    className="p-1.5 rounded-md text-text-muted hover:text-error hover:bg-error/10 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-              <select
-                value={disk.provisioning}
-                onChange={(e) => updateDisk(disk.id, { provisioning: e.target.value as 'thin' | 'thick' })}
-                className="w-28 px-2 py-1 bg-bg-base border border-border rounded text-text-primary focus:border-accent focus:outline-none"
-              >
-                <option value="thin">Thin</option>
-                <option value="thick">Thick</option>
-              </select>
-              {formData.disks.length > 1 && (
+              
+              {/* Source Type Toggle */}
+              <div className="flex items-center gap-2 mb-3">
                 <button
-                  onClick={() => removeDisk(disk.id)}
-                  className="p-1.5 rounded-md text-text-muted hover:text-error hover:bg-error/10 transition-colors shrink-0"
+                  onClick={() => updateDisk(disk.id, { sourceType: 'new', existingVolumeId: undefined, existingVolumePath: undefined })}
+                  className={cn(
+                    'px-3 py-1.5 text-xs rounded-md transition-all',
+                    disk.sourceType === 'new'
+                      ? 'bg-accent text-white'
+                      : 'bg-bg-elevated text-text-muted hover:text-text-primary'
+                  )}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  Create New
                 </button>
+                <button
+                  onClick={() => updateDisk(disk.id, { sourceType: 'existing' })}
+                  disabled={!formData.storagePoolId}
+                  className={cn(
+                    'px-3 py-1.5 text-xs rounded-md transition-all',
+                    disk.sourceType === 'existing'
+                      ? 'bg-accent text-white'
+                      : 'bg-bg-elevated text-text-muted hover:text-text-primary',
+                    !formData.storagePoolId && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  Use Existing Volume
+                </button>
+              </div>
+              
+              {/* New Disk Configuration */}
+              {disk.sourceType === 'new' && (
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-text-muted">Size:</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={disk.sizeGib}
+                      onChange={(e) => updateDisk(disk.id, { sizeGib: parseInt(e.target.value) || 1 })}
+                      className="w-20 px-2 py-1 bg-bg-base border border-border rounded text-center text-text-primary focus:border-accent focus:outline-none text-sm"
+                    />
+                    <span className="text-xs text-text-muted">GiB</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-text-muted">Provisioning:</label>
+                    <select
+                      value={disk.provisioning}
+                      onChange={(e) => updateDisk(disk.id, { provisioning: e.target.value as 'thin' | 'thick' })}
+                      className="px-2 py-1 bg-bg-base border border-border rounded text-text-primary focus:border-accent focus:outline-none text-sm"
+                    >
+                      <option value="thin">Thin</option>
+                      <option value="thick">Thick</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+              
+              {/* Existing Volume Selection */}
+              {disk.sourceType === 'existing' && (
+                <div className="space-y-2">
+                  {volumesLoading ? (
+                    <div className="flex items-center gap-2 py-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                      <span className="text-xs text-text-muted">Loading volumes...</span>
+                    </div>
+                  ) : availableVolumes.length === 0 ? (
+                    <div className="p-3 rounded-md bg-warning/10 border border-warning/30">
+                      <p className="text-xs text-warning">
+                        No available volumes in this pool. All volumes are either attached to VMs or the pool is empty.
+                      </p>
+                      <p className="text-xs text-text-muted mt-1">
+                        Create volumes in Storage → Volumes, or switch to "Create New" to create a disk.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {disk.existingVolumeId ? (
+                        <div className="flex items-center justify-between p-2 rounded-md bg-success/10 border border-success/30">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-success" />
+                            <div>
+                              <p className="text-sm font-medium text-text-primary">{disk.existingVolumeId}</p>
+                              <p className="text-xs text-text-muted">{formatBytes(disk.sizeGib * 1024 * 1024 * 1024)}</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => updateDisk(disk.id, { existingVolumeId: undefined, existingVolumePath: undefined })}
+                            className="text-xs text-text-muted hover:text-text-primary"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                          {availableVolumes
+                            .filter(v => !selectedVolumeIds.includes(v.volumeId) || v.volumeId === disk.existingVolumeId)
+                            .map(volume => (
+                              <button
+                                key={volume.volumeId}
+                                onClick={() => selectExistingVolume(disk.id, volume)}
+                                className="w-full flex items-center justify-between p-2 rounded-md bg-bg-elevated hover:bg-bg-hover border border-border hover:border-accent/50 transition-all text-left"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <HardDrive className="w-4 h-4 text-text-muted" />
+                                  <div>
+                                    <p className="text-sm font-medium text-text-primary">{volume.volumeId}</p>
+                                    <p className="text-xs text-text-muted truncate max-w-[200px]">{volume.path}</p>
+                                  </div>
+                                </div>
+                                <span className="text-xs text-text-muted">{formatBytes(volume.sizeBytes)}</span>
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               )}
             </div>
           ))}
         </div>
         
-        <div className="mt-3">
-          <p className="text-xs text-text-muted">
-            Total disk space: <span className="font-medium text-text-primary">
-              {formData.disks.reduce((sum, d) => sum + d.sizeGib, 0)} GiB
+        {/* Summary */}
+        <div className="mt-4 pt-3 border-t border-border">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-text-muted">
+              {formData.disks.filter(d => d.sourceType === 'new').length} new disk(s), {' '}
+              {formData.disks.filter(d => d.sourceType === 'existing').length} existing volume(s)
             </span>
-          </p>
+            <span className="text-text-muted">
+              Total new disk space: <span className="font-medium text-text-primary">
+                {formData.disks.filter(d => d.sourceType === 'new').reduce((sum, d) => sum + d.sizeGib, 0)} GiB
+              </span>
+            </span>
+          </div>
         </div>
       </div>
+      
+      {/* Volume Benefits Info */}
+      {formData.disks.some(d => d.sourceType === 'existing') && (
+        <div className="p-4 rounded-lg bg-info/10 border border-info/30">
+          <h5 className="text-sm font-medium text-info mb-2">Using Existing Volumes</h5>
+          <ul className="text-xs text-text-muted space-y-1">
+            <li className="flex items-center gap-2">
+              <CheckCircle className="w-3 h-3 text-info" />
+              <span>Data persists independently of VM lifecycle</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle className="w-3 h-3 text-info" />
+              <span>Volumes can be detached and reattached to different VMs</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle className="w-3 h-3 text-info" />
+              <span>Supports volume-level snapshots and cloning</span>
+            </li>
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -1730,13 +1908,20 @@ function StepReview({
         {/* Storage */}
         <ReviewSection title="Storage">
           <ReviewRow label="Pool" value={selectedPool?.poolId || '—'} />
+          {formData.disks.map((disk, index) => (
+            <ReviewRow
+              key={disk.id}
+              label={`Disk ${index + 1}${index === 0 ? ' (Boot)' : ''}`}
+              value={
+                disk.sourceType === 'existing'
+                  ? `${disk.existingVolumeId} (existing volume, ${disk.sizeGib} GB)`
+                  : `${disk.sizeGib} GB (${disk.provisioning}, new)`
+              }
+            />
+          ))}
           <ReviewRow
-            label="Disks"
-            value={formData.disks.map(d => `${d.sizeGib} GB (${d.provisioning})`).join(', ')}
-          />
-          <ReviewRow
-            label="Total"
-            value={`${formData.disks.reduce((sum, d) => sum + d.sizeGib, 0)} GB`}
+            label="Summary"
+            value={`${formData.disks.filter(d => d.sourceType === 'new').length} new, ${formData.disks.filter(d => d.sourceType === 'existing').length} existing`}
           />
         </ReviewSection>
         

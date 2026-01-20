@@ -8,19 +8,19 @@ alwaysApply: true
 
 | ID | Role | IP Address | Hardware | Notes |
 |----|------|------------|----------|-------|
-| QvDC | Quantix-vDC Control Plane | 192.168.0.95 | Dell Latitude 5420 | Runs Control Plane + Dashboard |
-| QHCI01 | Quantix-OS Host | 192.168.0.32 | Lenovo ThinkPad Pro | First hypervisor host |
-| QHCI02 | Quantix-OS Host | TBD | Lenovo ThinkPad Pro | Second hypervisor host |
+| QvDC | Quantix-vDC Control Plane | 192.168.0.100 | Dell Latitude 5420 | Runs Control Plane + Dashboard |
+| QHCI01 | Quantix-OS Host | 192.168.0.101 | Lenovo ThinkPad Pro | First hypervisor host | 20 CPU | 32 GB RAM
+| QHCI02 | Quantix-OS Host | 192.168.0.102 | Lenovo ThinkPad Pro | Second hypervisor host | 20 CPU | 64 GB RAM
 
 ## Services
 
 | Service | URL | Port | Description |
 |---------|-----|------|-------------|
-| **Update Server** | http://192.168.0.95:9000 | 9000 | OTA update server with Admin UI |
-| **QvDC Dashboard** | https://192.168.0.95:443 | 443 | vDC web management interface |
-| **QvDC API** | http://192.168.0.95:8080 | 8080 | Control plane gRPC/REST API |
-| **QHCI01 Host UI** | https://192.168.0.32:8443 | 8443 | Host web management interface |
-| **QHCI01 Node API** | https://192.168.0.32:9443 | 9443 | Node daemon gRPC API |
+| **Update Server** | http://192.168.0.148:9000 | 9000 | OTA update server with Admin UI |
+| **QvDC Dashboard** | https://192.168.0.100:443 | 443 | vDC web management interface |
+| **QvDC API** | http://192.168.0.100:8080 | 8080 | Control plane gRPC/REST API |
+| **QHCI01 Host UI** | https://192.168.0.101:8443 | 8443 | Host web management interface |
+| **QHCI01 Node API** | https://192.168.0.101:9443 | 9443 | Node daemon gRPC API |
 
 ## Update Server Quick Reference
 
@@ -32,11 +32,11 @@ cd update-server
 docker-compose up -d
 ```
 
-**Admin UI:** http://192.168.0.95:9000
+**Admin UI:** http://192.168.0.100:9000
 
 **Default credentials:**
 - Publish Token: `dev-token` (change in production!)
 
 **Hosts pull updates from:**
-- Update Server URL: `http://192.168.0.95:9000`
+- Update Server URL: `http://192.168.0.148:9000`
 - Channel: `dev` (development), `beta`, or `stable`
