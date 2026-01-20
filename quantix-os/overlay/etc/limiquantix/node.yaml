@@ -101,3 +101,43 @@ control_plane:
   
   # Heartbeat interval in seconds
   heartbeat_interval_secs: 30
+
+# =============================================================================
+# OTA Update Configuration
+# =============================================================================
+# Enables Over-The-Air updates from the Quantix Update Server.
+# This allows updating qx-node, qx-console, and host-ui without burning new ISOs.
+#
+# See: docs/updates/000081-ota-update-system.md
+# =============================================================================
+
+updates:
+  # Enable OTA update functionality
+  enabled: true
+  
+  # Update server URL
+  # Change this to your update server's IP address
+  server_url: "http://192.168.0.251:9000"
+  
+  # Release channel: dev, beta, or stable
+  # - dev: Latest development builds (may be unstable)
+  # - beta: Feature-complete testing builds
+  # - stable: Production-ready releases
+  channel: "dev"
+  
+  # How often to check for updates (format: "1h", "30m", "1d")
+  check_interval: "1h"
+  
+  # Automatically apply available updates (use with caution!)
+  # If false, updates must be manually applied via API or Host UI
+  auto_apply: false
+  
+  # Automatically reboot after A/B system updates
+  # Only applies to full system image updates, not component updates
+  auto_reboot: false
+  
+  # Staging directory for downloaded updates
+  staging_dir: "/data/updates/staging"
+  
+  # Backup directory for rollback support
+  backup_dir: "/data/updates/backup"

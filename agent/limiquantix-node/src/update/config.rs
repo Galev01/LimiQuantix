@@ -51,8 +51,8 @@ fn default_enabled() -> bool {
 }
 
 fn default_server_url() -> String {
-    // Default to local network for development
-    "http://192.168.0.95:9000".to_string()
+    // Default to HomeLab update server
+    "http://192.168.0.148:9000".to_string()
 }
 
 fn default_channel() -> String {

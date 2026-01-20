@@ -1,0 +1,47 @@
+{
+  "product": "quantix-os",
+  "version": "0.0.1",
+  "channel": "dev",
+  "release_date": "2026-01-20T23:00:52Z",
+  "update_type": "component",
+  "components": [
+    {
+      "name": "qx-console",
+      "version": "0.0.1",
+      "artifact": "qx-console.tar.gz",
+      "sha256": "f1032b0fccd68ea60bd78f8b2427fc6e3f563b524ae08a9eb60efc98250aa471",
+      "size_bytes": 776341,
+      "install_path": "/data/bin/qx-console",
+      "restart_service": "quantix-console",
+      "backup_before_update": true,
+      "permissions": "0755"
+    }
+,
+    {
+      "name": "qx-node",
+      "version": "0.0.1",
+      "artifact": "qx-node.tar.gz",
+      "sha256": "03cc006f2ba360d260c9674496f96f19e8f0c4ac7b409d17841fb352dc461783",
+      "size_bytes": 7255180,
+      "install_path": "/data/bin/qx-node",
+      "restart_service": "quantix-node",
+      "backup_before_update": true,
+      "permissions": "0755"
+    }
+,
+    {
+      "name": "host-ui",
+      "version": "0.0.1",
+      "artifact": "host-ui.tar.gz",
+      "sha256": "505a97550338195aad584a62cfeac156fc3535294243ae6ecfd8fdc9cdf532a3",
+      "size_bytes": 929941,
+      "install_path": "/data/share/quantix-host-ui",
+      "restart_service": null,
+      "backup_before_update": true,
+      "permissions": "0755"
+    }
+
+  ],
+  "min_version": "0.0.1",
+  "release_notes": "Quantix-OS 0.0.1 update"
+}
