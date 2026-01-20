@@ -1645,6 +1645,11 @@ export function VMFolderView() {
           <ConsoleAccessModal
             isOpen={isConsoleModalOpen}
             onClose={() => setIsConsoleModalOpen(false)}
+            onOpenWebConsole={() => {
+              // Open console in new window/tab
+              window.open(`/console/${selectedVm.id}`, `console-${selectedVm.id}`, 'width=1024,height=768');
+              setIsConsoleModalOpen(false);
+            }}
             vmId={selectedVm.id}
             vmName={selectedVm.name}
           />
@@ -1657,32 +1662,27 @@ export function VMFolderView() {
           <EditSettingsModal
             isOpen={isSettingsModalOpen}
             onClose={() => setIsSettingsModalOpen(false)}
-            vm={selectedVm}
+            vmId={selectedVm.id}
+            vmName={selectedVm.name}
+            vmDescription={selectedVm.description || ''}
+            vmLabels={selectedVm.labels || {}}
             onSave={handleSaveSettings}
-            isPending={updateVM.isPending}
           />
           <EditResourcesModal
             isOpen={isResourcesModalOpen}
             onClose={() => setIsResourcesModalOpen(false)}
-            vm={selectedVm}
+            vmId={selectedVm.id}
+            vmName={selectedVm.name}
+            vmState={selectedVm.status?.state || 'UNKNOWN'}
+            currentCores={selectedVm.spec?.cpu?.cores || 1}
+            currentMemoryMib={selectedVm.spec?.memory?.sizeMib || 1024}
             onSave={handleSaveResources}
-            isPending={updateVM.isPending}
           />
-          {isFileBrowserOpen && (
-            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-              <div className="bg-[var(--bg-surface)] rounded-xl w-[80vw] h-[80vh] overflow-hidden">
-                <div className="flex items-center justify-between p-4 border-b border-[var(--border-default)]">
-                  <h3 className="text-lg font-semibold text-[var(--text-primary)]">File Browser - {selectedVm.name}</h3>
-                  <Button variant="ghost" size="sm" onClick={() => setIsFileBrowserOpen(false)}>
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="h-[calc(100%-60px)]">
-                  <FileBrowser vmId={selectedVm.id} />
-                </div>
-              </div>
-            </div>
-          )}
+          <FileBrowser
+            vmId={selectedVm.id}
+            isOpen={isFileBrowserOpen}
+            onClose={() => setIsFileBrowserOpen(false)}
+          />
         </>
       )}
 

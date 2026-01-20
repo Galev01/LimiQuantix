@@ -197,7 +197,7 @@ for component in "${COMPONENTS[@]}"; do
             CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
                 -ldflags="-w -s -X main.Version=$VERSION" \
                 -o "$STAGING_DIR/quantix-controlplane" \
-                ./cmd/server 2>&1 | tail -10
+                ./cmd/controlplane 2>&1 | tail -10
             
             if [ -f "$STAGING_DIR/quantix-controlplane" ]; then
                 log_info "Packaging controlplane..."
