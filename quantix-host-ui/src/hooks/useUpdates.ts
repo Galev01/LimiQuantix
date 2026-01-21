@@ -219,7 +219,7 @@ export interface UpdateResult {
  * including completion tracking and progress logging.
  */
 export function useUpdatesTab() {
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient(); // Reserved for future cache invalidation
   const versions = useInstalledVersions();
   const status = useUpdateStatus();
   const config = useUpdateConfig();

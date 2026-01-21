@@ -8,7 +8,7 @@ import { useHostInfo, useHardwareInventory } from '@/hooks/useHost';
 import { useClusterStatus, useTestConnection, useGenerateToken, useLeaveCluster } from '@/hooks/useCluster';
 import { useStoragePools, useLocalDevices, useInitializeDevice } from '@/hooks/useStorage';
 import { useUpdatesTab } from '@/hooks/useUpdates';
-import { formatBytes as formatUpdateBytes, getStatusLabel, getStatusVariant, isUpdateInProgress } from '@/api/updates';
+import { formatBytes as formatUpdateBytes, getStatusLabel, getStatusVariant } from '@/api/updates';
 import { cn, formatBytes } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 
@@ -831,7 +831,6 @@ function UpdatesSettingsTab() {
     config,
     volumes,
     checkResult,
-    lastUpdateResult,
     clearUpdateResult,
     isUpdating,
     isChecking,
