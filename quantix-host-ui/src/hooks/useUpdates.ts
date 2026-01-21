@@ -4,8 +4,10 @@
  * Provides React Query hooks for interacting with the update API.
  */
 
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
+import { uiLogger } from '@/lib/uiLogger';
 import {
   checkForUpdates,
   getCurrentVersions,
@@ -21,6 +23,7 @@ import {
   type UpdateConfig,
   type UpdateConfigRequest,
   type UpdateVolumeInfo,
+  type UpdateStatusType,
 } from '@/api/updates';
 
 // =============================================================================
@@ -191,15 +194,32 @@ export function useUpdateVolumes() {
 }
 
 // =============================================================================
+// Update Result Tracking
+// =============================================================================
+
+/**
+ * Result of an update operation
+ */
+export interface UpdateResult {
+  success: boolean;
+  status: UpdateStatusType;
+  message?: string;
+  version?: string;
+  timestamp: Date;
+}
+
+// =============================================================================
 // Composite Hook
 // =============================================================================
 
 /**
  * Combined hook for the Updates tab
  * 
- * Provides all necessary data and actions for the updates UI.
+ * Provides all necessary data and actions for the updates UI,
+ * including completion tracking and progress logging.
  */
 export function useUpdatesTab() {
+  const queryClient = useQueryClient();
   const versions = useInstalledVersions();
   const status = useUpdateStatus();
   const config = useUpdateConfig();
@@ -208,7 +228,147 @@ export function useUpdatesTab() {
   const applyMutation = useApplyUpdates();
   const saveConfigMutation = useSaveUpdateConfig();
 
+  // Track the last update result for showing completion/error messages
+  const [lastUpdateResult, setLastUpdateResult] = useState<UpdateResult | null>(null);
+  
+  // Track progress milestones for logging
+  const lastLoggedMilestone = useRef<number>(0);
+  const updateCorrelationId = useRef<string | null>(null);
+
   const isUpdating = status.data ? isUpdateInProgress(status.data.status) : false;
+  const currentStatus = status.data?.status;
+
+  // Log progress milestones (25%, 50%, 75%, 100%)
+  useEffect(() => {
+    if (currentStatus === 'downloading' && status.data?.progress) {
+      const percentage = status.data.progress.percentage;
+      const milestones = [25, 50, 75, 100];
+      
+      for (const milestone of milestones) {
+        if (percentage >= milestone && lastLoggedMilestone.current < milestone) {
+          lastLoggedMilestone.current = milestone;
+          uiLogger.log(
+            'info',
+            'button.click', // Using button.click as a proxy for progress event
+            'updates',
+            `progress-${milestone}`,
+            `Update download progress: ${milestone}%`,
+            {
+              percentage,
+              component: status.data.progress.currentComponent,
+              downloadedBytes: status.data.progress.downloadedBytes,
+              totalBytes: status.data.progress.totalBytes,
+              correlationId: updateCorrelationId.current,
+            }
+          );
+        }
+      }
+    }
+  }, [currentStatus, status.data?.progress]);
+
+  // Track status transitions to detect completion/error
+  const previousStatus = useRef<UpdateStatusType | undefined>(undefined);
+  
+  useEffect(() => {
+    const prevStatus = previousStatus.current;
+    const currStatus = currentStatus;
+    
+    // Detect transition from in-progress to terminal state
+    if (prevStatus && isUpdateInProgress(prevStatus) && currStatus && !isUpdateInProgress(currStatus)) {
+      const isSuccess = currStatus === 'complete';
+      const isError = currStatus === 'error';
+      const isRebootRequired = currStatus === 'reboot_required';
+      
+      if (isSuccess || isError || isRebootRequired) {
+        const result: UpdateResult = {
+          success: isSuccess || isRebootRequired,
+          status: currStatus,
+          message: status.data?.message,
+          timestamp: new Date(),
+        };
+        
+        // Extract version from message if available
+        const versionMatch = status.data?.message?.match(/version\s+([\d.]+)/i);
+        if (versionMatch) {
+          result.version = versionMatch[1];
+        }
+        
+        setLastUpdateResult(result);
+        
+        // Log completion
+        if (isSuccess) {
+          uiLogger.success('updates', 'apply-update', `Update completed successfully${result.version ? ` to version ${result.version}` : ''}`, {
+            version: result.version,
+            correlationId: updateCorrelationId.current,
+          });
+          toast.success(`Update complete${result.version ? `: v${result.version}` : ''}`);
+        } else if (isError) {
+          uiLogger.error('updates', 'apply-update', status.data?.message || 'Update failed', {
+            correlationId: updateCorrelationId.current,
+          });
+        } else if (isRebootRequired) {
+          uiLogger.success('updates', 'apply-update', 'Update applied, reboot required', {
+            correlationId: updateCorrelationId.current,
+          });
+          toast.info('Update applied. Reboot required to complete.');
+        }
+        
+        // Reset milestone tracking
+        lastLoggedMilestone.current = 0;
+        updateCorrelationId.current = null;
+        
+        // Refetch versions to show updated info
+        versions.refetch();
+      }
+    }
+    
+    previousStatus.current = currStatus;
+  }, [currentStatus, status.data?.message, versions]);
+
+  // Clear the last update result
+  const clearUpdateResult = useCallback(() => {
+    setLastUpdateResult(null);
+  }, []);
+
+  // Enhanced check for updates with logging
+  const handleCheckForUpdates = useCallback(() => {
+    uiLogger.click('updates', 'check-updates-btn');
+    checkMutation.mutate();
+  }, [checkMutation]);
+
+  // Enhanced apply updates with logging and correlation ID
+  const handleApplyUpdates = useCallback(() => {
+    updateCorrelationId.current = uiLogger.generateCorrelationId();
+    lastLoggedMilestone.current = 0;
+    
+    uiLogger.click('updates', 'apply-update-btn', {
+      correlationId: updateCorrelationId.current,
+    });
+    
+    uiLogger.log(
+      'info',
+      'button.click',
+      'updates',
+      'update-started',
+      'Update process started',
+      {
+        correlationId: updateCorrelationId.current,
+        availableVersion: checkMutation.data?.latestVersion,
+        components: checkMutation.data?.components?.map(c => c.name),
+      }
+    );
+    
+    applyMutation.mutate();
+  }, [applyMutation, checkMutation.data]);
+
+  // Enhanced retry with logging
+  const handleRetry = useCallback(() => {
+    uiLogger.click('updates', 'retry-update-btn', {
+      previousError: lastUpdateResult?.message,
+    });
+    setLastUpdateResult(null);
+    handleApplyUpdates();
+  }, [handleApplyUpdates, lastUpdateResult?.message]);
 
   return {
     // Data
@@ -224,16 +384,28 @@ export function useUpdatesTab() {
     // Check result from last check mutation
     checkResult: checkMutation.data,
     
+    // Update result tracking
+    lastUpdateResult,
+    clearUpdateResult,
+    
     // States
     isUpdating,
     isChecking: checkMutation.isPending,
     isApplying: applyMutation.isPending,
     isSavingConfig: saveConfigMutation.isPending,
     
-    // Actions
-    checkForUpdates: () => checkMutation.mutate(),
-    applyUpdates: () => applyMutation.mutate(),
-    saveConfig: (request: UpdateConfigRequest) => saveConfigMutation.mutate(request),
+    // Actions (with logging)
+    checkForUpdates: handleCheckForUpdates,
+    applyUpdates: handleApplyUpdates,
+    retryUpdate: handleRetry,
+    saveConfig: (request: UpdateConfigRequest) => {
+      uiLogger.submit('updates', 'update-config-form', { 
+        serverUrl: request.serverUrl ? '(set)' : undefined,
+        channel: request.channel,
+        storageLocation: request.storageLocation,
+      });
+      saveConfigMutation.mutate(request);
+    },
     
     // Refetch functions
     refetchStatus: status.refetch,

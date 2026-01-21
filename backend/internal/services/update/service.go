@@ -90,6 +90,8 @@ type UpdateState struct {
 	CurrentVersion   string       `json:"current_version"`
 	AvailableVersion string       `json:"available_version,omitempty"`
 	DownloadProgress float64      `json:"download_progress,omitempty"` // 0-100
+	CurrentComponent string       `json:"current_component,omitempty"` // Current component being processed
+	Message          string       `json:"message,omitempty"`           // Human-readable status message
 	Error            string       `json:"error,omitempty"`
 	LastCheck        *time.Time   `json:"last_check,omitempty"`
 	Manifest         *Manifest    `json:"manifest,omitempty"`
@@ -284,26 +286,57 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 		return fmt.Errorf("no newer version available")
 	}
 
+	totalComponents := len(manifest.Components)
 	s.setVDCStatus(StatusDownloading, "")
+	s.setVDCProgress(0, "", fmt.Sprintf("Starting update to v%s...", manifest.Version))
 
 	// Download and apply each component
 	for i, component := range manifest.Components {
-		progress := float64(i) / float64(len(manifest.Components)) * 100
-		s.vdcStateMu.Lock()
-		s.vdcState.DownloadProgress = progress
-		s.vdcStateMu.Unlock()
+		componentNum := i + 1
+		// Each component gets an equal share of the progress bar
+		// Within each component: 0-70% download, 70-90% extract, 90-100% install
+		baseProgress := float64(i) / float64(totalComponents) * 100
+		componentWeight := 100.0 / float64(totalComponents)
 
-		if err := s.downloadAndApplyComponent(ctx, manifest, component); err != nil {
+		// Update progress for download phase
+		downloadProgress := baseProgress
+		s.setVDCProgress(downloadProgress, component.Name,
+			fmt.Sprintf("Downloading %s (%d/%d)...", component.Name, componentNum, totalComponents))
+
+		if err := s.downloadAndApplyComponent(ctx, manifest, component, func(phase string, phaseProgress float64) {
+			// phaseProgress is 0-100 within the phase
+			var actualProgress float64
+			var message string
+
+			switch phase {
+			case "downloading":
+				// 0-70% of component weight
+				actualProgress = baseProgress + (phaseProgress/100.0)*(componentWeight*0.7)
+				message = fmt.Sprintf("Downloading %s (%d/%d)... %.0f%%", component.Name, componentNum, totalComponents, phaseProgress)
+			case "extracting":
+				// 70-90% of component weight
+				actualProgress = baseProgress + componentWeight*0.7 + (phaseProgress/100.0)*(componentWeight*0.2)
+				message = fmt.Sprintf("Extracting %s (%d/%d)...", component.Name, componentNum, totalComponents)
+			case "installing":
+				// 90-100% of component weight
+				actualProgress = baseProgress + componentWeight*0.9 + (phaseProgress/100.0)*(componentWeight*0.1)
+				message = fmt.Sprintf("Installing %s (%d/%d)...", component.Name, componentNum, totalComponents)
+			}
+
+			s.setVDCProgress(actualProgress, component.Name, message)
+		}); err != nil {
+			s.setVDCProgress(baseProgress, component.Name, "")
 			s.setVDCStatus(StatusError, fmt.Sprintf("Failed to apply %s: %v", component.Name, err))
 			return fmt.Errorf("failed to apply component %s: %w", component.Name, err)
 		}
 	}
 
-	s.setVDCStatus(StatusIdle, "")
+	// Update complete
+	s.setVDCProgress(100, "", fmt.Sprintf("Update to v%s completed successfully", manifest.Version))
 	s.vdcStateMu.Lock()
+	s.vdcState.Status = StatusIdle
 	s.vdcState.CurrentVersion = manifest.Version
 	s.vdcState.AvailableVersion = ""
-	s.vdcState.DownloadProgress = 100
 	s.vdcStateMu.Unlock()
 
 	s.logger.Info("vDC update applied successfully", zap.String("version", manifest.Version))
@@ -509,6 +542,15 @@ func (s *Service) setVDCStatus(status UpdateStatus, errMsg string) {
 	s.vdcState.Error = errMsg
 }
 
+// setVDCProgress updates the progress state with component info and message
+func (s *Service) setVDCProgress(progress float64, component, message string) {
+	s.vdcStateMu.Lock()
+	defer s.vdcStateMu.Unlock()
+	s.vdcState.DownloadProgress = progress
+	s.vdcState.CurrentComponent = component
+	s.vdcState.Message = message
+}
+
 func (s *Service) fetchManifest(ctx context.Context, product string) (*Manifest, error) {
 	url := fmt.Sprintf("%s/api/v1/%s/manifest?channel=%s",
 		s.config.ServerURL, product, s.config.Channel)
@@ -541,7 +583,10 @@ func (s *Service) fetchManifest(ctx context.Context, product string) (*Manifest,
 	return &manifest, nil
 }
 
-func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manifest, component Component) error {
+// ProgressCallback is called during update phases with phase name and progress (0-100)
+type ProgressCallback func(phase string, progress float64)
+
+func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manifest, component Component, onProgress ProgressCallback) error {
 	s.logger.Info("Processing component update",
 		zap.String("component", component.Name),
 		zap.String("version", component.Version),
@@ -554,7 +599,12 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 
 	stagingPath := filepath.Join(s.config.DataDir, "staging", component.Artifact)
 
-	if err := s.downloadFile(ctx, artifactURL, stagingPath); err != nil {
+	// Download with progress tracking
+	if err := s.downloadFileWithProgress(ctx, artifactURL, stagingPath, component.SizeBytes, func(progress float64) {
+		if onProgress != nil {
+			onProgress("downloading", progress)
+		}
+	}); err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
 
@@ -571,7 +621,10 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 		s.logger.Info("SHA256 verified", zap.String("component", component.Name))
 	}
 
-	// Extract and install
+	// Extract phase
+	if onProgress != nil {
+		onProgress("extracting", 0)
+	}
 	s.setVDCStatus(StatusApplying, "")
 
 	if component.InstallPath != "" {
@@ -595,6 +648,10 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 				return fmt.Errorf("failed to create install directory: %w", err)
 			}
 
+			if onProgress != nil {
+				onProgress("extracting", 50)
+			}
+
 			if err := extractTarGz(stagingPath, component.InstallPath); err != nil {
 				return fmt.Errorf("failed to extract: %w", err)
 			}
@@ -613,6 +670,10 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 			}
 			defer os.RemoveAll(tempDir)
 
+			if onProgress != nil {
+				onProgress("extracting", 50)
+			}
+
 			if err := extractTarGz(stagingPath, tempDir); err != nil {
 				return fmt.Errorf("failed to extract: %w", err)
 			}
@@ -621,6 +682,11 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 			binaryPath, err := findBinaryInDir(tempDir, component.Name)
 			if err != nil {
 				return fmt.Errorf("failed to find binary: %w", err)
+			}
+
+			// Install phase
+			if onProgress != nil {
+				onProgress("installing", 0)
 			}
 
 			// Create parent directory for install path
@@ -637,6 +703,10 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 				}
 			}
 
+			if onProgress != nil {
+				onProgress("installing", 50)
+			}
+
 			// Copy binary to install path
 			if err := copyFile(binaryPath, component.InstallPath); err != nil {
 				return fmt.Errorf("failed to install binary: %w", err)
@@ -645,6 +715,10 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 			// Set permissions
 			os.Chmod(component.InstallPath, 0755)
 		}
+	}
+
+	if onProgress != nil {
+		onProgress("installing", 100)
 	}
 
 	// Restart service if specified
@@ -708,6 +782,96 @@ func (s *Service) downloadFile(ctx context.Context, url, destPath string) error 
 			zap.Error(err),
 		)
 		return err
+	}
+
+	s.logger.Info("File download completed",
+		zap.String("dest", destPath),
+		zap.Int64("bytes", written),
+	)
+
+	return nil
+}
+
+// downloadFileWithProgress downloads a file with progress tracking
+func (s *Service) downloadFileWithProgress(ctx context.Context, url, destPath string, expectedSize int64, onProgress func(float64)) error {
+	s.logger.Info("Starting file download with progress",
+		zap.String("url", url),
+		zap.String("dest", destPath),
+		zap.Int64("expected_size", expectedSize),
+	)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	// Use downloadClient with longer timeout for file downloads
+	resp, err := s.downloadClient.Do(req)
+	if err != nil {
+		s.logger.Error("Download request failed",
+			zap.String("url", url),
+			zap.Error(err),
+		)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+
+	// Get total size from Content-Length header if not provided
+	totalSize := expectedSize
+	if totalSize <= 0 && resp.ContentLength > 0 {
+		totalSize = resp.ContentLength
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return err
+	}
+
+	out, err := os.Create(destPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Read with progress tracking
+	var written int64
+	buf := make([]byte, 32*1024) // 32KB buffer
+	lastProgressUpdate := time.Now()
+
+	for {
+		n, readErr := resp.Body.Read(buf)
+		if n > 0 {
+			nw, writeErr := out.Write(buf[:n])
+			if writeErr != nil {
+				return writeErr
+			}
+			written += int64(nw)
+
+			// Update progress every 100ms to avoid too many updates
+			if onProgress != nil && totalSize > 0 && time.Since(lastProgressUpdate) > 100*time.Millisecond {
+				progress := float64(written) / float64(totalSize) * 100
+				if progress > 100 {
+					progress = 100
+				}
+				onProgress(progress)
+				lastProgressUpdate = time.Now()
+			}
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			return readErr
+		}
+	}
+
+	// Final progress update
+	if onProgress != nil {
+		onProgress(100)
 	}
 
 	s.logger.Info("File download completed",

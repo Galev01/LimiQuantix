@@ -3,6 +3,8 @@ export type { ButtonProps } from './Button';
 export { Badge } from './Badge';
 export { Card, CardHeader } from './Card';
 export { ProgressRing } from './ProgressRing';
+export { ProgressBar } from './ProgressBar';
+export type { ProgressBarProps } from './ProgressBar';
 export { Input } from './Input';
 export type { InputProps } from './Input';
 export { Label } from './Label';

@@ -33,10 +33,11 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { useThemeStore } from '@/stores/theme-store';
 import {
-  useVDCUpdateStatus,
+  useVDCUpdateWithTracking,
   useCheckVDCUpdate,
   useApplyVDCUpdate,
   useHostsUpdateStatus,
@@ -176,7 +177,13 @@ function GeneralSettings() {
 }
 
 function UpdateSettings() {
-  const { data: vdcStatus, isLoading: vdcLoading } = useVDCUpdateStatus();
+  const { 
+    data: vdcStatus, 
+    isLoading: vdcLoading,
+    updateResult,
+    clearUpdateResult,
+    isUpdateInProgress,
+  } = useVDCUpdateWithTracking();
   const { data: hostsData, isLoading: hostsLoading } = useHostsUpdateStatus();
   const { data: config } = useUpdateConfig();
   
@@ -218,42 +225,151 @@ function UpdateSettings() {
       {/* vDC Update Section */}
       <SettingsSection title="Quantix-vDC Updates" description="Manage updates for the vDC control plane">
         <div className="space-y-6">
-          {/* Current Version */}
-          <div className="flex items-center justify-between p-4 rounded-lg bg-bg-base border border-border">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-accent/10">
-                <Package className="w-6 h-6 text-accent" />
+          {/* Current Version & Status */}
+          <div className="p-4 rounded-lg bg-bg-base border border-border">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-accent/10">
+                  <Package className="w-6 h-6 text-accent" />
+                </div>
+                <div>
+                  <p className="font-medium text-text-primary">Quantix-vDC</p>
+                  <p className="text-sm text-text-muted">
+                    {isUpdateInProgress ? (
+                      <>Updating to <span className="font-mono">v{vdcStatus?.available_version}</span></>
+                    ) : (
+                      <>Current version: <span className="font-mono">{vdcStatus?.current_version || 'Unknown'}</span></>
+                    )}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-text-primary">Quantix-vDC</p>
-                <p className="text-sm text-text-muted">
-                  Current version: <span className="font-mono">{vdcStatus?.current_version || 'Unknown'}</span>
+              <div className="flex items-center gap-3">
+                {vdcLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+                ) : isUpdateInProgress ? (
+                  <Badge variant="warning">
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    Updating...
+                  </Badge>
+                ) : vdcStatus?.status === 'available' ? (
+                  <Badge variant="success">
+                    <ArrowDownToLine className="w-3 h-3 mr-1" />
+                    v{vdcStatus.available_version} available
+                  </Badge>
+                ) : vdcStatus?.status === 'error' ? (
+                  <Badge variant="error">
+                    <XCircle className="w-3 h-3 mr-1" />
+                    Error
+                  </Badge>
+                ) : (
+                  <Badge variant="default">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Up to date
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Progress Bar - Show during update */}
+            {isUpdateInProgress && (
+              <div className="mt-4 space-y-2">
+                <ProgressBar
+                  value={vdcStatus?.download_progress || 0}
+                  showPercentage={true}
+                  size="md"
+                />
+                {vdcStatus?.message && (
+                  <p className="text-sm text-text-secondary">
+                    {vdcStatus.message}
+                  </p>
+                )}
+                <p className="text-xs text-text-muted mt-2">
+                  Please do not close this page while the update is in progress.
                 </p>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {vdcLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
-              ) : vdcStatus?.status === 'available' ? (
-                <Badge variant="success">
-                  <ArrowDownToLine className="w-3 h-3 mr-1" />
-                  v{vdcStatus.available_version} available
-                </Badge>
-              ) : (
-                <Badge variant="default">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Up to date
-                </Badge>
+            )}
+          </div>
+
+          {/* Update Result Card - Shows after completion until dismissed */}
+          {updateResult && (
+            <div className={cn(
+              "p-4 rounded-lg border",
+              updateResult.success 
+                ? "bg-success/10 border-success/30" 
+                : "bg-error/10 border-error/30"
+            )}>
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  {updateResult.success ? (
+                    <CheckCircle2 className="w-5 h-5 text-success shrink-0 mt-0.5" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-error shrink-0 mt-0.5" />
+                  )}
+                  <div className="space-y-2">
+                    <p className={cn(
+                      "font-medium",
+                      updateResult.success ? "text-success" : "text-error"
+                    )}>
+                      {updateResult.success 
+                        ? `Successfully updated to v${updateResult.version}` 
+                        : "Update Failed"}
+                    </p>
+                    
+                    {updateResult.success && (
+                      <div className="space-y-1">
+                        <p className="text-sm text-text-secondary">
+                          Updated from v{updateResult.previousVersion} to v{updateResult.version}
+                        </p>
+                        <div className="text-sm text-text-muted">
+                          <span className="font-medium">Components updated:</span>
+                          <ul className="mt-1 ml-4 list-disc">
+                            {updateResult.components.map((component) => (
+                              <li key={component}>{component}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {!updateResult.success && updateResult.error && (
+                      <p className="text-sm text-text-secondary">{updateResult.error}</p>
+                    )}
+                    
+                    <p className="text-xs text-text-muted">
+                      Completed at {updateResult.completedAt.toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearUpdateResult}
+                  className="shrink-0"
+                >
+                  Dismiss
+                </Button>
+              </div>
+              
+              {/* Progress bar at 100% for success */}
+              {updateResult.success && (
+                <div className="mt-4">
+                  <ProgressBar
+                    value={100}
+                    showPercentage={false}
+                    size="sm"
+                    variant="success"
+                  />
+                </div>
               )}
             </div>
-          </div>
+          )}
 
           {/* Update Actions */}
           <div className="flex items-center gap-3">
             <Button
               variant="secondary"
               onClick={() => checkVDC.mutate()}
-              disabled={checkVDC.isPending}
+              disabled={checkVDC.isPending || isUpdateInProgress}
             >
               {checkVDC.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -262,7 +378,7 @@ function UpdateSettings() {
               )}
               Check for Updates
             </Button>
-            {vdcStatus?.status === 'available' && (
+            {vdcStatus?.status === 'available' && !isUpdateInProgress && (
               <Button
                 onClick={() => applyVDC.mutate()}
                 disabled={applyVDC.isPending}
@@ -275,10 +391,23 @@ function UpdateSettings() {
                 Apply Update
               </Button>
             )}
+            {!updateResult?.success && updateResult?.error && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  clearUpdateResult();
+                  applyVDC.mutate();
+                }}
+                disabled={applyVDC.isPending}
+              >
+                <RefreshCw className="w-4 h-4" />
+                Retry Update
+              </Button>
+            )}
           </div>
 
           {/* Release Notes */}
-          {vdcStatus?.manifest?.release_notes && (
+          {vdcStatus?.manifest?.release_notes && !isUpdateInProgress && !updateResult && (
             <div className="p-4 rounded-lg bg-bg-base border border-border">
               <h4 className="font-medium text-text-primary mb-2">Release Notes</h4>
               <p className="text-sm text-text-secondary whitespace-pre-wrap">
@@ -287,8 +416,8 @@ function UpdateSettings() {
             </div>
           )}
 
-          {/* Error Display */}
-          {vdcStatus?.error && (
+          {/* Error Display (from backend status) */}
+          {vdcStatus?.error && !updateResult && (
             <div className="p-4 rounded-lg bg-error/10 border border-error/30">
               <div className="flex items-start gap-3">
                 <XCircle className="w-5 h-5 text-error shrink-0 mt-0.5" />

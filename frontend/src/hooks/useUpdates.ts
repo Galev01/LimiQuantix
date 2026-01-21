@@ -7,6 +7,7 @@
  * and connected QHCI hosts.
  */
 
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { getApiBase } from '@/lib/api-client';
@@ -58,6 +59,8 @@ export interface VDCUpdateState {
   current_version: string;
   available_version?: string;
   download_progress?: number;
+  current_component?: string;
+  message?: string;
   error?: string;
   last_check?: string;
   manifest?: UpdateManifest;
@@ -81,6 +84,18 @@ export interface UpdateConfig {
   auto_check: boolean;
   auto_apply: boolean;
   data_dir: string;
+}
+
+/**
+ * Result of an update operation (persists after completion)
+ */
+export interface VDCUpdateResult {
+  success: boolean;
+  version: string;
+  previousVersion: string;
+  components: string[];
+  error?: string;
+  completedAt: Date;
 }
 
 // =============================================================================
@@ -212,15 +227,105 @@ export const updateKeys = {
 // =============================================================================
 
 /**
- * Hook to get vDC update status
+ * Hook to get vDC update status (raw query, use useVDCUpdateWithTracking for full lifecycle)
+ * Polls faster (2s) when an update is in progress, slower (30s) otherwise
  */
 export function useVDCUpdateStatus() {
   return useQuery({
     queryKey: updateKeys.vdcStatus(),
     queryFn: fetchVDCStatus,
-    staleTime: 10000, // 10 seconds
-    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 2000, // Consider stale after 2 seconds during updates
+    refetchInterval: (query) => {
+      const data = query.state.data as VDCUpdateState | undefined;
+      // Poll every 2 seconds during download/apply, 30 seconds otherwise
+      if (data?.status === 'downloading' || data?.status === 'applying') {
+        return 2000;
+      }
+      return 30000;
+    },
   });
+}
+
+/**
+ * Hook that tracks the full vDC update lifecycle including completion state
+ * Returns the update result that persists after completion until dismissed
+ */
+export function useVDCUpdateWithTracking() {
+  const query = useVDCUpdateStatus();
+  const [updateResult, setUpdateResult] = useState<VDCUpdateResult | null>(null);
+  const [isUpdateInProgress, setIsUpdateInProgress] = useState(false);
+  
+  // Track the version and components we're updating to
+  const updateTargetRef = useRef<{
+    version: string;
+    previousVersion: string;
+    components: string[];
+  } | null>(null);
+
+  // Detect when update starts
+  useEffect(() => {
+    const status = query.data?.status;
+    
+    if ((status === 'downloading' || status === 'applying') && !isUpdateInProgress) {
+      // Update just started
+      setIsUpdateInProgress(true);
+      setUpdateResult(null); // Clear any previous result
+      
+      // Store the target version and components
+      if (query.data?.available_version && query.data?.manifest) {
+        updateTargetRef.current = {
+          version: query.data.available_version,
+          previousVersion: query.data.current_version,
+          components: query.data.manifest.components.map(c => c.name),
+        };
+      }
+    }
+  }, [query.data?.status, isUpdateInProgress, query.data?.available_version, query.data?.manifest, query.data?.current_version]);
+
+  // Detect when update completes (success or error)
+  useEffect(() => {
+    const status = query.data?.status;
+    
+    if (isUpdateInProgress && status !== 'downloading' && status !== 'applying') {
+      // Update finished
+      setIsUpdateInProgress(false);
+      
+      if (status === 'error' && query.data?.error) {
+        // Update failed
+        setUpdateResult({
+          success: false,
+          version: updateTargetRef.current?.version || 'unknown',
+          previousVersion: updateTargetRef.current?.previousVersion || 'unknown',
+          components: updateTargetRef.current?.components || [],
+          error: query.data.error,
+          completedAt: new Date(),
+        });
+      } else if (status === 'idle' && updateTargetRef.current) {
+        // Update succeeded
+        setUpdateResult({
+          success: true,
+          version: updateTargetRef.current.version,
+          previousVersion: updateTargetRef.current.previousVersion,
+          components: updateTargetRef.current.components,
+          completedAt: new Date(),
+        });
+        toast.success(`Successfully updated to v${updateTargetRef.current.version}`);
+      }
+      
+      updateTargetRef.current = null;
+    }
+  }, [query.data?.status, query.data?.error, isUpdateInProgress]);
+
+  const clearUpdateResult = useCallback(() => {
+    setUpdateResult(null);
+  }, []);
+
+  return {
+    ...query,
+    updateResult,
+    clearUpdateResult,
+    isUpdateInProgress,
+  };
 }
 
 /**

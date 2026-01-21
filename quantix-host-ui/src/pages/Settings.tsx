@@ -2,12 +2,13 @@ import { useState, useEffect, type ChangeEvent } from 'react';
 import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, Lock, Upload, Key, Globe, Terminal, Unplug, Link2, Clock, AlertTriangle, CheckCircle2, Copy, Check, KeyRound, Plug, RotateCcw, Database, Disc, Share2, Loader2, Download, Package, ArrowDownToLine, XCircle, Plus } from 'lucide-react';
 import { Header } from '@/components/layout';
 import { Card, Badge, Button, Input, Label } from '@/components/ui';
+import { UpdateProgressCard } from '@/components/updates';
 import { useSettings, useUpdateSettings, useServices, useRestartService, useCertificateInfo, useGenerateSelfSigned, useResetCertificate, useSshStatus, useEnableSsh, useDisableSsh } from '@/hooks/useSettings';
 import { useHostInfo, useHardwareInventory } from '@/hooks/useHost';
 import { useClusterStatus, useTestConnection, useGenerateToken, useLeaveCluster } from '@/hooks/useCluster';
 import { useStoragePools, useLocalDevices, useInitializeDevice } from '@/hooks/useStorage';
 import { useUpdatesTab } from '@/hooks/useUpdates';
-import { formatBytes as formatUpdateBytes, getStatusLabel, getStatusVariant } from '@/api/updates';
+import { formatBytes as formatUpdateBytes, getStatusLabel, getStatusVariant, isUpdateInProgress } from '@/api/updates';
 import { cn, formatBytes } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 
@@ -830,15 +831,25 @@ function UpdatesSettingsTab() {
     config,
     volumes,
     checkResult,
+    lastUpdateResult,
+    clearUpdateResult,
     isUpdating,
     isChecking,
     isApplying,
     isSavingConfig,
     checkForUpdates,
     applyUpdates,
+    retryUpdate,
     saveConfig,
     refetchVolumes,
   } = useUpdatesTab();
+
+  // Determine if we should show the progress card
+  const showProgressCard = isUpdating || 
+    status?.status === 'complete' || 
+    status?.status === 'error' || 
+    status?.status === 'reboot_required' ||
+    status?.status === 'checking';
 
   // Form state for server settings
   const [serverUrl, setServerUrl] = useState('');
@@ -1067,6 +1078,17 @@ function UpdatesSettingsTab() {
         </div>
       </Card>
 
+      {/* Update Progress Card - Shows during update operations */}
+      {showProgressCard && (
+        <UpdateProgressCard
+          status={status}
+          checkResult={checkResult}
+          isUpdating={isUpdating}
+          onRetry={retryUpdate}
+          onDismiss={clearUpdateResult}
+        />
+      )}
+
       {/* Update Actions */}
       <Card>
         <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
@@ -1075,64 +1097,8 @@ function UpdatesSettingsTab() {
         </h3>
 
         <div className="space-y-4">
-          {/* Status display when updating */}
-          {isUpdating && status && (
-            <div className="p-4 bg-info/10 border border-info/20 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Loader2 className="w-5 h-5 animate-spin text-info" />
-                <span className="font-medium text-info">
-                  {status.status === 'downloading' ? 'Downloading update...' : 
-                   status.status === 'applying' ? 'Applying update...' :
-                   status.status === 'checking' ? 'Checking for updates...' :
-                   'Updating...'}
-                </span>
-              </div>
-              {status.message && (
-                <p className="text-sm text-text-muted">{status.message}</p>
-              )}
-              {status.progress && (
-                <div className="mt-2">
-                  <div className="h-2 bg-bg-surface rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-info transition-all"
-                      style={{ width: `${status.progress.percentage}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between mt-1">
-                    <p className="text-xs text-text-muted">{status.progress.currentComponent}</p>
-                    <p className="text-xs text-text-muted">{status.progress.percentage}%</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Reboot required */}
-          {status?.status === 'reboot_required' && (
-            <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
-              <div className="flex items-center gap-2 text-warning">
-                <AlertTriangle className="w-5 h-5" />
-                <span className="font-medium">Reboot Required</span>
-              </div>
-              <p className="text-sm text-text-muted mt-1">
-                A system reboot is required to complete the update.
-              </p>
-            </div>
-          )}
-
-          {/* Error display */}
-          {status?.status === 'error' && status.message && (
-            <div className="p-4 bg-error/10 border border-error/20 rounded-lg">
-              <div className="flex items-center gap-2 text-error">
-                <XCircle className="w-5 h-5" />
-                <span className="font-medium">Update Error</span>
-              </div>
-              <p className="text-sm text-text-muted mt-1">{status.message}</p>
-            </div>
-          )}
-
           {/* Update available info */}
-          {checkResult?.available && !isUpdating && (
+          {checkResult?.available && !isUpdating && status?.status !== 'complete' && (
             <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
               <div className="flex items-center gap-2 text-success mb-2">
                 <ArrowDownToLine className="w-5 h-5" />
@@ -1183,7 +1149,7 @@ function UpdatesSettingsTab() {
               Check for Updates
             </Button>
 
-            {checkResult?.available && !isUpdating && (
+            {checkResult?.available && !isUpdating && status?.status !== 'complete' && (
               <Button
                 onClick={applyUpdates}
                 disabled={isApplying || isUpdating}
