@@ -1,5 +1,5 @@
 import { useState, useEffect, type ChangeEvent } from 'react';
-import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, Lock, Upload, Key, Globe, Terminal, Unplug, Link2, Clock, AlertTriangle, CheckCircle2, Copy, Check, KeyRound, Plug, RotateCcw, Database, Disc, Share2, Loader2, Download, Package, ArrowDownToLine, XCircle } from 'lucide-react';
+import { RefreshCw, Settings as SettingsIcon, Server, HardDrive, Network, Shield, Lock, Upload, Key, Globe, Terminal, Unplug, Link2, Clock, AlertTriangle, CheckCircle2, Copy, Check, KeyRound, Plug, RotateCcw, Database, Disc, Share2, Loader2, Download, Package, ArrowDownToLine, XCircle, Plus } from 'lucide-react';
 import { Header } from '@/components/layout';
 import { Card, Badge, Button, Input, Label } from '@/components/ui';
 import { useSettings, useUpdateSettings, useServices, useRestartService, useCertificateInfo, useGenerateSelfSigned, useResetCertificate, useSshStatus, useEnableSsh, useDisableSsh } from '@/hooks/useSettings';
@@ -828,15 +828,53 @@ function UpdatesSettingsTab() {
     versionsLoading,
     status,
     config,
+    volumes,
     checkResult,
     isUpdating,
     isChecking,
     isApplying,
+    isSavingConfig,
     checkForUpdates,
     applyUpdates,
+    saveConfig,
+    refetchVolumes,
   } = useUpdatesTab();
 
+  // Form state for server settings
+  const [serverUrl, setServerUrl] = useState('');
+  const [channel, setChannel] = useState('dev');
+  const [storageLocation, setStorageLocation] = useState<'local' | 'volume'>('local');
+  const [volumePath, setVolumePath] = useState('');
+  const [showCreateVolumeModal, setShowCreateVolumeModal] = useState(false);
+
+  // Initialize form values from config
+  useEffect(() => {
+    if (config) {
+      setServerUrl(config.serverUrl || '');
+      setChannel(config.channel || 'dev');
+      setStorageLocation(config.storageLocation || 'local');
+      setVolumePath(config.volumePath || '');
+    }
+  }, [config]);
+
   const statusVariant = status ? getStatusVariant(status.status) : 'default';
+
+  // Check if form has changes
+  const hasChanges = config && (
+    serverUrl !== config.serverUrl ||
+    channel !== config.channel ||
+    storageLocation !== config.storageLocation ||
+    volumePath !== (config.volumePath || '')
+  );
+
+  const handleSaveSettings = () => {
+    saveConfig({
+      serverUrl: serverUrl || undefined,
+      channel: channel || undefined,
+      storageLocation: storageLocation || undefined,
+      volumePath: storageLocation === 'volume' ? volumePath : undefined,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -873,6 +911,160 @@ function UpdatesSettingsTab() {
             </div>
           </div>
         )}
+      </Card>
+
+      {/* Update Server Configuration */}
+      <Card>
+        <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <Server className="w-5 h-5 text-accent" />
+          Update Server Configuration
+        </h3>
+
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="serverUrl">Server URL</Label>
+            <Input
+              id="serverUrl"
+              value={serverUrl}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setServerUrl(e.target.value)}
+              placeholder="http://192.168.0.148:9000"
+            />
+            <p className="text-xs text-text-muted mt-1">
+              The URL of the Quantix Update Server
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="channel">Release Channel</Label>
+            <select
+              id="channel"
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+              className="w-full px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/50"
+            >
+              <option value="dev">Development (dev)</option>
+              <option value="beta">Beta</option>
+              <option value="stable">Stable</option>
+            </select>
+            <p className="text-xs text-text-muted mt-1">
+              Dev: Latest features, may be unstable. Beta: Testing. Stable: Production-ready.
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Update Storage Location */}
+      <Card>
+        <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <HardDrive className="w-5 h-5 text-info" />
+          Update Storage Location
+        </h3>
+
+        <p className="text-sm text-text-muted mb-4">
+          Where should downloaded updates be stored?
+        </p>
+
+        <div className="space-y-4">
+          {/* Local option */}
+          <label className="flex items-start gap-3 p-4 bg-bg-base rounded-lg cursor-pointer hover:bg-bg-hover transition-colors">
+            <input
+              type="radio"
+              name="storageLocation"
+              value="local"
+              checked={storageLocation === 'local'}
+              onChange={() => setStorageLocation('local')}
+              className="mt-1"
+            />
+            <div className="flex-1">
+              <div className="font-medium text-text-primary">Local /data partition</div>
+              <div className="text-sm text-text-muted">
+                Path: /data/updates/staging
+              </div>
+            </div>
+          </label>
+
+          {/* Dedicated volume option */}
+          <label className="flex items-start gap-3 p-4 bg-bg-base rounded-lg cursor-pointer hover:bg-bg-hover transition-colors">
+            <input
+              type="radio"
+              name="storageLocation"
+              value="volume"
+              checked={storageLocation === 'volume'}
+              onChange={() => setStorageLocation('volume')}
+              className="mt-1"
+            />
+            <div className="flex-1">
+              <div className="font-medium text-text-primary">Dedicated Volume</div>
+              <div className="text-sm text-text-muted">
+                Use a separate storage volume for updates
+              </div>
+            </div>
+          </label>
+
+          {/* Volume selection when dedicated volume is selected */}
+          {storageLocation === 'volume' && (
+            <div className="ml-7 space-y-3">
+              <div className="flex gap-2">
+                <select
+                  value={volumePath}
+                  onChange={(e) => setVolumePath(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/50"
+                >
+                  <option value="">Select a volume...</option>
+                  {volumes?.map((vol) => (
+                    <option key={vol.path} value={vol.path}>
+                      {vol.name} ({vol.path}) - {formatBytes(vol.availableBytes)} free
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => refetchVolumes()}
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowCreateVolumeModal(true)}
+              >
+                <Plus className="w-4 h-4" />
+                Create Updates Volume
+              </Button>
+
+              {(!volumes || volumes.length === 0) && (
+                <p className="text-sm text-warning">
+                  No volumes available. Create a new volume or use local storage.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Recommendation note */}
+          <div className="flex items-start gap-2 p-3 bg-info/10 border border-info/20 rounded-lg">
+            <HardDrive className="w-4 h-4 text-info mt-0.5" />
+            <p className="text-sm text-text-muted">
+              <strong className="text-text-secondary">Recommended:</strong> 20 GB minimum for update staging area. 
+              A dedicated volume is recommended for systems with limited /data space.
+            </p>
+          </div>
+        </div>
+
+        {/* Save button */}
+        <div className="mt-6 pt-4 border-t border-border flex justify-end">
+          <Button
+            onClick={handleSaveSettings}
+            disabled={!hasChanges || isSavingConfig}
+          >
+            {isSavingConfig ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : null}
+            Save Settings
+          </Button>
+        </div>
       </Card>
 
       {/* Update Actions */}
@@ -1008,24 +1200,14 @@ function UpdatesSettingsTab() {
         </div>
       </Card>
 
-      {/* Update Configuration */}
+      {/* Current Settings Summary */}
       <Card>
         <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
           <SettingsIcon className="w-5 h-5 text-accent" />
-          Update Settings
+          Current Configuration
         </h3>
 
-        <div className="space-y-4">
-          <div className="flex justify-between p-3 bg-bg-base rounded-lg">
-            <span className="text-text-muted">Update Server</span>
-            <span className="text-text-primary font-mono text-sm">
-              {config?.serverUrl || 'Not configured'}
-            </span>
-          </div>
-          <div className="flex justify-between p-3 bg-bg-base rounded-lg">
-            <span className="text-text-muted">Channel</span>
-            <Badge variant="default">{config?.channel || 'dev'}</Badge>
-          </div>
+        <div className="space-y-3">
           <div className="flex justify-between p-3 bg-bg-base rounded-lg">
             <span className="text-text-muted">Check Interval</span>
             <span className="text-text-primary">{config?.checkInterval || '1h'}</span>
@@ -1039,10 +1221,148 @@ function UpdatesSettingsTab() {
         </div>
 
         <p className="text-xs text-text-muted mt-4">
-          Update settings are configured in the node configuration file.
-          Contact your administrator to change update policies.
+          Check interval and auto-apply settings require editing node.yaml directly.
         </p>
       </Card>
+
+      {/* Create Volume Modal */}
+      {showCreateVolumeModal && (
+        <CreateUpdatesVolumeModal
+          onClose={() => {
+            setShowCreateVolumeModal(false);
+            refetchVolumes();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Create Updates Volume Modal Component
+// =============================================================================
+
+interface CreateUpdatesVolumeModalProps {
+  onClose: () => void;
+}
+
+function CreateUpdatesVolumeModal({ onClose }: CreateUpdatesVolumeModalProps) {
+  const { data: pools } = useStoragePools();
+  const [selectedPool, setSelectedPool] = useState('');
+  const [volumeName, setVolumeName] = useState('updates-storage');
+  const [sizeGib, setSizeGib] = useState(20);
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Auto-select first pool
+  useEffect(() => {
+    if (pools && pools.length > 0 && !selectedPool) {
+      setSelectedPool(pools[0].poolId);
+    }
+  }, [pools, selectedPool]);
+
+  const handleCreate = async () => {
+    if (!selectedPool || !volumeName) return;
+
+    setIsCreating(true);
+    try {
+      // Use the storage API to create a volume
+      const { createVolume } = await import('@/api/storage');
+      await createVolume(selectedPool, {
+        volumeId: volumeName,
+        sizeBytes: sizeGib * 1024 * 1024 * 1024,
+        sourceType: 'EMPTY',
+      });
+      toast.success('Updates volume created successfully');
+      onClose();
+    } catch (error) {
+      toast.error(`Failed to create volume: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-bg-surface rounded-xl shadow-xl w-full max-w-md mx-4">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="text-lg font-semibold text-text-primary">
+            Create Updates Volume
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1 rounded hover:bg-bg-hover transition-colors"
+          >
+            <XCircle className="w-5 h-5 text-text-muted" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Info banner */}
+          <div className="p-3 bg-info/10 border border-info/20 rounded-lg">
+            <p className="text-sm text-text-muted">
+              This volume will be used to store downloaded updates. 
+              Recommended size is 20 GB.
+            </p>
+          </div>
+
+          {/* Pool selection */}
+          <div>
+            <Label htmlFor="pool">Storage Pool</Label>
+            <select
+              id="pool"
+              value={selectedPool}
+              onChange={(e) => setSelectedPool(e.target.value)}
+              className="w-full px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/50"
+            >
+              {pools?.map((pool) => (
+                <option key={pool.poolId} value={pool.poolId}>
+                  {pool.poolId} ({formatBytes(pool.totalBytes - pool.usedBytes)} free)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Volume name */}
+          <div>
+            <Label htmlFor="volumeName">Volume Name</Label>
+            <Input
+              id="volumeName"
+              value={volumeName}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setVolumeName(e.target.value)}
+              placeholder="updates-storage"
+            />
+          </div>
+
+          {/* Size */}
+          <div>
+            <Label htmlFor="size">Size (GiB)</Label>
+            <Input
+              id="size"
+              type="number"
+              value={sizeGib}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setSizeGib(parseInt(e.target.value) || 1)}
+              min={1}
+              max={1000}
+            />
+            <p className="text-xs text-text-muted mt-1">
+              Recommended: 20 GiB minimum
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 p-4 border-t border-border">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreate}
+            disabled={isCreating || !selectedPool || !volumeName}
+          >
+            {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            Create Volume
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

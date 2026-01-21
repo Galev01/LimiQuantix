@@ -6,6 +6,38 @@
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
+/// Storage location for update downloads
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum StorageLocation {
+    /// Use local /data partition (default)
+    #[default]
+    Local,
+    /// Use a dedicated storage volume
+    Volume,
+}
+
+impl std::fmt::Display for StorageLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StorageLocation::Local => write!(f, "local"),
+            StorageLocation::Volume => write!(f, "volume"),
+        }
+    }
+}
+
+impl std::str::FromStr for StorageLocation {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "local" => Ok(StorageLocation::Local),
+            "volume" => Ok(StorageLocation::Volume),
+            _ => Err(format!("Invalid storage location: '{}'. Must be 'local' or 'volume'", s)),
+        }
+    }
+}
+
 /// Update system configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateConfig {
@@ -33,7 +65,17 @@ pub struct UpdateConfig {
     #[serde(default)]
     pub auto_reboot: bool,
 
+    /// Storage location for downloaded updates (local or volume)
+    #[serde(default)]
+    pub storage_location: StorageLocation,
+
+    /// Path to dedicated volume for updates (when storage_location = volume)
+    /// This is the mount path of the volume, e.g., "/mnt/updates-storage"
+    #[serde(default)]
+    pub volume_path: Option<String>,
+
     /// Directory to stage downloaded updates before applying
+    /// When storage_location = volume, this is relative to volume_path
     #[serde(default = "default_staging_dir")]
     pub staging_dir: PathBuf,
 
@@ -84,9 +126,43 @@ impl Default for UpdateConfig {
             check_interval: default_check_interval(),
             auto_apply: false,
             auto_reboot: false,
+            storage_location: StorageLocation::default(),
+            volume_path: None,
             staging_dir: default_staging_dir(),
             backup_dir: default_backup_dir(),
             max_backups: default_max_backups(),
+        }
+    }
+}
+
+impl UpdateConfig {
+    /// Get the effective staging directory based on storage location
+    pub fn effective_staging_dir(&self) -> PathBuf {
+        match self.storage_location {
+            StorageLocation::Local => self.staging_dir.clone(),
+            StorageLocation::Volume => {
+                if let Some(ref vol_path) = self.volume_path {
+                    PathBuf::from(vol_path).join("staging")
+                } else {
+                    // Fallback to local if volume path not set
+                    self.staging_dir.clone()
+                }
+            }
+        }
+    }
+
+    /// Get the effective backup directory based on storage location
+    pub fn effective_backup_dir(&self) -> PathBuf {
+        match self.storage_location {
+            StorageLocation::Local => self.backup_dir.clone(),
+            StorageLocation::Volume => {
+                if let Some(ref vol_path) = self.volume_path {
+                    PathBuf::from(vol_path).join("backup")
+                } else {
+                    // Fallback to local if volume path not set
+                    self.backup_dir.clone()
+                }
+            }
         }
     }
 }
@@ -110,6 +186,13 @@ impl UpdateConfig {
 
         if parse_duration(&self.check_interval).is_none() {
             return Err(format!("Invalid check interval '{}'. Use format like '1h', '30m', '1d'", self.check_interval));
+        }
+
+        // Validate volume path if storage location is volume
+        if self.storage_location == StorageLocation::Volume {
+            if self.volume_path.is_none() || self.volume_path.as_ref().map(|p| p.is_empty()).unwrap_or(true) {
+                return Err("Volume path must be set when storage location is 'volume'".to_string());
+            }
         }
 
         Ok(())

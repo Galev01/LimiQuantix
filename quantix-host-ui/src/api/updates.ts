@@ -5,7 +5,7 @@
  * and applying system updates.
  */
 
-import { get, post } from './client';
+import { get, post, put } from './client';
 
 // =============================================================================
 // Types
@@ -66,11 +66,35 @@ export interface UpdateConfig {
   channel: string;
   checkInterval: string;
   autoApply: boolean;
+  storageLocation: 'local' | 'volume';
+  volumePath?: string;
 }
 
 export interface ApplyUpdateResponse {
   status: 'started' | 'success' | 'error';
   message: string;
+}
+
+/**
+ * Request to update the update configuration
+ */
+export interface UpdateConfigRequest {
+  serverUrl?: string;
+  channel?: string;
+  storageLocation?: 'local' | 'volume';
+  volumePath?: string;
+}
+
+/**
+ * Volume information for update storage
+ */
+export interface UpdateVolumeInfo {
+  path: string;
+  name: string;
+  poolId: string;
+  totalBytes: number;
+  availableBytes: number;
+  isMounted: boolean;
 }
 
 // =============================================================================
@@ -123,6 +147,26 @@ export async function applyUpdates(): Promise<ApplyUpdateResponse> {
  */
 export async function getUpdateConfig(): Promise<UpdateConfig> {
   return get<UpdateConfig>('/updates/config');
+}
+
+/**
+ * Save update configuration
+ * 
+ * Updates the update server URL, channel, and/or storage location.
+ * Changes are applied immediately and persisted to node.yaml.
+ */
+export async function saveUpdateConfig(request: UpdateConfigRequest): Promise<UpdateConfig> {
+  return put<UpdateConfig>('/updates/config', request);
+}
+
+/**
+ * List volumes available for update storage
+ * 
+ * Returns mounted volumes that can be used as dedicated storage for updates.
+ */
+export async function listUpdateVolumes(): Promise<UpdateVolumeInfo[]> {
+  const response = await get<{ volumes: UpdateVolumeInfo[] }>('/updates/volumes');
+  return response.volumes || [];
 }
 
 // =============================================================================

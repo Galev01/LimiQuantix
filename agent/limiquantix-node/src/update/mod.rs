@@ -36,7 +36,7 @@ mod ab_update;
 pub use manifest::{Manifest, Component, FullImage, UpdateType};
 pub use downloader::UpdateDownloader;
 pub use applier::UpdateApplier;
-pub use config::UpdateConfig;
+pub use config::{UpdateConfig, StorageLocation};
 pub use status::{UpdateStatus, UpdateProgress, ComponentStatus};
 pub use ab_update::{ABUpdateManager, ABUpdateState, Slot};
 
@@ -89,9 +89,9 @@ pub struct ComponentUpdateInfo {
 
 /// Main update manager that coordinates all update operations
 pub struct UpdateManager {
-    config: UpdateConfig,
-    downloader: UpdateDownloader,
-    applier: UpdateApplier,
+    config: RwLock<UpdateConfig>,
+    downloader: RwLock<UpdateDownloader>,
+    applier: RwLock<UpdateApplier>,
     status: Arc<RwLock<UpdateStatus>>,
     installed_versions: Arc<RwLock<InstalledVersions>>,
 }
@@ -99,16 +99,17 @@ pub struct UpdateManager {
 impl UpdateManager {
     /// Create a new UpdateManager with the given configuration
     pub fn new(config: UpdateConfig) -> Self {
+        let effective_staging = config.effective_staging_dir();
         let downloader = UpdateDownloader::new(
             config.server_url.clone(),
-            config.staging_dir.clone(),
+            effective_staging,
         );
         let applier = UpdateApplier::new(config.clone());
         
         Self {
-            config,
-            downloader,
-            applier,
+            config: RwLock::new(config),
+            downloader: RwLock::new(downloader),
+            applier: RwLock::new(applier),
             status: Arc::new(RwLock::new(UpdateStatus::Idle)),
             installed_versions: Arc::new(RwLock::new(InstalledVersions::default())),
         }
@@ -177,9 +178,10 @@ impl UpdateManager {
     /// Check for available updates
     #[instrument(skip(self))]
     pub async fn check_for_updates(&self) -> Result<UpdateInfo> {
+        let config = self.config.read().await;
         info!(
-            server = %self.config.server_url,
-            channel = %self.config.channel,
+            server = %config.server_url,
+            channel = %config.channel,
             "Checking for updates"
         );
 
@@ -190,7 +192,11 @@ impl UpdateManager {
         }
 
         // Fetch latest manifest from server
-        let manifest = match self.downloader.fetch_manifest(&self.config.channel).await {
+        let channel = config.channel.clone();
+        drop(config); // Release lock before async operations
+        
+        let downloader = self.downloader.read().await;
+        let manifest = match downloader.fetch_manifest(&channel).await {
             Ok(m) => m,
             Err(e) => {
                 let mut status = self.status.write().await;
@@ -198,6 +204,7 @@ impl UpdateManager {
                 return Err(e);
             }
         };
+        drop(downloader);
 
         let installed = self.installed_versions.read().await;
         
@@ -258,8 +265,14 @@ impl UpdateManager {
     pub async fn apply_updates(&self) -> Result<()> {
         info!("Starting update application");
 
-        // Fetch manifest
-        let manifest = self.downloader.fetch_manifest(&self.config.channel).await
+        // Get channel and fetch manifest
+        let channel = {
+            let config = self.config.read().await;
+            config.channel.clone()
+        };
+        
+        let downloader = self.downloader.read().await;
+        let manifest = downloader.fetch_manifest(&channel).await
             .context("Failed to fetch manifest")?;
 
         // Update status
@@ -274,7 +287,7 @@ impl UpdateManager {
         }
 
         // Download all components
-        let artifacts = self.downloader.download_all(&manifest, |progress| {
+        let artifacts = downloader.download_all(&manifest, |progress| {
             // This would ideally update the status, but we need async closure support
             // For now, logging is sufficient
             info!(
@@ -283,6 +296,7 @@ impl UpdateManager {
                 "Download progress"
             );
         }).await.context("Failed to download artifacts")?;
+        drop(downloader);
 
         // Update status
         {
@@ -291,10 +305,11 @@ impl UpdateManager {
         }
 
         // Apply all downloaded artifacts
+        let applier = self.applier.read().await;
         for (component, artifact_path) in artifacts {
             info!(component = %component.name, "Applying component update");
             
-            self.applier.apply_component(&component, &artifact_path).await
+            applier.apply_component(&component, &artifact_path).await
                 .with_context(|| format!("Failed to apply component: {}", component.name))?;
 
             // Update installed version
@@ -308,6 +323,7 @@ impl UpdateManager {
                 }
             }
         }
+        drop(applier);
 
         // Update status
         {
@@ -329,9 +345,88 @@ impl UpdateManager {
         self.installed_versions.read().await.clone()
     }
 
-    /// Get update configuration
-    pub fn get_config(&self) -> &UpdateConfig {
-        &self.config
+    /// Get update configuration (returns a clone)
+    pub async fn get_config(&self) -> UpdateConfig {
+        self.config.read().await.clone()
+    }
+    
+    /// Update the configuration at runtime
+    /// 
+    /// This updates the server URL, channel, and/or storage location.
+    /// Changes are applied immediately and the downloader is recreated.
+    #[instrument(skip(self))]
+    pub async fn update_config(
+        &self,
+        server_url: Option<String>,
+        channel: Option<String>,
+        storage_location: Option<StorageLocation>,
+        volume_path: Option<String>,
+    ) -> Result<UpdateConfig> {
+        let mut config = self.config.write().await;
+        
+        // Update fields if provided
+        if let Some(url) = server_url {
+            if url.is_empty() {
+                anyhow::bail!("Server URL cannot be empty");
+            }
+            info!(old = %config.server_url, new = %url, "Updating server URL");
+            config.server_url = url;
+        }
+        
+        if let Some(ch) = channel {
+            if !["dev", "beta", "stable"].contains(&ch.as_str()) {
+                anyhow::bail!("Invalid channel '{}'. Must be dev, beta, or stable", ch);
+            }
+            info!(old = %config.channel, new = %ch, "Updating channel");
+            config.channel = ch;
+        }
+        
+        if let Some(loc) = storage_location {
+            info!(old = %config.storage_location, new = %loc, "Updating storage location");
+            config.storage_location = loc;
+        }
+        
+        if let Some(path) = volume_path {
+            info!(old = ?config.volume_path, new = %path, "Updating volume path");
+            config.volume_path = if path.is_empty() { None } else { Some(path) };
+        }
+        
+        // Validate the updated config
+        config.validate().map_err(|e| anyhow::anyhow!(e))?;
+        
+        // Recreate the downloader with new settings
+        let effective_staging = config.effective_staging_dir();
+        let new_downloader = UpdateDownloader::new(
+            config.server_url.clone(),
+            effective_staging.clone(),
+        );
+        
+        // Recreate the applier with new settings
+        let new_applier = UpdateApplier::new(config.clone());
+        
+        // Release config lock and update downloader/applier
+        let config_clone = config.clone();
+        drop(config);
+        
+        {
+            let mut downloader = self.downloader.write().await;
+            *downloader = new_downloader;
+        }
+        
+        {
+            let mut applier = self.applier.write().await;
+            *applier = new_applier;
+        }
+        
+        info!(
+            server_url = %config_clone.server_url,
+            channel = %config_clone.channel,
+            storage_location = %config_clone.storage_location,
+            staging_dir = %effective_staging.display(),
+            "Update configuration updated"
+        );
+        
+        Ok(config_clone)
     }
 }
 

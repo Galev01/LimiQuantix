@@ -1,21 +1,37 @@
-import { useState } from 'react';
-import { X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, HardDrive } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { useVolumeOps, useImages } from '@/hooks/useStorage';
 
 interface CreateVolumeModalProps {
   poolId: string;
   onClose: () => void;
+  /** Volume purpose - affects default name and size */
+  purpose?: 'general' | 'updates';
 }
 
-export function CreateVolumeModal({ poolId, onClose }: CreateVolumeModalProps) {
+export function CreateVolumeModal({ poolId, onClose, purpose = 'general' }: CreateVolumeModalProps) {
   const volumeOps = useVolumeOps(poolId);
   const { data: images } = useImages();
   
-  const [volumeId, setVolumeId] = useState('');
-  const [sizeGib, setSizeGib] = useState(20);
+  // Default values based on purpose
+  const defaultName = purpose === 'updates' ? 'updates-storage' : '';
+  const defaultSize = purpose === 'updates' ? 20 : 20;
+  
+  const [volumeId, setVolumeId] = useState(defaultName);
+  const [sizeGib, setSizeGib] = useState(defaultSize);
   const [sourceType, setSourceType] = useState<'EMPTY' | 'IMAGE'>('EMPTY');
   const [selectedImage, setSelectedImage] = useState('');
+  
+  // Reset to defaults when purpose changes
+  useEffect(() => {
+    setVolumeId(purpose === 'updates' ? 'updates-storage' : '');
+    setSizeGib(purpose === 'updates' ? 20 : 20);
+    if (purpose === 'updates') {
+      // Updates volumes are always empty
+      setSourceType('EMPTY');
+    }
+  }, [purpose]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,12 +49,14 @@ export function CreateVolumeModal({ poolId, onClose }: CreateVolumeModalProps) {
     );
   };
 
+  const modalTitle = purpose === 'updates' ? 'Create Updates Volume' : 'Create Volume';
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-bg-surface rounded-xl shadow-xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold text-text-primary">
-            Create Volume
+            {modalTitle}
           </h2>
           <button
             onClick={onClose}
@@ -49,6 +67,20 @@ export function CreateVolumeModal({ poolId, onClose }: CreateVolumeModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          {/* Updates purpose info banner */}
+          {purpose === 'updates' && (
+            <div className="flex items-start gap-3 p-3 bg-info/10 border border-info/20 rounded-lg">
+              <HardDrive className="w-5 h-5 text-info mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-text-secondary">Updates Storage Volume</p>
+                <p className="text-xs text-text-muted mt-1">
+                  This volume will be used to store downloaded system updates. 
+                  Recommended size is 20 GiB minimum.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Volume ID */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2">
@@ -110,7 +142,9 @@ export function CreateVolumeModal({ poolId, onClose }: CreateVolumeModalProps) {
               required
             />
             <p className="text-xs text-text-muted mt-1">
-              Minimum 1 GiB, maximum 10 TiB
+              {purpose === 'updates' 
+                ? 'Recommended: 20 GiB minimum for update staging area'
+                : 'Minimum 1 GiB, maximum 10 TiB'}
             </p>
           </div>
 

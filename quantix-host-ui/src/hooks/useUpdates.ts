@@ -12,11 +12,15 @@ import {
   getUpdateStatus,
   applyUpdates,
   getUpdateConfig,
+  saveUpdateConfig,
+  listUpdateVolumes,
   isUpdateInProgress,
   type UpdateCheckResponse,
   type InstalledVersions,
   type UpdateStatusResponse,
   type UpdateConfig,
+  type UpdateConfigRequest,
+  type UpdateVolumeInfo,
 } from '@/api/updates';
 
 // =============================================================================
@@ -29,6 +33,7 @@ export const updateKeys = {
   current: () => [...updateKeys.all, 'current'] as const,
   status: () => [...updateKeys.all, 'status'] as const,
   config: () => [...updateKeys.all, 'config'] as const,
+  volumes: () => [...updateKeys.all, 'volumes'] as const,
 };
 
 // =============================================================================
@@ -149,6 +154,42 @@ export function useApplyUpdates() {
   });
 }
 
+/**
+ * Save update configuration
+ * 
+ * Updates the update server URL, channel, and/or storage location.
+ * Shows toast notifications for success/failure.
+ */
+export function useSaveUpdateConfig() {
+  const queryClient = useQueryClient();
+
+  return useMutation<UpdateConfig, Error, UpdateConfigRequest>({
+    mutationFn: saveUpdateConfig,
+    onSuccess: () => {
+      toast.success('Update settings saved');
+      // Invalidate config to refetch with new values
+      queryClient.invalidateQueries({ queryKey: updateKeys.config() });
+    },
+    onError: (error) => {
+      toast.error(`Failed to save settings: ${error.message}`);
+    },
+  });
+}
+
+/**
+ * Get volumes available for update storage
+ * 
+ * Returns mounted volumes that can be used as dedicated storage for updates.
+ */
+export function useUpdateVolumes() {
+  return useQuery<UpdateVolumeInfo[]>({
+    queryKey: updateKeys.volumes(),
+    queryFn: listUpdateVolumes,
+    staleTime: 30_000, // 30 seconds
+    refetchOnWindowFocus: false,
+  });
+}
+
 // =============================================================================
 // Composite Hook
 // =============================================================================
@@ -162,8 +203,10 @@ export function useUpdatesTab() {
   const versions = useInstalledVersions();
   const status = useUpdateStatus();
   const config = useUpdateConfig();
+  const volumes = useUpdateVolumes();
   const checkMutation = useCheckForUpdates();
   const applyMutation = useApplyUpdates();
+  const saveConfigMutation = useSaveUpdateConfig();
 
   const isUpdating = status.data ? isUpdateInProgress(status.data.status) : false;
 
@@ -175,6 +218,8 @@ export function useUpdatesTab() {
     statusLoading: status.isLoading,
     config: config.data,
     configLoading: config.isLoading,
+    volumes: volumes.data,
+    volumesLoading: volumes.isLoading,
     
     // Check result from last check mutation
     checkResult: checkMutation.data,
@@ -183,13 +228,17 @@ export function useUpdatesTab() {
     isUpdating,
     isChecking: checkMutation.isPending,
     isApplying: applyMutation.isPending,
+    isSavingConfig: saveConfigMutation.isPending,
     
     // Actions
     checkForUpdates: () => checkMutation.mutate(),
     applyUpdates: () => applyMutation.mutate(),
+    saveConfig: (request: UpdateConfigRequest) => saveConfigMutation.mutate(request),
     
     // Refetch functions
     refetchStatus: status.refetch,
     refetchVersions: versions.refetch,
+    refetchConfig: config.refetch,
+    refetchVolumes: volumes.refetch,
   };
 }

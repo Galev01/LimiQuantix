@@ -3,6 +3,8 @@
 package update
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
@@ -540,6 +542,12 @@ func (s *Service) fetchManifest(ctx context.Context, product string) (*Manifest,
 }
 
 func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manifest, component Component) error {
+	s.logger.Info("Processing component update",
+		zap.String("component", component.Name),
+		zap.String("version", component.Version),
+		zap.String("install_path", component.InstallPath),
+	)
+
 	// Download artifact
 	artifactURL := fmt.Sprintf("%s/api/v1/quantix-vdc/releases/%s/%s?channel=%s",
 		s.config.ServerURL, manifest.Version, component.Artifact, manifest.Channel)
@@ -560,34 +568,83 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 			os.Remove(stagingPath)
 			return fmt.Errorf("hash mismatch: expected %s, got %s", component.SHA256, actualHash)
 		}
-	}
-
-	// Backup existing file
-	if component.InstallPath != "" {
-		backupPath := filepath.Join(s.config.DataDir, "backup", filepath.Base(component.InstallPath))
-		if _, err := os.Stat(component.InstallPath); err == nil {
-			if err := copyFile(component.InstallPath, backupPath); err != nil {
-				s.logger.Warn("Failed to backup existing file", zap.Error(err))
-			}
-		}
+		s.logger.Info("SHA256 verified", zap.String("component", component.Name))
 	}
 
 	// Extract and install
 	s.setVDCStatus(StatusApplying, "")
 
-	// For tar.zst files, extract to install path
-	// For now, we'll just copy the file (assuming it's extracted elsewhere or is a binary)
 	if component.InstallPath != "" {
-		if err := os.MkdirAll(filepath.Dir(component.InstallPath), 0755); err != nil {
-			return fmt.Errorf("failed to create install directory: %w", err)
-		}
+		// Determine if install path is a directory (for dashboard) or a file (for binaries)
+		// Dashboard has install_path ending without extension = directory
+		// Binaries have install_path with no extension but are single files
+		isDirectoryInstall := component.Name == "dashboard" || strings.HasSuffix(component.InstallPath, "/")
 
-		if err := copyFile(stagingPath, component.InstallPath); err != nil {
-			return fmt.Errorf("failed to install: %w", err)
-		}
+		if isDirectoryInstall {
+			// Extract tar.gz to directory
+			s.logger.Info("Extracting to directory",
+				zap.String("component", component.Name),
+				zap.String("dest", component.InstallPath),
+			)
 
-		// Set permissions
-		os.Chmod(component.InstallPath, 0755)
+			// Remove old directory contents and recreate
+			if err := os.RemoveAll(component.InstallPath); err != nil {
+				s.logger.Warn("Failed to remove old directory", zap.Error(err))
+			}
+			if err := os.MkdirAll(component.InstallPath, 0755); err != nil {
+				return fmt.Errorf("failed to create install directory: %w", err)
+			}
+
+			if err := extractTarGz(stagingPath, component.InstallPath); err != nil {
+				return fmt.Errorf("failed to extract: %w", err)
+			}
+		} else {
+			// Extract tar.gz and find the binary inside
+			s.logger.Info("Extracting binary",
+				zap.String("component", component.Name),
+				zap.String("dest", component.InstallPath),
+			)
+
+			// Create temp directory for extraction
+			tempDir := filepath.Join(s.config.DataDir, "staging", component.Name+"-extract")
+			os.RemoveAll(tempDir)
+			if err := os.MkdirAll(tempDir, 0755); err != nil {
+				return fmt.Errorf("failed to create temp directory: %w", err)
+			}
+			defer os.RemoveAll(tempDir)
+
+			if err := extractTarGz(stagingPath, tempDir); err != nil {
+				return fmt.Errorf("failed to extract: %w", err)
+			}
+
+			// Find the binary - it should be the only executable or match the component name
+			binaryPath, err := findBinaryInDir(tempDir, component.Name)
+			if err != nil {
+				return fmt.Errorf("failed to find binary: %w", err)
+			}
+
+			// Create parent directory for install path
+			if err := os.MkdirAll(filepath.Dir(component.InstallPath), 0755); err != nil {
+				return fmt.Errorf("failed to create install directory: %w", err)
+			}
+
+			// Backup existing file
+			if _, err := os.Stat(component.InstallPath); err == nil {
+				backupPath := filepath.Join(s.config.DataDir, "backup", filepath.Base(component.InstallPath))
+				os.MkdirAll(filepath.Dir(backupPath), 0755)
+				if err := copyFile(component.InstallPath, backupPath); err != nil {
+					s.logger.Warn("Failed to backup existing file", zap.Error(err))
+				}
+			}
+
+			// Copy binary to install path
+			if err := copyFile(binaryPath, component.InstallPath); err != nil {
+				return fmt.Errorf("failed to install binary: %w", err)
+			}
+
+			// Set permissions
+			os.Chmod(component.InstallPath, 0755)
+		}
 	}
 
 	// Restart service if specified
@@ -598,6 +655,11 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 
 	// Cleanup
 	os.Remove(stagingPath)
+
+	s.logger.Info("Component update applied successfully",
+		zap.String("component", component.Name),
+		zap.String("version", component.Version),
+	)
 
 	return nil
 }
@@ -744,6 +806,110 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(destFile, sourceFile)
 	return err
+}
+
+// extractTarGz extracts a .tar.gz file to the specified destination directory
+func extractTarGz(srcPath, destDir string) error {
+	file, err := os.Open(srcPath)
+	if err != nil {
+		return fmt.Errorf("failed to open archive: %w", err)
+	}
+	defer file.Close()
+
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read tar header: %w", err)
+		}
+
+		// Construct the full path
+		target := filepath.Join(destDir, header.Name)
+
+		// Check for path traversal attacks
+		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(destDir)) {
+			return fmt.Errorf("invalid file path in archive: %s", header.Name)
+		}
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
+				return fmt.Errorf("failed to create directory: %w", err)
+			}
+		case tar.TypeReg:
+			// Ensure parent directory exists
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return fmt.Errorf("failed to create parent directory: %w", err)
+			}
+
+			outFile, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
+			if err != nil {
+				return fmt.Errorf("failed to create file: %w", err)
+			}
+
+			if _, err := io.Copy(outFile, tr); err != nil {
+				outFile.Close()
+				return fmt.Errorf("failed to write file: %w", err)
+			}
+			outFile.Close()
+		case tar.TypeSymlink:
+			if err := os.Symlink(header.Linkname, target); err != nil {
+				// Ignore symlink errors on Windows
+				if !strings.Contains(err.Error(), "not permitted") {
+					return fmt.Errorf("failed to create symlink: %w", err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// findBinaryInDir searches for an executable binary in a directory
+func findBinaryInDir(dir, componentName string) (string, error) {
+	var candidates []string
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		// Check if it's executable (Unix) or matches expected names
+		name := info.Name()
+
+		// Prioritize exact match with component name
+		if name == componentName || name == "quantix-controlplane" || name == "controlplane" {
+			candidates = append([]string{path}, candidates...) // Prepend
+		} else if info.Mode()&0111 != 0 {
+			// It's executable
+			candidates = append(candidates, path)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	if len(candidates) == 0 {
+		return "", fmt.Errorf("no binary found in extracted archive")
+	}
+
+	return candidates[0], nil
 }
 
 // ========================================================================

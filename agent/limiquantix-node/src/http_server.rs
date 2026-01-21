@@ -997,7 +997,8 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/updates/current", get(get_current_versions))
         .route("/updates/status", get(get_update_status))
         .route("/updates/apply", post(apply_updates))
-        .route("/updates/config", get(get_update_config))
+        .route("/updates/config", get(get_update_config).put(save_update_config))
+        .route("/updates/volumes", get(list_update_volumes))
         .with_state(state.clone());
 
     // Check if webui directory exists
@@ -1144,6 +1145,8 @@ struct UpdateConfigResponse {
     channel: String,
     check_interval: String,
     auto_apply: bool,
+    storage_location: String,
+    volume_path: Option<String>,
 }
 
 /// GET /api/v1/updates/check - Check for available updates
@@ -1263,7 +1266,7 @@ async fn apply_updates(
 async fn get_update_config(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<UpdateConfigResponse>, (StatusCode, Json<ApiError>)> {
-    let config = state.update_manager.get_config();
+    let config = state.update_manager.get_config().await;
     
     Ok(Json(UpdateConfigResponse {
         enabled: config.enabled,
@@ -1271,7 +1274,279 @@ async fn get_update_config(
         channel: config.channel.clone(),
         check_interval: config.check_interval.clone(),
         auto_apply: config.auto_apply,
+        storage_location: config.storage_location.to_string(),
+        volume_path: config.volume_path.clone(),
     }))
+}
+
+/// Request type for update config changes
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateConfigUpdateRequest {
+    server_url: Option<String>,
+    channel: Option<String>,
+    storage_location: Option<String>,
+    volume_path: Option<String>,
+}
+
+/// PUT /api/v1/updates/config - Update the update configuration
+/// 
+/// Allows changing the update server URL, channel, and storage location at runtime.
+/// Changes are applied immediately and persisted to /etc/limiquantix/node.yaml.
+async fn save_update_config(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<UpdateConfigUpdateRequest>,
+) -> Result<Json<UpdateConfigResponse>, (StatusCode, Json<ApiError>)> {
+    use crate::update::StorageLocation;
+    
+    info!(
+        server_url = ?req.server_url,
+        channel = ?req.channel,
+        storage_location = ?req.storage_location,
+        volume_path = ?req.volume_path,
+        "Update config change requested"
+    );
+    
+    // Parse storage location if provided
+    let storage_location = match &req.storage_location {
+        Some(loc) => Some(loc.parse::<StorageLocation>().map_err(|e| {
+            (StatusCode::BAD_REQUEST, Json(ApiError::new("invalid_storage_location", &e)))
+        })?),
+        None => None,
+    };
+    
+    // Update the config in memory
+    let updated_config = state.update_manager.update_config(
+        req.server_url.clone(),
+        req.channel.clone(),
+        storage_location,
+        req.volume_path.clone(),
+    ).await.map_err(|e| {
+        error!(error = %e, "Failed to update config");
+        (StatusCode::BAD_REQUEST, Json(ApiError::new("config_update_failed", &e.to_string())))
+    })?;
+    
+    // Persist to node.yaml
+    if let Err(e) = persist_update_config(&updated_config).await {
+        warn!(error = %e, "Failed to persist update config to node.yaml (in-memory config was updated)");
+        // Don't fail the request - in-memory config was updated successfully
+    }
+    
+    info!(
+        server_url = %updated_config.server_url,
+        channel = %updated_config.channel,
+        storage_location = %updated_config.storage_location,
+        "Update configuration saved"
+    );
+    
+    Ok(Json(UpdateConfigResponse {
+        enabled: updated_config.enabled,
+        server_url: updated_config.server_url,
+        channel: updated_config.channel,
+        check_interval: updated_config.check_interval,
+        auto_apply: updated_config.auto_apply,
+        storage_location: updated_config.storage_location.to_string(),
+        volume_path: updated_config.volume_path,
+    }))
+}
+
+/// Persist update configuration to /etc/limiquantix/node.yaml
+async fn persist_update_config(config: &crate::update::UpdateConfig) -> anyhow::Result<()> {
+    use tokio::fs;
+    
+    let config_path = std::path::Path::new("/etc/limiquantix/node.yaml");
+    
+    // Read existing config if it exists
+    let existing_content = if config_path.exists() {
+        fs::read_to_string(config_path).await.unwrap_or_default()
+    } else {
+        String::new()
+    };
+    
+    // Parse existing YAML (simple approach - in production use proper YAML library)
+    // For now, we'll update the updates section
+    let updates_section = format!(
+        r#"
+updates:
+  enabled: {}
+  server_url: "{}"
+  channel: "{}"
+  check_interval: "{}"
+  auto_apply: {}
+  auto_reboot: {}
+  storage_location: "{}"
+  volume_path: {}
+  staging_dir: "{}"
+  backup_dir: "{}""#,
+        config.enabled,
+        config.server_url,
+        config.channel,
+        config.check_interval,
+        config.auto_apply,
+        config.auto_reboot,
+        config.storage_location,
+        config.volume_path.as_ref().map(|p| format!("\"{}\"", p)).unwrap_or_else(|| "null".to_string()),
+        config.staging_dir.display(),
+        config.backup_dir.display(),
+    );
+    
+    // Check if updates section exists in the file
+    let new_content = if existing_content.contains("updates:") {
+        // Replace the updates section (simplified - in production use proper YAML parsing)
+        // This is a simple line-based replacement
+        let mut lines: Vec<&str> = existing_content.lines().collect();
+        let mut in_updates = false;
+        let mut updates_start = None;
+        let mut updates_end = None;
+        
+        for (i, line) in lines.iter().enumerate() {
+            if line.trim().starts_with("updates:") {
+                in_updates = true;
+                updates_start = Some(i);
+            } else if in_updates {
+                // Check if we've reached a new top-level section
+                if !line.is_empty() && !line.starts_with(' ') && !line.starts_with('\t') && !line.starts_with('#') {
+                    updates_end = Some(i);
+                    break;
+                }
+            }
+        }
+        
+        if let Some(start) = updates_start {
+            let end = updates_end.unwrap_or(lines.len());
+            // Remove old updates section
+            lines.drain(start..end);
+            // Insert new section (skip the leading newline)
+            let new_lines: Vec<&str> = updates_section.trim_start().lines().collect();
+            for (i, line) in new_lines.iter().enumerate() {
+                lines.insert(start + i, line);
+            }
+            lines.join("\n")
+        } else {
+            // No updates section found, append
+            format!("{}\n{}", existing_content, updates_section.trim_start())
+        }
+    } else {
+        // No updates section, append to end
+        format!("{}\n{}", existing_content, updates_section.trim_start())
+    };
+    
+    // Ensure parent directory exists
+    if let Some(parent) = config_path.parent() {
+        fs::create_dir_all(parent).await?;
+    }
+    
+    // Write back
+    fs::write(config_path, new_content).await?;
+    
+    info!(path = %config_path.display(), "Update configuration persisted");
+    Ok(())
+}
+
+/// Volume info for update storage selection
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateVolumeInfo {
+    path: String,
+    name: String,
+    pool_id: String,
+    total_bytes: u64,
+    available_bytes: u64,
+    is_mounted: bool,
+}
+
+/// GET /api/v1/updates/volumes - List volumes available for update storage
+/// 
+/// Returns mounted volumes that can be used as dedicated storage for updates.
+async fn list_update_volumes(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    let mut volumes: Vec<UpdateVolumeInfo> = Vec::new();
+    
+    // Get storage pools and their volumes
+    let pools = state.storage.list_pools().await;
+    
+    for pool in pools {
+        // Get volumes in this pool
+        if let Ok(pool_volumes) = state.storage.list_volumes(&pool.pool_id).await {
+            for vol in pool_volumes {
+                // Check if volume is mounted and suitable for updates
+                // For now, include all volumes that have a path
+                if !vol.path.is_empty() {
+                    // Try to get disk usage for the volume
+                    let (total, available) = get_path_disk_usage(&vol.path).await;
+                    
+                    volumes.push(UpdateVolumeInfo {
+                        path: vol.path.clone(),
+                        name: vol.name.clone(),
+                        pool_id: pool.pool_id.clone(),
+                        total_bytes: total,
+                        available_bytes: available,
+                        is_mounted: std::path::Path::new(&vol.path).exists(),
+                    });
+                }
+            }
+        }
+    }
+    
+    // Also check for any existing updates-storage volume
+    let updates_storage_paths = [
+        "/mnt/updates-storage",
+        "/data/updates-storage",
+    ];
+    
+    for path in &updates_storage_paths {
+        if std::path::Path::new(path).exists() {
+            let (total, available) = get_path_disk_usage(path).await;
+            
+            // Check if already in list
+            if !volumes.iter().any(|v| v.path == *path) {
+                volumes.push(UpdateVolumeInfo {
+                    path: path.to_string(),
+                    name: "updates-storage".to_string(),
+                    pool_id: "system".to_string(),
+                    total_bytes: total,
+                    available_bytes: available,
+                    is_mounted: true,
+                });
+            }
+        }
+    }
+    
+    Ok(Json(serde_json::json!({
+        "volumes": volumes
+    })))
+}
+
+/// Get disk usage for a path (total and available bytes)
+async fn get_path_disk_usage(path: &str) -> (u64, u64) {
+    // Use statvfs on Unix, fallback to 0 on other platforms
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        use std::ffi::CString;
+        
+        let path_cstr = match CString::new(path.as_bytes()) {
+            Ok(s) => s,
+            Err(_) => return (0, 0),
+        };
+        
+        unsafe {
+            let mut stat: libc::statvfs = std::mem::zeroed();
+            if libc::statvfs(path_cstr.as_ptr(), &mut stat) == 0 {
+                let total = stat.f_blocks as u64 * stat.f_frsize as u64;
+                let available = stat.f_bavail as u64 * stat.f_frsize as u64;
+                return (total, available);
+            }
+        }
+        (0, 0)
+    }
+    
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        (0, 0)
+    }
 }
 
 // ============================================================================
