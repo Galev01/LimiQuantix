@@ -35,13 +35,11 @@ PUBLISH_TOKEN="${PUBLISH_TOKEN:-dev-token}"
 DRY_RUN=false
 COMPONENTS=()
 BUILD_ALL=true
+NO_BUMP=false
 
-# Read version from VERSION file or use provided
-if [ -f "$PROJECT_ROOT/Quantix-OS/VERSION" ]; then
-    VERSION="${VERSION:-$(cat "$PROJECT_ROOT/Quantix-OS/VERSION" | tr -d '\n\r ')}"
-else
-    VERSION="${VERSION:-0.0.1}"
-fi
+# Version file location
+VERSION_FILE="$PROJECT_ROOT/Quantix-OS/VERSION"
+VERSION_SCRIPT="$PROJECT_ROOT/Quantix-OS/builder/version.sh"
 
 # Staging directory for build artifacts
 STAGING_DIR="/tmp/quantix-update-staging"
@@ -70,25 +68,34 @@ show_usage() {
     cat << EOF
 Usage: $(basename "$0") [OPTIONS]
 
+Builds and publishes Quantix-OS component updates. Automatically increments
+the version number on each publish unless --no-bump or --version is specified.
+
+On Windows, Rust components are built using Docker for Alpine compatibility.
+Make sure Docker is running before building Rust components.
+
 Options:
   --channel CHANNEL     Release channel (dev, beta, stable). Default: dev
   --component NAME      Build and publish only specified component
                         Can be specified multiple times
   --server URL          Update server URL. Default: $UPDATE_SERVER
   --token TOKEN         Authentication token. Default: dev-token
-  --version VERSION     Version to publish. Default: read from VERSION file
+  --version VERSION     Version to publish (disables auto-increment)
+  --no-bump             Don't increment version, use current VERSION file
   --dry-run             Build artifacts but don't upload
   --help                Show this help
 
 Components:
-  qx-node              Node daemon (Rust)
-  qx-console           Console TUI (Rust)
-  host-ui              Host UI (React)
+  qx-node              Node daemon (Rust) - requires Docker on Windows
+  qx-console           Console TUI (Rust) - requires Docker on Windows
+  host-ui              Host UI (React) - builds natively
 
 Examples:
-  $(basename "$0")                                    # Build and publish all to dev
+  $(basename "$0")                                    # Build all, bump version, publish
   $(basename "$0") --channel beta                    # Publish to beta channel
+  $(basename "$0") --component host-ui               # Only publish host-ui (fast, no Docker)
   $(basename "$0") --component qx-node --dry-run    # Build qx-node without upload
+  $(basename "$0") --no-bump                         # Publish without incrementing version
 EOF
 }
 
@@ -117,10 +124,15 @@ while [[ $# -gt 0 ]]; do
             ;;
         --version)
             VERSION="$2"
+            NO_BUMP=true  # If version is manually specified, don't bump
             shift 2
             ;;
         --dry-run)
             DRY_RUN=true
+            shift
+            ;;
+        --no-bump)
+            NO_BUMP=true
             shift
             ;;
         --help|-h)
@@ -147,6 +159,30 @@ if [[ ! "$CHANNEL" =~ ^(dev|beta|stable)$ ]]; then
 fi
 
 # =============================================================================
+# Version Management
+# =============================================================================
+
+# Auto-increment version unless --no-bump or --version was specified
+if [ "$NO_BUMP" = false ] && [ -z "$VERSION" ]; then
+    if [ -x "$VERSION_SCRIPT" ]; then
+        log_info "Incrementing version..."
+        VERSION=$("$VERSION_SCRIPT" increment)
+        log_info "New version: $VERSION"
+    elif [ -f "$VERSION_FILE" ]; then
+        VERSION=$(cat "$VERSION_FILE" | tr -d '\n\r ')
+    else
+        VERSION="0.0.1"
+    fi
+elif [ -z "$VERSION" ]; then
+    # --no-bump specified, read current version without incrementing
+    if [ -f "$VERSION_FILE" ]; then
+        VERSION=$(cat "$VERSION_FILE" | tr -d '\n\r ')
+    else
+        VERSION="0.0.1"
+    fi
+fi
+
+# =============================================================================
 # Main
 # =============================================================================
 
@@ -170,6 +206,99 @@ mkdir -p "$STAGING_DIR"
 declare -A ARTIFACTS
 
 # =============================================================================
+# Docker Image for Rust builds
+# =============================================================================
+
+RUST_BUILDER_IMAGE="quantix-rust-tui-builder"
+
+# Check if we need Docker for Rust builds (Windows or no musl)
+use_docker_for_rust() {
+    # On Windows (MINGW/MSYS/Cygwin), always use Docker
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "win32" ]]; then
+        return 0
+    fi
+    # On Linux, check if musl toolchain is available
+    if ! command -v x86_64-linux-musl-gcc &> /dev/null; then
+        return 0
+    fi
+    return 1
+}
+
+build_rust_with_docker() {
+    local crate="$1"
+    local output_name="$2"
+    local source_dir="$3"
+    
+    log_info "Building $crate with Docker (Alpine native)..."
+    
+    # Check if Docker is available
+    if ! command -v docker &> /dev/null; then
+        log_error "Docker is not installed or not in PATH"
+        return 1
+    fi
+    
+    # Check if Docker daemon is running
+    if ! docker info &> /dev/null; then
+        log_error "Docker daemon is not running. Please start Docker Desktop."
+        return 1
+    fi
+    
+    # Convert path for Docker on Windows (Git Bash mangles paths)
+    # Git Bash converts /build to C:/Program Files/Git/build, so we need to disable that
+    local docker_workdir="//build"  # Double slash prevents Git Bash path conversion
+    
+    # Convert source_dir to Docker-compatible path
+    local docker_source_dir="$source_dir"
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        # Convert Windows path: /c/Users/... -> C:/Users/...
+        # Or if already C:\..., convert backslashes
+        docker_source_dir=$(cd "$source_dir" && pwd -W 2>/dev/null || pwd)
+    fi
+    
+    # Ensure Docker image exists
+    if ! docker image inspect "$RUST_BUILDER_IMAGE" &> /dev/null; then
+        log_info "Building Docker image $RUST_BUILDER_IMAGE (this may take a few minutes)..."
+        if ! docker build --network=host -t "$RUST_BUILDER_IMAGE" -f "$PROJECT_ROOT/Quantix-OS/builder/Dockerfile.rust-tui" "$PROJECT_ROOT/Quantix-OS/builder/"; then
+            log_error "Failed to build Docker image"
+            return 1
+        fi
+    fi
+    
+    log_info "Running cargo build in Docker container..."
+    log_info "Source dir: $docker_source_dir"
+    
+    # Build in Docker - use MSYS_NO_PATHCONV to prevent path mangling
+    log_info "Running Docker build..."
+    if ! MSYS_NO_PATHCONV=1 docker run --rm --network=host \
+        -v "$docker_source_dir:/build:rw" \
+        -w "$docker_workdir" \
+        "$RUST_BUILDER_IMAGE" \
+        sh -c "cargo build --release -p $crate --features libvirt"; then
+        log_error "Docker build failed for $crate"
+        return 1
+    fi
+    
+    log_info "Docker build completed, checking for binary..."
+    
+    # The binary is in target/release (Docker builds to the mounted volume)
+    local binary_path="$source_dir/target/release/$output_name"
+    
+    if [ -f "$binary_path" ]; then
+        log_info "Found binary: $binary_path ($(du -h "$binary_path" | cut -f1))"
+        echo "$binary_path"
+        return 0
+    fi
+    
+    # Debug: list what's in target/release
+    log_warn "Binary not found at: $binary_path"
+    log_warn "Contents of target/release:"
+    ls -la "$source_dir"/target/release/ 2>/dev/null | head -20 || true
+    
+    log_error "Binary $output_name not found after build"
+    return 1
+}
+
+# =============================================================================
 # Build Components
 # =============================================================================
 
@@ -180,36 +309,40 @@ for component in "${COMPONENTS[@]}"; do
         qx-node)
             log_info "Building qx-node (Rust)..."
             
-            # Check if cargo is available
-            if ! command -v cargo &> /dev/null; then
-                log_error "Cargo is not installed. Please install Rust."
-                continue
-            fi
-            
             cd "$PROJECT_ROOT/agent"
+            BINARY=""
             
-            # Try to use musl for static linking if available
-            if rustup target list --installed 2>/dev/null | grep -q "x86_64-unknown-linux-musl"; then
-                log_info "Building with musl for static linking..."
-                cargo build --release -p limiquantix-node --target x86_64-unknown-linux-musl 2>&1 | tail -10
+            if use_docker_for_rust; then
+                # Use Docker for cross-compilation
+                build_rust_with_docker "limiquantix-node" "limiquantix-node" "$PROJECT_ROOT/agent"
+                BUILD_RESULT=$?
+                
+                # Check for binary at the expected location (relative to PROJECT_ROOT)
+                if [ -f "$PROJECT_ROOT/agent/target/release/limiquantix-node" ]; then
+                    BINARY="$PROJECT_ROOT/agent/target/release/limiquantix-node"
+                    log_info "Found qx-node binary: $BINARY"
+                elif [ $BUILD_RESULT -ne 0 ]; then
+                    log_error "Docker build failed for qx-node"
+                fi
             else
-                log_info "Building with default target..."
-                cargo build --release -p limiquantix-node 2>&1 | tail -10
+                # Native Linux build with musl
+                log_info "Building with musl for static linking..."
+                cargo build --release -p limiquantix-node --target x86_64-unknown-linux-musl --features libvirt 2>&1 | tail -10
+                
+                if [ -f "$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/limiquantix-node" ]; then
+                    BINARY="$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/limiquantix-node"
+                fi
             fi
             
-            # Find the built binary
-            BINARY=""
-            for path in \
-                "$PROJECT_ROOT/Quantix-OS/overlay/usr/bin/qx-node" \
-                "$PROJECT_ROOT/agent/target/release/limiquantix-node" \
-                "$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/limiquantix-node"; do
-                if [ -f "$path" ]; then
-                    BINARY="$path"
-                    break
+            # Fallback: check overlay directory (from previous ISO build)
+            if [ -z "$BINARY" ] || [ ! -f "$BINARY" ]; then
+                if [ -f "$PROJECT_ROOT/Quantix-OS/overlay/usr/bin/qx-node" ]; then
+                    log_warn "Using pre-built binary from overlay directory"
+                    BINARY="$PROJECT_ROOT/Quantix-OS/overlay/usr/bin/qx-node"
                 fi
-            done
+            fi
             
-            if [ -z "$BINARY" ]; then
+            if [ -z "$BINARY" ] || [ ! -f "$BINARY" ]; then
                 log_error "qx-node binary not found after build!"
                 exit 1
             fi
@@ -230,36 +363,47 @@ for component in "${COMPONENTS[@]}"; do
         qx-console)
             log_info "Building qx-console (Rust TUI)..."
             
-            # Check if cargo is available
-            if ! command -v cargo &> /dev/null; then
-                log_error "Cargo is not installed. Please install Rust."
-                continue
-            fi
-            
             cd "$PROJECT_ROOT/Quantix-OS/console-tui"
+            BINARY=""
             
-            # Try to use musl for static linking if available
-            if rustup target list --installed 2>/dev/null | grep -q "x86_64-unknown-linux-musl"; then
+            if use_docker_for_rust; then
+                # Use Docker for cross-compilation
+                log_info "Building qx-console with Docker (Alpine native)..."
+                
+                # Ensure Docker image exists
+                if ! docker image inspect "$RUST_BUILDER_IMAGE" &> /dev/null; then
+                    log_info "Building Docker image $RUST_BUILDER_IMAGE..."
+                    docker build --network=host -t "$RUST_BUILDER_IMAGE" -f "$PROJECT_ROOT/Quantix-OS/builder/Dockerfile.rust-tui" "$PROJECT_ROOT/Quantix-OS/builder/"
+                fi
+                
+                docker run --rm --network=host \
+                    -v "$PROJECT_ROOT/Quantix-OS/console-tui:/build:rw" \
+                    -w /build \
+                    "$RUST_BUILDER_IMAGE" \
+                    sh -c "cargo build --release 2>&1 && cp target/release/qx-console /build/qx-console-alpine" 2>&1 | tail -20
+                
+                if [ -f "$PROJECT_ROOT/Quantix-OS/console-tui/qx-console-alpine" ]; then
+                    BINARY="$PROJECT_ROOT/Quantix-OS/console-tui/qx-console-alpine"
+                fi
+            else
+                # Native Linux build with musl
                 log_info "Building with musl for static linking..."
                 cargo build --release --target x86_64-unknown-linux-musl 2>&1 | tail -10
-            else
-                log_info "Building with default target..."
-                cargo build --release 2>&1 | tail -10
+                
+                if [ -f "$PROJECT_ROOT/Quantix-OS/console-tui/target/x86_64-unknown-linux-musl/release/qx-console" ]; then
+                    BINARY="$PROJECT_ROOT/Quantix-OS/console-tui/target/x86_64-unknown-linux-musl/release/qx-console"
+                fi
             fi
             
-            # Find the built binary
-            BINARY=""
-            for path in \
-                "$PROJECT_ROOT/Quantix-OS/overlay/usr/local/bin/qx-console" \
-                "$PROJECT_ROOT/Quantix-OS/console-tui/target/release/qx-console" \
-                "$PROJECT_ROOT/Quantix-OS/console-tui/target/x86_64-unknown-linux-musl/release/qx-console"; do
-                if [ -f "$path" ]; then
-                    BINARY="$path"
-                    break
+            # Fallback: check overlay directory (from previous ISO build)
+            if [ -z "$BINARY" ] || [ ! -f "$BINARY" ]; then
+                if [ -f "$PROJECT_ROOT/Quantix-OS/overlay/usr/local/bin/qx-console" ]; then
+                    log_warn "Using pre-built binary from overlay directory"
+                    BINARY="$PROJECT_ROOT/Quantix-OS/overlay/usr/local/bin/qx-console"
                 fi
-            done
+            fi
             
-            if [ -z "$BINARY" ]; then
+            if [ -z "$BINARY" ] || [ ! -f "$BINARY" ]; then
                 log_warn "qx-console binary not found, skipping..."
                 continue
             fi

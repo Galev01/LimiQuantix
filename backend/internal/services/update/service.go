@@ -141,8 +141,11 @@ type Service struct {
 	hostStates   map[string]*HostUpdateInfo
 	hostStatesMu sync.RWMutex
 
-	// HTTP client for update server (no TLS skip)
+	// HTTP client for update server API calls (short timeout)
 	httpClient *http.Client
+
+	// HTTP client for file downloads (longer timeout)
+	downloadClient *http.Client
 
 	// HTTP client for host communication (skips TLS verification for self-signed certs)
 	hostClient *http.Client
@@ -192,6 +195,9 @@ func NewService(config Config, logger *zap.Logger) *Service {
 		hostStates: make(map[string]*HostUpdateInfo),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
+		},
+		downloadClient: &http.Client{
+			Timeout: 10 * time.Minute, // Longer timeout for file downloads
 		},
 		hostClient: &http.Client{
 			Timeout:   30 * time.Second,
@@ -597,13 +603,23 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 }
 
 func (s *Service) downloadFile(ctx context.Context, url, destPath string) error {
+	s.logger.Info("Starting file download",
+		zap.String("url", url),
+		zap.String("dest", destPath),
+	)
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return err
 	}
 
-	resp, err := s.httpClient.Do(req)
+	// Use downloadClient with longer timeout for file downloads
+	resp, err := s.downloadClient.Do(req)
 	if err != nil {
+		s.logger.Error("Download request failed",
+			zap.String("url", url),
+			zap.Error(err),
+		)
 		return err
 	}
 	defer resp.Body.Close()
@@ -623,8 +639,21 @@ func (s *Service) downloadFile(ctx context.Context, url, destPath string) error 
 	}
 	defer out.Close()
 
-	_, err = io.Copy(out, resp.Body)
-	return err
+	written, err := io.Copy(out, resp.Body)
+	if err != nil {
+		s.logger.Error("Failed to write downloaded file",
+			zap.String("dest", destPath),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	s.logger.Info("File download completed",
+		zap.String("dest", destPath),
+		zap.Int64("bytes", written),
+	)
+
+	return nil
 }
 
 func (s *Service) getOrCreateHostInfo(nodeID string, node *NodeInfo) *HostUpdateInfo {

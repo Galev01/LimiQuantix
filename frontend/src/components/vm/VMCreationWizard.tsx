@@ -2569,7 +2569,7 @@ function StepStorage({
                     <p className="text-sm font-medium text-text-primary">{pool.name}</p>
                     <Badge variant="default" size="sm">{pool.type}</Badge>
                     {pool.status.volumeCount > 0 && (
-                      <Badge variant="secondary" size="sm">{pool.status.volumeCount} volumes</Badge>
+                      <Badge variant="info" size="sm">{pool.status.volumeCount} volumes</Badge>
                     )}
                     {!hasHostAccess && (
                       <Badge variant="warning" size="sm">

@@ -35,18 +35,16 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 CHANNEL="${CHANNEL:-dev}"
-UPDATE_SERVER="${UPDATE_SERVER:-http://localhost:9000}"
+UPDATE_SERVER="${UPDATE_SERVER:-http://192.168.0.251:9000}"
 PUBLISH_TOKEN="${PUBLISH_TOKEN:-dev-token}"
 DRY_RUN=false
 COMPONENTS=()
 BUILD_ALL=true
+NO_BUMP=false
 
-# Read version from VERSION file or use provided
-if [ -f "$PROJECT_ROOT/Quantix-vDC/VERSION" ]; then
-    VERSION="${VERSION:-$(cat "$PROJECT_ROOT/Quantix-vDC/VERSION" | tr -d '\n\r ')}"
-else
-    VERSION="${VERSION:-0.0.1}"
-fi
+# Version file location
+VERSION_FILE="$PROJECT_ROOT/Quantix-vDC/VERSION"
+VERSION_SCRIPT="$PROJECT_ROOT/Quantix-vDC/builder/version.sh"
 
 # Staging directory for build artifacts
 STAGING_DIR="/tmp/quantix-vdc-update-staging"
@@ -77,12 +75,16 @@ Usage: $(basename "$0") [OPTIONS]
 
 Quantix-vDC Update Publisher
 
+Builds and publishes Quantix-vDC component updates. Automatically increments
+the version number on each publish unless --no-bump or --version is specified.
+
 Options:
   --channel CHANNEL     Release channel (dev, beta, stable). Default: dev
   --component NAME      Build only specified component (can repeat)
   --server URL          Update server URL. Default: $UPDATE_SERVER
   --token TOKEN         Authentication token. Default: dev-token
-  --version VERSION     Version to publish. Default: from VERSION file
+  --version VERSION     Version to publish (disables auto-increment)
+  --no-bump             Don't increment version, use current VERSION file
   --dry-run             Build artifacts but don't upload
   --help                Show this help
 
@@ -91,9 +93,10 @@ Components:
   dashboard             React frontend
 
 Examples:
-  $(basename "$0")                                    # Build all, publish to dev
-  $(basename "$0") --channel beta --version 0.0.5    # Publish to beta
+  $(basename "$0")                                    # Build, bump version, publish to dev
+  $(basename "$0") --channel beta                    # Publish to beta channel
   $(basename "$0") --component dashboard --dry-run   # Build dashboard only
+  $(basename "$0") --no-bump                         # Publish without incrementing version
 EOF
 }
 
@@ -122,10 +125,15 @@ while [[ $# -gt 0 ]]; do
             ;;
         --version)
             VERSION="$2"
+            NO_BUMP=true  # If version is manually specified, don't bump
             shift 2
             ;;
         --dry-run)
             DRY_RUN=true
+            shift
+            ;;
+        --no-bump)
+            NO_BUMP=true
             shift
             ;;
         --help|-h)
@@ -149,6 +157,30 @@ fi
 if [[ ! "$CHANNEL" =~ ^(dev|beta|stable)$ ]]; then
     log_error "Invalid channel: $CHANNEL. Must be dev, beta, or stable."
     exit 1
+fi
+
+# =============================================================================
+# Version Management
+# =============================================================================
+
+# Auto-increment version unless --no-bump or --version was specified
+if [ "$NO_BUMP" = false ] && [ -z "$VERSION" ]; then
+    if [ -x "$VERSION_SCRIPT" ]; then
+        log_info "Incrementing version..."
+        VERSION=$("$VERSION_SCRIPT" increment)
+        log_info "New version: $VERSION"
+    elif [ -f "$VERSION_FILE" ]; then
+        VERSION=$(cat "$VERSION_FILE" | tr -d '\n\r ')
+    else
+        VERSION="0.0.1"
+    fi
+elif [ -z "$VERSION" ]; then
+    # --no-bump specified, read current version without incrementing
+    if [ -f "$VERSION_FILE" ]; then
+        VERSION=$(cat "$VERSION_FILE" | tr -d '\n\r ')
+    else
+        VERSION="0.0.1"
+    fi
 fi
 
 # =============================================================================

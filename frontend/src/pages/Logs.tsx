@@ -505,7 +505,7 @@ function LogRow({ log, isSelected, onClick }: LogRowProps) {
 
       {/* User action indicator */}
       {isUserAction && (
-        <MousePointer className="w-3 h-3 text-teal-400 shrink-0" title="User Action" />
+        <MousePointer className="w-3 h-3 text-teal-400 shrink-0" />
       )}
 
       {/* Field count indicator */}

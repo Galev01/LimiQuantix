@@ -1,46 +1,52 @@
 # Workflow State
 
-## Active Task: OTA Update System + Build Fixes
+## Active Task: Fix QvDC Update Download Timeout
 
 **Date:** January 21, 2026
 **Status:** ✅ Complete
 
-### Changes Made
+### Issue
 
-#### 1. OTA Update Configuration (node.yaml)
-- Added `updates` section to `Quantix-OS/overlay/etc/limiquantix/node.yaml`
-- Default server: `http://192.168.0.251:9000` (your update server)
-- Now included in ISO builds automatically
+QvDC update was failing with:
+```
+Failed to apply dashboard: download failed: Get "http://192.168.0.251:9000/api/v1/quantix-vdc/releases/0.0.3/dashboard.tar.gz?channel=dev": context canceled
+```
 
-#### 2. Publish Script Fixes
-- **publish-vdc-update.sh**: Fixed Go build path (`cmd/controlplane` not `cmd/server`)
-- **publish-update.sh**: Updated default URL to `192.168.0.148`
+The "context canceled" error was caused by the HTTP client timeout (30 seconds) being too short for file downloads.
 
-#### 3. Frontend TypeScript Fixes (VMFolderView.tsx)
-Fixed modal prop mismatches that were causing build errors:
+### Root Cause
 
-| Modal | Issue | Fix |
-|-------|-------|-----|
-| ConsoleAccessModal | Missing `onOpenWebConsole` | Added handler to open console in popup |
-| EditSettingsModal | Passing `vm` object instead of individual props | Changed to `vmId`, `vmName`, `vmDescription`, `vmLabels` |
-| EditResourcesModal | Passing `vm` object instead of individual props | Changed to `vmId`, `vmName`, `vmState`, `currentCores`, `currentMemoryMib` |
-| FileBrowser | Missing `isOpen`, `onClose` | Added props directly |
+The update service was using the same `httpClient` with a 30-second timeout for both:
+1. API calls (manifest fetch) - needs short timeout
+2. File downloads (tar.gz artifacts) - needs longer timeout
 
-### Next Steps
+### Fix
 
-1. **Re-run publish script**:
-   ```bash
-   ./scripts/publish-vdc-update.sh --channel dev
-   ```
+Added a separate `downloadClient` with a 10-minute timeout specifically for file downloads:
 
-2. **Rebuild Quantix-OS ISO** (includes OTA config):
-   ```bash
-   cd Quantix-OS && sudo make iso
-   ```
+```go
+// backend/internal/services/update/service.go
+
+// HTTP client for update server API calls (short timeout)
+httpClient *http.Client  // 30s timeout
+
+// HTTP client for file downloads (longer timeout)  
+downloadClient *http.Client  // 10 min timeout
+```
+
+Also added logging to the `downloadFile` function for better debugging.
+
+### Files Changed
+
+- `backend/internal/services/update/service.go`
 
 ---
 
-## Previous Tasks (Completed)
+## Previous Changes
 
-### Volume Selection in VM Creation Wizard ✅
-### QvDC API Issues Fix ✅
+- OTA Update System - Docker Build Support ✅
+- Auto-version bump on publish ✅
+- VERSION files reset to 0.0.1 ✅  
+- VMFolderView.tsx modal props fixed ✅
+- publish-vdc-update.sh Go path fixed ✅
+- node.yaml OTA config added ✅

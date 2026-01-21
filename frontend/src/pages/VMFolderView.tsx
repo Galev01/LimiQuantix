@@ -721,7 +721,7 @@ export function VMFolderView() {
     try {
       await updateVM.mutateAsync({
         id: vmToMove.id,
-        folderId: targetFolderId,
+        labels: { ...vmToMove.labels, 'quantix.io/folder-id': targetFolderId },
       });
       setShowMoveToFolderDialog(false);
       setVmToMove(null);
@@ -866,7 +866,7 @@ export function VMFolderView() {
       case 'removeFolder':
         if (!confirm(`Are you sure you want to remove the folder "${folder.name}"? VMs inside will be moved to the parent folder.`)) return;
         try {
-          await deleteFolderMutation.mutateAsync(folder.id);
+          await deleteFolderMutation.mutateAsync({ id: folder.id });
           refetchFolders();
           toast.success('Folder removed');
         } catch (error) {
@@ -1446,7 +1446,7 @@ export function VMFolderView() {
                         )}
                       >
                         {selectedVm.status.state === 'RUNNING' ? (
-                          <NoVNCConsole vmId={selectedVm.id} vmName={selectedVm.name} autoConnect />
+                          <NoVNCConsole vmId={selectedVm.id} vmName={selectedVm.name} isOpen={true} onClose={() => {}} />
                         ) : (
                           <div className="flex flex-col items-center justify-center h-full">
                             <div className="p-6 rounded-2xl bg-white/5 mb-6">
@@ -1494,7 +1494,7 @@ export function VMFolderView() {
                             <div key={snap.id} className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] p-3 flex items-center justify-between">
                               <div>
                                 <div className="font-medium text-[var(--text-primary)]">{snap.name}</div>
-                                <div className="text-xs text-[var(--text-tertiary)]">{new Date(snap.createdAt).toLocaleString()}</div>
+                                <div className="text-xs text-[var(--text-tertiary)]">{snap.createdAt ? new Date(snap.createdAt).toLocaleString() : 'Unknown'}</div>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Button variant="ghost" size="sm" onClick={() => revertToSnapshot.mutateAsync({ vmId: selectedVmId!, snapshotId: snap.id })}>
