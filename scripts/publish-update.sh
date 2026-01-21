@@ -376,14 +376,23 @@ for component in "${COMPONENTS[@]}"; do
                     docker build --network=host -t "$RUST_BUILDER_IMAGE" -f "$PROJECT_ROOT/Quantix-OS/builder/Dockerfile.rust-tui" "$PROJECT_ROOT/Quantix-OS/builder/"
                 fi
                 
-                docker run --rm --network=host \
-                    -v "$PROJECT_ROOT/Quantix-OS/console-tui:/build:rw" \
-                    -w /build \
-                    "$RUST_BUILDER_IMAGE" \
-                    sh -c "cargo build --release 2>&1 && cp target/release/qx-console /build/qx-console-alpine" 2>&1 | tail -20
+                # Convert path for Docker on Windows
+                CONSOLE_SOURCE_DIR="$PROJECT_ROOT/Quantix-OS/console-tui"
+                if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+                    CONSOLE_SOURCE_DIR=$(cd "$CONSOLE_SOURCE_DIR" && pwd -W 2>/dev/null || pwd)
+                fi
                 
-                if [ -f "$PROJECT_ROOT/Quantix-OS/console-tui/qx-console-alpine" ]; then
-                    BINARY="$PROJECT_ROOT/Quantix-OS/console-tui/qx-console-alpine"
+                # Use MSYS_NO_PATHCONV to prevent Git Bash path mangling
+                MSYS_NO_PATHCONV=1 docker run --rm --network=host \
+                    -v "$CONSOLE_SOURCE_DIR:/build:rw" \
+                    -w "//build" \
+                    "$RUST_BUILDER_IMAGE" \
+                    sh -c "cargo build --release"
+                
+                # Check for binary at expected location
+                if [ -f "$PROJECT_ROOT/Quantix-OS/console-tui/target/release/qx-console" ]; then
+                    BINARY="$PROJECT_ROOT/Quantix-OS/console-tui/target/release/qx-console"
+                    log_info "Found qx-console binary: $BINARY"
                 fi
             else
                 # Native Linux build with musl
