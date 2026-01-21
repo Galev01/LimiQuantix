@@ -1,6 +1,53 @@
 # Workflow State
 
-## Active Task: Alpine 3.22 Upgrade + Build Fix
+## Active Task: QvDC Host Update Fix
+
+**Date:** January 21, 2026
+**Status:** Complete
+
+### Problems
+
+1. **Stale hosts in cache**: Hosts removed from the node list still appeared in the updates page
+2. **Error status for hosts**: QvDC couldn't properly parse QHCI's update response format
+
+### Root Causes
+
+1. **Cache not synced**: `GetHostStates()` returned cached hosts without checking if they still exist
+2. **Field name mismatch**: QvDC expected `status`, `available_version` but QHCI returns `available` (bool), `latest_version`
+
+### Fixes Applied
+
+**File:** `backend/internal/services/update/service.go`
+
+| Change | Description |
+|--------|-------------|
+| `GetHostStates()` | Now filters out stale hosts not in current node list |
+| `CheckAllHostUpdates()` | Syncs cache with node list before checking |
+| `CheckHostUpdate()` | Fixed JSON parsing to match QHCI's actual response format |
+| Added `ClearHostCache()` | Utility to manually clear the host cache |
+
+**QHCI Response Format (corrected parsing):**
+```json
+{
+  "available": true/false,
+  "current_version": "0.0.7",
+  "latest_version": "0.0.8",
+  "channel": "dev",
+  "full_image_available": false,
+  "total_download_size": 12345678
+}
+```
+
+### Deployment
+
+Rebuild and deploy QvDC:
+```bash
+./scripts/publish-vdc-update.sh --channel dev
+```
+
+---
+
+## Previous Task: Alpine 3.22 Upgrade + Build Fix
 
 **Date:** January 22, 2026
 **Status:** Complete

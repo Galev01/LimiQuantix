@@ -349,7 +349,30 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 // ========================================================================
 
 // GetHostStates returns update states for all connected hosts
+// It filters out hosts that are no longer in the node list
 func (s *Service) GetHostStates() map[string]*HostUpdateInfo {
+	// If we have a node getter, filter to only include current nodes
+	if s.nodeGetter != nil {
+		nodes, err := s.nodeGetter.ListNodes(context.Background())
+		if err == nil {
+			// Build a set of current node IDs
+			currentNodeIDs := make(map[string]bool)
+			for _, node := range nodes {
+				currentNodeIDs[node.ID] = true
+			}
+
+			// Clean up stale entries
+			s.hostStatesMu.Lock()
+			for nodeID := range s.hostStates {
+				if !currentNodeIDs[nodeID] {
+					delete(s.hostStates, nodeID)
+					s.logger.Debug("Removed stale host from update cache", zap.String("node_id", nodeID))
+				}
+			}
+			s.hostStatesMu.Unlock()
+		}
+	}
+
 	s.hostStatesMu.RLock()
 	defer s.hostStatesMu.RUnlock()
 
@@ -359,6 +382,15 @@ func (s *Service) GetHostStates() map[string]*HostUpdateInfo {
 		result[k] = &copied
 	}
 	return result
+}
+
+// ClearHostCache removes all cached host update states
+// This is useful when refreshing the host list
+func (s *Service) ClearHostCache() {
+	s.hostStatesMu.Lock()
+	defer s.hostStatesMu.Unlock()
+	s.hostStates = make(map[string]*HostUpdateInfo)
+	s.logger.Debug("Cleared host update cache")
 }
 
 // CheckHostUpdate checks for updates on a specific host
@@ -471,6 +503,7 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 }
 
 // CheckAllHostUpdates checks for updates on all connected hosts
+// It also syncs the host cache with the current node list (removes stale hosts)
 func (s *Service) CheckAllHostUpdates(ctx context.Context) ([]*HostUpdateInfo, error) {
 	if s.nodeGetter == nil {
 		return nil, fmt.Errorf("node getter not configured")
@@ -481,6 +514,23 @@ func (s *Service) CheckAllHostUpdates(ctx context.Context) ([]*HostUpdateInfo, e
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
 
+	// Build a set of current node IDs and sync the cache
+	currentNodeIDs := make(map[string]bool)
+	for _, node := range nodes {
+		currentNodeIDs[node.ID] = true
+	}
+
+	// Clean up stale entries from the cache
+	s.hostStatesMu.Lock()
+	for nodeID := range s.hostStates {
+		if !currentNodeIDs[nodeID] {
+			delete(s.hostStates, nodeID)
+			s.logger.Info("Removed stale host from update cache", zap.String("node_id", nodeID))
+		}
+	}
+	s.hostStatesMu.Unlock()
+
+	// Check each current node
 	var results []*HostUpdateInfo
 	for _, node := range nodes {
 		info, err := s.CheckHostUpdate(ctx, node.ID)
