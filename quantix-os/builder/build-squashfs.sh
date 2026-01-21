@@ -62,6 +62,10 @@ CRITICAL_PACKAGES="linux-lts linux-firmware openrc busybox musl e2fsprogs"
 # Firmware packages - required for GPU and network hardware
 FIRMWARE_PACKAGES="linux-firmware-intel linux-firmware-amd linux-firmware-nvidia"
 
+# Packages whose post-install hooks may fail in chroot (but package files are still installed)
+# grub-efi: tries to run grub-install which needs EFI variables
+CHROOT_HOOK_FAIL_OK="grub-efi"
+
 echo "   Installing critical packages first..."
 for pkg in ${CRITICAL_PACKAGES}; do
     apk --root "${ROOTFS_DIR}" add "$pkg" || {
@@ -103,27 +107,121 @@ if [ -z "$KERNEL_VERSION" ]; then
 fi
 echo "   ✅ Kernel modules installed: ${KERNEL_VERSION}"
 
-# Install remaining packages (allow individual failures)
+# Define packages that are essential for boot (must verify they're installed)
+ESSENTIAL_PACKAGES="bash grep sed gawk coreutils findutils grub libvirt-daemon openssh"
+
+# Install remaining packages
+# Note: grub-efi's post-install hook fails in chroot (can't access EFI variables)
+# but the package files ARE installed correctly. This causes apk to report "1 error"
+# for all subsequent operations, which is misleading but harmless.
 echo "   Installing additional packages..."
 FAILED_PKGS=""
+HOOK_FAILED_PKGS=""
+
 for pkg in ${PACKAGES}; do
     # Skip critical packages (already installed)
     case " ${CRITICAL_PACKAGES} " in
         *" $pkg "*) continue ;;
     esac
     
-    apk --root "${ROOTFS_DIR}" add "$pkg" 2>/dev/null || {
+    # Check if this is a package with known chroot hook issues
+    IS_HOOK_FAIL_OK=""
+    case " ${CHROOT_HOOK_FAIL_OK} " in
+        *" $pkg "*) IS_HOOK_FAIL_OK="yes" ;;
+    esac
+    
+    # Install the package (may report errors from previous packages)
+    apk --root "${ROOTFS_DIR}" add "$pkg" 2>/dev/null
+    
+    # Verify if package is actually installed by checking if it's in the DB
+    if apk --root "${ROOTFS_DIR}" info "$pkg" >/dev/null 2>&1; then
+        # Package installed successfully
+        if [ -n "$IS_HOOK_FAIL_OK" ]; then
+            echo "   ✅ $pkg installed (post-install hook may have failed - OK in chroot)"
+            HOOK_FAILED_PKGS="${HOOK_FAILED_PKGS} $pkg"
+        fi
+    else
+        # Package actually failed to install
         FAILED_PKGS="${FAILED_PKGS} $pkg"
-    }
+    fi
 done
 
-if [ -n "$FAILED_PKGS" ]; then
-    echo "   ⚠️  Some optional packages failed:${FAILED_PKGS}"
-else
-    echo "   ✅ All additional packages installed"
+if [ -n "$HOOK_FAILED_PKGS" ]; then
+    echo "   ℹ️  Packages with expected hook failures (OK):${HOOK_FAILED_PKGS}"
 fi
 
-echo "✅ Packages installed"
+if [ -n "$FAILED_PKGS" ]; then
+    echo "   ⚠️  Packages that failed to install:${FAILED_PKGS}"
+fi
+
+echo "✅ Package installation complete"
+
+# Verify essential packages are installed
+echo "📦 Verifying essential packages..."
+MISSING_ESSENTIAL=""
+for pkg in ${ESSENTIAL_PACKAGES}; do
+    if ! apk --root "${ROOTFS_DIR}" info "$pkg" >/dev/null 2>&1; then
+        MISSING_ESSENTIAL="${MISSING_ESSENTIAL} $pkg"
+    fi
+done
+
+if [ -n "$MISSING_ESSENTIAL" ]; then
+    echo "❌ CRITICAL: Essential packages MISSING:${MISSING_ESSENTIAL}"
+    echo "   The system will NOT boot properly without these packages!"
+    echo ""
+    echo "   Attempting to reinstall missing essential packages..."
+    for pkg in ${MISSING_ESSENTIAL}; do
+        echo "   Reinstalling: $pkg"
+        apk --root "${ROOTFS_DIR}" add --force-broken-world "$pkg" 2>&1 || true
+    done
+    
+    # Re-check
+    STILL_MISSING=""
+    for pkg in ${MISSING_ESSENTIAL}; do
+        if ! apk --root "${ROOTFS_DIR}" info "$pkg" >/dev/null 2>&1; then
+            STILL_MISSING="${STILL_MISSING} $pkg"
+        fi
+    done
+    
+    if [ -n "$STILL_MISSING" ]; then
+        echo "❌ FATAL: Cannot install essential packages:${STILL_MISSING}"
+        exit 1
+    fi
+    echo "   ✅ Essential packages recovered"
+else
+    echo "   ✅ All essential packages verified"
+fi
+
+# Verify critical binaries exist in the rootfs
+echo "📦 Verifying critical binaries..."
+MISSING_BINS=""
+for bin in bash grep sed awk; do
+    if [ ! -f "${ROOTFS_DIR}/bin/$bin" ] && [ ! -f "${ROOTFS_DIR}/usr/bin/$bin" ]; then
+        MISSING_BINS="${MISSING_BINS} $bin"
+    fi
+done
+
+if [ -n "$MISSING_BINS" ]; then
+    echo "❌ CRITICAL: Missing binaries in rootfs:${MISSING_BINS}"
+    echo "   Checking what provides these..."
+    for bin in ${MISSING_BINS}; do
+        echo "   $bin: $(apk --root ${ROOTFS_DIR} info --who-owns /usr/bin/$bin 2>/dev/null || echo 'not found')"
+    done
+    echo ""
+    echo "   Listing /usr/bin contents:"
+    ls "${ROOTFS_DIR}/usr/bin/" | head -30
+    exit 1
+fi
+echo "   ✅ All critical binaries present (bash, grep, sed, awk)"
+
+# Verify GRUB files exist (even if hook failed)
+echo "📦 Verifying bootloader files..."
+if [ -d "${ROOTFS_DIR}/usr/lib/grub/x86_64-efi" ]; then
+    GRUB_MODS=$(ls "${ROOTFS_DIR}/usr/lib/grub/x86_64-efi/"*.mod 2>/dev/null | wc -l)
+    echo "   ✅ GRUB EFI modules: ${GRUB_MODS} modules"
+else
+    echo "   ⚠️  GRUB EFI modules not found - UEFI boot may not work"
+fi
 
 # -----------------------------------------------------------------------------
 # Step 3: Apply overlay files
