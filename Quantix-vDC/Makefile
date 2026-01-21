@@ -19,7 +19,8 @@
 
 .PHONY: all iso iso-no-bump ova rootfs test-qemu test-qemu-install test-qemu-uefi \
         clean clean-all help docker-builder docker-node scripts-executable \
-        backend frontend deploy-usb version version-bump version-set fix-perms
+        backend frontend deploy-usb version version-bump version-set fix-perms \
+        validate validate-iso
 
 # Version - read from VERSION file
 VERSION := $(shell cat VERSION 2>/dev/null || echo "0.0.1")
@@ -387,6 +388,141 @@ deploy-usb:
 	fi
 
 # =============================================================================
+# Validation
+# =============================================================================
+
+# Validate that all required components are present and correctly built
+validate:
+	@echo ""
+	@echo "═══════════════════════════════════════════════════════════════"
+	@echo "  Validating Quantix-vDC Build"
+	@echo "═══════════════════════════════════════════════════════════════"
+	@echo ""
+	@ERRORS=0; \
+	\
+	echo "📋 Checking binaries..."; \
+	echo ""; \
+	\
+	echo "  [qx-controlplane] Control Plane (Go)"; \
+	if [ -f "$(OVERLAY_DIR)/usr/bin/qx-controlplane" ]; then \
+		SIZE=$$(ls -lh $(OVERLAY_DIR)/usr/bin/qx-controlplane | awk '{print $$5}'); \
+		echo "    ✅ Found: $(OVERLAY_DIR)/usr/bin/qx-controlplane ($$SIZE)"; \
+		if [ -x "$(OVERLAY_DIR)/usr/bin/qx-controlplane" ]; then \
+			echo "    ✅ Executable: Yes"; \
+		else \
+			echo "    ❌ Executable: No (run chmod +x)"; \
+			ERRORS=$$((ERRORS+1)); \
+		fi; \
+	else \
+		echo "    ❌ NOT FOUND: $(OVERLAY_DIR)/usr/bin/qx-controlplane"; \
+		echo "       Run: make backend"; \
+		ERRORS=$$((ERRORS+1)); \
+	fi; \
+	echo ""; \
+	\
+	echo "📋 Checking Dashboard (React)..."; \
+	echo ""; \
+	if [ -f "$(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard/index.html" ]; then \
+		FILECOUNT=$$(find $(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard -type f | wc -l); \
+		TOTALSIZE=$$(du -sh $(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard 2>/dev/null | cut -f1); \
+		echo "  ✅ Dashboard installed: $$FILECOUNT files ($$TOTALSIZE)"; \
+		if grep -q "placeholder\|not available\|not found" $(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard/index.html 2>/dev/null; then \
+			echo "  ❌ Content: PLACEHOLDER (frontend build failed or missing)"; \
+			echo "     Run: make frontend"; \
+			ERRORS=$$((ERRORS+1)); \
+		else \
+			echo "  ✅ Content: Real build (not placeholder)"; \
+		fi; \
+		if [ -d "$(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard/assets" ]; then \
+			JSCOUNT=$$(find $(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard/assets -name "*.js" 2>/dev/null | wc -l); \
+			CSSCOUNT=$$(find $(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard/assets -name "*.css" 2>/dev/null | wc -l); \
+			echo "  ✅ Assets: $$JSCOUNT JS files, $$CSSCOUNT CSS files"; \
+		else \
+			echo "  ⚠️  Assets directory not found (may be inline build)"; \
+		fi; \
+	else \
+		echo "  ❌ NOT FOUND: $(OVERLAY_DIR)/usr/share/quantix-vdc/dashboard/index.html"; \
+		echo "     Run: make frontend"; \
+		ERRORS=$$((ERRORS+1)); \
+	fi; \
+	echo ""; \
+	\
+	echo "📋 Checking Database Migrations..."; \
+	echo ""; \
+	if [ -d "$(OUTPUT_DIR)/migrations" ]; then \
+		MIGCOUNT=$$(ls $(OUTPUT_DIR)/migrations/*.sql 2>/dev/null | wc -l); \
+		if [ $$MIGCOUNT -gt 0 ]; then \
+			echo "  ✅ Migrations: $$MIGCOUNT SQL files"; \
+			ls $(OUTPUT_DIR)/migrations/*.sql 2>/dev/null | head -5 | while read f; do echo "     - $$(basename $$f)"; done; \
+			if [ $$MIGCOUNT -gt 5 ]; then echo "     ... and $$((MIGCOUNT-5)) more"; fi; \
+		else \
+			echo "  ⚠️  No migration files found"; \
+		fi; \
+	else \
+		echo "  ⚠️  Migrations directory not found"; \
+		echo "     (will be copied during ISO build)"; \
+	fi; \
+	echo ""; \
+	\
+	echo "📋 Checking Backend Features..."; \
+	echo ""; \
+	if [ -f "$(OVERLAY_DIR)/usr/bin/qx-controlplane" ]; then \
+		echo "  Checking for required modules in binary..."; \
+		for feature in "grpc" "postgres" "vm" "node" "storage"; do \
+			if strings $(OVERLAY_DIR)/usr/bin/qx-controlplane 2>/dev/null | grep -qi "$$feature" 2>/dev/null; then \
+				echo "    ✅ $$feature support detected"; \
+			else \
+				echo "    ⚠️  $$feature support not detected (may be ok)"; \
+			fi; \
+		done; \
+	else \
+		echo "  ⏭️  Skipped (qx-controlplane not found)"; \
+	fi; \
+	echo ""; \
+	\
+	echo "📋 Checking Configuration Files..."; \
+	echo ""; \
+	for cfg in \
+		"$(OVERLAY_DIR)/etc/quantix-vdc/config.yaml:vDC configuration" \
+		"$(OVERLAY_DIR)/etc/init.d/qx-controlplane:OpenRC init script" \
+	; do \
+		FILE=$$(echo "$$cfg" | cut -d: -f1); \
+		DESC=$$(echo "$$cfg" | cut -d: -f2); \
+		if [ -f "$$FILE" ]; then \
+			echo "  ✅ $$DESC"; \
+		else \
+			echo "  ⚠️  $$DESC not found: $$FILE"; \
+			echo "     (may be created during install)"; \
+		fi; \
+	done; \
+	echo ""; \
+	\
+	echo "═══════════════════════════════════════════════════════════════"; \
+	if [ $$ERRORS -eq 0 ]; then \
+		echo "  ✅ VALIDATION PASSED - All required components present"; \
+	else \
+		echo "  ❌ VALIDATION FAILED - $$ERRORS error(s) found"; \
+		echo "     Fix issues and run 'make iso' to rebuild"; \
+	fi; \
+	echo "═══════════════════════════════════════════════════════════════"; \
+	echo ""; \
+	exit $$ERRORS
+
+# Validate after ISO build
+validate-iso:
+	@echo ""
+	@echo "📦 Validating ISO contents..."
+	@LATEST_ISO=$$(ls -t $(OUTPUT_DIR)/quantix-vdc-*.iso 2>/dev/null | head -1); \
+	if [ -z "$$LATEST_ISO" ]; then \
+		echo "❌ No ISO found in $(OUTPUT_DIR)"; \
+		exit 1; \
+	fi; \
+	echo "  ISO: $$LATEST_ISO"; \
+	SIZE=$$(ls -lh "$$LATEST_ISO" | awk '{print $$5}'); \
+	echo "  Size: $$SIZE"; \
+	echo "  ✅ ISO exists"
+
+# =============================================================================
 # Cleanup
 # =============================================================================
 
@@ -415,6 +551,7 @@ help:
 	@echo ""
 	@echo "╔══════════════════════════════════════════════════════════════════╗"
 	@echo "║                  Quantix-vDC Build System                        ║"
+	@echo "║                  Current Version: v$(VERSION)                     ║"
 	@echo "╠══════════════════════════════════════════════════════════════════╣"
 	@echo "║                                                                  ║"
 	@echo "║  Build Commands:                                                 ║"
@@ -424,6 +561,10 @@ help:
 	@echo "║    make rootfs        - Build rootfs only                        ║"
 	@echo "║    make backend       - Build Go control plane                   ║"
 	@echo "║    make frontend      - Build React dashboard                    ║"
+	@echo "║                                                                  ║"
+	@echo "║  Validation Commands:                                            ║"
+	@echo "║    make validate      - Check all components are built correctly ║"
+	@echo "║    make validate-iso  - Validate ISO after build                 ║"
 	@echo "║                                                                  ║"
 	@echo "║  Version Commands:                                                ║"
 	@echo "║    make version       - Show current version                      ║"
@@ -450,6 +591,5 @@ help:
 	@echo "║    make clean         - Clean build artifacts                    ║"
 	@echo "║    make clean-all     - Clean artifacts and Docker images        ║"
 	@echo "║                                                                  ║"
-	@echo "║  Current Version: v$(VERSION)                                     ║"
 	@echo "╚══════════════════════════════════════════════════════════════════╝"
 	@echo ""

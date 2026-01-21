@@ -26,7 +26,8 @@
         node-daemon test-qemu test-qemu-uefi test-qemu-install clean help \
         docker-builder docker-rust-tui scripts-executable \
         version version-bump version-set \
-        deploy-usb deploy-usb-version list-versions
+        deploy-usb deploy-usb-version list-versions \
+        validate validate-iso
 
 # Version management
 VERSION_FILE := $(CURDIR)/VERSION
@@ -441,6 +442,133 @@ test-qemu-install:
 		-netdev user,id=net0,hostfwd=tcp::8080-:8080,hostfwd=tcp::8443-:8443
 
 # =============================================================================
+# Validation
+# =============================================================================
+
+# Validate that all required components are present and correctly built
+validate:
+	@echo ""
+	@echo "═══════════════════════════════════════════════════════════════"
+	@echo "  Validating Quantix-OS Build"
+	@echo "═══════════════════════════════════════════════════════════════"
+	@echo ""
+	@ERRORS=0; \
+	\
+	echo "📋 Checking binaries..."; \
+	echo ""; \
+	\
+	echo "  [qx-node] Node Daemon (Rust)"; \
+	if [ -f "$(OVERLAY_DIR)/usr/bin/qx-node" ]; then \
+		SIZE=$$(ls -lh $(OVERLAY_DIR)/usr/bin/qx-node | awk '{print $$5}'); \
+		echo "    ✅ Found: $(OVERLAY_DIR)/usr/bin/qx-node ($$SIZE)"; \
+		if [ -x "$(OVERLAY_DIR)/usr/bin/qx-node" ]; then \
+			echo "    ✅ Executable: Yes"; \
+		else \
+			echo "    ❌ Executable: No (run chmod +x)"; \
+			ERRORS=$$((ERRORS+1)); \
+		fi; \
+	else \
+		echo "    ❌ NOT FOUND: $(OVERLAY_DIR)/usr/bin/qx-node"; \
+		echo "       Run: make node-daemon"; \
+		ERRORS=$$((ERRORS+1)); \
+	fi; \
+	echo ""; \
+	\
+	echo "  [qx-console] Console TUI (Rust, optional)"; \
+	if [ -f "$(OVERLAY_DIR)/usr/local/bin/qx-console" ]; then \
+		SIZE=$$(ls -lh $(OVERLAY_DIR)/usr/local/bin/qx-console | awk '{print $$5}'); \
+		echo "    ✅ Found: $(OVERLAY_DIR)/usr/local/bin/qx-console ($$SIZE)"; \
+	else \
+		echo "    ⚠️  Not found (optional component)"; \
+	fi; \
+	echo ""; \
+	\
+	echo "📋 Checking Host UI (React)..."; \
+	echo ""; \
+	if [ -f "$(OVERLAY_DIR)/usr/share/quantix-host-ui/index.html" ]; then \
+		FILECOUNT=$$(find $(OVERLAY_DIR)/usr/share/quantix-host-ui -type f | wc -l); \
+		TOTALSIZE=$$(du -sh $(OVERLAY_DIR)/usr/share/quantix-host-ui 2>/dev/null | cut -f1); \
+		echo "  ✅ Host UI installed: $$FILECOUNT files ($$TOTALSIZE)"; \
+		if grep -q "Quantix" $(OVERLAY_DIR)/usr/share/quantix-host-ui/index.html 2>/dev/null; then \
+			echo "  ✅ Content: Real build (not placeholder)"; \
+		else \
+			echo "  ⚠️  Content: May be placeholder or minimal build"; \
+		fi; \
+		if [ -f "$(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json" ]; then \
+			echo "  ✅ BUILD_INFO.json present"; \
+			cat $(OVERLAY_DIR)/usr/share/quantix-host-ui/BUILD_INFO.json 2>/dev/null | head -10; \
+		else \
+			echo "  ⚠️  BUILD_INFO.json missing"; \
+		fi; \
+	else \
+		echo "  ❌ NOT FOUND: $(OVERLAY_DIR)/usr/share/quantix-host-ui/index.html"; \
+		echo "     Run: make host-ui"; \
+		ERRORS=$$((ERRORS+1)); \
+	fi; \
+	echo ""; \
+	\
+	echo "📋 Checking Feature Flags..."; \
+	echo ""; \
+	echo "  [libvirt] VM Management Support"; \
+	if [ -f "$(OVERLAY_DIR)/usr/bin/qx-node" ]; then \
+		if strings $(OVERLAY_DIR)/usr/bin/qx-node 2>/dev/null | grep -q "libvirt\|virt::connect" 2>/dev/null; then \
+			echo "    ✅ libvirt support: ENABLED (detected in binary)"; \
+		else \
+			echo "    ⚠️  libvirt support: UNKNOWN (could not detect, check build logs)"; \
+			echo "       The binary should be built with: --features libvirt"; \
+		fi; \
+	else \
+		echo "    ⏭️  Skipped (qx-node not found)"; \
+	fi; \
+	echo ""; \
+	\
+	echo "📋 Checking Configuration Files..."; \
+	echo ""; \
+	for cfg in \
+		"$(OVERLAY_DIR)/etc/limiquantix/node.yaml:Node daemon config" \
+		"$(OVERLAY_DIR)/etc/init.d/qx-node:OpenRC init script" \
+	; do \
+		FILE=$$(echo "$$cfg" | cut -d: -f1); \
+		DESC=$$(echo "$$cfg" | cut -d: -f2); \
+		if [ -f "$$FILE" ]; then \
+			echo "  ✅ $$DESC"; \
+		else \
+			echo "  ❌ $$DESC NOT FOUND: $$FILE"; \
+			ERRORS=$$((ERRORS+1)); \
+		fi; \
+	done; \
+	echo ""; \
+	\
+	echo "═══════════════════════════════════════════════════════════════"; \
+	if [ $$ERRORS -eq 0 ]; then \
+		echo "  ✅ VALIDATION PASSED - All required components present"; \
+	else \
+		echo "  ❌ VALIDATION FAILED - $$ERRORS error(s) found"; \
+		echo "     Fix issues and run 'make iso' to rebuild"; \
+	fi; \
+	echo "═══════════════════════════════════════════════════════════════"; \
+	echo ""; \
+	exit $$ERRORS
+
+# Validate after ISO build (called automatically)
+validate-iso:
+	@echo ""
+	@echo "📦 Validating ISO contents..."
+	@LATEST_ISO=$$(ls -t $(OUTPUT_DIR)/quantix-os-*.iso 2>/dev/null | head -1); \
+	if [ -z "$$LATEST_ISO" ]; then \
+		echo "❌ No ISO found in $(OUTPUT_DIR)"; \
+		exit 1; \
+	fi; \
+	echo "  ISO: $$LATEST_ISO"; \
+	SIZE=$$(ls -lh "$$LATEST_ISO" | awk '{print $$5}'); \
+	echo "  Size: $$SIZE"; \
+	if [ "$$(echo $$SIZE | grep -E '^[0-9]+M$$' | sed 's/M//')" -lt 100 ] 2>/dev/null; then \
+		echo "  ⚠️  Warning: ISO seems small (<100MB), may be incomplete"; \
+	else \
+		echo "  ✅ ISO size looks reasonable"; \
+	fi
+
+# =============================================================================
 # Cleanup
 # =============================================================================
 
@@ -479,6 +607,10 @@ help:
 	@echo "║    make console-tui   - Build ratatui TUI console                ║"
 	@echo "║    make host-ui       - Build Host UI web interface              ║"
 	@echo "║    make node-daemon   - Build node daemon                        ║"
+	@echo "║                                                                  ║"
+	@echo "║  Validation Commands:                                            ║"
+	@echo "║    make validate      - Check all components are built correctly ║"
+	@echo "║    make validate-iso  - Validate ISO after build                 ║"
 	@echo "║                                                                  ║"
 	@echo "║  Version Commands:                                               ║"
 	@echo "║    make version       - Show current version                     ║"

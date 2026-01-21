@@ -1,0 +1,302 @@
+# MAKEFILE BUILD SYSTEM GUIDE
+
+*Scope:* Apply when building ISOs, running development environment, or troubleshooting build issues.
+
+*Purpose:* Understand the hierarchical Makefile structure and ensure builds include all required components.
+
+---
+
+## Makefile Hierarchy
+
+The project has **4 distinct Makefiles** with different purposes:
+
+```
+/Makefile                    → Development & Protobuf (NO ISO builds)
+/Quantix-OS/Makefile         → Hypervisor ISO (ESXi equivalent)
+/Quantix-vDC/Makefile        → Control Plane ISO (vCenter equivalent)
+/backend/Makefile            → Backend-only development
+```
+
+---
+
+## 1. Root Makefile (`/Makefile`)
+
+**Purpose:** Local development and protobuf code generation. Does NOT build ISOs.
+
+### Key Commands
+
+| Command | Description |
+|---------|-------------|
+| `make dev` | Start ALL components locally (Docker + Backend + Frontend + Node) |
+| `make dev-backend` | Start Go control plane only |
+| `make dev-frontend` | Start vDC React dashboard only |
+| `make dev-hostui` | Start Quantix-OS Host UI only |
+| `make dev-node` | Start Rust node daemon only |
+| `make dev-stop` | Stop all development services |
+| `make proto` | Generate Go/TypeScript from `.proto` files |
+| `make build` | Build all components locally (not for ISO) |
+
+### When to Use
+
+- Testing code changes locally without building full ISOs
+- Regenerating protobuf code after `.proto` changes
+- Running the full stack on your dev machine
+
+---
+
+## 2. Quantix-OS Makefile (`/Quantix-OS/Makefile`)
+
+**Purpose:** Build the **hypervisor ISO** that runs on bare-metal hosts.
+
+### What Gets Built
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ make iso                                                            │
+├─────────────────────────────────────────────────────────────────────┤
+│ Step 1: node-daemon   → overlay/usr/bin/qx-node (Rust + libvirt)   │
+│ Step 2: host-ui       → overlay/usr/share/quantix-host-ui/* (React)│
+│ Step 3: console-tui   → overlay/usr/local/bin/qx-console (optional)│
+│ Step 4: squashfs      → packages overlay into rootfs               │
+│ Step 5: ISO           → output/quantix-os-X.Y.Z.iso                │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Commands
+
+| Command | Description |
+|---------|-------------|
+| `make iso` | Build complete ISO (auto-increments version) |
+| `make iso-no-bump` | Build ISO without version increment |
+| `make validate` | **Check all components are built correctly** |
+| `make node-daemon` | Build only the Rust node daemon |
+| `make host-ui` | Build only the React Host UI |
+| `make test-qemu` | Test ISO in QEMU emulator |
+
+### Critical Feature Flags
+
+The node daemon MUST be built with libvirt support for VM management:
+
+```makefile
+cargo build --release -p limiquantix-node --features libvirt
+```
+
+**Note:** `libvirt` is the default feature in `Cargo.toml`, but always verify with `make validate`.
+
+### Build Verification
+
+```bash
+# After building, validate the ISO contents:
+cd Quantix-OS
+make validate
+
+# Expected output:
+# ✅ qx-node binary found
+# ✅ libvirt support: ENABLED
+# ✅ Host UI installed (not placeholder)
+# ✅ VALIDATION PASSED
+```
+
+---
+
+## 3. Quantix-vDC Makefile (`/Quantix-vDC/Makefile`)
+
+**Purpose:** Build the **control plane appliance ISO** for cluster management.
+
+### What Gets Built
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ make iso                                                            │
+├─────────────────────────────────────────────────────────────────────┤
+│ Step 1: backend       → overlay/usr/bin/qx-controlplane (Go)       │
+│ Step 2: frontend      → overlay/usr/share/quantix-vdc/dashboard/*  │
+│ Step 3: migrations    → output/migrations/*.sql                    │
+│ Step 4: rootfs        → packages overlay into rootfs               │
+│ Step 5: ISO           → output/quantix-vdc-X.Y.Z.iso               │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Commands
+
+| Command | Description |
+|---------|-------------|
+| `make iso` | Build complete ISO (auto-increments version) |
+| `make iso-no-bump` | Build ISO without version increment |
+| `make validate` | **Check all components are built correctly** |
+| `make backend` | Build only the Go control plane |
+| `make frontend` | Build only the React dashboard |
+| `make ova` | Build OVA virtual appliance |
+
+### Build Verification
+
+```bash
+# After building, validate the ISO contents:
+cd Quantix-vDC
+make validate
+
+# Expected output:
+# ✅ qx-controlplane binary found
+# ✅ Dashboard installed (not placeholder)
+# ✅ Database migrations found
+# ✅ VALIDATION PASSED
+```
+
+---
+
+## 4. Backend Makefile (`/backend/Makefile`)
+
+**Purpose:** Go backend development, testing, and database operations.
+
+### Key Commands
+
+| Command | Description |
+|---------|-------------|
+| `make build` | Build `qx-controlplane` binary |
+| `make run` | Run control plane (needs Docker services) |
+| `make test` | Run all Go tests |
+| `make test-coverage` | Generate coverage report |
+| `make docker-up` | Start PostgreSQL, etcd, Redis |
+| `make migrate-up` | Apply database migrations |
+
+---
+
+## Validation Commands
+
+### Why Validate?
+
+ISOs can build successfully but be **incomplete** if:
+- Frontend build failed silently (placeholder created instead)
+- Feature flags weren't applied correctly
+- Config files are missing
+
+### Running Validation
+
+```bash
+# For Quantix-OS
+cd Quantix-OS
+make validate
+
+# For Quantix-vDC  
+cd Quantix-vDC
+make validate
+```
+
+### What Gets Checked
+
+**Quantix-OS:**
+- `qx-node` binary exists and is executable
+- `libvirt` feature flag was applied
+- Host UI has real content (not placeholder)
+- `BUILD_INFO.json` is present
+- Config files exist
+
+**Quantix-vDC:**
+- `qx-controlplane` binary exists and is executable
+- Dashboard has real content (not placeholder)
+- Database migrations are present
+- Required modules detected in binary
+
+---
+
+## Common Issues & Fixes
+
+### Issue: "Frontend build produced no output"
+
+**Cause:** npm install or vite build failed
+
+**Fix:**
+```bash
+# Check frontend manually
+cd frontend  # or quantix-host-ui
+npm install
+npm run build
+ls -la dist/
+```
+
+### Issue: "libvirt support: UNKNOWN"
+
+**Cause:** Binary may not have been built with libvirt feature
+
+**Fix:**
+```bash
+# Verify Cargo.toml has default = ["libvirt"]
+cat agent/limiquantix-node/Cargo.toml | grep -A2 "\[features\]"
+
+# Rebuild explicitly
+cd Quantix-OS
+make node-daemon
+```
+
+### Issue: "qx-controlplane NOT FOUND"
+
+**Cause:** Go build failed or Docker volume mount issue
+
+**Fix:**
+```bash
+# Build manually to see errors
+cd backend
+go build -o bin/controlplane ./cmd/controlplane
+```
+
+### Issue: Placeholder HTML in dashboard
+
+**Cause:** Frontend source not found or build failed
+
+**Fix:**
+```bash
+# Verify frontend exists
+ls -la frontend/src/
+ls -la quantix-host-ui/src/
+
+# Check build output for errors
+cd Quantix-vDC && make frontend
+```
+
+---
+
+## Build Order Summary
+
+### For Quantix-OS ISO:
+1. `node-daemon` → Compiles Rust with libvirt
+2. `host-ui` → Builds React app
+3. `console-tui` → Builds Rust TUI (optional)
+4. `squashfs` → Creates compressed rootfs
+5. `build-iso.sh` → Generates bootable ISO
+
+### For Quantix-vDC ISO:
+1. `backend` → Compiles Go binary
+2. `frontend` → Builds React app
+3. `migrations` → Copies SQL files
+4. `build-rootfs.sh` → Creates rootfs
+5. `build-iso.sh` → Generates bootable ISO
+
+---
+
+## Quick Reference
+
+| Task | Command |
+|------|---------|
+| Build Quantix-OS ISO | `cd Quantix-OS && make iso` |
+| Build Quantix-vDC ISO | `cd Quantix-vDC && make iso` |
+| Validate Quantix-OS build | `cd Quantix-OS && make validate` |
+| Validate Quantix-vDC build | `cd Quantix-vDC && make validate` |
+| Local development (all) | `make dev` |
+| Regenerate protobuf | `make proto` |
+| Test ISO in QEMU | `cd Quantix-OS && make test-qemu` |
+
+---
+
+## Anti-Patterns
+
+❌ **Don't:** Run `make iso` from root directory
+✅ **Do:** `cd Quantix-OS && make iso` or `cd Quantix-vDC && make iso`
+
+❌ **Don't:** Skip validation after builds
+✅ **Do:** Always run `make validate` before deploying
+
+❌ **Don't:** Assume build success means feature completeness
+✅ **Do:** Check for placeholder warnings in build output
+
+❌ **Don't:** Build without Docker running
+✅ **Do:** Ensure Docker Desktop is running before `make iso`
