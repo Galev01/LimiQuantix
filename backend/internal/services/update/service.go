@@ -331,12 +331,13 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 		}
 	}
 
-	// Update complete
+	// Update complete - update both the state and internal version tracker
 	s.setVDCProgress(100, "", fmt.Sprintf("Update to v%s completed successfully", manifest.Version))
 	s.vdcStateMu.Lock()
 	s.vdcState.Status = StatusIdle
 	s.vdcState.CurrentVersion = manifest.Version
 	s.vdcState.AvailableVersion = ""
+	s.vdcVersion = manifest.Version // Update internal version so subsequent checks work correctly
 	s.vdcStateMu.Unlock()
 
 	s.logger.Info("vDC update applied successfully", zap.String("version", manifest.Version))
@@ -375,7 +376,13 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 	info.Status = StatusChecking
 
 	// Call the host's update check API
+	// Note: QHCI (qx-node) runs on port 8443 with self-signed TLS
 	hostURL := fmt.Sprintf("https://%s:8443/api/v1/updates/check", node.ManagementIP)
+	s.logger.Debug("Checking host for updates",
+		zap.String("node_id", nodeID),
+		zap.String("url", hostURL),
+	)
+
 	req, err := http.NewRequestWithContext(ctx, "GET", hostURL, nil)
 	if err != nil {
 		info.Status = StatusError
@@ -387,36 +394,76 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 	if err != nil {
 		info.Status = StatusError
 		info.Error = fmt.Sprintf("Failed to contact host: %v", err)
+		s.logger.Warn("Failed to contact host for update check",
+			zap.String("node_id", nodeID),
+			zap.String("url", hostURL),
+			zap.Error(err),
+		)
 		return info, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
 		info.Status = StatusError
-		info.Error = fmt.Sprintf("Host returned status %d", resp.StatusCode)
+		info.Error = fmt.Sprintf("Host returned status %d: %s", resp.StatusCode, string(body))
+		s.logger.Warn("Host returned error status",
+			zap.String("node_id", nodeID),
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("body", string(body)),
+		)
 		return info, fmt.Errorf("host returned status %d", resp.StatusCode)
 	}
 
-	var hostState struct {
-		Status           string `json:"status"`
-		CurrentVersion   string `json:"current_version"`
-		AvailableVersion string `json:"available_version"`
+	// QHCI's /api/v1/updates/check returns UpdateInfo struct:
+	// {
+	//   "available": bool,
+	//   "current_version": string,
+	//   "latest_version": string (optional),
+	//   "channel": string,
+	//   "components": [...],
+	//   "full_image_available": bool,
+	//   "total_download_size": int,
+	//   "release_notes": string (optional)
+	// }
+	var hostCheckResponse struct {
+		Available          bool   `json:"available"`
+		CurrentVersion     string `json:"current_version"`
+		LatestVersion      string `json:"latest_version"`
+		Channel            string `json:"channel"`
+		FullImageAvailable bool   `json:"full_image_available"`
+		TotalDownloadSize  int64  `json:"total_download_size"`
+		ReleaseNotes       string `json:"release_notes"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&hostState); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&hostCheckResponse); err != nil {
 		info.Status = StatusError
-		info.Error = err.Error()
+		info.Error = fmt.Sprintf("Failed to parse host response: %v", err)
+		s.logger.Warn("Failed to parse host update check response",
+			zap.String("node_id", nodeID),
+			zap.Error(err),
+		)
 		return info, err
 	}
 
 	now := time.Now()
-	info.CurrentVersion = hostState.CurrentVersion
-	info.AvailableVersion = hostState.AvailableVersion
+	info.CurrentVersion = hostCheckResponse.CurrentVersion
 	info.LastCheck = &now
 
-	if hostState.AvailableVersion != "" {
+	if hostCheckResponse.Available && hostCheckResponse.LatestVersion != "" {
+		info.AvailableVersion = hostCheckResponse.LatestVersion
 		info.Status = StatusAvailable
+		s.logger.Info("Host update available",
+			zap.String("node_id", nodeID),
+			zap.String("current", hostCheckResponse.CurrentVersion),
+			zap.String("available", hostCheckResponse.LatestVersion),
+		)
 	} else {
+		info.AvailableVersion = ""
 		info.Status = StatusIdle
+		s.logger.Debug("Host is up to date",
+			zap.String("node_id", nodeID),
+			zap.String("version", hostCheckResponse.CurrentVersion),
+		)
 	}
 	info.Error = ""
 

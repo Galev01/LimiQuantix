@@ -29,6 +29,47 @@ log "Starting Quantix-OS first boot configuration..."
 apply_hostname() {
     log "Applying hostname configuration..."
     
+    # CRITICAL: Ensure /quantix (QUANTIX-CFG partition) is mounted first
+    # The hostname file is stored on the config partition during installation
+    if ! mountpoint -q /quantix 2>/dev/null; then
+        log "QUANTIX-CFG partition not mounted, attempting to mount..."
+        mkdir -p /quantix
+        
+        # Try mounting by filesystem label first (most reliable)
+        if mount -L QUANTIX-CFG /quantix 2>/dev/null; then
+            log "Mounted QUANTIX-CFG partition by label"
+        else
+            # Fallback: find the partition using blkid
+            CFG_PART=$(blkid -L QUANTIX-CFG 2>/dev/null)
+            if [ -n "$CFG_PART" ]; then
+                log "Found QUANTIX-CFG at $CFG_PART, mounting..."
+                if mount "$CFG_PART" /quantix 2>/dev/null; then
+                    log "Mounted QUANTIX-CFG partition"
+                else
+                    log "WARN: Failed to mount QUANTIX-CFG partition"
+                fi
+            else
+                # Last resort: search all block devices
+                log "Searching for QUANTIX-CFG partition..."
+                for part in /dev/nvme*p* /dev/sd*[0-9] /dev/vd*[0-9]; do
+                    if [ -b "$part" ]; then
+                        LABEL=$(blkid -o value -s LABEL "$part" 2>/dev/null)
+                        if [ "$LABEL" = "QUANTIX-CFG" ]; then
+                            log "Found QUANTIX-CFG at $part"
+                            mount "$part" /quantix 2>/dev/null && break
+                        fi
+                    fi
+                done
+                
+                if ! mountpoint -q /quantix 2>/dev/null; then
+                    log "WARN: Could not find or mount QUANTIX-CFG partition"
+                fi
+            fi
+        fi
+    else
+        log "QUANTIX-CFG partition already mounted at /quantix"
+    fi
+    
     # Check for installer-configured hostname
     HOSTNAME_FILE="/quantix/hostname"
     

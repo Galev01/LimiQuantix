@@ -227,46 +227,76 @@ function UpdateSettings() {
         <div className="space-y-6">
           {/* Current Version & Status */}
           <div className="p-4 rounded-lg bg-bg-base border border-border">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-lg bg-accent/10">
                   <Package className="w-6 h-6 text-accent" />
                 </div>
                 <div>
                   <p className="font-medium text-text-primary">Quantix-vDC</p>
-                  <p className="text-sm text-text-muted">
-                    {isUpdateInProgress ? (
-                      <>Updating to <span className="font-mono">v{vdcStatus?.available_version}</span></>
-                    ) : (
-                      <>Current version: <span className="font-mono">{vdcStatus?.current_version || 'Unknown'}</span></>
-                    )}
-                  </p>
+                  {isUpdateInProgress ? (
+                    <p className="text-sm text-text-muted">
+                      Updating to <span className="font-mono text-accent">v{vdcStatus?.available_version}</span>
+                    </p>
+                  ) : (
+                    <div className="text-sm text-text-muted space-y-0.5">
+                      <p>
+                        Installed: <span className="font-mono font-medium text-text-secondary">{vdcStatus?.current_version || 'Unknown'}</span>
+                      </p>
+                      {vdcStatus?.manifest?.version && (
+                        <p>
+                          Latest available: <span className="font-mono font-medium text-text-secondary">{vdcStatus.manifest.version}</span>
+                          {vdcStatus.current_version === vdcStatus.manifest.version && (
+                            <span className="ml-2 text-success">(you're on the latest version)</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                {vdcLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
-                ) : isUpdateInProgress ? (
-                  <Badge variant="warning">
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                    Updating...
-                  </Badge>
-                ) : vdcStatus?.status === 'available' ? (
-                  <Badge variant="success">
-                    <ArrowDownToLine className="w-3 h-3 mr-1" />
-                    v{vdcStatus.available_version} available
-                  </Badge>
-                ) : vdcStatus?.status === 'error' ? (
-                  <Badge variant="error">
-                    <XCircle className="w-3 h-3 mr-1" />
-                    Error
-                  </Badge>
-                ) : (
-                  <Badge variant="default">
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Up to date
-                  </Badge>
-                )}
+                {(() => {
+                  // Check if there's actually a newer version available
+                  // (frontend verification in case backend state is stale)
+                  const hasNewerVersion = vdcStatus?.manifest?.version && 
+                    vdcStatus.current_version !== vdcStatus.manifest.version &&
+                    vdcStatus?.status === 'available';
+                  
+                  if (vdcLoading) {
+                    return <Loader2 className="w-5 h-5 animate-spin text-text-muted" />;
+                  }
+                  if (isUpdateInProgress) {
+                    return (
+                      <Badge variant="warning">
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Updating...
+                      </Badge>
+                    );
+                  }
+                  if (hasNewerVersion) {
+                    return (
+                      <Badge variant="success">
+                        <ArrowDownToLine className="w-3 h-3 mr-1" />
+                        Update available
+                      </Badge>
+                    );
+                  }
+                  if (vdcStatus?.status === 'error') {
+                    return (
+                      <Badge variant="error">
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Error
+                      </Badge>
+                    );
+                  }
+                  return (
+                    <Badge variant="default">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Up to date
+                    </Badge>
+                  );
+                })()}
               </div>
             </div>
 
@@ -378,7 +408,11 @@ function UpdateSettings() {
               )}
               Check for Updates
             </Button>
-            {vdcStatus?.status === 'available' && !isUpdateInProgress && (
+            {/* Only show Apply Update if there's actually a newer version */}
+            {vdcStatus?.status === 'available' && 
+             !isUpdateInProgress && 
+             vdcStatus?.manifest?.version && 
+             vdcStatus.current_version !== vdcStatus.manifest.version && (
               <Button
                 onClick={() => applyVDC.mutate()}
                 disabled={applyVDC.isPending}

@@ -1,6 +1,50 @@
 # Workflow State
 
-## Active Task: QvDC Update Progress UI - Persistent Result
+## Active Task: Quantix-OS TUI Bug Fixes
+
+**Date:** January 22, 2026
+**Status:** Complete
+
+### Issues Fixed
+
+| # | Issue | Root Cause | Fix |
+|---|-------|------------|-----|
+| 1 | F-key actions no feedback | Messages set but cleared too quickly | Improved service restart with status verification |
+| 2 | Service restart doesn't work | Uses `spawn()` without waiting | Changed to synchronous with status check |
+| 3 | Static IP - web interface down | Node daemon not restarted | Added automatic node daemon restart after IP change |
+| 4 | Network config lost on reboot | Init script skipped if interface had IP | Static config now takes priority over existing IPs |
+| 5 | Cluster shows "Standalone" | Status not refreshed after join | Auto-refresh every 30 seconds |
+| 6 | Version shows "v1.0.0" | Hardcoded in header | Uses dynamic `app.os_version` |
+| 7 | Update status not shown | No update check mechanism | Added update check every 5 minutes + display |
+| 8 | Hostname not applied | Config partition not mounted | Ensured /quantix mount in firstboot |
+
+### Files Changed
+
+**Quantix-OS/console-tui/src/main.rs:**
+- Fixed header version display (was hardcoded v1.0.0, now uses `app.os_version`)
+- Rewrote `restart_management_services()` to use synchronous execution with status verification
+- Added node daemon restart after static IP configuration
+- Added `last_cluster_refresh` and `update_available` fields to App struct
+- Added auto-refresh for cluster status (30s) and update check (5min)
+- Added `check_for_updates()` function
+- Added update indicator in system info panel
+
+**Quantix-OS/overlay/etc/init.d/quantix-network:**
+- Restructured interface loop to check static config FIRST
+- Static config now takes priority over existing DHCP IPs
+- Ensures static IP persists across reboots
+
+**Quantix-OS/overlay/etc/init.d/quantix-firstboot:**
+- Added /quantix partition mount at start of firstboot
+- Added hostname configuration from installer settings
+
+**Quantix-OS/installer/firstboot.sh:**
+- Added robust /quantix mount logic in `apply_hostname()`
+- Multiple fallback methods for finding config partition
+
+---
+
+## Previous Task: QvDC Update Progress UI - Persistent Result
 
 **Date:** January 21, 2026
 **Status:** Complete

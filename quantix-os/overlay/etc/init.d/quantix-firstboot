@@ -22,6 +22,50 @@ start() {
 
     ebegin "Running first boot configuration"
 
+    # CRITICAL: Ensure /quantix (QUANTIX-CFG partition) is mounted
+    # This contains installer configuration including hostname
+    if ! mountpoint -q /quantix 2>/dev/null; then
+        einfo "Mounting QUANTIX-CFG partition..."
+        mkdir -p /quantix
+        
+        if mount -L QUANTIX-CFG /quantix 2>/dev/null; then
+            einfo "Mounted QUANTIX-CFG partition by label"
+        else
+            # Fallback: find using blkid
+            CFG_PART=$(blkid -L QUANTIX-CFG 2>/dev/null)
+            if [ -n "$CFG_PART" ]; then
+                mount "$CFG_PART" /quantix 2>/dev/null || ewarn "Failed to mount QUANTIX-CFG"
+            else
+                ewarn "QUANTIX-CFG partition not found"
+            fi
+        fi
+    fi
+
+    # Apply hostname from installer configuration
+    HOSTNAME_FILE="/quantix/hostname"
+    if [ -f "$HOSTNAME_FILE" ]; then
+        NEW_HOSTNAME=$(cat "$HOSTNAME_FILE" | tr -d '[:space:]')
+        
+        if [ -n "$NEW_HOSTNAME" ]; then
+            einfo "Setting hostname to: $NEW_HOSTNAME"
+            
+            # Set the running hostname
+            hostname "$NEW_HOSTNAME"
+            
+            # Persist to /etc/hostname
+            echo "$NEW_HOSTNAME" > /etc/hostname
+            
+            # Update /etc/hosts
+            if grep -q "127.0.1.1" /etc/hosts; then
+                sed -i "s/127.0.1.1.*/127.0.1.1\t$NEW_HOSTNAME/" /etc/hosts
+            else
+                echo "127.0.1.1	$NEW_HOSTNAME" >> /etc/hosts
+            fi
+            
+            einfo "Hostname configured: $NEW_HOSTNAME"
+        fi
+    fi
+
     # Generate SSH host keys
     if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
         einfo "Generating SSH host keys..."

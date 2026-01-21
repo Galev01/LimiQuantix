@@ -75,6 +75,12 @@ struct App {
     storage_info: Vec<(String, u64, u64)>,
     /// Quantix-OS version (read from VERSION file)
     os_version: String,
+    /// Last auto-refresh time for cluster status
+    last_cluster_refresh: std::time::Instant,
+    /// Update available version (if any)
+    update_available: Option<String>,
+    /// Last time we checked for updates
+    last_update_check: std::time::Instant,
 }
 
 /// Static IP configuration
@@ -230,6 +236,9 @@ impl App {
             memory_total: 0,
             storage_info: Vec::new(),
             os_version,
+            last_cluster_refresh: std::time::Instant::now(),
+            update_available: None,
+            last_update_check: std::time::Instant::now(),
         }
     }
 
@@ -374,6 +383,26 @@ fn run_app<B: ratatui::backend::Backend>(
         if app.screen == Screen::Main && app.should_auto_refresh() {
             app.refresh_resources();
             app.last_resource_refresh = std::time::Instant::now();
+        }
+        
+        // Auto-refresh cluster status every 30 seconds (only on main screen)
+        if app.screen == Screen::Main && app.last_cluster_refresh.elapsed().as_secs() >= 30 {
+            let new_status = get_cluster_status();
+            if new_status != app.cluster_config.status {
+                let was_standalone = matches!(app.cluster_config.status, ClusterStatus::Standalone);
+                app.cluster_config.status = new_status.clone();
+                // Show notification if status changed to Connected
+                if was_standalone && matches!(new_status, ClusterStatus::Connected) {
+                    app.set_status("Cluster joined successfully!");
+                }
+            }
+            app.last_cluster_refresh = std::time::Instant::now();
+        }
+        
+        // Check for updates every 5 minutes (only on main screen)
+        if app.screen == Screen::Main && app.last_update_check.elapsed().as_secs() >= 300 {
+            app.update_available = check_for_updates();
+            app.last_update_check = std::time::Instant::now();
         }
         
         // Clear status message after 5 seconds
@@ -536,8 +565,16 @@ fn handle_menu_action(app: &mut App, index: usize) {
         5 => {
             // Restart management services
             app.set_status("⏳ Restarting management services...");
-            restart_management_services();
-            app.success_message = Some("Management services restarting...".to_string());
+            match restart_management_services() {
+                Ok(()) => {
+                    app.success_message = Some("Management services restarted successfully".to_string());
+                    // Refresh IP since it may have changed
+                    app.primary_ip = get_primary_ip();
+                }
+                Err(e) => {
+                    app.error_message = Some(format!("Failed to restart services: {}", e));
+                }
+            }
         }
         6 => app.screen = Screen::Diagnostics,
         7 => {
@@ -549,16 +586,47 @@ fn handle_menu_action(app: &mut App, index: usize) {
     }
 }
 
-fn restart_management_services() {
-    use std::process::Stdio;
-    // Redirect all output to null to prevent TUI corruption
-    // Use spawn() to avoid blocking the TUI
-    let _ = std::process::Command::new("rc-service")
-        .args(["quantix-node", "restart"])
+fn restart_management_services() -> Result<(), String> {
+    use std::process::{Command, Stdio};
+    
+    // Stop the service first
+    let _stop_result = Command::new("rc-service")
+        .args(["quantix-node", "stop"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .stdin(Stdio::null())
-        .spawn();
+        .status();
+    
+    // Wait a moment for graceful shutdown
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    
+    // Start the service
+    let start_result = Command::new("rc-service")
+        .args(["quantix-node", "start"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .stdin(Stdio::null())
+        .status();
+    
+    match start_result {
+        Ok(status) if status.success() => {
+            // Verify service is running
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            let check = Command::new("rc-service")
+                .args(["quantix-node", "status"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+            
+            if check.map(|s| s.success()).unwrap_or(false) {
+                Ok(())
+            } else {
+                Err("Service started but not running".to_string())
+            }
+        }
+        Ok(_) => Err("Service restart failed".to_string()),
+        Err(e) => Err(format!("Failed to execute rc-service: {}", e)),
+    }
 }
 
 /// Drop to an interactive shell, temporarily suspending the TUI
@@ -939,6 +1007,16 @@ fn apply_static_ip(config: &StaticIpConfig) -> Result<()> {
     );
     let _ = std::fs::write("/etc/network/interfaces", interfaces_content);
     
+    // Restart node daemon to bind to new IP (do this in background)
+    // This ensures the web UI is accessible at the new IP address
+    tracing::info!("Restarting node daemon to bind to new IP: {}", config.ip_address);
+    let _ = std::process::Command::new("rc-service")
+        .args(["quantix-node", "restart"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .stdin(Stdio::null())
+        .spawn();
+    
     Ok(())
 }
 
@@ -1092,7 +1170,10 @@ fn ui(f: &mut Frame, app: &App) {
                     .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::raw(" v1.0.0 - "),
+            Span::styled(
+                format!(" v{} - ", app.os_version),
+                Style::default().fg(Color::Green),
+            ),
             Span::styled("Direct Console User Interface (DCUI)", Style::default().fg(Color::Gray)),
         ]),
     ])
@@ -1209,7 +1290,7 @@ fn render_main_screen(f: &mut Frame, app: &App, area: Rect) {
         ClusterStatus::Standalone => ("Standalone", Color::Yellow),
     };
 
-    let info_text = vec![
+    let mut info_text = vec![
         Line::from(vec![
             Span::styled("Version:  ", Style::default().fg(Color::Gray)),
             Span::styled(format!("Quantix-OS v{}", &app.os_version), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
@@ -1235,6 +1316,15 @@ fn render_main_screen(f: &mut Frame, app: &App, area: Rect) {
             Span::styled(format!("{}", app.vm_count), Style::default().fg(Color::White)),
         ]),
     ];
+    
+    // Show update available indicator if an update is available
+    if let Some(ref version) = app.update_available {
+        info_text.push(Line::from(vec![
+            Span::styled("Update:   ", Style::default().fg(Color::Gray)),
+            Span::styled(format!("v{} available!", version), 
+                         Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        ]));
+    }
 
     let info = Paragraph::new(info_text)
         .block(Block::default().borders(Borders::ALL).title("System Information"));
@@ -2373,6 +2463,30 @@ fn get_os_version() -> String {
     
     // Default fallback
     "0.0.1".to_string()
+}
+
+/// Check if system updates are available by calling the node daemon API
+fn check_for_updates() -> Option<String> {
+    if let Ok(output) = std::process::Command::new("curl")
+        .args(["-s", "-k", "--max-time", "3", 
+               "https://127.0.0.1:8443/api/v1/system/updates/check"])
+        .output()
+    {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            // Check if update is available
+            if stdout.contains("\"available\":true") || stdout.contains("\"update_available\":true") {
+                // Extract version from response
+                if let Some(version) = extract_json_field(&stdout, "latest_version") {
+                    return Some(version);
+                }
+                if let Some(version) = extract_json_field(&stdout, "version") {
+                    return Some(version);
+                }
+            }
+        }
+    }
+    None
 }
 
 fn get_primary_ip() -> String {

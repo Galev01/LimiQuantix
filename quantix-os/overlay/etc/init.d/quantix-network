@@ -216,7 +216,35 @@ EOF
             continue
         fi
         
-        # Check if interface already has an IP (skip if so)
+        # CRITICAL: Check for static config FIRST, BEFORE checking existing IP
+        # Static config takes priority over any existing DHCP configuration
+        # This ensures static IP persists across reboots even if DHCP runs first
+        if has_static_config "$iface"; then
+            einfo "Found static config for $iface (takes priority)"
+            # Bring up the interface first
+            ip link set "$iface" up
+            if apply_static_ip "$iface" "$STATIC_CONFIG_DIR/$iface.conf"; then
+                static_count=$((static_count + 1))
+                continue
+            else
+                ewarn "Static config failed for $iface, falling back to DHCP"
+            fi
+        fi
+        
+        # Check for global static config (apply to first physical interface)
+        if [ -n "$global_static_config" ] && [ "$global_static_applied" -eq 0 ]; then
+            einfo "Applying global static config to $iface (takes priority)"
+            ip link set "$iface" up
+            if apply_static_ip "$iface" "$global_static_config"; then
+                static_count=$((static_count + 1))
+                global_static_applied=1
+                continue
+            else
+                ewarn "Global static config failed for $iface, falling back to DHCP"
+            fi
+        fi
+        
+        # Check if interface already has an IP (skip DHCP if so)
         if has_valid_ip "$iface"; then
             local current_ip=$(get_interface_ip "$iface")
             einfo "Interface $iface already configured: $current_ip (skipping)"
@@ -242,43 +270,6 @@ EOF
             else
                 ewarn "WiFi interface $iface found but no wpa_supplicant config"
                 continue
-            fi
-        fi
-        
-        # Check for interface-specific static config
-        if has_static_config "$iface"; then
-            einfo "Found static config for $iface"
-            if apply_static_ip "$iface" "$STATIC_CONFIG_DIR/$iface.conf"; then
-                static_count=$((static_count + 1))
-                continue
-            else
-                ewarn "Static config failed for $iface, falling back to DHCP"
-            fi
-        fi
-        
-        # Check for global static config (apply to first interface that's up)
-        if [ -n "$global_static_config" ] && [ "$global_static_applied" -eq 0 ]; then
-            # For WiFi, check if associated before applying static
-            if [ "$is_wifi" -eq 1 ]; then
-                # Check if WiFi is associated
-                if iw dev "$iface" link 2>/dev/null | grep -q "Connected"; then
-                    einfo "WiFi associated, applying global static config to $iface"
-                    if apply_static_ip "$iface" "$global_static_config"; then
-                        static_count=$((static_count + 1))
-                        global_static_applied=1
-                        continue
-                    fi
-                fi
-            else
-                # For wired, check if link is up
-                if ip link show "$iface" 2>/dev/null | grep -q "state UP"; then
-                    einfo "Applying global static config to $iface"
-                    if apply_static_ip "$iface" "$global_static_config"; then
-                        static_count=$((static_count + 1))
-                        global_static_applied=1
-                        continue
-                    fi
-                fi
             fi
         fi
         
