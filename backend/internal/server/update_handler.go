@@ -2,6 +2,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -86,9 +87,13 @@ func (h *UpdateHandler) handleVDCApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Start update in background
+	// Start update in background with a fresh context
+	// IMPORTANT: We use context.Background() because the update must continue
+	// even after the HTTP response is sent. Using r.Context() would cancel
+	// the download immediately when the response is sent.
 	go func() {
-		if err := h.service.ApplyVDCUpdate(r.Context()); err != nil {
+		ctx := context.Background()
+		if err := h.service.ApplyVDCUpdate(ctx); err != nil {
 			h.logger.Error("Failed to apply vDC update", zap.Error(err))
 		}
 	}()
@@ -146,9 +151,9 @@ func (h *UpdateHandler) handleHostsCheck(w http.ResponseWriter, r *http.Request)
 	}
 
 	h.writeJSON(w, map[string]interface{}{
-		"hosts":              hosts,
-		"total":              len(hosts),
-		"updates_available":  available,
+		"hosts":             hosts,
+		"total":             len(hosts),
+		"updates_available": available,
 	})
 }
 

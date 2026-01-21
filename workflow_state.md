@@ -1,6 +1,6 @@
 # Workflow State
 
-## Active Task: Fix QvDC Update Download Timeout
+## Active Task: Fix QvDC Update Download "context canceled" Error
 
 **Date:** January 21, 2026
 **Status:** ✅ Complete
@@ -12,33 +12,42 @@ QvDC update was failing with:
 Failed to apply dashboard: download failed: Get "http://192.168.0.251:9000/api/v1/quantix-vdc/releases/0.0.3/dashboard.tar.gz?channel=dev": context canceled
 ```
 
-The "context canceled" error was caused by the HTTP client timeout (30 seconds) being too short for file downloads.
-
 ### Root Cause
 
-The update service was using the same `httpClient` with a 30-second timeout for both:
-1. API calls (manifest fetch) - needs short timeout
-2. File downloads (tar.gz artifacts) - needs longer timeout
+The `handleVDCApply` handler was starting the update in a goroutine but passing `r.Context()`:
+
+```go
+go func() {
+    if err := h.service.ApplyVDCUpdate(r.Context()); err != nil {  // BUG!
+        h.logger.Error("Failed to apply vDC update", zap.Error(err))
+    }
+}()
+```
+
+When the HTTP response was sent, `r.Context()` was canceled, which immediately canceled the in-progress download.
 
 ### Fix
 
-Added a separate `downloadClient` with a 10-minute timeout specifically for file downloads:
+1. **update_handler.go**: Use `context.Background()` for background update operations
+2. **service.go**: Added separate `downloadClient` with 10-minute timeout (bonus fix)
 
 ```go
-// backend/internal/services/update/service.go
-
-// HTTP client for update server API calls (short timeout)
-httpClient *http.Client  // 30s timeout
-
-// HTTP client for file downloads (longer timeout)  
-downloadClient *http.Client  // 10 min timeout
+go func() {
+    ctx := context.Background()  // Fresh context that won't be canceled
+    if err := h.service.ApplyVDCUpdate(ctx); err != nil {
+        h.logger.Error("Failed to apply vDC update", zap.Error(err))
+    }
+}()
 ```
-
-Also added logging to the `downloadFile` function for better debugging.
 
 ### Files Changed
 
-- `backend/internal/services/update/service.go`
+- `backend/internal/server/update_handler.go` - Use context.Background() for background goroutine
+- `backend/internal/services/update/service.go` - Added downloadClient with longer timeout + logging
+
+### To Deploy
+
+Rebuild and redeploy the QvDC control plane.
 
 ---
 
