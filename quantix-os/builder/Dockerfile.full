@@ -9,7 +9,7 @@
 #   docker run --rm -v $(pwd):/work quantix-full-builder ./builder/build-all.sh
 # =============================================================================
 
-FROM alpine:3.20
+FROM alpine:3.22
 
 LABEL maintainer="Quantix-KVM Team"
 LABEL description="Full build environment for Quantix-OS (includes Rust)"

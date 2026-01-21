@@ -128,7 +128,7 @@ if [ "$KERNEL_FOUND" = "false" ]; then
     echo "⚠️  No kernel found in squashfs!"
     echo "   Downloading Alpine kernel..."
     
-    ALPINE_MIRROR="https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64"
+    ALPINE_MIRROR="https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64"
     NETBOOT_URL="${ALPINE_MIRROR}/netboot/vmlinuz-lts"
     
     curl -sL "$NETBOOT_URL" -o "${ISO_DIR}/boot/vmlinuz" || wget -q "$NETBOOT_URL" -O "${ISO_DIR}/boot/vmlinuz" || {

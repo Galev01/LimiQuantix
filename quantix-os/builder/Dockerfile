@@ -9,7 +9,7 @@
 #   docker run --rm -v $(pwd):/work quantix-builder ./builder/build-squashfs.sh
 # =============================================================================
 
-FROM alpine:3.20
+FROM alpine:3.22
 
 LABEL maintainer="Quantix-KVM Team"
 LABEL description="Build environment for Quantix-OS"

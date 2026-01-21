@@ -13,7 +13,7 @@
 #   docker run --rm -v $(pwd)/console-tui:/build quantix-rust-tui-builder
 # =============================================================================
 
-FROM alpine:3.20
+FROM alpine:3.22
 
 LABEL maintainer="Quantix-KVM Team"
 LABEL description="Rust build environment for Quantix-OS Console TUI and Node Daemon"

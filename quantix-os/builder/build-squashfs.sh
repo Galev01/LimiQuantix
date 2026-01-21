@@ -18,7 +18,7 @@ OUTPUT_DIR="/output"
 SQUASHFS_NAME="system-${VERSION}.squashfs"
 
 # Alpine version
-ALPINE_VERSION="3.20"
+ALPINE_VERSION="3.22"
 ALPINE_MIRROR="https://dl-cdn.alpinelinux.org/alpine"
 
 echo "╔═══════════════════════════════════════════════════════════════╗"
@@ -131,7 +131,8 @@ for pkg in ${PACKAGES}; do
     esac
     
     # Install the package (may report errors from previous packages)
-    apk --root "${ROOTFS_DIR}" add "$pkg" 2>/dev/null
+    # Use || true to prevent set -e from exiting on package install failure
+    apk --root "${ROOTFS_DIR}" add "$pkg" 2>/dev/null || true
     
     # Verify if package is actually installed by checking if it's in the DB
     if apk --root "${ROOTFS_DIR}" info "$pkg" >/dev/null 2>&1; then
@@ -342,6 +343,8 @@ if [ -f "${ROOTFS_DIR}/usr/share/openvswitch/vswitch.ovsschema" ]; then
     echo "📦 Initializing Open vSwitch database..."
     chroot "${ROOTFS_DIR}" ovsdb-tool create /etc/openvswitch/conf.db /usr/share/openvswitch/vswitch.ovsschema 2>/dev/null || true
     echo "✅ OVS database initialized"
+else
+    echo "⚠️  OVS schema not found - OVS may not be installed correctly"
 fi
 
 # Set permissions
