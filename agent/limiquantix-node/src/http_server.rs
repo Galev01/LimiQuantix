@@ -1152,6 +1152,7 @@ struct UpdateConfigResponse {
 
 /// Response type for simple version query (no update server required)
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SimpleVersionResponse {
     current_version: String,
     channel: String,

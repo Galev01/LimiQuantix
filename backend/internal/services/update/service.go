@@ -607,25 +607,25 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 		return info, fmt.Errorf("host returned status %d", resp.StatusCode)
 	}
 
-	// QHCI's /api/v1/updates/check returns UpdateInfo struct:
+	// QHCI's /api/v1/updates/check returns UpdateInfo struct with camelCase fields:
 	// {
 	//   "available": bool,
-	//   "current_version": string,
-	//   "latest_version": string (optional),
+	//   "currentVersion": string,
+	//   "latestVersion": string (optional),
 	//   "channel": string,
 	//   "components": [...],
-	//   "full_image_available": bool,
-	//   "total_download_size": int,
-	//   "release_notes": string (optional)
+	//   "fullImageAvailable": bool,
+	//   "totalDownloadSize": int,
+	//   "releaseNotes": string (optional)
 	// }
 	var hostCheckResponse struct {
 		Available          bool   `json:"available"`
-		CurrentVersion     string `json:"current_version"`
-		LatestVersion      string `json:"latest_version"`
+		CurrentVersion     string `json:"currentVersion"`
+		LatestVersion      string `json:"latestVersion"`
 		Channel            string `json:"channel"`
-		FullImageAvailable bool   `json:"full_image_available"`
-		TotalDownloadSize  int64  `json:"total_download_size"`
-		ReleaseNotes       string `json:"release_notes"`
+		FullImageAvailable bool   `json:"fullImageAvailable"`
+		TotalDownloadSize  int64  `json:"totalDownloadSize"`
+		ReleaseNotes       string `json:"releaseNotes"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&hostCheckResponse); err != nil {
 		info.Status = StatusError
@@ -751,7 +751,7 @@ func (s *Service) getHostSimpleVersion(ctx context.Context, hostIP string) strin
 	}
 
 	var versionResponse struct {
-		CurrentVersion string `json:"current_version"`
+		CurrentVersion string `json:"currentVersion"`
 		Channel        string `json:"channel"`
 		Hostname       string `json:"hostname"`
 	}
