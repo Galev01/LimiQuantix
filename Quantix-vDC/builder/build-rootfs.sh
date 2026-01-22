@@ -514,6 +514,9 @@ QUANTIX_VDC_BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ALPINE_VERSION="${ALPINE_VERSION}"
 EOF
 
+# Write version file for update service (used to track current installed version)
+echo "${VERSION}" > "${ROOTFS_DIR}/etc/quantix-vdc/version"
+
 echo "✅ Version info written"
 
 # -----------------------------------------------------------------------------

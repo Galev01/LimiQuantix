@@ -342,8 +342,9 @@ func (s *Server) initServices() {
 	}
 
 	// Initialize update service (always available)
-	updateConfig := updateservice.DefaultConfig()
-	// Try to get update server URL from config
+	// Load update config from persisted file first, then override from main config
+	updateConfig := updateservice.LoadConfig()
+	// Override with values from main config file if specified
 	if s.config.Updates != nil && s.config.Updates.ServerURL != "" {
 		updateConfig.ServerURL = s.config.Updates.ServerURL
 	}

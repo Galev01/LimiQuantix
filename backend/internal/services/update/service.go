@@ -132,6 +132,92 @@ func DefaultConfig() Config {
 	}
 }
 
+// configFilePath is the path to the persisted update configuration
+const configFilePath = "/etc/quantix-vdc/update.json"
+
+// LoadConfig loads the update configuration from disk, falling back to defaults
+func LoadConfig() Config {
+	config := DefaultConfig()
+
+	data, err := os.ReadFile(configFilePath)
+	if err != nil {
+		// Config file doesn't exist, use defaults
+		return config
+	}
+
+	// Parse the JSON config
+	var fileConfig struct {
+		ServerURL     string `json:"server_url"`
+		Channel       string `json:"channel"`
+		CheckInterval string `json:"check_interval"`
+		AutoCheck     bool   `json:"auto_check"`
+		AutoApply     bool   `json:"auto_apply"`
+		DataDir       string `json:"data_dir"`
+	}
+
+	if err := json.Unmarshal(data, &fileConfig); err != nil {
+		// Invalid JSON, use defaults
+		return config
+	}
+
+	// Apply loaded values (only if non-empty)
+	if fileConfig.ServerURL != "" {
+		config.ServerURL = fileConfig.ServerURL
+	}
+	if fileConfig.Channel != "" {
+		config.Channel = UpdateChannel(fileConfig.Channel)
+	}
+	if fileConfig.CheckInterval != "" {
+		if d, err := time.ParseDuration(fileConfig.CheckInterval); err == nil {
+			config.CheckInterval = d
+		}
+	}
+	if fileConfig.DataDir != "" {
+		config.DataDir = fileConfig.DataDir
+	}
+	// Booleans are always applied (can be false)
+	config.AutoCheck = fileConfig.AutoCheck
+	config.AutoApply = fileConfig.AutoApply
+
+	return config
+}
+
+// SaveConfig persists the update configuration to disk
+func SaveConfig(config Config) error {
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(configFilePath), 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	// Create JSON representation
+	fileConfig := struct {
+		ServerURL     string `json:"server_url"`
+		Channel       string `json:"channel"`
+		CheckInterval string `json:"check_interval"`
+		AutoCheck     bool   `json:"auto_check"`
+		AutoApply     bool   `json:"auto_apply"`
+		DataDir       string `json:"data_dir"`
+	}{
+		ServerURL:     config.ServerURL,
+		Channel:       string(config.Channel),
+		CheckInterval: config.CheckInterval.String(),
+		AutoCheck:     config.AutoCheck,
+		AutoApply:     config.AutoApply,
+		DataDir:       config.DataDir,
+	}
+
+	data, err := json.MarshalIndent(fileConfig, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(configFilePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}
+
 // Service provides OTA update management
 type Service struct {
 	config Config
@@ -222,13 +308,18 @@ func (s *Service) GetConfig() Config {
 	return s.config
 }
 
-// UpdateConfig updates the configuration
+// UpdateConfig updates the configuration and persists it to disk
 func (s *Service) UpdateConfig(config Config) {
 	s.config = config
 	s.logger.Info("Update configuration changed",
 		zap.String("server_url", config.ServerURL),
 		zap.String("channel", string(config.Channel)),
 	)
+
+	// Persist config to disk
+	if err := SaveConfig(config); err != nil {
+		s.logger.Warn("Failed to persist update config", zap.Error(err))
+	}
 }
 
 // ========================================================================
@@ -341,6 +432,11 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 	s.vdcState.AvailableVersion = ""
 	s.vdcVersion = manifest.Version // Update internal version so subsequent checks work correctly
 	s.vdcStateMu.Unlock()
+
+	// Persist the version to disk so it survives restarts
+	if err := writeVDCVersion(manifest.Version); err != nil {
+		s.logger.Warn("Failed to persist version file", zap.Error(err))
+	}
 
 	s.logger.Info("vDC update applied successfully", zap.String("version", manifest.Version))
 	return nil
@@ -1081,13 +1177,45 @@ func (s *Service) getOrCreateHostInfo(nodeID string, node *NodeInfo) *HostUpdate
 // ========================================================================
 
 func getVDCVersion() string {
-	// Try to read version from file
+	// Try to read version from dedicated version file first
 	versionFile := "/etc/quantix-vdc/version"
 	if data, err := os.ReadFile(versionFile); err == nil {
-		return strings.TrimSpace(string(data))
+		version := strings.TrimSpace(string(data))
+		if version != "" && version != "0.0.0" {
+			return version
+		}
 	}
-	// Fallback to build version
+
+	// Fallback: try to read from release file (older installations)
+	releaseFile := "/etc/quantix-vdc-release"
+	if data, err := os.ReadFile(releaseFile); err == nil {
+		// Parse QUANTIX_VDC_VERSION="X.Y.Z" from the file
+		for _, line := range strings.Split(string(data), "\n") {
+			if strings.HasPrefix(line, "QUANTIX_VDC_VERSION=") {
+				version := strings.TrimPrefix(line, "QUANTIX_VDC_VERSION=")
+				version = strings.Trim(version, "\"' \t\r\n")
+				if version != "" {
+					return version
+				}
+			}
+		}
+	}
+
+	// Final fallback to build version
 	return "0.0.1"
+}
+
+func writeVDCVersion(version string) error {
+	versionFile := "/etc/quantix-vdc/version"
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(versionFile), 0755); err != nil {
+		return fmt.Errorf("failed to create version directory: %w", err)
+	}
+	// Write version file
+	if err := os.WriteFile(versionFile, []byte(version+"\n"), 0644); err != nil {
+		return fmt.Errorf("failed to write version file: %w", err)
+	}
+	return nil
 }
 
 func compareVersions(v1, v2 string) int {
