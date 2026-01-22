@@ -550,6 +550,23 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 
 	resp, err := s.hostClient.Do(req)
 	if err != nil {
+		// Try fallback to simple version endpoint
+		s.logger.Debug("Full update check failed, trying simple version endpoint",
+			zap.String("node_id", nodeID),
+			zap.Error(err),
+		)
+		if version := s.getHostSimpleVersion(ctx, hostIP); version != "" {
+			info.CurrentVersion = version
+			info.Status = StatusIdle
+			now := time.Now()
+			info.LastCheck = &now
+			s.logger.Info("Got host version from simple endpoint",
+				zap.String("node_id", nodeID),
+				zap.String("version", version),
+			)
+			return info, nil
+		}
+
 		info.Status = StatusError
 		info.Error = fmt.Sprintf("Failed to contact host: %v", err)
 		s.logger.Warn("Failed to contact host for update check",
@@ -563,6 +580,23 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		// If the full check fails (e.g., update server unreachable), try simple version
+		s.logger.Debug("Full update check returned error, trying simple version endpoint",
+			zap.String("node_id", nodeID),
+			zap.Int("status_code", resp.StatusCode),
+		)
+		if version := s.getHostSimpleVersion(ctx, hostIP); version != "" {
+			info.CurrentVersion = version
+			info.Status = StatusIdle
+			now := time.Now()
+			info.LastCheck = &now
+			s.logger.Info("Got host version from simple endpoint after check failure",
+				zap.String("node_id", nodeID),
+				zap.String("version", version),
+			)
+			return info, nil
+		}
+
 		info.Status = StatusError
 		info.Error = fmt.Sprintf("Host returned status %d: %s", resp.StatusCode, string(body))
 		s.logger.Warn("Host returned error status",
@@ -694,6 +728,38 @@ func (s *Service) CheckAllHostUpdates(ctx context.Context) ([]*HostUpdateInfo, e
 	}
 
 	return results, nil
+}
+
+// getHostSimpleVersion fetches just the version from a host without requiring the update server
+// This is a fallback when the full update check fails
+func (s *Service) getHostSimpleVersion(ctx context.Context, hostIP string) string {
+	versionURL := fmt.Sprintf("https://%s:8443/api/v1/updates/version", hostIP)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", versionURL, nil)
+	if err != nil {
+		return ""
+	}
+
+	resp, err := s.hostClient.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	var versionResponse struct {
+		CurrentVersion string `json:"current_version"`
+		Channel        string `json:"channel"`
+		Hostname       string `json:"hostname"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&versionResponse); err != nil {
+		return ""
+	}
+
+	return versionResponse.CurrentVersion
 }
 
 // ApplyHostUpdate triggers an update on a specific host

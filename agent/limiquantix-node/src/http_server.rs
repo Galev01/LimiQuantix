@@ -994,6 +994,7 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/settings/certificates/acme/issue", post(issue_acme_certificate))
         // OTA Update endpoints
         .route("/updates/check", get(check_for_updates))
+        .route("/updates/version", get(get_simple_version))  // Simple version endpoint (no update server required)
         .route("/updates/current", get(get_current_versions))
         .route("/updates/status", get(get_update_status))
         .route("/updates/apply", post(apply_updates))
@@ -1147,6 +1148,34 @@ struct UpdateConfigResponse {
     auto_apply: bool,
     storage_location: String,
     volume_path: Option<String>,
+}
+
+/// Response type for simple version query (no update server required)
+#[derive(Serialize)]
+struct SimpleVersionResponse {
+    current_version: String,
+    channel: String,
+    hostname: String,
+}
+
+/// GET /api/v1/updates/version - Get current version without contacting update server
+/// This is a lightweight endpoint that QvDC can use to get the host's version
+async fn get_simple_version(
+    State(state): State<Arc<AppState>>,
+) -> Json<SimpleVersionResponse> {
+    let versions = state.update_manager.get_installed_versions().await;
+    let config = state.update_manager.get_config().await;
+    
+    // Get hostname
+    let hostname = hostname::get()
+        .map(|h| h.to_string_lossy().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+    
+    Json(SimpleVersionResponse {
+        current_version: versions.os_version,
+        channel: config.channel,
+        hostname,
+    })
 }
 
 /// GET /api/v1/updates/check - Check for available updates

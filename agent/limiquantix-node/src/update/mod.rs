@@ -150,19 +150,41 @@ impl UpdateManager {
 
     /// Detect the installed OS version
     async fn detect_os_version(&self) -> String {
+        // Check multiple possible version file locations
         let version_paths = [
-            "/quantix/VERSION",
-            "/mnt/cdrom/quantix/VERSION",
-            "/etc/quantix-version",
-            "/data/VERSION",
+            "/data/versions/qx-node.version",  // Component version (most accurate after updates)
+            "/etc/quantix-version",            // Written by build-all-components.sh
+            "/quantix/VERSION",                // ISO mount point
+            "/mnt/cdrom/quantix/VERSION",      // Alternative ISO mount
+            "/data/VERSION",                   // Data partition
         ];
         
         for path in version_paths {
             if let Ok(content) = tokio::fs::read_to_string(path).await {
-                return content.trim().to_string();
+                let version = content.trim().to_string();
+                if !version.is_empty() && version != "0.0.0" {
+                    tracing::debug!(path = %path, version = %version, "Found OS version");
+                    return version;
+                }
             }
         }
         
+        // Fallback: try to read from release file
+        if let Ok(content) = tokio::fs::read_to_string("/etc/quantix-release").await {
+            for line in content.lines() {
+                if line.starts_with("QUANTIX_VERSION=") || line.starts_with("VERSION=") {
+                    let version = line.split('=').nth(1)
+                        .map(|v| v.trim().trim_matches('"').trim_matches('\'').to_string())
+                        .unwrap_or_default();
+                    if !version.is_empty() {
+                        tracing::debug!(version = %version, "Found OS version from release file");
+                        return version;
+                    }
+                }
+            }
+        }
+        
+        tracing::warn!("Could not detect OS version, using fallback");
         "0.0.1".to_string()
     }
 
