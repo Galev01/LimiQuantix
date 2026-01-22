@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -866,9 +867,37 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 	}
 
 	// Restart service if specified
+	// We use a background process with a delay to allow the HTTP response to be sent first
 	if component.RestartService != "" {
-		s.logger.Info("Would restart service", zap.String("service", component.RestartService))
-		// TODO: Implement service restart via systemd/OpenRC
+		s.logger.Info("Scheduling service restart", zap.String("service", component.RestartService))
+
+		// Fork a background process to restart the service after a short delay
+		// This allows the current request to complete before the service restarts
+		go func(serviceName string) {
+			// Wait 2 seconds to allow HTTP response to be sent
+			time.Sleep(2 * time.Second)
+
+			s.logger.Info("Executing service restart", zap.String("service", serviceName))
+
+			// Try OpenRC first (Alpine Linux), then systemd
+			cmd := exec.Command("rc-service", serviceName, "restart")
+			if err := cmd.Run(); err != nil {
+				s.logger.Warn("OpenRC restart failed, trying systemd",
+					zap.String("service", serviceName),
+					zap.Error(err),
+				)
+				// Try systemd
+				cmd = exec.Command("systemctl", "restart", serviceName)
+				if err := cmd.Run(); err != nil {
+					s.logger.Error("Failed to restart service",
+						zap.String("service", serviceName),
+						zap.Error(err),
+					)
+				}
+			}
+		}(component.RestartService)
+
+		s.logger.Info("Service restart scheduled (will execute in 2 seconds)", zap.String("service", component.RestartService))
 	}
 
 	// Cleanup
