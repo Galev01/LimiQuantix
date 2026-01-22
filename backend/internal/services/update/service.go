@@ -688,8 +688,8 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 		return info, err
 	}
 
-	// Log raw response for debugging
-	s.logger.Debug("Raw host update response",
+	// Log raw response for debugging (temporarily at Info level to diagnose parsing issues)
+	s.logger.Info("Raw host update response",
 		zap.String("node_id", nodeID),
 		zap.String("body", string(bodyBytes)),
 	)
