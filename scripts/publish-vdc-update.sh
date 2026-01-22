@@ -244,16 +244,10 @@ for component in "${COMPONENTS[@]}"; do
             if [ -f "$STAGING_DIR/quantix-controlplane" ]; then
                 log_info "Packaging controlplane..."
                 
-                # Use zstd if available, otherwise gzip
-                if command -v zstd &> /dev/null; then
-                    tar -C "$STAGING_DIR" -c quantix-controlplane | zstd -19 > "$STAGING_DIR/controlplane.tar.zst"
-                    ARTIFACTS["controlplane"]="$STAGING_DIR/controlplane.tar.zst"
-                    log_info "  Created: controlplane.tar.zst ($(du -h "$STAGING_DIR/controlplane.tar.zst" | cut -f1))"
-                else
-                    tar -C "$STAGING_DIR" -czf "$STAGING_DIR/controlplane.tar.gz" quantix-controlplane
-                    ARTIFACTS["controlplane"]="$STAGING_DIR/controlplane.tar.gz"
-                    log_info "  Created: controlplane.tar.gz ($(du -h "$STAGING_DIR/controlplane.tar.gz" | cut -f1))"
-                fi
+                # Always use gzip for compatibility (QvDC only supports .tar.gz)
+                tar -C "$STAGING_DIR" -czf "$STAGING_DIR/controlplane.tar.gz" quantix-controlplane
+                ARTIFACTS["controlplane"]="$STAGING_DIR/controlplane.tar.gz"
+                log_info "  Created: controlplane.tar.gz ($(du -h "$STAGING_DIR/controlplane.tar.gz" | cut -f1))"
                 
                 rm -f "$STAGING_DIR/quantix-controlplane"
             else
@@ -281,16 +275,10 @@ for component in "${COMPONENTS[@]}"; do
             if [ -d "dist" ]; then
                 log_info "Packaging dashboard..."
                 
-                # Use zstd if available, otherwise gzip
-                if command -v zstd &> /dev/null; then
-                    tar -C dist -c . | zstd -19 > "$STAGING_DIR/dashboard.tar.zst"
-                    ARTIFACTS["dashboard"]="$STAGING_DIR/dashboard.tar.zst"
-                    log_info "  Created: dashboard.tar.zst ($(du -h "$STAGING_DIR/dashboard.tar.zst" | cut -f1))"
-                else
-                    tar -C dist -czf "$STAGING_DIR/dashboard.tar.gz" .
-                    ARTIFACTS["dashboard"]="$STAGING_DIR/dashboard.tar.gz"
-                    log_info "  Created: dashboard.tar.gz ($(du -h "$STAGING_DIR/dashboard.tar.gz" | cut -f1))"
-                fi
+                # Always use gzip for compatibility (QvDC only supports .tar.gz)
+                tar -C dist -czf "$STAGING_DIR/dashboard.tar.gz" .
+                ARTIFACTS["dashboard"]="$STAGING_DIR/dashboard.tar.gz"
+                log_info "  Created: dashboard.tar.gz ($(du -h "$STAGING_DIR/dashboard.tar.gz" | cut -f1))"
             else
                 log_error "Build failed - dist directory not found!"
             fi
