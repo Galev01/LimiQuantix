@@ -354,23 +354,35 @@ func (s *Service) GetHostStates() map[string]*HostUpdateInfo {
 	// If we have a node getter, filter to only include current nodes
 	if s.nodeGetter != nil {
 		nodes, err := s.nodeGetter.ListNodes(context.Background())
-		if err == nil {
+		if err != nil {
+			s.logger.Warn("Failed to list nodes for cache cleanup, returning cached hosts",
+				zap.Error(err),
+				zap.Int("cached_hosts", len(s.hostStates)),
+			)
+		} else {
 			// Build a set of current node IDs
 			currentNodeIDs := make(map[string]bool)
 			for _, node := range nodes {
 				currentNodeIDs[node.ID] = true
 			}
 
+			s.logger.Debug("Syncing host cache with node list",
+				zap.Int("current_nodes", len(nodes)),
+				zap.Int("cached_hosts", len(s.hostStates)),
+			)
+
 			// Clean up stale entries
 			s.hostStatesMu.Lock()
 			for nodeID := range s.hostStates {
 				if !currentNodeIDs[nodeID] {
 					delete(s.hostStates, nodeID)
-					s.logger.Debug("Removed stale host from update cache", zap.String("node_id", nodeID))
+					s.logger.Info("Removed stale host from update cache", zap.String("node_id", nodeID))
 				}
 			}
 			s.hostStatesMu.Unlock()
 		}
+	} else {
+		s.logger.Warn("No node getter configured, cannot sync host cache with node list")
 	}
 
 	s.hostStatesMu.RLock()
@@ -381,6 +393,8 @@ func (s *Service) GetHostStates() map[string]*HostUpdateInfo {
 		copied := *v
 		result[k] = &copied
 	}
+
+	s.logger.Debug("Returning host states", zap.Int("count", len(result)))
 	return result
 }
 
@@ -409,7 +423,9 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 
 	// Call the host's update check API
 	// Note: QHCI (qx-node) runs on port 8443 with self-signed TLS
-	hostURL := fmt.Sprintf("https://%s:8443/api/v1/updates/check", node.ManagementIP)
+	// Strip CIDR notation (e.g., /32) from management IP if present
+	hostIP := strings.Split(node.ManagementIP, "/")[0]
+	hostURL := fmt.Sprintf("https://%s:8443/api/v1/updates/check", hostIP)
 	s.logger.Debug("Checking host for updates",
 		zap.String("node_id", nodeID),
 		zap.String("url", hostURL),
@@ -481,6 +497,15 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 	info.CurrentVersion = hostCheckResponse.CurrentVersion
 	info.LastCheck = &now
 
+	// Log the full response for debugging
+	s.logger.Info("Parsed host update response",
+		zap.String("node_id", nodeID),
+		zap.Bool("available", hostCheckResponse.Available),
+		zap.String("current_version", hostCheckResponse.CurrentVersion),
+		zap.String("latest_version", hostCheckResponse.LatestVersion),
+		zap.String("channel", hostCheckResponse.Channel),
+	)
+
 	if hostCheckResponse.Available && hostCheckResponse.LatestVersion != "" {
 		info.AvailableVersion = hostCheckResponse.LatestVersion
 		info.Status = StatusAvailable
@@ -492,7 +517,7 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 	} else {
 		info.AvailableVersion = ""
 		info.Status = StatusIdle
-		s.logger.Debug("Host is up to date",
+		s.logger.Info("Host is up to date",
 			zap.String("node_id", nodeID),
 			zap.String("version", hostCheckResponse.CurrentVersion),
 		)
@@ -563,7 +588,9 @@ func (s *Service) ApplyHostUpdate(ctx context.Context, nodeID string) error {
 	info.Status = StatusApplying
 
 	// Call the host's update apply API
-	hostURL := fmt.Sprintf("https://%s:8443/api/v1/updates/apply", node.ManagementIP)
+	// Strip CIDR notation (e.g., /32) from management IP if present
+	hostIP := strings.Split(node.ManagementIP, "/")[0]
+	hostURL := fmt.Sprintf("https://%s:8443/api/v1/updates/apply", hostIP)
 	req, err := http.NewRequestWithContext(ctx, "POST", hostURL, nil)
 	if err != nil {
 		info.Status = StatusError

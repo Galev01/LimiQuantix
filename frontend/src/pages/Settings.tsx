@@ -629,6 +629,9 @@ function HostUpdateCard({
     error: <XCircle className="w-4 h-4 text-error" />,
   };
 
+  // Show version or fallback text
+  const versionDisplay = host.current_version ? `v${host.current_version}` : 'version unknown';
+
   return (
     <div className="flex items-center justify-between p-4 rounded-lg bg-bg-base border border-border">
       <div className="flex items-center gap-4">
@@ -638,8 +641,14 @@ function HostUpdateCard({
         <div>
           <p className="font-medium text-text-primary">{host.hostname}</p>
           <p className="text-xs text-text-muted">
-            {host.management_ip} • v{host.current_version}
+            {host.management_ip} • {versionDisplay}
           </p>
+          {/* Show error message if status is error */}
+          {host.status === 'error' && host.error && (
+            <p className="text-xs text-error mt-1 max-w-md truncate" title={host.error}>
+              {host.error}
+            </p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-3">

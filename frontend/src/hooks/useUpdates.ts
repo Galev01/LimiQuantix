@@ -390,8 +390,19 @@ export function useCheckAllHostUpdates() {
     mutationFn: checkAllHostUpdates,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: updateKeys.hostsStatus() });
+      
+      // Count hosts with different statuses
+      const errorCount = data.hosts?.filter(h => h.status === 'error').length || 0;
+      const upToDateCount = data.hosts?.filter(h => h.status === 'idle').length || 0;
+      
       if (data.updates_available > 0) {
         toast.success(`${data.updates_available} host(s) have updates available`);
+      } else if (errorCount > 0 && errorCount === data.total) {
+        // All hosts have errors
+        toast.error(`Failed to check ${errorCount} host(s) - check host connectivity`);
+      } else if (errorCount > 0) {
+        // Some hosts have errors
+        toast.warning(`${upToDateCount} host(s) up to date, ${errorCount} host(s) had errors`);
       } else {
         toast.info('All hosts are up to date');
       }
