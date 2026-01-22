@@ -227,9 +227,10 @@ for component in "${COMPONENTS[@]}"; do
             # Build for Linux
             log_info "Compiling for Linux amd64..."
             
-            # Clear Go build cache to ensure fresh build with latest code changes
-            log_info "Clearing Go build cache..."
-            go clean -cache ./cmd/controlplane 2>/dev/null || true
+            # Clear ENTIRE Go build cache to ensure fresh build with latest code changes
+            # This is necessary because changes in internal packages need to be recompiled
+            log_info "Clearing entire Go build cache..."
+            go clean -cache 2>/dev/null || true
             
             # Remove any stale local binaries
             rm -f "$PROJECT_ROOT/backend/controlplane" "$PROJECT_ROOT/backend/controlplane.exe" 2>/dev/null || true
