@@ -30,7 +30,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 CHANNEL="${CHANNEL:-dev}"
-UPDATE_SERVER="${UPDATE_SERVER:-http://192.168.0.148:9000}"
+UPDATE_SERVER="${UPDATE_SERVER:-http://192.168.0.251:9000}"
 PUBLISH_TOKEN="${PUBLISH_TOKEN:-dev-token}"
 DRY_RUN=false
 COMPONENTS=()
@@ -268,12 +268,13 @@ build_rust_with_docker() {
     log_info "Source dir: $docker_source_dir"
     
     # Build in Docker - use MSYS_NO_PATHCONV to prevent path mangling
-    log_info "Running Docker build..."
+    # Clean cargo cache first to ensure fresh build with latest code changes
+    log_info "Running Docker build with clean cache..."
     if ! MSYS_NO_PATHCONV=1 docker run --rm --network=host \
         -v "$docker_source_dir:/build:rw" \
         -w "$docker_workdir" \
         "$RUST_BUILDER_IMAGE" \
-        sh -c "cargo build --release -p $crate --features libvirt"; then
+        sh -c "cargo clean -p $crate 2>/dev/null || true; cargo build --release -p $crate --features libvirt"; then
         log_error "Docker build failed for $crate"
         return 1
     fi
@@ -600,5 +601,19 @@ else
     exit 1
 fi
 
-# Cleanup
+# =============================================================================
+# Post-Publish Cleanup & Cache Invalidation
+# =============================================================================
+
+log_info "Cleaning up build artifacts and caches..."
+
+# Clear Rust/Cargo cache for the agent crates to ensure next build is fresh
+if command -v cargo &> /dev/null; then
+    cargo clean -p limiquantix-node 2>/dev/null || true
+fi
+
+# Remove any local staging artifacts
+rm -rf "$PROJECT_ROOT/agent/target/release/limiquantix-node" 2>/dev/null || true
+
+# Cleanup staging directory
 rm -rf "$STAGING_DIR"

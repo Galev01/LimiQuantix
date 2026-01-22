@@ -226,7 +226,16 @@ for component in "${COMPONENTS[@]}"; do
             
             # Build for Linux
             log_info "Compiling for Linux amd64..."
-            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            
+            # Clear Go build cache to ensure fresh build with latest code changes
+            log_info "Clearing Go build cache..."
+            go clean -cache ./cmd/controlplane 2>/dev/null || true
+            
+            # Remove any stale local binaries
+            rm -f "$PROJECT_ROOT/backend/controlplane" "$PROJECT_ROOT/backend/controlplane.exe" 2>/dev/null || true
+            
+            # Build with -a flag to force rebuild all packages
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a \
                 -ldflags="-w -s -X main.Version=$VERSION" \
                 -o "$STAGING_DIR/quantix-controlplane" \
                 ./cmd/controlplane 2>&1 | tail -10
@@ -438,5 +447,19 @@ else
     exit 1
 fi
 
-# Cleanup
+# =============================================================================
+# Post-Publish Cleanup & Cache Invalidation
+# =============================================================================
+
+log_info "Cleaning up build artifacts and caches..."
+
+# Clear Go build cache for this project to ensure next build is fresh
+go clean -cache "$PROJECT_ROOT/backend/..." 2>/dev/null || true
+
+# Remove any local staging artifacts that might be stale
+rm -f "$PROJECT_ROOT/backend/controlplane" 2>/dev/null || true
+rm -f "$PROJECT_ROOT/backend/controlplane.exe" 2>/dev/null || true
+rm -rf "$PROJECT_ROOT/backend/bin/" 2>/dev/null || true
+
+# Cleanup staging directory
 rm -rf "$STAGING_DIR"

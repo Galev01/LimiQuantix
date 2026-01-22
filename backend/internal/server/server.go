@@ -834,45 +834,57 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 // Shutdown gracefully shuts down the server.
+// This is called during normal shutdown and also before service restarts from updates.
 func (s *Server) Shutdown() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), s.config.Server.ShutdownTimeout)
 	defer cancel()
 
-	s.logger.Info("Shutting down server...")
+	s.logger.Info("Initiating graceful shutdown...")
 
-	// Resign from leadership
+	// Resign from leadership first to prevent new work being assigned
 	if s.leader != nil {
+		s.logger.Info("Resigning from leadership...")
 		if err := s.leader.Resign(shutdownCtx); err != nil {
 			s.logger.Warn("Failed to resign leadership", zap.Error(err))
 		}
 	}
 
-	// Close HTTP server
+	// Stop accepting new HTTP connections and wait for in-flight requests
+	s.logger.Info("Closing HTTP server...")
 	if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
+		s.logger.Error("HTTP shutdown error", zap.Error(err))
 		return fmt.Errorf("HTTP shutdown error: %w", err)
 	}
 
-	// Close infrastructure connections
+	// Close infrastructure connections in reverse order of dependency
 	if s.daemonPool != nil {
+		s.logger.Info("Closing daemon pool...")
 		if err := s.daemonPool.Close(); err != nil {
 			s.logger.Warn("Failed to close daemon pool", zap.Error(err))
 		}
 	}
+
 	if s.etcd != nil {
+		s.logger.Info("Closing etcd connection...")
 		if err := s.etcd.Close(); err != nil {
 			s.logger.Warn("Failed to close etcd", zap.Error(err))
 		}
 	}
+
 	if s.cache != nil {
+		s.logger.Info("Closing Redis connection...")
 		if err := s.cache.Close(); err != nil {
 			s.logger.Warn("Failed to close Redis", zap.Error(err))
 		}
 	}
+
+	// Close database connection last - ensure all pending transactions complete
 	if s.db != nil {
+		s.logger.Info("Closing PostgreSQL connection...")
 		s.db.Close()
 	}
 
-	s.logger.Info("Server stopped gracefully")
+	s.logger.Info("Server stopped gracefully - all connections closed")
 	return nil
 }
 

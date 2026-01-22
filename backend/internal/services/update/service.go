@@ -282,7 +282,7 @@ func NewService(config Config, logger *zap.Logger) *Service {
 		},
 	}
 
-	return &Service{
+	svc := &Service{
 		config: config,
 		logger: logger.Named("update-service"),
 		vdcState: UpdateState{
@@ -301,6 +301,58 @@ func NewService(config Config, logger *zap.Logger) *Service {
 			Timeout:   30 * time.Second,
 			Transport: hostTransport,
 		},
+	}
+
+	// Verify if this startup is after an update
+	svc.verifyUpdateOnStartup()
+
+	return svc
+}
+
+// verifyUpdateOnStartup checks if this startup follows an update and verifies
+// that the update was applied correctly
+func (s *Service) verifyUpdateOnStartup() {
+	stateFile := filepath.Join(s.config.DataDir, "update-state.json")
+	data, err := os.ReadFile(stateFile)
+	if err != nil {
+		// No pending update verification - this is normal for regular startups
+		return
+	}
+
+	s.logger.Info("Found update state file, verifying update", zap.String("file", stateFile))
+
+	var state map[string]interface{}
+	if err := json.Unmarshal(data, &state); err != nil {
+		s.logger.Warn("Failed to parse update state file", zap.Error(err))
+		os.Remove(stateFile)
+		return
+	}
+
+	expectedVersion, ok := state["version"].(string)
+	if !ok {
+		s.logger.Warn("Invalid version in update state")
+		os.Remove(stateFile)
+		return
+	}
+
+	currentVersion := getVDCVersion()
+
+	if currentVersion == expectedVersion {
+		s.logger.Info("Update verified successfully - running expected version",
+			zap.String("version", currentVersion),
+			zap.String("component", state["component"].(string)),
+		)
+	} else {
+		s.logger.Error("Update verification failed - version mismatch",
+			zap.String("expected", expectedVersion),
+			zap.String("actual", currentVersion),
+			zap.String("component", state["component"].(string)),
+		)
+	}
+
+	// Clean up state file
+	if err := os.Remove(stateFile); err != nil {
+		s.logger.Warn("Failed to remove update state file", zap.Error(err))
 	}
 }
 
@@ -1057,9 +1109,34 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 
 		// Fork a background process to restart the service after a short delay
 		// This allows the current request to complete before the service restarts
-		go func(serviceName string) {
+		go func(serviceName string, componentName string, version string) {
 			// Wait 2 seconds to allow HTTP response to be sent
 			time.Sleep(2 * time.Second)
+
+			s.logger.Info("Preparing for service restart", zap.String("service", serviceName))
+
+			// Save update state to disk for verification after restart
+			stateFile := filepath.Join(s.config.DataDir, "update-state.json")
+			state := map[string]interface{}{
+				"last_update":    time.Now().UTC().Format(time.RFC3339),
+				"version":        version,
+				"component":      componentName,
+				"restart_reason": "update",
+				"service":        serviceName,
+			}
+			if stateData, err := json.Marshal(state); err == nil {
+				if err := os.MkdirAll(filepath.Dir(stateFile), 0755); err != nil {
+					s.logger.Warn("Failed to create state directory", zap.Error(err))
+				}
+				if err := os.WriteFile(stateFile, stateData, 0644); err != nil {
+					s.logger.Warn("Failed to save update state", zap.Error(err))
+				} else {
+					s.logger.Info("Update state saved", zap.String("file", stateFile))
+				}
+			}
+
+			// Wait a bit more to ensure all pending writes are flushed
+			time.Sleep(500 * time.Millisecond)
 
 			s.logger.Info("Executing service restart", zap.String("service", serviceName))
 
@@ -1079,9 +1156,9 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 					)
 				}
 			}
-		}(component.RestartService)
+		}(component.RestartService, component.Name, component.Version)
 
-		s.logger.Info("Service restart scheduled (will execute in 2 seconds)", zap.String("service", component.RestartService))
+		s.logger.Info("Service restart scheduled (will execute in 2.5 seconds)", zap.String("service", component.RestartService))
 	}
 
 	// Cleanup
@@ -1362,6 +1439,9 @@ func calculateSHA256(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
+// copyFile copies a file from src to dst with explicit sync to ensure
+// data is fully written to disk before returning. This is critical for
+// binary updates where the service will be restarted immediately after.
 func copyFile(src, dst string) error {
 	sourceFile, err := os.Open(src)
 	if err != nil {
@@ -1373,10 +1453,20 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer destFile.Close()
 
-	_, err = io.Copy(destFile, sourceFile)
-	return err
+	if _, err = io.Copy(destFile, sourceFile); err != nil {
+		destFile.Close()
+		return err
+	}
+
+	// Sync to ensure data is fully written to disk
+	// This is critical for binaries that will be executed immediately
+	if err := destFile.Sync(); err != nil {
+		destFile.Close()
+		return err
+	}
+
+	return destFile.Close()
 }
 
 // extractTarGz extracts a .tar.gz file to the specified destination directory
