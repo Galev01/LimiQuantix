@@ -135,6 +135,12 @@ func DefaultConfig() Config {
 // configFilePath is the path to the persisted update configuration
 const configFilePath = "/etc/quantix-vdc/update.json"
 
+// Version file locations
+const (
+	vdcPersistentVersionFile = "/var/lib/quantix-vdc/version"
+	vdcEtcVersionFile        = "/etc/quantix-vdc/version"
+)
+
 // LoadConfig loads the update configuration from disk, falling back to defaults
 func LoadConfig() Config {
 	config := DefaultConfig()
@@ -1177,9 +1183,16 @@ func (s *Service) getOrCreateHostInfo(nodeID string, node *NodeInfo) *HostUpdate
 // ========================================================================
 
 func getVDCVersion() string {
-	// Try to read version from dedicated version file first
-	versionFile := "/etc/quantix-vdc/version"
-	if data, err := os.ReadFile(versionFile); err == nil {
+	// Try the persistent version file first (survives restarts)
+	if data, err := os.ReadFile(vdcPersistentVersionFile); err == nil {
+		version := strings.TrimSpace(string(data))
+		if version != "" && version != "0.0.0" {
+			return version
+		}
+	}
+
+	// Fallback to /etc for older installations
+	if data, err := os.ReadFile(vdcEtcVersionFile); err == nil {
 		version := strings.TrimSpace(string(data))
 		if version != "" && version != "0.0.0" {
 			return version
@@ -1206,14 +1219,25 @@ func getVDCVersion() string {
 }
 
 func writeVDCVersion(version string) error {
-	versionFile := "/etc/quantix-vdc/version"
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(versionFile), 0755); err != nil {
-		return fmt.Errorf("failed to create version directory: %w", err)
+	var errors []string
+	versionData := []byte(version + "\n")
+
+	// Write to persistent location first
+	if err := os.MkdirAll(filepath.Dir(vdcPersistentVersionFile), 0755); err != nil {
+		errors = append(errors, fmt.Sprintf("create persistent dir: %v", err))
+	} else if err := os.WriteFile(vdcPersistentVersionFile, versionData, 0644); err != nil {
+		errors = append(errors, fmt.Sprintf("write persistent version: %v", err))
 	}
-	// Write version file
-	if err := os.WriteFile(versionFile, []byte(version+"\n"), 0644); err != nil {
-		return fmt.Errorf("failed to write version file: %w", err)
+
+	// Also write to /etc for backward compatibility
+	if err := os.MkdirAll(filepath.Dir(vdcEtcVersionFile), 0755); err != nil {
+		errors = append(errors, fmt.Sprintf("create etc dir: %v", err))
+	} else if err := os.WriteFile(vdcEtcVersionFile, versionData, 0644); err != nil {
+		errors = append(errors, fmt.Sprintf("write etc version: %v", err))
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("failed to persist version: %s", strings.Join(errors, "; "))
 	}
 	return nil
 }

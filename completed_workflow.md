@@ -356,3 +356,21 @@ Built complete React dashboard with 15 pages.
 - VM Creation Wizard
 - Settings, Monitoring, Alerts pages
 - TanStack Query for API integration
+
+---
+
+## QvDC Host Update Fix ✅
+
+**Completed:** January 21, 2026
+
+### Summary
+Fixed stale host entries in the updates UI and corrected QHCI update response parsing.
+
+### What Was Done
+- Filtered host update cache to only include READY nodes.
+- Synced cache during host update checks.
+- Updated QHCI update response parsing (`available`, `latest_version`).
+- Added host cache clear helper.
+
+### References
+- `backend/internal/services/update/service.go`
