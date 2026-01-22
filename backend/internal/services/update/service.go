@@ -627,11 +627,27 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 		TotalDownloadSize  int64  `json:"totalDownloadSize"`
 		ReleaseNotes       string `json:"releaseNotes"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&hostCheckResponse); err != nil {
+
+	// Read body for debugging and parsing
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		info.Status = StatusError
+		info.Error = fmt.Sprintf("Failed to read host response: %v", err)
+		return info, err
+	}
+
+	// Log raw response for debugging
+	s.logger.Debug("Raw host update response",
+		zap.String("node_id", nodeID),
+		zap.String("body", string(bodyBytes)),
+	)
+
+	if err := json.Unmarshal(bodyBytes, &hostCheckResponse); err != nil {
 		info.Status = StatusError
 		info.Error = fmt.Sprintf("Failed to parse host response: %v", err)
 		s.logger.Warn("Failed to parse host update check response",
 			zap.String("node_id", nodeID),
+			zap.String("raw_body", string(bodyBytes)),
 			zap.Error(err),
 		)
 		return info, err
