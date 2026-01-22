@@ -74,6 +74,11 @@ export function useDeleteNode() {
     onSuccess: () => {
       // Invalidate node lists to refresh the UI
       queryClient.invalidateQueries({ queryKey: nodeKeys.all });
+      // Also invalidate update hosts status so deleted hosts disappear from updates page
+      queryClient.invalidateQueries({ queryKey: ['updates', 'hosts'] });
+    },
+    onError: (error) => {
+      console.error('Failed to delete node:', error);
     },
   });
 }
