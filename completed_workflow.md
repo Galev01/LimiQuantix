@@ -359,6 +359,41 @@ Built complete React dashboard with 15 pages.
 
 ---
 
+## QvDC Version Persistence After Restart ✅
+
+**Completed:** January 21, 2026
+
+### Summary
+Persisted the installed vDC version across restarts to prevent stale update prompts.
+
+### What Was Done
+- Added persistent version file at `/var/lib/quantix-vdc/version`.
+- Updated version read order to prefer persistent file, then `/etc`, then release file.
+- Wrote version to both `/var/lib/quantix-vdc/version` and `/etc/quantix-vdc/version` after updates.
+
+### References
+- `backend/internal/services/update/service.go`
+
+---
+
+## Updates Page UI Logging ✅
+
+**Completed:** January 21, 2026
+
+### Summary
+Logged all Updates page actions, toggles, and outcomes with audit metadata.
+
+### What Was Done
+- Added `useActionLogger('updates')` and logged all Update page actions.
+- Logged update success/error outcomes with correlation IDs and audit metadata.
+- Added `ui-updates` to log sources for filtering.
+
+### References
+- `frontend/src/pages/Settings.tsx`
+- `backend/internal/server/logs_handler.go`
+
+---
+
 ## QvDC Host Update Fix ✅
 
 **Completed:** January 21, 2026

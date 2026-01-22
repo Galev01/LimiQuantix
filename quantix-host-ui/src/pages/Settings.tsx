@@ -937,7 +937,7 @@ function UpdatesSettingsTab() {
               id="serverUrl"
               value={serverUrl}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setServerUrl(e.target.value)}
-              placeholder="http://192.168.0.148:9000"
+              placeholder="http://192.168.0.251:9000"
             />
             <p className="text-xs text-text-muted mt-1">
               The URL of the Quantix Update Server

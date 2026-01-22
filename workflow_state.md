@@ -1,23 +1,40 @@
 # Workflow State
 
-## Active Task: QvDC Version Persistence After Restart
+## Active Task: Updates Page UI Logging
 
 **Date:** January 21, 2026
 **Status:** Complete
 
-### Issue
+### Scope
 
-After applying a QvDC update, restarting the control plane reverted the displayed version to the older value (for example, `0.0.21`). This caused the UI to think an update was still available even when the installed version matched the update server.
+Log all actions on the Updates page, including every button, toggle, and update outcome (success/error) with audit metadata.
 
-### Root Cause
+### Changes Applied
 
-The version was only stored in `/etc/quantix-vdc/version`, which is overwritten by the appliance image on restart. The update process updated in-memory state but did not persist the version to a location that survives restarts.
+**Frontend:** `frontend/src/pages/Settings.tsx`
 
-### Fix Applied
+- Added `useActionLogger('updates')` in `UpdateSettings` and `useActionLogger('settings')` in `Settings`.
+- Logged all update page actions:
+  - Check vDC updates
+  - Apply vDC update
+  - Retry update
+  - Dismiss result card
+  - Check all hosts
+  - Apply host update
+  - Change update channel
+  - Save/cancel update server URL
+  - Toggle auto-check and auto-apply
+  - Updates tab switching
+- Logged update success/error outcomes with audit metadata and correlation IDs.
+- Logged vDC status errors when backend reports update errors.
 
-**File:** `backend/internal/services/update/service.go`
+**Backend:** `backend/internal/server/logs_handler.go`
 
-- Added a persistent version file path: `/var/lib/quantix-vdc/version`
+- Added `ui-updates` to the log sources list for filtering.
+
+### Notes
+
+All update page actions now emit `ui-updates` logs with structured metadata and audit markers.
 - `getVDCVersion()` now checks the persistent file first, then `/etc`, then fallback release file
 - `writeVDCVersion()` now writes to both `/var/lib/quantix-vdc/version` and `/etc/quantix-vdc/version`
 - Existing update completion still updates in-memory state and now persists to disk

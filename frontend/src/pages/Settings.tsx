@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings as SettingsIcon,
@@ -36,6 +36,7 @@ import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { useThemeStore } from '@/stores/theme-store';
+import { useActionLogger } from '@/hooks/useActionLogger';
 import {
   useVDCUpdateWithTracking,
   useCheckVDCUpdate,
@@ -53,6 +54,8 @@ import {
 } from '@/hooks/useUpdates';
 
 export function Settings() {
+  const logger = useActionLogger('settings');
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -61,14 +64,21 @@ export function Settings() {
           <h1 className="text-2xl font-bold text-text-primary">Settings</h1>
           <p className="text-text-muted mt-1">Configure your limiquantix platform</p>
         </div>
-        <Button>
+        <Button
+          logAction
+          logComponent="settings"
+          logTarget="save-all-changes"
+        >
           <Save className="w-4 h-4" />
           Save All Changes
         </Button>
       </div>
 
       {/* Settings Tabs */}
-      <Tabs defaultValue="general">
+      <Tabs
+        defaultValue="general"
+        onChange={(value) => logger.logTabSwitch(value)}
+      >
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="updates">Updates</TabsTrigger>
@@ -177,6 +187,7 @@ function GeneralSettings() {
 }
 
 function UpdateSettings() {
+  const logger = useActionLogger('updates');
   const { 
     data: vdcStatus, 
     isLoading: vdcLoading,
@@ -196,6 +207,9 @@ function UpdateSettings() {
   const [selectedChannel, setSelectedChannel] = useState<UpdateChannel>(config?.channel || 'dev');
   const [serverUrl, setServerUrl] = useState(config?.server_url || '');
   const [isEditingServerUrl, setIsEditingServerUrl] = useState(false);
+  const lastUpdateCorrelationId = useRef<string | undefined>(undefined);
+  const lastUpdateResultKey = useRef<string | undefined>(undefined);
+  const lastStatusErrorKey = useRef<string | undefined>(undefined);
 
   // Sync state when config loads
   useEffect(() => {
@@ -208,17 +222,187 @@ function UpdateSettings() {
   const hosts = hostsData?.hosts || [];
   const hostsWithUpdates = hosts.filter(h => h.status === 'available');
 
-  const handleChannelChange = (channel: UpdateChannel) => {
+  const handleChannelChange = async (channel: UpdateChannel) => {
     setSelectedChannel(channel);
-    updateConfigMutation.mutate({ channel });
-  };
-
-  const handleServerUrlSave = () => {
-    if (serverUrl.trim()) {
-      updateConfigMutation.mutate({ server_url: serverUrl.trim() });
-      setIsEditingServerUrl(false);
+    logger.logSelect('update-channel', channel);
+    try {
+      await updateConfigMutation.mutateAsync({ channel });
+      logger.logSuccess('update-channel', `Update channel set to ${channel}`, { channel, audit: true });
+    } catch (error) {
+      logger.logError('update-channel', error as Error, { channel, audit: true });
     }
   };
+
+  const handleServerUrlSave = async () => {
+    if (serverUrl.trim()) {
+      const url = serverUrl.trim();
+      logger.logSubmit('update-server-url', { server_url: url });
+      try {
+        await updateConfigMutation.mutateAsync({ server_url: url });
+        logger.logSuccess('update-server-url', 'Update server URL saved', { server_url: url, audit: true });
+        setIsEditingServerUrl(false);
+      } catch (error) {
+        logger.logError('update-server-url', error as Error, { server_url: url, audit: true });
+      }
+    }
+  };
+
+  const handleCheckVDC = async () => {
+    logger.logClick('check-vdc-updates', { audit: true });
+    try {
+      const data = await checkVDC.mutateAsync();
+      if (data.available_version) {
+        logger.logSuccess('check-vdc-updates', 'Update available', {
+          available_version: data.available_version,
+          audit: true,
+        });
+      } else {
+        logger.logSuccess('check-vdc-updates', 'No updates available', { audit: true });
+      }
+    } catch (error) {
+      logger.logError('check-vdc-updates', error as Error, { audit: true });
+    }
+  };
+
+  const handleApplyVDC = async () => {
+    const correlationId = logger.generateCorrelationId();
+    lastUpdateCorrelationId.current = correlationId;
+    logger.logClick('apply-vdc-update', {
+      correlationId,
+      target_version: vdcStatus?.available_version,
+      audit: true,
+    });
+    try {
+      await applyVDC.mutateAsync();
+      logger.logSuccess('apply-vdc-update', 'Update started', {
+        correlationId,
+        target_version: vdcStatus?.available_version,
+        audit: true,
+      });
+    } catch (error) {
+      logger.logError('apply-vdc-update', error as Error, {
+        correlationId,
+        target_version: vdcStatus?.available_version,
+        audit: true,
+      });
+    }
+  };
+
+  const handleRetryUpdate = async () => {
+    const correlationId = logger.generateCorrelationId();
+    lastUpdateCorrelationId.current = correlationId;
+    logger.logClick('retry-vdc-update', {
+      correlationId,
+      previous_error: updateResult?.error,
+      audit: true,
+    });
+    clearUpdateResult();
+    await handleApplyVDC();
+  };
+
+  const handleCheckAllHosts = async () => {
+    logger.logClick('check-all-hosts', { audit: true });
+    try {
+      const data = await checkAllHosts.mutateAsync();
+      logger.logSuccess('check-all-hosts', 'Host update check completed', {
+        total: data.total,
+        updates_available: data.updates_available,
+        audit: true,
+      });
+    } catch (error) {
+      logger.logError('check-all-hosts', error as Error, { audit: true });
+    }
+  };
+
+  const handleApplyHost = async (host: HostUpdateInfo) => {
+    logger.logClick('apply-host-update', {
+      host_id: host.node_id,
+      hostname: host.hostname,
+      target_version: host.available_version,
+      audit: true,
+    });
+    try {
+      await applyHost.mutateAsync(host.node_id);
+      logger.logSuccess('apply-host-update', `Update started on ${host.hostname}`, {
+        host_id: host.node_id,
+        hostname: host.hostname,
+        target_version: host.available_version,
+        audit: true,
+      });
+    } catch (error) {
+      logger.logError('apply-host-update', error as Error, {
+        host_id: host.node_id,
+        hostname: host.hostname,
+        audit: true,
+      });
+    }
+  };
+
+  const handleAutoCheckToggle = async (checked: boolean) => {
+    logger.logToggle('auto-check-updates', checked);
+    try {
+      await updateConfigMutation.mutateAsync({ auto_check: checked });
+      logger.logSuccess('auto-check-updates', `Auto check ${checked ? 'enabled' : 'disabled'}`, { audit: true });
+    } catch (error) {
+      logger.logError('auto-check-updates', error as Error, { audit: true });
+    }
+  };
+
+  const handleAutoApplyToggle = async (checked: boolean) => {
+    logger.logToggle('auto-apply-updates', checked);
+    try {
+      await updateConfigMutation.mutateAsync({ auto_apply: checked });
+      logger.logSuccess('auto-apply-updates', `Auto apply ${checked ? 'enabled' : 'disabled'}`, { audit: true });
+    } catch (error) {
+      logger.logError('auto-apply-updates', error as Error, { audit: true });
+    }
+  };
+
+  const handleDismissUpdateResult = () => {
+    logger.logClick('dismiss-update-result', {
+      result: updateResult?.success ? 'success' : 'error',
+      version: updateResult?.version,
+      audit: true,
+    });
+    clearUpdateResult();
+  };
+
+  useEffect(() => {
+    if (!updateResult) return;
+    const resultKey = `${updateResult.success}-${updateResult.version}-${updateResult.completedAt.toISOString()}`;
+    if (lastUpdateResultKey.current === resultKey) return;
+
+    lastUpdateResultKey.current = resultKey;
+
+    if (updateResult.success) {
+      logger.logSuccess('update-completed', `Update completed to v${updateResult.version}`, {
+        version: updateResult.version,
+        previous_version: updateResult.previousVersion,
+        components: updateResult.components,
+        correlationId: lastUpdateCorrelationId.current,
+        audit: true,
+      });
+    } else if (updateResult.error) {
+      logger.logError('update-completed', updateResult.error, {
+        version: updateResult.version,
+        previous_version: updateResult.previousVersion,
+        components: updateResult.components,
+        correlationId: lastUpdateCorrelationId.current,
+        audit: true,
+      });
+    }
+  }, [updateResult, logger]);
+
+  useEffect(() => {
+    if (!vdcStatus?.error) return;
+    if (lastStatusErrorKey.current === vdcStatus.error) return;
+
+    lastStatusErrorKey.current = vdcStatus.error;
+    logger.logError('vdc-update-status', vdcStatus.error, {
+      status: vdcStatus.status,
+      audit: true,
+    });
+  }, [vdcStatus?.error, vdcStatus?.status, logger]);
 
   return (
     <div className="space-y-6">
@@ -321,7 +505,7 @@ function UpdateSettings() {
           </div>
 
           {/* Update Result Card - Shows after completion until dismissed */}
-          {updateResult && (
+            {updateResult && (
             <div className={cn(
               "p-4 rounded-lg border",
               updateResult.success 
@@ -373,7 +557,7 @@ function UpdateSettings() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={clearUpdateResult}
+                  onClick={handleDismissUpdateResult}
                   className="shrink-0"
                 >
                   Dismiss
@@ -398,7 +582,7 @@ function UpdateSettings() {
           <div className="flex items-center gap-3">
             <Button
               variant="secondary"
-              onClick={() => checkVDC.mutate()}
+              onClick={handleCheckVDC}
               disabled={checkVDC.isPending || isUpdateInProgress}
             >
               {checkVDC.isPending ? (
@@ -414,7 +598,7 @@ function UpdateSettings() {
              vdcStatus?.manifest?.version && 
              vdcStatus.current_version !== vdcStatus.manifest.version && (
               <Button
-                onClick={() => applyVDC.mutate()}
+                onClick={handleApplyVDC}
                 disabled={applyVDC.isPending}
               >
                 {applyVDC.isPending ? (
@@ -428,10 +612,7 @@ function UpdateSettings() {
             {!updateResult?.success && updateResult?.error && (
               <Button
                 variant="secondary"
-                onClick={() => {
-                  clearUpdateResult();
-                  applyVDC.mutate();
-                }}
+                onClick={handleRetryUpdate}
                 disabled={applyVDC.isPending}
               >
                 <RefreshCw className="w-4 h-4" />
@@ -482,7 +663,7 @@ function UpdateSettings() {
             </div>
             <Button
               variant="secondary"
-              onClick={() => checkAllHosts.mutate()}
+              onClick={handleCheckAllHosts}
               disabled={checkAllHosts.isPending}
             >
               {checkAllHosts.isPending ? (
@@ -515,7 +696,7 @@ function UpdateSettings() {
                 <HostUpdateCard
                   key={host.node_id}
                   host={host}
-                  onApply={() => applyHost.mutate(host.node_id)}
+                  onApply={() => handleApplyHost(host)}
                   isApplying={applyHost.isPending}
                 />
               ))
@@ -561,7 +742,10 @@ function UpdateSettings() {
                 )}
                 value={serverUrl}
                 onChange={(e) => setServerUrl(e.target.value)}
-                onFocus={() => setIsEditingServerUrl(true)}
+                onFocus={() => {
+                  setIsEditingServerUrl(true);
+                  logger.logClick('edit-update-server-url');
+                }}
                 placeholder="http://update-server:9000"
               />
               {isEditingServerUrl && (
@@ -584,6 +768,7 @@ function UpdateSettings() {
                     onClick={() => {
                       setServerUrl(config?.server_url || '');
                       setIsEditingServerUrl(false);
+                      logger.logClick('cancel-update-server-url', { audit: true });
                     }}
                   >
                     Cancel
@@ -596,14 +781,14 @@ function UpdateSettings() {
           <SettingField label="Auto Check" description="Automatically check for updates periodically">
             <ToggleSwitch 
               checked={config?.auto_check ?? true} 
-              onChange={(checked) => updateConfigMutation.mutate({ auto_check: checked })} 
+              onChange={handleAutoCheckToggle} 
             />
           </SettingField>
 
           <SettingField label="Auto Apply" description="Automatically apply component updates (no reboot required)">
             <ToggleSwitch 
               checked={config?.auto_apply ?? false} 
-              onChange={(checked) => updateConfigMutation.mutate({ auto_apply: checked })} 
+              onChange={handleAutoApplyToggle} 
             />
           </SettingField>
         </div>

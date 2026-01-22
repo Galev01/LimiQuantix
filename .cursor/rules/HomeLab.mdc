@@ -16,7 +16,7 @@ alwaysApply: true
 
 | Service | URL | Port | Description |
 |---------|-----|------|-------------|
-| **Update Server** | http://192.168.0.148:9000 | 9000 | OTA update server with Admin UI |
+| **Update Server** | http://192.168.0.251:9000 | 9000 | OTA update server with Admin UI |
 | **QvDC Dashboard** | https://192.168.0.100:443 | 443 | vDC web management interface |
 | **QvDC API** | http://192.168.0.100:8080 | 8080 | Control plane gRPC/REST API |
 | **QHCI01 Host UI** | https://192.168.0.101:8443 | 8443 | Host web management interface |
@@ -38,5 +38,5 @@ docker-compose up -d
 - Publish Token: `dev-token` (change in production!)
 
 **Hosts pull updates from:**
-- Update Server URL: `http://192.168.0.148:9000`
+- Update Server URL: `http://192.168.0.251:9000`
 - Channel: `dev` (development), `beta`, or `stable`

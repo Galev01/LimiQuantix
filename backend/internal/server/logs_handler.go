@@ -241,6 +241,7 @@ func (h *LogsHandler) handleGetSources(w http.ResponseWriter, r *http.Request) {
 		"ui-alerts",
 		"ui-monitoring",
 		"ui-logs",
+		"ui-updates",
 	}
 
 	w.Header().Set("Content-Type", "application/json")
