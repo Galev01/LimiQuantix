@@ -365,6 +365,7 @@ func (s *Server) initServices() {
 				ID:           node.ID,
 				Hostname:     node.Hostname,
 				ManagementIP: node.ManagementIP,
+				Phase:        string(node.Status.Phase),
 			}, nil
 		},
 		// ListNodes function
@@ -379,6 +380,7 @@ func (s *Server) initServices() {
 					ID:           n.ID,
 					Hostname:     n.Hostname,
 					ManagementIP: n.ManagementIP,
+					Phase:        string(n.Status.Phase),
 				})
 			}
 			return result, nil

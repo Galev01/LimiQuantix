@@ -503,9 +503,11 @@ function UpdateSettings() {
             ) : hosts.length === 0 ? (
               <div className="py-8 text-center">
                 <Server className="w-8 h-8 mx-auto text-text-muted mb-2" />
-                <p className="text-sm text-text-muted">No hosts connected</p>
+                <p className="text-sm text-text-muted">No connected hosts</p>
                 <p className="text-xs text-text-muted mt-1">
-                  Add hosts to manage their updates
+                  Only hosts with "Ready" status are shown here.
+                  <br />
+                  Check the Hosts page to see all hosts including disconnected ones.
                 </p>
               </div>
             ) : (

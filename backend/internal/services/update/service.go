@@ -169,6 +169,7 @@ type NodeInfo struct {
 	ID           string
 	Hostname     string
 	ManagementIP string
+	Phase        string // Node phase: READY, NOT_READY, DISCONNECTED, OFFLINE, etc.
 }
 
 // NewService creates a new update service
@@ -349,52 +350,58 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 // ========================================================================
 
 // GetHostStates returns update states for all connected hosts
-// It filters out hosts that are no longer in the node list
+// It only returns hosts that are READY (connected), filtering out disconnected/offline hosts
 func (s *Service) GetHostStates() map[string]*HostUpdateInfo {
-	// If we have a node getter, filter to only include current nodes
-	if s.nodeGetter != nil {
-		nodes, err := s.nodeGetter.ListNodes(context.Background())
-		if err != nil {
-			s.logger.Warn("Failed to list nodes for cache cleanup, returning cached hosts",
-				zap.Error(err),
-				zap.Int("cached_hosts", len(s.hostStates)),
-			)
-		} else {
-			// Build a set of current node IDs
-			currentNodeIDs := make(map[string]bool)
-			for _, node := range nodes {
-				currentNodeIDs[node.ID] = true
-			}
+	result := make(map[string]*HostUpdateInfo)
 
-			s.logger.Debug("Syncing host cache with node list",
-				zap.Int("current_nodes", len(nodes)),
-				zap.Int("cached_hosts", len(s.hostStates)),
-			)
-
-			// Clean up stale entries
-			s.hostStatesMu.Lock()
-			for nodeID := range s.hostStates {
-				if !currentNodeIDs[nodeID] {
-					delete(s.hostStates, nodeID)
-					s.logger.Info("Removed stale host from update cache", zap.String("node_id", nodeID))
-				}
-			}
-			s.hostStatesMu.Unlock()
-		}
-	} else {
-		s.logger.Warn("No node getter configured, cannot sync host cache with node list")
+	// If we have a node getter, get the current list of connected nodes
+	if s.nodeGetter == nil {
+		s.logger.Warn("No node getter configured, returning empty host list")
+		return result
 	}
 
+	nodes, err := s.nodeGetter.ListNodes(context.Background())
+	if err != nil {
+		s.logger.Warn("Failed to list nodes, returning empty host list", zap.Error(err))
+		return result
+	}
+
+	// Build a map of connected nodes (only READY phase)
+	connectedNodes := make(map[string]*NodeInfo)
+	for _, node := range nodes {
+		// Only include hosts that are READY (connected)
+		if node.Phase == "READY" || node.Phase == "NODE_PHASE_READY" {
+			connectedNodes[node.ID] = node
+		}
+	}
+
+	s.logger.Debug("Filtering hosts by connection status",
+		zap.Int("total_nodes", len(nodes)),
+		zap.Int("connected_nodes", len(connectedNodes)),
+	)
+
+	// Clean up cache - remove entries for nodes that no longer exist OR are disconnected
+	s.hostStatesMu.Lock()
+	for nodeID := range s.hostStates {
+		if _, exists := connectedNodes[nodeID]; !exists {
+			delete(s.hostStates, nodeID)
+			s.logger.Debug("Removed disconnected/deleted host from update cache", zap.String("node_id", nodeID))
+		}
+	}
+	s.hostStatesMu.Unlock()
+
+	// Return only connected hosts
 	s.hostStatesMu.RLock()
 	defer s.hostStatesMu.RUnlock()
 
-	result := make(map[string]*HostUpdateInfo)
 	for k, v := range s.hostStates {
-		copied := *v
-		result[k] = &copied
+		if _, isConnected := connectedNodes[k]; isConnected {
+			copied := *v
+			result[k] = &copied
+		}
 	}
 
-	s.logger.Debug("Returning host states", zap.Int("count", len(result)))
+	s.logger.Debug("Returning connected host states", zap.Int("count", len(result)))
 	return result
 }
 
@@ -528,7 +535,7 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 }
 
 // CheckAllHostUpdates checks for updates on all connected hosts
-// It also syncs the host cache with the current node list (removes stale hosts)
+// Only checks hosts that are READY (connected), skips disconnected/offline hosts
 func (s *Service) CheckAllHostUpdates(ctx context.Context) ([]*HostUpdateInfo, error) {
 	if s.nodeGetter == nil {
 		return nil, fmt.Errorf("node getter not configured")
@@ -539,25 +546,38 @@ func (s *Service) CheckAllHostUpdates(ctx context.Context) ([]*HostUpdateInfo, e
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
 
-	// Build a set of current node IDs and sync the cache
-	currentNodeIDs := make(map[string]bool)
+	// Filter to only connected (READY) nodes
+	var connectedNodes []*NodeInfo
 	for _, node := range nodes {
-		currentNodeIDs[node.ID] = true
+		if node.Phase == "READY" || node.Phase == "NODE_PHASE_READY" {
+			connectedNodes = append(connectedNodes, node)
+		}
 	}
 
-	// Clean up stale entries from the cache
+	s.logger.Info("Checking updates for connected hosts",
+		zap.Int("total_nodes", len(nodes)),
+		zap.Int("connected_nodes", len(connectedNodes)),
+	)
+
+	// Build a set of connected node IDs
+	connectedNodeIDs := make(map[string]bool)
+	for _, node := range connectedNodes {
+		connectedNodeIDs[node.ID] = true
+	}
+
+	// Clean up cache - remove entries for disconnected/deleted hosts
 	s.hostStatesMu.Lock()
 	for nodeID := range s.hostStates {
-		if !currentNodeIDs[nodeID] {
+		if !connectedNodeIDs[nodeID] {
 			delete(s.hostStates, nodeID)
-			s.logger.Info("Removed stale host from update cache", zap.String("node_id", nodeID))
+			s.logger.Debug("Removed disconnected/deleted host from update cache", zap.String("node_id", nodeID))
 		}
 	}
 	s.hostStatesMu.Unlock()
 
-	// Check each current node
+	// Check each connected node
 	var results []*HostUpdateInfo
-	for _, node := range nodes {
+	for _, node := range connectedNodes {
 		info, err := s.CheckHostUpdate(ctx, node.ID)
 		if err != nil {
 			s.logger.Warn("Failed to check host update",
