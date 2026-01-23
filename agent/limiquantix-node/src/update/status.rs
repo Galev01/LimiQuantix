@@ -114,34 +114,3 @@ impl ComponentStatus {
         matches!(self, ComponentStatus::Failed(_) | ComponentStatus::RolledBack)
     }
 }
-
-/// Detailed status for API responses
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DetailedUpdateStatus {
-    /// Overall status
-    pub status: UpdateStatus,
-    
-    /// Currently installed version
-    pub current_version: String,
-    
-    /// Version being installed (if any)
-    pub target_version: Option<String>,
-    
-    /// Per-component status
-    pub components: Vec<ComponentStatusEntry>,
-    
-    /// Timestamp of last update check
-    pub last_check: Option<chrono::DateTime<chrono::Utc>>,
-    
-    /// Timestamp of last successful update
-    pub last_update: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-/// Status entry for a single component
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ComponentStatusEntry {
-    pub name: String,
-    pub current_version: Option<String>,
-    pub target_version: Option<String>,
-    pub status: ComponentStatus,
-}

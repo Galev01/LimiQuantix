@@ -335,7 +335,6 @@ impl NodeDaemonServiceImpl {
         //     mount_point: /data/pools/SSD-local01
         
         let mut current_pool_name = String::new();
-        let mut current_mount_point = String::new();
         
         for line in content.lines() {
             let trimmed = line.trim();
@@ -351,7 +350,7 @@ impl NodeDaemonServiceImpl {
             
             // Parse mount_point field
             if trimmed.starts_with("mount_point:") {
-                current_mount_point = trimmed
+                let current_mount_point = trimmed
                     .trim_start_matches("mount_point:")
                     .trim()
                     .to_string();
@@ -368,7 +367,6 @@ impl NodeDaemonServiceImpl {
                             tracing::debug!(pool_id = %pool_id, "Installer pool already registered");
                             registered_paths.push(current_mount_point.clone());
                             current_pool_name.clear();
-                            current_mount_point.clear();
                             continue;
                         }
                         
@@ -405,7 +403,6 @@ impl NodeDaemonServiceImpl {
                     
                     // Reset for next pool
                     current_pool_name.clear();
-                    current_mount_point.clear();
                 }
             }
         }

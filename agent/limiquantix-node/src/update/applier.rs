@@ -18,15 +18,15 @@ use super::config::UpdateConfig;
 
 /// Applies downloaded updates to the system
 pub struct UpdateApplier {
-    config: UpdateConfig,
     backup_dir: PathBuf,
 }
 
 impl UpdateApplier {
     /// Create a new applier
     pub fn new(config: UpdateConfig) -> Self {
-        let backup_dir = PathBuf::from("/data/updates/backup");
-        Self { config, backup_dir }
+        // Use the effective backup directory from config, respecting storage location
+        let backup_dir = config.effective_backup_dir();
+        Self { backup_dir }
     }
 
     /// Apply a component update

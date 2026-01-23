@@ -1553,7 +1553,6 @@ async fn get_path_disk_usage(path: &str) -> (u64, u64) {
     // Use statvfs on Unix, fallback to 0 on other platforms
     #[cfg(unix)]
     {
-        use std::os::unix::ffi::OsStrExt;
         use std::ffi::CString;
         
         let path_cstr = match CString::new(path.as_bytes()) {
@@ -5658,15 +5657,19 @@ async fn submit_ui_logs(
     let mut accepted = 0;
     
     for ui_log in request.logs {
-        // Log each UI action using tracing
+        // Log each UI action using tracing with all fields
         info!(
+            timestamp = %ui_log.timestamp,
+            level = %ui_log.level,
             action = %ui_log.action,
             component = %ui_log.component,
             target = %ui_log.target,
             message = %ui_log.message,
+            metadata = ?ui_log.metadata,
             correlation_id = ?ui_log.correlation_id,
             session_id = ?ui_log.session_id,
             user_id = ?ui_log.user_id,
+            user_action = ui_log.user_action,
             "UI action"
         );
         accepted += 1;

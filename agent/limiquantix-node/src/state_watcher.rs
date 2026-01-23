@@ -30,8 +30,6 @@ const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(2);
 /// Cached VM state for change detection
 #[derive(Debug, Clone)]
 struct CachedVmState {
-    /// VM UUID
-    id: String,
     /// VM display name
     name: String,
     /// Current power state
@@ -43,7 +41,6 @@ struct CachedVmState {
 impl From<VmInfo> for CachedVmState {
     fn from(vm: VmInfo) -> Self {
         Self {
-            id: vm.id,
             name: vm.name,
             state: vm.state,
             state_change_count: 0,
@@ -128,13 +125,6 @@ impl StateWatcher {
     /// Get a clone of the immediate poll trigger sender.
     pub fn get_poll_trigger(&self) -> mpsc::Sender<()> {
         self.immediate_poll_tx.clone()
-    }
-    
-    /// Trigger an immediate poll (call after mutations like StartVM, StopVM).
-    pub async fn trigger_immediate_poll(&self) {
-        if let Err(e) = self.immediate_poll_tx.send(()).await {
-            debug!(error = %e, "Failed to trigger immediate poll (watcher may not be running)");
-        }
     }
     
     /// Start the state watcher loop.

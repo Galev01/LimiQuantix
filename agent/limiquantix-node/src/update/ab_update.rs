@@ -70,8 +70,6 @@ impl std::fmt::Display for Slot {
 pub struct ABUpdateManager {
     /// Mount point for the inactive slot during update
     mount_point: PathBuf,
-    /// Path to GRUB configuration
-    grub_cfg: PathBuf,
     /// Path to update state file
     state_file: PathBuf,
 }
@@ -111,7 +109,6 @@ impl ABUpdateManager {
     pub fn new() -> Self {
         Self {
             mount_point: PathBuf::from("/mnt/update-target"),
-            grub_cfg: PathBuf::from("/boot/grub/grub.cfg"),
             state_file: PathBuf::from("/quantix/ab-update-state.json"),
         }
     }
