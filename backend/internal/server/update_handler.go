@@ -177,6 +177,8 @@ func (h *UpdateHandler) handleHostUpdate(w http.ResponseWriter, r *http.Request)
 	switch {
 	case r.Method == http.MethodGet && action == "":
 		h.handleHostStatus(w, r, nodeID)
+	case r.Method == http.MethodGet && action == "progress":
+		h.handleHostProgress(w, r, nodeID)
 	case r.Method == http.MethodPost && action == "check":
 		h.handleHostCheck(w, r, nodeID)
 	case r.Method == http.MethodPost && action == "apply":
@@ -218,6 +220,17 @@ func (h *UpdateHandler) handleHostApply(w http.ResponseWriter, r *http.Request, 
 		"message": "Update triggered on host",
 		"node_id": nodeID,
 	})
+}
+
+// handleHostProgress fetches real-time update progress from the host
+func (h *UpdateHandler) handleHostProgress(w http.ResponseWriter, r *http.Request, nodeID string) {
+	progress, err := h.service.GetHostUpdateProgress(r.Context(), nodeID)
+	if err != nil {
+		h.logger.Error("Failed to get host update progress", zap.String("node_id", nodeID), zap.Error(err))
+		h.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	h.writeJSON(w, progress)
 }
 
 // ========================================================================

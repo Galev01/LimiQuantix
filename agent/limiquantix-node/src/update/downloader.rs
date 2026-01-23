@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use sha2::{Sha256, Digest};
 use tokio::fs::{self, File};
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
-use tracing::{info, error, instrument};
+use tracing::{info, warn, error, instrument};
 use anyhow::{Result, Context, bail};
 
 use super::manifest::{Manifest, Component};
@@ -114,17 +114,38 @@ impl UpdateDownloader {
                 percentage: ((downloaded_total as f64 / total_size as f64) * 100.0) as u8,
             });
 
-            let artifact_path = self.download_artifact(
+            let artifact_path = match self.download_artifact(
                 &manifest.version,
                 &manifest.channel,
                 component,
-            ).await.with_context(|| {
-                format!("Failed to download component: {}", component.name)
-            })?;
+            ).await {
+                Ok(path) => path,
+                Err(e) => {
+                    error!(
+                        component = %component.name,
+                        artifact = %component.artifact,
+                        error = %e,
+                        "Failed to download component: {:#}",
+                        e
+                    );
+                    return Err(e.context(format!("Failed to download component: {}", component.name)));
+                }
+            };
 
             // Verify checksum
-            self.verify_checksum(&artifact_path, &component.sha256).await
-                .with_context(|| format!("Checksum verification failed for: {}", component.name))?;
+            if let Err(e) = self.verify_checksum(&artifact_path, &component.sha256).await {
+                error!(
+                    component = %component.name,
+                    path = %artifact_path.display(),
+                    expected_sha256 = %component.sha256,
+                    error = %e,
+                    "Checksum verification failed: {:#}",
+                    e
+                );
+                // Remove the corrupted file so it can be re-downloaded
+                let _ = fs::remove_file(&artifact_path).await;
+                return Err(e.context(format!("Checksum verification failed for: {}", component.name)));
+            }
 
             downloaded_total += component.size_bytes;
             results.insert(component.clone(), artifact_path);
@@ -156,6 +177,14 @@ impl UpdateDownloader {
             self.server_url, version, component.artifact, channel
         );
 
+        info!(
+            url = %url,
+            component = %component.name,
+            artifact = %component.artifact,
+            size = component.size_bytes,
+            "Starting artifact download"
+        );
+
         let dest_path = self.staging_dir.join(&component.artifact);
         
         // Check if partial download exists
@@ -175,18 +204,53 @@ impl UpdateDownloader {
             );
             request = request.header("Range", format!("bytes={}-", existing_size));
         } else if existing_size >= component.size_bytes {
-            info!("Artifact already fully downloaded");
-            return Ok(dest_path);
+            // File exists with expected size - verify checksum before skipping download
+            info!(
+                path = %dest_path.display(),
+                size = existing_size,
+                "Artifact exists, verifying checksum before skipping download"
+            );
+            
+            // Quick checksum verification
+            if self.verify_checksum(&dest_path, &component.sha256).await.is_ok() {
+                info!(
+                    path = %dest_path.display(),
+                    "Artifact already downloaded and verified"
+                );
+                return Ok(dest_path);
+            } else {
+                // Checksum failed - delete and re-download
+                warn!(
+                    path = %dest_path.display(),
+                    "Existing artifact has invalid checksum, re-downloading"
+                );
+                let _ = fs::remove_file(&dest_path).await;
+                // Continue with fresh download (no range header)
+            }
         }
 
-        let response = request
-            .send()
-            .await
-            .context("Failed to start download")?;
+        let response = match request.send().await {
+            Ok(r) => r,
+            Err(e) => {
+                error!(
+                    url = %url,
+                    error = %e,
+                    "Failed to connect to update server: {:#}",
+                    e
+                );
+                bail!("Failed to connect to update server at {}: {}", url, e);
+            }
+        };
 
         let status = response.status();
         if !status.is_success() && status != reqwest::StatusCode::PARTIAL_CONTENT {
             let body = response.text().await.unwrap_or_default();
+            error!(
+                url = %url,
+                status = %status,
+                body = %body,
+                "Update server returned error"
+            );
             bail!("Download failed with status {}: {}", status, body);
         }
 

@@ -110,6 +110,17 @@ type HostUpdateInfo struct {
 	Error            string       `json:"error,omitempty"`
 }
 
+// HostUpdateProgress represents real-time update progress from a QHCI host
+type HostUpdateProgress struct {
+	NodeID           string `json:"node_id"`
+	Status           string `json:"status"`
+	Message          string `json:"message,omitempty"`
+	CurrentComponent string `json:"current_component,omitempty"`
+	DownloadedBytes  int64  `json:"downloaded_bytes,omitempty"`
+	TotalBytes       int64  `json:"total_bytes,omitempty"`
+	Percentage       int    `json:"percentage,omitempty"`
+}
+
 // Config holds update service configuration
 type Config struct {
 	ServerURL     string        `json:"server_url"`
@@ -914,6 +925,107 @@ func (s *Service) ApplyAllHostUpdates(ctx context.Context) error {
 	}
 
 	return lastErr
+}
+
+// GetHostUpdateProgress fetches real-time update progress from a specific host
+// This proxies the QHCI's /api/v1/updates/status endpoint to the QvDC dashboard
+func (s *Service) GetHostUpdateProgress(ctx context.Context, nodeID string) (*HostUpdateProgress, error) {
+	if s.nodeGetter == nil {
+		return nil, fmt.Errorf("node getter not configured")
+	}
+
+	node, err := s.nodeGetter.GetNodeByID(ctx, nodeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node: %w", err)
+	}
+
+	// Strip CIDR notation from management IP
+	hostIP := strings.Split(node.ManagementIP, "/")[0]
+	hostURL := fmt.Sprintf("https://%s:8443/api/v1/updates/status", hostIP)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", hostURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := s.hostClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to contact host: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("host returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse the QHCI response which uses camelCase
+	var hostResponse struct {
+		Status   string `json:"status"`
+		Message  string `json:"message"`
+		Progress *struct {
+			CurrentComponent string `json:"currentComponent"`
+			DownloadedBytes  int64  `json:"downloadedBytes"`
+			TotalBytes       int64  `json:"totalBytes"`
+			Percentage       int    `json:"percentage"`
+		} `json:"progress"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&hostResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse host response: %w", err)
+	}
+
+	progress := &HostUpdateProgress{
+		NodeID:  nodeID,
+		Status:  hostResponse.Status,
+		Message: hostResponse.Message,
+	}
+
+	if hostResponse.Progress != nil {
+		progress.CurrentComponent = hostResponse.Progress.CurrentComponent
+		progress.DownloadedBytes = hostResponse.Progress.DownloadedBytes
+		progress.TotalBytes = hostResponse.Progress.TotalBytes
+		progress.Percentage = hostResponse.Progress.Percentage
+	}
+
+	// Update local state based on host status
+	s.updateHostStateFromProgress(nodeID, progress)
+
+	return progress, nil
+}
+
+// updateHostStateFromProgress updates local host state based on progress info
+func (s *Service) updateHostStateFromProgress(nodeID string, progress *HostUpdateProgress) {
+	s.hostStatesMu.Lock()
+	defer s.hostStatesMu.Unlock()
+
+	info, exists := s.hostStates[nodeID]
+	if !exists {
+		return
+	}
+
+	switch progress.Status {
+	case "idle", "up_to_date":
+		info.Status = StatusIdle
+		info.Error = ""
+	case "checking":
+		info.Status = StatusChecking
+	case "available":
+		info.Status = StatusAvailable
+	case "downloading":
+		info.Status = StatusDownloading
+	case "applying":
+		info.Status = StatusApplying
+	case "complete":
+		info.Status = StatusIdle
+		info.AvailableVersion = ""
+		info.Error = ""
+	case "error":
+		info.Status = StatusError
+		info.Error = progress.Message
+	case "reboot_required":
+		info.Status = StatusRebootReq
+	}
 }
 
 // ========================================================================

@@ -77,6 +77,17 @@ export interface HostUpdateInfo {
   error?: string;
 }
 
+// Progress info from QHCI host during update
+export interface HostUpdateProgress {
+  node_id: string;
+  status: string;
+  message?: string;
+  current_component?: string;
+  downloaded_bytes?: number;
+  total_bytes?: number;
+  percentage?: number;
+}
+
 export interface UpdateConfig {
   server_url: string;
   channel: UpdateChannel;
@@ -182,6 +193,16 @@ async function applyHostUpdate(nodeId: string): Promise<{ status: string; messag
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: response.statusText }));
     throw new Error(error.error || 'Failed to apply host update');
+  }
+  return response.json();
+}
+
+// Get real-time update progress from a host
+async function fetchHostProgress(nodeId: string): Promise<HostUpdateProgress> {
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/updates/hosts/${nodeId}/progress`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(error.error || 'Failed to fetch host progress');
   }
   return response.json();
 }
@@ -370,13 +391,22 @@ export function useApplyVDCUpdate() {
 
 /**
  * Hook to get all hosts update status
+ * Polls faster (3s) when any host is updating, slower (30s) otherwise
  */
 export function useHostsUpdateStatus() {
   return useQuery({
     queryKey: updateKeys.hostsStatus(),
     queryFn: fetchHostsStatus,
-    staleTime: 10000,
-    refetchInterval: 30000,
+    staleTime: 2000,
+    refetchInterval: (query) => {
+      const data = query.state.data as { hosts: HostUpdateInfo[] } | undefined;
+      // Check if any host is downloading or applying
+      const hasUpdatingHost = data?.hosts?.some(
+        h => h.status === 'downloading' || h.status === 'applying'
+      );
+      // Poll every 3 seconds during updates, 30 seconds otherwise
+      return hasUpdatingHost ? 3000 : 30000;
+    },
   });
 }
 
@@ -450,6 +480,20 @@ export function useApplyHostUpdate() {
     onError: (error: Error) => {
       toast.error(`Failed to apply host update: ${error.message}`);
     },
+  });
+}
+
+/**
+ * Hook to poll host update progress during an active update
+ * Only fetches when enabled (typically when host status is downloading/applying)
+ */
+export function useHostUpdateProgress(nodeId: string | null, enabled: boolean = false) {
+  return useQuery({
+    queryKey: [...updateKeys.host(nodeId || ''), 'progress'],
+    queryFn: () => nodeId ? fetchHostProgress(nodeId) : Promise.reject('No node ID'),
+    enabled: enabled && !!nodeId,
+    staleTime: 1000,
+    refetchInterval: enabled ? 1000 : false, // Poll every 1 second when active
   });
 }
 

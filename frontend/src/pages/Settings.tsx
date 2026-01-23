@@ -44,12 +44,14 @@ import {
   useHostsUpdateStatus,
   useCheckAllHostUpdates,
   useApplyHostUpdate,
+  useHostUpdateProgress,
   useUpdateConfig,
   useUpdateConfigMutation,
   getStatusColor,
   getStatusLabel,
   formatBytes,
   type HostUpdateInfo,
+  type HostUpdateProgress,
   type UpdateChannel,
 } from '@/hooks/useUpdates';
 
@@ -806,6 +808,21 @@ function HostUpdateCard({
   onApply: () => void;
   isApplying: boolean;
 }) {
+  // Check if the host is already at the latest version
+  // (available_version equals current_version means no real update available)
+  const isAlreadyAtLatest = 
+    host.status === 'available' && 
+    host.available_version && 
+    host.current_version &&
+    host.available_version === host.current_version;
+
+  // Determine effective status (override to 'idle' if already at latest)
+  const effectiveStatus = isAlreadyAtLatest ? 'idle' : host.status;
+
+  // Poll for progress when host is downloading or applying
+  const isUpdating = effectiveStatus === 'downloading' || effectiveStatus === 'applying';
+  const { data: progress } = useHostUpdateProgress(host.node_id, isUpdating);
+
   const statusIcon = {
     idle: <CheckCircle2 className="w-4 h-4 text-success" />,
     checking: <Loader2 className="w-4 h-4 animate-spin text-info" />,
@@ -819,52 +836,99 @@ function HostUpdateCard({
   // Show version or fallback text
   const versionDisplay = host.current_version ? `v${host.current_version}` : 'version unknown';
 
+  // Get progress message based on status
+  const getProgressMessage = () => {
+    if (!progress) return null;
+    
+    if (progress.status === 'downloading' && progress.current_component) {
+      const downloaded = progress.downloaded_bytes ? formatBytes(progress.downloaded_bytes) : '0 B';
+      const total = progress.total_bytes ? formatBytes(progress.total_bytes) : 'unknown';
+      return `Downloading ${progress.current_component}: ${downloaded} / ${total}`;
+    }
+    
+    if (progress.status === 'applying') {
+      return progress.message || 'Applying update...';
+    }
+    
+    if (progress.status === 'complete') {
+      return progress.message || 'Update complete!';
+    }
+    
+    return progress.message;
+  };
+
+  const progressMessage = getProgressMessage();
+  const progressPercent = progress?.percentage ?? 0;
+
   return (
-    <div className="flex items-center justify-between p-4 rounded-lg bg-bg-base border border-border">
-      <div className="flex items-center gap-4">
-        <div className="p-2 rounded-lg bg-bg-elevated">
-          <Server className="w-5 h-5 text-text-muted" />
+    <div className="p-4 rounded-lg bg-bg-base border border-border">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="p-2 rounded-lg bg-bg-elevated">
+            <Server className="w-5 h-5 text-text-muted" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-text-primary">{host.hostname}</p>
+            <p className="text-xs text-text-muted">
+              {host.management_ip} • {versionDisplay}
+            </p>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-text-primary">{host.hostname}</p>
-          <p className="text-xs text-text-muted">
-            {host.management_ip} • {versionDisplay}
-          </p>
-          {/* Show error message if status is error */}
-          {host.status === 'error' && host.error && (
-            <div className="mt-2 p-2 rounded bg-error/10 border border-error/20">
-              <p className="text-xs text-error">
-                {host.error}
-              </p>
-            </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2">
+            {statusIcon[effectiveStatus]}
+            <span className={cn('text-sm', getStatusColor(effectiveStatus))}>
+              {effectiveStatus === 'available' && host.available_version
+                ? `v${host.available_version} available`
+                : getStatusLabel(effectiveStatus)}
+            </span>
+          </div>
+          {effectiveStatus === 'available' && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onApply}
+              disabled={isApplying}
+            >
+              {isApplying ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Download className="w-3 h-3" />
+              )}
+              Update
+            </Button>
           )}
         </div>
       </div>
-      <div className="flex items-center gap-3 shrink-0">
-        <div className="flex items-center gap-2">
-          {statusIcon[host.status]}
-          <span className={cn('text-sm', getStatusColor(host.status))}>
-            {host.status === 'available' && host.available_version
-              ? `v${host.available_version} available`
-              : getStatusLabel(host.status)}
-          </span>
-        </div>
-        {host.status === 'available' && (
-          <Button
-            variant="secondary"
+
+      {/* Progress section - shown when updating */}
+      {isUpdating && (
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-text-muted">
+              {progressMessage || 'Preparing update...'}
+            </span>
+            <span className="text-text-secondary font-mono">
+              {progressPercent}%
+            </span>
+          </div>
+          <ProgressBar 
+            value={progressPercent} 
             size="sm"
-            onClick={onApply}
-            disabled={isApplying}
-          >
-            {isApplying ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <Download className="w-3 h-3" />
-            )}
-            Update
-          </Button>
-        )}
-      </div>
+            variant="info"
+            showPercentage={false}
+          />
+        </div>
+      )}
+
+      {/* Error message if status is error */}
+      {host.status === 'error' && host.error && (
+        <div className="mt-3 p-2 rounded bg-error/10 border border-error/20">
+          <p className="text-xs text-error">
+            {host.error}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

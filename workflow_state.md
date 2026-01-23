@@ -1,86 +1,78 @@
 # Workflow State
 
-## Active Task: Fix QHCI Update System
+## Active Task: QvDC Host Update Progress Tracking
 
 **Date:** January 23, 2026
 **Status:** Complete
 
-### Root Cause Analysis
+### Objective
 
-The QHCI hosts were broken because:
+Improve host update UI in QvDC Settings page:
+1. Fix "Update available" showing when host is already at latest version
+2. Add real-time progress tracking for host updates (progress bar, download info)
 
-1. **tar.gz extraction bug**: The old `qx-node` binary only handled `.tar.zst` archives. When `.tar.gz` was used (because `zstd` wasn't available on the build machine), it fell back to **direct file copy** instead of extraction.
+### Changes Made
 
-2. **Result**: The `.tar.gz` archive was copied directly to `/data/bin/qx-node`, making it an invalid executable (gzip file instead of ELF binary).
+**1. `frontend/src/pages/Settings.tsx` - HostUpdateCard component**
 
-3. **Web UI issue**: Same problem - the `host-ui.tar.gz` was not extracted, so `/data/share/quantix-host-ui/` contained a gzip archive instead of the actual HTML/JS files.
+- Added version comparison logic: If `current_version === available_version`, show "Up to date" instead of "Update available"
+- Added progress tracking with real-time polling during downloads
+- Added progress bar showing download/apply status
+- Shows current component being downloaded, bytes downloaded/total, percentage
 
-### Fixes Applied
+**2. `frontend/src/hooks/useUpdates.ts` - Progress hooks**
 
-**1. `agent/limiquantix-node/src/update/applier.rs`**
+- Added `HostUpdateProgress` interface for progress data
+- Added `fetchHostProgress()` API function
+- Added `useHostUpdateProgress()` hook that polls every 1 second during active updates
+- Updated `useHostsUpdateStatus()` to poll every 3 seconds when any host is updating
 
-Added support for `.tar.gz` archives:
-- New function `extract_and_install_tar_gz()` that properly extracts gzip tarballs
-- Updated `apply_component()` to detect `.tar.gz` files and route to the new function
-- Handles both single-binary and directory components (like host-ui)
+**3. `frontend/src/components/ui/ProgressBar.tsx`**
 
-**2. `scripts/fix-qhci-update.sh`** (new file)
+- Added `info` variant for the update progress bar
 
-Created a recovery script that:
-- Downloads artifacts directly from the update server
-- Properly extracts both qx-node and host-ui
-- Installs them to the correct locations
-- Writes version files
-- Restarts the service
+**4. `backend/internal/server/update_handler.go` - New endpoint**
 
-### How to Recover Hosts
+- Added `GET /api/v1/updates/hosts/{nodeId}/progress` endpoint
+- Routes to `handleHostProgress()` handler
 
-**Option 1: Copy and run the recovery script**
-```bash
-# From your local machine
-scp scripts/fix-qhci-update.sh root@192.168.0.101:/tmp/
-ssh root@192.168.0.101 "chmod +x /tmp/fix-qhci-update.sh && /tmp/fix-qhci-update.sh"
+**5. `backend/internal/services/update/service.go` - Progress proxy**
 
-# Repeat for QHCI02
-scp scripts/fix-qhci-update.sh root@192.168.0.102:/tmp/
-ssh root@192.168.0.102 "chmod +x /tmp/fix-qhci-update.sh && /tmp/fix-qhci-update.sh"
+- Added `HostUpdateProgress` struct for progress data
+- Added `GetHostUpdateProgress()` function that proxies to QHCI's `/api/v1/updates/status` endpoint
+- Added `updateHostStateFromProgress()` to sync local state with host status
+
+### Architecture
+
+```
+QvDC Dashboard (React)
+    │
+    ├─ Settings.tsx → HostUpdateCard
+    │   └─ useHostUpdateProgress(nodeId, enabled)
+    │       └─ Poll every 1s during update
+    │
+    └─ GET /api/v1/updates/hosts/{nodeId}/progress
+            │
+            └─ Go Backend (update_handler.go)
+                └─ GetHostUpdateProgress()
+                    │
+                    └─ Proxy to QHCI: GET https://{host}:8443/api/v1/updates/status
+                            │
+                            └─ Returns: { status, message, progress: { currentComponent, downloadedBytes, totalBytes, percentage } }
 ```
 
-**Option 2: Manual recovery (run on each host via SSH)**
-```bash
-# Stop service
-rc-service quantix-node stop
+### How It Works
 
-# Download and extract qx-node
-cd /tmp
-wget http://192.168.0.251:9000/api/v1/quantix-os/releases/0.0.15/qx-node.tar.gz
-tar -xzf qx-node.tar.gz
-mv limiquantix-node /data/bin/qx-node
-chmod +x /data/bin/qx-node
+1. User clicks "Update" on a host card
+2. `applyHostUpdate()` triggers the update on QHCI
+3. HostUpdateCard detects `status === 'downloading' || 'applying'`
+4. Enables `useHostUpdateProgress()` hook which polls every 1 second
+5. Progress bar and status message update in real-time
+6. When status becomes `idle` or `complete`, polling stops
 
-# Download and extract host-ui  
-wget http://192.168.0.251:9000/api/v1/quantix-os/releases/0.0.15/host-ui.tar.gz
-mkdir -p /data/share/quantix-host-ui
-rm -rf /data/share/quantix-host-ui/*
-tar -xzf host-ui.tar.gz -C /data/share/quantix-host-ui/
+---
 
-# Start service
-rc-service quantix-node start
-```
+## Previous Task: Fix QHCI Update System (Completed)
 
-### Future Prevention
-
-After recovering the hosts, publish a new version (0.0.16) that includes the tar.gz fix:
-
-```bash
-./scripts/publish-update.sh --channel dev
-```
-
-This new version will have the fixed applier code, so future updates with either `.tar.gz` or `.tar.zst` will work correctly.
-
-### Files Modified
-
-- `agent/limiquantix-node/src/update/applier.rs` - Added tar.gz support
-- `scripts/fix-qhci-update.sh` - New recovery script
-- `backend/internal/services/update/service.go` - Better error messages (earlier fix)
-- `frontend/src/pages/Settings.tsx` - Better error display (earlier fix)
+The tar.gz extraction bug and self-restart issues were fixed in the previous session.
+See git history for details.

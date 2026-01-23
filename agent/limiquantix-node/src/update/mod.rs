@@ -42,7 +42,7 @@ pub use ab_update::{ABUpdateManager, ABUpdateState, Slot};
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, instrument};
+use tracing::{info, error, instrument};
 use anyhow::{Result, Context};
 
 /// Current versions of installed components
@@ -309,7 +309,7 @@ impl UpdateManager {
         }
 
         // Download all components
-        let artifacts = downloader.download_all(&manifest, |progress| {
+        let artifacts = match downloader.download_all(&manifest, |progress| {
             // This would ideally update the status, but we need async closure support
             // For now, logging is sufficient
             info!(
@@ -317,7 +317,16 @@ impl UpdateManager {
                 progress = progress.percentage,
                 "Download progress"
             );
-        }).await.context("Failed to download artifacts")?;
+        }).await {
+            Ok(a) => a,
+            Err(e) => {
+                error!(error = %e, "Failed to download artifacts: {:#}", e);
+                // Update status to error
+                let mut status = self.status.write().await;
+                *status = UpdateStatus::Error(format!("Download failed: {}", e));
+                return Err(e.context("Failed to download artifacts"));
+            }
+        };
         drop(downloader);
 
         // Update status

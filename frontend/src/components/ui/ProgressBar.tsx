@@ -16,7 +16,7 @@ interface ProgressBarProps {
   /** Size variant */
   size?: 'sm' | 'md' | 'lg';
   /** Color variant */
-  variant?: 'default' | 'success' | 'error';
+  variant?: 'default' | 'success' | 'error' | 'info';
   /** Additional CSS classes */
   className?: string;
 }
@@ -42,6 +42,7 @@ export function ProgressBar({
     default: 'bg-accent',
     success: 'bg-success',
     error: 'bg-error',
+    info: 'bg-info',
   };
 
   return (
