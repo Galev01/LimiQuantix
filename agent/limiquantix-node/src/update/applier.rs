@@ -48,9 +48,15 @@ impl UpdateApplier {
         }
 
         // Extract and install based on artifact type
-        if artifact_path.extension().map(|e| e == "zst").unwrap_or(false) ||
-           component.artifact.ends_with(".tar.zst") {
+        let is_tar_zst = artifact_path.extension().map(|e| e == "zst").unwrap_or(false) ||
+                         component.artifact.ends_with(".tar.zst");
+        let is_tar_gz = artifact_path.extension().map(|e| e == "gz").unwrap_or(false) ||
+                        component.artifact.ends_with(".tar.gz");
+        
+        if is_tar_zst {
             self.extract_and_install_tar_zst(artifact_path, component).await?;
+        } else if is_tar_gz {
+            self.extract_and_install_tar_gz(artifact_path, component).await?;
         } else {
             // Direct file copy for non-archive artifacts
             self.install_single_file(artifact_path, &component.install_path, component.permission_mode()).await?;
@@ -179,6 +185,108 @@ impl UpdateApplier {
                 }
                 found.ok_or_else(|| anyhow::anyhow!("No file found in extracted archive"))?
             };
+
+            // Atomic move to install path
+            self.atomic_move(&extracted, install_path, component.permission_mode()).await?;
+
+            // Cleanup temp dir
+            let _ = fs::remove_dir_all(&temp_dir).await;
+        }
+
+        Ok(())
+    }
+
+    /// Extract tar.gz archive and install contents
+    #[instrument(skip(self))]
+    async fn extract_and_install_tar_gz(
+        &self,
+        archive_path: &Path,
+        component: &Component,
+    ) -> Result<()> {
+        let install_path = Path::new(&component.install_path);
+        
+        // Create parent directory if needed
+        if let Some(parent) = install_path.parent() {
+            fs::create_dir_all(parent).await?;
+        }
+
+        // For single binary components, extract directly to install path
+        // For directory components (like host-ui), extract to the directory
+        
+        if component.name == "host-ui" || install_path.to_string_lossy().ends_with('/') {
+            // Directory extraction
+            fs::create_dir_all(install_path).await?;
+            
+            // Use tar with gzip decompression
+            let output = Command::new("tar")
+                .args([
+                    "-xzf",
+                    archive_path.to_str().unwrap(),
+                    "-C",
+                    install_path.to_str().unwrap(),
+                ])
+                .output()
+                .context("Failed to run tar command")?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                bail!("Failed to extract gzip archive: {}", stderr);
+            }
+        } else {
+            // Single binary extraction to temp, then move
+            let temp_dir = PathBuf::from("/tmp/quantix-update-extract");
+            fs::create_dir_all(&temp_dir).await?;
+
+            let output = Command::new("tar")
+                .args([
+                    "-xzf",
+                    archive_path.to_str().unwrap(),
+                    "-C",
+                    temp_dir.to_str().unwrap(),
+                ])
+                .output()
+                .context("Failed to run tar command")?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                bail!("Failed to extract gzip archive: {}", stderr);
+            }
+
+            // Find the extracted binary (should be same name as component or in root)
+            let extracted = temp_dir.join(&component.name);
+            let extracted = if extracted.exists() {
+                extracted
+            } else {
+                // Try common binary names
+                let alt_name = if component.name == "qx-node" {
+                    temp_dir.join("limiquantix-node")
+                } else if component.name == "qx-console" {
+                    temp_dir.join("qx-console")
+                } else {
+                    temp_dir.join(&component.name)
+                };
+                
+                if alt_name.exists() {
+                    alt_name
+                } else {
+                    // Try to find any file in temp dir
+                    let mut entries = fs::read_dir(&temp_dir).await?;
+                    let mut found = None;
+                    while let Some(entry) = entries.next_entry().await? {
+                        if entry.file_type().await?.is_file() {
+                            found = Some(entry.path());
+                            break;
+                        }
+                    }
+                    found.ok_or_else(|| anyhow::anyhow!("No file found in extracted archive"))?
+                }
+            };
+
+            info!(
+                extracted = %extracted.display(),
+                install_path = %install_path.display(),
+                "Moving extracted binary to install path"
+            );
 
             // Atomic move to install path
             self.atomic_move(&extracted, install_path, component.permission_mode()).await?;

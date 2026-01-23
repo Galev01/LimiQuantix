@@ -1,0 +1,38 @@
+{
+  "product": "quantix-vdc",
+  "version": "0.0.36",
+  "channel": "dev",
+  "release_date": "2026-01-22T23:10:02Z",
+  "update_type": "component",
+  "requires_maintenance_window": true,
+  "components": [
+    {
+      "name": "dashboard",
+      "version": "0.0.36",
+      "artifact": "dashboard.tar.gz",
+      "sha256": "6afdf0129add05fbba29b839ced1abd9a34985e60267db8741e4e03df6618ea9",
+      "size_bytes": 2747542,
+      "install_path": "/usr/share/quantix-vdc/dashboard",
+      "restart_service": null,
+      "backup_before_update": true,
+      "permissions": "0755",
+      "requires_db_migration": false
+    }
+,
+    {
+      "name": "controlplane",
+      "version": "0.0.36",
+      "artifact": "controlplane.tar.gz",
+      "sha256": "6a84b2a74702923ea01fe12e461cd71439bc746a15820575be2fe02545e5e6d0",
+      "size_bytes": 10073568,
+      "install_path": "/usr/bin/quantix-controlplane",
+      "restart_service": "quantix-controlplane",
+      "backup_before_update": true,
+      "permissions": "0755",
+      "requires_db_migration": true
+    }
+
+  ],
+  "min_version": "0.0.1",
+  "release_notes": "Quantix-vDC 0.0.36 update"
+}

@@ -1,45 +1,49 @@
 # Workflow State
 
-## Active Task: Updates Page UI Logging
+## Active Task: Improve QHCI Host Update Error Messages
 
 **Date:** January 21, 2026
 **Status:** Complete
 
-### Scope
+### Problem
 
-Log all actions on the Updates page, including every button, toggle, and update outcome (success/error) with audit metadata.
+When QHCI hosts check for updates but the update server has no releases published for `quantix-os`, the error message displayed was confusing:
+
+```
+Host returned status 503: {"error":"update_check_failed","message":"Failed to check for updates: Update server returned error 404 Not Found: {\"channel\":\"dev\",\"error\":\"No releases found\",\"product\":\"quantix-os\"}"}
+```
+
+### Solution
+
+Added intelligent error message parsing in the QvDC backend to extract user-friendly messages from QHCI error responses.
 
 ### Changes Applied
 
+**Backend:** `backend/internal/services/update/service.go`
+
+1. Added `parseHostErrorResponse()` helper function that:
+   - Parses JSON error responses from QHCI
+   - Detects known error patterns (no releases, connection refused, timeout, 404, auth errors)
+   - Extracts nested JSON to find product/channel info
+   - Returns clear, actionable error messages
+
+2. Updated the error handling in `CheckHostUpdate()` to use the new parser instead of dumping raw JSON.
+
+**Example transformations:**
+| Before | After |
+|--------|-------|
+| `Host returned status 503: {"error":"update_check_failed","message":"Failed to check for updates: Update server returned error 404 Not Found: {\"channel\":\"dev\",\"error\":\"No releases found\",\"product\":\"quantix-os\"}"}` | `No releases available for quantix-os on the 'dev' channel. The update server has no published releases yet.` |
+| Connection refused errors | `Cannot reach update server. Check that the update server is running and accessible.` |
+| Timeout errors | `Update server request timed out. The server may be overloaded or unreachable.` |
+
 **Frontend:** `frontend/src/pages/Settings.tsx`
 
-- Added `useActionLogger('updates')` in `UpdateSettings` and `useActionLogger('settings')` in `Settings`.
-- Logged all update page actions:
-  - Check vDC updates
-  - Apply vDC update
-  - Retry update
-  - Dismiss result card
-  - Check all hosts
-  - Apply host update
-  - Change update channel
-  - Save/cancel update server URL
-  - Toggle auto-check and auto-apply
-  - Updates tab switching
-- Logged update success/error outcomes with audit metadata and correlation IDs.
-- Logged vDC status errors when backend reports update errors.
-
-**Backend:** `backend/internal/server/logs_handler.go`
-
-- Added `ui-updates` to the log sources list for filtering.
-
-### Notes
-
-All update page actions now emit `ui-updates` logs with structured metadata and audit markers.
-- `getVDCVersion()` now checks the persistent file first, then `/etc`, then fallback release file
-- `writeVDCVersion()` now writes to both `/var/lib/quantix-vdc/version` and `/etc/quantix-vdc/version`
-- Existing update completion still updates in-memory state and now persists to disk
+- Improved error display in `HostUpdateCard` component:
+  - Error messages now shown in a styled error box (red background/border)
+  - Better layout with `flex-1 min-w-0` for proper text wrapping
+  - Removed truncation so full message is visible
 
 ### Result
 
-After restart, the control plane reads the persisted version and correctly reports "up to date" when the installed version matches the update server.
+Users now see clear, actionable error messages instead of raw JSON when host update checks fail.
 

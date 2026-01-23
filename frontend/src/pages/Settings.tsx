@@ -825,20 +825,22 @@ function HostUpdateCard({
         <div className="p-2 rounded-lg bg-bg-elevated">
           <Server className="w-5 h-5 text-text-muted" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <p className="font-medium text-text-primary">{host.hostname}</p>
           <p className="text-xs text-text-muted">
             {host.management_ip} • {versionDisplay}
           </p>
           {/* Show error message if status is error */}
           {host.status === 'error' && host.error && (
-            <p className="text-xs text-error mt-1 max-w-md truncate" title={host.error}>
-              {host.error}
-            </p>
+            <div className="mt-2 p-2 rounded bg-error/10 border border-error/20">
+              <p className="text-xs text-error">
+                {host.error}
+              </p>
+            </div>
           )}
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-2">
           {statusIcon[host.status]}
           <span className={cn('text-sm', getStatusColor(host.status))}>

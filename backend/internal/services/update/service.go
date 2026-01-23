@@ -649,12 +649,16 @@ func (s *Service) CheckHostUpdate(ctx context.Context, nodeID string) (*HostUpda
 			return info, nil
 		}
 
+		// Parse the error response to extract a user-friendly message
+		userFriendlyError := s.parseHostErrorResponse(resp.StatusCode, body)
+
 		info.Status = StatusError
-		info.Error = fmt.Sprintf("Host returned status %d: %s", resp.StatusCode, string(body))
+		info.Error = userFriendlyError
 		s.logger.Warn("Host returned error status",
 			zap.String("node_id", nodeID),
 			zap.Int("status_code", resp.StatusCode),
 			zap.String("body", string(body)),
+			zap.String("user_error", userFriendlyError),
 		)
 		return info, fmt.Errorf("host returned status %d", resp.StatusCode)
 	}
@@ -1571,6 +1575,95 @@ func findBinaryInDir(dir, componentName string) (string, error) {
 	}
 
 	return candidates[0], nil
+}
+
+// ========================================================================
+// Error Message Parsing
+// ========================================================================
+
+// parseHostErrorResponse extracts a user-friendly error message from QHCI error responses
+func (s *Service) parseHostErrorResponse(statusCode int, body []byte) string {
+	// Try to parse as JSON error response from QHCI
+	var errorResp struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+
+	if err := json.Unmarshal(body, &errorResp); err == nil && errorResp.Message != "" {
+		// Check for known error patterns and provide user-friendly messages
+		msg := errorResp.Message
+
+		// Pattern: "Failed to check for updates: Update server returned error 404 Not Found: {...}"
+		if strings.Contains(msg, "No releases found") {
+			// Extract product name if available
+			var innerError struct {
+				Product string `json:"product"`
+				Channel string `json:"channel"`
+				Error   string `json:"error"`
+			}
+			// Try to extract the inner JSON from the message
+			if idx := strings.Index(msg, "{"); idx != -1 {
+				innerJSON := msg[idx:]
+				if json.Unmarshal([]byte(innerJSON), &innerError) == nil {
+					if innerError.Product != "" {
+						return fmt.Sprintf("No releases available for %s on the '%s' channel. The update server has no published releases yet.",
+							innerError.Product, innerError.Channel)
+					}
+				}
+			}
+			return "No releases available on the update server. Releases need to be published first."
+		}
+
+		// Pattern: Update server connection errors
+		if strings.Contains(msg, "connection refused") || strings.Contains(msg, "no such host") {
+			return "Cannot reach update server. Check that the update server is running and accessible."
+		}
+
+		// Pattern: Timeout errors
+		if strings.Contains(msg, "timeout") || strings.Contains(msg, "deadline exceeded") {
+			return "Update server request timed out. The server may be overloaded or unreachable."
+		}
+
+		// Pattern: 404 from update server
+		if strings.Contains(msg, "404 Not Found") {
+			return "Update server returned 'not found'. The requested release or channel may not exist."
+		}
+
+		// Pattern: Authentication errors
+		if strings.Contains(msg, "401") || strings.Contains(msg, "403") || strings.Contains(msg, "unauthorized") {
+			return "Update server authentication failed. Check the update server credentials."
+		}
+
+		// For other errors, try to simplify the message
+		// Remove nested JSON for cleaner display
+		if idx := strings.Index(msg, "{"); idx != -1 {
+			msg = strings.TrimSpace(msg[:idx])
+			if msg != "" {
+				return msg
+			}
+		}
+
+		return errorResp.Message
+	}
+
+	// Fallback: return a generic message with status code
+	switch statusCode {
+	case 503:
+		return "Host update service temporarily unavailable"
+	case 500:
+		return "Host encountered an internal error while checking for updates"
+	case 404:
+		return "Update check endpoint not found on host"
+	case 401, 403:
+		return "Authentication failed when contacting host"
+	default:
+		// If we can't parse, return a cleaner version of the raw response
+		bodyStr := string(body)
+		if len(bodyStr) > 100 {
+			bodyStr = bodyStr[:100] + "..."
+		}
+		return fmt.Sprintf("Host returned error (status %d)", statusCode)
+	}
 }
 
 // ========================================================================
