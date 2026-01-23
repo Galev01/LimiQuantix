@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -36,10 +37,13 @@ func main() {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("./config")
+	// Environment variables
+	viper.SetEnvPrefix("limiquantix")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		logger.Warn("No config file found, using defaults and env vars", zap.Error(err))
+		logger.Debug("No config file found", zap.Error(err))
 	}
 
 	// Build connection string

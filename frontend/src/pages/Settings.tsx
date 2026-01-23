@@ -57,9 +57,49 @@ import {
 
 export function Settings() {
   const logger = useActionLogger('settings');
+  const { data: vdcStatus, isUpdateInProgress } = useVDCUpdateWithTracking();
 
   return (
     <div className="space-y-6">
+      {/* Maintenance/Update Overlay */}
+      {isUpdateInProgress && (vdcStatus?.status === 'applying' || vdcStatus?.message?.includes('restarting')) && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-bg-surface border border-border rounded-lg shadow-2xl p-8 max-w-md w-full text-center space-y-6">
+            <div className="relative w-16 h-16 mx-auto">
+              <div className="absolute inset-0 rounded-full border-4 border-accent/20 animate-ping"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-accent border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Download className="w-6 h-6 text-accent" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-xl font-bold text-text-primary">System Updating</h2>
+              <p className="text-text-secondary">
+                Quantix-vDC is updating to <span className="font-mono text-accent">v{vdcStatus?.available_version || 'new version'}</span>.
+              </p>
+              <p className="text-sm text-text-muted">
+                The server will restart automatically. This may take a few minutes.
+                <br />
+                Please do not close this window.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <ProgressBar
+                value={vdcStatus?.download_progress || 100}
+                showPercentage={true}
+                variant="info"
+                size="lg"
+              />
+              <p className="text-xs text-text-muted font-mono animate-pulse">
+                {vdcStatus?.message || 'Apply in progress...'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -190,8 +230,8 @@ function GeneralSettings() {
 
 function UpdateSettings() {
   const logger = useActionLogger('updates');
-  const { 
-    data: vdcStatus, 
+  const {
+    data: vdcStatus,
     isLoading: vdcLoading,
     updateResult,
     clearUpdateResult,
@@ -199,7 +239,7 @@ function UpdateSettings() {
   } = useVDCUpdateWithTracking();
   const { data: hostsData, isLoading: hostsLoading } = useHostsUpdateStatus();
   const { data: config } = useUpdateConfig();
-  
+
   const checkVDC = useCheckVDCUpdate();
   const applyVDC = useApplyVDCUpdate();
   const checkAllHosts = useCheckAllHostUpdates();
@@ -445,10 +485,10 @@ function UpdateSettings() {
                 {(() => {
                   // Check if there's actually a newer version available
                   // (frontend verification in case backend state is stale)
-                  const hasNewerVersion = vdcStatus?.manifest?.version && 
+                  const hasNewerVersion = vdcStatus?.manifest?.version &&
                     vdcStatus.current_version !== vdcStatus.manifest.version &&
                     vdcStatus?.status === 'available';
-                  
+
                   if (vdcLoading) {
                     return <Loader2 className="w-5 h-5 animate-spin text-text-muted" />;
                   }
@@ -507,11 +547,11 @@ function UpdateSettings() {
           </div>
 
           {/* Update Result Card - Shows after completion until dismissed */}
-            {updateResult && (
+          {updateResult && (
             <div className={cn(
               "p-4 rounded-lg border",
-              updateResult.success 
-                ? "bg-success/10 border-success/30" 
+              updateResult.success
+                ? "bg-success/10 border-success/30"
                 : "bg-error/10 border-error/30"
             )}>
               <div className="flex items-start justify-between">
@@ -526,11 +566,11 @@ function UpdateSettings() {
                       "font-medium",
                       updateResult.success ? "text-success" : "text-error"
                     )}>
-                      {updateResult.success 
-                        ? `Successfully updated to v${updateResult.version}` 
+                      {updateResult.success
+                        ? `Successfully updated to v${updateResult.version}`
                         : "Update Failed"}
                     </p>
-                    
+
                     {updateResult.success && (
                       <div className="space-y-1">
                         <p className="text-sm text-text-secondary">
@@ -546,11 +586,11 @@ function UpdateSettings() {
                         </div>
                       </div>
                     )}
-                    
+
                     {!updateResult.success && updateResult.error && (
                       <p className="text-sm text-text-secondary">{updateResult.error}</p>
                     )}
-                    
+
                     <p className="text-xs text-text-muted">
                       Completed at {updateResult.completedAt.toLocaleTimeString()}
                     </p>
@@ -565,7 +605,7 @@ function UpdateSettings() {
                   Dismiss
                 </Button>
               </div>
-              
+
               {/* Progress bar at 100% for success */}
               {updateResult.success && (
                 <div className="mt-4">
@@ -595,22 +635,22 @@ function UpdateSettings() {
               Check for Updates
             </Button>
             {/* Only show Apply Update if there's actually a newer version */}
-            {vdcStatus?.status === 'available' && 
-             !isUpdateInProgress && 
-             vdcStatus?.manifest?.version && 
-             vdcStatus.current_version !== vdcStatus.manifest.version && (
-              <Button
-                onClick={handleApplyVDC}
-                disabled={applyVDC.isPending}
-              >
-                {applyVDC.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4" />
-                )}
-                Apply Update
-              </Button>
-            )}
+            {vdcStatus?.status === 'available' &&
+              !isUpdateInProgress &&
+              vdcStatus?.manifest?.version &&
+              vdcStatus.current_version !== vdcStatus.manifest.version && (
+                <Button
+                  onClick={handleApplyVDC}
+                  disabled={applyVDC.isPending}
+                >
+                  {applyVDC.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  Apply Update
+                </Button>
+              )}
             {!updateResult?.success && updateResult?.error && (
               <Button
                 variant="secondary"
@@ -781,16 +821,16 @@ function UpdateSettings() {
           </SettingField>
 
           <SettingField label="Auto Check" description="Automatically check for updates periodically">
-            <ToggleSwitch 
-              checked={config?.auto_check ?? true} 
-              onChange={handleAutoCheckToggle} 
+            <ToggleSwitch
+              checked={config?.auto_check ?? true}
+              onChange={handleAutoCheckToggle}
             />
           </SettingField>
 
           <SettingField label="Auto Apply" description="Automatically apply component updates (no reboot required)">
-            <ToggleSwitch 
-              checked={config?.auto_apply ?? false} 
-              onChange={handleAutoApplyToggle} 
+            <ToggleSwitch
+              checked={config?.auto_apply ?? false}
+              onChange={handleAutoApplyToggle}
             />
           </SettingField>
         </div>
@@ -810,9 +850,9 @@ function HostUpdateCard({
 }) {
   // Check if the host is already at the latest version
   // (available_version equals current_version means no real update available)
-  const isAlreadyAtLatest = 
-    host.status === 'available' && 
-    host.available_version && 
+  const isAlreadyAtLatest =
+    host.status === 'available' &&
+    host.available_version &&
     host.current_version &&
     host.available_version === host.current_version;
 
@@ -839,21 +879,21 @@ function HostUpdateCard({
   // Get progress message based on status
   const getProgressMessage = () => {
     if (!progress) return null;
-    
+
     if (progress.status === 'downloading' && progress.current_component) {
       const downloaded = progress.downloaded_bytes ? formatBytes(progress.downloaded_bytes) : '0 B';
       const total = progress.total_bytes ? formatBytes(progress.total_bytes) : 'unknown';
       return `Downloading ${progress.current_component}: ${downloaded} / ${total}`;
     }
-    
+
     if (progress.status === 'applying') {
       return progress.message || 'Applying update...';
     }
-    
+
     if (progress.status === 'complete') {
       return progress.message || 'Update complete!';
     }
-    
+
     return progress.message;
   };
 
@@ -912,8 +952,8 @@ function HostUpdateCard({
               {progressPercent}%
             </span>
           </div>
-          <ProgressBar 
-            value={progressPercent} 
+          <ProgressBar
+            value={progressPercent}
             size="sm"
             variant="info"
             showPercentage={false}
@@ -996,7 +1036,7 @@ function AppearanceSettings() {
         </SettingField>
 
         <SettingField label="Animations" description="Enable UI animations and transitions">
-          <ToggleSwitch checked={true} onChange={() => {}} />
+          <ToggleSwitch checked={true} onChange={() => { }} />
         </SettingField>
       </div>
     </SettingsSection>
@@ -1008,7 +1048,7 @@ function NotificationSettings() {
     <SettingsSection title="Notifications" description="Configure alerts and notifications">
       <div className="space-y-6">
         <SettingField label="Email Notifications" description="Receive alerts via email">
-          <ToggleSwitch checked={true} onChange={() => {}} />
+          <ToggleSwitch checked={true} onChange={() => { }} />
         </SettingField>
 
         <SettingField label="Email Address" description="Where to send notification emails">
@@ -1049,7 +1089,7 @@ function SecuritySettings() {
     <SettingsSection title="Security" description="Authentication and access control">
       <div className="space-y-6">
         <SettingField label="Two-Factor Authentication" description="Require 2FA for all users">
-          <ToggleSwitch checked={false} onChange={() => {}} />
+          <ToggleSwitch checked={false} onChange={() => { }} />
         </SettingField>
 
         <SettingField label="Password Policy" description="Minimum password requirements">
@@ -1117,7 +1157,7 @@ function StorageSettings() {
         </SettingField>
 
         <SettingField label="Storage Overcommit" description="Allow overprovisioning of storage">
-          <ToggleSwitch checked={true} onChange={() => {}} />
+          <ToggleSwitch checked={true} onChange={() => { }} />
         </SettingField>
 
         <SettingField label="Snapshot Retention" description="Default snapshot cleanup policy">
@@ -1209,7 +1249,7 @@ function AdvancedSettings() {
         </SettingField>
 
         <SettingField label="Memory Overcommit" description="Allow memory overprovisioning">
-          <ToggleSwitch checked={false} onChange={() => {}} />
+          <ToggleSwitch checked={false} onChange={() => { }} />
         </SettingField>
 
         <SettingField label="VM Migration Timeout" description="Max time for live migration (seconds)">
@@ -1233,7 +1273,7 @@ function AdvancedSettings() {
         </SettingField>
 
         <SettingField label="Debug Mode" description="Enable verbose logging">
-          <ToggleSwitch checked={false} onChange={() => {}} />
+          <ToggleSwitch checked={false} onChange={() => { }} />
         </SettingField>
 
         <div className="pt-4 border-t border-border">

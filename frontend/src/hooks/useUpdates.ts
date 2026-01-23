@@ -16,7 +16,7 @@ import { getApiBase } from '@/lib/api-client';
 // Types
 // =============================================================================
 
-export type UpdateStatus = 
+export type UpdateStatus =
   | 'idle'
   | 'checking'
   | 'available'
@@ -118,6 +118,18 @@ const getApiBaseUrl = () => getApiBase();
 // vDC Update APIs
 async function fetchVDCStatus(): Promise<VDCUpdateState> {
   const response = await fetch(`${getApiBaseUrl()}/api/v1/updates/vdc/status`);
+
+  // If server is in maintenance mode/restarting (503), return a special status or retry
+  if (response.status === 503) {
+    // Return a synthesized state so the UI knows we are restarting
+    return {
+      status: 'applying',
+      current_version: '...',
+      message: 'Server restarting for update...',
+      download_progress: 100
+    };
+  }
+
   if (!response.ok) {
     throw new Error(`Failed to fetch vDC status: ${response.statusText}`);
   }
@@ -275,7 +287,7 @@ export function useVDCUpdateWithTracking() {
   const query = useVDCUpdateStatus();
   const [updateResult, setUpdateResult] = useState<VDCUpdateResult | null>(null);
   const [isUpdateInProgress, setIsUpdateInProgress] = useState(false);
-  
+
   // Track the version and components we're updating to
   const updateTargetRef = useRef<{
     version: string;
@@ -286,12 +298,12 @@ export function useVDCUpdateWithTracking() {
   // Detect when update starts
   useEffect(() => {
     const status = query.data?.status;
-    
+
     if ((status === 'downloading' || status === 'applying') && !isUpdateInProgress) {
       // Update just started
       setIsUpdateInProgress(true);
       setUpdateResult(null); // Clear any previous result
-      
+
       // Store the target version and components
       if (query.data?.available_version && query.data?.manifest) {
         updateTargetRef.current = {
@@ -306,11 +318,11 @@ export function useVDCUpdateWithTracking() {
   // Detect when update completes (success or error)
   useEffect(() => {
     const status = query.data?.status;
-    
+
     if (isUpdateInProgress && status !== 'downloading' && status !== 'applying') {
       // Update finished
       setIsUpdateInProgress(false);
-      
+
       if (status === 'error' && query.data?.error) {
         // Update failed
         setUpdateResult({
@@ -332,7 +344,7 @@ export function useVDCUpdateWithTracking() {
         });
         toast.success(`Successfully updated to v${updateTargetRef.current.version}`);
       }
-      
+
       updateTargetRef.current = null;
     }
   }, [query.data?.status, query.data?.error, isUpdateInProgress]);
@@ -420,11 +432,11 @@ export function useCheckAllHostUpdates() {
     mutationFn: checkAllHostUpdates,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: updateKeys.hostsStatus() });
-      
+
       // Count hosts with different statuses
       const errorCount = data.hosts?.filter(h => h.status === 'error').length || 0;
       const upToDateCount = data.hosts?.filter(h => h.status === 'idle').length || 0;
-      
+
       if (data.updates_available > 0) {
         toast.success(`${data.updates_available} host(s) have updates available`);
       } else if (errorCount > 0 && errorCount === data.total) {

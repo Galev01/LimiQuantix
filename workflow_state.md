@@ -1,9 +1,59 @@
 # Workflow State
 
-## Active Task: Fix Cloud Image Download to Storage Pools
+## Active Task: ISO Upload to NFS + UI Improvements
 
 **Date:** January 23, 2026
-**Status:** Implementation Complete - Ready for Testing
+**Status:** Code Complete - Awaiting Deployment
+
+### Issues Being Fixed
+
+1. **ISO not uploading to NFS** - ISOs save to local QvDC storage instead of NFS pool
+2. **Path not shown in UI** - No way to see where ISOs are stored
+3. **Modal blocking UI** - Upload modal takes over screen, should be background task
+
+### Changes Made
+
+#### Issue 1: ISO Upload to NFS
+
+**Root Cause:** `imageUploadHandler.SetPoolRepository()` was added to the codebase but the update hasn't been deployed yet. The running QvDC still has the old code.
+
+**Files with the fix:**
+- `backend/internal/server/server.go` (line 551) - Calls `SetPoolRepository`
+- `backend/internal/server/image_upload_handler.go` - Added debug logging for pool repo status
+
+#### Issue 2: Path Display in UI
+
+**Changed:** `frontend/src/pages/images/AllImagesPage.tsx`
+- Added path display at bottom of each ISO card in monospace font
+
+#### Issue 3: Background Upload Progress
+
+**New files:**
+- `frontend/src/components/storage/UploadProgressToast.tsx` - Floating progress indicator
+- `frontend/src/lib/upload-store.ts` - Zustand store for tracking uploads
+
+**Changed files:**
+- `frontend/src/components/storage/ISOUploadDialog.tsx` - Closes immediately, starts background upload
+- `frontend/src/pages/images/ImageLibraryLayout.tsx` - Shows upload progress toast
+- `frontend/src/components/storage/index.ts` - Exports new components
+
+### Deployment Required
+
+```bash
+./scripts/publish-vdc-update.sh --channel dev
+```
+
+Then on QvDC:
+```bash
+# Apply update or restart control plane
+rc-service limiquantix-controlplane restart
+```
+
+---
+
+## Previous Task: Fix Cloud Image Download to Storage Pools
+
+**Status:** Complete
 
 ### Problem Statement
 

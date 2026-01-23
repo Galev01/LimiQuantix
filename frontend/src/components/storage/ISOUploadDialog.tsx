@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -17,11 +17,14 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { useImportImage, useCreateImage, formatImageSize } from '@/hooks/useImages';
-import { useISOUpload } from '@/hooks/useISOUpload';
+import { useImportImage, formatImageSize } from '@/hooks/useImages';
 import { useStoragePools, type StoragePoolUI } from '@/hooks/useStorage';
 import { useNodes, isNodeReady } from '@/hooks/useNodes';
+import { useUploadStore } from '@/lib/upload-store';
+import { getApiBase } from '@/lib/api-client';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
+import { imageKeys } from '@/hooks/useImages';
 
 interface ISOUploadDialogProps {
   isOpen: boolean;
@@ -70,13 +73,14 @@ const initialFormData: FormData = {
 export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [dragOver, setDragOver] = useState(false);
-  const [step, setStep] = useState(1); // 1 = method, 2 = details, 3 = uploading
+  const [step, setStep] = useState(1); // 1 = method, 2 = details
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const importImage = useImportImage();
-  const createImage = useCreateImage();
-  const isoUpload = useISOUpload();
   const { data: storagePools, isLoading: poolsLoading } = useStoragePools();
   const { data: nodesData, isLoading: nodesLoading } = useNodes({ pageSize: 100 });
+  const { addUpload, updateUpload } = useUploadStore();
+  const queryClient = useQueryClient();
 
   const readyPools = storagePools?.filter(p => p.status.phase === 'READY') || [];
   const readyNodes = nodesData?.nodes?.filter(isNodeReady) || [];
@@ -118,7 +122,7 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
     if (files && files.length > 0) {
       const file = files[0];
       if (file.name.toLowerCase().endsWith('.iso')) {
-        updateFormData({ 
+        updateFormData({
           file,
           name: formData.name || file.name.replace('.iso', ''),
         });
@@ -161,7 +165,7 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
       return;
     }
 
-    setStep(3);
+    setIsSubmitting(true);
 
     try {
       if (formData.method === 'url') {
@@ -172,7 +176,6 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
         } else if (formData.storageDestination === 'node') {
           storageParams.nodeId = formData.nodeId;
         }
-        // 'auto' = don't pass any, let backend decide
 
         // Import from URL
         await importImage.mutateAsync({
@@ -189,56 +192,153 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
           ...storageParams,
         });
 
-        // Build success message
         let destinationMsg = '';
         if (formData.storageDestination === 'pool') {
           const pool = readyPools.find(p => p.id === formData.storagePoolId);
           destinationMsg = pool ? ` to ${pool.name}` : '';
-        } else if (formData.storageDestination === 'node') {
-          const node = readyNodes.find(n => n.id === formData.nodeId);
-          destinationMsg = node ? ` to ${node.hostname || node.id}` : '';
         }
         toast.success(`ISO import started${destinationMsg}! Check the Image Library for progress.`);
+
+        // Close immediately for URL imports
+        onClose();
+        setFormData(initialFormData);
+        setStep(1);
       } else if (formData.file) {
-        // Determine node ID for upload
-        // For pool destination: use first available ready node (for shared storage like NFS)
-        // For node destination: use the selected node
-        let targetNodeId: string | undefined;
-        let targetPoolId: string | undefined;
-        
-        if (formData.storageDestination === 'pool' && formData.storagePoolId) {
-          targetPoolId = formData.storagePoolId;
-          // For shared storage, pick first ready node to handle the upload
-          const firstReadyNode = readyNodes[0];
-          if (firstReadyNode) {
-            targetNodeId = firstReadyNode.id;
-          }
-        } else if (formData.storageDestination === 'node' && formData.nodeId) {
-          targetNodeId = formData.nodeId;
-        }
-        
-        // Upload file with progress tracking
-        await isoUpload.upload({
-          file: formData.file,
-          name: formData.name,
-          description: formData.description,
-          osFamily: formData.osFamily,
-          distribution: formData.distribution.toLowerCase().replace(' ', '-'),
-          version: formData.version,
-          storagePoolId: targetPoolId,
-          nodeId: targetNodeId,
+        // Start background file upload
+        const uploadId = `upload-${Date.now()}`;
+        const filename = formData.file.name;
+        const fileSize = formData.file.size;
+
+        // Add to upload store immediately
+        addUpload({
+          id: uploadId,
+          filename: filename,
+          status: 'uploading',
+          progressPercent: 0,
+          bytesUploaded: 0,
+          bytesTotal: fileSize,
         });
-        toast.success('ISO uploaded successfully!');
+
+        // Close dialog immediately
+        onClose();
+        setFormData(initialFormData);
+        setStep(1);
+
+        // Build form data
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', formData.file);
+        uploadFormData.append('name', formData.name);
+        if (formData.description) uploadFormData.append('description', formData.description);
+        uploadFormData.append('os_family', formData.osFamily);
+        uploadFormData.append('distribution', formData.distribution.toLowerCase().replace(' ', '-'));
+        uploadFormData.append('version', formData.version);
+
+        if (formData.storageDestination === 'pool' && formData.storagePoolId) {
+          uploadFormData.append('storage_pool_id', formData.storagePoolId);
+        }
+        if (formData.storageDestination === 'node' && formData.nodeId) {
+          uploadFormData.append('node_id', formData.nodeId);
+        }
+
+        // Start background upload with XHR for progress
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            updateUpload(uploadId, {
+              progressPercent: percent,
+              bytesUploaded: event.loaded,
+              bytesTotal: event.total,
+            });
+          }
+        });
+
+        xhr.addEventListener('load', async () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const response = JSON.parse(xhr.responseText);
+              // Start polling for server-side processing
+              await pollUploadStatus(response.job_id, uploadId, updateUpload, queryClient);
+            } catch {
+              updateUpload(uploadId, {
+                status: 'completed',
+                progressPercent: 100,
+              });
+              queryClient.invalidateQueries({ queryKey: imageKeys.lists() });
+            }
+          } else {
+            try {
+              const error = JSON.parse(xhr.responseText);
+              updateUpload(uploadId, {
+                status: 'failed',
+                errorMessage: error.error || `Upload failed: ${xhr.status}`,
+              });
+            } catch {
+              updateUpload(uploadId, {
+                status: 'failed',
+                errorMessage: `Upload failed with status ${xhr.status}`,
+              });
+            }
+          }
+        });
+
+        xhr.addEventListener('error', () => {
+          updateUpload(uploadId, {
+            status: 'failed',
+            errorMessage: 'Network error during upload',
+          });
+        });
+
+        xhr.open('POST', `${getApiBase()}/api/v1/images/upload`);
+        xhr.send(uploadFormData);
+
+        toast.success('Upload started in background');
       }
-      onClose();
-      setFormData(initialFormData);
-      setStep(1);
-      isoUpload.reset();
     } catch (err) {
-      setStep(2);
-      toast.error(err instanceof Error ? err.message : 'Failed to upload ISO');
+      setIsSubmitting(false);
+      toast.error(err instanceof Error ? err.message : 'Failed to start upload');
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  // Poll for server-side processing status
+  async function pollUploadStatus(
+    jobId: string,
+    uploadId: string,
+    updateFn: (id: string, updates: any) => void,
+    qc: ReturnType<typeof useQueryClient>
+  ) {
+    const maxAttempts = 600;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      try {
+        const response = await fetch(`${getApiBase()}/api/v1/images/upload/status/${jobId}`);
+        if (!response.ok) break;
+
+        const status = await response.json();
+        updateFn(uploadId, {
+          status: status.status as 'uploading' | 'processing' | 'completed' | 'failed',
+          progressPercent: status.progress_percent,
+          bytesUploaded: status.bytes_uploaded,
+          bytesTotal: status.bytes_total,
+          errorMessage: status.error_message,
+        });
+
+        if (status.status === 'completed' || status.status === 'failed') {
+          qc.invalidateQueries({ queryKey: imageKeys.lists() });
+          return;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+      } catch {
+        break;
+      }
+    }
+  }
 
   const canProceed = () => {
     if (step === 1) {
@@ -246,7 +346,7 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
       return formData.file !== null;
     }
     if (step === 2) {
-      return formData.name.trim().length > 0;
+      return formData.name.trim().length > 0 && !isSubmitting;
     }
     return false;
   };
@@ -286,7 +386,6 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
               <p className="text-sm text-text-muted">
                 {step === 1 && 'Choose upload method'}
                 {step === 2 && 'Configure ISO details'}
-                {step === 3 && 'Uploading...'}
               </p>
             </div>
           </div>
@@ -462,7 +561,7 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
                       value={formData.osFamily}
                       onChange={(e) => {
                         const family = e.target.value as OsFamily;
-                        updateFormData({ 
+                        updateFormData({
                           osFamily: family,
                           distribution: OS_DISTRIBUTIONS[family][0],
                         });
@@ -669,105 +768,37 @@ export function ISOUploadDialog({ isOpen, onClose }: ISOUploadDialogProps) {
               </motion.div>
             )}
 
-            {step === 3 && (
-              <motion.div
-                key="step3"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-center py-8 space-y-4"
-              >
-                {formData.method === 'file' && isoUpload.progress ? (
-                  <>
-                    {/* Progress Circle */}
-                    <div className="relative w-24 h-24">
-                      <svg className="w-24 h-24 transform -rotate-90">
-                        <circle
-                          cx="48"
-                          cy="48"
-                          r="40"
-                          stroke="currentColor"
-                          strokeWidth="8"
-                          fill="none"
-                          className="text-bg-elevated"
-                        />
-                        <circle
-                          cx="48"
-                          cy="48"
-                          r="40"
-                          stroke="currentColor"
-                          strokeWidth="8"
-                          fill="none"
-                          strokeLinecap="round"
-                          className="text-accent transition-all duration-300"
-                          strokeDasharray={251.2}
-                          strokeDashoffset={251.2 - (251.2 * isoUpload.progress.progressPercent) / 100}
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-xl font-bold text-text-primary">
-                          {isoUpload.progress.progressPercent}%
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-text-primary font-medium">
-                      {isoUpload.progress.status === 'uploading' && 'Uploading ISO...'}
-                      {isoUpload.progress.status === 'processing' && 'Processing...'}
-                      {isoUpload.progress.status === 'completed' && 'Upload Complete!'}
-                      {isoUpload.progress.status === 'failed' && 'Upload Failed'}
-                    </p>
-                    <p className="text-sm text-text-muted">
-                      {formatImageSize(isoUpload.progress.bytesUploaded)} / {formatImageSize(isoUpload.progress.bytesTotal)}
-                    </p>
-                    {/* Linear progress bar */}
-                    <div className="w-full max-w-xs">
-                      <div className="w-full h-2 bg-bg-elevated rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-accent rounded-full transition-all duration-300 ease-out"
-                          style={{ width: `${isoUpload.progress.progressPercent}%` }}
-                        />
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <Loader2 className="w-12 h-12 text-accent animate-spin" />
-                    <p className="text-text-primary font-medium">
-                      {formData.method === 'url' ? 'Starting download...' : 'Preparing upload...'}
-                    </p>
-                    <p className="text-sm text-text-muted">
-                      This may take a few minutes depending on the file size
-                    </p>
-                  </>
-                )}
-              </motion.div>
-            )}
           </AnimatePresence>
         </div>
 
         {/* Footer */}
-        {step !== 3 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-bg-elevated/50">
-            <Button
-              variant="ghost"
-              onClick={() => {
-                if (step === 1) onClose();
-                else setStep(step - 1);
-              }}
-            >
-              {step === 1 ? 'Cancel' : 'Back'}
-            </Button>
+        <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-bg-elevated/50">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              if (step === 1) onClose();
+              else setStep(step - 1);
+            }}
+            disabled={isSubmitting}
+          >
+            {step === 1 ? 'Cancel' : 'Back'}
+          </Button>
 
-            <Button
-              onClick={() => {
-                if (step === 1) setStep(2);
-                else handleSubmit();
-              }}
-              disabled={!canProceed()}
-            >
-              {step === 1 ? 'Next' : 'Upload ISO'}
-            </Button>
-          </div>
-        )}
+          <Button
+            onClick={() => {
+              if (step === 1) setStep(2);
+              else handleSubmit();
+            }}
+            disabled={!canProceed() || isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Starting...
+              </>
+            ) : step === 1 ? 'Next' : 'Upload ISO'}
+          </Button>
+        </div>
       </motion.div>
     </div>
   );

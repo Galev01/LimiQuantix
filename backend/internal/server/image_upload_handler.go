@@ -184,6 +184,10 @@ func (h *ImageUploadHandler) processUpload(
 	var useLocalStorage = true
 
 	// Determine where to write the ISO based on storage pool type
+	logger.Info("Checking storage destination",
+		zap.Bool("has_pool_id", storagePoolID != ""),
+		zap.Bool("pool_repo_set", h.poolRepo != nil),
+	)
 	if storagePoolID != "" && h.poolRepo != nil {
 		// Look up the storage pool to determine write strategy
 		pool, err := h.poolRepo.Get(ctx, storagePoolID)

@@ -150,7 +150,7 @@ done
 
 # If no components specified, build all
 if [ "$BUILD_ALL" = true ]; then
-    COMPONENTS=("controlplane" "dashboard")
+    COMPONENTS=("controlplane" "dashboard" "migrations")
 fi
 
 # Validate channel
@@ -284,6 +284,46 @@ for component in "${COMPONENTS[@]}"; do
             fi
             ;;
             
+
+
+        migrations)
+            log_info "Building migrations..."
+            cd "$PROJECT_ROOT/backend"
+            
+            # Build migrate tool
+            log_info "Compiling migration tool..."
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a \
+                -ldflags="-w -s" \
+                -o "$STAGING_DIR/quantix-migrate" \
+                ./cmd/migrate
+            
+            if [ -f "$STAGING_DIR/quantix-migrate" ]; then
+                log_info "Packaging migrations..."
+                
+                # Create a temporary directory for packing
+                MIG_PKG_DIR="$STAGING_DIR/migrations_pkg"
+                mkdir -p "$MIG_PKG_DIR"
+                
+                # Copy binary and migrations folder
+                cp "$STAGING_DIR/quantix-migrate" "$MIG_PKG_DIR/"
+                cp -r "$PROJECT_ROOT/backend/migrations" "$MIG_PKG_DIR/"
+                
+                # Compress
+                # tar -C "$STAGING_DIR/migrations_pkg" -czf "$STAGING_DIR/migrations.tar.gz" .
+                # NOTE: We preserve the structure so it extracts to:
+                # /usr/share/quantix-vdc/migrations/quantix-migrate
+                # /usr/share/quantix-vdc/migrations/migrations/*.sql
+                tar -C "$MIG_PKG_DIR" -czf "$STAGING_DIR/migrations.tar.gz" .
+                
+                ARTIFACTS["migrations"]="$STAGING_DIR/migrations.tar.gz"
+                log_info "  Created: migrations.tar.gz ($(du -h "$STAGING_DIR/migrations.tar.gz" | cut -f1))"
+                
+                rm -rf "$MIG_PKG_DIR" "$STAGING_DIR/quantix-migrate"
+            else
+                log_error "Build failed - migrate binary not created!"
+            fi
+            ;;
+            
         *)
             log_warn "Unknown component: $component, skipping..."
             ;;
@@ -345,6 +385,11 @@ for component in "${!ARTIFACTS[@]}"; do
             install_path="/usr/share/quantix-vdc/dashboard"
             restart_service=""
             requires_db_migration="false"
+            ;;
+        migrations)
+            install_path="/usr/share/quantix-vdc/migrations/"
+            restart_service=""
+            requires_db_migration="true"
             ;;
     esac
     

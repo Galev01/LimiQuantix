@@ -1,6 +1,8 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Cloud, Download, Upload, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { UploadProgressToast } from '@/components/storage';
+import { useUploadStore } from '@/lib/upload-store';
 
 const tabs = [
   { id: 'all', label: 'All Images', icon: Cloud, path: '/storage/images' },
@@ -11,6 +13,7 @@ const tabs = [
 
 export function ImageLibraryLayout() {
   const location = useLocation();
+  const { uploads, removeUpload } = useUploadStore();
 
   // Determine active tab based on pathname
   const getActiveTab = () => {
@@ -60,6 +63,9 @@ export function ImageLibraryLayout() {
 
       {/* Nested Route Content */}
       <Outlet />
+
+      {/* Upload Progress Toast */}
+      <UploadProgressToast uploads={uploads} onDismiss={removeUpload} />
     </div>
   );
 }

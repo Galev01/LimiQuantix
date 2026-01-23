@@ -620,6 +620,7 @@ func (s *Server) setupMiddleware(handler http.Handler) http.Handler {
 	handler = corsHandler.Handler(handler)
 	handler = s.loggingMiddleware(handler)
 	handler = s.recoveryMiddleware(handler)
+	handler = s.maintenanceMiddleware(handler)
 
 	return handler
 }
@@ -663,6 +664,48 @@ func (s *Server) recoveryMiddleware(next http.Handler) http.Handler {
 			}
 		}()
 		next.ServeHTTP(w, r)
+	})
+}
+
+// maintenanceMiddleware blocks traffic when in maintenance mode
+func (s *Server) maintenanceMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip if update service isn't initialized yet
+		if s.updateService == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Check if we are in maintenance mode
+		if !s.updateService.IsMaintenanceMode() {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Allow essential paths
+		allowedPaths := []string{
+			"/health", "/healthz", "/ready", "/live",
+			"/api/v1/updates/vdc/status", "/api/v1/updates/vdc/progress",
+		}
+
+		for _, path := range allowedPaths {
+			if r.URL.Path == path {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		// Allow update status polling which might use query params
+		if len(r.URL.Path) >= 15 && r.URL.Path[:15] == "/api/v1/updates" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Block everything else
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Retry-After", "5") // Tell clients to retry in 5 seconds
+		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintf(w, `{"error": "System is restarting for updates", "maintenance": true}`)
 	})
 }
 

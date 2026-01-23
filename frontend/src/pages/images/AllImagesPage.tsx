@@ -306,6 +306,7 @@ export function AllImagesPage() {
               {/* ISO Images */}
               {filteredItems.iso.map((image) => {
                 const status = STATUS_CONFIG[image.status] || STATUS_CONFIG.pending;
+                const imagePath = 'path' in image ? image.path : undefined;
                 return (
                   <motion.div
                     key={`iso-${image.id}`}
@@ -344,6 +345,13 @@ export function AllImagesPage() {
                         </Button>
                       )}
                     </div>
+                    {imagePath && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <p className="text-[10px] text-text-muted font-mono truncate" title={imagePath}>
+                          {imagePath}
+                        </p>
+                      </div>
+                    )}
                   </motion.div>
                 );
               })}

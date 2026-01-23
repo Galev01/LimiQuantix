@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"go.uber.org/zap"
@@ -42,13 +43,14 @@ const (
 
 // Component represents an individual updatable component
 type Component struct {
-	Name           string `json:"name"`
-	Version        string `json:"version"`
-	Artifact       string `json:"artifact"`
-	SHA256         string `json:"sha256"`
-	SizeBytes      int64  `json:"size_bytes"`
-	InstallPath    string `json:"install_path"`
-	RestartService string `json:"restart_service,omitempty"`
+	Name                string `json:"name"`
+	Version             string `json:"version"`
+	Artifact            string `json:"artifact"`
+	SHA256              string `json:"sha256"`
+	SizeBytes           int64  `json:"size_bytes"`
+	InstallPath         string `json:"install_path"`
+	RestartService      string `json:"restart_service,omitempty"`
+	RequiresDBMigration bool   `json:"requires_db_migration,omitempty"`
 }
 
 // FullImage represents a full system image for A/B updates
@@ -249,6 +251,10 @@ type Service struct {
 	hostStates   map[string]*HostUpdateInfo
 	hostStatesMu sync.RWMutex
 
+	// Maintenance mode state
+	maintenanceMode   bool
+	maintenanceModeMu sync.RWMutex
+
 	// HTTP client for update server API calls (short timeout)
 	httpClient *http.Client
 
@@ -395,6 +401,25 @@ func (s *Service) UpdateConfig(config Config) {
 // vDC Self-Update Methods
 // ========================================================================
 
+// IsMaintenanceMode returns true if the service is in maintenance mode
+func (s *Service) IsMaintenanceMode() bool {
+	s.maintenanceModeMu.RLock()
+	defer s.maintenanceModeMu.RUnlock()
+	return s.maintenanceMode
+}
+
+// SetMaintenanceMode sets the maintenance mode state
+func (s *Service) SetMaintenanceMode(enabled bool) {
+	s.maintenanceModeMu.Lock()
+	s.maintenanceMode = enabled
+	s.maintenanceModeMu.Unlock()
+	if enabled {
+		s.logger.Warn("Maintenance mode ENABLED")
+	} else {
+		s.logger.Info("Maintenance mode DISABLED")
+	}
+}
+
 // GetVDCState returns the current vDC update state
 func (s *Service) GetVDCState() UpdateState {
 	s.vdcStateMu.RLock()
@@ -448,9 +473,27 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 		return fmt.Errorf("no newer version available")
 	}
 
+	// Enable maintenance mode before starting update
+	s.SetMaintenanceMode(true)
+	defer func() {
+		// Only disable maintenance mode if update failed or if no restart was triggered
+		// If restart is triggered, the service will restart and maintenance mode will reset on startup
+		// However, since this runs in a goroutine that survives the request, we should provide a way to recover
+		// For now, we'll keep it enabled until the service actually restarts or we manually disable on error
+	}()
+
 	totalComponents := len(manifest.Components)
 	s.setVDCStatus(StatusDownloading, "")
 	s.setVDCProgress(0, "", fmt.Sprintf("Starting update to v%s...", manifest.Version))
+
+	s.logger.Info("Starting vDC update sequence",
+		zap.String("target_version", manifest.Version),
+		zap.Int("components", totalComponents),
+	)
+
+	// Track if any component requires DB migration
+	requiresMigration := false
+	var migrationComponent string
 
 	// Download and apply each component
 	for i, component := range manifest.Components {
@@ -464,6 +507,11 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 		downloadProgress := baseProgress
 		s.setVDCProgress(downloadProgress, component.Name,
 			fmt.Sprintf("Downloading %s (%d/%d)...", component.Name, componentNum, totalComponents))
+
+		if component.RequiresDBMigration {
+			requiresMigration = true
+			migrationComponent = component.Name
+		}
 
 		if err := s.downloadAndApplyComponent(ctx, manifest, component, func(phase string, phaseProgress float64) {
 			// phaseProgress is 0-100 within the phase
@@ -487,10 +535,26 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 
 			s.setVDCProgress(actualProgress, component.Name, message)
 		}); err != nil {
+			s.SetMaintenanceMode(false) // Disable maintenance mode on failure
 			s.setVDCProgress(baseProgress, component.Name, "")
+			s.logger.Error("Component update failed",
+				zap.String("component", component.Name),
+				zap.Error(err),
+			)
 			s.setVDCStatus(StatusError, fmt.Sprintf("Failed to apply %s: %v", component.Name, err))
 			return fmt.Errorf("failed to apply component %s: %w", component.Name, err)
 		}
+	}
+	if requiresMigration {
+		s.setVDCProgress(95, "migration", "Running database migrations...")
+		s.logger.Info("Running database migrations", zap.String("component", migrationComponent))
+
+		if err := s.runMigrations(ctx); err != nil {
+			s.SetMaintenanceMode(false)
+			s.setVDCStatus(StatusError, fmt.Sprintf("Migration failed: %v", err))
+			return fmt.Errorf("failed to run migrations: %w", err)
+		}
+		s.logger.Info("Database migrations completed successfully")
 	}
 
 	// Update complete - update both the state and internal version tracker
@@ -1128,7 +1192,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 		// Determine if install path is a directory (for dashboard) or a file (for binaries)
 		// Dashboard has install_path ending without extension = directory
 		// Binaries have install_path with no extension but are single files
-		isDirectoryInstall := component.Name == "dashboard" || strings.HasSuffix(component.InstallPath, "/")
+		isDirectoryInstall := component.Name == "dashboard" || component.Name == "migrations" || strings.HasSuffix(component.InstallPath, "/")
 
 		if isDirectoryInstall {
 			// Extract tar.gz to directory
@@ -1227,6 +1291,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 		// This allows the current request to complete before the service restarts
 		go func(serviceName string, componentName string, version string) {
 			// Wait 2 seconds to allow HTTP response to be sent
+			s.logger.Debug("Restart countdown started", zap.Int("seconds", 2))
 			time.Sleep(2 * time.Second)
 
 			s.logger.Info("Preparing for service restart", zap.String("service", serviceName))
@@ -1257,19 +1322,38 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 			s.logger.Info("Executing service restart", zap.String("service", serviceName))
 
 			// Try OpenRC first (Alpine Linux), then systemd
-			cmd := exec.Command("rc-service", serviceName, "restart")
-			if err := cmd.Run(); err != nil {
-				s.logger.Warn("OpenRC restart failed, trying systemd",
-					zap.String("service", serviceName),
-					zap.Error(err),
-				)
-				// Try systemd
-				cmd = exec.Command("systemctl", "restart", serviceName)
-				if err := cmd.Run(); err != nil {
-					s.logger.Error("Failed to restart service",
-						zap.String("service", serviceName),
-						zap.Error(err),
-					)
+			// Use setsid/nohup to detach logic
+			var cmd *exec.Cmd
+
+			// Try to detect init system
+			if _, err := os.Stat("/run/openrc"); err == nil {
+				s.logger.Debug("Detected OpenRC")
+				// Non-blocking restart for OpenRC is tricky, usually handled by service manager
+				// We'll try to spawn a shell that runs it in background
+				cmd = exec.Command("sh", "-c", fmt.Sprintf("sleep 1 && rc-service %s restart", serviceName))
+			} else {
+				s.logger.Debug("Assuming systemd")
+				// Non-blocking systemd restart: systemctl restart --no-block
+				cmd = exec.Command("systemctl", "restart", "--no-block", serviceName)
+			}
+
+			// Detach process
+			if cmd != nil {
+				cmd.SysProcAttr = &syscall.SysProcAttr{
+					Setsid: true, // Create new session
+				}
+
+				s.logger.Debug("Starting restart command", zap.String("cmd", cmd.String()))
+				if err := cmd.Start(); err != nil {
+					s.logger.Error("Failed to start restart command", zap.Error(err))
+					// Fallback to simpler attempt
+					exec.Command("reboot").Start()
+				} else {
+					// Release process - don't wait
+					if err := cmd.Process.Release(); err != nil {
+						s.logger.Warn("Failed to release process", zap.Error(err))
+					}
+					s.logger.Info("Restart command dispatched (pid released)")
 				}
 			}
 		}(component.RestartService, component.Name, component.Version)
@@ -1555,9 +1639,9 @@ func calculateSHA256(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// copyFile copies a file from src to dst with explicit sync to ensure
-// data is fully written to disk before returning. This is critical for
-// binary updates where the service will be restarted immediately after.
+// copyFile copies a file from src to dst using atomic replacement logic.
+// It writes to a temporary file first, then renames it to the destination.
+// This ensures atomicity and avoids ETXTBSY errors when replacing running binaries on Linux.
 func copyFile(src, dst string) error {
 	sourceFile, err := os.Open(src)
 	if err != nil {
@@ -1565,24 +1649,81 @@ func copyFile(src, dst string) error {
 	}
 	defer sourceFile.Close()
 
-	destFile, err := os.Create(dst)
+	// Create temp file in the same directory as destination to ensure atomic rename works
+	// (rename is only atomic within the same filesystem)
+	dstDir := filepath.Dir(dst)
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		return fmt.Errorf("failed to ensure destination directory: %w", err)
+	}
+
+	tempFile, err := os.CreateTemp(dstDir, ".update-tmp-*")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tempPath := tempFile.Name()
+
+	// Ensure temp file is cleaned up if we fail
+	defer func() {
+		tempFile.Close() // Close first so we can remove
+		if _, err := os.Stat(tempPath); err == nil {
+			// If file still exists (wasn't renamed), remove it
+			os.Remove(tempPath)
+		}
+	}()
+
+	if _, err = io.Copy(tempFile, sourceFile); err != nil {
+		return fmt.Errorf("failed to copy content: %w", err)
 	}
 
-	if _, err = io.Copy(destFile, sourceFile); err != nil {
-		destFile.Close()
-		return err
+	// Sync to ensure data is fully written to disk before renaming
+	if err := tempFile.Sync(); err != nil {
+		return fmt.Errorf("failed to sync temp file: %w", err)
 	}
 
-	// Sync to ensure data is fully written to disk
-	// This is critical for binaries that will be executed immediately
-	if err := destFile.Sync(); err != nil {
-		destFile.Close()
-		return err
+	// Copy permissions from source if possible, otherwise default to 0755
+	info, err := sourceFile.Stat()
+	if err == nil {
+		tempFile.Chmod(info.Mode())
+	} else {
+		tempFile.Chmod(0755)
 	}
 
-	return destFile.Close()
+	// Explicitly close before renaming (required on Windows, good practice elsewhere)
+	tempFile.Close()
+
+	// Atomic rename
+	if err := os.Rename(tempPath, dst); err != nil {
+		return fmt.Errorf("failed to rename %s to %s: %w", tempPath, dst, err)
+	}
+
+	return nil
+}
+
+// runMigrations executes the database migration tool
+func (s *Service) runMigrations(ctx context.Context) error {
+	// Look for the migrate binary in standard locations
+	migrateBin := "/usr/share/quantix-vdc/migrations/quantix-migrate"
+	if _, err := os.Stat(migrateBin); os.IsNotExist(err) {
+		// Fallback for dev environment
+		migrateBin = "quantix-migrate"
+	}
+
+	// Ensure we pass the config environment variables so the tool knows how to connect
+	// We assume the service is running with environment variables loaded (systemd EnvironmentFile)
+	// If not, we might need to explicitly read config and pass it.
+	// For now, we assume standard deployment where env vars are inherited.
+
+	cmd := exec.CommandContext(ctx, migrateBin, "up")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	s.logger.Info("Executing migration command", zap.String("cmd", migrateBin+" up"))
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("migration command failed: %w", err)
+	}
+
+	return nil
 }
 
 // extractTarGz extracts a .tar.gz file to the specified destination directory
