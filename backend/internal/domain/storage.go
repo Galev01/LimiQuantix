@@ -2,7 +2,11 @@
 // This file defines storage-related domain models: StoragePool, Volume, Snapshot, Image.
 package domain
 
-import "time"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
 // =============================================================================
 // STORAGE POOL - Logical Storage Cluster
@@ -696,6 +700,10 @@ type ImageStatus struct {
 	Path string `json:"path,omitempty"`
 	// NodeID is the node that hosts this image (for local images)
 	NodeID string `json:"node_id,omitempty"`
+	// FolderPath is the virtual folder path for organization (e.g., "/windows/10")
+	FolderPath string `json:"folder_path,omitempty"`
+	// Filename is the original filename of the image
+	Filename string `json:"filename,omitempty"`
 }
 
 // IsReady returns true if the image is ready to use.
@@ -706,6 +714,72 @@ func (i *Image) IsReady() bool {
 // IsOVATemplate returns true if the image is an OVA template.
 func (i *Image) IsOVATemplate() bool {
 	return i.Spec.Format == ImageFormatOVA
+}
+
+// IsISO returns true if the image is an ISO file.
+func (i *Image) IsISO() bool {
+	return i.Spec.Format == ImageFormatISO
+}
+
+// GetFullPath returns the full virtual path including folder and filename.
+// e.g., "/windows/10/win10_21h2.iso"
+func (i *Image) GetFullPath() string {
+	folder := i.Status.FolderPath
+	if folder == "" {
+		folder = "/"
+	}
+	filename := i.Status.Filename
+	if filename == "" {
+		filename = i.Name
+	}
+	if folder == "/" {
+		return "/" + filename
+	}
+	return folder + "/" + filename
+}
+
+// ValidateFolderPath validates the folder path format.
+// Valid paths: "/", "/windows", "/windows/10", etc.
+// Max depth: 5 levels
+func ValidateFolderPath(path string) error {
+	if path == "" || path == "/" {
+		return nil
+	}
+	if path[0] != '/' {
+		return fmt.Errorf("folder path must start with /")
+	}
+	if len(path) > 256 {
+		return fmt.Errorf("folder path too long (max 256 chars)")
+	}
+	parts := strings.Split(path[1:], "/")
+	if len(parts) > 5 {
+		return fmt.Errorf("folder path too deep (max 5 levels)")
+	}
+	for _, part := range parts {
+		if part == "" {
+			return fmt.Errorf("folder path contains empty segment")
+		}
+		if strings.ContainsAny(part, `<>:"|?*\`) {
+			return fmt.Errorf("folder name contains invalid characters")
+		}
+	}
+	return nil
+}
+
+// NormalizeFolderPath ensures consistent folder path format.
+// "" -> "/", "windows" -> "/windows", "/windows/" -> "/windows"
+func NormalizeFolderPath(path string) string {
+	if path == "" {
+		return "/"
+	}
+	path = strings.TrimSuffix(path, "/")
+	if path == "" {
+		return "/"
+	}
+	if path[0] != '/' {
+		path = "/" + path
+	}
+	return path
 }
 
 // =============================================================================

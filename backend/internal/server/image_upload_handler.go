@@ -74,6 +74,9 @@ func (h *ImageUploadHandler) SetDaemonPool(dp interface {
 func (h *ImageUploadHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/images/upload", h.handleUpload)
 	mux.HandleFunc("/api/v1/images/upload/status/", h.handleUploadStatus)
+	mux.HandleFunc("/api/v1/images/notify", h.handleISONotification)
+	mux.HandleFunc("/api/v1/images/folders", h.handleFolders)
+	mux.HandleFunc("/api/v1/images/move", h.handleMoveImage)
 }
 
 // handleUpload handles POST /api/v1/images/upload
@@ -537,4 +540,150 @@ func (h *ImageUploadHandler) ensureNFSMounted(server, exportPath, mountPoint, op
 
 	h.logger.Info("NFS share mounted successfully", zap.String("mount", mountPoint))
 	return nil
+}
+
+// =============================================================================
+// ISO SYNC & FOLDER MANAGEMENT HANDLERS
+// =============================================================================
+
+// handleISONotification handles POST /api/v1/images/notify
+// This endpoint receives ISO change notifications from QHCI nodes.
+func (h *ImageUploadHandler) handleISONotification(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var notif storageservice.ISONotification
+	if err := json.NewDecoder(r.Body).Decode(&notif); err != nil {
+		h.logger.Error("Failed to decode ISO notification", zap.Error(err))
+		h.writeError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	h.logger.Info("Received ISO notification",
+		zap.String("node_id", notif.NodeID),
+		zap.String("event_type", notif.EventType),
+		zap.String("path", notif.Path),
+	)
+
+	if err := h.imageService.HandleISONotification(r.Context(), &notif); err != nil {
+		h.logger.Error("Failed to process ISO notification", zap.Error(err))
+		h.writeError(w, fmt.Sprintf("Failed to process notification: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "ISO notification processed",
+	})
+}
+
+// handleFolders handles GET/POST /api/v1/images/folders
+func (h *ImageUploadHandler) handleFolders(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		h.handleListFolders(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleListFolders returns all folders with optional tree structure.
+func (h *ImageUploadHandler) handleListFolders(w http.ResponseWriter, r *http.Request) {
+	// Check if tree format requested
+	treeFormat := r.URL.Query().Get("format") == "tree"
+
+	if treeFormat {
+		tree, err := h.imageService.BuildFolderTree(r.Context())
+		if err != nil {
+			h.logger.Error("Failed to build folder tree", zap.Error(err))
+			h.writeError(w, "Failed to get folders", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"tree": tree,
+		})
+	} else {
+		folders, err := h.imageService.ListFolders(r.Context())
+		if err != nil {
+			h.logger.Error("Failed to list folders", zap.Error(err))
+			h.writeError(w, "Failed to get folders", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"folders": folders,
+		})
+	}
+}
+
+// handleMoveImage handles POST /api/v1/images/move
+// Request body: { "image_id": "...", "folder_path": "/windows/10" }
+func (h *ImageUploadHandler) handleMoveImage(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ImageID    string `json:"image_id"`
+		FolderPath string `json:"folder_path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.ImageID == "" {
+		h.writeError(w, "image_id is required", http.StatusBadRequest)
+		return
+	}
+
+	image, err := h.imageService.MoveImageToFolder(r.Context(), req.ImageID, req.FolderPath)
+	if err != nil {
+		h.logger.Error("Failed to move image",
+			zap.String("image_id", req.ImageID),
+			zap.String("folder", req.FolderPath),
+			zap.Error(err),
+		)
+		// Check error type for proper status code
+		if strings.Contains(err.Error(), "not found") {
+			h.writeError(w, err.Error(), http.StatusNotFound)
+		} else if strings.Contains(err.Error(), "invalid") {
+			h.writeError(w, err.Error(), http.StatusBadRequest)
+		} else {
+			h.writeError(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"image": map[string]interface{}{
+			"id":          image.ID,
+			"name":        image.Name,
+			"folder_path": image.Status.FolderPath,
+		},
+	})
 }

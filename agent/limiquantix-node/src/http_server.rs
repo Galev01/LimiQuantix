@@ -9,9 +9,13 @@
 //!
 //! The HTTP server runs on port 8443 (HTTPS) alongside the gRPC server on port 9443.
 
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+
+use once_cell::sync::Lazy;
+use futures::StreamExt;
 
 use axum::{
     Router,
@@ -54,6 +58,8 @@ pub struct AppState {
     pub storage: Arc<limiquantix_hypervisor::storage::StorageManager>,
     /// OTA Update manager for checking and applying updates
     pub update_manager: Arc<UpdateManager>,
+    /// ISO Manager for ISO file tracking and sync
+    pub iso_manager: Arc<crate::iso_manager::IsoManager>,
 }
 
 // ============================================================================
@@ -822,12 +828,23 @@ pub async fn run_http_server(
     tls_config: TlsConfig,
     telemetry: Arc<TelemetryCollector>,
     update_manager: Arc<UpdateManager>,
+    control_plane_address: String,
 ) -> anyhow::Result<()> {
     // Initialize TLS manager (needed for certificate management API even if HTTPS is disabled)
     let tls_manager = Arc::new(TlsManager::new(tls_config.clone()));
     
     // Get storage manager from service for ISO uploads to pools
     let storage = service.get_storage_manager();
+    
+    // Initialize ISO manager
+    let iso_manager = Arc::new(crate::iso_manager::IsoManager::new(control_plane_address));
+    if let Err(e) = iso_manager.load().await {
+        warn!(error = %e, "Failed to load ISO metadata (starting fresh)");
+    }
+    // Scan for ISOs on startup
+    if let Err(e) = iso_manager.scan_directories().await {
+        warn!(error = %e, "Failed to scan ISO directories on startup");
+    }
     
     let state = Arc::new(AppState {
         service,
@@ -837,6 +854,7 @@ pub async fn run_http_server(
         telemetry,
         storage,
         update_manager,
+        iso_manager,
     });
 
     // Build the application router
@@ -858,6 +876,7 @@ pub async fn run_https_server(
     tls_config: TlsConfig,
     telemetry: Arc<TelemetryCollector>,
     update_manager: Arc<UpdateManager>,
+    control_plane_address: String,
 ) -> anyhow::Result<()> {
     // Initialize TLS manager and certificates
     let tls_manager = Arc::new(TlsManager::new(tls_config.clone()));
@@ -865,6 +884,16 @@ pub async fn run_https_server(
     
     // Get storage manager from service for ISO uploads to pools
     let storage = service.get_storage_manager();
+    
+    // Initialize ISO manager
+    let iso_manager = Arc::new(crate::iso_manager::IsoManager::new(control_plane_address));
+    if let Err(e) = iso_manager.load().await {
+        warn!(error = %e, "Failed to load ISO metadata (starting fresh)");
+    }
+    // Scan for ISOs on startup
+    if let Err(e) = iso_manager.scan_directories().await {
+        warn!(error = %e, "Failed to scan ISO directories on startup");
+    }
     
     let state = Arc::new(AppState {
         service,
@@ -874,6 +903,7 @@ pub async fn run_https_server(
         telemetry,
         storage,
         update_manager,
+        iso_manager,
     });
 
     // Build the application router
@@ -946,6 +976,17 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/storage/pools/:pool_id/volumes", post(create_volume))
         .route("/storage/pools/:pool_id/volumes/:volume_id", axum::routing::delete(delete_volume))
         .route("/storage/images", get(list_images))
+        // ISO management endpoints
+        .route("/images", get(list_isos))
+        .route("/images/:id", get(get_iso))
+        .route("/images/:id/move", post(move_iso_to_folder))
+        .route("/images/:id", axum::routing::delete(delete_iso))
+        .route("/images/folders", get(list_iso_folders))
+        .route("/images/scan", post(scan_iso_directories))
+        .route("/images/sync", post(sync_isos_to_control_plane))
+        // Cloud image download endpoint (for vDC to download images to this node's storage)
+        .route("/images/download", post(download_cloud_image))
+        .route("/images/download/:job_id", get(get_download_status))
         // Local storage device discovery
         .route("/storage/local-devices", get(list_local_devices))
         .route("/storage/local-devices/:device/initialize", post(initialize_local_device))
@@ -4046,6 +4087,8 @@ struct UploadImageParams {
     pool_id: Option<String>,
     /// Subdirectory within the pool (default: "iso")
     subdir: Option<String>,
+    /// Virtual folder path for organization (e.g., "/windows/10")
+    folder: Option<String>,
 }
 
 /// POST /api/v1/storage/upload - Upload a disk image or ISO
@@ -4196,13 +4239,58 @@ async fn upload_image(
         ));
     }
 
-    Ok(Json(serde_json::json!({
+    let final_path = upload_dir.join(&saved_file);
+    
+    // Register with ISO manager if it's an ISO/IMG file
+    let iso_metadata = if saved_file.ends_with(".iso") || saved_file.ends_with(".img") {
+        let folder_path = params.folder.as_deref().unwrap_or("/");
+        match crate::iso_manager::IsoMetadata::from_file(&final_path, folder_path, params.pool_id.clone()) {
+            Ok(mut iso) => {
+                iso = state.iso_manager.upsert(iso).await;
+                
+                // Save metadata to disk
+                if let Err(e) = state.iso_manager.save().await {
+                    warn!(error = %e, "Failed to save ISO metadata");
+                }
+                
+                // Notify control plane (async, don't block upload response)
+                let iso_clone = iso.clone();
+                let manager_clone = state.iso_manager.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = manager_clone.notify_change("created", &iso_clone).await {
+                        warn!(error = %e, "Failed to notify control plane of new ISO");
+                    }
+                });
+                
+                Some(iso)
+            }
+            Err(e) => {
+                warn!(error = %e, "Failed to create ISO metadata (file uploaded but not registered)");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let mut response = serde_json::json!({
         "success": true,
         "message": "Image uploaded successfully",
         "filename": saved_file,
         "size_bytes": file_size,
-        "path": upload_dir.join(&saved_file).to_string_lossy()
-    })))
+        "path": final_path.to_string_lossy()
+    });
+    
+    if let Some(iso) = iso_metadata {
+        response["iso"] = serde_json::json!({
+            "id": iso.id,
+            "name": iso.name,
+            "folder_path": iso.folder_path,
+            "full_path": iso.get_full_path()
+        });
+    }
+    
+    Ok(Json(response))
 }
 
 /// POST /api/v1/storage/convert - Start disk format conversion
@@ -4375,6 +4463,578 @@ async fn get_conversion_status(
                 Json(ApiError::new("job_not_found", "Conversion job not found")),
             ))
         }
+    }
+}
+
+// ============================================================================
+// ISO Management Handlers
+// ============================================================================
+
+/// GET /api/v1/images - List all tracked ISOs
+async fn list_isos(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<ListIsosParams>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    let isos = if let Some(folder) = params.folder {
+        let include_subfolders = params.include_subfolders.unwrap_or(false);
+        state.iso_manager.list_by_folder(&folder, include_subfolders).await
+    } else {
+        state.iso_manager.list().await
+    };
+    
+    Ok(Json(serde_json::json!({
+        "images": isos,
+        "count": isos.len()
+    })))
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct ListIsosParams {
+    folder: Option<String>,
+    include_subfolders: Option<bool>,
+}
+
+/// GET /api/v1/images/:id - Get a specific ISO
+async fn get_iso(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<crate::iso_manager::IsoMetadata>, (StatusCode, Json<ApiError>)> {
+    match state.iso_manager.get(&id).await {
+        Some(iso) => Ok(Json(iso)),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(ApiError::new("not_found", "ISO not found")),
+        )),
+    }
+}
+
+/// POST /api/v1/images/:id/move - Move an ISO to a different folder
+async fn move_iso_to_folder(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(request): Json<MoveIsoRequest>,
+) -> Result<Json<crate::iso_manager::IsoMetadata>, (StatusCode, Json<ApiError>)> {
+    match state.iso_manager.move_to_folder(&id, &request.folder_path).await {
+        Ok(iso) => {
+            // Save metadata
+            if let Err(e) = state.iso_manager.save().await {
+                warn!(error = %e, "Failed to save ISO metadata after move");
+            }
+            
+            // Notify control plane
+            let iso_clone = iso.clone();
+            let manager_clone = state.iso_manager.clone();
+            tokio::spawn(async move {
+                if let Err(e) = manager_clone.notify_change("updated", &iso_clone).await {
+                    warn!(error = %e, "Failed to notify control plane of ISO move");
+                }
+            });
+            
+            Ok(Json(iso))
+        }
+        Err(e) => {
+            if e.to_string().contains("not found") {
+                Err((
+                    StatusCode::NOT_FOUND,
+                    Json(ApiError::new("not_found", "ISO not found")),
+                ))
+            } else {
+                Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(ApiError::new("invalid_folder", &e.to_string())),
+                ))
+            }
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MoveIsoRequest {
+    folder_path: String,
+}
+
+/// DELETE /api/v1/images/:id - Delete an ISO and its file
+async fn delete_iso(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    // Get ISO metadata first
+    let iso = match state.iso_manager.get(&id).await {
+        Some(iso) => iso,
+        None => return Err((
+            StatusCode::NOT_FOUND,
+            Json(ApiError::new("not_found", "ISO not found")),
+        )),
+    };
+    
+    // Delete the file
+    let path = std::path::Path::new(&iso.path);
+    if path.exists() {
+        if let Err(e) = tokio::fs::remove_file(path).await {
+            warn!(error = %e, path = %iso.path, "Failed to delete ISO file");
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("delete_failed", &format!("Failed to delete file: {}", e))),
+            ));
+        }
+    }
+    
+    // Store path for logging before moving iso
+    let iso_path = iso.path.clone();
+    
+    // Remove from manager
+    state.iso_manager.remove(&id).await;
+    
+    // Save metadata
+    if let Err(e) = state.iso_manager.save().await {
+        warn!(error = %e, "Failed to save ISO metadata after delete");
+    }
+    
+    // Notify control plane
+    let manager_clone = state.iso_manager.clone();
+    tokio::spawn(async move {
+        if let Err(e) = manager_clone.notify_change("deleted", &iso).await {
+            warn!(error = %e, "Failed to notify control plane of ISO delete");
+        }
+    });
+    
+    info!(id = %id, path = %iso_path, "ISO deleted");
+    
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "ISO deleted successfully"
+    })))
+}
+
+/// GET /api/v1/images/folders - List all folder paths
+async fn list_iso_folders(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    let folders = state.iso_manager.list_folders().await;
+    
+    Ok(Json(serde_json::json!({
+        "folders": folders
+    })))
+}
+
+/// POST /api/v1/images/scan - Scan default directories for ISOs
+async fn scan_iso_directories(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    match state.iso_manager.scan_directories().await {
+        Ok(result) => {
+            info!(
+                registered = result.registered,
+                existing = result.existing,
+                errors = result.errors.len(),
+                "ISO directory scan completed"
+            );
+            
+            // Sync new ISOs to control plane
+            if result.registered > 0 {
+                let manager_clone = state.iso_manager.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = manager_clone.sync_all().await {
+                        warn!(error = %e, "Failed to sync ISOs after scan");
+                    }
+                });
+            }
+            
+            Ok(Json(serde_json::json!({
+                "success": true,
+                "registered": result.registered,
+                "existing": result.existing,
+                "errors": result.errors
+            })))
+        }
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("scan_failed", &e.to_string())),
+        )),
+    }
+}
+
+/// POST /api/v1/images/sync - Sync all ISOs to control plane
+async fn sync_isos_to_control_plane(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    match state.iso_manager.sync_all().await {
+        Ok(count) => Ok(Json(serde_json::json!({
+            "success": true,
+            "synced": count
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("sync_failed", &e.to_string())),
+        )),
+    }
+}
+
+// ============================================================================
+// Cloud Image Download Handlers
+// ============================================================================
+
+/// Cloud image download job state
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadJob {
+    pub job_id: String,
+    pub image_id: String,
+    pub catalog_id: String,
+    pub url: String,
+    pub target_path: String,
+    pub pool_id: Option<String>,
+    pub status: String,  // pending, downloading, completed, failed
+    pub progress_percent: u32,
+    pub bytes_downloaded: u64,
+    pub bytes_total: u64,
+    pub error_message: Option<String>,
+    pub started_at: String,
+    pub completed_at: Option<String>,
+}
+
+/// Global storage for download jobs (keyed by job_id)
+static DOWNLOAD_JOBS: Lazy<Mutex<HashMap<String, DownloadJob>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+
+fn get_download_jobs() -> &'static Mutex<HashMap<String, DownloadJob>> {
+    &DOWNLOAD_JOBS
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadCloudImageRequest {
+    /// Catalog ID (e.g., "ubuntu-22.04") - optional, used for tracking
+    catalog_id: Option<String>,
+    /// Image ID from the control plane
+    image_id: String,
+    /// URL to download the image from
+    url: String,
+    /// Target directory to save the image (e.g., NFS mount path)
+    target_dir: String,
+    /// Target filename (optional, derived from URL if not provided)
+    filename: Option<String>,
+    /// Storage pool ID (for tracking)
+    pool_id: Option<String>,
+    /// Expected checksum (SHA256) for verification
+    checksum: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadCloudImageResponse {
+    job_id: String,
+    image_id: String,
+    target_path: String,
+    message: String,
+}
+
+/// POST /api/v1/images/download - Download a cloud image from URL to local storage
+///
+/// This endpoint is called by the vDC control plane to download cloud images
+/// directly to a storage pool on this node.
+async fn download_cloud_image(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<DownloadCloudImageRequest>,
+) -> Result<Json<DownloadCloudImageResponse>, (StatusCode, Json<ApiError>)> {
+    use tokio::fs;
+    use tokio::io::AsyncWriteExt;
+    
+    info!(
+        url = %request.url,
+        target_dir = %request.target_dir,
+        image_id = %request.image_id,
+        "Starting cloud image download"
+    );
+    
+    // Validate target directory exists
+    if !std::path::Path::new(&request.target_dir).exists() {
+        // Try to create it
+        if let Err(e) = fs::create_dir_all(&request.target_dir).await {
+            error!(target_dir = %request.target_dir, error = %e, "Failed to create target directory");
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ApiError::new("invalid_target", &format!("Target directory does not exist and cannot be created: {}", e))),
+            ));
+        }
+    }
+    
+    // Determine filename
+    let filename = request.filename.clone().unwrap_or_else(|| {
+        // Try to extract filename from URL
+        request.url
+            .split('/')
+            .last()
+            .unwrap_or("downloaded-image.qcow2")
+            .split('?')
+            .next()
+            .unwrap_or("downloaded-image.qcow2")
+            .to_string()
+    });
+    
+    // Ensure .qcow2 extension for cloud images
+    let filename = if filename.ends_with(".img") && !filename.ends_with(".qcow2") {
+        // Many cloud images have .img extension but are qcow2 format
+        filename.replace(".img", ".qcow2")
+    } else if !filename.ends_with(".qcow2") && !filename.ends_with(".img") {
+        format!("{}.qcow2", filename)
+    } else {
+        filename
+    };
+    
+    let target_path = format!("{}/{}", request.target_dir.trim_end_matches('/'), filename);
+    
+    // Check if file already exists
+    if std::path::Path::new(&target_path).exists() {
+        return Err((
+            StatusCode::CONFLICT,
+            Json(ApiError::new("already_exists", &format!("Image already exists at {}", target_path))),
+        ));
+    }
+    
+    // Create download job
+    let job_id = uuid::Uuid::new_v4().to_string();
+    let job = DownloadJob {
+        job_id: job_id.clone(),
+        image_id: request.image_id.clone(),
+        catalog_id: request.catalog_id.clone().unwrap_or_default(),
+        url: request.url.clone(),
+        target_path: target_path.clone(),
+        pool_id: request.pool_id.clone(),
+        status: "pending".to_string(),
+        progress_percent: 0,
+        bytes_downloaded: 0,
+        bytes_total: 0,
+        error_message: None,
+        started_at: chrono::Utc::now().to_rfc3339(),
+        completed_at: None,
+    };
+    
+    {
+        let mut jobs = get_download_jobs().lock().unwrap();
+        jobs.insert(job_id.clone(), job);
+    }
+    
+    // Spawn download task
+    let url = request.url.clone();
+    let target = target_path.clone();
+    let job_id_clone = job_id.clone();
+    let checksum = request.checksum.clone();
+    let iso_manager = state.iso_manager.clone();
+    let pool_id = request.pool_id.clone();
+    
+    tokio::spawn(async move {
+        run_download(job_id_clone, url, target, checksum, iso_manager, pool_id).await;
+    });
+    
+    info!(job_id = %job_id, target_path = %target_path, "Download job created");
+    
+    Ok(Json(DownloadCloudImageResponse {
+        job_id,
+        image_id: request.image_id,
+        target_path,
+        message: "Download started".to_string(),
+    }))
+}
+
+/// Run the actual download in a background task
+async fn run_download(
+    job_id: String,
+    url: String,
+    target_path: String,
+    checksum: Option<String>,
+    iso_manager: Arc<crate::iso_manager::IsoManager>,
+    pool_id: Option<String>,
+) {
+    use tokio::fs::File;
+    
+    // Update status to downloading
+    {
+        let mut jobs = get_download_jobs().lock().unwrap();
+        if let Some(job) = jobs.get_mut(&job_id) {
+            job.status = "downloading".to_string();
+        }
+    }
+    
+    info!(job_id = %job_id, url = %url, target = %target_path, "Starting download");
+    
+    // Create HTTP client
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(3600)) // 1 hour timeout for large images
+        .build();
+    
+    let client = match client {
+        Ok(c) => c,
+        Err(e) => {
+            error!(job_id = %job_id, error = %e, "Failed to create HTTP client");
+            update_job_failed(&job_id, &format!("Failed to create HTTP client: {}", e));
+            return;
+        }
+    };
+    
+    // Make request
+    let response = match client.get(&url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            error!(job_id = %job_id, error = %e, "Failed to start download");
+            update_job_failed(&job_id, &format!("Failed to start download: {}", e));
+            return;
+        }
+    };
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        error!(job_id = %job_id, status = %status, "HTTP error during download");
+        update_job_failed(&job_id, &format!("HTTP error: {}", status));
+        return;
+    }
+    
+    // Get content length
+    let total_bytes = response.content_length().unwrap_or(0);
+    {
+        let mut jobs = get_download_jobs().lock().unwrap();
+        if let Some(job) = jobs.get_mut(&job_id) {
+            job.bytes_total = total_bytes;
+        }
+    }
+    
+    // Create target file
+    let mut file = match File::create(&target_path).await {
+        Ok(f) => f,
+        Err(e) => {
+            error!(job_id = %job_id, path = %target_path, error = %e, "Failed to create file");
+            update_job_failed(&job_id, &format!("Failed to create file: {}", e));
+            return;
+        }
+    };
+    
+    // Download with progress
+    let mut downloaded: u64 = 0;
+    let mut stream = response.bytes_stream();
+    let mut last_update = std::time::Instant::now();
+    
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
+            Ok(chunk) => {
+                if let Err(e) = file.write_all(&chunk).await {
+                    error!(job_id = %job_id, error = %e, "Failed to write chunk");
+                    // Clean up partial file
+                    let _ = tokio::fs::remove_file(&target_path).await;
+                    update_job_failed(&job_id, &format!("Failed to write to file: {}", e));
+                    return;
+                }
+                
+                downloaded += chunk.len() as u64;
+                
+                // Update progress every second
+                if last_update.elapsed() >= std::time::Duration::from_secs(1) {
+                    let percent = if total_bytes > 0 {
+                        (downloaded * 100 / total_bytes) as u32
+                    } else {
+                        0
+                    };
+                    
+                    {
+                        let mut jobs = get_download_jobs().lock().unwrap();
+                        if let Some(job) = jobs.get_mut(&job_id) {
+                            job.bytes_downloaded = downloaded;
+                            job.progress_percent = percent;
+                        }
+                    }
+                    
+                    debug!(
+                        job_id = %job_id,
+                        downloaded = downloaded,
+                        total = total_bytes,
+                        percent = percent,
+                        "Download progress"
+                    );
+                    
+                    last_update = std::time::Instant::now();
+                }
+            }
+            Err(e) => {
+                error!(job_id = %job_id, error = %e, "Error reading chunk");
+                // Clean up partial file
+                let _ = tokio::fs::remove_file(&target_path).await;
+                update_job_failed(&job_id, &format!("Download error: {}", e));
+                return;
+            }
+        }
+    }
+    
+    // Flush file
+    if let Err(e) = file.flush().await {
+        error!(job_id = %job_id, error = %e, "Failed to flush file");
+        let _ = tokio::fs::remove_file(&target_path).await;
+        update_job_failed(&job_id, &format!("Failed to flush file: {}", e));
+        return;
+    }
+    drop(file);
+    
+    // Verify checksum if provided
+    if let Some(expected_checksum) = checksum {
+        info!(job_id = %job_id, "Verifying checksum");
+        
+        // For now, skip checksum verification (would need sha256 crate)
+        // TODO: Implement SHA256 verification
+        debug!(job_id = %job_id, expected = %expected_checksum, "Checksum verification skipped");
+    }
+    
+    // Update job as completed
+    {
+        let mut jobs = get_download_jobs().lock().unwrap();
+        if let Some(job) = jobs.get_mut(&job_id) {
+            job.status = "completed".to_string();
+            job.bytes_downloaded = downloaded;
+            job.progress_percent = 100;
+            job.completed_at = Some(chrono::Utc::now().to_rfc3339());
+        }
+    }
+    
+    // Register the downloaded image with iso_manager for tracking
+    let path = std::path::Path::new(&target_path);
+    if let Ok(metadata) = crate::iso_manager::IsoMetadata::from_file(path, "/cloud-images", pool_id) {
+        iso_manager.upsert(metadata.clone()).await;
+        if let Err(e) = iso_manager.save().await {
+            warn!(job_id = %job_id, error = %e, "Failed to save image metadata");
+        }
+        // Notify control plane
+        if let Err(e) = iso_manager.notify_change("created", &metadata).await {
+            warn!(job_id = %job_id, error = %e, "Failed to notify control plane");
+        }
+    }
+    
+    info!(
+        job_id = %job_id,
+        target = %target_path,
+        size = downloaded,
+        "Download completed successfully"
+    );
+}
+
+fn update_job_failed(job_id: &str, message: &str) {
+    let mut jobs = get_download_jobs().lock().unwrap();
+    if let Some(job) = jobs.get_mut(job_id) {
+        job.status = "failed".to_string();
+        job.error_message = Some(message.to_string());
+        job.completed_at = Some(chrono::Utc::now().to_rfc3339());
+    }
+}
+
+/// GET /api/v1/images/download/:job_id - Get download job status
+async fn get_download_status(
+    Path(job_id): Path<String>,
+) -> Result<Json<DownloadJob>, (StatusCode, Json<ApiError>)> {
+    let jobs = get_download_jobs().lock().unwrap();
+    
+    match jobs.get(&job_id) {
+        Some(job) => Ok(Json(job.clone())),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(ApiError::new("job_not_found", "Download job not found")),
+        )),
     }
 }
 

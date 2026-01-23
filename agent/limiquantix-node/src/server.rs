@@ -245,8 +245,9 @@ pub async fn run(config: Config) -> Result<()> {
             host, http_addr.port()
         );
         
+        let control_plane_http = config.control_plane.address.clone();
         server_handles.push(tokio::spawn(async move {
-            if let Err(e) = http_server::run_http_server(http_addr, http_service, webui_path_http, tls_config_http, telemetry_http, update_manager_http).await {
+            if let Err(e) = http_server::run_http_server(http_addr, http_service, webui_path_http, tls_config_http, telemetry_http, update_manager_http, control_plane_http).await {
                 error!(error = %e, "HTTP server failed");
             }
         }));
@@ -291,8 +292,9 @@ pub async fn run(config: Config) -> Result<()> {
             }));
         }
         
+        let control_plane_https = config.control_plane.address.clone();
         server_handles.push(tokio::spawn(async move {
-            if let Err(e) = http_server::run_https_server(https_addr, https_service, webui_path_https, tls_config_https, telemetry_https, update_manager_https).await {
+            if let Err(e) = http_server::run_https_server(https_addr, https_service, webui_path_https, tls_config_https, telemetry_https, update_manager_https, control_plane_https).await {
                 error!(error = %e, "HTTPS server failed");
             }
         }));

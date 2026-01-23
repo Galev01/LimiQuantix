@@ -3,6 +3,8 @@ package storage
 
 import (
 	"context"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/limiquantix/limiquantix/internal/domain"
@@ -19,15 +21,25 @@ type ImageRepository interface {
 	// FindByCatalogIDs returns images that were downloaded from the given catalog IDs.
 	// Returns a map of catalogID -> Image for found images.
 	FindByCatalogIDs(ctx context.Context, catalogIDs []string) (map[string]*domain.Image, error)
+	// ListByFolder returns images in a specific folder (and optionally subfolders).
+	ListByFolder(ctx context.Context, folderPath string, includeSubfolders bool) ([]*domain.Image, error)
+	// ListFolders returns all unique folder paths.
+	ListFolders(ctx context.Context) ([]string, error)
+	// Upsert creates or updates an image based on nodeID + path combination.
+	// Used for syncing images from nodes.
+	Upsert(ctx context.Context, image *domain.Image) (*domain.Image, error)
 }
 
 // ImageFilter defines filter criteria for listing images.
 type ImageFilter struct {
-	ProjectID  string
-	OSFamily   domain.OSFamily
-	Visibility domain.ImageVisibility
-	NodeID     string
-	Phase      domain.ImagePhase
+	ProjectID    string
+	OSFamily     domain.OSFamily
+	Visibility   domain.ImageVisibility
+	NodeID       string
+	Phase        domain.ImagePhase
+	FolderPath   string // Filter by folder path
+	Format       domain.ImageFormat // Filter by format (ISO, QCOW2, etc.)
+	SearchQuery  string // Search in name/description
 }
 
 // MemoryImageRepository is an in-memory implementation of ImageRepository.
@@ -90,6 +102,24 @@ func (r *MemoryImageRepository) List(ctx context.Context, filter ImageFilter) ([
 		}
 		if filter.Phase != "" && img.Status.Phase != filter.Phase {
 			continue
+		}
+		if filter.FolderPath != "" {
+			imgFolder := domain.NormalizeFolderPath(img.Status.FolderPath)
+			filterFolder := domain.NormalizeFolderPath(filter.FolderPath)
+			if imgFolder != filterFolder {
+				continue
+			}
+		}
+		if filter.Format != "" && img.Spec.Format != filter.Format {
+			continue
+		}
+		if filter.SearchQuery != "" {
+			query := strings.ToLower(filter.SearchQuery)
+			nameMatch := strings.Contains(strings.ToLower(img.Name), query)
+			descMatch := strings.Contains(strings.ToLower(img.Description), query)
+			if !nameMatch && !descMatch {
+				continue
+			}
 		}
 		result = append(result, img)
 	}
@@ -155,4 +185,86 @@ func (r *MemoryImageRepository) FindByCatalogIDs(ctx context.Context, catalogIDs
 		}
 	}
 	return result, nil
+}
+
+// ListByFolder returns images in a specific folder (and optionally subfolders).
+func (r *MemoryImageRepository) ListByFolder(ctx context.Context, folderPath string, includeSubfolders bool) ([]*domain.Image, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	folderPath = domain.NormalizeFolderPath(folderPath)
+	var result []*domain.Image
+
+	for _, img := range r.images {
+		imgFolder := domain.NormalizeFolderPath(img.Status.FolderPath)
+
+		if includeSubfolders {
+			// Match folder and all subfolders
+			if imgFolder == folderPath || strings.HasPrefix(imgFolder, folderPath+"/") {
+				result = append(result, img)
+			}
+		} else {
+			// Exact folder match only
+			if imgFolder == folderPath {
+				result = append(result, img)
+			}
+		}
+	}
+	return result, nil
+}
+
+// ListFolders returns all unique folder paths sorted alphabetically.
+func (r *MemoryImageRepository) ListFolders(ctx context.Context) ([]string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	folderSet := make(map[string]struct{})
+	folderSet["/"] = struct{}{} // Always include root
+
+	for _, img := range r.images {
+		folder := domain.NormalizeFolderPath(img.Status.FolderPath)
+		folderSet[folder] = struct{}{}
+
+		// Also add parent folders
+		parts := strings.Split(folder, "/")
+		for i := 1; i < len(parts); i++ {
+			parent := strings.Join(parts[:i], "/")
+			if parent == "" {
+				parent = "/"
+			}
+			folderSet[parent] = struct{}{}
+		}
+	}
+
+	// Convert to slice and sort
+	result := make([]string, 0, len(folderSet))
+	for folder := range folderSet {
+		result = append(result, folder)
+	}
+	sort.Strings(result)
+	return result, nil
+}
+
+// Upsert creates or updates an image based on nodeID + path combination.
+// This is used for syncing images from nodes - if an image with the same
+// nodeID and path already exists, it updates it; otherwise creates a new one.
+func (r *MemoryImageRepository) Upsert(ctx context.Context, image *domain.Image) (*domain.Image, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Check if image with same nodeID + path exists
+	for _, existing := range r.images {
+		if existing.Status.NodeID == image.Status.NodeID && 
+		   existing.Status.Path == image.Status.Path {
+			// Update existing image
+			image.ID = existing.ID // Keep original ID
+			image.CreatedAt = existing.CreatedAt // Keep original creation time
+			r.images[image.ID] = image
+			return image, nil
+		}
+	}
+
+	// Create new image
+	r.images[image.ID] = image
+	return image, nil
 }

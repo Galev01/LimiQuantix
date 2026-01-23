@@ -763,6 +763,18 @@ message ImageStatus {
   
   // Which storage pool holds this image
   string storage_pool_id = 7;
+  
+  // Local file path on the node (for node-local images)
+  string path = 8;
+  
+  // Node ID that hosts this image (for node-local images)
+  string node_id = 9;
+  
+  // Virtual folder path for organization (e.g., "/windows/10")
+  string folder_path = 10;
+  
+  // Original filename of the image
+  string filename = 11;
 }
 
 // =============================================================================

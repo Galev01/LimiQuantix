@@ -106,7 +106,7 @@ export async function resizeVolume(
 }
 
 // ============================================================================
-// Images (ISOs)
+// Images (ISOs) - Legacy endpoint (for backwards compatibility)
 // ============================================================================
 
 export interface ImageInfo {
@@ -119,27 +119,126 @@ export interface ImageInfo {
 }
 
 /**
- * List available images/ISOs
+ * List available images/ISOs (legacy endpoint)
  */
 export async function listImages(): Promise<ImageInfo[]> {
   const response = await get<{ images: ImageInfo[] }>('/storage/images');
   return response.images || [];
 }
 
+// ============================================================================
+// ISO Management (New unified API)
+// ============================================================================
+
+export interface IsoMetadata {
+  id: string;
+  name: string;
+  filename: string;
+  folderPath: string;
+  sizeBytes: number;
+  format: string;
+  storagePoolId?: string;
+  path: string;
+  checksum?: string;
+  osFamily?: string;
+  osDistribution?: string;
+  osVersion?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /**
- * Upload an image (ISO, QCOW2, OVA)
+ * List all ISOs with optional folder filter
  */
+export async function listIsos(options?: { 
+  folder?: string;
+  includeSubfolders?: boolean;
+}): Promise<IsoMetadata[]> {
+  const params = new URLSearchParams();
+  if (options?.folder) params.set('folder', options.folder);
+  if (options?.includeSubfolders) params.set('includeSubfolders', 'true');
+  
+  const query = params.toString();
+  const url = query ? `/images?${query}` : '/images';
+  const response = await get<{ images: IsoMetadata[]; count: number }>(url);
+  return response.images || [];
+}
+
+/**
+ * Get a specific ISO by ID
+ */
+export async function getIso(id: string): Promise<IsoMetadata> {
+  return get<IsoMetadata>(`/images/${id}`);
+}
+
+/**
+ * Move an ISO to a different folder
+ */
+export async function moveIsoToFolder(id: string, folderPath: string): Promise<IsoMetadata> {
+  return post<IsoMetadata>(`/images/${id}/move`, { folderPath });
+}
+
+/**
+ * Delete an ISO
+ */
+export async function deleteIso(id: string): Promise<void> {
+  return del(`/images/${id}`);
+}
+
+/**
+ * List all ISO folders
+ */
+export async function listIsoFolders(): Promise<string[]> {
+  const response = await get<{ folders: string[] }>('/images/folders');
+  return response.folders || [];
+}
+
+/**
+ * Scan directories for ISOs
+ */
+export async function scanIsoDirectories(): Promise<{
+  registered: number;
+  existing: number;
+  errors: string[];
+}> {
+  return post('/images/scan', {});
+}
+
+/**
+ * Sync all ISOs to control plane
+ */
+export async function syncIsosToControlPlane(): Promise<{
+  synced: number;
+}> {
+  return post('/images/sync', {});
+}
+
+/**
+ * Upload an image (ISO, QCOW2, OVA) with folder and pool options
+ */
+export interface UploadImageOptions {
+  poolId?: string;
+  folder?: string;
+}
+
 export interface UploadImageResponse {
   success: boolean;
   message: string;
   filename: string;
   size_bytes: number;
   path: string;
+  iso?: {
+    id: string;
+    name: string;
+    folder_path: string;
+    full_path: string;
+  };
 }
 
 export async function uploadImage(
   file: File,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  options?: UploadImageOptions
 ): Promise<UploadImageResponse> {
   const formData = new FormData();
   formData.append('file', file);
@@ -157,6 +256,13 @@ export async function uploadImage(
       // Use default
     }
   }
+  
+  // Build query params
+  const params = new URLSearchParams();
+  if (options?.poolId) params.set('pool_id', options.poolId);
+  if (options?.folder) params.set('folder', options.folder);
+  const query = params.toString();
+  const uploadUrl = query ? `${baseUrl}/storage/upload?${query}` : `${baseUrl}/storage/upload`;
   
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -200,7 +306,7 @@ export async function uploadImage(
       reject(new Error('Upload aborted'));
     });
     
-    xhr.open('POST', `${baseUrl}/storage/upload`);
+    xhr.open('POST', uploadUrl);
     xhr.send(formData);
   });
 }

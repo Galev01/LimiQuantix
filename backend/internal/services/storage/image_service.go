@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/limiquantix/limiquantix/internal/domain"
+	"github.com/limiquantix/limiquantix/internal/services/node"
 	storagev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1"
 )
 
@@ -50,6 +51,14 @@ func NewImageService(repo ImageRepository, logger *zap.Logger) *ImageService {
 	svc.initCatalog()
 	svc.downloadManager = NewDownloadManager(repo, svc.catalog, logger)
 	return svc
+}
+
+// ConfigureNodeDownloads sets up the download manager to route downloads to nodes.
+// This should be called after creating the service when daemon pool and pool repository are available.
+func (s *ImageService) ConfigureNodeDownloads(daemonPool *node.DaemonPool, poolRepo PoolRepository) {
+	s.downloadManager.SetDaemonPool(daemonPool)
+	s.downloadManager.SetPoolRepository(poolRepo)
+	s.logger.Info("Image service configured for node-based downloads")
 }
 
 // initCatalog initializes the built-in cloud image catalog.
@@ -726,20 +735,37 @@ func (s *ImageService) DownloadImage(
 
 	jobID := uuid.New().String()
 
-	// Start download job
-	if err := s.downloadManager.StartDownload(ctx, jobID, created.ID, req.Msg.CatalogId, req.Msg.NodeId, s.imagesDir); err != nil {
-		logger.Error("Failed to start download job", zap.Error(err))
+	// Start download job - route to storage pool if specified
+	var downloadErr error
+	if req.Msg.StoragePoolId != "" {
+		// Download to a specific storage pool
+		logger.Info("Starting pool-based download",
+			zap.String("pool_id", req.Msg.StoragePoolId),
+		)
+		downloadErr = s.downloadManager.StartDownloadWithPool(ctx, jobID, created.ID, req.Msg.CatalogId, req.Msg.StoragePoolId)
+	} else if req.Msg.NodeId != "" {
+		// Download to a specific node
+		downloadErr = s.downloadManager.StartDownload(ctx, jobID, created.ID, req.Msg.CatalogId, req.Msg.NodeId, s.imagesDir)
+	} else {
+		// Fallback: local download (dev mode)
+		logger.Warn("No storage pool or node specified, using local download (dev mode only)")
+		downloadErr = s.downloadManager.StartDownload(ctx, jobID, created.ID, req.Msg.CatalogId, "", s.imagesDir)
+	}
+
+	if downloadErr != nil {
+		logger.Error("Failed to start download job", zap.Error(downloadErr))
 		// Update image status to error
 		created.Status.Phase = domain.ImagePhaseError
-		created.Status.ErrorMessage = err.Error()
+		created.Status.ErrorMessage = downloadErr.Error()
 		s.repo.Update(ctx, created)
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, downloadErr)
 	}
 
 	logger.Info("Image download started",
 		zap.String("job_id", jobID),
 		zap.String("image_id", created.ID),
 		zap.String("url", entry.URL),
+		zap.String("pool_id", req.Msg.StoragePoolId),
 	)
 
 	return connect.NewResponse(&storagev1.DownloadImageResponse{
@@ -1086,4 +1112,247 @@ func convertImagePhaseToProto(phase domain.ImagePhase) storagev1.ImageStatus_Pha
 	default:
 		return storagev1.ImageStatus_UNKNOWN
 	}
+}
+
+// =============================================================================
+// ISO SYNC & FOLDER MANAGEMENT
+// =============================================================================
+
+// ISONotification represents an ISO change notification from a QHCI node.
+type ISONotification struct {
+	NodeID       string `json:"node_id"`
+	EventType    string `json:"event_type"` // "created", "updated", "deleted"
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Filename     string `json:"filename"`
+	FolderPath   string `json:"folder_path"`
+	SizeBytes    uint64 `json:"size_bytes"`
+	Format       string `json:"format"` // "iso", "img"
+	StoragePool  string `json:"storage_pool_id,omitempty"`
+	Path         string `json:"path"` // Absolute path on node
+	Checksum     string `json:"checksum,omitempty"`
+	OSFamily     string `json:"os_family,omitempty"`
+	OSDistro     string `json:"os_distribution,omitempty"`
+	OSVersion    string `json:"os_version,omitempty"`
+	Timestamp    int64  `json:"timestamp"`
+}
+
+// HandleISONotification processes an ISO change notification from a QHCI node.
+// This is called via HTTP endpoint when a node uploads, moves, or deletes an ISO.
+func (s *ImageService) HandleISONotification(ctx context.Context, notif *ISONotification) error {
+	logger := s.logger.With(
+		zap.String("method", "HandleISONotification"),
+		zap.String("node_id", notif.NodeID),
+		zap.String("event_type", notif.EventType),
+		zap.String("path", notif.Path),
+	)
+	logger.Info("Processing ISO notification")
+
+	switch notif.EventType {
+	case "created", "updated":
+		return s.upsertISOFromNotification(ctx, notif, logger)
+	case "deleted":
+		return s.deleteISOFromNotification(ctx, notif, logger)
+	default:
+		logger.Warn("Unknown event type", zap.String("event_type", notif.EventType))
+		return nil
+	}
+}
+
+func (s *ImageService) upsertISOFromNotification(ctx context.Context, notif *ISONotification, logger *zap.Logger) error {
+	now := time.Now()
+
+	// Determine OS info from notification or filename
+	osInfo := domain.OSInfo{
+		Family:       convertStringToOSFamily(notif.OSFamily),
+		Distribution: notif.OSDistro,
+		Version:      notif.OSVersion,
+	}
+	if osInfo.Distribution == "" {
+		osInfo = detectOSFromFilename(notif.Filename)
+	}
+
+	image := &domain.Image{
+		ID:          notif.ID,
+		Name:        notif.Name,
+		Description: fmt.Sprintf("Uploaded on %s", notif.NodeID),
+		Spec: domain.ImageSpec{
+			Format:     detectFormat(notif.Format),
+			Visibility: domain.ImageVisibilityPublic,
+			OS:         osInfo,
+		},
+		Status: domain.ImageStatus{
+			Phase:         domain.ImagePhaseReady,
+			SizeBytes:     notif.SizeBytes,
+			Checksum:      notif.Checksum,
+			StoragePoolID: notif.StoragePool,
+			Path:          notif.Path,
+			NodeID:        notif.NodeID,
+			FolderPath:    domain.NormalizeFolderPath(notif.FolderPath),
+			Filename:      notif.Filename,
+		},
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	_, err := s.repo.Upsert(ctx, image)
+	if err != nil {
+		logger.Error("Failed to upsert ISO", zap.Error(err))
+		return err
+	}
+
+	logger.Info("ISO upserted",
+		zap.String("image_id", image.ID),
+		zap.String("folder", image.Status.FolderPath),
+	)
+	return nil
+}
+
+func (s *ImageService) deleteISOFromNotification(ctx context.Context, notif *ISONotification, logger *zap.Logger) error {
+	// Find image by nodeID + path
+	existing, err := s.repo.GetByPath(ctx, notif.NodeID, notif.Path)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			logger.Debug("ISO not found in control plane, nothing to delete")
+			return nil
+		}
+		return err
+	}
+
+	if err := s.repo.Delete(ctx, existing.ID); err != nil {
+		logger.Error("Failed to delete ISO", zap.Error(err))
+		return err
+	}
+
+	logger.Info("ISO deleted", zap.String("image_id", existing.ID))
+	return nil
+}
+
+func convertStringToOSFamily(family string) domain.OSFamily {
+	switch strings.ToLower(family) {
+	case "linux":
+		return domain.OSFamilyLinux
+	case "windows":
+		return domain.OSFamilyWindows
+	case "bsd":
+		return domain.OSFamilyBSD
+	case "other":
+		return domain.OSFamilyOther
+	default:
+		return domain.OSFamilyUnknown
+	}
+}
+
+// ListFolders returns all unique folder paths for ISO organization.
+func (s *ImageService) ListFolders(ctx context.Context) ([]string, error) {
+	return s.repo.ListFolders(ctx)
+}
+
+// MoveImageToFolder moves an image to a different folder.
+func (s *ImageService) MoveImageToFolder(ctx context.Context, imageID, folderPath string) (*domain.Image, error) {
+	logger := s.logger.With(
+		zap.String("method", "MoveImageToFolder"),
+		zap.String("image_id", imageID),
+		zap.String("folder", folderPath),
+	)
+
+	// Validate folder path
+	folderPath = domain.NormalizeFolderPath(folderPath)
+	if err := domain.ValidateFolderPath(folderPath); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	image, err := s.repo.Get(ctx, imageID)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("image not found: %s", imageID))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Update folder path
+	image.Status.FolderPath = folderPath
+	image.UpdatedAt = time.Now()
+
+	updated, err := s.repo.Update(ctx, image)
+	if err != nil {
+		logger.Error("Failed to move image", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	logger.Info("Image moved to folder", zap.String("folder", folderPath))
+	return updated, nil
+}
+
+// ListImagesByFolder returns images in a specific folder.
+func (s *ImageService) ListImagesByFolder(ctx context.Context, folderPath string, includeSubfolders bool) ([]*domain.Image, error) {
+	return s.repo.ListByFolder(ctx, folderPath, includeSubfolders)
+}
+
+// GetFolderTree returns a hierarchical representation of folders.
+type FolderNode struct {
+	Name     string        `json:"name"`
+	Path     string        `json:"path"`
+	Children []*FolderNode `json:"children,omitempty"`
+	Count    int           `json:"count"` // Number of images in this folder
+}
+
+// BuildFolderTree builds a tree structure from flat folder paths.
+func (s *ImageService) BuildFolderTree(ctx context.Context) (*FolderNode, error) {
+	folders, err := s.repo.ListFolders(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get image counts per folder
+	allImages, err := s.repo.List(ctx, ImageFilter{})
+	if err != nil {
+		return nil, err
+	}
+
+	folderCounts := make(map[string]int)
+	for _, img := range allImages {
+		folder := domain.NormalizeFolderPath(img.Status.FolderPath)
+		folderCounts[folder]++
+	}
+
+	// Build tree
+	root := &FolderNode{
+		Name:     "/",
+		Path:     "/",
+		Count:    folderCounts["/"],
+		Children: []*FolderNode{},
+	}
+
+	nodeMap := map[string]*FolderNode{"/": root}
+
+	for _, folder := range folders {
+		if folder == "/" {
+			continue
+		}
+
+		parts := strings.Split(folder[1:], "/") // Remove leading /
+		currentPath := ""
+		parent := root
+
+		for _, part := range parts {
+			currentPath += "/" + part
+			
+			if existing, found := nodeMap[currentPath]; found {
+				parent = existing
+			} else {
+				newNode := &FolderNode{
+					Name:     part,
+					Path:     currentPath,
+					Count:    folderCounts[currentPath],
+					Children: []*FolderNode{},
+				}
+				parent.Children = append(parent.Children, newNode)
+				nodeMap[currentPath] = newNode
+				parent = newNode
+			}
+		}
+	}
+
+	return root, nil
 }

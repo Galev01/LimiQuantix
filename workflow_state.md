@@ -1,78 +1,115 @@
 # Workflow State
 
-## Active Task: QvDC Host Update Progress Tracking
+## Active Task: Fix Cloud Image Download to Storage Pools
 
 **Date:** January 23, 2026
-**Status:** Complete
+**Status:** Implementation Complete - Ready for Testing
 
-### Objective
+### Problem Statement
 
-Improve host update UI in QvDC Settings page:
-1. Fix "Update available" showing when host is already at latest version
-2. Add real-time progress tracking for host updates (progress bar, download info)
+Cloud images appeared as "downloaded" in the Image Library UI, but they were **not actually present on NFS storage**. The Create VM wizard showed "Download required" for these images.
 
-### Changes Made
+**Root Cause:**
+1. The `DownloadManager` downloaded images to `/var/lib/limiquantix/cloud-images` on the **QvDC control plane machine**
+2. Downloads should go to the **Node Daemon's storage** (NFS mount or local storage pool)
+3. The `storagePoolId` and `nodeId` parameters were captured but never used to route downloads
 
-**1. `frontend/src/pages/Settings.tsx` - HostUpdateCard component**
+### Solution Implemented
 
-- Added version comparison logic: If `current_version === available_version`, show "Up to date" instead of "Update available"
-- Added progress tracking with real-time polling during downloads
-- Added progress bar showing download/apply status
-- Shows current component being downloaded, bytes downloaded/total, percentage
+#### 1. Node Daemon Download Endpoint (Rust)
 
-**2. `frontend/src/hooks/useUpdates.ts` - Progress hooks**
+Added `POST /api/v1/images/download` endpoint to the Node Daemon HTTP server that:
+- Accepts URL, target directory, image metadata
+- Downloads with progress tracking
+- Stores downloaded images in the storage pool's mount path
+- Reports completion/failure back to control plane
 
-- Added `HostUpdateProgress` interface for progress data
-- Added `fetchHostProgress()` API function
-- Added `useHostUpdateProgress()` hook that polls every 1 second during active updates
-- Updated `useHostsUpdateStatus()` to poll every 3 seconds when any host is updating
+**Files changed:**
+- `agent/limiquantix-node/src/http_server.rs` - Added download handlers
+- `agent/limiquantix-node/Cargo.toml` - Added `once_cell` dependency
 
-**3. `frontend/src/components/ui/ProgressBar.tsx`**
+#### 2. Backend Download Routing (Go)
 
-- Added `info` variant for the update progress bar
+Modified `DownloadManager` to route downloads to nodes:
+- Added `StartDownloadWithPool()` method that finds a node with access to the pool
+- Looks up the storage pool's mount path (NFS, LocalDir, etc.)
+- Makes HTTP POST to node's `/api/v1/images/download` endpoint
+- Polls node for progress updates
+- Updates image record on completion
 
-**4. `backend/internal/server/update_handler.go` - New endpoint**
+**Files changed:**
+- `backend/internal/services/storage/download_manager.go` - Complete rewrite with node routing
+- `backend/internal/services/storage/image_service.go` - Added `ConfigureNodeDownloads()` method
+- `backend/internal/server/server.go` - Wire up daemon pool and pool repo to image service
 
-- Added `GET /api/v1/updates/hosts/{nodeId}/progress` endpoint
-- Routes to `handleHostProgress()` handler
+#### 3. Frontend Storage Pool Selection (React)
 
-**5. `backend/internal/services/update/service.go` - Progress proxy**
+Updated Image Library's Downloads page to:
+- Show a storage pool selector before downloading
+- Auto-select first available pool
+- Pass `storagePoolId` when calling download API
+- Show which pool images will be downloaded to
 
-- Added `HostUpdateProgress` struct for progress data
-- Added `GetHostUpdateProgress()` function that proxies to QHCI's `/api/v1/updates/status` endpoint
-- Added `updateHostStateFromProgress()` to sync local state with host status
+**Files changed:**
+- `frontend/src/pages/images/DownloadsPage.tsx` - Added pool selector and routing
 
-### Architecture
+### Architecture After Fix
 
 ```
-QvDC Dashboard (React)
-    │
-    ├─ Settings.tsx → HostUpdateCard
-    │   └─ useHostUpdateProgress(nodeId, enabled)
-    │       └─ Poll every 1s during update
-    │
-    └─ GET /api/v1/updates/hosts/{nodeId}/progress
-            │
-            └─ Go Backend (update_handler.go)
-                └─ GetHostUpdateProgress()
-                    │
-                    └─ Proxy to QHCI: GET https://{host}:8443/api/v1/updates/status
-                            │
-                            └─ Returns: { status, message, progress: { currentComponent, downloadedBytes, totalBytes, percentage } }
+Frontend → Backend (DownloadImage RPC with poolId)
+                    ↓
+                Backend looks up pool → finds mount path & assigned nodes
+                    ↓
+                Backend calls Node Daemon HTTP: POST /api/v1/images/download
+                    ↓
+                Node Daemon downloads to: {pool_mount_path}/cloud-images/{catalogId}.qcow2
+                    ↓
+                Node reports progress → Backend updates job status
+                    ↓
+                On completion → Image marked READY with correct path
 ```
 
-### How It Works
+### Testing Required
 
-1. User clicks "Update" on a host card
-2. `applyHostUpdate()` triggers the update on QHCI
-3. HostUpdateCard detects `status === 'downloading' || 'applying'`
-4. Enables `useHostUpdateProgress()` hook which polls every 1 second
-5. Progress bar and status message update in real-time
-6. When status becomes `idle` or `complete`, polling stops
+1. **Create NFS storage pool** in the UI (if not already done)
+2. **Go to Image Library → Downloads**
+3. **Select the NFS pool** in the dropdown
+4. **Download a cloud image** (e.g., Debian 12)
+5. **Verify on NFS server**: `ls -la /srv/nfs/qVDS01/cloud-images/`
+6. **Create VM** using the downloaded image
+7. **Verify VM boots** with the cloud image
+
+### Known Limitations
+
+- Download progress polling is basic (2-second intervals)
+- No retry logic for failed node connections
+- Checksum verification is stubbed out (TODO: implement SHA256)
 
 ---
 
-## Previous Task: Fix QHCI Update System (Completed)
+## Progress Log
 
-The tar.gz extraction bug and self-restart issues were fixed in the previous session.
-See git history for details.
+### Step 1: Analysis Complete
+- Identified that `download_manager.go` downloads locally
+- `DownloadImage` RPC receives `storagePoolId` but doesn't use it
+- Node Daemon had no image download capability
+
+### Step 2: Node Daemon Endpoint
+- Added download job tracking with `once_cell::Lazy`
+- Implemented background download with progress
+- Integrated with iso_manager for metadata tracking
+
+### Step 3: Backend Routing
+- Rewrote `DownloadManager` with `StartDownloadWithPool()`
+- Added pool lookup and mount path resolution
+- Added node HTTP client calls
+
+### Step 4: Frontend Integration
+- Added `useStoragePools` hook to DownloadsPage
+- Added pool selector UI component
+- Pass `storagePoolId` in download request
+
+### Step 5: Ready for Testing
+- Code compiles (Rust with `--no-default-features`, Go)
+- No linter errors in frontend
+- Documentation updated

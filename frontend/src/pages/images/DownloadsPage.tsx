@@ -11,6 +11,7 @@ import {
   Info,
   Server,
   Database,
+  HardDrive,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -24,6 +25,7 @@ import {
   type CloudImage,
   type DownloadProgress,
 } from '@/hooks/useImages';
+import { useStoragePools } from '@/hooks/useStoragePools';
 import { toast } from 'sonner';
 
 // Track download jobs by image ID
@@ -72,8 +74,20 @@ export function DownloadsPage() {
   const [distroFilter, setDistroFilter] = useState<string>('all');
   const [downloadJobs, setDownloadJobs] = useState<DownloadJob[]>([]);
   const [downloadProgress, setDownloadProgress] = useState<Map<string, DownloadProgress>>(new Map());
+  const [selectedPoolId, setSelectedPoolId] = useState<string>('');
 
   const downloadImage = useDownloadImage();
+  const { data: storagePools, isLoading: poolsLoading } = useStoragePools();
+  
+  // Auto-select first available storage pool
+  useEffect(() => {
+    if (!selectedPoolId && storagePools && storagePools.length > 0) {
+      const readyPools = storagePools.filter(p => p.status.phase === 'READY');
+      if (readyPools.length > 0) {
+        setSelectedPoolId(readyPools[0].id);
+      }
+    }
+  }, [storagePools, selectedPoolId]);
 
   // Get all catalog IDs to check their status
   const catalogIds = useMemo(() => CLOUD_IMAGE_CATALOG.map(img => img.id), []);
@@ -134,8 +148,17 @@ export function DownloadsPage() {
       return;
     }
 
+    // Warn if no storage pool selected
+    if (!selectedPoolId) {
+      toast.warning('Please select a storage pool for the download');
+      return;
+    }
+
     try {
-      const result = await downloadImage.mutateAsync({ catalogId: image.id });
+      const result = await downloadImage.mutateAsync({ 
+        catalogId: image.id,
+        storagePoolId: selectedPoolId,
+      });
       if (result.jobId) {
         setDownloadJobs(prev => [...prev, {
           jobId: result.jobId,
@@ -147,7 +170,8 @@ export function DownloadsPage() {
           next.set(image.id, { progressPercent: 0, bytesDownloaded: 0, bytesTotal: 0 });
           return next;
         });
-        toast.success('Download started!');
+        const poolName = storagePools?.find(p => p.id === selectedPoolId)?.name || selectedPoolId;
+        toast.success(`Download started to ${poolName}!`);
         refetchStatus();
       }
     } catch (err) {
@@ -217,6 +241,36 @@ export function DownloadsPage() {
             </span>
           )}
         </div>
+      </div>
+
+      {/* Download Target - Storage Pool Selector */}
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-bg-surface border border-border">
+        <HardDrive className="w-5 h-5 text-text-muted" />
+        <span className="text-sm text-text-secondary">Download to:</span>
+        <select
+          value={selectedPoolId}
+          onChange={(e) => setSelectedPoolId(e.target.value)}
+          disabled={poolsLoading || !storagePools?.length}
+          className="px-3 py-2 bg-bg-elevated border border-border rounded-lg text-sm text-text-primary focus:border-accent focus:outline-none flex-1 max-w-xs"
+        >
+          {poolsLoading ? (
+            <option value="">Loading pools...</option>
+          ) : !storagePools?.length ? (
+            <option value="">No storage pools available</option>
+          ) : (
+            <>
+              <option value="">Select a storage pool</option>
+              {storagePools.filter(p => p.status.phase === 'READY').map(pool => (
+                <option key={pool.id} value={pool.id}>
+                  {pool.name} ({formatImageSize(Number(pool.status.capacity.availableBytes))} available)
+                </option>
+              ))}
+            </>
+          )}
+        </select>
+        {!selectedPoolId && !poolsLoading && storagePools?.length === 0 && (
+          <span className="text-xs text-warning">Create a storage pool first to download images</span>
+        )}
       </div>
 
       {/* Filters */}

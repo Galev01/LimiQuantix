@@ -25,6 +25,7 @@ mod cli;
 mod config;
 mod event_store;
 mod http_server;
+mod iso_manager;
 mod registration;
 mod server;
 mod service;

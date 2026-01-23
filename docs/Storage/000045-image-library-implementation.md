@@ -345,7 +345,27 @@ Added to sidebar under Storage section:
 
 ## Download Manager (Backend)
 
-The backend includes a `DownloadManager` for tracking download jobs:
+The backend includes a `DownloadManager` for tracking download jobs. Downloads are routed to Node Daemons based on the selected storage pool.
+
+### Download Flow
+
+```
+Frontend                    Backend                     Node Daemon
+   │                          │                            │
+   │ DownloadImage(poolId) ─►│                            │
+   │                          │ Look up pool mount path   │
+   │                          │ Find node with pool access│
+   │                          │                            │
+   │                          │ POST /images/download ───►│
+   │                          │                            │ Download to mount path
+   │                          │ Poll for progress         │
+   │◄── Progress updates ────│◄─── Job status ───────────│
+   │                          │                            │
+   │◄── Download complete ───│◄─── Completed ────────────│
+   │                          │ Update Image record       │
+```
+
+### Download Job Structure
 
 ```go
 // backend/internal/services/storage/download_manager.go
@@ -356,6 +376,8 @@ type DownloadJob struct {
     URL             string
     TargetPath      string
     NodeID          string
+    PoolID          string  // Storage pool where image lands
+    RemoteJobID     string  // Job ID on the node daemon
     Status          string  // pending, downloading, completed, failed
     ProgressPercent uint32
     BytesDownloaded uint64
@@ -416,9 +438,12 @@ fn detect_os_from_filename(filename: &str) -> DetectedOs {
 ## Future Enhancements
 
 1. ~~**Image Download in UI**~~ ✅ Completed
-2. **Image Conversion** - Convert VMDK/VHD to QCOW2 automatically
-3. **Image Checksums** - Verify downloaded images against SHA256
-4. **Shared Storage** - Distribute images across Ceph/NFS automatically
+2. ~~**Storage Pool Routing**~~ ✅ Completed (2026-01-23)
+   - Downloads now route to nodes via the Node Daemon
+   - Images land on NFS/local storage pools, not control plane
+   - Frontend allows selecting target storage pool
+3. **Image Conversion** - Convert VMDK/VHD to QCOW2 automatically
+4. **Image Checksums** - Verify downloaded images against SHA256
 5. **Image Templates** - Create templates from existing VMs
 6. **Windows Images** - Support Windows Server with Sysprep/Cloudbase-Init
 

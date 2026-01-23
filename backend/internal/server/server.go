@@ -310,6 +310,11 @@ func (s *Server) initServices() {
 	s.poolService = storageservice.NewPoolService(s.storagePoolRepo, s.daemonPool, s.nodeRepo, s.logger)
 	s.volumeService = storageservice.NewVolumeService(s.volumeRepo, s.storagePoolRepo, s.logger)
 
+	// Configure image service to route downloads to nodes
+	if s.daemonPool != nil && s.storagePoolRepo != nil {
+		s.imageService.ConfigureNodeDownloads(s.daemonPool, s.storagePoolRepo)
+	}
+
 	// Folder service (requires PostgreSQL)
 	if s.folderRepo != nil {
 		s.folderService = folderservice.NewService(s.folderRepo, s.logger)
