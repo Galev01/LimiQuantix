@@ -42,7 +42,7 @@ pub use ab_update::{ABUpdateManager, ABUpdateState, Slot};
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, error, instrument};
+use tracing::{info, warn, error, instrument};
 use anyhow::{Result, Context};
 
 /// Current versions of installed components
@@ -184,7 +184,7 @@ impl UpdateManager {
             }
         }
         
-        tracing::warn!("Could not detect OS version, using fallback");
+        warn!("Could not detect OS version, using fallback");
         "0.0.1".to_string()
     }
 
