@@ -327,8 +327,24 @@ impl UpdateManager {
         }
 
         // Apply all downloaded artifacts
+        // IMPORTANT: Apply qx-node LAST because it restarts the service and kills the process
+        // Sort components so qx-node is applied after everything else
+        let mut sorted_artifacts: Vec<_> = artifacts.into_iter().collect();
+        sorted_artifacts.sort_by(|(a, _), (b, _)| {
+            // qx-node should be last (highest priority number)
+            let priority = |name: &str| -> u8 {
+                match name {
+                    "qx-node" => 99,  // Apply last - restarts service
+                    "qx-console" => 50,
+                    "host-ui" => 10,   // Apply first - no restart needed
+                    _ => 25,
+                }
+            };
+            priority(&a.name).cmp(&priority(&b.name))
+        });
+
         let applier = self.applier.read().await;
-        for (component, artifact_path) in artifacts {
+        for (component, artifact_path) in sorted_artifacts {
             info!(component = %component.name, "Applying component update");
             
             applier.apply_component(&component, &artifact_path).await

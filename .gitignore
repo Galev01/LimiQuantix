@@ -36,3 +36,5 @@ target/
 dist/
 
 agent/limiquantix-proto/src/generated/
+
+update-server/releases/

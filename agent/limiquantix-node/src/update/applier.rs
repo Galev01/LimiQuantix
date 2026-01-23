@@ -355,10 +355,40 @@ impl UpdateApplier {
     }
 
     /// Restart an OpenRC service
+    /// 
+    /// For qx-node (self), we spawn a detached process that waits briefly then restarts,
+    /// allowing this process to exit cleanly before the restart happens.
     #[instrument(skip(self))]
     async fn restart_service(&self, service: &str) -> Result<()> {
         info!(service = %service, "Restarting service");
 
+        if service == "quantix-node" {
+            // Special handling for self-restart: spawn a detached script that
+            // waits for us to exit, then restarts the service
+            info!(service = %service, "Scheduling delayed self-restart");
+            
+            // Create a small script that waits then restarts
+            let script = format!(
+                "sleep 2 && rc-service {} restart",
+                service
+            );
+            
+            // Spawn detached using nohup and &
+            let _ = Command::new("sh")
+                .args(["-c", &format!("nohup sh -c '{}' >/dev/null 2>&1 &", script)])
+                .spawn();
+            
+            info!(service = %service, "Delayed restart scheduled, exiting gracefully");
+            
+            // Give the spawn a moment to start
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            
+            // Exit the current process gracefully so the restart can happen
+            // The update is complete at this point
+            std::process::exit(0);
+        }
+
+        // For other services, restart normally
         let output = Command::new("rc-service")
             .args([service, "restart"])
             .output()
