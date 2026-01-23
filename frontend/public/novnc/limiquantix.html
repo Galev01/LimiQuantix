@@ -848,8 +848,9 @@
         const vmName = params.get('vmName') || 'Virtual Machine';
         const token = params.get('token');
 
-        // API base URL - detect from current location
-        const API_BASE = `${window.location.protocol}//${window.location.hostname}:8080/api`;
+        // API base URL - use same origin (nginx proxies /api to controlplane)
+        // This works in production (nginx on 443) and dev (vite proxy on 5174)
+        const API_BASE = `${window.location.origin}/api`;
 
         // DOM elements
         const elVmName = document.getElementById('vmName');
@@ -968,12 +969,12 @@
             }
         }
 
-        // Build WebSocket URL
+        // Build WebSocket URL - use same origin (nginx proxies WebSocket to controlplane)
         function getWebSocketUrl() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.hostname;
-            const port = 8080;
-            return `${protocol}//${host}:${port}/api/console/${vmId}/ws`;
+            // Use the same host:port as the page (nginx handles the proxy)
+            const hostPort = window.location.host; // includes port if non-standard
+            return `${protocol}//${hostPort}/api/console/${vmId}/ws`;
         }
 
         // Update status

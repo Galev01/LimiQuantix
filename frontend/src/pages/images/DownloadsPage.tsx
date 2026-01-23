@@ -25,7 +25,7 @@ import {
   type CloudImage,
   type DownloadProgress,
 } from '@/hooks/useImages';
-import { useStoragePools } from '@/hooks/useStoragePools';
+import { useStoragePools, type StoragePoolUI } from '@/hooks/useStorage';
 import { toast } from 'sonner';
 
 // Track download jobs by image ID
@@ -82,7 +82,7 @@ export function DownloadsPage() {
   // Auto-select first available storage pool
   useEffect(() => {
     if (!selectedPoolId && storagePools && storagePools.length > 0) {
-      const readyPools = storagePools.filter(p => p.status.phase === 'READY');
+      const readyPools = storagePools.filter((p: StoragePoolUI) => p.status.phase === 'READY');
       if (readyPools.length > 0) {
         setSelectedPoolId(readyPools[0].id);
       }
@@ -170,7 +170,7 @@ export function DownloadsPage() {
           next.set(image.id, { progressPercent: 0, bytesDownloaded: 0, bytesTotal: 0 });
           return next;
         });
-        const poolName = storagePools?.find(p => p.id === selectedPoolId)?.name || selectedPoolId;
+        const poolName = storagePools?.find((p: StoragePoolUI) => p.id === selectedPoolId)?.name || selectedPoolId;
         toast.success(`Download started to ${poolName}!`);
         refetchStatus();
       }
@@ -260,9 +260,9 @@ export function DownloadsPage() {
           ) : (
             <>
               <option value="">Select a storage pool</option>
-              {storagePools.filter(p => p.status.phase === 'READY').map(pool => (
+              {storagePools.filter((p: StoragePoolUI) => p.status.phase === 'READY').map((pool: StoragePoolUI) => (
                 <option key={pool.id} value={pool.id}>
-                  {pool.name} ({formatImageSize(Number(pool.status.capacity.availableBytes))} available)
+                  {pool.name} ({formatImageSize(Number(pool.capacity.availableBytes))} available)
                 </option>
               ))}
             </>

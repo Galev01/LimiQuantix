@@ -4,8 +4,8 @@
 server:
   host: "0.0.0.0"
   port: 8080
-  read_timeout: 30s
-  write_timeout: 30s
+  read_timeout: 3600s   # 1 hour for large ISO uploads
+  write_timeout: 3600s  # 1 hour for large file operations
   shutdown_timeout: 10s
 
 database:

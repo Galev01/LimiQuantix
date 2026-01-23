@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex};
 
 use once_cell::sync::Lazy;
 use futures::StreamExt;
+use tokio::io::AsyncWriteExt;
 
 use axum::{
     Router,
@@ -4739,7 +4740,6 @@ async fn download_cloud_image(
     Json(request): Json<DownloadCloudImageRequest>,
 ) -> Result<Json<DownloadCloudImageResponse>, (StatusCode, Json<ApiError>)> {
     use tokio::fs;
-    use tokio::io::AsyncWriteExt;
     
     info!(
         url = %request.url,

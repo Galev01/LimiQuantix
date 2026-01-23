@@ -177,8 +177,8 @@ func setDefaults(v *viper.Viper) {
 	// Server
 	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("server.port", 8080)
-	v.SetDefault("server.read_timeout", "30s")
-	v.SetDefault("server.write_timeout", "30s")
+	v.SetDefault("server.read_timeout", "3600s")  // 1 hour for large ISO uploads
+	v.SetDefault("server.write_timeout", "3600s") // 1 hour for large file operations
 	v.SetDefault("server.shutdown_timeout", "10s")
 
 	// Database
