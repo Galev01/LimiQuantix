@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // UpdateType represents the type of update
@@ -242,6 +243,9 @@ type Service struct {
 	config Config
 	logger *zap.Logger
 
+	// Update log path
+	updateLogPath string
+
 	// Current vDC state
 	vdcState   UpdateState
 	vdcStateMu sync.RWMutex
@@ -288,6 +292,9 @@ func NewService(config Config, logger *zap.Logger) *Service {
 		config.DataDir = "/var/lib/quantix-vdc/updates"
 	}
 
+	// Default update log path
+	updateLogPath := "/var/log/quantix-vdc/update.log"
+
 	// Create data directories
 	os.MkdirAll(filepath.Join(config.DataDir, "staging"), 0755)
 	os.MkdirAll(filepath.Join(config.DataDir, "backup"), 0755)
@@ -318,6 +325,7 @@ func NewService(config Config, logger *zap.Logger) *Service {
 			Timeout:   30 * time.Second,
 			Transport: hostTransport,
 		},
+		updateLogPath: updateLogPath,
 	}
 
 	// Verify if this startup is after an update
@@ -482,13 +490,31 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 		// For now, we'll keep it enabled until the service actually restarts or we manually disable on error
 	}()
 
+	// Setup dedicated update log
+	ul, err := s.setupUpdateLog()
+	if err != nil {
+		s.logger.Warn("Failed to setup update log file", zap.Error(err))
+		// Fallback to main logger if file fails
+		ul = s.logger
+	} else {
+		s.logger.Info("Logging detailed update progress to file", zap.String("path", s.updateLogPath))
+	}
+
 	totalComponents := len(manifest.Components)
 	s.setVDCStatus(StatusDownloading, "")
 	s.setVDCProgress(0, "", fmt.Sprintf("Starting update to v%s...", manifest.Version))
 
-	s.logger.Info("Starting vDC update sequence",
+	// Log manifest details
+	ul.Info("================================================================================")
+	ul.Info("STARTING UPDATE",
 		zap.String("target_version", manifest.Version),
-		zap.Int("components", totalComponents),
+		zap.String("current_version", s.vdcVersion),
+		zap.Time("timestamp", time.Now()),
+	)
+	ul.Info("Manifest Details",
+		zap.String("release_notes", manifest.ReleaseNotes),
+		zap.String("release_date", manifest.ReleaseDate.String()),
+		zap.Int("component_count", totalComponents),
 	)
 
 	// Track if any component requires DB migration
@@ -513,7 +539,7 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 			migrationComponent = component.Name
 		}
 
-		if err := s.downloadAndApplyComponent(ctx, manifest, component, func(phase string, phaseProgress float64) {
+		if err := s.downloadAndApplyComponent(ctx, manifest, component, ul, func(phase string, phaseProgress float64) {
 			// phaseProgress is 0-100 within the phase
 			var actualProgress float64
 			var message string
@@ -1147,8 +1173,8 @@ func (s *Service) fetchManifest(ctx context.Context, product string) (*Manifest,
 // ProgressCallback is called during update phases with phase name and progress (0-100)
 type ProgressCallback func(phase string, progress float64)
 
-func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manifest, component Component, onProgress ProgressCallback) error {
-	s.logger.Info("Processing component update",
+func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manifest, component Component, logger *zap.Logger, onProgress ProgressCallback) error {
+	logger.Info("Processing component update",
 		zap.String("component", component.Name),
 		zap.String("version", component.Version),
 		zap.String("install_path", component.InstallPath),
@@ -1161,7 +1187,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 	stagingPath := filepath.Join(s.config.DataDir, "staging", component.Artifact)
 
 	// Download with progress tracking
-	if err := s.downloadFileWithProgress(ctx, artifactURL, stagingPath, component.SizeBytes, func(progress float64) {
+	if err := s.downloadFileWithProgress(ctx, artifactURL, stagingPath, component.SizeBytes, logger, func(progress float64) {
 		if onProgress != nil {
 			onProgress("downloading", progress)
 		}
@@ -1177,9 +1203,13 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 		}
 		if actualHash != component.SHA256 {
 			os.Remove(stagingPath)
+			logger.Error("Hash mismatch",
+				zap.String("expected", component.SHA256),
+				zap.String("actual", actualHash),
+			)
 			return fmt.Errorf("hash mismatch: expected %s, got %s", component.SHA256, actualHash)
 		}
-		s.logger.Info("SHA256 verified", zap.String("component", component.Name))
+		logger.Info("SHA256 verified", zap.String("component", component.Name))
 	}
 
 	// Extract phase
@@ -1196,14 +1226,14 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 
 		if isDirectoryInstall {
 			// Extract tar.gz to directory
-			s.logger.Info("Extracting to directory",
+			logger.Info("Extracting to directory",
 				zap.String("component", component.Name),
 				zap.String("dest", component.InstallPath),
 			)
 
 			// Remove old directory contents and recreate
 			if err := os.RemoveAll(component.InstallPath); err != nil {
-				s.logger.Warn("Failed to remove old directory", zap.Error(err))
+				logger.Warn("Failed to remove old directory", zap.Error(err))
 			}
 			if err := os.MkdirAll(component.InstallPath, 0755); err != nil {
 				return fmt.Errorf("failed to create install directory: %w", err)
@@ -1218,7 +1248,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 			}
 		} else {
 			// Extract tar.gz and find the binary inside
-			s.logger.Info("Extracting binary",
+			logger.Info("Extracting binary",
 				zap.String("component", component.Name),
 				zap.String("dest", component.InstallPath),
 			)
@@ -1260,7 +1290,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 				backupPath := filepath.Join(s.config.DataDir, "backup", filepath.Base(component.InstallPath))
 				os.MkdirAll(filepath.Dir(backupPath), 0755)
 				if err := copyFile(component.InstallPath, backupPath); err != nil {
-					s.logger.Warn("Failed to backup existing file", zap.Error(err))
+					logger.Warn("Failed to backup existing file", zap.Error(err))
 				}
 			}
 
@@ -1358,7 +1388,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 			}
 		}(component.RestartService, component.Name, component.Version)
 
-		s.logger.Info("Service restart scheduled (will execute in 2.5 seconds)", zap.String("service", component.RestartService))
+		logger.Info("Service restart scheduled (will execute in 2.5 seconds)", zap.String("service", component.RestartService))
 	}
 
 	// Cleanup
@@ -1427,8 +1457,8 @@ func (s *Service) downloadFile(ctx context.Context, url, destPath string) error 
 }
 
 // downloadFileWithProgress downloads a file with progress tracking
-func (s *Service) downloadFileWithProgress(ctx context.Context, url, destPath string, expectedSize int64, onProgress func(float64)) error {
-	s.logger.Info("Starting file download with progress",
+func (s *Service) downloadFileWithProgress(ctx context.Context, url, destPath string, expectedSize int64, logger *zap.Logger, onProgress func(float64)) error {
+	logger.Info("Starting file download with progress",
 		zap.String("url", url),
 		zap.String("dest", destPath),
 		zap.Int64("expected_size", expectedSize),
@@ -1724,6 +1754,28 @@ func (s *Service) runMigrations(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// setupUpdateLog creates a logger that writes to the dedicated update log file
+func (s *Service) setupUpdateLog() (*zap.Logger, error) {
+	// Ensure log directory exists
+	if err := os.MkdirAll(filepath.Dir(s.updateLogPath), 0755); err != nil {
+		return nil, fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	// Configure logging
+	cfg := zap.NewProductionConfig()
+	cfg.OutputPaths = []string{s.updateLogPath}
+	cfg.ErrorOutputPaths = []string{s.updateLogPath}
+	cfg.EncoderConfig.TimeKey = "time"
+	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	logger, err := cfg.Build()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build logger: %w", err)
+	}
+
+	return logger, nil
 }
 
 // extractTarGz extracts a .tar.gz file to the specified destination directory

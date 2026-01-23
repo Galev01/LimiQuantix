@@ -377,9 +377,9 @@ for component in "${!ARTIFACTS[@]}"; do
     # Determine install path and service
     case "$component" in
         controlplane)
-            install_path="/usr/bin/quantix-controlplane"
+            install_path="/usr/bin/qx-controlplane"
             restart_service="quantix-controlplane"
-            requires_db_migration="true"
+            requires_db_migration="false"
             ;;
         dashboard)
             install_path="/usr/share/quantix-vdc/dashboard"
