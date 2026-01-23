@@ -35,6 +35,7 @@ import {
   AlertTriangle,
   GitBranch,
   List,
+  Disc,
 } from 'lucide-react';
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -61,8 +62,12 @@ import { VMMonitoringCharts } from '@/components/vm/VMMonitoringCharts';
 import { EditBootOptionsModal } from '@/components/vm/EditBootOptionsModal';
 import { EditDisplaySettingsModal } from '@/components/vm/EditDisplaySettingsModal';
 import { EditHAPolicyModal } from '@/components/vm/EditHAPolicyModal';
+import { EditGuestAgentModal } from '@/components/vm/EditGuestAgentModal';
+import { EditProvisioningModal, detectCloudInit } from '@/components/vm/EditProvisioningModal';
+import { EditAdvancedOptionsModal } from '@/components/vm/EditAdvancedOptionsModal';
+import { CDROMModal, type CDROMDevice } from '@/components/vm/CDROMModal';
 import { type VirtualMachine, type PowerState } from '@/types/models';
-import { useVM, useStartVM, useStopVM, useRebootVM, usePauseVM, useResumeVM, useSuspendVM, useDeleteVM, useUpdateVM, useAttachDisk, useDetachDisk, useResizeDisk, useAttachNIC, useDetachNIC, useVMEvents, type ApiVM } from '@/hooks/useVMs';
+import { useVM, useStartVM, useStopVM, useRebootVM, usePauseVM, useResumeVM, useSuspendVM, useDeleteVM, useUpdateVM, useAttachDisk, useDetachDisk, useResizeDisk, useAttachNIC, useDetachNIC, useVMEvents, useAttachCDROM, useDetachCDROM, useMountISO, useEjectISO, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { useSnapshots, useCreateSnapshot, useRevertToSnapshot, useDeleteSnapshot, formatSnapshotSize, type ApiSnapshot } from '@/hooks/useSnapshots';
 import { showInfo } from '@/lib/toast';
@@ -152,6 +157,10 @@ export function VMDetail() {
   const [isBootOptionsModalOpen, setIsBootOptionsModalOpen] = useState(false);
   const [isDisplaySettingsModalOpen, setIsDisplaySettingsModalOpen] = useState(false);
   const [isHAPolicyModalOpen, setIsHAPolicyModalOpen] = useState(false);
+  const [isGuestAgentModalOpen, setIsGuestAgentModalOpen] = useState(false);
+  const [isProvisioningModalOpen, setIsProvisioningModalOpen] = useState(false);
+  const [isAdvancedOptionsModalOpen, setIsAdvancedOptionsModalOpen] = useState(false);
+  const [isCDROMModalOpen, setIsCDROMModalOpen] = useState(false);
 
   // API connection and data
   const { data: isConnected = false } = useApiConnection();
@@ -182,6 +191,12 @@ export function VMDetail() {
   const attachNIC = useAttachNIC();
   const detachNIC = useDetachNIC();
   
+  // CD-ROM hooks
+  const attachCDROM = useAttachCDROM();
+  const detachCDROM = useDetachCDROM();
+  const mountISO = useMountISO();
+  const ejectISO = useEjectISO();
+  
   // Events
   const { data: eventsData } = useVMEvents(id || '', { enabled: !!isConnected && !!id, limit: 50 });
 
@@ -192,6 +207,7 @@ export function VMDetail() {
   const isSnapshotActionPending = createSnapshot.isPending || revertToSnapshot.isPending || deleteSnapshot.isPending;
   const isDiskActionPending = attachDisk.isPending || detachDisk.isPending || resizeDisk.isPending;
   const isNICActionPending = attachNIC.isPending || detachNIC.isPending;
+  const isCDROMActionPending = attachCDROM.isPending || detachCDROM.isPending || mountISO.isPending || ejectISO.isPending;
 
   // Action handlers
   const handleStart = async () => {
@@ -445,6 +461,86 @@ export function VMDetail() {
         },
       },
     });
+  };
+
+  const handleSaveGuestAgent = async (settings: { freezeOnSnapshot: boolean; timeSync: boolean }) => {
+    if (!id || !apiVm) return;
+    await updateVM.mutateAsync({
+      id,
+      spec: {
+        ...apiVm.spec,
+        guestAgent: {
+          ...apiVm.spec?.guestAgent,
+          freezeOnSnapshot: settings.freezeOnSnapshot,
+          timeSync: settings.timeSync,
+        },
+      },
+    });
+  };
+
+  const handleSaveProvisioning = async (settings: { enabled: boolean; hostname: string; sshKeys: string[]; userData: string; networkConfig: string }) => {
+    if (!id || !apiVm) return;
+    await updateVM.mutateAsync({
+      id,
+      spec: {
+        ...apiVm.spec,
+        cloudInit: settings.enabled ? {
+          hostname: settings.hostname,
+          sshKeys: settings.sshKeys,
+          userData: settings.userData,
+          networkConfig: settings.networkConfig,
+        } : undefined,
+      },
+    });
+  };
+
+  const handleSaveAdvancedOptions = async (options: { hardwareVersion: string; machineType: string; rtcBase: string; watchdog: string; rngEnabled: boolean }) => {
+    if (!id || !apiVm) return;
+    await updateVM.mutateAsync({
+      id,
+      spec: {
+        ...apiVm.spec,
+        advanced: {
+          hardwareVersion: options.hardwareVersion,
+          machineType: options.machineType,
+          rtcBase: options.rtcBase,
+          watchdog: options.watchdog,
+          rngEnabled: options.rngEnabled,
+        },
+      },
+    });
+  };
+
+  // CD-ROM handlers
+  const handleAttachCDROM = async () => {
+    if (!id) return;
+    await attachCDROM.mutateAsync({ vmId: id });
+  };
+
+  const handleDetachCDROM = async (cdromId: string) => {
+    if (!id) return;
+    await detachCDROM.mutateAsync({ vmId: id, cdromId });
+  };
+
+  const handleMountISO = async (cdromId: string, isoPath: string) => {
+    if (!id) return;
+    await mountISO.mutateAsync({ vmId: id, cdromId, isoPath });
+  };
+
+  const handleEjectISO = async (cdromId: string) => {
+    if (!id) return;
+    await ejectISO.mutateAsync({ vmId: id, cdromId });
+  };
+
+  // Get CD-ROM devices from VM spec
+  const getCDROMDevices = (): CDROMDevice[] => {
+    if (!apiVm?.spec?.cdroms) return [];
+    return apiVm.spec.cdroms.map((cdrom: any, index: number) => ({
+      id: cdrom.id || `cdrom-${index}`,
+      name: cdrom.name || `CD-ROM ${index + 1}`,
+      mountedIso: cdrom.isoPath,
+      isoName: cdrom.isoPath?.split('/').pop(),
+    }));
   };
 
   // Generate dropdown menu items
@@ -707,7 +803,7 @@ export function VMDetail() {
                   <HardwareCard
                     icon={<HardDrive className="w-5 h-5" />}
                     label="Storage"
-                    value={`${vm.spec.disks.reduce((a, d) => a + d.sizeGib, 0)} GB`}
+                    value={`${vm.spec.disks.reduce((a, d) => a + Number(d.sizeGib), 0)} GB`}
                     subvalue={`${vm.spec.disks.length} disk(s)`}
                   />
                   <HardwareCard
@@ -1363,14 +1459,14 @@ export function VMDetail() {
                   <Activity className="w-5 h-5 text-accent" />
                   Guest Agent (QEMU Agent)
                 </h3>
-                <Button variant="secondary" size="sm">Edit</Button>
+                <Button variant="secondary" size="sm" onClick={() => setIsGuestAgentModalOpen(true)}>Edit</Button>
               </div>
               <div className="space-y-3">
                 <ConfigRow label="Status" value={vm.status.guestInfo.agentVersion ? 'Connected' : 'Not Connected'} />
                 <ConfigRow label="Agent Version" value={vm.status.guestInfo.agentVersion || '—'} />
-                <ConfigRow label="Communication" value="virtio-serial" />
-                <ConfigRow label="Freeze on Snapshot" value="Enabled" />
-                <ConfigRow label="Time Sync" value="Enabled" />
+                <ConfigRow label="Communication" value={apiVm?.spec?.guestAgent?.communication || 'virtio-serial'} />
+                <ConfigRow label="Freeze on Snapshot" value={apiVm?.spec?.guestAgent?.freezeOnSnapshot !== false ? 'Enabled' : 'Disabled'} />
+                <ConfigRow label="Time Sync" value={apiVm?.spec?.guestAgent?.timeSync !== false ? 'Enabled' : 'Disabled'} />
               </div>
             </div>
 
@@ -1381,15 +1477,24 @@ export function VMDetail() {
                   <Settings className="w-5 h-5 text-accent" />
                   Provisioning (Cloud-Init)
                 </h3>
-                <Button variant="secondary" size="sm">Edit</Button>
+                <Button variant="secondary" size="sm" onClick={() => setIsProvisioningModalOpen(true)}>Edit</Button>
               </div>
-              <div className="space-y-3">
-                <ConfigRow label="Cloud-Init" value="Enabled" />
-                <ConfigRow label="Hostname" value={vm.status.guestInfo.hostname || vm.name} />
-                <ConfigRow label="SSH Key" value="Configured" />
-                <ConfigRow label="User Data" value="Custom script" />
-                <ConfigRow label="Network Config" value="DHCP" />
-              </div>
+              {apiVm && detectCloudInit(apiVm).hasCloudInit ? (
+                <div className="space-y-3">
+                  <ConfigRow label="Cloud-Init" value="Enabled" />
+                  <ConfigRow label="Hostname" value={apiVm?.spec?.cloudInit?.hostname || vm.name} />
+                  <ConfigRow label="SSH Key" value={apiVm?.spec?.cloudInit?.sshKeys?.length ? 'Configured' : 'Not configured'} />
+                  <ConfigRow label="User Data" value={apiVm?.spec?.cloudInit?.userData ? 'Custom script' : 'None'} />
+                  <ConfigRow label="Network Config" value={apiVm?.spec?.cloudInit?.networkConfig || 'DHCP'} />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <ConfigRow label="Cloud-Init" value="Not configured" />
+                  <p className="text-xs text-text-muted mt-2">
+                    This VM was not created from a cloud image. Cloud-init provisioning is not available.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* High Availability */}
@@ -1417,14 +1522,38 @@ export function VMDetail() {
                   <Settings className="w-5 h-5 text-accent" />
                   Advanced Options
                 </h3>
-                <Button variant="secondary" size="sm">Edit</Button>
+                <Button variant="secondary" size="sm" onClick={() => setIsAdvancedOptionsModalOpen(true)}>Edit</Button>
               </div>
               <div className="space-y-3">
-                <ConfigRow label="Hardware Version" value="v6" />
-                <ConfigRow label="Machine Type" value="q35" />
-                <ConfigRow label="RTC Base" value="UTC" />
-                <ConfigRow label="Watchdog" value="i6300esb" />
-                <ConfigRow label="RNG Device" value="virtio-rng" />
+                <ConfigRow label="Hardware Version" value={apiVm?.spec?.advanced?.hardwareVersion || 'v6'} />
+                <ConfigRow label="Machine Type" value={apiVm?.spec?.advanced?.machineType || 'q35'} />
+                <ConfigRow label="RTC Base" value={apiVm?.spec?.advanced?.rtcBase || 'UTC'} />
+                <ConfigRow label="Watchdog" value={apiVm?.spec?.advanced?.watchdog || 'i6300esb'} />
+                <ConfigRow label="RNG Device" value={apiVm?.spec?.advanced?.rngEnabled !== false ? 'virtio-rng' : 'Disabled'} />
+              </div>
+            </div>
+
+            {/* CD-ROM Devices */}
+            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <Disc className="w-5 h-5 text-accent" />
+                  CD-ROM Devices
+                </h3>
+                <Button variant="secondary" size="sm" onClick={() => setIsCDROMModalOpen(true)}>Manage</Button>
+              </div>
+              <div className="space-y-3">
+                {getCDROMDevices().length === 0 ? (
+                  <p className="text-sm text-text-muted">No CD-ROM devices attached</p>
+                ) : (
+                  getCDROMDevices().map((cdrom) => (
+                    <ConfigRow 
+                      key={cdrom.id} 
+                      label={cdrom.name} 
+                      value={cdrom.mountedIso ? cdrom.isoName || 'ISO mounted' : 'Empty'} 
+                    />
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -1643,6 +1772,38 @@ export function VMDetail() {
             onClose={() => setIsHAPolicyModalOpen(false)}
             vm={apiVm}
             onSave={handleSaveHAPolicy}
+          />
+          <EditGuestAgentModal
+            isOpen={isGuestAgentModalOpen}
+            onClose={() => setIsGuestAgentModalOpen(false)}
+            vm={apiVm}
+            onSave={handleSaveGuestAgent}
+          />
+          <EditProvisioningModal
+            isOpen={isProvisioningModalOpen}
+            onClose={() => setIsProvisioningModalOpen(false)}
+            vm={apiVm}
+            onSave={handleSaveProvisioning}
+          />
+          <EditAdvancedOptionsModal
+            isOpen={isAdvancedOptionsModalOpen}
+            onClose={() => setIsAdvancedOptionsModalOpen(false)}
+            vm={apiVm}
+            vmState={vm?.status.state || 'STOPPED'}
+            onSave={handleSaveAdvancedOptions}
+          />
+          <CDROMModal
+            isOpen={isCDROMModalOpen}
+            onClose={() => setIsCDROMModalOpen(false)}
+            vmId={id || ''}
+            vmName={vm?.name || ''}
+            vmState={vm?.status.state || 'STOPPED'}
+            currentCDROMs={getCDROMDevices()}
+            onAttachCDROM={handleAttachCDROM}
+            onDetachCDROM={handleDetachCDROM}
+            onMountISO={handleMountISO}
+            onEjectISO={handleEjectISO}
+            isPending={isCDROMActionPending}
           />
         </>
       )}

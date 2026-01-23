@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Monitor, Eye, EyeOff, RefreshCw, Loader2, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
+import { ToggleSwitch } from '@/components/ui/Toggle';
 import { type ApiVM } from '@/hooks/useVMs';
 
 interface EditDisplaySettingsModalProps {
@@ -248,20 +249,10 @@ export function EditDisplaySettingsModal({ isOpen, onClose, vm, onSave }: EditDi
                     <span className="text-sm text-text-primary">Clipboard Sharing</span>
                     <p className="text-xs text-text-muted">Share clipboard between host and VM</p>
                   </div>
-                  <button
-                    onClick={() => setEnableClipboard(!enableClipboard)}
-                    className={cn(
-                      'w-12 h-6 rounded-full transition-colors relative',
-                      enableClipboard ? 'bg-accent' : 'bg-bg-elevated border border-border'
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform',
-                        enableClipboard ? 'translate-x-6' : 'translate-x-1'
-                      )}
-                    />
-                  </button>
+                  <ToggleSwitch
+                    enabled={enableClipboard}
+                    onChange={setEnableClipboard}
+                  />
                 </label>
 
                 <label className="flex items-center justify-between">
@@ -269,20 +260,10 @@ export function EditDisplaySettingsModal({ isOpen, onClose, vm, onSave }: EditDi
                     <span className="text-sm text-text-primary">Audio Passthrough</span>
                     <p className="text-xs text-text-muted">Enable audio from the VM</p>
                   </div>
-                  <button
-                    onClick={() => setEnableAudio(!enableAudio)}
-                    className={cn(
-                      'w-12 h-6 rounded-full transition-colors relative',
-                      enableAudio ? 'bg-accent' : 'bg-bg-elevated border border-border'
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform',
-                        enableAudio ? 'translate-x-6' : 'translate-x-1'
-                      )}
-                    />
-                  </button>
+                  <ToggleSwitch
+                    enabled={enableAudio}
+                    onChange={setEnableAudio}
+                  />
                 </label>
               </div>
             )}

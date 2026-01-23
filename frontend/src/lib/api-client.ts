@@ -521,6 +521,39 @@ export const vmApi = {
     );
   },
 
+  // CD-ROM operations
+  async attachCDROM(vmId: string): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'AttachCDROM',
+      { vmId }
+    );
+  },
+
+  async detachCDROM(vmId: string, cdromId: string): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'DetachCDROM',
+      { vmId, cdromId }
+    );
+  },
+
+  async mountISO(vmId: string, cdromId: string, isoPath: string): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'MountISO',
+      { vmId, cdromId, isoPath }
+    );
+  },
+
+  async ejectISO(vmId: string, cdromId: string): Promise<ApiVM> {
+    return apiCall<ApiVM>(
+      'limiquantix.compute.v1.VMService',
+      'EjectISO',
+      { vmId, cdromId }
+    );
+  },
+
   // Events
   async listEvents(vmId: string, options?: {
     type?: string;

@@ -465,5 +465,89 @@ export function usePingAgent(vmId: string, enabled = true) {
   });
 }
 
+// ============================================================================
+// CD-ROM Operations
+// ============================================================================
+
+/**
+ * Hook to attach a CD-ROM device to a VM
+ */
+export function useAttachCDROM() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { vmId: string }) =>
+      vmApi.attachCDROM(data.vmId),
+    onSuccess: (vm) => {
+      showSuccess(`CD-ROM device added to "${vm.name}"`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to add CD-ROM device');
+    },
+  });
+}
+
+/**
+ * Hook to detach a CD-ROM device from a VM
+ */
+export function useDetachCDROM() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { vmId: string; cdromId: string }) =>
+      vmApi.detachCDROM(data.vmId, data.cdromId),
+    onSuccess: (vm) => {
+      showSuccess(`CD-ROM device removed from "${vm.name}"`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to remove CD-ROM device');
+    },
+  });
+}
+
+/**
+ * Hook to mount an ISO to a CD-ROM device
+ */
+export function useMountISO() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { vmId: string; cdromId: string; isoPath: string }) =>
+      vmApi.mountISO(data.vmId, data.cdromId, data.isoPath),
+    onSuccess: (vm) => {
+      showSuccess(`ISO mounted to "${vm.name}"`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to mount ISO');
+    },
+  });
+}
+
+/**
+ * Hook to eject an ISO from a CD-ROM device
+ */
+export function useEjectISO() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { vmId: string; cdromId: string }) =>
+      vmApi.ejectISO(data.vmId, data.cdromId),
+    onSuccess: (vm) => {
+      showSuccess(`ISO ejected from "${vm.name}"`);
+      queryClient.setQueryData(vmKeys.detail(vm.id), vm);
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to eject ISO');
+    },
+  });
+}
+
 // Re-export types
 export type { ApiVM, VMListRequest, VMListResponse };

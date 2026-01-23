@@ -10,6 +10,7 @@ import { X, Shield, AlertTriangle, RefreshCw, Loader2, Info } from 'lucide-react
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { ToggleSwitch } from '@/components/ui/Toggle';
 import { type ApiVM } from '@/hooks/useVMs';
 
 interface EditHAPolicyModalProps {
@@ -155,20 +156,10 @@ export function EditHAPolicyModal({ isOpen, onClose, vm, onSave }: EditHAPolicyM
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setEnabled(!enabled)}
-                className={cn(
-                  'w-12 h-6 rounded-full transition-colors relative',
-                  enabled ? 'bg-green-500' : 'bg-bg-elevated border border-border'
-                )}
-              >
-                <span
-                  className={cn(
-                    'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform',
-                    enabled ? 'translate-x-6' : 'translate-x-1'
-                  )}
-                />
-              </button>
+              <ToggleSwitch
+                enabled={enabled}
+                onChange={setEnabled}
+              />
             </div>
 
             {enabled && (

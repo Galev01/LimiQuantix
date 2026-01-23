@@ -26,22 +26,22 @@ export function ResizeDiskModal({
   onResize,
   isPending = false,
 }: ResizeDiskModalProps) {
-  const [newSizeGib, setNewSizeGib] = useState(currentSizeGib + 10);
+  const [newSizeGib, setNewSizeGib] = useState(Number(currentSizeGib) + 10);
 
   const handleClose = () => {
     if (isPending) return;
-    setNewSizeGib(currentSizeGib + 10);
+    setNewSizeGib(Number(currentSizeGib) + 10);
     onClose();
   };
 
   const handleResize = async () => {
-    if (newSizeGib <= currentSizeGib) return;
+    if (newSizeGib <= Number(currentSizeGib)) return;
     await onResize(newSizeGib);
     handleClose();
   };
 
-  const sizeIncrease = newSizeGib - currentSizeGib;
-  const isValid = newSizeGib > currentSizeGib;
+  const sizeIncrease = newSizeGib - Number(currentSizeGib);
+  const isValid = newSizeGib > Number(currentSizeGib);
 
   if (!isOpen) return null;
 
@@ -109,8 +109,8 @@ export function ResizeDiskModal({
               <div className="flex items-center gap-3">
                 <input
                   type="range"
-                  min={currentSizeGib + 1}
-                  max={Math.max(currentSizeGib + 500, 1000)}
+                  min={Number(currentSizeGib) + 1}
+                  max={Math.max(Number(currentSizeGib) + 500, 1000)}
                   value={newSizeGib}
                   onChange={(e) => setNewSizeGib(Number(e.target.value))}
                   className="flex-1 h-2 bg-bg-base rounded-lg appearance-none cursor-pointer"
@@ -118,9 +118,9 @@ export function ResizeDiskModal({
                 <div className="flex items-center gap-1">
                   <input
                     type="number"
-                    min={currentSizeGib + 1}
+                    min={Number(currentSizeGib) + 1}
                     value={newSizeGib}
-                    onChange={(e) => setNewSizeGib(Math.max(currentSizeGib + 1, Number(e.target.value)))}
+                    onChange={(e) => setNewSizeGib(Math.max(Number(currentSizeGib) + 1, Number(e.target.value)))}
                     className="w-20 px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary text-center focus:outline-none focus:ring-2 focus:ring-accent/50"
                   />
                   <span className="text-sm text-text-muted">GiB</span>
@@ -128,7 +128,7 @@ export function ResizeDiskModal({
               </div>
               {isValid && (
                 <p className="text-sm text-success">
-                  +{sizeIncrease} GiB ({((sizeIncrease / currentSizeGib) * 100).toFixed(0)}% increase)
+                  +{sizeIncrease} GiB ({((sizeIncrease / Number(currentSizeGib)) * 100).toFixed(0)}% increase)
                 </p>
               )}
             </div>

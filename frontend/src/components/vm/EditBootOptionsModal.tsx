@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, GripVertical, HardDrive, Disc, Network, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
+import { ToggleSwitch } from '@/components/ui/Toggle';
 import { type ApiVM } from '@/hooks/useVMs';
 
 interface EditBootOptionsModalProps {
@@ -218,20 +219,10 @@ export function EditBootOptionsModal({ isOpen, onClose, vm, onSave }: EditBootOp
                       Only boot signed operating system loaders
                     </p>
                   </div>
-                  <button
-                    onClick={() => setSecureBoot(!secureBoot)}
-                    className={cn(
-                      'w-12 h-6 rounded-full transition-colors relative',
-                      secureBoot ? 'bg-accent' : 'bg-bg-base border border-border'
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform',
-                        secureBoot ? 'translate-x-6' : 'translate-x-1'
-                      )}
-                    />
-                  </button>
+                  <ToggleSwitch
+                    enabled={secureBoot}
+                    onChange={setSecureBoot}
+                  />
                 </label>
               </div>
             )}

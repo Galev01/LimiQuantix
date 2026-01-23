@@ -1,6 +1,6 @@
 # Workflow State
 
-## Active Task: ISO Upload to NFS + UI Improvements
+## Active Task: ISO Upload to NFS + UI Improvements + Storage Packages
 
 **Date:** January 23, 2026
 **Status:** Code Complete - Awaiting Deployment
@@ -10,6 +10,9 @@
 1. **ISO not uploading to NFS** - ISOs save to local QvDC storage instead of NFS pool
 2. **Path not shown in UI** - No way to see where ISOs are stored
 3. **Modal blocking UI** - Upload modal takes over screen, should be background task
+4. **Missing NFS client** - QvDC appliance missing NFS utilities
+5. **NFS permissions** - NFS export needs proper permissions for QvDC to write
+6. **Missing storage packages** - QvDC needs iSCSI, Ceph RBD, and networking tools
 
 ### Changes Made
 
@@ -37,13 +40,56 @@
 - `frontend/src/pages/images/ImageLibraryLayout.tsx` - Shows upload progress toast
 - `frontend/src/components/storage/index.ts` - Exports new components
 
+#### Issue 4-6: Storage & Networking Packages
+
+**Added to `Quantix-vDC/profiles/packages.conf`:**
+
+**Networking enhancements:**
+- `iproute2-tc` - Traffic control
+- `bridge-utils` - Bridge management
+- `ethtool` - Network interface diagnostics
+- `tcpdump` - Network packet analyzer
+- `bind-tools` - DNS utilities (dig, nslookup)
+
+**Shared Storage Clients:**
+- `nfs-utils`, `rpcbind` - NFS client support (FIXED mount issue)
+- `open-iscsi` - iSCSI initiator for iSCSI storage pools
+- `ceph-common`, `py3-ceph-common`, `librbd1` - Ceph RBD client
+- `multipath-tools` - Redundant storage path management
+
+**Disk/Storage Tools:**
+- `lvm2` - Logical Volume Manager
+- `xfsprogs` - XFS filesystem tools
+- `btrfs-progs` - Btrfs filesystem tools
+- `smartmontools` - Disk health monitoring
+- `hdparm` - Hard disk parameter tuning
+- `nvme-cli` - NVMe management
+
+**VM Image Tools:**
+- `qemu-img` - Image format conversion/inspection
+- `libguestfs-tools` - Guest filesystem access
+
+**System Utilities:**
+- `strace` - System call tracing for debugging
+
+### NFS Server Configuration Required
+
+On your NFS server (192.168.0.251), the exports are now configured with:
+
+```bash
+/srv/nfs/qVDS01 192.168.0.0/24(rw,sync,no_subtree_check,all_squash,anonuid=5000,anongid=5000)
+/srv/nfs/qVDS02 192.168.0.0/24(rw,sync,no_subtree_check,all_squash,anonuid=5000,anongid=5000)
+```
+
+With ownership set to `quantix:quantix` (UID/GID 5000).
+
 ### Deployment Required
 
 ```bash
 ./scripts/publish-vdc-update.sh --channel dev
 ```
 
-Then on QvDC:
+Then on QvDC (if not using auto-update):
 ```bash
 # Apply update or restart control plane
 rc-service limiquantix-controlplane restart
