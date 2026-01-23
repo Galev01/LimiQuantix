@@ -426,6 +426,7 @@ message ListImagesRequest {
   map<string, string> labels = 2;
   OsInfo.OsFamily os_family = 3;
   ImageSpec.Visibility visibility = 4;
+  ImageSpec.Format format = 5;
   int32 page_size = 10;
   string page_token = 11;
 }

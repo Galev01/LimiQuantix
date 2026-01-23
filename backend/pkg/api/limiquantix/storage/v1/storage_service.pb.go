@@ -7,13 +7,14 @@
 package storagev1
 
 import (
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
+
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
 )
 
 const (
@@ -2366,6 +2367,7 @@ type ListImagesRequest struct {
 	Labels        map[string]string      `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	OsFamily      OsInfo_OsFamily        `protobuf:"varint,3,opt,name=os_family,json=osFamily,proto3,enum=limiquantix.storage.v1.OsInfo_OsFamily" json:"os_family,omitempty"`
 	Visibility    ImageSpec_Visibility   `protobuf:"varint,4,opt,name=visibility,proto3,enum=limiquantix.storage.v1.ImageSpec_Visibility" json:"visibility,omitempty"`
+	Format        ImageSpec_Format       `protobuf:"varint,5,opt,name=format,proto3,enum=limiquantix.storage.v1.ImageSpec_Format" json:"format,omitempty"`
 	PageSize      int32                  `protobuf:"varint,10,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	PageToken     string                 `protobuf:"bytes,11,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2428,6 +2430,13 @@ func (x *ListImagesRequest) GetVisibility() ImageSpec_Visibility {
 		return x.Visibility
 	}
 	return ImageSpec_PRIVATE
+}
+
+func (x *ListImagesRequest) GetFormat() ImageSpec_Format {
+	if x != nil {
+		return x.Format
+	}
+	return ImageSpec_RAW // Default (0)
 }
 
 func (x *ListImagesRequest) GetPageSize() int32 {

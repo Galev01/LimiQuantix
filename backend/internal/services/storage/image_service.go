@@ -418,6 +418,13 @@ func (s *ImageService) ListImages(
 	if req.Msg.Visibility != storagev1.ImageSpec_PRIVATE {
 		filter.Visibility = convertVisibilityFromProto(req.Msg.Visibility)
 	}
+	// Filter by format if specified (and not default/RAW)
+	// Note: Proto enum RAW=0, so we can't distinguish "filter by RAW" from "no filter" easily
+	// properly without 'optional' keyword or a separate UNKNOWN=0 enum.
+	// For now, we assume 0 means no filter, as most cloud images are QCOW2 and ISOs are ISO.
+	if req.Msg.GetFormat() != storagev1.ImageSpec_RAW {
+		filter.Format = convertFormatFromProto(req.Msg.GetFormat())
+	}
 
 	images, err := s.repo.List(ctx, filter)
 	if err != nil {
@@ -1008,12 +1015,12 @@ func convertImageToProto(img *domain.Image) *storagev1.Image {
 				ProvisioningMethod: convertProvisioningMethodToProto(img.Spec.OS.ProvisioningMethod),
 			},
 			Requirements: &storagev1.ImageRequirements{
-				MinCpu:            img.Spec.Requirements.MinCPU,
-				MinMemoryMib:      img.Spec.Requirements.MinMemoryMiB,
-				MinDiskGib:        img.Spec.Requirements.MinDiskGiB,
-				SupportedFirmware: img.Spec.Requirements.SupportedFirmware,
+				MinCpu:             img.Spec.Requirements.MinCPU,
+				MinMemoryMib:       img.Spec.Requirements.MinMemoryMiB,
+				MinDiskGib:         img.Spec.Requirements.MinDiskGiB,
+				SupportedFirmware:  img.Spec.Requirements.SupportedFirmware,
 				RequiresSecureBoot: img.Spec.Requirements.RequiresSecureBoot,
-				RequiresTpm:       img.Spec.Requirements.RequiresTPM,
+				RequiresTpm:        img.Spec.Requirements.RequiresTPM,
 			},
 			CatalogId: img.Spec.CatalogID, // Track which catalog entry this was downloaded from
 		},
@@ -1095,6 +1102,23 @@ func convertProvisioningMethodToProto(method domain.ProvisioningMethod) storagev
 	}
 }
 
+func convertFormatFromProto(format storagev1.ImageSpec_Format) domain.ImageFormat {
+	switch format {
+	case storagev1.ImageSpec_QCOW2:
+		return domain.ImageFormatQCOW2
+	case storagev1.ImageSpec_VMDK:
+		return domain.ImageFormatVMDK
+	case storagev1.ImageSpec_VHD:
+		return domain.ImageFormatVHD
+	case storagev1.ImageSpec_ISO:
+		return domain.ImageFormatISO
+	case storagev1.ImageSpec_OVA:
+		return domain.ImageFormatOVA
+	default:
+		return domain.ImageFormatRaw
+	}
+}
+
 func convertImagePhaseToProto(phase domain.ImagePhase) storagev1.ImageStatus_Phase {
 	switch phase {
 	case domain.ImagePhasePending:
@@ -1120,21 +1144,21 @@ func convertImagePhaseToProto(phase domain.ImagePhase) storagev1.ImageStatus_Pha
 
 // ISONotification represents an ISO change notification from a QHCI node.
 type ISONotification struct {
-	NodeID       string `json:"node_id"`
-	EventType    string `json:"event_type"` // "created", "updated", "deleted"
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Filename     string `json:"filename"`
-	FolderPath   string `json:"folder_path"`
-	SizeBytes    uint64 `json:"size_bytes"`
-	Format       string `json:"format"` // "iso", "img"
-	StoragePool  string `json:"storage_pool_id,omitempty"`
-	Path         string `json:"path"` // Absolute path on node
-	Checksum     string `json:"checksum,omitempty"`
-	OSFamily     string `json:"os_family,omitempty"`
-	OSDistro     string `json:"os_distribution,omitempty"`
-	OSVersion    string `json:"os_version,omitempty"`
-	Timestamp    int64  `json:"timestamp"`
+	NodeID      string `json:"node_id"`
+	EventType   string `json:"event_type"` // "created", "updated", "deleted"
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Filename    string `json:"filename"`
+	FolderPath  string `json:"folder_path"`
+	SizeBytes   uint64 `json:"size_bytes"`
+	Format      string `json:"format"` // "iso", "img"
+	StoragePool string `json:"storage_pool_id,omitempty"`
+	Path        string `json:"path"` // Absolute path on node
+	Checksum    string `json:"checksum,omitempty"`
+	OSFamily    string `json:"os_family,omitempty"`
+	OSDistro    string `json:"os_distribution,omitempty"`
+	OSVersion   string `json:"os_version,omitempty"`
+	Timestamp   int64  `json:"timestamp"`
 }
 
 // HandleISONotification processes an ISO change notification from a QHCI node.
@@ -1337,7 +1361,7 @@ func (s *ImageService) BuildFolderTree(ctx context.Context) (*FolderNode, error)
 
 		for _, part := range parts {
 			currentPath += "/" + part
-			
+
 			if existing, found := nodeMap[currentPath]; found {
 				parent = existing
 			} else {

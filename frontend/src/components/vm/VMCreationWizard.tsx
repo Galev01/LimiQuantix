@@ -37,12 +37,13 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useCreateVM } from '@/hooks/useVMs';
 import { useNodes, type ApiNode } from '@/hooks/useNodes';
+import { useClusters, type Cluster } from '@/hooks/useClusters';
 import { useNetworks, type ApiVirtualNetwork } from '@/hooks/useNetworks';
 import { useAvailableImages, useISOs, formatImageSize, getDefaultUser, useImageAvailability, useDownloadImage, type CloudImage, type ISOImage, ISO_CATALOG } from '@/hooks/useImages';
 import { validateVMName, validatePassword, validateAccessMethod } from '@/components/vm/wizard-validation';
 import { useStoragePools, useVolumes, type StoragePoolUI, type VolumeUI } from '@/hooks/useStorage';
 import { useOVATemplates, type OVATemplate, formatOVASize } from '@/hooks/useOVA';
-import { useFolders, type Folder as FolderType } from '@/hooks/useFolders';
+import { useFolders, type Folder as FolderType, useCreateFolder, type Folder } from '@/hooks/useFolders';
 import { useCustomizationSpecs, type CustomizationSpec } from '@/hooks/useCustomizationSpecs';
 
 interface VMCreationWizardProps {
@@ -103,7 +104,7 @@ interface VMCreationData {
   isoId: string;
   cloudImageId: string;
   ovaTemplateId: string;
-  
+
   // Cloud-Init Configuration
   cloudInit: {
     enabled: boolean;
@@ -238,6 +239,12 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
 
   // API mutation for creating VMs
   const createVM = useCreateVM();
+  const createFolder = useCreateFolder();
+
+  // Create folder state
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
   // Fetch real data from APIs
   const { data: nodesData, isLoading: nodesLoading, error: nodesError, refetch: refetchNodes } = useNodes();
@@ -321,19 +328,27 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
     }));
   }, [networksData]);
 
-  // Generate "clusters" from nodes (group by label or create a default cluster)
+  // Fetch clusters from API
+  const { data: clustersData, isLoading: clustersLoading } = useClusters();
+
+  // Process clusters for the UI
   const clusters = useMemo(() => {
-    if (!nodes.length) {
-      return [{ id: 'default', name: 'Default Cluster', hostIds: [] as string[] }];
+    if (!clustersData?.clusters?.length) {
+      return [];
     }
-    // For now, put all nodes in a single cluster
-    // In the future, this could group by node labels
-    return [{
-      id: 'default',
-      name: 'Default Cluster',
-      hostIds: nodes.map(n => n.id),
-    }];
-  }, [nodes]);
+    return clustersData.clusters.map((cluster: Cluster) => ({
+      id: cluster.id,
+      name: cluster.name,
+      // For now, assume all hosts are candidates if not explicitly assigned
+      // In a real scenario, we would filter nodes by cluster membership
+      hostIds: nodes.filter(n => {
+        // Here we would check if node belongs to this cluster via API response
+        // For now, we'll rely on the node labels or status if available
+        return true;
+        // TODO: Filter nodes based on cluster membership once API supports it
+      }).map(n => n.id),
+    }));
+  }, [clustersData, nodes]);
 
   // Reset form when mounted
   useEffect(() => {
@@ -364,12 +379,12 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
     try {
       // Find selected host for the request
       const selectedHost = nodes.find(n => n.id === formData.hostId);
-      
+
       // Get cloud image if using cloud image boot
-      const selectedCloudImage = formData.bootMediaType === 'cloud-image' 
+      const selectedCloudImage = formData.bootMediaType === 'cloud-image'
         ? cloudImages.find(img => img.id === formData.cloudImageId)
         : undefined;
-      
+
       // Build cloud-init user-data
       let cloudInitUserData = '';
       if (formData.bootMediaType === 'cloud-image' && formData.cloudInit.enabled) {
@@ -392,7 +407,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             '    shell: /bin/bash',
             '    lock_passwd: false',
           ];
-          
+
           // Add SSH keys if provided
           if (formData.cloudInit.sshKeys.length > 0) {
             lines.push('    ssh_authorized_keys:');
@@ -402,7 +417,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
               lines.push(`      - ${trimmedKey}`);
             });
           }
-          
+
           // Password configuration using chpasswd module (the correct way)
           // This sets the password for the user after creation
           if (formData.cloudInit.password) {
@@ -416,15 +431,15 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             lines.push('  list:');
             lines.push(`    - ${defaultUser}:${formData.cloudInit.password}`);
           }
-          
+
           lines.push('', 'package_update: true', 'packages:', '  - qemu-guest-agent');
-          
+
           // Add Quantix Agent installation if enabled
           if (formData.installAgent) {
             // Get the control plane URL from browser location
             // In production, this should be configured via environment variable
             const controlPlaneUrl = window.location.origin;
-            
+
             lines.push('');
             lines.push('# Quantix Agent Installation');
             lines.push('write_files:');
@@ -442,7 +457,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
           } else {
             lines.push('', 'runcmd:', '  - systemctl enable qemu-guest-agent', '  - systemctl start qemu-guest-agent');
           }
-          
+
           cloudInitUserData = lines.join('\n');
         }
       }
@@ -506,13 +521,13 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
       case 3: // Customization
         return true; // Optional
       case 4: // Hardware
-        return formData.cpuCores > 0 && formData.cpuCores <= 128 && 
-               formData.memoryMib >= 512 && formData.memoryMib <= 1048576;
+        return formData.cpuCores > 0 && formData.cpuCores <= 128 &&
+          formData.memoryMib >= 512 && formData.memoryMib <= 1048576;
       case 5: { // Boot Media
         // For cloud images, require either password or SSH key for access
         if (formData.bootMediaType === 'cloud-image') {
-          const hasPassword = formData.cloudInit.password.length >= 8 && 
-                             formData.cloudInit.password === formData.cloudInit.confirmPassword;
+          const hasPassword = formData.cloudInit.password.length >= 8 &&
+            formData.cloudInit.password === formData.cloudInit.confirmPassword;
           const hasSSHKeys = formData.cloudInit.sshKeys.length > 0;
           const accessValidation = validateAccessMethod(
             hasPassword,
@@ -520,7 +535,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             cloudImages.find(img => img.id === formData.cloudImageId)
           );
           if (!accessValidation.valid) return false;
-          
+
           // Password validation if password is set
           if (formData.cloudInit.password) {
             const passwordValidation = validatePassword(
@@ -529,31 +544,31 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             );
             if (!passwordValidation.valid) return false;
           }
-          
+
           return true;
         }
         return true; // ISO/None - can configure access manually
       }
       case 6: { // Storage
         if (!formData.storagePoolId || formData.disks.length === 0) return false;
-        
+
         // Validate storage pool is accessible from selected node
         const selectedPool = storagePools?.find(p => p.id === formData.storagePoolId);
         if (!selectedPool) return false;
-        
+
         // Check pool is accessible from node (if specific node selected)
         if (formData.hostId && !formData.autoPlacement) {
-          if (selectedPool.assignedNodeIds?.length > 0 && 
-              !selectedPool.assignedNodeIds.includes(formData.hostId)) {
+          if (selectedPool.assignedNodeIds?.length > 0 &&
+            !selectedPool.assignedNodeIds.includes(formData.hostId)) {
             return false;
           }
         }
-        
+
         // Validate disk sizes
         const totalDiskSize = formData.disks.reduce((sum, d) => sum + d.sizeGib, 0);
         const availableGib = selectedPool.capacity.availableBytes / (1024 * 1024 * 1024);
         if (totalDiskSize > availableGib) return false;
-        
+
         return true;
       }
       case 7: // User Info
@@ -576,7 +591,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-       {/* Backdrop - no onClick to prevent accidental closure */}
+      {/* Backdrop - no onClick to prevent accidental closure */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -706,7 +721,13 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                 />
               )}
               {currentStep === 2 && (
-                <StepFolder formData={formData} updateFormData={updateFormData} folders={folders} foldersLoading={foldersLoading} />
+                <StepFolder
+                  formData={formData}
+                  updateFormData={updateFormData}
+                  folders={folders}
+                  foldersLoading={foldersLoading}
+                  onCreateFolder={() => setIsCreateFolderOpen(true)}
+                />
               )}
               {currentStep === 3 && (
                 <StepCustomization formData={formData} updateFormData={updateFormData} customizationSpecs={customizationSpecs} specsLoading={specsLoading} />
@@ -761,10 +782,88 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
               )}
             </motion.div>
           </AnimatePresence>
-        </div>
+      </motion.div>
+    </AnimatePresence>
+        </div >
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-bg-elevated/50">
+    {/* Create Folder Dialog */ }
+    <AnimatePresence>
+  {
+    isCreateFolderOpen && (
+      <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="w-full max-w-md bg-bg-surface p-6 rounded-xl border border-border shadow-xl"
+        >
+          <h3 className="text-lg font-semibold text-text-primary mb-4">Create New Folder</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Folder Name
+              </label>
+              <input
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="e.g. Production"
+                className="w-full px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary focus:border-accent focus:outline-none"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setIsCreateFolderOpen(false);
+                  setNewFolderName('');
+                }}
+                disabled={isCreatingFolder}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!newFolderName.trim()) return;
+                  setIsCreatingFolder(true);
+                  try {
+                    const newFolder = await createFolder.mutateAsync({
+                      name: newFolderName,
+                      projectId: 'default', // Using default project for now
+                      type: 'VM',
+                      parentId: '', // Root folder
+                    });
+                    updateFormData({ folderId: newFolder.id });
+                    setIsCreateFolderOpen(false);
+                    setNewFolderName('');
+                  } catch (err) {
+                    // Error handled by hook toast
+                  } finally {
+                    setIsCreatingFolder(false);
+                  }
+                }}
+                disabled={!newFolderName.trim() || isCreatingFolder}
+              >
+                {isCreatingFolder ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Folder'
+                )}
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    )
+  }
+        </AnimatePresence >
+
+    {/* Footer */ }
+    < div className = "flex items-center justify-between px-6 py-4 border-t border-border bg-bg-elevated/50" >
           <Button
             variant="ghost"
             onClick={handleBack}
@@ -783,29 +882,31 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             )}
           </div>
 
-          {currentStep === STEPS.length - 1 ? (
-            <Button onClick={handleSubmit} disabled={createVM.isPending}>
-              {createVM.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  Create VM
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button onClick={handleNext} disabled={!canProceed}>
-              Next
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      </motion.div>
-    </div>
+  {
+    currentStep === STEPS.length - 1 ? (
+      <Button onClick={handleSubmit} disabled={createVM.isPending}>
+        {createVM.isPending ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Creating...
+          </>
+        ) : (
+          <>
+            <Check className="w-4 h-4" />
+            Create VM
+          </>
+        )}
+      </Button>
+    ) : (
+      <Button onClick={handleNext} disabled={!canProceed}>
+        Next
+        <ChevronRight className="w-4 h-4" />
+      </Button>
+    )
+  }
+        </div >
+      </motion.div >
+    </div >
   );
 }
 
@@ -1199,11 +1300,13 @@ function StepFolder({
   updateFormData,
   folders,
   foldersLoading,
+  onCreateFolder,
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
   folders: Array<{ id: string; name: string; path: string }>;
   foldersLoading: boolean;
+  onCreateFolder: () => void;
 }) {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -1247,7 +1350,10 @@ function StepFolder({
         </div>
       </FormField>
 
-      <button className="flex items-center gap-2 text-sm text-accent hover:text-accent-hover">
+      <button
+        onClick={onCreateFolder}
+        className="flex items-center gap-2 text-sm text-accent hover:text-accent-hover"
+      >
         <Plus className="w-4 h-4" />
         Create New Folder
       </button>
@@ -1276,8 +1382,8 @@ function StepCustomization({
       {/* Quantix Agent Installation */}
       <div className={cn(
         "p-4 rounded-lg border transition-all",
-        formData.installAgent 
-          ? "bg-accent/5 border-accent/30" 
+        formData.installAgent
+          ? "bg-accent/5 border-accent/30"
           : "bg-bg-base border-border"
       )}>
         <label className="flex items-start gap-3 cursor-pointer">
@@ -1374,7 +1480,7 @@ function StepCustomization({
             <option value="Europe/London">Europe/London (GMT/BST)</option>
             <option value="Europe/Berlin">Europe/Berlin (CET/CEST)</option>
             <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
-          <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+            <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
             <option value="Asia/Shanghai">Asia/Shanghai (CST)</option>
           </optgroup>
           <optgroup label="Americas">
@@ -1695,18 +1801,18 @@ function StepISO({
 
   // Get catalog IDs for availability checking
   const catalogIds = useMemo(() => cloudImages.map(img => img.id), [cloudImages]);
-  
+
   // Check image availability for the selected node
-  const { 
-    availabilityMap, 
-    isAvailable, 
+  const {
+    availabilityMap,
+    isAvailable,
     getAvailability,
-    isAnyDownloading 
+    isAnyDownloading
   } = useImageAvailability(catalogIds, selectedNodeId, catalogIds.length > 0);
 
   // Download image mutation
   const downloadImage = useDownloadImage();
-  
+
   // Ensure cloudImages and isos are always arrays
   const images = cloudImages || [];
   const isoImages = isos || ISO_CATALOG;
@@ -1718,26 +1824,26 @@ function StepISO({
     // Check for common SSH key formats
     const validPrefixes = ['ssh-rsa', 'ssh-ed25519', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521'];
     const startsWithValidPrefix = validPrefixes.some(prefix => trimmed.startsWith(prefix));
-    
+
     if (!startsWithValidPrefix) {
       setSshKeyError('Invalid SSH key format. Key should start with ssh-rsa, ssh-ed25519, etc.');
       return false;
     }
-    
+
     // Check for at least 2 parts (type and key data)
     const parts = trimmed.split(' ');
     if (parts.length < 2) {
       setSshKeyError('Invalid SSH key format. Key appears incomplete.');
       return false;
     }
-    
+
     // Check if the key data looks like base64
     const keyData = parts[1];
     if (keyData.length < 100) {
       setSshKeyError('SSH key data appears too short. Make sure you copied the entire key.');
       return false;
     }
-    
+
     setSshKeyError(null);
     return true;
   };
@@ -1748,13 +1854,13 @@ function StepISO({
       if (!validateSshKey(newSshKey)) {
         return;
       }
-      
+
       // Check for duplicates
       if (formData.cloudInit.sshKeys.some(k => k.trim() === newSshKey.trim())) {
         setSshKeyError('This SSH key has already been added.');
         return;
       }
-      
+
       updateFormData({
         cloudInit: {
           ...formData.cloudInit,
@@ -1901,7 +2007,7 @@ function StepISO({
                   const imageAvailable = availability?.status === 'READY';
                   const imageDownloading = availability?.status === 'DOWNLOADING';
                   const downloadProgress = availability?.progress || 0;
-                  
+
                   return (
                     <label
                       key={image.id}
@@ -1919,7 +2025,7 @@ function StepISO({
                         checked={formData.cloudImageId === image.id}
                         onChange={() => {
                           // Update cloud image and set default user based on OS
-                          updateFormData({ 
+                          updateFormData({
                             cloudImageId: image.id,
                             cloudInit: {
                               ...formData.cloudInit,
@@ -1959,7 +2065,7 @@ function StepISO({
                         {/* Download progress bar */}
                         {imageDownloading && (
                           <div className="mt-2 h-1.5 bg-bg-surface rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className="h-full bg-info transition-all duration-300"
                               style={{ width: `${downloadProgress}%` }}
                             />
@@ -2008,7 +2114,7 @@ function StepISO({
                 <div>
                   <p className="text-sm font-medium text-warning">Image not downloaded</p>
                   <p className="text-xs text-text-secondary mt-0.5">
-                    {selectedNodeHostname 
+                    {selectedNodeHostname
                       ? `This image needs to be downloaded to "${selectedNodeHostname}" before VM creation.`
                       : 'This image needs to be downloaded before VM creation.'}
                     {' '}Click the Download button or select a different image.
@@ -2059,7 +2165,7 @@ function StepISO({
               <p className="text-xs text-text-muted">
                 Set a password to access your VM via console or SSH. This is essential for initial access and recovery.
               </p>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField label="Password">
                   <PasswordInput
@@ -2082,26 +2188,26 @@ function StepISO({
               </div>
 
               {/* Password validation messages */}
-              {formData.cloudInit.password && formData.cloudInit.confirmPassword && 
-               formData.cloudInit.password !== formData.cloudInit.confirmPassword && (
-                <p className="text-xs text-error flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  Passwords do not match
-                </p>
-              )}
+              {formData.cloudInit.password && formData.cloudInit.confirmPassword &&
+                formData.cloudInit.password !== formData.cloudInit.confirmPassword && (
+                  <p className="text-xs text-error flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Passwords do not match
+                  </p>
+                )}
               {formData.cloudInit.password && formData.cloudInit.password.length < 8 && (
                 <p className="text-xs text-warning flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
                   Password should be at least 8 characters for security
                 </p>
               )}
-              {formData.cloudInit.password && formData.cloudInit.password === formData.cloudInit.confirmPassword && 
-               formData.cloudInit.password.length >= 8 && (
-                <p className="text-xs text-success flex items-center gap-1">
-                  <CheckCircle className="w-3 h-3" />
-                  Password set - SSH and console login enabled
-                </p>
-              )}
+              {formData.cloudInit.password && formData.cloudInit.password === formData.cloudInit.confirmPassword &&
+                formData.cloudInit.password.length >= 8 && (
+                  <p className="text-xs text-success flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Password set - SSH and console login enabled
+                  </p>
+                )}
               {!formData.cloudInit.password && formData.cloudInit.sshKeys.length === 0 && (
                 <p className="text-xs text-error flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
@@ -2120,14 +2226,14 @@ function StepISO({
               <p className="text-xs text-text-muted">
                 Add SSH public keys for passwordless, secure access. Keys are added in addition to password authentication.
               </p>
-              
+
               <div className="space-y-2">
                 {formData.cloudInit.sshKeys.map((key, index) => {
                   // Parse the key to show type and comment
                   const keyParts = key.trim().split(' ');
                   const keyType = keyParts[0] || 'unknown';
                   const keyComment = keyParts[2] || 'no comment';
-                  
+
                   return (
                     <div key={index} className="flex items-center gap-2 p-2 bg-bg-base border border-border rounded-lg">
                       <ShieldCheck className="w-4 h-4 text-success flex-shrink-0" />
@@ -2326,8 +2432,8 @@ packages:
               <p className="text-xs text-text-muted mt-1">Upload OVA files in Storage → Image Library</p>
             </div>
           )}
-          <a 
-            href="/storage/images" 
+          <a
+            href="/storage/images"
             className="mt-3 flex items-center gap-2 text-sm text-accent hover:text-accent-hover"
           >
             <Plus className="w-4 h-4" />
@@ -2385,8 +2491,8 @@ packages:
               </div>
             </>
           )}
-          <a 
-            href="/storage/images" 
+          <a
+            href="/storage/images"
             className="mt-3 flex items-center gap-2 text-sm text-accent hover:text-accent-hover"
           >
             <Plus className="w-4 h-4" />
@@ -2399,7 +2505,7 @@ packages:
       {formData.bootMediaType === 'none' && (
         <div className="p-4 bg-bg-base border border-border rounded-lg">
           <p className="text-text-secondary">
-            The VM will be created without any boot media. You can attach an ISO or configure 
+            The VM will be created without any boot media. You can attach an ISO or configure
             network boot (PXE) after creation.
           </p>
         </div>
@@ -2423,16 +2529,16 @@ function StepStorage({
 }) {
   // Use only API data (no mock fallback)
   const pools = storagePools;
-  
+
   // Fetch volumes for the selected pool
   const { data: volumes, isLoading: volumesLoading } = useVolumes({ poolId: formData.storagePoolId });
-  
+
   // Filter available volumes (not attached to any VM)
   const availableVolumes = useMemo(() => {
     if (!volumes) return [];
     return volumes.filter(v => v.status.phase === 'READY' && !v.status.attachedVmId);
   }, [volumes]);
-  
+
   // Get volumes already selected in this wizard
   const selectedVolumeIds = useMemo(() => {
     return formData.disks
@@ -2460,7 +2566,7 @@ function StepStorage({
       disks: formData.disks.map((d) => (d.id === id ? { ...d, ...updates } : d)),
     });
   };
-  
+
   const selectExistingVolume = (diskId: string, volume: VolumeUI) => {
     updateDisk(diskId, {
       existingVolumeId: volume.id,
@@ -2516,7 +2622,7 @@ function StepStorage({
               <div className="text-xs text-error">
                 <p className="font-medium">Host not compatible with selected storage pool</p>
                 <p className="mt-0.5">
-                  Host "{selectedHostName}" does not have access to pool "{selectedPool.name}". 
+                  Host "{selectedHostName}" does not have access to pool "{selectedPool.name}".
                   Either go back and select "Auto Placement" or choose a different host/pool combination.
                 </p>
               </div>
@@ -2532,14 +2638,14 @@ function StepStorage({
             const usagePercent = pool.capacity.totalBytes > 0
               ? Math.round((pool.capacity.usedBytes / pool.capacity.totalBytes) * 100)
               : 0;
-            
+
             // Check if selected host has access to this pool
             const selectedHost = nodes.find(n => n.id === formData.hostId);
-            const hasHostAccess = !formData.hostId || 
-              !selectedHost || 
-              pool.assignedNodeIds.length === 0 || 
+            const hasHostAccess = !formData.hostId ||
+              !selectedHost ||
+              pool.assignedNodeIds.length === 0 ||
               pool.assignedNodeIds.includes(formData.hostId);
-            
+
             // Get node names that have access
             const assignedNodeNames = pool.assignedNodeIds
               .map(id => nodes.find(n => n.id === id)?.hostname)
@@ -2654,7 +2760,7 @@ function StepStorage({
                   </button>
                 )}
               </div>
-              
+
               {/* Source Type Toggle */}
               <div className="flex items-center gap-2 mb-3">
                 <button
@@ -2682,7 +2788,7 @@ function StepStorage({
                   Use Existing Volume
                 </button>
               </div>
-              
+
               {/* New Disk Configuration */}
               {disk.sourceType === 'new' && (
                 <div className="flex items-center gap-4">
@@ -2710,7 +2816,7 @@ function StepStorage({
                   </div>
                 </div>
               )}
-              
+
               {/* Existing Volume Selection */}
               {disk.sourceType === 'existing' && (
                 <div className="space-y-2">
@@ -2797,7 +2903,7 @@ function StepStorage({
           const totalNewDiskSizeGib = formData.disks
             .filter(d => d.sourceType === 'new')
             .reduce((sum, d) => sum + d.sizeGib, 0);
-          const availableGib = selectedPool 
+          const availableGib = selectedPool
             ? selectedPool.capacity.availableBytes / (1024 * 1024 * 1024)
             : 0;
           const exceedsCapacity = selectedPool && totalNewDiskSizeGib > availableGib;
@@ -2813,7 +2919,7 @@ function StepStorage({
           return null;
         })()}
       </div>
-      
+
       {/* Volume Benefits Info */}
       {formData.disks.some(d => d.sourceType === 'existing') && (
         <div className="p-4 rounded-lg bg-info/10 border border-info/30">
@@ -3043,34 +3149,34 @@ function StepReview({
 
         {/* Boot & Customization */}
         <ReviewSection title="Boot & Provisioning">
-          <ReviewRow 
-            label="Method" 
+          <ReviewRow
+            label="Method"
             value={
-              formData.bootMediaType === 'cloud-image' 
-                ? 'Cloud Image (Automated)' 
-                : formData.bootMediaType === 'iso' 
-                  ? 'ISO (Manual Install)' 
+              formData.bootMediaType === 'cloud-image'
+                ? 'Cloud Image (Automated)'
+                : formData.bootMediaType === 'iso'
+                  ? 'ISO (Manual Install)'
                   : 'None'
-            } 
+            }
           />
           {formData.bootMediaType === 'cloud-image' && selectedCloudImage && (
             <>
               <ReviewRow label="Cloud Image" value={selectedCloudImage.name} />
               <ReviewRow label="Username" value={formData.cloudInit.defaultUser || 'ubuntu'} />
-              <ReviewRow 
-                label="Password" 
+              <ReviewRow
+                label="Password"
                 value={formData.cloudInit.password ? '••••••••  ✓ Set' : 'Not set'}
               />
-              <ReviewRow 
-                label="SSH Keys" 
+              <ReviewRow
+                label="SSH Keys"
                 value={
-                  formData.cloudInit.sshKeys.length > 0 
-                    ? `${formData.cloudInit.sshKeys.length} key(s) configured` 
+                  formData.cloudInit.sshKeys.length > 0
+                    ? `${formData.cloudInit.sshKeys.length} key(s) configured`
                     : 'None'
-                } 
+                }
               />
-              <ReviewRow 
-                label="Access" 
+              <ReviewRow
+                label="Access"
                 value={
                   formData.cloudInit.password && formData.cloudInit.sshKeys.length > 0
                     ? 'Password + SSH keys'
@@ -3079,7 +3185,7 @@ function StepReview({
                       : formData.cloudInit.sshKeys.length > 0
                         ? 'SSH keys only'
                         : '⚠️ No access configured!'
-                } 
+                }
               />
               {formData.cloudInit.customUserData && (
                 <ReviewRow label="Custom Config" value="Custom cloud-config provided" />
@@ -3143,7 +3249,7 @@ function PasswordInput({
   placeholder?: string;
 }) {
   const [showPassword, setShowPassword] = useState(false);
-  
+
   return (
     <form onSubmit={(e) => e.preventDefault()} className="relative">
       <input
