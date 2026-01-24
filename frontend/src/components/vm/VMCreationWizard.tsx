@@ -481,8 +481,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
           },
           memory: { sizeMib: formData.memoryMib },
           disks: formData.disks.map((d, index) => ({
+            id: d.name, // Proto expects 'id' field, not 'name'
             sizeGib: d.sizeGib,
-            name: d.name,
             // Use cloud image as backing file for the first disk
             backingFile: index === 0 && selectedCloudImage ? selectedCloudImage.path : undefined,
           })),

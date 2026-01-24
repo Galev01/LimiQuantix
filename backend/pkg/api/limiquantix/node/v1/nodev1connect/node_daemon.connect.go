@@ -97,6 +97,9 @@ const (
 	// NodeDaemonServiceDetachNICProcedure is the fully-qualified name of the NodeDaemonService's
 	// DetachNIC RPC.
 	NodeDaemonServiceDetachNICProcedure = "/limiquantix.node.v1.NodeDaemonService/DetachNIC"
+	// NodeDaemonServiceChangeMediaProcedure is the fully-qualified name of the NodeDaemonService's
+	// ChangeMedia RPC.
+	NodeDaemonServiceChangeMediaProcedure = "/limiquantix.node.v1.NodeDaemonService/ChangeMedia"
 	// NodeDaemonServicePrepareMigrationProcedure is the fully-qualified name of the NodeDaemonService's
 	// PrepareMigration RPC.
 	NodeDaemonServicePrepareMigrationProcedure = "/limiquantix.node.v1.NodeDaemonService/PrepareMigration"
@@ -215,6 +218,8 @@ type NodeDaemonServiceClient interface {
 	AttachNIC(context.Context, *connect.Request[v1.AttachNICRequest]) (*connect.Response[emptypb.Empty], error)
 	// Detach a network interface from a running VM
 	DetachNIC(context.Context, *connect.Request[v1.DetachNICRequest]) (*connect.Response[emptypb.Empty], error)
+	// Change CD-ROM media (mount/eject ISO)
+	ChangeMedia(context.Context, *connect.Request[v1.ChangeMediaRequest]) (*connect.Response[emptypb.Empty], error)
 	// Prepare this node to receive a migrating VM
 	PrepareMigration(context.Context, *connect.Request[v1.PrepareMigrationRequest]) (*connect.Response[v1.MigrationToken], error)
 	// Receive a migrating VM
@@ -402,6 +407,12 @@ func NewNodeDaemonServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(nodeDaemonServiceMethods.ByName("DetachNIC")),
 			connect.WithClientOptions(opts...),
 		),
+		changeMedia: connect.NewClient[v1.ChangeMediaRequest, emptypb.Empty](
+			httpClient,
+			baseURL+NodeDaemonServiceChangeMediaProcedure,
+			connect.WithSchema(nodeDaemonServiceMethods.ByName("ChangeMedia")),
+			connect.WithClientOptions(opts...),
+		),
 		prepareMigration: connect.NewClient[v1.PrepareMigrationRequest, v1.MigrationToken](
 			httpClient,
 			baseURL+NodeDaemonServicePrepareMigrationProcedure,
@@ -572,6 +583,7 @@ type nodeDaemonServiceClient struct {
 	detachDisk           *connect.Client[v1.DetachDiskRequest, emptypb.Empty]
 	attachNIC            *connect.Client[v1.AttachNICRequest, emptypb.Empty]
 	detachNIC            *connect.Client[v1.DetachNICRequest, emptypb.Empty]
+	changeMedia          *connect.Client[v1.ChangeMediaRequest, emptypb.Empty]
 	prepareMigration     *connect.Client[v1.PrepareMigrationRequest, v1.MigrationToken]
 	receiveMigration     *connect.Client[v1.MigrationToken, emptypb.Empty]
 	migrateVM            *connect.Client[v1.MigrateVMRequest, v1.MigrationProgress]
@@ -701,6 +713,11 @@ func (c *nodeDaemonServiceClient) AttachNIC(ctx context.Context, req *connect.Re
 // DetachNIC calls limiquantix.node.v1.NodeDaemonService.DetachNIC.
 func (c *nodeDaemonServiceClient) DetachNIC(ctx context.Context, req *connect.Request[v1.DetachNICRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.detachNIC.CallUnary(ctx, req)
+}
+
+// ChangeMedia calls limiquantix.node.v1.NodeDaemonService.ChangeMedia.
+func (c *nodeDaemonServiceClient) ChangeMedia(ctx context.Context, req *connect.Request[v1.ChangeMediaRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.changeMedia.CallUnary(ctx, req)
 }
 
 // PrepareMigration calls limiquantix.node.v1.NodeDaemonService.PrepareMigration.
@@ -868,6 +885,8 @@ type NodeDaemonServiceHandler interface {
 	AttachNIC(context.Context, *connect.Request[v1.AttachNICRequest]) (*connect.Response[emptypb.Empty], error)
 	// Detach a network interface from a running VM
 	DetachNIC(context.Context, *connect.Request[v1.DetachNICRequest]) (*connect.Response[emptypb.Empty], error)
+	// Change CD-ROM media (mount/eject ISO)
+	ChangeMedia(context.Context, *connect.Request[v1.ChangeMediaRequest]) (*connect.Response[emptypb.Empty], error)
 	// Prepare this node to receive a migrating VM
 	PrepareMigration(context.Context, *connect.Request[v1.PrepareMigrationRequest]) (*connect.Response[v1.MigrationToken], error)
 	// Receive a migrating VM
@@ -1049,6 +1068,12 @@ func NewNodeDaemonServiceHandler(svc NodeDaemonServiceHandler, opts ...connect.H
 		NodeDaemonServiceDetachNICProcedure,
 		svc.DetachNIC,
 		connect.WithSchema(nodeDaemonServiceMethods.ByName("DetachNIC")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeDaemonServiceChangeMediaHandler := connect.NewUnaryHandler(
+		NodeDaemonServiceChangeMediaProcedure,
+		svc.ChangeMedia,
+		connect.WithSchema(nodeDaemonServiceMethods.ByName("ChangeMedia")),
 		connect.WithHandlerOptions(opts...),
 	)
 	nodeDaemonServicePrepareMigrationHandler := connect.NewUnaryHandler(
@@ -1239,6 +1264,8 @@ func NewNodeDaemonServiceHandler(svc NodeDaemonServiceHandler, opts ...connect.H
 			nodeDaemonServiceAttachNICHandler.ServeHTTP(w, r)
 		case NodeDaemonServiceDetachNICProcedure:
 			nodeDaemonServiceDetachNICHandler.ServeHTTP(w, r)
+		case NodeDaemonServiceChangeMediaProcedure:
+			nodeDaemonServiceChangeMediaHandler.ServeHTTP(w, r)
 		case NodeDaemonServicePrepareMigrationProcedure:
 			nodeDaemonServicePrepareMigrationHandler.ServeHTTP(w, r)
 		case NodeDaemonServiceReceiveMigrationProcedure:
@@ -1378,6 +1405,10 @@ func (UnimplementedNodeDaemonServiceHandler) AttachNIC(context.Context, *connect
 
 func (UnimplementedNodeDaemonServiceHandler) DetachNIC(context.Context, *connect.Request[v1.DetachNICRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.DetachNIC is not implemented"))
+}
+
+func (UnimplementedNodeDaemonServiceHandler) ChangeMedia(context.Context, *connect.Request[v1.ChangeMediaRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.node.v1.NodeDaemonService.ChangeMedia is not implemented"))
 }
 
 func (UnimplementedNodeDaemonServiceHandler) PrepareMigration(context.Context, *connect.Request[v1.PrepareMigrationRequest]) (*connect.Response[v1.MigrationToken], error) {

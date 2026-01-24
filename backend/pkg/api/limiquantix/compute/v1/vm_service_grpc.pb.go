@@ -44,6 +44,10 @@ const (
 	VMService_ResizeDisk_FullMethodName        = "/limiquantix.compute.v1.VMService/ResizeDisk"
 	VMService_AttachNIC_FullMethodName         = "/limiquantix.compute.v1.VMService/AttachNIC"
 	VMService_DetachNIC_FullMethodName         = "/limiquantix.compute.v1.VMService/DetachNIC"
+	VMService_AttachCDROM_FullMethodName       = "/limiquantix.compute.v1.VMService/AttachCDROM"
+	VMService_DetachCDROM_FullMethodName       = "/limiquantix.compute.v1.VMService/DetachCDROM"
+	VMService_MountISO_FullMethodName          = "/limiquantix.compute.v1.VMService/MountISO"
+	VMService_EjectISO_FullMethodName          = "/limiquantix.compute.v1.VMService/EjectISO"
 	VMService_ListVMEvents_FullMethodName      = "/limiquantix.compute.v1.VMService/ListVMEvents"
 	VMService_WatchVM_FullMethodName           = "/limiquantix.compute.v1.VMService/WatchVM"
 	VMService_StreamMetrics_FullMethodName     = "/limiquantix.compute.v1.VMService/StreamMetrics"
@@ -113,6 +117,14 @@ type VMServiceClient interface {
 	AttachNIC(ctx context.Context, in *AttachNICRequest, opts ...grpc.CallOption) (*VirtualMachine, error)
 	// DetachNIC removes a network interface from a VM (hot-unplug if running).
 	DetachNIC(ctx context.Context, in *DetachNICRequest, opts ...grpc.CallOption) (*VirtualMachine, error)
+	// AttachCDROM adds a CD-ROM device to a VM.
+	AttachCDROM(ctx context.Context, in *AttachCDROMRequest, opts ...grpc.CallOption) (*VirtualMachine, error)
+	// DetachCDROM removes a CD-ROM device from a VM.
+	DetachCDROM(ctx context.Context, in *DetachCDROMRequest, opts ...grpc.CallOption) (*VirtualMachine, error)
+	// MountISO mounts an ISO file to an existing CD-ROM device.
+	MountISO(ctx context.Context, in *MountISORequest, opts ...grpc.CallOption) (*VirtualMachine, error)
+	// EjectISO ejects the ISO from a CD-ROM device.
+	EjectISO(ctx context.Context, in *EjectISORequest, opts ...grpc.CallOption) (*VirtualMachine, error)
 	// ListVMEvents returns events for a VM.
 	ListVMEvents(ctx context.Context, in *ListVMEventsRequest, opts ...grpc.CallOption) (*ListVMEventsResponse, error)
 	// WatchVM streams real-time updates for a VM.
@@ -381,6 +393,46 @@ func (c *vMServiceClient) DetachNIC(ctx context.Context, in *DetachNICRequest, o
 	return out, nil
 }
 
+func (c *vMServiceClient) AttachCDROM(ctx context.Context, in *AttachCDROMRequest, opts ...grpc.CallOption) (*VirtualMachine, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VirtualMachine)
+	err := c.cc.Invoke(ctx, VMService_AttachCDROM_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) DetachCDROM(ctx context.Context, in *DetachCDROMRequest, opts ...grpc.CallOption) (*VirtualMachine, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VirtualMachine)
+	err := c.cc.Invoke(ctx, VMService_DetachCDROM_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) MountISO(ctx context.Context, in *MountISORequest, opts ...grpc.CallOption) (*VirtualMachine, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VirtualMachine)
+	err := c.cc.Invoke(ctx, VMService_MountISO_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) EjectISO(ctx context.Context, in *EjectISORequest, opts ...grpc.CallOption) (*VirtualMachine, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VirtualMachine)
+	err := c.cc.Invoke(ctx, VMService_EjectISO_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *vMServiceClient) ListVMEvents(ctx context.Context, in *ListVMEventsRequest, opts ...grpc.CallOption) (*ListVMEventsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListVMEventsResponse)
@@ -556,6 +608,14 @@ type VMServiceServer interface {
 	AttachNIC(context.Context, *AttachNICRequest) (*VirtualMachine, error)
 	// DetachNIC removes a network interface from a VM (hot-unplug if running).
 	DetachNIC(context.Context, *DetachNICRequest) (*VirtualMachine, error)
+	// AttachCDROM adds a CD-ROM device to a VM.
+	AttachCDROM(context.Context, *AttachCDROMRequest) (*VirtualMachine, error)
+	// DetachCDROM removes a CD-ROM device from a VM.
+	DetachCDROM(context.Context, *DetachCDROMRequest) (*VirtualMachine, error)
+	// MountISO mounts an ISO file to an existing CD-ROM device.
+	MountISO(context.Context, *MountISORequest) (*VirtualMachine, error)
+	// EjectISO ejects the ISO from a CD-ROM device.
+	EjectISO(context.Context, *EjectISORequest) (*VirtualMachine, error)
 	// ListVMEvents returns events for a VM.
 	ListVMEvents(context.Context, *ListVMEventsRequest) (*ListVMEventsResponse, error)
 	// WatchVM streams real-time updates for a VM.
@@ -654,6 +714,18 @@ func (UnimplementedVMServiceServer) AttachNIC(context.Context, *AttachNICRequest
 }
 func (UnimplementedVMServiceServer) DetachNIC(context.Context, *DetachNICRequest) (*VirtualMachine, error) {
 	return nil, status.Error(codes.Unimplemented, "method DetachNIC not implemented")
+}
+func (UnimplementedVMServiceServer) AttachCDROM(context.Context, *AttachCDROMRequest) (*VirtualMachine, error) {
+	return nil, status.Error(codes.Unimplemented, "method AttachCDROM not implemented")
+}
+func (UnimplementedVMServiceServer) DetachCDROM(context.Context, *DetachCDROMRequest) (*VirtualMachine, error) {
+	return nil, status.Error(codes.Unimplemented, "method DetachCDROM not implemented")
+}
+func (UnimplementedVMServiceServer) MountISO(context.Context, *MountISORequest) (*VirtualMachine, error) {
+	return nil, status.Error(codes.Unimplemented, "method MountISO not implemented")
+}
+func (UnimplementedVMServiceServer) EjectISO(context.Context, *EjectISORequest) (*VirtualMachine, error) {
+	return nil, status.Error(codes.Unimplemented, "method EjectISO not implemented")
 }
 func (UnimplementedVMServiceServer) ListVMEvents(context.Context, *ListVMEventsRequest) (*ListVMEventsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListVMEvents not implemented")
@@ -1134,6 +1206,78 @@ func _VMService_DetachNIC_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VMService_AttachCDROM_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AttachCDROMRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).AttachCDROM(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_AttachCDROM_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).AttachCDROM(ctx, req.(*AttachCDROMRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_DetachCDROM_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DetachCDROMRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).DetachCDROM(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_DetachCDROM_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).DetachCDROM(ctx, req.(*DetachCDROMRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_MountISO_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MountISORequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).MountISO(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_MountISO_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).MountISO(ctx, req.(*MountISORequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_EjectISO_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EjectISORequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).EjectISO(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_EjectISO_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).EjectISO(ctx, req.(*EjectISORequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _VMService_ListVMEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListVMEventsRequest)
 	if err := dec(in); err != nil {
@@ -1377,6 +1521,22 @@ var VMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DetachNIC",
 			Handler:    _VMService_DetachNIC_Handler,
+		},
+		{
+			MethodName: "AttachCDROM",
+			Handler:    _VMService_AttachCDROM_Handler,
+		},
+		{
+			MethodName: "DetachCDROM",
+			Handler:    _VMService_DetachCDROM_Handler,
+		},
+		{
+			MethodName: "MountISO",
+			Handler:    _VMService_MountISO_Handler,
+		},
+		{
+			MethodName: "EjectISO",
+			Handler:    _VMService_EjectISO_Handler,
 		},
 		{
 			MethodName: "ListVMEvents",

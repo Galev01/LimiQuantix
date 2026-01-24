@@ -377,6 +377,17 @@ func (c *DaemonClient) DetachNIC(ctx context.Context, vmID, nicID string) error 
 	return err
 }
 
+// ChangeMedia changes the CD-ROM media (mount/eject ISO).
+// If isoPath is empty, the CD-ROM is ejected.
+func (c *DaemonClient) ChangeMedia(ctx context.Context, vmID, device, isoPath string) error {
+	_, err := c.client.ChangeMedia(ctx, &nodev1.ChangeMediaRequest{
+		VmId:    vmID,
+		Device:  device,
+		IsoPath: isoPath,
+	})
+	return err
+}
+
 // GuestAgentInfo contains information from the guest agent.
 type GuestAgentInfo struct {
 	Version       string

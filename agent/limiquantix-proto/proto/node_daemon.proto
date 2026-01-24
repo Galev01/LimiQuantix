@@ -167,6 +167,13 @@ service NodeDaemonService {
   
   // Create a volume snapshot
   rpc CreateVolumeSnapshot(CreateVolumeSnapshotRequest) returns (google.protobuf.Empty);
+  
+  // =========================================================================
+  // CD-ROM/Media Operations
+  // =========================================================================
+  
+  // Change CD-ROM media (mount/eject ISO)
+  rpc ChangeMedia(ChangeMediaRequest) returns (google.protobuf.Empty);
 }
 
 // =============================================================================
@@ -906,4 +913,13 @@ message ImageInfo {
 // List images response
 message ListImagesResponse {
   repeated ImageInfo images = 1;
+}
+
+// CD-ROM Media Change
+message ChangeMediaRequest {
+  string vm_id = 1;
+  // Device name (e.g., "sda", "hda", or the cdrom device id)
+  string device = 2;
+  // ISO path to mount (empty string to eject)
+  string iso_path = 3;
 }

@@ -1,111 +1,62 @@
-# Workflow State - Image Persistence, VM Creation Wizard & Pool Sync
+# Workflow State - CD-ROM Operations Implementation
 
-## All Tasks Completed
+## Completed
 
-### 1. Image Persistence (PostgreSQL)
+### Problem
+User got 404 error when trying to attach a CD-ROM device to a VM:
+```
+POST https://192.168.0.100/limiquantix.compute.v1.VMService/AttachCDROM 404 (Not Found)
+```
 
-**Problem**: Downloaded images (cloud images and ISOs) were lost after control plane restart because they were stored in-memory.
+### Solution
+Implemented the missing CD-ROM operations in the backend:
 
-**Solution**:
-- Created new PostgreSQL migration (`backend/migrations/000012_images_extended.up.sql`) with extended schema
-- Created PostgreSQL image repository (`backend/internal/repository/postgres/image_repository.go`)
-- Updated `server.go` to use PostgreSQL repository when available
+1. **Added RPC definitions to proto file** (`proto/limiquantix/compute/v1/vm_service.proto`):
+   - `AttachCDROM` - Add a CD-ROM device to a VM
+   - `DetachCDROM` - Remove a CD-ROM device from a VM
+   - `MountISO` - Mount an ISO file to an existing CD-ROM device
+   - `EjectISO` - Eject the ISO from a CD-ROM device
 
-**Files Changed**:
-- `backend/migrations/000012_images_extended.up.sql` (new)
-- `backend/migrations/000012_images_extended.down.sql` (new)
-- `backend/internal/repository/postgres/image_repository.go` (new)
-- `backend/internal/server/server.go` (modified)
+2. **Regenerated Go code** with `buf generate`
 
-### 2. VM Creation Wizard Image Selection
+3. **Implemented handlers** in `backend/internal/services/vm/service.go`:
+   - `AttachCDROM()` - Creates a new CD-ROM device with optional ISO
+   - `DetachCDROM()` - Removes a CD-ROM device by ID
+   - `MountISO()` - Mounts an ISO to an existing CD-ROM device
+   - `EjectISO()` - Ejects the ISO from a CD-ROM device
 
-**Problem**: The VM Creation Wizard wasn't properly fetching and displaying images from the database.
-
-**Solution**:
-- Updated `useAvailableImages()` hook to fetch cloud images from DB and merge with catalog
-- Updated `useISOs()` hook to properly filter and display ISO images from DB
-- Updated `toCloudImage()` to use the actual `path` from the database
-- Added `storagePoolId` and proper `nodeId` to CloudImage interface
-- Updated StepISO component to show image status (ready/downloading/needs download)
-- Added validation to ensure selected image has a valid path before VM creation
-- Show image path in the UI when available
-
-**Files Changed**:
-- `frontend/src/hooks/useImages.ts` (modified)
-- `frontend/src/components/vm/VMCreationWizard.tsx` (modified)
-
-### 3. Pool Sync Mechanism (ISO Scanning Fix)
-
-**Problem**: ISO scanning fails because the node daemon doesn't have pool info after restart.
-
-**Root Cause**: 
-- Node daemon stores pool info in memory
-- After restart, the pool cache is empty
-- `try_discover_pool()` only checks standard paths (`/var/lib/limiquantix/pools/{pool_id}`)
-- User's NFS pool is at `/srv/nfs/qVDS01` which isn't discovered
-
-**Solution**:
-- Added `OnConnectCallback` to `DaemonPool` - called when a node connects/reconnects
-- Added `SyncPoolsToNode()` method to `PoolService` - pushes pool configs to a specific node
-- Added `SyncPoolsToAllNodes()` method for bulk sync
-- Wired up the callback in `server.go` so pools are automatically synced when nodes connect
-
-**How it works**:
-1. When a node connects to the control plane (via `DaemonPool.Connect()`)
-2. The `OnConnectCallback` is triggered
-3. `PoolService.SyncPoolsToNode()` is called
-4. All relevant pools (assigned to node + shared storage like NFS/Ceph) are initialized on the node
-5. Node daemon now has pool info in its cache for `ListStoragePoolFiles` requests
-
-**Files Changed**:
-- `backend/internal/services/node/daemon_pool.go` (modified - added callback mechanism)
-- `backend/internal/services/storage/pool_service.go` (modified - added SyncPoolsToNode)
-- `backend/internal/server/server.go` (modified - wired up callback)
+### Files Changed
+- `proto/limiquantix/compute/v1/vm_service.proto` - Added RPC definitions and request messages
+- `backend/pkg/api/limiquantix/compute/v1/*.go` - Regenerated proto code
+- `backend/internal/services/vm/service.go` - Implemented handlers
 
 ## Deployment
 
-Run the publish script to build and deploy everything:
+To deploy this change:
 
-```bash
-./scripts/publish-vdc-update.sh
-```
+1. Build and publish the update:
+   ```bash
+   ./scripts/publish-vdc-update.sh
+   ```
 
-This will:
-1. Build control plane with pool sync mechanism
-2. Build dashboard with updated image hooks
-3. Package migrations (including new images table)
-4. Upload to update server
-
-Then in QvDC UI:
-1. Check for updates
-2. Apply update
-3. Migrations will run automatically
+2. In QvDC UI:
+   - Check for updates
+   - Apply update
 
 ## Testing
 
-1. **Image Persistence**:
-   - Download a cloud image
-   - Restart control plane
-   - Verify image is still listed
-
-2. **ISO Scanning**:
-   - Ensure a node is connected
-   - Click "Scan ISOs" in the Images page
-   - ISOs in storage pools should be discovered
-
-3. **VM Creation**:
-   - Open VM Creation Wizard
-   - Go to Boot Media step
-   - Verify downloaded images show "Ready" status
-   - Verify image path is displayed
-   - Select a ready image and complete VM creation
+1. Open a VM in the dashboard
+2. Go to the CD-ROM section
+3. Click "Add CD-ROM" - should work now
+4. Mount an ISO to the CD-ROM
+5. Eject the ISO
+6. Remove the CD-ROM device
 
 ## Log
 
-- Created PostgreSQL image repository with full CRUD operations
-- Extended images table schema to match domain model
-- Updated frontend hooks to properly fetch and display images from DB
-- Added image path display in VM Creation Wizard
-- Added validation to ensure selected image is downloaded before VM creation
-- Added pool sync mechanism to push pool configs to nodes on connect
-- ISO scanning should now work after node reconnects
+- Added 4 new RPC methods to vm_service.proto
+- Added request messages: AttachCDROMRequest, DetachCDROMRequest, MountISORequest, EjectISORequest
+- Implemented handlers following the same pattern as AttachDisk/DetachDisk
+- Added generateCDROMID() helper function
+- Fixed field name: CDROMs → Cdroms (to match domain model)
+- Backend compiles successfully

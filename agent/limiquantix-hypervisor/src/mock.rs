@@ -478,6 +478,32 @@ impl Hypervisor for MockBackend {
         Ok(())
     }
     
+    async fn change_media(&self, vm_id: &str, device: &str, iso_path: Option<&str>) -> Result<()> {
+        info!(
+            vm_id = %vm_id,
+            device = %device,
+            iso_path = ?iso_path,
+            "Changing CD-ROM media"
+        );
+        
+        let vms = self.vms.read().map_err(|_| {
+            HypervisorError::Internal("Lock poisoned".to_string())
+        })?;
+        
+        // Just verify VM exists
+        if !vms.contains_key(vm_id) {
+            return Err(HypervisorError::VmNotFound(vm_id.to_string()));
+        }
+        
+        if iso_path.is_some() {
+            info!("ISO mounted (mock)");
+        } else {
+            info!("CD-ROM ejected (mock)");
+        }
+        
+        Ok(())
+    }
+    
     async fn migrate_vm(&self, vm_id: &str, target_uri: &str, live: bool) -> Result<()> {
         info!(
             vm_id = %vm_id, 

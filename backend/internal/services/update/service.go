@@ -1819,10 +1819,13 @@ func copyFile(src, dst string) error {
 // runMigrations executes the database migration tool
 func (s *Service) runMigrations(ctx context.Context) error {
 	// Look for the migrate binary in standard locations
-	migrateBin := "/usr/share/quantix-vdc/migrations/quantix-migrate"
+	migrationsDir := "/usr/share/quantix-vdc/migrations"
+	migrateBin := filepath.Join(migrationsDir, "quantix-migrate")
+	
 	if _, err := os.Stat(migrateBin); os.IsNotExist(err) {
 		// Fallback for dev environment
 		migrateBin = "quantix-migrate"
+		migrationsDir = "."
 	}
 
 	// Ensure we pass the config environment variables so the tool knows how to connect
@@ -1833,8 +1836,15 @@ func (s *Service) runMigrations(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, migrateBin, "up")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	
+	// CRITICAL: Set working directory to where the migrations folder is
+	// The migrate tool uses "file://migrations" which is relative to cwd
+	cmd.Dir = migrationsDir
 
-	s.logger.Info("Executing migration command", zap.String("cmd", migrateBin+" up"))
+	s.logger.Info("Executing migration command",
+		zap.String("cmd", migrateBin+" up"),
+		zap.String("working_dir", migrationsDir),
+	)
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("migration command failed: %w", err)

@@ -52,6 +52,8 @@ use limiquantix_proto::{
     QuiesceFilesystemsRequest, QuiesceFilesystemsResponse,
     ThawFilesystemsRequest, ThawFilesystemsResponse,
     SyncTimeRequest, SyncTimeResponse,
+    // CD-ROM media change
+    ChangeMediaRequest,
 };
 // Agent types (from guest agent protocol - used by AgentClient)
 use limiquantix_proto::agent::TelemetryReport;
@@ -2587,5 +2589,39 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 }))
             }
         }
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, device = %request.get_ref().device))]
+    async fn change_media(
+        &self,
+        request: Request<ChangeMediaRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        
+        let iso_path = if req.iso_path.is_empty() {
+            None
+        } else {
+            Some(req.iso_path.as_str())
+        };
+        
+        if iso_path.is_some() {
+            info!(iso_path = ?iso_path, "Mounting ISO to CD-ROM");
+        } else {
+            info!("Ejecting CD-ROM media");
+        }
+        
+        // Call the hypervisor to change the media
+        self.hypervisor
+            .change_media(&req.vm_id, &req.device, iso_path)
+            .await
+            .map_err(|e| Status::internal(format!("Failed to change media: {}", e)))?;
+        
+        if iso_path.is_some() {
+            info!("ISO mounted successfully");
+        } else {
+            info!("CD-ROM ejected successfully");
+        }
+        
+        Ok(Response::new(()))
     }
 }

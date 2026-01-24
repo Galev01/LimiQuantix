@@ -2185,6 +2185,272 @@ func (s *Service) DetachNIC(
 }
 
 // ============================================================================
+// CD-ROM Operations
+// ============================================================================
+
+// AttachCDROM adds a CD-ROM device to a VM.
+func (s *Service) AttachCDROM(
+	ctx context.Context,
+	req *connect.Request[computev1.AttachCDROMRequest],
+) (*connect.Response[computev1.VirtualMachine], error) {
+	logger := s.logger.With(
+		zap.String("method", "AttachCDROM"),
+		zap.String("vm_id", req.Msg.VmId),
+	)
+
+	logger.Info("Attaching CD-ROM to VM")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Create new CD-ROM device
+	cdromName := generateCDROMID()
+	newCDROM := domain.CDROMDevice{
+		Name:      cdromName,
+		ISO:       req.Msg.IsoPath,
+		Connected: req.Msg.IsoPath != "",
+	}
+
+	// Add to VM spec
+	vm.Spec.Cdroms = append(vm.Spec.Cdroms, newCDROM)
+
+	// Update VM in database
+	updated, err := s.repo.Update(ctx, vm)
+	if err != nil {
+		logger.Error("Failed to update VM", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Record event
+	eventMsg := fmt.Sprintf("CD-ROM device %s added", cdromName)
+	if req.Msg.IsoPath != "" {
+		eventMsg = fmt.Sprintf("CD-ROM device %s added with ISO %s", cdromName, req.Msg.IsoPath)
+	}
+	s.recordVMEvent(ctx, vm.ID, "config", "info", eventMsg, "")
+
+	logger.Info("CD-ROM attached successfully", zap.String("cdrom_name", cdromName))
+
+	return connect.NewResponse(ToProto(updated)), nil
+}
+
+// DetachCDROM removes a CD-ROM device from a VM.
+func (s *Service) DetachCDROM(
+	ctx context.Context,
+	req *connect.Request[computev1.DetachCDROMRequest],
+) (*connect.Response[computev1.VirtualMachine], error) {
+	logger := s.logger.With(
+		zap.String("method", "DetachCDROM"),
+		zap.String("vm_id", req.Msg.VmId),
+		zap.String("cdrom_id", req.Msg.CdromId),
+	)
+
+	logger.Info("Detaching CD-ROM from VM")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+	if req.Msg.CdromId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("CD-ROM ID is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Find and remove the CD-ROM
+	found := false
+	newCDROMs := make([]domain.CDROMDevice, 0, len(vm.Spec.Cdroms))
+	for _, cdrom := range vm.Spec.Cdroms {
+		if cdrom.Name == req.Msg.CdromId {
+			found = true
+		} else {
+			newCDROMs = append(newCDROMs, cdrom)
+		}
+	}
+
+	if !found {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("CD-ROM '%s' not found", req.Msg.CdromId))
+	}
+
+	vm.Spec.Cdroms = newCDROMs
+
+	// Update VM in database
+	updated, err := s.repo.Update(ctx, vm)
+	if err != nil {
+		logger.Error("Failed to update VM", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Record event
+	s.recordVMEvent(ctx, vm.ID, "config", "info", fmt.Sprintf("CD-ROM device %s removed", req.Msg.CdromId), "")
+
+	logger.Info("CD-ROM detached successfully")
+
+	return connect.NewResponse(ToProto(updated)), nil
+}
+
+// MountISO mounts an ISO file to an existing CD-ROM device.
+func (s *Service) MountISO(
+	ctx context.Context,
+	req *connect.Request[computev1.MountISORequest],
+) (*connect.Response[computev1.VirtualMachine], error) {
+	logger := s.logger.With(
+		zap.String("method", "MountISO"),
+		zap.String("vm_id", req.Msg.VmId),
+		zap.String("cdrom_id", req.Msg.CdromId),
+		zap.String("iso_path", req.Msg.IsoPath),
+	)
+
+	logger.Info("Mounting ISO to CD-ROM")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+	if req.Msg.CdromId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("CD-ROM ID is required"))
+	}
+	if req.Msg.IsoPath == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("ISO path is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Find the CD-ROM and update it
+	found := false
+	for i, cdrom := range vm.Spec.Cdroms {
+		if cdrom.Name == req.Msg.CdromId {
+			vm.Spec.Cdroms[i].ISO = req.Msg.IsoPath
+			vm.Spec.Cdroms[i].Connected = true
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("CD-ROM '%s' not found", req.Msg.CdromId))
+	}
+
+	// If VM is running, change the media on the hypervisor
+	if vm.Status.State == domain.VMStateRunning && vm.Status.NodeID != "" {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Error("Failed to connect to node daemon", zap.Error(err))
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node: %w", err))
+		}
+
+		// Use "sda" as the default device name for CD-ROM (SATA bus)
+		// In the future, we could store the actual device name in the CDROMDevice struct
+		device := "sda"
+		err = client.ChangeMedia(ctx, req.Msg.VmId, device, req.Msg.IsoPath)
+		if err != nil {
+			logger.Error("Failed to mount ISO on hypervisor", zap.Error(err))
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to mount ISO: %w", err))
+		}
+	}
+
+	// Update VM in database
+	updated, err := s.repo.Update(ctx, vm)
+	if err != nil {
+		logger.Error("Failed to update VM", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Record event
+	s.recordVMEvent(ctx, vm.ID, "config", "info", fmt.Sprintf("ISO %s mounted to CD-ROM %s", req.Msg.IsoPath, req.Msg.CdromId), "")
+
+	logger.Info("ISO mounted successfully")
+
+	return connect.NewResponse(ToProto(updated)), nil
+}
+
+// EjectISO ejects the ISO from a CD-ROM device.
+func (s *Service) EjectISO(
+	ctx context.Context,
+	req *connect.Request[computev1.EjectISORequest],
+) (*connect.Response[computev1.VirtualMachine], error) {
+	logger := s.logger.With(
+		zap.String("method", "EjectISO"),
+		zap.String("vm_id", req.Msg.VmId),
+		zap.String("cdrom_id", req.Msg.CdromId),
+	)
+
+	logger.Info("Ejecting ISO from CD-ROM")
+
+	if req.Msg.VmId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+	if req.Msg.CdromId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("CD-ROM ID is required"))
+	}
+
+	// Get the VM
+	vm, err := s.repo.Get(ctx, req.Msg.VmId)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", req.Msg.VmId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Find the CD-ROM and eject it
+	found := false
+	var oldISO string
+	for i, cdrom := range vm.Spec.Cdroms {
+		if cdrom.Name == req.Msg.CdromId {
+			oldISO = cdrom.ISO
+			vm.Spec.Cdroms[i].ISO = ""
+			vm.Spec.Cdroms[i].Connected = false
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("CD-ROM '%s' not found", req.Msg.CdromId))
+	}
+
+	// Update VM in database
+	updated, err := s.repo.Update(ctx, vm)
+	if err != nil {
+		logger.Error("Failed to update VM", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Record event
+	eventMsg := fmt.Sprintf("ISO ejected from CD-ROM %s", req.Msg.CdromId)
+	if oldISO != "" {
+		eventMsg = fmt.Sprintf("ISO %s ejected from CD-ROM %s", oldISO, req.Msg.CdromId)
+	}
+	s.recordVMEvent(ctx, vm.ID, "config", "info", eventMsg, "")
+
+	logger.Info("ISO ejected successfully")
+
+	return connect.NewResponse(ToProto(updated)), nil
+}
+
+// ============================================================================
 // Events
 // ============================================================================
 
@@ -2337,6 +2603,10 @@ func generateDiskID() string {
 
 func generateNICID() string {
 	return fmt.Sprintf("nic-%d", time.Now().UnixNano())
+}
+
+func generateCDROMID() string {
+	return fmt.Sprintf("cdrom-%d", time.Now().UnixNano())
 }
 
 func generateMACAddress() string {

@@ -1285,6 +1285,8 @@ func convertImageToProto(img *domain.Image) *storagev1.Image {
 			Checksum:         img.Status.Checksum,
 			ErrorMessage:     img.Status.ErrorMessage,
 			StoragePoolId:    img.Status.StoragePoolID,
+			Path:             img.Status.Path,   // Image file path on the node
+			NodeId:           img.Status.NodeID, // Node hosting this image
 		},
 		CreatedAt: timestamppb.New(img.CreatedAt),
 		UpdatedAt: timestamppb.New(img.UpdatedAt),

@@ -86,6 +86,14 @@ const (
 	VMServiceAttachNICProcedure = "/limiquantix.compute.v1.VMService/AttachNIC"
 	// VMServiceDetachNICProcedure is the fully-qualified name of the VMService's DetachNIC RPC.
 	VMServiceDetachNICProcedure = "/limiquantix.compute.v1.VMService/DetachNIC"
+	// VMServiceAttachCDROMProcedure is the fully-qualified name of the VMService's AttachCDROM RPC.
+	VMServiceAttachCDROMProcedure = "/limiquantix.compute.v1.VMService/AttachCDROM"
+	// VMServiceDetachCDROMProcedure is the fully-qualified name of the VMService's DetachCDROM RPC.
+	VMServiceDetachCDROMProcedure = "/limiquantix.compute.v1.VMService/DetachCDROM"
+	// VMServiceMountISOProcedure is the fully-qualified name of the VMService's MountISO RPC.
+	VMServiceMountISOProcedure = "/limiquantix.compute.v1.VMService/MountISO"
+	// VMServiceEjectISOProcedure is the fully-qualified name of the VMService's EjectISO RPC.
+	VMServiceEjectISOProcedure = "/limiquantix.compute.v1.VMService/EjectISO"
 	// VMServiceListVMEventsProcedure is the fully-qualified name of the VMService's ListVMEvents RPC.
 	VMServiceListVMEventsProcedure = "/limiquantix.compute.v1.VMService/ListVMEvents"
 	// VMServiceWatchVMProcedure is the fully-qualified name of the VMService's WatchVM RPC.
@@ -161,6 +169,14 @@ type VMServiceClient interface {
 	AttachNIC(context.Context, *connect.Request[v1.AttachNICRequest]) (*connect.Response[v1.VirtualMachine], error)
 	// DetachNIC removes a network interface from a VM (hot-unplug if running).
 	DetachNIC(context.Context, *connect.Request[v1.DetachNICRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// AttachCDROM adds a CD-ROM device to a VM.
+	AttachCDROM(context.Context, *connect.Request[v1.AttachCDROMRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// DetachCDROM removes a CD-ROM device from a VM.
+	DetachCDROM(context.Context, *connect.Request[v1.DetachCDROMRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// MountISO mounts an ISO file to an existing CD-ROM device.
+	MountISO(context.Context, *connect.Request[v1.MountISORequest]) (*connect.Response[v1.VirtualMachine], error)
+	// EjectISO ejects the ISO from a CD-ROM device.
+	EjectISO(context.Context, *connect.Request[v1.EjectISORequest]) (*connect.Response[v1.VirtualMachine], error)
 	// ListVMEvents returns events for a VM.
 	ListVMEvents(context.Context, *connect.Request[v1.ListVMEventsRequest]) (*connect.Response[v1.ListVMEventsResponse], error)
 	// WatchVM streams real-time updates for a VM.
@@ -336,6 +352,30 @@ func NewVMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...c
 			connect.WithSchema(vMServiceMethods.ByName("DetachNIC")),
 			connect.WithClientOptions(opts...),
 		),
+		attachCDROM: connect.NewClient[v1.AttachCDROMRequest, v1.VirtualMachine](
+			httpClient,
+			baseURL+VMServiceAttachCDROMProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("AttachCDROM")),
+			connect.WithClientOptions(opts...),
+		),
+		detachCDROM: connect.NewClient[v1.DetachCDROMRequest, v1.VirtualMachine](
+			httpClient,
+			baseURL+VMServiceDetachCDROMProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("DetachCDROM")),
+			connect.WithClientOptions(opts...),
+		),
+		mountISO: connect.NewClient[v1.MountISORequest, v1.VirtualMachine](
+			httpClient,
+			baseURL+VMServiceMountISOProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("MountISO")),
+			connect.WithClientOptions(opts...),
+		),
+		ejectISO: connect.NewClient[v1.EjectISORequest, v1.VirtualMachine](
+			httpClient,
+			baseURL+VMServiceEjectISOProcedure,
+			connect.WithSchema(vMServiceMethods.ByName("EjectISO")),
+			connect.WithClientOptions(opts...),
+		),
 		listVMEvents: connect.NewClient[v1.ListVMEventsRequest, v1.ListVMEventsResponse](
 			httpClient,
 			baseURL+VMServiceListVMEventsProcedure,
@@ -419,6 +459,10 @@ type vMServiceClient struct {
 	resizeDisk        *connect.Client[v1.ResizeDiskRequest, v1.VirtualMachine]
 	attachNIC         *connect.Client[v1.AttachNICRequest, v1.VirtualMachine]
 	detachNIC         *connect.Client[v1.DetachNICRequest, v1.VirtualMachine]
+	attachCDROM       *connect.Client[v1.AttachCDROMRequest, v1.VirtualMachine]
+	detachCDROM       *connect.Client[v1.DetachCDROMRequest, v1.VirtualMachine]
+	mountISO          *connect.Client[v1.MountISORequest, v1.VirtualMachine]
+	ejectISO          *connect.Client[v1.EjectISORequest, v1.VirtualMachine]
 	listVMEvents      *connect.Client[v1.ListVMEventsRequest, v1.ListVMEventsResponse]
 	watchVM           *connect.Client[v1.WatchVMRequest, v1.VirtualMachine]
 	streamMetrics     *connect.Client[v1.StreamMetricsRequest, v1.ResourceUsage]
@@ -550,6 +594,26 @@ func (c *vMServiceClient) DetachNIC(ctx context.Context, req *connect.Request[v1
 	return c.detachNIC.CallUnary(ctx, req)
 }
 
+// AttachCDROM calls limiquantix.compute.v1.VMService.AttachCDROM.
+func (c *vMServiceClient) AttachCDROM(ctx context.Context, req *connect.Request[v1.AttachCDROMRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return c.attachCDROM.CallUnary(ctx, req)
+}
+
+// DetachCDROM calls limiquantix.compute.v1.VMService.DetachCDROM.
+func (c *vMServiceClient) DetachCDROM(ctx context.Context, req *connect.Request[v1.DetachCDROMRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return c.detachCDROM.CallUnary(ctx, req)
+}
+
+// MountISO calls limiquantix.compute.v1.VMService.MountISO.
+func (c *vMServiceClient) MountISO(ctx context.Context, req *connect.Request[v1.MountISORequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return c.mountISO.CallUnary(ctx, req)
+}
+
+// EjectISO calls limiquantix.compute.v1.VMService.EjectISO.
+func (c *vMServiceClient) EjectISO(ctx context.Context, req *connect.Request[v1.EjectISORequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return c.ejectISO.CallUnary(ctx, req)
+}
+
 // ListVMEvents calls limiquantix.compute.v1.VMService.ListVMEvents.
 func (c *vMServiceClient) ListVMEvents(ctx context.Context, req *connect.Request[v1.ListVMEventsRequest]) (*connect.Response[v1.ListVMEventsResponse], error) {
 	return c.listVMEvents.CallUnary(ctx, req)
@@ -649,6 +713,14 @@ type VMServiceHandler interface {
 	AttachNIC(context.Context, *connect.Request[v1.AttachNICRequest]) (*connect.Response[v1.VirtualMachine], error)
 	// DetachNIC removes a network interface from a VM (hot-unplug if running).
 	DetachNIC(context.Context, *connect.Request[v1.DetachNICRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// AttachCDROM adds a CD-ROM device to a VM.
+	AttachCDROM(context.Context, *connect.Request[v1.AttachCDROMRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// DetachCDROM removes a CD-ROM device from a VM.
+	DetachCDROM(context.Context, *connect.Request[v1.DetachCDROMRequest]) (*connect.Response[v1.VirtualMachine], error)
+	// MountISO mounts an ISO file to an existing CD-ROM device.
+	MountISO(context.Context, *connect.Request[v1.MountISORequest]) (*connect.Response[v1.VirtualMachine], error)
+	// EjectISO ejects the ISO from a CD-ROM device.
+	EjectISO(context.Context, *connect.Request[v1.EjectISORequest]) (*connect.Response[v1.VirtualMachine], error)
 	// ListVMEvents returns events for a VM.
 	ListVMEvents(context.Context, *connect.Request[v1.ListVMEventsRequest]) (*connect.Response[v1.ListVMEventsResponse], error)
 	// WatchVM streams real-time updates for a VM.
@@ -820,6 +892,30 @@ func NewVMServiceHandler(svc VMServiceHandler, opts ...connect.HandlerOption) (s
 		connect.WithSchema(vMServiceMethods.ByName("DetachNIC")),
 		connect.WithHandlerOptions(opts...),
 	)
+	vMServiceAttachCDROMHandler := connect.NewUnaryHandler(
+		VMServiceAttachCDROMProcedure,
+		svc.AttachCDROM,
+		connect.WithSchema(vMServiceMethods.ByName("AttachCDROM")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vMServiceDetachCDROMHandler := connect.NewUnaryHandler(
+		VMServiceDetachCDROMProcedure,
+		svc.DetachCDROM,
+		connect.WithSchema(vMServiceMethods.ByName("DetachCDROM")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vMServiceMountISOHandler := connect.NewUnaryHandler(
+		VMServiceMountISOProcedure,
+		svc.MountISO,
+		connect.WithSchema(vMServiceMethods.ByName("MountISO")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vMServiceEjectISOHandler := connect.NewUnaryHandler(
+		VMServiceEjectISOProcedure,
+		svc.EjectISO,
+		connect.WithSchema(vMServiceMethods.ByName("EjectISO")),
+		connect.WithHandlerOptions(opts...),
+	)
 	vMServiceListVMEventsHandler := connect.NewUnaryHandler(
 		VMServiceListVMEventsProcedure,
 		svc.ListVMEvents,
@@ -924,6 +1020,14 @@ func NewVMServiceHandler(svc VMServiceHandler, opts ...connect.HandlerOption) (s
 			vMServiceAttachNICHandler.ServeHTTP(w, r)
 		case VMServiceDetachNICProcedure:
 			vMServiceDetachNICHandler.ServeHTTP(w, r)
+		case VMServiceAttachCDROMProcedure:
+			vMServiceAttachCDROMHandler.ServeHTTP(w, r)
+		case VMServiceDetachCDROMProcedure:
+			vMServiceDetachCDROMHandler.ServeHTTP(w, r)
+		case VMServiceMountISOProcedure:
+			vMServiceMountISOHandler.ServeHTTP(w, r)
+		case VMServiceEjectISOProcedure:
+			vMServiceEjectISOHandler.ServeHTTP(w, r)
 		case VMServiceListVMEventsProcedure:
 			vMServiceListVMEventsHandler.ServeHTTP(w, r)
 		case VMServiceWatchVMProcedure:
@@ -1045,6 +1149,22 @@ func (UnimplementedVMServiceHandler) AttachNIC(context.Context, *connect.Request
 
 func (UnimplementedVMServiceHandler) DetachNIC(context.Context, *connect.Request[v1.DetachNICRequest]) (*connect.Response[v1.VirtualMachine], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.DetachNIC is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) AttachCDROM(context.Context, *connect.Request[v1.AttachCDROMRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.AttachCDROM is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) DetachCDROM(context.Context, *connect.Request[v1.DetachCDROMRequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.DetachCDROM is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) MountISO(context.Context, *connect.Request[v1.MountISORequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.MountISO is not implemented"))
+}
+
+func (UnimplementedVMServiceHandler) EjectISO(context.Context, *connect.Request[v1.EjectISORequest]) (*connect.Response[v1.VirtualMachine], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.compute.v1.VMService.EjectISO is not implemented"))
 }
 
 func (UnimplementedVMServiceHandler) ListVMEvents(context.Context, *connect.Request[v1.ListVMEventsRequest]) (*connect.Response[v1.ListVMEventsResponse], error) {

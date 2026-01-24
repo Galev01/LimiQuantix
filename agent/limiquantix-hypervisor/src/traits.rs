@@ -138,6 +138,12 @@ pub trait Hypervisor: Send + Sync {
     /// Detach a network interface from a running VM.
     async fn detach_nic(&self, vm_id: &str, nic_id: &str) -> Result<()>;
     
+    /// Change CD-ROM media (mount/eject ISO).
+    ///
+    /// If `iso_path` is Some, mounts the ISO to the CD-ROM device.
+    /// If `iso_path` is None, ejects the current media.
+    async fn change_media(&self, vm_id: &str, device: &str, iso_path: Option<&str>) -> Result<()>;
+    
     // =========================================================================
     // Migration
     // =========================================================================

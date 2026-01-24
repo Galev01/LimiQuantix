@@ -22,6 +22,42 @@ alwaysApply: true
 | **QHCI01 Host UI** | https://192.168.0.101:8443 | 8443 | Host web management interface |
 | **QHCI01 Node API** | https://192.168.0.101:9443 | 9443 | Node daemon gRPC API |
 
+## Database Configuration (QvDC)
+
+The QvDC control plane uses PostgreSQL. **Critical for migrations:**
+
+| Setting | Value |
+|---------|-------|
+| Host | localhost |
+| Port | 5432 |
+| Database | `quantix_vdc` |
+| User | `postgres` |
+| Password | (empty) |
+| SSL Mode | disable |
+| Config File | `/etc/quantix-vdc/config.yaml` |
+
+### Running Migrations Manually
+
+```bash
+# SSH into QvDC
+ssh root@192.168.0.100
+
+# Run migration tool (reads config from /etc/quantix-vdc/config.yaml)
+cd /usr/share/quantix-vdc/migrations
+./quantix-migrate up
+
+# Or run SQL directly
+psql -U postgres -d quantix_vdc -f /usr/share/quantix-vdc/migrations/migrations/000012_images_extended.up.sql
+
+# Check migration version
+./quantix-migrate version
+
+# View control plane logs
+journalctl -u quantix-controlplane -n 100 --no-pager
+# Or for OpenRC:
+tail -100 /var/log/quantix-controlplane.log
+```
+
 ## Update Server Quick Reference
 
 The Update Server runs on the QvDC machine and provides OTA updates to all Quantix-OS hosts.
@@ -40,3 +76,28 @@ docker-compose up -d
 **Hosts pull updates from:**
 - Update Server URL: `http://192.168.0.251:9000`
 - Channel: `dev` (development), `beta`, or `stable`
+
+## Troubleshooting
+
+### 500 Errors on ListImages/ListOVATemplates
+
+1. **Check if migration ran:**
+   ```bash
+   cd /usr/share/quantix-vdc/migrations && ./quantix-migrate version
+   ```
+
+2. **Check if images table has correct schema:**
+   ```bash
+   psql -U postgres -d quantix_vdc -c "\d images"
+   ```
+   Should have columns: `id`, `name`, `labels`, `format`, `phase`, etc.
+
+3. **Run migration if needed:**
+   ```bash
+   cd /usr/share/quantix-vdc/migrations && ./quantix-migrate up
+   ```
+
+4. **Restart control plane:**
+   ```bash
+   rc-service quantix-controlplane restart
+   ```

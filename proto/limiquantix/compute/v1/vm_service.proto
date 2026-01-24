@@ -119,6 +119,22 @@ service VMService {
   rpc DetachNIC(DetachNICRequest) returns (VirtualMachine);
   
   // ==========================================================================
+  // CD-ROM Operations
+  // ==========================================================================
+  
+  // AttachCDROM adds a CD-ROM device to a VM.
+  rpc AttachCDROM(AttachCDROMRequest) returns (VirtualMachine);
+  
+  // DetachCDROM removes a CD-ROM device from a VM.
+  rpc DetachCDROM(DetachCDROMRequest) returns (VirtualMachine);
+  
+  // MountISO mounts an ISO file to an existing CD-ROM device.
+  rpc MountISO(MountISORequest) returns (VirtualMachine);
+  
+  // EjectISO ejects the ISO from a CD-ROM device.
+  rpc EjectISO(EjectISORequest) returns (VirtualMachine);
+  
+  // ==========================================================================
   // Events
   // ==========================================================================
   
@@ -459,6 +475,43 @@ message DetachNICRequest {
   
   // NIC ID to detach
   string nic_id = 2;
+}
+
+// CD-ROM Operations
+
+message AttachCDROMRequest {
+  // VM to attach CD-ROM to
+  string vm_id = 1;
+  
+  // Optional: ISO path to mount immediately (if empty, creates empty CD-ROM)
+  string iso_path = 2;
+}
+
+message DetachCDROMRequest {
+  // VM to detach CD-ROM from
+  string vm_id = 1;
+  
+  // CD-ROM device ID to detach
+  string cdrom_id = 2;
+}
+
+message MountISORequest {
+  // VM with the CD-ROM device
+  string vm_id = 1;
+  
+  // CD-ROM device ID
+  string cdrom_id = 2;
+  
+  // Path to the ISO file (absolute path on the hypervisor)
+  string iso_path = 3;
+}
+
+message EjectISORequest {
+  // VM with the CD-ROM device
+  string vm_id = 1;
+  
+  // CD-ROM device ID
+  string cdrom_id = 2;
 }
 
 // Events

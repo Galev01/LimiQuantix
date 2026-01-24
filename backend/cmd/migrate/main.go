@@ -26,24 +26,30 @@ func main() {
 	command := os.Args[1]
 
 	// Load configuration
+	// Defaults match the production config in /etc/quantix-vdc/config.yaml
 	viper.SetDefault("database.host", "localhost")
 	viper.SetDefault("database.port", 5432)
-	viper.SetDefault("database.user", "limiquantix")
-	viper.SetDefault("database.password", "limiquantix")
-	viper.SetDefault("database.name", "limiquantix")
+	viper.SetDefault("database.user", "postgres")
+	viper.SetDefault("database.password", "")
+	viper.SetDefault("database.name", "quantix_vdc")
 	viper.SetDefault("database.sslmode", "disable")
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("./config")
-	// Environment variables
-	viper.SetEnvPrefix("limiquantix")
+	// Look for config in standard locations
+	viper.AddConfigPath("/etc/quantix-vdc") // Production location
+	viper.AddConfigPath(".")                // Current directory
+	viper.AddConfigPath("./config")         // Local config folder
+
+	// Environment variables (QUANTIX_DATABASE_HOST, etc.)
+	viper.SetEnvPrefix("QUANTIX")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		logger.Debug("No config file found", zap.Error(err))
+		logger.Debug("No config file found, using defaults", zap.Error(err))
+	} else {
+		logger.Info("Loaded config file", zap.String("file", viper.ConfigFileUsed()))
 	}
 
 	// Build connection string

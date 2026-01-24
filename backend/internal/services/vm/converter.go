@@ -44,12 +44,13 @@ func convertSpecFromProto(spec *computev1.VmSpec) domain.VMSpec {
 			continue
 		}
 		result.Disks = append(result.Disks, domain.DiskDevice{
-			Name:      disk.Id,
-			VolumeID:  disk.VolumeId,
-			SizeGiB:   int64(disk.SizeGib),
-			Bus:       disk.Bus.String(),
-			Cache:     disk.Cache.String(),
-			BootOrder: int32(disk.BootIndex),
+			Name:        disk.Id,
+			VolumeID:    disk.VolumeId,
+			SizeGiB:     int64(disk.SizeGib),
+			Bus:         disk.Bus.String(),
+			Cache:       disk.Cache.String(),
+			BootOrder:   int32(disk.BootIndex),
+			BackingFile: disk.BackingFile, // Cloud image path for copy-on-write
 		})
 	}
 
@@ -147,11 +148,12 @@ func convertSpecToProto(spec domain.VMSpec) *computev1.VmSpec {
 	// Disks
 	for _, disk := range spec.Disks {
 		result.Disks = append(result.Disks, &computev1.DiskDevice{
-			Id:        disk.Name,
-			VolumeId:  disk.VolumeID,
-			SizeGib:   uint64(disk.SizeGiB),
-			Bus:       parseBusType(disk.Bus),
-			BootIndex: uint32(disk.BootOrder),
+			Id:          disk.Name,
+			VolumeId:    disk.VolumeID,
+			SizeGib:     uint64(disk.SizeGiB),
+			Bus:         parseBusType(disk.Bus),
+			BootIndex:   uint32(disk.BootOrder),
+			BackingFile: disk.BackingFile, // Cloud image path for copy-on-write
 		})
 	}
 

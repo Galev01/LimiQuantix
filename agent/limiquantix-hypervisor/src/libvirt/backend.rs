@@ -567,6 +567,53 @@ impl Hypervisor for LibvirtBackend {
         Ok(())
     }
     
+    #[instrument(skip(self), fields(vm_id = %vm_id, device = %device))]
+    async fn change_media(&self, vm_id: &str, device: &str, iso_path: Option<&str>) -> Result<()> {
+        let domain = self.get_domain(vm_id)?;
+        
+        // Build the CD-ROM XML for the media change
+        // The device is typically "hda", "hdb", "sda", etc. or the target dev name
+        let cdrom_xml = if let Some(path) = iso_path {
+            info!(iso_path = %path, "Mounting ISO to CD-ROM");
+            format!(
+                r#"<disk type='file' device='cdrom'>
+                    <driver name='qemu' type='raw'/>
+                    <source file='{}'/>
+                    <target dev='{}' bus='sata'/>
+                    <readonly/>
+                </disk>"#,
+                path,
+                device
+            )
+        } else {
+            info!("Ejecting CD-ROM media");
+            format!(
+                r#"<disk type='file' device='cdrom'>
+                    <driver name='qemu' type='raw'/>
+                    <target dev='{}' bus='sata'/>
+                    <readonly/>
+                </disk>"#,
+                device
+            )
+        };
+        
+        // Use update_device to change the media
+        // VIR_DOMAIN_DEVICE_MODIFY_LIVE = 1, VIR_DOMAIN_DEVICE_MODIFY_CONFIG = 2
+        // We want both: live change + persist to config
+        let flags = sys::VIR_DOMAIN_DEVICE_MODIFY_LIVE | sys::VIR_DOMAIN_DEVICE_MODIFY_CONFIG;
+        
+        domain.update_device(&cdrom_xml, flags)
+            .map_err(|e| HypervisorError::Internal(format!("Failed to change media: {}", e)))?;
+        
+        if iso_path.is_some() {
+            info!("ISO mounted successfully");
+        } else {
+            info!("CD-ROM ejected successfully");
+        }
+        
+        Ok(())
+    }
+    
     #[instrument(skip(self), fields(vm_id = %vm_id, target = %target_uri))]
     async fn migrate_vm(&self, vm_id: &str, target_uri: &str, live: bool) -> Result<()> {
         info!(live = live, "Migrating VM");

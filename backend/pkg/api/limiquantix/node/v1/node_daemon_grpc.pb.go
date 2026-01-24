@@ -41,6 +41,7 @@ const (
 	NodeDaemonService_DetachDisk_FullMethodName           = "/limiquantix.node.v1.NodeDaemonService/DetachDisk"
 	NodeDaemonService_AttachNIC_FullMethodName            = "/limiquantix.node.v1.NodeDaemonService/AttachNIC"
 	NodeDaemonService_DetachNIC_FullMethodName            = "/limiquantix.node.v1.NodeDaemonService/DetachNIC"
+	NodeDaemonService_ChangeMedia_FullMethodName          = "/limiquantix.node.v1.NodeDaemonService/ChangeMedia"
 	NodeDaemonService_PrepareMigration_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/PrepareMigration"
 	NodeDaemonService_ReceiveMigration_FullMethodName     = "/limiquantix.node.v1.NodeDaemonService/ReceiveMigration"
 	NodeDaemonService_MigrateVM_FullMethodName            = "/limiquantix.node.v1.NodeDaemonService/MigrateVM"
@@ -113,6 +114,8 @@ type NodeDaemonServiceClient interface {
 	AttachNIC(ctx context.Context, in *AttachNICRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Detach a network interface from a running VM
 	DetachNIC(ctx context.Context, in *DetachNICRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Change CD-ROM media (mount/eject ISO)
+	ChangeMedia(ctx context.Context, in *ChangeMediaRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Prepare this node to receive a migrating VM
 	PrepareMigration(ctx context.Context, in *PrepareMigrationRequest, opts ...grpc.CallOption) (*MigrationToken, error)
 	// Receive a migrating VM
@@ -375,6 +378,16 @@ func (c *nodeDaemonServiceClient) DetachNIC(ctx context.Context, in *DetachNICRe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, NodeDaemonService_DetachNIC_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeDaemonServiceClient) ChangeMedia(ctx context.Context, in *ChangeMediaRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NodeDaemonService_ChangeMedia_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -703,6 +716,8 @@ type NodeDaemonServiceServer interface {
 	AttachNIC(context.Context, *AttachNICRequest) (*emptypb.Empty, error)
 	// Detach a network interface from a running VM
 	DetachNIC(context.Context, *DetachNICRequest) (*emptypb.Empty, error)
+	// Change CD-ROM media (mount/eject ISO)
+	ChangeMedia(context.Context, *ChangeMediaRequest) (*emptypb.Empty, error)
 	// Prepare this node to receive a migrating VM
 	PrepareMigration(context.Context, *PrepareMigrationRequest) (*MigrationToken, error)
 	// Receive a migrating VM
@@ -822,6 +837,9 @@ func (UnimplementedNodeDaemonServiceServer) AttachNIC(context.Context, *AttachNI
 }
 func (UnimplementedNodeDaemonServiceServer) DetachNIC(context.Context, *DetachNICRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DetachNIC not implemented")
+}
+func (UnimplementedNodeDaemonServiceServer) ChangeMedia(context.Context, *ChangeMediaRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method ChangeMedia not implemented")
 }
 func (UnimplementedNodeDaemonServiceServer) PrepareMigration(context.Context, *PrepareMigrationRequest) (*MigrationToken, error) {
 	return nil, status.Error(codes.Unimplemented, "method PrepareMigration not implemented")
@@ -1289,6 +1307,24 @@ func _NodeDaemonService_DetachNIC_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(NodeDaemonServiceServer).DetachNIC(ctx, req.(*DetachNICRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeDaemonService_ChangeMedia_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChangeMediaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeDaemonServiceServer).ChangeMedia(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeDaemonService_ChangeMedia_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeDaemonServiceServer).ChangeMedia(ctx, req.(*ChangeMediaRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1787,6 +1823,10 @@ var NodeDaemonService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DetachNIC",
 			Handler:    _NodeDaemonService_DetachNIC_Handler,
+		},
+		{
+			MethodName: "ChangeMedia",
+			Handler:    _NodeDaemonService_ChangeMedia_Handler,
 		},
 		{
 			MethodName: "PrepareMigration",

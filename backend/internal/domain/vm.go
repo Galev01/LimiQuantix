@@ -133,6 +133,7 @@ type DiskDevice struct {
 	IOPSLimit    int64  `json:"iops_limit,omitempty"`
 	BootOrder    int32  `json:"boot_order,omitempty"`
 	Provisioning string `json:"provisioning,omitempty"` // thin, thick
+	BackingFile  string `json:"backing_file,omitempty"` // Cloud image path for copy-on-write
 }
 
 // NetworkDevice represents a network interface attached to a VM.
