@@ -432,6 +432,7 @@ impl StorageBackend for IscsiBackend {
         
         Ok(PoolInfo {
             pool_id: pool_id.to_string(),
+            name: config.name.clone(),
             pool_type: PoolType::Iscsi,
             mount_path: None,
             device_path: Some(device_path),
@@ -470,6 +471,7 @@ impl StorageBackend for IscsiBackend {
         
         Ok(PoolInfo {
             pool_id: pool_id.to_string(),
+            name: None, // Name is preserved from init via refresh_pool_info
             pool_type: PoolType::Iscsi,
             mount_path: None,
             device_path: state.device_path.clone(),

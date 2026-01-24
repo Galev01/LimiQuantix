@@ -551,6 +551,17 @@ impl RegistrationClient {
     async fn mount_assigned_pool(&self, pool_id: &str, pool_config: &serde_json::Value) -> anyhow::Result<()> {
         use limiquantix_hypervisor::storage::{PoolType, PoolConfig, NfsConfig, CephConfig, IscsiConfig, LocalConfig};
         
+        // Extract the friendly name from the pool response
+        let pool_name = pool_config.get("name")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        
+        info!(
+            pool_id = %pool_id,
+            pool_name = ?pool_name,
+            "Extracting pool configuration"
+        );
+        
         // Extract backend configuration from the pool spec
         let spec = pool_config.get("spec")
             .ok_or_else(|| anyhow::anyhow!("Pool spec not found in response"))?;
@@ -589,6 +600,7 @@ impl RegistrationClient {
                     .ok_or_else(|| anyhow::anyhow!("NFS config missing for NFS pool"))?;
                 
                 let config = PoolConfig {
+                    name: pool_name.clone(),
                     nfs: Some(NfsConfig {
                         server: nfs.get("server").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
                         export_path: nfs.get("exportPath").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
@@ -610,6 +622,7 @@ impl RegistrationClient {
                     .unwrap_or_default();
                 
                 let config = PoolConfig {
+                    name: pool_name.clone(),
                     ceph: Some(CephConfig {
                         cluster_id: ceph.get("clusterId").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
                         pool_name: ceph.get("poolName").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
@@ -628,6 +641,7 @@ impl RegistrationClient {
                     .ok_or_else(|| anyhow::anyhow!("iSCSI config missing for iSCSI pool"))?;
                 
                 let config = PoolConfig {
+                    name: pool_name.clone(),
                     iscsi: Some(IscsiConfig {
                         portal: iscsi.get("portal").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
                         target: iscsi.get("target").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
@@ -652,6 +666,7 @@ impl RegistrationClient {
                     });
                 
                 let config = PoolConfig {
+                    name: pool_name.clone(),
                     local: Some(LocalConfig {
                         path: format!("{}/{}", path.trim_end_matches('/'), pool_id),
                     }),

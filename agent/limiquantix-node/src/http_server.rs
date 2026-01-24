@@ -353,6 +353,9 @@ struct ConsoleResponse {
 #[serde(rename_all = "camelCase")]
 struct StoragePoolResponse {
     pool_id: String,
+    /// Friendly name from QvDC (e.g., "NFS01")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
     #[serde(rename = "type")]
     pool_type: String,
     mount_path: String,
@@ -3148,33 +3151,36 @@ async fn revert_snapshot(
 async fn list_storage_pools(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<StoragePoolListResponse>, (StatusCode, Json<ApiError>)> {
-    use tonic::Request;
-    use limiquantix_proto::NodeDaemonService;
-
-    match state.service.list_storage_pools(Request::new(())).await {
-        Ok(response) => {
-            let pools = response.into_inner().pools.into_iter().map(|pool| {
-                StoragePoolResponse {
-                    pool_id: pool.pool_id,
-                    pool_type: pool_type_to_string(pool.r#type),
-                    mount_path: pool.mount_path,
-                    total_bytes: pool.total_bytes,
-                    available_bytes: pool.available_bytes,
-                    used_bytes: pool.used_bytes,
-                    volume_count: pool.volume_count,
-                }
-            }).collect();
-            
-            Ok(Json(StoragePoolListResponse { pools }))
-        }
-        Err(e) => {
-            error!(error = %e, "Failed to list storage pools");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiError::new("list_pools_failed", &e.message())),
-            ))
-        }
+    // Get pools directly from storage manager to access the name field
+    let raw_pools = state.storage.list_pools().await;
+    
+    let mut pools = Vec::new();
+    for p in raw_pools {
+        // Get volume count
+        let volume_count = state.storage.list_volumes(&p.pool_id).await.unwrap_or_default().len() as u32;
+        let used_bytes = p.total_bytes.saturating_sub(p.available_bytes);
+        
+        let pool_type = match p.pool_type {
+            limiquantix_hypervisor::storage::PoolType::LocalDir => "LOCAL_DIR",
+            limiquantix_hypervisor::storage::PoolType::Nfs => "NFS",
+            limiquantix_hypervisor::storage::PoolType::CephRbd => "CEPH_RBD",
+            limiquantix_hypervisor::storage::PoolType::Iscsi => "ISCSI",
+            _ => "UNKNOWN",
+        };
+        
+        pools.push(StoragePoolResponse {
+            pool_id: p.pool_id,
+            name: p.name,
+            pool_type: pool_type.to_string(),
+            mount_path: p.mount_path.unwrap_or_default(),
+            total_bytes: p.total_bytes,
+            available_bytes: p.available_bytes,
+            used_bytes,
+            volume_count,
+        });
     }
+    
+    Ok(Json(StoragePoolListResponse { pools }))
 }
 
 /// GET /api/v1/storage/pools/:pool_id - Get a specific storage pool
@@ -3182,34 +3188,36 @@ async fn get_storage_pool(
     State(state): State<Arc<AppState>>,
     Path(pool_id): Path<String>,
 ) -> Result<Json<StoragePoolResponse>, (StatusCode, Json<ApiError>)> {
-    use tonic::Request;
-    use limiquantix_proto::NodeDaemonService;
-
-    match state.service.list_storage_pools(Request::new(())).await {
-        Ok(response) => {
-            let pools = response.into_inner().pools;
-            if let Some(pool) = pools.into_iter().find(|p| p.pool_id == pool_id) {
-                Ok(Json(StoragePoolResponse {
-                    pool_id: pool.pool_id,
-                    pool_type: pool_type_to_string(pool.r#type),
-                    mount_path: pool.mount_path,
-                    total_bytes: pool.total_bytes,
-                    available_bytes: pool.available_bytes,
-                    used_bytes: pool.used_bytes,
-                    volume_count: pool.volume_count,
-                }))
-            } else {
-                Err((
-                    StatusCode::NOT_FOUND,
-                    Json(ApiError::new("pool_not_found", &format!("Pool {} not found", pool_id))),
-                ))
-            }
+    // Get pool directly from storage manager to access the name field
+    match state.storage.get_pool_info(&pool_id).await {
+        Ok(p) => {
+            let volume_count = state.storage.list_volumes(&p.pool_id).await.unwrap_or_default().len() as u32;
+            let used_bytes = p.total_bytes.saturating_sub(p.available_bytes);
+            
+            let pool_type = match p.pool_type {
+                limiquantix_hypervisor::storage::PoolType::LocalDir => "LOCAL_DIR",
+                limiquantix_hypervisor::storage::PoolType::Nfs => "NFS",
+                limiquantix_hypervisor::storage::PoolType::CephRbd => "CEPH_RBD",
+                limiquantix_hypervisor::storage::PoolType::Iscsi => "ISCSI",
+                _ => "UNKNOWN",
+            };
+            
+            Ok(Json(StoragePoolResponse {
+                pool_id: p.pool_id,
+                name: p.name,
+                pool_type: pool_type.to_string(),
+                mount_path: p.mount_path.unwrap_or_default(),
+                total_bytes: p.total_bytes,
+                available_bytes: p.available_bytes,
+                used_bytes,
+                volume_count,
+            }))
         }
         Err(e) => {
-            error!(error = %e, "Failed to get storage pool");
+            error!(error = %e, pool_id = %pool_id, "Failed to get storage pool");
             Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiError::new("get_pool_failed", &e.message())),
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("pool_not_found", &format!("Pool {} not found: {}", pool_id, e))),
             ))
         }
     }

@@ -127,8 +127,13 @@ export function StoragePools() {
                           to={`/storage/volumes?pool=${pool.poolId}`}
                           className="font-medium text-text-primary hover:text-accent transition-colors"
                         >
-                          {pool.poolId}
+                          {pool.name || pool.poolId}
                         </Link>
+                        {pool.name && (
+                          <p className="text-xs text-text-muted truncate max-w-[200px]" title={pool.poolId}>
+                            {pool.poolId}
+                          </p>
+                        )}
                         <div className="flex items-center gap-2 mt-1">
                           {getPoolTypeBadge(pool.type)}
                         </div>

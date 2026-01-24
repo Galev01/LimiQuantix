@@ -145,6 +145,8 @@ export type StoragePoolType = 'LOCAL_DIR' | 'NFS' | 'CEPH_RBD' | 'ISCSI';
 
 export interface StoragePool {
   poolId: string;
+  /** Friendly name from QvDC (e.g., "NFS01") */
+  name?: string;
   type: StoragePoolType;
   mountPath: string;
   totalBytes: number;

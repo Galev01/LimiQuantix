@@ -463,6 +463,7 @@ impl StorageBackend for CephBackend {
         
         Ok(PoolInfo {
             pool_id: pool_id.to_string(),
+            name: config.name.clone(),
             pool_type: PoolType::CephRbd,
             mount_path: None,
             device_path: None,
@@ -490,6 +491,7 @@ impl StorageBackend for CephBackend {
         
         Ok(PoolInfo {
             pool_id: pool_id.to_string(),
+            name: None, // Name is preserved from init via refresh_pool_info
             pool_type: PoolType::CephRbd,
             mount_path: None,
             device_path: None,

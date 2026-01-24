@@ -406,6 +406,7 @@ impl StorageManager {
         
         Some(PoolInfo {
             pool_id: pool_id.to_string(),
+            name: None, // Discovered pools don't have names until assigned from QvDC
             pool_type,
             mount_path: Some(path.to_string()),
             device_path: None,
