@@ -1,65 +1,50 @@
-# Workflow State - NFS Pool Type Fix
+# Workflow State - NFS Pool Name & Type Fix
 
-## Current Issue
+## Issues Fixed
 
-**Problem:** NFS pools assigned from QvDC appear as "Ceph RBD" on QHCI hosts with wrong mount path.
+### 1. Pool Type Showing as "Ceph RBD" Instead of "NFS"
 
-**Root Cause:** Two issues:
+**Root Cause:** The `backend.type` field from QvDC is sent as an integer (protobuf enum), but the node daemon was trying to match it as a string.
 
-1. **Protobuf enum mismatch**: The `backend.type` field from QvDC is sent as an integer (e.g., `4` for NFS), but the node daemon was trying to match it as a string.
+**Fix in `registration.rs`:**
+- Added handling for both string and integer enum values
+- Maps QvDC's `storage.proto` enum: `NFS=4`, `CEPH_RBD=0`, etc.
 
-2. **Different proto definitions**: 
-   - `storage.proto` (QvDC): `CEPH_RBD=0, NFS=4, ISCSI=5`
-   - `node_daemon.proto` (node): `LOCAL_DIR=1, NFS=3, CEPH_RBD=4, ISCSI=6`
+**Fix in `http_server.rs`:**
+- Corrected `pool_type_to_string()` to match `node_daemon.proto` enum values
 
-## Fixes Applied
+### 2. Pool Name Showing as UUID Instead of Friendly Name
 
-### 1. registration.rs - Parse integer enum values
+**Root Cause:** The pool name from QvDC wasn't being passed through to the Host UI.
 
-**File:** `agent/limiquantix-node/src/registration.rs`
+**Files Changed:**
 
-Added handling for both string and integer enum values from QvDC's `storage.proto`:
+1. **`limiquantix-hypervisor/src/storage/types.rs`**
+   - Added `name: Option<String>` to `PoolConfig`
+   - Added `name: Option<String>` to `PoolInfo`
 
-```rust
-// Proto enum from storage.proto: CEPH_RBD=0, CEPH_CEPHFS=1, LOCAL_LVM=2, LOCAL_DIR=3, NFS=4, ISCSI=5
-let backend_type: &str = match backend_type_value {
-    Some(serde_json::Value::String(s)) => s.as_str(),
-    Some(serde_json::Value::Number(n)) => {
-        match n.as_u64() {
-            Some(0) => "CEPH_RBD",
-            Some(1) => "CEPH_CEPHFS",
-            Some(2) => "LOCAL_LVM",
-            Some(3) => "LOCAL_DIR",
-            Some(4) => "NFS",
-            Some(5) => "ISCSI",
-            _ => "LOCAL_DIR",
-        }
-    }
-    _ => "LOCAL_DIR",
-};
-```
+2. **`limiquantix-hypervisor/src/storage/*.rs`** (nfs, local, ceph, iscsi)
+   - Updated `init_pool()` to include `config.name` in `PoolInfo`
+   - Updated `get_pool_info()` to set `name: None` (preserved via refresh)
 
-### 2. http_server.rs - Fix pool_type_to_string
+3. **`limiquantix-hypervisor/src/storage/mod.rs`**
+   - Updated `refresh_pool_info()` to preserve the name from the original init
 
-**File:** `agent/limiquantix-node/src/http_server.rs`
+4. **`limiquantix-node/src/registration.rs`**
+   - Extract `pool_name` from QvDC response
+   - Pass `name` in `PoolConfig` for all pool types
 
-Fixed the `pool_type_to_string` function to match `node_daemon.proto`:
+5. **`limiquantix-node/src/http_server.rs`**
+   - Added `name` field to `StoragePoolResponse`
+   - Updated `list_storage_pools()` to get pools directly from storage manager
+   - Updated `get_storage_pool()` similarly
 
-```rust
-fn pool_type_to_string(pool_type: i32) -> String {
-    // Matches node_daemon.proto StoragePoolType enum
-    match pool_type {
-        0 => "UNSPECIFIED".to_string(),
-        1 => "LOCAL_DIR".to_string(),
-        2 => "LOCAL_LVM".to_string(),
-        3 => "NFS".to_string(),
-        4 => "CEPH_RBD".to_string(),
-        5 => "CEPH_FS".to_string(),
-        6 => "ISCSI".to_string(),
-        _ => "UNKNOWN".to_string(),
-    }
-}
-```
+6. **`quantix-host-ui/src/api/types.ts`**
+   - Added `name?: string` to `StoragePool` interface
+
+7. **`quantix-host-ui/src/pages/StoragePools.tsx`**
+   - Display `pool.name` if available, fallback to `pool.poolId`
+   - Show UUID below the name in smaller text
 
 ## Deployment
 
@@ -67,17 +52,21 @@ fn pool_type_to_string(pool_type: i32) -> String {
 ./scripts/publish-update.sh
 ```
 
-Then apply on QHCI01:
+Then on QHCI01:
 ```bash
 curl -k -X POST https://192.168.0.101:8443/api/v1/updates/apply
 ```
 
 ## Testing
 
-1. Unassign the NFS pool from QHCI01 in QvDC
-2. Re-assign the NFS pool to QHCI01
+After the update:
+1. **Unassign** the NFS pools from QHCI01 in QvDC
+2. **Re-assign** them to trigger fresh mount with correct type and name
 3. Check QHCI01 Host UI → Storage → Pools
-4. Verify pool shows as "NFS" with mount path `/var/lib/limiquantix/mnt/nfs-{poolId}`
+4. Verify:
+   - Pools show as "NFS" not "Ceph RBD"
+   - Pools show friendly names like "NFS01" instead of UUIDs
+   - Mount paths are correct: `/var/lib/limiquantix/mnt/nfs-{poolId}`
 
 ## Previous Fixes
 

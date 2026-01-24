@@ -3294,6 +3294,7 @@ async fn create_storage_pool(
             let pool = response.into_inner();
             Ok(Json(StoragePoolResponse {
                 pool_id: pool.pool_id,
+                name: None, // Locally created pools don't have QvDC names
                 pool_type: pool_type_to_string(pool.r#type),
                 mount_path: pool.mount_path,
                 total_bytes: pool.total_bytes,
