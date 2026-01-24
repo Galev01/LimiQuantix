@@ -671,6 +671,20 @@ message CatalogDownloadStatus {
 }
 
 // =============================================================================
+// SCAN ISOs (discover ISOs in storage pools)
+// =============================================================================
+
+message ScanISOsRequest {
+  // Optional: specific storage pool to scan (empty = scan all pools)
+  string storage_pool_id = 1;
+}
+
+message ScanISOsResponse {
+  // Number of newly discovered ISO files
+  int32 discovered_count = 1;
+}
+
+// =============================================================================
 // OVA REQUEST/RESPONSE
 // =============================================================================
 

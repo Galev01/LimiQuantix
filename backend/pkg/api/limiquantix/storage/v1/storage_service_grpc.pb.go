@@ -1235,6 +1235,7 @@ const (
 	ImageService_DownloadImage_FullMethodName            = "/limiquantix.storage.v1.ImageService/DownloadImage"
 	ImageService_GetImageCatalog_FullMethodName          = "/limiquantix.storage.v1.ImageService/GetImageCatalog"
 	ImageService_GetCatalogDownloadStatus_FullMethodName = "/limiquantix.storage.v1.ImageService/GetCatalogDownloadStatus"
+	ImageService_ScanISOs_FullMethodName                 = "/limiquantix.storage.v1.ImageService/ScanISOs"
 )
 
 // ImageServiceClient is the client API for ImageService service.
@@ -1267,6 +1268,8 @@ type ImageServiceClient interface {
 	// GetCatalogDownloadStatus checks which catalog images are already downloaded.
 	// Returns the download status for each requested catalog ID.
 	GetCatalogDownloadStatus(ctx context.Context, in *GetCatalogDownloadStatusRequest, opts ...grpc.CallOption) (*GetCatalogDownloadStatusResponse, error)
+	// ScanISOs scans storage pools for new ISO files and registers them.
+	ScanISOs(ctx context.Context, in *ScanISOsRequest, opts ...grpc.CallOption) (*ScanISOsResponse, error)
 }
 
 type imageServiceClient struct {
@@ -1387,6 +1390,16 @@ func (c *imageServiceClient) GetCatalogDownloadStatus(ctx context.Context, in *G
 	return out, nil
 }
 
+func (c *imageServiceClient) ScanISOs(ctx context.Context, in *ScanISOsRequest, opts ...grpc.CallOption) (*ScanISOsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ScanISOsResponse)
+	err := c.cc.Invoke(ctx, ImageService_ScanISOs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ImageServiceServer is the server API for ImageService service.
 // All implementations should embed UnimplementedImageServiceServer
 // for forward compatibility.
@@ -1417,6 +1430,8 @@ type ImageServiceServer interface {
 	// GetCatalogDownloadStatus checks which catalog images are already downloaded.
 	// Returns the download status for each requested catalog ID.
 	GetCatalogDownloadStatus(context.Context, *GetCatalogDownloadStatusRequest) (*GetCatalogDownloadStatusResponse, error)
+	// ScanISOs scans storage pools for new ISO files and registers them.
+	ScanISOs(context.Context, *ScanISOsRequest) (*ScanISOsResponse, error)
 }
 
 // UnimplementedImageServiceServer should be embedded to have
@@ -1458,6 +1473,9 @@ func (UnimplementedImageServiceServer) GetImageCatalog(context.Context, *GetImag
 }
 func (UnimplementedImageServiceServer) GetCatalogDownloadStatus(context.Context, *GetCatalogDownloadStatusRequest) (*GetCatalogDownloadStatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetCatalogDownloadStatus not implemented")
+}
+func (UnimplementedImageServiceServer) ScanISOs(context.Context, *ScanISOsRequest) (*ScanISOsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ScanISOs not implemented")
 }
 func (UnimplementedImageServiceServer) testEmbeddedByValue() {}
 
@@ -1677,6 +1695,24 @@ func _ImageService_GetCatalogDownloadStatus_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ImageService_ScanISOs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ScanISOsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImageServiceServer).ScanISOs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ImageService_ScanISOs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImageServiceServer).ScanISOs(ctx, req.(*ScanISOsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ImageService_ServiceDesc is the grpc.ServiceDesc for ImageService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1727,6 +1763,10 @@ var ImageService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCatalogDownloadStatus",
 			Handler:    _ImageService_GetCatalogDownloadStatus_Handler,
+		},
+		{
+			MethodName: "ScanISOs",
+			Handler:    _ImageService_ScanISOs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

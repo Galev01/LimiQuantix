@@ -54,14 +54,19 @@ export function AllImagesPage() {
   // Combine API images with catalog (fallback)
   const cloudImages: CloudImage[] = useMemo(() => {
     if (apiImages && apiImages.length > 0) {
-      return apiImages.filter(img => img.os.cloudInitEnabled || img.os.provisioningMethod === 'CLOUD_INIT');
+      // Cloud images are those that are not ISOs and not OVAs (basically QCOW2/RAW)
+      // Or explicitly marked as cloud-init capable
+      return apiImages.filter(img =>
+        (img.spec.format !== 'ISO' && img.spec.format !== 'OVA') &&
+        (img.os.cloudInitEnabled || img.os.provisioningMethod === 'CLOUD_INIT' || img.spec.format === 'QCOW2' || img.spec.format === 'RAW')
+      );
     }
     return CLOUD_IMAGE_CATALOG;
   }, [apiImages]);
 
   const isoImages: (CloudImage | ISOImage)[] = useMemo(() => {
     if (apiImages && apiImages.length > 0) {
-      return apiImages.filter(img => !img.os.cloudInitEnabled && img.os.provisioningMethod !== 'CLOUD_INIT');
+      return apiImages.filter(img => img.spec.format === 'ISO' || img.name.toLowerCase().endsWith('.iso'));
     }
     return ISO_CATALOG;
   }, [apiImages]);

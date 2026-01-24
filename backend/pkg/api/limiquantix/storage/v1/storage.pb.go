@@ -4107,6 +4107,14 @@ type ImageStatus struct {
 	ErrorMessage string `protobuf:"bytes,6,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
 	// Which storage pool holds this image
 	StoragePoolId string `protobuf:"bytes,7,opt,name=storage_pool_id,json=storagePoolId,proto3" json:"storage_pool_id,omitempty"`
+	// Local file path on the node (for node-local images)
+	Path string `protobuf:"bytes,8,opt,name=path,proto3" json:"path,omitempty"`
+	// Node ID that hosts this image (for node-local images)
+	NodeId string `protobuf:"bytes,9,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// Virtual folder path for organization (e.g., "/windows/10")
+	FolderPath string `protobuf:"bytes,10,opt,name=folder_path,json=folderPath,proto3" json:"folder_path,omitempty"`
+	// Original filename of the image
+	Filename      string `protobuf:"bytes,11,opt,name=filename,proto3" json:"filename,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4186,6 +4194,34 @@ func (x *ImageStatus) GetErrorMessage() string {
 func (x *ImageStatus) GetStoragePoolId() string {
 	if x != nil {
 		return x.StoragePoolId
+	}
+	return ""
+}
+
+func (x *ImageStatus) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ImageStatus) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *ImageStatus) GetFolderPath() string {
+	if x != nil {
+		return x.FolderPath
+	}
+	return ""
+}
+
+func (x *ImageStatus) GetFilename() string {
+	if x != nil {
+		return x.Filename
 	}
 	return ""
 }
@@ -5081,7 +5117,7 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"minDiskGib\x12-\n" +
 	"\x12supported_firmware\x18\x04 \x03(\tR\x11supportedFirmware\x120\n" +
 	"\x14requires_secure_boot\x18\x05 \x01(\bR\x12requiresSecureBoot\x12!\n" +
-	"\frequires_tpm\x18\x06 \x01(\bR\vrequiresTpm\"\xb5\x03\n" +
+	"\frequires_tpm\x18\x06 \x01(\bR\vrequiresTpm\"\x9f\x04\n" +
 	"\vImageStatus\x12?\n" +
 	"\x05phase\x18\x01 \x01(\x0e2).limiquantix.storage.v1.ImageStatus.PhaseR\x05phase\x12\x1d\n" +
 	"\n" +
@@ -5090,7 +5126,13 @@ const file_limiquantix_storage_v1_storage_proto_rawDesc = "" +
 	"\x10progress_percent\x18\x04 \x01(\rR\x0fprogressPercent\x12\x1a\n" +
 	"\bchecksum\x18\x05 \x01(\tR\bchecksum\x12#\n" +
 	"\rerror_message\x18\x06 \x01(\tR\ferrorMessage\x12&\n" +
-	"\x0fstorage_pool_id\x18\a \x01(\tR\rstoragePoolId\"\x83\x01\n" +
+	"\x0fstorage_pool_id\x18\a \x01(\tR\rstoragePoolId\x12\x12\n" +
+	"\x04path\x18\b \x01(\tR\x04path\x12\x17\n" +
+	"\anode_id\x18\t \x01(\tR\x06nodeId\x12\x1f\n" +
+	"\vfolder_path\x18\n" +
+	" \x01(\tR\n" +
+	"folderPath\x12\x1a\n" +
+	"\bfilename\x18\v \x01(\tR\bfilename\"\x83\x01\n" +
 	"\x05Phase\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\v\n" +
 	"\aPENDING\x10\x01\x12\x0f\n" +

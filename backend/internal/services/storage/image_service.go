@@ -62,7 +62,16 @@ func (s *ImageService) ConfigureNodeDownloads(daemonPool *node.DaemonPool, poolR
 	s.poolRepo = poolRepo
 	s.downloadManager.SetDaemonPool(daemonPool)
 	s.downloadManager.SetPoolRepository(poolRepo)
+	s.downloadManager.SetPoolRepository(poolRepo)
 	s.logger.Info("Image service configured for node-based downloads")
+
+	// Trigger initial scan in background
+	go func() {
+		time.Sleep(5 * time.Second) // Give time for node connections to stabilize
+		if _, err := s.scanISOsInternal(context.Background()); err != nil {
+			s.logger.Error("Initial ISO scan failed", zap.Error(err))
+		}
+	}()
 }
 
 // ScanISOs implements the storagev1connect.ImageServiceHandler interface.
@@ -83,7 +92,7 @@ func (s *ImageService) scanISOsInternal(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	pools, err := s.poolRepo.List(ctx, PoolFilter{}, 1000, 0)
+	pools, _, err := s.poolRepo.List(ctx, PoolFilter{}, 1000, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -133,6 +142,27 @@ func (s *ImageService) scanISOsInternal(ctx context.Context) (int, error) {
 			continue
 		}
 
+		// Phase 1: Build map of current DB images for this pool
+		existingImages, err := s.repo.List(ctx, ImageFilter{
+			StoragePoolID: pool.ID,
+			Format:        domain.ImageFormatISO,
+		})
+		if err != nil {
+			s.logger.Error("Failed to list existing ISOs for pool", zap.String("pool_id", pool.ID), zap.Error(err))
+			continue
+		}
+
+		existingMap := make(map[string]*domain.Image)
+		for _, img := range existingImages {
+			// Track by path specific to this pool context
+			if img.Status.Path != "" {
+				existingMap[img.Status.Path] = img
+			}
+		}
+
+		// Phase 2: Process files on disk
+		foundPaths := make(map[string]bool)
+
 		for _, file := range resp.Entries {
 			if file.IsDirectory {
 				continue
@@ -142,43 +172,35 @@ func (s *ImageService) scanISOsInternal(ctx context.Context) (int, error) {
 				continue
 			}
 
-			// Check if we already have this image
-			// We construct a path identifier: pool_id:iso/filename
-			path := fmt.Sprintf("iso/%s", file.Name)
+			// Path relative to pool root, assuming list was on "iso"
+			// The file.Name from ListStoragePoolFiles("iso") is likely just the name if it returns contents of dir?
+			// Checking ListStoragePoolFiles implementation (usually returns file names relative to listed dir or absolute?)
+			// Let's assume file.Name is just filename "ubuntu.iso"
+			relPath := fmt.Sprintf("iso/%s", file.Name)
+			foundPaths[relPath] = true
 
-			// We need a way to check existence efficiently.
-			// For now, let's assume we list all and check? Or add GetByPath to repo if needed.
-			// ImageRepository has GetByPath(nodeID, path).
-			// But here path is relative to pool.
-			// Let's check by name/checksum if possible, or just exact match on the "path" field which usually stores file path.
-
-			// Simple check: do we have an image with this poolID and path?
-			// The repo interface doesn't have FindByPoolAndPath easily.
-			// Let's list all ISOs and check in memory for now (not efficient but safe for small counts)
-
-			// Actually, let's just create it and ignore ErrAlreadyExists if our repo supports it?
-			// MemoryImageRepository.Create checks ID. We need to generate a deterministic ID or check existence.
-
-			// Let's generate a deterministic ID based on pool+path
-			imageID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("pool://%s/iso/%s", pool.ID, file.Name))).String()
-
-			_, err := s.repo.Get(ctx, imageID)
-			if err == nil {
-				// Already exists
+			if _, exists := existingMap[relPath]; exists {
 				continue
 			}
 
-			// Create new image record
+			// Create new
+			imageID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("pool://%s/iso/%s", pool.ID, file.Name))).String()
+
+			// Check if exists by ID (paranoid check)
+			if _, err := s.repo.Get(ctx, imageID); err == nil {
+				continue
+			}
+
 			newImage := &domain.Image{
 				ID:          imageID,
 				Name:        file.Name,
 				Description: fmt.Sprintf("Discovered ISO in pool %s", pool.Name),
-				ProjectID:   pool.ProjectID, // Inherit project from pool
+				ProjectID:   pool.ProjectID,
 				Spec: domain.ImageSpec{
 					Format:     domain.ImageFormatISO,
-					Visibility: domain.ImageVisibilityProject, // Visible to project
+					Visibility: domain.ImageVisibilityProject,
 					OS: domain.OSInfo{
-						Family: domain.OSFamilyUnknown, // Could try to detect from name
+						Family: domain.OSFamilyUnknown,
 					},
 				},
 				Status: domain.ImageStatus{
@@ -187,15 +209,14 @@ func (s *ImageService) scanISOsInternal(ctx context.Context) (int, error) {
 					VirtualSizeBytes: file.SizeBytes,
 					ProgressPercent:  100,
 					StoragePoolID:    pool.ID,
-					FolderPath:       "/iso", // Put in virtual folder /iso
+					FolderPath:       "/iso",
 					Filename:         file.Name,
-					Path:             "iso/" + file.Name, // Relative path in pool
+					Path:             relPath,
 				},
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}
 
-			// Try to detect OS from filename
 			if strings.Contains(strings.ToLower(file.Name), "ubuntu") {
 				newImage.Spec.OS.Family = domain.OSFamilyLinux
 				newImage.Spec.OS.Distribution = "ubuntu"
@@ -211,6 +232,16 @@ func (s *ImageService) scanISOsInternal(ctx context.Context) (int, error) {
 			} else {
 				s.logger.Info("Registered discovered ISO", zap.String("name", file.Name), zap.String("id", imageID))
 				discoveredCount++
+			}
+		}
+
+		// Phase 3: Cleanup missing
+		for path, img := range existingMap {
+			if !foundPaths[path] {
+				s.logger.Info("Removing missing ISO reference", zap.String("id", img.ID), zap.String("path", path))
+				if err := s.repo.Delete(ctx, img.ID); err != nil {
+					s.logger.Error("Failed to delete missing ISO", zap.Error(err), zap.String("id", img.ID))
+				}
 			}
 		}
 	}

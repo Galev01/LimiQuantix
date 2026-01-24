@@ -5,14 +5,13 @@
 package storagev1connect
 
 import (
+	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	http "net/http"
-	strings "strings"
-
-	connect "connectrpc.com/connect"
 	v1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	http "net/http"
+	strings "strings"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are
@@ -1030,6 +1029,8 @@ type ImageServiceClient interface {
 	// GetCatalogDownloadStatus checks which catalog images are already downloaded.
 	// Returns the download status for each requested catalog ID.
 	GetCatalogDownloadStatus(context.Context, *connect.Request[v1.GetCatalogDownloadStatusRequest]) (*connect.Response[v1.GetCatalogDownloadStatusResponse], error)
+	// ScanISOs scans storage pools for new ISO files and registers them.
+	ScanISOs(context.Context, *connect.Request[v1.ScanISOsRequest]) (*connect.Response[v1.ScanISOsResponse], error)
 }
 
 // NewImageServiceClient constructs a client for the limiquantix.storage.v1.ImageService service. By
@@ -1194,11 +1195,6 @@ func (c *imageServiceClient) ScanISOs(ctx context.Context, req *connect.Request[
 	return c.scanISOs.CallUnary(ctx, req)
 }
 
-// ScanISOs calls limiquantix.storage.v1.ImageService.ScanISOs.
-func (c *imageServiceClient) ScanISOs(ctx context.Context, req *connect.Request[v1.ScanISOsRequest]) (*connect.Response[v1.ScanISOsResponse], error) {
-	return c.scanISOs.CallUnary(ctx, req)
-}
-
 // ImageServiceHandler is an implementation of the limiquantix.storage.v1.ImageService service.
 type ImageServiceHandler interface {
 	// CreateImage creates/imports a new image.
@@ -1225,6 +1221,8 @@ type ImageServiceHandler interface {
 	// GetCatalogDownloadStatus checks which catalog images are already downloaded.
 	// Returns the download status for each requested catalog ID.
 	GetCatalogDownloadStatus(context.Context, *connect.Request[v1.GetCatalogDownloadStatusRequest]) (*connect.Response[v1.GetCatalogDownloadStatusResponse], error)
+	// ScanISOs scans storage pools for new ISO files and registers them.
+	ScanISOs(context.Context, *connect.Request[v1.ScanISOsRequest]) (*connect.Response[v1.ScanISOsResponse], error)
 }
 
 // NewImageServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -1383,10 +1381,6 @@ func (UnimplementedImageServiceHandler) GetImageCatalog(context.Context, *connec
 
 func (UnimplementedImageServiceHandler) GetCatalogDownloadStatus(context.Context, *connect.Request[v1.GetCatalogDownloadStatusRequest]) (*connect.Response[v1.GetCatalogDownloadStatusResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.ImageService.GetCatalogDownloadStatus is not implemented"))
-}
-
-func (UnimplementedImageServiceHandler) ScanISOs(context.Context, *connect.Request[v1.ScanISOsRequest]) (*connect.Response[v1.ScanISOsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.ImageService.ScanISOs is not implemented"))
 }
 
 func (UnimplementedImageServiceHandler) ScanISOs(context.Context, *connect.Request[v1.ScanISOsRequest]) (*connect.Response[v1.ScanISOsResponse], error) {
