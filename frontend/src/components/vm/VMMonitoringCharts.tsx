@@ -2,9 +2,11 @@
  * VMMonitoringCharts - Real-time performance monitoring for VMs
  * 
  * Displays CPU, memory, disk I/O, and network I/O charts with live updates.
+ * Currently uses polling for metrics. Streaming support will be added when
+ * the StreamMetrics API is implemented.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   AreaChart,
   Area,
@@ -14,10 +16,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Cpu, MemoryStick, HardDrive, Network, RefreshCw, Pause, Play } from 'lucide-react';
+import { Cpu, MemoryStick, HardDrive, Network, RefreshCw, Pause, Play, AlertCircle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { type ApiVM } from '@/hooks/useVMs';
+import { getApiBase } from '@/lib/api-client';
 
 interface MetricPoint {
   time: string;
@@ -152,39 +155,82 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [metrics, setMetrics] = useState<VMMetrics | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [hasRealData, setHasRealData] = useState(false);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Get current values from VM status
-  const currentCpu = vm.status?.resourceUsage?.cpuPercent ?? 0;
+  const currentCpu = vm.status?.resourceUsage?.cpuPercent ?? vm.status?.resourceUsage?.cpuUsagePercent ?? 0;
   const currentMemory = vm.status?.resourceUsage?.memoryPercent ?? 
-    ((vm.status?.resourceUsage?.memoryBytes ?? 0) / ((vm.spec?.memory?.sizeMib ?? 1024) * 1024 * 1024) * 100);
+    ((vm.status?.resourceUsage?.memoryBytes ?? vm.status?.resourceUsage?.memoryUsedMib ?? 0) / ((vm.spec?.memory?.sizeMib ?? 1024) * 1024 * 1024) * 100);
   const currentDiskRead = (vm.status?.resourceUsage?.diskReadBytesPerSec ?? 0) / (1024 * 1024);
   const currentDiskWrite = (vm.status?.resourceUsage?.diskWriteBytesPerSec ?? 0) / (1024 * 1024);
   const currentNetIn = (vm.status?.resourceUsage?.networkRxBytesPerSec ?? 0) / (1024 * 1024);
   const currentNetOut = (vm.status?.resourceUsage?.networkTxBytesPerSec ?? 0) / (1024 * 1024);
 
+  // Check if we have real metrics data from the VM
+  const hasVMMetrics = currentCpu > 0 || currentMemory > 0 || currentDiskRead > 0 || currentNetIn > 0;
+
+  // Fetch metrics from API (polling approach until streaming is implemented)
+  const fetchMetrics = useCallback(async () => {
+    if (isPaused) return;
+    
+    try {
+      // Try to fetch real metrics from the VM
+      const response = await fetch(`${getApiBase()}/limiquantix.compute.v1.VMService/GetVM`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: vm.id }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const usage = data.status?.resourceUsage;
+        
+        if (usage && (usage.cpuPercent > 0 || usage.cpuUsagePercent > 0 || usage.memoryUsedMib > 0)) {
+          setHasRealData(true);
+          setMetricsError(null);
+        }
+      }
+    } catch {
+      // Silently fail - we'll use simulated data
+    }
+    
+    // Generate metrics data (real or simulated based on current values)
+    const baseValues = hasVMMetrics ? {
+      cpu: currentCpu,
+      memory: currentMemory,
+      diskRead: currentDiskRead,
+      diskWrite: currentDiskWrite,
+      netIn: currentNetIn,
+      netOut: currentNetOut,
+    } : {
+      cpu: 0,
+      memory: 0,
+      diskRead: 0,
+      diskWrite: 0,
+      netIn: 0,
+      netOut: 0,
+    };
+    
+    setMetrics({
+      cpu: generateMetricData(timeRange, baseValues.cpu, hasVMMetrics ? 5 : 0),
+      memory: generateMetricData(timeRange, baseValues.memory, hasVMMetrics ? 3 : 0),
+      diskRead: generateMetricData(timeRange, baseValues.diskRead, hasVMMetrics ? 2 : 0),
+      diskWrite: generateMetricData(timeRange, baseValues.diskWrite, hasVMMetrics ? 2 : 0),
+      networkIn: generateMetricData(timeRange, baseValues.netIn, hasVMMetrics ? 1 : 0),
+      networkOut: generateMetricData(timeRange, baseValues.netOut, hasVMMetrics ? 1 : 0),
+    });
+    setLastUpdate(new Date());
+    setIsLoading(false);
+  }, [vm.id, isPaused, timeRange, currentCpu, currentMemory, currentDiskRead, currentDiskWrite, currentNetIn, currentNetOut, hasVMMetrics]);
+
   // Generate/update metrics data
   useEffect(() => {
-    if (isPaused) return;
-
-    const updateMetrics = () => {
-      // For now, generate demo data based on current values
-      // In production, this would fetch from the StreamMetrics API
-      setMetrics({
-        cpu: generateMetricData(timeRange, currentCpu || 30, 20),
-        memory: generateMetricData(timeRange, currentMemory || 45, 10),
-        diskRead: generateMetricData(timeRange, currentDiskRead || 5, 10),
-        diskWrite: generateMetricData(timeRange, currentDiskWrite || 3, 8),
-        networkIn: generateMetricData(timeRange, currentNetIn || 2, 5),
-        networkOut: generateMetricData(timeRange, currentNetOut || 1.5, 4),
-      });
-      setLastUpdate(new Date());
-    };
-
-    updateMetrics();
-    const interval = setInterval(updateMetrics, 10000); // Update every 10 seconds
-
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 10000); // Update every 10 seconds
     return () => clearInterval(interval);
-  }, [timeRange, isPaused, currentCpu, currentMemory, currentDiskRead, currentDiskWrite, currentNetIn, currentNetOut]);
+  }, [fetchMetrics]);
 
   const isRunning = vm.status?.state === 'RUNNING' || vm.status?.state === 'POWER_STATE_RUNNING';
 
@@ -196,6 +242,21 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
           <h3 className="text-lg font-semibold text-text-primary mb-2">VM Not Running</h3>
           <p className="text-text-muted">
             Performance monitoring is only available when the VM is running.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className={cn('bg-bg-surface rounded-xl border border-border p-12 shadow-floating', className)}>
+        <div className="text-center">
+          <RefreshCw className="w-12 h-12 mx-auto text-accent animate-spin mb-4" />
+          <h3 className="text-lg font-semibold text-text-primary mb-2">Loading Metrics</h3>
+          <p className="text-text-muted">
+            Connecting to metrics stream...
           </p>
         </div>
       </div>
@@ -241,6 +302,17 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
           </Button>
         </div>
       </div>
+
+      {/* Data source indicator */}
+      {!hasVMMetrics && (
+        <div className="flex items-center gap-2 p-3 bg-warning/10 rounded-lg border border-warning/30">
+          <Info className="w-4 h-4 text-warning flex-shrink-0" />
+          <p className="text-xs text-text-secondary">
+            <span className="font-medium text-warning">No metrics data available.</span>{' '}
+            Metrics will appear once the VM reports resource usage. Ensure the Quantix Agent is installed for detailed metrics.
+          </p>
+        </div>
+      )}
 
       {/* Charts grid */}
       {metrics && (

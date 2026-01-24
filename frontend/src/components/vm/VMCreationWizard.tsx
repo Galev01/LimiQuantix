@@ -293,7 +293,7 @@ const initialFormData: VMCreationData = {
     customUserData: '',
   },
   storagePoolId: '',
-  disks: [{ id: 'disk-1', name: 'Hard disk 1', sizeGib: 50, provisioning: 'thin', sourceType: 'new' }],
+  disks: [{ id: crypto.randomUUID(), name: 'Hard disk 1', sizeGib: 50, provisioning: 'thin', sourceType: 'new' }],
   department: '',
   costCenter: '',
   notes: '',
@@ -474,13 +474,30 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             `fqdn: ${formData.name}.local`,
             'manage_etc_hosts: true',
             '',
+          ];
+
+          // Timezone configuration
+          if (formData.timezone === 'host') {
+            // Use host timezone - sync time from hypervisor via QEMU guest agent
+            // The QEMU guest agent will handle time synchronization
+            lines.push('# Timezone: Sync from hypervisor via QEMU guest agent');
+            lines.push('# Time will be synchronized automatically when qemu-guest-agent starts');
+            lines.push('');
+          } else {
+            // Use explicit timezone
+            lines.push('# Timezone configuration');
+            lines.push(`timezone: ${formData.timezone}`);
+            lines.push('');
+          }
+
+          lines.push(
             'users:',
             `  - name: ${defaultUser}`,
             '    groups: [sudo, adm]',
             '    sudo: ALL=(ALL) NOPASSWD:ALL',
             '    shell: /bin/bash',
             '    lock_passwd: false',
-          ];
+          );
 
           // Add SSH keys if provided
           if (formData.cloudInit.sshKeys.length > 0) {
@@ -555,7 +572,9 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
           },
           memory: { sizeMib: formData.memoryMib },
           disks: formData.disks.map((d, index) => ({
-            id: d.name, // Proto expects 'id' field, not 'name'
+            // Use the disk's unique ID (UUID format) for proper file naming on storage
+            // This ensures disk files are named with UUIDs instead of "Hard disk 1"
+            id: d.id,
             sizeGib: d.sizeGib,
             // Storage pool to create the disk in
             storagePoolId: formData.storagePoolId,
@@ -1582,12 +1601,15 @@ function StepCustomization({
         />
       </FormField>
 
-      <FormField label="Timezone">
+      <FormField label="Timezone" description="Set the guest timezone. 'Host Timezone' syncs time from the hypervisor via QEMU guest agent.">
         <select
           value={formData.timezone}
           onChange={(e) => updateFormData({ timezone: e.target.value })}
           className="form-select"
         >
+          <optgroup label="Automatic">
+            <option value="host">Host Timezone (sync from hypervisor)</option>
+          </optgroup>
           <optgroup label="Common">
             <option value="UTC">UTC (Coordinated Universal Time)</option>
             <option value="America/New_York">America/New_York (EST/EDT)</option>
@@ -2785,7 +2807,7 @@ function StepStorage({
 
   const addDisk = (sourceType: 'new' | 'existing' = 'new') => {
     const newDisk: DiskConfig = {
-      id: `disk-${Date.now()}`,
+      id: crypto.randomUUID(), // Use proper UUID for disk file naming on storage
       name: `Hard disk ${formData.disks.length + 1}`,
       sizeGib: 50,
       provisioning: 'thin',

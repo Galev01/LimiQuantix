@@ -1093,7 +1093,19 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 };
                 
                 // Create VM directory within the storage path
-                let vm_dir = base_path.join("vms").join(&vm_uuid);
+                // Use format: {VM_NAME}_{UUID_SHORT} for human-readable folder names
+                let uuid_short = if vm_uuid.len() >= 8 { &vm_uuid[..8] } else { &vm_uuid };
+                let safe_name = sanitize_filename(&req.name);
+                let folder_name = format!("{}_{}", safe_name, uuid_short);
+                let vm_dir = base_path.join("vms").join(&folder_name);
+                
+                info!(
+                    vm_id = %vm_uuid,
+                    folder_name = %folder_name,
+                    vm_dir = %vm_dir.display(),
+                    "Creating VM directory with human-readable name"
+                );
+                
                 if let Err(e) = std::fs::create_dir_all(&vm_dir) {
                     error!(vm_id = %vm_uuid, error = %e, path = ?vm_dir, "Failed to create VM directory");
                     return Err(Status::internal(format!("Failed to create VM directory: {}", e)));
@@ -1245,18 +1257,101 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         config.console.vnc_enabled = true;
         config.console.spice_enabled = false;
         
-        // Check if we have a cloud image - if so, generate a minimal default cloud-init
-        // NOTE: Cloud-init config is not currently exposed via proto - this generates defaults
-        let has_cloud_image = config.disks.iter().any(|d| d.backing_file.is_some());
+        // ============================================================
+        // CLOUD-INIT CONFIGURATION PROCESSING
+        // ============================================================
+        // This section handles cloud-init data passed from the control plane.
+        // Cloud-init is used to configure VMs on first boot (password, SSH keys, timezone, etc.)
         
-        if has_cloud_image {
+        // Check if we have cloud-init config from the request OR a cloud image
+        let has_cloud_image = config.disks.iter().any(|d| d.backing_file.is_some());
+        let has_cloud_init_config = spec.cloud_init.as_ref()
+            .map(|ci| !ci.user_data.is_empty() || !ci.meta_data.is_empty())
+            .unwrap_or(false);
+        
+        // Log the cloud-init detection results
+        debug!(
+            vm_id = %vm_uuid,
+            vm_name = %req.name,
+            has_cloud_image = has_cloud_image,
+            has_cloud_init_config = has_cloud_init_config,
+            cloud_init_present_in_request = spec.cloud_init.is_some(),
+            "Cloud-init detection: checking if cloud-init ISO generation is needed"
+        );
+        
+        // Generate cloud-init ISO if we have config from request OR a cloud image
+        if has_cloud_init_config || has_cloud_image {
             info!(
                 vm_id = %vm_uuid,
-                "Generating default cloud-init ISO for cloud image"
+                has_cloud_init_config = has_cloud_init_config,
+                has_cloud_image = has_cloud_image,
+                "Generating cloud-init ISO for VM"
             );
             
-            // Generate default cloud-init config
-            let ci_config = CloudInitConfig::new(&vm_uuid, &req.name);
+            // Build CloudInitConfig from request or use defaults
+            let ci_config = if let Some(ref cloud_init) = spec.cloud_init {
+                // Use cloud-init config from the control plane (includes password, SSH keys, etc.)
+                let user_data_preview = if cloud_init.user_data.len() > 200 {
+                    format!("{}...[truncated, total {} bytes]", &cloud_init.user_data[..200], cloud_init.user_data.len())
+                } else {
+                    cloud_init.user_data.clone()
+                };
+                
+                info!(
+                    vm_id = %vm_uuid,
+                    user_data_len = cloud_init.user_data.len(),
+                    meta_data_len = cloud_init.meta_data.len(),
+                    "Using cloud-init config from control plane"
+                );
+                
+                // Debug log: Show user-data content (useful for troubleshooting)
+                // This helps verify that password/SSH keys are actually being passed
+                debug!(
+                    vm_id = %vm_uuid,
+                    user_data_preview = %user_data_preview,
+                    "Cloud-init user-data content preview (check for password/ssh_authorized_keys)"
+                );
+                
+                // Check for common cloud-init fields to help with debugging
+                let has_password = cloud_init.user_data.contains("password:") || cloud_init.user_data.contains("passwd:");
+                let has_ssh_keys = cloud_init.user_data.contains("ssh_authorized_keys") || cloud_init.user_data.contains("ssh-rsa") || cloud_init.user_data.contains("ssh-ed25519");
+                let has_timezone = cloud_init.user_data.contains("timezone:");
+                let has_hostname = cloud_init.user_data.contains("hostname:");
+                let has_users = cloud_init.user_data.contains("users:");
+                
+                debug!(
+                    vm_id = %vm_uuid,
+                    has_password = has_password,
+                    has_ssh_keys = has_ssh_keys,
+                    has_timezone = has_timezone,
+                    has_hostname = has_hostname,
+                    has_users = has_users,
+                    "Cloud-init user-data field detection (verify expected fields are present)"
+                );
+                
+                if !has_password && !has_ssh_keys {
+                    warn!(
+                        vm_id = %vm_uuid,
+                        "Cloud-init user-data does NOT contain password or SSH keys - VM may be inaccessible!"
+                    );
+                }
+                
+                CloudInitConfig::new(&vm_uuid, &req.name)
+                    .with_user_data(&cloud_init.user_data)
+            } else {
+                // Generate minimal default config for cloud images without explicit cloud-init
+                warn!(
+                    vm_id = %vm_uuid,
+                    vm_name = %req.name,
+                    "No cloud-init config in request - generating DEFAULT config. \
+                     This means password/SSH keys from the wizard were NOT received!"
+                );
+                info!(
+                    vm_id = %vm_uuid,
+                    "Generating default cloud-init config for cloud image (no access credentials)"
+                );
+                CloudInitConfig::new(&vm_uuid, &req.name)
+            };
             
             let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&vm_uuid);
             let generator = CloudInitGenerator::new();
@@ -1266,24 +1361,88 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                     info!(
                         vm_id = %vm_uuid,
                         iso_path = %iso_path.display(),
-                        "Default cloud-init ISO generated"
+                        vm_dir = %vm_dir.display(),
+                        "Cloud-init ISO generated successfully"
                     );
+                    
+                    // Log the ISO file size for verification
+                    if let Ok(metadata) = std::fs::metadata(&iso_path) {
+                        debug!(
+                            vm_id = %vm_uuid,
+                            iso_size_bytes = metadata.len(),
+                            "Cloud-init ISO file size"
+                        );
+                    }
+                    
+                    // Log the user-data and meta-data files if they exist (for debugging)
+                    let user_data_path = vm_dir.join("cloud-init").join("user-data");
+                    let meta_data_path = vm_dir.join("cloud-init").join("meta-data");
+                    
+                    if user_data_path.exists() {
+                        if let Ok(content) = std::fs::read_to_string(&user_data_path) {
+                            let preview = if content.len() > 500 {
+                                format!("{}...[truncated]", &content[..500])
+                            } else {
+                                content.clone()
+                            };
+                            debug!(
+                                vm_id = %vm_uuid,
+                                user_data_file = %user_data_path.display(),
+                                content_len = content.len(),
+                                content_preview = %preview,
+                                "Cloud-init user-data file written to disk"
+                            );
+                        }
+                    }
+                    
+                    if meta_data_path.exists() {
+                        if let Ok(content) = std::fs::read_to_string(&meta_data_path) {
+                            debug!(
+                                vm_id = %vm_uuid,
+                                meta_data_file = %meta_data_path.display(),
+                                content = %content,
+                                "Cloud-init meta-data file written to disk"
+                            );
+                        }
+                    }
                     
                     config.cdroms.push(CdromConfig {
                         id: "cloud-init".to_string(),
                         iso_path: Some(iso_path.to_string_lossy().to_string()),
                         bootable: false,
                     });
+                    
+                    info!(
+                        vm_id = %vm_uuid,
+                        cdrom_id = "cloud-init",
+                        "Cloud-init ISO attached as CD-ROM"
+                    );
                 }
                 Err(e) => {
-                    warn!(
+                    error!(
                         vm_id = %vm_uuid,
                         error = %e,
-                        "Failed to generate default cloud-init ISO (continuing without it)"
+                        vm_dir = %vm_dir.display(),
+                        "Failed to generate cloud-init ISO - VM will boot without cloud-init configuration!"
+                    );
+                    warn!(
+                        vm_id = %vm_uuid,
+                        "Cloud-init ISO generation failed. Check: \
+                         1) genisoimage/mkisofs is installed, \
+                         2) VM directory is writable, \
+                         3) Disk space is available"
                     );
                     // Don't fail the VM creation, just warn
                 }
             }
+        } else {
+            // No cloud-init needed - log why
+            debug!(
+                vm_id = %vm_uuid,
+                has_cloud_image = has_cloud_image,
+                has_cloud_init_config = has_cloud_init_config,
+                "Skipping cloud-init ISO generation - no cloud image or cloud-init config"
+            );
         }
         
         // Process CD-ROMs from the request
@@ -2900,5 +3059,47 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         }
         
         Ok(Response::new(()))
+    }
+}
+
+/// Sanitize a string to be safe for use as a filename/directory name.
+/// Replaces unsafe characters with underscores and limits length.
+fn sanitize_filename(name: &str) -> String {
+    // Replace characters that are problematic in filenames
+    let sanitized: String = name
+        .chars()
+        .map(|c| match c {
+            // Allow alphanumeric, dash, underscore, and dot
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' | '.' => c,
+            // Replace spaces with underscores
+            ' ' => '_',
+            // Replace everything else with underscore
+            _ => '_',
+        })
+        .collect();
+    
+    // Remove consecutive underscores
+    let mut result = String::with_capacity(sanitized.len());
+    let mut last_was_underscore = false;
+    for c in sanitized.chars() {
+        if c == '_' {
+            if !last_was_underscore {
+                result.push(c);
+            }
+            last_was_underscore = true;
+        } else {
+            result.push(c);
+            last_was_underscore = false;
+        }
+    }
+    
+    // Trim leading/trailing underscores and dots
+    let result = result.trim_matches(|c| c == '_' || c == '.');
+    
+    // Limit length to 64 characters (reasonable for filesystem)
+    if result.len() > 64 {
+        result[..64].to_string()
+    } else {
+        result.to_string()
     }
 }

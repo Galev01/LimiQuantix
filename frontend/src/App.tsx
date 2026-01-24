@@ -13,6 +13,7 @@ import { StoragePoolDetail } from '@/pages/StoragePoolDetail';
 import { Volumes } from '@/pages/Volumes';
 import { ClusterList } from '@/pages/ClusterList';
 import { ClusterDetail } from '@/pages/ClusterDetail';
+import { ClusterView } from '@/pages/ClusterView';
 import { VirtualNetworks } from '@/pages/VirtualNetworks';
 import { SecurityGroups } from '@/pages/SecurityGroups';
 import { LoadBalancers } from '@/pages/LoadBalancers';
@@ -39,20 +40,6 @@ const queryClient = new QueryClient({
   },
 });
 
-/**
- * Placeholder component for VM Cluster View
- * To be implemented in a future iteration
- */
-function VMClusterView() {
-  return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold text-text-primary mb-2">Cluster View</h2>
-        <p className="text-text-muted">Coming soon - View VMs organized by cluster</p>
-      </div>
-    </div>
-  );
-}
 
 /**
  * Main App Routes Component
@@ -92,7 +79,7 @@ function AppRoutes() {
             
             {/* Inventory - Virtual Machines */}
             <Route path="/vms" element={<VMList />} />
-            <Route path="/vms/clusters" element={<VMClusterView />} />
+            <Route path="/vms/clusters" element={<ClusterView />} />
             <Route path="/vms/:id" element={<VMDetail />} />
             <Route path="/consoles" element={<ConsoleDock />} />
             
@@ -100,6 +87,7 @@ function AppRoutes() {
             <Route path="/hosts" element={<HostList />} />
             <Route path="/hosts/:id" element={<HostDetail />} />
             <Route path="/clusters" element={<ClusterList />} />
+            <Route path="/clusters/view" element={<ClusterView />} />
             <Route path="/clusters/:id" element={<ClusterDetail />} />
             
             {/* Storage */}

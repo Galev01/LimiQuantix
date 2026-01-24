@@ -269,18 +269,13 @@ pub async fn send_key_event(
     key: u32,
     down: bool,
 ) -> Result<(), String> {
-    debug!("Key event: key={:x}, down={}, connection={}", key, down, connection_id);
-    
     // Clone the client Arc outside the lock
     let client = {
         let connections = state.connections.read().map_err(|e| e.to_string())?;
-        let found = connections.iter().find(|c| c.id == connection_id);
-        if found.is_none() {
-            warn!("Connection {} not found. Available: {:?}", 
-                connection_id, 
-                connections.iter().map(|c| &c.id).collect::<Vec<_>>());
-        }
-        found.and_then(|c| c.client.clone())
+        connections
+            .iter()
+            .find(|c| c.id == connection_id)
+            .and_then(|c| c.client.clone())
     };
 
     if let Some(client) = client {
@@ -289,9 +284,6 @@ pub async fn send_key_event(
             .send_key_event(key, down)
             .await
             .map_err(|e| e.to_string())?;
-        debug!("Key event sent successfully");
-    } else {
-        warn!("No client found for connection {}", connection_id);
     }
 
     Ok(())
@@ -306,11 +298,6 @@ pub async fn send_pointer_event(
     y: u16,
     buttons: u8,
 ) -> Result<(), String> {
-    // Only log click events (buttons pressed), not every move
-    if buttons != 0 {
-        debug!("Pointer event: x={}, y={}, buttons={}, connection={}", x, y, buttons, connection_id);
-    }
-    
     // Clone the client Arc outside the lock
     let client = {
         let connections = state.connections.read().map_err(|e| e.to_string())?;

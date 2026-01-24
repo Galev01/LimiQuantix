@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
   Search,
@@ -16,6 +16,12 @@ import {
   Wifi,
   WifiOff,
   Loader2,
+  RotateCcw,
+  Settings,
+  Copy,
+  Power,
+  Edit,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -25,12 +31,19 @@ import { useVMs, useStartVM, useStopVM, useDeleteVM, isVMRunning, isVMStopped, t
 import { useApiConnection } from '@/hooks/useDashboard';
 import { useActionLogger } from '@/hooks/useActionLogger';
 import { type VirtualMachine, type PowerState } from '@/types/models';
-import { showInfo } from '@/lib/toast';
+import { showInfo, showWarning, showSuccess, showError } from '@/lib/toast';
 import { useConsoleStore, useDefaultConsoleType } from '@/hooks/useConsoleStore';
 import { openDefaultConsole } from '@/components/vm/ConsoleAccessModal';
 import { API_CONFIG } from '@/lib/api-client';
 
 type FilterTab = 'all' | 'running' | 'stopped' | 'other';
+
+interface ContextMenuState {
+  visible: boolean;
+  x: number;
+  y: number;
+  vm: VirtualMachine | null;
+}
 
 // Convert API VM to display format
 function apiToDisplayVM(vm: ApiVM): VirtualMachine {
@@ -83,6 +96,13 @@ export function VMList() {
   const [selectedVMs, setSelectedVMs] = useState<Set<string>>(new Set());
   const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    visible: false,
+    x: 0,
+    y: 0,
+    vm: null,
+  });
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // Console store for quick console access
   const { openConsole } = useConsoleStore();
@@ -95,6 +115,28 @@ export function VMList() {
   const startVM = useStartVM();
   const stopVM = useStopVM();
   const deleteVM = useDeleteVM();
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu((prev) => ({ ...prev, visible: false }));
+      }
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setContextMenu((prev) => ({ ...prev, visible: false }));
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
 
   // Get data from API
   const apiVMs = apiResponse?.vms || [];
@@ -245,6 +287,84 @@ export function VMList() {
       await handleDeleteVM(vmId);
     }
     setSelectedVMs(new Set());
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, vm: VirtualMachine) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      vm,
+    });
+  };
+
+  const handleContextAction = async (action: string) => {
+    if (!contextMenu.vm) return;
+    const vm = contextMenu.vm;
+    
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+    
+    // Handle actions
+    switch (action) {
+      case 'start':
+        await handleStartVM(vm.id);
+        break;
+      case 'stop':
+        await handleStopVM(vm.id);
+        break;
+      case 'restart':
+        if (!isConnected) {
+          showInfo('Not connected to backend');
+          return;
+        }
+        setActionInProgress(vm.id);
+        try {
+          await stopVM.mutateAsync({ id: vm.id });
+          // Wait a moment then start
+          setTimeout(async () => {
+            await startVM.mutateAsync(vm.id);
+            setActionInProgress(null);
+          }, 2000);
+          showInfo(`Restarting "${vm.name}"...`);
+        } catch (error) {
+          showError(error instanceof Error ? error.message : 'Failed to restart VM');
+          setActionInProgress(null);
+        }
+        break;
+      case 'console':
+        if (vm.status.state !== 'RUNNING') {
+          showInfo('VM must be running to open console');
+          return;
+        }
+        openDefaultConsole(
+          vm.id,
+          vm.name,
+          API_CONFIG.baseUrl,
+          () => {
+            openConsole(vm.id, vm.name);
+            navigate('/consoles');
+          }
+        );
+        break;
+      case 'details':
+        navigate(`/vms/${vm.id}`);
+        break;
+      case 'edit':
+        showWarning(`Edit settings for "${vm.name}" coming soon`);
+        break;
+      case 'clone':
+        showWarning(`Clone "${vm.name}" coming soon`);
+        break;
+      case 'migrate':
+        showWarning(`Migrate "${vm.name}" coming soon`);
+        break;
+      case 'delete':
+        await handleDeleteVM(vm.id);
+        break;
+      default:
+        showInfo(`Action "${action}" on VM "${vm.name}"`);
+    }
   };
 
   return (
@@ -431,11 +551,12 @@ export function VMList() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.2, delay: index * 0.02 }}
+                onContextMenu={(e) => handleContextMenu(e, vm)}
                 className={cn(
                   'grid grid-cols-12 gap-4 px-5 py-4 items-center',
                   'hover:bg-bg-hover cursor-pointer',
                   'transition-colors duration-150',
-                  'group',
+                  'group select-none',
                   selectedVMs.has(vm.id) && 'bg-accent/5',
                   actionInProgress === vm.id && 'opacity-50',
                 )}
@@ -611,6 +732,132 @@ export function VMList() {
           }}
         />
       )}
+
+      {/* Context Menu */}
+      <AnimatePresence>
+        {contextMenu.visible && contextMenu.vm && (
+          <motion.div
+            ref={contextMenuRef}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.1 }}
+            className={cn(
+              'fixed z-50 min-w-[200px]',
+              'bg-bg-surface border border-border rounded-lg shadow-xl',
+              'py-1 overflow-hidden',
+            )}
+            style={{
+              left: contextMenu.x,
+              top: contextMenu.y,
+            }}
+          >
+            {/* Header */}
+            <div className="px-3 py-2 border-b border-border">
+              <p className="text-sm font-medium text-text-primary">{contextMenu.vm.name}</p>
+              <p className="text-xs text-text-muted">{contextMenu.vm.status.state}</p>
+            </div>
+
+            {/* Actions */}
+            <div className="py-1">
+              <ContextMenuItem
+                icon={<Monitor className="w-4 h-4" />}
+                label="View Details"
+                onClick={() => handleContextAction('details')}
+              />
+              <ContextMenuItem
+                icon={<Monitor className="w-4 h-4" />}
+                label="Open Console"
+                onClick={() => handleContextAction('console')}
+                disabled={contextMenu.vm.status.state !== 'RUNNING'}
+              />
+              
+              <div className="my-1 border-t border-border" />
+              
+              {contextMenu.vm.status.state === 'RUNNING' ? (
+                <>
+                  <ContextMenuItem
+                    icon={<Square className="w-4 h-4" />}
+                    label="Stop"
+                    onClick={() => handleContextAction('stop')}
+                  />
+                  <ContextMenuItem
+                    icon={<RotateCcw className="w-4 h-4" />}
+                    label="Restart"
+                    onClick={() => handleContextAction('restart')}
+                  />
+                </>
+              ) : (
+                <ContextMenuItem
+                  icon={<Play className="w-4 h-4" />}
+                  label="Start"
+                  onClick={() => handleContextAction('start')}
+                />
+              )}
+              
+              <div className="my-1 border-t border-border" />
+              
+              <ContextMenuItem
+                icon={<Settings className="w-4 h-4" />}
+                label="Edit Settings"
+                onClick={() => handleContextAction('edit')}
+              />
+              <ContextMenuItem
+                icon={<Copy className="w-4 h-4" />}
+                label="Clone VM"
+                onClick={() => handleContextAction('clone')}
+              />
+              <ContextMenuItem
+                icon={<ArrowRightLeft className="w-4 h-4" />}
+                label="Migrate"
+                onClick={() => handleContextAction('migrate')}
+              />
+              
+              <div className="my-1 border-t border-border" />
+              
+              <ContextMenuItem
+                icon={<Trash2 className="w-4 h-4" />}
+                label="Delete"
+                onClick={() => handleContextAction('delete')}
+                variant="danger"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+// Context Menu Item Component
+function ContextMenuItem({
+  icon,
+  label,
+  onClick,
+  variant = 'default',
+  disabled = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  variant?: 'default' | 'warning' | 'danger';
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'w-full flex items-center gap-3 px-3 py-2 text-sm',
+        'transition-colors duration-100',
+        disabled && 'opacity-50 cursor-not-allowed',
+        !disabled && variant === 'default' && 'text-text-secondary hover:text-text-primary hover:bg-bg-hover',
+        !disabled && variant === 'warning' && 'text-warning hover:bg-warning/10',
+        !disabled && variant === 'danger' && 'text-error hover:bg-error/10',
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

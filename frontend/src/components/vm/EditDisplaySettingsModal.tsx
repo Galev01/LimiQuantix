@@ -26,6 +26,14 @@ interface DisplaySettings {
   listen: string;
   enableClipboard: boolean;
   enableAudio: boolean;
+  // SPICE-specific settings
+  spice?: {
+    streaming?: 'auto' | 'filter' | 'off';
+    imageCompression?: 'auto_glz' | 'auto_lz' | 'quic' | 'glz' | 'lz' | 'off';
+    playbackCompression?: boolean;
+    usbRedirectionChannels?: number;
+    multiMonitor?: boolean;
+  };
 }
 
 const displayTypes = [
@@ -53,6 +61,13 @@ export function EditDisplaySettingsModal({ isOpen, onClose, vm, onSave }: EditDi
   const [enableAudio, setEnableAudio] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  
+  // SPICE-specific settings
+  const [spiceStreaming, setSpiceStreaming] = useState<'auto' | 'filter' | 'off'>('auto');
+  const [spiceImageCompression, setSpiceImageCompression] = useState<'auto_glz' | 'auto_lz' | 'quic' | 'glz' | 'lz' | 'off'>('auto_glz');
+  const [spicePlaybackCompression, setSpicePlaybackCompression] = useState(true);
+  const [spiceUsbChannels, setSpiceUsbChannels] = useState(4);
+  const [spiceMultiMonitor, setSpiceMultiMonitor] = useState(false);
 
   // Initialize from VM data
   useEffect(() => {
@@ -91,6 +106,13 @@ export function EditDisplaySettingsModal({ isOpen, onClose, vm, onSave }: EditDi
         listen,
         enableClipboard,
         enableAudio,
+        spice: displayType === 'SPICE' ? {
+          streaming: spiceStreaming,
+          imageCompression: spiceImageCompression,
+          playbackCompression: spicePlaybackCompression,
+          usbRedirectionChannels: spiceUsbChannels,
+          multiMonitor: spiceMultiMonitor,
+        } : undefined,
       });
       onClose();
     } finally {
@@ -244,6 +266,7 @@ export function EditDisplaySettingsModal({ isOpen, onClose, vm, onSave }: EditDi
               <div className="space-y-4 p-4 bg-bg-base rounded-lg border border-border">
                 <h4 className="text-sm font-medium text-text-primary">SPICE Options</h4>
                 
+                {/* Basic SPICE features */}
                 <label className="flex items-center justify-between">
                   <div>
                     <span className="text-sm text-text-primary">Clipboard Sharing</span>
@@ -265,6 +288,89 @@ export function EditDisplaySettingsModal({ isOpen, onClose, vm, onSave }: EditDi
                     onChange={setEnableAudio}
                   />
                 </label>
+
+                <label className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm text-text-primary">Multi-Monitor Support</span>
+                    <p className="text-xs text-text-muted">Allow multiple displays</p>
+                  </div>
+                  <ToggleSwitch
+                    enabled={spiceMultiMonitor}
+                    onChange={setSpiceMultiMonitor}
+                  />
+                </label>
+
+                {/* Advanced SPICE settings */}
+                <div className="pt-3 border-t border-border space-y-4">
+                  <h5 className="text-xs font-medium text-text-muted uppercase">Advanced Settings</h5>
+                  
+                  {/* Streaming Mode */}
+                  <div>
+                    <label className="block text-sm text-text-primary mb-1">Video Streaming</label>
+                    <select
+                      value={spiceStreaming}
+                      onChange={(e) => setSpiceStreaming(e.target.value as 'auto' | 'filter' | 'off')}
+                      className="w-full px-3 py-2 bg-bg-elevated border border-border rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                    >
+                      <option value="auto">Auto (recommended)</option>
+                      <option value="filter">Filter - Detect video regions</option>
+                      <option value="off">Off - No video streaming</option>
+                    </select>
+                    <p className="text-xs text-text-muted mt-1">
+                      Controls how video content is streamed to the client
+                    </p>
+                  </div>
+
+                  {/* Image Compression */}
+                  <div>
+                    <label className="block text-sm text-text-primary mb-1">Image Compression</label>
+                    <select
+                      value={spiceImageCompression}
+                      onChange={(e) => setSpiceImageCompression(e.target.value as typeof spiceImageCompression)}
+                      className="w-full px-3 py-2 bg-bg-elevated border border-border rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                    >
+                      <option value="auto_glz">Auto GLZ (recommended)</option>
+                      <option value="auto_lz">Auto LZ</option>
+                      <option value="quic">QUIC - Best for photos</option>
+                      <option value="glz">GLZ - Good compression</option>
+                      <option value="lz">LZ - Fast compression</option>
+                      <option value="off">Off - No compression</option>
+                    </select>
+                    <p className="text-xs text-text-muted mt-1">
+                      Compression algorithm for images and graphics
+                    </p>
+                  </div>
+
+                  {/* Playback Compression */}
+                  <label className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm text-text-primary">Audio Compression</span>
+                      <p className="text-xs text-text-muted">Compress audio for lower bandwidth</p>
+                    </div>
+                    <ToggleSwitch
+                      enabled={spicePlaybackCompression}
+                      onChange={setSpicePlaybackCompression}
+                    />
+                  </label>
+
+                  {/* USB Redirection */}
+                  <div>
+                    <label className="block text-sm text-text-primary mb-1">USB Redirection Channels</label>
+                    <select
+                      value={spiceUsbChannels}
+                      onChange={(e) => setSpiceUsbChannels(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 bg-bg-elevated border border-border rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                    >
+                      <option value="0">Disabled</option>
+                      <option value="2">2 channels</option>
+                      <option value="4">4 channels (recommended)</option>
+                      <option value="8">8 channels</option>
+                    </select>
+                    <p className="text-xs text-text-muted mt-1">
+                      Number of USB devices that can be redirected to the VM
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>

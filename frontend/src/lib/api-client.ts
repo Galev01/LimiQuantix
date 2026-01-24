@@ -266,6 +266,8 @@ export interface ApiVMEvent {
   severity: string;   // info, warning, error
   createdAt: string;
   metadata?: Record<string, string>;
+  source?: string;    // 'qvdc' (control plane) or 'qhci'/'host' (hypervisor)
+  details?: string;   // Additional details (e.g., error stack, config diff)
 }
 
 export interface ApiVM {
@@ -314,7 +316,14 @@ export interface ApiVM {
       clipboard?: boolean;   // Clipboard sharing (SPICE)
       audio?: boolean;       // Audio passthrough (SPICE)
     };
-    // High Availability policy
+    // High Availability policy (matches proto HaPolicy)
+    haPolicy?: {
+      autoRestart?: boolean;         // Enable auto-restart on failure
+      priority?: number;             // Restart priority (higher = restart first)
+      maxRestarts?: number;          // Max restarts within period
+      restartDelaySec?: number;      // Delay before restart in seconds
+    };
+    // Legacy HA fields (for display compatibility)
     ha?: {
       enabled?: boolean;
       restartPriority?: string;      // 'highest', 'high', 'medium', 'low', 'lowest'
@@ -391,6 +400,7 @@ export interface ApiVM {
   };
   createdAt?: string;
   updatedAt?: string;
+  createdBy?: string;  // Owner/user who created this VM
 }
 
 export const vmApi = {

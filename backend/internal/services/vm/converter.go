@@ -92,6 +92,15 @@ func convertSpecFromProto(spec *computev1.VmSpec) domain.VMSpec {
 		result.GuestOS = convertGuestOSFromProto(spec.GuestOs.Family)
 	}
 
+	// HA Policy
+	if spec.HaPolicy != nil {
+		result.HAPolicy = &domain.HAPolicy{
+			AutoRestart:  spec.HaPolicy.AutoRestart,
+			Priority:     spec.HaPolicy.Priority,
+			RestartDelay: int32(spec.HaPolicy.RestartDelaySec),
+		}
+	}
+
 	return result
 }
 
@@ -185,6 +194,15 @@ func convertSpecToProto(spec domain.VMSpec) *computev1.VmSpec {
 	if spec.GuestOS != "" {
 		result.GuestOs = &computev1.GuestOSProfile{
 			Family: convertGuestOSToProto(spec.GuestOS),
+		}
+	}
+
+	// HA Policy
+	if spec.HAPolicy != nil {
+		result.HaPolicy = &computev1.HaPolicy{
+			AutoRestart:     spec.HAPolicy.AutoRestart,
+			Priority:        spec.HAPolicy.Priority,
+			RestartDelaySec: uint32(spec.HAPolicy.RestartDelay),
 		}
 	}
 

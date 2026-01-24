@@ -462,28 +462,26 @@ func (s *Service) computeStats(ctx context.Context, clusterID string) (*domain.C
 		// Memory is in MiB in the domain model
 		stats.MemoryTotalBytes += node.Spec.Memory.TotalMiB * 1024 * 1024
 		stats.MemoryUsedBytes += node.Status.Allocated.MemoryMiB * 1024 * 1024
-
-		// Count VMs on this host
-		if node.Status.VMIDs != nil {
-			stats.TotalVMs += len(node.Status.VMIDs)
-		}
 	}
 
-	// Get VM states for running count
+	// Build a set of node IDs in this cluster for quick lookup
+	clusterNodeIDs := make(map[string]bool, len(nodes))
+	for _, node := range nodes {
+		clusterNodeIDs[node.ID] = true
+	}
+
+	// Get VM counts from the VM repository (source of truth)
+	// This is more reliable than node.Status.VMIDs which may not be populated
 	allVMs, _, err := s.vmRepo.List(ctx, vm.VMFilter{}, 10000, "")
 	if err == nil {
 		for _, vmItem := range allVMs {
-			if vmItem.Status.NodeID != "" {
-				// Check if this VM is on a host in this cluster
-				for _, nodeItem := range nodes {
-					if nodeItem.ID == vmItem.Status.NodeID {
-						if vmItem.Status.State == domain.VMStateRunning {
-							stats.RunningVMs++
-						} else {
-							stats.StoppedVMs++
-						}
-						break
-					}
+			// Check if this VM is on a host in this cluster
+			if vmItem.Status.NodeID != "" && clusterNodeIDs[vmItem.Status.NodeID] {
+				stats.TotalVMs++
+				if vmItem.Status.State == domain.VMStateRunning {
+					stats.RunningVMs++
+				} else {
+					stats.StoppedVMs++
 				}
 			}
 		}

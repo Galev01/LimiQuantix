@@ -36,6 +36,7 @@ import {
   GitBranch,
   List,
   Disc,
+  User,
 } from 'lucide-react';
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -63,7 +64,7 @@ import { EditBootOptionsModal } from '@/components/vm/EditBootOptionsModal';
 import { EditDisplaySettingsModal } from '@/components/vm/EditDisplaySettingsModal';
 import { EditHAPolicyModal } from '@/components/vm/EditHAPolicyModal';
 import { EditGuestAgentModal } from '@/components/vm/EditGuestAgentModal';
-import { EditProvisioningModal, detectCloudInit } from '@/components/vm/EditProvisioningModal';
+import { EditProvisioningModal } from '@/components/vm/EditProvisioningModal';
 import { EditAdvancedOptionsModal } from '@/components/vm/EditAdvancedOptionsModal';
 import { CDROMModal, type CDROMDevice } from '@/components/vm/CDROMModal';
 import { VMLogsPanel } from '@/components/vm/VMLogsPanel';
@@ -200,7 +201,7 @@ export function VMDetail() {
   const ejectISO = useEjectISO();
   
   // Events
-  const { data: eventsData } = useVMEvents(id || '', { enabled: !!isConnected && !!id, limit: 50 });
+  const { data: eventsData, refetch: refetchEvents, isLoading: isEventsLoading } = useVMEvents(id || '', { enabled: !!isConnected && !!id, limit: 50 });
 
   // Convert API data to display format (no mock fallback)
   const vm: VirtualMachine | undefined = apiVm ? apiToDisplayVM(apiVm) : undefined;
@@ -464,10 +465,28 @@ export function VMDetail() {
 
   const handleSaveHAPolicy = async (policy: { enabled: boolean; restartPriority: string; isolationResponse: string; vmMonitoring: string; maxRestarts: number; restartPeriodMinutes: number }) => {
     if (!id || !apiVm) return;
+    
+    // Convert priority string to number (higher = restart first)
+    const priorityMap: Record<string, number> = {
+      'highest': 100,
+      'high': 75,
+      'medium': 50,
+      'low': 25,
+      'lowest': 0,
+    };
+    
     await updateVM.mutateAsync({
       id,
       spec: {
         ...apiVm.spec,
+        // Use haPolicy for proto compatibility
+        haPolicy: {
+          autoRestart: policy.enabled,
+          priority: priorityMap[policy.restartPriority] ?? 50,
+          maxRestarts: policy.maxRestarts,
+          restartDelaySec: policy.restartPeriodMinutes * 60, // Convert minutes to seconds
+        },
+        // Also keep ha for display compatibility
         ha: {
           enabled: policy.enabled,
           restartPriority: policy.restartPriority,
@@ -771,7 +790,6 @@ export function VMDetail() {
       <Tabs defaultValue="summary">
         <TabsList>
           <TabsTrigger value="summary">Summary</TabsTrigger>
-          <TabsTrigger value="console">Console</TabsTrigger>
           <TabsTrigger value="agent">Quantix Agent</TabsTrigger>
           <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
           <TabsTrigger value="disks">Disks</TabsTrigger>
@@ -906,6 +924,16 @@ export function VMDetail() {
                 <h3 className="text-sm font-medium text-text-muted mb-4">Quick Stats</h3>
                 <div className="space-y-3">
                   <StatRow
+                    icon={<User className="w-4 h-4" />}
+                    label="Owner"
+                    value={apiVm?.createdBy || '—'}
+                  />
+                  <StatRow
+                    icon={<Server className="w-4 h-4" />}
+                    label="Host"
+                    value={vm.status.nodeId || 'Not assigned'}
+                  />
+                  <StatRow
                     icon={<Activity className="w-4 h-4" />}
                     label="Disk IOPS"
                     value={`${vm.status.resourceUsage.diskReadIops + vm.status.resourceUsage.diskWriteIops}`}
@@ -935,76 +963,30 @@ export function VMDetail() {
           </div>
         </TabsContent>
 
-        {/* Console Tab */}
-        <TabsContent value="console">
-          <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-elevated/50">
-              <div className="flex items-center gap-2">
-                <Terminal className="w-4 h-4 text-text-muted" />
-                <span className="text-sm font-medium text-text-primary">Console Access</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {vm.status.state === 'RUNNING' ? (
-                  <div className="flex items-center gap-2 text-sm text-success">
-                    <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
-                    VM Running
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-sm text-warning">
-                    <span className="w-2 h-2 bg-warning rounded-full" />
-                    VM Stopped
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
-              {vm.status.state === 'RUNNING' ? (
-                <div className="text-center">
-                  <MonitorPlay className="w-16 h-16 mx-auto text-accent mb-4" />
-                  <h3 className="text-lg font-medium text-text-primary mb-2">Console Available</h3>
-                  <p className="text-text-muted mb-6 max-w-md">
-                    Access the VM console using VNC. Choose between web console or QvMC native client.
-                  </p>
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="flex items-center gap-3">
-                      <Button onClick={() => setIsConsoleOpen(true)}>
-                        <MonitorPlay className="w-4 h-4" />
-                        Web Console
-                      </Button>
-                      <Button variant="secondary" onClick={() => setIsConsoleModalOpen(true)}>
-                        <Download className="w-4 h-4" />
-                        QvMC Native
-                      </Button>
-                    </div>
-                    <p className="text-xs text-text-muted max-w-sm">
-                      <strong>Web Console:</strong> Opens in browser, no installation needed.
-                      <br />
-                      <strong>QvMC:</strong> Better performance, USB passthrough, lower latency.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center">
-                  <MonitorPlay className="w-16 h-16 mx-auto text-text-muted mb-4" />
-                  <h3 className="text-lg font-medium text-text-primary mb-2">Console Unavailable</h3>
-                  <p className="text-text-muted mb-6">
-                    Start the VM to access the console.
-                  </p>
-                  <Button onClick={handleStart} disabled={isActionPending}>
-                    <Play className="w-4 h-4" />
-                    Start VM
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-
         {/* Quantix Agent Tab */}
         <TabsContent value="agent">
           <div className="grid grid-cols-3 gap-6">
             <div className="col-span-2">
-              <QuantixAgentStatus vmId={id || ''} vmState={vm.status.state} />
+              <QuantixAgentStatus 
+                vmId={id || ''} 
+                vmState={vm.status.state}
+                guestOsFamily={apiVm?.spec?.guestOs?.family}
+                guestOsName={apiVm?.status?.guestInfo?.osName}
+                onMountAgentISO={async () => {
+                  // Mount the Quantix Agent ISO
+                  if (!id) return;
+                  try {
+                    await mountISO.mutateAsync({ 
+                      vmId: id, 
+                      cdromId: 'cdrom-0', 
+                      isoPath: '/var/lib/quantix/iso/quantix-agent.iso' 
+                    });
+                  } catch {
+                    // Error is handled by the hook
+                  }
+                }}
+                isMountingISO={mountISO.isPending}
+              />
             </div>
             <div className="space-y-4">
               <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
@@ -1117,9 +1099,12 @@ export function VMDetail() {
                         type="checkbox"
                         checked={includeMemory}
                         onChange={(e) => setIncludeMemory(e.target.checked)}
-                        className="w-4 h-4 rounded border-border text-accent focus:ring-accent/50"
+                        disabled={vm?.status.state !== 'RUNNING'}
+                        className="w-4 h-4 rounded border-border text-accent focus:ring-accent/50 disabled:opacity-50"
                       />
-                      <span className="text-sm text-text-secondary">Include memory state</span>
+                      <span className={cn("text-sm", vm?.status.state !== 'RUNNING' ? 'text-text-muted' : 'text-text-secondary')}>
+                        Include memory state
+                      </span>
                       <span className="text-xs text-text-muted">(hot snapshot)</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -1136,6 +1121,19 @@ export function VMDetail() {
                       <span className="text-xs text-text-muted">(requires agent)</span>
                     </label>
                   </div>
+                  {/* Warning for memory snapshots */}
+                  {includeMemory && vm?.status.state === 'RUNNING' && (
+                    <div className="col-span-2 flex items-start gap-2 p-3 bg-warning/10 rounded-lg border border-warning/30">
+                      <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+                      <div className="text-xs text-text-secondary">
+                        <p className="font-medium text-warning mb-1">Memory snapshots may fail</p>
+                        <p>
+                          Some VMs with host-passthrough CPU or certain CPU features (like invtsc) cannot create memory snapshots.
+                          If this fails, try stopping the VM first and taking a disk-only snapshot.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-end gap-2 mt-6">
                   <Button
@@ -1308,11 +1306,17 @@ export function VMDetail() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {vm.spec.disks.map((disk, index) => {
-                    const diskName = `vd${String.fromCharCode(97 + index)}`;
+                    // Get the actual disk name from API, fallback to generated device name for display
+                    const apiDisk = apiVm?.spec?.disks?.[index];
+                    const actualDiskName = apiDisk?.name || disk.id;
+                    const displayName = `vd${String.fromCharCode(97 + index)}`;
                     return (
                       <tr key={disk.id} className="hover:bg-bg-hover">
                         <td className="px-6 py-4 text-sm text-text-primary font-mono">
-                          {diskName}
+                          {displayName}
+                          {actualDiskName && actualDiskName !== displayName && (
+                            <span className="text-text-muted ml-2 text-xs">({actualDiskName})</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-sm text-text-secondary">{disk.sizeGib} GB</td>
                         <td className="px-6 py-4 text-sm text-text-secondary">{disk.bus}</td>
@@ -1321,7 +1325,11 @@ export function VMDetail() {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => setResizeDiskInfo({ diskId: disk.id, diskName, currentSizeGib: disk.sizeGib })}
+                            onClick={() => setResizeDiskInfo({ 
+                              diskId: disk.id, 
+                              diskName: actualDiskName,  // Use actual name from API for backend
+                              currentSizeGib: disk.sizeGib 
+                            })}
                           >
                             Resize
                           </Button>
@@ -1501,33 +1509,6 @@ export function VMDetail() {
               </div>
             </div>
 
-            {/* Cloud-Init / Provisioning */}
-            <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-                  <Settings className="w-5 h-5 text-accent" />
-                  Provisioning (Cloud-Init)
-                </h3>
-                <Button variant="secondary" size="sm" onClick={() => setIsProvisioningModalOpen(true)}>Edit</Button>
-              </div>
-              {apiVm && detectCloudInit(apiVm).hasCloudInit ? (
-                <div className="space-y-3">
-                  <ConfigRow label="Cloud-Init" value="Enabled" />
-                  <ConfigRow label="Hostname" value={apiVm?.spec?.cloudInit?.hostname || vm.name} />
-                  <ConfigRow label="SSH Key" value={apiVm?.spec?.cloudInit?.sshKeys?.length ? 'Configured' : 'Not configured'} />
-                  <ConfigRow label="User Data" value={apiVm?.spec?.cloudInit?.userData ? 'Custom script' : 'None'} />
-                  <ConfigRow label="Network Config" value={apiVm?.spec?.cloudInit?.networkConfig || 'DHCP'} />
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <ConfigRow label="Cloud-Init" value="Not configured" />
-                  <p className="text-xs text-text-muted mt-2">
-                    This VM was not created from a cloud image. Cloud-init provisioning is not available.
-                  </p>
-                </div>
-              )}
-            </div>
-
             {/* High Availability */}
             <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
               <div className="flex items-center justify-between mb-4">
@@ -1611,21 +1592,36 @@ export function VMDetail() {
           <div className="space-y-6">
             <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                <h3 className="text-lg font-semibold text-text-primary">Event Log</h3>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-semibold text-text-primary">Event Log</h3>
+                  {eventsData?.events && eventsData.events.length > 0 && (
+                    <span className="px-2 py-0.5 text-xs font-medium bg-accent/20 text-accent rounded-full">
+                      {eventsData.events.length}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   <select className="px-3 py-1.5 text-sm bg-bg-base border border-border rounded-lg text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent/50">
                     <option value="all">All Events</option>
                     <option value="power">Power</option>
                     <option value="config">Configuration</option>
                     <option value="snapshot">Snapshots</option>
+                    <option value="disk">Disk</option>
+                    <option value="network">Network</option>
                     <option value="error">Errors</option>
                   </select>
-                  <Button variant="ghost" size="sm">
-                    <RefreshCw className="w-4 h-4" />
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => refetchEvents?.()}
+                    disabled={isEventsLoading}
+                    title="Refresh events"
+                  >
+                    <RefreshCw className={cn("w-4 h-4", isEventsLoading && "animate-spin")} />
                   </Button>
                 </div>
               </div>
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
                 {(eventsData?.events && eventsData.events.length > 0 ? eventsData.events : []).map((event) => (
                   <div key={event.id} className="px-6 py-4 hover:bg-bg-hover transition-colors">
                     <div className="flex items-center gap-4">
@@ -1651,18 +1647,48 @@ export function VMDetail() {
                       >
                         {event.type}
                       </Badge>
+                      {/* Source indicator (QvDC or QHCI) */}
+                      <Badge 
+                        variant="default" 
+                        size="sm"
+                        className={cn(
+                          'text-[10px] px-1.5',
+                          event.source === 'qhci' || event.source === 'host' 
+                            ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' 
+                            : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                        )}
+                      >
+                        {event.source === 'qhci' || event.source === 'host' ? 'QHCI' : 'QvDC'}
+                      </Badge>
                       <span className="text-sm text-text-primary flex-1">{event.message}</span>
                       <span className="text-xs text-text-muted">{event.user || 'system'}</span>
                     </div>
+                    {/* Event details (if available) */}
+                    {event.details && (
+                      <div className="mt-2 ml-36 text-xs text-text-muted font-mono bg-bg-base rounded px-2 py-1">
+                        {event.details}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {(!eventsData?.events || eventsData.events.length === 0) && (
                   <div className="px-6 py-12 text-center">
                     <Activity className="w-12 h-12 mx-auto text-text-muted mb-4" />
-                    <h4 className="text-lg font-medium text-text-primary mb-2">No Events</h4>
-                    <p className="text-text-muted">
-                      No events recorded for this VM yet. Events will appear here as you perform actions.
+                    <h4 className="text-lg font-medium text-text-primary mb-2">No Events Yet</h4>
+                    <p className="text-text-muted max-w-md mx-auto">
+                      Events will appear here as you perform actions on this VM, such as starting, stopping, 
+                      creating snapshots, or modifying configuration.
                     </p>
+                    <div className="mt-4 flex items-center justify-center gap-4 text-xs text-text-muted">
+                      <div className="flex items-center gap-1">
+                        <Badge variant="default" size="sm" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px] px-1.5">QvDC</Badge>
+                        <span>Control Plane</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Badge variant="default" size="sm" className="bg-orange-500/10 text-orange-400 border-orange-500/20 text-[10px] px-1.5">QHCI</Badge>
+                        <span>Host</span>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

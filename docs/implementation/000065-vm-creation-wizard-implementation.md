@@ -2,6 +2,7 @@
 
 **Document ID:** 000065  
 **Date:** January 11, 2026  
+**Updated:** January 25, 2026  
 **Status:** Completed  
 **Related Documents:** [000064-vm-creation-wizard-plan.md](../planning/000064-vm-creation-wizard-plan.md)
 
@@ -1328,6 +1329,140 @@ curl http://localhost:8080/api/v1/storage-pools?node_id=<node-id>
 
 ---
 
+## Phase 7: Bug Fixes (January 2026)
+
+### 7.1: Cluster VM Count Not Updating
+
+**Problem:** VMs created via the wizard were not reflected in cluster statistics. The cluster dashboard showed 0 VMs even when VMs were running.
+
+**Root Cause:** The `computeStats()` function in the cluster service was counting VMs from `node.Status.VMIDs`, which was never populated from heartbeat data. The heartbeat only sent `running_vm_count` (a number), not the actual VM IDs.
+
+**Solution:** Modified `backend/internal/services/cluster/service.go` to count VMs from the VM repository instead of relying on the `VMIDs` array.
+
+```go
+// Before (broken):
+if node.Status.VMIDs != nil {
+    stats.TotalVMs += len(node.Status.VMIDs)
+}
+
+// After (fixed):
+// Build a set of node IDs in this cluster for quick lookup
+clusterNodeIDs := make(map[string]bool, len(nodes))
+for _, node := range nodes {
+    clusterNodeIDs[node.ID] = true
+}
+
+// Get VM counts from the VM repository (source of truth)
+allVMs, _, err := s.vmRepo.List(ctx, vm.VMFilter{}, 10000, "")
+if err == nil {
+    for _, vmItem := range allVMs {
+        if vmItem.Status.NodeID != "" && clusterNodeIDs[vmItem.Status.NodeID] {
+            stats.TotalVMs++
+            if vmItem.Status.State == domain.VMStateRunning {
+                stats.RunningVMs++
+            } else {
+                stats.StoppedVMs++
+            }
+        }
+    }
+}
+```
+
+### 7.2: Timezone Not Applied to VM
+
+**Problem:** The timezone selected in the wizard was not being applied to the VM during provisioning.
+
+**Root Cause:** The timezone field was collected in the wizard but never included in the cloud-init user-data.
+
+**Solution:** Added timezone configuration to the cloud-init user-data generation in `frontend/src/components/vm/VMCreationWizard.tsx`.
+
+```yaml
+#cloud-config
+hostname: my-vm
+fqdn: my-vm.local
+manage_etc_hosts: true
+
+# Timezone configuration
+timezone: America/New_York
+```
+
+**Additional Enhancement:** Added a "Host Timezone" option that syncs time from the hypervisor via QEMU guest agent instead of setting an explicit timezone.
+
+### 7.3: Cloud-Init Password/SSH Keys Not Working
+
+**Problem:** Password and SSH keys configured in the wizard were not being applied to the VM.
+
+**Root Cause:** The node daemon was generating a default cloud-init config instead of using the config sent from the control plane.
+
+**Solution:** Modified `agent/limiquantix-node/src/service.rs` to use the cloud-init configuration from the request.
+
+```rust
+// Before (broken):
+let ci_config = CloudInitConfig::new(&vm_uuid, &req.name);
+
+// After (fixed):
+let ci_config = if let Some(ref cloud_init) = spec.cloud_init {
+    // Use cloud-init config from the control plane
+    CloudInitConfig::new(&vm_uuid, &req.name)
+        .with_user_data(&cloud_init.user_data)
+} else {
+    // Generate minimal default config for cloud images without explicit cloud-init
+    CloudInitConfig::new(&vm_uuid, &req.name)
+};
+```
+
+### 7.4: NFS Disk Path Structure
+
+**Problem:** Disks were being created with names like "Hard disk 1.qcow2" instead of UUIDs, and VM folders used only the UUID which was not human-readable.
+
+**Root Cause:** 
+1. Frontend was sending disk name as the ID instead of a UUID
+2. Node daemon used only the VM UUID for folder names
+
+**Solution:**
+
+**Frontend** (`frontend/src/components/vm/VMCreationWizard.tsx`):
+- Changed disk IDs from "Hard disk 1" to proper UUIDs using `crypto.randomUUID()`
+
+```typescript
+// Before:
+disks: formData.disks.map((d, index) => ({
+  id: d.name, // "Hard disk 1"
+  ...
+}))
+
+// After:
+disks: formData.disks.map((d, index) => ({
+  id: d.id, // UUID like "a1b2c3d4-..."
+  ...
+}))
+```
+
+**Node Daemon** (`agent/limiquantix-node/src/service.rs`):
+- Changed VM folder naming from `{VM_UUID}` to `{VM_NAME}_{UUID_SHORT}` format
+- Added `sanitize_filename()` helper function for safe directory names
+
+```rust
+// Before:
+let vm_dir = base_path.join("vms").join(&vm_uuid);
+
+// After:
+let uuid_short = if vm_uuid.len() >= 8 { &vm_uuid[..8] } else { &vm_uuid };
+let safe_name = sanitize_filename(&req.name);
+let folder_name = format!("{}_{}", safe_name, uuid_short);
+let vm_dir = base_path.join("vms").join(&folder_name);
+```
+
+**New Path Structure:**
+```
+/mount_path/vms/my-web-server_a1b2c3d4/
+├── disk-uuid-1.qcow2
+├── disk-uuid-2.qcow2
+└── cloud-init.iso
+```
+
+---
+
 ## References
 
 - [VM Creation Wizard Plan](../planning/000064-vm-creation-wizard-plan.md)
@@ -1343,3 +1478,4 @@ curl http://localhost:8080/api/v1/storage-pools?node_id=<node-id>
 | Date | Version | Changes |
 |------|---------|---------|
 | 2026-01-11 | 1.0 | Initial implementation documentation |
+| 2026-01-25 | 1.1 | Added fixes for cluster VM count, timezone, cloud-init, and NFS disk paths |

@@ -19,6 +19,8 @@ import {
   Loader2,
   FolderOpen,
   Bug,
+  Square,
+  Monitor,
 } from 'lucide-react';
 import { DebugPanel } from './DebugPanel';
 import { vncLog } from '../lib/debug-logger';
@@ -84,6 +86,7 @@ export function ConsoleTabPane({
 
   // VM Menu state
   const [showVMMenu, setShowVMMenu] = useState(false);
+  const [showResolutionMenu, setShowResolutionMenu] = useState(false);
   const [showISODialog, setShowISODialog] = useState(false);
   const [isoPath, setIsoPath] = useState('');
   const [isoMode, setIsoMode] = useState<'local' | 'remote'>('local');
@@ -92,6 +95,7 @@ export function ConsoleTabPane({
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const vmMenuRef = useRef<HTMLDivElement>(null);
+  const resolutionMenuRef = useRef<HTMLDivElement>(null);
 
   const showToast = useCallback((message: string, type: Toast['type'] = 'info') => {
     const id = Date.now().toString();
@@ -106,6 +110,9 @@ export function ConsoleTabPane({
     const handleClickOutside = (e: MouseEvent) => {
       if (vmMenuRef.current && !vmMenuRef.current.contains(e.target as Node)) {
         setShowVMMenu(false);
+      }
+      if (resolutionMenuRef.current && !resolutionMenuRef.current.contains(e.target as Node)) {
+        setShowResolutionMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -225,7 +232,9 @@ export function ConsoleTabPane({
     };
   }, [isoServerUrl]);
 
+  // Calculate display dimensions based on container size and resolution
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
+  const [targetResolution, setTargetResolution] = useState<{ width: number; height: number } | null>(null);
 
   const calculateScale = useCallback(() => {
     const viewport = viewportRef.current;
@@ -241,29 +250,71 @@ export function ConsoleTabPane({
     }
 
     let scale = 1;
-    if (scaleMode === '100%') {
-      scale = 1;
-    } else if (scaleMode === 'fit') {
-      const scaleX = containerWidth / resolution.width;
-      const scaleY = containerHeight / resolution.height;
-      scale = Math.min(scaleX, scaleY);
-    } else if (scaleMode === 'fill') {
-      const scaleX = containerWidth / resolution.width;
-      const scaleY = containerHeight / resolution.height;
-      scale = Math.max(scaleX, scaleY);
-    }
+    let newWidth = resolution.width;
+    let newHeight = resolution.height;
 
-    const newWidth = Math.floor(resolution.width * scale);
-    const newHeight = Math.floor(resolution.height * scale);
+    // Use target resolution if set to fake a display size
+    if (targetResolution) {
+      if (scaleMode === 'fit') {
+        const scaleX = containerWidth / targetResolution.width;
+        const scaleY = containerHeight / targetResolution.height;
+        scale = Math.min(scaleX, scaleY);
+        newWidth = targetResolution.width * scale;
+        newHeight = targetResolution.height * scale;
+      } else if (scaleMode === '100%') {
+        newWidth = targetResolution.width;
+        newHeight = targetResolution.height;
+        scale = 1;
+      } else if (scaleMode === 'fill') {
+        const scaleX = containerWidth / targetResolution.width;
+        const scaleY = containerHeight / targetResolution.height;
+        scale = Math.max(scaleX, scaleY);
+        newWidth = targetResolution.width * scale;
+        newHeight = targetResolution.height * scale;
+      }
+    } else {
+      if (scaleMode === '100%') {
+        scale = 1;
+      } else if (scaleMode === 'fit') {
+        const scaleX = containerWidth / resolution.width;
+        const scaleY = containerHeight / resolution.height;
+        scale = Math.min(scaleX, scaleY);
+      } else if (scaleMode === 'fill') {
+        const scaleX = containerWidth / resolution.width;
+        const scaleY = containerHeight / resolution.height;
+        scale = Math.max(scaleX, scaleY);
+      }
+
+      if (!targetResolution) {
+        newWidth = Math.floor(resolution.width * scale);
+        newHeight = Math.floor(resolution.height * scale);
+      }
+    }
 
     setCanvasScale(scale);
     setDisplaySize({ width: newWidth, height: newHeight });
-  }, [resolution, scaleMode]);
+  }, [resolution, scaleMode, targetResolution]);
 
   useEffect(() => {
     calculateScale();
+
+    // Use ResizeObserver to detect container size changes (e.g. sidebar toggle)
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const observer = new ResizeObserver(() => {
+      calculateScale();
+    });
+
+    observer.observe(viewport);
+
+    // Also listen to window resize as backup
     window.addEventListener('resize', calculateScale);
-    return () => window.removeEventListener('resize', calculateScale);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', calculateScale);
+    };
   }, [calculateScale]);
 
   const initializeCanvas = useCallback((width: number, height: number) => {
@@ -506,7 +557,7 @@ export function ConsoleTabPane({
       try {
         await invoke('send_pointer_event', { connectionId, x, y, buttons: mouseDown });
       } catch (err) {
-        vncLog.error('Pointer event error:', err);
+        // vncLog.error('Pointer event error:', err);
       }
     },
     [connectionId, mouseDown, getVNCCoordinates]
@@ -518,7 +569,7 @@ export function ConsoleTabPane({
       const button = 1 << e.button;
       setMouseDown((prev) => prev | button);
       const { x, y } = getVNCCoordinates(e);
-      vncLog.debug(`Mouse down at (${x}, ${y}), button: ${button}, connectionId: ${connectionId}`);
+      // vncLog.debug(`Mouse down at (${x}, ${y}), button: ${button}, connectionId: ${connectionId}`);
       try {
         await invoke('send_pointer_event', { connectionId, x, y, buttons: mouseDown | button });
       } catch (err) {
@@ -536,7 +587,7 @@ export function ConsoleTabPane({
       try {
         await invoke('send_pointer_event', { connectionId, x, y, buttons: mouseDown & ~button });
       } catch (err) {
-        console.error('Pointer event error:', err);
+        vncLog.error('Pointer event error:', err);
       }
     },
     [connectionId, mouseDown, getVNCCoordinates]
@@ -574,7 +625,7 @@ export function ConsoleTabPane({
       e.preventDefault();
       e.stopPropagation();
       const keysym = keyEventToKeysym(e);
-      vncLog.debug(`Key down: ${e.key} (keysym: ${keysym.toString(16)}), connectionId: ${connectionId}`);
+      // vncLog.debug(`Key down: ${e.key} (keysym: ${keysym.toString(16)}), connectionId: ${connectionId}`);
       try {
         await invoke('send_key_event', { connectionId, key: keysym, down: true });
       } catch (err) {
@@ -592,7 +643,7 @@ export function ConsoleTabPane({
       try {
         await invoke('send_key_event', { connectionId, key: keysym, down: false });
       } catch (err) {
-        console.error('Key event error:', err);
+        vncLog.error('Key event error:', err);
       }
     },
     [connectionId, keyEventToKeysym]
@@ -606,6 +657,8 @@ export function ConsoleTabPane({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  const [renderingMode, setRenderingMode] = useState<'pixelated' | 'auto'>('auto');
+
   const cycleScaleMode = useCallback(() => {
     setScaleMode((prev) => {
       if (prev === 'fit') return '100%';
@@ -613,6 +666,20 @@ export function ConsoleTabPane({
       return 'fit';
     });
   }, []);
+
+  const toggleRenderingMode = useCallback(() => {
+    setRenderingMode(prev => prev === 'pixelated' ? 'auto' : 'pixelated');
+    showToast(`Rendering mode: ${renderingMode === 'pixelated' ? 'Smooth' : 'Pixelated'}`);
+  }, [renderingMode, showToast]);
+
+  const toggleResolution = (w: number, h: number) => {
+    if (targetResolution && targetResolution.width === w && targetResolution.height === h) {
+      setTargetResolution(null); // Reset to native
+    } else {
+      setTargetResolution({ width: w, height: h });
+    }
+    setShowVMMenu(false); // Reuse this logic or add new menu
+  };
 
   // Only render when active
   if (!isActive) {
@@ -801,6 +868,58 @@ export function ConsoleTabPane({
         </div>
 
         <div className="console-toolbar-section">
+          {/* Resolution Dropdown */}
+          <div ref={resolutionMenuRef} className="relative">
+            <button
+              onClick={() => setShowResolutionMenu(!showResolutionMenu)}
+              className={`console-toolbar-dropdown-btn ${showResolutionMenu ? 'active' : ''}`}
+            >
+              <Maximize2 className="w-4 h-4" />
+              <span>{targetResolution ? `${targetResolution.width}x${targetResolution.height}` : 'Native'}</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 opacity-50 transition-transform duration-200 ${showResolutionMenu ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {showResolutionMenu && (
+              <div className="dropdown-menu">
+                <div className="dropdown-section-title">Display Size</div>
+                <button
+                  onClick={() => toggleResolution(0, 0)}
+                  className={`dropdown-item ${!targetResolution ? 'bg-[var(--bg-hover)]' : ''}`}
+                >
+                  <span>Native ({resolution.width}x{resolution.height})</span>
+                </button>
+                <div className="dropdown-divider" />
+                <button onClick={() => toggleResolution(1280, 720)} className="dropdown-item">
+                  1280x720 (HD)
+                </button>
+                <button onClick={() => toggleResolution(1680, 1050)} className="dropdown-item">
+                  1680x1050
+                </button>
+                <button onClick={() => toggleResolution(1920, 1080)} className="dropdown-item">
+                  1920x1080 (FHD)
+                </button>
+                <div className="dropdown-divider" />
+                <button onClick={() => toggleResolution(854, 480)} className="dropdown-item">
+                  854x480 (SD)
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="console-toolbar-divider" />
+
+          {/* Rendering Mode Toggle */}
+          <button
+            onClick={toggleRenderingMode}
+            className="console-toolbar-btn"
+            title={`Rendering: ${renderingMode === 'pixelated' ? 'Pixelated' : 'Smooth'}`}
+          >
+            {renderingMode === 'pixelated' ? <Square className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
+          </button>
+
+          <div className="console-toolbar-divider" />
+
           {/* VM Menu Dropdown */}
           <div ref={vmMenuRef} className="relative">
             <button
@@ -910,7 +1029,7 @@ export function ConsoleTabPane({
           style={{
             width: displaySize.width > 0 ? `${displaySize.width}px` : '100%',
             height: displaySize.height > 0 ? `${displaySize.height}px` : '100%',
-            imageRendering: 'pixelated',
+            imageRendering: renderingMode === 'pixelated' ? 'pixelated' : 'auto',
             objectFit: 'contain',
           }}
           tabIndex={0}
@@ -962,8 +1081,13 @@ export function ConsoleTabPane({
           <span className="console-status-bar-resolution">
             {resolution.width}×{resolution.height}
           </span>
+          {targetResolution && (
+            <span className="ml-2 text-[var(--text-muted)] text-xs">
+              → {targetResolution.width}×{targetResolution.height}
+            </span>
+          )}
           {canvasScale !== 1 && (
-            <span className="console-status-bar-scale">{Math.round(canvasScale * 100)}%</span>
+            <span className="console-status-bar-scale ml-2">{Math.round(canvasScale * 100)}%</span>
           )}
         </div>
       </div>

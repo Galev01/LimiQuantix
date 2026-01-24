@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Boxes,
@@ -23,6 +23,13 @@ import {
   Trash2,
   Check,
   Network,
+  Edit,
+  Eye,
+  Power,
+  PowerOff,
+  UserPlus,
+  UserMinus,
+  LayoutGrid,
 } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -39,6 +46,13 @@ import {
 import { useNodes, type ApiNode } from '@/hooks/useNodes';
 import { toast } from 'sonner';
 
+interface ContextMenuState {
+  visible: boolean;
+  x: number;
+  y: number;
+  cluster: DisplayCluster | null;
+}
+
 const statusConfig = {
   HEALTHY: { color: 'success', icon: CheckCircle, label: 'Healthy' },
   WARNING: { color: 'warning', icon: AlertTriangle, label: 'Warning' },
@@ -47,15 +61,45 @@ const statusConfig = {
 } as const;
 
 export function ClusterList() {
+  const navigate = useNavigate();
   const [selectedCluster, setSelectedCluster] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    visible: false,
+    x: 0,
+    y: 0,
+    cluster: null,
+  });
+  const contextMenuRef = useRef<HTMLDivElement>(null);
   
   const { data: isConnected = false } = useApiConnection();
   const { data: clustersResponse, isLoading, refetch, isRefetching } = useClusters();
   const deleteCluster = useDeleteCluster();
   
   const clusters = (clustersResponse?.clusters || []).map(toDisplayCluster);
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu((prev) => ({ ...prev, visible: false }));
+      }
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setContextMenu((prev) => ({ ...prev, visible: false }));
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
 
   const totals = clusters.reduce(
     (acc, c) => ({
@@ -78,6 +122,56 @@ export function ClusterList() {
     }
   };
 
+  const handleContextMenu = (e: React.MouseEvent, cluster: DisplayCluster) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      cluster,
+    });
+  };
+
+  const handleContextAction = async (action: string) => {
+    if (!contextMenu.cluster) return;
+    const cluster = contextMenu.cluster;
+    
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+    
+    // Handle actions
+    switch (action) {
+      case 'details':
+        navigate(`/clusters/${cluster.id}`);
+        break;
+      case 'edit':
+        toast.info(`Edit cluster "${cluster.name}" coming soon`);
+        break;
+      case 'enable_ha':
+        toast.info(`Enable HA for "${cluster.name}" coming soon`);
+        break;
+      case 'disable_ha':
+        toast.info(`Disable HA for "${cluster.name}" coming soon`);
+        break;
+      case 'enable_drs':
+        toast.info(`Enable DRS for "${cluster.name}" coming soon`);
+        break;
+      case 'disable_drs':
+        toast.info(`Disable DRS for "${cluster.name}" coming soon`);
+        break;
+      case 'add_host':
+        toast.info(`Add host to "${cluster.name}" coming soon`);
+        break;
+      case 'remove_host':
+        toast.info(`Remove host from "${cluster.name}" coming soon`);
+        break;
+      case 'delete':
+        await handleDelete(cluster.id, cluster.name);
+        break;
+      default:
+        toast.info(`Action "${action}" on cluster "${cluster.name}"`);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -86,6 +180,10 @@ export function ClusterList() {
           <p className="text-text-muted mt-1">Manage compute clusters and resource pools</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button variant="secondary" onClick={() => navigate('/clusters/view')}>
+            <LayoutGrid className="w-4 h-4" />
+            Tree View
+          </Button>
           <Button variant="secondary" onClick={() => refetch()} disabled={isRefetching}>
             <RefreshCw className={cn('w-4 h-4', isRefetching && 'animate-spin')} />
             Refresh
@@ -122,6 +220,7 @@ export function ClusterList() {
               menuOpen={menuOpen === cluster.id}
               onMenuToggle={() => setMenuOpen(menuOpen === cluster.id ? null : cluster.id)}
               onDelete={() => handleDelete(cluster.id, cluster.name)}
+              onContextMenu={(e) => handleContextMenu(e, cluster)}
             />
           ))}
         </div>
@@ -146,6 +245,100 @@ export function ClusterList() {
       )}
 
       <CreateClusterModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />
+
+      {/* Context Menu */}
+      <AnimatePresence>
+        {contextMenu.visible && contextMenu.cluster && (
+          <motion.div
+            ref={contextMenuRef}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.1 }}
+            className={cn(
+              'fixed z-50 min-w-[200px]',
+              'bg-bg-surface border border-border rounded-lg shadow-xl',
+              'py-1 overflow-hidden',
+            )}
+            style={{
+              left: contextMenu.x,
+              top: contextMenu.y,
+            }}
+          >
+            {/* Header */}
+            <div className="px-3 py-2 border-b border-border">
+              <p className="text-sm font-medium text-text-primary">{contextMenu.cluster.name}</p>
+              <p className="text-xs text-text-muted">{contextMenu.cluster.status}</p>
+            </div>
+
+            {/* Actions */}
+            <div className="py-1">
+              <ContextMenuItem
+                icon={<Eye className="w-4 h-4" />}
+                label="View Details"
+                onClick={() => handleContextAction('details')}
+              />
+              <ContextMenuItem
+                icon={<Edit className="w-4 h-4" />}
+                label="Edit Cluster"
+                onClick={() => handleContextAction('edit')}
+              />
+              
+              <div className="my-1 border-t border-border" />
+              
+              {contextMenu.cluster.haEnabled ? (
+                <ContextMenuItem
+                  icon={<PowerOff className="w-4 h-4" />}
+                  label="Disable HA"
+                  onClick={() => handleContextAction('disable_ha')}
+                />
+              ) : (
+                <ContextMenuItem
+                  icon={<Shield className="w-4 h-4" />}
+                  label="Enable HA"
+                  onClick={() => handleContextAction('enable_ha')}
+                />
+              )}
+              {contextMenu.cluster.drsEnabled ? (
+                <ContextMenuItem
+                  icon={<PowerOff className="w-4 h-4" />}
+                  label="Disable DRS"
+                  onClick={() => handleContextAction('disable_drs')}
+                />
+              ) : (
+                <ContextMenuItem
+                  icon={<Zap className="w-4 h-4" />}
+                  label="Enable DRS"
+                  onClick={() => handleContextAction('enable_drs')}
+                />
+              )}
+              
+              <div className="my-1 border-t border-border" />
+              
+              <ContextMenuItem
+                icon={<UserPlus className="w-4 h-4" />}
+                label="Add Host"
+                onClick={() => handleContextAction('add_host')}
+              />
+              <ContextMenuItem
+                icon={<UserMinus className="w-4 h-4" />}
+                label="Remove Host"
+                onClick={() => handleContextAction('remove_host')}
+                disabled={contextMenu.cluster.hosts.total === 0}
+              />
+              
+              <div className="my-1 border-t border-border" />
+              
+              <ContextMenuItem
+                icon={<Trash2 className="w-4 h-4" />}
+                label="Delete Cluster"
+                onClick={() => handleContextAction('delete')}
+                variant="danger"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -184,7 +377,7 @@ interface DisplayCluster {
   createdAt: string;
 }
 
-function ClusterCard({ cluster, index, isSelected, onSelect, menuOpen, onMenuToggle, onDelete }: {
+function ClusterCard({ cluster, index, isSelected, onSelect, menuOpen, onMenuToggle, onDelete, onContextMenu }: {
   cluster: DisplayCluster;
   index: number;
   isSelected: boolean;
@@ -192,6 +385,7 @@ function ClusterCard({ cluster, index, isSelected, onSelect, menuOpen, onMenuTog
   menuOpen: boolean;
   onMenuToggle: () => void;
   onDelete: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
 }) {
   const status = statusConfig[cluster.status];
   const StatusIcon = status.icon;
@@ -205,7 +399,8 @@ function ClusterCard({ cluster, index, isSelected, onSelect, menuOpen, onMenuTog
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
       onClick={onSelect}
-      className={cn('p-5 rounded-xl bg-bg-surface border border-border shadow-floating hover:shadow-elevated hover:border-border-hover transition-all cursor-pointer', isSelected && 'border-accent ring-1 ring-accent/30')}
+      onContextMenu={onContextMenu}
+      className={cn('p-5 rounded-xl bg-bg-surface border border-border shadow-floating hover:shadow-elevated hover:border-border-hover transition-all cursor-pointer select-none', isSelected && 'border-accent ring-1 ring-accent/30')}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -583,5 +778,38 @@ function CreateClusterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () 
         </div>
       </motion.div>
     </div>
+  );
+}
+
+// Context Menu Item Component
+function ContextMenuItem({
+  icon,
+  label,
+  onClick,
+  variant = 'default',
+  disabled = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  variant?: 'default' | 'warning' | 'danger';
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'w-full flex items-center gap-3 px-3 py-2 text-sm',
+        'transition-colors duration-100',
+        disabled && 'opacity-50 cursor-not-allowed',
+        !disabled && variant === 'default' && 'text-text-secondary hover:text-text-primary hover:bg-bg-hover',
+        !disabled && variant === 'warning' && 'text-warning hover:bg-warning/10',
+        !disabled && variant === 'danger' && 'text-error hover:bg-error/10',
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

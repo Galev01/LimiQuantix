@@ -34,6 +34,44 @@ export function useSnapshots(vmId: string, enabled = true) {
 }
 
 /**
+ * Parse snapshot error and return user-friendly message
+ */
+function parseSnapshotError(error: unknown): { message: string; isInvtscError: boolean; suggestion?: string } {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  
+  // Check for invtsc (invariant TSC) error - prevents memory snapshots
+  if (errorMessage.includes('invtsc') || errorMessage.includes('non-migratable CPU')) {
+    return {
+      message: 'Memory snapshot failed due to CPU configuration',
+      isInvtscError: true,
+      suggestion: 'This VM uses CPU features (invtsc) that prevent memory snapshots. Try: 1) Stop the VM and take a disk-only snapshot, or 2) Reconfigure the VM to use a different CPU model.',
+    };
+  }
+  
+  // Check for other common snapshot errors
+  if (errorMessage.includes('domain is not running')) {
+    return {
+      message: 'VM must be running for memory snapshots',
+      isInvtscError: false,
+      suggestion: 'Start the VM first, or uncheck "Include memory state" to take a disk-only snapshot.',
+    };
+  }
+  
+  if (errorMessage.includes('disk is busy') || errorMessage.includes('locked')) {
+    return {
+      message: 'Disk is currently busy',
+      isInvtscError: false,
+      suggestion: 'Wait for any ongoing disk operations to complete and try again.',
+    };
+  }
+  
+  return {
+    message: errorMessage,
+    isInvtscError: false,
+  };
+}
+
+/**
  * Hook to create a new snapshot
  */
 export function useCreateSnapshot() {
@@ -55,7 +93,13 @@ export function useCreateSnapshot() {
       queryClient.invalidateQueries({ queryKey: vmKeys.detail(variables.vmId) });
     },
     onError: (error) => {
-      showError(error, 'Failed to create snapshot');
+      const parsed = parseSnapshotError(error);
+      if (parsed.suggestion) {
+        // Show detailed error with suggestion
+        showError(new Error(`${parsed.message}\n\n${parsed.suggestion}`), 'Snapshot failed');
+      } else {
+        showError(error, 'Failed to create snapshot');
+      }
     },
   });
 }
