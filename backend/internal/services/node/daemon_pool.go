@@ -11,13 +11,19 @@ import (
 	"go.uber.org/zap"
 )
 
+// OnConnectCallback is called when a node connects or reconnects.
+// It receives the node ID and can be used to sync state to the node.
+type OnConnectCallback func(ctx context.Context, nodeID string) error
+
 // DaemonPool manages connections to multiple node daemons.
 // It provides thread-safe access to node daemon clients with automatic
 // connection recovery.
 type DaemonPool struct {
-	clients map[string]*DaemonClient
-	mu      sync.RWMutex
-	logger  *zap.Logger
+	clients     map[string]*DaemonClient
+	mu          sync.RWMutex
+	logger      *zap.Logger
+	onConnect   OnConnectCallback
+	onConnectMu sync.RWMutex
 }
 
 // NewDaemonPool creates a new daemon pool.
@@ -28,20 +34,30 @@ func NewDaemonPool(logger *zap.Logger) *DaemonPool {
 	}
 }
 
+// SetOnConnectCallback sets a callback that is invoked when a node connects or reconnects.
+// This is useful for syncing state (like storage pools) to newly connected nodes.
+func (p *DaemonPool) SetOnConnectCallback(cb OnConnectCallback) {
+	p.onConnectMu.Lock()
+	defer p.onConnectMu.Unlock()
+	p.onConnect = cb
+}
+
 // Connect establishes a connection to a node daemon.
 // If a connection already exists, it returns the existing client.
 func (p *DaemonPool) Connect(nodeID, addr string) (*DaemonClient, error) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
+	
+	isNewConnection := false
 
 	// Check if we already have a connection
 	if client, ok := p.clients[nodeID]; ok {
 		// Verify the connection is still healthy
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
 		_, err := client.HealthCheck(ctx)
+		cancel()
+		
 		if err == nil {
+			p.mu.Unlock()
 			return client, nil
 		}
 
@@ -52,15 +68,51 @@ func (p *DaemonPool) Connect(nodeID, addr string) (*DaemonClient, error) {
 		)
 		client.Close()
 		delete(p.clients, nodeID)
+		isNewConnection = true
+	} else {
+		isNewConnection = true
 	}
 
 	// Create a new connection
 	client, err := NewDaemonClient(addr, p.logger)
 	if err != nil {
+		p.mu.Unlock()
 		return nil, err
 	}
 
 	p.clients[nodeID] = client
+	p.mu.Unlock()
+
+	// Call the onConnect callback for new connections (outside the lock)
+	if isNewConnection {
+		p.onConnectMu.RLock()
+		cb := p.onConnect
+		p.onConnectMu.RUnlock()
+		
+		if cb != nil {
+			// Run callback in background to not block the connection
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				
+				p.logger.Info("Running onConnect callback for node",
+					zap.String("node_id", nodeID),
+				)
+				
+				if err := cb(ctx, nodeID); err != nil {
+					p.logger.Warn("onConnect callback failed",
+						zap.String("node_id", nodeID),
+						zap.Error(err),
+					)
+				} else {
+					p.logger.Info("onConnect callback completed successfully",
+						zap.String("node_id", nodeID),
+					)
+				}
+			}()
+		}
+	}
+
 	return client, nil
 }
 

@@ -1,211 +1,96 @@
-# Workflow State
+# Workflow State - Image Persistence & VM Creation Wizard Fix
 
-## Active Task: ISO Upload to NFS + UI Improvements + Storage Packages
+## Completed Tasks
 
-**Date:** January 23, 2026
-**Status:** Code Complete - Awaiting Deployment
+### 1. Image Persistence (PostgreSQL)
 
-### Issues Being Fixed
+**Problem**: Downloaded images (cloud images and ISOs) were lost after control plane restart because they were stored in-memory.
 
-1. **ISO not uploading to NFS** - ISOs save to local QvDC storage instead of NFS pool
-2. **Path not shown in UI** - No way to see where ISOs are stored
-3. **Modal blocking UI** - Upload modal takes over screen, should be background task
-4. **Missing NFS client** - QvDC appliance missing NFS utilities
-5. **NFS permissions** - NFS export needs proper permissions for QvDC to write
-6. **Missing storage packages** - QvDC needs iSCSI, Ceph RBD, and networking tools
+**Solution**:
+- Created new PostgreSQL migration (`backend/migrations/000012_images_extended.up.sql`) with extended schema
+- Created PostgreSQL image repository (`backend/internal/repository/postgres/image_repository.go`)
+- Updated `server.go` to use PostgreSQL repository when available
 
-### Changes Made
+**Files Changed**:
+- `backend/migrations/000012_images_extended.up.sql` (new)
+- `backend/migrations/000012_images_extended.down.sql` (new)
+- `backend/internal/repository/postgres/image_repository.go` (new)
+- `backend/internal/server/server.go` (modified)
 
-#### Issue 1: ISO Upload to NFS
+### 2. VM Creation Wizard Image Selection
 
-**Root Cause:** `imageUploadHandler.SetPoolRepository()` was added to the codebase but the update hasn't been deployed yet. The running QvDC still has the old code.
+**Problem**: The VM Creation Wizard wasn't properly fetching and displaying images from the database.
 
-**Files with the fix:**
-- `backend/internal/server/server.go` (line 551) - Calls `SetPoolRepository`
-- `backend/internal/server/image_upload_handler.go` - Added debug logging for pool repo status
+**Solution**:
+- Updated `useAvailableImages()` hook to fetch cloud images from DB and merge with catalog
+- Updated `useISOs()` hook to properly filter and display ISO images from DB
+- Updated `toCloudImage()` to use the actual `path` from the database
+- Added `storagePoolId` and proper `nodeId` to CloudImage interface
+- Updated StepISO component to show image status (ready/downloading/needs download)
+- Added validation to ensure selected image has a valid path before VM creation
+- Show image path in the UI when available
 
-#### Issue 2: Path Display in UI
+**Files Changed**:
+- `frontend/src/hooks/useImages.ts` (modified)
+- `frontend/src/components/vm/VMCreationWizard.tsx` (modified)
 
-**Changed:** `frontend/src/pages/images/AllImagesPage.tsx`
-- Added path display at bottom of each ISO card in monospace font
+## Pending Tasks
 
-#### Issue 3: Background Upload Progress
+### 3. Pool Sync Mechanism (ISO Scanning Issue Root Cause)
 
-**New files:**
-- `frontend/src/components/storage/UploadProgressToast.tsx` - Floating progress indicator
-- `frontend/src/lib/upload-store.ts` - Zustand store for tracking uploads
+**Problem**: ISO scanning fails because the node daemon doesn't have pool info after restart.
 
-**Changed files:**
-- `frontend/src/components/storage/ISOUploadDialog.tsx` - Closes immediately, starts background upload
-- `frontend/src/pages/images/ImageLibraryLayout.tsx` - Shows upload progress toast
-- `frontend/src/components/storage/index.ts` - Exports new components
+**Root Cause**: 
+- Node daemon stores pool info in memory
+- After restart, the pool cache is empty
+- `try_discover_pool()` only checks standard paths (`/var/lib/limiquantix/pools/{pool_id}`)
+- User's NFS pool is at `/srv/nfs/qVDS01` which isn't discovered
 
-#### Issue 4-6: Storage & Networking Packages
+**Required Fix**:
+- Add pool sync mechanism where control plane pushes pool configs to nodes on connect/reconnect
+- Or improve pool discovery to scan all NFS mounts
 
-**Added to `Quantix-vDC/profiles/packages.conf`:**
+## Deployment Steps
 
-**Networking enhancements:**
-- `iproute2-tc` - Traffic control
-- `bridge-utils` - Bridge management
-- `ethtool` - Network interface diagnostics
-- `tcpdump` - Network packet analyzer
-- `bind-tools` - DNS utilities (dig, nslookup)
-
-**Shared Storage Clients:**
-- `nfs-utils`, `rpcbind` - NFS client support (FIXED mount issue)
-- `open-iscsi` - iSCSI initiator for iSCSI storage pools
-- `ceph-common`, `py3-ceph-common`, `librbd1` - Ceph RBD client
-- `multipath-tools` - Redundant storage path management
-
-**Disk/Storage Tools:**
-- `lvm2` - Logical Volume Manager
-- `xfsprogs` - XFS filesystem tools
-- `btrfs-progs` - Btrfs filesystem tools
-- `smartmontools` - Disk health monitoring
-- `hdparm` - Hard disk parameter tuning
-- `nvme-cli` - NVMe management
-
-**VM Image Tools:**
-- `qemu-img` - Image format conversion/inspection
-- `libguestfs-tools` - Guest filesystem access
-
-**System Utilities:**
-- `strace` - System call tracing for debugging
-
-### NFS Server Configuration Required
-
-On your NFS server (192.168.0.251), the exports are now configured with:
-
+1. **Apply database migration**:
 ```bash
-/srv/nfs/qVDS01 192.168.0.0/24(rw,sync,no_subtree_check,all_squash,anonuid=5000,anongid=5000)
-/srv/nfs/qVDS02 192.168.0.0/24(rw,sync,no_subtree_check,all_squash,anonuid=5000,anongid=5000)
+cd backend
+# Run migration
+./migrate -path ./migrations -database "postgres://user:pass@localhost/quantix?sslmode=disable" up
 ```
 
-With ownership set to `quantix:quantix` (UID/GID 5000).
-
-### Deployment Required
-
+2. **Rebuild control plane**:
 ```bash
-./scripts/publish-vdc-update.sh --channel dev
+cd backend
+go build -o bin/controlplane cmd/controlplane/main.go
 ```
 
-Then on QvDC (if not using auto-update):
+3. **Rebuild frontend**:
 ```bash
-# Apply update or restart control plane
-rc-service limiquantix-controlplane restart
+cd frontend
+npm run build
 ```
 
----
+4. **Restart services** on QvDC machine
 
-## Previous Task: Fix Cloud Image Download to Storage Pools
+## Testing
 
-**Status:** Complete
+1. **Image Persistence**:
+   - Download a cloud image
+   - Restart control plane
+   - Verify image is still listed
 
-### Problem Statement
+2. **VM Creation**:
+   - Open VM Creation Wizard
+   - Go to Boot Media step
+   - Verify downloaded images show "Ready" status
+   - Verify image path is displayed
+   - Select a ready image and complete VM creation
 
-Cloud images appeared as "downloaded" in the Image Library UI, but they were **not actually present on NFS storage**. The Create VM wizard showed "Download required" for these images.
+## Log
 
-**Root Cause:**
-1. The `DownloadManager` downloaded images to `/var/lib/limiquantix/cloud-images` on the **QvDC control plane machine**
-2. Downloads should go to the **Node Daemon's storage** (NFS mount or local storage pool)
-3. The `storagePoolId` and `nodeId` parameters were captured but never used to route downloads
-
-### Solution Implemented
-
-#### 1. Node Daemon Download Endpoint (Rust)
-
-Added `POST /api/v1/images/download` endpoint to the Node Daemon HTTP server that:
-- Accepts URL, target directory, image metadata
-- Downloads with progress tracking
-- Stores downloaded images in the storage pool's mount path
-- Reports completion/failure back to control plane
-
-**Files changed:**
-- `agent/limiquantix-node/src/http_server.rs` - Added download handlers
-- `agent/limiquantix-node/Cargo.toml` - Added `once_cell` dependency
-
-#### 2. Backend Download Routing (Go)
-
-Modified `DownloadManager` to route downloads to nodes:
-- Added `StartDownloadWithPool()` method that finds a node with access to the pool
-- Looks up the storage pool's mount path (NFS, LocalDir, etc.)
-- Makes HTTP POST to node's `/api/v1/images/download` endpoint
-- Polls node for progress updates
-- Updates image record on completion
-
-**Files changed:**
-- `backend/internal/services/storage/download_manager.go` - Complete rewrite with node routing
-- `backend/internal/services/storage/image_service.go` - Added `ConfigureNodeDownloads()` method
-- `backend/internal/server/server.go` - Wire up daemon pool and pool repo to image service
-
-#### 3. Frontend Storage Pool Selection (React)
-
-Updated Image Library's Downloads page to:
-- Show a storage pool selector before downloading
-- Auto-select first available pool
-- Pass `storagePoolId` when calling download API
-- Show which pool images will be downloaded to
-
-**Files changed:**
-- `frontend/src/pages/images/DownloadsPage.tsx` - Added pool selector and routing
-
-### Architecture After Fix
-
-```
-Frontend → Backend (DownloadImage RPC with poolId)
-                    ↓
-                Backend looks up pool → finds mount path & assigned nodes
-                    ↓
-                Backend calls Node Daemon HTTP: POST /api/v1/images/download
-                    ↓
-                Node Daemon downloads to: {pool_mount_path}/cloud-images/{catalogId}.qcow2
-                    ↓
-                Node reports progress → Backend updates job status
-                    ↓
-                On completion → Image marked READY with correct path
-```
-
-### Testing Required
-
-1. **Create NFS storage pool** in the UI (if not already done)
-2. **Go to Image Library → Downloads**
-3. **Select the NFS pool** in the dropdown
-4. **Download a cloud image** (e.g., Debian 12)
-5. **Verify on NFS server**: `ls -la /srv/nfs/qVDS01/cloud-images/`
-6. **Create VM** using the downloaded image
-7. **Verify VM boots** with the cloud image
-
-### Known Limitations
-
-- Download progress polling is basic (2-second intervals)
-- No retry logic for failed node connections
-- Checksum verification is stubbed out (TODO: implement SHA256)
-
----
-
-## Progress Log
-
-### Step 1: Analysis Complete
-- Identified that `download_manager.go` downloads locally
-- `DownloadImage` RPC receives `storagePoolId` but doesn't use it
-- Node Daemon had no image download capability
-
-### Step 2: Node Daemon Endpoint
-- Added download job tracking with `once_cell::Lazy`
-- Implemented background download with progress
-- Integrated with iso_manager for metadata tracking
-
-### Step 3: Backend Routing
-- Rewrote `DownloadManager` with `StartDownloadWithPool()`
-- Added pool lookup and mount path resolution
-- Added node HTTP client calls
-
-### Step 4: Frontend Integration
-- Added `useStoragePools` hook to DownloadsPage
-- Added pool selector UI component
-- Pass `storagePoolId` in download request
-
-### Step 5: Ready for Testing
-- Code compiles (Rust with `--no-default-features`, Go)
-- No linter errors in frontend
-- Documentation updated
+- Created PostgreSQL image repository with full CRUD operations
+- Extended images table schema to match domain model
+- Updated frontend hooks to properly fetch and display images from DB
+- Added image path display in VM Creation Wizard
+- Added validation to ensure selected image is downloaded before VM creation

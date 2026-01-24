@@ -52,8 +52,10 @@ type Server struct {
 	storagePoolRepo storageservice.PoolRepository
 	volumeRepo      storageservice.VolumeRepository
 
+	// Image repository (PostgreSQL or memory fallback)
+	imageRepo storageservice.ImageRepository
+
 	// Memory-only repositories (no PostgreSQL equivalent yet)
-	imageRepo             *storageservice.MemoryImageRepository
 	networkRepo           *memory.NetworkRepository
 	securityGroupRepo     *memory.SecurityGroupRepository
 	registrationTokenRepo *memory.RegistrationTokenRepository
@@ -217,8 +219,16 @@ func (s *Server) initRepositories() {
 		s.logger.Warn("Using in-memory volume repository (data will be lost on restart)")
 	}
 
+	// Image repository - PostgreSQL for persistence, memory fallback
+	if s.db != nil {
+		s.imageRepo = postgres.NewImageRepository(s.db, s.logger)
+		s.logger.Info("Using PostgreSQL image repository (persistent)")
+	} else {
+		s.imageRepo = storageservice.NewMemoryImageRepository()
+		s.logger.Warn("Using in-memory image repository (data will be lost on restart)")
+	}
+
 	// These remain in-memory for now (PostgreSQL implementations can be added later)
-	s.imageRepo = storageservice.NewMemoryImageRepository()
 	s.networkRepo = memory.NewNetworkRepository()
 	s.securityGroupRepo = memory.NewSecurityGroupRepository()
 	s.registrationTokenRepo = memory.NewRegistrationTokenRepository()
@@ -313,6 +323,18 @@ func (s *Server) initServices() {
 	// Configure image service to route downloads to nodes
 	if s.daemonPool != nil && s.storagePoolRepo != nil && s.nodeRepo != nil {
 		s.imageService.ConfigureNodeDownloads(s.daemonPool, s.storagePoolRepo, s.nodeRepo)
+	}
+
+	// Set up pool sync callback - when a node connects, sync storage pools to it
+	// This ensures nodes have pool info for ISO scanning and file listing
+	if s.daemonPool != nil && s.poolService != nil {
+		s.daemonPool.SetOnConnectCallback(func(ctx context.Context, nodeID string) error {
+			s.logger.Info("Node connected, syncing storage pools",
+				zap.String("node_id", nodeID),
+			)
+			return s.poolService.SyncPoolsToNode(ctx, nodeID)
+		})
+		s.logger.Info("Pool sync callback configured for node connections")
 	}
 
 	// Folder service (requires PostgreSQL)
@@ -547,8 +569,8 @@ func (s *Server) registerRoutes() {
 	// Image Upload REST API (for ISO uploads with progress)
 	// =========================================================================
 	imageUploadHandler := NewImageUploadHandler(s.imageService, s.logger)
-	imageUploadHandler.SetDaemonPool(s.daemonPool)           // Enable forwarding uploads to host nodes
-	imageUploadHandler.SetPoolRepository(s.storagePoolRepo)  // Enable writing to storage pools (NFS, etc.)
+	imageUploadHandler.SetDaemonPool(s.daemonPool)          // Enable forwarding uploads to host nodes
+	imageUploadHandler.SetPoolRepository(s.storagePoolRepo) // Enable writing to storage pools (NFS, etc.)
 	imageUploadHandler.RegisterRoutes(s.mux)
 	s.logger.Info("Registered Image Upload API routes", zap.String("path", "/api/v1/images/upload"))
 

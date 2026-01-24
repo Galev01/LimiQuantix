@@ -67,19 +67,9 @@ export interface CloudImage {
   };
   status: 'pending' | 'downloading' | 'ready' | 'error';
   nodeId?: string;
+  storagePoolId?: string;
   // Download progress (only present when status is 'downloading')
   downloadProgress?: DownloadProgress;
-}
-
-// Construct cloud image path from OS info
-// Path convention: /var/lib/limiquantix/cloud-images/{distro}-{version}.qcow2
-function constructCloudImagePath(os: { distribution?: string; version?: string }): string | undefined {
-  if (!os.distribution || !os.version) {
-    return undefined;
-  }
-  const distro = os.distribution.toLowerCase();
-  const version = os.version;
-  return `/var/lib/limiquantix/cloud-images/${distro}-${version}.qcow2`;
 }
 
 // Convert proto Image to CloudImage
@@ -101,12 +91,12 @@ function toCloudImage(img: Image): CloudImage {
     id: img.id,
     name: img.name,
     description: img.description,
-    // Construct path from OS info (follows storage convention on hypervisor nodes)
-    path: constructCloudImagePath({ distribution: osInfo.distribution, version: osInfo.version }),
+    // Use path from database (stored in status.path)
+    path: img.status?.path || undefined,
     sizeBytes: Number(img.status?.sizeBytes || 0),
     os: osInfo,
     spec: {
-      format: img.spec?.format?.toString() || 'UNKNOWN',
+      format: mapFormat(img.spec?.format),
       visibility: img.spec?.visibility?.toString() || 'PRIVATE',
     },
     requirements: {
@@ -116,7 +106,8 @@ function toCloudImage(img: Image): CloudImage {
       supportedFirmware: img.spec?.requirements?.supportedFirmware || ['bios', 'uefi'],
     },
     status: phase,
-    nodeId: undefined, // Would need to be added to proto
+    nodeId: img.status?.nodeId || undefined,
+    storagePoolId: img.status?.storagePoolId || undefined,
     // Include download progress from API when downloading
     downloadProgress: phase === 'downloading' ? {
       progressPercent,
@@ -124,6 +115,19 @@ function toCloudImage(img: Image): CloudImage {
       bytesTotal: Number(img.status?.sizeBytes || 0),
     } : undefined,
   };
+}
+
+// Map format enum to string
+function mapFormat(format?: number): string {
+  switch (format) {
+    case 0: return 'RAW';
+    case 1: return 'QCOW2';
+    case 2: return 'VMDK';
+    case 3: return 'VHD';
+    case 4: return 'ISO';
+    case 5: return 'OVA';
+    default: return 'UNKNOWN';
+  }
 }
 
 function mapPhase(phase?: number): 'pending' | 'downloading' | 'ready' | 'error' {
@@ -677,12 +681,34 @@ export const ISO_CATALOG: ISOImage[] = [
 export function useISOs() {
   const { data: allImages, isLoading, error } = useImages();
 
-  // Filter to only ISOs
-  const isos = allImages?.filter(img =>
-    img.os.provisioningMethod === 'NONE' ||
-    img.name.toLowerCase().includes('iso') ||
-    img.description.toLowerCase().includes('iso')
-  ) || [];
+  // Filter to only ISOs - check format is ISO
+  const isos = allImages?.filter(img => {
+    // Check if it's an ISO format
+    const isIsoFormat = img.spec.format === 'ISO' || 
+                        img.name.toLowerCase().endsWith('.iso');
+    
+    return isIsoFormat;
+  }).map(img => ({
+    id: img.id,
+    name: img.name,
+    description: img.description,
+    sizeBytes: img.sizeBytes,
+    format: 'ISO' as const,
+    os: {
+      family: (img.os.family === 'LINUX' || img.os.family === 'WINDOWS' || 
+               img.os.family === 'BSD' || img.os.family === 'OTHER') 
+        ? img.os.family as 'LINUX' | 'WINDOWS' | 'BSD' | 'OTHER'
+        : 'LINUX' as const,
+      distribution: img.os.distribution,
+      version: img.os.version,
+    },
+    status: img.status === 'ready' ? 'ready' as const : 
+            img.status === 'downloading' ? 'uploading' as const :
+            img.status === 'error' ? 'error' as const : 'pending' as const,
+    path: img.path,
+    nodeId: img.nodeId,
+    storagePoolId: img.storagePoolId,
+  } as ISOImage & { path?: string; nodeId?: string; storagePoolId?: string })) || [];
 
   // Fallback to catalog if no ISOs from API
   return {
@@ -916,17 +942,98 @@ export const CLOUD_IMAGE_CATALOG: CloudImage[] = [
 ];
 
 // Hook to get available images (API + catalog fallback)
+// Returns both downloaded images from DB and catalog images for download
 export function useAvailableImages() {
   const { data: apiImages, isLoading, error } = useImages();
+  const { data: catalog } = useImageCatalog();
 
-  // Combine API images with catalog (catalog as fallback)
-  const images = apiImages && apiImages.length > 0 ? apiImages : CLOUD_IMAGE_CATALOG;
+  // Filter API images to only cloud images (QCOW2/RAW format, not ISO)
+  const dbCloudImages = apiImages?.filter(img => {
+    // Check if it's a cloud image format (QCOW2, RAW, VMDK)
+    const isCloudFormat = img.spec.format === 'QCOW2' || 
+                          img.spec.format === 'RAW' ||
+                          img.spec.format === 'VMDK';
+    
+    // Exclude ISOs
+    const isNotIso = img.spec.format !== 'ISO' && 
+                     !img.name.toLowerCase().endsWith('.iso');
+    
+    return isCloudFormat && isNotIso;
+  }) || [];
+
+  // Create a map of downloaded images by their catalog ID for quick lookup
+  const downloadedByCatalogId = new Map<string, CloudImage>();
+  // Also track by name pattern for matching
+  const downloadedByName = new Map<string, CloudImage>();
+  
+  for (const img of dbCloudImages) {
+    // If the image has a catalog ID, use it
+    if (img.id) {
+      downloadedByCatalogId.set(img.id, img);
+    }
+    // Also index by normalized name for matching
+    const normalizedName = img.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    downloadedByName.set(normalizedName, img);
+  }
+
+  // Build the final list:
+  // 1. If we have downloaded images from DB, show them first
+  // 2. Then show catalog images that aren't downloaded yet
+  const images: CloudImage[] = [];
+  const seenIds = new Set<string>();
+
+  // Add all downloaded images from DB (they're ready to use)
+  for (const img of dbCloudImages) {
+    if (!seenIds.has(img.id)) {
+      images.push(img);
+      seenIds.add(img.id);
+    }
+  }
+
+  // Add catalog images that aren't downloaded yet (for discovery/download)
+  if (catalog) {
+    for (const catalogImg of catalog) {
+      // Check if this catalog image is already downloaded
+      const normalizedCatalogName = catalogImg.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const isDownloaded = downloadedByCatalogId.has(catalogImg.id) || 
+                           downloadedByName.has(normalizedCatalogName);
+      
+      if (!isDownloaded && !seenIds.has(catalogImg.id)) {
+        // Add catalog image as "not downloaded" option
+        images.push({
+          id: catalogImg.id,
+          name: catalogImg.name,
+          description: catalogImg.description,
+          path: undefined, // Not downloaded yet
+          sizeBytes: catalogImg.sizeBytes,
+          os: catalogImg.os,
+          spec: {
+            format: 'QCOW2',
+            visibility: 'PUBLIC',
+          },
+          requirements: catalogImg.requirements,
+          status: 'pending', // Mark as pending (needs download)
+          nodeId: undefined,
+          storagePoolId: undefined,
+        });
+        seenIds.add(catalogImg.id);
+      }
+    }
+  }
+
+  // If no images at all, fall back to built-in catalog
+  const finalImages = images.length > 0 ? images : CLOUD_IMAGE_CATALOG;
 
   return {
-    images,
+    images: finalImages,
     isLoading,
     error,
-    isUsingCatalog: !apiImages || apiImages.length === 0,
+    isUsingCatalog: dbCloudImages.length === 0,
+    // Helper to check if an image is downloaded and ready
+    isImageReady: (imageId: string) => {
+      const img = dbCloudImages.find(i => i.id === imageId);
+      return img?.status === 'ready' && !!img.path;
+    },
   };
 }
 

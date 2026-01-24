@@ -526,13 +526,25 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
       case 5: { // Boot Media
         // For cloud images, require either password or SSH key for access
         if (formData.bootMediaType === 'cloud-image') {
+          // Check if a cloud image is selected
+          if (!formData.cloudImageId) return false;
+          
+          const selectedImage = cloudImages.find(img => img.id === formData.cloudImageId);
+          
+          // Verify the image exists and is ready (has a path)
+          if (!selectedImage) return false;
+          if (selectedImage.status !== 'ready' || !selectedImage.path) {
+            // Image is not downloaded yet - user needs to download it first
+            return false;
+          }
+          
           const hasPassword = formData.cloudInit.password.length >= 8 &&
             formData.cloudInit.password === formData.cloudInit.confirmPassword;
           const hasSSHKeys = formData.cloudInit.sshKeys.length > 0;
           const accessValidation = validateAccessMethod(
             hasPassword,
             hasSSHKeys,
-            cloudImages.find(img => img.id === formData.cloudImageId)
+            selectedImage
           );
           if (!accessValidation.valid) return false;
 
@@ -547,7 +559,21 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
 
           return true;
         }
-        return true; // ISO/None - can configure access manually
+        // For ISO, check if selected ISO is valid
+        if (formData.bootMediaType === 'iso') {
+          if (!formData.isoId) return false;
+          const selectedISO = isos.find(iso => iso.id === formData.isoId);
+          // ISO must exist and be ready (have a path)
+          if (!selectedISO) return false;
+          // For catalog ISOs, we allow them (they're placeholders)
+          // For real ISOs from DB, they should have a path
+          if ('path' in selectedISO && selectedISO.path) {
+            return true;
+          }
+          // Allow catalog ISOs (they don't have paths but are valid selections)
+          return true;
+        }
+        return true; // None - no boot media needed
       }
       case 6: { // Storage
         if (!formData.storagePoolId || formData.disks.length === 0) return false;
@@ -2001,10 +2027,16 @@ function StepISO({
             ) : (
               <div className="grid gap-2 max-h-48 overflow-y-auto">
                 {images.map((image) => {
-                  const availability = getAvailability(image.id);
-                  const imageAvailable = availability?.status === 'READY';
-                  const imageDownloading = availability?.status === 'DOWNLOADING';
-                  const downloadProgress = availability?.progress || 0;
+                  // Check image status - prefer direct status from DB, fall back to availability check
+                  const imageReady = image.status === 'ready' && !!image.path;
+                  const imageDownloading = image.status === 'downloading';
+                  const downloadProgress = image.downloadProgress?.progressPercent || 0;
+                  
+                  // Fall back to catalog availability check if image is from catalog
+                  const catalogAvailability = !imageReady && !imageDownloading ? getAvailability(image.id) : null;
+                  const imageAvailable = imageReady || catalogAvailability?.status === 'READY';
+                  const isDownloading = imageDownloading || catalogAvailability?.status === 'DOWNLOADING';
+                  const progress = downloadProgress || catalogAvailability?.progress || 0;
 
                   return (
                     <label
@@ -2014,7 +2046,7 @@ function StepISO({
                         formData.cloudImageId === image.id
                           ? 'bg-accent/10 border-accent'
                           : 'bg-bg-base border-border hover:border-accent/50',
-                        !imageAvailable && !imageDownloading && 'opacity-75',
+                        !imageAvailable && !isDownloading && 'opacity-75',
                       )}
                     >
                       <input
@@ -2035,7 +2067,7 @@ function StepISO({
                       />
                       <Cloud className={cn(
                         'w-5 h-5',
-                        imageAvailable ? 'text-success' : imageDownloading ? 'text-info' : 'text-warning'
+                        imageAvailable ? 'text-success' : isDownloading ? 'text-info' : 'text-warning'
                       )} />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -2046,10 +2078,10 @@ function StepISO({
                               <CheckCircle className="w-3 h-3" />
                               Ready
                             </Badge>
-                          ) : imageDownloading ? (
+                          ) : isDownloading ? (
                             <Badge variant="info" size="sm" className="flex items-center gap-1">
                               <Loader2 className="w-3 h-3 animate-spin" />
-                              {downloadProgress}%
+                              {progress}%
                             </Badge>
                           ) : (
                             <Badge variant="warning" size="sm" className="flex items-center gap-1">
@@ -2060,12 +2092,18 @@ function StepISO({
                         </div>
                         <p className="text-xs text-text-muted">{image.description}</p>
                         <p className="text-xs text-accent mt-0.5">Default user: {image.os.defaultUser}</p>
+                        {/* Show image path if available */}
+                        {image.path && (
+                          <p className="text-xs text-text-muted mt-0.5 font-mono truncate max-w-xs" title={image.path}>
+                            📁 {image.path}
+                          </p>
+                        )}
                         {/* Download progress bar */}
-                        {imageDownloading && (
+                        {isDownloading && (
                           <div className="mt-2 h-1.5 bg-bg-surface rounded-full overflow-hidden">
                             <div
                               className="h-full bg-info transition-all duration-300"
-                              style={{ width: `${downloadProgress}%` }}
+                              style={{ width: `${progress}%` }}
                             />
                           </div>
                         )}
@@ -2073,7 +2111,7 @@ function StepISO({
                       <div className="flex flex-col items-end gap-1">
                         <span className="text-xs text-text-muted">{formatImageSize(image.sizeBytes)}</span>
                         {/* Download button for unavailable images */}
-                        {!imageAvailable && !imageDownloading && (
+                        {!imageAvailable && !isDownloading && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -2106,7 +2144,12 @@ function StepISO({
               </div>
             )}
             {/* Warning for selected unavailable image */}
-            {formData.cloudImageId && !isAvailable(formData.cloudImageId) && (
+            {formData.cloudImageId && (() => {
+              const selectedImg = images.find(img => img.id === formData.cloudImageId);
+              const isReady = selectedImg?.status === 'ready' && !!selectedImg?.path;
+              const catalogReady = isAvailable(formData.cloudImageId);
+              return !isReady && !catalogReady;
+            })() && (
               <div className="mt-3 p-3 rounded-lg bg-warning/10 border border-warning/30 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
                 <div>

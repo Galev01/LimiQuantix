@@ -777,3 +777,180 @@ func (s *PoolService) ListPoolFiles(
 
 	return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("could not list files from any node"))
 }
+
+// =============================================================================
+// Pool Sync Methods
+// =============================================================================
+
+// SyncPoolsToNode pushes all storage pool configurations to a specific node.
+// This is called when a node connects/reconnects to ensure it has the pool info
+// needed to serve file listing requests (e.g., for ISO scanning).
+//
+// It syncs:
+// - All pools explicitly assigned to this node
+// - All shared pools (NFS, Ceph) that any node can access
+func (s *PoolService) SyncPoolsToNode(ctx context.Context, nodeID string) error {
+	logger := s.logger.With(
+		zap.String("method", "SyncPoolsToNode"),
+		zap.String("node_id", nodeID),
+	)
+	logger.Info("Syncing storage pools to node")
+
+	if s.daemonPool == nil {
+		logger.Warn("Daemon pool not configured, skipping pool sync")
+		return nil
+	}
+
+	// Get the daemon client for this node
+	client := s.daemonPool.Get(nodeID)
+	if client == nil {
+		return fmt.Errorf("no connection to node %s", nodeID)
+	}
+
+	// Get all pools from the database
+	pools, _, err := s.repo.List(ctx, PoolFilter{}, 1000, 0)
+	if err != nil {
+		logger.Error("Failed to list pools for sync", zap.Error(err))
+		return fmt.Errorf("failed to list pools: %w", err)
+	}
+
+	if len(pools) == 0 {
+		logger.Debug("No pools to sync")
+		return nil
+	}
+
+	var syncedCount, failedCount int
+	var errors []string
+
+	for _, pool := range pools {
+		// Skip pools that are not ready
+		if pool.Status.Phase != domain.StoragePoolPhaseReady {
+			logger.Debug("Skipping pool - not ready",
+				zap.String("pool_id", pool.ID),
+				zap.String("pool_name", pool.Name),
+				zap.String("phase", string(pool.Status.Phase)),
+			)
+			continue
+		}
+
+		// Check if this pool should be synced to this node:
+		// 1. Pool is explicitly assigned to this node
+		// 2. Pool is shared storage (NFS, Ceph) - can be accessed by any node
+		shouldSync := false
+		
+		// Check if assigned to this node
+		for _, assignedNodeID := range pool.Spec.AssignedNodeIDs {
+			if assignedNodeID == nodeID {
+				shouldSync = true
+				break
+			}
+		}
+		
+		// Shared storage types can be synced to any node
+		if pool.Spec.Backend != nil {
+			switch pool.Spec.Backend.Type {
+			case domain.BackendTypeNFS, domain.BackendTypeCephRBD:
+				shouldSync = true
+			}
+		}
+
+		if !shouldSync {
+			logger.Debug("Skipping pool - not assigned to this node",
+				zap.String("pool_id", pool.ID),
+				zap.String("pool_name", pool.Name),
+			)
+			continue
+		}
+
+		// Convert to node request and initialize
+		req := s.convertPoolToNodeRequest(pool)
+		
+		logger.Debug("Syncing pool to node",
+			zap.String("pool_id", pool.ID),
+			zap.String("pool_name", pool.Name),
+			zap.String("backend_type", string(pool.Spec.Backend.Type)),
+		)
+
+		_, err := client.InitStoragePool(ctx, req)
+		if err != nil {
+			// Log but don't fail the entire sync - some pools might already exist
+			errMsg := fmt.Sprintf("pool %s (%s): %v", pool.Name, pool.ID, err)
+			errors = append(errors, errMsg)
+			failedCount++
+			
+			// Check if it's just "already exists" - that's fine
+			if strings.Contains(err.Error(), "already") || strings.Contains(err.Error(), "exists") {
+				logger.Debug("Pool already initialized on node",
+					zap.String("pool_id", pool.ID),
+					zap.String("pool_name", pool.Name),
+				)
+				syncedCount++ // Count as synced since it exists
+				failedCount-- // Don't count as failed
+			} else {
+				logger.Warn("Failed to sync pool to node",
+					zap.String("pool_id", pool.ID),
+					zap.String("pool_name", pool.Name),
+					zap.Error(err),
+				)
+			}
+		} else {
+			syncedCount++
+			logger.Debug("Pool synced successfully",
+				zap.String("pool_id", pool.ID),
+				zap.String("pool_name", pool.Name),
+			)
+		}
+	}
+
+	logger.Info("Pool sync completed",
+		zap.Int("synced", syncedCount),
+		zap.Int("failed", failedCount),
+		zap.Int("total_pools", len(pools)),
+	)
+
+	if failedCount > 0 && syncedCount == 0 {
+		return fmt.Errorf("failed to sync any pools: %s", strings.Join(errors, "; "))
+	}
+
+	return nil
+}
+
+// SyncPoolsToAllNodes syncs storage pools to all connected nodes.
+// This is useful for ensuring all nodes have up-to-date pool information.
+func (s *PoolService) SyncPoolsToAllNodes(ctx context.Context) error {
+	logger := s.logger.With(zap.String("method", "SyncPoolsToAllNodes"))
+	logger.Info("Syncing storage pools to all connected nodes")
+
+	if s.daemonPool == nil {
+		logger.Warn("Daemon pool not configured, skipping pool sync")
+		return nil
+	}
+
+	connectedNodes := s.daemonPool.ConnectedNodes()
+	if len(connectedNodes) == 0 {
+		logger.Debug("No connected nodes to sync")
+		return nil
+	}
+
+	var lastErr error
+	var successCount int
+
+	for _, nodeID := range connectedNodes {
+		if err := s.SyncPoolsToNode(ctx, nodeID); err != nil {
+			logger.Warn("Failed to sync pools to node",
+				zap.String("node_id", nodeID),
+				zap.Error(err),
+			)
+			lastErr = err
+		} else {
+			successCount++
+		}
+	}
+
+	logger.Info("Pool sync to all nodes completed",
+		zap.Int("success", successCount),
+		zap.Int("total", len(connectedNodes)),
+	)
+
+	return lastErr
+}
