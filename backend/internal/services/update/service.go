@@ -18,7 +18,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"go.uber.org/zap"
@@ -521,6 +520,13 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 	requiresMigration := false
 	var migrationComponent string
 
+	// Track services that need restart (we'll restart AFTER migrations complete)
+	var pendingRestarts []struct {
+		serviceName   string
+		componentName string
+		version       string
+	}
+
 	// Download and apply each component
 	for i, component := range manifest.Components {
 		componentNum := i + 1
@@ -539,7 +545,8 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 			migrationComponent = component.Name
 		}
 
-		if err := s.downloadAndApplyComponent(ctx, manifest, component, ul, func(phase string, phaseProgress float64) {
+		// Skip restart during component application - we'll restart after migrations
+		restartSkipped, err := s.downloadAndApplyComponent(ctx, manifest, component, ul, func(phase string, phaseProgress float64) {
 			// phaseProgress is 0-100 within the phase
 			var actualProgress float64
 			var message string
@@ -560,7 +567,9 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 			}
 
 			s.setVDCProgress(actualProgress, component.Name, message)
-		}); err != nil {
+		}, true) // skipRestart=true - we'll restart after migrations
+
+		if err != nil {
 			s.SetMaintenanceMode(false) // Disable maintenance mode on failure
 			s.setVDCProgress(baseProgress, component.Name, "")
 			s.logger.Error("Component update failed",
@@ -570,7 +579,22 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 			s.setVDCStatus(StatusError, fmt.Sprintf("Failed to apply %s: %v", component.Name, err))
 			return fmt.Errorf("failed to apply component %s: %w", component.Name, err)
 		}
+
+		// Track services that need restart
+		if restartSkipped && component.RestartService != "" {
+			pendingRestarts = append(pendingRestarts, struct {
+				serviceName   string
+				componentName string
+				version       string
+			}{
+				serviceName:   component.RestartService,
+				componentName: component.Name,
+				version:       component.Version,
+			})
+		}
 	}
+
+	// Run migrations BEFORE restarting services
 	if requiresMigration {
 		s.setVDCProgress(95, "migration", "Running database migrations...")
 		s.logger.Info("Running database migrations", zap.String("component", migrationComponent))
@@ -598,6 +622,62 @@ func (s *Service) ApplyVDCUpdate(ctx context.Context) error {
 	}
 
 	s.logger.Info("vDC update applied successfully", zap.String("version", manifest.Version))
+
+	// Now trigger any pending service restarts (after migrations are complete)
+	if len(pendingRestarts) > 0 {
+		s.logger.Info("Triggering deferred service restarts",
+			zap.Int("count", len(pendingRestarts)),
+		)
+
+		// Execute restarts in a goroutine so we can return the success response first
+		go func() {
+			// Wait 2 seconds to allow HTTP response to be sent
+			time.Sleep(2 * time.Second)
+
+			for _, restart := range pendingRestarts {
+				s.logger.Info("Executing deferred service restart",
+					zap.String("service", restart.serviceName),
+					zap.String("component", restart.componentName),
+				)
+
+				// Save update state to disk for verification after restart
+				stateFile := filepath.Join(s.config.DataDir, "update-state.json")
+				state := map[string]interface{}{
+					"last_update":    time.Now().UTC().Format(time.RFC3339),
+					"version":        restart.version,
+					"component":      restart.componentName,
+					"restart_reason": "update",
+					"service":        restart.serviceName,
+				}
+				if stateData, err := json.Marshal(state); err == nil {
+					os.MkdirAll(filepath.Dir(stateFile), 0755)
+					os.WriteFile(stateFile, stateData, 0644)
+				}
+
+				// Wait a bit to ensure state is written
+				time.Sleep(500 * time.Millisecond)
+
+				// Try OpenRC first (Alpine Linux), then systemd
+				var cmd *exec.Cmd
+				if _, err := os.Stat("/run/openrc"); err == nil {
+					cmd = exec.Command("sh", "-c", fmt.Sprintf("sleep 1 && rc-service %s restart", restart.serviceName))
+				} else {
+					cmd = exec.Command("systemctl", "restart", "--no-block", restart.serviceName)
+				}
+
+				if cmd != nil {
+					setSysProcAttr(cmd)
+					if err := cmd.Start(); err != nil {
+						s.logger.Error("Failed to start restart command", zap.Error(err))
+					} else {
+						cmd.Process.Release()
+						s.logger.Info("Restart command dispatched", zap.String("service", restart.serviceName))
+					}
+				}
+			}
+		}()
+	}
+
 	return nil
 }
 
@@ -1173,7 +1253,10 @@ func (s *Service) fetchManifest(ctx context.Context, product string) (*Manifest,
 // ProgressCallback is called during update phases with phase name and progress (0-100)
 type ProgressCallback func(phase string, progress float64)
 
-func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manifest, component Component, logger *zap.Logger, onProgress ProgressCallback) error {
+// downloadAndApplyComponent downloads and applies a single component.
+// If skipRestart is true, the service restart is skipped and the caller is responsible for restarting.
+// Returns true if a restart was skipped (and should be done later).
+func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manifest, component Component, logger *zap.Logger, onProgress ProgressCallback, skipRestart bool) (restartSkipped bool, err error) {
 	logger.Info("Processing component update",
 		zap.String("component", component.Name),
 		zap.String("version", component.Version),
@@ -1192,14 +1275,14 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 			onProgress("downloading", progress)
 		}
 	}); err != nil {
-		return fmt.Errorf("download failed: %w", err)
+		return false, fmt.Errorf("download failed: %w", err)
 	}
 
 	// Verify SHA256
 	if component.SHA256 != "" {
 		actualHash, err := calculateSHA256(stagingPath)
 		if err != nil {
-			return fmt.Errorf("hash calculation failed: %w", err)
+			return false, fmt.Errorf("hash calculation failed: %w", err)
 		}
 		if actualHash != component.SHA256 {
 			os.Remove(stagingPath)
@@ -1207,7 +1290,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 				zap.String("expected", component.SHA256),
 				zap.String("actual", actualHash),
 			)
-			return fmt.Errorf("hash mismatch: expected %s, got %s", component.SHA256, actualHash)
+			return false, fmt.Errorf("hash mismatch: expected %s, got %s", component.SHA256, actualHash)
 		}
 		logger.Info("SHA256 verified", zap.String("component", component.Name))
 	}
@@ -1236,7 +1319,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 				logger.Warn("Failed to remove old directory", zap.Error(err))
 			}
 			if err := os.MkdirAll(component.InstallPath, 0755); err != nil {
-				return fmt.Errorf("failed to create install directory: %w", err)
+				return false, fmt.Errorf("failed to create install directory: %w", err)
 			}
 
 			if onProgress != nil {
@@ -1244,7 +1327,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 			}
 
 			if err := extractTarGz(stagingPath, component.InstallPath); err != nil {
-				return fmt.Errorf("failed to extract: %w", err)
+				return false, fmt.Errorf("failed to extract: %w", err)
 			}
 		} else {
 			// Extract tar.gz and find the binary inside
@@ -1257,7 +1340,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 			tempDir := filepath.Join(s.config.DataDir, "staging", component.Name+"-extract")
 			os.RemoveAll(tempDir)
 			if err := os.MkdirAll(tempDir, 0755); err != nil {
-				return fmt.Errorf("failed to create temp directory: %w", err)
+				return false, fmt.Errorf("failed to create temp directory: %w", err)
 			}
 			defer os.RemoveAll(tempDir)
 
@@ -1266,13 +1349,13 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 			}
 
 			if err := extractTarGz(stagingPath, tempDir); err != nil {
-				return fmt.Errorf("failed to extract: %w", err)
+				return false, fmt.Errorf("failed to extract: %w", err)
 			}
 
 			// Find the binary - it should be the only executable or match the component name
 			binaryPath, err := findBinaryInDir(tempDir, component.Name)
 			if err != nil {
-				return fmt.Errorf("failed to find binary: %w", err)
+				return false, fmt.Errorf("failed to find binary: %w", err)
 			}
 
 			// Install phase
@@ -1282,7 +1365,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 
 			// Create parent directory for install path
 			if err := os.MkdirAll(filepath.Dir(component.InstallPath), 0755); err != nil {
-				return fmt.Errorf("failed to create install directory: %w", err)
+				return false, fmt.Errorf("failed to create install directory: %w", err)
 			}
 
 			// Backup existing file
@@ -1300,7 +1383,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 
 			// Copy binary to install path
 			if err := copyFile(binaryPath, component.InstallPath); err != nil {
-				return fmt.Errorf("failed to install binary: %w", err)
+				return false, fmt.Errorf("failed to install binary: %w", err)
 			}
 
 			// Set permissions
@@ -1312,9 +1395,12 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 		onProgress("installing", 100)
 	}
 
-	// Restart service if specified
+	// Track if we need to restart but are skipping it
+	needsRestart := component.RestartService != ""
+
+	// Restart service if specified (unless skipRestart is true)
 	// We use a background process with a delay to allow the HTTP response to be sent first
-	if component.RestartService != "" {
+	if needsRestart && !skipRestart {
 		s.logger.Info("Scheduling service restart", zap.String("service", component.RestartService))
 
 		// Fork a background process to restart the service after a short delay
@@ -1369,9 +1455,7 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 
 			// Detach process
 			if cmd != nil {
-				cmd.SysProcAttr = &syscall.SysProcAttr{
-					Setsid: true, // Create new session
-				}
+				setSysProcAttr(cmd) // Platform-specific process attributes
 
 				s.logger.Debug("Starting restart command", zap.String("cmd", cmd.String()))
 				if err := cmd.Start(); err != nil {
@@ -1389,6 +1473,8 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 		}(component.RestartService, component.Name, component.Version)
 
 		logger.Info("Service restart scheduled (will execute in 2.5 seconds)", zap.String("service", component.RestartService))
+	} else if needsRestart && skipRestart {
+		logger.Info("Service restart deferred (will be done after migrations)", zap.String("service", component.RestartService))
 	}
 
 	// Cleanup
@@ -1399,7 +1485,8 @@ func (s *Service) downloadAndApplyComponent(ctx context.Context, manifest *Manif
 		zap.String("version", component.Version),
 	)
 
-	return nil
+	// Return whether a restart was skipped
+	return needsRestart && skipRestart, nil
 }
 
 func (s *Service) downloadFile(ctx context.Context, url, destPath string) error {

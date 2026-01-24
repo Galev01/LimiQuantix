@@ -19,6 +19,9 @@ import (
 // Ensure ImageRepository implements storage.ImageRepository
 var _ storage.ImageRepository = (*ImageRepository)(nil)
 
+// defaultProjectIDImage is the UUID used for images without a specific project.
+const defaultProjectIDImage = "00000000-0000-0000-0000-000000000001"
+
 // ImageRepository implements storage.ImageRepository using PostgreSQL.
 type ImageRepository struct {
 	db     *DB
@@ -64,7 +67,7 @@ func (r *ImageRepository) Create(ctx context.Context, image *domain.Image) (*dom
 	// Normalize project ID
 	projectID := image.ProjectID
 	if projectID == "" || projectID == "default" {
-		projectID = defaultProjectID
+		projectID = defaultProjectIDImage
 	}
 
 	query := `
@@ -300,7 +303,7 @@ func (r *ImageRepository) Update(ctx context.Context, image *domain.Image) (*dom
 	// Normalize project ID
 	projectID := image.ProjectID
 	if projectID == "" || projectID == "default" {
-		projectID = defaultProjectID
+		projectID = defaultProjectIDImage
 	}
 
 	// Handle nullable UUIDs
