@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,6 +47,7 @@ type DownloadManager struct {
 	jobs       map[string]*DownloadJob
 	imageRepo  ImageRepository
 	poolRepo   PoolRepository
+	nodeRepo   node.Repository
 	daemonPool *node.DaemonPool
 	catalog    []CatalogEntry
 	logger     *zap.Logger
@@ -73,6 +75,11 @@ func (dm *DownloadManager) SetDaemonPool(pool *node.DaemonPool) {
 // SetPoolRepository sets the pool repository for looking up storage pools.
 func (dm *DownloadManager) SetPoolRepository(repo PoolRepository) {
 	dm.poolRepo = repo
+}
+
+// SetNodeRepository sets the node repository for looking up node information.
+func (dm *DownloadManager) SetNodeRepository(repo node.Repository) {
+	dm.nodeRepo = repo
 }
 
 // GetJob returns a download job by ID.
@@ -237,9 +244,49 @@ func (dm *DownloadManager) StartDownloadWithPool(ctx context.Context, jobID, ima
 			}
 		}
 
-		// If no assigned node is connected, try the first assigned node anyway
-		if nodeID == "" && len(pool.Spec.AssignedNodeIDs) > 0 {
-			nodeID = pool.Spec.AssignedNodeIDs[0]
+		// If no assigned node is connected, try to connect to the first assigned node
+		if nodeID == "" && len(pool.Spec.AssignedNodeIDs) > 0 && dm.nodeRepo != nil {
+			firstNodeID := pool.Spec.AssignedNodeIDs[0]
+			dm.logger.Info("No connected assigned nodes, attempting to connect to first assigned node",
+				zap.String("node_id", firstNodeID),
+				zap.String("pool_id", poolID),
+			)
+			
+			// Get node info to get management IP
+			nodeInfo, err := dm.nodeRepo.Get(ctx, firstNodeID)
+			if err == nil {
+				// Build daemon address
+				daemonAddr := nodeInfo.ManagementIP
+				// Strip CIDR notation if present (e.g., "192.168.0.53/32" -> "192.168.0.53")
+				if idx := strings.Index(daemonAddr, "/"); idx != -1 {
+					daemonAddr = daemonAddr[:idx]
+				}
+				// Ensure port is included
+				if !strings.Contains(daemonAddr, ":") {
+					daemonAddr = daemonAddr + ":9090"
+				}
+				
+				// Try to connect
+				_, connectErr := dm.daemonPool.Connect(firstNodeID, daemonAddr)
+				if connectErr == nil {
+					nodeID = firstNodeID
+					dm.logger.Info("Successfully connected to assigned node",
+						zap.String("node_id", firstNodeID),
+						zap.String("daemon_addr", daemonAddr),
+					)
+				} else {
+					dm.logger.Warn("Failed to connect to assigned node",
+						zap.String("node_id", firstNodeID),
+						zap.String("daemon_addr", daemonAddr),
+						zap.Error(connectErr),
+					)
+				}
+			} else {
+				dm.logger.Warn("Failed to get node info for assigned node",
+					zap.String("node_id", firstNodeID),
+					zap.Error(err),
+				)
+			}
 		}
 	}
 
@@ -252,7 +299,7 @@ func (dm *DownloadManager) StartDownloadWithPool(ctx context.Context, jobID, ima
 	}
 
 	if nodeID == "" {
-		return fmt.Errorf("no connected nodes available to download image")
+		return fmt.Errorf("no connected nodes available to download image. Please ensure at least one Quantix-OS node is running and connected to the control plane")
 	}
 
 	dm.logger.Info("Starting download on node",

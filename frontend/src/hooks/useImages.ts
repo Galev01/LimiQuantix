@@ -55,6 +55,10 @@ export interface CloudImage {
     cloudInitEnabled: boolean;
     provisioningMethod: string;
   };
+  spec: {
+    format: string;
+    visibility: string;
+  };
   requirements: {
     minCpu: number;
     minMemoryMib: number;
@@ -101,6 +105,10 @@ function toCloudImage(img: Image): CloudImage {
     path: constructCloudImagePath({ distribution: osInfo.distribution, version: osInfo.version }),
     sizeBytes: Number(img.status?.sizeBytes || 0),
     os: osInfo,
+    spec: {
+      format: img.spec?.format?.toString() || 'UNKNOWN',
+      visibility: img.spec?.visibility?.toString() || 'PRIVATE',
+    },
     requirements: {
       minCpu: img.spec?.requirements?.minCpu || 1,
       minMemoryMib: Number(img.spec?.requirements?.minMemoryMib || 512),
@@ -176,6 +184,26 @@ export function useDeleteImage() {
       await imageClient.deleteImage({ id });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: imageKeys.lists() });
+    },
+  });
+}
+
+// Hook to scan ISOs from storage pools
+export function useScanISOs() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (storagePoolId?: string) => {
+      const response = await imageClient.scanISOs({
+        storagePoolId: storagePoolId || '',
+      });
+      return {
+        discoveredCount: response.discoveredCount,
+      };
+    },
+    onSuccess: () => {
+      // Invalidate images list to show newly discovered ISOs
       queryClient.invalidateQueries({ queryKey: imageKeys.lists() });
     },
   });
@@ -257,9 +285,9 @@ function osFamilyToProto(family: string): number {
 }
 
 function provisioningToProto(method: string): number {
-  const map: Record<string, number> = { 
-    PROVISIONING_UNKNOWN: 0, CLOUD_INIT: 1, IGNITION: 2, SYSPREP: 3, 
-    KICKSTART: 4, PRESEED: 5, NONE: 6 
+  const map: Record<string, number> = {
+    PROVISIONING_UNKNOWN: 0, CLOUD_INIT: 1, IGNITION: 2, SYSPREP: 3,
+    KICKSTART: 4, PRESEED: 5, NONE: 6
   };
   return map[method] ?? 6;
 }
@@ -506,12 +534,12 @@ export function useImageAvailability(
 
   // Build availability map from download status
   const availabilityMap = new Map<string, ImageAvailabilityResult>();
-  
+
   if (downloadStatus && catalog) {
     for (const catalogId of catalogIds) {
       const status = downloadStatus.get(catalogId);
       const catalogEntry = catalog.find(c => c.id === catalogId);
-      
+
       if (status) {
         availabilityMap.set(catalogId, {
           catalogId,
@@ -648,14 +676,14 @@ export const ISO_CATALOG: ISOImage[] = [
 // Hook to list ISOs specifically
 export function useISOs() {
   const { data: allImages, isLoading, error } = useImages();
-  
+
   // Filter to only ISOs
-  const isos = allImages?.filter(img => 
-    img.os.provisioningMethod === 'NONE' || 
+  const isos = allImages?.filter(img =>
+    img.os.provisioningMethod === 'NONE' ||
     img.name.toLowerCase().includes('iso') ||
     img.description.toLowerCase().includes('iso')
   ) || [];
-  
+
   // Fallback to catalog if no ISOs from API
   return {
     isos: isos.length > 0 ? isos : ISO_CATALOG,
@@ -680,9 +708,13 @@ export const CLOUD_IMAGE_CATALOG: CloudImage[] = [
       distribution: 'ubuntu',
       version: '22.04',
       architecture: 'x86_64',
-      defaultUser: 'ubuntu',
+      defaultUser: 'root',
       cloudInitEnabled: true,
       provisioningMethod: 'CLOUD_INIT',
+    },
+    spec: {
+      format: 'QCOW2',
+      visibility: 'PUBLIC',
     },
     requirements: {
       minCpu: 1,
@@ -703,9 +735,13 @@ export const CLOUD_IMAGE_CATALOG: CloudImage[] = [
       distribution: 'ubuntu',
       version: '24.04',
       architecture: 'x86_64',
-      defaultUser: 'ubuntu',
+      defaultUser: 'root',
       cloudInitEnabled: true,
       provisioningMethod: 'CLOUD_INIT',
+    },
+    spec: {
+      format: 'QCOW2',
+      visibility: 'PUBLIC',
     },
     requirements: {
       minCpu: 1,
@@ -730,6 +766,10 @@ export const CLOUD_IMAGE_CATALOG: CloudImage[] = [
       cloudInitEnabled: true,
       provisioningMethod: 'CLOUD_INIT',
     },
+    spec: {
+      format: 'QCOW2',
+      visibility: 'PUBLIC',
+    },
     requirements: {
       minCpu: 1,
       minMemoryMib: 256,
@@ -752,6 +792,10 @@ export const CLOUD_IMAGE_CATALOG: CloudImage[] = [
       defaultUser: 'rocky',
       cloudInitEnabled: true,
       provisioningMethod: 'CLOUD_INIT',
+    },
+    spec: {
+      format: 'QCOW2',
+      visibility: 'PUBLIC',
     },
     requirements: {
       minCpu: 1,
@@ -776,6 +820,10 @@ export const CLOUD_IMAGE_CATALOG: CloudImage[] = [
       cloudInitEnabled: true,
       provisioningMethod: 'CLOUD_INIT',
     },
+    spec: {
+      format: 'QCOW2',
+      visibility: 'PUBLIC',
+    },
     requirements: {
       minCpu: 1,
       minMemoryMib: 1024,
@@ -798,6 +846,10 @@ export const CLOUD_IMAGE_CATALOG: CloudImage[] = [
       defaultUser: 'fedora',
       cloudInitEnabled: true,
       provisioningMethod: 'CLOUD_INIT',
+    },
+    spec: {
+      format: 'QCOW2',
+      visibility: 'PUBLIC',
     },
     requirements: {
       minCpu: 1,
@@ -822,6 +874,10 @@ export const CLOUD_IMAGE_CATALOG: CloudImage[] = [
       cloudInitEnabled: true,
       provisioningMethod: 'CLOUD_INIT',
     },
+    spec: {
+      format: 'QCOW2',
+      visibility: 'PUBLIC',
+    },
     requirements: {
       minCpu: 1,
       minMemoryMib: 1024,
@@ -844,6 +900,10 @@ export const CLOUD_IMAGE_CATALOG: CloudImage[] = [
       defaultUser: 'root',
       cloudInitEnabled: true,
       provisioningMethod: 'CLOUD_INIT',
+    },
+    spec: {
+      format: 'QCOW2',
+      visibility: 'PUBLIC',
     },
     requirements: {
       minCpu: 1,

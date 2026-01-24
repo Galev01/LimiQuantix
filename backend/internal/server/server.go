@@ -311,8 +311,8 @@ func (s *Server) initServices() {
 	s.volumeService = storageservice.NewVolumeService(s.volumeRepo, s.storagePoolRepo, s.logger)
 
 	// Configure image service to route downloads to nodes
-	if s.daemonPool != nil && s.storagePoolRepo != nil {
-		s.imageService.ConfigureNodeDownloads(s.daemonPool, s.storagePoolRepo)
+	if s.daemonPool != nil && s.storagePoolRepo != nil && s.nodeRepo != nil {
+		s.imageService.ConfigureNodeDownloads(s.daemonPool, s.storagePoolRepo, s.nodeRepo)
 	}
 
 	// Folder service (requires PostgreSQL)

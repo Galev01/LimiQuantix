@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/Badge';
 import {
   useImages,
   useDeleteImage,
+  useScanISOs,
   CLOUD_IMAGE_CATALOG,
   ISO_CATALOG,
   formatImageSize,
@@ -46,6 +47,7 @@ export function AllImagesPage() {
   // Fetch images from API
   const { data: apiImages, isLoading, refetch } = useImages();
   const deleteImage = useDeleteImage();
+  const scanISOs = useScanISOs();
 
   // Fetch OVA templates
   const { data: ovaTemplates, isLoading: ovaLoading, refetch: refetchOVA } = useOVATemplates();
@@ -130,6 +132,22 @@ export function AllImagesPage() {
       },
       onError: (err) => {
         toast.error(err instanceof Error ? err.message : 'Failed to delete');
+      },
+    });
+  };
+
+  const handleScanISOs = async () => {
+    scanISOs.mutate(undefined, {
+      onSuccess: (data) => {
+        if (data.discoveredCount > 0) {
+          toast.success(`Discovered ${data.discoveredCount} new ISO${data.discoveredCount > 1 ? 's' : ''}`);
+        } else {
+          toast.info('No new ISOs found');
+        }
+        refetch();
+      },
+      onError: (err) => {
+        toast.error(err instanceof Error ? err.message : 'Failed to scan ISOs');
       },
     });
   };
@@ -221,10 +239,24 @@ export function AllImagesPage() {
             />
           </div>
         </div>
-        <Button variant="secondary" onClick={() => { refetch(); refetchOVA(); }}>
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={handleScanISOs}
+            disabled={scanISOs.isPending}
+          >
+            {scanISOs.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Disc className="w-4 h-4" />
+            )}
+            Scan ISOs
+          </Button>
+          <Button variant="secondary" onClick={() => { refetch(); refetchOVA(); }}>
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Image Grid */}

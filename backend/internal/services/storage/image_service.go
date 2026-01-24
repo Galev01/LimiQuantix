@@ -57,12 +57,12 @@ func NewImageService(repo ImageRepository, logger *zap.Logger) *ImageService {
 
 // ConfigureNodeDownloads sets up the download manager to route downloads to nodes.
 // This should be called after creating the service when daemon pool and pool repository are available.
-func (s *ImageService) ConfigureNodeDownloads(daemonPool *node.DaemonPool, poolRepo PoolRepository) {
+func (s *ImageService) ConfigureNodeDownloads(daemonPool *node.DaemonPool, poolRepo PoolRepository, nodeRepo node.Repository) {
 	s.daemonPool = daemonPool
 	s.poolRepo = poolRepo
 	s.downloadManager.SetDaemonPool(daemonPool)
 	s.downloadManager.SetPoolRepository(poolRepo)
-	s.downloadManager.SetPoolRepository(poolRepo)
+	s.downloadManager.SetNodeRepository(nodeRepo)
 	s.logger.Info("Image service configured for node-based downloads")
 
 	// Trigger initial scan in background
@@ -97,10 +97,26 @@ func (s *ImageService) scanISOsInternal(ctx context.Context) (int, error) {
 		return 0, err
 	}
 
+	s.logger.Info("Starting ISO scan",
+		zap.Int("total_pools", len(pools)),
+		zap.Strings("connected_nodes", s.daemonPool.ConnectedNodes()),
+	)
+
 	discoveredCount := 0
 
 	for _, pool := range pools {
+		s.logger.Debug("Checking pool for ISO scan",
+			zap.String("pool_id", pool.ID),
+			zap.String("pool_name", pool.Name),
+			zap.String("phase", string(pool.Status.Phase)),
+			zap.Strings("assigned_nodes", pool.Spec.AssignedNodeIDs),
+		)
+		
 		if pool.Status.Phase != domain.StoragePoolPhaseReady {
+			s.logger.Debug("Skipping pool - not ready",
+				zap.String("pool_id", pool.ID),
+				zap.String("phase", string(pool.Status.Phase)),
+			)
 			continue
 		}
 
@@ -115,15 +131,33 @@ func (s *ImageService) scanISOsInternal(ctx context.Context) (int, error) {
 			}
 		}
 
+		// If no assigned node is connected, try to connect to the first assigned node
+		if selectedNodeID == "" && len(pool.Spec.AssignedNodeIDs) > 0 {
+			// Similar to download manager, try to establish connection to assigned node
+			s.logger.Debug("No connected assigned nodes for ISO scan, attempting to connect",
+				zap.String("pool_id", pool.ID),
+				zap.Strings("assigned_nodes", pool.Spec.AssignedNodeIDs),
+			)
+			// For now, just skip - the node should already be connected via registration
+			// If we want to be more aggressive, we could try to connect here like in download_manager
+		}
+
 		// fallback to any connected node if pool has no explicit assignment or all assigned are offline
-		if selectedNodeID == "" && len(pool.Spec.AssignedNodeIDs) == 0 {
+		if selectedNodeID == "" {
 			connected := s.daemonPool.ConnectedNodes()
 			if len(connected) > 0 {
 				selectedNodeID = connected[0]
+				s.logger.Debug("Using fallback node for ISO scan",
+					zap.String("pool_id", pool.ID),
+					zap.String("node_id", selectedNodeID),
+				)
 			}
 		}
 
 		if selectedNodeID == "" {
+			s.logger.Debug("No connected nodes available for ISO scan",
+				zap.String("pool_id", pool.ID),
+			)
 			continue
 		}
 
@@ -135,12 +169,28 @@ func (s *ImageService) scanISOsInternal(ctx context.Context) (int, error) {
 
 		// Try standard iso paths: "iso", "ISO", or just root if it's an "iso" pool (not common)
 		// We'll stick to "iso/" subdirectory relative to pool root as per request
+		s.logger.Info("Listing ISO folder in pool",
+			zap.String("pool_id", pool.ID),
+			zap.String("pool_name", pool.Name),
+			zap.String("node_id", selectedNodeID),
+		)
+		
 		resp, err := client.ListStoragePoolFiles(ctx, pool.ID, "iso")
 		if err != nil {
-			// Just log debug, maybe folder doesn't exist
-			s.logger.Debug("Failed to list iso folder in pool", zap.String("pool_id", pool.ID), zap.Error(err))
+			// Log as warning so it's visible
+			s.logger.Warn("Failed to list iso folder in pool",
+				zap.String("pool_id", pool.ID),
+				zap.String("pool_name", pool.Name),
+				zap.String("node_id", selectedNodeID),
+				zap.Error(err),
+			)
 			continue
 		}
+		
+		s.logger.Info("ISO folder listed successfully",
+			zap.String("pool_id", pool.ID),
+			zap.Int("file_count", len(resp.Entries)),
+		)
 
 		// Phase 1: Build map of current DB images for this pool
 		existingImages, err := s.repo.List(ctx, ImageFilter{
@@ -162,13 +212,29 @@ func (s *ImageService) scanISOsInternal(ctx context.Context) (int, error) {
 
 		// Phase 2: Process files on disk
 		foundPaths := make(map[string]bool)
+		
+		s.logger.Info("Processing ISO files",
+			zap.String("pool_id", pool.ID),
+			zap.Int("total_entries", len(resp.Entries)),
+		)
 
 		for _, file := range resp.Entries {
+			s.logger.Debug("Checking file entry",
+				zap.String("pool_id", pool.ID),
+				zap.String("name", file.Name),
+				zap.Bool("is_directory", file.IsDirectory),
+				zap.Uint64("size", file.SizeBytes),
+			)
+			
 			if file.IsDirectory {
 				continue
 			}
 
 			if !strings.HasSuffix(strings.ToLower(file.Name), ".iso") {
+				s.logger.Debug("Skipping non-ISO file",
+					zap.String("pool_id", pool.ID),
+					zap.String("name", file.Name),
+				)
 				continue
 			}
 
