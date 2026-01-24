@@ -385,6 +385,11 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
         ? cloudImages.find(img => img.id === formData.cloudImageId)
         : undefined;
 
+      // Get ISO if using ISO boot
+      const selectedISO = formData.bootMediaType === 'iso'
+        ? isos.find(iso => iso.id === formData.isoId)
+        : undefined;
+
       // Build cloud-init user-data
       let cloudInitUserData = '';
       if (formData.bootMediaType === 'cloud-image' && formData.cloudInit.enabled) {
@@ -486,6 +491,13 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             // Use cloud image as backing file for the first disk
             backingFile: index === 0 && selectedCloudImage ? selectedCloudImage.path : undefined,
           })),
+          // Include CD-ROM with ISO if ISO boot is selected
+          cdroms: selectedISO && 'path' in selectedISO && selectedISO.path ? [{
+            id: 'cdrom-0',
+            isoPath: selectedISO.path,
+            bootIndex: 1, // Boot from CD-ROM first
+            connected: true,
+          }] : undefined,
           nics: formData.nics.map((nic) => ({
             networkId: nic.networkId,
             connected: nic.connected,

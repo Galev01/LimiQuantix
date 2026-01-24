@@ -228,6 +228,7 @@ impl StorageBackend for LocalBackend {
         
         Ok(PoolInfo {
             pool_id: pool_id.to_string(),
+            name: config.name.clone(),
             pool_type: PoolType::LocalDir,
             mount_path: Some(pool_path.to_string_lossy().to_string()),
             device_path: None,
@@ -270,6 +271,7 @@ impl StorageBackend for LocalBackend {
         
         Ok(PoolInfo {
             pool_id: pool_id.to_string(),
+            name: None, // Name is preserved from init via refresh_pool_info
             pool_type: PoolType::LocalDir,
             mount_path: Some(pool_path.to_string_lossy().to_string()),
             device_path: None,

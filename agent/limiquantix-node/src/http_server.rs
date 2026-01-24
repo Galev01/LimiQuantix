@@ -7265,12 +7265,15 @@ fn power_state_to_string(state: i32) -> String {
 }
 
 fn pool_type_to_string(pool_type: i32) -> String {
+    // Matches node_daemon.proto StoragePoolType enum
     match pool_type {
         0 => "UNSPECIFIED".to_string(),
         1 => "LOCAL_DIR".to_string(),
-        2 => "NFS".to_string(),
-        3 => "CEPH_RBD".to_string(),
-        4 => "ISCSI".to_string(),
+        2 => "LOCAL_LVM".to_string(),
+        3 => "NFS".to_string(),
+        4 => "CEPH_RBD".to_string(),
+        5 => "CEPH_FS".to_string(),
+        6 => "ISCSI".to_string(),
         _ => "UNKNOWN".to_string(),
     }
 }

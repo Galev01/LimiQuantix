@@ -25,6 +25,7 @@ var _ computev1connect.NodeServiceHandler = (*Service)(nil)
 type VMRepository interface {
 	Get(ctx context.Context, id string) (*domain.VirtualMachine, error)
 	Create(ctx context.Context, vm *domain.VirtualMachine) (*domain.VirtualMachine, error)
+	UpdateStatus(ctx context.Context, id string, status domain.VMStatus) error
 }
 
 // StoragePoolRepository is the interface for storage pool persistence.
@@ -46,6 +47,7 @@ type Service struct {
 	vmRepo          VMRepository
 	storagePoolRepo StoragePoolRepository
 	daemonPool      *DaemonPool
+	watcher         *Watcher
 	logger          *zap.Logger
 }
 
@@ -83,13 +85,27 @@ func NewServiceFull(
 	daemonPool *DaemonPool,
 	logger *zap.Logger,
 ) *Service {
-	return &Service{
+	s := &Service{
 		repo:            repo,
 		vmRepo:          vmRepo,
 		storagePoolRepo: storagePoolRepo,
 		daemonPool:      daemonPool,
 		logger:          logger.Named("node-service"),
 	}
+
+	// Initialize Watcher if we have dependencies
+	if daemonPool != nil && vmRepo != nil {
+		s.watcher = NewWatcher(repo, vmRepo, daemonPool, logger)
+
+		// Set callback to start monitoring on connection
+		daemonPool.SetOnConnectCallback(func(ctx context.Context, nodeID string) error {
+			s.logger.Info("Node connected, starting watcher", zap.String("node_id", nodeID))
+			s.watcher.WatchNode(ctx, nodeID)
+			return nil
+		})
+	}
+
+	return s
 }
 
 // SetDaemonPool sets the daemon pool for gRPC connections (used for late binding).

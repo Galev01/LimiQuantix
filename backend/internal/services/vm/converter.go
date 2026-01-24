@@ -74,7 +74,7 @@ func convertSpecFromProto(spec *computev1.VmSpec) domain.VMSpec {
 		}
 		result.Cdroms = append(result.Cdroms, domain.CDROMDevice{
 			Name:      cdrom.Id,
-			ImageID:   cdrom.IsoPath,
+			ISO:       cdrom.IsoPath, // Use ISO field for the actual path
 			Connected: cdrom.Connected,
 		})
 	}
@@ -171,7 +171,7 @@ func convertSpecToProto(spec domain.VMSpec) *computev1.VmSpec {
 	for _, cdrom := range spec.Cdroms {
 		result.Cdroms = append(result.Cdroms, &computev1.CdromDevice{
 			Id:        cdrom.Name,
-			IsoPath:   cdrom.ImageID,
+			IsoPath:   cdrom.ISO, // Use ISO field for the actual path
 			Connected: cdrom.Connected,
 		})
 	}

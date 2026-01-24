@@ -23,6 +23,9 @@ pub enum PoolType {
 /// Storage pool configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoolConfig {
+    /// Friendly name for the pool (from QvDC)
+    #[serde(default)]
+    pub name: Option<String>,
     /// NFS-specific configuration
     pub nfs: Option<NfsConfig>,
     /// Ceph-specific configuration
@@ -36,6 +39,7 @@ pub struct PoolConfig {
 impl Default for PoolConfig {
     fn default() -> Self {
         Self {
+            name: None,
             nfs: None,
             ceph: None,
             iscsi: None,
@@ -161,6 +165,9 @@ pub struct IscsiConfig {
 pub struct PoolInfo {
     /// Pool ID
     pub pool_id: String,
+    /// Friendly name (from QvDC)
+    #[serde(default)]
+    pub name: Option<String>,
     /// Pool type
     pub pool_type: PoolType,
     /// Mount path (for NFS, local dir)

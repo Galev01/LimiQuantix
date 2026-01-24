@@ -294,6 +294,13 @@ impl UpdateManager {
         };
         
         let downloader = self.downloader.read().await;
+        
+        // Clean staging directory before starting to ensure no stale files
+        // from previous failed attempts or different versions
+        if let Err(e) = downloader.cleanup().await {
+            warn!(error = %e, "Failed to clean staging directory, continuing anyway");
+        }
+        
         let manifest = downloader.fetch_manifest(&channel).await
             .context("Failed to fetch manifest")?;
 
@@ -371,6 +378,13 @@ impl UpdateManager {
             }
         }
         drop(applier);
+
+        // Clean up staging directory after successful update
+        let downloader = self.downloader.read().await;
+        if let Err(e) = downloader.cleanup().await {
+            warn!(error = %e, "Failed to clean staging directory after update");
+        }
+        drop(downloader);
 
         // Update status
         {

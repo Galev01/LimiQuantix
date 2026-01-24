@@ -144,17 +144,20 @@ impl StorageManager {
     /// Refresh pool information.
     #[instrument(skip(self), fields(pool_id = %pool_id))]
     pub async fn refresh_pool_info(&self, pool_id: &str) -> Result<PoolInfo> {
-        let pool_type = {
+        let (pool_type, existing_name) = {
             let pools = self.pools.read().await;
             pools.get(pool_id)
-                .map(|p| p.pool_type)
+                .map(|p| (p.pool_type, p.name.clone()))
                 .ok_or_else(|| HypervisorError::Internal(
                     format!("Pool {} not found", pool_id)
                 ))?
         };
         
         let backend = self.get_backend(pool_type)?;
-        let pool_info = backend.get_pool_info(pool_id).await?;
+        let mut pool_info = backend.get_pool_info(pool_id).await?;
+        
+        // Preserve the friendly name from the original initialization
+        pool_info.name = existing_name;
         
         // Update cache
         {

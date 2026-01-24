@@ -557,10 +557,31 @@ impl RegistrationClient {
         let backend = spec.get("backend")
             .ok_or_else(|| anyhow::anyhow!("Backend config not found in pool spec"))?;
         
-        // Determine pool type from backend type string
-        let backend_type = backend.get("type")
-            .and_then(|t| t.as_str())
-            .unwrap_or("LOCAL_DIR");
+        // Determine pool type from backend type (can be string or integer from protobuf enum)
+        // Proto enum: CEPH_RBD=0, CEPH_CEPHFS=1, LOCAL_LVM=2, LOCAL_DIR=3, NFS=4, ISCSI=5
+        let backend_type_value = backend.get("type");
+        let backend_type: &str = match backend_type_value {
+            Some(serde_json::Value::String(s)) => s.as_str(),
+            Some(serde_json::Value::Number(n)) => {
+                match n.as_u64() {
+                    Some(0) => "CEPH_RBD",
+                    Some(1) => "CEPH_CEPHFS",
+                    Some(2) => "LOCAL_LVM",
+                    Some(3) => "LOCAL_DIR",
+                    Some(4) => "NFS",
+                    Some(5) => "ISCSI",
+                    _ => "LOCAL_DIR",
+                }
+            }
+            _ => "LOCAL_DIR",
+        };
+        
+        info!(
+            pool_id = %pool_id,
+            backend_type = %backend_type,
+            raw_type = ?backend_type_value,
+            "Parsed backend type for pool"
+        );
         
         let (pool_type, config) = match backend_type {
             "NFS" | "BACKEND_TYPE_NFS" => {

@@ -1427,7 +1427,7 @@ func convertToNodeDaemonCreateRequest(vm *domain.VirtualMachine, spec *computev1
 	}
 
 	// Convert disks - include backing file for cloud images
-	for _, disk := range spec.GetDisks() {
+	for i, disk := range spec.GetDisks() {
 		diskSpec := &nodev1.DiskSpec{
 			Id:          disk.GetId(),
 			Path:        disk.GetVolumeId(), // Use volume_id as path
@@ -1439,6 +1439,15 @@ func convertToNodeDaemonCreateRequest(vm *domain.VirtualMachine, spec *computev1
 			BackingFile: disk.GetBackingFile(),   // Cloud image path for copy-on-write
 		}
 
+		// DEBUG: Log what we're sending to the node daemon
+		zap.L().Info("DEBUG: Sending disk to node daemon",
+			zap.Int("disk_index", i),
+			zap.String("disk_id", diskSpec.Id),
+			zap.Uint64("size_gib", diskSpec.SizeGib),
+			zap.String("backing_file", diskSpec.BackingFile),
+			zap.String("path", diskSpec.Path),
+		)
+
 		req.Spec.Disks = append(req.Spec.Disks, diskSpec)
 	}
 
@@ -1449,6 +1458,15 @@ func convertToNodeDaemonCreateRequest(vm *domain.VirtualMachine, spec *computev1
 			MacAddress: nic.GetMacAddress(),
 			Network:    nic.GetNetworkId(), // Use network_id
 			Model:      nodev1.NicModel(nic.GetModel()),
+		})
+	}
+
+	// Convert CD-ROMs
+	for _, cdrom := range spec.GetCdroms() {
+		req.Spec.Cdroms = append(req.Spec.Cdroms, &nodev1.CdromSpec{
+			Id:       cdrom.GetId(),
+			IsoPath:  cdrom.GetIsoPath(),
+			Bootable: cdrom.GetBootIndex() > 0,
 		})
 	}
 
@@ -2339,11 +2357,13 @@ func (s *Service) MountISO(
 
 	// Find the CD-ROM and update it
 	found := false
+	cdromIndex := -1
 	for i, cdrom := range vm.Spec.Cdroms {
 		if cdrom.Name == req.Msg.CdromId {
 			vm.Spec.Cdroms[i].ISO = req.Msg.IsoPath
 			vm.Spec.Cdroms[i].Connected = true
 			found = true
+			cdromIndex = i
 			break
 		}
 	}
@@ -2360,9 +2380,13 @@ func (s *Service) MountISO(
 			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node: %w", err))
 		}
 
-		// Use "sda" as the default device name for CD-ROM (SATA bus)
-		// In the future, we could store the actual device name in the CDROMDevice struct
-		device := "sda"
+		// Calculate the device name: CD-ROM devices come after disks on SATA bus
+		// Device naming: sda, sdb, sdc... where CD-ROMs start after the last disk
+		// e.g., 1 disk = sda for disk, sdb for first CD-ROM
+		diskCount := len(vm.Spec.Disks)
+		device := fmt.Sprintf("sd%c", 'a'+diskCount+cdromIndex)
+		logger.Info("Calculated CD-ROM device name", zap.String("device", device), zap.Int("disk_count", diskCount), zap.Int("cdrom_index", cdromIndex))
+		
 		err = client.ChangeMedia(ctx, req.Msg.VmId, device, req.Msg.IsoPath)
 		if err != nil {
 			logger.Error("Failed to mount ISO on hypervisor", zap.Error(err))
@@ -2416,6 +2440,7 @@ func (s *Service) EjectISO(
 
 	// Find the CD-ROM and eject it
 	found := false
+	cdromIndex := -1
 	var oldISO string
 	for i, cdrom := range vm.Spec.Cdroms {
 		if cdrom.Name == req.Msg.CdromId {
@@ -2423,12 +2448,33 @@ func (s *Service) EjectISO(
 			vm.Spec.Cdroms[i].ISO = ""
 			vm.Spec.Cdroms[i].Connected = false
 			found = true
+			cdromIndex = i
 			break
 		}
 	}
 
 	if !found {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("CD-ROM '%s' not found", req.Msg.CdromId))
+	}
+
+	// If VM is running, eject the media on the hypervisor
+	if vm.Status.State == domain.VMStateRunning && vm.Status.NodeID != "" {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Error("Failed to connect to node daemon", zap.Error(err))
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node: %w", err))
+		}
+
+		// Calculate the device name: CD-ROM devices come after disks on SATA bus
+		diskCount := len(vm.Spec.Disks)
+		device := fmt.Sprintf("sd%c", 'a'+diskCount+cdromIndex)
+		logger.Info("Calculated CD-ROM device name for eject", zap.String("device", device), zap.Int("disk_count", diskCount), zap.Int("cdrom_index", cdromIndex))
+		
+		err = client.ChangeMedia(ctx, req.Msg.VmId, device, "") // Empty path = eject
+		if err != nil {
+			logger.Error("Failed to eject ISO on hypervisor", zap.Error(err))
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to eject ISO: %w", err))
+		}
 	}
 
 	// Update VM in database

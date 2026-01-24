@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/layout';
-import { Card, Button, Badge, Input, Select } from '@/components/ui';
+import { Card, Button, Badge, Input } from '@/components/ui';
 import { 
     Upload, Trash2, File, Disc, Box, HardDrive, RefreshCw, AlertCircle,
     Folder, FolderOpen, ChevronRight, Search, FolderPlus, Move
@@ -96,7 +96,7 @@ export function StorageImages() {
             
             const parts = folder.split('/').filter(Boolean);
             let parent = '/';
-            parts.forEach((part, index) => {
+            parts.forEach((_part, index) => {
                 const current = '/' + parts.slice(0, index + 1).join('/');
                 if (!tree[parent]) tree[parent] = [];
                 if (!tree[parent].includes(current)) {
@@ -178,11 +178,6 @@ export function StorageImages() {
             case 'ova': return <Box className="w-5 h-5 text-warning" />;
             default: return <File className="w-5 h-5 text-text-muted" />;
         }
-    };
-
-    const getFolderName = (path: string) => {
-        if (path === '/') return 'Root';
-        return path.split('/').pop() || path;
     };
 
     // Breadcrumb navigation

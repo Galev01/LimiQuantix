@@ -358,6 +358,7 @@ impl StorageBackend for NfsBackend {
         
         Ok(PoolInfo {
             pool_id: pool_id.to_string(),
+            name: config.name.clone(),
             pool_type: PoolType::Nfs,
             mount_path: Some(mount_path.to_string_lossy().to_string()),
             device_path: None,
@@ -385,6 +386,7 @@ impl StorageBackend for NfsBackend {
         
         Ok(PoolInfo {
             pool_id: pool_id.to_string(),
+            name: None, // Name is preserved from init via refresh_pool_info
             pool_type: PoolType::Nfs,
             mount_path: Some(mount_path.to_string_lossy().to_string()),
             device_path: None,

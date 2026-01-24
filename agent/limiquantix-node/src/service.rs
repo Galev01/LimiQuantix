@@ -1165,6 +1165,45 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             }
         }
         
+        // Process CD-ROMs from the request
+        let mut has_bootable_cdrom = false;
+        for cdrom_spec in spec.cdroms {
+            if cdrom_spec.bootable {
+                has_bootable_cdrom = true;
+            }
+            
+            info!(
+                vm_id = %vm_uuid,
+                cdrom_id = %cdrom_spec.id,
+                iso_path = %cdrom_spec.iso_path,
+                bootable = cdrom_spec.bootable,
+                "Processing CD-ROM spec"
+            );
+            
+            config.cdroms.push(CdromConfig {
+                id: if cdrom_spec.id.is_empty() { 
+                    format!("cdrom-{}", config.cdroms.len()) 
+                } else { 
+                    cdrom_spec.id 
+                },
+                iso_path: if cdrom_spec.iso_path.is_empty() { 
+                    None 
+                } else { 
+                    Some(cdrom_spec.iso_path) 
+                },
+                bootable: cdrom_spec.bootable,
+            });
+        }
+        
+        // If a bootable CD-ROM is present, adjust boot order to prioritize CD-ROM
+        if has_bootable_cdrom {
+            info!(
+                vm_id = %vm_uuid,
+                "Bootable CD-ROM detected, setting boot order to CD-ROM first"
+            );
+            config.boot.order = vec![BootDevice::Cdrom, BootDevice::Disk, BootDevice::Network];
+        }
+        
         // Create the VM via the hypervisor backend
         // Ensure the agent socket directory exists before creating the VM
         // This is required because libvirt will try to bind the virtio-serial socket

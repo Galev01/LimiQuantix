@@ -212,8 +212,8 @@ func (dm *DownloadManager) StartDownloadWithPool(ctx context.Context, jobID, ima
 				if pool.Spec.Backend.NFSConfig.MountPoint != "" {
 					targetDir = pool.Spec.Backend.NFSConfig.MountPoint
 				} else {
-					// Default mount point pattern
-					targetDir = fmt.Sprintf("/var/lib/limiquantix/pools/%s", pool.ID)
+					// Default NFS mount point pattern (matches pool_service.go and image_upload_handler.go)
+					targetDir = fmt.Sprintf("/var/lib/limiquantix/mnt/nfs-%s", pool.ID)
 				}
 			}
 		case domain.StorageBackendTypeLocalDir:

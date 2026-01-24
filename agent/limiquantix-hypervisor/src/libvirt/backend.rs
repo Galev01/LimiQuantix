@@ -62,6 +62,39 @@ impl LibvirtBackend {
             _ => VmState::Unknown,
         }
     }
+    
+    /// Parse VNC port from libvirt domain XML.
+    /// Looks for: <graphics type='vnc' port='5901' ...>
+    fn parse_vnc_port_from_xml(&self, xml: &str) -> Option<u16> {
+        // Find the graphics element with type='vnc'
+        // Format: <graphics type='vnc' port='5901' autoport='yes' listen='127.0.0.1'>
+        
+        // First, find "<graphics type='vnc'"
+        let graphics_start = xml.find("<graphics type='vnc'")?;
+        let graphics_section = &xml[graphics_start..];
+        
+        // Find the end of this element (either /> or >)
+        let graphics_end = graphics_section.find('>')?;
+        let graphics_tag = &graphics_section[..graphics_end];
+        
+        // Now find port=' within this graphics tag
+        let port_start = graphics_tag.find("port='")?;
+        let port_value_start = port_start + 6; // Skip "port='"
+        let port_str = &graphics_tag[port_value_start..];
+        
+        // Find the closing quote
+        let port_end = port_str.find('\'')?;
+        let port_value = &port_str[..port_end];
+        
+        // Parse the port number
+        // Note: libvirt may return -1 for autoport before the VM starts
+        if port_value == "-1" {
+            debug!("VNC port is -1 (autoport), VM may not be running yet");
+            return None;
+        }
+        
+        port_value.parse::<u16>().ok()
+    }
 }
 
 #[async_trait]
@@ -321,17 +354,11 @@ impl Hypervisor for LibvirtBackend {
         let xml = domain.get_xml_desc(0)
             .map_err(|e| HypervisorError::Internal(e.to_string()))?;
         
-        // Parse VNC port from XML (simplified - in production use XML parser)
-        let vnc_port = if let Some(start) = xml.find("port='") {
-            let port_str = &xml[start + 6..];
-            if let Some(end) = port_str.find('\'') {
-                port_str[..end].parse::<u16>().unwrap_or(5900)
-            } else {
-                5900
-            }
-        } else {
-            5900
-        };
+        // Parse VNC port from the <graphics type='vnc'> element
+        // We need to find the graphics element with type='vnc' and extract its port
+        let vnc_port = self.parse_vnc_port_from_xml(&xml).unwrap_or(5900);
+        
+        debug!(vm_id = %vm_id, vnc_port = vnc_port, "Parsed VNC port from domain XML");
         
         Ok(ConsoleInfo {
             console_type: ConsoleType::Vnc,
@@ -602,7 +629,7 @@ impl Hypervisor for LibvirtBackend {
         // We want both: live change + persist to config
         let flags = sys::VIR_DOMAIN_DEVICE_MODIFY_LIVE | sys::VIR_DOMAIN_DEVICE_MODIFY_CONFIG;
         
-        domain.update_device(&cdrom_xml, flags)
+        domain.update_device_flags(&cdrom_xml, flags)
             .map_err(|e| HypervisorError::Internal(format!("Failed to change media: {}", e)))?;
         
         if iso_path.is_some() {

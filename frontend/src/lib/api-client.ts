@@ -349,6 +349,8 @@ export interface ApiVM {
       id?: string;
       name?: string;
       isoPath?: string;              // Path to mounted ISO
+      bootIndex?: number;            // Boot order (0 = do not boot)
+      connected?: boolean;           // Is media currently connected
     }>;
   };
   status?: {
