@@ -43,7 +43,7 @@ import { useAvailableImages, useISOs, formatImageSize, getDefaultUser, useImageA
 import { validateVMName, validatePassword, validateAccessMethod } from '@/components/vm/wizard-validation';
 import { useStoragePools, useVolumes, type StoragePoolUI, type VolumeUI } from '@/hooks/useStorage';
 import { useOVATemplates, type OVATemplate, formatOVASize } from '@/hooks/useOVA';
-import { useFolders, type Folder as FolderType, useCreateFolder, type Folder } from '@/hooks/useFolders';
+import { useFolders, type Folder as FolderType, useCreateFolder } from '@/hooks/useFolders';
 import { useCustomizationSpecs, type CustomizationSpec } from '@/hooks/useCustomizationSpecs';
 
 interface VMCreationWizardProps {
@@ -782,88 +782,86 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
               )}
             </motion.div>
           </AnimatePresence>
-      </motion.div>
-    </AnimatePresence>
-        </div >
+        </div>
 
-    {/* Create Folder Dialog */ }
-    <AnimatePresence>
-  {
-    isCreateFolderOpen && (
-      <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="w-full max-w-md bg-bg-surface p-6 rounded-xl border border-border shadow-xl"
-        >
-          <h3 className="text-lg font-semibold text-text-primary mb-4">Create New Folder</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">
-                Folder Name
-              </label>
-              <input
-                type="text"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="e.g. Production"
-                className="w-full px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary focus:border-accent focus:outline-none"
-                autoFocus
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setIsCreateFolderOpen(false);
-                  setNewFolderName('');
-                }}
-                disabled={isCreatingFolder}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={async () => {
-                  if (!newFolderName.trim()) return;
-                  setIsCreatingFolder(true);
-                  try {
-                    const newFolder = await createFolder.mutateAsync({
-                      name: newFolderName,
-                      projectId: 'default', // Using default project for now
-                      type: 'VM',
-                      parentId: '', // Root folder
-                    });
-                    updateFormData({ folderId: newFolder.id });
-                    setIsCreateFolderOpen(false);
-                    setNewFolderName('');
-                  } catch (err) {
-                    // Error handled by hook toast
-                  } finally {
-                    setIsCreatingFolder(false);
-                  }
-                }}
-                disabled={!newFolderName.trim() || isCreatingFolder}
-              >
-                {isCreatingFolder ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create Folder'
-                )}
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    )
-  }
+        {/* Create Folder Dialog */}
+        <AnimatePresence>
+          {
+            isCreateFolderOpen && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="w-full max-w-md bg-bg-surface p-6 rounded-xl border border-border shadow-xl"
+                >
+                  <h3 className="text-lg font-semibold text-text-primary mb-4">Create New Folder</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-text-secondary mb-1">
+                        Folder Name
+                      </label>
+                      <input
+                        type="text"
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        placeholder="e.g. Production"
+                        className="w-full px-3 py-2 bg-bg-base border border-border rounded-lg text-text-primary focus:border-accent focus:outline-none"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setIsCreateFolderOpen(false);
+                          setNewFolderName('');
+                        }}
+                        disabled={isCreatingFolder}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          if (!newFolderName.trim()) return;
+                          setIsCreatingFolder(true);
+                          try {
+                            const newFolder = await createFolder.mutateAsync({
+                              name: newFolderName,
+                              projectId: 'default', // Using default project for now
+                              type: 'VM',
+                              parentId: '', // Root folder
+                            });
+                            updateFormData({ folderId: newFolder.id });
+                            setIsCreateFolderOpen(false);
+                            setNewFolderName('');
+                          } catch (err) {
+                            // Error handled by hook toast
+                          } finally {
+                            setIsCreatingFolder(false);
+                          }
+                        }}
+                        disabled={!newFolderName.trim() || isCreatingFolder}
+                      >
+                        {isCreatingFolder ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            Creating...
+                          </>
+                        ) : (
+                          'Create Folder'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )
+          }
         </AnimatePresence >
 
-    {/* Footer */ }
-    < div className = "flex items-center justify-between px-6 py-4 border-t border-border bg-bg-elevated/50" >
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-bg-elevated/50">
           <Button
             variant="ghost"
             onClick={handleBack}
@@ -882,31 +880,31 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             )}
           </div>
 
-  {
-    currentStep === STEPS.length - 1 ? (
-      <Button onClick={handleSubmit} disabled={createVM.isPending}>
-        {createVM.isPending ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Creating...
-          </>
-        ) : (
-          <>
-            <Check className="w-4 h-4" />
-            Create VM
-          </>
-        )}
-      </Button>
-    ) : (
-      <Button onClick={handleNext} disabled={!canProceed}>
-        Next
-        <ChevronRight className="w-4 h-4" />
-      </Button>
-    )
-  }
-        </div >
-      </motion.div >
-    </div >
+          {
+            currentStep === STEPS.length - 1 ? (
+              <Button onClick={handleSubmit} disabled={createVM.isPending}>
+                {createVM.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Create VM
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button onClick={handleNext} disabled={!canProceed}>
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            )
+          }
+        </div>
+      </motion.div>
+    </div>
   );
 }
 

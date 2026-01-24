@@ -323,6 +323,33 @@ export interface ApiVM {
       maxRestarts?: number;
       restartPeriodMinutes?: number;
     };
+    // Guest Agent configuration
+    guestAgent?: {
+      communication?: string;        // 'virtio-serial' or 'vsock'
+      freezeOnSnapshot?: boolean;    // Quiesce filesystem before snapshot
+      timeSync?: boolean;            // Sync guest time with host
+    };
+    // Cloud-Init configuration
+    cloudInit?: {
+      hostname?: string;
+      sshKeys?: string[];
+      userData?: string;             // #cloud-config YAML
+      networkConfig?: string;        // 'dhcp', 'static', 'custom'
+    };
+    // Advanced VM options
+    advanced?: {
+      hardwareVersion?: string;      // 'v5', 'v6', 'v7'
+      machineType?: string;          // 'q35', 'i440fx', 'virt'
+      rtcBase?: string;              // 'utc', 'localtime'
+      watchdog?: string;             // 'none', 'i6300esb', 'ib700', 'diag288'
+      rngEnabled?: boolean;          // virtio-rng device
+    };
+    // CD-ROM devices
+    cdroms?: Array<{
+      id?: string;
+      name?: string;
+      isoPath?: string;              // Path to mounted ISO
+    }>;
   };
   status?: {
     state?: string;
@@ -339,6 +366,12 @@ export interface ApiVM {
       diskWriteBytesPerSec?: number;
       networkRxBytesPerSec?: number;
       networkTxBytesPerSec?: number;
+    };
+    guestInfo?: {
+      agentVersion?: string;
+      hostname?: string;
+      osName?: string;
+      osVersion?: string;
     };
   };
   createdAt?: string;

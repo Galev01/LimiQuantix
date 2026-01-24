@@ -50,8 +50,8 @@ export function detectCloudInit(vm: ApiVM): { hasCloudInit: boolean; reason: str
     return { hasCloudInit: true, reason: 'VM created from cloud image' };
   }
 
-  // Check provisioning method
-  if (vm.spec?.provisioning?.method === 'CLOUD_INIT') {
+  // Check provisioning method via cloudInit in provisioning config
+  if (vm.spec?.provisioning?.cloudInit) {
     return { hasCloudInit: true, reason: 'Provisioning method is cloud-init' };
   }
 
@@ -77,7 +77,12 @@ export function EditProvisioningModal({ isOpen, onClose, vm, onSave }: EditProvi
       setHostname(vm.spec.cloudInit.hostname || vm.name);
       setSshKeys(vm.spec.cloudInit.sshKeys || []);
       setUserData(vm.spec.cloudInit.userData || '');
-      setNetworkConfig(vm.spec.cloudInit.networkConfig || 'dhcp');
+      const netConfig = vm.spec.cloudInit.networkConfig;
+      if (netConfig === 'dhcp' || netConfig === 'static' || netConfig === 'custom') {
+        setNetworkConfig(netConfig);
+      } else {
+        setNetworkConfig('dhcp');
+      }
     } else {
       setEnabled(false);
       setHostname(vm.name);

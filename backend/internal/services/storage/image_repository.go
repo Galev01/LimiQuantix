@@ -32,14 +32,15 @@ type ImageRepository interface {
 
 // ImageFilter defines filter criteria for listing images.
 type ImageFilter struct {
-	ProjectID    string
-	OSFamily     domain.OSFamily
-	Visibility   domain.ImageVisibility
-	NodeID       string
-	Phase        domain.ImagePhase
-	FolderPath   string // Filter by folder path
-	Format       domain.ImageFormat // Filter by format (ISO, QCOW2, etc.)
-	SearchQuery  string // Search in name/description
+	ProjectID     string
+	OSFamily      domain.OSFamily
+	Visibility    domain.ImageVisibility
+	NodeID        string
+	Phase         domain.ImagePhase
+	FolderPath    string             // Filter by folder path
+	Format        domain.ImageFormat // Filter by format (ISO, QCOW2, etc.)
+	StoragePoolID string             // Filter by storage pool ID
+	SearchQuery   string             // Search in name/description
 }
 
 // MemoryImageRepository is an in-memory implementation of ImageRepository.
@@ -111,6 +112,9 @@ func (r *MemoryImageRepository) List(ctx context.Context, filter ImageFilter) ([
 			}
 		}
 		if filter.Format != "" && img.Spec.Format != filter.Format {
+			continue
+		}
+		if filter.StoragePoolID != "" && img.Status.StoragePoolID != filter.StoragePoolID {
 			continue
 		}
 		if filter.SearchQuery != "" {
@@ -254,10 +258,10 @@ func (r *MemoryImageRepository) Upsert(ctx context.Context, image *domain.Image)
 
 	// Check if image with same nodeID + path exists
 	for _, existing := range r.images {
-		if existing.Status.NodeID == image.Status.NodeID && 
-		   existing.Status.Path == image.Status.Path {
+		if existing.Status.NodeID == image.Status.NodeID &&
+			existing.Status.Path == image.Status.Path {
 			// Update existing image
-			image.ID = existing.ID // Keep original ID
+			image.ID = existing.ID               // Keep original ID
 			image.CreatedAt = existing.CreatedAt // Keep original creation time
 			r.images[image.ID] = image
 			return image, nil

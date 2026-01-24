@@ -147,6 +147,9 @@ service ImageService {
   // GetCatalogDownloadStatus checks which catalog images are already downloaded.
   // Returns the download status for each requested catalog ID.
   rpc GetCatalogDownloadStatus(GetCatalogDownloadStatusRequest) returns (GetCatalogDownloadStatusResponse);
+
+  // ScanISOs scans storage pools for new ISO files and registers them.
+  rpc ScanISOs(ScanISOsRequest) returns (ScanISOsResponse);
 }
 
 // =============================================================================

@@ -5,13 +5,14 @@
 package storagev1connect
 
 import (
-	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	v1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	http "net/http"
 	strings "strings"
+
+	connect "connectrpc.com/connect"
+	v1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/storage/v1"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are
@@ -147,6 +148,8 @@ const (
 	// ImageServiceGetCatalogDownloadStatusProcedure is the fully-qualified name of the ImageService's
 	// GetCatalogDownloadStatus RPC.
 	ImageServiceGetCatalogDownloadStatusProcedure = "/limiquantix.storage.v1.ImageService/GetCatalogDownloadStatus"
+	// ImageServiceScanISOsProcedure is the fully-qualified name of the ImageService's ScanISOs RPC.
+	ImageServiceScanISOsProcedure = "/limiquantix.storage.v1.ImageService/ScanISOs"
 	// OVAServiceGetOVAUploadStatusProcedure is the fully-qualified name of the OVAService's
 	// GetOVAUploadStatus RPC.
 	OVAServiceGetOVAUploadStatusProcedure = "/limiquantix.storage.v1.OVAService/GetOVAUploadStatus"
@@ -1106,6 +1109,12 @@ func NewImageServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(imageServiceMethods.ByName("GetCatalogDownloadStatus")),
 			connect.WithClientOptions(opts...),
 		),
+		scanISOs: connect.NewClient[v1.ScanISOsRequest, v1.ScanISOsResponse](
+			httpClient,
+			baseURL+ImageServiceScanISOsProcedure,
+			connect.WithSchema(imageServiceMethods.ByName("ScanISOs")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1122,6 +1131,7 @@ type imageServiceClient struct {
 	downloadImage            *connect.Client[v1.DownloadImageRequest, v1.DownloadImageResponse]
 	getImageCatalog          *connect.Client[v1.GetImageCatalogRequest, v1.GetImageCatalogResponse]
 	getCatalogDownloadStatus *connect.Client[v1.GetCatalogDownloadStatusRequest, v1.GetCatalogDownloadStatusResponse]
+	scanISOs                 *connect.Client[v1.ScanISOsRequest, v1.ScanISOsResponse]
 }
 
 // CreateImage calls limiquantix.storage.v1.ImageService.CreateImage.
@@ -1177,6 +1187,16 @@ func (c *imageServiceClient) GetImageCatalog(ctx context.Context, req *connect.R
 // GetCatalogDownloadStatus calls limiquantix.storage.v1.ImageService.GetCatalogDownloadStatus.
 func (c *imageServiceClient) GetCatalogDownloadStatus(ctx context.Context, req *connect.Request[v1.GetCatalogDownloadStatusRequest]) (*connect.Response[v1.GetCatalogDownloadStatusResponse], error) {
 	return c.getCatalogDownloadStatus.CallUnary(ctx, req)
+}
+
+// ScanISOs calls limiquantix.storage.v1.ImageService.ScanISOs.
+func (c *imageServiceClient) ScanISOs(ctx context.Context, req *connect.Request[v1.ScanISOsRequest]) (*connect.Response[v1.ScanISOsResponse], error) {
+	return c.scanISOs.CallUnary(ctx, req)
+}
+
+// ScanISOs calls limiquantix.storage.v1.ImageService.ScanISOs.
+func (c *imageServiceClient) ScanISOs(ctx context.Context, req *connect.Request[v1.ScanISOsRequest]) (*connect.Response[v1.ScanISOsResponse], error) {
+	return c.scanISOs.CallUnary(ctx, req)
 }
 
 // ImageServiceHandler is an implementation of the limiquantix.storage.v1.ImageService service.
@@ -1280,6 +1300,12 @@ func NewImageServiceHandler(svc ImageServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(imageServiceMethods.ByName("GetCatalogDownloadStatus")),
 		connect.WithHandlerOptions(opts...),
 	)
+	imageServiceScanISOsHandler := connect.NewUnaryHandler(
+		ImageServiceScanISOsProcedure,
+		svc.ScanISOs,
+		connect.WithSchema(imageServiceMethods.ByName("ScanISOs")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/limiquantix.storage.v1.ImageService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ImageServiceCreateImageProcedure:
@@ -1304,6 +1330,8 @@ func NewImageServiceHandler(svc ImageServiceHandler, opts ...connect.HandlerOpti
 			imageServiceGetImageCatalogHandler.ServeHTTP(w, r)
 		case ImageServiceGetCatalogDownloadStatusProcedure:
 			imageServiceGetCatalogDownloadStatusHandler.ServeHTTP(w, r)
+		case ImageServiceScanISOsProcedure:
+			imageServiceScanISOsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1355,6 +1383,14 @@ func (UnimplementedImageServiceHandler) GetImageCatalog(context.Context, *connec
 
 func (UnimplementedImageServiceHandler) GetCatalogDownloadStatus(context.Context, *connect.Request[v1.GetCatalogDownloadStatusRequest]) (*connect.Response[v1.GetCatalogDownloadStatusResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.ImageService.GetCatalogDownloadStatus is not implemented"))
+}
+
+func (UnimplementedImageServiceHandler) ScanISOs(context.Context, *connect.Request[v1.ScanISOsRequest]) (*connect.Response[v1.ScanISOsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.ImageService.ScanISOs is not implemented"))
+}
+
+func (UnimplementedImageServiceHandler) ScanISOs(context.Context, *connect.Request[v1.ScanISOsRequest]) (*connect.Response[v1.ScanISOsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("limiquantix.storage.v1.ImageService.ScanISOs is not implemented"))
 }
 
 // OVAServiceClient is a client for the limiquantix.storage.v1.OVAService service.

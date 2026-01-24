@@ -10,7 +10,7 @@
 
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Disc, Loader2, Search, Eject, Plus, Trash2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { X, Disc, Loader2, Search, Plus, Trash2, AlertTriangle, CheckCircle, CircleSlash } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -217,7 +217,7 @@ export function CDROMModal({
                                 disabled={isPending}
                                 title="Eject ISO"
                               >
-                                <Eject className="w-4 h-4" />
+                                <CircleSlash className="w-4 h-4" />
                                 Eject
                               </Button>
                             ) : (
@@ -238,7 +238,7 @@ export function CDROMModal({
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDetach(cdrom.id)}
-                              disabled={isPending || (cdrom.mountedIso && isVMRunning)}
+                              disabled={isPending || Boolean(cdrom.mountedIso && isVMRunning)}
                               title={cdrom.mountedIso && isVMRunning ? 'Eject ISO first' : 'Remove CD-ROM'}
                               className="text-error hover:text-error"
                             >

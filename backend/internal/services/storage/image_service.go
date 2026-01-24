@@ -21,6 +21,8 @@ import (
 // ImageService implements the storagev1connect.ImageServiceHandler interface.
 type ImageService struct {
 	repo            ImageRepository
+	poolRepo        PoolRepository
+	daemonPool      *node.DaemonPool
 	catalog         []CatalogEntry
 	downloadManager *DownloadManager
 	imagesDir       string // Default directory for downloaded images
@@ -56,9 +58,163 @@ func NewImageService(repo ImageRepository, logger *zap.Logger) *ImageService {
 // ConfigureNodeDownloads sets up the download manager to route downloads to nodes.
 // This should be called after creating the service when daemon pool and pool repository are available.
 func (s *ImageService) ConfigureNodeDownloads(daemonPool *node.DaemonPool, poolRepo PoolRepository) {
+	s.daemonPool = daemonPool
+	s.poolRepo = poolRepo
 	s.downloadManager.SetDaemonPool(daemonPool)
 	s.downloadManager.SetPoolRepository(poolRepo)
 	s.logger.Info("Image service configured for node-based downloads")
+}
+
+// ScanISOs implements the storagev1connect.ImageServiceHandler interface.
+func (s *ImageService) ScanISOs(ctx context.Context, req *connect.Request[storagev1.ScanISOsRequest]) (*connect.Response[storagev1.ScanISOsResponse], error) {
+	count, err := s.scanISOsInternal(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&storagev1.ScanISOsResponse{
+		DiscoveredCount: int32(count),
+	}), nil
+}
+
+// scanISOsInternal scans all storage pools for ISO files in the "iso" subdirectory.
+func (s *ImageService) scanISOsInternal(ctx context.Context) (int, error) {
+	if s.poolRepo == nil || s.daemonPool == nil {
+		s.logger.Warn("ScanISOs skipped: pool interactions not configured")
+		return 0, nil
+	}
+
+	pools, err := s.poolRepo.List(ctx, PoolFilter{}, 1000, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	discoveredCount := 0
+
+	for _, pool := range pools {
+		if pool.Status.Phase != domain.StoragePoolPhaseReady {
+			continue
+		}
+
+		// Find a connected node for this pool
+		var selectedNodeID string
+
+		// prefer assigned nodes
+		for _, nodeID := range pool.Spec.AssignedNodeIDs {
+			if s.daemonPool.Get(nodeID) != nil {
+				selectedNodeID = nodeID
+				break
+			}
+		}
+
+		// fallback to any connected node if pool has no explicit assignment or all assigned are offline
+		if selectedNodeID == "" && len(pool.Spec.AssignedNodeIDs) == 0 {
+			connected := s.daemonPool.ConnectedNodes()
+			if len(connected) > 0 {
+				selectedNodeID = connected[0]
+			}
+		}
+
+		if selectedNodeID == "" {
+			continue
+		}
+
+		// List files in "iso" folder
+		client := s.daemonPool.Get(selectedNodeID)
+		if client == nil {
+			continue
+		}
+
+		// Try standard iso paths: "iso", "ISO", or just root if it's an "iso" pool (not common)
+		// We'll stick to "iso/" subdirectory relative to pool root as per request
+		resp, err := client.ListStoragePoolFiles(ctx, pool.ID, "iso")
+		if err != nil {
+			// Just log debug, maybe folder doesn't exist
+			s.logger.Debug("Failed to list iso folder in pool", zap.String("pool_id", pool.ID), zap.Error(err))
+			continue
+		}
+
+		for _, file := range resp.Entries {
+			if file.IsDirectory {
+				continue
+			}
+
+			if !strings.HasSuffix(strings.ToLower(file.Name), ".iso") {
+				continue
+			}
+
+			// Check if we already have this image
+			// We construct a path identifier: pool_id:iso/filename
+			path := fmt.Sprintf("iso/%s", file.Name)
+
+			// We need a way to check existence efficiently.
+			// For now, let's assume we list all and check? Or add GetByPath to repo if needed.
+			// ImageRepository has GetByPath(nodeID, path).
+			// But here path is relative to pool.
+			// Let's check by name/checksum if possible, or just exact match on the "path" field which usually stores file path.
+
+			// Simple check: do we have an image with this poolID and path?
+			// The repo interface doesn't have FindByPoolAndPath easily.
+			// Let's list all ISOs and check in memory for now (not efficient but safe for small counts)
+
+			// Actually, let's just create it and ignore ErrAlreadyExists if our repo supports it?
+			// MemoryImageRepository.Create checks ID. We need to generate a deterministic ID or check existence.
+
+			// Let's generate a deterministic ID based on pool+path
+			imageID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("pool://%s/iso/%s", pool.ID, file.Name))).String()
+
+			_, err := s.repo.Get(ctx, imageID)
+			if err == nil {
+				// Already exists
+				continue
+			}
+
+			// Create new image record
+			newImage := &domain.Image{
+				ID:          imageID,
+				Name:        file.Name,
+				Description: fmt.Sprintf("Discovered ISO in pool %s", pool.Name),
+				ProjectID:   pool.ProjectID, // Inherit project from pool
+				Spec: domain.ImageSpec{
+					Format:     domain.ImageFormatISO,
+					Visibility: domain.ImageVisibilityProject, // Visible to project
+					OS: domain.OSInfo{
+						Family: domain.OSFamilyUnknown, // Could try to detect from name
+					},
+				},
+				Status: domain.ImageStatus{
+					Phase:            domain.ImagePhaseReady,
+					SizeBytes:        file.SizeBytes,
+					VirtualSizeBytes: file.SizeBytes,
+					ProgressPercent:  100,
+					StoragePoolID:    pool.ID,
+					FolderPath:       "/iso", // Put in virtual folder /iso
+					Filename:         file.Name,
+					Path:             "iso/" + file.Name, // Relative path in pool
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+
+			// Try to detect OS from filename
+			if strings.Contains(strings.ToLower(file.Name), "ubuntu") {
+				newImage.Spec.OS.Family = domain.OSFamilyLinux
+				newImage.Spec.OS.Distribution = "ubuntu"
+			} else if strings.Contains(strings.ToLower(file.Name), "windows") {
+				newImage.Spec.OS.Family = domain.OSFamilyWindows
+			} else if strings.Contains(strings.ToLower(file.Name), "rocky") {
+				newImage.Spec.OS.Family = domain.OSFamilyLinux
+				newImage.Spec.OS.Distribution = "rocky"
+			}
+
+			if _, err := s.repo.Create(ctx, newImage); err != nil {
+				s.logger.Error("Failed to register discovered ISO", zap.String("name", file.Name), zap.Error(err))
+			} else {
+				s.logger.Info("Registered discovered ISO", zap.String("name", file.Name), zap.String("id", imageID))
+				discoveredCount++
+			}
+		}
+	}
+	return discoveredCount, nil
 }
 
 // initCatalog initializes the built-in cloud image catalog.
