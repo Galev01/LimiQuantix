@@ -1,4 +1,6 @@
+#![allow(dead_code)]
 //! Tauri API commands for configuration and Control Plane communication
+
 
 use crate::config::{Config, SavedConnection};
 use crate::AppState;
@@ -10,6 +12,14 @@ use tracing::{info, warn};
 #[derive(Debug, Serialize)]
 pub struct ConnectionListResponse {
     pub connections: Vec<SavedConnection>,
+}
+
+/// Helper to create a reqwest client that accepts invalid certificates (for dev/local usage)
+pub fn create_insecure_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))
 }
 
 /// Get saved connections
@@ -68,7 +78,7 @@ pub fn save_config(state: State<AppState>, config: Config) -> Result<(), String>
 }
 
 /// Console info from Control Plane
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConsoleInfoResponse {
     pub console_type: Option<String>,
@@ -79,30 +89,32 @@ pub struct ConsoleInfoResponse {
 }
 
 /// Get console info from the Control Plane
+#[tauri::command]
 pub async fn get_console_info(
-    control_plane_url: &str,
-    vm_id: &str,
-) -> Result<ConsoleInfoResponse, Box<dyn std::error::Error + Send + Sync>> {
+    control_plane_url: String,
+    vm_id: String,
+) -> Result<ConsoleInfoResponse, String> {
     let url = format!(
         "{}/limiquantix.compute.v1.VMService/GetConsole",
         control_plane_url.trim_end_matches('/')
     );
 
-    let client = reqwest::Client::new();
+    let client = create_insecure_client()?;
     let response = client
         .post(&url)
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({ "vmId": vm_id }))
         .send()
-        .await?;
+        .await
+        .map_err(|e| e.to_string())?;
 
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
-        return Err(format!("API error ({}): {}", status, body).into());
+        return Err(format!("API error ({}): {}", status, body));
     }
 
-    let info: ConsoleInfoResponse = response.json().await?;
+    let info: ConsoleInfoResponse = response.json().await.map_err(|e| e.to_string())?;
     Ok(info)
 }
 
@@ -133,7 +145,7 @@ pub async fn get_vm_info(
         control_plane_url.trim_end_matches('/')
     );
 
-    let client = reqwest::Client::new();
+    let client = create_insecure_client()?;
     let response = client
         .post(&url)
         .header("Content-Type", "application/json")
@@ -160,7 +172,7 @@ pub async fn list_vms(
         control_plane_url.trim_end_matches('/')
     );
 
-    let client = reqwest::Client::new();
+    let client = create_insecure_client()?;
     let response = client
         .post(&url)
         .header("Content-Type", "application/json")
@@ -219,7 +231,7 @@ pub async fn vm_power_action(
         _ => serde_json::json!({ "id": vm_id }),
     };
     
-    let client = reqwest::Client::new();
+    let client = create_insecure_client()?;
     let response = client
         .post(&url)
         .header("Content-Type", "application/json")
@@ -267,7 +279,7 @@ pub async fn vm_mount_iso(
         }
     });
     
-    let client = reqwest::Client::new();
+    let client = create_insecure_client()?;
     let response = client
         .post(&url)
         .header("Content-Type", "application/json")

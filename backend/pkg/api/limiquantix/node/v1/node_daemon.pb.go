@@ -1532,7 +1532,11 @@ type VMSpec struct {
 	// Console
 	Console *ConsoleSpec `protobuf:"bytes,11,opt,name=console,proto3" json:"console,omitempty"`
 	// Cloud-init / provisioning configuration
-	CloudInit     *CloudInitConfig `protobuf:"bytes,12,opt,name=cloud_init,json=cloudInit,proto3" json:"cloud_init,omitempty"`
+	CloudInit *CloudInitConfig `protobuf:"bytes,12,opt,name=cloud_init,json=cloudInit,proto3" json:"cloud_init,omitempty"`
+	// Guest OS family - determines hardware configuration (timers, video, CPU mode).
+	// This is similar to VMware's Guest OS selection - affects virtual hardware behavior.
+	// Values: "rhel", "debian", "fedora", "windows_server", "windows_desktop", "generic_linux", etc.
+	GuestOs       string `protobuf:"bytes,13,opt,name=guest_os,json=guestOs,proto3" json:"guest_os,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1651,6 +1655,13 @@ func (x *VMSpec) GetCloudInit() *CloudInitConfig {
 	return nil
 }
 
+func (x *VMSpec) GetGuestOs() string {
+	if x != nil {
+		return x.GuestOs
+	}
+	return ""
+}
+
 // Cloud-init configuration for automated VM provisioning
 type CloudInitConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1737,7 +1748,10 @@ type DiskSpec struct {
 	IopsLimit      uint64 `protobuf:"varint,8,opt,name=iops_limit,json=iopsLimit,proto3" json:"iops_limit,omitempty"`
 	ThroughputMbps uint64 `protobuf:"varint,9,opt,name=throughput_mbps,json=throughputMbps,proto3" json:"throughput_mbps,omitempty"`
 	// Cloud image support
-	BackingFile   string `protobuf:"bytes,10,opt,name=backing_file,json=backingFile,proto3" json:"backing_file,omitempty"` // Path to backing image (e.g., cloud image)
+	BackingFile string `protobuf:"bytes,10,opt,name=backing_file,json=backingFile,proto3" json:"backing_file,omitempty"` // Path to backing image (e.g., cloud image)
+	// Storage pool to create disk in (required when path is empty)
+	// This should be a pool_id from ListStoragePools (e.g., "SSD-local01", "nfs-xxx")
+	PoolId        string `protobuf:"bytes,11,opt,name=pool_id,json=poolId,proto3" json:"pool_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1838,6 +1852,13 @@ func (x *DiskSpec) GetThroughputMbps() uint64 {
 func (x *DiskSpec) GetBackingFile() string {
 	if x != nil {
 		return x.BackingFile
+	}
+	return ""
+}
+
+func (x *DiskSpec) GetPoolId() string {
+	if x != nil {
+		return x.PoolId
 	}
 	return ""
 }
@@ -5998,7 +6019,7 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\x06labels\x18\x04 \x03(\v26.limiquantix.node.v1.CreateVMOnNodeRequest.LabelsEntryR\x06labels\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xdc\x04\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf7\x04\n" +
 	"\x06VMSpec\x12\x1b\n" +
 	"\tcpu_cores\x18\x01 \x01(\rR\bcpuCores\x12\x1f\n" +
 	"\vcpu_sockets\x18\x02 \x01(\rR\n" +
@@ -6016,13 +6037,14 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	" \x03(\v2\x1e.limiquantix.node.v1.CdromSpecR\x06cdroms\x12:\n" +
 	"\aconsole\x18\v \x01(\v2 .limiquantix.node.v1.ConsoleSpecR\aconsole\x12C\n" +
 	"\n" +
-	"cloud_init\x18\f \x01(\v2$.limiquantix.node.v1.CloudInitConfigR\tcloudInit\"\x93\x01\n" +
+	"cloud_init\x18\f \x01(\v2$.limiquantix.node.v1.CloudInitConfigR\tcloudInit\x12\x19\n" +
+	"\bguest_os\x18\r \x01(\tR\aguestOs\"\x93\x01\n" +
 	"\x0fCloudInitConfig\x12\x1b\n" +
 	"\tuser_data\x18\x01 \x01(\tR\buserData\x12\x1b\n" +
 	"\tmeta_data\x18\x02 \x01(\tR\bmetaData\x12%\n" +
 	"\x0enetwork_config\x18\x03 \x01(\tR\rnetworkConfig\x12\x1f\n" +
 	"\vvendor_data\x18\x04 \x01(\tR\n" +
-	"vendorData\"\xd5\x02\n" +
+	"vendorData\"\xee\x02\n" +
 	"\bDiskSpec\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x19\n" +
@@ -6035,7 +6057,8 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"iops_limit\x18\b \x01(\x04R\tiopsLimit\x12'\n" +
 	"\x0fthroughput_mbps\x18\t \x01(\x04R\x0ethroughputMbps\x12!\n" +
 	"\fbacking_file\x18\n" +
-	" \x01(\tR\vbackingFile\"\xc8\x01\n" +
+	" \x01(\tR\vbackingFile\x12\x17\n" +
+	"\apool_id\x18\v \x01(\tR\x06poolId\"\xc8\x01\n" +
 	"\aNicSpec\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vmac_address\x18\x02 \x01(\tR\n" +

@@ -514,6 +514,9 @@ struct CreateVmRequest {
     disks: Vec<DiskSpecRequest>,
     nics: Vec<NicSpecRequest>,
     cloud_init: Option<CloudInitRequest>,
+    /// Guest OS family - determines hardware configuration (timers, video, CPU mode)
+    /// Values: 'rhel', 'debian', 'fedora', 'windows_server', 'windows_desktop', etc.
+    guest_os: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -525,6 +528,8 @@ struct DiskSpecRequest {
     format: Option<String>,
     backing_file: Option<String>,
     bootable: Option<bool>,
+    /// Storage pool to create the disk in (e.g., "SSD-local01", "nfs-xxx")
+    pool_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -965,6 +970,7 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/vms/:vm_id/pause", post(pause_vm))
         .route("/vms/:vm_id/resume", post(resume_vm))
         .route("/vms/:vm_id/console", get(get_vm_console))
+        .route("/vms/:vm_id/logs", get(get_vm_logs))
         .route("/vms/:vm_id/snapshots", get(list_snapshots))
         .route("/vms/:vm_id/snapshots", post(create_snapshot))
         .route("/vms/:vm_id/snapshots/:snapshot_id", axum::routing::delete(delete_snapshot))
@@ -2874,6 +2880,153 @@ async fn get_vm_console(
     }
 }
 
+/// Response type for VM logs
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VmLogsResponse {
+    /// VM ID
+    vm_id: String,
+    /// VM name (for display)
+    vm_name: String,
+    /// QEMU log content (last N lines)
+    qemu_log: String,
+    /// Log file path
+    log_path: String,
+    /// Total log file size in bytes
+    log_size_bytes: u64,
+    /// Number of lines returned
+    lines_returned: usize,
+    /// Whether the log was truncated
+    truncated: bool,
+    /// Timestamp of last modification
+    last_modified: Option<String>,
+}
+
+/// GET /api/v1/vms/:vm_id/logs - Get VM QEMU logs for troubleshooting
+/// 
+/// Query parameters:
+/// - lines: Number of lines to return (default: 100, max: 1000)
+/// 
+/// Returns the QEMU log file content from /var/log/libvirt/qemu/{vm_name}.log
+async fn get_vm_logs(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<VmLogsResponse>, (StatusCode, Json<ApiError>)> {
+    use tokio::fs;
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    
+    // Get the VM to find its name by listing all VMs and finding by ID or name
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    // Find VM by ID or name
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    let vm_name = &vm.name;
+    let log_path = format!("/var/log/libvirt/qemu/{}.log", vm_name);
+    
+    // Parse lines parameter (default: 100, max: 1000)
+    let max_lines: usize = params
+        .get("lines")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(100)
+        .min(1000);
+    
+    // Check if log file exists
+    let metadata = match fs::metadata(&log_path).await {
+        Ok(m) => m,
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                return Ok(Json(VmLogsResponse {
+                    vm_id: vm_id.clone(),
+                    vm_name: vm_name.clone(),
+                    qemu_log: String::new(),
+                    log_path,
+                    log_size_bytes: 0,
+                    lines_returned: 0,
+                    truncated: false,
+                    last_modified: None,
+                }));
+            }
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("log_read_error", &format!("Failed to read log metadata: {}", e))),
+            ));
+        }
+    };
+    
+    let log_size_bytes = metadata.len();
+    let last_modified = metadata.modified().ok().map(|t| {
+        chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339()
+    });
+    
+    // Read the log file
+    let file = match fs::File::open(&log_path).await {
+        Ok(f) => f,
+        Err(e) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("log_read_error", &format!("Failed to open log file: {}", e))),
+            ));
+        }
+    };
+    
+    // Read all lines and keep the last N
+    let reader = BufReader::new(file);
+    let mut lines_iter = reader.lines();
+    let mut all_lines: Vec<String> = Vec::new();
+    
+    while let Ok(Some(line)) = lines_iter.next_line().await {
+        all_lines.push(line);
+    }
+    
+    let total_lines = all_lines.len();
+    let truncated = total_lines > max_lines;
+    
+    // Take the last N lines
+    let lines: Vec<String> = if truncated {
+        all_lines.into_iter().skip(total_lines - max_lines).collect()
+    } else {
+        all_lines
+    };
+    
+    let lines_returned = lines.len();
+    let qemu_log = lines.join("\n");
+    
+    info!(
+        vm_id = %vm_id,
+        vm_name = %vm_name,
+        log_path = %log_path,
+        log_size_bytes = log_size_bytes,
+        lines_returned = lines_returned,
+        truncated = truncated,
+        "Retrieved VM QEMU logs"
+    );
+    
+    Ok(Json(VmLogsResponse {
+        vm_id,
+        vm_name: vm_name.clone(),
+        qemu_log,
+        log_path,
+        log_size_bytes,
+        lines_returned,
+        truncated,
+        last_modified,
+    }))
+}
+
 /// POST /api/v1/vms - Create a new VM
 async fn create_vm(
     State(state): State<Arc<AppState>>,
@@ -2911,6 +3064,7 @@ async fn create_vm(
             iops_limit: 0,
             throughput_mbps: 0,
             backing_file: d.backing_file.clone().unwrap_or_default(),
+            pool_id: d.pool_id.clone().unwrap_or_default(),
         }
     }).collect();
     
@@ -2956,6 +3110,9 @@ async fn create_vm(
             cdroms: vec![],
             console: None,
             cloud_init,
+            // Guest OS profile - determines hardware configuration (timers, CPU mode, video)
+            // Values: "rhel", "debian", "fedora", "windows_server", etc.
+            guest_os: request.guest_os.unwrap_or_default(),
         }),
     };
     

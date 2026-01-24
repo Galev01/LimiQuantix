@@ -844,6 +844,7 @@ func (s *Service) UpdateHeartbeat(
 	}
 
 	// Get list of pools assigned to this node (for desired state response)
+	// Also detect pools that are assigned but not reported (deleted from node)
 	if s.storagePoolRepo != nil {
 		assignedPools, err := s.storagePoolRepo.ListAssignedToNode(ctx, node.ID)
 		if err != nil {
@@ -851,8 +852,51 @@ func (s *Service) UpdateHeartbeat(
 				zap.Error(err),
 			)
 		} else {
+			// Build a set of reported pool IDs for quick lookup
+			reportedPoolIDs := make(map[string]bool)
+			for _, poolReport := range req.Msg.StoragePools {
+				if poolReport.PoolId != "" {
+					reportedPoolIDs[poolReport.PoolId] = true
+				}
+			}
+
 			for _, pool := range assignedPools {
 				assignedPoolIDs = append(assignedPoolIDs, pool.ID)
+
+				// Check if this assigned pool was NOT reported by the node
+				// This means the pool was deleted/unmounted on the node
+				if !reportedPoolIDs[pool.ID] {
+					logger.Warn("Assigned pool not reported by node - may be unmounted or deleted",
+						zap.String("pool_id", pool.ID),
+						zap.String("pool_name", pool.Name),
+						zap.String("node_id", node.ID),
+					)
+
+					// Update the host status to show as unmounted
+					hostStatus := domain.PoolHostStatus{
+						NodeID:       node.ID,
+						Health:       domain.PoolHostHealthUnmounted,
+						MountPath:    "",
+						TotalBytes:   0,
+						UsedBytes:    0,
+						AvailBytes:   0,
+						VolumeCount:  0,
+						ErrorMessage: "Pool not reported by node - may need to be remounted",
+					}
+					pool.UpdateHostStatus(node.ID, hostStatus)
+
+					// Recalculate aggregate status
+					pool.Status.Capacity = pool.AggregateCapacity()
+					pool.Status.Phase = pool.DetermineOverallPhase()
+
+					// Persist the updated pool status
+					if err := s.storagePoolRepo.UpdateStatus(ctx, pool.ID, pool.Status); err != nil {
+						logger.Warn("Failed to update unmounted pool status",
+							zap.String("pool_id", pool.ID),
+							zap.Error(err),
+						)
+					}
+				}
 			}
 		}
 	}
@@ -861,6 +905,7 @@ func (s *Service) UpdateHeartbeat(
 		zap.Float64("cpu_usage", req.Msg.CpuUsagePercent),
 		zap.Uint64("memory_used_mib", req.Msg.MemoryUsedMib),
 		zap.Int("storage_pool_reports", len(req.Msg.StoragePools)),
+		zap.Int("assigned_pools", len(assignedPoolIDs)),
 	)
 
 	return connect.NewResponse(&computev1.UpdateHeartbeatResponse{

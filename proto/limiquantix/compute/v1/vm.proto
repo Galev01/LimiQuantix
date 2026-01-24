@@ -122,6 +122,87 @@ message VmSpec {
 
   // Template configuration (if this VM is a template)
   TemplateConfig template = 22;
+  
+  // Guest OS Profile - Determines hardware quirks, timer config, drivers, etc.
+  // Similar to VMware's Guest OS selection - affects virtual hardware behavior
+  GuestOSProfile guest_os = 23;
+}
+
+// =============================================================================
+// GUEST OS PROFILE - VMware-style OS-specific hardware configuration
+// =============================================================================
+
+// GuestOSProfile determines OS-specific virtual hardware settings.
+// Like VMware's guest OS selection, this affects timers, video, CPU features, etc.
+message GuestOSProfile {
+  // The OS family (required) - determines base hardware profile
+  GuestOSFamily family = 1;
+  
+  // Specific OS variant for fine-tuned settings (optional)
+  // e.g., "rocky-9", "ubuntu-22.04", "windows-11-22h2"
+  string variant = 2;
+  
+  // Override auto-detected settings (advanced users)
+  GuestOSOverrides overrides = 3;
+}
+
+// GuestOSFamily - Major OS categories with distinct hardware requirements
+enum GuestOSFamily {
+  GUEST_OS_FAMILY_UNSPECIFIED = 0;
+  
+  // Linux variants
+  GUEST_OS_FAMILY_RHEL = 1;        // RHEL, Rocky, AlmaLinux, CentOS (strict kernel)
+  GUEST_OS_FAMILY_DEBIAN = 2;      // Debian, Ubuntu, Mint
+  GUEST_OS_FAMILY_SUSE = 3;        // SLES, openSUSE
+  GUEST_OS_FAMILY_ARCH = 4;        // Arch, Manjaro
+  GUEST_OS_FAMILY_FEDORA = 5;      // Fedora (cutting-edge kernel)
+  GUEST_OS_FAMILY_GENERIC_LINUX = 6; // Other Linux
+  
+  // Windows variants
+  GUEST_OS_FAMILY_WINDOWS_SERVER = 10;  // Windows Server 2016/2019/2022
+  GUEST_OS_FAMILY_WINDOWS_DESKTOP = 11; // Windows 10/11
+  GUEST_OS_FAMILY_WINDOWS_LEGACY = 12;  // Windows 7/8/8.1
+  
+  // BSD variants
+  GUEST_OS_FAMILY_FREEBSD = 20;
+  GUEST_OS_FAMILY_OPENBSD = 21;
+  GUEST_OS_FAMILY_NETBSD = 22;
+  
+  // Other
+  GUEST_OS_FAMILY_MACOS = 30;      // macOS (requires Apple hardware)
+  GUEST_OS_FAMILY_SOLARIS = 31;
+  GUEST_OS_FAMILY_OTHER = 99;
+}
+
+// GuestOSOverrides - Manual overrides for OS-specific settings
+message GuestOSOverrides {
+  // Timer configuration
+  optional bool hpet_enabled = 1;           // HPET timer (default: varies by OS)
+  optional bool hyperv_timers = 2;          // Hyper-V enlightened timers (Windows)
+  optional bool kvmclock = 3;               // KVM paravirt clock (Linux)
+  
+  // CPU settings
+  optional string cpu_mode = 4;             // host-passthrough, host-model, custom
+  optional bool nested_virt = 5;            // Allow nested virtualization
+  
+  // Video settings  
+  optional string video_model = 6;          // vga, qxl, virtio, cirrus
+  optional uint32 video_vram_kb = 7;        // Video RAM in KB
+  
+  // Disk settings
+  optional string disk_bus = 8;             // virtio, sata, scsi, ide
+  optional string disk_cache = 9;           // none, writeback, writethrough
+  
+  // Network settings
+  optional string nic_model = 10;           // virtio, e1000, e1000e
+  
+  // Machine type
+  optional string machine_type = 11;        // q35, pc, etc.
+  
+  // Windows-specific
+  optional bool tpm_required = 12;          // TPM 2.0 (Windows 11)
+  optional bool secure_boot = 13;           // Secure Boot (Windows 11)
+  optional bool hyperv_features = 14;       // Hyper-V enlightenments
 }
 
 // =============================================================================

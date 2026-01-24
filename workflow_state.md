@@ -1,78 +1,183 @@
-# Workflow State - NFS Pool Name & Type Fix
+# Workflow State - VM State Reset Feature
 
-## Issues Fixed
+## Feature: Reset Stuck VM State
 
-### 1. Pool Type Showing as "Ceph RBD" Instead of "NFS"
+Added a new `reset_state` REST endpoint and UI buttons to recover VMs stuck in transitional states (STOPPING, STARTING, CREATING, etc.).
 
-**Root Cause:** The `backend.type` field from QvDC is sent as an integer (protobuf enum), but the node daemon was trying to match it as a string.
+### Problem Solved
 
-**Fix in `registration.rs`:**
-- Added handling for both string and integer enum values
-- Maps QvDC's `storage.proto` enum: `NFS=4`, `CEPH_RBD=0`, etc.
+When a VM operation fails mid-way (e.g., stop command times out, node becomes unreachable during operation), the VM can get stuck in a transitional state like `STOPPING`. In this state:
+- `CanStart()` returns false (only allows STOPPED or PAUSED)
+- `CanStop()` returns false (only allows RUNNING or PAUSED)
+- The VM is effectively orphaned and cannot be controlled
 
-**Fix in `http_server.rs`:**
-- Corrected `pool_type_to_string()` to match `node_daemon.proto` enum values
+### Implementation
 
-### 2. Pool Name Showing as UUID Instead of Friendly Name
+#### 1. VM Service Method (`backend/internal/services/vm/service.go`)
+- Added `ResetVMState(ctx, vmID, forceToStopped)` method
+- If `forceToStopped=false` and VM is assigned to a node:
+  - Queries the actual VM state from the hypervisor via `GetVMStatus`
+  - Maps the hypervisor state to domain state
+  - Updates control plane to match reality
+- If `forceToStopped=true` or node is unreachable:
+  - Forces state to STOPPED
+- Added `mapNodePowerStateToDomain()` helper to convert node daemon PowerState enum to domain VMState
 
-**Root Cause:** The pool name from QvDC wasn't being passed through to the Host UI.
+#### 2. REST Endpoint (`backend/internal/server/vm_rest.go`)
+- Added `POST /api/vms/{id}/reset_state` endpoint
+- Query parameter: `force=true` to force state to STOPPED without querying hypervisor
+- Returns updated VM state
 
-**Files Changed:**
+#### 3. Frontend API Client (`frontend/src/lib/api-client.ts`)
+- Added `vmApi.resetState(id, force)` method for REST API call
 
-1. **`limiquantix-hypervisor/src/storage/types.rs`**
-   - Added `name: Option<String>` to `PoolConfig`
-   - Added `name: Option<String>` to `PoolInfo`
+#### 4. Frontend Hook (`frontend/src/hooks/useVMs.ts`)
+- Added `useResetVMState()` hook with success/error handling
 
-2. **`limiquantix-hypervisor/src/storage/*.rs`** (nfs, local, ceph, iscsi)
-   - Updated `init_pool()` to include `config.name` in `PoolInfo`
-   - Updated `get_pool_info()` to set `name: None` (preserved via refresh)
+#### 5. Frontend UI (`frontend/src/pages/VMDetail.tsx`)
+- Added "Reset State" and "Force Reset State" options to the VM dropdown menu
+- "Reset State" queries the hypervisor for actual state
+- "Force Reset State" forces state to STOPPED (for when node is unreachable)
 
-3. **`limiquantix-hypervisor/src/storage/mod.rs`**
-   - Updated `refresh_pool_info()` to preserve the name from the original init
+#### 6. Fixed Rust Compilation Errors
+- Fixed `http_server.rs` and `service.rs` to use `list_vms()` instead of non-existent `get_vm()` method
+- Changed from `state.hypervisor` to `state.service.hypervisor` to access hypervisor through service
 
-4. **`limiquantix-node/src/registration.rs`**
-   - Extract `pool_name` from QvDC response
-   - Pass `name` in `PoolConfig` for all pool types
+### Files Changed
 
-5. **`limiquantix-node/src/http_server.rs`**
-   - Added `name` field to `StoragePoolResponse`
-   - Updated `list_storage_pools()` to get pools directly from storage manager
-   - Updated `get_storage_pool()` similarly
-
-6. **`quantix-host-ui/src/api/types.ts`**
-   - Added `name?: string` to `StoragePool` interface
-
-7. **`quantix-host-ui/src/pages/StoragePools.tsx`**
-   - Display `pool.name` if available, fallback to `pool.poolId`
-   - Show UUID below the name in smaller text
-
-## Deployment
-
-```bash
-./scripts/publish-update.sh
+```
+backend/internal/services/vm/service.go (MODIFIED)
+backend/internal/server/vm_rest.go (MODIFIED)
+frontend/src/lib/api-client.ts (MODIFIED)
+frontend/src/hooks/useVMs.ts (MODIFIED)
+frontend/src/pages/VMDetail.tsx (MODIFIED)
+agent/limiquantix-node/src/http_server.rs (MODIFIED - fixed compilation error)
+agent/limiquantix-node/src/service.rs (MODIFIED - fixed compilation error)
 ```
 
-Then on QHCI01:
+### Usage
+
+**From UI:**
+1. Go to VM detail page
+2. Click the "..." dropdown menu
+3. Select "Reset State" to query hypervisor for actual state
+4. Or select "Force Reset State" to force state to STOPPED
+
+**From CLI:**
 ```bash
-curl -k -X POST https://192.168.0.101:8443/api/v1/updates/apply
+# Query hypervisor for actual state (recommended)
+curl -X POST "http://192.168.0.100:8080/api/vms/{vm-id}/reset_state"
+
+# Force state to STOPPED (when node is unreachable)
+curl -X POST "http://192.168.0.100:8080/api/vms/{vm-id}/reset_state?force=true"
 ```
 
-## Testing
+### Response Example
+```json
+{
+  "success": true,
+  "message": "VM state reset to STOPPED",
+  "vm": {
+    "id": "vm-123",
+    "name": "Test-VM",
+    "state": "STOPPED",
+    "node_id": "node-1"
+  }
+}
+```
 
-After the update:
-1. **Unassign** the NFS pools from QHCI01 in QvDC
-2. **Re-assign** them to trigger fresh mount with correct type and name
-3. Check QHCI01 Host UI → Storage → Pools
-4. Verify:
-   - Pools show as "NFS" not "Ceph RBD"
-   - Pools show friendly names like "NFS01" instead of UUIDs
-   - Mount paths are correct: `/var/lib/limiquantix/mnt/nfs-{poolId}`
+---
 
-## Previous Fixes
+# Previous: VM QEMU Logs Feature
 
-### VNC Console Port (v0.0.81)
-- Fixed naive port parsing that returned wrong VM's port
+## Feature: VM Logs Tab
 
-### CD-ROM Boot Order (v0.0.80)
-- Added processing of CD-ROMs from `spec.cdroms` array
-- Boot order adjusted when bootable CD-ROM present
+Added a new "Logs" tab to the VM detail page in both QvDC and QHCI that displays QEMU/libvirt logs for troubleshooting VM issues.
+
+### Problem Solved
+
+When VMs fail to start or crash during operation, it's difficult to diagnose the issue without SSH access to the hypervisor host. Common issues like:
+- Disk I/O errors ("No space left on device")
+- CPU/memory configuration problems
+- Network issues
+- Boot failures
+
+Are all logged in `/var/log/libvirt/qemu/{vm_name}.log` but weren't accessible from the UI.
+
+### Implementation
+
+#### 1. Node Daemon HTTP API (`agent/limiquantix-node/src/http_server.rs`)
+- Added `GET /api/v1/vms/:vm_id/logs?lines=N` endpoint
+- Returns JSON with:
+  - `qemuLog`: Last N lines of the QEMU log
+  - `logPath`: Path to the log file
+  - `logSizeBytes`: Total file size
+  - `linesReturned`: Number of lines returned
+  - `truncated`: Whether the log was truncated
+  - `lastModified`: Timestamp of last modification
+
+#### 2. Node Daemon gRPC Service (`agent/limiquantix-node/src/service.rs`)
+- Added `GetVMLogs` gRPC method
+- Reads from `/var/log/libvirt/qemu/{vm_name}.log`
+
+#### 3. QvDC Backend Proxy (`backend/internal/server/vm_rest.go`)
+- Added `GET /api/vms/{id}/logs` endpoint
+- Proxies request to the node daemon where the VM is running
+- Looks up VM's node assignment and forwards request
+
+#### 4. QvDC Frontend (`frontend/src/components/vm/VMLogsPanel.tsx`)
+- New `VMLogsPanel` component with:
+  - Line count selector (50, 100, 200, 500, 1000)
+  - Auto-refresh toggle (5 second interval)
+  - Manual refresh button
+  - Copy to clipboard
+  - Download as file
+  - Error highlighting (red for errors, yellow for warnings)
+  - Help text showing common issues to look for
+
+#### 5. QvDC VM Detail Page (`frontend/src/pages/VMDetail.tsx`)
+- Added "Logs" tab between "Monitoring" and "Events"
+- Displays `VMLogsPanel` component
+
+#### 6. QHCI Frontend (`quantix-host-ui/src/components/vm/VMLogsPanel.tsx`)
+- Same component adapted for QHCI (direct node daemon access)
+
+#### 7. QHCI VM Detail Page (`quantix-host-ui/src/pages/VMDetail.tsx`)
+- Added "Logs" tab to the tab list
+- Added `FileText` icon import
+
+### Files Changed
+
+```
+frontend/src/components/vm/VMLogsPanel.tsx (NEW)
+frontend/src/pages/VMDetail.tsx (MODIFIED)
+quantix-host-ui/src/components/vm/VMLogsPanel.tsx (NEW)
+quantix-host-ui/src/pages/VMDetail.tsx (MODIFIED)
+backend/internal/server/vm_rest.go (MODIFIED)
+backend/internal/server/server.go (MODIFIED)
+agent/limiquantix-node/src/http_server.rs (MODIFIED - previous session)
+agent/limiquantix-node/src/service.rs (MODIFIED - previous session)
+agent/limiquantix-proto/proto/node_daemon.proto (MODIFIED - previous session)
+```
+
+### Usage
+
+1. Navigate to a VM's detail page
+2. Click the "Logs" tab
+3. Select number of lines to display (default: 100)
+4. Enable auto-refresh if monitoring a running VM
+5. Look for highlighted errors (red) and warnings (yellow)
+6. Copy or download logs for sharing
+
+### Common Issues Highlighted
+
+- **IO error** - Disk space full or storage issues
+- **terminating on signal** - VM was force-stopped
+- **permission denied** - File/device access issues
+- **timeout** - Network or storage latency
+
+---
+
+## Previous Workflow States
+
+(Moved to completed_workflow.md)

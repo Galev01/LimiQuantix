@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
+import { getConsoleInfo } from './lib/tauri-api';
 import { VMSidebar, SavedConnection } from './components/VMSidebar';
 import { ConsoleTabs, TabConnection } from './components/ConsoleTabs';
 import { ConsoleTabPane } from './components/ConsoleTabPane';
 import { Settings } from './components/Settings';
+import { DebugPanel } from './components/DebugPanel';
 import { Monitor } from 'lucide-react';
 
 interface PendingConnection {
@@ -15,18 +17,19 @@ interface PendingConnection {
 function App() {
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  
+
   // Tab state
   const [tabs, setTabs] = useState<TabConnection[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  
+
   // Loading states
   const [isAutoConnecting, setIsAutoConnecting] = useState(false);
   const [connectingVmId, setConnectingVmId] = useState<string | null>(null);
-  
+
   // Settings modal
   const [showSettings, setShowSettings] = useState(false);
-  
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+
   // Deep link check
   const hasCheckedPending = useRef(false);
 
@@ -37,14 +40,14 @@ function App() {
 
     const checkPendingConnection = async () => {
       console.log('[QvMC] Checking for pending connection...');
-      
+
       try {
         const pending = await invoke<PendingConnection | null>('get_pending_connection');
-        
+
         if (pending) {
           console.log('[QvMC] Found pending connection:', pending);
           setIsAutoConnecting(true);
-          
+
           try {
             // Save connection to config
             console.log('[QvMC] Saving connection...');
@@ -53,17 +56,21 @@ function App() {
               vmId: pending.vm_id,
               vmName: pending.vm_name,
             });
-            
+
+            // Fetch console info (including password)
+            console.log('[QvMC] Fetching console info...');
+            const consoleInfo = await getConsoleInfo(pending.control_plane_url, pending.vm_id);
+
             // Start VNC connection
             console.log('[QvMC] Starting VNC connection...');
             const vncConnectionId = await invoke<string>('connect_vnc', {
               controlPlaneUrl: pending.control_plane_url,
               vmId: pending.vm_id,
-              password: null,
+              password: consoleInfo.password || null,
             });
-            
+
             console.log('[QvMC] VNC connected:', vncConnectionId);
-            
+
             // Create new tab
             const newTab: TabConnection = {
               id: crypto.randomUUID(),
@@ -73,7 +80,7 @@ function App() {
               controlPlaneUrl: pending.control_plane_url,
               status: 'connecting',
             };
-            
+
             setTabs([newTab]);
             setActiveTabId(newTab.id);
           } catch (err) {
@@ -88,7 +95,7 @@ function App() {
         console.error('[QvMC] Failed to check pending connection:', err);
       }
     };
-    
+
     setTimeout(checkPendingConnection, 100);
   }, []);
 
@@ -100,17 +107,20 @@ function App() {
       setActiveTabId(existingTab.id);
       return;
     }
-    
+
     // Start connecting
     setConnectingVmId(connection.vm_id);
-    
+
     try {
+      // Fetch console info (including password)
+      const consoleInfo = await getConsoleInfo(connection.control_plane_url, connection.vm_id);
+
       const vncConnectionId = await invoke<string>('connect_vnc', {
         controlPlaneUrl: connection.control_plane_url,
         vmId: connection.vm_id,
-        password: null,
+        password: consoleInfo.password || null,
       });
-      
+
       // Create new tab
       const newTab: TabConnection = {
         id: crypto.randomUUID(),
@@ -120,7 +130,7 @@ function App() {
         controlPlaneUrl: connection.control_plane_url,
         status: 'connecting',
       };
-      
+
       setTabs(prev => [...prev, newTab]);
       setActiveTabId(newTab.id);
     } catch (err) {
@@ -145,17 +155,17 @@ function App() {
         console.error('Disconnect error:', err);
       }
     }
-    
+
     setTabs(prev => {
       const newTabs = prev.filter(t => t.id !== tabId);
-      
+
       // If we closed the active tab, switch to another
       if (activeTabId === tabId && newTabs.length > 0) {
         setActiveTabId(newTabs[newTabs.length - 1].id);
       } else if (newTabs.length === 0) {
         setActiveTabId(null);
       }
-      
+
       return newTabs;
     });
   }, [tabs, activeTabId]);
@@ -169,7 +179,7 @@ function App() {
 
   // Handle tab status change
   const handleTabStatusChange = useCallback((tabId: string, status: 'connecting' | 'connected' | 'disconnected') => {
-    setTabs(prev => prev.map(t => 
+    setTabs(prev => prev.map(t =>
       t.id === tabId ? { ...t, status } : t
     ));
   }, []);
@@ -247,10 +257,19 @@ function App() {
       {showSettings && (
         <div className="modal-overlay" onClick={() => setShowSettings(false)}>
           <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-            <Settings onClose={() => setShowSettings(false)} />
+            <Settings
+              onClose={() => setShowSettings(false)}
+              onOpenDebugLogs={() => {
+                setShowSettings(false);
+                setShowDebugPanel(true);
+              }}
+            />
           </div>
         </div>
       )}
+
+      {/* Global Debug Panel */}
+      <DebugPanel isOpen={showDebugPanel} onClose={() => setShowDebugPanel(false)} />
     </div>
   );
 }

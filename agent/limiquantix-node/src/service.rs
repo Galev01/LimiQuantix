@@ -33,6 +33,8 @@ use limiquantix_proto::{
     CreateSnapshotRequest, SnapshotResponse, RevertSnapshotRequest,
     DeleteSnapshotRequest, ListSnapshotsResponse, StreamMetricsRequest,
     NodeMetrics, NodeEvent, PowerState,
+    // VM logs for troubleshooting
+    GetVmLogsRequest, GetVmLogsResponse,
     // Guest agent types (exposed via node daemon service)
     AgentPingResponse, ExecuteInGuestRequest, ExecuteInGuestResponse,
     ReadGuestFileRequest, ReadGuestFileResponse, WriteGuestFileRequest,
@@ -176,6 +178,14 @@ impl NodeDaemonServiceImpl {
     }
     
     /// Detect and register NFS mounts as storage pools.
+    /// 
+    /// This method handles two types of NFS mounts:
+    /// 1. QvDC-assigned pools: Mounted at /var/lib/limiquantix/mnt/nfs-{UUID}
+    ///    - Pool ID is the UUID from the mount path
+    ///    - These are managed by QvDC and synced via heartbeat
+    /// 2. Manually mounted NFS shares: Mounted elsewhere
+    ///    - Pool ID is generated from the mount path
+    ///    - These are local-only and not synced to QvDC
     async fn detect_nfs_mounts(&self) -> anyhow::Result<()> {
         use tokio::fs;
         
@@ -187,6 +197,9 @@ impl NodeDaemonServiceImpl {
                 return Ok(());
             }
         };
+        
+        // QvDC mount path pattern: /var/lib/limiquantix/mnt/nfs-{UUID}
+        let qvdc_mount_prefix = "/var/lib/limiquantix/mnt/nfs-";
         
         for line in content.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -201,13 +214,43 @@ impl NodeDaemonServiceImpl {
                     continue; // Invalid NFS mount format
                 };
                 
-                // Generate a pool ID from the mount point
-                let pool_id = format!("nfs-{}", mount_point.replace('/', "-").trim_matches('-'));
+                // Determine pool ID based on mount path
+                let pool_id = if mount_point.starts_with(qvdc_mount_prefix) {
+                    // QvDC-assigned pool: Extract UUID from mount path
+                    // Mount path format: /var/lib/limiquantix/mnt/nfs-{UUID}
+                    let uuid_part = &mount_point[qvdc_mount_prefix.len()..];
+                    
+                    // Validate it looks like a UUID (8-4-4-4-12 format)
+                    if uuid_part.len() == 36 && uuid_part.chars().filter(|c| *c == '-').count() == 4 {
+                        tracing::info!(
+                            pool_id = %uuid_part,
+                            mount_point = %mount_point,
+                            "Found QvDC-assigned NFS pool mount"
+                        );
+                        uuid_part.to_string()
+                    } else {
+                        // Not a valid UUID, use path-based ID
+                        format!("nfs-{}", mount_point.replace('/', "-").trim_matches('-'))
+                    }
+                } else {
+                    // Manually mounted NFS share: Generate path-based ID
+                    format!("nfs-{}", mount_point.replace('/', "-").trim_matches('-'))
+                };
                 
                 // Check if pool already exists
                 let pools = self.storage.list_pools().await;
                 if pools.iter().any(|p| p.pool_id == pool_id) {
                     tracing::debug!(pool_id = %pool_id, "NFS pool already registered");
+                    continue;
+                }
+                
+                // Also check if any existing pool has the same mount point
+                // (prevents duplicate registration with different IDs)
+                if pools.iter().any(|p| p.mount_path.as_ref() == Some(&mount_point.to_string())) {
+                    tracing::debug!(
+                        mount_point = %mount_point,
+                        "NFS mount already registered under different pool ID"
+                    );
                     continue;
                 }
                 
@@ -220,7 +263,9 @@ impl NodeDaemonServiceImpl {
                 );
                 
                 // Create pool config
+                // Note: Auto-discovered pools don't have a friendly name until synced from QvDC
                 let config = limiquantix_hypervisor::storage::PoolConfig {
+                    name: None, // Will be set when synced from QvDC
                     nfs: Some(limiquantix_hypervisor::storage::NfsConfig {
                         server,
                         export_path,
@@ -548,6 +593,16 @@ impl NodeDaemonServiceImpl {
     /// Get current telemetry data
     pub fn get_telemetry(&self) -> limiquantix_telemetry::NodeTelemetry {
         self.telemetry.collect()
+    }
+    
+    // =========================================================================
+    // Hypervisor Access
+    // =========================================================================
+    
+    /// Get a reference to the hypervisor backend.
+    /// Used by HTTP handlers that need direct hypervisor access.
+    pub fn hypervisor(&self) -> &Arc<dyn Hypervisor> {
+        &self.hypervisor
     }
     
     // =========================================================================
@@ -903,6 +958,25 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         let mut config = VmConfig::new(&req.name)
             .with_id(&vm_uuid);
         
+        // Set Guest OS family - this affects hardware configuration (timers, CPU mode, video)
+        // Must be set BEFORE other settings as it determines the base hardware profile
+        if !spec.guest_os.is_empty() {
+            use limiquantix_hypervisor::guest_os::GuestOSFamily;
+            config.guest_os = match spec.guest_os.as_str() {
+                "rhel" => GuestOSFamily::Rhel,
+                "debian" => GuestOSFamily::Debian,
+                "fedora" => GuestOSFamily::Fedora,
+                "suse" => GuestOSFamily::Suse,
+                "arch" => GuestOSFamily::Arch,
+                "windows_server" => GuestOSFamily::WindowsServer,
+                "windows_desktop" => GuestOSFamily::WindowsDesktop,
+                "windows_legacy" => GuestOSFamily::WindowsLegacy,
+                "freebsd" => GuestOSFamily::FreeBsd,
+                "generic_linux" | _ => GuestOSFamily::GenericLinux,
+            };
+            info!(guest_os = %spec.guest_os, "Applied Guest OS profile");
+        }
+        
         // Set CPU configuration from spec
         config.cpu.cores = spec.cpu_cores;
         config.cpu.sockets = if spec.cpu_sockets > 0 { spec.cpu_sockets } else { 1 };
@@ -971,10 +1045,57 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             );
             
             if needs_disk_creation {
-                // Create disk image in default VM storage path
-                let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(&vm_uuid);
+                // Determine storage path - use pool_id if specified, otherwise fall back to default
+                let base_path = if !disk_spec.pool_id.is_empty() {
+                    // Look up the storage pool to get its mount path
+                    let pools = self.storage.list_pools().await;
+                    let pool = pools.iter().find(|p| p.pool_id == disk_spec.pool_id);
+                    
+                    if let Some(pool_info) = pool {
+                        if let Some(mount_path) = &pool_info.mount_path {
+                            info!(
+                                vm_id = %vm_uuid,
+                                pool_id = %disk_spec.pool_id,
+                                mount_path = %mount_path,
+                                "Using storage pool for disk creation"
+                            );
+                            std::path::PathBuf::from(mount_path)
+                        } else {
+                            error!(
+                                vm_id = %vm_uuid,
+                                pool_id = %disk_spec.pool_id,
+                                "Storage pool has no mount path"
+                            );
+                            return Err(Status::failed_precondition(format!(
+                                "Storage pool '{}' has no mount path configured",
+                                disk_spec.pool_id
+                            )));
+                        }
+                    } else {
+                        error!(
+                            vm_id = %vm_uuid,
+                            pool_id = %disk_spec.pool_id,
+                            "Storage pool not found"
+                        );
+                        return Err(Status::not_found(format!(
+                            "Storage pool '{}' not found. Available pools: {:?}",
+                            disk_spec.pool_id,
+                            pools.iter().map(|p| &p.pool_id).collect::<Vec<_>>()
+                        )));
+                    }
+                } else {
+                    // Fall back to default path (should ideally require pool_id)
+                    warn!(
+                        vm_id = %vm_uuid,
+                        "No storage pool specified for disk, using default path /data/limiquantix/vms"
+                    );
+                    std::path::PathBuf::from("/data/limiquantix/vms")
+                };
+                
+                // Create VM directory within the storage path
+                let vm_dir = base_path.join("vms").join(&vm_uuid);
                 if let Err(e) = std::fs::create_dir_all(&vm_dir) {
-                    error!(vm_id = %vm_uuid, error = %e, "Failed to create VM directory");
+                    error!(vm_id = %vm_uuid, error = %e, path = ?vm_dir, "Failed to create VM directory");
                     return Err(Status::internal(format!("Failed to create VM directory: {}", e)));
                 }
                 
@@ -1436,6 +1557,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 iops_limit: 0,
                 throughput_mbps: 0,
                 backing_file: d.backing_file.unwrap_or_default(),
+                pool_id: String::new(), // Pool ID not tracked for existing VMs
             }).collect(),
         }))
     }
@@ -1496,6 +1618,102 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             port: console.port as u32,
             password: console.password.unwrap_or_default(),
             websocket_path: console.websocket_path.unwrap_or_default(),
+        }))
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn get_vm_logs(
+        &self,
+        request: Request<GetVmLogsRequest>,
+    ) -> Result<Response<GetVmLogsResponse>, Status> {
+        use tokio::fs;
+        use tokio::io::{AsyncBufReadExt, BufReader};
+        
+        let req = request.into_inner();
+        let vm_id = &req.vm_id;
+        let max_lines = if req.lines == 0 { 100 } else { req.lines.min(1000) } as usize;
+        
+        // Get the VM to find its name by listing all VMs and finding by ID or name
+        let vms = self.hypervisor.list_vms().await
+            .map_err(|e| Status::internal(format!("Failed to list VMs: {}", e)))?;
+        
+        let vm = vms.iter()
+            .find(|v| v.id == *vm_id || v.name == *vm_id)
+            .ok_or_else(|| Status::not_found(format!("VM not found: {}", vm_id)))?;
+        
+        let vm_name = &vm.name;
+        let log_path = format!("/var/log/libvirt/qemu/{}.log", vm_name);
+        
+        // Check if log file exists
+        let metadata = match fs::metadata(&log_path).await {
+            Ok(m) => m,
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    return Ok(Response::new(GetVmLogsResponse {
+                        vm_id: vm_id.clone(),
+                        vm_name: vm_name.clone(),
+                        qemu_log: String::new(),
+                        log_path,
+                        log_size_bytes: 0,
+                        lines_returned: 0,
+                        truncated: false,
+                        last_modified: String::new(),
+                    }));
+                }
+                return Err(Status::internal(format!("Failed to read log metadata: {}", e)));
+            }
+        };
+        
+        let log_size_bytes = metadata.len();
+        let last_modified = metadata.modified().ok().map(|t| {
+            chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339()
+        }).unwrap_or_default();
+        
+        // Read the log file
+        let file = fs::File::open(&log_path).await
+            .map_err(|e| Status::internal(format!("Failed to open log file: {}", e)))?;
+        
+        // Read all lines and keep the last N
+        let reader = BufReader::new(file);
+        let mut lines_iter = reader.lines();
+        let mut all_lines: Vec<String> = Vec::new();
+        
+        while let Ok(Some(line)) = lines_iter.next_line().await {
+            all_lines.push(line);
+        }
+        
+        let total_lines = all_lines.len();
+        let truncated = total_lines > max_lines;
+        
+        // Take the last N lines
+        let lines: Vec<String> = if truncated {
+            all_lines.into_iter().skip(total_lines - max_lines).collect()
+        } else {
+            all_lines
+        };
+        
+        let lines_returned = lines.len() as u32;
+        let qemu_log = lines.join("\n");
+        
+        info!(
+            vm_id = %vm_id,
+            vm_name = %vm_name,
+            log_path = %log_path,
+            log_size_bytes = log_size_bytes,
+            lines_returned = lines_returned,
+            truncated = truncated,
+            "Retrieved VM QEMU logs via gRPC"
+        );
+        
+        Ok(Response::new(GetVmLogsResponse {
+            vm_id: vm_id.clone(),
+            vm_name: vm_name.clone(),
+            qemu_log,
+            log_path,
+            log_size_bytes,
+            lines_returned,
+            truncated,
+            last_modified,
         }))
     }
     
@@ -2118,9 +2336,29 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         let req = request.into_inner();
         info!(pool_id = %req.pool_id, path = %req.path, "Listing storage pool files");
         
+        // Log available pools for debugging
+        let available_pools = self.storage.list_pools().await;
+        debug!(
+            pool_id = %req.pool_id,
+            available_pool_count = available_pools.len(),
+            available_pools = ?available_pools.iter().map(|p| (&p.pool_id, &p.mount_path)).collect::<Vec<_>>(),
+            "Checking for pool in cache"
+        );
+        
         // Get the pool to find its mount path (with fallback to discovery)
         let pool = self.storage.get_pool_info_or_discover(&req.pool_id).await
-            .map_err(|e| Status::not_found(format!("Pool not found: {}. Error: {}", req.pool_id, e)))?;
+            .map_err(|e| {
+                warn!(
+                    pool_id = %req.pool_id,
+                    error = %e,
+                    available_pools = ?available_pools.iter().map(|p| &p.pool_id).collect::<Vec<_>>(),
+                    "Pool not found in cache or discovery. Available pools listed above."
+                );
+                Status::not_found(format!(
+                    "Pool '{}' not found. Error: {}. The pool may need to be synced from the control plane. Available pools: {:?}",
+                    req.pool_id, e, available_pools.iter().map(|p| &p.pool_id).collect::<Vec<_>>()
+                ))
+            })?;
         
         let mount_path = pool.mount_path
             .ok_or_else(|| Status::failed_precondition(format!(

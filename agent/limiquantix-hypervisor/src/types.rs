@@ -3,6 +3,8 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::guest_os::GuestOSFamily;
+
 // =============================================================================
 // VM CONFIGURATION
 // =============================================================================
@@ -28,6 +30,10 @@ pub struct VmConfig {
     pub boot: BootConfig,
     /// Console configuration
     pub console: ConsoleConfig,
+    /// Guest OS family - determines hardware quirks, timers, drivers, etc.
+    /// Similar to VMware's Guest OS selection.
+    #[serde(default)]
+    pub guest_os: GuestOSFamily,
 }
 
 impl VmConfig {
@@ -43,7 +49,14 @@ impl VmConfig {
             cdroms: Vec::new(),
             boot: BootConfig::default(),
             console: ConsoleConfig::default(),
+            guest_os: GuestOSFamily::default(),
         }
+    }
+    
+    /// Set the Guest OS family for hardware profile selection.
+    pub fn with_guest_os(mut self, guest_os: GuestOSFamily) -> Self {
+        self.guest_os = guest_os;
+        self
     }
     
     /// Set the VM ID.

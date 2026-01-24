@@ -13,7 +13,7 @@ use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, info, warn};
 
 /// RFB protocol errors
 #[derive(Error, Debug)]
@@ -264,7 +264,24 @@ impl RFBClient {
     pub async fn connect_websocket(ws_url: &str) -> Result<Self, RFBError> {
         info!("Connecting to VNC via WebSocket proxy: {}", ws_url);
         
-        let (ws_stream, _response) = connect_async(ws_url)
+        // Create a custom TLS connector that accepts invalid certificates (for self-signed certs)
+        use tokio_tungstenite::Connector;
+        
+        // Build native-tls config that accepts any certificate
+        let tls_connector = native_tls::TlsConnector::builder()
+            .danger_accept_invalid_certs(true)
+            .danger_accept_invalid_hostnames(true)
+            .build()
+            .map_err(|e| RFBError::Protocol(format!("Failed to build TLS connector: {}", e)))?;
+        
+        let connector = Connector::NativeTls(tls_connector);
+        
+        let (ws_stream, _response) = tokio_tungstenite::connect_async_tls_with_config(
+            ws_url,
+            None,
+            false,
+            Some(connector),
+        )
             .await
             .map_err(|e| RFBError::Protocol(format!("WebSocket connection failed: {}", e)))?;
         

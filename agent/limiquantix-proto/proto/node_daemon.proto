@@ -67,6 +67,9 @@ service NodeDaemonService {
   // Get console connection information (VNC/SPICE)
   rpc GetConsole(VMIdRequest) returns (ConsoleInfoResponse);
   
+  // Get VM QEMU logs for troubleshooting
+  rpc GetVMLogs(GetVMLogsRequest) returns (GetVMLogsResponse);
+  
   // =========================================================================
   // Snapshots
   // =========================================================================
@@ -256,6 +259,11 @@ message VMSpec {
   
   // Cloud-init / provisioning configuration
   CloudInitConfig cloud_init = 12;
+  
+  // Guest OS family - determines hardware configuration (timers, video, CPU mode).
+  // This is similar to VMware's Guest OS selection - affects virtual hardware behavior.
+  // Values: "rhel", "debian", "fedora", "windows_server", "windows_desktop", "generic_linux", etc.
+  string guest_os = 13;
 }
 
 // Cloud-init configuration for automated VM provisioning
@@ -302,6 +310,10 @@ message DiskSpec {
   // Cloud image support
   string backing_file = 10;     // Path to backing image (e.g., cloud image)
                                 // If set, creates a copy-on-write overlay
+  
+  // Storage pool to create disk in (required when path is empty)
+  // This should be a pool_id from ListStoragePools (e.g., "SSD-local01", "nfs-xxx")
+  string pool_id = 11;
 }
 
 enum DiskBus {
@@ -475,6 +487,30 @@ message ConsoleInfoResponse {
   uint32 port = 3;
   string password = 4;          // VNC password if set
   string websocket_path = 5;    // For noVNC
+}
+
+// VM Logs - for troubleshooting QEMU/libvirt issues
+message GetVMLogsRequest {
+  string vm_id = 1;
+  // Number of lines to return (default: 100, max: 1000)
+  uint32 lines = 2;
+}
+
+message GetVMLogsResponse {
+  string vm_id = 1;
+  string vm_name = 2;
+  // QEMU log content (last N lines from /var/log/libvirt/qemu/{vm_name}.log)
+  string qemu_log = 3;
+  // Log file path
+  string log_path = 4;
+  // Total log file size in bytes
+  uint64 log_size_bytes = 5;
+  // Number of lines returned
+  uint32 lines_returned = 6;
+  // Whether the log was truncated
+  bool truncated = 7;
+  // Timestamp of last modification (ISO 8601)
+  string last_modified = 8;
 }
 
 // Snapshots

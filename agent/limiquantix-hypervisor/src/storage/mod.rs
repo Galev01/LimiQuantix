@@ -318,17 +318,29 @@ impl StorageManager {
         pools.insert(pool_info.pool_id.clone(), pool_info);
     }
     
+    /// Update the friendly name of a pool.
+    /// 
+    /// This is used to set the QvDC-assigned name for pools that were
+    /// discovered from existing mounts.
+    pub async fn update_pool_name(&self, pool_id: &str, name: Option<String>) {
+        let mut pools = self.pools.write().await;
+        if let Some(pool) = pools.get_mut(pool_id) {
+            pool.name = name;
+        }
+    }
+    
     /// Try to discover a pool by checking if its mount path exists.
     /// 
     /// This is useful when a pool is not in cache but might be mounted.
     /// Returns None if the pool cannot be discovered.
     pub async fn try_discover_pool(&self, pool_id: &str) -> Option<PoolInfo> {
         // Check common mount paths for NFS and local pools
-        let nfs_mount_base = "/var/lib/limiquantix/pools";
+        // NFS uses pattern: /var/lib/limiquantix/mnt/nfs-{poolId}
+        let nfs_mount_base = "/var/lib/limiquantix/mnt";
         let local_base = "/var/lib/limiquantix/local";
         
-        // Check NFS mount path
-        let nfs_path = format!("{}/{}", nfs_mount_base, pool_id);
+        // Check NFS mount path (new pattern: nfs-{poolId})
+        let nfs_path = format!("{}/nfs-{}", nfs_mount_base, pool_id);
         if let Some(pool_info) = self.try_discover_at_path(pool_id, &nfs_path, PoolType::Nfs).await {
             // Register and return
             self.register_pool(pool_info.clone()).await;

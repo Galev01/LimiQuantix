@@ -87,6 +87,71 @@ interface CloudInitConfig {
   customUserData: string;
 }
 
+// Guest OS Family - affects timer, video, CPU, and driver configuration
+// This is the VMware-style "Guest OS" selection that determines hardware quirks
+type GuestOSFamily = 
+  | 'rhel'           // RHEL, Rocky, AlmaLinux, CentOS (strict kernel - HPET disabled)
+  | 'debian'         // Debian, Ubuntu, Mint (flexible)
+  | 'fedora'         // Fedora (RHEL upstream)
+  | 'suse'           // SLES, openSUSE
+  | 'arch'           // Arch, Manjaro
+  | 'generic_linux'  // Other Linux
+  | 'windows_server' // Windows Server 2016/2019/2022
+  | 'windows_desktop'// Windows 10/11 (requires TPM + SecureBoot)
+  | 'windows_legacy' // Windows 7/8/8.1
+  | 'freebsd'
+  | 'other';
+
+// Guest OS options for the dropdown
+const GUEST_OS_OPTIONS: Array<{ value: GuestOSFamily; label: string; description: string }> = [
+  { value: 'rhel', label: 'RHEL / Rocky / AlmaLinux / CentOS', description: 'Red Hat Enterprise Linux family' },
+  { value: 'debian', label: 'Debian / Ubuntu / Mint', description: 'Debian-based distributions' },
+  { value: 'fedora', label: 'Fedora', description: 'Fedora Linux' },
+  { value: 'suse', label: 'SUSE / openSUSE', description: 'SUSE Linux Enterprise' },
+  { value: 'arch', label: 'Arch / Manjaro', description: 'Arch Linux family' },
+  { value: 'generic_linux', label: 'Other Linux', description: 'Generic Linux distribution' },
+  { value: 'windows_server', label: 'Windows Server', description: 'Windows Server 2016/2019/2022' },
+  { value: 'windows_desktop', label: 'Windows 10/11', description: 'Windows Desktop (requires TPM)' },
+  { value: 'windows_legacy', label: 'Windows 7/8', description: 'Legacy Windows' },
+  { value: 'freebsd', label: 'FreeBSD', description: 'FreeBSD operating system' },
+  { value: 'other', label: 'Other', description: 'Unknown or custom OS' },
+];
+
+// Auto-detect guest OS family from image name/path
+function detectGuestOS(imageName: string, imagePath?: string): GuestOSFamily {
+  const name = (imageName + ' ' + (imagePath || '')).toLowerCase();
+  
+  if (name.includes('rocky') || name.includes('rhel') || name.includes('centos') || name.includes('almalinux') || name.includes('oracle')) {
+    return 'rhel';
+  }
+  if (name.includes('ubuntu') || name.includes('debian') || name.includes('mint')) {
+    return 'debian';
+  }
+  if (name.includes('fedora')) {
+    return 'fedora';
+  }
+  if (name.includes('suse') || name.includes('opensuse') || name.includes('sles')) {
+    return 'suse';
+  }
+  if (name.includes('arch') || name.includes('manjaro')) {
+    return 'arch';
+  }
+  if (name.includes('windows server') || name.includes('winserver')) {
+    return 'windows_server';
+  }
+  if (name.includes('windows 11') || name.includes('windows 10') || name.includes('win11') || name.includes('win10')) {
+    return 'windows_desktop';
+  }
+  if (name.includes('windows 7') || name.includes('windows 8') || name.includes('win7') || name.includes('win8')) {
+    return 'windows_legacy';
+  }
+  if (name.includes('freebsd')) {
+    return 'freebsd';
+  }
+  
+  return 'generic_linux';
+}
+
 interface VMCreationData {
   // Basic Info
   name: string;
@@ -102,6 +167,9 @@ interface VMCreationData {
   bootMediaType: 'cloud-image' | 'iso' | 'none';
   cloudImageId: string;
   isoId: string;
+  
+  // Guest OS Profile - determines hardware quirks (timers, video, drivers)
+  guestOS: GuestOSFamily;
   
   // Storage
   storagePoolId: string;
@@ -142,6 +210,7 @@ const initialFormData: VMCreationData = {
   bootMediaType: 'cloud-image',
   cloudImageId: '',
   isoId: '',
+  guestOS: 'generic_linux', // Default to generic Linux
   storagePoolId: '',
   disks: [{ id: 'disk-1', name: 'Hard disk 1', sizeGib: 50, provisioning: 'thin', sourceType: 'new' }],
   installAgent: true,
@@ -158,12 +227,16 @@ const initialFormData: VMCreationData = {
   notes: '',
 };
 
-// ISO catalog for fallback
-const ISO_CATALOG = [
-  { id: 'ubuntu-22.04-iso', name: 'Ubuntu 22.04 Server', description: 'Ubuntu 22.04 LTS Server ISO', sizeBytes: 1.4 * 1024 * 1024 * 1024 },
-  { id: 'ubuntu-24.04-iso', name: 'Ubuntu 24.04 Server', description: 'Ubuntu 24.04 LTS Server ISO', sizeBytes: 2.6 * 1024 * 1024 * 1024 },
-  { id: 'debian-12-iso', name: 'Debian 12 Netinst', description: 'Debian 12 Network Install ISO', sizeBytes: 600 * 1024 * 1024 },
-  { id: 'rocky-9-iso', name: 'Rocky Linux 9 DVD', description: 'Rocky Linux 9 Full DVD ISO', sizeBytes: 10 * 1024 * 1024 * 1024 },
+// ISO catalog for fallback - includes guestOS for auto-detection
+const ISO_CATALOG: Array<{ id: string; name: string; description: string; sizeBytes: number; guestOS: GuestOSFamily }> = [
+  { id: 'ubuntu-22.04-iso', name: 'Ubuntu 22.04 Server', description: 'Ubuntu 22.04 LTS Server ISO', sizeBytes: 1.4 * 1024 * 1024 * 1024, guestOS: 'debian' },
+  { id: 'ubuntu-24.04-iso', name: 'Ubuntu 24.04 Server', description: 'Ubuntu 24.04 LTS Server ISO', sizeBytes: 2.6 * 1024 * 1024 * 1024, guestOS: 'debian' },
+  { id: 'debian-12-iso', name: 'Debian 12 Netinst', description: 'Debian 12 Network Install ISO', sizeBytes: 600 * 1024 * 1024, guestOS: 'debian' },
+  { id: 'rocky-9-iso', name: 'Rocky Linux 9 DVD', description: 'Rocky Linux 9 Full DVD ISO', sizeBytes: 10 * 1024 * 1024 * 1024, guestOS: 'rhel' },
+  { id: 'almalinux-9-iso', name: 'AlmaLinux 9 DVD', description: 'AlmaLinux 9 Full DVD ISO', sizeBytes: 10 * 1024 * 1024 * 1024, guestOS: 'rhel' },
+  { id: 'fedora-40-iso', name: 'Fedora 40 Server', description: 'Fedora 40 Server ISO', sizeBytes: 2.2 * 1024 * 1024 * 1024, guestOS: 'fedora' },
+  { id: 'windows-server-2022-iso', name: 'Windows Server 2022', description: 'Windows Server 2022 ISO', sizeBytes: 5.2 * 1024 * 1024 * 1024, guestOS: 'windows_server' },
+  { id: 'windows-11-iso', name: 'Windows 11', description: 'Windows 11 ISO', sizeBytes: 5.5 * 1024 * 1024 * 1024, guestOS: 'windows_desktop' },
 ];
 
 // ============================================================================
@@ -357,6 +430,8 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
         format: 'qcow2',
         bootable: index === 0,
         backingFile: index === 0 && selectedCloudImage ? selectedCloudImage.path : undefined,
+        // Storage pool to create the disk in
+        poolId: formData.storagePoolId,
       }));
       
       // Prepare NICs
@@ -378,6 +453,8 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
           metaData: `instance-id: ${formData.name}\nlocal-hostname: ${formData.hostname || formData.name}`,
           networkConfig: '',
         } : undefined,
+        // Guest OS profile - determines hardware configuration (timers, video, CPU)
+        guestOS: formData.guestOS,
       };
       
       const result = await createVM.mutateAsync(request);
@@ -1108,6 +1185,7 @@ function StepBootMedia({
                       onChange={() => {
                         updateFormData({
                           cloudImageId: image.id,
+                          guestOS: detectGuestOS(image.name, image.path),
                           cloudInit: {
                             ...formData.cloudInit,
                             defaultUser: image.defaultUser || getDefaultUser(image.os),
@@ -1370,7 +1448,7 @@ users:
                   type="radio"
                   name="isoId"
                   checked={formData.isoId === iso.id}
-                  onChange={() => updateFormData({ isoId: iso.id })}
+                  onChange={() => updateFormData({ isoId: iso.id, guestOS: iso.guestOS })}
                   className="form-radio"
                 />
                 <Disc className="w-5 h-5 text-accent" />
@@ -1394,6 +1472,66 @@ users:
           </p>
         </div>
       )}
+      
+      {/* Guest OS Profile Selection - CRITICAL for OS compatibility */}
+      <div className="mt-6 p-4 rounded-xl bg-bg-base border border-border">
+        <div className="flex items-center gap-2 mb-3">
+          <Settings className="w-5 h-5 text-accent" />
+          <h4 className="font-medium text-text-primary">Guest OS Profile</h4>
+          <Badge variant="info" size="sm">Hardware Config</Badge>
+        </div>
+        <p className="text-xs text-text-muted mb-4">
+          Select the guest operating system. This configures hardware settings (timers, video, CPU) 
+          for optimal compatibility. Incorrect settings can cause kernel panics or boot failures.
+        </p>
+        
+        <FormField label="Operating System" description="Auto-detected from selected image, but you can override">
+          <select
+            value={formData.guestOS}
+            onChange={(e) => updateFormData({ guestOS: e.target.value as GuestOSFamily })}
+            className="w-full px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary focus:border-accent focus:outline-none"
+          >
+            {GUEST_OS_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        
+        {/* OS-specific info */}
+        {formData.guestOS === 'rhel' && (
+          <div className="mt-3 p-3 rounded-lg bg-info/10 border border-info/30 text-xs">
+            <p className="text-info font-medium mb-1">RHEL/Rocky/AlmaLinux Profile</p>
+            <ul className="text-text-muted space-y-0.5">
+              <li>• HPET timer: Disabled (prevents kernel panic)</li>
+              <li>• CPU mode: host-passthrough</li>
+              <li>• Video: VGA (safe for installer)</li>
+            </ul>
+          </div>
+        )}
+        {formData.guestOS === 'windows_desktop' && (
+          <div className="mt-3 p-3 rounded-lg bg-warning/10 border border-warning/30 text-xs">
+            <p className="text-warning font-medium mb-1">Windows 10/11 Requirements</p>
+            <ul className="text-text-muted space-y-0.5">
+              <li>• TPM 2.0: Required (auto-enabled)</li>
+              <li>• UEFI + Secure Boot: Required</li>
+              <li>• Minimum 4 GB RAM recommended</li>
+              <li>• Hyper-V enlightenments: Enabled</li>
+            </ul>
+          </div>
+        )}
+        {formData.guestOS === 'windows_server' && (
+          <div className="mt-3 p-3 rounded-lg bg-info/10 border border-info/30 text-xs">
+            <p className="text-info font-medium mb-1">Windows Server Profile</p>
+            <ul className="text-text-muted space-y-0.5">
+              <li>• Hyper-V enlightenments: Enabled for best performance</li>
+              <li>• HPET timer: Enabled</li>
+              <li>• Disk bus: SATA (safe for install, switch to VirtIO after drivers)</li>
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1936,6 +2074,10 @@ function StepReview({
                   ? 'ISO (Manual Install)'
                   : 'None'
             }
+          />
+          <ReviewRow
+            label="Guest OS Profile"
+            value={GUEST_OS_OPTIONS.find(o => o.value === formData.guestOS)?.label || formData.guestOS}
           />
           {formData.bootMediaType === 'cloud-image' && selectedCloudImage && (
             <>

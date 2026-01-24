@@ -87,6 +87,11 @@ func convertSpecFromProto(spec *computev1.VmSpec) domain.VMSpec {
 		}
 	}
 
+	// Guest OS profile
+	if spec.GuestOs != nil {
+		result.GuestOS = convertGuestOSFromProto(spec.GuestOs.Family)
+	}
+
 	return result
 }
 
@@ -174,6 +179,13 @@ func convertSpecToProto(spec domain.VMSpec) *computev1.VmSpec {
 			IsoPath:   cdrom.ISO, // Use ISO field for the actual path
 			Connected: cdrom.Connected,
 		})
+	}
+
+	// Guest OS profile
+	if spec.GuestOS != "" {
+		result.GuestOs = &computev1.GuestOSProfile{
+			Family: convertGuestOSToProto(spec.GuestOS),
+		}
 	}
 
 	return result
@@ -308,6 +320,82 @@ func parseDisplayType(t string) computev1.DisplayConfig_DisplayType {
 		return computev1.DisplayConfig_NONE
 	default:
 		return computev1.DisplayConfig_VNC
+	}
+}
+
+// convertGuestOSFromProto converts a proto GuestOSFamily enum to a domain GuestOSFamily.
+func convertGuestOSFromProto(family computev1.GuestOSFamily) domain.GuestOSFamily {
+	switch family {
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_RHEL:
+		return domain.GuestOSRHEL
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_DEBIAN:
+		return domain.GuestOSDebian
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_SUSE:
+		return domain.GuestOSSUSE
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_ARCH:
+		return domain.GuestOSArch
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_FEDORA:
+		return domain.GuestOSFedora
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_GENERIC_LINUX:
+		return domain.GuestOSGenericLinux
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_WINDOWS_SERVER:
+		return domain.GuestOSWindowsServer
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_WINDOWS_DESKTOP:
+		return domain.GuestOSWindowsDesktop
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_WINDOWS_LEGACY:
+		return domain.GuestOSWindowsLegacy
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_FREEBSD:
+		return domain.GuestOSFreeBSD
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_OPENBSD:
+		return domain.GuestOSOpenBSD
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_NETBSD:
+		return domain.GuestOSNetBSD
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_MACOS:
+		return domain.GuestOSMacOS
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_SOLARIS:
+		return domain.GuestOSSolaris
+	case computev1.GuestOSFamily_GUEST_OS_FAMILY_OTHER:
+		return domain.GuestOSOther
+	default:
+		return domain.GuestOSUnspecified
+	}
+}
+
+// convertGuestOSToProto converts a domain GuestOSFamily to a proto GuestOSFamily enum.
+func convertGuestOSToProto(family domain.GuestOSFamily) computev1.GuestOSFamily {
+	switch family {
+	case domain.GuestOSRHEL:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_RHEL
+	case domain.GuestOSDebian:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_DEBIAN
+	case domain.GuestOSSUSE:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_SUSE
+	case domain.GuestOSArch:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_ARCH
+	case domain.GuestOSFedora:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_FEDORA
+	case domain.GuestOSGenericLinux:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_GENERIC_LINUX
+	case domain.GuestOSWindowsServer:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_WINDOWS_SERVER
+	case domain.GuestOSWindowsDesktop:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_WINDOWS_DESKTOP
+	case domain.GuestOSWindowsLegacy:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_WINDOWS_LEGACY
+	case domain.GuestOSFreeBSD:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_FREEBSD
+	case domain.GuestOSOpenBSD:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_OPENBSD
+	case domain.GuestOSNetBSD:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_NETBSD
+	case domain.GuestOSMacOS:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_MACOS
+	case domain.GuestOSSolaris:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_SOLARIS
+	case domain.GuestOSOther:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_OTHER
+	default:
+		return computev1.GuestOSFamily_GUEST_OS_FAMILY_UNSPECIFIED
 	}
 }
 

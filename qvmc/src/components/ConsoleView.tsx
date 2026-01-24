@@ -65,7 +65,7 @@ export function ConsoleView({
   const [connectionState, setConnectionStateRaw] = useState<ConnectionState>('connecting');
   const connectionStateRef = useRef<ConnectionState>('connecting');
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
-  
+
   // Helper to update both state and ref
   const setConnectionState = useCallback((newState: ConnectionState) => {
     connectionStateRef.current = newState;
@@ -75,7 +75,7 @@ export function ConsoleView({
   const [scaleMode, setScaleMode] = useState<ScaleMode>('fit');
   const [canvasScale, setCanvasScale] = useState(1);
   const hasReceivedInitialFrame = useRef(false);
-  
+
   // VM Menu state
   const [showVMMenu, setShowVMMenu] = useState(false);
   const [showISODialog, setShowISODialog] = useState(false);
@@ -86,7 +86,7 @@ export function ConsoleView({
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const vmMenuRef = useRef<HTMLDivElement>(null);
-  
+
   // Toast helpers
   const showToast = useCallback((message: string, type: Toast['type'] = 'info') => {
     const id = Date.now().toString();
@@ -95,7 +95,7 @@ export function ConsoleView({
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3000);
   }, []);
-  
+
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -106,12 +106,12 @@ export function ConsoleView({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-  
+
   // Power action handler
   const handlePowerAction = useCallback(async (action: string) => {
     setExecutingAction(action);
     setShowVMMenu(false);
-    
+
     try {
       await invoke('vm_power_action', {
         controlPlaneUrl,
@@ -126,7 +126,7 @@ export function ConsoleView({
       setExecutingAction(null);
     }
   }, [controlPlaneUrl, vmId, showToast]);
-  
+
   // Browse for local ISO
   const handleBrowseISO = useCallback(async () => {
     try {
@@ -142,29 +142,29 @@ export function ConsoleView({
       showToast('Failed to open file browser', 'error');
     }
   }, [showToast]);
-  
+
   // Start local ISO server and mount
   const handleMountLocalISO = useCallback(async () => {
     if (!isoPath.trim()) return;
-    
+
     setExecutingAction('mount-iso');
-    
+
     try {
       // Start the local HTTP server to serve the ISO
       const serverInfo = await invoke<{ url: string; localPath: string; isServing: boolean }>('start_iso_server', {
         isoPath: isoPath.trim(),
       });
-      
+
       setIsoServerUrl(serverInfo.url);
       showToast(`ISO server started at ${serverInfo.url}`, 'info');
-      
+
       // Now mount using the HTTP URL
       await invoke('vm_mount_iso', {
         controlPlaneUrl,
         vmId,
         isoPath: serverInfo.url,
       });
-      
+
       showToast('Local ISO mounted successfully', 'success');
       setShowISODialog(false);
       setIsoPath('');
@@ -175,18 +175,18 @@ export function ConsoleView({
       try {
         await invoke('stop_iso_server');
         setIsoServerUrl(null);
-      } catch (_) {}
+      } catch (_) { }
     } finally {
       setExecutingAction(null);
     }
   }, [controlPlaneUrl, vmId, isoPath, showToast]);
-  
+
   // Mount remote ISO (hypervisor path)
   const handleMountRemoteISO = useCallback(async () => {
     if (!isoPath.trim()) return;
-    
+
     setExecutingAction('mount-iso');
-    
+
     try {
       await invoke('vm_mount_iso', {
         controlPlaneUrl,
@@ -203,7 +203,7 @@ export function ConsoleView({
       setExecutingAction(null);
     }
   }, [controlPlaneUrl, vmId, isoPath, showToast]);
-  
+
   // Mount ISO based on mode
   const handleMountISO = useCallback(async () => {
     if (isoMode === 'local') {
@@ -212,7 +212,7 @@ export function ConsoleView({
       await handleMountRemoteISO();
     }
   }, [isoMode, handleMountLocalISO, handleMountRemoteISO]);
-  
+
   // Stop ISO server when disconnecting
   const stopIsoServer = useCallback(async () => {
     if (isoServerUrl) {
@@ -224,25 +224,25 @@ export function ConsoleView({
       }
     }
   }, [isoServerUrl]);
-  
+
   // Cleanup ISO server on unmount
   useEffect(() => {
     return () => {
       if (isoServerUrl) {
-        invoke('stop_iso_server').catch(() => {});
+        invoke('stop_iso_server').catch(() => { });
       }
     };
   }, [isoServerUrl]);
 
   // Calculate display dimensions based on container size and resolution
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
-  
+
   const calculateScale = useCallback(() => {
     const viewport = viewportRef.current;
-    
+
     // Need viewport
     if (!viewport) return;
-    
+
     // If no resolution yet, just hide/show at natural size
     if (resolution.width === 0 || resolution.height === 0) {
       return;
@@ -250,7 +250,7 @@ export function ConsoleView({
 
     const containerWidth = viewport.clientWidth;
     const containerHeight = viewport.clientHeight;
-    
+
     // Ensure container has dimensions
     if (containerWidth === 0 || containerHeight === 0) {
       // Retry after a short delay
@@ -259,7 +259,7 @@ export function ConsoleView({
     }
 
     let scale = 1;
-    
+
     if (scaleMode === '100%') {
       scale = 1;
     } else if (scaleMode === 'fit') {
@@ -273,12 +273,12 @@ export function ConsoleView({
       const scaleY = containerHeight / resolution.height;
       scale = Math.max(scaleX, scaleY);
     }
-    
+
     const newWidth = Math.floor(resolution.width * scale);
     const newHeight = Math.floor(resolution.height * scale);
-    
+
     vncLog.debug(`Scale: ${scale.toFixed(2)}, Display: ${newWidth}x${newHeight}, Resolution: ${resolution.width}x${resolution.height}, Container: ${containerWidth}x${containerHeight}`);
-    
+
     setCanvasScale(scale);
     setDisplaySize({
       width: newWidth,
@@ -298,17 +298,17 @@ export function ConsoleView({
   const initializeCanvas = useCallback((width: number, height: number) => {
     const canvas = canvasRef.current;
     if (!canvas || width <= 0 || height <= 0) return;
-    
+
     // Skip if already initialized with same dimensions
     if (canvas.width === width && canvas.height === height) {
       vncLog.debug(`Canvas already initialized: ${width}x${height}, skipping`);
       return;
     }
-    
+
     vncLog.info(`Initializing canvas: ${width}x${height}`);
     canvas.width = width;
     canvas.height = height;
-    
+
     // Only clear if we haven't received any frames yet
     // (hasReceivedInitialFrame guards against clearing after first paint)
     if (!hasReceivedInitialFrame.current) {
@@ -318,20 +318,20 @@ export function ConsoleView({
         ctx.fillRect(0, 0, width, height);
       }
     }
-    
+
     setResolution({ width, height });
   }, []);
 
   // Fetch connection info on mount (in case vnc:connected already fired before listener was set up)
   useEffect(() => {
     vncLog.info(`ConsoleView mounted for VM ${vmId}`, { connectionId, vmName, controlPlaneUrl });
-    
+
     const fetchConnectionInfo = async () => {
       // Skip if we already have frames - canvas is already initialized correctly
       if (hasReceivedInitialFrame.current) {
         return;
       }
-      
+
       try {
         const info = await invoke<{
           id: string;
@@ -340,13 +340,13 @@ export function ConsoleView({
           width: number;
           height: number;
         } | null>('get_connection_info', { connectionId });
-        
+
         if (info) {
           if (info.status === 'connected' && connectionStateRef.current !== 'connected') {
             vncLog.info('Connection already established, hiding overlay');
             setConnectionState('connected');
           }
-          
+
           // Only initialize if we haven't received frames yet
           if (!hasReceivedInitialFrame.current && info.width > 0 && info.height > 0) {
             initializeCanvas(info.width, info.height);
@@ -359,7 +359,7 @@ export function ConsoleView({
 
     // Fetch once after a short delay
     const timer = setTimeout(fetchConnectionInfo, 200);
-    
+
     return () => {
       clearTimeout(timer);
     };
@@ -375,44 +375,67 @@ export function ConsoleView({
       if (!ctx) return;
 
       const update = event.payload;
-      
+
       // Debug logging (only log occasionally to reduce noise)
       if (update.width > 100 || !hasReceivedInitialFrame.current) {
         vncLog.debug(`FB update: ${update.width}x${update.height} at (${update.x},${update.y}), length: ${update.data?.length || 'undefined'}`);
       }
-      
+
       // If we're receiving framebuffer updates, we're definitely connected
       if (connectionStateRef.current !== 'connected') {
         vncLog.info('Got framebuffer update, marking as connected');
         setConnectionState('connected');
       }
-      
+
       // Check if data is valid
       if (!update.data || !Array.isArray(update.data)) {
         vncLog.error(`Invalid framebuffer data: ${typeof update.data}`);
         return;
       }
-      
-      // If canvas not sized yet, initialize it from the update dimensions
-      // This handles the case where we receive a full screen update before vnc:connected
+
+      // Calculate the required canvas size from this update
+      const requiredWidth = update.x + update.width;
+      const requiredHeight = update.y + update.height;
+
+      // If canvas is not sized yet OR needs to grow to fit this update
       if (canvas.width === 0 || canvas.height === 0) {
-        // Use the update position + dimensions to infer full resolution
-        // A full screen update at (0,0) gives us the resolution directly
-        if (update.x === 0 && update.y === 0 && update.width > 0 && update.height > 0) {
-          vncLog.info(`Initializing canvas from first FB update: ${update.width}x${update.height}`);
-          canvas.width = update.width;
-          canvas.height = update.height;
-          setResolution({ width: update.width, height: update.height });
+        // First update - initialize canvas
+        // Use the update dimensions directly if it's a full-screen update at (0,0)
+        // Otherwise, use the extent (x + width, y + height) as minimum size
+        const newWidth = update.x === 0 ? update.width : requiredWidth;
+        const newHeight = update.y === 0 ? update.height : requiredHeight;
+
+        if (newWidth > 0 && newHeight > 0) {
+          vncLog.info(`Initializing canvas from FB update: ${newWidth}x${newHeight} (update at ${update.x},${update.y} size ${update.width}x${update.height})`);
+          canvas.width = newWidth;
+          canvas.height = newHeight;
+          setResolution({ width: newWidth, height: newHeight });
         } else {
-          // Partial update but canvas not ready - skip for now
-          vncLog.warn(`Canvas not initialized, skipping partial update at (${update.x},${update.y})`);
           return;
         }
+      } else if (requiredWidth > canvas.width || requiredHeight > canvas.height) {
+        // Canvas needs to grow - this can happen if VNC server resizes
+        const newWidth = Math.max(canvas.width, requiredWidth);
+        const newHeight = Math.max(canvas.height, requiredHeight);
+
+        vncLog.info(`Expanding canvas: ${canvas.width}x${canvas.height} -> ${newWidth}x${newHeight}`);
+
+        // Save current content
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        // Resize canvas
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+
+        // Restore content
+        ctx.putImageData(imageData, 0, 0);
+
+        setResolution({ width: newWidth, height: newHeight });
       }
-      
+
       // Create ImageData with correct dimensions
       const imageData = ctx.createImageData(update.width, update.height);
-      
+
       // Copy RGBA data (ensure we don't overflow)
       const dataLength = Math.min(update.data.length, imageData.data.length);
       for (let i = 0; i < dataLength; i++) {
@@ -436,14 +459,14 @@ export function ConsoleView({
         // Note: On reconnect, we get a new connectionId
         const newWidth = event.payload.width;
         const newHeight = event.payload.height;
-        
+
         vncLog.info(`Connected event: ${newWidth}x${newHeight}, id: ${event.payload.connectionId}`);
-        
+
         // Show toast only on reconnection (use ref to get current value in closure)
         if (connectionStateRef.current === 'reconnecting') {
           showToast('Reconnected to VM console', 'success');
         }
-        
+
         setConnectionState('connected');
         initializeCanvas(newWidth, newHeight);
       }
@@ -457,13 +480,13 @@ export function ConsoleView({
           width: event.payload.width,
           height: event.payload.height,
         });
-        
+
         const canvas = canvasRef.current;
         if (canvas) {
           canvas.width = event.payload.width;
           canvas.height = event.payload.height;
         }
-        
+
         calculateScale();
       }
     );
@@ -474,8 +497,8 @@ export function ConsoleView({
       unlistenConnect.then((fn) => fn());
       unlistenResize.then((fn) => fn());
     };
-  // Note: setConnectionState uses a ref internally so it's stable
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Note: setConnectionState uses a ref internally so it's stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectionId, calculateScale, showToast, initializeCanvas]);
 
   // Handle disconnect
@@ -493,7 +516,7 @@ export function ConsoleView({
   // Handle reconnect - reconnects to the same VM
   const handleReconnect = useCallback(async () => {
     setConnectionState('reconnecting');
-    
+
     try {
       // Disconnect first if still connected
       try {
@@ -501,10 +524,10 @@ export function ConsoleView({
       } catch (_) {
         // Ignore disconnect errors
       }
-      
+
       // Small delay before reconnecting
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Connect again to the same VM using the control plane
       // Note: This will create a new connectionId, but the vnc:connected event
       // listener will pick it up and update the state
@@ -513,7 +536,7 @@ export function ConsoleView({
         vmId,
         password: null,
       });
-      
+
       vncLog.info('Reconnected with new connection ID', newConnectionId);
       // The vnc:connected event handler will show the success toast
     } catch (err) {
@@ -549,7 +572,7 @@ export function ConsoleView({
     if (!canvas || resolution.width === 0) return { x: 0, y: 0 };
 
     const rect = canvas.getBoundingClientRect();
-    
+
     // Convert screen coordinates to VNC coordinates
     // rect gives us the CSS-scaled size, canvas.width is the native VNC resolution
     const x = Math.floor((e.clientX - rect.left) / rect.width * resolution.width);
@@ -585,7 +608,7 @@ export function ConsoleView({
     async (e: React.MouseEvent<HTMLCanvasElement>) => {
       // Focus canvas for keyboard events
       canvasRef.current?.focus();
-      
+
       const button = 1 << e.button;
       setMouseDown((prev) => prev | button);
 
@@ -735,11 +758,10 @@ export function ConsoleView({
         {toasts.map(toast => (
           <div
             key={toast.id}
-            className={`toast ${
-              toast.type === 'success' ? 'toast-success' :
-              toast.type === 'error' ? 'toast-error' :
-              'toast-info'
-            }`}
+            className={`toast ${toast.type === 'success' ? 'toast-success' :
+                toast.type === 'error' ? 'toast-error' :
+                  'toast-info'
+              }`}
           >
             {toast.type === 'success' && <span className="text-lg">✓</span>}
             {toast.type === 'error' && <span className="text-lg">✕</span>}
@@ -748,7 +770,7 @@ export function ConsoleView({
           </div>
         ))}
       </div>
-      
+
       {/* ISO Mount Dialog - Enhanced with depth */}
       {showISODialog && (
         <div className="modal-overlay" onClick={() => { setShowISODialog(false); setIsoPath(''); }}>
@@ -771,7 +793,7 @@ export function ConsoleView({
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             {/* Body */}
             <div className="modal-body space-y-5">
               {/* Mode Toggle - Segmented Control */}
@@ -791,13 +813,13 @@ export function ConsoleView({
                   <span>Hypervisor Path</span>
                 </button>
               </div>
-              
+
               {isoMode === 'local' ? (
                 <>
                   <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
                     Select an ISO from your computer. QvMC will serve it over HTTP so the hypervisor can access it.
                   </p>
-                  
+
                   {/* File browser input */}
                   <div className="file-input-group">
                     <input
@@ -813,7 +835,7 @@ export function ConsoleView({
                       <span>Browse</span>
                     </button>
                   </div>
-                  
+
                   {/* Server status indicator */}
                   {isoServerUrl && (
                     <div className="modal-server-status">
@@ -823,11 +845,11 @@ export function ConsoleView({
                       </span>
                     </div>
                   )}
-                  
+
                   {/* Info box */}
                   <div className="modal-info-box">
                     <p>
-                      <strong>How it works:</strong> QvMC starts a temporary HTTP server on your machine. 
+                      <strong>How it works:</strong> QvMC starts a temporary HTTP server on your machine.
                       The hypervisor downloads the ISO from your computer over the network.
                     </p>
                   </div>
@@ -837,7 +859,7 @@ export function ConsoleView({
                   <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
                     Enter the path to an ISO file on the hypervisor's local storage.
                   </p>
-                  
+
                   <div className="form-group">
                     <label className="label">ISO Path</label>
                     <input
@@ -849,14 +871,14 @@ export function ConsoleView({
                       autoFocus
                     />
                   </div>
-                  
+
                   <p className="text-xs text-[var(--text-muted)]">
                     The path must be accessible from the hypervisor host where the VM is running.
                   </p>
                 </>
               )}
             </div>
-            
+
             {/* Footer */}
             <div className="modal-footer">
               <button
@@ -890,9 +912,9 @@ export function ConsoleView({
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          
+
           <div className="console-toolbar-divider" />
-          
+
           <div className="console-toolbar-vm-info">
             <span className="console-toolbar-vm-name">{vmName}</span>
             {connectionState === 'connected' && (
@@ -919,7 +941,7 @@ export function ConsoleView({
               </span>
             )}
           </div>
-          
+
           {/* Executing action indicator */}
           {executingAction && (
             <span className="console-toolbar-status console-toolbar-status-action">
@@ -940,7 +962,7 @@ export function ConsoleView({
               <span>VM</span>
               <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showVMMenu ? 'rotate-180' : ''}`} />
             </button>
-            
+
             {showVMMenu && (
               <div className="dropdown-menu">
                 <div className="dropdown-section-title">Power</div>
@@ -976,9 +998,9 @@ export function ConsoleView({
                   <PowerOff className="text-red-400" />
                   <span>Force Power Off</span>
                 </button>
-                
+
                 <div className="dropdown-divider" />
-                
+
                 <div className="dropdown-section-title">Devices</div>
                 <button
                   onClick={() => { setShowVMMenu(false); setShowISODialog(true); }}
@@ -991,9 +1013,9 @@ export function ConsoleView({
               </div>
             )}
           </div>
-          
+
           <div className="console-toolbar-divider" />
-          
+
           {/* Scale mode toggle */}
           <button
             onClick={cycleScaleMode}
@@ -1005,9 +1027,9 @@ export function ConsoleView({
             {scaleMode === 'fill' && <ZoomIn className="w-4 h-4" />}
             <span className="capitalize text-xs">{scaleMode}</span>
           </button>
-          
+
           <div className="console-toolbar-divider" />
-          
+
           {/* Action buttons group */}
           <div className="console-toolbar-btn-group">
             <button
@@ -1031,9 +1053,9 @@ export function ConsoleView({
               <Usb className="w-4.5 h-4.5" />
             </button>
           </div>
-          
+
           <div className="console-toolbar-divider" />
-          
+
           {/* Debug button */}
           <button
             onClick={() => setShowDebugPanel(true)}
@@ -1042,7 +1064,7 @@ export function ConsoleView({
           >
             <Bug className="w-4.5 h-4.5" />
           </button>
-          
+
           <button
             onClick={toggleFullscreen}
             className="console-toolbar-btn console-toolbar-btn-fullscreen"
@@ -1058,7 +1080,7 @@ export function ConsoleView({
       </div>
 
       {/* Canvas viewport */}
-      <div 
+      <div
         ref={viewportRef}
         className="flex-1 flex items-center justify-center overflow-hidden bg-black relative"
       >
@@ -1083,7 +1105,7 @@ export function ConsoleView({
           onKeyUp={handleKeyUp}
           onContextMenu={(e) => e.preventDefault()}
         />
-        
+
         {/* Connection overlay - shows during connecting/reconnecting/disconnected */}
         {connectionState !== 'connected' && (
           <div className="console-connection-overlay">
@@ -1105,7 +1127,7 @@ export function ConsoleView({
                 </div>
                 <div className="console-overlay-title">Disconnected</div>
                 <div className="console-overlay-subtitle">The console session has ended.</div>
-                <button 
+                <button
                   onClick={handleReconnect}
                   className="btn btn-primary mt-4"
                 >
@@ -1134,7 +1156,7 @@ export function ConsoleView({
           )}
         </div>
       </div>
-      
+
       {/* Debug Panel */}
       <DebugPanel
         isOpen={showDebugPanel}

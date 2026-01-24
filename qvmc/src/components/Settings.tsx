@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { Monitor, Sliders, Info, Loader2, Sparkles, Check, X, Settings as SettingsIcon } from 'lucide-react';
+import { Monitor, Sliders, Info, Loader2, Sparkles, Check, X, Settings as SettingsIcon, Bug } from 'lucide-react';
 
 interface DisplaySettings {
   scale_viewport: boolean;
@@ -17,9 +17,10 @@ interface Config {
 
 interface SettingsProps {
   onClose: () => void;
+  onOpenDebugLogs: () => void;
 }
 
-export function Settings({ onClose }: SettingsProps) {
+export function Settings({ onClose, onOpenDebugLogs }: SettingsProps) {
   const [config, setConfig] = useState<Config | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -198,6 +199,27 @@ export function Settings({ onClose }: SettingsProps) {
               <span>None</span>
               <span>Maximum</span>
             </div>
+          </div>
+        </section>
+
+        {/* Troubleshooting */}
+        <section className="section">
+          <div className="section-title">
+            <Bug />
+            <span>Troubleshooting</span>
+          </div>
+
+          <div className="setting-row">
+            <div className="setting-label">
+              <h4>Debug Logs</h4>
+              <p>View application logs for troubleshooting connection issues</p>
+            </div>
+            <button
+              onClick={onOpenDebugLogs}
+              className="btn btn-secondary text-sm"
+            >
+              View Application Logs
+            </button>
           </div>
         </section>
 

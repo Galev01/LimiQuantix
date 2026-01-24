@@ -1,4 +1,6 @@
+#![allow(dead_code)]
 //! X11 Keysym mappings for VNC keyboard events
+
 //!
 //! This module provides conversion from JavaScript key codes to X11 keysyms.
 //! Based on X11/keysymdef.h

@@ -25,6 +25,7 @@ import {
   Info,
   Copy,
   Check,
+  FileText,
 } from 'lucide-react';
 import { Header } from '@/components/layout';
 import { Card, Badge, Button } from '@/components/ui';
@@ -36,9 +37,10 @@ import { toast } from '@/lib/toast';
 import { useAppStore } from '@/stores/useAppStore';
 import { ConsoleAccessModal } from '@/components/vm/ConsoleAccessModal';
 import { NoVNCConsole } from '@/components/vm/NoVNCConsole';
+import { VMLogsPanel } from '@/components/vm/VMLogsPanel';
 import type { PowerState } from '@/api/types';
 
-type Tab = 'summary' | 'console' | 'hardware' | 'snapshots' | 'network' | 'configuration' | 'events';
+type Tab = 'summary' | 'console' | 'hardware' | 'snapshots' | 'network' | 'configuration' | 'logs' | 'events';
 
 export function VMDetail() {
   const { vmId } = useParams<{ vmId: string }>();
@@ -121,6 +123,7 @@ export function VMDetail() {
     { id: 'snapshots', label: 'Snapshots', icon: <Camera className="w-4 h-4" /> },
     { id: 'network', label: 'Network', icon: <Network className="w-4 h-4" /> },
     { id: 'configuration', label: 'Configuration', icon: <Settings className="w-4 h-4" /> },
+    { id: 'logs', label: 'Logs', icon: <FileText className="w-4 h-4" /> },
     { id: 'events', label: 'Events', icon: <Clock className="w-4 h-4" /> },
   ];
 
@@ -727,6 +730,13 @@ export function VMDetail() {
               </Card>
             )}
           </div>
+        )}
+
+        {/* Logs Tab */}
+        {activeTab === 'logs' && (
+          <Card>
+            <VMLogsPanel vmId={vm.vmId} vmName={vm.name} />
+          </Card>
         )}
 
         {/* Events Tab */}

@@ -697,25 +697,12 @@ func (s *PoolService) ListPoolFiles(
 	)
 	logger.Info("Listing storage pool files")
 
-	// #region agent log
-	logger.Info("DEBUG H3: ListPoolFiles called with pool_id",
-		zap.String("pool_id", req.Msg.PoolId),
-		zap.Int("pool_id_len", len(req.Msg.PoolId)),
-	)
-	// #endregion
-
-	// Get pool
+	// Get pool from database
 	pool, err := s.repo.Get(ctx, req.Msg.PoolId)
 	if err != nil {
-		// #region agent log
-		logger.Error("DEBUG H3: Failed to get storage pool from repository",
-			zap.String("pool_id", req.Msg.PoolId),
-			zap.Error(err),
-		)
-		// #endregion
-		logger.Error("Failed to get storage pool", zap.Error(err))
+		logger.Error("Failed to get storage pool from database", zap.Error(err))
 		if err == domain.ErrNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("pool not found: %s", req.Msg.PoolId))
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("pool not found in database: %s", req.Msg.PoolId))
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -723,7 +710,7 @@ func (s *PoolService) ListPoolFiles(
 	// Check if pool has any assigned nodes
 	assignedNodes := pool.GetAssignedNodeIDs()
 	if len(assignedNodes) == 0 {
-		// If no assigned nodes, try to use any connected node
+		// If no assigned nodes, try to use any connected node (for shared storage like NFS)
 		if s.daemonPool != nil {
 			assignedNodes = s.daemonPool.ConnectedNodes()
 		}
@@ -734,13 +721,20 @@ func (s *PoolService) ListPoolFiles(
 			fmt.Errorf("no nodes available to list files for this pool"))
 	}
 
+	logger.Debug("Attempting to list files from nodes",
+		zap.Strings("assigned_nodes", assignedNodes),
+		zap.String("backend_type", string(pool.Spec.Backend.Type)),
+	)
+
 	// Try to list files from the first available node
 	var entries []*storagev1.PoolFileEntry
 	var lastErr error
+	var triedSync bool
 
 	for _, nodeID := range assignedNodes {
 		client := s.daemonPool.Get(nodeID)
 		if client == nil {
+			logger.Debug("No client for node, skipping", zap.String("node_id", nodeID))
 			continue
 		}
 
@@ -748,8 +742,48 @@ func (s *PoolService) ListPoolFiles(
 		resp, err := client.ListStoragePoolFiles(ctx, req.Msg.PoolId, req.Msg.Path)
 		if err != nil {
 			lastErr = err
-			logger.Warn("Failed to list files from node", zap.String("node_id", nodeID), zap.Error(err))
-			continue
+			errStr := err.Error()
+			logger.Warn("Failed to list files from node",
+				zap.String("node_id", nodeID),
+				zap.Error(err),
+			)
+
+			// If pool not found on node and we haven't tried syncing yet, sync and retry
+			if !triedSync && (strings.Contains(errStr, "not found") || strings.Contains(errStr, "NotFound")) {
+				logger.Info("Pool not found on node, attempting to sync pool configuration",
+					zap.String("node_id", nodeID),
+				)
+				triedSync = true
+
+				// Try to initialize the pool on this node
+				initReq := s.convertPoolToNodeRequest(pool)
+				if _, syncErr := client.InitStoragePool(ctx, initReq); syncErr != nil {
+					// Check if it's "already exists" which is fine
+					if !strings.Contains(syncErr.Error(), "already") && !strings.Contains(syncErr.Error(), "exists") {
+						logger.Warn("Failed to sync pool to node",
+							zap.String("node_id", nodeID),
+							zap.Error(syncErr),
+						)
+					}
+				} else {
+					logger.Info("Pool synced to node successfully, retrying file listing",
+						zap.String("node_id", nodeID),
+					)
+				}
+
+				// Retry listing files after sync attempt
+				resp, err = client.ListStoragePoolFiles(ctx, req.Msg.PoolId, req.Msg.Path)
+				if err != nil {
+					lastErr = err
+					logger.Warn("Failed to list files from node after sync",
+						zap.String("node_id", nodeID),
+						zap.Error(err),
+					)
+					continue
+				}
+			} else {
+				continue
+			}
 		}
 
 		// Convert response
@@ -765,17 +799,35 @@ func (s *PoolService) ListPoolFiles(
 			})
 		}
 
+		logger.Info("Successfully listed files from node",
+			zap.String("node_id", nodeID),
+			zap.Int("entry_count", len(entries)),
+		)
+
 		return connect.NewResponse(&storagev1.ListPoolFilesResponse{
 			Entries:     entries,
 			CurrentPath: req.Msg.Path,
 		}), nil
 	}
 
+	// All nodes failed - return appropriate error
 	if lastErr != nil {
-		return nil, connect.NewError(connect.CodeInternal, lastErr)
+		errStr := lastErr.Error()
+		// Return more specific error codes based on the error type
+		if strings.Contains(errStr, "not found") || strings.Contains(errStr, "NotFound") {
+			return nil, connect.NewError(connect.CodeNotFound,
+				fmt.Errorf("pool %s not found on any node. Ensure the storage is mounted and accessible. Error: %v", req.Msg.PoolId, lastErr))
+		}
+		if strings.Contains(errStr, "no mount path") || strings.Contains(errStr, "failed_precondition") {
+			return nil, connect.NewError(connect.CodeFailedPrecondition,
+				fmt.Errorf("pool %s has no mount path or is not properly configured: %v", req.Msg.PoolId, lastErr))
+		}
+		return nil, connect.NewError(connect.CodeInternal,
+			fmt.Errorf("failed to list files for pool %s: %v", req.Msg.PoolId, lastErr))
 	}
 
-	return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("could not list files from any node"))
+	return nil, connect.NewError(connect.CodeFailedPrecondition,
+		fmt.Errorf("could not list files from any node for pool %s", req.Msg.PoolId))
 }
 
 // =============================================================================

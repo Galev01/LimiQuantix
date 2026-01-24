@@ -66,8 +66,9 @@ import { EditGuestAgentModal } from '@/components/vm/EditGuestAgentModal';
 import { EditProvisioningModal, detectCloudInit } from '@/components/vm/EditProvisioningModal';
 import { EditAdvancedOptionsModal } from '@/components/vm/EditAdvancedOptionsModal';
 import { CDROMModal, type CDROMDevice } from '@/components/vm/CDROMModal';
+import { VMLogsPanel } from '@/components/vm/VMLogsPanel';
 import { type VirtualMachine, type PowerState } from '@/types/models';
-import { useVM, useStartVM, useStopVM, useRebootVM, usePauseVM, useResumeVM, useSuspendVM, useDeleteVM, useUpdateVM, useAttachDisk, useDetachDisk, useResizeDisk, useAttachNIC, useDetachNIC, useVMEvents, useAttachCDROM, useDetachCDROM, useMountISO, useEjectISO, type ApiVM } from '@/hooks/useVMs';
+import { useVM, useStartVM, useStopVM, useRebootVM, usePauseVM, useResumeVM, useSuspendVM, useResetVMState, useDeleteVM, useUpdateVM, useAttachDisk, useDetachDisk, useResizeDisk, useAttachNIC, useDetachNIC, useVMEvents, useAttachCDROM, useDetachCDROM, useMountISO, useEjectISO, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { useSnapshots, useCreateSnapshot, useRevertToSnapshot, useDeleteSnapshot, formatSnapshotSize, type ApiSnapshot } from '@/hooks/useSnapshots';
 import { showInfo } from '@/lib/toast';
@@ -173,6 +174,7 @@ export function VMDetail() {
   const pauseVM = usePauseVM();
   const resumeVM = useResumeVM();
   const suspendVM = useSuspendVM();
+  const resetVMState = useResetVMState();
   const deleteVM = useDeleteVM();
   const updateVM = useUpdateVM();
   
@@ -203,7 +205,7 @@ export function VMDetail() {
   // Convert API data to display format (no mock fallback)
   const vm: VirtualMachine | undefined = apiVm ? apiToDisplayVM(apiVm) : undefined;
 
-  const isActionPending = startVM.isPending || stopVM.isPending || rebootVM.isPending || pauseVM.isPending || resumeVM.isPending || suspendVM.isPending || deleteVM.isPending || updateVM.isPending;
+  const isActionPending = startVM.isPending || stopVM.isPending || rebootVM.isPending || pauseVM.isPending || resumeVM.isPending || suspendVM.isPending || resetVMState.isPending || deleteVM.isPending || updateVM.isPending;
   const isSnapshotActionPending = createSnapshot.isPending || revertToSnapshot.isPending || deleteSnapshot.isPending;
   const isDiskActionPending = attachDisk.isPending || detachDisk.isPending || resizeDisk.isPending;
   const isNICActionPending = attachNIC.isPending || detachNIC.isPending;
@@ -263,6 +265,21 @@ export function VMDetail() {
       return;
     }
     await suspendVM.mutateAsync(id);
+  };
+
+  const handleResetState = async (force = false) => {
+    if (!isConnected || !id) {
+      showInfo('Not connected to backend');
+      return;
+    }
+    if (!confirm(
+      force 
+        ? 'This will force the VM state to STOPPED. Use this when the hypervisor is unreachable. Continue?'
+        : 'This will query the hypervisor for the actual VM state and update the control plane. Continue?'
+    )) {
+      return;
+    }
+    await resetVMState.mutateAsync({ id, force });
   };
 
   const handleDeleteClick = () => {
@@ -596,6 +613,19 @@ export function VMDetail() {
         onClick: handleForceStop,
         disabled: !isRunning && !isPaused,
         variant: 'danger',
+      },
+      {
+        label: 'Reset State',
+        icon: <RotateCcw className="w-4 h-4" />,
+        onClick: () => handleResetState(false),
+        description: 'Query hypervisor for actual state',
+      },
+      {
+        label: 'Force Reset State',
+        icon: <RotateCcw className="w-4 h-4" />,
+        onClick: () => handleResetState(true),
+        description: 'Force state to STOPPED',
+        variant: 'danger',
         divider: true,
       },
       {
@@ -748,6 +778,7 @@ export function VMDetail() {
           <TabsTrigger value="network">Network</TabsTrigger>
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
           <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+          <TabsTrigger value="logs">Logs</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
         </TabsList>
 
@@ -1562,6 +1593,17 @@ export function VMDetail() {
         {/* Monitoring Tab */}
         <TabsContent value="monitoring">
           {apiVm && <VMMonitoringCharts vm={apiVm} />}
+        </TabsContent>
+
+        {/* Logs Tab */}
+        <TabsContent value="logs">
+          <div className="bg-bg-surface rounded-xl border border-border p-6 shadow-floating">
+            <VMLogsPanel
+              vmId={id || ''}
+              vmName={vm.name}
+              nodeId={vm.status.nodeId}
+            />
+          </div>
         </TabsContent>
 
         {/* Events Tab */}

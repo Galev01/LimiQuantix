@@ -4,6 +4,7 @@ package server
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -708,6 +709,7 @@ func (s *Server) maintenanceMiddleware(next http.Handler) http.Handler {
 		allowedPaths := []string{
 			"/health", "/healthz", "/ready", "/live",
 			"/api/v1/updates/vdc/status", "/api/v1/updates/vdc/progress",
+			"/api/logs/ui", // Allow UI log submission during maintenance
 		}
 
 		for _, path := range allowedPaths {
@@ -980,4 +982,17 @@ func toJSON(m map[string]string) string {
 	}
 	result += "}"
 	return result
+}
+
+// getInsecureHTTPClient returns an HTTP client that skips TLS verification.
+// Used for internal cluster communication with self-signed certificates.
+func (s *Server) getInsecureHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, // Allow self-signed certificates
+			},
+		},
+	}
 }

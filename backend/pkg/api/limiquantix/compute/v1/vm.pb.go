@@ -75,6 +75,99 @@ func (VMOrigin) EnumDescriptor() ([]byte, []int) {
 	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{0}
 }
 
+// GuestOSFamily - Major OS categories with distinct hardware requirements
+type GuestOSFamily int32
+
+const (
+	GuestOSFamily_GUEST_OS_FAMILY_UNSPECIFIED GuestOSFamily = 0
+	// Linux variants
+	GuestOSFamily_GUEST_OS_FAMILY_RHEL          GuestOSFamily = 1 // RHEL, Rocky, AlmaLinux, CentOS (strict kernel)
+	GuestOSFamily_GUEST_OS_FAMILY_DEBIAN        GuestOSFamily = 2 // Debian, Ubuntu, Mint
+	GuestOSFamily_GUEST_OS_FAMILY_SUSE          GuestOSFamily = 3 // SLES, openSUSE
+	GuestOSFamily_GUEST_OS_FAMILY_ARCH          GuestOSFamily = 4 // Arch, Manjaro
+	GuestOSFamily_GUEST_OS_FAMILY_FEDORA        GuestOSFamily = 5 // Fedora (cutting-edge kernel)
+	GuestOSFamily_GUEST_OS_FAMILY_GENERIC_LINUX GuestOSFamily = 6 // Other Linux
+	// Windows variants
+	GuestOSFamily_GUEST_OS_FAMILY_WINDOWS_SERVER  GuestOSFamily = 10 // Windows Server 2016/2019/2022
+	GuestOSFamily_GUEST_OS_FAMILY_WINDOWS_DESKTOP GuestOSFamily = 11 // Windows 10/11
+	GuestOSFamily_GUEST_OS_FAMILY_WINDOWS_LEGACY  GuestOSFamily = 12 // Windows 7/8/8.1
+	// BSD variants
+	GuestOSFamily_GUEST_OS_FAMILY_FREEBSD GuestOSFamily = 20
+	GuestOSFamily_GUEST_OS_FAMILY_OPENBSD GuestOSFamily = 21
+	GuestOSFamily_GUEST_OS_FAMILY_NETBSD  GuestOSFamily = 22
+	// Other
+	GuestOSFamily_GUEST_OS_FAMILY_MACOS   GuestOSFamily = 30 // macOS (requires Apple hardware)
+	GuestOSFamily_GUEST_OS_FAMILY_SOLARIS GuestOSFamily = 31
+	GuestOSFamily_GUEST_OS_FAMILY_OTHER   GuestOSFamily = 99
+)
+
+// Enum value maps for GuestOSFamily.
+var (
+	GuestOSFamily_name = map[int32]string{
+		0:  "GUEST_OS_FAMILY_UNSPECIFIED",
+		1:  "GUEST_OS_FAMILY_RHEL",
+		2:  "GUEST_OS_FAMILY_DEBIAN",
+		3:  "GUEST_OS_FAMILY_SUSE",
+		4:  "GUEST_OS_FAMILY_ARCH",
+		5:  "GUEST_OS_FAMILY_FEDORA",
+		6:  "GUEST_OS_FAMILY_GENERIC_LINUX",
+		10: "GUEST_OS_FAMILY_WINDOWS_SERVER",
+		11: "GUEST_OS_FAMILY_WINDOWS_DESKTOP",
+		12: "GUEST_OS_FAMILY_WINDOWS_LEGACY",
+		20: "GUEST_OS_FAMILY_FREEBSD",
+		21: "GUEST_OS_FAMILY_OPENBSD",
+		22: "GUEST_OS_FAMILY_NETBSD",
+		30: "GUEST_OS_FAMILY_MACOS",
+		31: "GUEST_OS_FAMILY_SOLARIS",
+		99: "GUEST_OS_FAMILY_OTHER",
+	}
+	GuestOSFamily_value = map[string]int32{
+		"GUEST_OS_FAMILY_UNSPECIFIED":     0,
+		"GUEST_OS_FAMILY_RHEL":            1,
+		"GUEST_OS_FAMILY_DEBIAN":          2,
+		"GUEST_OS_FAMILY_SUSE":            3,
+		"GUEST_OS_FAMILY_ARCH":            4,
+		"GUEST_OS_FAMILY_FEDORA":          5,
+		"GUEST_OS_FAMILY_GENERIC_LINUX":   6,
+		"GUEST_OS_FAMILY_WINDOWS_SERVER":  10,
+		"GUEST_OS_FAMILY_WINDOWS_DESKTOP": 11,
+		"GUEST_OS_FAMILY_WINDOWS_LEGACY":  12,
+		"GUEST_OS_FAMILY_FREEBSD":         20,
+		"GUEST_OS_FAMILY_OPENBSD":         21,
+		"GUEST_OS_FAMILY_NETBSD":          22,
+		"GUEST_OS_FAMILY_MACOS":           30,
+		"GUEST_OS_FAMILY_SOLARIS":         31,
+		"GUEST_OS_FAMILY_OTHER":           99,
+	}
+)
+
+func (x GuestOSFamily) Enum() *GuestOSFamily {
+	p := new(GuestOSFamily)
+	*p = x
+	return p
+}
+
+func (x GuestOSFamily) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (GuestOSFamily) Descriptor() protoreflect.EnumDescriptor {
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[1].Descriptor()
+}
+
+func (GuestOSFamily) Type() protoreflect.EnumType {
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[1]
+}
+
+func (x GuestOSFamily) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use GuestOSFamily.Descriptor instead.
+func (GuestOSFamily) EnumDescriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{1}
+}
+
 type FirmwareType int32
 
 const (
@@ -108,11 +201,11 @@ func (x FirmwareType) String() string {
 }
 
 func (FirmwareType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[1].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[2].Descriptor()
 }
 
 func (FirmwareType) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[1]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[2]
 }
 
 func (x FirmwareType) Number() protoreflect.EnumNumber {
@@ -121,7 +214,7 @@ func (x FirmwareType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FirmwareType.Descriptor instead.
 func (FirmwareType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{1}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{2}
 }
 
 type HugePagesConfig_PageSize int32
@@ -154,11 +247,11 @@ func (x HugePagesConfig_PageSize) String() string {
 }
 
 func (HugePagesConfig_PageSize) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[2].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[3].Descriptor()
 }
 
 func (HugePagesConfig_PageSize) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[2]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[3]
 }
 
 func (x HugePagesConfig_PageSize) Number() protoreflect.EnumNumber {
@@ -167,7 +260,7 @@ func (x HugePagesConfig_PageSize) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HugePagesConfig_PageSize.Descriptor instead.
 func (HugePagesConfig_PageSize) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{7, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{9, 0}
 }
 
 // Device type
@@ -210,11 +303,11 @@ func (x DiskDevice_BusType) String() string {
 }
 
 func (DiskDevice_BusType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[3].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[4].Descriptor()
 }
 
 func (DiskDevice_BusType) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[3]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[4]
 }
 
 func (x DiskDevice_BusType) Number() protoreflect.EnumNumber {
@@ -223,7 +316,7 @@ func (x DiskDevice_BusType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DiskDevice_BusType.Descriptor instead.
 func (DiskDevice_BusType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{8, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{10, 0}
 }
 
 // Provisioning type
@@ -260,11 +353,11 @@ func (x DiskDevice_ProvisioningType) String() string {
 }
 
 func (DiskDevice_ProvisioningType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[4].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[5].Descriptor()
 }
 
 func (DiskDevice_ProvisioningType) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[4]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[5]
 }
 
 func (x DiskDevice_ProvisioningType) Number() protoreflect.EnumNumber {
@@ -273,7 +366,7 @@ func (x DiskDevice_ProvisioningType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DiskDevice_ProvisioningType.Descriptor instead.
 func (DiskDevice_ProvisioningType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{8, 1}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{10, 1}
 }
 
 // Caching mode
@@ -310,11 +403,11 @@ func (x DiskDevice_CacheMode) String() string {
 }
 
 func (DiskDevice_CacheMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[5].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[6].Descriptor()
 }
 
 func (DiskDevice_CacheMode) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[5]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[6]
 }
 
 func (x DiskDevice_CacheMode) Number() protoreflect.EnumNumber {
@@ -323,7 +416,7 @@ func (x DiskDevice_CacheMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DiskDevice_CacheMode.Descriptor instead.
 func (DiskDevice_CacheMode) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{8, 2}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{10, 2}
 }
 
 // Device Model
@@ -363,11 +456,11 @@ func (x NetworkInterface_Model) String() string {
 }
 
 func (NetworkInterface_Model) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[6].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[7].Descriptor()
 }
 
 func (NetworkInterface_Model) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[6]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[7]
 }
 
 func (x NetworkInterface_Model) Number() protoreflect.EnumNumber {
@@ -376,7 +469,7 @@ func (x NetworkInterface_Model) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use NetworkInterface_Model.Descriptor instead.
 func (NetworkInterface_Model) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{11, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{13, 0}
 }
 
 type TpmConfig_TpmVersion int32
@@ -409,11 +502,11 @@ func (x TpmConfig_TpmVersion) String() string {
 }
 
 func (TpmConfig_TpmVersion) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[7].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[8].Descriptor()
 }
 
 func (TpmConfig_TpmVersion) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[7]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[8]
 }
 
 func (x TpmConfig_TpmVersion) Number() protoreflect.EnumNumber {
@@ -422,7 +515,7 @@ func (x TpmConfig_TpmVersion) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TpmConfig_TpmVersion.Descriptor instead.
 func (TpmConfig_TpmVersion) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{18, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{20, 0}
 }
 
 type WatchdogConfig_WatchdogModel int32
@@ -455,11 +548,11 @@ func (x WatchdogConfig_WatchdogModel) String() string {
 }
 
 func (WatchdogConfig_WatchdogModel) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[8].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[9].Descriptor()
 }
 
 func (WatchdogConfig_WatchdogModel) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[8]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[9]
 }
 
 func (x WatchdogConfig_WatchdogModel) Number() protoreflect.EnumNumber {
@@ -468,7 +561,7 @@ func (x WatchdogConfig_WatchdogModel) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WatchdogConfig_WatchdogModel.Descriptor instead.
 func (WatchdogConfig_WatchdogModel) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{19, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{21, 0}
 }
 
 // Action when watchdog triggers
@@ -511,11 +604,11 @@ func (x WatchdogConfig_WatchdogAction) String() string {
 }
 
 func (WatchdogConfig_WatchdogAction) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[9].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[10].Descriptor()
 }
 
 func (WatchdogConfig_WatchdogAction) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[9]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[10]
 }
 
 func (x WatchdogConfig_WatchdogAction) Number() protoreflect.EnumNumber {
@@ -524,7 +617,7 @@ func (x WatchdogConfig_WatchdogAction) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WatchdogConfig_WatchdogAction.Descriptor instead.
 func (WatchdogConfig_WatchdogAction) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{19, 1}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{21, 1}
 }
 
 type SerialPort_SerialType int32
@@ -563,11 +656,11 @@ func (x SerialPort_SerialType) String() string {
 }
 
 func (SerialPort_SerialType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[10].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[11].Descriptor()
 }
 
 func (SerialPort_SerialType) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[10]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[11]
 }
 
 func (x SerialPort_SerialType) Number() protoreflect.EnumNumber {
@@ -576,7 +669,7 @@ func (x SerialPort_SerialType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SerialPort_SerialType.Descriptor instead.
 func (SerialPort_SerialType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{22, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{24, 0}
 }
 
 type BootDevice_DeviceType int32
@@ -615,11 +708,11 @@ func (x BootDevice_DeviceType) String() string {
 }
 
 func (BootDevice_DeviceType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[11].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[12].Descriptor()
 }
 
 func (BootDevice_DeviceType) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[11]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[12]
 }
 
 func (x BootDevice_DeviceType) Number() protoreflect.EnumNumber {
@@ -628,7 +721,7 @@ func (x BootDevice_DeviceType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use BootDevice_DeviceType.Descriptor instead.
 func (BootDevice_DeviceType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{24, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{26, 0}
 }
 
 type DisplayConfig_DisplayType int32
@@ -664,11 +757,11 @@ func (x DisplayConfig_DisplayType) String() string {
 }
 
 func (DisplayConfig_DisplayType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[12].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[13].Descriptor()
 }
 
 func (DisplayConfig_DisplayType) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[12]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[13]
 }
 
 func (x DisplayConfig_DisplayType) Number() protoreflect.EnumNumber {
@@ -677,7 +770,7 @@ func (x DisplayConfig_DisplayType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DisplayConfig_DisplayType.Descriptor instead.
 func (DisplayConfig_DisplayType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{26, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{28, 0}
 }
 
 // Virtual GPU for display (not passthrough)
@@ -717,11 +810,11 @@ func (x DisplayConfig_GpuType) String() string {
 }
 
 func (DisplayConfig_GpuType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[13].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[14].Descriptor()
 }
 
 func (DisplayConfig_GpuType) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[13]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[14]
 }
 
 func (x DisplayConfig_GpuType) Number() protoreflect.EnumNumber {
@@ -730,7 +823,7 @@ func (x DisplayConfig_GpuType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DisplayConfig_GpuType.Descriptor instead.
 func (DisplayConfig_GpuType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{26, 1}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{28, 1}
 }
 
 // Communication channel
@@ -764,11 +857,11 @@ func (x GuestAgentConfig_ChannelType) String() string {
 }
 
 func (GuestAgentConfig_ChannelType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[14].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[15].Descriptor()
 }
 
 func (GuestAgentConfig_ChannelType) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[14]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[15]
 }
 
 func (x GuestAgentConfig_ChannelType) Number() protoreflect.EnumNumber {
@@ -777,7 +870,7 @@ func (x GuestAgentConfig_ChannelType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use GuestAgentConfig_ChannelType.Descriptor instead.
 func (GuestAgentConfig_ChannelType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{27, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{29, 0}
 }
 
 // Restart conditions
@@ -814,11 +907,11 @@ func (x HaPolicy_RestartCondition) String() string {
 }
 
 func (HaPolicy_RestartCondition) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[15].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[16].Descriptor()
 }
 
 func (HaPolicy_RestartCondition) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[15]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[16]
 }
 
 func (x HaPolicy_RestartCondition) Number() protoreflect.EnumNumber {
@@ -827,7 +920,7 @@ func (x HaPolicy_RestartCondition) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HaPolicy_RestartCondition.Descriptor instead.
 func (HaPolicy_RestartCondition) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{33, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{35, 0}
 }
 
 // Clone type
@@ -861,11 +954,11 @@ func (x TemplateConfig_CloneType) String() string {
 }
 
 func (TemplateConfig_CloneType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[16].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[17].Descriptor()
 }
 
 func (TemplateConfig_CloneType) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[16]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[17]
 }
 
 func (x TemplateConfig_CloneType) Number() protoreflect.EnumNumber {
@@ -874,7 +967,7 @@ func (x TemplateConfig_CloneType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TemplateConfig_CloneType.Descriptor instead.
 func (TemplateConfig_CloneType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{36, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{38, 0}
 }
 
 type VmStatus_PowerState int32
@@ -932,11 +1025,11 @@ func (x VmStatus_PowerState) String() string {
 }
 
 func (VmStatus_PowerState) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[17].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[18].Descriptor()
 }
 
 func (VmStatus_PowerState) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[17]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[18]
 }
 
 func (x VmStatus_PowerState) Number() protoreflect.EnumNumber {
@@ -945,7 +1038,7 @@ func (x VmStatus_PowerState) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VmStatus_PowerState.Descriptor instead.
 func (VmStatus_PowerState) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{37, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{39, 0}
 }
 
 // Console type
@@ -982,11 +1075,11 @@ func (x ConsoleInfo_ConsoleType) String() string {
 }
 
 func (ConsoleInfo_ConsoleType) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[18].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[19].Descriptor()
 }
 
 func (ConsoleInfo_ConsoleType) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[18]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[19]
 }
 
 func (x ConsoleInfo_ConsoleType) Number() protoreflect.EnumNumber {
@@ -995,7 +1088,7 @@ func (x ConsoleInfo_ConsoleType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ConsoleInfo_ConsoleType.Descriptor instead.
 func (ConsoleInfo_ConsoleType) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{42, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{44, 0}
 }
 
 type HealthStatus_Status int32
@@ -1034,11 +1127,11 @@ func (x HealthStatus_Status) String() string {
 }
 
 func (HealthStatus_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_limiquantix_compute_v1_vm_proto_enumTypes[19].Descriptor()
+	return file_limiquantix_compute_v1_vm_proto_enumTypes[20].Descriptor()
 }
 
 func (HealthStatus_Status) Type() protoreflect.EnumType {
-	return &file_limiquantix_compute_v1_vm_proto_enumTypes[19]
+	return &file_limiquantix_compute_v1_vm_proto_enumTypes[20]
 }
 
 func (x HealthStatus_Status) Number() protoreflect.EnumNumber {
@@ -1047,7 +1140,7 @@ func (x HealthStatus_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HealthStatus_Status.Descriptor instead.
 func (HealthStatus_Status) EnumDescriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{43, 0}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{45, 0}
 }
 
 // The root object representing a Virtual Machine.
@@ -1255,7 +1348,10 @@ type VmSpec struct {
 	Placement *PlacementPolicy `protobuf:"bytes,20,opt,name=placement,proto3" json:"placement,omitempty"`
 	Migration *MigrationConfig `protobuf:"bytes,21,opt,name=migration,proto3" json:"migration,omitempty"`
 	// Template configuration (if this VM is a template)
-	Template      *TemplateConfig `protobuf:"bytes,22,opt,name=template,proto3" json:"template,omitempty"`
+	Template *TemplateConfig `protobuf:"bytes,22,opt,name=template,proto3" json:"template,omitempty"`
+	// Guest OS Profile - Determines hardware quirks, timer config, drivers, etc.
+	// Similar to VMware's Guest OS selection - affects virtual hardware behavior
+	GuestOs       *GuestOSProfile `protobuf:"bytes,23,opt,name=guest_os,json=guestOs,proto3" json:"guest_os,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1444,6 +1540,235 @@ func (x *VmSpec) GetTemplate() *TemplateConfig {
 	return nil
 }
 
+func (x *VmSpec) GetGuestOs() *GuestOSProfile {
+	if x != nil {
+		return x.GuestOs
+	}
+	return nil
+}
+
+// GuestOSProfile determines OS-specific virtual hardware settings.
+// Like VMware's guest OS selection, this affects timers, video, CPU features, etc.
+type GuestOSProfile struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The OS family (required) - determines base hardware profile
+	Family GuestOSFamily `protobuf:"varint,1,opt,name=family,proto3,enum=limiquantix.compute.v1.GuestOSFamily" json:"family,omitempty"`
+	// Specific OS variant for fine-tuned settings (optional)
+	// e.g., "rocky-9", "ubuntu-22.04", "windows-11-22h2"
+	Variant string `protobuf:"bytes,2,opt,name=variant,proto3" json:"variant,omitempty"`
+	// Override auto-detected settings (advanced users)
+	Overrides     *GuestOSOverrides `protobuf:"bytes,3,opt,name=overrides,proto3" json:"overrides,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GuestOSProfile) Reset() {
+	*x = GuestOSProfile{}
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GuestOSProfile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GuestOSProfile) ProtoMessage() {}
+
+func (x *GuestOSProfile) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GuestOSProfile.ProtoReflect.Descriptor instead.
+func (*GuestOSProfile) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *GuestOSProfile) GetFamily() GuestOSFamily {
+	if x != nil {
+		return x.Family
+	}
+	return GuestOSFamily_GUEST_OS_FAMILY_UNSPECIFIED
+}
+
+func (x *GuestOSProfile) GetVariant() string {
+	if x != nil {
+		return x.Variant
+	}
+	return ""
+}
+
+func (x *GuestOSProfile) GetOverrides() *GuestOSOverrides {
+	if x != nil {
+		return x.Overrides
+	}
+	return nil
+}
+
+// GuestOSOverrides - Manual overrides for OS-specific settings
+type GuestOSOverrides struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Timer configuration
+	HpetEnabled  *bool `protobuf:"varint,1,opt,name=hpet_enabled,json=hpetEnabled,proto3,oneof" json:"hpet_enabled,omitempty"`    // HPET timer (default: varies by OS)
+	HypervTimers *bool `protobuf:"varint,2,opt,name=hyperv_timers,json=hypervTimers,proto3,oneof" json:"hyperv_timers,omitempty"` // Hyper-V enlightened timers (Windows)
+	Kvmclock     *bool `protobuf:"varint,3,opt,name=kvmclock,proto3,oneof" json:"kvmclock,omitempty"`                             // KVM paravirt clock (Linux)
+	// CPU settings
+	CpuMode    *string `protobuf:"bytes,4,opt,name=cpu_mode,json=cpuMode,proto3,oneof" json:"cpu_mode,omitempty"`           // host-passthrough, host-model, custom
+	NestedVirt *bool   `protobuf:"varint,5,opt,name=nested_virt,json=nestedVirt,proto3,oneof" json:"nested_virt,omitempty"` // Allow nested virtualization
+	// Video settings
+	VideoModel  *string `protobuf:"bytes,6,opt,name=video_model,json=videoModel,proto3,oneof" json:"video_model,omitempty"`       // vga, qxl, virtio, cirrus
+	VideoVramKb *uint32 `protobuf:"varint,7,opt,name=video_vram_kb,json=videoVramKb,proto3,oneof" json:"video_vram_kb,omitempty"` // Video RAM in KB
+	// Disk settings
+	DiskBus   *string `protobuf:"bytes,8,opt,name=disk_bus,json=diskBus,proto3,oneof" json:"disk_bus,omitempty"`       // virtio, sata, scsi, ide
+	DiskCache *string `protobuf:"bytes,9,opt,name=disk_cache,json=diskCache,proto3,oneof" json:"disk_cache,omitempty"` // none, writeback, writethrough
+	// Network settings
+	NicModel *string `protobuf:"bytes,10,opt,name=nic_model,json=nicModel,proto3,oneof" json:"nic_model,omitempty"` // virtio, e1000, e1000e
+	// Machine type
+	MachineType *string `protobuf:"bytes,11,opt,name=machine_type,json=machineType,proto3,oneof" json:"machine_type,omitempty"` // q35, pc, etc.
+	// Windows-specific
+	TpmRequired    *bool `protobuf:"varint,12,opt,name=tpm_required,json=tpmRequired,proto3,oneof" json:"tpm_required,omitempty"`          // TPM 2.0 (Windows 11)
+	SecureBoot     *bool `protobuf:"varint,13,opt,name=secure_boot,json=secureBoot,proto3,oneof" json:"secure_boot,omitempty"`             // Secure Boot (Windows 11)
+	HypervFeatures *bool `protobuf:"varint,14,opt,name=hyperv_features,json=hypervFeatures,proto3,oneof" json:"hyperv_features,omitempty"` // Hyper-V enlightenments
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GuestOSOverrides) Reset() {
+	*x = GuestOSOverrides{}
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GuestOSOverrides) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GuestOSOverrides) ProtoMessage() {}
+
+func (x *GuestOSOverrides) ProtoReflect() protoreflect.Message {
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GuestOSOverrides.ProtoReflect.Descriptor instead.
+func (*GuestOSOverrides) Descriptor() ([]byte, []int) {
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *GuestOSOverrides) GetHpetEnabled() bool {
+	if x != nil && x.HpetEnabled != nil {
+		return *x.HpetEnabled
+	}
+	return false
+}
+
+func (x *GuestOSOverrides) GetHypervTimers() bool {
+	if x != nil && x.HypervTimers != nil {
+		return *x.HypervTimers
+	}
+	return false
+}
+
+func (x *GuestOSOverrides) GetKvmclock() bool {
+	if x != nil && x.Kvmclock != nil {
+		return *x.Kvmclock
+	}
+	return false
+}
+
+func (x *GuestOSOverrides) GetCpuMode() string {
+	if x != nil && x.CpuMode != nil {
+		return *x.CpuMode
+	}
+	return ""
+}
+
+func (x *GuestOSOverrides) GetNestedVirt() bool {
+	if x != nil && x.NestedVirt != nil {
+		return *x.NestedVirt
+	}
+	return false
+}
+
+func (x *GuestOSOverrides) GetVideoModel() string {
+	if x != nil && x.VideoModel != nil {
+		return *x.VideoModel
+	}
+	return ""
+}
+
+func (x *GuestOSOverrides) GetVideoVramKb() uint32 {
+	if x != nil && x.VideoVramKb != nil {
+		return *x.VideoVramKb
+	}
+	return 0
+}
+
+func (x *GuestOSOverrides) GetDiskBus() string {
+	if x != nil && x.DiskBus != nil {
+		return *x.DiskBus
+	}
+	return ""
+}
+
+func (x *GuestOSOverrides) GetDiskCache() string {
+	if x != nil && x.DiskCache != nil {
+		return *x.DiskCache
+	}
+	return ""
+}
+
+func (x *GuestOSOverrides) GetNicModel() string {
+	if x != nil && x.NicModel != nil {
+		return *x.NicModel
+	}
+	return ""
+}
+
+func (x *GuestOSOverrides) GetMachineType() string {
+	if x != nil && x.MachineType != nil {
+		return *x.MachineType
+	}
+	return ""
+}
+
+func (x *GuestOSOverrides) GetTpmRequired() bool {
+	if x != nil && x.TpmRequired != nil {
+		return *x.TpmRequired
+	}
+	return false
+}
+
+func (x *GuestOSOverrides) GetSecureBoot() bool {
+	if x != nil && x.SecureBoot != nil {
+		return *x.SecureBoot
+	}
+	return false
+}
+
+func (x *GuestOSOverrides) GetHypervFeatures() bool {
+	if x != nil && x.HypervFeatures != nil {
+		return *x.HypervFeatures
+	}
+	return false
+}
+
 type CpuConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Total vCPUs
@@ -1463,7 +1788,7 @@ type CpuConfig struct {
 
 func (x *CpuConfig) Reset() {
 	*x = CpuConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[2]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1475,7 +1800,7 @@ func (x *CpuConfig) String() string {
 func (*CpuConfig) ProtoMessage() {}
 
 func (x *CpuConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[2]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1488,7 +1813,7 @@ func (x *CpuConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CpuConfig.ProtoReflect.Descriptor instead.
 func (*CpuConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{2}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CpuConfig) GetCores() uint32 {
@@ -1545,7 +1870,7 @@ type NumaConfig struct {
 
 func (x *NumaConfig) Reset() {
 	*x = NumaConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[3]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1557,7 +1882,7 @@ func (x *NumaConfig) String() string {
 func (*NumaConfig) ProtoMessage() {}
 
 func (x *NumaConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[3]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1570,7 +1895,7 @@ func (x *NumaConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NumaConfig.ProtoReflect.Descriptor instead.
 func (*NumaConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{3}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *NumaConfig) GetEnabled() bool {
@@ -1599,7 +1924,7 @@ type NumaNode struct {
 
 func (x *NumaNode) Reset() {
 	*x = NumaNode{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[4]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1611,7 +1936,7 @@ func (x *NumaNode) String() string {
 func (*NumaNode) ProtoMessage() {}
 
 func (x *NumaNode) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[4]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1624,7 +1949,7 @@ func (x *NumaNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NumaNode.ProtoReflect.Descriptor instead.
 func (*NumaNode) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{4}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *NumaNode) GetNodeId() uint32 {
@@ -1672,7 +1997,7 @@ type CpuFeatures struct {
 
 func (x *CpuFeatures) Reset() {
 	*x = CpuFeatures{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[5]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1684,7 +2009,7 @@ func (x *CpuFeatures) String() string {
 func (*CpuFeatures) ProtoMessage() {}
 
 func (x *CpuFeatures) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[5]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1697,7 +2022,7 @@ func (x *CpuFeatures) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CpuFeatures.ProtoReflect.Descriptor instead.
 func (*CpuFeatures) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{5}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CpuFeatures) GetAesNi() bool {
@@ -1760,7 +2085,7 @@ type MemoryConfig struct {
 
 func (x *MemoryConfig) Reset() {
 	*x = MemoryConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[6]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1772,7 +2097,7 @@ func (x *MemoryConfig) String() string {
 func (*MemoryConfig) ProtoMessage() {}
 
 func (x *MemoryConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[6]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1785,7 +2110,7 @@ func (x *MemoryConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryConfig.ProtoReflect.Descriptor instead.
 func (*MemoryConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{6}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *MemoryConfig) GetSizeMib() uint64 {
@@ -1833,7 +2158,7 @@ type HugePagesConfig struct {
 
 func (x *HugePagesConfig) Reset() {
 	*x = HugePagesConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[7]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1845,7 +2170,7 @@ func (x *HugePagesConfig) String() string {
 func (*HugePagesConfig) ProtoMessage() {}
 
 func (x *HugePagesConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[7]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1858,7 +2183,7 @@ func (x *HugePagesConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HugePagesConfig.ProtoReflect.Descriptor instead.
 func (*HugePagesConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{7}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *HugePagesConfig) GetEnabled() bool {
@@ -1903,7 +2228,7 @@ type DiskDevice struct {
 
 func (x *DiskDevice) Reset() {
 	*x = DiskDevice{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[8]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1915,7 +2240,7 @@ func (x *DiskDevice) String() string {
 func (*DiskDevice) ProtoMessage() {}
 
 func (x *DiskDevice) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[8]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1928,7 +2253,7 @@ func (x *DiskDevice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiskDevice.ProtoReflect.Descriptor instead.
 func (*DiskDevice) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{8}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DiskDevice) GetId() string {
@@ -2030,7 +2355,7 @@ type CdromDevice struct {
 
 func (x *CdromDevice) Reset() {
 	*x = CdromDevice{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[9]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2042,7 +2367,7 @@ func (x *CdromDevice) String() string {
 func (*CdromDevice) ProtoMessage() {}
 
 func (x *CdromDevice) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[9]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2055,7 +2380,7 @@ func (x *CdromDevice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CdromDevice.ProtoReflect.Descriptor instead.
 func (*CdromDevice) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{9}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CdromDevice) GetId() string {
@@ -2102,7 +2427,7 @@ type IoLimits struct {
 
 func (x *IoLimits) Reset() {
 	*x = IoLimits{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[10]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2114,7 +2439,7 @@ func (x *IoLimits) String() string {
 func (*IoLimits) ProtoMessage() {}
 
 func (x *IoLimits) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[10]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2127,7 +2452,7 @@ func (x *IoLimits) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IoLimits.ProtoReflect.Descriptor instead.
 func (*IoLimits) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{10}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *IoLimits) GetReadIops() uint64 {
@@ -2203,7 +2528,7 @@ type NetworkInterface struct {
 
 func (x *NetworkInterface) Reset() {
 	*x = NetworkInterface{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[11]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2215,7 +2540,7 @@ func (x *NetworkInterface) String() string {
 func (*NetworkInterface) ProtoMessage() {}
 
 func (x *NetworkInterface) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[11]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2228,7 +2553,7 @@ func (x *NetworkInterface) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkInterface.ProtoReflect.Descriptor instead.
 func (*NetworkInterface) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{11}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *NetworkInterface) GetId() string {
@@ -2305,7 +2630,7 @@ type IpConfig struct {
 
 func (x *IpConfig) Reset() {
 	*x = IpConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[12]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2317,7 +2642,7 @@ func (x *IpConfig) String() string {
 func (*IpConfig) ProtoMessage() {}
 
 func (x *IpConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[12]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2330,7 +2655,7 @@ func (x *IpConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IpConfig.ProtoReflect.Descriptor instead.
 func (*IpConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{12}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *IpConfig) GetAddress() string {
@@ -2367,7 +2692,7 @@ type NetworkQos struct {
 
 func (x *NetworkQos) Reset() {
 	*x = NetworkQos{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[13]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2379,7 +2704,7 @@ func (x *NetworkQos) String() string {
 func (*NetworkQos) ProtoMessage() {}
 
 func (x *NetworkQos) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[13]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2392,7 +2717,7 @@ func (x *NetworkQos) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkQos.ProtoReflect.Descriptor instead.
 func (*NetworkQos) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{13}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *NetworkQos) GetIngressRateMbps() uint64 {
@@ -2426,7 +2751,7 @@ type SriovConfig struct {
 
 func (x *SriovConfig) Reset() {
 	*x = SriovConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[14]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2438,7 +2763,7 @@ func (x *SriovConfig) String() string {
 func (*SriovConfig) ProtoMessage() {}
 
 func (x *SriovConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[14]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2451,7 +2776,7 @@ func (x *SriovConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SriovConfig.ProtoReflect.Descriptor instead.
 func (*SriovConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{14}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *SriovConfig) GetEnabled() bool {
@@ -2481,7 +2806,7 @@ type PciDevice struct {
 
 func (x *PciDevice) Reset() {
 	*x = PciDevice{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[15]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2493,7 +2818,7 @@ func (x *PciDevice) String() string {
 func (*PciDevice) ProtoMessage() {}
 
 func (x *PciDevice) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[15]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2506,7 +2831,7 @@ func (x *PciDevice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PciDevice.ProtoReflect.Descriptor instead.
 func (*PciDevice) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{15}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *PciDevice) GetHostAddress() string {
@@ -2545,7 +2870,7 @@ type UsbDevice struct {
 
 func (x *UsbDevice) Reset() {
 	*x = UsbDevice{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[16]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2557,7 +2882,7 @@ func (x *UsbDevice) String() string {
 func (*UsbDevice) ProtoMessage() {}
 
 func (x *UsbDevice) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[16]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2570,7 +2895,7 @@ func (x *UsbDevice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsbDevice.ProtoReflect.Descriptor instead.
 func (*UsbDevice) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{16}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *UsbDevice) GetVendorId() string {
@@ -2621,7 +2946,7 @@ type VgpuDevice struct {
 
 func (x *VgpuDevice) Reset() {
 	*x = VgpuDevice{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[17]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2633,7 +2958,7 @@ func (x *VgpuDevice) String() string {
 func (*VgpuDevice) ProtoMessage() {}
 
 func (x *VgpuDevice) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[17]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2646,7 +2971,7 @@ func (x *VgpuDevice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VgpuDevice.ProtoReflect.Descriptor instead.
 func (*VgpuDevice) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{17}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *VgpuDevice) GetProfile() string {
@@ -2682,7 +3007,7 @@ type TpmConfig struct {
 
 func (x *TpmConfig) Reset() {
 	*x = TpmConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[18]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2694,7 +3019,7 @@ func (x *TpmConfig) String() string {
 func (*TpmConfig) ProtoMessage() {}
 
 func (x *TpmConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[18]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2707,7 +3032,7 @@ func (x *TpmConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TpmConfig.ProtoReflect.Descriptor instead.
 func (*TpmConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{18}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *TpmConfig) GetEnabled() bool {
@@ -2742,7 +3067,7 @@ type WatchdogConfig struct {
 
 func (x *WatchdogConfig) Reset() {
 	*x = WatchdogConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[19]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2754,7 +3079,7 @@ func (x *WatchdogConfig) String() string {
 func (*WatchdogConfig) ProtoMessage() {}
 
 func (x *WatchdogConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[19]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2767,7 +3092,7 @@ func (x *WatchdogConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchdogConfig.ProtoReflect.Descriptor instead.
 func (*WatchdogConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{19}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *WatchdogConfig) GetEnabled() bool {
@@ -2806,7 +3131,7 @@ type RngConfig struct {
 
 func (x *RngConfig) Reset() {
 	*x = RngConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[20]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2818,7 +3143,7 @@ func (x *RngConfig) String() string {
 func (*RngConfig) ProtoMessage() {}
 
 func (x *RngConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[20]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2831,7 +3156,7 @@ func (x *RngConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RngConfig.ProtoReflect.Descriptor instead.
 func (*RngConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{20}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *RngConfig) GetEnabled() bool {
@@ -2874,7 +3199,7 @@ type SerialPortConfig struct {
 
 func (x *SerialPortConfig) Reset() {
 	*x = SerialPortConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[21]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2886,7 +3211,7 @@ func (x *SerialPortConfig) String() string {
 func (*SerialPortConfig) ProtoMessage() {}
 
 func (x *SerialPortConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[21]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2899,7 +3224,7 @@ func (x *SerialPortConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SerialPortConfig.ProtoReflect.Descriptor instead.
 func (*SerialPortConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{21}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *SerialPortConfig) GetCount() uint32 {
@@ -2928,7 +3253,7 @@ type SerialPort struct {
 
 func (x *SerialPort) Reset() {
 	*x = SerialPort{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[22]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2940,7 +3265,7 @@ func (x *SerialPort) String() string {
 func (*SerialPort) ProtoMessage() {}
 
 func (x *SerialPort) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[22]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2953,7 +3278,7 @@ func (x *SerialPort) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SerialPort.ProtoReflect.Descriptor instead.
 func (*SerialPort) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{22}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *SerialPort) GetIndex() uint32 {
@@ -2991,7 +3316,7 @@ type BootConfig struct {
 
 func (x *BootConfig) Reset() {
 	*x = BootConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[23]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3003,7 +3328,7 @@ func (x *BootConfig) String() string {
 func (*BootConfig) ProtoMessage() {}
 
 func (x *BootConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[23]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3016,7 +3341,7 @@ func (x *BootConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BootConfig.ProtoReflect.Descriptor instead.
 func (*BootConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{23}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *BootConfig) GetBootOrder() []*BootDevice {
@@ -3050,7 +3375,7 @@ type BootDevice struct {
 
 func (x *BootDevice) Reset() {
 	*x = BootDevice{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[24]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3062,7 +3387,7 @@ func (x *BootDevice) String() string {
 func (*BootDevice) ProtoMessage() {}
 
 func (x *BootDevice) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[24]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3075,7 +3400,7 @@ func (x *BootDevice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BootDevice.ProtoReflect.Descriptor instead.
 func (*BootDevice) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{24}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *BootDevice) GetType() BootDevice_DeviceType {
@@ -3103,7 +3428,7 @@ type DirectKernelBoot struct {
 
 func (x *DirectKernelBoot) Reset() {
 	*x = DirectKernelBoot{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[25]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3115,7 +3440,7 @@ func (x *DirectKernelBoot) String() string {
 func (*DirectKernelBoot) ProtoMessage() {}
 
 func (x *DirectKernelBoot) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[25]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3128,7 +3453,7 @@ func (x *DirectKernelBoot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DirectKernelBoot.ProtoReflect.Descriptor instead.
 func (*DirectKernelBoot) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{25}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *DirectKernelBoot) GetKernelPath() string {
@@ -3173,7 +3498,7 @@ type DisplayConfig struct {
 
 func (x *DisplayConfig) Reset() {
 	*x = DisplayConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[26]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3185,7 +3510,7 @@ func (x *DisplayConfig) String() string {
 func (*DisplayConfig) ProtoMessage() {}
 
 func (x *DisplayConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[26]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3198,7 +3523,7 @@ func (x *DisplayConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisplayConfig.ProtoReflect.Descriptor instead.
 func (*DisplayConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{26}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *DisplayConfig) GetType() DisplayConfig_DisplayType {
@@ -3271,7 +3596,7 @@ type GuestAgentConfig struct {
 
 func (x *GuestAgentConfig) Reset() {
 	*x = GuestAgentConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[27]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3283,7 +3608,7 @@ func (x *GuestAgentConfig) String() string {
 func (*GuestAgentConfig) ProtoMessage() {}
 
 func (x *GuestAgentConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[27]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3296,7 +3621,7 @@ func (x *GuestAgentConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GuestAgentConfig.ProtoReflect.Descriptor instead.
 func (*GuestAgentConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{27}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *GuestAgentConfig) GetEnabled() bool {
@@ -3341,7 +3666,7 @@ type ProvisioningConfig struct {
 
 func (x *ProvisioningConfig) Reset() {
 	*x = ProvisioningConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[28]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3353,7 +3678,7 @@ func (x *ProvisioningConfig) String() string {
 func (*ProvisioningConfig) ProtoMessage() {}
 
 func (x *ProvisioningConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[28]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3366,7 +3691,7 @@ func (x *ProvisioningConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProvisioningConfig.ProtoReflect.Descriptor instead.
 func (*ProvisioningConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{28}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ProvisioningConfig) GetMethod() isProvisioningConfig_Method {
@@ -3441,7 +3766,7 @@ type CloudInitConfig struct {
 
 func (x *CloudInitConfig) Reset() {
 	*x = CloudInitConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[29]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3453,7 +3778,7 @@ func (x *CloudInitConfig) String() string {
 func (*CloudInitConfig) ProtoMessage() {}
 
 func (x *CloudInitConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[29]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3466,7 +3791,7 @@ func (x *CloudInitConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloudInitConfig.ProtoReflect.Descriptor instead.
 func (*CloudInitConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{29}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *CloudInitConfig) GetUserData() string {
@@ -3508,7 +3833,7 @@ type IgnitionConfig struct {
 
 func (x *IgnitionConfig) Reset() {
 	*x = IgnitionConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[30]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3520,7 +3845,7 @@ func (x *IgnitionConfig) String() string {
 func (*IgnitionConfig) ProtoMessage() {}
 
 func (x *IgnitionConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[30]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3533,7 +3858,7 @@ func (x *IgnitionConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IgnitionConfig.ProtoReflect.Descriptor instead.
 func (*IgnitionConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{30}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *IgnitionConfig) GetConfig() string {
@@ -3559,7 +3884,7 @@ type SysprepConfig struct {
 
 func (x *SysprepConfig) Reset() {
 	*x = SysprepConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[31]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3571,7 +3896,7 @@ func (x *SysprepConfig) String() string {
 func (*SysprepConfig) ProtoMessage() {}
 
 func (x *SysprepConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[31]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3584,7 +3909,7 @@ func (x *SysprepConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SysprepConfig.ProtoReflect.Descriptor instead.
 func (*SysprepConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{31}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *SysprepConfig) GetUnattendXml() string {
@@ -3640,7 +3965,7 @@ type ResourceConfig struct {
 
 func (x *ResourceConfig) Reset() {
 	*x = ResourceConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[32]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3652,7 +3977,7 @@ func (x *ResourceConfig) String() string {
 func (*ResourceConfig) ProtoMessage() {}
 
 func (x *ResourceConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[32]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3665,7 +3990,7 @@ func (x *ResourceConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceConfig.ProtoReflect.Descriptor instead.
 func (*ResourceConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{32}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ResourceConfig) GetCpuShares() uint32 {
@@ -3720,7 +4045,7 @@ type HaPolicy struct {
 
 func (x *HaPolicy) Reset() {
 	*x = HaPolicy{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[33]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3732,7 +4057,7 @@ func (x *HaPolicy) String() string {
 func (*HaPolicy) ProtoMessage() {}
 
 func (x *HaPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[33]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3745,7 +4070,7 @@ func (x *HaPolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HaPolicy.ProtoReflect.Descriptor instead.
 func (*HaPolicy) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{33}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *HaPolicy) GetAutoRestart() bool {
@@ -3803,7 +4128,7 @@ type PlacementPolicy struct {
 
 func (x *PlacementPolicy) Reset() {
 	*x = PlacementPolicy{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[34]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3815,7 +4140,7 @@ func (x *PlacementPolicy) String() string {
 func (*PlacementPolicy) ProtoMessage() {}
 
 func (x *PlacementPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[34]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3828,7 +4153,7 @@ func (x *PlacementPolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlacementPolicy.ProtoReflect.Descriptor instead.
 func (*PlacementPolicy) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{34}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *PlacementPolicy) GetPreferredNodes() []string {
@@ -3893,7 +4218,7 @@ type MigrationConfig struct {
 
 func (x *MigrationConfig) Reset() {
 	*x = MigrationConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[35]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3905,7 +4230,7 @@ func (x *MigrationConfig) String() string {
 func (*MigrationConfig) ProtoMessage() {}
 
 func (x *MigrationConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[35]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3918,7 +4243,7 @@ func (x *MigrationConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MigrationConfig.ProtoReflect.Descriptor instead.
 func (*MigrationConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{35}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *MigrationConfig) GetAllowMigration() bool {
@@ -3976,7 +4301,7 @@ type TemplateConfig struct {
 
 func (x *TemplateConfig) Reset() {
 	*x = TemplateConfig{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[36]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3988,7 +4313,7 @@ func (x *TemplateConfig) String() string {
 func (*TemplateConfig) ProtoMessage() {}
 
 func (x *TemplateConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[36]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4001,7 +4326,7 @@ func (x *TemplateConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TemplateConfig.ProtoReflect.Descriptor instead.
 func (*TemplateConfig) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{36}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *TemplateConfig) GetIsTemplate() bool {
@@ -4056,7 +4381,7 @@ type VmStatus struct {
 
 func (x *VmStatus) Reset() {
 	*x = VmStatus{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[37]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4068,7 +4393,7 @@ func (x *VmStatus) String() string {
 func (*VmStatus) ProtoMessage() {}
 
 func (x *VmStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[37]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4081,7 +4406,7 @@ func (x *VmStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VmStatus.ProtoReflect.Descriptor instead.
 func (*VmStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{37}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *VmStatus) GetState() VmStatus_PowerState {
@@ -4192,7 +4517,7 @@ type ResourceUsage struct {
 
 func (x *ResourceUsage) Reset() {
 	*x = ResourceUsage{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[38]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4204,7 +4529,7 @@ func (x *ResourceUsage) String() string {
 func (*ResourceUsage) ProtoMessage() {}
 
 func (x *ResourceUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[38]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4217,7 +4542,7 @@ func (x *ResourceUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceUsage.ProtoReflect.Descriptor instead.
 func (*ResourceUsage) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{38}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ResourceUsage) GetCpuUsagePercent() float64 {
@@ -4318,7 +4643,7 @@ type GuestInfo struct {
 
 func (x *GuestInfo) Reset() {
 	*x = GuestInfo{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[39]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4330,7 +4655,7 @@ func (x *GuestInfo) String() string {
 func (*GuestInfo) ProtoMessage() {}
 
 func (x *GuestInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[39]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4343,7 +4668,7 @@ func (x *GuestInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GuestInfo.ProtoReflect.Descriptor instead.
 func (*GuestInfo) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{39}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *GuestInfo) GetOsName() string {
@@ -4414,7 +4739,7 @@ type SnapshotStatus struct {
 
 func (x *SnapshotStatus) Reset() {
 	*x = SnapshotStatus{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[40]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4426,7 +4751,7 @@ func (x *SnapshotStatus) String() string {
 func (*SnapshotStatus) ProtoMessage() {}
 
 func (x *SnapshotStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[40]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4439,7 +4764,7 @@ func (x *SnapshotStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SnapshotStatus.ProtoReflect.Descriptor instead.
 func (*SnapshotStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{40}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *SnapshotStatus) GetCurrentSnapshotId() string {
@@ -4476,7 +4801,7 @@ type Snapshot struct {
 
 func (x *Snapshot) Reset() {
 	*x = Snapshot{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[41]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4488,7 +4813,7 @@ func (x *Snapshot) String() string {
 func (*Snapshot) ProtoMessage() {}
 
 func (x *Snapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[41]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4501,7 +4826,7 @@ func (x *Snapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Snapshot.ProtoReflect.Descriptor instead.
 func (*Snapshot) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{41}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *Snapshot) GetId() string {
@@ -4579,7 +4904,7 @@ type ConsoleInfo struct {
 
 func (x *ConsoleInfo) Reset() {
 	*x = ConsoleInfo{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[42]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4591,7 +4916,7 @@ func (x *ConsoleInfo) String() string {
 func (*ConsoleInfo) ProtoMessage() {}
 
 func (x *ConsoleInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[42]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4604,7 +4929,7 @@ func (x *ConsoleInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsoleInfo.ProtoReflect.Descriptor instead.
 func (*ConsoleInfo) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{42}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ConsoleInfo) GetConsoleType() ConsoleInfo_ConsoleType {
@@ -4660,7 +4985,7 @@ type HealthStatus struct {
 
 func (x *HealthStatus) Reset() {
 	*x = HealthStatus{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[43]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4672,7 +4997,7 @@ func (x *HealthStatus) String() string {
 func (*HealthStatus) ProtoMessage() {}
 
 func (x *HealthStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[43]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4685,7 +5010,7 @@ func (x *HealthStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthStatus.ProtoReflect.Descriptor instead.
 func (*HealthStatus) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{43}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *HealthStatus) GetStatus() HealthStatus_Status {
@@ -4714,7 +5039,7 @@ type HealthCheck struct {
 
 func (x *HealthCheck) Reset() {
 	*x = HealthCheck{}
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[44]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4726,7 +5051,7 @@ func (x *HealthCheck) String() string {
 func (*HealthCheck) ProtoMessage() {}
 
 func (x *HealthCheck) ProtoReflect() protoreflect.Message {
-	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[44]
+	mi := &file_limiquantix_compute_v1_vm_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4739,7 +5064,7 @@ func (x *HealthCheck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheck.ProtoReflect.Descriptor instead.
 func (*HealthCheck) Descriptor() ([]byte, []int) {
-	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{44}
+	return file_limiquantix_compute_v1_vm_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *HealthCheck) GetName() string {
@@ -4798,7 +5123,7 @@ const file_limiquantix_compute_v1_vm_proto_rawDesc = "" +
 	"is_managed\x18\x0e \x01(\bR\tisManaged\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x91\v\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd4\v\n" +
 	"\x06VmSpec\x123\n" +
 	"\x03cpu\x18\x01 \x01(\v2!.limiquantix.compute.v1.CpuConfigR\x03cpu\x12<\n" +
 	"\x06memory\x18\x02 \x01(\v2$.limiquantix.compute.v1.MemoryConfigR\x06memory\x128\n" +
@@ -4824,7 +5149,48 @@ const file_limiquantix_compute_v1_vm_proto_rawDesc = "" +
 	"\tha_policy\x18\x13 \x01(\v2 .limiquantix.compute.v1.HaPolicyR\bhaPolicy\x12E\n" +
 	"\tplacement\x18\x14 \x01(\v2'.limiquantix.compute.v1.PlacementPolicyR\tplacement\x12E\n" +
 	"\tmigration\x18\x15 \x01(\v2'.limiquantix.compute.v1.MigrationConfigR\tmigration\x12B\n" +
-	"\btemplate\x18\x16 \x01(\v2&.limiquantix.compute.v1.TemplateConfigR\btemplate\"\xf4\x01\n" +
+	"\btemplate\x18\x16 \x01(\v2&.limiquantix.compute.v1.TemplateConfigR\btemplate\x12A\n" +
+	"\bguest_os\x18\x17 \x01(\v2&.limiquantix.compute.v1.GuestOSProfileR\aguestOs\"\xb1\x01\n" +
+	"\x0eGuestOSProfile\x12=\n" +
+	"\x06family\x18\x01 \x01(\x0e2%.limiquantix.compute.v1.GuestOSFamilyR\x06family\x12\x18\n" +
+	"\avariant\x18\x02 \x01(\tR\avariant\x12F\n" +
+	"\toverrides\x18\x03 \x01(\v2(.limiquantix.compute.v1.GuestOSOverridesR\toverrides\"\x83\x06\n" +
+	"\x10GuestOSOverrides\x12&\n" +
+	"\fhpet_enabled\x18\x01 \x01(\bH\x00R\vhpetEnabled\x88\x01\x01\x12(\n" +
+	"\rhyperv_timers\x18\x02 \x01(\bH\x01R\fhypervTimers\x88\x01\x01\x12\x1f\n" +
+	"\bkvmclock\x18\x03 \x01(\bH\x02R\bkvmclock\x88\x01\x01\x12\x1e\n" +
+	"\bcpu_mode\x18\x04 \x01(\tH\x03R\acpuMode\x88\x01\x01\x12$\n" +
+	"\vnested_virt\x18\x05 \x01(\bH\x04R\n" +
+	"nestedVirt\x88\x01\x01\x12$\n" +
+	"\vvideo_model\x18\x06 \x01(\tH\x05R\n" +
+	"videoModel\x88\x01\x01\x12'\n" +
+	"\rvideo_vram_kb\x18\a \x01(\rH\x06R\vvideoVramKb\x88\x01\x01\x12\x1e\n" +
+	"\bdisk_bus\x18\b \x01(\tH\aR\adiskBus\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"disk_cache\x18\t \x01(\tH\bR\tdiskCache\x88\x01\x01\x12 \n" +
+	"\tnic_model\x18\n" +
+	" \x01(\tH\tR\bnicModel\x88\x01\x01\x12&\n" +
+	"\fmachine_type\x18\v \x01(\tH\n" +
+	"R\vmachineType\x88\x01\x01\x12&\n" +
+	"\ftpm_required\x18\f \x01(\bH\vR\vtpmRequired\x88\x01\x01\x12$\n" +
+	"\vsecure_boot\x18\r \x01(\bH\fR\n" +
+	"secureBoot\x88\x01\x01\x12,\n" +
+	"\x0fhyperv_features\x18\x0e \x01(\bH\rR\x0ehypervFeatures\x88\x01\x01B\x0f\n" +
+	"\r_hpet_enabledB\x10\n" +
+	"\x0e_hyperv_timersB\v\n" +
+	"\t_kvmclockB\v\n" +
+	"\t_cpu_modeB\x0e\n" +
+	"\f_nested_virtB\x0e\n" +
+	"\f_video_modelB\x10\n" +
+	"\x0e_video_vram_kbB\v\n" +
+	"\t_disk_busB\r\n" +
+	"\v_disk_cacheB\f\n" +
+	"\n" +
+	"_nic_modelB\x0f\n" +
+	"\r_machine_typeB\x0f\n" +
+	"\r_tpm_requiredB\x0e\n" +
+	"\f_secure_bootB\x12\n" +
+	"\x10_hyperv_features\"\xf4\x01\n" +
 	"\tCpuConfig\x12\x14\n" +
 	"\x05cores\x18\x01 \x01(\rR\x05cores\x12\x18\n" +
 	"\asockets\x18\x02 \x01(\rR\asockets\x12(\n" +
@@ -5227,7 +5593,25 @@ const file_limiquantix_compute_v1_vm_proto_rawDesc = "" +
 	"\x11VM_ORIGIN_UNKNOWN\x10\x00\x12\x1b\n" +
 	"\x17VM_ORIGIN_CONTROL_PLANE\x10\x01\x12\x1d\n" +
 	"\x19VM_ORIGIN_HOST_DISCOVERED\x10\x02\x12\x16\n" +
-	"\x12VM_ORIGIN_IMPORTED\x10\x03*8\n" +
+	"\x12VM_ORIGIN_IMPORTED\x10\x03*\xef\x03\n" +
+	"\rGuestOSFamily\x12\x1f\n" +
+	"\x1bGUEST_OS_FAMILY_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14GUEST_OS_FAMILY_RHEL\x10\x01\x12\x1a\n" +
+	"\x16GUEST_OS_FAMILY_DEBIAN\x10\x02\x12\x18\n" +
+	"\x14GUEST_OS_FAMILY_SUSE\x10\x03\x12\x18\n" +
+	"\x14GUEST_OS_FAMILY_ARCH\x10\x04\x12\x1a\n" +
+	"\x16GUEST_OS_FAMILY_FEDORA\x10\x05\x12!\n" +
+	"\x1dGUEST_OS_FAMILY_GENERIC_LINUX\x10\x06\x12\"\n" +
+	"\x1eGUEST_OS_FAMILY_WINDOWS_SERVER\x10\n" +
+	"\x12#\n" +
+	"\x1fGUEST_OS_FAMILY_WINDOWS_DESKTOP\x10\v\x12\"\n" +
+	"\x1eGUEST_OS_FAMILY_WINDOWS_LEGACY\x10\f\x12\x1b\n" +
+	"\x17GUEST_OS_FAMILY_FREEBSD\x10\x14\x12\x1b\n" +
+	"\x17GUEST_OS_FAMILY_OPENBSD\x10\x15\x12\x1a\n" +
+	"\x16GUEST_OS_FAMILY_NETBSD\x10\x16\x12\x19\n" +
+	"\x15GUEST_OS_FAMILY_MACOS\x10\x1e\x12\x1b\n" +
+	"\x17GUEST_OS_FAMILY_SOLARIS\x10\x1f\x12\x19\n" +
+	"\x15GUEST_OS_FAMILY_OTHER\x10c*8\n" +
 	"\fFirmwareType\x12\b\n" +
 	"\x04BIOS\x10\x00\x12\b\n" +
 	"\x04UEFI\x10\x01\x12\x14\n" +
@@ -5246,157 +5630,163 @@ func file_limiquantix_compute_v1_vm_proto_rawDescGZIP() []byte {
 	return file_limiquantix_compute_v1_vm_proto_rawDescData
 }
 
-var file_limiquantix_compute_v1_vm_proto_enumTypes = make([]protoimpl.EnumInfo, 20)
-var file_limiquantix_compute_v1_vm_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
+var file_limiquantix_compute_v1_vm_proto_enumTypes = make([]protoimpl.EnumInfo, 21)
+var file_limiquantix_compute_v1_vm_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
 var file_limiquantix_compute_v1_vm_proto_goTypes = []any{
 	(VMOrigin)(0),                      // 0: limiquantix.compute.v1.VMOrigin
-	(FirmwareType)(0),                  // 1: limiquantix.compute.v1.FirmwareType
-	(HugePagesConfig_PageSize)(0),      // 2: limiquantix.compute.v1.HugePagesConfig.PageSize
-	(DiskDevice_BusType)(0),            // 3: limiquantix.compute.v1.DiskDevice.BusType
-	(DiskDevice_ProvisioningType)(0),   // 4: limiquantix.compute.v1.DiskDevice.ProvisioningType
-	(DiskDevice_CacheMode)(0),          // 5: limiquantix.compute.v1.DiskDevice.CacheMode
-	(NetworkInterface_Model)(0),        // 6: limiquantix.compute.v1.NetworkInterface.Model
-	(TpmConfig_TpmVersion)(0),          // 7: limiquantix.compute.v1.TpmConfig.TpmVersion
-	(WatchdogConfig_WatchdogModel)(0),  // 8: limiquantix.compute.v1.WatchdogConfig.WatchdogModel
-	(WatchdogConfig_WatchdogAction)(0), // 9: limiquantix.compute.v1.WatchdogConfig.WatchdogAction
-	(SerialPort_SerialType)(0),         // 10: limiquantix.compute.v1.SerialPort.SerialType
-	(BootDevice_DeviceType)(0),         // 11: limiquantix.compute.v1.BootDevice.DeviceType
-	(DisplayConfig_DisplayType)(0),     // 12: limiquantix.compute.v1.DisplayConfig.DisplayType
-	(DisplayConfig_GpuType)(0),         // 13: limiquantix.compute.v1.DisplayConfig.GpuType
-	(GuestAgentConfig_ChannelType)(0),  // 14: limiquantix.compute.v1.GuestAgentConfig.ChannelType
-	(HaPolicy_RestartCondition)(0),     // 15: limiquantix.compute.v1.HaPolicy.RestartCondition
-	(TemplateConfig_CloneType)(0),      // 16: limiquantix.compute.v1.TemplateConfig.CloneType
-	(VmStatus_PowerState)(0),           // 17: limiquantix.compute.v1.VmStatus.PowerState
-	(ConsoleInfo_ConsoleType)(0),       // 18: limiquantix.compute.v1.ConsoleInfo.ConsoleType
-	(HealthStatus_Status)(0),           // 19: limiquantix.compute.v1.HealthStatus.Status
-	(*VirtualMachine)(nil),             // 20: limiquantix.compute.v1.VirtualMachine
-	(*VmSpec)(nil),                     // 21: limiquantix.compute.v1.VmSpec
-	(*CpuConfig)(nil),                  // 22: limiquantix.compute.v1.CpuConfig
-	(*NumaConfig)(nil),                 // 23: limiquantix.compute.v1.NumaConfig
-	(*NumaNode)(nil),                   // 24: limiquantix.compute.v1.NumaNode
-	(*CpuFeatures)(nil),                // 25: limiquantix.compute.v1.CpuFeatures
-	(*MemoryConfig)(nil),               // 26: limiquantix.compute.v1.MemoryConfig
-	(*HugePagesConfig)(nil),            // 27: limiquantix.compute.v1.HugePagesConfig
-	(*DiskDevice)(nil),                 // 28: limiquantix.compute.v1.DiskDevice
-	(*CdromDevice)(nil),                // 29: limiquantix.compute.v1.CdromDevice
-	(*IoLimits)(nil),                   // 30: limiquantix.compute.v1.IoLimits
-	(*NetworkInterface)(nil),           // 31: limiquantix.compute.v1.NetworkInterface
-	(*IpConfig)(nil),                   // 32: limiquantix.compute.v1.IpConfig
-	(*NetworkQos)(nil),                 // 33: limiquantix.compute.v1.NetworkQos
-	(*SriovConfig)(nil),                // 34: limiquantix.compute.v1.SriovConfig
-	(*PciDevice)(nil),                  // 35: limiquantix.compute.v1.PciDevice
-	(*UsbDevice)(nil),                  // 36: limiquantix.compute.v1.UsbDevice
-	(*VgpuDevice)(nil),                 // 37: limiquantix.compute.v1.VgpuDevice
-	(*TpmConfig)(nil),                  // 38: limiquantix.compute.v1.TpmConfig
-	(*WatchdogConfig)(nil),             // 39: limiquantix.compute.v1.WatchdogConfig
-	(*RngConfig)(nil),                  // 40: limiquantix.compute.v1.RngConfig
-	(*SerialPortConfig)(nil),           // 41: limiquantix.compute.v1.SerialPortConfig
-	(*SerialPort)(nil),                 // 42: limiquantix.compute.v1.SerialPort
-	(*BootConfig)(nil),                 // 43: limiquantix.compute.v1.BootConfig
-	(*BootDevice)(nil),                 // 44: limiquantix.compute.v1.BootDevice
-	(*DirectKernelBoot)(nil),           // 45: limiquantix.compute.v1.DirectKernelBoot
-	(*DisplayConfig)(nil),              // 46: limiquantix.compute.v1.DisplayConfig
-	(*GuestAgentConfig)(nil),           // 47: limiquantix.compute.v1.GuestAgentConfig
-	(*ProvisioningConfig)(nil),         // 48: limiquantix.compute.v1.ProvisioningConfig
-	(*CloudInitConfig)(nil),            // 49: limiquantix.compute.v1.CloudInitConfig
-	(*IgnitionConfig)(nil),             // 50: limiquantix.compute.v1.IgnitionConfig
-	(*SysprepConfig)(nil),              // 51: limiquantix.compute.v1.SysprepConfig
-	(*ResourceConfig)(nil),             // 52: limiquantix.compute.v1.ResourceConfig
-	(*HaPolicy)(nil),                   // 53: limiquantix.compute.v1.HaPolicy
-	(*PlacementPolicy)(nil),            // 54: limiquantix.compute.v1.PlacementPolicy
-	(*MigrationConfig)(nil),            // 55: limiquantix.compute.v1.MigrationConfig
-	(*TemplateConfig)(nil),             // 56: limiquantix.compute.v1.TemplateConfig
-	(*VmStatus)(nil),                   // 57: limiquantix.compute.v1.VmStatus
-	(*ResourceUsage)(nil),              // 58: limiquantix.compute.v1.ResourceUsage
-	(*GuestInfo)(nil),                  // 59: limiquantix.compute.v1.GuestInfo
-	(*SnapshotStatus)(nil),             // 60: limiquantix.compute.v1.SnapshotStatus
-	(*Snapshot)(nil),                   // 61: limiquantix.compute.v1.Snapshot
-	(*ConsoleInfo)(nil),                // 62: limiquantix.compute.v1.ConsoleInfo
-	(*HealthStatus)(nil),               // 63: limiquantix.compute.v1.HealthStatus
-	(*HealthCheck)(nil),                // 64: limiquantix.compute.v1.HealthCheck
-	nil,                                // 65: limiquantix.compute.v1.VirtualMachine.LabelsEntry
-	nil,                                // 66: limiquantix.compute.v1.PlacementPolicy.RequiredLabelsEntry
-	(*timestamppb.Timestamp)(nil),      // 67: google.protobuf.Timestamp
+	(GuestOSFamily)(0),                 // 1: limiquantix.compute.v1.GuestOSFamily
+	(FirmwareType)(0),                  // 2: limiquantix.compute.v1.FirmwareType
+	(HugePagesConfig_PageSize)(0),      // 3: limiquantix.compute.v1.HugePagesConfig.PageSize
+	(DiskDevice_BusType)(0),            // 4: limiquantix.compute.v1.DiskDevice.BusType
+	(DiskDevice_ProvisioningType)(0),   // 5: limiquantix.compute.v1.DiskDevice.ProvisioningType
+	(DiskDevice_CacheMode)(0),          // 6: limiquantix.compute.v1.DiskDevice.CacheMode
+	(NetworkInterface_Model)(0),        // 7: limiquantix.compute.v1.NetworkInterface.Model
+	(TpmConfig_TpmVersion)(0),          // 8: limiquantix.compute.v1.TpmConfig.TpmVersion
+	(WatchdogConfig_WatchdogModel)(0),  // 9: limiquantix.compute.v1.WatchdogConfig.WatchdogModel
+	(WatchdogConfig_WatchdogAction)(0), // 10: limiquantix.compute.v1.WatchdogConfig.WatchdogAction
+	(SerialPort_SerialType)(0),         // 11: limiquantix.compute.v1.SerialPort.SerialType
+	(BootDevice_DeviceType)(0),         // 12: limiquantix.compute.v1.BootDevice.DeviceType
+	(DisplayConfig_DisplayType)(0),     // 13: limiquantix.compute.v1.DisplayConfig.DisplayType
+	(DisplayConfig_GpuType)(0),         // 14: limiquantix.compute.v1.DisplayConfig.GpuType
+	(GuestAgentConfig_ChannelType)(0),  // 15: limiquantix.compute.v1.GuestAgentConfig.ChannelType
+	(HaPolicy_RestartCondition)(0),     // 16: limiquantix.compute.v1.HaPolicy.RestartCondition
+	(TemplateConfig_CloneType)(0),      // 17: limiquantix.compute.v1.TemplateConfig.CloneType
+	(VmStatus_PowerState)(0),           // 18: limiquantix.compute.v1.VmStatus.PowerState
+	(ConsoleInfo_ConsoleType)(0),       // 19: limiquantix.compute.v1.ConsoleInfo.ConsoleType
+	(HealthStatus_Status)(0),           // 20: limiquantix.compute.v1.HealthStatus.Status
+	(*VirtualMachine)(nil),             // 21: limiquantix.compute.v1.VirtualMachine
+	(*VmSpec)(nil),                     // 22: limiquantix.compute.v1.VmSpec
+	(*GuestOSProfile)(nil),             // 23: limiquantix.compute.v1.GuestOSProfile
+	(*GuestOSOverrides)(nil),           // 24: limiquantix.compute.v1.GuestOSOverrides
+	(*CpuConfig)(nil),                  // 25: limiquantix.compute.v1.CpuConfig
+	(*NumaConfig)(nil),                 // 26: limiquantix.compute.v1.NumaConfig
+	(*NumaNode)(nil),                   // 27: limiquantix.compute.v1.NumaNode
+	(*CpuFeatures)(nil),                // 28: limiquantix.compute.v1.CpuFeatures
+	(*MemoryConfig)(nil),               // 29: limiquantix.compute.v1.MemoryConfig
+	(*HugePagesConfig)(nil),            // 30: limiquantix.compute.v1.HugePagesConfig
+	(*DiskDevice)(nil),                 // 31: limiquantix.compute.v1.DiskDevice
+	(*CdromDevice)(nil),                // 32: limiquantix.compute.v1.CdromDevice
+	(*IoLimits)(nil),                   // 33: limiquantix.compute.v1.IoLimits
+	(*NetworkInterface)(nil),           // 34: limiquantix.compute.v1.NetworkInterface
+	(*IpConfig)(nil),                   // 35: limiquantix.compute.v1.IpConfig
+	(*NetworkQos)(nil),                 // 36: limiquantix.compute.v1.NetworkQos
+	(*SriovConfig)(nil),                // 37: limiquantix.compute.v1.SriovConfig
+	(*PciDevice)(nil),                  // 38: limiquantix.compute.v1.PciDevice
+	(*UsbDevice)(nil),                  // 39: limiquantix.compute.v1.UsbDevice
+	(*VgpuDevice)(nil),                 // 40: limiquantix.compute.v1.VgpuDevice
+	(*TpmConfig)(nil),                  // 41: limiquantix.compute.v1.TpmConfig
+	(*WatchdogConfig)(nil),             // 42: limiquantix.compute.v1.WatchdogConfig
+	(*RngConfig)(nil),                  // 43: limiquantix.compute.v1.RngConfig
+	(*SerialPortConfig)(nil),           // 44: limiquantix.compute.v1.SerialPortConfig
+	(*SerialPort)(nil),                 // 45: limiquantix.compute.v1.SerialPort
+	(*BootConfig)(nil),                 // 46: limiquantix.compute.v1.BootConfig
+	(*BootDevice)(nil),                 // 47: limiquantix.compute.v1.BootDevice
+	(*DirectKernelBoot)(nil),           // 48: limiquantix.compute.v1.DirectKernelBoot
+	(*DisplayConfig)(nil),              // 49: limiquantix.compute.v1.DisplayConfig
+	(*GuestAgentConfig)(nil),           // 50: limiquantix.compute.v1.GuestAgentConfig
+	(*ProvisioningConfig)(nil),         // 51: limiquantix.compute.v1.ProvisioningConfig
+	(*CloudInitConfig)(nil),            // 52: limiquantix.compute.v1.CloudInitConfig
+	(*IgnitionConfig)(nil),             // 53: limiquantix.compute.v1.IgnitionConfig
+	(*SysprepConfig)(nil),              // 54: limiquantix.compute.v1.SysprepConfig
+	(*ResourceConfig)(nil),             // 55: limiquantix.compute.v1.ResourceConfig
+	(*HaPolicy)(nil),                   // 56: limiquantix.compute.v1.HaPolicy
+	(*PlacementPolicy)(nil),            // 57: limiquantix.compute.v1.PlacementPolicy
+	(*MigrationConfig)(nil),            // 58: limiquantix.compute.v1.MigrationConfig
+	(*TemplateConfig)(nil),             // 59: limiquantix.compute.v1.TemplateConfig
+	(*VmStatus)(nil),                   // 60: limiquantix.compute.v1.VmStatus
+	(*ResourceUsage)(nil),              // 61: limiquantix.compute.v1.ResourceUsage
+	(*GuestInfo)(nil),                  // 62: limiquantix.compute.v1.GuestInfo
+	(*SnapshotStatus)(nil),             // 63: limiquantix.compute.v1.SnapshotStatus
+	(*Snapshot)(nil),                   // 64: limiquantix.compute.v1.Snapshot
+	(*ConsoleInfo)(nil),                // 65: limiquantix.compute.v1.ConsoleInfo
+	(*HealthStatus)(nil),               // 66: limiquantix.compute.v1.HealthStatus
+	(*HealthCheck)(nil),                // 67: limiquantix.compute.v1.HealthCheck
+	nil,                                // 68: limiquantix.compute.v1.VirtualMachine.LabelsEntry
+	nil,                                // 69: limiquantix.compute.v1.PlacementPolicy.RequiredLabelsEntry
+	(*timestamppb.Timestamp)(nil),      // 70: google.protobuf.Timestamp
 }
 var file_limiquantix_compute_v1_vm_proto_depIdxs = []int32{
-	65, // 0: limiquantix.compute.v1.VirtualMachine.labels:type_name -> limiquantix.compute.v1.VirtualMachine.LabelsEntry
-	21, // 1: limiquantix.compute.v1.VirtualMachine.spec:type_name -> limiquantix.compute.v1.VmSpec
-	57, // 2: limiquantix.compute.v1.VirtualMachine.status:type_name -> limiquantix.compute.v1.VmStatus
-	67, // 3: limiquantix.compute.v1.VirtualMachine.created_at:type_name -> google.protobuf.Timestamp
-	67, // 4: limiquantix.compute.v1.VirtualMachine.updated_at:type_name -> google.protobuf.Timestamp
+	68, // 0: limiquantix.compute.v1.VirtualMachine.labels:type_name -> limiquantix.compute.v1.VirtualMachine.LabelsEntry
+	22, // 1: limiquantix.compute.v1.VirtualMachine.spec:type_name -> limiquantix.compute.v1.VmSpec
+	60, // 2: limiquantix.compute.v1.VirtualMachine.status:type_name -> limiquantix.compute.v1.VmStatus
+	70, // 3: limiquantix.compute.v1.VirtualMachine.created_at:type_name -> google.protobuf.Timestamp
+	70, // 4: limiquantix.compute.v1.VirtualMachine.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 5: limiquantix.compute.v1.VirtualMachine.origin:type_name -> limiquantix.compute.v1.VMOrigin
-	22, // 6: limiquantix.compute.v1.VmSpec.cpu:type_name -> limiquantix.compute.v1.CpuConfig
-	26, // 7: limiquantix.compute.v1.VmSpec.memory:type_name -> limiquantix.compute.v1.MemoryConfig
-	28, // 8: limiquantix.compute.v1.VmSpec.disks:type_name -> limiquantix.compute.v1.DiskDevice
-	29, // 9: limiquantix.compute.v1.VmSpec.cdroms:type_name -> limiquantix.compute.v1.CdromDevice
-	31, // 10: limiquantix.compute.v1.VmSpec.nics:type_name -> limiquantix.compute.v1.NetworkInterface
-	35, // 11: limiquantix.compute.v1.VmSpec.pci_devices:type_name -> limiquantix.compute.v1.PciDevice
-	36, // 12: limiquantix.compute.v1.VmSpec.usb_devices:type_name -> limiquantix.compute.v1.UsbDevice
-	37, // 13: limiquantix.compute.v1.VmSpec.vgpu_devices:type_name -> limiquantix.compute.v1.VgpuDevice
-	38, // 14: limiquantix.compute.v1.VmSpec.tpm:type_name -> limiquantix.compute.v1.TpmConfig
-	39, // 15: limiquantix.compute.v1.VmSpec.watchdog:type_name -> limiquantix.compute.v1.WatchdogConfig
-	40, // 16: limiquantix.compute.v1.VmSpec.rng:type_name -> limiquantix.compute.v1.RngConfig
-	41, // 17: limiquantix.compute.v1.VmSpec.serial:type_name -> limiquantix.compute.v1.SerialPortConfig
-	1,  // 18: limiquantix.compute.v1.VmSpec.firmware:type_name -> limiquantix.compute.v1.FirmwareType
-	43, // 19: limiquantix.compute.v1.VmSpec.boot:type_name -> limiquantix.compute.v1.BootConfig
-	46, // 20: limiquantix.compute.v1.VmSpec.display:type_name -> limiquantix.compute.v1.DisplayConfig
-	47, // 21: limiquantix.compute.v1.VmSpec.agent:type_name -> limiquantix.compute.v1.GuestAgentConfig
-	48, // 22: limiquantix.compute.v1.VmSpec.provisioning:type_name -> limiquantix.compute.v1.ProvisioningConfig
-	52, // 23: limiquantix.compute.v1.VmSpec.resources:type_name -> limiquantix.compute.v1.ResourceConfig
-	53, // 24: limiquantix.compute.v1.VmSpec.ha_policy:type_name -> limiquantix.compute.v1.HaPolicy
-	54, // 25: limiquantix.compute.v1.VmSpec.placement:type_name -> limiquantix.compute.v1.PlacementPolicy
-	55, // 26: limiquantix.compute.v1.VmSpec.migration:type_name -> limiquantix.compute.v1.MigrationConfig
-	56, // 27: limiquantix.compute.v1.VmSpec.template:type_name -> limiquantix.compute.v1.TemplateConfig
-	23, // 28: limiquantix.compute.v1.CpuConfig.numa:type_name -> limiquantix.compute.v1.NumaConfig
-	25, // 29: limiquantix.compute.v1.CpuConfig.features:type_name -> limiquantix.compute.v1.CpuFeatures
-	24, // 30: limiquantix.compute.v1.NumaConfig.nodes:type_name -> limiquantix.compute.v1.NumaNode
-	27, // 31: limiquantix.compute.v1.MemoryConfig.huge_pages:type_name -> limiquantix.compute.v1.HugePagesConfig
-	2,  // 32: limiquantix.compute.v1.HugePagesConfig.size:type_name -> limiquantix.compute.v1.HugePagesConfig.PageSize
-	3,  // 33: limiquantix.compute.v1.DiskDevice.bus:type_name -> limiquantix.compute.v1.DiskDevice.BusType
-	4,  // 34: limiquantix.compute.v1.DiskDevice.provisioning:type_name -> limiquantix.compute.v1.DiskDevice.ProvisioningType
-	30, // 35: limiquantix.compute.v1.DiskDevice.io_limits:type_name -> limiquantix.compute.v1.IoLimits
-	5,  // 36: limiquantix.compute.v1.DiskDevice.cache:type_name -> limiquantix.compute.v1.DiskDevice.CacheMode
-	6,  // 37: limiquantix.compute.v1.NetworkInterface.model:type_name -> limiquantix.compute.v1.NetworkInterface.Model
-	32, // 38: limiquantix.compute.v1.NetworkInterface.ip_configs:type_name -> limiquantix.compute.v1.IpConfig
-	33, // 39: limiquantix.compute.v1.NetworkInterface.qos:type_name -> limiquantix.compute.v1.NetworkQos
-	34, // 40: limiquantix.compute.v1.NetworkInterface.sriov:type_name -> limiquantix.compute.v1.SriovConfig
-	7,  // 41: limiquantix.compute.v1.TpmConfig.version:type_name -> limiquantix.compute.v1.TpmConfig.TpmVersion
-	8,  // 42: limiquantix.compute.v1.WatchdogConfig.model:type_name -> limiquantix.compute.v1.WatchdogConfig.WatchdogModel
-	9,  // 43: limiquantix.compute.v1.WatchdogConfig.action:type_name -> limiquantix.compute.v1.WatchdogConfig.WatchdogAction
-	42, // 44: limiquantix.compute.v1.SerialPortConfig.ports:type_name -> limiquantix.compute.v1.SerialPort
-	10, // 45: limiquantix.compute.v1.SerialPort.type:type_name -> limiquantix.compute.v1.SerialPort.SerialType
-	44, // 46: limiquantix.compute.v1.BootConfig.boot_order:type_name -> limiquantix.compute.v1.BootDevice
-	45, // 47: limiquantix.compute.v1.BootConfig.direct_boot:type_name -> limiquantix.compute.v1.DirectKernelBoot
-	11, // 48: limiquantix.compute.v1.BootDevice.type:type_name -> limiquantix.compute.v1.BootDevice.DeviceType
-	12, // 49: limiquantix.compute.v1.DisplayConfig.type:type_name -> limiquantix.compute.v1.DisplayConfig.DisplayType
-	13, // 50: limiquantix.compute.v1.DisplayConfig.gpu:type_name -> limiquantix.compute.v1.DisplayConfig.GpuType
-	14, // 51: limiquantix.compute.v1.GuestAgentConfig.channel:type_name -> limiquantix.compute.v1.GuestAgentConfig.ChannelType
-	49, // 52: limiquantix.compute.v1.ProvisioningConfig.cloud_init:type_name -> limiquantix.compute.v1.CloudInitConfig
-	50, // 53: limiquantix.compute.v1.ProvisioningConfig.ignition:type_name -> limiquantix.compute.v1.IgnitionConfig
-	51, // 54: limiquantix.compute.v1.ProvisioningConfig.sysprep:type_name -> limiquantix.compute.v1.SysprepConfig
-	15, // 55: limiquantix.compute.v1.HaPolicy.condition:type_name -> limiquantix.compute.v1.HaPolicy.RestartCondition
-	66, // 56: limiquantix.compute.v1.PlacementPolicy.required_labels:type_name -> limiquantix.compute.v1.PlacementPolicy.RequiredLabelsEntry
-	16, // 57: limiquantix.compute.v1.TemplateConfig.clone_type:type_name -> limiquantix.compute.v1.TemplateConfig.CloneType
-	17, // 58: limiquantix.compute.v1.VmStatus.state:type_name -> limiquantix.compute.v1.VmStatus.PowerState
-	58, // 59: limiquantix.compute.v1.VmStatus.resource_usage:type_name -> limiquantix.compute.v1.ResourceUsage
-	59, // 60: limiquantix.compute.v1.VmStatus.guest_info:type_name -> limiquantix.compute.v1.GuestInfo
-	60, // 61: limiquantix.compute.v1.VmStatus.snapshots:type_name -> limiquantix.compute.v1.SnapshotStatus
-	62, // 62: limiquantix.compute.v1.VmStatus.console:type_name -> limiquantix.compute.v1.ConsoleInfo
-	63, // 63: limiquantix.compute.v1.VmStatus.health:type_name -> limiquantix.compute.v1.HealthStatus
-	67, // 64: limiquantix.compute.v1.VmStatus.state_changed_at:type_name -> google.protobuf.Timestamp
-	67, // 65: limiquantix.compute.v1.VmStatus.last_seen_at:type_name -> google.protobuf.Timestamp
-	67, // 66: limiquantix.compute.v1.GuestInfo.last_heartbeat:type_name -> google.protobuf.Timestamp
-	61, // 67: limiquantix.compute.v1.SnapshotStatus.snapshots:type_name -> limiquantix.compute.v1.Snapshot
-	67, // 68: limiquantix.compute.v1.Snapshot.created_at:type_name -> google.protobuf.Timestamp
-	18, // 69: limiquantix.compute.v1.ConsoleInfo.console_type:type_name -> limiquantix.compute.v1.ConsoleInfo.ConsoleType
-	19, // 70: limiquantix.compute.v1.HealthStatus.status:type_name -> limiquantix.compute.v1.HealthStatus.Status
-	64, // 71: limiquantix.compute.v1.HealthStatus.checks:type_name -> limiquantix.compute.v1.HealthCheck
-	67, // 72: limiquantix.compute.v1.HealthCheck.last_check:type_name -> google.protobuf.Timestamp
-	73, // [73:73] is the sub-list for method output_type
-	73, // [73:73] is the sub-list for method input_type
-	73, // [73:73] is the sub-list for extension type_name
-	73, // [73:73] is the sub-list for extension extendee
-	0,  // [0:73] is the sub-list for field type_name
+	25, // 6: limiquantix.compute.v1.VmSpec.cpu:type_name -> limiquantix.compute.v1.CpuConfig
+	29, // 7: limiquantix.compute.v1.VmSpec.memory:type_name -> limiquantix.compute.v1.MemoryConfig
+	31, // 8: limiquantix.compute.v1.VmSpec.disks:type_name -> limiquantix.compute.v1.DiskDevice
+	32, // 9: limiquantix.compute.v1.VmSpec.cdroms:type_name -> limiquantix.compute.v1.CdromDevice
+	34, // 10: limiquantix.compute.v1.VmSpec.nics:type_name -> limiquantix.compute.v1.NetworkInterface
+	38, // 11: limiquantix.compute.v1.VmSpec.pci_devices:type_name -> limiquantix.compute.v1.PciDevice
+	39, // 12: limiquantix.compute.v1.VmSpec.usb_devices:type_name -> limiquantix.compute.v1.UsbDevice
+	40, // 13: limiquantix.compute.v1.VmSpec.vgpu_devices:type_name -> limiquantix.compute.v1.VgpuDevice
+	41, // 14: limiquantix.compute.v1.VmSpec.tpm:type_name -> limiquantix.compute.v1.TpmConfig
+	42, // 15: limiquantix.compute.v1.VmSpec.watchdog:type_name -> limiquantix.compute.v1.WatchdogConfig
+	43, // 16: limiquantix.compute.v1.VmSpec.rng:type_name -> limiquantix.compute.v1.RngConfig
+	44, // 17: limiquantix.compute.v1.VmSpec.serial:type_name -> limiquantix.compute.v1.SerialPortConfig
+	2,  // 18: limiquantix.compute.v1.VmSpec.firmware:type_name -> limiquantix.compute.v1.FirmwareType
+	46, // 19: limiquantix.compute.v1.VmSpec.boot:type_name -> limiquantix.compute.v1.BootConfig
+	49, // 20: limiquantix.compute.v1.VmSpec.display:type_name -> limiquantix.compute.v1.DisplayConfig
+	50, // 21: limiquantix.compute.v1.VmSpec.agent:type_name -> limiquantix.compute.v1.GuestAgentConfig
+	51, // 22: limiquantix.compute.v1.VmSpec.provisioning:type_name -> limiquantix.compute.v1.ProvisioningConfig
+	55, // 23: limiquantix.compute.v1.VmSpec.resources:type_name -> limiquantix.compute.v1.ResourceConfig
+	56, // 24: limiquantix.compute.v1.VmSpec.ha_policy:type_name -> limiquantix.compute.v1.HaPolicy
+	57, // 25: limiquantix.compute.v1.VmSpec.placement:type_name -> limiquantix.compute.v1.PlacementPolicy
+	58, // 26: limiquantix.compute.v1.VmSpec.migration:type_name -> limiquantix.compute.v1.MigrationConfig
+	59, // 27: limiquantix.compute.v1.VmSpec.template:type_name -> limiquantix.compute.v1.TemplateConfig
+	23, // 28: limiquantix.compute.v1.VmSpec.guest_os:type_name -> limiquantix.compute.v1.GuestOSProfile
+	1,  // 29: limiquantix.compute.v1.GuestOSProfile.family:type_name -> limiquantix.compute.v1.GuestOSFamily
+	24, // 30: limiquantix.compute.v1.GuestOSProfile.overrides:type_name -> limiquantix.compute.v1.GuestOSOverrides
+	26, // 31: limiquantix.compute.v1.CpuConfig.numa:type_name -> limiquantix.compute.v1.NumaConfig
+	28, // 32: limiquantix.compute.v1.CpuConfig.features:type_name -> limiquantix.compute.v1.CpuFeatures
+	27, // 33: limiquantix.compute.v1.NumaConfig.nodes:type_name -> limiquantix.compute.v1.NumaNode
+	30, // 34: limiquantix.compute.v1.MemoryConfig.huge_pages:type_name -> limiquantix.compute.v1.HugePagesConfig
+	3,  // 35: limiquantix.compute.v1.HugePagesConfig.size:type_name -> limiquantix.compute.v1.HugePagesConfig.PageSize
+	4,  // 36: limiquantix.compute.v1.DiskDevice.bus:type_name -> limiquantix.compute.v1.DiskDevice.BusType
+	5,  // 37: limiquantix.compute.v1.DiskDevice.provisioning:type_name -> limiquantix.compute.v1.DiskDevice.ProvisioningType
+	33, // 38: limiquantix.compute.v1.DiskDevice.io_limits:type_name -> limiquantix.compute.v1.IoLimits
+	6,  // 39: limiquantix.compute.v1.DiskDevice.cache:type_name -> limiquantix.compute.v1.DiskDevice.CacheMode
+	7,  // 40: limiquantix.compute.v1.NetworkInterface.model:type_name -> limiquantix.compute.v1.NetworkInterface.Model
+	35, // 41: limiquantix.compute.v1.NetworkInterface.ip_configs:type_name -> limiquantix.compute.v1.IpConfig
+	36, // 42: limiquantix.compute.v1.NetworkInterface.qos:type_name -> limiquantix.compute.v1.NetworkQos
+	37, // 43: limiquantix.compute.v1.NetworkInterface.sriov:type_name -> limiquantix.compute.v1.SriovConfig
+	8,  // 44: limiquantix.compute.v1.TpmConfig.version:type_name -> limiquantix.compute.v1.TpmConfig.TpmVersion
+	9,  // 45: limiquantix.compute.v1.WatchdogConfig.model:type_name -> limiquantix.compute.v1.WatchdogConfig.WatchdogModel
+	10, // 46: limiquantix.compute.v1.WatchdogConfig.action:type_name -> limiquantix.compute.v1.WatchdogConfig.WatchdogAction
+	45, // 47: limiquantix.compute.v1.SerialPortConfig.ports:type_name -> limiquantix.compute.v1.SerialPort
+	11, // 48: limiquantix.compute.v1.SerialPort.type:type_name -> limiquantix.compute.v1.SerialPort.SerialType
+	47, // 49: limiquantix.compute.v1.BootConfig.boot_order:type_name -> limiquantix.compute.v1.BootDevice
+	48, // 50: limiquantix.compute.v1.BootConfig.direct_boot:type_name -> limiquantix.compute.v1.DirectKernelBoot
+	12, // 51: limiquantix.compute.v1.BootDevice.type:type_name -> limiquantix.compute.v1.BootDevice.DeviceType
+	13, // 52: limiquantix.compute.v1.DisplayConfig.type:type_name -> limiquantix.compute.v1.DisplayConfig.DisplayType
+	14, // 53: limiquantix.compute.v1.DisplayConfig.gpu:type_name -> limiquantix.compute.v1.DisplayConfig.GpuType
+	15, // 54: limiquantix.compute.v1.GuestAgentConfig.channel:type_name -> limiquantix.compute.v1.GuestAgentConfig.ChannelType
+	52, // 55: limiquantix.compute.v1.ProvisioningConfig.cloud_init:type_name -> limiquantix.compute.v1.CloudInitConfig
+	53, // 56: limiquantix.compute.v1.ProvisioningConfig.ignition:type_name -> limiquantix.compute.v1.IgnitionConfig
+	54, // 57: limiquantix.compute.v1.ProvisioningConfig.sysprep:type_name -> limiquantix.compute.v1.SysprepConfig
+	16, // 58: limiquantix.compute.v1.HaPolicy.condition:type_name -> limiquantix.compute.v1.HaPolicy.RestartCondition
+	69, // 59: limiquantix.compute.v1.PlacementPolicy.required_labels:type_name -> limiquantix.compute.v1.PlacementPolicy.RequiredLabelsEntry
+	17, // 60: limiquantix.compute.v1.TemplateConfig.clone_type:type_name -> limiquantix.compute.v1.TemplateConfig.CloneType
+	18, // 61: limiquantix.compute.v1.VmStatus.state:type_name -> limiquantix.compute.v1.VmStatus.PowerState
+	61, // 62: limiquantix.compute.v1.VmStatus.resource_usage:type_name -> limiquantix.compute.v1.ResourceUsage
+	62, // 63: limiquantix.compute.v1.VmStatus.guest_info:type_name -> limiquantix.compute.v1.GuestInfo
+	63, // 64: limiquantix.compute.v1.VmStatus.snapshots:type_name -> limiquantix.compute.v1.SnapshotStatus
+	65, // 65: limiquantix.compute.v1.VmStatus.console:type_name -> limiquantix.compute.v1.ConsoleInfo
+	66, // 66: limiquantix.compute.v1.VmStatus.health:type_name -> limiquantix.compute.v1.HealthStatus
+	70, // 67: limiquantix.compute.v1.VmStatus.state_changed_at:type_name -> google.protobuf.Timestamp
+	70, // 68: limiquantix.compute.v1.VmStatus.last_seen_at:type_name -> google.protobuf.Timestamp
+	70, // 69: limiquantix.compute.v1.GuestInfo.last_heartbeat:type_name -> google.protobuf.Timestamp
+	64, // 70: limiquantix.compute.v1.SnapshotStatus.snapshots:type_name -> limiquantix.compute.v1.Snapshot
+	70, // 71: limiquantix.compute.v1.Snapshot.created_at:type_name -> google.protobuf.Timestamp
+	19, // 72: limiquantix.compute.v1.ConsoleInfo.console_type:type_name -> limiquantix.compute.v1.ConsoleInfo.ConsoleType
+	20, // 73: limiquantix.compute.v1.HealthStatus.status:type_name -> limiquantix.compute.v1.HealthStatus.Status
+	67, // 74: limiquantix.compute.v1.HealthStatus.checks:type_name -> limiquantix.compute.v1.HealthCheck
+	70, // 75: limiquantix.compute.v1.HealthCheck.last_check:type_name -> google.protobuf.Timestamp
+	76, // [76:76] is the sub-list for method output_type
+	76, // [76:76] is the sub-list for method input_type
+	76, // [76:76] is the sub-list for extension type_name
+	76, // [76:76] is the sub-list for extension extendee
+	0,  // [0:76] is the sub-list for field type_name
 }
 
 func init() { file_limiquantix_compute_v1_vm_proto_init() }
@@ -5404,7 +5794,8 @@ func file_limiquantix_compute_v1_vm_proto_init() {
 	if File_limiquantix_compute_v1_vm_proto != nil {
 		return
 	}
-	file_limiquantix_compute_v1_vm_proto_msgTypes[28].OneofWrappers = []any{
+	file_limiquantix_compute_v1_vm_proto_msgTypes[3].OneofWrappers = []any{}
+	file_limiquantix_compute_v1_vm_proto_msgTypes[30].OneofWrappers = []any{
 		(*ProvisioningConfig_CloudInit)(nil),
 		(*ProvisioningConfig_Ignition)(nil),
 		(*ProvisioningConfig_Sysprep)(nil),
@@ -5414,8 +5805,8 @@ func file_limiquantix_compute_v1_vm_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_limiquantix_compute_v1_vm_proto_rawDesc), len(file_limiquantix_compute_v1_vm_proto_rawDesc)),
-			NumEnums:      20,
-			NumMessages:   47,
+			NumEnums:      21,
+			NumMessages:   49,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

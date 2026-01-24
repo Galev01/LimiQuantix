@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! File Transfer Module for qvmc
 //!
 //! This module provides file upload/download capabilities between the host

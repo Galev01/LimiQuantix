@@ -352,6 +352,19 @@ export interface ApiVM {
       bootIndex?: number;            // Boot order (0 = do not boot)
       connected?: boolean;           // Is media currently connected
     }>;
+    // Guest OS profile - determines hardware configuration (timers, video, CPU)
+    // Similar to VMware's Guest OS selection - affects virtual hardware behavior
+    guestOs?: {
+      family?: string;               // 'rhel', 'debian', 'windows_server', etc.
+      variant?: string;              // Specific variant e.g., 'rocky-9', 'ubuntu-22.04'
+      overrides?: {
+        hpetEnabled?: boolean;       // High Precision Event Timer
+        cpuMode?: string;            // 'host-passthrough', 'host-model', 'max', etc.
+        videoModel?: string;         // 'vga', 'qxl', 'virtio', 'cirrus'
+        diskBus?: string;            // 'virtio', 'scsi', 'sata'
+        nicModel?: string;           // 'virtio', 'e1000', 'rtl8139'
+      };
+    };
   };
   status?: {
     state?: string;
@@ -458,6 +471,29 @@ export const vmApi = {
       'SuspendVM',
       { id }
     );
+  },
+
+  /**
+   * Reset a stuck VM state.
+   * This is a REST endpoint that queries the hypervisor for actual state
+   * or forces the state to STOPPED if force=true.
+   */
+  async resetState(id: string, force?: boolean): Promise<{ success: boolean; message: string; vm: { id: string; name: string; state: string } }> {
+    const url = `${API_CONFIG.baseUrl}/api/vms/${id}/reset_state${force ? '?force=true' : ''}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+      },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `HTTP ${response.status}`);
+    }
+    
+    return response.json();
   },
 
   async clone(data: {

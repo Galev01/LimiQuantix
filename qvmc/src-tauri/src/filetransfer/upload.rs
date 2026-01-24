@@ -1,4 +1,6 @@
+#![allow(dead_code)]
 //! File Upload Implementation
+
 //!
 //! Uploads files from the host to VM guests via the Control Plane API.
 
@@ -150,7 +152,7 @@ async fn do_upload(
     });
 
     // Send request
-    let client = reqwest::Client::new();
+    let client = crate::api::create_insecure_client().map_err(|e| e.to_string())?;
     let response = client
         .post(&url)
         .header("Content-Type", "application/json")

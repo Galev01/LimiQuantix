@@ -1,0 +1,7 @@
+virsh dumpxml Test-ISO-Rocky | grep -A5 '<video>'
+virsh dumpxml Test-ISO-Rocky | grep -A5 '<graphics>'
+iostat -x 1 3
+# Find the qemu process
+ps aux | grep qemu | grep 86d641ab
+# Check its state (D = uninterruptible sleep, usually I/O wait)
+cat /proc/$(pgrep -f 86d641ab)/status | grep State

@@ -86,6 +86,48 @@ type VMSpec struct {
 	Boot      *BootConfig      `json:"boot,omitempty"`
 	Placement *PlacementPolicy `json:"placement,omitempty"`
 	HAPolicy  *HAPolicy        `json:"ha_policy,omitempty"`
+	
+	// GuestOS determines OS-specific hardware configuration (timers, video, drivers).
+	// Similar to VMware's Guest OS selection - affects virtual hardware behavior.
+	GuestOS GuestOSFamily `json:"guest_os,omitempty"`
+}
+
+// GuestOSFamily represents the guest operating system family.
+// This affects virtual hardware configuration like timers, video, and drivers.
+type GuestOSFamily string
+
+const (
+	GuestOSUnspecified     GuestOSFamily = ""
+	GuestOSRHEL            GuestOSFamily = "rhel"            // RHEL, Rocky, AlmaLinux, CentOS
+	GuestOSDebian          GuestOSFamily = "debian"          // Debian, Ubuntu, Mint
+	GuestOSSUSE            GuestOSFamily = "suse"            // SLES, openSUSE
+	GuestOSArch            GuestOSFamily = "arch"            // Arch, Manjaro
+	GuestOSFedora          GuestOSFamily = "fedora"          // Fedora
+	GuestOSGenericLinux    GuestOSFamily = "generic_linux"   // Other Linux
+	GuestOSWindowsServer   GuestOSFamily = "windows_server"  // Windows Server 2016/2019/2022
+	GuestOSWindowsDesktop  GuestOSFamily = "windows_desktop" // Windows 10/11
+	GuestOSWindowsLegacy   GuestOSFamily = "windows_legacy"  // Windows 7/8/8.1
+	GuestOSFreeBSD         GuestOSFamily = "freebsd"
+	GuestOSOpenBSD         GuestOSFamily = "openbsd"
+	GuestOSNetBSD          GuestOSFamily = "netbsd"
+	GuestOSMacOS           GuestOSFamily = "macos"
+	GuestOSSolaris         GuestOSFamily = "solaris"
+	GuestOSOther           GuestOSFamily = "other"
+)
+
+// IsWindows returns true if this is a Windows OS family.
+func (g GuestOSFamily) IsWindows() bool {
+	return g == GuestOSWindowsServer || g == GuestOSWindowsDesktop || g == GuestOSWindowsLegacy
+}
+
+// IsLinux returns true if this is a Linux OS family.
+func (g GuestOSFamily) IsLinux() bool {
+	switch g {
+	case GuestOSRHEL, GuestOSDebian, GuestOSSUSE, GuestOSArch, GuestOSFedora, GuestOSGenericLinux:
+		return true
+	default:
+		return false
+	}
 }
 
 // HAPolicy defines high availability settings for a VM.

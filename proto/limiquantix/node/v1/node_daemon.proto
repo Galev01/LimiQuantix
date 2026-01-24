@@ -314,6 +314,11 @@ message VMSpec {
   
   // Cloud-init / provisioning configuration
   CloudInitConfig cloud_init = 12;
+  
+  // Guest OS family - determines hardware configuration (timers, video, CPU mode).
+  // This is similar to VMware's Guest OS selection - affects virtual hardware behavior.
+  // Values: "rhel", "debian", "fedora", "windows_server", "windows_desktop", "generic_linux", etc.
+  string guest_os = 13;
 }
 
 // Cloud-init configuration for automated VM provisioning
@@ -358,6 +363,10 @@ message DiskSpec {
   // Cloud image support
   string backing_file = 10;     // Path to backing image (e.g., cloud image)
                                 // If set, creates a copy-on-write overlay
+  
+  // Storage pool to create disk in (required when path is empty)
+  // This should be a pool_id from ListStoragePools (e.g., "SSD-local01", "nfs-xxx")
+  string pool_id = 11;
 }
 
 enum DiskBus {

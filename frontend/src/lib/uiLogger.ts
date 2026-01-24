@@ -163,7 +163,10 @@ export function getUserId(): string | null {
 const LOG_BUFFER: UILogEntry[] = [];
 const MAX_BUFFER_SIZE = 100;
 const FLUSH_INTERVAL_MS = 5000;
+const MAX_RETRY_INTERVAL_MS = 60000; // Max 1 minute between retries
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
+let currentRetryInterval = FLUSH_INTERVAL_MS;
+let consecutiveFailures = 0;
 
 /**
  * Add a log entry to the buffer
@@ -205,14 +208,57 @@ async function flushLogs(): Promise<void> {
     });
     
     if (!response.ok) {
-      // Put logs back in buffer on failure
-      LOG_BUFFER.unshift(...logsToSend);
-      console.warn('[UILogger] Failed to submit logs:', response.status);
+      consecutiveFailures++;
+      
+      // For 503 (maintenance mode), use exponential backoff and don't spam console
+      if (response.status === 503) {
+        // Exponential backoff: 5s -> 10s -> 20s -> 40s -> 60s (max)
+        currentRetryInterval = Math.min(
+          FLUSH_INTERVAL_MS * Math.pow(2, consecutiveFailures - 1),
+          MAX_RETRY_INTERVAL_MS
+        );
+        
+        // Only log first failure and when interval changes significantly
+        if (consecutiveFailures === 1 || consecutiveFailures % 5 === 0) {
+          console.warn(`[UILogger] Server unavailable (maintenance mode?), will retry in ${currentRetryInterval / 1000}s`);
+        }
+        
+        // Put logs back but cap buffer to prevent memory issues
+        const logsToKeep = logsToSend.slice(-MAX_BUFFER_SIZE / 2);
+        LOG_BUFFER.unshift(...logsToKeep);
+        
+        // Schedule retry with backoff
+        flushTimer = setTimeout(flushLogs, currentRetryInterval);
+      } else {
+        // For other errors, put logs back and retry normally
+        LOG_BUFFER.unshift(...logsToSend);
+        console.warn('[UILogger] Failed to submit logs:', response.status);
+        flushTimer = setTimeout(flushLogs, FLUSH_INTERVAL_MS);
+      }
+    } else {
+      // Success - reset retry state
+      consecutiveFailures = 0;
+      currentRetryInterval = FLUSH_INTERVAL_MS;
     }
   } catch (error) {
-    // Put logs back in buffer on error
-    LOG_BUFFER.unshift(...logsToSend);
-    console.warn('[UILogger] Error submitting logs:', error);
+    consecutiveFailures++;
+    
+    // Network errors - use backoff
+    currentRetryInterval = Math.min(
+      FLUSH_INTERVAL_MS * Math.pow(2, consecutiveFailures - 1),
+      MAX_RETRY_INTERVAL_MS
+    );
+    
+    // Put logs back but cap buffer
+    const logsToKeep = logsToSend.slice(-MAX_BUFFER_SIZE / 2);
+    LOG_BUFFER.unshift(...logsToKeep);
+    
+    if (consecutiveFailures === 1 || consecutiveFailures % 5 === 0) {
+      console.warn('[UILogger] Error submitting logs, will retry in', currentRetryInterval / 1000, 's:', error);
+    }
+    
+    // Schedule retry with backoff
+    flushTimer = setTimeout(flushLogs, currentRetryInterval);
   }
 }
 

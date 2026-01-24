@@ -201,6 +201,30 @@ export function useSuspendVM() {
 }
 
 /**
+ * Hook to reset a stuck VM state.
+ * This queries the hypervisor for the actual state or forces to STOPPED.
+ */
+export function useResetVMState() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, force = false }: { id: string; force?: boolean }) =>
+      vmApi.resetState(id, force),
+    onSuccess: (result) => {
+      showSuccess(result.message || `VM state reset to ${result.vm?.state || 'STOPPED'}`);
+      // Invalidate VM detail and lists to refresh state
+      if (result.vm?.id) {
+        queryClient.invalidateQueries({ queryKey: vmKeys.detail(result.vm.id) });
+      }
+      queryClient.invalidateQueries({ queryKey: vmKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to reset VM state');
+    },
+  });
+}
+
+/**
  * Hook to clone a VM
  * Supports two clone types:
  * - LINKED: Fast clone using QCOW2 overlay, depends on source disk

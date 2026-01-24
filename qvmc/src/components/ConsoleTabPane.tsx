@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { listen } from '@tauri-apps/api/event';
+import { getConsoleInfo } from '../lib/tauri-api';
 import {
   Maximize2,
   Minimize2,
@@ -179,7 +180,7 @@ export function ConsoleTabPane({
       try {
         await invoke('stop_iso_server');
         setIsoServerUrl(null);
-      } catch (_) {}
+      } catch (_) { }
     } finally {
       setExecutingAction(null);
     }
@@ -219,7 +220,7 @@ export function ConsoleTabPane({
   useEffect(() => {
     return () => {
       if (isoServerUrl) {
-        invoke('stop_iso_server').catch(() => {});
+        invoke('stop_iso_server').catch(() => { });
       }
     };
   }, [isoServerUrl]);
@@ -288,6 +289,17 @@ export function ConsoleTabPane({
     setResolution({ width, height });
   }, []);
 
+  // Auto-focus canvas when tab becomes active
+  useEffect(() => {
+    if (isActive && connectionState === 'connected') {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        canvasRef.current?.focus();
+        vncLog.debug('Canvas focused');
+      }, 100);
+    }
+  }, [isActive, connectionState]);
+
   // Fetch connection info on mount
   useEffect(() => {
     vncLog.info(`ConsoleTabPane mounted for VM ${vmId}`, { connectionId, vmName, controlPlaneUrl });
@@ -340,14 +352,44 @@ export function ConsoleTabPane({
         return;
       }
 
+      // Calculate the required canvas size from this update
+      const requiredWidth = update.x + update.width;
+      const requiredHeight = update.y + update.height;
+
+      // If canvas is not sized yet OR needs to grow to fit this update
       if (canvas.width === 0 || canvas.height === 0) {
-        if (update.x === 0 && update.y === 0 && update.width > 0 && update.height > 0) {
-          canvas.width = update.width;
-          canvas.height = update.height;
-          setResolution({ width: update.width, height: update.height });
+        // First update - initialize canvas
+        // Use the update dimensions directly if it's a full-screen update at (0,0)
+        // Otherwise, use the extent (x + width, y + height) as minimum size
+        const newWidth = update.x === 0 ? update.width : requiredWidth;
+        const newHeight = update.y === 0 ? update.height : requiredHeight;
+
+        if (newWidth > 0 && newHeight > 0) {
+          vncLog.info(`Initializing canvas from FB update: ${newWidth}x${newHeight} (update at ${update.x},${update.y} size ${update.width}x${update.height})`);
+          canvas.width = newWidth;
+          canvas.height = newHeight;
+          setResolution({ width: newWidth, height: newHeight });
         } else {
           return;
         }
+      } else if (requiredWidth > canvas.width || requiredHeight > canvas.height) {
+        // Canvas needs to grow - this can happen if VNC server resizes
+        const newWidth = Math.max(canvas.width, requiredWidth);
+        const newHeight = Math.max(canvas.height, requiredHeight);
+
+        vncLog.info(`Expanding canvas: ${canvas.width}x${canvas.height} -> ${newWidth}x${newHeight}`);
+
+        // Save current content
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        // Resize canvas
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+
+        // Restore content
+        ctx.putImageData(imageData, 0, 0);
+
+        setResolution({ width: newWidth, height: newHeight });
       }
 
       const imageData = ctx.createImageData(update.width, update.height);
@@ -405,14 +447,16 @@ export function ConsoleTabPane({
     try {
       try {
         await invoke('disconnect_vnc', { connectionId });
-      } catch (_) {}
+      } catch (_) { }
 
       await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const consoleInfo = await getConsoleInfo(controlPlaneUrl, vmId);
 
       await invoke<string>('connect_vnc', {
         controlPlaneUrl,
         vmId,
-        password: null,
+        password: consoleInfo.password || null,
       });
     } catch (err) {
       vncLog.error('Reconnect error', err);
@@ -462,7 +506,7 @@ export function ConsoleTabPane({
       try {
         await invoke('send_pointer_event', { connectionId, x, y, buttons: mouseDown });
       } catch (err) {
-        console.error('Pointer event error:', err);
+        vncLog.error('Pointer event error:', err);
       }
     },
     [connectionId, mouseDown, getVNCCoordinates]
@@ -474,10 +518,11 @@ export function ConsoleTabPane({
       const button = 1 << e.button;
       setMouseDown((prev) => prev | button);
       const { x, y } = getVNCCoordinates(e);
+      vncLog.debug(`Mouse down at (${x}, ${y}), button: ${button}, connectionId: ${connectionId}`);
       try {
         await invoke('send_pointer_event', { connectionId, x, y, buttons: mouseDown | button });
       } catch (err) {
-        console.error('Pointer event error:', err);
+        vncLog.error('Pointer event error:', err);
       }
     },
     [connectionId, mouseDown, getVNCCoordinates]
@@ -529,10 +574,11 @@ export function ConsoleTabPane({
       e.preventDefault();
       e.stopPropagation();
       const keysym = keyEventToKeysym(e);
+      vncLog.debug(`Key down: ${e.key} (keysym: ${keysym.toString(16)}), connectionId: ${connectionId}`);
       try {
         await invoke('send_key_event', { connectionId, key: keysym, down: true });
       } catch (err) {
-        console.error('Key event error:', err);
+        vncLog.error('Key event error:', err);
       }
     },
     [connectionId, keyEventToKeysym]
@@ -580,9 +626,8 @@ export function ConsoleTabPane({
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`toast ${
-              toast.type === 'success' ? 'toast-success' : toast.type === 'error' ? 'toast-error' : 'toast-info'
-            }`}
+            className={`toast ${toast.type === 'success' ? 'toast-success' : toast.type === 'error' ? 'toast-error' : 'toast-info'
+              }`}
           >
             {toast.type === 'success' && <span className="text-lg">✓</span>}
             {toast.type === 'error' && <span className="text-lg">✕</span>}

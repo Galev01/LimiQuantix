@@ -31,7 +31,8 @@ use super::types::{PoolConfig, PoolInfo, PoolType, VolumeAttachInfo, VolumeSourc
 use super::traits::StorageBackend;
 
 /// Base path for NFS mount points.
-const NFS_MOUNT_BASE: &str = "/var/lib/limiquantix/pools";
+/// Must match the pattern used by QvDC: /var/lib/limiquantix/mnt/nfs-{poolId}
+const NFS_MOUNT_BASE: &str = "/var/lib/limiquantix/mnt";
 
 /// NFS storage backend.
 ///
@@ -61,8 +62,9 @@ impl NfsBackend {
     }
     
     /// Get the mount point for a pool.
+    /// Uses the pattern: /var/lib/limiquantix/mnt/nfs-{poolId}
     fn mount_point(&self, pool_id: &str) -> PathBuf {
-        self.mount_base.join(pool_id)
+        self.mount_base.join(format!("nfs-{}", pool_id))
     }
     
     /// Get the volume path within a mounted pool.

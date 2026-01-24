@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment, useMemo } from 'react';
+import { useState, useEffect, Fragment, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -70,6 +70,71 @@ interface VMCreationWizardProps {
   }) => void;
 }
 
+// Guest OS Family - affects timer, video, CPU, and driver configuration
+// This is the VMware-style "Guest OS" selection that determines hardware quirks
+type GuestOSFamily = 
+  | 'rhel'           // RHEL, Rocky, AlmaLinux, CentOS (strict kernel - HPET disabled)
+  | 'debian'         // Debian, Ubuntu, Mint (flexible)
+  | 'fedora'         // Fedora (RHEL upstream)
+  | 'suse'           // SLES, openSUSE
+  | 'arch'           // Arch, Manjaro
+  | 'generic_linux'  // Other Linux
+  | 'windows_server' // Windows Server 2016/2019/2022
+  | 'windows_desktop'// Windows 10/11 (requires TPM + SecureBoot)
+  | 'windows_legacy' // Windows 7/8/8.1
+  | 'freebsd'
+  | 'other';
+
+// Guest OS options for the dropdown
+const GUEST_OS_OPTIONS: Array<{ value: GuestOSFamily; label: string; description: string }> = [
+  { value: 'rhel', label: 'RHEL / Rocky / AlmaLinux / CentOS', description: 'Red Hat Enterprise Linux family' },
+  { value: 'debian', label: 'Debian / Ubuntu / Mint', description: 'Debian-based distributions' },
+  { value: 'fedora', label: 'Fedora', description: 'Fedora Linux' },
+  { value: 'suse', label: 'SUSE / openSUSE', description: 'SUSE Linux Enterprise' },
+  { value: 'arch', label: 'Arch / Manjaro', description: 'Arch Linux family' },
+  { value: 'generic_linux', label: 'Other Linux', description: 'Generic Linux distribution' },
+  { value: 'windows_server', label: 'Windows Server', description: 'Windows Server 2016/2019/2022' },
+  { value: 'windows_desktop', label: 'Windows 10/11', description: 'Windows Desktop (requires TPM)' },
+  { value: 'windows_legacy', label: 'Windows 7/8', description: 'Legacy Windows' },
+  { value: 'freebsd', label: 'FreeBSD', description: 'FreeBSD operating system' },
+  { value: 'other', label: 'Other', description: 'Unknown or custom OS' },
+];
+
+// Auto-detect guest OS family from image name/path
+function detectGuestOS(imageName: string, imagePath?: string): GuestOSFamily {
+  const name = (imageName + ' ' + (imagePath || '')).toLowerCase();
+  
+  if (name.includes('rocky') || name.includes('rhel') || name.includes('centos') || name.includes('almalinux') || name.includes('oracle')) {
+    return 'rhel';
+  }
+  if (name.includes('ubuntu') || name.includes('debian') || name.includes('mint')) {
+    return 'debian';
+  }
+  if (name.includes('fedora')) {
+    return 'fedora';
+  }
+  if (name.includes('suse') || name.includes('opensuse') || name.includes('sles')) {
+    return 'suse';
+  }
+  if (name.includes('arch') || name.includes('manjaro')) {
+    return 'arch';
+  }
+  if (name.includes('windows server') || name.includes('winserver')) {
+    return 'windows_server';
+  }
+  if (name.includes('windows 11') || name.includes('windows 10') || name.includes('win11') || name.includes('win10')) {
+    return 'windows_desktop';
+  }
+  if (name.includes('windows 7') || name.includes('windows 8') || name.includes('win7') || name.includes('win8')) {
+    return 'windows_legacy';
+  }
+  if (name.includes('freebsd')) {
+    return 'freebsd';
+  }
+  
+  return 'generic_linux';
+}
+
 interface VMCreationData {
   // Step 1: Basic Info
   name: string;
@@ -104,6 +169,9 @@ interface VMCreationData {
   isoId: string;
   cloudImageId: string;
   ovaTemplateId: string;
+  
+  // Guest OS Profile - determines hardware quirks (timers, video, drivers)
+  guestOS: GuestOSFamily;
 
   // Cloud-Init Configuration
   cloudInit: {
@@ -215,6 +283,7 @@ const initialFormData: VMCreationData = {
   isoId: '',
   cloudImageId: 'cloud-ubuntu22', // Default to Ubuntu 22.04 cloud image
   ovaTemplateId: '',
+  guestOS: 'debian', // Default to Debian/Ubuntu family (matches default cloud image)
   cloudInit: {
     enabled: true,
     sshKeys: [],
@@ -488,6 +557,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
           disks: formData.disks.map((d, index) => ({
             id: d.name, // Proto expects 'id' field, not 'name'
             sizeGib: d.sizeGib,
+            // Storage pool to create the disk in
+            storagePoolId: formData.storagePoolId,
             // Use cloud image as backing file for the first disk
             backingFile: index === 0 && selectedCloudImage ? selectedCloudImage.path : undefined,
           })),
@@ -509,6 +580,10 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
               metaData: `instance-id: ${formData.name}\nlocal-hostname: ${formData.name}`,
             },
           } : undefined,
+          // Guest OS profile - determines hardware configuration (timers, video, CPU)
+          guestOs: {
+            family: formData.guestOS,
+          },
         },
       });
       onSuccess?.();
@@ -596,8 +671,14 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
 
         // Check pool is accessible from node (if specific node selected)
         if (formData.hostId && !formData.autoPlacement) {
-          if (selectedPool.assignedNodeIds?.length > 0 &&
-            !selectedPool.assignedNodeIds.includes(formData.hostId)) {
+          // Network storage types (NFS, Ceph, iSCSI) are accessible from any host
+          const networkStorageTypes = ['NFS', 'CEPH_RBD', 'ISCSI'];
+          const isNetworkStorage = networkStorageTypes.includes(selectedPool.type);
+          
+          // Local storage requires the host to be in assignedNodeIds
+          if (!isNetworkStorage && 
+              selectedPool.assignedNodeIds?.length > 0 &&
+              !selectedPool.assignedNodeIds.includes(formData.hostId)) {
             return false;
           }
         }
@@ -2066,9 +2147,10 @@ function StepISO({
                         name="cloudImageId"
                         checked={formData.cloudImageId === image.id}
                         onChange={() => {
-                          // Update cloud image and set default user based on OS
+                          // Update cloud image, set default user, and auto-detect Guest OS
                           updateFormData({
                             cloudImageId: image.id,
+                            guestOS: detectGuestOS(image.name, image.path),
                             cloudInit: {
                               ...formData.cloudInit,
                               defaultUser: image.os.defaultUser || getDefaultUser(image.os.distribution),
@@ -2526,7 +2608,10 @@ packages:
                       type="radio"
                       name="isoId"
                       checked={formData.isoId === iso.id}
-                      onChange={() => updateFormData({ isoId: iso.id })}
+                      onChange={() => updateFormData({ 
+                        isoId: iso.id,
+                        guestOS: detectGuestOS(iso.name, 'path' in iso ? iso.path : undefined),
+                      })}
                       className="form-radio"
                     />
                     <Disc className="w-5 h-5 text-accent" />
@@ -2563,6 +2648,66 @@ packages:
           </p>
         </div>
       )}
+      
+      {/* Guest OS Profile Selection - CRITICAL for OS compatibility */}
+      <div className="mt-6 p-4 rounded-xl bg-bg-base border border-border">
+        <div className="flex items-center gap-2 mb-3">
+          <Settings className="w-5 h-5 text-accent" />
+          <h4 className="font-medium text-text-primary">Guest OS Profile</h4>
+          <Badge variant="info" size="sm">Hardware Config</Badge>
+        </div>
+        <p className="text-xs text-text-muted mb-4">
+          Select the guest operating system. This configures hardware settings (timers, video, CPU) 
+          for optimal compatibility. Incorrect settings can cause kernel panics or boot failures.
+        </p>
+        
+        <FormField label="Operating System" description="Auto-detected from selected image, but you can override">
+          <select
+            value={formData.guestOS}
+            onChange={(e) => updateFormData({ guestOS: e.target.value as GuestOSFamily })}
+            className="w-full px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary focus:border-accent focus:outline-none"
+          >
+            {GUEST_OS_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        
+        {/* OS-specific info */}
+        {formData.guestOS === 'rhel' && (
+          <div className="mt-3 p-3 rounded-lg bg-info/10 border border-info/30 text-xs">
+            <p className="text-info font-medium mb-1">RHEL/Rocky/AlmaLinux Profile</p>
+            <ul className="text-text-muted space-y-0.5">
+              <li>• HPET timer: Disabled (prevents kernel panic)</li>
+              <li>• CPU mode: host-passthrough</li>
+              <li>• Video: VGA (safe for installer)</li>
+            </ul>
+          </div>
+        )}
+        {formData.guestOS === 'windows_desktop' && (
+          <div className="mt-3 p-3 rounded-lg bg-warning/10 border border-warning/30 text-xs">
+            <p className="text-warning font-medium mb-1">Windows 10/11 Requirements</p>
+            <ul className="text-text-muted space-y-0.5">
+              <li>• TPM 2.0: Required (auto-enabled)</li>
+              <li>• UEFI + Secure Boot: Required</li>
+              <li>• Minimum 4 GB RAM recommended</li>
+              <li>• Hyper-V enlightenments: Enabled</li>
+            </ul>
+          </div>
+        )}
+        {formData.guestOS === 'windows_server' && (
+          <div className="mt-3 p-3 rounded-lg bg-info/10 border border-info/30 text-xs">
+            <p className="text-info font-medium mb-1">Windows Server Profile</p>
+            <ul className="text-text-muted space-y-0.5">
+              <li>• Hyper-V enlightenments: Enabled for best performance</li>
+              <li>• HPET timer: Enabled</li>
+              <li>• Disk bus: SATA (safe for install, switch to VirtIO after drivers)</li>
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2580,8 +2725,47 @@ function StepStorage({
   isLoading: boolean;
   nodes: ProcessedNode[];
 }) {
-  // Use only API data (no mock fallback)
-  const pools = storagePools;
+  // Helper to check if a pool is accessible from a specific host
+  const isPoolAccessibleFromHost = useCallback((pool: StoragePoolUI, hostId: string | undefined): boolean => {
+    // If no specific host selected (auto-placement), all pools are accessible
+    if (!hostId) return true;
+    
+    // Network storage types are accessible from any host
+    const networkStorageTypes = ['NFS', 'CEPH_RBD', 'ISCSI'];
+    if (networkStorageTypes.includes(pool.type)) {
+      return true;
+    }
+    
+    // Local storage (LOCAL_DIR, LOCAL_LVM) requires the host to be in assignedNodeIds
+    // If assignedNodeIds is empty, the pool hasn't been configured properly - show warning but allow
+    if (pool.assignedNodeIds.length === 0) {
+      return true; // Allow but show warning
+    }
+    
+    return pool.assignedNodeIds.includes(hostId);
+  }, []);
+  
+  // Filter pools based on host selection
+  const accessiblePools = useMemo(() => {
+    const ready = storagePools.filter(p => p.status.phase === 'READY');
+    
+    if (!formData.hostId || formData.autoPlacement) {
+      // No specific host - show all pools
+      return ready;
+    }
+    
+    // Filter to only pools accessible from the selected host
+    return ready.filter(p => isPoolAccessibleFromHost(p, formData.hostId));
+  }, [storagePools, formData.hostId, formData.autoPlacement, isPoolAccessibleFromHost]);
+  
+  // Inaccessible pools (for showing as disabled)
+  const inaccessiblePools = useMemo(() => {
+    if (!formData.hostId || formData.autoPlacement) return [];
+    
+    return storagePools
+      .filter(p => p.status.phase === 'READY')
+      .filter(p => !isPoolAccessibleFromHost(p, formData.hostId));
+  }, [storagePools, formData.hostId, formData.autoPlacement, isPoolAccessibleFromHost]);
 
   // Fetch volumes for the selected pool
   const { data: volumes, isLoading: volumesLoading } = useVolumes({ poolId: formData.storagePoolId });
@@ -2629,15 +2813,22 @@ function StepStorage({
     });
   };
 
-  // Auto-select first pool if only one exists and none selected
+  // Auto-select first accessible pool, or clear selection if current pool becomes inaccessible
   useEffect(() => {
-    if (pools.length > 0 && !formData.storagePoolId) {
-      const readyPools = pools.filter(p => p.status.phase === 'READY');
-      if (readyPools.length > 0) {
-        updateFormData({ storagePoolId: readyPools[0].id });
+    if (accessiblePools.length > 0) {
+      // If no pool selected, select the first accessible one
+      if (!formData.storagePoolId) {
+        updateFormData({ storagePoolId: accessiblePools[0].id });
+        return;
+      }
+      
+      // If current pool is not accessible, switch to first accessible pool
+      const currentPoolAccessible = accessiblePools.some(p => p.id === formData.storagePoolId);
+      if (!currentPoolAccessible) {
+        updateFormData({ storagePoolId: accessiblePools[0].id });
       }
     }
-  }, [pools, formData.storagePoolId, updateFormData]);
+  }, [accessiblePools, formData.storagePoolId, updateFormData]);
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -2664,42 +2855,49 @@ function StepStorage({
         </div>
       )}
 
-      {/* Host/Pool compatibility warning */}
-      {formData.hostId && formData.storagePoolId && (() => {
-        const selectedPool = pools.find(p => p.id === formData.storagePoolId);
-        const selectedHostName = nodes.find(n => n.id === formData.hostId)?.hostname;
-        if (selectedPool && selectedPool.assignedNodeIds.length > 0 && !selectedPool.assignedNodeIds.includes(formData.hostId)) {
-          return (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-error/10 border border-error/30 mb-4">
-              <AlertCircle className="w-4 h-4 text-error shrink-0" />
-              <div className="text-xs text-error">
-                <p className="font-medium">Host not compatible with selected storage pool</p>
-                <p className="mt-0.5">
-                  Host "{selectedHostName}" does not have access to pool "{selectedPool.name}".
-                  Either go back and select "Auto Placement" or choose a different host/pool combination.
-                </p>
-              </div>
-            </div>
-          );
-        }
-        return null;
-      })()}
+      {/* Host selection info */}
+      {formData.hostId && !formData.autoPlacement && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-info/10 border border-info/30 mb-4">
+          <Server className="w-4 h-4 text-info shrink-0" />
+          <div className="text-xs text-info">
+            <p>
+              Showing storage pools accessible from host "{nodes.find(n => n.id === formData.hostId)?.hostname}".
+              {inaccessiblePools.length > 0 && (
+                <span className="ml-1 text-text-muted">
+                  ({inaccessiblePools.length} local pool{inaccessiblePools.length > 1 ? 's' : ''} not shown)
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* No accessible pools warning */}
+      {!isLoading && accessiblePools.length === 0 && storagePools.length > 0 && formData.hostId && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30 mb-4">
+          <AlertCircle className="w-4 h-4 text-warning shrink-0" />
+          <div className="text-xs text-warning">
+            <p className="font-medium">No storage pools available for selected host</p>
+            <p className="mt-0.5">
+              The selected host "{nodes.find(n => n.id === formData.hostId)?.hostname}" does not have access 
+              to any storage pools. Either select "Auto Placement" or create/assign an NFS storage pool.
+            </p>
+          </div>
+        </div>
+      )}
 
       <FormField label="Storage Pool" required>
         <div className="grid gap-3">
-          {pools.filter(p => p.status.phase === 'READY').map((pool) => {
+          {/* Accessible pools */}
+          {accessiblePools.map((pool) => {
             const usagePercent = pool.capacity.totalBytes > 0
               ? Math.round((pool.capacity.usedBytes / pool.capacity.totalBytes) * 100)
               : 0;
 
-            // Check if selected host has access to this pool
-            const selectedHost = nodes.find(n => n.id === formData.hostId);
-            const hasHostAccess = !formData.hostId ||
-              !selectedHost ||
-              pool.assignedNodeIds.length === 0 ||
-              pool.assignedNodeIds.includes(formData.hostId);
+            // Determine storage type icon/badge color
+            const isNetworkStorage = ['NFS', 'CEPH_RBD', 'ISCSI'].includes(pool.type);
 
-            // Get node names that have access
+            // Get node names that have access (for local pools)
             const assignedNodeNames = pool.assignedNodeIds
               .map(id => nodes.find(n => n.id === id)?.hostname)
               .filter(Boolean);
@@ -2712,7 +2910,6 @@ function StepStorage({
                   formData.storagePoolId === pool.id
                     ? 'bg-accent/10 border-accent'
                     : 'bg-bg-base border-border hover:border-accent/50',
-                  !hasHostAccess && 'opacity-50',
                 )}
               >
                 <input
@@ -2726,20 +2923,22 @@ function StepStorage({
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-text-primary">{pool.name}</p>
-                    <Badge variant="default" size="sm">{pool.type}</Badge>
+                    <Badge variant={isNetworkStorage ? 'success' : 'default'} size="sm">
+                      {pool.type}
+                    </Badge>
                     {pool.status.volumeCount > 0 && (
                       <Badge variant="info" size="sm">{pool.status.volumeCount} volumes</Badge>
                     )}
-                    {!hasHostAccess && (
-                      <Badge variant="warning" size="sm">
-                        Not available on selected host
+                    {isNetworkStorage && (
+                      <Badge variant="success" size="sm">
+                        Network Storage
                       </Badge>
                     )}
                   </div>
                   <p className="text-xs text-text-muted">
                     {formatBytes(pool.capacity.availableBytes)} available of{' '}
                     {formatBytes(pool.capacity.totalBytes)}
-                    {assignedNodeNames.length > 0 && (
+                    {!isNetworkStorage && assignedNodeNames.length > 0 && (
                       <span className="ml-2">
                         • Available on: {assignedNodeNames.slice(0, 2).join(', ')}
                         {assignedNodeNames.length > 2 && ` +${assignedNodeNames.length - 2} more`}
@@ -2762,7 +2961,7 @@ function StepStorage({
               </label>
             );
           })}
-          {pools.filter(p => p.status.phase === 'READY').length === 0 && !isLoading && (
+          {accessiblePools.length === 0 && !isLoading && (
             <div className="p-4 text-center text-text-muted">
               <p>No ready storage pools available.</p>
               <p className="text-xs mt-1">Create a storage pool first in Storage → Pools.</p>
@@ -2952,7 +3151,7 @@ function StepStorage({
 
         {/* Disk capacity validation for new disks */}
         {(() => {
-          const selectedPool = pools.find(p => p.id === formData.storagePoolId);
+          const selectedPool = accessiblePools.find(p => p.id === formData.storagePoolId);
           const totalNewDiskSizeGib = formData.disks
             .filter(d => d.sourceType === 'new')
             .reduce((sum, d) => sum + d.sizeGib, 0);
@@ -3211,6 +3410,10 @@ function StepReview({
                   ? 'ISO (Manual Install)'
                   : 'None'
             }
+          />
+          <ReviewRow
+            label="Guest OS Profile"
+            value={GUEST_OS_OPTIONS.find(o => o.value === formData.guestOS)?.label || formData.guestOS}
           />
           {formData.bootMediaType === 'cloud-image' && selectedCloudImage && (
             <>

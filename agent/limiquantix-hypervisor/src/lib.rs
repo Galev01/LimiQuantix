@@ -48,6 +48,7 @@ pub mod libvirt;
 pub mod storage;
 pub mod network;
 pub mod cloudinit;
+pub mod guest_os;
 mod xml;
 
 pub use error::HypervisorError;

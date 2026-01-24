@@ -477,6 +477,7 @@ impl RegistrationClient {
     /// Compares the list of assigned pool IDs from the control plane with the
     /// currently mounted pools. For any pool that is assigned but not mounted,
     /// fetches the pool configuration from the control plane and mounts it.
+    /// Also unmounts pools that are no longer assigned.
     async fn ensure_assigned_pools_mounted(&self, assigned_pool_ids: &[String]) {
         // Get currently mounted pools
         let mounted_pools = self.storage.list_pools().await;
@@ -485,12 +486,74 @@ impl RegistrationClient {
             .map(|p| p.pool_id.as_str())
             .collect();
         
-        // Find pools that need to be mounted
+        // Build set of assigned pool IDs for quick lookup
+        let assigned_set: std::collections::HashSet<&str> = assigned_pool_ids
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+        
+        // Build a map of pools that need name updates (already mounted but no name)
+        let pools_needing_name: std::collections::HashSet<&str> = mounted_pools
+            .iter()
+            .filter(|p| p.name.is_none())
+            .map(|p| p.pool_id.as_str())
+            .collect();
+        
+        // First, handle unassignment: unmount pools that are mounted but no longer assigned
+        // Only unmount pools that have a name (i.e., were assigned from QvDC, not locally created)
+        for pool in &mounted_pools {
+            if !assigned_set.contains(pool.pool_id.as_str()) && pool.name.is_some() {
+                info!(
+                    pool_id = %pool.pool_id,
+                    pool_name = ?pool.name,
+                    "Pool unassigned from QvDC, unmounting"
+                );
+                
+                if let Err(e) = self.storage.destroy_pool(&pool.pool_id).await {
+                    error!(
+                        pool_id = %pool.pool_id,
+                        error = %e,
+                        "Failed to unmount unassigned pool"
+                    );
+                }
+            }
+        }
+        
+        // Process each assigned pool
         for pool_id in assigned_pool_ids {
-            if mounted_pool_ids.contains(pool_id.as_str()) {
+            let is_mounted = mounted_pool_ids.contains(pool_id.as_str());
+            let needs_name = pools_needing_name.contains(pool_id.as_str());
+            
+            if is_mounted && !needs_name {
+                // Pool is mounted and has a name, nothing to do
                 continue;
             }
             
+            if is_mounted && needs_name {
+                // Pool is mounted but needs its name updated from QvDC
+                debug!(
+                    pool_id = %pool_id,
+                    "Pool mounted but missing name, fetching from control plane"
+                );
+                
+                if let Ok(pool_config) = self.fetch_pool_config(pool_id).await {
+                    let pool_name = pool_config.get("name")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    
+                    if let Some(name) = pool_name {
+                        info!(
+                            pool_id = %pool_id,
+                            pool_name = %name,
+                            "Updating pool name from QvDC"
+                        );
+                        self.storage.update_pool_name(pool_id, Some(name)).await;
+                    }
+                }
+                continue;
+            }
+            
+            // Pool is not mounted, fetch config and mount it
             info!(
                 pool_id = %pool_id,
                 "Assigned pool not mounted, fetching configuration from control plane"
@@ -551,7 +614,15 @@ impl RegistrationClient {
     async fn mount_assigned_pool(&self, pool_id: &str, pool_config: &serde_json::Value) -> anyhow::Result<()> {
         use limiquantix_hypervisor::storage::{PoolType, PoolConfig, NfsConfig, CephConfig, IscsiConfig, LocalConfig};
         
+        // Log the full response for debugging
+        debug!(
+            pool_id = %pool_id,
+            pool_config = %pool_config,
+            "Full pool config from QvDC"
+        );
+        
         // Extract the friendly name from the pool response
+        // Connect-RPC uses camelCase, so try both "name" and check top-level keys
         let pool_name = pool_config.get("name")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
@@ -559,6 +630,7 @@ impl RegistrationClient {
         info!(
             pool_id = %pool_id,
             pool_name = ?pool_name,
+            available_keys = ?pool_config.as_object().map(|o| o.keys().collect::<Vec<_>>()),
             "Extracting pool configuration"
         );
         

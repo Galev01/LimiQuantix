@@ -96,6 +96,14 @@ func (m *MockVMRepository) CountByProject(ctx context.Context, projectID string)
 
 func (m *MockVMRepository) SeedDemoData() {}
 
+func (m *MockVMRepository) CreateEvent(ctx context.Context, event *domain.VMEvent) error {
+	return nil
+}
+
+func (m *MockVMRepository) ListEvents(ctx context.Context, vmID, eventType, severity string, limit int, since string) ([]*domain.VMEvent, error) {
+	return nil, nil
+}
+
 // =============================================================================
 // Unit Tests
 // =============================================================================

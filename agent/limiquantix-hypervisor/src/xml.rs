@@ -1,26 +1,40 @@
 //! XML generation utilities for libvirt domain definitions.
+//!
+//! This module generates libvirt-compatible domain XML for VM definitions.
+//! It uses Guest OS Profiles to apply OS-specific hardware configurations,
+//! similar to VMware's Guest OS selection feature.
 
 // Alternative XML builder (current implementation uses direct string generation)
 #![allow(dead_code)]
 
 use crate::types::*;
+use crate::guest_os::GuestOSProfile;
 
 /// Builder for libvirt domain XML.
 pub struct DomainXmlBuilder<'a> {
     config: &'a VmConfig,
+    /// The Guest OS profile with hardware-specific settings.
+    profile: GuestOSProfile,
 }
 
 impl<'a> DomainXmlBuilder<'a> {
     /// Create a new XML builder for the given VM config.
+    /// Automatically loads the appropriate Guest OS profile based on config.guest_os.
     pub fn new(config: &'a VmConfig) -> Self {
-        Self { config }
+        let profile = GuestOSProfile::for_family(config.guest_os);
+        Self { config, profile }
+    }
+    
+    /// Create a new XML builder with a custom Guest OS profile.
+    pub fn with_profile(config: &'a VmConfig, profile: GuestOSProfile) -> Self {
+        Self { config, profile }
     }
     
     /// Build the domain XML string.
     pub fn build(&self) -> String {
         let mut xml = String::new();
         
-        // Domain header
+        // Domain header with machine type from profile
         xml.push_str(&format!(
             r#"<domain type='kvm'>
   <name>{}</name>
@@ -37,23 +51,14 @@ impl<'a> DomainXmlBuilder<'a> {
         // OS section
         xml.push_str(&self.build_os_section());
         
-        // Features
-        xml.push_str(r#"  <features>
-    <acpi/>
-    <apic/>
-  </features>
-"#);
+        // Features (with Hyper-V enlightenments for Windows)
+        xml.push_str(&self.build_features_section());
         
         // CPU
         xml.push_str(&self.build_cpu_section());
         
-        // Clock
-        xml.push_str(r#"  <clock offset='utc'>
-    <timer name='rtc' tickpolicy='catchup'/>
-    <timer name='pit' tickpolicy='delay'/>
-    <timer name='hpet' present='no'/>
-  </clock>
-"#);
+        // Clock (OS-specific timer configuration)
+        xml.push_str(&self.build_clock_section());
         
         // Power management
         xml.push_str(r#"  <on_poweroff>destroy</on_poweroff>
@@ -74,6 +79,75 @@ impl<'a> DomainXmlBuilder<'a> {
         
         xml.push_str("</domain>\n");
         
+        xml
+    }
+    
+    /// Build the features section with OS-specific settings.
+    fn build_features_section(&self) -> String {
+        let mut xml = String::from("  <features>\n    <acpi/>\n    <apic/>\n");
+        
+        // Add Hyper-V enlightenments for Windows guests
+        if self.profile.cpu.hyperv_features.enabled {
+            let hv = &self.profile.cpu.hyperv_features;
+            xml.push_str("    <hyperv>\n");
+            
+            if hv.relaxed { xml.push_str("      <relaxed state='on'/>\n"); }
+            if hv.vapic { xml.push_str("      <vapic state='on'/>\n"); }
+            if hv.spinlocks {
+                xml.push_str(&format!("      <spinlocks state='on' retries='{}'/>\n", hv.spinlock_retries));
+            }
+            if hv.vpindex { xml.push_str("      <vpindex state='on'/>\n"); }
+            if hv.runtime { xml.push_str("      <runtime state='on'/>\n"); }
+            if hv.synic { xml.push_str("      <synic state='on'/>\n"); }
+            if hv.stimer { xml.push_str("      <stimer state='on'/>\n"); }
+            if hv.reset { xml.push_str("      <reset state='on'/>\n"); }
+            if hv.frequencies { xml.push_str("      <frequencies state='on'/>\n"); }
+            if hv.reftime { xml.push_str("      <reftime state='on'/>\n"); }
+            if hv.tlbflush { xml.push_str("      <tlbflush state='on'/>\n"); }
+            if hv.ipi { xml.push_str("      <ipi state='on'/>\n"); }
+            
+            xml.push_str("    </hyperv>\n");
+        }
+        
+        xml.push_str("  </features>\n");
+        xml
+    }
+    
+    /// Build the clock section with OS-specific timer configuration.
+    /// This is CRITICAL for OS compatibility - wrong settings cause kernel panics.
+    fn build_clock_section(&self) -> String {
+        let timers = &self.profile.timers;
+        let mut xml = String::from("  <clock offset='utc'>\n");
+        
+        // RTC timer
+        xml.push_str(&format!(
+            "    <timer name='rtc' tickpolicy='{}'/>\n",
+            timers.rtc_tick_policy
+        ));
+        
+        // PIT timer
+        xml.push_str(&format!(
+            "    <timer name='pit' tickpolicy='{}'/>\n",
+            timers.pit_tick_policy
+        ));
+        
+        // HPET timer - CRITICAL: RHEL 9/Rocky 9 kernels panic if this is enabled!
+        xml.push_str(&format!(
+            "    <timer name='hpet' present='{}'/>\n",
+            if timers.hpet_enabled { "yes" } else { "no" }
+        ));
+        
+        // KVM clock for Linux guests
+        if timers.kvmclock_enabled {
+            xml.push_str("    <timer name='kvmclock' present='yes'/>\n");
+        }
+        
+        // Hyper-V reference time counter for Windows guests
+        if timers.hyperv_time_enabled {
+            xml.push_str("    <timer name='hypervclock' present='yes'/>\n");
+        }
+        
+        xml.push_str("  </clock>\n");
         xml
     }
     
@@ -107,18 +181,64 @@ impl<'a> DomainXmlBuilder<'a> {
     }
     
     fn build_cpu_section(&self) -> String {
-        let model = self.config.cpu.model.as_deref().unwrap_or("host-passthrough");
+        let mode = self.config.cpu.model.as_deref().unwrap_or("host-passthrough");
         
-        format!(
-            r#"  <cpu mode='{}'>
+        // For host-passthrough and host-model modes, we pass through the host CPU
+        // which provides maximum compatibility with modern Linux distributions
+        // (Rocky Linux 9, CentOS 9, etc. require certain CPU features)
+        match mode {
+            "host-passthrough" => {
+                // Best performance, passes through all host CPU features
+                // Note: VMs cannot be live-migrated to hosts with different CPUs
+                format!(
+                    r#"  <cpu mode='host-passthrough' check='none' migratable='off'>
     <topology sockets='{}' cores='{}' threads='{}'/>
   </cpu>
 "#,
-            model,
-            self.config.cpu.sockets,
-            self.config.cpu.cores,
-            self.config.cpu.threads_per_core
-        )
+                    self.config.cpu.sockets,
+                    self.config.cpu.cores,
+                    self.config.cpu.threads_per_core
+                )
+            }
+            "host-model" => {
+                // Good compatibility, uses host CPU model but allows migration
+                format!(
+                    r#"  <cpu mode='host-model' check='partial'>
+    <topology sockets='{}' cores='{}' threads='{}'/>
+  </cpu>
+"#,
+                    self.config.cpu.sockets,
+                    self.config.cpu.cores,
+                    self.config.cpu.threads_per_core
+                )
+            }
+            "max" => {
+                // Maximum features exposed, good for migration between similar hosts
+                format!(
+                    r#"  <cpu mode='maximum' check='partial' migratable='on'>
+    <topology sockets='{}' cores='{}' threads='{}'/>
+  </cpu>
+"#,
+                    self.config.cpu.sockets,
+                    self.config.cpu.cores,
+                    self.config.cpu.threads_per_core
+                )
+            }
+            _ => {
+                // Custom model (e.g., "qemu64", "Skylake-Server", etc.)
+                format!(
+                    r#"  <cpu mode='custom' match='exact' check='partial'>
+    <model fallback='allow'>{}</model>
+    <topology sockets='{}' cores='{}' threads='{}'/>
+  </cpu>
+"#,
+                    mode,
+                    self.config.cpu.sockets,
+                    self.config.cpu.cores,
+                    self.config.cpu.threads_per_core
+                )
+            }
+        }
     }
     
     fn build_emulator(&self) -> String {
@@ -276,13 +396,17 @@ impl<'a> DomainXmlBuilder<'a> {
             ));
         }
         
-        // Video device - use 'vga' for maximum compatibility across all QEMU builds
-        // 'vga' is the standard VGA adapter, universally supported
-        // Note: virtio-gpu-pci requires virtio-gpu kernel module, qxl requires qxl driver
-        xml.push_str(r#"    <video>
-      <model type='vga' vram='16384' heads='1' primary='yes'/>
-    </video>
-"#);
+        // Video device - use OS-specific model from profile
+        // - VGA: Maximum compatibility (RHEL install, Windows install)
+        // - QXL: Best for SPICE (Windows after drivers installed)
+        // - virtio: Modern, high performance (requires driver)
+        let video = &self.profile.video;
+        xml.push_str(&format!(
+            "    <video>\n      <model type='{}' vram='{}' heads='{}' primary='yes'/>\n    </video>\n",
+            video.model,
+            video.vram_kb,
+            video.heads
+        ));
         
         xml
     }
@@ -343,6 +467,50 @@ mod tests {
         
         assert!(xml.contains("OVMF_CODE.fd"));
         assert!(xml.contains("nvram"));
+    }
+    
+    #[test]
+    fn test_cpu_host_passthrough_mode() {
+        let config = VmConfig::new("cpu-test-vm");
+        let xml = DomainXmlBuilder::new(&config).build();
+        
+        // Default should be host-passthrough with migratable='off'
+        assert!(xml.contains("mode='host-passthrough'"));
+        assert!(xml.contains("check='none'"));
+        assert!(xml.contains("migratable='off'"));
+    }
+    
+    #[test]
+    fn test_cpu_host_model_mode() {
+        let mut config = VmConfig::new("cpu-test-vm");
+        config.cpu.model = Some("host-model".to_string());
+        
+        let xml = DomainXmlBuilder::new(&config).build();
+        
+        assert!(xml.contains("mode='host-model'"));
+        assert!(xml.contains("check='partial'"));
+    }
+    
+    #[test]
+    fn test_cpu_max_mode() {
+        let mut config = VmConfig::new("cpu-test-vm");
+        config.cpu.model = Some("max".to_string());
+        
+        let xml = DomainXmlBuilder::new(&config).build();
+        
+        assert!(xml.contains("mode='maximum'"));
+        assert!(xml.contains("migratable='on'"));
+    }
+    
+    #[test]
+    fn test_cpu_custom_model() {
+        let mut config = VmConfig::new("cpu-test-vm");
+        config.cpu.model = Some("Skylake-Server".to_string());
+        
+        let xml = DomainXmlBuilder::new(&config).build();
+        
+        assert!(xml.contains("mode='custom'"));
+        assert!(xml.contains("<model fallback='allow'>Skylake-Server</model>"));
     }
     
     #[test]

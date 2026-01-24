@@ -978,6 +978,136 @@ func (s *Service) SuspendVM(
 }
 
 // ============================================================================
+// State Recovery Operations
+// ============================================================================
+
+// ResetVMState resets a VM stuck in a transitional state (STOPPING, STARTING, etc.)
+// by querying the actual state from the hypervisor and updating the control plane.
+// If the hypervisor is unreachable, it can force the state to STOPPED.
+//
+// This is an administrative operation for recovering from stuck states.
+func (s *Service) ResetVMState(ctx context.Context, vmID string, forceToStopped bool) (*domain.VirtualMachine, error) {
+	logger := s.logger.With(
+		zap.String("method", "ResetVMState"),
+		zap.String("vm_id", vmID),
+		zap.Bool("force_to_stopped", forceToStopped),
+	)
+
+	logger.Info("Resetting VM state")
+
+	if vmID == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("VM ID is required"))
+	}
+
+	// Get existing VM
+	vm, err := s.repo.Get(ctx, vmID)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("VM '%s' not found", vmID))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	previousState := vm.Status.State
+	logger.Info("Current VM state",
+		zap.String("current_state", string(previousState)),
+		zap.String("node_id", vm.Status.NodeID),
+	)
+
+	// If VM is assigned to a node, try to get the actual state from the hypervisor
+	if vm.Status.NodeID != "" && !forceToStopped {
+		client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+		if err != nil {
+			logger.Warn("Failed to connect to node daemon, cannot query actual state",
+				zap.String("node_id", vm.Status.NodeID),
+				zap.Error(err),
+			)
+			// If we can't reach the node and force is not set, return error with guidance
+			return nil, connect.NewError(connect.CodeUnavailable,
+				fmt.Errorf("cannot reach node '%s' to query VM state; use force_to_stopped=true to force state to STOPPED", vm.Status.NodeID))
+		}
+
+		// Query the actual VM status from the hypervisor
+		status, err := client.GetVMStatus(ctx, vmID)
+		if err != nil {
+			// Check if VM doesn't exist on the node
+			errStr := err.Error()
+			isNotFound := strings.Contains(errStr, "nodomain") ||
+				strings.Contains(errStr, "Domain not found") ||
+				strings.Contains(errStr, "VM not found") ||
+				strings.Contains(errStr, "not found")
+
+			if isNotFound {
+				logger.Info("VM not found on hypervisor, setting state to STOPPED")
+				vm.Status.State = domain.VMStateStopped
+				vm.Status.Message = "VM not found on hypervisor, state reset to STOPPED"
+			} else {
+				logger.Error("Failed to query VM status from hypervisor", zap.Error(err))
+				return nil, connect.NewError(connect.CodeInternal,
+					fmt.Errorf("failed to query VM status from hypervisor: %w", err))
+			}
+		} else {
+			// Map the hypervisor state to our domain state
+			newState := mapNodePowerStateToDomain(status.State)
+			logger.Info("Got actual state from hypervisor",
+				zap.String("hypervisor_state", status.State.String()),
+				zap.String("mapped_state", string(newState)),
+			)
+			vm.Status.State = newState
+			vm.Status.Message = fmt.Sprintf("State reset from hypervisor (was %s)", previousState)
+		}
+	} else {
+		// Force to stopped (either explicitly requested or no node assigned)
+		logger.Info("Forcing VM state to STOPPED",
+			zap.Bool("force_requested", forceToStopped),
+			zap.Bool("has_node", vm.Status.NodeID != ""),
+		)
+		vm.Status.State = domain.VMStateStopped
+		vm.Status.Message = fmt.Sprintf("State forcefully reset to STOPPED (was %s)", previousState)
+	}
+
+	vm.UpdatedAt = time.Now()
+
+	// Update the status in the database
+	if err := s.repo.UpdateStatus(ctx, vm.ID, vm.Status); err != nil {
+		logger.Error("Failed to update VM status", zap.Error(err))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Fetch the updated VM
+	updated, err := s.repo.Get(ctx, vmID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	logger.Info("VM state reset successfully",
+		zap.String("previous_state", string(previousState)),
+		zap.String("new_state", string(updated.Status.State)),
+	)
+
+	return updated, nil
+}
+
+// mapNodePowerStateToDomain maps a power state enum from the node daemon to a domain VMState.
+func mapNodePowerStateToDomain(state nodev1.PowerState) domain.VMState {
+	switch state {
+	case nodev1.PowerState_POWER_STATE_RUNNING:
+		return domain.VMStateRunning
+	case nodev1.PowerState_POWER_STATE_STOPPED:
+		return domain.VMStateStopped
+	case nodev1.PowerState_POWER_STATE_PAUSED:
+		return domain.VMStatePaused
+	case nodev1.PowerState_POWER_STATE_SUSPENDED:
+		return domain.VMStateSuspended
+	case nodev1.PowerState_POWER_STATE_CRASHED:
+		return domain.VMStateError
+	default:
+		// For unknown states, default to stopped as a safe fallback
+		return domain.VMStateStopped
+	}
+}
+
+// ============================================================================
 // Console Operations
 // ============================================================================
 
@@ -1437,12 +1567,14 @@ func convertToNodeDaemonCreateRequest(vm *domain.VirtualMachine, spec *computev1
 			Readonly:    disk.GetReadonly(),
 			Bootable:    disk.GetBootIndex() > 0, // bootable if boot_index > 0
 			BackingFile: disk.GetBackingFile(),   // Cloud image path for copy-on-write
+			PoolId:      disk.GetStoragePoolId(), // Storage pool to create disk in
 		}
 
 		// DEBUG: Log what we're sending to the node daemon
 		zap.L().Info("DEBUG: Sending disk to node daemon",
 			zap.Int("disk_index", i),
 			zap.String("disk_id", diskSpec.Id),
+			zap.String("pool_id", diskSpec.PoolId),
 			zap.Uint64("size_gib", diskSpec.SizeGib),
 			zap.String("backing_file", diskSpec.BackingFile),
 			zap.String("path", diskSpec.Path),
@@ -1488,6 +1620,44 @@ func convertToNodeDaemonCreateRequest(vm *domain.VirtualMachine, spec *computev1
 				NetworkConfig: cloudInit.GetNetworkConfig(),
 				VendorData:    cloudInit.GetVendorData(),
 			}
+		}
+	}
+
+	// Convert Guest OS profile - determines hardware configuration (timers, CPU mode, video)
+	// This maps the proto GuestOSFamily enum to the Node Daemon string format
+	if spec.GetGuestOs() != nil {
+		guestOSFamily := spec.GetGuestOs().GetFamily()
+		var guestOSStr string
+		switch guestOSFamily {
+		case computev1.GuestOSFamily_GUEST_OS_FAMILY_RHEL:
+			guestOSStr = "rhel"
+		case computev1.GuestOSFamily_GUEST_OS_FAMILY_DEBIAN:
+			guestOSStr = "debian"
+		case computev1.GuestOSFamily_GUEST_OS_FAMILY_FEDORA:
+			guestOSStr = "fedora"
+		case computev1.GuestOSFamily_GUEST_OS_FAMILY_SUSE:
+			guestOSStr = "suse"
+		case computev1.GuestOSFamily_GUEST_OS_FAMILY_ARCH:
+			guestOSStr = "arch"
+		case computev1.GuestOSFamily_GUEST_OS_FAMILY_WINDOWS_SERVER:
+			guestOSStr = "windows_server"
+		case computev1.GuestOSFamily_GUEST_OS_FAMILY_WINDOWS_DESKTOP:
+			guestOSStr = "windows_desktop"
+		case computev1.GuestOSFamily_GUEST_OS_FAMILY_WINDOWS_LEGACY:
+			guestOSStr = "windows_legacy"
+		case computev1.GuestOSFamily_GUEST_OS_FAMILY_FREEBSD:
+			guestOSStr = "freebsd"
+		case computev1.GuestOSFamily_GUEST_OS_FAMILY_GENERIC_LINUX:
+			guestOSStr = "generic_linux"
+		default:
+			guestOSStr = "" // Let node daemon use default
+		}
+		if guestOSStr != "" {
+			req.Spec.GuestOs = guestOSStr
+			zap.L().Info("Setting Guest OS profile",
+				zap.String("vm_id", vm.ID),
+				zap.String("guest_os", guestOSStr),
+			)
 		}
 	}
 

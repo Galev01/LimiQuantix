@@ -249,6 +249,7 @@ fn main() {
             api::delete_connection,
             api::get_config,
             api::save_config,
+            api::get_console_info,
             // VNC commands
             vnc::connect_vnc,
             vnc::disconnect_vnc,

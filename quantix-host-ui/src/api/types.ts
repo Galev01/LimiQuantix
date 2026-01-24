@@ -83,6 +83,20 @@ export interface GuestResourceUsage {
   uptimeSeconds: number;
 }
 
+// Guest OS Family - affects timer, video, CPU, and driver configuration
+export type GuestOSFamily = 
+  | 'rhel'           // RHEL, Rocky, AlmaLinux, CentOS (HPET disabled)
+  | 'debian'         // Debian, Ubuntu, Mint
+  | 'fedora'         // Fedora
+  | 'suse'           // SLES, openSUSE
+  | 'arch'           // Arch, Manjaro
+  | 'generic_linux'  // Other Linux
+  | 'windows_server' // Windows Server 2016/2019/2022
+  | 'windows_desktop'// Windows 10/11 (requires TPM)
+  | 'windows_legacy' // Windows 7/8/8.1
+  | 'freebsd'
+  | 'other';
+
 export interface CreateVmRequest {
   name: string;
   cpuCores: number;
@@ -91,6 +105,8 @@ export interface CreateVmRequest {
   disks: DiskSpec[];
   nics: NicSpec[];
   cloudInit?: CloudInitSpec;
+  /** Guest OS family - determines hardware configuration (timers, video, CPU) */
+  guestOS?: GuestOSFamily;
 }
 
 export interface DiskSpec {
@@ -100,6 +116,8 @@ export interface DiskSpec {
   format?: 'qcow2' | 'raw';
   backingFile?: string;
   bootable?: boolean;
+  /** Storage pool to create the disk in (e.g., "SSD-local01", "nfs-xxx") */
+  poolId?: string;
 }
 
 export interface NicSpec {

@@ -267,10 +267,15 @@ func (h *ConsoleHandler) getConsoleInfoFromNode(ctx context.Context, nodeID, vmI
 			return nil, fmt.Errorf("node has no management IP")
 		}
 
+		// Strip CIDR notation from IP if present (e.g., "192.168.0.101/32" -> "192.168.0.101")
+		daemonAddr := node.ManagementIP
+		if idx := strings.Index(daemonAddr, "/"); idx != -1 {
+			daemonAddr = daemonAddr[:idx]
+		}
+
 		// ManagementIP may already include port (e.g., "192.168.0.53:9090")
 		// Check if it has a port, if not add default port 9090
 		// Note: gRPC expects just host:port, not http:// prefix
-		daemonAddr := node.ManagementIP
 		if !strings.Contains(daemonAddr, ":") {
 			daemonAddr = daemonAddr + ":9090"
 		}
