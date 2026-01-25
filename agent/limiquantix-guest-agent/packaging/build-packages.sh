@@ -22,11 +22,27 @@
 set -e
 
 VERSION="0.1.0"
-ARCH="amd64"
 PACKAGE_NAME="limiquantix-guest-agent"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 BUILD_DIR="${ROOT_DIR}/target/packages"
+
+# Detect architecture
+MACHINE_ARCH="$(uname -m)"
+case "${MACHINE_ARCH}" in
+    x86_64)
+        ARCH="amd64"
+        RUST_TARGET="x86_64-unknown-linux-gnu"
+        ;;
+    aarch64)
+        ARCH="arm64"
+        RUST_TARGET="aarch64-unknown-linux-gnu"
+        ;;
+    *)
+        ARCH="${MACHINE_ARCH}"
+        RUST_TARGET=""
+        ;;
+esac
 
 # Colors for output
 RED='\033[0;31m'
@@ -63,7 +79,7 @@ build_binary() {
 
 # Build Debian package
 build_deb() {
-    log_info "Building Debian package..."
+    log_info "Building Debian package for ${ARCH}..."
     
     # Ensure binary is built
     build_binary
@@ -74,6 +90,10 @@ build_deb() {
     mkdir -p "${DEB_DIR}/DEBIAN"
     mkdir -p "${DEB_DIR}/usr/bin"
     mkdir -p "${DEB_DIR}/lib/systemd/system"
+    mkdir -p "${DEB_DIR}/etc/limiquantix"
+    mkdir -p "${DEB_DIR}/etc/limiquantix/pre-freeze.d"
+    mkdir -p "${DEB_DIR}/etc/limiquantix/post-thaw.d"
+    mkdir -p "${DEB_DIR}/var/log/limiquantix"
     
     # Copy binary
     cp "${ROOT_DIR}/target/release/limiquantix-agent" "${DEB_DIR}/usr/bin/"
@@ -82,15 +102,36 @@ build_deb() {
     # Copy systemd service
     cp "${SCRIPT_DIR}/systemd/limiquantix-agent.service" "${DEB_DIR}/lib/systemd/system/"
     
+    # Copy default configuration
+    cp "${SCRIPT_DIR}/config/agent.yaml" "${DEB_DIR}/etc/limiquantix/"
+    
     # Create control file
     cat > "${DEB_DIR}/DEBIAN/control" << EOF
 Package: ${PACKAGE_NAME}
 Version: ${VERSION}
 Architecture: ${ARCH}
 Maintainer: LimiQuantix Team <team@limiquantix.io>
+Depends: libc6
 Description: LimiQuantix Guest Agent for VM Integration
  The LimiQuantix Guest Agent is a lightweight daemon that runs inside
  guest VMs to enable deep integration with the LimiQuantix hypervisor.
+ .
+ Features:
+  - Real-time telemetry (CPU, memory, disk, network)
+  - Remote command execution
+  - File transfer without SSH
+  - Graceful shutdown/reboot
+  - Password reset
+  - Filesystem quiescing for snapshots
+  - Time synchronization
+  - Display resize (desktop VMs)
+  - Clipboard sharing
+  - Process and service management
+EOF
+    
+    # Create conffiles (mark config as conffile to preserve on upgrade)
+    cat > "${DEB_DIR}/DEBIAN/conffiles" << EOF
+/etc/limiquantix/agent.yaml
 EOF
     
     # Copy maintainer scripts

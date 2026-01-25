@@ -1,25 +1,43 @@
-# LimiQuantix Guest Agent Configuration
-# This file is installed by the MSI and can be customized.
-
-# Virtio-serial device path
-# On Windows, this is the symbolic link to the virtio-serial port
-device_path: "\\\\?\\Global\\org.limiquantix.agent.0"
-
-# Logging level: trace, debug, info, warn, error
-log_level: "info"
+# =============================================================================
+# LimiQuantix Guest Agent Configuration (Windows)
+# =============================================================================
+# Location: C:\ProgramData\LimiQuantix\agent.yaml
 
 # Telemetry interval in seconds
-telemetry_interval_secs: 60
+telemetry_interval_secs: 5
 
 # Maximum command execution timeout (seconds)
 max_exec_timeout_secs: 300
 
-# Maximum file read chunk size (bytes)
-max_read_chunk_size: 65536
+# Maximum file chunk size (bytes)
+max_chunk_size: 65536
 
-# Pre-freeze scripts directory (for snapshot quiescing)
-# On Windows, place .bat or .ps1 scripts here
+# Logging
+log_level: info
+log_format: json
+log_file: "C:\\ProgramData\\LimiQuantix\\Logs\\agent.log"
+log_max_size_bytes: 10485760
+log_max_files: 5
+
+# Device path (auto = auto-detect)
+device_path: auto
+
+# Quiescing scripts directories
 pre_freeze_script_dir: "C:\\ProgramData\\LimiQuantix\\pre-freeze.d"
-
-# Post-thaw scripts directory (after snapshot)
 post_thaw_script_dir: "C:\\ProgramData\\LimiQuantix\\post-thaw.d"
+
+# Security settings
+security:
+  command_allowlist: []
+  command_blocklist: []
+  allow_file_write_paths: []
+  deny_file_read_paths: []
+  max_commands_per_minute: 0
+  max_file_ops_per_second: 0
+  audit_logging: false
+
+# Health check settings
+health:
+  enabled: true
+  interval_secs: 30
+  telemetry_timeout_secs: 60

@@ -41,6 +41,53 @@ impl AgentTransport {
         Self::open(&device_path).await
     }
 
+    /// Connect to a specific device path.
+    ///
+    /// If the path is "auto", uses the default device discovery.
+    pub async fn connect_with_path(path: &str) -> Result<Self> {
+        if path == "auto" {
+            return Self::connect().await;
+        }
+
+        let device_path = PathBuf::from(path);
+        
+        // Wait for the specific device with timeout
+        let timeout = Duration::from_secs(60);
+        let start = std::time::Instant::now();
+        let mut backoff = Duration::from_millis(100);
+        let max_backoff = Duration::from_secs(5);
+
+        loop {
+            if device_path.exists() || Self::try_open_device(&device_path) {
+                return Self::open(&device_path).await;
+            }
+
+            if start.elapsed() >= timeout {
+                return Err(anyhow!(
+                    "Timeout waiting for virtio-serial device: {}",
+                    path
+                ));
+            }
+
+            warn!(
+                path = %path,
+                elapsed = ?start.elapsed(),
+                "Waiting for specified virtio-serial device..."
+            );
+            tokio::time::sleep(backoff).await;
+            backoff = (backoff * 2).min(max_backoff);
+        }
+    }
+
+    /// Try to open a device to check if it exists (Windows workaround)
+    fn try_open_device(path: &PathBuf) -> bool {
+        std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
+            .is_ok()
+    }
+
     /// Open a specific device path.
     async fn open(path: &PathBuf) -> Result<Self> {
         info!(path = %path.display(), "Opening virtio-serial device");

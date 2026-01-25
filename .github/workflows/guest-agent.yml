@@ -1,0 +1,287 @@
+# =============================================================================
+# LimiQuantix Guest Agent CI/CD Pipeline
+# =============================================================================
+# This workflow builds, tests, and packages the guest agent for all platforms.
+
+name: Guest Agent CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'agent/limiquantix-guest-agent/**'
+      - 'agent/limiquantix-proto/**'
+      - 'agent/limiquantix-common/**'
+      - '.github/workflows/guest-agent.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'agent/limiquantix-guest-agent/**'
+      - 'agent/limiquantix-proto/**'
+      - 'agent/limiquantix-common/**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 0.1.0)'
+        required: false
+        default: '0.1.0'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ==========================================================================
+  # Lint and Format Check
+  # ==========================================================================
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-lint-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+        working-directory: agent
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: agent
+
+  # ==========================================================================
+  # Unit Tests
+  # ==========================================================================
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests
+        run: cargo test --all --verbose
+        working-directory: agent
+
+  # ==========================================================================
+  # Build Linux Binaries
+  # ==========================================================================
+  build-linux:
+    name: Build Linux (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    strategy:
+      matrix:
+        arch: [x86_64, aarch64]
+        include:
+          - arch: x86_64
+            target: x86_64-unknown-linux-gnu
+            pkg_arch: amd64
+          - arch: aarch64
+            target: aarch64-unknown-linux-gnu
+            pkg_arch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (ARM64)
+        if: matrix.arch == 'aarch64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-build-${{ matrix.arch }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build binary
+        run: |
+          if [ "${{ matrix.arch }}" = "aarch64" ]; then
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+          fi
+          cargo build --release --target ${{ matrix.target }} -p limiquantix-guest-agent
+        working-directory: agent
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: limiquantix-agent-linux-${{ matrix.pkg_arch }}
+          path: agent/target/${{ matrix.target }}/release/limiquantix-agent
+
+  # ==========================================================================
+  # Build Windows Binary
+  # ==========================================================================
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build binary
+        run: cargo build --release --target x86_64-pc-windows-msvc -p limiquantix-guest-agent
+        working-directory: agent
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: limiquantix-agent-windows-x64
+          path: agent/target/x86_64-pc-windows-msvc/release/limiquantix-agent.exe
+
+  # ==========================================================================
+  # Package Linux (DEB/RPM)
+  # ==========================================================================
+  package-linux:
+    name: Package Linux (${{ matrix.format }})
+    runs-on: ubuntu-latest
+    needs: build-linux
+    strategy:
+      matrix:
+        format: [deb, rpm]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: limiquantix-agent-linux-amd64
+          path: agent/target/release/
+
+      - name: Make binary executable
+        run: chmod +x agent/target/release/limiquantix-agent
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          if [ "${{ matrix.format }}" = "rpm" ]; then
+            sudo apt-get install -y rpm
+          fi
+
+      - name: Build package
+        run: |
+          cd agent/limiquantix-guest-agent/packaging
+          chmod +x build-packages.sh
+          ./build-packages.sh ${{ matrix.format }}
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: limiquantix-agent-${{ matrix.format }}
+          path: agent/target/packages/*.${{ matrix.format }}
+
+  # ==========================================================================
+  # Package Windows (MSI)
+  # ==========================================================================
+  package-windows:
+    name: Package Windows (MSI)
+    runs-on: windows-latest
+    needs: build-windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: limiquantix-agent-windows-x64
+          path: agent/limiquantix-guest-agent/packaging/windows/wix/
+
+      - name: Install WiX Toolset
+        run: |
+          dotnet tool install --global wix --version 4.0.5
+
+      - name: Build MSI
+        run: |
+          cd agent/limiquantix-guest-agent/packaging/windows
+          .\build-msi.ps1 -Version "${{ github.event.inputs.version || '0.1.0' }}"
+        shell: pwsh
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: limiquantix-agent-msi
+          path: agent/limiquantix-guest-agent/packaging/windows/output/*.msi
+
+  # ==========================================================================
+  # Release
+  # ==========================================================================
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [package-linux, package-windows]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Display artifacts
+        run: ls -la artifacts/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.msi
+            artifacts/**/limiquantix-agent
+            artifacts/**/limiquantix-agent.exe
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,145 +1,212 @@
 #cloud-config
-# LimiQuantix Guest Agent Installation Script
-# 
-# This cloud-init user-data script automatically installs the LimiQuantix
-# Guest Agent inside the VM during first boot.
+# =============================================================================
+# LimiQuantix Guest Agent Cloud-Init Installation
+# =============================================================================
+# This cloud-init configuration automatically installs the LimiQuantix Guest
+# Agent during VM provisioning.
 #
 # Usage:
-# 1. Set this as the user_data when creating a VM
-# 2. The agent will be installed and started automatically
-# 3. The agent connects via virtio-serial (no network required)
+#   Include this file as user-data when creating a VM, or merge it with your
+#   existing cloud-init configuration.
+#
+# The script will:
+#   1. Detect the Linux distribution
+#   2. Download the appropriate package (DEB or RPM)
+#   3. Install the package
+#   4. Start the agent service
+# =============================================================================
 
-# Run commands on first boot
+# Update package cache first
+package_update: true
+
+# Run commands after boot
 runcmd:
-  # Determine OS type and install agent
   - |
     #!/bin/bash
     set -e
     
-    AGENT_VERSION="0.1.0"
-    DOWNLOAD_BASE="https://releases.limiquantix.io/agent"
+    # Configuration
+    AGENT_VERSION="${AGENT_VERSION:-latest}"
+    DOWNLOAD_BASE="${DOWNLOAD_BASE:-https://releases.quantix.io/agent}"
     
-    echo "[LimiQuantix] Installing Guest Agent v${AGENT_VERSION}..."
+    echo "Installing LimiQuantix Guest Agent v${AGENT_VERSION}..."
     
-    # Detect OS
+    # Detect distribution
     if [ -f /etc/os-release ]; then
-      . /etc/os-release
-      OS_ID="${ID}"
-      OS_VERSION="${VERSION_ID}"
+        . /etc/os-release
+        DISTRO_ID="${ID}"
+        DISTRO_VERSION="${VERSION_ID}"
     else
-      echo "[LimiQuantix] Cannot detect OS, assuming Debian-based"
-      OS_ID="debian"
+        echo "Cannot detect distribution"
+        exit 1
     fi
     
-    echo "[LimiQuantix] Detected OS: ${OS_ID} ${OS_VERSION}"
+    # Detect architecture
+    ARCH=$(uname -m)
+    case "${ARCH}" in
+        x86_64)
+            PKG_ARCH="amd64"
+            ;;
+        aarch64)
+            PKG_ARCH="arm64"
+            ;;
+        *)
+            echo "Unsupported architecture: ${ARCH}"
+            exit 1
+            ;;
+    esac
     
-    # Install based on OS
-    case "${OS_ID}" in
-      ubuntu|debian)
-        # Download and install .deb package
-        DEB_URL="${DOWNLOAD_BASE}/v${AGENT_VERSION}/limiquantix-guest-agent_${AGENT_VERSION}_amd64.deb"
-        echo "[LimiQuantix] Downloading from ${DEB_URL}..."
-        
-        # Try wget first, fall back to curl
-        if command -v wget &> /dev/null; then
-          wget -q -O /tmp/limiquantix-agent.deb "${DEB_URL}" || true
-        elif command -v curl &> /dev/null; then
-          curl -sL -o /tmp/limiquantix-agent.deb "${DEB_URL}" || true
-        fi
-        
-        if [ -f /tmp/limiquantix-agent.deb ]; then
-          dpkg -i /tmp/limiquantix-agent.deb || apt-get install -f -y
-          rm -f /tmp/limiquantix-agent.deb
-        else
-          echo "[LimiQuantix] Download failed, installing from binary..."
-          install_binary
-        fi
-        ;;
-        
-      rhel|centos|fedora|rocky|almalinux)
-        # Download and install .rpm package
-        RPM_URL="${DOWNLOAD_BASE}/v${AGENT_VERSION}/limiquantix-guest-agent-${AGENT_VERSION}-1.x86_64.rpm"
-        echo "[LimiQuantix] Downloading from ${RPM_URL}..."
-        
-        if command -v wget &> /dev/null; then
-          wget -q -O /tmp/limiquantix-agent.rpm "${RPM_URL}" || true
-        elif command -v curl &> /dev/null; then
-          curl -sL -o /tmp/limiquantix-agent.rpm "${RPM_URL}" || true
-        fi
-        
-        if [ -f /tmp/limiquantix-agent.rpm ]; then
-          rpm -ivh /tmp/limiquantix-agent.rpm || yum localinstall -y /tmp/limiquantix-agent.rpm
-          rm -f /tmp/limiquantix-agent.rpm
-        else
-          echo "[LimiQuantix] Download failed, installing from binary..."
-          install_binary
-        fi
-        ;;
-        
-      *)
-        echo "[LimiQuantix] Unknown OS, installing from binary..."
-        install_binary
-        ;;
+    # Install based on distribution
+    case "${DISTRO_ID}" in
+        ubuntu|debian|linuxmint|pop)
+            echo "Detected Debian-based distribution: ${DISTRO_ID}"
+            
+            # Download DEB package
+            DEB_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/limiquantix-guest-agent_${AGENT_VERSION}_${PKG_ARCH}.deb"
+            curl -fsSL "${DEB_URL}" -o /tmp/agent.deb
+            
+            # Install
+            dpkg -i /tmp/agent.deb || apt-get install -f -y
+            rm /tmp/agent.deb
+            ;;
+            
+        rhel|centos|fedora|rocky|almalinux|ol)
+            echo "Detected RHEL-based distribution: ${DISTRO_ID}"
+            
+            # Download RPM package
+            RPM_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/limiquantix-guest-agent-${AGENT_VERSION}-1.${PKG_ARCH}.rpm"
+            curl -fsSL "${RPM_URL}" -o /tmp/agent.rpm
+            
+            # Install
+            if command -v dnf &> /dev/null; then
+                dnf install -y /tmp/agent.rpm
+            else
+                yum install -y /tmp/agent.rpm
+            fi
+            rm /tmp/agent.rpm
+            ;;
+            
+        opensuse*|sles)
+            echo "Detected SUSE-based distribution: ${DISTRO_ID}"
+            
+            # Download RPM package
+            RPM_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/limiquantix-guest-agent-${AGENT_VERSION}-1.${PKG_ARCH}.rpm"
+            curl -fsSL "${RPM_URL}" -o /tmp/agent.rpm
+            
+            # Install
+            zypper install -y /tmp/agent.rpm
+            rm /tmp/agent.rpm
+            ;;
+            
+        arch|manjaro)
+            echo "Detected Arch-based distribution: ${DISTRO_ID}"
+            
+            # Download tarball and install manually
+            TAR_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/limiquantix-guest-agent-${AGENT_VERSION}-linux-${PKG_ARCH}.tar.gz"
+            curl -fsSL "${TAR_URL}" -o /tmp/agent.tar.gz
+            
+            cd /tmp
+            tar -xzf agent.tar.gz
+            cd limiquantix-guest-agent-*
+            ./install.sh
+            cd /
+            rm -rf /tmp/agent.tar.gz /tmp/limiquantix-guest-agent-*
+            ;;
+            
+        alpine)
+            echo "Detected Alpine Linux"
+            
+            # Download tarball and install manually
+            TAR_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/limiquantix-guest-agent-${AGENT_VERSION}-linux-${PKG_ARCH}.tar.gz"
+            curl -fsSL "${TAR_URL}" -o /tmp/agent.tar.gz
+            
+            cd /tmp
+            tar -xzf agent.tar.gz
+            cd limiquantix-guest-agent-*
+            
+            # Install binary
+            install -m 755 limiquantix-agent /usr/local/bin/
+            
+            # Create OpenRC service
+            cat > /etc/init.d/limiquantix-agent << 'OPENRC'
+    #!/sbin/openrc-run
+    
+    name="LimiQuantix Guest Agent"
+    description="VM integration agent for LimiQuantix"
+    command="/usr/local/bin/limiquantix-agent"
+    command_background="yes"
+    pidfile="/run/${RC_SVCNAME}.pid"
+    
+    depend() {
+        need net
+        after firewall
+    }
+    OPENRC
+            chmod +x /etc/init.d/limiquantix-agent
+            rc-update add limiquantix-agent default
+            rc-service limiquantix-agent start
+            
+            cd /
+            rm -rf /tmp/agent.tar.gz /tmp/limiquantix-guest-agent-*
+            ;;
+            
+        *)
+            echo "Unsupported distribution: ${DISTRO_ID}"
+            echo "Please install manually from ${DOWNLOAD_BASE}"
+            exit 1
+            ;;
     esac
     
     # Verify installation
-    if systemctl is-active --quiet limiquantix-agent; then
-      echo "[LimiQuantix] Guest Agent installed and running successfully!"
+    if systemctl is-active --quiet limiquantix-agent 2>/dev/null; then
+        echo "LimiQuantix Guest Agent installed and running!"
+    elif rc-service limiquantix-agent status 2>/dev/null | grep -q "started"; then
+        echo "LimiQuantix Guest Agent installed and running!"
     else
-      echo "[LimiQuantix] Starting Guest Agent..."
-      systemctl start limiquantix-agent || true
+        echo "Warning: Agent may not be running. Check logs."
     fi
     
-    # Helper function to install from binary
-    install_binary() {
-      BIN_URL="${DOWNLOAD_BASE}/v${AGENT_VERSION}/limiquantix-agent-linux-amd64"
-      
-      echo "[LimiQuantix] Downloading binary from ${BIN_URL}..."
-      
-      if command -v wget &> /dev/null; then
-        wget -q -O /usr/local/bin/limiquantix-agent "${BIN_URL}"
-      elif command -v curl &> /dev/null; then
-        curl -sL -o /usr/local/bin/limiquantix-agent "${BIN_URL}"
-      else
-        echo "[LimiQuantix] ERROR: Neither wget nor curl available"
-        exit 1
-      fi
-      
-      chmod +x /usr/local/bin/limiquantix-agent
-      
-      # Create systemd service
-      cat > /etc/systemd/system/limiquantix-agent.service << 'EOF'
-    [Unit]
-    Description=LimiQuantix Guest Agent
-    After=network.target
+    echo "Installation complete!"
 
-    [Service]
-    Type=simple
-    ExecStart=/usr/local/bin/limiquantix-agent
-    Restart=always
-    RestartSec=5
-
-    [Install]
-    WantedBy=multi-user.target
-    EOF
-      
-      systemctl daemon-reload
-      systemctl enable limiquantix-agent
-      systemctl start limiquantix-agent
-    }
-
-# Write a marker file to indicate agent was installed via cloud-init
+# Write files for custom configuration (optional)
 write_files:
-  - path: /etc/limiquantix/cloud-init-installed
-    content: |
-      # LimiQuantix Guest Agent installed via cloud-init
-      installed_at=$(date -Iseconds)
-      version=0.1.0
+  - path: /etc/limiquantix/agent.yaml
+    owner: root:root
     permissions: '0644'
+    defer: true
+    content: |
+      # LimiQuantix Guest Agent Configuration
+      # Generated by cloud-init
+      
+      telemetry_interval_secs: 5
+      max_exec_timeout_secs: 300
+      max_chunk_size: 65536
+      
+      log_level: info
+      log_format: json
+      log_file: ""
+      
+      device_path: auto
+      
+      pre_freeze_script_dir: /etc/limiquantix/pre-freeze.d
+      post_thaw_script_dir: /etc/limiquantix/post-thaw.d
+      
+      security:
+        command_allowlist: []
+        command_blocklist: []
+        allow_file_write_paths: []
+        deny_file_read_paths: []
+        max_commands_per_minute: 0
+        max_file_ops_per_second: 0
+        audit_logging: false
+      
+      health:
+        enabled: true
+        interval_secs: 30
+        telemetry_timeout_secs: 60
 
 # Final message
 final_message: |
-  LimiQuantix Guest Agent installation complete!
-  The agent is now connected to the hypervisor.
-  
-  Check status with: systemctl status limiquantix-agent
+  LimiQuantix Guest Agent cloud-init completed!
+  Agent status: systemctl status limiquantix-agent
+  Configuration: /etc/limiquantix/agent.yaml

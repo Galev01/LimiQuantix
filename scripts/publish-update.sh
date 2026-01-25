@@ -89,12 +89,14 @@ Components:
   qx-node              Node daemon (Rust) - requires Docker on Windows
   qx-console           Console TUI (Rust) - requires Docker on Windows
   host-ui              Host UI (React) - builds natively
+  guest-agent          Guest Agent (Rust) - builds .deb, .rpm, and binary for VMs
 
 Examples:
   $(basename "$0")                                    # Build all, bump version, publish
   $(basename "$0") --channel beta                    # Publish to beta channel
   $(basename "$0") --component host-ui               # Only publish host-ui (fast, no Docker)
   $(basename "$0") --component qx-node --dry-run    # Build qx-node without upload
+  $(basename "$0") --component guest-agent           # Build and publish guest agent only
   $(basename "$0") --no-bump                         # Publish without incrementing version
 EOF
 }
@@ -149,7 +151,7 @@ done
 
 # If no components specified, build all
 if [ "$BUILD_ALL" = true ]; then
-    COMPONENTS=("qx-node" "qx-console" "host-ui")
+    COMPONENTS=("qx-node" "qx-console" "host-ui" "guest-agent")
 fi
 
 # Validate channel
@@ -228,6 +230,7 @@ build_rust_with_docker() {
     local crate="$1"
     local output_name="$2"
     local source_dir="$3"
+    local features="${4:-}"  # Optional features parameter
     
     log_info "Building $crate with Docker (Alpine native)..."
     
@@ -267,6 +270,12 @@ build_rust_with_docker() {
     log_info "Running cargo build in Docker container..."
     log_info "Source dir: $docker_source_dir"
     
+    # Build cargo command with optional features
+    local cargo_cmd="cargo clean -p $crate 2>/dev/null || true; cargo build --release -p $crate"
+    if [ -n "$features" ]; then
+        cargo_cmd="$cargo_cmd --features $features"
+    fi
+    
     # Build in Docker - use MSYS_NO_PATHCONV to prevent path mangling
     # Clean cargo cache first to ensure fresh build with latest code changes
     log_info "Running Docker build with clean cache..."
@@ -274,7 +283,7 @@ build_rust_with_docker() {
         -v "$docker_source_dir:/build:rw" \
         -w "$docker_workdir" \
         "$RUST_BUILDER_IMAGE" \
-        sh -c "cargo clean -p $crate 2>/dev/null || true; cargo build --release -p $crate --features libvirt"; then
+        sh -c "$cargo_cmd"; then
         log_error "Docker build failed for $crate"
         return 1
     fi
@@ -314,8 +323,8 @@ for component in "${COMPONENTS[@]}"; do
             BINARY=""
             
             if use_docker_for_rust; then
-                # Use Docker for cross-compilation
-                build_rust_with_docker "limiquantix-node" "limiquantix-node" "$PROJECT_ROOT/agent"
+                # Use Docker for cross-compilation (with libvirt feature)
+                build_rust_with_docker "limiquantix-node" "limiquantix-node" "$PROJECT_ROOT/agent" "libvirt"
                 BUILD_RESULT=$?
                 
                 # Check for binary at the expected location (relative to PROJECT_ROOT)
@@ -457,6 +466,274 @@ for component in "${COMPONENTS[@]}"; do
             fi
             ;;
             
+        guest-agent)
+            log_info "Building guest-agent (Rust) for VM distribution..."
+            
+            cd "$PROJECT_ROOT/agent"
+            BINARY=""
+            AGENT_BUILD_DIR="$PROJECT_ROOT/agent/target/packages"
+            mkdir -p "$AGENT_BUILD_DIR"
+            
+            if use_docker_for_rust; then
+                # Use Docker for cross-compilation to Linux
+                log_info "Building guest-agent with Docker (Alpine native)..."
+                build_rust_with_docker "limiquantix-guest-agent" "limiquantix-agent" "$PROJECT_ROOT/agent"
+                BUILD_RESULT=$?
+                
+                if [ -f "$PROJECT_ROOT/agent/target/release/limiquantix-agent" ]; then
+                    BINARY="$PROJECT_ROOT/agent/target/release/limiquantix-agent"
+                    log_info "Found guest-agent binary: $BINARY"
+                elif [ $BUILD_RESULT -ne 0 ]; then
+                    log_error "Docker build failed for guest-agent"
+                fi
+            else
+                # Native Linux build
+                log_info "Building guest-agent natively..."
+                cargo build --release -p limiquantix-guest-agent 2>&1 | tail -10
+                
+                if [ -f "$PROJECT_ROOT/agent/target/release/limiquantix-agent" ]; then
+                    BINARY="$PROJECT_ROOT/agent/target/release/limiquantix-agent"
+                fi
+            fi
+            
+            if [ -z "$BINARY" ] || [ ! -f "$BINARY" ]; then
+                log_error "guest-agent binary not found after build!"
+                exit 1
+            fi
+            
+            # Create guest-agent distribution package with all formats
+            log_info "Packaging guest-agent for distribution..."
+            AGENT_STAGING="$STAGING_DIR/guest-agent"
+            mkdir -p "$AGENT_STAGING"
+            
+            # 1. Raw binary (for generic Linux and tarball installs)
+            cp "$BINARY" "$AGENT_STAGING/limiquantix-agent-linux-amd64"
+            chmod 755 "$AGENT_STAGING/limiquantix-agent-linux-amd64"
+            log_info "  Created: limiquantix-agent-linux-amd64"
+            
+            # 2. Create .deb package structure
+            DEB_DIR="$AGENT_STAGING/deb-build"
+            mkdir -p "$DEB_DIR/DEBIAN"
+            mkdir -p "$DEB_DIR/usr/bin"
+            mkdir -p "$DEB_DIR/lib/systemd/system"
+            mkdir -p "$DEB_DIR/etc/limiquantix"
+            mkdir -p "$DEB_DIR/etc/limiquantix/pre-freeze.d"
+            mkdir -p "$DEB_DIR/etc/limiquantix/post-thaw.d"
+            mkdir -p "$DEB_DIR/var/log/limiquantix"
+            
+            cp "$BINARY" "$DEB_DIR/usr/bin/limiquantix-agent"
+            chmod 755 "$DEB_DIR/usr/bin/limiquantix-agent"
+            
+            # Systemd service file
+            cat > "$DEB_DIR/lib/systemd/system/limiquantix-agent.service" << 'SERVICEEOF'
+[Unit]
+Description=LimiQuantix Guest Agent
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/limiquantix-agent
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+SERVICEEOF
+            
+            # Default config
+            cat > "$DEB_DIR/etc/limiquantix/agent.yaml" << 'CONFIGEOF'
+# LimiQuantix Guest Agent Configuration
+telemetry_interval_secs: 5
+max_exec_timeout_secs: 300
+max_chunk_size: 65536
+log_level: info
+log_format: json
+log_file: /var/log/limiquantix/agent.log
+log_max_size_bytes: 10485760
+log_max_files: 5
+device_path: auto
+pre_freeze_script_dir: /etc/limiquantix/pre-freeze.d
+post_thaw_script_dir: /etc/limiquantix/post-thaw.d
+security:
+  command_allowlist: []
+  command_blocklist: []
+  allow_file_write_paths: []
+  deny_file_read_paths: []
+  max_commands_per_minute: 0
+  max_file_ops_per_second: 0
+  audit_logging: false
+health:
+  enabled: true
+  interval_secs: 30
+  telemetry_timeout_secs: 60
+CONFIGEOF
+            
+            # Control file
+            cat > "$DEB_DIR/DEBIAN/control" << CONTROLEOF
+Package: limiquantix-guest-agent
+Version: $VERSION
+Architecture: amd64
+Maintainer: LimiQuantix Team <team@limiquantix.io>
+Depends: libc6
+Description: LimiQuantix Guest Agent for VM Integration
+ The LimiQuantix Guest Agent enables deep integration between
+ guest VMs and the LimiQuantix hypervisor platform.
+ .
+ Features: telemetry, remote commands, file transfer, snapshots
+CONTROLEOF
+            
+            # Conffiles
+            echo "/etc/limiquantix/agent.yaml" > "$DEB_DIR/DEBIAN/conffiles"
+            
+            # postinst script
+            cat > "$DEB_DIR/DEBIAN/postinst" << 'POSTINSTEOF'
+#!/bin/bash
+set -e
+systemctl daemon-reload
+systemctl enable limiquantix-agent.service
+systemctl start limiquantix-agent.service || true
+exit 0
+POSTINSTEOF
+            chmod 755 "$DEB_DIR/DEBIAN/postinst"
+            
+            # prerm script
+            cat > "$DEB_DIR/DEBIAN/prerm" << 'PRERMEOF'
+#!/bin/bash
+set -e
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    systemctl stop limiquantix-agent.service || true
+    systemctl disable limiquantix-agent.service || true
+fi
+exit 0
+PRERMEOF
+            chmod 755 "$DEB_DIR/DEBIAN/prerm"
+            
+            # Build .deb
+            if command -v dpkg-deb &> /dev/null; then
+                dpkg-deb --build "$DEB_DIR" "$AGENT_STAGING/limiquantix-guest-agent_${VERSION}_amd64.deb"
+                log_info "  Created: limiquantix-guest-agent_${VERSION}_amd64.deb"
+            else
+                log_warn "dpkg-deb not found, creating tarball-based .deb alternative..."
+                # Create a tarball that mimics .deb structure for extraction
+                tar -C "$DEB_DIR" -czf "$AGENT_STAGING/limiquantix-guest-agent_${VERSION}_amd64.deb.tar.gz" .
+            fi
+            
+            # 3. Create .rpm package (using fpm if available, otherwise skip)
+            if command -v fpm &> /dev/null; then
+                log_info "Building RPM package with fpm..."
+                fpm -s dir -t rpm \
+                    -n limiquantix-guest-agent \
+                    -v "$VERSION" \
+                    --architecture x86_64 \
+                    --description "LimiQuantix Guest Agent for VM Integration" \
+                    --after-install "$DEB_DIR/DEBIAN/postinst" \
+                    --before-remove "$DEB_DIR/DEBIAN/prerm" \
+                    -C "$DEB_DIR" \
+                    -p "$AGENT_STAGING/limiquantix-guest-agent-${VERSION}.x86_64.rpm" \
+                    usr etc lib var
+                log_info "  Created: limiquantix-guest-agent-${VERSION}.x86_64.rpm"
+            else
+                log_warn "fpm not found, skipping RPM build (install with: gem install fpm)"
+            fi
+            
+            # 4. Create install.sh script for generic installs
+            cat > "$AGENT_STAGING/install.sh" << 'INSTALLEOF'
+#!/bin/bash
+# LimiQuantix Guest Agent Installer
+# Usage: curl -fsSL http://<node>:8443/api/v1/agent/install.sh | sudo bash
+set -e
+
+echo "[Quantix] Installing LimiQuantix Guest Agent..."
+
+# Detect OS
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS_ID="${ID}"
+else
+    OS_ID="unknown"
+fi
+
+# Detect architecture
+ARCH=$(uname -m)
+case $ARCH in
+    x86_64) ARCH="amd64" ;;
+    aarch64) ARCH="arm64" ;;
+    *) echo "[Quantix] Unsupported architecture: $ARCH"; exit 1 ;;
+esac
+
+# Get the base URL (passed as argument or use default)
+BASE_URL="${1:-http://localhost:8443}"
+
+echo "[Quantix] Detected OS: $OS_ID, Architecture: $ARCH"
+
+# Install based on OS
+case "$OS_ID" in
+    ubuntu|debian)
+        echo "[Quantix] Installing via .deb package..."
+        TEMP_DEB=$(mktemp)
+        curl -fsSL "$BASE_URL/api/v1/agent/linux/${ARCH}.deb" -o "$TEMP_DEB"
+        dpkg -i "$TEMP_DEB" || apt-get install -f -y
+        rm -f "$TEMP_DEB"
+        ;;
+    rhel|centos|fedora|rocky|almalinux)
+        echo "[Quantix] Installing via .rpm package..."
+        TEMP_RPM=$(mktemp)
+        curl -fsSL "$BASE_URL/api/v1/agent/linux/${ARCH}.rpm" -o "$TEMP_RPM"
+        rpm -i "$TEMP_RPM" || yum install -y "$TEMP_RPM"
+        rm -f "$TEMP_RPM"
+        ;;
+    *)
+        echo "[Quantix] Installing binary directly..."
+        curl -fsSL "$BASE_URL/api/v1/agent/linux/${ARCH}" -o /usr/local/bin/limiquantix-agent
+        chmod +x /usr/local/bin/limiquantix-agent
+        
+        # Create systemd service
+        cat > /etc/systemd/system/limiquantix-agent.service << 'SVCEOF'
+[Unit]
+Description=LimiQuantix Guest Agent
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/limiquantix-agent
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+        
+        systemctl daemon-reload
+        systemctl enable limiquantix-agent
+        systemctl start limiquantix-agent
+        ;;
+esac
+
+echo "[Quantix] Guest Agent installed successfully!"
+systemctl status limiquantix-agent --no-pager || true
+INSTALLEOF
+            chmod +x "$AGENT_STAGING/install.sh"
+            log_info "  Created: install.sh"
+            
+            # Clean up build directory
+            rm -rf "$DEB_DIR"
+            
+            # Package all guest-agent artifacts into a single archive
+            log_info "Creating guest-agent distribution archive..."
+            if command -v zstd &> /dev/null; then
+                tar -C "$AGENT_STAGING" -c . | zstd -19 > "$STAGING_DIR/guest-agent.tar.zst"
+                ARTIFACTS["guest-agent"]="$STAGING_DIR/guest-agent.tar.zst"
+                log_info "  Created: guest-agent.tar.zst ($(du -h "$STAGING_DIR/guest-agent.tar.zst" | cut -f1))"
+            else
+                tar -C "$AGENT_STAGING" -czf "$STAGING_DIR/guest-agent.tar.gz" .
+                ARTIFACTS["guest-agent"]="$STAGING_DIR/guest-agent.tar.gz"
+                log_info "  Created: guest-agent.tar.gz ($(du -h "$STAGING_DIR/guest-agent.tar.gz" | cut -f1))"
+            fi
+            ;;
+            
         *)
             log_warn "Unknown component: $component, skipping..."
             ;;
@@ -513,6 +790,11 @@ for component in "${!ARTIFACTS[@]}"; do
             ;;
         host-ui)
             install_path="/data/share/quantix-host-ui"
+            restart_service=""
+            ;;
+        guest-agent)
+            # Guest agent is distributed to VMs, stored on host for serving
+            install_path="/data/share/quantix-agent"
             restart_service=""
             ;;
     esac
@@ -610,10 +892,13 @@ log_info "Cleaning up build artifacts and caches..."
 # Clear Rust/Cargo cache for the agent crates to ensure next build is fresh
 if command -v cargo &> /dev/null; then
     cargo clean -p limiquantix-node 2>/dev/null || true
+    cargo clean -p limiquantix-guest-agent 2>/dev/null || true
 fi
 
 # Remove any local staging artifacts
 rm -rf "$PROJECT_ROOT/agent/target/release/limiquantix-node" 2>/dev/null || true
+rm -rf "$PROJECT_ROOT/agent/target/release/limiquantix-agent" 2>/dev/null || true
+rm -rf "$PROJECT_ROOT/agent/target/packages" 2>/dev/null || true
 
 # Cleanup staging directory
 rm -rf "$STAGING_DIR"

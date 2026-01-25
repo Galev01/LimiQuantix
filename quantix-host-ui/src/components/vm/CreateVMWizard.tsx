@@ -394,21 +394,94 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
           }
           
           // Add packages
-          lines.push('', 'package_update: true', 'packages:', '  - qemu-guest-agent');
+          lines.push('', 'package_update: true', 'packages:', '  - qemu-guest-agent', '  - curl');
           
           // Add agent installation if enabled
           if (formData.installAgent) {
+            // Get the host UI URL (this is the node daemon serving the UI)
+            const nodeUrl = window.location.origin;
+            
             lines.push('');
             lines.push('# Quantix Agent Installation');
+            lines.push('# Creates configuration directories and installs the agent');
             lines.push('write_files:');
+            lines.push('  - path: /etc/limiquantix/agent.yaml');
+            lines.push('    owner: root:root');
+            lines.push('    permissions: "0644"');
+            lines.push('    defer: true');
+            lines.push('    content: |');
+            lines.push('      # Quantix Guest Agent Configuration');
+            lines.push('      # Auto-generated during VM provisioning');
+            lines.push('      telemetry_interval_secs: 5');
+            lines.push('      max_exec_timeout_secs: 300');
+            lines.push('      max_chunk_size: 65536');
+            lines.push('      log_level: info');
+            lines.push('      log_format: json');
+            lines.push('      device_path: auto');
+            lines.push('      pre_freeze_script_dir: /etc/limiquantix/pre-freeze.d');
+            lines.push('      post_thaw_script_dir: /etc/limiquantix/post-thaw.d');
+            lines.push('      security:');
+            lines.push('        command_allowlist: []');
+            lines.push('        command_blocklist: []');
+            lines.push('        audit_logging: false');
+            lines.push('      health:');
+            lines.push('        enabled: true');
+            lines.push('        interval_secs: 30');
             lines.push('  - path: /etc/limiquantix/pre-freeze.d/.keep');
             lines.push('    content: ""');
             lines.push('  - path: /etc/limiquantix/post-thaw.d/.keep');
             lines.push('    content: ""');
             lines.push('');
             lines.push('runcmd:');
+            lines.push('  # Start QEMU Guest Agent for basic VM integration');
             lines.push('  - systemctl enable qemu-guest-agent');
             lines.push('  - systemctl start qemu-guest-agent');
+            lines.push('  # Install Quantix Agent for advanced features');
+            lines.push('  # (telemetry, file transfer, clipboard, display resize, etc.)');
+            lines.push(`  - |`);
+            lines.push(`    #!/bin/bash`);
+            lines.push(`    set -e`);
+            lines.push(`    NODE_URL="${nodeUrl}"`);
+            lines.push(`    echo "[Quantix] Installing Quantix Guest Agent..."`);
+            lines.push(`    # Detect architecture`);
+            lines.push(`    ARCH=$(uname -m)`);
+            lines.push(`    case $ARCH in`);
+            lines.push(`      x86_64) ARCH="amd64" ;;`);
+            lines.push(`      aarch64) ARCH="arm64" ;;`);
+            lines.push(`      *) echo "[Quantix] Unsupported architecture: $ARCH"; exit 1 ;;`);
+            lines.push(`    esac`);
+            lines.push(`    # Detect OS and install appropriate package`);
+            lines.push(`    if [ -f /etc/os-release ]; then`);
+            lines.push(`      . /etc/os-release`);
+            lines.push(`      OS_ID="\${ID}"`);
+            lines.push(`    else`);
+            lines.push(`      OS_ID="unknown"`);
+            lines.push(`    fi`);
+            lines.push(`    case "\${OS_ID}" in`);
+            lines.push(`      ubuntu|debian)`);
+            lines.push(`        TEMP_DEB=$(mktemp)`);
+            lines.push(`        if curl -fsSL "\${NODE_URL}/api/v1/agent/linux/\${ARCH}.deb" -o "\$TEMP_DEB" 2>/dev/null; then`);
+            lines.push(`          dpkg -i "\$TEMP_DEB" || apt-get install -f -y`);
+            lines.push(`          rm -f "\$TEMP_DEB"`);
+            lines.push(`          echo "[Quantix] Agent installed successfully!"`);
+            lines.push(`        else`);
+            lines.push(`          echo "[Quantix] Warning: Could not download agent package"`);
+            lines.push(`        fi`);
+            lines.push(`        ;;`);
+            lines.push(`      rhel|centos|fedora|rocky|almalinux)`);
+            lines.push(`        TEMP_RPM=$(mktemp)`);
+            lines.push(`        if curl -fsSL "\${NODE_URL}/api/v1/agent/linux/\${ARCH}.rpm" -o "\$TEMP_RPM" 2>/dev/null; then`);
+            lines.push(`          rpm -ivh "\$TEMP_RPM" || yum localinstall -y "\$TEMP_RPM" || dnf install -y "\$TEMP_RPM"`);
+            lines.push(`          rm -f "\$TEMP_RPM"`);
+            lines.push(`          echo "[Quantix] Agent installed successfully!"`);
+            lines.push(`        else`);
+            lines.push(`          echo "[Quantix] Warning: Could not download agent package"`);
+            lines.push(`        fi`);
+            lines.push(`        ;;`);
+            lines.push(`      *)`);
+            lines.push(`        echo "[Quantix] Unsupported OS: \${OS_ID}. Agent not installed."`);
+            lines.push(`        ;;`);
+            lines.push(`    esac`);
           } else {
             lines.push('', 'runcmd:', '  - systemctl enable qemu-guest-agent', '  - systemctl start qemu-guest-agent');
           }

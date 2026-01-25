@@ -20,7 +20,7 @@ use prost_types::Timestamp;
 use std::process::Stdio;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
 /// Handle a time sync request.
 pub async fn handle_sync_time(

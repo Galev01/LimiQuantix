@@ -4,7 +4,7 @@
 
 use limiquantix_proto::agent::{DiskUsage, InterfaceInfo, InterfaceState, TelemetryReport};
 use sysinfo::{Disks, Networks, System};
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// System information snapshot
 #[derive(Debug, Clone)]

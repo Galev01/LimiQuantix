@@ -34,10 +34,19 @@
     <Property Id="ARPHELPLINK" Value="https://limiquantix.io/docs" />
     <Property Id="ARPURLINFOABOUT" Value="https://limiquantix.io" />
     
-    <!-- Installation directory -->
+    <!-- Installation directories -->
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="LimiQuantix">
         <Directory Id="AgentFolder" Name="Agent" />
+      </Directory>
+    </StandardDirectory>
+    
+    <!-- ProgramData directory for config and logs -->
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="LimiQuantixData" Name="LimiQuantix">
+        <Directory Id="LogsFolder" Name="Logs" />
+        <Directory Id="PreFreezeFolder" Name="pre-freeze.d" />
+        <Directory Id="PostThawFolder" Name="post-thaw.d" />
       </Directory>
     </StandardDirectory>
     
@@ -76,17 +85,34 @@
           Wait="yes" />
       </Component>
       
-      <!-- Configuration file template -->
+    </ComponentGroup>
+    
+    <!-- Configuration and data directories -->
+    <ComponentGroup Id="DataComponents" Directory="LimiQuantixData">
       <Component Id="ConfigComponent" Guid="550E8400-E29B-41D4-A716-446655440003">
         <File Id="ConfigFile" 
               Source="config.yaml.template" 
-              Name="config.yaml" />
+              Name="agent.yaml" />
+      </Component>
+      
+      <!-- Create empty directories -->
+      <Component Id="LogsDirComponent" Guid="550E8400-E29B-41D4-A716-446655440004" Directory="LogsFolder">
+        <CreateFolder />
+      </Component>
+      
+      <Component Id="PreFreezeDirComponent" Guid="550E8400-E29B-41D4-A716-446655440005" Directory="PreFreezeFolder">
+        <CreateFolder />
+      </Component>
+      
+      <Component Id="PostThawDirComponent" Guid="550E8400-E29B-41D4-A716-446655440006" Directory="PostThawFolder">
+        <CreateFolder />
       </Component>
     </ComponentGroup>
     
     <!-- Feature definition -->
     <Feature Id="MainFeature" Title="LimiQuantix Agent" Level="1">
       <ComponentGroupRef Id="AgentComponents" />
+      <ComponentGroupRef Id="DataComponents" />
     </Feature>
     
     <!-- Custom actions for virtio-serial port detection -->

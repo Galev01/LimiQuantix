@@ -523,7 +523,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             lines.push(`    - ${defaultUser}:${formData.cloudInit.password}`);
           }
 
-          lines.push('', 'package_update: true', 'packages:', '  - qemu-guest-agent');
+          lines.push('', 'package_update: true', 'packages:', '  - qemu-guest-agent', '  - curl');
 
           // Add Quantix Agent installation if enabled
           if (formData.installAgent) {
@@ -533,18 +533,57 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
 
             lines.push('');
             lines.push('# Quantix Agent Installation');
+            lines.push('# Creates configuration directories and installs the agent');
             lines.push('write_files:');
+            lines.push('  - path: /etc/limiquantix/agent.yaml');
+            lines.push('    owner: root:root');
+            lines.push('    permissions: "0644"');
+            lines.push('    defer: true');
+            lines.push('    content: |');
+            lines.push('      # Quantix Guest Agent Configuration');
+            lines.push('      # Auto-generated during VM provisioning');
+            lines.push('      telemetry_interval_secs: 5');
+            lines.push('      max_exec_timeout_secs: 300');
+            lines.push('      max_chunk_size: 65536');
+            lines.push('      log_level: info');
+            lines.push('      log_format: json');
+            lines.push('      device_path: auto');
+            lines.push('      pre_freeze_script_dir: /etc/limiquantix/pre-freeze.d');
+            lines.push('      post_thaw_script_dir: /etc/limiquantix/post-thaw.d');
+            lines.push('      security:');
+            lines.push('        command_allowlist: []');
+            lines.push('        command_blocklist: []');
+            lines.push('        audit_logging: false');
+            lines.push('      health:');
+            lines.push('        enabled: true');
+            lines.push('        interval_secs: 30');
             lines.push('  - path: /etc/limiquantix/pre-freeze.d/.keep');
             lines.push('    content: ""');
             lines.push('  - path: /etc/limiquantix/post-thaw.d/.keep');
             lines.push('    content: ""');
             lines.push('');
             lines.push('runcmd:');
-            lines.push('  # Start QEMU Guest Agent');
+            lines.push('  # Start QEMU Guest Agent for basic VM integration');
             lines.push('  - systemctl enable qemu-guest-agent');
             lines.push('  - systemctl start qemu-guest-agent');
-            lines.push('  # Install Quantix Agent from Control Plane');
-            lines.push(`  - curl -fsSL ${controlPlaneUrl}/api/agent/install.sh | bash`);
+            lines.push('  # Install Quantix Agent for advanced features');
+            lines.push('  # (telemetry, file transfer, clipboard, display resize, etc.)');
+            lines.push(`  - |`);
+            lines.push(`    #!/bin/bash`);
+            lines.push(`    set -e`);
+            lines.push(`    CONTROL_PLANE_URL="${controlPlaneUrl}"`);
+            lines.push(`    echo "[Quantix] Installing Quantix Guest Agent..."`);
+            lines.push(`    # Try to download and run the installer script`);
+            lines.push(`    if curl -fsSL "\${CONTROL_PLANE_URL}/api/agent/install.sh" -o /tmp/install-agent.sh 2>/dev/null; then`);
+            lines.push(`      chmod +x /tmp/install-agent.sh`);
+            lines.push(`      bash /tmp/install-agent.sh`);
+            lines.push(`      rm -f /tmp/install-agent.sh`);
+            lines.push(`      echo "[Quantix] Agent installed successfully!"`);
+            lines.push(`    else`);
+            lines.push(`      echo "[Quantix] Warning: Could not download agent installer from \${CONTROL_PLANE_URL}"`);
+            lines.push(`      echo "[Quantix] The VM will still work, but advanced agent features will not be available."`);
+            lines.push(`      echo "[Quantix] You can manually install the agent later."`);
+            lines.push(`    fi`);
           } else {
             lines.push('', 'runcmd:', '  - systemctl enable qemu-guest-agent', '  - systemctl start qemu-guest-agent');
           }

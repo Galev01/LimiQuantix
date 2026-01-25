@@ -97,6 +97,9 @@ sysinfo = "0.32"
 gethostname = "0.4"
 libc = "0.2"
 
+# File pattern matching
+glob = "0.3"
+
 # Internal crates
 limiquantix-hypervisor.workspace = true
 limiquantix-telemetry.workspace = true

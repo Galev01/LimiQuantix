@@ -54,6 +54,35 @@ message AgentMessage {
     // Time synchronization (after resume from suspend)
     SyncTimeRequest sync_time = 19;
     
+    // Directory operations
+    ListDirectoryRequest list_directory = 20;
+    CreateDirectoryRequest create_directory = 21;
+    FileDeleteRequest file_delete = 22;
+    FileStatRequest file_stat = 23;
+    
+    // Display operations (desktop integration)
+    DisplayResizeRequest display_resize = 24;
+    
+    // Clipboard operations
+    ClipboardUpdateRequest clipboard_update = 25;
+    ClipboardGetRequest clipboard_get = 26;
+    
+    // Process management
+    ListProcessesRequest list_processes = 27;
+    KillProcessRequest kill_process = 28;
+    
+    // Service management
+    ListServicesRequest list_services = 29;
+    ServiceControlRequest service_control = 30;
+    
+    // System inventory
+    GetHardwareInfoRequest get_hardware_info = 31;
+    ListInstalledSoftwareRequest list_installed_software = 32;
+    
+    // Agent self-update
+    AgentUpdateRequest agent_update = 33;
+    GetCapabilitiesRequest get_capabilities = 34;
+    
     // =========================================================================
     // Guest -> Host (Responses)
     // =========================================================================
@@ -82,6 +111,35 @@ message AgentMessage {
     // Time sync response
     SyncTimeResponse sync_time_response = 59;
     
+    // Directory operation responses
+    ListDirectoryResponse list_directory_response = 60;
+    CreateDirectoryResponse create_directory_response = 61;
+    FileDeleteResponse file_delete_response = 62;
+    FileStatResponse file_stat_response = 63;
+    
+    // Display operation responses
+    DisplayResizeResponse display_resize_response = 64;
+    
+    // Clipboard operation responses
+    ClipboardUpdateResponse clipboard_update_response = 65;
+    ClipboardGetResponse clipboard_get_response = 66;
+    
+    // Process management responses
+    ListProcessesResponse list_processes_response = 67;
+    KillProcessResponse kill_process_response = 68;
+    
+    // Service management responses
+    ListServicesResponse list_services_response = 69;
+    ServiceControlResponse service_control_response = 70;
+    
+    // System inventory responses
+    GetHardwareInfoResponse hardware_info_response = 71;
+    ListInstalledSoftwareResponse list_installed_software_response = 72;
+    
+    // Agent self-update responses
+    AgentUpdateResponse agent_update_response = 73;
+    GetCapabilitiesResponse get_capabilities_response = 74;
+    
     // =========================================================================
     // Guest -> Host (Unsolicited Events)
     // =========================================================================
@@ -94,6 +152,9 @@ message AgentMessage {
     
     // Error notification
     ErrorEvent error = 102;
+    
+    // Clipboard changed event (unsolicited, guest -> host)
+    ClipboardChangedEvent clipboard_changed = 103;
   }
 }
 
@@ -580,4 +641,729 @@ message SyncTimeResponse {
   
   // Error message if sync failed
   string error = 5;
+}
+
+// =============================================================================
+// DIRECTORY OPERATIONS (Phase 2)
+// =============================================================================
+
+message ListDirectoryRequest {
+  // Absolute path to the directory
+  string path = 1;
+  
+  // Include hidden files (starting with .)
+  bool include_hidden = 2;
+  
+  // Maximum entries to return (0 = unlimited)
+  uint32 max_entries = 3;
+  
+  // Continuation token for pagination
+  string continuation_token = 4;
+}
+
+message ListDirectoryResponse {
+  // Whether the operation succeeded
+  bool success = 1;
+  
+  // Directory entries
+  repeated DirectoryEntry entries = 2;
+  
+  // Continuation token for next page (empty if no more)
+  string continuation_token = 3;
+  
+  // Error message if failed
+  string error = 4;
+  
+  // Total number of entries (if known)
+  uint32 total_entries = 5;
+}
+
+message DirectoryEntry {
+  // File/directory name
+  string name = 1;
+  
+  // Full absolute path
+  string path = 2;
+  
+  // Whether this is a directory
+  bool is_directory = 3;
+  
+  // Whether this is a symbolic link
+  bool is_symlink = 4;
+  
+  // Size in bytes (0 for directories)
+  uint64 size_bytes = 5;
+  
+  // Unix file mode (permissions)
+  uint32 mode = 6;
+  
+  // Last modified timestamp
+  google.protobuf.Timestamp modified_at = 7;
+  
+  // Creation timestamp (if available)
+  google.protobuf.Timestamp created_at = 8;
+  
+  // Owner username (Unix)
+  string owner = 9;
+  
+  // Group name (Unix)
+  string group = 10;
+  
+  // Symlink target (if is_symlink)
+  string symlink_target = 11;
+}
+
+message CreateDirectoryRequest {
+  // Absolute path to create
+  string path = 1;
+  
+  // Create parent directories if needed
+  bool create_parents = 2;
+  
+  // Unix file mode (permissions), default 0755
+  uint32 mode = 3;
+}
+
+message CreateDirectoryResponse {
+  // Whether the operation succeeded
+  bool success = 1;
+  
+  // Error message if failed
+  string error = 2;
+}
+
+message FileDeleteRequest {
+  // Absolute path to delete
+  string path = 1;
+  
+  // Recursively delete directories
+  bool recursive = 2;
+}
+
+message FileDeleteResponse {
+  // Whether the operation succeeded
+  bool success = 1;
+  
+  // Error message if failed
+  string error = 2;
+}
+
+message FileStatRequest {
+  // Absolute path to stat
+  string path = 1;
+}
+
+message FileStatResponse {
+  // Whether the operation succeeded
+  bool success = 1;
+  
+  // File/directory information
+  DirectoryEntry entry = 2;
+  
+  // Error message if failed
+  string error = 3;
+}
+
+// =============================================================================
+// DISPLAY OPERATIONS (Phase 3 - Desktop Integration)
+// =============================================================================
+
+message DisplayResizeRequest {
+  // Target width in pixels
+  uint32 width = 1;
+  
+  // Target height in pixels
+  uint32 height = 2;
+  
+  // DPI setting (0 = auto)
+  uint32 dpi = 3;
+  
+  // Display identifier (for multi-monitor, empty = primary)
+  string display_id = 4;
+}
+
+message DisplayResizeResponse {
+  // Whether the resize succeeded
+  bool success = 1;
+  
+  // Actual width after resize
+  uint32 actual_width = 2;
+  
+  // Actual height after resize
+  uint32 actual_height = 3;
+  
+  // Error message if failed
+  string error = 4;
+}
+
+// =============================================================================
+// CLIPBOARD OPERATIONS (Phase 3 - Desktop Integration)
+// =============================================================================
+
+message ClipboardUpdateRequest {
+  // Clipboard content type
+  ClipboardType type = 1;
+  
+  // Clipboard data
+  bytes data = 2;
+  
+  // MIME type (e.g., "text/plain", "image/png")
+  string mime_type = 3;
+}
+
+enum ClipboardType {
+  CLIPBOARD_TYPE_TEXT = 0;
+  CLIPBOARD_TYPE_IMAGE = 1;
+  CLIPBOARD_TYPE_FILES = 2;
+  CLIPBOARD_TYPE_HTML = 3;
+}
+
+message ClipboardUpdateResponse {
+  // Whether the update succeeded
+  bool success = 1;
+  
+  // Error message if failed
+  string error = 2;
+}
+
+message ClipboardGetRequest {
+  // Preferred type (empty = any)
+  ClipboardType preferred_type = 1;
+}
+
+message ClipboardGetResponse {
+  // Whether the get succeeded
+  bool success = 1;
+  
+  // Clipboard content type
+  ClipboardType type = 2;
+  
+  // Clipboard data
+  bytes data = 3;
+  
+  // MIME type
+  string mime_type = 4;
+  
+  // Error message if failed
+  string error = 5;
+}
+
+// Unsolicited event when guest clipboard changes
+message ClipboardChangedEvent {
+  // Clipboard content type
+  ClipboardType type = 1;
+  
+  // Clipboard data
+  bytes data = 2;
+  
+  // MIME type
+  string mime_type = 3;
+}
+
+// =============================================================================
+// PROCESS MANAGEMENT (Phase 4)
+// =============================================================================
+
+message ListProcessesRequest {
+  // Filter by process name (empty = all)
+  string filter = 1;
+  
+  // Include thread information
+  bool include_threads = 2;
+  
+  // Maximum processes to return (0 = unlimited)
+  uint32 max_entries = 3;
+}
+
+message ListProcessesResponse {
+  // Whether the operation succeeded
+  bool success = 1;
+  
+  // Process list
+  repeated ProcessInfo processes = 2;
+  
+  // Error message if failed
+  string error = 3;
+}
+
+message ProcessInfo {
+  // Process ID
+  uint32 pid = 1;
+  
+  // Parent process ID
+  uint32 ppid = 2;
+  
+  // Process name
+  string name = 3;
+  
+  // Full command line
+  string command_line = 4;
+  
+  // User running the process
+  string user = 5;
+  
+  // CPU usage percentage
+  double cpu_percent = 6;
+  
+  // Memory usage in bytes
+  uint64 memory_bytes = 7;
+  
+  // Process state (running, sleeping, zombie, etc.)
+  string state = 8;
+  
+  // Process start time
+  google.protobuf.Timestamp started_at = 9;
+  
+  // Number of threads
+  uint32 thread_count = 10;
+  
+  // Working directory
+  string working_directory = 11;
+}
+
+message KillProcessRequest {
+  // Process ID to kill
+  uint32 pid = 1;
+  
+  // Signal to send (default: SIGTERM=15, SIGKILL=9)
+  int32 signal = 2;
+}
+
+message KillProcessResponse {
+  // Whether the kill succeeded
+  bool success = 1;
+  
+  // Error message if failed
+  string error = 2;
+}
+
+// =============================================================================
+// SERVICE MANAGEMENT (Phase 4)
+// =============================================================================
+
+message ListServicesRequest {
+  // Filter by service name (empty = all)
+  string filter = 1;
+  
+  // Only show running services
+  bool running_only = 2;
+}
+
+message ListServicesResponse {
+  // Whether the operation succeeded
+  bool success = 1;
+  
+  // Service list
+  repeated ServiceInfo services = 2;
+  
+  // Error message if failed
+  string error = 3;
+}
+
+message ServiceInfo {
+  // Service name
+  string name = 1;
+  
+  // Display name
+  string display_name = 2;
+  
+  // Current state (running, stopped, starting, stopping)
+  string state = 3;
+  
+  // Start type (auto, manual, disabled)
+  string start_type = 4;
+  
+  // Service description
+  string description = 5;
+  
+  // Process ID (if running)
+  uint32 pid = 6;
+  
+  // Memory usage (if running)
+  uint64 memory_bytes = 7;
+}
+
+message ServiceControlRequest {
+  // Service name
+  string name = 1;
+  
+  // Action to perform
+  ServiceAction action = 2;
+}
+
+enum ServiceAction {
+  SERVICE_ACTION_START = 0;
+  SERVICE_ACTION_STOP = 1;
+  SERVICE_ACTION_RESTART = 2;
+  SERVICE_ACTION_ENABLE = 3;
+  SERVICE_ACTION_DISABLE = 4;
+  SERVICE_ACTION_STATUS = 5;
+}
+
+message ServiceControlResponse {
+  // Whether the operation succeeded
+  bool success = 1;
+  
+  // New service state after operation
+  string new_state = 2;
+  
+  // Error message if failed
+  string error = 3;
+}
+
+// =============================================================================
+// SYSTEM INVENTORY (Phase 5)
+// =============================================================================
+
+message GetHardwareInfoRequest {
+  // Include detailed CPU information
+  bool include_cpu_details = 1;
+  
+  // Include detailed disk information
+  bool include_disk_details = 2;
+  
+  // Include detailed network information
+  bool include_network_details = 3;
+}
+
+message GetHardwareInfoResponse {
+  // Whether the operation succeeded
+  bool success = 1;
+  
+  // Hardware information
+  HardwareInfo hardware = 2;
+  
+  // Error message if failed
+  string error = 3;
+}
+
+message HardwareInfo {
+  // CPU information
+  CpuInfo cpu = 1;
+  
+  // Memory information
+  MemoryInfo memory = 2;
+  
+  // Disk information
+  repeated DiskInfo disks = 3;
+  
+  // Network adapter information
+  repeated NetworkAdapterInfo network_adapters = 4;
+  
+  // BIOS information
+  BiosInfo bios = 5;
+  
+  // Operating system information
+  OsInfo os = 6;
+  
+  // GPU information (if available)
+  repeated GpuInfo gpus = 7;
+}
+
+message CpuInfo {
+  // CPU model name
+  string model = 1;
+  
+  // Number of physical cores
+  uint32 cores = 2;
+  
+  // Number of logical threads
+  uint32 threads = 3;
+  
+  // Base frequency in MHz
+  double frequency_mhz = 4;
+  
+  // CPU architecture (x86_64, aarch64, etc.)
+  string architecture = 5;
+  
+  // CPU feature flags
+  repeated string flags = 6;
+  
+  // Vendor (Intel, AMD, ARM)
+  string vendor = 7;
+  
+  // Number of sockets
+  uint32 sockets = 8;
+  
+  // Cache sizes
+  uint64 l1_cache_bytes = 9;
+  uint64 l2_cache_bytes = 10;
+  uint64 l3_cache_bytes = 11;
+}
+
+message MemoryInfo {
+  // Total physical memory
+  uint64 total_bytes = 1;
+  
+  // Available memory
+  uint64 available_bytes = 2;
+  
+  // Memory type (DDR4, DDR5, etc.)
+  string memory_type = 3;
+  
+  // Memory speed in MHz
+  uint32 speed_mhz = 4;
+  
+  // Number of DIMMs
+  uint32 dimm_count = 5;
+}
+
+message DiskInfo {
+  // Device path (e.g., /dev/sda)
+  string device = 1;
+  
+  // Disk model
+  string model = 2;
+  
+  // Serial number
+  string serial = 3;
+  
+  // Size in bytes
+  uint64 size_bytes = 4;
+  
+  // Disk type (HDD, SSD, NVMe)
+  string disk_type = 5;
+  
+  // Interface (SATA, NVMe, USB)
+  string interface = 6;
+  
+  // Is this a virtual disk
+  bool is_virtual = 7;
+  
+  // Partitions
+  repeated PartitionInfo partitions = 8;
+}
+
+message PartitionInfo {
+  // Partition device (e.g., /dev/sda1)
+  string device = 1;
+  
+  // Mount point (if mounted)
+  string mount_point = 2;
+  
+  // Filesystem type
+  string filesystem = 3;
+  
+  // Size in bytes
+  uint64 size_bytes = 4;
+  
+  // Used bytes
+  uint64 used_bytes = 5;
+  
+  // Partition label
+  string label = 6;
+}
+
+message NetworkAdapterInfo {
+  // Interface name
+  string name = 1;
+  
+  // MAC address
+  string mac_address = 2;
+  
+  // Adapter type (ethernet, wifi, virtual)
+  string adapter_type = 3;
+  
+  // Link speed in Mbps
+  uint32 speed_mbps = 4;
+  
+  // Is virtual adapter
+  bool is_virtual = 5;
+  
+  // Driver name
+  string driver = 6;
+  
+  // PCI address (if applicable)
+  string pci_address = 7;
+}
+
+message BiosInfo {
+  // BIOS vendor
+  string vendor = 1;
+  
+  // BIOS version
+  string version = 2;
+  
+  // Release date
+  string release_date = 3;
+  
+  // System manufacturer
+  string system_manufacturer = 4;
+  
+  // System product name
+  string system_product = 5;
+  
+  // System serial number
+  string system_serial = 6;
+  
+  // System UUID
+  string system_uuid = 7;
+}
+
+message OsInfo {
+  // OS name (e.g., "Ubuntu", "Windows")
+  string name = 1;
+  
+  // OS version
+  string version = 2;
+  
+  // Build number
+  string build = 3;
+  
+  // Kernel version
+  string kernel = 4;
+  
+  // Architecture
+  string architecture = 5;
+  
+  // Installation date
+  google.protobuf.Timestamp install_date = 6;
+  
+  // Last boot time
+  google.protobuf.Timestamp last_boot = 7;
+  
+  // Hostname
+  string hostname = 8;
+  
+  // Domain (if joined)
+  string domain = 9;
+}
+
+message GpuInfo {
+  // GPU name
+  string name = 1;
+  
+  // Vendor (NVIDIA, AMD, Intel)
+  string vendor = 2;
+  
+  // Driver version
+  string driver_version = 3;
+  
+  // VRAM in bytes
+  uint64 vram_bytes = 4;
+  
+  // PCI address
+  string pci_address = 5;
+}
+
+message ListInstalledSoftwareRequest {
+  // Filter by software name (empty = all)
+  string filter = 1;
+  
+  // Maximum entries to return (0 = unlimited)
+  uint32 max_entries = 2;
+}
+
+message ListInstalledSoftwareResponse {
+  // Whether the operation succeeded
+  bool success = 1;
+  
+  // Installed software list
+  repeated InstalledSoftware software = 2;
+  
+  // Error message if failed
+  string error = 3;
+  
+  // Total count (if known)
+  uint32 total_count = 4;
+}
+
+message InstalledSoftware {
+  // Software name
+  string name = 1;
+  
+  // Version
+  string version = 2;
+  
+  // Publisher/vendor
+  string publisher = 3;
+  
+  // Installation date
+  google.protobuf.Timestamp install_date = 4;
+  
+  // Installed size in bytes
+  uint64 size_bytes = 5;
+  
+  // Package type (deb, rpm, msi, etc.)
+  string package_type = 6;
+  
+  // Architecture
+  string architecture = 7;
+}
+
+// =============================================================================
+// AGENT SELF-MANAGEMENT (Phase 6)
+// =============================================================================
+
+message AgentUpdateRequest {
+  // Target version to update to
+  string target_version = 1;
+  
+  // Binary data (chunked)
+  bytes binary_data = 2;
+  
+  // Chunk number (0-based)
+  uint32 chunk_number = 3;
+  
+  // Whether this is the last chunk
+  bool is_last_chunk = 4;
+  
+  // SHA256 checksum of complete binary
+  string checksum_sha256 = 5;
+  
+  // Total size of the binary
+  uint64 total_size = 6;
+}
+
+message AgentUpdateResponse {
+  // Whether the update step succeeded
+  bool success = 1;
+  
+  // Current agent version
+  string current_version = 2;
+  
+  // Error message if failed
+  string error = 3;
+  
+  // Whether restart is required
+  bool restart_required = 4;
+  
+  // Update progress (0-100)
+  uint32 progress_percent = 5;
+  
+  // Update state
+  UpdateState state = 6;
+}
+
+enum UpdateState {
+  UPDATE_STATE_IDLE = 0;
+  UPDATE_STATE_DOWNLOADING = 1;
+  UPDATE_STATE_VERIFYING = 2;
+  UPDATE_STATE_APPLYING = 3;
+  UPDATE_STATE_COMPLETE = 4;
+  UPDATE_STATE_FAILED = 5;
+  UPDATE_STATE_ROLLING_BACK = 6;
+}
+
+message GetCapabilitiesRequest {}
+
+message GetCapabilitiesResponse {
+  // Agent version
+  string version = 1;
+  
+  // Operating system
+  string os = 2;
+  
+  // Architecture
+  string architecture = 3;
+  
+  // List of supported capabilities
+  repeated string capabilities = 4;
+  
+  // Feature flags
+  map<string, string> features = 5;
+  
+  // Build information
+  string build_time = 6;
+  string build_commit = 7;
 }

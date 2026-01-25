@@ -2,19 +2,19 @@
 //!
 //! Handles file read and write requests from the host.
 
-use crate::AgentConfig;
+use crate::config::AgentConfig;
 use limiquantix_proto::agent::{
     agent_message, FileReadRequest, FileReadResponse, FileWriteRequest, FileWriteResponse,
 };
 use prost_types::Timestamp;
 use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::UNIX_EPOCH;
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, SeekFrom};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 /// Handle a file write request.
-pub async fn handle_file_write(req: FileWriteRequest) -> agent_message::Payload {
+pub async fn handle_file_write(req: FileWriteRequest, config: &AgentConfig) -> agent_message::Payload {
     let path = Path::new(&req.path);
 
     // Validate path (prevent directory traversal)
@@ -23,6 +23,16 @@ pub async fn handle_file_write(req: FileWriteRequest) -> agent_message::Payload 
             success: false,
             bytes_written: 0,
             error: "Invalid path: directory traversal detected".to_string(),
+            chunk_number: req.chunk_number,
+        });
+    }
+
+    // Check security config
+    if !config.is_file_write_allowed(&req.path) {
+        return agent_message::Payload::FileWriteResponse(FileWriteResponse {
+            success: false,
+            bytes_written: 0,
+            error: "Access denied by security policy".to_string(),
             chunk_number: req.chunk_number,
         });
     }
@@ -153,6 +163,21 @@ pub async fn handle_file_read(
             offset: 0,
             chunk_number: 0,
             error: "Invalid path: directory traversal detected".to_string(),
+            mode: 0,
+            modified_at: None,
+        });
+    }
+
+    // Check security config
+    if !config.is_file_read_allowed(&req.path) {
+        return agent_message::Payload::FileReadResponse(FileReadResponse {
+            success: false,
+            data: Vec::new(),
+            eof: true,
+            total_size: 0,
+            offset: 0,
+            chunk_number: 0,
+            error: "Access denied by security policy".to_string(),
             mode: 0,
             modified_at: None,
         });

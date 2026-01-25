@@ -8,76 +8,207 @@
 //! - **Execution**: Run scripts/commands inside the VM
 //! - **File Transfer**: Push/Pull files without SSH
 //! - **Lifecycle**: Clean shutdown, password reset, IP reporting
+//! - **Desktop Integration**: Display resize, clipboard sharing
 //!
 //! ## Communication
 //! Uses virtio-serial (paravirtualized serial port) with length-prefixed protobuf.
 
 use anyhow::{Context, Result};
+use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
+pub mod config;
+pub mod error;
 mod handlers;
 mod protocol;
+pub mod security;
 mod telemetry;
 mod transport;
+#[cfg(feature = "vsock")]
+pub mod vsock;
+
+pub use config::AgentConfig;
+pub use error::{AgentError, AgentResult, ErrorCategory};
 
 use crate::handlers::MessageHandler;
 use crate::protocol::{read_message, write_message};
 use crate::telemetry::TelemetryCollector;
 use crate::transport::AgentTransport;
 
-/// Agent configuration
-#[derive(Debug, Clone)]
-pub struct AgentConfig {
-    /// Telemetry reporting interval in seconds
-    pub telemetry_interval_secs: u64,
-    /// Maximum command execution timeout in seconds
-    pub max_exec_timeout_secs: u32,
-    /// Maximum file chunk size in bytes
-    pub max_chunk_size: usize,
+/// Global health state
+pub struct HealthState {
+    /// Last successful telemetry timestamp (unix millis)
+    pub last_telemetry_success: AtomicU64,
+    /// Agent start time
+    pub start_time: Instant,
+    /// Number of messages processed
+    pub messages_processed: AtomicU64,
+    /// Number of errors
+    pub error_count: AtomicU64,
 }
 
-impl Default for AgentConfig {
-    fn default() -> Self {
+impl HealthState {
+    fn new() -> Self {
         Self {
-            telemetry_interval_secs: 5,
-            max_exec_timeout_secs: 300, // 5 minutes
-            max_chunk_size: 65536,      // 64KB
+            last_telemetry_success: AtomicU64::new(0),
+            start_time: Instant::now(),
+            messages_processed: AtomicU64::new(0),
+            error_count: AtomicU64::new(0),
         }
+    }
+
+    fn record_telemetry_success(&self) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        self.last_telemetry_success.store(now, Ordering::SeqCst);
+    }
+
+    fn record_message_processed(&self) {
+        self.messages_processed.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn record_error(&self) {
+        self.error_count.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn uptime_secs(&self) -> u64 {
+        self.start_time.elapsed().as_secs()
     }
 }
 
-/// Initialize tracing/logging
-fn init_logging() {
-    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+/// Initialize tracing/logging based on configuration
+fn init_logging(config: &AgentConfig) {
+    use tracing_subscriber::{
+        fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
+    };
 
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,limiquantix_guest_agent=debug"));
+    // Build filter from config or environment
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::new(format!(
+            "{},limiquantix_guest_agent=debug",
+            config.log_level
+        ))
+    });
 
-    tracing_subscriber::registry()
-        .with(filter)
-        .with(tracing_subscriber::fmt::layer().json())
-        .init();
+    // If log file is configured, add file layer
+    if !config.log_file.is_empty() {
+        let log_path = Path::new(&config.log_file);
+        if let Some(parent) = log_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+
+        if let Some(file_name) = log_path.file_name() {
+            if let Some(dir) = log_path.parent() {
+                let file_appender = tracing_appender::rolling::daily(dir, file_name);
+                
+                if config.log_format == config::LogFormat::Json {
+                    tracing_subscriber::registry()
+                        .with(filter)
+                        .with(fmt::layer().json())
+                        .with(fmt::layer().json().with_writer(file_appender).with_ansi(false))
+                        .init();
+                } else {
+                    tracing_subscriber::registry()
+                        .with(filter)
+                        .with(fmt::layer().pretty())
+                        .with(fmt::layer().json().with_writer(file_appender).with_ansi(false))
+                        .init();
+                }
+                return;
+            }
+        }
+    }
+
+    // Fallback: stdout only
+    if config.log_format == config::LogFormat::Json {
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(fmt::layer().json())
+            .init();
+    } else {
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(fmt::layer().pretty())
+            .init();
+    }
+}
+
+/// Get all agent capabilities based on current build
+fn get_capabilities() -> Vec<String> {
+    let mut caps = vec![
+        "telemetry".to_string(),
+        "execute".to_string(),
+        "file_read".to_string(),
+        "file_write".to_string(),
+        "file_list".to_string(),
+        "file_delete".to_string(),
+        "file_stat".to_string(),
+        "directory_create".to_string(),
+        "shutdown".to_string(),
+        "reboot".to_string(),
+        "reset_password".to_string(),
+        "configure_network".to_string(),
+        "quiesce".to_string(),
+        "thaw".to_string(),
+        "sync_time".to_string(),
+        "display_resize".to_string(),
+        "clipboard".to_string(),
+        "process_list".to_string(),
+        "process_kill".to_string(),
+        "service_list".to_string(),
+        "service_control".to_string(),
+        "hardware_info".to_string(),
+        "software_list".to_string(),
+        "self_update".to_string(),
+    ];
+
+    // Platform-specific capabilities
+    #[cfg(unix)]
+    caps.push("user_context_exec".to_string());
+
+    #[cfg(windows)]
+    caps.push("vss_quiesce".to_string());
+
+    caps
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logging
-    init_logging();
+    // Load configuration first (before logging init)
+    let config = AgentConfig::load();
+
+    // Validate configuration
+    if let Err(e) = config.validate() {
+        eprintln!("Configuration error: {}", e);
+        std::process::exit(1);
+    }
+
+    // Initialize logging with config
+    init_logging(&config);
 
     info!(
         version = env!("CARGO_PKG_VERSION"),
+        config_path = config::DEFAULT_CONFIG_PATH,
         "LimiQuantix Guest Agent starting"
     );
 
-    // Load configuration
-    let config = AgentConfig::default();
-    info!(?config, "Configuration loaded");
+    debug!(?config, "Configuration loaded");
+
+    // Initialize health state
+    let health = Arc::new(HealthState::new());
 
     // Wait for and open the virtio-serial device
-    let transport = AgentTransport::connect()
+    let device_path = config.get_device_path();
+    info!(device_path = %device_path, "Connecting to host");
+
+    let transport = AgentTransport::connect_with_path(&device_path)
         .await
         .context("Failed to connect to host")?;
 
@@ -87,23 +218,41 @@ async fn main() -> Result<()> {
     let (reader, writer) = transport.split();
     let writer = Arc::new(Mutex::new(writer));
 
-    // Create message handler
+    // Create message handler with config
     let handler = Arc::new(MessageHandler::new(config.clone()));
 
     // Create telemetry collector
     let telemetry = TelemetryCollector::new();
 
-    // Send agent ready event
-    send_agent_ready(&writer, &telemetry).await?;
+    // Send agent ready event with all capabilities
+    send_agent_ready(&writer, &telemetry, &config).await?;
 
     // Start telemetry loop (background task)
     let telemetry_writer = writer.clone();
     let telemetry_interval = config.telemetry_interval_secs;
+    let telemetry_health = health.clone();
     tokio::spawn(async move {
-        if let Err(e) = telemetry_loop(telemetry, telemetry_writer, telemetry_interval).await {
+        if let Err(e) = telemetry_loop(
+            telemetry,
+            telemetry_writer,
+            telemetry_interval,
+            telemetry_health,
+        )
+        .await
+        {
             error!(error = %e, "Telemetry loop failed");
         }
     });
+
+    // Start health check loop if enabled
+    if config.health.enabled {
+        let health_clone = health.clone();
+        let health_interval = config.health.interval_secs;
+        let telemetry_timeout = config.health.telemetry_timeout_secs;
+        tokio::spawn(async move {
+            health_check_loop(health_clone, health_interval, telemetry_timeout).await;
+        });
+    }
 
     // Handle shutdown signals
     let shutdown_writer = writer.clone();
@@ -114,13 +263,14 @@ async fn main() -> Result<()> {
     });
 
     // Main message loop
-    run_message_loop(reader, writer, handler).await
+    run_message_loop(reader, writer, handler, health).await
 }
 
 /// Send the AgentReady event to the host
 async fn send_agent_ready<W: AsyncWriteExt + Unpin>(
     writer: &Arc<Mutex<W>>,
     telemetry: &TelemetryCollector,
+    _config: &AgentConfig,
 ) -> Result<()> {
     use limiquantix_proto::agent::{agent_message, AgentMessage, AgentReadyEvent};
     use prost_types::Timestamp;
@@ -147,14 +297,7 @@ async fn send_agent_ready<W: AsyncWriteExt + Unpin>(
             architecture: sys_info.architecture,
             hostname: sys_info.hostname,
             ip_addresses: ips,
-            capabilities: vec![
-                "telemetry".to_string(),
-                "execute".to_string(),
-                "file_read".to_string(),
-                "file_write".to_string(),
-                "shutdown".to_string(),
-                "reset_password".to_string(),
-            ],
+            capabilities: get_capabilities(),
         })),
     };
 
@@ -163,7 +306,10 @@ async fn send_agent_ready<W: AsyncWriteExt + Unpin>(
         .await
         .context("Failed to send AgentReady event")?;
 
-    info!("Sent AgentReady event to host");
+    info!(
+        capabilities = ?get_capabilities().len(),
+        "Sent AgentReady event to host"
+    );
     Ok(())
 }
 
@@ -172,10 +318,11 @@ async fn telemetry_loop<W: AsyncWriteExt + Unpin>(
     collector: TelemetryCollector,
     writer: Arc<Mutex<W>>,
     interval_secs: u64,
+    health: Arc<HealthState>,
 ) -> Result<()> {
     use limiquantix_proto::agent::{agent_message, AgentMessage};
     use prost_types::Timestamp;
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
 
@@ -200,9 +347,61 @@ async fn telemetry_loop<W: AsyncWriteExt + Unpin>(
 
         // Send telemetry report
         let mut guard = writer.lock().await;
-        if let Err(e) = write_message(&mut *guard, &message).await {
-            warn!(error = %e, "Failed to send telemetry report");
-            // Continue running, don't fail the loop
+        match write_message(&mut *guard, &message).await {
+            Ok(()) => {
+                health.record_telemetry_success();
+            }
+            Err(e) => {
+                warn!(error = %e, "Failed to send telemetry report");
+                health.record_error();
+            }
+        }
+    }
+}
+
+/// Health check loop
+async fn health_check_loop(health: Arc<HealthState>, interval_secs: u64, telemetry_timeout_secs: u64) {
+    let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
+
+    loop {
+        interval.tick().await;
+
+        let uptime = health.uptime_secs();
+        let messages = health.messages_processed.load(Ordering::SeqCst);
+        let errors = health.error_count.load(Ordering::SeqCst);
+        let last_telemetry = health.last_telemetry_success.load(Ordering::SeqCst);
+
+        // Check if telemetry is stale
+        let now_millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        let telemetry_age_secs = if last_telemetry > 0 {
+            (now_millis - last_telemetry) / 1000
+        } else {
+            0
+        };
+
+        let healthy = telemetry_age_secs < telemetry_timeout_secs || last_telemetry == 0;
+
+        if healthy {
+            debug!(
+                uptime_secs = uptime,
+                messages_processed = messages,
+                errors = errors,
+                telemetry_age_secs = telemetry_age_secs,
+                "Health check: OK"
+            );
+        } else {
+            warn!(
+                uptime_secs = uptime,
+                messages_processed = messages,
+                errors = errors,
+                telemetry_age_secs = telemetry_age_secs,
+                timeout_secs = telemetry_timeout_secs,
+                "Health check: DEGRADED - telemetry stale"
+            );
         }
     }
 }
@@ -212,6 +411,7 @@ async fn run_message_loop<R, W>(
     mut reader: R,
     writer: Arc<Mutex<W>>,
     handler: Arc<MessageHandler>,
+    health: Arc<HealthState>,
 ) -> Result<()>
 where
     R: AsyncReadExt + Unpin,
@@ -226,11 +426,14 @@ where
         match read_message::<_, AgentMessage>(&mut reader).await {
             Ok(Some(message)) => {
                 let msg_id = message.message_id.clone();
-                info!(message_id = %msg_id, "Received message from host");
+                debug!(message_id = %msg_id, "Received message from host");
+
+                health.record_message_processed();
 
                 // Handle the message
                 let handler = handler.clone();
                 let writer = writer.clone();
+                let health = health.clone();
 
                 tokio::spawn(async move {
                     match handler.handle(message).await {
@@ -238,6 +441,7 @@ where
                             let mut guard = writer.lock().await;
                             if let Err(e) = write_message(&mut *guard, &response).await {
                                 error!(error = %e, message_id = %msg_id, "Failed to send response");
+                                health.record_error();
                             }
                         }
                         Ok(None) => {
@@ -245,6 +449,7 @@ where
                         }
                         Err(e) => {
                             error!(error = %e, message_id = %msg_id, "Failed to handle message");
+                            health.record_error();
                         }
                     }
                 });
@@ -256,8 +461,9 @@ where
             }
             Err(e) => {
                 error!(error = %e, "Failed to read message");
+                health.record_error();
                 // Small delay before retrying
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                tokio::time::sleep(Duration::from_millis(100)).await;
             }
         }
     }

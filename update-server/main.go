@@ -201,6 +201,15 @@ func main() {
 	// Signed manifest endpoint
 	api.Get("/:product/manifest/signed", handleGetSignedManifest)
 
+	// Guest Agent distribution endpoints (served from quantix-os releases)
+	// These allow VMs to download the agent directly from the update server
+	agent := api.Group("/agent")
+	agent.Get("/version", handleAgentVersion)
+	agent.Get("/install.sh", handleAgentInstallScript)
+	agent.Get("/linux/:arch", handleAgentLinuxBinary)
+	agent.Get("/linux/:arch.deb", handleAgentLinuxDeb)
+	agent.Get("/linux/:arch.rpm", handleAgentLinuxRpm)
+
 	// Admin config endpoint
 	admin.Get("/config", handleGetConfig)
 
@@ -1036,4 +1045,336 @@ func calculateSHA256(path string) (string, error) {
 	}
 
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// =============================================================================
+// Guest Agent Distribution Handlers
+// =============================================================================
+
+// getLatestAgentDir finds the latest quantix-os release containing guest-agent
+func getLatestAgentDir(channel string) (string, string, error) {
+	channelDir := filepath.Join(config.ReleaseDir, "quantix-os", channel)
+	versions, err := listVersions(channelDir)
+	if err != nil || len(versions) == 0 {
+		return "", "", fmt.Errorf("no releases found in channel %s", channel)
+	}
+
+	// Find the first version that has guest-agent
+	for _, version := range versions {
+		agentDir := filepath.Join(channelDir, version, "guest-agent")
+		if info, err := os.Stat(agentDir); err == nil && info.IsDir() {
+			return agentDir, version, nil
+		}
+		// Also check for guest-agent.tar.zst/gz and extract if needed
+		for _, ext := range []string{".tar.zst", ".tar.gz"} {
+			archivePath := filepath.Join(channelDir, version, "guest-agent"+ext)
+			if _, err := os.Stat(archivePath); err == nil {
+				// Extract the archive to a guest-agent directory
+				agentDir := filepath.Join(channelDir, version, "guest-agent")
+				if err := extractAgentArchive(archivePath, agentDir); err != nil {
+					log.Warn("Failed to extract agent archive", zap.Error(err))
+					continue
+				}
+				return agentDir, version, nil
+			}
+		}
+	}
+
+	return "", "", fmt.Errorf("no guest-agent found in any release")
+}
+
+// extractAgentArchive extracts a guest-agent archive
+func extractAgentArchive(archivePath, destDir string) error {
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return err
+	}
+
+	var cmd *exec.Cmd
+	if strings.HasSuffix(archivePath, ".tar.zst") {
+		cmd = exec.Command("tar", "-I", "zstd", "-xf", archivePath, "-C", destDir)
+	} else {
+		cmd = exec.Command("tar", "-xzf", archivePath, "-C", destDir)
+	}
+
+	return cmd.Run()
+}
+
+// handleAgentVersion returns the latest guest-agent version
+func handleAgentVersion(c *fiber.Ctx) error {
+	channel := c.Query("channel", "dev")
+
+	_, version, err := getLatestAgentDir(channel)
+	if err != nil {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error":   "Guest agent not found",
+			"channel": channel,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"version": version,
+		"channel": channel,
+		"product": "limiquantix-guest-agent",
+	})
+}
+
+// handleAgentInstallScript returns a shell script for installing the agent
+func handleAgentInstallScript(c *fiber.Ctx) error {
+	channel := c.Query("channel", "dev")
+	baseURL := c.Query("base_url", "")
+
+	// If no base_url provided, construct from request
+	if baseURL == "" {
+		proto := "http"
+		if c.Protocol() == "https" {
+			proto = "https"
+		}
+		baseURL = fmt.Sprintf("%s://%s", proto, c.Hostname())
+	}
+
+	_, version, err := getLatestAgentDir(channel)
+	if err != nil {
+		return c.Status(http.StatusNotFound).SendString("# Error: Guest agent not available\nexit 1")
+	}
+
+	script := fmt.Sprintf(`#!/bin/bash
+# =============================================================================
+# LimiQuantix Guest Agent Installer
+# Version: %s
+# Channel: %s
+# =============================================================================
+# Usage: curl -fsSL %s/api/v1/agent/install.sh | sudo bash
+# =============================================================================
+set -e
+
+echo "[Quantix] Installing LimiQuantix Guest Agent v%s..."
+
+# Detect OS
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS_ID="${ID}"
+else
+    OS_ID="unknown"
+fi
+
+# Detect architecture
+ARCH=$(uname -m)
+case $ARCH in
+    x86_64) ARCH="amd64" ;;
+    aarch64) ARCH="arm64" ;;
+    *) echo "[Quantix] Unsupported architecture: $ARCH"; exit 1 ;;
+esac
+
+BASE_URL="%s"
+CHANNEL="%s"
+
+echo "[Quantix] Detected OS: $OS_ID, Architecture: $ARCH"
+
+# Install based on OS
+case "$OS_ID" in
+    ubuntu|debian)
+        echo "[Quantix] Installing via .deb package..."
+        TEMP_DEB=$(mktemp --suffix=.deb)
+        curl -fsSL "$BASE_URL/api/v1/agent/linux/${ARCH}.deb?channel=$CHANNEL" -o "$TEMP_DEB"
+        dpkg -i "$TEMP_DEB" || apt-get install -f -y
+        rm -f "$TEMP_DEB"
+        ;;
+    rhel|centos|fedora|rocky|almalinux)
+        echo "[Quantix] Installing via .rpm package..."
+        TEMP_RPM=$(mktemp --suffix=.rpm)
+        curl -fsSL "$BASE_URL/api/v1/agent/linux/${ARCH}.rpm?channel=$CHANNEL" -o "$TEMP_RPM"
+        rpm -i "$TEMP_RPM" || yum install -y "$TEMP_RPM" || dnf install -y "$TEMP_RPM"
+        rm -f "$TEMP_RPM"
+        ;;
+    *)
+        echo "[Quantix] Installing binary directly..."
+        curl -fsSL "$BASE_URL/api/v1/agent/linux/${ARCH}?channel=$CHANNEL" -o /usr/local/bin/limiquantix-agent
+        chmod +x /usr/local/bin/limiquantix-agent
+        
+        # Create config directory
+        mkdir -p /etc/limiquantix
+        
+        # Create default config if it doesn't exist
+        if [ ! -f /etc/limiquantix/agent.yaml ]; then
+            cat > /etc/limiquantix/agent.yaml << 'CONFIGEOF'
+telemetry_interval_secs: 5
+max_exec_timeout_secs: 300
+max_chunk_size: 65536
+log_level: info
+log_format: json
+log_file: /var/log/limiquantix/agent.log
+device_path: auto
+CONFIGEOF
+        fi
+        
+        # Create log directory
+        mkdir -p /var/log/limiquantix
+        
+        # Create systemd service
+        cat > /etc/systemd/system/limiquantix-agent.service << 'SVCEOF'
+[Unit]
+Description=LimiQuantix Guest Agent
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/limiquantix-agent
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+        
+        systemctl daemon-reload
+        systemctl enable limiquantix-agent
+        systemctl start limiquantix-agent
+        ;;
+esac
+
+echo "[Quantix] Guest Agent v%s installed successfully!"
+systemctl status limiquantix-agent --no-pager || true
+`, version, channel, baseURL, version, baseURL, channel, version)
+
+	c.Set("Content-Type", "text/x-shellscript")
+	c.Set("Content-Disposition", "attachment; filename=install.sh")
+	return c.SendString(script)
+}
+
+// handleAgentLinuxBinary serves the raw Linux binary
+func handleAgentLinuxBinary(c *fiber.Ctx) error {
+	arch := c.Params("arch")
+	channel := c.Query("channel", "dev")
+
+	if arch != "amd64" && arch != "arm64" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid architecture. Must be 'amd64' or 'arm64'",
+		})
+	}
+
+	agentDir, _, err := getLatestAgentDir(channel)
+	if err != nil {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Look for binary file
+	binaryPath := filepath.Join(agentDir, fmt.Sprintf("limiquantix-agent-linux-%s", arch))
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+		// Try without architecture suffix
+		binaryPath = filepath.Join(agentDir, "limiquantix-agent-linux-amd64")
+		if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{
+				"error": "Binary not found for architecture",
+				"arch":  arch,
+			})
+		}
+	}
+
+	c.Set("Content-Type", "application/octet-stream")
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=limiquantix-agent-linux-%s", arch))
+	return c.SendFile(binaryPath)
+}
+
+// handleAgentLinuxDeb serves the .deb package
+func handleAgentLinuxDeb(c *fiber.Ctx) error {
+	archParam := c.Params("arch") // This will be "amd64" from "amd64.deb"
+	arch := strings.TrimSuffix(archParam, ".deb")
+	channel := c.Query("channel", "dev")
+
+	if arch != "amd64" && arch != "arm64" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid architecture. Must be 'amd64' or 'arm64'",
+		})
+	}
+
+	agentDir, version, err := getLatestAgentDir(channel)
+	if err != nil {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Look for .deb file with various naming patterns
+	patterns := []string{
+		fmt.Sprintf("limiquantix-guest-agent_%s_%s.deb", version, arch),
+		fmt.Sprintf("limiquantix-guest-agent_*_%s.deb", arch),
+		fmt.Sprintf("*_%s.deb", arch),
+	}
+
+	var debPath string
+	for _, pattern := range patterns {
+		matches, _ := filepath.Glob(filepath.Join(agentDir, pattern))
+		if len(matches) > 0 {
+			debPath = matches[0]
+			break
+		}
+	}
+
+	if debPath == "" {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error": "Debian package not found for architecture",
+			"arch":  arch,
+		})
+	}
+
+	c.Set("Content-Type", "application/vnd.debian.binary-package")
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=limiquantix-guest-agent_%s_%s.deb", version, arch))
+	return c.SendFile(debPath)
+}
+
+// handleAgentLinuxRpm serves the .rpm package
+func handleAgentLinuxRpm(c *fiber.Ctx) error {
+	archParam := c.Params("arch") // This will be "amd64" from "amd64.rpm"
+	arch := strings.TrimSuffix(archParam, ".rpm")
+	channel := c.Query("channel", "dev")
+
+	// Convert arch to RPM naming convention
+	rpmArch := arch
+	if arch == "amd64" {
+		rpmArch = "x86_64"
+	} else if arch == "arm64" {
+		rpmArch = "aarch64"
+	}
+
+	if arch != "amd64" && arch != "arm64" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid architecture. Must be 'amd64' or 'arm64'",
+		})
+	}
+
+	agentDir, version, err := getLatestAgentDir(channel)
+	if err != nil {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Look for .rpm file with various naming patterns
+	patterns := []string{
+		fmt.Sprintf("limiquantix-guest-agent-%s.%s.rpm", version, rpmArch),
+		fmt.Sprintf("limiquantix-guest-agent-*.%s.rpm", rpmArch),
+		fmt.Sprintf("*.%s.rpm", rpmArch),
+	}
+
+	var rpmPath string
+	for _, pattern := range patterns {
+		matches, _ := filepath.Glob(filepath.Join(agentDir, pattern))
+		if len(matches) > 0 {
+			rpmPath = matches[0]
+			break
+		}
+	}
+
+	if rpmPath == "" {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error": "RPM package not found for architecture",
+			"arch":  arch,
+		})
+	}
+
+	c.Set("Content-Type", "application/x-rpm")
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=limiquantix-guest-agent-%s.%s.rpm", version, rpmArch))
+	return c.SendFile(rpmPath)
 }

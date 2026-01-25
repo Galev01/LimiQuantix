@@ -1052,6 +1052,12 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/updates/apply", post(apply_updates))
         .route("/updates/config", get(get_update_config).put(save_update_config))
         .route("/updates/volumes", get(list_update_volumes))
+        // Guest Agent download endpoints (for cloud-init installation)
+        .route("/agent/version", get(get_agent_version))
+        .route("/agent/install.sh", get(get_agent_install_script))
+        .route("/agent/linux/:arch", get(download_agent_binary))
+        .route("/agent/linux/:arch.deb", get(download_agent_deb))
+        .route("/agent/linux/:arch.rpm", get(download_agent_rpm))
         .with_state(state.clone());
 
     // Check if webui directory exists
@@ -7417,6 +7423,483 @@ async fn issue_acme_certificate(
             ))
         }
     }
+}
+
+// ============================================================================
+// Guest Agent Download Handlers
+// ============================================================================
+// 
+// The node daemon serves guest agent packages to VMs during cloud-init.
+// It first tries local files (for offline/air-gapped environments), then
+// proxies from the update server if configured.
+//
+// Local paths checked:
+//   /data/share/quantix-agent/  (OTA-deployed)
+//   /opt/limiquantix/agent/     (manual install)
+//   /var/lib/limiquantix/agent/ (legacy)
+//
+// Update server proxy: Uses UPDATE_SERVER_URL env var (e.g., http://192.168.0.148:9000)
+
+/// Agent version response
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentVersionResponse {
+    version: String,
+    download_url: String,
+    source: String,  // "local" or "update_server"
+}
+
+/// Get update server URL from environment or config
+fn get_update_server_url() -> Option<String> {
+    std::env::var("UPDATE_SERVER_URL").ok()
+        .or_else(|| std::env::var("QUANTIX_UPDATE_SERVER").ok())
+}
+
+/// Proxy a request to the update server
+async fn proxy_from_update_server(path: &str) -> Option<Vec<u8>> {
+    let update_server = get_update_server_url()?;
+    let url = format!("{}/api/v1/agent/{}", update_server.trim_end_matches('/'), path);
+    
+    debug!(url = %url, "Proxying agent request to update server");
+    
+    match reqwest::get(&url).await {
+        Ok(response) if response.status().is_success() => {
+            match response.bytes().await {
+                Ok(bytes) => {
+                    info!(url = %url, size = bytes.len(), "Successfully proxied from update server");
+                    Some(bytes.to_vec())
+                }
+                Err(e) => {
+                    warn!(url = %url, error = %e, "Failed to read response body");
+                    None
+                }
+            }
+        }
+        Ok(response) => {
+            warn!(url = %url, status = %response.status(), "Update server returned error");
+            None
+        }
+        Err(e) => {
+            warn!(url = %url, error = %e, "Failed to connect to update server");
+            None
+        }
+    }
+}
+
+/// GET /api/v1/agent/version - Get current agent version
+async fn get_agent_version(
+    headers: HeaderMap,
+) -> Json<AgentVersionResponse> {
+    // Get base URL from request
+    let host = headers
+        .get(header::HOST)
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("localhost:8443");
+    let scheme = if headers.contains_key("x-forwarded-proto") {
+        headers.get("x-forwarded-proto")
+            .and_then(|h| h.to_str().ok())
+            .unwrap_or("https")
+    } else {
+        "https"
+    };
+    
+    // Try to get version from update server if available
+    let (version, source) = if let Some(update_server) = get_update_server_url() {
+        // Try to fetch version from update server
+        let url = format!("{}/api/v1/agent/version", update_server.trim_end_matches('/'));
+        if let Ok(response) = reqwest::get(&url).await {
+            if let Ok(json) = response.json::<serde_json::Value>().await {
+                if let Some(v) = json.get("version").and_then(|v| v.as_str()) {
+                    (v.to_string(), "update_server".to_string())
+                } else {
+                    ("0.1.0".to_string(), "local".to_string())
+                }
+            } else {
+                ("0.1.0".to_string(), "local".to_string())
+            }
+        } else {
+            ("0.1.0".to_string(), "local".to_string())
+        }
+    } else {
+        ("0.1.0".to_string(), "local".to_string())
+    };
+    
+    Json(AgentVersionResponse {
+        version,
+        download_url: format!("{}://{}/api/v1/agent/", scheme, host),
+        source,
+    })
+}
+
+/// GET /api/v1/agent/install.sh - Get Linux installer script
+async fn get_agent_install_script(
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    // Get base URL from request
+    let host = headers
+        .get(header::HOST)
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("localhost:8443");
+    let scheme = if headers.contains_key("x-forwarded-proto") {
+        headers.get("x-forwarded-proto")
+            .and_then(|h| h.to_str().ok())
+            .unwrap_or("https")
+    } else {
+        "https"
+    };
+    let base_url = format!("{}://{}", scheme, host);
+    
+    let script = format!(r#"#!/bin/bash
+# Quantix Guest Agent Installer
+# Generated by Quantix Node Daemon
+# Usage: curl -sSL {base_url}/api/v1/agent/install.sh | sudo bash
+
+set -e
+
+AGENT_VERSION="0.1.0"
+NODE_URL="{base_url}"
+
+echo "[Quantix] Installing Quantix Guest Agent v${{AGENT_VERSION}}..."
+
+# Detect architecture
+ARCH=$(uname -m)
+case $ARCH in
+    x86_64) ARCH="amd64" ;;
+    aarch64) ARCH="arm64" ;;
+    *) echo "[Quantix] Unsupported architecture: $ARCH"; exit 1 ;;
+esac
+
+echo "[Quantix] Detected architecture: $ARCH"
+
+# Detect OS
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS_ID="${{ID}}"
+else
+    echo "[Quantix] Cannot detect OS"
+    OS_ID="unknown"
+fi
+
+echo "[Quantix] Detected OS: $OS_ID"
+
+# Create config directories
+mkdir -p /etc/limiquantix/pre-freeze.d
+mkdir -p /etc/limiquantix/post-thaw.d
+
+# Install based on OS
+case "${{OS_ID}}" in
+    ubuntu|debian)
+        echo "[Quantix] Installing via .deb package..."
+        TEMP_DEB=$(mktemp)
+        curl -fsSL "${{NODE_URL}}/api/v1/agent/linux/${{ARCH}}.deb" -o "$TEMP_DEB"
+        dpkg -i "$TEMP_DEB" || apt-get install -f -y
+        rm -f "$TEMP_DEB"
+        ;;
+        
+    rhel|centos|fedora|rocky|almalinux)
+        echo "[Quantix] Installing via .rpm package..."
+        TEMP_RPM=$(mktemp)
+        curl -fsSL "${{NODE_URL}}/api/v1/agent/linux/${{ARCH}}.rpm" -o "$TEMP_RPM"
+        rpm -ivh "$TEMP_RPM" || yum localinstall -y "$TEMP_RPM" || dnf install -y "$TEMP_RPM"
+        rm -f "$TEMP_RPM"
+        ;;
+        
+    *)
+        echo "[Quantix] Installing via binary..."
+        curl -fsSL "${{NODE_URL}}/api/v1/agent/linux/${{ARCH}}" -o /usr/local/bin/limiquantix-agent
+        chmod +x /usr/local/bin/limiquantix-agent
+        
+        # Create systemd service
+        cat > /etc/systemd/system/limiquantix-agent.service << 'EOF'
+[Unit]
+Description=Quantix Guest Agent
+After=network.target
+ConditionVirtualization=vm
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/limiquantix-agent
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        systemctl daemon-reload
+        ;;
+esac
+
+# Enable and start the service
+if command -v systemctl &> /dev/null; then
+    systemctl enable limiquantix-agent 2>/dev/null || true
+    systemctl start limiquantix-agent 2>/dev/null || true
+fi
+
+echo "[Quantix] Agent installed and running!"
+echo "[Quantix] Check status with: systemctl status limiquantix-agent"
+"#, base_url = base_url);
+
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "text/x-shellscript"),
+            (header::CONTENT_DISPOSITION, "attachment; filename=install.sh"),
+        ],
+        script,
+    )
+}
+
+/// GET /api/v1/agent/linux/:arch - Download agent binary
+async fn download_agent_binary(
+    Path(arch): Path<String>,
+) -> impl IntoResponse {
+    // Validate architecture
+    if arch != "amd64" && arch != "arm64" {
+        return (
+            StatusCode::BAD_REQUEST,
+            [
+                (header::CONTENT_TYPE, "application/json"),
+            ],
+            format!(r#"{{"error": "invalid_arch", "message": "Unsupported architecture: {}. Use: amd64 or arm64"}}"#, arch),
+        ).into_response();
+    }
+    
+    let binary_name = "limiquantix-agent";
+    
+    // Try to find the binary in local locations first
+    let locations = [
+        format!("/data/share/quantix-agent/limiquantix-agent-linux-{}", arch),
+        format!("/data/share/quantix-agent/{}", binary_name),
+        format!("/opt/limiquantix/agent/{}", binary_name),
+        format!("/var/lib/limiquantix/agent/{}", binary_name),
+        format!("./agent-binaries/{}-{}", binary_name, arch),
+    ];
+    
+    for path in &locations {
+        if let Ok(data) = tokio::fs::read(path).await {
+            info!(path = %path, size = data.len(), source = "local", "Serving agent binary");
+            return (
+                StatusCode::OK,
+                [
+                    (header::CONTENT_TYPE, "application/octet-stream"),
+                    (header::CONTENT_DISPOSITION, &format!("attachment; filename={}", binary_name)),
+                ],
+                data,
+            ).into_response();
+        }
+    }
+    
+    // Try to proxy from update server
+    if let Some(data) = proxy_from_update_server(&format!("linux/{}", arch)).await {
+        info!(arch = %arch, size = data.len(), source = "update_server", "Serving agent binary via proxy");
+        return (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, "application/octet-stream"),
+                (header::CONTENT_DISPOSITION, &format!("attachment; filename={}", binary_name)),
+            ],
+            data,
+        ).into_response();
+    }
+    
+    // Binary not found anywhere
+    warn!(arch = %arch, "Agent binary not found locally or on update server");
+    (
+        StatusCode::NOT_FOUND,
+        [
+            (header::CONTENT_TYPE, "application/json"),
+        ],
+        format!(r#"{{
+    "error": "not_found",
+    "message": "Agent binary for {} not available locally or from update server",
+    "hint": "Publish guest-agent with: ./scripts/publish-update.sh --component guest-agent"
+}}"#, arch),
+    ).into_response()
+}
+
+/// GET /api/v1/agent/linux/:arch.deb - Download DEB package
+async fn download_agent_deb(
+    Path(arch): Path<String>,
+) -> impl IntoResponse {
+    // Remove .deb suffix if present
+    let arch = arch.trim_end_matches(".deb");
+    
+    // Validate architecture
+    if arch != "amd64" && arch != "arm64" {
+        return (
+            StatusCode::BAD_REQUEST,
+            [(header::CONTENT_TYPE, "application/json")],
+            format!(r#"{{"error": "invalid_arch", "message": "Unsupported architecture: {}"}}"#, arch),
+        ).into_response();
+    }
+    
+    // Try multiple filename patterns
+    let filenames = [
+        format!("limiquantix-guest-agent_*_{}.deb", arch),
+        format!("limiquantix-guest-agent_0.1.0_{}.deb", arch),
+    ];
+    
+    let base_locations = [
+        "/data/share/quantix-agent",
+        "/opt/limiquantix/agent",
+        "/var/lib/limiquantix/agent",
+        "./agent-binaries",
+    ];
+    
+    // Try to find matching .deb file
+    for base in &base_locations {
+        for pattern in &filenames {
+            let full_pattern = format!("{}/{}", base, pattern);
+            if let Ok(paths) = glob::glob(&full_pattern) {
+                for entry in paths.flatten() {
+                    if let Ok(data) = tokio::fs::read(&entry).await {
+                        let filename = entry.file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_else(|| format!("limiquantix-guest-agent_{}.deb", arch));
+                        info!(path = %entry.display(), size = data.len(), source = "local", "Serving agent DEB package");
+                        return (
+                            StatusCode::OK,
+                            [
+                                (header::CONTENT_TYPE, "application/vnd.debian.binary-package"),
+                                (header::CONTENT_DISPOSITION, &format!("attachment; filename={}", filename)),
+                            ],
+                            data,
+                        ).into_response();
+                    }
+                }
+            }
+        }
+        
+        // Also try exact filename without glob
+        let exact_path = format!("{}/limiquantix-guest-agent_0.1.0_{}.deb", base, arch);
+        if let Ok(data) = tokio::fs::read(&exact_path).await {
+            let filename = format!("limiquantix-guest-agent_0.1.0_{}.deb", arch);
+            info!(path = %exact_path, size = data.len(), source = "local", "Serving agent DEB package");
+            return (
+                StatusCode::OK,
+                [
+                    (header::CONTENT_TYPE, "application/vnd.debian.binary-package"),
+                    (header::CONTENT_DISPOSITION, &format!("attachment; filename={}", filename)),
+                ],
+                data,
+            ).into_response();
+        }
+    }
+    
+    // Try to proxy from update server
+    if let Some(data) = proxy_from_update_server(&format!("linux/{}.deb", arch)).await {
+        let filename = format!("limiquantix-guest-agent_{}.deb", arch);
+        info!(arch = %arch, size = data.len(), source = "update_server", "Serving agent DEB package via proxy");
+        return (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, "application/vnd.debian.binary-package"),
+                (header::CONTENT_DISPOSITION, &format!("attachment; filename={}", filename)),
+            ],
+            data,
+        ).into_response();
+    }
+    
+    warn!(arch = %arch, "Agent DEB package not found locally or on update server");
+    (
+        StatusCode::NOT_FOUND,
+        [(header::CONTENT_TYPE, "application/json")],
+        format!(r#"{{"error": "not_found", "message": "DEB package for {} not available", "hint": "Publish guest-agent with: ./scripts/publish-update.sh --component guest-agent"}}"#, arch),
+    ).into_response()
+}
+
+/// GET /api/v1/agent/linux/:arch.rpm - Download RPM package
+async fn download_agent_rpm(
+    Path(arch): Path<String>,
+) -> impl IntoResponse {
+    // Remove .rpm suffix if present
+    let arch = arch.trim_end_matches(".rpm");
+    
+    // Validate architecture and convert to RPM naming
+    let rpm_arch = match arch {
+        "amd64" => "x86_64",
+        "arm64" => "aarch64",
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                [(header::CONTENT_TYPE, "application/json")],
+                format!(r#"{{"error": "invalid_arch", "message": "Unsupported architecture: {}"}}"#, arch),
+            ).into_response();
+        }
+    };
+    
+    let base_locations = [
+        "/data/share/quantix-agent",
+        "/opt/limiquantix/agent",
+        "/var/lib/limiquantix/agent",
+        "./agent-binaries",
+    ];
+    
+    // Try to find matching .rpm file with various naming patterns
+    let patterns = [
+        format!("limiquantix-guest-agent-*.{}.rpm", rpm_arch),
+        format!("limiquantix-guest-agent-0.1.0-1.{}.rpm", rpm_arch),
+    ];
+    
+    for base in &base_locations {
+        for pattern in &patterns {
+            let full_pattern = format!("{}/{}", base, pattern);
+            if let Ok(paths) = glob::glob(&full_pattern) {
+                for entry in paths.flatten() {
+                    if let Ok(data) = tokio::fs::read(&entry).await {
+                        let filename = entry.file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_else(|| format!("limiquantix-guest-agent.{}.rpm", rpm_arch));
+                        info!(path = %entry.display(), size = data.len(), source = "local", "Serving agent RPM package");
+                        return (
+                            StatusCode::OK,
+                            [
+                                (header::CONTENT_TYPE, "application/x-rpm"),
+                                (header::CONTENT_DISPOSITION, &format!("attachment; filename={}", filename)),
+                            ],
+                            data,
+                        ).into_response();
+                    }
+                }
+            }
+        }
+        
+        // Also try exact filename without glob
+        let exact_path = format!("{}/limiquantix-guest-agent-0.1.0-1.{}.rpm", base, rpm_arch);
+        if let Ok(data) = tokio::fs::read(&exact_path).await {
+            let filename = format!("limiquantix-guest-agent-0.1.0-1.{}.rpm", rpm_arch);
+            info!(path = %exact_path, size = data.len(), source = "local", "Serving agent RPM package");
+            return (
+                StatusCode::OK,
+                [
+                    (header::CONTENT_TYPE, "application/x-rpm"),
+                    (header::CONTENT_DISPOSITION, &format!("attachment; filename={}", filename)),
+                ],
+                data,
+            ).into_response();
+        }
+    }
+    
+    // Try to proxy from update server
+    if let Some(data) = proxy_from_update_server(&format!("linux/{}.rpm", arch)).await {
+        let filename = format!("limiquantix-guest-agent.{}.rpm", rpm_arch);
+        info!(arch = %arch, size = data.len(), source = "update_server", "Serving agent RPM package via proxy");
+        return (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, "application/x-rpm"),
+                (header::CONTENT_DISPOSITION, &format!("attachment; filename={}", filename)),
+            ],
+            data,
+        ).into_response();
+    }
+    
+    warn!(arch = %arch, "Agent RPM package not found locally or on update server");
+    (
+        StatusCode::NOT_FOUND,
+        [(header::CONTENT_TYPE, "application/json")],
+        format!(r#"{{"error": "not_found", "message": "RPM package for {} not available", "hint": "Publish guest-agent with: ./scripts/publish-update.sh --component guest-agent"}}"#, arch),
+    ).into_response()
 }
 
 // ============================================================================
