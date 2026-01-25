@@ -1,180 +1,93 @@
-# Workflow State - VM State Reset Feature
+# Workflow State - VM Snapshot Fix
 
-## Feature: Reset Stuck VM State
+## Feature: Fix Snapshot Creation with invtsc CPU Flag
 
-Added a new `reset_state` REST endpoint and UI buttons to recover VMs stuck in transitional states (STOPPING, STARTING, CREATING, etc.).
+Fixed the VM snapshot creation to support disk-only snapshots when the VM has the `invtsc` (invariant TSC) CPU flag enabled, which prevents memory state migration.
 
 ### Problem Solved
 
-When a VM operation fails mid-way (e.g., stop command times out, node becomes unreachable during operation), the VM can get stuck in a transitional state like `STOPPING`. In this state:
-- `CanStart()` returns false (only allows STOPPED or PAUSED)
-- `CanStop()` returns false (only allows RUNNING or PAUSED)
-- The VM is effectively orphaned and cannot be controlled
+When trying to create a snapshot of a running VM with `invtsc` CPU flag or `host-passthrough` CPU model, the operation would fail with:
+```
+cannot migrate domain: State blocked by non-migratable CPU device (invtsc flag)
+```
+
+This happened because the snapshot was trying to save the memory state, which requires the CPU state to be migratable.
+
+### Solution
+
+Added `disk_only` parameter throughout the snapshot creation chain:
+- When `includeMemory` checkbox is unchecked (default), use `--disk-only` flag
+- This allows snapshots of VMs with any CPU configuration
+- Memory snapshots (`includeMemory=true`) still work for VMs without invtsc
 
 ### Implementation
 
-#### 1. VM Service Method (`backend/internal/services/vm/service.go`)
-- Added `ResetVMState(ctx, vmID, forceToStopped)` method
-- If `forceToStopped=false` and VM is assigned to a node:
-  - Queries the actual VM state from the hypervisor via `GetVMStatus`
-  - Maps the hypervisor state to domain state
-  - Updates control plane to match reality
-- If `forceToStopped=true` or node is unreachable:
-  - Forces state to STOPPED
-- Added `mapNodePowerStateToDomain()` helper to convert node daemon PowerState enum to domain VMState
+#### 1. Proto Definition (`agent/limiquantix-proto/proto/node_daemon.proto`)
+- Added `disk_only` field (field 5) to `CreateSnapshotRequest` message
 
-#### 2. REST Endpoint (`backend/internal/server/vm_rest.go`)
-- Added `POST /api/vms/{id}/reset_state` endpoint
-- Query parameter: `force=true` to force state to STOPPED without querying hypervisor
-- Returns updated VM state
+#### 2. Hypervisor Trait (`agent/limiquantix-hypervisor/src/traits.rs`)
+- Updated `create_snapshot()` signature to accept `disk_only: bool` parameter
 
-#### 3. Frontend API Client (`frontend/src/lib/api-client.ts`)
-- Added `vmApi.resetState(id, force)` method for REST API call
+#### 3. Libvirt Backend (`agent/limiquantix-hypervisor/src/libvirt/backend.rs`)
+- Updated implementation to pass `--disk-only` flag to virsh when `disk_only=true`
 
-#### 4. Frontend Hook (`frontend/src/hooks/useVMs.ts`)
-- Added `useResetVMState()` hook with success/error handling
+#### 4. Mock Backend (`agent/limiquantix-hypervisor/src/mock.rs`)
+- Updated implementation to accept `disk_only` parameter
+- Updated test to pass `disk_only: false`
 
-#### 5. Frontend UI (`frontend/src/pages/VMDetail.tsx`)
-- Added "Reset State" and "Force Reset State" options to the VM dropdown menu
-- "Reset State" queries the hypervisor for actual state
-- "Force Reset State" forces state to STOPPED (for when node is unreachable)
+#### 5. Node Service (`agent/limiquantix-node/src/service.rs`)
+- Updated `create_snapshot()` to pass `req.disk_only` to hypervisor
 
-#### 6. Fixed Rust Compilation Errors
-- Fixed `http_server.rs` and `service.rs` to use `list_vms()` instead of non-existent `get_vm()` method
-- Changed from `state.hypervisor` to `state.service.hypervisor` to access hypervisor through service
+#### 6. HTTP Server (`agent/limiquantix-node/src/http_server.rs`)
+- Added `include_memory` field to `CreateSnapshotRequest` struct
+- Logic: `disk_only = !include_memory.unwrap_or(false)`
+- Default: disk-only (safer, works with all CPU configs)
 
 ### Files Changed
 
 ```
-backend/internal/services/vm/service.go (MODIFIED)
-backend/internal/server/vm_rest.go (MODIFIED)
-frontend/src/lib/api-client.ts (MODIFIED)
-frontend/src/hooks/useVMs.ts (MODIFIED)
-frontend/src/pages/VMDetail.tsx (MODIFIED)
-agent/limiquantix-node/src/http_server.rs (MODIFIED - fixed compilation error)
-agent/limiquantix-node/src/service.rs (MODIFIED - fixed compilation error)
+agent/limiquantix-proto/proto/node_daemon.proto (MODIFIED)
+agent/limiquantix-hypervisor/src/traits.rs (MODIFIED)
+agent/limiquantix-hypervisor/src/libvirt/backend.rs (MODIFIED)
+agent/limiquantix-hypervisor/src/mock.rs (MODIFIED)
+agent/limiquantix-node/src/service.rs (MODIFIED)
+agent/limiquantix-node/src/http_server.rs (MODIFIED)
 ```
 
 ### Usage
 
-**From UI:**
-1. Go to VM detail page
-2. Click the "..." dropdown menu
-3. Select "Reset State" to query hypervisor for actual state
-4. Or select "Force Reset State" to force state to STOPPED
+From the UI:
+1. Go to VM detail page → Snapshots tab
+2. Click "Create Snapshot"
+3. Leave "Include memory state" **unchecked** (default) for disk-only snapshot
+4. Check "Include memory state" only if you need memory state AND the VM doesn't have invtsc/host-passthrough CPU
 
-**From CLI:**
+From API:
 ```bash
-# Query hypervisor for actual state (recommended)
-curl -X POST "http://192.168.0.100:8080/api/vms/{vm-id}/reset_state"
+# Disk-only snapshot (works with any CPU config)
+curl -X POST "http://host:8443/api/v1/vms/{vm_id}/snapshots" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "snap1", "includeMemory": false}'
 
-# Force state to STOPPED (when node is unreachable)
-curl -X POST "http://192.168.0.100:8080/api/vms/{vm-id}/reset_state?force=true"
+# Memory snapshot (requires migratable CPU)
+curl -X POST "http://host:8443/api/v1/vms/{vm_id}/snapshots" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "snap1", "includeMemory": true}'
 ```
 
-### Response Example
-```json
-{
-  "success": true,
-  "message": "VM state reset to STOPPED",
-  "vm": {
-    "id": "vm-123",
-    "name": "Test-VM",
-    "state": "STOPPED",
-    "node_id": "node-1"
-  }
-}
+### Rebuild Instructions
+
+After these changes, rebuild the agent:
+```bash
+cd agent
+cargo build --release -p limiquantix-node
 ```
 
----
-
-# Previous: VM QEMU Logs Feature
-
-## Feature: VM Logs Tab
-
-Added a new "Logs" tab to the VM detail page in both QvDC and QHCI that displays QEMU/libvirt logs for troubleshooting VM issues.
-
-### Problem Solved
-
-When VMs fail to start or crash during operation, it's difficult to diagnose the issue without SSH access to the hypervisor host. Common issues like:
-- Disk I/O errors ("No space left on device")
-- CPU/memory configuration problems
-- Network issues
-- Boot failures
-
-Are all logged in `/var/log/libvirt/qemu/{vm_name}.log` but weren't accessible from the UI.
-
-### Implementation
-
-#### 1. Node Daemon HTTP API (`agent/limiquantix-node/src/http_server.rs`)
-- Added `GET /api/v1/vms/:vm_id/logs?lines=N` endpoint
-- Returns JSON with:
-  - `qemuLog`: Last N lines of the QEMU log
-  - `logPath`: Path to the log file
-  - `logSizeBytes`: Total file size
-  - `linesReturned`: Number of lines returned
-  - `truncated`: Whether the log was truncated
-  - `lastModified`: Timestamp of last modification
-
-#### 2. Node Daemon gRPC Service (`agent/limiquantix-node/src/service.rs`)
-- Added `GetVMLogs` gRPC method
-- Reads from `/var/log/libvirt/qemu/{vm_name}.log`
-
-#### 3. QvDC Backend Proxy (`backend/internal/server/vm_rest.go`)
-- Added `GET /api/vms/{id}/logs` endpoint
-- Proxies request to the node daemon where the VM is running
-- Looks up VM's node assignment and forwards request
-
-#### 4. QvDC Frontend (`frontend/src/components/vm/VMLogsPanel.tsx`)
-- New `VMLogsPanel` component with:
-  - Line count selector (50, 100, 200, 500, 1000)
-  - Auto-refresh toggle (5 second interval)
-  - Manual refresh button
-  - Copy to clipboard
-  - Download as file
-  - Error highlighting (red for errors, yellow for warnings)
-  - Help text showing common issues to look for
-
-#### 5. QvDC VM Detail Page (`frontend/src/pages/VMDetail.tsx`)
-- Added "Logs" tab between "Monitoring" and "Events"
-- Displays `VMLogsPanel` component
-
-#### 6. QHCI Frontend (`quantix-host-ui/src/components/vm/VMLogsPanel.tsx`)
-- Same component adapted for QHCI (direct node daemon access)
-
-#### 7. QHCI VM Detail Page (`quantix-host-ui/src/pages/VMDetail.tsx`)
-- Added "Logs" tab to the tab list
-- Added `FileText` icon import
-
-### Files Changed
-
+Deploy to hosts:
+```bash
+scp target/release/qx-node root@192.168.0.101:/usr/local/bin/
+ssh root@192.168.0.101 "rc-service qx-node restart"
 ```
-frontend/src/components/vm/VMLogsPanel.tsx (NEW)
-frontend/src/pages/VMDetail.tsx (MODIFIED)
-quantix-host-ui/src/components/vm/VMLogsPanel.tsx (NEW)
-quantix-host-ui/src/pages/VMDetail.tsx (MODIFIED)
-backend/internal/server/vm_rest.go (MODIFIED)
-backend/internal/server/server.go (MODIFIED)
-agent/limiquantix-node/src/http_server.rs (MODIFIED - previous session)
-agent/limiquantix-node/src/service.rs (MODIFIED - previous session)
-agent/limiquantix-proto/proto/node_daemon.proto (MODIFIED - previous session)
-```
-
-### Usage
-
-1. Navigate to a VM's detail page
-2. Click the "Logs" tab
-3. Select number of lines to display (default: 100)
-4. Enable auto-refresh if monitoring a running VM
-5. Look for highlighted errors (red) and warnings (yellow)
-6. Copy or download logs for sharing
-
-### Common Issues Highlighted
-
-- **IO error** - Disk space full or storage issues
-- **terminating on signal** - VM was force-stopped
-- **permission denied** - File/device access issues
-- **timeout** - Network or storage latency
 
 ---
 

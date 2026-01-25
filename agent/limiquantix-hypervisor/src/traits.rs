@@ -106,11 +106,18 @@ pub trait Hypervisor: Send + Sync {
     // =========================================================================
     
     /// Create a snapshot.
+    /// 
+    /// # Arguments
+    /// * `vm_id` - The VM to snapshot
+    /// * `name` - Name for the snapshot
+    /// * `description` - Optional description
+    /// * `disk_only` - If true, only snapshot disks (no memory state). Required for VMs with invtsc/host-passthrough CPU.
     async fn create_snapshot(
         &self, 
         vm_id: &str, 
         name: &str, 
-        description: &str
+        description: &str,
+        disk_only: bool,
     ) -> Result<SnapshotInfo>;
     
     /// Revert to a snapshot.

@@ -687,13 +687,23 @@ export function VMList() {
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        className="p-1.5 rounded-md hover:bg-bg-active text-text-muted hover:text-text-primary transition-colors"
-                        title="More"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreHorizontal className="w-3.5 h-3.5" />
-                      </button>
+<button
+                                        className="p-1.5 rounded-md hover:bg-bg-active text-text-muted hover:text-text-primary transition-colors"
+                                        title="More"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // Open context menu at button position
+                                          const rect = e.currentTarget.getBoundingClientRect();
+                                          setContextMenu({
+                                            visible: true,
+                                            x: rect.left,
+                                            y: rect.bottom + 4,
+                                            vm,
+                                          });
+                                        }}
+                                      >
+                                        <MoreHorizontal className="w-3.5 h-3.5" />
+                                      </button>
                     </>
                   )}
                 </div>

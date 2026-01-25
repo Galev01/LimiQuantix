@@ -637,13 +637,11 @@ export function VMDetail() {
         label: 'Reset State',
         icon: <RotateCcw className="w-4 h-4" />,
         onClick: () => handleResetState(false),
-        description: 'Query hypervisor for actual state',
       },
       {
         label: 'Force Reset State',
         icon: <RotateCcw className="w-4 h-4" />,
         onClick: () => handleResetState(true),
-        description: 'Force state to STOPPED',
         variant: 'danger',
         divider: true,
       },

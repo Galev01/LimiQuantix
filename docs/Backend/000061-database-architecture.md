@@ -462,21 +462,48 @@ var _ storage.PoolRepository = (*StoragePoolRepository)(nil)
 
 ### Repository Files
 
-| File | Entity |
-|------|--------|
-| `vm_repository.go` | Virtual Machines |
-| `node_repository.go` | Hypervisor Nodes |
-| `storage_pool_repository.go` | Storage Pools |
-| `volume_repository.go` | Volumes |
-| `cluster_repository.go` | Clusters |
-| `folder_repository.go` | VM Folders |
-| `audit_repository.go` | Audit Logs |
-| `role_repository.go` | Roles |
-| `api_key_repository.go` | API Keys |
-| `sso_config_repository.go` | SSO Configurations |
-| `organization_repository.go` | Organizations |
-| `admin_email_repository.go` | Admin Emails |
-| `global_rule_repository.go` | Global Rules |
+| File | Entity | Description |
+|------|--------|-------------|
+| `vm_repository.go` | Virtual Machines | CRUD for VMs, power state, events |
+| `node_repository.go` | Hypervisor Nodes | Node registration, status, heartbeat |
+| `storage_pool_repository.go` | Storage Pools | Pool management, capacity tracking |
+| `volume_repository.go` | Volumes | Virtual disk management |
+| `snapshot_repository.go` | VM Snapshots | Snapshot persistence, sync with hypervisor |
+| `cluster_repository.go` | Clusters | Cluster configuration, HA/DRS settings |
+| `folder_repository.go` | VM Folders | Hierarchical VM organization |
+| `image_repository.go` | OS Images | Template images, OVA management |
+| `customization_spec_repository.go` | Customization Specs | VM provisioning templates |
+| `audit_repository.go` | Audit Logs | User action history |
+| `role_repository.go` | Roles | RBAC role definitions |
+| `api_key_repository.go` | API Keys | API authentication tokens |
+| `sso_config_repository.go` | SSO Configurations | OIDC/SAML/LDAP providers |
+| `organization_repository.go` | Organizations | Multi-org support |
+| `admin_email_repository.go` | Admin Emails | Notification contacts |
+| `global_rule_repository.go` | Global Rules | Policy engine rules |
+
+### Snapshot Repository
+
+The snapshot repository ensures VM snapshots are persisted to the control plane database for consistency, even when the hypervisor is temporarily unavailable.
+
+```go
+// backend/internal/repository/postgres/snapshot_repository.go
+type SnapshotRepository struct {
+    pool *pgxpool.Pool
+}
+
+// Key methods:
+// - Create(ctx, snapshot, vmSpec) - Persist snapshot with VM state at creation time
+// - Get(ctx, id) - Retrieve snapshot by ID
+// - ListByVM(ctx, vmID) - List all snapshots for a VM
+// - Delete(ctx, id) - Remove snapshot from database
+// - SyncFromHypervisor(ctx, vmID, snapshots) - Sync hypervisor state to database
+```
+
+**Sync Behavior:**
+- When `ListSnapshots` is called, the service fetches from the hypervisor and syncs to DB
+- Snapshots deleted on hypervisor are marked as `DELETED` in DB (not removed)
+- Snapshots created via API are persisted immediately after hypervisor creation
+- The `vm_state` JSONB column stores the VM spec at snapshot creation time for recovery
 
 ### Implementation Selection
 
@@ -490,13 +517,20 @@ func (s *Server) initRepositories() {
         s.vmRepo = postgres.NewVMRepository(s.db, s.logger)
         s.nodeRepo = postgres.NewNodeRepository(s.db, s.logger)
         s.storagePoolRepo = postgres.NewStoragePoolRepository(s.db, s.logger)
+        s.snapshotRepo = postgres.NewSnapshotRepository(s.db.Pool())
         s.logger.Info("Using PostgreSQL repositories (persistent)")
     } else {
         // Development: In-memory (data lost on restart)
         s.vmRepo = memory.NewVMRepository()
         s.nodeRepo = memory.NewNodeRepository()
         s.storagePoolRepo = memory.NewStoragePoolRepository()
+        // Note: Snapshots require PostgreSQL - not persisted in dev mode
         s.logger.Warn("Using in-memory repositories (data lost on restart)")
+    }
+    
+    // Wire snapshot repository to VM service for database persistence
+    if s.snapshotRepo != nil {
+        s.vmService.SetSnapshotRepository(s.snapshotRepo)
     }
 }
 ```
@@ -866,6 +900,69 @@ FROM audit_log
 ORDER BY created_at DESC
 LIMIT 100;
 ```
+
+---
+
+## Data Consistency: Hypervisor vs Control Plane
+
+### The Consistency Challenge
+
+Quantix-KVM operates with data stored in two places:
+1. **Control Plane (QvDC)** - PostgreSQL database with VM metadata, configurations, snapshots
+2. **Hypervisor (QHCI)** - libvirt/KVM with actual VM definitions, disk images, snapshots
+
+These can become out of sync when:
+- A hypervisor is offline and changes are made via the control plane
+- An admin makes changes directly on the hypervisor (virsh, virt-manager)
+- Network partitions occur between control plane and hypervisors
+
+### Consistency Strategy
+
+| Entity | Source of Truth | Sync Direction | Sync Trigger |
+|--------|-----------------|----------------|--------------|
+| VM Definition | Control Plane | QvDC → QHCI | On VM operations |
+| VM Power State | Hypervisor | QHCI → QvDC | Heartbeat, state reconciliation |
+| Snapshots | Hypervisor | QHCI → QvDC | On ListSnapshots, CreateSnapshot |
+| Disk Images | Hypervisor | QHCI → QvDC | On volume operations |
+| Network Config | Control Plane | QvDC → QHCI | On NIC operations |
+| HA Policy | Control Plane | QvDC → QHCI | On UpdateVM |
+
+### Snapshot Consistency
+
+Snapshots are stored on the hypervisor (libvirt) but also persisted to the control plane database:
+
+```
+┌─────────────────┐                    ┌─────────────────┐
+│   QvDC (DB)     │                    │  QHCI (libvirt) │
+│                 │                    │                 │
+│  vm_snapshots   │◄──── Sync ────────│  virsh snapshot │
+│  - id           │                    │  - name         │
+│  - vm_id        │                    │  - parent       │
+│  - name         │                    │  - state        │
+│  - vm_state     │                    │  - disk files   │
+│  - state        │                    │                 │
+└─────────────────┘                    └─────────────────┘
+```
+
+**Why persist to DB?**
+1. **Availability** - View snapshot history even when hypervisor is offline
+2. **Recovery** - `vm_state` JSONB stores VM config at snapshot time
+3. **Audit** - Track who created snapshots and when
+4. **Consistency** - Detect snapshots deleted outside control plane
+
+### State Reconciliation
+
+The `origin` and `is_managed` fields on VMs enable state reconciliation:
+
+```sql
+-- VMs created via control plane (managed)
+SELECT * FROM virtual_machines WHERE origin = 'control-plane' AND is_managed = true;
+
+-- VMs discovered on hypervisor (unmanaged until adopted)
+SELECT * FROM virtual_machines WHERE origin = 'host-discovered' AND is_managed = false;
+```
+
+When a managed VM is deleted outside the control plane, it's marked as `LOST` rather than deleted from the database.
 
 ---
 

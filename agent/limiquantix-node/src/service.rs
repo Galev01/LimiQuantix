@@ -1885,7 +1885,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         let req = request.into_inner();
         
-        let snapshot = self.hypervisor.create_snapshot(&req.vm_id, &req.name, &req.description).await
+        let snapshot = self.hypervisor.create_snapshot(&req.vm_id, &req.name, &req.description, req.disk_only).await
             .map_err(|e| Status::internal(e.to_string()))?;
         
         info!(snapshot_id = %snapshot.id, "Snapshot created");
@@ -3025,6 +3025,77 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 }))
             }
         }
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id))]
+    async fn attach_nic(
+        &self,
+        request: Request<limiquantix_proto::AttachNicRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        
+        let nic_spec = req.nic.ok_or_else(|| Status::invalid_argument("NIC spec is required"))?;
+        
+        info!(nic_id = %nic_spec.id, mac = %nic_spec.mac_address, bridge = %nic_spec.bridge, "Attaching NIC to VM");
+        
+        // Convert proto NicSpec to hypervisor NicConfig
+        let nic_config = NicConfig {
+            id: nic_spec.id.clone(),
+            mac_address: if nic_spec.mac_address.is_empty() {
+                None
+            } else {
+                Some(nic_spec.mac_address.clone())
+            },
+            bridge: if nic_spec.bridge.is_empty() {
+                None
+            } else {
+                Some(nic_spec.bridge.clone())
+            },
+            network: if nic_spec.network.is_empty() {
+                None
+            } else {
+                Some(nic_spec.network.clone())
+            },
+            model: Self::convert_nic_model(nic_spec.model),
+            ovn_port_name: None,
+            ovs_bridge: None,
+        };
+        
+        // Call the hypervisor to attach the NIC
+        self.hypervisor
+            .attach_nic(&req.vm_id, nic_config)
+            .await
+            .map_err(|e| Status::internal(format!("Failed to attach NIC: {}", e)))?;
+        
+        info!(nic_id = %nic_spec.id, "NIC attached successfully");
+        
+        // Trigger immediate poll to update state
+        self.trigger_immediate_poll().await;
+        
+        Ok(Response::new(()))
+    }
+    
+    #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, nic_id = %request.get_ref().nic_id))]
+    async fn detach_nic(
+        &self,
+        request: Request<limiquantix_proto::DetachNicRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+        
+        info!("Detaching NIC from VM");
+        
+        // Call the hypervisor to detach the NIC
+        self.hypervisor
+            .detach_nic(&req.vm_id, &req.nic_id)
+            .await
+            .map_err(|e| Status::internal(format!("Failed to detach NIC: {}", e)))?;
+        
+        info!("NIC detached successfully");
+        
+        // Trigger immediate poll to update state
+        self.trigger_immediate_poll().await;
+        
+        Ok(Response::new(()))
     }
     
     #[instrument(skip(self, request), fields(vm_id = %request.get_ref().vm_id, device = %request.get_ref().device))]

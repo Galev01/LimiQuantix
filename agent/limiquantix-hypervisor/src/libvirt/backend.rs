@@ -369,8 +369,8 @@ impl Hypervisor for LibvirtBackend {
         })
     }
     
-    #[instrument(skip(self), fields(vm_id = %vm_id, name = %name))]
-    async fn create_snapshot(&self, vm_id: &str, name: &str, description: &str) -> Result<SnapshotInfo> {
+    #[instrument(skip(self), fields(vm_id = %vm_id, name = %name, disk_only = %disk_only))]
+    async fn create_snapshot(&self, vm_id: &str, name: &str, description: &str, disk_only: bool) -> Result<SnapshotInfo> {
         info!("Creating snapshot");
         
         // Verify the domain exists
@@ -393,6 +393,14 @@ impl Hypervisor for LibvirtBackend {
             args.push(description);
         }
         
+        // Add --disk-only flag if requested
+        // This is required for VMs with invtsc (invariant TSC) CPU flag or host-passthrough CPU
+        // as they cannot save memory state (non-migratable)
+        if disk_only {
+            args.push("--disk-only");
+            info!("Using disk-only snapshot mode");
+        }
+        
         let output = std::process::Command::new("virsh")
             .args(&args)
             .output()
@@ -403,7 +411,7 @@ impl Hypervisor for LibvirtBackend {
             return Err(HypervisorError::SnapshotFailed(format!("virsh snapshot-create-as failed: {}", stderr)));
         }
         
-        info!(snapshot = %name, "Snapshot created via virsh");
+        info!(snapshot = %name, disk_only = %disk_only, "Snapshot created via virsh");
         
         Ok(SnapshotInfo {
             id: name.to_string(),
@@ -558,6 +566,26 @@ impl Hypervisor for LibvirtBackend {
             ));
         };
         
+        // First, try to add a PCIe root port to provide a slot for the NIC
+        // This is needed because Q35 machines have limited built-in PCI slots
+        // We'll try to add a root port, and if it fails (already exists or not supported), continue anyway
+        let root_port_index = self.find_next_root_port_index(&domain)?;
+        let root_port_xml = format!(
+            r#"<controller type='pci' index='{}' model='pcie-root-port'>
+                <model name='pcie-root-port'/>
+                <target chassis='{}' port='0x{:x}'/>
+            </controller>"#,
+            root_port_index,
+            root_port_index,
+            root_port_index + 0x10
+        );
+        
+        // Try to add the root port (ignore errors - it may already exist or not be needed)
+        match domain.attach_device(&root_port_xml) {
+            Ok(_) => info!(index = root_port_index, "Added PCIe root port for NIC"),
+            Err(e) => debug!(error = %e, "Could not add PCIe root port (may already exist)"),
+        }
+        
         let nic_xml = format!(
             r#"<interface type='{}'>
                 {}
@@ -571,10 +599,35 @@ impl Hypervisor for LibvirtBackend {
         );
         
         domain.attach_device(&nic_xml)
-            .map_err(|e| HypervisorError::Internal(e.to_string()))?;
+            .map_err(|e| HypervisorError::Internal(format!("Failed to attach NIC: {}", e)))?;
         
         info!("NIC attached");
         Ok(())
+    }
+    
+    /// Find the next available PCIe root port index by parsing the domain XML.
+    fn find_next_root_port_index(&self, domain: &Domain) -> Result<u32> {
+        let xml = domain.get_xml_desc(0)
+            .map_err(|e| HypervisorError::Internal(e.to_string()))?;
+        
+        // Find all existing controller indices
+        // Look for patterns like: <controller type='pci' index='X'
+        let mut max_index: u32 = 0;
+        for line in xml.lines() {
+            if line.contains("<controller type='pci'") && line.contains("index='") {
+                if let Some(start) = line.find("index='") {
+                    let rest = &line[start + 7..];
+                    if let Some(end) = rest.find('\'') {
+                        if let Ok(idx) = rest[..end].parse::<u32>() {
+                            max_index = max_index.max(idx);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Return next available index (at least 10 to avoid conflicts with built-in controllers)
+        Ok(max_index.max(9) + 1)
     }
     
     #[instrument(skip(self), fields(vm_id = %vm_id, nic_id = %nic_id))]

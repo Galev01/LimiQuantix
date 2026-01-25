@@ -409,3 +409,51 @@ Fixed stale host entries in the updates UI and corrected QHCI update response pa
 
 ### References
 - `backend/internal/services/update/service.go`
+
+---
+
+## VM State Reset Feature ✅
+
+**Completed:** January 25, 2026
+
+### Summary
+Added a new `reset_state` REST endpoint and UI buttons to recover VMs stuck in transitional states (STOPPING, STARTING, CREATING, etc.).
+
+### What Was Done
+- Added `ResetVMState(ctx, vmID, forceToStopped)` method to VM service
+- Added `POST /api/vms/{id}/reset_state` endpoint with optional `force` param
+- Added frontend API client method and React hook
+- Added "Reset State" and "Force Reset State" options to VM dropdown menu
+- Fixed Rust compilation errors in `http_server.rs` and `service.rs`
+
+### References
+- `backend/internal/services/vm/service.go`
+- `backend/internal/server/vm_rest.go`
+- `frontend/src/lib/api-client.ts`
+- `frontend/src/hooks/useVMs.ts`
+- `frontend/src/pages/VMDetail.tsx`
+
+---
+
+## VM QEMU Logs Feature ✅
+
+**Completed:** January 25, 2026
+
+### Summary
+Added a new "Logs" tab to the VM detail page that displays QEMU/libvirt logs for troubleshooting VM issues.
+
+### What Was Done
+- Added `GET /api/v1/vms/:vm_id/logs` endpoint to node daemon
+- Added `GetVMLogs` gRPC method to node service
+- Added proxy endpoint in QvDC backend
+- Created `VMLogsPanel` component with auto-refresh, copy, download features
+- Added "Logs" tab to VM detail pages in both QvDC and QHCI
+
+### References
+- `agent/limiquantix-node/src/http_server.rs`
+- `agent/limiquantix-node/src/service.rs`
+- `backend/internal/server/vm_rest.go`
+- `frontend/src/components/vm/VMLogsPanel.tsx`
+- `frontend/src/pages/VMDetail.tsx`
+- `quantix-host-ui/src/components/vm/VMLogsPanel.tsx`
+- `quantix-host-ui/src/pages/VMDetail.tsx`

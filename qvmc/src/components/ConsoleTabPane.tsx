@@ -551,44 +551,44 @@ export function ConsoleTabPane({
     [resolution]
   );
 
+  const lastMouseMoveTime = useRef(0);
+
   const handleMouseMove = useCallback(
-    async (e: React.MouseEvent<HTMLCanvasElement>) => {
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const now = Date.now();
+      // Throttle to ~30ms (approx 33fps) to prevent flooding the backend
+      if (now - lastMouseMoveTime.current < 30) return;
+
+      lastMouseMoveTime.current = now;
       const { x, y } = getVNCCoordinates(e);
-      try {
-        await invoke('send_pointer_event', { connectionId, x, y, buttons: mouseDown });
-      } catch (err) {
-        // vncLog.error('Pointer event error:', err);
-      }
+
+      // Fire and forget - don't await to avoid blocking interaction
+      invoke('send_pointer_event', { connectionId, x, y, buttons: mouseDown })
+        .catch(() => { });
     },
     [connectionId, mouseDown, getVNCCoordinates]
   );
 
   const handleMouseDown = useCallback(
-    async (e: React.MouseEvent<HTMLCanvasElement>) => {
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
       canvasRef.current?.focus();
       const button = 1 << e.button;
       setMouseDown((prev) => prev | button);
       const { x, y } = getVNCCoordinates(e);
       // vncLog.debug(`Mouse down at (${x}, ${y}), button: ${button}, connectionId: ${connectionId}`);
-      try {
-        await invoke('send_pointer_event', { connectionId, x, y, buttons: mouseDown | button });
-      } catch (err) {
-        vncLog.error('Pointer event error:', err);
-      }
+      invoke('send_pointer_event', { connectionId, x, y, buttons: mouseDown | button })
+        .catch((err) => vncLog.error('Pointer event error:', err));
     },
     [connectionId, mouseDown, getVNCCoordinates]
   );
 
   const handleMouseUp = useCallback(
-    async (e: React.MouseEvent<HTMLCanvasElement>) => {
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
       const button = 1 << e.button;
       setMouseDown((prev) => prev & ~button);
       const { x, y } = getVNCCoordinates(e);
-      try {
-        await invoke('send_pointer_event', { connectionId, x, y, buttons: mouseDown & ~button });
-      } catch (err) {
-        vncLog.error('Pointer event error:', err);
-      }
+      invoke('send_pointer_event', { connectionId, x, y, buttons: mouseDown & ~button })
+        .catch((err) => vncLog.error('Pointer event error:', err));
     },
     [connectionId, mouseDown, getVNCCoordinates]
   );
@@ -621,30 +621,24 @@ export function ConsoleTabPane({
   }, []);
 
   const handleKeyDown = useCallback(
-    async (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    (e: React.KeyboardEvent<HTMLCanvasElement>) => {
       e.preventDefault();
       e.stopPropagation();
       const keysym = keyEventToKeysym(e);
       // vncLog.debug(`Key down: ${e.key} (keysym: ${keysym.toString(16)}), connectionId: ${connectionId}`);
-      try {
-        await invoke('send_key_event', { connectionId, key: keysym, down: true });
-      } catch (err) {
-        vncLog.error('Key event error:', err);
-      }
+      invoke('send_key_event', { connectionId, key: keysym, down: true })
+        .catch((err) => vncLog.error('Key event error:', err));
     },
     [connectionId, keyEventToKeysym]
   );
 
   const handleKeyUp = useCallback(
-    async (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    (e: React.KeyboardEvent<HTMLCanvasElement>) => {
       e.preventDefault();
       e.stopPropagation();
       const keysym = keyEventToKeysym(e);
-      try {
-        await invoke('send_key_event', { connectionId, key: keysym, down: false });
-      } catch (err) {
-        vncLog.error('Key event error:', err);
-      }
+      invoke('send_key_event', { connectionId, key: keysym, down: false })
+        .catch((err) => vncLog.error('Key event error:', err));
     },
     [connectionId, keyEventToKeysym]
   );

@@ -69,6 +69,7 @@ impl<'a> DomainXmlBuilder<'a> {
         // Devices
         xml.push_str("  <devices>\n");
         xml.push_str(&self.build_emulator());
+        xml.push_str(&self.build_pci_controllers());
         xml.push_str(&self.build_disks());
         xml.push_str(&self.build_cdroms());
         xml.push_str(&self.build_nics());
@@ -243,6 +244,31 @@ impl<'a> DomainXmlBuilder<'a> {
     
     fn build_emulator(&self) -> String {
         "    <emulator>/usr/bin/qemu-system-x86_64</emulator>\n".to_string()
+    }
+    
+    /// Build PCI controllers for hot-plug support.
+    /// Adds PCIe root ports to allow hot-plugging NICs and other devices.
+    fn build_pci_controllers(&self) -> String {
+        let mut xml = String::new();
+        
+        // Add 4 PCIe root ports for hot-plug support (indices 10-13)
+        // These provide slots for hot-plugging NICs, disks, etc.
+        // We start at index 10 to avoid conflicts with libvirt's auto-generated controllers
+        for i in 0..4 {
+            let index = 10 + i;
+            xml.push_str(&format!(
+                r#"    <controller type='pci' index='{}' model='pcie-root-port'>
+      <model name='pcie-root-port'/>
+      <target chassis='{}' port='0x{:x}'/>
+    </controller>
+"#,
+                index,
+                index,
+                index + 0x10
+            ));
+        }
+        
+        xml
     }
     
     fn build_disks(&self) -> String {

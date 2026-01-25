@@ -87,6 +87,16 @@ service NodeDaemonService {
   rpc ListSnapshots(VMIdRequest) returns (ListSnapshotsResponse);
   
   // =========================================================================
+  // Hot-plug Operations
+  // =========================================================================
+  
+  // Attach a network interface to a running VM (hot-plug)
+  rpc AttachNIC(AttachNICRequest) returns (google.protobuf.Empty);
+  
+  // Detach a network interface from a running VM (hot-unplug)
+  rpc DetachNIC(DetachNICRequest) returns (google.protobuf.Empty);
+  
+  // =========================================================================
   // Metrics & Events (Streaming)
   // =========================================================================
   
@@ -519,6 +529,7 @@ message CreateSnapshotRequest {
   string name = 2;
   string description = 3;
   bool quiesce = 4;             // Request guest agent to freeze filesystems
+  bool disk_only = 5;           // If true, only snapshot disks (no memory state) - required for VMs with invtsc/host-passthrough CPU
 }
 
 message SnapshotResponse {
@@ -542,6 +553,17 @@ message DeleteSnapshotRequest {
 
 message ListSnapshotsResponse {
   repeated SnapshotResponse snapshots = 1;
+}
+
+// Hot-plug Operations
+message AttachNICRequest {
+  string vm_id = 1;
+  NicSpec nic = 2;
+}
+
+message DetachNICRequest {
+  string vm_id = 1;
+  string nic_id = 2;
 }
 
 // Metrics

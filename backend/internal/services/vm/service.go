@@ -24,16 +24,27 @@ import (
 // Ensure Service implements VMServiceHandler
 var _ computev1connect.VMServiceHandler = (*Service)(nil)
 
+// SnapshotRepository defines the interface for snapshot persistence.
+type SnapshotRepository interface {
+	Create(ctx context.Context, snap *domain.Snapshot, vmSpec *domain.VMSpec) error
+	Get(ctx context.Context, id string) (*domain.Snapshot, error)
+	ListByVM(ctx context.Context, vmID string) ([]*domain.Snapshot, error)
+	Delete(ctx context.Context, id string) error
+	DeleteByVM(ctx context.Context, vmID string) error
+	SyncFromHypervisor(ctx context.Context, vmID string, hypervisorSnapshots []*domain.Snapshot) error
+}
+
 // Service implements the VMService Connect-RPC handler.
 // It orchestrates VM lifecycle operations, validation, and persistence.
 type Service struct {
 	computev1connect.UnimplementedVMServiceHandler
 
-	repo       Repository
-	nodeRepo   node.Repository
-	daemonPool *node.DaemonPool
-	scheduler  *scheduler.Scheduler
-	logger     *zap.Logger
+	repo         Repository
+	nodeRepo     node.Repository
+	snapshotRepo SnapshotRepository
+	daemonPool   *node.DaemonPool
+	scheduler    *scheduler.Scheduler
+	logger       *zap.Logger
 }
 
 // NewService creates a new VM service.
@@ -59,6 +70,11 @@ func NewServiceWithDaemon(
 		scheduler:  sched,
 		logger:     logger.Named("vm-service"),
 	}
+}
+
+// SetSnapshotRepository sets the snapshot repository for database persistence.
+func (s *Service) SetSnapshotRepository(repo SnapshotRepository) {
+	s.snapshotRepo = repo
 }
 
 // ============================================================================
@@ -1728,6 +1744,22 @@ func (s *Service) CreateSnapshot(
 		CreatedAt:      time.Now(),
 	}
 
+	// Persist snapshot to database for consistency
+	if s.snapshotRepo != nil {
+		if err := s.snapshotRepo.Create(ctx, snapshot, &vm.Spec); err != nil {
+			logger.Warn("Failed to persist snapshot to database (snapshot exists on hypervisor)",
+				zap.String("snapshot_id", snapshot.ID),
+				zap.Error(err),
+			)
+			// Don't fail the request - snapshot was created on hypervisor
+		} else {
+			logger.Debug("Snapshot persisted to database", zap.String("snapshot_id", snapshot.ID))
+		}
+	}
+
+	// Record event
+	s.recordVMEvent(ctx, vm.ID, "snapshot", "info", fmt.Sprintf("Snapshot '%s' created", snapshot.Name), "")
+
 	logger.Info("Snapshot created successfully",
 		zap.String("snapshot_id", snapshot.ID),
 	)
@@ -1783,7 +1815,8 @@ func (s *Service) ListSnapshots(
 		}), nil
 	}
 
-	// Convert to proto
+	// Convert to domain snapshots and proto
+	var domainSnapshots []*domain.Snapshot
 	var snapshots []*computev1.Snapshot
 	for _, snap := range resp.Snapshots {
 		domainSnap := &domain.Snapshot{
@@ -1799,7 +1832,16 @@ func (s *Service) ListSnapshots(
 		if snap.CreatedAt != nil {
 			domainSnap.CreatedAt = snap.CreatedAt.AsTime()
 		}
+		domainSnapshots = append(domainSnapshots, domainSnap)
 		snapshots = append(snapshots, SnapshotToProto(domainSnap))
+	}
+
+	// Sync snapshots to database for consistency
+	if s.snapshotRepo != nil {
+		if err := s.snapshotRepo.SyncFromHypervisor(ctx, req.Msg.VmId, domainSnapshots); err != nil {
+			logger.Warn("Failed to sync snapshots to database", zap.Error(err))
+			// Don't fail - we still have the list from hypervisor
+		}
 	}
 
 	logger.Debug("Listed snapshots", zap.Int("count", len(snapshots)))
@@ -1938,6 +1980,20 @@ func (s *Service) DeleteSnapshot(
 		logger.Error("Failed to delete snapshot on node daemon", zap.Error(err))
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete snapshot: %w", err))
 	}
+
+	// Delete from database
+	if s.snapshotRepo != nil {
+		if err := s.snapshotRepo.Delete(ctx, req.Msg.SnapshotId); err != nil {
+			logger.Warn("Failed to delete snapshot from database (deleted from hypervisor)",
+				zap.String("snapshot_id", req.Msg.SnapshotId),
+				zap.Error(err),
+			)
+			// Don't fail - snapshot was deleted from hypervisor
+		}
+	}
+
+	// Record event
+	s.recordVMEvent(ctx, vm.ID, "snapshot", "info", "Snapshot deleted", "")
 
 	logger.Info("Snapshot deleted successfully")
 

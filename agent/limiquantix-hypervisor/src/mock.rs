@@ -307,14 +307,15 @@ impl Hypervisor for MockBackend {
         })
     }
     
-    #[instrument(skip(self), fields(vm_id = %vm_id, snapshot_name = %name))]
+    #[instrument(skip(self), fields(vm_id = %vm_id, snapshot_name = %name, disk_only = %disk_only))]
     async fn create_snapshot(
         &self,
         vm_id: &str,
         name: &str,
         description: &str,
+        disk_only: bool,
     ) -> Result<SnapshotInfo> {
-        info!("Creating snapshot");
+        info!("Creating snapshot (disk_only={})", disk_only);
         
         let vms = self.vms.read().map_err(|_| {
             HypervisorError::Internal("Lock poisoned".to_string())
@@ -342,7 +343,7 @@ impl Hypervisor for MockBackend {
             .or_default()
             .push(snapshot.clone());
         
-        info!(snapshot_id = %snapshot.id, "Snapshot created");
+        info!(snapshot_id = %snapshot.id, disk_only = %disk_only, "Snapshot created");
         Ok(snapshot)
     }
     
@@ -601,8 +602,8 @@ mod tests {
         let vm_id = backend.create_vm(config).await.unwrap();
         backend.start_vm(&vm_id).await.unwrap();
         
-        // Create snapshot
-        let snapshot = backend.create_snapshot(&vm_id, "snap1", "Test snapshot").await.unwrap();
+        // Create snapshot (disk_only = false for full snapshot)
+        let snapshot = backend.create_snapshot(&vm_id, "snap1", "Test snapshot", false).await.unwrap();
         assert_eq!(snapshot.name, "snap1");
         assert_eq!(snapshot.vm_state, VmState::Running);
         

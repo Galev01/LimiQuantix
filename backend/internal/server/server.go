@@ -67,6 +67,9 @@ type Server struct {
 	// Folder repository (PostgreSQL)
 	folderRepo *postgres.FolderRepository
 
+	// Snapshot repository (PostgreSQL) - for VM snapshot persistence
+	snapshotRepo *postgres.SnapshotRepository
+
 	// Admin repositories (PostgreSQL)
 	roleRepo              *postgres.RoleRepository
 	apiKeyRepo            *postgres.APIKeyRepository
@@ -254,6 +257,14 @@ func (s *Server) initRepositories() {
 		s.logger.Warn("PostgreSQL not available - folder management disabled")
 	}
 
+	// Snapshot repository - requires PostgreSQL for persistence
+	if s.db != nil {
+		s.snapshotRepo = postgres.NewSnapshotRepository(s.db.Pool())
+		s.logger.Info("Using PostgreSQL snapshot repository (persistent)")
+	} else {
+		s.logger.Warn("PostgreSQL not available - snapshots will not be persisted to control plane database")
+	}
+
 	s.logger.Info("Repositories initialized",
 		zap.Bool("postgres", s.db != nil),
 		zap.Bool("redis", s.cache != nil),
@@ -297,6 +308,11 @@ func (s *Server) initServices() {
 		s.scheduler,
 		s.logger,
 	)
+	// Wire snapshot repository for database persistence
+	if s.snapshotRepo != nil {
+		s.vmService.SetSnapshotRepository(s.snapshotRepo)
+		s.logger.Info("Snapshot repository wired to VM service")
+	}
 	s.nodeService = nodeservice.NewServiceWithVMRepo(s.nodeRepo, s.vmRepo, s.logger)
 	// Set daemon pool for gRPC connections to node daemons
 	s.nodeService.SetDaemonPool(s.daemonPool)

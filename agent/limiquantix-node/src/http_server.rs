@@ -556,6 +556,7 @@ struct CreateSnapshotRequest {
     name: String,
     description: Option<String>,
     quiesce: Option<bool>,
+    include_memory: Option<bool>,  // If false (default), create disk-only snapshot; if true, include memory state
 }
 
 #[derive(Serialize)]
@@ -3217,11 +3218,16 @@ async fn create_snapshot(
     use tonic::Request;
     use limiquantix_proto::{NodeDaemonService, CreateSnapshotRequest as ProtoRequest};
 
+    // disk_only is the inverse of include_memory
+    // If include_memory is false or not specified, we do disk-only snapshot (safer, works with invtsc)
+    let disk_only = !request.include_memory.unwrap_or(false);
+
     let proto_request = ProtoRequest {
         vm_id: vm_id.clone(),
         name: request.name.clone(),
         description: request.description.unwrap_or_default(),
         quiesce: request.quiesce.unwrap_or(false),
+        disk_only,
     };
 
     match state.service.create_snapshot(Request::new(proto_request)).await {
