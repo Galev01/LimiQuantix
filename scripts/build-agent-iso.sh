@@ -98,48 +98,50 @@ check_prerequisites() {
 }
 
 # Build static Linux binary (amd64)
+# Sets AMD64_BINARY variable with the path
 build_linux_amd64() {
-    log_step "Building Linux amd64 static binary..."
+    log_step "Building Linux amd64 static binary..." >&2
     
     cd "${ROOT_DIR}"
     
     # Build the Docker image if needed
     if ! docker image inspect quantix-guest-agent-builder &> /dev/null; then
-        log_info "Building Docker image for guest agent..."
+        log_info "Building Docker image for guest agent..." >&2
         docker build -t quantix-guest-agent-builder \
-            -f Quantix-OS/builder/Dockerfile.guest-agent .
+            -f Quantix-OS/builder/Dockerfile.guest-agent . >&2
     fi
     
     # Build the static binary
     docker run --rm \
         -v "${ROOT_DIR}/agent:/build" \
         -e CARGO_TARGET_DIR=/build/target \
-        quantix-guest-agent-builder
+        quantix-guest-agent-builder >&2
     
-    # Verify the binary is static
-    local binary="${ROOT_DIR}/agent/target/x86_64-unknown-linux-musl/release/quantix-kvm-agent"
-    if [ ! -f "${binary}" ]; then
-        log_error "Binary not found: ${binary}"
+    # Set the binary path
+    AMD64_BINARY="${ROOT_DIR}/agent/target/x86_64-unknown-linux-musl/release/quantix-kvm-agent"
+    
+    # Verify the binary exists
+    if [ ! -f "${AMD64_BINARY}" ]; then
+        log_error "Binary not found: ${AMD64_BINARY}" >&2
         exit 1
     fi
     
     # Verify it's truly static
-    if ldd "${binary}" 2>&1 | grep -q "not a dynamic executable"; then
-        log_info "Binary is statically linked ✓"
+    if ldd "${AMD64_BINARY}" 2>&1 | grep -q "not a dynamic executable"; then
+        log_info "Binary is statically linked ✓" >&2
     else
-        log_warn "Binary may have dynamic dependencies"
+        log_warn "Binary may have dynamic dependencies" >&2
     fi
-    
-    echo "${binary}"
 }
 
 # Build static Linux binary (arm64) - requires cross-compilation setup
+# Sets ARM64_BINARY variable with the path
 build_linux_arm64() {
-    log_step "Building Linux arm64 static binary..."
+    log_step "Building Linux arm64 static binary..." >&2
     
     # Check if arm64 cross-compilation is set up
     if ! docker image inspect quantix-guest-agent-builder-arm64 &> /dev/null; then
-        log_warn "ARM64 builder not available, creating placeholder"
+        log_warn "ARM64 builder not available, skipping" >&2
         # For now, we'll skip ARM64 builds - requires additional setup
         # TODO: Add Dockerfile.guest-agent-arm64 for cross-compilation
         return 1
@@ -149,9 +151,9 @@ build_linux_arm64() {
     docker run --rm \
         -v "${ROOT_DIR}/agent:/build" \
         -e CARGO_TARGET_DIR=/build/target \
-        quantix-guest-agent-builder-arm64
+        quantix-guest-agent-builder-arm64 >&2
     
-    echo "${ROOT_DIR}/agent/target/aarch64-unknown-linux-musl/release/quantix-kvm-agent"
+    ARM64_BINARY="${ROOT_DIR}/agent/target/aarch64-unknown-linux-musl/release/quantix-kvm-agent"
 }
 
 # Build DEB package
@@ -978,23 +980,21 @@ main() {
     check_prerequisites
     create_iso_structure
     
-    # Build binaries
-    local amd64_binary
-    amd64_binary=$(build_linux_amd64)
+    # Build amd64 binary (sets AMD64_BINARY variable)
+    build_linux_amd64
     
     # Copy binaries
     copy_binaries
     
     # Build packages
-    build_deb_package "amd64" "${amd64_binary}"
-    build_rpm_package "amd64" "${amd64_binary}"
+    build_deb_package "amd64" "${AMD64_BINARY}"
+    build_rpm_package "amd64" "${AMD64_BINARY}"
     
-    # ARM64 (optional)
+    # ARM64 (optional) - sets ARM64_BINARY variable
     if build_linux_arm64 2>/dev/null; then
-        local arm64_binary="${ROOT_DIR}/agent/target/aarch64-unknown-linux-musl/release/quantix-kvm-agent"
-        if [ -f "${arm64_binary}" ]; then
-            build_deb_package "arm64" "${arm64_binary}"
-            build_rpm_package "arm64" "${arm64_binary}"
+        if [ -f "${ARM64_BINARY}" ]; then
+            build_deb_package "arm64" "${ARM64_BINARY}"
+            build_rpm_package "arm64" "${ARM64_BINARY}"
         fi
     fi
     
