@@ -1,0 +1,404 @@
+# OTA UPDATE SYSTEM GUIDELINES
+
+*Scope:* Apply when working with the OTA update system, including the Update Server, publish scripts, and update handlers in QvDC, QHCI, or Guest Agent.
+
+*Purpose:* Ensure consistent, reliable, and secure over-the-air updates across all Quantix-KVM components.
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        OTA UPDATE ARCHITECTURE                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌──────────────┐     ┌──────────────────┐     ┌───────────────────┐   │
+│  │ Dev Machine  │────▶│   Update Server  │◀────│  QvDC (Consumer)  │   │
+│  │  (Publisher) │     │  192.168.0.251   │     │   192.168.0.100   │   │
+│  └──────────────┘     │    :9000         │     └───────────────────┘   │
+│        │              └──────────────────┘              │               │
+│        │                       │                        │               │
+│        ▼                       ▼                        ▼               │
+│  ┌──────────────┐     ┌──────────────────┐     ┌───────────────────┐   │
+│  │ Publish      │     │  Manifests &     │     │  QHCI Hosts       │   │
+│  │ Scripts      │     │  Artifacts       │     │  (Consumers)      │   │
+│  │ (.sh/.ps1)   │     │  (.tar.gz)       │     │  192.168.0.101+   │   │
+│  └──────────────┘     └──────────────────┘     └───────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Two Products
+
+| Product | Description | Publish Script | Consumers |
+|---------|-------------|----------------|-----------|
+| `quantix-os` | Hypervisor host OS (QHCI) | `scripts/publish-update.sh` | QHCI nodes |
+| `quantix-vdc` | Control plane (vDC) | `scripts/publish-vdc-update.sh` | QvDC appliance |
+
+---
+
+## Component Mappings
+
+### Quantix-OS (QHCI) Components
+
+| Component | Source | Binary | Install Path | Service |
+|-----------|--------|--------|--------------|---------|
+| `qx-node` | `/agent/limiquantix-node` | `limiquantix-node` | `/data/bin/qx-node` | `quantix-node` |
+| `qx-console` | `/Quantix-OS/console-tui` | `qx-console` | `/data/bin/qx-console` | `quantix-console` |
+| `host-ui` | `/quantix-host-ui` | Static files | `/data/share/quantix-host-ui` | N/A |
+
+### Quantix-vDC Components
+
+| Component | Source | Binary | Install Path | Service |
+|-----------|--------|--------|--------------|---------|
+| `controlplane` | `/backend` | `qx-controlplane` | `/usr/bin/qx-controlplane` | `quantix-controlplane` |
+| `dashboard` | `/frontend` | Static files | `/usr/share/quantix-vdc/dashboard` | N/A |
+| `migrations` | `/backend/migrations` | SQL files | `/var/lib/quantix-vdc/migrations` | N/A |
+
+---
+
+## Artifact Format
+
+### IMPORTANT: Always Use Gzip
+
+QvDC's update service only supports `.tar.gz` (gzip) compression. Do NOT use zstd.
+
+```bash
+# Correct - always use gzip for compatibility
+tar -C dist -czf "$STAGING_DIR/component.tar.gz" .
+
+# WRONG - QvDC cannot extract .tar.zst
+tar -C dist -c . | zstd -19 > component.tar.zst
+```
+
+### Manifest Format
+
+```json
+{
+  "product": "quantix-vdc",
+  "version": "0.0.38",
+  "channel": "dev",
+  "release_date": "2026-01-22T12:00:00Z",
+  "update_type": "component",
+  "components": [
+    {
+      "name": "controlplane",
+      "version": "0.0.38",
+      "artifact": "controlplane.tar.gz",
+      "sha256": "abc123...",
+      "size_bytes": 10072991,
+      "install_path": "/usr/bin/qx-controlplane",
+      "restart_service": "quantix-controlplane"
+    }
+  ],
+  "min_version": "0.0.1",
+  "release_notes": "Bug fixes and improvements"
+}
+```
+
+---
+
+## Publishing Commands
+
+### From Linux/WSL (Recommended)
+
+```bash
+# Quantix-vDC (all components)
+./scripts/publish-vdc-update.sh --channel dev
+
+# Quantix-vDC (specific version, no auto-bump)
+./scripts/publish-vdc-update.sh --channel dev --no-bump
+
+# Quantix-vDC (single component)
+./scripts/publish-vdc-update.sh --channel dev --components controlplane
+
+# Quantix-OS (requires Docker for Rust cross-compilation on non-Linux)
+./scripts/publish-update.sh --channel dev
+```
+
+### Environment Variables
+
+```bash
+# Defaults - override if needed
+export UPDATE_SERVER="http://192.168.0.251:9000"
+export PUBLISH_TOKEN="dev-token"
+```
+
+---
+
+## Key Files & Responsibilities
+
+### Backend (Go)
+
+| File | Responsibility |
+|------|----------------|
+| `backend/internal/services/update/service.go` | Core update logic: check, download, apply, restart |
+| `backend/internal/server/update_handler.go` | REST API endpoints for updates |
+
+### Frontend (React)
+
+| File | Responsibility |
+|------|----------------|
+| `frontend/src/pages/Settings.tsx` | QvDC Updates page UI |
+| `update-server/ui/src/pages/Publish.tsx` | Update Server admin publish UI |
+
+### QHCI (Rust)
+
+| File | Responsibility |
+|------|----------------|
+| `agent/limiquantix-node/src/update/mod.rs` | QHCI update client |
+| `agent/limiquantix-node/src/update/config.rs` | Update configuration |
+
+### Guest Agent (Rust)
+
+| File | Responsibility |
+|------|----------------|
+| `agent/limiquantix-guest-agent/src/handlers/update.rs` | Agent self-update via virtio-serial |
+
+### Scripts
+
+| File | Responsibility |
+|------|----------------|
+| `scripts/publish-vdc-update.sh` | Build and publish QvDC updates |
+| `scripts/publish-update.sh` | Build and publish Quantix-OS updates |
+
+---
+
+## Critical Implementation Rules
+
+### 1. Atomic Binary Replacement (ETXTBSY Prevention)
+
+Linux kernels prevent overwriting a running executable. Always use atomic replacement:
+
+```go
+// backend/internal/services/update/service.go
+
+// ❌ WRONG - causes "text file busy" error
+if err := os.WriteFile(targetPath, newBinary, 0755); err != nil { ... }
+
+// ✅ CORRECT - atomic rename
+tempPath := targetPath + ".update-tmp"
+if err := os.WriteFile(tempPath, newBinary, 0755); err != nil { ... }
+if err := os.Rename(tempPath, targetPath); err != nil { ... }
+```
+
+### 2. File Sync Before Restart
+
+Always sync files to disk before restarting services:
+
+```go
+// Ensure data is written to disk before restart
+if err := destFile.Sync(); err != nil {
+    return fmt.Errorf("failed to sync file: %w", err)
+}
+```
+
+### 3. State Persistence
+
+Save update state before service restarts for verification:
+
+```go
+stateFile := filepath.Join(dataDir, "update-state.json")
+state := map[string]interface{}{
+    "last_update":    time.Now().UTC(),
+    "version":        version,
+    "component":      componentName,
+    "restart_reason": "update",
+}
+os.WriteFile(stateFile, stateData, 0644)
+```
+
+### 4. Clean Build Cache
+
+Force clean builds to ensure latest code is compiled:
+
+```bash
+# Go - clear cache and force rebuild
+go clean -cache
+go build -a -ldflags="-w -s" -o output ./cmd/...
+
+# Rust - clean specific crate
+cargo clean -p limiquantix-node
+cargo build --release -p limiquantix-node
+```
+
+### 5. SHA256 Verification
+
+Always verify artifact integrity before installation:
+
+```go
+// Calculate hash of downloaded file
+h := sha256.New()
+io.Copy(h, file)
+computed := hex.EncodeToString(h.Sum(nil))
+
+if computed != expected {
+    return fmt.Errorf("checksum mismatch: expected %s, got %s", expected, computed)
+}
+```
+
+### 6. JSON Field Naming Consistency
+
+QHCI uses camelCase for JSON. QvDC parsing structs MUST match:
+
+```go
+// ✅ CORRECT - matches QHCI's camelCase output
+var response struct {
+    CurrentVersion string `json:"currentVersion"`
+    LatestVersion  string `json:"latestVersion"`
+    Channel        string `json:"channel"`
+}
+
+// ❌ WRONG - snake_case won't parse QHCI responses
+var response struct {
+    CurrentVersion string `json:"current_version"`
+    LatestVersion  string `json:"latest_version"`
+}
+```
+
+---
+
+## Update Flow Diagram
+
+### QvDC Self-Update
+
+```
+1. Check Update
+   POST /api/v1/updates/vdc/check
+   └─▶ Fetches manifest from Update Server
+   └─▶ Compares current version with available version
+
+2. Apply Update
+   POST /api/v1/updates/vdc/apply
+   └─▶ Downloads artifacts (.tar.gz)
+   └─▶ Verifies SHA256 checksums
+   └─▶ Extracts to install paths
+   └─▶ Runs migrations (if any)
+   └─▶ Saves update state
+   └─▶ Restarts service (2.5s delay for HTTP response)
+
+3. Verify on Startup
+   └─▶ Reads update-state.json
+   └─▶ Compares expected vs actual version
+   └─▶ Logs success or failure
+```
+
+### Host (QHCI) Update from QvDC
+
+```
+1. Check All Hosts
+   POST /api/v1/updates/hosts/check
+   └─▶ QvDC queries each QHCI: GET /api/v1/updates/check
+   └─▶ QHCI contacts Update Server for latest manifest
+   └─▶ Returns current version, available version
+
+2. Apply Host Update
+   POST /api/v1/updates/hosts/{nodeId}/apply
+   └─▶ QvDC triggers QHCI: POST /api/v1/updates/apply
+   └─▶ QHCI downloads and applies update locally
+```
+
+---
+
+## API Endpoints
+
+### QvDC Update API (`/api/v1/updates/...`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/vdc/status` | GET | Get current update status |
+| `/vdc/check` | POST | Check for vDC updates |
+| `/vdc/apply` | POST | Apply available vDC update |
+| `/hosts` | GET | List all host update states |
+| `/hosts/check` | POST | Check updates for all hosts |
+| `/hosts/{id}/check` | POST | Check update for specific host |
+| `/hosts/{id}/apply` | POST | Trigger update on specific host |
+| `/hosts/{id}/progress` | GET | Get update progress from host |
+| `/config` | GET/PUT | Get/update configuration |
+
+### QHCI Update API (`/api/v1/updates/...`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/check` | GET | Check for updates (contacts Update Server) |
+| `/version` | GET | Get current version only (no server contact) |
+| `/apply` | POST | Apply available update |
+| `/status` | GET | Get current update status |
+
+### Update Server API (`/api/v1/...`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/{product}/manifest` | GET | Get latest manifest for product |
+| `/{product}/releases` | GET | List all releases |
+| `/{product}/releases/{version}` | GET | Get specific release |
+| `/{product}/publish` | POST | Publish new release (multipart) |
+| `/admin/git-pull` | POST | Pull latest code |
+| `/admin/build` | POST | Trigger build |
+
+---
+
+## Troubleshooting
+
+### "gzip: invalid header" Error
+
+The artifact was compressed with zstd but QvDC only supports gzip.
+- **Fix**: Republish with gzip compression
+- **Prevention**: Publish scripts now always use `.tar.gz`
+
+### "text file busy" Error (ETXTBSY)
+
+Trying to overwrite a running executable directly.
+- **Fix**: Use atomic rename pattern (write to temp, rename to target)
+
+### Version Mismatch After Update
+
+Old binary still running due to:
+1. Go build cache - **Fix**: `go clean -cache && go build -a`
+2. Git not synced - **Fix**: Push from dev machine, pull on build machine
+
+### Host Shows "version unknown"
+
+JSON field mismatch between QHCI and QvDC.
+- **Fix**: Ensure QvDC uses `json:"currentVersion"` (camelCase)
+
+### Permission Denied on `/tmp/quantix-vdc-update-staging`
+
+Previous sudo run left root-owned files.
+- **Fix**: `sudo rm -rf /tmp/quantix-vdc-update-staging`
+
+---
+
+## Version Files
+
+| Product | Version File | Notes |
+|---------|--------------|-------|
+| Quantix-OS | `/Quantix-OS/VERSION` | Single line, e.g., `0.0.14` |
+| Quantix-vDC | `/Quantix-vDC/VERSION` | Single line, e.g., `0.0.38` |
+| QHCI Runtime | `/etc/quantix-version` | Detected by qx-node |
+| QvDC Runtime | `/etc/quantix-vdc/version` | Persisted after updates |
+
+---
+
+## Testing Checklist
+
+- [ ] Build completes without cached artifacts (`go build -a`)
+- [ ] Manifest SHA256 matches artifact hash
+- [ ] Update applies without "text file busy" error
+- [ ] Service restarts correctly after update
+- [ ] Version persists across restarts
+- [ ] Host version detection works from QvDC
+- [ ] Rollback works if update fails
+
+---
+
+## References
+
+- Docs: `/docs/updates/000083-update-server-backend-plan.md`
+- Docs: `/docs/updates/000085-update-mechanism-fixes.md`
+- Handler: `/backend/internal/server/update_handler.go`
+- Service: `/backend/internal/services/update/service.go`
+- Scripts: `/scripts/publish-vdc-update.sh`, `/scripts/publish-update.sh`
