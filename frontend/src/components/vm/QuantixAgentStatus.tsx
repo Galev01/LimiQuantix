@@ -55,10 +55,12 @@ interface QuantixAgentInfo {
     uptimeSeconds: number;
   };
   capabilities: string[];
+  /** Latest available agent version (from backend) */
+  latestAgentVersion?: string;
 }
 
-// Latest agent version (would come from backend in production)
-const LATEST_AGENT_VERSION = '0.1.0';
+// Fallback latest agent version if backend doesn't provide one
+const FALLBACK_LATEST_AGENT_VERSION = '0.1.0';
 
 interface QuantixAgentStatusProps {
   vmId: string;
@@ -72,6 +74,8 @@ interface QuantixAgentStatusProps {
   onMountAgentISO?: () => void;
   /** Whether ISO mount is in progress */
   isMountingISO?: boolean;
+  /** Node ID where the VM is running (for direct agent installation) */
+  nodeId?: string;
 }
 
 // Detect if OS is Windows based on family or name
@@ -93,17 +97,24 @@ export function QuantixAgentStatus({
   guestOsName,
   onMountAgentISO,
   isMountingISO,
+  nodeId,
 }: QuantixAgentStatusProps) {
   const [agentInfo, setAgentInfo] = useState<QuantixAgentInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isInstalling, setIsInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showVersionInfo, setShowVersionInfo] = useState(false);
+  const [qemuAgentAvailable, setQemuAgentAvailable] = useState<boolean | null>(null);
+  const [showAgentLogs, setShowAgentLogs] = useState(false);
+  const [agentLogs, setAgentLogs] = useState<string[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
-  // Check if update is available
+  // Check if update is available - use dynamic version from backend if available
+  const latestVersion = agentInfo?.latestAgentVersion || FALLBACK_LATEST_AGENT_VERSION;
   const isUpdateAvailable = agentInfo?.connected && 
     agentInfo.version && 
-    compareVersions(agentInfo.version, LATEST_AGENT_VERSION) < 0;
+    compareVersions(agentInfo.version, latestVersion) < 0;
 
   const fetchAgentInfo = async () => {
     if (vmState !== 'RUNNING') {
@@ -150,6 +161,7 @@ export function QuantixAgentStatus({
           ipAddresses: data.ipAddresses || [],
           resourceUsage: data.resourceUsage,
           capabilities: data.capabilities || [],
+          latestAgentVersion: data.latestAgentVersion,
         });
       } else {
         setAgentInfo({
@@ -162,6 +174,7 @@ export function QuantixAgentStatus({
           hostname: '',
           ipAddresses: [],
           capabilities: [],
+          latestAgentVersion: data.latestAgentVersion,
         });
         setError(data.error || 'Agent not connected');
       }
@@ -183,6 +196,7 @@ export function QuantixAgentStatus({
         hostname: '',
         ipAddresses: [],
         capabilities: [],
+        latestAgentVersion: undefined,
       });
     } finally {
       setIsLoading(false);
@@ -191,6 +205,7 @@ export function QuantixAgentStatus({
 
   useEffect(() => {
     fetchAgentInfo();
+    checkQemuAgent();
     
     // Poll every 10 seconds if VM is running
     if (vmState === 'RUNNING') {
@@ -199,6 +214,83 @@ export function QuantixAgentStatus({
     }
   }, [vmId, vmState]);
 
+  // Check if QEMU Guest Agent is available (for auto-install)
+  const checkQemuAgent = async () => {
+    if (vmState !== 'RUNNING') {
+      setQemuAgentAvailable(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/vms/${vmId}/qemu-agent/ping`);
+      if (response.ok) {
+        const data = await response.json();
+        setQemuAgentAvailable(data.available === true);
+      } else {
+        setQemuAgentAvailable(false);
+      }
+    } catch {
+      setQemuAgentAvailable(false);
+    }
+  };
+
+  // Auto-install Quantix Agent via QEMU Guest Agent
+  const handleAutoInstall = async () => {
+    if (!qemuAgentAvailable) {
+      toast.error('QEMU Guest Agent is not available. Please install manually.');
+      return;
+    }
+
+    setIsInstalling(true);
+    
+    try {
+      toast.info('Starting Quantix Agent installation...', { duration: 3000 });
+      
+      // Call the backend to trigger agent installation via QEMU Guest Agent
+      const response = await fetch(`/api/vms/${vmId}/agent/install`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodeId: nodeId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || `Installation failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success('Quantix Agent installation started! This may take a minute...', {
+          duration: 5000,
+        });
+        
+        // Poll for agent connection
+        let attempts = 0;
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          await fetchAgentInfo();
+          
+          if (agentInfo?.connected || attempts >= 12) {
+            clearInterval(pollInterval);
+            if (agentInfo?.connected) {
+              toast.success('Quantix Agent connected successfully!');
+            }
+          }
+        }, 5000);
+      } else {
+        throw new Error(result.error || 'Installation failed');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Installation failed';
+      toast.error(`Failed to install agent: ${message}`);
+    } finally {
+      setIsInstalling(false);
+    }
+  };
+
   // Handle agent update
   const handleUpdateAgent = async () => {
     if (!agentInfo?.connected) return;
@@ -206,23 +298,22 @@ export function QuantixAgentStatus({
     setIsUpdating(true);
     
     try {
-      // The update process:
-      // 1. Download new binary to temp location
-      // 2. Execute upgrade script that replaces binary and restarts service
+      // Use the dynamic latest version from backend
+      const targetVersion = agentInfo.latestAgentVersion || latestVersion;
       
       const platform = agentInfo.osName.toLowerCase().includes('windows') 
         ? 'windows' 
         : 'linux';
       const arch = agentInfo.architecture || 'x86_64';
       
-      toast.info('Downloading agent update...', { duration: 2000 });
+      toast.info('Initiating agent update...', { duration: 2000 });
       
-      // Step 1: Download new binary
+      // Call the update endpoint
       const downloadResponse = await fetch(`/api/vms/${vmId}/agent/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          targetVersion: LATEST_AGENT_VERSION,
+          targetVersion: targetVersion,
           platform,
           architecture: arch,
         }),
@@ -254,6 +345,38 @@ export function QuantixAgentStatus({
       setIsUpdating(false);
     }
   };
+
+  // Fetch agent logs
+  const fetchAgentLogs = async () => {
+    if (!agentInfo?.connected) return;
+
+    setIsLoadingLogs(true);
+    try {
+      const response = await fetch(`/api/vms/${vmId}/agent/logs?lines=100`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch logs');
+      }
+      const data = await response.json();
+      if (data.success && data.lines) {
+        setAgentLogs(data.lines);
+      } else {
+        setAgentLogs([data.error || 'No logs available']);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch logs';
+      setAgentLogs([`Error: ${message}`]);
+      toast.error(`Failed to fetch agent logs: ${message}`);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+
+  // Fetch logs when expanded
+  useEffect(() => {
+    if (showAgentLogs && agentInfo?.connected) {
+      fetchAgentLogs();
+    }
+  }, [showAgentLogs, agentInfo?.connected]);
 
   if (vmState !== 'RUNNING') {
     return (
@@ -356,7 +479,7 @@ export function QuantixAgentStatus({
                       </p>
                       {isUpdateAvailable && (
                         <p className="text-xs text-warning">
-                          v{LATEST_AGENT_VERSION} available
+                          v{latestVersion} available
                         </p>
                       )}
                     </div>
@@ -399,6 +522,10 @@ export function QuantixAgentStatus({
             guestOsFamily={guestOsFamily}
             onMountAgentISO={onMountAgentISO}
             isMountingISO={isMountingISO}
+            qemuAgentAvailable={qemuAgentAvailable}
+            onAutoInstall={handleAutoInstall}
+            isInstalling={isInstalling}
+            nodeId={nodeId}
           />
         ) : (
           <div className="space-y-6">
@@ -510,6 +637,72 @@ export function QuantixAgentStatus({
                 ))}
               </div>
             )}
+
+            {/* Agent Logs Section */}
+            <div className="border-t border-border pt-4">
+              <button
+                onClick={() => setShowAgentLogs(!showAgentLogs)}
+                className="flex items-center gap-2 text-sm font-medium text-text-muted hover:text-text-primary transition-colors w-full"
+              >
+                <Terminal className="w-4 h-4" />
+                <span>Agent Logs</span>
+                <motion.span
+                  animate={{ rotate: showAgentLogs ? 180 : 0 }}
+                  className="ml-auto"
+                >
+                  ▼
+                </motion.span>
+              </button>
+
+              <AnimatePresence>
+                {showAgentLogs && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-text-muted">Last 100 lines</span>
+                        <button
+                          onClick={fetchAgentLogs}
+                          disabled={isLoadingLogs}
+                          className="flex items-center gap-1 text-xs text-accent hover:text-accent/80 disabled:opacity-50"
+                        >
+                          {isLoadingLogs ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3 h-3" />
+                          )}
+                          Refresh
+                        </button>
+                      </div>
+                      <div className="bg-bg-base rounded-lg p-3 max-h-64 overflow-y-auto font-mono text-xs">
+                        {isLoadingLogs ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="w-4 h-4 animate-spin text-text-muted" />
+                          </div>
+                        ) : agentLogs.length > 0 ? (
+                          agentLogs.map((line, idx) => (
+                            <div
+                              key={idx}
+                              className="text-text-secondary whitespace-pre-wrap break-all hover:bg-bg-elevated px-1 rounded"
+                            >
+                              {line}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-text-muted text-center py-4">
+                            No logs available. Click Refresh to load.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         )}
       </div>
@@ -575,7 +768,16 @@ function ResourceCard({
 }
 
 /**
- * Panel shown when agent is not connected - provides installation instructions
+ * Panel shown when the Quantix Agent is not connected to the VM.
+ * 
+ * Provides installation instructions with three methods:
+ * 1. **ISO Mount (Recommended)** - Air-gapped, works everywhere, like VMware Tools
+ * 2. **Cloud-Init (Automatic)** - For VMs created from cloud images
+ * 3. **One-Click via QEMU GA** - Transfers binary via virtio-serial (requires QEMU GA)
+ * 
+ * The install script auto-detects the OS and architecture and installs both:
+ * - QEMU Guest Agent (for hypervisor integration)
+ * - Quantix KVM Agent (for advanced features)
  */
 function AgentNotConnectedPanel({
   error,
@@ -583,205 +785,359 @@ function AgentNotConnectedPanel({
   guestOsFamily,
   onMountAgentISO,
   isMountingISO,
+  qemuAgentAvailable,
+  onAutoInstall,
+  isInstalling,
+  nodeId,
 }: {
   error: string | null;
   isWindows: boolean;
   guestOsFamily?: string;
   onMountAgentISO?: () => void;
   isMountingISO?: boolean;
+  qemuAgentAvailable?: boolean | null;
+  onAutoInstall?: () => void;
+  isInstalling?: boolean;
+  nodeId?: string;
 }) {
   const [copiedCommand, setCopiedCommand] = useState(false);
-  const [showInstructions, setShowInstructions] = useState(true);
+  const [expandedMethod, setExpandedMethod] = useState<'iso' | 'cloud' | 'oneclick' | null>('iso');
 
-  const linuxInstallCommand = 'curl -fsSL https://update.quantix.io/agent/install.sh | sudo bash';
+  const isoInstallCommand = 'sudo /mnt/cdrom/linux/install.sh';
   
-  const handleCopyCommand = () => {
-    navigator.clipboard.writeText(linuxInstallCommand);
+  const handleCopyCommand = (cmd: string) => {
+    navigator.clipboard.writeText(cmd);
     setCopiedCommand(true);
     toast.success('Command copied to clipboard');
     setTimeout(() => setCopiedCommand(false), 2000);
   };
 
+  const handleMountISO = async () => {
+    if (onMountAgentISO) {
+      onMountAgentISO();
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Status Header */}
       <div className="flex flex-col items-center justify-center py-4 text-center">
-        <XCircle className="w-12 h-12 text-error/50 mb-4" />
-        <p className="text-text-primary font-medium mb-1">Quantix Agent not connected</p>
+        <XCircle className="w-10 h-10 text-error/50 mb-3" />
+        <p className="text-text-primary font-medium mb-1">Quantix Agent Not Installed</p>
         <p className="text-xs text-text-muted max-w-md">
-          {error || 'Install the Quantix Agent inside the VM for enhanced integration features.'}
+          {error || 'Choose an installation method below to enable enhanced VM integration.'}
         </p>
       </div>
 
-      {/* Installation Instructions */}
-      <div className="border border-border rounded-lg overflow-hidden">
-        <button
-          onClick={() => setShowInstructions(!showInstructions)}
-          className="w-full flex items-center justify-between px-4 py-3 bg-bg-elevated hover:bg-bg-hover transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Download className="w-4 h-4 text-accent" />
-            <span className="text-sm font-medium text-text-primary">Installation Instructions</span>
-          </div>
-          <span className="text-xs text-text-muted">
-            {showInstructions ? 'Hide' : 'Show'}
-          </span>
-        </button>
-
-        <AnimatePresence>
-          {showInstructions && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden"
+      {/* Installation Methods */}
+      <div className="space-y-3">
+        
+        {/* Method 1: ISO Mount (Recommended) */}
+        <div className="border border-accent/30 rounded-xl overflow-hidden bg-accent/5">
+          <button
+            onClick={() => setExpandedMethod(expandedMethod === 'iso' ? null : 'iso')}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-accent/10 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-accent/20 rounded-lg">
+                <Disc className="w-5 h-5 text-accent" />
+              </div>
+              <div className="text-left">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-text-primary">ISO Installation</span>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-accent/20 text-accent rounded-full font-medium">
+                    Recommended
+                  </span>
+                </div>
+                <p className="text-xs text-text-muted">
+                  Works on any Linux • No network required
+                </p>
+              </div>
+            </div>
+            <motion.span
+              animate={{ rotate: expandedMethod === 'iso' ? 180 : 0 }}
+              className="text-text-muted"
             >
-              <div className="p-4 space-y-4 bg-bg-base">
-                {isWindows ? (
-                  /* Windows Installation */
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-bold flex-shrink-0">
-                        1
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-text-primary mb-2">
-                          Mount the Quantix Agent ISO
-                        </p>
-                        {onMountAgentISO ? (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={onMountAgentISO}
-                            disabled={isMountingISO}
-                          >
-                            {isMountingISO ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Disc className="w-4 h-4" />
-                            )}
-                            Mount Agent ISO
-                          </Button>
-                        ) : (
-                          <p className="text-xs text-text-muted">
-                            Use the CD-ROM management in the Configuration tab to mount the agent ISO.
-                          </p>
-                        )}
-                      </div>
-                    </div>
+              ▼
+            </motion.span>
+          </button>
 
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-bold flex-shrink-0">
-                        2
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-text-primary mb-2">
-                          Run the installer from the mounted drive
-                        </p>
-                        <div className="bg-bg-elevated rounded-lg p-3 font-mono text-xs text-text-secondary">
-                          D:\quantix-agent-setup.exe
-                        </div>
-                      </div>
+          <AnimatePresence>
+            {expandedMethod === 'iso' && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="p-4 border-t border-accent/20 space-y-4 bg-bg-surface">
+                  {/* Step 1: Mount ISO */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      1
                     </div>
-
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 rounded-full bg-bg-elevated text-text-muted flex items-center justify-center text-xs font-bold flex-shrink-0">
-                        or
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-text-primary mb-2">
-                          Download directly from the web
-                        </p>
-                        <a
-                          href="https://update.quantix.io/agent/quantix-agent-setup.exe"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline"
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-text-primary mb-2">
+                        Mount the Agent Tools ISO
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={handleMountISO}
+                          disabled={isMountingISO}
                         >
-                          <ExternalLink className="w-3 h-3" />
-                          https://update.quantix.io/agent/quantix-agent-setup.exe
+                          {isMountingISO ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Mounting...
+                            </>
+                          ) : (
+                            <>
+                              <Disc className="w-4 h-4" />
+                              Mount Agent ISO
+                            </>
+                          )}
+                        </Button>
+                        <a
+                          href="/api/agent/iso"
+                          download="quantix-kvm-agent-tools.iso"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted hover:text-text-primary transition-colors"
+                        >
+                          <Download className="w-3 h-3" />
+                          Download ISO
                         </a>
                       </div>
                     </div>
                   </div>
-                ) : (
-                  /* Linux Installation */
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-bold flex-shrink-0">
-                        1
+
+                  {/* Step 2: Run Installer */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      2
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-text-primary mb-2">
+                        Run the installer in the VM
+                      </p>
+                      <div className="relative">
+                        <div className="bg-bg-base rounded-lg p-3 pr-12 font-mono text-xs text-text-secondary border border-border">
+                          <code>{isoInstallCommand}</code>
+                        </div>
+                        <button
+                          onClick={() => handleCopyCommand(isoInstallCommand)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded hover:bg-bg-hover transition-colors"
+                          title="Copy command"
+                        >
+                          {copiedCommand ? (
+                            <CheckCircle2 className="w-4 h-4 text-success" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-text-muted" />
+                          )}
+                        </button>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-text-primary mb-2">
-                          Run this command in the VM terminal
-                        </p>
-                        <div className="relative">
-                          <div className="bg-bg-elevated rounded-lg p-3 pr-12 font-mono text-xs text-text-secondary overflow-x-auto">
-                            <code>{linuxInstallCommand}</code>
+                      <p className="text-xs text-text-muted mt-2">
+                        The installer auto-detects your OS and installs both QEMU Guest Agent
+                        and Quantix KVM Agent.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Method 2: Cloud-Init (Automatic) */}
+        <div className="border border-border rounded-xl overflow-hidden">
+          <button
+            onClick={() => setExpandedMethod(expandedMethod === 'cloud' ? null : 'cloud')}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-bg-hover transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-bg-elevated rounded-lg">
+                <Server className="w-5 h-5 text-text-muted" />
+              </div>
+              <div className="text-left">
+                <span className="text-sm font-medium text-text-primary">Cloud Image</span>
+                <p className="text-xs text-text-muted">
+                  Automatic install during first boot
+                </p>
+              </div>
+            </div>
+            <motion.span
+              animate={{ rotate: expandedMethod === 'cloud' ? 180 : 0 }}
+              className="text-text-muted"
+            >
+              ▼
+            </motion.span>
+          </button>
+
+          <AnimatePresence>
+            {expandedMethod === 'cloud' && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="p-4 border-t border-border space-y-3 bg-bg-base">
+                  <p className="text-xs text-text-muted">
+                    When creating VMs from cloud images (Ubuntu, Debian, Rocky, etc.),
+                    enable <strong>"Install Quantix Agent"</strong> in the VM creation wizard.
+                  </p>
+                  <div className="p-3 bg-bg-elevated rounded-lg">
+                    <p className="text-xs text-text-secondary">
+                      The agent installs automatically during first boot via cloud-init.
+                      This is the best option for automated deployments and templates.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-text-muted">
+                    <Info className="w-3 h-3" />
+                    <span>Works with Ubuntu, Debian, Rocky, CentOS, Fedora, and other cloud-init enabled images.</span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Method 3: One-Click via QEMU GA */}
+        <div className="border border-border rounded-xl overflow-hidden">
+          <button
+            onClick={() => setExpandedMethod(expandedMethod === 'oneclick' ? null : 'oneclick')}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-bg-hover transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-bg-elevated rounded-lg">
+                <Download className="w-5 h-5 text-text-muted" />
+              </div>
+              <div className="text-left">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-text-primary">One-Click Install</span>
+                  {qemuAgentAvailable && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-success/20 text-success rounded-full font-medium">
+                      Available
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-text-muted">
+                  Via QEMU Guest Agent • Requires GA with file ops
+                </p>
+              </div>
+            </div>
+            <motion.span
+              animate={{ rotate: expandedMethod === 'oneclick' ? 180 : 0 }}
+              className="text-text-muted"
+            >
+              ▼
+            </motion.span>
+          </button>
+
+          <AnimatePresence>
+            {expandedMethod === 'oneclick' && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="p-4 border-t border-border space-y-3 bg-bg-base">
+                  {qemuAgentAvailable ? (
+                    <>
+                      <p className="text-xs text-text-muted">
+                        QEMU Guest Agent detected. Click below to automatically install the Quantix Agent
+                        via virtio-serial file transfer.
+                      </p>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={onAutoInstall}
+                        disabled={isInstalling}
+                      >
+                        {isInstalling ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Installing...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4" />
+                            Install Quantix Agent
+                          </>
+                        )}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <Info className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+                          <div className="space-y-2">
+                            <p className="text-xs text-warning font-medium">QEMU Guest Agent Required</p>
+                            <p className="text-xs text-text-muted">
+                              Install and start the QEMU Guest Agent in the VM first:
+                            </p>
+                            <div className="font-mono text-xs text-text-secondary space-y-1 bg-bg-elevated p-2 rounded">
+                              <div># Debian/Ubuntu:</div>
+                              <div className="text-accent">apt install -y qemu-guest-agent</div>
+                              <div className="mt-1"># RHEL/Rocky:</div>
+                              <div className="text-accent">dnf install -y qemu-guest-agent</div>
+                            </div>
+                            <p className="text-[10px] text-text-muted">
+                              <strong>Note:</strong> Some distros block file operations by default. Use ISO installation
+                              if One-Click fails.
+                            </p>
                           </div>
-                          <button
-                            onClick={handleCopyCommand}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded hover:bg-bg-hover transition-colors"
-                            title="Copy command"
-                          >
-                            {copiedCommand ? (
-                              <CheckCircle2 className="w-4 h-4 text-success" />
-                            ) : (
-                              <Copy className="w-4 h-4 text-text-muted" />
-                            )}
-                          </button>
                         </div>
                       </div>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-bold flex-shrink-0">
-                        2
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-text-primary mb-1">
-                          The agent will start automatically
-                        </p>
-                        <p className="text-xs text-text-muted">
-                          The installer will download, install, and start the Quantix Agent service.
-                          This page will update automatically once connected.
-                        </p>
-                      </div>
-                    </div>
-
-                    {guestOsFamily && (
-                      <div className="flex items-center gap-2 text-xs text-text-muted pt-2 border-t border-border">
-                        <Terminal className="w-3 h-3" />
-                        <span>Detected OS: {guestOsFamily}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Features List */}
-      <div className="grid grid-cols-2 gap-3 text-xs">
-        <div className="flex items-center gap-2 text-text-muted">
-          <CheckCircle2 className="w-3 h-3 text-success" />
-          <span>Real resource metrics</span>
-        </div>
-        <div className="flex items-center gap-2 text-text-muted">
-          <CheckCircle2 className="w-3 h-3 text-success" />
-          <span>IP address reporting</span>
-        </div>
-        <div className="flex items-center gap-2 text-text-muted">
-          <CheckCircle2 className="w-3 h-3 text-success" />
-          <span>Remote script execution</span>
-        </div>
-        <div className="flex items-center gap-2 text-text-muted">
-          <CheckCircle2 className="w-3 h-3 text-success" />
-          <span>Graceful shutdown</span>
+      <div className="pt-4 border-t border-border">
+        <p className="text-xs text-text-muted mb-3">After installation, you'll get:</p>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="flex items-center gap-2 text-text-muted">
+            <CheckCircle2 className="w-3 h-3 text-success" />
+            <span>Real resource metrics</span>
+          </div>
+          <div className="flex items-center gap-2 text-text-muted">
+            <CheckCircle2 className="w-3 h-3 text-success" />
+            <span>IP address reporting</span>
+          </div>
+          <div className="flex items-center gap-2 text-text-muted">
+            <CheckCircle2 className="w-3 h-3 text-success" />
+            <span>Remote script execution</span>
+          </div>
+          <div className="flex items-center gap-2 text-text-muted">
+            <CheckCircle2 className="w-3 h-3 text-success" />
+            <span>Graceful shutdown</span>
+          </div>
+          <div className="flex items-center gap-2 text-text-muted">
+            <CheckCircle2 className="w-3 h-3 text-success" />
+            <span>File browsing</span>
+          </div>
+          <div className="flex items-center gap-2 text-text-muted">
+            <CheckCircle2 className="w-3 h-3 text-success" />
+            <span>Snapshot quiescing</span>
+          </div>
         </div>
       </div>
+
+      {/* Detected OS hint */}
+      {guestOsFamily && (
+        <div className="flex items-center gap-2 text-xs text-text-muted pt-2 border-t border-border">
+          <Terminal className="w-3 h-3" />
+          <span>Detected OS: {guestOsFamily}</span>
+        </div>
+      )}
     </div>
   );
 }

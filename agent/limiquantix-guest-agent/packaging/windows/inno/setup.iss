@@ -1,5 +1,5 @@
 ; =============================================================================
-; LimiQuantix Guest Agent Inno Setup Script
+; Quantix KVM Guest Agent Inno Setup Script
 ; =============================================================================
 ; Alternative to MSI installer for users who prefer EXE installers.
 ;
@@ -8,15 +8,15 @@
 ;   - Run: iscc setup.iss
 ;
 ; Usage:
-;   limiquantix-agent-setup.exe /SILENT /LOG="install.log"
+;   quantix-kvm-agent-setup.exe /SILENT /LOG="install.log"
 ; =============================================================================
 
-#define MyAppName "LimiQuantix Guest Agent"
+#define MyAppName "Quantix KVM Guest Agent"
 #define MyAppVersion "0.1.0"
-#define MyAppPublisher "LimiQuantix"
-#define MyAppURL "https://limiquantix.io"
-#define MyAppExeName "limiquantix-agent.exe"
-#define MyServiceName "LimiQuantixAgent"
+#define MyAppPublisher "Quantix KVM"
+#define MyAppURL "https://github.com/Quantix-KVM/LimiQuantix"
+#define MyAppExeName "quantix-kvm-agent.exe"
+#define MyServiceName "QuantixKVMAgent"
 
 [Setup]
 ; Application info
@@ -26,12 +26,12 @@ AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
-AppSupportURL={#MyAppURL}/support
-AppUpdatesURL={#MyAppURL}/downloads
+AppSupportURL={#MyAppURL}/issues
+AppUpdatesURL={#MyAppURL}/releases
 
 ; Installation settings
-DefaultDirName={autopf}\LimiQuantix\Agent
-DefaultGroupName=LimiQuantix
+DefaultDirName={autopf}\Quantix-KVM\Agent
+DefaultGroupName=Quantix-KVM
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64
@@ -39,7 +39,7 @@ ArchitecturesInstallIn64BitMode=x64
 
 ; Output settings
 OutputDir=..\output
-OutputBaseFilename=limiquantix-agent-{#MyAppVersion}-setup
+OutputBaseFilename=quantix-kvm-agent-{#MyAppVersion}-setup
 Compression=lzma2
 SolidCompression=yes
 
@@ -51,30 +51,30 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 ; Versioning
 VersionInfoVersion={#MyAppVersion}
 VersionInfoCompany={#MyAppPublisher}
-VersionInfoDescription=LimiQuantix Guest Agent Installer
-VersionInfoCopyright=Copyright (C) 2024-2026 LimiQuantix
+VersionInfoDescription=Quantix KVM Guest Agent Installer
+VersionInfoCopyright=Copyright (C) 2024-2026 Quantix KVM
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 ; Main executable
-Source: "..\wix\limiquantix-agent.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\wix\quantix-kvm-agent.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Configuration file
-Source: "..\wix\config.yaml.template"; DestDir: "{commonappdata}\LimiQuantix"; DestName: "agent.yaml"; Flags: onlyifdoesntexist
+Source: "..\wix\config.yaml.template"; DestDir: "{commonappdata}\Quantix-KVM"; DestName: "agent.yaml"; Flags: onlyifdoesntexist
 
 [Dirs]
 ; Create data directories
-Name: "{commonappdata}\LimiQuantix"
-Name: "{commonappdata}\LimiQuantix\Logs"
-Name: "{commonappdata}\LimiQuantix\pre-freeze.d"
-Name: "{commonappdata}\LimiQuantix\post-thaw.d"
+Name: "{commonappdata}\Quantix-KVM"
+Name: "{commonappdata}\Quantix-KVM\Logs"
+Name: "{commonappdata}\Quantix-KVM\pre-freeze.d"
+Name: "{commonappdata}\Quantix-KVM\post-thaw.d"
 
 [Run]
 ; Install and start the service
 Filename: "sc.exe"; Parameters: "create {#MyServiceName} binPath= ""{app}\{#MyAppExeName}"" start= auto DisplayName= ""{#MyAppName}"""; Flags: runhidden waituntilterminated
-Filename: "sc.exe"; Parameters: "description {#MyServiceName} ""Provides VM integration for LimiQuantix hypervisor"""; Flags: runhidden waituntilterminated
+Filename: "sc.exe"; Parameters: "description {#MyServiceName} ""Provides VM integration for Quantix KVM hypervisor"""; Flags: runhidden waituntilterminated
 Filename: "sc.exe"; Parameters: "start {#MyServiceName}"; Flags: runhidden waituntilterminated
 
 [UninstallRun]
@@ -102,9 +102,9 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
-    MsgBox('LimiQuantix Guest Agent has been installed and started.' + #13#10 + #13#10 +
-           'Configuration: ' + ExpandConstant('{commonappdata}') + '\LimiQuantix\agent.yaml' + #13#10 +
-           'Logs: ' + ExpandConstant('{commonappdata}') + '\LimiQuantix\Logs\agent.log' + #13#10 + #13#10 +
+    MsgBox('Quantix KVM Guest Agent has been installed and started.' + #13#10 + #13#10 +
+           'Configuration: ' + ExpandConstant('{commonappdata}') + '\Quantix-KVM\agent.yaml' + #13#10 +
+           'Logs: ' + ExpandConstant('{commonappdata}') + '\Quantix-KVM\Logs\agent.log' + #13#10 + #13#10 +
            'To check status: sc query {#MyServiceName}',
            mbInformation, MB_OK);
   end;

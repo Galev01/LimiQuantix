@@ -1,0 +1,71 @@
+# =============================================================================
+# Quantix Guest Agent Builder Dockerfile
+# =============================================================================
+# This container builds the guest agent as a FULLY STATIC binary that works
+# on ANY Linux distribution without ANY library dependencies.
+#
+# Uses musl libc for static linking. The resulting binary:
+# - Has ZERO runtime dependencies
+# - Works on Ubuntu, Debian, Rocky Linux, CentOS, RHEL, Fedora, Alpine, etc.
+# - Works even on minimal/container environments
+# - Is immune to glibc version mismatches
+#
+# Usage:
+#   docker build -t quantix-guest-agent-builder -f Quantix-OS/builder/Dockerfile.guest-agent .
+#   docker run --rm -v $(pwd)/agent:/build quantix-guest-agent-builder
+# =============================================================================
+
+FROM rust:1.87-alpine
+
+LABEL maintainer="Quantix-KVM Team"
+LABEL description="Rust build environment for Quantix Guest Agent (static binary)"
+
+# Install build dependencies for static compilation
+RUN apk add --no-cache \
+    # Build essentials
+    musl-dev \
+    gcc \
+    g++ \
+    make \
+    pkgconfig \
+    # Static OpenSSL (in case any dep needs it)
+    openssl-dev \
+    openssl-libs-static \
+    # Protobuf compiler for gRPC
+    protobuf-dev \
+    protoc \
+    # For version info
+    git \
+    # Perl for OpenSSL build scripts
+    perl \
+    # X11 static libs for arboard clipboard support
+    libx11-dev \
+    libx11-static \
+    libxcb-dev \
+    libxcb-static \
+    # File utility to verify static linking
+    file
+
+# Set environment for static linking
+ENV OPENSSL_STATIC=1
+ENV OPENSSL_LIB_DIR=/usr/lib
+ENV OPENSSL_INCLUDE_DIR=/usr/include
+ENV PKG_CONFIG_ALL_STATIC=1
+
+# Add the musl target (already default on Alpine, but be explicit)
+RUN rustup target add x86_64-unknown-linux-musl
+
+# Create build directory
+WORKDIR /build
+
+# Build command - creates a TRULY static binary (no PIE, no dynamic linker needed)
+# -C relocation-model=static disables PIE to ensure no dynamic linker is required
+CMD ["sh", "-c", "\
+    echo '=== Building TRULY static guest agent ===' && \
+    RUSTFLAGS='-C target-feature=+crt-static -C relocation-model=static' \
+    cargo build --release --target x86_64-unknown-linux-musl -p limiquantix-guest-agent && \
+    echo '=== Verifying binary is static ===' && \
+    BINARY=/build/target/x86_64-unknown-linux-musl/release/quantix-kvm-agent && \
+    file $BINARY && \
+    ldd $BINARY 2>&1 || echo '(ldd output above - if it shows not a dynamic executable, that is good!)' \
+"]

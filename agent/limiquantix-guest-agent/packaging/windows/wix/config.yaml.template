@@ -1,7 +1,7 @@
 # =============================================================================
-# LimiQuantix Guest Agent Configuration (Windows)
+# Quantix KVM Guest Agent Configuration (Windows)
 # =============================================================================
-# Location: C:\ProgramData\LimiQuantix\agent.yaml
+# Location: C:\ProgramData\Quantix-KVM\agent.yaml
 
 # Telemetry interval in seconds
 telemetry_interval_secs: 5
@@ -15,16 +15,17 @@ max_chunk_size: 65536
 # Logging
 log_level: info
 log_format: json
-log_file: "C:\\ProgramData\\LimiQuantix\\Logs\\agent.log"
+log_file: "C:\\ProgramData\\Quantix-KVM\\Logs\\agent.log"
 log_max_size_bytes: 10485760
 log_max_files: 5
 
 # Device path (auto = auto-detect)
+# Note: The virtio-serial port name is kept as org.quantix.agent.0 for backward compatibility
 device_path: auto
 
 # Quiescing scripts directories
-pre_freeze_script_dir: "C:\\ProgramData\\LimiQuantix\\pre-freeze.d"
-post_thaw_script_dir: "C:\\ProgramData\\LimiQuantix\\post-thaw.d"
+pre_freeze_script_dir: "C:\\ProgramData\\Quantix-KVM\\pre-freeze.d"
+post_thaw_script_dir: "C:\\ProgramData\\Quantix-KVM\\post-thaw.d"
 
 # Security settings
 security:

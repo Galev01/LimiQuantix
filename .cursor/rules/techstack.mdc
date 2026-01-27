@@ -1,4 +1,5 @@
 ---
+description: Technology stack guidelines for Rust, Go, TypeScript/React, and Update Server. Defines versions, frameworks, libraries, coding styles, and patterns for all code generation across the Quantix-KVM platform.
 alwaysApply: true
 ---
 

@@ -7,6 +7,7 @@ import {
   Loader2,
   Copy,
   Check,
+  AlertTriangle,
   AlertCircle,
   Clock,
 } from 'lucide-react';
@@ -182,6 +183,21 @@ export function ExecuteScriptModal({
                 <span className="text-sm text-text-muted">seconds</span>
               </div>
             </div>
+
+            {/* Timeout Warning */}
+            {executionTimeout > 30 && (
+              <div className="flex items-start gap-3 p-4 bg-warning/10 rounded-lg border border-warning/30">
+                <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-warning">Timeout Warning</p>
+                  <p className="text-text-muted mt-1">
+                    Scripts longer than 30 seconds may timeout. The HTTP request will fail,
+                    but the script may continue running in the guest. For long-running operations
+                    (like package updates or database backups), check the VM console to monitor progress.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Result */}
             {result && (

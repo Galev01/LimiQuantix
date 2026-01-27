@@ -110,7 +110,7 @@ impl NodeDaemonServiceImpl {
         // These directories are in /var/run which is typically a tmpfs and cleared on reboot
         let runtime_dirs = [
             "/var/run/limiquantix",
-            "/var/run/limiquantix/vms",
+            "/var/run/quantix-kvm/vms",
         ];
         
         for dir in &runtime_dirs {
@@ -669,11 +669,27 @@ impl NodeDaemonServiceImpl {
     }
     
     /// Get or create an agent client for a VM
-    async fn get_agent_client(&self, vm_id: &str) -> Result<(), Status> {
+    /// Returns Ok(()) if connected, Err(Status) if connection failed
+    pub async fn get_agent_client(&self, vm_id: &str) -> Result<(), Status> {
+        self.get_agent_client_with_socket(vm_id, None).await
+    }
+    
+    /// Get or create an agent client for a VM with a specific socket path
+    /// Returns Ok(()) if connected, Err(Status) if connection failed
+    pub async fn get_agent_client_with_socket(&self, vm_id: &str, socket_path: Option<std::path::PathBuf>) -> Result<(), Status> {
         let mut agents = self.agent_manager.write().await;
         
         if !agents.contains_key(vm_id) {
-            let mut client = AgentClient::new(vm_id);
+            let mut client = if let Some(path) = socket_path {
+                AgentClient::with_socket_path(vm_id, path)
+            } else {
+                AgentClient::new(vm_id)
+            };
+            
+            // Try to refresh socket path if initial path doesn't exist
+            if !client.socket_exists() {
+                client.refresh_socket_path();
+            }
             
             if client.socket_exists() {
                 match client.connect().await {
@@ -692,6 +708,12 @@ impl NodeDaemonServiceImpl {
         }
         
         Ok(())
+    }
+    
+    /// Get a read lock on the agent manager for accessing agent clients
+    /// Call get_agent_client() first to ensure the agent is connected
+    pub async fn agent_manager(&self) -> tokio::sync::RwLockReadGuard<'_, std::collections::HashMap<String, AgentClient>> {
+        self.agent_manager.read().await
     }
     
     /// Update cached agent info from telemetry
@@ -714,8 +736,52 @@ impl NodeDaemonServiceImpl {
         }
     }
     
+    /// Update the agent cache when we receive an AgentReady event
+    pub async fn set_agent_connected(&self, vm_id: &str, version: &str, hostname: &str) {
+        let mut cache = self.agent_cache.write().await;
+        let entry = cache.entry(vm_id.to_string()).or_default();
+        entry.connected = true;
+        if !version.is_empty() && version != "unknown" {
+            entry.version = version.to_string();
+        }
+        if !hostname.is_empty() && hostname != "unknown" {
+            entry.hostname = hostname.to_string();
+        }
+        entry.last_seen = Some(std::time::Instant::now());
+        info!(vm_id = %vm_id, version = %version, hostname = %hostname, "Agent cache updated");
+    }
+    
+    /// Update the agent cache with full OS information
+    pub async fn set_agent_info(&self, vm_id: &str, version: &str, hostname: &str, 
+                                 os_name: &str, os_version: &str, kernel_version: &str,
+                                 ip_addresses: Vec<String>) {
+        let mut cache = self.agent_cache.write().await;
+        let entry = cache.entry(vm_id.to_string()).or_default();
+        entry.connected = true;
+        if !version.is_empty() {
+            entry.version = version.to_string();
+        }
+        if !hostname.is_empty() {
+            entry.hostname = hostname.to_string();
+        }
+        if !os_name.is_empty() {
+            entry.os_name = os_name.to_string();
+        }
+        if !os_version.is_empty() {
+            entry.os_version = os_version.to_string();
+        }
+        if !kernel_version.is_empty() {
+            entry.kernel_version = kernel_version.to_string();
+        }
+        if !ip_addresses.is_empty() {
+            entry.ip_addresses = ip_addresses;
+        }
+        entry.last_seen = Some(std::time::Instant::now());
+        info!(vm_id = %vm_id, version = %version, hostname = %hostname, os = %os_name, "Agent cache updated with full info");
+    }
+    
     /// Get cached agent info for a VM
-    async fn get_agent_info(&self, vm_id: &str) -> Option<GuestAgentInfo> {
+    pub async fn get_agent_info(&self, vm_id: &str) -> Option<GuestAgentInfo> {
         let cache = self.agent_cache.read().await;
         
         cache.get(vm_id).map(|info| {
@@ -1475,6 +1541,17 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
             });
         }
         
+        // Add a default empty CD-ROM device if none were specified
+        // This allows mounting ISOs later (e.g., Agent Tools ISO)
+        if config.cdroms.is_empty() {
+            info!(vm_id = %vm_uuid, "Adding default empty CD-ROM device for ISO mounting");
+            config.cdroms.push(CdromConfig {
+                id: "cdrom-0".to_string(),
+                iso_path: None,
+                bootable: false,
+            });
+        }
+        
         // If a bootable CD-ROM is present, adjust boot order to prioritize CD-ROM
         if has_bootable_cdrom {
             info!(
@@ -1487,7 +1564,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         // Create the VM via the hypervisor backend
         // Ensure the agent socket directory exists before creating the VM
         // This is required because libvirt will try to bind the virtio-serial socket
-        let socket_dir = std::path::PathBuf::from("/var/run/limiquantix/vms");
+        let socket_dir = std::path::PathBuf::from("/var/run/quantix-kvm/vms");
         if let Err(e) = std::fs::create_dir_all(&socket_dir) {
             error!(error = %e, "Failed to create agent socket directory");
             return Err(Status::internal(format!("Failed to create agent socket directory: {}", e)));
@@ -1536,7 +1613,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         // Ensure the agent socket directory exists before starting the VM
         // This directory is in /var/run which may be cleared on reboot
-        let socket_dir = std::path::PathBuf::from("/var/run/limiquantix/vms");
+        let socket_dir = std::path::PathBuf::from("/var/run/quantix-kvm/vms");
         if let Err(e) = std::fs::create_dir_all(&socket_dir) {
             error!(error = %e, "Failed to create agent socket directory");
             return Err(Status::internal(format!("Failed to create agent socket directory: {}", e)));

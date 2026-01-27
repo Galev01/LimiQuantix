@@ -1,4 +1,4 @@
-# LimiQuantix Guest Agent MSI Build Script
+# Quantix KVM Guest Agent MSI Build Script
 # 
 # Prerequisites:
 #   - Rust with windows-msvc toolchain
@@ -15,7 +15,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "Building LimiQuantix Guest Agent MSI v$Version" -ForegroundColor Cyan
+Write-Host "Building Quantix KVM Guest Agent MSI v$Version" -ForegroundColor Cyan
 
 # Paths
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -49,9 +49,9 @@ Pop-Location
 
 # Find the built executable
 $ExePath = if ($Configuration -eq "release") {
-    "$ProjectRoot\agent\target\x86_64-pc-windows-msvc\release\limiquantix-agent.exe"
+    "$ProjectRoot\agent\target\x86_64-pc-windows-msvc\release\quantix-kvm-agent.exe"
 } else {
-    "$ProjectRoot\agent\target\x86_64-pc-windows-msvc\debug\limiquantix-agent.exe"
+    "$ProjectRoot\agent\target\x86_64-pc-windows-msvc\debug\quantix-kvm-agent.exe"
 }
 
 if (-not (Test-Path $ExePath)) {
@@ -64,7 +64,7 @@ Write-Host "Built: $ExePath" -ForegroundColor Green
 # Step 2: Copy files to WiX source directory
 Write-Host "`nStep 2: Preparing WiX source files..." -ForegroundColor Yellow
 
-Copy-Item $ExePath "$WixDir\limiquantix-agent.exe" -Force
+Copy-Item $ExePath "$WixDir\quantix-kvm-agent.exe" -Force
 
 # Create a simple icon if one doesn't exist
 $IconPath = "$WixDir\icon.ico"
@@ -90,7 +90,7 @@ if (-not $wixPath) {
 }
 
 # Build the MSI
-$MsiName = "limiquantix-agent-$Version-x64.msi"
+$MsiName = "quantix-kvm-agent-$Version-x64.msi"
 wix build main.wxs -o "$OutputDir\$MsiName" -define Version=$Version
 if ($LASTEXITCODE -ne 0) {
     Write-Error "WiX build failed"

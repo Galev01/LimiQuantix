@@ -206,9 +206,9 @@ func main() {
 	agent := api.Group("/agent")
 	agent.Get("/version", handleAgentVersion)
 	agent.Get("/install.sh", handleAgentInstallScript)
-	agent.Get("/linux/:arch", handleAgentLinuxBinary)
-	agent.Get("/linux/:arch.deb", handleAgentLinuxDeb)
-	agent.Get("/linux/:arch.rpm", handleAgentLinuxRpm)
+	agent.Get("/linux/binary/:arch", handleAgentLinuxBinary)
+	agent.Get("/linux/deb/:arch", handleAgentLinuxDeb)
+	agent.Get("/linux/rpm/:arch", handleAgentLinuxRpm)
 
 	// Admin config endpoint
 	admin.Get("/config", handleGetConfig)
@@ -1175,28 +1175,28 @@ case "$OS_ID" in
     ubuntu|debian)
         echo "[Quantix] Installing via .deb package..."
         TEMP_DEB=$(mktemp --suffix=.deb)
-        curl -fsSL "$BASE_URL/api/v1/agent/linux/${ARCH}.deb?channel=$CHANNEL" -o "$TEMP_DEB"
+        curl -fsSL "$BASE_URL/api/v1/agent/linux/deb/${ARCH}?channel=$CHANNEL" -o "$TEMP_DEB"
         dpkg -i "$TEMP_DEB" || apt-get install -f -y
         rm -f "$TEMP_DEB"
         ;;
     rhel|centos|fedora|rocky|almalinux)
         echo "[Quantix] Installing via .rpm package..."
         TEMP_RPM=$(mktemp --suffix=.rpm)
-        curl -fsSL "$BASE_URL/api/v1/agent/linux/${ARCH}.rpm?channel=$CHANNEL" -o "$TEMP_RPM"
+        curl -fsSL "$BASE_URL/api/v1/agent/linux/rpm/${ARCH}?channel=$CHANNEL" -o "$TEMP_RPM"
         rpm -i "$TEMP_RPM" || yum install -y "$TEMP_RPM" || dnf install -y "$TEMP_RPM"
         rm -f "$TEMP_RPM"
         ;;
     *)
         echo "[Quantix] Installing binary directly..."
-        curl -fsSL "$BASE_URL/api/v1/agent/linux/${ARCH}?channel=$CHANNEL" -o /usr/local/bin/limiquantix-agent
-        chmod +x /usr/local/bin/limiquantix-agent
+        curl -fsSL "$BASE_URL/api/v1/agent/linux/binary/${ARCH}?channel=$CHANNEL" -o /usr/local/bin/quantix-kvm-agent
+        chmod +x /usr/local/bin/quantix-kvm-agent
         
         # Create config directory
-        mkdir -p /etc/limiquantix
+        mkdir -p /etc/quantix-kvm
         
         # Create default config if it doesn't exist
-        if [ ! -f /etc/limiquantix/agent.yaml ]; then
-            cat > /etc/limiquantix/agent.yaml << 'CONFIGEOF'
+        if [ ! -f /etc/quantix-kvm/agent.yaml ]; then
+            cat > /etc/quantix-kvm/agent.yaml << 'CONFIGEOF'
 telemetry_interval_secs: 5
 max_exec_timeout_secs: 300
 max_chunk_size: 65536
@@ -1208,17 +1208,17 @@ CONFIGEOF
         fi
         
         # Create log directory
-        mkdir -p /var/log/limiquantix
+        mkdir -p /var/log/quantix-kvm
         
         # Create systemd service
-        cat > /etc/systemd/system/limiquantix-agent.service << 'SVCEOF'
+        cat > /etc/systemd/system/quantix-kvm-agent.service << 'SVCEOF'
 [Unit]
-Description=LimiQuantix Guest Agent
+Description=Quantix KVM Guest Agent
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/limiquantix-agent
+ExecStart=/usr/local/bin/quantix-kvm-agent
 Restart=always
 RestartSec=5
 
@@ -1227,13 +1227,13 @@ WantedBy=multi-user.target
 SVCEOF
         
         systemctl daemon-reload
-        systemctl enable limiquantix-agent
-        systemctl start limiquantix-agent
+        systemctl enable quantix-kvm-agent
+        systemctl start quantix-kvm-agent
         ;;
 esac
 
 echo "[Quantix] Guest Agent v%s installed successfully!"
-systemctl status limiquantix-agent --no-pager || true
+systemctl status quantix-kvm-agent --no-pager || true
 `, version, channel, baseURL, version, baseURL, channel, version)
 
 	c.Set("Content-Type", "text/x-shellscript")
@@ -1260,10 +1260,10 @@ func handleAgentLinuxBinary(c *fiber.Ctx) error {
 	}
 
 	// Look for binary file
-	binaryPath := filepath.Join(agentDir, fmt.Sprintf("limiquantix-agent-linux-%s", arch))
+	binaryPath := filepath.Join(agentDir, fmt.Sprintf("quantix-kvm-agent-linux-%s", arch))
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		// Try without architecture suffix
-		binaryPath = filepath.Join(agentDir, "limiquantix-agent-linux-amd64")
+		binaryPath = filepath.Join(agentDir, "quantix-kvm-agent-linux-amd64")
 		if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 			return c.Status(http.StatusNotFound).JSON(fiber.Map{
 				"error": "Binary not found for architecture",
@@ -1273,7 +1273,7 @@ func handleAgentLinuxBinary(c *fiber.Ctx) error {
 	}
 
 	c.Set("Content-Type", "application/octet-stream")
-	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=limiquantix-agent-linux-%s", arch))
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=quantix-kvm-agent-linux-%s", arch))
 	return c.SendFile(binaryPath)
 }
 

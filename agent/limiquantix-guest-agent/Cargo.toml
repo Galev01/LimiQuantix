@@ -1,8 +1,9 @@
 # =============================================================================
-# limiquantix Guest Agent
+# Quantix KVM Guest Agent
 # =============================================================================
 # Lightweight agent binary that runs inside guest VMs to enable deep integration
 # with the hypervisor host via virtio-serial communication.
+# Similar to VMware Tools, provides telemetry, remote execution, and more.
 
 [package]
 name = "limiquantix-guest-agent"
@@ -10,11 +11,11 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Guest VM agent for LimiQuantix virtualization platform"
+description = "Quantix KVM Guest Agent - VMware Tools alternative for KVM/QEMU"
 readme = "README.md"
 
 [[bin]]
-name = "limiquantix-agent"
+name = "quantix-kvm-agent"
 path = "src/main.rs"
 
 [dependencies]

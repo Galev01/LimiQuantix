@@ -1,5 +1,5 @@
 # =============================================================================
-# LimiQuantix Guest Agent CI/CD Pipeline
+# Quantix KVM Guest Agent CI/CD Pipeline
 # =============================================================================
 # This workflow builds, tests, and packages the guest agent for all platforms.
 
@@ -142,8 +142,8 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: limiquantix-agent-linux-${{ matrix.pkg_arch }}
-          path: agent/target/${{ matrix.target }}/release/limiquantix-agent
+          name: quantix-kvm-agent-linux-${{ matrix.pkg_arch }}
+          path: agent/target/${{ matrix.target }}/release/quantix-kvm-agent
 
   # ==========================================================================
   # Build Windows Binary
@@ -176,8 +176,8 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: limiquantix-agent-windows-x64
-          path: agent/target/x86_64-pc-windows-msvc/release/limiquantix-agent.exe
+          name: quantix-kvm-agent-windows-x64
+          path: agent/target/x86_64-pc-windows-msvc/release/quantix-kvm-agent.exe
 
   # ==========================================================================
   # Package Linux (DEB/RPM)
@@ -195,11 +195,11 @@ jobs:
       - name: Download binary artifact
         uses: actions/download-artifact@v4
         with:
-          name: limiquantix-agent-linux-amd64
+          name: quantix-kvm-agent-linux-amd64
           path: agent/target/release/
 
       - name: Make binary executable
-        run: chmod +x agent/target/release/limiquantix-agent
+        run: chmod +x agent/target/release/quantix-kvm-agent
 
       - name: Install packaging tools
         run: |
@@ -217,7 +217,7 @@ jobs:
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: limiquantix-agent-${{ matrix.format }}
+          name: quantix-kvm-agent-${{ matrix.format }}
           path: agent/target/packages/*.${{ matrix.format }}
 
   # ==========================================================================
@@ -233,7 +233,7 @@ jobs:
       - name: Download binary artifact
         uses: actions/download-artifact@v4
         with:
-          name: limiquantix-agent-windows-x64
+          name: quantix-kvm-agent-windows-x64
           path: agent/limiquantix-guest-agent/packaging/windows/wix/
 
       - name: Install WiX Toolset
@@ -249,7 +249,7 @@ jobs:
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: limiquantix-agent-msi
+          name: quantix-kvm-agent-msi
           path: agent/limiquantix-guest-agent/packaging/windows/output/*.msi
 
   # ==========================================================================
@@ -279,8 +279,8 @@ jobs:
             artifacts/**/*.deb
             artifacts/**/*.rpm
             artifacts/**/*.msi
-            artifacts/**/limiquantix-agent
-            artifacts/**/limiquantix-agent.exe
+            artifacts/**/quantix-kvm-agent
+            artifacts/**/quantix-kvm-agent.exe
           draft: true
           generate_release_notes: true
         env:

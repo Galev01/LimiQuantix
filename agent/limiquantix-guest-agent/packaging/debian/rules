@@ -7,8 +7,8 @@ override_dh_auto_build:
 	cargo build --release -p limiquantix-guest-agent
 
 override_dh_auto_install:
-	install -D -m 755 target/release/limiquantix-agent debian/limiquantix-guest-agent/usr/bin/limiquantix-agent
-	install -D -m 644 packaging/systemd/limiquantix-agent.service debian/limiquantix-guest-agent/lib/systemd/system/limiquantix-agent.service
+	install -D -m 755 target/release/quantix-kvm-agent debian/quantix-kvm-agent/usr/local/bin/quantix-kvm-agent
+	install -D -m 644 packaging/systemd/quantix-kvm-agent.service debian/quantix-kvm-agent/lib/systemd/system/quantix-kvm-agent.service
 
 override_dh_auto_clean:
 	cargo clean || true

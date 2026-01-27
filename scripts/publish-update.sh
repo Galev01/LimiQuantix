@@ -475,24 +475,70 @@ for component in "${COMPONENTS[@]}"; do
             mkdir -p "$AGENT_BUILD_DIR"
             
             if use_docker_for_rust; then
-                # Use Docker for cross-compilation to Linux
-                log_info "Building guest-agent with Docker (Alpine native)..."
-                build_rust_with_docker "limiquantix-guest-agent" "limiquantix-agent" "$PROJECT_ROOT/agent"
+                # Use Docker with Alpine/musl for FULLY STATIC binary
+                # This produces binaries with ZERO dependencies that work on ANY Linux
+                log_info "Building guest-agent with Docker (static binary for universal compatibility)..."
+                
+                GUEST_AGENT_IMAGE="quantix-guest-agent-builder"
+                GUEST_AGENT_DOCKERFILE="$PROJECT_ROOT/Quantix-OS/builder/Dockerfile.guest-agent"
+                
+                # Always rebuild the Docker image to pick up Dockerfile changes
+                log_info "Building Docker image $GUEST_AGENT_IMAGE..."
+                if ! docker build --network=host -t "$GUEST_AGENT_IMAGE" -f "$GUEST_AGENT_DOCKERFILE" "$PROJECT_ROOT/Quantix-OS/builder/"; then
+                    log_error "Failed to build guest-agent Docker image"
+                    exit 1
+                fi
+                
+                # Convert source path for Docker on Windows
+                DOCKER_SOURCE_DIR="$PROJECT_ROOT/agent"
+                if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+                    DOCKER_SOURCE_DIR=$(cd "$PROJECT_ROOT/agent" && pwd -W 2>/dev/null || pwd)
+                fi
+                
+                log_info "Running cargo build in Docker container (static musl)..."
+                log_info "Source dir: $DOCKER_SOURCE_DIR"
+                
+                # Clean and build with musl target for static binary
+                MSYS_NO_PATHCONV=1 docker run --rm \
+                    --network=host \
+                    -v "$DOCKER_SOURCE_DIR://build" \
+                    -w "//build" \
+                    "$GUEST_AGENT_IMAGE"
                 BUILD_RESULT=$?
                 
-                if [ -f "$PROJECT_ROOT/agent/target/release/limiquantix-agent" ]; then
-                    BINARY="$PROJECT_ROOT/agent/target/release/limiquantix-agent"
-                    log_info "Found guest-agent binary: $BINARY"
+                # Check for static binary in musl target directory
+                MUSL_BINARY="$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/limiquantix-agent"
+                RELEASE_BINARY="$PROJECT_ROOT/agent/target/release/limiquantix-agent"
+                
+                if [ -f "$MUSL_BINARY" ]; then
+                    BINARY="$MUSL_BINARY"
+                    log_info "Found static guest-agent binary: $BINARY"
+                    
+                    # Verify it's statically linked
+                    if file "$BINARY" | grep -q "statically linked"; then
+                        log_info "Binary is STATICALLY linked - works on ANY Linux!"
+                    else
+                        log_warn "Binary may not be fully static, checking with ldd..."
+                    fi
+                elif [ -f "$RELEASE_BINARY" ]; then
+                    BINARY="$RELEASE_BINARY"
+                    log_info "Found guest-agent binary (fallback): $BINARY"
                 elif [ $BUILD_RESULT -ne 0 ]; then
                     log_error "Docker build failed for guest-agent"
                 fi
             else
-                # Native Linux build
-                log_info "Building guest-agent natively..."
-                cargo build --release -p limiquantix-guest-agent 2>&1 | tail -10
-                
-                if [ -f "$PROJECT_ROOT/agent/target/release/limiquantix-agent" ]; then
-                    BINARY="$PROJECT_ROOT/agent/target/release/limiquantix-agent"
+                # Native Linux build - try static if possible
+                log_info "Building guest-agent natively (trying static)..."
+                if rustup target list --installed | grep -q "x86_64-unknown-linux-musl"; then
+                    RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target x86_64-unknown-linux-musl -p limiquantix-guest-agent 2>&1 | tail -10
+                    if [ -f "$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/limiquantix-agent" ]; then
+                        BINARY="$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/limiquantix-agent"
+                    fi
+                else
+                    cargo build --release -p limiquantix-guest-agent 2>&1 | tail -10
+                    if [ -f "$PROJECT_ROOT/agent/target/release/limiquantix-agent" ]; then
+                        BINARY="$PROJECT_ROOT/agent/target/release/limiquantix-agent"
+                    fi
                 fi
             fi
             

@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# LimiQuantix Guest Agent Package Builder
+# Quantix KVM Guest Agent Package Builder
 # =============================================================================
 # This script builds distribution packages for the Guest Agent.
 #
@@ -22,7 +22,7 @@
 set -e
 
 VERSION="0.1.0"
-PACKAGE_NAME="limiquantix-guest-agent"
+PACKAGE_NAME="quantix-kvm-agent"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 BUILD_DIR="${ROOT_DIR}/target/packages"
@@ -64,12 +64,12 @@ log_error() {
 
 # Build the Rust binary
 build_binary() {
-    log_info "Building limiquantix-agent binary..."
+    log_info "Building quantix-kvm-agent binary..."
     
     cd "${ROOT_DIR}"
     cargo build --release -p limiquantix-guest-agent
     
-    if [ -f "${ROOT_DIR}/target/release/limiquantix-agent" ]; then
+    if [ -f "${ROOT_DIR}/target/release/quantix-kvm-agent" ]; then
         log_info "Binary built successfully"
     else
         log_error "Binary build failed"
@@ -88,33 +88,34 @@ build_deb() {
     DEB_DIR="${BUILD_DIR}/deb/${PACKAGE_NAME}_${VERSION}_${ARCH}"
     rm -rf "${DEB_DIR}"
     mkdir -p "${DEB_DIR}/DEBIAN"
-    mkdir -p "${DEB_DIR}/usr/bin"
+    mkdir -p "${DEB_DIR}/usr/local/bin"
     mkdir -p "${DEB_DIR}/lib/systemd/system"
-    mkdir -p "${DEB_DIR}/etc/limiquantix"
-    mkdir -p "${DEB_DIR}/etc/limiquantix/pre-freeze.d"
-    mkdir -p "${DEB_DIR}/etc/limiquantix/post-thaw.d"
-    mkdir -p "${DEB_DIR}/var/log/limiquantix"
+    mkdir -p "${DEB_DIR}/etc/quantix-kvm"
+    mkdir -p "${DEB_DIR}/etc/quantix-kvm/pre-freeze.d"
+    mkdir -p "${DEB_DIR}/etc/quantix-kvm/post-thaw.d"
+    mkdir -p "${DEB_DIR}/var/log/quantix-kvm"
     
     # Copy binary
-    cp "${ROOT_DIR}/target/release/limiquantix-agent" "${DEB_DIR}/usr/bin/"
-    chmod 755 "${DEB_DIR}/usr/bin/limiquantix-agent"
+    cp "${ROOT_DIR}/target/release/quantix-kvm-agent" "${DEB_DIR}/usr/local/bin/"
+    chmod 755 "${DEB_DIR}/usr/local/bin/quantix-kvm-agent"
     
     # Copy systemd service
-    cp "${SCRIPT_DIR}/systemd/limiquantix-agent.service" "${DEB_DIR}/lib/systemd/system/"
+    cp "${SCRIPT_DIR}/systemd/quantix-kvm-agent.service" "${DEB_DIR}/lib/systemd/system/"
     
     # Copy default configuration
-    cp "${SCRIPT_DIR}/config/agent.yaml" "${DEB_DIR}/etc/limiquantix/"
+    cp "${SCRIPT_DIR}/config/agent.yaml" "${DEB_DIR}/etc/quantix-kvm/"
     
     # Create control file
     cat > "${DEB_DIR}/DEBIAN/control" << EOF
 Package: ${PACKAGE_NAME}
 Version: ${VERSION}
 Architecture: ${ARCH}
-Maintainer: LimiQuantix Team <team@limiquantix.io>
+Maintainer: Quantix KVM Team <team@quantix-kvm.io>
 Depends: libc6
-Description: LimiQuantix Guest Agent for VM Integration
- The LimiQuantix Guest Agent is a lightweight daemon that runs inside
- guest VMs to enable deep integration with the LimiQuantix hypervisor.
+Description: Quantix KVM Guest Agent for VM Integration
+ The Quantix KVM Guest Agent is a lightweight daemon that runs inside
+ guest VMs to enable deep integration with the Quantix KVM hypervisor.
+ Similar to VMware Tools but for KVM/QEMU environments.
  .
  Features:
   - Real-time telemetry (CPU, memory, disk, network)
@@ -131,7 +132,7 @@ EOF
     
     # Create conffiles (mark config as conffile to preserve on upgrade)
     cat > "${DEB_DIR}/DEBIAN/conffiles" << EOF
-/etc/limiquantix/agent.yaml
+/etc/quantix-kvm/agent.yaml
 EOF
     
     # Copy maintainer scripts
@@ -166,35 +167,36 @@ build_rpm() {
 Name:           ${PACKAGE_NAME}
 Version:        ${VERSION}
 Release:        1%{?dist}
-Summary:        LimiQuantix Guest Agent for VM Integration
+Summary:        Quantix KVM Guest Agent for VM Integration
 
 License:        Apache-2.0
-URL:            https://github.com/limiquantix/limiquantix
+URL:            https://github.com/Quantix-KVM/LimiQuantix
 
 %description
-The LimiQuantix Guest Agent is a lightweight daemon that runs inside
-guest VMs to enable deep integration with the LimiQuantix hypervisor.
+The Quantix KVM Guest Agent is a lightweight daemon that runs inside
+guest VMs to enable deep integration with the Quantix KVM hypervisor.
+Similar to VMware Tools but for KVM/QEMU environments.
 
 %install
-mkdir -p %{buildroot}/usr/bin
+mkdir -p %{buildroot}/usr/local/bin
 mkdir -p %{buildroot}/lib/systemd/system
-install -m 755 ${ROOT_DIR}/target/release/limiquantix-agent %{buildroot}/usr/bin/
-install -m 644 ${SCRIPT_DIR}/systemd/limiquantix-agent.service %{buildroot}/lib/systemd/system/
+install -m 755 ${ROOT_DIR}/target/release/quantix-kvm-agent %{buildroot}/usr/local/bin/
+install -m 644 ${SCRIPT_DIR}/systemd/quantix-kvm-agent.service %{buildroot}/lib/systemd/system/
 
 %post
 systemctl daemon-reload
-systemctl enable limiquantix-agent.service
-systemctl start limiquantix-agent.service || true
+systemctl enable quantix-kvm-agent.service
+systemctl start quantix-kvm-agent.service || true
 
 %preun
 if [ \$1 -eq 0 ]; then
-    systemctl stop limiquantix-agent.service || true
-    systemctl disable limiquantix-agent.service || true
+    systemctl stop quantix-kvm-agent.service || true
+    systemctl disable quantix-kvm-agent.service || true
 fi
 
 %files
-/usr/bin/limiquantix-agent
-/lib/systemd/system/limiquantix-agent.service
+/usr/local/bin/quantix-kvm-agent
+/lib/systemd/system/quantix-kvm-agent.service
 EOF
     
     # Build the RPM
@@ -219,8 +221,8 @@ build_standalone() {
     mkdir -p "${TAR_DIR}"
     
     # Copy files
-    cp "${ROOT_DIR}/target/release/limiquantix-agent" "${TAR_DIR}/"
-    cp "${SCRIPT_DIR}/systemd/limiquantix-agent.service" "${TAR_DIR}/"
+    cp "${ROOT_DIR}/target/release/quantix-kvm-agent" "${TAR_DIR}/"
+    cp "${SCRIPT_DIR}/systemd/quantix-kvm-agent.service" "${TAR_DIR}/"
     cp "${ROOT_DIR}/limiquantix-guest-agent/README.md" "${TAR_DIR}/" 2>/dev/null || true
     
     # Create install script
@@ -228,21 +230,21 @@ build_standalone() {
 #!/bin/bash
 set -e
 
-echo "Installing LimiQuantix Guest Agent..."
+echo "Installing Quantix KVM Guest Agent..."
 
 # Copy binary
-sudo install -m 755 limiquantix-agent /usr/local/bin/
+sudo install -m 755 quantix-kvm-agent /usr/local/bin/
 
 # Copy systemd service
-sudo install -m 644 limiquantix-agent.service /etc/systemd/system/
+sudo install -m 644 quantix-kvm-agent.service /etc/systemd/system/
 
 # Enable and start
 sudo systemctl daemon-reload
-sudo systemctl enable limiquantix-agent
-sudo systemctl start limiquantix-agent
+sudo systemctl enable quantix-kvm-agent
+sudo systemctl start quantix-kvm-agent
 
-echo "LimiQuantix Guest Agent installed and started!"
-echo "Check status: systemctl status limiquantix-agent"
+echo "Quantix KVM Guest Agent installed and started!"
+echo "Check status: systemctl status quantix-kvm-agent"
 EOF
     chmod +x "${TAR_DIR}/install.sh"
     

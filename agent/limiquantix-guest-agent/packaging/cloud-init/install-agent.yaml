@@ -1,8 +1,8 @@
 #cloud-config
 # =============================================================================
-# LimiQuantix Guest Agent Cloud-Init Installation
+# Quantix KVM Guest Agent Cloud-Init Installation
 # =============================================================================
-# This cloud-init configuration automatically installs the LimiQuantix Guest
+# This cloud-init configuration automatically installs the Quantix KVM Guest
 # Agent during VM provisioning.
 #
 # Usage:
@@ -29,7 +29,7 @@ runcmd:
     AGENT_VERSION="${AGENT_VERSION:-latest}"
     DOWNLOAD_BASE="${DOWNLOAD_BASE:-https://releases.quantix.io/agent}"
     
-    echo "Installing LimiQuantix Guest Agent v${AGENT_VERSION}..."
+    echo "Installing Quantix KVM Guest Agent v${AGENT_VERSION}..."
     
     # Detect distribution
     if [ -f /etc/os-release ]; then
@@ -62,7 +62,7 @@ runcmd:
             echo "Detected Debian-based distribution: ${DISTRO_ID}"
             
             # Download DEB package
-            DEB_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/limiquantix-guest-agent_${AGENT_VERSION}_${PKG_ARCH}.deb"
+            DEB_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/quantix-kvm-agent_${AGENT_VERSION}_${PKG_ARCH}.deb"
             curl -fsSL "${DEB_URL}" -o /tmp/agent.deb
             
             # Install
@@ -74,7 +74,7 @@ runcmd:
             echo "Detected RHEL-based distribution: ${DISTRO_ID}"
             
             # Download RPM package
-            RPM_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/limiquantix-guest-agent-${AGENT_VERSION}-1.${PKG_ARCH}.rpm"
+            RPM_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/quantix-kvm-agent-${AGENT_VERSION}-1.${PKG_ARCH}.rpm"
             curl -fsSL "${RPM_URL}" -o /tmp/agent.rpm
             
             # Install
@@ -90,7 +90,7 @@ runcmd:
             echo "Detected SUSE-based distribution: ${DISTRO_ID}"
             
             # Download RPM package
-            RPM_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/limiquantix-guest-agent-${AGENT_VERSION}-1.${PKG_ARCH}.rpm"
+            RPM_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/quantix-kvm-agent-${AGENT_VERSION}-1.${PKG_ARCH}.rpm"
             curl -fsSL "${RPM_URL}" -o /tmp/agent.rpm
             
             # Install
@@ -102,38 +102,38 @@ runcmd:
             echo "Detected Arch-based distribution: ${DISTRO_ID}"
             
             # Download tarball and install manually
-            TAR_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/limiquantix-guest-agent-${AGENT_VERSION}-linux-${PKG_ARCH}.tar.gz"
+            TAR_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/quantix-kvm-agent-${AGENT_VERSION}-linux-${PKG_ARCH}.tar.gz"
             curl -fsSL "${TAR_URL}" -o /tmp/agent.tar.gz
             
             cd /tmp
             tar -xzf agent.tar.gz
-            cd limiquantix-guest-agent-*
+            cd quantix-kvm-agent-*
             ./install.sh
             cd /
-            rm -rf /tmp/agent.tar.gz /tmp/limiquantix-guest-agent-*
+            rm -rf /tmp/agent.tar.gz /tmp/quantix-kvm-agent-*
             ;;
             
         alpine)
             echo "Detected Alpine Linux"
             
             # Download tarball and install manually
-            TAR_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/limiquantix-guest-agent-${AGENT_VERSION}-linux-${PKG_ARCH}.tar.gz"
+            TAR_URL="${DOWNLOAD_BASE}/${AGENT_VERSION}/quantix-kvm-agent-${AGENT_VERSION}-linux-${PKG_ARCH}.tar.gz"
             curl -fsSL "${TAR_URL}" -o /tmp/agent.tar.gz
             
             cd /tmp
             tar -xzf agent.tar.gz
-            cd limiquantix-guest-agent-*
+            cd quantix-kvm-agent-*
             
             # Install binary
-            install -m 755 limiquantix-agent /usr/local/bin/
+            install -m 755 quantix-kvm-agent /usr/local/bin/
             
             # Create OpenRC service
-            cat > /etc/init.d/limiquantix-agent << 'OPENRC'
+            cat > /etc/init.d/quantix-kvm-agent << 'OPENRC'
     #!/sbin/openrc-run
     
-    name="LimiQuantix Guest Agent"
-    description="VM integration agent for LimiQuantix"
-    command="/usr/local/bin/limiquantix-agent"
+    name="Quantix KVM Guest Agent"
+    description="VM integration agent for Quantix KVM"
+    command="/usr/local/bin/quantix-kvm-agent"
     command_background="yes"
     pidfile="/run/${RC_SVCNAME}.pid"
     
@@ -142,12 +142,12 @@ runcmd:
         after firewall
     }
     OPENRC
-            chmod +x /etc/init.d/limiquantix-agent
-            rc-update add limiquantix-agent default
-            rc-service limiquantix-agent start
+            chmod +x /etc/init.d/quantix-kvm-agent
+            rc-update add quantix-kvm-agent default
+            rc-service quantix-kvm-agent start
             
             cd /
-            rm -rf /tmp/agent.tar.gz /tmp/limiquantix-guest-agent-*
+            rm -rf /tmp/agent.tar.gz /tmp/quantix-kvm-agent-*
             ;;
             
         *)
@@ -158,10 +158,10 @@ runcmd:
     esac
     
     # Verify installation
-    if systemctl is-active --quiet limiquantix-agent 2>/dev/null; then
-        echo "LimiQuantix Guest Agent installed and running!"
-    elif rc-service limiquantix-agent status 2>/dev/null | grep -q "started"; then
-        echo "LimiQuantix Guest Agent installed and running!"
+    if systemctl is-active --quiet quantix-kvm-agent 2>/dev/null; then
+        echo "Quantix KVM Guest Agent installed and running!"
+    elif rc-service quantix-kvm-agent status 2>/dev/null | grep -q "started"; then
+        echo "Quantix KVM Guest Agent installed and running!"
     else
         echo "Warning: Agent may not be running. Check logs."
     fi
@@ -170,12 +170,12 @@ runcmd:
 
 # Write files for custom configuration (optional)
 write_files:
-  - path: /etc/limiquantix/agent.yaml
+  - path: /etc/quantix-kvm/agent.yaml
     owner: root:root
     permissions: '0644'
     defer: true
     content: |
-      # LimiQuantix Guest Agent Configuration
+      # Quantix KVM Guest Agent Configuration
       # Generated by cloud-init
       
       telemetry_interval_secs: 5
@@ -188,8 +188,8 @@ write_files:
       
       device_path: auto
       
-      pre_freeze_script_dir: /etc/limiquantix/pre-freeze.d
-      post_thaw_script_dir: /etc/limiquantix/post-thaw.d
+      pre_freeze_script_dir: /etc/quantix-kvm/pre-freeze.d
+      post_thaw_script_dir: /etc/quantix-kvm/post-thaw.d
       
       security:
         command_allowlist: []
@@ -207,6 +207,6 @@ write_files:
 
 # Final message
 final_message: |
-  LimiQuantix Guest Agent cloud-init completed!
-  Agent status: systemctl status limiquantix-agent
-  Configuration: /etc/limiquantix/agent.yaml
+  Quantix KVM Guest Agent cloud-init completed!
+  Agent status: systemctl status quantix-kvm-agent
+  Configuration: /etc/quantix-kvm/agent.yaml

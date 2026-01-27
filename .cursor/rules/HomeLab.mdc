@@ -1,4 +1,5 @@
 ---
+description: Home lab infrastructure reference - IP addresses, services, ports, database config, and troubleshooting commands for QvDC and QHCI hosts
 alwaysApply: true
 ---
 
@@ -7,7 +8,7 @@ alwaysApply: true
 ## Hosts
 
 | ID | Role | IP Address | Hardware | Notes |
-|----|------|------------|----------|-------|
+|----|---|---|----|----|
 | QvDC | Quantix-vDC Control Plane | 192.168.0.100 | Dell Latitude 5420 | Runs Control Plane + Dashboard |
 | QHCI01 | Quantix-OS Host | 192.168.0.101 | Lenovo ThinkPad Pro | First hypervisor host | 20 CPU | 32 GB RAM
 | QHCI02 | Quantix-OS Host | 192.168.0.102 | Lenovo ThinkPad Pro | Second hypervisor host | 20 CPU | 64 GB RAM
@@ -15,7 +16,7 @@ alwaysApply: true
 ## Services
 
 | Service | URL | Port | Description |
-|---------|-----|------|-------------|
+|---|-----|---|----|
 | **Update Server** | http://192.168.0.148:9000 | 9000 | OTA update server with Admin UI |
 | **QvDC Dashboard** | https://192.168.0.100:443 | 443 | vDC web management interface |
 | **QvDC API** | http://192.168.0.100:8080 | 8080 | Control plane gRPC/REST API |
@@ -27,7 +28,7 @@ alwaysApply: true
 The QvDC control plane uses PostgreSQL. **Critical for migrations:**
 
 | Setting | Value |
-|---------|-------|
+|---|----|
 | Host | localhost |
 | Port | 5432 |
 | Database | `quantix_vdc` |

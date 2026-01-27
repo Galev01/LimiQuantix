@@ -1,9 +1,9 @@
 # =============================================================================
-# LimiQuantix Guest Agent Configuration
+# Quantix KVM Guest Agent Configuration
 # =============================================================================
-# This file configures the LimiQuantix Guest Agent running inside the VM.
-# Location: /etc/limiquantix/agent.yaml (Linux)
-#           C:\ProgramData\LimiQuantix\agent.yaml (Windows)
+# This file configures the Quantix KVM Guest Agent running inside the VM.
+# Location: /etc/quantix-kvm/agent.yaml (Linux)
+#           C:\ProgramData\Quantix-KVM\agent.yaml (Windows)
 
 # -----------------------------------------------------------------------------
 # Telemetry Settings
@@ -30,8 +30,8 @@ log_level: info
 log_format: json
 
 # Log file path (empty = stdout only)
-# Linux: /var/log/limiquantix/agent.log
-# Windows: C:\ProgramData\LimiQuantix\Logs\agent.log
+# Linux: /var/log/quantix-kvm/agent.log
+# Windows: C:\ProgramData\Quantix-KVM\Logs\agent.log
 log_file: ""
 
 # Maximum log file size before rotation (bytes)
@@ -44,18 +44,19 @@ log_max_files: 5
 # Device Settings
 # -----------------------------------------------------------------------------
 # Virtio-serial device path (auto = auto-detect)
-# Linux: /dev/virtio-ports/org.limiquantix.agent.0
-# Windows: \\.\Global\org.limiquantix.agent.0
+# Linux: /dev/virtio-ports/org.quantix.agent.0
+# Windows: \\.\Global\org.quantix.agent.0
+# Note: The virtio-serial port name is kept for backward compatibility
 device_path: auto
 
 # -----------------------------------------------------------------------------
 # Quiescing Settings (for safe snapshots)
 # -----------------------------------------------------------------------------
 # Directory containing pre-freeze scripts
-pre_freeze_script_dir: /etc/limiquantix/pre-freeze.d
+pre_freeze_script_dir: /etc/quantix-kvm/pre-freeze.d
 
 # Directory containing post-thaw scripts
-post_thaw_script_dir: /etc/limiquantix/post-thaw.d
+post_thaw_script_dir: /etc/quantix-kvm/post-thaw.d
 
 # -----------------------------------------------------------------------------
 # Security Settings

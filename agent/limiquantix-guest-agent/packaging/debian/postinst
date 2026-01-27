@@ -4,8 +4,8 @@ set -e
 # Enable and start the service
 if [ "$1" = "configure" ]; then
     systemctl daemon-reload
-    systemctl enable limiquantix-agent.service
-    systemctl start limiquantix-agent.service || true
+    systemctl enable quantix-kvm-agent.service
+    systemctl start quantix-kvm-agent.service || true
 fi
 
 #DEBHELPER#

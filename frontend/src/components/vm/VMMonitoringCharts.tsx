@@ -175,31 +175,65 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
   const fetchMetrics = useCallback(async () => {
     if (isPaused) return;
     
+    let agentCpu = 0;
+    let agentMemory = 0;
+    let agentMemoryTotal = 0;
+    let agentMemoryUsed = 0;
+    let hasAgentData = false;
+    
     try {
-      // Try to fetch real metrics from the VM
-      const response = await fetch(`${getApiBase()}/limiquantix.compute.v1.VMService/GetVM`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: vm.id }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const usage = data.status?.resourceUsage;
-        
-        if (usage && (usage.cpuPercent > 0 || usage.cpuUsagePercent > 0 || usage.memoryUsedMib > 0)) {
+      // First, try to fetch real metrics from the Quantix Agent
+      // The agent provides actual guest-side metrics which are more accurate
+      const agentResponse = await fetch(`/api/vms/${vm.id}/agent/ping`);
+      if (agentResponse.ok) {
+        const agentData = await agentResponse.json();
+        if (agentData.connected && agentData.resourceUsage) {
+          const ru = agentData.resourceUsage;
+          agentCpu = ru.cpuUsagePercent || 0;
+          agentMemoryTotal = ru.memoryTotalBytes || 0;
+          agentMemoryUsed = ru.memoryUsedBytes || 0;
+          agentMemory = agentMemoryTotal > 0 ? (agentMemoryUsed / agentMemoryTotal) * 100 : 0;
+          hasAgentData = true;
           setHasRealData(true);
           setMetricsError(null);
         }
       }
     } catch {
-      // Silently fail - we'll use simulated data
+      // Agent not available, fall back to VM status
     }
     
+    // If no agent data, try to fetch from VM status
+    if (!hasAgentData) {
+      try {
+        const response = await fetch(`${getApiBase()}/limiquantix.compute.v1.VMService/GetVM`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: vm.id }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const usage = data.status?.resourceUsage;
+          
+          if (usage && (usage.cpuPercent > 0 || usage.cpuUsagePercent > 0 || usage.memoryUsedMib > 0)) {
+            setHasRealData(true);
+            setMetricsError(null);
+          }
+        }
+      } catch {
+        // Silently fail - we'll use simulated data
+      }
+    }
+    
+    // Use agent data if available, otherwise fall back to VM status
+    const effectiveCpu = hasAgentData ? agentCpu : currentCpu;
+    const effectiveMemory = hasAgentData ? agentMemory : currentMemory;
+    const hasData = hasAgentData || hasVMMetrics;
+    
     // Generate metrics data (real or simulated based on current values)
-    const baseValues = hasVMMetrics ? {
-      cpu: currentCpu,
-      memory: currentMemory,
+    const baseValues = hasData ? {
+      cpu: effectiveCpu,
+      memory: effectiveMemory,
       diskRead: currentDiskRead,
       diskWrite: currentDiskWrite,
       netIn: currentNetIn,
@@ -214,12 +248,12 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
     };
     
     setMetrics({
-      cpu: generateMetricData(timeRange, baseValues.cpu, hasVMMetrics ? 5 : 0),
-      memory: generateMetricData(timeRange, baseValues.memory, hasVMMetrics ? 3 : 0),
-      diskRead: generateMetricData(timeRange, baseValues.diskRead, hasVMMetrics ? 2 : 0),
-      diskWrite: generateMetricData(timeRange, baseValues.diskWrite, hasVMMetrics ? 2 : 0),
-      networkIn: generateMetricData(timeRange, baseValues.netIn, hasVMMetrics ? 1 : 0),
-      networkOut: generateMetricData(timeRange, baseValues.netOut, hasVMMetrics ? 1 : 0),
+      cpu: generateMetricData(timeRange, baseValues.cpu, hasData ? 5 : 0),
+      memory: generateMetricData(timeRange, baseValues.memory, hasData ? 3 : 0),
+      diskRead: generateMetricData(timeRange, baseValues.diskRead, hasData ? 2 : 0),
+      diskWrite: generateMetricData(timeRange, baseValues.diskWrite, hasData ? 2 : 0),
+      networkIn: generateMetricData(timeRange, baseValues.netIn, hasData ? 1 : 0),
+      networkOut: generateMetricData(timeRange, baseValues.netOut, hasData ? 1 : 0),
     });
     setLastUpdate(new Date());
     setIsLoading(false);

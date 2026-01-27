@@ -976,6 +976,24 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/vms/:vm_id/snapshots", post(create_snapshot))
         .route("/vms/:vm_id/snapshots/:snapshot_id", axum::routing::delete(delete_snapshot))
         .route("/vms/:vm_id/snapshots/:snapshot_id/revert", post(revert_snapshot))
+        // Quantix Agent endpoints (advanced agent)
+        .route("/vms/:vm_id/agent/ping", get(ping_quantix_agent))
+        .route("/vms/:vm_id/agent/install", post(install_quantix_agent))
+        .route("/vms/:vm_id/agent/update", post(update_quantix_agent))
+        .route("/vms/:vm_id/agent/refresh", post(refresh_quantix_agent))
+        .route("/vms/:vm_id/agent/logs", get(get_agent_logs))
+        .route("/vms/:vm_id/agent/shutdown", post(agent_shutdown))
+        .route("/vms/:vm_id/agent/reboot", post(agent_reboot))
+        .route("/vms/:vm_id/agent/files/list", get(list_guest_files))
+        .route("/vms/:vm_id/agent/files/read", get(read_guest_file))
+        .route("/vms/:vm_id/execute", post(execute_in_guest))
+        // Agent ISO installation endpoint
+        .route("/vms/:vm_id/cdrom/mount-agent-iso", post(mount_agent_iso))
+        .route("/vms/:vm_id/cdrom/eject", post(eject_cdrom))
+        // QEMU Guest Agent endpoints (basic hypervisor agent)
+        .route("/vms/:vm_id/qemu-agent/ping", get(ping_qemu_guest_agent))
+        .route("/vms/:vm_id/qemu-agent/exec", post(exec_qemu_guest_agent))
+        .route("/vms/:vm_id/qemu-agent/file-write", post(qemu_agent_file_write))
         // Storage endpoints
         .route("/storage/pools", get(list_storage_pools))
         .route("/storage/pools", post(create_storage_pool))
@@ -1055,9 +1073,9 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         // Guest Agent download endpoints (for cloud-init installation)
         .route("/agent/version", get(get_agent_version))
         .route("/agent/install.sh", get(get_agent_install_script))
-        .route("/agent/linux/:arch", get(download_agent_binary))
-        .route("/agent/linux/:arch.deb", get(download_agent_deb))
-        .route("/agent/linux/:arch.rpm", get(download_agent_rpm))
+        .route("/agent/linux/binary/:arch", get(download_agent_binary))
+        .route("/agent/linux/deb/:arch", get(download_agent_deb))
+        .route("/agent/linux/rpm/:arch", get(download_agent_rpm))
         .with_state(state.clone());
 
     // Check if webui directory exists
@@ -3177,6 +3195,2680 @@ async fn delete_vm(
         }
     }
 }
+
+// =============================================================================
+// QEMU Guest Agent Endpoints
+// =============================================================================
+
+/// Response for QEMU Guest Agent ping
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct QemuAgentPingResponse {
+    available: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// Response for QEMU Guest Agent exec
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct QemuAgentExecResponse {
+    success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    exit_code: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stdout: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stderr: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// Request for QEMU Guest Agent exec
+#[derive(Deserialize)]
+struct QemuAgentExecRequest {
+    command: String,
+    #[serde(default)]
+    args: Vec<String>,
+    #[serde(default = "default_timeout")]
+    timeout: u32,
+}
+
+fn default_timeout() -> u32 {
+    60
+}
+
+/// Response for Quantix Agent ping - mirrors the frontend QuantixAgentInfo interface
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct QuantixAgentPingResponse {
+    connected: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hostname: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    os_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    os_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kernel_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    architecture: Option<String>,
+    #[serde(default)]
+    ip_addresses: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resource_usage: Option<AgentResourceUsageResponse>,
+    #[serde(default)]
+    capabilities: Vec<String>,
+    /// Latest available agent version (for update check)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    latest_agent_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// Resource usage data from the agent
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct AgentResourceUsageResponse {
+    cpu_usage_percent: f64,
+    memory_total_bytes: u64,
+    memory_used_bytes: u64,
+    memory_available_bytes: u64,
+    swap_total_bytes: u64,
+    swap_used_bytes: u64,
+    load_avg_1: f64,
+    load_avg_5: f64,
+    load_avg_15: f64,
+    disks: Vec<AgentDiskUsageResponse>,
+    process_count: u32,
+    uptime_seconds: u64,
+}
+
+/// Disk usage data from the agent
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct AgentDiskUsageResponse {
+    mount_point: String,
+    device: String,
+    filesystem: String,
+    total_bytes: u64,
+    used_bytes: u64,
+    available_bytes: u64,
+    usage_percent: f64,
+}
+
+/// Latest agent version - fetched from update server or cached
+/// TODO: In production, this should be fetched from the update server dynamically
+const LATEST_AGENT_VERSION: &str = "0.1.0";
+
+/// Find the agent socket in libvirt's standard channel paths
+/// Returns the socket path if found, None otherwise
+fn find_libvirt_agent_socket(vm_id: &str) -> Option<std::path::PathBuf> {
+    // Check /run/libvirt/qemu/channel/{domain-id}-{vm_name}/org.quantix.agent.0
+    let libvirt_base = std::path::Path::new("/run/libvirt/qemu/channel");
+    if libvirt_base.exists() {
+        if let Ok(entries) = std::fs::read_dir(libvirt_base) {
+            for entry in entries.flatten() {
+                let socket_path = entry.path().join("org.quantix.agent.0");
+                if socket_path.exists() {
+                    // Found a socket - in the future we should verify this matches our VM
+                    // For now, if there's only one VM with the agent, this will work
+                    debug!(vm_id = %vm_id, path = %socket_path.display(), "Found libvirt agent socket");
+                    return Some(socket_path);
+                }
+            }
+        }
+    }
+    
+    // Also check /var/lib/libvirt/qemu/channel/
+    let libvirt_var = std::path::Path::new("/var/lib/libvirt/qemu/channel");
+    if libvirt_var.exists() {
+        if let Ok(entries) = std::fs::read_dir(libvirt_var) {
+            for entry in entries.flatten() {
+                let socket_path = entry.path().join("org.quantix.agent.0");
+                if socket_path.exists() {
+                    debug!(vm_id = %vm_id, path = %socket_path.display(), "Found libvirt agent socket in /var/lib");
+                    return Some(socket_path);
+                }
+            }
+        }
+    }
+    
+    None
+}
+
+/// Get the agent socket path from virsh dumpxml
+/// This parses the VM's XML to find the actual socket path configured for org.quantix.agent.0
+async fn get_agent_socket_from_virsh(vm_name: &str) -> Option<std::path::PathBuf> {
+    info!(vm = %vm_name, "Parsing virsh dumpxml for agent socket path");
+    
+    // Add timeout for the virsh command
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        tokio::process::Command::new("virsh")
+            .args(["dumpxml", vm_name])
+            .output()
+    ).await;
+    
+    let output = match result {
+        Ok(Ok(output)) => output,
+        Ok(Err(e)) => {
+            warn!(vm = %vm_name, error = %e, "virsh dumpxml command failed");
+            return None;
+        }
+        Err(_) => {
+            warn!(vm = %vm_name, "virsh dumpxml command timed out");
+            return None;
+        }
+    };
+    
+    if !output.status.success() {
+        warn!(vm = %vm_name, "virsh dumpxml returned non-zero exit code");
+        return None;
+    }
+    
+    let xml = String::from_utf8_lossy(&output.stdout);
+    
+    // Look for the limiquantix agent channel and extract its socket path
+    // Format: <channel type='unix'>
+    //           <source mode='bind' path='/path/to/socket'/>
+    //           <target type='virtio' name='org.quantix.agent.0'.../>
+    //         </channel>
+    
+    // Simple regex-free parsing: find org.quantix.agent.0, then backtrack to find the path
+    if let Some(agent_pos) = xml.find("org.quantix.agent.0") {
+        // Look backwards from agent_pos to find the channel start
+        let channel_section = &xml[..agent_pos];
+        if let Some(channel_start) = channel_section.rfind("<channel") {
+            let section = &xml[channel_start..agent_pos + 50.min(xml.len() - agent_pos)];
+            
+            // Find path='...' in this section
+            if let Some(path_start) = section.find("path='") {
+                let path_content = &section[path_start + 6..];
+                if let Some(path_end) = path_content.find('\'') {
+                    let socket_path = &path_content[..path_end];
+                    info!(vm = %vm_name, socket_path = %socket_path, "Found agent socket path from virsh XML");
+                    return Some(std::path::PathBuf::from(socket_path));
+                }
+            }
+        }
+        warn!(vm = %vm_name, "Found org.quantix.agent.0 in XML but couldn't parse socket path");
+    } else {
+        info!(vm = %vm_name, "No org.quantix.agent.0 channel found in VM XML - agent channel not configured");
+    }
+    
+    None
+}
+
+/// Build a disconnected response with all fields set to defaults
+fn build_disconnected_response(error: Option<String>) -> QuantixAgentPingResponse {
+    QuantixAgentPingResponse {
+        connected: false,
+        version: None,
+        hostname: None,
+        os_name: None,
+        os_version: None,
+        kernel_version: None,
+        architecture: None,
+        ip_addresses: vec![],
+        resource_usage: None,
+        capabilities: vec![],
+        latest_agent_version: Some(LATEST_AGENT_VERSION.to_string()),
+        error,
+    }
+}
+
+/// Build a connected response from GuestAgentInfo
+fn build_connected_response(agent_info: limiquantix_proto::GuestAgentInfo) -> QuantixAgentPingResponse {
+    // Convert resource usage if available
+    let resource_usage = agent_info.resource_usage.map(|ru| {
+        AgentResourceUsageResponse {
+            cpu_usage_percent: ru.cpu_usage_percent,
+            memory_total_bytes: ru.memory_total_bytes,
+            memory_used_bytes: ru.memory_used_bytes,
+            memory_available_bytes: ru.memory_available_bytes,
+            swap_total_bytes: ru.swap_total_bytes,
+            swap_used_bytes: ru.swap_used_bytes,
+            load_avg_1: ru.load_avg_1,
+            load_avg_5: ru.load_avg_5,
+            load_avg_15: ru.load_avg_15,
+            disks: ru.disks.into_iter().map(|d| AgentDiskUsageResponse {
+                mount_point: d.mount_point,
+                device: d.device,
+                filesystem: d.filesystem,
+                total_bytes: d.total_bytes,
+                used_bytes: d.used_bytes,
+                available_bytes: d.available_bytes,
+                usage_percent: d.usage_percent,
+            }).collect(),
+            process_count: ru.process_count,
+            uptime_seconds: ru.uptime_seconds,
+        }
+    });
+
+    QuantixAgentPingResponse {
+        connected: agent_info.connected,
+        version: if agent_info.version.is_empty() { None } else { Some(agent_info.version) },
+        hostname: if agent_info.hostname.is_empty() { None } else { Some(agent_info.hostname) },
+        os_name: if agent_info.os_name.is_empty() { None } else { Some(agent_info.os_name) },
+        os_version: if agent_info.os_version.is_empty() { None } else { Some(agent_info.os_version) },
+        kernel_version: if agent_info.kernel_version.is_empty() { None } else { Some(agent_info.kernel_version) },
+        architecture: None, // TODO: Add architecture to GuestAgentInfo
+        ip_addresses: agent_info.ip_addresses,
+        resource_usage,
+        capabilities: agent_info.capabilities,
+        latest_agent_version: Some(LATEST_AGENT_VERSION.to_string()),
+        error: None,
+    }
+}
+
+/// GET /api/v1/vms/:vm_id/agent/ping - Check if Quantix Agent is available
+/// 
+/// This checks if the Quantix Guest Agent is connected via virtio-serial.
+/// The agent connection is managed by the background service, so we check the cached state.
+/// 
+/// Returns full agent info including:
+/// - Version, hostname, OS info
+/// - IP addresses from network interfaces
+/// - Resource usage (CPU, memory, disk, load averages)
+/// - Capabilities list
+/// - Latest available agent version for update checks
+async fn ping_quantix_agent(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+) -> Result<Json<QuantixAgentPingResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, "Quantix Agent ping request received - START");
+    
+    // Wrap the entire ping operation in a timeout to prevent hanging
+    // Use a short timeout (5s) since the page loads this on every view
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        ping_quantix_agent_inner(state, vm_id.clone())
+    ).await {
+        Ok(result) => result,
+        Err(_) => {
+            warn!(vm_id = %vm_id, "Agent ping timed out after 5 seconds");
+            Ok(Json(build_disconnected_response(
+                Some("Agent not responding. Install the Quantix Agent inside the VM to enable advanced features.".to_string())
+            )))
+        }
+    }
+}
+
+/// Inner implementation of ping_quantix_agent (with timeout wrapper above)
+async fn ping_quantix_agent_inner(
+    state: Arc<AppState>,
+    vm_id: String,
+) -> Result<Json<QuantixAgentPingResponse>, (StatusCode, Json<ApiError>)> {
+    // Get the VM to verify it exists and is running
+    info!(vm_id = %vm_id, "Step 1: Listing VMs");
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    info!(vm_id = %vm_id, vm_name = %vm.name, state = ?vm.state, "Step 2: VM found");
+    
+    // Check if VM is running
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(build_disconnected_response(
+            Some(format!("VM is not running (state: {:?})", vm.state))
+        )));
+    }
+    
+    // First, determine the socket path for this VM
+    // Check multiple possible socket paths:
+    // 1. Our standard path
+    // 2. Libvirt's channel directory
+    // 3. Parse virsh XML to find the actual configured path
+    info!(vm_id = %vm_id, "Step 3: Checking socket paths");
+    let primary_socket_path = format!("/var/run/limiquantix/vms/{}.agent.sock", vm.id);
+    let primary_exists = std::path::Path::new(&primary_socket_path).exists();
+    info!(vm_id = %vm_id, primary_socket = %primary_socket_path, exists = primary_exists, "Step 3a: Primary socket check");
+    
+    let socket_path = if primary_exists {
+        Some(std::path::PathBuf::from(&primary_socket_path))
+    } else {
+        info!(vm_id = %vm_id, "Step 3b: Checking libvirt socket paths");
+        if let Some(path) = find_libvirt_agent_socket(&vm.id) {
+            info!(vm_id = %vm_id, socket = %path.display(), "Step 3b: Found libvirt socket");
+            Some(path)
+        } else {
+            // Try to get socket path from virsh XML
+            info!(vm_id = %vm_id, "Step 3c: Parsing virsh XML");
+            let result = get_agent_socket_from_virsh(&vm.name).await;
+            info!(vm_id = %vm_id, found = result.is_some(), "Step 3c: virsh XML parsing complete");
+            result
+        }
+    };
+    
+    info!(vm_id = %vm_id, socket_found = socket_path.is_some(), "Step 4: Socket path resolution complete");
+    
+    // Check the cached agent info from the service's background connection
+    // The service maintains persistent connections and receives telemetry/ready events
+    info!(vm_id = %vm_id, "Step 5: Checking agent cache");
+    let cached_info = state.service.get_agent_info(&vm.id).await;
+    let needs_os_info = cached_info.as_ref()
+        .map(|i| i.os_name.is_empty() || i.hostname.is_empty())
+        .unwrap_or(true);
+    
+    info!(vm_id = %vm_id, has_cache = cached_info.is_some(), needs_os_info = needs_os_info, "Step 5a: Cache status");
+    
+    if let Some(agent_info) = cached_info {
+        if needs_os_info {
+            info!(vm_id = %vm_id, "Step 6: Needs OS info, attempting to connect and fetch");
+            // Try to actively fetch OS info from the agent using the discovered socket path
+            let connect_result = if let Some(ref path) = socket_path {
+                info!(vm_id = %vm_id, socket = %path.display(), "Step 6a: Connecting with discovered socket");
+                state.service.get_agent_client_with_socket(&vm.id, Some(path.clone())).await
+            } else {
+                info!(vm_id = %vm_id, "Step 6b: Connecting with default socket");
+                state.service.get_agent_client(&vm.id).await
+            };
+            
+            info!(vm_id = %vm_id, success = connect_result.is_ok(), "Step 6c: Connection result");
+            
+            if let Ok(()) = connect_result {
+                info!(vm_id = %vm_id, "Step 7: Getting agent manager");
+                let agents = state.service.agent_manager().await;
+                info!(vm_id = %vm_id, has_client = agents.contains_key(&vm.id), "Step 7a: Agent manager access");
+                if let Some(client) = agents.get(&vm.id) {
+                    info!(vm_id = %vm_id, "Step 8: Executing OS info commands");
+                    // Execute commands to get OS info
+                    let mut hostname = agent_info.hostname.clone();
+                    let mut os_name = agent_info.os_name.clone();
+                    let mut os_version = agent_info.os_version.clone();
+                    let mut kernel_version = agent_info.kernel_version.clone();
+                    let mut version = agent_info.version.clone();
+                    let mut ip_addresses = agent_info.ip_addresses.clone();
+                    
+                    // Get hostname
+                    if hostname.is_empty() {
+                        if let Ok(result) = client.execute("hostname", 5).await {
+                            if result.exit_code == 0 {
+                                hostname = result.stdout.trim().to_string();
+                            }
+                        }
+                    }
+                    
+                    // Get OS info from /etc/os-release
+                    if os_name.is_empty() {
+                        if let Ok(result) = client.execute("cat /etc/os-release 2>/dev/null || cat /etc/redhat-release 2>/dev/null || echo 'Linux'", 5).await {
+                            if result.exit_code == 0 {
+                                let output = result.stdout;
+                                // Parse os-release format
+                                for line in output.lines() {
+                                    if line.starts_with("PRETTY_NAME=") {
+                                        os_name = line.trim_start_matches("PRETTY_NAME=")
+                                            .trim_matches('"')
+                                            .to_string();
+                                        break;
+                                    } else if line.starts_with("NAME=") && os_name.is_empty() {
+                                        os_name = line.trim_start_matches("NAME=")
+                                            .trim_matches('"')
+                                            .to_string();
+                                    } else if line.starts_with("VERSION=") && os_version.is_empty() {
+                                        os_version = line.trim_start_matches("VERSION=")
+                                            .trim_matches('"')
+                                            .to_string();
+                                    }
+                                }
+                                // If it's a simple one-liner (like redhat-release)
+                                if os_name.is_empty() && !output.contains('=') {
+                                    os_name = output.lines().next().unwrap_or("Linux").to_string();
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Get kernel version
+                    if kernel_version.is_empty() {
+                        if let Ok(result) = client.execute("uname -r", 5).await {
+                            if result.exit_code == 0 {
+                                kernel_version = result.stdout.trim().to_string();
+                            }
+                        }
+                    }
+                    
+                    // Get IP addresses if empty
+                    if ip_addresses.is_empty() {
+                        if let Ok(result) = client.execute("hostname -I 2>/dev/null || ip -4 addr show | grep -oP '(?<=inet\\s)\\d+(\\.\\d+){3}' | grep -v '^127\\.'", 5).await {
+                            if result.exit_code == 0 {
+                                ip_addresses = result.stdout.split_whitespace()
+                                    .map(|s| s.to_string())
+                                    .filter(|s| !s.is_empty() && s != "127.0.0.1")
+                                    .collect();
+                            }
+                        }
+                    }
+                    
+                    // Get agent version via ping
+                    if version.is_empty() {
+                        if let Ok(pong) = client.ping().await {
+                            version = pong.version;
+                        }
+                    }
+                    
+                    drop(agents); // Release lock
+                    
+                    // Update the cache with full info
+                    state.service.set_agent_info(
+                        &vm.id, &version, &hostname, &os_name, &os_version, &kernel_version, ip_addresses.clone()
+                    ).await;
+                    
+                    // Build response with fetched data
+                    return Ok(Json(QuantixAgentPingResponse {
+                        connected: true,
+                        version: if version.is_empty() { None } else { Some(version) },
+                        hostname: if hostname.is_empty() { None } else { Some(hostname) },
+                        os_name: if os_name.is_empty() { None } else { Some(os_name) },
+                        os_version: if os_version.is_empty() { None } else { Some(os_version) },
+                        kernel_version: if kernel_version.is_empty() { None } else { Some(kernel_version) },
+                        architecture: None,
+                        ip_addresses,
+                        resource_usage: agent_info.resource_usage.map(|ru| AgentResourceUsageResponse {
+                            cpu_usage_percent: ru.cpu_usage_percent,
+                            memory_total_bytes: ru.memory_total_bytes,
+                            memory_used_bytes: ru.memory_used_bytes,
+                            memory_available_bytes: ru.memory_available_bytes,
+                            swap_total_bytes: ru.swap_total_bytes,
+                            swap_used_bytes: ru.swap_used_bytes,
+                            load_avg_1: ru.load_avg_1,
+                            load_avg_5: ru.load_avg_5,
+                            load_avg_15: ru.load_avg_15,
+                            disks: ru.disks.into_iter().map(|d| AgentDiskUsageResponse {
+                                mount_point: d.mount_point,
+                                device: d.device,
+                                filesystem: d.filesystem,
+                                total_bytes: d.total_bytes,
+                                used_bytes: d.used_bytes,
+                                available_bytes: d.available_bytes,
+                                usage_percent: d.usage_percent,
+                            }).collect(),
+                            process_count: ru.process_count,
+                            uptime_seconds: ru.uptime_seconds,
+                        }),
+                        capabilities: agent_info.capabilities,
+                        latest_agent_version: Some(LATEST_AGENT_VERSION.to_string()),
+                        error: None,
+                    }));
+                }
+            }
+        }
+        
+        // If we still need OS info but couldn't connect to fetch it,
+        // return what we have but indicate data may be incomplete
+        if needs_os_info {
+            info!(
+                vm_id = %vm_id, 
+                version = %agent_info.version,
+                "Quantix Agent connected but couldn't fetch OS info - returning cached data"
+            );
+        } else {
+            info!(
+                vm_id = %vm_id, 
+                version = %agent_info.version,
+                hostname = %agent_info.hostname,
+                "Quantix Agent is connected"
+            );
+        }
+        return Ok(Json(build_connected_response(agent_info)));
+    }
+    
+    // No cached info - try to connect to the agent directly
+    // Use the socket path we already discovered at the start of the function
+    if let Some(actual_socket_path) = socket_path {
+        info!(vm_id = %vm_id, socket = %actual_socket_path.display(), "Found agent socket, attempting connection");
+        // Socket exists - try to connect and get info with the specific socket path
+        if let Ok(()) = state.service.get_agent_client_with_socket(&vm.id, Some(actual_socket_path.clone())).await {
+            let agents = state.service.agent_manager().await;
+            if let Some(client) = agents.get(&vm.id) {
+                // Agent connected successfully - fetch OS info
+                let mut hostname = String::new();
+                let mut os_name = String::new();
+                let mut os_version = String::new();
+                let mut kernel_version = String::new();
+                let mut version = String::new();
+                let mut ip_addresses = Vec::new();
+                
+                // Get agent version via ping
+                if let Ok(pong) = client.ping().await {
+                    version = pong.version;
+                }
+                
+                // Get hostname
+                if let Ok(result) = client.execute("hostname", 5).await {
+                    if result.exit_code == 0 {
+                        hostname = result.stdout.trim().to_string();
+                    }
+                }
+                
+                // Get OS info
+                if let Ok(result) = client.execute("cat /etc/os-release 2>/dev/null || cat /etc/redhat-release 2>/dev/null || echo 'Linux'", 5).await {
+                    if result.exit_code == 0 {
+                        let output = result.stdout;
+                        for line in output.lines() {
+                            if line.starts_with("PRETTY_NAME=") {
+                                os_name = line.trim_start_matches("PRETTY_NAME=")
+                                    .trim_matches('"')
+                                    .to_string();
+                                break;
+                            } else if line.starts_with("NAME=") && os_name.is_empty() {
+                                os_name = line.trim_start_matches("NAME=")
+                                    .trim_matches('"')
+                                    .to_string();
+                            } else if line.starts_with("VERSION=") && os_version.is_empty() {
+                                os_version = line.trim_start_matches("VERSION=")
+                                    .trim_matches('"')
+                                    .to_string();
+                            }
+                        }
+                        if os_name.is_empty() && !output.contains('=') {
+                            os_name = output.lines().next().unwrap_or("Linux").to_string();
+                        }
+                    }
+                }
+                
+                // Get kernel version
+                if let Ok(result) = client.execute("uname -r", 5).await {
+                    if result.exit_code == 0 {
+                        kernel_version = result.stdout.trim().to_string();
+                    }
+                }
+                
+                // Get IP addresses
+                if let Ok(result) = client.execute("hostname -I 2>/dev/null || ip -4 addr show | grep -oP '(?<=inet\\s)\\d+(\\.\\d+){3}' | grep -v '^127\\.'", 5).await {
+                    if result.exit_code == 0 {
+                        ip_addresses = result.stdout.split_whitespace()
+                            .map(|s| s.to_string())
+                            .filter(|s| !s.is_empty() && s != "127.0.0.1")
+                            .collect();
+                    }
+                }
+                
+                drop(agents); // Release lock
+                
+                // Update the cache with full info
+                state.service.set_agent_info(
+                    &vm.id, &version, &hostname, &os_name, &os_version, &kernel_version, ip_addresses.clone()
+                ).await;
+                
+                info!(vm_id = %vm_id, version = %version, hostname = %hostname, os = %os_name, "Agent connected and info fetched");
+                
+                return Ok(Json(QuantixAgentPingResponse {
+                    connected: true,
+                    version: if version.is_empty() { None } else { Some(version) },
+                    hostname: if hostname.is_empty() { None } else { Some(hostname) },
+                    os_name: if os_name.is_empty() { None } else { Some(os_name) },
+                    os_version: if os_version.is_empty() { None } else { Some(os_version) },
+                    kernel_version: if kernel_version.is_empty() { None } else { Some(kernel_version) },
+                    architecture: None,
+                    ip_addresses,
+                    resource_usage: None,
+                    capabilities: vec![
+                        "telemetry".to_string(),
+                        "execute".to_string(),
+                        "file_read".to_string(),
+                        "file_write".to_string(),
+                        "shutdown".to_string(),
+                    ],
+                    latest_agent_version: Some(LATEST_AGENT_VERSION.to_string()),
+                    error: None,
+                }));
+            }
+        }
+        
+        // Socket exists but couldn't connect - check virsh
+        let output = tokio::process::Command::new("virsh")
+            .args(["dumpxml", &vm.name])
+            .output()
+            .await;
+        
+        if let Ok(result) = output {
+            if result.status.success() {
+                let xml = String::from_utf8_lossy(&result.stdout);
+                if xml.contains("org.quantix.agent.0") && xml.contains("state='connected'") {
+                    debug!(vm_id = %vm_id, "Agent channel connected per virsh but connection failed");
+                    return Ok(Json(build_disconnected_response(
+                        Some("Agent appears connected but failed to communicate. The agent may be starting up.".to_string())
+                    )));
+                }
+            }
+        }
+        
+        // Socket exists but channel not connected
+        debug!(vm_id = %vm_id, socket = %actual_socket_path.display(), "Agent socket exists but channel not connected");
+        return Ok(Json(build_disconnected_response(
+            Some("Agent socket exists but not yet connected. The agent may be starting up - please wait a few seconds and try again.".to_string())
+        )));
+    }
+    
+    // No socket found - agent is not installed or VM doesn't have virtio-serial configured
+    Ok(Json(build_disconnected_response(
+        Some("Quantix Agent not installed or not running. Install using the One-Click Installation button or: curl -fsSL https://<QHCI-HOST>/api/v1/agent/install.sh | sudo bash".to_string())
+    )))
+}
+
+// =============================================================================
+// NEW AGENT ENDPOINTS
+// =============================================================================
+
+/// Request body for agent update
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateAgentRequest {
+    /// Target version to update to (empty = latest)
+    #[serde(default)]
+    target_version: String,
+}
+
+/// Response for agent update
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateAgentResponse {
+    success: bool,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    new_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// POST /api/v1/vms/:vm_id/agent/update - Update the Quantix Agent in the VM
+/// 
+/// This endpoint downloads the latest agent binary and installs it via virtio-serial.
+async fn update_quantix_agent(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+    Json(_request): Json<UpdateAgentRequest>,
+) -> Result<Json<UpdateAgentResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, "Updating Quantix Agent");
+    
+    // Verify VM exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(UpdateAgentResponse {
+            success: false,
+            message: "VM is not running".to_string(),
+            new_version: None,
+            error: Some(format!("VM is not running (state: {:?})", vm.state)),
+        }));
+    }
+    
+    // First, check if the Quantix Agent is connected
+    // If not, we can't update it
+    let agent_info = state.service.get_agent_info(&vm.id).await;
+    if agent_info.is_none() || !agent_info.as_ref().map(|i| i.connected).unwrap_or(false) {
+        return Ok(Json(UpdateAgentResponse {
+            success: false,
+            message: "Cannot update agent: Quantix Agent is not connected. Install the agent first.".to_string(),
+            new_version: None,
+            error: Some("Agent not connected".to_string()),
+        }));
+    }
+    
+    // TODO: Implement actual update logic:
+    // 1. Download new agent binary from update server
+    // 2. Transfer to guest via virtio-serial file write
+    // 3. Execute upgrade script
+    
+    Ok(Json(UpdateAgentResponse {
+        success: false,
+        message: "Agent update coming soon. For now, reinstall the agent using the install button to get the latest version.".to_string(),
+        new_version: None,
+        error: Some("Update functionality is under development. Use reinstall as a workaround.".to_string()),
+    }))
+}
+
+/// POST /api/v1/vms/:vm_id/agent/refresh - Request fresh telemetry from the agent
+/// 
+/// Unlike /ping which reads from cache, this endpoint actually contacts the guest
+/// agent and requests an immediate telemetry push. The response includes real-time
+/// CPU, memory, disk, and network usage.
+async fn refresh_quantix_agent(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+) -> Result<Json<QuantixAgentPingResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, "Refreshing Quantix Agent telemetry");
+    
+    // Verify VM exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(build_disconnected_response(
+            Some(format!("VM is not running (state: {:?})", vm.state))
+        )));
+    }
+    
+    // Try to get an agent client and request fresh telemetry
+    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+        warn!(vm_id = %vm_id, error = %e, "Failed to get agent client");
+        return Ok(Json(build_disconnected_response(
+            Some(format!("Failed to connect to agent: {}", e))
+        )));
+    }
+    
+    let agents = state.service.agent_manager().await;
+    if let Some(client) = agents.get(&vm.id) {
+        match client.request_telemetry().await {
+            Ok(_pong) => {
+                drop(agents); // Release lock before sleeping
+                
+                // The telemetry is now updated in the cache via the response handler
+                // Wait a moment for the cache to be updated
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                
+                // Now read the updated cache
+                if let Some(agent_info) = state.service.get_agent_info(&vm.id).await {
+                    return Ok(Json(build_connected_response(agent_info)));
+                }
+                
+                // Cache not updated yet - return minimal connected response
+                Ok(Json(QuantixAgentPingResponse {
+                    connected: true,
+                    version: None,
+                    hostname: None,
+                    os_name: None,
+                    os_version: None,
+                    kernel_version: None,
+                    architecture: None,
+                    ip_addresses: vec![],
+                    resource_usage: None,
+                    capabilities: vec![],
+                    latest_agent_version: Some(LATEST_AGENT_VERSION.to_string()),
+                    error: Some("Telemetry refresh succeeded but cache not yet updated".to_string()),
+                }))
+            }
+            Err(e) => {
+                warn!(vm_id = %vm_id, error = %e, "Failed to request telemetry from agent");
+                Ok(Json(build_disconnected_response(
+                    Some(format!("Failed to request telemetry: {}", e))
+                )))
+            }
+        }
+    } else {
+        Ok(Json(build_disconnected_response(
+            Some("Agent client not found after connection".to_string())
+        )))
+    }
+}
+
+// =============================================================================
+// Agent ISO Mount Endpoints
+// =============================================================================
+
+/// Response for ISO mount operations
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MountIsoResponse {
+    success: bool,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    iso_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    device: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// POST /api/v1/vms/:vm_id/cdrom/mount-agent-iso - Mount the Quantix Agent Tools ISO
+/// 
+/// This mounts the pre-built agent tools ISO to the VM's CD-ROM drive,
+/// allowing air-gapped installation via the universal installer.
+async fn mount_agent_iso(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+) -> Result<Json<MountIsoResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, "Mounting Quantix Agent Tools ISO");
+    
+    // Get the VM to verify it exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    // Check if VM is running
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(MountIsoResponse {
+            success: false,
+            message: "VM is not running".to_string(),
+            iso_path: None,
+            device: None,
+            error: Some(format!("VM state: {:?}", vm.state)),
+        }));
+    }
+    
+    // Find the agent tools ISO
+    let iso_paths = [
+        "/data/share/quantix-agent/quantix-kvm-agent-tools.iso",
+        "/data/isos/quantix-kvm-agent-tools.iso",
+        "/opt/quantix/agent-tools.iso",
+        "/usr/share/quantix/agent-tools.iso",
+    ];
+    
+    let mut iso_path: Option<String> = None;
+    for path in &iso_paths {
+        if std::path::Path::new(path).exists() {
+            iso_path = Some(path.to_string());
+            info!(path = %path, "Found agent tools ISO");
+            break;
+        }
+    }
+    
+    // If not found locally, try to download from update server
+    if iso_path.is_none() {
+        info!("Agent tools ISO not found locally, checking update server");
+        
+        if let Some(update_server) = get_update_server_url() {
+            let url = format!("{}/api/v1/agent/iso", update_server.trim_end_matches('/'));
+            info!(url = %url, "Downloading agent tools ISO from update server");
+            
+            match reqwest::get(&url).await {
+                Ok(response) if response.status().is_success() => {
+                    // Save the ISO locally
+                    let target_path = "/data/share/quantix-agent/quantix-kvm-agent-tools.iso";
+                    if let Err(e) = tokio::fs::create_dir_all("/data/share/quantix-agent").await {
+                        warn!(error = %e, "Failed to create directory for agent ISO");
+                    }
+                    
+                    if let Ok(bytes) = response.bytes().await {
+                        if let Err(e) = tokio::fs::write(target_path, &bytes).await {
+                            warn!(error = %e, "Failed to save agent ISO");
+                        } else {
+                            iso_path = Some(target_path.to_string());
+                            info!(path = %target_path, size = bytes.len(), "Downloaded and saved agent tools ISO");
+                        }
+                    }
+                }
+                Ok(response) => {
+                    warn!(status = %response.status(), "Update server returned error for ISO");
+                }
+                Err(e) => {
+                    warn!(error = %e, "Failed to download agent ISO from update server");
+                }
+            }
+        }
+    }
+    
+    let iso_path = iso_path.ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ApiError::new("iso_not_found", "Quantix Agent Tools ISO not found. Build it with: scripts/build-agent-iso.sh")),
+        )
+    })?;
+    
+    // Find the CD-ROM device in the VM
+    // First, try to get the VM's XML to find the CD-ROM target device
+    let output = tokio::process::Command::new("virsh")
+        .args(["dumpxml", &vm.name])
+        .output()
+        .await;
+    
+    let cdrom_device = match output {
+        Ok(result) if result.status.success() => {
+            let xml = String::from_utf8_lossy(&result.stdout);
+            
+            // Parse XML to find CD-ROM device
+            // Look for: <disk type='...' device='cdrom'> ... <target dev='sda'/> ... </disk>
+            let mut device = "sda".to_string(); // default
+            
+            // Simple XML parsing for CD-ROM target
+            if let Some(cdrom_start) = xml.find("device='cdrom'") {
+                let cdrom_section = &xml[cdrom_start..];
+                if let Some(target_start) = cdrom_section.find("<target dev='") {
+                    let target_section = &cdrom_section[target_start + 13..];
+                    if let Some(quote_end) = target_section.find('\'') {
+                        device = target_section[..quote_end].to_string();
+                    }
+                }
+            }
+            
+            device
+        }
+        _ => "sda".to_string(), // fallback to sda
+    };
+    
+    info!(device = %cdrom_device, iso_path = %iso_path, "Mounting ISO to CD-ROM");
+    
+    // Mount the ISO using the hypervisor's change_media method
+    state.service.hypervisor().change_media(&vm.id, &cdrom_device, Some(&iso_path))
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("mount_failed", &format!("Failed to mount ISO: {}", e))),
+            )
+        })?;
+    
+    info!(vm_id = %vm_id, device = %cdrom_device, "Agent Tools ISO mounted successfully");
+    
+    Ok(Json(MountIsoResponse {
+        success: true,
+        message: format!("Agent Tools ISO mounted to {}. Run: sudo /mnt/cdrom/linux/install.sh", cdrom_device),
+        iso_path: Some(iso_path),
+        device: Some(cdrom_device),
+        error: None,
+    }))
+}
+
+/// POST /api/v1/vms/:vm_id/cdrom/eject - Eject the CD-ROM
+async fn eject_cdrom(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+) -> Result<Json<MountIsoResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, "Ejecting CD-ROM");
+    
+    // Get the VM
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    // Find the CD-ROM device
+    let output = tokio::process::Command::new("virsh")
+        .args(["dumpxml", &vm.name])
+        .output()
+        .await;
+    
+    let cdrom_device = match output {
+        Ok(result) if result.status.success() => {
+            let xml = String::from_utf8_lossy(&result.stdout);
+            let mut device = "sda".to_string();
+            
+            if let Some(cdrom_start) = xml.find("device='cdrom'") {
+                let cdrom_section = &xml[cdrom_start..];
+                if let Some(target_start) = cdrom_section.find("<target dev='") {
+                    let target_section = &cdrom_section[target_start + 13..];
+                    if let Some(quote_end) = target_section.find('\'') {
+                        device = target_section[..quote_end].to_string();
+                    }
+                }
+            }
+            
+            device
+        }
+        _ => "sda".to_string(),
+    };
+    
+    // Eject the CD-ROM
+    state.service.hypervisor().change_media(&vm.id, &cdrom_device, None)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::new("eject_failed", &format!("Failed to eject CD-ROM: {}", e))),
+            )
+        })?;
+    
+    info!(vm_id = %vm_id, device = %cdrom_device, "CD-ROM ejected");
+    
+    Ok(Json(MountIsoResponse {
+        success: true,
+        message: "CD-ROM ejected".to_string(),
+        iso_path: None,
+        device: Some(cdrom_device),
+        error: None,
+    }))
+}
+
+/// Response for agent logs
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentLogsResponse {
+    success: bool,
+    lines: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// Query parameters for agent logs
+#[derive(Deserialize)]
+struct AgentLogsQuery {
+    /// Number of log lines to fetch (default: 50)
+    #[serde(default = "default_log_lines")]
+    lines: u32,
+}
+
+fn default_log_lines() -> u32 {
+    50
+}
+
+/// GET /api/v1/vms/:vm_id/agent/logs - Fetch agent logs from the guest VM
+/// 
+/// This executes `journalctl -u quantix-kvm-agent` in the guest to retrieve
+/// the agent's log output for debugging purposes.
+async fn get_agent_logs(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+    Query(params): Query<AgentLogsQuery>,
+) -> Result<Json<AgentLogsResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, lines = params.lines, "Fetching agent logs");
+    
+    // Verify VM exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(AgentLogsResponse {
+            success: false,
+            lines: vec![],
+            error: Some(format!("VM is not running (state: {:?})", vm.state)),
+        }));
+    }
+    
+    // Get agent client and execute journalctl
+    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+        return Ok(Json(AgentLogsResponse {
+            success: false,
+            lines: vec![],
+            error: Some(format!("Failed to connect to agent: {}", e)),
+        }));
+    }
+    
+    let agents = state.service.agent_manager().await;
+    if let Some(client) = agents.get(&vm.id) {
+        let command = format!("journalctl -u quantix-kvm-agent -n {} --no-pager", params.lines);
+        match client.execute(&command, 10).await {
+            Ok(result) => {
+                let lines: Vec<String> = result.stdout
+                    .lines()
+                    .map(|s| s.to_string())
+                    .collect();
+                
+                Ok(Json(AgentLogsResponse {
+                    success: true,
+                    lines,
+                    error: if result.stderr.is_empty() { None } else { Some(result.stderr) },
+                }))
+            }
+            Err(e) => {
+                Ok(Json(AgentLogsResponse {
+                    success: false,
+                    lines: vec![],
+                    error: Some(format!("Failed to execute command: {}", e)),
+                }))
+            }
+        }
+    } else {
+        Ok(Json(AgentLogsResponse {
+            success: false,
+            lines: vec![],
+            error: Some("Agent client not found after connection".to_string()),
+        }))
+    }
+}
+
+/// Response for shutdown/reboot
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentShutdownResponse {
+    success: bool,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// POST /api/v1/vms/:vm_id/agent/shutdown - Graceful shutdown via agent
+async fn agent_shutdown(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+) -> Result<Json<AgentShutdownResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, "Initiating graceful shutdown via agent");
+    
+    // Verify VM exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(AgentShutdownResponse {
+            success: false,
+            message: "VM is not running".to_string(),
+            error: Some(format!("VM is not running (state: {:?})", vm.state)),
+        }));
+    }
+    
+    // Get agent client and request shutdown
+    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+        return Ok(Json(AgentShutdownResponse {
+            success: false,
+            message: "Failed to connect to agent".to_string(),
+            error: Some(format!("{}", e)),
+        }));
+    }
+    
+    let agents = state.service.agent_manager().await;
+    if let Some(client) = agents.get(&vm.id) {
+        match client.shutdown(false).await {
+            Ok(result) => {
+                if result.accepted {
+                    Ok(Json(AgentShutdownResponse {
+                        success: true,
+                        message: "Graceful shutdown signal sent to guest".to_string(),
+                        error: None,
+                    }))
+                } else {
+                    Ok(Json(AgentShutdownResponse {
+                        success: false,
+                        message: "Shutdown was rejected by guest agent".to_string(),
+                        error: Some(result.error),
+                    }))
+                }
+            }
+            Err(e) => {
+                Ok(Json(AgentShutdownResponse {
+                    success: false,
+                    message: "Failed to send shutdown signal".to_string(),
+                    error: Some(format!("{}", e)),
+                }))
+            }
+        }
+    } else {
+        Ok(Json(AgentShutdownResponse {
+            success: false,
+            message: "Agent client not found after connection".to_string(),
+            error: None,
+        }))
+    }
+}
+
+/// POST /api/v1/vms/:vm_id/agent/reboot - Graceful reboot via agent
+async fn agent_reboot(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+) -> Result<Json<AgentShutdownResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, "Initiating graceful reboot via agent");
+    
+    // Verify VM exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(AgentShutdownResponse {
+            success: false,
+            message: "VM is not running".to_string(),
+            error: Some(format!("VM is not running (state: {:?})", vm.state)),
+        }));
+    }
+    
+    // Get agent client and request reboot
+    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+        return Ok(Json(AgentShutdownResponse {
+            success: false,
+            message: "Failed to connect to agent".to_string(),
+            error: Some(format!("{}", e)),
+        }));
+    }
+    
+    let agents = state.service.agent_manager().await;
+    if let Some(client) = agents.get(&vm.id) {
+        match client.shutdown(true).await {
+            Ok(result) => {
+                if result.accepted {
+                    Ok(Json(AgentShutdownResponse {
+                        success: true,
+                        message: "Graceful reboot signal sent to guest".to_string(),
+                        error: None,
+                    }))
+                } else {
+                    Ok(Json(AgentShutdownResponse {
+                        success: false,
+                        message: "Reboot was rejected by guest agent".to_string(),
+                        error: Some(result.error),
+                    }))
+                }
+            }
+            Err(e) => {
+                Ok(Json(AgentShutdownResponse {
+                    success: false,
+                    message: "Failed to send reboot signal".to_string(),
+                    error: Some(format!("{}", e)),
+                }))
+            }
+        }
+    } else {
+        Ok(Json(AgentShutdownResponse {
+            success: false,
+            message: "Agent client not found after connection".to_string(),
+            error: None,
+        }))
+    }
+}
+
+/// Query parameters for file listing
+#[derive(Deserialize)]
+struct ListFilesQuery {
+    /// Path to list (default: /)
+    #[serde(default = "default_path")]
+    path: String,
+    /// Include hidden files
+    #[serde(default)]
+    include_hidden: bool,
+}
+
+fn default_path() -> String {
+    "/".to_string()
+}
+
+/// Directory entry response
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DirectoryEntryResponse {
+    name: String,
+    path: String,
+    is_directory: bool,
+    is_symlink: bool,
+    size_bytes: u64,
+    mode: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    modified_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    owner: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    group: Option<String>,
+}
+
+/// Response for file listing
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ListFilesResponse {
+    success: bool,
+    path: String,
+    entries: Vec<DirectoryEntryResponse>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// GET /api/v1/vms/:vm_id/agent/files/list - List directory contents in the guest
+async fn list_guest_files(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+    Query(params): Query<ListFilesQuery>,
+) -> Result<Json<ListFilesResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, path = %params.path, "Listing directory in guest");
+    
+    // Verify VM exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(ListFilesResponse {
+            success: false,
+            path: params.path.clone(),
+            entries: vec![],
+            error: Some(format!("VM is not running (state: {:?})", vm.state)),
+        }));
+    }
+    
+    // Get agent client and list directory
+    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+        return Ok(Json(ListFilesResponse {
+            success: false,
+            path: params.path,
+            entries: vec![],
+            error: Some(format!("Failed to connect to agent: {}", e)),
+        }));
+    }
+    
+    let agents = state.service.agent_manager().await;
+    if let Some(client) = agents.get(&vm.id) {
+        match client.list_directory(&params.path, params.include_hidden).await {
+            Ok(result) => {
+                let entries: Vec<DirectoryEntryResponse> = result.entries
+                    .into_iter()
+                    .map(|e| DirectoryEntryResponse {
+                        name: e.name,
+                        path: e.path,
+                        is_directory: e.is_directory,
+                        is_symlink: e.is_symlink,
+                        size_bytes: e.size_bytes,
+                        mode: e.mode,
+                        modified_at: e.modified_at.map(|t| {
+                            chrono::DateTime::from_timestamp(t.seconds, t.nanos as u32)
+                                .map(|dt| dt.to_rfc3339())
+                                .unwrap_or_default()
+                        }),
+                        owner: if e.owner.is_empty() { None } else { Some(e.owner) },
+                        group: if e.group.is_empty() { None } else { Some(e.group) },
+                    })
+                    .collect();
+                
+                Ok(Json(ListFilesResponse {
+                    success: true,
+                    path: params.path,
+                    entries,
+                    error: None,
+                }))
+            }
+            Err(e) => {
+                Ok(Json(ListFilesResponse {
+                    success: false,
+                    path: params.path,
+                    entries: vec![],
+                    error: Some(format!("Failed to list directory: {}", e)),
+                }))
+            }
+        }
+    } else {
+        Ok(Json(ListFilesResponse {
+            success: false,
+            path: params.path,
+            entries: vec![],
+            error: Some("Agent client not found after connection".to_string()),
+        }))
+    }
+}
+
+/// Query parameters for file reading
+#[derive(Deserialize)]
+struct ReadFileQuery {
+    /// Path to the file to read
+    path: String,
+}
+
+/// Response for file reading
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReadFileResponse {
+    success: bool,
+    path: String,
+    /// Base64-encoded file content
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content: Option<String>,
+    /// File size in bytes
+    #[serde(skip_serializing_if = "Option::is_none")]
+    size_bytes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// GET /api/v1/vms/:vm_id/agent/files/read - Read a file from the guest
+async fn read_guest_file(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+    Query(params): Query<ReadFileQuery>,
+) -> Result<Json<ReadFileResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, path = %params.path, "Reading file from guest");
+    
+    // Verify VM exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(ReadFileResponse {
+            success: false,
+            path: params.path.clone(),
+            content: None,
+            size_bytes: None,
+            error: Some(format!("VM is not running (state: {:?})", vm.state)),
+        }));
+    }
+    
+    // Get agent client and read file
+    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+        return Ok(Json(ReadFileResponse {
+            success: false,
+            path: params.path,
+            content: None,
+            size_bytes: None,
+            error: Some(format!("Failed to connect to agent: {}", e)),
+        }));
+    }
+    
+    let agents = state.service.agent_manager().await;
+    if let Some(client) = agents.get(&vm.id) {
+        match client.read_file(&params.path).await {
+            Ok(data) => {
+                use base64::Engine;
+                let content = base64::engine::general_purpose::STANDARD.encode(&data);
+                
+                Ok(Json(ReadFileResponse {
+                    success: true,
+                    path: params.path,
+                    content: Some(content),
+                    size_bytes: Some(data.len() as u64),
+                    error: None,
+                }))
+            }
+            Err(e) => {
+                Ok(Json(ReadFileResponse {
+                    success: false,
+                    path: params.path,
+                    content: None,
+                    size_bytes: None,
+                    error: Some(format!("Failed to read file: {}", e)),
+                }))
+            }
+        }
+    } else {
+        Ok(Json(ReadFileResponse {
+            success: false,
+            path: params.path,
+            content: None,
+            size_bytes: None,
+            error: Some("Agent client not found after connection".to_string()),
+        }))
+    }
+}
+
+/// Request body for command execution
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExecuteCommandRequest {
+    /// Command to execute
+    command: String,
+    /// Timeout in seconds (default: 30, max: 30 for sync execution)
+    #[serde(default = "default_execute_timeout")]
+    timeout_seconds: u32,
+    /// Wait for command to complete (always true for this endpoint)
+    #[serde(default = "default_true")]
+    wait_for_exit: bool,
+}
+
+fn default_execute_timeout() -> u32 {
+    30
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// Response for command execution
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ExecuteCommandResponse {
+    success: bool,
+    exit_code: i32,
+    stdout: String,
+    stderr: String,
+    timed_out: bool,
+    duration_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// POST /api/v1/vms/:vm_id/execute - Execute a command in the guest VM
+/// 
+/// WARNING: This endpoint has a maximum timeout of 30 seconds for synchronous execution.
+/// Long-running scripts may timeout but continue running in the guest. For long operations,
+/// check the VM console or use asynchronous execution (future feature).
+async fn execute_in_guest(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+    Json(request): Json<ExecuteCommandRequest>,
+) -> Result<Json<ExecuteCommandResponse>, (StatusCode, Json<ApiError>)> {
+    // Enforce max timeout of 30 seconds
+    let timeout = std::cmp::min(request.timeout_seconds, 30);
+    
+    info!(vm_id = %vm_id, command = %request.command, timeout = timeout, "Executing command in guest");
+    
+    // Verify VM exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(ExecuteCommandResponse {
+            success: false,
+            exit_code: -1,
+            stdout: String::new(),
+            stderr: String::new(),
+            timed_out: false,
+            duration_ms: 0,
+            error: Some(format!("VM is not running (state: {:?})", vm.state)),
+        }));
+    }
+    
+    // Get agent client and execute command
+    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+        return Ok(Json(ExecuteCommandResponse {
+            success: false,
+            exit_code: -1,
+            stdout: String::new(),
+            stderr: String::new(),
+            timed_out: false,
+            duration_ms: 0,
+            error: Some(format!("Failed to connect to agent: {}", e)),
+        }));
+    }
+    
+    let agents = state.service.agent_manager().await;
+    if let Some(client) = agents.get(&vm.id) {
+        match client.execute(&request.command, timeout).await {
+            Ok(result) => {
+                Ok(Json(ExecuteCommandResponse {
+                    success: result.exit_code == 0,
+                    exit_code: result.exit_code,
+                    stdout: result.stdout,
+                    stderr: result.stderr,
+                    timed_out: result.timed_out,
+                    duration_ms: result.duration_ms,
+                    error: if result.error.is_empty() { None } else { Some(result.error) },
+                }))
+            }
+            Err(e) => {
+                Ok(Json(ExecuteCommandResponse {
+                    success: false,
+                    exit_code: -1,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    timed_out: false,
+                    duration_ms: 0,
+                    error: Some(format!("Failed to execute command: {}", e)),
+                }))
+            }
+        }
+    } else {
+        Ok(Json(ExecuteCommandResponse {
+            success: false,
+            exit_code: -1,
+            stdout: String::new(),
+            stderr: String::new(),
+            timed_out: false,
+            duration_ms: 0,
+            error: Some("Agent client not found after connection".to_string()),
+        }))
+    }
+}
+
+// =============================================================================
+// END NEW AGENT ENDPOINTS
+// =============================================================================
+
+/// GET /api/v1/vms/:vm_id/qemu-agent/ping - Check if QEMU Guest Agent is available
+/// 
+/// This uses libvirt's qemuAgentCommand to send a "guest-ping" command
+async fn ping_qemu_guest_agent(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+) -> Result<Json<QemuAgentPingResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, "Pinging QEMU Guest Agent");
+    
+    // Get the VM to verify it exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    // Check if VM is running
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(QemuAgentPingResponse {
+            available: false,
+            error: Some(format!("VM is not running (state: {:?})", vm.state)),
+        }));
+    }
+    
+    // Try to ping the QEMU Guest Agent using virsh qemu-agent-command
+    // This sends a "guest-ping" command which returns empty object if agent is responsive
+    let output = tokio::process::Command::new("virsh")
+        .args([
+            "qemu-agent-command",
+            &vm.name,
+            r#"{"execute":"guest-ping"}"#,
+            "--timeout", "5",
+        ])
+        .output()
+        .await;
+    
+    match output {
+        Ok(result) => {
+            if result.status.success() {
+                info!(vm_id = %vm_id, "QEMU Guest Agent is available");
+                Ok(Json(QemuAgentPingResponse {
+                    available: true,
+                    error: None,
+                }))
+            } else {
+                let stderr = String::from_utf8_lossy(&result.stderr);
+                warn!(vm_id = %vm_id, error = %stderr, "QEMU Guest Agent not available");
+                Ok(Json(QemuAgentPingResponse {
+                    available: false,
+                    error: Some(stderr.to_string()),
+                }))
+            }
+        }
+        Err(e) => {
+            error!(vm_id = %vm_id, error = %e, "Failed to run virsh command");
+            Ok(Json(QemuAgentPingResponse {
+                available: false,
+                error: Some(format!("Failed to execute virsh: {}", e)),
+            }))
+        }
+    }
+}
+
+/// POST /api/v1/vms/:vm_id/qemu-agent/exec - Execute a command via QEMU Guest Agent
+/// 
+/// This uses libvirt's qemuAgentCommand to execute commands inside the VM.
+/// Requires QEMU Guest Agent to be installed and running in the VM.
+async fn exec_qemu_guest_agent(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+    Json(request): Json<QemuAgentExecRequest>,
+) -> Result<Json<QemuAgentExecResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, command = %request.command, "Executing command via QEMU Guest Agent");
+    
+    // Get the VM to verify it exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    // Check if VM is running
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(QemuAgentExecResponse {
+            success: false,
+            exit_code: None,
+            stdout: None,
+            stderr: None,
+            error: Some(format!("VM is not running (state: {:?})", vm.state)),
+        }));
+    }
+    
+    // Build the guest-exec command
+    // Format: {"execute":"guest-exec","arguments":{"path":"/bin/bash","arg":["-c","command"],"capture-output":true}}
+    let mut args_json = vec!["-c".to_string(), request.command.clone()];
+    args_json.extend(request.args.clone());
+    
+    let exec_cmd = serde_json::json!({
+        "execute": "guest-exec",
+        "arguments": {
+            "path": "/bin/bash",
+            "arg": args_json,
+            "capture-output": true
+        }
+    });
+    
+    // Execute the command
+    let output = tokio::process::Command::new("virsh")
+        .args([
+            "qemu-agent-command",
+            &vm.name,
+            &exec_cmd.to_string(),
+            "--timeout", &request.timeout.to_string(),
+        ])
+        .output()
+        .await;
+    
+    match output {
+        Ok(result) => {
+            if result.status.success() {
+                let stdout = String::from_utf8_lossy(&result.stdout);
+                
+                // Parse the response to get the PID
+                if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                    if let Some(pid) = resp.get("return").and_then(|r| r.get("pid")).and_then(|p| p.as_i64()) {
+                        // Now we need to wait for the command to complete and get output
+                        // Use guest-exec-status
+                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                        
+                        let status_cmd = serde_json::json!({
+                            "execute": "guest-exec-status",
+                            "arguments": {
+                                "pid": pid
+                            }
+                        });
+                        
+                        // Poll for completion (up to timeout)
+                        let start = std::time::Instant::now();
+                        let timeout_duration = std::time::Duration::from_secs(request.timeout as u64);
+                        
+                        loop {
+                            let status_output = tokio::process::Command::new("virsh")
+                                .args([
+                                    "qemu-agent-command",
+                                    &vm.name,
+                                    &status_cmd.to_string(),
+                                    "--timeout", "5",
+                                ])
+                                .output()
+                                .await;
+                            
+                            if let Ok(status_result) = status_output {
+                                if status_result.status.success() {
+                                    let status_stdout = String::from_utf8_lossy(&status_result.stdout);
+                                    if let Ok(status_resp) = serde_json::from_str::<serde_json::Value>(&status_stdout) {
+                                        if let Some(ret) = status_resp.get("return") {
+                                            let exited = ret.get("exited").and_then(|e| e.as_bool()).unwrap_or(false);
+                                            
+                                            if exited {
+                                                let exit_code = ret.get("exitcode").and_then(|c| c.as_i64()).map(|c| c as i32);
+                                                
+                                                // Decode base64 output if present
+                                                let stdout_data = ret.get("out-data")
+                                                    .and_then(|d| d.as_str())
+                                                    .and_then(|s| {
+                                                        use base64::Engine;
+                                                        base64::engine::general_purpose::STANDARD.decode(s).ok()
+                                                    })
+                                                    .and_then(|b| String::from_utf8(b).ok());
+                                                
+                                                let stderr_data = ret.get("err-data")
+                                                    .and_then(|d| d.as_str())
+                                                    .and_then(|s| {
+                                                        use base64::Engine;
+                                                        base64::engine::general_purpose::STANDARD.decode(s).ok()
+                                                    })
+                                                    .and_then(|b| String::from_utf8(b).ok());
+                                                
+                                                return Ok(Json(QemuAgentExecResponse {
+                                                    success: exit_code == Some(0),
+                                                    exit_code,
+                                                    stdout: stdout_data,
+                                                    stderr: stderr_data,
+                                                    error: None,
+                                                }));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if start.elapsed() > timeout_duration {
+                                return Ok(Json(QemuAgentExecResponse {
+                                    success: false,
+                                    exit_code: None,
+                                    stdout: None,
+                                    stderr: None,
+                                    error: Some("Command timed out".to_string()),
+                                }));
+                            }
+                            
+                            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                        }
+                    }
+                }
+                
+                // If we couldn't parse the response properly
+                Ok(Json(QemuAgentExecResponse {
+                    success: false,
+                    exit_code: None,
+                    stdout: Some(stdout.to_string()),
+                    stderr: None,
+                    error: Some("Failed to parse guest-exec response".to_string()),
+                }))
+            } else {
+                let stderr = String::from_utf8_lossy(&result.stderr);
+                Ok(Json(QemuAgentExecResponse {
+                    success: false,
+                    exit_code: None,
+                    stdout: None,
+                    stderr: Some(stderr.to_string()),
+                    error: Some("QEMU Guest Agent command failed".to_string()),
+                }))
+            }
+        }
+        Err(e) => {
+            error!(vm_id = %vm_id, error = %e, "Failed to run virsh command");
+            Ok(Json(QemuAgentExecResponse {
+                success: false,
+                exit_code: None,
+                stdout: None,
+                stderr: None,
+                error: Some(format!("Failed to execute virsh: {}", e)),
+            }))
+        }
+    }
+}
+
+// =============================================================================
+// QEMU Guest Agent File Transfer (Network-free via virtio-serial)
+// =============================================================================
+
+/// Request for writing a file via QEMU Guest Agent
+#[derive(Deserialize)]
+struct QemuAgentFileWriteRequest {
+    /// Path to write the file to (inside the VM)
+    path: String,
+    /// Base64-encoded file contents
+    content_base64: String,
+    /// File mode (e.g., "0755" for executable)
+    #[serde(default = "default_file_mode")]
+    mode: String,
+}
+
+fn default_file_mode() -> String {
+    "0644".to_string()
+}
+
+/// Response for file write operation
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct QemuAgentFileWriteResponse {
+    success: bool,
+    bytes_written: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// POST /api/v1/vms/:vm_id/qemu-agent/file-write - Write a file to VM via QEMU Guest Agent
+/// 
+/// This uses virtio-serial (no network required) to transfer files to the VM.
+/// Uses guest-file-open, guest-file-write, guest-file-close commands.
+async fn qemu_agent_file_write(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+    Json(request): Json<QemuAgentFileWriteRequest>,
+) -> Result<Json<QemuAgentFileWriteResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, path = %request.path, "Writing file via QEMU Guest Agent");
+    
+    // Get the VM to verify it exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    // Check if VM is running
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(QemuAgentFileWriteResponse {
+            success: false,
+            bytes_written: None,
+            error: Some(format!("VM is not running (state: {:?})", vm.state)),
+        }));
+    }
+
+    // Decode the content
+    let content = match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &request.content_base64) {
+        Ok(data) => data,
+        Err(e) => {
+            return Ok(Json(QemuAgentFileWriteResponse {
+                success: false,
+                bytes_written: None,
+                error: Some(format!("Invalid base64 content: {}", e)),
+            }));
+        }
+    };
+    
+    let content_len = content.len();
+    
+    // Step 1: Open the file for writing
+    let open_cmd = serde_json::json!({
+        "execute": "guest-file-open",
+        "arguments": {
+            "path": request.path,
+            "mode": "w"
+        }
+    });
+    
+    let open_output = tokio::process::Command::new("virsh")
+        .args([
+            "qemu-agent-command",
+            &vm.name,
+            &open_cmd.to_string(),
+            "--timeout", "30",
+        ])
+        .output()
+        .await;
+    
+    let handle = match open_output {
+        Ok(result) if result.status.success() => {
+            let stdout = String::from_utf8_lossy(&result.stdout);
+            if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                if let Some(h) = resp.get("return").and_then(|r| r.as_i64()) {
+                    h
+                } else {
+                    return Ok(Json(QemuAgentFileWriteResponse {
+                        success: false,
+                        bytes_written: None,
+                        error: Some("Failed to get file handle from guest-file-open".to_string()),
+                    }));
+                }
+            } else {
+                return Ok(Json(QemuAgentFileWriteResponse {
+                    success: false,
+                    bytes_written: None,
+                    error: Some(format!("Failed to parse guest-file-open response: {}", stdout)),
+                }));
+            }
+        }
+        Ok(result) => {
+            let stderr = String::from_utf8_lossy(&result.stderr);
+            return Ok(Json(QemuAgentFileWriteResponse {
+                success: false,
+                bytes_written: None,
+                error: Some(format!("guest-file-open failed: {}", stderr)),
+            }));
+        }
+        Err(e) => {
+            return Ok(Json(QemuAgentFileWriteResponse {
+                success: false,
+                bytes_written: None,
+                error: Some(format!("Failed to execute virsh: {}", e)),
+            }));
+        }
+    };
+    
+    // Step 2: Write the content (in chunks if large)
+    // QEMU GA has a limit on message size, so we chunk large files
+    const CHUNK_SIZE: usize = 65536; // 64KB chunks
+    let mut total_written = 0;
+    
+    for chunk in content.chunks(CHUNK_SIZE) {
+        let chunk_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, chunk);
+        
+        let write_cmd = serde_json::json!({
+            "execute": "guest-file-write",
+            "arguments": {
+                "handle": handle,
+                "buf-b64": chunk_b64
+            }
+        });
+        
+        let write_output = tokio::process::Command::new("virsh")
+            .args([
+                "qemu-agent-command",
+                &vm.name,
+                &write_cmd.to_string(),
+                "--timeout", "60",
+            ])
+            .output()
+            .await;
+        
+        match write_output {
+            Ok(result) if result.status.success() => {
+                let stdout = String::from_utf8_lossy(&result.stdout);
+                if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                    if let Some(count) = resp.get("return").and_then(|r| r.get("count")).and_then(|c| c.as_i64()) {
+                        total_written += count as usize;
+                    }
+                }
+            }
+            Ok(result) => {
+                let stderr = String::from_utf8_lossy(&result.stderr);
+                // Try to close the file handle before returning error
+                let _ = close_file_handle(&vm.name, handle).await;
+                return Ok(Json(QemuAgentFileWriteResponse {
+                    success: false,
+                    bytes_written: Some(total_written),
+                    error: Some(format!("guest-file-write failed: {}", stderr)),
+                }));
+            }
+            Err(e) => {
+                let _ = close_file_handle(&vm.name, handle).await;
+                return Ok(Json(QemuAgentFileWriteResponse {
+                    success: false,
+                    bytes_written: Some(total_written),
+                    error: Some(format!("Failed to execute virsh: {}", e)),
+                }));
+            }
+        }
+    }
+    
+    // Step 3: Close the file
+    if let Err(e) = close_file_handle(&vm.name, handle).await {
+        warn!(vm_id = %vm_id, error = %e, "Failed to close file handle");
+    }
+    
+    // Step 4: Set file permissions using guest-exec (optional, may fail if disabled)
+    let chmod_cmd = serde_json::json!({
+        "execute": "guest-exec",
+        "arguments": {
+            "path": "/bin/chmod",
+            "arg": [&request.mode, &request.path],
+            "capture-output": false
+        }
+    });
+    
+    // Try to chmod, but don't fail if guest-exec is disabled
+    let _ = tokio::process::Command::new("virsh")
+        .args([
+            "qemu-agent-command",
+            &vm.name,
+            &chmod_cmd.to_string(),
+            "--timeout", "10",
+        ])
+        .output()
+        .await;
+    
+    info!(vm_id = %vm_id, path = %request.path, bytes = content_len, "File written successfully via QEMU Guest Agent");
+    
+    Ok(Json(QemuAgentFileWriteResponse {
+        success: true,
+        bytes_written: Some(total_written),
+        error: None,
+    }))
+}
+
+/// Helper to close a QEMU Guest Agent file handle
+async fn close_file_handle(vm_name: &str, handle: i64) -> Result<(), String> {
+    let close_cmd = serde_json::json!({
+        "execute": "guest-file-close",
+        "arguments": {
+            "handle": handle
+        }
+    });
+    
+    let result = tokio::process::Command::new("virsh")
+        .args([
+            "qemu-agent-command",
+            vm_name,
+            &close_cmd.to_string(),
+            "--timeout", "10",
+        ])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to execute virsh: {}", e))?;
+    
+    if result.status.success() {
+        Ok(())
+    } else {
+        Err(String::from_utf8_lossy(&result.stderr).to_string())
+    }
+}
+
+// =============================================================================
+// Agent Installation (Network-free via virtio-serial)
+// =============================================================================
+
+/// Request for agent installation
+#[derive(Deserialize)]
+struct InstallAgentRequest {
+    /// Force reinstall even if already installed
+    #[serde(default)]
+    force: bool,
+}
+
+/// Response for agent installation
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InstallAgentResponse {
+    success: bool,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+    /// Method used for installation
+    method: String,
+}
+
+/// POST /api/v1/vms/:vm_id/agent/install - Install Quantix Agent without network
+/// 
+/// This transfers the agent binary via QEMU Guest Agent (virtio-serial)
+/// and installs it without requiring network connectivity from the VM.
+async fn install_quantix_agent(
+    State(state): State<Arc<AppState>>,
+    Path(vm_id): Path<String>,
+    Json(_request): Json<InstallAgentRequest>,
+) -> Result<Json<InstallAgentResponse>, (StatusCode, Json<ApiError>)> {
+    info!(vm_id = %vm_id, "Installing Quantix Agent via virtio-serial");
+    
+    // Get the VM to verify it exists and is running
+    let vms = state.service.hypervisor().list_vms().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiError::new("list_vms_failed", &format!("Failed to list VMs: {}", e))),
+        )
+    })?;
+    
+    let vm = vms.iter()
+        .find(|v| v.id == vm_id || v.name == vm_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError::new("vm_not_found", &format!("VM not found: {}", vm_id))),
+            )
+        })?;
+    
+    // Check if VM is running
+    if vm.state != limiquantix_hypervisor::types::VmState::Running {
+        return Ok(Json(InstallAgentResponse {
+            success: false,
+            message: "VM is not running".to_string(),
+            error: Some(format!("VM state: {:?}", vm.state)),
+            method: "none".to_string(),
+        }));
+    }
+    
+    // First, check if QEMU Guest Agent is available
+    let ping_cmd = serde_json::json!({
+        "execute": "guest-ping"
+    });
+    
+    let ping_result = tokio::process::Command::new("virsh")
+        .args([
+            "qemu-agent-command",
+            &vm.name,
+            &ping_cmd.to_string(),
+            "--timeout", "5",
+        ])
+        .output()
+        .await;
+    
+    if ping_result.is_err() || !ping_result.as_ref().unwrap().status.success() {
+        return Ok(Json(InstallAgentResponse {
+            success: false,
+            message: "QEMU Guest Agent not available".to_string(),
+            error: Some("Install qemu-guest-agent in the VM first: apt/yum install qemu-guest-agent".to_string()),
+            method: "none".to_string(),
+        }));
+    }
+    
+    // Try to find the agent binary locally
+    let agent_paths = [
+        "/data/share/quantix-agent/quantix-kvm-agent-linux-amd64",
+        "/data/share/quantix-agent/quantix-kvm-agent",
+        "/opt/quantix-kvm/agent/quantix-kvm-agent",
+    ];
+    
+    let mut agent_binary: Option<Vec<u8>> = None;
+    let mut source_path = "";
+    
+    for path in &agent_paths {
+        if let Ok(data) = tokio::fs::read(path).await {
+            agent_binary = Some(data);
+            source_path = path;
+            info!(path = %path, size = agent_binary.as_ref().unwrap().len(), "Found agent binary locally");
+            break;
+        }
+    }
+    
+    // If not found locally, try to download from update server
+    if agent_binary.is_none() {
+        if let Some(update_server) = get_update_server_url() {
+            let url = format!("{}/api/v1/agent/linux/binary/amd64", update_server.trim_end_matches('/'));
+            info!(url = %url, "Downloading agent binary from update server");
+            
+            match reqwest::get(&url).await {
+                Ok(response) if response.status().is_success() => {
+                    if let Ok(bytes) = response.bytes().await {
+                        agent_binary = Some(bytes.to_vec());
+                        source_path = "update-server";
+                        info!(size = agent_binary.as_ref().unwrap().len(), "Downloaded agent binary from update server");
+                    }
+                }
+                Ok(response) => {
+                    warn!(status = %response.status(), "Update server returned error");
+                }
+                Err(e) => {
+                    warn!(error = %e, "Failed to download from update server");
+                }
+            }
+        }
+    }
+    
+    let agent_binary = match agent_binary {
+        Some(data) => data,
+        None => {
+            return Ok(Json(InstallAgentResponse {
+                success: false,
+                message: "Agent binary not available".to_string(),
+                error: Some("Could not find agent binary locally or download from update server".to_string()),
+                method: "none".to_string(),
+            }));
+        }
+    };
+    
+    info!(source = %source_path, size = agent_binary.len(), "Transferring agent to VM via virtio-serial");
+    
+    // Create the install script
+    let install_script = r#"#!/bin/bash
+set -e
+echo "[Quantix] Installing agent..."
+
+# Create directories
+mkdir -p /etc/quantix-kvm/pre-freeze.d
+mkdir -p /etc/quantix-kvm/post-thaw.d
+mkdir -p /var/log/quantix-kvm
+
+# Move binary to final location
+mv /tmp/quantix-kvm-agent /usr/local/bin/quantix-kvm-agent
+chmod +x /usr/local/bin/quantix-kvm-agent
+
+# Fix SELinux context if SELinux is enabled (Rocky, CentOS, RHEL, Fedora)
+if command -v getenforce &> /dev/null && [ "$(getenforce)" != "Disabled" ]; then
+    echo "[Quantix] Fixing SELinux context..."
+    # Set the correct SELinux type for executables
+    if command -v chcon &> /dev/null; then
+        chcon -t bin_t /usr/local/bin/quantix-kvm-agent 2>/dev/null || true
+    fi
+    # Also try restorecon if available
+    if command -v restorecon &> /dev/null; then
+        restorecon -v /usr/local/bin/quantix-kvm-agent 2>/dev/null || true
+    fi
+fi
+
+# Create systemd service
+cat > /etc/systemd/system/quantix-kvm-agent.service << 'EOF'
+[Unit]
+Description=Quantix Guest Agent
+After=network.target
+ConditionVirtualization=vm
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/quantix-kvm-agent
+Restart=always
+RestartSec=5
+Environment=RUST_LOG=info
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload and start
+systemctl daemon-reload
+systemctl enable quantix-kvm-agent
+systemctl restart quantix-kvm-agent
+
+echo "[Quantix] Agent installed successfully!"
+systemctl status quantix-kvm-agent --no-pager || true
+"#;
+    
+    // Step 1: Transfer the agent binary
+    let binary_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &agent_binary);
+    
+    // Use file-write directly (this always works, unlike guest-exec)
+    let write_request = QemuAgentFileWriteRequest {
+        path: "/tmp/quantix-kvm-agent".to_string(),
+        content_base64: binary_b64,
+        mode: "0755".to_string(),
+    };
+    
+    // Write the binary
+    let write_result = qemu_agent_file_write_internal(&vm.name, &write_request).await;
+    if !write_result.success {
+        return Ok(Json(InstallAgentResponse {
+            success: false,
+            message: "Failed to transfer agent binary".to_string(),
+            error: write_result.error,
+            method: "virtio-serial".to_string(),
+        }));
+    }
+    
+    // Step 2: Transfer the install script
+    let script_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, install_script.as_bytes());
+    
+    let script_request = QemuAgentFileWriteRequest {
+        path: "/tmp/install-quantix-agent.sh".to_string(),
+        content_base64: script_b64,
+        mode: "0755".to_string(),
+    };
+    
+    let script_result = qemu_agent_file_write_internal(&vm.name, &script_request).await;
+    if !script_result.success {
+        return Ok(Json(InstallAgentResponse {
+            success: false,
+            message: "Failed to transfer install script".to_string(),
+            error: script_result.error,
+            method: "virtio-serial".to_string(),
+        }));
+    }
+    
+    // Step 3: Execute the install script (this might fail if guest-exec is disabled)
+    let exec_cmd = serde_json::json!({
+        "execute": "guest-exec",
+        "arguments": {
+            "path": "/bin/bash",
+            "arg": ["/tmp/install-quantix-agent.sh"],
+            "capture-output": true
+        }
+    });
+    
+    let exec_result = tokio::process::Command::new("virsh")
+        .args([
+            "qemu-agent-command",
+            &vm.name,
+            &exec_cmd.to_string(),
+            "--timeout", "120",
+        ])
+        .output()
+        .await;
+    
+    match exec_result {
+        Ok(result) if result.status.success() => {
+            info!(vm_id = %vm_id, "Agent installation initiated successfully");
+            Ok(Json(InstallAgentResponse {
+                success: true,
+                message: "Quantix Agent installation initiated. The agent should connect within a minute.".to_string(),
+                error: None,
+                method: "virtio-serial".to_string(),
+            }))
+        }
+        Ok(result) => {
+            let stderr = String::from_utf8_lossy(&result.stderr);
+            // guest-exec might be disabled - provide manual instructions
+            if stderr.contains("not allowed") || stderr.contains("disabled") {
+                warn!(vm_id = %vm_id, "guest-exec is disabled, providing manual instructions");
+                Ok(Json(InstallAgentResponse {
+                    success: true,
+                    message: "Agent binary transferred. Run manually: /tmp/install-quantix-agent.sh".to_string(),
+                    error: Some("guest-exec is disabled in QEMU Guest Agent. The agent binary and install script have been transferred to /tmp/. Run '/tmp/install-quantix-agent.sh' in the VM console to complete installation.".to_string()),
+                    method: "virtio-serial-manual".to_string(),
+                }))
+            } else {
+                Ok(Json(InstallAgentResponse {
+                    success: false,
+                    message: "Failed to execute install script".to_string(),
+                    error: Some(stderr.to_string()),
+                    method: "virtio-serial".to_string(),
+                }))
+            }
+        }
+        Err(e) => {
+            Ok(Json(InstallAgentResponse {
+                success: false,
+                message: "Failed to execute virsh command".to_string(),
+                error: Some(e.to_string()),
+                method: "virtio-serial".to_string(),
+            }))
+        }
+    }
+}
+
+/// Internal helper for file write (doesn't need State)
+async fn qemu_agent_file_write_internal(vm_name: &str, request: &QemuAgentFileWriteRequest) -> QemuAgentFileWriteResponse {
+    // Decode the content
+    let content = match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &request.content_base64) {
+        Ok(data) => data,
+        Err(e) => {
+            return QemuAgentFileWriteResponse {
+                success: false,
+                bytes_written: None,
+                error: Some(format!("Invalid base64 content: {}", e)),
+            };
+        }
+    };
+    
+    let content_len = content.len();
+    
+    // Step 1: Open the file for writing
+    let open_cmd = serde_json::json!({
+        "execute": "guest-file-open",
+        "arguments": {
+            "path": request.path,
+            "mode": "w"
+        }
+    });
+    
+    let open_output = tokio::process::Command::new("virsh")
+        .args([
+            "qemu-agent-command",
+            vm_name,
+            &open_cmd.to_string(),
+            "--timeout", "30",
+        ])
+        .output()
+        .await;
+    
+    let handle = match open_output {
+        Ok(result) if result.status.success() => {
+            let stdout = String::from_utf8_lossy(&result.stdout);
+            if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                if let Some(h) = resp.get("return").and_then(|r| r.as_i64()) {
+                    h
+                } else {
+                    return QemuAgentFileWriteResponse {
+                        success: false,
+                        bytes_written: None,
+                        error: Some("Failed to get file handle from guest-file-open".to_string()),
+                    };
+                }
+            } else {
+                return QemuAgentFileWriteResponse {
+                    success: false,
+                    bytes_written: None,
+                    error: Some(format!("Failed to parse guest-file-open response: {}", stdout)),
+                };
+            }
+        }
+        Ok(result) => {
+            let stderr = String::from_utf8_lossy(&result.stderr);
+            return QemuAgentFileWriteResponse {
+                success: false,
+                bytes_written: None,
+                error: Some(format!("guest-file-open failed: {}", stderr)),
+            };
+        }
+        Err(e) => {
+            return QemuAgentFileWriteResponse {
+                success: false,
+                bytes_written: None,
+                error: Some(format!("Failed to execute virsh: {}", e)),
+            };
+        }
+    };
+    
+    // Step 2: Write the content in chunks
+    const CHUNK_SIZE: usize = 65536;
+    let mut total_written = 0;
+    
+    for chunk in content.chunks(CHUNK_SIZE) {
+        let chunk_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, chunk);
+        
+        let write_cmd = serde_json::json!({
+            "execute": "guest-file-write",
+            "arguments": {
+                "handle": handle,
+                "buf-b64": chunk_b64
+            }
+        });
+        
+        let write_output = tokio::process::Command::new("virsh")
+            .args([
+                "qemu-agent-command",
+                vm_name,
+                &write_cmd.to_string(),
+                "--timeout", "60",
+            ])
+            .output()
+            .await;
+        
+        match write_output {
+            Ok(result) if result.status.success() => {
+                let stdout = String::from_utf8_lossy(&result.stdout);
+                if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                    if let Some(count) = resp.get("return").and_then(|r| r.get("count")).and_then(|c| c.as_i64()) {
+                        total_written += count as usize;
+                    }
+                }
+            }
+            Ok(result) => {
+                let stderr = String::from_utf8_lossy(&result.stderr);
+                let _ = close_file_handle(vm_name, handle).await;
+                return QemuAgentFileWriteResponse {
+                    success: false,
+                    bytes_written: Some(total_written),
+                    error: Some(format!("guest-file-write failed: {}", stderr)),
+                };
+            }
+            Err(e) => {
+                let _ = close_file_handle(vm_name, handle).await;
+                return QemuAgentFileWriteResponse {
+                    success: false,
+                    bytes_written: Some(total_written),
+                    error: Some(format!("Failed to execute virsh: {}", e)),
+                };
+            }
+        }
+    }
+    
+    // Step 3: Close the file
+    let _ = close_file_handle(vm_name, handle).await;
+    
+    info!(path = %request.path, bytes = content_len, "File written via QEMU Guest Agent");
+    
+    QemuAgentFileWriteResponse {
+        success: true,
+        bytes_written: Some(total_written),
+        error: None,
+    }
+}
+
+// =============================================================================
+// Snapshot Endpoints
+// =============================================================================
 
 /// GET /api/v1/vms/:vm_id/snapshots - List snapshots
 async fn list_snapshots(
@@ -7449,10 +10141,41 @@ struct AgentVersionResponse {
     source: String,  // "local" or "update_server"
 }
 
-/// Get update server URL from environment or config
+/// Get update server URL from environment, config file, or default
 fn get_update_server_url() -> Option<String> {
-    std::env::var("UPDATE_SERVER_URL").ok()
-        .or_else(|| std::env::var("QUANTIX_UPDATE_SERVER").ok())
+    // First check environment variables
+    if let Ok(url) = std::env::var("UPDATE_SERVER_URL") {
+        return Some(url);
+    }
+    if let Ok(url) = std::env::var("QUANTIX_UPDATE_SERVER") {
+        return Some(url);
+    }
+    
+    // Try to read from update config file
+    let config_paths = [
+        "/etc/limiquantix/update.yaml",
+        "/etc/limiquantix/update.yml",
+        "/data/config/update.yaml",
+    ];
+    
+    for path in &config_paths {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            // Simple YAML parsing for server_url field
+            for line in content.lines() {
+                let line = line.trim();
+                if line.starts_with("server_url:") {
+                    let url = line.trim_start_matches("server_url:").trim();
+                    let url = url.trim_matches('"').trim_matches('\'');
+                    if !url.is_empty() {
+                        return Some(url.to_string());
+                    }
+                }
+            }
+        }
+    }
+    
+    // Default to HomeLab update server
+    Some("http://192.168.0.148:9000".to_string())
 }
 
 /// Proxy a request to the update server
@@ -7583,15 +10306,15 @@ fi
 echo "[Quantix] Detected OS: $OS_ID"
 
 # Create config directories
-mkdir -p /etc/limiquantix/pre-freeze.d
-mkdir -p /etc/limiquantix/post-thaw.d
+mkdir -p /etc/quantix-kvm/pre-freeze.d
+mkdir -p /etc/quantix-kvm/post-thaw.d
 
 # Install based on OS
 case "${{OS_ID}}" in
     ubuntu|debian)
         echo "[Quantix] Installing via .deb package..."
         TEMP_DEB=$(mktemp)
-        curl -fsSL "${{NODE_URL}}/api/v1/agent/linux/${{ARCH}}.deb" -o "$TEMP_DEB"
+        curl -fsSL "${{NODE_URL}}/api/v1/agent/linux/deb/${{ARCH}}" -o "$TEMP_DEB"
         dpkg -i "$TEMP_DEB" || apt-get install -f -y
         rm -f "$TEMP_DEB"
         ;;
@@ -7599,18 +10322,18 @@ case "${{OS_ID}}" in
     rhel|centos|fedora|rocky|almalinux)
         echo "[Quantix] Installing via .rpm package..."
         TEMP_RPM=$(mktemp)
-        curl -fsSL "${{NODE_URL}}/api/v1/agent/linux/${{ARCH}}.rpm" -o "$TEMP_RPM"
+        curl -fsSL "${{NODE_URL}}/api/v1/agent/linux/rpm/${{ARCH}}" -o "$TEMP_RPM"
         rpm -ivh "$TEMP_RPM" || yum localinstall -y "$TEMP_RPM" || dnf install -y "$TEMP_RPM"
         rm -f "$TEMP_RPM"
         ;;
         
     *)
         echo "[Quantix] Installing via binary..."
-        curl -fsSL "${{NODE_URL}}/api/v1/agent/linux/${{ARCH}}" -o /usr/local/bin/limiquantix-agent
-        chmod +x /usr/local/bin/limiquantix-agent
+        curl -fsSL "${{NODE_URL}}/api/v1/agent/linux/binary/${{ARCH}}" -o /usr/local/bin/quantix-kvm-agent
+        chmod +x /usr/local/bin/quantix-kvm-agent
         
         # Create systemd service
-        cat > /etc/systemd/system/limiquantix-agent.service << 'EOF'
+        cat > /etc/systemd/system/quantix-kvm-agent.service << 'EOF'
 [Unit]
 Description=Quantix Guest Agent
 After=network.target
@@ -7618,7 +10341,7 @@ ConditionVirtualization=vm
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/limiquantix-agent
+ExecStart=/usr/local/bin/quantix-kvm-agent
 Restart=always
 RestartSec=5
 
@@ -7631,12 +10354,12 @@ esac
 
 # Enable and start the service
 if command -v systemctl &> /dev/null; then
-    systemctl enable limiquantix-agent 2>/dev/null || true
-    systemctl start limiquantix-agent 2>/dev/null || true
+    systemctl enable quantix-kvm-agent 2>/dev/null || true
+    systemctl start quantix-kvm-agent 2>/dev/null || true
 fi
 
 echo "[Quantix] Agent installed and running!"
-echo "[Quantix] Check status with: systemctl status limiquantix-agent"
+echo "[Quantix] Check status with: systemctl status quantix-kvm-agent"
 "#, base_url = base_url);
 
     (
@@ -7664,13 +10387,13 @@ async fn download_agent_binary(
         ).into_response();
     }
     
-    let binary_name = "limiquantix-agent";
+    let binary_name = "quantix-kvm-agent";
     
     // Try to find the binary in local locations first
     let locations = [
-        format!("/data/share/quantix-agent/limiquantix-agent-linux-{}", arch),
+        format!("/data/share/quantix-agent/quantix-kvm-agent-linux-{}", arch),
         format!("/data/share/quantix-agent/{}", binary_name),
-        format!("/opt/limiquantix/agent/{}", binary_name),
+        format!("/opt/quantix-kvm/agent/{}", binary_name),
         format!("/var/lib/limiquantix/agent/{}", binary_name),
         format!("./agent-binaries/{}-{}", binary_name, arch),
     ];
@@ -7690,7 +10413,7 @@ async fn download_agent_binary(
     }
     
     // Try to proxy from update server
-    if let Some(data) = proxy_from_update_server(&format!("linux/{}", arch)).await {
+    if let Some(data) = proxy_from_update_server(&format!("linux/binary/{}", arch)).await {
         info!(arch = %arch, size = data.len(), source = "update_server", "Serving agent binary via proxy");
         return (
             StatusCode::OK,
@@ -7787,7 +10510,7 @@ async fn download_agent_deb(
     }
     
     // Try to proxy from update server
-    if let Some(data) = proxy_from_update_server(&format!("linux/{}.deb", arch)).await {
+    if let Some(data) = proxy_from_update_server(&format!("linux/deb/{}", arch)).await {
         let filename = format!("limiquantix-guest-agent_{}.deb", arch);
         info!(arch = %arch, size = data.len(), source = "update_server", "Serving agent DEB package via proxy");
         return (
@@ -7881,7 +10604,7 @@ async fn download_agent_rpm(
     }
     
     // Try to proxy from update server
-    if let Some(data) = proxy_from_update_server(&format!("linux/{}.rpm", arch)).await {
+    if let Some(data) = proxy_from_update_server(&format!("linux/rpm/{}", arch)).await {
         let filename = format!("limiquantix-guest-agent.{}.rpm", rpm_arch);
         info!(arch = %arch, size = data.len(), source = "update_server", "Serving agent RPM package via proxy");
         return (

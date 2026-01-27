@@ -1,0 +1,31 @@
+[Unit]
+Description=Quantix KVM Guest Agent
+Documentation=https://github.com/Quantix-KVM/LimiQuantix
+After=network.target
+ConditionVirtualization=vm
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/quantix-kvm-agent
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=quantix-kvm-agent
+
+# Security hardening
+NoNewPrivileges=false
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/log/quantix-kvm /etc/quantix-kvm /dev
+
+# Resource limits
+LimitNOFILE=65535
+LimitNPROC=4096
+
+# Environment
+Environment="RUST_LOG=info"
+
+[Install]
+WantedBy=multi-user.target

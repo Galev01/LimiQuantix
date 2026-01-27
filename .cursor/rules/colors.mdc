@@ -1,7 +1,18 @@
 ---
-alwaysApply: false
+description: Color palettes and design tokens for Quantix-KVM UI. Apply when working on styling, themes, CSS, or component visual design.
+globs:
+  - "frontend/src/**/*.tsx"
+  - "frontend/src/**/*.css"
+  - "quantix-host-ui/src/**/*.tsx"
+  - "quantix-host-ui/src/**/*.css"
+  - "qvmc/src/**/*.tsx"
+  - "qvmc/src/**/*.css"
+  - "update-server/ui/src/**/*.tsx"
+  - "update-server/ui/src/**/*.css"
+  - "**/tailwind.config.*"
+  - "**/index.css"
 ---
-# Gentle Color Palettes for Quantix-KVM UI APPLIES TO ALL QUANTIX RELATED PRODUCTS
+# Gentle Color Palettes for Quantix-KVM UI
 
 **Document ID:** 000052  
 **Date:** January 9, 2026  

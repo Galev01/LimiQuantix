@@ -1,6 +1,8 @@
 ---
+description: 
 alwaysApply: true
 ---
+
 # UI Depth & Visual Hierarchy
 
 *Scope:* Apply when designing or improving UI components in app/templates/ and app/static/css/
@@ -262,7 +264,7 @@ css
 ## Quick Reference
 
 | Element Type | Background Layer | Shadow Type | Border Radius |
-|--------------|------------------|-------------|---------------|
+|-----|---|----|---|
 | Page | --bg-base | None | N/A |
 | Card (default) | --bg-surface | Floating | 12px |
 | Card (active) | --bg-elevated | Elevated | 12px |
@@ -322,7 +324,7 @@ NeuroFlow supports both dark and light modes. Light mode follows the Motion bran
 All gray text classes must become black/dark in light mode:
 
 | Tailwind Class | Light Mode Color |
-|----------------|------------------|
+|----|---|
 | `.text-white` | `#000000` (black) |
 | `.text-gray-100` | `#000000` (black) |
 | `.text-gray-200` | `#000000` (black) |

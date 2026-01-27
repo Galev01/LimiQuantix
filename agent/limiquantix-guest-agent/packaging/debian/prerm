@@ -3,8 +3,8 @@ set -e
 
 # Stop the service before removal
 if [ "$1" = "remove" ] || [ "$1" = "upgrade" ]; then
-    systemctl stop limiquantix-agent.service || true
-    systemctl disable limiquantix-agent.service || true
+    systemctl stop quantix-kvm-agent.service || true
+    systemctl disable quantix-kvm-agent.service || true
 fi
 
 #DEBHELPER#

@@ -95,6 +95,32 @@ impl LibvirtBackend {
         
         port_value.parse::<u16>().ok()
     }
+    
+    /// Find the next available PCIe root port index by parsing the domain XML.
+    /// This is a helper method for attach_nic to add PCIe root ports on Q35 machines.
+    fn find_next_root_port_index(&self, domain: &Domain) -> Result<u32> {
+        let xml = domain.get_xml_desc(0)
+            .map_err(|e| HypervisorError::Internal(e.to_string()))?;
+        
+        // Find all existing controller indices
+        // Look for patterns like: <controller type='pci' index='X'
+        let mut max_index: u32 = 0;
+        for line in xml.lines() {
+            if line.contains("<controller type='pci'") && line.contains("index='") {
+                if let Some(start) = line.find("index='") {
+                    let rest = &line[start + 7..];
+                    if let Some(end) = rest.find('\'') {
+                        if let Ok(idx) = rest[..end].parse::<u32>() {
+                            max_index = max_index.max(idx);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Return next available index (at least 10 to avoid conflicts with built-in controllers)
+        Ok(max_index.max(9) + 1)
+    }
 }
 
 #[async_trait]
@@ -603,31 +629,6 @@ impl Hypervisor for LibvirtBackend {
         
         info!("NIC attached");
         Ok(())
-    }
-    
-    /// Find the next available PCIe root port index by parsing the domain XML.
-    fn find_next_root_port_index(&self, domain: &Domain) -> Result<u32> {
-        let xml = domain.get_xml_desc(0)
-            .map_err(|e| HypervisorError::Internal(e.to_string()))?;
-        
-        // Find all existing controller indices
-        // Look for patterns like: <controller type='pci' index='X'
-        let mut max_index: u32 = 0;
-        for line in xml.lines() {
-            if line.contains("<controller type='pci'") && line.contains("index='") {
-                if let Some(start) = line.find("index='") {
-                    let rest = &line[start + 7..];
-                    if let Some(end) = rest.find('\'') {
-                        if let Ok(idx) = rest[..end].parse::<u32>() {
-                            max_index = max_index.max(idx);
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Return next available index (at least 10 to avoid conflicts with built-in controllers)
-        Ok(max_index.max(9) + 1)
     }
     
     #[instrument(skip(self), fields(vm_id = %vm_id, nic_id = %nic_id))]

@@ -336,6 +336,54 @@ export function VMDetail() {
     setIsCloneWizardOpen(true);
   };
 
+  // Graceful reboot via agent
+  const handleGracefulReboot = async () => {
+    if (!id) return;
+    try {
+      const response = await fetch(`/api/vms/${id}/agent/reboot`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to send reboot signal');
+      }
+      const data = await response.json();
+      if (data.success) {
+        showInfo('Graceful reboot signal sent to guest');
+      } else {
+        throw new Error(data.error || 'Reboot failed');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to reboot';
+      showInfo(`Error: ${message}`);
+    }
+  };
+
+  // Graceful shutdown via agent
+  const handleGracefulShutdown = async () => {
+    if (!id) return;
+    try {
+      const response = await fetch(`/api/vms/${id}/agent/shutdown`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to send shutdown signal');
+      }
+      const data = await response.json();
+      if (data.success) {
+        showInfo('Graceful shutdown signal sent to guest');
+      } else {
+        throw new Error(data.error || 'Shutdown failed');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to shutdown';
+      showInfo(`Error: ${message}`);
+    }
+  };
+
   // Smart console button - opens StartAndOpenConsoleModal for stopped VMs
   const handleConsoleClick = () => {
     if (vm?.status.state === 'RUNNING') {
@@ -970,6 +1018,7 @@ export function VMDetail() {
                 vmState={vm.status.state}
                 guestOsFamily={apiVm?.spec?.guestOs?.family}
                 guestOsName={apiVm?.status?.guestInfo?.osName}
+                nodeId={apiVm?.status?.nodeId}
                 onMountAgentISO={async () => {
                   // Mount the Quantix Agent ISO
                   if (!id) return;
@@ -1014,6 +1063,7 @@ export function VMDetail() {
                     className="w-full justify-start"
                     variant="secondary"
                     size="sm"
+                    onClick={handleGracefulReboot}
                     disabled={vm.status.state !== 'RUNNING'}
                   >
                     <RefreshCw className="w-4 h-4" />
@@ -1023,6 +1073,7 @@ export function VMDetail() {
                     className="w-full justify-start text-warning hover:text-warning"
                     variant="secondary"
                     size="sm"
+                    onClick={handleGracefulShutdown}
                     disabled={vm.status.state !== 'RUNNING'}
                   >
                     <Square className="w-4 h-4" />

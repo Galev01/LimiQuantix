@@ -13,14 +13,14 @@ use tracing::{debug, info, warn};
 /// Known device paths for the LimiQuantix agent channel
 #[cfg(unix)]
 const DEVICE_PATHS: &[&str] = &[
-    "/dev/virtio-ports/org.limiquantix.agent.0",
+    "/dev/virtio-ports/org.quantix.agent.0",
     "/dev/vport0p1",
     "/dev/vport1p1",
 ];
 
 /// Device name pattern for Windows
 #[cfg(windows)]
-const DEVICE_NAME: &str = r"\\.\Global\org.limiquantix.agent.0";
+const DEVICE_NAME: &str = r"\\.\Global\org.quantix.agent.0";
 
 /// Wrapper around the virtio-serial file handle
 pub struct AgentTransport {

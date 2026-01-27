@@ -28,7 +28,7 @@ func NewAgentDownloadHandler(logger *zap.Logger) *AgentDownloadHandler {
 		logger:   logger,
 		agentDir: agentDir,
 		// Fallback to GitHub releases if local binaries not found
-		agentURL: "https://github.com/limiquantix/limiquantix/releases/download",
+		agentURL: "https://github.com/Quantix-KVM/LimiQuantix/releases/download",
 	}
 }
 
@@ -36,8 +36,8 @@ func NewAgentDownloadHandler(logger *zap.Logger) *AgentDownloadHandler {
 func findAgentDir() string {
 	// Check common locations
 	locations := []string{
-		"/opt/limiquantix/agent",           // Production install
-		"/var/lib/limiquantix/agent",       // Alternative location
+		"/opt/quantix-kvm/agent",           // Production install
+		"/var/lib/quantix-kvm/agent",       // Alternative location
 		"./agent-binaries",                 // Development
 		"../agent/target/release",          // Build output
 	}
@@ -139,11 +139,12 @@ fi
 echo "[Quantix] Detected OS: $OS_ID"
 
 # Install based on OS
+# Note: -k flag allows self-signed certificates (common in lab environments)
 case "${OS_ID}" in
     ubuntu|debian)
         echo "[Quantix] Installing via .deb package..."
         TEMP_DEB=$(mktemp)
-        curl -fsSL "${CONTROL_PLANE_URL}/api/agent/linux/${ARCH}.deb" -o "$TEMP_DEB"
+        curl -fsSLk "${CONTROL_PLANE_URL}/api/agent/linux/deb/${ARCH}" -o "$TEMP_DEB"
         dpkg -i "$TEMP_DEB" || apt-get install -f -y
         rm -f "$TEMP_DEB"
         ;;
@@ -151,26 +152,26 @@ case "${OS_ID}" in
     rhel|centos|fedora|rocky|almalinux)
         echo "[Quantix] Installing via .rpm package..."
         TEMP_RPM=$(mktemp)
-        curl -fsSL "${CONTROL_PLANE_URL}/api/agent/linux/${ARCH}.rpm" -o "$TEMP_RPM"
+        curl -fsSLk "${CONTROL_PLANE_URL}/api/agent/linux/rpm/${ARCH}" -o "$TEMP_RPM"
         rpm -ivh "$TEMP_RPM" || yum localinstall -y "$TEMP_RPM" || dnf install -y "$TEMP_RPM"
         rm -f "$TEMP_RPM"
         ;;
         
     *)
         echo "[Quantix] Installing via binary..."
-        curl -fsSL "${CONTROL_PLANE_URL}/api/agent/linux/${ARCH}" -o /usr/local/bin/quantix-agent
-        chmod +x /usr/local/bin/quantix-agent
+        curl -fsSLk "${CONTROL_PLANE_URL}/api/agent/linux/binary/${ARCH}" -o /usr/local/bin/quantix-kvm-agent
+        chmod +x /usr/local/bin/quantix-kvm-agent
         
         # Create systemd service
-        cat > /etc/systemd/system/quantix-agent.service << 'EOF'
+        cat > /etc/systemd/system/quantix-kvm-agent.service << 'EOF'
 [Unit]
-Description=Quantix Guest Agent
+Description=Quantix KVM Guest Agent
 After=network.target
 ConditionVirtualization=vm
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/quantix-agent
+ExecStart=/usr/local/bin/quantix-kvm-agent
 Restart=always
 RestartSec=5
 
@@ -182,15 +183,15 @@ EOF
 esac
 
 # Enable and start the service
-systemctl enable quantix-agent
-systemctl start quantix-agent
+systemctl enable quantix-kvm-agent
+systemctl start quantix-kvm-agent
 
 # Create hook directories for snapshot quiescing
-mkdir -p /etc/limiquantix/pre-freeze.d
-mkdir -p /etc/limiquantix/post-thaw.d
+mkdir -p /etc/quantix-kvm/pre-freeze.d
+mkdir -p /etc/quantix-kvm/post-thaw.d
 
 echo "[Quantix] Agent installed and running!"
-echo "[Quantix] Check status with: systemctl status quantix-agent"
+echo "[Quantix] Check status with: systemctl status quantix-kvm-agent"
 `, baseURL, baseURL)
 
 	w.Header().Set("Content-Type", "text/x-shellscript")
@@ -237,23 +238,49 @@ func (h *AgentDownloadHandler) handleWindowsInstallScript(w http.ResponseWriter,
 }
 
 // handleBinaryDownload serves the actual agent binary.
+// Supports both old format (linux/amd64.deb) and new format (linux/deb/amd64)
 func (h *AgentDownloadHandler) handleBinaryDownload(w http.ResponseWriter, r *http.Request, path string) {
-	// Parse path: linux/amd64, linux/amd64.deb, windows/amd64.msi, etc.
-	parts := strings.SplitN(path, "/", 2)
-	if len(parts) != 2 {
-		http.Error(w, "Invalid path. Use: /api/agent/{os}/{arch}[.ext]", http.StatusBadRequest)
-		return
-	}
-
-	osType := parts[0]
-	archAndExt := parts[1]
+	// Parse path: supports two formats:
+	// Old: linux/amd64, linux/amd64.deb, windows/amd64.msi
+	// New: linux/binary/amd64, linux/deb/amd64, linux/rpm/amd64
+	parts := strings.Split(path, "/")
 	
-	// Parse arch and extension
-	arch := archAndExt
-	ext := ""
-	if idx := strings.LastIndex(archAndExt, "."); idx != -1 {
-		arch = archAndExt[:idx]
-		ext = archAndExt[idx:]
+	var osType, arch, ext string
+	
+	if len(parts) == 3 {
+		// New format: linux/deb/amd64
+		osType = parts[0]
+		pkgType := parts[1]
+		arch = parts[2]
+		
+		switch pkgType {
+		case "binary":
+			ext = ""
+		case "deb":
+			ext = ".deb"
+		case "rpm":
+			ext = ".rpm"
+		case "msi":
+			ext = ".msi"
+		default:
+			http.Error(w, "Invalid package type. Use: binary, deb, rpm, or msi", http.StatusBadRequest)
+			return
+		}
+	} else if len(parts) == 2 {
+		// Old format: linux/amd64.deb
+		osType = parts[0]
+		archAndExt := parts[1]
+		
+		// Parse arch and extension
+		arch = archAndExt
+		ext = ""
+		if idx := strings.LastIndex(archAndExt, "."); idx != -1 {
+			arch = archAndExt[:idx]
+			ext = archAndExt[idx:]
+		}
+	} else {
+		http.Error(w, "Invalid path. Use: /api/agent/{os}/{type}/{arch} or /api/agent/{os}/{arch}[.ext]", http.StatusBadRequest)
+		return
 	}
 
 	// Validate OS
@@ -274,19 +301,19 @@ func (h *AgentDownloadHandler) handleBinaryDownload(w http.ResponseWriter, r *ht
 	
 	switch {
 	case osType == "linux" && ext == "":
-		filename = fmt.Sprintf("quantix-agent-%s-%s", osType, arch)
+		filename = fmt.Sprintf("quantix-kvm-agent-%s-%s", osType, arch)
 		contentType = "application/octet-stream"
 	case osType == "linux" && ext == ".deb":
-		filename = fmt.Sprintf("quantix-agent_%s_%s.deb", "0.1.0", arch)
+		filename = fmt.Sprintf("quantix-kvm-agent_%s_%s.deb", "0.1.0", arch)
 		contentType = "application/vnd.debian.binary-package"
 	case osType == "linux" && ext == ".rpm":
-		filename = fmt.Sprintf("quantix-agent-0.1.0-1.%s.rpm", arch)
+		filename = fmt.Sprintf("quantix-kvm-agent-0.1.0-1.%s.rpm", arch)
 		contentType = "application/x-rpm"
 	case osType == "windows" && ext == "":
-		filename = fmt.Sprintf("quantix-agent-%s-%s.exe", osType, arch)
+		filename = fmt.Sprintf("quantix-kvm-agent-%s-%s.exe", osType, arch)
 		contentType = "application/octet-stream"
 	case osType == "windows" && ext == ".msi":
-		filename = fmt.Sprintf("quantix-agent_%s_%s.msi", "0.1.0", arch)
+		filename = fmt.Sprintf("quantix-kvm-agent_%s_%s.msi", "0.1.0", arch)
 		contentType = "application/x-msi"
 	default:
 		http.Error(w, "Unsupported format", http.StatusBadRequest)

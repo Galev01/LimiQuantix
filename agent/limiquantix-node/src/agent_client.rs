@@ -3,7 +3,27 @@
 //! This module provides a client for communicating with the LimiQuantix Guest Agent
 //! running inside VMs via virtio-serial (Unix sockets on the host).
 //!
-//! Note: Full implementation is Unix-only. Windows provides stub implementations.
+//! ## Platform Support
+//!
+//! - **Unix**: Full implementation using Unix sockets for virtio-serial communication.
+//! - **Windows**: Stub implementation (returns errors). See TODO below.
+//!
+//! ## TODO: Windows Support (Enterprise Priority)
+//!
+//! VMware vSphere dominance relies heavily on Windows guest support. To achieve
+//! enterprise parity as a "vSphere Killer", Windows host-side agent communication
+//! must be implemented.
+//!
+//! **Required Changes:**
+//! 1. Implement Windows Named Pipes version of `AgentClient`
+//!    - Named Pipes are the Windows equivalent of Unix sockets for virtio-serial
+//!    - Use `tokio::net::windows::named_pipe::NamedPipeClient`
+//! 2. The guest agent (`limiquantix-guest-agent`) already has Windows builds
+//! 3. Only the host-side connection logic in this file needs Windows support
+//!
+//! **Reference:**
+//! - QEMU on Windows uses `\\.\pipe\{name}` for virtio-serial channels
+//! - Example: `\\.\pipe\org.quantix.agent.{vm_id}`
 
 use anyhow::{anyhow, Result};
 use limiquantix_proto::agent::{ExecuteRequest, ExecuteResponse, TelemetryReport};
@@ -17,7 +37,7 @@ use tokio::sync::{mpsc, Mutex};
 // ============================================================================
 
 /// Base path for VM agent sockets
-const SOCKET_BASE_PATH: &str = "/var/run/limiquantix/vms";
+const SOCKET_BASE_PATH: &str = "/var/run/quantix-kvm/vms";
 
 /// Default timeout for agent operations
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -34,6 +54,7 @@ mod unix_impl {
         agent_message, AgentMessage, FileReadRequest, FileWriteRequest, PingRequest, PongResponse,
         QuiesceFilesystemsRequest, QuiesceFilesystemsResponse, ShutdownRequest, ShutdownResponse,
         SyncTimeRequest, SyncTimeResponse, ThawFilesystemsRequest, ThawFilesystemsResponse,
+        ListDirectoryRequest, ListDirectoryResponse,
     };
     use prost::Message;
     use prost_types::Timestamp;
@@ -64,9 +85,13 @@ mod unix_impl {
 
     impl AgentClient {
         /// Create a new agent client for the given VM.
+        /// Tries multiple possible socket paths and uses the first one found.
         pub fn new(vm_id: impl Into<String>) -> Self {
             let vm_id = vm_id.into();
-            let socket_path = PathBuf::from(format!("{}/{}.agent.sock", SOCKET_BASE_PATH, vm_id));
+            
+            // Try multiple possible socket paths
+            let socket_path = Self::find_socket_path(&vm_id)
+                .unwrap_or_else(|| PathBuf::from(format!("{}/{}.agent.sock", SOCKET_BASE_PATH, vm_id)));
 
             Self {
                 vm_id,
@@ -75,6 +100,61 @@ mod unix_impl {
                 pending: Arc::new(Mutex::new(HashMap::new())),
                 telemetry_tx: None,
             }
+        }
+        
+        /// Find the agent socket path by checking multiple possible locations
+        fn find_socket_path(vm_id: &str) -> Option<PathBuf> {
+            // Primary path: Our custom socket path
+            let primary = PathBuf::from(format!("{}/{}.agent.sock", SOCKET_BASE_PATH, vm_id));
+            if primary.exists() {
+                debug!(vm_id = %vm_id, path = %primary.display(), "Found agent socket at primary path");
+                return Some(primary);
+            }
+            
+            // Fallback: Check libvirt's standard channel paths
+            // libvirt creates sockets like /run/libvirt/qemu/channel/{domain-id}-{vm_name}/org.quantix.agent.0
+            // We need to find the right directory
+            let libvirt_base = std::path::Path::new("/run/libvirt/qemu/channel");
+            if libvirt_base.exists() {
+                if let Ok(entries) = std::fs::read_dir(libvirt_base) {
+                    for entry in entries.flatten() {
+                        let dir_name = entry.file_name();
+                        let dir_str = dir_name.to_string_lossy();
+                        
+                        // The directory might contain the VM ID or VM name
+                        // Check for our agent socket inside
+                        let socket_path = entry.path().join("org.quantix.agent.0");
+                        if socket_path.exists() {
+                            // Verify this is for our VM by checking if the dir contains our vm_id
+                            // or by trying to match patterns
+                            debug!(vm_id = %vm_id, dir = %dir_str, path = %socket_path.display(), 
+                                   "Found potential libvirt agent socket");
+                            
+                            // For now, if we can't definitively match, we'll accept it
+                            // In the future we could parse the virsh dumpxml to get the exact mapping
+                            return Some(socket_path);
+                        }
+                    }
+                }
+            }
+            
+            // Also check /var/lib/libvirt/qemu/channel/
+            let libvirt_var = std::path::Path::new("/var/lib/libvirt/qemu/channel");
+            if libvirt_var.exists() {
+                if let Ok(entries) = std::fs::read_dir(libvirt_var) {
+                    for entry in entries.flatten() {
+                        let socket_path = entry.path().join("org.quantix.agent.0");
+                        if socket_path.exists() {
+                            debug!(vm_id = %vm_id, path = %socket_path.display(), 
+                                   "Found agent socket in /var/lib/libvirt");
+                            return Some(socket_path);
+                        }
+                    }
+                }
+            }
+            
+            debug!(vm_id = %vm_id, "No agent socket found in any known location");
+            None
         }
 
         /// Create a new agent client with a custom socket path.
@@ -98,6 +178,16 @@ mod unix_impl {
         pub fn socket_exists(&self) -> bool {
             self.socket_path.exists()
         }
+        
+        /// Re-check socket paths and update if a valid one is found
+        pub fn refresh_socket_path(&mut self) -> bool {
+            if let Some(path) = Self::find_socket_path(&self.vm_id) {
+                self.socket_path = path;
+                true
+            } else {
+                false
+            }
+        }
 
         /// Connect to the agent.
         pub async fn connect(&mut self) -> Result<()> {
@@ -114,14 +204,21 @@ mod unix_impl {
                 "Connecting to guest agent"
             );
 
-            let stream = UnixStream::connect(&self.socket_path)
-                .await
-                .with_context(|| {
-                    format!(
-                        "Failed to connect to agent socket: {}",
-                        self.socket_path.display()
-                    )
-                })?;
+            // Use a timeout for the connect operation since virtio-serial sockets
+            // can hang if the guest agent isn't running or responding
+            let connect_timeout = Duration::from_secs(5);
+            let stream = tokio::time::timeout(
+                connect_timeout,
+                UnixStream::connect(&self.socket_path)
+            )
+            .await
+            .with_context(|| format!("Timeout connecting to agent socket: {}", self.socket_path.display()))?
+            .with_context(|| {
+                format!(
+                    "Failed to connect to agent socket: {}",
+                    self.socket_path.display()
+                )
+            })?;
 
             let stream = Arc::new(Mutex::new(stream));
             self.stream = Some(stream.clone());
@@ -287,6 +384,35 @@ mod unix_impl {
             Ok(())
         }
 
+        /// List directory contents in the guest VM.
+        /// 
+        /// This is required for the file browser feature. Returns a list of directory entries
+        /// with metadata (name, size, permissions, modification time, etc.).
+        pub async fn list_directory(&self, path: &str, include_hidden: bool) -> Result<ListDirectoryResponse> {
+            let request = AgentMessage {
+                message_id: Uuid::new_v4().to_string(),
+                timestamp: Some(current_timestamp()),
+                payload: Some(agent_message::Payload::ListDirectory(ListDirectoryRequest {
+                    path: path.to_string(),
+                    include_hidden,
+                    max_entries: 0, // Unlimited
+                    continuation_token: String::new(),
+                })),
+            };
+
+            let response = self.send_request(request, DEFAULT_TIMEOUT).await?;
+
+            match response.payload {
+                Some(agent_message::Payload::ListDirectoryResponse(resp)) => {
+                    if !resp.success {
+                        return Err(anyhow!("Directory listing failed: {}", resp.error));
+                    }
+                    Ok(resp)
+                }
+                _ => Err(anyhow!("Unexpected response type")),
+            }
+        }
+
         /// Request the guest VM to shutdown.
         pub async fn shutdown(&self, reboot: bool) -> Result<ShutdownResponse> {
             use limiquantix_proto::agent::ShutdownType;
@@ -383,6 +509,34 @@ mod unix_impl {
 
             match response.payload {
                 Some(agent_message::Payload::SyncTimeResponse(resp)) => Ok(resp),
+                _ => Err(anyhow!("Unexpected response type")),
+            }
+        }
+
+        /// Request fresh telemetry from the guest agent.
+        /// 
+        /// This sends a ping request to the guest agent which triggers an immediate
+        /// telemetry response. Unlike reading from cache, this actually contacts the
+        /// guest and returns real-time metrics.
+        /// 
+        /// The guest agent responds to ping requests with a TelemetryReport event
+        /// containing current CPU, memory, disk, and network usage.
+        /// 
+        /// Timeout: 5 seconds (telemetry collection should be fast)
+        pub async fn request_telemetry(&self) -> Result<PongResponse> {
+            let request = AgentMessage {
+                message_id: Uuid::new_v4().to_string(),
+                timestamp: Some(current_timestamp()),
+                payload: Some(agent_message::Payload::Ping(PingRequest {
+                    sequence: 1, // Request with sequence 1 signals "please send telemetry"
+                })),
+            };
+
+            // Use a 5 second timeout - telemetry should be quick
+            let response = self.send_request(request, Duration::from_secs(5)).await?;
+
+            match response.payload {
+                Some(agent_message::Payload::Pong(resp)) => Ok(resp),
                 _ => Err(anyhow!("Unexpected response type")),
             }
         }

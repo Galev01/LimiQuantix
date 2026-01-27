@@ -1,5 +1,14 @@
 ---
-alwaysApply: true
+description: Protocol Buffer infrastructure, gRPC services, and API definitions. Apply when working with .proto files, buf configuration, or generated protobuf types in Go/TypeScript/Rust.
+globs:
+  - "proto/**/*.proto"
+  - "proto/buf.yaml"
+  - "proto/buf.gen.yaml"
+  - "backend/pkg/api/**/*.pb.go"
+  - "frontend/src/api/**/*_pb.ts"
+  - "frontend/src/api/**/*_connect.ts"
+  - "agent/limiquantix-proto/**/*.rs"
+alwaysApply: false
 ---
 
 # PROTOCOL BUFFER INFRASTRUCTURE

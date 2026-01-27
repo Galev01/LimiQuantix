@@ -1,9 +1,9 @@
-//! Configuration management for the guest agent.
+//! Configuration management for the Quantix KVM Guest Agent.
 //!
 //! Supports loading configuration from YAML files with sensible defaults.
 //! Configuration is loaded from platform-specific paths:
-//! - Linux: `/etc/limiquantix/agent.yaml`
-//! - Windows: `C:\ProgramData\LimiQuantix\agent.yaml`
+//! - Linux: `/etc/quantix-kvm/agent.yaml`
+//! - Windows: `C:\ProgramData\Quantix-KVM\agent.yaml`
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -11,31 +11,31 @@ use tracing::{debug, info, warn};
 
 /// Default configuration file paths
 #[cfg(unix)]
-pub const DEFAULT_CONFIG_PATH: &str = "/etc/limiquantix/agent.yaml";
+pub const DEFAULT_CONFIG_PATH: &str = "/etc/quantix-kvm/agent.yaml";
 
 #[cfg(windows)]
-pub const DEFAULT_CONFIG_PATH: &str = r"C:\ProgramData\LimiQuantix\agent.yaml";
+pub const DEFAULT_CONFIG_PATH: &str = r"C:\ProgramData\Quantix-KVM\agent.yaml";
 
 /// Default log file paths
 #[cfg(unix)]
-pub const DEFAULT_LOG_PATH: &str = "/var/log/limiquantix/agent.log";
+pub const DEFAULT_LOG_PATH: &str = "/var/log/quantix-kvm/agent.log";
 
 #[cfg(windows)]
-pub const DEFAULT_LOG_PATH: &str = r"C:\ProgramData\LimiQuantix\Logs\agent.log";
+pub const DEFAULT_LOG_PATH: &str = r"C:\ProgramData\Quantix-KVM\Logs\agent.log";
 
 /// Default pre-freeze script directory
 #[cfg(unix)]
-pub const DEFAULT_PRE_FREEZE_DIR: &str = "/etc/limiquantix/pre-freeze.d";
+pub const DEFAULT_PRE_FREEZE_DIR: &str = "/etc/quantix-kvm/pre-freeze.d";
 
 #[cfg(windows)]
-pub const DEFAULT_PRE_FREEZE_DIR: &str = r"C:\ProgramData\LimiQuantix\pre-freeze.d";
+pub const DEFAULT_PRE_FREEZE_DIR: &str = r"C:\ProgramData\Quantix-KVM\pre-freeze.d";
 
 /// Default post-thaw script directory
 #[cfg(unix)]
-pub const DEFAULT_POST_THAW_DIR: &str = "/etc/limiquantix/post-thaw.d";
+pub const DEFAULT_POST_THAW_DIR: &str = "/etc/quantix-kvm/post-thaw.d";
 
 #[cfg(windows)]
-pub const DEFAULT_POST_THAW_DIR: &str = r"C:\ProgramData\LimiQuantix\post-thaw.d";
+pub const DEFAULT_POST_THAW_DIR: &str = r"C:\ProgramData\Quantix-KVM\post-thaw.d";
 
 /// Agent configuration loaded from YAML file
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -269,11 +269,11 @@ impl AgentConfig {
         if self.device_path == "auto" {
             #[cfg(unix)]
             {
-                "/dev/virtio-ports/org.limiquantix.agent.0".to_string()
+                "/dev/virtio-ports/org.quantix.agent.0".to_string()
             }
             #[cfg(windows)]
             {
-                r"\\.\Global\org.limiquantix.agent.0".to_string()
+                r"\\.\Global\org.quantix.agent.0".to_string()
             }
         } else {
             self.device_path.clone()

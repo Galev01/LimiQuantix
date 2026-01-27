@@ -527,15 +527,16 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
 
           // Add Quantix Agent installation if enabled
           if (formData.installAgent) {
-            // Get the control plane URL from browser location
-            // In production, this should be configured via environment variable
-            const controlPlaneUrl = window.location.origin;
+            // Use HTTP on port 8080 to avoid self-signed certificate issues
+            // The Go backend serves on 8080, nginx proxies HTTPS on 443
+            const controlPlaneHost = window.location.hostname;
+            const controlPlaneUrl = `http://${controlPlaneHost}:8080`;
 
             lines.push('');
-            lines.push('# Quantix Agent Installation');
+            lines.push('# Quantix KVM Agent Installation');
             lines.push('# Creates configuration directories and installs the agent');
             lines.push('write_files:');
-            lines.push('  - path: /etc/limiquantix/agent.yaml');
+            lines.push('  - path: /etc/quantix-kvm/agent.yaml');
             lines.push('    owner: root:root');
             lines.push('    permissions: "0644"');
             lines.push('    defer: true');
@@ -548,8 +549,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             lines.push('      log_level: info');
             lines.push('      log_format: json');
             lines.push('      device_path: auto');
-            lines.push('      pre_freeze_script_dir: /etc/limiquantix/pre-freeze.d');
-            lines.push('      post_thaw_script_dir: /etc/limiquantix/post-thaw.d');
+            lines.push('      pre_freeze_script_dir: /etc/quantix-kvm/pre-freeze.d');
+            lines.push('      post_thaw_script_dir: /etc/quantix-kvm/post-thaw.d');
             lines.push('      security:');
             lines.push('        command_allowlist: []');
             lines.push('        command_blocklist: []');
@@ -557,15 +558,17 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             lines.push('      health:');
             lines.push('        enabled: true');
             lines.push('        interval_secs: 30');
-            lines.push('  - path: /etc/limiquantix/pre-freeze.d/.keep');
+            lines.push('  - path: /etc/quantix-kvm/pre-freeze.d/.keep');
             lines.push('    content: ""');
-            lines.push('  - path: /etc/limiquantix/post-thaw.d/.keep');
+            lines.push('  - path: /etc/quantix-kvm/post-thaw.d/.keep');
             lines.push('    content: ""');
             lines.push('');
             lines.push('runcmd:');
             lines.push('  # Start QEMU Guest Agent for basic VM integration');
             lines.push('  - systemctl enable qemu-guest-agent');
             lines.push('  - systemctl start qemu-guest-agent');
+            lines.push('  # Wait for QEMU GA to be ready');
+            lines.push('  - sleep 5');
             lines.push('  # Install Quantix Agent for advanced features');
             lines.push('  # (telemetry, file transfer, clipboard, display resize, etc.)');
             lines.push(`  - |`);
@@ -573,7 +576,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             lines.push(`    set -e`);
             lines.push(`    CONTROL_PLANE_URL="${controlPlaneUrl}"`);
             lines.push(`    echo "[Quantix] Installing Quantix Guest Agent..."`);
-            lines.push(`    # Try to download and run the installer script`);
+            lines.push(`    # Try to download and run the installer script (HTTP to avoid SSL issues)`);
             lines.push(`    if curl -fsSL "\${CONTROL_PLANE_URL}/api/agent/install.sh" -o /tmp/install-agent.sh 2>/dev/null; then`);
             lines.push(`      chmod +x /tmp/install-agent.sh`);
             lines.push(`      bash /tmp/install-agent.sh`);
@@ -582,7 +585,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
             lines.push(`    else`);
             lines.push(`      echo "[Quantix] Warning: Could not download agent installer from \${CONTROL_PLANE_URL}"`);
             lines.push(`      echo "[Quantix] The VM will still work, but advanced agent features will not be available."`);
-            lines.push(`      echo "[Quantix] You can manually install the agent later."`);
+            lines.push(`      echo "[Quantix] You can manually install the agent later from the Dashboard."`);
             lines.push(`    fi`);
           } else {
             lines.push('', 'runcmd:', '  - systemctl enable qemu-guest-agent', '  - systemctl start qemu-guest-agent');

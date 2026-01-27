@@ -402,10 +402,10 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
             const nodeUrl = window.location.origin;
             
             lines.push('');
-            lines.push('# Quantix Agent Installation');
+            lines.push('# Quantix KVM Agent Installation');
             lines.push('# Creates configuration directories and installs the agent');
             lines.push('write_files:');
-            lines.push('  - path: /etc/limiquantix/agent.yaml');
+            lines.push('  - path: /etc/quantix-kvm/agent.yaml');
             lines.push('    owner: root:root');
             lines.push('    permissions: "0644"');
             lines.push('    defer: true');
@@ -418,8 +418,8 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
             lines.push('      log_level: info');
             lines.push('      log_format: json');
             lines.push('      device_path: auto');
-            lines.push('      pre_freeze_script_dir: /etc/limiquantix/pre-freeze.d');
-            lines.push('      post_thaw_script_dir: /etc/limiquantix/post-thaw.d');
+            lines.push('      pre_freeze_script_dir: /etc/quantix-kvm/pre-freeze.d');
+            lines.push('      post_thaw_script_dir: /etc/quantix-kvm/post-thaw.d');
             lines.push('      security:');
             lines.push('        command_allowlist: []');
             lines.push('        command_blocklist: []');
@@ -427,9 +427,9 @@ export function CreateVMWizard({ isOpen, onClose }: CreateVMWizardProps) {
             lines.push('      health:');
             lines.push('        enabled: true');
             lines.push('        interval_secs: 30');
-            lines.push('  - path: /etc/limiquantix/pre-freeze.d/.keep');
+            lines.push('  - path: /etc/quantix-kvm/pre-freeze.d/.keep');
             lines.push('    content: ""');
-            lines.push('  - path: /etc/limiquantix/post-thaw.d/.keep');
+            lines.push('  - path: /etc/quantix-kvm/post-thaw.d/.keep');
             lines.push('    content: ""');
             lines.push('');
             lines.push('runcmd:');

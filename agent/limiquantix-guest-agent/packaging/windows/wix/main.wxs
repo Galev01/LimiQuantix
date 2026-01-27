@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  LimiQuantix Guest Agent Windows Installer (WiX v4)
+  Quantix KVM Guest Agent Windows Installer (WiX v4)
   
   Build Requirements:
   - WiX Toolset v4 (https://wixtoolset.org/)
-  - Run: wix build main.wxs -o limiquantix-agent.msi
+  - Run: wix build main.wxs -o quantix-kvm-agent.msi
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package 
-    Name="LimiQuantix Guest Agent"
-    Manufacturer="LimiQuantix"
+    Name="Quantix KVM Guest Agent"
+    Manufacturer="Quantix KVM"
     Version="!(bind.FileVersion.AgentExe)"
     UpgradeCode="550E8400-E29B-41D4-A716-446655440001"
     Scope="perMachine"
@@ -17,8 +17,8 @@
     Compressed="yes">
     
     <SummaryInformation
-      Description="LimiQuantix Guest Agent for VM integration"
-      Manufacturer="LimiQuantix" />
+      Description="Quantix KVM Guest Agent for VM integration"
+      Manufacturer="Quantix KVM" />
     
     <!-- Major upgrade support -->
     <MajorUpgrade
@@ -31,19 +31,19 @@
     <!-- Icon for Add/Remove Programs -->
     <Icon Id="icon.ico" SourceFile="icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="icon.ico" />
-    <Property Id="ARPHELPLINK" Value="https://limiquantix.io/docs" />
-    <Property Id="ARPURLINFOABOUT" Value="https://limiquantix.io" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Quantix-KVM/LimiQuantix/wiki" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Quantix-KVM/LimiQuantix" />
     
     <!-- Installation directories -->
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="LimiQuantix">
+      <Directory Id="INSTALLFOLDER" Name="Quantix-KVM">
         <Directory Id="AgentFolder" Name="Agent" />
       </Directory>
     </StandardDirectory>
     
     <!-- ProgramData directory for config and logs -->
     <StandardDirectory Id="CommonAppDataFolder">
-      <Directory Id="LimiQuantixData" Name="LimiQuantix">
+      <Directory Id="QuantixKVMData" Name="Quantix-KVM">
         <Directory Id="LogsFolder" Name="Logs" />
         <Directory Id="PreFreezeFolder" Name="pre-freeze.d" />
         <Directory Id="PostThawFolder" Name="post-thaw.d" />
@@ -54,15 +54,15 @@
     <ComponentGroup Id="AgentComponents" Directory="AgentFolder">
       <Component Id="AgentExeComponent" Guid="550E8400-E29B-41D4-A716-446655440002">
         <File Id="AgentExe" 
-              Source="limiquantix-agent.exe" 
+              Source="quantix-kvm-agent.exe" 
               KeyPath="yes" />
         
         <!-- Windows Service Registration -->
         <ServiceInstall
           Id="AgentService"
-          Name="LimiQuantixAgent"
-          DisplayName="LimiQuantix Guest Agent"
-          Description="Provides VM integration for LimiQuantix hypervisor"
+          Name="QuantixKVMAgent"
+          DisplayName="Quantix KVM Guest Agent"
+          Description="Provides VM integration for Quantix KVM hypervisor"
           Type="ownProcess"
           Start="auto"
           ErrorControl="normal"
@@ -78,7 +78,7 @@
         <!-- Start service after install -->
         <ServiceControl
           Id="AgentServiceControl"
-          Name="LimiQuantixAgent"
+          Name="QuantixKVMAgent"
           Start="install"
           Stop="both"
           Remove="uninstall"
@@ -88,7 +88,7 @@
     </ComponentGroup>
     
     <!-- Configuration and data directories -->
-    <ComponentGroup Id="DataComponents" Directory="LimiQuantixData">
+    <ComponentGroup Id="DataComponents" Directory="QuantixKVMData">
       <Component Id="ConfigComponent" Guid="550E8400-E29B-41D4-A716-446655440003">
         <File Id="ConfigFile" 
               Source="config.yaml.template" 
@@ -110,16 +110,17 @@
     </ComponentGroup>
     
     <!-- Feature definition -->
-    <Feature Id="MainFeature" Title="LimiQuantix Agent" Level="1">
+    <Feature Id="MainFeature" Title="Quantix KVM Agent" Level="1">
       <ComponentGroupRef Id="AgentComponents" />
       <ComponentGroupRef Id="DataComponents" />
     </Feature>
     
     <!-- Custom actions for virtio-serial port detection -->
+    <!-- Note: Port name kept as org.quantix.agent.0 for backward compatibility -->
     <CustomAction 
       Id="CheckVirtioPort"
       Directory="AgentFolder"
-      ExeCommand="cmd.exe /c &quot;if not exist \\.\Global\org.limiquantix.agent.0 echo WARNING: Virtio-serial port not found. Agent may not connect.&quot;"
+      ExeCommand="cmd.exe /c &quot;if not exist \\.\Global\org.quantix.agent.0 echo WARNING: Virtio-serial port not found. Agent may not connect.&quot;"
       Execute="immediate"
       Return="ignore" />
     

@@ -52,6 +52,7 @@ pub struct InstalledVersions {
     pub qx_node: Option<String>,
     pub qx_console: Option<String>,
     pub host_ui: Option<String>,
+    pub guest_agent: Option<String>,
 }
 
 impl Default for InstalledVersions {
@@ -61,6 +62,7 @@ impl Default for InstalledVersions {
             qx_node: None,
             qx_console: None,
             host_ui: None,
+            guest_agent: None,
         }
     }
 }
@@ -129,6 +131,7 @@ impl UpdateManager {
             qx_node: self.detect_component_version("qx-node").await,
             qx_console: self.detect_component_version("qx-console").await,
             host_ui: self.detect_component_version("host-ui").await,
+            guest_agent: self.detect_component_version("guest-agent").await,
         };
         
         // If no component versions detected, use OS version as fallback
@@ -142,6 +145,7 @@ impl UpdateManager {
         info!(
             os_version = %versions.os_version,
             qx_node = ?versions.qx_node,
+            guest_agent = ?versions.guest_agent,
             "Detected installed versions"
         );
         
@@ -239,6 +243,7 @@ impl UpdateManager {
                 "qx-node" => installed.qx_node.clone(),
                 "qx-console" => installed.qx_console.clone(),
                 "host-ui" => installed.host_ui.clone(),
+                "guest-agent" => installed.guest_agent.clone(),
                 _ => None,
             };
             
@@ -373,6 +378,7 @@ impl UpdateManager {
                     "qx-node" => versions.qx_node = Some(component.version.clone()),
                     "qx-console" => versions.qx_console = Some(component.version.clone()),
                     "host-ui" => versions.host_ui = Some(component.version.clone()),
+                    "guest-agent" => versions.guest_agent = Some(component.version.clone()),
                     _ => {}
                 }
             }
