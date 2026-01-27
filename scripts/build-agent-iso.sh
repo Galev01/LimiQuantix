@@ -230,7 +230,26 @@ Description: Quantix KVM Guest Agent for VM Integration
   - Process and service management
 EOF
     
-    # Create conffiles
+    # Create default config file
+    cat > "${pkg_dir}/etc/quantix-kvm/agent.yaml" << 'EOF'
+# Quantix KVM Guest Agent Configuration
+# This file is auto-generated during installation
+
+# Logging level: trace, debug, info, warn, error
+log_level: info
+
+# Telemetry collection interval in seconds
+telemetry_interval: 5
+
+# Enable clipboard sharing (desktop VMs)
+clipboard_enabled: true
+
+# Pre-freeze and post-thaw script directories for snapshot quiescing
+pre_freeze_scripts: /etc/quantix-kvm/pre-freeze.d
+post_thaw_scripts: /etc/quantix-kvm/post-thaw.d
+EOF
+    
+    # Create conffiles (list of config files to preserve on upgrade)
     cat > "${pkg_dir}/DEBIAN/conffiles" << EOF
 /etc/quantix-kvm/agent.yaml
 EOF
