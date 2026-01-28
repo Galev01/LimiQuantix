@@ -10,10 +10,12 @@ use tokio::fs::OpenOptions;
 use tokio::io::{AsyncRead, AsyncWrite, ReadHalf, WriteHalf};
 use tracing::{debug, info, warn};
 
-/// Known device paths for the LimiQuantix agent channel
+/// Known device paths for the Quantix KVM agent channel
+/// Includes both new name (org.quantix) and legacy name (org.limiquantix) for backward compatibility
 #[cfg(unix)]
 const DEVICE_PATHS: &[&str] = &[
     "/dev/virtio-ports/org.quantix.agent.0",
+    "/dev/virtio-ports/org.limiquantix.agent.0",  // Legacy name for backward compatibility
     "/dev/vport0p1",
     "/dev/vport1p1",
 ];

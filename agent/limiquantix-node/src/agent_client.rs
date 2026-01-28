@@ -114,6 +114,9 @@ mod unix_impl {
             // Fallback: Check libvirt's standard channel paths
             // libvirt creates sockets like /run/libvirt/qemu/channel/{domain-id}-{vm_name}/org.quantix.agent.0
             // We need to find the right directory
+            // Check both new name (org.quantix) and legacy name (org.limiquantix)
+            let channel_names = ["org.quantix.agent.0", "org.limiquantix.agent.0"];
+            
             let libvirt_base = std::path::Path::new("/run/libvirt/qemu/channel");
             if libvirt_base.exists() {
                 if let Ok(entries) = std::fs::read_dir(libvirt_base) {
@@ -122,17 +125,19 @@ mod unix_impl {
                         let dir_str = dir_name.to_string_lossy();
                         
                         // The directory might contain the VM ID or VM name
-                        // Check for our agent socket inside
-                        let socket_path = entry.path().join("org.quantix.agent.0");
-                        if socket_path.exists() {
-                            // Verify this is for our VM by checking if the dir contains our vm_id
-                            // or by trying to match patterns
-                            debug!(vm_id = %vm_id, dir = %dir_str, path = %socket_path.display(), 
-                                   "Found potential libvirt agent socket");
-                            
-                            // For now, if we can't definitively match, we'll accept it
-                            // In the future we could parse the virsh dumpxml to get the exact mapping
-                            return Some(socket_path);
+                        // Check for our agent socket inside with both channel names
+                        for channel_name in &channel_names {
+                            let socket_path = entry.path().join(channel_name);
+                            if socket_path.exists() {
+                                // Verify this is for our VM by checking if the dir contains our vm_id
+                                // or by trying to match patterns
+                                debug!(vm_id = %vm_id, dir = %dir_str, path = %socket_path.display(), 
+                                       "Found potential libvirt agent socket");
+                                
+                                // For now, if we can't definitively match, we'll accept it
+                                // In the future we could parse the virsh dumpxml to get the exact mapping
+                                return Some(socket_path);
+                            }
                         }
                     }
                 }
@@ -143,11 +148,13 @@ mod unix_impl {
             if libvirt_var.exists() {
                 if let Ok(entries) = std::fs::read_dir(libvirt_var) {
                     for entry in entries.flatten() {
-                        let socket_path = entry.path().join("org.quantix.agent.0");
-                        if socket_path.exists() {
-                            debug!(vm_id = %vm_id, path = %socket_path.display(), 
-                                   "Found agent socket in /var/lib/libvirt");
-                            return Some(socket_path);
+                        for channel_name in &channel_names {
+                            let socket_path = entry.path().join(channel_name);
+                            if socket_path.exists() {
+                                debug!(vm_id = %vm_id, path = %socket_path.display(), 
+                                       "Found agent socket in /var/lib/libvirt");
+                                return Some(socket_path);
+                            }
                         }
                     }
                 }

@@ -3306,17 +3306,22 @@ const LATEST_AGENT_VERSION: &str = "0.1.0";
 /// Find the agent socket in libvirt's standard channel paths
 /// Returns the socket path if found, None otherwise
 fn find_libvirt_agent_socket(vm_id: &str) -> Option<std::path::PathBuf> {
-    // Check /run/libvirt/qemu/channel/{domain-id}-{vm_name}/org.quantix.agent.0
+    // Channel names to check (new name first, then legacy for backward compatibility)
+    let channel_names = ["org.quantix.agent.0", "org.limiquantix.agent.0"];
+    
+    // Check /run/libvirt/qemu/channel/{domain-id}-{vm_name}/
     let libvirt_base = std::path::Path::new("/run/libvirt/qemu/channel");
     if libvirt_base.exists() {
         if let Ok(entries) = std::fs::read_dir(libvirt_base) {
             for entry in entries.flatten() {
-                let socket_path = entry.path().join("org.quantix.agent.0");
-                if socket_path.exists() {
-                    // Found a socket - in the future we should verify this matches our VM
-                    // For now, if there's only one VM with the agent, this will work
-                    debug!(vm_id = %vm_id, path = %socket_path.display(), "Found libvirt agent socket");
-                    return Some(socket_path);
+                for channel_name in &channel_names {
+                    let socket_path = entry.path().join(channel_name);
+                    if socket_path.exists() {
+                        // Found a socket - in the future we should verify this matches our VM
+                        // For now, if there's only one VM with the agent, this will work
+                        debug!(vm_id = %vm_id, path = %socket_path.display(), "Found libvirt agent socket");
+                        return Some(socket_path);
+                    }
                 }
             }
         }
@@ -3327,10 +3332,12 @@ fn find_libvirt_agent_socket(vm_id: &str) -> Option<std::path::PathBuf> {
     if libvirt_var.exists() {
         if let Ok(entries) = std::fs::read_dir(libvirt_var) {
             for entry in entries.flatten() {
-                let socket_path = entry.path().join("org.quantix.agent.0");
-                if socket_path.exists() {
-                    debug!(vm_id = %vm_id, path = %socket_path.display(), "Found libvirt agent socket in /var/lib");
-                    return Some(socket_path);
+                for channel_name in &channel_names {
+                    let socket_path = entry.path().join(channel_name);
+                    if socket_path.exists() {
+                        debug!(vm_id = %vm_id, path = %socket_path.display(), "Found libvirt agent socket in /var/lib");
+                        return Some(socket_path);
+                    }
                 }
             }
         }
@@ -3340,7 +3347,8 @@ fn find_libvirt_agent_socket(vm_id: &str) -> Option<std::path::PathBuf> {
 }
 
 /// Get the agent socket path from virsh dumpxml
-/// This parses the VM's XML to find the actual socket path configured for org.quantix.agent.0
+/// This parses the VM's XML to find the actual socket path configured for the agent channel
+/// Checks both org.quantix.agent.0 (new) and org.limiquantix.agent.0 (legacy)
 async fn get_agent_socket_from_virsh(vm_name: &str) -> Option<std::path::PathBuf> {
     info!(vm = %vm_name, "Parsing virsh dumpxml for agent socket path");
     
@@ -3371,34 +3379,38 @@ async fn get_agent_socket_from_virsh(vm_name: &str) -> Option<std::path::PathBuf
     
     let xml = String::from_utf8_lossy(&output.stdout);
     
-    // Look for the limiquantix agent channel and extract its socket path
+    // Look for the agent channel and extract its socket path
     // Format: <channel type='unix'>
     //           <source mode='bind' path='/path/to/socket'/>
     //           <target type='virtio' name='org.quantix.agent.0'.../>
     //         </channel>
     
-    // Simple regex-free parsing: find org.quantix.agent.0, then backtrack to find the path
-    if let Some(agent_pos) = xml.find("org.quantix.agent.0") {
-        // Look backwards from agent_pos to find the channel start
-        let channel_section = &xml[..agent_pos];
-        if let Some(channel_start) = channel_section.rfind("<channel") {
-            let section = &xml[channel_start..agent_pos + 50.min(xml.len() - agent_pos)];
-            
-            // Find path='...' in this section
-            if let Some(path_start) = section.find("path='") {
-                let path_content = &section[path_start + 6..];
-                if let Some(path_end) = path_content.find('\'') {
-                    let socket_path = &path_content[..path_end];
-                    info!(vm = %vm_name, socket_path = %socket_path, "Found agent socket path from virsh XML");
-                    return Some(std::path::PathBuf::from(socket_path));
+    // Check for both new and legacy channel names
+    let channel_names = ["org.quantix.agent.0", "org.limiquantix.agent.0"];
+    
+    for channel_name in &channel_names {
+        if let Some(agent_pos) = xml.find(*channel_name) {
+            // Look backwards from agent_pos to find the channel start
+            let channel_section = &xml[..agent_pos];
+            if let Some(channel_start) = channel_section.rfind("<channel") {
+                let section = &xml[channel_start..agent_pos + 50.min(xml.len() - agent_pos)];
+                
+                // Find path='...' in this section
+                if let Some(path_start) = section.find("path='") {
+                    let path_content = &section[path_start + 6..];
+                    if let Some(path_end) = path_content.find('\'') {
+                        let socket_path = &path_content[..path_end];
+                        info!(vm = %vm_name, socket_path = %socket_path, channel = %channel_name, "Found agent socket path from virsh XML");
+                        return Some(std::path::PathBuf::from(socket_path));
+                    }
                 }
             }
+            warn!(vm = %vm_name, channel = %channel_name, "Found agent channel in XML but couldn't parse socket path");
+            // Don't return None yet, try the other channel name
         }
-        warn!(vm = %vm_name, "Found org.quantix.agent.0 in XML but couldn't parse socket path");
-    } else {
-        info!(vm = %vm_name, "No org.quantix.agent.0 channel found in VM XML - agent channel not configured");
     }
     
+    info!(vm = %vm_name, "No agent channel found in VM XML (checked org.quantix and org.limiquantix)");
     None
 }
 
@@ -3840,7 +3852,9 @@ async fn ping_quantix_agent_inner(
         if let Ok(result) = output {
             if result.status.success() {
                 let xml = String::from_utf8_lossy(&result.stdout);
-                if xml.contains("org.quantix.agent.0") && xml.contains("state='connected'") {
+                // Check for both new and legacy channel names
+                let has_channel = xml.contains("org.quantix.agent.0") || xml.contains("org.limiquantix.agent.0");
+                if has_channel && xml.contains("state='connected'") {
                     debug!(vm_id = %vm_id, "Agent channel connected per virsh but connection failed");
                     return Ok(Json(build_disconnected_response(
                         Some("Agent appears connected but failed to communicate. The agent may be starting up.".to_string())
@@ -5669,7 +5683,34 @@ systemctl status quantix-kvm-agent --no-pager || true
         }));
     }
     
-    // Step 3: Execute the install script (this might fail if guest-exec is disabled)
+    // Step 3: Make the script executable (QEMU GA file-write doesn't set permissions)
+    let chmod_cmd = serde_json::json!({
+        "execute": "guest-exec",
+        "arguments": {
+            "path": "/bin/chmod",
+            "arg": ["+x", "/tmp/install-quantix-agent.sh", "/tmp/quantix-kvm-agent"],
+            "capture-output": false
+        }
+    });
+    
+    let chmod_result = tokio::process::Command::new("virsh")
+        .args([
+            "qemu-agent-command",
+            &vm.name,
+            &chmod_cmd.to_string(),
+            "--timeout", "10",
+        ])
+        .output()
+        .await;
+    
+    if let Err(e) = chmod_result {
+        warn!(vm_id = %vm_id, error = %e, "chmod failed, script may not be executable");
+    }
+    
+    // Give chmod a moment to complete
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    
+    // Step 4: Execute the install script (this might fail if guest-exec is disabled)
     let exec_cmd = serde_json::json!({
         "execute": "guest-exec",
         "arguments": {
@@ -5706,8 +5747,8 @@ systemctl status quantix-kvm-agent --no-pager || true
                 warn!(vm_id = %vm_id, "guest-exec is disabled, providing manual instructions");
                 Ok(Json(InstallAgentResponse {
                     success: true,
-                    message: "Agent binary transferred. Run manually: /tmp/install-quantix-agent.sh".to_string(),
-                    error: Some("guest-exec is disabled in QEMU Guest Agent. The agent binary and install script have been transferred to /tmp/. Run '/tmp/install-quantix-agent.sh' in the VM console to complete installation.".to_string()),
+                    message: "Agent binary transferred. Run manually: chmod +x /tmp/install-quantix-agent.sh && /tmp/install-quantix-agent.sh".to_string(),
+                    error: Some("guest-exec is disabled in QEMU Guest Agent. The agent binary and install script have been transferred to /tmp/. Run 'chmod +x /tmp/install-quantix-agent.sh && /tmp/install-quantix-agent.sh' in the VM console to complete installation.".to_string()),
                     method: "virtio-serial-manual".to_string(),
                 }))
             } else {
