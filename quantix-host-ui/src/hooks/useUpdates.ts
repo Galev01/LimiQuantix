@@ -13,6 +13,7 @@ import {
   getCurrentVersions,
   getUpdateStatus,
   applyUpdates,
+  resetUpdateStatus,
   getUpdateConfig,
   saveUpdateConfig,
   listUpdateVolumes,
@@ -24,6 +25,7 @@ import {
   type UpdateConfigRequest,
   type UpdateVolumeInfo,
   type UpdateStatusType,
+  type ResetUpdateResponse,
 } from '@/api/updates';
 
 // =============================================================================
@@ -71,23 +73,19 @@ export function useUpdateStatus(options?: {
   const query = useQuery<UpdateStatusResponse>({
     queryKey: updateKeys.status(),
     queryFn: getUpdateStatus,
-    staleTime: 5_000, // 5 seconds
-    refetchOnWindowFocus: false,
+    staleTime: 2_000, // 2 seconds - shorter for better responsiveness
+    refetchOnWindowFocus: true,
     enabled: options?.enabled ?? true,
+    // Dynamic polling: poll every 2 seconds when update is in progress
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return 5_000; // Poll every 5s until we get initial data
+      if (isUpdateInProgress(data.status)) return 2_000; // Poll every 2s during update
+      return false; // Stop polling when idle/complete/error
+    },
   });
 
-  // Dynamic polling based on status
-  const shouldPoll = options?.pollingEnabled ?? 
-    (query.data && isUpdateInProgress(query.data.status));
-
-  return useQuery<UpdateStatusResponse>({
-    queryKey: updateKeys.status(),
-    queryFn: getUpdateStatus,
-    staleTime: 5_000,
-    refetchOnWindowFocus: false,
-    refetchInterval: shouldPoll ? 2_000 : false,
-    enabled: options?.enabled ?? true,
-  });
+  return query;
 }
 
 /**
@@ -147,12 +145,47 @@ export function useApplyUpdates() {
   return useMutation({
     mutationFn: applyUpdates,
     onSuccess: () => {
-      toast.success('Update started');
-      // Start polling status
+      console.log('[useApplyUpdates] Update started successfully');
+      toast.success('Update started - monitoring progress...');
+      // Immediately refetch status to start polling
+      queryClient.invalidateQueries({ queryKey: updateKeys.status() });
+      // Also refetch after a short delay to ensure we catch the status change
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: updateKeys.status() });
+      }, 500);
+    },
+    onError: (error) => {
+      console.error('[useApplyUpdates] Failed to start update:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      // Check for "already in progress" error
+      if (errorMessage.includes('already in progress')) {
+        toast.info('Update already in progress - monitoring...');
+        queryClient.invalidateQueries({ queryKey: updateKeys.status() });
+      } else {
+        toast.error(`Failed to start update: ${errorMessage}`);
+      }
+    },
+  });
+}
+
+/**
+ * Reset stuck update status
+ * 
+ * Use this to clear a stuck status if the update process crashed.
+ */
+export function useResetUpdateStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ResetUpdateResponse>({
+    mutationFn: resetUpdateStatus,
+    onSuccess: (data) => {
+      console.log('[useResetUpdateStatus] Status reset:', data);
+      toast.success(`Update status reset: ${data.previousStatus} → ${data.currentStatus}`);
       queryClient.invalidateQueries({ queryKey: updateKeys.status() });
     },
     onError: (error) => {
-      toast.error(`Failed to start update: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('[useResetUpdateStatus] Failed to reset:', error);
+      toast.error(`Failed to reset update status: ${error instanceof Error ? error.message : 'Unknown error'}`);
     },
   });
 }
@@ -226,6 +259,7 @@ export function useUpdatesTab() {
   const checkMutation = useCheckForUpdates();
   const applyMutation = useApplyUpdates();
   const saveConfigMutation = useSaveUpdateConfig();
+  const resetMutation = useResetUpdateStatus();
 
   // Track the last update result for showing completion/error messages
   const [lastUpdateResult, setLastUpdateResult] = useState<UpdateResult | null>(null);
@@ -392,11 +426,17 @@ export function useUpdatesTab() {
     isChecking: checkMutation.isPending,
     isApplying: applyMutation.isPending,
     isSavingConfig: saveConfigMutation.isPending,
+    isResetting: resetMutation.isPending,
     
     // Actions (with logging)
     checkForUpdates: handleCheckForUpdates,
     applyUpdates: handleApplyUpdates,
     retryUpdate: handleRetry,
+    resetUpdateStatus: () => {
+      console.log('[useUpdatesTab] Resetting update status...');
+      uiLogger.click('updates', 'reset-status-btn');
+      resetMutation.mutate();
+    },
     saveConfig: (request: UpdateConfigRequest) => {
       uiLogger.submit('updates', 'update-config-form', { 
         serverUrl: request.serverUrl ? '(set)' : undefined,

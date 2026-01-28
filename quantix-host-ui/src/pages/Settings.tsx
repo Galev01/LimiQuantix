@@ -836,9 +836,11 @@ function UpdatesSettingsTab() {
     isChecking,
     isApplying,
     isSavingConfig,
+    isResetting,
     checkForUpdates,
     applyUpdates,
     retryUpdate,
+    resetUpdateStatus,
     saveConfig,
     refetchVolumes,
   } = useUpdatesTab();
@@ -906,18 +908,32 @@ function UpdatesSettingsTab() {
             Loading version info...
           </div>
         ) : (
-          <div className="grid gap-3">
-            <div className="flex justify-between p-3 bg-bg-base rounded-lg">
-              <span className="text-text-muted">OS Version</span>
-              <span className="text-text-primary font-mono">{versions?.osVersion || 'Unknown'}</span>
+          <div className="space-y-4">
+            {/* Main unified version - prominently displayed */}
+            <div className="flex items-center justify-between p-4 bg-accent/10 border border-accent/20 rounded-lg">
+              <div>
+                <span className="text-text-muted text-sm">Installed Version</span>
+                <div className="text-2xl font-bold text-accent font-mono">
+                  v{versions?.osVersion || 'Unknown'}
+                </div>
+              </div>
+              <Package className="w-10 h-10 text-accent/50" />
             </div>
-            <div className="flex justify-between p-3 bg-bg-base rounded-lg">
-              <span className="text-text-muted">qx-node</span>
-              <span className="text-text-primary font-mono">{versions?.qxNode || 'N/A'}</span>
-            </div>
-            <div className="flex justify-between p-3 bg-bg-base rounded-lg">
-              <span className="text-text-muted">Host UI</span>
-              <span className="text-text-primary font-mono">{versions?.hostUi || 'N/A'}</span>
+            
+            {/* Component versions - shown in subtle way */}
+            <div className="text-xs text-text-muted grid grid-cols-3 gap-2">
+              <div className="flex justify-between">
+                <span>qx-node:</span>
+                <span className="font-mono">{versions?.qxNode || versions?.osVersion || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Host UI:</span>
+                <span className="font-mono">{versions?.hostUi || versions?.osVersion || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Agent:</span>
+                <span className="font-mono">{versions?.osVersion || 'N/A'}</span>
+              </div>
             </div>
           </div>
         )}
@@ -1134,7 +1150,7 @@ function UpdatesSettingsTab() {
           )}
 
           {/* Action buttons */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <Button
               variant="secondary"
               onClick={checkForUpdates}
@@ -1161,7 +1177,38 @@ function UpdatesSettingsTab() {
                 Apply Update
               </Button>
             )}
+
+            {/* Reset button - shown when update appears stuck */}
+            {(status?.status === 'applying' || status?.status === 'downloading') && (
+              <Button
+                variant="danger"
+                onClick={resetUpdateStatus}
+                disabled={isResetting}
+              >
+                {isResetting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                Reset Stuck Update
+              </Button>
+            )}
           </div>
+
+          {/* Debug info for stuck updates */}
+          {(status?.status === 'applying' || status?.status === 'downloading') && (
+            <div className="mt-4 p-3 bg-warning/10 border border-warning/20 rounded-lg text-sm">
+              <p className="text-warning font-medium mb-1">Update in Progress</p>
+              <p className="text-text-muted">
+                Status: <code className="bg-bg-elevated px-1 rounded">{status.status}</code>
+                {status.message && <> - {status.message}</>}
+              </p>
+              <p className="text-text-muted text-xs mt-2">
+                If the update appears stuck for more than 5 minutes, click "Reset Stuck Update" to clear the status.
+                Check the browser console (F12) and server logs for detailed update progress.
+              </p>
+            </div>
+          )}
         </div>
       </Card>
 

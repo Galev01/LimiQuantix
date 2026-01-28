@@ -127,7 +127,10 @@ export async function getCurrentVersions(): Promise<InstalledVersions> {
  * Poll this endpoint while an update is in progress to get real-time status.
  */
 export async function getUpdateStatus(): Promise<UpdateStatusResponse> {
-  return get<UpdateStatusResponse>('/updates/status');
+  const result = await get<UpdateStatusResponse>('/updates/status');
+  // Log status changes to console for debugging
+  console.log('[Updates API] Status:', result.status, result.message || '', result.progress ? `${result.progress.percentage}%` : '');
+  return result;
 }
 
 /**
@@ -137,7 +140,30 @@ export async function getUpdateStatus(): Promise<UpdateStatusResponse> {
  * Poll getUpdateStatus() to track progress.
  */
 export async function applyUpdates(): Promise<ApplyUpdateResponse> {
-  return post<ApplyUpdateResponse>('/updates/apply');
+  console.log('[Updates API] Starting update apply request...');
+  const result = await post<ApplyUpdateResponse>('/updates/apply');
+  console.log('[Updates API] Apply response:', result);
+  return result;
+}
+
+/**
+ * Reset stuck update status
+ * 
+ * Use this to clear a stuck status if an update process crashed or timed out.
+ * Resets the status to 'idle' so a new update can be started.
+ */
+export interface ResetUpdateResponse {
+  success: boolean;
+  message: string;
+  previousStatus: string;
+  currentStatus: string;
+}
+
+export async function resetUpdateStatus(): Promise<ResetUpdateResponse> {
+  console.log('[Updates API] Resetting update status...');
+  const result = await post<ResetUpdateResponse>('/updates/reset');
+  console.log('[Updates API] Reset response:', result);
+  return result;
 }
 
 /**

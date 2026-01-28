@@ -2,18 +2,19 @@
 # =============================================================================
 # Quantix-OS Update Publisher
 # =============================================================================
-# Builds and publishes component updates to the update server.
+# Builds and publishes ALL components together with a SINGLE unified version.
+#
+# Philosophy: All components share ONE version number. When you publish,
+# everything gets updated together to ensure compatibility.
 #
 # Usage:
-#   ./publish-update.sh                    # Build all components and publish to dev
+#   ./publish-update.sh                    # Build all and publish to dev
 #   ./publish-update.sh --channel beta     # Publish to beta channel
-#   ./publish-update.sh --component qx-node # Build and publish only qx-node
 #   ./publish-update.sh --dry-run          # Build but don't upload
 #
 # Environment:
-#   UPDATE_SERVER  - URL of update server (default: http://192.168.0.95:9000)
+#   UPDATE_SERVER  - URL of update server (default: http://192.168.0.148:9000)
 #   PUBLISH_TOKEN  - Authentication token (default: dev-token)
-#   VERSION        - Version to publish (default: read from VERSION file)
 # =============================================================================
 
 set -e
@@ -33,8 +34,6 @@ CHANNEL="${CHANNEL:-dev}"
 UPDATE_SERVER="${UPDATE_SERVER:-http://192.168.0.148:9000}"
 PUBLISH_TOKEN="${PUBLISH_TOKEN:-dev-token}"
 DRY_RUN=false
-COMPONENTS=()
-BUILD_ALL=true
 NO_BUMP=false
 
 # Version file location
@@ -43,6 +42,10 @@ VERSION_SCRIPT="$PROJECT_ROOT/Quantix-OS/builder/version.sh"
 
 # Staging directory for build artifacts
 STAGING_DIR="/tmp/quantix-update-staging"
+
+# Default: build ALL components together
+COMPONENTS=()
+BUILD_ALL=true
 
 # =============================================================================
 # Helper functions
@@ -68,16 +71,18 @@ show_usage() {
     cat << EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Builds and publishes Quantix-OS component updates. Automatically increments
-the version number on each publish unless --no-bump or --version is specified.
+Builds and publishes ALL Quantix-OS components with a UNIFIED version number.
+All components (qx-node, qx-console, host-ui, guest-agent) are built together
+to ensure version consistency across the platform.
+
+Automatically increments the version number on each publish unless --no-bump
+or --version is specified.
 
 On Windows, Rust components are built using Docker for Alpine compatibility.
-Make sure Docker is running before building Rust components.
+Make sure Docker is running.
 
 Options:
   --channel CHANNEL     Release channel (dev, beta, stable). Default: dev
-  --component NAME      Build and publish only specified component
-                        Can be specified multiple times
   --server URL          Update server URL. Default: $UPDATE_SERVER
   --token TOKEN         Authentication token. Default: dev-token
   --version VERSION     Version to publish (disables auto-increment)
@@ -85,19 +90,20 @@ Options:
   --dry-run             Build artifacts but don't upload
   --help                Show this help
 
-Components:
-  qx-node              Node daemon (Rust) - requires Docker on Windows
-  qx-console           Console TUI (Rust) - requires Docker on Windows
-  host-ui              Host UI (React) - builds natively
-  guest-agent          Guest Agent (Rust) - builds .deb, .rpm, and binary for VMs
+Components Built:
+  qx-node              Node daemon (Rust) - manages host operations
+  qx-console           Console TUI (Rust) - physical console interface
+  host-ui              Host UI (React) - web management interface
+  guest-agent          Guest Agent (Rust) - VM integration agent
 
 Examples:
-  $(basename "$0")                                    # Build all, bump version, publish
-  $(basename "$0") --channel beta                    # Publish to beta channel
-  $(basename "$0") --component host-ui               # Only publish host-ui (fast, no Docker)
-  $(basename "$0") --component qx-node --dry-run    # Build qx-node without upload
-  $(basename "$0") --component guest-agent           # Build and publish guest agent only
-  $(basename "$0") --no-bump                         # Publish without incrementing version
+  $(basename "$0")                    # Build ALL, bump version, publish to dev
+  $(basename "$0") --channel beta    # Build ALL, publish to beta
+  $(basename "$0") --dry-run         # Build ALL without uploading
+  $(basename "$0") --no-bump         # Publish without version increment
+
+Note: Individual component publishing is intentionally NOT supported.
+All components must share the same version for compatibility.
 EOF
 }
 
@@ -112,6 +118,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --component)
+            # Allow component selection for development/debugging only
             COMPONENTS+=("$2")
             BUILD_ALL=false
             shift 2
@@ -152,6 +159,9 @@ done
 # If no components specified, build all
 if [ "$BUILD_ALL" = true ]; then
     COMPONENTS=("qx-node" "qx-console" "host-ui" "guest-agent")
+else
+    log_warn "Building individual components: ${COMPONENTS[*]}"
+    log_warn "For production, always publish ALL components together."
 fi
 
 # Validate channel
@@ -191,9 +201,10 @@ fi
 echo ""
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║              Quantix-OS Update Publisher                      ║${NC}"
+echo -e "${BLUE}║                 (Unified Version System)                      ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-log_info "Version:     $VERSION"
+log_info "Version:     $VERSION (applied to ALL components)"
 log_info "Channel:     $CHANNEL"
 log_info "Server:      $UPDATE_SERVER"
 log_info "Components:  ${COMPONENTS[*]}"
@@ -312,7 +323,7 @@ build_rust_with_docker() {
 # Build Components
 # =============================================================================
 
-log_step "Building components..."
+log_step "Building ALL components with unified version $VERSION..."
 
 for component in "${COMPONENTS[@]}"; do
     case "$component" in
@@ -793,7 +804,7 @@ done
 # Generate Manifest
 # =============================================================================
 
-log_step "Generating manifest..."
+log_step "Generating manifest with unified version $VERSION for ALL components..."
 
 RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 MANIFEST="$STAGING_DIR/manifest.json"
@@ -874,7 +885,7 @@ cat >> "$MANIFEST" << EOF
 
   ],
   "min_version": "0.0.1",
-  "release_notes": "Quantix-OS $VERSION update"
+  "release_notes": "Quantix-OS $VERSION - All components updated together"
 }
 EOF
 
@@ -919,9 +930,11 @@ if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║                    Publish Complete!                          ║${NC}"
     echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${GREEN}║  Version: $VERSION${NC}"
+    echo -e "${GREEN}║  Version: $VERSION (ALL COMPONENTS)${NC}"
     echo -e "${GREEN}║  Channel: $CHANNEL${NC}"
     echo -e "${GREEN}║  Server:  $UPDATE_SERVER${NC}"
+    echo -e "${GREEN}║                                                               ║${NC}"
+    echo -e "${GREEN}║  Components: qx-node, qx-console, host-ui, guest-agent        ║${NC}"
     echo -e "${GREEN}║                                                               ║${NC}"
     echo -e "${GREEN}║  Hosts can now update via:                                    ║${NC}"
     echo -e "${GREEN}║    curl -X POST https://<host>:8443/api/v1/updates/apply      ║${NC}"

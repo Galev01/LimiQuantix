@@ -290,11 +290,12 @@ impl UpdateManager {
     /// Apply available updates
     #[instrument(skip(self))]
     pub async fn apply_updates(&self) -> Result<()> {
-        info!("Starting update application");
+        info!("=== STARTING UPDATE APPLICATION ===");
 
         // Get channel and fetch manifest
         let channel = {
             let config = self.config.read().await;
+            info!(channel = %config.channel, server = %config.server_url, "Update configuration");
             config.channel.clone()
         };
         
@@ -302,12 +303,40 @@ impl UpdateManager {
         
         // Clean staging directory before starting to ensure no stale files
         // from previous failed attempts or different versions
+        info!("Cleaning staging directory...");
         if let Err(e) = downloader.cleanup().await {
             warn!(error = %e, "Failed to clean staging directory, continuing anyway");
         }
         
-        let manifest = downloader.fetch_manifest(&channel).await
-            .context("Failed to fetch manifest")?;
+        info!("Fetching manifest from update server...");
+        let manifest = match downloader.fetch_manifest(&channel).await {
+            Ok(m) => {
+                info!(
+                    version = %m.version,
+                    components = m.components.len(),
+                    total_size = m.total_component_size(),
+                    "Manifest fetched successfully"
+                );
+                for c in &m.components {
+                    info!(
+                        component = %c.name,
+                        version = %c.version,
+                        artifact = %c.artifact,
+                        size = c.size_bytes,
+                        install_path = %c.install_path,
+                        "Component in manifest"
+                    );
+                }
+                m
+            }
+            Err(e) => {
+                error!(error = %e, "Failed to fetch manifest");
+                // Update status to error
+                let mut status = self.status.write().await;
+                *status = UpdateStatus::Error(format!("Failed to fetch manifest: {}", e));
+                return Err(e.context("Failed to fetch manifest"));
+            }
+        };
 
         // Update status
         {
@@ -321,16 +350,32 @@ impl UpdateManager {
         }
 
         // Download all components
+        info!("=== STARTING ARTIFACT DOWNLOADS ===");
         let artifacts = match downloader.download_all(&manifest, |progress| {
             // This would ideally update the status, but we need async closure support
             // For now, logging is sufficient
             info!(
                 component = %progress.current_component,
-                progress = progress.percentage,
+                downloaded = progress.downloaded_bytes,
+                total = progress.total_bytes,
+                percentage = progress.percentage,
                 "Download progress"
             );
         }).await {
-            Ok(a) => a,
+            Ok(a) => {
+                info!(
+                    count = a.len(),
+                    "All artifacts downloaded successfully"
+                );
+                for (c, path) in &a {
+                    info!(
+                        component = %c.name,
+                        path = %path.display(),
+                        "Artifact downloaded"
+                    );
+                }
+                a
+            }
             Err(e) => {
                 error!(error = %e, "Failed to download artifacts: {:#}", e);
                 // Update status to error
@@ -364,12 +409,44 @@ impl UpdateManager {
             priority(&a.name).cmp(&priority(&b.name))
         });
 
+        info!("=== APPLYING UPDATES ===");
         let applier = self.applier.read().await;
-        for (component, artifact_path) in sorted_artifacts {
-            info!(component = %component.name, "Applying component update");
+        for (idx, (component, artifact_path)) in sorted_artifacts.iter().enumerate() {
+            info!(
+                component = %component.name,
+                version = %component.version,
+                artifact = %artifact_path.display(),
+                install_path = %component.install_path,
+                progress = format!("{}/{}", idx + 1, sorted_artifacts.len()),
+                "Applying component update"
+            );
             
-            applier.apply_component(&component, &artifact_path).await
-                .with_context(|| format!("Failed to apply component: {}", component.name))?;
+            // Update status with current component
+            {
+                let mut status = self.status.write().await;
+                *status = UpdateStatus::Applying(format!("Applying {} ({}/{})", 
+                    component.name, idx + 1, sorted_artifacts.len()));
+            }
+            
+            match applier.apply_component(component, artifact_path).await {
+                Ok(()) => {
+                    info!(
+                        component = %component.name,
+                        "Component applied successfully"
+                    );
+                }
+                Err(e) => {
+                    error!(
+                        component = %component.name,
+                        error = %e,
+                        "Failed to apply component"
+                    );
+                    // Update status to error
+                    let mut status = self.status.write().await;
+                    *status = UpdateStatus::Error(format!("Failed to apply {}: {}", component.name, e));
+                    return Err(e.context(format!("Failed to apply component: {}", component.name)));
+                }
+            }
 
             // Update installed version
             {
@@ -381,6 +458,7 @@ impl UpdateManager {
                     "guest-agent" => versions.guest_agent = Some(component.version.clone()),
                     _ => {}
                 }
+                info!(component = %component.name, version = %component.version, "Version record updated");
             }
         }
         drop(applier);
@@ -405,6 +483,15 @@ impl UpdateManager {
     /// Get current update status
     pub async fn get_status(&self) -> UpdateStatus {
         self.status.read().await.clone()
+    }
+    
+    /// Reset update status to Idle
+    /// 
+    /// Use this to clear a stuck status (e.g., if a previous update crashed)
+    pub async fn reset_status(&self) {
+        let mut status = self.status.write().await;
+        info!(previous_status = ?format!("{:?}", *status), "Resetting update status to Idle");
+        *status = UpdateStatus::Idle;
     }
 
     /// Get currently installed versions

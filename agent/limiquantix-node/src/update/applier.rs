@@ -124,9 +124,12 @@ impl UpdateApplier {
         }
 
         // For single binary components, extract directly to install path
-        // For directory components (like host-ui), extract to the directory
+        // For directory components (like host-ui, guest-agent), extract to the directory
+        let is_directory_component = component.name == "host-ui" 
+            || component.name == "guest-agent" 
+            || install_path.to_string_lossy().ends_with('/');
         
-        if component.name == "host-ui" || install_path.to_string_lossy().ends_with('/') {
+        if is_directory_component {
             // Directory extraction
             fs::create_dir_all(install_path).await?;
             
@@ -211,9 +214,12 @@ impl UpdateApplier {
         }
 
         // For single binary components, extract directly to install path
-        // For directory components (like host-ui), extract to the directory
+        // For directory components (like host-ui, guest-agent), extract to the directory
+        let is_directory_component = component.name == "host-ui" 
+            || component.name == "guest-agent" 
+            || install_path.to_string_lossy().ends_with('/');
         
-        if component.name == "host-ui" || install_path.to_string_lossy().ends_with('/') {
+        if is_directory_component {
             // Directory extraction
             fs::create_dir_all(install_path).await?;
             

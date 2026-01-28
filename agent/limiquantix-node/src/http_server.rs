@@ -1068,6 +1068,7 @@ fn build_app_router(state: Arc<AppState>, webui_path: &PathBuf) -> Router {
         .route("/updates/current", get(get_current_versions))
         .route("/updates/status", get(get_update_status))
         .route("/updates/apply", post(apply_updates))
+        .route("/updates/reset", post(reset_update_status))  // Reset stuck updates
         .route("/updates/config", get(get_update_config).put(save_update_config))
         .route("/updates/volumes", get(list_update_volumes))
         // Guest Agent download endpoints (for cloud-init installation)
@@ -1339,10 +1340,15 @@ async fn get_update_status(
 async fn apply_updates(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    info!("=== UPDATE APPLY REQUEST RECEIVED ===");
+    
     // Check if already updating
     let current_status = state.update_manager.get_status().await;
+    info!(current_status = ?format!("{:?}", current_status), "Current update status before apply");
+    
     match current_status {
         UpdateStatus::Downloading(_) | UpdateStatus::Applying(_) => {
+            warn!("Update already in progress, rejecting new request");
             return Err((
                 StatusCode::CONFLICT,
                 Json(ApiError::new("update_in_progress", "An update is already in progress")),
@@ -1354,17 +1360,62 @@ async fn apply_updates(
     // Clone the manager for the background task
     let manager = state.update_manager.clone();
     
-    // Start update in background task
+    info!("Spawning background update task...");
+    
+    // Start update in background task with timeout
     tokio::spawn(async move {
-        info!("Starting background update application");
-        if let Err(e) = manager.apply_updates().await {
-            error!(error = %e, "Background update application failed");
+        info!("=== BACKGROUND UPDATE TASK STARTED ===");
+        
+        // Add a 10-minute timeout for the entire update process
+        let update_result = tokio::time::timeout(
+            std::time::Duration::from_secs(600), // 10 minutes
+            manager.apply_updates()
+        ).await;
+        
+        match update_result {
+            Ok(Ok(())) => {
+                info!("=== UPDATE COMPLETED SUCCESSFULLY ===");
+            }
+            Ok(Err(e)) => {
+                error!(error = %e, "=== UPDATE FAILED: {:#} ===", e);
+            }
+            Err(_) => {
+                error!("=== UPDATE TIMED OUT AFTER 10 MINUTES ===");
+            }
         }
     });
+    
+    info!("Background task spawned, returning to client");
     
     Ok(Json(serde_json::json!({
         "status": "started",
         "message": "Update process started. Poll /api/v1/updates/status for progress."
+    })))
+}
+
+/// POST /api/v1/updates/reset - Reset update status if stuck
+/// 
+/// Use this to clear a stuck update status (e.g., if the process crashed mid-update).
+/// This will reset the status to Idle so a new update can be started.
+async fn reset_update_status(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    info!("=== UPDATE STATUS RESET REQUESTED ===");
+    
+    let previous_status = state.update_manager.get_status().await;
+    info!(previous_status = ?format!("{:?}", previous_status), "Status before reset");
+    
+    // Reset the status to Idle
+    state.update_manager.reset_status().await;
+    
+    let new_status = state.update_manager.get_status().await;
+    info!(new_status = ?format!("{:?}", new_status), "Status after reset");
+    
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Update status has been reset to Idle",
+        "previousStatus": format!("{:?}", previous_status),
+        "currentStatus": format!("{:?}", new_status)
     })))
 }
 
@@ -4053,6 +4104,29 @@ async fn refresh_quantix_agent(
 // Agent ISO Mount Endpoints
 // =============================================================================
 
+/// Find the next available CD-ROM device name
+/// Given existing devices like ["sda", "sdb"], returns "sdc"
+fn find_next_cdrom_device(used_devices: &[String]) -> String {
+    // Try sr0, sr1, etc. first (preferred for CD-ROM)
+    for i in 0..10 {
+        let device = format!("sr{}", i);
+        if !used_devices.contains(&device) {
+            return device;
+        }
+    }
+    
+    // Fall back to sdb, sdc, etc.
+    for c in 'b'..='z' {
+        let device = format!("sd{}", c);
+        if !used_devices.contains(&device) {
+            return device;
+        }
+    }
+    
+    // Last resort
+    "sr1".to_string()
+}
+
 /// Response for ISO mount operations
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -4164,54 +4238,126 @@ async fn mount_agent_iso(
         )
     })?;
     
-    // Find the CD-ROM device in the VM
-    // First, try to get the VM's XML to find the CD-ROM target device
+    // Find an available CD-ROM device or add a new one
+    // First, try to get the VM's XML to find existing CD-ROM devices
     let output = tokio::process::Command::new("virsh")
         .args(["dumpxml", &vm.name])
         .output()
         .await;
     
-    let cdrom_device = match output {
+    let (cdrom_device, need_attach) = match output {
         Ok(result) if result.status.success() => {
             let xml = String::from_utf8_lossy(&result.stdout);
             
-            // Parse XML to find CD-ROM device
-            // Look for: <disk type='...' device='cdrom'> ... <target dev='sda'/> ... </disk>
-            let mut device = "sda".to_string(); // default
+            // Find all CD-ROM devices and check if any is empty or has our ISO
+            let mut empty_cdrom: Option<String> = None;
+            let mut used_devices: Vec<String> = Vec::new();
             
-            // Simple XML parsing for CD-ROM target
-            if let Some(cdrom_start) = xml.find("device='cdrom'") {
-                let cdrom_section = &xml[cdrom_start..];
+            // Parse each CD-ROM disk entry
+            for cdrom_match in xml.match_indices("device='cdrom'") {
+                let cdrom_section = &xml[cdrom_match.0..];
+                
+                // Get the target device name
                 if let Some(target_start) = cdrom_section.find("<target dev='") {
                     let target_section = &cdrom_section[target_start + 13..];
                     if let Some(quote_end) = target_section.find('\'') {
-                        device = target_section[..quote_end].to_string();
+                        let device = target_section[..quote_end].to_string();
+                        used_devices.push(device.clone());
+                        
+                        // Check if this CD-ROM is empty (no source)
+                        let disk_end = cdrom_section.find("</disk>").unwrap_or(500);
+                        let disk_section = &cdrom_section[..disk_end];
+                        
+                        // Empty CD-ROM has no <source> or has <source file=''/>
+                        let has_source = disk_section.contains("<source file='") && 
+                            !disk_section.contains("<source file=''/>");
+                        
+                        if !has_source && empty_cdrom.is_none() {
+                            empty_cdrom = Some(device);
+                        }
                     }
                 }
             }
             
-            device
+            // If we found an empty CD-ROM, use it
+            if let Some(device) = empty_cdrom {
+                info!(device = %device, "Found empty CD-ROM device");
+                (device, false)
+            } else {
+                // Find the next available device name (sdb, sdc, etc.)
+                let next_device = find_next_cdrom_device(&used_devices);
+                info!(device = %next_device, existing = ?used_devices, "Will attach new CD-ROM device");
+                (next_device, true)
+            }
         }
-        _ => "sda".to_string(), // fallback to sda
+        _ => ("sdb".to_string(), true), // fallback: attach new device
     };
     
-    info!(device = %cdrom_device, iso_path = %iso_path, "Mounting ISO to CD-ROM");
+    info!(device = %cdrom_device, iso_path = %iso_path, need_attach = need_attach, "Mounting ISO to CD-ROM");
     
-    // Mount the ISO using the hypervisor's change_media method
-    state.service.hypervisor().change_media(&vm.id, &cdrom_device, Some(&iso_path))
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiError::new("mount_failed", &format!("Failed to mount ISO: {}", e))),
-            )
-        })?;
+    if need_attach {
+        // Attach a new CD-ROM device with the ISO
+        let attach_result = tokio::process::Command::new("virsh")
+            .args([
+                "attach-disk",
+                &vm.name,
+                &iso_path,
+                &cdrom_device,
+                "--type", "cdrom",
+                "--mode", "readonly",
+                "--live",
+            ])
+            .output()
+            .await;
+        
+        match attach_result {
+            Ok(result) if result.status.success() => {
+                info!(vm_id = %vm_id, device = %cdrom_device, "New CD-ROM device attached successfully");
+            }
+            Ok(result) => {
+                let stderr = String::from_utf8_lossy(&result.stderr);
+                // If attach failed because device exists, try change_media instead
+                if stderr.contains("already exists") || stderr.contains("in use") {
+                    info!(device = %cdrom_device, "Device exists, trying change_media instead");
+                    state.service.hypervisor().change_media(&vm.id, &cdrom_device, Some(&iso_path))
+                        .await
+                        .map_err(|e| {
+                            (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(ApiError::new("mount_failed", &format!("Failed to mount ISO: {}", e))),
+                            )
+                        })?;
+                } else {
+                    return Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ApiError::new("attach_failed", &format!("Failed to attach CD-ROM: {}", stderr))),
+                    ));
+                }
+            }
+            Err(e) => {
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ApiError::new("attach_failed", &format!("Failed to attach CD-ROM: {}", e))),
+                ));
+            }
+        }
+    } else {
+        // Change media on existing empty CD-ROM
+        state.service.hypervisor().change_media(&vm.id, &cdrom_device, Some(&iso_path))
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ApiError::new("mount_failed", &format!("Failed to mount ISO: {}", e))),
+                )
+            })?;
+    }
     
     info!(vm_id = %vm_id, device = %cdrom_device, "Agent Tools ISO mounted successfully");
     
     Ok(Json(MountIsoResponse {
         success: true,
-        message: format!("Agent Tools ISO mounted to {}. Run: sudo /mnt/cdrom/linux/install.sh", cdrom_device),
+        message: format!("Agent Tools ISO mounted to /dev/{}. In the VM, run:\n  sudo mount /dev/{} /mnt\n  sudo /mnt/linux/install.sh", cdrom_device, cdrom_device),
         iso_path: Some(iso_path),
         device: Some(cdrom_device),
         error: None,
