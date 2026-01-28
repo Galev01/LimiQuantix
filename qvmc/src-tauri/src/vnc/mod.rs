@@ -176,7 +176,6 @@ pub async fn connect_vnc(
                     match updates_result {
                         Ok(updates) => {
                             if !updates.is_empty() {
-                            if !updates.is_empty() {
                                 info!(
                                     "Received {} framebuffer updates, first: {}x{} at ({},{}), {} bytes (Base64)",
                                     updates.len(),
@@ -197,6 +196,7 @@ pub async fn connect_vnc(
                             } else {
                                 info!("Received empty framebuffer update (0 rects)");
                             }
+                            
                             // Emit framebuffer updates to frontend
                             for update in updates {
                                 if let Err(e) = window_clone.emit("vnc:framebuffer", &update) {

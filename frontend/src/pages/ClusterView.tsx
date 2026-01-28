@@ -50,6 +50,7 @@ import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { VMStatusBadge } from '@/components/vm/VMStatusBadge';
+import { DeleteVMModal } from '@/components/vm/DeleteVMModal';
 import { useClusters, useClusterHosts, toDisplayCluster, type Cluster } from '@/hooks/useClusters';
 import { useNodes, type ApiNode } from '@/hooks/useNodes';
 import { useVMs, useStartVM, useStopVM, useDeleteVM, type ApiVM } from '@/hooks/useVMs';
@@ -167,6 +168,12 @@ export function ClusterView() {
   const [hostContextMenu, setHostContextMenu] = useState<HostContextMenuState>({ visible: false, x: 0, y: 0, host: null });
   const [clusterContextMenu, setClusterContextMenu] = useState<ClusterContextMenuState>({ visible: false, x: 0, y: 0, cluster: null });
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Delete modal state
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    vm: VirtualMachine | null;
+  }>({ isOpen: false, vm: null });
 
   // API Connection
   const { data: isConnected = false } = useApiConnection();
@@ -329,13 +336,29 @@ export function ClusterView() {
         navigate(`/vms/${vm.id}?tab=console`);
         break;
       case 'delete':
-        if (!confirm(`Are you sure you want to delete "${vm.name}"?`)) return;
         if (!isConnected) return showInfo('Not connected to backend');
-        await deleteVM.mutateAsync({ id: vm.id });
+        setDeleteModalState({ isOpen: true, vm });
         break;
       default:
         showInfo(`Action "${action}" on VM "${vm.name}"`);
     }
+  };
+
+  // Handle delete confirmation from modal
+  const handleDeleteConfirm = async (options: {
+    deleteVolumes: boolean;
+    removeFromInventoryOnly: boolean;
+    force: boolean;
+  }) => {
+    const vm = deleteModalState.vm;
+    if (!vm || !isConnected) return;
+    
+    await deleteVM.mutateAsync({ 
+      id: vm.id,
+      force: options.force,
+      deleteVolumes: options.deleteVolumes,
+      removeFromInventoryOnly: options.removeFromInventoryOnly,
+    });
   };
 
   // Host Context menu
@@ -651,6 +674,17 @@ export function ClusterView() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Delete VM Modal */}
+      <DeleteVMModal
+        isOpen={deleteModalState.isOpen}
+        onClose={() => setDeleteModalState({ isOpen: false, vm: null })}
+        vmId={deleteModalState.vm?.id || ''}
+        vmName={deleteModalState.vm?.name || ''}
+        vmState={deleteModalState.vm?.status.state || 'STOPPED'}
+        onDelete={handleDeleteConfirm}
+        isPending={deleteVM.isPending}
+      />
     </div>
   );
 }

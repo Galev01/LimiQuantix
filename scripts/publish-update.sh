@@ -507,8 +507,9 @@ for component in "${COMPONENTS[@]}"; do
                 BUILD_RESULT=$?
                 
                 # Check for static binary in musl target directory
-                MUSL_BINARY="$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/limiquantix-agent"
-                RELEASE_BINARY="$PROJECT_ROOT/agent/target/release/limiquantix-agent"
+                # Note: Cargo.toml names the binary "quantix-kvm-agent"
+                MUSL_BINARY="$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/quantix-kvm-agent"
+                RELEASE_BINARY="$PROJECT_ROOT/agent/target/release/quantix-kvm-agent"
                 
                 if [ -f "$MUSL_BINARY" ]; then
                     BINARY="$MUSL_BINARY"
@@ -531,13 +532,13 @@ for component in "${COMPONENTS[@]}"; do
                 log_info "Building guest-agent natively (trying static)..."
                 if rustup target list --installed | grep -q "x86_64-unknown-linux-musl"; then
                     RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target x86_64-unknown-linux-musl -p limiquantix-guest-agent 2>&1 | tail -10
-                    if [ -f "$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/limiquantix-agent" ]; then
-                        BINARY="$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/limiquantix-agent"
+                    if [ -f "$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/quantix-kvm-agent" ]; then
+                        BINARY="$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/quantix-kvm-agent"
                     fi
                 else
                     cargo build --release -p limiquantix-guest-agent 2>&1 | tail -10
-                    if [ -f "$PROJECT_ROOT/agent/target/release/limiquantix-agent" ]; then
-                        BINARY="$PROJECT_ROOT/agent/target/release/limiquantix-agent"
+                    if [ -f "$PROJECT_ROOT/agent/target/release/quantix-kvm-agent" ]; then
+                        BINARY="$PROJECT_ROOT/agent/target/release/quantix-kvm-agent"
                     fi
                 fi
             fi
@@ -553,9 +554,11 @@ for component in "${COMPONENTS[@]}"; do
             mkdir -p "$AGENT_STAGING"
             
             # 1. Raw binary (for generic Linux and tarball installs)
-            cp "$BINARY" "$AGENT_STAGING/limiquantix-agent-linux-amd64"
-            chmod 755 "$AGENT_STAGING/limiquantix-agent-linux-amd64"
-            log_info "  Created: limiquantix-agent-linux-amd64"
+            cp "$BINARY" "$AGENT_STAGING/quantix-kvm-agent-linux-amd64"
+            chmod 755 "$AGENT_STAGING/quantix-kvm-agent-linux-amd64"
+            log_info "  Created: quantix-kvm-agent-linux-amd64"
+            # Also create legacy symlink for backwards compatibility
+            ln -sf "quantix-kvm-agent-linux-amd64" "$AGENT_STAGING/limiquantix-agent-linux-amd64"
             
             # 2. Create .deb package structure
             DEB_DIR="$AGENT_STAGING/deb-build"
@@ -943,7 +946,8 @@ fi
 
 # Remove any local staging artifacts
 rm -rf "$PROJECT_ROOT/agent/target/release/limiquantix-node" 2>/dev/null || true
-rm -rf "$PROJECT_ROOT/agent/target/release/limiquantix-agent" 2>/dev/null || true
+rm -rf "$PROJECT_ROOT/agent/target/release/quantix-kvm-agent" 2>/dev/null || true
+rm -rf "$PROJECT_ROOT/agent/target/release/limiquantix-agent" 2>/dev/null || true  # Legacy
 rm -rf "$PROJECT_ROOT/agent/target/packages" 2>/dev/null || true
 
 # Cleanup staging directory

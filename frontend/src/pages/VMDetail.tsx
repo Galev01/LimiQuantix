@@ -72,7 +72,7 @@ import { type VirtualMachine, type PowerState } from '@/types/models';
 import { useVM, useStartVM, useStopVM, useRebootVM, usePauseVM, useResumeVM, useSuspendVM, useResetVMState, useDeleteVM, useUpdateVM, useAttachDisk, useDetachDisk, useResizeDisk, useAttachNIC, useDetachNIC, useVMEvents, useAttachCDROM, useDetachCDROM, useMountISO, useEjectISO, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { useSnapshots, useCreateSnapshot, useRevertToSnapshot, useDeleteSnapshot, formatSnapshotSize, type ApiSnapshot } from '@/hooks/useSnapshots';
-import { showInfo } from '@/lib/toast';
+import { showInfo, showSuccess, showError } from '@/lib/toast';
 
 // Convert API VM to display format
 function apiToDisplayVM(apiVm: ApiVM): VirtualMachine {
@@ -1020,16 +1020,28 @@ export function VMDetail() {
                 guestOsName={apiVm?.status?.guestInfo?.osName}
                 nodeId={apiVm?.status?.nodeId}
                 onMountAgentISO={async () => {
-                  // Mount the Quantix Agent ISO
-                  if (!id) return;
+                  // Mount the Quantix Agent ISO via the node's dedicated endpoint
+                  // This endpoint automatically finds the ISO in the correct location
+                  if (!id || !apiVm?.status?.nodeId) return;
                   try {
-                    await mountISO.mutateAsync({ 
-                      vmId: id, 
-                      cdromId: 'cdrom-0', 
-                      isoPath: '/var/lib/quantix/iso/quantix-agent.iso' 
+                    const nodeId = apiVm.status.nodeId;
+                    // Call the node's mount-agent-iso endpoint via the control plane proxy
+                    const response = await fetch(`/api/nodes/${nodeId}/vms/${id}/cdrom/mount-agent-iso`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
                     });
-                  } catch {
-                    // Error is handled by the hook
+                    if (!response.ok) {
+                      const error = await response.json();
+                      throw new Error(error.message || 'Failed to mount ISO');
+                    }
+                    const result = await response.json();
+                    if (result.success) {
+                      showSuccess(result.message || 'Agent ISO mounted successfully');
+                    } else {
+                      throw new Error(result.error || 'Failed to mount ISO');
+                    }
+                  } catch (error) {
+                    showError(error as Error, 'Failed to mount ISO');
                   }
                 }}
                 isMountingISO={mountISO.isPending}

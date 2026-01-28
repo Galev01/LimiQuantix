@@ -150,6 +150,13 @@ func (h *VMRestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle CD-ROM mount-agent-iso (POST)
+	// This proxies to the node's dedicated endpoint that auto-finds the ISO
+	if action == "cdrom" && len(parts) >= 3 && parts[2] == "mount-agent-iso" && r.Method == http.MethodPost {
+		h.handleMountAgentISO(w, r, vmID)
+		return
+	}
+
 	// Only accept POST for power actions
 	if r.Method != http.MethodPost {
 		h.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Only POST method is allowed for power actions")
@@ -784,6 +791,77 @@ func (h *VMRestHandler) handleExecuteScript(w http.ResponseWriter, r *http.Reque
 	resp, err := client.Do(nodeReq)
 	if err != nil {
 		h.logger.Error("Failed to execute command on node", zap.Error(err), zap.String("node_id", nodeID))
+		h.writeError(w, http.StatusBadGateway, "node_unreachable", fmt.Sprintf("Failed to reach node %s: %v", nodeID, err))
+		return
+	}
+	defer resp.Body.Close()
+
+	// Forward the response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+}
+
+// handleMountAgentISO proxies the mount-agent-iso request to the node daemon.
+// The node daemon has a dedicated endpoint that automatically finds the Agent Tools ISO.
+func (h *VMRestHandler) handleMountAgentISO(w http.ResponseWriter, r *http.Request, vmID string) {
+	ctx := r.Context()
+
+	h.logger.Info("Mounting Agent Tools ISO",
+		zap.String("vm_id", vmID),
+	)
+
+	// Get the VM to find its node
+	vmReq := connect.NewRequest(&computev1.GetVMRequest{Id: vmID})
+	vmResp, err := h.server.vmService.GetVM(ctx, vmReq)
+	if err != nil {
+		h.handleConnectError(w, err)
+		return
+	}
+
+	nodeID := vmResp.Msg.Status.GetNodeId()
+	if nodeID == "" {
+		h.writeError(w, http.StatusBadRequest, "no_node", "VM is not assigned to a node")
+		return
+	}
+
+	// Get the node's API URL
+	node, err := h.server.nodeRepo.Get(ctx, nodeID)
+	if err != nil {
+		h.logger.Error("Failed to get node", zap.Error(err), zap.String("node_id", nodeID))
+		h.writeError(w, http.StatusInternalServerError, "node_lookup_failed", "Failed to find node for VM")
+		return
+	}
+
+	// Strip CIDR notation from IP
+	nodeIP := node.ManagementIP
+	if idx := strings.Index(nodeIP, "/"); idx != -1 {
+		nodeIP = nodeIP[:idx]
+	}
+
+	// Construct the node daemon URL for the mount-agent-iso endpoint
+	nodeURL := fmt.Sprintf("https://%s:8443/api/v1/vms/%s/cdrom/mount-agent-iso", nodeIP, vmID)
+
+	h.logger.Debug("Proxying mount-agent-iso to node",
+		zap.String("node_id", nodeID),
+		zap.String("node_url", nodeURL),
+	)
+
+	// Create HTTP client
+	client := h.server.getInsecureHTTPClient()
+
+	// Forward the request to the node daemon
+	nodeReq, err := http.NewRequestWithContext(ctx, http.MethodPost, nodeURL, nil)
+	if err != nil {
+		h.logger.Error("Failed to create node request", zap.Error(err))
+		h.writeError(w, http.StatusInternalServerError, "request_failed", "Failed to create request to node")
+		return
+	}
+	nodeReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(nodeReq)
+	if err != nil {
+		h.logger.Error("Failed to reach node", zap.Error(err), zap.String("node_id", nodeID))
 		h.writeError(w, http.StatusBadGateway, "node_unreachable", fmt.Sprintf("Failed to reach node %s: %v", nodeID, err))
 		return
 	}

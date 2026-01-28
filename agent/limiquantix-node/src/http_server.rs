@@ -5516,10 +5516,13 @@ async fn install_quantix_agent(
     }
     
     // Try to find the agent binary locally
+    // Check both new name (quantix-kvm-agent) and legacy name (limiquantix-agent) for compatibility
     let agent_paths = [
         "/data/share/quantix-agent/quantix-kvm-agent-linux-amd64",
         "/data/share/quantix-agent/quantix-kvm-agent",
+        "/data/share/quantix-agent/limiquantix-agent-linux-amd64",  // Legacy name
         "/opt/quantix-kvm/agent/quantix-kvm-agent",
+        "/opt/quantix-kvm/agent/limiquantix-agent",  // Legacy name
     ];
     
     let mut agent_binary: Option<Vec<u8>> = None;

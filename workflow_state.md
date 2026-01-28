@@ -1,47 +1,69 @@
-# Workflow State - VM Deletion Storage Cleanup
+# Workflow State - VM Deletion Consistency
 
 ## Status: ✅ COMPLETE (January 28, 2026)
 
-Fixed VM deletion to properly clean up the VM folder from datastores (NFS, local, etc.)
+Ensured all VM deletion flows use the same `DeleteVMModal` component for consistent behavior.
 
 ---
 
 ## Problem
 
-When deleting a VM:
-1. The VM disks are stored in `{storage_pool}/vms/{VM_NAME}_{UUID_SHORT}/` folders
-2. During deletion, the code only tried to delete `/var/lib/limiquantix/vms/{vm_id}` which doesn't match
-3. The disk files may be deleted but the parent folder remains empty on the datastore
+Different pages used different deletion methods:
+- **VMDetail.tsx**: Used `DeleteVMModal` with proper options (deleteVolumes, removeFromInventoryOnly)
+- **VMList.tsx**: Used simple `confirm()` dialog
+- **ClusterView.tsx**: Used simple `confirm()` dialog  
+- **VMFolderView.tsx**: Used simple `confirm()` dialog
+
+This caused inconsistent behavior - only VMDetail properly passed `deleteVolumes: true` to clean up disk files.
 
 ## Solution
 
-Enhanced `delete_vm` in the hypervisor backend to:
-1. Get disk paths from VM XML BEFORE undefining the domain
-2. Delete each disk file
-3. Collect and delete parent VM folders (if they're under a `vms/` directory and are empty or only contain auto-generated files like cloud-init ISOs)
-4. Then undefine the domain
+1. **Backend fix**: Enhanced `delete_vm` in the hypervisor to clean up disk files and VM folders from datastores
+2. **Frontend fix**: Updated all pages to use the `DeleteVMModal` component
 
 ## Files Modified
 
+### Backend (Rust)
 | File | Change |
 |------|--------|
 | `agent/limiquantix-hypervisor/src/libvirt/backend.rs` | Enhanced `delete_vm` to clean up disk files and VM folders |
-| `agent/limiquantix-node/src/service.rs` | Updated comments, kept legacy path cleanup for backwards compatibility |
+| `agent/limiquantix-node/src/service.rs` | Updated comments, kept legacy path cleanup |
+
+### Frontend (React/TypeScript)
+| File | Change |
+|------|--------|
+| `frontend/src/pages/VMList.tsx` | Added `DeleteVMModal`, updated context menu and bulk delete |
+| `frontend/src/pages/ClusterView.tsx` | Added `DeleteVMModal`, updated VM context menu |
+| `frontend/src/pages/VMFolderView.tsx` | Added `DeleteVMModal`, updated context menu and toolbar delete |
 
 ---
 
 ## Implementation Details
 
-The new `delete_vm` logic:
+### Backend Changes
 
-1. **Before undefining**: Parse the VM XML to get all disk paths
-2. **Delete disk files**: Remove each disk file (qcow2, raw, etc.)
-3. **Identify VM folders**: Collect parent directories that match the pattern `.../vms/{folder}/`
-4. **Clean up folders**: Delete VM folders if they are:
-   - Empty, OR
-   - Only contain auto-generated files (cloud-init ISOs, NVRAM files, logs)
-5. **Undefine domain**: Remove the VM from libvirt
-6. **Legacy cleanup**: The service layer still checks `/var/lib/limiquantix/vms/{vm_id}` for backwards compatibility
+The `delete_vm` function now:
+1. Gets disk paths from VM XML before undefining
+2. Deletes each disk file
+3. Identifies and deletes VM folders (under `vms/` directories)
+4. Only deletes folders that are empty or contain auto-generated files
+
+### Frontend Changes
+
+All pages now:
+1. Import and use `DeleteVMModal` component
+2. Store delete modal state: `{ isOpen: boolean, vm: VirtualMachine | null }`
+3. Open the modal instead of using `confirm()` dialogs
+4. Pass proper options to `deleteVM.mutateAsync()`:
+   - `deleteVolumes`: true/false based on user choice
+   - `removeFromInventoryOnly`: true/false based on user choice
+   - `force`: true if VM is running
+
+### Deletion Options
+
+Users now have two choices in the modal:
+1. **Delete from Disk**: Permanently deletes VM definition and all disk files
+2. **Remove from Inventory**: Only removes from vDC, keeps VM on hypervisor
 
 ---
 

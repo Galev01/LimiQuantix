@@ -40,7 +40,7 @@ interface FramebufferUpdate {
   y: number;
   width: number;
   height: number;
-  data: number[];
+  data: string;
 }
 
 type ScaleMode = 'fit' | 'fill' | '100%';

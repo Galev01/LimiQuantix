@@ -5,7 +5,7 @@ interface FramebufferUpdate {
     y: number;
     width: number;
     height: number;
-    data: number[];
+    data: string;
 }
 
 let canvas: OffscreenCanvas | null = null;
@@ -74,10 +74,15 @@ self.onmessage = (e: MessageEvent) => {
             }
 
             // Draw the update
-            // Creating ImageData from the array
-            // Note: ImageData constructor takes Uint8ClampedArray
-            const dataArray = new Uint8ClampedArray(update.data);
-            const imageData = new ImageData(dataArray, update.width, update.height);
+            // Decode Base64 string to Uint8ClampedArray
+            const binaryString = atob(update.data);
+            const len = binaryString.length;
+            const bytes = new Uint8ClampedArray(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            const imageData = new ImageData(bytes, update.width, update.height);
             ctx.putImageData(imageData, update.x, update.y);
             break;
 

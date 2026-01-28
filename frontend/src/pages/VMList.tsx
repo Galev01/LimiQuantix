@@ -27,6 +27,7 @@ import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { VMStatusBadge } from '@/components/vm/VMStatusBadge';
 import { VMCreationWizard } from '@/components/vm/VMCreationWizard';
+import { DeleteVMModal } from '@/components/vm/DeleteVMModal';
 import { useVMs, useStartVM, useStopVM, useDeleteVM, isVMRunning, isVMStopped, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
 import { useActionLogger } from '@/hooks/useActionLogger';
@@ -103,6 +104,12 @@ export function VMList() {
     vm: null,
   });
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Delete modal state
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    vm: VirtualMachine | null;
+  }>({ isOpen: false, vm: null });
 
   // Console store for quick console access
   const { openConsole } = useConsoleStore();
@@ -226,20 +233,43 @@ export function VMList() {
     }
   };
 
-  const handleDeleteVM = async (vmId: string, e?: React.MouseEvent) => {
+  // Open delete modal for a VM
+  const handleDeleteVM = (vmId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     logger.logClick('delete-vm', { vmId });
-    if (!confirm('Are you sure you want to delete this VM?')) return;
+    
     if (!isConnected) {
       showInfo('Not connected to backend');
       return;
     }
-    setActionInProgress(vmId);
+    
+    // Find the VM to get its details for the modal
+    const vm = vms.find(v => v.id === vmId);
+    if (vm) {
+      setDeleteModalState({ isOpen: true, vm });
+    }
+  };
+
+  // Handle delete confirmation from modal
+  const handleDeleteConfirm = async (options: {
+    deleteVolumes: boolean;
+    removeFromInventoryOnly: boolean;
+    force: boolean;
+  }) => {
+    const vm = deleteModalState.vm;
+    if (!vm || !isConnected) return;
+    
+    setActionInProgress(vm.id);
     try {
-      await deleteVM.mutateAsync({ id: vmId });
-      logger.logSuccess('delete-vm', `VM ${vmId} deleted successfully`, { vmId });
+      await deleteVM.mutateAsync({ 
+        id: vm.id,
+        force: options.force,
+        deleteVolumes: options.deleteVolumes,
+        removeFromInventoryOnly: options.removeFromInventoryOnly,
+      });
+      logger.logSuccess('delete-vm', `VM ${vm.id} deleted successfully`, { vmId: vm.id });
     } catch (error) {
-      logger.logError('delete-vm', error instanceof Error ? error : 'Failed to delete VM', { vmId });
+      logger.logError('delete-vm', error instanceof Error ? error : 'Failed to delete VM', { vmId: vm.id });
     } finally {
       setActionInProgress(null);
     }
@@ -282,9 +312,27 @@ export function VMList() {
   };
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${selectedVMs.size} VMs?`)) return;
+    if (!confirm(`Are you sure you want to delete ${selectedVMs.size} VMs? This will permanently delete all disk files.`)) return;
+    if (!isConnected) {
+      showInfo('Not connected to backend');
+      return;
+    }
+    
     for (const vmId of selectedVMs) {
-      await handleDeleteVM(vmId);
+      setActionInProgress(vmId);
+      try {
+        await deleteVM.mutateAsync({ 
+          id: vmId,
+          force: true,
+          deleteVolumes: true,
+          removeFromInventoryOnly: false,
+        });
+        logger.logSuccess('delete-vm', `VM ${vmId} deleted successfully`, { vmId });
+      } catch (error) {
+        logger.logError('delete-vm', error instanceof Error ? error : 'Failed to delete VM', { vmId });
+      } finally {
+        setActionInProgress(null);
+      }
     }
     setSelectedVMs(new Set());
   };
@@ -835,6 +883,17 @@ export function VMList() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Delete VM Modal */}
+      <DeleteVMModal
+        isOpen={deleteModalState.isOpen}
+        onClose={() => setDeleteModalState({ isOpen: false, vm: null })}
+        vmId={deleteModalState.vm?.id || ''}
+        vmName={deleteModalState.vm?.name || ''}
+        vmState={deleteModalState.vm?.status.state || 'STOPPED'}
+        onDelete={handleDeleteConfirm}
+        isPending={deleteVM.isPending}
+      />
     </div>
   );
 }

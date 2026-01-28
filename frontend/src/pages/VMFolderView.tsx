@@ -76,6 +76,7 @@ import { ConsoleAccessModal } from '@/components/vm/ConsoleAccessModal';
 import { ExecuteScriptModal } from '@/components/vm/ExecuteScriptModal';
 import { EditSettingsModal } from '@/components/vm/EditSettingsModal';
 import { EditResourcesModal } from '@/components/vm/EditResourcesModal';
+import { DeleteVMModal } from '@/components/vm/DeleteVMModal';
 import { QuantixAgentStatus } from '@/components/vm/QuantixAgentStatus';
 import { FileBrowser } from '@/components/vm/FileBrowser';
 import { 
@@ -444,6 +445,12 @@ export function VMFolderView() {
     folder: null,
   });
   
+  // Delete modal state
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    vm: VirtualMachine | null;
+  }>({ isOpen: false, vm: null });
+  
   // Folder rename dialog
   const [showRenameFolderDialog, setShowRenameFolderDialog] = useState(false);
   const [folderToRename, setFolderToRename] = useState<FolderType | null>(null);
@@ -649,17 +656,10 @@ export function VMFolderView() {
         toast.info('Restarting VM...');
         break;
       case 'delete':
-        if (!confirm(`Are you sure you want to delete "${vm.name}"?`)) return;
-        if (!isConnected) return showInfo('Not connected to backend');
-        await deleteVM.mutateAsync({ id: vm.id });
-        if (selectedVmId === vm.id) setSelectedVmId(null);
-        break;
       case 'deleteFromDisk':
-        if (!confirm(`Are you sure you want to permanently delete "${vm.name}" and all its disk files? This cannot be undone.`)) return;
+        // Both delete options now use the modal for proper handling
         if (!isConnected) return showInfo('Not connected to backend');
-        await deleteVM.mutateAsync({ id: vm.id });
-        if (selectedVmId === vm.id) setSelectedVmId(null);
-        toast.success('VM and disk files deleted');
+        setDeleteModalState({ isOpen: true, vm });
         break;
       case 'migrate':
         showWarning('Migrate VM feature coming soon');
@@ -696,7 +696,28 @@ export function VMFolderView() {
       default:
         break;
     }
-  }, [contextMenu.vm, isConnected, startVM, stopVM, deleteVM, selectedVmId, closeContextMenu]);
+  }, [contextMenu.vm, isConnected, startVM, stopVM, closeContextMenu]);
+
+  // Handle delete confirmation from modal
+  const handleDeleteConfirm = async (options: {
+    deleteVolumes: boolean;
+    removeFromInventoryOnly: boolean;
+    force: boolean;
+  }) => {
+    const vm = deleteModalState.vm;
+    if (!vm || !isConnected) return;
+    
+    await deleteVM.mutateAsync({ 
+      id: vm.id,
+      force: options.force,
+      deleteVolumes: options.deleteVolumes,
+      removeFromInventoryOnly: options.removeFromInventoryOnly,
+    });
+    
+    if (selectedVmId === vm.id) {
+      setSelectedVmId(null);
+    }
+  };
 
   // Rename VM handler
   const handleRenameVM = async () => {
@@ -991,14 +1012,12 @@ export function VMFolderView() {
     await handleStop(true);
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this VM?')) return;
-    if (!isConnected || !selectedVmId) {
+  const handleDelete = () => {
+    if (!isConnected || !selectedVmId || !selectedVm) {
       showInfo('Not connected to backend');
       return;
     }
-    await deleteVM.mutateAsync({ id: selectedVmId });
-    setSelectedVmId(null);
+    setDeleteModalState({ isOpen: true, vm: selectedVm });
   };
 
   const handleSaveSettings = async (settings: { name: string; description: string; labels: Record<string, string> }) => {
@@ -2079,6 +2098,17 @@ export function VMFolderView() {
           </>
         )}
       </AnimatePresence>
+
+      {/* Delete VM Modal */}
+      <DeleteVMModal
+        isOpen={deleteModalState.isOpen}
+        onClose={() => setDeleteModalState({ isOpen: false, vm: null })}
+        vmId={deleteModalState.vm?.id || ''}
+        vmName={deleteModalState.vm?.name || ''}
+        vmState={deleteModalState.vm?.status.state || 'STOPPED'}
+        onDelete={handleDeleteConfirm}
+        isPending={deleteVM.isPending}
+      />
     </div>
   );
 }
