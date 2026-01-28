@@ -158,6 +158,9 @@ pub async fn run(config: Config) -> Result<()> {
     // Auto-detect storage pools (NFS mounts, local storage)
     service.init_storage_auto_detect().await;
     
+    // Start background agent connection manager for proactive agent connections
+    service.start_agent_connection_manager();
+    
     // Parse gRPC listen address
     let grpc_addr: std::net::SocketAddr = config.server.listen_address.parse()
         .map_err(|e| anyhow::anyhow!("Invalid gRPC listen address: {}", e))?;

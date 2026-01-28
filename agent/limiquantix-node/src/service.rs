@@ -171,6 +171,150 @@ impl NodeDaemonServiceImpl {
         tracing::info!("Storage auto-detection complete");
     }
     
+    /// Start the background agent connection manager.
+    /// 
+    /// This background task proactively maintains agent connections for running VMs:
+    /// 1. Periodically scans for running VMs that have agent sockets
+    /// 2. Attempts to establish connections to agents not yet connected
+    /// 3. Verifies existing connections are still alive
+    /// 4. Cleans up connections for stopped VMs
+    /// 
+    /// This improves agent responsiveness by maintaining connections ahead of requests.
+    pub fn start_agent_connection_manager(&self) {
+        let hypervisor = self.hypervisor.clone();
+        let agent_manager = self.agent_manager.clone();
+        let agent_cache = self.agent_cache.clone();
+        
+        tokio::spawn(async move {
+            // Configuration
+            const SCAN_INTERVAL_SECS: u64 = 30;
+            const CONNECTION_TIMEOUT_SECS: u64 = 10;
+            const PING_TIMEOUT_SECS: u64 = 5;
+            
+            let mut interval = tokio::time::interval(Duration::from_secs(SCAN_INTERVAL_SECS));
+            
+            info!("Background agent connection manager started (scan interval: {}s)", SCAN_INTERVAL_SECS);
+            
+            loop {
+                interval.tick().await;
+                
+                // Get list of all VMs
+                let vms = match hypervisor.list_vms().await {
+                    Ok(vms) => vms,
+                    Err(e) => {
+                        warn!(error = %e, "Agent connection manager: failed to list VMs");
+                        continue;
+                    }
+                };
+                
+                // Filter to running VMs
+                let running_vms: Vec<_> = vms.iter()
+                    .filter(|vm| vm.state == limiquantix_hypervisor::types::VmState::Running)
+                    .collect();
+                
+                debug!(
+                    total_vms = vms.len(),
+                    running_vms = running_vms.len(),
+                    "Agent connection manager: scanning VMs"
+                );
+                
+                // Get current connected agents
+                let connected_vm_ids: Vec<String> = {
+                    let agents = agent_manager.read().await;
+                    agents.keys().cloned().collect()
+                };
+                
+                // Clean up agents for VMs that are no longer running
+                for vm_id in &connected_vm_ids {
+                    if !running_vms.iter().any(|vm| &vm.id == vm_id) {
+                        debug!(vm_id = %vm_id, "Cleaning up agent connection for stopped VM");
+                        let mut agents = agent_manager.write().await;
+                        if let Some(mut client) = agents.remove(vm_id) {
+                            client.disconnect().await;
+                        }
+                        // Also clean up cache
+                        let mut cache = agent_cache.write().await;
+                        cache.remove(vm_id);
+                    }
+                }
+                
+                // Try to connect to agents for running VMs
+                for vm in &running_vms {
+                    let vm_id = &vm.id;
+                    
+                    // Check if already connected
+                    let is_connected = {
+                        let agents = agent_manager.read().await;
+                        if let Some(client) = agents.get(vm_id) {
+                            client.is_connected()
+                        } else {
+                            false
+                        }
+                    };
+                    
+                    if is_connected {
+                        // Already connected - verify connection is still alive with a ping
+                        let agents = agent_manager.read().await;
+                        if let Some(client) = agents.get(vm_id) {
+                            let ping_timeout = Duration::from_secs(PING_TIMEOUT_SECS);
+                            match client.ping_with_timeout(ping_timeout).await {
+                                Ok(pong) => {
+                                    // Update cache with latest info
+                                    drop(agents);
+                                    let mut cache = agent_cache.write().await;
+                                    if let Some(cached) = cache.get_mut(vm_id) {
+                                        cached.version = pong.version;
+                                        cached.last_seen = Some(std::time::Instant::now());
+                                    }
+                                }
+                                Err(e) => {
+                                    // Connection may be stale - will reconnect next cycle
+                                    debug!(vm_id = %vm_id, error = %e, "Agent ping failed, will retry");
+                                    drop(agents);
+                                    let mut agents = agent_manager.write().await;
+                                    if let Some(mut client) = agents.remove(vm_id) {
+                                        client.disconnect().await;
+                                    }
+                                }
+                            }
+                        }
+                        continue;
+                    }
+                    
+                    // Not connected - try to find socket and connect
+                    let socket_path = AgentClient::new(vm_id).socket_exists();
+                    if !socket_path {
+                        // No socket exists - agent not installed or VM doesn't have virtio-serial
+                        continue;
+                    }
+                    
+                    // Try to connect with timeout
+                    debug!(vm_id = %vm_id, "Attempting to connect to agent");
+                    let mut client = AgentClient::new(vm_id);
+                    
+                    let connect_result = tokio::time::timeout(
+                        Duration::from_secs(CONNECTION_TIMEOUT_SECS),
+                        client.connect()
+                    ).await;
+                    
+                    match connect_result {
+                        Ok(Ok(())) => {
+                            info!(vm_id = %vm_id, "Background connection to agent established");
+                            let mut agents = agent_manager.write().await;
+                            agents.insert(vm_id.clone(), client);
+                        }
+                        Ok(Err(e)) => {
+                            debug!(vm_id = %vm_id, error = %e, "Failed to connect to agent");
+                        }
+                        Err(_) => {
+                            debug!(vm_id = %vm_id, "Agent connection timed out");
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
     /// Get the storage manager (for heartbeat reporting).
     pub fn get_storage_manager(&self) -> Arc<StorageManager> {
         self.storage.clone()

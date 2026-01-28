@@ -63,7 +63,7 @@ mod unix_impl {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::UnixStream;
     use tokio::sync::oneshot;
-    use tracing::{debug, error, info};
+    use tracing::{debug, error, info, warn};
     use uuid::Uuid;
 
     /// Maximum message size (16 MB)
@@ -74,11 +74,14 @@ mod unix_impl {
         response_tx: oneshot::Sender<AgentMessage>,
     }
 
+    use tokio::io::{ReadHalf, WriteHalf};
+    
     /// Guest Agent Client for communicating with a specific VM's agent.
     pub struct AgentClient {
         vm_id: String,
         socket_path: PathBuf,
-        stream: Option<Arc<Mutex<UnixStream>>>,
+        /// Writer half of the stream - used for sending requests
+        writer: Option<Arc<Mutex<WriteHalf<UnixStream>>>>,
         pending: Arc<Mutex<HashMap<String, PendingRequest>>>,
         telemetry_tx: Option<mpsc::Sender<TelemetryReport>>,
     }
@@ -96,7 +99,7 @@ mod unix_impl {
             Self {
                 vm_id,
                 socket_path,
-                stream: None,
+                writer: None,
                 pending: Arc::new(Mutex::new(HashMap::new())),
                 telemetry_tx: None,
             }
@@ -169,7 +172,7 @@ mod unix_impl {
             Self {
                 vm_id: vm_id.into(),
                 socket_path,
-                stream: None,
+                writer: None,
                 pending: Arc::new(Mutex::new(HashMap::new())),
                 telemetry_tx: None,
             }
@@ -196,8 +199,16 @@ mod unix_impl {
             }
         }
 
-        /// Connect to the agent.
+        /// Connect to the agent with retry logic.
+        /// 
+        /// Uses exponential backoff to handle race conditions with virtio-serial sockets,
+        /// which can hang if the guest agent isn't ready yet.
         pub async fn connect(&mut self) -> Result<()> {
+            // Refresh socket path in case it changed
+            if !self.socket_exists() {
+                self.refresh_socket_path();
+            }
+            
             if !self.socket_exists() {
                 return Err(anyhow!(
                     "Agent socket not found: {}",
@@ -211,32 +222,109 @@ mod unix_impl {
                 "Connecting to guest agent"
             );
 
-            // Use a timeout for the connect operation since virtio-serial sockets
-            // can hang if the guest agent isn't running or responding
-            let connect_timeout = Duration::from_secs(5);
-            let stream = tokio::time::timeout(
-                connect_timeout,
-                UnixStream::connect(&self.socket_path)
-            )
-            .await
-            .with_context(|| format!("Timeout connecting to agent socket: {}", self.socket_path.display()))?
-            .with_context(|| {
-                format!(
-                    "Failed to connect to agent socket: {}",
-                    self.socket_path.display()
-                )
-            })?;
+            // Retry configuration for handling race conditions with virtio-serial
+            const MAX_RETRIES: u32 = 3;
+            const INITIAL_BACKOFF_MS: u64 = 500;
+            const CONNECT_TIMEOUT_SECS: u64 = 5;
+            
+            let mut last_error: Option<anyhow::Error> = None;
+            let mut backoff = Duration::from_millis(INITIAL_BACKOFF_MS);
+            let connect_timeout = Duration::from_secs(CONNECT_TIMEOUT_SECS);
 
-            let stream = Arc::new(Mutex::new(stream));
-            self.stream = Some(stream.clone());
+            for attempt in 0..MAX_RETRIES {
+                if attempt > 0 {
+                    debug!(
+                        vm_id = %self.vm_id,
+                        attempt = attempt + 1,
+                        max_retries = MAX_RETRIES,
+                        backoff_ms = backoff.as_millis(),
+                        "Retrying agent connection after backoff"
+                    );
+                    tokio::time::sleep(backoff).await;
+                    backoff *= 2; // Exponential backoff
+                    
+                    // Refresh socket path - it might have changed
+                    self.refresh_socket_path();
+                }
 
-            // Start the response handler
+                // Use a timeout for the connect operation since virtio-serial sockets
+                // can hang if the guest agent isn't running or responding
+                match tokio::time::timeout(
+                    connect_timeout,
+                    UnixStream::connect(&self.socket_path)
+                ).await {
+                    Ok(Ok(stream)) => {
+                        // Success! Proceed with the connection setup
+                        if attempt > 0 {
+                            info!(
+                                vm_id = %self.vm_id,
+                                attempt = attempt + 1,
+                                "Agent connection succeeded after retry"
+                            );
+                        }
+                        return self.setup_connection(stream).await;
+                    }
+                    Ok(Err(e)) => {
+                        // Connection failed (not timeout)
+                        let err_msg = format!("Failed to connect to agent socket: {}", e);
+                        warn!(
+                            vm_id = %self.vm_id,
+                            attempt = attempt + 1,
+                            error = %e,
+                            socket = %self.socket_path.display(),
+                            "Agent connection failed"
+                        );
+                        last_error = Some(anyhow!(err_msg).context(format!(
+                            "Socket: {}", self.socket_path.display()
+                        )));
+                    }
+                    Err(_timeout) => {
+                        // Timeout
+                        warn!(
+                            vm_id = %self.vm_id,
+                            attempt = attempt + 1,
+                            timeout_secs = CONNECT_TIMEOUT_SECS,
+                            socket = %self.socket_path.display(),
+                            "Agent connection timed out"
+                        );
+                        last_error = Some(anyhow!(
+                            "Timeout connecting to agent socket after {}s: {}",
+                            CONNECT_TIMEOUT_SECS,
+                            self.socket_path.display()
+                        ));
+                    }
+                }
+            }
+
+            // All retries exhausted
+            error!(
+                vm_id = %self.vm_id,
+                max_retries = MAX_RETRIES,
+                socket = %self.socket_path.display(),
+                "Failed to connect to agent after all retries"
+            );
+            
+            Err(last_error.unwrap_or_else(|| anyhow!(
+                "Failed to connect to agent socket: {}",
+                self.socket_path.display()
+            )))
+        }
+        
+        /// Internal helper to set up the connection after successfully connecting.
+        async fn setup_connection(&mut self, stream: UnixStream) -> Result<()> {
+            // Split the stream into read and write halves to avoid mutex contention
+            // The reader goes to the response_handler task, writer is kept for sending requests
+            let (reader, writer) = tokio::io::split(stream);
+            let writer = Arc::new(Mutex::new(writer));
+            self.writer = Some(writer.clone());
+
+            // Start the response handler with just the reader half
             let pending = self.pending.clone();
             let telemetry_tx = self.telemetry_tx.clone();
             let vm_id = self.vm_id.clone();
 
             tokio::spawn(async move {
-                if let Err(e) = response_handler(stream, pending, telemetry_tx, vm_id).await {
+                if let Err(e) = response_handler(reader, pending, telemetry_tx, vm_id).await {
                     error!(error = %e, "Response handler error");
                 }
             });
@@ -247,12 +335,12 @@ mod unix_impl {
 
         /// Disconnect from the agent.
         pub async fn disconnect(&mut self) {
-            self.stream = None;
+            self.writer = None;
         }
 
         /// Check if the agent is connected.
         pub fn is_connected(&self) -> bool {
-            self.stream.is_some()
+            self.writer.is_some()
         }
 
         /// Check if the agent is connected and responding.
@@ -554,12 +642,13 @@ mod unix_impl {
             request: AgentMessage,
             timeout: Duration,
         ) -> Result<AgentMessage> {
-            let stream = self
-                .stream
+            let writer = self
+                .writer
                 .as_ref()
                 .ok_or_else(|| anyhow!("Not connected to agent"))?;
 
             let message_id = request.message_id.clone();
+            debug!(vm_id = %self.vm_id, message_id = %message_id, "Sending request to agent");
 
             let (tx, rx) = oneshot::channel();
             {
@@ -567,17 +656,26 @@ mod unix_impl {
                 pending.insert(message_id.clone(), PendingRequest { response_tx: tx });
             }
 
+            // Write the request using only the writer half (no contention with reader)
             {
-                let mut stream = stream.lock().await;
-                write_message(&mut *stream, &request).await?;
+                let mut writer = writer.lock().await;
+                write_message(&mut *writer, &request).await?;
+                debug!(vm_id = %self.vm_id, message_id = %message_id, "Request sent, waiting for response");
             }
 
             match tokio::time::timeout(timeout, rx).await {
-                Ok(Ok(response)) => Ok(response),
-                Ok(Err(_)) => Err(anyhow!("Response channel closed")),
+                Ok(Ok(response)) => {
+                    debug!(vm_id = %self.vm_id, message_id = %message_id, "Response received");
+                    Ok(response)
+                }
+                Ok(Err(_)) => {
+                    error!(vm_id = %self.vm_id, message_id = %message_id, "Response channel closed");
+                    Err(anyhow!("Response channel closed"))
+                }
                 Err(_) => {
                     let mut pending = self.pending.lock().await;
                     pending.remove(&message_id);
+                    error!(vm_id = %self.vm_id, message_id = %message_id, timeout_secs = timeout.as_secs(), "Request timed out");
                     Err(anyhow!("Request timed out"))
                 }
             }
@@ -585,29 +683,31 @@ mod unix_impl {
     }
 
     /// Handle incoming responses from the agent.
+    /// Takes ownership of the reader half of the split stream.
     async fn response_handler(
-        stream: Arc<Mutex<UnixStream>>,
+        mut reader: ReadHalf<UnixStream>,
         pending: Arc<Mutex<HashMap<String, PendingRequest>>>,
         telemetry_tx: Option<mpsc::Sender<TelemetryReport>>,
         vm_id: String,
     ) -> Result<()> {
+        debug!(vm_id = %vm_id, "Response handler started");
+        
         loop {
-            let message = {
-                let mut stream = stream.lock().await;
-                match read_message::<AgentMessage>(&mut *stream).await {
-                    Ok(Some(msg)) => msg,
-                    Ok(None) => {
-                        info!(vm_id = %vm_id, "Agent connection closed");
-                        break;
-                    }
-                    Err(e) => {
-                        error!(vm_id = %vm_id, error = %e, "Failed to read message");
-                        break;
-                    }
+            // Read directly from the reader - no mutex needed since we own this half
+            let message = match read_message::<_, AgentMessage>(&mut reader).await {
+                Ok(Some(msg)) => msg,
+                Ok(None) => {
+                    info!(vm_id = %vm_id, "Agent connection closed");
+                    break;
+                }
+                Err(e) => {
+                    error!(vm_id = %vm_id, error = %e, "Failed to read message");
+                    break;
                 }
             };
 
             let message_id = message.message_id.clone();
+            debug!(vm_id = %vm_id, message_id = %message_id, "Received message from agent");
 
             match &message.payload {
                 Some(agent_message::Payload::Telemetry(report)) => {
@@ -635,25 +735,40 @@ mod unix_impl {
                     );
                     continue;
                 }
-                _ => {}
+                Some(agent_message::Payload::Pong(pong)) => {
+                    debug!(
+                        vm_id = %vm_id,
+                        message_id = %message_id,
+                        version = %pong.version,
+                        "Received pong response"
+                    );
+                }
+                _ => {
+                    debug!(vm_id = %vm_id, message_id = %message_id, "Received response message");
+                }
             }
 
+            // Route response to waiting request
             let pending_req = {
                 let mut pending = pending.lock().await;
                 pending.remove(&message_id)
             };
 
             if let Some(req) = pending_req {
+                debug!(vm_id = %vm_id, message_id = %message_id, "Routing response to pending request");
                 let _ = req.response_tx.send(message);
+            } else {
+                debug!(vm_id = %vm_id, message_id = %message_id, "No pending request for message");
             }
         }
 
         Ok(())
     }
 
-    /// Read a length-prefixed protobuf message.
-    async fn read_message<M>(reader: &mut UnixStream) -> Result<Option<M>>
+    /// Read a length-prefixed protobuf message from any async reader.
+    async fn read_message<R, M>(reader: &mut R) -> Result<Option<M>>
     where
+        R: AsyncReadExt + Unpin,
         M: Message + Default,
     {
         let mut len_buf = [0u8; 4];
@@ -684,9 +799,10 @@ mod unix_impl {
         Ok(Some(message))
     }
 
-    /// Write a length-prefixed protobuf message.
-    async fn write_message<M>(writer: &mut UnixStream, message: &M) -> Result<()>
+    /// Write a length-prefixed protobuf message to any async writer.
+    async fn write_message<W, M>(writer: &mut W, message: &M) -> Result<()>
     where
+        W: AsyncWriteExt + Unpin,
         M: Message,
     {
         let payload = message.encode_to_vec();

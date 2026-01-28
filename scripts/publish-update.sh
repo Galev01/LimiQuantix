@@ -569,7 +569,7 @@ for component in "${COMPONENTS[@]}"; do
             chmod 755 "$AGENT_STAGING/quantix-kvm-agent-linux-amd64"
             log_info "  Created: quantix-kvm-agent-linux-amd64"
             # Also create legacy symlink for backwards compatibility
-            ln -sf "quantix-kvm-agent-linux-amd64" "$AGENT_STAGING/limiquantix-agent-linux-amd64"
+            ln -sf "quantix-kvm-agent-linux-amd64" "$AGENT_STAGING/quantix-kvm-agent-linux-amd64"
             
             # 2. Create .deb package structure
             DEB_DIR="$AGENT_STAGING/deb-build"
@@ -581,11 +581,11 @@ for component in "${COMPONENTS[@]}"; do
             mkdir -p "$DEB_DIR/etc/limiquantix/post-thaw.d"
             mkdir -p "$DEB_DIR/var/log/limiquantix"
             
-            cp "$BINARY" "$DEB_DIR/usr/bin/limiquantix-agent"
-            chmod 755 "$DEB_DIR/usr/bin/limiquantix-agent"
+            cp "$BINARY" "$DEB_DIR/usr/bin/quantix-kvm-agent"
+            chmod 755 "$DEB_DIR/usr/bin/quantix-kvm-agent"
             
             # Systemd service file
-            cat > "$DEB_DIR/lib/systemd/system/limiquantix-agent.service" << 'SERVICEEOF'
+            cat > "$DEB_DIR/lib/systemd/system/quantix-kvm-agent.service" << 'SERVICEEOF'
 [Unit]
 Description=LimiQuantix Guest Agent
 After=network.target
@@ -593,7 +593,7 @@ Wants=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/limiquantix-agent
+ExecStart=/usr/bin/quantix-kvm-agent
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -653,8 +653,8 @@ CONTROLEOF
 #!/bin/bash
 set -e
 systemctl daemon-reload
-systemctl enable limiquantix-agent.service
-systemctl start limiquantix-agent.service || true
+systemctl enable quantix-kvm-agent.service
+systemctl start quantix-kvm-agent.service || true
 exit 0
 POSTINSTEOF
             chmod 755 "$DEB_DIR/DEBIAN/postinst"
@@ -664,8 +664,8 @@ POSTINSTEOF
 #!/bin/bash
 set -e
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
-    systemctl stop limiquantix-agent.service || true
-    systemctl disable limiquantix-agent.service || true
+    systemctl stop quantix-kvm-agent.service || true
+    systemctl disable quantix-kvm-agent.service || true
 fi
 exit 0
 PRERMEOF
@@ -747,18 +747,18 @@ case "$OS_ID" in
         ;;
     *)
         echo "[Quantix] Installing binary directly..."
-        curl -fsSL "$BASE_URL/api/v1/agent/linux/${ARCH}" -o /usr/local/bin/limiquantix-agent
-        chmod +x /usr/local/bin/limiquantix-agent
+        curl -fsSL "$BASE_URL/api/v1/agent/linux/${ARCH}" -o /usr/local/bin/quantix-kvm-agent
+        chmod +x /usr/local/bin/quantix-kvm-agent
         
         # Create systemd service
-        cat > /etc/systemd/system/limiquantix-agent.service << 'SVCEOF'
+        cat > /etc/systemd/system/quantix-kvm-agent.service << 'SVCEOF'
 [Unit]
 Description=LimiQuantix Guest Agent
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/limiquantix-agent
+ExecStart=/usr/local/bin/quantix-kvm-agent
 Restart=always
 RestartSec=5
 
@@ -767,13 +767,13 @@ WantedBy=multi-user.target
 SVCEOF
         
         systemctl daemon-reload
-        systemctl enable limiquantix-agent
-        systemctl start limiquantix-agent
+        systemctl enable quantix-kvm-agent
+        systemctl start quantix-kvm-agent
         ;;
 esac
 
 echo "[Quantix] Guest Agent installed successfully!"
-systemctl status limiquantix-agent --no-pager || true
+systemctl status quantix-kvm-agent --no-pager || true
 INSTALLEOF
             chmod +x "$AGENT_STAGING/install.sh"
             log_info "  Created: install.sh"
@@ -960,7 +960,7 @@ fi
 # Remove any local staging artifacts
 rm -rf "$PROJECT_ROOT/agent/target/release/limiquantix-node" 2>/dev/null || true
 rm -rf "$PROJECT_ROOT/agent/target/release/quantix-kvm-agent" 2>/dev/null || true
-rm -rf "$PROJECT_ROOT/agent/target/release/limiquantix-agent" 2>/dev/null || true  # Legacy
+rm -rf "$PROJECT_ROOT/agent/target/release/quantix-kvm-agent" 2>/dev/null || true
 rm -rf "$PROJECT_ROOT/agent/target/packages" 2>/dev/null || true
 
 # Cleanup staging directory

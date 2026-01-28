@@ -457,3 +457,50 @@ Added a new "Logs" tab to the VM detail page that displays QEMU/libvirt logs for
 - `frontend/src/pages/VMDetail.tsx`
 - `quantix-host-ui/src/components/vm/VMLogsPanel.tsx`
 - `quantix-host-ui/src/pages/VMDetail.tsx`
+
+---
+
+## Guest Agent Communication Fixes ✅
+
+**Completed:** January 29, 2026
+
+### Summary
+Fixed 5 interconnected guest agent communication issues to improve reliability of host-guest communication via virtio-serial.
+
+### What Was Done
+
+#### Part 1: Host-Side Connection Retry Logic
+- Added exponential backoff retry (3 retries, 500ms → 1s → 2s) to `AgentClient::connect()`
+- Refreshes socket path on each retry to handle libvirt socket path changes
+- Improved error logging with attempt tracking
+
+#### Part 2: Guest-Side Write Timeout
+- Added 5-second write timeout to prevent indefinite blocking in telemetry_loop
+- Tracks consecutive failures with backoff after 5+ failures
+- Improves recovery from stale connections
+
+#### Part 3: Update Agent Route Debugging
+- Added debug logging to `VMRestHandler.ServeHTTP()` in Go backend
+- Logs request path, parts, method for route matching diagnosis
+
+#### Part 4: Implement Agent Update Endpoint
+- Replaced stub with full implementation in `update_quantix_agent()`
+- Downloads latest agent binary from update server
+- Transfers via Quantix Agent's `write_file` capability
+- Executes upgrade script via `execute` capability
+- Verifies new version after restart
+
+#### Part 5: Background Agent Connection Manager
+- Added `start_agent_connection_manager()` background task
+- Scans running VMs every 30 seconds
+- Proactively establishes/maintains agent connections
+- Cleans up connections for stopped VMs
+- Verifies existing connections with periodic pings
+
+### References
+- `agent/limiquantix-node/src/agent_client.rs` - Retry logic
+- `agent/limiquantix-node/src/http_server.rs` - Update endpoint
+- `agent/limiquantix-node/src/service.rs` - Background connection manager
+- `agent/limiquantix-node/src/server.rs` - Start connection manager
+- `agent/limiquantix-guest-agent/src/main.rs` - Write timeout
+- `backend/internal/server/vm_rest.go` - Debug logging

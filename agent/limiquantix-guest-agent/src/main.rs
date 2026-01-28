@@ -313,7 +313,12 @@ async fn send_agent_ready<W: AsyncWriteExt + Unpin>(
     Ok(())
 }
 
-/// Telemetry reporting loop
+/// Telemetry reporting loop with write timeout and error tracking.
+/// 
+/// Handles write failures gracefully by:
+/// 1. Using a timeout to prevent indefinite blocking on writes
+/// 2. Tracking consecutive failures to detect connection issues
+/// 3. Logging detailed error information for debugging
 async fn telemetry_loop<W: AsyncWriteExt + Unpin>(
     collector: TelemetryCollector,
     writer: Arc<Mutex<W>>,
@@ -324,10 +329,27 @@ async fn telemetry_loop<W: AsyncWriteExt + Unpin>(
     use prost_types::Timestamp;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    // Configuration for write timeout and error handling
+    const WRITE_TIMEOUT_SECS: u64 = 5;
+    const MAX_CONSECUTIVE_FAILURES: u32 = 5;
+    const FAILURE_BACKOFF_SECS: u64 = 2;
+    
     let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
+    let mut consecutive_failures: u32 = 0;
 
     loop {
         interval.tick().await;
+
+        // If we've had too many consecutive failures, add extra backoff
+        // This prevents flooding logs and gives the host time to recover
+        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
+            warn!(
+                consecutive_failures = consecutive_failures,
+                backoff_secs = FAILURE_BACKOFF_SECS,
+                "Telemetry write failures exceeded threshold, backing off"
+            );
+            tokio::time::sleep(Duration::from_secs(FAILURE_BACKOFF_SECS)).await;
+        }
 
         // Collect telemetry
         let report = collector.collect();
@@ -345,14 +367,40 @@ async fn telemetry_loop<W: AsyncWriteExt + Unpin>(
             payload: Some(agent_message::Payload::Telemetry(report)),
         };
 
-        // Send telemetry report
+        // Send telemetry report with timeout
         let mut guard = writer.lock().await;
-        match write_message(&mut *guard, &message).await {
-            Ok(()) => {
+        let write_timeout = Duration::from_secs(WRITE_TIMEOUT_SECS);
+        
+        match tokio::time::timeout(write_timeout, write_message(&mut *guard, &message)).await {
+            Ok(Ok(())) => {
+                // Success
+                if consecutive_failures > 0 {
+                    info!(
+                        previous_failures = consecutive_failures,
+                        "Telemetry write recovered after failures"
+                    );
+                }
+                consecutive_failures = 0;
                 health.record_telemetry_success();
             }
-            Err(e) => {
-                warn!(error = %e, "Failed to send telemetry report");
+            Ok(Err(e)) => {
+                // Write failed (not timeout)
+                consecutive_failures += 1;
+                warn!(
+                    error = %e,
+                    consecutive_failures = consecutive_failures,
+                    "Failed to send telemetry report"
+                );
+                health.record_error();
+            }
+            Err(_timeout) => {
+                // Write timed out - virtio-serial buffer may be full
+                consecutive_failures += 1;
+                warn!(
+                    timeout_secs = WRITE_TIMEOUT_SECS,
+                    consecutive_failures = consecutive_failures,
+                    "Telemetry write timed out - host may not be reading"
+                );
                 health.record_error();
             }
         }

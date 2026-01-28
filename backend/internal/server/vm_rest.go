@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap"
 
 	"connectrpc.com/connect"
-	computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
 	vmservice "github.com/limiquantix/limiquantix/internal/services/vm"
+	computev1 "github.com/limiquantix/limiquantix/pkg/api/limiquantix/compute/v1"
 )
 
 // VMRestHandler provides REST API endpoints for VM operations.
@@ -55,6 +55,15 @@ func (h *VMRestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/vms/")
 	parts := strings.Split(path, "/")
 
+	// Debug logging for route matching
+	h.logger.Debug("VM REST request received",
+		zap.String("method", r.Method),
+		zap.String("path", r.URL.Path),
+		zap.String("trimmed_path", path),
+		zap.Int("parts_count", len(parts)),
+		zap.Strings("parts", parts),
+	)
+
 	if len(parts) < 2 {
 		h.writeError(w, http.StatusBadRequest, "invalid_path", "Expected /api/vms/{id}/{action}")
 		return
@@ -67,6 +76,13 @@ func (h *VMRestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, http.StatusBadRequest, "missing_vm_id", "VM ID is required")
 		return
 	}
+
+	// Debug logging for action routing
+	h.logger.Debug("Routing VM action",
+		zap.String("vm_id", vmID),
+		zap.String("action", action),
+		zap.Int("total_parts", len(parts)),
+	)
 
 	// Route file transfer requests to the file transfer handler
 	if action == "files" {
