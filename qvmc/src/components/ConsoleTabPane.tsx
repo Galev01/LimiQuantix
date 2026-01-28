@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { DebugPanel } from './DebugPanel';
 import { vncLog } from '../lib/debug-logger';
+import RenderWorker from '../workers/render.worker?worker';
 
 interface ConsoleTabPaneProps {
   connectionId: string;
@@ -67,6 +68,20 @@ export function ConsoleTabPane({
   const [connectionState, setConnectionStateRaw] = useState<ConnectionState>('connecting');
   const connectionStateRef = useRef<ConnectionState>('connecting');
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
+  const workerRef = useRef<Worker | null>(null);
+
+  // Initialize worker
+  useEffect(() => {
+    const worker = new RenderWorker();
+    workerRef.current = worker;
+
+    return () => {
+      // Don't terminate immediately on unmount/remount in strict mode dev?
+      // Actually strictly we should.
+      worker.terminate();
+      workerRef.current = null;
+    };
+  }, []);
 
   const setConnectionState = useCallback(
     (newState: ConnectionState) => {
@@ -317,24 +332,45 @@ export function ConsoleTabPane({
     };
   }, [calculateScale]);
 
-  const initializeCanvas = useCallback((width: number, height: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas || width <= 0 || height <= 0) return;
 
-    if (canvas.width === width && canvas.height === height) {
-      return;
-    }
 
-    vncLog.info(`Initializing canvas: ${width}x${height}`);
-    canvas.width = width;
-    canvas.height = height;
+  // Real initialization logic with Transferable
+  const canvasTransferred = useRef(false);
 
-    if (!hasReceivedInitialFrame.current) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, width, height);
+  const initWorkerCanvas = useCallback((width: number, height: number) => {
+    if (!canvasRef.current || !workerRef.current) return;
+
+    // If not yet transferred, do it now
+    if (!canvasTransferred.current) {
+      try {
+        const offscreen = canvasRef.current.transferControlToOffscreen();
+        // Set initial size on the offscreen canvas is not directly possible via main thread *after* transfer
+        // We set it on the element *before* transfer or rely on worker
+        // Actually, for OffscreenCanvas, width/height are properties of the object
+        // But we can't touch the DOM node's width/height for layout the same way? 
+        // The DOM <canvas> acts as a placeholder.
+
+        // Set logical size on the placeholder (which scales the layout)
+        // Wait, transferControlToOffscreen detaches the context. We can still style the element.
+
+        offscreen.width = width;
+        offscreen.height = height;
+
+        workerRef.current.postMessage({
+          type: 'init',
+          payload: { canvas: offscreen }
+        }, [offscreen]);
+
+        canvasTransferred.current = true;
+      } catch (e) {
+        console.error("Failed to transfer control to offscreen", e);
       }
+    } else {
+      // Just resize
+      workerRef.current.postMessage({
+        type: 'resize',
+        payload: { width, height }
+      });
     }
 
     setResolution({ width, height });
@@ -372,7 +408,7 @@ export function ConsoleTabPane({
             setConnectionState('connected');
           }
           if (!hasReceivedInitialFrame.current && info.width > 0 && info.height > 0) {
-            initializeCanvas(info.width, info.height);
+            initWorkerCanvas(info.width, info.height);
           }
         }
       } catch (e) {
@@ -382,80 +418,55 @@ export function ConsoleTabPane({
 
     const timer = setTimeout(fetchConnectionInfo, 200);
     return () => clearTimeout(timer);
-  }, [connectionId, initializeCanvas, setConnectionState, vmId, vmName, controlPlaneUrl]);
+  }, [connectionId, initWorkerCanvas, setConnectionState, vmId, vmName, controlPlaneUrl]);
 
   // Handle framebuffer updates
   useEffect(() => {
     const unlistenFb = listen<FramebufferUpdate>('vnc:framebuffer', (event) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
       const update = event.payload;
 
       if (connectionStateRef.current !== 'connected') {
         setConnectionState('connected');
       }
 
-      if (!update.data || !Array.isArray(update.data)) {
-        return;
-      }
-
-      // Calculate the required canvas size from this update
       const requiredWidth = update.x + update.width;
       const requiredHeight = update.y + update.height;
 
-      // If canvas is not sized yet OR needs to grow to fit this update
-      if (canvas.width === 0 || canvas.height === 0) {
-        // First update - initialize canvas
-        // Use the update dimensions directly if it's a full-screen update at (0,0)
-        // Otherwise, use the extent (x + width, y + height) as minimum size
-        const newWidth = update.x === 0 ? update.width : requiredWidth;
-        const newHeight = update.y === 0 ? update.height : requiredHeight;
+      // We need to know current resolution to decide on resize
+      // But resolution state might be stale in closure? 
+      // Use functional state or refs if strict.
+      // Simply forward to worker, let worker decide/handle?
+      // But we need to update Main Thread 'resolution' state for UI status bar.
 
-        if (newWidth > 0 && newHeight > 0) {
-          vncLog.info(`Initializing canvas from FB update: ${newWidth}x${newHeight} (update at ${update.x},${update.y} size ${update.width}x${update.height})`);
-          canvas.width = newWidth;
-          canvas.height = newHeight;
-          setResolution({ width: newWidth, height: newHeight });
-        } else {
-          return;
+      // Simplification: Always update resolution state if we "think" it grew
+      // But exact logic is tricky without source of truth from worker.
+      // Worker can postMessage back? 'resize-performed'
+
+      if (workerRef.current) {
+        // If this is the FIRST frame (implicit init), we might need to init worker?
+        // BUT sending 'framebuffer' message is safe, worker handles it.
+        // Problem: If canvas isn't transferred yet, worker ignores it.
+
+        // Heuristic: If we haven't transferred, do it now with inferred size
+        if (!canvasTransferred.current) {
+          const newWidth = update.x === 0 ? update.width : requiredWidth;
+          const newHeight = update.y === 0 ? update.height : requiredHeight;
+          initWorkerCanvas(newWidth, newHeight);
         }
-      } else if (requiredWidth > canvas.width || requiredHeight > canvas.height) {
-        // Canvas needs to grow - this can happen if VNC server resizes
-        const newWidth = Math.max(canvas.width, requiredWidth);
-        const newHeight = Math.max(canvas.height, requiredHeight);
 
-        vncLog.info(`Expanding canvas: ${canvas.width}x${canvas.height} -> ${newWidth}x${newHeight}`);
-
-        // Save current content
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-        // Resize canvas
-        canvas.width = newWidth;
-        canvas.height = newHeight;
-
-        // Restore content
-        ctx.putImageData(imageData, 0, 0);
-
-        setResolution({ width: newWidth, height: newHeight });
+        workerRef.current.postMessage({
+          type: 'framebuffer',
+          payload: update
+        });
       }
 
-      const imageData = ctx.createImageData(update.width, update.height);
-      const dataLength = Math.min(update.data.length, imageData.data.length);
-      for (let i = 0; i < dataLength; i++) {
-        imageData.data[i] = update.data[i];
-      }
-
-      ctx.putImageData(imageData, update.x, update.y);
       hasReceivedInitialFrame.current = true;
     });
 
     const unlistenDisconnect = listen<string>('vnc:disconnected', (event) => {
       if (event.payload === connectionId) {
         setConnectionState('disconnected');
+        // Do we reset worker? No, reuse it.
       }
     });
 
@@ -470,18 +481,13 @@ export function ConsoleTabPane({
         }
 
         setConnectionState('connected');
-        initializeCanvas(newWidth, newHeight);
+        initWorkerCanvas(newWidth, newHeight);
       }
     );
 
     const unlistenResize = listen<{ width: number; height: number }>('vnc:desktop-resize', (event) => {
-      setResolution({ width: event.payload.width, height: event.payload.height });
-      const canvas = canvasRef.current;
-      if (canvas) {
-        canvas.width = event.payload.width;
-        canvas.height = event.payload.height;
-      }
-      calculateScale();
+      initWorkerCanvas(event.payload.width, event.payload.height);
+      // calculateScale will trigger via resolution dependency
     });
 
     return () => {
@@ -490,7 +496,8 @@ export function ConsoleTabPane({
       unlistenConnect.then((fn) => fn());
       unlistenResize.then((fn) => fn());
     };
-  }, [connectionId, calculateScale, showToast, initializeCanvas, setConnectionState]);
+  }, [connectionId, showToast, initWorkerCanvas, setConnectionState]); // Removed initializeCanvas dependency
+
 
   const handleReconnect = useCallback(async () => {
     setConnectionState('reconnecting');

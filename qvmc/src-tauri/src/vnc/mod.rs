@@ -176,23 +176,21 @@ pub async fn connect_vnc(
                     match updates_result {
                         Ok(updates) => {
                             if !updates.is_empty() {
-                                // Calculate non-zero pixels for first update
-                                let non_zero = updates[0].data.iter().filter(|&&b| b != 0).count();
+                            if !updates.is_empty() {
                                 info!(
-                                    "Received {} framebuffer updates, first: {}x{} at ({},{}), {} bytes, {} non-zero bytes",
+                                    "Received {} framebuffer updates, first: {}x{} at ({},{}), {} bytes (Base64)",
                                     updates.len(),
                                     updates[0].width,
                                     updates[0].height,
                                     updates[0].x,
                                     updates[0].y,
-                                    updates[0].data.len(),
-                                    non_zero
+                                    updates[0].data.len()
                                 );
                                 
-                                // Log first few bytes for debugging
+                                // Log first few chars for debugging
                                 if updates[0].data.len() >= 16 {
                                     info!(
-                                        "First 16 bytes: {:?}",
+                                        "First 16 chars: {}",
                                         &updates[0].data[0..16]
                                     );
                                 }

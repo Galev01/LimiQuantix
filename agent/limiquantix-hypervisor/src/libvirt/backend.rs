@@ -296,11 +296,102 @@ impl Hypervisor for LibvirtBackend {
             ));
         }
         
+        // Get disk paths from XML BEFORE undefining the domain
+        let xml = domain.get_xml_desc(0)
+            .map_err(|e| HypervisorError::Internal(e.to_string()))?;
+        let disks = parse_disks_from_xml(&xml);
+        
+        // Collect unique parent directories (VM folders) to clean up
+        let mut vm_folders: std::collections::HashSet<std::path::PathBuf> = std::collections::HashSet::new();
+        
+        // Delete disk files and collect their parent folders
+        for disk in &disks {
+            let disk_path = std::path::Path::new(&disk.path);
+            
+            if disk_path.exists() {
+                info!(
+                    vm_id = %vm_id,
+                    disk_path = %disk.path,
+                    "Deleting VM disk file"
+                );
+                
+                if let Err(e) = std::fs::remove_file(disk_path) {
+                    warn!(
+                        vm_id = %vm_id,
+                        disk_path = %disk.path,
+                        error = %e,
+                        "Failed to delete disk file"
+                    );
+                }
+            }
+            
+            // Collect the parent directory (VM folder)
+            if let Some(parent) = disk_path.parent() {
+                // Only consider folders that look like VM folders (under a "vms" directory)
+                // Pattern: .../vms/{VM_NAME}_{UUID_SHORT}/
+                if let Some(grandparent) = parent.parent() {
+                    if grandparent.file_name().map(|n| n == "vms").unwrap_or(false) {
+                        vm_folders.insert(parent.to_path_buf());
+                    }
+                }
+            }
+        }
+        
         // Undefine the domain
         domain.undefine()
             .map_err(|e| HypervisorError::DeleteFailed(
                 e.to_string()
             ))?;
+        
+        // Clean up empty VM folders
+        for folder in vm_folders {
+            if folder.exists() {
+                // Check if folder is empty or only contains files we expect (like cloud-init ISOs)
+                let is_empty_or_cleanable = match std::fs::read_dir(&folder) {
+                    Ok(entries) => {
+                        let remaining: Vec<_> = entries
+                            .filter_map(|e| e.ok())
+                            .collect();
+                        
+                        if remaining.is_empty() {
+                            true
+                        } else {
+                            // Check if only cloud-init or other auto-generated files remain
+                            remaining.iter().all(|entry| {
+                                let name = entry.file_name().to_string_lossy().to_string();
+                                name.ends_with("-cloudinit.iso") || 
+                                name.ends_with(".nvram") ||
+                                name.ends_with(".log")
+                            })
+                        }
+                    }
+                    Err(_) => false,
+                };
+                
+                if is_empty_or_cleanable {
+                    info!(
+                        vm_id = %vm_id,
+                        folder = %folder.display(),
+                        "Deleting VM folder"
+                    );
+                    
+                    if let Err(e) = std::fs::remove_dir_all(&folder) {
+                        warn!(
+                            vm_id = %vm_id,
+                            folder = %folder.display(),
+                            error = %e,
+                            "Failed to delete VM folder"
+                        );
+                    }
+                } else {
+                    debug!(
+                        vm_id = %vm_id,
+                        folder = %folder.display(),
+                        "VM folder not empty, skipping deletion"
+                    );
+                }
+            }
+        }
         
         info!("VM deleted");
         Ok(())

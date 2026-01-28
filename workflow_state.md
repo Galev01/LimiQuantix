@@ -1,99 +1,47 @@
-# Workflow State - Agent Renaming
+# Workflow State - VM Deletion Storage Cleanup
 
-## Status: ✅ COMPLETE (January 27, 2026)
+## Status: ✅ COMPLETE (January 28, 2026)
 
-Renamed guest agent from `limiquantix-agent` to `quantix-kvm-agent` across the entire codebase.
-
----
-
-## Completed: Agent Renaming (`limiquantix-agent` → `quantix-kvm-agent`)
-
-### Changes Summary
-
-**Binary Name:**
-- Old: `limiquantix-agent`
-- New: `quantix-kvm-agent`
-
-**Config Paths (Guest Agent):**
-- Old: `/etc/limiquantix/agent.yaml`
-- New: `/etc/quantix-kvm/agent.yaml`
-
-**Log Paths (Guest Agent):**
-- Old: `/var/log/limiquantix/`
-- New: `/var/log/quantix-kvm/`
-
-**Service Name:**
-- Old: `limiquantix-agent.service`
-- New: `quantix-kvm-agent.service`
-
-**Socket Paths (Hypervisor):**
-- Old: `/var/run/limiquantix/vms/{vm_id}.agent.sock`
-- New: `/var/run/quantix-kvm/vms/{vm_id}.agent.sock`
-
-**Virtio-Serial Port:**
-- Old: `org.limiquantix.agent.0`
-- New: `org.quantix.agent.0`
+Fixed VM deletion to properly clean up the VM folder from datastores (NFS, local, etc.)
 
 ---
 
-### Files Modified
+## Problem
 
-| Category | Files |
-|----------|-------|
-| **Rust Guest Agent** | `Cargo.toml`, `config.rs`, `systemd service file` |
-| **Rust Node Daemon** | `http_server.rs`, `agent_client.rs` |
-| **Rust Hypervisor** | `xml.rs` (socket path only) |
-| **Go Backend** | `agent_download.go` |
-| **Go Update Server** | `main.go` |
-| **Frontend (QvDC)** | `VMCreationWizard.tsx` |
-| **Frontend (QHCI)** | `CreateVMWizard.tsx` |
-| **Packaging - Debian** | `postinst`, `prerm`, `rules` |
-| **Packaging - RPM** | Created new `quantix-kvm-agent.spec` |
-| **Packaging - Windows** | `setup.iss`, `main.wxs`, `build-msi.ps1`, `config.yaml.template` |
-| **Packaging - Cloud-Init** | `install-agent.yaml` |
-| **Packaging - ISO** | `install.sh`, build scripts |
-| **Build Scripts** | `build-agent-iso.sh` |
-| **CI/CD** | `.github/workflows/guest-agent.yml` |
-| **Docker** | `Dockerfile.guest-agent` |
-| **Documentation** | `README.md` in guest-agent, `agent.yaml` config |
+When deleting a VM:
+1. The VM disks are stored in `{storage_pool}/vms/{VM_NAME}_{UUID_SHORT}/` folders
+2. During deletion, the code only tried to delete `/var/lib/limiquantix/vms/{vm_id}` which doesn't match
+3. The disk files may be deleted but the parent folder remains empty on the datastore
 
----
+## Solution
 
-### Key Path Mappings
+Enhanced `delete_vm` in the hypervisor backend to:
+1. Get disk paths from VM XML BEFORE undefining the domain
+2. Delete each disk file
+3. Collect and delete parent VM folders (if they're under a `vms/` directory and are empty or only contain auto-generated files like cloud-init ISOs)
+4. Then undefine the domain
 
-| Component | Old Path | New Path |
-|-----------|----------|----------|
-| Binary | `/usr/local/bin/limiquantix-agent` | `/usr/local/bin/quantix-kvm-agent` |
-| Config (Linux) | `/etc/limiquantix/agent.yaml` | `/etc/quantix-kvm/agent.yaml` |
-| Config (Windows) | `C:\ProgramData\LimiQuantix\` | `C:\ProgramData\Quantix-KVM\` |
-| Logs (Linux) | `/var/log/limiquantix/` | `/var/log/quantix-kvm/` |
-| Logs (Windows) | `C:\ProgramData\LimiQuantix\Logs\` | `C:\ProgramData\Quantix-KVM\Logs\` |
-| Pre-freeze hooks | `/etc/limiquantix/pre-freeze.d/` | `/etc/quantix-kvm/pre-freeze.d/` |
-| Post-thaw hooks | `/etc/limiquantix/post-thaw.d/` | `/etc/quantix-kvm/post-thaw.d/` |
-| VM sockets | `/var/run/limiquantix/vms/` | `/var/run/quantix-kvm/vms/` |
+## Files Modified
+
+| File | Change |
+|------|--------|
+| `agent/limiquantix-hypervisor/src/libvirt/backend.rs` | Enhanced `delete_vm` to clean up disk files and VM folders |
+| `agent/limiquantix-node/src/service.rs` | Updated comments, kept legacy path cleanup for backwards compatibility |
 
 ---
 
-### Node Daemon Paths (Unchanged)
+## Implementation Details
 
-The node daemon running on Quantix-OS hosts keeps its existing paths:
-- `/etc/limiquantix/node.yaml`
-- `/var/log/limiquantix/node.log`
-- `/etc/limiquantix/certs/`
+The new `delete_vm` logic:
 
-These are host-side paths, not guest agent paths.
-
----
-
-### Breaking Change
-
-The virtio-serial port name changed from `org.limiquantix.agent.0` to `org.quantix.agent.0`. Existing VMs will need to be recreated for the agent to connect.
-
----
-
-## Previous Work: Agent Tools ISO Implementation
-
-The ISO-based agent installation created in the previous session now uses the new `quantix-kvm-agent` name throughout.
+1. **Before undefining**: Parse the VM XML to get all disk paths
+2. **Delete disk files**: Remove each disk file (qcow2, raw, etc.)
+3. **Identify VM folders**: Collect parent directories that match the pattern `.../vms/{folder}/`
+4. **Clean up folders**: Delete VM folders if they are:
+   - Empty, OR
+   - Only contain auto-generated files (cloud-init ISOs, NVRAM files, logs)
+5. **Undefine domain**: Remove the VM from libvirt
+6. **Legacy cleanup**: The service layer still checks `/var/lib/limiquantix/vms/{vm_id}` for backwards compatibility
 
 ---
 

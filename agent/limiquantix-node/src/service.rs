@@ -109,7 +109,6 @@ impl NodeDaemonServiceImpl {
         // Ensure runtime directories exist on startup
         // These directories are in /var/run which is typically a tmpfs and cleared on reboot
         let runtime_dirs = [
-            "/var/run/limiquantix",
             "/var/run/quantix-kvm/vms",
         ];
         
@@ -1518,10 +1517,103 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 has_bootable_cdrom = true;
             }
             
+            // Resolve ISO path - convert relative paths to absolute
+            let resolved_iso_path = if cdrom_spec.iso_path.is_empty() {
+                None
+            } else {
+                let path = std::path::Path::new(&cdrom_spec.iso_path);
+                if path.is_absolute() {
+                    // Already absolute, use as-is
+                    Some(cdrom_spec.iso_path.clone())
+                } else {
+                    // Relative path - search in storage pools and common ISO locations
+                    let mut search_paths: Vec<String> = Vec::new();
+                    
+                    // Add all storage pool mount paths (including NFS)
+                    let pools = self.storage.list_pools().await;
+                    for pool in &pools {
+                        if let Some(ref mount_path) = pool.mount_path {
+                            search_paths.push(mount_path.clone());
+                        }
+                    }
+                    
+                    // Add common local paths as fallback
+                    search_paths.extend([
+                        "/data".to_string(),
+                        "/data/isos".to_string(),
+                        "/data/images".to_string(),
+                        "/data/pools".to_string(),
+                        "/var/lib/limiquantix/images".to_string(),
+                        "/var/lib/limiquantix/mnt".to_string(),
+                        "/mnt/storage".to_string(),
+                    ]);
+                    
+                    debug!(
+                        iso_path = %cdrom_spec.iso_path,
+                        search_paths = ?search_paths,
+                        "Searching for ISO in storage pools and common paths"
+                    );
+                    
+                    let mut found_path: Option<String> = None;
+                    
+                    // First, try the path as given under each search directory
+                    for base in &search_paths {
+                        let full_path = std::path::Path::new(base).join(&cdrom_spec.iso_path);
+                        if full_path.exists() {
+                            found_path = Some(full_path.to_string_lossy().to_string());
+                            break;
+                        }
+                    }
+                    
+                    // If not found, try just the filename in iso subdirectories
+                    if found_path.is_none() {
+                        if let Some(filename) = path.file_name() {
+                            for base in &search_paths {
+                                // Try direct in the base path
+                                let full_path = std::path::Path::new(base).join(filename);
+                                if full_path.exists() {
+                                    found_path = Some(full_path.to_string_lossy().to_string());
+                                    break;
+                                }
+                                // Try in iso subdirectory
+                                let iso_subdir = std::path::Path::new(base).join("iso").join(filename);
+                                if iso_subdir.exists() {
+                                    found_path = Some(iso_subdir.to_string_lossy().to_string());
+                                    break;
+                                }
+                                // Try in isos subdirectory (plural)
+                                let isos_subdir = std::path::Path::new(base).join("isos").join(filename);
+                                if isos_subdir.exists() {
+                                    found_path = Some(isos_subdir.to_string_lossy().to_string());
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if let Some(ref p) = found_path {
+                        info!(
+                            original_path = %cdrom_spec.iso_path,
+                            resolved_path = %p,
+                            "Resolved relative ISO path"
+                        );
+                    } else {
+                        warn!(
+                            iso_path = %cdrom_spec.iso_path,
+                            search_paths = ?search_paths,
+                            "Could not resolve ISO path - file may not exist in any storage pool"
+                        );
+                    }
+                    
+                    found_path.or_else(|| Some(cdrom_spec.iso_path.clone()))
+                }
+            };
+            
             info!(
                 vm_id = %vm_uuid,
                 cdrom_id = %cdrom_spec.id,
-                iso_path = %cdrom_spec.iso_path,
+                original_iso_path = %cdrom_spec.iso_path,
+                resolved_iso_path = ?resolved_iso_path,
                 bootable = cdrom_spec.bootable,
                 "Processing CD-ROM spec"
             );
@@ -1532,11 +1624,7 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
                 } else { 
                     cdrom_spec.id 
                 },
-                iso_path: if cdrom_spec.iso_path.is_empty() { 
-                    None 
-                } else { 
-                    Some(cdrom_spec.iso_path) 
-                },
+                iso_path: resolved_iso_path,
                 bootable: cdrom_spec.bootable,
             });
         }
@@ -1721,15 +1809,18 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         let vm_id = &request.into_inner().vm_id;
         
-        // Delete from hypervisor
+        // Delete from hypervisor (this also cleans up disk files and VM folders on datastores)
         self.hypervisor.delete_vm(vm_id).await
             .map_err(|e| Status::internal(e.to_string()))?;
         
-        // Delete disk images (best effort)
-        let vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(vm_id);
-        if vm_dir.exists() {
-            if let Err(e) = std::fs::remove_dir_all(&vm_dir) {
-                warn!(vm_id = %vm_id, error = %e, "Failed to delete VM disk images");
+        // Legacy cleanup: Also check the old default VM directory (for backwards compatibility)
+        // New VMs are stored in datastore paths like /var/lib/limiquantix/mnt/nfs-{pool}/vms/{name}_{uuid}/
+        // but older VMs might still be in /var/lib/limiquantix/vms/{vm_id}/
+        let legacy_vm_dir = std::path::PathBuf::from("/var/lib/limiquantix/vms").join(vm_id);
+        if legacy_vm_dir.exists() {
+            info!(vm_id = %vm_id, path = %legacy_vm_dir.display(), "Cleaning up legacy VM directory");
+            if let Err(e) = std::fs::remove_dir_all(&legacy_vm_dir) {
+                warn!(vm_id = %vm_id, error = %e, "Failed to delete legacy VM directory");
             }
         }
         

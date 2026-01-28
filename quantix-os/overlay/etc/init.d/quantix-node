@@ -33,6 +33,9 @@ start_pre() {
     # Ensure libvirt runtime directory exists
     mkdir -p /var/run/libvirt
     
+    # Ensure virtio-serial socket directory for guest agent communication
+    mkdir -p /var/run/quantix-kvm/vms
+    
     # Ensure config directory exists
     mkdir -p /quantix
     mkdir -p /etc/limiquantix
