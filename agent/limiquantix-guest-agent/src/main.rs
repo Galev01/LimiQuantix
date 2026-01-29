@@ -313,13 +313,17 @@ async fn send_agent_ready<W: AsyncWriteExt + Unpin>(
     Ok(())
 }
 
-/// Telemetry reporting loop with write timeout and error tracking.
+/// Telemetry reporting loop with write timeout, error tracking, and recovery.
 /// 
 /// Handles write failures gracefully by:
 /// 1. Using a timeout to prevent indefinite blocking on writes
 /// 2. Tracking consecutive failures to detect connection issues
 /// 3. Logging detailed error information for debugging
-async fn telemetry_loop<W: AsyncWriteExt + Unpin>(
+/// 4. **Signaling for reconnection when failures exceed threshold**
+/// 
+/// Returns `Err` when too many consecutive failures occur, signaling the caller
+/// to attempt device reconnection.
+async fn telemetry_loop<W: AsyncWriteExt + Unpin + Send + 'static>(
     collector: TelemetryCollector,
     writer: Arc<Mutex<W>>,
     interval_secs: u64,
@@ -331,7 +335,8 @@ async fn telemetry_loop<W: AsyncWriteExt + Unpin>(
 
     // Configuration for write timeout and error handling
     const WRITE_TIMEOUT_SECS: u64 = 5;
-    const MAX_CONSECUTIVE_FAILURES: u32 = 5;
+    const MAX_CONSECUTIVE_FAILURES: u32 = 10;
+    const RECONNECT_THRESHOLD: u32 = 50;  // Trigger reconnect after this many failures
     const FAILURE_BACKOFF_SECS: u64 = 2;
     
     let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
@@ -339,6 +344,18 @@ async fn telemetry_loop<W: AsyncWriteExt + Unpin>(
 
     loop {
         interval.tick().await;
+
+        // If we've had way too many failures, signal for reconnection
+        if consecutive_failures >= RECONNECT_THRESHOLD {
+            error!(
+                consecutive_failures = consecutive_failures,
+                "Telemetry write failures exceeded reconnection threshold - requesting device reconnect"
+            );
+            return Err(anyhow::anyhow!(
+                "Too many consecutive write failures ({}), device may need reconnection",
+                consecutive_failures
+            ));
+        }
 
         // If we've had too many consecutive failures, add extra backoff
         // This prevents flooding logs and gives the host time to recover

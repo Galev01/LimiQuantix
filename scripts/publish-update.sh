@@ -35,6 +35,7 @@ UPDATE_SERVER="${UPDATE_SERVER:-http://192.168.0.148:9000}"
 PUBLISH_TOKEN="${PUBLISH_TOKEN:-dev-token}"
 DRY_RUN=false
 NO_BUMP=false
+DOCKER_NO_CACHE=false
 
 # Version file location
 VERSION_FILE="$PROJECT_ROOT/Quantix-OS/VERSION"
@@ -87,6 +88,7 @@ Options:
   --token TOKEN         Authentication token. Default: dev-token
   --version VERSION     Version to publish (disables auto-increment)
   --no-bump             Don't increment version, use current VERSION file
+  --no-cache            Force rebuild Docker images without cache
   --dry-run             Build artifacts but don't upload
   --help                Show this help
 
@@ -142,6 +144,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --no-bump)
             NO_BUMP=true
+            shift
+            ;;
+        --no-cache)
+            DOCKER_NO_CACHE=true
             shift
             ;;
         --help|-h)
@@ -270,9 +276,14 @@ build_rust_with_docker() {
     fi
     
     # Ensure Docker image exists
-    if ! docker image inspect "$RUST_BUILDER_IMAGE" &> /dev/null; then
+    DOCKER_CACHE_FLAG=""
+    if [ "$DOCKER_NO_CACHE" = true ]; then
+        DOCKER_CACHE_FLAG="--no-cache"
+        log_info "Docker no-cache mode enabled - forcing full rebuild"
+    fi
+    if ! docker image inspect "$RUST_BUILDER_IMAGE" &> /dev/null || [ "$DOCKER_NO_CACHE" = true ]; then
         log_info "Building Docker image $RUST_BUILDER_IMAGE (this may take a few minutes)..."
-        if ! docker build --network=host -t "$RUST_BUILDER_IMAGE" -f "$PROJECT_ROOT/Quantix-OS/builder/Dockerfile.rust-tui" "$PROJECT_ROOT/Quantix-OS/builder/"; then
+        if ! docker build --network=host $DOCKER_CACHE_FLAG -t "$RUST_BUILDER_IMAGE" -f "$PROJECT_ROOT/Quantix-OS/builder/Dockerfile.rust-tui" "$PROJECT_ROOT/Quantix-OS/builder/"; then
             log_error "Failed to build Docker image"
             return 1
         fi
@@ -392,9 +403,13 @@ for component in "${COMPONENTS[@]}"; do
                 log_info "Building qx-console with Docker (Alpine native)..."
                 
                 # Ensure Docker image exists
-                if ! docker image inspect "$RUST_BUILDER_IMAGE" &> /dev/null; then
+                DOCKER_CACHE_FLAG=""
+                if [ "$DOCKER_NO_CACHE" = true ]; then
+                    DOCKER_CACHE_FLAG="--no-cache"
+                fi
+                if ! docker image inspect "$RUST_BUILDER_IMAGE" &> /dev/null || [ "$DOCKER_NO_CACHE" = true ]; then
                     log_info "Building Docker image $RUST_BUILDER_IMAGE..."
-                    docker build --network=host -t "$RUST_BUILDER_IMAGE" -f "$PROJECT_ROOT/Quantix-OS/builder/Dockerfile.rust-tui" "$PROJECT_ROOT/Quantix-OS/builder/"
+                    docker build --network=host $DOCKER_CACHE_FLAG -t "$RUST_BUILDER_IMAGE" -f "$PROJECT_ROOT/Quantix-OS/builder/Dockerfile.rust-tui" "$PROJECT_ROOT/Quantix-OS/builder/"
                 fi
                 
                 # Convert path for Docker on Windows
@@ -494,8 +509,13 @@ for component in "${COMPONENTS[@]}"; do
                 GUEST_AGENT_DOCKERFILE="$PROJECT_ROOT/Quantix-OS/builder/Dockerfile.guest-agent"
                 
                 # Always rebuild the Docker image to pick up Dockerfile changes
+                DOCKER_CACHE_FLAG=""
+                if [ "$DOCKER_NO_CACHE" = true ]; then
+                    DOCKER_CACHE_FLAG="--no-cache"
+                    log_info "Docker no-cache mode enabled - forcing full rebuild of guest-agent image"
+                fi
                 log_info "Building Docker image $GUEST_AGENT_IMAGE..."
-                if ! docker build --network=host -t "$GUEST_AGENT_IMAGE" -f "$GUEST_AGENT_DOCKERFILE" "$PROJECT_ROOT/Quantix-OS/builder/"; then
+                if ! docker build --network=host $DOCKER_CACHE_FLAG -t "$GUEST_AGENT_IMAGE" -f "$GUEST_AGENT_DOCKERFILE" "$PROJECT_ROOT/Quantix-OS/builder/"; then
                     log_error "Failed to build guest-agent Docker image"
                     exit 1
                 fi
@@ -542,12 +562,15 @@ for component in "${COMPONENTS[@]}"; do
                 # Native Linux build - try static if possible
                 log_info "Building guest-agent natively (trying static)..."
                 if rustup target list --installed | grep -q "x86_64-unknown-linux-musl"; then
-                    RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target x86_64-unknown-linux-musl -p limiquantix-guest-agent 2>&1 | tail -10
+                    # Use x86-64 baseline CPU to ensure compatibility with ALL x86-64 VMs (including older/virtual CPUs)
+                    # Without this, Rust may use AVX/AVX2 instructions that cause "general protection fault" in VMs
+                    RUSTFLAGS='-C target-feature=+crt-static -C target-cpu=x86-64' cargo build --release --target x86_64-unknown-linux-musl -p limiquantix-guest-agent 2>&1 | tail -10
                     if [ -f "$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/quantix-kvm-agent" ]; then
                         BINARY="$PROJECT_ROOT/agent/target/x86_64-unknown-linux-musl/release/quantix-kvm-agent"
                     fi
                 else
-                    cargo build --release -p limiquantix-guest-agent 2>&1 | tail -10
+                    # Use x86-64 baseline CPU for compatibility
+                    RUSTFLAGS='-C target-cpu=x86-64' cargo build --release -p limiquantix-guest-agent 2>&1 | tail -10
                     if [ -f "$PROJECT_ROOT/agent/target/release/quantix-kvm-agent" ]; then
                         BINARY="$PROJECT_ROOT/agent/target/release/quantix-kvm-agent"
                     fi

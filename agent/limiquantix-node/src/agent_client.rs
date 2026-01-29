@@ -59,6 +59,7 @@ mod unix_impl {
     use prost::Message;
     use prost_types::Timestamp;
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::UnixStream;
@@ -77,6 +78,10 @@ mod unix_impl {
     use tokio::io::{ReadHalf, WriteHalf};
     
     /// Guest Agent Client for communicating with a specific VM's agent.
+    /// 
+    /// The client maintains a connection to the guest agent via virtio-serial.
+    /// It tracks both the writer (for sending) and whether the response handler
+    /// task is still alive (for receiving).
     pub struct AgentClient {
         vm_id: String,
         socket_path: PathBuf,
@@ -84,6 +89,10 @@ mod unix_impl {
         writer: Option<Arc<Mutex<WriteHalf<UnixStream>>>>,
         pending: Arc<Mutex<HashMap<String, PendingRequest>>>,
         telemetry_tx: Option<mpsc::Sender<TelemetryReport>>,
+        /// Tracks if the response handler task is still alive
+        /// This is crucial for detecting zombie connections where the writer
+        /// exists but the reader has died.
+        response_handler_alive: Arc<AtomicBool>,
     }
 
     impl AgentClient {
@@ -102,6 +111,7 @@ mod unix_impl {
                 writer: None,
                 pending: Arc::new(Mutex::new(HashMap::new())),
                 telemetry_tx: None,
+                response_handler_alive: Arc::new(AtomicBool::new(false)),
             }
         }
         
@@ -175,6 +185,7 @@ mod unix_impl {
                 writer: None,
                 pending: Arc::new(Mutex::new(HashMap::new())),
                 telemetry_tx: None,
+                response_handler_alive: Arc::new(AtomicBool::new(false)),
             }
         }
 
@@ -322,10 +333,25 @@ mod unix_impl {
             let pending = self.pending.clone();
             let telemetry_tx = self.telemetry_tx.clone();
             let vm_id = self.vm_id.clone();
+            
+            // Mark response handler as alive before spawning
+            let handler_alive = self.response_handler_alive.clone();
+            handler_alive.store(true, Ordering::SeqCst);
 
             tokio::spawn(async move {
-                if let Err(e) = response_handler(reader, pending, telemetry_tx, vm_id).await {
-                    error!(error = %e, "Response handler error");
+                info!(vm_id = %vm_id, "Response handler task starting");
+                let result = response_handler(reader, pending, telemetry_tx, vm_id.clone()).await;
+                
+                // Mark handler as dead when exiting (for any reason)
+                handler_alive.store(false, Ordering::SeqCst);
+                
+                match result {
+                    Ok(()) => {
+                        info!(vm_id = %vm_id, "Response handler task exited normally");
+                    }
+                    Err(e) => {
+                        error!(vm_id = %vm_id, error = %e, "Response handler task exited with error");
+                    }
                 }
             });
 
@@ -336,11 +362,19 @@ mod unix_impl {
         /// Disconnect from the agent.
         pub async fn disconnect(&mut self) {
             self.writer = None;
+            self.response_handler_alive.store(false, Ordering::SeqCst);
         }
 
-        /// Check if the agent is connected.
+        /// Check if the agent is connected and the response handler is alive.
+        /// 
+        /// A connection is considered alive only when:
+        /// 1. The writer exists (we can send requests)
+        /// 2. The response handler task is still running (we can receive responses)
+        /// 
+        /// This prevents "zombie" connections where the writer exists but
+        /// the response handler has died, causing all requests to time out.
         pub fn is_connected(&self) -> bool {
-            self.writer.is_some()
+            self.writer.is_some() && self.response_handler_alive.load(Ordering::SeqCst)
         }
 
         /// Check if the agent is connected and responding.
@@ -684,25 +718,44 @@ mod unix_impl {
 
     /// Handle incoming responses from the agent.
     /// Takes ownership of the reader half of the split stream.
+    /// 
+    /// This task runs continuously, reading messages from the agent and either:
+    /// - Processing AgentReady/Telemetry/Error events
+    /// - Routing responses to pending requests
+    /// 
+    /// The task exits when:
+    /// - The socket is closed (Ok(None) from read)
+    /// - A read error occurs
+    /// - The socket EOF is reached
     async fn response_handler(
         mut reader: ReadHalf<UnixStream>,
         pending: Arc<Mutex<HashMap<String, PendingRequest>>>,
         telemetry_tx: Option<mpsc::Sender<TelemetryReport>>,
         vm_id: String,
     ) -> Result<()> {
-        debug!(vm_id = %vm_id, "Response handler started");
+        info!(vm_id = %vm_id, "Response handler started - now listening for messages from guest agent");
+        
+        let mut message_count: u64 = 0;
         
         loop {
             // Read directly from the reader - no mutex needed since we own this half
+            debug!(vm_id = %vm_id, message_count = message_count, "Waiting for next message from agent");
+            
             let message = match read_message::<_, AgentMessage>(&mut reader).await {
-                Ok(Some(msg)) => msg,
+                Ok(Some(msg)) => {
+                    message_count += 1;
+                    debug!(vm_id = %vm_id, message_count = message_count, "Read message successfully");
+                    msg
+                }
                 Ok(None) => {
-                    info!(vm_id = %vm_id, "Agent connection closed");
+                    info!(vm_id = %vm_id, message_count = message_count, 
+                          "Agent connection closed by peer (EOF) after {} messages", message_count);
                     break;
                 }
                 Err(e) => {
-                    error!(vm_id = %vm_id, error = %e, "Failed to read message");
-                    break;
+                    error!(vm_id = %vm_id, message_count = message_count, error = %e, 
+                           "Failed to read message from agent - handler exiting");
+                    return Err(e);
                 }
             };
 

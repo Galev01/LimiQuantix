@@ -60,9 +60,11 @@ WORKDIR /build
 
 # Build command - creates a TRULY static binary (no PIE, no dynamic linker needed)
 # -C relocation-model=static disables PIE to ensure no dynamic linker is required
+# -C target-cpu=x86-64 uses baseline x86-64 instructions only (no AVX/AVX2/AVX512)
+#    This ensures the binary runs on ANY x86-64 VM, including those with limited virtual CPUs
 CMD ["sh", "-c", "\
     echo '=== Building TRULY static guest agent ===' && \
-    RUSTFLAGS='-C target-feature=+crt-static -C relocation-model=static' \
+    RUSTFLAGS='-C target-feature=+crt-static -C relocation-model=static -C target-cpu=x86-64' \
     cargo build --release --target x86_64-unknown-linux-musl -p limiquantix-guest-agent && \
     echo '=== Verifying binary is static ===' && \
     BINARY=/build/target/x86_64-unknown-linux-musl/release/quantix-kvm-agent && \
