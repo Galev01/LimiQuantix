@@ -39,6 +39,8 @@ VERSION="${VERSION:-0.1.0}"
 OUTPUT_DIR="${OUTPUT_DIR:-$ROOT_DIR/dist}"
 ISO_NAME="quantix-kvm-agent-tools"
 BUILD_DIR="${ROOT_DIR}/target/iso-build"
+FORCE_REBUILD=false
+NO_CACHE=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -51,12 +53,23 @@ while [[ $# -gt 0 ]]; do
             OUTPUT_DIR="$2"
             shift 2
             ;;
+        --rebuild|--force)
+            FORCE_REBUILD=true
+            shift
+            ;;
+        --no-cache)
+            NO_CACHE=true
+            FORCE_REBUILD=true
+            shift
+            ;;
         --help|-h)
-            echo "Usage: $0 [--version VERSION] [--output DIR]"
+            echo "Usage: $0 [--version VERSION] [--output DIR] [--rebuild] [--no-cache]"
             echo ""
             echo "Options:"
             echo "  --version VERSION   Set the version string (default: 0.1.0)"
             echo "  --output DIR        Output directory for the ISO (default: dist/)"
+            echo "  --rebuild           Force rebuild of Docker image (picks up code changes)"
+            echo "  --no-cache          Force rebuild with --no-cache (completely fresh build)"
             exit 0
             ;;
         *)
@@ -70,6 +83,12 @@ log_info "============================================="
 log_info "Quantix KVM Agent Tools ISO Builder"
 log_info "Version: ${VERSION}"
 log_info "Output: ${OUTPUT_DIR}"
+if [ "${FORCE_REBUILD}" = true ]; then
+    log_info "Mode: FORCE REBUILD"
+fi
+if [ "${NO_CACHE}" = true ]; then
+    log_info "Docker: --no-cache"
+fi
 log_info "============================================="
 
 # Check prerequisites
@@ -104,11 +123,39 @@ build_linux_amd64() {
     
     cd "${ROOT_DIR}"
     
-    # Build the Docker image if needed
-    if ! docker image inspect quantix-guest-agent-builder &> /dev/null; then
+    # Determine if we need to rebuild Docker image
+    local need_rebuild=false
+    local docker_build_args=""
+    
+    if [ "${FORCE_REBUILD}" = true ]; then
+        need_rebuild=true
+        log_info "Force rebuild requested" >&2
+    elif ! docker image inspect quantix-guest-agent-builder &> /dev/null; then
+        need_rebuild=true
+        log_info "Docker image not found, building..." >&2
+    fi
+    
+    # Build Docker image if needed
+    if [ "${need_rebuild}" = true ]; then
         log_info "Building Docker image for guest agent..." >&2
-        docker build -t quantix-guest-agent-builder \
+        
+        if [ "${NO_CACHE}" = true ]; then
+            docker_build_args="--no-cache"
+            log_info "Using --no-cache for fresh build" >&2
+        fi
+        
+        docker build ${docker_build_args} \
+            -t quantix-guest-agent-builder \
             -f Quantix-OS/builder/Dockerfile.guest-agent . >&2
+    else
+        log_info "Using existing Docker image (use --rebuild to force rebuild)" >&2
+    fi
+    
+    # Clean old binary to ensure fresh build
+    local target_dir="${ROOT_DIR}/agent/target/x86_64-unknown-linux-musl/release"
+    if [ -f "${target_dir}/quantix-kvm-agent" ]; then
+        log_info "Removing old binary to ensure fresh build..." >&2
+        rm -f "${target_dir}/quantix-kvm-agent"
     fi
     
     # Build the static binary
@@ -125,6 +172,9 @@ build_linux_amd64() {
         log_error "Binary not found: ${AMD64_BINARY}" >&2
         exit 1
     fi
+    
+    # Show binary date to confirm it's fresh
+    log_info "Binary built: $(date -r "${AMD64_BINARY}" '+%Y-%m-%d %H:%M:%S')" >&2
     
     # Verify it's truly static
     if ldd "${AMD64_BINARY}" 2>&1 | grep -q "not a dynamic executable"; then
