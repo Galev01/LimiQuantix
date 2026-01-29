@@ -146,7 +146,7 @@ build_linux_amd64() {
         
         docker build ${docker_build_args} \
             -t quantix-guest-agent-builder \
-            -f Quantix-OS/builder/Dockerfile.guest-agent . >&2
+            -f quantix-os/builder/Dockerfile.guest-agent . >&2 
     else
         log_info "Using existing Docker image (use --rebuild to force rebuild)" >&2
     fi
